@@ -42,22 +42,46 @@ def test_three_digit_zip_code_leading_zero():
     assert result[0] == "012"
 
 
-def test_three_digit_zip_code_passes_non_numeric_values_through():
-    """zip_code defaults to "UNKNOWN" when no zip code is stored; the
-    three-digit derivation must pass it through instead of crashing."""
-    sim = Simulation(
-        tax_benefit_system=system,
-        situation={
-            "people": {"person": {"age": {"2026": 30}}},
-            "households": {"household": {"members": ["person"]}},
-            "tax_units": {"tax_unit": {"members": ["person"]}},
-            "spm_units": {"spm_unit": {"members": ["person"]}},
-            "families": {"family": {"members": ["person"]}},
-            "marital_units": {"marital_unit": {"members": ["person"]}},
-        },
-    )
+def test_three_digit_zip_code_puerto_rico_leading_zero():
+    """00601 -> 006"""
+    sim = _make_sim("00601")
     result = sim.calculate("three_digit_zip_code", 2026)
-    assert result[0] == "UNKNOWN"
+    assert result[0] == "006"
+
+
+def test_three_digit_zip_code_int_coerced_four_digit():
+    """1234 (leading zero dropped by int parsing) -> 012"""
+    sim = _make_sim("1234")
+    result = sim.calculate("three_digit_zip_code", 2026)
+    assert result[0] == "012"
+
+
+def test_three_digit_zip_code_missing_zip():
+    """UNKNOWN -> empty ZIP3"""
+    sim = _make_sim("UNKNOWN")
+    result = sim.calculate("three_digit_zip_code", 2026)
+    assert result[0] == ""
+
+
+def test_three_digit_zip_code_empty_zip():
+    """Empty ZIP -> empty ZIP3"""
+    sim = _make_sim("")
+    result = sim.calculate("three_digit_zip_code", 2026)
+    assert result[0] == ""
+
+
+def test_three_digit_zip_code_nonnumeric_zip():
+    """Nonnumeric ZIP -> empty ZIP3"""
+    sim = _make_sim("not-a-zip")
+    result = sim.calculate("three_digit_zip_code", 2026)
+    assert result[0] == ""
+
+
+def test_three_digit_zip_code_zip_plus_four():
+    """90019-1234 -> 900"""
+    sim = _make_sim("90019-1234")
+    result = sim.calculate("three_digit_zip_code", 2026)
+    assert result[0] == "900"
 
 
 def test_la_county_aca_ptc_nonzero_with_zip():

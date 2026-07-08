@@ -40,6 +40,14 @@ path = "mindroom.path_globs"
 depends_on = []
 
 [[modules]]
+path = "mindroom.http_error_detail"
+depends_on = []
+visibility = [
+    "mindroom.cli.connect",
+    "mindroom.matrix.provisioning",
+]
+
+[[modules]]
 path = "mindroom.tool_schema_cache"
 depends_on = []
 visibility = [
@@ -121,6 +129,7 @@ depends_on = [
     "mindroom.agent_knowledge_descriptions",
     "mindroom.agent_descriptions",
     "mindroom.agent_storage",
+    "mindroom.claude_prompt_cache",
     "mindroom.constants",
     "mindroom.credentials",
     "mindroom.custom_tools.delegate",
@@ -130,6 +139,7 @@ depends_on = [
     "mindroom.logging_config",
     "mindroom.matrix.identity",
     "mindroom.model_loading",
+    "mindroom.openai_tool_search",
     "mindroom.prompt_templates",
     "mindroom.runtime_resolution",
     "mindroom.timing",
@@ -228,7 +238,7 @@ depends_on = [
     "mindroom.llm_request_logging",
     "mindroom.logging_config",
     "mindroom.tool_system.dependencies",
-    "mindroom.vertex_claude_prompt_cache",
+    "mindroom.claude_prompt_cache",
 ]
 visibility = [
     "mindroom.ai",
@@ -669,6 +679,7 @@ depends_on = [
     "mindroom.api.sandbox_worker_prep",
     "mindroom.api.worker_responses",
     "mindroom.config.main",
+    "mindroom.config.yaml_includes",
     "mindroom.constants",
     "mindroom.credentials",
     "mindroom.logging_config",
@@ -1050,7 +1061,11 @@ depends_on = [
 
 [[modules]]
 path = "mindroom.matrix.provisioning"
-depends_on = ["mindroom.matrix.client_session", "mindroom.constants"]
+depends_on = [
+    "mindroom.constants",
+    "mindroom.http_error_detail",
+    "mindroom.matrix.client_session",
+]
 
 [[modules]]
 path = "mindroom.matrix.room_cleanup"
@@ -2075,6 +2090,7 @@ depends_on = [
     "mindroom.cli.owner",
     "mindroom.config.yaml_includes",
     "mindroom.constants",
+    "mindroom.http_error_detail",
 ]
 
 [[modules]]

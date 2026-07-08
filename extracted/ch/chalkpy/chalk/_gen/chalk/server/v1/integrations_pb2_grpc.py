@@ -35,6 +35,11 @@ class IntegrationsServiceStub(object):
             request_serializer=chalk_dot_server_dot_v1_dot_integrations__pb2.GetIntegrationRequest.SerializeToString,
             response_deserializer=chalk_dot_server_dot_v1_dot_integrations__pb2.GetIntegrationResponse.FromString,
         )
+        self.GetIntegrationByName = channel.unary_unary(
+            "/chalk.server.v1.IntegrationsService/GetIntegrationByName",
+            request_serializer=chalk_dot_server_dot_v1_dot_integrations__pb2.GetIntegrationByNameRequest.SerializeToString,
+            response_deserializer=chalk_dot_server_dot_v1_dot_integrations__pb2.GetIntegrationByNameResponse.FromString,
+        )
         self.InsertIntegration = channel.unary_unary(
             "/chalk.server.v1.IntegrationsService/InsertIntegration",
             request_serializer=chalk_dot_server_dot_v1_dot_integrations__pb2.InsertIntegrationRequest.SerializeToString,
@@ -79,6 +84,12 @@ class IntegrationsServiceServicer(object):
         raise NotImplementedError("Method not implemented!")
 
     def GetIntegration(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details("Method not implemented!")
+        raise NotImplementedError("Method not implemented!")
+
+    def GetIntegrationByName(self, request, context):
         """Missing associated documentation comment in .proto file."""
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details("Method not implemented!")
@@ -130,6 +141,11 @@ def add_IntegrationsServiceServicer_to_server(servicer, server):
             servicer.GetIntegration,
             request_deserializer=chalk_dot_server_dot_v1_dot_integrations__pb2.GetIntegrationRequest.FromString,
             response_serializer=chalk_dot_server_dot_v1_dot_integrations__pb2.GetIntegrationResponse.SerializeToString,
+        ),
+        "GetIntegrationByName": grpc.unary_unary_rpc_method_handler(
+            servicer.GetIntegrationByName,
+            request_deserializer=chalk_dot_server_dot_v1_dot_integrations__pb2.GetIntegrationByNameRequest.FromString,
+            response_serializer=chalk_dot_server_dot_v1_dot_integrations__pb2.GetIntegrationByNameResponse.SerializeToString,
         ),
         "InsertIntegration": grpc.unary_unary_rpc_method_handler(
             servicer.InsertIntegration,
@@ -266,6 +282,35 @@ class IntegrationsService(object):
             "/chalk.server.v1.IntegrationsService/GetIntegration",
             chalk_dot_server_dot_v1_dot_integrations__pb2.GetIntegrationRequest.SerializeToString,
             chalk_dot_server_dot_v1_dot_integrations__pb2.GetIntegrationResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+        )
+
+    @staticmethod
+    def GetIntegrationByName(
+        request,
+        target,
+        options=(),
+        channel_credentials=None,
+        call_credentials=None,
+        insecure=False,
+        compression=None,
+        wait_for_ready=None,
+        timeout=None,
+        metadata=None,
+    ):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            "/chalk.server.v1.IntegrationsService/GetIntegrationByName",
+            chalk_dot_server_dot_v1_dot_integrations__pb2.GetIntegrationByNameRequest.SerializeToString,
+            chalk_dot_server_dot_v1_dot_integrations__pb2.GetIntegrationByNameResponse.FromString,
             options,
             channel_credentials,
             insecure,

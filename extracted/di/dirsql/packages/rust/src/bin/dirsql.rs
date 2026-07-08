@@ -1,5 +1,7 @@
-//! `dirsql` CLI binary. Two modes:
+//! `dirsql` CLI binary. Three modes:
 //! - No subcommand: HTTP server documented in `docs/reference/cli.md`.
+//! - `query`: one-shot query over the same pipeline the server uses; see
+//!   `docs/reference/cli.md`.
 //! - `init`: starter `.dirsql.toml` generation; see `docs/reference/cli.md`.
 //!
 //! Only compiled with `--features cli`.
@@ -9,7 +11,8 @@ use std::process::ExitCode;
 
 use clap::{Args, Parser, Subcommand};
 use dirsql::cli::{
-    AppState, PostQuery, PreQuery, ServerConfig, init::InitOptions, serve_with_state,
+    AppState, PostQuery, PreQuery, ServerConfig, execute::execute_query, init::InitOptions,
+    serve_with_state,
 };
 use dirsql::{DirSQL, Extension, Row, Table};
 
@@ -31,9 +34,9 @@ struct Cli {
 
     /// Path to the config file (default: `./.dirsql.toml`). The index is
     /// rooted at the directory containing this file. When the file does
-    /// not exist, a default `files` table is served. Used when no
-    /// subcommand is given.
-    #[arg(long, default_value = "./.dirsql.toml")]
+    /// not exist, a default `files` table is served. Used by server mode
+    /// and by the `query` subcommand.
+    #[arg(long, default_value = "./.dirsql.toml", global = true)]
     config: PathBuf,
 
     /// Bind address. Used when no subcommand is given.
@@ -50,11 +53,12 @@ struct Cli {
     ///
     /// Intended for the language launcher (pip/npm), not end users: the
     /// launcher resolves config extensions — including bare **package names**,
-    /// which need an interpreter this compiled binary lacks (see #227) — and
-    /// passes the resolved literal paths here. When any are present, the TOML
+    /// which need an interpreter this compiled binary lacks — and passes the
+    /// resolved literal paths here. When any are present, the TOML
     /// config's own extension entries are not loaded (the launcher already
-    /// merged and resolved them).
-    #[arg(long = "extension")]
+    /// merged and resolved them). Used by server mode and by the `query`
+    /// subcommand.
+    #[arg(long = "extension", global = true)]
     extension: Vec<String>,
 }
 
@@ -63,6 +67,19 @@ enum Command {
     /// Generate a starter `.dirsql.toml` by running `claude` over the
     /// target directory.
     Init(InitArgs),
+
+    /// Run one SQL query against the indexed directory, print the result
+    /// rows as JSON on stdout, and exit. No server, no watch. Shares the
+    /// server's query pipeline, so config discovery, hooks, the query
+    /// timeout, the read-only rule, and error classification are identical
+    /// to `POST /query`.
+    Query(QueryArgs),
+}
+
+#[derive(Debug, Args)]
+struct QueryArgs {
+    /// The SQL to run (a single read-only statement).
+    sql: String,
 }
 
 #[derive(Debug, Args)]
@@ -86,8 +103,49 @@ async fn main() -> ExitCode {
 
     match cli.command.take() {
         Some(Command::Init(args)) => run_init(args),
+        Some(Command::Query(args)) => run_query(&cli, args).await,
         None => run_server(cli).await,
     }
+}
+
+/// One-shot `dirsql query`: build the index exactly as server mode would
+/// (same `load_state` / hook loading), run the SQL through the shared
+/// [`execute_query`] pipeline, print the result JSON on stdout, and exit.
+/// Any [`QueryFailure`](dirsql::cli::execute::QueryFailure) prints its
+/// message — the same string the HTTP `{"error": …}` body carries — to
+/// stderr with a non-zero exit.
+async fn run_query(cli: &Cli, args: QueryArgs) -> ExitCode {
+    let state = load_state(cli);
+    let pre_query = load_pre_query(cli);
+    let post_query = load_post_query(cli);
+    // Same default the server binds with; the pipeline enforces it.
+    let timeout = ServerConfig::default().query_timeout;
+
+    match execute_query(
+        &state,
+        query_body(&args.sql),
+        timeout,
+        pre_query.as_ref(),
+        post_query.as_ref(),
+    )
+    .await
+    {
+        Ok(value) => {
+            println!("{value}");
+            ExitCode::SUCCESS
+        }
+        Err(failure) => {
+            eprintln!("dirsql query: {}", failure.message());
+            ExitCode::from(1)
+        }
+    }
+}
+
+/// Synthesize the exact `POST /query` body for a positional SQL argument,
+/// so the shared pipeline's intake validation and `pre-query` hook see
+/// byte-for-byte what an HTTP client would send.
+fn query_body(sql: &str) -> String {
+    serde_json::json!({ "sql": sql }).to_string()
 }
 
 fn run_init(args: InitArgs) -> ExitCode {
@@ -140,7 +198,6 @@ async fn run_server(cli: Cli) -> ExitCode {
     // Echo back the user-facing hostname (not the resolved IP SocketAddr).
     println!("Running at {host}:{}", handle.local_addr().port());
 
-    // Await ctrl-c / SIGTERM; then drain.
     if let Err(err) = wait_for_shutdown().await {
         eprintln!("dirsql: signal handler error: {err}");
     }
@@ -175,9 +232,9 @@ fn load_state(cli: &Cli) -> AppState {
 
     // Launcher-resolved extensions (`--extension`) override the TOML config's
     // own `[[dirsql.extension]]` entries: the launcher has already merged and
-    // resolved them (including package names the compiled binary can't resolve;
-    // #227), so build from the config but suppress its extension loading and
-    // supply the resolved literal paths instead.
+    // resolved them (including package names the compiled binary can't
+    // resolve), so suppress the config's extension loading and supply the
+    // resolved literal paths instead.
     let build = if cli.extension.is_empty() {
         DirSQL::from_config_path(&resolved)
     } else {
@@ -293,8 +350,8 @@ fn load_default_state(config_path: &Path) -> AppState {
 fn default_files_table() -> Table {
     Table::new(
         "CREATE TABLE files (\
-         _path TEXT, _basename TEXT, _dir TEXT, _ext TEXT, \
-         _size INTEGER, _mtime INTEGER, _ctime INTEGER)",
+         path TEXT, basename TEXT, dir TEXT, ext TEXT, \
+         size INTEGER, mtime INTEGER, ctime INTEGER)",
         "**/*",
         |_path| vec![Row::new()],
     )
@@ -323,6 +380,30 @@ mod tests {
     use super::*;
 
     #[test]
+    fn query_body_wraps_sql_in_the_http_request_shape() {
+        // The subcommand must feed the pipeline the exact body a curl'd
+        // `POST /query` carries, so intake validation stays single-sourced.
+        assert_eq!(query_body("SELECT 1"), r#"{"sql":"SELECT 1"}"#);
+    }
+
+    #[test]
+    fn query_body_escapes_sql_as_json() {
+        // SQL containing quotes/newlines must arrive as valid JSON, not be
+        // spliced raw into the body.
+        assert_eq!(
+            query_body("SELECT \"a\"\nFROM t"),
+            r#"{"sql":"SELECT \"a\"\nFROM t"}"#
+        );
+    }
+
+    #[test]
+    fn query_body_preserves_blank_sql_for_the_shared_rejection() {
+        // Blank SQL is NOT rejected here: it flows to the pipeline's shared
+        // empty-rejection so both surfaces emit the identical message.
+        assert_eq!(query_body("   "), r#"{"sql":"   "}"#);
+    }
+
+    #[test]
     fn parse_extension_specs_handles_bare_path_and_entrypoint() {
         let specs = vec![
             "/abs/vec0.so".to_string(),
@@ -346,22 +427,10 @@ mod tests {
 
     #[test]
     fn default_files_table_declares_filesystem_fact_columns_over_recursive_glob() {
-        // The zero-config fallback table is pure data: a fixed DDL naming only
-        // the auto-injected filesystem-fact columns and a `**/*` glob that
-        // matches every file at any depth. The extract closure is never
-        // invoked here, so this stays a pure unit test.
         let table = default_files_table();
         assert_eq!(table.glob, "**/*");
         assert!(table.ddl.starts_with("CREATE TABLE files ("));
-        for col in [
-            "_path",
-            "_basename",
-            "_dir",
-            "_ext",
-            "_size",
-            "_mtime",
-            "_ctime",
-        ] {
+        for col in ["path", "basename", "dir", "ext", "size", "mtime", "ctime"] {
             assert!(
                 table.ddl.contains(col),
                 "default files DDL must declare {col}, got: {}",

@@ -1,6 +1,6 @@
 [project]
 name = "dreadnode"
-version = "2.0.31"
+version = "2.0.32"
 description = "Dreadnode SDK"
 authors = [{ name = "Dreadnode Team", email = "support@dreadnode.io" }]
 readme = "README.md"
@@ -16,9 +16,8 @@ dependencies = [
     "fsspec[s3]>=2025.10.0,<=2025.10.0",
     "optuna>=4.5.0,<5.0.0",
     "numpy>=2.3.0,<=2.3.5",
-    "pillow>=12.2.0,<12.3.0",
+    "pillow>=11.0.0,<13.0.0",
     "soundfile>=0.13.1,<1.0.0",
-    "moviepy>=2.1.2,<3.0.0",
     "scipy>=1.11.0,<2.0.0",
     "loguru>=0.7.3",
     "art>=6.5,<7.0.0",
@@ -71,13 +70,17 @@ scoring = [
     "textstat>=0.7.10,<1.0.0",
 ]
 
+video = [
+    "moviepy>=2.1.2,<3.0.0",
+]
+
 claude-code = [
     # Foreign-harness engine (engine: claude-code). Wraps the `claude` CLI's
     # stream-json protocol — the CLI must also be on PATH at runtime.
     "claude-agent-sdk>=0.1.0",
 ]
 
-all = ["dreadnode[scoring,training]"]
+all = ["dreadnode[scoring,training,video]"]
 
 [dependency-groups]
 dev = [
@@ -265,7 +268,7 @@ allowed-unresolved-imports = [
     "sklearn.**", "jsonpath.**", "textstat.**", "textblob.**", "nltk.**",
     "confusables.**",
     # optional integrations
-    "ddgs.**", "tinker.**", "textual_plot.**",
+    "ddgs.**", "moviepy.**", "tinker.**", "textual_plot.**",
     "networkx.**", "reportlab.**", "storage.**",
     "claude_agent_sdk.**",  # claude-code engine extra
     # internal modules that are lazily loaded or conditionally available
@@ -445,5 +448,4 @@ index-strategy = "unsafe-best-match"
 environments = ["sys_platform == 'darwin'", "sys_platform == 'linux'"]
 override-dependencies = [
     "python-dotenv>=1.2.2",
-    "pillow>=12.2.0",          # GHSA-cfh3-3jmp-rvhc (CVE-2026-25990) — override needed because moviepy caps <12.0
 ]

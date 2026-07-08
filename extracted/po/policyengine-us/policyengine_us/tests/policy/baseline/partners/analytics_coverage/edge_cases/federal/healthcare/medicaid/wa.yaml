@@ -1,41 +1,22 @@
-- name: medicaid_age_19_adult_category (wa)
+# Washington Medicaid expansion case with a negative-income robustness pin
+# (output differs from the federal.yaml TX non-expansion baseline: the
+# identical household is ineligible in TX at any of these income levels).
+# WA Medicaid per capita: $29,197,626,447 / 1,837,170 enrolled = $15,892.72.
+- name: medicaid_adult_negative_self_employment_income_magi (wa)
   period: 2026
   absolute_error_margin: 0.1
   input:
     people:
       head:
-        age: 35
+        age: 30
         is_tax_unit_head: true
         is_tax_unit_spouse: false
         is_tax_unit_dependent: false
         is_disabled: false
         is_pregnant: false
         immigration_status_str: CITIZEN
-        employment_income_before_lsr: 0
-        is_medicare_eligible: false
-        ssi_countable_resources: 0
-        is_aca_eshi_eligible: false
-      spouse:
-        age: 33
-        is_tax_unit_head: false
-        is_tax_unit_spouse: true
-        is_tax_unit_dependent: false
-        is_disabled: false
-        is_pregnant: false
-        immigration_status_str: CITIZEN
-        employment_income_before_lsr: 0
-        is_medicare_eligible: false
-        ssi_countable_resources: 0
-        is_aca_eshi_eligible: false
-      child1:
-        age: 19
-        is_tax_unit_head: false
-        is_tax_unit_spouse: false
-        is_tax_unit_dependent: true
-        is_disabled: false
-        is_pregnant: false
-        immigration_status_str: CITIZEN
-        employment_income_before_lsr: 0
+        employment_income_before_lsr: 30_000
+        self_employment_income_before_lsr: -12_000
         is_medicare_eligible: false
         ssi_countable_resources: 0
         is_aca_eshi_eligible: false
@@ -43,9 +24,7 @@
       household:
         members: &id001
         - head
-        - spouse
-        - child1
-        state_code_str: WA
+        state_code: WA
         zip_code: '98101'
         county_str: KING_COUNTY_WA
     spm_units:
@@ -54,88 +33,10 @@
     tax_units:
       tax_unit:
         members: *id001
-        tax_unit_is_joint: true
-    families:
-      family:
-        members: *id001
-    marital_units:
-      mu_couple:
-        members:
-        - head
-        - spouse
-      mu_child1:
-        members:
-        - child1
-  output:
-    people:
-      head:
-        ssi: 0.0
-        is_ssi_eligible: false
-        is_ssi_aged: false
-        msp: 0.0
-        msp_eligible: false
-        medicaid: 10074.67
-        is_medicaid_eligible: true
-        chip: 0.0
-        is_aca_ptc_eligible: false
-      spouse:
-        ssi: 0.0
-        is_ssi_eligible: false
-        is_ssi_aged: false
-        msp: 0.0
-        msp_eligible: false
-        medicaid: 9876.63
-        is_medicaid_eligible: true
-        chip: 0.0
-        is_aca_ptc_eligible: false
-      child1:
-        ssi: 0.0
-        is_ssi_eligible: false
-        is_ssi_aged: false
-        msp: 0.0
-        msp_eligible: false
-        medicaid: 7758.14
-        is_medicaid_eligible: true
-        chip: 0.0
-        is_aca_ptc_eligible: false
-    tax_units:
-      tax_unit:
-        aca_ptc: 0.0
-        premium_tax_credit: 0.0
-- name: medicaid_adult_at_138pct_fpl_expansion (wa)
-  period: 2026
-  absolute_error_margin: 0.1
-  input:
-    people:
-      head:
-        age: 30
-        is_tax_unit_head: true
-        is_tax_unit_spouse: false
-        is_tax_unit_dependent: false
-        is_disabled: false
-        is_pregnant: false
-        immigration_status_str: CITIZEN
-        employment_income_before_lsr: 22000
-        is_medicare_eligible: false
-        ssi_countable_resources: 0
-        is_aca_eshi_eligible: false
-    households:
-      household:
-        members: &id002
-        - head
-        state_code_str: WA
-        zip_code: '98101'
-        county_str: KING_COUNTY_WA
-    spm_units:
-      spm_unit:
-        members: *id002
-    tax_units:
-      tax_unit:
-        members: *id002
         tax_unit_is_joint: false
     families:
       family:
-        members: *id002
+        members: *id001
     marital_units:
       mu_head:
         members:
@@ -148,65 +49,17 @@
         is_ssi_aged: false
         msp: 0.0
         msp_eligible: false
-        medicaid: 9236.48
+        # Negative self-employment income nets against wages in MAGI:
+        # (30,000 - 12,000) / 15,960 = 1.128 FPL < 1.38 -> ADULT (wages
+        # alone would be 1.88 FPL and ineligible). The benefit stays at the
+        # flat per-capita amount - the loss does not inflate it.
+        # Single enrollee: medicaid = WA per capita 15,892.72.
+        medicaid: 15_892.72
         is_medicaid_eligible: true
+        medicaid_category: 4  # ADULT
         chip: 0.0
         is_aca_ptc_eligible: false
     tax_units:
       tax_unit:
         aca_ptc: 0.0
         premium_tax_credit: 0.0
-- name: medicaid_adult_above_138pct_fpl (wa)
-  period: 2026
-  absolute_error_margin: 0.1
-  input:
-    people:
-      head:
-        age: 30
-        is_tax_unit_head: true
-        is_tax_unit_spouse: false
-        is_tax_unit_dependent: false
-        is_disabled: false
-        is_pregnant: false
-        immigration_status_str: CITIZEN
-        employment_income_before_lsr: 23000
-        is_medicare_eligible: false
-        ssi_countable_resources: 0
-        is_aca_eshi_eligible: false
-    households:
-      household:
-        members: &id003
-        - head
-        state_code_str: WA
-        zip_code: '98101'
-        county_str: KING_COUNTY_WA
-    spm_units:
-      spm_unit:
-        members: *id003
-    tax_units:
-      tax_unit:
-        members: *id003
-        tax_unit_is_joint: false
-    families:
-      family:
-        members: *id003
-    marital_units:
-      mu_head:
-        members:
-        - head
-  output:
-    people:
-      head:
-        ssi: 0.0
-        is_ssi_eligible: false
-        is_ssi_aged: false
-        msp: 0.0
-        msp_eligible: false
-        medicaid: 0.0
-        is_medicaid_eligible: false
-        chip: 0.0
-        is_aca_ptc_eligible: true
-    tax_units:
-      tax_unit:
-        aca_ptc: 8013.13
-        premium_tax_credit: 8013.13

@@ -33,6 +33,7 @@ __all__ = (
     "AwsIamAccessKeyStatusType",
     "AwsS3BucketNotificationConfigurationS3KeyFilterRuleNameType",
     "BatchUpdateFindingsV2UnprocessedFindingErrorCodeType",
+    "CloudProviderNameType",
     "ComplianceStatusType",
     "ConfigurationPolicyAssociationStatusType",
     "ConnectionDirectionType",
@@ -41,6 +42,9 @@ __all__ = (
     "ConnectorStatusType",
     "ControlFindingGeneratorType",
     "ControlStatusType",
+    "CspmConnectorProviderNameType",
+    "CspmConnectorStatusType",
+    "CspmEnablementStatusType",
     "DateRangeComparisonType",
     "DateRangeUnitType",
     "DescribeActionTargetsPaginatorName",
@@ -48,6 +52,9 @@ __all__ = (
     "DescribeProductsV2PaginatorName",
     "DescribeStandardsControlsPaginatorName",
     "DescribeStandardsPaginatorName",
+    "EnablementStatusType",
+    "FeatureNameType",
+    "FeatureStatusType",
     "FindingHistoryUpdateSourceTypeType",
     "FindingsTrendsStringFieldType",
     "GetEnabledStandardsPaginatorName",
@@ -61,6 +68,7 @@ __all__ = (
     "GetResourcesV2PaginatorName",
     "GranularityFieldType",
     "GroupByFieldType",
+    "HealthIssueCodeType",
     "IntegrationTypeType",
     "IntegrationV2TypeType",
     "ListAggregatorsV2PaginatorName",
@@ -103,7 +111,9 @@ __all__ = (
     "ResourcesTrendsStringFieldType",
     "RuleStatusType",
     "RuleStatusV2Type",
+    "ScopeTypeType",
     "SecurityControlPropertyType",
+    "SecurityControlsProviderType",
     "SecurityHubFeatureType",
     "SecurityHubServiceName",
     "ServiceName",
@@ -111,6 +121,7 @@ __all__ = (
     "SeverityRatingType",
     "SortOrderType",
     "StandardsControlsUpdatableType",
+    "StandardsProviderType",
     "StandardsStatusType",
     "StatusReasonCodeType",
     "StringFilterComparisonType",
@@ -143,16 +154,27 @@ BatchUpdateFindingsV2UnprocessedFindingErrorCodeType = Literal[
     "ResourceNotFoundException",
     "ValidationException",
 ]
+CloudProviderNameType = Literal["AWS", "Azure"]
 ComplianceStatusType = Literal["FAILED", "NOT_AVAILABLE", "PASSED", "WARNING"]
 ConfigurationPolicyAssociationStatusType = Literal["FAILED", "PENDING", "SUCCESS"]
 ConnectionDirectionType = Literal["INBOUND", "OUTBOUND"]
 ConnectorAuthStatusType = Literal["ACTIVE", "FAILED"]
-ConnectorProviderNameType = Literal["JIRA_CLOUD", "SERVICENOW"]
+ConnectorProviderNameType = Literal["AZURE", "JIRA_CLOUD", "SERVICENOW"]
 ConnectorStatusType = Literal[
-    "CONNECTED", "FAILED_TO_CONNECT", "PENDING_AUTHORIZATION", "PENDING_CONFIGURATION"
+    "CONNECTED",
+    "DEGRADED",
+    "FAILED_TO_CONNECT",
+    "PENDING_AUTHORIZATION",
+    "PENDING_CONFIGURATION",
+    "UNKNOWN",
 ]
 ControlFindingGeneratorType = Literal["SECURITY_CONTROL", "STANDARD_CONTROL"]
 ControlStatusType = Literal["DISABLED", "ENABLED"]
+CspmConnectorProviderNameType = Literal["AZURE"]
+CspmConnectorStatusType = Literal["CONNECTED", "DEGRADED", "FAILED_TO_CONNECT", "UNKNOWN"]
+CspmEnablementStatusType = Literal[
+    "ENABLED", "PENDING_DELETION", "PENDING_ENABLEMENT", "PENDING_UPDATE"
+]
 DateRangeComparisonType = Literal["OLDER_THAN", "WITHIN"]
 DateRangeUnitType = Literal["DAYS"]
 DescribeActionTargetsPaginatorName = Literal["describe_action_targets"]
@@ -160,6 +182,17 @@ DescribeProductsPaginatorName = Literal["describe_products"]
 DescribeProductsV2PaginatorName = Literal["describe_products_v2"]
 DescribeStandardsControlsPaginatorName = Literal["describe_standards_controls"]
 DescribeStandardsPaginatorName = Literal["describe_standards"]
+EnablementStatusType = Literal[
+    "ENABLED",
+    "FAILED_TO_DELETE",
+    "FAILED_TO_ENABLE",
+    "FAILED_TO_UPDATE",
+    "PENDING_DELETION",
+    "PENDING_ENABLEMENT",
+    "PENDING_UPDATE",
+]
+FeatureNameType = Literal["NETWORK_SCANNING"]
+FeatureStatusType = Literal["DISABLED", "ENABLED"]
 FindingHistoryUpdateSourceTypeType = Literal["BATCH_IMPORT_FINDINGS", "BATCH_UPDATE_FINDINGS"]
 FindingsTrendsStringFieldType = Literal[
     "account_id",
@@ -172,6 +205,10 @@ FindingsTrendsStringFieldType = Literal[
     "finding_status",
     "finding_types",
     "region",
+    "resource_cloud_providers",
+    "resource_owner_ids",
+    "resource_owner_organization_ids",
+    "resource_regions",
 ]
 GetEnabledStandardsPaginatorName = Literal["get_enabled_standards"]
 GetFindingHistoryPaginatorName = Literal["get_finding_history"]
@@ -201,6 +238,13 @@ GroupByFieldType = Literal[
     "metadata.product.name",
     "metadata.product.uid",
     "metadata.product.vendor_name",
+    "resources.cloud_partition",
+    "resources.name",
+    "resources.owner.account.name",
+    "resources.owner.account.uid",
+    "resources.owner.org.uid",
+    "resources.provider",
+    "resources.region",
     "resources.type",
     "resources.uid",
     "severity",
@@ -208,6 +252,15 @@ GroupByFieldType = Literal[
     "vendor_attributes.severity",
     "vulnerabilities.affected_packages.name",
     "vulnerabilities.fix_coverage",
+]
+HealthIssueCodeType = Literal[
+    "AUTHENTICATION_FAILURE",
+    "DISCOVERY_FAILURE",
+    "NO_HEALTH_DATA",
+    "RECORDING_FAILURE",
+    "STREAM_AUTHORIZATION_FAILURE",
+    "STREAM_DISCONNECTED",
+    "STREAM_LIMIT_EXCEEDED",
 ]
 IntegrationTypeType = Literal[
     "RECEIVE_FINDINGS_FROM_SECURITY_HUB",
@@ -342,6 +395,11 @@ OcsfStringFieldType = Literal[
     "resources.image.registry_uid",
     "resources.image.repository_name",
     "resources.image.uid",
+    "resources.name",
+    "resources.owner.account.name",
+    "resources.owner.account.uid",
+    "resources.owner.org.uid",
+    "resources.provider",
     "resources.region",
     "resources.subnet_info.uid",
     "resources.type",
@@ -360,20 +418,26 @@ OcsfStringFieldType = Literal[
 OrganizationConfigurationConfigurationTypeType = Literal["CENTRAL", "LOCAL"]
 OrganizationConfigurationStatusType = Literal["ENABLED", "FAILED", "PENDING"]
 ParameterValueTypeType = Literal["CUSTOM", "DEFAULT"]
-PartitionType = Literal["aws", "aws-cn", "aws-us-gov"]
+PartitionType = Literal["AzureCloud", "aws", "aws-cn", "aws-us-gov", "aws-us-iso", "aws-us-iso-b"]
 RecommendationStatusType = Literal["FAILED", "IN_PROGRESS", "SUCCEEDED"]
 RecommendationTypeType = Literal["UNUSED_PERMISSION_RECOMMENDATION"]
 RecordStateType = Literal["ACTIVE", "ARCHIVED"]
 RegionAvailabilityStatusType = Literal["AVAILABLE", "UNAVAILABLE"]
 ResourceCategoryType = Literal[
-    "AI/ML", "Code", "Compute", "Database", "Identity", "Network", "Other", "Storage"
+    "AI/ML", "Code", "Compute", "Database", "Identity", "Messaging", "Network", "Other", "Storage"
 ]
 ResourceGroupByFieldType = Literal[
     "AccountId",
+    "AccountName",
     "FindingsSummary.FindingType",
     "Region",
     "ResourceCategory",
+    "ResourceCloudPartition",
     "ResourceName",
+    "ResourceOwnerAccountId",
+    "ResourceOwnerOrgId",
+    "ResourceProvider",
+    "ResourceRegion",
     "ResourceType",
 ]
 ResourcesDateFieldType = Literal["ResourceCreationTime", "ResourceDetailCaptureTime"]
@@ -391,31 +455,48 @@ ResourcesNumberFieldType = Literal[
 ]
 ResourcesStringFieldType = Literal[
     "AccountId",
+    "AccountName",
     "FindingsSummary.FindingType",
     "FindingsSummary.ProductName",
     "Region",
     "ResourceCategory",
+    "ResourceCloudPartition",
     "ResourceGuid",
     "ResourceId",
     "ResourceName",
+    "ResourceOwnerAccountId",
+    "ResourceOwnerOrgId",
+    "ResourceProvider",
+    "ResourceRegion",
     "ResourceType",
 ]
 ResourcesTrendsStringFieldType = Literal[
-    "account_id", "region", "resource_category", "resource_type"
+    "account_id",
+    "region",
+    "resource_category",
+    "resource_cloud_provider",
+    "resource_owner_id",
+    "resource_owner_organization_id",
+    "resource_region",
+    "resource_type",
 ]
 RuleStatusType = Literal["DISABLED", "ENABLED"]
 RuleStatusV2Type = Literal["DISABLED", "ENABLED"]
+ScopeTypeType = Literal["SUBSCRIPTION", "TENANT"]
 SecurityControlPropertyType = Literal["Parameters"]
+SecurityControlsProviderType = Literal["AWS", "Azure"]
 SecurityHubFeatureType = Literal["SecurityHub", "SecurityHubV2"]
 SeverityLabelType = Literal["CRITICAL", "HIGH", "INFORMATIONAL", "LOW", "MEDIUM"]
 SeverityRatingType = Literal["CRITICAL", "HIGH", "LOW", "MEDIUM"]
 SortOrderType = Literal["asc", "desc"]
 StandardsControlsUpdatableType = Literal["NOT_READY_FOR_UPDATES", "READY_FOR_UPDATES"]
+StandardsProviderType = Literal["AWS", "Azure"]
 StandardsStatusType = Literal["DELETING", "FAILED", "INCOMPLETE", "PENDING", "READY"]
 StatusReasonCodeType = Literal[
     "INTERNAL_ERROR",
     "MAXIMUM_NUMBER_OF_CONFIG_RULES_EXCEEDED",
     "NO_AVAILABLE_CONFIGURATION_RECORDER",
+    "NO_AVAILABLE_MULTICLOUD_CONNECTOR",
 ]
 StringFilterComparisonType = Literal[
     "CONTAINS",
@@ -745,6 +826,7 @@ ServiceName = Literal[
     "partnercentral-account",
     "partnercentral-benefits",
     "partnercentral-channel",
+    "partnercentral-revenue-measurement",
     "partnercentral-selling",
     "payment-cryptography",
     "payment-cryptography-data",

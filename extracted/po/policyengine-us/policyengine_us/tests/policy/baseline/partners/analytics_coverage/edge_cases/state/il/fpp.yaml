@@ -1,6 +1,8 @@
-- name: il_fpp_female_adult (il)
+# IL Family Planning Program — income limit 213% of a fixed 2-person FPG
+# (applicant's own income only); not pregnant; not on Medicaid.
+# Boolean-only outputs, so no error margin.
+- name: il_fpp_income_just_below_limit_eligible (il)
   period: 2026
-  absolute_error_margin: 0.1
   input:
     people:
       head:
@@ -8,39 +10,104 @@
         is_tax_unit_head: true
         is_tax_unit_spouse: false
         is_tax_unit_dependent: false
-        is_disabled: false
-        is_blind: false
-        is_pregnant: false
         is_female: true
-        immigration_status_str: CITIZEN
-        employment_income_before_lsr: 0
-        has_bcc_qualifying_coverage: false
-        is_full_time_student: false
-        ca_calworks_child_care_time_category: MONTHLY
-        ca_calworks_child_care_full_time: false
-        ca_riv_general_relief_meets_work_requirements: false
+        is_pregnant: false
+        employment_income_before_lsr: 46_000
     households:
       household:
-        members: &id001
-        - head
-        state_code_str: IL
+        members: [head]
+        state_code: IL
         zip_code: '60601'
         county_str: COOK_COUNTY_IL
     spm_units:
       spm_unit:
-        members: *id001
+        members: [head]
     tax_units:
       tax_unit:
-        members: *id001
+        members: [head]
         tax_unit_is_joint: false
     families:
       family:
-        members: *id001
+        members: [head]
     marital_units:
       mu_head:
-        members:
-        - head
+        members: [head]
   output:
     people:
       head:
+        # 2026 2-person FPG = $21,640; limit = 2.13 x 21,640 = $46,093.
+        # 46,000 / 21,640 = 2.126 <= 2.13 -> eligible (binding boundary).
         il_fpp_eligible: true
+- name: il_fpp_income_above_limit_ineligible (il)
+  period: 2026
+  input:
+    people:
+      head:
+        age: 30
+        is_tax_unit_head: true
+        is_tax_unit_spouse: false
+        is_tax_unit_dependent: false
+        is_female: true
+        is_pregnant: false
+        employment_income_before_lsr: 47_000
+    households:
+      household:
+        members: [head]
+        state_code: IL
+        zip_code: '60601'
+        county_str: COOK_COUNTY_IL
+    spm_units:
+      spm_unit:
+        members: [head]
+    tax_units:
+      tax_unit:
+        members: [head]
+        tax_unit_is_joint: false
+    families:
+      family:
+        members: [head]
+    marital_units:
+      mu_head:
+        members: [head]
+  output:
+    people:
+      head:
+        # Income-route ineligible: 47,000 / 21,640 = 2.172 > 2.13 limit.
+        il_fpp_eligible: false
+- name: il_fpp_pregnant_ineligible (il)
+  period: 2026
+  input:
+    people:
+      head:
+        age: 30
+        is_tax_unit_head: true
+        is_tax_unit_spouse: false
+        is_tax_unit_dependent: false
+        is_female: true
+        is_pregnant: true
+        employment_income_before_lsr: 20_000
+    households:
+      household:
+        members: [head]
+        state_code: IL
+        zip_code: '60601'
+        county_str: COOK_COUNTY_IL
+    spm_units:
+      spm_unit:
+        members: [head]
+    tax_units:
+      tax_unit:
+        members: [head]
+        tax_unit_is_joint: false
+    families:
+      family:
+        members: [head]
+    marital_units:
+      mu_head:
+        members: [head]
+  output:
+    people:
+      head:
+        # Categorical-route ineligible: pregnant individuals are directed to
+        # maternal health coverage instead of the Family Planning Program.
+        il_fpp_eligible: false

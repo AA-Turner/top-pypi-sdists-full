@@ -12,6 +12,7 @@ from textual.screen import Screen
 from textual.widgets import DataTable, Static
 
 from dreadnode.app.model_catalog import display_name, infer_provider
+from dreadnode.app.tui.model_manager import parse_model_order
 from dreadnode.app.tui.screens.base import (
     _bind_status_bar_to_app,
     handle_search_input_key,
@@ -443,19 +444,6 @@ def _build_entries(
     hosted: dict[str, ModelEntry] = {}
     byok: dict[str, ModelEntry] = {}
 
-    def parse_order(value: object) -> int | None:
-        if isinstance(value, bool):
-            return None
-        if isinstance(value, int) and value >= 1:
-            return value
-        if isinstance(value, str) and value.strip():
-            try:
-                parsed = int(value)
-            except ValueError:
-                return None
-            return parsed if parsed >= 1 else None
-        return None
-
     for entry in platform_models:
         if not isinstance(entry, dict):
             continue
@@ -494,7 +482,7 @@ def _build_entries(
             open_weights=entry.get("open_weights")
             if isinstance(entry.get("open_weights"), bool)
             else None,
-            order=parse_order(entry.get("order")),
+            order=parse_model_order(entry.get("order")),
         )
 
     for entry in byok_models:
@@ -1061,12 +1049,8 @@ class ModelBrowserScreen(Screen[str | None]):
         self._search_error = None
         self._catalog_byok_models = list(results)
         self._rebuild_entries()
-        self._cursor = self._current_index(
-            _filter_entries(
-                self._entries,
-                _parse_search_query(self._search_query),
-                inference_credits_per_dollar=self._inference_credits_per_dollar,
-            )
-        )
+        # Don't override self._cursor here — the keystroke handler already
+        # reset it to 0 when the user typed.  _render_table will clamp it
+        # within bounds if the visible list changed size.
         if self.is_mounted:
             self._render_all()

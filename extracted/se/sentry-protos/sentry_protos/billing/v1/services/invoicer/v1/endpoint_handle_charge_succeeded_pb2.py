@@ -25,15 +25,15 @@ _sym_db = _symbol_database.Default()
 from sentry_protos.billing.v1.common.v1 import stripe_charge_pb2 as sentry__protos_dot_billing_dot_v1_dot_common_dot_v1_dot_stripe__charge__pb2
 
 
-DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\nTsentry_protos/billing/v1/services/invoicer/v1/endpoint_handle_charge_succeeded.proto\x12-sentry_protos.billing.v1.services.invoicer.v1\x1a\x36sentry_protos/billing/v1/common/v1/stripe_charge.proto\"g\n\x1cHandleChargeSucceededRequest\x12G\n\rstripe_charge\x18\x01 \x01(\x0b\x32\x30.sentry_protos.billing.v1.common.v1.StripeCharge\"0\n\x1dHandleChargeSucceededResponse\x12\x0f\n\x07handled\x18\x01 \x01(\x08\x62\x06proto3')
+DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\nTsentry_protos/billing/v1/services/invoicer/v1/endpoint_handle_charge_succeeded.proto\x12-sentry_protos.billing.v1.services.invoicer.v1\x1a\x36sentry_protos/billing/v1/common/v1/stripe_charge.proto\"\xc1\x01\n\x1cHandleChargeSucceededRequest\x12G\n\rstripe_charge\x18\x01 \x01(\x0b\x32\x30.sentry_protos.billing.v1.common.v1.StripeCharge\x12\x17\n\ninvoice_id\x18\x02 \x01(\x04H\x00\x88\x01\x01\x12\x1c\n\x0forganization_id\x18\x03 \x01(\x04H\x01\x88\x01\x01\x42\r\n\x0b_invoice_idB\x12\n\x10_organization_id\"0\n\x1dHandleChargeSucceededResponse\x12\x0f\n\x07handled\x18\x01 \x01(\x08\x62\x06proto3')
 
 _globals = globals()
 _builder.BuildMessageAndEnumDescriptors(DESCRIPTOR, _globals)
 _builder.BuildTopDescriptorsAndMessages(DESCRIPTOR, 'sentry_protos.billing.v1.services.invoicer.v1.endpoint_handle_charge_succeeded_pb2', _globals)
 if not _descriptor._USE_C_DESCRIPTORS:
   DESCRIPTOR._loaded_options = None
-  _globals['_HANDLECHARGESUCCEEDEDREQUEST']._serialized_start=191
-  _globals['_HANDLECHARGESUCCEEDEDREQUEST']._serialized_end=294
-  _globals['_HANDLECHARGESUCCEEDEDRESPONSE']._serialized_start=296
-  _globals['_HANDLECHARGESUCCEEDEDRESPONSE']._serialized_end=344
+  _globals['_HANDLECHARGESUCCEEDEDREQUEST']._serialized_start=192
+  _globals['_HANDLECHARGESUCCEEDEDREQUEST']._serialized_end=385
+  _globals['_HANDLECHARGESUCCEEDEDRESPONSE']._serialized_start=387
+  _globals['_HANDLECHARGESUCCEEDEDRESPONSE']._serialized_end=435
 # @@protoc_insertion_point(module_scope)

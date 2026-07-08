@@ -1,7 +1,7 @@
 Metadata-Version: 2.4
 Name: mypy-boto3-inspector2
-Version: 1.43.22
-Summary: Type annotations for boto3 Inspector2 1.43.22 service generated with mypy-boto3-builder 8.12.0
+Version: 1.43.42
+Summary: Type annotations for boto3 Inspector2 1.43.42 service generated with mypy-boto3-builder 8.12.0
 Author-email: Vlad Emelianov <vlad.emelianov.nz@gmail.com>
 License-Expression: MIT
 Project-URL: Homepage, https://github.com/youtype/mypy_boto3_builder
@@ -43,7 +43,7 @@ Dynamic: license-file
 ![boto3.typed](https://github.com/youtype/mypy_boto3_builder/raw/main/logo.png)
 
 Type annotations for
-[boto3 Inspector2 1.43.22](https://pypi.org/project/boto3/) compatible with
+[boto3 Inspector2 1.43.42](https://pypi.org/project/boto3/) compatible with
 [VSCode](https://code.visualstudio.com/),
 [PyCharm](https://www.jetbrains.com/pycharm/),
 [Emacs](https://www.gnu.org/software/emacs/),
@@ -80,6 +80,7 @@ See how it helps you find and fix potential bugs:
   - [Explicit type annotations](#explicit-type-annotations)
     - [Client annotations](#client-annotations)
     - [Paginators annotations](#paginators-annotations)
+    - [Waiters annotations](#waiters-annotations)
     - [Literals](#literals)
     - [Type definitions](#type-definitions)
   - [How it works](#how-it-works)
@@ -105,7 +106,7 @@ You can generate type annotations for `boto3` package locally with
 isolation.
 
 1. Run mypy-boto3-builder in your package root directory:
-   `uvx --with 'boto3==1.43.22' mypy-boto3-builder`
+   `uvx --with 'boto3==1.43.42' mypy-boto3-builder`
 2. Select `boto3-stubs` AWS SDK.
 3. Add `Inspector2` service.
 4. Use provided commands to install generated packages.
@@ -346,6 +347,8 @@ from mypy_boto3_inspector2.paginator import (
     ListCisScanResultsAggregatedByChecksPaginator,
     ListCisScanResultsAggregatedByTargetResourcePaginator,
     ListCisScansPaginator,
+    ListConnectorScanConfigurationsPaginator,
+    ListConnectorsPaginator,
     ListCoveragePaginator,
     ListCoverageStatisticsPaginator,
     ListDelegatedAdminAccountsPaginator,
@@ -380,6 +383,10 @@ list_cis_scan_results_aggregated_by_target_resource_paginator: ListCisScanResult
     "list_cis_scan_results_aggregated_by_target_resource"
 )
 list_cis_scans_paginator: ListCisScansPaginator = client.get_paginator("list_cis_scans")
+list_connector_scan_configurations_paginator: ListConnectorScanConfigurationsPaginator = (
+    client.get_paginator("list_connector_scan_configurations")
+)
+list_connectors_paginator: ListConnectorsPaginator = client.get_paginator("list_connectors")
 list_coverage_paginator: ListCoveragePaginator = client.get_paginator("list_coverage")
 list_coverage_statistics_paginator: ListCoverageStatisticsPaginator = client.get_paginator(
     "list_coverage_statistics"
@@ -397,6 +404,32 @@ list_usage_totals_paginator: ListUsageTotalsPaginator = client.get_paginator("li
 search_vulnerabilities_paginator: SearchVulnerabilitiesPaginator = client.get_paginator(
     "search_vulnerabilities"
 )
+```
+
+<a id="waiters-annotations"></a>
+
+### Waiters annotations
+
+`mypy_boto3_inspector2.waiter` module contains type annotations for all
+waiters.
+
+```python
+from boto3.session import Session
+
+from mypy_boto3_inspector2 import Inspector2Client
+from mypy_boto3_inspector2.waiter import (
+    ConnectorConnectedWaiter,
+    ConnectorDeletedWaiter,
+    ConnectorEnabledWaiter,
+)
+
+client: Inspector2Client = Session().client("inspector2")
+
+# Explicit type annotations are optional here
+# Types should be correctly discovered by mypy and IDEs
+connector_connected_waiter: ConnectorConnectedWaiter = client.get_waiter("connector_connected")
+connector_deleted_waiter: ConnectorDeletedWaiter = client.get_waiter("connector_deleted")
+connector_enabled_waiter: ConnectorEnabledWaiter = client.get_waiter("connector_enabled")
 ```
 
 <a id="literals"></a>

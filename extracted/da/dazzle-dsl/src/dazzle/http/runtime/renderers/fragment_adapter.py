@@ -13,12 +13,14 @@ import json
 from typing import Any
 
 from dazzle.core.ir.protocols import SurfaceLike, SurfaceMode
+from dazzle.core.strings import to_api_plural
 from dazzle.render.fragment import (
     URL,
     Button,
     ColumnVisibilityMenu,
     CreateButton,
     DataListScroll,
+    DetailGrid,
     DzTableMount,
     EmptyState,
     FilterBar,
@@ -93,7 +95,8 @@ def _detail_field_value(f: dict[str, Any]) -> Fragment:
         "currency_code": str(f.get("currency_code", "") or ""),
         "semantic_map": dict(f.get("semantic_map", {}) or {}),
     }
-    return RawHTML(_render_cell_display(col, value))
+    # #1533: detail pages show the full value — only list cells truncate.
+    return RawHTML(_render_cell_display(col, value, truncate=False))
 
 
 class FragmentSurfaceAdapter:
@@ -175,6 +178,12 @@ class FragmentSurfaceAdapter:
             has_actions=True,
             column_keys=col_keys,
             sortable_keys=sortable_keys,
+            # C1.1 review fix: the default sort must be VISIBLE on the header
+            # (aria-sort) — the grid controller composes every refresh query
+            # from header state, so an unmarked default silently drops on the
+            # first filter/search/page interaction.
+            sort_field=sort_field,
+            sort_dir=sort_dir,
         )
 
         empty_title, empty_description = _pick_empty_state(ctx)
@@ -228,13 +237,27 @@ class FragmentSurfaceAdapter:
                 )
             )
 
-        # Body: [BulkActionToolbar?] + toolbar + the list-table shell.
+        # Body: [BulkActionToolbar?] + toolbar [+ column menu] + the shell.
         body_children: list[Fragment] = []
         if bulk_actions:
             from dazzle.render.fragment import BulkActionToolbar
 
-            body_children.append(BulkActionToolbar())
+            # The bulk route mounts at /api/{plural}/bulk (bulk_routes.py) —
+            # NOT under the list endpoint (which is mounted un-prefixed, e.g.
+            # /invoices). Compute the base the same way the route does.
+            body_children.append(BulkActionToolbar(endpoint=f"/api/{to_api_plural(entity_name)}"))
         body_children.extend(toolbar)
+        if len(visible) > 3:
+            # Inside the region = inside the dzTable Alpine scope (see the
+            # header comment above; C2 re-homes this as a delegated controller).
+            body_children.append(
+                ColumnVisibilityMenu(
+                    columns=tuple(
+                        (str(c.get("key", "")), str(c.get("label", c.get("key", ""))))
+                        for c in visible
+                    )
+                )
+            )
         body_children.append(shell)
         # #1494 (2c, Slice 2): `peek: slide_over` emits the one shared right-side
         # panel inline with the list — a row's chevron loads its detail body into
@@ -252,17 +275,12 @@ class FragmentSurfaceAdapter:
             Stack(children=tuple(body_children), gap="sm") if len(body_children) > 1 else shell
         )
 
-        # Header: title + column-visibility menu (>3 visible cols) + create.
+        # Header: title + create. (The column-visibility menu used to render
+        # here — OUTSIDE the region's `x-data="dzTable"` scope, so every one of
+        # its Alpine bindings was dead: the panel sat permanently open over the
+        # table and the toggles did nothing. Convergence C1.1 moved it into the
+        # region body below, inside the scope, resurrecting the feature.)
         header_children: list[Fragment] = [Heading(title, level=1)]
-        if len(visible) > 3:
-            header_children.append(
-                ColumnVisibilityMenu(
-                    columns=tuple(
-                        (str(c.get("key", "")), str(c.get("label", c.get("key", ""))))
-                        for c in visible
-                    )
-                )
-            )
         if create_url and entity_name:
             header_children.append(
                 CreateButton(
@@ -319,17 +337,16 @@ class FragmentSurfaceAdapter:
                 description="This record has no displayable fields.",
             )
         else:
-            field_rows = tuple(
-                Row(
-                    children=(
-                        Heading(str(f.get("label", f.get("key", ""))), level=4),
-                        _detail_field_value(f),
-                    ),
-                    align="start",
+            # Layouts L2: the label/value layout is the DetailGrid
+            # primitive's job (a semantic <dl> with the two-column grid CSS)
+            # — the old Stack-of-Rows shape only looked right because a
+            # contextual `.dz-region--kind-detail .dz-row` rule hijacked
+            # Row into a grid, which died with the dz-row family.
+            detail_body = DetailGrid(
+                rows=tuple(
+                    (str(f.get("label", f.get("key", ""))), _detail_field_value(f)) for f in fields
                 )
-                for f in fields
             )
-            detail_body = Stack(children=field_rows, gap="sm")
 
         entity_name = (getattr(surface, "entity_ref", "") or ctx.get("entity_name") or "").strip()
         item_id = str(ctx.get("item_id", "") or "")

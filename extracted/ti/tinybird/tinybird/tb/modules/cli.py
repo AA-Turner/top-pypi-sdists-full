@@ -1153,15 +1153,17 @@ def create_ctx_client(
     if show_warnings and command:
         click.echo(FeedbackManager.gray(message="Running against Tinybird Local"))
     local_branch = None
-    if command in ("build", "dev") and not test:
+    if not test:
         git_branch = get_current_git_branch()
         if git_branch and not is_main_git_branch(git_branch):
             local_branch = get_tinybird_branch_name_from_git_branch(git_branch)
             ctx.ensure_object(dict)["git_branch"] = git_branch
     client, workspace_created = get_tinybird_local_client(config, test=test, staging=staging, branch=local_branch)
-    if local_branch:
+    if local_branch and config.get("local_workspace_name") == local_branch:
         ctx.ensure_object(dict)["local_branch"] = local_branch
         ctx.ensure_object(dict)["branch_created"] = workspace_created
+        if show_warnings and command not in ("build", "dev"):
+            click.echo(FeedbackManager.gray(message=f"Using Tinybird Local branch '{local_branch}'"))
     return client
 
 

@@ -408,9 +408,6 @@ def files_for_feature(
     if feature.layer == "backend" and backend in {"fastapi", "django", "flask"}:
         return _backend_files_for(feature)
     if feature.layer == "frontend" and frontend:
-        import os
-        if os.environ.get("SAGE_TESTING") == "1" and frontend == "react-native-web":
-            return []
         return _frontend_files_for(feature, frontend)
     if feature.layer == "shared":
         return _shared_files_for(feature)

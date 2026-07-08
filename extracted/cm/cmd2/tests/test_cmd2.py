@@ -64,6 +64,20 @@ def test_version(base_app) -> None:
     assert cmd2.__version__
 
 
+def test_complete_in_thread() -> None:
+    # Test default
+    app_default = cmd2.Cmd()
+    assert app_default.main_session.complete_in_thread is True
+
+    # Test True
+    app_true = cmd2.Cmd(complete_in_thread=True)
+    assert app_true.main_session.complete_in_thread is True
+
+    # Test False
+    app_false = cmd2.Cmd(complete_in_thread=False)
+    assert app_false.main_session.complete_in_thread is False
+
+
 def test_not_in_main_thread(base_app, capsys) -> None:
     import threading
 
@@ -231,7 +245,9 @@ def test_set_no_settables(base_app) -> None:
     ],
 )
 @with_ansi_style(ru.AllowStyle.TERMINAL)
-def test_set_allow_style(base_app, new_val, is_valid, expected) -> None:
+def test_set_allow_style(base_app: cmd2.Cmd, new_val: str, is_valid: bool, expected: ru.AllowStyle) -> None:
+    from cmd2.pt_utils import pt_resolve_color_depth
+
     # Use the set command to alter allow_style
     out, err = run_cmd(base_app, f"set allow_style {new_val}")
     assert base_app.last_result is is_valid
@@ -241,6 +257,7 @@ def test_set_allow_style(base_app, new_val, is_valid, expected) -> None:
     if is_valid:
         assert out
         assert not err
+        assert base_app.main_session.color_depth == pt_resolve_color_depth()
 
 
 def test_set_traceback_show_locals(base_app: cmd2.Cmd) -> None:
@@ -4212,13 +4229,14 @@ def test_custom_completekey_ctrl_k():
 
 def test_completekey_empty_string() -> None:
     # Test that an empty string for completekey defaults to DEFAULT_COMPLETEKEY
+
     with mock.patch("cmd2.Cmd._create_main_session", autospec=True) as create_session_mock:
         create_session_mock.return_value = mock.MagicMock(spec=PromptSession)
-        app = cmd2.Cmd(completekey="")
 
-        # Verify it was called with DEFAULT_COMPLETEKEY
-        # auto_suggest is the second arg and it defaults to True
-        create_session_mock.assert_called_once_with(app, True, app.DEFAULT_COMPLETEKEY)
+        app = cmd2.Cmd(completekey="")
+        create_session_mock.assert_called_once()
+        _, kwargs = create_session_mock.call_args
+        assert kwargs["completekey"] == app.DEFAULT_COMPLETEKEY
 
 
 def test_create_main_session_exception(monkeypatch):
@@ -4271,33 +4289,50 @@ def test_path_complete_users_windows(monkeypatch, base_app):
     assert expected in matches
 
 
-def test_get_bottom_toolbar(base_app, monkeypatch):
-    # Test default (disabled)
+def test_refresh_interval() -> None:
+    # Test default value
+    default_app = cmd2.Cmd()
+    assert default_app.main_session.refresh_interval == 0.0
+
+    # Test custom value
+    custom_app = cmd2.Cmd(refresh_interval=5.0)
+    assert custom_app.main_session.refresh_interval == 5.0
+
+
+def test_enable_bottom_toolbar() -> None:
+    # Test default
+    default_app = cmd2.Cmd()
+    assert default_app.main_session.bottom_toolbar is None
+
+    # Test True
+    custom_app = cmd2.Cmd(enable_bottom_toolbar=True)
+    assert custom_app.main_session.bottom_toolbar == custom_app.get_bottom_toolbar
+
+    # Test False
+    custom_app = cmd2.Cmd(enable_bottom_toolbar=False)
+    assert custom_app.main_session.bottom_toolbar is None
+
+
+def test_enable_rprompt() -> None:
+    # Test default
+    default_app = cmd2.Cmd()
+    assert default_app.main_session.rprompt is None
+
+    # Test True
+    custom_app = cmd2.Cmd(enable_rprompt=True)
+    assert custom_app.main_session.rprompt == custom_app.get_rprompt
+
+    # Test False
+    custom_app = cmd2.Cmd(enable_rprompt=False)
+    assert custom_app.main_session.rprompt is None
+
+
+def test_get_bottom_toolbar(base_app: cmd2.Cmd) -> None:
     assert base_app.get_bottom_toolbar() is None
 
-    # Test enabled
-    base_app.bottom_toolbar = True
-    monkeypatch.setattr(sys, "argv", ["myapp.py"])
-    toolbar = base_app.get_bottom_toolbar()
-    assert isinstance(toolbar, list)
-    assert toolbar[0] == ("ansigreen", "myapp.py")
-    assert toolbar[2][0] == "ansicyan"
 
-
-def test_get_rprompt(base_app):
-    # Test default
+def test_get_rprompt(base_app: cmd2.Cmd) -> None:
     assert base_app.get_rprompt() is None
-
-    # Test overridden
-    from prompt_toolkit.formatted_text import FormattedText
-
-    expected_text = "rprompt text"
-    base_app.get_rprompt = lambda: expected_text
-    assert base_app.get_rprompt() == expected_text
-
-    expected_formatted = FormattedText([("class:status", "OK")])
-    base_app.get_rprompt = lambda: expected_formatted
-    assert base_app.get_rprompt() == expected_formatted
 
 
 def test_multiline_complete_statement_keyboard_interrupt(multiline_app, monkeypatch):
@@ -4359,7 +4394,14 @@ def test_create_main_session_with_custom_tty() -> None:
         app = cmd2.Cmd()
         app.stdin = custom_stdin
         app.stdout = custom_stdout
-        app._create_main_session(auto_suggest=True, completekey=app.DEFAULT_COMPLETEKEY)
+        app._create_main_session(
+            auto_suggest=True,
+            completekey=app.DEFAULT_COMPLETEKEY,
+            enable_bottom_toolbar=False,
+            enable_rprompt=False,
+            complete_in_thread=False,
+            refresh_interval=0.0,
+        )
 
         mock_create_input.assert_called_once_with(stdin=custom_stdin)
         mock_create_output.assert_called_once_with(stdout=custom_stdout)
@@ -4480,25 +4522,6 @@ def test_pre_prompt_running_loop(base_app):
         base_app._read_command_line("prompt> ")
 
         assert loop_check["running"]
-
-
-def test_get_bottom_toolbar_narrow_terminal(base_app, monkeypatch):
-    """Test get_bottom_toolbar when terminal is too narrow for calculated padding"""
-    import shutil
-
-    base_app.bottom_toolbar = True
-    monkeypatch.setattr(sys, "argv", ["myapp.py"])
-
-    # Mock shutil.get_terminal_size to return a very small width (e.g. 5)
-    # Calculated padding_size = 5 - len('myapp.py') - len(now) - 1
-    # Since len(now) is ~29, this will definitely be < 1
-    monkeypatch.setattr(shutil, "get_terminal_size", lambda: os.terminal_size((5, 20)))
-
-    toolbar = base_app.get_bottom_toolbar()
-    assert isinstance(toolbar, list)
-
-    # The padding (index 1) should be exactly 1 space
-    assert toolbar[1] == ("", " ")
 
 
 def test_auto_suggest_true():

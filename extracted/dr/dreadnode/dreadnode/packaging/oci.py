@@ -508,6 +508,51 @@ class OCIRegistryClient:
 # ==============================================================================
 
 
+def _resolve_produced_item_types(
+    capability_root: Path, produces: dict[str, str] | None
+) -> list[dict[str, t.Any]]:
+    """Resolve `produces` refs ("module:Class") to JSON Schemas at build time.
+
+    ``module`` is a path relative to the capability root (with or without the
+    ``.py`` suffix). The referenced class must be a Pydantic ``BaseModel``; its
+    ``.model_json_schema()`` is embedded in the package so the platform can
+    validate items of this type without ever importing capability code.
+    """
+    import importlib.util
+
+    from pydantic import BaseModel
+
+    resolved: list[dict[str, t.Any]] = []
+    for type_name, ref in (produces or {}).items():
+        module_ref, sep, class_name = ref.partition(":")
+        if not sep or not class_name:
+            raise ValueError(f"produces['{type_name}'] must be 'module:ClassName', got '{ref}'")
+        rel = module_ref if module_ref.endswith(".py") else f"{module_ref}.py"
+        file_path = (capability_root / rel).resolve()
+        if not file_path.is_file():
+            raise FileNotFoundError(f"produces['{type_name}'] references missing module: {rel}")
+
+        mod_name = f"_dn_produces_{type_name}_{file_path.stem}"
+        spec = importlib.util.spec_from_file_location(mod_name, file_path)
+        if spec is None or spec.loader is None:
+            raise ImportError(f"Cannot load module for produces['{type_name}']: {rel}")
+        module = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(module)
+
+        cls = getattr(module, class_name, None)
+        if not (isinstance(cls, type) and issubclass(cls, BaseModel)):
+            raise TypeError(f"produces['{type_name}'] -> {ref} is not a Pydantic BaseModel")
+
+        resolved.append(
+            {
+                "name": type_name,
+                "model_path": ref,
+                "json_schema": cls.model_json_schema(),
+            }
+        )
+    return resolved
+
+
 def build_capability(source_dir: Path, *, name: str | None = None) -> OCIImage:
     """Build an OCI image from a capability directory.
 
@@ -562,8 +607,20 @@ def build_capability(source_dir: Path, *, name: str | None = None) -> OCIImage:
         except ValueError:
             return None
 
+    # Resolve custom `produces` Pydantic classes → JSON Schemas at BUILD time.
+    # The platform never executes capability code, so extraction happens here
+    # and the schemas travel in the package. A bad reference fails the build
+    # loudly.
+    from dreadnode.items.config import custom_item_type_refs
+
+    item_types_list = _resolve_produced_item_types(
+        capability_root,
+        custom_item_type_refs(cap.manifest),
+    )
+
     config_dict: dict[str, t.Any] = {
         "capability_manifest": manifest_dict,
+        "item_types": item_types_list,
         "agents": [
             {
                 "name": agent.name,

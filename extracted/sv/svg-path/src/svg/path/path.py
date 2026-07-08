@@ -797,7 +797,7 @@ class Move(PathSegment):
         return self.start
 
     def tangent(self, pos: float) -> complex:
-        return 0
+        return 0j
 
     def length(self, error: float = ERROR, min_depth: int = MIN_DEPTH) -> float:
         return 0
@@ -928,6 +928,17 @@ class Path(PathType):
             return NotImplemented
         return not self == other
 
+    @property
+    def lengths(self) -> List[float]:
+        """The relative lengths of each segment in the path.
+
+        The sum of all lengths is 1.0, unless the path has zero length, in
+        which case all lengths are zero.
+        """
+        self._calc_lengths()
+        assert self._lengths is not None
+        return self._lengths
+
     def _calc_lengths(self, error: float = ERROR, min_depth: int = MIN_DEPTH) -> None:
         if self._length is not None:
             return
@@ -940,7 +951,11 @@ class Path(PathType):
             self._lengths = lengths
         else:
             self._lengths = [each / self._length for each in lengths]
-        # Calculate the fractional distance for each segment to use in point()
+        # Calculate the fractional distance for each segment to use in point().
+        # Reset first: mutating the path only clears self._length, so a stale
+        # self._fractions from an earlier calculation would otherwise be
+        # appended to here, corrupting the segment lookup in _find_segment().
+        self._fractions = []
         fraction = 0.0
         for each in self._lengths:
             fraction += each
@@ -951,7 +966,10 @@ class Path(PathType):
     ) -> Tuple[PathSegment, float]:
         # Shortcuts
         if pos == 0.0:
-            return self._segments[0], pos
+            if isinstance(self._segments[0], Move) and len(self._segments) > 1:
+                return self._segments[1], pos
+            else:
+                return self._segments[0], pos
         if pos == 1.0:
             return self._segments[-1], pos
 

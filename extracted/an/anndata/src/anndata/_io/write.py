@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import math
-import warnings
 from os import fspath
 from pathlib import Path
 from typing import TYPE_CHECKING
@@ -9,12 +8,14 @@ from typing import TYPE_CHECKING
 import numpy as np
 import pandas as pd
 from scipy.sparse import issparse
+from scverse_misc import Deprecation, deprecated
 
 from anndata._io.utils import no_write_dataset_2d
 
 from .._warnings import WriteWarning
 from ..compat import old_positionals
 from ..logging import get_logger
+from ..utils import warn
 
 if TYPE_CHECKING:
     from os import PathLike
@@ -57,7 +58,7 @@ def write_csvs(
         if issparse(value):
             if not_yet_raised_sparse_warning:
                 msg = "Omitting to write sparse annotation."
-                warnings.warn(msg, WriteWarning, stacklevel=2)
+                warn(msg, WriteWarning)
                 not_yet_raised_sparse_warning = False
             continue
         filename = dirname
@@ -73,7 +74,7 @@ def write_csvs(
                 df = pd.DataFrame(value)
             except Exception as e:  # noqa: BLE001
                 msg = f"Omitting to write {key!r} of type {type(e)}."
-                warnings.warn(msg, WriteWarning, stacklevel=2)
+                warn(msg, WriteWarning)
                 continue
         df.to_csv(
             filename,
@@ -83,6 +84,13 @@ def write_csvs(
         )
 
 
+@deprecated(
+    Deprecation(
+        "0.13",
+        "Deprecated in favor of other formats, e.g. `write_h5ad`. "
+        "Loom isn’t well-maintained and supports only a subset of anndata features.",
+    )
+)
 @no_write_dataset_2d
 @old_positionals("write_obsm_varm")
 def write_loom(

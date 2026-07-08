@@ -1,4 +1,8 @@
-- name: ca_yctc_child_age_5_eligible (ca)
+# California Young Child Tax Credit (R&TC 17052.1) edge cases, 2026 parameters:
+# amount $1,215.95; child must be under age 6; requires CalEITC receipt (or the
+# limited-loss route); phases out above earnings of $28,046.53 by $21.71 per
+# $100 increment.
+- name: ca_yctc_child_age_5_full_amount (ca)
   period: 2026
   absolute_error_margin: 0.1
   input:
@@ -10,8 +14,8 @@
         is_tax_unit_dependent: false
         is_disabled: false
         immigration_status_str: CITIZEN
-        employment_income_before_lsr: 20000
-        capital_gains: 0
+        employment_income_before_lsr: 20_000
+        long_term_capital_gains_before_response: 0
         rent: 0
         was_in_foster_care: false
         is_full_time_student: false
@@ -25,7 +29,7 @@
         is_disabled: false
         immigration_status_str: CITIZEN
         employment_income_before_lsr: 0
-        capital_gains: 0
+        long_term_capital_gains_before_response: 0
         rent: 0
         was_in_foster_care: false
         is_full_time_student: false
@@ -36,7 +40,7 @@
         members: &id001
         - head
         - child1
-        state_code_str: CA
+        state_code: CA
         zip_code: '90001'
         county_str: LOS_ANGELES_COUNTY_CA
     spm_units:
@@ -59,16 +63,10 @@
   output:
     tax_units:
       tax_unit:
-        ca_eitc: 410.16
-        ca_eitc_eligible: true
-        ca_yctc: 1215.95
-        ca_foster_youth_tax_credit: 0.0
-        ca_cdcc: 0.0
-        ca_renter_credit: 0.0
-        adjusted_gross_income: 20000.0
-    spm_units:
-      spm_unit:
-        ca_state_supplement: 0.0
+        # Child age 5 is under the age-6 cutoff and the unit receives CalEITC;
+        # earnings $20,000 < $28,046.53 phase-out start -> full $1,215.95.
+        ca_yctc: 1_215.95
+        adjusted_gross_income: 20_000.0
 - name: ca_yctc_child_age_6_ineligible (ca)
   period: 2026
   absolute_error_margin: 0.1
@@ -81,8 +79,8 @@
         is_tax_unit_dependent: false
         is_disabled: false
         immigration_status_str: CITIZEN
-        employment_income_before_lsr: 20000
-        capital_gains: 0
+        employment_income_before_lsr: 20_000
+        long_term_capital_gains_before_response: 0
         rent: 0
         was_in_foster_care: false
         is_full_time_student: false
@@ -96,7 +94,7 @@
         is_disabled: false
         immigration_status_str: CITIZEN
         employment_income_before_lsr: 0
-        capital_gains: 0
+        long_term_capital_gains_before_response: 0
         rent: 0
         was_in_foster_care: false
         is_full_time_student: false
@@ -107,7 +105,7 @@
         members: &id002
         - head
         - child1
-        state_code_str: CA
+        state_code: CA
         zip_code: '90001'
         county_str: LOS_ANGELES_COUNTY_CA
     spm_units:
@@ -130,17 +128,11 @@
   output:
     tax_units:
       tax_unit:
-        ca_eitc: 410.16
-        ca_eitc_eligible: true
+        # A child aged exactly 6 fails the under-6 requirement (age boundary);
+        # the unit still receives CalEITC, so the zero pins the YCTC age rule.
         ca_yctc: 0.0
-        ca_foster_youth_tax_credit: 0.0
-        ca_cdcc: 0.0
-        ca_renter_credit: 0.0
-        adjusted_gross_income: 20000.0
-    spm_units:
-      spm_unit:
-        ca_state_supplement: 0.0
-- name: ca_yctc_agi_at_phase_out_27425 (ca)
+        adjusted_gross_income: 20_000.0
+- name: ca_yctc_mid_phase_out_earnings_30000 (ca)
   period: 2026
   absolute_error_margin: 0.1
   input:
@@ -152,8 +144,8 @@
         is_tax_unit_dependent: false
         is_disabled: false
         immigration_status_str: CITIZEN
-        employment_income_before_lsr: 27425
-        capital_gains: 0
+        employment_income_before_lsr: 30_000
+        long_term_capital_gains_before_response: 0
         rent: 0
         was_in_foster_care: false
         is_full_time_student: false
@@ -167,7 +159,7 @@
         is_disabled: false
         immigration_status_str: CITIZEN
         employment_income_before_lsr: 0
-        capital_gains: 0
+        long_term_capital_gains_before_response: 0
         rent: 0
         was_in_foster_care: false
         is_full_time_student: false
@@ -178,7 +170,7 @@
         members: &id003
         - head
         - child1
-        state_code_str: CA
+        state_code: CA
         zip_code: '90001'
         county_str: LOS_ANGELES_COUNTY_CA
     spm_units:
@@ -201,13 +193,8 @@
   output:
     tax_units:
       tax_unit:
-        ca_eitc: 174.1
-        ca_eitc_eligible: true
-        ca_yctc: 1215.95
-        ca_foster_youth_tax_credit: 0.0
-        ca_cdcc: 0.0
-        ca_renter_credit: 0.0
-        adjusted_gross_income: 27425.0
-    spm_units:
-      spm_unit:
-        ca_state_supplement: 0.0
+        # Mid-phase-out: reduction = (30,000 - 28,046.53) / 100 x 21.71
+        # = 19.5347 x 21.71 = 424.10; credit = 1,215.95 - 424.10 = 791.85.
+        # (CalEITC at $30,000 with 1 child is still positive: $92.23.)
+        ca_yctc: 791.85
+        adjusted_gross_income: 30_000.0

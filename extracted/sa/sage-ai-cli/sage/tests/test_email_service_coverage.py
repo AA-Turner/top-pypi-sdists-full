@@ -24,6 +24,10 @@ def _stub_response(status_code: int = 200) -> MagicMock:
 class TestSendEmailBranches:
     """Every branch of send_email() — provider selection + auth + failure."""
 
+    @pytest.fixture(autouse=True)
+    def drop_sage_testing(self, monkeypatch):
+        monkeypatch.delenv("SAGE_TESTING", raising=False)
+
     def test_no_provider_returns_false(self, monkeypatch):
         monkeypatch.delenv("EMAIL_PROVIDER", raising=False)
         assert send_email(to="x@y.com", subject="s", text="t") is False
@@ -77,6 +81,10 @@ class TestSendEmailBranches:
 
 
 class TestWelcomeEmail:
+
+    @pytest.fixture(autouse=True)
+    def drop_sage_testing(self, monkeypatch):
+        monkeypatch.delenv("SAGE_TESTING", raising=False)
 
     def test_no_display_name(self, monkeypatch):
         monkeypatch.delenv("EMAIL_PROVIDER", raising=False)

@@ -1,5 +1,6 @@
 """Helper methods to tune a TCP connection"""
 
+from __future__ import annotations
 import socket
 from contextlib import suppress
 from typing import Optional  # noqa

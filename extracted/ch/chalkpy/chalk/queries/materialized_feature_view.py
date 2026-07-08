@@ -1,13 +1,53 @@
 from __future__ import annotations
 
 import inspect
-from datetime import datetime, timezone
+import re
+from datetime import datetime, timedelta, timezone
 from typing import TYPE_CHECKING, Type
 
-from chalk.utils.duration import CronTab, Duration
+from chalk.utils.duration import CronTab, Duration, parse_chalk_duration
 
 if TYPE_CHECKING:
     from chalk.features.feature_set import Features
+
+_MIN_UPDATE_CADENCE = timedelta(minutes=10)
+_CRON_FIELD_RE = re.compile(r"^[0-9*/,\-]+$")
+
+
+def _is_cron_expression(s: str) -> bool:
+    parts = s.split()
+    return len(parts) == 5 and all(_CRON_FIELD_RE.match(p) for p in parts)
+
+
+def _cron_min_interval_minutes(cron_expr: str) -> int:
+    """Returns the minimum possible interval in minutes between firings of a cron expression."""
+    minute_field = cron_expr.split()[0]
+    values: set[int] = set()
+    for part in minute_field.split(","):
+        if part == "*":
+            return 1
+        if "/" in part:
+            base, step_str = part.split("/", 1)
+            step = int(step_str)
+            if base == "*":
+                start, end = 0, 59
+            elif "-" in base:
+                start, end = map(int, base.split("-", 1))
+            else:
+                start, end = int(base), 59
+            values.update(range(start, end + 1, step))
+        elif "-" in part:
+            start, end = map(int, part.split("-", 1))
+            values.update(range(start, end + 1))
+        else:
+            values.add(int(part))
+
+    if len(values) <= 1:
+        return 60
+    sorted_vals = sorted(values)
+    min_gap = min(b - a for a, b in zip(sorted_vals, sorted_vals[1:]))
+    wrap_gap = sorted_vals[0] + 60 - sorted_vals[-1]
+    return min(min_gap, wrap_gap)
 
 
 class MaterializedFeatureView:
@@ -46,6 +86,19 @@ class MaterializedFeatureView:
 
         if lower_bound is not None and lower_bound.tzinfo is not None:
             lower_bound = lower_bound.astimezone(tz=timezone.utc)
+
+        if isinstance(update_cadence, timedelta):
+            if update_cadence < _MIN_UPDATE_CADENCE:
+                raise ValueError(f"MaterializedFeatureView 'update_cadence' must be at least 10 minutes, but got {update_cadence!r}.")
+        elif update_cadence not in ("infinity", "all"):
+            if _is_cron_expression(update_cadence):
+                min_interval = _cron_min_interval_minutes(update_cadence)
+                if min_interval < 10:
+                    raise ValueError(f"MaterializedFeatureView 'update_cadence' cron '{update_cadence}' can fire as frequently as every {min_interval} minute(s); the minimum allowed interval is 10 minutes.")
+            else:
+                td = parse_chalk_duration(update_cadence)
+                if td < _MIN_UPDATE_CADENCE:
+                    raise ValueError(f"MaterializedFeatureView 'update_cadence' must be at least 10 minutes, but got {update_cadence!r}.")
 
         from chalk.utils.object_inspect import get_source_object_starting
 

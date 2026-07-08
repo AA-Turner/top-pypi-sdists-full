@@ -644,7 +644,7 @@ class TestFindActualTestDirectory:
 class TestAutopolitCliWiring:
     """Test autopolit CLI command is registered and executes correctly."""
 
-    @patch("sage.main.run")
+    @patch("sage.cli_core.run")
     def test_cli_autopolit_command_sets_env(self, mock_run):
         """Test that sage autopolit sets environment variables and runs setup."""
         from sage.cli_core import app

@@ -6,13 +6,13 @@ import pytest
 sniff_dir = pathlib.Path(__file__).parent / "sniff"
 
 
-@pytest.mark.parametrize("filepath", sniff_dir.glob("example*"))
+@pytest.mark.parametrize("filepath", sorted(sniff_dir.glob("example*")))
 def test_sniff(tmpdir, filepath):
     db_path = str(tmpdir / "test.db")
     runner = CliRunner()
     result = runner.invoke(
         cli.cli,
-        ["insert", db_path, "creatures", str(filepath), "--sniff"],
+        ["insert", db_path, "creatures", str(filepath), "--sniff", "--no-detect-types"],
         catch_exceptions=False,
     )
     assert result.exit_code == 0, result.stdout

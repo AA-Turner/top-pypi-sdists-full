@@ -35,6 +35,7 @@ __all__ = (
     "ConfigurationRecorderFilterNameType",
     "ConformancePackComplianceTypeType",
     "ConformancePackStateType",
+    "ConnectorFilterNameType",
     "DeliveryStatusType",
     "DescribeAggregateComplianceByConfigRulesPaginatorName",
     "DescribeAggregateComplianceByConformancePacksPaginatorName",
@@ -66,6 +67,7 @@ __all__ = (
     "GetResourceConfigHistoryPaginatorName",
     "ListAggregateDiscoveredResourcesPaginatorName",
     "ListConfigurationRecordersPaginatorName",
+    "ListConnectorsPaginatorName",
     "ListDiscoveredResourcesPaginatorName",
     "ListResourceEvaluationsPaginatorName",
     "ListTagsForResourcePaginatorName",
@@ -79,6 +81,7 @@ __all__ = (
     "OrganizationRuleStatusType",
     "OwnerType",
     "PaginatorName",
+    "ProviderType",
     "RecorderStatusType",
     "RecordingFrequencyType",
     "RecordingScopeType",
@@ -121,6 +124,7 @@ ConformancePackComplianceTypeType = Literal["COMPLIANT", "INSUFFICIENT_DATA", "N
 ConformancePackStateType = Literal[
     "CREATE_COMPLETE", "CREATE_FAILED", "CREATE_IN_PROGRESS", "DELETE_FAILED", "DELETE_IN_PROGRESS"
 ]
+ConnectorFilterNameType = Literal["provider"]
 DeliveryStatusType = Literal["Failure", "Not_Applicable", "Success"]
 DescribeAggregateComplianceByConfigRulesPaginatorName = Literal[
     "describe_aggregate_compliance_by_config_rules"
@@ -172,6 +176,7 @@ GetOrganizationConformancePackDetailedStatusPaginatorName = Literal[
 GetResourceConfigHistoryPaginatorName = Literal["get_resource_config_history"]
 ListAggregateDiscoveredResourcesPaginatorName = Literal["list_aggregate_discovered_resources"]
 ListConfigurationRecordersPaginatorName = Literal["list_configuration_recorders"]
+ListConnectorsPaginatorName = Literal["list_connectors"]
 ListDiscoveredResourcesPaginatorName = Literal["list_discovered_resources"]
 ListResourceEvaluationsPaginatorName = Literal["list_resource_evaluations"]
 ListTagsForResourcePaginatorName = Literal["list_tags_for_resource"]
@@ -237,6 +242,7 @@ OrganizationRuleStatusType = Literal[
     "UPDATE_SUCCESSFUL",
 ]
 OwnerType = Literal["AWS", "CUSTOM_LAMBDA", "CUSTOM_POLICY"]
+ProviderType = Literal["AZURE"]
 RecorderStatusType = Literal["Failure", "NotApplicable", "Pending", "Success"]
 RecordingFrequencyType = Literal["CONTINUOUS", "DAILY"]
 RecordingScopeType = Literal["INTERNAL", "PAID"]
@@ -1084,6 +1090,7 @@ ServiceName = Literal[
     "partnercentral-account",
     "partnercentral-benefits",
     "partnercentral-channel",
+    "partnercentral-revenue-measurement",
     "partnercentral-selling",
     "payment-cryptography",
     "payment-cryptography-data",
@@ -1251,6 +1258,7 @@ PaginatorName = Literal[
     "get_resource_config_history",
     "list_aggregate_discovered_resources",
     "list_configuration_recorders",
+    "list_connectors",
     "list_discovered_resources",
     "list_resource_evaluations",
     "list_tags_for_resource",

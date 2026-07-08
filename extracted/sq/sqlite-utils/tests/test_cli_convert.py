@@ -80,7 +80,7 @@ def test_convert_import(test_db_and_path):
             db_path,
             "example",
             "dt",
-            "return re.sub('O..', 'OXX', value)",
+            "return re.sub('O..', 'OXX', value) if value else value",
             "--import",
             "re",
         ],
@@ -215,6 +215,25 @@ def test_convert_multi_dryrun(test_db_and_path):
     )
 
 
+def test_convert_multi_dryrun_unicode_not_escaped(test_db_and_path):
+    db_path = test_db_and_path[1]
+    result = CliRunner().invoke(
+        cli.cli,
+        [
+            "convert",
+            db_path,
+            "example",
+            "dt",
+            "{'text': 'Japanese 日本語'}",
+            "--dry-run",
+            "--multi",
+        ],
+    )
+    assert result.exit_code == 0
+    # Preview should match what jsonify_if_needed() would actually store
+    assert '{"text": "Japanese 日本語"}' in result.output
+
+
 @pytest.mark.parametrize("drop", (True, False))
 def test_convert_output_column(test_db_and_path, drop):
     db, db_path = test_db_and_path
@@ -223,7 +242,7 @@ def test_convert_output_column(test_db_and_path, drop):
         db_path,
         "example",
         "dt",
-        "value.replace('October', 'Spooktober')",
+        "value.replace('October', 'Spooktober') if value else value",
         "--output",
         "newcol",
     ]
@@ -371,16 +390,14 @@ def test_convert_multi_complex_column_types(fresh_db_and_path):
         ],
         pk="id",
     )
-    code = textwrap.dedent(
-        """
+    code = textwrap.dedent("""
     if value == 1:
         return {"is_str": "", "is_float": 1.2, "is_int": None}
     elif value == 2:
         return {"is_float": 1, "is_int": 12}
     elif value == 3:
         return {"is_bytes": b"blah"}
-    """
-    )
+    """)
     result = CliRunner().invoke(
         cli.cli,
         [
@@ -406,9 +423,9 @@ def test_convert_multi_complex_column_types(fresh_db_and_path):
         {"id": 4, "is_str": None, "is_float": None, "is_int": None, "is_bytes": None},
     ]
     assert db["rows"].schema == (
-        "CREATE TABLE [rows] (\n"
-        "   [id] INTEGER PRIMARY KEY\n"
-        ", [is_str] TEXT, [is_float] FLOAT, [is_int] INTEGER, [is_bytes] BLOB)"
+        'CREATE TABLE "rows" (\n'
+        '   "id" INTEGER PRIMARY KEY\n'
+        ', "is_str" TEXT, "is_float" REAL, "is_int" INTEGER, "is_bytes" BLOB)'
     )
 
 
@@ -535,7 +552,7 @@ def test_convert_where(test_db_and_path):
             "id = :id",
             "-p",
             "id",
-            2,
+            "2",
         ],
     )
     assert result.exit_code == 0, result.output
@@ -564,7 +581,7 @@ def test_convert_where_multi(fresh_db_and_path):
             "id = :id",
             "-p",
             "id",
-            2,
+            "2",
             "--multi",
         ],
     )
@@ -628,14 +645,8 @@ def test_convert_initialization_pattern(fresh_db_and_path):
     ]
 
 
-@pytest.mark.parametrize(
-    "no_skip_false,expected",
-    (
-        (True, 1),
-        (False, 0),
-    ),
-)
-def test_convert_no_skip_false(fresh_db_and_path, no_skip_false, expected):
+def test_convert_handles_falsey_values(fresh_db_and_path):
+    # Falsey values like 0 should be converted (issue #527)
     db, db_path = fresh_db_and_path
     args = [
         "convert",
@@ -644,12 +655,58 @@ def test_convert_no_skip_false(fresh_db_and_path, no_skip_false, expected):
         "x",
         "-",
     ]
-    if no_skip_false:
-        args.append("--no-skip-false")
     db["t"].insert_all([{"x": 0}, {"x": 1}])
     assert db["t"].get(1)["x"] == 0
     assert db["t"].get(2)["x"] == 1
     result = CliRunner().invoke(cli.cli, args, input="value + 1")
     assert result.exit_code == 0, result.output
-    assert db["t"].get(1)["x"] == expected
+    assert db["t"].get(1)["x"] == 1
     assert db["t"].get(2)["x"] == 2
+
+
+@pytest.mark.parametrize(
+    "code",
+    [
+        # Direct callable reference (issue #686)
+        "r.parsedate",
+        "recipes.parsedate",
+        # Traditional call syntax still works
+        "r.parsedate(value)",
+        "recipes.parsedate(value)",
+    ],
+)
+def test_convert_callable_reference(test_db_and_path, code):
+    """Test that callable references like r.parsedate work without (value)"""
+    db, db_path = test_db_and_path
+    result = CliRunner().invoke(
+        cli.cli, ["convert", db_path, "example", "dt", code], catch_exceptions=False
+    )
+    assert result.exit_code == 0, result.output
+    rows = list(db["example"].rows)
+    assert rows[0]["dt"] == "2019-10-05"
+    assert rows[1]["dt"] == "2019-10-06"
+    assert rows[2]["dt"] == ""
+    assert rows[3]["dt"] is None
+
+
+def test_convert_callable_reference_with_import(fresh_db_and_path):
+    """Test callable reference from an imported module"""
+    db, db_path = fresh_db_and_path
+    db["example"].insert({"id": 1, "data": '{"name": "test"}'})
+    result = CliRunner().invoke(
+        cli.cli,
+        [
+            "convert",
+            db_path,
+            "example",
+            "data",
+            "json.loads",
+            "--import",
+            "json",
+        ],
+        catch_exceptions=False,
+    )
+    assert result.exit_code == 0, result.output
+    # json.loads returns a dict, which sqlite stores as JSON string
+    row = db["example"].get(1)
+    assert row["data"] == '{"name": "test"}'

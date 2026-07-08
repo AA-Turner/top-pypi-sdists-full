@@ -57,6 +57,17 @@ def print_info(message: str, *, indent: int = 0) -> None:
     console.print(f"{' ' * indent}[blue]i[/] {message}")
 
 
+def print_markdown(content: str) -> None:
+    """Render a markdown blob to the shared console.
+
+    Used by ``dreadnode capability info --readme`` and
+    ``dreadnode task info --readme`` to render bundle READMEs inline.
+    """
+    from rich.markdown import Markdown
+
+    console.print(Markdown(content))
+
+
 def print_skip(message: str, *, indent: int = 0) -> None:
     console.print(f"{' ' * indent}[dim]-[/] {message}")
 

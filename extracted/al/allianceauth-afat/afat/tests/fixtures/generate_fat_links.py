@@ -15,6 +15,9 @@ from pathlib import Path
 # Django
 from django.utils.crypto import get_random_string
 
+# Alliance Auth
+from allianceauth.authentication.models import User
+
 myauth_dir = Path(__file__).parent.parent.parent.parent.parent / "myauth"
 sys.path.insert(0, str(myauth_dir))
 
@@ -29,7 +32,6 @@ django.setup()
 import random
 
 # Django
-from django.contrib.auth.models import User
 from django.utils.timezone import now
 
 # Alliance Auth

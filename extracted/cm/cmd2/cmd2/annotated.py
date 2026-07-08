@@ -54,9 +54,12 @@ How annotations map to argparse settings:
 - positional ``bool`` -- parsed from ``true/false``, ``yes/no``, ``on/off``, ``1/0``
 - ``pathlib.Path`` -- sets ``type=Path``
 - ``enum.Enum`` subclass -- ``type=converter``, ``choices`` from member values
+- a union of Enums (e.g. ``EnumA | EnumB``) -- each member keeps its own converter; a token resolves
+  to the first member that accepts it, and the merged ``choices`` are the concatenation of each
+  member's choices
 - ``decimal.Decimal`` -- sets ``type=Decimal``
 - ``Literal[...]`` -- ``type=converter`` and ``choices`` from the literal values
-- ``list[T]`` / ``set[T]`` / ``tuple[T, ...]`` -- ``nargs='+'`` (or ``'*'`` with a default or ``| None``)
+- ``list[T]`` / ``set[T]`` / ``frozenset[T]`` / ``tuple[T, ...]`` -- ``nargs='+'`` (or ``'*'`` with a default or ``| None``)
 - ``tuple[T, T]`` (fixed arity, same type) -- ``nargs=N`` with ``type=T``
 - ``*args: T`` -- variadic positional (``nargs='*'``); ``T`` is each value's type, not the
   collected tuple.  ``Annotated[T, Argument(...)]`` metadata is honored
@@ -127,7 +130,58 @@ of ``func.__doc__`` (up to the first blank line) is used so docstrings double as
 leaking ``:param:`` directives; and ``prog`` is rejected with ``subcommand_to`` because cmd2
 rewrites it from the parent command's hierarchy.  Mutually exclusive groups accept
 ``Group(required=True)`` to require exactly one member; the same flag on a plain ``groups=`` entry
-raises ``ValueError`` (argparse's ``add_argument_group`` has no ``required``).
+raises ``ValueError`` (argparse's ``add_argument_group`` has no ``required``).  Give a
+``mutually_exclusive_groups`` entry a ``title``/``description`` to render it as a titled help section
+(argparse's one supported nesting -- a mutex *inside* an argument group), and use
+``Option(action='store_true')`` for any ``bool`` member so the mutex reads as ``[--foo | --bar]``
+instead of expanding to ``--no-*`` variants.  To put non-mutex parameters in the same section, list
+its members in a ``groups=`` entry instead and leave the title off the mutex; declaring the section in
+both places, a mutex that sits only partly in a ``groups=`` entry, or one that spans two of them all
+raise ``ValueError``.  The other three nesting directions (an argument group in an argument group or
+in a mutex, and a mutex in a mutex) are removed in argparse on Python 3.14 and cannot be expressed
+here.  These group-spec rules (and member references, double-assignment, and the ``required=True``
+rejection) are checked at decoration time from parameter names alone -- type hints are not resolved,
+so forward-referenced annotations still decorate -- meaning a misconfigured group raises when the
+class is defined rather than on first command use.  The one group rule that needs the annotations
+(a required member in a mutually exclusive group) fires when the parser is built.
+
+A parameter annotated with a ``@dataclass`` that subclasses [`ArgumentBlock`][cmd2.annotated.ArgumentBlock] is a
+reusable *argument block*: each of the dataclass's ``init`` fields is expanded into a flat command-line
+argument (field name == argument name) at the parameter's position, and the parsed values are
+reconstructed into a dataclass instance passed to the command.  This lets several commands share one
+block without duplicating parameters, and a base block shared by inheritance is the reuse mechanism
+(a subclass of a block is itself a block):
+
+    @dataclass
+    class CommonArgs(cmd2.ArgumentBlock):
+        verbose: Annotated[bool, Option("-v", "--verbose")] = False
+        output: Annotated[Path | None, Option("--output")] = None
+
+
+    class MyApp(cmd2.Cmd):
+        @cmd2.with_annotated
+        def do_build(self, target: str, common: CommonArgs):
+            if common.verbose:
+                self.poutput(common.output)
+
+The [`ArgumentBlock`][cmd2.annotated.ArgumentBlock] trait -- not "is a dataclass" -- is the trigger, so a plain
+``@dataclass`` is never expanded and can still be used as an ordinary single argument value (e.g. with an
+``Argument(converter=...)``).  Each field carries the usual ``Annotated[T, Option(...)]`` /
+``Annotated[T, Argument(...)]`` metadata and behaves exactly as a top-level parameter of the same shape
+(type inference, completion, choices).  The dataclass is the single source of truth for defaults: a field
+with a default (``default`` or ``default_factory``) is emitted with ``argparse.SUPPRESS`` and filled by the
+dataclass constructor at reconstruction time, so a ``default_factory`` yields a fresh value per invocation
+(no shared-mutable default) and ``__post_init__`` runs.  A field with no default becomes a required
+argument.  A field whose type is itself a block is not expanded (no recursion) and raises the
+unsupported-type error.  Because fields expand flat, every field name must be unique across the command's
+own parameters and every other block's fields -- a collision (which would put two argparse actions on one
+namespace dest) raises ``TypeError`` when the parser is built.  Block fields cannot participate in
+``groups=`` / ``mutually_exclusive_groups=`` (those reference the function's own parameter names, which are
+validated without resolving type hints).  A block must be the *bare* annotation of a regular parameter:
+wrapping it in ``Annotated``/``Optional``/a union, or using it as ``*args`` / ``**kwargs``, raises
+``TypeError`` (to use a dataclass as a single value instead, make it a plain ``@dataclass`` with an
+``Argument(converter=...)``).  An ``ArgumentBlock`` subclass that is not a ``@dataclass`` has no fields and
+also raises ``TypeError``.
 
 Unsupported patterns (raise ``TypeError``):
 
@@ -137,7 +191,8 @@ Unsupported patterns (raise ``TypeError``):
   or any custom class), which would silently arrive as a plain string.  Supported scalars
   are ``str``, ``int``, ``float``, ``bool``, ``decimal.Decimal``, ``pathlib.Path``,
   ``enum.Enum`` subclasses, and ``Literal[...]`` (``str``/``Any``/``object`` pass through raw)
-- ``str | int`` -- a union of multiple non-None types is ambiguous
+- ``str | int`` -- a union of multiple non-None types is ambiguous (unless every member is an
+  ``enum.Enum`` subclass, which resolves by trying each member's converter in turn)
 - ``tuple[int, str, float]`` -- mixed element types (argparse applies one ``type=`` per argument)
 - ``*args: tuple[T, ...]`` (or any collection element) -- the annotation is each value's type,
   so a collection element means a tuple-of-collections; annotate the element, e.g. ``*args: str``
@@ -173,6 +228,29 @@ matches; a value the converter rejects is a build-time ``TypeError``), and an ex
 takes precedence over a *type-inferred* completer (the ``Path`` completer is dropped so the choices
 drive both validation and completion).  A ``choices_provider`` / ``completer`` you supply yourself
 still wins over ``choices=``.
+
+Two hooks customize the string -> value conversion, parity with a hand-built ``add_argument(type=...)``
+(a raw ``type=`` in the metadata is rejected; use these instead):
+
+- ``converter`` -- a ``Callable[[str], Any]`` that *replaces* the inferred ``type=`` converter.  Because
+  the converter owns the conversion, the annotation is no longer required to be a supported scalar -- any
+  type is legal (``Annotated[datetime, Argument(converter=parse_iso)]``), and the "unsupported type" error
+  is suppressed.  The inferred ``choices`` and completer (which described the *inferred* value-space) are
+  dropped; supply ``choices=`` / ``completer`` / ``choices_provider`` to re-add them (an explicit
+  ``choices=`` is still run through your converter).  argparse applies it per token, so on a ``list[T]`` it
+  converts each value; a non-collection annotation such as ``Any`` keeps a single token, so the converter
+  may itself return a collection (``Annotated[Any, Option('--idx', converter=parse_intset)]``).
+- ``preprocess`` -- a ``Callable[[str], str]`` that runs *before* the inferred converter, transforming the
+  raw token while *keeping* the inferred ``type=``, ``choices``, completer, and coercion.  Use it to
+  normalize input for a type that already has rich inference, e.g. ``Annotated[Color, Argument(preprocess=
+  str.lower)]`` accepts ``RED`` while still showing the ``Color`` choices, or ``Annotated[Path,
+  Argument(preprocess=os.path.expanduser)]`` keeps the path completer.  With a plain ``str`` (no inferred
+  converter) it becomes the ``type=`` directly.
+
+``converter`` and ``preprocess`` are mutually exclusive on one parameter (fold the preprocessing into the
+converter, which already receives the raw token), and neither may be combined with a value-less action
+(``store_true`` / ``store_false`` / ``count`` / ``store_const`` / ``append_const``), which consumes no
+token to convert.
 """
 
 import argparse
@@ -180,6 +258,7 @@ import decimal
 import enum
 import functools
 import inspect
+import operator
 import types
 from collections.abc import (
     Callable,
@@ -188,17 +267,23 @@ from collections.abc import (
     Sequence,
 )
 from dataclasses import (
+    MISSING,
     dataclass,
     field,
+    fields,
+    is_dataclass,
 )
 from pathlib import Path
 from typing import (
-    TYPE_CHECKING,
     Annotated,
     Any,
     ClassVar,
     Literal,
+    NamedTuple,
+    ParamSpec,
+    Protocol,
     TypedDict,
+    TypeGuard,
     TypeVar,
     Union,
     Unpack,
@@ -211,6 +296,7 @@ from typing import (
 from rich.table import Column
 
 from . import constants
+from .argparse_completer import ArgparseCompleter
 from .argparse_utils import (
     ArgparseCommandSpec,
     Cmd2ArgumentParser,
@@ -225,9 +311,6 @@ from .types import (
     UnboundChoicesProvider,
     UnboundCompleter,
 )
-
-if TYPE_CHECKING:  # pragma: no cover
-    from .argparse_completer import ArgparseCompleter
 
 #: ``nargs`` values accepted by cmd2's patched ``add_argument`` (incl. ranged tuples).
 _NargsValue = int | str | tuple[int] | tuple[int, int] | tuple[int, float]
@@ -256,7 +339,7 @@ class Cmd2ParserKwargs(TypedDict, total=False):
     exit_on_error: bool
     suggest_on_error: bool
     color: bool
-    completer_class: "type[ArgparseCompleter] | None"
+    completer_class: type[ArgparseCompleter] | None
 
 
 # ---------------------------------------------------------------------------
@@ -309,6 +392,9 @@ class _BaseArgMetadata:
         suppress_tab_hint: bool | None = None,
         const: Any = _UNSET,
         default: Any = _UNSET,
+        allow_unknown_entry: bool = False,
+        converter: Callable[[str], Any] | None = None,
+        preprocess: Callable[[str], str] | None = None,
         **extra_kwargs: Any,
     ) -> None:
         """Initialise shared metadata fields.
@@ -316,7 +402,13 @@ class _BaseArgMetadata:
         ``const`` is the value stored on a present flag with no argument (``Option`` only:
         ``store_const``/``append_const``); ``_UNSET`` distinguishes "no const" from ``const=None``.
         ``default`` mirrors the signature default (``Option(default=v)`` == ``... = v``); supplying
-        both, or ``argparse.SUPPRESS``, is rejected.  ``extra_kwargs`` forwards any other
+        both, or ``argparse.SUPPRESS``, is rejected.  ``allow_unknown_entry`` only affects ``Enum``
+        annotations: when set, a token matched by neither a member value nor name is routed through
+        the enum's ``_missing_`` hook (for aliases / special keywords) instead of being rejected
+        outright.  ``converter`` replaces the inferred ``type=`` converter (and makes any annotation
+        type legal); ``preprocess`` runs before the inferred converter to transform the raw token while
+        keeping the inferred choices/completer.  The two are mutually exclusive and neither combines with
+        a value-less action (see the module docstring).  ``extra_kwargs`` forwards any other
         ``add_argument`` parameter (incl. those from
         [`register_argparse_argument_parameter`][cmd2.argparse_utils.register_argparse_argument_parameter]) straight through.
         """
@@ -325,7 +417,10 @@ class _BaseArgMetadata:
             name = sorted(reserved)[0]
             # Per-key remediation hint for the reserved kwarg.
             hint = {
-                "type": "The converter is derived from the parameter annotation; change the annotation instead.",
+                "type": (
+                    "The converter is derived from the parameter annotation; change the annotation, or pass "
+                    "converter= for a custom string -> value callable (preprocess= to transform the token first)."
+                ),
                 "dest": "The dest is the parameter name; rename the parameter instead.",
                 "action": "Use Option(action=...) (only Option supports an action; Argument is always positional).",
                 "required": (
@@ -345,6 +440,9 @@ class _BaseArgMetadata:
         self.suppress_tab_hint = suppress_tab_hint
         self.const = const
         self.default = default
+        self.allow_unknown_entry = allow_unknown_entry
+        self.converter = converter
+        self.preprocess = preprocess
         self.extra_kwargs = extra_kwargs
 
     def to_kwargs(self) -> dict[str, Any]:
@@ -394,6 +492,52 @@ class Option(_BaseArgMetadata):
         if self.required:
             kwargs["required"] = True
         return kwargs
+
+
+class ArgumentBlock:
+    """Marker base class for a reusable ``@with_annotated`` argument block.
+
+    Subclass it on a ``@dataclass`` to have [`with_annotated`][cmd2.annotated.with_annotated] expand the
+    dataclass's fields into flat command-line arguments and reconstruct an instance at call time::
+
+        @dataclass
+        class CommonArgs(ArgumentBlock):
+            verbose: Annotated[bool, Option("-v", "--verbose")] = False
+
+
+        class MyApp(cmd2.Cmd):
+            @cmd2.with_annotated
+            def do_build(self, target: str, common: CommonArgs): ...
+
+    Only a class that inherits ``ArgumentBlock`` is treated as a block, so a plain ``@dataclass`` is left
+    alone and can still be used as an ordinary single argument value (e.g. via an ``Argument(converter=...)``).
+    Inheritance doubles as the reuse mechanism: a subclass of a block is itself a block, so a shared base
+    block can be extended per command without repeating its fields.  A block must be the *bare* annotation
+    of a regular parameter -- wrapping it in ``Annotated``/``Optional``/a union, or using it as ``*args`` /
+    ``**kwargs``, raises ``TypeError``.
+
+    To share a block between a command and its subcommands, name the parameter ``cmd2_base_args`` on the
+    command and ``cmd2_parent_args`` on each subcommand that should receive it::
+
+        @dataclass
+        class SharedOpts(ArgumentBlock):
+            verbose: Annotated[bool, Option("-v", "--verbose")] = False
+
+
+        class MyApp(cmd2.Cmd):
+            @cmd2.with_annotated(base_command=True)
+            def do_root(self, cmd2_subcommand_func, cmd2_base_args: SharedOpts): ...
+
+            @cmd2.with_annotated(subcommand_to="root")
+            def root_show(self, cmd2_parent_args: SharedOpts):
+                self.poutput(cmd2_parent_args.verbose)  # parsed on `root`, read here
+
+    A base command and its subcommands parse into one shared ``argparse.Namespace``.  ``cmd2_base_args``
+    adds the block's flags to the command's *own* parser; ``cmd2_parent_args`` adds *no* arguments and is
+    reconstructed from the values an ancestor parsed (``root --verbose show``, not ``root show --verbose``).
+    A ``cmd2_parent_args`` subcommand whose ancestors never declare a matching ``cmd2_base_args`` raises a
+    clear error the first time it runs.
+    """
 
 
 class Group:
@@ -474,6 +618,25 @@ def _parse_bool(value: str) -> bool:
     raise argparse.ArgumentTypeError(f"invalid boolean value: {value!r} (choose from: 1, 0, true, false, yes, no, on, off)")
 
 
+def _choice_text(choice: Any) -> str:
+    """Command-line spelling of a choice (the ``CompletionItem`` text, else ``str``)."""
+    return choice.text if isinstance(choice, CompletionItem) else str(choice)
+
+
+def _invalid_choice(value: str, choices: Iterable[Any]) -> argparse.ArgumentTypeError:
+    """Build the standard 'invalid choice' rejection, de-duplicating the listed choices."""
+    valid = ", ".join(dict.fromkeys(_choice_text(c) for c in choices))
+    return argparse.ArgumentTypeError(f"invalid choice: {value!r} (choose from {valid})")
+
+
+def _dedupe_choices(choices: Iterable[Any]) -> list[Any]:
+    """Drop choices that share a command-line spelling, keeping the first occurrence."""
+    by_text: dict[str, Any] = {}
+    for choice in choices:
+        by_text.setdefault(_choice_text(choice), choice)
+    return list(by_text.values())
+
+
 def _make_literal_type(literal_values: list[Any]) -> Callable[[str], Any]:
     """Create an argparse converter for a Literal's exact values."""
     value_map: dict[str, Any] = {}
@@ -501,17 +664,20 @@ def _make_literal_type(literal_values: list[Any]) -> Callable[[str], Any]:
                 if type(v) is bool and v == bool_value:
                     return bool_value
 
-        valid = ", ".join(str(v) for v in literal_values)
-        raise argparse.ArgumentTypeError(f"invalid choice: {value!r} (choose from {valid})")
+        raise _invalid_choice(value, literal_values)
 
     _convert.__name__ = "literal"
     return _convert
 
 
-def _make_enum_type(enum_class: type[enum.Enum]) -> Callable[[str], enum.Enum]:
+def _make_enum_type(enum_class: type[enum.Enum], *, allow_unknown_entry: bool = False) -> Callable[[str], enum.Enum]:
     """Create an argparse *type* converter for an Enum class.
 
-    Accepts both member *values* and member *names*.
+    Accepts both member *values* and member *names*.  When ``allow_unknown_entry`` is set, a token
+    matched by neither is passed to the enum's own ``_missing_`` hook so it can resolve aliases,
+    alternate spellings, or special keywords; a token ``_missing_`` declines to claim (returns
+    ``None``) is still rejected.  An enum that does not override ``_missing_`` inherits the default
+    (which returns ``None``), so the flag is simply inert for it.
     """
     _value_map = {str(m.value): m for m in enum_class}
 
@@ -521,9 +687,15 @@ def _make_enum_type(enum_class: type[enum.Enum]) -> Callable[[str], enum.Enum]:
             return member
         try:
             return enum_class[value]
-        except KeyError as err:
-            valid = ", ".join(_value_map)
-            raise argparse.ArgumentTypeError(f"invalid choice: {value!r} (choose from {valid})") from err
+        except KeyError:
+            pass
+        if allow_unknown_entry:
+            # Call _missing_ directly so its return is honored and any error it raises propagates
+            # (rather than being masked as an "invalid choice"); a None return falls through below.
+            resolved = enum_class._missing_(value)
+            if isinstance(resolved, enum_class):
+                return resolved
+        raise _invalid_choice(value, _value_map)
 
     _convert.__name__ = enum_class.__name__
     _convert._cmd2_enum_class = enum_class  # type: ignore[attr-defined]
@@ -579,27 +751,34 @@ def _resolve_bool(_tp: Any, _args: tuple[Any, ...], *, is_positional: bool = Fal
     return _TypeResult(converter=_parse_bool, choices=list(_BOOL_CHOICES))
 
 
-def _resolve_element(tp: Any) -> _TypeResult:
+def _resolve_element(tp: Any, *, allow_unknown_entry: bool = False, has_converter: bool = False) -> _TypeResult:
     """Resolve a collection element type and reject nested collections."""
-    inner = _resolve_base_type(tp, is_positional=True)
+    inner = _resolve_base_type(tp, is_positional=True, allow_unknown_entry=allow_unknown_entry, has_converter=has_converter)
     if inner.is_collection:
         raise TypeError("Nested collections are not supported")
     return inner
 
 
 def _make_collection_resolver(collection_type: type) -> Callable[..., _TypeResult]:
-    """Create a resolver for single-arg collections (list[T], set[T])."""
+    """Create a resolver for single-arg collections (list[T], set[T], frozenset[T])."""
 
-    def _resolve(_tp: Any, args: tuple[Any, ...], **_ctx: Any) -> _TypeResult:
+    def _resolve(
+        _tp: Any,
+        args: tuple[Any, ...],
+        *,
+        allow_unknown_entry: bool = False,
+        has_converter: bool = False,
+        **_ctx: Any,
+    ) -> _TypeResult:
         if len(args) == 0:
-            # Bare list/set without type args -- treat as list[str]/set[str].
+            # Bare list/set/frozenset without type args -- treat as list[str]/set[str]/frozenset[str].
             return _TypeResult(is_collection=True, container_factory=collection_type)
         if len(args) != 1:
             raise TypeError(
                 f"{collection_type.__name__}[...] with {len(args)} type arguments is not supported; "
                 f"use {collection_type.__name__}[T] with a single element type."
             )
-        element = _resolve_element(args[0])
+        element = _resolve_element(args[0], allow_unknown_entry=allow_unknown_entry, has_converter=has_converter)
         return _TypeResult(
             converter=element.converter,
             choices=element.choices,
@@ -611,14 +790,21 @@ def _make_collection_resolver(collection_type: type) -> Callable[..., _TypeResul
     return _resolve
 
 
-def _resolve_tuple(_tp: Any, args: tuple[Any, ...], **_ctx: Any) -> _TypeResult:
+def _resolve_tuple(
+    _tp: Any,
+    args: tuple[Any, ...],
+    *,
+    allow_unknown_entry: bool = False,
+    has_converter: bool = False,
+    **_ctx: Any,
+) -> _TypeResult:
     """Resolve tuple[T, ...] (variable) and tuple[T, T] (fixed arity)."""
     if not args:
         # Bare tuple without type args -- treat as tuple[str, ...].
         return _TypeResult(is_collection=True, container_factory=tuple)
 
     if len(args) == 2 and args[1] is Ellipsis:
-        element = _resolve_element(args[0])
+        element = _resolve_element(args[0], allow_unknown_entry=allow_unknown_entry, has_converter=has_converter)
         return _TypeResult(
             converter=element.converter,
             choices=element.choices,
@@ -636,7 +822,7 @@ def _resolve_tuple(_tp: Any, args: tuple[Any, ...], **_ctx: Any) -> _TypeResult:
                 f"can only apply a single type= converter per argument. "
                 f"Use tuple[T, T] (same type) or tuple[T, ...] instead."
             )
-        element = _resolve_element(first)
+        element = _resolve_element(first, allow_unknown_entry=allow_unknown_entry, has_converter=has_converter)
         return _TypeResult(
             converter=element.converter,
             choices=element.choices,
@@ -658,12 +844,58 @@ def _resolve_literal(_tp: Any, args: tuple[Any, ...], **_ctx: Any) -> _TypeResul
     return _TypeResult(converter=_make_literal_type(literal_values), choices=literal_values)
 
 
-def _resolve_enum(tp: Any, _args: tuple[Any, ...], **_ctx: Any) -> _TypeResult:
+def _resolve_enum(tp: Any, _args: tuple[Any, ...], *, allow_unknown_entry: bool = False, **_ctx: Any) -> _TypeResult:
     """Resolve Enum subclasses into converter + choices."""
     return _TypeResult(
-        converter=_make_enum_type(tp),
+        converter=_make_enum_type(tp, allow_unknown_entry=allow_unknown_entry),
         choices=[CompletionItem(m, text=str(m.value), display_meta=m.name) for m in tp],
     )
+
+
+def _is_enum(tp: Any) -> bool:
+    """Whether *tp* is an ``enum.Enum`` subclass."""
+    return isinstance(tp, type) and issubclass(tp, enum.Enum)
+
+
+def _resolve_union(
+    _tp: Any, args: tuple[Any, ...], *, allow_unknown_entry: bool = False, has_converter: bool = False, **_ctx: Any
+) -> _TypeResult:
+    """Resolve a union whose non-``None`` members are all Enums by trying each member's converter.
+
+    Each member keeps its own converter, so member values, member names, and any ``_missing_``
+    behavior (via ``allow_unknown_entry``) are preserved.  A token is resolved by the first member
+    that accepts it, so when two members share a representation the earlier union member wins.  A
+    union with any non-Enum member (including a ``Literal``) is rejected as ambiguous.
+
+    A member declines a token by raising -- a clean ``ArgumentTypeError`` or anything a strict
+    ``_missing_`` raises -- and the next member is tried, so a raising member never pre-empts those
+    after it.  Only when every member declines is the merged-choices rejection raised.
+
+    With ``has_converter`` the user's ``converter=`` owns the conversion, so the ambiguity rejection
+    is suppressed and an empty result is returned (any union, Enum or not, is legal).
+    """
+    if has_converter:
+        return _TypeResult()
+    non_none = [a for a in args if a is not type(None)]
+    if not all(_is_enum(a) for a in non_none):
+        type_names = " | ".join(_type_name(a) for a in non_none)
+        raise TypeError(f"Union type {type_names} is ambiguous for auto-resolution.")
+
+    parts = [_resolve_base_type(member, allow_unknown_entry=allow_unknown_entry) for member in non_none]
+    # Every part is an Enum (guarded above), so each has a converter; the None-filter keeps mypy happy.
+    converters = [part.converter for part in parts if part.converter is not None]
+    choices = _dedupe_choices(choice for part in parts for choice in (part.choices or []))
+
+    def _convert(value: str) -> Any:
+        for converter in converters:
+            try:
+                return converter(value)
+            except Exception:  # noqa: BLE001, S112 - any raise means "not mine"; try the next member
+                continue
+        raise _invalid_choice(value, choices)
+
+    _convert.__name__ = "union"
+    return _TypeResult(converter=_convert, choices=choices)
 
 
 # -- Registry -----------------------------------------------------------------
@@ -679,6 +911,9 @@ _TYPE_TABLE: dict[Any, Callable[..., _TypeResult]] = {
     float: _make_simple_resolver(float),
     int: _make_simple_resolver(int),
     Literal: _resolve_literal,
+    Union: _resolve_union,
+    types.UnionType: _resolve_union,
+    frozenset: _make_collection_resolver(frozenset),
     list: _make_collection_resolver(list),
     set: _make_collection_resolver(set),
     tuple: _resolve_tuple,
@@ -697,11 +932,15 @@ def _type_name(tp: Any) -> str:
 _PASSTHROUGH_TYPES = frozenset({str, object, Any, inspect.Parameter.empty})
 
 
-def _resolve_base_type(tp: Any, *, is_positional: bool = False) -> _TypeResult:
+def _resolve_base_type(
+    tp: Any, *, is_positional: bool = False, allow_unknown_entry: bool = False, has_converter: bool = False
+) -> _TypeResult:
     """Resolve a declared type into a :class:`_TypeResult` via the registry.
 
     Lookup order: ``get_origin(tp)`` -> ``tp`` -> ``issubclass`` fallback -> passthrough.
-    Raises ``TypeError`` for a scalar with no converter.
+    Raises ``TypeError`` for a scalar with no converter, unless ``has_converter`` is set -- then an
+    unresolvable type yields an empty result, because the user's ``converter=`` owns the conversion
+    and only the collection *shape* (if any) is read from the resolved entry.
     """
     args = get_args(tp)
     resolver = _TYPE_TABLE.get(get_origin(tp)) or _TYPE_TABLE.get(tp)
@@ -714,21 +953,25 @@ def _resolve_base_type(tp: Any, *, is_positional: bool = False) -> _TypeResult:
                 break
 
     if resolver is not None:
-        return resolver(tp, args, is_positional=is_positional)
-    if tp in _PASSTHROUGH_TYPES:
+        return resolver(
+            tp, args, is_positional=is_positional, allow_unknown_entry=allow_unknown_entry, has_converter=has_converter
+        )
+    if tp in _PASSTHROUGH_TYPES or has_converter:
         return _TypeResult()
     raise TypeError(
         f"Unsupported parameter type {_type_name(tp)!r} for @with_annotated: there is no converter "
         f"for it, so command-line values would silently arrive as plain strings. Supported scalar types "
         f"are str, int, float, bool, decimal.Decimal, pathlib.Path, enum.Enum subclasses, and Literal[...]; "
-        f"use one of these (optionally in list/set/tuple) or a subclass of one."
+        f"use one of these (optionally in list/set/frozenset/tuple) or a subclass of one."
     )
 
 
 def _unwrap_optional(tp: Any) -> tuple[Any, bool]:
     """If *tp* is ``T | None``, return ``(T, True)``.  Otherwise ``(tp, False)``.
 
-    Raises ``TypeError`` for ambiguous unions like ``str | int`` or ``str | int | None``.
+    Only the ``None`` is stripped here.  A multi-member union (with ``None`` removed) is handed back
+    intact for :func:`_resolve_union` to accept (all-Enum) or reject (ambiguous); that decision lives
+    there alone, so this helper never validates union members itself.
     """
     origin = get_origin(tp)
     if origin is Union or origin is types.UnionType:  # type: ignore[comparison-overlap]
@@ -742,8 +985,8 @@ def _unwrap_optional(tp: Any) -> tuple[Any, bool]:
                 f"Unexpected single-element Union without None: Union[{non_none[0]}]. "
                 f"Use the type directly instead of wrapping in Union."
             )
-        type_names = " | ".join(_type_name(a) for a in non_none)
-        raise TypeError(f"Union type {type_names} is ambiguous for auto-resolution.")
+        # Rebuild the union without its None member and let _resolve_union judge it.
+        return functools.reduce(operator.or_, non_none), has_none
     return tp, False
 
 
@@ -845,6 +1088,26 @@ def _first_match(rules: list[_Rule[_S, _R]], subject: _S) -> _R:
     return next(produce(subject) for predicate, produce in rules if predicate(subject))
 
 
+def _compose_preprocess(preprocess: Callable[[str], str], converter: Callable[[str], Any] | None) -> Callable[[str], Any]:
+    """Return a ``type=`` callable that runs *preprocess* on the raw token before *converter*.
+
+    With no inferred converter (a ``str`` passthrough) the preprocess callable becomes the converter
+    itself.  The wrapper copies the inner converter's ``__name__`` and ``_cmd2_enum_class`` so argparse
+    error messages and enum introspection keep working through the wrap.
+    """
+    if converter is None:
+        return preprocess
+
+    def _convert(value: str) -> Any:
+        return converter(preprocess(value))
+
+    _convert.__name__ = getattr(converter, "__name__", "preprocess")
+    enum_class = getattr(converter, "_cmd2_enum_class", None)
+    if enum_class is not None:
+        _convert._cmd2_enum_class = enum_class  # type: ignore[attr-defined]
+    return _convert
+
+
 class _ArgparseArgument:
     """Builder whose output fields mirror ``parser.add_argument(...)``'s schema."""
 
@@ -862,12 +1125,16 @@ class _ArgparseArgument:
         is_optional: bool,
         kind: inspect._ParameterKind,
         is_base_command: bool,
+        is_block_field: bool = False,
+        dest_override: str | None = None,
     ) -> None:
         # signature-derived inputs (never emitted):
         self.name = name
         self.func_qualname = func_qualname
         self.has_default = has_default
         self.param_default = param_default  # the function's own default, not the argparse `default` slot
+        self.is_block_field = is_block_field
+        self.dest_override = dest_override
         self.is_kw_only = is_kw_only
         self.is_variadic = is_variadic
         self.inner_type = inner_type  # peeled type (after Annotated + Optional)
@@ -893,8 +1160,8 @@ class _ArgparseArgument:
         self.build_error: Exception | None = None
         # cross-argument facts, linked by _resolve_parameters once the whole list is built:
         self.has_following_positional = False
-        # 1-based indices of the groups=/mutually_exclusive_groups= this parameter belongs to:
-        self.argument_group_indices: list[int] = []
+        # 1-based indices of the mutually_exclusive_groups= entries this parameter belongs to
+        # (spec-shaped rules live in _validate_group_specs; this fact feeds the required-member row):
         self.mutex_group_indices: list[int] = []
         # Derive every output slot now; validation stays deferred to _check_constraints.
         self._apply()
@@ -911,7 +1178,7 @@ class _ArgparseArgument:
     def _is_list(self) -> bool:
         """Whether the declared type is ``list``/``list[T]`` -- the shape the list actions need.
 
-        Distinct from :attr:`is_collection` (also true for ``set``/``tuple``): ``append``/``extend``/
+        Distinct from :attr:`is_collection` (also true for ``set``/``frozenset``/``tuple``): ``append``/``extend``/
         ``append_const`` accumulate specifically into a ``list``.
         """
         return get_origin(self.inner_type) is list or self.inner_type is list
@@ -932,14 +1199,14 @@ class _ArgparseArgument:
 
     @property
     def _var_positional_element_is_collection(self) -> bool:
-        """Whether the ``*args`` element is itself a collection (``list``/``set``/``tuple``).
+        """Whether the ``*args`` element is itself a collection (``list``/``set``/``frozenset``/``tuple``).
 
         Mirrors the collection entries in :data:`_TYPE_TABLE`; a collection element means ``*args``
         would collect a tuple of collections, which the constraint table rejects.
         """
         element = self._var_positional_element
         origin = get_origin(element)
-        return (origin if origin is not None else element) in (list, set, tuple)
+        return (origin if origin is not None else element) in (list, set, frozenset, tuple)
 
     # -- the user's metadata overrides, derived read-only from ``metadata`` (consulted by the
     #    choices/action/nargs/required tables, the action phase, and the constraints) --
@@ -970,6 +1237,24 @@ class _ArgparseArgument:
         if self.metadata is None:
             return False
         return self.metadata.choices_provider is not None or self.metadata.completer is not None
+
+    @property
+    def _meta_converter(self) -> Callable[[str], Any] | None:
+        """An explicit ``Argument/Option(converter=)`` callable, else ``None``.
+
+        When present it replaces the inferred ``type=`` converter and the annotation is no longer
+        required to be a built-in scalar (the converter owns string -> value).
+        """
+        return self.metadata.converter if self.metadata is not None else None
+
+    @property
+    def _meta_preprocess(self) -> Callable[[str], str] | None:
+        """An explicit ``Argument/Option(preprocess=)`` callable, else ``None``.
+
+        When present it runs before the inferred converter (``str -> str``), so the inferred
+        ``type=``/``choices``/completer are all kept and only the raw token is transformed.
+        """
+        return self.metadata.preprocess if self.metadata is not None else None
 
     @property
     def _meta_action(self) -> str | type[argparse.Action] | None:
@@ -1049,6 +1334,15 @@ class _ArgparseArgument:
         """Whether this is a bool option using the inferred ``BooleanOptionalAction`` (no explicit action)."""
         return self.action is argparse.BooleanOptionalAction
 
+    @property
+    def _consumes_value(self) -> bool:
+        """Whether this option takes a command-line value (so argparse derives/shows a metavar for it).
+
+        A flag-style action (``store_true``/``count``/``BooleanOptionalAction``/...) takes none, so it has
+        no metavar -- and some of those actions even reject a ``metavar`` kwarg.
+        """
+        return not self._is_inferred_bool_flag and not (self._policy is not None and self._policy.drop_converter)
+
     def _apply(self) -> None:
         """Build this argument by deriving each output slot."""
         self.is_positional = _first_match(_ROLE_RULES, self)
@@ -1112,19 +1406,34 @@ class _ArgparseArgument:
         Rather than raise here -- which would let build order decide the message -- the error is captured
         so :data:`_CONSTRAINTS` can rank it against more specific rules and raise the winner.
         """
+        allow_unknown_entry = self.metadata.allow_unknown_entry if self.metadata is not None else False
         try:
-            result = _resolve_base_type(self.inner_type, is_positional=self.is_positional)
+            result = _resolve_base_type(
+                self.inner_type,
+                is_positional=self.is_positional,
+                allow_unknown_entry=allow_unknown_entry,
+                has_converter=self._meta_converter is not None,
+            )
         except TypeError as exc:
             self.build_error = exc
             return
-        self.type = result.converter
-        self.choices = result.choices
+        if self._meta_converter is not None:
+            # An explicit converter replaces the inferred type= and owns the value-space, so the
+            # inferred choices/completer (derived from the inferred converter) no longer apply.
+            self.type = self._meta_converter
+            self.choices = None
+        else:
+            self.type = result.converter
+            self.choices = result.choices
+            if result.completer is not None:
+                self.extras["completer"] = result.completer
+        if self._meta_preprocess is not None:
+            # Transform the raw token before the (inferred) converter, keeping its choices/completer.
+            self.type = _compose_preprocess(self._meta_preprocess, self.type)
         # A collection coerces its parsed list into the declared container type; option bool
         # gets ``--flag/--no-flag``.  Either may be overridden by an explicit ``Option(action=)``.
         self.action = _CollectionCastingAction if result.is_collection else result.action
         self.container_factory = result.container_factory
-        if result.completer is not None:
-            self.extras["completer"] = result.completer
         self.is_collection = result.is_collection
         self.fixed_arity = result.fixed_arity
 
@@ -1197,9 +1506,14 @@ class _ArgparseArgument:
             kwargs["default"] = self.default
         if self.required:
             kwargs["required"] = True
+        dest = self.dest_override or self.name
         if self.is_positional:
-            return (self.name,), kwargs
-        kwargs["dest"] = self.name
+            if self.dest_override is not None:
+                kwargs.setdefault("metavar", self.name)
+            return (dest,), kwargs
+        if self.dest_override is not None and self._consumes_value:
+            kwargs.setdefault("metavar", self.name.upper())
+        kwargs["dest"] = dest
         return tuple(self.flags), kwargs
 
     def add_to(self, target: _ArgumentTarget) -> None:
@@ -1287,7 +1601,7 @@ _CHOICES_RULES: list[_Rule[_ArgparseArgument, Iterable[Any] | None]] = [
 _NARGS_RULES: list[_Rule[_ArgparseArgument, _NargsValue | None]] = [
     (lambda a: a._meta_nargs is not None, lambda a: a._meta_nargs),  # an explicit Argument(nargs=) wins
     (lambda a: a.fixed_arity is not None, lambda a: a.fixed_arity),  # tuple[T, T] pins nargs to its arity
-    (lambda a: a.is_collection and a.omittable, _const("*")),  # list/set/tuple[T, ...] that may be empty
+    (lambda a: a.is_collection and a.omittable, _const("*")),  # list/set/frozenset/tuple[T, ...] that may be empty
     (lambda a: a.is_collection, _const("+")),  # collection requiring >= 1 value
     (lambda a: a.is_positional and a.omittable, _const("?")),  # an optional scalar positional
     (_always, _const(None)),  # required scalar / any option scalar
@@ -1296,6 +1610,9 @@ _NARGS_RULES: list[_Rule[_ArgparseArgument, _NargsValue | None]] = [
 #: Default-value table.  Either source (signature or metadata) feeds the parser default;
 #: explicit-action defaults (count -> 0, append/extend -> []) are added later by the action phase.
 _DEFAULT_RULES: list[_Rule[_ArgparseArgument, Any]] = [
+    # A dataclass-block field with a field default emits SUPPRESS so the absent field stays out of the
+    # namespace and the dataclass constructor supplies the default (fresh per call for default_factory).
+    (lambda a: a.is_block_field and a.has_default, _const(argparse.SUPPRESS)),
     (lambda a: a._effective_has_default, lambda a: a._effective_param_default),
     # A bool option is a flag: when absent it means ``False`` (not a missing value), so -- like
     # store_true -- it carries its own default.  ``bool | None`` keeps the catch-all ``_UNSET``
@@ -1533,6 +1850,30 @@ _CONSTRAINTS: list[_Rule[_ArgparseArgument, Exception | None]] = [
         ),
     ),
     (
+        # converter= replaces the conversion; preprocess= composes with the inferred one. They are two
+        # ways to set the same thing, so supplying both is ambiguous -- fold the preprocessing into the
+        # converter, which already receives the raw token.
+        lambda a: a._meta_converter is not None and a._meta_preprocess is not None,
+        lambda a: TypeError(
+            f"converter= and preprocess= on '{a.name}' cannot be combined; a converter receives the raw "
+            f"token, so fold the preprocessing into it."
+        ),
+    ),
+    (
+        # A converter/preprocess on a value-less action (store_true/false, count, store_const,
+        # append_const) has no command-line value to convert.
+        lambda a: (
+            a._policy is not None
+            and a._policy.drop_converter
+            and (a._meta_converter is not None or a._meta_preprocess is not None)
+        ),
+        lambda a: TypeError(
+            f"converter=/preprocess= on '{a.name}' cannot be used with action={a._effective_action!r}, "
+            f"which takes no value from the command line, so there is nothing to convert. Remove the "
+            f"converter/preprocess, or use a value-consuming action."
+        ),
+    ),
+    (
         lambda a: a._policy is not None and a._policy.requires is not None and not a._policy.requires(a),
         lambda a: TypeError(
             f"Option(action={a._meta_action!r}) yields {a._policy.requires_label if a._policy else ''}; "
@@ -1571,12 +1912,12 @@ _CONSTRAINTS: list[_Rule[_ArgparseArgument, Exception | None]] = [
         lambda a: TypeError(
             f"nargs={a._meta_nargs!r} produces a list of values, but the annotation "
             f"'{_type_name(a.inner_type)}' is not a collection type. "
-            f"Use list[T], tuple[T, ...], or set[T] (optionally with | None) to match."
+            f"Use list[T], tuple[T, ...], set[T], or frozenset[T] (optionally with | None) to match."
         ),
     ),
     (
         # An explicit '?' / (0, 1) on a collection yields a single value (or None), which the
-        # collection-casting action cannot wrap into the declared list/set/tuple.
+        # collection-casting action cannot wrap into the declared list/set/frozenset/tuple.
         lambda a: a.is_collection and a._meta_nargs_yields_optional_single,
         lambda a: TypeError(
             f"parameter '{a.name}' in {a.func_qualname} sets nargs={a._meta_nargs!r} on the collection "
@@ -1598,8 +1939,9 @@ _CONSTRAINTS: list[_Rule[_ArgparseArgument, Exception | None]] = [
         # sources of truth for the same value; refuse rather than silently pick a winner.
         lambda a: a.has_default and a._has_meta_default,
         lambda a: TypeError(
-            f"parameter '{a.name}' in {a.func_qualname} has a default in both the function signature "
-            f"({a.param_default!r}) and the metadata ({a._meta_default!r}); specify it in only one place."
+            f"parameter '{a.name}' in {a.func_qualname} has a default in both the "
+            f"{'dataclass field' if a.is_block_field else f'function signature ({a.param_default!r})'} "
+            f"and the metadata ({a._meta_default!r}); specify it in only one place."
         ),
     ),
     (
@@ -1614,10 +1956,25 @@ _CONSTRAINTS: list[_Rule[_ArgparseArgument, Exception | None]] = [
         ),
     ),
     (
+        # A block field's default must live on the dataclass field: a field default emits SUPPRESS (see
+        # _DEFAULT_RULES) so the dataclass constructor produces the value fresh on every call.
+        lambda a: a.is_block_field and not a.has_default and a.default is not _UNSET,
+        lambda a: TypeError(
+            f"ArgumentBlock field '{a.name}' in {a.func_qualname} would take its default ({a.default!r}) from "
+            f"the option metadata or its action, but a block field's default must live on the dataclass field "
+            f"so the constructor produces it fresh on every call. Put it on the field instead -- a plain "
+            f"default for an immutable value (e.g. '{a.name}: ... = False'), or 'field(default_factory=...)' "
+            f"for a mutable one (e.g. '= field(default_factory=list)')."
+        ),
+    ),
+    (
         lambda a: (
             a._effective_has_default
             and a._effective_param_default is None
             and not a.is_optional
+            # A block field carries a placeholder None default here; its real default lives in the dataclass
+            # (emitted as SUPPRESS), so this signature-default check does not apply.
+            and not a.is_block_field
             and a.inner_type not in (object, Any, inspect.Parameter.empty)
         ),
         lambda a: TypeError(
@@ -1660,20 +2017,6 @@ _CONSTRAINTS: list[_Rule[_ArgparseArgument, Exception | None]] = [
         ),
     ),
     (
-        # Cross-config: a parameter assigned to two argument groups is ambiguous. The membership
-        # indices are linked by _resolve_parameters from the decorator's groups= before this runs.
-        lambda a: len(a.argument_group_indices) > 1,
-        lambda a: ValueError(
-            f"parameter {a.name!r} cannot be assigned to both argument "
-            f"group {a.argument_group_indices[0]} and argument group {a.argument_group_indices[1]}"
-        ),
-    ),
-    (
-        # Cross-config: a parameter cannot belong to two mutually exclusive groups.
-        lambda a: len(a.mutex_group_indices) > 1,
-        lambda a: ValueError(f"parameter {a.name!r} cannot be assigned to multiple mutually exclusive groups"),
-    ),
-    (
         # Cross-config: a required member is incompatible with a mutex group -- only one member is
         # supplied, so the others arrive as None (violating its non-Optional type), and argparse forbids
         # it.  This is an argument-typing rule (required-ness comes from the annotation), so it lives here
@@ -1705,55 +2048,61 @@ _CONSTRAINTS: list[_Rule[_ArgparseArgument, Exception | None]] = [
 # parameter (self/cls) is always skipped by position; these cover additional decorator-managed names.
 _SKIP_PARAMS = frozenset({constants.NS_ATTR_SUBCOMMAND_FUNC, constants.NS_ATTR_STATEMENT})
 
+NS_ATTR_BASE_ARGS = constants.cmd2_public_attr_name("base_args")
+NS_ATTR_PARENT_ARGS = constants.cmd2_public_attr_name("parent_args")
 
-def _link_group_membership(
-    by_name: dict[str, _ArgparseArgument],
-    specs: tuple[Group, ...] | None,
-    select: Callable[[_ArgparseArgument], list[int]],
-) -> None:
-    """Append each spec's 1-based index to the *select*-ed membership list of each member argument.
 
-    :func:`_resolve_parameters` validates member references via :meth:`Group._validate_members`
-    before calling this, so every member name resolves to a built argument.
+def _base_args_marker_dest(dc_type: type) -> str:
+    """Namespace dest of the parse-time presence marker for a ``cmd2_base_args`` block of *dc_type*.
+
+    Keyed by ``id()`` of the block type: ``cmd2_base_args`` and ``cmd2_parent_args`` referencing the same
+    block class share the exact type object, so the dest a parent stamps matches the one a child checks,
+    and a child inheriting the wrong type sees its marker absent (a reliable mismatch error).
     """
-    if not specs:
+    return constants.cmd2_private_attr_name(f"base_args_{id(dc_type):x}")
+
+
+def _shared_field_dest(dc_type: type, field_name: str) -> str:
+    """Namespace dest for a shared-block (``cmd2_base_args``/``cmd2_parent_args``) field, qualified by type.
+
+    Keyed by ``id()`` of the block type like the presence marker, so a parent's ``cmd2_base_args`` and a
+    child's ``cmd2_parent_args`` of the same class agree on the dest while two different block types that
+    share a field name get distinct dests -- they never collide on one attribute in the shared namespace.
+    """
+    return constants.cmd2_private_attr_name(f"shared_{id(dc_type):x}_{field_name}")
+
+
+def _link_mutex_group_membership(
+    by_name: dict[str, _ArgparseArgument],
+    mutually_exclusive_groups: tuple[Group, ...] | None,
+) -> None:
+    """Append each mutex group's 1-based index to its member arguments' ``mutex_group_indices``.
+
+    This membership is the fact behind the required-member constraint row.  Member references are
+    validated upstream by :func:`_validate_group_specs` before this runs, so every member name
+    resolves to a built argument.
+    """
+    if not mutually_exclusive_groups:
         return
-    for index, spec in enumerate(specs, start=1):
+    for index, spec in enumerate(mutually_exclusive_groups, start=1):
         for name in spec.members:
-            select(by_name[name]).append(index)
+            by_name[name].mutex_group_indices.append(index)
 
 
-def _resolve_parameters(
-    func: Callable[..., Any],
-    *,
-    skip_params: frozenset[str] = _SKIP_PARAMS,
-    base_command: bool = False,
-    groups: tuple[Group, ...] | None = None,
-    mutually_exclusive_groups: tuple[Group, ...] | None = None,
-) -> list[_ArgparseArgument]:
-    """Resolve a function signature into a list of argparse-argument builders.
+def _resolve_func_hints(func: Callable[..., Any], *, skip_params: frozenset[str] = _SKIP_PARAMS) -> dict[str, Any]:
+    """Resolve the type hints for the parameters that become arguments.
 
-    ``base_command`` marks each argument's context for the base-command :data:`_CONSTRAINTS` rows and
-    drives the function-level ``cmd2_subcommand_func`` check below.  ``groups``/``mutually_exclusive_groups``
-    are linked onto each argument as membership facts for the cross-config constraint rows.
+    The bound first parameter (self/cls), the injected ``skip_params``, and the ``return`` annotation
+    never become arguments, so they are dropped before resolution.  Forward references resolve against
+    the *original* function's module so a ``functools.wraps`` wrapper still resolves correctly.
     """
     sig = inspect.signature(func)
-    # Function-level check (not a per-argument _CONSTRAINTS row): a base command dispatches through
-    # cmd2_subcommand_func, so it must exist.  Here so it also fires when the function has zero parameters.
-    if base_command and constants.NS_ATTR_SUBCOMMAND_FUNC not in sig.parameters:
-        raise TypeError(
-            f"with_annotated(base_command=True) requires a '{constants.NS_ATTR_SUBCOMMAND_FUNC}' "
-            f"parameter in {func.__qualname__}"
-        )
-    # Resolve hints only for the parameters that become arguments: the bound first parameter
-    # (self/cls), the injected skip_params, and the "return" annotation never become arguments
     ignored = {next(iter(sig.parameters), None), "return", *skip_params}
     ignored.discard(None)
     relevant_annotations = {name: ann for name, ann in getattr(func, "__annotations__", {}).items() if name not in ignored}
-    # Forward references resolve against the *original* function's module during functools.wraps wrapper.
     unwrapped = inspect.unwrap(func)
     try:
-        hints = get_type_hints(
+        return get_type_hints(
             types.SimpleNamespace(__annotations__=relevant_annotations),
             globalns=getattr(unwrapped, "__globals__", {}),
             include_extras=True,
@@ -1763,7 +2112,272 @@ def _resolve_parameters(
             f"Failed to resolve type hints for {func.__qualname__}. Ensure all annotations use valid, importable types."
         ) from exc
 
+
+def _is_argument_block(hint: Any, param: inspect.Parameter) -> TypeGuard[type[ArgumentBlock]]:
+    """Whether a parameter is a bare [`ArgumentBlock`][cmd2.annotated.ArgumentBlock] whose fields expand flat.
+
+    Only a by-keyword-passable parameter (positional-or-keyword or keyword-only) annotated with a bare
+    ``ArgumentBlock`` subclass qualifies.  Membership -- not "is a dataclass" -- is the trigger, so a plain
+    ``@dataclass`` is never captured; the block must still be a ``@dataclass`` to have fields to expand,
+    which :func:`_expand_dataclass_block` enforces with a clear message.
+    """
+    return (
+        param.kind in (inspect.Parameter.POSITIONAL_OR_KEYWORD, inspect.Parameter.KEYWORD_ONLY)
+        and isinstance(hint, type)
+        and issubclass(hint, ArgumentBlock)
+    )
+
+
+def _require_magic_block(name: str, hint: Any, param: inspect.Parameter, func_qualname: str) -> type[ArgumentBlock]:
+    """Return the ``ArgumentBlock`` subclass annotating a ``cmd2_base_args``/``cmd2_parent_args`` parameter.
+
+    Both magic parameters must be a bare ``ArgumentBlock`` subclass, the same form a regular block uses.  A
+    wrong annotation (a plain value, or a block wrapped in ``Annotated``/``Optional``/a union) is rejected
+    here with a clear message rather than being silently treated as an ordinary argument.
+    """
+    if _is_argument_block(hint, param):
+        return hint
+    raise TypeError(
+        f"Parameter '{name}' in {func_qualname} must be annotated with a bare ArgumentBlock subclass "
+        f"(e.g. '{name}: SharedOpts'); it shares a block between a command and its subcommands."
+    )
+
+
+def _find_argument_block(hint: Any) -> type[ArgumentBlock] | None:
+    """Return an [`ArgumentBlock`][cmd2.annotated.ArgumentBlock] subclass found anywhere within *hint*, else ``None``.
+
+    Used to reject a block that is not the bare annotation: an ``ArgumentBlock`` nested in ``Annotated`` /
+    ``Optional`` / a union is ambiguous (an optional block? a union of blocks? a single value?), so it is
+    rejected rather than silently mishandled.  A bare block is detected by :func:`_is_argument_block` first,
+    so this only fires for the wrapped/misused forms.
+    """
+    if isinstance(hint, type) and issubclass(hint, ArgumentBlock):
+        return hint
+    for arg in get_args(hint):
+        found = _find_argument_block(arg)
+        if found is not None:
+            return found
+    return None
+
+
+def _init_field_names(dc_type: type) -> list[str]:
+    """Names of a dataclass's ``init`` fields in definition order (the flat argument names of a block)."""
+    return [f.name for f in fields(dc_type) if f.init]
+
+
+def _reject_field_shadowing_block_param(dc_type: type, param_name: str, func_qualname: str) -> None:
+    """Reject a block whose field name equals the block parameter name.
+
+    The field's flat argument and the parameter that receives the block instance would share one
+    keyword-argument key, so a parsed value and a directly-supplied instance become indistinguishable.
+    """
+    if param_name in _init_field_names(dc_type):
+        raise TypeError(
+            f"ArgumentBlock '{dc_type.__name__}' field {param_name!r} collides with the block parameter "
+            f"name '{param_name}' in {func_qualname}; rename the field so its command-line argument does not "
+            f"shadow the parameter that receives the block instance."
+        )
+
+
+def _expand_dataclass_block(
+    dc_type: type,
+    *,
+    func_qualname: str,
+    base_command: bool,
+    shared: bool = False,
+) -> list[_ArgparseArgument]:
+    """Expand a dataclass block's ``init`` fields into flat ``_ArgparseArgument`` builders.
+
+    Each field maps to one argument named after the field (flat: field name == argument name).  The
+    field's ``Annotated[T, Option/Argument]`` metadata and its default (``default`` or ``default_factory``)
+    drive the argument exactly as a top-level parameter of the same shape would.
+
+    ``shared`` marks a ``cmd2_base_args`` block: its fields parse into a type-qualified dest (the flag is
+    unchanged) so blocks of different types never collide on one attribute in the shared subcommand
+    namespace; the matching ``cmd2_parent_args`` reads the same qualified dest.
+    """
+    if not is_dataclass(dc_type):
+        raise TypeError(
+            f"ArgumentBlock subclass '{dc_type.__name__}' must be decorated with @dataclass so it has fields "
+            f"to expand into command-line arguments."
+        )
+    try:
+        field_hints = get_type_hints(dc_type, include_extras=True)
+    except (NameError, AttributeError, TypeError) as exc:
+        raise TypeError(
+            f"Failed to resolve type hints for ArgumentBlock '{dc_type.__name__}'. "
+            f"Ensure all field annotations use valid, importable types."
+        ) from exc
+    # An InitVar is a constructor parameter that dataclasses.fields() omits, so it would never become a
+    # command-line argument yet the constructor still requires it.  Reject it up front with a clear message
+    # rather than letting reconstruction fail later with an opaque "missing argument" TypeError.
+    init_field_names = set(_init_field_names(dc_type))
+    init_only = [name for name in list(inspect.signature(dc_type.__init__).parameters)[1:] if name not in init_field_names]
+    if init_only:
+        raise TypeError(
+            f"ArgumentBlock '{dc_type.__name__}' has InitVar field(s) {sorted(init_only)}, which @with_annotated "
+            f"cannot expand into command-line arguments; use a regular field instead."
+        )
+    expanded: list[_ArgparseArgument] = []
+    for f in fields(dc_type):
+        if not f.init:
+            continue  # field(init=False) is not a constructor argument, so it has no command-line value
+        # A field whose name matches a cmd2-injected namespace attribute (e.g. cmd2_statement) would be
+        # silently overwritten by cmd2 at parse time, so its value could never reach the constructor.
+        if f.name in _SKIP_PARAMS:
+            raise TypeError(
+                f"ArgumentBlock '{dc_type.__name__}' field {f.name!r} collides with a reserved cmd2 namespace "
+                f"attribute; rename the field."
+            )
+        inner_type, metadata, is_optional = _normalize_annotation(field_hints[f.name])
+        # The dataclass owns its own defaults: a field with any default (default or default_factory) emits
+        # SUPPRESS (see _DEFAULT_RULES) and is filled by the constructor, so the value is never read here.
+        has_default = f.default is not MISSING or f.default_factory is not MISSING
+        expanded.append(
+            _ArgparseArgument(
+                name=f.name,
+                func_qualname=func_qualname,
+                has_default=has_default,
+                param_default=None,
+                is_kw_only=False,
+                is_variadic=False,
+                inner_type=inner_type,
+                metadata=metadata,
+                is_optional=is_optional,
+                kind=inspect.Parameter.POSITIONAL_OR_KEYWORD,
+                is_base_command=base_command,
+                is_block_field=True,
+                dest_override=_shared_field_dest(dc_type, f.name) if shared else None,
+            )
+        )
+    return expanded
+
+
+class _BlockSpec(NamedTuple):
+    """How to reconstruct one dataclass-block parameter from the parsed namespace at call time."""
+
+    dc_type: type[ArgumentBlock]
+    field_names: list[str]
+    inherited: bool  # True for a cmd2_parent_args block (inherited from an ancestor's cmd2_base_args)
+    shared: bool = False  # cmd2_base_args/cmd2_parent_args: fields live under a type-qualified dest
+
+
+def _block_field_dest(spec: _BlockSpec, field_name: str) -> str:
+    """Namespace dest a block field lands under: type-qualified for a shared block, else the field name."""
+    return _shared_field_dest(spec.dc_type, field_name) if spec.shared else field_name
+
+
+def _dataclass_blocks(func: Callable[..., Any], *, skip_params: frozenset[str] = _SKIP_PARAMS) -> dict[str, _BlockSpec]:
+    """Map each dataclass-block parameter name to its :class:`_BlockSpec`.
+
+    Used by the runtime handler to reconstruct the dataclass instance from the parsed namespace.  A
+    ``cmd2_parent_args`` parameter is a bare block too, so it is detected the same way and flagged
+    ``inherited`` (its fields live in the shared namespace, populated by an ancestor's ``cmd2_base_args``).
+    """
+    hints = _resolve_func_hints(func, skip_params=skip_params)
+    blocks: dict[str, _BlockSpec] = {}
+    for name, param in list(inspect.signature(func).parameters.items())[1:]:
+        if name in skip_params:
+            continue
+        if _is_argument_block(hints.get(name), param):
+            hint = hints[name]
+            blocks[name] = _BlockSpec(
+                hint,
+                _init_field_names(hint),
+                inherited=name == NS_ATTR_PARENT_ARGS,
+                shared=name in (NS_ATTR_BASE_ARGS, NS_ATTR_PARENT_ARGS),
+            )
+    return blocks
+
+
+def _lazy_block_resolver(
+    func: Callable[..., Any],
+    *,
+    base_accepted: set[str],
+    skip_params: frozenset[str],
+) -> Callable[[], tuple[dict[str, _BlockSpec], set[str]]]:
+    """Return a zero-arg callable yielding ``(blocks, accepted)``, computed once and cached.
+
+    Detecting dataclass blocks resolves type hints, which the decorator defers so forward-referenced
+    annotations still decorate.  The first invocation runs after the class is fully defined, so the
+    hints resolve safely; the result (the blocks and the namespace ``accepted`` set widened to the
+    expanded field names) is cached for subsequent calls.
+    """
+
+    @functools.cache
+    def resolve() -> tuple[dict[str, _BlockSpec], set[str]]:
+        blocks = _dataclass_blocks(func, skip_params=skip_params)
+        accepted = set(base_accepted)
+        for block_name, spec in blocks.items():
+            accepted.discard(block_name)
+            accepted.update(_block_field_dest(spec, name) for name in spec.field_names)
+        return blocks, accepted
+
+    return resolve
+
+
+def _reconstruct_dataclass_blocks(func_kwargs: dict[str, Any], blocks: dict[str, _BlockSpec], ns: Any) -> None:
+    """Fold expanded field values in ``func_kwargs`` back into their dataclass-block instances, in place.
+
+    A block already present in ``func_kwargs`` (e.g. a direct method call passing the instance) is left
+    untouched -- only the namespace-derived field values are gathered and the instance is built.
+
+    An inherited (``cmd2_parent_args``) block is only valid when an ancestor command declared a matching
+    ``cmd2_base_args`` block: that parent stamps a presence marker into the shared namespace at parse time,
+    so its absence here means no ancestor declared the block.  Reconstructing anyway would hand back an
+    all-defaults instance and hide the misconfiguration, so raise instead.
+    """
+    for block_name, spec in blocks.items():
+        # The expanded field values always come out of func_kwargs (keyed by their namespace dest, which is
+        # type-qualified for a shared block)
+        field_values = {
+            field: func_kwargs.pop(dest)
+            for field in spec.field_names
+            if (dest := _block_field_dest(spec, field)) in func_kwargs
+        }
+        if block_name in func_kwargs:
+            # A block instance is already present (e.g. a programmatic call passing it directly); use it as-is.
+            continue
+        if spec.inherited and not getattr(ns, _base_args_marker_dest(spec.dc_type), False):
+            raise TypeError(
+                f"Parameter '{block_name}' inherits the ArgumentBlock '{spec.dc_type.__name__}' from a parent "
+                f"command, but no ancestor command declares a matching 'cmd2_base_args: {spec.dc_type.__name__}'. "
+                f"Add that parameter to the parent command so its fields are parsed into the shared namespace."
+            )
+        func_kwargs[block_name] = spec.dc_type(**field_values)
+
+
+def _resolve_parameters(
+    func: Callable[..., Any],
+    *,
+    skip_params: frozenset[str] = _SKIP_PARAMS,
+    base_command: bool = False,
+    mutually_exclusive_groups: tuple[Group, ...] | None = None,
+) -> tuple[list[_ArgparseArgument], set[type]]:
+    """Resolve a function signature into argparse-argument builders and inheritable-block types.
+
+    Returns ``(resolved, base_args_types)`` where ``base_args_types`` are the ``ArgumentBlock`` types of
+    any ``cmd2_base_args`` parameter.  The build path stamps a parse-time presence marker for each so a
+    descendant's ``cmd2_parent_args`` can tell, at call time, that the block was actually declared.
+
+    ``base_command`` marks each argument's context for the base-command :data:`_CONSTRAINTS` rows and
+    drives the function-level ``cmd2_subcommand_func`` check below.  ``mutually_exclusive_groups``
+    membership is linked onto each argument as the fact behind the required-member constraint row;
+    the spec-shaped group rules live in :func:`_validate_group_specs`, which runs before this.
+    """
+    sig = inspect.signature(func)
+    # Function-level check (not a per-argument _CONSTRAINTS row): a base command dispatches through
+    # cmd2_subcommand_func, so it must exist.  Here so it also fires when the function has zero parameters.
+    if base_command and constants.NS_ATTR_SUBCOMMAND_FUNC not in sig.parameters:
+        raise TypeError(
+            f"with_annotated(base_command=True) requires a '{constants.NS_ATTR_SUBCOMMAND_FUNC}' "
+            f"parameter in {func.__qualname__}"
+        )
+    hints = _resolve_func_hints(func, skip_params=skip_params)
+
     resolved: list[_ArgparseArgument] = []
+    inherited_field_names: set[str] = set()
+    base_args_types: set[type] = set()
 
     # Skip the first parameter by position (self/cls for methods)
     params = list(sig.parameters.items())
@@ -1773,6 +2387,49 @@ def _resolve_parameters(
     for name, param in params:
         if name in skip_params:
             continue
+
+        block_hint = hints.get(name)
+        if name == NS_ATTR_PARENT_ARGS:
+            inherited = _require_magic_block(name, block_hint, param, func.__qualname__)
+            _reject_field_shadowing_block_param(inherited, name, func.__qualname__)
+            if param.default is not inspect.Parameter.empty:
+                raise TypeError(
+                    f"Parameter '{name}' in {func.__qualname__} inherits its block from a parent command and "
+                    f"cannot have a default value; remove the default."
+                )
+            inherited_field_names.update(_init_field_names(inherited))
+            continue
+
+        # An ArgumentBlock-typed parameter is an argument block: expand its fields in place (flat) instead of
+        # building a single argument for the container, so the fields keep their signature-order position.
+        if _is_argument_block(block_hint, param):
+            if param.default is not inspect.Parameter.empty:
+                raise TypeError(
+                    f"Parameter '{name}' in {func.__qualname__} is an ArgumentBlock and cannot have a default "
+                    f"value; the dataclass is the single source of truth for its fields' defaults. Remove the default."
+                )
+            if name == NS_ATTR_BASE_ARGS:
+                base_args_types.add(block_hint)
+            # Expand first so its @dataclass-ness check runs before we read field names for the next guard.
+            # A cmd2_base_args block is shared down the chain: its fields use a type-qualified dest.
+            expanded = _expand_dataclass_block(
+                block_hint, func_qualname=func.__qualname__, base_command=base_command, shared=name == NS_ATTR_BASE_ARGS
+            )
+            _reject_field_shadowing_block_param(block_hint, name, func.__qualname__)
+            resolved.extend(expanded)
+            continue
+        # The magic name requires a bare ArgumentBlock; a non-block annotation on it is a clear mistake.
+        if name == NS_ATTR_BASE_ARGS:
+            _require_magic_block(name, block_hint, param, func.__qualname__)
+        wrapped_block = _find_argument_block(block_hint)
+        if wrapped_block is not None:
+            raise TypeError(
+                f"Parameter '{name}' in {func.__qualname__} uses the ArgumentBlock '{wrapped_block.__name__}' in a "
+                f"wrapped position (Annotated/Optional/union, or *args/**kwargs), which @with_annotated does not "
+                f"support: a block must be the bare annotation of a regular parameter (e.g. "
+                f"'{name}: {wrapped_block.__name__}') so its fields can expand. To use a dataclass as a single "
+                f"value instead, make it a plain @dataclass (not an ArgumentBlock) with an Argument(converter=...)."
+            )
 
         # *args has no default and is never keyword-only; its hint is the element type (default str).
         is_variadic = param.kind == inspect.Parameter.VAR_POSITIONAL
@@ -1798,23 +2455,35 @@ def _resolve_parameters(
         )
         resolved.append(arg)
 
+    seen: dict[str, int] = {}
+    for arg in resolved:
+        seen[arg.name] = seen.get(arg.name, 0) + 1
+    duplicates = sorted(name for name, count in seen.items() if count > 1)
+    if duplicates:
+        raise TypeError(
+            f"{func.__qualname__} declares the argument name(s) {duplicates} more than once. A dataclass "
+            f"block expands its fields into flat arguments (field name == argument name), so each field "
+            f"name must be unique across the command's own parameters and every other block's fields."
+        )
+
+    inherited_collisions = sorted(inherited_field_names & seen.keys())
+    if inherited_collisions:
+        raise TypeError(
+            f"{func.__qualname__} has inherited ArgumentBlock field(s) {inherited_collisions} that collide with the "
+            f"command's own argument(s). A cmd2_parent_args block reuses the parent's fields by name, so those "
+            f"names must not also be declared on the subcommand."
+        )
+
     # Validate the whole list at once (per-argument + cross-argument rules) now that every
     # argument is built and its cross-argument facts can be linked.
     positionals = [arg for arg in resolved if arg.is_positional]
     for arg in positionals[:-1]:  # every positional except the last has a following positional
         arg.has_following_positional = True
     by_name = {arg.name: arg for arg in resolved}
-    # Reject group references to nonexistent parameters before the constraint table runs.
-    all_param_names = set(by_name)
-    for spec in groups or ():
-        spec._validate_members(all_param_names=all_param_names, group_type="groups")
-    for spec in mutually_exclusive_groups or ():
-        spec._validate_members(all_param_names=all_param_names, group_type="mutually_exclusive_groups")
-    _link_group_membership(by_name, groups, lambda a: a.argument_group_indices)
-    _link_group_membership(by_name, mutually_exclusive_groups, lambda a: a.mutex_group_indices)
+    _link_mutex_group_membership(by_name, mutually_exclusive_groups)
     for arg in resolved:
         arg._check_constraints()
-    return resolved
+    return resolved, base_args_types
 
 
 def _var_positional_call_plan(func: Callable[..., Any]) -> tuple[list[str], str | None]:
@@ -1869,6 +2538,80 @@ def _filtered_namespace_kwargs(
     return filtered
 
 
+def _validate_group_specs(
+    func: Callable[..., Any],
+    *,
+    skip_params: frozenset[str],
+    groups: tuple[Group, ...] | None,
+    mutually_exclusive_groups: tuple[Group, ...] | None,
+) -> None:
+    """Validate ``groups=`` / ``mutually_exclusive_groups=`` specs from parameter names alone.
+
+    Runs at decoration time (from both the regular-command and subcommand decoration paths, and
+    again from :func:`build_parser_from_function` for direct callers), so a misconfigured group
+    hard-fails when the class is defined instead of on first command use, where cmd2's runtime
+    handler turns the error into a printed message.  Reads only parameter names and the ``Group``
+    specs -- never the type hints -- so forward-referenced annotations still decorate.  The one
+    group rule that needs the annotations (a required member in a mutually exclusive group) stays
+    in :data:`_CONSTRAINTS` and fires when the parser is built.
+    """
+    if not groups and not mutually_exclusive_groups:
+        return
+    params = list(inspect.signature(func).parameters)[1:]  # skip self/cls by position
+    all_param_names = {name for name in params if name not in skip_params}
+
+    group_entry_for: dict[str, int] = {}
+    for index, spec in enumerate(groups or (), start=1):
+        spec._validate_members(all_param_names=all_param_names, group_type="groups")
+        if spec.required:
+            raise ValueError(
+                "Group(required=True) is only valid in mutually_exclusive_groups; "
+                "argparse's add_argument_group has no 'required' flag"
+            )
+        for name in spec.members:
+            previous = group_entry_for.get(name)
+            if previous == index:
+                raise ValueError(f"parameter {name!r} is listed more than once in argument group {index}")
+            if previous is not None:
+                raise ValueError(
+                    f"parameter {name!r} cannot be assigned to both argument group {previous} and argument group {index}"
+                )
+            group_entry_for[name] = index
+
+    mutex_entry_for: dict[str, int] = {}
+    for index, spec in enumerate(mutually_exclusive_groups or (), start=1):
+        spec._validate_members(all_param_names=all_param_names, group_type="mutually_exclusive_groups")
+        for name in spec.members:
+            previous = mutex_entry_for.get(name)
+            if previous == index:
+                raise ValueError(f"parameter {name!r} is listed more than once in mutually exclusive group {index}")
+            if previous is not None:
+                raise ValueError(f"parameter {name!r} cannot be assigned to multiple mutually exclusive groups")
+            mutex_entry_for[name] = index
+        parent_entries = {group_entry_for[name] for name in spec.members if name in group_entry_for}
+        if len(parent_entries) > 1:
+            raise ValueError(
+                f"mutually exclusive group {index} spans parameters in different argument groups, "
+                "which argparse cannot represent cleanly"
+            )
+        if parent_entries:
+            # Members already sit in a titled groups= entry, so the mutex nests there.  A section
+            # declared on both sides is ambiguous, and nesting a mutex that only partly overlaps the
+            # group would pull the ungrouped members into that group's help section.
+            if spec.title is not None or spec.description is not None:
+                raise ValueError(
+                    f"mutually exclusive group {index} sets title/description, but its members already "
+                    "belong to a groups= entry; declare the titled section in one place only"
+                )
+            ungrouped = [name for name in spec.members if name not in group_entry_for]
+            if ungrouped:
+                raise ValueError(
+                    f"mutually exclusive group {index} mixes members in a titled argument group with "
+                    f"members that are not ({ungrouped!r}); list all of its members in the same groups= "
+                    "entry to nest the mutex inside that group, or none of them to keep it top-level"
+                )
+
+
 def _build_argument_group_targets(
     parser: argparse.ArgumentParser,
     *,
@@ -1876,9 +2619,9 @@ def _build_argument_group_targets(
 ) -> tuple[dict[str, _ArgumentTarget], dict[str, argparse._ArgumentGroup]]:
     """Build argument groups and return add_argument targets for their members.
 
-    Member references and double-assignment are validated upstream by :func:`_resolve_parameters`
-    (via :meth:`Group._validate_members`) and :data:`_CONSTRAINTS` (the ``argument_group_indices``
-    fact), so construction can assign each member unconditionally.
+    The specs are validated upstream by :func:`_validate_group_specs` (member references,
+    double-assignment, ``required=True`` rejection), so construction can assign each member
+    unconditionally.
     """
     target_for: dict[str, _ArgumentTarget] = {}
     argument_group_for: dict[str, argparse._ArgumentGroup] = {}
@@ -1887,11 +2630,6 @@ def _build_argument_group_targets(
         return target_for, argument_group_for
 
     for spec in groups:
-        if spec.required:
-            raise ValueError(
-                "Group(required=True) is only valid in mutually_exclusive_groups; "
-                "argparse's add_argument_group has no 'required' flag"
-            )
         group = parser.add_argument_group(title=spec.title, description=spec.description)
         for name in spec.members:
             argument_group_for[name] = group
@@ -1909,27 +2647,29 @@ def _apply_mutex_group_targets(
 ) -> None:
     """Build mutually exclusive groups and update add_argument targets for their members.
 
-    Member references, double-assignment, and required-member rejections are validated upstream by
-    :func:`_resolve_parameters` and :data:`_CONSTRAINTS` (the ``mutex_group_indices`` fact); the
-    remaining check -- a mutex group spanning different argument groups -- stays here because its
-    subject is the group, not an argument.
+    The specs are validated upstream by :func:`_validate_group_specs` (member references,
+    double-assignment, and the group-shaped rules: spanning, partial overlap, a section declared in
+    two places) and :data:`_CONSTRAINTS` (the required-member rule), so construction only chooses
+    each mutex group's parent: the argument group all its members share, a new titled section when
+    the spec carries ``title``/``description``, or the parser itself.
     """
     if not mutually_exclusive_groups:
         return
 
-    for index, spec in enumerate(mutually_exclusive_groups, start=1):
-        member_names = spec.members
+    for spec in mutually_exclusive_groups:
+        parent_groups = {argument_group_for[name] for name in spec.members if name in argument_group_for}
+        if parent_groups:
+            # All members sit in one titled groups= entry, so the mutex nests there.
+            mutex_parent: _ArgumentTarget = next(iter(parent_groups))
+        elif spec.title is not None or spec.description is not None:
+            # title/description on the mutex create the titled section and nest the mutex inside it,
+            # so a titled exclusive group needs only its own declaration -- no paired groups= entry.
+            mutex_parent = parser.add_argument_group(title=spec.title, description=spec.description)
+        else:
+            mutex_parent = parser
 
-        parent_groups = {argument_group_for[name] for name in member_names if name in argument_group_for}
-        if len(parent_groups) > 1:
-            raise ValueError(
-                f"mutually exclusive group {index} spans parameters in different argument groups, "
-                "which argparse cannot represent cleanly"
-            )
-
-        mutex_parent: _ArgumentTarget = next(iter(parent_groups)) if parent_groups else parser
         mutex_group = mutex_parent.add_mutually_exclusive_group(required=spec.required)
-        for name in member_names:
+        for name in spec.members:
             target_for[name] = mutex_group
 
 
@@ -1980,6 +2720,9 @@ def build_parser_from_function(
     """
     from . import argparse_utils
 
+    # The decorator already ran this at decoration time; direct callers get the same checks here.
+    _validate_group_specs(func, skip_params=skip_params, groups=groups, mutually_exclusive_groups=mutually_exclusive_groups)
+
     parser_cls = parser_class or argparse_utils.DEFAULT_ARGUMENT_PARSER
     if "description" not in parser_kwargs:
         auto_description = _docstring_first_paragraph(func.__doc__)
@@ -1987,13 +2730,11 @@ def build_parser_from_function(
             parser_kwargs["description"] = auto_description
     parser = parser_cls(**parser_kwargs)
 
-    # _resolve_parameters validates each argument and the cross-argument/cross-config rules (e.g. a
-    # variable-arity positional must be last; double-assignment and required-mutex-member) once the
-    # whole list is built and the group memberships are linked.
-    resolved = _resolve_parameters(
+    # _resolve_parameters validates each argument and the cross-argument rules (e.g. a variable-arity
+    # positional must be last; a required member in a mutex group) once the whole list is built.
+    resolved, base_args_types = _resolve_parameters(
         func,
         skip_params=skip_params,
-        groups=groups,
         mutually_exclusive_groups=mutually_exclusive_groups,
     )
 
@@ -2008,7 +2749,7 @@ def build_parser_from_function(
             f"signature is expected at invocation. Drop argument_default=argparse.SUPPRESS."
         )
 
-    # Build the group lookup (member references already validated by _resolve_parameters).
+    # Build the group lookup (specs already validated by _validate_group_specs above).
     target_for, argument_group_for = _build_argument_group_targets(parser, groups=groups)
     _apply_mutex_group_targets(
         parser,
@@ -2020,6 +2761,11 @@ def build_parser_from_function(
     # Add each argument to its target (its group/mutex group if assigned, else the parser).
     for arg in resolved:
         arg.add_to(target_for.get(arg.name, parser))
+
+    # A cmd2_base_args block is inheritable: stamp a parse-time presence marker so a descendant's
+    # cmd2_parent_args can confirm an ancestor actually declared the block.
+    for base_args_type in base_args_types:
+        parser.set_defaults(**{_base_args_marker_dest(base_args_type): True})
 
     return parser
 
@@ -2113,21 +2859,35 @@ def _build_subcommand_handler(
     """
     subcmd_name = _derive_subcommand_name(func, subcommand_to)
 
+    # Validate the group specs eagerly (decoration time) so a misconfigured group hard-fails when
+    # the class is defined; the name-only checks never resolve type hints, so forward-referenced
+    # annotations still decorate and the parser build stays deferred.
+    _validate_group_specs(
+        func,
+        skip_params=_SKIP_PARAMS,
+        groups=options.groups,
+        mutually_exclusive_groups=options.mutually_exclusive_groups,
+    )
     if base_command:
         # Validate eagerly (decoration time); the base-command rows in _CONSTRAINTS fire here.
-        _resolve_parameters(func, base_command=True)
+        # skip_params is spelled out so this call cannot silently diverge from the parser build below.
+        _resolve_parameters(func, skip_params=_SKIP_PARAMS, base_command=True)
 
     _accepted = set(list(inspect.signature(func).parameters.keys())[1:])
+    # A dataclass-block parameter's expanded fields land in the namespace
+    _resolve_blocks = _lazy_block_resolver(func, base_accepted=_accepted, skip_params=_SKIP_PARAMS)
     _leading_names, _var_positional_name = _var_positional_call_plan(func)
 
     @functools.wraps(func)
     def handler(self_arg: Any, ns: Any) -> Any:
         """Unpack Namespace into typed kwargs for the subcommand handler."""
-        filtered = _filtered_namespace_kwargs(ns, accepted=_accepted)
+        _blocks, _eff_accepted = _resolve_blocks()
+        filtered = _filtered_namespace_kwargs(ns, accepted=_eff_accepted)
         if constants.NS_ATTR_SUBCOMMAND_FUNC in filtered:
             cmd2_h = filtered[constants.NS_ATTR_SUBCOMMAND_FUNC]
             if isinstance(cmd2_h, functools.partial) and getattr(cmd2_h.func, "__func__", cmd2_h.func) is handler:
                 filtered[constants.NS_ATTR_SUBCOMMAND_FUNC] = None
+        _reconstruct_dataclass_blocks(filtered, _blocks, ns)
         return _invoke_command_func(
             func, self_arg, filtered, leading_names=_leading_names, var_positional_name=_var_positional_name
         )
@@ -2136,8 +2896,18 @@ def _build_subcommand_handler(
     return handler, subcmd_name, parser_builder
 
 
+_CommandParams = ParamSpec("_CommandParams")
+_CommandReturn = TypeVar("_CommandReturn")
+
+
+class _WithAnnotatedDecorator(Protocol):
+    """The signature-preserving decorator ``with_annotated(...)`` returns (generic per call)."""
+
+    def __call__(self, fn: Callable[_CommandParams, _CommandReturn], /) -> Callable[_CommandParams, _CommandReturn]: ...
+
+
 @overload
-def with_annotated(func: Callable[..., Any]) -> Callable[..., Any]: ...
+def with_annotated(func: Callable[_CommandParams, _CommandReturn]) -> Callable[_CommandParams, _CommandReturn]: ...
 
 
 @overload
@@ -2160,7 +2930,7 @@ def with_annotated(
     subcommand_title: str | None = ...,
     subcommand_description: str | None = ...,
     **parser_kwargs: Unpack[Cmd2ParserKwargs],
-) -> Callable[[Callable[..., Any]], Callable[..., Any]]: ...
+) -> _WithAnnotatedDecorator: ...
 
 
 def with_annotated(
@@ -2278,12 +3048,22 @@ def with_annotated(
         command_name = fn.__name__[len(constants.COMMAND_FUNC_PREFIX) :]
 
         skip_params = _SKIP_PARAMS | ({"_unknown"} if with_unknown_args else frozenset())
+        # Validate the group specs eagerly (decoration time) so a misconfigured group hard-fails when
+        # the class is defined; the name-only checks never resolve type hints, so forward-referenced
+        # annotations still decorate and the parser build stays deferred.
+        _validate_group_specs(
+            fn,
+            skip_params=skip_params,
+            groups=options.groups,
+            mutually_exclusive_groups=options.mutually_exclusive_groups,
+        )
         if base_command:
             # Validate eagerly (decoration time); the base-command rows in _CONSTRAINTS fire here.
             _resolve_parameters(fn, skip_params=skip_params, base_command=True)
 
         # Cache signature introspection at decoration time, not per-invocation
         accepted = set(list(inspect.signature(fn).parameters.keys())[1:])
+        resolve_blocks = _lazy_block_resolver(fn, base_accepted=accepted, skip_params=skip_params)
         leading_names, var_positional_name = _var_positional_call_plan(fn)
 
         parser_builder = _make_parser_builder(fn, skip_params=skip_params, base_command=base_command, options=options)
@@ -2321,12 +3101,14 @@ def with_annotated(
                 handler = functools.partial(handler, ns)
             setattr(ns, constants.NS_ATTR_SUBCOMMAND_FUNC, handler)
 
-            func_kwargs = _filtered_namespace_kwargs(ns, accepted=accepted, exclude_subcommand=base_command)
+            blocks, eff_accepted = resolve_blocks()
+            func_kwargs = _filtered_namespace_kwargs(ns, accepted=eff_accepted, exclude_subcommand=base_command)
 
             if with_unknown_args:
                 func_kwargs["_unknown"] = unknown
 
             func_kwargs.update(kwargs)
+            _reconstruct_dataclass_blocks(func_kwargs, blocks, ns)
             result: bool | None = _invoke_command_func(
                 fn, owner, func_kwargs, leading_names=leading_names, var_positional_name=var_positional_name
             )

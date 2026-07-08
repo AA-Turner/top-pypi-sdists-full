@@ -152,6 +152,18 @@ class GetIntegrationResponse(_message.Message):
     integration_with_secrets: IntegrationWithSecrets
     def __init__(self, integration_with_secrets: _Optional[_Union[IntegrationWithSecrets, _Mapping]] = ...) -> None: ...
 
+class GetIntegrationByNameRequest(_message.Message):
+    __slots__ = ("integration_name",)
+    INTEGRATION_NAME_FIELD_NUMBER: _ClassVar[int]
+    integration_name: str
+    def __init__(self, integration_name: _Optional[str] = ...) -> None: ...
+
+class GetIntegrationByNameResponse(_message.Message):
+    __slots__ = ("integration",)
+    INTEGRATION_FIELD_NUMBER: _ClassVar[int]
+    integration: Integration
+    def __init__(self, integration: _Optional[_Union[Integration, _Mapping]] = ...) -> None: ...
+
 class IntegrationConfigValue(_message.Message):
     __slots__ = ("literal", "secret_id")
     LITERAL_FIELD_NUMBER: _ClassVar[int]

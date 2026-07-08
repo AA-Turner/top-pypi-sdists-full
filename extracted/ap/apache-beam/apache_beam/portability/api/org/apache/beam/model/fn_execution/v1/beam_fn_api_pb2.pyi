@@ -866,6 +866,7 @@ class ProcessBundleRequest(google.protobuf.message.Message):
     ELEMENTS_FIELD_NUMBER: builtins.int
     HAS_NO_STATE_FIELD_NUMBER: builtins.int
     ONLY_BUNDLE_FOR_KEYS_FIELD_NUMBER: builtins.int
+    DATA_STREAM_ID_FIELD_NUMBER: builtins.int
     process_bundle_descriptor_id: builtins.str
     """(Required) A reference to the process bundle descriptor that must be
     instantiated and executed by the SDK harness.
@@ -894,13 +895,21 @@ class ProcessBundleRequest(google.protobuf.message.Message):
         at https://s.apache.org/beam-fn-api-control-data-embedding.
         """
     has_no_state: builtins.bool
-    """indicates that the runner has no stare for the keys in this bundle
+    """Indicates that the runner has no state for the keys in this bundle
     so SDk can safely begin stateful processing with a locally-generated
-    initial empty state
+    initial empty state.
     """
     only_bundle_for_keys: builtins.bool
-    """indicates that the runner will never process another bundle for the keys
+    """Indicates that the runner will never process another bundle for the keys
     in this bundle so state need not be included in the bundle commit.
+    """
+    data_stream_id: builtins.str
+    """(Optional) If non-empty, the ID of the data stream to use for all data
+    requests related to this bundle. See comments at BeamFnData.Data for
+    more details.
+
+    The runner should only populate this field if the sdk advertises the
+    beam:protocol:named_data_streams:v1 capability.
     """
     def __init__(
         self,
@@ -910,9 +919,10 @@ class ProcessBundleRequest(google.protobuf.message.Message):
         elements: global___Elements | None = ...,
         has_no_state: builtins.bool | None = ...,
         only_bundle_for_keys: builtins.bool | None = ...,
+        data_stream_id: builtins.str | None = ...,
     ) -> None: ...
     def HasField(self, field_name: typing_extensions.Literal["elements", b"elements"]) -> builtins.bool: ...
-    def ClearField(self, field_name: typing_extensions.Literal["cache_tokens", b"cache_tokens", "elements", b"elements", "has_no_state", b"has_no_state", "only_bundle_for_keys", b"only_bundle_for_keys", "process_bundle_descriptor_id", b"process_bundle_descriptor_id"]) -> None: ...
+    def ClearField(self, field_name: typing_extensions.Literal["cache_tokens", b"cache_tokens", "data_stream_id", b"data_stream_id", "elements", b"elements", "has_no_state", b"has_no_state", "only_bundle_for_keys", b"only_bundle_for_keys", "process_bundle_descriptor_id", b"process_bundle_descriptor_id"]) -> None: ...
 
 global___ProcessBundleRequest = ProcessBundleRequest
 

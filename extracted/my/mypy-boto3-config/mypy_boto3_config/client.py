@@ -55,6 +55,7 @@ from .paginator import (
     GetResourceConfigHistoryPaginator,
     ListAggregateDiscoveredResourcesPaginator,
     ListConfigurationRecordersPaginator,
+    ListConnectorsPaginator,
     ListDiscoveredResourcesPaginator,
     ListResourceEvaluationsPaginator,
     ListTagsForResourcePaginator,
@@ -73,6 +74,7 @@ from .type_defs import (
     DeleteConfigurationAggregatorRequestTypeDef,
     DeleteConfigurationRecorderRequestTypeDef,
     DeleteConformancePackRequestTypeDef,
+    DeleteConnectorRequestTypeDef,
     DeleteDeliveryChannelRequestTypeDef,
     DeleteEvaluationResultsRequestTypeDef,
     DeleteOrganizationConfigRuleRequestTypeDef,
@@ -162,6 +164,8 @@ from .type_defs import (
     GetConformancePackComplianceDetailsResponseTypeDef,
     GetConformancePackComplianceSummaryRequestTypeDef,
     GetConformancePackComplianceSummaryResponseTypeDef,
+    GetConnectorRequestTypeDef,
+    GetConnectorResponseTypeDef,
     GetCustomRulePolicyRequestTypeDef,
     GetCustomRulePolicyResponseTypeDef,
     GetDiscoveredResourceCountsRequestTypeDef,
@@ -184,6 +188,8 @@ from .type_defs import (
     ListConfigurationRecordersResponseTypeDef,
     ListConformancePackComplianceScoresRequestTypeDef,
     ListConformancePackComplianceScoresResponseTypeDef,
+    ListConnectorsRequestTypeDef,
+    ListConnectorsResponseTypeDef,
     ListDiscoveredResourcesRequestTypeDef,
     ListDiscoveredResourcesResponseTypeDef,
     ListResourceEvaluationsRequestTypeDef,
@@ -200,6 +206,8 @@ from .type_defs import (
     PutConfigurationRecorderRequestTypeDef,
     PutConformancePackRequestTypeDef,
     PutConformancePackResponseTypeDef,
+    PutConnectorRequestTypeDef,
+    PutConnectorResponseTypeDef,
     PutDeliveryChannelRequestTypeDef,
     PutEvaluationsRequestTypeDef,
     PutEvaluationsResponseTypeDef,
@@ -219,6 +227,8 @@ from .type_defs import (
     PutServiceLinkedConfigurationRecorderResponseTypeDef,
     PutStoredQueryRequestTypeDef,
     PutStoredQueryResponseTypeDef,
+    PutThirdPartyServiceLinkedConfigurationRecorderRequestTypeDef,
+    PutThirdPartyServiceLinkedConfigurationRecorderResponseTypeDef,
     SelectAggregateResourceConfigRequestTypeDef,
     SelectAggregateResourceConfigResponseTypeDef,
     SelectResourceConfigRequestTypeDef,
@@ -269,6 +279,7 @@ class Exceptions(BaseClientExceptions):
     MaxNumberOfConfigRulesExceededException: type[BotocoreClientError]
     MaxNumberOfConfigurationRecordersExceededException: type[BotocoreClientError]
     MaxNumberOfConformancePacksExceededException: type[BotocoreClientError]
+    MaxNumberOfConnectorsExceededException: type[BotocoreClientError]
     MaxNumberOfDeliveryChannelsExceededException: type[BotocoreClientError]
     MaxNumberOfOrganizationConfigRulesExceededException: type[BotocoreClientError]
     MaxNumberOfOrganizationConformancePacksExceededException: type[BotocoreClientError]
@@ -425,6 +436,16 @@ class ConfigServiceClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/config/client/delete_conformance_pack.html)
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_config/client/#delete_conformance_pack)
+        """
+
+    def delete_connector(
+        self, **kwargs: Unpack[DeleteConnectorRequestTypeDef]
+    ) -> EmptyResponseMetadataTypeDef:
+        """
+        Deletes the specified connector.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/config/client/delete_connector.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_config/client/#delete_connector)
         """
 
     def delete_delivery_channel(
@@ -941,6 +962,16 @@ class ConfigServiceClient(BaseClient):
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_config/client/#get_conformance_pack_compliance_summary)
         """
 
+    def get_connector(
+        self, **kwargs: Unpack[GetConnectorRequestTypeDef]
+    ) -> GetConnectorResponseTypeDef:
+        """
+        Returns the details of the specified connector.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/config/client/get_connector.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_config/client/#get_connector)
+        """
+
     def get_custom_rule_policy(
         self, **kwargs: Unpack[GetCustomRulePolicyRequestTypeDef]
     ) -> GetCustomRulePolicyResponseTypeDef:
@@ -1060,6 +1091,16 @@ class ConfigServiceClient(BaseClient):
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_config/client/#list_conformance_pack_compliance_scores)
         """
 
+    def list_connectors(
+        self, **kwargs: Unpack[ListConnectorsRequestTypeDef]
+    ) -> ListConnectorsResponseTypeDef:
+        """
+        Returns a list of connectors depending on the filters you specify.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/config/client/list_connectors.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_config/client/#list_connectors)
+        """
+
     def list_discovered_resources(
         self, **kwargs: Unpack[ListDiscoveredResourcesRequestTypeDef]
     ) -> ListDiscoveredResourcesResponseTypeDef:
@@ -1153,6 +1194,17 @@ class ConfigServiceClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/config/client/put_conformance_pack.html)
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_config/client/#put_conformance_pack)
+        """
+
+    def put_connector(
+        self, **kwargs: Unpack[PutConnectorRequestTypeDef]
+    ) -> PutConnectorResponseTypeDef:
+        """
+        Creates a connector that specifies the connection between a third-party cloud
+        service provider and Config.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/config/client/put_connector.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_config/client/#put_connector)
         """
 
     def put_delivery_channel(
@@ -1271,6 +1323,18 @@ class ConfigServiceClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/config/client/put_stored_query.html)
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_config/client/#put_stored_query)
+        """
+
+    def put_third_party_service_linked_configuration_recorder(
+        self, **kwargs: Unpack[PutThirdPartyServiceLinkedConfigurationRecorderRequestTypeDef]
+    ) -> PutThirdPartyServiceLinkedConfigurationRecorderResponseTypeDef:
+        """
+        Creates or updates a service-linked configuration recorder that is linked to a
+        third-party cloud service provider based on the <code>ConnectorArn</code> you
+        specify.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/config/client/put_third_party_service_linked_configuration_recorder.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_config/client/#put_third_party_service_linked_configuration_recorder)
         """
 
     def select_aggregate_resource_config(
@@ -1673,6 +1737,17 @@ class ConfigServiceClient(BaseClient):
     def get_paginator(  # type: ignore[override]
         self, operation_name: Literal["list_configuration_recorders"]
     ) -> ListConfigurationRecordersPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/config/client/get_paginator.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_config/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["list_connectors"]
+    ) -> ListConnectorsPaginator:
         """
         Create a paginator for an operation.
 

@@ -1105,14 +1105,20 @@ class SAGEAgent:
         current_written = written
         retry_num = max(attempt - 1, 0)
         progress_tracker = _RetryProgressTracker()
+        
+        max_retries = 4
 
         while True:
+            if retry_num >= max_retries:
+                self.renderer.warning(f"Validation fix loop exhausted after {max_retries} attempts.")
+                break
+                
             retry_num += 1
             progress_tracker.observe_failure(output)
             self.renderer.console.print()
             self.renderer.phase(
                 "fixing",
-                f"Auto-fixing validation failure (attempt {retry_num}, continuing until green)...",
+                f"Auto-fixing validation failure (attempt {retry_num}/{max_retries}, continuing until green)...",
             )
 
             if len(self.engine._messages) > 10:

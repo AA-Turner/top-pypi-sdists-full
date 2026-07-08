@@ -47,11 +47,17 @@ from .literals import (
     CisStringComparisonType,
     CisTargetStatusReasonType,
     CisTargetStatusType,
+    CloudProviderType,
     CodeRepositoryProviderTypeType,
     CodeRepositorySortByType,
     CodeScanStatusType,
     CodeSnippetErrorCodeType,
     ConfigurationLevelType,
+    ConnectorHealthStatusType,
+    ConnectorTypeType,
+    ContainerImagePullDateRescanDurationType,
+    ContainerImageRescanDurationType,
+    ContainerImageSortByType,
     ContinuousIntegrationScanEventType,
     CoverageResourceTypeType,
     CoverageStringComparisonType,
@@ -67,6 +73,7 @@ from .literals import (
     EcrRescanDurationStatusType,
     EcrRescanDurationType,
     EcrScanFrequencyType,
+    EnablementStatusType,
     ErrorCodeType,
     ExploitAvailableType,
     ExternalReportStatusType,
@@ -93,6 +100,7 @@ from .literals import (
     PackageSortByType,
     PackageTypeType,
     PeriodicScanFrequencyType,
+    ProviderType,
     RelationshipStatusType,
     ReportFormatType,
     ReportingErrorCodeType,
@@ -107,6 +115,9 @@ from .literals import (
     ScanStatusCodeType,
     ScanStatusReasonType,
     ScanTypeType,
+    ScopeStateType,
+    ScopeTypeType,
+    ServerlessFunctionSortByType,
     ServiceType,
     SeverityType,
     SortFieldType,
@@ -116,6 +127,8 @@ from .literals import (
     StringComparisonType,
     TitleSortByType,
     UsageTypeType,
+    VmInstanceSortByType,
+    VmPlatformType,
     VMScannerStatusType,
 )
 
@@ -138,6 +151,7 @@ __all__ = (
     "AssociateMemberResponseTypeDef",
     "AtigDataTypeDef",
     "AutoEnableTypeDef",
+    "AwsConfigConnectorArnFilterTypeDef",
     "AwsEc2InstanceDetailsTypeDef",
     "AwsEcrContainerAggregationResponseTypeDef",
     "AwsEcrContainerAggregationTypeDef",
@@ -146,6 +160,10 @@ __all__ = (
     "AwsEksMetadataDetailsTypeDef",
     "AwsEksWorkloadInfoTypeDef",
     "AwsLambdaFunctionDetailsTypeDef",
+    "AzureProviderDetailCreateTypeDef",
+    "AzureProviderDetailUpdateTypeDef",
+    "AzureScopeConfigurationInputTypeDef",
+    "AzureScopeConfigurationTypeDef",
     "BatchAssociateCodeSecurityScanConfigurationRequestTypeDef",
     "BatchAssociateCodeSecurityScanConfigurationResponseTypeDef",
     "BatchDisassociateCodeSecurityScanConfigurationRequestTypeDef",
@@ -209,6 +227,19 @@ __all__ = (
     "CodeSnippetResultTypeDef",
     "CodeVulnerabilityDetailsTypeDef",
     "ComputePlatformTypeDef",
+    "ConnectorArnFilterTypeDef",
+    "ConnectorContainerImageScanConfigurationTypeDef",
+    "ConnectorFilterCriteriaTypeDef",
+    "ConnectorHealthTypeDef",
+    "ConnectorScanConfigurationItemTypeDef",
+    "ConnectorScanConfigurationTypeDef",
+    "ConnectorTypeDef",
+    "ConnectorTypeFilterTypeDef",
+    "ContainerImageAggregationResponseTypeDef",
+    "ContainerImageAggregationTypeDef",
+    "ContainerImageMetadataTypeDef",
+    "ContainerRegistryMetadataTypeDef",
+    "ContainerRepositoryMetadataTypeDef",
     "ContinuousIntegrationScanConfigurationOutputTypeDef",
     "ContinuousIntegrationScanConfigurationTypeDef",
     "CountsTypeDef",
@@ -225,6 +256,8 @@ __all__ = (
     "CreateCodeSecurityIntegrationResponseTypeDef",
     "CreateCodeSecurityScanConfigurationRequestTypeDef",
     "CreateCodeSecurityScanConfigurationResponseTypeDef",
+    "CreateConnectorRequestTypeDef",
+    "CreateConnectorResponseTypeDef",
     "CreateFilterRequestTypeDef",
     "CreateFilterResponseTypeDef",
     "CreateFindingsReportRequestTypeDef",
@@ -251,6 +284,7 @@ __all__ = (
     "DeleteCodeSecurityIntegrationResponseTypeDef",
     "DeleteCodeSecurityScanConfigurationRequestTypeDef",
     "DeleteCodeSecurityScanConfigurationResponseTypeDef",
+    "DeleteConnectorRequestTypeDef",
     "DeleteFilterRequestTypeDef",
     "DeleteFilterResponseTypeDef",
     "DescribeOrganizationConfigurationResponseTypeDef",
@@ -311,6 +345,7 @@ __all__ = (
     "GetCodeSecurityScanConfigurationResponseTypeDef",
     "GetCodeSecurityScanRequestTypeDef",
     "GetCodeSecurityScanResponseTypeDef",
+    "GetConfigurationRequestTypeDef",
     "GetConfigurationResponseTypeDef",
     "GetDelegatedAdminAccountResponseTypeDef",
     "GetEc2DeepInspectionConfigurationResponseTypeDef",
@@ -324,6 +359,7 @@ __all__ = (
     "GetSbomExportResponseTypeDef",
     "ImageLayerAggregationResponseTypeDef",
     "ImageLayerAggregationTypeDef",
+    "ImageTypeDef",
     "InspectorScoreDetailsTypeDef",
     "LambdaFunctionAggregationResponseTypeDef",
     "LambdaFunctionAggregationTypeDef",
@@ -354,6 +390,15 @@ __all__ = (
     "ListCodeSecurityScanConfigurationAssociationsResponseTypeDef",
     "ListCodeSecurityScanConfigurationsRequestTypeDef",
     "ListCodeSecurityScanConfigurationsResponseTypeDef",
+    "ListConnectorScanConfigurationsRequestPaginateTypeDef",
+    "ListConnectorScanConfigurationsRequestTypeDef",
+    "ListConnectorScanConfigurationsResponseTypeDef",
+    "ListConnectorsRequestPaginateTypeDef",
+    "ListConnectorsRequestTypeDef",
+    "ListConnectorsRequestWaitExtraExtraTypeDef",
+    "ListConnectorsRequestWaitExtraTypeDef",
+    "ListConnectorsRequestWaitTypeDef",
+    "ListConnectorsResponseTypeDef",
     "ListCoverageRequestPaginateTypeDef",
     "ListCoverageRequestTypeDef",
     "ListCoverageResponseTypeDef",
@@ -400,6 +445,9 @@ __all__ = (
     "ProjectCodeSecurityScanConfigurationTypeDef",
     "ProjectContinuousIntegrationScanConfigurationTypeDef",
     "ProjectPeriodicScanConfigurationTypeDef",
+    "ProviderDetailCreateTypeDef",
+    "ProviderDetailUpdateTypeDef",
+    "ProviderFilterTypeDef",
     "RecommendationTypeDef",
     "RemediationTypeDef",
     "RepositoryAggregationResponseTypeDef",
@@ -420,6 +468,8 @@ __all__ = (
     "ScheduleOutputTypeDef",
     "ScheduleTypeDef",
     "ScheduleUnionTypeDef",
+    "ScopeConfigurationInputTypeDef",
+    "ScopeConfigurationTypeDef",
     "ScopeSettingsTypeDef",
     "SearchVulnerabilitiesFilterCriteriaTypeDef",
     "SearchVulnerabilitiesRequestPaginateTypeDef",
@@ -427,6 +477,10 @@ __all__ = (
     "SearchVulnerabilitiesResponseTypeDef",
     "SendCisSessionHealthRequestTypeDef",
     "SendCisSessionTelemetryRequestTypeDef",
+    "ServerlessFunctionAggregationResponseTypeDef",
+    "ServerlessFunctionAggregationTypeDef",
+    "ServerlessFunctionMetadataTypeDef",
+    "ServerlessFunctionTypeDef",
     "SeverityCountsTypeDef",
     "SortCriteriaTypeDef",
     "StartCisSessionMessageTypeDef",
@@ -456,7 +510,11 @@ __all__ = (
     "UpdateCodeSecurityIntegrationResponseTypeDef",
     "UpdateCodeSecurityScanConfigurationRequestTypeDef",
     "UpdateCodeSecurityScanConfigurationResponseTypeDef",
+    "UpdateConfigurationInheritanceTypeDef",
     "UpdateConfigurationRequestTypeDef",
+    "UpdateConnectorRequestTypeDef",
+    "UpdateConnectorResponseTypeDef",
+    "UpdateConnectorScanConfigurationRequestTypeDef",
     "UpdateEc2DeepInspectionConfigurationRequestTypeDef",
     "UpdateEc2DeepInspectionConfigurationResponseTypeDef",
     "UpdateEncryptionKeyRequestTypeDef",
@@ -471,8 +529,13 @@ __all__ = (
     "UsageTotalTypeDef",
     "UsageTypeDef",
     "VMScannerStateTypeDef",
+    "VmInstanceAggregationResponseTypeDef",
+    "VmInstanceAggregationTypeDef",
+    "VmInstanceMetadataTypeDef",
+    "VmTypeDef",
     "VulnerabilityTypeDef",
     "VulnerablePackageTypeDef",
+    "WaiterConfigTypeDef",
     "WeeklyScheduleOutputTypeDef",
     "WeeklyScheduleTypeDef",
 )
@@ -548,6 +611,11 @@ AutoEnableTypeDef = TypedDict(
         "codeRepository": NotRequired[bool],
     },
 )
+
+class AwsConfigConnectorArnFilterTypeDef(TypedDict):
+    comparison: Literal["EQUALS"]
+    value: str
+
 AwsEc2InstanceDetailsTypeDef = TypedDict(
     "AwsEc2InstanceDetailsTypeDef",
     {
@@ -596,6 +664,16 @@ class LambdaVpcConfigTypeDef(TypedDict):
     subnetIds: NotRequired[list[str]]
     securityGroupIds: NotRequired[list[str]]
     vpcId: NotRequired[str]
+
+class ScopeConfigurationInputTypeDef(TypedDict):
+    scopeType: ScopeTypeType
+    scopeValues: NotRequired[Sequence[str]]
+
+class ScopeConfigurationTypeDef(TypedDict):
+    scopeType: ScopeTypeType
+    scopeValues: NotRequired[list[str]]
+    state: NotRequired[ScopeStateType]
+    stateReason: NotRequired[str]
 
 class BatchGetAccountStatusRequestTypeDef(TypedDict):
     accountIds: NotRequired[Sequence[str]]
@@ -774,6 +852,40 @@ class ComputePlatformTypeDef(TypedDict):
     product: NotRequired[str]
     version: NotRequired[str]
 
+class ConnectorArnFilterTypeDef(TypedDict):
+    comparison: Literal["EQUALS"]
+    value: str
+
+class ConnectorContainerImageScanConfigurationTypeDef(TypedDict):
+    pushDuration: NotRequired[ContainerImageRescanDurationType]
+    pullDuration: NotRequired[ContainerImagePullDateRescanDurationType]
+
+class ConnectorTypeFilterTypeDef(TypedDict):
+    comparison: Literal["EQUALS"]
+    value: ConnectorTypeType
+
+class ProviderFilterTypeDef(TypedDict):
+    comparison: Literal["EQUALS"]
+    value: Literal["AZURE"]
+
+class ConnectorHealthTypeDef(TypedDict):
+    connectorStatus: ConnectorHealthStatusType
+    lastCheckedAt: datetime
+    message: NotRequired[str]
+
+class ContainerImageMetadataTypeDef(TypedDict):
+    imageTags: NotRequired[list[str]]
+    imagePulledAt: NotRequired[datetime]
+    lastInUseAt: NotRequired[datetime]
+    inUseCount: NotRequired[int]
+
+class ContainerRegistryMetadataTypeDef(TypedDict):
+    name: NotRequired[str]
+
+class ContainerRepositoryMetadataTypeDef(TypedDict):
+    name: NotRequired[str]
+    scanFrequency: NotRequired[str]
+
 class CountsTypeDef(TypedDict):
     count: NotRequired[int]
     groupKey: NotRequired[GroupKeyType]
@@ -850,6 +962,9 @@ class DeleteCodeSecurityIntegrationRequestTypeDef(TypedDict):
 
 class DeleteCodeSecurityScanConfigurationRequestTypeDef(TypedDict):
     scanConfigurationArn: str
+
+class DeleteConnectorRequestTypeDef(TypedDict):
+    connectorArn: str
 
 class DeleteFilterRequestTypeDef(TypedDict):
     arn: str
@@ -947,6 +1062,7 @@ FreeTrialInfoTypeDef = TypedDict(
         "start": datetime,
         "end": datetime,
         "status": FreeTrialStatusType,
+        "cloudProvider": NotRequired[CloudProviderType],
     },
 )
 
@@ -967,6 +1083,9 @@ class GetCodeSecurityIntegrationRequestTypeDef(TypedDict):
 class GetCodeSecurityScanConfigurationRequestTypeDef(TypedDict):
     scanConfigurationArn: str
 
+class GetConfigurationRequestTypeDef(TypedDict):
+    accountId: NotRequired[str]
+
 class GetEncryptionKeyRequestTypeDef(TypedDict):
     scanType: ScanTypeType
     resourceType: ResourceTypeType
@@ -985,6 +1104,18 @@ class MemberTypeDef(TypedDict):
 
 class GetSbomExportRequestTypeDef(TypedDict):
     reportId: str
+
+class ImageTypeDef(TypedDict):
+    repositoryName: NotRequired[str]
+    registry: NotRequired[str]
+    imageTags: NotRequired[list[str]]
+    imageDigest: NotRequired[str]
+    pushedAt: NotRequired[datetime]
+    architecture: NotRequired[str]
+    author: NotRequired[str]
+    inUseCount: NotRequired[int]
+    lastInUseAt: NotRequired[datetime]
+    platform: NotRequired[str]
 
 class LambdaFunctionMetadataTypeDef(TypedDict):
     functionTags: NotRequired[dict[str, str]]
@@ -1013,6 +1144,15 @@ class ListCodeSecurityScanConfigurationAssociationsRequestTypeDef(TypedDict):
 class ListCodeSecurityScanConfigurationsRequestTypeDef(TypedDict):
     nextToken: NotRequired[str]
     maxResults: NotRequired[int]
+
+class ListConnectorScanConfigurationsRequestTypeDef(TypedDict):
+    awsConfigConnectorArns: NotRequired[Sequence[str]]
+    maxResults: NotRequired[int]
+    nextToken: NotRequired[str]
+
+class WaiterConfigTypeDef(TypedDict):
+    Delay: NotRequired[int]
+    MaxAttempts: NotRequired[int]
 
 class ListDelegatedAdminAccountsRequestTypeDef(TypedDict):
     maxResults: NotRequired[int]
@@ -1079,6 +1219,38 @@ class ResetEncryptionKeyRequestTypeDef(TypedDict):
     scanType: ScanTypeType
     resourceType: ResourceTypeType
 
+class ServerlessFunctionTypeDef(TypedDict):
+    serverlessFunctionName: NotRequired[str]
+    runtime: NotRequired[str]
+    version: NotRequired[str]
+    codeDigest: NotRequired[str]
+    lastModifiedAt: NotRequired[datetime]
+    networkId: NotRequired[str]
+    subnetIds: NotRequired[list[str]]
+    securityGroupIds: NotRequired[list[str]]
+    executionRole: NotRequired[str]
+    packageType: NotRequired[PackageTypeType]
+    architectures: NotRequired[list[ArchitectureType]]
+    layers: NotRequired[list[str]]
+
+VmTypeDef = TypedDict(
+    "VmTypeDef",
+    {
+        "type": NotRequired[str],
+        "vmName": NotRequired[str],
+        "vmImageReference": NotRequired[str],
+        "ipV4Addresses": NotRequired[list[str]],
+        "ipV6Addresses": NotRequired[list[str]],
+        "networkId": NotRequired[str],
+        "subnetIds": NotRequired[list[str]],
+        "securityGroupIds": NotRequired[list[str]],
+        "launchedAt": NotRequired[datetime],
+        "platform": NotRequired[str],
+        "executionRole": NotRequired[str],
+        "keyName": NotRequired[str],
+    },
+)
+
 class ResourceMapFilterTypeDef(TypedDict):
     comparison: Literal["EQUALS"]
     key: str
@@ -1087,6 +1259,17 @@ class ResourceMapFilterTypeDef(TypedDict):
 class ResourceStringFilterTypeDef(TypedDict):
     comparison: ResourceStringComparisonType
     value: str
+
+class ServerlessFunctionMetadataTypeDef(TypedDict):
+    serverlessFunctionName: NotRequired[str]
+    runtime: NotRequired[str]
+    functionTags: NotRequired[dict[str, str]]
+
+class VmInstanceMetadataTypeDef(TypedDict):
+    tags: NotRequired[dict[str, str]]
+    platform: NotRequired[VmPlatformType]
+    inventoryHash: NotRequired[str]
+    vmImageReference: NotRequired[str]
 
 class SearchVulnerabilitiesFilterCriteriaTypeDef(TypedDict):
     vulnerabilityIds: Sequence[str]
@@ -1120,6 +1303,10 @@ class UpdateCisTargetsTypeDef(TypedDict):
     accountIds: NotRequired[Sequence[str]]
     targetResourceTags: NotRequired[Mapping[str, Sequence[str]]]
 
+class UpdateConfigurationInheritanceTypeDef(TypedDict):
+    ec2Configuration: NotRequired[Literal["INHERIT_FROM_ADMIN"]]
+    ecrConfiguration: NotRequired[Literal["INHERIT_FROM_ADMIN"]]
+
 class UpdateEc2DeepInspectionConfigurationRequestTypeDef(TypedDict):
     activateDeepInspection: NotRequired[bool]
     packagePaths: NotRequired[Sequence[str]]
@@ -1146,6 +1333,7 @@ UsageTypeDef = TypedDict(
         "total": NotRequired[float],
         "estimatedMonthlyCost": NotRequired[float],
         "currency": NotRequired[Literal["USD"]],
+        "cloudProvider": NotRequired[CloudProviderType],
     },
 )
 
@@ -1158,6 +1346,11 @@ class AccountAggregationResponseTypeDef(TypedDict):
 class AmiAggregationResponseTypeDef(TypedDict):
     ami: str
     accountId: NotRequired[str]
+    cloudProvider: NotRequired[ProviderType]
+    cloudPartition: NotRequired[str]
+    cloudRegion: NotRequired[str]
+    cloudOrgId: NotRequired[str]
+    cloudAccountId: NotRequired[str]
     severityCounts: NotRequired[SeverityCountsTypeDef]
     affectedInstances: NotRequired[int]
 
@@ -1181,6 +1374,25 @@ class CodeRepositoryAggregationResponseTypeDef(TypedDict):
     accountId: NotRequired[str]
     resourceId: NotRequired[str]
 
+class ContainerImageAggregationResponseTypeDef(TypedDict):
+    resourceId: str
+    cloudProvider: NotRequired[ProviderType]
+    cloudAccountId: NotRequired[str]
+    cloudPartition: NotRequired[str]
+    cloudRegion: NotRequired[str]
+    cloudOrgId: NotRequired[str]
+    imageDigest: NotRequired[str]
+    repository: NotRequired[str]
+    registry: NotRequired[str]
+    architecture: NotRequired[str]
+    imageTags: NotRequired[list[str]]
+    accountId: NotRequired[str]
+    severityCounts: NotRequired[SeverityCountsTypeDef]
+    lastInUseAt: NotRequired[datetime]
+    inUseCount: NotRequired[int]
+    exploitAvailableActiveFindingsCount: NotRequired[int]
+    fixAvailableActiveFindingsCount: NotRequired[int]
+
 class Ec2InstanceAggregationResponseTypeDef(TypedDict):
     instanceId: str
     ami: NotRequired[str]
@@ -1195,12 +1407,22 @@ class FindingTypeAggregationResponseTypeDef(TypedDict):
     severityCounts: NotRequired[SeverityCountsTypeDef]
     exploitAvailableCount: NotRequired[int]
     fixAvailableCount: NotRequired[int]
+    cloudProvider: NotRequired[str]
+    cloudAccountId: NotRequired[str]
+    cloudOrgId: NotRequired[str]
+    cloudRegion: NotRequired[str]
+    cloudPartition: NotRequired[str]
 
 class ImageLayerAggregationResponseTypeDef(TypedDict):
     repository: str
     resourceId: str
     layerHash: str
     accountId: str
+    cloudProvider: NotRequired[str]
+    cloudAccountId: NotRequired[str]
+    cloudOrgId: NotRequired[str]
+    cloudRegion: NotRequired[str]
+    cloudPartition: NotRequired[str]
     severityCounts: NotRequired[SeverityCountsTypeDef]
 
 class LambdaFunctionAggregationResponseTypeDef(TypedDict):
@@ -1227,14 +1449,51 @@ class PackageAggregationResponseTypeDef(TypedDict):
 class RepositoryAggregationResponseTypeDef(TypedDict):
     repository: str
     accountId: NotRequired[str]
+    cloudProvider: NotRequired[ProviderType]
+    cloudPartition: NotRequired[str]
+    cloudRegion: NotRequired[str]
+    cloudOrgId: NotRequired[str]
+    cloudAccountId: NotRequired[str]
     severityCounts: NotRequired[SeverityCountsTypeDef]
     affectedImages: NotRequired[int]
+
+class ServerlessFunctionAggregationResponseTypeDef(TypedDict):
+    resourceId: str
+    cloudProvider: NotRequired[ProviderType]
+    cloudAccountId: NotRequired[str]
+    cloudPartition: NotRequired[str]
+    cloudRegion: NotRequired[str]
+    cloudOrgId: NotRequired[str]
+    functionName: NotRequired[str]
+    runtime: NotRequired[str]
+    tags: NotRequired[dict[str, str]]
+    accountId: NotRequired[str]
+    severityCounts: NotRequired[SeverityCountsTypeDef]
+    lastModifiedAt: NotRequired[datetime]
+    exploitAvailableActiveFindingsCount: NotRequired[int]
+    fixAvailableActiveFindingsCount: NotRequired[int]
 
 class TitleAggregationResponseTypeDef(TypedDict):
     title: str
     vulnerabilityId: NotRequired[str]
     accountId: NotRequired[str]
     severityCounts: NotRequired[SeverityCountsTypeDef]
+
+class VmInstanceAggregationResponseTypeDef(TypedDict):
+    resourceId: str
+    cloudProvider: NotRequired[ProviderType]
+    cloudAccountId: NotRequired[str]
+    cloudPartition: NotRequired[str]
+    cloudRegion: NotRequired[str]
+    cloudOrgId: NotRequired[str]
+    vmImageReference: NotRequired[str]
+    operatingSystem: NotRequired[str]
+    tags: NotRequired[dict[str, str]]
+    accountId: NotRequired[str]
+    severityCounts: NotRequired[SeverityCountsTypeDef]
+    networkFindings: NotRequired[int]
+    exploitAvailableActiveFindingsCount: NotRequired[int]
+    fixAvailableActiveFindingsCount: NotRequired[int]
 
 ResourceStateTypeDef = TypedDict(
     "ResourceStateTypeDef",
@@ -1275,6 +1534,11 @@ class ImageLayerAggregationTypeDef(TypedDict):
     repositories: NotRequired[Sequence[StringFilterTypeDef]]
     resourceIds: NotRequired[Sequence[StringFilterTypeDef]]
     layerHashes: NotRequired[Sequence[StringFilterTypeDef]]
+    cloudProviders: NotRequired[Sequence[StringFilterTypeDef]]
+    cloudAccountIds: NotRequired[Sequence[StringFilterTypeDef]]
+    cloudOrgIds: NotRequired[Sequence[StringFilterTypeDef]]
+    cloudRegions: NotRequired[Sequence[StringFilterTypeDef]]
+    cloudPartitions: NotRequired[Sequence[StringFilterTypeDef]]
     sortOrder: NotRequired[SortOrderType]
     sortBy: NotRequired[ImageLayerSortByType]
 
@@ -1299,9 +1563,9 @@ class TitleAggregationTypeDef(TypedDict):
     titles: NotRequired[Sequence[StringFilterTypeDef]]
     vulnerabilityIds: NotRequired[Sequence[StringFilterTypeDef]]
     resourceType: NotRequired[AggregationResourceTypeType]
+    findingType: NotRequired[AggregationFindingTypeType]
     sortOrder: NotRequired[SortOrderType]
     sortBy: NotRequired[TitleSortByType]
-    findingType: NotRequired[AggregationFindingTypeType]
 
 class AssociateConfigurationRequestTypeDef(TypedDict):
     scanConfigurationArn: str
@@ -1356,6 +1620,10 @@ class CreateCodeSecurityIntegrationResponseTypeDef(TypedDict):
 
 class CreateCodeSecurityScanConfigurationResponseTypeDef(TypedDict):
     scanConfigurationArn: str
+    ResponseMetadata: ResponseMetadataTypeDef
+
+class CreateConnectorResponseTypeDef(TypedDict):
+    connectorArn: str
     ResponseMetadata: ResponseMetadataTypeDef
 
 class CreateFilterResponseTypeDef(TypedDict):
@@ -1463,6 +1731,10 @@ class UpdateCodeSecurityScanConfigurationResponseTypeDef(TypedDict):
     scanConfigurationArn: str
     ResponseMetadata: ResponseMetadataTypeDef
 
+class UpdateConnectorResponseTypeDef(TypedDict):
+    connectorArn: str
+    ResponseMetadata: ResponseMetadataTypeDef
+
 class UpdateEc2DeepInspectionConfigurationResponseTypeDef(TypedDict):
     packagePaths: list[str]
     orgPackagePaths: list[str]
@@ -1511,6 +1783,16 @@ class AwsLambdaFunctionDetailsTypeDef(TypedDict):
     packageType: NotRequired[PackageTypeType]
     architectures: NotRequired[list[ArchitectureType]]
     lastModifiedAt: NotRequired[datetime]
+
+class AzureScopeConfigurationInputTypeDef(TypedDict):
+    vmScanning: NotRequired[ScopeConfigurationInputTypeDef]
+    containerImageScanning: NotRequired[ScopeConfigurationInputTypeDef]
+    serverlessScanning: NotRequired[ScopeConfigurationInputTypeDef]
+
+class AzureScopeConfigurationTypeDef(TypedDict):
+    vmScanning: NotRequired[ScopeConfigurationTypeDef]
+    containerImageScanning: NotRequired[ScopeConfigurationTypeDef]
+    serverlessScanning: NotRequired[ScopeConfigurationTypeDef]
 
 class BatchGetMemberEc2DeepInspectionStatusResponseTypeDef(TypedDict):
     accountIds: list[MemberAccountEc2DeepInspectionStatusStateTypeDef]
@@ -1671,6 +1953,16 @@ class CodeSnippetResultTypeDef(TypedDict):
     codeSnippet: NotRequired[list[CodeLineTypeDef]]
     suggestedFixes: NotRequired[list[SuggestedFixTypeDef]]
 
+class ConnectorScanConfigurationTypeDef(TypedDict):
+    containerImageScanning: NotRequired[ConnectorContainerImageScanConfigurationTypeDef]
+
+class ConnectorFilterCriteriaTypeDef(TypedDict):
+    connectorArns: NotRequired[Sequence[ConnectorArnFilterTypeDef]]
+    accounts: NotRequired[Sequence[StringFilterTypeDef]]
+    awsConfigConnectorArns: NotRequired[Sequence[AwsConfigConnectorArnFilterTypeDef]]
+    connectorType: NotRequired[Sequence[ConnectorTypeFilterTypeDef]]
+    provider: NotRequired[Sequence[ProviderFilterTypeDef]]
+
 class ListCoverageStatisticsResponseTypeDef(TypedDict):
     countsByGroup: list[CountsTypeDef]
     totalCounts: int
@@ -1732,12 +2024,34 @@ class LambdaFunctionAggregationTypeDef(TypedDict):
     sortOrder: NotRequired[SortOrderType]
     sortBy: NotRequired[LambdaFunctionSortByType]
 
+class ServerlessFunctionAggregationTypeDef(TypedDict):
+    resourceIds: NotRequired[Sequence[StringFilterTypeDef]]
+    functionNames: NotRequired[Sequence[StringFilterTypeDef]]
+    runtimes: NotRequired[Sequence[StringFilterTypeDef]]
+    functionTags: NotRequired[Sequence[MapFilterTypeDef]]
+    cloudProviders: NotRequired[Sequence[StringFilterTypeDef]]
+    cloudPartitions: NotRequired[Sequence[StringFilterTypeDef]]
+    cloudRegions: NotRequired[Sequence[StringFilterTypeDef]]
+    cloudOrgIds: NotRequired[Sequence[StringFilterTypeDef]]
+    cloudAccountIds: NotRequired[Sequence[StringFilterTypeDef]]
+    sortOrder: NotRequired[SortOrderType]
+    sortBy: NotRequired[ServerlessFunctionSortByType]
+
+class VmInstanceAggregationTypeDef(TypedDict):
+    resourceIds: NotRequired[Sequence[StringFilterTypeDef]]
+    operatingSystems: NotRequired[Sequence[StringFilterTypeDef]]
+    instanceTags: NotRequired[Sequence[MapFilterTypeDef]]
+    vmImageReferences: NotRequired[Sequence[StringFilterTypeDef]]
+    cloudProviders: NotRequired[Sequence[StringFilterTypeDef]]
+    cloudPartitions: NotRequired[Sequence[StringFilterTypeDef]]
+    cloudRegions: NotRequired[Sequence[StringFilterTypeDef]]
+    cloudOrgIds: NotRequired[Sequence[StringFilterTypeDef]]
+    cloudAccountIds: NotRequired[Sequence[StringFilterTypeDef]]
+    sortOrder: NotRequired[SortOrderType]
+    sortBy: NotRequired[VmInstanceSortByType]
+
 class EcrConfigurationStateTypeDef(TypedDict):
     rescanDurationState: NotRequired[EcrRescanDurationStateTypeDef]
-
-class UpdateConfigurationRequestTypeDef(TypedDict):
-    ecrConfiguration: NotRequired[EcrConfigurationTypeDef]
-    ec2Configuration: NotRequired[Ec2ConfigurationTypeDef]
 
 class FindingDetailTypeDef(TypedDict):
     findingArn: NotRequired[str]
@@ -1789,6 +2103,10 @@ GetClustersForImageRequestPaginateTypeDef = TypedDict(
 
 class ListAccountPermissionsRequestPaginateTypeDef(TypedDict):
     service: NotRequired[ServiceType]
+    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
+
+class ListConnectorScanConfigurationsRequestPaginateTypeDef(TypedDict):
+    awsConfigConnectorArns: NotRequired[Sequence[str]]
     PaginationConfig: NotRequired[PaginatorConfigTypeDef]
 
 class ListDelegatedAdminAccountsRequestPaginateTypeDef(TypedDict):
@@ -1885,6 +2203,12 @@ class StopCisSessionMessageTypeDef(TypedDict):
     benchmarkVersion: NotRequired[str]
     benchmarkProfile: NotRequired[str]
 
+class UpdateConfigurationRequestTypeDef(TypedDict):
+    accountId: NotRequired[str]
+    ecrConfiguration: NotRequired[EcrConfigurationTypeDef]
+    ec2Configuration: NotRequired[Ec2ConfigurationTypeDef]
+    updateConfigurationInheritance: NotRequired[UpdateConfigurationInheritanceTypeDef]
+
 class UpdateIntegrationDetailsTypeDef(TypedDict):
     gitlabSelfManaged: NotRequired[UpdateGitLabSelfManagedIntegrationDetailTypeDef]
     github: NotRequired[UpdateGitHubIntegrationDetailTypeDef]
@@ -1906,6 +2230,9 @@ class AggregationResponseTypeDef(TypedDict):
     lambdaLayerAggregation: NotRequired[LambdaLayerAggregationResponseTypeDef]
     lambdaFunctionAggregation: NotRequired[LambdaFunctionAggregationResponseTypeDef]
     codeRepositoryAggregation: NotRequired[CodeRepositoryAggregationResponseTypeDef]
+    vmInstanceAggregation: NotRequired[VmInstanceAggregationResponseTypeDef]
+    containerImageAggregation: NotRequired[ContainerImageAggregationResponseTypeDef]
+    serverlessFunctionAggregation: NotRequired[ServerlessFunctionAggregationResponseTypeDef]
 
 class AccountStateTypeDef(TypedDict):
     accountId: str
@@ -1990,6 +2317,25 @@ class FilterCriteriaOutputTypeDef(TypedDict):
     epssScore: NotRequired[list[NumberFilterTypeDef]]
     codeRepositoryProjectName: NotRequired[list[StringFilterTypeDef]]
     codeRepositoryProviderType: NotRequired[list[StringFilterTypeDef]]
+    cloudProvider: NotRequired[list[StringFilterTypeDef]]
+    cloudProviderRegion: NotRequired[list[StringFilterTypeDef]]
+    cloudProviderAccountId: NotRequired[list[StringFilterTypeDef]]
+    cloudProviderOrgId: NotRequired[list[StringFilterTypeDef]]
+    cloudVmImageReference: NotRequired[list[StringFilterTypeDef]]
+    cloudVmNetworkId: NotRequired[list[StringFilterTypeDef]]
+    cloudVmSubnetIds: NotRequired[list[StringFilterTypeDef]]
+    cloudImageRepositoryName: NotRequired[list[StringFilterTypeDef]]
+    cloudImageRegistry: NotRequired[list[StringFilterTypeDef]]
+    cloudImageDigest: NotRequired[list[StringFilterTypeDef]]
+    cloudImageTags: NotRequired[list[StringFilterTypeDef]]
+    cloudImagePushedAt: NotRequired[list[DateFilterOutputTypeDef]]
+    cloudImageArchitecture: NotRequired[list[StringFilterTypeDef]]
+    cloudImageLastInUseAt: NotRequired[list[DateFilterOutputTypeDef]]
+    cloudImageInUseCount: NotRequired[list[NumberFilterTypeDef]]
+    cloudServerlessFunctionName: NotRequired[list[StringFilterTypeDef]]
+    cloudServerlessFunctionRuntime: NotRequired[list[StringFilterTypeDef]]
+    cloudServerlessFunctionLastModifiedAt: NotRequired[list[DateFilterOutputTypeDef]]
+    cloudServerlessFunctionExecutionRole: NotRequired[list[StringFilterTypeDef]]
 
 class ClusterMetadataTypeDef(TypedDict):
     awsEcsMetadataDetails: NotRequired[AwsEcsMetadataDetailsTypeDef]
@@ -2000,6 +2346,36 @@ class ResourceDetailsTypeDef(TypedDict):
     awsEcrContainerImage: NotRequired[AwsEcrContainerImageDetailsTypeDef]
     awsLambdaFunction: NotRequired[AwsLambdaFunctionDetailsTypeDef]
     codeRepository: NotRequired[CodeRepositoryDetailsTypeDef]
+    vm: NotRequired[VmTypeDef]
+    image: NotRequired[ImageTypeDef]
+    serverlessFunction: NotRequired[ServerlessFunctionTypeDef]
+
+class AzureProviderDetailCreateTypeDef(TypedDict):
+    awsConfigConnectorArn: str
+    scopeConfiguration: AzureScopeConfigurationInputTypeDef
+    azureRegions: Sequence[str]
+    autoInstallVMScanner: NotRequired[bool]
+
+class AzureProviderDetailUpdateTypeDef(TypedDict):
+    azureRegions: NotRequired[Sequence[str]]
+    scopeConfiguration: NotRequired[AzureScopeConfigurationInputTypeDef]
+    autoInstallVMScanner: NotRequired[bool]
+
+class ConnectorTypeDef(TypedDict):
+    connectorArn: str
+    provider: Literal["AZURE"]
+    createdAt: datetime
+    updatedAt: datetime
+    name: NotRequired[str]
+    description: NotRequired[str]
+    enablementStatus: NotRequired[EnablementStatusType]
+    enablementStatusReason: NotRequired[str]
+    health: NotRequired[ConnectorHealthTypeDef]
+    azureRegions: NotRequired[list[str]]
+    awsConfigConnectorArn: NotRequired[str]
+    scopeConfiguration: NotRequired[AzureScopeConfigurationTypeDef]
+    tags: NotRequired[dict[str, str]]
+    autoInstallVMScanner: NotRequired[bool]
 
 class SendCisSessionTelemetryRequestTypeDef(TypedDict):
     scanJobId: str
@@ -2050,6 +2426,28 @@ class CoverageFilterCriteriaTypeDef(TypedDict):
     codeRepositoryProviderType: NotRequired[Sequence[CoverageStringFilterTypeDef]]
     codeRepositoryProviderTypeVisibility: NotRequired[Sequence[CoverageStringFilterTypeDef]]
     lastScannedCommitId: NotRequired[Sequence[CoverageStringFilterTypeDef]]
+    cloudProvider: NotRequired[Sequence[CoverageStringFilterTypeDef]]
+    cloudProviderAccountId: NotRequired[Sequence[CoverageStringFilterTypeDef]]
+    cloudProviderRegion: NotRequired[Sequence[CoverageStringFilterTypeDef]]
+    cloudVmInstanceTags: NotRequired[Sequence[CoverageMapFilterTypeDef]]
+    cloudContainerImageTags: NotRequired[Sequence[CoverageStringFilterTypeDef]]
+    cloudContainerRepositoryName: NotRequired[Sequence[CoverageStringFilterTypeDef]]
+    cloudContainerRegistryName: NotRequired[Sequence[CoverageStringFilterTypeDef]]
+    cloudServerlessFunctionName: NotRequired[Sequence[CoverageStringFilterTypeDef]]
+    cloudServerlessFunctionRuntime: NotRequired[Sequence[CoverageStringFilterTypeDef]]
+    cloudServerlessFunctionTags: NotRequired[Sequence[CoverageMapFilterTypeDef]]
+    cloudProviderOrgId: NotRequired[Sequence[CoverageStringFilterTypeDef]]
+
+class AwsEcrContainerAggregationTypeDef(TypedDict):
+    resourceIds: NotRequired[Sequence[StringFilterTypeDef]]
+    imageShas: NotRequired[Sequence[StringFilterTypeDef]]
+    repositories: NotRequired[Sequence[StringFilterTypeDef]]
+    architectures: NotRequired[Sequence[StringFilterTypeDef]]
+    imageTags: NotRequired[Sequence[StringFilterTypeDef]]
+    sortOrder: NotRequired[SortOrderType]
+    sortBy: NotRequired[AwsEcrContainerSortByType]
+    lastInUseAt: NotRequired[Sequence[DateFilterTypeDef]]
+    inUseCount: NotRequired[Sequence[NumberFilterTypeDef]]
 
 DateFilterUnionTypeDef = Union[DateFilterTypeDef, DateFilterOutputTypeDef]
 
@@ -2100,6 +2498,25 @@ class FilterCriteriaTypeDef(TypedDict):
     epssScore: NotRequired[Sequence[NumberFilterTypeDef]]
     codeRepositoryProjectName: NotRequired[Sequence[StringFilterTypeDef]]
     codeRepositoryProviderType: NotRequired[Sequence[StringFilterTypeDef]]
+    cloudProvider: NotRequired[Sequence[StringFilterTypeDef]]
+    cloudProviderRegion: NotRequired[Sequence[StringFilterTypeDef]]
+    cloudProviderAccountId: NotRequired[Sequence[StringFilterTypeDef]]
+    cloudProviderOrgId: NotRequired[Sequence[StringFilterTypeDef]]
+    cloudVmImageReference: NotRequired[Sequence[StringFilterTypeDef]]
+    cloudVmNetworkId: NotRequired[Sequence[StringFilterTypeDef]]
+    cloudVmSubnetIds: NotRequired[Sequence[StringFilterTypeDef]]
+    cloudImageRepositoryName: NotRequired[Sequence[StringFilterTypeDef]]
+    cloudImageRegistry: NotRequired[Sequence[StringFilterTypeDef]]
+    cloudImageDigest: NotRequired[Sequence[StringFilterTypeDef]]
+    cloudImageTags: NotRequired[Sequence[StringFilterTypeDef]]
+    cloudImagePushedAt: NotRequired[Sequence[DateFilterTypeDef]]
+    cloudImageArchitecture: NotRequired[Sequence[StringFilterTypeDef]]
+    cloudImageLastInUseAt: NotRequired[Sequence[DateFilterTypeDef]]
+    cloudImageInUseCount: NotRequired[Sequence[NumberFilterTypeDef]]
+    cloudServerlessFunctionName: NotRequired[Sequence[StringFilterTypeDef]]
+    cloudServerlessFunctionRuntime: NotRequired[Sequence[StringFilterTypeDef]]
+    cloudServerlessFunctionLastModifiedAt: NotRequired[Sequence[DateFilterTypeDef]]
+    cloudServerlessFunctionExecutionRole: NotRequired[Sequence[StringFilterTypeDef]]
 
 class ListCisScansResponseTypeDef(TypedDict):
     scans: list[CisScanTypeDef]
@@ -2192,6 +2609,42 @@ class BatchGetCodeSnippetResponseTypeDef(TypedDict):
     codeSnippetResults: list[CodeSnippetResultTypeDef]
     errors: list[CodeSnippetErrorTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
+
+class ConnectorScanConfigurationItemTypeDef(TypedDict):
+    awsConfigConnectorArn: str
+    connectorArns: list[str]
+    scanConfiguration: ConnectorScanConfigurationTypeDef
+
+class UpdateConnectorScanConfigurationRequestTypeDef(TypedDict):
+    awsConfigConnectorArn: str
+    scanConfiguration: ConnectorScanConfigurationTypeDef
+
+class ListConnectorsRequestPaginateTypeDef(TypedDict):
+    filterCriteria: NotRequired[ConnectorFilterCriteriaTypeDef]
+    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
+
+class ListConnectorsRequestTypeDef(TypedDict):
+    maxResults: NotRequired[int]
+    nextToken: NotRequired[str]
+    filterCriteria: NotRequired[ConnectorFilterCriteriaTypeDef]
+
+class ListConnectorsRequestWaitExtraExtraTypeDef(TypedDict):
+    maxResults: NotRequired[int]
+    nextToken: NotRequired[str]
+    filterCriteria: NotRequired[ConnectorFilterCriteriaTypeDef]
+    WaiterConfig: NotRequired[WaiterConfigTypeDef]
+
+class ListConnectorsRequestWaitExtraTypeDef(TypedDict):
+    maxResults: NotRequired[int]
+    nextToken: NotRequired[str]
+    filterCriteria: NotRequired[ConnectorFilterCriteriaTypeDef]
+    WaiterConfig: NotRequired[WaiterConfigTypeDef]
+
+class ListConnectorsRequestWaitTypeDef(TypedDict):
+    maxResults: NotRequired[int]
+    nextToken: NotRequired[str]
+    filterCriteria: NotRequired[ConnectorFilterCriteriaTypeDef]
+    WaiterConfig: NotRequired[WaiterConfigTypeDef]
 
 CreateCodeSecurityIntegrationRequestTypeDef = TypedDict(
     "CreateCodeSecurityIntegrationRequestTypeDef",
@@ -2330,8 +2783,22 @@ ResourceTypeDef = TypedDict(
         "region": NotRequired[str],
         "tags": NotRequired[dict[str, str]],
         "details": NotRequired[ResourceDetailsTypeDef],
+        "provider": NotRequired[ProviderType],
+        "providerAccountId": NotRequired[str],
+        "providerOrgId": NotRequired[str],
     },
 )
+
+class ProviderDetailCreateTypeDef(TypedDict):
+    azure: NotRequired[AzureProviderDetailCreateTypeDef]
+
+class ProviderDetailUpdateTypeDef(TypedDict):
+    azure: NotRequired[AzureProviderDetailUpdateTypeDef]
+
+class ListConnectorsResponseTypeDef(TypedDict):
+    items: list[ConnectorTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    nextToken: NotRequired[str]
 
 class ListCisScansRequestPaginateTypeDef(TypedDict):
     filterCriteria: NotRequired[ListCisScansFilterCriteriaTypeDef]
@@ -2367,16 +2834,22 @@ class ListCoverageStatisticsRequestTypeDef(TypedDict):
     groupBy: NotRequired[GroupKeyType]
     nextToken: NotRequired[str]
 
-class AwsEcrContainerAggregationTypeDef(TypedDict):
+class ContainerImageAggregationTypeDef(TypedDict):
     resourceIds: NotRequired[Sequence[StringFilterTypeDef]]
-    imageShas: NotRequired[Sequence[StringFilterTypeDef]]
+    imageDigests: NotRequired[Sequence[StringFilterTypeDef]]
     repositories: NotRequired[Sequence[StringFilterTypeDef]]
+    registries: NotRequired[Sequence[StringFilterTypeDef]]
     architectures: NotRequired[Sequence[StringFilterTypeDef]]
     imageTags: NotRequired[Sequence[StringFilterTypeDef]]
-    sortOrder: NotRequired[SortOrderType]
-    sortBy: NotRequired[AwsEcrContainerSortByType]
+    cloudProviders: NotRequired[Sequence[StringFilterTypeDef]]
+    cloudPartitions: NotRequired[Sequence[StringFilterTypeDef]]
+    cloudRegions: NotRequired[Sequence[StringFilterTypeDef]]
+    cloudOrgIds: NotRequired[Sequence[StringFilterTypeDef]]
+    cloudAccountIds: NotRequired[Sequence[StringFilterTypeDef]]
     lastInUseAt: NotRequired[Sequence[DateFilterUnionTypeDef]]
     inUseCount: NotRequired[Sequence[NumberFilterTypeDef]]
+    sortOrder: NotRequired[SortOrderType]
+    sortBy: NotRequired[ContainerImageSortByType]
 
 FilterCriteriaUnionTypeDef = Union[FilterCriteriaTypeDef, FilterCriteriaOutputTypeDef]
 
@@ -2390,6 +2863,11 @@ class CreateCodeSecurityScanConfigurationRequestTypeDef(TypedDict):
 class UpdateCodeSecurityScanConfigurationRequestTypeDef(TypedDict):
     scanConfigurationArn: str
     configuration: CodeSecurityScanConfigurationUnionTypeDef
+
+class ListConnectorScanConfigurationsResponseTypeDef(TypedDict):
+    scanConfigurations: list[ConnectorScanConfigurationItemTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    nextToken: NotRequired[str]
 
 class CisScanConfigurationTypeDef(TypedDict):
     scanConfigurationArn: str
@@ -2408,6 +2886,11 @@ class ResourceScanMetadataTypeDef(TypedDict):
     ec2: NotRequired[Ec2MetadataTypeDef]
     lambdaFunction: NotRequired[LambdaFunctionMetadataTypeDef]
     codeRepository: NotRequired[CodeRepositoryMetadataTypeDef]
+    vmInstance: NotRequired[VmInstanceMetadataTypeDef]
+    containerImage: NotRequired[ContainerImageMetadataTypeDef]
+    containerRepository: NotRequired[ContainerRepositoryMetadataTypeDef]
+    containerRegistry: NotRequired[ContainerRegistryMetadataTypeDef]
+    serverlessFunction: NotRequired[ServerlessFunctionMetadataTypeDef]
 
 class CreateSbomExportRequestTypeDef(TypedDict):
     reportFormat: SbomReportFormatType
@@ -2450,6 +2933,19 @@ FindingTypeDef = TypedDict(
     },
 )
 
+class CreateConnectorRequestTypeDef(TypedDict):
+    name: str
+    provider: Literal["AZURE"]
+    providerDetail: ProviderDetailCreateTypeDef
+    clientToken: NotRequired[str]
+    description: NotRequired[str]
+    tags: NotRequired[Mapping[str, str]]
+
+class UpdateConnectorRequestTypeDef(TypedDict):
+    connectorArn: str
+    description: NotRequired[str]
+    providerDetail: NotRequired[ProviderDetailUpdateTypeDef]
+
 class AggregationRequestTypeDef(TypedDict):
     accountAggregation: NotRequired[AccountAggregationTypeDef]
     amiAggregation: NotRequired[AmiAggregationTypeDef]
@@ -2463,6 +2959,9 @@ class AggregationRequestTypeDef(TypedDict):
     lambdaLayerAggregation: NotRequired[LambdaLayerAggregationTypeDef]
     lambdaFunctionAggregation: NotRequired[LambdaFunctionAggregationTypeDef]
     codeRepositoryAggregation: NotRequired[CodeRepositoryAggregationTypeDef]
+    vmInstanceAggregation: NotRequired[VmInstanceAggregationTypeDef]
+    containerImageAggregation: NotRequired[ContainerImageAggregationTypeDef]
+    serverlessFunctionAggregation: NotRequired[ServerlessFunctionAggregationTypeDef]
 
 class CreateFilterRequestTypeDef(TypedDict):
     action: FilterActionType
@@ -2524,6 +3023,11 @@ class CoveredResourceTypeDef(TypedDict):
     resourceMetadata: NotRequired[ResourceScanMetadataTypeDef]
     lastScannedAt: NotRequired[datetime]
     scanMode: NotRequired[ScanModeType]
+    provider: NotRequired[ProviderType]
+    providerAccountId: NotRequired[str]
+    providerOrgId: NotRequired[str]
+    providerRegion: NotRequired[str]
+    providerPartition: NotRequired[str]
 
 class GetClustersForImageResponseTypeDef(TypedDict):
     cluster: list[ClusterInformationTypeDef]

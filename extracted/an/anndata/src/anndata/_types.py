@@ -4,16 +4,20 @@ Defines some useful types for this library. Should probably be cleaned up before
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Literal, Protocol, TypeVar
+from typing import TYPE_CHECKING, Literal, Protocol
 
 from . import typing
 from .compat import H5Array, H5Group, ZarrArray, ZarrGroup
+from .utils import set_module
 
 if TYPE_CHECKING:
     from collections.abc import Mapping
     from typing import Any, TypeAlias
 
+    from pandas import DataFrame
+
     from anndata._core.xarray import Dataset2D
+    from anndata.typing import AxisStorable, _XDataType
 
     from ._io.specs.registry import (
         IOSpec,
@@ -22,49 +26,50 @@ if TYPE_CHECKING:
         Reader,
         Writer,
     )
+    from ._types import AnnDataElem
+    from .compat import XDataset
+
+else:  # https://github.com/tox-dev/sphinx-autodoc-typehints/issues/580
+    type S = StorageType
+    type RWAble = typing.RWAble
 
 
 __all__ = [
     "AnnDataElem",
-    "ArrayStorageType",
     "Dataset2DIlocIndexer",
-    "GroupStorageType",
     "Read",
     "ReadCallback",
     "ReadLazy",
     "StorageType",
     "Write",
     "WriteCallback",
+    "_ArrayStorageType",
+    "_GroupStorageType",
     "_ReadInternal",
     "_ReadLazyInternal",
     "_WriteInternal",
 ]
 
-ArrayStorageType: TypeAlias = ZarrArray | H5Array
-GroupStorageType: TypeAlias = ZarrGroup | H5Group
-StorageType: TypeAlias = ArrayStorageType | GroupStorageType
+# These two are not public, so we don’t make them `type`s
+_ArrayStorageType: TypeAlias = ZarrArray | H5Array  # noqa: UP040
+_GroupStorageType: TypeAlias = ZarrGroup | H5Group  # noqa: UP040
 
-# NOTE: If you change these, be sure to update `autodoc_type_aliases` in docs/conf.py!
-RWAble_contra = TypeVar("RWAble_contra", bound=typing.RWAble, contravariant=True)
-RWAble_co = TypeVar("RWAble_co", bound=typing.RWAble, covariant=True)
-RWAble = TypeVar("RWAble", bound=typing.RWAble)
-
-S_co = TypeVar("S_co", covariant=True, bound=StorageType)
-S_contra = TypeVar("S_contra", contravariant=True, bound=StorageType)
+type StorageType = _ArrayStorageType | _GroupStorageType
 
 
+@set_module("anndata.experimental")
 class Dataset2DIlocIndexer(Protocol):
     def __getitem__(self, idx: Any, /) -> Dataset2D: ...
 
 
-class _ReadInternal(Protocol[S_contra, RWAble_co]):
-    def __call__(self, elem: S_contra, /, *, _reader: Reader) -> RWAble_co: ...
+class _ReadInternal[S: StorageType, RWAble: typing.RWAble](Protocol):
+    def __call__(self, elem: S, /, *, _reader: Reader) -> RWAble: ...
 
 
-class _ReadLazyInternal(Protocol[S_contra]):
+class _ReadLazyInternal[S: StorageType](Protocol):
     def __call__(
         self,
-        elem: S_contra,
+        elem: S,
         /,
         *,
         _reader: LazyReader,
@@ -72,8 +77,9 @@ class _ReadLazyInternal(Protocol[S_contra]):
     ) -> LazyDataStructures: ...
 
 
-class Read(Protocol[S_contra, RWAble_co]):
-    def __call__(self, elem: S_contra, /) -> RWAble_co:
+@set_module("anndata.experimental")
+class Read[S: StorageType, RWAble: typing.RWAble](Protocol):
+    def __call__(self, elem: S, /) -> RWAble:
         """Low-level reading function for an element.
 
         Parameters
@@ -87,9 +93,9 @@ class Read(Protocol[S_contra, RWAble_co]):
         ...
 
 
-class ReadLazy(Protocol[S_contra]):
+class ReadLazy[S](Protocol):
     def __call__(
-        self, elem: S_contra, /, *, chunks: tuple[int, ...] | None = None
+        self, elem: S, /, *, chunks: tuple[int, ...] | None = None
     ) -> LazyDataStructures:
         """Low-level reading function for a lazy element.
 
@@ -106,12 +112,12 @@ class ReadLazy(Protocol[S_contra]):
         ...
 
 
-class _WriteInternal(Protocol[S_contra, RWAble_contra]):
+class _WriteInternal[S: StorageType, RWAble: typing.RWAble](Protocol):
     def __call__(
         self,
-        f: S_contra,
+        f: S,
         k: str,
-        v: RWAble_contra,
+        v: RWAble,
         /,
         *,
         _writer: Writer,
@@ -119,12 +125,13 @@ class _WriteInternal(Protocol[S_contra, RWAble_contra]):
     ) -> None: ...
 
 
-class Write(Protocol[RWAble_contra]):
+@set_module("anndata.experimental")
+class Write[RWAble: typing.RWAble](Protocol):
     def __call__(
         self,
         f: StorageType,
         k: str,
-        v: RWAble_contra,
+        v: RWAble,
         /,
         *,
         dataset_kwargs: Mapping[str, Any],
@@ -145,13 +152,14 @@ class Write(Protocol[RWAble_contra]):
         ...
 
 
-class ReadCallback(Protocol[S_co, RWAble]):
+@set_module("anndata.experimental")
+class ReadCallback[S: StorageType, RWAble: typing.RWAble](Protocol):
     def __call__(
         self,
-        /,
-        read_func: Read[S_co, RWAble],
+        read_func: Read[S, RWAble],
         elem_name: str,
         elem: StorageType,
+        /,
         *,
         iospec: IOSpec,
     ) -> RWAble:
@@ -176,14 +184,15 @@ class ReadCallback(Protocol[S_co, RWAble]):
         ...
 
 
-class WriteCallback(Protocol[RWAble]):
+@set_module("anndata.experimental")
+class WriteCallback[RWAble: typing.RWAble](Protocol):
     def __call__(
         self,
-        /,
         write_func: Write[RWAble],
         store: StorageType,
         elem_name: str,
         elem: RWAble,
+        /,
         *,
         iospec: IOSpec,
         dataset_kwargs: Mapping[str, Any],
@@ -209,7 +218,7 @@ class WriteCallback(Protocol[RWAble]):
         ...
 
 
-AnnDataElem = Literal[
+type AnnDataElem = Literal[
     "obs",
     "var",
     "obsm",
@@ -222,4 +231,31 @@ AnnDataElem = Literal[
     "uns",
 ]
 
-Join_T = Literal["inner", "outer"]
+type Join_T = Literal["inner", "outer"]
+
+
+class ReduceFunc[T](Protocol):
+    def __call__(
+        self,
+        elem: _XDataType | AxisStorable | DataFrame | XDataset,
+        /,
+        *,
+        accumulate: T,
+        attr_name: AnnDataElem | None,
+    ) -> T:
+        """Function to be called on each visit within `anndata.AnnData._reduce`.
+
+        Parameters
+        ----------
+        elem
+            The current element.
+        accumulate
+            The value being accumulated.
+        ref_acc
+            A reference to help uses distinguish where they are in the `AnnData` object.
+
+        Returns
+        -------
+            An accumulated value
+        """
+        ...

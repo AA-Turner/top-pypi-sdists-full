@@ -75,6 +75,17 @@ class WorkspaceNotFound(RuntimeClientException):
         self.is_uuid = is_uuid
 
 
+class OrgRegionRequired(RuntimeClientException):
+    """Organization has no region set; one must be chosen before creating a workspace.
+
+    Only reachable by the org owner: the region gate on invites/member-adds means
+    a region-less org has no members other than its owner.
+    """
+
+    def __init__(self) -> None:
+        super().__init__("Organization region must be set before creating workspaces.")
+
+
 class AmbiguousWorkspaceName(ValueError, RuntimeClientException):
     """Multiple owned workspaces share the requested name."""
 

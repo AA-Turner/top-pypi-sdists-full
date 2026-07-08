@@ -4562,6 +4562,13 @@ class Sink:
 
     feature_expressions: Mapping[FeatureWrapper | str, Underscore] | None = None
 
+    message_key: Literal["pass_through"] | None = None
+    """
+    Controls the key on outbound sink messages. Defaults to `None`, which produces messages
+    without a key. Set to `"pass_through"` to copy the incoming source message key onto the
+    outbound message.
+    """
+
 
 def parse_message_producer_with_lsp_errors(
     message_producer: Sink,
@@ -4677,12 +4684,22 @@ def parse_message_producer_with_lsp_errors(
             range=error_builder.function_arg_range_by_name(param_name),
         )
 
+    # Validate message_key is valid
+    if message_producer.message_key is not None and message_producer.message_key != "pass_through":
+        error_builder.add_diagnostic(
+            message=f"Invalid message_key '{message_producer.message_key}' on Sink. Must be 'pass_through' or None",
+            code="209",
+            label="Invalid message_key",
+            range=error_builder.function_arg_range_by_name(param_name),
+        )
+
     # Create and return the parsed version
     return StreamResolverMessageProducerParsed(
         send_to=message_producer.send_to,
         output_features=[str(f) for f in output_features_list],
         feature_expressions=feature_expressions_dict,
         format=message_producer.format,
+        message_key=message_producer.message_key,
     )
 
 
@@ -4776,12 +4793,14 @@ class StreamResolverMessageProducerParsed:
         output_features: list[str],
         format: Literal["json", "ipc_stream"],
         feature_expressions: Mapping[str, Underscore] | None = None,
+        message_key: Literal["pass_through"] | None = None,
     ):
         super().__init__()
         self.send_to = send_to
         self.output_features = output_features
         self.format = format
         self.feature_expressions = feature_expressions
+        self.message_key = message_key
 
 
 def _validate_output_features(

@@ -5,9 +5,9 @@ import hashlib
 import random
 import secrets
 
-import httpx
+import httpx2
 import pytest
-from aiobotocore.session import get_session
+from signurlarity.aio.client import AsyncClient
 
 from diracx.core.s3 import (
     b16_to_b64,
@@ -52,7 +52,7 @@ async def moto_s3(aio_moto):
     Note that this is not a complete S3 backend, in particular authentication
     and validation of requests is not implemented.
     """
-    async with get_session().create_client("s3", **aio_moto) as client:
+    async with AsyncClient(**aio_moto) as client:
         await client.create_bucket(Bucket=BUCKET_NAME)
         await client.create_bucket(Bucket=OTHER_BUCKET_NAME)
         yield client
@@ -82,7 +82,7 @@ async def test_presigned_upload_moto(moto_s3):
     )
 
     # Upload the file
-    async with httpx.AsyncClient() as client:
+    async with httpx2.AsyncClient() as client:
         r = await client.post(
             upload_info["url"],
             data=upload_info["fields"],
@@ -92,15 +92,21 @@ async def test_presigned_upload_moto(moto_s3):
     assert r.status_code == 204, r.text
 
     # Make sure the object is actually there
-    obj = await moto_s3.get_object(Bucket=BUCKET_NAME, Key=key)
-    assert (await obj["Body"].read()) == file_content
+    url = await moto_s3.generate_presigned_url(
+        "get_object",
+        Params={"Bucket": BUCKET_NAME, "Key": key},
+        ExpiresIn=3600,
+    )
+    async with httpx2.AsyncClient() as client:
+        r = await client.get(url)
+
+    assert r.content == file_content
 
 
 @pytest.fixture(scope="function")
 async def minio_client(demo_urls):
     """Create a S3 client that uses minio from the demo as backend."""
-    async with get_session().create_client(
-        "s3",
+    async with AsyncClient(
         endpoint_url=demo_urls["minio"],
         aws_access_key_id="console",
         aws_secret_access_key="console123",
@@ -115,8 +121,13 @@ async def test_bucket(minio_client):
     await minio_client.create_bucket(Bucket=bucket_name)
     yield bucket_name
     objects = await minio_client.list_objects(Bucket=bucket_name)
-    for obj in objects.get("Contents", []):
-        await minio_client.delete_object(Bucket=bucket_name, Key=obj["Key"])
+    contents = objects.get("Contents", [])
+    if contents:
+        await minio_client.delete_objects(
+            Bucket=bucket_name,
+            Delete={"Objects": [{"Key": obj["Key"]} for obj in contents]},
+        )
+
     await minio_client.delete_bucket(Bucket=bucket_name)
 
 
@@ -153,7 +164,7 @@ async def test_presigned_upload_minio(
         minio_client, test_bucket, key, "sha256", checksum, size, 60
     )
     # Ensure the URL doesn't work
-    async with httpx.AsyncClient() as client:
+    async with httpx2.AsyncClient() as client:
         r = await client.post(
             upload_info["url"], data=upload_info["fields"], files={"file": content}
         )

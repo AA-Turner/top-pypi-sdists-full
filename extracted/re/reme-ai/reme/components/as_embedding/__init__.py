@@ -50,9 +50,16 @@ class BaseAsEmbedding(BaseComponent):
         if model_cls is None:
             raise ValueError(f"{self.credential_cls.__name__} does not support embeddings.")
 
+        dimensions = kwargs.pop("dimensions")
         params_dict = kwargs.pop("parameters", None)
         parameters = model_cls.Parameters(**params_dict) if params_dict else None
-        self.model = model_cls(credential=credential, parameters=parameters, **kwargs)
+
+        self.model = model_cls(
+            credential=credential,
+            dimensions=dimensions,
+            parameters=parameters,
+            **kwargs,
+        )
 
 
 @R.register("openai")

@@ -125,6 +125,7 @@ from routes.insights import bp_insights
 from routes.review import bp_review
 from routes.evals import bp_evals
 from routes.dives import bp_dives
+from routes.reports import bp_reports
 from routes.scheduler import bp_scheduler
 from routes.policy import bp_policy
 from routes.turn_anatomy import bp_turn_anatomy
@@ -258,7 +259,7 @@ def _otlp_service_name_to_agent_type(service_name):
     return slug or "custom"
 
 
-__version__ = "0.12.544"
+__version__ = "0.12.547"
 
 # Extensions (Phase 2): import the plugin host now, but defer the actual
 # load_plugins() call until after the Flask app is created below so we can
@@ -11585,6 +11586,7 @@ def detect_config(args=None):
     app.register_blueprint(bp_plugins)
     app.register_blueprint(bp_local_query)
     app.register_blueprint(bp_dives)
+    app.register_blueprint(bp_reports)
     app.register_blueprint(bp_scheduler)
     app.register_blueprint(bp_policy)
     app.register_blueprint(bp_turn_anatomy)
@@ -16479,6 +16481,10 @@ def _get_sessions():
                         "contextTokens", 200000
                     ),
                     "kind": s.get("kind", "direct"),
+                    "transcriptionProvider": s.get("transcriptionProvider") or s.get("talkTranscriptionProvider") or s.get("speechProvider") or "",
+                    "talkTransport": s.get("talkTransport") or s.get("voiceTransport") or "",
+                    "voiceModel": s.get("voiceModel") or s.get("realtimeModel") or s.get("talkModel") or "",
+                    "vadMode": s.get("vadMode") or s.get("talkVadMode") or "",
                     "agent": s.get("agentId", "main"),
                     "parentId": s.get("parentSessionId") or s.get("parentId") or s.get("spawnedBy") or s.get("parentKey") or None,
                     "endedAt": s.get("endedAtMs") or s.get("endedAt"),

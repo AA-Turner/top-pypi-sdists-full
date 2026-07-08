@@ -3232,6 +3232,40 @@ fn sae_jumprelu_batch_value_grad<'py>(
     Ok((value.into_pyarray(py).unbind(), grad.into_pyarray(py).unbind()))
 }
 
+/// Top-k SAE activation value+grad over an `(N, K)` logit matrix — the single
+/// source of truth for `gamfit.torch`'s `softmax_topk` activation.
+///
+/// Returns `(a, da_dl)`, each `(N, K)`, where `a[i,k] = τ·softplus(l/τ)` is the
+/// per-atom **independent**, strictly non-negative activation the top-k gate
+/// scores with, and `da_dl[i,k] = σ(l/τ)` is its diagonal logit derivative
+/// (temperature cancels in the chain). The hard top-k *selection* and its masked
+/// gradient stay on the torch tape; only this activation crosses the boundary.
+#[pyfunction(signature = (logits, temperature))]
+fn sae_topk_activation_value_grad<'py>(
+    py: Python<'py>,
+    logits: PyReadonlyArray2<'py, f64>,
+    temperature: f64,
+) -> PyResult<(Py<PyArray2<f64>>, Py<PyArray2<f64>>)> {
+    if !(temperature.is_finite() && temperature > 0.0) {
+        return Err(py_value_error(format!(
+            "sae_topk_activation_value_grad: temperature must be finite and positive; got {temperature}"
+        )));
+    }
+    let logits_view = logits.as_array();
+    for ((row, col), &v) in logits_view.indexed_iter() {
+        if !v.is_finite() {
+            return Err(py_value_error(format!(
+                "sae_topk_activation_value_grad: non-finite logit at row {row} atom {col}: {v}"
+            )));
+        }
+    }
+    let (value, grad) = gam::terms::sae::assignment::topk_activation_batch_value_grad(
+        logits_view.view(),
+        temperature,
+    );
+    Ok((value.into_pyarray(py).unbind(), grad.into_pyarray(py).unbind()))
+}
+
 #[pyfunction(signature = (
     latents_json,
     penalties_json,
@@ -5803,6 +5837,7 @@ fn build_standard_payload(
     wiggle_knots: Option<Vec<f64>>,
     wiggle_degree: Option<usize>,
     wiggle_saved_warp_beta: Option<Vec<f64>>,
+    wiggle_saved_index_shift: Option<Vec<f64>>,
 ) -> Result<FittedModelPayload, String> {
     let saved_fit = fit_with_null_space_logdet(design, saved_fit)?;
     let latent_cloglog_state =
@@ -5858,6 +5893,10 @@ fn build_standard_payload(
     // runtime, which reconstructs the warp as `B(η_new)·β_w`. `None` (the
     // dynamic-basis / non-de-aliased path) leaves predict reading the block.
     payload.beta_link_wiggle = wiggle_saved_warp_beta;
+    // #2141: persist the frozen-index shift so predict evaluates the warp basis
+    // at the frozen index `η̂` the fit pinned `B(η̂)` at, not at the de-aliased
+    // base predictor — reproducing the fitted `q` and deviance at predict time.
+    payload.link_wiggle_index_shift = wiggle_saved_index_shift;
     payload.set_training_feature_metadata(dataset.headers.clone(), dataset.feature_ranges());
     payload.resolved_termspec = Some(resolved_termspec);
     payload.adaptive_regularization_diagnostics = adaptive_regularization_diagnostics;

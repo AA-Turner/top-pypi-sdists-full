@@ -31,6 +31,7 @@ from bernstein.core.cross_model_verifier import (
 )
 from bernstein.core.defaults import TASK
 from bernstein.core.effectiveness import EffectivenessScorer
+from bernstein.core.evidence.completion_gate import seal_evidence_on_completion
 from bernstein.core.fast_path import (
     TaskLevel,
     classify_task,
@@ -577,6 +578,17 @@ _TRANSIENT_MARKERS = (
 )
 _FATAL_MARKERS = ("syntaxerror", "syntax error", "fatal")
 
+# Match markers on token boundaries, not as bare substrings. The numeric
+# HTTP-status markers ("503", "429", ...) are short digit runs that alias
+# by chance inside opaque identifiers embedded in a failure reason - e.g. a
+# terminal reason carrying "correlation=compact-a1503f2b" contains "503"
+# and would otherwise be misclassified as a transient failure and granted a
+# retry budget it must never get. ``\b`` anchors each marker between word
+# and non-word characters, so "HTTP 503" / "429 Too Many Requests" / "rate
+# limit" still match while a hex run like "a1503f2b" does not.
+_TRANSIENT_MARKER_RE = re.compile("|".join(rf"\b{re.escape(m)}\b" for m in _TRANSIENT_MARKERS))
+_FATAL_MARKER_RE = re.compile("|".join(rf"\b{re.escape(m)}\b" for m in _FATAL_MARKERS))
+
 
 _META_TASK_OPEN_STATUSES: frozenset[TaskStatus] = frozenset(
     {
@@ -621,11 +633,17 @@ def _collect_open_meta_task_titles(
 
 
 def _dynamic_retry_limit(reason: str, default_max: int) -> int:
-    """Determine the retry limit based on failure reason keywords."""
+    """Determine the retry limit based on failure reason keywords.
+
+    Markers are matched on token boundaries (see ``_TRANSIENT_MARKER_RE``) so
+    an opaque identifier embedded in the reason - such as a compaction
+    ``correlation=compact-<hex>`` - cannot alias a numeric HTTP-status marker
+    and wrongly promote a terminal failure to a transient (retryable) one.
+    """
     reason_lower = reason.lower()
-    if any(k in reason_lower for k in _TRANSIENT_MARKERS):
+    if _TRANSIENT_MARKER_RE.search(reason_lower):
         return 3
-    if any(k in reason_lower for k in _FATAL_MARKERS):
+    if _FATAL_MARKER_RE.search(reason_lower):
         return 0
     return default_max
 
@@ -2906,6 +2924,11 @@ def _reap_and_cleanup_session(
 
     if janitor_passed and not skip_merge and merge_ok:
         _close_completed_task(orch, task)
+        # issue #2362 (AC1): seal a verification-evidence bundle for the task
+        # now that its changes are merged, before the worktree is reclaimed.
+        # No-op when the task declares no producers; fail-open otherwise so a
+        # producer/gate error can never block, delay, or fail the completion.
+        seal_evidence_on_completion(orch._workdir, task)
 
     orch._spawner.cleanup_worktree(session.id)
     return cache_verified, cache_diff_lines

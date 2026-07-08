@@ -34,6 +34,8 @@ class Interaction:
         "_event",
         "_convo_id",
         "_analytics",
+        "_state",
+        "_bound_ctx",
         "_disabled",
         "__weakref__",
     )
@@ -45,12 +47,25 @@ class Interaction:
         event: Optional[str] = None,
         convo_id: Optional[str] = None,
         disabled: bool = False,
-    ):
+        state: Any = None,
+        bound_ctx: Any = None,
+    ) -> None:
         self._event_id = event_id or str(uuid4())
         self._user_id = user_id
         self._event = event
         self._convo_id = convo_id
         self._analytics = _core
+        # Pipeline state of the client that began this interaction. ``None``
+        # means the default (module-level) client — every partial, finish,
+        # and tool span relays through it so the interaction routes with its
+        # owning client's key/project for its whole lifetime.
+        self._state = state
+        # The exact binding begin() pushed onto the routing-context stack;
+        # finish() removes it by identity (non-LIFO safe) so reused (sync)
+        # worker threads can't leak this interaction's project into later
+        # requests, and finishing the first of two interleaved interactions
+        # can't disturb the still-open sibling's binding.
+        self._bound_ctx = bound_ctx
         # When True, every mutator / finish / span / tool call is a no-op so
         # that callers who passed invalid arguments to ``begin()`` don't crash
         # the whole code path. ``analytics.begin()`` is the only place that
@@ -66,22 +81,25 @@ class Interaction:
         self._analytics._track_ai_partial(
             PartialTrackAIEvent(
                 event_id=self._event_id,
-                ai_data={"input": self._analytics._cap_text(text)},
-            )
+                ai_data={"input": self._analytics._cap_text(text, state=self._state)},
+            ),
+            state=self._state,
         )
 
     def add_attachments(self, attachments: List[Attachment]) -> None:
         if self._disabled:
             return
         self._analytics._track_ai_partial(
-            PartialTrackAIEvent(event_id=self._event_id, attachments=attachments)
+            PartialTrackAIEvent(event_id=self._event_id, attachments=attachments),
+            state=self._state,
         )
 
     def set_properties(self, props: Dict[str, Any]) -> None:
         if self._disabled:
             return
         self._analytics._track_ai_partial(
-            PartialTrackAIEvent(event_id=self._event_id, properties=props)
+            PartialTrackAIEvent(event_id=self._event_id, properties=props),
+            state=self._state,
         )
 
     def set_property(self, key: str, value: Any) -> None:
@@ -89,7 +107,7 @@ class Interaction:
             return
         self.set_properties({key: value})
 
-    def finish(self, *, output: str | None = None, **extra) -> None:
+    def finish(self, *, output: str | None = None, **extra: Any) -> None:
         """Mark the interaction complete.
 
         This call is non-blocking AND O(1) for the caller: the output string
@@ -105,16 +123,43 @@ class Interaction:
         """
         if self._disabled:
             return
-        capped_output = (
-            self._analytics._cap_text(output) if output is not None else None
-        )
-        payload = PartialTrackAIEvent(
-            event_id=self._event_id,
-            ai_data={"output": capped_output} if capped_output is not None else None,
-            is_pending=False,
-            **extra,
-        )
-        self._analytics._track_ai_partial(payload)
+        try:
+            capped_output = (
+                self._analytics._cap_text(output, state=self._state)
+            if output is not None
+            else None
+            )
+            payload = PartialTrackAIEvent(
+                event_id=self._event_id,
+                ai_data={"output": capped_output}
+                if capped_output is not None
+                else None,
+                is_pending=False,
+                **extra,
+            )
+            self._analytics._track_ai_partial(payload, state=self._state)
+        except Exception:
+            # Crash protection (AGENTS.md): a telemetry finish() must never
+            # take the host app down — e.g. invalid **extra fields raising
+            # pydantic ValidationError. Log with traceback and degrade; the
+            # finally below still cleans up the routing binding.
+            self._analytics.logger.error(
+                "[raindrop] finish() failed for event %s; dropping the final "
+                "update.",
+                self._event_id,
+                exc_info=True,
+            )
+        finally:
+            # Remove the routing binding pushed at begin() even when building
+            # or enqueueing the final partial raises (e.g. invalid **extra):
+            # on frameworks that reuse sync worker threads, later requests
+            # must not inherit this interaction's project. Identity-based and
+            # best-effort — a finish() on a different thread/task than its
+            # begin() safely no-ops, and finishing the first of two
+            # interleaved interactions leaves the still-open sibling's
+            # binding in place (see unbind_current).
+            self._analytics._rd_tracing.unbind_current(self._bound_ctx)
+            self._bound_ctx = None
 
     def start_span(
         self,
@@ -138,7 +183,9 @@ class Interaction:
         """
         if self._disabled:
             # Return a no-op ManualSpan whose record_*/set_properties/end all no-op.
-            return self._analytics.ManualSpan(None, kind, name, self._event_id)
+            return self._analytics.ManualSpan(
+                None, kind, name, self._event_id, state=self._state
+            )
         return self._analytics.start_span(
             kind,
             name,
@@ -147,6 +194,7 @@ class Interaction:
             user_id=self._user_id,
             event=self._event,
             convo_id=self._convo_id,
+            state=self._state,
         )
 
     def track_tool(
@@ -166,7 +214,8 @@ class Interaction:
         """
         if self._disabled:
             return
-        if not _core._tracing_enabled:
+        st = _core._resolve_state(self._state)
+        if not st._tracing_enabled:
             return
 
         # Duration normalization
@@ -223,16 +272,18 @@ class Interaction:
                 if key in association_props or value is None:
                     continue
                 if isinstance(value, str):
-                    merged_association_props[key] = _core._cap_text(value)
+                    merged_association_props[key] = _core._cap_text(value, state=self._state)
                 elif isinstance(value, (bool, int, float)):
                     merged_association_props[key] = value
                 else:
                     try:
                         merged_association_props[key] = _core._dumps_bounded(
-                            value, cls=_core.JSONEncoder
+                            value, cls=_core.JSONEncoder, state=self._state
                         )
                     except Exception:
-                        merged_association_props[key] = _core._cap_text(str(value))
+                        merged_association_props[key] = _core._cap_text(
+                            str(value), state=self._state
+                        )
 
         serialized_input: str | None = None
         serialized_output: str | None = None
@@ -243,7 +294,7 @@ class Interaction:
             if input is not None:
                 try:
                     serialized_input = _core._dumps_bounded(
-                        {"args": [input]}, cls=_core.JSONEncoder
+                        {"args": [input]}, cls=_core.JSONEncoder, state=self._state
                     )
                 except Exception as e:
                     _core.logger.debug(
@@ -253,7 +304,7 @@ class Interaction:
             if output is not None:
                 try:
                     serialized_output = _core._dumps_bounded(
-                        output, cls=_core.JSONEncoder
+                        output, cls=_core.JSONEncoder, state=self._state
                     )
                 except Exception as e:
                     _core.logger.debug(
@@ -266,7 +317,7 @@ class Interaction:
             else None
         )
 
-        if _core._bypass_otel_for_tools:
+        if st._bypass_otel_for_tools:
             direct_span = _core._build_direct_tool_span(
                 span_name=span_name,
                 tool_name=name,
@@ -279,7 +330,7 @@ class Interaction:
                 error_message=error_message,
                 association_properties=merged_association_props,
             )
-            _core._enqueue_direct_tool_span(direct_span)
+            _core._enqueue_direct_tool_span(direct_span, state=self._state)
             if _core.debug_logs:
                 _core.logger.debug(
                     f'[raindrop] track_tool (direct): queued tool span "{name}" (duration_ms={duration_ms})'
@@ -295,6 +346,11 @@ class Interaction:
         try:
             span.set_attribute(_core.SpanAttributes.TRACELOOP_SPAN_KIND, tlp_kind.value)
             span.set_attribute(_core.SpanAttributes.TRACELOOP_ENTITY_NAME, name)
+
+            # Pin the owning client's project on the span: track_tool is often
+            # called from a different task/thread than the one that bound the
+            # context, so the processor's context stamp can't be relied on.
+            _core._rd_tracing.stamp_span(span, st.project_id, st.auth_hint)
             if version is not None:
                 span.set_attribute(
                     _core.SpanAttributes.TRACELOOP_ENTITY_VERSION, version

@@ -31,7 +31,6 @@
 #include "src/core/util/crash.h"  // IWYU pragma: keep
 #include "src/core/util/grpc_check.h"
 #include "src/core/util/status_helper.h"
-#include "src/core/util/strerror.h"
 #include "absl/cleanup/cleanup.h"
 #include "absl/log/log.h"
 #include "absl/status/status.h"
@@ -275,7 +274,7 @@ absl::StatusOr<int> ListenerContainerAddAllLocalAddresses(
   }
   if (getifaddrs(&ifa) != 0 || ifa == nullptr) {
     return absl::FailedPreconditionError(
-        absl::StrCat("getifaddrs: ", grpc_core::StrError(errno)));
+        absl::StrCat("getifaddrs: ", std::strerror(errno)));
   }
 
   static const bool is_ipv4_available = [] {

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: tilelang
-Version: 0.1.11
+Version: 0.1.12
 Summary: A tile level programming language to generate high performance code.
 Keywords: BLAS,CUDA,HIP,Code Generation,TVM
 Author: TileLang Contributors, Tile-AI
@@ -23,7 +23,7 @@ Classifier: Intended Audience :: Developers
 Classifier: Intended Audience :: Science/Research
 Classifier: Topic :: Scientific/Engineering :: Artificial Intelligence
 Requires-Python: >=3.10
-Requires-Dist: apache-tvm-ffi>=0.1.10,~=0.1.0
+Requires-Dist: apache-tvm-ffi<=0.1.11,>=0.1.10
 Requires-Dist: torch-c-dlpack-ext; python_version < "3.14"
 Requires-Dist: cloudpickle
 Requires-Dist: ml-dtypes
@@ -184,8 +184,8 @@ Below is an example that demonstrates more advanced features: layout annotation,
 
 ```python
 # @tilelang.jit(target="cuda")
-# target currently can be "cuda" or "hip" or "cpu".
-# if not specified, it will be inferred from the input tensors during compile time
+# target can be "auto", a bare kind such as "cuda", or a config dict such as
+# {"kind": "cuda", "arch": "sm_90"}.
 @tilelang.jit
 def matmul_relu(
     A, B,

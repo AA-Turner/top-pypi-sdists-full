@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from functools import cached_property
-from typing import TYPE_CHECKING, Generic, TypeVar
+from typing import TYPE_CHECKING
 
 import numpy as np
 import pandas as pd
@@ -13,9 +13,7 @@ from anndata._io.specs.lazy_methods import get_chunksize
 from ..._io.utils import pandas_nullable_dtype
 from ..._settings import settings
 from ...compat import (
-    NULLABLE_NUMPY_STRING_TYPE,
     H5Array,
-    H5AsStrView,
     H5AsTypeView,
     XBackendArray,
     XDataArray,
@@ -31,19 +29,17 @@ if TYPE_CHECKING:
     from pandas._libs.missing import NAType
     from pandas.core.dtypes.dtypes import BaseMaskedDtype
 
-    from anndata.compat import ZarrGroup
-
-    from ...compat import Index1DNorm
+    from ...compat import ZarrGroup
+    from ...typing import _Index1DNorm
 
     if TYPE_CHECKING:  # Double nesting so Sphinx can import the parent block
         from xarray.core.extension_array import PandasExtensionArray
         from xarray.core.indexing import ExplicitIndexer
+else:  # https://github.com/tox-dev/sphinx-autodoc-typehints/issues/580
+    type K = H5Array | ZarrArray
 
 
-K = TypeVar("K", H5Array | H5AsStrView | H5AsTypeView, ZarrArray)
-
-
-class ZarrOrHDF5Wrapper(XZarrArrayWrapper, Generic[K]):
+class ZarrOrHDF5Wrapper[K: (H5Array | H5AsTypeView, ZarrArray)](XZarrArrayWrapper):
     def __init__(self, array: K) -> None:
         # AstypeView from h5py .astype() lacks chunks attribute
         self.chunks = getattr(array, "chunks", None)
@@ -78,7 +74,7 @@ class ZarrOrHDF5Wrapper(XZarrArrayWrapper, Generic[K]):
         if (
             isinstance(key, np.ndarray)
             and np.issubdtype(key.dtype, np.integer)
-            and isinstance(self._array, H5Array | H5AsTypeView | H5AsStrView)
+            and isinstance(self._array, H5Array | H5AsTypeView)
         ):
             key_mask = np.zeros(self._array.shape).astype("bool")
             key_mask[key] = True
@@ -86,7 +82,7 @@ class ZarrOrHDF5Wrapper(XZarrArrayWrapper, Generic[K]):
         return self._array[key]
 
 
-class CategoricalArray(XBackendArray, Generic[K]):
+class CategoricalArray[K: (H5Array, ZarrArray)](XBackendArray):
     """
     A wrapper class meant to enable working with lazy categorical data.
     We do not guarantee the stability of this API beyond that guaranteed
@@ -119,6 +115,8 @@ class CategoricalArray(XBackendArray, Generic[K]):
 
     @cached_property
     def categories(self) -> np.ndarray:
+        if isinstance(self._categories, ZarrArray):
+            return self._categories[...]
         from anndata.io import read_elem
 
         return read_elem(self._categories)
@@ -128,10 +126,7 @@ class CategoricalArray(XBackendArray, Generic[K]):
 
         codes = self._codes[key]
         categorical_array = pd.Categorical.from_codes(
-            codes=codes,
-            # casting to numpy (string) maintains our old behavior, this will be relaxed in 0.13
-            categories=np.array(self.categories),
-            ordered=self._ordered,
+            codes=codes, categories=self.categories, ordered=self._ordered
         )
         if settings.remove_unused_categories:
             categorical_array = categorical_array.remove_unused_categories()
@@ -142,7 +137,7 @@ class CategoricalArray(XBackendArray, Generic[K]):
         return pd.CategoricalDtype(categories=self.categories, ordered=self._ordered)
 
 
-class MaskedArray(XBackendArray, Generic[K]):
+class MaskedArray[K: (H5Array | H5AsTypeView, ZarrArray)](XBackendArray):
     """
     A wrapper class meant to enable working with lazy masked data.
     We do not guarantee the stability of this API beyond that guaranteed
@@ -195,7 +190,7 @@ class MaskedArray(XBackendArray, Generic[K]):
     def dtype(self) -> BaseMaskedDtype | np.dtypes.StringDType[NAType]:
         if self._dtype_str == "nullable-string-array":
             # https://github.com/pydata/xarray/issues/10419
-            return NULLABLE_NUMPY_STRING_TYPE
+            return np.dtypes.StringDType(na_object=pd.NA)
         try:
             return pandas_nullable_dtype(self._values.dtype)
         except NotImplementedError:
@@ -205,7 +200,7 @@ class MaskedArray(XBackendArray, Generic[K]):
 
 @_subset.register(XDataArray)
 def _subset_masked(
-    a: XDataArray, subset_idx: tuple[Index1DNorm] | tuple[Index1DNorm, Index1DNorm]
+    a: XDataArray, subset_idx: tuple[_Index1DNorm] | tuple[_Index1DNorm, _Index1DNorm]
 ):
     return a[subset_idx]
 

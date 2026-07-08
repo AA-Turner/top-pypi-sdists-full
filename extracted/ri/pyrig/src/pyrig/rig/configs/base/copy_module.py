@@ -17,7 +17,7 @@ from pyrig.core.introspection.modules import (
     leaf_module_name,
     module_content,
 )
-from pyrig.core.root import module_name_as_root_path
+from pyrig.core.introspection.paths import module_name_as_path
 from pyrig.core.strings import reformat_name
 from pyrig.rig.configs.base.package import PythonPackageConfigFile
 from pyrig.rig.tools.package_manager import PackageManager
@@ -85,22 +85,28 @@ class CopyModuleConfigFile(PythonPackageConfigFile):
         )
 
     def parent_path(self) -> Path:
-        """Compute the target directory for the copied module.
-
-        Replaces the root package component of the source module's dotted name
-        with the target project's package name, then converts the result to a
-        path relative to the project root and returns its parent directory.
-
-        For example, source module `pyrig.rig.configs.base.string_` with a
-        project named `myproject` resolves to `src/myproject/rig/configs/base`.
+        """Return the directory that will contain the copied module file.
 
         Returns:
-            Target directory path for the copied module file.
+            Directory of the copied module's target path.
         """
         return self.module_path().parent
 
     def module_path(self) -> Path:
-        return module_name_as_root_path(
+        """Return the target path for the copied module file.
+
+        Replaces the source module's top-level package with the target
+        project's package name and converts the result to a path relative to
+        the project root.
+
+        For example, source module `pyrig.rig.configs.base.string_` in a
+        project named `myproject` resolves to
+        `src/myproject/rig/configs/base/string_.py`.
+
+        Returns:
+            Path where the copied module file will be written.
+        """
+        return self.source_root() / module_name_as_path(
             replace_root_module_name(
                 self.copy_module(), PackageManager.I.package_name()
             )

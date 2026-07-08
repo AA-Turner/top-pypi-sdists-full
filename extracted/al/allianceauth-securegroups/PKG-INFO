@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: allianceauth-securegroups
-Version: 0.10.1
+Version: 0.10.2
 Summary: On its own this app does very little! However it leverages any module that is capable of providing a filter. Giving you the ability to add a very wide range of automatic filtration options your groups.
 Keywords: allianceauth,eveonline
 Author-email: AaronKable <aaronkable@gmail.com>

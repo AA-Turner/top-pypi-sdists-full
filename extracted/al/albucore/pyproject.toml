@@ -5,7 +5,7 @@ requires = [ "hatchling" ]
 
 [project]
 name = "albucore"
-version = "0.1.6"
+version = "0.2.4"
 
 description = "High-performance image processing functions for deep learning and computer vision."
 readme = "README.md"
@@ -43,10 +43,10 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-contrib = ["opencv-contrib-python>=4.13.0.90"]
-contrib-headless = ["opencv-contrib-python-headless>=4.13.0.90"]
-gui = ["opencv-python>=4.13.0.90"]
-headless = ["opencv-python-headless>=4.13.0.90"]
+contrib = ["opencv-contrib-python>=5.0.0.93"]
+contrib-headless = ["opencv-contrib-python-headless>=5.0.0.93"]
+gui = ["opencv-python>=5.0.0.93"]
+headless = ["opencv-python-headless>=5.0.0.93"]
 
 [tool.hatch.build.targets.wheel]
 packages = ["albucore"]
@@ -62,7 +62,7 @@ target-version = "py310"
 line-length = 120
 indent-width = 4
 
-# Assume Python 3.9
+# Assume the minimum supported Python version.
 exclude = [
   ".bzr",
   ".direnv",
@@ -157,6 +157,8 @@ markers = [
 
 [dependency-groups]
 dev = [
-    "pytest>=9.0.2",
+    "hypothesis>=6.155.2",
+    "pytest>=9.0.3",
     "pytest-randomly>=4.0.1",
+    "tomli>=2.0.1; python_version < '3.11'",
 ]

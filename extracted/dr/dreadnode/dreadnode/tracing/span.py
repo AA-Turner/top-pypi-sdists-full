@@ -79,6 +79,13 @@ current_task_span: ContextVar[TaskSpan[t.Any] | None] = ContextVar(
 )
 current_session_id: ContextVar[str | None] = ContextVar("current_session_id", default=None)
 
+# The capability (name, version) an agent is running under, if any. Set when an
+# agent is created from a capability so runtime tools (e.g. report_item) can
+# attribute emitted items to their producer for schema validation.
+current_capability: ContextVar[tuple[str, str] | None] = ContextVar(
+    "current_capability", default=None
+)
+
 
 @contextlib.contextmanager
 def bind_session_id(session_id: str) -> t.Iterator[None]:
@@ -88,6 +95,21 @@ def bind_session_id(session_id: str) -> t.Iterator[None]:
         yield
     finally:
         current_session_id.reset(token)
+
+
+@contextlib.contextmanager
+def bind_capability(capability: tuple[str, str] | None) -> t.Iterator[None]:
+    """Scope ``current_capability`` to a block, resetting it on exit.
+
+    Use the token pattern so capability attribution can't leak from one agent
+    run into a later agent that shares the same async context (e.g. a later
+    capability-less agent inheriting a stale value).
+    """
+    token = current_capability.set(capability)
+    try:
+        yield
+    finally:
+        current_capability.reset(token)
 
 
 def _format_status(status: Status) -> str:

@@ -19,9 +19,9 @@ date range, CSV export, search box, confirm gate):
   - _emit_csv_export_button
   - _emit_date_range_picker
 
-Also houses `_BULK_ACTION_TOOLBAR_HTML`, the singleton constant the
-match-arm for `BulkActionToolbar` returns directly (no dedicated
-method — the constant IS the rendering).
+Also houses `_emit_bulk_action_toolbar` (convergence C1.1: the bulk
+toolbar on the HM grid controller's seams — Delete posts to the C0b
+`/bulk` route, Clear + Select-all-matching ride the delegated markers).
 
 All methods only call `self._emit(child, ctx)` for recursion, plus
 the module-level helpers `_hx_attrs` and `_pagination_pages` from
@@ -36,6 +36,7 @@ from typing import TYPE_CHECKING
 
 from dazzle.render.fragment.context import RenderContext
 from dazzle.render.fragment.primitives import (
+    BulkActionToolbar,
     Button,
     ConfirmCheckItem,
     ConfirmGate,
@@ -59,16 +60,16 @@ if TYPE_CHECKING:
     from dazzle.render.fragment.primitives import Fragment
 
 
-# Bulk-action toolbar — emitted byte-for-byte by the BulkActionToolbar
-# primitive (Phase 7 of #1029). Singleton — Delete + Clear-selection
-# buttons. Visibility CSS-driven via `[data-dz-bulk-count]` on the
-# outer .dz-table wrapper (set by dzTable's `$watch` on bulkCount per
-# #978 / ADR-0022). Count text mirrored to `[data-dz-bulk-count-target]`
-# imperatively — no Alpine bindings on children that idiomorph could
-# re-evaluate before scope rebinds.
-_BULK_ACTION_TOOLBAR_HTML = (
-    '<div class="dz-bulk-actions">'
-    '<button @click="bulkDelete()" type="button" class="dz-bulk-delete">'
+# Bulk-action toolbar (convergence C1.1): rides the HM grid controller's
+# seams. Delete = `[data-dz-grid-bulk-action="delete"]` posting form-encoded
+# to `{endpoint}/bulk` (the C0b route) behind an hx-confirm dialog, with
+# `data-dz-grid-bulk-refresh` re-fetching rows + footer after the POST
+# settles (two-request pattern — the response is JSON, nothing swaps).
+# "Select all N matching" escalates a page selection to the whole matched
+# query (total mirrored from the footer's data-dz-grid-total). Visibility
+# stays CSS-driven via `[data-dz-bulk-count]` on the grid root (#978 /
+# ADR-0022; written by dz-grid.js's sync()).
+_BULK_DELETE_SVG = (
     '<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" '
     'viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" '
     'stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">'
@@ -78,13 +79,6 @@ _BULK_ACTION_TOOLBAR_HTML = (
     '<path d="M14 11v6"></path>'
     '<path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"></path>'
     "</svg>"
-    "<span>Delete <span data-dz-bulk-count-target>0</span> "
-    'item<span class="dz-bulk-plural">s</span></span>'
-    "</button>"
-    '<button @click="clearSelection()" type="button" class="dz-bulk-clear">'
-    "Clear selection"
-    "</button>"
-    "</div>"
 )
 
 
@@ -97,15 +91,24 @@ class _RenderInteractiveMixin:
 
         def _emit(self, fragment: Fragment, ctx: RenderContext) -> str: ...
 
+    # Button IR uses a semantic variant vocabulary; button.css skins on the
+    # canonical data-dz-variant set (ghost/outline/destructive/primary). Map
+    # the two here — the render layer is where authoring vocab meets CSS.
+    _VARIANT_MAP = {
+        "primary": "primary",
+        "secondary": "outline",
+        "danger": "destructive",
+        "ghost": "ghost",
+    }
+
     def _emit_button(self, b: Button, ctx: RenderContext) -> str:
         tokens = b.tokens if b.tokens is not None else ctx.tokens.button
-        cls_parts = [
-            "dz-button",
-            f"dz-button--variant-{b.variant}",
-            f"dz-button--size-{tokens.size}",
-            f"dz-button--visibility-{b.visibility}",
-        ]
-        cls = " ".join(cls_parts)
+        # Canonical button: one base class + data-dz-variant / data-dz-size
+        # attributes (matches button.css; the old dz-button--* BEM classes
+        # matched no CSS, so substrate buttons rendered unskinned).
+        variant_attrs = f' data-dz-variant="{self._VARIANT_MAP[b.variant]}"'
+        if tokens.size == "sm":
+            variant_attrs += ' data-dz-size="sm"'
         attrs = _hx_attrs(
             hx_get=b.hx_get,
             hx_post=b.hx_post,
@@ -121,10 +124,14 @@ class _RenderInteractiveMixin:
         )
         attr_str = f" {attrs}" if attrs else ""
         disabled = ' disabled="disabled"' if b.visibility == "disabled" else ""
+        # visibility="hidden" → the native `hidden` attribute (actually hides
+        # it); the old dz-button--visibility-hidden class matched no CSS.
+        hidden = " hidden" if b.visibility == "hidden" else ""
         action_attr = self._action_attrs(b.data_action, ctx)
         label = ctx.escape(b.label)
         return (
-            f'<button type="button" class="{cls}"{action_attr}{attr_str}{disabled}>{label}</button>'
+            f'<button type="button" class="dz-button"{variant_attrs}'
+            f"{action_attr}{attr_str}{disabled}{hidden}>{label}</button>"
         )
 
     @staticmethod
@@ -193,7 +200,7 @@ class _RenderInteractiveMixin:
         return (
             f'<a href="{href_attr}" '
             f'data-dazzle-action="{action_attr}" '
-            f'class="dz-button-primary">'
+            f'class="dz-button" data-dz-variant="primary" data-dz-size="sm">'
             f'<svg width="12" height="12" viewBox="0 0 12 12" fill="none" '
             f'aria-hidden="true" xmlns="http://www.w3.org/2000/svg">'
             f'<path d="M6 1v10M1 6h10" stroke="currentColor" '
@@ -201,6 +208,31 @@ class _RenderInteractiveMixin:
             f"</svg>"
             f"{ctx.escape(label)}"
             f"</a>"
+        )
+
+    def _emit_bulk_action_toolbar(self, b: BulkActionToolbar, ctx: RenderContext) -> str:
+        """Render the bulk toolbar on the HM grid controller's seams
+        (convergence C1.1) — see the primitive's docstring for the contract."""
+        endpoint = ctx.escape_attr(b.endpoint)
+        return (
+            '<div class="dz-bulk-actions">'
+            '<button type="button" class="dz-bulk-matching" data-dz-grid-select-all-matching>'
+            "Select all <span data-dz-grid-matching-total>…</span> matching</button>"
+            '<button type="button" class="dz-bulk-delete" '
+            'data-dz-grid-bulk-action="delete" data-dz-grid-bulk-refresh '
+            # hx-swap=none: the two-request pattern swaps NOTHING on the POST
+            # (without it htmx-4 swaps the JSON response into the button).
+            'hx-swap="none" '
+            f'hx-post="{endpoint}/bulk" '
+            'hx-confirm="Delete the selected items? This cannot be undone.">'
+            f"{_BULK_DELETE_SVG}"
+            "<span>Delete <span data-dz-bulk-count-target>0</span> "
+            'item<span class="dz-bulk-plural">s</span></span>'
+            "</button>"
+            '<button type="button" class="dz-bulk-clear" data-dz-grid-clear>'
+            "Clear selection"
+            "</button>"
+            "</div>"
         )
 
     def _emit_pagination(self, p: Pagination, ctx: RenderContext) -> str:
@@ -240,7 +272,11 @@ class _RenderInteractiveMixin:
             )
         rows_label = "row" if p.total == 1 else "rows"
         return (
-            f'<div class="dz-pagination">'
+            # data-dz-grid-total: the server-authoritative matched total the HM
+            # grid primitive reads (all-matching selection) — convergence C0a.
+            # C1 GATE: `data-dz-grid-pagination` must land on THIS element
+            # (matchedTotal() reads the total off the marker's carrier).
+            f'<div class="dz-pagination" data-dz-grid-total="{p.total}">'
             f'<span class="dz-pagination-summary">'
             f'<span class="dz-bulk-summary-selected">'
             f"<span data-dz-bulk-count-target>0</span> of {p.total} selected"
@@ -252,22 +288,25 @@ class _RenderInteractiveMixin:
         )
 
     def _emit_search_box(self, s: SearchBox, ctx: RenderContext) -> str:
-        """Render a SearchBox matching legacy
-        `workspace/regions/search_box.html` byte-for-byte: an Alpine
-        `x-data="{ q: '' }"` outer div, accessible label + search
-        input wired to HTMX with 250ms debounce, results panel with
-        `aria-live="polite"`, coaching message hidden via `x-show`
-        once the user types.
+        """Render a SearchBox: accessible label + search input wired to
+        HTMX with 250ms debounce, results panel with
+        `aria-live="polite"`, and a coaching message hidden by PURE CSS
+        once the user types (`.dz-search-box-region:has(input:not(
+        :placeholder-shown))` — the Alpine `q` island retired in Tier
+        F3; the first result swap replaces the coaching line anyway).
         """
         results_id = f"dz-search-results-{ctx.escape_attr(s.name)}"
         endpoint = ctx.escape_attr(str(s.fts_endpoint))
-        placeholder = ctx.escape_attr(s.placeholder)
+        # A non-empty placeholder is LOAD-BEARING: the coaching-line CSS
+        # toggle keys off :placeholder-shown, which never matches an empty
+        # placeholder (coaching would be permanently hidden).
+        placeholder = ctx.escape_attr(s.placeholder or "Search…")
         coaching = ctx.escape(s.coaching_message)
         # Label uses placeholder as fallback when no explicit label is
         # supplied — matches the legacy template's `title or _placeholder`.
         label_text = ctx.escape(s.label or s.placeholder)
         return (
-            f'<div class="dz-search-box-region" x-data="{{ q: \'\' }}">'
+            f'<div class="dz-search-box-region">'
             f'<div class="dz-search-box-input-row">'
             f'<label for="{results_id}-input" class="visually-hidden">{label_text}</label>'
             f'<input id="{results_id}-input" type="search" name="q" '
@@ -276,12 +315,11 @@ class _RenderInteractiveMixin:
             f'hx-get="{endpoint}" '
             f'hx-trigger="input changed delay:250ms, search" '
             f'hx-target="#{results_id}" '
-            f'hx-swap="innerHTML" '
-            f'x-model="q">'
+            f'hx-swap="innerHTML">'
             f"</div>"
             f'<div id="{results_id}" class="dz-search-box-results" '
             f'role="region" aria-live="polite">'
-            f'<div class="dz-search-box-empty" x-show="!q">'
+            f'<div class="dz-search-box-empty">'
             f"{coaching}"
             f"</div>"
             f"</div>"
@@ -339,14 +377,14 @@ class _RenderInteractiveMixin:
 
             def _render_check_item(i: int, item: ConfirmCheckItem) -> str:
                 required_str = "true" if item.required else "false"
-                # Required items get @change Alpine binding + data attribute.
-                # Note: emit literal `"` quotes — these are HTML attributes,
-                # not nested inside an outer-quoted attribute.
-                required_attrs = (
-                    '@change="onToggle($event)" data-dz-required="true" ' if item.required else ""
-                )
+                # Required items get the data attribute the delegated
+                # dz-confirm-gate controller recounts on every change.
+                required_attrs = 'data-dz-required="true" ' if item.required else ""
+                # spans, not divs — a <label> only admits phrasing content
+                # (the HM gallery's vnu gate caught the div-in-label the
+                # legacy template shipped); display:block lives in the CSS.
                 caption_html = (
-                    f'<div class="dz-confirm-caption">{ctx.escape(item.caption)}</div>'
+                    f'<span class="dz-confirm-caption">{ctx.escape(item.caption)}</span>'
                     if item.caption
                     else ""
                 )
@@ -356,7 +394,7 @@ class _RenderInteractiveMixin:
                     f"{required_attrs}"
                     f'id="dz-confirm-{i}">'
                     f'<label for="dz-confirm-{i}" class="dz-confirm-row-label">'
-                    f'<div class="dz-confirm-title">{ctx.escape(item.title)}</div>'
+                    f'<span class="dz-confirm-title">{ctx.escape(item.title)}</span>'
                     f"{caption_html}"
                     f"</label>"
                     f"</li>"
@@ -373,16 +411,24 @@ class _RenderInteractiveMixin:
                     f'class="dz-confirm-secondary">{ctx.escape(c.secondary_label)}</a>'
                 )
             if c.primary_action_url:
-                # Alpine bindings: enabled is provided by dzConfirmGate(count)
+                # State-in-DOM gate (dz-confirm-gate.js): the anchor ships
+                # disarmed with its destination parked in
+                # data-dz-confirm-href; the controller promotes the href
+                # and drops aria-disabled once every required box is
+                # ticked. Zero required boxes = armed at SSR (the
+                # controller then never needs to fire).
+                if required_count == 0:
+                    gate_state = f'href="{ctx.escape_attr(c.primary_action_url)}" '
+                else:
+                    gate_state = 'aria-disabled="true" '
                 actions_inner += (
-                    f"<a :href=\"enabled ? '{ctx.escape_attr(c.primary_action_url)}' : null\" "
-                    f':aria-disabled="!enabled" '
-                    f":class=\"{{ 'is-disabled': !enabled }}\" "
+                    f'<a data-dz-confirm-href="{ctx.escape_attr(c.primary_action_url)}" '
+                    f"{gate_state}"
                     f'class="dz-confirm-primary">'
                     f"{ctx.escape(c.primary_label)}</a>"
                 )
             inner = (
-                f'<ul x-data="dzConfirmGate({len(c.confirmations)})" '
+                f"<ul data-dz-confirm-gate "
                 f'class="dz-confirm-checklist" '
                 f'data-dz-required-count="{required_count}">'
                 f"{checklist_items}"
@@ -467,18 +513,15 @@ class _RenderInteractiveMixin:
         /api list handler parses), `innerMorph` swap, and
         `hx-include="closest [data-dazzle-table]"` so all active filters ride
         along — mirroring the legacy `render_filterable_table` filter bar."""
-        endpoint = ctx.escape_attr(str(f.endpoint))
-        target = ctx.escape_attr(f"#{f.tbody_id}")
-        indicator_attr = (
-            f' hx-indicator="{ctx.escape_attr(f.loading_indicator)}"' if f.loading_indicator else ""
-        )
-        common = (
-            f'hx-get="{endpoint}" hx-target="{target}" hx-swap="innerMorph" '
-            'hx-include="closest [data-dazzle-table]" '
-            'hx-headers=\'{"Accept": "text/html"}\''
-            f"{indicator_attr}"
-        )
 
+        # Convergence C1.1: filters are the HM grid controller's seam —
+        # `data-dz-grid-filter="filter[key]"` (the bracketed wire key the /api
+        # list route parses). On change the controller composes ONE query from
+        # ALL current DOM state (sort + every filter + page-size, back at page
+        # 1), so a filter change can no longer lose the active sort (the old
+        # per-control hx-get + hx-include never carried sort state). Text
+        # filters apply on change (blur/Enter) for now — a debounced-input
+        # filter seam is a tracked HM follow-up.
         def _control(col: FilterColumn) -> str:
             name = f"filter[{ctx.escape_attr(col.key)}]"
             sel = ctx.escape_attr(col.selected)
@@ -486,16 +529,17 @@ class _RenderInteractiveMixin:
                 placeholder = ctx.escape_attr(f"Filter {col.label.lower()}…")
                 return (
                     f'<input type="text" name="{name}" class="dz-filter-input" '
-                    f'placeholder="{placeholder}" value="{sel}" '
-                    f'hx-trigger="keyup changed delay:300ms" {common}>'
+                    f'data-dz-grid-filter="{name}" '
+                    f'placeholder="{placeholder}" value="{sel}">'
                 )
             if col.filter_type == "ref":
                 return (
                     f'<select name="{name}" class="dz-filter-select" '
+                    f'data-dz-grid-filter="{name}" '
                     f'data-ref-api="{ctx.escape_attr(col.ref_api)}" '
                     f'data-selected-value="{sel}" '
-                    f'hx-trigger="change changed" {common} '
-                    'x-init="dzFilterRefSelect($el)">'
+                    # auto-mounted by dz-utils.js off data-ref-api
+                    ">"
                     '<option value="">All</option></select>'
                 )
             options_html = '<option value="">All</option>'
@@ -507,7 +551,7 @@ class _RenderInteractiveMixin:
                 )
             return (
                 f'<select name="{name}" class="dz-filter-select" '
-                f'hx-trigger="change changed" {common}>'
+                f'data-dz-grid-filter="{name}">'
                 f"{options_html}</select>"
             )
 

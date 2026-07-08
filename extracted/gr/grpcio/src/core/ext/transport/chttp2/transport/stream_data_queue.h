@@ -487,10 +487,6 @@ class StreamDataQueue : public RefCounted<StreamDataQueue<MetadataHandle>> {
     bool IsInitialMetadataDequeued() const {
       return flags.IsInitialMetadataDequeued();
     }
-
-    bool IsTrailingMetadataDequeued() const {
-      return flags.IsTrailingMetadataDequeued();
-    }
   };
 
   // TODO(akshitpatel) : [PH2][P4] : Measure the performance of this function
@@ -568,6 +564,8 @@ class StreamDataQueue : public RefCounted<StreamDataQueue<MetadataHandle>> {
         /*flags=*/handle_dequeue.GetDequeueFlags()};
   }
 
+  // TODO(tjagtap) : [PH2][P1][FlowControl] : Call this while processing
+  // window update frame.
   // Needs to be invoked when the peer sends stream flow control window update.
   // stream_fc_tokens represents the stream flow control (delta) window +
   // intial_window_size.
@@ -751,8 +749,8 @@ class StreamDataQueue : public RefCounted<StreamDataQueue<MetadataHandle>> {
 
     inline void AppendFrame(Http2Frame&& frame) {
       // FrameSender automatically accounts for the frame size in write quota.
-      // We do tend to overestimate the bytes consumed here but should be good
-      // enough for our purposes.
+      // Maybe not be extremely accurate but should be good enough for our
+      // purposes.
       frame_sender_.AddRegularFrame(std::forward<Http2Frame>(frame));
     }
 

@@ -10,6 +10,8 @@ from abc import (
 from chalk._gen.chalk.server.v1.integrations_pb2 import (
     DeleteIntegrationRequest,
     DeleteIntegrationResponse,
+    GetIntegrationByNameRequest,
+    GetIntegrationByNameResponse,
     GetIntegrationRequest,
     GetIntegrationResponse,
     GetIntegrationValueRequest,
@@ -49,6 +51,10 @@ class IntegrationsServiceStub:
     GetIntegration: UnaryUnaryMultiCallable[
         GetIntegrationRequest,
         GetIntegrationResponse,
+    ]
+    GetIntegrationByName: UnaryUnaryMultiCallable[
+        GetIntegrationByNameRequest,
+        GetIntegrationByNameResponse,
     ]
     InsertIntegration: UnaryUnaryMultiCallable[
         InsertIntegrationRequest,
@@ -92,6 +98,12 @@ class IntegrationsServiceServicer(metaclass=ABCMeta):
         request: GetIntegrationRequest,
         context: ServicerContext,
     ) -> GetIntegrationResponse: ...
+    @abstractmethod
+    def GetIntegrationByName(
+        self,
+        request: GetIntegrationByNameRequest,
+        context: ServicerContext,
+    ) -> GetIntegrationByNameResponse: ...
     @abstractmethod
     def InsertIntegration(
         self,

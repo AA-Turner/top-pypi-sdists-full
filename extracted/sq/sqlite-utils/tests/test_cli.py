@@ -4,7 +4,6 @@ from click.testing import CliRunner
 from pathlib import Path
 import subprocess
 import sys
-from unittest import mock
 import json
 import os
 import pytest
@@ -20,9 +19,11 @@ def _supports_pragma_function_list():
     db = Database(memory=True)
     try:
         db.execute("select * from pragma_function_list()")
+        return True
     except Exception:
         return False
-    return True
+    finally:
+        db.close()
 
 
 def _has_compiled_ext():
@@ -62,8 +63,8 @@ def test_views(db_path):
     result = CliRunner().invoke(cli.cli, ["views", db_path, "--table", "--schema"])
     assert (
         "view    schema\n"
-        "------  --------------------------------------------\n"
-        "hello   CREATE VIEW hello AS select sqlite_version()"
+        "------  ----------------------------------------------\n"
+        'hello   CREATE VIEW "hello" AS select sqlite_version()'
     ) == result.output.strip()
 
 
@@ -132,7 +133,7 @@ def test_tables_schema(db_path):
     assert (
         '[{"table": "Gosh", "schema": "CREATE TABLE Gosh (c1 text, c2 text, c3 text)"},\n'
         ' {"table": "Gosh2", "schema": "CREATE TABLE Gosh2 (c1 text, c2 text, c3 text)"},\n'
-        ' {"table": "lots", "schema": "CREATE TABLE [lots] (\\n   [id] INTEGER,\\n   [age] INTEGER\\n)"}]'
+        ' {"table": "lots", "schema": "CREATE TABLE \\"lots\\" (\\n   \\"id\\" INTEGER,\\n   \\"age\\" INTEGER\\n)"}]'
     ) == result.output.strip()
 
 
@@ -192,6 +193,50 @@ def test_output_table(db_path, options, expected):
     result = CliRunner().invoke(cli.cli, ["rows", db_path, "rows"] + options)
     assert result.exit_code == 0
     assert expected == result.output.strip()
+
+
+@pytest.mark.parametrize(
+    "fmt_option", [["--fmt", "simple"], ["-t"], ["--fmt", "github"]]
+)
+def test_output_table_no_headers(db_path, fmt_option):
+    # --no-headers should omit the header row from --fmt/--table output too, not
+    # just from --csv/--tsv (#566). Previously the flag was silently ignored for
+    # tabulate formats and the column names were always printed.
+    db = Database(db_path)
+    with db.conn:
+        db["dogs"].insert_all(
+            [
+                {"id": 1, "name": "Cleo", "age": 4},
+                {"id": 2, "name": "Pancakes", "age": 2},
+            ]
+        )
+    sql = "select id, name, age from dogs order by id"
+
+    with_headers = CliRunner().invoke(cli.cli, ["query", db_path, sql] + fmt_option)
+    without_headers = CliRunner().invoke(
+        cli.cli, ["query", db_path, sql] + fmt_option + ["--no-headers"]
+    )
+    assert with_headers.exit_code == 0
+    assert without_headers.exit_code == 0
+
+    # The column names appear when headers are shown, and must not appear at all
+    # once --no-headers is passed.
+    assert "name" in with_headers.output
+    for header in ("id", "name", "age"):
+        assert (
+            header not in without_headers.output
+        ), f"header {header!r} leaked into --no-headers output"
+    # The data is still all present.
+    for value in ("Cleo", "Pancakes", "1", "2", "4"):
+        assert value in without_headers.output
+
+    # The rows command shares the same code path.
+    rows_no_headers = CliRunner().invoke(
+        cli.cli, ["rows", db_path, "dogs"] + fmt_option + ["--no-headers"]
+    )
+    assert rows_no_headers.exit_code == 0
+    assert "name" not in rows_no_headers.output
+    assert "Cleo" in rows_no_headers.output
 
 
 def test_create_index(db_path):
@@ -264,38 +309,38 @@ def test_create_index_desc(db_path):
     assert result.exit_code == 0
     assert (
         db.execute("select sql from sqlite_master where type='index'").fetchone()[0]
-        == "CREATE INDEX [idx_Gosh_c1]\n    ON [Gosh] ([c1] desc)"
+        == 'CREATE INDEX "idx_Gosh_c1"\n    ON "Gosh" ("c1" desc)'
     )
 
 
 @pytest.mark.parametrize(
     "col_name,col_type,expected_schema",
     (
-        ("text", "TEXT", "CREATE TABLE [dogs] (\n   [name] TEXT\n, [text] TEXT)"),
-        ("text", "str", "CREATE TABLE [dogs] (\n   [name] TEXT\n, [text] TEXT)"),
-        ("text", "STR", "CREATE TABLE [dogs] (\n   [name] TEXT\n, [text] TEXT)"),
+        ("text", "TEXT", 'CREATE TABLE "dogs" (\n   "name" TEXT\n, "text" TEXT)'),
+        ("text", "str", 'CREATE TABLE "dogs" (\n   "name" TEXT\n, "text" TEXT)'),
+        ("text", "STR", 'CREATE TABLE "dogs" (\n   "name" TEXT\n, "text" TEXT)'),
         (
             "integer",
             "INTEGER",
-            "CREATE TABLE [dogs] (\n   [name] TEXT\n, [integer] INTEGER)",
+            'CREATE TABLE "dogs" (\n   "name" TEXT\n, "integer" INTEGER)',
         ),
         (
             "integer",
             "int",
-            "CREATE TABLE [dogs] (\n   [name] TEXT\n, [integer] INTEGER)",
+            'CREATE TABLE "dogs" (\n   "name" TEXT\n, "integer" INTEGER)',
         ),
-        ("float", "FLOAT", "CREATE TABLE [dogs] (\n   [name] TEXT\n, [float] FLOAT)"),
-        ("blob", "blob", "CREATE TABLE [dogs] (\n   [name] TEXT\n, [blob] BLOB)"),
-        ("blob", "BLOB", "CREATE TABLE [dogs] (\n   [name] TEXT\n, [blob] BLOB)"),
-        ("blob", "bytes", "CREATE TABLE [dogs] (\n   [name] TEXT\n, [blob] BLOB)"),
-        ("blob", "BYTES", "CREATE TABLE [dogs] (\n   [name] TEXT\n, [blob] BLOB)"),
-        ("default", None, "CREATE TABLE [dogs] (\n   [name] TEXT\n, [default] TEXT)"),
+        ("float", "FLOAT", 'CREATE TABLE "dogs" (\n   "name" TEXT\n, "float" REAL)'),
+        ("blob", "blob", 'CREATE TABLE "dogs" (\n   "name" TEXT\n, "blob" BLOB)'),
+        ("blob", "BLOB", 'CREATE TABLE "dogs" (\n   "name" TEXT\n, "blob" BLOB)'),
+        ("blob", "bytes", 'CREATE TABLE "dogs" (\n   "name" TEXT\n, "blob" BLOB)'),
+        ("blob", "BYTES", 'CREATE TABLE "dogs" (\n   "name" TEXT\n, "blob" BLOB)'),
+        ("default", None, 'CREATE TABLE "dogs" (\n   "name" TEXT\n, "default" TEXT)'),
     ),
 )
 def test_add_column(db_path, col_name, col_type, expected_schema):
     db = Database(db_path)
     db.create_table("dogs", {"name": str})
-    assert db["dogs"].schema == "CREATE TABLE [dogs] (\n   [name] TEXT\n)"
+    assert db["dogs"].schema == 'CREATE TABLE "dogs" (\n   "name" TEXT\n)'
     args = ["add-column", db_path, "dogs", col_name]
     if col_type is not None:
         args.append(col_type)
@@ -319,7 +364,7 @@ def test_add_column_ignore(db_path, ignore):
 def test_add_column_not_null_default(db_path):
     db = Database(db_path)
     db.create_table("dogs", {"name": str})
-    assert db["dogs"].schema == "CREATE TABLE [dogs] (\n   [name] TEXT\n)"
+    assert db["dogs"].schema == 'CREATE TABLE "dogs" (\n   "name" TEXT\n)'
     args = [
         "add-column",
         db_path,
@@ -330,9 +375,9 @@ def test_add_column_not_null_default(db_path):
     ]
     assert CliRunner().invoke(cli.cli, args).exit_code == 0
     assert db["dogs"].schema == (
-        "CREATE TABLE [dogs] (\n"
-        "   [name] TEXT\n"
-        ", [nickname] TEXT NOT NULL DEFAULT 'dogs''dawg')"
+        'CREATE TABLE "dogs" (\n'
+        '   "name" TEXT\n'
+        ", \"nickname\" TEXT NOT NULL DEFAULT 'dogs''dawg')"
     )
 
 
@@ -403,8 +448,8 @@ def test_add_column_foreign_key(db_path):
     assert result.exit_code == 0, result.output
     assert db["books"].schema == (
         'CREATE TABLE "books" (\n'
-        "   [title] TEXT,\n"
-        "   [author_id] INTEGER REFERENCES [authors]([id])\n"
+        '   "title" TEXT,\n'
+        '   "author_id" INTEGER REFERENCES "authors"("id")\n'
         ")"
     )
     # Try it again with a custom --fk-col
@@ -424,9 +469,9 @@ def test_add_column_foreign_key(db_path):
     assert result.exit_code == 0, result.output
     assert db["books"].schema == (
         'CREATE TABLE "books" (\n'
-        "   [title] TEXT,\n"
-        "   [author_id] INTEGER REFERENCES [authors]([id]),\n"
-        "   [author_name_ref] TEXT REFERENCES [authors]([name])\n"
+        '   "title" TEXT,\n'
+        '   "author_id" INTEGER REFERENCES "authors"("id"),\n'
+        '   "author_name_ref" TEXT REFERENCES "authors"("name")\n'
         ")"
     )
     # Throw an error if the --fk table does not exist
@@ -492,10 +537,10 @@ def test_enable_fts(db_path):
     assert "http://example.com_fts" == db["http://example.com"].detect_fts()
     # Check tokenize was set to porter
     assert (
-        "CREATE VIRTUAL TABLE [http://example.com_fts] USING FTS4 (\n"
-        "    [c1],\n"
+        'CREATE VIRTUAL TABLE "http://example.com_fts" USING FTS4 (\n'
+        '    "c1",\n'
         "    tokenize='porter',\n"
-        "    content=[http://example.com]"
+        '    content="http://example.com"'
         "\n)"
     ) == db["http://example.com_fts"].schema
     db["http://example.com"].drop()
@@ -516,7 +561,7 @@ def test_enable_fts_replace(db_path):
         cli.cli, ["enable-fts", db_path, "Gosh", "c1", "--fts4"]
     )
     assert result2.exit_code == 1
-    assert result2.output == "Error: table [Gosh_fts] already exists\n"
+    assert result2.output == 'Error: table "Gosh_fts" already exists\n'
 
     # This should work
     result3 = CliRunner().invoke(
@@ -745,6 +790,26 @@ def test_query_json_empty(db_path):
     assert result.output.strip() == "[]"
 
 
+def test_query_json_duplicate_columns_are_deduped(db_path):
+    # https://github.com/simonw/sqlite-utils/issues/624
+    result = CliRunner().invoke(
+        cli.cli,
+        [db_path, "select 1 as id, 2 as id, 'x' as value, 'y' as value"],
+    )
+    assert result.output.strip() == (
+        '[{"id": 1, "id_2": 2, "value": "x", "value_2": "y"}]'
+    )
+
+
+def test_query_csv_duplicate_columns_are_preserved(db_path):
+    # CSV output should keep the duplicate headers, not rename them
+    result = CliRunner().invoke(
+        cli.cli,
+        [db_path, "select 1 as id, 2 as id", "--csv"],
+    )
+    assert result.output.replace("\r", "").strip() == "id,id\n1,2"
+
+
 def test_query_invalid_function(db_path):
     result = CliRunner().invoke(
         cli.cli, [db_path, "select bad()", "--functions", "def invalid_python"]
@@ -966,12 +1031,9 @@ def test_query_json_with_json_cols(db_path):
     result = CliRunner().invoke(
         cli.cli, [db_path, "select id, name, friends from dogs"]
     )
-    assert (
-        r"""
+    assert r"""
     [{"id": 1, "name": "Cleo", "friends": "[{\"name\": \"Pancakes\"}, {\"name\": \"Bailey\"}]"}]
-    """.strip()
-        == result.output.strip()
-    )
+    """.strip() == result.output.strip()
     # With --json-cols:
     result = CliRunner().invoke(
         cli.cli, [db_path, "select id, name, friends from dogs", "--json-cols"]
@@ -983,6 +1045,34 @@ def test_query_json_with_json_cols(db_path):
     # Test rows command too
     result_rows = CliRunner().invoke(cli.cli, ["rows", db_path, "dogs", "--json-cols"])
     assert expected == result_rows.output.strip()
+
+
+def test_query_json_unicode_not_escaped_by_default(db_path):
+    db = Database(db_path)
+    with db.conn:
+        db["text"].insert({"id": 1, "text": "Japanese 日本語"}, pk="id")
+    result = CliRunner().invoke(cli.cli, [db_path, "select id, text from text"])
+    assert result.exit_code == 0
+    assert result.output.strip() == '[{"id": 1, "text": "Japanese 日本語"}]'
+    # Same for --nl
+    result = CliRunner().invoke(cli.cli, [db_path, "select id, text from text", "--nl"])
+    assert result.exit_code == 0
+    assert result.output.strip() == '{"id": 1, "text": "Japanese 日本語"}'
+
+
+@pytest.mark.parametrize("command", ["query", "rows"])
+def test_query_json_ascii_option(db_path, command):
+    db = Database(db_path)
+    with db.conn:
+        db["text"].insert({"id": 1, "text": "Japanese 日本語"}, pk="id")
+    if command == "query":
+        args = [db_path, "select id, text from text", "--ascii"]
+    else:
+        args = ["rows", db_path, "text", "--ascii"]
+    result = CliRunner().invoke(cli.cli, args)
+    assert result.exit_code == 0
+    expected = '[{"id": 1, "text": "Japanese ' + "\\u65e5\\u672c\\u8a9e" + '"}]'
+    assert result.output.strip() == expected
 
 
 @pytest.mark.parametrize(
@@ -1187,11 +1277,8 @@ def test_upsert_alter(db_path, tmpdir):
         cli.cli, ["upsert", db_path, "dogs", json_path, "--pk", "id"]
     )
     assert result.exit_code == 1
-    assert (
-        "Error: no such column: age\n\n"
-        "sql = UPDATE [dogs] SET [age] = ? WHERE [id] = ?\n"
-        "parameters = [5, 1]"
-    ) == result.output.strip()
+    # Could be one of two errors depending on SQLite version
+    assert ("Try using --alter to add additional columns") in result.output.strip()
     # Should succeed with --alter
     result = CliRunner().invoke(
         cli.cli, ["upsert", db_path, "dogs", json_path, "--pk", "id", "--alter"]
@@ -1213,7 +1300,7 @@ def test_upsert_alter(db_path, tmpdir):
                 "age",
                 "integer",
             ],
-            ("CREATE TABLE [t] (\n   [name] TEXT,\n   [age] INTEGER\n)"),
+            ('CREATE TABLE "t" (\n   "name" TEXT,\n   "age" INTEGER\n)'),
         ),
         # All types:
         (
@@ -1232,31 +1319,31 @@ def test_upsert_alter(db_path, tmpdir):
                 "id",
             ],
             (
-                "CREATE TABLE [t] (\n"
-                "   [id] INTEGER PRIMARY KEY,\n"
-                "   [name] TEXT,\n"
-                "   [age] INTEGER,\n"
-                "   [weight] FLOAT,\n"
-                "   [thumbnail] BLOB\n"
+                'CREATE TABLE "t" (\n'
+                '   "id" INTEGER PRIMARY KEY,\n'
+                '   "name" TEXT,\n'
+                '   "age" INTEGER,\n'
+                '   "weight" FLOAT,\n'
+                '   "thumbnail" BLOB\n'
                 ")"
             ),
         ),
         # Not null:
         (
             ["name", "text", "--not-null", "name"],
-            ("CREATE TABLE [t] (\n" "   [name] TEXT NOT NULL\n" ")"),
+            ('CREATE TABLE "t" (\n' '   "name" TEXT NOT NULL\n' ")"),
         ),
         # Default:
         (
             ["age", "integer", "--default", "age", "3"],
-            ("CREATE TABLE [t] (\n" "   [age] INTEGER DEFAULT '3'\n" ")"),
+            ('CREATE TABLE "t" (\n' "   \"age\" INTEGER DEFAULT '3'\n" ")"),
         ),
         # Compound primary key
         (
             ["category", "text", "name", "text", "--pk", "category", "--pk", "name"],
             (
-                "CREATE TABLE [t] (\n   [category] TEXT,\n   [name] TEXT,\n"
-                "   PRIMARY KEY ([category], [name])\n)"
+                'CREATE TABLE "t" (\n   "category" TEXT,\n   "name" TEXT,\n'
+                '   PRIMARY KEY ("category", "name")\n)'
             ),
         ),
     ],
@@ -1307,16 +1394,16 @@ def test_create_table_foreign_key():
             assert result.exit_code == 0
         db = Database("books.db")
         assert (
-            "CREATE TABLE [authors] (\n"
-            "   [id] INTEGER PRIMARY KEY,\n"
-            "   [name] TEXT\n"
+            'CREATE TABLE "authors" (\n'
+            '   "id" INTEGER PRIMARY KEY,\n'
+            '   "name" TEXT\n'
             ")"
         ) == db["authors"].schema
         assert (
-            "CREATE TABLE [books] (\n"
-            "   [id] INTEGER PRIMARY KEY,\n"
-            "   [title] TEXT,\n"
-            "   [author_id] INTEGER REFERENCES [authors]([id])\n"
+            'CREATE TABLE "books" (\n'
+            '   "id" INTEGER PRIMARY KEY,\n'
+            '   "title" TEXT,\n'
+            '   "author_id" INTEGER REFERENCES "authors"("id")\n'
             ")"
         ) == db["books"].schema
 
@@ -1345,7 +1432,7 @@ def test_create_table_ignore():
             cli.cli, ["create-table", "test.db", "dogs", "id", "integer", "--ignore"]
         )
         assert result.exit_code == 0
-        assert "CREATE TABLE [dogs] (\n   [name] TEXT\n)" == db["dogs"].schema
+        assert 'CREATE TABLE "dogs" (\n   "name" TEXT\n)' == db["dogs"].schema
 
 
 def test_create_table_replace():
@@ -1357,7 +1444,7 @@ def test_create_table_replace():
             cli.cli, ["create-table", "test.db", "dogs", "id", "integer", "--replace"]
         )
         assert result.exit_code == 0
-        assert "CREATE TABLE [dogs] (\n   [id] INTEGER\n)" == db["dogs"].schema
+        assert 'CREATE TABLE "dogs" (\n   "id" INTEGER\n)' == db["dogs"].schema
 
 
 def test_create_view():
@@ -1368,7 +1455,9 @@ def test_create_view():
             cli.cli, ["create-view", "test.db", "version", "select sqlite_version()"]
         )
         assert result.exit_code == 0
-        assert "CREATE VIEW version AS select sqlite_version()" == db["version"].schema
+        assert (
+            'CREATE VIEW "version" AS select sqlite_version()' == db["version"].schema
+        )
 
 
 def test_create_view_error_if_view_exists():
@@ -1403,7 +1492,8 @@ def test_create_view_ignore():
         )
         assert result.exit_code == 0
         assert (
-            "CREATE VIEW version AS select sqlite_version() + 1" == db["version"].schema
+            'CREATE VIEW "version" AS select sqlite_version() + 1'
+            == db["version"].schema
         )
 
 
@@ -1423,7 +1513,9 @@ def test_create_view_replace():
             ],
         )
         assert result.exit_code == 0
-        assert "CREATE VIEW version AS select sqlite_version()" == db["version"].schema
+        assert (
+            'CREATE VIEW "version" AS select sqlite_version()' == db["version"].schema
+        )
 
 
 def test_drop_table():
@@ -1467,6 +1559,24 @@ def test_drop_table_error():
         assert result.exit_code == 0
 
 
+def test_drop_table_on_view_errors():
+    runner = CliRunner()
+    with runner.isolated_filesystem():
+        db = Database("test.db")
+        db["t"].insert({"id": 1})
+        db.create_view("v", "select * from t")
+        result = runner.invoke(cli.cli, ["drop-table", "test.db", "v"])
+        assert result.exit_code == 1
+        assert 'Error: "v" is a view, not a table - use drop-view to drop it' == (
+            result.output.strip()
+        )
+        assert "v" in db.view_names()
+        # --ignore exits cleanly but must still not drop the view
+        result = runner.invoke(cli.cli, ["drop-table", "test.db", "v", "--ignore"])
+        assert result.exit_code == 0
+        assert "v" in db.view_names()
+
+
 def test_drop_view():
     runner = CliRunner()
     with runner.isolated_filesystem():
@@ -1483,6 +1593,23 @@ def test_drop_view():
         )
         assert result.exit_code == 0
         assert "hello" not in db.view_names()
+
+
+def test_drop_view_on_table_errors():
+    runner = CliRunner()
+    with runner.isolated_filesystem():
+        db = Database("test.db")
+        db["t"].insert({"id": 1})
+        result = runner.invoke(cli.cli, ["drop-view", "test.db", "t"])
+        assert result.exit_code == 1
+        assert 'Error: "t" is a table, not a view - use drop-table to drop it' == (
+            result.output.strip()
+        )
+        assert "t" in db.table_names()
+        # --ignore exits cleanly but must still not drop the table
+        result = runner.invoke(cli.cli, ["drop-view", "test.db", "t", "--ignore"])
+        assert result.exit_code == 0
+        assert "t" in db.table_names()
 
 
 def test_drop_view_error():
@@ -1611,9 +1738,9 @@ def test_add_foreign_keys(db_path):
             [],
             (
                 'CREATE TABLE "dogs" (\n'
-                "   [id] INTEGER PRIMARY KEY,\n"
-                "   [age] INTEGER NOT NULL DEFAULT '1',\n"
-                "   [name] TEXT\n"
+                '   "id" INTEGER PRIMARY KEY,\n'
+                "   \"age\" INTEGER NOT NULL DEFAULT '1',\n"
+                '   "name" TEXT\n'
                 ")"
             ),
         ),
@@ -1621,9 +1748,9 @@ def test_add_foreign_keys(db_path):
             ["--type", "age", "text"],
             (
                 'CREATE TABLE "dogs" (\n'
-                "   [id] INTEGER PRIMARY KEY,\n"
-                "   [age] TEXT NOT NULL DEFAULT '1',\n"
-                "   [name] TEXT\n"
+                '   "id" INTEGER PRIMARY KEY,\n'
+                "   \"age\" TEXT NOT NULL DEFAULT '1',\n"
+                '   "name" TEXT\n'
                 ")"
             ),
         ),
@@ -1631,8 +1758,8 @@ def test_add_foreign_keys(db_path):
             ["--drop", "age"],
             (
                 'CREATE TABLE "dogs" (\n'
-                "   [id] INTEGER PRIMARY KEY,\n"
-                "   [name] TEXT\n"
+                '   "id" INTEGER PRIMARY KEY,\n'
+                '   "name" TEXT\n'
                 ")"
             ),
         ),
@@ -1640,9 +1767,9 @@ def test_add_foreign_keys(db_path):
             ["--rename", "age", "age2", "--rename", "id", "pk"],
             (
                 'CREATE TABLE "dogs" (\n'
-                "   [pk] INTEGER PRIMARY KEY,\n"
-                "   [age2] INTEGER NOT NULL DEFAULT '1',\n"
-                "   [name] TEXT\n"
+                '   "pk" INTEGER PRIMARY KEY,\n'
+                "   \"age2\" INTEGER NOT NULL DEFAULT '1',\n"
+                '   "name" TEXT\n'
                 ")"
             ),
         ),
@@ -1650,9 +1777,9 @@ def test_add_foreign_keys(db_path):
             ["--not-null", "name"],
             (
                 'CREATE TABLE "dogs" (\n'
-                "   [id] INTEGER PRIMARY KEY,\n"
-                "   [age] INTEGER NOT NULL DEFAULT '1',\n"
-                "   [name] TEXT NOT NULL\n"
+                '   "id" INTEGER PRIMARY KEY,\n'
+                "   \"age\" INTEGER NOT NULL DEFAULT '1',\n"
+                '   "name" TEXT NOT NULL\n'
                 ")"
             ),
         ),
@@ -1660,9 +1787,9 @@ def test_add_foreign_keys(db_path):
             ["--not-null-false", "age"],
             (
                 'CREATE TABLE "dogs" (\n'
-                "   [id] INTEGER PRIMARY KEY,\n"
-                "   [age] INTEGER DEFAULT '1',\n"
-                "   [name] TEXT\n"
+                '   "id" INTEGER PRIMARY KEY,\n'
+                "   \"age\" INTEGER DEFAULT '1',\n"
+                '   "name" TEXT\n'
                 ")"
             ),
         ),
@@ -1670,9 +1797,9 @@ def test_add_foreign_keys(db_path):
             ["--pk", "name"],
             (
                 'CREATE TABLE "dogs" (\n'
-                "   [id] INTEGER,\n"
-                "   [age] INTEGER NOT NULL DEFAULT '1',\n"
-                "   [name] TEXT PRIMARY KEY\n"
+                '   "id" INTEGER,\n'
+                "   \"age\" INTEGER NOT NULL DEFAULT '1',\n"
+                '   "name" TEXT PRIMARY KEY\n'
                 ")"
             ),
         ),
@@ -1680,9 +1807,9 @@ def test_add_foreign_keys(db_path):
             ["--pk-none"],
             (
                 'CREATE TABLE "dogs" (\n'
-                "   [id] INTEGER,\n"
-                "   [age] INTEGER NOT NULL DEFAULT '1',\n"
-                "   [name] TEXT\n"
+                '   "id" INTEGER,\n'
+                "   \"age\" INTEGER NOT NULL DEFAULT '1',\n"
+                '   "name" TEXT\n'
                 ")"
             ),
         ),
@@ -1690,9 +1817,9 @@ def test_add_foreign_keys(db_path):
             ["--default", "name", "Turnip"],
             (
                 'CREATE TABLE "dogs" (\n'
-                "   [id] INTEGER PRIMARY KEY,\n"
-                "   [age] INTEGER NOT NULL DEFAULT '1',\n"
-                "   [name] TEXT DEFAULT 'Turnip'\n"
+                '   "id" INTEGER PRIMARY KEY,\n'
+                "   \"age\" INTEGER NOT NULL DEFAULT '1',\n"
+                "   \"name\" TEXT DEFAULT 'Turnip'\n"
                 ")"
             ),
         ),
@@ -1700,9 +1827,9 @@ def test_add_foreign_keys(db_path):
             ["--default-none", "age"],
             (
                 'CREATE TABLE "dogs" (\n'
-                "   [id] INTEGER PRIMARY KEY,\n"
-                "   [age] INTEGER NOT NULL,\n"
-                "   [name] TEXT\n"
+                '   "id" INTEGER PRIMARY KEY,\n'
+                '   "age" INTEGER NOT NULL,\n'
+                '   "name" TEXT\n'
                 ")"
             ),
         ),
@@ -1710,9 +1837,9 @@ def test_add_foreign_keys(db_path):
             ["-o", "name", "--column-order", "age", "-o", "id"],
             (
                 'CREATE TABLE "dogs" (\n'
-                "   [name] TEXT,\n"
-                "   [age] INTEGER NOT NULL DEFAULT '1',\n"
-                "   [id] INTEGER PRIMARY KEY\n"
+                '   "name" TEXT,\n'
+                "   \"age\" INTEGER NOT NULL DEFAULT '1',\n"
+                '   "id" INTEGER PRIMARY KEY\n'
                 ")"
             ),
         ),
@@ -1734,6 +1861,29 @@ def test_transform(db_path, args, expected_schema):
     assert schema == expected_schema
 
 
+def test_transform_sql(db_path):
+    db = Database(db_path)
+    with db.conn:
+        db["dogs"].insert(
+            {"id": 1, "age": 4, "name": "Cleo"},
+            not_null={"age"},
+            defaults={"age": 1},
+            pk="id",
+        )
+    original_schema = db["dogs"].schema
+
+    result = CliRunner().invoke(
+        cli.cli, ["transform", db_path, "dogs", "--drop", "name", "--sql"]
+    )
+
+    assert result.exit_code == 0, result.output
+    assert 'CREATE TABLE "dogs_new_' in result.output
+    assert '"age" INTEGER NOT NULL DEFAULT' in result.output
+    assert 'DROP TABLE "dogs";' in result.output
+    assert 'ALTER TABLE "dogs_new_' in result.output
+    assert db["dogs"].schema == original_schema
+
+
 @pytest.mark.parametrize(
     "extra_args,expected_schema",
     (
@@ -1741,11 +1891,11 @@ def test_transform(db_path, args, expected_schema):
             ["--drop-foreign-key", "country"],
             (
                 'CREATE TABLE "places" (\n'
-                "   [id] INTEGER PRIMARY KEY,\n"
-                "   [name] TEXT,\n"
-                "   [country] INTEGER,\n"
-                "   [city] INTEGER REFERENCES [city]([id]),\n"
-                "   [continent] INTEGER\n"
+                '   "id" INTEGER PRIMARY KEY,\n'
+                '   "name" TEXT,\n'
+                '   "country" INTEGER,\n'
+                '   "city" INTEGER REFERENCES "city"("id"),\n'
+                '   "continent" INTEGER\n'
                 ")"
             ),
         ),
@@ -1753,11 +1903,11 @@ def test_transform(db_path, args, expected_schema):
             ["--drop-foreign-key", "country", "--drop-foreign-key", "city"],
             (
                 'CREATE TABLE "places" (\n'
-                "   [id] INTEGER PRIMARY KEY,\n"
-                "   [name] TEXT,\n"
-                "   [country] INTEGER,\n"
-                "   [city] INTEGER,\n"
-                "   [continent] INTEGER\n"
+                '   "id" INTEGER PRIMARY KEY,\n'
+                '   "name" TEXT,\n'
+                '   "country" INTEGER,\n'
+                '   "city" INTEGER,\n'
+                '   "continent" INTEGER\n'
                 ")"
             ),
         ),
@@ -1765,11 +1915,11 @@ def test_transform(db_path, args, expected_schema):
             ["--add-foreign-key", "continent", "continent", "id"],
             (
                 'CREATE TABLE "places" (\n'
-                "   [id] INTEGER PRIMARY KEY,\n"
-                "   [name] TEXT,\n"
-                "   [country] INTEGER REFERENCES [country]([id]),\n"
-                "   [city] INTEGER REFERENCES [city]([id]),\n"
-                "   [continent] INTEGER REFERENCES [continent]([id])\n"
+                '   "id" INTEGER PRIMARY KEY,\n'
+                '   "name" TEXT,\n'
+                '   "country" INTEGER REFERENCES "country"("id"),\n'
+                '   "city" INTEGER REFERENCES "city"("id"),\n'
+                '   "continent" INTEGER REFERENCES "continent"("id")\n'
                 ")"
             ),
         ),
@@ -1808,7 +1958,7 @@ def test_transform_add_or_drop_foreign_key(db_path, extra_args, expected_schema)
 
 
 _common_other_schema = (
-    "CREATE TABLE [species] (\n   [id] INTEGER PRIMARY KEY,\n   [species] TEXT\n)"
+    'CREATE TABLE "species" (\n   "id" INTEGER PRIMARY KEY,\n   "species" TEXT\n)'
 )
 
 
@@ -1819,9 +1969,9 @@ _common_other_schema = (
             [],
             (
                 'CREATE TABLE "trees" (\n'
-                "   [id] INTEGER PRIMARY KEY,\n"
-                "   [address] TEXT,\n"
-                "   [species_id] INTEGER REFERENCES [species]([id])\n"
+                '   "id" INTEGER PRIMARY KEY,\n'
+                '   "address" TEXT,\n'
+                '   "species_id" INTEGER REFERENCES "species"("id")\n'
                 ")"
             ),
             _common_other_schema,
@@ -1830,20 +1980,20 @@ _common_other_schema = (
             ["--table", "custom_table"],
             (
                 'CREATE TABLE "trees" (\n'
-                "   [id] INTEGER PRIMARY KEY,\n"
-                "   [address] TEXT,\n"
-                "   [custom_table_id] INTEGER REFERENCES [custom_table]([id])\n"
+                '   "id" INTEGER PRIMARY KEY,\n'
+                '   "address" TEXT,\n'
+                '   "custom_table_id" INTEGER REFERENCES "custom_table"("id")\n'
                 ")"
             ),
-            "CREATE TABLE [custom_table] (\n   [id] INTEGER PRIMARY KEY,\n   [species] TEXT\n)",
+            'CREATE TABLE "custom_table" (\n   "id" INTEGER PRIMARY KEY,\n   "species" TEXT\n)',
         ),
         (
             ["--fk-column", "custom_fk"],
             (
                 'CREATE TABLE "trees" (\n'
-                "   [id] INTEGER PRIMARY KEY,\n"
-                "   [address] TEXT,\n"
-                "   [custom_fk] INTEGER REFERENCES [species]([id])\n"
+                '   "id" INTEGER PRIMARY KEY,\n'
+                '   "address" TEXT,\n'
+                '   "custom_fk" INTEGER REFERENCES "species"("id")\n'
                 ")"
             ),
             _common_other_schema,
@@ -1851,11 +2001,11 @@ _common_other_schema = (
         (
             ["--rename", "name", "name2"],
             'CREATE TABLE "trees" (\n'
-            "   [id] INTEGER PRIMARY KEY,\n"
-            "   [address] TEXT,\n"
-            "   [species_id] INTEGER REFERENCES [species]([id])\n"
+            '   "id" INTEGER PRIMARY KEY,\n'
+            '   "address" TEXT,\n'
+            '   "species_id" INTEGER REFERENCES "species"("id")\n'
             ")",
-            "CREATE TABLE [species] (\n   [id] INTEGER PRIMARY KEY,\n   [species] TEXT\n)",
+            'CREATE TABLE "species" (\n   "id" INTEGER PRIMARY KEY,\n   "species" TEXT\n)',
         ),
     ],
 )
@@ -1905,7 +2055,16 @@ def test_insert_encoding(tmpdir):
     # Using --encoding=latin-1 should work
     good_result = CliRunner().invoke(
         cli.cli,
-        ["insert", db_path, "places", csv_path, "--encoding", "latin-1", "--csv"],
+        [
+            "insert",
+            db_path,
+            "places",
+            csv_path,
+            "--encoding",
+            "latin-1",
+            "--csv",
+            "--no-detect-types",
+        ],
         catch_exceptions=False,
     )
     assert good_result.exit_code == 0
@@ -1986,12 +2145,10 @@ def test_search_quote(tmpdir):
 def test_indexes(tmpdir):
     db_path = str(tmpdir / "test.db")
     db = Database(db_path)
-    db.conn.executescript(
-        """
+    db.conn.executescript("""
         create table Gosh (c1 text, c2 text, c3 text);
         create index Gosh_idx on Gosh(c2, c3 desc);
-    """
-    )
+    """)
     result = CliRunner().invoke(
         cli.cli,
         ["indexes", str(db_path)],
@@ -2082,16 +2239,12 @@ def test_triggers(tmpdir, extra_args, expected):
         pk="id",
     )
     db["counter"].insert({"count": 1})
-    db.conn.execute(
-        textwrap.dedent(
-            """
+    db.conn.execute(textwrap.dedent("""
         CREATE TRIGGER blah AFTER INSERT ON articles
         BEGIN
             UPDATE counter SET count = count + 1;
         END
-    """
-        )
-    )
+    """))
     args = ["triggers", db_path]
     if extra_args:
         args.extend(extra_args)
@@ -2110,34 +2263,34 @@ def test_triggers(tmpdir, extra_args, expected):
         (
             [],
             (
-                "CREATE TABLE [dogs] (\n"
-                "   [id] INTEGER,\n"
-                "   [name] TEXT\n"
+                'CREATE TABLE "dogs" (\n'
+                '   "id" INTEGER,\n'
+                '   "name" TEXT\n'
                 ");\n"
-                "CREATE TABLE [chickens] (\n"
-                "   [id] INTEGER,\n"
-                "   [name] TEXT,\n"
-                "   [breed] TEXT\n"
+                'CREATE TABLE "chickens" (\n'
+                '   "id" INTEGER,\n'
+                '   "name" TEXT,\n'
+                '   "breed" TEXT\n'
                 ");\n"
-                "CREATE INDEX [idx_chickens_breed]\n"
-                "    ON [chickens] ([breed]);\n"
+                'CREATE INDEX "idx_chickens_breed"\n'
+                '    ON "chickens" ("breed");\n'
             ),
         ),
         (
             ["dogs"],
-            ("CREATE TABLE [dogs] (\n" "   [id] INTEGER,\n" "   [name] TEXT\n" ")\n"),
+            ('CREATE TABLE "dogs" (\n' '   "id" INTEGER,\n' '   "name" TEXT\n' ")\n"),
         ),
         (
             ["chickens", "dogs"],
             (
-                "CREATE TABLE [chickens] (\n"
-                "   [id] INTEGER,\n"
-                "   [name] TEXT,\n"
-                "   [breed] TEXT\n"
+                'CREATE TABLE "chickens" (\n'
+                '   "id" INTEGER,\n'
+                '   "name" TEXT,\n'
+                '   "breed" TEXT\n'
                 ")\n"
-                "CREATE TABLE [dogs] (\n"
-                "   [id] INTEGER,\n"
-                "   [name] TEXT\n"
+                'CREATE TABLE "dogs" (\n'
+                '   "id" INTEGER,\n'
+                '   "name" TEXT\n'
                 ")\n"
             ),
         ),
@@ -2194,17 +2347,17 @@ def test_import_no_headers(tmpdir, args, tsv):
         csv_file.write("Tracy{sep}Spider{sep}7\n".format(sep=sep))
     result = CliRunner().invoke(
         cli.cli,
-        ["insert", db_path, "creatures", csv_path] + args,
+        ["insert", db_path, "creatures", csv_path] + args + ["--no-detect-types"],
         catch_exceptions=False,
     )
     assert result.exit_code == 0, result.output
     db = Database(db_path)
     schema = db["creatures"].schema
     assert schema == (
-        "CREATE TABLE [creatures] (\n"
-        "   [untitled_1] TEXT,\n"
-        "   [untitled_2] TEXT,\n"
-        "   [untitled_3] TEXT\n"
+        'CREATE TABLE "creatures" (\n'
+        '   "untitled_1" TEXT,\n'
+        '   "untitled_2" TEXT,\n'
+        '   "untitled_3" TEXT\n'
         ")"
     )
     rows = list(db["creatures"].rows)
@@ -2243,61 +2396,73 @@ def test_csv_insert_bom(tmpdir):
         fp.write(b"\xef\xbb\xbfname,age\nCleo,5")
     result = CliRunner().invoke(
         cli.cli,
-        ["insert", db_path, "broken", bom_csv_path, "--encoding", "utf-8", "--csv"],
+        [
+            "insert",
+            db_path,
+            "broken",
+            bom_csv_path,
+            "--encoding",
+            "utf-8",
+            "--csv",
+            "--no-detect-types",
+        ],
         catch_exceptions=False,
     )
     assert result.exit_code == 0
     result2 = CliRunner().invoke(
         cli.cli,
-        ["insert", db_path, "fixed", bom_csv_path, "--csv"],
+        ["insert", db_path, "fixed", bom_csv_path, "--csv", "--no-detect-types"],
         catch_exceptions=False,
     )
     assert result2.exit_code == 0
     db = Database(db_path)
     tables = db.execute("select name, sql from sqlite_master").fetchall()
     assert tables == [
-        ("broken", "CREATE TABLE [broken] (\n   [\ufeffname] TEXT,\n   [age] TEXT\n)"),
-        ("fixed", "CREATE TABLE [fixed] (\n   [name] TEXT,\n   [age] TEXT\n)"),
+        ("broken", 'CREATE TABLE "broken" (\n   "\ufeffname" TEXT,\n   "age" TEXT\n)'),
+        ("fixed", 'CREATE TABLE "fixed" (\n   "name" TEXT,\n   "age" TEXT\n)'),
     ]
 
 
-@pytest.mark.parametrize("option_or_env_var", (None, "-d", "--detect-types"))
-def test_insert_detect_types(tmpdir, option_or_env_var):
+def test_insert_detect_types(tmpdir):
+    """Test that type detection is the default behavior"""
     db_path = str(tmpdir / "test.db")
     data = "name,age,weight\nCleo,6,45.5\nDori,1,3.5"
-    extra = []
-    if option_or_env_var:
-        extra = [option_or_env_var]
 
-    def _test():
-        result = CliRunner().invoke(
-            cli.cli,
-            ["insert", db_path, "creatures", "-", "--csv"] + extra,
-            catch_exceptions=False,
-            input=data,
-        )
-        assert result.exit_code == 0
-        db = Database(db_path)
-        assert list(db["creatures"].rows) == [
-            {"name": "Cleo", "age": 6, "weight": 45.5},
-            {"name": "Dori", "age": 1, "weight": 3.5},
-        ]
-
-    if option_or_env_var is None:
-        # Use environment variable instead of option
-        with mock.patch.dict(os.environ, {"SQLITE_UTILS_DETECT_TYPES": "1"}):
-            _test()
-    else:
-        _test()
+    result = CliRunner().invoke(
+        cli.cli,
+        ["insert", db_path, "creatures", "-", "--csv"],
+        catch_exceptions=False,
+        input=data,
+    )
+    assert result.exit_code == 0
+    db = Database(db_path)
+    assert list(db["creatures"].rows) == [
+        {"name": "Cleo", "age": 6, "weight": 45.5},
+        {"name": "Dori", "age": 1, "weight": 3.5},
+    ]
 
 
+@pytest.mark.parametrize("command", ("insert", "upsert"))
 @pytest.mark.parametrize("option", ("-d", "--detect-types"))
-def test_upsert_detect_types(tmpdir, option):
+def test_detect_types_flag_removed(tmpdir, command, option):
+    # The old no-op flag was removed in 4.0 - it should now error
+    db_path = str(tmpdir / "test.db")
+    result = CliRunner().invoke(
+        cli.cli,
+        [command, db_path, "creatures", "-", "--csv", "--pk", "id", option],
+        input="id,name\n1,Cleo",
+    )
+    assert result.exit_code == 2
+    assert "No such option" in result.output
+
+
+def test_upsert_detect_types(tmpdir):
+    """Test that type detection is the default behavior for upsert"""
     db_path = str(tmpdir / "test.db")
     data = "id,name,age,weight\n1,Cleo,6,45.5\n2,Dori,1,3.5"
     result = CliRunner().invoke(
         cli.cli,
-        ["upsert", db_path, "creatures", "-", "--csv", "--pk", "id"] + [option],
+        ["upsert", db_path, "creatures", "-", "--csv", "--pk", "id"],
         catch_exceptions=False,
         input=data,
     )
@@ -2307,6 +2472,90 @@ def test_upsert_detect_types(tmpdir, option):
         {"id": 1, "name": "Cleo", "age": 6, "weight": 45.5},
         {"id": 2, "name": "Dori", "age": 1, "weight": 3.5},
     ]
+
+
+def test_csv_detect_types_creates_real_columns(tmpdir):
+    """Test that CSV import creates REAL columns for floats (default behavior)"""
+    db_path = str(tmpdir / "test.db")
+    data = "name,age,weight\nCleo,6,45.5\nDori,1,3.5"
+    result = CliRunner().invoke(
+        cli.cli,
+        ["insert", db_path, "creatures", "-", "--csv"],
+        catch_exceptions=False,
+        input=data,
+    )
+    assert result.exit_code == 0
+    db = Database(db_path)
+    # Check that the schema uses REAL for the weight column
+    assert db["creatures"].schema == (
+        'CREATE TABLE "creatures" (\n'
+        '   "name" TEXT,\n'
+        '   "age" INTEGER,\n'
+        '   "weight" REAL\n'
+        ")"
+    )
+
+
+def test_insert_no_detect_types(tmpdir):
+    """Test that --no-detect-types treats all columns as TEXT"""
+    db_path = str(tmpdir / "test.db")
+    data = "name,age,weight\nCleo,6,45.5\nDori,1,3.5"
+    result = CliRunner().invoke(
+        cli.cli,
+        ["insert", db_path, "creatures", "-", "--csv", "--no-detect-types"],
+        catch_exceptions=False,
+        input=data,
+    )
+    assert result.exit_code == 0
+    db = Database(db_path)
+    # All columns should be TEXT when --no-detect-types is used
+    assert list(db["creatures"].rows) == [
+        {"name": "Cleo", "age": "6", "weight": "45.5"},
+        {"name": "Dori", "age": "1", "weight": "3.5"},
+    ]
+    assert db["creatures"].schema == (
+        'CREATE TABLE "creatures" (\n'
+        '   "name" TEXT,\n'
+        '   "age" TEXT,\n'
+        '   "weight" TEXT\n'
+        ")"
+    )
+
+
+def test_upsert_no_detect_types(tmpdir):
+    """Test that --no-detect-types treats all columns as TEXT for upsert"""
+    db_path = str(tmpdir / "test.db")
+    data = "id,name,age,weight\n1,Cleo,6,45.5\n2,Dori,1,3.5"
+    result = CliRunner().invoke(
+        cli.cli,
+        [
+            "upsert",
+            db_path,
+            "creatures",
+            "-",
+            "--csv",
+            "--pk",
+            "id",
+            "--no-detect-types",
+        ],
+        catch_exceptions=False,
+        input=data,
+    )
+    assert result.exit_code == 0
+    db = Database(db_path)
+    # All columns should be TEXT when --no-detect-types is used
+    assert list(db["creatures"].rows) == [
+        {"id": "1", "name": "Cleo", "age": "6", "weight": "45.5"},
+        {"id": "2", "name": "Dori", "age": "1", "weight": "3.5"},
+    ]
+    assert db["creatures"].schema == (
+        'CREATE TABLE "creatures" (\n'
+        '   "id" TEXT PRIMARY KEY,\n'
+        '   "name" TEXT,\n'
+        '   "age" TEXT,\n'
+        '   "weight" TEXT\n'
+        ")"
+    )
 
 
 def test_integer_overflow_error(tmpdir):
@@ -2319,7 +2568,7 @@ def test_integer_overflow_error(tmpdir):
     assert result.exit_code == 1
     assert result.output == (
         "Error: Python int too large to convert to SQLite INTEGER\n\n"
-        "sql = INSERT INTO [items] ([bignumber]) VALUES (?);\n"
+        'sql = INSERT INTO "items" ("bignumber") VALUES (?)\n'
         "parameters = [34223049823094832094802398430298048240]\n"
     )
 
@@ -2509,3 +2758,22 @@ def test_insert_upsert_strict(tmpdir, method, strict):
     assert result.exit_code == 0
     db = Database(db_path)
     assert db["items"].strict == strict or not db.supports_strict
+
+
+def test_extract_bad_column_clean_error(db_path):
+    db = Database(db_path)
+    db["trees"].insert({"id": 1, "species": "Palm"}, pk="id")
+    result = CliRunner().invoke(cli.cli, ["extract", db_path, "trees", "nope"])
+    assert result.exit_code == 1
+    assert result.exception is None or isinstance(result.exception, SystemExit)
+    assert result.output.startswith("Error: Invalid columns")
+
+
+def test_extract_view_clean_error(db_path):
+    db = Database(db_path)
+    db["trees"].insert({"id": 1, "species": "Palm"}, pk="id")
+    db.create_view("v", "select * from trees")
+    result = CliRunner().invoke(cli.cli, ["extract", db_path, "v", "species"])
+    assert result.exit_code == 1
+    assert result.exception is None or isinstance(result.exception, SystemExit)
+    assert result.output.startswith("Error:")

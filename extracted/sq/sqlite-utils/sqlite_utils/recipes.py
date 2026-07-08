@@ -1,11 +1,20 @@
+from __future__ import annotations
+
+from typing import Callable, Optional
+
 from dateutil import parser
 import json
 
-IGNORE = object()
-SET_NULL = object()
+IGNORE: object = object()
+SET_NULL: object = object()
 
 
-def parsedate(value, dayfirst=False, yearfirst=False, errors=None):
+def parsedate(
+    value: str,
+    dayfirst: bool = False,
+    yearfirst: bool = False,
+    errors: Optional[object] = None,
+) -> Optional[str]:
     """
     Parse a date and convert it to ISO date format: yyyy-mm-dd
     \b
@@ -14,6 +23,8 @@ def parsedate(value, dayfirst=False, yearfirst=False, errors=None):
     - errors=r.IGNORE to ignore values that cannot be parsed
     - errors=r.SET_NULL to set values that cannot be parsed to null
     """
+    if not value:
+        return value
     try:
         return (
             parser.parse(value, dayfirst=dayfirst, yearfirst=yearfirst)
@@ -29,7 +40,12 @@ def parsedate(value, dayfirst=False, yearfirst=False, errors=None):
             raise
 
 
-def parsedatetime(value, dayfirst=False, yearfirst=False, errors=None):
+def parsedatetime(
+    value: str,
+    dayfirst: bool = False,
+    yearfirst: bool = False,
+    errors: Optional[object] = None,
+) -> Optional[str]:
     """
     Parse a datetime and convert it to ISO datetime format: yyyy-mm-ddTHH:MM:SS
     \b
@@ -38,6 +54,8 @@ def parsedatetime(value, dayfirst=False, yearfirst=False, errors=None):
     - errors=r.IGNORE to ignore values that cannot be parsed
     - errors=r.SET_NULL to set values that cannot be parsed to null
     """
+    if not value:
+        return value
     try:
         return parser.parse(value, dayfirst=dayfirst, yearfirst=yearfirst).isoformat()
     except parser.ParserError:
@@ -49,7 +67,9 @@ def parsedatetime(value, dayfirst=False, yearfirst=False, errors=None):
             raise
 
 
-def jsonsplit(value, delimiter=",", type=str):
+def jsonsplit(
+    value: str, delimiter: str = ",", type: Callable[[str], object] = str
+) -> str:
     """
     Convert a string like a,b,c into a JSON array ["a", "b", "c"]
     """

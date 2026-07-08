@@ -9,6 +9,18 @@ from .alerts import (
     get_alert_from_incident,
     list_alerts_from_incident,
 )
+from .analytics import (
+    get_incident_metrics_all,
+    get_incident_metrics_by_service,
+    get_incident_metrics_by_team,
+    get_responder_load_metrics,
+    get_responder_metrics,
+)
+from .business_services import (
+    get_business_service_dependencies,
+    list_business_services,
+)
+from .priorities import list_priorities
 from .change_events import (
     get_change_event,
     list_change_events,
@@ -63,9 +75,32 @@ from .schedules import (
     list_schedules,
     update_schedule,
 )
+from .schedules_v3 import (
+    create_schedule_v3_custom_shifts,
+    create_schedule_v3_overrides,
+    create_schedule_v3_rotation,
+    create_schedule_v3_rotation_event,
+    delete_schedule_v3,
+    delete_schedule_v3_custom_shift,
+    delete_schedule_v3_override,
+    delete_schedule_v3_rotation,
+    delete_schedule_v3_rotation_event,
+    get_schedule_v3_custom_shift,
+    get_schedule_v3_override,
+    get_schedule_v3_rotation,
+    get_schedule_v3_rotation_event,
+    list_schedule_v3_custom_shifts,
+    list_schedule_v3_overrides,
+    list_schedule_v3_rotation_events,
+    list_schedule_v3_rotations,
+    update_schedule_v3_custom_shift,
+    update_schedule_v3_override,
+    update_schedule_v3_rotation_event,
+)
 from .services import (
     create_service,
     get_service,
+    get_technical_service_dependencies,
     list_services,
     update_service,
 )
@@ -90,6 +125,15 @@ from .teams import (
     update_team,
 )
 from .users import create_user, get_user_data, list_users
+from .webhooks import (
+    create_webhook_subscription,
+    delete_webhook_subscription,
+    get_extension_schema,
+    get_webhook_subscription,
+    list_extension_schemas,
+    list_webhook_subscriptions,
+    update_webhook_subscription,
+)
 
 # Read-only tools (safe, non-destructive operations)
 read_tools = [
@@ -117,6 +161,7 @@ read_tools = [
     # Services
     list_services,
     get_service,
+    get_technical_service_dependencies,
     # Teams
     list_teams,
     get_team,
@@ -124,10 +169,19 @@ read_tools = [
     # Users
     get_user_data,
     list_users,
-    # Schedules
+    # Schedules (unified across layer-based v2 and shift-based v3)
     list_schedules,
     get_schedule,
     list_schedule_users,
+    # Schedules (v3 sub-resources)
+    list_schedule_v3_rotations,
+    get_schedule_v3_rotation,
+    list_schedule_v3_rotation_events,
+    get_schedule_v3_rotation_event,
+    list_schedule_v3_custom_shifts,
+    get_schedule_v3_custom_shift,
+    list_schedule_v3_overrides,
+    get_schedule_v3_override,
     # On-calls
     list_oncalls,
     # Log Entries
@@ -149,6 +203,23 @@ read_tools = [
     list_status_page_statuses,
     get_status_page_post,
     list_status_page_post_updates,
+    # Analytics
+    get_responder_metrics,
+    get_incident_metrics_by_service,
+    get_incident_metrics_by_team,
+    get_responder_load_metrics,
+    get_incident_metrics_all,
+    # Business Services
+    list_business_services,
+    get_business_service_dependencies,
+    # Priorities
+    list_priorities,
+    # Webhooks
+    list_webhook_subscriptions,
+    get_webhook_subscription,
+    # Extension Schemas
+    list_extension_schemas,
+    get_extension_schema,
 ]
 
 # Write tools (potentially dangerous operations that modify state)
@@ -173,10 +244,23 @@ write_tools = [
     delete_team,
     add_team_member,
     remove_team_member,
-    # Schedules
+    # Schedules (unified): create/update target shift-based (v3); overrides are layer-based (v2)
     create_schedule,
-    create_schedule_override,
     update_schedule,
+    create_schedule_override,
+    # Schedules (v3 sub-resources)
+    delete_schedule_v3,
+    create_schedule_v3_rotation,
+    delete_schedule_v3_rotation,
+    create_schedule_v3_rotation_event,
+    update_schedule_v3_rotation_event,
+    delete_schedule_v3_rotation_event,
+    create_schedule_v3_custom_shifts,
+    update_schedule_v3_custom_shift,
+    delete_schedule_v3_custom_shift,
+    create_schedule_v3_overrides,
+    update_schedule_v3_override,
+    delete_schedule_v3_override,
     # Event Orchestrations
     update_event_orchestration_router,
     append_event_orchestration_router_rule,
@@ -187,6 +271,10 @@ write_tools = [
     create_user,
     # Escalation Policies - currently disabled
     # create_escalation_policy,
+    # Webhooks
+    create_webhook_subscription,
+    update_webhook_subscription,
+    delete_webhook_subscription,
 ]
 
 # All tools (combined list for backward compatibility)

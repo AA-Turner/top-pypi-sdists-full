@@ -79,6 +79,11 @@ class PendingToolExecution(BaseModel):
     execution: ActiveToolExecution | None = None
     step_id: int
     tool_name: str
+    # Identity of the ATIF tool step span (lowercase hex), captured so callers
+    # can parent related spans (e.g. a sub-agent spawned by this Task call)
+    # under the tool span itself.
+    trace_id: str | None = None
+    span_id: str | None = None
 
 
 class ToolExecutionRecord(BaseModel):
@@ -337,6 +342,8 @@ def open_tool_execution(
             ),
             step_id=step_id,
             tool_name=tool_name,
+            trace_id=_maybe_span_trace_id(tool_span),
+            span_id=_maybe_span_span_id(tool_span),
         )
         if pending_tool_executions is not None:
             pending_tool_executions[tool_id] = pending_execution
@@ -374,6 +381,22 @@ def span_trace_id(span: Span) -> str:
 def span_span_id(span: Span) -> str:
     """Return the current span's span ID as a lowercase hex string."""
     return format(span.get_span_context().span_id, "016x")
+
+
+def _maybe_span_trace_id(span: Span) -> str | None:
+    """``span_trace_id`` that tolerates non-recording/test-double spans."""
+    try:
+        return span_trace_id(span)
+    except (TypeError, ValueError, AttributeError):
+        return None
+
+
+def _maybe_span_span_id(span: Span) -> str | None:
+    """``span_span_id`` that tolerates non-recording/test-double spans."""
+    try:
+        return span_span_id(span)
+    except (TypeError, ValueError, AttributeError):
+        return None
 
 
 class ToolExecutionRecorder:

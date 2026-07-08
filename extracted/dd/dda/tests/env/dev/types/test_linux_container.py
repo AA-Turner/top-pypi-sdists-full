@@ -98,6 +98,18 @@ def test_default_config(app):
     }
 
 
+def test_xdg_open_script_uses_lf_line_endings(app):
+    # The script is mounted into and executed by the Linux container. CRLF endings (the
+    # Windows text-mode default) would turn the `#!/usr/bin/env python3` shebang into a
+    # nonexistent `python3\r` interpreter, so it must be written with LF on every host OS.
+    container = LinuxContainer(app=app, name="linux-container", instance="default")
+    container._write_xdg_open_script()  # noqa: SLF001
+
+    raw = container._xdg_open_script_path.read_bytes()  # noqa: SLF001
+    assert b"\r" not in raw
+    assert raw.startswith(b"#!/usr/bin/env python3\n")
+
+
 class TestStatus:
     def test_default(self, dda, helpers, mocker):
         mocker.patch("subprocess.run", return_value=CompletedProcess([], returncode=0, stdout="{}"))
@@ -224,13 +236,13 @@ class TestStart:
                         "31381:9000",
                         "-v",
                         "/var/run/docker.sock:/var/run/docker.sock",
-                        *([] if sys.platform == "win32" else ["--add-host", "host.docker.internal:host-gateway"]),
+                        "--add-host",
+                        "host.docker.internal:host-gateway",
                         *host_user_args,
-                        *(
-                            []
-                            if sys.platform == "win32"
-                            else ["-e", "BROWSER", "-v", f"{xdg_open_script_path}:/usr/local/bin/xdg-open:ro"]
-                        ),
+                        "-e",
+                        "BROWSER",
+                        "-v",
+                        f"{xdg_open_script_path}:/usr/local/bin/xdg-open:ro",
                         "-e",
                         "DD_SHELL",
                         "-e",
@@ -241,6 +253,10 @@ class TestStart:
                         GitEnvVars.AUTHOR_NAME,
                         "-e",
                         GitEnvVars.AUTHOR_EMAIL,
+                        "-e",
+                        AppEnvVars.ENV_TYPE,
+                        "-e",
+                        AppEnvVars.ENV_MANAGER,
                         "-v",
                         f"{shared_dir}:/.shared",
                         *starship_mount,
@@ -314,13 +330,13 @@ class TestStart:
                         "31381:9000",
                         "-v",
                         "/var/run/docker.sock:/var/run/docker.sock",
-                        *([] if sys.platform == "win32" else ["--add-host", "host.docker.internal:host-gateway"]),
+                        "--add-host",
+                        "host.docker.internal:host-gateway",
                         *host_user_args,
-                        *(
-                            []
-                            if sys.platform == "win32"
-                            else ["-e", "BROWSER", "-v", f"{xdg_open_script_path}:/usr/local/bin/xdg-open:ro"]
-                        ),
+                        "-e",
+                        "BROWSER",
+                        "-v",
+                        f"{xdg_open_script_path}:/usr/local/bin/xdg-open:ro",
                         "-e",
                         "DD_SHELL",
                         "-e",
@@ -331,6 +347,10 @@ class TestStart:
                         GitEnvVars.AUTHOR_NAME,
                         "-e",
                         GitEnvVars.AUTHOR_EMAIL,
+                        "-e",
+                        AppEnvVars.ENV_TYPE,
+                        "-e",
+                        AppEnvVars.ENV_MANAGER,
                         "-v",
                         f"{shared_dir}:/.shared",
                         *starship_mount,
@@ -418,13 +438,13 @@ class TestStart:
                         "31381:9000",
                         "-v",
                         "/var/run/docker.sock:/var/run/docker.sock",
-                        *([] if sys.platform == "win32" else ["--add-host", "host.docker.internal:host-gateway"]),
+                        "--add-host",
+                        "host.docker.internal:host-gateway",
                         *host_user_args,
-                        *(
-                            []
-                            if sys.platform == "win32"
-                            else ["-e", "BROWSER", "-v", f"{xdg_open_script_path}:/usr/local/bin/xdg-open:ro"]
-                        ),
+                        "-e",
+                        "BROWSER",
+                        "-v",
+                        f"{xdg_open_script_path}:/usr/local/bin/xdg-open:ro",
                         "-e",
                         "DD_SHELL",
                         "-e",
@@ -435,6 +455,10 @@ class TestStart:
                         GitEnvVars.AUTHOR_NAME,
                         "-e",
                         GitEnvVars.AUTHOR_EMAIL,
+                        "-e",
+                        AppEnvVars.ENV_TYPE,
+                        "-e",
+                        AppEnvVars.ENV_MANAGER,
                         "-v",
                         f"{shared_dir}:/.shared",
                         *starship_mount,
@@ -516,13 +540,13 @@ class TestStart:
                         "31381:9000",
                         "-v",
                         "/var/run/docker.sock:/var/run/docker.sock",
-                        *([] if sys.platform == "win32" else ["--add-host", "host.docker.internal:host-gateway"]),
+                        "--add-host",
+                        "host.docker.internal:host-gateway",
                         *host_user_args,
-                        *(
-                            []
-                            if sys.platform == "win32"
-                            else ["-e", "BROWSER", "-v", f"{xdg_open_script_path}:/usr/local/bin/xdg-open:ro"]
-                        ),
+                        "-e",
+                        "BROWSER",
+                        "-v",
+                        f"{xdg_open_script_path}:/usr/local/bin/xdg-open:ro",
                         "-e",
                         "DD_SHELL",
                         "-e",
@@ -533,6 +557,10 @@ class TestStart:
                         GitEnvVars.AUTHOR_NAME,
                         "-e",
                         GitEnvVars.AUTHOR_EMAIL,
+                        "-e",
+                        AppEnvVars.ENV_TYPE,
+                        "-e",
+                        AppEnvVars.ENV_MANAGER,
                         "-v",
                         f"{shared_dir}:/.shared",
                         *starship_mount,
@@ -609,13 +637,13 @@ class TestStart:
                         "31381:9000",
                         "-v",
                         "/var/run/docker.sock:/var/run/docker.sock",
-                        *([] if sys.platform == "win32" else ["--add-host", "host.docker.internal:host-gateway"]),
+                        "--add-host",
+                        "host.docker.internal:host-gateway",
                         *host_user_args,
-                        *(
-                            []
-                            if sys.platform == "win32"
-                            else ["-e", "BROWSER", "-v", f"{xdg_open_script_path}:/usr/local/bin/xdg-open:ro"]
-                        ),
+                        "-e",
+                        "BROWSER",
+                        "-v",
+                        f"{xdg_open_script_path}:/usr/local/bin/xdg-open:ro",
                         "-e",
                         "DD_SHELL",
                         "-e",
@@ -626,6 +654,10 @@ class TestStart:
                         GitEnvVars.AUTHOR_NAME,
                         "-e",
                         GitEnvVars.AUTHOR_EMAIL,
+                        "-e",
+                        AppEnvVars.ENV_TYPE,
+                        "-e",
+                        AppEnvVars.ENV_MANAGER,
                         "-v",
                         f"{shared_dir}:/.shared",
                         *starship_mount,
@@ -737,13 +769,13 @@ class TestStart:
                         "31381:9000",
                         "-v",
                         "/var/run/docker.sock:/var/run/docker.sock",
-                        *([] if sys.platform == "win32" else ["--add-host", "host.docker.internal:host-gateway"]),
+                        "--add-host",
+                        "host.docker.internal:host-gateway",
                         *host_user_args,
-                        *(
-                            []
-                            if sys.platform == "win32"
-                            else ["-e", "BROWSER", "-v", f"{xdg_open_script_path}:/usr/local/bin/xdg-open:ro"]
-                        ),
+                        "-e",
+                        "BROWSER",
+                        "-v",
+                        f"{xdg_open_script_path}:/usr/local/bin/xdg-open:ro",
                         "-e",
                         "DD_SHELL",
                         "-e",
@@ -754,6 +786,10 @@ class TestStart:
                         GitEnvVars.AUTHOR_NAME,
                         "-e",
                         GitEnvVars.AUTHOR_EMAIL,
+                        "-e",
+                        AppEnvVars.ENV_TYPE,
+                        "-e",
+                        AppEnvVars.ENV_MANAGER,
                         "-v",
                         f"{shared_dir}:/.shared",
                         *starship_mount,
@@ -849,13 +885,13 @@ class TestStart:
                         "31381:9000",
                         "-v",
                         "/var/run/docker.sock:/var/run/docker.sock",
-                        *([] if sys.platform == "win32" else ["--add-host", "host.docker.internal:host-gateway"]),
+                        "--add-host",
+                        "host.docker.internal:host-gateway",
                         *host_user_args,
-                        *(
-                            []
-                            if sys.platform == "win32"
-                            else ["-e", "BROWSER", "-v", f"{xdg_open_script_path}:/usr/local/bin/xdg-open:ro"]
-                        ),
+                        "-e",
+                        "BROWSER",
+                        "-v",
+                        f"{xdg_open_script_path}:/usr/local/bin/xdg-open:ro",
                         "-e",
                         "DD_SHELL",
                         "-e",
@@ -866,6 +902,10 @@ class TestStart:
                         GitEnvVars.AUTHOR_NAME,
                         "-e",
                         GitEnvVars.AUTHOR_EMAIL,
+                        "-e",
+                        AppEnvVars.ENV_TYPE,
+                        "-e",
+                        AppEnvVars.ENV_MANAGER,
                         "-v",
                         f"{shared_dir}:/.shared",
                         *starship_mount,

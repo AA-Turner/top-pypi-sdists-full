@@ -6,7 +6,7 @@
       '2021359':
         age: 49
         employment_income_before_lsr: 0
-        self_employment_income: 0
+        self_employment_income_before_lsr: 0
         rental_income: 0
         taxable_pension_income: 0
         social_security: 0

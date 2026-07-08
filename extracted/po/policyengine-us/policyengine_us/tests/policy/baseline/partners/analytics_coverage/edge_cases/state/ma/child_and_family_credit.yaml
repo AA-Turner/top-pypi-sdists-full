@@ -1,4 +1,8 @@
-- name: ma_child_family_credit_child_age_17 (ma)
+# MA child and family tax credit: $440 per eligible dependent in 2026
+# (gov/states/ma/tax/income/credits/child_and_family/amount.yaml: 440 since 2024).
+# Eligible dependent = tax-unit dependent AND (age < 13 | age >= 65 | disabled);
+# no dependent cap since 2023 (dependent_cap = inf).
+- name: ma_child_family_credit_child_age_12_boundary (ma)
   period: 2026
   absolute_error_margin: 0.1
   input:
@@ -10,49 +14,22 @@
         is_tax_unit_dependent: false
         is_disabled: false
         immigration_status_str: CITIZEN
-        employment_income_before_lsr: 40000
-        capital_gains: 0
-        rent: 0
-        was_in_foster_care: false
-        is_full_time_student: false
-        ssi_countable_resources: 0
-        co_care_worker_credit_eligible_care_worker: false
-      spouse:
-        age: 28
-        is_tax_unit_head: false
-        is_tax_unit_spouse: true
-        is_tax_unit_dependent: false
-        is_disabled: false
-        immigration_status_str: CITIZEN
-        employment_income_before_lsr: 0
-        capital_gains: 0
-        rent: 0
-        was_in_foster_care: false
-        is_full_time_student: false
-        ssi_countable_resources: 0
-        co_care_worker_credit_eligible_care_worker: false
+        employment_income_before_lsr: 40_000
       child1:
-        age: 17
+        age: 12
         is_tax_unit_head: false
         is_tax_unit_spouse: false
         is_tax_unit_dependent: true
         is_disabled: false
         immigration_status_str: CITIZEN
         employment_income_before_lsr: 0
-        capital_gains: 0
-        rent: 0
-        was_in_foster_care: false
-        is_full_time_student: false
-        ssi_countable_resources: 0
-        co_care_worker_credit_eligible_care_worker: false
     households:
       household:
         members: &id001
         - head
-        - spouse
         - child1
-        state_code_str: MA
-        zip_code: 02118
+        state_code: MA
+        zip_code: "02118"
         county_str: SUFFOLK_COUNTY_MA
     spm_units:
       spm_unit:
@@ -60,32 +37,25 @@
     tax_units:
       tax_unit:
         members: *id001
-        tax_unit_is_joint: true
+        tax_unit_is_joint: false
     families:
       family:
         members: *id001
     marital_units:
-      mu_couple:
+      mu_head:
         members:
         - head
-        - spouse
       mu_child1:
         members:
         - child1
   output:
     tax_units:
       tax_unit:
-        ma_eitc: 1205.75
-        ma_child_and_family_credit: 0.0
-        adjusted_gross_income: 40000.0
-    people:
-      head:
-        ma_state_supplement: 0.0
-      spouse:
-        ma_state_supplement: 0.0
-      child1:
-        ma_state_supplement: 0.0
-- name: ma_child_family_credit_dependent_age_18 (ma)
+        # Age 12 < child_age_limit (13) -> 1 eligible dependent x 440 = 440.
+        ma_child_and_family_credit: 440.0
+        adjusted_gross_income: 40_000.0
+# Same household, child at exactly the age-13 limit -> ineligible (age route zero).
+- name: ma_child_family_credit_child_age_13_at_limit (ma)
   period: 2026
   absolute_error_margin: 0.1
   input:
@@ -97,49 +67,22 @@
         is_tax_unit_dependent: false
         is_disabled: false
         immigration_status_str: CITIZEN
-        employment_income_before_lsr: 40000
-        capital_gains: 0
-        rent: 0
-        was_in_foster_care: false
-        is_full_time_student: false
-        ssi_countable_resources: 0
-        co_care_worker_credit_eligible_care_worker: false
-      spouse:
-        age: 28
-        is_tax_unit_head: false
-        is_tax_unit_spouse: true
-        is_tax_unit_dependent: false
-        is_disabled: false
-        immigration_status_str: CITIZEN
-        employment_income_before_lsr: 0
-        capital_gains: 0
-        rent: 0
-        was_in_foster_care: false
-        is_full_time_student: false
-        ssi_countable_resources: 0
-        co_care_worker_credit_eligible_care_worker: false
+        employment_income_before_lsr: 40_000
       child1:
-        age: 18
+        age: 13
         is_tax_unit_head: false
         is_tax_unit_spouse: false
         is_tax_unit_dependent: true
         is_disabled: false
         immigration_status_str: CITIZEN
         employment_income_before_lsr: 0
-        capital_gains: 0
-        rent: 0
-        was_in_foster_care: false
-        is_full_time_student: false
-        ssi_countable_resources: 0
-        co_care_worker_credit_eligible_care_worker: false
     households:
       household:
         members: &id002
         - head
-        - spouse
         - child1
-        state_code_str: MA
-        zip_code: 02118
+        state_code: MA
+        zip_code: "02118"
         county_str: SUFFOLK_COUNTY_MA
     spm_units:
       spm_unit:
@@ -147,87 +90,50 @@
     tax_units:
       tax_unit:
         members: *id002
-        tax_unit_is_joint: true
+        tax_unit_is_joint: false
     families:
       family:
         members: *id002
     marital_units:
-      mu_couple:
+      mu_head:
         members:
         - head
-        - spouse
       mu_child1:
         members:
         - child1
   output:
     tax_units:
       tax_unit:
-        ma_eitc: 1205.75
+        # Age 13 is NOT < child_age_limit (13), not elderly, not disabled -> 0.
         ma_child_and_family_credit: 0.0
-        adjusted_gross_income: 40000.0
-    people:
-      head:
-        ma_state_supplement: 0.0
-      spouse:
-        ma_state_supplement: 0.0
-      child1:
-        ma_state_supplement: 0.0
 - name: ma_child_family_credit_disabled_dependent_age_20 (ma)
   period: 2026
   absolute_error_margin: 0.1
   input:
     people:
       head:
-        age: 30
+        age: 45
         is_tax_unit_head: true
         is_tax_unit_spouse: false
         is_tax_unit_dependent: false
         is_disabled: false
         immigration_status_str: CITIZEN
-        employment_income_before_lsr: 40000
-        capital_gains: 0
-        rent: 0
-        was_in_foster_care: false
-        is_full_time_student: false
-        ssi_countable_resources: 0
-        co_care_worker_credit_eligible_care_worker: false
-      spouse:
-        age: 28
-        is_tax_unit_head: false
-        is_tax_unit_spouse: true
-        is_tax_unit_dependent: false
-        is_disabled: false
-        immigration_status_str: CITIZEN
-        employment_income_before_lsr: 0
-        capital_gains: 0
-        rent: 0
-        was_in_foster_care: false
-        is_full_time_student: false
-        ssi_countable_resources: 0
-        co_care_worker_credit_eligible_care_worker: false
+        employment_income_before_lsr: 40_000
       child1:
         age: 20
         is_tax_unit_head: false
         is_tax_unit_spouse: false
         is_tax_unit_dependent: true
         is_disabled: true
-        meets_ssi_disability_criteria: true
         immigration_status_str: CITIZEN
         employment_income_before_lsr: 0
-        capital_gains: 0
-        rent: 0
-        was_in_foster_care: false
-        is_full_time_student: false
-        ssi_countable_resources: 0
-        co_care_worker_credit_eligible_care_worker: false
     households:
       household:
         members: &id003
         - head
-        - spouse
         - child1
-        state_code_str: MA
-        zip_code: 02118
+        state_code: MA
+        zip_code: "02118"
         county_str: SUFFOLK_COUNTY_MA
     spm_units:
       spm_unit:
@@ -235,71 +141,50 @@
     tax_units:
       tax_unit:
         members: *id003
-        tax_unit_is_joint: true
+        tax_unit_is_joint: false
     families:
       family:
         members: *id003
     marital_units:
-      mu_couple:
+      mu_head:
         members:
         - head
-        - spouse
       mu_child1:
         members:
         - child1
   output:
     tax_units:
       tax_unit:
-        ma_eitc: 0.0
+        # Disabled dependent qualifies at any age -> 1 x 440 = 440.
         ma_child_and_family_credit: 440.0
-        adjusted_gross_income: 40000.0
-    people:
-      head:
-        ma_state_supplement: 0.0
-      spouse:
-        ma_state_supplement: 0.0
-      child1:
-        ma_state_supplement: 1372.68
-- name: ma_child_family_credit_elderly_head_age_65 (ma)
+- name: ma_child_family_credit_elderly_dependent_age_65 (ma)
   period: 2026
   absolute_error_margin: 0.1
   input:
     people:
       head:
-        age: 65
+        age: 45
         is_tax_unit_head: true
         is_tax_unit_spouse: false
         is_tax_unit_dependent: false
         is_disabled: false
         immigration_status_str: CITIZEN
-        employment_income_before_lsr: 20000
-        capital_gains: 0
-        rent: 0
-        was_in_foster_care: false
-        is_full_time_student: false
-        ssi_countable_resources: 0
-        co_care_worker_credit_eligible_care_worker: false
-      spouse:
-        age: 63
+        employment_income_before_lsr: 40_000
+      parent1:
+        age: 65
         is_tax_unit_head: false
-        is_tax_unit_spouse: true
-        is_tax_unit_dependent: false
+        is_tax_unit_spouse: false
+        is_tax_unit_dependent: true
         is_disabled: false
         immigration_status_str: CITIZEN
         employment_income_before_lsr: 0
-        capital_gains: 0
-        rent: 0
-        was_in_foster_care: false
-        is_full_time_student: false
-        ssi_countable_resources: 0
-        co_care_worker_credit_eligible_care_worker: false
     households:
       household:
         members: &id004
         - head
-        - spouse
-        state_code_str: MA
-        zip_code: 02118
+        - parent1
+        state_code: MA
+        zip_code: "02118"
         county_str: SUFFOLK_COUNTY_MA
     spm_units:
       spm_unit:
@@ -307,23 +192,19 @@
     tax_units:
       tax_unit:
         members: *id004
-        tax_unit_is_joint: true
+        tax_unit_is_joint: false
     families:
       family:
         members: *id004
     marital_units:
-      mu_couple:
+      mu_head:
         members:
         - head
-        - spouse
+      mu_parent1:
+        members:
+        - parent1
   output:
     tax_units:
       tax_unit:
-        ma_eitc: 208.68
-        ma_child_and_family_credit: 0.0
-        adjusted_gross_income: 20000.0
-    people:
-      head:
-        ma_state_supplement: 1545.84
-      spouse:
-        ma_state_supplement: 0.0
+        # Dependent aged 65 >= elderly_age_limit (65) -> 1 x 440 = 440.
+        ma_child_and_family_credit: 440.0

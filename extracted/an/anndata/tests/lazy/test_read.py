@@ -1,6 +1,8 @@
 from __future__ import annotations
 
+import json
 from importlib.util import find_spec
+from pathlib import Path
 from typing import TYPE_CHECKING
 
 import numpy as np
@@ -11,6 +13,7 @@ import zarr
 from anndata import AnnData
 from anndata.compat import DaskArray
 from anndata.experimental import read_elem_lazy, read_lazy
+from anndata.experimental.backed._io import ANNDATA_ELEMS
 from anndata.io import read_zarr, write_elem
 from anndata.tests.helpers import (
     GEN_ADATA_NO_XARRAY_ARGS,
@@ -20,11 +23,8 @@ from anndata.tests.helpers import (
     gen_typed_df,
 )
 
-from .conftest import ANNDATA_ELEMS
-
 if TYPE_CHECKING:
     from collections.abc import Callable
-    from pathlib import Path
 
     from anndata._types import AnnDataElem
 
@@ -158,7 +158,7 @@ def test_access_counts_obsm_df(tmp_path: Path):
         index=adata.obs_names,
     )
     adata.write_zarr(tmp_path)
-    store = AccessTrackingStore(tmp_path)
+    store = AccessTrackingStore(tmp_path, read_only=True)
     store.initialize_key_trackers(["obsm/df"])
     read_lazy(store, load_annotation_index=False)
     store.assert_access_count("obsm/df", 0)
@@ -205,14 +205,19 @@ def test_unconsolidated(tmp_path: Path, mtx_format):
     adata = gen_adata((10, 10), mtx_format, **GEN_ADATA_NO_XARRAY_ARGS)
     orig_pth = tmp_path / "orig.zarr"
     adata.write_zarr(orig_pth)
-    (orig_pth / ".zmetadata").unlink()
-    store = AccessTrackingStore(orig_pth)
-    store.initialize_key_trackers(["obs/.zgroup", ".zgroup"])
+    with Path.open(orig_pth / "zarr.json", "r+") as f:
+        data = json.load(f)
+        del data["consolidated_metadata"]
+        f.seek(0)
+        json.dump(data, f)
+        f.truncate()
+    store = AccessTrackingStore(orig_pth, read_only=True)
+    store.initialize_key_trackers(["obs/zarr.json", "zarr.json"])
     with pytest.warns(UserWarning, match=r"Did not read zarr as consolidated"):
         remote = read_lazy(store)
     remote_to_memory = remote.to_memory()
     assert_equal(remote_to_memory, adata)
-    store.assert_access_count("obs/.zgroup", 1)
+    store.assert_access_count("obs/zarr.json", 1)
 
 
 @pytest.mark.zarr_io

@@ -1,7 +1,50 @@
 from click.testing import CliRunner
 import click
 import importlib
+import pytest
+import sys
 from sqlite_utils import cli, Database, hookimpl, plugins
+
+
+def _supports_pragma_function_list():
+    db = Database(memory=True)
+    try:
+        db.execute("select * from pragma_function_list()")
+        return True
+    except Exception:
+        return False
+    finally:
+        db.close()
+
+
+def test_get_plugins_loads_setuptools_entrypoints_once(monkeypatch):
+    calls = []
+    monkeypatch.delattr(sys, "_called_from_test", raising=False)
+    monkeypatch.setattr(plugins, "_plugins_loaded", False)
+    monkeypatch.setattr(
+        plugins.pm,
+        "load_setuptools_entrypoints",
+        lambda group: calls.append(group) or 0,
+    )
+
+    plugins.get_plugins()
+    plugins.get_plugins()
+
+    assert calls == ["sqlite_utils"]
+
+
+def test_get_plugins_does_not_load_setuptools_entrypoints_in_tests(monkeypatch):
+    calls = []
+    monkeypatch.setattr(sys, "_called_from_test", True, raising=False)
+    monkeypatch.setattr(plugins, "_plugins_loaded", False)
+    monkeypatch.setattr(
+        plugins.pm,
+        "load_setuptools_entrypoints",
+        lambda group: calls.append(group) or 0,
+    )
+
+    assert plugins.get_plugins() == []
+    assert calls == []
 
 
 def test_register_commands():
@@ -37,6 +80,10 @@ def test_register_commands():
         assert plugins.get_plugins() == []
 
 
+@pytest.mark.skipif(
+    not _supports_pragma_function_list(),
+    reason="Needs SQLite version that supports pragma_function_list()",
+)
 def test_prepare_connection():
     importlib.reload(cli)
     assert plugins.get_plugins() == []
@@ -54,7 +101,7 @@ def test_prepare_connection():
         return [
             row[0]
             for row in db.execute(
-                "select distinct name from pragma_function_list order by 1"
+                "select distinct name from pragma_function_list() order by 1"
             ).fetchall()
         ]
 

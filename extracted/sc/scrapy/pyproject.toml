@@ -137,7 +137,7 @@ module = [
 ignore_missing_imports = true
 
 [tool.bumpversion]
-current_version = "2.16.0"
+current_version = "2.17.0"
 commit = true
 tag = true
 tag_name = "{new_version}"
@@ -157,6 +157,8 @@ parse = """(?P<major>0|[1-9]\\d*)\\.(?P<minor>0|[1-9]\\d*)"""
 serialize = ["{major}.{minor}"]
 
 [tool.coverage.run]
+# sysmon, default on 3.14, is too slow: https://github.com/coveragepy/coveragepy/issues/2172
+core = "ctrace"
 branch = true
 include = ["scrapy/*"]
 omit = ["tests/*"]
@@ -225,8 +227,10 @@ disable = [
     "too-many-positional-arguments",
     "too-many-public-methods",
     "too-many-return-statements",
+    "undefined-variable",
     "unused-argument",
     "unused-variable",
+    "use-implicit-booleaness-not-comparison",
     "useless-import-alias",  # used as a hint to mypy
     "useless-return",  # https://github.com/pylint-dev/pylint/issues/6530
     "wrong-import-position",
@@ -270,6 +274,8 @@ markers = [
 ]
 filterwarnings = [
     "ignore::DeprecationWarning:twisted.web.static",
+    # Twisted doesn't close failed sockets after CannotListenError: https://github.com/twisted/twisted/issues/6108
+    "ignore:Exception ignored in. <socket\\.socket.*laddr=..0\\.0\\.0\\.0., 0.:pytest.PytestUnraisableExceptionWarning",
 ]
 
 [tool.ruff.lint]

@@ -29,6 +29,7 @@ __all__ = (
     "AmiSortByType",
     "ArchitectureType",
     "AssociationResultStatusCodeType",
+    "AwsConfigConnectorArnComparisonType",
     "AwsEcrContainerSortByType",
     "CisFindingStatusComparisonType",
     "CisFindingStatusType",
@@ -50,11 +51,23 @@ __all__ = (
     "CisTargetStatusComparisonType",
     "CisTargetStatusReasonType",
     "CisTargetStatusType",
+    "CloudProviderType",
     "CodeRepositoryProviderTypeType",
     "CodeRepositorySortByType",
     "CodeScanStatusType",
     "CodeSnippetErrorCodeType",
     "ConfigurationLevelType",
+    "ConnectorArnComparisonType",
+    "ConnectorCloudProviderType",
+    "ConnectorConnectedWaiterName",
+    "ConnectorDeletedWaiterName",
+    "ConnectorEnabledWaiterName",
+    "ConnectorHealthStatusType",
+    "ConnectorTypeComparisonType",
+    "ConnectorTypeType",
+    "ContainerImagePullDateRescanDurationType",
+    "ContainerImageRescanDurationType",
+    "ContainerImageSortByType",
     "ContinuousIntegrationScanEventType",
     "CoverageMapComparisonType",
     "CoverageResourceTypeType",
@@ -72,6 +85,7 @@ __all__ = (
     "EcrRescanDurationStatusType",
     "EcrRescanDurationType",
     "EcrScanFrequencyType",
+    "EnablementStatusType",
     "ErrorCodeType",
     "ExploitAvailableType",
     "ExternalReportStatusType",
@@ -88,6 +102,7 @@ __all__ = (
     "GetClustersForImagePaginatorName",
     "GroupKeyType",
     "ImageLayerSortByType",
+    "InheritanceModeType",
     "Inspector2ServiceName",
     "IntegrationStatusType",
     "IntegrationTypeType",
@@ -100,6 +115,8 @@ __all__ = (
     "ListCisScansDetailLevelType",
     "ListCisScansPaginatorName",
     "ListCisScansSortByType",
+    "ListConnectorScanConfigurationsPaginatorName",
+    "ListConnectorsPaginatorName",
     "ListCoveragePaginatorName",
     "ListCoverageStatisticsPaginatorName",
     "ListDelegatedAdminAccountsPaginatorName",
@@ -117,6 +134,8 @@ __all__ = (
     "PaginatorName",
     "PeriodicScanFrequencyType",
     "ProjectSelectionScopeType",
+    "ProviderComparisonType",
+    "ProviderType",
     "RegionName",
     "RelationshipStatusType",
     "ReportFormatType",
@@ -134,7 +153,10 @@ __all__ = (
     "ScanStatusCodeType",
     "ScanStatusReasonType",
     "ScanTypeType",
+    "ScopeStateType",
+    "ScopeTypeType",
     "SearchVulnerabilitiesPaginatorName",
+    "ServerlessFunctionSortByType",
     "ServiceName",
     "ServiceType",
     "SeverityType",
@@ -147,7 +169,10 @@ __all__ = (
     "TitleSortByType",
     "UsageTypeType",
     "VMScannerStatusType",
+    "VmInstanceSortByType",
+    "VmPlatformType",
     "VulnerabilitySourceType",
+    "WaiterName",
 )
 
 AccountSortByType = Literal["ALL", "CRITICAL", "HIGH"]
@@ -155,7 +180,13 @@ AggregationFindingTypeType = Literal[
     "CODE_VULNERABILITY", "NETWORK_REACHABILITY", "PACKAGE_VULNERABILITY"
 ]
 AggregationResourceTypeType = Literal[
-    "AWS_EC2_INSTANCE", "AWS_ECR_CONTAINER_IMAGE", "AWS_LAMBDA_FUNCTION", "CODE_REPOSITORY"
+    "AWS_EC2_INSTANCE",
+    "AWS_ECR_CONTAINER_IMAGE",
+    "AWS_LAMBDA_FUNCTION",
+    "CODE_REPOSITORY",
+    "Microsoft.Compute/virtualMachines",
+    "Microsoft.ContainerRegistry/registry/containerImage",
+    "Microsoft.Web/sites",
 ]
 AggregationTypeType = Literal[
     "ACCOUNT",
@@ -164,12 +195,15 @@ AggregationTypeType = Literal[
     "AWS_ECR_CONTAINER",
     "AWS_LAMBDA_FUNCTION",
     "CODE_REPOSITORY",
+    "CONTAINER_IMAGE",
     "FINDING_TYPE",
     "IMAGE_LAYER",
     "LAMBDA_LAYER",
     "PACKAGE",
     "REPOSITORY",
+    "SERVERLESS_FUNCTION",
     "TITLE",
+    "VM_INSTANCE",
 ]
 AmiSortByType = Literal["AFFECTED_INSTANCES", "ALL", "CRITICAL", "HIGH"]
 ArchitectureType = Literal["ARM64", "X86_64"]
@@ -181,6 +215,7 @@ AssociationResultStatusCodeType = Literal[
     "RESOURCE_NOT_FOUND",
     "SCAN_CONFIGURATION_NOT_FOUND",
 ]
+AwsConfigConnectorArnComparisonType = Literal["EQUALS"]
 AwsEcrContainerSortByType = Literal["ALL", "CRITICAL", "HIGH"]
 CisFindingStatusComparisonType = Literal["EQUALS"]
 CisFindingStatusType = Literal["FAILED", "PASSED", "SKIPPED"]
@@ -213,6 +248,7 @@ CisStringComparisonType = Literal["EQUALS", "NOT_EQUALS", "PREFIX"]
 CisTargetStatusComparisonType = Literal["EQUALS"]
 CisTargetStatusReasonType = Literal["SCAN_IN_PROGRESS", "SSM_UNMANAGED", "UNSUPPORTED_OS"]
 CisTargetStatusType = Literal["CANCELLED", "COMPLETED", "TIMED_OUT"]
+CloudProviderType = Literal["AWS", "AZURE", "NOT_APPLICABLE"]
 CodeRepositoryProviderTypeType = Literal["GITHUB", "GITLAB_SELF_MANAGED"]
 CodeRepositorySortByType = Literal["ALL", "CRITICAL", "HIGH"]
 CodeScanStatusType = Literal["FAILED", "IN_PROGRESS", "SKIPPED", "SUCCESSFUL"]
@@ -220,6 +256,28 @@ CodeSnippetErrorCodeType = Literal[
     "ACCESS_DENIED", "CODE_SNIPPET_NOT_FOUND", "INTERNAL_ERROR", "INVALID_INPUT"
 ]
 ConfigurationLevelType = Literal["ACCOUNT", "ORGANIZATION"]
+ConnectorArnComparisonType = Literal["EQUALS"]
+ConnectorCloudProviderType = Literal["AZURE"]
+ConnectorConnectedWaiterName = Literal["connector_connected"]
+ConnectorDeletedWaiterName = Literal["connector_deleted"]
+ConnectorEnabledWaiterName = Literal["connector_enabled"]
+ConnectorHealthStatusType = Literal[
+    "CONNECTED",
+    "DEGRADED",
+    "FAILED_TO_CONNECT",
+    "PENDING_AUTHORIZATION",
+    "PENDING_CONFIGURATION",
+    "UNKNOWN",
+]
+ConnectorTypeComparisonType = Literal["EQUALS"]
+ConnectorTypeType = Literal["CUSTOMER_MANAGED", "SERVICE_LINKED"]
+ContainerImagePullDateRescanDurationType = Literal[
+    "DAYS_14", "DAYS_180", "DAYS_3", "DAYS_30", "DAYS_60", "DAYS_7", "DAYS_90"
+]
+ContainerImageRescanDurationType = Literal[
+    "DAYS_14", "DAYS_180", "DAYS_3", "DAYS_30", "DAYS_60", "DAYS_7", "DAYS_90", "LIFETIME"
+]
+ContainerImageSortByType = Literal["ALL", "CRITICAL", "HIGH"]
 ContinuousIntegrationScanEventType = Literal["PULL_REQUEST", "PUSH"]
 CoverageMapComparisonType = Literal["EQUALS"]
 CoverageResourceTypeType = Literal[
@@ -228,6 +286,11 @@ CoverageResourceTypeType = Literal[
     "AWS_ECR_REPOSITORY",
     "AWS_LAMBDA_FUNCTION",
     "CODE_REPOSITORY",
+    "Microsoft.Compute/virtualMachines",
+    "Microsoft.ContainerRegistry/registries",
+    "Microsoft.ContainerRegistry/registry/containerImage",
+    "Microsoft.ContainerRegistry/registry/containerRepository",
+    "Microsoft.Web/sites",
 ]
 CoverageStringComparisonType = Literal["EQUALS", "NOT_EQUALS"]
 CurrencyType = Literal["USD"]
@@ -243,6 +306,16 @@ EcrPullDateRescanModeType = Literal["LAST_IN_USE_AT", "LAST_PULL_DATE"]
 EcrRescanDurationStatusType = Literal["FAILED", "PENDING", "SUCCESS"]
 EcrRescanDurationType = Literal["DAYS_14", "DAYS_180", "DAYS_30", "DAYS_60", "DAYS_90", "LIFETIME"]
 EcrScanFrequencyType = Literal["CONTINUOUS_SCAN", "MANUAL", "SCAN_ON_PUSH"]
+EnablementStatusType = Literal[
+    "DELETED",
+    "ENABLED",
+    "FAILED_TO_DELETE",
+    "FAILED_TO_ENABLE",
+    "FAILED_TO_UPDATE",
+    "PENDING_DELETION",
+    "PENDING_ENABLEMENT",
+    "PENDING_UPDATE",
+]
 ErrorCodeType = Literal[
     "ACCESS_DENIED",
     "ACCOUNT_IS_ISOLATED",
@@ -274,13 +347,31 @@ FindingTypeType = Literal["CODE_VULNERABILITY", "NETWORK_REACHABILITY", "PACKAGE
 FixAvailableType = Literal["NO", "PARTIAL", "YES"]
 FreeTrialInfoErrorCodeType = Literal["ACCESS_DENIED", "INTERNAL_ERROR"]
 FreeTrialStatusType = Literal["ACTIVE", "INACTIVE"]
-FreeTrialTypeType = Literal["CODE_REPOSITORY", "EC2", "ECR", "LAMBDA", "LAMBDA_CODE"]
+FreeTrialTypeType = Literal[
+    "CODE_REPOSITORY",
+    "CONTAINER_IMAGE",
+    "EC2",
+    "ECR",
+    "LAMBDA",
+    "LAMBDA_CODE",
+    "SERVERLESS_FUNCTION",
+    "VM",
+]
 GetCisScanResultDetailsPaginatorName = Literal["get_cis_scan_result_details"]
 GetClustersForImagePaginatorName = Literal["get_clusters_for_image"]
 GroupKeyType = Literal[
-    "ACCOUNT_ID", "ECR_REPOSITORY_NAME", "RESOURCE_TYPE", "SCAN_STATUS_CODE", "SCAN_STATUS_REASON"
+    "ACCOUNT_ID",
+    "ECR_REPOSITORY_NAME",
+    "PROVIDER",
+    "PROVIDER_ACCOUNT_ID",
+    "PROVIDER_ORG_ID",
+    "PROVIDER_REGION",
+    "RESOURCE_TYPE",
+    "SCAN_STATUS_CODE",
+    "SCAN_STATUS_REASON",
 ]
 ImageLayerSortByType = Literal["ALL", "CRITICAL", "HIGH"]
+InheritanceModeType = Literal["INHERIT_FROM_ADMIN"]
 IntegrationStatusType = Literal["ACTIVE", "DISABLING", "INACTIVE", "IN_PROGRESS", "PENDING"]
 IntegrationTypeType = Literal["GITHUB", "GITLAB_SELF_MANAGED"]
 LambdaFunctionSortByType = Literal["ALL", "CRITICAL", "HIGH"]
@@ -296,6 +387,8 @@ ListCisScanResultsAggregatedByTargetResourcePaginatorName = Literal[
 ListCisScansDetailLevelType = Literal["MEMBER", "ORGANIZATION"]
 ListCisScansPaginatorName = Literal["list_cis_scans"]
 ListCisScansSortByType = Literal["FAILED_CHECKS", "SCAN_START_DATE", "SCHEDULED_BY", "STATUS"]
+ListConnectorScanConfigurationsPaginatorName = Literal["list_connector_scan_configurations"]
+ListConnectorsPaginatorName = Literal["list_connectors"]
 ListCoveragePaginatorName = Literal["list_coverage"]
 ListCoverageStatisticsPaginatorName = Literal["list_coverage_statistics"]
 ListDelegatedAdminAccountsPaginatorName = Literal["list_delegated_admin_accounts"]
@@ -333,6 +426,8 @@ PackageSortByType = Literal["ALL", "CRITICAL", "HIGH"]
 PackageTypeType = Literal["IMAGE", "ZIP"]
 PeriodicScanFrequencyType = Literal["MONTHLY", "NEVER", "WEEKLY"]
 ProjectSelectionScopeType = Literal["ALL"]
+ProviderComparisonType = Literal["EQUALS"]
+ProviderType = Literal["AWS", "AZURE"]
 RelationshipStatusType = Literal[
     "ACCOUNT_SUSPENDED",
     "CANNOT_CREATE_DETECTOR_IN_ORG_MASTER",
@@ -366,6 +461,9 @@ ResourceTypeType = Literal[
     "AWS_ECR_REPOSITORY",
     "AWS_LAMBDA_FUNCTION",
     "CODE_REPOSITORY",
+    "Microsoft.Compute/virtualMachines",
+    "Microsoft.ContainerRegistry/registry/containerImage",
+    "Microsoft.Web/sites",
 ]
 RuleSetCategoryType = Literal["IAC", "SAST", "SCA"]
 RuntimeType = Literal[
@@ -376,6 +474,8 @@ RuntimeType = Literal[
     "GO_1_X",
     "JAVA_11",
     "JAVA_17",
+    "JAVA_21",
+    "JAVA_25",
     "JAVA_8",
     "JAVA_8_AL2",
     "NODEJS",
@@ -383,6 +483,7 @@ RuntimeType = Literal[
     "NODEJS_14_X",
     "NODEJS_16_X",
     "NODEJS_18_X",
+    "NODEJS_22_X",
     "NODEJS_24_X",
     "PYTHON_3_10",
     "PYTHON_3_11",
@@ -394,7 +495,9 @@ RuntimeType = Literal[
     "UNSUPPORTED",
 ]
 SbomReportFormatType = Literal["CYCLONEDX_1_4", "SPDX_2_3"]
-ScanModeType = Literal["EC2_AGENTLESS", "EC2_INSPECTOR_AGENT_BASED", "EC2_SSM_AGENT_BASED"]
+ScanModeType = Literal[
+    "EC2_AGENTLESS", "EC2_INSPECTOR_AGENT_BASED", "EC2_SSM_AGENT_BASED", "VM_INSPECTOR_AGENT_BASED"
+]
 ScanStatusCodeType = Literal["ACTIVE", "INACTIVE"]
 ScanStatusReasonType = Literal[
     "ACCESS_DENIED",
@@ -417,7 +520,9 @@ ScanStatusReasonType = Literal[
     "PENDING_DISABLE",
     "PENDING_INITIAL_SCAN",
     "PENDING_REVIVAL_SCAN",
+    "RESOURCE_STOPPED",
     "RESOURCE_TERMINATED",
+    "RESOURCE_UNMANAGED",
     "SCAN_ELIGIBILITY_EXPIRED",
     "SCAN_FREQUENCY_MANUAL",
     "SCAN_FREQUENCY_SCAN_ON_PUSH",
@@ -433,7 +538,10 @@ ScanStatusReasonType = Literal[
     "UNSUPPORTED_RUNTIME",
 ]
 ScanTypeType = Literal["CODE", "NETWORK", "PACKAGE"]
+ScopeStateType = Literal["ACTIVE", "DISABLED", "ERROR", "PENDING"]
+ScopeTypeType = Literal["SUBSCRIPTION", "TENANT"]
 SearchVulnerabilitiesPaginatorName = Literal["search_vulnerabilities"]
+ServerlessFunctionSortByType = Literal["ALL", "CRITICAL", "HIGH"]
 ServiceType = Literal["EC2", "ECR", "LAMBDA"]
 SeverityType = Literal["CRITICAL", "HIGH", "INFORMATIONAL", "LOW", "MEDIUM", "UNTRIAGED"]
 SortFieldType = Literal[
@@ -462,6 +570,10 @@ StringComparisonType = Literal["EQUALS", "NOT_EQUALS", "PREFIX"]
 TagComparisonType = Literal["EQUALS"]
 TitleSortByType = Literal["ALL", "CRITICAL", "HIGH"]
 UsageTypeType = Literal[
+    "AZURE_CONTAINER_IMAGE_INITIAL_SCAN",
+    "AZURE_CONTAINER_IMAGE_RESCAN",
+    "AZURE_SERVERLESS_FUNCTION_HOURS",
+    "AZURE_VM_AGENT_BASED_INSTANCE_HOURS",
     "CODE_REPOSITORY_IAC",
     "CODE_REPOSITORY_SAST",
     "CODE_REPOSITORY_SCA",
@@ -473,6 +585,8 @@ UsageTypeType = Literal[
     "LAMBDA_FUNCTION_HOURS",
 ]
 VMScannerStatusType = Literal["FAILED", "PENDING", "SUCCESS"]
+VmInstanceSortByType = Literal["ALL", "CRITICAL", "HIGH", "NETWORK_FINDINGS"]
+VmPlatformType = Literal["LINUX", "UNKNOWN", "WINDOWS"]
 VulnerabilitySourceType = Literal["NVD"]
 Inspector2ServiceName = Literal["inspector2"]
 ServiceName = Literal[
@@ -668,8 +782,6 @@ ServiceName = Literal[
     "iot-jobs-data",
     "iot-managed-integrations",
     "iotdeviceadvisor",
-    "iotevents",
-    "iotevents-data",
     "iotfleetwise",
     "iotsecuretunneling",
     "iotsitewise",
@@ -696,6 +808,8 @@ ServiceName = Literal[
     "kms",
     "lakeformation",
     "lambda",
+    "lambda-core",
+    "lambda-microvms",
     "launch-wizard",
     "lex-models",
     "lex-runtime",
@@ -763,10 +877,10 @@ ServiceName = Literal[
     "organizations",
     "osis",
     "outposts",
-    "panorama",
     "partnercentral-account",
     "partnercentral-benefits",
     "partnercentral-channel",
+    "partnercentral-revenue-measurement",
     "partnercentral-selling",
     "payment-cryptography",
     "payment-cryptography-data",
@@ -849,7 +963,6 @@ ServiceName = Literal[
     "signer-data",
     "signin",
     "simpledbv2",
-    "simspaceweaver",
     "snow-device-management",
     "snowball",
     "sns",
@@ -870,6 +983,7 @@ ServiceName = Literal[
     "supplychain",
     "support",
     "support-app",
+    "supportauthz",
     "sustainability",
     "swf",
     "synthetics",
@@ -913,6 +1027,8 @@ PaginatorName = Literal[
     "list_cis_scan_results_aggregated_by_checks",
     "list_cis_scan_results_aggregated_by_target_resource",
     "list_cis_scans",
+    "list_connector_scan_configurations",
+    "list_connectors",
     "list_coverage",
     "list_coverage_statistics",
     "list_delegated_admin_accounts",
@@ -923,6 +1039,7 @@ PaginatorName = Literal[
     "list_usage_totals",
     "search_vulnerabilities",
 ]
+WaiterName = Literal["connector_connected", "connector_deleted", "connector_enabled"]
 RegionName = Literal[
     "af-south-1",
     "ap-east-1",

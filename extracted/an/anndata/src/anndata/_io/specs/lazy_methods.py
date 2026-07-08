@@ -15,8 +15,6 @@ from anndata._core.file_backing import filename, get_elem_name
 from anndata._core.xarray import Dataset2D, requires_xarray
 from anndata.abc import CSCDataset, CSRDataset
 from anndata.compat import (
-    NULLABLE_NUMPY_STRING_TYPE,
-    NUMPY_2,
     DaskArray,
     H5Array,
     H5Group,
@@ -31,7 +29,7 @@ from .registry import _LAZY_REGISTRY, IOSpec, read_elem
 
 if TYPE_CHECKING:
     from collections.abc import Generator, Mapping, Sequence
-    from typing import Literal, ParamSpec, TypeVar
+    from typing import Literal
 
     from anndata.experimental.backed._lazy_arrays import CategoricalArray, MaskedArray
 
@@ -43,10 +41,6 @@ if TYPE_CHECKING:
         dict[str, Sequence[tuple[int, int]]],
     ]
 
-    P = ParamSpec("P")
-    R = TypeVar("R")
-    D = TypeVar("D")
-
 
 @overload
 @contextmanager
@@ -55,9 +49,9 @@ def maybe_open_h5(
 ) -> Generator[H5File, None, None]: ...
 @overload
 @contextmanager
-def maybe_open_h5(path_or_other: D, elem_name: str) -> Generator[D, None, None]: ...
+def maybe_open_h5[D](path_or_other: D, elem_name: str) -> Generator[D, None, None]: ...
 @contextmanager
-def maybe_open_h5(
+def maybe_open_h5[D](
     path_or_other: H5File | D, elem_name: str
 ) -> Generator[H5File | D, None, None]:
     if not isinstance(path_or_other, Path):
@@ -89,7 +83,7 @@ def compute_chunk_layout_for_axis_size(
 
 
 def make_dask_chunk(
-    path_or_sparse_dataset: Path | D,
+    path_or_sparse_dataset: Path | object,
     elem_name: str,
     block_info: BlockInfo | None = None,
 ) -> CSMatrix | CSArray:
@@ -267,10 +261,9 @@ def _gen_xarray_dict_iterator_from_elems(
                 attrs={
                     "base_path_or_zarr_group": v.base_path_or_zarr_group,
                     "elem_name": v.elem_name,
-                    "is_nullable_string": isinstance(v, MaskedArray)
-                    and (
-                        v.dtype == NULLABLE_NUMPY_STRING_TYPE
-                        or isinstance(v.dtype, pd.StringDtype | np.dtypes.StringDType)
+                    "is_nullable_string": (
+                        isinstance(v, MaskedArray)
+                        and isinstance(v.dtype, pd.StringDtype | np.dtypes.StringDType)
                     ),
                 },
             )
@@ -380,7 +373,7 @@ def read_nullable(
     # HDF5 stores strings as bytes; use .astype("T") to decode on access
     # h5py recommends .astype("T") over .asstr() when using numpy ≥2
     if encoding_type == "nullable-string-array" and isinstance(elem, H5Group):
-        values = values.astype("T") if NUMPY_2 else values.asstr()
+        values = values.astype("T")
     return MaskedArray(
         values=values,
         mask=elem["mask"],

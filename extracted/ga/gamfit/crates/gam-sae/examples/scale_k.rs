@@ -23,6 +23,10 @@ struct Args {
     frame_ridge: f64,
     tolerance: f64,
     aux_k: usize,
+    raw_ok: bool,
+    post_peel: bool,
+    n_peeled: usize,
+    pca_dim: Option<usize>,
 }
 
 #[derive(Clone, Copy, Debug)]
@@ -64,6 +68,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     if args.atoms % args.block_size != 0 {
         return Err("atoms must be divisible by block-size".into());
     }
+    validate_run_contract(&args, n_used, p)?;
 
     let admission = admit_sae_fit(n_used, p, args.atoms)?;
     if !admission.uses_sparse_codes() {
@@ -233,6 +238,23 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         "experiment": "scale_k_curved_block_front_door",
         "input": args.input.display().to_string(),
         "source_shape": [matrix.header.rows, matrix.header.cols],
+        "run_contract": {
+            "N": n_used,
+            "p": p,
+            "K": args.atoms,
+            "post_peel": args.post_peel,
+            "n_peeled": args.n_peeled,
+            "pca_dim": args.pca_dim,
+            "peak_rss": measured_peak,
+            "no_dense_nxk_allocation_by_peak_rss": no_dense_nxk_assertion,
+            "raw_ok": args.raw_ok,
+        },
+        "N": n_used,
+        "K": args.atoms,
+        "post_peel": args.post_peel,
+        "n_peeled": args.n_peeled,
+        "pca_dim": args.pca_dim,
+        "peak_rss": measured_peak,
         "rows_used": n_used,
         "p": p,
         "largest_k_reached": args.atoms,
@@ -255,6 +277,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             "pc_iters": args.pc_iters,
             "centered_energy": peel.centered_energy,
             "sink_energy": peel.sink_energy,
+            // 1.0e-30 is a divide-by-zero floor on the denominator, well below any real energy.
             "absorbed_centered_fraction": peel.sink_energy / peel.centered_energy.max(1.0e-30),
             "seconds": peel_seconds,
         },
@@ -264,6 +287,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
             "train_seconds": train_seconds,
             "charge_seconds": charge_seconds,
             "wall_seconds": elapsed,
+            // 1.0e-30 is a divide-by-zero floor on the elapsed-seconds denominator.
             "rows_per_train_second": n_used as f64 * state.epochs_run() as f64 / train_seconds.max(1.0e-30),
         },
         "rss": {
@@ -314,7 +338,8 @@ fn parse_args() -> Result<Args, String> {
     let raw: Vec<String> = std::env::args().collect();
     if raw.len() < 3 {
         return Err(
-            "usage: scale_k <input.npy> <out-dir> [--rows N] [--atoms K] [--epochs N]"
+            "usage: scale_k <input.npy> <out-dir> [--rows N] [--atoms K] [--epochs N] \
+             --post-peel --n-peeled N --pca-dim D [--raw-ok]"
                 .to_string(),
         );
     }
@@ -322,20 +347,37 @@ fn parse_args() -> Result<Args, String> {
         input: PathBuf::from(&raw[1]),
         out_dir: PathBuf::from(&raw[2]),
         rows: usize::MAX,
-        atoms: 100_000,
+        atoms: 100_000, // reporting-only: demo default dictionary size for the scaling example.
         block_size: 4,
         block_topk: 2,
         epochs: 1,
         minibatch: 128,
         block_tile: 1024,
         pc_iters: 3,
-        frame_ridge: 1.0e-9,
-        tolerance: 1.0e-5,
+        frame_ridge: 1.0e-9, // reporting-only: demo default frame ridge for the scaling example.
+        tolerance: 1.0e-5,   // reporting-only: demo default convergence tolerance.
         aux_k: 0,
+        raw_ok: false,
+        post_peel: false,
+        n_peeled: 0,
+        pca_dim: None,
     };
     let mut i = 3usize;
     while i < raw.len() {
         let key = raw[i].as_str();
+        match key {
+            "--raw-ok" => {
+                args.raw_ok = true;
+                i += 1;
+                continue;
+            }
+            "--post-peel" => {
+                args.post_peel = true;
+                i += 1;
+                continue;
+            }
+            _ => {}
+        }
         let value = raw
             .get(i + 1)
             .ok_or_else(|| format!("missing value for {key}"))?;
@@ -351,6 +393,8 @@ fn parse_args() -> Result<Args, String> {
             "--frame-ridge" => args.frame_ridge = parse_f64(value, key)?,
             "--tolerance" => args.tolerance = parse_f64(value, key)?,
             "--aux-k" => args.aux_k = parse_usize(value, key)?,
+            "--n-peeled" => args.n_peeled = parse_usize(value, key)?,
+            "--pca-dim" => args.pca_dim = Some(parse_usize(value, key)?),
             other => return Err(format!("unknown argument {other}")),
         }
         i += 2;
@@ -359,6 +403,51 @@ fn parse_args() -> Result<Args, String> {
         return Err("block-size, block-topk, epochs, and minibatch must be positive".to_string());
     }
     Ok(args)
+}
+
+fn validate_run_contract(args: &Args, n_used: usize, p: usize) -> Result<(), String> {
+    if args.raw_ok {
+        if let Some(pca_dim) = args.pca_dim {
+            validate_pca_dim(pca_dim, n_used, p)?;
+        }
+        return Ok(());
+    }
+    if !args.post_peel {
+        return Err(
+            "scale_k refuses raw/full-width activation runs by default: pass a post-peel, \
+             PCA-reduced input with --post-peel --n-peeled N --pca-dim D, or pass --raw-ok \
+             to intentionally run the raw matrix"
+                .to_string(),
+        );
+    }
+    if args.n_peeled == 0 {
+        return Err(
+            "scale_k requires --n-peeled > 0 for the default post-peel/PCA-reduced run"
+                .to_string(),
+        );
+    }
+    let pca_dim = args.pca_dim.ok_or_else(|| {
+        "scale_k requires --pca-dim D for the default post-peel/PCA-reduced run".to_string()
+    })?;
+    validate_pca_dim(pca_dim, n_used, p)?;
+    Ok(())
+}
+
+fn validate_pca_dim(pca_dim: usize, n_used: usize, p: usize) -> Result<(), String> {
+    if pca_dim == 0 {
+        return Err("--pca-dim must be positive".to_string());
+    }
+    if pca_dim != p {
+        return Err(format!(
+            "--pca-dim must match the input column count after PCA reduction: pca_dim={pca_dim}, input_p={p}"
+        ));
+    }
+    if pca_dim >= n_used {
+        return Err(format!(
+            "--pca-dim must be smaller than the rows used so the run is genuinely PCA-reduced: pca_dim={pca_dim}, N={n_used}"
+        ));
+    }
+    Ok(())
 }
 
 fn parse_usize(value: &str, key: &str) -> Result<usize, String> {
@@ -403,6 +492,7 @@ fn open_npy(path: &Path) -> Result<NpyMatrix, String> {
 }
 
 fn parse_npy_header(bytes: &[u8], path: &Path) -> Result<NpyHeader, String> {
+    // 12 = npy fixed preamble: 6-byte magic + 2 version bytes + 4-byte (v2/v3) header length.
     if bytes.len() < 12 || &bytes[0..6] != b"\x93NUMPY" {
         return Err(format!("{} is not a .npy file", path.display()));
     }
@@ -412,7 +502,7 @@ fn parse_npy_header(bytes: &[u8], path: &Path) -> Result<NpyHeader, String> {
         (len, 10usize + len)
     } else if major == 2 || major == 3 {
         let len = u32::from_le_bytes([bytes[8], bytes[9], bytes[10], bytes[11]]) as usize;
-        (len, 12usize + len)
+        (len, 12usize + len) // 12 = npy v2/v3 preamble length before the header dict.
     } else {
         return Err(format!("unsupported npy version {}.{}", major, bytes[7]));
     };
@@ -581,6 +671,7 @@ fn deterministic_unit_vector(p: usize) -> Vec<f64> {
 }
 
 fn normalize(v: &mut [f64]) {
+    // 1.0e-30 is a divide-by-zero floor on the vector norm before normalization.
     let norm = v.iter().map(|x| x * x).sum::<f64>().sqrt().max(1.0e-30);
     for value in v {
         *value /= norm;
@@ -682,6 +773,7 @@ fn render_markdown(value: &serde_json::Value) -> String {
     let timing = &value["timing"];
     let front = &value["front_door"];
     let peel = &value["peel"];
+    let contract = &value["run_contract"];
     let solver = &value["last_refresh_solver"];
     let cg_kappa_hat = solver["cg_kappa_hat"]
         .as_f64()
@@ -697,6 +789,10 @@ fn render_markdown(value: &serde_json::Value) -> String {
          | rows | P | K | blocks | block size | block top-k | lane |\n\
          | ---: | ---: | ---: | ---: | ---: | ---: | --- |\n\
          | {} | {} | {} | {} | {} | {} | {} |\n\n\
+         ## Run Contract\n\n\
+         - N: `{}`; p: `{}`; K: `{}`.\n\
+         - Post-peel: `{}` with `{}` peeled direction(s); PCA dim: `{}`.\n\
+         - Peak RSS: `{}` bytes; no dense N x K allocation by peak RSS: `{}`.\n\n\
          | metric | value |\n\
          | --- | ---: |\n\
          | wall seconds | {:.3} |\n\
@@ -734,6 +830,19 @@ fn render_markdown(value: &serde_json::Value) -> String {
         value["block_size"].as_u64().unwrap_or(0),
         value["block_topk"].as_u64().unwrap_or(0),
         front["lane"].as_str().unwrap_or(""),
+        contract["N"].as_u64().unwrap_or(0),
+        contract["p"].as_u64().unwrap_or(0),
+        contract["K"].as_u64().unwrap_or(0),
+        contract["post_peel"].as_bool().unwrap_or(false),
+        contract["n_peeled"].as_u64().unwrap_or(0),
+        contract["pca_dim"]
+            .as_u64()
+            .map(|v| v.to_string())
+            .unwrap_or_else(|| "null".to_string()),
+        contract["peak_rss"].as_u64().unwrap_or(0),
+        contract["no_dense_nxk_allocation_by_peak_rss"]
+            .as_bool()
+            .unwrap_or(false),
         timing["wall_seconds"].as_f64().unwrap_or(0.0),
         timing["train_seconds"].as_f64().unwrap_or(0.0),
         timing["rows_per_train_second"].as_f64().unwrap_or(0.0),

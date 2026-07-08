@@ -22,17 +22,18 @@ _runtime_version.ValidateProtobufRuntimeVersion(
 _sym_db = _symbol_database.Default()
 
 
+from sentry_protos.billing.v1.services.contract.v1 import invoice_pb2 as sentry__protos_dot_billing_dot_v1_dot_services_dot_contract_dot_v1_dot_invoice__pb2
 
 
-DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\nNsentry_protos/billing/v1/services/contract/v1/endpoint_mark_invoice_paid.proto\x12-sentry_protos.billing.v1.services.contract.v1\",\n\x16MarkInvoicePaidRequest\x12\x12\n\ninvoice_id\x18\x01 \x01(\x04\"*\n\x17MarkInvoicePaidResponse\x12\x0f\n\x07updated\x18\x01 \x01(\x08\x62\x06proto3')
+DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\nNsentry_protos/billing/v1/services/contract/v1/endpoint_mark_invoice_paid.proto\x12-sentry_protos.billing.v1.services.contract.v1\x1a;sentry_protos/billing/v1/services/contract/v1/invoice.proto\",\n\x16MarkInvoicePaidRequest\x12\x12\n\ninvoice_id\x18\x01 \x01(\x04\"\x84\x01\n\x17MarkInvoicePaidResponse\x12\x0f\n\x07updated\x18\x01 \x01(\x08\x12L\n\x07invoice\x18\x02 \x01(\x0b\x32\x36.sentry_protos.billing.v1.services.contract.v1.InvoiceH\x00\x88\x01\x01\x42\n\n\x08_invoiceb\x06proto3')
 
 _globals = globals()
 _builder.BuildMessageAndEnumDescriptors(DESCRIPTOR, _globals)
 _builder.BuildTopDescriptorsAndMessages(DESCRIPTOR, 'sentry_protos.billing.v1.services.contract.v1.endpoint_mark_invoice_paid_pb2', _globals)
 if not _descriptor._USE_C_DESCRIPTORS:
   DESCRIPTOR._loaded_options = None
-  _globals['_MARKINVOICEPAIDREQUEST']._serialized_start=129
-  _globals['_MARKINVOICEPAIDREQUEST']._serialized_end=173
-  _globals['_MARKINVOICEPAIDRESPONSE']._serialized_start=175
-  _globals['_MARKINVOICEPAIDRESPONSE']._serialized_end=217
+  _globals['_MARKINVOICEPAIDREQUEST']._serialized_start=190
+  _globals['_MARKINVOICEPAIDREQUEST']._serialized_end=234
+  _globals['_MARKINVOICEPAIDRESPONSE']._serialized_start=237
+  _globals['_MARKINVOICEPAIDRESPONSE']._serialized_end=369
 # @@protoc_insertion_point(module_scope)

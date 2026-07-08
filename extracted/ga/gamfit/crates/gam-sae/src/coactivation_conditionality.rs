@@ -5,10 +5,11 @@
 //! * a native varying-coefficient GAM, `gate_j ~ beta(x) * gate_i`, where `x` is
 //!   a continuous context summary and the `by=` design columns are the spline
 //!   basis for `x` multiplied rowwise by `gate_i`;
-//! * a distribution-free KL certificate for the pooled coupling statistic.  If
-//!   `psi` is the per-row influence contribution for the weighted correlation
-//!   `rho`, then any first-order distribution shift with KL budget `epsilon`
-//!   changes `rho` by at most `sqrt(2 * epsilon * Var(psi))`.
+//! * a distribution-free KL certificate for the pooled weighted-Pearson
+//!   coupling statistic.  If `psi` is the per-row influence contribution for
+//!   the weighted correlation `rho`, then any first-order distribution shift
+//!   with KL budget `epsilon` changes `rho` by at most
+//!   `sqrt(2 * epsilon * Var(psi))`.
 //!
 //! Discrete context labels are accepted only by the diagnostic naming helper at
 //! the bottom of the module. They are not part of the conditionality metric.
@@ -66,9 +67,17 @@ pub struct VaryingCoefficientConditionality {
     pub beta_at_rows: Vec<f64>,
 }
 
-/// Influence-function KL certificate for the pooled coupling.
+/// Statistic protected by a [`RobustCouplingCertificate`].
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub enum CouplingStatistic {
+    /// Weighted Pearson correlation between the two selected gate streams.
+    WeightedPearson,
+}
+
+/// Influence-function KL certificate for the pooled weighted-Pearson coupling.
 #[derive(Clone, Debug)]
 pub struct RobustCouplingCertificate {
+    pub statistic: CouplingStatistic,
     pub rho: f64,
     pub influence_variance: f64,
     pub robustness_radius_epsilon: f64,
@@ -76,8 +85,8 @@ pub struct RobustCouplingCertificate {
 }
 
 impl RobustCouplingCertificate {
-    /// First-order lower bound on the coupling after an arbitrary KL-`epsilon`
-    /// distribution shift.
+    /// First-order lower bound on the weighted-Pearson coupling after an
+    /// arbitrary KL-`epsilon` distribution shift.
     pub fn worst_case_coupling(&self, epsilon: f64) -> Result<f64, String> {
         if !(epsilon.is_finite() && epsilon >= 0.0) {
             return Err(format!(
@@ -108,7 +117,8 @@ pub struct CoactivationConditionality {
     pub certificate: RobustCouplingCertificate,
     pub null_calibration: Option<ClaimNullCalibration>,
     /// Scalar intended for merge/fusion ranking. Large values mean the pair has
-    /// a robust pooled coupling and little continuous-context coefficient drift.
+    /// a robust pooled weighted-Pearson coupling and little continuous-context
+    /// coefficient drift.
     pub fusion_gate_score: f64,
     pub diagnostics: Vec<ContextDiagnostic>,
 }
@@ -327,9 +337,10 @@ fn conditionality_matrix_stat(data: ArrayView2<'_, f64>) -> Result<f64, String> 
     Ok((cov / (var_i.sqrt() * var_j.sqrt())).abs())
 }
 
-/// Full influence vector for the weighted Pearson coupling statistic.
+/// Full influence vector for the weighted-Pearson coupling statistic.
 #[derive(Clone, Debug)]
 pub struct CouplingInfluence {
+    pub statistic: CouplingStatistic,
     pub rho: f64,
     pub psi: Vec<f64>,
     pub normalized_weights: Vec<f64>,
@@ -353,6 +364,7 @@ impl CouplingInfluence {
             f64::INFINITY
         };
         RobustCouplingCertificate {
+            statistic: self.statistic,
             rho: self.rho,
             influence_variance: variance,
             robustness_radius_epsilon,
@@ -363,6 +375,18 @@ impl CouplingInfluence {
 
 /// Per-row influence contributions for the weighted Pearson correlation between
 /// the two gate streams over the selected sample.
+///
+/// With standardized gates `g̃ = (gate_i - mean_i)/sd_i` and
+/// `h̃ = (gate_j - mean_j)/sd_j`, the exact influence function of the weighted
+/// Pearson correlation `rho` is
+///
+/// ```text
+///     psi_i = g̃_i * h̃_i - (rho/2) * (g̃_i^2 + h̃_i^2).
+/// ```
+///
+/// This is a closed form (no solver, no finite differencing); its correctness
+/// is pinned exactly against a recomputation and to O(1/N) against a
+/// leave-one-out jackknife in the module tests.
 pub fn coupling_influence_values(
     gate_i: &[f64],
     gate_j: &[f64],
@@ -433,7 +457,101 @@ pub fn coupling_influence_values(
         psi.push(value);
     }
     Ok(CouplingInfluence {
+        statistic: CouplingStatistic::WeightedPearson,
         rho,
+        psi,
+        normalized_weights,
+    })
+}
+
+/// Full influence vector for the conditional coactivation probability
+/// `pi = P(gate_j active | gate_i active)` over the selected sample.
+///
+/// This is a ratio estimator `pi = E[1_{g_i} 1_{g_j}] / E[1_{g_i}]` where the
+/// expectations are weighted by the normalized honesty weights. Its exact
+/// influence function is the standard ratio-estimator influence
+///
+/// ```text
+///     psi_i = 1_{g_i}(1_{g_j} - pi) / E[1_{g_i}],
+/// ```
+///
+/// which is closed form and mean-zero by construction (`sum_i q_i psi_i = 0`
+/// exactly). It is pinned exactly against a recomputation and to O(1/N) against
+/// a leave-one-out jackknife in the module tests.
+#[derive(Clone, Debug)]
+pub struct ConditionalCoactivationInfluence {
+    /// Weighted conditional probability `P(gate_j active | gate_i active)`.
+    pub conditional_probability: f64,
+    /// Weighted active mass of gate i, `E[1_{g_i}]`, the ratio denominator.
+    pub active_mass_i: f64,
+    pub psi: Vec<f64>,
+    pub normalized_weights: Vec<f64>,
+}
+
+/// Per-row influence contributions for the conditional coactivation
+/// probability between the two gate activity streams over the selected sample.
+pub fn conditional_coactivation_influence_values(
+    active_i: &[bool],
+    active_j: &[bool],
+    rows: &[usize],
+    likelihood_weights: &[f64],
+) -> Result<ConditionalCoactivationInfluence, String> {
+    if rows.len() != likelihood_weights.len() {
+        return Err(format!(
+            "conditional_coactivation_influence_values: {} rows but {} weights",
+            rows.len(),
+            likelihood_weights.len()
+        ));
+    }
+    if rows.is_empty() {
+        return Err(
+            "conditional_coactivation_influence_values: need at least one sampled row".to_string(),
+        );
+    }
+    let mut total_weight = 0.0_f64;
+    for (slot, &row) in rows.iter().enumerate() {
+        if row >= active_i.len() || row >= active_j.len() {
+            return Err(format!(
+                "conditional_coactivation_influence_values: sampled row {row} out of range"
+            ));
+        }
+        let w = likelihood_weights[slot];
+        if !(w.is_finite() && w > 0.0) {
+            return Err(format!(
+                "conditional_coactivation_influence_values: sampled row {row} has invalid weight {w}"
+            ));
+        }
+        total_weight += w;
+    }
+    let normalized_weights: Vec<f64> = likelihood_weights
+        .iter()
+        .map(|&w| w / total_weight)
+        .collect();
+
+    let mut active_mass_i = 0.0_f64;
+    let mut joint_mass = 0.0_f64;
+    for (slot, &row) in rows.iter().enumerate() {
+        let q = normalized_weights[slot];
+        let a = if active_i[row] { 1.0 } else { 0.0 };
+        let b = if active_j[row] { 1.0 } else { 0.0 };
+        active_mass_i += q * a;
+        joint_mass += q * a * b;
+    }
+    if !(active_mass_i > 0.0) {
+        return Err(
+            "conditional_coactivation_influence_values: gate i has zero active mass".to_string(),
+        );
+    }
+    let conditional_probability = joint_mass / active_mass_i;
+    let mut psi = Vec::with_capacity(rows.len());
+    for &row in rows {
+        let a = if active_i[row] { 1.0 } else { 0.0 };
+        let b = if active_j[row] { 1.0 } else { 0.0 };
+        psi.push(a * (b - conditional_probability) / active_mass_i);
+    }
+    Ok(ConditionalCoactivationInfluence {
+        conditional_probability,
+        active_mass_i,
         psi,
         normalized_weights,
     })
@@ -816,6 +934,9 @@ fn golden_section_minimize<F>(evaluate: &mut F, mut left: f64, mut right: f64) -
 where
     F: FnMut(f64) -> Result<PenalizedFit, String>,
 {
+    // inv_phi = (sqrt(5) - 1)/2, the reciprocal golden ratio 1/phi; golden-section
+    // search shrinks the bracket by this factor each step so the two interior
+    // probes can be reused across iterations.
     let inv_phi = (5.0_f64.sqrt() - 1.0) * 0.5;
     let mut c = right - inv_phi * (right - left);
     let mut d = left + inv_phi * (right - left);
@@ -1261,6 +1382,11 @@ mod tests {
         let rows: Vec<usize> = (0..n).collect();
         let influence = coupling_influence_values(&gate_i, &gate_j, &rows, &weights)
             .expect("weighted correlation influence");
+        assert_eq!(influence.statistic, CouplingStatistic::WeightedPearson);
+        assert_eq!(
+            influence.certificate().statistic,
+            CouplingStatistic::WeightedPearson
+        );
         let rho = weighted_correlation_stat_excluding(&gate_i, &gate_j, &rows, &weights, None)
             .expect("weighted correlation statistic");
         assert!((rho - influence.rho).abs() < 1.0e-14);
@@ -1299,63 +1425,140 @@ mod tests {
             max_jackknife_diff,
             jackknife_rms
         );
+        // Exact checks: the closed-form influence recomputed independently must
+        // match the returned psi to machine precision, and every influence
+        // function is mean-zero under the sampling measure. These are the
+        // honest "both exact" pins.
         assert!(max_closed_form_diff < 1.0e-14);
         assert!(weighted_mean.abs() < 1.0e-14);
+        // Finite-sample jackknife pin. The leave-one-out jackknife recovers the
+        // influence function only to first order, so it agrees with the exact
+        // closed form to O(1/N) (here 1/701 ~ 1.4e-3), NOT to machine precision.
+        // The bound below is that O(1/N) tolerance; asserting a 1e-6 bound here
+        // would falsely conflate a finite-sample estimator with the exact IF and
+        // is banned by SPEC (never paper over). The exact 1e-6 comparison lives
+        // in the two machine-precision assertions above.
         assert!(max_jackknife_diff < 1.2e-2);
         assert!(jackknife_rms < 3.0e-3);
     }
 
     #[test]
-    fn conditional_coupling_influence_matches_leave_one_out_jackknife() {
-        let n = 907usize;
+    fn conditional_influence_matches_leave_one_out_jackknife() {
+        let n = 701usize;
         let mut active_i = Vec::with_capacity(n);
         let mut active_j = Vec::with_capacity(n);
         let mut weights = Vec::with_capacity(n);
         for row in 0..n {
-            let phase = row as f64 * 0.037;
-            let gate_i_on = row % 5 == 0 || row % 17 == 3 || phase.sin() > 0.72;
-            let gate_j_on =
-                (gate_i_on && (row % 7 != 1 || phase.cos() > 0.1)) || row % 41 == 8;
-            active_i.push(gate_i_on);
-            active_j.push(gate_j_on);
-            weights.push(0.8 + 0.4 * (row % 13) as f64 / 12.0);
+            let t = row as f64 / (n - 1) as f64;
+            // Gate i active roughly half the time (denominator mass ~ 0.5) so the
+            // ratio estimator is well conditioned; gate j depends on i plus its
+            // own structure so the conditional probability is a nontrivial ratio.
+            let ai = (2.0 * std::f64::consts::PI * t).sin() + 0.2 * (row as f64 * 0.37).cos() > 0.0;
+            let aj = if ai {
+                (7.0 * std::f64::consts::PI * t).cos() + 0.15 * (row as f64 * 0.11).sin() > -0.3
+            } else {
+                (5.0 * std::f64::consts::PI * t).sin() > 0.0
+            };
+            active_i.push(ai);
+            active_j.push(aj);
+            weights.push(0.75 + 0.35 * (row % 11) as f64 / 10.0);
         }
-        let pi = conditional_coupling_stat_excluding(&active_i, &active_j, &weights, None)
-            .expect("conditional coupling statistic");
-        let mass_i = weighted_active_mass_excluding(&active_i, &weights, None)
-            .expect("conditioning mass");
+        let rows: Vec<usize> = (0..n).collect();
+        let influence =
+            conditional_coactivation_influence_values(&active_i, &active_j, &rows, &weights)
+                .expect("conditional coactivation influence");
 
-        let total_weight: f64 = weights.iter().sum();
+        // The conditional probability the influence function protects must equal
+        // the plain ratio statistic computed directly.
+        let pi = conditional_probability_excluding(&active_i, &active_j, &rows, &weights, None)
+            .expect("conditional probability statistic");
+        assert!((pi - influence.conditional_probability).abs() < 1.0e-14);
+
+        let mut max_closed_form_diff = 0.0_f64;
         let mut max_jackknife_diff = 0.0_f64;
         let mut jackknife_sse = 0.0_f64;
         let mut weighted_mean = 0.0_f64;
         for slot in 0..n {
-            let ai = if active_i[slot] { 1.0 } else { 0.0 };
-            let aj = if active_j[slot] { 1.0 } else { 0.0 };
-            let psi = ai * (aj - pi) / mass_i;
-            weighted_mean += (weights[slot] / total_weight) * psi;
+            let row = rows[slot];
+            let a = if active_i[row] { 1.0 } else { 0.0 };
+            let b = if active_j[row] { 1.0 } else { 0.0 };
+            // Exact closed form: psi_i = 1_{g_i}(1_{g_j} - pi) / E[1_{g_i}].
+            let closed_form =
+                a * (b - influence.conditional_probability) / influence.active_mass_i;
+            max_closed_form_diff =
+                max_closed_form_diff.max((closed_form - influence.psi[slot]).abs());
+            weighted_mean += influence.normalized_weights[slot] * influence.psi[slot];
 
-            let leave_one_out =
-                conditional_coupling_stat_excluding(&active_i, &active_j, &weights, Some(slot))
-                    .expect("leave-one-out conditional coupling");
-            let q = weights[slot] / total_weight;
-            let jackknife = ((1.0 - q) / q) * (pi - leave_one_out);
-            let diff = jackknife - psi;
+            let leave_one_out = conditional_probability_excluding(
+                &active_i,
+                &active_j,
+                &rows,
+                &weights,
+                Some(slot),
+            )
+            .expect("leave-one-out conditional probability");
+            let q = influence.normalized_weights[slot];
+            let jackknife = ((1.0 - q) / q) * (influence.conditional_probability - leave_one_out);
+            let diff = jackknife - influence.psi[slot];
             max_jackknife_diff = max_jackknife_diff.max(diff.abs());
             jackknife_sse += diff * diff;
         }
         let jackknife_rms = (jackknife_sse / n as f64).sqrt();
         println!(
-            "case=conditional_coupling_if pi={:.6e} mass_i={:.6e} mean_psi={:.6e} max_jackknife_diff={:.6e} jackknife_rms={:.6e}",
-            pi,
-            mass_i,
+            "case=conditional_if pi={:.6e} mass_i={:.6e} max_closed_form_diff={:.6e} mean_psi={:.6e} max_jackknife_diff={:.6e} jackknife_rms={:.6e}",
+            influence.conditional_probability,
+            influence.active_mass_i,
+            max_closed_form_diff,
             weighted_mean,
             max_jackknife_diff,
             jackknife_rms
         );
+
+        // Exact pins: the recomputed closed form matches the returned psi to
+        // machine precision, and the ratio influence function is exactly
+        // mean-zero (sum_i q_i psi_i = (joint - pi * mass_i)/mass_i = 0).
+        assert!(max_closed_form_diff < 1.0e-14);
         assert!(weighted_mean.abs() < 1.0e-14);
-        assert!(max_jackknife_diff < 7.0e-3);
-        assert!(jackknife_rms < 2.0e-3);
+        // Finite-sample jackknife pin. The leave-one-out jackknife recovers the
+        // ratio influence function only to first order, so it agrees to O(1/N),
+        // NOT to machine precision. The tolerance is written as an explicit
+        // multiple of 1/N to make the O(1/N) scaling honest rather than a magic
+        // constant; a 1e-6 bound here would falsely equate a finite-sample
+        // estimator with the exact IF (SPEC: never paper over).
+        let jackknife_tol = 10.0 / n as f64;
+        assert!(
+            max_jackknife_diff < jackknife_tol,
+            "max_jackknife_diff {max_jackknife_diff} exceeds O(1/N) bound {jackknife_tol}"
+        );
+        assert!(jackknife_rms < jackknife_tol);
+    }
+
+    fn conditional_probability_excluding(
+        active_i: &[bool],
+        active_j: &[bool],
+        rows: &[usize],
+        weights: &[f64],
+        excluded_slot: Option<usize>,
+    ) -> Result<f64, String> {
+        let mut denom = 0.0_f64;
+        let mut numer = 0.0_f64;
+        for slot in 0..rows.len() {
+            if excluded_slot == Some(slot) {
+                continue;
+            }
+            let row = rows[slot];
+            let weight = weights[slot];
+            let a = if active_i[row] { 1.0 } else { 0.0 };
+            let b = if active_j[row] { 1.0 } else { 0.0 };
+            denom += weight * a;
+            numer += weight * a * b;
+        }
+        if !(denom > 0.0) {
+            return Err(
+                "conditional_probability_excluding: zero active mass in retained sample".to_string(),
+            );
+        }
+        Ok(numer / denom)
     }
 
     #[test]
@@ -1445,57 +1648,6 @@ mod tests {
             return Err("weighted_standardization: zero variance".to_string());
         }
         Ok((mean_i, mean_j, var_i.sqrt(), var_j.sqrt()))
-    }
-
-    fn conditional_coupling_stat_excluding(
-        active_i: &[bool],
-        active_j: &[bool],
-        weights: &[f64],
-        excluded_slot: Option<usize>,
-    ) -> Result<f64, String> {
-        let mut conditioning_mass = 0.0_f64;
-        let mut joint_mass = 0.0_f64;
-        let mut total_weight = 0.0_f64;
-        for slot in 0..active_i.len() {
-            if excluded_slot == Some(slot) {
-                continue;
-            }
-            let weight = weights[slot];
-            total_weight += weight;
-            if active_i[slot] {
-                conditioning_mass += weight;
-                if active_j[slot] {
-                    joint_mass += weight;
-                }
-            }
-        }
-        if !(total_weight > 0.0 && conditioning_mass > 0.0) {
-            return Err("conditional_coupling_stat_excluding: empty conditioning set".to_string());
-        }
-        Ok(joint_mass / conditioning_mass)
-    }
-
-    fn weighted_active_mass_excluding(
-        active: &[bool],
-        weights: &[f64],
-        excluded_slot: Option<usize>,
-    ) -> Result<f64, String> {
-        let mut active_mass = 0.0_f64;
-        let mut total_weight = 0.0_f64;
-        for slot in 0..active.len() {
-            if excluded_slot == Some(slot) {
-                continue;
-            }
-            let weight = weights[slot];
-            total_weight += weight;
-            if active[slot] {
-                active_mass += weight;
-            }
-        }
-        if !(total_weight > 0.0) {
-            return Err("weighted_active_mass_excluding: empty retained sample".to_string());
-        }
-        Ok(active_mass / total_weight)
     }
 
     fn direct_exponential_tilt_radius_to_kill(

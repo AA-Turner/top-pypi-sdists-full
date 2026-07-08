@@ -3,10 +3,10 @@ Helper functions for association between Auth user and EveCharacter
 """
 
 # Django
-from django.contrib.auth.models import User
 from django.db.models import QuerySet
 
 # Alliance Auth
+from allianceauth.authentication.models import User
 from allianceauth.eveonline.models import EveCharacter
 
 

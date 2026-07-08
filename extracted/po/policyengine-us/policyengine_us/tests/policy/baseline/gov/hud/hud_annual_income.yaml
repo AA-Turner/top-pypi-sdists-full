@@ -258,3 +258,25 @@
     # A spouse is head-or-spouse of the tax unit, so is_hud_dependent is
     # false and the $480 dependent deduction cap does not apply.
     hud_annual_income: 2_000
+
+- name: The 2026 dependent deduction amount caps the full-time student earned income exclusion.
+  period: 2026
+  input:
+    people:
+      parent:
+        age: 50
+      spouse:
+        age: 45
+      student:
+        age: 19
+        is_full_time_college_student: true
+        employment_income: 2_000
+    tax_units:
+      tax_unit:
+        members: [parent, spouse, student]
+    spm_units:
+      spm_unit:
+        members: [parent, spouse, student]
+  output:
+    # min(2_000, 500) counts; the cap follows the 2026 dependent deduction.
+    hud_annual_income: 500

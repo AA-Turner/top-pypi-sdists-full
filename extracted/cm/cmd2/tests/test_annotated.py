@@ -13,10 +13,16 @@ import functools
 import inspect
 import types
 import uuid
+from dataclasses import (
+    InitVar,
+    dataclass,
+    field,
+)
 from pathlib import Path
 from typing import (
     Annotated,
     Any,
+    ClassVar,
     Literal,
     Optional,
 )
@@ -30,10 +36,12 @@ from cmd2 import (
 )
 from cmd2.annotated import (
     Argument,
+    ArgumentBlock,
     Group,
     Option,
     _apply_mutex_group_targets,
     _ArgparseArgument,
+    _BlockSpec,
     _build_argument_group_targets,
     _CollectionCastingAction,
     _invoke_command_func,
@@ -41,6 +49,8 @@ from cmd2.annotated import (
     _make_literal_type,
     _normalize_annotation,
     _parse_bool,
+    _reconstruct_dataclass_blocks,
+    _validate_group_specs,
     build_parser_from_function,
     with_annotated,
 )
@@ -171,7 +181,8 @@ def _arg_names_via_base_command(func: Any) -> set[str]:
     """Resolve a base command's argument names (``base_command`` is not exposed on the public builder)."""
     from cmd2.annotated import _resolve_parameters
 
-    return {arg.name for arg in _resolve_parameters(func, base_command=True)}
+    resolved, _base_args_types = _resolve_parameters(func, base_command=True)
+    return {arg.name for arg in resolved}
 
 
 def _wrap_in_foreign_module(func: Any) -> Any:
@@ -326,12 +337,20 @@ class TestBuildParser:
             pytest.param(_make_func(list[int], name="nums"), {"option_strings": [], "nargs": "+", "type": int}, id="list_int"),
             pytest.param(_make_func(set[int], name="nums"), {"option_strings": [], "nargs": "+", "type": int}, id="set_int"),
             pytest.param(
+                _make_func(frozenset[int], name="nums"),
+                {"option_strings": [], "nargs": "+", "type": int},
+                id="frozenset_int",
+            ),
+            pytest.param(
                 _make_func(tuple[int, int, int], name="triple"),
                 {"option_strings": [], "nargs": 3, "type": int},
                 id="tuple_fixed_triple",
             ),
             pytest.param(_make_func(list[str], name="files"), {"option_strings": [], "nargs": "+"}, id="list_positional"),
             pytest.param(_make_func(set[str], name="tags"), {"option_strings": [], "nargs": "+"}, id="set_positional"),
+            pytest.param(
+                _make_func(frozenset[str], name="tags"), {"option_strings": [], "nargs": "+"}, id="frozenset_positional"
+            ),
             pytest.param(
                 _make_func(tuple[int, ...], name="values"),
                 {"option_strings": [], "nargs": "+", "type": int},
@@ -341,6 +360,7 @@ class TestBuildParser:
                 _make_func(tuple[int, int], name="pair"), {"option_strings": [], "nargs": 2, "type": int}, id="tuple_fixed"
             ),
             pytest.param(_make_func(list, name="items"), {"option_strings": [], "nargs": "+"}, id="bare_list"),
+            pytest.param(_make_func(frozenset, name="items"), {"option_strings": [], "nargs": "+"}, id="bare_frozenset"),
             pytest.param(_make_func(tuple, name="items"), {"option_strings": [], "nargs": "+"}, id="bare_tuple"),
             pytest.param(
                 _make_func(Annotated[int | None, Argument()], name="val"),
@@ -1021,12 +1041,76 @@ class TestArgumentGroups:
         with pytest.raises(ValueError, match="cannot be assigned to both argument group"):
             build_parser_from_function(_func_grouped, groups=(Group("local"), Group("local", "remote")))
 
+    @pytest.mark.filterwarnings("error::DeprecationWarning")
+    def test_mutex_group_nests_inside_argument_group(self) -> None:
+        """A mutex group whose members all sit in one Group(...) is created inside that argument group.
+
+        This is the one nesting direction argparse supports: ``group.add_mutually_exclusive_group()``.
+        The Python 3.11 deprecations cover the other three directions (group-in-group, group-in-mutex,
+        mutex-in-mutex) -- group-in-group is a hard ``ValueError`` on current Python.  The
+        ``filterwarnings`` marker turns any future argparse deprecation of this direction into a
+        test failure.
+        """
+        parser = build_parser_from_function(
+            _func_grouped,
+            groups=(Group("local", "remote", "force", title="Location"),),
+            mutually_exclusive_groups=(Group("local", "remote"),),
+        )
+        assert len(parser._mutually_exclusive_groups) == 1
+        mutex = parser._mutually_exclusive_groups[0]
+        location = next(g for g in parser._action_groups if g.title == "Location")
+        # The mutex group's container is the titled argument group, so its members render under it.
+        assert mutex._container is location
+        mutex_dests = {action.dest for action in mutex._group_actions}
+        assert mutex_dests == {"local", "remote"}
+        # The non-mutex member still lands in the argument group.
+        assert {action.dest for action in location._group_actions} == {"local", "remote", "force"}
+        assert "Location" in parser.format_help()
+        # Exclusivity is enforced.
+        with pytest.raises(SystemExit):
+            parser.parse_args(["--local", "a", "--remote", "b"])
+
     def test_mutex_group_spanning_different_argument_groups_raises(self) -> None:
         with pytest.raises(ValueError, match="spans parameters in different argument groups"):
             build_parser_from_function(
                 _func_grouped,
                 groups=(Group("local"), Group("remote")),
                 mutually_exclusive_groups=(Group("local", "remote"),),
+            )
+
+    def test_mutex_group_partially_in_argument_group_raises(self) -> None:
+        # ``local`` is in the titled group, ``remote`` is not: nesting the whole mutex inside the group
+        # would silently pull ``remote`` into its section, so all-or-none membership is required.
+        with pytest.raises(ValueError, match="mixes members in a titled argument group"):
+            build_parser_from_function(
+                _func_grouped,
+                groups=(Group("local", title="Location"),),
+                mutually_exclusive_groups=(Group("local", "remote"),),
+            )
+
+    def test_mutex_group_title_creates_titled_section(self) -> None:
+        # title/description on the mutex itself build the titled section and nest the mutex inside it,
+        # so no paired groups= entry is needed.
+        parser = build_parser_from_function(
+            _func_grouped,
+            mutually_exclusive_groups=(Group("local", "remote", title="Location", description="where"),),
+        )
+        section = next(g for g in parser._action_groups if g.title == "Location")
+        assert section.description == "where"
+        assert len(parser._mutually_exclusive_groups) == 1
+        mutex = parser._mutually_exclusive_groups[0]
+        assert mutex._container is section
+        assert {action.dest for action in mutex._group_actions} == {"local", "remote"}
+        with pytest.raises(SystemExit):
+            parser.parse_args(["--local", "a", "--remote", "b"])
+
+    def test_mutex_group_title_with_members_in_argument_group_raises(self) -> None:
+        # Declaring the titled section in both places (groups= and the mutex) is ambiguous.
+        with pytest.raises(ValueError, match="declare the titled section in one place only"):
+            build_parser_from_function(
+                _func_grouped,
+                groups=(Group("local", "remote", title="A"),),
+                mutually_exclusive_groups=(Group("local", "remote", title="B"),),
             )
 
     def test_mutually_exclusive_group(self) -> None:
@@ -1305,8 +1389,7 @@ class TestGroupHelpers:
         assert target_for["dst"] is argument_group_for["dst"]
 
     def test_duplicate_argument_group_assignment_raises(self) -> None:
-        # Double-assignment is enforced by _CONSTRAINTS (the argument_group_indices membership fact),
-        # so it surfaces through the real build path rather than _build_argument_group_targets itself.
+        # Double-assignment is enforced by _validate_group_specs, which the build path runs first.
         def func(self, *, verbose: bool = False) -> None: ...
 
         with pytest.raises(ValueError, match="argument group 1 and argument group 2"):
@@ -1327,23 +1410,134 @@ class TestGroupHelpers:
         assert isinstance(target_for["json"], argparse._MutuallyExclusiveGroup)
 
     def test_duplicate_mutex_group_assignment_raises(self) -> None:
-        # Double-assignment is enforced by _CONSTRAINTS (the mutex_group_indices membership fact).
+        # Double-assignment is enforced by _validate_group_specs, which the build path runs first.
         def func(self, *, verbose: bool = False) -> None: ...
 
         with pytest.raises(ValueError, match="multiple mutually exclusive groups"):
             build_parser_from_function(func, mutually_exclusive_groups=(Group("verbose"), Group("verbose")))
 
-    def test_apply_mutex_group_targets_rejects_cross_group_members(self) -> None:
-        parser = argparse.ArgumentParser()
-        _target_for, argument_group_for = _build_argument_group_targets(parser, groups=(Group("src"), Group("dst")))
+    def test_repeated_member_in_one_argument_group_raises(self) -> None:
+        # A name listed twice in a single Group is a distinct mistake from cross-group assignment
+        # and gets its own message (not the misleading "both group 1 and group 1").
+        def func(self, *, verbose: bool = False) -> None: ...
+
+        with pytest.raises(ValueError, match="listed more than once in argument group 1"):
+            build_parser_from_function(func, groups=(Group("verbose", "verbose"),))
+
+    def test_repeated_member_in_one_mutex_group_raises(self) -> None:
+        def func(self, *, verbose: bool = False) -> None: ...
+
+        with pytest.raises(ValueError, match="listed more than once in mutually exclusive group 1"):
+            build_parser_from_function(func, mutually_exclusive_groups=(Group("verbose", "verbose"),))
+
+    def test_validate_group_specs_rejects_cross_group_members(self) -> None:
+        # The spec validator owns the group-shaped rules; construction trusts it.
+        def func(self, src: str = "a", dst: str = "b") -> None: ...
 
         with pytest.raises(ValueError, match="different argument groups"):
-            _apply_mutex_group_targets(
-                parser,
-                target_for={},
-                argument_group_for=argument_group_for,
+            _validate_group_specs(
+                func,
+                skip_params=frozenset(),
+                groups=(Group("src"), Group("dst")),
                 mutually_exclusive_groups=(Group("src", "dst"),),
             )
+
+
+class TestEagerGroupSpecValidation:
+    """Group specs hard-fail at decoration time (class definition), not on first command use.
+
+    The decorator runs the name-only spec checks before deferring the parser build, so a
+    misconfigured group raises while the class body executes instead of surfacing as a swallowed
+    runtime error the first time the command runs.  Type hints are never resolved by these checks,
+    so forward-referenced annotations still decorate (the parser build stays deferred for them).
+    """
+
+    def test_member_typo_fails_at_decoration(self) -> None:
+        def do_x(self, a: str = "v") -> None: ...
+
+        with pytest.raises(ValueError, match="groups references nonexistent parameter 'typo'"):
+            with_annotated(groups=(Group("typo"),))(do_x)
+
+    def test_mutex_member_typo_fails_at_decoration(self) -> None:
+        def do_x(self, a: str = "v") -> None: ...
+
+        with pytest.raises(ValueError, match="mutually_exclusive_groups references nonexistent parameter 'typo'"):
+            with_annotated(mutually_exclusive_groups=(Group("typo"),))(do_x)
+
+    def test_param_in_two_argument_groups_fails_at_decoration(self) -> None:
+        def do_x(self, a: str = "v") -> None: ...
+
+        with pytest.raises(ValueError, match="argument group 1 and argument group 2"):
+            with_annotated(groups=(Group("a"), Group("a")))(do_x)
+
+    def test_param_in_two_mutex_groups_fails_at_decoration(self) -> None:
+        def do_x(self, a: str = "v", b: str = "w") -> None: ...
+
+        with pytest.raises(ValueError, match="multiple mutually exclusive groups"):
+            with_annotated(mutually_exclusive_groups=(Group("a", "b"), Group("a")))(do_x)
+
+    def test_required_on_plain_group_fails_at_decoration(self) -> None:
+        def do_x(self, a: str = "v") -> None: ...
+
+        with pytest.raises(ValueError, match="only valid in mutually_exclusive_groups"):
+            with_annotated(groups=(Group("a", required=True),))(do_x)
+
+    def test_mutex_spanning_argument_groups_fails_at_decoration(self) -> None:
+        def do_x(self, a: str = "v", b: str = "w") -> None: ...
+
+        with pytest.raises(ValueError, match="spans parameters in different argument groups"):
+            with_annotated(groups=(Group("a"), Group("b")), mutually_exclusive_groups=(Group("a", "b"),))(do_x)
+
+    def test_mutex_partially_in_argument_group_fails_at_decoration(self) -> None:
+        def do_x(self, a: str = "v", b: str = "w") -> None: ...
+
+        with pytest.raises(ValueError, match="mixes members in a titled argument group"):
+            with_annotated(groups=(Group("a", title="T"),), mutually_exclusive_groups=(Group("a", "b"),))(do_x)
+
+    def test_titled_section_declared_twice_fails_at_decoration(self) -> None:
+        def do_x(self, a: str = "v", b: str = "w") -> None: ...
+
+        with pytest.raises(ValueError, match="declare the titled section in one place only"):
+            with_annotated(
+                groups=(Group("a", "b", title="T"),),
+                mutually_exclusive_groups=(Group("a", "b", title="U"),),
+            )(do_x)
+
+    def test_subcommand_group_typo_fails_at_decoration(self) -> None:
+        def team_add(self, a: str = "v") -> None: ...
+
+        with pytest.raises(ValueError, match="nonexistent parameter 'typo'"):
+            with_annotated(subcommand_to="team", groups=(Group("typo"),))(team_add)
+
+    def test_eager_validation_does_not_resolve_type_hints(self) -> None:
+        # The group error fires even though the annotation can never resolve: the checks read
+        # parameter names only, so the unresolvable hint is not touched.
+        def do_x(self, a: "NoSuchType" = None) -> None: ...  # noqa: F821
+
+        with pytest.raises(ValueError, match="nonexistent parameter 'typo'"):
+            with_annotated(groups=(Group("typo"),))(do_x)
+
+    def test_unresolvable_hints_with_valid_groups_decorate(self) -> None:
+        # Valid specs + an unresolvable annotation must decorate without raising; type resolution
+        # stays deferred to the parser build, preserving forward-reference support.
+        def do_x(self, a: "NoSuchType" = None) -> None: ...  # noqa: F821
+
+        with_annotated(groups=(Group("a", title="T"),))(do_x)
+
+    def test_valid_nested_config_decorates_cleanly(self) -> None:
+        def do_x(
+            self,
+            a: Annotated[bool, Option(action="store_true")] = False,
+            b: Annotated[bool, Option(action="store_true")] = False,
+            c: Annotated[bool, Option(action="store_true")] = False,
+            d: Annotated[bool, Option(action="store_true")] = False,
+        ) -> None: ...
+
+        # A nested mutex plus a separately titled mutex must decorate without raising.
+        with_annotated(
+            groups=(Group("a", "b", title="T"),),
+            mutually_exclusive_groups=(Group("a", "b"), Group("c", "d", title="U")),
+        )(do_x)
 
 
 # ---------------------------------------------------------------------------
@@ -1469,6 +1663,8 @@ class TestUnsupportedPatterns:
             pytest.param(list[set[int]], id="list_of_set"),
             pytest.param(set[list[str]], id="set_of_list"),
             pytest.param(tuple[list[int], ...], id="tuple_of_list"),
+            pytest.param(frozenset[list[int]], id="frozenset_of_list"),
+            pytest.param(list[frozenset[int]], id="list_of_frozenset"),
         ],
     )
     def test_nested_collection_raises(self, annotation) -> None:
@@ -1478,7 +1674,6 @@ class TestUnsupportedPatterns:
     @pytest.mark.parametrize(
         "annotation",
         [
-            pytest.param(frozenset[str], id="frozenset"),
             pytest.param(dict[str, int], id="dict"),
         ],
     )
@@ -1737,34 +1932,29 @@ class TestCollectionCastingAction:
 class TestCollectionRuntimeCast:
     """End-to-end verify ``parse_args`` returns the declared container type, not a plain list."""
 
-    def test_set_int_returns_set(self) -> None:
-        parser = build_parser_from_function(_make_func(set[int], name="nums"))
-        ns = parser.parse_args(["1", "2", "2", "3"])
-        assert isinstance(ns.nums, set)
-        assert ns.nums == {1, 2, 3}
-
-    def test_tuple_ellipsis_returns_tuple(self) -> None:
-        parser = build_parser_from_function(_make_func(tuple[int, ...], name="values"))
-        ns = parser.parse_args(["1", "2", "3"])
-        assert isinstance(ns.values, tuple)
-        assert ns.values == (1, 2, 3)
-
-    def test_tuple_fixed_returns_tuple(self) -> None:
-        parser = build_parser_from_function(_make_func(tuple[int, int], name="pair"))
-        ns = parser.parse_args(["5", "10"])
-        assert isinstance(ns.pair, tuple)
-        assert ns.pair == (5, 10)
-
-    def test_list_bool_returns_list_of_bools(self) -> None:
-        parser = build_parser_from_function(_make_func(list[bool], name="flags"))
-        ns = parser.parse_args(["true", "no", "on"])
-        assert ns.flags == [True, False, True]
-
-    def test_tuple_paths_returns_tuple_of_paths(self) -> None:
-        parser = build_parser_from_function(_make_func(tuple[Path, Path], name="src_dst"))
-        ns = parser.parse_args(["/tmp/a", "/tmp/b"])
-        assert isinstance(ns.src_dst, tuple)
-        assert ns.src_dst == (Path("/tmp/a"), Path("/tmp/b"))
+    @pytest.mark.parametrize(
+        ("annotation", "name", "args", "container", "expected"),
+        [
+            pytest.param(frozenset[int], "nums", ["1", "2", "2", "3"], frozenset, frozenset({1, 2, 3}), id="frozenset_int"),
+            pytest.param(set[int], "nums", ["1", "2", "2", "3"], set, {1, 2, 3}, id="set_int"),
+            pytest.param(tuple[int, ...], "values", ["1", "2", "3"], tuple, (1, 2, 3), id="tuple_ellipsis"),
+            pytest.param(tuple[int, int], "pair", ["5", "10"], tuple, (5, 10), id="tuple_fixed"),
+            pytest.param(list[bool], "flags", ["true", "no", "on"], list, [True, False, True], id="list_bool"),
+            pytest.param(
+                tuple[Path, Path],
+                "src_dst",
+                ["/tmp/a", "/tmp/b"],
+                tuple,
+                (Path("/tmp/a"), Path("/tmp/b")),
+                id="tuple_paths",
+            ),
+        ],
+    )
+    def test_returns_declared_container(self, annotation, name, args, container, expected) -> None:
+        parser = build_parser_from_function(_make_func(annotation, name=name))
+        value = getattr(parser.parse_args(args), name)
+        assert isinstance(value, container)
+        assert value == expected
 
     def test_append_action_collects_values(self) -> None:
         parser = build_parser_from_function(_make_func(Annotated[list[str], Option("--tag", action="append")], name="tag"))
@@ -3649,3 +3839,1666 @@ class TestEnumAcceptsNameAndValue:
         p = build_parser_from_function(_make_func(Color, name="c"))
         assert p.parse_args(["r"]).c is Color.RED
         assert p.parse_args(["RED"]).c is Color.RED
+
+
+class _AliasColor(enum.Enum):
+    """An enum that maps extra command-line spellings to members via the standard ``_missing_`` hook."""
+
+    RED = "red"
+    GREEN = "green"
+    BLUE = "blue"
+
+    @classmethod
+    def _missing_(cls, value: object) -> "_AliasColor | None":
+        return {"auto": cls.RED, "default": cls.RED}.get(str(value).lower())
+
+
+class TestAllowUnknownEntry:
+    """``allow_unknown_entry=True`` lets an Enum's ``_missing_`` hook resolve otherwise-unknown tokens."""
+
+    def test_missing_not_consulted_without_flag(self) -> None:
+        """By default the converter ignores ``_missing_`` -- an alias is rejected (current behavior)."""
+        parser = build_parser_from_function(_make_func(_AliasColor, name="c"))
+        with pytest.raises(SystemExit):
+            parser.parse_args(["auto"])
+
+    def test_flag_consults_missing(self) -> None:
+        """With the flag, an unknown token is resolved through the enum's ``_missing_`` hook."""
+        parser = build_parser_from_function(_make_func(Annotated[_AliasColor, Argument(allow_unknown_entry=True)], name="c"))
+        assert parser.parse_args(["auto"]).c is _AliasColor.RED
+        assert parser.parse_args(["default"]).c is _AliasColor.RED
+
+    def test_flag_still_accepts_canonical_value_and_name(self) -> None:
+        """Enabling the flag does not regress value or name lookup; ``_missing_`` is only a fallback."""
+        parser = build_parser_from_function(_make_func(Annotated[_AliasColor, Argument(allow_unknown_entry=True)], name="c"))
+        assert parser.parse_args(["red"]).c is _AliasColor.RED  # by value
+        assert parser.parse_args(["GREEN"]).c is _AliasColor.GREEN  # by name
+
+    def test_flag_preserves_intenum_value_bridge(self) -> None:
+        """An IntEnum value typed as a string still resolves with the flag on (str-bridge intact)."""
+
+        class IntColor(enum.IntEnum):
+            red = 1
+            green = 2
+
+            @classmethod
+            def _missing_(cls, value: object) -> "IntColor | None":
+                return cls.red if str(value).lower() == "auto" else None
+
+        parser = build_parser_from_function(_make_func(Annotated[IntColor, Argument(allow_unknown_entry=True)], name="c"))
+        assert parser.parse_args(["1"]).c is IntColor.red  # int value via str-bridge
+        assert parser.parse_args(["auto"]).c is IntColor.red  # _missing_
+
+    def test_flag_unknown_without_missing_match_still_errors(self) -> None:
+        """A token neither matched nor rescued by ``_missing_`` is still rejected with the choices."""
+        parser = build_parser_from_function(_make_func(Annotated[_AliasColor, Argument(allow_unknown_entry=True)], name="c"))
+        with pytest.raises(SystemExit):
+            parser.parse_args(["bogus"])
+
+    def test_flag_on_option(self) -> None:
+        """The flag also works on an ``Option`` (keyword) parameter."""
+        parser = build_parser_from_function(
+            _make_func(Annotated[_AliasColor | None, Option("--c", allow_unknown_entry=True)], name="c", default=None)
+        )
+        assert parser.parse_args(["--c", "auto"]).c is _AliasColor.RED
+
+    def test_flag_on_collection_element(self) -> None:
+        """The flag propagates to an Enum used as a collection element."""
+        parser = build_parser_from_function(
+            _make_func(Annotated[list[_AliasColor], Argument(allow_unknown_entry=True)], name="cs")
+        )
+        assert parser.parse_args(["auto", "blue"]).cs == [_AliasColor.RED, _AliasColor.BLUE]
+
+    def test_make_enum_type_flag_directly(self) -> None:
+        """Unit-level: ``_make_enum_type`` honors ``_missing_`` only when ``allow_unknown_entry`` is set."""
+        without = _make_enum_type(_AliasColor)
+        with pytest.raises(argparse.ArgumentTypeError):
+            without("auto")
+        with_flag = _make_enum_type(_AliasColor, allow_unknown_entry=True)
+        assert with_flag("auto") is _AliasColor.RED
+
+    def test_missing_exception_propagates_not_swallowed(self) -> None:
+        """A ``_missing_`` that raises is surfaced, not masked as an 'invalid choice' error."""
+
+        class Raises(enum.Enum):
+            a = "a"
+
+            @classmethod
+            def _missing_(cls, value: object) -> "Raises | None":
+                raise ValueError("boom in _missing_")
+
+        conv = _make_enum_type(Raises, allow_unknown_entry=True)
+        with pytest.raises(ValueError, match="boom in _missing_"):
+            conv("zzz")
+
+    def test_flag_without_missing_handler_is_inert(self) -> None:
+        """An Enum with no ``_missing_`` override inherits the default (returns None), so the flag is inert."""
+
+        class NoHandler(enum.Enum):
+            a = "a"
+
+        parser = build_parser_from_function(_make_func(Annotated[NoHandler, Argument(allow_unknown_entry=True)], name="c"))
+        assert parser.parse_args(["a"]).c is NoHandler.a  # canonical value still works
+        with pytest.raises(SystemExit):
+            parser.parse_args(["zzz"])  # unknown token still rejected; the flag added nothing
+
+
+class _OtherColor(enum.Enum):
+    """A third, disjoint Enum used to exercise multi-member unions."""
+
+    cyan = "cyan"
+    magenta = "magenta"
+
+
+class _StrictColor(enum.Enum):
+    """An Enum whose ``_missing_`` *raises* on an unknown token, as a strict enum typically does."""
+
+    crimson = "crimson"
+
+    @classmethod
+    def _missing_(cls, value: object) -> "_StrictColor | None":
+        raise ValueError(f"{value!r} is not a valid _StrictColor")
+
+
+class TestEnumUnion:
+    """A union of Enums (``EnumA | EnumB``) resolves by trying each member's converter in order."""
+
+    @pytest.mark.parametrize(
+        ("annotation", "token", "expected"),
+        [
+            pytest.param(_Color | _IntColor, "red", _Color.red, id="first-member-value"),
+            pytest.param(_Color | _IntColor, "2", _IntColor.green, id="second-member-value"),
+            pytest.param(_IntColor | _Color, "1", _IntColor.red, id="intenum-value"),
+            pytest.param(_IntColor | _Color, "green", _IntColor.green, id="member-name-first-wins"),
+            pytest.param(_Color | _PlainColor, "red", _Color.red, id="shared-repr-first-wins"),
+            pytest.param(_PlainColor | _Color, "red", _PlainColor.RED, id="shared-repr-order-flips"),
+            pytest.param(_Color | _IntColor | _OtherColor, "blue", _Color.blue, id="three-member-first"),
+            pytest.param(_Color | _IntColor | _OtherColor, "2", _IntColor.green, id="three-member-middle"),
+            pytest.param(_Color | _IntColor | _OtherColor, "cyan", _OtherColor.cyan, id="three-member-last"),
+        ],
+    )
+    def test_resolution(self, annotation: Any, token: str, expected: enum.Enum) -> None:
+        """A token resolves to the first union member whose converter accepts it."""
+        parser = build_parser_from_function(_make_func(annotation, name="c"))
+        assert parser.parse_args([token]).c is expected
+
+    @pytest.mark.parametrize(
+        "annotation",
+        [
+            pytest.param(_Color | Literal["auto"], id="literal-member"),
+            pytest.param(_Color | int, id="non-enum-member"),
+            pytest.param(str | int, id="plain-scalars"),
+            # `... | None` is stripped and the remaining union rebuilt, so the same rule applies.
+            pytest.param(_Color | int | None, id="non-enum-member-optional"),
+            pytest.param(_Color | Literal["auto"] | None, id="literal-member-optional"),
+        ],
+    )
+    def test_out_of_scope_union_rejected(self, annotation: Any) -> None:
+        """Scope is Enum-only: a union with a Literal or non-Enum member is rejected as ambiguous."""
+        with pytest.raises(TypeError, match="ambiguous"):
+            build_parser_from_function(_make_func(annotation, name="c"))
+
+    def test_invalid_value_rejected(self) -> None:
+        """A token no member accepts is rejected at parse time."""
+        parser = build_parser_from_function(_make_func(_Color | _IntColor, name="c"))
+        with pytest.raises(SystemExit):
+            parser.parse_args(["bogus"])
+
+    def test_optional_union_without_default_is_optional_positional(self) -> None:
+        """``A | B | None`` with no default is a positional ``nargs='?'`` yielding None when absent."""
+        action = _get_param_action(_make_func(_Color | _IntColor | None, name="c"))
+        assert action.option_strings == []  # positional
+        assert action.nargs == "?"
+        parser = build_parser_from_function(_make_func(_Color | _IntColor | None, name="c"))
+        assert parser.parse_args([]).c is None
+        assert parser.parse_args(["red"]).c is _Color.red
+
+    def test_optional_union_with_default_is_option(self) -> None:
+        """``A | B | None = None`` becomes a ``--flag`` option."""
+        parser = build_parser_from_function(_make_func(_Color | _IntColor | None, name="c", default=None))
+        assert parser.parse_args([]).c is None
+        assert parser.parse_args(["--c", "blue"]).c is _Color.blue
+
+    def test_union_as_collection_element(self) -> None:
+        """A union works as a collection element type."""
+        parser = build_parser_from_function(_make_func(list[_Color | _IntColor], name="cs"))
+        assert parser.parse_args(["red", "2"]).cs == [_Color.red, _IntColor.green]
+
+    def test_allow_unknown_entry_threads_into_union_members(self) -> None:
+        """``allow_unknown_entry`` propagates to each member, so a member's ``_missing_`` still fires."""
+        parser = build_parser_from_function(
+            _make_func(Annotated[_AliasColor | _IntColor, Argument(allow_unknown_entry=True)], name="c")
+        )
+        assert parser.parse_args(["auto"]).c is _AliasColor.RED  # _AliasColor._missing_
+        assert parser.parse_args(["2"]).c is _IntColor.green
+
+    def test_shared_representation_choices_are_deduped(self) -> None:
+        """When members share a text representation the merged choices show it once (not once per member)."""
+        # _Color and _PlainColor both spell their members "red"/"green"/"blue".
+        action = _get_param_action(_make_func(_Color | _PlainColor, name="c"))
+        texts = [c.text if isinstance(c, CompletionItem) else str(c) for c in action.choices]
+        assert texts == ["red", "green", "blue"]  # deduped, order preserved (first member wins)
+
+    def test_member_whose_missing_raises_does_not_preempt_later_members(self) -> None:
+        """A member whose ``_missing_`` *raises* declines the token; the union keeps trying later members.
+
+        A strict Enum (one whose ``_missing_`` raises rather than returning ``None``) listed before a
+        member that accepts the token must not abort the whole union -- the raise means "not mine",
+        same as a clean rejection, so resolution falls through to the next member.
+        """
+        parser = build_parser_from_function(
+            _make_func(Annotated[_StrictColor | _IntColor, Argument(allow_unknown_entry=True)], name="c")
+        )
+        # _StrictColor._missing_("2") raises, but _IntColor accepts "2" -- the later member still wins.
+        assert parser.parse_args(["2"]).c is _IntColor.green
+        # The strict member still claims its own token first.
+        assert parser.parse_args(["crimson"]).c is _StrictColor.crimson
+
+    def test_all_members_declining_reports_invalid_choice_not_member_error(self) -> None:
+        """When every member declines -- even one whose ``_missing_`` raises -- the union reports invalid choice.
+
+        The deferred member error must not surface as-is; the user sees the standard merged-choices
+        rejection, raised only after all members have been tried.
+        """
+        converter = _get_param_action(
+            _make_func(Annotated[_StrictColor | _IntColor, Argument(allow_unknown_entry=True)], name="c")
+        ).type
+        with pytest.raises(argparse.ArgumentTypeError, match="invalid choice"):
+            converter("bogus")
+
+    def test_union_choices_preserve_display_meta(self) -> None:
+        """Merged union choices keep each member's ``display_meta`` (the per-member tab-completion hint)."""
+        action = _get_param_action(_make_func(_Color | _IntColor, name="c"))
+        meta = {c.text: c.display_meta for c in action.choices if isinstance(c, CompletionItem)}
+        assert meta == {"red": "red", "green": "green", "blue": "blue", "1": "red", "2": "green", "3": "blue"}
+
+
+# ---------------------------------------------------------------------------
+# converter / preprocess metadata
+# ---------------------------------------------------------------------------
+
+
+def _hex(value: str) -> int:
+    """Parse a hexadecimal integer (test converter)."""
+    return int(value, 16)
+
+
+def _csv_ints(value: str) -> set[int]:
+    """Parse a comma-separated list of ints into a set (single token -> collection)."""
+    return {int(piece) for piece in value.split(",")}
+
+
+def _parse_iso(value: str) -> datetime.datetime:
+    """Parse an ISO-8601 timestamp (test converter for an otherwise-unsupported type)."""
+    return datetime.datetime.fromisoformat(value)
+
+
+class TestConverter:
+    """`Argument`/`Option` ``converter=`` replaces the inferred ``type=`` converter."""
+
+    def test_converter_becomes_type(self) -> None:
+        """A supplied converter is emitted as argparse ``type=``, replacing the inferred one."""
+        action = _action_for(Annotated[int, Argument(converter=_hex)])
+        assert action.type is _hex
+
+    def test_converter_allows_unsupported_annotation_type(self) -> None:
+        """A converter suppresses the 'unsupported scalar type' error: the annotation may be anything."""
+        action = _action_for(Annotated[datetime.datetime, Argument(converter=_parse_iso)])
+        assert action.type is _parse_iso
+
+    def test_converter_parses_end_to_end(self) -> None:
+        """The converter runs at parse time, producing its own value-space."""
+        parser = build_parser_from_function(_make_func(Annotated[int, Argument(converter=_hex)], name="addr"))
+        assert parser.parse_args(["ff"]).addr == 255
+
+    def test_converter_drops_inferred_enum_choices(self) -> None:
+        """Replacing the converter on an Enum drops the inferred choices (user owns the value-space)."""
+        action = _action_for(Annotated[_Color, Argument(converter=str)])
+        assert action.choices is None
+
+    def test_converter_drops_inferred_path_completer(self) -> None:
+        """Replacing the converter on a Path drops the inferred path completer."""
+        action = _action_for(Annotated[Path, Argument(converter=str)])
+        assert action.get_completer() is None  # type: ignore[attr-defined]
+
+    def test_converter_applies_per_element_on_collection(self) -> None:
+        """On a ``list[T]`` the converter runs per token (argparse applies ``type=`` per value)."""
+        parser = build_parser_from_function(_make_func(Annotated[list[int], Option("--n", converter=_hex)], name="n"))
+        assert parser.parse_args(["--n", "ff", "10"]).n == [255, 16]
+
+    def test_converter_single_token_to_collection(self) -> None:
+        """A non-collection annotation (Any) keeps a single token, so the converter may return a collection."""
+        parser = build_parser_from_function(_make_func(Annotated[Any, Option("--idx", converter=_csv_ints)], name="idx"))
+        assert parser.parse_args(["--idx", "1,3,5"]).idx == {1, 3, 5}
+
+    def test_converter_runs_explicit_choices_through_itself(self) -> None:
+        """Explicit ``choices`` are run through the user converter for argparse's post-conversion match."""
+        action = _action_for(Annotated[int, Argument(converter=_hex, choices=["ff", "10"])])
+        assert action.choices == [255, 16]
+
+    def test_converter_allows_unsupported_collection_element(self) -> None:
+        """A converter on ``list[Unsupported]`` keeps the collection shape and suppresses the element error."""
+        parser = build_parser_from_function(
+            _make_func(Annotated[list[datetime.datetime], Option("--ts", converter=_parse_iso)], name="ts")
+        )
+        parsed = parser.parse_args(["--ts", "2020-01-01", "2021-06-15"]).ts
+        assert parsed == [_parse_iso("2020-01-01"), _parse_iso("2021-06-15")]
+
+    def test_converter_allows_ambiguous_union(self) -> None:
+        """A converter suppresses the 'ambiguous union' error: a multi-member union is legal."""
+        parser = build_parser_from_function(_make_func(Annotated[int | str, Argument(converter=_hex)], name="addr"))
+        assert parser.parse_args(["ff"]).addr == 255
+
+    def test_converter_on_optional_single_member(self) -> None:
+        """A converter legalizes ``T | None``: the optional collapses to ``T`` and the converter owns conversion."""
+        parser = build_parser_from_function(
+            _make_func(
+                Annotated[datetime.datetime | None, Option("--until", converter=_parse_iso)],
+                name="until",
+                kind="kw",
+                default=None,
+            )
+        )
+        assert parser.parse_args(["--until", "2020-01-01"]).until == _parse_iso("2020-01-01")
+        assert parser.parse_args([]).until is None
+
+    def test_converter_keeps_user_completer(self) -> None:
+        """``converter=`` drops the *inferred* completer, but a user-supplied ``completer=`` survives."""
+        action = _action_for(Annotated[Path, Argument(converter=str, completer=cmd2.Cmd.path_complete)])
+        assert action.get_completer() is cmd2.Cmd.path_complete  # type: ignore[attr-defined]
+
+    def test_converter_rejects_invalid_explicit_choice(self) -> None:
+        """A choice the user converter rejects is a build-time error (run through the converter, not the inferred type)."""
+        _assert_build_error(
+            Annotated[int, Argument(converter=_hex, choices=["ff", "zz"])],
+            match="not a valid",
+        )
+
+
+class TestPreprocess:
+    """`Argument`/`Option` ``preprocess=`` runs before the inferred converter, keeping inference."""
+
+    def test_preprocess_runs_before_inferred_converter(self) -> None:
+        """The token is transformed before the inferred Enum converter sees it."""
+        parser = build_parser_from_function(_make_func(Annotated[_Color, Argument(preprocess=str.lower)], name="c"))
+        assert parser.parse_args(["RED"]).c is _Color.red
+
+    def test_preprocess_keeps_inferred_choices(self) -> None:
+        """The inferred Enum choices survive (preprocess composes with, not replaces, the converter)."""
+        action = _action_for(Annotated[_Color, Argument(preprocess=str.lower)])
+        assert action.choices == _COLOR_CHOICE_ITEMS
+
+    def test_preprocess_keeps_inferred_path_completer(self) -> None:
+        """The inferred path completer survives a preprocess hook."""
+        action = _action_for(Annotated[Path, Argument(preprocess=str.strip)])
+        assert action.get_completer() is cmd2.Cmd.path_complete  # type: ignore[attr-defined]
+
+    def test_preprocess_on_str_passthrough_becomes_type(self) -> None:
+        """With no inferred converter (plain ``str``), preprocess becomes the ``type=`` directly."""
+        parser = build_parser_from_function(_make_func(Annotated[str, Argument(preprocess=str.upper)], name="s"))
+        assert parser.parse_args(["abc"]).s == "ABC"
+
+    def test_preprocess_applies_per_element_on_collection(self) -> None:
+        """On a ``list[T]`` preprocess runs per token, before the per-token inferred converter."""
+        parser = build_parser_from_function(_make_func(Annotated[list[_Color], Option("--c", preprocess=str.lower)], name="c"))
+        assert parser.parse_args(["--c", "RED", "Blue"]).c == [_Color.red, _Color.blue]
+
+    def test_preprocess_keeps_enum_class_introspection(self) -> None:
+        """The wrapped converter still exposes ``_cmd2_enum_class`` for introspection."""
+        action = _action_for(Annotated[_Color, Argument(preprocess=str.lower)])
+        assert action.type._cmd2_enum_class is _Color
+
+    def test_preprocess_keeps_inferred_converter_name(self) -> None:
+        """The wrapper copies the inner converter's ``__name__`` so argparse error messages stay meaningful."""
+        action = _action_for(Annotated[_Color, Argument(preprocess=str.lower)])
+        assert action.type.__name__ == _Color.__name__
+
+    def test_preprocess_runs_explicit_choices_through_composed_type(self) -> None:
+        """Explicit ``choices`` are run through the preprocess+converter wrapper (``RED`` -> lower -> Enum)."""
+        action = _action_for(Annotated[_Color, Argument(preprocess=str.lower, choices=["RED"])])
+        assert action.choices == [_Color.red]
+
+
+class TestConverterPreprocessConstraints:
+    """Build-time rejections for ``converter=`` / ``preprocess=`` misuse."""
+
+    def test_converter_and_preprocess_together_rejected(self) -> None:
+        """Supplying both is ambiguous -- fold the preprocessing into the converter."""
+        _assert_build_error(
+            Annotated[int, Argument(converter=_hex, preprocess=str.strip)],
+            match="converter= and preprocess=",
+        )
+
+    def test_converter_on_value_less_action_rejected(self) -> None:
+        """A converter on a zero-argument action has nothing to convert."""
+        _assert_build_error(
+            Annotated[bool, Option("--flag", action="store_true", converter=_hex)],
+            match="takes no value",
+            kind="kw",
+        )
+
+    def test_preprocess_on_value_less_action_rejected(self) -> None:
+        """A preprocess hook on a zero-argument action has nothing to transform."""
+        _assert_build_error(
+            Annotated[bool, Option("--flag", action="store_true", preprocess=str.strip)],
+            match="takes no value",
+            kind="kw",
+        )
+
+    def test_reserved_type_hint_points_at_converter(self) -> None:
+        """A raw ``type=`` is still rejected, now pointing the user at ``converter=``."""
+        with pytest.raises(TypeError, match="converter="):
+            Argument(type=int)
+
+
+# ---------------------------------------------------------------------------
+# Dataclass argument blocks (#1689): a dataclass-typed parameter expands its
+# fields into the parser (flat: field name == arg name) and is reconstructed
+# into an instance at call time.
+# ---------------------------------------------------------------------------
+
+
+@dataclass
+class _CommonArgs(ArgumentBlock):
+    verbose: Annotated[bool, Option("-v", "--verbose")] = False
+    output: Annotated[Path | None, Option("--output")] = None
+
+
+@dataclass
+class _TracedArgs(_CommonArgs):
+    """Inheritance is the "shared base block" reuse mechanism (and carries the ArgumentBlock trait)."""
+
+    trace: bool = False
+
+
+class TestDataclassBlockParser:
+    """A dataclass-typed parameter expands its fields into flat parser arguments."""
+
+    def test_block_fields_become_arguments(self) -> None:
+        def do_build(self, target: str, common: _CommonArgs) -> None: ...
+
+        parser = build_parser_from_function(do_build)
+        dests = {action.dest for action in parser._actions}
+        assert {"target", "verbose", "output"} <= dests
+        # The block parameter itself is a container, not an argument.
+        assert "common" not in dests
+
+    def test_block_field_option_strings_preserved(self) -> None:
+        def do_build(self, target: str, common: _CommonArgs) -> None: ...
+
+        parser = build_parser_from_function(do_build)
+        # A field's Annotated Option metadata drives its flags exactly as a top-level option would
+        # (a bool option expands to --verbose/--no-verbose via BooleanOptionalAction).
+        verbose = next(a for a in parser._actions if a.dest == "verbose")
+        assert "-v" in verbose.option_strings
+        assert "--verbose" in verbose.option_strings
+        output = next(a for a in parser._actions if a.dest == "output")
+        assert output.option_strings == ["--output"]
+
+    def test_inherited_block_fields_expand(self) -> None:
+        def do_build(self, target: str, opts: _TracedArgs) -> None: ...
+
+        parser = build_parser_from_function(do_build)
+        dests = {action.dest for action in parser._actions}
+        assert {"target", "verbose", "output", "trace"} <= dests
+
+
+class _DataclassBlockApp(cmd2.Cmd):
+    def __init__(self) -> None:
+        super().__init__()
+        self.last_block: object = None
+
+    @with_annotated
+    def do_build(self, target: str, common: _CommonArgs) -> None:
+        self.last_block = common
+        self.poutput(f"target={target} verbose={common.verbose} output={common.output}")
+
+    @with_annotated
+    def do_test(self, suite: str, opts: _TracedArgs) -> None:
+        self.poutput(f"suite={suite} verbose={opts.verbose} trace={opts.trace}")
+
+
+@pytest.fixture
+def block_app() -> _DataclassBlockApp:
+    app = _DataclassBlockApp()
+    app.stdout = cmd2.utils.StdSim(app.stdout)
+    return app
+
+
+class TestDataclassBlockRuntime:
+    """The block is reconstructed into a dataclass instance and passed to the command."""
+
+    def test_block_reconstructed_with_defaults(self, block_app) -> None:
+        out, _err = run_cmd(block_app, "build app")
+        assert out == ["target=app verbose=False output=None"]
+
+    def test_block_field_from_command_line(self, block_app) -> None:
+        out, _err = run_cmd(block_app, "build app --verbose --output /tmp/x")
+        assert out == [f"target=app verbose=True output={Path('/tmp/x')}"]
+
+    def test_block_instance_type(self, block_app) -> None:
+        """The reconstructed argument is an actual instance of the declared dataclass."""
+        run_cmd(block_app, "build app --verbose")
+        assert isinstance(block_app.last_block, _CommonArgs)
+        assert block_app.last_block.verbose is True
+
+    def test_block_field_values_and_types(self, block_app) -> None:
+        """Each field on the reconstructed instance holds the converted value at its declared type."""
+        run_cmd(block_app, "build app --verbose --output /tmp/x")
+        block = block_app.last_block
+        assert block.verbose is True
+        assert isinstance(block.output, Path)  # converted from str to Path, not left as a string
+        assert block.output == Path("/tmp/x")
+
+    def test_block_field_defaults_on_instance(self, block_app) -> None:
+        """An omitted field is filled by the dataclass constructor, not left absent on the instance."""
+        run_cmd(block_app, "build app")
+        block = block_app.last_block
+        assert block.verbose is False
+        assert block.output is None
+
+    def test_inherited_block_runtime(self, block_app) -> None:
+        out, _err = run_cmd(block_app, "test smoke --trace")
+        assert out == ["suite=smoke verbose=False trace=True"]
+
+
+@dataclass
+class _PositionalBlock(ArgumentBlock):
+    """A field with no default becomes a positional argument."""
+
+    name: str
+    count: int = 1
+
+
+@dataclass
+class _FactoryBlock(ArgumentBlock):
+    tags: Annotated[list[str], Option("--tag", action="append")] = field(default_factory=list)
+
+
+@dataclass
+class _NestedBlock(ArgumentBlock):
+    inner: _CommonArgs = field(default_factory=_CommonArgs)
+
+
+@dataclass
+class _ForwardFieldBlock(ArgumentBlock):
+    # Stringized field annotations exercise the same get_type_hints() resolution path as a dataclass
+    # defined in a module using ``from __future__ import annotations``.
+    verbose: "Annotated[bool, Option('-v', '--verbose')]" = False
+    tags: "Annotated[list[str], Option('--tag', action='append')]" = field(default_factory=list)
+
+
+class TestDataclassBlockEdgeCases:
+    def test_block_positional_field(self) -> None:
+        def do_x(self, common: _PositionalBlock) -> None: ...
+
+        parser = build_parser_from_function(do_x)
+        name = next(a for a in parser._actions if a.dest == "name")
+        assert name.option_strings == []  # positional
+        count = next(a for a in parser._actions if a.dest == "count")
+        assert count.option_strings == ["--count"]
+
+    def test_block_positional_field_runtime(self) -> None:
+        class App(cmd2.Cmd):
+            @with_annotated
+            def do_x(self, common: _PositionalBlock) -> None:
+                self.poutput(f"{common.name}:{common.count}")
+
+        app = App()
+        app.stdout = cmd2.utils.StdSim(app.stdout)
+        assert run_cmd(app, "x bob --count 3")[0] == ["bob:3"]
+
+    def test_block_default_factory(self) -> None:
+        class App(cmd2.Cmd):
+            @with_annotated
+            def do_x(self, opts: _FactoryBlock) -> None:
+                self.poutput(f"tags={opts.tags}")
+
+        app = App()
+        app.stdout = cmd2.utils.StdSim(app.stdout)
+        assert run_cmd(app, "x")[0] == ["tags=[]"]
+        assert run_cmd(app, "x --tag a --tag b")[0] == ["tags=['a', 'b']"]
+
+    def test_default_factory_not_shared_across_calls(self) -> None:
+        """Each invocation gets a fresh default_factory value (no shared-mutable-default bug)."""
+
+        class App(cmd2.Cmd):
+            @with_annotated
+            def do_x(self, opts: _FactoryBlock) -> None:
+                opts.tags.append("mutated")
+                self.poutput(f"tags={opts.tags}")
+
+        app = App()
+        app.stdout = cmd2.utils.StdSim(app.stdout)
+        # First call mutates its (default) list; the second call must not see that mutation.
+        assert run_cmd(app, "x")[0] == ["tags=['mutated']"]
+        assert run_cmd(app, "x")[0] == ["tags=['mutated']"]
+
+    def test_block_field_default_emits_suppress(self) -> None:
+        """A field-default block field emits SUPPRESS so the dataclass constructor fills the default."""
+
+        def do_x(self, common: _CommonArgs) -> None: ...
+
+        parser = build_parser_from_function(do_x)
+        verbose = next(a for a in parser._actions if a.dest == "verbose")
+        assert verbose.default is argparse.SUPPRESS
+        # An absent field stays out of the parsed namespace entirely.
+        assert not hasattr(parser.parse_args([]), "verbose")
+
+    def test_nested_dataclass_field_rejected(self) -> None:
+        """A dataclass field whose type is itself a dataclass is not a supported scalar (no recursion)."""
+
+        def do_x(self, opts: _NestedBlock) -> None: ...
+
+        with pytest.raises(TypeError, match="Unsupported parameter type"):
+            build_parser_from_function(do_x)
+
+    def test_field_name_collides_with_explicit_param(self) -> None:
+        """A block field whose name collides with an explicit parameter is a clear build error."""
+
+        @dataclass
+        class Blk(ArgumentBlock):
+            target: Annotated[str, Option("--target")] = "z"
+
+        def do_x(self, target: str, blk: Blk) -> None: ...
+
+        with pytest.raises(TypeError, match=r"target.*more than once"):
+            build_parser_from_function(do_x)
+
+    def test_field_name_collides_across_two_blocks(self) -> None:
+        """Two blocks sharing a field name collide regardless of flags (same namespace dest)."""
+
+        @dataclass
+        class BlkA(ArgumentBlock):
+            x: Annotated[int, Option("--x")] = 0
+
+        @dataclass
+        class BlkB(ArgumentBlock):
+            x: Annotated[int, Option("--xx")] = 0  # different flag, same field/dest name
+
+        def do_x(self, a: BlkA, b: BlkB) -> None: ...
+
+        with pytest.raises(TypeError, match=r"x.*more than once"):
+            build_parser_from_function(do_x)
+
+    def test_field_named_like_block_param_rejected(self) -> None:
+        """A block field whose name equals the block parameter name is rejected: the field's flat argument
+        and the parameter receiving the block instance would share one keyword-argument key."""
+
+        @dataclass
+        class Opts(ArgumentBlock):
+            opts: Annotated[str, Option("--opts")] = "x"
+
+        def do_x(self, opts: Opts) -> None: ...
+
+        with pytest.raises(TypeError, match=r"field 'opts' collides with the block parameter name 'opts'"):
+            build_parser_from_function(do_x)
+
+    def test_init_false_field_named_like_block_param_allowed(self) -> None:
+        """A field(init=False) is not a command-line argument, so sharing the block parameter name is fine
+        (no flat argument shadows the parameter) and must not be rejected."""
+
+        @dataclass
+        class Opts(ArgumentBlock):
+            name: Annotated[str, Option("--name")] = "n"
+            opts: str = field(init=False, default="z")
+
+        def do_x(self, opts: Opts) -> None: ...
+
+        parser = build_parser_from_function(do_x)
+        assert {a.dest for a in parser._actions if a.dest != "help"} == {"name"}
+
+    def test_block_field_append_action_without_dataclass_default_rejected(self) -> None:
+        """An append block field with no dataclass default would emit a shared `[]` argparse default that
+        argparse reuses across invocations; reject it (the default must live on the dataclass field)."""
+
+        @dataclass
+        class Blk(ArgumentBlock):
+            tags: Annotated[list[str], Option("--tag", action="append")]  # no dataclass default
+
+        def do_x(self, blk: Blk) -> None: ...
+
+        with pytest.raises(TypeError, match=r"field 'tags'.*default.*must live on the dataclass field"):
+            build_parser_from_function(do_x)
+
+    def test_block_field_metadata_default_without_dataclass_default_rejected(self) -> None:
+        """A metadata `Option(default=...)` on a block field with no dataclass default bypasses the
+        dataclass as the single source of truth; reject it."""
+
+        @dataclass
+        class Blk(ArgumentBlock):
+            count: Annotated[int, Option("--count", default=3)]  # default in metadata, not the field
+
+        def do_x(self, blk: Blk) -> None: ...
+
+        with pytest.raises(TypeError, match=r"field 'count'.*default.*must live on the dataclass field"):
+            build_parser_from_function(do_x)
+
+    def test_block_field_metadata_default_none_without_dataclass_default_rejected(self) -> None:
+        """A metadata `Option(default=None)` on a block field with no dataclass default still bypasses the
+        dataclass as the single source of truth; `None` is not exempt from the rule."""
+
+        @dataclass
+        class Blk(ArgumentBlock):
+            count: Annotated[int, Option("--count", default=None)]  # default in metadata, not the field
+
+        def do_x(self, blk: Blk) -> None: ...
+
+        with pytest.raises(TypeError, match=r"field 'count'.*default.*must live on the dataclass field"):
+            build_parser_from_function(do_x)
+
+    def test_post_init_runs(self) -> None:
+        """Reconstruction goes through the dataclass constructor, so __post_init__ runs."""
+
+        @dataclass
+        class PostInit(ArgumentBlock):
+            width: int = 2
+            doubled: int = 0
+
+            def __post_init__(self) -> None:
+                self.doubled = self.width * 2
+
+        class App(cmd2.Cmd):
+            @with_annotated
+            def do_x(self, opts: PostInit) -> None:
+                self.poutput(f"doubled={opts.doubled}")
+
+        app = App()
+        app.stdout = cmd2.utils.StdSim(app.stdout)
+        assert run_cmd(app, "x --width 5")[0] == ["doubled=10"]
+        assert run_cmd(app, "x")[0] == ["doubled=4"]
+
+    def test_required_field_errors_when_omitted(self) -> None:
+        """A field with no default is a required argument."""
+
+        @dataclass
+        class Req(ArgumentBlock):
+            host: Annotated[str, Option("--host")]
+
+        class App(cmd2.Cmd):
+            @with_annotated
+            def do_x(self, opts: Req) -> None:
+                self.poutput(opts.host)
+
+        app = App()
+        app.stdout = cmd2.utils.StdSim(app.stdout)
+        _out, err = run_cmd(app, "x")
+        assert any("host" in line.lower() and ("required" in line.lower() or "error" in line.lower()) for line in err)
+        assert run_cmd(app, "x --host db")[0] == ["db"]
+
+    def test_plain_dataclass_is_not_a_block(self) -> None:
+        """A plain @dataclass (no ArgumentBlock trait) is never expanded; it is an ordinary value."""
+
+        @dataclass
+        class Plain:
+            x: int = 0
+            y: int = 0
+
+        def do_x(self, p: Plain) -> None: ...
+
+        # Without the trait it falls through to the normal type path: a dataclass scalar with no converter
+        # is an unsupported type (it is not silently decomposed into x/y).
+        with pytest.raises(TypeError, match="Unsupported parameter type"):
+            build_parser_from_function(do_x)
+
+    def test_plain_dataclass_with_converter_is_single_value(self) -> None:
+        """A plain @dataclass used as a single value (via a converter) is one argument, not a block."""
+
+        @dataclass
+        class Point:
+            x: int = 0
+            y: int = 0
+
+        def parse_point(s: str) -> Point:
+            a, b = s.split(",")
+            return Point(int(a), int(b))
+
+        class App(cmd2.Cmd):
+            @with_annotated
+            def do_x(self, p: Annotated[Point, Argument(converter=parse_point)]) -> None:
+                self.poutput(f"{type(p).__name__}({p.x},{p.y})")
+
+        app = App()
+        app.stdout = cmd2.utils.StdSim(app.stdout)
+        parser = build_parser_from_function(App.do_x.__wrapped__)  # single 'p' arg, not decomposed
+        assert [a.dest for a in parser._actions if a.dest != "help"] == ["p"]
+        assert run_cmd(app, "x 3,4")[0] == ["Point(3,4)"]
+
+    def test_optional_block_rejected(self) -> None:
+        """An ArgumentBlock combined with Optional (``Block | None``) is rejected with a clear message."""
+
+        @dataclass
+        class Blk(ArgumentBlock):
+            x: int = 0
+
+        def do_x(self, blk: Blk | None) -> None: ...
+
+        with pytest.raises(TypeError, match="bare annotation"):
+            build_parser_from_function(do_x)
+
+    def test_union_of_blocks_rejected(self) -> None:
+        """A union of ArgumentBlocks (``BlockA | BlockB``) is rejected with a clear message."""
+
+        @dataclass
+        class BlkA(ArgumentBlock):
+            x: int = 0
+
+        @dataclass
+        class BlkB(ArgumentBlock):
+            y: int = 0
+
+        def do_x(self, blk: BlkA | BlkB) -> None: ...
+
+        with pytest.raises(TypeError, match="bare annotation"):
+            build_parser_from_function(do_x)
+
+    def test_annotated_block_rejected(self) -> None:
+        """An ArgumentBlock wrapped in Annotated is rejected (a block must be the bare annotation)."""
+
+        @dataclass
+        class Blk(ArgumentBlock):
+            x: int = 0
+
+        def do_x(self, blk: Annotated[Blk, "doc"]) -> None: ...
+
+        with pytest.raises(TypeError, match="bare annotation"):
+            build_parser_from_function(do_x)
+
+    def test_argument_block_without_dataclass_rejected(self) -> None:
+        """An ArgumentBlock subclass that is not a @dataclass has no fields; reject with guidance."""
+
+        class NotADataclass(ArgumentBlock):
+            x: int = 0
+
+        def do_x(self, blk: NotADataclass) -> None: ...
+
+        with pytest.raises(TypeError, match="must be decorated with @dataclass"):
+            build_parser_from_function(do_x)
+
+    def test_stringized_field_annotations_resolve(self) -> None:
+        """A block whose field hints are strings (forward refs / ``from __future__ import annotations``)
+        resolves through get_type_hints and behaves identically.
+        """
+
+        class App(cmd2.Cmd):
+            @with_annotated
+            def do_x(self, target: "str", common: "_ForwardFieldBlock") -> None:
+                self.poutput(f"{target} verbose={common.verbose} tags={common.tags}")
+
+        app = App()
+        app.stdout = cmd2.utils.StdSim(app.stdout)
+        assert run_cmd(app, "x app --verbose --tag a --tag b")[0] == ["app verbose=True tags=['a', 'b']"]
+        assert run_cmd(app, "x app2")[0] == ["app2 verbose=False tags=[]"]
+
+    def test_block_parameter_default_rejected(self) -> None:
+        """The dataclass owns its fields' defaults, so a default on the block parameter is rejected."""
+
+        @dataclass
+        class Blk(ArgumentBlock):
+            verbose: Annotated[bool, Option("-v")] = False
+
+        def do_x(self, blk: Blk = Blk()) -> None: ...  # noqa: B008 — the block-param default is the thing under test
+
+        with pytest.raises(TypeError, match="cannot have a default value"):
+            build_parser_from_function(do_x)
+
+    def test_field_name_collides_with_reserved_namespace_attr(self) -> None:
+        """A field named like a cmd2-injected namespace attr would be overwritten at parse time; reject it."""
+
+        @dataclass
+        class Blk(ArgumentBlock):
+            cmd2_statement: Annotated[str, Option("--stmt")] = "x"
+
+        def do_x(self, blk: Blk) -> None: ...
+
+        with pytest.raises(TypeError, match="reserved cmd2 namespace attribute"):
+            build_parser_from_function(do_x)
+
+    def test_block_field_both_defaults_error_names_dataclass_source(self) -> None:
+        """A field with both a dataclass default and a metadata default is rejected, naming the right source.
+
+        The block field's signature default lives on the dataclass (its internal ``param_default`` is a
+        placeholder ``None``), so the conflict message must say "dataclass field", not "function signature (None)".
+        """
+
+        @dataclass
+        class Blk(ArgumentBlock):
+            level: Annotated[int, Option("--level", default=5)] = 2
+
+        def do_x(self, blk: Blk) -> None: ...
+
+        with pytest.raises(TypeError, match=r"both the dataclass field and the metadata \(5\)"):
+            build_parser_from_function(do_x)
+
+    def test_initvar_field_rejected(self) -> None:
+        """An InitVar is required by the constructor but never becomes a CLI argument; reject it clearly."""
+
+        @dataclass
+        class Blk(ArgumentBlock):
+            ratio: InitVar[int]
+            name: Annotated[str, Option("--name")] = "n"
+
+            def __post_init__(self, ratio: int) -> None:
+                self.ratio = ratio
+
+        def do_x(self, blk: Blk) -> None: ...
+
+        with pytest.raises(TypeError, match="InitVar"):
+            build_parser_from_function(do_x)
+
+    def test_init_false_field_not_expanded(self) -> None:
+        """A field(init=False) is not a constructor argument, so it gets no CLI option and is left to
+        __post_init__ / its default rather than being expanded into a command-line value."""
+
+        @dataclass
+        class Blk(ArgumentBlock):
+            name: Annotated[str, Option("--name")] = "n"
+            computed: str = field(init=False, default="auto")
+
+            def __post_init__(self) -> None:
+                self.computed = self.name.upper()
+
+        def do_x(self, blk: Blk) -> None: ...
+
+        parser = build_parser_from_function(do_x)
+        dests = {a.dest for a in parser._actions if a.dest != "help"}
+        assert dests == {"name"}  # computed (init=False) is not a command-line argument
+
+        class App(cmd2.Cmd):
+            @with_annotated
+            def do_x(self, blk: Blk) -> None:
+                self.poutput(f"name={blk.name} computed={blk.computed}")
+
+        app = App()
+        app.stdout = cmd2.utils.StdSim(app.stdout)
+        assert run_cmd(app, "x --name bob")[0] == ["name=bob computed=BOB"]
+
+    def test_unresolvable_field_hint_raises_block_error(self) -> None:
+        """An unresolvable forward reference on a block field aborts with a clear, ArgumentBlock-specific
+        error rather than leaking the opaque NameError raised by typing.get_type_hints."""
+
+        @dataclass
+        class Blk(ArgumentBlock):
+            x: Annotated["NoSuchType", Option("--x")] = 0  # noqa: F821 -- intentionally undefined
+
+        def do_x(self, blk: Blk) -> None: ...
+
+        with pytest.raises(TypeError, match=r"Failed to resolve type hints for ArgumentBlock"):
+            build_parser_from_function(do_x)
+
+
+class _SubcommandBlockApp(cmd2.Cmd):
+    @with_annotated(base_command=True)
+    def do_db(self, cmd2_subcommand_func) -> None:
+        if cmd2_subcommand_func:
+            cmd2_subcommand_func()
+
+    @with_annotated(subcommand_to="db")
+    def db_migrate(self, name: str, common: _CommonArgs) -> None:
+        self.poutput(f"migrate {name} verbose={common.verbose}")
+
+
+class TestDataclassBlockSubcommand:
+    def test_subcommand_block_reconstructed(self) -> None:
+        app = _SubcommandBlockApp()
+        app.stdout = cmd2.utils.StdSim(app.stdout)
+        out, _err = run_cmd(app, "db migrate users --verbose")
+        assert out == ["migrate users verbose=True"]
+
+
+# ---------------------------------------------------------------------------
+# Shared blocks: a command declares an inheritable block as ``cmd2_base_args``
+# and its subcommands receive it as ``cmd2_parent_args`` instead of re-declaring
+# the arguments.  This is the typed answer to passing parent-level args down to
+# subcommands (#1690).
+# ---------------------------------------------------------------------------
+
+
+@dataclass
+class _SharedOpts(ArgumentBlock):
+    verbose: Annotated[bool, Option("-v", "--verbose")] = False
+    level: Annotated[int, Option("--level")] = 1
+
+
+class _InheritBlockApp(cmd2.Cmd):
+    def __init__(self) -> None:
+        super().__init__()
+        self.received: object = None
+
+    @with_annotated(base_command=True)
+    def do_root(self, cmd2_subcommand_func, cmd2_base_args: _SharedOpts) -> None:
+        """Parent declares the inheritable block, so its fields land on the base parser."""
+        if cmd2_subcommand_func:
+            cmd2_subcommand_func()
+
+    @with_annotated(subcommand_to="root", help="show the inherited block")
+    def root_show(self, cmd2_parent_args: _SharedOpts) -> None:
+        self.received = cmd2_parent_args
+        self.poutput(f"verbose={cmd2_parent_args.verbose} level={cmd2_parent_args.level}")
+
+
+@pytest.fixture
+def inherit_app() -> _InheritBlockApp:
+    app = _InheritBlockApp()
+    app.stdout = cmd2.utils.StdSim(app.stdout)
+    return app
+
+
+class TestParentArgsInheritance:
+    def test_subcommand_inherits_parent_block_values(self, inherit_app) -> None:
+        """Values parsed on the parent flow into the subcommand's inherited block."""
+        out, _err = run_cmd(inherit_app, "root --verbose --level 5 show")
+        assert out == ["verbose=True level=5"]
+
+    def test_inherited_block_uses_parent_defaults_when_omitted(self, inherit_app) -> None:
+        """An option the parent did not receive arrives at its declared default, not absent."""
+        out, _err = run_cmd(inherit_app, "root show")
+        assert out == ["verbose=False level=1"]
+
+    def test_inherited_block_reconstructed_instance(self, inherit_app) -> None:
+        """The subcommand receives a real dataclass instance, not loose values."""
+        run_cmd(inherit_app, "root --verbose show")
+        assert isinstance(inherit_app.received, _SharedOpts)
+        assert inherit_app.received.verbose is True
+
+    def test_inherited_block_fields_not_re_added_to_subparser(self, inherit_app) -> None:
+        """The inherited block adds no arguments to the subparser; its flags live only on the parent."""
+        _out, err = run_cmd(inherit_app, "root show --verbose")
+        assert any("unrecognized arguments" in line for line in err), err
+
+    def test_grandparent_declares_leaf_inherits(self) -> None:
+        """A leaf subcommand inherits a block its grandparent declared (an intermediate level in between)."""
+
+        class App(cmd2.Cmd):
+            @with_annotated(base_command=True)
+            def do_root(self, cmd2_subcommand_func, cmd2_base_args: _SharedOpts) -> None:
+                if cmd2_subcommand_func:
+                    cmd2_subcommand_func()
+
+            @with_annotated(subcommand_to="root", base_command=True)
+            def root_show(self, cmd2_subcommand_func) -> None:
+                if cmd2_subcommand_func:
+                    cmd2_subcommand_func()
+
+            @with_annotated(subcommand_to="root show")
+            def root_show_detail(self, cmd2_parent_args: _SharedOpts) -> None:
+                self.poutput(f"verbose={cmd2_parent_args.verbose}")
+
+        app = App()
+        app.stdout = cmd2.utils.StdSim(app.stdout)
+        assert run_cmd(app, "root --verbose show detail")[0] == ["verbose=True"]
+
+    def test_intermediate_declares_leaf_inherits(self) -> None:
+        """An intermediate command declares the block and a deeper subcommand inherits it.
+
+        The intermediate command's handler never runs in the dispatch chain (only the entry base command
+        and the leaf do), so the marker must come from the *parser* at parse time, not a running handler.
+        """
+
+        class App(cmd2.Cmd):
+            @with_annotated(base_command=True)
+            def do_root(self, cmd2_subcommand_func) -> None:
+                if cmd2_subcommand_func:
+                    cmd2_subcommand_func()
+
+            @with_annotated(subcommand_to="root", base_command=True)
+            def root_show(self, cmd2_subcommand_func, cmd2_base_args: _SharedOpts) -> None:
+                if cmd2_subcommand_func:
+                    cmd2_subcommand_func()
+
+            @with_annotated(subcommand_to="root show")
+            def root_show_detail(self, cmd2_parent_args: _SharedOpts) -> None:
+                self.poutput(f"verbose={cmd2_parent_args.verbose}")
+
+        app = App()
+        app.stdout = cmd2.utils.StdSim(app.stdout)
+        assert run_cmd(app, "root show --verbose detail")[0] == ["verbose=True"]
+
+    def test_inherited_field_colliding_with_own_arg_rejected(self) -> None:
+        """An inherited field that also names the subcommand's own argument is rejected at build time."""
+
+        def root_show(self, verbose: str, cmd2_parent_args: _SharedOpts) -> None: ...
+
+        with pytest.raises(TypeError, match="inherited ArgumentBlock field"):
+            build_parser_from_function(root_show)
+
+    def test_parent_args_must_be_bare_block(self) -> None:
+        """``cmd2_parent_args`` must be annotated with a bare ArgumentBlock subclass."""
+
+        def root_show(self, cmd2_parent_args: int) -> None: ...
+
+        with pytest.raises(TypeError, match="must be annotated with a bare ArgumentBlock"):
+            build_parser_from_function(root_show)
+
+    def test_parent_args_default_rejected(self) -> None:
+        """An inherited block always comes from the parent, so a default on it is rejected."""
+
+        def root_show(self, cmd2_parent_args: _SharedOpts = _SharedOpts()) -> None: ...  # noqa: B008
+
+        with pytest.raises(TypeError, match="cannot have a default value"):
+            build_parser_from_function(root_show)
+
+    def test_base_args_must_be_block(self) -> None:
+        """``cmd2_base_args`` must be annotated with a bare ArgumentBlock subclass."""
+
+        def do_root(self, cmd2_base_args: int) -> None: ...
+
+        with pytest.raises(TypeError, match="must be annotated with a bare ArgumentBlock"):
+            build_parser_from_function(do_root)
+
+    def test_missing_parent_declaration_errors_at_runtime(self) -> None:
+        """A cmd2_parent_args subcommand whose ancestors never declare cmd2_base_args errors when first run.
+
+        Registration succeeds (the misconfiguration is detectable only once the shared namespace exists), so
+        the app constructs cleanly and the clear error surfaces on first invocation of the subcommand.
+        """
+
+        class App(cmd2.Cmd):
+            @with_annotated(base_command=True)
+            def do_root(self, cmd2_subcommand_func) -> None:  # parent does NOT declare cmd2_base_args
+                if cmd2_subcommand_func:
+                    cmd2_subcommand_func()
+
+            @with_annotated(subcommand_to="root")
+            def root_show(self, cmd2_parent_args: _SharedOpts) -> None: ...
+
+        app = App()  # construction must NOT raise
+        app.stdout = cmd2.utils.StdSim(app.stdout)
+        _out, err = run_cmd(app, "root show")
+        assert any("no ancestor command declares" in line for line in err), err
+
+    def test_type_mismatch_errors_at_runtime(self) -> None:
+        """A cmd2_parent_args whose type no ancestor declared as cmd2_base_args errors when first run."""
+
+        @dataclass
+        class _OtherOpts(ArgumentBlock):
+            level: Annotated[int, Option("--level")] = 0
+
+        class App(cmd2.Cmd):
+            @with_annotated(base_command=True)
+            def do_root(self, cmd2_subcommand_func, cmd2_base_args: _SharedOpts) -> None:
+                if cmd2_subcommand_func:
+                    cmd2_subcommand_func()
+
+            @with_annotated(subcommand_to="root")
+            def root_show(self, cmd2_parent_args: _OtherOpts) -> None: ...
+
+        app = App()
+        app.stdout = cmd2.utils.StdSim(app.stdout)
+        _out, err = run_cmd(app, "root show")
+        assert any("no ancestor command declares" in line for line in err), err
+
+    def test_directly_supplied_inherited_block_skips_reconstruction_and_check(self) -> None:
+        """A block already supplied (a direct call passing the instance) is used as-is.
+
+        Reconstruction is skipped, and for an inherited block so is the ancestor-presence check -- the
+        caller provided the instance, so there is nothing to reconstruct or verify.
+        """
+        spec = _BlockSpec(_SharedOpts, ["verbose", "level"], inherited=True)
+        provided = _SharedOpts(verbose=True, level=9)
+        func_kwargs = {"cmd2_parent_args": provided}
+        # An empty namespace carries no presence marker; the directly-supplied instance must bypass it.
+        _reconstruct_dataclass_blocks(func_kwargs, {"cmd2_parent_args": spec}, argparse.Namespace())
+        assert func_kwargs["cmd2_parent_args"] is provided
+
+    def test_directly_supplied_block_pops_stray_field_values(self) -> None:
+        """A directly-supplied instance wins, and parsed field values are dropped (not stranded as stray kwargs).
+
+        A programmatic call may pass the block instance while the command line also parsed some of its fields
+        into the namespace.  Those expanded field names are not parameters of the command function, so they must
+        be popped even though reconstruction is skipped -- otherwise the call fails with an unexpected keyword.
+        """
+        spec = _BlockSpec(_SharedOpts, ["verbose", "level"], inherited=False)
+        provided = _SharedOpts(verbose=True, level=9)
+        # 'verbose' was parsed from the command line; 'cmd2_parent_args'/'common' supplied directly.
+        func_kwargs = {"common": provided, "verbose": False, "target": "app"}
+        _reconstruct_dataclass_blocks(func_kwargs, {"common": spec}, argparse.Namespace())
+        assert func_kwargs["common"] is provided
+        assert "verbose" not in func_kwargs  # the stray parsed field value was dropped
+        assert func_kwargs["target"] == "app"  # an unrelated command parameter is untouched
+
+    def test_directly_supplied_block_via_command_does_not_strand_fields(self) -> None:
+        """End-to-end: passing a block instance to a decorated command while the line parses a field succeeds."""
+
+        class App(cmd2.Cmd):
+            @with_annotated
+            def do_build(self, target: str, common: _CommonArgs) -> None:
+                self.poutput(f"target={target} verbose={common.verbose}")
+
+        app = App()
+        app.stdout = cmd2.utils.StdSim(app.stdout)
+        # The directly-supplied instance is used; the parsed --verbose does not crash the call as a stray kwarg.
+        app.do_build("app --verbose", common=_CommonArgs(verbose=False))
+        assert app.stdout.getvalue().splitlines() == ["target=app verbose=False"]
+
+
+# ---------------------------------------------------------------------------
+# A base command and its subcommands share one parsed namespace.  Each shared
+# (cmd2_base_args/cmd2_parent_args) block field parses into a type-qualified
+# dest, so two blocks of different types that happen to share a field name never
+# collide on one attribute -- an inherited block always sees its own type's
+# value rather than whatever a different block at another chain level wrote.
+# ---------------------------------------------------------------------------
+
+
+@dataclass
+class _ChainBaseA(ArgumentBlock):
+    level: Annotated[int, Option("--level")] = 1
+    only_a: Annotated[str, Option("--only-a")] = "a"
+
+
+@dataclass
+class _ChainBaseBSameName(ArgumentBlock):
+    level: Annotated[int, Option("--level")] = 2  # same field name as _ChainBaseA, different type
+
+
+@dataclass
+class _ChainBaseBDistinct(ArgumentBlock):
+    region: Annotated[str, Option("--region")] = "us"  # distinct field name
+
+
+class TestBaseArgsChainNamespacing:
+    def test_same_field_name_in_different_block_types_is_isolated(self) -> None:
+        """Two base_args blocks of different types sharing a field name do not collide: the leaf inheriting
+        _ChainBaseA sees root's value, not the _ChainBaseBSameName value parsed at the intervening level."""
+
+        class App(cmd2.Cmd):
+            @with_annotated(base_command=True)
+            def do_root(self, cmd2_subcommand_func, cmd2_base_args: _ChainBaseA) -> None:
+                if cmd2_subcommand_func:
+                    cmd2_subcommand_func()
+
+            @with_annotated(subcommand_to="root", base_command=True)
+            def root_mid(self, cmd2_subcommand_func, cmd2_base_args: _ChainBaseBSameName) -> None:
+                if cmd2_subcommand_func:
+                    cmd2_subcommand_func()
+
+            @with_annotated(subcommand_to="root mid")
+            def root_mid_leaf(self, cmd2_parent_args: _ChainBaseA) -> None:
+                self.poutput(f"level={cmd2_parent_args.level} only_a={cmd2_parent_args.only_a}")
+
+        app = App()
+        app.stdout = cmd2.utils.StdSim(app.stdout)
+        out, _err = run_cmd(app, "root --level 5 mid --level 9 leaf")
+        assert out == ["level=5 only_a=a"]  # root's BaseA.level, not mid's BaseB.level=9
+
+    def test_distinct_fields_across_base_args_levels(self) -> None:
+        """Distinct field names across levels also reach the inherited block with the right value."""
+
+        class App(cmd2.Cmd):
+            @with_annotated(base_command=True)
+            def do_root(self, cmd2_subcommand_func, cmd2_base_args: _ChainBaseA) -> None:
+                if cmd2_subcommand_func:
+                    cmd2_subcommand_func()
+
+            @with_annotated(subcommand_to="root", base_command=True)
+            def root_mid(self, cmd2_subcommand_func, cmd2_base_args: _ChainBaseBDistinct) -> None:
+                if cmd2_subcommand_func:
+                    cmd2_subcommand_func()
+
+            @with_annotated(subcommand_to="root mid")
+            def root_mid_leaf(self, cmd2_parent_args: _ChainBaseA) -> None:
+                self.poutput(f"level={cmd2_parent_args.level} only_a={cmd2_parent_args.only_a}")
+
+        app = App()
+        app.stdout = cmd2.utils.StdSim(app.stdout)
+        out, _err = run_cmd(app, "root --level 5 mid --region eu leaf")
+        assert out == ["level=5 only_a=a"]
+
+    def test_same_base_args_type_at_two_levels_nearest_wins(self) -> None:
+        """Reusing the *same* block type at two levels shares one (type-qualified) dest, so the nearest
+        level that sets the flag wins -- a well-defined override, not a cross-type corruption."""
+
+        class App(cmd2.Cmd):
+            @with_annotated(base_command=True)
+            def do_root(self, cmd2_subcommand_func, cmd2_base_args: _ChainBaseA) -> None:
+                if cmd2_subcommand_func:
+                    cmd2_subcommand_func()
+
+            @with_annotated(subcommand_to="root", base_command=True)
+            def root_mid(self, cmd2_subcommand_func, cmd2_base_args: _ChainBaseA) -> None:
+                if cmd2_subcommand_func:
+                    cmd2_subcommand_func()
+
+            @with_annotated(subcommand_to="root mid")
+            def root_mid_leaf(self, cmd2_parent_args: _ChainBaseA) -> None:
+                self.poutput(f"level={cmd2_parent_args.level}")
+
+        app = App()
+        app.stdout = cmd2.utils.StdSim(app.stdout)
+        assert run_cmd(app, "root --level 5 mid --level 9 leaf")[0] == ["level=9"]  # nearest (mid) wins
+        assert run_cmd(app, "root --level 5 mid leaf")[0] == ["level=5"]  # absent mid does not overwrite
+
+    def test_positional_shared_field_keeps_clean_metavar(self) -> None:
+        """A positional field in a shared block parses into a type-qualified dest (so it can't collide
+        across a chain), but its help metavar stays the field name -- the qualified dest never leaks."""
+
+        @dataclass
+        class Base(ArgumentBlock):
+            target: Annotated[str, Argument()]  # positional
+            level: Annotated[int, Option("--level")] = 1
+
+        def do_x(self, cmd2_base_args: Base) -> None: ...
+
+        parser = build_parser_from_function(do_x)
+        positional = next(a for a in parser._actions if not a.option_strings and a.dest != "help")
+        assert positional.metavar == "target"  # field name shown in help, not the internal dest
+        assert positional.dest != "target"  # but the dest is type-qualified to avoid chain collisions
+
+
+# ---------------------------------------------------------------------------
+# Field-type matrix through a block.  The conversion / collection-casting /
+# action paths are tested at the top-level-parameter level elsewhere; these
+# confirm they also work through a block field's expansion + reconstruction.
+# ---------------------------------------------------------------------------
+
+
+@dataclass
+class _MultiBlockA(ArgumentBlock):
+    a: Annotated[int, Option("--a")] = 0
+
+
+@dataclass
+class _MultiBlockB(ArgumentBlock):
+    b: Annotated[int, Option("--b")] = 0
+
+
+@dataclass
+class _SetBlock(ArgumentBlock):
+    val: Annotated[set[str], Option("--val", nargs="*")] = field(default_factory=set)
+
+
+@dataclass
+class _FrozensetBlock(ArgumentBlock):
+    val: Annotated[frozenset[str], Option("--val", nargs="*")] = field(default_factory=frozenset)
+
+
+@dataclass
+class _TupleBlock(ArgumentBlock):
+    val: Annotated[tuple[int, int], Option("--val")] = (0, 0)  # fixed arity inferred from the tuple
+
+
+@dataclass
+class _TupleNargsBlock(ArgumentBlock):
+    val: Annotated[tuple[int, int], Option("--val", nargs=2)] = (0, 0)  # explicit nargs honored
+
+
+class _BlockColor(enum.Enum):
+    RED = "red"
+    GREEN = "green"
+
+
+@dataclass
+class _EnumBlock(ArgumentBlock):
+    mode: _BlockColor = _BlockColor.RED
+
+
+@dataclass
+class _LiteralBlock(ArgumentBlock):
+    mode: Annotated[Literal["fast", "slow"], Option("--mode")] = "fast"
+
+
+class TestDataclassBlockFieldTypes:
+    def test_multiple_blocks_in_one_command(self) -> None:
+        """Two distinct blocks in one signature each reconstruct from their own fields without cross-talk."""
+
+        class App(cmd2.Cmd):
+            @with_annotated
+            def do_x(self, first: _MultiBlockA, second: _MultiBlockB) -> None:
+                self.poutput(f"a={first.a} b={second.b} types={type(first).__name__},{type(second).__name__}")
+
+        app = App()
+        app.stdout = cmd2.utils.StdSim(app.stdout)
+        assert run_cmd(app, "x --a 1 --b 2")[0] == ["a=1 b=2 types=_MultiBlockA,_MultiBlockB"]
+
+    @pytest.mark.parametrize(
+        ("blk_cls", "cli", "expected", "expected_type"),
+        [
+            (_SetBlock, "x --val a b a", {"a", "b"}, set),
+            (_FrozensetBlock, "x --val a b", frozenset({"a", "b"}), frozenset),
+            (_TupleBlock, "x --val 3 4", (3, 4), tuple),
+            (_TupleNargsBlock, "x --val 7 8", (7, 8), tuple),
+        ],
+        ids=["set", "frozenset", "tuple", "tuple-nargs"],
+    )
+    def test_collection_block_field_reconstructs(self, blk_cls, cli, expected, expected_type) -> None:
+        """A collection block field goes through the casting action and rebuilds as the declared container."""
+        captured: dict[str, object] = {}
+
+        class App(cmd2.Cmd):
+            @with_annotated
+            def do_x(self, blk: blk_cls) -> None:
+                captured["val"] = blk.val
+
+        app = App()
+        app.stdout = cmd2.utils.StdSim(app.stdout)
+        run_cmd(app, cli)
+        assert captured["val"] == expected
+        assert type(captured["val"]) is expected_type
+
+    @pytest.mark.parametrize(
+        ("blk_cls", "cli", "expected"),
+        [
+            (_EnumBlock, "x --mode green", _BlockColor.GREEN),
+            (_LiteralBlock, "x --mode slow", "slow"),
+        ],
+        ids=["enum", "literal"],
+    )
+    def test_choice_block_field_reconstructs(self, blk_cls, cli, expected) -> None:
+        """An Enum/Literal block field converts the token (to the member, not the raw string) before reconstruction."""
+        captured: dict[str, object] = {}
+
+        class App(cmd2.Cmd):
+            @with_annotated
+            def do_x(self, blk: blk_cls) -> None:
+                captured["mode"] = blk.mode
+
+        app = App()
+        app.stdout = cmd2.utils.StdSim(app.stdout)
+        run_cmd(app, cli)
+        assert captured["mode"] == expected  # for the enum, == holds only against the member, proving conversion
+
+    def test_store_const_block_field_with_dataclass_default(self) -> None:
+        """A store_const block field with a dataclass default: the field default emits SUPPRESS so the
+        constructor supplies it when the flag is absent, and the const when present."""
+
+        @dataclass
+        class Blk(ArgumentBlock):
+            level: Annotated[int, Option("--hi", action="store_const", const=10)] = 1
+
+        class App(cmd2.Cmd):
+            @with_annotated
+            def do_x(self, blk: Blk) -> None:
+                self.poutput(f"level={blk.level}")
+
+        app = App()
+        app.stdout = cmd2.utils.StdSim(app.stdout)
+        assert run_cmd(app, "x")[0] == ["level=1"]  # absent -> dataclass default, not the const
+        assert run_cmd(app, "x --hi")[0] == ["level=10"]  # present -> the const
+
+    def test_converter_on_block_field(self) -> None:
+        """A user converter= on a block field runs during parsing and feeds the reconstructed instance."""
+
+        @dataclass
+        class Blk(ArgumentBlock):
+            count: Annotated[int, Option("--count", converter=lambda s: int(s) * 2)] = 0
+
+        class App(cmd2.Cmd):
+            @with_annotated
+            def do_x(self, blk: Blk) -> None:
+                self.poutput(f"count={blk.count}")
+
+        app = App()
+        app.stdout = cmd2.utils.StdSim(app.stdout)
+        assert run_cmd(app, "x --count 5")[0] == ["count=10"]
+
+    def test_optional_bool_block_field_defaults_to_none(self) -> None:
+        """A bool | None block field (Optional flag) reconstructs to None when absent and True when given."""
+
+        @dataclass
+        class Blk(ArgumentBlock):
+            flag: Annotated[bool | None, Option("--flag")] = None
+
+        captured: dict[str, object] = {}
+
+        class App(cmd2.Cmd):
+            @with_annotated
+            def do_x(self, blk: Blk) -> None:
+                captured["flag"] = blk.flag
+
+        app = App()
+        app.stdout = cmd2.utils.StdSim(app.stdout)
+        run_cmd(app, "x")
+        assert captured["flag"] is None
+        run_cmd(app, "x --flag")
+        assert captured["flag"] is True
+
+    def test_classvar_field_is_not_expanded(self) -> None:
+        """A ClassVar is not a dataclass field, so it produces no argument and does not break reconstruction."""
+
+        @dataclass
+        class Blk(ArgumentBlock):
+            name: Annotated[str, Option("--name")] = "n"
+            kind: ClassVar[str] = "fixed"
+
+        class App(cmd2.Cmd):
+            @with_annotated
+            def do_x(self, blk: Blk) -> None:
+                self.poutput(f"name={blk.name} kind={blk.kind}")
+
+        parser = build_parser_from_function(App.do_x)
+        assert {a.dest for a in parser._actions if a.dest != "help"} == {"name"}
+        app = App()
+        app.stdout = cmd2.utils.StdSim(app.stdout)
+        assert run_cmd(app, "x --name bob")[0] == ["name=bob kind=fixed"]
+
+
+@dataclass
+class _VarBlock(ArgumentBlock):
+    x: Annotated[int, Option("--x")] = 0
+
+
+def _block_var_positional(self, *args: _VarBlock) -> None: ...
+
+
+def _block_var_keyword(self, **kwargs: _VarBlock) -> None: ...
+
+
+@dataclass
+class _ReservedCmd2Block(ArgumentBlock):
+    cmd2_subcommand_func: Annotated[str, Option("--x")] = "z"
+
+
+@dataclass
+class _ReservedArgparseBlock(ArgumentBlock):
+    dest: Annotated[str, Option("--d")] = "z"
+
+
+class TestDataclassBlockValidationExtra:
+    """Rejection branches that were reachable but previously untested."""
+
+    @pytest.mark.parametrize("func", [_block_var_positional, _block_var_keyword], ids=["var_positional", "var_keyword"])
+    def test_block_in_variadic_position_rejected(self, func) -> None:
+        """An ArgumentBlock used as *args / **kwargs is a wrapped position, not a bare block parameter."""
+        with pytest.raises(TypeError, match="wrapped position"):
+            build_parser_from_function(func)
+
+    def test_count_block_field_without_dataclass_default_rejected(self) -> None:
+        """A count block field has an action default (0) but no dataclass default, so it bypasses the
+        dataclass as the single source of truth -- the rule fires for a scalar action default too."""
+
+        @dataclass
+        class Blk(ArgumentBlock):
+            verbosity: Annotated[int, Option("--v", action="count")]  # no dataclass default
+
+        def do_x(self, blk: Blk) -> None: ...
+
+        with pytest.raises(TypeError, match=r"field 'verbosity'.*must live on the dataclass field"):
+            build_parser_from_function(do_x)
+
+    @pytest.mark.parametrize(
+        ("blk_cls", "exc", "match"),
+        [
+            (_ReservedCmd2Block, TypeError, "reserved cmd2 namespace attribute"),
+            (_ReservedArgparseBlock, ValueError, "reserved by argparse"),
+        ],
+        ids=["cmd2_namespace", "argparse"],
+    )
+    def test_reserved_block_field_name_rejected(self, blk_cls, exc, match) -> None:
+        """A block field whose name is reserved (by cmd2's namespace or by argparse) is rejected."""
+
+        def do_x(self, blk: blk_cls) -> None: ...
+
+        with pytest.raises(exc, match=match):
+            build_parser_from_function(do_x)
+
+
+def _optional_base_args(self, cmd2_base_args: _SharedOpts | None) -> None: ...
+
+
+def _optional_parent_args(self, cmd2_parent_args: _SharedOpts | None) -> None: ...
+
+
+class TestSharedBlockEdgeCases:
+    """Edge cases of the cmd2_base_args / cmd2_parent_args shared-block machinery."""
+
+    @pytest.mark.parametrize("func", [_optional_base_args, _optional_parent_args], ids=["base_args", "parent_args"])
+    def test_optional_magic_block_param_rejected(self, func) -> None:
+        """A magic param (cmd2_base_args/cmd2_parent_args) wrapped in Optional is not a bare block."""
+        with pytest.raises(TypeError, match="must be annotated with a bare ArgumentBlock"):
+            build_parser_from_function(func)
+
+    def test_subclass_parent_args_against_superclass_base_args_errors(self) -> None:
+        """Sharing is keyed by exact type: a cmd2_parent_args typed as a subclass of the ancestor's
+        cmd2_base_args is a different type, so it errors at runtime like any unmatched inherited block."""
+
+        @dataclass
+        class _Base(ArgumentBlock):
+            level: Annotated[int, Option("--level")] = 0
+
+        @dataclass
+        class _Sub(_Base):
+            extra: Annotated[int, Option("--extra")] = 0
+
+        class App(cmd2.Cmd):
+            @with_annotated(base_command=True)
+            def do_root(self, cmd2_subcommand_func, cmd2_base_args: _Base) -> None:
+                if cmd2_subcommand_func:
+                    cmd2_subcommand_func()
+
+            @with_annotated(subcommand_to="root")
+            def root_show(self, cmd2_parent_args: _Sub) -> None: ...
+
+        app = App()
+        app.stdout = cmd2.utils.StdSim(app.stdout)
+        _out, err = run_cmd(app, "root show")
+        assert any("no ancestor command declares" in line for line in err), err
+
+    def test_base_command_reconstructs_its_own_base_args(self) -> None:
+        """The declaring base command reconstructs its OWN cmd2_base_args block (shared, not inherited)."""
+
+        captured: dict[str, object] = {}
+
+        class App(cmd2.Cmd):
+            @with_annotated(base_command=True)
+            def do_root(self, cmd2_subcommand_func, cmd2_base_args: _SharedOpts) -> None:
+                captured["block"] = cmd2_base_args
+                if cmd2_subcommand_func:
+                    cmd2_subcommand_func()
+
+            @with_annotated(subcommand_to="root")
+            def root_show(self, cmd2_parent_args: _SharedOpts) -> None:
+                self.poutput("ran")
+
+        app = App()
+        app.stdout = cmd2.utils.StdSim(app.stdout)
+        run_cmd(app, "root --verbose --level 7 show")
+        assert isinstance(captured["block"], _SharedOpts)
+        assert captured["block"].verbose is True
+        assert captured["block"].level == 7
+
+    def test_same_base_args_type_in_two_independent_trees_no_leak(self) -> None:
+        """The same block type used by two unrelated base commands does not leak across them: each command
+        parses its own namespace, so the shared (type-qualified) dest is isolated per command."""
+
+        class App(cmd2.Cmd):
+            @with_annotated(base_command=True)
+            def do_root1(self, cmd2_subcommand_func, cmd2_base_args: _SharedOpts) -> None:
+                if cmd2_subcommand_func:
+                    cmd2_subcommand_func()
+
+            @with_annotated(subcommand_to="root1")
+            def root1_show(self, cmd2_parent_args: _SharedOpts) -> None:
+                self.poutput(f"root1 level={cmd2_parent_args.level}")
+
+            @with_annotated(base_command=True)
+            def do_root2(self, cmd2_subcommand_func, cmd2_base_args: _SharedOpts) -> None:
+                if cmd2_subcommand_func:
+                    cmd2_subcommand_func()
+
+            @with_annotated(subcommand_to="root2")
+            def root2_show(self, cmd2_parent_args: _SharedOpts) -> None:
+                self.poutput(f"root2 level={cmd2_parent_args.level}")
+
+        app = App()
+        app.stdout = cmd2.utils.StdSim(app.stdout)
+        assert run_cmd(app, "root1 --level 3 show")[0] == ["root1 level=3"]
+        assert run_cmd(app, "root2 --level 8 show")[0] == ["root2 level=8"]
+
+    def test_flat_field_kwarg_on_shared_block_is_not_supported(self) -> None:
+        """A shared block's fields use a type-qualified dest, so a programmatic flat-field kwarg by bare name
+        is not folded into the block (pass the block instance instead). Pins the shared-vs-regular asymmetry."""
+
+        class App(cmd2.Cmd):
+            @with_annotated(base_command=True)
+            def do_root(self, cmd2_subcommand_func, cmd2_base_args: _SharedOpts) -> None:
+                if cmd2_subcommand_func:
+                    cmd2_subcommand_func()
+
+            @with_annotated(subcommand_to="root")
+            def root_show(self, cmd2_parent_args: _SharedOpts) -> None: ...
+
+        app = App()
+        app.stdout = cmd2.utils.StdSim(app.stdout)
+        with pytest.raises(TypeError, match="unexpected keyword argument"):
+            app.do_root("show", level=5)

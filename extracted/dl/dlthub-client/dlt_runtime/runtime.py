@@ -24,18 +24,28 @@ from dlt_runtime.version import __version__
 
 from dlt_runtime.exceptions import (
     ApiKeyInvalid,
+    OrgRegionRequired,
     RuntimeNotAuthenticated,
     RuntimeOperationNotAuthorized,
     exception_from_response,
     handle_client_exceptions,
 )
-from dlt_runtime.runtime_clients.api.api.me import complete_onboarding, me
+from dlt_runtime.runtime_clients.api.api.me import me
+from dlt_runtime.runtime_clients.api.api.organizations import set_organization_region
 from dlt_runtime.runtime_clients.api.api.workspaces import create_workspace
 from dlt_runtime.runtime_clients.api.client import Client as ApiClient
+from dlt_runtime.runtime_clients.api.models.create_workspace_response_409 import (
+    CreateWorkspaceResponse409,
+)
 from dlt_runtime.runtime_clients.api.models.me_response import MeResponse
-from dlt_runtime.runtime_clients.api.models.onboarding_request import OnboardingRequest
 from dlt_runtime.runtime_clients.api.models.organization_membership_response import (
     OrganizationMembershipResponse,
+)
+from dlt_runtime.runtime_clients.api.models.organization_response import (
+    OrganizationResponse,
+)
+from dlt_runtime.runtime_clients.api.models.set_organization_region_request import (
+    SetOrganizationRegionRequest,
 )
 from dlt_runtime.runtime_clients.api.models.workspace_create_request import (
     WorkspaceCreateRequest,
@@ -80,7 +90,7 @@ class RuntimeAuthService:
     Implements login, logout and auth check internals
 
     Authentication is performed based on the JWT token stored in the global secrets. On top of that,
-    authorization uses organisation and workspace id stored in the local config. For that, depending on the usage,
+    authorization uses organization and workspace id stored in the local config. For that, depending on the usage,
     either workspace run context or base run context is required.
     """
 
@@ -291,7 +301,7 @@ class RuntimeAuthService:
         return self.auth_info
 
     def fetch_user_info(self) -> UserInfo:
-        """Fetch user info from /me; on 412, silently bootstrap via /me/onboarding."""
+        """Fetch user info from /me, which self-bootstraps the caller's org on first call."""
         error_message = "Failed to get your user info from the dltHub API. Run 'dlthub login' or update your API key"
         client = get_api_client(self)
         with handle_client_exceptions(error_message):
@@ -299,24 +309,6 @@ class RuntimeAuthService:
 
         if isinstance(me_response.parsed, MeResponse):
             return self._me_response_to_user_info(me_response.parsed)
-
-        if me_response.status_code == 412:
-            with handle_client_exceptions(error_message):
-                onboarding_response = complete_onboarding.sync_detailed(
-                    client=client,
-                    body=OnboardingRequest(workspace_name="My First Workspace"),
-                )
-            if isinstance(onboarding_response.parsed, MeResponse):
-                return self._me_response_to_user_info(onboarding_response.parsed)
-            # 409: a concurrent caller (other CLI/web/test worker) onboarded
-            # the same user between our /me and our /me/onboarding. Re-fetch.
-            if onboarding_response.status_code == 409:
-                with handle_client_exceptions(error_message):
-                    me_retry = me.sync_detailed(client=client)
-                if isinstance(me_retry.parsed, MeResponse):
-                    return self._me_response_to_user_info(me_retry.parsed)
-                raise exception_from_response(error_message, me_retry)
-            raise exception_from_response(error_message, onboarding_response)
 
         raise exception_from_response(error_message, me_response)
 
@@ -431,8 +423,20 @@ class RuntimeAuthService:
             )
         if isinstance(create_result.parsed, WorkspaceResponse):
             return str(create_result.parsed.id)
-        else:
-            raise exception_from_response("Failed to create workspace", create_result)
+        if isinstance(create_result.parsed, CreateWorkspaceResponse409):
+            raise OrgRegionRequired()
+        raise exception_from_response("Failed to create workspace", create_result)
+
+    def set_organization_region(self, organization_id: str, dataplane_id: str) -> None:
+        """Set the org's region (set-once). Raises on failure (e.g. already set)."""
+        with handle_client_exceptions("Failed to set organization region"):
+            result = set_organization_region.sync_detailed(
+                organization_id=UUID(organization_id),
+                client=get_api_client(self),
+                body=SetOrganizationRegionRequest(dataplane_id=dataplane_id),
+            )
+        if not isinstance(result.parsed, OrganizationResponse):
+            raise exception_from_response("Failed to set organization region", result)
 
     def _delete_token(self) -> None:
         # delete from global secrets directly, because in other cases config deletion is not supported

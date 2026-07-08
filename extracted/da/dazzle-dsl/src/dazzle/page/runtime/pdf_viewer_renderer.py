@@ -59,8 +59,9 @@ def render_pdf_viewer_component(
 ) -> str:
     """Port of `components/pdf_viewer.html`.
 
-    Returns the full `<div class="dz-pdf-viewer">…</div>` chrome with
-    embed, panels, footer and help dialog.
+    Returns the full `<div class="dz-pdf-viewer">…</div>` page chrome
+    (back/title/sibling nav, panels, footer, help dialog) around the HM
+    `pdf` Hyperpart document region (hx-pdf P3 — was a native <embed>).
     """
     title_or_default = title or "Document"
 
@@ -115,9 +116,39 @@ def render_pdf_viewer_component(
     else:
         _panels = []
 
+    # hx-pdf P3: the document region is the HM pdf Hyperpart — dz-pdf.js
+    # renders via the VENDORED PDF.js (no browser-plugin <embed>). The
+    # storage-proxy src passes through verbatim; the page chrome around
+    # it (back/title/sibling nav/panels/footer) stays Dazzle-owned.
     embed = (
-        f'<embed src="{_esc(src, quote=True)}" type="application/pdf" '
-        f'class="dz-pdf-viewer-embed" aria-label="{_esc(title_or_default, quote=True)} PDF" />'
+        f'<section class="dz-pdf dz-pdf-viewer-embed" data-dz-pdf '
+        f'data-dz-pdf-src="{_esc(src, quote=True)}" '
+        f'data-dz-pdf-lib="/static/vendor/pdfjs/pdf.min.mjs" '
+        f'data-dz-pdf-worker="/static/vendor/pdfjs/pdf.worker.min.mjs" '
+        f'aria-label="{_esc(title_or_default, quote=True)} PDF">'
+        '<header class="dz-pdf-toolbar" data-dz-pdf-toolbar>'
+        '<button type="button" class="dz-button" data-dz-size="sm" '
+        'data-dz-variant="outline" data-dz-pdf-prev>Previous</button>'
+        "<label>Page "
+        '<input class="dz-pdf-page-input" data-dz-pdf-page value="1" '
+        'inputmode="numeric" aria-label="Page number">'
+        "</label>"
+        '<span class="dz-pdf-page-count" data-dz-pdf-page-count></span>'
+        '<button type="button" class="dz-button" data-dz-size="sm" '
+        'data-dz-variant="outline" data-dz-pdf-next>Next</button>'
+        '<span class="dz-pdf-toolbar-spacer"></span>'
+        '<button type="button" class="dz-button" data-dz-size="sm" '
+        'data-dz-variant="outline" data-dz-pdf-zoom-out aria-label="Zoom out">−</button>'
+        '<button type="button" class="dz-button" data-dz-size="sm" '
+        'data-dz-variant="outline" data-dz-pdf-zoom-in aria-label="Zoom in">+</button>'
+        '<button type="button" class="dz-button" data-dz-size="sm" '
+        'data-dz-variant="outline" data-dz-pdf-fit-width>Fit width</button>'
+        "</header>"
+        '<div class="dz-pdf-status" data-dz-pdf-status aria-live="polite"></div>'
+        '<div class="dz-pdf-stage" data-dz-pdf-viewer tabindex="0">'
+        f'<noscript><a href="{_esc(src, quote=True)}">Download PDF</a></noscript>'
+        "</div>"
+        "</section>"
     )
 
     panel_blocks: list[str] = []
@@ -164,6 +195,15 @@ def render_pdf_viewer_component(
                     '<span class="dz-pdf-viewer-kbd-label">Next</span>',
                 ]
             )
+        # #1552: bare arrows page the embedded document (the HM pdf
+        # Hyperpart's toolbar), a different axis from j/k documents.
+        legend.extend(
+            [
+                '<span class="dz-pdf-viewer-kbd-sep">·</span>',
+                '<kbd class="dz-pdf-viewer-kbd">&larr;&nbsp;&rarr;</kbd>',
+                '<span class="dz-pdf-viewer-kbd-label">Page</span>',
+            ]
+        )
         for panel in _panels:
             p_key = _esc(panel.get("key", ""))
             p_label = _esc(panel.get("label", ""))
@@ -198,10 +238,12 @@ def render_pdf_viewer_component(
     if prev_url or next_url:
         help_rows.append(
             '<div class="dz-pdf-viewer-help-row">'
-            "<dt><kbd>j</kbd> / <kbd>&larr;</kbd></dt><dd>Previous</dd></div>"
-            '<div class="dz-pdf-viewer-help-row">'
-            "<dt><kbd>k</kbd> / <kbd>&rarr;</kbd></dt><dd>Next</dd></div>"
+            "<dt><kbd>j</kbd> / <kbd>k</kbd></dt><dd>Previous / next document</dd></div>"
         )
+    help_rows.append(
+        '<div class="dz-pdf-viewer-help-row">'
+        "<dt><kbd>&larr;</kbd> / <kbd>&rarr;</kbd></dt><dd>Previous / next page</dd></div>"
+    )
     for panel in _panels:
         p_key = _esc(panel.get("key", ""))
         p_label = _esc(panel.get("label", ""))
@@ -244,7 +286,21 @@ def render_pdf_viewer(
     """
     item = detail.item if detail and detail.item else {}
     pdf_key = item.get(pdf_viewer.file_field) if item else None
-    src = f"/api/storage/{pdf_viewer.storage_name}/proxy?key={pdf_key}" if pdf_key else ""
+    if not pdf_key:
+        src = ""
+    elif pdf_viewer.storage_name:
+        src = f"/api/storage/{pdf_viewer.storage_name}/proxy?key={pdf_key}"
+    else:
+        # Plain file field (#162): the scope-gated document range proxy
+        # resolves + gates the file server-side from the record triple —
+        # the stored file URL never reaches the markup.
+        entity_name = detail.entity_name if detail else ""
+        rec_id = item.get("id")
+        src = (
+            f"/_dazzle/documents/{entity_name}/{rec_id}/{pdf_viewer.file_field}/file"
+            if entity_name and rec_id
+            else ""
+        )
     back_url = detail.back_url if detail else "/"
     title = detail.title if detail else "Document"
     return render_pdf_viewer_component(src=src, back_url=back_url, title=title)

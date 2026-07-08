@@ -1814,6 +1814,33 @@ def run(
         )
         return
 
+    if os.environ.get("SAGE_AUTOFLEET_RUN") == "1":
+        task_msg = os.environ.get("SAGE_AUTOFLEET_TASK")
+        _run_autofleet_command(
+            task_msg,
+            cwd=sage_agent.cwd,
+            router=sage_agent.router,
+            model_id=sage_agent.model_id,
+            temp=sage_agent.temp,
+            tokens=sage_agent.tokens,
+            model_locked=sage_agent.model_locked,
+            cfg=cfg,
+        )
+        return
+
+    if os.environ.get("SAGE_AUTOORG_RUN") == "1":
+        task_msg = os.environ.get("SAGE_AUTOORG_TASK")
+        _run_autoorg_command(
+            task_msg,
+            cwd=sage_agent.cwd,
+            router=sage_agent.router,
+            model_id=sage_agent.model_id,
+            temp=sage_agent.temp,
+            tokens=sage_agent.tokens,
+            model_locked=sage_agent.model_locked,
+        )
+        return
+
     # Start the async REPL
     run_repl(sage_agent, _repl_execute)
 
@@ -1959,6 +1986,50 @@ def autopolit(
     os.environ["SAGE_AUTOPOLIT_RUN"] = "1"
     if task:
         os.environ["SAGE_AUTOPOLIT_TASK"] = task
+
+    run(
+        model=model,
+        temperature=temperature,
+        max_tokens=max_tokens,
+    )
+
+@app.command()
+def autofleet(
+    task: Annotated[str | None, typer.Argument(help="Optional focus/message for the autonomous fleet loop")] = None,
+    model: Annotated[str | None, typer.Option("--model", "-m", help="Model ID")] = None,
+    temperature: Annotated[float | None, typer.Option("--temperature", "-t")] = None,
+    max_tokens: Annotated[int | None, typer.Option("--max-tokens")] = None,
+) -> None:
+    """Run an autonomous fleet loop.
+    
+    Decomposes the task into parallel subtasks assigned to different workers.
+    """
+    import os
+    os.environ["SAGE_AUTOFLEET_RUN"] = "1"
+    if task:
+        os.environ["SAGE_AUTOFLEET_TASK"] = task
+
+    run(
+        model=model,
+        temperature=temperature,
+        max_tokens=max_tokens,
+    )
+
+@app.command()
+def autoorg(
+    task: Annotated[str | None, typer.Argument(help="Optional focus/message for the organization loop")] = None,
+    model: Annotated[str | None, typer.Option("--model", "-m", help="Model ID")] = None,
+    temperature: Annotated[float | None, typer.Option("--temperature", "-t")] = None,
+    max_tokens: Annotated[int | None, typer.Option("--max-tokens")] = None,
+) -> None:
+    """Run an autonomous organisation loop.
+    
+    Spawns roles like 'Product', 'Staff Engineer', 'QA', etc., to iterate on the project.
+    """
+    import os
+    os.environ["SAGE_AUTOORG_RUN"] = "1"
+    if task:
+        os.environ["SAGE_AUTOORG_TASK"] = task
 
     run(
         model=model,

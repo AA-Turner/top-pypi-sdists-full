@@ -10,6 +10,8 @@ from abc import (
 from chalk._gen.chalk.server.v1.cloud_components_pb2 import (
     CreateBindingClusterBackgroundPersistenceDeploymentRequest,
     CreateBindingClusterBackgroundPersistenceDeploymentResponse,
+    CreateBindingClusterCloudStorageRequest,
+    CreateBindingClusterCloudStorageResponse,
     CreateBindingClusterContainerRegistryRequest,
     CreateBindingClusterContainerRegistryResponse,
     CreateBindingClusterGatewayRequest,
@@ -18,6 +20,8 @@ from chalk._gen.chalk.server.v1.cloud_components_pb2 import (
     CreateBindingClusterTelemetryDeploymentResponse,
     CreateBindingEnvironmentBackgroundPersistenceDeploymentRequest,
     CreateBindingEnvironmentBackgroundPersistenceDeploymentResponse,
+    CreateBindingEnvironmentCloudStorageRequest,
+    CreateBindingEnvironmentCloudStorageResponse,
     CreateBindingEnvironmentGatewayRequest,
     CreateBindingEnvironmentGatewayResponse,
     CreateBindingPrivateGatewayRequest,
@@ -32,6 +36,8 @@ from chalk._gen.chalk.server.v1.cloud_components_pb2 import (
     CreateCloudComponentVpcResponse,
     DeleteBindingClusterBackgroundPersistenceDeploymentRequest,
     DeleteBindingClusterBackgroundPersistenceDeploymentResponse,
+    DeleteBindingClusterCloudStorageRequest,
+    DeleteBindingClusterCloudStorageResponse,
     DeleteBindingClusterContainerRegistryRequest,
     DeleteBindingClusterContainerRegistryResponse,
     DeleteBindingClusterGatewayRequest,
@@ -40,6 +46,8 @@ from chalk._gen.chalk.server.v1.cloud_components_pb2 import (
     DeleteBindingClusterTelemetryDeploymentResponse,
     DeleteBindingEnvironmentBackgroundPersistenceDeploymentRequest,
     DeleteBindingEnvironmentBackgroundPersistenceDeploymentResponse,
+    DeleteBindingEnvironmentCloudStorageRequest,
+    DeleteBindingEnvironmentCloudStorageResponse,
     DeleteBindingEnvironmentGatewayRequest,
     DeleteBindingEnvironmentGatewayResponse,
     DeleteBindingPrivateGatewayRequest,
@@ -54,6 +62,8 @@ from chalk._gen.chalk.server.v1.cloud_components_pb2 import (
     DeleteCloudComponentVpcResponse,
     GetBindingClusterBackgroundPersistenceDeploymentRequest,
     GetBindingClusterBackgroundPersistenceDeploymentResponse,
+    GetBindingClusterCloudStorageRequest,
+    GetBindingClusterCloudStorageResponse,
     GetBindingClusterContainerRegistryRequest,
     GetBindingClusterContainerRegistryResponse,
     GetBindingClusterGatewayRequest,
@@ -62,6 +72,8 @@ from chalk._gen.chalk.server.v1.cloud_components_pb2 import (
     GetBindingClusterTelemetryDeploymentResponse,
     GetBindingEnvironmentBackgroundPersistenceDeploymentRequest,
     GetBindingEnvironmentBackgroundPersistenceDeploymentResponse,
+    GetBindingEnvironmentCloudStorageRequest,
+    GetBindingEnvironmentCloudStorageResponse,
     GetBindingEnvironmentGatewayRequest,
     GetBindingEnvironmentGatewayResponse,
     GetBindingPrivateGatewayRequest,
@@ -76,6 +88,8 @@ from chalk._gen.chalk.server.v1.cloud_components_pb2 import (
     GetCloudComponentVpcResponse,
     ListBindingClusterBackgroundPersistenceDeploymentRequest,
     ListBindingClusterBackgroundPersistenceDeploymentResponse,
+    ListBindingClusterCloudStorageRequest,
+    ListBindingClusterCloudStorageResponse,
     ListBindingClusterContainerRegistryRequest,
     ListBindingClusterContainerRegistryResponse,
     ListBindingClusterGatewayRequest,
@@ -84,6 +98,8 @@ from chalk._gen.chalk.server.v1.cloud_components_pb2 import (
     ListBindingClusterTelemetryDeploymentResponse,
     ListBindingEnvironmentBackgroundPersistenceDeploymentRequest,
     ListBindingEnvironmentBackgroundPersistenceDeploymentResponse,
+    ListBindingEnvironmentCloudStorageRequest,
+    ListBindingEnvironmentCloudStorageResponse,
     ListBindingEnvironmentGatewayRequest,
     ListBindingEnvironmentGatewayResponse,
     ListBindingPrivateGatewayRequest,
@@ -168,6 +184,38 @@ class CloudComponentsServiceStub:
         DeleteCloudComponentStorageRequest,
         DeleteCloudComponentStorageResponse,
     ]
+    CreateBindingEnvironmentCloudStorage: UnaryUnaryMultiCallable[
+        CreateBindingEnvironmentCloudStorageRequest,
+        CreateBindingEnvironmentCloudStorageResponse,
+    ]
+    GetBindingEnvironmentCloudStorage: UnaryUnaryMultiCallable[
+        GetBindingEnvironmentCloudStorageRequest,
+        GetBindingEnvironmentCloudStorageResponse,
+    ]
+    ListBindingEnvironmentCloudStorage: UnaryUnaryMultiCallable[
+        ListBindingEnvironmentCloudStorageRequest,
+        ListBindingEnvironmentCloudStorageResponse,
+    ]
+    DeleteBindingEnvironmentCloudStorage: UnaryUnaryMultiCallable[
+        DeleteBindingEnvironmentCloudStorageRequest,
+        DeleteBindingEnvironmentCloudStorageResponse,
+    ]
+    CreateBindingClusterCloudStorage: UnaryUnaryMultiCallable[
+        CreateBindingClusterCloudStorageRequest,
+        CreateBindingClusterCloudStorageResponse,
+    ]
+    GetBindingClusterCloudStorage: UnaryUnaryMultiCallable[
+        GetBindingClusterCloudStorageRequest,
+        GetBindingClusterCloudStorageResponse,
+    ]
+    ListBindingClusterCloudStorage: UnaryUnaryMultiCallable[
+        ListBindingClusterCloudStorageRequest,
+        ListBindingClusterCloudStorageResponse,
+    ]
+    DeleteBindingClusterCloudStorage: UnaryUnaryMultiCallable[
+        DeleteBindingClusterCloudStorageRequest,
+        DeleteBindingClusterCloudStorageResponse,
+    ]
     CreateCloudComponentContainerRegistry: UnaryUnaryMultiCallable[
         CreateCloudComponentContainerRegistryRequest,
         CreateCloudComponentContainerRegistryResponse,
@@ -176,6 +224,9 @@ class CloudComponentsServiceStub:
         UpdateCloudComponentContainerRegistryRequest,
         UpdateCloudComponentContainerRegistryResponse,
     ]
+    """Deprecated: container registries are immutable metadata records. Create a new
+    registry and delete the old one instead of updating in place.
+    """
     GetCloudComponentContainerRegistry: UnaryUnaryMultiCallable[
         GetCloudComponentContainerRegistryRequest,
         GetCloudComponentContainerRegistryResponse,
@@ -387,6 +438,54 @@ class CloudComponentsServiceServicer(metaclass=ABCMeta):
         context: ServicerContext,
     ) -> DeleteCloudComponentStorageResponse: ...
     @abstractmethod
+    def CreateBindingEnvironmentCloudStorage(
+        self,
+        request: CreateBindingEnvironmentCloudStorageRequest,
+        context: ServicerContext,
+    ) -> CreateBindingEnvironmentCloudStorageResponse: ...
+    @abstractmethod
+    def GetBindingEnvironmentCloudStorage(
+        self,
+        request: GetBindingEnvironmentCloudStorageRequest,
+        context: ServicerContext,
+    ) -> GetBindingEnvironmentCloudStorageResponse: ...
+    @abstractmethod
+    def ListBindingEnvironmentCloudStorage(
+        self,
+        request: ListBindingEnvironmentCloudStorageRequest,
+        context: ServicerContext,
+    ) -> ListBindingEnvironmentCloudStorageResponse: ...
+    @abstractmethod
+    def DeleteBindingEnvironmentCloudStorage(
+        self,
+        request: DeleteBindingEnvironmentCloudStorageRequest,
+        context: ServicerContext,
+    ) -> DeleteBindingEnvironmentCloudStorageResponse: ...
+    @abstractmethod
+    def CreateBindingClusterCloudStorage(
+        self,
+        request: CreateBindingClusterCloudStorageRequest,
+        context: ServicerContext,
+    ) -> CreateBindingClusterCloudStorageResponse: ...
+    @abstractmethod
+    def GetBindingClusterCloudStorage(
+        self,
+        request: GetBindingClusterCloudStorageRequest,
+        context: ServicerContext,
+    ) -> GetBindingClusterCloudStorageResponse: ...
+    @abstractmethod
+    def ListBindingClusterCloudStorage(
+        self,
+        request: ListBindingClusterCloudStorageRequest,
+        context: ServicerContext,
+    ) -> ListBindingClusterCloudStorageResponse: ...
+    @abstractmethod
+    def DeleteBindingClusterCloudStorage(
+        self,
+        request: DeleteBindingClusterCloudStorageRequest,
+        context: ServicerContext,
+    ) -> DeleteBindingClusterCloudStorageResponse: ...
+    @abstractmethod
     def CreateCloudComponentContainerRegistry(
         self,
         request: CreateCloudComponentContainerRegistryRequest,
@@ -397,7 +496,10 @@ class CloudComponentsServiceServicer(metaclass=ABCMeta):
         self,
         request: UpdateCloudComponentContainerRegistryRequest,
         context: ServicerContext,
-    ) -> UpdateCloudComponentContainerRegistryResponse: ...
+    ) -> UpdateCloudComponentContainerRegistryResponse:
+        """Deprecated: container registries are immutable metadata records. Create a new
+        registry and delete the old one instead of updating in place.
+        """
     @abstractmethod
     def GetCloudComponentContainerRegistry(
         self,

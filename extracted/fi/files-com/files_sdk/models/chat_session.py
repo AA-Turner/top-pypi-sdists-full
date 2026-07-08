@@ -12,6 +12,7 @@ from files_sdk.error import (  # noqa: F401
 class ChatSession:
     default_attributes = {
         "id": None,  # string - Chat Session ID.
+        "title": None,  # string - Short AI-generated chat title.
         "user_id": None,  # int64 - User ID.
         "ai_task_id": None,  # int64 - AI Task ID. Present when the conversation was started by an AI Task.
         "workspace_id": None,  # int64 - Workspace ID. `0` means the default workspace.

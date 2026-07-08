@@ -1191,9 +1191,22 @@ class CIDs:
                         )
                         continue
 
+                # Rolling-window indices (SPI3/SPI6) need continuous multi-year
+                # monthly precip to compute the 3/6-month standardized deficit.
+                # The stage-restricted df_base_period has 8-month gaps between
+                # years that icclim rejects with "overlapping depth 5 is larger
+                # than your array 4". Feed the full multi-year df_group instead;
+                # time_range in compute_indices still bounds SPI output to the
+                # target harvest year window.
+                base_period_for_index = (
+                    df_group
+                    if index_name in _ICCLIM_BYPASS_CACHE
+                    else df_base_period
+                )
+
                 try:
                     ds = compute_indices(
-                        df_time_period, df_base_period, index_name,
+                        df_time_period, base_period_for_index, index_name,
                         logs_verbosity=icclim_verbosity,
                     )
                 except Exception as e:
@@ -1292,6 +1305,20 @@ class CIDs:
 
         if df.empty:
             return pd.DataFrame()
+
+        # Rolling-window indices (SPI3/SPI6) emit one row per month within the
+        # requested time_range. For a multi-month stage window that's multiple
+        # rows — the iloc[[0]] below would silently keep only the first month
+        # and drop the rest. Aggregate to the mean over the stage's monthly
+        # values first so the downstream one-row-per-index contract holds and
+        # the CID summarises overall rolling-deficit severity in the window.
+        # (Mean chosen over MIN so a single anomalous month doesn't dominate;
+        # feature selection can still pick this up as strongly negative when
+        # every month in the window was dry.)
+        if index_name in _ICCLIM_BYPASS_CACHE and len(df) > 1 and index_name in df.columns:
+            agg_val = df[index_name].mean(skipna=True)
+            df = df.iloc[[0]].copy()
+            df[index_name] = agg_val
 
         # For safety, pick the first row or use mean if needed:
         df = df.iloc[[0]]  # keep as DataFrame

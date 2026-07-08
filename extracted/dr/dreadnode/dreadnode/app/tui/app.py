@@ -309,6 +309,9 @@ class _AppModelCatalogContext:
     def current_org(self) -> str | None:
         return self._app._connection_manager._org
 
+    def model_was_explicitly_selected(self) -> bool:
+        return self._app._model_explicitly_set
+
 
 @dataclass(slots=True)
 class _AppModelUiHost:
@@ -406,6 +409,9 @@ class _AppModelSelectionActions:
 
     def persist_default_model_choice(self, model_id: str) -> None:
         self._app._run_command(self._app._persist_default_model_choice, model_id)
+
+    def mark_model_explicitly_selected(self) -> None:
+        self._app._model_explicitly_set = True
 
 
 @dataclass(slots=True)
@@ -1575,6 +1581,7 @@ class DreadnodeTextualApp(App[None]):
         self._initial_prompt = initial_prompt
         self._initial_policy = initial_policy
         self.model: str = initial_model or self._model_from_profile(profile)
+        self._model_explicitly_set: bool = initial_model is not None
         from dreadnode.app.tui.connection import RuntimeConnectionManager
 
         self._connection_manager = RuntimeConnectionManager(
@@ -3081,6 +3088,7 @@ class DreadnodeTextualApp(App[None]):
         import asyncio
 
         from dreadnode.app.tui.update_check import (
+            build_noop_upgrade_diagnostic,
             check_for_update,
             detect_upgrade_command,
             verify_upgrade,
@@ -3156,14 +3164,19 @@ class DreadnodeTextualApp(App[None]):
                     self.update_available,
                 )
                 msg = RichText()
-                msg.append("⚠ ", style=f"bold {WARNING}")
-                msg.append(
-                    "Update command succeeded but version unchanged", style=f"bold {WARNING}"
-                )
-                msg.append(
-                    " — you may have multiple installations. Check which dn is on your PATH.",
-                    style=FG_SUBTLE,
-                )
+                for index, line in enumerate(
+                    build_noop_upgrade_diagnostic(
+                        self.update_available,
+                        stdout_text,
+                        stderr_text,
+                    )
+                ):
+                    if index:
+                        msg.append("\n")
+                        msg.append(line, style=FG_SUBTLE)
+                    else:
+                        msg.append("⚠ ", style=f"bold {WARNING}")
+                        msg.append(line, style=f"bold {WARNING}")
                 conv = self.query_one("#conversation", ConversationView)
                 conv.write(RichText())  # spacer
                 conv.write(msg)

@@ -114,6 +114,7 @@ class ManagedTransforms(google.protobuf.message.Message):
         MYSQL_WRITE: ManagedTransforms._Urns.ValueType  # 10
         SQL_SERVER_READ: ManagedTransforms._Urns.ValueType  # 11
         SQL_SERVER_WRITE: ManagedTransforms._Urns.ValueType  # 12
+        DELTA_LAKE_READ: ManagedTransforms._Urns.ValueType  # 13
 
     class Urns(_Urns, metaclass=_UrnsEnumTypeWrapper): ...
     ICEBERG_READ: ManagedTransforms.Urns.ValueType  # 0
@@ -129,6 +130,7 @@ class ManagedTransforms(google.protobuf.message.Message):
     MYSQL_WRITE: ManagedTransforms.Urns.ValueType  # 10
     SQL_SERVER_READ: ManagedTransforms.Urns.ValueType  # 11
     SQL_SERVER_WRITE: ManagedTransforms.Urns.ValueType  # 12
+    DELTA_LAKE_READ: ManagedTransforms.Urns.ValueType  # 13
 
     def __init__(
         self,

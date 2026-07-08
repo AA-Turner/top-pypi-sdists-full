@@ -38,6 +38,7 @@ __all__ = (
     "AutomationSubtypeType",
     "AutomationTypeType",
     "CalendarStateType",
+    "CloudConnectorFilterKeyType",
     "CommandExecutedWaiterName",
     "CommandFilterKeyType",
     "CommandInvocationStatusType",
@@ -110,6 +111,7 @@ __all__ = (
     "LastResourceDataSyncStatusType",
     "ListAssociationVersionsPaginatorName",
     "ListAssociationsPaginatorName",
+    "ListCloudConnectorsPaginatorName",
     "ListCommandInvocationsPaginatorName",
     "ListCommandsPaginatorName",
     "ListComplianceItemsPaginatorName",
@@ -176,6 +178,10 @@ __all__ = (
     "SourceTypeType",
     "StepExecutionFilterKeyType",
     "StopTypeType",
+    "ValidateCloudConnectorPaginatorName",
+    "ValidationFindingCodeType",
+    "ValidationFindingScopeTypeType",
+    "ValidationFindingTypeType",
     "WaiterName",
 )
 
@@ -188,6 +194,7 @@ AssociationFilterKeyType = Literal[
     "AssociationId",
     "AssociationName",
     "AssociationStatusName",
+    "CloudConnectorId",
     "InstanceId",
     "LastExecutedAfter",
     "LastExecutedBefore",
@@ -237,6 +244,7 @@ AutomationExecutionStatusType = Literal[
 AutomationSubtypeType = Literal["AccessRequest", "ChangeRequest"]
 AutomationTypeType = Literal["CrossAccount", "Local"]
 CalendarStateType = Literal["CLOSED", "OPEN"]
+CloudConnectorFilterKeyType = Literal["SubscriptionId", "TenantId"]
 CommandExecutedWaiterName = Literal["command_executed"]
 CommandFilterKeyType = Literal[
     "DocumentName", "ExecutionStage", "InvokedAfter", "InvokedBefore", "Status"
@@ -374,6 +382,7 @@ InventorySchemaDeleteOptionType = Literal["DeleteSchema", "DisableSchema"]
 LastResourceDataSyncStatusType = Literal["Failed", "InProgress", "Successful"]
 ListAssociationVersionsPaginatorName = Literal["list_association_versions"]
 ListAssociationsPaginatorName = Literal["list_associations"]
+ListCloudConnectorsPaginatorName = Literal["list_cloud_connectors"]
 ListCommandInvocationsPaginatorName = Literal["list_command_invocations"]
 ListCommandsPaginatorName = Literal["list_commands"]
 ListComplianceItemsPaginatorName = Literal["list_compliance_items"]
@@ -403,12 +412,21 @@ MaintenanceWindowTaskTypeType = Literal["AUTOMATION", "LAMBDA", "RUN_COMMAND", "
 ManagedStatusType = Literal["All", "Managed", "Unmanaged"]
 NodeAggregatorTypeType = Literal["Count"]
 NodeAttributeNameType = Literal[
-    "AgentVersion", "PlatformName", "PlatformType", "PlatformVersion", "Region", "ResourceType"
+    "AgentVersion",
+    "AvailabilityZone",
+    "PlatformName",
+    "PlatformType",
+    "PlatformVersion",
+    "Region",
+    "ResourceType",
+    "SourceType",
 ]
 NodeFilterKeyType = Literal[
     "AccountId",
     "AgentType",
     "AgentVersion",
+    "AvailabilityZone",
+    "AvailabilityZoneId",
     "ComputerName",
     "InstanceId",
     "InstanceStatus",
@@ -421,6 +439,9 @@ NodeFilterKeyType = Literal[
     "PlatformVersion",
     "Region",
     "ResourceType",
+    "SourceId",
+    "SourceLocation",
+    "SourceType",
 ]
 NodeFilterOperatorTypeType = Literal["BeginWith", "Equal", "NotEqual"]
 NodeTypeNameType = Literal["Instance"]
@@ -567,6 +588,7 @@ ResourceDataSyncS3FormatType = Literal["JsonSerDe"]
 ResourceTypeForTaggingType = Literal[
     "Association",
     "Automation",
+    "CloudConnector",
     "Document",
     "MaintenanceWindow",
     "ManagedInstance",
@@ -585,7 +607,12 @@ SessionStatusType = Literal[
     "Connected", "Connecting", "Disconnected", "Failed", "Terminated", "Terminating"
 ]
 SignalTypeType = Literal["Approve", "Reject", "Resume", "Revoke", "StartStep", "StopStep"]
-SourceTypeType = Literal["AWS::EC2::Instance", "AWS::IoT::Thing", "AWS::SSM::ManagedInstance"]
+SourceTypeType = Literal[
+    "AWS::EC2::Instance",
+    "AWS::IoT::Thing",
+    "AWS::SSM::ManagedInstance",
+    "Microsoft.Compute/virtualMachines",
+]
 StepExecutionFilterKeyType = Literal[
     "Action",
     "ParentStepExecutionId",
@@ -598,6 +625,20 @@ StepExecutionFilterKeyType = Literal[
     "StepName",
 ]
 StopTypeType = Literal["Cancel", "Complete"]
+ValidateCloudConnectorPaginatorName = Literal["validate_cloud_connector"]
+ValidationFindingCodeType = Literal[
+    "AwsRoleAssumptionFailed",
+    "OutboundWebIdentityFederationDisabled",
+    "ProviderCredentialCreationFailed",
+    "SubscriptionAccessible",
+    "TargetInaccessible",
+    "TargetStateWarning",
+    "TargetUnusable",
+    "TenantSummary",
+    "WebIdentityTokenFailed",
+]
+ValidationFindingScopeTypeType = Literal["azure:subscription", "azure:tenant"]
+ValidationFindingTypeType = Literal["ERROR", "INFO", "WARN"]
 SSMServiceName = Literal["ssm"]
 ServiceName = Literal[
     "accessanalyzer",
@@ -890,6 +931,7 @@ ServiceName = Literal[
     "partnercentral-account",
     "partnercentral-benefits",
     "partnercentral-channel",
+    "partnercentral-revenue-measurement",
     "partnercentral-selling",
     "payment-cryptography",
     "payment-cryptography-data",
@@ -1066,6 +1108,7 @@ PaginatorName = Literal[
     "get_resource_policies",
     "list_association_versions",
     "list_associations",
+    "list_cloud_connectors",
     "list_command_invocations",
     "list_commands",
     "list_compliance_items",
@@ -1079,6 +1122,7 @@ PaginatorName = Literal[
     "list_ops_metadata",
     "list_resource_compliance_summaries",
     "list_resource_data_sync",
+    "validate_cloud_connector",
 ]
 WaiterName = Literal["command_executed"]
 RegionName = Literal[

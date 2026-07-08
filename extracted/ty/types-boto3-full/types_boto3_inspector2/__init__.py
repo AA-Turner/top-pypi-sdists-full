@@ -11,6 +11,9 @@ Usage::
     from boto3.session import Session
     from types_boto3_inspector2 import (
         Client,
+        ConnectorConnectedWaiter,
+        ConnectorDeletedWaiter,
+        ConnectorEnabledWaiter,
         GetCisScanResultDetailsPaginator,
         GetClustersForImagePaginator,
         Inspector2Client,
@@ -19,6 +22,8 @@ Usage::
         ListCisScanResultsAggregatedByChecksPaginator,
         ListCisScanResultsAggregatedByTargetResourcePaginator,
         ListCisScansPaginator,
+        ListConnectorScanConfigurationsPaginator,
+        ListConnectorsPaginator,
         ListCoveragePaginator,
         ListCoverageStatisticsPaginator,
         ListDelegatedAdminAccountsPaginator,
@@ -33,6 +38,10 @@ Usage::
     session = Session()
     client: Inspector2Client = session.client("inspector2")
 
+    connector_connected_waiter: ConnectorConnectedWaiter = client.get_waiter("connector_connected")
+    connector_deleted_waiter: ConnectorDeletedWaiter = client.get_waiter("connector_deleted")
+    connector_enabled_waiter: ConnectorEnabledWaiter = client.get_waiter("connector_enabled")
+
     get_cis_scan_result_details_paginator: GetCisScanResultDetailsPaginator = client.get_paginator("get_cis_scan_result_details")
     get_clusters_for_image_paginator: GetClustersForImagePaginator = client.get_paginator("get_clusters_for_image")
     list_account_permissions_paginator: ListAccountPermissionsPaginator = client.get_paginator("list_account_permissions")
@@ -40,6 +49,8 @@ Usage::
     list_cis_scan_results_aggregated_by_checks_paginator: ListCisScanResultsAggregatedByChecksPaginator = client.get_paginator("list_cis_scan_results_aggregated_by_checks")
     list_cis_scan_results_aggregated_by_target_resource_paginator: ListCisScanResultsAggregatedByTargetResourcePaginator = client.get_paginator("list_cis_scan_results_aggregated_by_target_resource")
     list_cis_scans_paginator: ListCisScansPaginator = client.get_paginator("list_cis_scans")
+    list_connector_scan_configurations_paginator: ListConnectorScanConfigurationsPaginator = client.get_paginator("list_connector_scan_configurations")
+    list_connectors_paginator: ListConnectorsPaginator = client.get_paginator("list_connectors")
     list_coverage_paginator: ListCoveragePaginator = client.get_paginator("list_coverage")
     list_coverage_statistics_paginator: ListCoverageStatisticsPaginator = client.get_paginator("list_coverage_statistics")
     list_delegated_admin_accounts_paginator: ListDelegatedAdminAccountsPaginator = client.get_paginator("list_delegated_admin_accounts")
@@ -61,6 +72,8 @@ from .paginator import (
     ListCisScanResultsAggregatedByChecksPaginator,
     ListCisScanResultsAggregatedByTargetResourcePaginator,
     ListCisScansPaginator,
+    ListConnectorScanConfigurationsPaginator,
+    ListConnectorsPaginator,
     ListCoveragePaginator,
     ListCoverageStatisticsPaginator,
     ListDelegatedAdminAccountsPaginator,
@@ -71,12 +84,16 @@ from .paginator import (
     ListUsageTotalsPaginator,
     SearchVulnerabilitiesPaginator,
 )
+from .waiter import ConnectorConnectedWaiter, ConnectorDeletedWaiter, ConnectorEnabledWaiter
 
 Client = Inspector2Client
 
 
 __all__ = (
     "Client",
+    "ConnectorConnectedWaiter",
+    "ConnectorDeletedWaiter",
+    "ConnectorEnabledWaiter",
     "GetCisScanResultDetailsPaginator",
     "GetClustersForImagePaginator",
     "Inspector2Client",
@@ -85,6 +102,8 @@ __all__ = (
     "ListCisScanResultsAggregatedByChecksPaginator",
     "ListCisScanResultsAggregatedByTargetResourcePaginator",
     "ListCisScansPaginator",
+    "ListConnectorScanConfigurationsPaginator",
+    "ListConnectorsPaginator",
     "ListCoveragePaginator",
     "ListCoverageStatisticsPaginator",
     "ListDelegatedAdminAccountsPaginator",

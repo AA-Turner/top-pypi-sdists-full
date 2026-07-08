@@ -1,13 +1,24 @@
 import base64
+import difflib
+from typing import Any
 import click
-from click_default_group import DefaultGroup  # type: ignore
+from click_default_group import DefaultGroup
 from datetime import datetime, timezone
 import hashlib
 import pathlib
 from runpy import run_module
 import sqlite_utils
-from sqlite_utils.db import AlterError, BadMultiValues, DescIndex, NoTable
-from sqlite_utils.plugins import pm, get_plugins
+from sqlite_utils.db import (
+    AlterError,
+    BadMultiValues,
+    DEFAULT,
+    DescIndex,
+    InvalidColumns,
+    NoTable,
+    NoView,
+    quote_identifier,
+)
+from sqlite_utils.plugins import ensure_plugins_loaded, pm, get_plugins
 from sqlite_utils.utils import maximize_csv_field_size_limit
 from sqlite_utils import recipes
 import textwrap
@@ -24,6 +35,7 @@ from .utils import (
     OperationalError,
     _compile_code,
     chunks,
+    dedupe_keys,
     file_progress,
     find_spatialite,
     flatten as _flatten,
@@ -35,15 +47,30 @@ from .utils import (
     TypeTracker,
 )
 
-try:
-    import trogon  # type: ignore
-except ImportError:
-    trogon = None
-
-
 CONTEXT_SETTINGS = dict(help_option_names=["-h", "--help"])
 
-VALID_COLUMN_TYPES = ("INTEGER", "TEXT", "FLOAT", "BLOB")
+
+def _register_db_for_cleanup(db):
+    """Register a database to be closed when the Click context is cleaned up."""
+    ctx = click.get_current_context(silent=True)
+    if ctx is None:
+        return
+    if "_databases_to_close" not in ctx.meta:
+        ctx.meta["_databases_to_close"] = []
+        ctx.call_on_close(lambda: _close_databases(ctx))
+    ctx.meta["_databases_to_close"].append(db)
+
+
+def _close_databases(ctx):
+    """Close all databases registered for cleanup."""
+    for db in ctx.meta.get("_databases_to_close", []):
+        try:
+            db.close()
+        except Exception:
+            pass
+
+
+VALID_COLUMN_TYPES = ("INTEGER", "TEXT", "FLOAT", "REAL", "BLOB")
 
 UNICODE_ERROR = """
 {}
@@ -85,7 +112,11 @@ def output_options(fn):
             ),
             click.option("--csv", is_flag=True, help="Output CSV"),
             click.option("--tsv", is_flag=True, help="Output TSV"),
-            click.option("--no-headers", is_flag=True, help="Omit CSV headers"),
+            click.option(
+                "--no-headers",
+                is_flag=True,
+                help="Omit headers from CSV/TSV and table/--fmt output",
+            ),
             click.option(
                 "-t", "--table", is_flag=True, help="Output as a formatted table"
             ),
@@ -98,6 +129,13 @@ def output_options(fn):
             click.option(
                 "--json-cols",
                 help="Detect JSON cols and output them as JSON, not escaped strings",
+                is_flag=True,
+                default=False,
+            ),
+            click.option(
+                "--ascii",
+                "ascii_",
+                help="Escape non-ASCII characters in JSON output as \\uXXXX",
                 is_flag=True,
                 default=False,
             ),
@@ -125,10 +163,6 @@ def load_extension_option(fn):
 def cli():
     "Commands for interacting with a SQLite database"
     pass
-
-
-if trogon is not None:
-    cli = trogon.tui()(cli)
 
 
 @cli.command()
@@ -173,6 +207,7 @@ def tables(
     table,
     fmt,
     json_cols,
+    ascii_,
     columns,
     schema,
     load_extension,
@@ -186,6 +221,7 @@ def tables(
         sqlite-utils tables trees.db
     """
     db = sqlite_utils.Database(path)
+    _register_db_for_cleanup(db)
     _load_extensions(db, load_extension)
     headers = ["view" if views else "table"]
     if counts:
@@ -195,27 +231,35 @@ def tables(
     if schema:
         headers.append("schema")
 
+    method = db.view if views else db.table
+
     def _iter():
         if views:
             items = db.view_names()
         else:
             items = db.table_names(fts4=fts4, fts5=fts5)
         for name in items:
-            row = [name]
+            row: list[Any] = [name]
             if counts:
-                row.append(db[name].count)
+                row.append(method(name).count)
             if columns:
-                cols = [c.name for c in db[name].columns]
+                cols = [c.name for c in method(name).columns]
                 if csv:
                     row.append("\n".join(cols))
                 else:
                     row.append(cols)
             if schema:
-                row.append(db[name].schema)
+                row.append(method(name).schema)
             yield row
 
     if table or fmt:
-        print(tabulate.tabulate(_iter(), headers=headers, tablefmt=fmt or "simple"))
+        print(
+            tabulate.tabulate(
+                _iter(),
+                headers=() if no_headers else headers,
+                tablefmt=fmt or "simple",
+            )
+        )
     elif csv or tsv:
         writer = csv_std.writer(sys.stdout, dialect="excel-tab" if tsv else "excel")
         if not no_headers:
@@ -223,7 +267,7 @@ def tables(
         for row in _iter():
             writer.writerow(row)
     else:
-        for line in output_rows(_iter(), headers, nl, arrays, json_cols):
+        for line in output_rows(_iter(), headers, nl, arrays, json_cols, ascii_):
             click.echo(line)
 
 
@@ -261,6 +305,7 @@ def views(
     table,
     fmt,
     json_cols,
+    ascii_,
     columns,
     schema,
     load_extension,
@@ -272,6 +317,7 @@ def views(
     \b
         sqlite-utils views trees.db
     """
+    assert tables.callback is not None
     tables.callback(
         path=path,
         fts4=False,
@@ -285,6 +331,7 @@ def views(
         table=table,
         fmt=fmt,
         json_cols=json_cols,
+        ascii_=ascii_,
         columns=columns,
         schema=schema,
         load_extension=load_extension,
@@ -310,12 +357,13 @@ def optimize(path, tables, no_vacuum, load_extension):
         sqlite-utils optimize chickens.db
     """
     db = sqlite_utils.Database(path)
+    _register_db_for_cleanup(db)
     _load_extensions(db, load_extension)
     if not tables:
         tables = db.table_names(fts4=True) + db.table_names(fts5=True)
     with db.conn:
         for table in tables:
-            db[table].optimize()
+            db.table(table).optimize()
     if not no_vacuum:
         db.vacuum()
 
@@ -337,12 +385,13 @@ def rebuild_fts(path, tables, load_extension):
         sqlite-utils rebuild-fts chickens.db chickens
     """
     db = sqlite_utils.Database(path)
+    _register_db_for_cleanup(db)
     _load_extensions(db, load_extension)
     if not tables:
         tables = db.table_names(fts4=True) + db.table_names(fts5=True)
     with db.conn:
         for table in tables:
-            db[table].rebuild_fts()
+            db.table(table).rebuild_fts()
 
 
 @cli.command()
@@ -361,6 +410,7 @@ def analyze(path, names):
         sqlite-utils analyze chickens.db
     """
     db = sqlite_utils.Database(path)
+    _register_db_for_cleanup(db)
     try:
         if names:
             for name in names:
@@ -368,7 +418,7 @@ def analyze(path, names):
         else:
             db.analyze()
     except OperationalError as e:
-        raise click.ClickException(e)
+        raise click.ClickException(str(e))
 
 
 @cli.command()
@@ -385,7 +435,9 @@ def vacuum(path):
     \b
         sqlite-utils vacuum chickens.db
     """
-    sqlite_utils.Database(path).vacuum()
+    db = sqlite_utils.Database(path)
+    _register_db_for_cleanup(db)
+    db.vacuum()
 
 
 @cli.command()
@@ -404,6 +456,7 @@ def dump(path, load_extension):
         sqlite-utils dump chickens.db
     """
     db = sqlite_utils.Database(path)
+    _register_db_for_cleanup(db)
     _load_extensions(db, load_extension)
     for line in db.iterdump():
         click.echo(line)
@@ -420,7 +473,7 @@ def dump(path, load_extension):
 @click.argument(
     "col_type",
     type=click.Choice(
-        ["integer", "int", "float", "text", "str", "blob", "bytes"],
+        ["integer", "int", "float", "real", "text", "str", "blob", "bytes"],
         case_sensitive=False,
     ),
     required=False,
@@ -465,9 +518,10 @@ def add_column(
         sqlite-utils add-column chickens.db chickens weight float
     """
     db = sqlite_utils.Database(path)
+    _register_db_for_cleanup(db)
     _load_extensions(db, load_extension)
     try:
-        db[table].add_column(
+        db.table(table).add_column(
             col_name, col_type, fk=fk, fk_col=fk_col, not_null_default=not_null_default
         )
     except OperationalError as ex:
@@ -502,11 +556,14 @@ def add_foreign_key(
         sqlite-utils add-foreign-key my.db books author_id authors id
     """
     db = sqlite_utils.Database(path)
+    _register_db_for_cleanup(db)
     _load_extensions(db, load_extension)
     try:
-        db[table].add_foreign_key(column, other_table, other_column, ignore=ignore)
+        db.table(table).add_foreign_key(
+            column, other_table, other_column, ignore=ignore
+        )
     except AlterError as e:
-        raise click.ClickException(e)
+        raise click.ClickException(str(e))
 
 
 @cli.command(name="add-foreign-keys")
@@ -529,6 +586,7 @@ def add_foreign_keys(path, foreign_key, load_extension):
             authors country_id countries id
     """
     db = sqlite_utils.Database(path)
+    _register_db_for_cleanup(db)
     _load_extensions(db, load_extension)
     if len(foreign_key) % 4 != 0:
         raise click.ClickException(
@@ -540,7 +598,7 @@ def add_foreign_keys(path, foreign_key, load_extension):
     try:
         db.add_foreign_keys(tuples)
     except AlterError as e:
-        raise click.ClickException(e)
+        raise click.ClickException(str(e))
 
 
 @cli.command(name="index-foreign-keys")
@@ -560,6 +618,7 @@ def index_foreign_keys(path, load_extension):
         sqlite-utils index-foreign-keys chickens.db
     """
     db = sqlite_utils.Database(path)
+    _register_db_for_cleanup(db)
     _load_extensions(db, load_extension)
     db.index_foreign_keys()
 
@@ -604,6 +663,7 @@ def create_index(
         sqlite-utils create-index chickens.db chickens -- -name
     """
     db = sqlite_utils.Database(path)
+    _register_db_for_cleanup(db)
     _load_extensions(db, load_extension)
     # Treat -prefix as descending for columns
     columns = []
@@ -611,7 +671,7 @@ def create_index(
         if col.startswith("-"):
             col = DescIndex(col[1:])
         columns.append(col)
-    db[table].create_index(
+    db.table(table).create_index(
         columns,
         index_name=name,
         unique=unique,
@@ -661,17 +721,18 @@ def enable_fts(
         fts_version = "FTS4"
 
     db = sqlite_utils.Database(path)
+    _register_db_for_cleanup(db)
     _load_extensions(db, load_extension)
     try:
-        db[table].enable_fts(
+        db.table(table).enable_fts(
             column,
             fts_version=fts_version,
             tokenize=tokenize,
             create_triggers=create_triggers,
             replace=replace,
         )
-    except OperationalError as ex:
-        raise click.ClickException(ex)
+    except (NoTable, OperationalError) as ex:
+        raise click.ClickException(str(ex))
 
 
 @cli.command(name="populate-fts")
@@ -692,8 +753,9 @@ def populate_fts(path, table, column, load_extension):
         sqlite-utils populate-fts chickens.db chickens name
     """
     db = sqlite_utils.Database(path)
+    _register_db_for_cleanup(db)
     _load_extensions(db, load_extension)
-    db[table].populate_fts(column)
+    db.table(table).populate_fts(column)
 
 
 @cli.command(name="disable-fts")
@@ -713,8 +775,9 @@ def disable_fts(path, table, load_extension):
         sqlite-utils disable-fts chickens.db chickens
     """
     db = sqlite_utils.Database(path)
+    _register_db_for_cleanup(db)
     _load_extensions(db, load_extension)
-    db[table].disable_fts()
+    db.table(table).disable_fts()
 
 
 @cli.command(name="enable-wal")
@@ -735,6 +798,7 @@ def enable_wal(path, load_extension):
     """
     for path_ in path:
         db = sqlite_utils.Database(path_)
+        _register_db_for_cleanup(db)
         _load_extensions(db, load_extension)
         db.enable_wal()
 
@@ -757,6 +821,7 @@ def disable_wal(path, load_extension):
     """
     for path_ in path:
         db = sqlite_utils.Database(path_)
+        _register_db_for_cleanup(db)
         _load_extensions(db, load_extension)
         db.disable_wal()
 
@@ -778,6 +843,7 @@ def enable_counts(path, tables, load_extension):
         sqlite-utils enable-counts chickens.db
     """
     db = sqlite_utils.Database(path)
+    _register_db_for_cleanup(db)
     _load_extensions(db, load_extension)
     if not tables:
         db.enable_counts()
@@ -787,7 +853,7 @@ def enable_counts(path, tables, load_extension):
         if bad_tables:
             raise click.ClickException("Invalid tables: {}".format(bad_tables))
         for table in tables:
-            db[table].enable_counts()
+            db.table(table).enable_counts()
 
 
 @cli.command(name="reset-counts")
@@ -806,6 +872,7 @@ def reset_counts(path, load_extension):
         sqlite-utils reset-counts chickens.db
     """
     db = sqlite_utils.Database(path)
+    _register_db_for_cleanup(db)
     _load_extensions(db, load_extension)
     db.reset_counts()
 
@@ -865,7 +932,7 @@ def insert_upsert_options(*, require_pk=False):
                     required=True,
                 ),
                 click.argument("table"),
-                click.argument("file", type=click.File("rb"), required=True),
+                click.argument("file", type=click.File("rb", lazy=True), required=True),
                 click.option(
                     "--pk",
                     help="Columns to use as the primary key, e.g. id",
@@ -896,11 +963,9 @@ def insert_upsert_options(*, require_pk=False):
                     help="Default value that should be set for a column",
                 ),
                 click.option(
-                    "-d",
-                    "--detect-types",
+                    "--no-detect-types",
                     is_flag=True,
-                    envvar="SQLITE_UTILS_DETECT_TYPES",
-                    help="Detect types for columns in CSV/TSV data",
+                    help="Treat all CSV/TSV columns as TEXT",
                 ),
                 click.option(
                     "--analyze",
@@ -951,7 +1016,7 @@ def insert_upsert_implementation(
     truncate=False,
     not_null=None,
     default=None,
-    detect_types=None,
+    no_detect_types=False,
     analyze=False,
     load_extension=None,
     silent=False,
@@ -960,9 +1025,9 @@ def insert_upsert_implementation(
     strict=False,
 ):
     db = sqlite_utils.Database(path)
+    _register_db_for_cleanup(db)
     _load_extensions(db, load_extension)
-    if functions:
-        _register_functions_from_multiple(db, functions)
+    _maybe_register_functions(db, functions)
     if (delimiter or quotechar or sniff or no_headers) and not tsv:
         csv = True
     if (nl + csv + tsv) >= 2:
@@ -991,18 +1056,19 @@ def insert_upsert_implementation(
         if csv or tsv:
             if sniff:
                 # Read first 2048 bytes and use that to detect
+                assert sniff_buffer is not None
                 first_bytes = sniff_buffer.peek(2048)
                 dialect = csv_std.Sniffer().sniff(
                     first_bytes.decode(encoding, "ignore")
                 )
             else:
                 dialect = "excel-tab" if tsv else "excel"
-            csv_reader_args = {"dialect": dialect}
+            csv_reader_args: dict[str, Any] = {"dialect": dialect}
             if delimiter:
                 csv_reader_args["delimiter"] = delimiter
             if quotechar:
                 csv_reader_args["quotechar"] = quotechar
-            reader = csv_std.reader(decoded, **csv_reader_args)
+            reader = csv_std.reader(decoded, **csv_reader_args)  # type: ignore
             first_row = next(reader)
             if no_headers:
                 headers = ["untitled_{}".format(i + 1) for i in range(len(first_row))]
@@ -1016,7 +1082,8 @@ def insert_upsert_implementation(
                 )
             else:
                 docs = (dict(zip(headers, row)) for row in reader)
-            if detect_types:
+            # Type detection is the default, unless --no-detect-types is passed
+            if not no_detect_types:
                 tracker = TypeTracker()
                 docs = tracker.wrap(docs)
         elif lines:
@@ -1095,19 +1162,26 @@ def insert_upsert_implementation(
             else:
                 doc_chunks = [docs]
             for doc_chunk in doc_chunks:
-                with db.conn:
+                with db.atomic():
                     db.conn.cursor().executemany(bulk_sql, doc_chunk)
             return
 
+        # table_names() rather than db.table(), which raises NoTable for
+        # views before the error handling below can deal with them
+        table_existed_before_insert = table in db.table_names()
         try:
-            db[table].insert_all(
+            db.table(table).insert_all(
                 docs, pk=pk, batch_size=batch_size, alter=alter, **extra_kwargs
             )
+        except (NoTable, InvalidColumns) as e:
+            raise click.ClickException(str(e))
         except Exception as e:
             if (
                 isinstance(e, OperationalError)
                 and e.args
-                and "has no column named" in e.args[0]
+                and (
+                    "has no column named" in e.args[0] or "no such column" in e.args[0]
+                )
             ):
                 raise click.ClickException(
                     "{}\n\nTry using --alter to add additional columns".format(
@@ -1124,8 +1198,15 @@ def insert_upsert_implementation(
                 )
             else:
                 raise
-        if tracker is not None:
-            db[table].transform(types=tracker.types)
+        # Apply detected types only to a table this command created -
+        # transforming a pre-existing table would rewrite its column types
+        # and corrupt values such as TEXT zip codes with leading zeros
+        if (
+            tracker is not None
+            and not table_existed_before_insert
+            and db.table(table).exists()
+        ):
+            db.table(table).transform(types=tracker.types)
 
         # Clean up open file-like objects
         if sniff_buffer:
@@ -1185,7 +1266,7 @@ def insert(
     batch_size,
     stop_after,
     alter,
-    detect_types,
+    no_detect_types,
     analyze,
     load_extension,
     silent,
@@ -1267,7 +1348,7 @@ def insert(
             ignore=ignore,
             replace=replace,
             truncate=truncate,
-            detect_types=detect_types,
+            no_detect_types=no_detect_types,
             analyze=analyze,
             load_extension=load_extension,
             silent=silent,
@@ -1305,7 +1386,7 @@ def upsert(
     alter,
     not_null,
     default,
-    detect_types,
+    no_detect_types,
     analyze,
     load_extension,
     silent,
@@ -1350,7 +1431,7 @@ def upsert(
             upsert=True,
             not_null=not_null,
             default=default,
-            detect_types=detect_types,
+            no_detect_types=no_detect_types,
             analyze=analyze,
             load_extension=load_extension,
             silent=silent,
@@ -1437,7 +1518,7 @@ def bulk(
             upsert=False,
             not_null=set(),
             default={},
-            detect_types=False,
+            no_detect_types=True,
             load_extension=load_extension,
             silent=False,
             bulk_sql=sql,
@@ -1469,6 +1550,7 @@ def create_database(path, enable_wal, init_spatialite, load_extension):
         sqlite-utils create-database trees.db
     """
     db = sqlite_utils.Database(path)
+    _register_db_for_cleanup(db)
     if enable_wal:
         db.enable_wal()
 
@@ -1558,6 +1640,7 @@ def create_table(
     Valid column types are text, integer, float and blob.
     """
     db = sqlite_utils.Database(path)
+    _register_db_for_cleanup(db)
     _load_extensions(db, load_extension)
     if len(columns) % 2 == 1:
         raise click.ClickException(
@@ -1581,7 +1664,7 @@ def create_table(
                     table
                 )
             )
-    db[table].create(
+    db.table(table).create(
         coltypes,
         pk=pks[0] if len(pks) == 1 else pks,
         not_null=not_null,
@@ -1609,9 +1692,10 @@ def duplicate(path, table, new_table, ignore, load_extension):
     Create a duplicate of this table, copying across the schema and all row data.
     """
     db = sqlite_utils.Database(path)
+    _register_db_for_cleanup(db)
     _load_extensions(db, load_extension)
     try:
-        db[table].duplicate(new_table)
+        db.table(table).duplicate(new_table)
     except NoTable:
         if not ignore:
             raise click.ClickException('Table "{}" does not exist'.format(table))
@@ -1632,6 +1716,7 @@ def rename_table(path, table, new_name, ignore, load_extension):
     Rename this table.
     """
     db = sqlite_utils.Database(path)
+    _register_db_for_cleanup(db)
     _load_extensions(db, load_extension)
     try:
         db.rename_table(table, new_name)
@@ -1660,9 +1745,16 @@ def drop_table(path, table, ignore, load_extension):
         sqlite-utils drop-table chickens.db chickens
     """
     db = sqlite_utils.Database(path)
+    _register_db_for_cleanup(db)
     _load_extensions(db, load_extension)
     try:
-        db[table].drop(ignore=ignore)
+        db.table(table).drop(ignore=ignore)
+    except NoTable:
+        # A view exists with this name
+        if not ignore:
+            raise click.ClickException(
+                '"{}" is a view, not a table - use drop-view to drop it'.format(table)
+            )
     except OperationalError:
         raise click.ClickException('Table "{}" does not exist'.format(table))
 
@@ -1696,13 +1788,14 @@ def create_view(path, view, select, ignore, replace, load_extension):
           'select * from chickens where weight > 3'
     """
     db = sqlite_utils.Database(path)
+    _register_db_for_cleanup(db)
     _load_extensions(db, load_extension)
     # Does view already exist?
     if view in db.view_names():
         if ignore:
             return
         elif replace:
-            db[view].drop()
+            db.view(view).drop()
         else:
             raise click.ClickException(
                 'View "{}" already exists. Use --replace to delete and replace it.'.format(
@@ -1730,10 +1823,17 @@ def drop_view(path, view, ignore, load_extension):
         sqlite-utils drop-view chickens.db heavy_chickens
     """
     db = sqlite_utils.Database(path)
+    _register_db_for_cleanup(db)
     _load_extensions(db, load_extension)
     try:
-        db[view].drop(ignore=ignore)
-    except OperationalError:
+        db.view(view).drop(ignore=ignore)
+    except NoView:
+        if ignore:
+            return
+        if view in db.table_names():
+            raise click.ClickException(
+                '"{}" is a table, not a view - use drop-table to drop it'.format(view)
+            )
         raise click.ClickException('View "{}" does not exist'.format(view))
 
 
@@ -1778,6 +1878,7 @@ def query(
     table,
     fmt,
     json_cols,
+    ascii_,
     raw,
     raw_lines,
     param,
@@ -1794,13 +1895,13 @@ def query(
             -p age 1
     """
     db = sqlite_utils.Database(path)
+    _register_db_for_cleanup(db)
     for alias, attach_path in attach:
         db.attach(alias, attach_path)
     _load_extensions(db, load_extension)
     db.register_fts4_bm25()
 
-    if functions:
-        _register_functions_from_multiple(db, functions)
+    _maybe_register_functions(db, functions)
 
     _execute_query(
         db,
@@ -1816,6 +1917,7 @@ def query(
         nl,
         arrays,
         json_cols,
+        ascii_,
     )
 
 
@@ -1890,6 +1992,7 @@ def memory(
     table,
     fmt,
     json_cols,
+    ascii_,
     raw,
     raw_lines,
     param,
@@ -1929,6 +2032,8 @@ def memory(
         sqlite-utils memory animals.csv --schema
     """
     db = sqlite_utils.Database(memory=True)
+    if not return_db:
+        _register_db_for_cleanup(db)
 
     # If --dump or --save or --analyze used but no paths detected, assume SQL query is a path:
     if (dump or save or schema or analyze) and not paths:
@@ -1938,6 +2043,7 @@ def memory(
     for i, path in enumerate(paths):
         # Path may have a :format suffix
         fp = None
+        should_close_fp = False
         if ":" in path and path.rsplit(":", 1)[-1].upper() in Format.__members__:
             path, suffix = path.rsplit(":", 1)
             format = Format[suffix.upper()]
@@ -1955,27 +2061,32 @@ def memory(
                 file_table = stem
             stem_counts[stem] = stem_counts.get(stem, 1) + 1
             fp = file_path.open("rb")
-        rows, format_used = rows_from_file(fp, format=format, encoding=encoding)
-        tracker = None
-        if format_used in (Format.CSV, Format.TSV) and not no_detect_types:
-            tracker = TypeTracker()
-            rows = tracker.wrap(rows)
-        if flatten:
-            rows = (_flatten(row) for row in rows)
+            should_close_fp = True
+        try:
+            rows, format_used = rows_from_file(fp, format=format, encoding=encoding)
+            tracker = None
+            if format_used in (Format.CSV, Format.TSV) and not no_detect_types:
+                tracker = TypeTracker()
+                rows = tracker.wrap(rows)
+            if flatten:
+                rows = (_flatten(row) for row in rows)
 
-        db[file_table].insert_all(rows, alter=True)
-        if tracker is not None:
-            db[file_table].transform(types=tracker.types)
-        # Add convenient t / t1 / t2 views
-        view_names = ["t{}".format(i + 1)]
-        if i == 0:
-            view_names.append("t")
-        for view_name in view_names:
-            if not db[view_name].exists():
-                db.create_view(view_name, "select * from [{}]".format(file_table))
-
-        if fp:
-            fp.close()
+            db.table(file_table).insert_all(rows, alter=True)
+            if tracker is not None and db.table(file_table).exists():
+                db.table(file_table).transform(types=tracker.types)
+            # Add convenient t / t1 / t2 views
+            view_names = ["t{}".format(i + 1)]
+            if i == 0:
+                view_names.append("t")
+            for view_name in view_names:
+                if not db[view_name].exists():
+                    db.create_view(
+                        view_name,
+                        "select * from {}".format(quote_identifier(file_table)),
+                    )
+        finally:
+            if should_close_fp and fp:
+                fp.close()
 
     if analyze:
         _analyze(db, tables=None, columns=None, save=False)
@@ -1992,6 +2103,7 @@ def memory(
 
     if save:
         db2 = sqlite_utils.Database(save)
+        _register_db_for_cleanup(db2)
         for line in db.iterdump():
             db2.execute(line)
         return
@@ -2001,8 +2113,7 @@ def memory(
     _load_extensions(db, load_extension)
     db.register_fts4_bm25()
 
-    if functions:
-        _register_functions_from_multiple(db, functions)
+    _maybe_register_functions(db, functions)
 
     if return_db:
         return db
@@ -2021,6 +2132,7 @@ def memory(
         nl,
         arrays,
         json_cols,
+        ascii_,
     )
 
 
@@ -2038,6 +2150,7 @@ def _execute_query(
     nl,
     arrays,
     json_cols,
+    ascii_,
 ):
     with db.conn:
         try:
@@ -2050,8 +2163,10 @@ def _execute_query(
             cursor = [[cursor.rowcount]]
         else:
             headers = [c[0] for c in cursor.description]
+        cursor_or_rows: Any = cursor
         if raw:
-            data = cursor.fetchone()[0]
+            row = cursor_or_rows.fetchone()
+            data = row[0] if row else None
             if isinstance(data, bytes):
                 sys.stdout.buffer.write(data)
             else:
@@ -2066,7 +2181,9 @@ def _execute_query(
         elif fmt or table:
             print(
                 tabulate.tabulate(
-                    list(cursor), headers=headers, tablefmt=fmt or "simple"
+                    list(cursor),
+                    headers=() if no_headers else headers,
+                    tablefmt=fmt or "simple",
                 )
             )
         elif csv or tsv:
@@ -2076,7 +2193,7 @@ def _execute_query(
             for row in cursor:
                 writer.writerow(row)
         else:
-            for line in output_rows(cursor, headers, nl, arrays, json_cols):
+            for line in output_rows(cursor, headers, nl, arrays, json_cols, ascii_):
                 click.echo(line)
 
 
@@ -2120,6 +2237,7 @@ def search(
     table,
     fmt,
     json_cols,
+    ascii_,
     load_extension,
 ):
     """Execute a full-text search against this table
@@ -2129,9 +2247,10 @@ def search(
         sqlite-utils search data.db chickens lila
     """
     db = sqlite_utils.Database(path)
+    _register_db_for_cleanup(db)
     _load_extensions(db, load_extension)
     # Check table exists
-    table_obj = db[dbtable]
+    table_obj = db.table(dbtable)
     if not table_obj.exists():
         raise click.ClickException("Table '{}' does not exist".format(dbtable))
     if not table_obj.detect_fts():
@@ -2165,6 +2284,7 @@ def search(
             table=table,
             fmt=fmt,
             json_cols=json_cols,
+            ascii_=ascii_,
             param=[("query", q)],
             load_extension=load_extension,
         )
@@ -2225,6 +2345,7 @@ def rows(
     table,
     fmt,
     json_cols,
+    ascii_,
     load_extension,
 ):
     """Output all rows in the specified table
@@ -2236,8 +2357,8 @@ def rows(
     """
     columns = "*"
     if column:
-        columns = ", ".join("[{}]".format(c) for c in column)
-    sql = "select {} from [{}]".format(columns, dbtable)
+        columns = ", ".join(quote_identifier(c) for c in column)
+    sql = "select {} from {}".format(columns, quote_identifier(dbtable))
     if where:
         sql += " where " + where
     if order:
@@ -2259,6 +2380,7 @@ def rows(
         fmt=fmt,
         param=param,
         json_cols=json_cols,
+        ascii_=ascii_,
         load_extension=load_extension,
     )
 
@@ -2285,6 +2407,7 @@ def triggers(
     table,
     fmt,
     json_cols,
+    ascii_,
     load_extension,
 ):
     """Show triggers configured in this database
@@ -2294,10 +2417,12 @@ def triggers(
     \b
         sqlite-utils triggers trees.db
     """
-    sql = "select name, tbl_name as [table], sql from sqlite_master where type = 'trigger'"
+    sql = "select name, tbl_name as \"table\", sql from sqlite_master where type = 'trigger'"
     if tables:
-        quote = sqlite_utils.Database(memory=True).quote
-        sql += " and [table] in ({})".format(
+        _quote_db = sqlite_utils.Database(memory=True)
+        _register_db_for_cleanup(_quote_db)
+        quote = _quote_db.quote
+        sql += ' and "table" in ({})'.format(
             ", ".join(quote(table) for table in tables)
         )
     ctx.invoke(
@@ -2312,6 +2437,7 @@ def triggers(
         table=table,
         fmt=fmt,
         json_cols=json_cols,
+        ascii_=ascii_,
         load_extension=load_extension,
     )
 
@@ -2340,6 +2466,7 @@ def indexes(
     table,
     fmt,
     json_cols,
+    ascii_,
     load_extension,
 ):
     """Show indexes for the whole database or specific tables
@@ -2361,7 +2488,9 @@ def indexes(
       sqlite_master.type = 'table'
     """
     if tables:
-        quote = sqlite_utils.Database(memory=True).quote
+        _quote_db = sqlite_utils.Database(memory=True)
+        _register_db_for_cleanup(_quote_db)
+        quote = _quote_db.quote
         sql += " and sqlite_master.name in ({})".format(
             ", ".join(quote(table) for table in tables)
         )
@@ -2379,6 +2508,7 @@ def indexes(
         table=table,
         fmt=fmt,
         json_cols=json_cols,
+        ascii_=ascii_,
         load_extension=load_extension,
     )
 
@@ -2404,6 +2534,7 @@ def schema(
         sqlite-utils schema trees.db
     """
     db = sqlite_utils.Database(path)
+    _register_db_for_cleanup(db)
     _load_extensions(db, load_extension)
     if tables:
         for table in tables:
@@ -2423,10 +2554,12 @@ def schema(
     "--type",
     type=(
         str,
-        click.Choice(["INTEGER", "TEXT", "FLOAT", "BLOB"], case_sensitive=False),
+        click.Choice(
+            ["INTEGER", "TEXT", "FLOAT", "REAL", "BLOB"], case_sensitive=False
+        ),
     ),
     multiple=True,
-    help="Change column type to INTEGER, TEXT, FLOAT or BLOB",
+    help="Change column type to INTEGER, TEXT, FLOAT, REAL or BLOB",
 )
 @click.option("--drop", type=str, multiple=True, help="Drop this column")
 @click.option(
@@ -2494,9 +2627,9 @@ def transform(
             --rename column2 column_renamed
     """
     db = sqlite_utils.Database(path)
+    _register_db_for_cleanup(db)
     _load_extensions(db, load_extension)
     types = {}
-    kwargs = {}
     for column, ctype in type:
         if ctype.upper() not in VALID_COLUMN_TYPES:
             raise click.ClickException(
@@ -2516,29 +2649,46 @@ def transform(
     for column in default_none:
         default_dict[column] = None
 
-    kwargs["types"] = types
-    kwargs["drop"] = set(drop)
-    kwargs["rename"] = dict(rename)
-    kwargs["column_order"] = column_order or None
-    kwargs["not_null"] = not_null_dict
+    drop_set = set(drop)
+    rename_dict = dict(rename)
+    column_order_list = list(column_order) or None
+    drop_foreign_keys_value = drop_foreign_keys or None
+    add_foreign_keys_value = add_foreign_keys or None
+    pk_value = DEFAULT
     if pk:
         if len(pk) == 1:
-            kwargs["pk"] = pk[0]
+            pk_value = pk[0]
         else:
-            kwargs["pk"] = pk
+            pk_value = pk
     elif pk_none:
-        kwargs["pk"] = None
-    kwargs["defaults"] = default_dict
-    if drop_foreign_keys:
-        kwargs["drop_foreign_keys"] = drop_foreign_keys
-    if add_foreign_keys:
-        kwargs["add_foreign_keys"] = add_foreign_keys
+        pk_value = None
 
+    table_obj = db.table(table)
     if sql:
-        for line in db[table].transform_sql(**kwargs):
+        for line in table_obj.transform_sql(
+            types=types,
+            drop=drop_set,
+            rename=rename_dict,
+            column_order=column_order_list,
+            not_null=not_null_dict,
+            pk=pk_value,
+            defaults=default_dict,
+            drop_foreign_keys=drop_foreign_keys_value,
+            add_foreign_keys=add_foreign_keys_value,
+        ):
             click.echo(line)
     else:
-        db[table].transform(**kwargs)
+        table_obj.transform(
+            types=types,
+            drop=drop_set,
+            rename=rename_dict,
+            column_order=column_order_list,
+            not_null=not_null_dict,
+            pk=pk_value,
+            defaults=default_dict,
+            drop_foreign_keys=drop_foreign_keys_value,
+            add_foreign_keys=add_foreign_keys_value,
+        )
 
 
 @cli.command()
@@ -2577,14 +2727,18 @@ def extract(
         sqlite-utils extract trees.db Street_Trees species
     """
     db = sqlite_utils.Database(path)
+    _register_db_for_cleanup(db)
     _load_extensions(db, load_extension)
-    kwargs = dict(
+    kwargs: dict[str, Any] = dict(
         columns=columns,
         table=other_table,
         fk_column=fk_column,
         rename=dict(rename),
     )
-    db[table].extract(**kwargs)
+    try:
+        db.table(table).extract(**kwargs)
+    except (NoTable, InvalidColumns) as e:
+        raise click.ClickException(str(e))
 
 
 @cli.command(name="insert-files")
@@ -2721,10 +2875,11 @@ def insert_files(
                 yield row
 
         db = sqlite_utils.Database(path)
+        _register_db_for_cleanup(db)
         _load_extensions(db, load_extension)
         try:
             with db.conn:
-                db[table].insert_all(
+                db.table(table).insert_all(
                     to_insert(),
                     pk=pks[0] if len(pks) == 1 else pks,
                     alter=alter,
@@ -2779,6 +2934,7 @@ def analyze_tables(
         sqlite-utils analyze-tables data.db trees
     """
     db = sqlite_utils.Database(path)
+    _register_db_for_cleanup(db)
     _load_extensions(db, load_extension)
     _analyze(db, tables, columns, save, common_limit, no_most, no_least)
 
@@ -2826,8 +2982,7 @@ def _analyze(db, tables, columns, save, common_limit=10, no_most=False, no_least
         )
         details = (
             (
-                textwrap.dedent(
-                    """
+                textwrap.dedent("""
         {table}.{column}: ({i}/{total})
 
           Total rows: {total_rows}
@@ -2835,8 +2990,7 @@ def _analyze(db, tables, columns, save, common_limit=10, no_most=False, no_least
           Blank rows: {num_blank}
 
           Distinct values: {num_distinct}{most_common_rendered}{least_common_rendered}
-        """
-                )
+        """)
                 .strip()
                 .format(
                     i=i + 1,
@@ -2883,8 +3037,7 @@ def uninstall(packages, yes):
 
 
 def _generate_convert_help():
-    help = textwrap.dedent(
-        """
+    help = textwrap.dedent("""
     Convert columns using Python code you supply. For example:
 
     \b
@@ -2897,13 +3050,12 @@ def _generate_convert_help():
     Use "-" for CODE to read Python code from standard input.
 
     The following common operations are available as recipe functions:
-    """
-    ).strip()
+    """).strip()
     recipe_names = [
         n
         for n in dir(recipes)
         if not n.startswith("_")
-        and n not in ("json", "parser")
+        and n not in ("json", "parser", "Callable", "Optional")
         and callable(getattr(recipes, n))
     ]
     for name in recipe_names:
@@ -2912,15 +3064,13 @@ def _generate_convert_help():
             name, str(inspect.signature(fn)), textwrap.dedent(fn.__doc__.rstrip())
         )
     help += "\n\n"
-    help += textwrap.dedent(
-        """
+    help += textwrap.dedent("""
     You can use these recipes like so:
 
     \b
     sqlite-utils convert my.db mytable mycolumn \\
         'r.jsonsplit(value, delimiter=":")'
-    """
-    ).strip()
+    """).strip()
     return help
 
 
@@ -2958,7 +3108,6 @@ def _generate_convert_help():
     type=click.Choice(["integer", "float", "blob", "text"]),
 )
 @click.option("--drop", is_flag=True, help="Drop original column afterwards")
-@click.option("--no-skip-false", is_flag=True, help="Don't skip falsey values")
 @click.option("-s", "--silent", is_flag=True, help="Don't show a progress bar")
 @click.option("pdb_", "--pdb", is_flag=True, help="Open pdb debugger on first error")
 def convert(
@@ -2974,12 +3123,12 @@ def convert(
     output,
     output_type,
     drop,
-    no_skip_false,
     silent,
     pdb_,
 ):
     sqlite3.enable_callback_tracebacks(True)
     db = sqlite_utils.Database(db_path)
+    _register_db_for_cleanup(db)
     if output is not None and len(columns) > 1:
         raise click.ClickException("Cannot use --output with more than one column")
     if multi and len(columns) > 1:
@@ -3000,7 +3149,7 @@ def convert(
         if multi:
 
             def preview(v):
-                return json.dumps(fn(v), default=repr) if v else v
+                return json.dumps(fn(v), default=repr, ensure_ascii=False) if v else v
 
         else:
 
@@ -3043,7 +3192,7 @@ def convert(
 
             fn = wrapped_fn
         try:
-            db[table].convert(
+            db.table(table).convert(
                 columns,
                 fn,
                 where=where,
@@ -3051,7 +3200,6 @@ def convert(
                 output=output,
                 output_type=output_type,
                 drop=drop,
-                skip_false=not no_skip_false,
                 multi=multi,
                 show_progress=not silent,
             )
@@ -3077,14 +3225,14 @@ def convert(
     "geometry_type",
     type=click.Choice(
         [
-            "POINT",
-            "LINESTRING",
-            "POLYGON",
-            "MULTIPOINT",
-            "MULTILINESTRING",
-            "MULTIPOLYGON",
-            "GEOMETRYCOLLECTION",
-            "GEOMETRY",
+            "point",
+            "linestring",
+            "polygon",
+            "multipoint",
+            "multilinestring",
+            "multipolygon",
+            "geometrycollection",
+            "geometry",
         ],
         case_sensitive=False,
     ),
@@ -3123,6 +3271,7 @@ def add_geometry_column(
     By default, this command will try to load the SpatiaLite extension from usual paths.
     To load it from a specific path, use --load-extension."""
     db = sqlite_utils.Database(db_path)
+    _register_db_for_cleanup(db)
     if not db[table].exists():
         raise click.ClickException(
             "You must create a table before adding a geometry column"
@@ -3133,7 +3282,7 @@ def add_geometry_column(
         _load_extensions(db, load_extension)
     db.init_spatialite()
 
-    if db[table].add_geometry_column(
+    if db.table(table).add_geometry_column(
         column_name, geometry_type, srid, coord_dimension, not_null
     ):
         click.echo(f"Added {geometry_type} column {column_name} to {table}")
@@ -3155,6 +3304,7 @@ def create_spatial_index(db_path, table, column_name, load_extension):
     By default, this command will try to load the SpatiaLite extension from usual paths.
     To load it from a specific path, use --load-extension."""
     db = sqlite_utils.Database(db_path)
+    _register_db_for_cleanup(db)
     if not db[table].exists():
         raise click.ClickException(
             "You must create a table and add a geometry column before creating a spatial index"
@@ -3170,16 +3320,197 @@ def create_spatial_index(db_path, table, column_name, load_extension):
             "You must add a geometry column before creating a spatial index"
         )
 
-    db[table].create_spatial_index(column_name)
+    db.table(table).create_spatial_index(column_name)
+
+
+def _find_migration_files(migrations):
+    if not migrations:
+        migrations = [pathlib.Path(".").resolve()]
+    files = set()
+    for path_str in migrations:
+        path = pathlib.Path(path_str)
+        if path.is_dir():
+            files.update(path.rglob("migrations.py"))
+        else:
+            files.add(path)
+    return sorted(files)
+
+
+def _compatible_migration_set(obj):
+    return isinstance(obj, sqlite_utils.Migrations) or all(
+        hasattr(obj, attr) for attr in ("name", "applied", "pending", "apply")
+    )
+
+
+def _load_migration_sets(files):
+    migration_sets = []
+    for filepath in files:
+        code = filepath.read_text()
+        namespace = {
+            "__file__": str(filepath),
+            "__name__": "__sqlite_utils_migration__",
+        }
+        exec(code, namespace)
+        migration_sets.extend(
+            obj for obj in namespace.values() if _compatible_migration_set(obj)
+        )
+    return migration_sets
+
+
+def _display_migration_list(db, migration_sets):
+    for migration_set in migration_sets:
+        click.echo("Migrations for: {}".format(migration_set.name))
+        click.echo()
+        click.echo("  Applied:")
+        for migration in migration_set.applied(db):
+            click.echo("    {} - {}".format(migration.name, migration.applied_at))
+        click.echo()
+        click.echo("  Pending:")
+        output = False
+        for migration in migration_set.pending(db):
+            output = True
+            click.echo("    {}".format(migration.name))
+        if not output:
+            click.echo("    (none)")
+        click.echo()
+
+
+def _stop_before_for_migration_set(stop_before, migration_set_name):
+    matches = []
+    for value in stop_before:
+        set_name, separator, migration_name = value.partition(":")
+        if separator:
+            if set_name == migration_set_name:
+                matches.append(migration_name)
+        else:
+            matches.append(value)
+    return matches
+
+
+@click.command()
+@click.argument(
+    "db_path", type=click.Path(dir_okay=False, readable=True, writable=True)
+)
+@click.argument("migrations", type=click.Path(dir_okay=True, exists=True), nargs=-1)
+@click.option(
+    "--stop-before",
+    multiple=True,
+    help="Stop before applying this migration. Use set:name to target a migration set.",
+)
+@click.option(
+    "list_", "--list", is_flag=True, help="List migrations without running them"
+)
+@click.option("-v", "--verbose", is_flag=True, help="Show verbose output")
+def migrate(db_path, migrations, stop_before, list_, verbose):
+    """
+    Apply pending database migrations.
+
+    Usage:
+
+        sqlite-utils migrate database.db
+
+    This will find the migrations.py file in the current directory
+    or subdirectories and apply any pending migrations.
+
+    Or pass paths to one or more migrations.py files directly:
+
+        sqlite-utils migrate database.db path/to/migrations.py
+
+    Pass --list to see a list of applied and pending migrations
+    without applying them.
+
+    Use --stop-before migration_set:name to stop before a
+    migration. This option can be used multiple times.
+    """
+    files = _find_migration_files(migrations)
+    migration_sets = _load_migration_sets(files)
+    if not migration_sets:
+        raise click.ClickException("No migrations.py files found")
+
+    if list_:
+        if pathlib.Path(db_path).exists():
+            db = sqlite_utils.Database(db_path)
+        else:
+            # Listing is read-only - don't create the database file
+            db = sqlite_utils.Database(memory=True)
+        _register_db_for_cleanup(db)
+        # Legacy sqlite-migrate classes create the migrations table from
+        # their pending()/applied() methods - run the listing inside a
+        # transaction and roll it back so --list stays read-only
+        db.begin()
+        try:
+            _display_migration_list(db, migration_sets)
+        finally:
+            db.rollback()
+        return
+
+    db = sqlite_utils.Database(db_path)
+    _register_db_for_cleanup(db)
+
+    prev_schema = db.schema
+    if verbose:
+        click.echo("Migrating {}".format(db_path))
+        click.echo("\nSchema before:\n")
+        click.echo(textwrap.indent(prev_schema, "  ") or "  (empty)")
+        click.echo()
+    if stop_before:
+        # Every --stop-before value must match at least one known migration
+        known_names = set()
+        for migration_set in migration_sets:
+            names = {m.name for m in migration_set.pending(db)}
+            names.update(m.name for m in migration_set.applied(db))
+            known_names.update(names)
+            known_names.update(
+                "{}:{}".format(migration_set.name, name) for name in names
+            )
+        unknown = [value for value in stop_before if value not in known_names]
+        if unknown:
+            raise click.ClickException(
+                "--stop-before did not match any migrations: {}".format(
+                    ", ".join(unknown)
+                )
+            )
+    for migration_set in migration_sets:
+        matches = _stop_before_for_migration_set(stop_before, migration_set.name)
+        if isinstance(migration_set, sqlite_utils.Migrations):
+            try:
+                migration_set.apply(db, stop_before=matches)
+            except ValueError as e:
+                raise click.ClickException(str(e))
+        else:
+            # Legacy sqlite-migrate Migrations objects take a single string
+            # for stop_before, not a list
+            distinct = list(dict.fromkeys(matches))
+            if len(distinct) > 1:
+                raise click.ClickException(
+                    "Migration set '{}' uses the older sqlite-migrate class, "
+                    "which only supports a single --stop-before value - "
+                    "got: {}".format(migration_set.name, ", ".join(distinct))
+                )
+            migration_set.apply(db, stop_before=distinct[0] if distinct else None)
+    if verbose:
+        click.echo("Schema after:\n")
+        post_schema = db.schema
+        if post_schema == prev_schema:
+            click.echo("  (unchanged)")
+        else:
+            click.echo(textwrap.indent(post_schema, "  "))
+            click.echo("\nSchema diff:\n")
+            diff = list(
+                difflib.unified_diff(prev_schema.splitlines(), post_schema.splitlines())
+            )
+            click.echo("\n".join(diff[3:]))
 
 
 @cli.command(name="plugins")
 def plugins_list():
     "List installed plugins"
-    click.echo(json.dumps(get_plugins(), indent=2))
+    click.echo(json.dumps(get_plugins(), indent=2, ensure_ascii=False))
 
 
+ensure_plugins_loaded()
 pm.hook.register_commands(cli=cli)
+cli.add_command(migrate)
 
 
 def _render_common(title, values):
@@ -3221,7 +3552,11 @@ FILE_COLUMNS = {
 }
 
 
-def output_rows(iterator, headers, nl, arrays, json_cols):
+def output_rows(iterator, headers, nl, arrays, json_cols, ascii_=False):
+    # Duplicate column names would collide as dictionary keys, so rename
+    # later occurrences id, id -> id, id_2 - CSV and table output keep
+    # the original duplicate headers since they never build dictionaries
+    headers = dedupe_keys(headers)
     # We have to iterate two-at-a-time so we can know if we
     # should output a trailing comma or if we have reached
     # the last row.
@@ -3238,7 +3573,7 @@ def output_rows(iterator, headers, nl, arrays, json_cols):
             data = dict(zip(headers, data))
         line = "{firstchar}{serialized}{maybecomma}{lastchar}".format(
             firstchar=("[" if first else " ") if not nl else "",
-            serialized=json.dumps(data, default=json_binary),
+            serialized=json.dumps(data, default=json_binary, ensure_ascii=ascii_),
             maybecomma="," if (not nl and not is_last) else "",
             lastchar="]" if (is_last and not nl) else "",
         )
@@ -3281,7 +3616,10 @@ def _load_extensions(db, load_extension):
         db.conn.enable_load_extension(True)
         for ext in load_extension:
             if ext == "spatialite" and not os.path.exists(ext):
-                ext = find_spatialite()
+                found = find_spatialite()
+                if found is None:
+                    raise click.ClickException("Could not find SpatiaLite extension")
+                ext = found
             if ":" in ext:
                 path, _, entrypoint = ext.partition(":")
                 db.conn.execute("SELECT load_extension(?, ?)", [path, entrypoint])
@@ -3310,8 +3648,7 @@ def _register_functions(db, functions):
             db.register_function(value, name=name)
 
 
-def _register_functions_from_multiple(db, functions_list):
-    """Register functions from multiple --functions arguments."""
+def _maybe_register_functions(db, functions_list):
     if not functions_list:
         return
     for functions in functions_list:

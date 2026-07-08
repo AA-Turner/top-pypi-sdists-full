@@ -5245,7 +5245,7 @@ def sync_logs(config: dict, state: dict, paths: dict) -> int:
 # land locally even when cloud sync is paused or the user is on the free tier.
 # Ref: docs/logging.md §"File logs (JSONL)" — Talk/realtime/managed-room records.
 
-_VOICE_EVENT_TYPE_PREFIXES = ("talk.", "realtime.", "voice.", "managed_room.")
+_VOICE_EVENT_TYPE_PREFIXES = ("talk.", "realtime.", "voice.", "managed_room.", "tts.")
 
 
 def _is_voice_lifecycle_record(obj: dict) -> bool:
@@ -5322,6 +5322,10 @@ def sync_voice_log_events(config: dict, state: dict, paths: dict) -> int:
                             "provider":    obj.get("provider"),
                             "duration_ms": obj.get("duration_ms"),
                             "size_bytes":  obj.get("size_bytes") or obj.get("size"),
+                            # TTS-specific fields (#3569): char_count and voice_id
+                            # are only present on tts.* records; None for others.
+                            "char_count":  obj.get("char_count") or obj.get("characterCount") or obj.get("text_length"),
+                            "voice_id":    obj.get("voice_id") or obj.get("voiceId"),
                         }, separators=(",", ":")),
                     })
                 offsets[fname] = f.tell()
@@ -7431,7 +7435,10 @@ def _cap_brain_event_size(ev):
             return ev
     except (TypeError, ValueError):
         return ev
-    for limit in (400, 250, 150, 80):
+    # Gentle ladder: a chat message that overshoots the ceiling by a few
+    # bytes (unicode escapes, long model ids) should lose a sentence, not
+    # collapse from 1200 chars straight to 400 (the old first rung).
+    for limit in (1000, 700, 400, 250, 150, 80):
         ev = _truncate_brain_payload(ev, cap=limit)
         try:
             if len(json.dumps(ev, separators=(",", ":"))) <= _BRAIN_EVENT_CAP:
@@ -7496,6 +7503,29 @@ def _rows_to_brain_events(rows: list) -> list:
         if isinstance(data, dict):
             if not data.get("timestamp") and not data.get("time") and r.get("ts"):
                 data = {**data, "timestamp": r.get("ts")}
+            # OpenClaw v3 chat rows store the text as completionText /
+            # assistantTexts / finalPromptText (see _parse_v3_event) — a shape
+            # transformEvents' role branches don't know, so its empty-detail
+            # fallback DROPPED the whole conversation (cloud Activity showed
+            # "No brain activity events found" for a talking node). Synthesize
+            # the canonical {type:"message", message:{role, content[]}} the
+            # cloud renderer AND the device parser already understand.
+            v3msg = _v3_chat_message(data)
+            if v3msg is not None:
+                # LEAN blob event: the v3 row stores the same text up to
+                # three times (completionText, assistantTexts[0], the nested
+                # data.* copy) and the message block adds a fourth — that
+                # quadrupling blew the 1500-byte _BRAIN_EVENT_CAP, so
+                # _cap_brain_event_size squeezed every string to 150 chars
+                # and the cloud feed showed a stub of the reply (live-hit
+                # 2026-07-08). The blob's only readers are transformEvents
+                # (cloud) and brain_event_to_row (device), both of which
+                # read message.content — drop the duplicates so the actual
+                # text gets nearly the whole per-event budget.
+                data = {k: v for k, v in data.items()
+                        if k not in ("completionText", "assistantTexts",
+                                     "finalPromptText", "toolMetas", "data")}
+                data = {**data, "type": "message", "message": v3msg}
             if enrich:
                 # Enrichment wins — the JSONL payload often carries the
                 # raw ``sender``/``from`` BLOCK under the same key name
@@ -7511,7 +7541,13 @@ def _rows_to_brain_events(rows: list) -> list:
                 data.setdefault("type", r.get("event_type"))
             # Bound the per-event size so a burst of big tool outputs can't push
             # the blob past the device's 128 KB buffer (the "feed locked" cause).
-            data = _truncate_brain_payload(data)
+            # Chat messages get a roomier per-string cap: the lean event's only
+            # big string is the message text itself, and cutting a reply at the
+            # default 600 reads as a bug in the feed. _cap_brain_event_size
+            # still enforces the hard 1500-byte ceiling either way, so the
+            # device-buffer math is unchanged.
+            data = _truncate_brain_payload(
+                data, cap=1200 if v3msg is not None else None)
             # Stamp the CANONICAL session id from the row's top-level session_id
             # column (the BARE uuid, dropping the ``runtime:`` namespace) so
             # per-session feeds (desk device + cloud Brain filtering) attribute
@@ -7584,20 +7620,72 @@ _BRAIN_SKIP_TYPES = {
 }
 
 
+def _v3_chat_message(data) -> "dict | None":
+    """Project a daemon-normalised v3 chat row onto the ``{role, content[]}``
+    shape the cloud's ``transformEvents`` and the device's
+    ``brain_event_to_row`` actually render.
+
+    ``_parse_v3_event`` stores OpenClaw v3 conversations as
+    ``prompt.submitted{finalPromptText}`` / ``model.completed{completionText,
+    assistantTexts, toolMetas}`` — there is NO other message-shaped event for
+    these turns, so a brain filter that only knows ``content``/``text``/
+    ``tool_calls`` drops the ENTIRE conversation and the cloud Activity tab
+    shows "No brain activity events found" for a node that is talking all
+    day (live-confirmed 2026-07-07 on a hosted openclaw node). Detectors,
+    the outcome classifier, and the eval runner all read these keys already;
+    the brain pipeline was the holdout.
+
+    Returns ``None`` when the row isn't a v3 chat event, already carries a
+    ``message`` block, or has nothing printable.
+    """
+    if not isinstance(data, dict) or isinstance(data.get("message"), dict):
+        return None
+    text = data.get("completionText")
+    if not (isinstance(text, str) and text.strip()):
+        at = data.get("assistantTexts")
+        text = "\n".join(t for t in at if isinstance(t, str) and t) \
+            if isinstance(at, list) else ""
+    if (isinstance(text, str) and text.strip()) or data.get("toolMetas"):
+        content = []
+        if isinstance(text, str) and text.strip():
+            content.append({"type": "text", "text": text})
+        for tm in data.get("toolMetas") or []:
+            if isinstance(tm, dict):
+                content.append({"type": "tool_use", "id": tm.get("id"),
+                                "name": tm.get("name") or "tool",
+                                "input": tm.get("input") or {}})
+        if content:
+            return {"role": "assistant", "content": content}
+    fp = data.get("finalPromptText")
+    if isinstance(fp, str) and fp.strip():
+        return {"role": "user", "content": [{"type": "text", "text": fp}]}
+    return None
+
+
 def _brain_row_renderable(r: dict) -> bool:
     """True if the event row would render as a real message / tool event on the
     device + cloud Brain feed (mirrors ``summary_parse.c brain_event_to_row``).
     Skips internal plumbing so the blob's limited slots hold real activity."""
     if not isinstance(r, dict):
         return False
+    raw = r.get("data")
+    data = raw
+    unparseable = False
+    if isinstance(raw, str):
+        try:
+            data = json.loads(raw)
+        except Exception:
+            data, unparseable = None, True
+    # v3 chat turns win over the skip list: for OpenClaw v3 the user prompt
+    # IS a prompt.submitted row (finalPromptText) — skipping it as plumbing
+    # silences the whole conversation. Rows without printable v3 text still
+    # fall through to the skip list below.
+    if _v3_chat_message(data) is not None:
+        return True
     if (r.get("event_type") or "").lower() in _BRAIN_SKIP_TYPES:
         return False
-    data = r.get("data")
-    if isinstance(data, str):
-        try:
-            data = json.loads(data)
-        except Exception:
-            return bool(data.strip())
+    if unparseable:
+        return bool(raw.strip())
     if not isinstance(data, dict):
         return False
     if (data.get("type") or "").lower() in _BRAIN_SKIP_TYPES:
@@ -9814,6 +9902,7 @@ def sync_crons(config: dict, state: dict, paths: dict) -> int:
                 "expr": expr,
                 "schedule": sched,
                 "task": (j.get("task") or "")[:200],
+                "model": j.get("model", ""),
                 "state": {
                     "lastStatus": job_state.get("lastStatus"),
                     "lastRunAtMs": job_state.get("lastRunAtMs"),
@@ -9875,6 +9964,7 @@ def sync_crons(config: dict, state: dict, paths: dict) -> int:
                     "next_run_at": str(job_state.get("nextRunAtMs") or ""),
                     # All other freeform fields go into the BLOB
                     "task":        (j.get("task") or "")[:500],
+                    "model":       j.get("model"),
                     "lastDurationMs":      job_state.get("lastDurationMs"),
                     "lastError":           job_state.get("lastError"),
                     "consecutiveFailures": job_state.get("consecutiveFailures"),

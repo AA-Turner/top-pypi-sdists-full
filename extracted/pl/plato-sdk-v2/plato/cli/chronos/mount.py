@@ -28,6 +28,7 @@ import signal
 import subprocess
 import sys
 import tempfile
+import threading
 import time
 from collections.abc import Callable
 from datetime import UTC, datetime
@@ -608,7 +609,12 @@ def _mount_local_nfs(mount_dir: Path, local_port: int, is_mac: bool, *, vers: in
         mount_cmd = ["mount_nfs", "-o", nfs_opts, "127.0.0.1:/", str(mount_dir)]
     else:
         if vers == 4:
-            nfs_opts = f"vers=4,port={local_port},tcp"
+            # `soft` bounds I/O against a dead server (EIO after timeo*retrans ≈ 15s per op)
+            # instead of the kernel-default `hard`, which retries forever and leaves every
+            # process touching the mountpoint in uninterruptible D-state when the backing
+            # VM/tunnel dies. The usual soft-mount corruption caveat barely applies here:
+            # this is a localhost tunnel where failure means the server is gone, not lossy.
+            nfs_opts = f"vers=4,port={local_port},tcp,soft,timeo=50,retrans=3"
         else:
             nfs_opts = f"port={local_port},mountport={local_port},tcp"
             if vers is not None:
@@ -660,7 +666,14 @@ def _unmount_local_nfs(mount_dir: Path, is_mac: bool) -> None:
             ["diskutil", "unmount", "force", str(mount_dir)],
         ]
     else:
-        attempts = [["sudo", "-n", "umount", str(mount_dir)]]
+        # Escalate like the macOS path: a plain umount fails with EBUSY (or hangs) when the
+        # NFS server is already dead. `-f` aborts in-flight RPCs; `-l` (lazy) detaches the
+        # mount unconditionally so blocked waiters get EIO instead of staying in D-state.
+        attempts = [
+            ["sudo", "-n", "umount", str(mount_dir)],
+            ["sudo", "-n", "umount", "-f", str(mount_dir)],
+            ["sudo", "-n", "umount", "-l", str(mount_dir)],
+        ]
 
     last_error = ""
     for cmd in attempts:
@@ -682,6 +695,36 @@ def _unmount_local_nfs(mount_dir: Path, is_mac: bool) -> None:
 
 async def _unmount_local_nfs_async(mount_dir: Path, is_mac: bool) -> None:
     await asyncio.to_thread(_unmount_local_nfs, mount_dir, is_mac)
+
+
+# Watchdog cadence for the mount daemon: probe the mounted filesystem end-to-end and tear
+# down if the backing VM/tunnel died. Two consecutive failures ≈ 1 minute of deadness.
+_MOUNT_WATCHDOG_INTERVAL_S = 30.0
+_MOUNT_WATCHDOG_PROBE_TIMEOUT_S = 20.0
+_MOUNT_WATCHDOG_FAILURES_BEFORE_TEARDOWN = 2
+
+
+def _probe_mount_alive(mount_dir: Path, timeout_s: float) -> bool:
+    """Best-effort liveness probe of a mounted filesystem.
+
+    statvfs() forces a round-trip to the NFS server. Run it on a daemon thread with a join
+    timeout so a server that died under a `hard` mount (statvfs stuck in D-state) reads as
+    dead instead of wedging the caller; the stuck thread is released once the watchdog
+    force-unmounts the filesystem.
+    """
+    result: list[bool] = []
+
+    def _probe() -> None:
+        try:
+            os.statvfs(mount_dir)
+            result.append(True)
+        except OSError:
+            result.append(False)
+
+    thread = threading.Thread(target=_probe, name=f"mount-probe-{mount_dir.name}", daemon=True)
+    thread.start()
+    thread.join(timeout_s)
+    return bool(result and result[0])
 
 
 # ---------------------------------------------------------------------------
@@ -1112,6 +1155,7 @@ async def run_mount_daemon(
     mount_dir: Path | None = None
     transport = ""
     mounted = False
+    watchdog_error: str | None = None
     is_mac = platform.system() == "Darwin"
     workspace_path = "/mnt/workspace"
 
@@ -1238,7 +1282,42 @@ async def run_mount_daemon(
             file_count=file_count,
             error=None,
         )
-        await stop_event.wait()
+
+        # Wait for a stop signal, probing the mount's health in between. If the backing
+        # VM/tunnel dies, tear down instead of stranding a dead mount: the finally block's
+        # forced unmount releases any process already blocked on the mountpoint.
+        probe_failures = 0
+        while True:
+            try:
+                await asyncio.wait_for(stop_event.wait(), timeout=_MOUNT_WATCHDOG_INTERVAL_S)
+                break
+            except TimeoutError:
+                # Shutdown always wins over probing: skip the probe if a stop raced the timeout.
+                if stop_event.is_set():
+                    break
+            alive = await asyncio.to_thread(_probe_mount_alive, mount_dir, _MOUNT_WATCHDOG_PROBE_TIMEOUT_S)
+            if stop_event.is_set():
+                # A stop that arrived mid-probe wins: exit cleanly, ignore the probe result.
+                break
+            if alive:
+                probe_failures = 0
+                continue
+            probe_failures += 1
+            logger.warning(
+                "Mount watchdog probe failed for %s (%d/%d)",
+                alias,
+                probe_failures,
+                _MOUNT_WATCHDOG_FAILURES_BEFORE_TEARDOWN,
+            )
+            if probe_failures >= _MOUNT_WATCHDOG_FAILURES_BEFORE_TEARDOWN:
+                watchdog_error = "mount became unresponsive; watchdog tore it down"
+                _append_mount_event(
+                    alias,
+                    kind="error",
+                    message="Mount became unresponsive (backing VM/tunnel dead); tearing down",
+                )
+                _update_mount_record(alias, status="failed", error=watchdog_error)
+                break
     except Exception as exc:
         logger.exception("Mount daemon failed for %s", alias)
         _update_mount_record(alias, status="failed", error=str(exc))
@@ -1247,7 +1326,9 @@ async def run_mount_daemon(
         cleanup_error: str | None = None
 
         if mounted and mount_dir is not None:
-            _update_mount_record(alias, status="stopping")
+            # Keep the "failed" status (and record) visible when the watchdog tore us down.
+            if watchdog_error is None:
+                _update_mount_record(alias, status="stopping")
             try:
                 await _unmount_local_nfs_async(mount_dir, is_mac=is_mac)
             except Exception as exc:
@@ -1267,7 +1348,12 @@ async def run_mount_daemon(
             await plato_client.close()
 
         if cleanup_error is not None:
-            _update_mount_record(alias, status="failed", error=cleanup_error)
+            # Keep the primary failure reason (watchdog teardown, daemon exception) as the
+            # leading error and append the cleanup failure rather than replacing it.
+            current = _read_mount_record(alias)
+            prior_error = current.get("error") if current is not None else None
+            error_text = f"{prior_error}; {cleanup_error}" if prior_error else cleanup_error
+            _update_mount_record(alias, status="failed", error=error_text)
             return
 
         current = _read_mount_record(alias)

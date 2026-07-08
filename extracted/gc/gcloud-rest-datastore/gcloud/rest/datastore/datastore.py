@@ -3,12 +3,7 @@ import logging
 import os
 from typing import Any
 from typing import AnyStr
-from typing import Dict
 from typing import IO
-from typing import List
-from typing import Optional
-from typing import Tuple
-from typing import Union
 
 from gcloud.rest.auth import SyncSession  # pylint: disable=no-name-in-module
 from gcloud.rest.auth import BUILD_GCLOUD_REST  # pylint: disable=no-name-in-module
@@ -43,12 +38,14 @@ SCOPES = [
 
 log = logging.getLogger(__name__)
 
-LookUpResult = Dict[str, Union[str, List[Union[EntityResult, Key]]]]
+LookUpResult = dict[str, str | list[EntityResult | Key]]
 
 
-def init_api_root(api_root: Optional[str]) -> Tuple[bool, str]:
+def init_api_root(
+        api_root: str | None, api_is_dev: bool | None,
+) -> tuple[bool, str]:
     if api_root:
-        return True, api_root
+        return api_is_dev is None or api_is_dev, api_root
 
     host = os.environ.get('DATASTORE_EMULATOR_HOST')
     if host:
@@ -66,19 +63,20 @@ class Datastore:
     query_result_kind = QueryResult
     value_kind = Value
 
-    _project: Optional[str]
+    _project: str | None
     _api_root: str
     _api_is_dev: bool
 
-    Timeout = Union[int, float]
-
     def __init__(
-            self, project: Optional[str] = None,
-            service_file: Optional[Union[str, IO[AnyStr]]] = None,
-            namespace: str = '', session: Optional[Session] = None,
-            token: Optional[Token] = None, api_root: Optional[str] = None,
+            self, project: str | None = None,
+            service_file: str | IO[AnyStr] | None = None,
+            namespace: str = '',
+            session: Session | None = None,
+            token: Token | None = None,
+            api_root: str | None = None,
+            api_is_dev: bool | None = None,
     ) -> None:
-        self._api_is_dev, self._api_root = init_api_root(api_root)
+        self._api_is_dev, self._api_root = init_api_root(api_root, api_is_dev)
         self.namespace = namespace
         self.session = SyncSession(session)
         self.token = token or Token(
@@ -106,10 +104,10 @@ class Datastore:
 
     @staticmethod
     def _make_commit_body(
-        mutations: List[Dict[str, Any]],
-        transaction: Optional[str] = None,
+        mutations: list[dict[str, Any]],
+        transaction: str | None = None,
         mode: Mode = Mode.TRANSACTIONAL,
-    ) -> Dict[str, Any]:
+    ) -> dict[str, Any]:
         if not mutations:
             raise Exception('at least one mutation record is required')
 
@@ -127,7 +125,7 @@ class Datastore:
             data['transaction'] = transaction
         return data
 
-    def headers(self) -> Dict[str, str]:
+    def headers(self) -> dict[str, str]:
         if self._api_is_dev:
             return {}
 
@@ -136,12 +134,36 @@ class Datastore:
             'Authorization': f'Bearer {token}',
         }
 
+    def _post(
+        self,
+        url: str,
+        body: dict[str, Any] | None = None,
+        *,
+        additional_request_fields: dict[str, Any] | None = None,
+        session: Session | None = None,
+        timeout: float = 10.,
+    ) -> Any:
+        merged: dict[str, Any] = {
+            **(body or {}), **(additional_request_fields or {}),
+        }
+        headers = self.headers()
+        headers['Content-Type'] = 'application/json'
+        s = SyncSession(session) if session else self.session
+        if merged:
+            payload = json.dumps(merged).encode('utf-8')
+            headers['Content-Length'] = str(len(payload))
+            return s.post(
+                url, data=payload, headers=headers, timeout=timeout,
+            )
+        headers['Content-Length'] = '0'
+        return s.post(url, headers=headers, timeout=timeout)
+
     # TODO: support mutations w version specifiers, return new version (commit)
     @classmethod
     def make_mutation(
             cls, operation: Operation, key: Key,
-            properties: Optional[Dict[str, Any]] = None,
-    ) -> Dict[str, Any]:
+            properties: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
         if operation == Operation.DELETE:
             return {operation.value: key.to_repr()}
 
@@ -159,83 +181,58 @@ class Datastore:
 
     # https://cloud.google.com/datastore/docs/reference/data/rest/v1/projects/allocateIds
     def allocateIds(
-        self, keys: List[Key],
-        session: Optional[Session] = None,
-        timeout: Timeout = 10,
-    ) -> List[Key]:
+        self, keys: list[Key],
+        session: Session | None = None,
+        timeout: float = 10.,
+        additional_request_fields: dict[str, Any] | None = None,
+    ) -> list[Key]:
         project = self.project()
         url = f'{self._api_root}/projects/{project}:allocateIds'
-
-        payload = json.dumps({
-            'keys': [k.to_repr() for k in keys],
-        }).encode('utf-8')
-
-        headers = self.headers()
-        headers.update({
-            'Content-Length': str(len(payload)),
-            'Content-Type': 'application/json',
-        })
-
-        s = SyncSession(session) if session else self.session
-        resp = s.post(
-            url, data=payload, headers=headers,
-            timeout=timeout,
+        resp = self._post(
+            url, {'keys': [k.to_repr() for k in keys]},
+            additional_request_fields=additional_request_fields,
+            session=session, timeout=timeout,
         )
         data = resp.json()
-
         return [self.key_kind.from_repr(k) for k in data['keys']]
 
     # https://cloud.google.com/datastore/docs/reference/data/rest/v1/projects/beginTransaction
     # TODO: support readwrite vs readonly transaction types
     def beginTransaction(
-        self, session: Optional[Session] = None,
-        timeout: Timeout = 10,
+        self, session: Session | None = None,
+        timeout: float = 10.,
+        additional_request_fields: dict[str, Any] | None = None,
     ) -> str:
         project = self.project()
         url = f'{self._api_root}/projects/{project}:beginTransaction'
-        headers = self.headers()
-        headers.update({
-            'Content-Length': '0',
-            'Content-Type': 'application/json',
-        })
-
-        s = SyncSession(session) if session else self.session
-        resp = s.post(url, headers=headers, timeout=timeout)
+        resp = self._post(
+            url,
+            additional_request_fields=additional_request_fields,
+            session=session, timeout=timeout,
+        )
         data = resp.json()
-
         transaction: str = data['transaction']
         return transaction
 
     # https://cloud.google.com/datastore/docs/reference/data/rest/v1/projects/commit
     def commit(
-        self, mutations: List[Dict[str, Any]],
-        transaction: Optional[str] = None,
+        self, mutations: list[dict[str, Any]],
+        transaction: str | None = None,
         mode: Mode = Mode.TRANSACTIONAL,
-        session: Optional[Session] = None,
-        timeout: Timeout = 10,
-    ) -> Dict[str, Any]:
+        session: Session | None = None,
+        timeout: float = 10.,
+        additional_request_fields: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
         project = self.project()
         url = f'{self._api_root}/projects/{project}:commit'
-
         body = self._make_commit_body(
-            mutations, transaction=transaction,
-            mode=mode,
+            mutations, transaction=transaction, mode=mode)
+        resp = self._post(
+            url, body,
+            additional_request_fields=additional_request_fields,
+            session=session, timeout=timeout,
         )
-        payload = json.dumps(body).encode('utf-8')
-
-        headers = self.headers()
-        headers.update({
-            'Content-Length': str(len(payload)),
-            'Content-Type': 'application/json',
-        })
-
-        s = SyncSession(session) if session else self.session
-        resp = s.post(
-            url, data=payload, headers=headers,
-            timeout=timeout,
-        )
-        data: Dict[str, Any] = resp.json()
-
+        data: dict[str, Any] = resp.json()
         return {
             'mutationResults': [
                 self.mutation_result_kind.from_repr(r)
@@ -247,44 +244,36 @@ class Datastore:
     # https://cloud.google.com/datastore/docs/reference/admin/rest/v1/projects/export
     def export(
         self, output_bucket_prefix: str,
-        kinds: Optional[List[str]] = None,
-        namespaces: Optional[List[str]] = None,
-        labels: Optional[Dict[str, str]] = None,
-        session: Optional[Session] = None,
-        timeout: Timeout = 10,
+        kinds: list[str] | None = None,
+        namespaces: list[str] | None = None,
+        labels: dict[str, str] | None = None,
+        session: Session | None = None,
+        timeout: float = 10.,
+        additional_request_fields: dict[str, Any] | None = None,
     ) -> DatastoreOperation:
         project = self.project()
         url = f'{self._api_root}/projects/{project}:export'
-
-        payload = json.dumps({
+        body: dict[str, Any] = {
             'entityFilter': {
                 'kinds': kinds or [],
                 'namespaceIds': namespaces or [],
             },
             'labels': labels or {},
             'outputUrlPrefix': f'gs://{output_bucket_prefix}',
-        }).encode('utf-8')
-
-        headers = self.headers()
-        headers.update({
-            'Content-Length': str(len(payload)),
-            'Content-Type': 'application/json',
-        })
-
-        s = SyncSession(session) if session else self.session
-        resp = s.post(
-            url, data=payload, headers=headers,
-            timeout=timeout,
+        }
+        resp = self._post(
+            url, body,
+            additional_request_fields=additional_request_fields,
+            session=session, timeout=timeout,
         )
-        data: Dict[str, Any] = resp.json()
-
+        data: dict[str, Any] = resp.json()
         return self.datastore_operation_kind.from_repr(data)
 
     # https://cloud.google.com/datastore/docs/reference/data/rest/v1/projects.operations/get
     def get_datastore_operation(
         self, name: str,
-        session: Optional[Session] = None,
-        timeout: Timeout = 10,
+        session: Session | None = None,
+        timeout: float = 10.,
     ) -> DatastoreOperation:
         url = f'{self._api_root}/{name}'
 
@@ -295,48 +284,35 @@ class Datastore:
 
         s = SyncSession(session) if session else self.session
         resp = s.get(url, headers=headers, timeout=timeout)
-        data: Dict[str, Any] = resp.json()
+        data: dict[str, Any] = resp.json()
 
         return self.datastore_operation_kind.from_repr(data)
 
-    # pylint: disable=too-many-locals
     # https://cloud.google.com/datastore/docs/reference/data/rest/v1/projects/lookup
     def lookup(
-            self, keys: List[Key],
-            transaction: Optional[str] = None,
-            newTransaction: Optional[TransactionOptions] = None,
+            self, keys: list[Key],
+            transaction: str | None = None,
+            newTransaction: TransactionOptions | None = None,
             consistency: Consistency = Consistency.STRONG,
-            read_time: Optional[str] = None,
-            session: Optional[Session] = None, timeout: Timeout = 10,
+            read_time: str | None = None,
+            session: Session | None = None, timeout: float = 10.,
+            additional_request_fields: dict[str, Any] | None = None,
     ) -> LookUpResult:
         project = self.project()
         url = f'{self._api_root}/projects/{project}:lookup'
-
         read_options = self._build_read_options(
-            consistency, newTransaction, transaction, read_time)
-
-        payload = json.dumps({
-            'keys': [k.to_repr() for k in keys],
-            'readOptions': read_options,
-        }).encode('utf-8')
-
-        headers = self.headers()
-        headers.update({
-            'Content-Length': str(len(payload)),
-            'Content-Type': 'application/json',
-        })
-
-        s = SyncSession(session) if session else self.session
-        resp = s.post(
-            url, data=payload, headers=headers,
-            timeout=timeout,
+            consistency, newTransaction, transaction, read_time,
         )
-
-        data: Dict[str, Any] = resp.json()
-
+        resp = self._post(
+            url,
+            {'keys': [k.to_repr() for k in keys], 'readOptions': read_options},
+            additional_request_fields=additional_request_fields,
+            session=session, timeout=timeout,
+        )
+        data: dict[str, Any] = resp.json()
         return self._build_lookup_result(data)
 
-    def _build_lookup_result(self, data: Dict[str, Any]) -> LookUpResult:
+    def _build_lookup_result(self, data: dict[str, Any]) -> LookUpResult:
         result: LookUpResult = {
             'found': [
                 self.entity_result_kind.from_repr(e)
@@ -360,12 +336,11 @@ class Datastore:
         return result
 
     # https://cloud.google.com/datastore/docs/reference/data/rest/v1/ReadOptions
-    def _build_read_options(self,
-                            consistency: Consistency,
-                            newTransaction: Optional[TransactionOptions],
-                            transaction: Optional[str],
-                            read_time: Optional[str],
-                            ) -> Dict[str, Any]:
+    def _build_read_options(
+            self, consistency: Consistency,
+            newTransaction: TransactionOptions | None,
+            transaction: str | None, read_time: str | None,
+    ) -> dict[str, Any]:
         # TODO: expose ReadOptions directly to users
         if transaction:
             return {'transaction': transaction}
@@ -380,69 +355,54 @@ class Datastore:
 
     # https://cloud.google.com/datastore/docs/reference/data/rest/v1/projects/reserveIds
     def reserveIds(
-        self, keys: List[Key], database_id: str = '',
-        session: Optional[Session] = None,
-        timeout: Timeout = 10,
+        self, keys: list[Key], database_id: str = '',
+        session: Session | None = None,
+        timeout: float = 10.,
+        additional_request_fields: dict[str, Any] | None = None,
     ) -> None:
         project = self.project()
         url = f'{self._api_root}/projects/{project}:reserveIds'
-
-        payload = json.dumps({
-            'databaseId': database_id,
-            'keys': [k.to_repr() for k in keys],
-        }).encode('utf-8')
-
-        headers = self.headers()
-        headers.update({
-            'Content-Length': str(len(payload)),
-            'Content-Type': 'application/json',
-        })
-
-        s = SyncSession(session) if session else self.session
-        s.post(url, data=payload, headers=headers, timeout=timeout)
+        self._post(
+            url,
+            {'databaseId': database_id, 'keys': [k.to_repr() for k in keys]},
+            additional_request_fields=additional_request_fields,
+            session=session, timeout=timeout,
+        )
 
     # https://cloud.google.com/datastore/docs/reference/data/rest/v1/projects/rollback
     def rollback(
         self, transaction: str,
-        session: Optional[Session] = None,
-        timeout: Timeout = 10,
+        session: Session | None = None,
+        timeout: float = 10.,
+        additional_request_fields: dict[str, Any] | None = None,
     ) -> None:
         project = self.project()
         url = f'{self._api_root}/projects/{project}:rollback'
-
-        payload = json.dumps({
-            'transaction': transaction,
-        }).encode('utf-8')
-
-        headers = self.headers()
-        headers.update({
-            'Content-Length': str(len(payload)),
-            'Content-Type': 'application/json',
-        })
-
-        s = SyncSession(session) if session else self.session
-        s.post(url, data=payload, headers=headers, timeout=timeout)
+        self._post(
+            url, {'transaction': transaction},
+            additional_request_fields=additional_request_fields,
+            session=session, timeout=timeout,
+        )
 
     # https://cloud.google.com/datastore/docs/reference/data/rest/v1/projects/runQuery
-    # pylint: disable=too-many-locals
     def runQuery(
         self, query: BaseQuery,
-        explain_options: Optional[ExplainOptions] = None,
-        transaction: Optional[str] = None,
-        newTransaction: Optional[TransactionOptions] = None,
+        explain_options: ExplainOptions | None = None,
+        transaction: str | None = None,
+        newTransaction: TransactionOptions | None = None,
         consistency: Consistency = Consistency.EVENTUAL,
-        read_time: Optional[str] = None,
-        session: Optional[Session] = None,
-        timeout: Timeout = 10,
+        read_time: str | None = None,
+        session: Session | None = None,
+        timeout: float = 10.,
+        additional_request_fields: dict[str, Any] | None = None,
     ) -> QueryResult:
-
+        # pylint: disable=too-many-locals
         project = self.project()
         url = f'{self._api_root}/projects/{project}:runQuery'
-
         read_options = self._build_read_options(
-            consistency, newTransaction, transaction, read_time)
-
-        payload_dict = {
+            consistency, newTransaction, transaction, read_time,
+        )
+        body: dict[str, Any] = {
             'partitionId': {
                 'projectId': project,
                 'namespaceId': self.namespace,
@@ -450,56 +410,44 @@ class Datastore:
             query.json_key: query.to_repr(),
             'readOptions': read_options,
         }
-
         if explain_options:
-            payload_dict['explainOptions'] = explain_options.to_repr()
-
-        payload = json.dumps(payload_dict).encode('utf-8')
-
-        headers = self.headers()
-        headers.update({
-            'Content-Length': str(len(payload)),
-            'Content-Type': 'application/json',
-        })
-
-        s = SyncSession(session) if session else self.session
-        resp = s.post(
-            url, data=payload, headers=headers,
-            timeout=timeout,
+            body['explainOptions'] = explain_options.to_repr()
+        resp = self._post(
+            url, body,
+            additional_request_fields=additional_request_fields,
+            session=session, timeout=timeout,
         )
-
-        data: Dict[str, Any] = resp.json()
-
+        data: dict[str, Any] = resp.json()
         return self.query_result_kind.from_repr(data)
 
     def delete(
         self, key: Key,
-        session: Optional[Session] = None,
-    ) -> Dict[str, Any]:
+        session: Session | None = None,
+    ) -> dict[str, Any]:
         return self.operate(Operation.DELETE, key, session=session)
 
     def insert(
-        self, key: Key, properties: Dict[str, Any],
-        session: Optional[Session] = None,
-    ) -> Dict[str, Any]:
+        self, key: Key, properties: dict[str, Any],
+        session: Session | None = None,
+    ) -> dict[str, Any]:
         return self.operate(
             Operation.INSERT, key, properties,
             session=session,
         )
 
     def update(
-        self, key: Key, properties: Dict[str, Any],
-        session: Optional[Session] = None,
-    ) -> Dict[str, Any]:
+        self, key: Key, properties: dict[str, Any],
+        session: Session | None = None,
+    ) -> dict[str, Any]:
         return self.operate(
             Operation.UPDATE, key, properties,
             session=session,
         )
 
     def upsert(
-        self, key: Key, properties: Dict[str, Any],
-        session: Optional[Session] = None,
-    ) -> Dict[str, Any]:
+        self, key: Key, properties: dict[str, Any],
+        session: Session | None = None,
+    ) -> dict[str, Any]:
         return self.operate(
             Operation.UPSERT, key, properties,
             session=session,
@@ -508,9 +456,9 @@ class Datastore:
     # TODO: accept Entity rather than key/properties?
     def operate(
         self, operation: Operation, key: Key,
-        properties: Optional[Dict[str, Any]] = None,
-        session: Optional[Session] = None,
-    ) -> Dict[str, Any]:
+        properties: dict[str, Any] | None = None,
+        session: Session | None = None,
+    ) -> dict[str, Any]:
         transaction = self.beginTransaction(session=session)
         mutation = self.make_mutation(operation, key, properties=properties)
         return self.commit(

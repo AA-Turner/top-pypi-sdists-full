@@ -7,21 +7,21 @@ from __future__ import annotations
 from . import argx, client, units
 from aiven.client import AivenClient, envdefault
 from aiven.client.cliarg import arg
-from aiven.client.client import Tag
+from aiven.client.client import DEFAULT_IDLE_TIMEOUT, DEFAULT_MAX_AGE, Tag
 from aiven.client.common import UNDEFINED
 from aiven.client.connection_info.common import Store
 from aiven.client.connection_info.kafka import KafkaCertificateConnectionInfo, KafkaSASLConnectionInfo
 from aiven.client.connection_info.pg import PGConnectionInfo
 from aiven.client.connection_info.valkey import ValkeyConnectionInfo
 from aiven.client.speller import suggest
-from argparse import ArgumentParser
+from argparse import ArgumentParser, ArgumentTypeError
 from ast import literal_eval
 from collections import Counter
 from collections.abc import Callable, Mapping, Sequence
 from datetime import datetime, timedelta, timezone
 from decimal import Decimal
 from http import HTTPStatus
-from typing import Any, Final, IO, Protocol, TypeVar
+from typing import IO, Any, Final, Protocol, TypeVar
 from urllib.parse import urlparse
 
 import errno
@@ -139,8 +139,25 @@ def get_current_date() -> datetime:
     return datetime.now(timezone.utc)
 
 
+def connection_lifetime_arg(value: str) -> float | None:
+    """Parse a connection idle-timeout/max-age argument, mapping -1 to None (disabled)."""
+    try:
+        parsed = float(value)
+    except ValueError:
+        raise ArgumentTypeError(f"invalid number of seconds: {value!r} (use -1 to disable)") from None
+    return None if parsed == -1 else parsed
+
+
 class ClientFactory(Protocol):
-    def __call__(self, base_url: str, show_http: bool, request_timeout: int | None) -> client.AivenClient: ...
+    def __call__(
+        self,
+        *,
+        base_url: str,
+        show_http: bool,
+        request_timeout: int | None,
+        idle_timeout: float | None,
+        max_age: float | None,
+    ) -> client.AivenClient: ...
 
 
 class AivenCLI(argx.CommandLineTool):
@@ -173,6 +190,18 @@ class AivenCLI(argx.CommandLineTool):
             type=int,
             default=None,
             help="Wait for up to N seconds for a response to a request (default: infinite)",
+        )
+        parser.add_argument(
+            "--idle-timeout",
+            type=connection_lifetime_arg,
+            default=DEFAULT_IDLE_TIMEOUT,
+            help="Recycle a pooled HTTP connection idle for more than N seconds, -1 to disable (default: %(default)s)",
+        )
+        parser.add_argument(
+            "--max-age",
+            type=connection_lifetime_arg,
+            default=DEFAULT_MAX_AGE,
+            help="Recycle a pooled HTTP connection older than N seconds, -1 to disable (default: %(default)s)",
         )
 
     def collect_user_config_options(self, obj_def: Mapping[str, Any], prefixes: list[str] | None = None) -> dict[str, Any]:
@@ -775,8 +804,7 @@ class AivenCLI(argx.CommandLineTool):
                         types = spec["type"]
                         if isinstance(types, str) and types == "null":
                             print(
-                                "  {full_description}\n"
-                                "     => --remove-option {name}".format(
+                                "  {full_description}\n     => --remove-option {name}".format(
                                     name=name,
                                     full_description=full_description,
                                 )
@@ -786,8 +814,7 @@ class AivenCLI(argx.CommandLineTool):
                                 types = [types]
                             type_str = " or ".join(t for t in types if t != "null")
                             print(
-                                "  {full_description}\n"
-                                "     => -c {name}=<{type}>  {default}".format(
+                                "  {full_description}\n     => -c {name}=<{type}>  {default}".format(
                                     name=name,
                                     type=type_str,
                                     default=default_desc,
@@ -808,6 +835,19 @@ class AivenCLI(argx.CommandLineTool):
         ]
     ]
     EXT_SERVICE_LAYOUT = ["service_uri", "disk_space_mb", "user_config.*", "databases", "users"]
+
+    TOPIC_LIST_LAYOUT = [
+        [
+            "topic_name",
+            "partitions",
+            "replication",
+            "min_insync_replicas",
+            "retention_bytes",
+            "retention_hours",
+            "cleanup_policy",
+            "tags",
+        ]
+    ]
 
     @arg.project
     @arg("service_name", nargs="*", default=[], help="Service name")
@@ -2442,19 +2482,53 @@ ssl.truststore.type=JKS
                 topic["retention_hours"] = "unlimited"
             if not self.args.json:
                 topic["tags"] = [f"{t['key']}={t['value']}" for t in topic["tags"]]
-        layout = [
-            [
-                "topic_name",
-                "partitions",
-                "replication",
-                "min_insync_replicas",
-                "retention_bytes",
-                "retention_hours",
-                "cleanup_policy",
-                "tags",
-            ]
-        ]
-        self.print_response(topics, format=self.args.format, json=self.args.json, table_layout=layout)
+        self.print_response(topics, format=self.args.format, json=self.args.json, table_layout=self.TOPIC_LIST_LAYOUT)
+
+    def _service_topic_summary(self, topic: Mapping[str, Any]) -> dict[str, Any]:
+        summary = {field: topic.get(field) for field in self.TOPIC_LIST_LAYOUT[0]}
+        summary["topic_name"] = topic.get("topic_name", self.args.topic)
+        summary["partitions"] = len(topic["partitions"])
+        if summary["retention_hours"] == -1:
+            summary["retention_hours"] = "unlimited"
+        tags = summary.get("tags")
+        if isinstance(tags, list):
+            summary["tags"] = [f"{t['key']}={t['value']}" if isinstance(t, Mapping) else t for t in tags]
+        return summary
+
+    @staticmethod
+    def _service_topic_config_rows(config: Mapping[str, Any]) -> list[dict[str, Any]]:
+        rows = []
+        for config_name, config_value in sorted(config.items()):
+            if isinstance(config_value, Mapping):
+                rows.append(
+                    {
+                        "config_name": config_name,
+                        "value": config_value.get("value"),
+                        "source": config_value.get("source"),
+                    }
+                )
+            else:
+                rows.append({"config_name": config_name, "value": config_value, "source": None})
+        return rows
+
+    def _print_service_topic_summary_and_config(self, topic: Mapping[str, Any], topic_config: Mapping[str, Any]) -> None:
+        self.print_response(
+            [self._service_topic_summary(topic)],
+            json=self.args.json,
+            table_layout=self.TOPIC_LIST_LAYOUT,
+        )
+        print()
+
+        topic_config_rows = self._service_topic_config_rows(topic_config)
+        if not topic_config_rows:
+            print("(No configs)")
+        else:
+            self.print_response(
+                topic_config_rows,
+                json=self.args.json,
+                table_layout=[["config_name", "value", "source"]],
+            )
+        print()
 
     @arg.project
     @arg.service_name
@@ -2467,12 +2541,12 @@ ssl.truststore.type=JKS
         topic = self.client.get_service_topic(
             project=self.get_project(), service=self.args.service_name, topic=self.args.topic
         )
-        has_remote_size = False
+        topic_config = topic.get("config") or {}
         for p in topic["partitions"]:
             p["groups"] = len(p["consumer_groups"])
-            if "remote_size" in p and not has_remote_size:
-                has_remote_size = True
-        is_tiered = "remote_storage_enable" in topic["config"] and topic["config"]["remote_storage_enable"]["value"]
+        has_remote_size = any("remote_size" in p for p in topic["partitions"])
+        remote_storage_config = topic_config.get("remote_storage_enable", {})
+        is_tiered = isinstance(remote_storage_config, Mapping) and remote_storage_config.get("value")
 
         cgroups = []
         for p in topic["partitions"]:
@@ -2493,10 +2567,13 @@ ssl.truststore.type=JKS
         if self.args.json:
             # If JSON output is requested, output the entire object in a single step
             self.print_response(
-                {"partitions": topic["partitions"], "consumer_groups": cgroups},
+                {"config": topic_config, "partitions": topic["partitions"], "consumer_groups": cgroups},
                 json=True,
             )
         else:
+            if self.args.format is None:
+                self._print_service_topic_summary_and_config(topic, topic_config)
+
             if is_tiered and has_remote_size:
                 layout = [["partition", "isr", "size", "remote_size", "earliest_offset", "latest_offset", "groups"]]
             else:
@@ -2657,7 +2734,7 @@ ssl.truststore.type=JKS
     @arg.project
     @arg.service_name
     @arg.topic
-    @arg.partitions
+    @arg("--partitions", type=int, required=False, help="Number of partitions")
     @arg.min_insync_replicas
     @arg.retention
     @arg.retention_ms
@@ -3929,10 +4006,14 @@ ssl.truststore.type=JKS
         return "Unknown {} {!r}{} (available options: {})".format(option_type, option, did_you_mean, ", ".join(options))
 
     def _get_service_type_user_config_schema(self, project: str, service_type: str) -> Mapping[str, Any]:
-        service_types = self.client.get_service_types(project=project)
         try:
-            service_def = service_types[service_type]
-        except KeyError as ex:
+            service_def = self.client.get_service_type(project=project, service_type=service_type)
+        except client.Error as ex:
+            if ex.status not in {HTTPStatus.BAD_REQUEST, HTTPStatus.NOT_FOUND}:
+                raise
+            # Unknown service type: fall back to the full catalog so we can offer
+            # a "did you mean" suggestion listing the available service types.
+            service_types = self.client.get_service_types(project=project)
             raise argx.UserError(
                 self._get_unknown_option_error(
                     option_type="service type",
@@ -4523,6 +4604,8 @@ ssl.truststore.type=JKS
             base_url=self.args.url,
             show_http=self.args.show_http,
             request_timeout=self.args.request_timeout,
+            idle_timeout=self.args.idle_timeout,
+            max_age=self.args.max_age,
         )
         # Always set CA if we have anything set at the command line or in the env
         if self.args.auth_ca is not None:
@@ -5595,11 +5678,13 @@ ssl.truststore.type=JKS
     def organization__create(self) -> None:
         """Create new organization"""
         if not self.args.force:
-            confirmation_result = self.confirm("Settings like billing details and authentication methods \
+            confirmation_result = self.confirm(
+                "Settings like billing details and authentication methods \
     cannot be shared across multiple organizations.\
     \nWhen you create a new organization, you must configure each of these settings manually.\
     \n\nTo use your current settings, create an organizational unit within this organization instead.\
-    \n\nI understand and want to create a new organization (y/N)? ")
+    \n\nI understand and want to create a new organization (y/N)? "
+            )
 
             if not confirmation_result:
                 raise argx.UserError("Aborted")
@@ -6111,8 +6196,20 @@ ssl.truststore.type=JKS
     @arg("--cloud-region", help="Region for the BYOC cloud")
     @arg("--reserved-cidr", help="The CIDR for the VPC to create for the custom cloud environment")
     @arg("--display-name", help="User set display name for the custom cloud environment")
+    @arg(
+        "--contact-email",
+        dest="contact_emails",
+        action="append",
+        help=(
+            'Replace contacts for the custom cloud environment (email="EMAIL",real_name="NAME",role="ROLE"). '
+            "email is required. Values must be quoted. Repeat for multiple contacts."
+        ),
+    )
     def byoc__update(self) -> None:
         """Update an existing Bring Your Own Cloud configuration."""
+        contact_emails = None
+        if self.args.contact_emails:
+            contact_emails = [self._parse_contact(c) for c in self.args.contact_emails]
         output = self.client.byoc_update(
             organization_id=self.args.organization_id,
             byoc_id=self.args.byoc_id,
@@ -6121,6 +6218,7 @@ ssl.truststore.type=JKS
             cloud_region=self.args.cloud_region,
             reserved_cidr=self.args.reserved_cidr,
             display_name=self.args.display_name,
+            contact_emails=contact_emails,
             tags=None,
         )
         self.print_response(output)
@@ -6242,6 +6340,36 @@ ssl.truststore.type=JKS
     @staticmethod
     def remove_prefix_from_keys(prefix: str, tags: Mapping[str, str]) -> Mapping[str, str]:
         return {(k.partition(prefix)[-1] if k.startswith(prefix) else k): v for (k, v) in tags.items()}
+
+    @staticmethod
+    def _parse_contact(contact: str) -> dict[str, str]:
+        """Parse a contact string in the format 'email="EMAIL",real_name="NAME",role="ROLE"'.
+
+        Values must be quoted.
+        """
+
+        fields: dict[str, str] = {}
+        pattern = re.compile(r'(\w+)="([^"]*)"')
+        remaining = contact
+        while remaining:
+            remaining = remaining.lstrip(",").strip()
+            if not remaining:
+                break
+            match = pattern.match(remaining)
+            if not match:
+                raise argx.UserError(
+                    f"Invalid format near '{remaining}'. "
+                    'Expected key="value" format (valid keys: email, real_name, role). '
+                    'Example: email="user@example.com",real_name="John Doe",role="Admin"'
+                )
+            key, value = match.group(1), match.group(2)
+            if key not in ("email", "real_name", "role"):
+                raise argx.UserError(f"Unknown field '{key}', valid fields: email, real_name, role")
+            fields[key] = value
+            remaining = remaining[match.end() :]
+        if "email" not in fields:
+            raise argx.UserError("Contact must include 'email' field")
+        return fields
 
     @arg.json
     @arg("--organization-id", required=True, help="Identifier of the organization of the custom cloud environment")

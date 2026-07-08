@@ -155,6 +155,26 @@ is the single source of truth -- handlers never re-derive tier logic here.
                                          row or feature tooltip needs).
   GET  /api/runtimes                  -- the full runtime catalog.
   GET  /api/tiers                     -- the full tier ladder with per-tier metadata.
+  GET  /api/entitlement/feature-catalog  -- bare sibling of
+                                         ``/feature-catalog-at``: the resolved
+                                         feature catalogue wrapped in the same
+                                         ``{tier, features, grace, enforced}``
+                                         envelope the ``-at`` sibling uses, so
+                                         a client hydrating every catalog
+                                         variant (bare, ``-at``,
+                                         ``-at-batch``, ``-path``, ...) can do
+                                         it off one prefix instead of mixing
+                                         ``/api/features`` with
+                                         ``/api/entitlement/feature-catalog-at``.
+  GET  /api/entitlement/runtime-catalog  -- bare sibling of
+                                         ``/runtime-catalog-at`` for the
+                                         runtime axis; same envelope shape.
+  GET  /api/entitlement/tier-catalog  -- bare sibling of
+                                         ``/tier-catalog-at`` for the tier
+                                         ladder; same envelope shape (with
+                                         the resolved tier mirrored into the
+                                         ``tier`` key to match the ``-at``
+                                         sibling).
   GET  /api/entitlement/tier-spec     -- scalar sibling of ``/api/tiers``:
                                          full per-tier descriptor for one
                                          ``tier=`` key (label, rank,
@@ -856,6 +876,128 @@ def api_entitlement_capacity_diff_at_batch():
         )
 
 
+@bp_entitlement.route("/api/entitlement/tier-diff-at")
+def api_entitlement_tier_diff_at():
+    """``GET /api/entitlement/tier-diff-at?tier=<perspective>&from=<from>
+    &to=<to>`` -- arbitrary-endpoint diff between two tiers, rendered
+    from a hypothetical ``perspective_tier``.
+
+    What-if sibling of ``/tier-diff``: same payload shape, plus a
+    ``perspective_tier`` echo so a pricing-comparison tooltip surface
+    can call ``X_at(perspective, from, to)`` uniformly across the whole
+    ``_at`` scalar family (alongside ``/capacity-diff-at``,
+    ``/tier-unlocks-at``, ``/tier-locks-at``, ``/tier-catalog-at`` and
+    the ``_at_path`` walk siblings). Closes the ``_at`` slot of the
+    ``tier_diff`` family alongside the existing ``/tier-diff-at-batch``
+    (walk every purchasable target from one source) and the
+    ``/tier-path-at`` walk-shape sibling in the open ``tier_path_at``
+    PR.
+
+    Body posture matches ``/tier-catalog-at-path``: perspective is
+    validated against :data:`_TIER_ORDER` (including :data:`TIER_TRIAL`)
+    but does NOT shape rows -- the diff is anchored to ``from`` /
+    ``to``. A parity test pins the response body against
+    ``/tier-diff?from=<from>&to=<to>`` for every valid perspective so
+    the ``_at`` prefix cannot silently drift into shaping rows.
+
+    Response body extends the ``/tier-diff`` shape with three extra
+    fields at the top so a consumer can echo the perspective in a
+    "Comparing A vs B from perspective P" tooltip without a second
+    round-trip::
+
+        {
+          "perspective_tier":      "<tier id>",
+          "perspective_tier_rank": <int>,
+          "perspective_tier_label":"...",
+          "from":                  "<tier id>",
+          "from_label":            "...",
+          "from_rank":             <int>,
+          "to":                    "<tier id>",
+          "to_label":              "...",
+          "to_rank":               <int>,
+          "direction":             "upgrade" | "downgrade" | "lateral" | "identity",
+          "added_features":        [...],
+          "lost_features":         [...],
+          "added_runtimes":        [...],
+          "lost_runtimes":         [...],
+          "capacity_changes":      {...},
+        }
+
+    - **400** when ``tier=``, ``from=`` or ``to=`` is missing / blank.
+    - **404** when any id is unknown (body carries ``which: "tier" |
+      "from" | "to"`` so the caller can point at the offender).
+    - **200** on the happy path with the shape above.
+    - Never 5xxs: a resolver failure short-circuits to 404 so a
+      pricing-comparison tooltip keeps rendering instead of breaking.
+    """
+    p = (request.args.get("tier") or "").strip().lower()
+    f = (request.args.get("from") or "").strip().lower()
+    t = (request.args.get("to") or "").strip().lower()
+    if not p:
+        return jsonify({"error": "missing tier"}), 400
+    if not f:
+        return jsonify({"error": "missing from"}), 400
+    if not t:
+        return jsonify({"error": "missing to"}), 400
+    try:
+        from clawmetry import entitlements as _ent
+
+        if p not in _ent._TIER_ORDER:
+            return (
+                jsonify(
+                    {"error": "unknown tier", "which": "tier", "tier": p}
+                ),
+                404,
+            )
+        if f not in _ent._TIER_FEATURES:
+            return (
+                jsonify(
+                    {"error": "unknown tier", "which": "from", "from": f}
+                ),
+                404,
+            )
+        if t not in _ent._TIER_FEATURES:
+            return (
+                jsonify(
+                    {"error": "unknown tier", "which": "to", "to": t}
+                ),
+                404,
+            )
+        body = _ent.tier_diff_at(p, f, t)
+        if body is None:
+            return (
+                jsonify(
+                    {
+                        "error": "unknown tier",
+                        "tier": p,
+                        "from": f,
+                        "to": t,
+                    }
+                ),
+                404,
+            )
+        out = {
+            "perspective_tier": p,
+            "perspective_tier_rank": _ent.tier_rank(p),
+            "perspective_tier_label": _ent.tier_label(p),
+        }
+        out.update(body)
+        return jsonify(out)
+    except Exception as exc:
+        logger.warning("api_entitlement_tier_diff_at: error: %s", exc)
+        return (
+            jsonify(
+                {
+                    "error": "unknown tier",
+                    "tier": p,
+                    "from": f,
+                    "to": t,
+                }
+            ),
+            404,
+        )
+
+
 @bp_entitlement.route("/api/entitlement/tier-diff-at-batch")
 def api_entitlement_tier_diff_at_batch():
     """``GET /api/entitlement/tier-diff-at-batch?tier=<source>`` --
@@ -1118,6 +1260,193 @@ def api_entitlement_preview_batch():
         return jsonify(
             {
                 "tiers": [],
+                "current_tier": "oss",
+                "current_tier_rank": 0,
+                "grace": True,
+                "enforced": False,
+            }
+        )
+
+
+@bp_entitlement.route("/api/entitlement/preview-at")
+def api_entitlement_preview_at():
+    """``GET /api/entitlement/preview-at?tier=<perspective>&target=<id>`` --
+    what-if sibling of ``/api/entitlement/preview``: the full
+    :meth:`Entitlement.to_dict` snapshot at ``target`` rendered from the
+    perspective of a hypothetical ``tier``.
+
+    Fills the ``_at`` slot in the preview family alongside
+    ``/api/entitlement/tier-spec-at``,
+    ``/api/entitlement/feature-spec-at``,
+    ``/api/entitlement/runtime-spec-at``,
+    ``/api/entitlement/capacity-diff-at``,
+    ``/api/entitlement/tier-unlocks-at``,
+    ``/api/entitlement/tier-locks-at`` and
+    ``/api/entitlement/lock-reason-at``. Lets a pricing-comparison
+    tooltip hydrate one cumulative-state row from a hypothetical
+    perspective in ONE round-trip using the uniform
+    ``X_at(perspective, target)`` request shape the rest of the ``_at``
+    family already exposes.
+
+    Unlike ``/api/entitlement/preview`` (which 404s the non-purchasable
+    :data:`TIER_TRIAL`), ``/preview-at`` accepts trial as a target and
+    returns the trial preview row -- lenient ``_at`` posture matching
+    ``/tier-spec-at`` / ``/feature-spec-at`` / ``/runtime-spec-at``. The
+    perspective tier is validated but does not shape the returned row
+    (byte-parity with :func:`entitlements._preview_row` holds for every
+    perspective / target combination).
+
+    Row shape matches ``/api/entitlement/preview`` exactly -- the full
+    ``Entitlement.to_dict`` payload with ``source="preview"`` and
+    ``grace=False`` so concrete per-tier capacity surfaces.
+
+    - **400** when ``tier=`` or ``target=`` is missing / blank
+    - **404** when ``tier`` is not in :data:`entitlements._TIER_ORDER`
+      or ``target`` is not in :data:`entitlements._TIER_FEATURES`; the
+      body carries ``which`` so a caller can render the right
+      "unknown ..." message
+    - **Never 5xxs**: the helper reads only the static per-tier maps, so
+      a resolver failure short-circuits to ``404`` instead of 500
+    """
+    raw_tier = request.args.get("tier")
+    tier = (raw_tier or "").strip().lower()
+    if not tier:
+        return jsonify({"error": "missing tier"}), 400
+    raw_target = request.args.get("target")
+    target = (raw_target or "").strip().lower()
+    if not target:
+        return jsonify({"error": "missing target"}), 400
+    try:
+        from clawmetry import entitlements as _ent
+
+        if tier not in _ent._TIER_ORDER:
+            return (
+                jsonify({"error": "unknown tier", "which": "tier", "tier": tier}),
+                404,
+            )
+        if target not in _ent._TIER_FEATURES:
+            return (
+                jsonify(
+                    {
+                        "error": "unknown target",
+                        "which": "target",
+                        "target": target,
+                    }
+                ),
+                404,
+            )
+        body = _ent.preview_at(tier, target)
+        if body is None:
+            return (
+                jsonify(
+                    {
+                        "error": "preview-at failed",
+                        "tier": tier,
+                        "target": target,
+                    }
+                ),
+                404,
+            )
+        return jsonify({"tier": tier, "target": target, "preview": body})
+    except Exception as exc:
+        logger.warning("api_entitlement_preview_at: error: %s", exc)
+        return jsonify({"error": "preview-at failed"}), 500
+
+
+@bp_entitlement.route("/api/entitlement/preview-at-batch")
+def api_entitlement_preview_at_batch():
+    """``GET /api/entitlement/preview-at-batch?tier=<perspective>
+    &targets=a,b,c`` -- what-if + batch sibling of
+    ``/api/entitlement/preview-at``.
+
+    Where ``/preview-at`` hydrates ONE cumulative-state row from a
+    hypothetical perspective, this hydrates N rows for a caller-supplied
+    subset of target tiers off a single round-trip. Fixed-perspective
+    multi-target companion of ``/preview-at`` and
+    caller-supplied-targets sibling of ``/preview-batch`` (which walks
+    :data:`_PURCHASABLE_TIERS` unconditionally). Fills the ``_at_batch``
+    slot alongside ``/api/entitlement/tier-spec-at-batch``,
+    ``/api/entitlement/feature-spec-at-batch``,
+    ``/api/entitlement/runtime-spec-at-batch``.
+
+    Use case: a pricing-comparison matrix UI ("from my perspective tier,
+    render the cumulative-state row for OSS, Cloud Starter, Cloud Pro
+    and Enterprise") hydrates every column off ONE call instead of N
+    calls to ``/preview-at``.
+
+    Each ``tiers[]`` entry is byte-identical to a row from
+    :func:`entitlements.preview_at` (and therefore
+    :func:`entitlements._preview_row`) for the same target -- pinned by
+    the parity tests so the scalar / batch what-if accessors cannot
+    drift. Supplied ids are normalised (whitespace stripped, lowercased,
+    duplicates dropped, first-seen order preserved). Unknown ids do not
+    404 the call -- they are echoed in ``unknown[]`` so a partially-bad
+    caller still gets rows back for the valid ids alongside a list of
+    what was dropped.
+
+    Response shape (mirrors ``/tier-spec-at-batch`` /
+    ``/feature-spec-at-batch`` / ``/runtime-spec-at-batch`` plus a
+    ``perspective_tier`` echo)::
+
+        {
+          "tiers":                 [<preview_at row>, ...],
+          "unknown":               ["bogus_id", ...],
+          "perspective_tier":      "...",
+          "perspective_tier_rank": <int>,
+          "current_tier":          "...",
+          "current_tier_rank":     <int>,
+          "grace":                 <bool>,
+          "enforced":              <bool>,
+        }
+
+    - **400** when ``tier=`` is missing / blank or ``targets=`` is
+      missing / empty after normalisation
+    - **404** when ``tier`` is unknown (body carries ``which: "tier"``)
+    - **Never 5xxs**: a resolver failure short-circuits to the OSS-free
+      shape (empty rows, ``current_tier=oss``, ``grace=true``) with the
+      perspective tier echoed so the UI keeps rendering.
+    """
+    raw_tier = request.args.get("tier")
+    tier_in = (raw_tier or "").strip().lower()
+    if not tier_in:
+        return jsonify({"error": "missing tier"}), 400
+    try:
+        from clawmetry import entitlements as _ent
+
+        if tier_in not in _ent._TIER_ORDER:
+            return (
+                jsonify(
+                    {"error": "unknown tier", "which": "tier", "tier": tier_in}
+                ),
+                404,
+            )
+        targets = _parse_csv_arg("targets")
+        if not targets:
+            return (
+                jsonify({"error": "supply targets=<csv>"}),
+                400,
+            )
+        batch = _ent.preview_at_batch(tier_in, targets)
+        if batch is None:
+            batch = {"tiers": [], "unknown": []}
+        ent = _ent.get_entitlement()
+        batch["perspective_tier"] = tier_in
+        batch["perspective_tier_rank"] = _ent.tier_rank(tier_in)
+        batch["current_tier"] = ent.tier
+        batch["current_tier_rank"] = _ent.tier_rank(ent.tier)
+        batch["grace"] = bool(ent.grace)
+        batch["enforced"] = _ent.is_enforced()
+        return jsonify(batch)
+    except Exception as exc:
+        logger.warning(
+            "api_entitlement_preview_at_batch: error: %s", exc
+        )
+        return jsonify(
+            {
+                "tiers": [],
+                "unknown": [],
+                "perspective_tier": tier_in,
+                "perspective_tier_rank": 0,
                 "current_tier": "oss",
                 "current_tier_rank": 0,
                 "grace": True,
@@ -3496,6 +3825,296 @@ def api_entitlement_runtime_spec():
         return jsonify({"error": "runtime-spec failed"}), 500
 
 
+@bp_entitlement.route("/api/entitlement/channel-spec")
+def api_entitlement_channel_spec():
+    """``GET /api/entitlement/channel-spec?channel=<id>`` -- scalar sibling
+    of ``/api/entitlement/channel-catalog``: the full catalogue row for one
+    chat-channel adapter id in one shot, matching exactly one row from
+    :func:`entitlements.channel_catalog`.
+
+    Channel-axis analogue of ``/feature-spec`` / ``/runtime-spec`` -- lets
+    a channel-detail page or a "which channels does this account have on"
+    tooltip hydrate against one channel without fetching the whole
+    catalogue and filtering client-side. Because every chat channel is
+    FREE at every tier (the ``channels`` capacity axis governs how many
+    concurrent channels each plan admits, not which adapters unlock), the
+    returned row is always ``free=True`` / ``allowed=True`` /
+    ``locked=False`` / ``entitled=True`` regardless of the resolved tier.
+
+    - **400** when ``channel=`` is missing / blank
+    - **404** when the id (after whitespace + case normalisation) is not
+      in :data:`entitlements.ALL_CHANNELS`
+    - **Never 5xxs**: the helper internally falls back to the OSS-free
+      shape on resolver failure, so the endpoint still returns 200 with a
+      valid row.
+    """
+    raw = request.args.get("channel")
+    channel = (raw or "").strip().lower()
+    if not channel:
+        return jsonify({"error": "missing channel"}), 400
+    try:
+        from clawmetry import entitlements as _ent
+
+        body = _ent.channel_spec(channel)
+        if body is None:
+            return (
+                jsonify({"error": "unknown channel", "channel": channel}),
+                404,
+            )
+        return jsonify(body)
+    except Exception as exc:
+        logger.warning("api_entitlement_channel_spec: error: %s", exc)
+        return jsonify({"error": "channel-spec failed"}), 500
+
+
+@bp_entitlement.route("/api/entitlement/channel-spec-batch")
+def api_entitlement_channel_spec_batch():
+    """``GET /api/entitlement/channel-spec-batch?channels=a,b,c`` -- plural
+    sibling of ``/api/entitlement/channel-spec``.
+
+    Returns the full catalogue spec row for every supplied chat-channel id
+    in one round-trip. Mirrors :func:`api_entitlement_feature_spec_batch` /
+    :func:`api_entitlement_runtime_spec_batch` for the chat-channel axis;
+    together they let a Settings or paywall matrix UI hydrate the per-row
+    state ("lock badge + required tier + entitled flag") for a viewport's
+    worth of features + runtimes + channels off THREE calls instead of N +
+    M + K.
+
+    Each ``channels[]`` entry is byte-identical to a row from
+    :func:`entitlements.channel_catalog` -- a parity test pins this so the
+    scalar / bulk / batch accessors cannot drift. Supplied ids are
+    normalised (whitespace stripped, lowercased, duplicates dropped while
+    preserving first-seen order). Unknown ids do not 404 the call -- they
+    are echoed in ``unknown[]`` so a partially-bad caller still gets rows
+    back for the valid ids alongside a list of what was dropped.
+
+    Because every chat channel is FREE at every tier (the ``channels``
+    capacity axis governs how many concurrent channels each plan admits,
+    not which adapters unlock), every returned row is ``free=True`` /
+    ``allowed=True`` / ``locked=False`` / ``entitled=True`` regardless of
+    the resolved tier.
+
+    Response shape::
+
+        {
+          "channels":          [<spec_row>, ...],
+          "unknown":           ["bogus_id", ...],
+          "current_tier":      "...",
+          "current_tier_rank": <int>,
+          "grace":             <bool>,
+          "enforced":          <bool>,
+        }
+
+    - **400** when ``channels=`` is missing or empty after normalisation
+    - **Never 5xxs**: a resolver crash short-circuits to the OSS-free
+      shape (empty rows, ``current_tier=oss``, ``grace=true``).
+    """
+    try:
+        channels = _parse_csv_arg("channels")
+        if not channels:
+            return (
+                jsonify({"error": "supply channels=<csv>"}),
+                400,
+            )
+        from clawmetry import entitlements as _ent
+
+        batch = _ent.channel_spec_batch(channels)
+        ent = _ent.get_entitlement()
+        batch["current_tier"] = ent.tier
+        batch["current_tier_rank"] = _ent.tier_rank(ent.tier)
+        batch["grace"] = bool(ent.grace)
+        batch["enforced"] = _ent.is_enforced()
+        return jsonify(batch)
+    except Exception as exc:
+        logger.warning("api_entitlement_channel_spec_batch: error: %s", exc)
+        return jsonify(
+            {
+                "channels": [],
+                "unknown": [],
+                "current_tier": "oss",
+                "current_tier_rank": 0,
+                "grace": True,
+                "enforced": False,
+            }
+        )
+
+
+@bp_entitlement.route("/api/entitlement/channel-spec-at")
+def api_entitlement_channel_spec_at():
+    """``GET /api/entitlement/channel-spec-at?tier=<id>&channel=<id>`` --
+    scalar what-if sibling of ``/api/entitlement/channel-catalog-at``:
+    the single catalogue row for ``channel`` with ``allowed`` /
+    ``locked`` / ``entitled`` computed as if the install were on
+    ``tier``.
+
+    Channel-axis analogue of ``/feature-spec-at`` / ``/runtime-spec-at``
+    -- lets a pricing-comparison tooltip hydrate against ONE channel at
+    a hypothetical tier in one round-trip instead of fetching the full
+    ``/api/entitlement/channel-catalog-at`` payload and filtering
+    client-side. The returned row matches exactly one row from
+    :func:`entitlements.channel_catalog_at`.
+
+    Because every chat channel is FREE at every tier (the ``channels``
+    capacity axis governs how many concurrent channels each plan admits,
+    not which adapters unlock), the returned row is always
+    ``free=True`` / ``allowed=True`` / ``locked=False`` /
+    ``entitled=True`` regardless of the perspective tier.
+
+    - **400** when either ``tier=`` or ``channel=`` is missing / blank
+    - **404** when ``tier`` is unknown (not in
+      :data:`entitlements._TIER_ORDER`) or ``channel`` (after whitespace
+      + case normalisation) is unknown (not in
+      :data:`entitlements.ALL_CHANNELS`). The body carries ``which`` so a
+      caller can render the right "unknown ..." message.
+    - **Never 5xxs**: the helper internally falls back to the OSS-free
+      shape on resolver failure, so the endpoint still returns 200 with
+      a valid row.
+    """
+    raw_tier = request.args.get("tier")
+    tier = (raw_tier or "").strip().lower()
+    if not tier:
+        return jsonify({"error": "missing tier"}), 400
+    raw_channel = request.args.get("channel")
+    channel = (raw_channel or "").strip().lower()
+    if not channel:
+        return jsonify({"error": "missing channel"}), 400
+    try:
+        from clawmetry import entitlements as _ent
+
+        if tier not in _ent._TIER_ORDER:
+            return (
+                jsonify({"error": "unknown tier", "which": "tier", "tier": tier}),
+                404,
+            )
+        if channel not in _ent.ALL_CHANNELS:
+            return (
+                jsonify(
+                    {
+                        "error": "unknown channel",
+                        "which": "channel",
+                        "channel": channel,
+                    }
+                ),
+                404,
+            )
+        body = _ent.channel_spec_at(tier, channel)
+        if body is None:
+            return (
+                jsonify(
+                    {
+                        "error": "channel-spec-at failed",
+                        "tier": tier,
+                        "channel": channel,
+                    }
+                ),
+                404,
+            )
+        return jsonify({"tier": tier, "channel": channel, "spec": body})
+    except Exception as exc:
+        logger.warning("api_entitlement_channel_spec_at: error: %s", exc)
+        return jsonify({"error": "channel-spec-at failed"}), 500
+
+
+@bp_entitlement.route("/api/entitlement/channel-spec-at-batch")
+def api_entitlement_channel_spec_at_batch():
+    """``GET /api/entitlement/channel-spec-at-batch?tier=<perspective>
+    &channels=a,b,c`` -- what-if + batch sibling of
+    ``/api/entitlement/channel-spec-batch``.
+
+    Where ``/channel-spec-batch`` returns batch rows against the LIVE
+    resolved entitlement, this returns them against a HYPOTHETICAL
+    ``perspective_tier``. Pairs with ``/channel-spec-at`` the same way
+    ``/channel-spec-batch`` pairs with ``/channel-spec``: scalar -> matrix
+    in one round-trip. Channel-axis twin of ``/feature-spec-at-batch`` /
+    ``/runtime-spec-at-batch`` -- together they let a pricing-comparison
+    matrix UI hydrate a viewport's worth of feature + runtime + channel
+    rows at a hypothetical tier off THREE calls instead of N + M + K.
+
+    Each ``channels[]`` entry is byte-identical to a row from
+    :func:`entitlements.channel_catalog_at` at the same perspective tier
+    -- pinned by the parity tests so the scalar / bulk / batch what-if
+    accessors cannot drift. And because every chat channel is FREE at
+    every tier (the ``channels`` capacity axis governs how many
+    concurrent channels each plan admits, not which adapters unlock),
+    each row is ALSO byte-identical to the LIVE ``/channel-spec`` row
+    for the same id regardless of the perspective tier.
+
+    Supplied ids are normalised (whitespace stripped, lowercased,
+    duplicates dropped, first-seen order preserved). Unknown ids do not
+    404 the call -- they are echoed in ``unknown[]`` so a partially-bad
+    caller still gets rows back for the valid ids alongside a list of
+    what was dropped.
+
+    Response shape (mirrors ``/channel-spec-batch`` plus a
+    ``perspective_tier`` echo for caller round-trip safety)::
+
+        {
+          "channels":              [<spec_row>, ...],
+          "unknown":               ["bogus_id", ...],
+          "perspective_tier":      "...",
+          "perspective_tier_rank": <int>,
+          "current_tier":          "...",
+          "current_tier_rank":     <int>,
+          "grace":                 <bool>,
+          "enforced":              <bool>,
+        }
+
+    - **400** when ``tier=`` is missing / blank or ``channels=`` is
+      missing / empty after normalisation
+    - **404** when ``tier`` is unknown (body carries ``which: "tier"``)
+    - **Never 5xxs**: a synthesis failure short-circuits to the OSS-free
+      shape (empty rows, ``current_tier=oss``, ``grace=true``) with the
+      perspective tier echoed so the UI keeps rendering.
+    """
+    raw_tier = request.args.get("tier")
+    tier_in = (raw_tier or "").strip().lower()
+    if not tier_in:
+        return jsonify({"error": "missing tier"}), 400
+    try:
+        from clawmetry import entitlements as _ent
+
+        if tier_in not in _ent._TIER_ORDER:
+            return (
+                jsonify(
+                    {"error": "unknown tier", "which": "tier", "tier": tier_in}
+                ),
+                404,
+            )
+        channels = _parse_csv_arg("channels")
+        if not channels:
+            return (
+                jsonify({"error": "supply channels=<csv>"}),
+                400,
+            )
+        batch = _ent.channel_spec_at_batch(tier_in, channels)
+        if batch is None:
+            batch = {"channels": [], "unknown": []}
+        ent = _ent.get_entitlement()
+        batch["perspective_tier"] = tier_in
+        batch["perspective_tier_rank"] = _ent.tier_rank(tier_in)
+        batch["current_tier"] = ent.tier
+        batch["current_tier_rank"] = _ent.tier_rank(ent.tier)
+        batch["grace"] = bool(ent.grace)
+        batch["enforced"] = _ent.is_enforced()
+        return jsonify(batch)
+    except Exception as exc:
+        logger.warning(
+            "api_entitlement_channel_spec_at_batch: error: %s", exc
+        )
+        return jsonify(
+            {
+                "channels": [],
+                "unknown": [],
+                "perspective_tier": tier_in,
+                "perspective_tier_rank": 0,
+                "current_tier": "oss",
+                "current_tier_rank": 0,
+                "grace": True,
+                "enforced": False,
+            }
+        )
+
+
 @bp_entitlement.route("/api/entitlement/feature-spec-batch")
 def api_entitlement_feature_spec_batch():
     """``GET /api/entitlement/feature-spec-batch?features=a,b,c`` -- plural
@@ -4399,16 +5018,338 @@ def api_entitlement_affordable_tiers():
         )
 
 
+@bp_entitlement.route("/api/entitlement/required-tier-at")
+def api_entitlement_required_tier_at():
+    """``GET /api/entitlement/required-tier-at?tier=<perspective>
+    &features=a,b,c&runtimes=x,y&channels=N&retention_days=K&nodes=M`` --
+    hypothetical-perspective sibling of ``/api/entitlement/required-tier-batch``.
+
+    Wraps :func:`entitlements.min_tier_for_all_at` so a pricing-comparison
+    tooltip can render "if I were on Starter, this bundle would need Pro"
+    off ONE round-trip without first switching the resolver. Fills the
+    ``_at`` slot for the aggregate constraint-bundle family alongside the
+    per-axis ``_at`` scalars (``/capacity-diff-at``, ``/tier-unlocks-at``,
+    ``/tier-locks-at``) so a caller can call ``X_at`` uniformly across the
+    whole ``_at`` scalar family.
+
+    Perspective is validated against :data:`entitlements._TIER_ORDER`
+    (including ``trial``) but does NOT shape the result -- the floor is
+    anchored to the constraint bundle, matching every other ``_at``
+    helper. A parity contract pinned in the test suite guarantees that
+    per-row output byte-equals ``/api/entitlement/required-tier-batch`` for
+    the same bundle regardless of perspective; the response layers
+    ``perspective_tier`` / ``perspective_tier_rank`` /
+    ``upgrade_required_from_perspective`` on top so a caller can render
+    "from <perspective> this needs Pro" copy off one call.
+
+    Args are byte-identical to ``/required-tier-batch`` except for the
+    additional ``tier=`` perspective arg: at least one of ``features=`` /
+    ``runtimes=`` / ``channels=`` / ``retention_days=`` / ``nodes=`` must
+    be supplied (non-empty / parseable after normalisation). Same CSV
+    normalisation, same capacity-axis parsing, same ``None`` = "not
+    supplied" sentinel (so ``retention_days=`` blank is "unset", NOT
+    the "unlimited" sentinel that would mis-route to Enterprise).
+
+    - **400** when ``tier=`` is missing / blank, OR when no constraint
+      axis is supplied.
+    - **404** when ``tier`` is unknown. The body carries ``which=tier``
+      so a caller can render the right "unknown tier" message.
+    - **Never 5xxs**: a resolver failure yields the OSS-free shape so the
+      pricing tooltip keeps rendering.
+    """
+    raw_tier = request.args.get("tier")
+    tier_in = (raw_tier or "").strip().lower()
+    if not tier_in:
+        return jsonify({"error": "missing tier"}), 400
+    try:
+        from clawmetry import entitlements as _ent
+
+        if tier_in not in _ent._TIER_ORDER:
+            return (
+                jsonify(
+                    {"error": "unknown tier", "which": "tier", "tier": tier_in}
+                ),
+                404,
+            )
+
+        features = _parse_csv_arg("features")
+        runtimes = _parse_csv_arg("runtimes")
+        (_, channels_ok, channels_n, _) = _parse_capacity_arg("channels")
+        (_, retention_ok, retention_n, _) = _parse_capacity_arg(
+            "retention_days",
+        )
+        (_, nodes_ok, nodes_n, _) = _parse_capacity_arg("nodes")
+
+        if (
+            not features
+            and not runtimes
+            and not channels_ok
+            and not retention_ok
+            and not nodes_ok
+        ):
+            return (
+                jsonify(
+                    {
+                        "error": (
+                            "supply at least one of features=<csv>, "
+                            "runtimes=<csv>, channels=<int>, "
+                            "retention_days=<int>, or nodes=<int>"
+                        )
+                    }
+                ),
+                400,
+            )
+
+        required = _ent.min_tier_for_all_at(
+            tier_in,
+            features=features or None,
+            runtimes=runtimes or None,
+            channels=channels_n if channels_ok else None,
+            retention_days=retention_n if retention_ok else None,
+            nodes=nodes_n if nodes_ok else None,
+        )
+
+        ent = _ent.get_entitlement()
+        cur_rank = _ent.tier_rank(ent.tier)
+        persp_rank = _ent.tier_rank(tier_in)
+        req_rank = _ent.tier_rank(required) if required else -1
+        required_label = _ent.tier_label(required) if required else None
+
+        return jsonify(
+            {
+                "perspective_tier": tier_in,
+                "perspective_tier_label": _ent.tier_label(tier_in),
+                "perspective_tier_rank": persp_rank,
+                "features": features,
+                "runtimes": runtimes,
+                "channels": channels_n if channels_ok else None,
+                "retention_days": retention_n if retention_ok else None,
+                "nodes": nodes_n if nodes_ok else None,
+                "required_tier": required,
+                "required_tier_label": required_label,
+                "required_tier_rank": req_rank,
+                "current_tier": ent.tier,
+                "current_tier_rank": cur_rank,
+                "upgrade_required_from_perspective": (
+                    bool(required) and req_rank > persp_rank
+                ),
+                "upgrade_required_from_current": (
+                    bool(required) and req_rank > cur_rank
+                ),
+                "grace": bool(ent.grace),
+                "enforced": _ent.is_enforced(),
+            }
+        )
+    except Exception as exc:
+        logger.warning("api_entitlement_required_tier_at: error: %s", exc)
+        (_, channels_ok, channels_n, _) = _parse_capacity_arg("channels")
+        (_, retention_ok, retention_n, _) = _parse_capacity_arg("retention_days")
+        (_, nodes_ok, nodes_n, _) = _parse_capacity_arg("nodes")
+        return jsonify(
+            {
+                "perspective_tier": tier_in,
+                "perspective_tier_label": None,
+                "perspective_tier_rank": -1,
+                "features": _parse_csv_arg("features"),
+                "runtimes": _parse_csv_arg("runtimes"),
+                "channels": channels_n if channels_ok else None,
+                "retention_days": retention_n if retention_ok else None,
+                "nodes": nodes_n if nodes_ok else None,
+                "required_tier": None,
+                "required_tier_label": None,
+                "required_tier_rank": -1,
+                "current_tier": "oss",
+                "current_tier_rank": 0,
+                "upgrade_required_from_perspective": False,
+                "upgrade_required_from_current": False,
+                "grace": True,
+                "enforced": False,
+            }
+        )
+
+
+@bp_entitlement.route("/api/entitlement/affordable-tiers-at")
+def api_entitlement_affordable_tiers_at():
+    """``GET /api/entitlement/affordable-tiers-at?tier=<perspective>
+    &features=a,b,c&runtimes=x,y&channels=N&retention_days=K&nodes=M`` --
+    hypothetical-perspective sibling of ``/api/entitlement/affordable-tiers``.
+
+    Wraps :func:`entitlements.affordable_tiers_at` so a pricing-page
+    walkthrough can render "if I were on Starter, this bundle would
+    qualify for Pro and Enterprise" off ONE round-trip without first
+    switching the resolver. Plural what-if companion of
+    ``/required-tier-at`` (which returns only the floor).
+
+    Perspective is validated against :data:`entitlements._TIER_ORDER`
+    (including ``trial``) but does NOT shape rows -- the qualifying-tier
+    list is anchored to the constraint bundle. A parity contract pinned
+    in the test suite guarantees per-row output byte-equals
+    ``/api/entitlement/affordable-tiers`` for the same bundle regardless
+    of perspective; the response layers ``perspective_tier`` /
+    ``is_at_or_better_than_perspective`` on top so a walkthrough surface
+    can render "from <perspective> these tiers qualify" copy off one
+    call, alongside the existing ``is_current`` /
+    ``is_current_or_better`` current-resolver flags.
+
+    Args are byte-identical to ``/affordable-tiers`` except for the
+    additional ``tier=`` perspective arg. Same CSV normalisation, same
+    capacity-axis parsing, same ``None`` = "not supplied" sentinel.
+
+    - **400** when ``tier=`` is missing / blank, OR when no constraint
+      axis is supplied.
+    - **404** when ``tier`` is unknown. The body carries ``which=tier``
+      so a caller can render the right "unknown tier" message.
+    - **Never 5xxs**: a resolver failure yields the OSS-free shape
+      (empty tier list) so the pricing walkthrough keeps rendering.
+    """
+    raw_tier = request.args.get("tier")
+    tier_in = (raw_tier or "").strip().lower()
+    if not tier_in:
+        return jsonify({"error": "missing tier"}), 400
+    try:
+        from clawmetry import entitlements as _ent
+
+        if tier_in not in _ent._TIER_ORDER:
+            return (
+                jsonify(
+                    {"error": "unknown tier", "which": "tier", "tier": tier_in}
+                ),
+                404,
+            )
+
+        features = _parse_csv_arg("features")
+        runtimes = _parse_csv_arg("runtimes")
+        (_, channels_ok, channels_n, _) = _parse_capacity_arg("channels")
+        (_, retention_ok, retention_n, _) = _parse_capacity_arg(
+            "retention_days",
+        )
+        (_, nodes_ok, nodes_n, _) = _parse_capacity_arg("nodes")
+
+        if (
+            not features
+            and not runtimes
+            and not channels_ok
+            and not retention_ok
+            and not nodes_ok
+        ):
+            return (
+                jsonify(
+                    {
+                        "error": (
+                            "supply at least one of features=<csv>, "
+                            "runtimes=<csv>, channels=<int>, "
+                            "retention_days=<int>, or nodes=<int>"
+                        )
+                    }
+                ),
+                400,
+            )
+
+        ent = _ent.get_entitlement()
+        rows = _ent.affordable_tiers_at(
+            tier_in,
+            features=features or None,
+            runtimes=runtimes or None,
+            channels=channels_n if channels_ok else None,
+            retention_days=retention_n if retention_ok else None,
+            nodes=nodes_n if nodes_ok else None,
+        ) or []
+
+        cur_tier = ent.tier
+        cur_rank = _ent.tier_rank(cur_tier)
+        persp_rank = _ent.tier_rank(tier_in)
+        minimum_tier = rows[0]["tier"] if rows else None
+        minimum_label = rows[0]["tier_label"] if rows else None
+        minimum_rank = rows[0]["tier_rank"] if rows else -1
+
+        augmented: list[dict] = []
+        for row in rows:
+            augmented.append(
+                {
+                    "tier": row["tier"],
+                    "tier_label": row["tier_label"],
+                    "tier_rank": row["tier_rank"],
+                    "is_minimum": row["is_minimum"],
+                    "is_current": row["tier"] == cur_tier,
+                    "is_current_or_better": row["tier_rank"] >= cur_rank,
+                    "is_perspective": row["tier"] == tier_in,
+                    "is_at_or_better_than_perspective": (
+                        row["tier_rank"] >= persp_rank
+                    ),
+                }
+            )
+
+        return jsonify(
+            {
+                "perspective_tier": tier_in,
+                "perspective_tier_label": _ent.tier_label(tier_in),
+                "perspective_tier_rank": persp_rank,
+                "features": features,
+                "runtimes": runtimes,
+                "channels": channels_n if channels_ok else None,
+                "retention_days": retention_n if retention_ok else None,
+                "nodes": nodes_n if nodes_ok else None,
+                "current_tier": cur_tier,
+                "current_tier_rank": cur_rank,
+                "minimum_tier": minimum_tier,
+                "minimum_tier_label": minimum_label,
+                "minimum_tier_rank": minimum_rank,
+                "tiers": augmented,
+                "grace": bool(ent.grace),
+                "enforced": _ent.is_enforced(),
+            }
+        )
+    except Exception as exc:
+        logger.warning("api_entitlement_affordable_tiers_at: error: %s", exc)
+        (_, channels_ok, channels_n, _) = _parse_capacity_arg("channels")
+        (_, retention_ok, retention_n, _) = _parse_capacity_arg("retention_days")
+        (_, nodes_ok, nodes_n, _) = _parse_capacity_arg("nodes")
+        return jsonify(
+            {
+                "perspective_tier": tier_in,
+                "perspective_tier_label": None,
+                "perspective_tier_rank": -1,
+                "features": _parse_csv_arg("features"),
+                "runtimes": _parse_csv_arg("runtimes"),
+                "channels": channels_n if channels_ok else None,
+                "retention_days": retention_n if retention_ok else None,
+                "nodes": nodes_n if nodes_ok else None,
+                "current_tier": "oss",
+                "current_tier_rank": 0,
+                "minimum_tier": None,
+                "minimum_tier_label": None,
+                "minimum_tier_rank": -1,
+                "tiers": [],
+                "grace": True,
+                "enforced": False,
+            }
+        )
+
+
+
 @bp_entitlement.route("/api/entitlement/min-tier")
 def api_entitlement_min_tier():
-    """``GET /api/entitlement/min-tier?feature=<f>`` or ``?runtime=<r>`` --
-    cheapest purchasable tier that unlocks the named feature or runtime.
+    """``GET /api/entitlement/min-tier?<axis>=<value>`` -- cheapest purchasable
+    tier that admits the supplied constraint on ONE of the five capacity axes
+    (``feature``, ``runtime``, ``channels``, ``retention_days``, ``nodes``).
+
+    Singular sibling of :func:`api_entitlement_min_tier_batch`, closing the
+    axis-symmetry gap: previously the singular endpoint accepted only
+    ``feature=`` / ``runtime=``, while the batch already accepted all five.
+    Same reverse-lookup contract as ``/required-tier`` (``feature``,
+    ``runtime``, ``channels``, ``retention_days``, ``nodes``), rendered as
+    the cheapest qualifying tier instead of the current-vs-required
+    upgrade view -- so a pricing-page cell rendering "N nodes -- Available
+    in Starter" can hit the same endpoint the feature / runtime lock
+    affordances already use, and per-row parity with the plural
+    ``/min-tier-batch`` shape is pinned in the test suite.
 
     Catalogue-derived, so the answer is identical in grace and enforce mode.
     Response shape::
 
         {
-          "key":        "feature" | "runtime",
+          "key":        "feature" | "runtime" | "channels"
+                        | "retention_days" | "nodes",
           "value":      "<input>",
           "free":       <bool>,           # true when min_tier == OSS
           "min_tier":   "<tier id>" | null,
@@ -4416,19 +5357,81 @@ def api_entitlement_min_tier():
           "tier_rank":  <int> | null,
         }
 
-    400 when neither ``feature`` nor ``runtime`` is supplied (or both are).
-    404 when the input id is unknown -- the caller can show a neutral
-    "not available" hint rather than pointing at a nonsense tier. Never 5xxs.
+    400 when zero or more than one axis is supplied, or when a capacity
+    axis value is non-int. 404 when the ``feature`` / ``runtime`` id is
+    unknown -- the caller can show a neutral "not available" hint rather
+    than pointing at a nonsense tier. Never 5xxs. The three capacity
+    axes never 404: any parseable int (including zero / negative --
+    which collapses to :data:`TIER_OSS` matching the helpers' contract)
+    resolves to a real tier, so the ``error`` key never appears on a
+    capacity response.
     """
     feature = (request.args.get("feature") or "").strip()
     runtime = (request.args.get("runtime") or "").strip().lower()
-    if bool(feature) == bool(runtime):
+    (
+        channels_present,
+        channels_ok,
+        channels_n,
+        channels_raw,
+    ) = _parse_capacity_arg("channels")
+    (
+        retention_present,
+        retention_ok,
+        retention_n,
+        retention_raw,
+    ) = _parse_capacity_arg("retention_days")
+    (
+        nodes_present,
+        nodes_ok,
+        nodes_n,
+        nodes_raw,
+    ) = _parse_capacity_arg("nodes")
+    supplied = [
+        bool(feature),
+        bool(runtime),
+        channels_present,
+        retention_present,
+        nodes_present,
+    ]
+    n_supplied = sum(1 for s in supplied if s)
+    if n_supplied == 0:
         return (
             jsonify(
                 {
-                    "error": "exactly one of feature= or runtime= is required",
+                    "error": (
+                        "supply exactly one of feature=<id>, runtime=<id>, "
+                        "channels=<int>, retention_days=<int>, or "
+                        "nodes=<int>"
+                    ),
                 }
             ),
+            400,
+        )
+    if n_supplied > 1:
+        return (
+            jsonify(
+                {
+                    "error": (
+                        "supply only one of feature=, runtime=, channels=, "
+                        "retention_days=, or nodes="
+                    ),
+                }
+            ),
+            400,
+        )
+    if channels_present and not channels_ok:
+        return (
+            jsonify({"error": "channels= must be an integer"}),
+            400,
+        )
+    if retention_present and not retention_ok:
+        return (
+            jsonify({"error": "retention_days= must be an integer"}),
+            400,
+        )
+    if nodes_present and not nodes_ok:
+        return (
+            jsonify({"error": "nodes= must be an integer"}),
             400,
         )
     try:
@@ -4438,10 +5441,22 @@ def api_entitlement_min_tier():
             min_t = _ent.min_tier_for_feature(feature)
             key, value = "feature", feature
             known = feature in _ent.ALL_FEATURES
-        else:
+        elif runtime:
             min_t = _ent.min_tier_for_runtime(runtime)
             key, value = "runtime", runtime
             known = runtime in _ent.ALL_RUNTIMES
+        elif channels_present:
+            min_t = _ent.min_tier_for_channel_count(channels_n)
+            key, value = "channels", str(channels_n)
+            known = True
+        elif retention_present:
+            min_t = _ent.min_tier_for_retention_window(retention_n)
+            key, value = "retention_days", str(retention_n)
+            known = True
+        else:
+            min_t = _ent.min_tier_for_node_count(nodes_n)
+            key, value = "nodes", str(nodes_n)
+            known = True
         if not known:
             return (
                 jsonify(
@@ -4469,14 +5484,131 @@ def api_entitlement_min_tier():
         )
     except Exception as exc:
         logger.warning("api_entitlement_min_tier: error: %s", exc)
+        if feature:
+            key, value = "feature", feature
+        elif runtime:
+            key, value = "runtime", runtime
+        elif channels_present:
+            key, value = "channels", channels_raw
+        elif retention_present:
+            key, value = "retention_days", retention_raw
+        else:
+            key, value = "nodes", nodes_raw
         return jsonify(
             {
-                "key": "feature" if feature else "runtime",
-                "value": feature or runtime,
+                "key": key,
+                "value": value,
                 "free": False,
                 "min_tier": None,
                 "tier_label": None,
                 "tier_rank": None,
+            }
+        )
+
+
+@bp_entitlement.route("/api/entitlement/min-tier-batch")
+def api_entitlement_min_tier_batch():
+    """``GET /api/entitlement/min-tier-batch?features=a,b,c&runtimes=x,y
+    &channels=N&retention_days=K&nodes=M`` -- per-item plural sibling of
+    ``/api/entitlement/min-tier``.
+
+    Where ``/required-tier-batch`` aggregates the most-constraining axis
+    into one tier answer, this preserves the per-item detail so a
+    pricing-matrix UI ("show me each requested feature + runtime +
+    capacity row with its individual cheapest tier") renders off ONE
+    round-trip instead of N calls to ``/min-tier``. Wraps
+    :func:`clawmetry.entitlements.min_tier_batch` and appends the same
+    ``current_tier`` / ``grace`` / ``enforced`` envelope
+    ``/lock-reason-batch`` returns so a caller sees the same resolver
+    context alongside the per-item answers.
+
+    At least one of ``features=`` / ``runtimes=`` / ``channels=`` /
+    ``retention_days=`` / ``nodes=`` must be supplied (non-empty /
+    parseable after normalisation). ``features=`` / ``runtimes=`` take
+    comma-separated tokens (whitespace and duplicates are normalised
+    away; runtime aliases like ``claude-code`` canonicalise to
+    ``claude_code``; unknown ids contribute an all-``None`` row --
+    they do not error). The three capacity axes take a single int
+    each; a blank or non-int value is treated as "not supplied"
+    (matches the singular endpoint's never-crash posture rather than
+    mis-routing a typo to Enterprise). Never 5xxs: the grace-shape
+    envelope is returned on any resolver failure.
+
+    Response shape::
+
+        {
+          "features":       [<row>, ...],
+          "runtimes":       [<row>, ...],
+          "channels":       <row> | None,
+          "retention_days": <row> | None,
+          "nodes":          <row> | None,
+          "current_tier":       "...",
+          "current_tier_rank":  <int>,
+          "grace":              <bool>,
+          "enforced":           <bool>,
+        }
+
+    Each ``<row>`` carries ``key``, ``kind``, ``free``, ``min_tier``,
+    ``min_tier_label`` and ``min_tier_rank`` (``-1`` when
+    ``min_tier`` is ``None``). Per-row parity with the singular
+    ``/min-tier?feature=`` / ``?runtime=`` endpoint is pinned in the
+    test suite so the batch cannot silently drift from the scalar.
+    """
+    try:
+        from clawmetry import entitlements as _ent
+
+        features = _parse_csv_arg("features")
+        runtimes = _parse_csv_arg("runtimes")
+        (_, channels_ok, channels_n, _) = _parse_capacity_arg("channels")
+        (_, retention_ok, retention_n, _) = _parse_capacity_arg("retention_days")
+        (_, nodes_ok, nodes_n, _) = _parse_capacity_arg("nodes")
+
+        if (
+            not features
+            and not runtimes
+            and not channels_ok
+            and not retention_ok
+            and not nodes_ok
+        ):
+            return (
+                jsonify(
+                    {
+                        "error": (
+                            "supply at least one of features=<csv>, "
+                            "runtimes=<csv>, channels=<int>, "
+                            "retention_days=<int>, or nodes=<int>"
+                        )
+                    }
+                ),
+                400,
+            )
+
+        batch = _ent.min_tier_batch(
+            features=features or None,
+            runtimes=runtimes or None,
+            channels=channels_n if channels_ok else None,
+            retention_days=retention_n if retention_ok else None,
+            nodes=nodes_n if nodes_ok else None,
+        )
+        ent = _ent.get_entitlement()
+        batch["current_tier"] = ent.tier
+        batch["current_tier_rank"] = _ent.tier_rank(ent.tier)
+        batch["grace"] = bool(ent.grace)
+        batch["enforced"] = _ent.is_enforced()
+        return jsonify(batch)
+    except Exception as exc:
+        logger.warning("api_entitlement_min_tier_batch: error: %s", exc)
+        return jsonify(
+            {
+                "features": [],
+                "runtimes": [],
+                "channels": None,
+                "retention_days": None,
+                "nodes": None,
+                "current_tier": "oss",
+                "current_tier_rank": 0,
+                "grace": True,
+                "enforced": False,
             }
         )
 
@@ -8110,6 +9242,490 @@ def api_entitlement_runtime_catalog_path():
         )
 
 
+@bp_entitlement.route("/api/entitlement/channel-catalog-path")
+def api_entitlement_channel_catalog_path():
+    """``GET /api/entitlement/channel-catalog-path?from=<id>&to=<id>`` --
+    channel-axis twin of ``/feature-catalog-path`` and
+    ``/runtime-catalog-path``: the full chat-channel catalogue at every
+    rung between any two tiers off ONE round-trip.
+
+    Pairs with ``/feature-catalog-path`` and ``/runtime-catalog-path``
+    the same way ``/channel-catalog`` pairs with ``/feature-catalog``
+    and ``/runtime-catalog``. Together the three ``_catalog_path``
+    endpoints let an upgrade-walkthrough UI render every feature +
+    runtime + channel column at every rung off THREE calls instead of
+    first calling ``/tier-path`` and then N * 3 calls to the scalar
+    catalog endpoints.
+
+    Each row in ``path`` mirrors the ``/feature-catalog-path`` /
+    ``/runtime-catalog-path`` row shape with ``features`` / ``runtimes``
+    renamed to ``channels`` (``tier``, ``tier_label``, ``tier_rank``,
+    ``channels``); the ``channels`` list byte-equals
+    ``/channel-catalog`` for every rung -- pinned by the parity tests
+    (every chat-channel adapter is FREE at every tier, so the catalogue
+    is invariant across the rung walk).
+
+    Rung walk, direction semantics and error posture match
+    ``/feature-catalog-path`` (byte-stable against the rest of the
+    ``_path`` family). Never 5xxs: a resolver failure short-circuits to
+    ``404`` so a pricing-page surface keeps rendering.
+    """
+    f = (request.args.get("from") or "").strip().lower()
+    t = (request.args.get("to") or "").strip().lower()
+    if not f or not t:
+        return jsonify({"error": "missing from or to"}), 400
+    try:
+        from clawmetry import entitlements as _ent
+
+        path = _ent.channel_catalog_path(f, t)
+        if path is None:
+            return (
+                jsonify({"error": "unknown tier", "from": f, "to": t}),
+                404,
+            )
+        from_rank = _ent.tier_rank(f)
+        to_rank = _ent.tier_rank(t)
+        if f == t:
+            direction = "identity"
+        elif from_rank == to_rank:
+            direction = "lateral"
+        elif to_rank > from_rank:
+            direction = "upgrade"
+        else:
+            direction = "downgrade"
+        return jsonify(
+            {
+                "from": f,
+                "from_label": _ent.tier_label(f),
+                "from_rank": from_rank,
+                "to": t,
+                "to_label": _ent.tier_label(t),
+                "to_rank": to_rank,
+                "direction": direction,
+                "path": path,
+            }
+        )
+    except Exception as exc:
+        logger.warning(
+            "api_entitlement_channel_catalog_path: error: %s", exc
+        )
+        return (
+            jsonify({"error": "unknown tier", "from": f, "to": t}),
+            404,
+        )
+
+
+@bp_entitlement.route("/api/entitlement/channel-spec-path")
+def api_entitlement_channel_spec_path():
+    """``GET /api/entitlement/channel-spec-path?from=<id>&to=<id>&channel=<id>``
+
+    Channel-axis twin of ``/feature-spec-path`` and
+    ``/runtime-spec-path`` -- the single-channel sibling of
+    ``/channel-catalog-path`` and perspective-walked sibling of
+    ``/channel-spec``. Lets a paywall / channel-picker "how does THIS
+    one channel look as I climb the ladder" UI render every rung's
+    ``allowed`` / ``locked`` / ``entitled`` status off ONE round-trip
+    without fetching the full ``/channel-catalog-path`` payload and
+    filtering client-side.
+
+    Rung walk is byte-stable against ``/tier-path``,
+    ``/tier-spec-path``, ``/feature-spec-path``, ``/runtime-spec-path``,
+    ``/capacity-diff-path``, ``/tier-unlocks-path``,
+    ``/tier-locks-path``, ``/preview-path`` and
+    ``/channel-catalog-path`` (same ``_PURCHASABLE_TIERS`` filter + same
+    sort + same destination-sibling exclusion).
+
+    Each row in ``path`` mirrors the ``/feature-spec-path`` /
+    ``/runtime-spec-path`` row shape with the singular ``feature`` /
+    ``runtime`` body replaced by the ``/channel-spec`` body (``id``,
+    ``label``, ``free``, ``tier``, ``allowed``, ``locked``,
+    ``entitled``) augmented with three rung-identification keys --
+    ``rung``, ``rung_label``, ``rung_rank`` -- naming the perspective
+    tier the row was computed at. Dropping the three ``rung*`` keys
+    yields exact byte-equality with the LIVE ``/channel-spec?channel=<id>``
+    row (every chat-channel adapter is FREE at every tier, so the row
+    is invariant across the rung walk). Parity tests pin this.
+
+    Response shape::
+
+        {
+          "from":       "<tier id>",
+          "from_label": "...",
+          "from_rank":  <int>,
+          "to":         "<tier id>",
+          "to_label":   "...",
+          "to_rank":    <int>,
+          "direction":  "upgrade" | "downgrade" | "lateral" | "identity",
+          "channel":    "<channel id>",
+          "path":       [<augmented channel-spec row>, ...],
+        }
+
+    Direction semantics mirror ``/feature-spec-path``:
+
+    * ``upgrade`` (ascending) -- rows climb rung by rung from the rung
+      above ``from`` toward ``to``.
+    * ``downgrade`` (descending) -- rows shrink rung by rung.
+    * ``lateral`` (same rank, different id) -- single-row path; row
+      carries the spec at ``to``.
+    * ``identity`` (``from == to``) -- empty path; no rungs to walk.
+
+    ``400`` when ``from=``, ``to=`` or ``channel=`` is missing; ``404``
+    when any id is unknown -- ``which`` echoes ``tier`` or ``channel`` so
+    the caller can render the right "unknown ..." message. ``trial`` IS
+    accepted as an endpoint -- excluded from the walked intermediate
+    rungs (not purchasable) but a valid endpoint via the lateral branch.
+    Never 5xxs: a resolver failure short-circuits to ``404`` so a
+    paywall surface keeps rendering.
+    """
+    f = (request.args.get("from") or "").strip().lower()
+    t = (request.args.get("to") or "").strip().lower()
+    ch = (request.args.get("channel") or "").strip().lower()
+    if not f or not t:
+        return jsonify({"error": "missing from or to"}), 400
+    if not ch:
+        return jsonify({"error": "missing channel"}), 400
+    try:
+        from clawmetry import entitlements as _ent
+
+        path = _ent.channel_spec_path(f, t, ch)
+        if path is None:
+            if f not in _ent._TIER_FEATURES or t not in _ent._TIER_FEATURES:
+                which = "tier"
+            else:
+                which = "channel"
+            return (
+                jsonify(
+                    {
+                        "error": f"unknown {which}",
+                        "which": which,
+                        "from": f,
+                        "to": t,
+                        "channel": ch,
+                    }
+                ),
+                404,
+            )
+        from_rank = _ent.tier_rank(f)
+        to_rank = _ent.tier_rank(t)
+        if f == t:
+            direction = "identity"
+        elif from_rank == to_rank:
+            direction = "lateral"
+        elif to_rank > from_rank:
+            direction = "upgrade"
+        else:
+            direction = "downgrade"
+        return jsonify(
+            {
+                "from": f,
+                "from_label": _ent.tier_label(f),
+                "from_rank": from_rank,
+                "to": t,
+                "to_label": _ent.tier_label(t),
+                "to_rank": to_rank,
+                "direction": direction,
+                "channel": ch,
+                "path": path,
+            }
+        )
+    except Exception as exc:
+        logger.warning(
+            "api_entitlement_channel_spec_path: error: %s", exc
+        )
+        return (
+            jsonify(
+                {
+                    "error": "unknown tier or channel",
+                    "from": f,
+                    "to": t,
+                    "channel": ch,
+                }
+            ),
+            404,
+        )
+
+
+@bp_entitlement.route("/api/entitlement/channel-spec-at-path")
+def api_entitlement_channel_spec_at_path():
+    """``GET /api/entitlement/channel-spec-at-path?tier=<perspective>
+    &from=<id>&to=<id>&channel=<id>`` -- perspective-validated what-if
+    sibling of ``/api/entitlement/channel-spec-path``.
+
+    Channel-axis twin of ``/feature-spec-at-path`` /
+    ``/runtime-spec-at-path``; fills the ``_at_path`` slot of the
+    ``channel-spec`` family alongside ``/channel-spec`` (scalar
+    current), ``/channel-spec-at`` (scalar what-if),
+    ``/channel-spec-batch`` (batch current),
+    ``/channel-spec-at-batch`` (batch what-if), and
+    ``/channel-spec-path`` (path current). The perspective is validated
+    (400 on missing, 404 on unknown) but does NOT shape the ``path``
+    rows -- the body is byte-identical to
+    ``/channel-spec-path?from=<from>&to=<to>&channel=<channel>`` for
+    every perspective. Pinned by parity tests so the ``_at_path`` and
+    ``_path`` endpoints cannot drift.
+
+    Response shape (mirrors ``/channel-spec-path`` plus a
+    ``perspective_tier`` echo and the standard ``_at*`` resolver-
+    context tail so a paywall matrix UI can render "at Cloud Pro this
+    channel is free at every rung" without a second call to
+    ``/entitlement``)::
+
+        {
+          "perspective_tier":      "<id>",
+          "perspective_tier_rank": <int>,
+          "from":                  "<tier id>",
+          "from_label":            "...",
+          "from_rank":             <int>,
+          "to":                    "<tier id>",
+          "to_label":              "...",
+          "to_rank":               <int>,
+          "direction":             "upgrade" | "downgrade" | "lateral" | "identity",
+          "channel":               "<channel id>",
+          "path":                  [<channel_spec_path row>, ...],
+          "current_tier":          "...",
+          "current_tier_rank":     <int>,
+          "grace":                 <bool>,
+          "enforced":              <bool>,
+        }
+
+    - **400** when ``tier=``, ``from=``, ``to=`` or ``channel=`` is
+      missing / blank
+    - **404** when any id is unknown (body carries
+      ``which: "tier" | "from" | "to" | "channel"`` so the caller can
+      point at the offender)
+    - **Never 5xxs**: a resolver failure short-circuits to the grace-
+      shape envelope with the perspective echoed so the UI keeps
+      rendering.
+    """
+    raw_tier = request.args.get("tier")
+    tier_in = (raw_tier or "").strip().lower()
+    if not tier_in:
+        return jsonify({"error": "missing tier"}), 400
+    f = (request.args.get("from") or "").strip().lower()
+    t = (request.args.get("to") or "").strip().lower()
+    if not f:
+        return jsonify({"error": "missing from"}), 400
+    if not t:
+        return jsonify({"error": "missing to"}), 400
+    ch = (request.args.get("channel") or "").strip().lower()
+    if not ch:
+        return jsonify({"error": "missing channel"}), 400
+    try:
+        from clawmetry import entitlements as _ent
+
+        if tier_in not in _ent._TIER_FEATURES:
+            return (
+                jsonify(
+                    {
+                        "error": "unknown tier",
+                        "which": "tier",
+                        "tier": tier_in,
+                    }
+                ),
+                404,
+            )
+        if f not in _ent._TIER_FEATURES:
+            return (
+                jsonify(
+                    {"error": "unknown from", "which": "from", "from": f}
+                ),
+                404,
+            )
+        if t not in _ent._TIER_FEATURES:
+            return (
+                jsonify({"error": "unknown to", "which": "to", "to": t}),
+                404,
+            )
+        if ch not in _ent.ALL_CHANNELS:
+            return (
+                jsonify(
+                    {
+                        "error": "unknown channel",
+                        "which": "channel",
+                        "channel": ch,
+                    }
+                ),
+                404,
+            )
+        path = _ent.channel_spec_at_path(tier_in, f, t, ch)
+        if path is None:
+            path = []
+        from_rank = _ent.tier_rank(f)
+        to_rank = _ent.tier_rank(t)
+        if f == t:
+            direction = "identity"
+        elif from_rank == to_rank:
+            direction = "lateral"
+        elif to_rank > from_rank:
+            direction = "upgrade"
+        else:
+            direction = "downgrade"
+        ent = _ent.get_entitlement()
+        return jsonify(
+            {
+                "perspective_tier": tier_in,
+                "perspective_tier_rank": _ent.tier_rank(tier_in),
+                "from": f,
+                "from_label": _ent.tier_label(f),
+                "from_rank": from_rank,
+                "to": t,
+                "to_label": _ent.tier_label(t),
+                "to_rank": to_rank,
+                "direction": direction,
+                "channel": ch,
+                "path": path,
+                "current_tier": ent.tier,
+                "current_tier_rank": _ent.tier_rank(ent.tier),
+                "grace": bool(ent.grace),
+                "enforced": _ent.is_enforced(),
+            }
+        )
+    except Exception as exc:
+        logger.warning("api_entitlement_channel_spec_at_path: error: %s", exc)
+        return jsonify(
+            {
+                "perspective_tier": tier_in,
+                "perspective_tier_rank": 0,
+                "from": f,
+                "from_label": None,
+                "from_rank": -1,
+                "to": t,
+                "to_label": None,
+                "to_rank": -1,
+                "direction": "identity" if f == t else "upgrade",
+                "channel": ch,
+                "path": [],
+                "current_tier": "oss",
+                "current_tier_rank": 0,
+                "grace": True,
+                "enforced": False,
+            }
+        )
+
+
+@bp_entitlement.route("/api/entitlement/channel-spec-path-batch")
+def api_entitlement_channel_spec_path_batch():
+    """``GET /api/entitlement/channel-spec-path-batch?from=<id>&to=<id>
+    &channels=a,b,c`` -- batch sibling of
+    ``/api/entitlement/channel-spec-path``.
+
+    Where ``/channel-spec-path`` walks ONE channel across the rungs
+    between two tiers, this walks N channels across the same rungs in
+    ONE round-trip. Channel-axis twin of ``/feature-spec-path-batch``
+    and ``/runtime-spec-path-batch``. Pairs with ``/channel-spec-path``
+    the same way ``/feature-spec-path-batch`` pairs with
+    ``/feature-spec-path``: scalar -> matrix in one call.
+
+    Use case: a paywall / channel-picker "compare A vs B, here are the
+    6 channels I care about" surface hydrates every rung for every
+    channel off ONE call instead of N calls to ``/channel-spec-path``.
+    Rung walk is channel-agnostic (every chat-channel adapter is FREE
+    at every tier), so all per-channel paths share the same length and
+    rung sequence -- the client can render the matrix as
+    rows = channels x cols = rungs without re-deriving the column
+    headers per channel.
+
+    Each row in ``channels[].path`` is byte-identical to a row from
+    ``/channel-spec-path?from=<from>&to=<to>&channel=<id>`` -- pinned
+    by the parity tests so the scalar and batch path accessors cannot
+    drift. Supplied channel ids are normalised (whitespace stripped,
+    lowercased, duplicates dropped, first-seen order preserved).
+    Unknown ids do not 404 the call -- they are echoed in ``unknown[]``
+    so a partially-bad caller still gets paths back for the valid ids.
+
+    Response shape::
+
+        {
+          "from":       "<tier id>",
+          "from_label": "...",
+          "from_rank":  <int>,
+          "to":         "<tier id>",
+          "to_label":   "...",
+          "to_rank":    <int>,
+          "direction":  "upgrade" | "downgrade" | "lateral" | "identity",
+          "channels": [
+            {"channel": "<id>", "path": [<augmented row>, ...]},
+            ...
+          ],
+          "unknown":    ["bogus_id", ...],
+        }
+
+    - **400** when ``from=``, ``to=`` is missing / blank, or ``channels=``
+      is missing / empty after normalisation
+    - **404** when ``from`` or ``to`` is unknown (body carries
+      ``which: "tier"``)
+    - **Never 5xxs**: a synthesis failure short-circuits to an envelope
+      with empty rows so the matrix keeps rendering.
+    """
+    f = (request.args.get("from") or "").strip().lower()
+    t = (request.args.get("to") or "").strip().lower()
+    if not f or not t:
+        return jsonify({"error": "missing from or to"}), 400
+    try:
+        from clawmetry import entitlements as _ent
+
+        if f not in _ent._TIER_ORDER:
+            return (
+                jsonify(
+                    {"error": "unknown tier", "which": "tier", "tier": f}
+                ),
+                404,
+            )
+        if t not in _ent._TIER_ORDER:
+            return (
+                jsonify(
+                    {"error": "unknown tier", "which": "tier", "tier": t}
+                ),
+                404,
+            )
+        channels = _parse_csv_arg("channels")
+        if not channels:
+            return jsonify({"error": "supply channels=<csv>"}), 400
+        batch = _ent.channel_spec_path_batch(f, t, channels)
+        if batch is None:
+            batch = {"channels": [], "unknown": []}
+        from_rank = _ent.tier_rank(f)
+        to_rank = _ent.tier_rank(t)
+        if f == t:
+            direction = "identity"
+        elif from_rank == to_rank:
+            direction = "lateral"
+        elif to_rank > from_rank:
+            direction = "upgrade"
+        else:
+            direction = "downgrade"
+        return jsonify(
+            {
+                "from": f,
+                "from_label": _ent.tier_label(f),
+                "from_rank": from_rank,
+                "to": t,
+                "to_label": _ent.tier_label(t),
+                "to_rank": to_rank,
+                "direction": direction,
+                "channels": batch.get("channels", []),
+                "unknown": batch.get("unknown", []),
+            }
+        )
+    except Exception as exc:
+        logger.warning(
+            "api_entitlement_channel_spec_path_batch: error: %s", exc
+        )
+        return jsonify(
+            {
+                "from": f,
+                "from_label": None,
+                "from_rank": -1,
+                "to": t,
+                "to_label": None,
+                "to_rank": -1,
+                "direction": "identity" if f == t else "upgrade",
+                "channels": [],
+                "unknown": [],
+            }
+        )
+
+
 @bp_entitlement.route("/api/entitlement/tier-catalog-path")
 def api_entitlement_tier_catalog_path():
     """``GET /api/entitlement/tier-catalog-path?from=<id>&to=<id>`` --
@@ -9598,6 +11214,879 @@ def api_entitlement_tier_catalog_path_batch():
         )
 
 
+@bp_entitlement.route("/api/entitlement/tier-catalog-at-path")
+def api_entitlement_tier_catalog_at_path():
+    """``GET /api/entitlement/tier-catalog-at-path?tier=<perspective>
+    &from=<from>&to=<to>`` -- arbitrary-endpoint stepwise tier-ladder
+    path between any two tiers, rendered from a hypothetical
+    ``perspective_tier``.
+
+    What-if sibling of ``/tier-catalog-path``: same rung walk, same per-
+    rung body, plus a ``perspective_tier`` echo so a pricing-comparison
+    walkthrough surface can call ``X_at_path(perspective, from, to)``
+    uniformly across the whole ``_at_path`` slot of the tier-catalog
+    family (alongside ``/tier-catalog-at`` and ``/tier-catalog-at-batch``,
+    which fill the scalar-what-if and batch-what-if slots).
+
+    Body posture matches ``/tier-catalog-at``: perspective is validated
+    but does not shape the rows. Each row in ``path`` is byte-identical
+    to a row from ``/tier-catalog-path?from=<from>&to=<to>`` -- pinned
+    by parity tests. Perspective acceptance is lenient: ``trial`` IS
+    accepted (matching every other ``_at`` sibling).
+
+    Response shape::
+
+        {
+          "perspective_tier":      "<tier id>",
+          "perspective_tier_rank": <int>,
+          "from":                  "<tier id>",
+          "from_label":            "...",
+          "from_rank":             <int>,
+          "to":                    "<tier id>",
+          "to_label":              "...",
+          "to_rank":               <int>,
+          "direction":             "upgrade" | "downgrade" | "lateral" | "identity",
+          "path":                  [<tier-catalog-path row>, ...],
+          "current_tier":          "<tier id>",
+          "current_tier_rank":     <int>,
+          "grace":                 <bool>,
+          "enforced":              <bool>,
+        }
+
+    - **400** when ``tier=``, ``from=`` or ``to=`` is missing / blank
+    - **404** when any id is unknown (body carries ``which: "tier" |
+      "from" | "to"`` so the caller can point at the offender)
+    - **Never 5xxs**: a resolver failure short-circuits to 404 so an
+      upgrade-walkthrough surface keeps rendering instead of breaking.
+    """
+    p = (request.args.get("tier") or "").strip().lower()
+    f = (request.args.get("from") or "").strip().lower()
+    t = (request.args.get("to") or "").strip().lower()
+    if not p:
+        return jsonify({"error": "missing tier"}), 400
+    if not f:
+        return jsonify({"error": "missing from"}), 400
+    if not t:
+        return jsonify({"error": "missing to"}), 400
+    try:
+        from clawmetry import entitlements as _ent
+
+        if p not in _ent._TIER_ORDER:
+            return (
+                jsonify(
+                    {"error": "unknown tier", "which": "tier", "tier": p}
+                ),
+                404,
+            )
+        if f not in _ent._TIER_FEATURES:
+            return (
+                jsonify(
+                    {"error": "unknown tier", "which": "from", "from": f}
+                ),
+                404,
+            )
+        if t not in _ent._TIER_FEATURES:
+            return (
+                jsonify(
+                    {"error": "unknown tier", "which": "to", "to": t}
+                ),
+                404,
+            )
+        path = _ent.tier_catalog_at_path(p, f, t)
+        if path is None:
+            return (
+                jsonify(
+                    {
+                        "error": "unknown tier",
+                        "tier": p,
+                        "from": f,
+                        "to": t,
+                    }
+                ),
+                404,
+            )
+        from_rank = _ent.tier_rank(f)
+        to_rank = _ent.tier_rank(t)
+        if f == t:
+            direction = "identity"
+        elif from_rank == to_rank:
+            direction = "lateral"
+        elif to_rank > from_rank:
+            direction = "upgrade"
+        else:
+            direction = "downgrade"
+        try:
+            ent = _ent.get_entitlement()
+            current_tier = getattr(ent, "tier", "oss") or "oss"
+            grace = bool(getattr(ent, "grace", True))
+        except Exception:
+            current_tier = "oss"
+            grace = True
+        try:
+            enforced = bool(_ent.is_enforced())
+        except Exception:
+            enforced = False
+        return jsonify(
+            {
+                "perspective_tier": p,
+                "perspective_tier_rank": _ent.tier_rank(p),
+                "from": f,
+                "from_label": _ent.tier_label(f),
+                "from_rank": from_rank,
+                "to": t,
+                "to_label": _ent.tier_label(t),
+                "to_rank": to_rank,
+                "direction": direction,
+                "path": path,
+                "current_tier": current_tier,
+                "current_tier_rank": _ent.tier_rank(current_tier),
+                "grace": grace,
+                "enforced": enforced,
+            }
+        )
+    except Exception as exc:
+        logger.warning(
+            "api_entitlement_tier_catalog_at_path: error: %s", exc
+        )
+        return (
+            jsonify(
+                {
+                    "error": "unknown tier",
+                    "tier": p,
+                    "from": f,
+                    "to": t,
+                }
+            ),
+            404,
+        )
+
+
+@bp_entitlement.route("/api/entitlement/tier-catalog-at-path-batch")
+def api_entitlement_tier_catalog_at_path_batch():
+    """``GET /api/entitlement/tier-catalog-at-path-batch?tier=<perspective>
+    &from=<from>&to=a,b,c`` -- batch sibling of ``/tier-catalog-at-path``.
+
+    Where ``/tier-catalog-at-path`` walks the tier-ladder rungs between
+    ONE ``(from, to)`` pair from a hypothetical ``perspective_tier``,
+    this walks ONE ``from`` to N candidate ``to`` tiers in ONE round-
+    trip from the same hypothetical perspective -- the batch what-if
+    sibling of ``/tier-catalog-path-batch``, filling the
+    ``_at_path_batch`` slot for the tier-catalog family.
+
+    Body posture matches ``/tier-catalog-at``: perspective is validated
+    but does not shape rows. Each row in ``tiers[].path`` is byte-
+    identical to a row from ``/tier-catalog-path-batch`` for the same
+    ``(from, to)`` pair. Perspective acceptance is lenient: ``trial``
+    IS accepted (matching every other ``_at`` sibling). The GET+CSV
+    query surface matches the ``/tier-catalog-path-batch`` sibling
+    rather than the POST+JSON ``/preview-at-path-batch`` shape -- keeps
+    the tier-catalog family internally consistent.
+
+    Response shape (mirrors ``/tier-catalog-path-batch`` plus the
+    ``perspective_tier`` echo and the resolver-context tail every
+    ``_at*`` endpoint carries)::
+
+        {
+          "perspective_tier":      "<tier id>",
+          "perspective_tier_rank": <int>,
+          "from":                  "<tier id>",
+          "from_label":            "...",
+          "from_rank":             <int>,
+          "tiers": [
+            {
+              "to":        "<tier id>",
+              "to_label":  "...",
+              "to_rank":   <int>,
+              "direction": "upgrade" | "downgrade" | "lateral" | "identity",
+              "path":      [<tier-catalog-path row>, ...],
+            },
+            ...
+          ],
+          "unknown":               ["bogus_id", ...],
+          "current_tier":          "<tier id>",
+          "current_tier_rank":     <int>,
+          "grace":                 <bool>,
+          "enforced":              <bool>,
+        }
+
+    Supplied destination ids are normalised (whitespace stripped,
+    lowercased, duplicates dropped, first-seen order preserved).
+    Unknown destination ids do NOT 404 the call -- they are echoed in
+    ``unknown[]`` so a partially-bad caller still gets paths back for
+    the valid ids alongside a list of what was dropped, matching every
+    other ``*_path_batch`` sibling's posture.
+
+    - **400** when ``tier=`` or ``from=`` is missing / blank, or ``to=``
+      is missing / empty after normalisation
+    - **404** when ``tier`` or ``from`` is unknown (body carries
+      ``which: "tier" | "from"``)
+    - **200** with bucketed unknowns for unknown destination ids -- does
+      NOT 404 the call
+    - **Never 5xxs**: a synthesis failure short-circuits to an envelope
+      with empty rows so the matrix keeps rendering.
+    """
+    p = (request.args.get("tier") or "").strip().lower()
+    f = (request.args.get("from") or "").strip().lower()
+    if not p:
+        return jsonify({"error": "missing tier"}), 400
+    if not f:
+        return jsonify({"error": "missing from"}), 400
+    try:
+        from clawmetry import entitlements as _ent
+
+        if p not in _ent._TIER_ORDER:
+            return (
+                jsonify(
+                    {"error": "unknown tier", "which": "tier", "tier": p}
+                ),
+                404,
+            )
+        if f not in _ent._TIER_FEATURES:
+            return (
+                jsonify(
+                    {"error": "unknown tier", "which": "from", "from": f}
+                ),
+                404,
+            )
+        targets = _parse_csv_arg("to")
+        if not targets:
+            return jsonify({"error": "supply to=<csv>"}), 400
+        batch = _ent.tier_catalog_at_path_batch(p, f, targets)
+        if batch is None:
+            batch = {"tiers": [], "unknown": []}
+        try:
+            ent = _ent.get_entitlement()
+            current_tier = getattr(ent, "tier", "oss") or "oss"
+            grace = bool(getattr(ent, "grace", True))
+        except Exception:
+            current_tier = "oss"
+            grace = True
+        try:
+            enforced = bool(_ent.is_enforced())
+        except Exception:
+            enforced = False
+        return jsonify(
+            {
+                "perspective_tier": p,
+                "perspective_tier_rank": _ent.tier_rank(p),
+                "from": f,
+                "from_label": _ent.tier_label(f),
+                "from_rank": _ent.tier_rank(f),
+                "tiers": batch.get("tiers", []),
+                "unknown": batch.get("unknown", []),
+                "current_tier": current_tier,
+                "current_tier_rank": _ent.tier_rank(current_tier),
+                "grace": grace,
+                "enforced": enforced,
+            }
+        )
+    except Exception as exc:
+        logger.warning(
+            "api_entitlement_tier_catalog_at_path_batch: error: %s", exc
+        )
+        return jsonify(
+            {
+                "perspective_tier": p,
+                "perspective_tier_rank": 0,
+                "from": f,
+                "from_label": None,
+                "from_rank": -1,
+                "tiers": [],
+                "unknown": [],
+                "current_tier": "oss",
+                "current_tier_rank": 0,
+                "grace": True,
+                "enforced": False,
+            }
+        )
+
+
+@bp_entitlement.route("/api/entitlement/capacity-diff-at-path")
+def api_entitlement_capacity_diff_at_path():
+    """``GET /api/entitlement/capacity-diff-at-path?tier=<perspective>
+    &from=<from>&to=<to>`` -- arbitrary-endpoint stepwise capacity
+    transition path between any two tiers, rendered from a hypothetical
+    ``perspective_tier``.
+
+    What-if sibling of ``/capacity-diff-path``: same rung walk, same
+    per-rung capacity body (``target``, ``channel_limit``,
+    ``retention_days``, ``node_limit`` where each axis is the
+    ``{before, after, delta, unlocked, locked}`` triple), plus a
+    ``perspective_tier`` echo so a pricing-comparison walkthrough
+    surface can call ``X_at_path(perspective, from, to)`` uniformly
+    across the whole ``_at_path`` slot of the capacity-diff family
+    (alongside ``/capacity-diff-at`` and ``/capacity-diff-at-batch``,
+    which fill the scalar-what-if and batch-what-if slots). Capacity-
+    only mirror of ``/tier-catalog-at-path`` / ``/feature-catalog-at-
+    path`` / ``/runtime-catalog-at-path`` -- same posture, capacity
+    rows instead of catalog rows.
+
+    Body posture matches ``/capacity-diff-at``: perspective is
+    validated but does not shape the rows. Each row in ``path`` is
+    byte-identical to a row from
+    ``/capacity-diff-path?from=<from>&to=<to>`` -- pinned by parity
+    tests. Perspective acceptance is lenient: ``trial`` IS accepted
+    (matching every other ``_at`` sibling).
+
+    Response shape::
+
+        {
+          "perspective_tier":      "<tier id>",
+          "perspective_tier_rank": <int>,
+          "from":                  "<tier id>",
+          "from_label":            "...",
+          "from_rank":             <int>,
+          "to":                    "<tier id>",
+          "to_label":              "...",
+          "to_rank":               <int>,
+          "direction":             "upgrade" | "downgrade" | "lateral" | "identity",
+          "path":                  [<capacity-diff-path row>, ...],
+          "current_tier":          "<tier id>",
+          "current_tier_rank":     <int>,
+          "grace":                 <bool>,
+          "enforced":              <bool>,
+        }
+
+    - **400** when ``tier=``, ``from=`` or ``to=`` is missing / blank
+    - **404** when any id is unknown (body carries ``which: "tier" |
+      "from" | "to"`` so the caller can point at the offender)
+    - **Never 5xxs**: a resolver failure short-circuits to 404 so a
+      capacity-only pricing-comparison surface keeps rendering instead
+      of breaking.
+    """
+    p = (request.args.get("tier") or "").strip().lower()
+    f = (request.args.get("from") or "").strip().lower()
+    t = (request.args.get("to") or "").strip().lower()
+    if not p:
+        return jsonify({"error": "missing tier"}), 400
+    if not f:
+        return jsonify({"error": "missing from"}), 400
+    if not t:
+        return jsonify({"error": "missing to"}), 400
+    try:
+        from clawmetry import entitlements as _ent
+
+        if p not in _ent._TIER_ORDER:
+            return (
+                jsonify(
+                    {"error": "unknown tier", "which": "tier", "tier": p}
+                ),
+                404,
+            )
+        if f not in _ent._TIER_FEATURES:
+            return (
+                jsonify(
+                    {"error": "unknown tier", "which": "from", "from": f}
+                ),
+                404,
+            )
+        if t not in _ent._TIER_FEATURES:
+            return (
+                jsonify(
+                    {"error": "unknown tier", "which": "to", "to": t}
+                ),
+                404,
+            )
+        path = _ent.capacity_diff_at_path(p, f, t)
+        if path is None:
+            return (
+                jsonify(
+                    {
+                        "error": "unknown tier",
+                        "tier": p,
+                        "from": f,
+                        "to": t,
+                    }
+                ),
+                404,
+            )
+        from_rank = _ent.tier_rank(f)
+        to_rank = _ent.tier_rank(t)
+        if f == t:
+            direction = "identity"
+        elif from_rank == to_rank:
+            direction = "lateral"
+        elif to_rank > from_rank:
+            direction = "upgrade"
+        else:
+            direction = "downgrade"
+        try:
+            ent = _ent.get_entitlement()
+            current_tier = getattr(ent, "tier", "oss") or "oss"
+            grace = bool(getattr(ent, "grace", True))
+        except Exception:
+            current_tier = "oss"
+            grace = True
+        try:
+            enforced = bool(_ent.is_enforced())
+        except Exception:
+            enforced = False
+        return jsonify(
+            {
+                "perspective_tier": p,
+                "perspective_tier_rank": _ent.tier_rank(p),
+                "from": f,
+                "from_label": _ent.tier_label(f),
+                "from_rank": from_rank,
+                "to": t,
+                "to_label": _ent.tier_label(t),
+                "to_rank": to_rank,
+                "direction": direction,
+                "path": path,
+                "current_tier": current_tier,
+                "current_tier_rank": _ent.tier_rank(current_tier),
+                "grace": grace,
+                "enforced": enforced,
+            }
+        )
+    except Exception as exc:
+        logger.warning(
+            "api_entitlement_capacity_diff_at_path: error: %s", exc
+        )
+        return (
+            jsonify(
+                {
+                    "error": "unknown tier",
+                    "tier": p,
+                    "from": f,
+                    "to": t,
+                }
+            ),
+            404,
+        )
+
+
+@bp_entitlement.route("/api/entitlement/capacity-diff-at-path-batch")
+def api_entitlement_capacity_diff_at_path_batch():
+    """``GET /api/entitlement/capacity-diff-at-path-batch?tier=<perspective>
+    &from=<from>&to=a,b,c`` -- batch sibling of
+    ``/capacity-diff-at-path``.
+
+    Where ``/capacity-diff-at-path`` walks the capacity rungs between
+    ONE ``(from, to)`` pair from a hypothetical ``perspective_tier``,
+    this walks ONE ``from`` to N candidate ``to`` tiers in ONE round-
+    trip from the same hypothetical perspective -- the batch what-if
+    sibling of ``/capacity-diff-path-batch``, filling the
+    ``_at_path_batch`` slot for the capacity-diff family.
+
+    Body posture matches ``/capacity-diff-at``: perspective is
+    validated but does not shape rows. Each row in ``tiers[].path`` is
+    byte-identical to a row from ``/capacity-diff-path-batch`` for the
+    same ``(from, to)`` pair. Perspective acceptance is lenient:
+    ``trial`` IS accepted (matching every other ``_at`` sibling). The
+    GET+CSV query surface matches the ``/capacity-diff-path-batch``
+    sibling rather than the POST+JSON ``/preview-at-path-batch`` shape
+    -- keeps the capacity-diff family internally consistent.
+
+    Response shape (mirrors ``/capacity-diff-path-batch`` plus the
+    ``perspective_tier`` echo and the resolver-context tail every
+    ``_at*`` endpoint carries)::
+
+        {
+          "perspective_tier":      "<tier id>",
+          "perspective_tier_rank": <int>,
+          "from":                  "<tier id>",
+          "from_label":            "...",
+          "from_rank":             <int>,
+          "tiers": [
+            {
+              "to":        "<tier id>",
+              "to_label":  "...",
+              "to_rank":   <int>,
+              "direction": "upgrade" | "downgrade" | "lateral" | "identity",
+              "path":      [<capacity-diff-path row>, ...],
+            },
+            ...
+          ],
+          "unknown":               ["bogus_id", ...],
+          "current_tier":          "<tier id>",
+          "current_tier_rank":     <int>,
+          "grace":                 <bool>,
+          "enforced":              <bool>,
+        }
+
+    Supplied destination ids are normalised (whitespace stripped,
+    lowercased, duplicates dropped, first-seen order preserved).
+    Unknown destination ids do NOT 404 the call -- they are echoed in
+    ``unknown[]`` so a partially-bad caller still gets paths back for
+    the valid ids alongside a list of what was dropped, matching every
+    other ``*_path_batch`` sibling's posture.
+
+    - **400** when ``tier=`` or ``from=`` is missing / blank, or ``to=``
+      is missing / empty after normalisation
+    - **404** when ``tier`` or ``from`` is unknown (body carries
+      ``which: "tier" | "from"``)
+    - **200** with bucketed unknowns for unknown destination ids -- does
+      NOT 404 the call
+    - **Never 5xxs**: a synthesis failure short-circuits to an envelope
+      with empty rows so the matrix keeps rendering.
+    """
+    p = (request.args.get("tier") or "").strip().lower()
+    f = (request.args.get("from") or "").strip().lower()
+    if not p:
+        return jsonify({"error": "missing tier"}), 400
+    if not f:
+        return jsonify({"error": "missing from"}), 400
+    try:
+        from clawmetry import entitlements as _ent
+
+        if p not in _ent._TIER_ORDER:
+            return (
+                jsonify(
+                    {"error": "unknown tier", "which": "tier", "tier": p}
+                ),
+                404,
+            )
+        if f not in _ent._TIER_FEATURES:
+            return (
+                jsonify(
+                    {"error": "unknown tier", "which": "from", "from": f}
+                ),
+                404,
+            )
+        targets = _parse_csv_arg("to")
+        if not targets:
+            return jsonify({"error": "supply to=<csv>"}), 400
+        batch = _ent.capacity_diff_at_path_batch(p, f, targets)
+        if batch is None:
+            batch = {"tiers": [], "unknown": []}
+        try:
+            ent = _ent.get_entitlement()
+            current_tier = getattr(ent, "tier", "oss") or "oss"
+            grace = bool(getattr(ent, "grace", True))
+        except Exception:
+            current_tier = "oss"
+            grace = True
+        try:
+            enforced = bool(_ent.is_enforced())
+        except Exception:
+            enforced = False
+        return jsonify(
+            {
+                "perspective_tier": p,
+                "perspective_tier_rank": _ent.tier_rank(p),
+                "from": f,
+                "from_label": _ent.tier_label(f),
+                "from_rank": _ent.tier_rank(f),
+                "tiers": batch.get("tiers", []),
+                "unknown": batch.get("unknown", []),
+                "current_tier": current_tier,
+                "current_tier_rank": _ent.tier_rank(current_tier),
+                "grace": grace,
+                "enforced": enforced,
+            }
+        )
+    except Exception as exc:
+        logger.warning(
+            "api_entitlement_capacity_diff_at_path_batch: error: %s", exc
+        )
+        return jsonify(
+            {
+                "perspective_tier": p,
+                "perspective_tier_rank": 0,
+                "from": f,
+                "from_label": None,
+                "from_rank": -1,
+                "tiers": [],
+                "unknown": [],
+                "current_tier": "oss",
+                "current_tier_rank": 0,
+                "grace": True,
+                "enforced": False,
+            }
+        )
+
+
+@bp_entitlement.route("/api/entitlement/feature-catalog-at-path")
+def api_entitlement_feature_catalog_at_path():
+    """``GET /api/entitlement/feature-catalog-at-path?tier=<perspective>
+    &from=<from>&to=<to>`` -- arbitrary-endpoint stepwise feature-catalog
+    path between any two tiers, rendered from a hypothetical
+    ``perspective_tier``.
+
+    What-if sibling of ``/feature-catalog-path``: same rung walk, same
+    per-rung body, plus a ``perspective_tier`` echo so a pricing-
+    comparison walkthrough surface can call
+    ``X_at_path(perspective, from, to)`` uniformly across the whole
+    ``_at_path`` slot of the feature-catalog family (alongside
+    ``/feature-catalog-at`` and ``/feature-catalog-at-batch``, which
+    fill the scalar-what-if and batch-what-if slots).
+
+    Body posture matches ``/feature-catalog-at``: perspective is
+    validated but does not shape the rows. Each row in ``path`` is
+    byte-identical to a row from
+    ``/feature-catalog-path?from=<from>&to=<to>`` -- pinned by parity
+    tests. Perspective acceptance is lenient: ``trial`` IS accepted
+    (matching every other ``_at`` sibling).
+
+    Response shape::
+
+        {
+          "perspective_tier":      "<tier id>",
+          "perspective_tier_rank": <int>,
+          "from":                  "<tier id>",
+          "from_label":            "...",
+          "from_rank":             <int>,
+          "to":                    "<tier id>",
+          "to_label":              "...",
+          "to_rank":               <int>,
+          "direction":             "upgrade" | "downgrade" | "lateral" | "identity",
+          "path":                  [<feature-catalog-path row>, ...],
+          "current_tier":          "<tier id>",
+          "current_tier_rank":     <int>,
+          "grace":                 <bool>,
+          "enforced":              <bool>,
+        }
+
+    - **400** when ``tier=``, ``from=`` or ``to=`` is missing / blank
+    - **404** when any id is unknown (body carries ``which: "tier" |
+      "from" | "to"`` so the caller can point at the offender)
+    - **Never 5xxs**: a resolver failure short-circuits to 404 so an
+      upgrade-walkthrough surface keeps rendering instead of breaking.
+    """
+    p = (request.args.get("tier") or "").strip().lower()
+    f = (request.args.get("from") or "").strip().lower()
+    t = (request.args.get("to") or "").strip().lower()
+    if not p:
+        return jsonify({"error": "missing tier"}), 400
+    if not f:
+        return jsonify({"error": "missing from"}), 400
+    if not t:
+        return jsonify({"error": "missing to"}), 400
+    try:
+        from clawmetry import entitlements as _ent
+
+        if p not in _ent._TIER_ORDER:
+            return (
+                jsonify(
+                    {"error": "unknown tier", "which": "tier", "tier": p}
+                ),
+                404,
+            )
+        if f not in _ent._TIER_FEATURES:
+            return (
+                jsonify(
+                    {"error": "unknown tier", "which": "from", "from": f}
+                ),
+                404,
+            )
+        if t not in _ent._TIER_FEATURES:
+            return (
+                jsonify(
+                    {"error": "unknown tier", "which": "to", "to": t}
+                ),
+                404,
+            )
+        path = _ent.feature_catalog_at_path(p, f, t)
+        if path is None:
+            return (
+                jsonify(
+                    {
+                        "error": "unknown tier",
+                        "tier": p,
+                        "from": f,
+                        "to": t,
+                    }
+                ),
+                404,
+            )
+        from_rank = _ent.tier_rank(f)
+        to_rank = _ent.tier_rank(t)
+        if f == t:
+            direction = "identity"
+        elif from_rank == to_rank:
+            direction = "lateral"
+        elif to_rank > from_rank:
+            direction = "upgrade"
+        else:
+            direction = "downgrade"
+        try:
+            ent = _ent.get_entitlement()
+            current_tier = getattr(ent, "tier", "oss") or "oss"
+            grace = bool(getattr(ent, "grace", True))
+        except Exception:
+            current_tier = "oss"
+            grace = True
+        try:
+            enforced = bool(_ent.is_enforced())
+        except Exception:
+            enforced = False
+        return jsonify(
+            {
+                "perspective_tier": p,
+                "perspective_tier_rank": _ent.tier_rank(p),
+                "from": f,
+                "from_label": _ent.tier_label(f),
+                "from_rank": from_rank,
+                "to": t,
+                "to_label": _ent.tier_label(t),
+                "to_rank": to_rank,
+                "direction": direction,
+                "path": path,
+                "current_tier": current_tier,
+                "current_tier_rank": _ent.tier_rank(current_tier),
+                "grace": grace,
+                "enforced": enforced,
+            }
+        )
+    except Exception as exc:
+        logger.warning(
+            "api_entitlement_feature_catalog_at_path: error: %s", exc
+        )
+        return (
+            jsonify(
+                {
+                    "error": "unknown tier",
+                    "tier": p,
+                    "from": f,
+                    "to": t,
+                }
+            ),
+            404,
+        )
+
+
+@bp_entitlement.route("/api/entitlement/feature-catalog-at-path-batch")
+def api_entitlement_feature_catalog_at_path_batch():
+    """``GET /api/entitlement/feature-catalog-at-path-batch?tier=<perspective>
+    &from=<from>&to=a,b,c`` -- batch sibling of
+    ``/feature-catalog-at-path``.
+
+    Where ``/feature-catalog-at-path`` walks the feature-catalog rungs
+    between ONE ``(from, to)`` pair from a hypothetical
+    ``perspective_tier``, this walks ONE ``from`` to N candidate ``to``
+    tiers in ONE round-trip from the same hypothetical perspective --
+    the batch what-if sibling of ``/feature-catalog-path-batch``,
+    filling the ``_at_path_batch`` slot for the feature-catalog family.
+
+    Body posture matches ``/feature-catalog-at``: perspective is
+    validated but does not shape rows. Each row in ``tiers[].path`` is
+    byte-identical to a row from ``/feature-catalog-path-batch`` for
+    the same ``(from, to)`` pair. Perspective acceptance is lenient:
+    ``trial`` IS accepted (matching every other ``_at`` sibling). The
+    GET+CSV query surface matches the ``/feature-catalog-path-batch``
+    sibling rather than the POST+JSON ``/preview-at-path-batch`` shape
+    -- keeps the feature-catalog family internally consistent.
+
+    Response shape (mirrors ``/feature-catalog-path-batch`` plus the
+    ``perspective_tier`` echo and the resolver-context tail every
+    ``_at*`` endpoint carries)::
+
+        {
+          "perspective_tier":      "<tier id>",
+          "perspective_tier_rank": <int>,
+          "from":                  "<tier id>",
+          "from_label":            "...",
+          "from_rank":             <int>,
+          "tiers": [
+            {
+              "to":        "<tier id>",
+              "to_label":  "...",
+              "to_rank":   <int>,
+              "direction": "upgrade" | "downgrade" | "lateral" | "identity",
+              "path":      [<feature-catalog-path row>, ...],
+            },
+            ...
+          ],
+          "unknown":               ["bogus_id", ...],
+          "current_tier":          "<tier id>",
+          "current_tier_rank":     <int>,
+          "grace":                 <bool>,
+          "enforced":              <bool>,
+        }
+
+    Supplied destination ids are normalised (whitespace stripped,
+    lowercased, duplicates dropped, first-seen order preserved).
+    Unknown destination ids do NOT 404 the call -- they are echoed in
+    ``unknown[]`` so a partially-bad caller still gets paths back for
+    the valid ids alongside a list of what was dropped, matching every
+    other ``*_path_batch`` sibling's posture.
+
+    - **400** when ``tier=`` or ``from=`` is missing / blank, or ``to=``
+      is missing / empty after normalisation
+    - **404** when ``tier`` or ``from`` is unknown (body carries
+      ``which: "tier" | "from"``)
+    - **200** with bucketed unknowns for unknown destination ids -- does
+      NOT 404 the call
+    - **Never 5xxs**: a synthesis failure short-circuits to an envelope
+      with empty rows so the matrix keeps rendering.
+    """
+    p = (request.args.get("tier") or "").strip().lower()
+    f = (request.args.get("from") or "").strip().lower()
+    if not p:
+        return jsonify({"error": "missing tier"}), 400
+    if not f:
+        return jsonify({"error": "missing from"}), 400
+    try:
+        from clawmetry import entitlements as _ent
+
+        if p not in _ent._TIER_ORDER:
+            return (
+                jsonify(
+                    {"error": "unknown tier", "which": "tier", "tier": p}
+                ),
+                404,
+            )
+        if f not in _ent._TIER_FEATURES:
+            return (
+                jsonify(
+                    {"error": "unknown tier", "which": "from", "from": f}
+                ),
+                404,
+            )
+        targets = _parse_csv_arg("to")
+        if not targets:
+            return jsonify({"error": "supply to=<csv>"}), 400
+        batch = _ent.feature_catalog_at_path_batch(p, f, targets)
+        if batch is None:
+            batch = {"tiers": [], "unknown": []}
+        try:
+            ent = _ent.get_entitlement()
+            current_tier = getattr(ent, "tier", "oss") or "oss"
+            grace = bool(getattr(ent, "grace", True))
+        except Exception:
+            current_tier = "oss"
+            grace = True
+        try:
+            enforced = bool(_ent.is_enforced())
+        except Exception:
+            enforced = False
+        return jsonify(
+            {
+                "perspective_tier": p,
+                "perspective_tier_rank": _ent.tier_rank(p),
+                "from": f,
+                "from_label": _ent.tier_label(f),
+                "from_rank": _ent.tier_rank(f),
+                "tiers": batch.get("tiers", []),
+                "unknown": batch.get("unknown", []),
+                "current_tier": current_tier,
+                "current_tier_rank": _ent.tier_rank(current_tier),
+                "grace": grace,
+                "enforced": enforced,
+            }
+        )
+    except Exception as exc:
+        logger.warning(
+            "api_entitlement_feature_catalog_at_path_batch: error: %s", exc
+        )
+        return jsonify(
+            {
+                "perspective_tier": p,
+                "perspective_tier_rank": 0,
+                "from": f,
+                "from_label": None,
+                "from_rank": -1,
+                "tiers": [],
+                "unknown": [],
+                "current_tier": "oss",
+                "current_tier_rank": 0,
+                "grace": True,
+                "enforced": False,
+            }
+        )
+
+
 @bp_entitlement.route("/api/entitlement/feature-spec-path-batch")
 def api_entitlement_feature_spec_path_batch():
     """``GET /api/entitlement/feature-spec-path-batch?from=<id>&to=<id>
@@ -9811,6 +12300,318 @@ def api_entitlement_runtime_spec_path_batch():
                 "direction": "identity" if f == t else "upgrade",
                 "runtimes": [],
                 "unknown": [],
+            }
+        )
+
+
+@bp_entitlement.route("/api/entitlement/runtime-spec-at-path")
+def api_entitlement_runtime_spec_at_path():
+    """``GET /api/entitlement/runtime-spec-at-path?tier=<perspective>
+    &from=<id>&to=<id>&runtime=<id>`` -- perspective-validated what-if
+    sibling of ``/api/entitlement/runtime-spec-path``.
+
+    Runtime-axis twin of ``/feature-spec-at-path``; fills the
+    ``_at_path`` slot of the ``runtime-spec`` family, matching the
+    already-shipping ``preview_at_path`` / ``tier_catalog_at_path``
+    pattern on the ``preview`` / ``tier_catalog`` axes. The perspective
+    is validated (400 on missing, 404 on unknown) but does NOT shape
+    the ``path`` rows -- the body is byte-identical to
+    ``/runtime-spec-path?from=<from>&to=<to>&runtime=<runtime>`` for
+    every perspective. Pinned by parity tests so the ``_at_path`` and
+    ``_path`` endpoints cannot drift.
+
+    Accepts runtime aliases (``claude-code`` -> ``claude_code``) via
+    :func:`clawmetry.entitlements.canonical_runtime` so the URL surface
+    matches what callers already pass to ``/api/entitlement/required-tier``.
+
+    Response shape (mirrors ``/runtime-spec-path`` plus a
+    ``perspective_tier`` echo and the standard ``_at*`` resolver-context
+    tail so a paywall matrix UI can render "at Cloud Pro this runtime
+    unlocks at Starter" without a second call to ``/entitlement``)::
+
+        {
+          "perspective_tier":      "<id>",
+          "perspective_tier_rank": <int>,
+          "from":                  "<tier id>",
+          "from_label":            "...",
+          "from_rank":             <int>,
+          "to":                    "<tier id>",
+          "to_label":              "...",
+          "to_rank":               <int>,
+          "direction":             "upgrade" | "downgrade" | "lateral" | "identity",
+          "runtime":               "<canonical runtime id>",
+          "path":                  [<runtime_spec_path row>, ...],
+          "current_tier":          "...",
+          "current_tier_rank":     <int>,
+          "grace":                 <bool>,
+          "enforced":              <bool>,
+        }
+
+    - **400** when ``tier=``, ``from=``, ``to=`` or ``runtime=`` is
+      missing / blank
+    - **404** when any id is unknown (body carries
+      ``which: "tier" | "from" | "to" | "runtime"`` so the caller can
+      point at the offender)
+    - **Never 5xxs**: a resolver failure short-circuits to the grace-
+      shape envelope with the perspective echoed so the UI keeps
+      rendering.
+    """
+    raw_tier = request.args.get("tier")
+    tier_in = (raw_tier or "").strip().lower()
+    if not tier_in:
+        return jsonify({"error": "missing tier"}), 400
+    f = (request.args.get("from") or "").strip().lower()
+    t = (request.args.get("to") or "").strip().lower()
+    if not f:
+        return jsonify({"error": "missing from"}), 400
+    if not t:
+        return jsonify({"error": "missing to"}), 400
+    rt_raw = (request.args.get("runtime") or "").strip()
+    if not rt_raw:
+        return jsonify({"error": "missing runtime"}), 400
+    try:
+        from clawmetry import entitlements as _ent
+
+        if tier_in not in _ent._TIER_FEATURES:
+            return (
+                jsonify(
+                    {
+                        "error": "unknown tier",
+                        "which": "tier",
+                        "tier": tier_in,
+                    }
+                ),
+                404,
+            )
+        if f not in _ent._TIER_FEATURES:
+            return (
+                jsonify(
+                    {"error": "unknown from", "which": "from", "from": f}
+                ),
+                404,
+            )
+        if t not in _ent._TIER_FEATURES:
+            return (
+                jsonify({"error": "unknown to", "which": "to", "to": t}),
+                404,
+            )
+        rt = _ent.canonical_runtime(rt_raw)
+        if not rt or rt not in _ent.ALL_RUNTIMES:
+            return (
+                jsonify(
+                    {
+                        "error": "unknown runtime",
+                        "which": "runtime",
+                        "runtime": rt or rt_raw.lower(),
+                    }
+                ),
+                404,
+            )
+        path = _ent.runtime_spec_at_path(tier_in, f, t, rt_raw)
+        if path is None:
+            path = []
+        from_rank = _ent.tier_rank(f)
+        to_rank = _ent.tier_rank(t)
+        if f == t:
+            direction = "identity"
+        elif from_rank == to_rank:
+            direction = "lateral"
+        elif to_rank > from_rank:
+            direction = "upgrade"
+        else:
+            direction = "downgrade"
+        ent = _ent.get_entitlement()
+        return jsonify(
+            {
+                "perspective_tier": tier_in,
+                "perspective_tier_rank": _ent.tier_rank(tier_in),
+                "from": f,
+                "from_label": _ent.tier_label(f),
+                "from_rank": from_rank,
+                "to": t,
+                "to_label": _ent.tier_label(t),
+                "to_rank": to_rank,
+                "direction": direction,
+                "runtime": rt,
+                "path": path,
+                "current_tier": ent.tier,
+                "current_tier_rank": _ent.tier_rank(ent.tier),
+                "grace": bool(ent.grace),
+                "enforced": _ent.is_enforced(),
+            }
+        )
+    except Exception as exc:
+        logger.warning("api_entitlement_runtime_spec_at_path: error: %s", exc)
+        return jsonify(
+            {
+                "perspective_tier": tier_in,
+                "perspective_tier_rank": 0,
+                "from": f,
+                "from_label": None,
+                "from_rank": -1,
+                "to": t,
+                "to_label": None,
+                "to_rank": -1,
+                "direction": "identity" if f == t else "upgrade",
+                "runtime": rt_raw.lower(),
+                "path": [],
+                "current_tier": "oss",
+                "current_tier_rank": 0,
+                "grace": True,
+                "enforced": False,
+            }
+        )
+
+
+@bp_entitlement.route("/api/entitlement/runtime-spec-at-path-batch")
+def api_entitlement_runtime_spec_at_path_batch():
+    """``GET /api/entitlement/runtime-spec-at-path-batch?tier=<perspective>
+    &from=<id>&to=<id>&runtimes=a,b,c`` -- perspective-validated what-if
+    batch sibling of ``/api/entitlement/runtime-spec-path-batch``.
+
+    Fills the ``_at_path_batch`` slot of the ``runtime-spec`` family;
+    fixed-perspective, fixed-from, fixed-to, multi-runtime companion of
+    ``/runtime-spec-at-path``. Per-runtime body byte-identical to
+    ``/runtime-spec-path-batch`` for the same ``(from, to, runtimes)``
+    triple -- scalar / batch no-drift contract.
+
+    Aliases are canonicalised the same way ``/runtime-spec-path`` does
+    (``claude-code`` -> ``claude_code``), and aliases that collapse to
+    a canonical id already in the response are silently de-duplicated
+    so the row count matches the unique-canonical-id count. Unknown
+    ids do NOT 404 the call -- they are echoed in ``unknown[]``
+    carrying the supplied alias (not the canonical id) so the caller
+    can correlate against what was sent.
+
+    Response shape (mirrors ``/runtime-spec-path-batch`` plus a
+    ``perspective_tier`` echo and the standard ``_at*`` resolver-context
+    tail)::
+
+        {
+          "perspective_tier":      "<id>",
+          "perspective_tier_rank": <int>,
+          "from":                  "<tier id>",
+          "from_label":            "...",
+          "from_rank":             <int>,
+          "to":                    "<tier id>",
+          "to_label":              "...",
+          "to_rank":               <int>,
+          "direction":             "upgrade" | "downgrade" | "lateral" | "identity",
+          "runtimes": [
+            {"runtime": "<canonical id>", "path": [<augmented row>, ...]},
+            ...
+          ],
+          "unknown":               ["bogus_id", ...],
+          "current_tier":          "...",
+          "current_tier_rank":     <int>,
+          "grace":                 <bool>,
+          "enforced":              <bool>,
+        }
+
+    - **400** when ``tier=``, ``from=``, ``to=`` is missing / blank, or
+      ``runtimes=`` is missing / empty after normalisation
+    - **404** when any tier id is unknown (body carries
+      ``which: "tier" | "from" | "to"``)
+    - Unknown runtime ids do NOT 404 the call -- they are echoed in
+      ``unknown[]`` so a partially-bad caller still gets paths back for
+      the valid ids alongside a list of what was dropped, matching
+      every other ``*_path_batch`` sibling's posture.
+    - **Never 5xxs**: a synthesis failure short-circuits to a grace-
+      shape envelope with the perspective echoed.
+    """
+    raw_tier = request.args.get("tier")
+    tier_in = (raw_tier or "").strip().lower()
+    if not tier_in:
+        return jsonify({"error": "missing tier"}), 400
+    f = (request.args.get("from") or "").strip().lower()
+    t = (request.args.get("to") or "").strip().lower()
+    if not f:
+        return jsonify({"error": "missing from"}), 400
+    if not t:
+        return jsonify({"error": "missing to"}), 400
+    try:
+        from clawmetry import entitlements as _ent
+
+        if tier_in not in _ent._TIER_FEATURES:
+            return (
+                jsonify(
+                    {
+                        "error": "unknown tier",
+                        "which": "tier",
+                        "tier": tier_in,
+                    }
+                ),
+                404,
+            )
+        if f not in _ent._TIER_FEATURES:
+            return (
+                jsonify(
+                    {"error": "unknown from", "which": "from", "from": f}
+                ),
+                404,
+            )
+        if t not in _ent._TIER_FEATURES:
+            return (
+                jsonify({"error": "unknown to", "which": "to", "to": t}),
+                404,
+            )
+        runtimes = _parse_csv_arg("runtimes")
+        if not runtimes:
+            return jsonify({"error": "supply runtimes=<csv>"}), 400
+        batch = _ent.runtime_spec_at_path_batch(tier_in, f, t, runtimes)
+        if batch is None:
+            batch = {"runtimes": [], "unknown": []}
+        from_rank = _ent.tier_rank(f)
+        to_rank = _ent.tier_rank(t)
+        if f == t:
+            direction = "identity"
+        elif from_rank == to_rank:
+            direction = "lateral"
+        elif to_rank > from_rank:
+            direction = "upgrade"
+        else:
+            direction = "downgrade"
+        ent = _ent.get_entitlement()
+        return jsonify(
+            {
+                "perspective_tier": tier_in,
+                "perspective_tier_rank": _ent.tier_rank(tier_in),
+                "from": f,
+                "from_label": _ent.tier_label(f),
+                "from_rank": from_rank,
+                "to": t,
+                "to_label": _ent.tier_label(t),
+                "to_rank": to_rank,
+                "direction": direction,
+                "runtimes": batch.get("runtimes", []),
+                "unknown": batch.get("unknown", []),
+                "current_tier": ent.tier,
+                "current_tier_rank": _ent.tier_rank(ent.tier),
+                "grace": bool(ent.grace),
+                "enforced": _ent.is_enforced(),
+            }
+        )
+    except Exception as exc:
+        logger.warning(
+            "api_entitlement_runtime_spec_at_path_batch: error: %s", exc
+        )
+        return jsonify(
+            {
+                "perspective_tier": tier_in,
+                "perspective_tier_rank": 0,
+                "from": f,
+                "from_label": None,
+                "from_rank": -1,
+                "to": t,
+                "to_label": None,
+                "to_rank": -1,
+                "direction": "identity" if f == t else "upgrade",
+                "runtimes": [],
+                "unknown": [],
+                "current_tier": "oss",
+                "current_tier_rank": 0,
+                "grace": True,
+                "enforced": False,
             }
         )
 
@@ -11004,6 +13805,107 @@ def api_entitlement_runtime_catalog_path_batch():
         )
 
 
+@bp_entitlement.route("/api/entitlement/channel-catalog-path-batch")
+def api_entitlement_channel_catalog_path_batch():
+    """``GET /api/entitlement/channel-catalog-path-batch?from=<id>&to=a,b,c``
+    -- batch sibling of ``/api/entitlement/channel-catalog-path``.
+
+    Where ``/channel-catalog-path`` walks the full-catalog rungs between
+    ONE ``(from, to)`` pair, this walks the full-catalog rungs between
+    ONE ``from`` and N candidate ``to`` tiers in ONE round-trip.
+    Channel-axis twin of ``/feature-catalog-path-batch`` and
+    ``/runtime-catalog-path-batch``: pairs with them the same way
+    ``/channel-catalog-at-batch`` pairs with
+    ``/feature-catalog-at-batch`` / ``/runtime-catalog-at-batch``.
+    Together the three catalog ``-path-batch`` endpoints on the feature /
+    runtime / channel axes plus the ``-path-batch`` endpoint on the tier
+    axis let an upgrade-comparison walkthrough UI render every feature +
+    runtime + channel + tier column at every rung walked to N candidate
+    destinations off FOUR calls instead of first calling
+    ``/tier-path-batch`` (or ``/tier-path`` per destination) and then 4 *
+    N calls to the scalar what-if catalog endpoints.
+
+    Each row in ``tiers[].path`` is byte-identical to a row from
+    ``/channel-catalog-path?from=<from>&to=<to>`` -- pinned by the parity
+    tests so the scalar and batch path accessors cannot drift. Per-rung
+    ``channels`` list byte-equals ``/channel-catalog`` for every rung
+    (every chat-channel adapter is FREE at every tier, so the catalogue
+    is invariant across the rung walk). Supplied destination ids are
+    normalised (whitespace stripped, lowercased, duplicates dropped,
+    first-seen order preserved). Unknown ids do not 404 the call -- they
+    are echoed in ``unknown[]`` so a partially-bad caller still gets
+    paths back for the valid ids.
+
+    Response shape::
+
+        {
+          "from":       "<tier id>",
+          "from_label": "...",
+          "from_rank":  <int>,
+          "tiers": [
+            {
+              "to":        "<tier id>",
+              "to_label":  "...",
+              "to_rank":   <int>,
+              "direction": "upgrade" | "downgrade" | "lateral" | "identity",
+              "path":      [<channel-catalog-path row>, ...],
+            },
+            ...
+          ],
+          "unknown":    ["bogus_id", ...],
+        }
+
+    - **400** when ``from=`` is missing / blank, or ``to=`` is missing
+      / empty after normalisation
+    - **404** when ``from`` is unknown (body carries ``which: "tier"``)
+    - **200** with bucketed unknowns for unknown destination ids --
+      does NOT 404 the call, matching every other batch sibling
+    - **Never 5xxs**: a synthesis failure short-circuits to an envelope
+      with empty rows so the matrix keeps rendering.
+    """
+    f = (request.args.get("from") or "").strip().lower()
+    if not f:
+        return jsonify({"error": "missing from"}), 400
+    try:
+        from clawmetry import entitlements as _ent
+
+        if f not in _ent._TIER_FEATURES:
+            return (
+                jsonify(
+                    {"error": "unknown tier", "which": "tier", "tier": f}
+                ),
+                404,
+            )
+        targets = _parse_csv_arg("to")
+        if not targets:
+            return jsonify({"error": "supply to=<csv>"}), 400
+        batch = _ent.channel_catalog_path_batch(f, targets)
+        if batch is None:
+            batch = {"tiers": [], "unknown": []}
+        return jsonify(
+            {
+                "from": f,
+                "from_label": _ent.tier_label(f),
+                "from_rank": _ent.tier_rank(f),
+                "tiers": batch.get("tiers", []),
+                "unknown": batch.get("unknown", []),
+            }
+        )
+    except Exception as exc:
+        logger.warning(
+            "api_entitlement_channel_catalog_path_batch: error: %s", exc
+        )
+        return jsonify(
+            {
+                "from": f,
+                "from_label": None,
+                "from_rank": -1,
+                "tiers": [],
+                "unknown": [],
+            }
+        )
+
+
 @bp_entitlement.route("/api/entitlement/next-tier-capacity-diff")
 def api_entitlement_next_tier_capacity_diff():
     """``GET /api/entitlement/next-tier-capacity-diff`` -- capacity-only
@@ -11414,3 +14316,3107 @@ def api_entitlement_previous_tier_lock_reason_batch():
     - **Never 5xxs**: grace-shape envelope on resolver failure.
     """
     return _next_prev_lock_reason_batch("previous")
+
+
+@bp_entitlement.route("/api/entitlement/preview-at-path")
+def api_entitlement_preview_at_path():
+    """``GET /api/entitlement/preview-at-path?tier=<perspective>
+    &from=<from>&to=<to>`` -- arbitrary-endpoint stepwise cumulative-
+    state path between any two tiers, rendered from a hypothetical
+    ``perspective_tier``.
+
+    What-if sibling of ``/preview-path``: same rung walk, same per-rung
+    body, plus a ``perspective_tier`` echo so a pricing-comparison
+    walkthrough surface can call ``X_at_path(perspective, from, to)``
+    uniformly across the whole ``_at_path`` slot of the preview family
+    (alongside ``/preview-at`` and ``/preview-at-batch``, which fill
+    the scalar-what-if and batch-what-if slots).
+
+    Body posture matches ``/preview-at``: perspective is validated but
+    does not shape the rows. Each row in ``path`` is byte-identical to
+    a row from ``/preview-path?from=<from>&to=<to>`` -- pinned by
+    parity tests. Perspective acceptance is lenient: ``trial`` IS
+    accepted (matching ``/preview-at``).
+
+    Response shape::
+
+        {
+          "perspective_tier":      "<tier id>",
+          "perspective_tier_rank": <int>,
+          "from":                  "<tier id>",
+          "from_label":            "...",
+          "from_rank":             <int>,
+          "to":                    "<tier id>",
+          "to_label":              "...",
+          "to_rank":               <int>,
+          "direction":             "upgrade" | "downgrade" | "lateral" | "identity",
+          "path":                  [<preview row>, ...],
+          "current_tier":          "<tier id>",
+          "current_tier_rank":     <int>,
+          "grace":                 <bool>,
+          "enforced":              <bool>,
+        }
+
+    - **400** when ``tier=``, ``from=`` or ``to=`` is missing / blank
+    - **404** when any id is unknown (body carries ``which: "tier" |
+      "from" | "to"`` so the caller can point at the offender)
+    - **Never 5xxs**: a resolver failure short-circuits to 404 so an
+      upgrade-walkthrough surface keeps rendering instead of breaking.
+    """
+    p = (request.args.get("tier") or "").strip().lower()
+    f = (request.args.get("from") or "").strip().lower()
+    t = (request.args.get("to") or "").strip().lower()
+    if not p:
+        return jsonify({"error": "missing tier"}), 400
+    if not f:
+        return jsonify({"error": "missing from"}), 400
+    if not t:
+        return jsonify({"error": "missing to"}), 400
+    try:
+        from clawmetry import entitlements as _ent
+
+        if p not in _ent._TIER_ORDER:
+            return (
+                jsonify(
+                    {"error": "unknown tier", "which": "tier", "tier": p}
+                ),
+                404,
+            )
+        if f not in _ent._TIER_FEATURES:
+            return (
+                jsonify(
+                    {"error": "unknown tier", "which": "from", "from": f}
+                ),
+                404,
+            )
+        if t not in _ent._TIER_FEATURES:
+            return (
+                jsonify({"error": "unknown tier", "which": "to", "to": t}),
+                404,
+            )
+        path = _ent.preview_at_path(p, f, t)
+        if path is None:
+            return (
+                jsonify(
+                    {
+                        "error": "unknown tier",
+                        "tier": p,
+                        "from": f,
+                        "to": t,
+                    }
+                ),
+                404,
+            )
+        from_rank = _ent.tier_rank(f)
+        to_rank = _ent.tier_rank(t)
+        if f == t:
+            direction = "identity"
+        elif from_rank == to_rank:
+            direction = "lateral"
+        elif to_rank > from_rank:
+            direction = "upgrade"
+        else:
+            direction = "downgrade"
+        try:
+            ent = _ent.get_entitlement()
+            current_tier = getattr(ent, "tier", "oss") or "oss"
+            grace = bool(getattr(ent, "grace", True))
+        except Exception:
+            current_tier = "oss"
+            grace = True
+        try:
+            enforced = bool(_ent.is_enforced())
+        except Exception:
+            enforced = False
+        return jsonify(
+            {
+                "perspective_tier": p,
+                "perspective_tier_rank": _ent.tier_rank(p),
+                "from": f,
+                "from_label": _ent.tier_label(f),
+                "from_rank": from_rank,
+                "to": t,
+                "to_label": _ent.tier_label(t),
+                "to_rank": to_rank,
+                "direction": direction,
+                "path": path,
+                "current_tier": current_tier,
+                "current_tier_rank": _ent.tier_rank(current_tier),
+                "grace": grace,
+                "enforced": enforced,
+            }
+        )
+    except Exception as exc:
+        logger.warning("api_entitlement_preview_at_path: error: %s", exc)
+        return (
+            jsonify(
+                {
+                    "error": "unknown tier",
+                    "tier": p,
+                    "from": f,
+                    "to": t,
+                }
+            ),
+            404,
+        )
+
+
+@bp_entitlement.route(
+    "/api/entitlement/preview-at-path-batch", methods=["POST"]
+)
+def api_entitlement_preview_at_path_batch():
+    """``POST /api/entitlement/preview-at-path-batch`` -- batch sibling of
+    ``/preview-at-path``.
+
+    Where ``/preview-at-path`` walks the cumulative-state rungs between
+    ONE ``(from, to)`` pair from a hypothetical ``perspective_tier``,
+    this walks ONE ``from`` to N candidate ``to`` tiers in ONE round-
+    trip from the same hypothetical perspective -- the batch what-if
+    sibling of ``/preview-path-batch``, filling the ``_at_path_batch``
+    slot for the preview family.
+
+    Body posture matches ``/preview-at``: perspective is validated but
+    does not shape rows. Each row in ``tiers[].path`` is byte-identical
+    to a row from ``/preview-path-batch`` for the same ``(from, to)``
+    pair. Perspective acceptance is lenient: ``trial`` IS accepted.
+
+    Request body::
+
+        {
+          "tier": "<perspective tier id>",
+          "from": "<tier id>",
+          "to":   ["<tier id>", ...]
+        }
+
+    Response shape::
+
+        {
+          "perspective_tier":      "<tier id>",
+          "perspective_tier_rank": <int>,
+          "from":                  "<tier id>",
+          "from_label":            "...",
+          "from_rank":             <int>,
+          "tiers": [
+            {
+              "to":        "<tier id>",
+              "to_label":  "...",
+              "to_rank":   <int>,
+              "direction": "upgrade" | "downgrade" | "lateral" | "identity",
+              "path":      [<preview row>, ...],
+            },
+            ...
+          ],
+          "unknown":               ["bogus_id", ...],
+          "current_tier":          "<tier id>",
+          "current_tier_rank":     <int>,
+          "grace":                 <bool>,
+          "enforced":              <bool>,
+        }
+
+    Supplied destination ids are normalised (whitespace stripped,
+    lowercased, duplicates dropped, first-seen order preserved).
+    Unknown destination ids do NOT 404 the call -- they are echoed in
+    ``unknown[]`` so a partially-bad caller still gets paths back for
+    the valid ids alongside a list of what was dropped, matching every
+    other ``*_path_batch`` sibling's posture.
+
+    - **400** when ``tier`` / ``from`` is missing / blank, or ``to`` is
+      missing / empty
+    - **404** when ``tier`` or ``from`` is unknown (body carries
+      ``which: "tier" | "from"``)
+    - **200** with bucketed unknowns for unknown destination ids -- does
+      NOT 404 the call
+    - **Never 5xxs**: a synthesis failure short-circuits to an envelope
+      with empty rows so the matrix keeps rendering.
+
+    POST rather than GET because ``to`` is a list of tier ids that may
+    grow past a comfortable query-string length, matching the sibling
+    ``/preview-path-batch`` (which also uses POST+JSON).
+    """
+    body = request.get_json(silent=True) or {}
+    try:
+        p_raw = body.get("tier")
+        p = str(p_raw or "").strip().lower()
+    except Exception:
+        p = ""
+    try:
+        f_raw = body.get("from")
+        f = str(f_raw or "").strip().lower()
+    except Exception:
+        f = ""
+    if not p:
+        return jsonify({"error": "missing tier"}), 400
+    if not f:
+        return jsonify({"error": "missing from"}), 400
+    to_raw = body.get("to")
+    if to_raw is None or (isinstance(to_raw, (list, tuple)) and not to_raw):
+        return jsonify({"error": "missing or empty to"}), 400
+    try:
+        from clawmetry import entitlements as _ent
+
+        if p not in _ent._TIER_ORDER:
+            return (
+                jsonify(
+                    {"error": "unknown tier", "which": "tier", "tier": p}
+                ),
+                404,
+            )
+        if f not in _ent._TIER_FEATURES:
+            return (
+                jsonify(
+                    {"error": "unknown tier", "which": "from", "from": f}
+                ),
+                404,
+            )
+        try:
+            candidates = [str(x) for x in (to_raw or [])]
+        except TypeError:
+            return jsonify({"error": "to must be a list"}), 400
+        batch = _ent.preview_at_path_batch(p, f, candidates)
+        if batch is None:
+            batch = {"tiers": [], "unknown": []}
+        try:
+            ent = _ent.get_entitlement()
+            current_tier = getattr(ent, "tier", "oss") or "oss"
+            grace = bool(getattr(ent, "grace", True))
+        except Exception:
+            current_tier = "oss"
+            grace = True
+        try:
+            enforced = bool(_ent.is_enforced())
+        except Exception:
+            enforced = False
+        return jsonify(
+            {
+                "perspective_tier": p,
+                "perspective_tier_rank": _ent.tier_rank(p),
+                "from": f,
+                "from_label": _ent.tier_label(f),
+                "from_rank": _ent.tier_rank(f),
+                "tiers": batch.get("tiers", []),
+                "unknown": batch.get("unknown", []),
+                "current_tier": current_tier,
+                "current_tier_rank": _ent.tier_rank(current_tier),
+                "grace": grace,
+                "enforced": enforced,
+            }
+        )
+    except Exception as exc:
+        logger.warning(
+            "api_entitlement_preview_at_path_batch: error: %s", exc
+        )
+        return jsonify(
+            {
+                "perspective_tier": p,
+                "perspective_tier_rank": 0,
+                "from": f,
+                "from_label": None,
+                "from_rank": -1,
+                "tiers": [],
+                "unknown": [],
+                "current_tier": "oss",
+                "current_tier_rank": 0,
+                "grace": True,
+                "enforced": False,
+            }
+        )
+
+
+@bp_entitlement.route("/api/entitlement/feature-spec-at-path")
+def api_entitlement_feature_spec_at_path():
+    """``GET /api/entitlement/feature-spec-at-path?tier=<perspective>
+    &from=<id>&to=<id>&feature=<id>`` -- perspective-validated what-if
+    sibling of ``/api/entitlement/feature-spec-path``.
+
+    Fills the ``_at_path`` slot of the ``feature-spec`` family, matching
+    the already-shipping ``preview_at_path`` / ``tier_catalog_at_path``
+    pattern on the ``preview`` / ``tier_catalog`` axes. The perspective
+    is validated (400 on missing, 404 on unknown) but does NOT shape the
+    ``path`` rows -- the body is byte-identical to
+    ``/feature-spec-path?from=<from>&to=<to>&feature=<feature>`` for
+    every perspective. Pinned by parity tests so the ``_at_path`` and
+    ``_path`` endpoints cannot drift.
+
+    Response shape (mirrors ``/feature-spec-path`` plus a
+    ``perspective_tier`` echo and the standard ``_at*`` resolver-context
+    tail so a paywall matrix UI can render "at Cloud Pro this feature
+    unlocks at Starter" without a second call to ``/entitlement``)::
+
+        {
+          "perspective_tier":      "<id>",
+          "perspective_tier_rank": <int>,
+          "from":                  "<tier id>",
+          "from_label":            "...",
+          "from_rank":             <int>,
+          "to":                    "<tier id>",
+          "to_label":              "...",
+          "to_rank":               <int>,
+          "direction":             "upgrade" | "downgrade" | "lateral" | "identity",
+          "feature":               "<feature id>",
+          "path":                  [<feature_spec_path row>, ...],
+          "current_tier":          "...",
+          "current_tier_rank":     <int>,
+          "grace":                 <bool>,
+          "enforced":              <bool>,
+        }
+
+    - **400** when ``tier=``, ``from=``, ``to=`` or ``feature=`` is
+      missing / blank
+    - **404** when any id is unknown (body carries
+      ``which: "tier" | "from" | "to" | "feature"`` so the caller can
+      point at the offender)
+    - **Never 5xxs**: a resolver failure short-circuits to the grace-
+      shape envelope with the perspective echoed so the UI keeps
+      rendering.
+    """
+    raw_tier = request.args.get("tier")
+    tier_in = (raw_tier or "").strip().lower()
+    if not tier_in:
+        return jsonify({"error": "missing tier"}), 400
+    f = (request.args.get("from") or "").strip().lower()
+    t = (request.args.get("to") or "").strip().lower()
+    if not f:
+        return jsonify({"error": "missing from"}), 400
+    if not t:
+        return jsonify({"error": "missing to"}), 400
+    feat = (request.args.get("feature") or "").strip().lower()
+    if not feat:
+        return jsonify({"error": "missing feature"}), 400
+    try:
+        from clawmetry import entitlements as _ent
+
+        if tier_in not in _ent._TIER_FEATURES:
+            return (
+                jsonify(
+                    {
+                        "error": "unknown tier",
+                        "which": "tier",
+                        "tier": tier_in,
+                    }
+                ),
+                404,
+            )
+        if f not in _ent._TIER_FEATURES:
+            return (
+                jsonify(
+                    {"error": "unknown from", "which": "from", "from": f}
+                ),
+                404,
+            )
+        if t not in _ent._TIER_FEATURES:
+            return (
+                jsonify({"error": "unknown to", "which": "to", "to": t}),
+                404,
+            )
+        if feat not in _ent.ALL_FEATURES:
+            return (
+                jsonify(
+                    {
+                        "error": "unknown feature",
+                        "which": "feature",
+                        "feature": feat,
+                    }
+                ),
+                404,
+            )
+        path = _ent.feature_spec_at_path(tier_in, f, t, feat)
+        if path is None:
+            path = []
+        from_rank = _ent.tier_rank(f)
+        to_rank = _ent.tier_rank(t)
+        if f == t:
+            direction = "identity"
+        elif from_rank == to_rank:
+            direction = "lateral"
+        elif to_rank > from_rank:
+            direction = "upgrade"
+        else:
+            direction = "downgrade"
+        ent = _ent.get_entitlement()
+        return jsonify(
+            {
+                "perspective_tier": tier_in,
+                "perspective_tier_rank": _ent.tier_rank(tier_in),
+                "from": f,
+                "from_label": _ent.tier_label(f),
+                "from_rank": from_rank,
+                "to": t,
+                "to_label": _ent.tier_label(t),
+                "to_rank": to_rank,
+                "direction": direction,
+                "feature": feat,
+                "path": path,
+                "current_tier": ent.tier,
+                "current_tier_rank": _ent.tier_rank(ent.tier),
+                "grace": bool(ent.grace),
+                "enforced": _ent.is_enforced(),
+            }
+        )
+    except Exception as exc:
+        logger.warning("api_entitlement_feature_spec_at_path: error: %s", exc)
+        return jsonify(
+            {
+                "perspective_tier": tier_in,
+                "perspective_tier_rank": 0,
+                "from": f,
+                "from_label": None,
+                "from_rank": -1,
+                "to": t,
+                "to_label": None,
+                "to_rank": -1,
+                "direction": "identity" if f == t else "upgrade",
+                "feature": feat,
+                "path": [],
+                "current_tier": "oss",
+                "current_tier_rank": 0,
+                "grace": True,
+                "enforced": False,
+            }
+        )
+
+
+@bp_entitlement.route("/api/entitlement/feature-spec-at-path-batch")
+def api_entitlement_feature_spec_at_path_batch():
+    """``GET /api/entitlement/feature-spec-at-path-batch?tier=<perspective>
+    &from=<id>&to=<id>&features=a,b,c`` -- perspective-validated what-if
+    batch sibling of ``/api/entitlement/feature-spec-path-batch``.
+
+    Fills the ``_at_path_batch`` slot of the ``feature-spec`` family;
+    fixed-perspective, fixed-from, fixed-to, multi-feature companion of
+    ``/feature-spec-at-path``. Per-feature body byte-identical to
+    ``/feature-spec-path-batch`` for the same ``(from, to, features)``
+    triple -- scalar / batch no-drift contract.
+
+    Response shape (mirrors ``/feature-spec-path-batch`` plus a
+    ``perspective_tier`` echo and the standard ``_at*`` resolver-context
+    tail)::
+
+        {
+          "perspective_tier":      "<id>",
+          "perspective_tier_rank": <int>,
+          "from":                  "<tier id>",
+          "from_label":            "...",
+          "from_rank":             <int>,
+          "to":                    "<tier id>",
+          "to_label":              "...",
+          "to_rank":               <int>,
+          "direction":             "upgrade" | "downgrade" | "lateral" | "identity",
+          "features": [
+            {"feature": "<id>", "path": [<augmented row>, ...]},
+            ...
+          ],
+          "unknown":               ["bogus_id", ...],
+          "current_tier":          "...",
+          "current_tier_rank":     <int>,
+          "grace":                 <bool>,
+          "enforced":              <bool>,
+        }
+
+    - **400** when ``tier=``, ``from=``, ``to=`` is missing / blank, or
+      ``features=`` is missing / empty after normalisation
+    - **404** when any tier id is unknown (body carries
+      ``which: "tier" | "from" | "to"``)
+    - Unknown feature ids do NOT 404 the call -- they are echoed in
+      ``unknown[]`` so a partially-bad caller still gets paths back for
+      the valid ids alongside a list of what was dropped, matching
+      every other ``*_path_batch`` sibling's posture.
+    - **Never 5xxs**: a synthesis failure short-circuits to a grace-
+      shape envelope with the perspective echoed.
+    """
+    raw_tier = request.args.get("tier")
+    tier_in = (raw_tier or "").strip().lower()
+    if not tier_in:
+        return jsonify({"error": "missing tier"}), 400
+    f = (request.args.get("from") or "").strip().lower()
+    t = (request.args.get("to") or "").strip().lower()
+    if not f:
+        return jsonify({"error": "missing from"}), 400
+    if not t:
+        return jsonify({"error": "missing to"}), 400
+    try:
+        from clawmetry import entitlements as _ent
+
+        if tier_in not in _ent._TIER_FEATURES:
+            return (
+                jsonify(
+                    {
+                        "error": "unknown tier",
+                        "which": "tier",
+                        "tier": tier_in,
+                    }
+                ),
+                404,
+            )
+        if f not in _ent._TIER_FEATURES:
+            return (
+                jsonify(
+                    {"error": "unknown from", "which": "from", "from": f}
+                ),
+                404,
+            )
+        if t not in _ent._TIER_FEATURES:
+            return (
+                jsonify({"error": "unknown to", "which": "to", "to": t}),
+                404,
+            )
+        features = _parse_csv_arg("features")
+        if not features:
+            return jsonify({"error": "supply features=<csv>"}), 400
+        batch = _ent.feature_spec_at_path_batch(tier_in, f, t, features)
+        if batch is None:
+            batch = {"features": [], "unknown": []}
+        from_rank = _ent.tier_rank(f)
+        to_rank = _ent.tier_rank(t)
+        if f == t:
+            direction = "identity"
+        elif from_rank == to_rank:
+            direction = "lateral"
+        elif to_rank > from_rank:
+            direction = "upgrade"
+        else:
+            direction = "downgrade"
+        ent = _ent.get_entitlement()
+        return jsonify(
+            {
+                "perspective_tier": tier_in,
+                "perspective_tier_rank": _ent.tier_rank(tier_in),
+                "from": f,
+                "from_label": _ent.tier_label(f),
+                "from_rank": from_rank,
+                "to": t,
+                "to_label": _ent.tier_label(t),
+                "to_rank": to_rank,
+                "direction": direction,
+                "features": batch.get("features", []),
+                "unknown": batch.get("unknown", []),
+                "current_tier": ent.tier,
+                "current_tier_rank": _ent.tier_rank(ent.tier),
+                "grace": bool(ent.grace),
+                "enforced": _ent.is_enforced(),
+            }
+        )
+    except Exception as exc:
+        logger.warning(
+            "api_entitlement_feature_spec_at_path_batch: error: %s", exc
+        )
+        return jsonify(
+            {
+                "perspective_tier": tier_in,
+                "perspective_tier_rank": 0,
+                "from": f,
+                "from_label": None,
+                "from_rank": -1,
+                "to": t,
+                "to_label": None,
+                "to_rank": -1,
+                "direction": "identity" if f == t else "upgrade",
+                "features": [],
+                "unknown": [],
+                "current_tier": "oss",
+                "current_tier_rank": 0,
+                "grace": True,
+                "enforced": False,
+            }
+        )
+
+
+@bp_entitlement.route("/api/entitlement/tier-spec-at-path")
+def api_entitlement_tier_spec_at_path():
+    """``GET /api/entitlement/tier-spec-at-path?tier=<perspective>
+    &from=<id>&to=<id>`` -- perspective-validated what-if sibling of
+    ``/api/entitlement/tier-spec-path``.
+
+    Fills the ``_at_path`` slot of the ``tier-spec`` family, matching
+    the already-shipping ``preview_at_path`` / ``tier_catalog_at_path``
+    / ``feature_spec_at_path`` / ``runtime_spec_at_path`` pattern. The
+    perspective is validated (400 on missing, 404 on unknown) but does
+    NOT shape the ``path`` rows -- the body is byte-identical to
+    ``/tier-spec-path?from=<from>&to=<to>`` for every perspective.
+    Pinned by parity tests so the ``_at_path`` and ``_path`` endpoints
+    cannot drift.
+
+    Response shape (mirrors ``/tier-spec-path`` plus a
+    ``perspective_tier`` echo and the standard ``_at*`` resolver-context
+    tail so a paywall matrix UI can render "at Cloud Pro, here is the
+    spec ladder from Starter to Enterprise" without a second call to
+    ``/entitlement``)::
+
+        {
+          "perspective_tier":      "<id>",
+          "perspective_tier_rank": <int>,
+          "from":                  "<tier id>",
+          "from_label":            "...",
+          "from_rank":             <int>,
+          "to":                    "<tier id>",
+          "to_label":              "...",
+          "to_rank":               <int>,
+          "direction":             "upgrade" | "downgrade" | "lateral" | "identity",
+          "path":                  [<tier_spec_path row>, ...],
+          "current_tier":          "...",
+          "current_tier_rank":     <int>,
+          "grace":                 <bool>,
+          "enforced":              <bool>,
+        }
+
+    - **400** when ``tier=``, ``from=`` or ``to=`` is missing / blank
+    - **404** when any id is unknown (body carries
+      ``which: "tier" | "from" | "to"`` so the caller can point at the
+      offender)
+    - **Never 5xxs**: a resolver failure short-circuits to the grace-
+      shape envelope with the perspective echoed so the UI keeps
+      rendering.
+    """
+    raw_tier = request.args.get("tier")
+    tier_in = (raw_tier or "").strip().lower()
+    if not tier_in:
+        return jsonify({"error": "missing tier"}), 400
+    f = (request.args.get("from") or "").strip().lower()
+    t = (request.args.get("to") or "").strip().lower()
+    if not f:
+        return jsonify({"error": "missing from"}), 400
+    if not t:
+        return jsonify({"error": "missing to"}), 400
+    try:
+        from clawmetry import entitlements as _ent
+
+        if tier_in not in _ent._TIER_FEATURES:
+            return (
+                jsonify(
+                    {
+                        "error": "unknown tier",
+                        "which": "tier",
+                        "tier": tier_in,
+                    }
+                ),
+                404,
+            )
+        if f not in _ent._TIER_FEATURES:
+            return (
+                jsonify(
+                    {"error": "unknown from", "which": "from", "from": f}
+                ),
+                404,
+            )
+        if t not in _ent._TIER_FEATURES:
+            return (
+                jsonify({"error": "unknown to", "which": "to", "to": t}),
+                404,
+            )
+        path = _ent.tier_spec_at_path(tier_in, f, t)
+        if path is None:
+            path = []
+        from_rank = _ent.tier_rank(f)
+        to_rank = _ent.tier_rank(t)
+        if f == t:
+            direction = "identity"
+        elif from_rank == to_rank:
+            direction = "lateral"
+        elif to_rank > from_rank:
+            direction = "upgrade"
+        else:
+            direction = "downgrade"
+        ent = _ent.get_entitlement()
+        return jsonify(
+            {
+                "perspective_tier": tier_in,
+                "perspective_tier_rank": _ent.tier_rank(tier_in),
+                "from": f,
+                "from_label": _ent.tier_label(f),
+                "from_rank": from_rank,
+                "to": t,
+                "to_label": _ent.tier_label(t),
+                "to_rank": to_rank,
+                "direction": direction,
+                "path": path,
+                "current_tier": ent.tier,
+                "current_tier_rank": _ent.tier_rank(ent.tier),
+                "grace": bool(ent.grace),
+                "enforced": _ent.is_enforced(),
+            }
+        )
+    except Exception as exc:
+        logger.warning("api_entitlement_tier_spec_at_path: error: %s", exc)
+        return jsonify(
+            {
+                "perspective_tier": tier_in,
+                "perspective_tier_rank": 0,
+                "from": f,
+                "from_label": None,
+                "from_rank": -1,
+                "to": t,
+                "to_label": None,
+                "to_rank": -1,
+                "direction": "identity" if f == t else "upgrade",
+                "path": [],
+                "current_tier": "oss",
+                "current_tier_rank": 0,
+                "grace": True,
+                "enforced": False,
+            }
+        )
+
+
+@bp_entitlement.route("/api/entitlement/tier-spec-at-path-batch")
+def api_entitlement_tier_spec_at_path_batch():
+    """``GET /api/entitlement/tier-spec-at-path-batch?tier=<perspective>
+    &from=<id>&to=a,b,c`` -- perspective-validated what-if batch sibling
+    of ``/api/entitlement/tier-spec-path-batch``.
+
+    Fills the ``_at_path_batch`` slot of the ``tier-spec`` family;
+    fixed-perspective, fixed-from, multi-destination companion of
+    ``/tier-spec-at-path``. Per-destination body byte-identical to
+    ``/tier-spec-path-batch`` for the same ``(from, to_tiers)`` pair --
+    scalar / batch no-drift contract.
+
+    Response shape (mirrors ``/tier-spec-path-batch`` plus a
+    ``perspective_tier`` echo and the standard ``_at*`` resolver-context
+    tail)::
+
+        {
+          "perspective_tier":      "<id>",
+          "perspective_tier_rank": <int>,
+          "from":                  "<tier id>",
+          "from_label":            "...",
+          "from_rank":             <int>,
+          "tiers": [
+            {
+              "to":        "<tier id>",
+              "to_label":  "...",
+              "to_rank":   <int>,
+              "direction": "upgrade" | "downgrade" | "lateral" | "identity",
+              "path":      [<tier_spec_path row>, ...],
+            },
+            ...
+          ],
+          "unknown":               ["bogus_id", ...],
+          "current_tier":          "...",
+          "current_tier_rank":     <int>,
+          "grace":                 <bool>,
+          "enforced":              <bool>,
+        }
+
+    - **400** when ``tier=`` or ``from=`` is missing / blank, or ``to=``
+      is missing / empty after normalisation
+    - **404** when ``tier`` or ``from`` is unknown (body carries
+      ``which: "tier" | "from"``)
+    - Unknown destination ids do NOT 404 the call -- they are echoed in
+      ``unknown[]`` so a partially-bad caller still gets paths back for
+      the valid ids alongside a list of what was dropped, matching
+      every other ``*_at_path_batch`` sibling's posture.
+    - **Never 5xxs**: a synthesis failure short-circuits to a grace-
+      shape envelope with the perspective echoed.
+    """
+    raw_tier = request.args.get("tier")
+    tier_in = (raw_tier or "").strip().lower()
+    if not tier_in:
+        return jsonify({"error": "missing tier"}), 400
+    f = (request.args.get("from") or "").strip().lower()
+    if not f:
+        return jsonify({"error": "missing from"}), 400
+    try:
+        from clawmetry import entitlements as _ent
+
+        if tier_in not in _ent._TIER_FEATURES:
+            return (
+                jsonify(
+                    {
+                        "error": "unknown tier",
+                        "which": "tier",
+                        "tier": tier_in,
+                    }
+                ),
+                404,
+            )
+        if f not in _ent._TIER_FEATURES:
+            return (
+                jsonify(
+                    {"error": "unknown from", "which": "from", "from": f}
+                ),
+                404,
+            )
+        targets = _parse_csv_arg("to")
+        if not targets:
+            return jsonify({"error": "supply to=<csv>"}), 400
+        batch = _ent.tier_spec_at_path_batch(tier_in, f, targets)
+        if batch is None:
+            batch = {"tiers": [], "unknown": []}
+        ent = _ent.get_entitlement()
+        return jsonify(
+            {
+                "perspective_tier": tier_in,
+                "perspective_tier_rank": _ent.tier_rank(tier_in),
+                "from": f,
+                "from_label": _ent.tier_label(f),
+                "from_rank": _ent.tier_rank(f),
+                "tiers": batch.get("tiers", []),
+                "unknown": batch.get("unknown", []),
+                "current_tier": ent.tier,
+                "current_tier_rank": _ent.tier_rank(ent.tier),
+                "grace": bool(ent.grace),
+                "enforced": _ent.is_enforced(),
+            }
+        )
+    except Exception as exc:
+        logger.warning(
+            "api_entitlement_tier_spec_at_path_batch: error: %s", exc
+        )
+        return jsonify(
+            {
+                "perspective_tier": tier_in,
+                "perspective_tier_rank": 0,
+                "from": f,
+                "from_label": None,
+                "from_rank": -1,
+                "tiers": [],
+                "unknown": [],
+                "current_tier": "oss",
+                "current_tier_rank": 0,
+                "grace": True,
+                "enforced": False,
+            }
+        )
+
+
+@bp_entitlement.route("/api/entitlement/runtime-catalog-at-path")
+def api_entitlement_runtime_catalog_at_path():
+    """``GET /api/entitlement/runtime-catalog-at-path?tier=<perspective>
+    &from=<from>&to=<to>`` -- arbitrary-endpoint stepwise runtime-catalog
+    path between any two tiers, rendered from a hypothetical
+    ``perspective_tier``.
+
+    What-if sibling of ``/runtime-catalog-path``: same rung walk, same
+    per-rung body, plus a ``perspective_tier`` echo so a pricing-
+    comparison walkthrough surface can call
+    ``X_at_path(perspective, from, to)`` uniformly across the whole
+    ``_at_path`` slot of the runtime-catalog family (alongside
+    ``/runtime-catalog-at`` and ``/runtime-catalog-at-batch``, which
+    fill the scalar-what-if and batch-what-if slots).
+
+    Body posture matches ``/runtime-catalog-at``: perspective is
+    validated but does not shape the rows. Each row in ``path`` is
+    byte-identical to a row from
+    ``/runtime-catalog-path?from=<from>&to=<to>`` -- pinned by parity
+    tests. Perspective acceptance is lenient: ``trial`` IS accepted
+    (matching every other ``_at`` sibling).
+
+    Response shape::
+
+        {
+          "perspective_tier":      "<tier id>",
+          "perspective_tier_rank": <int>,
+          "from":                  "<tier id>",
+          "from_label":            "...",
+          "from_rank":             <int>,
+          "to":                    "<tier id>",
+          "to_label":              "...",
+          "to_rank":               <int>,
+          "direction":             "upgrade" | "downgrade" | "lateral" | "identity",
+          "path":                  [<runtime-catalog-path row>, ...],
+          "current_tier":          "<tier id>",
+          "current_tier_rank":     <int>,
+          "grace":                 <bool>,
+          "enforced":              <bool>,
+        }
+
+    - **400** when ``tier=``, ``from=`` or ``to=`` is missing / blank
+    - **404** when any id is unknown (body carries ``which: "tier" |
+      "from" | "to"`` so the caller can point at the offender)
+    - **Never 5xxs**: a resolver failure short-circuits to 404 so an
+      upgrade-walkthrough surface keeps rendering instead of breaking.
+    """
+    p = (request.args.get("tier") or "").strip().lower()
+    f = (request.args.get("from") or "").strip().lower()
+    t = (request.args.get("to") or "").strip().lower()
+    if not p:
+        return jsonify({"error": "missing tier"}), 400
+    if not f:
+        return jsonify({"error": "missing from"}), 400
+    if not t:
+        return jsonify({"error": "missing to"}), 400
+    try:
+        from clawmetry import entitlements as _ent
+
+        if p not in _ent._TIER_ORDER:
+            return (
+                jsonify(
+                    {"error": "unknown tier", "which": "tier", "tier": p}
+                ),
+                404,
+            )
+        if f not in _ent._TIER_FEATURES:
+            return (
+                jsonify(
+                    {"error": "unknown tier", "which": "from", "from": f}
+                ),
+                404,
+            )
+        if t not in _ent._TIER_FEATURES:
+            return (
+                jsonify(
+                    {"error": "unknown tier", "which": "to", "to": t}
+                ),
+                404,
+            )
+        path = _ent.runtime_catalog_at_path(p, f, t)
+        if path is None:
+            return (
+                jsonify(
+                    {
+                        "error": "unknown tier",
+                        "tier": p,
+                        "from": f,
+                        "to": t,
+                    }
+                ),
+                404,
+            )
+        from_rank = _ent.tier_rank(f)
+        to_rank = _ent.tier_rank(t)
+        if f == t:
+            direction = "identity"
+        elif from_rank == to_rank:
+            direction = "lateral"
+        elif to_rank > from_rank:
+            direction = "upgrade"
+        else:
+            direction = "downgrade"
+        try:
+            ent = _ent.get_entitlement()
+            current_tier = getattr(ent, "tier", "oss") or "oss"
+            grace = bool(getattr(ent, "grace", True))
+        except Exception:
+            current_tier = "oss"
+            grace = True
+        try:
+            enforced = bool(_ent.is_enforced())
+        except Exception:
+            enforced = False
+        return jsonify(
+            {
+                "perspective_tier": p,
+                "perspective_tier_rank": _ent.tier_rank(p),
+                "from": f,
+                "from_label": _ent.tier_label(f),
+                "from_rank": from_rank,
+                "to": t,
+                "to_label": _ent.tier_label(t),
+                "to_rank": to_rank,
+                "direction": direction,
+                "path": path,
+                "current_tier": current_tier,
+                "current_tier_rank": _ent.tier_rank(current_tier),
+                "grace": grace,
+                "enforced": enforced,
+            }
+        )
+    except Exception as exc:
+        logger.warning(
+            "api_entitlement_runtime_catalog_at_path: error: %s", exc
+        )
+        return (
+            jsonify(
+                {
+                    "error": "unknown tier",
+                    "tier": p,
+                    "from": f,
+                    "to": t,
+                }
+            ),
+            404,
+        )
+
+
+@bp_entitlement.route("/api/entitlement/runtime-catalog-at-path-batch")
+def api_entitlement_runtime_catalog_at_path_batch():
+    """``GET /api/entitlement/runtime-catalog-at-path-batch?tier=<perspective>
+    &from=<from>&to=a,b,c`` -- batch sibling of
+    ``/runtime-catalog-at-path``.
+
+    Where ``/runtime-catalog-at-path`` walks the runtime-catalog rungs
+    between ONE ``(from, to)`` pair from a hypothetical
+    ``perspective_tier``, this walks ONE ``from`` to N candidate ``to``
+    tiers in ONE round-trip from the same hypothetical perspective --
+    the batch what-if sibling of ``/runtime-catalog-path-batch``,
+    filling the ``_at_path_batch`` slot for the runtime-catalog family.
+
+    Body posture matches ``/runtime-catalog-at``: perspective is
+    validated but does not shape rows. Each row in ``tiers[].path`` is
+    byte-identical to a row from ``/runtime-catalog-path-batch`` for
+    the same ``(from, to)`` pair. Perspective acceptance is lenient:
+    ``trial`` IS accepted (matching every other ``_at`` sibling). The
+    GET+CSV query surface matches the ``/runtime-catalog-path-batch``
+    sibling rather than the POST+JSON ``/preview-at-path-batch`` shape
+    -- keeps the runtime-catalog family internally consistent.
+
+    Response shape (mirrors ``/runtime-catalog-path-batch`` plus the
+    ``perspective_tier`` echo and the resolver-context tail every
+    ``_at*`` endpoint carries)::
+
+        {
+          "perspective_tier":      "<tier id>",
+          "perspective_tier_rank": <int>,
+          "from":                  "<tier id>",
+          "from_label":            "...",
+          "from_rank":             <int>,
+          "tiers": [
+            {
+              "to":        "<tier id>",
+              "to_label":  "...",
+              "to_rank":   <int>,
+              "direction": "upgrade" | "downgrade" | "lateral" | "identity",
+              "path":      [<runtime-catalog-path row>, ...],
+            },
+            ...
+          ],
+          "unknown":               ["bogus_id", ...],
+          "current_tier":          "<tier id>",
+          "current_tier_rank":     <int>,
+          "grace":                 <bool>,
+          "enforced":              <bool>,
+        }
+
+    Supplied destination ids are normalised (whitespace stripped,
+    lowercased, duplicates dropped, first-seen order preserved).
+    Unknown destination ids do NOT 404 the call -- they are echoed in
+    ``unknown[]`` so a partially-bad caller still gets paths back for
+    the valid ids alongside a list of what was dropped, matching every
+    other ``*_path_batch`` sibling's posture.
+
+    - **400** when ``tier=`` or ``from=`` is missing / blank, or ``to=``
+      is missing / empty after normalisation
+    - **404** when ``tier`` or ``from`` is unknown (body carries
+      ``which: "tier" | "from"``)
+    - **200** with bucketed unknowns for unknown destination ids -- does
+      NOT 404 the call
+    - **Never 5xxs**: a synthesis failure short-circuits to an envelope
+      with empty rows so the matrix keeps rendering.
+    """
+    p = (request.args.get("tier") or "").strip().lower()
+    f = (request.args.get("from") or "").strip().lower()
+    if not p:
+        return jsonify({"error": "missing tier"}), 400
+    if not f:
+        return jsonify({"error": "missing from"}), 400
+    try:
+        from clawmetry import entitlements as _ent
+
+        if p not in _ent._TIER_ORDER:
+            return (
+                jsonify(
+                    {"error": "unknown tier", "which": "tier", "tier": p}
+                ),
+                404,
+            )
+        if f not in _ent._TIER_FEATURES:
+            return (
+                jsonify(
+                    {"error": "unknown tier", "which": "from", "from": f}
+                ),
+                404,
+            )
+        targets = _parse_csv_arg("to")
+        if not targets:
+            return jsonify({"error": "supply to=<csv>"}), 400
+        batch = _ent.runtime_catalog_at_path_batch(p, f, targets)
+        if batch is None:
+            batch = {"tiers": [], "unknown": []}
+        try:
+            ent = _ent.get_entitlement()
+            current_tier = getattr(ent, "tier", "oss") or "oss"
+            grace = bool(getattr(ent, "grace", True))
+        except Exception:
+            current_tier = "oss"
+            grace = True
+        try:
+            enforced = bool(_ent.is_enforced())
+        except Exception:
+            enforced = False
+        return jsonify(
+            {
+                "perspective_tier": p,
+                "perspective_tier_rank": _ent.tier_rank(p),
+                "from": f,
+                "from_label": _ent.tier_label(f),
+                "from_rank": _ent.tier_rank(f),
+                "tiers": batch.get("tiers", []),
+                "unknown": batch.get("unknown", []),
+                "current_tier": current_tier,
+                "current_tier_rank": _ent.tier_rank(current_tier),
+                "grace": grace,
+                "enforced": enforced,
+            }
+        )
+    except Exception as exc:
+        logger.warning(
+            "api_entitlement_runtime_catalog_at_path_batch: error: %s", exc
+        )
+        return jsonify(
+            {
+                "perspective_tier": p,
+                "perspective_tier_rank": 0,
+                "from": f,
+                "from_label": None,
+                "from_rank": -1,
+                "tiers": [],
+                "unknown": [],
+                "current_tier": "oss",
+                "current_tier_rank": 0,
+                "grace": True,
+                "enforced": False,
+            }
+        )
+
+
+@bp_entitlement.route("/api/entitlement/channel-catalog-at-path")
+def api_entitlement_channel_catalog_at_path():
+    """``GET /api/entitlement/channel-catalog-at-path?tier=<perspective>
+    &from=<from>&to=<to>`` -- arbitrary-endpoint stepwise channel-catalog
+    path between any two tiers, rendered from a hypothetical
+    ``perspective_tier``.
+
+    What-if sibling of ``/channel-catalog-path``: same rung walk, same
+    per-rung body, plus a ``perspective_tier`` echo so a pricing-
+    comparison walkthrough surface can call
+    ``X_at_path(perspective, from, to)`` uniformly across the whole
+    ``_at_path`` slot of the channel-catalog family (alongside
+    ``/channel-catalog-at`` and ``/channel-catalog-at-batch``, which
+    fill the scalar-what-if and batch-what-if slots). Family-complete
+    twin of ``/feature-catalog-at-path`` / ``/runtime-catalog-at-path``
+    / ``/tier-catalog-at-path``.
+
+    Body posture matches ``/channel-catalog-at``: perspective is
+    validated but does not shape the rows. Each row in ``path`` is
+    byte-identical to a row from
+    ``/channel-catalog-path?from=<from>&to=<to>`` -- pinned by parity
+    tests. Perspective acceptance is lenient: ``trial`` IS accepted
+    (matching every other ``_at`` sibling).
+
+    Because every chat-channel adapter is FREE at every tier (the
+    ``channels`` capacity axis governs how many concurrent channels
+    each plan admits, not which adapters unlock), each rung's inner
+    ``channels`` list is byte-identical to ``/channel-catalog`` --
+    inherited from the delegate, pinned by parity tests so a
+    walkthrough UI can render the channel column off the same
+    row-renderer as the feature and runtime columns.
+
+    Response shape::
+
+        {
+          "perspective_tier":      "<tier id>",
+          "perspective_tier_rank": <int>,
+          "from":                  "<tier id>",
+          "from_label":            "...",
+          "from_rank":             <int>,
+          "to":                    "<tier id>",
+          "to_label":              "...",
+          "to_rank":               <int>,
+          "direction":             "upgrade" | "downgrade" | "lateral" | "identity",
+          "path":                  [<channel-catalog-path row>, ...],
+          "current_tier":          "<tier id>",
+          "current_tier_rank":     <int>,
+          "grace":                 <bool>,
+          "enforced":              <bool>,
+        }
+
+    - **400** when ``tier=``, ``from=`` or ``to=`` is missing / blank
+    - **404** when any id is unknown (body carries ``which: "tier" |
+      "from" | "to"`` so the caller can point at the offender)
+    - **Never 5xxs**: a resolver failure short-circuits to 404 so an
+      upgrade-walkthrough surface keeps rendering instead of breaking.
+    """
+    p = (request.args.get("tier") or "").strip().lower()
+    f = (request.args.get("from") or "").strip().lower()
+    t = (request.args.get("to") or "").strip().lower()
+    if not p:
+        return jsonify({"error": "missing tier"}), 400
+    if not f:
+        return jsonify({"error": "missing from"}), 400
+    if not t:
+        return jsonify({"error": "missing to"}), 400
+    try:
+        from clawmetry import entitlements as _ent
+
+        if p not in _ent._TIER_ORDER:
+            return (
+                jsonify(
+                    {"error": "unknown tier", "which": "tier", "tier": p}
+                ),
+                404,
+            )
+        if f not in _ent._TIER_FEATURES:
+            return (
+                jsonify(
+                    {"error": "unknown tier", "which": "from", "from": f}
+                ),
+                404,
+            )
+        if t not in _ent._TIER_FEATURES:
+            return (
+                jsonify(
+                    {"error": "unknown tier", "which": "to", "to": t}
+                ),
+                404,
+            )
+        path = _ent.channel_catalog_at_path(p, f, t)
+        if path is None:
+            return (
+                jsonify(
+                    {
+                        "error": "unknown tier",
+                        "tier": p,
+                        "from": f,
+                        "to": t,
+                    }
+                ),
+                404,
+            )
+        from_rank = _ent.tier_rank(f)
+        to_rank = _ent.tier_rank(t)
+        if f == t:
+            direction = "identity"
+        elif from_rank == to_rank:
+            direction = "lateral"
+        elif to_rank > from_rank:
+            direction = "upgrade"
+        else:
+            direction = "downgrade"
+        try:
+            ent = _ent.get_entitlement()
+            current_tier = getattr(ent, "tier", "oss") or "oss"
+            grace = bool(getattr(ent, "grace", True))
+        except Exception:
+            current_tier = "oss"
+            grace = True
+        try:
+            enforced = bool(_ent.is_enforced())
+        except Exception:
+            enforced = False
+        return jsonify(
+            {
+                "perspective_tier": p,
+                "perspective_tier_rank": _ent.tier_rank(p),
+                "from": f,
+                "from_label": _ent.tier_label(f),
+                "from_rank": from_rank,
+                "to": t,
+                "to_label": _ent.tier_label(t),
+                "to_rank": to_rank,
+                "direction": direction,
+                "path": path,
+                "current_tier": current_tier,
+                "current_tier_rank": _ent.tier_rank(current_tier),
+                "grace": grace,
+                "enforced": enforced,
+            }
+        )
+    except Exception as exc:
+        logger.warning(
+            "api_entitlement_channel_catalog_at_path: error: %s", exc
+        )
+        return (
+            jsonify(
+                {
+                    "error": "unknown tier",
+                    "tier": p,
+                    "from": f,
+                    "to": t,
+                }
+            ),
+            404,
+        )
+
+
+@bp_entitlement.route("/api/entitlement/channel-catalog-at-path-batch")
+def api_entitlement_channel_catalog_at_path_batch():
+    """``GET /api/entitlement/channel-catalog-at-path-batch?tier=<perspective>
+    &from=<from>&to=a,b,c`` -- batch sibling of
+    ``/channel-catalog-at-path``.
+
+    Where ``/channel-catalog-at-path`` walks the channel-catalog rungs
+    between ONE ``(from, to)`` pair from a hypothetical
+    ``perspective_tier``, this walks ONE ``from`` to N candidate ``to``
+    tiers in ONE round-trip from the same hypothetical perspective --
+    the batch what-if sibling of ``/channel-catalog-path-batch``,
+    filling the ``_at_path_batch`` slot for the channel-catalog family
+    (last remaining ``_at*`` cell on the channel-catalog axis, twin of
+    ``/feature-catalog-at-path-batch`` and
+    ``/runtime-catalog-at-path-batch``).
+
+    Body posture matches ``/channel-catalog-at``: perspective is
+    validated but does not shape rows. Each row in ``tiers[].path`` is
+    byte-identical to a row from ``/channel-catalog-path-batch`` for
+    the same ``(from, to)`` pair. Perspective acceptance is lenient:
+    ``trial`` IS accepted (matching every other ``_at`` sibling).
+
+    Because every chat-channel adapter is FREE at every tier, each
+    rung's inner ``channels`` list is byte-identical to
+    ``/channel-catalog`` -- inherited from the delegate, pinned by
+    parity tests so a walkthrough UI can render the channel column
+    off the same row-renderer as the feature and runtime columns.
+
+    Response shape (mirrors ``/channel-catalog-path-batch`` plus the
+    ``perspective_tier`` echo and the resolver-context tail every
+    ``_at*`` endpoint carries)::
+
+        {
+          "perspective_tier":      "<tier id>",
+          "perspective_tier_rank": <int>,
+          "from":                  "<tier id>",
+          "from_label":            "...",
+          "from_rank":             <int>,
+          "tiers": [
+            {
+              "to":        "<tier id>",
+              "to_label":  "...",
+              "to_rank":   <int>,
+              "direction": "upgrade" | "downgrade" | "lateral" | "identity",
+              "path":      [<channel-catalog-path row>, ...],
+            },
+            ...
+          ],
+          "unknown":               ["bogus_id", ...],
+          "current_tier":          "<tier id>",
+          "current_tier_rank":     <int>,
+          "grace":                 <bool>,
+          "enforced":              <bool>,
+        }
+
+    Supplied destination ids are normalised (whitespace stripped,
+    lowercased, duplicates dropped, first-seen order preserved).
+    Unknown destination ids do NOT 404 the call -- they are echoed in
+    ``unknown[]`` so a partially-bad caller still gets paths back for
+    the valid ids alongside a list of what was dropped, matching every
+    other ``*_path_batch`` sibling's posture.
+
+    - **400** when ``tier=`` or ``from=`` is missing / blank, or ``to=``
+      is missing / empty after normalisation
+    - **404** when ``tier`` or ``from`` is unknown (body carries
+      ``which: "tier" | "from"``)
+    - **200** with bucketed unknowns for unknown destination ids -- does
+      NOT 404 the call
+    - **Never 5xxs**: a synthesis failure short-circuits to an envelope
+      with empty rows so the matrix keeps rendering.
+    """
+    p = (request.args.get("tier") or "").strip().lower()
+    f = (request.args.get("from") or "").strip().lower()
+    if not p:
+        return jsonify({"error": "missing tier"}), 400
+    if not f:
+        return jsonify({"error": "missing from"}), 400
+    try:
+        from clawmetry import entitlements as _ent
+
+        if p not in _ent._TIER_ORDER:
+            return (
+                jsonify(
+                    {"error": "unknown tier", "which": "tier", "tier": p}
+                ),
+                404,
+            )
+        if f not in _ent._TIER_FEATURES:
+            return (
+                jsonify(
+                    {"error": "unknown tier", "which": "from", "from": f}
+                ),
+                404,
+            )
+        targets = _parse_csv_arg("to")
+        if not targets:
+            return jsonify({"error": "supply to=<csv>"}), 400
+        batch = _ent.channel_catalog_at_path_batch(p, f, targets)
+        if batch is None:
+            batch = {"tiers": [], "unknown": []}
+        try:
+            ent = _ent.get_entitlement()
+            current_tier = getattr(ent, "tier", "oss") or "oss"
+            grace = bool(getattr(ent, "grace", True))
+        except Exception:
+            current_tier = "oss"
+            grace = True
+        try:
+            enforced = bool(_ent.is_enforced())
+        except Exception:
+            enforced = False
+        return jsonify(
+            {
+                "perspective_tier": p,
+                "perspective_tier_rank": _ent.tier_rank(p),
+                "from": f,
+                "from_label": _ent.tier_label(f),
+                "from_rank": _ent.tier_rank(f),
+                "tiers": batch.get("tiers", []),
+                "unknown": batch.get("unknown", []),
+                "current_tier": current_tier,
+                "current_tier_rank": _ent.tier_rank(current_tier),
+                "grace": grace,
+                "enforced": enforced,
+            }
+        )
+    except Exception as exc:
+        logger.warning(
+            "api_entitlement_channel_catalog_at_path_batch: error: %s", exc
+        )
+        return jsonify(
+            {
+                "perspective_tier": p,
+                "perspective_tier_rank": 0,
+                "from": f,
+                "from_label": None,
+                "from_rank": -1,
+                "tiers": [],
+                "unknown": [],
+                "current_tier": "oss",
+                "current_tier_rank": 0,
+                "grace": True,
+                "enforced": False,
+            }
+        )
+
+
+@bp_entitlement.route("/api/entitlement/lock-reason-at-path")
+def api_entitlement_lock_reason_at_path():
+    """``GET /api/entitlement/lock-reason-at-path?tier=<perspective>
+    &from=<id>&to=<id>&<axis>=<id>`` -- perspective-validated what-if
+    sibling of ``/api/entitlement/lock-reason-path``.
+
+    Fills the ``_at_path`` slot of the ``lock-reason`` family, matching
+    the already-shipping ``feature-spec-at-path`` /
+    ``runtime-spec-at-path`` / ``tier-spec-at-path`` /
+    ``feature-catalog-at-path`` / ``runtime-catalog-at-path`` /
+    ``tier-catalog-at-path`` / ``capacity-diff-at-path`` /
+    ``preview-at-path`` pattern on the eight other axes -- so every
+    ``*-path`` endpoint now has a perspective-validated ``_at_path``
+    sibling and a paywall walkthrough UI can call
+    ``.../X-at-path?tier=<perspective>&from=<f>&to=<t>&...`` uniformly
+    across the whole ``_at_path`` family without special-casing the
+    lock-reason axis.
+
+    The perspective is validated (400 on missing, 404 on unknown) but
+    does NOT shape the ``path`` rows -- the body is byte-identical to
+    ``/lock-reason-path?from=<f>&to=<t>&<axis>=<id>`` for every
+    perspective. Pinned by parity tests so the ``_at_path`` and
+    ``_path`` endpoints cannot drift.
+
+    Exactly one of ``feature=`` / ``runtime=`` / ``channels=`` /
+    ``retention_days=`` / ``nodes=`` must be supplied -- the same axis
+    dispatcher as ``/lock-reason-path``. Runtime aliases
+    (``claude-code`` -> ``claude_code``) are canonicalised via
+    :func:`clawmetry.entitlements.canonical_runtime`.
+
+    Response shape (mirrors ``/lock-reason-path`` plus a
+    ``perspective_tier`` echo and the standard ``_at*`` resolver-context
+    tail so a paywall matrix UI can render "at Cloud Pro this lock-row
+    unlocks at Starter" without a second call to ``/entitlement``)::
+
+        {
+          "perspective_tier":      "<id>",
+          "perspective_tier_rank": <int>,
+          "from":                  "<tier id>",
+          "from_label":            "...",
+          "from_rank":             <int>,
+          "to":                    "<tier id>",
+          "to_label":              "...",
+          "to_rank":               <int>,
+          "direction":             "upgrade" | "downgrade" | "lateral" | "identity",
+          "key":                   "<echoed item id>",
+          "kind":                  "feature" | "runtime" | "channels" |
+                                   "retention_days" | "nodes",
+          "path":                  [<lock_reason_path row>, ...],
+          "current_tier":          "...",
+          "current_tier_rank":     <int>,
+          "grace":                 <bool>,
+          "enforced":              <bool>,
+        }
+
+    - **400** when ``tier=``, ``from=`` or ``to=`` is missing / blank,
+      when no axis is supplied, or when more than one axis is supplied
+    - **404** when any tier id is unknown (body carries
+      ``which: "tier" | "from" | "to"``), or when a feature / runtime
+      id is unknown, or when a capacity value is missing / non-int /
+      non-positive
+    - **Never 5xxs**: a resolver failure short-circuits to the grace-
+      shape envelope with the perspective echoed.
+    """
+    raw_tier = request.args.get("tier")
+    tier_in = (raw_tier or "").strip().lower()
+    if not tier_in:
+        return jsonify({"error": "missing tier"}), 400
+    f = (request.args.get("from") or "").strip().lower()
+    t = (request.args.get("to") or "").strip().lower()
+    if not f:
+        return jsonify({"error": "missing from"}), 400
+    if not t:
+        return jsonify({"error": "missing to"}), 400
+
+    feature = (request.args.get("feature") or "").strip().lower()
+    runtime_in = (request.args.get("runtime") or "").strip().lower()
+    (
+        channels_present,
+        channels_ok,
+        channels_n,
+        channels_raw,
+    ) = _parse_capacity_arg("channels")
+    (
+        retention_present,
+        retention_ok,
+        retention_n,
+        retention_raw,
+    ) = _parse_capacity_arg("retention_days")
+    (
+        nodes_present,
+        nodes_ok,
+        nodes_n,
+        nodes_raw,
+    ) = _parse_capacity_arg("nodes")
+
+    supplied = [
+        bool(feature),
+        bool(runtime_in),
+        channels_present,
+        retention_present,
+        nodes_present,
+    ]
+    n_supplied = sum(1 for s in supplied if s)
+    if n_supplied == 0:
+        return (
+            jsonify(
+                {
+                    "error": (
+                        "supply exactly one of feature=<id>, runtime=<id>, "
+                        "channels=<int>, retention_days=<int>, or "
+                        "nodes=<int>"
+                    )
+                }
+            ),
+            400,
+        )
+    if n_supplied > 1:
+        return (
+            jsonify(
+                {
+                    "error": (
+                        "supply only one of feature=, runtime=, channels=, "
+                        "retention_days=, or nodes="
+                    )
+                }
+            ),
+            400,
+        )
+
+    try:
+        from clawmetry import entitlements as _ent
+
+        if tier_in not in _ent._TIER_FEATURES:
+            return (
+                jsonify(
+                    {
+                        "error": "unknown tier",
+                        "which": "tier",
+                        "tier": tier_in,
+                    }
+                ),
+                404,
+            )
+        if f not in _ent._TIER_FEATURES:
+            return (
+                jsonify(
+                    {"error": "unknown from", "which": "from", "from": f}
+                ),
+                404,
+            )
+        if t not in _ent._TIER_FEATURES:
+            return (
+                jsonify({"error": "unknown to", "which": "to", "to": t}),
+                404,
+            )
+
+        if feature:
+            item, kind, echoed_key = feature, "feature", feature
+        elif runtime_in:
+            canon = _ent.canonical_runtime(runtime_in)
+            item, kind, echoed_key = (
+                canon or runtime_in,
+                "runtime",
+                canon or runtime_in,
+            )
+        elif channels_present:
+            if not channels_ok:
+                return (
+                    jsonify(
+                        {
+                            "error": "unknown tier or item",
+                            "which": "item",
+                            "from": f,
+                            "to": t,
+                            "key": channels_raw,
+                            "kind": "channels",
+                        }
+                    ),
+                    404,
+                )
+            item, kind, echoed_key = (
+                str(channels_n),
+                "channels",
+                str(channels_n),
+            )
+        elif retention_present:
+            if not retention_ok:
+                return (
+                    jsonify(
+                        {
+                            "error": "unknown tier or item",
+                            "which": "item",
+                            "from": f,
+                            "to": t,
+                            "key": retention_raw,
+                            "kind": "retention_days",
+                        }
+                    ),
+                    404,
+                )
+            item, kind, echoed_key = (
+                str(retention_n),
+                "retention_days",
+                str(retention_n),
+            )
+        else:
+            if not nodes_ok:
+                return (
+                    jsonify(
+                        {
+                            "error": "unknown tier or item",
+                            "which": "item",
+                            "from": f,
+                            "to": t,
+                            "key": nodes_raw,
+                            "kind": "nodes",
+                        }
+                    ),
+                    404,
+                )
+            item, kind, echoed_key = str(nodes_n), "nodes", str(nodes_n)
+
+        path = _ent.lock_reason_at_path(tier_in, f, t, item, kind=kind)
+        if path is None:
+            return (
+                jsonify(
+                    {
+                        "error": "unknown tier or item",
+                        "which": "item",
+                        "from": f,
+                        "to": t,
+                        "key": echoed_key,
+                        "kind": kind,
+                    }
+                ),
+                404,
+            )
+        from_rank = _ent.tier_rank(f)
+        to_rank = _ent.tier_rank(t)
+        if f == t:
+            direction = "identity"
+        elif from_rank == to_rank:
+            direction = "lateral"
+        elif to_rank > from_rank:
+            direction = "upgrade"
+        else:
+            direction = "downgrade"
+        ent = _ent.get_entitlement()
+        return jsonify(
+            {
+                "perspective_tier": tier_in,
+                "perspective_tier_rank": _ent.tier_rank(tier_in),
+                "from": f,
+                "from_label": _ent.tier_label(f),
+                "from_rank": from_rank,
+                "to": t,
+                "to_label": _ent.tier_label(t),
+                "to_rank": to_rank,
+                "direction": direction,
+                "key": echoed_key,
+                "kind": kind,
+                "path": path,
+                "current_tier": ent.tier,
+                "current_tier_rank": _ent.tier_rank(ent.tier),
+                "grace": bool(ent.grace),
+                "enforced": _ent.is_enforced(),
+            }
+        )
+    except Exception as exc:
+        logger.warning("api_entitlement_lock_reason_at_path: error: %s", exc)
+        if feature:
+            echoed_key, kind = feature, "feature"
+        elif runtime_in:
+            echoed_key, kind = runtime_in, "runtime"
+        elif channels_present:
+            echoed_key, kind = channels_raw, "channels"
+        elif retention_present:
+            echoed_key, kind = retention_raw, "retention_days"
+        else:
+            echoed_key, kind = nodes_raw, "nodes"
+        return jsonify(
+            {
+                "perspective_tier": tier_in,
+                "perspective_tier_rank": 0,
+                "from": f,
+                "from_label": None,
+                "from_rank": -1,
+                "to": t,
+                "to_label": None,
+                "to_rank": -1,
+                "direction": "identity" if f == t else "upgrade",
+                "key": echoed_key,
+                "kind": kind,
+                "path": [],
+                "current_tier": "oss",
+                "current_tier_rank": 0,
+                "grace": True,
+                "enforced": False,
+            }
+        )
+
+
+@bp_entitlement.route("/api/entitlement/lock-reason-at-path-batch")
+def api_entitlement_lock_reason_at_path_batch():
+    """``GET /api/entitlement/lock-reason-at-path-batch?tier=<perspective>
+    &from=<id>&to=<id>&features=a,b,c&runtimes=x,y&channels=N
+    &retention_days=K&nodes=M`` -- perspective-validated what-if batch
+    sibling of ``/api/entitlement/lock-reason-path-batch``.
+
+    Fills the ``_at_path_batch`` slot of the ``lock-reason`` family;
+    fixed-perspective, fixed-from, fixed-to, multi-axis companion of
+    ``/lock-reason-at-path``. Per-axis body byte-identical to
+    ``/lock-reason-path-batch`` for the same ``(from, to, features,
+    runtimes, channels, retention_days, nodes)`` tuple -- scalar / batch
+    no-drift contract.
+
+    At least one of ``features=`` / ``runtimes=`` / ``channels=`` /
+    ``retention_days=`` / ``nodes=`` must be supplied (matches
+    ``/lock-reason-path-batch``); supply as many as you like. Runtime
+    aliases are canonicalised (``claude-code`` -> ``claude_code``) and
+    aliases that collapse to a canonical id already in the response are
+    silently de-duplicated. Unknown ids do NOT 404 the call -- they are
+    echoed in ``unknown.features`` / ``unknown.runtimes`` carrying the
+    supplied alias.
+
+    Response shape (mirrors ``/lock-reason-path-batch`` plus a
+    ``perspective_tier`` echo and the standard ``_at*`` resolver-context
+    tail)::
+
+        {
+          "perspective_tier":      "<id>",
+          "perspective_tier_rank": <int>,
+          "from":                  "<tier id>",
+          "from_label":            "...",
+          "from_rank":             <int>,
+          "to":                    "<tier id>",
+          "to_label":              "...",
+          "to_rank":               <int>,
+          "direction":             "upgrade" | "downgrade" | "lateral" | "identity",
+          "features": [{"key": "<id>", "path": [...]}, ...],
+          "runtimes": [{"key": "<canonical id>", "path": [...]}, ...],
+          "channels":       {"key": "<n>", "path": [...]} | None,
+          "retention_days": {"key": "<n>", "path": [...]} | None,
+          "nodes":          {"key": "<n>", "path": [...]} | None,
+          "unknown": {"features": [...], "runtimes": [...]},
+          "current_tier":          "...",
+          "current_tier_rank":     <int>,
+          "grace":                 <bool>,
+          "enforced":              <bool>,
+        }
+
+    - **400** when ``tier=`` / ``from=`` / ``to=`` is missing / blank,
+      or when no axis is supplied
+    - **404** when any tier id is unknown (body carries
+      ``which: "tier" | "from" | "to"``)
+    - Unknown feature / runtime ids do NOT 404 the call -- they are
+      echoed in ``unknown[]`` so a partially-bad caller still gets paths
+      back for the valid ids alongside a list of what was dropped
+    - **Never 5xxs**: a synthesis failure short-circuits to a grace-
+      shape envelope with the perspective echoed.
+    """
+    raw_tier = request.args.get("tier")
+    tier_in = (raw_tier or "").strip().lower()
+    if not tier_in:
+        return jsonify({"error": "missing tier"}), 400
+    f = (request.args.get("from") or "").strip().lower()
+    t = (request.args.get("to") or "").strip().lower()
+    if not f:
+        return jsonify({"error": "missing from"}), 400
+    if not t:
+        return jsonify({"error": "missing to"}), 400
+    try:
+        from clawmetry import entitlements as _ent
+
+        if tier_in not in _ent._TIER_FEATURES:
+            return (
+                jsonify(
+                    {
+                        "error": "unknown tier",
+                        "which": "tier",
+                        "tier": tier_in,
+                    }
+                ),
+                404,
+            )
+        if f not in _ent._TIER_FEATURES:
+            return (
+                jsonify(
+                    {"error": "unknown from", "which": "from", "from": f}
+                ),
+                404,
+            )
+        if t not in _ent._TIER_FEATURES:
+            return (
+                jsonify({"error": "unknown to", "which": "to", "to": t}),
+                404,
+            )
+
+        features = _parse_csv_arg("features")
+        runtimes = _parse_csv_arg("runtimes")
+        (_, channels_ok, channels_n, _) = _parse_capacity_arg("channels")
+        (_, retention_ok, retention_n, _) = _parse_capacity_arg(
+            "retention_days"
+        )
+        (_, nodes_ok, nodes_n, _) = _parse_capacity_arg("nodes")
+
+        if (
+            not features
+            and not runtimes
+            and not channels_ok
+            and not retention_ok
+            and not nodes_ok
+        ):
+            return (
+                jsonify(
+                    {
+                        "error": (
+                            "supply at least one of features=<csv>, "
+                            "runtimes=<csv>, channels=<int>, "
+                            "retention_days=<int>, or nodes=<int>"
+                        )
+                    }
+                ),
+                400,
+            )
+
+        batch = _ent.lock_reason_at_path_batch(
+            tier_in,
+            f,
+            t,
+            features=features or None,
+            runtimes=runtimes or None,
+            channels=channels_n if channels_ok else None,
+            retention_days=retention_n if retention_ok else None,
+            nodes=nodes_n if nodes_ok else None,
+        )
+        if batch is None:
+            batch = {
+                "features": [],
+                "runtimes": [],
+                "channels": None,
+                "retention_days": None,
+                "nodes": None,
+                "unknown": {"features": [], "runtimes": []},
+            }
+        from_rank = _ent.tier_rank(f)
+        to_rank = _ent.tier_rank(t)
+        if f == t:
+            direction = "identity"
+        elif from_rank == to_rank:
+            direction = "lateral"
+        elif to_rank > from_rank:
+            direction = "upgrade"
+        else:
+            direction = "downgrade"
+        ent = _ent.get_entitlement()
+        return jsonify(
+            {
+                "perspective_tier": tier_in,
+                "perspective_tier_rank": _ent.tier_rank(tier_in),
+                "from": f,
+                "from_label": _ent.tier_label(f),
+                "from_rank": from_rank,
+                "to": t,
+                "to_label": _ent.tier_label(t),
+                "to_rank": to_rank,
+                "direction": direction,
+                "features": batch.get("features", []),
+                "runtimes": batch.get("runtimes", []),
+                "channels": batch.get("channels"),
+                "retention_days": batch.get("retention_days"),
+                "nodes": batch.get("nodes"),
+                "unknown": batch.get(
+                    "unknown", {"features": [], "runtimes": []}
+                ),
+                "current_tier": ent.tier,
+                "current_tier_rank": _ent.tier_rank(ent.tier),
+                "grace": bool(ent.grace),
+                "enforced": _ent.is_enforced(),
+            }
+        )
+    except Exception as exc:
+        logger.warning(
+            "api_entitlement_lock_reason_at_path_batch: error: %s", exc
+        )
+        return jsonify(
+            {
+                "perspective_tier": tier_in,
+                "perspective_tier_rank": 0,
+                "from": f,
+                "from_label": None,
+                "from_rank": -1,
+                "to": t,
+                "to_label": None,
+                "to_rank": -1,
+                "direction": "identity" if f == t else "upgrade",
+                "features": [],
+                "runtimes": [],
+                "channels": None,
+                "retention_days": None,
+                "nodes": None,
+                "unknown": {"features": [], "runtimes": []},
+                "current_tier": "oss",
+                "current_tier_rank": 0,
+                "grace": True,
+                "enforced": False,
+            }
+        )
+
+
+@bp_entitlement.route("/api/entitlement/tier-unlocks-at-path")
+def api_entitlement_tier_unlocks_at_path():
+    """``GET /api/entitlement/tier-unlocks-at-path?tier=<perspective>
+    &from=<from>&to=<to>`` -- arbitrary-endpoint stepwise marginal-
+    unlocks path between any two tiers, rendered from a hypothetical
+    ``perspective_tier``.
+
+    What-if sibling of ``/tier-unlocks-path``: same rung walk, same
+    per-rung marginal-unlocks body, plus a ``perspective_tier`` echo
+    so a pricing-comparison walkthrough surface can call
+    ``X_at_path(perspective, from, to)`` uniformly across the whole
+    ``_at_path`` slot of the ``tier_unlocks`` family (alongside
+    ``/tier-unlocks-at`` and ``/tier-unlocks-at-batch``, which fill the
+    scalar-what-if and batch-what-if slots). Unlocks-only mirror of
+    ``/capacity-diff-at-path`` -- same posture, marginal-unlocks rows
+    instead of capacity rows.
+
+    Body posture matches ``/tier-unlocks-at`` and every other
+    ``_at_path`` sibling: perspective is validated but does not shape
+    the rows. Each row in ``path`` is byte-identical to a row from
+    ``/tier-unlocks-path?from=<from>&to=<to>`` -- pinned by parity
+    tests. Perspective acceptance is lenient: ``trial`` IS accepted
+    (matching every other ``_at`` sibling).
+
+    Response shape::
+
+        {
+          "perspective_tier":      "<tier id>",
+          "perspective_tier_rank": <int>,
+          "from":                  "<tier id>",
+          "from_label":            "...",
+          "from_rank":             <int>,
+          "to":                    "<tier id>",
+          "to_label":              "...",
+          "to_rank":               <int>,
+          "direction":             "upgrade" | "downgrade" | "lateral" | "identity",
+          "path":                  [<tier-unlocks-path row>, ...],
+          "current_tier":          "<tier id>",
+          "current_tier_rank":     <int>,
+          "grace":                 <bool>,
+          "enforced":              <bool>,
+        }
+
+    - **400** when ``tier=``, ``from=`` or ``to=`` is missing / blank
+    - **404** when any id is unknown (body carries ``which: "tier" |
+      "from" | "to"`` so the caller can point at the offender)
+    - **Never 5xxs**: a resolver failure short-circuits to 404 so an
+      upgrade-comparison surface keeps rendering instead of breaking.
+    """
+    p = (request.args.get("tier") or "").strip().lower()
+    f = (request.args.get("from") or "").strip().lower()
+    t = (request.args.get("to") or "").strip().lower()
+    if not p:
+        return jsonify({"error": "missing tier"}), 400
+    if not f:
+        return jsonify({"error": "missing from"}), 400
+    if not t:
+        return jsonify({"error": "missing to"}), 400
+    try:
+        from clawmetry import entitlements as _ent
+
+        if p not in _ent._TIER_ORDER:
+            return (
+                jsonify(
+                    {"error": "unknown tier", "which": "tier", "tier": p}
+                ),
+                404,
+            )
+        if f not in _ent._TIER_FEATURES:
+            return (
+                jsonify(
+                    {"error": "unknown tier", "which": "from", "from": f}
+                ),
+                404,
+            )
+        if t not in _ent._TIER_FEATURES:
+            return (
+                jsonify(
+                    {"error": "unknown tier", "which": "to", "to": t}
+                ),
+                404,
+            )
+        path = _ent.tier_unlocks_at_path(p, f, t)
+        if path is None:
+            return (
+                jsonify(
+                    {
+                        "error": "unknown tier",
+                        "tier": p,
+                        "from": f,
+                        "to": t,
+                    }
+                ),
+                404,
+            )
+        from_rank = _ent.tier_rank(f)
+        to_rank = _ent.tier_rank(t)
+        if f == t:
+            direction = "identity"
+        elif from_rank == to_rank:
+            direction = "lateral"
+        elif to_rank > from_rank:
+            direction = "upgrade"
+        else:
+            direction = "downgrade"
+        try:
+            ent = _ent.get_entitlement()
+            current_tier = getattr(ent, "tier", "oss") or "oss"
+            grace = bool(getattr(ent, "grace", True))
+        except Exception:
+            current_tier = "oss"
+            grace = True
+        try:
+            enforced = bool(_ent.is_enforced())
+        except Exception:
+            enforced = False
+        return jsonify(
+            {
+                "perspective_tier": p,
+                "perspective_tier_rank": _ent.tier_rank(p),
+                "from": f,
+                "from_label": _ent.tier_label(f),
+                "from_rank": from_rank,
+                "to": t,
+                "to_label": _ent.tier_label(t),
+                "to_rank": to_rank,
+                "direction": direction,
+                "path": path,
+                "current_tier": current_tier,
+                "current_tier_rank": _ent.tier_rank(current_tier),
+                "grace": grace,
+                "enforced": enforced,
+            }
+        )
+    except Exception as exc:
+        logger.warning(
+            "api_entitlement_tier_unlocks_at_path: error: %s", exc
+        )
+        return (
+            jsonify(
+                {
+                    "error": "unknown tier",
+                    "tier": p,
+                    "from": f,
+                    "to": t,
+                }
+            ),
+            404,
+        )
+
+
+@bp_entitlement.route("/api/entitlement/tier-locks-at-path")
+def api_entitlement_tier_locks_at_path():
+    """``GET /api/entitlement/tier-locks-at-path?tier=<perspective>
+    &from=<from>&to=<to>`` -- arbitrary-endpoint stepwise marginal-
+    locks path between any two tiers, rendered from a hypothetical
+    ``perspective_tier``.
+
+    Marginal-loss mirror of ``/tier-unlocks-at-path``. What-if sibling
+    of ``/tier-locks-path``: same rung walk, same per-rung marginal-
+    losses body, plus a ``perspective_tier`` echo. Locks-only mirror
+    of ``/capacity-diff-at-path``.
+
+    Body posture matches ``/tier-locks-at``: perspective is validated
+    but does not shape the rows. Each row in ``path`` is byte-
+    identical to a row from ``/tier-locks-path?from=<from>&to=<to>``
+    -- pinned by parity tests. Perspective acceptance is lenient:
+    ``trial`` IS accepted.
+
+    Response shape mirrors ``/tier-unlocks-at-path`` with ``path`` rows
+    carrying ``lost_features`` / ``lost_runtimes`` instead of
+    ``features`` / ``runtimes``.
+
+    - **400** when ``tier=``, ``from=`` or ``to=`` is missing / blank
+    - **404** when any id is unknown (body carries ``which: "tier" |
+      "from" | "to"``)
+    - **Never 5xxs**: a resolver failure short-circuits to 404 so a
+      downgrade-warning surface keeps rendering instead of breaking.
+    """
+    p = (request.args.get("tier") or "").strip().lower()
+    f = (request.args.get("from") or "").strip().lower()
+    t = (request.args.get("to") or "").strip().lower()
+    if not p:
+        return jsonify({"error": "missing tier"}), 400
+    if not f:
+        return jsonify({"error": "missing from"}), 400
+    if not t:
+        return jsonify({"error": "missing to"}), 400
+    try:
+        from clawmetry import entitlements as _ent
+
+        if p not in _ent._TIER_ORDER:
+            return (
+                jsonify(
+                    {"error": "unknown tier", "which": "tier", "tier": p}
+                ),
+                404,
+            )
+        if f not in _ent._TIER_FEATURES:
+            return (
+                jsonify(
+                    {"error": "unknown tier", "which": "from", "from": f}
+                ),
+                404,
+            )
+        if t not in _ent._TIER_FEATURES:
+            return (
+                jsonify(
+                    {"error": "unknown tier", "which": "to", "to": t}
+                ),
+                404,
+            )
+        path = _ent.tier_locks_at_path(p, f, t)
+        if path is None:
+            return (
+                jsonify(
+                    {
+                        "error": "unknown tier",
+                        "tier": p,
+                        "from": f,
+                        "to": t,
+                    }
+                ),
+                404,
+            )
+        from_rank = _ent.tier_rank(f)
+        to_rank = _ent.tier_rank(t)
+        if f == t:
+            direction = "identity"
+        elif from_rank == to_rank:
+            direction = "lateral"
+        elif to_rank > from_rank:
+            direction = "upgrade"
+        else:
+            direction = "downgrade"
+        try:
+            ent = _ent.get_entitlement()
+            current_tier = getattr(ent, "tier", "oss") or "oss"
+            grace = bool(getattr(ent, "grace", True))
+        except Exception:
+            current_tier = "oss"
+            grace = True
+        try:
+            enforced = bool(_ent.is_enforced())
+        except Exception:
+            enforced = False
+        return jsonify(
+            {
+                "perspective_tier": p,
+                "perspective_tier_rank": _ent.tier_rank(p),
+                "from": f,
+                "from_label": _ent.tier_label(f),
+                "from_rank": from_rank,
+                "to": t,
+                "to_label": _ent.tier_label(t),
+                "to_rank": to_rank,
+                "direction": direction,
+                "path": path,
+                "current_tier": current_tier,
+                "current_tier_rank": _ent.tier_rank(current_tier),
+                "grace": grace,
+                "enforced": enforced,
+            }
+        )
+    except Exception as exc:
+        logger.warning(
+            "api_entitlement_tier_locks_at_path: error: %s", exc
+        )
+        return (
+            jsonify(
+                {
+                    "error": "unknown tier",
+                    "tier": p,
+                    "from": f,
+                    "to": t,
+                }
+            ),
+            404,
+        )
+
+
+@bp_entitlement.route("/api/entitlement/tier-unlocks-at-path-batch")
+def api_entitlement_tier_unlocks_at_path_batch():
+    """``GET /api/entitlement/tier-unlocks-at-path-batch?tier=<perspective>
+    &from=<from>&to=a,b,c`` -- batch sibling of
+    ``/tier-unlocks-at-path``.
+
+    Where ``/tier-unlocks-at-path`` walks the marginal-unlocks rungs
+    between ONE ``(from, to)`` pair from a hypothetical
+    ``perspective_tier``, this walks ONE ``from`` to N candidate ``to``
+    tiers in ONE round-trip from the same hypothetical perspective --
+    the batch what-if sibling of ``/tier-unlocks-path-batch``, filling
+    the ``_at_path_batch`` slot for the ``tier_unlocks`` family.
+    Multi-destination cousin of ``/capacity-diff-at-path-batch`` (same
+    fan-out shape, marginal-unlocks body instead of capacity body).
+
+    Body posture matches ``/tier-unlocks-at``: perspective is validated
+    but does not shape rows. Each row in ``tiers[].path`` is byte-
+    identical to a row from ``/tier-unlocks-path-batch`` for the same
+    ``(from, to)`` pair. Perspective acceptance is lenient: ``trial``
+    IS accepted (matching every other ``_at`` sibling).
+
+    Response shape (mirrors ``/tier-unlocks-path-batch`` plus the
+    ``perspective_tier`` echo and the resolver-context tail every
+    ``_at*`` endpoint carries)::
+
+        {
+          "perspective_tier":      "<tier id>",
+          "perspective_tier_rank": <int>,
+          "from":                  "<tier id>",
+          "from_label":            "...",
+          "from_rank":             <int>,
+          "tiers": [
+            {
+              "to":        "<tier id>",
+              "to_label":  "...",
+              "to_rank":   <int>,
+              "direction": "upgrade" | "downgrade" | "lateral" | "identity",
+              "path":      [<tier-unlocks-path row>, ...],
+            },
+            ...
+          ],
+          "unknown":               ["bogus_id", ...],
+          "current_tier":          "<tier id>",
+          "current_tier_rank":     <int>,
+          "grace":                 <bool>,
+          "enforced":              <bool>,
+        }
+
+    Supplied destination ids are normalised (whitespace stripped,
+    lowercased, duplicates dropped, first-seen order preserved).
+    Unknown destination ids do NOT 404 the call -- they are echoed in
+    ``unknown[]``, matching every other ``*_path_batch`` sibling's
+    posture.
+
+    - **400** when ``tier=`` or ``from=`` is missing / blank, or ``to=``
+      is missing / empty after normalisation
+    - **404** when ``tier`` or ``from`` is unknown (body carries
+      ``which: "tier" | "from"``)
+    - **200** with bucketed unknowns for unknown destination ids
+    - **Never 5xxs**: a synthesis failure short-circuits to an envelope
+      with empty rows so the matrix keeps rendering.
+    """
+    p = (request.args.get("tier") or "").strip().lower()
+    f = (request.args.get("from") or "").strip().lower()
+    if not p:
+        return jsonify({"error": "missing tier"}), 400
+    if not f:
+        return jsonify({"error": "missing from"}), 400
+    try:
+        from clawmetry import entitlements as _ent
+
+        if p not in _ent._TIER_ORDER:
+            return (
+                jsonify(
+                    {"error": "unknown tier", "which": "tier", "tier": p}
+                ),
+                404,
+            )
+        if f not in _ent._TIER_FEATURES:
+            return (
+                jsonify(
+                    {"error": "unknown tier", "which": "from", "from": f}
+                ),
+                404,
+            )
+        targets = _parse_csv_arg("to")
+        if not targets:
+            return jsonify({"error": "supply to=<csv>"}), 400
+        batch = _ent.tier_unlocks_at_path_batch(p, f, targets)
+        if batch is None:
+            batch = {"tiers": [], "unknown": []}
+        try:
+            ent = _ent.get_entitlement()
+            current_tier = getattr(ent, "tier", "oss") or "oss"
+            grace = bool(getattr(ent, "grace", True))
+        except Exception:
+            current_tier = "oss"
+            grace = True
+        try:
+            enforced = bool(_ent.is_enforced())
+        except Exception:
+            enforced = False
+        return jsonify(
+            {
+                "perspective_tier": p,
+                "perspective_tier_rank": _ent.tier_rank(p),
+                "from": f,
+                "from_label": _ent.tier_label(f),
+                "from_rank": _ent.tier_rank(f),
+                "tiers": batch.get("tiers", []),
+                "unknown": batch.get("unknown", []),
+                "current_tier": current_tier,
+                "current_tier_rank": _ent.tier_rank(current_tier),
+                "grace": grace,
+                "enforced": enforced,
+            }
+        )
+    except Exception as exc:
+        logger.warning(
+            "api_entitlement_tier_unlocks_at_path_batch: error: %s", exc
+        )
+        return jsonify(
+            {
+                "perspective_tier": p,
+                "perspective_tier_rank": 0,
+                "from": f,
+                "from_label": None,
+                "from_rank": -1,
+                "tiers": [],
+                "unknown": [],
+                "current_tier": "oss",
+                "current_tier_rank": 0,
+                "grace": True,
+                "enforced": False,
+            }
+        )
+
+
+@bp_entitlement.route("/api/entitlement/tier-locks-at-path-batch")
+def api_entitlement_tier_locks_at_path_batch():
+    """``GET /api/entitlement/tier-locks-at-path-batch?tier=<perspective>
+    &from=<from>&to=a,b,c`` -- batch sibling of
+    ``/tier-locks-at-path``.
+
+    Marginal-loss mirror of ``/tier-unlocks-at-path-batch``. Batch
+    what-if sibling of ``/tier-locks-path-batch``. Locks-only cousin
+    of ``/capacity-diff-at-path-batch``.
+
+    Body posture matches ``/tier-locks-at``: perspective is validated
+    but does not shape rows. Each row in ``tiers[].path`` is byte-
+    identical to a row from ``/tier-locks-path-batch``. Perspective
+    acceptance is lenient: ``trial`` IS accepted.
+
+    Response shape mirrors ``/tier-unlocks-at-path-batch`` with
+    per-rung ``path`` rows carrying ``lost_features`` /
+    ``lost_runtimes`` instead of ``features`` / ``runtimes``.
+
+    - **400** when ``tier=`` or ``from=`` is missing / blank, or ``to=``
+      is missing / empty after normalisation
+    - **404** when ``tier`` or ``from`` is unknown (body carries
+      ``which: "tier" | "from"``)
+    - **200** with bucketed unknowns for unknown destination ids
+    - **Never 5xxs**.
+    """
+    p = (request.args.get("tier") or "").strip().lower()
+    f = (request.args.get("from") or "").strip().lower()
+    if not p:
+        return jsonify({"error": "missing tier"}), 400
+    if not f:
+        return jsonify({"error": "missing from"}), 400
+    try:
+        from clawmetry import entitlements as _ent
+
+        if p not in _ent._TIER_ORDER:
+            return (
+                jsonify(
+                    {"error": "unknown tier", "which": "tier", "tier": p}
+                ),
+                404,
+            )
+        if f not in _ent._TIER_FEATURES:
+            return (
+                jsonify(
+                    {"error": "unknown tier", "which": "from", "from": f}
+                ),
+                404,
+            )
+        targets = _parse_csv_arg("to")
+        if not targets:
+            return jsonify({"error": "supply to=<csv>"}), 400
+        batch = _ent.tier_locks_at_path_batch(p, f, targets)
+        if batch is None:
+            batch = {"tiers": [], "unknown": []}
+        try:
+            ent = _ent.get_entitlement()
+            current_tier = getattr(ent, "tier", "oss") or "oss"
+            grace = bool(getattr(ent, "grace", True))
+        except Exception:
+            current_tier = "oss"
+            grace = True
+        try:
+            enforced = bool(_ent.is_enforced())
+        except Exception:
+            enforced = False
+        return jsonify(
+            {
+                "perspective_tier": p,
+                "perspective_tier_rank": _ent.tier_rank(p),
+                "from": f,
+                "from_label": _ent.tier_label(f),
+                "from_rank": _ent.tier_rank(f),
+                "tiers": batch.get("tiers", []),
+                "unknown": batch.get("unknown", []),
+                "current_tier": current_tier,
+                "current_tier_rank": _ent.tier_rank(current_tier),
+                "grace": grace,
+                "enforced": enforced,
+            }
+        )
+    except Exception as exc:
+        logger.warning(
+            "api_entitlement_tier_locks_at_path_batch: error: %s", exc
+        )
+        return jsonify(
+            {
+                "perspective_tier": p,
+                "perspective_tier_rank": 0,
+                "from": f,
+                "from_label": None,
+                "from_rank": -1,
+                "tiers": [],
+                "unknown": [],
+                "current_tier": "oss",
+                "current_tier_rank": 0,
+                "grace": True,
+                "enforced": False,
+            }
+        )
+
+
+@bp_entitlement.route("/api/entitlement/tier-path-at")
+def api_entitlement_tier_path_at():
+    """``GET /api/entitlement/tier-path-at?tier=<perspective>&from=<id>
+    &to=<id>`` -- arbitrary-endpoint stepwise marginal ``tier_diff`` path
+    between any two tiers, rendered from a hypothetical
+    ``perspective_tier``.
+
+    What-if sibling of ``/tier-path``: same rung walk, same per-rung full
+    marginal ``tier_diff`` body (``added_features`` + ``lost_features`` +
+    ``added_runtimes`` + ``lost_runtimes`` + ``capacity_changes``), plus
+    a ``perspective_tier`` echo so a pricing-comparison walkthrough
+    surface can call ``X_at(perspective, from, to)`` uniformly across
+    the whole ``tier_path`` family (alongside ``/tier-path`` and
+    ``/tier-path-batch`` which fill the current-perspective scalar and
+    batch slots). All-slices companion of ``/capacity-diff-at-path``
+    (capacity-only), ``/tier-unlocks-at-path`` / ``/tier-locks-at-path``
+    (grant / loss slice) so a UI that already renders one member of the
+    ``_at_path`` family can render every rung's full marginal diff via
+    the same posture and envelope.
+
+    Body posture matches ``/capacity-diff-at-path`` and every other
+    ``_at_path`` sibling: perspective is validated but does not shape
+    the rows. Each row in ``path`` is byte-identical to a row from
+    ``/tier-path?from=<from>&to=<to>`` -- pinned by parity tests.
+    Perspective acceptance is lenient: ``trial`` IS accepted (matching
+    every other ``_at`` sibling).
+
+    Response shape::
+
+        {
+          "perspective_tier":      "<tier id>",
+          "perspective_tier_rank": <int>,
+          "from":                  "<tier id>",
+          "from_label":            "...",
+          "from_rank":             <int>,
+          "to":                    "<tier id>",
+          "to_label":              "...",
+          "to_rank":               <int>,
+          "direction":             "upgrade" | "downgrade" | "lateral" | "identity",
+          "path":                  [<tier_diff row>, ...],
+          "current_tier":          "<tier id>",
+          "current_tier_rank":     <int>,
+          "grace":                 <bool>,
+          "enforced":              <bool>,
+        }
+
+    - **400** when ``tier=``, ``from=`` or ``to=`` is missing / blank
+    - **404** when any id is unknown (body carries ``which: "tier" |
+      "from" | "to"`` so the caller can point at the offender)
+    - **Never 5xxs**: a resolver failure short-circuits to 404 so a
+      pricing-comparison surface keeps rendering instead of breaking.
+    """
+    p = (request.args.get("tier") or "").strip().lower()
+    f = (request.args.get("from") or "").strip().lower()
+    t = (request.args.get("to") or "").strip().lower()
+    if not p:
+        return jsonify({"error": "missing tier"}), 400
+    if not f:
+        return jsonify({"error": "missing from"}), 400
+    if not t:
+        return jsonify({"error": "missing to"}), 400
+    try:
+        from clawmetry import entitlements as _ent
+
+        if p not in _ent._TIER_ORDER:
+            return (
+                jsonify(
+                    {"error": "unknown tier", "which": "tier", "tier": p}
+                ),
+                404,
+            )
+        if f not in _ent._TIER_FEATURES:
+            return (
+                jsonify(
+                    {"error": "unknown tier", "which": "from", "from": f}
+                ),
+                404,
+            )
+        if t not in _ent._TIER_FEATURES:
+            return (
+                jsonify(
+                    {"error": "unknown tier", "which": "to", "to": t}
+                ),
+                404,
+            )
+        path = _ent.tier_path_at(p, f, t)
+        if path is None:
+            return (
+                jsonify(
+                    {
+                        "error": "unknown tier",
+                        "tier": p,
+                        "from": f,
+                        "to": t,
+                    }
+                ),
+                404,
+            )
+        from_rank = _ent.tier_rank(f)
+        to_rank = _ent.tier_rank(t)
+        if f == t:
+            direction = "identity"
+        elif from_rank == to_rank:
+            direction = "lateral"
+        elif to_rank > from_rank:
+            direction = "upgrade"
+        else:
+            direction = "downgrade"
+        try:
+            ent = _ent.get_entitlement()
+            current_tier = getattr(ent, "tier", "oss") or "oss"
+            grace = bool(getattr(ent, "grace", True))
+        except Exception:
+            current_tier = "oss"
+            grace = True
+        try:
+            enforced = bool(_ent.is_enforced())
+        except Exception:
+            enforced = False
+        return jsonify(
+            {
+                "perspective_tier": p,
+                "perspective_tier_rank": _ent.tier_rank(p),
+                "from": f,
+                "from_label": _ent.tier_label(f),
+                "from_rank": from_rank,
+                "to": t,
+                "to_label": _ent.tier_label(t),
+                "to_rank": to_rank,
+                "direction": direction,
+                "path": path,
+                "current_tier": current_tier,
+                "current_tier_rank": _ent.tier_rank(current_tier),
+                "grace": grace,
+                "enforced": enforced,
+            }
+        )
+    except Exception as exc:
+        logger.warning(
+            "api_entitlement_tier_path_at: error: %s", exc
+        )
+        return (
+            jsonify(
+                {
+                    "error": "unknown tier",
+                    "tier": p,
+                    "from": f,
+                    "to": t,
+                }
+            ),
+            404,
+        )
+
+
+@bp_entitlement.route("/api/entitlement/tier-path-at-batch")
+def api_entitlement_tier_path_at_batch():
+    """``GET /api/entitlement/tier-path-at-batch?tier=<perspective>
+    &from=<id>&to=a,b,c`` -- batch sibling of ``/tier-path-at``.
+
+    Where ``/tier-path-at`` walks the marginal ``tier_diff`` rungs
+    between ONE ``(from, to)`` pair from a hypothetical
+    ``perspective_tier``, this walks ONE ``from`` to N candidate ``to``
+    tiers in ONE round-trip from the same hypothetical perspective --
+    the batch what-if sibling of ``/tier-path-batch``, filling the
+    ``_at_batch`` slot of the ``tier_path`` family.
+
+    Body posture matches ``/tier-path-at``: perspective is validated
+    but does not shape rows. Each row in ``tiers[].path`` is byte-
+    identical to a row from ``/tier-path-batch`` for the same
+    ``(from, to)`` pair. Perspective acceptance is lenient: ``trial``
+    IS accepted (matching every other ``_at`` sibling). The GET+CSV
+    query surface matches the ``/tier-path-batch`` sibling rather than
+    the POST+JSON ``/preview-at-path-batch`` shape -- keeps the
+    ``tier_path`` family internally consistent.
+
+    Response shape (mirrors ``/tier-path-batch`` plus the
+    ``perspective_tier`` echo and the resolver-context tail every
+    ``_at*`` endpoint carries)::
+
+        {
+          "perspective_tier":      "<tier id>",
+          "perspective_tier_rank": <int>,
+          "from":                  "<tier id>",
+          "from_label":            "...",
+          "from_rank":             <int>,
+          "tiers": [
+            {
+              "to":        "<tier id>",
+              "to_label":  "...",
+              "to_rank":   <int>,
+              "direction": "upgrade" | "downgrade" | "lateral" | "identity",
+              "path":      [<tier_diff row>, ...],
+            },
+            ...
+          ],
+          "unknown":               ["bogus_id", ...],
+          "current_tier":          "<tier id>",
+          "current_tier_rank":     <int>,
+          "grace":                 <bool>,
+          "enforced":              <bool>,
+        }
+
+    Supplied destination ids are normalised (whitespace stripped,
+    lowercased, duplicates dropped, first-seen order preserved).
+    Unknown destination ids do NOT 404 the call -- they are echoed in
+    ``unknown[]`` so a partially-bad caller still gets paths back for
+    the valid ids alongside a list of what was dropped, matching every
+    other ``*_path_batch`` sibling's posture.
+
+    - **400** when ``tier=`` or ``from=`` is missing / blank, or ``to=``
+      is missing / empty after normalisation
+    - **404** when ``tier`` or ``from`` is unknown (body carries
+      ``which: "tier" | "from"``)
+    - **200** with bucketed unknowns for unknown destination ids -- does
+      NOT 404 the call
+    - **Never 5xxs**: a synthesis failure short-circuits to an envelope
+      with empty rows so the matrix keeps rendering.
+    """
+    p = (request.args.get("tier") or "").strip().lower()
+    f = (request.args.get("from") or "").strip().lower()
+    if not p:
+        return jsonify({"error": "missing tier"}), 400
+    if not f:
+        return jsonify({"error": "missing from"}), 400
+    try:
+        from clawmetry import entitlements as _ent
+
+        if p not in _ent._TIER_ORDER:
+            return (
+                jsonify(
+                    {"error": "unknown tier", "which": "tier", "tier": p}
+                ),
+                404,
+            )
+        if f not in _ent._TIER_FEATURES:
+            return (
+                jsonify(
+                    {"error": "unknown tier", "which": "from", "from": f}
+                ),
+                404,
+            )
+        targets = _parse_csv_arg("to")
+        if not targets:
+            return jsonify({"error": "supply to=<csv>"}), 400
+        batch = _ent.tier_path_at_batch(p, f, targets)
+        if batch is None:
+            batch = {"tiers": [], "unknown": []}
+        try:
+            ent = _ent.get_entitlement()
+            current_tier = getattr(ent, "tier", "oss") or "oss"
+            grace = bool(getattr(ent, "grace", True))
+        except Exception:
+            current_tier = "oss"
+            grace = True
+        try:
+            enforced = bool(_ent.is_enforced())
+        except Exception:
+            enforced = False
+        return jsonify(
+            {
+                "perspective_tier": p,
+                "perspective_tier_rank": _ent.tier_rank(p),
+                "from": f,
+                "from_label": _ent.tier_label(f),
+                "from_rank": _ent.tier_rank(f),
+                "tiers": batch.get("tiers", []),
+                "unknown": batch.get("unknown", []),
+                "current_tier": current_tier,
+                "current_tier_rank": _ent.tier_rank(current_tier),
+                "grace": grace,
+                "enforced": enforced,
+            }
+        )
+    except Exception as exc:
+        logger.warning(
+            "api_entitlement_tier_path_at_batch: error: %s", exc
+        )
+        return jsonify(
+            {
+                "perspective_tier": p,
+                "perspective_tier_rank": 0,
+                "from": f,
+                "from_label": None,
+                "from_rank": -1,
+                "tiers": [],
+                "unknown": [],
+                "current_tier": "oss",
+                "current_tier_rank": 0,
+                "grace": True,
+                "enforced": False,
+            }
+        )
+
+
+@bp_entitlement.route("/api/entitlement/feature-catalog")
+def api_entitlement_feature_catalog():
+    """``GET /api/entitlement/feature-catalog`` -- bare sibling of
+    ``/api/entitlement/feature-catalog-at``: returns the full feature
+    catalogue for the *resolved* entitlement, wrapped with the same
+    envelope keys the ``-at`` sibling uses so a pricing UI can swap
+    between "current" and "hypothetical" without reshaping.
+
+    Same rows as ``/api/features``; this alias lives under
+    ``/api/entitlement/`` so a client hydrating every catalog variant
+    (bare, ``-at``, ``-at-batch``, ``-path``, ...) can do it off one
+    prefix instead of mixing ``/api/features`` with
+    ``/api/entitlement/feature-catalog-at``.
+
+    Response shape::
+
+        {
+          "tier":     "<resolved tier id>",
+          "features": [<catalog_row>, ...],   # from feature_catalog()
+          "grace":    <bool>,                 # resolver is in grace mode
+          "enforced": <bool>,                 # negation of grace, for symmetry
+        }
+
+    - **Never 5xxs**: helper failures short-circuit to the OSS-free
+      envelope so the pricing UI keeps rendering.
+    """
+    try:
+        from clawmetry import entitlements as _ent
+
+        ent = _ent.get_entitlement()
+        return jsonify(
+            {
+                "tier": ent.tier,
+                "features": _ent.feature_catalog(),
+                "grace": ent.grace,
+                "enforced": not ent.grace,
+            }
+        )
+    except Exception as exc:
+        logger.warning("api_entitlement_feature_catalog: error: %s", exc)
+        return jsonify(
+            {
+                "tier": "oss",
+                "features": [],
+                "grace": True,
+                "enforced": False,
+            }
+        )
+
+
+@bp_entitlement.route("/api/entitlement/runtime-catalog")
+def api_entitlement_runtime_catalog():
+    """``GET /api/entitlement/runtime-catalog`` -- bare sibling of
+    ``/api/entitlement/runtime-catalog-at``: returns the full runtime
+    catalogue for the *resolved* entitlement, wrapped with the same
+    envelope keys the ``-at`` sibling uses so a pricing UI can swap
+    between "current" and "hypothetical" without reshaping.
+
+    Same rows as ``/api/runtimes``; this alias lives under
+    ``/api/entitlement/`` so a client hydrating every catalog variant
+    can do it off one prefix.
+
+    Response shape::
+
+        {
+          "tier":     "<resolved tier id>",
+          "runtimes": [<catalog_row>, ...],   # from runtime_catalog()
+          "grace":    <bool>,
+          "enforced": <bool>,
+        }
+
+    - **Never 5xxs**: helper failures short-circuit to the OSS-free
+      envelope so the pricing UI keeps rendering.
+    """
+    try:
+        from clawmetry import entitlements as _ent
+
+        ent = _ent.get_entitlement()
+        return jsonify(
+            {
+                "tier": ent.tier,
+                "runtimes": _ent.runtime_catalog(),
+                "grace": ent.grace,
+                "enforced": not ent.grace,
+            }
+        )
+    except Exception as exc:
+        logger.warning("api_entitlement_runtime_catalog: error: %s", exc)
+        return jsonify(
+            {
+                "tier": "oss",
+                "runtimes": [],
+                "grace": True,
+                "enforced": False,
+            }
+        )
+
+
+@bp_entitlement.route("/api/entitlement/channel-catalog")
+def api_entitlement_channel_catalog():
+    """``GET /api/entitlement/channel-catalog`` -- catalogue sibling of
+    :func:`api_entitlement_feature_catalog` /
+    :func:`api_entitlement_runtime_catalog` for the chat-channel axis.
+
+    Returns every chat-channel adapter ClawMetry can observe (see
+    :data:`clawmetry.entitlements.ALL_CHANNELS`, kept in lockstep with
+    ``clawmetry.sync._CHANNEL_DIRS``). Every row is unlocked -- there is
+    no paid-channel tier; the ``channels`` capacity axis
+    (:func:`min_tier_for_channel_count` and the ``channels=`` arg on the
+    aggregate helpers) governs *how many* concurrent channels each plan
+    admits, not *which* adapters unlock. That posture lets a pricing page
+    render "all N chat channels included in every plan" off one call
+    instead of hard-coding the adapter list client-side.
+
+    Response shape mirrors ``/api/entitlement/feature-catalog`` and
+    ``/api/entitlement/runtime-catalog``::
+
+        {
+          "tier":     "<resolved tier id>",
+          "channels": [<catalog_row>, ...],   # from channel_catalog()
+          "grace":    <bool>,
+          "enforced": <bool>,
+        }
+
+    - **Never 5xxs**: helper failures short-circuit to the OSS-free
+      envelope so the pricing UI keeps rendering.
+    """
+    try:
+        from clawmetry import entitlements as _ent
+
+        ent = _ent.get_entitlement()
+        return jsonify(
+            {
+                "tier": ent.tier,
+                "channels": _ent.channel_catalog(),
+                "grace": ent.grace,
+                "enforced": not ent.grace,
+            }
+        )
+    except Exception as exc:
+        logger.warning("api_entitlement_channel_catalog: error: %s", exc)
+        return jsonify(
+            {
+                "tier": "oss",
+                "channels": [],
+                "grace": True,
+                "enforced": False,
+            }
+        )
+
+
+@bp_entitlement.route("/api/entitlement/channel-catalog-at")
+def api_entitlement_channel_catalog_at():
+    """``GET /api/entitlement/channel-catalog-at?tier=<id>`` -- what-if
+    sibling of ``/api/entitlement/channel-catalog``.
+
+    Returns the full chat-channel catalogue with every row computed as if
+    the install were on ``tier``. Mirrors
+    ``/api/entitlement/feature-catalog-at`` and
+    ``/api/entitlement/runtime-catalog-at`` for the channel axis so a
+    pricing-comparison matrix UI can swap "current state" against "if I
+    were on Cloud Pro" using ONE row-renderer across all three axes.
+
+    Every chat channel is FREE (there is no paid-channel tier -- the
+    ``channels`` capacity axis governs how many concurrent channels each
+    plan admits, not which adapters unlock), so every row comes back
+    unlocked regardless of the perspective tier. That parity IS the
+    answer: the UI can render "all N chat channels included at every
+    plan" without having to hard-code the posture client-side.
+
+    Response shape::
+
+        {
+          "tier":     "<perspective tier id>",
+          "channels": [<catalog_row>, ...],   # from channel_catalog_at()
+        }
+
+    Each ``channels`` list is byte-identical to
+    :func:`entitlements.channel_catalog_at` for the same tier -- a
+    parity test pins this so the endpoint cannot drift from the helper.
+
+    - **400** when ``tier=`` is missing / blank
+    - **404** when the id is not a known tier
+    - **Never 5xxs**: a resolver failure short-circuits to the OSS-free
+      fallback so the catalogue still renders.
+    """
+    raw = request.args.get("tier")
+    tier = (raw or "").strip().lower()
+    if not tier:
+        return jsonify({"error": "missing tier"}), 400
+    try:
+        from clawmetry import entitlements as _ent
+
+        body = _ent.channel_catalog_at(tier)
+        if body is None:
+            return jsonify({"error": "unknown tier", "tier": tier}), 404
+        return jsonify({"tier": tier, "channels": body})
+    except Exception as exc:
+        logger.warning("api_entitlement_channel_catalog_at: error: %s", exc)
+        return jsonify({"error": "channel-catalog-at failed"}), 500
+
+
+@bp_entitlement.route("/api/entitlement/channel-catalog-at-batch")
+def api_entitlement_channel_catalog_at_batch():
+    """``GET /api/entitlement/channel-catalog-at-batch?tiers=a,b,c`` --
+    batch what-if sibling of ``/api/entitlement/channel-catalog-at``.
+
+    Channel-axis twin of ``/feature-catalog-at-batch`` /
+    ``/runtime-catalog-at-batch``: same envelope shape, same
+    normalisation semantics, same unknown-echo posture. Together the
+    three batches let a pricing-comparison matrix UI hydrate every
+    feature + runtime + channel column at every hypothetical rung off
+    THREE calls instead of 3 * N calls to the scalar what-if catalog
+    endpoints.
+
+    Each ``tiers[].channels`` list is byte-identical to the body of
+    ``/channel-catalog-at?tier=<tier>`` for the same tier -- pinned by
+    the parity tests.
+
+    Response shape mirrors ``/feature-catalog-at-batch`` /
+    ``/runtime-catalog-at-batch`` with ``features`` / ``runtimes``
+    renamed to ``channels``::
+
+        {
+          "tiers": [
+            {"tier": "<id>", "tier_label": ..., "tier_rank": ..., "channels": [...]},
+            ...
+          ],
+          "unknown":           ["bogus_id", ...],
+          "current_tier":      "<resolved id>",
+          "current_tier_rank": <int>,
+          "grace":             <bool>,
+          "enforced":          <bool>,
+        }
+
+    - **400** when ``tiers=`` is missing / empty after normalisation
+    - **200** with bucketed unknowns for unknown tier ids
+    - **Never 5xxs**: a synthesis failure short-circuits to an envelope
+      with empty rows so the matrix keeps rendering.
+    """
+    tiers = _parse_csv_arg("tiers")
+    if not tiers:
+        return jsonify({"error": "supply tiers=<csv>"}), 400
+    try:
+        from clawmetry import entitlements as _ent
+
+        batch = _ent.channel_catalog_at_batch(tiers)
+        ent = _ent.get_entitlement()
+        return jsonify(
+            {
+                "tiers": batch.get("tiers", []),
+                "unknown": batch.get("unknown", []),
+                "current_tier": ent.tier,
+                "current_tier_rank": _ent.tier_rank(ent.tier),
+                "grace": bool(ent.grace),
+                "enforced": _ent.is_enforced(),
+            }
+        )
+    except Exception as exc:
+        logger.warning(
+            "api_entitlement_channel_catalog_at_batch: error: %s", exc
+        )
+        return jsonify(
+            {
+                "tiers": [],
+                "unknown": [],
+                "current_tier": "oss",
+                "current_tier_rank": 0,
+                "grace": True,
+                "enforced": False,
+            }
+        )
+
+
+@bp_entitlement.route("/api/entitlement/tier-catalog")
+def api_entitlement_tier_catalog():
+    """``GET /api/entitlement/tier-catalog`` -- bare sibling of
+    ``/api/entitlement/tier-catalog-at``: returns the full tier ladder
+    for the *resolved* entitlement, wrapped with the same envelope
+    keys the ``-at`` sibling uses so a pricing UI can swap between
+    "current" and "hypothetical" without reshaping.
+
+    Same rows as ``/api/tiers`` (with ``current`` mirrored into
+    ``tier`` to match the ``-at`` sibling); this alias lives under
+    ``/api/entitlement/`` so a client hydrating every catalog variant
+    can do it off one prefix.
+
+    Response shape::
+
+        {
+          "tier":     "<resolved tier id>",   # matches _at sibling key
+          "tiers":    [<catalog_row>, ...],   # from tier_catalog()
+          "grace":    <bool>,
+          "enforced": <bool>,
+        }
+
+    - **Never 5xxs**: helper failures short-circuit to the OSS-floor
+      envelope so the pricing UI keeps rendering.
+    """
+    try:
+        from clawmetry import entitlements as _ent
+
+        ent = _ent.get_entitlement()
+        return jsonify(
+            {
+                "tier": ent.tier,
+                "tiers": _ent.tier_catalog(),
+                "grace": ent.grace,
+                "enforced": not ent.grace,
+            }
+        )
+    except Exception as exc:
+        logger.warning("api_entitlement_tier_catalog: error: %s", exc)
+        return jsonify(
+            {
+                "tier": "oss",
+                "tiers": [],
+                "grace": True,
+                "enforced": False,
+            }
+        )

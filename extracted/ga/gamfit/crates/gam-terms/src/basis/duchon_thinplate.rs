@@ -326,30 +326,78 @@ fn build_duchon_basis_uncached(
             )))
         } else {
             let coeffs = coeffs.clone();
-            let kernel = move |data_row: &[f64], center_row: &[f64]| -> f64 {
-                let r = stable_euclidean_norm((0..d).map(|axis| data_row[axis] - center_row[axis]));
-                let raw = if let Some(ppc) = pure_poly_coeff {
-                    ppc.eval(r)
-                } else {
-                    duchon_matern_kernel_general_from_distance(
-                        r,
-                        length_scale,
-                        p_order,
-                        s_order_int.expect("hybrid Duchon requires integer power"),
-                        d,
-                        coeffs.as_ref(),
-                    )
-                    .expect("validated Duchon inputs should not fail")
-                };
-                raw * kernel_amp
+            let make_kernel = || {
+                let coeffs = coeffs.clone();
+                let pure_poly_coeff = pure_poly_coeff;
+                Arc::new(move |data_row: &[f64], center_row: &[f64]| -> f64 {
+                    let r =
+                        stable_euclidean_norm((0..d).map(|axis| data_row[axis] - center_row[axis]));
+                    let raw = if let Some(ppc) = pure_poly_coeff {
+                        ppc.eval(r)
+                    } else {
+                        duchon_matern_kernel_general_from_distance(
+                            r,
+                            length_scale,
+                            p_order,
+                            s_order_int.expect("hybrid Duchon requires integer power"),
+                            d,
+                            coeffs.as_ref(),
+                        )
+                        .expect("validated Duchon inputs should not fail")
+                    };
+                    raw * kernel_amp
+                }) as Arc<dyn crate::chunked_kernel_design::SpatialKernelEvaluator>
             };
+            let operators_active = matches!(
+                spec.operator_penalties.mass,
+                OperatorPenaltySpec::Active { .. }
+            ) || matches!(
+                spec.operator_penalties.tension,
+                OperatorPenaltySpec::Active { .. }
+            ) || matches!(
+                spec.operator_penalties.stiffness,
+                OperatorPenaltySpec::Active { .. }
+            );
+            if frozen_radial_reparam.is_none() && !operators_active {
+                let raw_gauge = Arc::new(gam_problem::Gauge::from_block_transforms(&[
+                    kernel_transform.clone(),
+                ]));
+                let raw_op = ChunkedKernelDesignOperator::new(
+                    shared_data.clone(),
+                    Arc::new(centers.clone()),
+                    make_kernel(),
+                    Some(raw_gauge),
+                    Some(Arc::new(poly_block.clone())),
+                )
+                .map_err(BasisError::InvalidInput)?;
+                let ones = Array1::<f64>::ones(raw_op.nrows());
+                let raw_gram = raw_op.diag_xtw_x(&ones).map_err(BasisError::InvalidInput)?;
+                let kernel_cols = kernel_transform.ncols();
+                let design_gram = symmetrize_penalty(
+                    &raw_gram.slice(s![..kernel_cols, ..kernel_cols]).to_owned(),
+                );
+                let omega_constrained = duchon_constrained_bending_penalty(
+                    centers.view(),
+                    spec.length_scale,
+                    spec.power,
+                    effective_nullspace_order,
+                    aniso.as_deref(),
+                    &kernel_transform,
+                )?;
+                let (v, _mu) =
+                    thin_plate_radial_reparam_data_metric(&omega_constrained, &design_gram)?;
+                if v.ncols() > 0 {
+                    kernel_transform = fast_ab(&kernel_transform, &v);
+                    frozen_radial_reparam = Some(v);
+                }
+            }
             let kernel_gauge = Arc::new(gam_problem::Gauge::from_block_transforms(&[
                 kernel_transform.clone(),
             ]));
             let base_op = ChunkedKernelDesignOperator::new(
                 shared_data,
                 Arc::new(centers.clone()),
-                kernel,
+                make_kernel(),
                 Some(kernel_gauge),
                 Some(Arc::new(poly_block)),
             )
@@ -386,27 +434,18 @@ fn build_duchon_basis_uncached(
         // mass/tension/stiffness operator penalties): those operators build
         // their own collocation Grams in the un-rotated `Z` frame, so rotating
         // only the native penalty would desync the operator penalty columns.
-        // Operators are off for the default `duchon(x1,x2)` (the #1355 collapse),
-        // so this gate keeps the fix scoped to where it is needed and sound.
-        let operators_active = matches!(
-            spec.operator_penalties.mass,
-            OperatorPenaltySpec::Active { .. }
-        ) || matches!(
-            spec.operator_penalties.tension,
-            OperatorPenaltySpec::Active { .. }
-        ) || matches!(
-            spec.operator_penalties.stiffness,
-            OperatorPenaltySpec::Active { .. }
-        );
+        // Default Duchon terms have mass+tension active, so they deliberately
+        // bypass this fused native-only path; `all_disabled()` is the opt-in
+        // configuration that reaches it.
+        let operators_active = spec.operator_penalties.has_active_operator_penalty();
         // When the fresh data-metric reparam is computed, its `raw` (un-rotated)
         // design is built here from a full `n×k` kernel evaluation. That SAME
         // realized design is the base of the final basis — rotating it by the
         // adopted `V` gives the fit-time design without a second kernel pass —
         // so carry it forward instead of rebuilding it below (#1718). This
-        // halves the cold-build kernel work for the default `duchon(x, z)`,
-        // which is the only configuration that hits this branch (native Gram,
-        // no operators, no frozen reparam), closing the wall-time gap to
-        // `thinplate(x, z)`.
+        // halves the cold-build kernel work for explicit native-only Duchon
+        // configurations (`all_disabled()`, no frozen reparam), closing their
+        // wall-time gap to `thinplate(x, z)` without changing default terms.
         let mut prebuilt_raw_basis: Option<Array2<f64>> = None;
         if frozen_radial_reparam.is_none() && !operators_active {
             let kernel_cols = kernel_transform.ncols();
@@ -425,7 +464,9 @@ fn build_duchon_basis_uncached(
                     workspace,
                 )?;
                 let kernel_block = raw.basis.slice(s![.., 0..kernel_cols]);
-                let design_gram = symmetrize_penalty(&fast_atb(&kernel_block, &kernel_block));
+                // Canonical row order so the realized Gram (and the near-degenerate
+                // reparam it feeds) is bit-identical under a pure row permutation (#1378).
+                let design_gram = data_metric_design_gram(kernel_block);
                 let omega_constrained = duchon_constrained_bending_penalty(
                     centers.view(),
                     spec.length_scale,
@@ -764,6 +805,40 @@ pub(crate) fn thin_plate_polynomial_block(points: ArrayView2<'_, f64>) -> Array2
 
 pub fn thin_plate_polynomial_basis_dimension(dimension: usize) -> usize {
     monomial_exponents(dimension, thin_plate_polynomial_degree(dimension)).len()
+}
+
+/// Row-order-canonical realized design Gram `symmetrize(KᵀK)` for the data-metric
+/// radial reparam (#1347/#1355).
+///
+/// `KᵀK = Σ_row (row)ᵀ(row)` is mathematically invariant to a pure row
+/// permutation of the training data, but `fast_atb` accumulates the outer
+/// products in the kernel block's stored (data) row order, so floating-point
+/// non-associativity lets a reordering perturb the Gram by an ulp. The reparam
+/// eigendecomposition fed by this Gram is near-degenerate (the thin-plate radial
+/// spectrum has a long low-curvature tail), so that ulp rotates its eigenvectors
+/// and makes the fitted `s(x, bs="tp")` basis — and hence the curve — depend on
+/// row order. That is the residual ~2e-7 row-permutation drift owed under
+/// gam#1378 that survives the value-anchored knot set and centroid seed (the
+/// local `bs="cr"/"ps"` bases never form this data-metric radial Gram, so they
+/// stayed bit-stable). Summing the rows in a canonical lexicographic (`total_cmp`)
+/// order gives the identical addition sequence for every permutation of the same
+/// unordered row set — the rows are a pure function of the data and genuinely
+/// equal rows contribute equal, order-free terms — so the Gram, its
+/// eigendecomposition, and the reparam become bit-identical across row order.
+fn data_metric_design_gram(kernel_block: ArrayView2<'_, f64>) -> Array2<f64> {
+    let n = kernel_block.nrows();
+    let mut order: Vec<usize> = (0..n).collect();
+    order.sort_by(|&a, &b| {
+        for c in 0..kernel_block.ncols() {
+            match kernel_block[[a, c]].total_cmp(&kernel_block[[b, c]]) {
+                std::cmp::Ordering::Equal => {}
+                ord => return ord,
+            }
+        }
+        std::cmp::Ordering::Equal
+    });
+    let sorted = kernel_block.select(Axis(0), &order);
+    symmetrize_penalty(&fast_atb(&sorted, &sorted))
 }
 
 /// Selects which radial penalty eigenmodes to expose as basis columns.
@@ -1549,7 +1624,8 @@ pub(crate) fn create_thin_plate_spline_basis_scaledwithworkspace(
         // spectrum acquires mgcv's cliff (curvature per unit data-variance),
         // rather than the cliff-less raw knot-Gram spectrum that lets REML buy
         // near-free wiggle on near-linear data. G_c = (K Z)ᵀ (K Z).
-        let design_gram = symmetrize_penalty(&fast_atb(&kernel_constrained, &kernel_constrained));
+        // Canonical row order so the Gram is row-permutation invariant (#1378).
+        let design_gram = data_metric_design_gram(kernel_constrained.view());
         thin_plate_radial_reparam_data_metric(&omega_constrained, &design_gram)?
     };
     let kernel_cols = radial_eigvals.len();
@@ -2695,6 +2771,37 @@ mod knot_selection_invariance_tests {
 }
 
 #[cfg(test)]
+mod duchon_operator_gate_tests {
+    use super::{DuchonOperatorPenaltySpec, OperatorPenaltySpec};
+
+    #[test]
+    fn default_duchon_operator_penalties_are_active() {
+        let default_spec = DuchonOperatorPenaltySpec::default();
+
+        assert!(
+            default_spec.has_active_operator_penalty(),
+            "default Duchon terms must bypass the native-only fused radial path"
+        );
+        assert!(
+            matches!(default_spec.mass, OperatorPenaltySpec::Active { .. })
+                && matches!(default_spec.tension, OperatorPenaltySpec::Active { .. })
+                && matches!(default_spec.stiffness, OperatorPenaltySpec::Disabled),
+            "the default is mass+tension active with stiffness disabled"
+        );
+    }
+
+    #[test]
+    fn all_disabled_duchon_operator_penalties_are_native_only() {
+        let native_only = DuchonOperatorPenaltySpec::all_disabled();
+
+        assert!(
+            !native_only.has_active_operator_penalty(),
+            "all_disabled() is the explicit native-Gram-only configuration"
+        );
+    }
+}
+
+#[cfg(test)]
 mod retained_radial_indices_tests {
     use super::thin_plate_retained_radial_indices;
     use ndarray::Array1;
@@ -2756,5 +2863,135 @@ mod retained_radial_indices_tests {
             thin_plate_retained_radial_indices(&Array1::from_vec(vec![5.0])),
             vec![0]
         );
+    }
+}
+
+#[cfg(test)]
+mod gc_spectrum_diag_1757_tests {
+    // ROOT-2 measurement for the perf cluster (#1757 duchon / #1689 thin-plate):
+    // does the design Gram Gc = KᵀK (radial kernel evaluated at the selected
+    // knots) have a REDUNDANCY CLIFF — a capacity-preserving low-rank truncation
+    // à la Wood-2003, where dropping near-duplicate radial columns shrinks the
+    // final basis dimension p WITHOUT removing function-space capacity — or only
+    // a smooth power-law tail, in which case no magic-free p-reduction exists and
+    // the current machine-eps whitening floor already keeps everything meaningful.
+    //
+    // This is a DIAGNOSTIC (no behavioural assertion beyond "it ran"): it prints
+    // the Gc spectrum for the #1757/#1689 repro sizes so CI can grep the shard
+    // log. It uses the PRODUCTION knot selector (`select_thin_plate_knots`,
+    // farthest-point) and the PRODUCTION thin-plate kernel
+    // (`thin_plate_kernel_from_dist2`), so the spectrum matches what the real
+    // basis builder forms (the polynomial-null constraint Z removes only 3 dims
+    // and cannot create or erase a spectral cliff, so the raw KᵀK Gram answers
+    // the redundancy-tail question).
+    use super::{select_thin_plate_knots, thin_plate_kernel_from_dist2};
+    use crate::basis::default_num_centers;
+    use faer::Side;
+    use gam_linalg::faer_ndarray::FaerEigh;
+    use ndarray::Array2;
+
+    // Deterministic uniform scatter in [-1, 1]^2 (SplitMix64; no `rand`
+    // dependency, so the printed spectrum is reproducible across machines).
+    fn scatter(n: usize, seed: u64) -> Array2<f64> {
+        let mut s = seed ^ 0x9e37_79b9_7f4a_7c15;
+        let mut next = || {
+            s = s.wrapping_add(0x9e37_79b9_7f4a_7c15);
+            let mut z = s;
+            z = (z ^ (z >> 30)).wrapping_mul(0xbf58_476d_1ce4_e5b9);
+            z = (z ^ (z >> 27)).wrapping_mul(0x94d0_49bb_1331_11eb);
+            z ^= z >> 31;
+            ((z >> 11) as f64) / ((1u64 << 53) as f64) // in [0, 1)
+        };
+        let mut x = Array2::<f64>::zeros((n, 2));
+        for i in 0..n {
+            x[[i, 0]] = 2.0 * next() - 1.0;
+            x[[i, 1]] = 2.0 * next() - 1.0;
+        }
+        x
+    }
+
+    /// Returns `(p, kk, cond)`: number of positive Gram eigenvalues, knot count,
+    /// and condition number `λ_max / λ_min⁺`. The caller asserts the design-Gram
+    /// invariants (`1 ≤ p ≤ kk`, `cond` finite and `≥ 1`); the printed spectrum is
+    /// the diagnostic signal.
+    fn report(label: &str, n: usize, seed: u64) -> (usize, usize, f64) {
+        let x = scatter(n, seed);
+        let k = default_num_centers(n, 2);
+        let knots = select_thin_plate_knots(x.view(), k).expect("knot selection");
+        let kk = knots.nrows();
+        // Design K (n x kk): K[i,c] = phi(||x_i - knot_c||^2), thin-plate d=2.
+        let mut kdes = Array2::<f64>::zeros((n, kk));
+        for i in 0..n {
+            for c in 0..kk {
+                let dx = x[[i, 0]] - knots[[c, 0]];
+                let dy = x[[i, 1]] - knots[[c, 1]];
+                let d2 = dx * dx + dy * dy;
+                kdes[[i, c]] = thin_plate_kernel_from_dist2(d2, 2).expect("kernel");
+            }
+        }
+        let gc = kdes.t().dot(&kdes); // kk x kk design Gram
+        let (evals, _evecs) = FaerEigh::eigh(&gc, Side::Lower).expect("eigh");
+        let mut ev: Vec<f64> = evals.iter().copied().filter(|v| *v > 0.0).collect();
+        ev.sort_by(|a, b| b.partial_cmp(a).unwrap()); // descending
+        let m = ev.len();
+        if m == 0 {
+            eprintln!("[GC-DIAG-1757] {label} n={n}: empty spectrum");
+            return (0, kk, f64::INFINITY);
+        }
+        let lam_max = ev[0];
+        let eps_floor = (kk as f64) * f64::EPSILON * lam_max; // current whitening floor
+        let eps_kept = ev.iter().filter(|v| **v > eps_floor).count();
+        let count_rel = |t: f64| ev.iter().filter(|v| **v / lam_max > t).count();
+        // Largest multiplicative gap in the sorted spectrum (eigengap estimator).
+        let mut best_gap = 0.0_f64;
+        let mut gap_keep = m;
+        for j in 0..m - 1 {
+            let g = (ev[j] / ev[j + 1]).ln();
+            if g > best_gap {
+                best_gap = g;
+                gap_keep = j + 1;
+            }
+        }
+        eprintln!(
+            "[GC-DIAG-1757] {label} n={n} k_req={k} kk={kk} p={m} cond={:.2e} eps_kept={eps_kept} eigengap_keep={gap_keep} log_gap={:.2} | #rel> 1e-2:{} 1e-4:{} 1e-6:{} 1e-8:{} 1e-10:{}",
+            lam_max / ev[m - 1],
+            best_gap,
+            count_rel(1e-2),
+            count_rel(1e-4),
+            count_rel(1e-6),
+            count_rel(1e-8),
+            count_rel(1e-10),
+        );
+        let sampled: Vec<String> = (0..m)
+            .step_by((m / 20).max(1))
+            .map(|i| format!("{:.1}", (ev[i] / lam_max).log10()))
+            .collect();
+        eprintln!(
+            "[GC-DIAG-1757] {label} log10(rel eigenvalue) sampled: {}",
+            sampled.join(" ")
+        );
+        (m, kk, lam_max / ev[m - 1])
+    }
+
+    #[test]
+    fn gc_spectrum_duchon_thinplate_repro_sizes() {
+        // The redundancy-tail answer is left to the printed spectrum; these are
+        // structural design-Gram invariants a broken Gram/knot/kernel would
+        // violate (they do NOT presuppose the cliff-vs-power-law verdict).
+        for (label, n, seed) in [
+            ("duchon_n500", 500usize, 42u64),
+            ("duchon_n1220", 1220, 43),
+            ("thinplate_n1200", 1200, 7),
+        ] {
+            let (p, kk, cond) = report(label, n, seed);
+            assert!(
+                p >= 1 && p <= kk,
+                "{label}: positive-eigenvalue count {p} must be in 1..={kk}"
+            );
+            assert!(
+                cond.is_finite() && cond >= 1.0,
+                "{label}: condition number {cond} must be finite and >= 1"
+            );
+        }
     }
 }

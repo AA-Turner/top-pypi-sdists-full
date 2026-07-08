@@ -89,6 +89,8 @@ from .type_defs import (
     CreateAutomationRuleV2ResponseTypeDef,
     CreateConfigurationPolicyRequestTypeDef,
     CreateConfigurationPolicyResponseTypeDef,
+    CreateConnectorRequestTypeDef,
+    CreateConnectorResponseTypeDef,
     CreateConnectorV2RequestTypeDef,
     CreateConnectorV2ResponseTypeDef,
     CreateFindingAggregatorRequestTypeDef,
@@ -106,7 +108,10 @@ from .type_defs import (
     DeleteAggregatorV2RequestTypeDef,
     DeleteAutomationRuleV2RequestTypeDef,
     DeleteConfigurationPolicyRequestTypeDef,
+    DeleteConnectorRequestTypeDef,
+    DeleteConnectorResponseTypeDef,
     DeleteConnectorV2RequestTypeDef,
+    DeleteConnectorV2ResponseTypeDef,
     DeleteFindingAggregatorRequestTypeDef,
     DeleteInsightRequestTypeDef,
     DeleteInsightResponseTypeDef,
@@ -130,11 +135,13 @@ from .type_defs import (
     DescribeStandardsResponseTypeDef,
     DisableImportFindingsForProductRequestTypeDef,
     DisableOrganizationAdminAccountRequestTypeDef,
+    DisableSecurityHubFeatureV2RequestTypeDef,
     DisassociateMembersRequestTypeDef,
     EnableImportFindingsForProductRequestTypeDef,
     EnableImportFindingsForProductResponseTypeDef,
     EnableOrganizationAdminAccountRequestTypeDef,
     EnableOrganizationAdminAccountResponseTypeDef,
+    EnableSecurityHubFeatureV2RequestTypeDef,
     EnableSecurityHubRequestTypeDef,
     EnableSecurityHubV2RequestTypeDef,
     EnableSecurityHubV2ResponseTypeDef,
@@ -148,6 +155,8 @@ from .type_defs import (
     GetConfigurationPolicyAssociationResponseTypeDef,
     GetConfigurationPolicyRequestTypeDef,
     GetConfigurationPolicyResponseTypeDef,
+    GetConnectorRequestTypeDef,
+    GetConnectorResponseTypeDef,
     GetConnectorV2RequestTypeDef,
     GetConnectorV2ResponseTypeDef,
     GetEnabledStandardsRequestTypeDef,
@@ -194,6 +203,8 @@ from .type_defs import (
     ListConfigurationPoliciesResponseTypeDef,
     ListConfigurationPolicyAssociationsRequestTypeDef,
     ListConfigurationPolicyAssociationsResponseTypeDef,
+    ListConnectorsRequestTypeDef,
+    ListConnectorsResponseTypeDef,
     ListConnectorsV2RequestTypeDef,
     ListConnectorsV2ResponseTypeDef,
     ListEnabledProductsForImportRequestTypeDef,
@@ -225,7 +236,10 @@ from .type_defs import (
     UpdateAutomationRuleV2RequestTypeDef,
     UpdateConfigurationPolicyRequestTypeDef,
     UpdateConfigurationPolicyResponseTypeDef,
+    UpdateConnectorRequestTypeDef,
+    UpdateConnectorResponseTypeDef,
     UpdateConnectorV2RequestTypeDef,
+    UpdateConnectorV2ResponseTypeDef,
     UpdateFindingAggregatorRequestTypeDef,
     UpdateFindingAggregatorResponseTypeDef,
     UpdateFindingsRequestTypeDef,
@@ -494,6 +508,17 @@ class SecurityHubClient(BaseClient):
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_securityhub/client/#create_configuration_policy)
         """
 
+    def create_connector(
+        self, **kwargs: Unpack[CreateConnectorRequestTypeDef]
+    ) -> CreateConnectorResponseTypeDef:
+        """
+        Creates a cloud service provider management (CSPM) connector in Security Hub
+        CSPM.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/securityhub/client/create_connector.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_securityhub/client/#create_connector)
+        """
+
     def create_connector_v2(
         self, **kwargs: Unpack[CreateConnectorV2RequestTypeDef]
     ) -> CreateConnectorV2ResponseTypeDef:
@@ -598,9 +623,19 @@ class SecurityHubClient(BaseClient):
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_securityhub/client/#delete_configuration_policy)
         """
 
+    def delete_connector(
+        self, **kwargs: Unpack[DeleteConnectorRequestTypeDef]
+    ) -> DeleteConnectorResponseTypeDef:
+        """
+        Deletes a CSPM connector.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/securityhub/client/delete_connector.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_securityhub/client/#delete_connector)
+        """
+
     def delete_connector_v2(
         self, **kwargs: Unpack[DeleteConnectorV2RequestTypeDef]
-    ) -> dict[str, Any]:
+    ) -> DeleteConnectorV2ResponseTypeDef:
         """
         Grants permission to delete a connectorV2.
 
@@ -759,6 +794,17 @@ class SecurityHubClient(BaseClient):
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_securityhub/client/#disable_security_hub)
         """
 
+    def disable_security_hub_feature_v2(
+        self, **kwargs: Unpack[DisableSecurityHubFeatureV2RequestTypeDef]
+    ) -> dict[str, Any]:
+        """
+        Disables an opt-in feature for the calling account in the current Amazon Web
+        Services Region.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/securityhub/client/disable_security_hub_feature_v2.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_securityhub/client/#disable_security_hub_feature_v2)
+        """
+
     def disable_security_hub_v2(self) -> dict[str, Any]:
         """
         Disable the service for the current Amazon Web Services Region or specified
@@ -825,6 +871,17 @@ class SecurityHubClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/securityhub/client/enable_security_hub.html)
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_securityhub/client/#enable_security_hub)
+        """
+
+    def enable_security_hub_feature_v2(
+        self, **kwargs: Unpack[EnableSecurityHubFeatureV2RequestTypeDef]
+    ) -> dict[str, Any]:
+        """
+        Enables an opt-in feature for the calling account in the current Amazon Web
+        Services Region.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/securityhub/client/enable_security_hub_feature_v2.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_securityhub/client/#enable_security_hub_feature_v2)
         """
 
     def enable_security_hub_v2(
@@ -896,6 +953,16 @@ class SecurityHubClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/securityhub/client/get_configuration_policy_association.html)
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_securityhub/client/#get_configuration_policy_association)
+        """
+
+    def get_connector(
+        self, **kwargs: Unpack[GetConnectorRequestTypeDef]
+    ) -> GetConnectorResponseTypeDef:
+        """
+        Retrieves details for a CSPM connector based on the connector ID.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/securityhub/client/get_connector.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_securityhub/client/#get_connector)
         """
 
     def get_connector_v2(
@@ -1138,6 +1205,16 @@ class SecurityHubClient(BaseClient):
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_securityhub/client/#list_configuration_policy_associations)
         """
 
+    def list_connectors(
+        self, **kwargs: Unpack[ListConnectorsRequestTypeDef]
+    ) -> ListConnectorsResponseTypeDef:
+        """
+        Lists the CSPM connectors and their metadata for the calling account.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/securityhub/client/list_connectors.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_securityhub/client/#list_connectors)
+        """
+
     def list_connectors_v2(
         self, **kwargs: Unpack[ListConnectorsV2RequestTypeDef]
     ) -> ListConnectorsV2ResponseTypeDef:
@@ -1323,9 +1400,20 @@ class SecurityHubClient(BaseClient):
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_securityhub/client/#update_configuration_policy)
         """
 
+    def update_connector(
+        self, **kwargs: Unpack[UpdateConnectorRequestTypeDef]
+    ) -> UpdateConnectorResponseTypeDef:
+        """
+        Updates a CSPM connector's configuration, such as the scope or regions for the
+        connected cloud provider.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/securityhub/client/update_connector.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_securityhub/client/#update_connector)
+        """
+
     def update_connector_v2(
         self, **kwargs: Unpack[UpdateConnectorV2RequestTypeDef]
-    ) -> dict[str, Any]:
+    ) -> UpdateConnectorV2ResponseTypeDef:
         """
         Grants permission to update a connectorV2 based on its id and input parameters.
 

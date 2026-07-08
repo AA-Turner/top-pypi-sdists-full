@@ -25,6 +25,7 @@ from dlt._workspace.deployment._trigger_helpers import is_selector
 
 from dlt_runtime.exceptions import (
     NoRunnableRun,
+    OrgRegionRequired,
     RuntimeClientException,
     RuntimeNotAuthenticated,
     WorkspaceNotFound,
@@ -34,6 +35,7 @@ from dlt_runtime.exceptions import (
 from dlt_runtime.runtime import (
     AuthInfo,
     RuntimeAuthService,
+    get_api_client,
     get_auth_client,
 )
 from dlt_runtime.runtime_clients.api.api.runs import (
@@ -76,6 +78,7 @@ from dlt_runtime._loopback_pages import (
 from dlt_runtime._runtime_command_helpers import (  # noqa: F401
     _active_org_count,
     _check_org_arg_matches_pin,
+    _fetch_available_regions,
     _default_dashboard_manifest_bundle,
     _do_deploy_manifest,
     _do_sync_configuration,
@@ -170,6 +173,7 @@ from dlt_runtime._runtime_command_views import (
     _print_workspace_connected,
     _prompt_workspace_selection,
     _prompt_new_workspace,
+    _prompt_region_selection,
     _prompt_create_missing_workspace_in_org,
     _print_workspaces,
     _print_job_run_info,
@@ -811,6 +815,16 @@ def _default_workspace_name() -> str:
     return active().name
 
 
+def _prompt_and_set_org_region(
+    auth_service: RuntimeAuthService,
+    organization_id: str,
+) -> None:
+    """Recover from the region gate: prompt the owner to pick a region and set it."""
+    regions = _fetch_available_regions(api_client=get_api_client(auth_service))
+    dataplane_id = _prompt_region_selection(regions)
+    auth_service.set_organization_region(organization_id, dataplane_id)
+
+
 def _create_workspace(
     auth_service: RuntimeAuthService,
     user_info: UserInfo,
@@ -820,13 +834,26 @@ def _create_workspace(
     description: Optional[str] = None,
     organization_name: Optional[str] = None,
 ) -> str:
-    """Create a workspace via the API and stamp it onto user_info."""
-    new_ws_id = auth_service.create_new_workspace(
-        user_info,
-        name,
-        description,
-        organization_id=organization_id,
-    )
+    """Create a workspace via the API and stamp it onto user_info.
+
+    On a region-less org the create is gated (409); the owner is prompted to set
+    the region, then the create is retried once.
+    """
+    try:
+        new_ws_id = auth_service.create_new_workspace(
+            user_info,
+            name,
+            description,
+            organization_id=organization_id,
+        )
+    except OrgRegionRequired:
+        _prompt_and_set_org_region(auth_service, organization_id)
+        new_ws_id = auth_service.create_new_workspace(
+            user_info,
+            name,
+            description,
+            organization_id=organization_id,
+        )
     if organization_name is None:
         organization_name = next(
             (
@@ -836,7 +863,7 @@ def _create_workspace(
             ),
             None,
         )
-    # add worskapce info to user data
+    # add workspace info to user data
     new_ws: WorkspaceInfo = {
         "id": new_ws_id,
         "name": name,

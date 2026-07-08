@@ -18,19 +18,46 @@ def test_config_show_command(runner):
     assert result.exit_code == 0
     assert "Current Configuration" in result.output or "config" in result.output.lower()
 
-def test_ask_command_with_flags(runner):
+def test_ask_command_with_flags(runner, monkeypatch):
     """Test the ask command with various flags."""
-    # SAGE CLI will execute functionally using our session test server
+    import sage.cli_core
+    
+    # Mock the router to avoid real network calls
+    class DummyRouter:
+        def stream(self, messages, model_id, temp, tokens):
+            yield "Mocked response"
+        def generate(self, messages, model_id, temp, tokens):
+            return "Mocked response"
+            
+    monkeypatch.setattr(sage.cli_core, "_build_router", lambda cfg: DummyRouter())
+    # Note: _auto_upgrade_model_if_possible also uses the router, so we need to mock it if it tries to list models
+    monkeypatch.setattr(sage.cli_core, "_auto_upgrade_model_if_possible", lambda r, c, m, **kw: m)
+    monkeypatch.setattr(sage.cli_core, "_prepare_model_for_use", lambda c, m: (c, m))
+    
     result = runner.invoke(sage_app, [
         "ask", "Create a responsive advertising dashboard using React and Tailwind.", 
         "--raw", 
         "--max-tokens", "100"
     ])
     assert result.exit_code == 0
+    assert "Mocked response" in result.output
 
 def test_repl_slash_exit_commands(runner, monkeypatch):
     """Test that REPL exit commands like /exit, /quit, /q work."""
     import prompt_toolkit
+    import sage.cli_core
+    
+    # Mock the router and model prep to avoid real network calls during agent initialization
+    class DummyRouter:
+        def stream(self, messages, model_id, temp, tokens):
+            yield "Mocked response"
+        def generate(self, messages, model_id, temp, tokens):
+            return "Mocked response"
+            
+    monkeypatch.setattr(sage.cli_core, "_build_router", lambda cfg: DummyRouter())
+    monkeypatch.setattr(sage.cli_core, "_auto_upgrade_model_if_possible", lambda r, c, m, **kw: m)
+    monkeypatch.setattr(sage.cli_core, "_prepare_model_for_use", lambda c, m: (c, m))
+    
     for cmd in ["/exit", "/quit", "/q"]:
         class DummyPromptSession:
             def __init__(self, **kwargs):

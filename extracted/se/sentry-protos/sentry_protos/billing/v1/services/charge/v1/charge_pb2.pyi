@@ -31,6 +31,7 @@ class PlatformCharge(google.protobuf.message.Message):
     AMOUNT_REFUNDED_FIELD_NUMBER: builtins.int
     CARD_LAST_4_FIELD_NUMBER: builtins.int
     REFUNDS_FIELD_NUMBER: builtins.int
+    DATE_ADDED_ST_FIELD_NUMBER: builtins.int
     stripe_id: builtins.str
     organization_id: builtins.int
     invoice_id: builtins.int
@@ -54,6 +55,11 @@ class PlatformCharge(google.protobuf.message.Message):
     current producers.
     """
     card_last_4: builtins.str
+    date_added_st: builtins.int
+    """Unix epoch seconds when the charge row was created locally. Mirrors
+    PlatformRefund.date_added_st so consumers that render mixed charge +
+    refund timelines can sort them off a single time axis.
+    """
     @property
     def refunds(self) -> google.protobuf.internal.containers.RepeatedCompositeFieldContainer[global___PlatformRefund]:
         """Recorded refunds against this charge, ordered by ``date_added_st``
@@ -75,9 +81,10 @@ class PlatformCharge(google.protobuf.message.Message):
         amount_refunded: builtins.int = ...,
         card_last_4: builtins.str | None = ...,
         refunds: collections.abc.Iterable[global___PlatformRefund] | None = ...,
+        date_added_st: builtins.int = ...,
     ) -> None: ...
     def HasField(self, field_name: typing.Literal["_card_last_4", b"_card_last_4", "_failure_code", b"_failure_code", "_invoice_id", b"_invoice_id", "card_last_4", b"card_last_4", "failure_code", b"failure_code", "invoice_id", b"invoice_id"]) -> builtins.bool: ...
-    def ClearField(self, field_name: typing.Literal["_card_last_4", b"_card_last_4", "_failure_code", b"_failure_code", "_invoice_id", b"_invoice_id", "amount", b"amount", "amount_refunded", b"amount_refunded", "card_last_4", b"card_last_4", "failure_code", b"failure_code", "invoice_id", b"invoice_id", "organization_id", b"organization_id", "paid", b"paid", "refunded", b"refunded", "refunds", b"refunds", "stripe_id", b"stripe_id"]) -> None: ...
+    def ClearField(self, field_name: typing.Literal["_card_last_4", b"_card_last_4", "_failure_code", b"_failure_code", "_invoice_id", b"_invoice_id", "amount", b"amount", "amount_refunded", b"amount_refunded", "card_last_4", b"card_last_4", "date_added_st", b"date_added_st", "failure_code", b"failure_code", "invoice_id", b"invoice_id", "organization_id", b"organization_id", "paid", b"paid", "refunded", b"refunded", "refunds", b"refunds", "stripe_id", b"stripe_id"]) -> None: ...
     @typing.overload
     def WhichOneof(self, oneof_group: typing.Literal["_card_last_4", b"_card_last_4"]) -> typing.Literal["card_last_4"] | None: ...
     @typing.overload

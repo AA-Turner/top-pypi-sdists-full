@@ -24,13 +24,13 @@ def _py_files(folder):
 collect_ignore = [
     # may need extra deps
     "docs/_ext",
-    # contains scripts to be run by tests/test_crawler.py::AsyncCrawlerProcessSubprocess
+    # contains scripts to be run by tests/test_crawler_subprocess.py::AsyncCrawlerProcessSubprocess
     *_py_files("tests/AsyncCrawlerProcess"),
-    # contains scripts to be run by tests/test_crawler.py::AsyncCrawlerRunnerSubprocess
+    # contains scripts to be run by tests/test_crawler_subprocess.py::AsyncCrawlerRunnerSubprocess
     *_py_files("tests/AsyncCrawlerRunner"),
-    # contains scripts to be run by tests/test_crawler.py::CrawlerProcessSubprocess
+    # contains scripts to be run by tests/test_crawler_subprocess.py::CrawlerProcessSubprocess
     *_py_files("tests/CrawlerProcess"),
-    # contains scripts to be run by tests/test_crawler.py::CrawlerRunnerSubprocess
+    # contains scripts to be run by tests/test_crawler_subprocess.py::CrawlerRunnerSubprocess
     *_py_files("tests/CrawlerRunner"),
 ]
 
@@ -74,27 +74,19 @@ def mockserver() -> Generator[MockServer]:
 
 
 @pytest.fixture  # function scope because it modifies os.environ
-def mitm_proxy_server(monkeypatch: pytest.MonkeyPatch) -> Generator[MitmProxy]:
-    proxy = MitmProxy()
+def proxy_server(
+    request: pytest.FixtureRequest, monkeypatch: pytest.MonkeyPatch
+) -> Generator[str]:
+    kind = request.param
+    proxy = MitmProxy(mode="socks5" if kind == "socks5" else None)
     url = proxy.start()
+    if kind == "https":
+        url = url.replace("http://", "https://")
     monkeypatch.setenv("http_proxy", url)
     monkeypatch.setenv("https_proxy", url)
 
     try:
-        yield proxy
-    finally:
-        proxy.stop()
-
-
-@pytest.fixture  # function scope because it modifies os.environ
-def mitm_proxy_server_https(monkeypatch: pytest.MonkeyPatch) -> Generator[MitmProxy]:
-    proxy = MitmProxy()
-    url = proxy.start().replace("http://", "https://")
-    monkeypatch.setenv("http_proxy", url)
-    monkeypatch.setenv("https_proxy", url)
-
-    try:
-        yield proxy
+        yield kind
     finally:
         proxy.stop()
 

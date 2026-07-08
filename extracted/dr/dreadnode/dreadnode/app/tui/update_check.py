@@ -20,6 +20,7 @@ from dreadnode.version import VERSION
 
 _PACKAGE_NAME = "dreadnode"
 _TIMEOUT = 3.0
+_DIAGNOSTIC_EXCERPT_CHARS = 600
 
 
 @dataclass(frozen=True, slots=True)
@@ -169,6 +170,59 @@ def detect_upgrade_command() -> list[str] | str:
     if shutil.which("wget"):
         return "wget -qO- https://dreadnode.io/install.sh | bash"
     return "curl -fsSL https://dreadnode.io/install.sh | bash"
+
+
+def build_noop_upgrade_diagnostic(expected_version: str, stdout: str, stderr: str) -> list[str]:
+    """Build a diagnostic for upgrade commands that exit 0 without changing version."""
+    output = f"{stdout}\n{stderr}".lower()
+    if any(
+        phrase in output
+        for phrase in (
+            "resolutionimpossible",
+            "no matching distribution",
+            "could not find a version",
+            "no solution found",
+        )
+    ):
+        reason = "Installer output suggests no valid upgrade could be resolved."
+    elif any(
+        phrase in output
+        for phrase in (
+            "already installed",
+            "already up-to-date",
+            "already up to date",
+            "nothing to do",
+            "no changes",
+        )
+    ):
+        reason = "Installer output suggests it decided nothing needed to be upgraded."
+    else:
+        reason = "Installer output did not clearly explain why no version changed."
+
+    lines = [
+        f"Upgrade command exited 0, but dn --version did not report v{expected_version}.",
+        reason,
+        "Multiple installations are also possible; check which dn is on your PATH "
+        "if the installer output looks correct.",
+    ]
+    lines.extend(_output_excerpt("stdout", stdout))
+    lines.extend(_output_excerpt("stderr", stderr))
+    return lines
+
+
+def _output_excerpt(label: str, text: str) -> list[str]:
+    """Return a capped, indented output excerpt."""
+    text = text.strip()
+    if not text:
+        return []
+
+    truncated = len(text) > _DIAGNOSTIC_EXCERPT_CHARS
+    excerpt = text[:_DIAGNOSTIC_EXCERPT_CHARS].rstrip()
+    lines = [f"{label}:"]
+    lines.extend(f"  {line}" for line in excerpt.splitlines())
+    if truncated:
+        lines.append("  … output truncated …")
+    return lines
 
 
 def verify_upgrade(expected_version: str) -> str | None:

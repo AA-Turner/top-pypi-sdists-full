@@ -3,8 +3,10 @@ Helper functions for user queries
 """
 
 # Django
-from django.contrib.auth.models import Permission, User
 from django.db import models
+
+# Alliance Auth
+from allianceauth.authentication.models import Permission, User
 
 
 def users_with_permission(
@@ -22,7 +24,7 @@ def users_with_permission(
     """
 
     users_qs = (
-        permission.user_set.all()
+        User.objects.filter(pk__in=permission.user_set.values_list("pk", flat=True))
         | User.objects.filter(
             groups__in=list(permission.group_set.values_list("pk", flat=True))
         )
@@ -32,6 +34,6 @@ def users_with_permission(
     )
 
     if include_superusers:
-        users_qs |= User.objects.filter(is_superuser=True)
+        users_qs = users_qs | User.objects.filter(is_superuser=True)
 
     return users_qs.distinct()

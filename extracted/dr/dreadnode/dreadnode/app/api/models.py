@@ -932,6 +932,7 @@ class SessionInfo(BaseModel):
     """Information about an agent session."""
 
     session_id: str
+    group_id: str | None = None
     project: str | None
     created_at: datetime
     updated_at: datetime | None = None
@@ -969,6 +970,7 @@ class SessionCreateRequest(BaseModel):
     """Request body for creating a new session."""
 
     session_id: str | None = Field(default=None, validation_alias="sessionId")
+    group_id: str | None = Field(default=None, validation_alias="groupId")
     model: str | None = None
     project: str | None = None
     capability: str | None = None
@@ -999,6 +1001,44 @@ class SessionCreateRequest(BaseModel):
     @classmethod
     def _normalize_default_agent(cls, data: t.Any) -> t.Any:
         return _normalize_default_agent_fields(data)
+
+
+class SessionGroupCreateRequest(BaseModel):
+    """Request body for creating a platform-backed session group."""
+
+    kind: t.Literal["worker_run", "evaluation_item", "workflow"] = "workflow"
+    title: str | None = None
+    status: t.Literal["running", "completed", "failed", "cancelled"] | None = "running"
+    project: str | None = None
+    runtime_id: str | None = Field(default=None, validation_alias="runtimeId")
+    capability: str | None = None
+    capability_version: str | None = Field(default=None, validation_alias="capabilityVersion")
+    worker: str | None = None
+    evaluation_id: str | None = Field(default=None, validation_alias="evaluationId")
+    evaluation_item_id: str | None = Field(default=None, validation_alias="evaluationItemId")
+    evaluation_item_attempt_id: str | None = Field(
+        default=None,
+        validation_alias="evaluationItemAttemptId",
+    )
+    metadata: dict[str, t.Any] = Field(default_factory=dict)
+
+    model_config = ConfigDict(populate_by_name=True)
+
+
+class SessionGroupUpdateRequest(BaseModel):
+    """Request body for updating a session group's lifecycle fields."""
+
+    title: str | None = None
+    status: t.Literal["running", "completed", "failed", "cancelled"] | None = None
+
+
+class SessionGroupInfo(BaseModel):
+    """Minimal session group response returned by the local runtime."""
+
+    id: str
+    kind: str
+    title: str | None = None
+    status: str | None = None
 
 
 class SessionEventPublishRequest(BaseModel):
@@ -1250,6 +1290,8 @@ class PlatformSessionCreate(BaseModel):
     """Number of messages so far."""
     project_id: str | None = None
     """Optional project UUID to associate."""
+    group_id: str | None = None
+    """Optional session group UUID to attach."""
 
 
 class PlatformSessionResponse(BaseModel):
@@ -1273,6 +1315,8 @@ class PlatformSessionResponse(BaseModel):
     """Workspace UUID."""
     project_id: str | None = None
     """Project UUID."""
+    group_id: str | None = None
+    """Session group UUID."""
     project_name: str | None = None
     """Project name."""
     created_at: datetime | None = None

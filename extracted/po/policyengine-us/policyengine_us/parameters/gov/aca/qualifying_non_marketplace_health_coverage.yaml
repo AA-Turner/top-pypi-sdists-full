@@ -5,6 +5,7 @@ values:
     - medicaid_enrolled
     - receives_medicaid
     - has_medicaid_health_coverage_at_interview
+    - has_chip_health_coverage_at_interview
     - is_chip_eligible
     - medicare_enrolled
     - has_other_means_tested_health_coverage_at_interview

@@ -17,9 +17,12 @@ Usage::
     python examples/annotated_example.py
 """
 
+import datetime
+import os
 import sys
 from argparse import Namespace
 from collections.abc import Callable
+from dataclasses import dataclass
 from decimal import Decimal
 from enum import StrEnum
 from pathlib import Path
@@ -37,6 +40,7 @@ from cmd2 import (
 )
 from cmd2.annotated import (
     Argument,
+    ArgumentBlock,
     Group,
     Option,
     with_annotated,
@@ -70,6 +74,46 @@ class StrictArgumentParser(cmd2.Cmd2ArgumentParser):
 
 
 ANNOTATED_CATEGORY = "Annotated Commands"
+
+_SIZE_SUFFIXES = {"K": 1_000, "M": 1_000_000, "G": 1_000_000_000}
+
+
+def parse_size(value: str) -> int:
+    """Parse an integer with an optional K/M/G suffix (a custom ``converter=``)."""
+    multiplier = _SIZE_SUFFIXES.get(value[-1:].upper(), 1)
+    digits = value[:-1] if multiplier != 1 else value
+    return int(digits) * multiplier
+
+
+def parse_iso(value: str) -> datetime.datetime:
+    """Parse an ISO-8601 timestamp (a ``converter=`` for an otherwise-unsupported type)."""
+    return datetime.datetime.fromisoformat(value)
+
+
+@dataclass
+class OutputOpts(ArgumentBlock):
+    """A reusable argument block: subclass ``ArgumentBlock`` on a ``@dataclass``.
+
+    Each field becomes a flat command-line argument and the parsed values arrive
+    reconstructed as an ``OutputOpts`` instance. Several commands share these output
+    flags without repeating them, and a subcommand can inherit them from its parent
+    (see ``trace`` / ``cmd2_parent_args``).
+    """
+
+    verbose: Annotated[bool, Option("-v", "--verbose", help_text="show detail")] = False
+    indent: Annotated[int, Option("--indent", help_text="indent width")] = 0
+
+
+@dataclass
+class RunOpts(ArgumentBlock):
+    """A second block, declared *directly* on a subcommand alongside an inherited one.
+
+    A subcommand can combine its own block (whose flags live on the subcommand) with a
+    ``cmd2_parent_args`` block inherited from its parent -- see ``trace_run``.
+    """
+
+    retries: Annotated[int, Option("--retries", help_text="retry attempts on failure")] = 0
+    dry_run: Annotated[bool, Option("--dry-run", help_text="don't actually run")] = False
 
 
 class AnnotatedExample(Cmd):
@@ -404,6 +448,53 @@ class AnnotatedExample(Cmd):
         """
         self.poutput(f"Installing {package}")
 
+    # -- Advanced: converter (custom string -> value) ------------------------
+    # ``converter=`` replaces the inferred type= converter, giving parity with a
+    # hand-built ``add_argument(type=...)``: ``size`` parses a K/M/G suffix into an
+    # int, and ``--until`` makes the otherwise-unsupported ``datetime`` type legal
+    # (the converter owns the conversion, so any annotation type is allowed).
+
+    @with_annotated
+    @cmd2.with_category(ANNOTATED_CATEGORY)
+    def do_alloc(
+        self,
+        size: Annotated[int, Argument(converter=parse_size, help_text="size with optional K/M/G suffix")],
+        until: Annotated[
+            datetime.datetime | None,
+            Option("--until", converter=parse_iso, help_text="ISO-8601 expiry (an unsupported type)"),
+        ] = None,
+    ) -> None:
+        """Allocate memory. ``converter=`` parses ``64K`` / ``2M`` into an int and ``--until`` into a datetime.
+
+        Try:
+            alloc 64K
+            alloc 2M --until 2025-06-16T09:30
+        """
+        msg = f"Allocating {size} bytes"
+        self.poutput(f"{msg} until {until:%Y-%m-%d %H:%M}" if until else msg)
+
+    # -- Advanced: preprocess (normalize the raw token) ----------------------
+    # ``preprocess=`` only transforms the raw token before the inferred converter,
+    # so the inferred type, choices, and completion all survive: ``str.lower`` lets
+    # the ``Color`` Enum accept ``RED`` (keeping its choices), and
+    # ``os.path.expanduser`` expands ``~`` while ``Path`` keeps its completer.
+
+    @with_annotated
+    @cmd2.with_category(ANNOTATED_CATEGORY)
+    def do_tag(
+        self,
+        color: Annotated[Color, Argument(preprocess=str.lower, help_text="color (case-insensitive)")],
+        path: Annotated[Path, Argument(preprocess=os.path.expanduser, help_text="file to tag (~ is expanded)")],
+    ) -> None:
+        """Tag a file with a color. ``preprocess=`` normalizes input while keeping Enum/Path inference.
+
+        Try:
+            tag RED ~/notes.txt
+            tag <TAB>             # Color choices
+            tag red <TAB>         # path completion
+        """
+        self.poutput(f"Tagged {path} {color.value}")
+
     # -- Namespace provider --------------------------------------------------
     # This mirrors one of @with_argparser's advanced features.
 
@@ -465,6 +556,71 @@ class AnnotatedExample(Cmd):
     def manage_project_list(self) -> None:
         self.poutput("project list: demo")
 
+    # -- Argument blocks: reuse a shared set of flags ------------------------
+    # A parameter typed as an ``ArgumentBlock`` dataclass expands its fields into
+    # flat arguments and arrives reconstructed as an instance. ``describe`` and
+    # ``dump`` reuse the same ``OutputOpts`` block instead of redeclaring its flags.
+
+    @with_annotated
+    @cmd2.with_category(ANNOTATED_CATEGORY)
+    def do_describe(self, item: str, out: OutputOpts) -> None:
+        """Describe an item. ``out: OutputOpts`` expands a reusable argument block.
+
+        The block's fields (``--verbose``, ``--indent``) become flat options and
+        arrive as an ``OutputOpts`` instance -- the same block ``dump`` reuses.
+
+        Try:
+            describe widget --verbose --indent 4
+        """
+        self.poutput(" " * out.indent + item + (" (verbose)" if out.verbose else ""))
+
+    @with_annotated
+    @cmd2.with_category(ANNOTATED_CATEGORY)
+    def do_dump(self, path: str, out: OutputOpts) -> None:
+        """Dump a path. Reuses the same ``OutputOpts`` block as ``describe`` -- no duplicated flags.
+
+        Try:
+            dump /etc/hosts --verbose
+        """
+        self.poutput(" " * out.indent + f"dumping {path}" + (" (verbose)" if out.verbose else ""))
+
+    # -- Sharing a block with subcommands (cmd2_base_args / cmd2_parent_args) -
+    # A base command and its subcommands share one namespace. The parent names the
+    # inheritable block ``cmd2_base_args`` (its flags land on the parent parser); a
+    # subcommand receives the same block, reconstructed from what the parent parsed,
+    # by naming its parameter ``cmd2_parent_args`` -- without redeclaring the flags.
+    # The flags are supplied on the parent: ``trace --verbose run job``. The subcommand
+    # can also declare its own block (``RunOpts`` below), whose flags live on it.
+
+    @with_annotated(base_command=True)
+    @cmd2.with_category(ANNOTATED_CATEGORY)
+    def do_trace(self, cmd2_base_args: OutputOpts, *, cmd2_subcommand_func: Callable[[], Any] | None = None) -> None:
+        """Base command whose subcommands inherit its ``OutputOpts`` block via ``cmd2_parent_args``.
+
+        Try:
+            help trace
+            trace --verbose --indent 2 run nightly
+        """
+        if cmd2_base_args.verbose:
+            self.poutput("tracing enabled")
+        if cmd2_subcommand_func:
+            cmd2_subcommand_func()
+
+    @with_annotated(subcommand_to="trace", help="run a traced job")
+    def trace_run(self, name: str, cmd2_parent_args: OutputOpts, run: RunOpts) -> None:
+        """Run a job, combining an inherited block with the subcommand's own ``RunOpts`` block.
+
+        ``--verbose`` / ``--indent`` are parsed on ``trace`` (inherited via ``cmd2_parent_args``);
+        ``--retries`` / ``--dry-run`` are this subcommand's own flags (the ``run`` block).
+
+        Try:
+            trace --verbose run nightly --retries 3
+            trace --indent 2 run nightly --dry-run
+        """
+        mode = "dry-run" if run.dry_run else f"{run.retries} retries"
+        suffix = " (verbose)" if cmd2_parent_args.verbose else ""
+        self.poutput(" " * cmd2_parent_args.indent + f"run {name} [{mode}]" + suffix)
+
     # -- Parser customization ------------------------------------------------
     # The generated parser's help text and argument grouping are configurable
     # without dropping down to a hand-built parser.
@@ -486,23 +642,30 @@ class AnnotatedExample(Cmd):
         self.poutput(f"{msg} (verbose)" if verbose else msg)
 
     # -- Mutually exclusive groups -------------------------------------------
-    # Group instances passed to mutually_exclusive_groups make argparse reject
-    # combinations (title/description are ignored here).
+    # A plain (untitled) mutex rejects combinations of its members; required=True
+    # makes exactly one of them mandatory.
 
     @with_annotated(
         description="Export data in exactly one format.",
-        mutually_exclusive_groups=(Group("json", "csv"),),
+        mutually_exclusive_groups=(Group("json", "csv", required=True),),
     )
     @cmd2.with_category(ANNOTATED_CATEGORY)
-    def do_export(self, name: str, json: bool = False, csv: bool = False) -> None:
-        """Export a dataset; --json and --csv are mutually exclusive.
+    def do_export(
+        self,
+        name: str,
+        json: Annotated[str | None, Option(help_text="write JSON to this path")] = None,
+        csv: Annotated[str | None, Option(help_text="write CSV to this path")] = None,
+    ) -> None:
+        """Export a dataset to exactly one of --json PATH or --csv PATH (exclusive, required).
 
         Try:
-            export sales --json
-            export sales --json --csv   # rejected: not allowed together
+            export sales --json out.json
+            export sales                    # rejected: one of --json/--csv is required
+            export sales --json a --csv b   # rejected: not allowed together
         """
-        fmt = "json" if json else "csv" if csv else "text"
-        self.poutput(f"Exporting {name} as {fmt}")
+        target = json or csv
+        fmt = "json" if json else "csv"
+        self.poutput(f"Exporting {name} to {target} as {fmt}")
 
     # -- Custom formatter and parser classes ---------------------------------
     # A custom help formatter or Cmd2ArgumentParser subclass can be supplied.
@@ -538,6 +701,32 @@ class AnnotatedExample(Cmd):
             echo "hello world"
         """
         self.poutput(text)
+
+    # -- Mutually exclusive group as a titled section ---------------------------
+    # A title/description on the mutex group renders it as a titled help section
+    # and nests it there in one declaration -- no paired groups= entry needed.
+    # The format flags are store_true so the mutex stays a clean [--json | --csv]
+    # (a bool flag would expand to --json/--no-json and make the group 4-way).
+
+    @with_annotated(
+        mutually_exclusive_groups=(Group("json", "csv", title="output", description="how to write results"),),
+    )
+    @cmd2.with_category(ANNOTATED_CATEGORY)
+    def do_render(
+        self,
+        name: str = "report",
+        json: Annotated[bool, Option(action="store_true")] = False,
+        csv: Annotated[bool, Option(action="store_true")] = False,
+    ) -> None:
+        """Render output; --json/--csv are exclusive and listed under 'output' in help.
+
+        Try:
+            help render
+            render --json
+            render
+        """
+        fmt = "json" if json else "csv" if csv else "text"
+        self.poutput(f"Rendering {name} as {fmt}")
 
 
 if __name__ == "__main__":

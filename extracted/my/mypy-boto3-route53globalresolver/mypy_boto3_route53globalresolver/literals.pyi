@@ -44,6 +44,7 @@ __all__ = (
     "ListGlobalResolversPaginatorName",
     "ListHostedZoneAssociationsPaginatorName",
     "ListManagedFirewallDomainListsPaginatorName",
+    "ListSharedDNSViewsPaginatorName",
     "PaginatorName",
     "ProfileResourceStatusType",
     "ResourceServiceName",
@@ -74,6 +75,7 @@ ListFirewallRulesPaginatorName = Literal["list_firewall_rules"]
 ListGlobalResolversPaginatorName = Literal["list_global_resolvers"]
 ListHostedZoneAssociationsPaginatorName = Literal["list_hosted_zone_associations"]
 ListManagedFirewallDomainListsPaginatorName = Literal["list_managed_firewall_domain_lists"]
+ListSharedDNSViewsPaginatorName = Literal["list_shared_dns_views"]
 ProfileResourceStatusType = Literal[
     "CREATING", "DELETING", "DISABLED", "DISABLING", "ENABLING", "OPERATIONAL", "UPDATING"
 ]
@@ -272,8 +274,6 @@ ServiceName = Literal[
     "iot-jobs-data",
     "iot-managed-integrations",
     "iotdeviceadvisor",
-    "iotevents",
-    "iotevents-data",
     "iotfleetwise",
     "iotsecuretunneling",
     "iotsitewise",
@@ -300,6 +300,8 @@ ServiceName = Literal[
     "kms",
     "lakeformation",
     "lambda",
+    "lambda-core",
+    "lambda-microvms",
     "launch-wizard",
     "lex-models",
     "lex-runtime",
@@ -367,10 +369,10 @@ ServiceName = Literal[
     "organizations",
     "osis",
     "outposts",
-    "panorama",
     "partnercentral-account",
     "partnercentral-benefits",
     "partnercentral-channel",
+    "partnercentral-revenue-measurement",
     "partnercentral-selling",
     "payment-cryptography",
     "payment-cryptography-data",
@@ -403,6 +405,7 @@ ServiceName = Literal[
     "rekognition",
     "repostspace",
     "resiliencehub",
+    "resiliencehubv2",
     "resource-explorer-2",
     "resource-groups",
     "resourcegroupstaggingapi",
@@ -430,6 +433,7 @@ ServiceName = Literal[
     "sagemaker-geospatial",
     "sagemaker-metrics",
     "sagemaker-runtime",
+    "sagemakerjobruntime",
     "savingsplans",
     "scheduler",
     "schemas",
@@ -451,7 +455,6 @@ ServiceName = Literal[
     "signer-data",
     "signin",
     "simpledbv2",
-    "simspaceweaver",
     "snow-device-management",
     "snowball",
     "sns",
@@ -472,6 +475,7 @@ ServiceName = Literal[
     "supplychain",
     "support",
     "support-app",
+    "supportauthz",
     "sustainability",
     "swf",
     "synthetics",
@@ -517,4 +521,5 @@ PaginatorName = Literal[
     "list_global_resolvers",
     "list_hosted_zone_associations",
     "list_managed_firewall_domain_lists",
+    "list_shared_dns_views",
 ]

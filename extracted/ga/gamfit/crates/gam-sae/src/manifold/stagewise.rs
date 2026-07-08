@@ -339,15 +339,13 @@ fn fit_residual_covariance(
     }
     let activity = activity_of(term);
     let max_rank = config.max_factor_rank.min(p.saturating_sub(1)).max(1);
-    match StructuredResidualModel::fit(ResidualFactorInput {
+    StructuredResidualModel::fit(ResidualFactorInput {
         residuals: residual.view(),
         activity: activity.view(),
         max_factor_rank: max_rank,
-    }) {
-        Ok(model) => Ok(Some((residual, model))),
-        // A degenerate residual fit is a stop signal, not an error.
-        Err(_) => Ok(None),
-    }
+    })
+    .map(|model| Some((residual, model)))
+    .map_err(|err| format!("fit_residual_covariance: structured residual fit failed: {err}"))
 }
 
 fn fit_single_atom_response_in_place(
@@ -375,6 +373,17 @@ fn fit_single_atom_response_in_place(
         SaeAssignment::with_mode(sub_logits, vec![coord_block], term.assignment.mode)?;
     let mut sub_term = SaeManifoldTerm::new(vec![sub_atom], sub_assignment)?;
     sub_term.set_guards_enabled(false);
+    // #2101: a birth sub-fit is a one-atom response fit, so there is no
+    // dictionary peer against which the normal cone-atom collapse recovery can
+    // identify a scale-gauge failure.  Put this local K=1 problem directly on
+    // the scale quotient before Newton: keep the seeded function unchanged by
+    // moving the decoder Frobenius norm into the explicit log-amplitude, then
+    // let the fit adjust the unit-shape decoder and its amplitude.  This makes
+    // the smoothness/ARD terms see the atom's shape instead of charging the raw
+    // LSQ coefficient magnitude that carries residual scale, which is the
+    // mechanism that collapsed genuine born circles to zero/DC rows.
+    sub_term.set_quotient_scale(true);
+    sub_term.atoms[0].absorb_decoder_norm_into_log_amplitude(f64::MIN_POSITIVE);
     if let Some(w) = term.row_loss_weights().map(|w| w.to_vec()) {
         sub_term.set_row_loss_weights(w)?;
     }
@@ -694,17 +703,20 @@ fn residual_principal_birth_candidate(
     // runs multistart 2-plane Jacobi rotations maximizing the independence
     // contrast `(kappa - 2)^2` (dense clean circle kappa ~ 1, gated circle 1/q,
     // Gaussian blend exactly 2), and accepts only on the analytic-anchor
-    // certificate — see `isa_seed` for the math and derivations. ONE clean
-    // circle per single-birth call; the batched path below consumes every
-    // certified plane from one joint split. A residual carrying only
+    // certificate — see `isa_seed` for the math and derivations. The single-birth
+    // path still captures the full above-floor span and emits only the first
+    // certified plane from that resolved joint queue; the batched path below
+    // consumes every certified plane from one joint split. A residual carrying only
     // blends/saddles certifies nothing and falls through to the rank-1 seed
     // (no hallucinated circle birth).
     if template_accepts_circle_births(term) && parts.above.len() >= 2 {
-        let single_plane_parts = capture_signal_span(residual, 1).ok().flatten();
-        if let Some(cand) = single_plane_parts
+        let joint_span_parts = capture_signal_span(residual, parts.above.len())
+            .ok()
+            .flatten();
+        if let Some(cand) = joint_span_parts
             .as_ref()
-            .and_then(|single| {
-                isa_extract_certified_plane(residual, single, &IsaSeedConfig::default())
+            .and_then(|span| {
+                isa_extract_certified_plane(residual, span, &IsaSeedConfig::default())
             })
         {
             // Decoder on the cos/sin harmonic rows at the LS harmonic
@@ -960,7 +972,6 @@ pub fn fit_stagewise(
 
     // ── Phase 1b — forward births ──────────────────────────────────────────────
     let mut birth_round = 0usize;
-    let mut pending_isa_seeds = std::collections::VecDeque::<BirthSeed>::new();
     let stopped_reason = loop {
         // #2138 — bail before starting another birth round if the host cancelled.
         if cancel.is_some_and(|c| c.load(std::sync::atomic::Ordering::Relaxed)) {
@@ -996,8 +1007,17 @@ pub fn fit_stagewise(
                 rho: &rho,
             },
         )?;
-        // Refit Σ on the current residual and install the whitened metric so the
-        // candidate fits run under the structured covariance from atom one.
+        // Prepare the residual metric for this birth from the CURRENT term.
+        // Earlier revisions queued every plane from one ISA split and then fitted
+        // later queued seeds against that old residual snapshot.  That violates
+        // the serial greedy contract unless the later K=1 fit is constrained to
+        // the seed's output block: a dense torus shares all rows, and an
+        // unconstrained single-atom fit can be attracted by strong circles that
+        // have already been accepted by previous queued births.  Recomputing the
+        // residual after every accepted birth is the stagewise deflation
+        // mechanism; the ISA split may still be joint inside one producer call,
+        // but only its best currently-certified plane is consumed by this serial
+        // path.
         emit_stagewise_progress(
             &mut progress,
             StagewiseProgress {
@@ -1019,35 +1039,24 @@ pub fn fit_stagewise(
                 rho: &rho,
             },
         )?;
+        // Certified circle residuals are tried first on this freshly-deflated
+        // residual. If no circle certifies, use the anchor-scored shared-factor
+        // seed, then the #2080 residual-principal rank-1 fallback.
         let Some((residual, model)) = fit_residual_covariance(&term, target, config)? else {
             break StagewiseStop::NoResidualStructure;
         };
-        // Primary: anchor-scored SHARED-factor birth seed. Fallback (#2080): when the
-        // factor model is rank-0 (block-diagonal DISJOINT residual — see
-        // `residual_principal_birth_candidate`) but the residual still carries
-        // above-noise variance, seed from its dominant principal direction so growth
-        // is not blocked at k=1 on the easy disjoint case. For ISA-certified circle
-        // residuals, capture the residual span once and queue every jointly-rotated
-        // plane; the serial loop consumes that queue one seed per birth round.
-        let seed = if let Some(seed) = pending_isa_seeds.pop_front() {
+        let seed = if let Some(seed) = isa_birth_seed_batch(&term, residual.view(), 1)?
+            .into_iter()
+            .next()
+        {
             seed
         } else {
-            let shared_seed = top_factor_birth_decoder(&term, &model, residual.view());
-            if let Some(seed) = shared_seed {
-                seed
-            } else {
-                let remaining = config.max_births.saturating_sub(births_accepted);
-                for seed in isa_birth_seed_batch(&term, residual.view(), remaining)? {
-                    pending_isa_seeds.push_back(seed);
-                }
-                let Some(seed) = pending_isa_seeds
-                    .pop_front()
-                    .or_else(|| residual_principal_birth_candidate(&term, residual.view()))
-                else {
-                    break StagewiseStop::NoResidualStructure;
-                };
-                seed
-            }
+            let Some(seed) = top_factor_birth_decoder(&term, &model, residual.view())
+                .or_else(|| residual_principal_birth_candidate(&term, residual.view()))
+            else {
+                break StagewiseStop::NoResidualStructure;
+            };
+            seed
         };
         let factor_energy = seed.energy;
         if config.structured_whitening {
@@ -2289,6 +2298,31 @@ mod tests {
             let tol = 1e-9 * (1.0 + w[0].abs());
             w[1] >= w[0] - tol
         })
+    }
+
+    /// A structured-residual fit error is a data/solver contract violation, not
+    /// "no residual structure".  The stagewise driver may stop cleanly on an
+    /// empty/single-channel residual, but it must not silently swallow a
+    /// non-finite residual and continue as if the residual producer merely found
+    /// nothing useful.
+    #[test]
+    fn residual_covariance_propagates_invalid_residual_errors() {
+        let n = 8usize;
+        let p = 2usize;
+        let evaluator = Arc::new(PeriodicHarmonicEvaluator::new(3).unwrap());
+        let coords = Array2::<f64>::from_shape_fn((n, 1), |(row, _)| row as f64 / n as f64);
+        let (atom0, cb0) = circle_atom("seed", &evaluator, &coords, 0, 1, p);
+        let (term, _rho) = build_term(vec![atom0], vec![cb0], &vec![vec![true]; n]);
+        let mut target = Array2::<f64>::zeros((n, p));
+        target[[3, 1]] = f64::NAN;
+
+        let err = fit_residual_covariance(&term, target.view(), &test_config())
+            .expect_err("non-finite residuals must be reported, not downgraded to None");
+        assert!(
+            err.contains("structured residual fit failed")
+                && err.contains("residuals must be finite"),
+            "unexpected error: {err}"
+        );
     }
 
     /// Planted two-circles: the target is a genuine two-atom dictionary image, but

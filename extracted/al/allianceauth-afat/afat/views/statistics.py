@@ -9,7 +9,6 @@ from collections import OrderedDict, defaultdict
 # Django
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required, permission_required
-from django.contrib.auth.models import Permission
 from django.core.handlers.wsgi import WSGIRequest
 from django.db.models import Count
 from django.http import HttpResponse, JsonResponse
@@ -21,7 +20,7 @@ from django.utils.translation import gettext, gettext_lazy
 
 # Alliance Auth
 from allianceauth.authentication.decorators import permissions_required
-from allianceauth.authentication.models import CharacterOwnership
+from allianceauth.authentication.models import CharacterOwnership, Permission
 from allianceauth.eveonline.models import EveCharacter, EveCorporationInfo
 from allianceauth.framework.api.evecharacter import get_main_character_from_evecharacter
 from allianceauth.services.hooks import get_extension_logger

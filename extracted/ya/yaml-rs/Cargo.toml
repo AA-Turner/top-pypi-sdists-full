@@ -1,6 +1,6 @@
 [package]
 name = "yaml-rs"
-version = "0.1.4"
+version = "0.1.6"
 edition = "2024"
 license = "Unlicense"
 repository = "https://github.com/lava-sh/yaml-rs"
@@ -13,18 +13,18 @@ crate-type = ["cdylib"]
 [dependencies]
 pyo3 = {
     git = "https://github.com/PyO3/pyo3",
-    rev = "4f458fda6d8682aaf5138550fc3aa740c3936b04",
-    # version = "=0.29.0",
+    rev = "cfd9cec8aa98ff7bd2362ab5b348e9fd7db5e61a",
+    # version = "=0.29.1",
     features = [
         "jiff-02",
         "num-bigint",
         "nightly",
     ]
 }
-jiff = "=0.2.29"
+jiff = "=0.2.31"
 itoa = "=1.0.18"
-num-bigint = "=0.4.6"
-rustc-hash = "=2.1.2"
+num-bigint = "=0.4.8"
+rustc-hash = "=2.1.3"
 memchr = "=2.8.2"
 encoding_rs = "=0.8.35"
 simdutf8 = {
@@ -51,16 +51,34 @@ lexical-core = {
         "parse-integers",
     ]
 }
-mimalloc = {
-    optional = true,
-    version = "=0.1.52",
-    features = [
-        # mimalloc v3
-        # See: https://github.com/microsoft/mimalloc/tree/dev3?tab=readme-ov-file#branches
-        "override",
-        "local_dynamic_tls",
-    ]
-}
+
+# mimalloc v3
+[target.'cfg(not(any(target_os = "macos", target_os = "windows")))'.dependencies.mimalloc]
+optional = true
+version = "=0.1.52"
+features = [
+    "override",
+    "local_dynamic_tls",
+]
+
+[target.'cfg(target_os = "macos")'.dependencies.mimalloc]
+optional = true
+version = "=0.1.52"
+# Do not enable mimalloc's "override" feature on macOS.
+#
+# It installs process-wide malloc interposition and replaces macOS malloc zone/fork
+# hooks when the extension is imported via dlopen. That breaks fork-based subprocess
+# spawning, e.g., asyncio/playwright can fail.
+features = [
+    "local_dynamic_tls",
+]
+
+[target.'cfg(target_os = "windows")'.dependencies.mimalloc]
+optional = true
+version = "=0.1.52"
+features = [
+    "win_direct_tls",
+]
 
 [features]
 default = []

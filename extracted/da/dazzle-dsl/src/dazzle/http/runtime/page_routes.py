@@ -36,6 +36,12 @@ from dazzle.http.runtime.usage_signal import (
     read_usage_counts_for_request,
 )
 from dazzle.page import app_paths
+from dazzle.page.command_index import (
+    build_command_index,
+    filter_command_index,
+    nav_model_entries,
+)
+from dazzle.page.command_render import render_command_results
 from dazzle.page.converters.nav_builder import (
     NavGroup,
     NavLink,
@@ -50,7 +56,10 @@ from dazzle.page.runtime.form_engagement_resolver import annotate_form_fields_by
 from dazzle.rbac.matrix import generate_access_matrix
 from dazzle.render.access_evaluator import evaluate_permission
 from dazzle.render.access_messages import _forbidden_detail
+from dazzle.render.context import CustomRenderCtx
+from dazzle.render.dispatch import dispatch_render
 from dazzle.render.display_names import _inject_display_names
+from dazzle.render.fragment.errors import FragmentError
 from dazzle.render.fragment.form_field import field_context_to_dict
 
 logger = logging.getLogger(__name__)
@@ -523,6 +532,11 @@ class _PageRouterConfig:
     # longer drift between the workspace-page and entity-page paths.
     persona_navs: dict[str, NavModel] = field(default_factory=dict)
     anon_nav: NavModel | None = None
+    # #1539: the app's auth posture (enable_auth and not test_mode — the
+    # same expression the /files + document routes use). When set, the
+    # command palette denies anonymous requests instead of serving the
+    # full surface index.
+    require_auth_by_default: bool = False
 
 
 # =============================================================================
@@ -1267,7 +1281,18 @@ async def _list_entity_in_process(
             temporal_as_of_raw=as_of_raw,
             temporal_include_closed=include_closed,
         )
-    except (AccessForbidden, InvalidTemporalParam):
+    except InvalidTemporalParam:
+        return _empty
+    except AccessForbidden as e:
+        # #1541: a scope/permit denial must not be indistinguishable from
+        # a genuinely-empty collection in the logs — the zero-rows class
+        # is undiagnosable otherwise. The response stays the empty page
+        # (row-existence opacity), but the denial is on record.
+        logger.info(
+            "page list denied for %s (scope/permit): %s — rendering empty state",
+            entity_name,
+            e,
+        )
         return _empty
     encoded = jsonable_encoder(result)
     return encoded if isinstance(encoded, dict) else _empty
@@ -1929,6 +1954,39 @@ def _annotate_form_usage(
         annotate_form_fields_by_usage(ctx_dict["fields"], field_usage)
 
 
+def _dispatch_custom_mode(
+    prc: _PageRequestContext,
+    surface: Any,
+    services: Any,
+    compose: Callable[[str], str],
+) -> str | None:
+    """#1129: hand custom-mode renderers a typed CustomRenderCtx
+    instead of the empty dict the previous build path produced.
+    Existing renderers that take ``ctx: dict`` keep working —
+    CustomRenderCtx is a sibling shape, not a replacement, so
+    isinstance-aware renderers can opt into the typed form
+    without breaking the registered Protocol contract."""
+    custom_ctx = CustomRenderCtx(
+        request=prc.request,
+        params=_collect_request_params(prc.request),
+        services=services,
+        auth_ctx=prc.auth_ctx,
+        surface_name=surface.name,
+        workspace_name=getattr(surface, "workspace", None),
+    )
+    try:
+        return compose(dispatch_render(surface, ctx=custom_ctx, services=services))
+    except FragmentError as e:
+        logger.warning(
+            "dispatch_render failed for custom-mode surface %r (render=%r); "
+            "falling back to legacy path: %s",
+            surface.name,
+            surface.render,
+            e,
+        )
+        return None
+
+
 def _maybe_dispatch_inner_html(prc: _PageRequestContext, render_ctx: Any) -> str | None:
     """If the surface declares an explicit ``render:`` clause, route the
     inner-HTML render through the renderer registry. Returns the inner
@@ -1980,9 +2038,6 @@ def _maybe_dispatch_inner_html(prc: _PageRequestContext, render_ctx: Any) -> str
     # mode: custom surface was never actually called. The early-return
     # for CUSTOM mode below dispatches unconditionally and lets the
     # renderer fetch its own data via `services`.
-    from dazzle.render.dispatch import dispatch_render
-    from dazzle.render.fragment.errors import FragmentError
-
     # The legacy direct-template path composes overlay + body via
     # `_render_typed_body`. The dispatch path bypasses that composer,
     # so we have to apply the same overlay prepend here. Otherwise the
@@ -1997,33 +2052,15 @@ def _maybe_dispatch_inner_html(prc: _PageRequestContext, render_ctx: Any) -> str
         return overlay + inner if overlay else inner
 
     if surface.mode == SurfaceMode.CUSTOM:
-        # #1129: hand custom-mode renderers a typed CustomRenderCtx
-        # instead of the empty dict the previous build path produced.
-        # Existing renderers that take ``ctx: dict`` keep working —
-        # CustomRenderCtx is a sibling shape, not a replacement, so
-        # isinstance-aware renderers can opt into the typed form
-        # without breaking the registered Protocol contract.
-        from dazzle.render.context import CustomRenderCtx
+        return _dispatch_custom_mode(prc, surface, services, _compose)
 
-        custom_ctx = CustomRenderCtx(
-            request=prc.request,
-            params=_collect_request_params(prc.request),
-            services=services,
-            auth_ctx=prc.auth_ctx,
-            surface_name=surface.name,
-            workspace_name=getattr(surface, "workspace", None),
-        )
-        try:
-            return _compose(dispatch_render(surface, ctx=custom_ctx, services=services))
-        except FragmentError as e:
-            logger.warning(
-                "dispatch_render failed for custom-mode surface %r (render=%r); "
-                "falling back to legacy path: %s",
-                surface.name,
-                surface.render,
-                e,
-            )
-            return None
+    # ``display: pdf_viewer`` surfaces (#942/#162) render via the
+    # render_page pdf branch, which only runs when dispatch returns
+    # None — the substrate detail has no pdf shape, so dispatching
+    # here would silently swallow the viewer (the ADR-0049 VIEW flip
+    # did exactly that until the #164 adoption exposed it).
+    if getattr(render_ctx, "pdf_viewer", None) is not None:
+        return None
 
     has_table = getattr(render_ctx, "table", None) is not None
     has_detail = getattr(render_ctx, "detail", None) is not None
@@ -2696,6 +2733,7 @@ def create_page_routes(
     claimed_paths: set[tuple[str, str]] | None = None,
     entity_services: dict[str, Any] | None = None,
     entity_auto_includes: dict[str, Any] | None = None,
+    require_auth_by_default: bool = False,
 ) -> APIRouter:
     """
     Create FastAPI page routes from an AppSpec.
@@ -2811,6 +2849,7 @@ def create_page_routes(
         theme_css=theme_css,
         get_auth_context=get_auth_context,
         app_prefix=app_prefix,
+        require_auth_by_default=require_auth_by_default,
         page_contexts=page_contexts,
         access_configs=access_configs,
         entity_cedar_specs=entity_cedar_specs,
@@ -3165,4 +3204,56 @@ def create_page_routes(
                 _make_root_redirect_handler(deps, _persona_ws_routes, _fallback_ws_route)
             )
 
+    # Command-palette results endpoint (HaTchi-MaXchi tranche 2B adoption).
+    # Returns persona-scoped `.dz-command__item` markup for the `dz-command`
+    # palette's hx-get input. Access uses the same source of truth as the
+    # sidebar, so the palette never surfaces a destination that would 403.
+    if getattr(appspec, "workspaces", None):
+        router.get("/command", response_class=HTMLResponse)(
+            _make_command_handler(deps, appspec, app_prefix)
+        )
+
     return router
+
+
+def _make_command_handler(
+    deps: _PageRouterConfig, appspec: ir.AppSpec, app_prefix: str
+) -> Callable[[Request], Any]:
+    """Build the `/command` results handler bound to this app's index."""
+
+    async def command_handler(request: Request) -> Response:
+        roles: list[str] = []
+        is_superuser = False
+        authenticated = False
+        if deps.get_auth_context is not None:
+            try:
+                auth_ctx = await _resolve_auth_context(deps.get_auth_context, request)
+                if auth_ctx and auth_ctx.is_authenticated and auth_ctx.user is not None:
+                    authenticated = True
+                    roles = list(getattr(auth_ctx.user, "roles", None) or [])
+                    is_superuser = bool(getattr(auth_ctx.user, "is_superuser", False))
+            except Exception:
+                logger.warning("command palette: auth resolution failed", exc_info=True)
+        # #1539: honour the app's auth posture — anonymous requests must
+        # not receive the surface index (matches the sibling /app
+        # workspace handlers' 403, and the /files/document posture).
+        if deps.require_auth_by_default and not authenticated:
+            raise HTTPException(status_code=403, detail="Forbidden")
+        # The palette shares the sidebar's source of truth: a persona's
+        # precomputed NavModel (or the anon-safe subset). Superusers and
+        # authenticated non-persona roles (admin/super_admin) fall
+        # through to the full index — same reach their sidebar has.
+        nav = None
+        if not is_superuser:
+            nav = _resolve_nav_model(deps, roles, authenticated=authenticated)
+        if nav is not None:
+            index = nav_model_entries(_reconcile_nav_model(appspec, app_prefix, nav))
+        else:
+            index = build_command_index(
+                appspec, roles=roles, is_superuser=is_superuser, app_prefix=app_prefix
+            )
+        query = request.query_params.get("q", "")
+        html = render_command_results(filter_command_index(index, query))
+        return HTMLResponse(content=html)
+
+    return command_handler

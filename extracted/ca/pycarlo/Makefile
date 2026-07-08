@@ -110,6 +110,7 @@ generate: env-check-venv retrieve-schema generate-local
 
 test: env-check-venv
 	@echo "\nRunning tests..."; \
+	set -e; \
 	. $(ENVIRONMENT_NAME)/bin/activate; \
 	export DEBUG=True; \
 	pytest --durations=5 ./tests; \

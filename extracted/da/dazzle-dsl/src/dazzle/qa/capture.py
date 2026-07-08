@@ -24,12 +24,16 @@ import logging
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
+from dazzle.core.access import workspace_allowed_personas
 from dazzle.core.ir.identity import spec_display_id
+from dazzle.core.strings import to_api_plural
+from dazzle.page.app_paths import list_path
 from dazzle.qa.models import CapturedScreen
-from dazzle.testing.browser_gate import BrowserGate
-from dazzle.testing.session_manager import SessionManager
+
+if TYPE_CHECKING:
+    from dazzle.testing.session_manager import SessionManager
 
 logger = logging.getLogger(__name__)
 
@@ -48,43 +52,114 @@ class CaptureTarget:
     url: str
 
 
+VIEWPORTS: dict[str, dict[str, int]] = {
+    "desktop": {"width": 1440, "height": 900},
+    "mobile": {"width": 390, "height": 844},
+}
+
+
 # =============================================================================
 # Planning
 # =============================================================================
 
 
-def build_capture_plan(appspec: Any) -> list[CaptureTarget]:
+def _workspace_access_map(workspaces: list[Any], personas: list[Any]) -> dict[str, set[str] | None]:
+    """Per-workspace allowed-persona sets (None = open to all personas)."""
+    allowed_by_ws: dict[str, set[str] | None] = {}
+    for workspace in workspaces:
+        workspace_name = str(getattr(workspace, "name", None) or "unknown")
+        try:
+            allowed = workspace_allowed_personas(workspace, personas)
+        except Exception:  # pragma: no cover - duck-typed appspecs in tests
+            allowed = None
+        allowed_by_ws[workspace_name] = None if allowed is None else set(allowed)
+    return allowed_by_ws
+
+
+def build_capture_plan(appspec: Any, *, include_denied: bool = False) -> list[CaptureTarget]:
     """Build a list of capture targets from an AppSpec.
 
-    Creates one :class:`CaptureTarget` for every (persona, workspace)
-    combination found in *appspec*.  Returns an empty list when either
-    collection is absent or empty.
+    Creates one :class:`CaptureTarget` per **accessible** (persona,
+    workspace) combination — accessibility comes from
+    :func:`dazzle.core.access.workspace_allowed_personas`, the same single
+    source of truth the nav builder uses, so captures see what a real
+    signed-in persona sees (#1536 follow-on: the old Cartesian product
+    spent most of its screenshots on 403 pages). Returns an empty list
+    when either collection is absent or empty.
 
     Args:
         appspec: A loaded Dazzle AppSpec (or any object exposing
             ``.workspaces`` and ``.personas`` (or ``.archetypes``) iterables).
+        include_denied: Also emit the inaccessible combos (for auditing the
+            denial pages themselves).
 
     Returns:
         Ordered list of :class:`CaptureTarget` instances.
     """
-    workspaces = list(getattr(appspec, "workspaces", None) or [])
+    all_workspaces = list(getattr(appspec, "workspaces", None) or [])
+    # #1537: framework-injected workspaces (`_platform_*`) are plumbing
+    # gated to framework roles — never taste targets. Pre-#1536 they were
+    # the sole reason a workspace-less app "had" captures (all of them
+    # denial/admin pages), which quietly poisoned its baseline score.
+    workspaces = [
+        w for w in all_workspaces if not str(getattr(w, "name", "")).startswith("_platform_")
+    ]
     personas = list(
         getattr(appspec, "archetypes", None) or getattr(appspec, "personas", None) or []
     )
 
-    if not workspaces or not personas:
+    if not personas:
         return []
+
+    allowed_by_ws = _workspace_access_map(workspaces, personas) if workspaces else {}
 
     targets: list[CaptureTarget] = []
     for persona in personas:
         persona_id: str = str(spec_display_id(persona))
         for workspace in workspaces:
-            workspace_name: str = str(getattr(workspace, "name", None) or "unknown")
+            workspace_name = str(getattr(workspace, "name", None) or "unknown")
+            allowed_set = allowed_by_ws[workspace_name]
+            accessible = allowed_set is None or persona_id in allowed_set
+            if not accessible and not include_denied:
+                continue
             targets.append(
                 CaptureTarget(
                     persona=persona_id,
                     workspace=workspace_name,
                     url=f"/app/workspaces/{workspace_name}",
+                )
+            )
+    if targets:
+        return targets
+
+    # #1537 fallback: no user-authored workspace produced a target
+    # (workspace-less app, or every workspace is persona-gated away).
+    # Emit per-persona LIST-surface pages so the app stays in fleet
+    # rounds instead of silently dropping out.
+    return _surface_fallback_targets(appspec, personas)
+
+
+def _surface_fallback_targets(appspec: Any, personas: list[Any]) -> list[CaptureTarget]:
+    """Per-persona list-surface targets — the workspace-less-app fallback."""
+    list_entities: list[str] = []
+    seen: set[str] = set()
+    for surface in getattr(appspec, "surfaces", None) or []:
+        mode = getattr(surface, "mode", None)
+        mode_val = getattr(mode, "value", mode)
+        entity_ref = getattr(surface, "entity_ref", None)
+        if mode_val == "list" and entity_ref and entity_ref not in seen:
+            seen.add(str(entity_ref))
+            list_entities.append(str(entity_ref))
+
+    targets: list[CaptureTarget] = []
+    for persona in personas:
+        persona_id = str(spec_display_id(persona))
+        for entity_name in list_entities:
+            targets.append(
+                CaptureTarget(
+                    persona=persona_id,
+                    workspace=f"surface:{entity_name}",
+                    url=list_path("/app", to_api_plural(entity_name)),
                 )
             )
     return targets
@@ -102,6 +177,9 @@ async def capture_screenshots(
     project_dir: Path,
     *,
     output_dir: Path | None = None,
+    viewport: str = "desktop",
+    color_scheme: str = "light",
+    full_page: bool = True,
 ) -> list[CapturedScreen]:
     """Capture screenshots for all targets using a headless Playwright browser.
 
@@ -129,6 +207,13 @@ async def capture_screenshots(
     resolved_output_dir = output_dir or (Path(project_dir) / ".dazzle" / "qa" / "screenshots")
     resolved_output_dir.mkdir(parents=True, exist_ok=True)
 
+    # Deferred (#1438 pattern): dazzle.testing eagerly imports e2e_runner ->
+    # httpx, which a bare `pip install dazzle-dsl` doesn't ship. Importing at
+    # module level broke the console script on wheel-only installs (caught
+    # by the PyPI smoke test).
+    from dazzle.testing.browser_gate import BrowserGate
+    from dazzle.testing.session_manager import SessionManager
+
     session_manager = SessionManager(project_dir, base_url=api_url)
     gate = BrowserGate(max_concurrent=1, headless=True)
 
@@ -142,6 +227,9 @@ async def capture_screenshots(
                 site_url=site_url,
                 session_manager=session_manager,
                 output_dir=resolved_output_dir,
+                viewport=viewport,
+                color_scheme=color_scheme,
+                full_page=full_page,
             )
             if screen is not None:
                 results.append(screen)
@@ -189,6 +277,7 @@ def write_manifest(
                     "url": s.url,
                     "screenshot": str(s.screenshot),
                     "viewport": s.viewport,
+                    "theme": s.theme,
                 }
                 for s in screens
             ],
@@ -204,6 +293,10 @@ async def _capture_one(
     site_url: str,
     session_manager: SessionManager,
     output_dir: Path,
+    *,
+    viewport: str = "desktop",
+    color_scheme: str = "light",
+    full_page: bool = True,
 ) -> CapturedScreen | None:
     """Capture a single persona/workspace screenshot.
 
@@ -217,7 +310,9 @@ async def _capture_one(
     Returns:
         A :class:`CapturedScreen` on success, ``None`` on failure.
     """
-    screenshot_path = output_dir / f"{target.workspace}_{target.persona}.png"
+    screenshot_path = (
+        output_dir / f"{target.workspace}_{target.persona}_{viewport}_{color_scheme}.png"
+    )
 
     try:
         session = await session_manager.create_session(target.persona)
@@ -232,7 +327,7 @@ async def _capture_one(
         return None
 
     try:
-        context = await browser.new_context()
+        context = await browser.new_context(viewport=VIEWPORTS[viewport], color_scheme=color_scheme)
         try:
             await context.add_cookies(
                 [
@@ -247,7 +342,7 @@ async def _capture_one(
             try:
                 full_url = f"{site_url}{target.url}"
                 await page.goto(full_url, wait_until="networkidle")
-                await page.screenshot(path=str(screenshot_path), full_page=True)
+                await page.screenshot(path=str(screenshot_path), full_page=full_page)
                 logger.info(
                     "Captured %s/%s → %s",
                     target.persona,
@@ -259,6 +354,8 @@ async def _capture_one(
                     workspace=target.workspace,
                     url=full_url,
                     screenshot=screenshot_path,
+                    viewport=viewport,
+                    theme=color_scheme,
                 )
             finally:
                 await page.close()

@@ -7,12 +7,11 @@ import datetime as dt
 import re
 
 # Django
-from django.contrib.auth.models import User
 from django.utils import timezone
 from django.utils.crypto import get_random_string
 
 # Alliance Auth
-from allianceauth.authentication.models import CharacterOwnership
+from allianceauth.authentication.models import CharacterOwnership, User
 from allianceauth.eveonline.models import EveCharacter
 from allianceauth.tests.auth_utils import AuthUtils
 from esi.models import Scope, Token

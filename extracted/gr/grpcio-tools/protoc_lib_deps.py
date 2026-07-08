@@ -250,7 +250,6 @@ CC_FILES=[
     'third_party/protobuf/src/google/protobuf/compiler/python/helpers.cc',
     'third_party/protobuf/src/google/protobuf/compiler/python/pyi_generator.cc',
     'third_party/protobuf/src/google/protobuf/compiler/retention.cc',
-    'third_party/protobuf/src/google/protobuf/compiler/ruby/rbs_generator.cc',
     'third_party/protobuf/src/google/protobuf/compiler/ruby/ruby_generator.cc',
     'third_party/protobuf/src/google/protobuf/compiler/rust/accessors/accessor_case.cc',
     'third_party/protobuf/src/google/protobuf/compiler/rust/accessors/accessors.cc',
@@ -266,7 +265,6 @@ CC_FILES=[
     'third_party/protobuf/src/google/protobuf/compiler/rust/context.cc',
     'third_party/protobuf/src/google/protobuf/compiler/rust/crate_mapping.cc',
     'third_party/protobuf/src/google/protobuf/compiler/rust/enum.cc',
-    'third_party/protobuf/src/google/protobuf/compiler/rust/extension.cc',
     'third_party/protobuf/src/google/protobuf/compiler/rust/generator.cc',
     'third_party/protobuf/src/google/protobuf/compiler/rust/message.cc',
     'third_party/protobuf/src/google/protobuf/compiler/rust/naming.cc',
@@ -320,7 +318,6 @@ CC_FILES=[
     'third_party/protobuf/src/google/protobuf/repeated_ptr_field.cc',
     'third_party/protobuf/src/google/protobuf/service.cc',
     'third_party/protobuf/src/google/protobuf/stubs/common.cc',
-    'third_party/protobuf/src/google/protobuf/symbol_checker.cc',
     'third_party/protobuf/src/google/protobuf/text_format.cc',
     'third_party/protobuf/src/google/protobuf/unknown_field_set.cc',
     'third_party/protobuf/src/google/protobuf/wire_format.cc',
@@ -347,7 +344,6 @@ CC_FILES=[
     'third_party/protobuf/upb/mini_descriptor/internal/encode.c',
     'third_party/protobuf/upb/mini_descriptor/link.c',
     'third_party/protobuf/upb/mini_table/extension_registry.c',
-    'third_party/protobuf/upb/mini_table/generated_registry.c',
     'third_party/protobuf/upb/mini_table/internal/message.c',
     'third_party/protobuf/upb/mini_table/message.c',
     'third_party/protobuf/upb/reflection/cmake/google/protobuf/descriptor.upb_minitable.c',
@@ -415,4 +411,4 @@ CC_INCLUDES=[
 ]
 PROTO_INCLUDE='third_party/protobuf'
 
-PROTOBUF_SUBMODULE_VERSION="e59364c38e10de3686a3305ff11fbfc59a10dbd8"
+PROTOBUF_SUBMODULE_VERSION="b6f9284da830b69be787732ffdaa35049d20a088"

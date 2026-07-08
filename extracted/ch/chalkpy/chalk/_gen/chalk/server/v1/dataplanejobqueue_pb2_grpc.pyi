@@ -16,6 +16,8 @@ from chalk._gen.chalk.server.v1.dataplanejobqueue_pb2 import (
     ExplainOperationProgressResponse,
     ForceCancelJobQueueJobRequest,
     ForceCancelJobQueueJobResponse,
+    ForceCancelJobQueueJobsRequest,
+    ForceCancelJobQueueJobsResponse,
     GetDataPlaneJobQueueRequest,
     GetDataPlaneJobQueueResponse,
     GetJobQueueAuxiliaryResourcesRequest,
@@ -61,6 +63,10 @@ class DataPlaneJobQueueServiceStub:
     ForceCancelJobQueueJob: UnaryUnaryMultiCallable[
         ForceCancelJobQueueJobRequest,
         ForceCancelJobQueueJobResponse,
+    ]
+    ForceCancelJobQueueJobs: UnaryUnaryMultiCallable[
+        ForceCancelJobQueueJobsRequest,
+        ForceCancelJobQueueJobsResponse,
     ]
     CancelWorkflowExecution: UnaryUnaryMultiCallable[
         CancelWorkflowExecutionRequest,
@@ -112,6 +118,12 @@ class DataPlaneJobQueueServiceServicer(metaclass=ABCMeta):
         request: ForceCancelJobQueueJobRequest,
         context: ServicerContext,
     ) -> ForceCancelJobQueueJobResponse: ...
+    @abstractmethod
+    def ForceCancelJobQueueJobs(
+        self,
+        request: ForceCancelJobQueueJobsRequest,
+        context: ServicerContext,
+    ) -> ForceCancelJobQueueJobsResponse: ...
     @abstractmethod
     def CancelWorkflowExecution(
         self,

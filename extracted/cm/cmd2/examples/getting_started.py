@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""A simple example cmd2 application demonstrating many common features.
+"""An example cmd2 application demonstrating many common features.
 
 Features demonstrated include all of the following:
  1) Colorizing/stylizing output
@@ -14,13 +14,22 @@ Features demonstrated include all of the following:
 10) How to make custom attributes settable at runtime.
 11) Shortcuts for commands
 12) Persistent bottom toolbar with realtime status updates
+13) Right prompt which displays contextual information
+14) Background thread to update the content displayed by the bottom toolbar outside of the UI thread to keep things responsive
+15) Using preloop() and postloop() hooks to start and stop a background thread
+16) Using the with_annotated decorator to parse typed command arguments
+17) Using the with_argparser decorator to parse command arguments with a custom parser
 """
 
+import argparse
+import datetime
 import pathlib
+import sys
 import threading
-import time
+from typing import Annotated
 
-from prompt_toolkit.formatted_text import FormattedText
+from prompt_toolkit.application import get_app
+from prompt_toolkit.formatted_text import AnyFormattedText
 from rich.style import Style
 
 import cmd2
@@ -28,6 +37,7 @@ from cmd2 import (
     Color,
     stylize,
 )
+from cmd2.annotated import Option
 
 
 class BasicApp(cmd2.Cmd):
@@ -43,21 +53,18 @@ class BasicApp(cmd2.Cmd):
         # Create a shortcut for one of our commands
         shortcuts = cmd2.DEFAULT_SHORTCUTS
         shortcuts.update({"&": "intro"})
+
         super().__init__(
             auto_suggest=True,
-            bottom_toolbar=True,
+            enable_bottom_toolbar=True,
+            enable_rprompt=True,
             include_ipy=True,
             multiline_commands=["echo"],
             persistent_history_file="cmd2_history.dat",
+            refresh_interval=0.5,  # refresh the UI twice a second to keep the bottom toolbar timestamp current
             shortcuts=shortcuts,
             startup_script=str(alias_script),
         )
-
-        # Spawn a background thread to refresh the bottom toolbar twice a second.
-        # This is necessary because the toolbar contains a timestamp that we want to keep current.
-        self._stop_refresh = False
-        self._refresh_thread = threading.Thread(target=self._refresh_bottom_toolbar, daemon=True)
-        self._refresh_thread.start()
 
         # Prints an intro banner once upon application startup
         self.intro = (
@@ -93,46 +100,129 @@ class BasicApp(cmd2.Cmd):
             )
         )
 
-    def get_rprompt(self) -> str | FormattedText | None:
+        # Initialize background thread state for the bottom toolbar
+        self._toolbar_state = {"now": ""}
+        self._toolbar_lock = threading.Lock()
+        self._stop_thread_event = threading.Event()
+        self._toolbar_thread: threading.Thread | None = None
+
+    def _update_toolbar_state(self) -> None:
+        """Background thread worker to update toolbar state continuously."""
+        while not self._stop_thread_event.is_set():
+            # Get the current time in ISO format with 0.01s precision
+            dt = datetime.datetime.now(datetime.timezone.utc).astimezone()
+            now = dt.strftime("%Y-%m-%dT%H:%M:%S.%f")[:-4] + dt.strftime("%z")
+
+            with self._toolbar_lock:
+                self._toolbar_state["now"] = now
+
+            # Sleep to yield CPU, polling 4 times a second
+            self._stop_thread_event.wait(0.25)
+
+    def preloop(self) -> None:
+        """Hook method executed once when the cmdloop() method is called."""
+        super().preloop()
+        self._stop_thread_event.clear()
+        self._toolbar_thread = threading.Thread(target=self._update_toolbar_state, daemon=True)
+        self._toolbar_thread.start()
+
+    def postloop(self) -> None:
+        """Hook method executed once when the cmdloop() method is about to return."""
+        super().postloop()
+        if self._toolbar_thread and self._toolbar_thread.is_alive():
+            self._stop_thread_event.set()
+            self._toolbar_thread.join()
+
+    def get_bottom_toolbar(self) -> AnyFormattedText:
+        left_text = sys.argv[0]
+
+        with self._toolbar_lock:
+            now = self._toolbar_state.get("now", "")
+
+        # Fetch the terminal width to calculate padding for right-alignment.
+        # If called outside a running app loop (e.g., in unit tests), get_app()
+        # safely returns a dummy app with an 80-column fallback.
+        cols = get_app().output.get_size().columns
+        padding_size = cols - len(left_text) - len(now)
+        if padding_size < 1:
+            padding_size = 1
+        padding = " " * padding_size
+
+        # Return formatted text for prompt-toolkit
+        return [
+            ("ansigreen", left_text),
+            ("", padding),
+            ("ansicyan", now),
+        ]
+
+    def get_rprompt(self) -> AnyFormattedText:
         current_working_directory = pathlib.Path.cwd()
         style = "bg:ansired fg:ansiwhite"
         text = f"cwd={current_working_directory}"
-        return FormattedText([(style, text)])
+        return [(style, text)]
 
-    def _refresh_bottom_toolbar(self) -> None:
-        """Background thread target to refresh the bottom toolbar.
+    @cmd2.with_annotated
+    def do_cat(
+        self,
+        path: pathlib.Path,  # Required positional argument with type annotation, tab-completes filesystem paths automatically
+        numbered: Annotated[  # Optional flag argument with type annotation, default value, and help text
+            bool, Option("-n", "--number", help_text="prefix each line with its number")
+        ] = False,
+    ) -> None:
+        """Print a file's contents. `path` tab-completes filesystem paths automatically.
 
-        This is a toy example to show how the bottom toolbar can be used to display
-        realtime status updates in an otherwise line-oriented command interpreter.
+        Try:
+            cat <TAB>              # path completes files/dirs -- no completer wired
+            cat notes.txt
+            cat notes.txt -n       # -n / --number, declared via Option metadata
+            cat notes.txt --no-number
         """
-        import contextlib
-
-        from prompt_toolkit.application.current import get_app
-
-        while not self._stop_refresh:
-            with contextlib.suppress(Exception):
-                # get_app() will return the currently running prompt-toolkit application
-                app = get_app()
-                if app:
-                    app.invalidate()
-            time.sleep(0.5)
+        text = path.read_text()
+        lines = text.splitlines()
+        if numbered:
+            numbered_lines = []
+            for index, line in enumerate(lines, start=1):
+                numbered_lines.append(f"{index}: {line}")
+            self.ppaged("\n".join(numbered_lines))
+        else:
+            # Just print the contents using a pager
+            self.ppaged(path.read_text())
 
     def do_intro(self, _: cmd2.Statement) -> None:
-        """Display the intro banner."""
+        """Display the intro banner.
+
+        This command uses raw statement parsing. In general, we strongly recommend against this approach. But since this
+        command effectively takes no arguments, it is safe to use raw statement parsing here.
+
+        The & key is also used as a shortcut for this command, so you can also type & to display the intro banner.
+        """
         self.poutput(self.intro)
 
-    def do_echo(self, arg: cmd2.Statement) -> None:
+    @staticmethod
+    def _build_echo_parser() -> cmd2.Cmd2ArgumentParser:
+        """Parser factory method for use with the echo command."""
+        echo_parser = cmd2.Cmd2ArgumentParser(description="Multiline command that echoes input.")
+        echo_parser.add_argument("-u", "--upper", action="store_true", help="uppercase the output")
+        echo_parser.add_argument("-r", "--repeat", type=int, default=1, help="output [n] times")
+        echo_parser.add_argument("words", nargs="+", help="words to print")
+        return echo_parser
+
+    @cmd2.with_argparser(_build_echo_parser)
+    def do_echo(self, args: argparse.Namespace) -> None:
         """Multiline command."""
-        self.poutput(
-            stylize(
-                arg,
-                style=Style(color=self.foreground_color),
+        output_str = " ".join(args.words)
+        if args.upper:
+            output_str = output_str.upper()
+
+        for _ in range(args.repeat):
+            self.poutput(
+                stylize(
+                    output_str,
+                    style=Style(color=self.foreground_color),
+                )
             )
-        )
 
 
 if __name__ == "__main__":
-    import sys
-
     app = BasicApp()
     sys.exit(app.cmdloop())

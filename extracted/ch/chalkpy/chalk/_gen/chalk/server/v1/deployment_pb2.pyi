@@ -153,6 +153,8 @@ class Deployment(_message.Message):
         "display_description",
         "git_commit_message",
         "build_options",
+        "resolved_base_image_tag",
+        "source_code_hash",
     )
     class BuildOptionsEntry(_message.Message):
         __slots__ = ("key", "value")
@@ -199,6 +201,8 @@ class Deployment(_message.Message):
     DISPLAY_DESCRIPTION_FIELD_NUMBER: _ClassVar[int]
     GIT_COMMIT_MESSAGE_FIELD_NUMBER: _ClassVar[int]
     BUILD_OPTIONS_FIELD_NUMBER: _ClassVar[int]
+    RESOLVED_BASE_IMAGE_TAG_FIELD_NUMBER: _ClassVar[int]
+    SOURCE_CODE_HASH_FIELD_NUMBER: _ClassVar[int]
     id: str
     environment_id: str
     status: DeploymentStatus
@@ -236,6 +240,8 @@ class Deployment(_message.Message):
     display_description: str
     git_commit_message: str
     build_options: _containers.ScalarMap[str, str]
+    resolved_base_image_tag: str
+    source_code_hash: str
     def __init__(
         self,
         id: _Optional[str] = ...,
@@ -275,4 +281,6 @@ class Deployment(_message.Message):
         display_description: _Optional[str] = ...,
         git_commit_message: _Optional[str] = ...,
         build_options: _Optional[_Mapping[str, str]] = ...,
+        resolved_base_image_tag: _Optional[str] = ...,
+        source_code_hash: _Optional[str] = ...,
     ) -> None: ...

@@ -44,6 +44,8 @@ from chalk._gen.chalk.server.v1.builder_pb2 import (
     DeleteTelemetryDeploymentResponse,
     DeployKubeComponentsRequest,
     DeployKubeComponentsResponse,
+    GetAvailableChalkMachineTypesRequest,
+    GetAvailableChalkMachineTypesResponse,
     GetBranchProfileRequest,
     GetBranchProfileResponse,
     GetBranchServerStatusRequest,
@@ -325,6 +327,10 @@ class BuilderServiceStub:
     GetNodepools: UnaryUnaryMultiCallable[
         GetNodepoolsRequest,
         GetNodepoolsResponse,
+    ]
+    GetAvailableChalkMachineTypes: UnaryUnaryMultiCallable[
+        GetAvailableChalkMachineTypesRequest,
+        GetAvailableChalkMachineTypesResponse,
     ]
     AddNodepool: UnaryUnaryMultiCallable[
         AddNodepoolRequest,
@@ -686,6 +692,12 @@ class BuilderServiceServicer(metaclass=ABCMeta):
         request: GetNodepoolsRequest,
         context: ServicerContext,
     ) -> GetNodepoolsResponse: ...
+    @abstractmethod
+    def GetAvailableChalkMachineTypes(
+        self,
+        request: GetAvailableChalkMachineTypesRequest,
+        context: ServicerContext,
+    ) -> GetAvailableChalkMachineTypesResponse: ...
     @abstractmethod
     def AddNodepool(
         self,

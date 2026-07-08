@@ -246,17 +246,21 @@ class OverlayGraph(_message.Message):
     ) -> None: ...
 
 class ModelReference(_message.Message):
-    __slots__ = ("name", "version", "alias", "as_of", "source_file_reference")
+    __slots__ = ("name", "version", "alias", "as_of", "source_file_reference", "relations", "resolvers")
     NAME_FIELD_NUMBER: _ClassVar[int]
     VERSION_FIELD_NUMBER: _ClassVar[int]
     ALIAS_FIELD_NUMBER: _ClassVar[int]
     AS_OF_FIELD_NUMBER: _ClassVar[int]
     SOURCE_FILE_REFERENCE_FIELD_NUMBER: _ClassVar[int]
+    RELATIONS_FIELD_NUMBER: _ClassVar[int]
+    RESOLVERS_FIELD_NUMBER: _ClassVar[int]
     name: str
     version: int
     alias: str
     as_of: _timestamp_pb2.Timestamp
     source_file_reference: SourceFileReference
+    relations: _containers.RepeatedCompositeFieldContainer[ModelRelation]
+    resolvers: _containers.RepeatedScalarFieldContainer[str]
     def __init__(
         self,
         name: _Optional[str] = ...,
@@ -264,6 +268,18 @@ class ModelReference(_message.Message):
         alias: _Optional[str] = ...,
         as_of: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ...,
         source_file_reference: _Optional[_Union[SourceFileReference, _Mapping]] = ...,
+        relations: _Optional[_Iterable[_Union[ModelRelation, _Mapping]]] = ...,
+        resolvers: _Optional[_Iterable[str]] = ...,
+    ) -> None: ...
+
+class ModelRelation(_message.Message):
+    __slots__ = ("input_features", "output_feature")
+    INPUT_FEATURES_FIELD_NUMBER: _ClassVar[int]
+    OUTPUT_FEATURE_FIELD_NUMBER: _ClassVar[int]
+    input_features: _containers.RepeatedScalarFieldContainer[str]
+    output_feature: str
+    def __init__(
+        self, input_features: _Optional[_Iterable[str]] = ..., output_feature: _Optional[str] = ...
     ) -> None: ...
 
 class NamedQuery(_message.Message):
@@ -1455,7 +1471,7 @@ class StreamHeaderFilter(_message.Message):
     def __init__(self, equality_check: _Optional[_Union[StreamMessageHeaderEqualityCheck, _Mapping]] = ...) -> None: ...
 
 class StreamResolverMessageProducerParsed(_message.Message):
-    __slots__ = ("send_to", "output_features", "transformations", "format")
+    __slots__ = ("send_to", "output_features", "transformations", "format", "message_key")
     class TransformationsEntry(_message.Message):
         __slots__ = ("key", "value")
         KEY_FIELD_NUMBER: _ClassVar[int]
@@ -1470,16 +1486,19 @@ class StreamResolverMessageProducerParsed(_message.Message):
     OUTPUT_FEATURES_FIELD_NUMBER: _ClassVar[int]
     TRANSFORMATIONS_FIELD_NUMBER: _ClassVar[int]
     FORMAT_FIELD_NUMBER: _ClassVar[int]
+    MESSAGE_KEY_FIELD_NUMBER: _ClassVar[int]
     send_to: _sources_pb2_1.StreamSourceReference
     output_features: _containers.RepeatedScalarFieldContainer[str]
     transformations: _containers.MessageMap[str, FeatureExpression]
     format: str
+    message_key: str
     def __init__(
         self,
         send_to: _Optional[_Union[_sources_pb2_1.StreamSourceReference, _Mapping]] = ...,
         output_features: _Optional[_Iterable[str]] = ...,
         transformations: _Optional[_Mapping[str, FeatureExpression]] = ...,
         format: _Optional[str] = ...,
+        message_key: _Optional[str] = ...,
     ) -> None: ...
 
 class ResolverState(_message.Message):

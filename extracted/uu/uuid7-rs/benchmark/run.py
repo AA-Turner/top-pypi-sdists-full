@@ -19,13 +19,12 @@ import uuid7 as uuid7gen
 import uuid7_rs
 import uuid_utils
 import uuid_utils.compat as uuid_utils_compat
+import uuidv7
 from uuid_v7.base import uuid7 as uuid_v7_uuid7
 
 N = 500_000
 
 FILE_PATH = Path(__file__).resolve().parent
-CPU = cpuinfo.get_cpu_info()["brand_raw"]
-PY_VERSION = f"{platform.python_version()} ({platform.system()} {platform.release()})"
 BenchmarkCase: TypeAlias = tuple[Callable, str]
 
 
@@ -127,12 +126,16 @@ def plot_benchmark(
         .encode(text="label:N")
     )
 
+    cpu_info = cpuinfo.get_cpu_info()
+    cpu_brand = cpu_info.get("brand_raw", "Unknown")
+    py_version = f"{platform.python_version()} ({platform.system()} {platform.release()})"
+
     (chart + text).properties(
         width=800,
         height=600,
         title={
             "text": f"UUID v7 benchmark ({scenario})",
-            "subtitle": f"Python: {PY_VERSION} | CPU: {CPU}",
+            "subtitle": f"Python: {py_version} | CPU: {cpu_brand}",
         },
     ).save(save_path)
 
@@ -140,6 +143,7 @@ def plot_benchmark(
 def run(run_count: int) -> None:
     cases = {
         "uuid": (uuid.uuid7, "uuid"),
+        "fastuuid7": (uuidv7.uuid7, "fastuuid7"),
         "uuid7_rs": (uuid7_rs.uuid7, "uuid7_rs"),
         "uuid_utils": (uuid_utils.uuid7, "uuid-utils"),
         "fastuuid": (fastuuid.uuid7, "fastuuid"),
@@ -156,6 +160,7 @@ def run(run_count: int) -> None:
         "uuid6": (uuid6.uuid7, "uuid6"),
         "lastuuid": (lastuuid.uuid7, "lastuuid"),
         "uuid": (uuid.uuid7, "uuid"),
+        "fastuuid7": (uuidv7._uuid7_python, "fastuuid7"),
     }
 
     plot_benchmark(

@@ -213,13 +213,22 @@ def login(
 
         # Wait for the authentication to complete or timeout
         if auth_event.wait(timeout=SERVER_MAX_WAIT_TIME):  # Wait for up to 180 seconds
-            params = {}
-            params["code"] = auth_code[0]
+            params = {"code": auth_code[0]}
             response = requests.get(
                 f"{auth_host}/api/cli-login?{urlencode(params)}",
+                allow_redirects=False,
             )
 
-            data = response.json()
+            if response.status_code != 200:
+                raise Exception("Could not complete the authentication. Please try running the login command again.")
+
+            try:
+                data = response.json()
+            except ValueError:
+                raise Exception(
+                    "Received an unexpected response while completing the authentication. "
+                    "Please try running the login command again."
+                )
             authenticate_with_tokens(data, cli_config)
         else:
             raise Exception("Authentication failed or timed out.")

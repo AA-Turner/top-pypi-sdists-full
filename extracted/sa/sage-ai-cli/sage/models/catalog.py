@@ -248,6 +248,12 @@ def refresh_catalog_from_remote(*, background: bool = False, force: bool = False
             existing = CATALOG_BY_NAME.get(entry.name)
             if existing is None:
                 MODEL_CATALOG.append(entry)
+                CATALOG_BY_NAME[entry.name] = entry
+                if entry.backend == "ollama":
+                    OLLAMA_BY_NAME[entry.name] = entry
+                    OLLAMA_BY_NAME[entry.name.removeprefix("ollama:")] = entry
+                    if entry not in OLLAMA_CATALOG:
+                        OLLAMA_CATALOG.append(entry)
                 added += 1
             elif existing != entry:
                 # Replace stale entry in MODEL_CATALOG and OLLAMA_CATALOG.
@@ -259,12 +265,12 @@ def refresh_catalog_from_remote(*, background: bool = False, force: bool = False
                     if m.name == entry.name:
                         OLLAMA_CATALOG[i] = entry
                         break
-            CATALOG_BY_NAME[entry.name] = entry
-            if entry.backend == "ollama":
-                OLLAMA_BY_NAME[entry.name] = entry
-                OLLAMA_BY_NAME[entry.name.removeprefix("ollama:")] = entry
-                if entry not in OLLAMA_CATALOG:
-                    OLLAMA_CATALOG.append(entry)
+                CATALOG_BY_NAME[entry.name] = entry
+                if entry.backend == "ollama":
+                    OLLAMA_BY_NAME[entry.name] = entry
+                    OLLAMA_BY_NAME[entry.name.removeprefix("ollama:")] = entry
+                    if entry not in OLLAMA_CATALOG:
+                        OLLAMA_CATALOG.append(entry)
         return added
 
     if not background:

@@ -491,39 +491,15 @@ pub fn build_termspec(
                     policy,
                     smooth_coordinate_count,
                 )?;
-                let inner_basis = match inner_basis {
-                    SmoothBasisSpec::FactorSmooth {
-                        spec:
-                            FactorSmoothSpec {
-                                continuous_cols,
-                                group_col,
-                                marginal,
-                                flavour: FactorSmoothFlavour::Sz,
-                                frozen_global_orthogonality,
-                                ..
-                            },
-                    } => {
-                        if continuous_cols.len() != 1 {
-                            return Err(TermBuilderError::incompatible_config(format!(
-                                "sz factor-smooth currently expects exactly one continuous covariate, found {}",
-                                continuous_cols.len()
-                            )));
-                        }
-                        SmoothBasisSpec::FactorSumToZero {
-                            inner: Box::new(SmoothBasisSpec::BSpline1D {
-                                feature_col: continuous_cols[0],
-                                spec: marginal,
-                            }),
-                            by_col: group_col,
-                            levels: encoded_levels_for_column(ds, ColIdx::new(group_col))
-                                .into_iter()
-                                .map(|(bits, _)| bits)
-                                .collect(),
-                            frozen_global_orthogonality,
-                        }
-                    }
-                    other => other,
-                };
+                // `bs="sz"` deliberately stays typed as `SmoothBasisSpec::FactorSmooth
+                // { Sz }` (#1403, owner-confirmed in #1887): the `FactorSumToZero`
+                // envelope is the *legacy, mis-typed* representation. `build_factor_smooth`
+                // reuses the sum-to-zero construction internally as its single source of
+                // truth for the zero-sum geometry (term_specs.rs) while keeping the
+                // freeze-consistent `FactorSmooth` metadata shape shared by fs/sz/re, so
+                // there is no reason to re-wrap the spec into the legacy envelope here —
+                // doing so (#1981) mis-typed `sz(fac, x)` back to `FactorSumToZero` and
+                // broke the refit/predict freeze path's `(FactorSmooth, …)` metadata match.
                 if let Some(by_name) = by_name {
                     let by_col = resolve_col(col_map, &by_name)?;
                     match ds.column_kinds.get(by_col).copied().ok_or_else(|| {
@@ -2082,7 +2058,14 @@ pub fn build_smooth_basis(
     }
 
     match type_opt.as_str() {
-        "cyclic" | "cc" | "cp" | "cyclic-ps" => {
+        // `periodic` is the generic spelling for a periodic (wrap-continuous)
+        // B-spline; it names the SAME `SmoothBasisSpec::BSpline1D {
+        // PeriodicUniform }` the mgcv-style cyclic selectors (`cc`/`cp`/`cyclic`)
+        // build, and is already recognized as that basis kind by the JSON /
+        // override path (`smooth_overrides`) and accepted by the formula parser.
+        // Route it through the cyclic arm so the formula path agrees with the
+        // rest of the codebase instead of rejecting it as an unsupported type.
+        "cyclic" | "cc" | "cp" | "cyclic-ps" | "periodic" => {
             validate_known_options(
                 "cyclic",
                 options,
@@ -3043,24 +3026,22 @@ pub fn build_smooth_basis(
                             // and crashes the fit (historically a non-finite
                             // eigendecomposition; now a fit-time validation error).
                             //
-                            // Rather than emit the fractional cubic and let it truncate
-                            // into an inadmissible kernel, resolve the SMALLEST
-                            // admissible integer `(nullspace, s)` at the requested
-                            // nullspace order. The formula default is the same
-                            // native-Gram Duchon smoother as the scale-free path, so
-                            // there is no collocation-operator floor to honor here.
-                            // Users that opt into operator penalties get the stricter
-                            // gate at basis-build time from the requested operators.
-                            let max_op = crate::basis::duchon_max_active_operator_derivative_order(
-                                &DuchonOperatorPenaltySpec::all_disabled(),
-                            );
-                            let (ns, s) = crate::basis::resolve_duchon_orders(
-                                cols.len(),
-                                requested_nullspace_order,
-                                max_op,
-                                length_scale,
-                            );
-                            (ns, s as f64)
+                            // Resolve to the same structural cubic default the
+                            // scale-free path uses (affine `Linear` null space, `r³`
+                            // kernel, fractional power `s = (d-1)/2`) but take the
+                            // largest admissible INTEGER at or below it — `⌊(d-1)/2⌋`.
+                            // For odd `d` this is exactly the cubic power (the hybrid
+                            // default then agrees with the scale-free cubic default);
+                            // for even `d` it is the nearest integer below. Either way
+                            // `p = 2` (affine) gives spectral order
+                            // `2(p+s) = d+3` (odd `d`) or `d+2` (even `d`), which
+                            // clears both kernel existence `2(p+s) > d` and the D1
+                            // collocation floor `2(p+s) > d+1` for every `d ≥ 1`.
+                            // Flooring here at the request layer avoids the
+                            // `power_as_usize` truncation-to-zero on the fractional
+                            // half-integer.
+                            let (ns, s_frac) = crate::basis::duchon_cubic_default(cols.len());
+                            (ns, s_frac.floor())
                         }
                     }
                 }
@@ -4489,7 +4470,7 @@ fn default_duchon_center_count(
     polynomial_cols: usize,
     univariate_floor: usize,
 ) -> usize {
-    // Duchon fits pay a larger setup cost than Matérn/TPS because the
+    // #1757: Duchon fits pay a larger setup cost than Matérn/TPS because the
     // constrained radial block is rotated through its center Gram and several
     // operator-collocation penalties.  The old generic spatial default handed a
     // 2-D Gaussian Duchon at n≈500 more than one hundred centers, so cold fits
@@ -4850,6 +4831,37 @@ mod tests {
         // The floor is scoped to 1-D: a multivariate smooth passes 0 and keeps
         // the generic n-scaling plan unchanged.
         assert_eq!(default_matern_center_count(200, 2, 40, 0), 40);
+    }
+
+    /// #1757 regression: an omitted `k=`/`centers=` on a 2-D Duchon smooth must
+    /// remain a low-rank representer basis. The generic spatial planner grows
+    /// with `n` (125 centers at n=500), which makes the Duchon center-Gram
+    /// rotation and REML linear algebra scale as dense `O(k^3)` setup work
+    /// before the data-fit iterations even start. The Duchon-specific default
+    /// caps the implicit basis at the thin-plate/Duchon spline rank
+    /// `10 * 3^(d - 1)` (30 in 2-D) while explicit `k=`/`centers=` still bypass
+    /// this helper upstream.
+    #[test]
+    fn duchon_2d_default_is_low_rank_not_generic_spatial_width_1757() {
+        let n = 500usize;
+        let d = 2usize;
+        let polynomial_cols = d + 1;
+        let generic_plan = default_num_centers(n, d);
+        let duchon_default = default_duchon_center_count(n, d, generic_plan, polynomial_cols, 0);
+        let spline_rank = 10usize.saturating_mul(3usize.saturating_pow((d - 1) as u32));
+
+        assert!(
+            generic_plan > spline_rank,
+            "precondition: generic spatial plan should be wider than the Duchon low-rank spline rank"
+        );
+        assert_eq!(
+            duchon_default, spline_rank,
+            "2-D Duchon default must use the low-rank spline representer size, not the generic spatial width"
+        );
+        assert!(
+            duchon_default > polynomial_cols,
+            "the capped default must still contain the affine polynomial null space"
+        );
     }
 
     fn continuous_dataset(headers: &[&str], rows: Vec<Vec<f64>>) -> Dataset {

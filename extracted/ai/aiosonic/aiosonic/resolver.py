@@ -1,5 +1,6 @@
 # copied from aiohttp
 
+from __future__ import annotations
 import asyncio
 import socket
 from abc import ABC, abstractmethod

@@ -5,7 +5,7 @@ requires = [ "hatchling", "hatch-vcs" ]
 [project]
 name = "anndata"
 description = "Annotated data."
-requires-python = ">=3.11"
+requires-python = ">=3.12"
 license = "BSD-3-Clause"
 authors = [
     { name = "Philipp Angerer" },
@@ -29,7 +29,6 @@ classifiers = [
     "Operating System :: Microsoft :: Windows",
     "Operating System :: POSIX :: Linux",
     "Programming Language :: Python :: 3",
-    "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
     "Programming Language :: Python :: 3.14",
@@ -37,17 +36,17 @@ classifiers = [
     "Topic :: Scientific/Engineering :: Visualization",
 ]
 dependencies = [
-    "pandas >=2.1.0, !=2.1.2, <3",
-    "numpy>=1.26",
-    # https://github.com/scverse/anndata/issues/1434
-    "scipy >=1.12,!=1.17.0",
-    "h5py>=3.8",
+    "pandas >=2.3",
+    "numpy>=2.1",
+    "scipy >=1.14,!=1.17.0",
+    "h5py>=3.11",
     "natsort",
     "packaging>=24.2",
-    "array_api_compat>=1.7.1",
+    "array-api-compat>=1.7.1",
     "legacy-api-wrap",
-    "zarr >=2.18.7, !=3.0.*",
-    "scverse-misc>=0.0.3",
+    "zarr >=3.1",
+    "typing-extensions; python_version<='3.14'",
+    "scverse-misc[settings]>=0.1.0",
 ]
 dynamic = [ "version" ]
 
@@ -56,31 +55,40 @@ Documentation = "https://anndata.readthedocs.io/"
 Source = "https://github.com/scverse/anndata"
 Home-page = "https://github.com/scverse/anndata"
 
-
-[project.optional-dependencies]
+[dependency-groups]
 dev = [
-    "anndata[dev-doc]",
+    { include-group = "dev-doc" },
 ]
 doc = [
-    "sphinx>=9.1",
+    "sphinx>=9.1.0",
     "sphinx-book-theme>=1.1.0",
     "sphinx-autodoc-typehints>=3.6.2",
     "sphinx-issues>=5.0.1",
     "sphinx-copybutton",
     "sphinxext.opengraph",
-    "myst-nb",
+    "myst-nb>=1.4",
     "scanpydoc[theme,typehints] >=0.17.1",
     "scverse-misc[sphinx]",
     "awkward>=2.6.3",
     "IPython",                             # For syntax highlighting in notebooks
     "myst-parser",
     "sphinx-design",
+    "anndata[dask]",
+    "pandas>=3",
+    "mudata",
     # for unreleased changes
-    "anndata[dev-doc,dask]",
+    { include-group = "dev-doc" },
 ]
-dev-doc = [ "towncrier>=24.8.0" ] # release notes tool
+dev-doc = [
+    "towncrier>=24.8.0", # release notes tool
+    "types-array-api",   # for dev and linking in the docs
+]
+test = [
+    "fast-array-utils>=1.2.3",
+    "anndata[lazy]",
+    { include-group = "test-min" },
+]
 test-min = [
-    "loompy>=3.0.5",
     "pytest",
     "pytest-cov",           # only for VS Code
     "pytest-randomly",
@@ -88,6 +96,7 @@ test-min = [
     "pytest-mock",
     "pytest-xdist[psutil]",
     "filelock",
+    "jsonschema",
     "matplotlib",
     "scikit-learn",
     "openpyxl",
@@ -95,13 +104,22 @@ test-min = [
     "boltons",
     "scanpy>=1.10",
     "dask[distributed]",
-    "awkward>=2.3.2",
+    "awkward>=2.6.3",
     "pyarrow",
     "pooch",
     "anndata[dask]",
 ]
-test = [ "anndata[test-min,lazy]" ]
+test-array-api = [
+    { include-group = "test-min" },
+    { include-group = "test-jax" },
+]
+test-jax = [
+    "jax>=0.6.0",
+    "jaxlib>=0.6.0",
+]
+[project.optional-dependencies]
 gpu = [ "cupy" ]
+cu13 = [ "cupy-cuda13x" ]
 cu12 = [ "cupy-cuda12x" ]
 cu11 = [ "cupy-cuda11x" ]
 # requests and aiohttp needed for zarr remote data
@@ -109,7 +127,7 @@ lazy = [ "xarray>=2025.06.1", "aiohttp", "requests", "anndata[dask]" ]
 # https://github.com/dask/dask/issues/11290
 # https://github.com/dask/dask/issues/11752
 dask = [
-    "dask[array]>=2023.5.1,!=2024.8.*,!=2024.9.*,!=2025.2.*,!=2025.3.*,!=2025.4.*,!=2025.5.*,!=2025.6.*,!=2025.7.*,!=2025.8.*",
+    "dask[array]>=2024.5.1,!=2024.8.*,!=2024.9.*,!=2025.2.*,!=2025.3.*,!=2025.4.*,!=2025.5.*,!=2025.6.*,!=2025.7.*,!=2025.8.*",
 ]
 
 [tool.hatch.version]
@@ -123,7 +141,6 @@ data_file = "test-data/raw-coverage"
 source_pkgs = [ "anndata" ]
 omit = [ "src/anndata/_version.py", "**/test_*.py" ]
 patch = [ "subprocess" ]
-
 [tool.coverage.xml]
 output = "test-data/coverage.xml"
 [tool.coverage.paths]
@@ -160,26 +177,26 @@ filterwarnings_when_strict = [
     "default:(Observation|Variable) names are not unique. To make them unique:UserWarning",
     "default::scipy.sparse.SparseEfficiencyWarning",
     "default::dask.array.core.PerformanceWarning",
-    "default:anndata will no longer support zarr v2:DeprecationWarning",
-    "default:Consolidated metadata is:UserWarning",
     "default:.*Struct:zarr.core.dtype.common.UnstableSpecificationWarning",
+    # TODO: Remove when https://github.com/zarr-developers/zarr-python/pull/3979 becomes min
     "default:.*FixedLengthUTF32:zarr.core.dtype.common.UnstableSpecificationWarning",
     "default:Writing zarr v2:UserWarning",
-    # TODO: Remove in conjunction with or before https://github.com/scverse/anndata/pull/1707
-    "default:.*will obey copy-on-write semantics:FutureWarning",
 ]
 python_files = [ "test_*.py" ]
 testpaths = [
-    "anndata",                  # docstrings (module name due to --pyargs)
-    "./tests",                  # unit tests
-    "./ci/scripts",             # CI script tests
-    "./docs/concatenation.rst", # further doctests
+    "anndata",      # docstrings (module name due to --pyargs)
+    "./tests",      # unit tests
+    "./ci/scripts", # CI script tests
+    # further doctests
+    "./docs/accessors.rst",
+    "./docs/concatenation.rst",
 ]
 # For some reason this effects how logging is shown when tests are run
 markers = [
     "gpu: mark test to run on GPU",
     "zarr_io: mark tests that involve zarr io",
     "dask_distributed: tests that need a distributed client with multiple processes",
+    "array_api: tests specific to the array-api",
 ]
 
 [tool.ruff]
@@ -214,7 +231,7 @@ select = [
     "UP",   # pyupgrade
     "W",    # Warning detected by Pycodestyle
 ]
-external = [ "PLR0917" ] # preview rule
+external = [ "PLR0917", "PLW0108" ] # preview rules
 ignore = [
     "C408",    # dict() syntax is preferable for dicts used as kwargs
     "E501",    # line too long -> we accept long comment lines; formatter gets rid of long code lines
@@ -241,8 +258,10 @@ extend-immutable-calls = [ "slice" ]
 "subprocess.check_call".msg = "Use `subprocess.run([…], check=True)` instead"
 "subprocess.check_output".msg = "Use `subprocess.run([…], check=True, capture_output=True)` instead"
 "legacy_api_wrap.legacy_api".msg = "Use anndata.compat.old_positionals instead"
+"warnings.warn".msg = "Use anndata.utils.warn instead"
 [tool.ruff.lint.flake8-type-checking]
 exempt-modules = [  ]
+runtime-evaluated-base-classes = [ "scverse_misc.Settings" ]
 strict = true
 [tool.ruff.lint.pylint]
 max-args = 7
@@ -250,7 +269,7 @@ max-positional-args = 5
 
 [tool.codespell]
 skip = ".git,*.pdf,*.svg"
-ignore-words-list = "theis,coo,homogenous"
+ignore-words-list = "theis,coo,homogenous,GroupT"
 
 [tool.towncrier]
 package = "anndata"

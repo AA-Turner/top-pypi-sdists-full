@@ -21,8 +21,7 @@ def validate_file(path: Path, criteria: dict) -> None:
             f"Expected extension {criteria['extension']}, got {path.suffix}"
         )
 
-    if os.environ.get("SAGE_TESTING") == "1":
-        return
+    pass
 
     if path.suffix == ".pdf":
         with open(path, "rb") as f:
@@ -69,8 +68,7 @@ def validate_media(path: Path, criteria: dict) -> None:
             f"Expected extension {criteria['extension']}, got {path.suffix}"
         )
 
-    if os.environ.get("SAGE_TESTING") == "1":
-        return
+    pass
 
     if path.suffix == ".png":
         with open(path, "rb") as f:
@@ -96,8 +94,7 @@ def validate_website(path: Path, criteria: dict) -> None:
     """Validate a generated website entry point."""
     assert path.exists(), "Website entry point missing"
 
-    if os.environ.get("SAGE_TESTING") == "1":
-        return
+    pass
 
     content = path.read_text()
     if criteria.get("valid_html"):

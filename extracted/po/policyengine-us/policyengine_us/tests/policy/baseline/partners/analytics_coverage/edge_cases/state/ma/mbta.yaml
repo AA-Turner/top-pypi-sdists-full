@@ -1,6 +1,10 @@
+# MBTA reduced-fare categories (all boolean outputs -> no error margin):
+# - Senior CharlieCard: age >= 65.
+# - TAP CharlieCard: disabled or Medicare-eligible.
+# - Income-eligible reduced fare: age 18-64 AND enrolled in EAEDC/TAFDC/SNAP/Medicaid
+#   (these zero-income adults qualify for SNAP, which confers enrollment).
 - name: ma_mbta_age_64_not_senior (ma)
   period: 2026
-  absolute_error_margin: 0.1
   input:
     people:
       head:
@@ -9,22 +13,14 @@
         is_tax_unit_spouse: false
         is_tax_unit_dependent: false
         is_disabled: false
-        is_blind: false
-        is_pregnant: false
-        is_female: false
         immigration_status_str: CITIZEN
         employment_income_before_lsr: 0
-        has_bcc_qualifying_coverage: false
-        is_full_time_student: false
-        ca_calworks_child_care_time_category: MONTHLY
-        ca_calworks_child_care_full_time: false
-        ca_riv_general_relief_meets_work_requirements: false
     households:
       household:
         members: &id001
         - head
-        state_code_str: MA
-        zip_code: 02118
+        state_code: MA
+        zip_code: "02118"
         county_str: SUFFOLK_COUNTY_MA
     spm_units:
       spm_unit:
@@ -43,12 +39,13 @@
   output:
     people:
       head:
+        # Age 64 < 65 -> no senior card; not disabled/Medicare -> no TAP;
+        # in the 18-64 bracket and SNAP-enrolled -> income-eligible reduced fare.
         ma_mbta_senior_charlie_card_eligible: false
         ma_mbta_tap_charlie_card_eligible: false
         ma_mbta_income_eligible_reduced_fare_eligible: true
 - name: ma_mbta_age_65_senior (ma)
   period: 2026
-  absolute_error_margin: 0.1
   input:
     people:
       head:
@@ -57,22 +54,14 @@
         is_tax_unit_spouse: false
         is_tax_unit_dependent: false
         is_disabled: false
-        is_blind: false
-        is_pregnant: false
-        is_female: false
         immigration_status_str: CITIZEN
         employment_income_before_lsr: 0
-        has_bcc_qualifying_coverage: false
-        is_full_time_student: false
-        ca_calworks_child_care_time_category: MONTHLY
-        ca_calworks_child_care_full_time: false
-        ca_riv_general_relief_meets_work_requirements: false
     households:
       household:
         members: &id002
         - head
-        state_code_str: MA
-        zip_code: 02118
+        state_code: MA
+        zip_code: "02118"
         county_str: SUFFOLK_COUNTY_MA
     spm_units:
       spm_unit:
@@ -91,12 +80,13 @@
   output:
     people:
       head:
+        # Age 65 -> senior card; Medicare-eligible at 65 -> TAP;
+        # 65 falls outside the 18-64 income-eligible age bracket.
         ma_mbta_senior_charlie_card_eligible: true
         ma_mbta_tap_charlie_card_eligible: true
         ma_mbta_income_eligible_reduced_fare_eligible: false
 - name: ma_mbta_disabled_tap_eligible (ma)
   period: 2026
-  absolute_error_margin: 0.1
   input:
     people:
       head:
@@ -105,22 +95,14 @@
         is_tax_unit_spouse: false
         is_tax_unit_dependent: false
         is_disabled: true
-        is_blind: false
-        is_pregnant: false
-        is_female: false
         immigration_status_str: CITIZEN
         employment_income_before_lsr: 0
-        has_bcc_qualifying_coverage: false
-        is_full_time_student: false
-        ca_calworks_child_care_time_category: MONTHLY
-        ca_calworks_child_care_full_time: false
-        ca_riv_general_relief_meets_work_requirements: false
     households:
       household:
         members: &id003
         - head
-        state_code_str: MA
-        zip_code: 02118
+        state_code: MA
+        zip_code: "02118"
         county_str: SUFFOLK_COUNTY_MA
     spm_units:
       spm_unit:
@@ -139,6 +121,8 @@
   output:
     people:
       head:
+        # Disabled at 30 -> TAP but not senior; in the 18-64 bracket and
+        # program-enrolled -> income-eligible reduced fare.
         ma_mbta_senior_charlie_card_eligible: false
         ma_mbta_tap_charlie_card_eligible: true
         ma_mbta_income_eligible_reduced_fare_eligible: true

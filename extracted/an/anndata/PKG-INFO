@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: anndata
-Version: 0.12.19
+Version: 0.13.0
 Summary: Annotated data.
 Project-URL: Documentation, https://anndata.readthedocs.io/
 Project-URL: Source, https://github.com/scverse/anndata
@@ -18,99 +18,38 @@ Classifier: Operating System :: MacOS :: MacOS X
 Classifier: Operating System :: Microsoft :: Windows
 Classifier: Operating System :: POSIX :: Linux
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
 Classifier: Topic :: Scientific/Engineering :: Bio-Informatics
 Classifier: Topic :: Scientific/Engineering :: Visualization
-Requires-Python: >=3.11
+Requires-Python: >=3.12
 Requires-Dist: array-api-compat>=1.7.1
-Requires-Dist: h5py>=3.8
+Requires-Dist: h5py>=3.11
 Requires-Dist: legacy-api-wrap
 Requires-Dist: natsort
-Requires-Dist: numpy>=1.26
+Requires-Dist: numpy>=2.1
 Requires-Dist: packaging>=24.2
-Requires-Dist: pandas!=2.1.2,<3,>=2.1.0
-Requires-Dist: scipy!=1.17.0,>=1.12
-Requires-Dist: scverse-misc>=0.0.3
-Requires-Dist: zarr!=3.0.*,>=2.18.7
+Requires-Dist: pandas>=2.3
+Requires-Dist: scipy!=1.17.0,>=1.14
+Requires-Dist: scverse-misc[settings]>=0.1.0
+Requires-Dist: typing-extensions; python_version <= '3.14'
+Requires-Dist: zarr>=3.1
 Provides-Extra: cu11
 Requires-Dist: cupy-cuda11x; extra == 'cu11'
 Provides-Extra: cu12
 Requires-Dist: cupy-cuda12x; extra == 'cu12'
+Provides-Extra: cu13
+Requires-Dist: cupy-cuda13x; extra == 'cu13'
 Provides-Extra: dask
-Requires-Dist: dask[array]!=2024.8.*,!=2024.9.*,!=2025.2.*,!=2025.3.*,!=2025.4.*,!=2025.5.*,!=2025.6.*,!=2025.7.*,!=2025.8.*,>=2023.5.1; extra == 'dask'
-Provides-Extra: dev
-Requires-Dist: towncrier>=24.8.0; extra == 'dev'
-Provides-Extra: dev-doc
-Requires-Dist: towncrier>=24.8.0; extra == 'dev-doc'
-Provides-Extra: doc
-Requires-Dist: awkward>=2.6.3; extra == 'doc'
-Requires-Dist: dask[array]!=2024.8.*,!=2024.9.*,!=2025.2.*,!=2025.3.*,!=2025.4.*,!=2025.5.*,!=2025.6.*,!=2025.7.*,!=2025.8.*,>=2023.5.1; extra == 'doc'
-Requires-Dist: ipython; extra == 'doc'
-Requires-Dist: myst-nb; extra == 'doc'
-Requires-Dist: myst-parser; extra == 'doc'
-Requires-Dist: scanpydoc[theme,typehints]>=0.17.1; extra == 'doc'
-Requires-Dist: scverse-misc[sphinx]; extra == 'doc'
-Requires-Dist: sphinx-autodoc-typehints>=3.6.2; extra == 'doc'
-Requires-Dist: sphinx-book-theme>=1.1.0; extra == 'doc'
-Requires-Dist: sphinx-copybutton; extra == 'doc'
-Requires-Dist: sphinx-design; extra == 'doc'
-Requires-Dist: sphinx-issues>=5.0.1; extra == 'doc'
-Requires-Dist: sphinx>=9.1; extra == 'doc'
-Requires-Dist: sphinxext-opengraph; extra == 'doc'
-Requires-Dist: towncrier>=24.8.0; extra == 'doc'
+Requires-Dist: dask[array]!=2024.8.*,!=2024.9.*,!=2025.2.*,!=2025.3.*,!=2025.4.*,!=2025.5.*,!=2025.6.*,!=2025.7.*,!=2025.8.*,>=2024.5.1; extra == 'dask'
 Provides-Extra: gpu
 Requires-Dist: cupy; extra == 'gpu'
 Provides-Extra: lazy
 Requires-Dist: aiohttp; extra == 'lazy'
-Requires-Dist: dask[array]!=2024.8.*,!=2024.9.*,!=2025.2.*,!=2025.3.*,!=2025.4.*,!=2025.5.*,!=2025.6.*,!=2025.7.*,!=2025.8.*,>=2023.5.1; extra == 'lazy'
+Requires-Dist: dask[array]!=2024.8.*,!=2024.9.*,!=2025.2.*,!=2025.3.*,!=2025.4.*,!=2025.5.*,!=2025.6.*,!=2025.7.*,!=2025.8.*,>=2024.5.1; extra == 'lazy'
 Requires-Dist: requests; extra == 'lazy'
 Requires-Dist: xarray>=2025.06.1; extra == 'lazy'
-Provides-Extra: test
-Requires-Dist: aiohttp; extra == 'test'
-Requires-Dist: awkward>=2.3.2; extra == 'test'
-Requires-Dist: boltons; extra == 'test'
-Requires-Dist: dask[array]!=2024.8.*,!=2024.9.*,!=2025.2.*,!=2025.3.*,!=2025.4.*,!=2025.5.*,!=2025.6.*,!=2025.7.*,!=2025.8.*,>=2023.5.1; extra == 'test'
-Requires-Dist: dask[distributed]; extra == 'test'
-Requires-Dist: filelock; extra == 'test'
-Requires-Dist: joblib; extra == 'test'
-Requires-Dist: loompy>=3.0.5; extra == 'test'
-Requires-Dist: matplotlib; extra == 'test'
-Requires-Dist: openpyxl; extra == 'test'
-Requires-Dist: pooch; extra == 'test'
-Requires-Dist: pyarrow; extra == 'test'
-Requires-Dist: pytest; extra == 'test'
-Requires-Dist: pytest-cov; extra == 'test'
-Requires-Dist: pytest-memray; extra == 'test'
-Requires-Dist: pytest-mock; extra == 'test'
-Requires-Dist: pytest-randomly; extra == 'test'
-Requires-Dist: pytest-xdist[psutil]; extra == 'test'
-Requires-Dist: requests; extra == 'test'
-Requires-Dist: scanpy>=1.10; extra == 'test'
-Requires-Dist: scikit-learn; extra == 'test'
-Requires-Dist: xarray>=2025.06.1; extra == 'test'
-Provides-Extra: test-min
-Requires-Dist: awkward>=2.3.2; extra == 'test-min'
-Requires-Dist: boltons; extra == 'test-min'
-Requires-Dist: dask[array]!=2024.8.*,!=2024.9.*,!=2025.2.*,!=2025.3.*,!=2025.4.*,!=2025.5.*,!=2025.6.*,!=2025.7.*,!=2025.8.*,>=2023.5.1; extra == 'test-min'
-Requires-Dist: dask[distributed]; extra == 'test-min'
-Requires-Dist: filelock; extra == 'test-min'
-Requires-Dist: joblib; extra == 'test-min'
-Requires-Dist: loompy>=3.0.5; extra == 'test-min'
-Requires-Dist: matplotlib; extra == 'test-min'
-Requires-Dist: openpyxl; extra == 'test-min'
-Requires-Dist: pooch; extra == 'test-min'
-Requires-Dist: pyarrow; extra == 'test-min'
-Requires-Dist: pytest; extra == 'test-min'
-Requires-Dist: pytest-cov; extra == 'test-min'
-Requires-Dist: pytest-memray; extra == 'test-min'
-Requires-Dist: pytest-mock; extra == 'test-min'
-Requires-Dist: pytest-randomly; extra == 'test-min'
-Requires-Dist: pytest-xdist[psutil]; extra == 'test-min'
-Requires-Dist: scanpy>=1.10; extra == 'test-min'
-Requires-Dist: scikit-learn; extra == 'test-min'
 Description-Content-Type: text/markdown
 
 [![Tests](https://github.com/scverse/anndata/actions/workflows/test-cpu.yml/badge.svg)](https://github.com/scverse/anndata/actions)

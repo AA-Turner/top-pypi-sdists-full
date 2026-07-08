@@ -147,7 +147,7 @@ nav:
       - overview/integrating.md
       - overview/alternatives.md
       - overview/resources.md
-  - Migrating From cmd:
+  - Upgrading from cmd to cmd2:
       - migrating/index.md
       - migrating/why.md
       - migrating/incompatibilities.md
@@ -214,6 +214,7 @@ nav:
       - api/rich_utils.md
       - api/string_utils.md
       - api/styles.md
+      - api/theme.md
       - api/utils.md
   - Version Upgrades:
       - upgrades.md

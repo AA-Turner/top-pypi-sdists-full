@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: markdown-exec
-Version: 1.12.2
+Version: 1.12.3
 Summary: Utilities to execute code blocks in Markdown files.
 Keywords: markdown,python,exec,shell,bash,mkdocs
 Author-Email: =?utf-8?q?Timoth=C3=A9e_Mazzucotelli?= <dev@pawamoy.fr>
@@ -37,15 +37,14 @@ Description-Content-Type: text/markdown
 # Markdown Exec
 
 [![ci](https://github.com/pawamoy/markdown-exec/workflows/ci/badge.svg)](https://github.com/pawamoy/markdown-exec/actions?query=workflow%3Aci)
-[![documentation](https://img.shields.io/badge/docs-mkdocs-708FCC.svg?style=flat)](https://pawamoy.github.io/markdown-exec/)
+[![documentation](https://img.shields.io/badge/docs-zensical-FF9100.svg?style=flat)](https://pawamoy.github.io/markdown-exec/)
 [![pypi version](https://img.shields.io/pypi/v/markdown-exec.svg)](https://pypi.org/project/markdown-exec/)
 [![gitter](https://img.shields.io/badge/matrix-chat-4DB798.svg?style=flat)](https://app.gitter.im/#/room/#markdown-exec:gitter.im)
 [![radicle](https://img.shields.io/badge/rad-clone-6666FF.svg?style=flat)](https://app.radicle.at/nodes/seed.radicle.at/rad:z77aiLJkzYXtuNpZuvizfGkDuZbQ)
 
 Utilities to execute code blocks in Markdown files.
 
-For example, you write a Python code block that computes some HTML,
-and this HTML is injected in place of the code block.
+For example, you write a Python code block that computes some HTML, and this HTML is injected in place of the code block.
 
 ## Installation
 
@@ -118,13 +117,19 @@ markdown_extensions:
 - pymdownx.superfences
 ```
 
+...or in Zensical configuration file, as a legacy plugin:
+
+```toml
+[project.plugins.markdown-exec]
+```
+
 TIP: We recommend enabling Markdown Exec with the MkDocs plugin
-if you are using MkDocs: it will take care of adding relevant
+if you are using MkDocs/Zensical: it will take care of adding relevant
 assets (CSS/JS) to the final site when needed.
 
-WARNING: **Limitation of configuration through Markdown/PyMDown.**
-Configuration through `pymdownx.superfences` directly is not well supported for fences that require assets inclusion, like `pyodide`.
-For these you will have to include the assets manually. In the future we will provide ways to include them automatically.
+WARNING: **Limitation of configuration through Markdown/PyMDown for MkDocs.**
+Configuration through `pymdownx.superfences` directly is not well supported within MkDocs for fences that require assets inclusion, like `pyodide`.
+For these you will have to include the assets manually. In the future we will provide ways to include them automatically. In Zensical these assets are provided natively.
 
 ## Usage
 

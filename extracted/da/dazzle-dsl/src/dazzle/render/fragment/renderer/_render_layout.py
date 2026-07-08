@@ -30,10 +30,10 @@ See issue #1064 for the full decomposition plan.
 
 from __future__ import annotations
 
-import json
 from typing import TYPE_CHECKING
 
 from dazzle.render.fragment.context import RenderContext
+from dazzle.render.fragment.icon_html import lucide_icon_html
 from dazzle.render.fragment.primitives import (
     Badge,
     Card,
@@ -85,14 +85,18 @@ class _RenderLayoutMixin:
         return f'<h{h.level} class="{cls}">{body}</h{h.level}>'
 
     def _emit_stack(self, s: Stack, ctx: RenderContext) -> str:
-        cls = f"dz-stack dz-stack--gap-{s.gap}"
+        # Layouts L2: the HM stack Hyperpart contract — gap rides the shared
+        # data-dz-gap scale, not the retired --gap-* modifier classes.
         body = "".join(self._emit(c, ctx) for c in s.children)  # type: ignore[arg-type]
-        return f'<div class="{cls}">{body}</div>'
+        return f'<div class="dz-stack" data-dz-gap="{ctx.escape_attr(s.gap)}">{body}</div>'
 
     def _emit_row(self, r: Row, ctx: RenderContext) -> str:
-        cls = f"dz-row dz-row--gap-{r.gap} dz-row--align-{r.align}"
+        # Layouts L2: Row renders the HM cluster Hyperpart (wrapping
+        # horizontal group). align=center is the cluster default; other
+        # alignments ride data-dz-align.
+        align = "" if r.align == "center" else f' data-dz-align="{ctx.escape_attr(r.align)}"'
         body = "".join(self._emit(c, ctx) for c in r.children)  # type: ignore[arg-type]
-        return f'<div class="{cls}">{body}</div>'
+        return f'<div class="dz-cluster" data-dz-gap="{ctx.escape_attr(r.gap)}"{align}>{body}</div>'
 
     def _emit_split(self, s: Split, ctx: RenderContext) -> str:
         # The colon in ratio strings is invalid in CSS class names; replace
@@ -165,39 +169,33 @@ class _RenderLayoutMixin:
             data_attr += f' data-dazzle-entity="{ent}" data-dz-entity="{ent}"'
             if r.data_entity_id:
                 data_attr += f' data-dz-entity-id="{ctx.escape_attr(r.data_entity_id)}"'
-        # ADR-0049 D3: when the region carries a dzTable mount, the root gets
-        # the `x-data="dzTable(id, endpoint, config)"` controller wrapper —
-        # the same one the legacy `render_filterable_table` mounted — so the
-        # hydrated rows' sort/bulk/inline/column-visibility bindings resolve.
+        # ADR-0049 D3 → convergence C2.4: when the region carries a grid
+        # mount, the root is an HM grid root — dz-grid.js and its extensions
+        # (all delegated, state-in-DOM) resolve every behaviour against these
+        # attributes. The dzTable Alpine `x-data` wrapper this originally
+        # emitted is retired (its last bindings converged in C2.1–C2.3).
         mount_attr = self._dztable_mount_attrs(r.mount, ctx) if r.mount is not None else ""
         body_html = self._emit(r.body, ctx)  # type: ignore[arg-type]
-        # Task 4e: a controlled list region carries the polite ARIA live region
-        # the dzTable controller announces sort/loading state into
-        # (`getElementById("dz-live-region")`). One per list region.
-        live_region = (
-            '<div id="dz-live-region" aria-live="polite" aria-atomic="true" '
-            'class="visually-hidden"></div>'
-            if r.mount is not None
-            else ""
-        )
-        return f'<section class="{cls}"{mount_attr}{data_attr}>{body_html}{live_region}</section>'
+        return f'<section class="{cls}"{mount_attr}{data_attr}>{body_html}</section>'
 
     @staticmethod
     def _dztable_mount_attrs(m: DzTableMount, ctx: RenderContext) -> str:
-        config = {
-            "sortField": m.sort_field,
-            "sortDir": m.sort_dir,
-            "inlineEditable": list(m.inline_editable),
-            "bulkActions": m.bulk_actions,
-            "entityName": m.entity_name,
-        }
-        config_json = json.dumps(config)
         table_id = ctx.escape_attr(m.table_id)
         endpoint = ctx.escape_attr(m.endpoint)
         return (
             f' id="{table_id}"'
-            f' x-data=\'dzTable("{table_id}", "{endpoint}", {config_json})\''
-            ' :aria-busy="loading"'
+            # Convergence C1.1: `data-dz-grid` marks this region as an HM grid
+            # root — dz-grid.js (delegated) owns sort / selection / bulk /
+            # pagination within it.
+            # C1.3: `data-dz-grid-url` opts the grid into URL-synced state —
+            # this mount renders ONLY for full-page list surfaces (the one
+            # DzTableMount construction site is `_build_list`), which satisfies
+            # the one-url-synced-grid-per-page constraint; workspace/dashboard
+            # regions stay off until the URL keys are namespaced.
+            " data-dz-grid data-dz-grid-url"
+            # C2.3: the inline-edit extension's commit base — the entity's
+            # API root (commits PUT {base}/{id}, the standard update route).
+            f' data-dz-grid-edit-url="{endpoint}"'
             ' data-dz-bulk-count="0"'
         )
 
@@ -210,24 +208,38 @@ class _RenderLayoutMixin:
         return f'<div class="{cls}" role="dialog">{self._emit(m.body, ctx)}</div>'  # type: ignore[arg-type]
 
     def _emit_tabs(self, t: Tabs, ctx: RenderContext) -> str:
+        """Render an eager (content-inline) tab strip using the HM `tabs`
+        Hyperpart contract (`.dz-tabs*`), driven by the ingested
+        `dz-tabs.js` controller — the same honest link-strip as
+        `_emit_lazy_tab_panel`, but each panel carries its content inline
+        (no `hx-get`). Buttons are `<button aria-current>`, panels toggle
+        via the native `hidden` attribute; no `role=tablist`, no inline JS.
+
+        Panel ids are `dz-tab-<key>` (the generic Tabs fragment carries no
+        region namespace). Switching is safe regardless — `dz-tabs.js`
+        scopes every query to the clicked tab's `closest('.dz-tabs')` root
+        — but two eager Tabs on one page sharing a tab key would emit
+        duplicate DOM ids (HTML-invalid, cosmetic). This fragment is the
+        rare latent inline-`tabs` fallback; the live `tabbed_list` path is
+        `_emit_lazy_tab_panel`, which is region-namespaced.
+        """
         tab_buttons = "".join(
-            f'<button class="dz-tabs__button" data-tab="{ctx.escape_attr(key)}">'
+            f'<button type="button" class="dz-tabs__tab"'
+            f"{' aria-current="true"' if i == 0 else ''} "
+            f'data-dz-tab-target="dz-tab-{ctx.escape_attr(key)}">'
             f"{ctx.escape(key)}</button>"
-            for key, _panel in t.tabs
+            for i, (key, _panel) in enumerate(t.tabs)
         )
         panels = "".join(
-            f'<div class="dz-tabs__panel" data-tab="{ctx.escape_attr(key)}">'
+            f'<div id="dz-tab-{ctx.escape_attr(key)}" class="dz-tabs__panel"'
+            f"{'' if i == 0 else ' hidden'}>"
             f"{self._emit(panel, ctx)}</div>"  # type: ignore[arg-type]
-            for key, panel in t.tabs
+            for i, (key, panel) in enumerate(t.tabs)
         )
-        return (
-            f'<div class="dz-tabs"><div class="dz-tabs__buttons">{tab_buttons}</div>{panels}</div>'
-        )
+        return f'<div class="dz-tabs"><div class="dz-tabs__list">{tab_buttons}</div>{panels}</div>'
 
     def _emit_icon(self, i: Icon, ctx: RenderContext) -> str:
-        name = ctx.escape_attr(i.name)
-        cls = f"dz-icon dz-icon--size-{i.size}"
-        return f'<span class="{cls}" data-icon="{name}" aria-hidden="true"></span>'
+        return lucide_icon_html(i.name, cls=f"dz-icon dz-icon--size-{i.size}")
 
     def _emit_badge(self, b: Badge, ctx: RenderContext) -> str:
         cls = f"dz-badge dz-badge--variant-{b.variant}"
@@ -235,8 +247,10 @@ class _RenderLayoutMixin:
 
     def _emit_empty_state(self, e: EmptyState, ctx: RenderContext) -> str:
         action_html = self._emit(e.action, ctx) if e.action is not None else ""  # type: ignore[arg-type]
+        icon_html = lucide_icon_html(e.icon, cls="dz-empty-state__icon") if e.icon else ""
         return (
             f'<div class="dz-empty-state">'
+            f"{icon_html}"
             f'<h3 class="dz-empty-state__title">{ctx.escape(e.title)}</h3>'
             f'<p class="dz-empty-state__description">{ctx.escape(e.description)}</p>'
             f'<div class="dz-empty-state__action">{action_html}</div>'
@@ -244,59 +258,51 @@ class _RenderLayoutMixin:
         )
 
     def _emit_skeleton(self, s: Skeleton, ctx: RenderContext) -> str:
-        lines = "".join('<div class="dz-skeleton__line"></div>' for _ in range(s.lines))
-        return f'<div class="dz-skeleton">{lines}</div>'
+        # Adopts the design system's canonical `.dz-skeleton` placeholder (the
+        # HM skeleton Hyperpart): each line is a `dz-skeleton` element shaped
+        # `text`, stacked by `dz-skeleton-lines`. (The prior `dz-skeleton__line`
+        # child class had no CSS rule — the lines rendered invisible.)
+        lines = "".join(
+            '<div class="dz-skeleton" data-dz-shape="text"></div>' for _ in range(s.lines)
+        )
+        return f'<div class="dz-skeleton-lines">{lines}</div>'
 
     def _emit_lazy_tab_panel(self, p: LazyTabPanel, ctx: RenderContext) -> str:
-        """Render a LazyTabPanel matching legacy
-        `workspace/regions/tabbed_list.html` byte-for-byte.
+        """Render a LazyTabPanel using the HM `tabs` Hyperpart contract.
 
-        Each tab becomes:
-          - a `<a role="tab">` button with an inline `onclick` JS
-            handler that toggles `is-active` and shows/hides panels
-          - a `<div class="tab-panel">` shell that fetches its own
-            content via `hx-get` on first activation
+        An honest link-strip (Tabs Phase 2 convergence): the tabs are
+        `<button class="dz-tabs__tab">`s with `aria-current="true"` on the
+        active one — NOT a `role="tablist"` the widget can't back with
+        roving-tabindex/arrow-key navigation. Panel switching is driven by
+        the ingested `dz-tabs.js` controller (delegated, scoped per
+        `.dz-tabs` root), so there is no inline `onclick` JS here.
 
-        The first tab fires `load`; subsequent tabs fire on
-        `intersect once`. The first panel is visible by default
-        (no `hidden` class); other panels start hidden.
+        Each tab points at its panel via `data-dz-tab-target`; each panel
+        (`.dz-tabs__panel`) fetches its own content via `hx-get`. The
+        first tab fires `load` (and is visible); subsequent panels carry
+        the native `hidden` attribute and fire `hx-trigger="intersect
+        once"` — revealing a hidden panel is what triggers its lazy load.
 
-        DOM ids: `tabs-<region>` for the tablist, `tab-<region>-<key>`
+        DOM ids: `tabs-<region>` for the `.dz-tabs` root, `tab-<region>-<key>`
         for each panel.
         """
         rname = ctx.escape_attr(p.region_name)
-        # Inline-JS click handler: vanilla JS toggles is-active +
-        # shows/hides panels. Mirrors the legacy template verbatim
-        # so dual-path validation stays byte-equivalent.
-        # Legacy template emits raw `>` in the onclick attribute, not
-        # `&gt;`. Match that. Note this is technically not strictly
-        # spec-valid HTML attr escaping, but browsers parse it fine
-        # and the dual-path harness compares byte-for-byte.
-        click_js = (
-            f"document.querySelectorAll('#tabs-{p.region_name} [role=tab]')"
-            f".forEach(t => t.classList.remove('is-active')); "
-            f"this.classList.add('is-active'); "
-            f"document.querySelectorAll('#panels-{p.region_name} .tab-panel')"
-            f".forEach(p => p.classList.add('hidden')); "
-            f"document.getElementById(this.dataset.tabTarget).classList.remove('hidden');"
-        )
 
         tab_buttons = "".join(
-            f'<a role="tab" '
-            f'class="dz-tabbed-list-tab{" is-active" if i == 0 else ""}" '
-            f'data-tab-target="tab-{rname}-{ctx.escape_attr(tab.key)}" '
-            f'onclick="{click_js}">'
-            f"{ctx.escape(tab.label)}</a>"
+            f'<button type="button" '
+            f'class="dz-tabs__tab"{' aria-current="true"' if i == 0 else ""} '
+            f'data-dz-tab-target="tab-{rname}-{ctx.escape_attr(tab.key)}">'
+            f"{ctx.escape(tab.label)}</button>"
             for i, tab in enumerate(p.tabs)
         )
 
         panels = "".join(
             f'<div id="tab-{rname}-{ctx.escape_attr(tab.key)}" '
-            f'class="tab-panel{"" if i == 0 else " hidden"}" '
+            f'class="dz-tabs__panel"{"" if i == 0 else " hidden"} '
             f'hx-get="{ctx.escape_attr(str(tab.endpoint))}" '
             f'hx-trigger="{"load" if (tab.eager or i == 0) else "intersect once"}" '
             f'hx-swap="innerHTML">'
-            f'<div class="dz-tabbed-list-panel-loading">'
+            f'<div class="dz-tabs__loading">'
             f'<svg fill="none" viewBox="0 0 24 24" aria-hidden="true">'
             f'<circle class="opacity-25" cx="12" cy="12" r="10" '
             f'stroke="currentColor" stroke-width="4"></circle>'
@@ -309,8 +315,8 @@ class _RenderLayoutMixin:
         )
 
         return (
-            f'<div role="tablist" class="dz-tabbed-list-tabs" id="tabs-{rname}">'
-            f"{tab_buttons}"
+            f'<div class="dz-tabs" id="tabs-{rname}">'
+            f'<div class="dz-tabs__list">{tab_buttons}</div>'
+            f"{panels}"
             f"</div>"
-            f'<div id="panels-{rname}">{panels}</div>'
         )

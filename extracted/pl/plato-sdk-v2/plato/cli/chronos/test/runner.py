@@ -531,13 +531,19 @@ class TestRunner:
     async def _resolve_and_write_config(self) -> None:
         """Resolve ${VAR} placeholders in world config and write runtime files to the VM."""
         world_config = self.config.world.config or {}
-        await resolve_config_env_vars(world_config, self.api_key)
+        # pass_env (explicit, from the local shell) substitutes FIRST so it
+        # wins over the Chronos analyzer-env store. The reverse order let the
+        # store consume placeholders it happened to have and left pass_env
+        # filling only the rest — for AWS this paired the store's static
+        # access key/secret with the runner's unrelated session token, an
+        # invalid mix Bedrock rejects with 403 "security token invalid".
         pass_env_values = {name: val for name in self.config.test.pass_env if (val := os.environ.get(name))}
         if pass_env_values:
             substituted = substitute_env_vars(world_config, pass_env_values)
             if isinstance(substituted, dict):
                 world_config.clear()
                 world_config.update(substituted)
+        await resolve_config_env_vars(world_config, self.api_key)
         await resolve_agent_images(world_config, self.api_key)
         await self._write_runtime_files()
 

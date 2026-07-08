@@ -660,7 +660,7 @@ def _send_imessage(recipient: str, text: str, attachment_paths: list[str] | None
     if baseline == -1:
         logger.warning(
             "Full Disk Access missing: SAGE cannot verify iMessage delivery via chat.db. "
-            "iMessage will likely fail unless you grant Sage 'Full Disk Access' in "
+            "IMessage will likely fail unless you grant Sage 'Full Disk Access' in "
             "System Settings → Privacy & Security."
         )
         return True
@@ -1354,7 +1354,10 @@ class SAGEMessageBridge:
         self.cfg = cfg
         self._token = token
         self._api_base = api_base.rstrip("/")
-        self._ws_url = self._api_base.replace("https://", "wss://").replace("http://", "ws://") + "/ws/sms"
+        # Force production WS because real emails will be routed there, 
+        # but let LLM generation use the local test backend (SAGE_API_BASE).
+        ws_base = "wss://sageworksai.com/ws/sms"
+        self._ws_url = os.environ.get("SAGE_WS_BASE") or (self._api_base.replace("https://", "wss://").replace("http://", "ws://") + "/ws/sms")
         self.working_dir = Path(cfg.working_dir).expanduser().resolve()
         self._stop = threading.Event()
         self._bridge_email = ""
@@ -2415,6 +2418,7 @@ class SAGEMessageBridge:
                     # Combine stdout and stderr for full context on failure
                     raw = _strip_ansi((result.stdout or "") + (result.stderr or "")).strip()
                     self._last_raw_output = raw
+                    logger.info(f"SMS subprocess finished. Length: {len(raw)}, Content: {raw[:500]}")
                     
                     # Check for rate limits first
                     if "Rate limit exceeded" in raw or "429" in raw or "Too Many Requests" in raw:

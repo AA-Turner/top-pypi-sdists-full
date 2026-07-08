@@ -3,6 +3,7 @@ from chalk._gen.chalk.chart.v1 import densetimeserieschart_pb2 as _densetimeseri
 from google.protobuf import duration_pb2 as _duration_pb2
 from google.protobuf import timestamp_pb2 as _timestamp_pb2
 from google.protobuf.internal import containers as _containers
+from google.protobuf.internal import enum_type_wrapper as _enum_type_wrapper
 from google.protobuf import descriptor as _descriptor
 from google.protobuf import message as _message
 from typing import (
@@ -14,6 +15,16 @@ from typing import (
 )
 
 DESCRIPTOR: _descriptor.FileDescriptor
+
+class MetaQueryRunsSource(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
+    __slots__ = ()
+    META_QUERY_RUNS_SOURCE_UNSPECIFIED: _ClassVar[MetaQueryRunsSource]
+    META_QUERY_RUNS_SOURCE_TIMESCALE: _ClassVar[MetaQueryRunsSource]
+    META_QUERY_RUNS_SOURCE_QUERY_LOG: _ClassVar[MetaQueryRunsSource]
+
+META_QUERY_RUNS_SOURCE_UNSPECIFIED: MetaQueryRunsSource
+META_QUERY_RUNS_SOURCE_TIMESCALE: MetaQueryRunsSource
+META_QUERY_RUNS_SOURCE_QUERY_LOG: MetaQueryRunsSource
 
 class GetQueryPerformanceSummaryRequest(_message.Message):
     __slots__ = ("operation_id",)
@@ -339,6 +350,7 @@ class MetaQueryRun(_message.Message):
         "trace_id",
         "resource_group",
         "query_name_version",
+        "query_name",
     )
     ID_FIELD_NUMBER: _ClassVar[int]
     META_QUERY_ID_FIELD_NUMBER: _ClassVar[int]
@@ -355,6 +367,7 @@ class MetaQueryRun(_message.Message):
     TRACE_ID_FIELD_NUMBER: _ClassVar[int]
     RESOURCE_GROUP_FIELD_NUMBER: _ClassVar[int]
     QUERY_NAME_VERSION_FIELD_NUMBER: _ClassVar[int]
+    QUERY_NAME_FIELD_NUMBER: _ClassVar[int]
     id: str
     meta_query_id: str
     external_id: str
@@ -370,6 +383,7 @@ class MetaQueryRun(_message.Message):
     trace_id: str
     resource_group: str
     query_name_version: str
+    query_name: str
     def __init__(
         self,
         id: _Optional[str] = ...,
@@ -387,6 +401,7 @@ class MetaQueryRun(_message.Message):
         trace_id: _Optional[str] = ...,
         resource_group: _Optional[str] = ...,
         query_name_version: _Optional[str] = ...,
+        query_name: _Optional[str] = ...,
     ) -> None: ...
 
 class MetaQueryRunWithMeta(_message.Message):
@@ -425,6 +440,8 @@ class ListMetaQueryRunsRequest(_message.Message):
         "resource_group",
         "query_version",
         "deployment_filter",
+        "source",
+        "page_token",
     )
     INCLUDE_LATENCY_FIELD_NUMBER: _ClassVar[int]
     MIN_LATENCY_MS_FIELD_NUMBER: _ClassVar[int]
@@ -445,6 +462,8 @@ class ListMetaQueryRunsRequest(_message.Message):
     RESOURCE_GROUP_FIELD_NUMBER: _ClassVar[int]
     QUERY_VERSION_FIELD_NUMBER: _ClassVar[int]
     DEPLOYMENT_FILTER_FIELD_NUMBER: _ClassVar[int]
+    SOURCE_FIELD_NUMBER: _ClassVar[int]
+    PAGE_TOKEN_FIELD_NUMBER: _ClassVar[int]
     include_latency: bool
     min_latency_ms: float
     query_plan_id: str
@@ -464,6 +483,8 @@ class ListMetaQueryRunsRequest(_message.Message):
     resource_group: str
     query_version: str
     deployment_filter: str
+    source: MetaQueryRunsSource
+    page_token: str
     def __init__(
         self,
         include_latency: bool = ...,
@@ -485,18 +506,29 @@ class ListMetaQueryRunsRequest(_message.Message):
         resource_group: _Optional[str] = ...,
         query_version: _Optional[str] = ...,
         deployment_filter: _Optional[str] = ...,
+        source: _Optional[_Union[MetaQueryRunsSource, str]] = ...,
+        page_token: _Optional[str] = ...,
     ) -> None: ...
 
+class ListMetaQueryRunsPageToken(_message.Message):
+    __slots__ = ("cursor",)
+    CURSOR_FIELD_NUMBER: _ClassVar[int]
+    cursor: _timestamp_pb2.Timestamp
+    def __init__(self, cursor: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ...) -> None: ...
+
 class ListMetaQueryRunsResponse(_message.Message):
-    __slots__ = ("query_runs", "next_cursor")
+    __slots__ = ("query_runs", "next_cursor", "next_page_token")
     QUERY_RUNS_FIELD_NUMBER: _ClassVar[int]
     NEXT_CURSOR_FIELD_NUMBER: _ClassVar[int]
+    NEXT_PAGE_TOKEN_FIELD_NUMBER: _ClassVar[int]
     query_runs: _containers.RepeatedCompositeFieldContainer[MetaQueryRunWithMeta]
     next_cursor: _timestamp_pb2.Timestamp
+    next_page_token: str
     def __init__(
         self,
         query_runs: _Optional[_Iterable[_Union[MetaQueryRunWithMeta, _Mapping]]] = ...,
         next_cursor: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ...,
+        next_page_token: _Optional[str] = ...,
     ) -> None: ...
 
 class MetaQuery(_message.Message):

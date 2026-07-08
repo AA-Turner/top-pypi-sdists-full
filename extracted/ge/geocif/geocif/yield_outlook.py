@@ -3733,6 +3733,13 @@ def run(path_config_files=None, current_year=None, n_years=None, aggregation=Non
                      - df_mape["Observed Yield (tn per ha)"]).abs()
                     / df_mape["Observed Yield (tn per ha)"] * 100
                 )
+                # RMSE per (Region, Year) row is just the absolute error in Mg/ha;
+                # aggregating box-style across regions/years reproduces the standard
+                # RMSE distribution.
+                df_mape["RMSE"] = (
+                    df_mape["Predicted Yield (tn per ha)"]
+                    - df_mape["Observed Yield (tn per ha)"]
+                ).abs()
                 df_mape = (
                     df_mape.sort_values("Stage Name")
                     .groupby(["Region", "Harvest Year"], as_index=False).last()
@@ -3771,6 +3778,38 @@ def run(path_config_files=None, current_year=None, n_years=None, aggregation=Non
                     pred_col="Predicted Yield (tn per ha)",
                     area_col="Area (ha)",
                     threshold=20.0,
+                )
+                # RMSE twins of the three MAPE plots above. Same (Region, Year)
+                # grid, natural Mg/ha units, no percentage cap.
+                diag.rmse_box_by_region(
+                    df_mape,
+                    title=(
+                        f"RMSE Distribution by Region \u2014 "
+                        f"{country.title().replace('_', ' ')} "
+                        f"{crop.title().replace('_', ' ')} ({model})"
+                    ),
+                    dir_out=plot_dir,
+                    fname=f"rmse_box_region_{country_lower}_{crop}_{model}.png",
+                    production_pct=prod_pct,
+                )
+                diag.rmse_box_by_year(
+                    df_mape,
+                    title=(
+                        f"RMSE Distribution by Year \u2014 "
+                        f"{country.title().replace('_', ' ')} "
+                        f"{crop.title().replace('_', ' ')} ({model})"
+                    ),
+                    dir_out=plot_dir,
+                    fname=f"rmse_box_year_{country_lower}_{crop}_{model}.png",
+                )
+                diag.rmse_by_year(
+                    df_mape,
+                    title=f"RMSE by Year \u2014 {country.title().replace('_', ' ')} {crop.title().replace('_', ' ')} ({model})",
+                    dir_out=plot_dir,
+                    fname=f"rmse_year_{country_lower}_{crop}_{model}.png",
+                    obs_col="Observed Yield (tn per ha)",
+                    pred_col="Predicted Yield (tn per ha)",
+                    area_col="Area (ha)",
                 )
 
             # % of national crop area — choropleth (mirrors analysis.py's perc_area map)

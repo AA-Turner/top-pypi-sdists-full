@@ -4,10 +4,10 @@
 
 [project]
 name = "boto3-stubs-lite"
-version = "1.43.41"
+version = "1.43.42"
 license = "MIT"
 authors = [{ name = "Vlad Emelianov", email = "vlad.emelianov.nz@gmail.com" }]
-description = "Lite type annotations for boto3 1.43.41 generated with mypy-boto3-builder 8.12.0"
+description = "Lite type annotations for boto3 1.43.42 generated with mypy-boto3-builder 8.12.0"
 readme = "README.md"
 classifiers = [
     "Development Status :: 5 - Production/Stable",
@@ -69,7 +69,7 @@ full = [
     "boto3-stubs-full>=1.43.0, <1.44.0",
 ]
 boto3 = [
-    "boto3==1.43.41",
+    "boto3==1.43.42",
 ]
 all = [
     "mypy-boto3-accessanalyzer>=1.43.0, <1.44.0",
@@ -362,6 +362,7 @@ all = [
     "mypy-boto3-partnercentral-account>=1.43.0, <1.44.0",
     "mypy-boto3-partnercentral-benefits>=1.43.0, <1.44.0",
     "mypy-boto3-partnercentral-channel>=1.43.0, <1.44.0",
+    "mypy-boto3-partnercentral-revenue-measurement>=1.43.0, <1.44.0",
     "mypy-boto3-partnercentral-selling>=1.43.0, <1.44.0",
     "mypy-boto3-payment-cryptography>=1.43.0, <1.44.0",
     "mypy-boto3-payment-cryptography-data>=1.43.0, <1.44.0",
@@ -1375,6 +1376,9 @@ partnercentral-benefits = [
 ]
 partnercentral-channel = [
     "mypy-boto3-partnercentral-channel>=1.43.0, <1.44.0",
+]
+partnercentral-revenue-measurement = [
+    "mypy-boto3-partnercentral-revenue-measurement>=1.43.0, <1.44.0",
 ]
 partnercentral-selling = [
     "mypy-boto3-partnercentral-selling>=1.43.0, <1.44.0",

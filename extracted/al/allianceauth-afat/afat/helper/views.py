@@ -8,7 +8,6 @@ from collections import OrderedDict
 from enum import Enum
 
 # Django
-from django.contrib.auth.models import Permission, User
 from django.core.handlers.wsgi import WSGIRequest
 from django.db import models
 from django.db.models import QuerySet
@@ -18,6 +17,7 @@ from django.utils.functional import Promise
 from django.utils.translation import gettext_lazy as _
 
 # Alliance Auth
+from allianceauth.authentication.models import Permission, User
 from allianceauth.eveonline.models import EveCharacter, EveCorporationInfo
 from allianceauth.framework.api.user import get_main_character_name_from_user
 from allianceauth.services.hooks import get_extension_logger

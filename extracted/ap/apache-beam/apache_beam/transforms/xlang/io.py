@@ -28,6 +28,49 @@ from apache_beam.transforms.external import BeamJarExpansionService
 from apache_beam.transforms.external_transform_provider import ExternalTransform
 
 
+class DatadogWrite(ExternalTransform):
+
+  identifier = "beam:schematransform:org.apache.beam:datadog_write:v1"
+
+  def __init__(
+      self,
+      api_key,
+      url,
+      batch_count=None,
+      error_handling=None,
+      max_buffer_size=None,
+      min_batch_count=None,
+      parallelism=None,
+      expansion_service=None):
+    """
+    :param api_key: (str)
+      The Datadog API key. 
+    :param url: (str)
+      The Datadog API URL. 
+    :param batch_count: (int32)
+      The number of events to batch together for each write. 
+    :param error_handling: (Row(output=<class 'str'>))
+      Specifies how to handle errors. 
+    :param max_buffer_size: (int64)
+      The maximum buffer size in bytes. 
+    :param min_batch_count: (int32)
+      The minimum number of events to batch together for each write. 
+    :param parallelism: (int32)
+      The degree of parallelism for writing. 
+    """
+    self.default_expansion_service = BeamJarExpansionService(
+        "sdks:java:io:expansion-service:shadowJar")
+    super().__init__(
+        api_key=api_key,
+        url=url,
+        batch_count=batch_count,
+        error_handling=error_handling,
+        max_buffer_size=max_buffer_size,
+        min_batch_count=min_batch_count,
+        parallelism=parallelism,
+        expansion_service=expansion_service)
+
+
 class GenerateSequence(ExternalTransform):
   """
   Outputs a PCollection of Beam Rows, each containing a single INT64 number
@@ -55,6 +98,44 @@ class GenerateSequence(ExternalTransform):
         "sdks:java:io:expansion-service:shadowJar")
     super().__init__(
         start=start, end=end, rate=rate, expansion_service=expansion_service)
+
+
+class MongodbWrite(ExternalTransform):
+
+  identifier = "beam:schematransform:org.apache.beam:mongodb_write:v1"
+
+  def __init__(
+      self,
+      collection,
+      database,
+      uri,
+      batch_size=None,
+      error_handling=None,
+      expansion_service=None):
+    """
+    :param collection: (str)
+      The MongoDB collection to write to. 
+    :param database: (str)
+      The MongoDB database to write to. 
+    :param uri: (str)
+      The connection URI for the MongoDB server. 
+    :param batch_size: (int64)
+      The number of documents to include in each batch write. 
+    :param error_handling: (Row(output=<class 'str'>))
+      This option specifies whether and where to output unwritable rows. Note:
+      Error handling is currently limited to data conversion failures before
+      sending to the MongoDB driver, as the underlying MongoDbIO does not yet
+      support dead-letter queues for write failures. 
+    """
+    self.default_expansion_service = BeamJarExpansionService(
+        "sdks:java:io:expansion-service:shadowJar")
+    super().__init__(
+        collection=collection,
+        database=database,
+        uri=uri,
+        batch_size=batch_size,
+        error_handling=error_handling,
+        expansion_service=expansion_service)
 
 
 class TfrecordRead(ExternalTransform):
@@ -135,4 +216,73 @@ class TfrecordWrite(ExternalTransform):
         max_num_writers_per_bundle=max_num_writers_per_bundle,
         no_spilling=no_spilling,
         shard_template=shard_template,
+        expansion_service=expansion_service)
+
+
+class ReadFromMqtt(ExternalTransform):
+  """
+  Reads messages from an MQTT broker and outputs each payload as a single
+  `bytes` field.
+  
+  By default the read is unbounded (streaming): it keeps consuming messages from
+  the subscribed topic until the pipeline is stopped. Setting `maxNumRecords`
+  and/or `maxReadTimeSeconds` bounds the read, producing a bounded (batch)
+  PCollection.
+  
+  Note: streaming reads require a runner that supports portable streaming (e.g.
+  Prism, Flink, or Dataflow). The legacy local Python DirectRunner does not
+  execute portable streaming cross-language reads.
+  """
+  identifier = "beam:schematransform:org.apache.beam:mqtt_read:v1"
+
+  def __init__(
+      self,
+      connection_configuration,
+      max_num_records=None,
+      max_read_time_seconds=None,
+      expansion_service=None):
+    """
+    :param connection_configuration: (Row(client_id=typing.Optional[str], password=typing.Optional[str], server_uri=<class 'str'>, topic=typing.Optional[str], username=typing.Optional[str]))
+      Configuration options to set up the MQTT connection. 
+    :param max_num_records: (int64)
+      The max number of records to receive. Setting this will result in a
+      bounded PCollection. 
+    :param max_read_time_seconds: (int64)
+      The maximum time for this source to read messages. Setting this will
+      result in a bounded PCollection. 
+    """
+    self.default_expansion_service = BeamJarExpansionService(
+        "sdks:java:io:messaging-expansion-service:shadowJar")
+    super().__init__(
+        connection_configuration=connection_configuration,
+        max_num_records=max_num_records,
+        max_read_time_seconds=max_read_time_seconds,
+        expansion_service=expansion_service)
+
+
+class WriteToMqtt(ExternalTransform):
+  """
+  Publishes messages to an MQTT broker. Expects an input PCollection of rows
+  with a single `bytes` field, each of which is published as one MQTT message.
+  
+  Works with both bounded (batch) and unbounded (streaming) input PCollections.
+  """
+  identifier = "beam:schematransform:org.apache.beam:mqtt_write:v1"
+
+  def __init__(
+      self, connection_configuration, retained=None, expansion_service=None):
+    """
+    :param connection_configuration: (Row(client_id=typing.Optional[str], password=typing.Optional[str], server_uri=<class 'str'>, topic=typing.Optional[str], username=typing.Optional[str]))
+      Configuration options to set up the MQTT connection. 
+    :param retained: (boolean)
+      Whether or not the publish message should be retained by the messaging
+      engine. When a subscriber connects, it gets the latest retained message.
+      Defaults to `False`, which will clear the retained message from the
+      server. 
+    """
+    self.default_expansion_service = BeamJarExpansionService(
+        "sdks:java:io:messaging-expansion-service:shadowJar")
+    super().__init__(
+        connection_configuration=connection_configuration,
+        retained=retained,
         expansion_service=expansion_service)

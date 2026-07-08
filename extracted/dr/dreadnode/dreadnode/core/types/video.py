@@ -4,12 +4,32 @@ import typing as t
 from pathlib import Path
 
 import numpy as np
-from moviepy.video.VideoClip import VideoClip
 from numpy.typing import NDArray
 
 from dreadnode.core.types import DataType
 
 VideoDataType: t.TypeAlias = str | Path | NDArray[t.Any] | bytes | list[NDArray[t.Any]] | t.Any
+
+_MOVIEPY_INSTALL_MESSAGE = (
+    "MoviePy is required to serialize numpy-frame videos or MoviePy VideoClip objects. "
+    "Install it with `pip install 'dreadnode[video]'`."
+)
+
+
+def _get_video_clip_type() -> type[t.Any] | None:
+    try:
+        from moviepy.video.VideoClip import VideoClip
+    except ImportError:
+        return None
+    return VideoClip
+
+
+def _get_image_sequence_clip_type() -> type[t.Any]:
+    try:
+        from moviepy.video.io.ImageSequenceClip import ImageSequenceClip
+    except ImportError as exc:
+        raise ImportError(_MOVIEPY_INSTALL_MESSAGE) from exc
+    return ImageSequenceClip
 
 
 class Video(DataType):
@@ -70,7 +90,8 @@ class Video(DataType):
             return self._process_bytes()
         if isinstance(self._data, np.ndarray | list):
             return self._process_numpy_array()
-        if isinstance(self._data, VideoClip):
+        video_clip_type = _get_video_clip_type()
+        if video_clip_type is not None and isinstance(self._data, video_clip_type):
             return self._process_moviepy_clip()
         raise TypeError(f"Unsupported video data type: {type(self._data)}")
 
@@ -144,7 +165,7 @@ class Video(DataType):
         self, frames: "list[NDArray[t.Any]]"
     ) -> tuple[bytes, dict[str, t.Any]]:
         """Create video file from frames."""
-        from moviepy.video.io.ImageSequenceClip import ImageSequenceClip
+        image_sequence_clip = _get_image_sequence_clip_type()
 
         frame_height, frame_width = frames[0].shape[:2]
         temp_fd, temp_path = tempfile.mkstemp(suffix=f".{self._format}")
@@ -152,7 +173,7 @@ class Video(DataType):
 
         try:
             # Create clip and write to file
-            clip = ImageSequenceClip(frames, fps=self._fps)
+            clip = image_sequence_clip(frames, fps=self._fps)
             clip.write_videofile(
                 temp_path,
                 fps=self._fps,
@@ -186,7 +207,10 @@ class Video(DataType):
         Returns:
             A tuple of (video_bytes, metadata_dict)
         """
-        if not isinstance(self._data, VideoClip):
+        video_clip_type = _get_video_clip_type()
+        if video_clip_type is None:
+            raise ImportError(_MOVIEPY_INSTALL_MESSAGE)
+        if not isinstance(self._data, video_clip_type):
             raise TypeError("data must be a MoviePy VideoClip object")
 
         temp_fd, temp_path = tempfile.mkstemp(suffix=f".{self._format}")

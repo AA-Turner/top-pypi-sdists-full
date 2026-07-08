@@ -24,7 +24,7 @@ _assets = """
 """
 
 _template = """
-<div class="pyodide">
+<div class="pyodide" data-install="%(install)s" data-session="%(session)s" data-minlines="%(min_lines)s" data-maxlines="%(max_lines)s">
 <div class="pyodide-editor-bar">
 <span class="pyodide-bar-item">Editor (session: %(session)s)</span><span id="%(id_prefix)srun" title="Run: press Ctrl-Enter" class="pyodide-bar-item pyodide-clickable">%(play_emoji)sRun</span>
 </div>
@@ -75,7 +75,7 @@ def _format_pyodide(code: str, md: Markdown, session: str, extra: dict, **option
     global _counter  # noqa: PLW0603
     _counter += 1
 
-    version = extra.pop("version", "0.26.4").lstrip("v")
+    version = extra.pop("version", "314.0.2").lstrip("v")
     install = extra.pop("install", "")
     install = install.split(",") if install else []
     exclude_assets = extra.pop("assets", "1").lower() in {"0", "false", "no", "off"}
@@ -89,7 +89,7 @@ def _format_pyodide(code: str, md: Markdown, session: str, extra: dict, **option
     data = {
         "id_prefix": f"exec-{_counter}--",
         "initial_code": code,
-        "install": install,
+        "install": ",".join(install) if zensical else repr(install),
         "theme_light": theme_light.strip(),
         "theme_dark": theme_dark.strip(),
         "session": session or "default",

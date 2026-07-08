@@ -24,19 +24,20 @@ _sym_db = _symbol_database.Default()
 
 from google.protobuf import timestamp_pb2 as google_dot_protobuf_dot_timestamp__pb2
 from sentry_protos.billing.v1.common.v1 import payment_config_pb2 as sentry__protos_dot_billing_dot_v1_dot_common_dot_v1_dot_payment__config__pb2
+from sentry_protos.billing.v1.common.v1 import stripe_charge_pb2 as sentry__protos_dot_billing_dot_v1_dot_common_dot_v1_dot_stripe__charge__pb2
 
 
-DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\nIsentry_protos/billing/v1/services/charge/v1/endpoint_capture_charge.proto\x12+sentry_protos.billing.v1.services.charge.v1\x1a\x1fgoogle/protobuf/timestamp.proto\x1a\x37sentry_protos/billing/v1/common/v1/payment_config.proto\"\xa8\x03\n\x14\x43\x61ptureChargeRequest\x12P\n\rcharge_method\x18\x01 \x01(\x0e\x32\x39.sentry_protos.billing.v1.services.charge.v1.ChargeMethod\x12\x14\n\x0c\x61mount_cents\x18\x02 \x01(\x04\x12\x18\n\x0b\x64\x65scription\x18\x03 \x01(\tH\x00\x88\x01\x01\x12\x17\n\x0forganization_id\x18\x04 \x01(\x04\x12.\n\ncurrent_ts\x18\x05 \x01(\x0b\x32\x1a.google.protobuf.Timestamp\x12\x17\n\ninvoice_id\x18\x06 \x01(\tH\x01\x88\x01\x01\x12\x19\n\x0cinvoice_guid\x18\x07 \x01(\tH\x02\x88\x01\x01\x12N\n\x0epayment_config\x18\x08 \x01(\x0b\x32\x31.sentry_protos.billing.v1.common.v1.PaymentConfigH\x03\x88\x01\x01\x42\x0e\n\x0c_descriptionB\r\n\x0b_invoice_idB\x0f\n\r_invoice_guidB\x11\n\x0f_payment_config\"Q\n\x15\x43\x61ptureChargeResponse\x12\x0c\n\x04paid\x18\x01 \x01(\x08\x12\x19\n\x0c\x66\x61ilure_code\x18\x02 \x01(\tH\x00\x88\x01\x01\x42\x0f\n\r_failure_code*_\n\x0c\x43hargeMethod\x12\x1d\n\x19\x43HARGE_METHOD_UNSPECIFIED\x10\x00\x12\x16\n\x12\x43HARGE_METHOD_NONE\x10\x01\x12\x18\n\x14\x43HARGE_METHOD_STRIPE\x10\x02\x62\x06proto3')
+DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\nIsentry_protos/billing/v1/services/charge/v1/endpoint_capture_charge.proto\x12+sentry_protos.billing.v1.services.charge.v1\x1a\x1fgoogle/protobuf/timestamp.proto\x1a\x37sentry_protos/billing/v1/common/v1/payment_config.proto\x1a\x36sentry_protos/billing/v1/common/v1/stripe_charge.proto\"\x88\x04\n\x14\x43\x61ptureChargeRequest\x12P\n\rcharge_method\x18\x01 \x01(\x0e\x32\x39.sentry_protos.billing.v1.services.charge.v1.ChargeMethod\x12\x14\n\x0c\x61mount_cents\x18\x02 \x01(\x04\x12\x18\n\x0b\x64\x65scription\x18\x03 \x01(\tH\x00\x88\x01\x01\x12\x17\n\x0forganization_id\x18\x04 \x01(\x04\x12.\n\ncurrent_ts\x18\x05 \x01(\x0b\x32\x1a.google.protobuf.Timestamp\x12\x17\n\ninvoice_id\x18\x06 \x01(\tH\x01\x88\x01\x01\x12\x19\n\x0cinvoice_guid\x18\x07 \x01(\tH\x02\x88\x01\x01\x12N\n\x0epayment_config\x18\x08 \x01(\x0b\x32\x31.sentry_protos.billing.v1.common.v1.PaymentConfigH\x03\x88\x01\x01\x12L\n\rstripe_charge\x18\t \x01(\x0b\x32\x30.sentry_protos.billing.v1.common.v1.StripeChargeH\x04\x88\x01\x01\x42\x0e\n\x0c_descriptionB\r\n\x0b_invoice_idB\x0f\n\r_invoice_guidB\x11\n\x0f_payment_configB\x10\n\x0e_stripe_charge\"Q\n\x15\x43\x61ptureChargeResponse\x12\x0c\n\x04paid\x18\x01 \x01(\x08\x12\x19\n\x0c\x66\x61ilure_code\x18\x02 \x01(\tH\x00\x88\x01\x01\x42\x0f\n\r_failure_code*\x88\x01\n\x0c\x43hargeMethod\x12\x1d\n\x19\x43HARGE_METHOD_UNSPECIFIED\x10\x00\x12\x16\n\x12\x43HARGE_METHOD_NONE\x10\x01\x12\x18\n\x14\x43HARGE_METHOD_STRIPE\x10\x02\x12\'\n#CHARGE_METHOD_STRIPE_PAYMENT_INTENT\x10\x03\x62\x06proto3')
 
 _globals = globals()
 _builder.BuildMessageAndEnumDescriptors(DESCRIPTOR, _globals)
 _builder.BuildTopDescriptorsAndMessages(DESCRIPTOR, 'sentry_protos.billing.v1.services.charge.v1.endpoint_capture_charge_pb2', _globals)
 if not _descriptor._USE_C_DESCRIPTORS:
   DESCRIPTOR._loaded_options = None
-  _globals['_CHARGEMETHOD']._serialized_start=722
-  _globals['_CHARGEMETHOD']._serialized_end=817
-  _globals['_CAPTURECHARGEREQUEST']._serialized_start=213
-  _globals['_CAPTURECHARGEREQUEST']._serialized_end=637
-  _globals['_CAPTURECHARGERESPONSE']._serialized_start=639
-  _globals['_CAPTURECHARGERESPONSE']._serialized_end=720
+  _globals['_CHARGEMETHOD']._serialized_start=875
+  _globals['_CHARGEMETHOD']._serialized_end=1011
+  _globals['_CAPTURECHARGEREQUEST']._serialized_start=269
+  _globals['_CAPTURECHARGEREQUEST']._serialized_end=789
+  _globals['_CAPTURECHARGERESPONSE']._serialized_start=791
+  _globals['_CAPTURECHARGERESPONSE']._serialized_end=872
 # @@protoc_insertion_point(module_scope)

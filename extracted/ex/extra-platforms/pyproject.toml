@@ -5,7 +5,7 @@ requires = [ "uv-build>=0.9" ]
 [project]
 # Docs: https://packaging.python.org/en/latest/guides/writing-pyproject-toml/
 name = "extra-platforms"
-version = "13.0.1"
+version = "13.1.0"
 description = "🔎 Detect architectures, platforms, shells, terminals, CI systems and agents, grouped by family"
 readme = "readme.md"
 keywords = [
@@ -35,10 +35,12 @@ keywords = [
   "C shell",
   "CachyOS",
   "CentOS",
+  "ChromeOS",
   "CI detection",
   "Circle CI",
   "Cirrus CI",
   "Claude Code",
+  "Clear Linux OS",
   "Cline",
   "CloudLinux OS",
   "CodeBuild",
@@ -126,7 +128,9 @@ keywords = [
   "Scientific Linux",
   "Shell detection",
   "Slackware",
+  "SliTaz GNU/Linux",
   "Solaris",
+  "Source Mage GNU/Linux",
   "SPARC (32-bit)",
   "SPARC (64-bit)",
   "SunOS",
@@ -250,7 +254,7 @@ optional-dependencies.pytest = [
 ]
 urls.Changelog = "https://github.com/kdeldycke/extra-platforms/blob/main/changelog.md"
 urls.Documentation = "https://kdeldycke.github.io/extra-platforms"
-urls.Download = "https://github.com/kdeldycke/extra-platforms/releases/tag/v13.0.1"
+urls.Download = "https://github.com/kdeldycke/extra-platforms/releases/tag/v13.1.0"
 urls.Funding = "https://github.com/sponsors/kdeldycke"
 urls.Homepage = "https://github.com/kdeldycke/extra-platforms"
 urls.Issues = "https://github.com/kdeldycke/extra-platforms/issues"
@@ -294,7 +298,6 @@ docs = [
   "sphinx-autodoc-typehints>=2.4",
   "sphinx-copybutton>=0.5.2",
   "sphinx-design>=0.6",
-  "sphinx-issues>=5",
   "sphinxcontrib-mermaid>=1.2.2",
   "sphinxext-opengraph>=0.13",
   # wcmatch 10.0 fix some inconsistencies in globbing and symlinks.
@@ -302,6 +305,7 @@ docs = [
 ]
 
 [tool.uv]
+required-version = ">=0.11.23,<0.12"
 dependency-groups.docs = { requires-python = ">= 3.12" }
 # Cooldown period: 7-day buffer before using newly released packages.
 # Relative dates are fine here because the Renovate lock-maintenance job
@@ -313,9 +317,12 @@ build-backend.module-root = ""
 # Ruff linter/formatter configuration for Python projects.
 #
 # Native format - can be used standalone as ruff.toml or .ruff.toml.
-# When merged into pyproject.toml via `gha-utils bundled init ruff`,
+# When merged into pyproject.toml via `repomatic init ruff`,
 # the [tool.ruff] prefix is added automatically.
 [tool.ruff]
+# Enable formatting of Python code blocks in Markdown files.
+# https://docs.astral.sh/ruff/formatter/#markdown-code-formatting
+extend-include = [ "*.{markdown,mdown,mkdn,mdwn,mkd,md,mdtxt,mdtext,mdx}" ]
 preview = true
 fix = true
 unsafe-fixes = true
@@ -323,21 +330,34 @@ show-fixes = true
 # Enable reformatting of code snippets in docstrings.
 # https://docs.astral.sh/ruff/formatter/#docstring-formatting
 format.docstring-code-format = true
+# PLW1514: `open` and friends called without an explicit `encoding` argument.
+#   Windows defaults text I/O to cp1252, so a bare `open()`, `read_text()` or
+#   `write_text()` breaks on non-ASCII content, and only on Windows runners.
+#   Preview rule; its type inference misses unannotated `Path` locals, so
+#   PEP 597's `PYTHONWARNDEFAULTENCODING=1` remains the complete runtime net.
+#   See: https://docs.astral.sh/ruff/rules/unspecified-encoding/
+lint.extend-select = [ "PLW1514" ]
 # D400: First line should end with a period.
 #   Allows docstrings to end up with any punctuation, not just a period.
 #   See: https://github.com/astral-sh/ruff/issues/1858#issuecomment-1382640623
 # ERA001: Found commented-out code.
 #   Do not remove commented code, as it might be used for documentation.
 #   See: https://docs.astral.sh/ruff/rules/#eradicate-era
-lint.ignore = [ "D400", "ERA001" ]
+# LOG015: Root logger calls (logging.info(), etc.).
+#   No root-logger calls exist here today; kept ignored to stay aligned with
+#   repomatic's bundled Ruff defaults.
+#   See: https://docs.astral.sh/ruff/rules/root-logger-call/
+lint.ignore = [ "D400", "ERA001", "LOG015" ]
+lint.isort.combine-as-imports = true
 # Allow rules to add `from __future__ import annotations` in cases where
 # this would simplify a fix or enable a new diagnostic.
 # https://docs.astral.sh/ruff/settings/#lint_future-annotations
-lint.isort.combine-as-imports = true
 lint.future-annotations = true
 
 [tool.typos]
 default.extend-identifiers = { Github = "GitHub", IOS = "iOS", Javascript = "JavaScript", MacOS = "macOS", PyPi = "PyPI", Typescript = "TypeScript" }
+# False positives: "astroid" is a Python AST library (not "asteroid"); "oject" appears when "pyproject.toml" is split across line breaks in CLI help output.
+default.extend-words = { astroid = "astroid", oject = "oject" }
 # Skip content between <!-- typos:off --> and <!-- typos:on --> markers.
 default.extend-ignore-re = [ "(?s)<!-- typos:off -->.*?<!-- typos:on -->" ]
 default.extend-ignore-identifiers-re = [
@@ -377,7 +397,11 @@ pretty = true
 warn_unused_configs = true
 
 [tool.pytest]
+# CI-only flags (--cov-report=xml) are passed by the tests workflow instead,
+# so local runs stay lean. See "Testing guidelines" in claude.md.
 addopts = [
+  "--cov",
+  "--cov-report=term",
   "--durations=10",
 ]
 # https://docs.pytest.org/en/latest/customize.html#pyproject-toml
@@ -394,7 +418,7 @@ run.source = [ "extra_platforms" ]
 report.precision = 2
 
 [tool.bumpversion]
-current_version = "13.0.1"
+current_version = "13.1.0"
 # Parse versions with an optional .devN suffix (PEP 440).
 parse = "(?P<major>\\d+)\\.(?P<minor>\\d+)\\.(?P<patch>\\d+)(\\.dev(?P<dev>\\d+))?"
 serialize = [
@@ -477,12 +501,15 @@ exclude = [ "labels", "skills", "workflows/debug.yaml" ]
 # Building the package with Nuitka is overkill.
 nuitka.enabled = false
 # Extra-platforms needs exhaustive runner coverage because it tests platform detection.
-# Add all runners and Python versions not already in repomatic's default test matrix.
+# Add all GitHub runners not already in repomatic's default test matrix. Python
+# versions deliberately stay on repomatic's endpoint defaults: platform detection
+# has no interpreter-version-specific code paths worth the extra matrix cells.
 test-matrix.variations.os = [
   "ubuntu-24.04",
   "ubuntu-22.04-arm",
   "ubuntu-22.04",
   "macos-15",
+  "macos-15-intel",
   "macos-14",
   "windows-2022",
 ]

@@ -13,22 +13,28 @@ DESCRIPTOR: google.protobuf.descriptor.FileDescriptor
 
 @typing.final
 class HandleChargeSucceededRequest(google.protobuf.message.Message):
-    """Request to react to a Stripe `charge.succeeded` webhook event for a
-    charge created by the billing platform.
-    """
-
     DESCRIPTOR: google.protobuf.descriptor.Descriptor
 
     STRIPE_CHARGE_FIELD_NUMBER: builtins.int
+    INVOICE_ID_FIELD_NUMBER: builtins.int
+    ORGANIZATION_ID_FIELD_NUMBER: builtins.int
+    invoice_id: builtins.int
+    organization_id: builtins.int
     @property
     def stripe_charge(self) -> sentry_protos.billing.v1.common.v1.stripe_charge_pb2.StripeCharge: ...
     def __init__(
         self,
         *,
         stripe_charge: sentry_protos.billing.v1.common.v1.stripe_charge_pb2.StripeCharge | None = ...,
+        invoice_id: builtins.int | None = ...,
+        organization_id: builtins.int | None = ...,
     ) -> None: ...
-    def HasField(self, field_name: typing.Literal["stripe_charge", b"stripe_charge"]) -> builtins.bool: ...
-    def ClearField(self, field_name: typing.Literal["stripe_charge", b"stripe_charge"]) -> None: ...
+    def HasField(self, field_name: typing.Literal["_invoice_id", b"_invoice_id", "_organization_id", b"_organization_id", "invoice_id", b"invoice_id", "organization_id", b"organization_id", "stripe_charge", b"stripe_charge"]) -> builtins.bool: ...
+    def ClearField(self, field_name: typing.Literal["_invoice_id", b"_invoice_id", "_organization_id", b"_organization_id", "invoice_id", b"invoice_id", "organization_id", b"organization_id", "stripe_charge", b"stripe_charge"]) -> None: ...
+    @typing.overload
+    def WhichOneof(self, oneof_group: typing.Literal["_invoice_id", b"_invoice_id"]) -> typing.Literal["invoice_id"] | None: ...
+    @typing.overload
+    def WhichOneof(self, oneof_group: typing.Literal["_organization_id", b"_organization_id"]) -> typing.Literal["organization_id"] | None: ...
 
 global___HandleChargeSucceededRequest = HandleChargeSucceededRequest
 
@@ -38,9 +44,6 @@ class HandleChargeSucceededResponse(google.protobuf.message.Message):
 
     HANDLED_FIELD_NUMBER: builtins.int
     handled: builtins.bool
-    """True when the charge was created by the billing platform and the
-    service has finished its handling.
-    """
     def __init__(
         self,
         *,

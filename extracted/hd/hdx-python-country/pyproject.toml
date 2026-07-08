@@ -36,7 +36,7 @@ dynamic = ["version"]
 requires-python = ">=3.10"
 
 dependencies = [
-    "hdx-python-utilities>=4.0.4,<5",
+    "hdx-python-utilities>=4.1.2,<5",
     "tenacity",
 ]
 
@@ -53,6 +53,8 @@ dev = [
 
 [project.urls]
 Homepage = "https://github.com/OCHA-DAP/hdx-python-country"
+Repository = "https://github.com/OCHA-DAP/hdx-python-country"
+Issues = "https://github.com/OCHA-DAP/hdx-python-country/issues"
 
 # ----------------------------------------------------------------------------
 # Hatchling (Build & Versioning)

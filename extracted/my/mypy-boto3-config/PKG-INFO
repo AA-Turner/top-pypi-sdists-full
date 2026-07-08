@@ -1,7 +1,7 @@
 Metadata-Version: 2.4
 Name: mypy-boto3-config
-Version: 1.43.40
-Summary: Type annotations for boto3 ConfigService 1.43.40 service generated with mypy-boto3-builder 8.12.0
+Version: 1.43.42
+Summary: Type annotations for boto3 ConfigService 1.43.42 service generated with mypy-boto3-builder 8.12.0
 Author-email: Vlad Emelianov <vlad.emelianov.nz@gmail.com>
 License-Expression: MIT
 Project-URL: Homepage, https://github.com/youtype/mypy_boto3_builder
@@ -43,7 +43,7 @@ Dynamic: license-file
 ![boto3.typed](https://github.com/youtype/mypy_boto3_builder/raw/main/logo.png)
 
 Type annotations for
-[boto3 ConfigService 1.43.40](https://pypi.org/project/boto3/) compatible with
+[boto3 ConfigService 1.43.42](https://pypi.org/project/boto3/) compatible with
 [VSCode](https://code.visualstudio.com/),
 [PyCharm](https://www.jetbrains.com/pycharm/),
 [Emacs](https://www.gnu.org/software/emacs/),
@@ -105,7 +105,7 @@ You can generate type annotations for `boto3` package locally with
 isolation.
 
 1. Run mypy-boto3-builder in your package root directory:
-   `uvx --with 'boto3==1.43.40' mypy-boto3-builder`
+   `uvx --with 'boto3==1.43.42' mypy-boto3-builder`
 2. Select `boto3-stubs` AWS SDK.
 3. Add `ConfigService` service.
 4. Use provided commands to install generated packages.
@@ -367,6 +367,7 @@ from mypy_boto3_config.paginator import (
     GetResourceConfigHistoryPaginator,
     ListAggregateDiscoveredResourcesPaginator,
     ListConfigurationRecordersPaginator,
+    ListConnectorsPaginator,
     ListDiscoveredResourcesPaginator,
     ListResourceEvaluationsPaginator,
     ListTagsForResourcePaginator,
@@ -462,6 +463,7 @@ list_aggregate_discovered_resources_paginator: ListAggregateDiscoveredResourcesP
 list_configuration_recorders_paginator: ListConfigurationRecordersPaginator = client.get_paginator(
     "list_configuration_recorders"
 )
+list_connectors_paginator: ListConnectorsPaginator = client.get_paginator("list_connectors")
 list_discovered_resources_paginator: ListDiscoveredResourcesPaginator = client.get_paginator(
     "list_discovered_resources"
 )

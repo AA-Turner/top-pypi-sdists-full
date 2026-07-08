@@ -4,12 +4,13 @@ CSS loader for Dazzle UI runtime.
 Loads and concatenates CSS files from static/ to produce the bundled
 stylesheet served at /styles/dazzle.css.
 
-Uses CSS Cascade Layers (@layer) for explicit ordering. The layer
-order and file list mirror the canonical entry stylesheet
-``static/css/dazzle.css`` — that file's @import order is the source
-of truth; this loader concatenates the same files in the same order
-so the runtime bundle and the dev-time direct-import path resolve
-identically.
+Uses CSS Cascade Layers (@layer) for explicit ordering. THIS LIST is
+the source of truth for the dev bundle (``static/css/dazzle.css`` is a
+human-readable reference of the Dazzle-side files only — the design
+system arrives pre-layered via the HM dist artifact, which that file
+cannot @import). ``scripts/build_dist.py`` mirrors this list; the
+Phase-3 lockstep gate (tests/unit/test_hm_boundary.py) keeps the two
+aligned on the package seam.
 
 Generates an inline source map for DevTools debugging.
 """
@@ -17,8 +18,12 @@ Generates an inline source map for DevTools debugging.
 import base64
 import json
 from pathlib import Path
+from types import ModuleType
 
 _STATIC_DIR = Path(__file__).parent / "static"
+# HaTchi-MaXchi design-system sources live in the extractable package
+# (packages/hatchi-maxchi/). Entries prefixed "@hm:" resolve there.
+_HM_ROOT = Path(__file__).resolve().parents[4] / "packages" / "hatchi-maxchi"
 
 # Cascade layer order — must match `static/css/dazzle.css`. Anything
 # in a later layer wins over earlier layers regardless of selector
@@ -31,30 +36,27 @@ CSS_LAYER_ORDER = "@layer reset, vendor, tokens, base, utilities, components, ov
 # also matters for ties resolved by source position; keep this list
 # byte-for-byte aligned with the @import order in
 # ``static/css/dazzle.css`` (#920).
-CSS_SOURCE_FILES: tuple[tuple[str, str], ...] = (
+CSS_SOURCE_FILES: tuple[tuple[str | None, str], ...] = (
     ("reset", "css/reset.css"),
     ("vendor", "vendor/tom-select.css"),
     ("vendor", "vendor/flatpickr.css"),
+    # HaTchi-MaXchi — consumed as its PUBLISHED dist artifact (boundary
+    # Phase 2), not per-source files. The bundle is pre-layered by the
+    # package's build.py (vendor fonts, tokens, base, components — the
+    # same layer names as ours), so it loads raw (layer=None). After
+    # editing package CSS, run `python packages/hatchi-maxchi/build.py`;
+    # the package's dist drift gate fails CI when forgotten.
+    (None, "@hm-build:dz-"),
     # vendor/quill.snow.css removed in #977 cycle 4 — Quill replaced by
     # dz-richtext (Dazzle-native, bundled).
     # vendor/pickr.css removed in #976 — `widget=color` uses native
     # <input type="color">, no vendor CSS required.
-    ("tokens", "css/tokens.css"),
-    ("tokens", "css/design-system.css"),
-    ("base", "css/base.css"),
     ("utilities", "css/utilities.css"),
-    ("components", "css/components/badge.css"),
-    ("components", "css/components/button.css"),
     ("components", "css/components/dashboard.css"),
     ("components", "css/components/detail.css"),
-    ("components", "css/components/form.css"),
     ("components", "css/components/fragments.css"),
-    ("components", "css/components/htmx-states.css"),
     ("components", "css/components/pdf-viewer.css"),
     ("components", "css/components/regions.css"),
-    ("components", "css/components/table.css"),
-    # #958 — mobile UX (cycle 1: touch targets, cycle 4: scroll containment).
-    ("components", "css/components/touch-targets.css"),
     ("components", "css/components/mobile-scroll.css"),
     # #977 cycle 1 — Dazzle-native rich-text editor (replaces Quill in cycle 4).
     ("components", "css/components/richtext.css"),
@@ -74,12 +76,47 @@ CSS_UNLAYERED_FILES: tuple[str, ...] = (
 )
 
 
+def _hm_build() -> ModuleType:
+    """Load the HaTchi-MaXchi package's build module (packages/…/build.py).
+
+    HM publishes UNPREFIXED (`.button`); Dazzle applies its own `dz-`
+    namespace at ingest by calling `build_css("dz-")` — a no-op transform
+    on the `dz-`-prefixed source, so the result is byte-identical to the
+    pre-flip bundle while the standalone/CDN artifact stays clean. This is
+    the production exercise of the prefix mechanism. Loaded by explicit path
+    (not `import build`) to avoid clobbering any other `build` module."""
+    import importlib.util
+
+    spec = importlib.util.spec_from_file_location("_hm_build", _HM_ROOT / "build.py")
+    assert spec and spec.loader
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+    return mod
+
+
 def _load_css_file(rel_path: str) -> str:
-    """Load a CSS file from the static/ directory by relative path."""
-    path = _STATIC_DIR / rel_path
+    """Load a CSS source. `@hm-build:<prefix>` builds the HaTchi-MaXchi bundle
+    with that namespace; `@hm:` resolves a file in the package; everything
+    else is relative to static/."""
+    if rel_path.startswith("@hm-build:"):
+        prefix = rel_path[len("@hm-build:") :]
+        # Font URLs come standalone-relative from build_css; rewrite to
+        # Dazzle's /static/fonts/ mount at the consumption seam.
+        built: str = _hm_build().build_css(prefix)
+        return built.replace('url("fonts/', 'url("/static/fonts/')
+    if rel_path.startswith("@hm:"):
+        path = _HM_ROOT / rel_path[len("@hm:") :]
+    else:
+        path = _STATIC_DIR / rel_path
     if not path.exists():
         raise FileNotFoundError(f"CSS file not found: {path}")
-    return path.read_text(encoding="utf-8")
+    css = path.read_text(encoding="utf-8")
+    if rel_path.startswith("@hm:dist/"):
+        # The published artifact is standalone-first: font URLs are relative
+        # to the CSS file. Dazzle serves fonts at /static/fonts/ — rewrite at
+        # the consumption seam.
+        css = css.replace('url("fonts/', 'url("/static/fonts/')
+    return css
 
 
 def get_bundled_css(theme_css: str | None = None) -> str:
@@ -100,7 +137,7 @@ def get_bundled_css(theme_css: str | None = None) -> str:
         "",
         "/* =============================================================================",
         "   DAZZLE Framework CSS Bundle",
-        "   Auto-generated by css_loader.py — mirrors static/css/dazzle.css",
+        "   Auto-generated by css_loader.py (source of truth: CSS_SOURCE_FILES)",
         "   ============================================================================= */",
         "",
     ]
@@ -114,7 +151,12 @@ def get_bundled_css(theme_css: str | None = None) -> str:
 
     for layer, rel_path in CSS_SOURCE_FILES:
         parts.append(f"/* --- {rel_path} --- */")
-        parts.append(f"@layer {layer} {{\n{_load_css_file(rel_path)}\n}}")
+        if layer is None:
+            # Pre-layered artifact (HM dist) — its own @layer blocks use
+            # the same layer names; wrapping it again would nest layers.
+            parts.append(_load_css_file(rel_path))
+        else:
+            parts.append(f"@layer {layer} {{\n{_load_css_file(rel_path)}\n}}")
         parts.append("")
 
     # Unlayered files come last so they win the cascade.

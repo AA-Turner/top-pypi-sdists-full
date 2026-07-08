@@ -402,6 +402,7 @@ class CapabilitiesScreen(DreadnodeScreen):
         Binding("left", "prev_tab", "Prev tab", show=False),
         Binding("up", "cursor_up", "Up", show=False),
         Binding("down", "cursor_down", "Down", show=False),
+        Binding("d", "show_readme", "README", show=False),
     ]
 
     def __init__(
@@ -615,6 +616,48 @@ class CapabilitiesScreen(DreadnodeScreen):
             total = n_flags + n_actions + 1  # +1 for "Back"
             self._action_cursor = min(total - 1, self._action_cursor + 1)
             self._render_current_view()
+
+    def action_show_readme(self) -> None:
+        """Open the remote README for the focused capability."""
+        item: dict[str, t.Any] | None = None
+        if self._view == "detail":
+            item = self._selected_item
+        elif self._visible_items and 0 <= self._cursor < len(self._visible_items):
+            item = self._visible_items[self._cursor]
+        if not item:
+            return
+
+        api = self._api
+        org = self._org
+        if api is None or not org:
+            self.notify("Not authenticated to the platform", severity="warning")
+            return
+
+        canonical = item.get("canonical_name") or item.get("name")
+        version = item.get("version")
+        if not isinstance(canonical, str) or not canonical:
+            return
+
+        local_part = canonical.split("/", 1)[1] if "/" in canonical else canonical
+        owner_org = canonical.split("/", 1)[0] if "/" in canonical else org
+
+        async def _fetch() -> dict[str, t.Any]:
+            return await asyncio.to_thread(
+                api.get_capability_readme, owner_org, local_part, version
+            )
+
+        from dreadnode.app.tui.screens.readme import ReadmeScreen
+
+        title = "Capability README"
+        version_part = f"@{version}" if isinstance(version, str) and version else ""
+        self.app.push_screen(
+            ReadmeScreen(
+                title=title,
+                subject=f"{canonical}{version_part}",
+                fetcher=_fetch,
+                empty_message="No README ships with this capability bundle.",
+            )
+        )
 
     def action_update_current(self) -> None:
         """Update the capability under the cursor (ctrl+u). Installed tab only."""

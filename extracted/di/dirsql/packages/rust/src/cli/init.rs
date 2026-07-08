@@ -9,7 +9,7 @@
 //!
 //! Failure modes:
 //! - Output already exists and `--force` was not passed: bail before
-//!   spawning the agent (no point burning a paid LLM call).
+//!   spawning the agent (never burn a paid LLM call first).
 //! - `claude` is not on PATH: surface a descriptive error pointing at
 //!   the install docs.
 //! - `claude` exits non-zero: surface its stderr; do not write any
@@ -104,7 +104,7 @@ Each `[[table]]` block has:
 
 Each row is one matched file. Columns come from these sources ONLY:
 - Glob path captures: `{name}` segments in the glob become columns named `name`.
-- Stat virtuals (reserved column names): `_path`, `_basename`, `_dir`, `_ext`, `_size`, `_mtime`, `_ctime`.
+- Stat virtuals (reserved column names): `path`, `basename`, `dir`, `ext`, `size`, `mtime`, `ctime`.
 
 Do NOT include columns sourced from file content (JSON keys, CSV headers, frontmatter, etc.). Content parsing is not configured in `.dirsql.toml`.
 
@@ -112,12 +112,12 @@ Output ONLY the TOML, with no surrounding prose, no markdown fences, no explanat
 
 Example for a flat directory of mixed files:
 [[table]]
-ddl  = "CREATE TABLE files (_path TEXT, _ext TEXT, _size INTEGER)"
+ddl  = "CREATE TABLE files (path TEXT, ext TEXT, size INTEGER)"
 glob = "*"
 
 Example with path captures:
 [[table]]
-ddl  = "CREATE TABLE photos (month TEXT, _basename TEXT, _mtime INTEGER)"
+ddl  = "CREATE TABLE photos (month TEXT, basename TEXT, mtime INTEGER)"
 glob = "{month}/*.jpg"
 "#;
 
@@ -129,7 +129,7 @@ mod tests {
     fn prompt_mentions_filesystem_fact_constraints() {
         let p = build_prompt();
         assert!(p.contains("[[table]]"));
-        assert!(p.contains("_path"));
+        assert!(p.contains("path"));
         assert!(p.contains("Output ONLY the TOML"));
     }
 
@@ -150,8 +150,7 @@ mod tests {
         assert!(msg.contains("claude"));
     }
 
-    /// `run` bails before spawning the agent when the output already exists and
-    /// `--force` was not passed (the temp dir itself is an existing path).
+    /// The temp dir itself serves as the already-existing output path.
     #[test]
     fn run_bails_when_output_exists_without_force() {
         let dir = tempfile::tempdir().unwrap();
@@ -167,10 +166,9 @@ mod tests {
         );
     }
 
-    // The spawn / non-zero-exit / write failure arms of `run` require actually
-    // invoking `claude` and touching the filesystem, so they are exercised at
-    // the e2e tier. Their `Display` renderings, however, are pure and covered
-    // here (the values are constructed inline, no process or fs I/O).
+    // The spawn / non-zero-exit / write failure arms of `run` need a real
+    // `claude` and filesystem, so they live at the e2e tier; only their pure
+    // `Display` renderings are covered here.
 
     #[test]
     fn spawn_error_display_mentions_spawn() {
@@ -196,8 +194,6 @@ mod tests {
 
     #[test]
     fn invalid_utf8_error_display_mentions_utf8() {
-        // A non-UTF8 byte sequence yields the `FromUtf8Error` that `#[from]`
-        // converts into `InitError::InvalidUtf8`.
         let utf8_err = String::from_utf8(vec![0xff, 0xfe]).unwrap_err();
         let err: InitError = utf8_err.into();
         let msg = format!("{err}");

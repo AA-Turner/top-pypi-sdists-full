@@ -1381,7 +1381,16 @@ pub(super) fn select_active_set_release(
         let mut idx = None;
         for &i in active_idx {
             let lambda_i = gradient[i] + hd[i];
-            if lambda_i < worst {
+            // Scale-aware deadband (identical to Bland's branch above). A
+            // multiplier that is negative only at round-off level is KKT-feasible
+            // and MUST NOT trigger a release: releasing an essentially-tight bound
+            // on floating-point noise lets the freed coefficient step away, only
+            // for the bound to be re-added on the next outer re-linearization —
+            // the classic active-set zigzag (gam#979). A genuinely-negative
+            // multiplier (below `-tol`) still releases, so this is a strict
+            // no-op at any true constrained optimum where multipliers are >= 0.
+            let tol = 64.0 * f64::EPSILON * gradient[i].abs().max(hd[i].abs()).max(1.0);
+            if lambda_i < -tol && lambda_i < worst {
                 worst = lambda_i;
                 idx = Some(i);
             }
@@ -1397,6 +1406,17 @@ pub fn solve_newton_directionwith_lower_bounds(
     lower_bounds: &Array1<f64>,
     direction_out: &mut Array1<f64>,
     active_hint: Option<&mut Vec<usize>>,
+    // Optional TRUE (un-modified) curvature for the KKT release multiplier
+    // (gam#979). Callers that pre-condition `hessian` for the STEP — e.g. the
+    // survival joint-Newton reflects negative-curvature modes to `|λ|` so the
+    // indefinite NLL model stays bounded — must still test dual feasibility
+    // `λ_i = g_i + (H·d)_i >= 0` against the ORIGINAL curvature, otherwise the
+    // reflection flips the sign of a bound aligned with a negative-curvature
+    // mode and the bound is released spuriously (then re-added next outer
+    // cycle: the active-set zigzag). `None` ⇒ use `hessian` for both step and
+    // multiplier (byte-identical to the historical behavior for every caller
+    // that does not pre-condition its Hessian).
+    kkt_hessian: Option<&Array2<f64>>,
 ) -> Result<(), EstimationError> {
     // Bound-constrained Newton step on the local quadratic model:
     //
@@ -1488,6 +1508,10 @@ pub fn solve_newton_directionwith_lower_bounds(
     // block and length-p prefix on every active-set pivot.
     let mut h_ff_buf = Array2::<f64>::zeros((p, p));
     let mut g_f_buf = Array1::<f64>::zeros(p);
+    // Curvature used for the KKT dual-feasibility (release) test. Defaults to
+    // the step Hessian; a caller that pre-conditioned `hessian` supplies the
+    // true curvature via `kkt_hessian` (gam#979 — see the signature note).
+    let kkt_h = kkt_hessian.unwrap_or(hessian);
     for it in 0..max_iters {
         let use_blands = it >= blands_threshold;
         let free_idx: Vec<usize> = (0..p).filter(|&i| !active[i]).collect();
@@ -1500,8 +1524,15 @@ pub fn solve_newton_directionwith_lower_bounds(
             }
         }
         if free_idx.is_empty() {
-            let hd = fast_av(hessian, direction_out);
+            let hd = fast_av(kkt_h, direction_out);
             if let Some(idx) = select_active_set_release(gradient, &hd, &active_idx, use_blands) {
+                if kkt_hessian.is_some() {
+                    let hd_ref = fast_av(hessian, direction_out);
+                    log::warn!(
+                        "[gam#979 simple-release/allactive] it={it} idx={idx} beta={:.4e} lower={:.4e} lambda_true={:.4e} lambda_refl={:.4e}",
+                        beta[idx], lower_bounds[idx], gradient[idx] + hd[idx], gradient[idx] + hd_ref[idx],
+                    );
+                }
                 active[idx] = false;
                 continue;
             }
@@ -1561,9 +1592,19 @@ pub fn solve_newton_directionwith_lower_bounds(
         }
 
         // Dual feasibility on active constraints:
-        // λ_i = g_i + (H d)_i must be >= 0 for all active lower bounds.
-        let hd = fast_av(hessian, direction_out);
+        // λ_i = g_i + (H d)_i must be >= 0 for all active lower bounds. `H` here
+        // is the TRUE curvature (`kkt_h`), not the step-conditioned `hessian`,
+        // so a bound aligned with a reflected negative-curvature mode is not
+        // released on a sign-flipped multiplier (gam#979).
+        let hd = fast_av(kkt_h, direction_out);
         if let Some(idx) = select_active_set_release(gradient, &hd, &active_idx, use_blands) {
+            if kkt_hessian.is_some() {
+                let hd_ref = fast_av(hessian, direction_out);
+                log::warn!(
+                    "[gam#979 simple-release] it={it} idx={idx} beta={:.4e} lower={:.4e} lambda_true={:.4e} lambda_refl={:.4e} n_free={n_free} n_active={}",
+                    beta[idx], lower_bounds[idx], gradient[idx] + hd[idx], gradient[idx] + hd_ref[idx], active_idx.len(),
+                );
+            }
             active[idx] = false;
             continue;
         }

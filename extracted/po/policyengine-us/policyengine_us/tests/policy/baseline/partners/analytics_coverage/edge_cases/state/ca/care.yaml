@@ -1,4 +1,8 @@
-- name: ca_care_below_200pct_fpl_eligible (ca)
+# California CARE electricity discount (gov/states/ca/cpuc/care).
+# 32.5% discount on electricity for households with income <= 200% of the
+# CARE poverty line, which treats one-person households as two-person:
+# 2026 PL(2) = 15,960 + 5,680 = 21,640, so the limit is 43,280.
+- name: ca_care_just_below_income_limit_discount (ca)
   period: 2026
   absolute_error_margin: 0.1
   input:
@@ -6,29 +10,23 @@
       head:
         age: 30
         is_tax_unit_head: true
-        is_tax_unit_spouse: false
-        is_tax_unit_dependent: false
-        is_disabled: false
-        is_blind: false
-        is_pregnant: false
-        is_female: false
         immigration_status_str: CITIZEN
-        employment_income_before_lsr: 20000
-        has_bcc_qualifying_coverage: false
-        is_full_time_student: false
-        ca_calworks_child_care_time_category: MONTHLY
-        ca_calworks_child_care_full_time: false
-        ca_riv_general_relief_meets_work_requirements: false
+        # $42,000 <= 43,280 limit; pins the single-person -> two-person
+        # poverty-line floor (the one-person limit would be 2 x 15,960 =
+        # 31,920, which this income exceeds).
+        employment_income_before_lsr: 42_000
     households:
       household:
         members: &id001
         - head
-        state_code_str: CA
+        state_code: CA
         zip_code: '90001'
         county_str: LOS_ANGELES_COUNTY_CA
+        in_la: true
     spm_units:
       spm_unit:
         members: *id001
+        pre_subsidy_electricity_expense: 1_800
     tax_units:
       tax_unit:
         members: *id001
@@ -43,9 +41,10 @@
   output:
     households:
       household:
-        ca_care: 0.0
+        # 0.325 x 1,800 = 585.
+        ca_care: 585
         ca_care_eligible: true
-- name: ca_care_at_200pct_fpl_boundary (ca)
+- name: ca_care_just_above_income_limit (ca)
   period: 2026
   absolute_error_margin: 0.1
   input:
@@ -53,29 +52,21 @@
       head:
         age: 30
         is_tax_unit_head: true
-        is_tax_unit_spouse: false
-        is_tax_unit_dependent: false
-        is_disabled: false
-        is_blind: false
-        is_pregnant: false
-        is_female: false
         immigration_status_str: CITIZEN
-        employment_income_before_lsr: 40000
-        has_bcc_qualifying_coverage: false
-        is_full_time_student: false
-        ca_calworks_child_care_time_category: MONTHLY
-        ca_calworks_child_care_full_time: false
-        ca_riv_general_relief_meets_work_requirements: false
+        # $44,000 > 43,280 limit and no categorical program participation.
+        employment_income_before_lsr: 44_000
     households:
       household:
         members: &id002
         - head
-        state_code_str: CA
+        state_code: CA
         zip_code: '90001'
         county_str: LOS_ANGELES_COUNTY_CA
+        in_la: true
     spm_units:
       spm_unit:
         members: *id002
+        pre_subsidy_electricity_expense: 1_800
     tax_units:
       tax_unit:
         members: *id002
@@ -90,137 +81,5 @@
   output:
     households:
       household:
-        ca_care: 0.0
-        ca_care_eligible: true
-- name: ca_care_above_200pct_fpl_ineligible (ca)
-  period: 2026
-  absolute_error_margin: 0.1
-  input:
-    people:
-      head:
-        age: 30
-        is_tax_unit_head: true
-        is_tax_unit_spouse: false
-        is_tax_unit_dependent: false
-        is_disabled: false
-        is_blind: false
-        is_pregnant: false
-        is_female: false
-        immigration_status_str: CITIZEN
-        employment_income_before_lsr: 60000
-        has_bcc_qualifying_coverage: false
-        is_full_time_student: false
-        ca_calworks_child_care_time_category: MONTHLY
-        ca_calworks_child_care_full_time: false
-        ca_riv_general_relief_meets_work_requirements: false
-    households:
-      household:
-        members: &id003
-        - head
-        state_code_str: CA
-        zip_code: '90001'
-        county_str: LOS_ANGELES_COUNTY_CA
-    spm_units:
-      spm_unit:
-        members: *id003
-    tax_units:
-      tax_unit:
-        members: *id003
-        tax_unit_is_joint: false
-    families:
-      family:
-        members: *id003
-    marital_units:
-      mu_head:
-        members:
-        - head
-  output:
-    households:
-      household:
-        ca_care: 0.0
+        ca_care: 0
         ca_care_eligible: false
-- name: ca_care_family_with_child (ca)
-  period: 2026
-  absolute_error_margin: 0.1
-  input:
-    people:
-      head:
-        age: 30
-        is_tax_unit_head: true
-        is_tax_unit_spouse: false
-        is_tax_unit_dependent: false
-        is_disabled: false
-        is_blind: false
-        is_pregnant: false
-        is_female: false
-        immigration_status_str: CITIZEN
-        employment_income_before_lsr: 20000
-        has_bcc_qualifying_coverage: false
-        is_full_time_student: false
-        ca_calworks_child_care_time_category: MONTHLY
-        ca_calworks_child_care_full_time: false
-        ca_riv_general_relief_meets_work_requirements: false
-      spouse:
-        age: 28
-        is_tax_unit_head: false
-        is_tax_unit_spouse: true
-        is_tax_unit_dependent: false
-        is_disabled: false
-        is_blind: false
-        is_pregnant: false
-        is_female: false
-        immigration_status_str: CITIZEN
-        employment_income_before_lsr: 0
-        has_bcc_qualifying_coverage: false
-        is_full_time_student: false
-        ca_calworks_child_care_time_category: MONTHLY
-        ca_calworks_child_care_full_time: false
-        ca_riv_general_relief_meets_work_requirements: false
-      child1:
-        age: 5
-        is_tax_unit_head: false
-        is_tax_unit_spouse: false
-        is_tax_unit_dependent: true
-        is_disabled: false
-        is_blind: false
-        is_pregnant: false
-        is_female: false
-        immigration_status_str: CITIZEN
-        employment_income_before_lsr: 0
-        has_bcc_qualifying_coverage: false
-        is_full_time_student: false
-        ca_calworks_child_care_time_category: MONTHLY
-        ca_calworks_child_care_full_time: false
-        ca_riv_general_relief_meets_work_requirements: false
-    households:
-      household:
-        members: &id004
-        - head
-        - spouse
-        - child1
-        state_code_str: CA
-        zip_code: '90001'
-        county_str: LOS_ANGELES_COUNTY_CA
-    spm_units:
-      spm_unit:
-        members: *id004
-    tax_units:
-      tax_unit:
-        members: *id004
-        tax_unit_is_joint: true
-    families:
-      family:
-        members: *id004
-    marital_units:
-      mu_couple:
-        members:
-        - head
-        - spouse
-      mu_child1:
-        members:
-        - child1
-  output:
-    households:
-      household:
-        ca_care: 0.0
-        ca_care_eligible: true

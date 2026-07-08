@@ -1,4 +1,9 @@
-- name: tanf_zero_income_no_state_benefit (wa)
+# WA TANF (WAC 388-478-0020 payment standards; WAC 388-450-0170 earned income
+# deductions; WAC 388-478-0035 gross earned income limits; WAC 388-470-0005
+# resource limit). 2026 monthly parameters: payment standard $570 (size 2),
+# $706 (size 3); gross earned income limit $1,640 (size 2); earned income
+# disregard = first $500 then 50% of remainder; resource limit $12,000.
+- name: tanf_size_3_zero_income_max_benefit (wa)
   period: 2026
   absolute_error_margin: 0.1
   input:
@@ -33,7 +38,7 @@
         - head
         - spouse
         - child1
-        state_code_str: WA
+        state_code: WA
         zip_code: '98101'
         county_str: KING_COUNTY_WA
     spm_units:
@@ -57,58 +62,11 @@
   output:
     spm_units:
       spm_unit:
-        wa_tanf: 8472.0
-        tanf: 8472.0
-- name: tanf_no_minor_children_in_unit (wa)
-  period: 2026
-  absolute_error_margin: 0.1
-  input:
-    people:
-      head:
-        age: 30
-        is_tax_unit_head: true
-        is_tax_unit_spouse: false
-        is_tax_unit_dependent: false
-        is_disabled: false
-        immigration_status_str: CITIZEN
-        employment_income_before_lsr: 0
-      spouse:
-        age: 28
-        is_tax_unit_head: false
-        is_tax_unit_spouse: true
-        is_tax_unit_dependent: false
-        is_disabled: false
-        immigration_status_str: CITIZEN
-        employment_income_before_lsr: 0
-    households:
-      household:
-        members: &id002
-        - head
-        - spouse
-        state_code_str: WA
-        zip_code: '98101'
-        county_str: KING_COUNTY_WA
-    spm_units:
-      spm_unit:
-        members: *id002
-    tax_units:
-      tax_unit:
-        members: *id002
-        tax_unit_is_joint: true
-    families:
-      family:
-        members: *id002
-    marital_units:
-      mu_couple:
-        members:
-        - head
-        - spouse
-  output:
-    spm_units:
-      spm_unit:
-        wa_tanf: 0.0
-        tanf: 0.0
-- name: tanf_youngest_child_age_17 (wa)
+        # Size-3 payment standard $706/month, zero countable income:
+        # 706 x 12 = 8,472/year.
+        wa_tanf: 8_472.0
+        tanf: 8_472.0
+- name: tanf_youngest_child_age_17_eligible (wa)
   period: 2026
   absolute_error_margin: 0.1
   input:
@@ -139,23 +97,23 @@
         employment_income_before_lsr: 0
     households:
       household:
-        members: &id003
+        members: &id002
         - head
         - spouse
         - child1
-        state_code_str: WA
+        state_code: WA
         zip_code: '98101'
         county_str: KING_COUNTY_WA
     spm_units:
       spm_unit:
-        members: *id003
+        members: *id002
     tax_units:
       tax_unit:
-        members: *id003
+        members: *id002
         tax_unit_is_joint: true
     families:
       family:
-        members: *id003
+        members: *id002
     marital_units:
       mu_couple:
         members:
@@ -167,9 +125,11 @@
   output:
     spm_units:
       spm_unit:
-        wa_tanf: 8472.0
-        tanf: 8472.0
-- name: tanf_only_child_age_18 (wa)
+        # Age 17 < 18 TANF age limit -> demographically eligible;
+        # size-3 payment standard 706 x 12 = 8,472/year.
+        wa_tanf: 8_472.0
+        tanf: 8_472.0
+- name: tanf_only_child_age_18_ineligible (wa)
   period: 2026
   absolute_error_margin: 0.1
   input:
@@ -200,23 +160,23 @@
         employment_income_before_lsr: 0
     households:
       household:
-        members: &id004
+        members: &id003
         - head
         - spouse
         - child1
-        state_code_str: WA
+        state_code: WA
         zip_code: '98101'
         county_str: KING_COUNTY_WA
     spm_units:
       spm_unit:
-        members: *id004
+        members: *id003
     tax_units:
       tax_unit:
-        members: *id004
+        members: *id003
         tax_unit_is_joint: true
     families:
       family:
-        members: *id004
+        members: *id003
     marital_units:
       mu_couple:
         members:
@@ -228,9 +188,11 @@
   output:
     spm_units:
       spm_unit:
+        # Demographic-route boundary zero: only child is 18 (>= 18 age
+        # limit, not a secondary-school student, nobody pregnant) -> $0.
         wa_tanf: 0.0
         tanf: 0.0
-- name: tanf_size_1_single_adult_age_30 (wa)
+- name: tanf_earnings_at_flat_disregard_full_benefit (wa)
   period: 2026
   absolute_error_margin: 0.1
   input:
@@ -242,134 +204,7 @@
         is_tax_unit_dependent: false
         is_disabled: false
         immigration_status_str: CITIZEN
-        employment_income_before_lsr: 6000
-    households:
-      household:
-        members: &id005
-        - head
-        state_code_str: WA
-        zip_code: '98101'
-        county_str: KING_COUNTY_WA
-    spm_units:
-      spm_unit:
-        members: *id005
-    tax_units:
-      tax_unit:
-        members: *id005
-        tax_unit_is_joint: false
-    families:
-      family:
-        members: *id005
-    marital_units:
-      mu_head:
-        members:
-        - head
-  output:
-    spm_units:
-      spm_unit:
-        wa_tanf: 0.0
-        tanf: 0.0
-- name: tanf_size_1_single_elderly_age_65 (wa)
-  period: 2026
-  absolute_error_margin: 0.1
-  input:
-    people:
-      head:
-        age: 65
-        is_tax_unit_head: true
-        is_tax_unit_spouse: false
-        is_tax_unit_dependent: false
-        is_disabled: false
-        immigration_status_str: CITIZEN
-        employment_income_before_lsr: 0
-    households:
-      household:
-        members: &id006
-        - head
-        state_code_str: WA
-        zip_code: '98101'
-        county_str: KING_COUNTY_WA
-    spm_units:
-      spm_unit:
-        members: *id006
-    tax_units:
-      tax_unit:
-        members: *id006
-        tax_unit_is_joint: false
-    families:
-      family:
-        members: *id006
-    marital_units:
-      mu_head:
-        members:
-        - head
-  output:
-    spm_units:
-      spm_unit:
-        wa_tanf: 0.0
-        tanf: 0.0
-- name: tanf_size_2_married_couple_no_children (wa)
-  period: 2026
-  absolute_error_margin: 0.1
-  input:
-    people:
-      head:
-        age: 30
-        is_tax_unit_head: true
-        is_tax_unit_spouse: false
-        is_tax_unit_dependent: false
-        is_disabled: false
-        immigration_status_str: CITIZEN
-        employment_income_before_lsr: 6000
-      spouse:
-        age: 28
-        is_tax_unit_head: false
-        is_tax_unit_spouse: true
-        is_tax_unit_dependent: false
-        is_disabled: false
-        immigration_status_str: CITIZEN
-        employment_income_before_lsr: 0
-    households:
-      household:
-        members: &id007
-        - head
-        - spouse
-        state_code_str: WA
-        zip_code: '98101'
-        county_str: KING_COUNTY_WA
-    spm_units:
-      spm_unit:
-        members: *id007
-    tax_units:
-      tax_unit:
-        members: *id007
-        tax_unit_is_joint: true
-    families:
-      family:
-        members: *id007
-    marital_units:
-      mu_couple:
-        members:
-        - head
-        - spouse
-  output:
-    spm_units:
-      spm_unit:
-        wa_tanf: 0.0
-        tanf: 0.0
-- name: tanf_size_2_single_parent_1_child (wa)
-  period: 2026
-  absolute_error_margin: 0.1
-  input:
-    people:
-      head:
-        age: 30
-        is_tax_unit_head: true
-        is_tax_unit_spouse: false
-        is_tax_unit_dependent: false
-        is_disabled: false
-        immigration_status_str: CITIZEN
-        employment_income_before_lsr: 6000
+        employment_income_before_lsr: 6_000
       child1:
         age: 5
         is_tax_unit_head: false
@@ -380,22 +215,22 @@
         employment_income_before_lsr: 0
     households:
       household:
-        members: &id008
+        members: &id004
         - head
         - child1
-        state_code_str: WA
+        state_code: WA
         zip_code: '98101'
         county_str: KING_COUNTY_WA
     spm_units:
       spm_unit:
-        members: *id008
+        members: *id004
     tax_units:
       tax_unit:
-        members: *id008
+        members: *id004
         tax_unit_is_joint: false
     families:
       family:
-        members: *id008
+        members: *id004
     marital_units:
       mu_head:
         members:
@@ -406,9 +241,12 @@
   output:
     spm_units:
       spm_unit:
-        wa_tanf: 6840.0
-        tanf: 6840.0
-- name: tanf_size_3_single_parent_2_children (wa)
+        # Earnings $500/month exactly equal the $500 flat disregard
+        # (WAC 388-450-0170): countable = (500 - 500) x 0.5 = 0, so the
+        # full size-2 payment standard pays: 570 x 12 = 6,840/year.
+        wa_tanf: 6_840.0
+        tanf: 6_840.0
+- name: tanf_earnings_partial_benefit (wa)
   period: 2026
   absolute_error_margin: 0.1
   input:
@@ -420,17 +258,9 @@
         is_tax_unit_dependent: false
         is_disabled: false
         immigration_status_str: CITIZEN
-        employment_income_before_lsr: 6000
+        employment_income_before_lsr: 13_200
       child1:
-        age: 8
-        is_tax_unit_head: false
-        is_tax_unit_spouse: false
-        is_tax_unit_dependent: true
-        is_disabled: false
-        immigration_status_str: CITIZEN
-        employment_income_before_lsr: 0
-      child2:
-        age: 3
+        age: 5
         is_tax_unit_head: false
         is_tax_unit_spouse: false
         is_tax_unit_dependent: true
@@ -439,16 +269,240 @@
         employment_income_before_lsr: 0
     households:
       household:
+        members: &id005
+        - head
+        - child1
+        state_code: WA
+        zip_code: '98101'
+        county_str: KING_COUNTY_WA
+    spm_units:
+      spm_unit:
+        members: *id005
+    tax_units:
+      tax_unit:
+        members: *id005
+        tax_unit_is_joint: false
+    families:
+      family:
+        members: *id005
+    marital_units:
+      mu_head:
+        members:
+        - head
+      mu_child1:
+        members:
+        - child1
+  output:
+    spm_units:
+      spm_unit:
+        # Mid-range grant: earnings $1,100/month (< $1,640 size-2 gross
+        # limit); countable = (1,100 - 500) x 0.5 = 300;
+        # grant = (570 - 300) x 12 = 3,240/year.
+        wa_tanf: 3_240.0
+        tanf: 3_240.0
+- name: tanf_earnings_above_gross_income_limit_ineligible (wa)
+  period: 2026
+  absolute_error_margin: 0.1
+  input:
+    people:
+      head:
+        age: 30
+        is_tax_unit_head: true
+        is_tax_unit_spouse: false
+        is_tax_unit_dependent: false
+        is_disabled: false
+        immigration_status_str: CITIZEN
+        employment_income_before_lsr: 24_000
+      child1:
+        age: 5
+        is_tax_unit_head: false
+        is_tax_unit_spouse: false
+        is_tax_unit_dependent: true
+        is_disabled: false
+        immigration_status_str: CITIZEN
+        employment_income_before_lsr: 0
+    households:
+      household:
+        members: &id006
+        - head
+        - child1
+        state_code: WA
+        zip_code: '98101'
+        county_str: KING_COUNTY_WA
+    spm_units:
+      spm_unit:
+        members: *id006
+    tax_units:
+      tax_unit:
+        members: *id006
+        tax_unit_is_joint: false
+    families:
+      family:
+        members: *id006
+    marital_units:
+      mu_head:
+        members:
+        - head
+      mu_child1:
+        members:
+        - child1
+  output:
+    spm_units:
+      spm_unit:
+        # Income-route zero: gross earnings $2,000/month exceed the $1,640
+        # size-2 gross earned income limit (WAC 388-478-0035) -> $0.
+        wa_tanf: 0.0
+        tanf: 0.0
+- name: tanf_resources_above_limit_ineligible (wa)
+  period: 2026
+  absolute_error_margin: 0.1
+  input:
+    people:
+      head:
+        age: 30
+        is_tax_unit_head: true
+        is_tax_unit_spouse: false
+        is_tax_unit_dependent: false
+        is_disabled: false
+        immigration_status_str: CITIZEN
+        employment_income_before_lsr: 0
+      spouse:
+        age: 28
+        is_tax_unit_head: false
+        is_tax_unit_spouse: true
+        is_tax_unit_dependent: false
+        is_disabled: false
+        immigration_status_str: CITIZEN
+        employment_income_before_lsr: 0
+      child1:
+        age: 5
+        is_tax_unit_head: false
+        is_tax_unit_spouse: false
+        is_tax_unit_dependent: true
+        is_disabled: false
+        immigration_status_str: CITIZEN
+        employment_income_before_lsr: 0
+    households:
+      household:
+        members: &id007
+        - head
+        - spouse
+        - child1
+        state_code: WA
+        zip_code: '98101'
+        county_str: KING_COUNTY_WA
+    spm_units:
+      spm_unit:
+        members: *id007
+        spm_unit_cash_assets: 12_500
+    tax_units:
+      tax_unit:
+        members: *id007
+        tax_unit_is_joint: true
+    families:
+      family:
+        members: *id007
+    marital_units:
+      mu_couple:
+        members:
+        - head
+        - spouse
+      mu_child1:
+        members:
+        - child1
+  output:
+    spm_units:
+      spm_unit:
+        # Resource-route zero: $12,500 cash assets exceed the $12,000
+        # resource limit (WAC 388-470-0005, HB 1447 2023) -> $0.
+        wa_tanf: 0.0
+        tanf: 0.0
+- name: tanf_undocumented_family_without_show_all_flag (wa)
+  period: 2026-01
+  absolute_error_margin: 0.1
+  input:
+    people:
+      head:
+        age: 30
+        is_tax_unit_head: true
+        is_tax_unit_spouse: false
+        is_tax_unit_dependent: false
+        is_disabled: false
+        immigration_status_str: UNDOCUMENTED
+        employment_income_before_lsr: 0
+      child1:
+        age: 5
+        is_tax_unit_head: false
+        is_tax_unit_spouse: false
+        is_tax_unit_dependent: true
+        is_disabled: false
+        immigration_status_str: UNDOCUMENTED
+        employment_income_before_lsr: 0
+    households:
+      household:
+        members: &id008
+        - head
+        - child1
+        state_code: WA
+        zip_code: '98101'
+        county_str: KING_COUNTY_WA
+    spm_units:
+      spm_unit:
+        members: *id008
+    tax_units:
+      tax_unit:
+        members: *id008
+        tax_unit_is_joint: false
+    families:
+      family:
+        members: *id008
+    marital_units:
+      mu_head:
+        members:
+        - head
+      mu_child1:
+        members:
+        - child1
+  output:
+    spm_units:
+      spm_unit:
+        # Immigration-route zero: no member is a citizen, bar-exempt, or
+        # qualified immigrant past the 5-year bar (WAC 388-424-0010) -> $0.
+        wa_tanf: 0.0
+        tanf: 0.0
+- name: tanf_undocumented_family_with_show_all_flag (wa)
+  period: 2026-01
+  absolute_error_margin: 0.1
+  input:
+    people:
+      head:
+        age: 30
+        is_tax_unit_head: true
+        is_tax_unit_spouse: false
+        is_tax_unit_dependent: false
+        is_disabled: false
+        immigration_status_str: UNDOCUMENTED
+        employment_income_before_lsr: 0
+      child1:
+        age: 5
+        is_tax_unit_head: false
+        is_tax_unit_spouse: false
+        is_tax_unit_dependent: true
+        is_disabled: false
+        immigration_status_str: UNDOCUMENTED
+        employment_income_before_lsr: 0
+    households:
+      household:
         members: &id009
         - head
         - child1
-        - child2
-        state_code_str: WA
+        state_code: WA
         zip_code: '98101'
         county_str: KING_COUNTY_WA
     spm_units:
       spm_unit:
         members: *id009
+        wa_show_all_cash_assistance_programs: true
     tax_units:
       tax_unit:
         members: *id009
@@ -463,84 +517,11 @@
       mu_child1:
         members:
         - child1
-      mu_child2:
-        members:
-        - child2
   output:
     spm_units:
       spm_unit:
-        wa_tanf: 8472.0
-        tanf: 8472.0
-- name: tanf_size_4_couple_2_children (wa)
-  period: 2026
-  absolute_error_margin: 0.1
-  input:
-    people:
-      head:
-        age: 35
-        is_tax_unit_head: true
-        is_tax_unit_spouse: false
-        is_tax_unit_dependent: false
-        is_disabled: false
-        immigration_status_str: CITIZEN
-        employment_income_before_lsr: 6000
-      spouse:
-        age: 33
-        is_tax_unit_head: false
-        is_tax_unit_spouse: true
-        is_tax_unit_dependent: false
-        is_disabled: false
-        immigration_status_str: CITIZEN
-        employment_income_before_lsr: 0
-      child1:
-        age: 8
-        is_tax_unit_head: false
-        is_tax_unit_spouse: false
-        is_tax_unit_dependent: true
-        is_disabled: false
-        immigration_status_str: CITIZEN
-        employment_income_before_lsr: 0
-      child2:
-        age: 3
-        is_tax_unit_head: false
-        is_tax_unit_spouse: false
-        is_tax_unit_dependent: true
-        is_disabled: false
-        immigration_status_str: CITIZEN
-        employment_income_before_lsr: 0
-    households:
-      household:
-        members: &id010
-        - head
-        - spouse
-        - child1
-        - child2
-        state_code_str: WA
-        zip_code: '98101'
-        county_str: KING_COUNTY_WA
-    spm_units:
-      spm_unit:
-        members: *id010
-    tax_units:
-      tax_unit:
-        members: *id010
-        tax_unit_is_joint: true
-    families:
-      family:
-        members: *id010
-    marital_units:
-      mu_couple:
-        members:
-        - head
-        - spouse
-      mu_child1:
-        members:
-        - child1
-      mu_child2:
-        members:
-        - child2
-  output:
-    spm_units:
-      spm_unit:
-        wa_tanf: 9996.0
-        tanf: 9996.0
+        # MyFriendBen display-only flag bypasses the immigration screen
+        # (demographic/income/resource tests still apply): size-2 payment
+        # standard $570 for the month.
+        wa_tanf: 570.0
+        tanf: 570.0

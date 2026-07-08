@@ -1,5 +1,6 @@
 """Pools module."""
 
+from __future__ import annotations
 import time
 from abc import ABC, abstractmethod
 from asyncio import Queue, Semaphore, wait_for

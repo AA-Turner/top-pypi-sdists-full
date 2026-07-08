@@ -594,6 +594,17 @@ fn response_geometry_fit_curvature<'py>(
 }
 
 #[pyfunction]
+fn sae_duchon_centers_nd<'py>(
+    py: Python<'py>,
+    centers_1d: PyReadonlyArray1<'py, f64>,
+    d: usize,
+) -> PyResult<Py<PyArray2<f64>>> {
+    let centers_owned = centers_1d.as_array().to_owned();
+    let out = py.detach(move || sae_duchon_centers_nd_impl(centers_owned.view(), d));
+    Ok(out.into_pyarray(py).unbind())
+}
+
+#[pyfunction]
 fn sinkhorn_circular_cost<'py>(py: Python<'py>, m: usize) -> PyResult<Py<PyArray2<f64>>> {
     let out = py.detach(move || sinkhorn_circular_cost_impl(m));
     Ok(out.into_pyarray(py).unbind())
@@ -4123,6 +4134,7 @@ fn rust_extension(module: &Bound<'_, PyModule>) -> PyResult<()> {
     module.add_function(wrap_pyfunction!(skip_transcoder_reml_metrics, module)?)?;
     module.add_function(wrap_pyfunction!(skip_transcoder_select_reml, module)?)?;
     module.add_function(wrap_pyfunction!(tierney_kadane_normalized_score, module)?)?;
+    module.add_function(wrap_pyfunction!(topology_bic_score, module)?)?;
     module.add_function(wrap_pyfunction!(torch_smooth_dispatch_key, module)?)?;
     module.add_function(wrap_pyfunction!(assemble_candidate_formula, module)?)?;
     module.add_function(wrap_pyfunction!(ordered_prediction_columns, module)?)?;
@@ -4176,6 +4188,7 @@ fn rust_extension(module: &Bound<'_, PyModule>) -> PyResult<()> {
     module.add_function(wrap_pyfunction!(sae_ibp_map_value_grad, module)?)?;
     module.add_function(wrap_pyfunction!(sae_jumprelu_row_value_grad, module)?)?;
     module.add_function(wrap_pyfunction!(sae_jumprelu_batch_value_grad, module)?)?;
+    module.add_function(wrap_pyfunction!(sae_topk_activation_value_grad, module)?)?;
     module.add_function(wrap_pyfunction!(jumprelu_gate_value_grad, module)?)?;
     module.add_function(wrap_pyfunction!(equivariant_penalty_value, module)?)?;
     module.add_function(wrap_pyfunction!(riemannian_retract, module)?)?;
@@ -4226,6 +4239,7 @@ fn rust_extension(module: &Bound<'_, PyModule>) -> PyResult<()> {
         response_geometry_sphere_normalize_base,
         module
     )?)?;
+    module.add_function(wrap_pyfunction!(sae_duchon_centers_nd, module)?)?;
     module.add_function(wrap_pyfunction!(sinkhorn_circular_cost, module)?)?;
     module.add_function(wrap_pyfunction!(sinkhorn_euclidean_cost, module)?)?;
     module.add_function(wrap_pyfunction!(sinkhorn_geodesic_sphere_cost, module)?)?;
@@ -4379,6 +4393,7 @@ fn rust_extension(module: &Bound<'_, PyModule>) -> PyResult<()> {
         module
     )?)?;
     module.add_function(wrap_pyfunction!(mechanism_sparsity_jacobian, module)?)?;
+    module.add_function(wrap_pyfunction!(derive_ivae_aux_scale, module)?)?;
     module.add_function(wrap_pyfunction!(conditional_prior_ivae, module)?)?;
     module.add_function(wrap_pyfunction!(diagnostics_aux_richness, module)?)?;
     module.add_function(wrap_pyfunction!(diagnostics_jacobian_sparsity, module)?)?;
@@ -4392,6 +4407,7 @@ fn rust_extension(module: &Bound<'_, PyModule>) -> PyResult<()> {
     module.add_function(wrap_pyfunction!(sparse_dictionary_fit, module)?)?;
     module.add_function(wrap_pyfunction!(sparse_dictionary_transform_ffi, module)?)?;
     module.add_function(wrap_pyfunction!(sparse_dictionary_reconstruct_ffi, module)?)?;
+    module.add_function(wrap_pyfunction!(sae_manifold_reconstruct_ffi, module)?)?;
     module.add_function(wrap_pyfunction!(block_sparse_dictionary_fit, module)?)?;
     module.add_function(wrap_pyfunction!(
         block_sparse_dictionary_transform_ffi,
@@ -4460,6 +4476,9 @@ fn rust_extension(module: &Bound<'_, PyModule>) -> PyResult<()> {
     module.add_function(wrap_pyfunction!(recover_spikes, module)?)?;
     module.add_function(wrap_pyfunction!(compose_contracts, module)?)?;
     module.add_function(wrap_pyfunction!(loop_holonomy, module)?)?;
+    module.add_function(wrap_pyfunction!(conditional_coactivation_influence, module)?)?;
+    module.add_function(wrap_pyfunction!(coupling_robustness_certificate, module)?)?;
+    module.add_function(wrap_pyfunction!(effect_weighted_retention, module)?)?;
     Ok(())
 }
 
@@ -4477,6 +4496,22 @@ fn mechanism_sparsity_jacobian<'py>(
         .map_err(py_value_error)?;
     let (value, grad) = pen.value_and_grad(w.as_array());
     Ok((value, grad.into_pyarray(py).unbind()))
+}
+
+/// Derive the iVAE auxiliary-conditional scale σ(u) from the auxiliary table.
+#[pyfunction(signature = (aux, log_amplitude, frequency_scale))]
+fn derive_ivae_aux_scale<'py>(
+    py: Python<'py>,
+    aux: PyReadonlyArray2<'py, f64>,
+    log_amplitude: f64,
+    frequency_scale: f64,
+) -> PyResult<Py<PyArray2<f64>>> {
+    let scale = gam::terms::sae::identifiability::derive_ivae_aux_scale(
+        aux.as_array(),
+        log_amplitude,
+        frequency_scale,
+    );
+    Ok(scale.into_pyarray(py).unbind())
 }
 
 /// iVAE conditional-Gaussian log-prior. Given per-row `(mean, scale)` arrays
@@ -4916,7 +4951,7 @@ const SPARSE_DICT_DUAL_CERT_MAX_BIRTHS: usize = 16;
     code_ridge = 1.0e-6,
     decoder_ridge = 1.0e-6,
     tolerance = 1.0e-6,
-    score_mode = "required"
+    score_mode = "auto"
 ))]
 fn sparse_dictionary_fit<'py>(
     py: Python<'py>,
@@ -4988,7 +5023,7 @@ fn sparse_dictionary_fit<'py>(
     active,
     score_tile = 4096,
     code_ridge = 1.0e-6,
-    score_mode = "required"
+    score_mode = "auto"
 ))]
 fn sparse_dictionary_transform_ffi<'py>(
     py: Python<'py>,
@@ -5037,6 +5072,57 @@ fn sparse_dictionary_reconstruct_ffi<'py>(
             decoder_values.view(),
             index_values.view(),
             code_values.view(),
+        )
+    })?;
+    Ok(out.into_pyarray(py).unbind())
+}
+
+#[pyfunction(signature = (
+    atom_basis,
+    atom_dim,
+    decoder_blocks,
+    coords,
+    assignments,
+    p_out,
+))]
+fn sae_manifold_reconstruct_ffi<'py>(
+    py: Python<'py>,
+    atom_basis: Vec<String>,
+    atom_dim: Vec<usize>,
+    decoder_blocks: Vec<PyReadonlyArray2<'py, f64>>,
+    coords: Vec<PyReadonlyArray2<'py, f64>>,
+    assignments: PyReadonlyArray2<'py, f64>,
+    p_out: usize,
+) -> PyResult<Py<PyArray2<f64>>> {
+    let basis_kinds = atom_basis
+        .iter()
+        .map(|name| sae_atom_basis_kind_from_str(name))
+        .collect::<Vec<_>>();
+    let decoder_values = decoder_blocks
+        .iter()
+        .map(|block| block.as_array().to_owned())
+        .collect::<Vec<_>>();
+    let coord_values = coords
+        .iter()
+        .map(|coord| coord.as_array().to_owned())
+        .collect::<Vec<_>>();
+    let assignment_values = assignments.as_array().to_owned();
+    let out = detach_py_result(py, "sae_manifold_reconstruct", move || {
+        let decoder_views = decoder_values
+            .iter()
+            .map(|block| block.view())
+            .collect::<Vec<_>>();
+        let coord_views = coord_values
+            .iter()
+            .map(|coord| coord.view())
+            .collect::<Vec<_>>();
+        gam::terms::sae::manifold::reconstruct_persisted_atom_set(
+            &basis_kinds,
+            &atom_dim,
+            &decoder_views,
+            &coord_views,
+            assignment_values.view(),
+            p_out,
         )
     })?;
     Ok(out.into_pyarray(py).unbind())
@@ -5272,7 +5358,8 @@ fn block_sparse_dictionary_firings_ffi<'py>(
     residual_target = true,
     n_basis_chart = 4,
     include_bases = true,
-    name_prefix = "block"
+    name_prefix = "block",
+    block_tile = 1024
 ))]
 fn block_sparse_dictionary_seed_manifest_ffi<'py>(
     py: Python<'py>,
@@ -5289,6 +5376,7 @@ fn block_sparse_dictionary_seed_manifest_ffi<'py>(
     n_basis_chart: usize,
     include_bases: bool,
     name_prefix: &str,
+    block_tile: usize,
 ) -> PyResult<Py<PyDict>> {
     let x_values = x.as_array().to_owned();
     let decoder_values = decoder.as_array().to_owned();
@@ -5303,6 +5391,7 @@ fn block_sparse_dictionary_seed_manifest_ffi<'py>(
         n_basis_chart,
         include_bases,
         name_prefix: name_prefix.to_string(),
+        block_tile,
     };
     let manifest = detach_py_result(py, "block_sparse_dictionary_seed_manifest", move || {
         block_sparse_dictionary_seed_manifest(
@@ -5337,7 +5426,8 @@ fn block_sparse_dictionary_seed_manifest_ffi<'py>(
     pair_top_blocks = 64,
     max_pairs = 128,
     pair_min_cofirings = 64,
-    pair_min_score = 0.20
+    pair_min_score = 0.20,
+    block_tile = 1024
 ))]
 fn block_coordinate_chart_compose_ffi<'py>(
     py: Python<'py>,
@@ -5360,6 +5450,7 @@ fn block_coordinate_chart_compose_ffi<'py>(
     max_pairs: usize,
     pair_min_cofirings: usize,
     pair_min_score: f64,
+    block_tile: usize,
 ) -> PyResult<Py<PyDict>> {
     let x_values = x.as_array().to_owned();
     let decoder_values = decoder.as_array().to_owned();
@@ -5381,6 +5472,7 @@ fn block_coordinate_chart_compose_ffi<'py>(
         max_pairs,
         pair_min_cofirings,
         pair_min_score,
+        block_tile,
     };
     let result = detach_py_result(py, "block_coordinate_chart_compose", move || {
         compose_block_coordinate_charts(
@@ -5530,7 +5622,7 @@ impl SparseDictStream {
         code_ridge = 1.0e-6,
         decoder_ridge = 1.0e-6,
         tolerance = 1.0e-6,
-        score_mode = "required"
+        score_mode = "auto"
     ))]
     fn new(
         py: Python<'_>,
@@ -5937,6 +6029,9 @@ fn fit_dataset_impl(
             expectile_result.wiggle_knots.map(|knots| knots.to_vec()),
             expectile_result.wiggle_degree,
             expectile_result.wiggle_saved_warp_beta,
+            // Expectile LAWS is Gaussian-identity; it never engages the binomial
+            // frozen-basis de-aliasing, so there is no frozen-index shift (#2141).
+            None,
         )?;
         payload.group_metadata = fit_config.group_metadata.clone();
         payload.training_table_kind = training_table_kind;
@@ -6049,6 +6144,7 @@ fn fit_dataset_impl(
                 standard_result.wiggle_knots.map(|knots| knots.to_vec()),
                 standard_result.wiggle_degree,
                 standard_result.wiggle_saved_warp_beta,
+                standard_result.wiggle_saved_index_shift,
             )?
         }
         FitRequest::TransformationNormal(tn_request) => {

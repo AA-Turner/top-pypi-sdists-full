@@ -159,6 +159,12 @@ AIRT_ATTRIBUTE_CONFIDENCE_ADVERSARIAL = f"{AIRT_NAMESPACE}.confidence_adversaria
 AIRT_ATTRIBUTE_INPUT_MODALITY = f"{AIRT_NAMESPACE}.input_modality"
 AIRT_ATTRIBUTE_PERTURBATION_BUDGET = f"{AIRT_NAMESPACE}.perturbation_budget"
 
+# Multimodal message parts — JSON-serialized MessagePart[] for a trial's input and
+# output. Media parts carry a content-addressed artifact reference (sha256 oid), never
+# inline base64, so ClickHouse/Postgres stay lean and the UI resolves refs on demand.
+AIRT_ATTRIBUTE_CANDIDATE_PARTS = f"{AIRT_NAMESPACE}.candidate_parts"
+AIRT_ATTRIBUTE_RESPONSE_PARTS = f"{AIRT_NAMESPACE}.response_parts"
+
 # === Event Names ===
 EVENT_NAME_OBJECT = f"{SPAN_NAMESPACE}.object"
 EVENT_NAME_OBJECT_INPUT = f"{SPAN_NAMESPACE}.object.input"

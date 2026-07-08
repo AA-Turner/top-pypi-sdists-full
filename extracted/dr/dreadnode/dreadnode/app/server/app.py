@@ -28,6 +28,9 @@ from dreadnode.app.api.models import (
     RuntimeInfoResponse,
     SessionCreateRequest,
     SessionEventPublishRequest,
+    SessionGroupCreateRequest,
+    SessionGroupInfo,
+    SessionGroupUpdateRequest,
     SessionInfo,
     SessionMessage,
     SessionRestoreRequest,
@@ -151,6 +154,23 @@ def _resolve_turn_model(
 def _tool_name(tool: t.Any) -> str:
     """Get the name of a tool object."""
     return getattr(tool, "name", "")
+
+
+_ITEM_TOOL_NAMES = {"report_item", "update_item", "link_items"}
+
+
+def _selected_builtin_item_types(capability: Capability) -> set[str]:
+    """Built-in item types a capability explicitly opted into."""
+    from dreadnode.items.config import selected_builtin_item_types
+
+    return selected_builtin_item_types(getattr(capability, "manifest", None))
+
+
+def _capability_items_enabled(capability: Capability) -> bool:
+    """True when the capability opted into built-ins or declares custom types."""
+    from dreadnode.items.config import item_tools_enabled
+
+    return item_tools_enabled(getattr(capability, "manifest", None))
 
 
 def _make_agent_link_tool(
@@ -344,7 +364,8 @@ def create_agent(
     """Create an agent from a loaded capability.
 
     Tool assembly order:
-    1. Inherent tools (from default_tools()) — always present
+    1. Inherent tools (from default_tools()) — always present, except item tools
+       which are capability opt-in
     2. Extra tools (from global capability pool) — additive, skip duplicates
     3. Agent tool rules filter the combined pool (empty rules = all tools)
 
@@ -393,8 +414,9 @@ def create_agent(
     if background_context:
         instructions = instructions + "\n\n" + background_context
 
-    # 1. Inherent tools — always present
-    base = default_tools(additional_toolsets=inherent_toolsets)
+    # 1. Inherent tools — always present. Item tools are capability opt-in and
+    # added below only when the manifest asks for built-ins or custom types.
+    base = default_tools(additional_toolsets=inherent_toolsets, include_items=False)
 
     pool: list[t.Any] = list(base.values())
     pool_names = set(base.keys())
@@ -451,6 +473,47 @@ def create_agent(
                 pool.append(tool)
                 pool_names.add(name)
 
+    # Attribute emitted items to this capability so report_item can pass its
+    # name+version for produces-schema validation. Bound to ``current_capability``
+    # only for the duration of the agent's run (see ``Agent.stream``), NOT set
+    # here — an unscoped set() would leak attribution into later capability-less
+    # agents that share this async context.
+    capability_context: tuple[str, str] | None = (
+        (capability.name, getattr(capability, "version", "") or "")
+        if capability is not None
+        else None
+    )
+
+    # Structured items are capability opt-in. A capability gets report/update/link
+    # only when `produces` selects built-ins or custom item types. The legacy
+    # `items` key is still honored for compatibility.
+    if capability is not None:
+        pool = [item for item in pool if _tool_name(item) not in _ITEM_TOOL_NAMES]
+        pool_names -= _ITEM_TOOL_NAMES
+
+        if _capability_items_enabled(capability):
+            try:
+                from dreadnode.tools.report_items import (
+                    build_capability_report_item,
+                    link_items,
+                    update_item,
+                )
+
+                report_item_tool = build_capability_report_item(
+                    capability,
+                    builtin_types=_selected_builtin_item_types(capability),
+                )
+            except Exception as exc:
+                logger.warning(
+                    "Failed to build typed report_item for capability {}: {}",
+                    capability.name,
+                    exc,
+                )
+                report_item_tool = None
+            if report_item_tool is not None:
+                pool.extend([report_item_tool, update_item, link_items])
+                pool_names |= _ITEM_TOOL_NAMES
+
     # 3. Apply agent's tool rules (empty dict = all tools pass)
     rules = agent_def.tools if agent_def else {}
     tools = filter_tools(pool, rules, name_fn=_tool_name)
@@ -464,7 +527,7 @@ def create_agent(
         _resolve_engine_selector(agent_def.engine) if agent_def else None
     )
 
-    return Agent(
+    agent = Agent(
         name=agent_def.name if agent_def else "dreadnode-agent",
         model=model,
         instructions=instructions,
@@ -473,6 +536,10 @@ def create_agent(
         max_steps=1000,
         engine=resolved_engine,
     )
+    # Scope capability attribution to this agent's run (reset on exit) so it
+    # never leaks to a later agent in the same async context.
+    agent._capability = capability_context
+    return agent
 
 
 # =============================================================================
@@ -694,6 +761,7 @@ def _normalize_platform_session(s: dict[str, t.Any]) -> dict[str, t.Any]:
     total_tokens, tool_calls, cost, last_input_tokens = _platform_usage_totals(s.get("usage"))
     return {
         "session_id": str(s.get("id", "")),
+        "group_id": str(s["group_id"]) if s.get("group_id") else None,
         "project": s.get("project_name"),
         "created_at": s.get("created_at"),
         "updated_at": s.get("updated_at"),
@@ -829,6 +897,7 @@ class ServerState:
             capability_name=capability_name,
             capability=capability,
             agent_def=agent_def,
+            group_id=None,
         )
 
     def _get_api_context(self) -> tuple[t.Any, str, str, str] | None:
@@ -1069,6 +1138,7 @@ class ServerState:
                         sessions[sid] = SessionInfo(
                             session_id=sid,
                             project=s.get("project_name"),
+                            group_id=str(s["group_id"]) if s.get("group_id") else None,
                             created_at=datetime.fromisoformat(s["created_at"])
                             if s.get("created_at")
                             else datetime.now(UTC),
@@ -1115,6 +1185,7 @@ class ServerState:
         policy: str | dict[str, t.Any] | None = None,
         labels: dict[str, list[str]] | None = None,
         origin: str | None = None,
+        group_id: str | None = None,
         engine: str | None = None,
         project_memory_scope_kind: str = _PROJECT_MEMORY_SCOPE_PROJECT,
         enable_project_memory_preload: bool = True,
@@ -1180,6 +1251,7 @@ class ServerState:
             policy=resolved_policy,
             reserved_labels=labels,
             origin=origin,
+            group_id=group_id,
             engine=engine,
             project_memory_scope_kind=project_memory_scope_kind,
             enable_project_memory_preload=enable_project_memory_preload,
@@ -1294,6 +1366,37 @@ def _resolve_platform_api() -> tuple[t.Any, str, str] | None:
     return instance.api, org, ws
 
 
+def _resolve_platform_project_id(
+    api: t.Any,
+    org: str,
+    ws: str,
+    *,
+    project_key: str | None = None,
+) -> str | None:
+    """Resolve the active platform project UUID for session/group writes."""
+    from dreadnode import _get_default_instance
+
+    instance = _get_default_instance()
+    if project_key is None:
+        default_project_key = getattr(instance, "project", None)
+        if isinstance(default_project_key, str):
+            project_key = default_project_key
+
+    active_profile = getattr(instance, "_profile", None)
+    active_project_key = getattr(active_profile, "project", None)
+    active_project_id = getattr(active_profile, "project_id", None)
+    if (
+        project_key
+        and active_project_id is not None
+        and (active_project_key is None or active_project_key == project_key)
+    ):
+        return str(active_project_id)
+    if project_key:
+        project = api.get_project(org, ws, project_key)
+        return str(project.id)
+    return None
+
+
 def _delete_session_on_platform(session_id: str) -> bool:
     """Forward a session delete to the platform when sync is available.
 
@@ -1345,6 +1448,59 @@ def _freeze_session_on_platform(session_id: str) -> bool:
     return True
 
 
+def _create_session_group_on_platform(
+    request: SessionGroupCreateRequest,
+) -> dict[str, t.Any] | None:
+    """Forward session group creation to the platform when sync is available."""
+    resolved = _resolve_platform_api()
+    if resolved is None:
+        return None
+    api, org, ws = resolved
+    project_id = _resolve_platform_project_id(
+        api,
+        org,
+        ws,
+        project_key=request.project,
+    )
+    if project_id is None:
+        raise ValueError("Session group creation requires a platform project")
+    runtime_id = request.runtime_id or os.environ.get("DREADNODE_RUNTIME_ID", "").strip() or None
+    return api.create_session_group(
+        org,
+        ws,
+        project_id=project_id,
+        kind=request.kind,
+        title=request.title,
+        status=request.status,
+        runtime_id=runtime_id,
+        capability=request.capability,
+        capability_version=request.capability_version,
+        worker=request.worker,
+        evaluation_id=request.evaluation_id,
+        evaluation_item_id=request.evaluation_item_id,
+        evaluation_item_attempt_id=request.evaluation_item_attempt_id,
+        metadata=request.metadata,
+    )
+
+
+def _update_session_group_on_platform(
+    group_id: str,
+    request: SessionGroupUpdateRequest,
+) -> dict[str, t.Any] | None:
+    """Forward session group lifecycle updates to the platform."""
+    resolved = _resolve_platform_api()
+    if resolved is None:
+        return None
+    api, org, ws = resolved
+    return api.update_session_group(
+        org,
+        ws,
+        group_id,
+        title=request.title,
+        status=request.status,
+    )
+
+
 def _register_session_with_platform(
     session: SessionRuntime, *, bootstrap_model: str | None = None
 ) -> None:
@@ -1375,19 +1531,12 @@ def _register_session_with_platform(
             if isinstance(default_project_key, str):
                 project_key = default_project_key
 
-        project_id: str | None = None
-        active_profile = getattr(instance, "_profile", None)
-        active_project_key = getattr(active_profile, "project", None)
-        active_project_id = getattr(active_profile, "project_id", None)
-        if (
-            project_key
-            and active_project_id is not None
-            and (active_project_key is None or active_project_key == project_key)
-        ):
-            project_id = str(active_project_id)
-        elif project_key:
-            project = api.get_project(org, ws, project_key)
-            project_id = str(project.id)
+        project_id = _resolve_platform_project_id(
+            api,
+            org,
+            ws,
+            project_key=project_key,
+        )
 
         runtime_id = os.environ.get("DREADNODE_RUNTIME_ID", "").strip() or None
 
@@ -1434,6 +1583,7 @@ def _register_session_with_platform(
             message_count=session.message_count,
             project_id=project_id,
             runtime_id=runtime_id,
+            group_id=session._group_id,
             labels=labels,
             origin=origin,
         )
@@ -1517,6 +1667,7 @@ class SessionRuntime:
         policy: SessionPolicy | None = None,
         reserved_labels: dict[str, list[str]] | None = None,
         origin: str | None = None,
+        group_id: str | None = None,
         engine: str | None = None,
         project_memory_scope_kind: str = _PROJECT_MEMORY_SCOPE_PROJECT,
         enable_project_memory_preload: bool = True,
@@ -1551,6 +1702,7 @@ class SessionRuntime:
         # RuntimeClients set this to ``worker``; standalone clients leave it
         # ``None`` and the platform's ``user`` default applies.
         self._origin: str | None = origin
+        self._group_id: str | None = group_id
         normalized_scope_kind = (
             project_memory_scope_kind.strip() if project_memory_scope_kind else ""
         )
@@ -3013,6 +3165,7 @@ class SessionRuntime:
         return SessionInfo(
             session_id=self.session_id,
             project=self.project_key,
+            group_id=self._group_id,
             created_at=self.created_at,
             updated_at=datetime.now(UTC),
             message_count=self.message_count,
@@ -3122,6 +3275,46 @@ async def browse_session_facets(
     return JSONResponse(content=envelope)
 
 
+@app.post("/api/session-groups", response_model=SessionGroupInfo)
+async def create_session_group(request: SessionGroupCreateRequest) -> SessionGroupInfo:
+    """Create a platform-backed session group for workflow contexts."""
+    try:
+        group = _create_session_group_on_platform(request)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    if group is None:
+        raise HTTPException(
+            status_code=404,
+            detail="Session groups require a connected platform workspace",
+        )
+    return SessionGroupInfo(
+        id=str(group["id"]),
+        kind=str(group.get("kind", request.kind)),
+        title=str(group["title"]) if group.get("title") is not None else None,
+        status=str(group["status"]) if group.get("status") is not None else None,
+    )
+
+
+@app.patch("/api/session-groups/{group_id}", response_model=SessionGroupInfo)
+async def update_session_group(
+    group_id: str,
+    request: SessionGroupUpdateRequest,
+) -> SessionGroupInfo:
+    """Update lifecycle fields for a platform-backed session group."""
+    group = _update_session_group_on_platform(group_id, request)
+    if group is None:
+        raise HTTPException(
+            status_code=404,
+            detail="Session groups require a connected platform workspace",
+        )
+    return SessionGroupInfo(
+        id=str(group["id"]),
+        kind=str(group.get("kind", "")),
+        title=str(group["title"]) if group.get("title") is not None else None,
+        status=str(group["status"]) if group.get("status") is not None else None,
+    )
+
+
 @app.post("/api/sessions", response_model=SessionInfo)
 async def create_session(request: SessionCreateRequest) -> SessionInfo:
     """Create or resolve a capability-bound session runtime."""
@@ -3136,6 +3329,7 @@ async def create_session(request: SessionCreateRequest) -> SessionInfo:
             policy=request.policy,
             labels=request.labels,
             origin=request.origin,
+            group_id=request.group_id,
             engine=request.engine,
             project_memory_scope_kind=request.project_memory_scope_kind,
             enable_project_memory_preload=request.enable_project_memory_preload,

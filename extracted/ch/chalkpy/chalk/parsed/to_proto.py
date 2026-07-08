@@ -1499,6 +1499,7 @@ class ToProtoConverter:
                     else None
                 ),
                 format=r.message_producer_parsed.format,
+                message_key=r.message_producer_parsed.message_key,
             )
 
         # convert_proto_message_type_to_pyarrow_type(global_value.DESCRIPTOR)

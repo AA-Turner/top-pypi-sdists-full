@@ -563,9 +563,11 @@ def test_rag_ollama_embedder_errors_without_httpx(monkeypatch):
     # Force ImportError by removing the cached module name
     if "httpx" in sys.modules:
         del sys.modules["httpx"]
+    import builtins
+    orig_import = builtins.__import__
     monkeypatch.setattr("builtins.__import__", lambda name, *a, **kw: (
         (_ for _ in ()).throw(ImportError("no httpx")) if name == "httpx"
-        else __import__(name, *a, **kw)
+        else orig_import(name, *a, **kw)
     ))
     with pytest.raises(RuntimeError):
         e.embed(["x"])
@@ -624,9 +626,11 @@ def test_web_search_no_httpx_returns_empty(monkeypatch):
     from sage.core import web_search
     if "httpx" in sys.modules:
         monkeypatch.delitem(sys.modules, "httpx", raising=False)
+    import builtins
+    orig_import = builtins.__import__
     monkeypatch.setattr("builtins.__import__", lambda name, *a, **kw: (
         (_ for _ in ()).throw(ImportError("no httpx")) if name == "httpx"
-        else __import__(name, *a, **kw)
+        else orig_import(name, *a, **kw)
     ))
     assert web_search.WebSearchTool().search("anything") == []
 
@@ -661,9 +665,11 @@ def test_grammar_load_returns_none_when_llama_cpp_missing(monkeypatch):
     monkeypatch.setitem(sys.modules, "llama_cpp", None)
     if "llama_cpp" in sys.modules:
         del sys.modules["llama_cpp"]
+    import builtins
+    orig_import = builtins.__import__
     monkeypatch.setattr("builtins.__import__", lambda name, *a, **kw: (
         (_ for _ in ()).throw(ImportError("no llama_cpp")) if name == "llama_cpp"
-        else __import__(name, *a, **kw)
+        else orig_import(name, *a, **kw)
     ))
     assert grammar.load_grammar() is None
 
@@ -1011,9 +1017,11 @@ def test_keep_alive_no_httpx_returns_false(monkeypatch):
     from sage.core import keep_alive
     if "httpx" in sys.modules:
         monkeypatch.delitem(sys.modules, "httpx", raising=False)
+    import builtins
+    orig_import = builtins.__import__
     monkeypatch.setattr("builtins.__import__", lambda name, *a, **kw: (
         (_ for _ in ()).throw(ImportError("no httpx")) if name == "httpx"
-        else __import__(name, *a, **kw)
+        else orig_import(name, *a, **kw)
     ))
     assert keep_alive.prewarm("model") is False
 

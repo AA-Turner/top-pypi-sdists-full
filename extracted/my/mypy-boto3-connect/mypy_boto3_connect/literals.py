@@ -35,6 +35,7 @@ __all__ = (
     "ApplicationTypeType",
     "ArtifactStatusType",
     "AttachmentScopeType",
+    "AuthCodeEntityTypeType",
     "AutoEvaluationStatusType",
     "BehaviorType",
     "BehaviorTypeType",
@@ -328,6 +329,7 @@ AnsweringMachineDetectionStatusType = Literal[
 ApplicationTypeType = Literal["MCP", "THIRD_PARTY_APPLICATION"]
 ArtifactStatusType = Literal["APPROVED", "IN_PROGRESS", "REJECTED"]
 AttachmentScopeType = Literal["CASE", "CHAT", "EMAIL", "TASK"]
+AuthCodeEntityTypeType = Literal["CUSTOMER_PROFILE"]
 AutoEvaluationStatusType = Literal["FAILED", "IN_PROGRESS", "SUCCEEDED"]
 BehaviorType = Literal["Disable", "Enable"]
 BehaviorTypeType = Literal["ROUTE_ANY_CHANNEL", "ROUTE_CURRENT_CHANNEL_ONLY"]
@@ -1448,6 +1450,7 @@ ServiceName = Literal[
     "partnercentral-account",
     "partnercentral-benefits",
     "partnercentral-channel",
+    "partnercentral-revenue-measurement",
     "partnercentral-selling",
     "payment-cryptography",
     "payment-cryptography-data",

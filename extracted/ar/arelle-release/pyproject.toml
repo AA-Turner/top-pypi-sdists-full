@@ -1,5 +1,5 @@
 [build-system]
-requires = ["setuptools>=82,<83", "wheel>=0.46,<0.48", "setuptools_scm>=10.0,<11.0"]
+requires = ["setuptools>=82,<84", "wheel>=0.46,<0.48", "setuptools_scm>=10.0,<11.0"]
 build-backend = "setuptools.build_meta"
 
 [project]
@@ -182,24 +182,18 @@ module = [
     'arelle.ViewFileTests',
     'arelle.ViewUtil',
     'arelle.ViewUtilFormulae',
-    'arelle.ViewWinConcepts',
-    'arelle.ViewWinDTS',
-    'arelle.ViewWinDiffs',
     'arelle.ViewWinFactGrid',
     'arelle.ViewWinFactList',
     'arelle.ViewWinFactTable',
     'arelle.ViewWinFormulae',
     'arelle.ViewWinGrid',
     'arelle.ViewWinList',
-    'arelle.ViewWinPane',
     'arelle.ViewWinProperties',
-    'arelle.ViewWinRelationshipSet',
     'arelle.ViewWinRenderedGrid',
     'arelle.ViewWinRoleTypes',
     'arelle.ViewWinRssFeed',
     'arelle.ViewWinTests',
     'arelle.ViewWinTkTable',
-    'arelle.ViewWinTree',
     'arelle.ViewWinTupleGrid',
     'arelle.ViewWinVersReport',
     'arelle.ViewWinXml',

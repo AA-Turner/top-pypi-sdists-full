@@ -10,12 +10,11 @@ from collections import defaultdict
 from eve_sde.models import ItemType
 
 # Django
-from django.contrib.auth.models import User
 from django.db import models
 from django.utils.translation import gettext_lazy as _
 
 # Alliance Auth
-from allianceauth.authentication.models import CharacterOwnership
+from allianceauth.authentication.models import CharacterOwnership, User
 from allianceauth.services.hooks import get_extension_logger
 
 # Alliance Auth AFAT

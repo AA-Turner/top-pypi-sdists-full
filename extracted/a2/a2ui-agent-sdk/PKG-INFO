@@ -1,10 +1,11 @@
 Metadata-Version: 2.4
 Name: a2ui-agent-sdk
-Version: 0.3.0
+Version: 0.4.0
 Summary: A2UI Agent SDK
-Requires-Python: >=3.14
+Requires-Python: >=3.10
 Requires-Dist: a2a-sdk<0.4.0,>=0.3.0
-Requires-Dist: a2ui-core>=0.1.0
+Requires-Dist: a2ui-core<0.2.0,>=0.1.1
+Requires-Dist: antlr4-python3-runtime<4.14.0,>=4.13.0
 Requires-Dist: google-adk>=1.28.1
 Requires-Dist: google-genai>=1.27.0
 Requires-Dist: jsonschema>=4.0.0

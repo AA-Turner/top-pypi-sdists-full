@@ -318,6 +318,9 @@ from types_boto3_outposts.client import OutpostsClient
 from types_boto3_partnercentral_account.client import PartnerCentralAccountAPIClient
 from types_boto3_partnercentral_benefits.client import PartnerCentralBenefitsClient
 from types_boto3_partnercentral_channel.client import PartnerCentralChannelAPIClient
+from types_boto3_partnercentral_revenue_measurement.client import (
+    PartnerCentralRevenueMeasurementAPIClient,
+)
 from types_boto3_partnercentral_selling.client import PartnerCentralSellingAPIClient
 from types_boto3_payment_cryptography.client import PaymentCryptographyControlPlaneClient
 from types_boto3_payment_cryptography_data.client import PaymentCryptographyDataPlaneClient
@@ -5701,6 +5704,24 @@ def client(
 ) -> PartnerCentralChannelAPIClient:
     """
     Create client for PartnerCentralChannelAPI service.
+    """
+
+@overload
+def client(
+    service_name: Literal["partnercentral-revenue-measurement"],
+    region_name: str | None = ...,
+    api_version: str | None = ...,
+    use_ssl: bool | None = ...,
+    verify: bool | str | None = ...,
+    endpoint_url: str | None = ...,
+    aws_access_key_id: str | None = ...,
+    aws_secret_access_key: str | None = ...,
+    aws_session_token: str | None = ...,
+    config: Config | None = ...,
+    aws_account_id: str | None = ...,
+) -> PartnerCentralRevenueMeasurementAPIClient:
+    """
+    Create client for PartnerCentralRevenueMeasurementAPI service.
     """
 
 @overload

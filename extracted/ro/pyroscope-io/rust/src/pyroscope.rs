@@ -2,19 +2,19 @@ use std::{
     collections::HashMap,
     marker::PhantomData,
     sync::{
-        mpsc::{self, Sender},
         Arc, Condvar, Mutex,
+        mpsc::{self, Sender},
     },
     thread::JoinHandle,
 };
 
 use crate::{
+    PyroscopeError,
     backend::{BackendReady, BackendUninitialized, Tag},
     error::Result,
     session::{Session, SessionManager, SessionSignal},
     timer::{Timer, TimerSignal},
     utils::get_time_range,
-    PyroscopeError,
 };
 
 use crate::backend::{BackendImpl, ThreadTag};
@@ -34,6 +34,10 @@ pub struct PyroscopeConfig {
     pub spy_name: String,
     /// Spy Version
     pub spy_version: String,
+    /// Runtime Name
+    pub runtime_name: String,
+    /// Runtime Version
+    pub runtime_version: String,
     pub basic_auth: Option<BasicAuth>,
     pub tenant_id: Option<String>,
     pub http_headers: HashMap<String, String>,
@@ -62,6 +66,8 @@ impl PyroscopeConfig {
             sample_rate,
             spy_name: spy_name.as_ref().to_owned(),
             spy_version: spy_version.as_ref().to_owned(),
+            runtime_name: String::new(),
+            runtime_version: String::new(),
             basic_auth: None,
             tenant_id: None,
             http_headers: HashMap::new(),
@@ -103,6 +109,14 @@ impl PyroscopeConfig {
 
         Self {
             tags: tags_hashmap,
+            ..self
+        }
+    }
+
+    pub fn runtime(self, runtime_name: String, runtime_version: String) -> Self {
+        Self {
+            runtime_name,
+            runtime_version,
             ..self
         }
     }
@@ -414,7 +428,7 @@ impl PyroscopeAgent<PyroscopeAgentRunning> {
     /// # Ok(())
     /// # }
     /// ```
-    pub fn stop(mut self) -> Result<PyroscopeAgent<PyroscopeAgentReady>> {
+    pub fn stop(mut self) -> Result<()> {
         log::debug!(target: LOG_TAG, "Stopping");
         // get tx and send termination signal
         if let Some(sender) = self.tx.take() {
@@ -430,8 +444,8 @@ impl PyroscopeAgent<PyroscopeAgentRunning> {
         let pair = Arc::clone(&self.running);
         let (lock, cvar) = &*pair;
         let _guard = cvar.wait_while(lock.lock()?, |running| *running)?;
-
-        Ok(self.transition())
+        self.shutdown();
+        Ok(())
     }
 
     /// Return a tuple of functions to add and remove tags to the agent across

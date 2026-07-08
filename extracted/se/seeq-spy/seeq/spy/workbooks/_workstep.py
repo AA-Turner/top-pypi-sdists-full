@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import datetime
 import json
+import numbers
 import os
 import re
 from typing import Union, Optional
@@ -894,10 +895,20 @@ class AnalysisWorkstep(WorkstepForAnalysisOrRoom):
                             value = axis_map[value]
                             axes.add(value)
                         elif column == 'Lane':
-                            value = int(value) if int(value) > 0 else 1
+                            try:
+                                if not isinstance(value, numbers.Number):
+                                    value = int(value)
+                                value = max(1, value)
+                            except (TypeError, ValueError):
+                                value = 1
                             lanes.add(value)
                         elif column == 'Line Width':
-                            value = value if value > 0 else 1
+                            try:
+                                if not isinstance(value, numbers.Number):
+                                    value = float(value)
+                                value = max(1, value)
+                            except (TypeError, ValueError):
+                                value = 1
                         elif column == 'Axis Align':
                             value = self._workstep_rightAxis_user_to_workstep[value]
                         elif column == 'Axis Type':

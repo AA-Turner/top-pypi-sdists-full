@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: raindrop-ai
-Version: 0.0.55
+Version: 0.0.56
 Summary: Raindrop AI (Python SDK)
 License: MIT
 Author: Raindrop AI
@@ -49,6 +49,66 @@ raindrop.track_ai(
 )
 ```
 
+## Instance-based clients (multiple projects in one process)
+
+`raindrop.Raindrop` is the instance-shaped counterpart of the module API —
+the same shape as the JS (`new Raindrop({...})`), Go, Rust, and Java SDKs.
+Each instance owns its configuration and event pipeline, so one service can
+route different agents to different projects concurrently:
+
+```python
+from raindrop import Raindrop
+
+rd_support = Raindrop(api_key=KEY, project_id="support-agent", tracing_enabled=True)
+rd_billing = Raindrop(api_key=KEY, project_id="billing-agent", tracing_enabled=True)
+
+# Everything hangs off the instance — same method names as the module API.
+interaction = rd_billing.begin(user_id="u1", event="billing-chat", input="...")
+interaction.track_tool(name="invoice_lookup", input=..., output=...)
+interaction.finish(output="...")
+
+rd_support.track_ai(user_id="u1", event="support-chat", input="q", output="a")
+rd_support.track_signal(event_id=..., name="thumbs_up")
+```
+
+Create instances once at startup and reuse them (see
+`example/fastapi_multi_project.py` for a two-agent FastAPI app). Manual
+events (`track_ai`, `begin`/`finish`, signals, `identify`) ship on each
+instance's own connections with its own headers — fully isolated per
+instance. The module-level API keeps working unchanged; it is simply the
+default, process-wide instance of the same machinery.
+
+### Tracing with multiple instances
+
+OpenTelemetry tracing is a process singleton (one tracer provider, one
+exporter, global auto-instrumentation). The first instance constructed with
+`tracing_enabled=True` initializes it; later tracing instances share it.
+Span routing is per-span: `begin()` binds the current request/task to its
+client's project **until the matching `finish()`** (which restores the
+previous binding — abandoned interactions release theirs when garbage
+collected), and every span started while bound carries a
+`raindrop.project_id` attribute that the ingest boundary routes on. For
+LLM/library calls made outside an interaction, scope them explicitly:
+
+```python
+with rd_billing.as_current():
+    openai_client.chat.completions.create(...)   # spans route to billing-agent
+```
+
+Two limitations, by design:
+
+- One tracing key/org per process. Instances created with a **different
+  `api_key`** than the pipeline owner's get a constructor warning, and from
+  that point the export guard only ships spans positively attributed to the
+  owner: the foreign client's spans **and** any unattributed spans (emitted
+  outside `begin()`/`as_current()`) are **dropped at export** — nothing can
+  ride the wrong org's credential. Single-key processes are unaffected
+  (spans stay byte-identical). Manual events always route correctly. Run a
+  second org's tracing in its own process.
+- `interaction.track_tool()` with `bypass_otel_for_tools=True` skips the
+  shared pipeline entirely and ships on the instance's own connection —
+  those spans route per instance with no caveats.
+
 ## Payload size limits
 
 As of `0.0.52`, text fields (ai input/output, tool span I/O, LLM span
@@ -60,7 +120,10 @@ the cap — not the payload — on your calling thread, and a single capped
 ASCII field still fits under the 1 MB event-level ingest limit. Tune it via:
 
 ```python
-raindrop.init(api_key="...", max_text_field_chars=250_000)
+raindrop.init(api_key="...", max_text_field_chars=250_000)   # process-wide default
+
+# Instance clients cap themselves only (never other clients or the default):
+rd = Raindrop(api_key="...", max_text_field_chars=100_000)
 ```
 
 A stricter `OTEL_SPAN_ATTRIBUTE_VALUE_LENGTH_LIMIT` env var is still honored
@@ -282,12 +345,14 @@ raindrop.max_queue_size = 500
 
 | Function | Description |
 |---|---|
-| `init(api_key, tracing_enabled=False, auto_instrument=True)` | Initialize the SDK |
+| `init(api_key, tracing_enabled=False, auto_instrument=True)` | Initialize the SDK (module-level default client) |
 | `init(..., project_id="my-project")` | Route events to a named project via the `X-Raindrop-Project-Id` header |
+| `Raindrop(api_key, project_id=..., ...)` | Independent client instance; multiple projects per process |
+| `rd.as_current()` | Scope auto-instrumented spans in a `with` block to that instance's project |
 | `set_debug_logs(True)` | Enable debug logging |
 | `set_redact_pii(True)` | Enable PII redaction |
-| `flush()` | Flush buffered events |
-| `shutdown()` | Graceful shutdown (called automatically on exit) |
+| `flush()` / `rd.flush()` | Flush buffered events |
+| `shutdown()` / `rd.shutdown()` | Graceful shutdown (called automatically on exit) |
 
 ## Environment Variables
 

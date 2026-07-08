@@ -434,12 +434,26 @@ class WorkerLifecycleManager:
            parse time; ``${VAR}`` / ``${VAR:-default}`` placeholders are
            resolved here against the merged base env, mirroring
            :meth:`MCPServerDef.to_server_config`).
-        4. ``DREADNODE_RUNTIME_{URL,TOKEN,ID}`` — authoritative; overrides any
-           of the previous layers so the runtime owns the connection identity.
+        4. ``DREADNODE_RUNTIME_{URL,TOKEN,ID}`` and worker/session context —
+           authoritative; overrides any of the previous layers so the runtime
+           owns the connection identity and platform session metadata.
         """
         flag_env = cap.flag_env_vars() if hasattr(cap, "flag_env_vars") else {}
         env = {**os.environ, **flag_env, **_expand_env_in_dict(worker_def.env)}
         env.update(self._runtime_contract_env())
+        env["DREADNODE_SESSION_ORIGIN"] = "worker"
+        env["DREADNODE_WORKER_NAME"] = worker_def.name
+        session_group_id = os.environ.get("DREADNODE_SESSION_GROUP_ID", "").strip()
+        if session_group_id:
+            env["DREADNODE_SESSION_GROUP_ID"] = session_group_id
+        if getattr(cap, "name", None):
+            env["DREADNODE_CAPABILITY_NAME"] = str(cap.name)
+            org = os.environ.get("DREADNODE_ORG") or os.environ.get("DREADNODE_ORGANIZATION")
+            env["DREADNODE_CAPABILITY_LABEL"] = (
+                str(cap.name) if "/" in str(cap.name) or not org else f"{org}/{cap.name}"
+            )
+        if getattr(cap, "version", None):
+            env["DREADNODE_CAPABILITY_VERSION"] = str(cap.version)
         return env
 
     @staticmethod

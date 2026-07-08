@@ -7996,6 +7996,11 @@ def list_audit_destinations(ctx, name=None, **kwargs):
     default=None,
     type=click.Choice(audit_destinations.AUTH_TYPES),
 )
+@click.option(
+    "--event-level-filter",
+    default=None,
+    type=click.Choice(audit_destinations.EVENT_TYPES),
+)
 @click.option("--username", default=None, type=str)
 @click.option("--password", default=None, type=str)
 @click.option("--bearer-token", default=None, type=str)
@@ -8036,6 +8041,11 @@ def add_audit_destination(ctx, routing_extra_location=None, **kwargs):
     "--authentication-type",
     default=None,
     type=click.Choice(audit_destinations.AUTH_TYPES),
+)
+@click.option(
+    "--event-level-filter",
+    default=None,
+    type=click.Choice(audit_destinations.EVENT_TYPES),
 )
 @click.option("--username", default=None, type=str)
 @click.option("--password", default=None, type=str)

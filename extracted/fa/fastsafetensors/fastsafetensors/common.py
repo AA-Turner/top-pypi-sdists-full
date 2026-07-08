@@ -6,7 +6,7 @@ import os
 import sys
 from collections import OrderedDict
 from dataclasses import dataclass
-from typing import Dict, List, Optional, Tuple
+from typing import Callable, Dict, List, Optional, Tuple
 
 from . import cpp as fstcpp
 from .dlpack import from_cuda_buffer
@@ -69,16 +69,34 @@ def _normalize_windows_dll_path(path: str, source: str) -> str:
     return normalized
 
 
-def resolve_cudart_lib_name() -> str:
-    """Resolve the CUDA runtime library name for the current platform.
+def resolve_runtime_lib_name(framework=None) -> str:
+    """Resolve the GPU runtime library to dlopen for the current platform.
 
-    Returns:
-        On Windows, an absolute DLL path string. On other platforms, "" to use
-        the compiled-in default.
+    On Windows, returns an absolute cudart DLL path. On other platforms, maps the framework's declared GPU
+    vendor to a runtime library so the dlopen'd vendor stays in sync with the
+    framework's GPU build. Returns "" when there is no usable hint so the caller falls
+    back to auto-detection.
     """
-    if sys.platform != "win32":
-        return ""  # Non-Windows: use auto-detection (CUDA first, then ROCm)
+    if sys.platform == "win32":
+        return _resolve_windows_cudart_lib_name()
+    if framework is None:
+        return ""
+    try:
+        ver = framework.get_cuda_ver()
+    except Exception:
+        return ""
+    if not ver or "-" not in ver:
+        return ""
+    vendor = ver.split("-", 1)[0]
+    if vendor == "hip":
+        return "libamdhip64.so"
+    if vendor == "cuda":
+        return "libcudart.so"
+    return ""
 
+
+def _resolve_windows_cudart_lib_name() -> str:
+    """Resolve the absolute cudart DLL path on Windows, "" for the default."""
     # Allow explicit override via environment variable
     override = os.environ.get("FASTSAFETENSORS_CUDART_LIB", "").strip()
     if override:
@@ -155,6 +173,22 @@ def resolve_cudart_lib_name() -> str:
     return ""  # fall back to compiled-in default
 
 
+def _read_exact(fd: int, length: int, filename: str) -> bytes:
+    """Read exactly ``length`` bytes from ``fd``, retrying on short reads."""
+    chunks = []
+    remaining = length
+    while remaining > 0:
+        chunk = os.read(fd, remaining)
+        if not chunk:
+            raise Exception(
+                f"{filename}: UnexpectedEOF, expected {length} more bytes "
+                f"but got {length - remaining}"
+            )
+        chunks.append(chunk)
+        remaining -= len(chunk)
+    return b"".join(chunks)
+
+
 # keep this for compatibility
 class SingleGroup:
     def size(self):
@@ -178,7 +212,7 @@ class SafeTensorsMetadata:
         self.framework = framework
         ser = json.loads(string, object_pairs_hook=OrderedDict)
         self.metadata = ser.get("__metadata__", "")
-        if self.metadata:
+        if "__metadata__" in ser:
             del ser["__metadata__"]
         self.tensors: Dict[str, TensorFrame] = {}
         self.header_length = header_length
@@ -263,7 +297,7 @@ class SafeTensorsMetadata:
         buffer_len = status.st_size
         if buffer_len < 8:
             raise Exception(f"{filename}: HeaderTooSmall, buffer_len={buffer_len}")
-        arr = os.read(fd, 8)
+        arr = _read_exact(fd, 8, filename)
         n = int.from_bytes(arr, byteorder="little", signed=False)
         if n > 100000000:
             raise Exception(
@@ -273,7 +307,7 @@ class SafeTensorsMetadata:
             raise Exception(
                 f"{filename}: InvalidHeaderLength, n={n}, buffer_len={buffer_len}"
             )
-        string = os.read(fd, n).decode("utf-8")
+        string = _read_exact(fd, n, filename).decode("utf-8")
         # Assert the string starts with {
         # NOTE: Add when we move to 0.4.0
         # if string.startswith('{'):
@@ -295,9 +329,10 @@ class SafeTensorsMetadata:
         if sys.platform == "win32" and hasattr(os, "O_BINARY"):
             flags |= os.O_BINARY
         fd = os.open(filename, flags, 0o644)
-        ret = self.from_fd(fd, filename, framework=framework, keep_orig_dict=False)
-        os.close(fd)
-        return ret
+        try:
+            return self.from_fd(fd, filename, framework=framework, keep_orig_dict=False)
+        finally:
+            os.close(fd)
 
     def get_tensors(
         self,
@@ -358,6 +393,40 @@ class SafeTensorsMetadata:
                 self.tensors[tensor_name].dtype = dtype
             ret[tensor_name] = t2
         return ret
+
+    def select_byte_ranges(
+        self, keep_tensor: Callable[[str], bool], merge_gap: int = 4096
+    ) -> List[Tuple[int, int]]:
+        """Compute the file byte-ranges covering only the kept tensors.
+
+        Returns a sorted list of ``[start, end)`` absolute file offsets spanning
+        exactly the tensors for which ``keep_tensor(name)`` is True. Kept tensors
+        separated by a gap of at most ``merge_gap`` bytes are coalesced into one
+        range to reduce the number of reads; the few non-kept bytes inside a
+        coalesced range are read but never instantiated as tensors.
+
+        Pass the result to a partial-read-capable copier (see
+        ``NoGdsFileCopier.set_byte_ranges``) to load only a subset of a shard --
+        e.g. only the experts an expert-parallel rank owns. Tensor data offsets
+        are unchanged, so unread regions of the device buffer simply stay
+        uninitialized and their tensors must not be requested.
+        """
+        ranges: List[Tuple[int, int]] = []
+        for name, frame in self.tensors.items():
+            if not keep_tensor(name):
+                continue
+            s, e = frame.data_offsets[0], frame.data_offsets[1]
+            if s == e:
+                continue  # zero-size tensor: nothing to read
+            ranges.append((self.header_length + s, self.header_length + e))
+        ranges.sort()
+        merged: List[List[int]] = []
+        for s, e in ranges:
+            if merged and s - merged[-1][1] <= merge_gap:
+                merged[-1][1] = max(merged[-1][1], e)
+            else:
+                merged.append([s, e])
+        return [(s, e) for s, e in merged]
 
     def __repr__(self) -> str:
         return str({"__metadata__": self.metadata, "tensors": self.tensors})
@@ -421,28 +490,15 @@ class TensorFrame:
                         f"[BUG] tried to access index {start} at dim={dim} for shape={self.shape}"
                     )
                 if start < 0:
-                    start = self.shape[dim] + start + 1
-                stop = start + 1
+                    start = self.shape[dim] + start
                 step = 1
                 length = 1
             elif isinstance(val[dim], slice):
-                start = val[dim].start
-                if start is None:
-                    start = 0
-                if start >= self.shape[dim] or start < -self.shape[dim]:
-                    start = self.shape[dim]
-                if start < 0:
-                    start = self.shape[dim] + start + 1
-                stop = val[dim].stop
-                if stop is None or stop >= self.shape[dim] or stop < -self.shape[dim]:
-                    stop = self.shape[dim]
-                if stop < 0:
-                    stop = self.shape[dim] + stop + 1
-                step = val[dim].step
-                if step is None:
-                    step = 1
-                if step == 0:
+                if val[dim].step == 0:
                     raise ValueError(f"[BUG] slice step cannot be zero")
+                # normalize None/negative/out-of-range bounds the same way
+                # Python sequences do
+                start, stop, step = val[dim].indices(self.shape[dim])
                 length = stop - start
                 if (
                     length == 0
@@ -458,8 +514,9 @@ class TensorFrame:
                 )
             offsets.append(self.offsets[dim] + start)
             strides.append(self.strides[dim] * step)
-            shape.append(length // (step if step > 0 else -step))
-        for rdim in range(dim + 1, len(self.shape)):
+            abs_step = step if step > 0 else -step
+            shape.append((length + abs_step - 1) // abs_step)
+        for rdim in range(len(val), len(self.shape)):
             offsets.append(self.offsets[rdim])
             strides.append(self.strides[rdim])
             shape.append(self.shape[rdim])

@@ -1,4 +1,12 @@
-- name: tanf_income_just_below_state_threshold_5187 (tx)
+# YAML regression-test fixture (policyengine-us partner edge cases).
+# TX TANF (1 TAC 372; Texas Works Handbook A-1340/C-110), 2026 parameters
+# (effective 2025-10-01): payment standard 418/month for caretaker-with-second-
+# parent size 3, 331/month for caretaker-without-second-parent size 2.
+# Applicants (is_tanf_enrolled defaults false) must pass BOTH the budgetary
+# needs test (income after 120 work expense < budgetary needs) and the
+# recognizable needs test (countable income < 25% of budgetary needs).
+# Countable earned income = (gross - 120 work expense) x (1 - 1/3 disregard).
+- name: tx_tanf_max_couple_child_age_17_boundary (tx)
   period: 2026
   absolute_error_margin: 0.1
   input:
@@ -10,7 +18,7 @@
         is_tax_unit_dependent: false
         is_disabled: false
         immigration_status_str: CITIZEN
-        employment_income_before_lsr: 5087
+        employment_income_before_lsr: 0
       spouse:
         age: 28
         is_tax_unit_head: false
@@ -20,11 +28,13 @@
         immigration_status_str: CITIZEN
         employment_income_before_lsr: 0
       child1:
-        age: 5
+        # Age 17 non-student is one year below the minor-child limit (18).
+        age: 17
         is_tax_unit_head: false
         is_tax_unit_spouse: false
         is_tax_unit_dependent: true
         is_disabled: false
+        is_full_time_student: false
         immigration_status_str: CITIZEN
         employment_income_before_lsr: 0
     households:
@@ -33,7 +43,7 @@
         - head
         - spouse
         - child1
-        state_code_str: TX
+        state_code: TX
         zip_code: '75201'
         county_str: DALLAS_COUNTY_TX
     spm_units:
@@ -57,9 +67,12 @@
   output:
     spm_units:
       spm_unit:
-        tx_tanf: 2572.51
-        tanf: 2572.51
-- name: tanf_income_at_state_threshold_5187 (tx)
+        # Two eligible parents + one eligible child -> caretaker with second
+        # parent, unit size 3. Zero income -> full payment standard:
+        # 418/month x 12 = 5,016.
+        tx_tanf: 5_016.0
+        tanf: 5_016.0
+- name: tx_tanf_max_single_parent_one_child (tx)
   period: 2026
   absolute_error_margin: 0.1
   input:
@@ -68,14 +81,6 @@
         age: 30
         is_tax_unit_head: true
         is_tax_unit_spouse: false
-        is_tax_unit_dependent: false
-        is_disabled: false
-        immigration_status_str: CITIZEN
-        employment_income_before_lsr: 5187
-      spouse:
-        age: 28
-        is_tax_unit_head: false
-        is_tax_unit_spouse: true
         is_tax_unit_dependent: false
         is_disabled: false
         immigration_status_str: CITIZEN
@@ -92,9 +97,8 @@
       household:
         members: &id002
         - head
-        - spouse
         - child1
-        state_code_str: TX
+        state_code: TX
         zip_code: '75201'
         county_str: DALLAS_COUNTY_TX
     spm_units:
@@ -103,24 +107,26 @@
     tax_units:
       tax_unit:
         members: *id002
-        tax_unit_is_joint: true
+        tax_unit_is_joint: false
     families:
       family:
         members: *id002
     marital_units:
-      mu_couple:
+      mu_head:
         members:
         - head
-        - spouse
       mu_child1:
         members:
         - child1
   output:
     spm_units:
       spm_unit:
-        tx_tanf: 0.0
-        tanf: 0.0
-- name: tanf_income_just_above_state_threshold_5187 (tx)
+        # One eligible parent + one eligible child -> caretaker without second
+        # parent, unit size 2. Zero income -> full payment standard:
+        # 331/month x 12 = 3,972.
+        tx_tanf: 3_972.0
+        tanf: 3_972.0
+- name: tx_tanf_earnings_just_below_recognizable_needs_cliff (tx)
   period: 2026
   absolute_error_margin: 0.1
   input:
@@ -132,7 +138,10 @@
         is_tax_unit_dependent: false
         is_disabled: false
         immigration_status_str: CITIZEN
-        employment_income_before_lsr: 5287
+        # Recognizable needs (size-3 caretaker with second parent) =
+        # 824 x 0.25 = 206/month. Countable income flips at
+        # (206 / 0.67 + 120) x 12 = 5,129.55/year of gross earnings.
+        employment_income_before_lsr: 5_125
       spouse:
         age: 28
         is_tax_unit_head: false
@@ -155,7 +164,7 @@
         - head
         - spouse
         - child1
-        state_code_str: TX
+        state_code: TX
         zip_code: '75201'
         county_str: DALLAS_COUNTY_TX
     spm_units:
@@ -179,9 +188,13 @@
   output:
     spm_units:
       spm_unit:
-        tx_tanf: 0.0
-        tanf: 0.0
-- name: tanf_no_minor_children_in_unit (tx)
+        # Monthly gross 5,125 / 12 = 427.0833; minus 120 work expense =
+        # 307.0833; minus 1/3 applicant disregard -> countable
+        # 307.0833 x 0.67 = 205.7458 < 206 -> passes. Benefit =
+        # (418 - 205.7458) x 12 = 2,547.05.
+        tx_tanf: 2_547.05
+        tanf: 2_547.05
+- name: tx_tanf_earnings_just_above_recognizable_needs_cliff (tx)
   period: 2026
   absolute_error_margin: 0.1
   input:
@@ -193,7 +206,9 @@
         is_tax_unit_dependent: false
         is_disabled: false
         immigration_status_str: CITIZEN
-        employment_income_before_lsr: 0
+        # (5,135 / 12 - 120) x 0.67 = 206.30/month countable, just above the
+        # 206 recognizable needs limit -> income-ineligible.
+        employment_income_before_lsr: 5_135
       spouse:
         age: 28
         is_tax_unit_head: false
@@ -202,296 +217,6 @@
         is_disabled: false
         immigration_status_str: CITIZEN
         employment_income_before_lsr: 0
-    households:
-      household:
-        members: &id004
-        - head
-        - spouse
-        state_code_str: TX
-        zip_code: '75201'
-        county_str: DALLAS_COUNTY_TX
-    spm_units:
-      spm_unit:
-        members: *id004
-    tax_units:
-      tax_unit:
-        members: *id004
-        tax_unit_is_joint: true
-    families:
-      family:
-        members: *id004
-    marital_units:
-      mu_couple:
-        members:
-        - head
-        - spouse
-  output:
-    spm_units:
-      spm_unit:
-        tx_tanf: 0.0
-        tanf: 0.0
-- name: tanf_youngest_child_age_17 (tx)
-  period: 2026
-  absolute_error_margin: 0.1
-  input:
-    people:
-      head:
-        age: 30
-        is_tax_unit_head: true
-        is_tax_unit_spouse: false
-        is_tax_unit_dependent: false
-        is_disabled: false
-        immigration_status_str: CITIZEN
-        employment_income_before_lsr: 0
-      spouse:
-        age: 28
-        is_tax_unit_head: false
-        is_tax_unit_spouse: true
-        is_tax_unit_dependent: false
-        is_disabled: false
-        immigration_status_str: CITIZEN
-        employment_income_before_lsr: 0
-      child1:
-        age: 17
-        is_tax_unit_head: false
-        is_tax_unit_spouse: false
-        is_tax_unit_dependent: true
-        is_disabled: false
-        immigration_status_str: CITIZEN
-        employment_income_before_lsr: 0
-    households:
-      household:
-        members: &id005
-        - head
-        - spouse
-        - child1
-        state_code_str: TX
-        zip_code: '75201'
-        county_str: DALLAS_COUNTY_TX
-    spm_units:
-      spm_unit:
-        members: *id005
-    tax_units:
-      tax_unit:
-        members: *id005
-        tax_unit_is_joint: true
-    families:
-      family:
-        members: *id005
-    marital_units:
-      mu_couple:
-        members:
-        - head
-        - spouse
-      mu_child1:
-        members:
-        - child1
-  output:
-    spm_units:
-      spm_unit:
-        tx_tanf: 5016.0
-        tanf: 5016.0
-- name: tanf_only_child_age_18 (tx)
-  period: 2026
-  absolute_error_margin: 0.1
-  input:
-    people:
-      head:
-        age: 30
-        is_tax_unit_head: true
-        is_tax_unit_spouse: false
-        is_tax_unit_dependent: false
-        is_disabled: false
-        immigration_status_str: CITIZEN
-        employment_income_before_lsr: 0
-      spouse:
-        age: 28
-        is_tax_unit_head: false
-        is_tax_unit_spouse: true
-        is_tax_unit_dependent: false
-        is_disabled: false
-        immigration_status_str: CITIZEN
-        employment_income_before_lsr: 0
-      child1:
-        age: 18
-        is_tax_unit_head: false
-        is_tax_unit_spouse: false
-        is_tax_unit_dependent: true
-        is_disabled: false
-        immigration_status_str: CITIZEN
-        employment_income_before_lsr: 0
-    households:
-      household:
-        members: &id006
-        - head
-        - spouse
-        - child1
-        state_code_str: TX
-        zip_code: '75201'
-        county_str: DALLAS_COUNTY_TX
-    spm_units:
-      spm_unit:
-        members: *id006
-    tax_units:
-      tax_unit:
-        members: *id006
-        tax_unit_is_joint: true
-    families:
-      family:
-        members: *id006
-    marital_units:
-      mu_couple:
-        members:
-        - head
-        - spouse
-      mu_child1:
-        members:
-        - child1
-  output:
-    spm_units:
-      spm_unit:
-        tx_tanf: 0.0
-        tanf: 0.0
-- name: tanf_size_1_single_adult_age_30 (tx)
-  period: 2026
-  absolute_error_margin: 0.1
-  input:
-    people:
-      head:
-        age: 30
-        is_tax_unit_head: true
-        is_tax_unit_spouse: false
-        is_tax_unit_dependent: false
-        is_disabled: false
-        immigration_status_str: CITIZEN
-        employment_income_before_lsr: 6000
-    households:
-      household:
-        members: &id007
-        - head
-        state_code_str: TX
-        zip_code: '75201'
-        county_str: DALLAS_COUNTY_TX
-    spm_units:
-      spm_unit:
-        members: *id007
-    tax_units:
-      tax_unit:
-        members: *id007
-        tax_unit_is_joint: false
-    families:
-      family:
-        members: *id007
-    marital_units:
-      mu_head:
-        members:
-        - head
-  output:
-    spm_units:
-      spm_unit:
-        tx_tanf: 0.0
-        tanf: 0.0
-- name: tanf_size_1_single_elderly_age_65 (tx)
-  period: 2026
-  absolute_error_margin: 0.1
-  input:
-    people:
-      head:
-        age: 65
-        is_tax_unit_head: true
-        is_tax_unit_spouse: false
-        is_tax_unit_dependent: false
-        is_disabled: false
-        immigration_status_str: CITIZEN
-        employment_income_before_lsr: 0
-    households:
-      household:
-        members: &id008
-        - head
-        state_code_str: TX
-        zip_code: '75201'
-        county_str: DALLAS_COUNTY_TX
-    spm_units:
-      spm_unit:
-        members: *id008
-    tax_units:
-      tax_unit:
-        members: *id008
-        tax_unit_is_joint: false
-    families:
-      family:
-        members: *id008
-    marital_units:
-      mu_head:
-        members:
-        - head
-  output:
-    spm_units:
-      spm_unit:
-        tx_tanf: 0.0
-        tanf: 0.0
-- name: tanf_size_2_married_couple_no_children (tx)
-  period: 2026
-  absolute_error_margin: 0.1
-  input:
-    people:
-      head:
-        age: 30
-        is_tax_unit_head: true
-        is_tax_unit_spouse: false
-        is_tax_unit_dependent: false
-        is_disabled: false
-        immigration_status_str: CITIZEN
-        employment_income_before_lsr: 6000
-      spouse:
-        age: 28
-        is_tax_unit_head: false
-        is_tax_unit_spouse: true
-        is_tax_unit_dependent: false
-        is_disabled: false
-        immigration_status_str: CITIZEN
-        employment_income_before_lsr: 0
-    households:
-      household:
-        members: &id009
-        - head
-        - spouse
-        state_code_str: TX
-        zip_code: '75201'
-        county_str: DALLAS_COUNTY_TX
-    spm_units:
-      spm_unit:
-        members: *id009
-    tax_units:
-      tax_unit:
-        members: *id009
-        tax_unit_is_joint: true
-    families:
-      family:
-        members: *id009
-    marital_units:
-      mu_couple:
-        members:
-        - head
-        - spouse
-  output:
-    spm_units:
-      spm_unit:
-        tx_tanf: 0.0
-        tanf: 0.0
-- name: tanf_size_2_single_parent_1_child (tx)
-  period: 2026
-  absolute_error_margin: 0.1
-  input:
-    people:
-      head:
-        age: 30
-        is_tax_unit_head: true
-        is_tax_unit_spouse: false
-        is_tax_unit_dependent: false
-        is_disabled: false
-        immigration_status_str: CITIZEN
-        employment_income_before_lsr: 6000
       child1:
         age: 5
         is_tax_unit_head: false
@@ -502,22 +227,78 @@
         employment_income_before_lsr: 0
     households:
       household:
-        members: &id010
+        members: &id004
         - head
+        - spouse
         - child1
-        state_code_str: TX
+        state_code: TX
         zip_code: '75201'
         county_str: DALLAS_COUNTY_TX
     spm_units:
       spm_unit:
-        members: *id010
+        members: *id004
     tax_units:
       tax_unit:
-        members: *id010
+        members: *id004
+        tax_unit_is_joint: true
+    families:
+      family:
+        members: *id004
+    marital_units:
+      mu_couple:
+        members:
+        - head
+        - spouse
+      mu_child1:
+        members:
+        - child1
+  output:
+    spm_units:
+      spm_unit:
+        # Income route: fails the recognizable needs test -> ineligible.
+        tx_tanf: 0.0
+        tanf: 0.0
+- name: tx_tanf_only_child_age_18_not_student (tx)
+  period: 2026
+  absolute_error_margin: 0.1
+  input:
+    people:
+      head:
+        age: 40
+        is_tax_unit_head: true
+        is_tax_unit_spouse: false
+        is_tax_unit_dependent: false
+        is_disabled: false
+        immigration_status_str: CITIZEN
+        employment_income_before_lsr: 0
+      child1:
+        # Age 18 non-student exceeds the minor-child limit (< 18).
+        age: 18
+        is_tax_unit_head: false
+        is_tax_unit_spouse: false
+        is_tax_unit_dependent: true
+        is_disabled: false
+        is_full_time_student: false
+        immigration_status_str: CITIZEN
+        employment_income_before_lsr: 0
+    households:
+      household:
+        members: &id005
+        - head
+        - child1
+        state_code: TX
+        zip_code: '75201'
+        county_str: DALLAS_COUNTY_TX
+    spm_units:
+      spm_unit:
+        members: *id005
+    tax_units:
+      tax_unit:
+        members: *id005
         tax_unit_is_joint: false
     families:
       family:
-        members: *id010
+        members: *id005
     marital_units:
       mu_head:
         members:
@@ -528,9 +309,10 @@
   output:
     spm_units:
       spm_unit:
+        # Demographic route: no age-eligible child in the unit -> ineligible.
         tx_tanf: 0.0
         tanf: 0.0
-- name: tanf_size_3_single_parent_2_children (tx)
+- name: tx_tanf_cash_assets_above_1000_resource_limit (tx)
   period: 2026
   absolute_error_margin: 0.1
   input:
@@ -542,17 +324,9 @@
         is_tax_unit_dependent: false
         is_disabled: false
         immigration_status_str: CITIZEN
-        employment_income_before_lsr: 6000
-      child1:
-        age: 8
-        is_tax_unit_head: false
-        is_tax_unit_spouse: false
-        is_tax_unit_dependent: true
-        is_disabled: false
-        immigration_status_str: CITIZEN
         employment_income_before_lsr: 0
-      child2:
-        age: 3
+      child1:
+        age: 5
         is_tax_unit_head: false
         is_tax_unit_spouse: false
         is_tax_unit_dependent: true
@@ -561,23 +335,24 @@
         employment_income_before_lsr: 0
     households:
       household:
-        members: &id011
+        members: &id006
         - head
         - child1
-        - child2
-        state_code_str: TX
+        state_code: TX
         zip_code: '75201'
         county_str: DALLAS_COUNTY_TX
     spm_units:
       spm_unit:
-        members: *id011
+        members: *id006
+        # Liquid resources 1,500 exceed the 1,000 TANF resource limit.
+        spm_unit_cash_assets: 1_500
     tax_units:
       tax_unit:
-        members: *id011
+        members: *id006
         tax_unit_is_joint: false
     families:
       family:
-        members: *id011
+        members: *id006
     marital_units:
       mu_head:
         members:
@@ -585,84 +360,9 @@
       mu_child1:
         members:
         - child1
-      mu_child2:
-        members:
-        - child2
   output:
     spm_units:
       spm_unit:
-        tx_tanf: 0.0
-        tanf: 0.0
-- name: tanf_size_4_couple_2_children (tx)
-  period: 2026
-  absolute_error_margin: 0.1
-  input:
-    people:
-      head:
-        age: 35
-        is_tax_unit_head: true
-        is_tax_unit_spouse: false
-        is_tax_unit_dependent: false
-        is_disabled: false
-        immigration_status_str: CITIZEN
-        employment_income_before_lsr: 6000
-      spouse:
-        age: 33
-        is_tax_unit_head: false
-        is_tax_unit_spouse: true
-        is_tax_unit_dependent: false
-        is_disabled: false
-        immigration_status_str: CITIZEN
-        employment_income_before_lsr: 0
-      child1:
-        age: 8
-        is_tax_unit_head: false
-        is_tax_unit_spouse: false
-        is_tax_unit_dependent: true
-        is_disabled: false
-        immigration_status_str: CITIZEN
-        employment_income_before_lsr: 0
-      child2:
-        age: 3
-        is_tax_unit_head: false
-        is_tax_unit_spouse: false
-        is_tax_unit_dependent: true
-        is_disabled: false
-        immigration_status_str: CITIZEN
-        employment_income_before_lsr: 0
-    households:
-      household:
-        members: &id012
-        - head
-        - spouse
-        - child1
-        - child2
-        state_code_str: TX
-        zip_code: '75201'
-        county_str: DALLAS_COUNTY_TX
-    spm_units:
-      spm_unit:
-        members: *id012
-    tax_units:
-      tax_unit:
-        members: *id012
-        tax_unit_is_joint: true
-    families:
-      family:
-        members: *id012
-    marital_units:
-      mu_couple:
-        members:
-        - head
-        - spouse
-      mu_child1:
-        members:
-        - child1
-      mu_child2:
-        members:
-        - child2
-  output:
-    spm_units:
-      spm_unit:
+        # Resource route: countable resources 1,500 > 1,000 -> ineligible.
         tx_tanf: 0.0
         tanf: 0.0

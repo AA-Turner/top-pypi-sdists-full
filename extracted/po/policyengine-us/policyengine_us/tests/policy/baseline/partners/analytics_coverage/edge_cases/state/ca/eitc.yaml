@@ -1,3 +1,93 @@
+# CalEITC (R&TC 17052) edge cases, 2026 parameters:
+# adjustment factor 0.85; phase-in/phase-out rates 0.0765/0.34/0.40 by child count;
+# phase-in ends (= phase-out starts) at $4,766.63 (0 kids) / $7,156.60 (1) / $10,045.62 (2+);
+# final phase-out runs linearly to $0 at earnings/AGI $32,901;
+# investment income limit $4,923.10; min age 18 for childless filers.
+- name: ca_eitc_max_credit_two_children_at_phase_in_end (ca)
+  period: 2026
+  absolute_error_margin: 0.1
+  input:
+    people:
+      head:
+        age: 30
+        is_tax_unit_head: true
+        is_tax_unit_spouse: false
+        is_tax_unit_dependent: false
+        is_disabled: false
+        immigration_status_str: CITIZEN
+        employment_income_before_lsr: 10_045
+        long_term_capital_gains_before_response: 0
+        rent: 0
+        was_in_foster_care: false
+        is_full_time_student: false
+        ssi_countable_resources: 0
+        co_care_worker_credit_eligible_care_worker: false
+      child1:
+        age: 8
+        is_tax_unit_head: false
+        is_tax_unit_spouse: false
+        is_tax_unit_dependent: true
+        is_disabled: false
+        immigration_status_str: CITIZEN
+        employment_income_before_lsr: 0
+        long_term_capital_gains_before_response: 0
+        rent: 0
+        was_in_foster_care: false
+        is_full_time_student: false
+        ssi_countable_resources: 0
+        co_care_worker_credit_eligible_care_worker: false
+      child2:
+        age: 4
+        is_tax_unit_head: false
+        is_tax_unit_spouse: false
+        is_tax_unit_dependent: true
+        is_disabled: false
+        immigration_status_str: CITIZEN
+        employment_income_before_lsr: 0
+        long_term_capital_gains_before_response: 0
+        rent: 0
+        was_in_foster_care: false
+        is_full_time_student: false
+        ssi_countable_resources: 0
+        co_care_worker_credit_eligible_care_worker: false
+    households:
+      household:
+        members: &id001
+        - head
+        - child1
+        - child2
+        state_code: CA
+        zip_code: '90001'
+        county_str: LOS_ANGELES_COUNTY_CA
+    spm_units:
+      spm_unit:
+        members: *id001
+    tax_units:
+      tax_unit:
+        members: *id001
+        tax_unit_is_joint: false
+    families:
+      family:
+        members: *id001
+    marital_units:
+      mu_head:
+        members:
+        - head
+      mu_child1:
+        members:
+        - child1
+      mu_child2:
+        members:
+        - child2
+  output:
+    tax_units:
+      tax_unit:
+        # Earnings $10,045 sit just below the 2-child phase-in end ($10,045.62),
+        # so the credit is at (essentially) its maximum:
+        # 10,045 x 0.40 x 0.85 = 3,415.30; phase-out excess = $0.
+        ca_eitc: 3_415.3
+        ca_eitc_eligible: true
+        adjusted_gross_income: 10_045.0
 - name: ca_eitc_head_age_17_ineligible (ca)
   period: 2026
   absolute_error_margin: 0.1
@@ -10,8 +100,8 @@
         is_tax_unit_dependent: false
         is_disabled: false
         immigration_status_str: CITIZEN
-        employment_income_before_lsr: 15000
-        capital_gains: 0
+        employment_income_before_lsr: 15_000
+        long_term_capital_gains_before_response: 0
         rent: 0
         was_in_foster_care: false
         is_full_time_student: false
@@ -19,21 +109,21 @@
         co_care_worker_credit_eligible_care_worker: false
     households:
       household:
-        members: &id001
+        members: &id002
         - head
-        state_code_str: CA
+        state_code: CA
         zip_code: '90001'
         county_str: LOS_ANGELES_COUNTY_CA
     spm_units:
       spm_unit:
-        members: *id001
+        members: *id002
     tax_units:
       tax_unit:
-        members: *id001
+        members: *id002
         tax_unit_is_joint: false
     families:
       family:
-        members: *id001
+        members: *id002
     marital_units:
       mu_head:
         members:
@@ -41,17 +131,11 @@
   output:
     tax_units:
       tax_unit:
+        # Childless filers must be at least 18 (R&TC 17052(c)(2)); age 17 fails.
         ca_eitc: 0.0
         ca_eitc_eligible: false
-        ca_yctc: 0.0
-        ca_foster_youth_tax_credit: 0.0
-        ca_cdcc: 0.0
-        ca_renter_credit: 0.0
-        adjusted_gross_income: 15000.0
-    spm_units:
-      spm_unit:
-        ca_state_supplement: 0.0
-- name: ca_eitc_head_age_18_eligible (ca)
+        adjusted_gross_income: 15_000.0
+- name: ca_eitc_head_age_18_mid_phase_out (ca)
   period: 2026
   absolute_error_margin: 0.1
   input:
@@ -63,61 +147,8 @@
         is_tax_unit_dependent: false
         is_disabled: false
         immigration_status_str: CITIZEN
-        employment_income_before_lsr: 15000
-        capital_gains: 0
-        rent: 0
-        was_in_foster_care: false
-        is_full_time_student: false
-        ssi_countable_resources: 0
-        co_care_worker_credit_eligible_care_worker: false
-    households:
-      household:
-        members: &id002
-        - head
-        state_code_str: CA
-        zip_code: '90001'
-        county_str: LOS_ANGELES_COUNTY_CA
-    spm_units:
-      spm_unit:
-        members: *id002
-    tax_units:
-      tax_unit:
-        members: *id002
-        tax_unit_is_joint: false
-    families:
-      family:
-        members: *id002
-    marital_units:
-      mu_head:
-        members:
-        - head
-  output:
-    tax_units:
-      tax_unit:
-        ca_eitc: 171.75
-        ca_eitc_eligible: true
-        ca_yctc: 0.0
-        ca_foster_youth_tax_credit: 0.0
-        ca_cdcc: 0.0
-        ca_renter_credit: 0.0
-        adjusted_gross_income: 15000.0
-    spm_units:
-      spm_unit:
-        ca_state_supplement: 0.0
-- name: ca_eitc_investment_income_at_3650 (ca)
-  period: 2026
-  absolute_error_margin: 0.1
-  input:
-    people:
-      head:
-        age: 30
-        is_tax_unit_head: true
-        is_tax_unit_spouse: false
-        is_tax_unit_dependent: false
-        is_disabled: false
-        immigration_status_str: CITIZEN
-        employment_income_before_lsr: 15000
-        capital_gains: 3650
+        employment_income_before_lsr: 15_000
+        long_term_capital_gains_before_response: 0
         rent: 0
         was_in_foster_care: false
         is_full_time_student: false
@@ -127,7 +158,7 @@
       household:
         members: &id003
         - head
-        state_code_str: CA
+        state_code: CA
         zip_code: '90001'
         county_str: LOS_ANGELES_COUNTY_CA
     spm_units:
@@ -147,17 +178,13 @@
   output:
     tax_units:
       tax_unit:
-        ca_eitc: 171.75
+        # Age 18 passes the minimum-age boundary (contrast with the age-17 case).
+        # 0-kid final phase-out: credit = 263 x (32,901 - 15,000) /
+        # (32,901 - 5,488.63) = 263 x 0.65299 = 171.74.
+        ca_eitc: 171.74
         ca_eitc_eligible: true
-        ca_yctc: 0.0
-        ca_foster_youth_tax_credit: 0.0
-        ca_cdcc: 0.0
-        ca_renter_credit: 0.0
-        adjusted_gross_income: 18650.0
-    spm_units:
-      spm_unit:
-        ca_state_supplement: 0.0
-- name: ca_eitc_investment_income_above_3650_ineligible (ca)
+        adjusted_gross_income: 15_000.0
+- name: ca_eitc_investment_income_at_limit_4923_eligible (ca)
   period: 2026
   absolute_error_margin: 0.1
   input:
@@ -169,8 +196,8 @@
         is_tax_unit_dependent: false
         is_disabled: false
         immigration_status_str: CITIZEN
-        employment_income_before_lsr: 15000
-        capital_gains: 3700
+        employment_income_before_lsr: 15_000
+        long_term_capital_gains_before_response: 4_923
         rent: 0
         was_in_foster_care: false
         is_full_time_student: false
@@ -180,7 +207,7 @@
       household:
         members: &id004
         - head
-        state_code_str: CA
+        state_code: CA
         zip_code: '90001'
         county_str: LOS_ANGELES_COUNTY_CA
     spm_units:
@@ -200,17 +227,13 @@
   output:
     tax_units:
       tax_unit:
-        ca_eitc: 171.75
+        # Investment income $4,923 is at/below the 2026 uprated limit
+        # ($4,923.10), so eligibility holds; the credit still uses earned
+        # income only: 263 x (32,901 - 15,000) / 27,412.37 = 171.74.
+        ca_eitc: 171.74
         ca_eitc_eligible: true
-        ca_yctc: 0.0
-        ca_foster_youth_tax_credit: 0.0
-        ca_cdcc: 0.0
-        ca_renter_credit: 0.0
-        adjusted_gross_income: 18700.0
-    spm_units:
-      spm_unit:
-        ca_state_supplement: 0.0
-- name: ca_eitc_agi_at_first_phase_out_24099 (ca)
+        adjusted_gross_income: 19_923.0
+- name: ca_eitc_investment_income_above_limit_4924_ineligible (ca)
   period: 2026
   absolute_error_margin: 0.1
   input:
@@ -222,8 +245,8 @@
         is_tax_unit_dependent: false
         is_disabled: false
         immigration_status_str: CITIZEN
-        employment_income_before_lsr: 24099
-        capital_gains: 0
+        employment_income_before_lsr: 15_000
+        long_term_capital_gains_before_response: 4_924
         rent: 0
         was_in_foster_care: false
         is_full_time_student: false
@@ -233,7 +256,7 @@
       household:
         members: &id005
         - head
-        state_code_str: CA
+        state_code: CA
         zip_code: '90001'
         county_str: LOS_ANGELES_COUNTY_CA
     spm_units:
@@ -253,17 +276,11 @@
   output:
     tax_units:
       tax_unit:
-        ca_eitc: 84.45
-        ca_eitc_eligible: true
-        ca_yctc: 0.0
-        ca_foster_youth_tax_credit: 0.0
-        ca_cdcc: 0.0
-        ca_renter_credit: 0.0
-        adjusted_gross_income: 24099.0
-    spm_units:
-      spm_unit:
-        ca_state_supplement: 0.0
-- name: ca_eitc_agi_at_final_phase_out_32901 (ca)
+        # Investment income $4,924 exceeds the $4,923.10 limit -> ineligible.
+        ca_eitc: 0.0
+        ca_eitc_eligible: false
+        adjusted_gross_income: 19_924.0
+- name: ca_eitc_earnings_at_max_32901_ineligible (ca)
   period: 2026
   absolute_error_margin: 0.1
   input:
@@ -275,8 +292,8 @@
         is_tax_unit_dependent: false
         is_disabled: false
         immigration_status_str: CITIZEN
-        employment_income_before_lsr: 32901
-        capital_gains: 0
+        employment_income_before_lsr: 32_901
+        long_term_capital_gains_before_response: 0
         rent: 0
         was_in_foster_care: false
         is_full_time_student: false
@@ -286,7 +303,7 @@
       household:
         members: &id006
         - head
-        state_code_str: CA
+        state_code: CA
         zip_code: '90001'
         county_str: LOS_ANGELES_COUNTY_CA
     spm_units:
@@ -306,13 +323,8 @@
   output:
     tax_units:
       tax_unit:
+        # Eligibility requires AGI strictly below the $32,901 earnings cap
+        # (FTB 3514 Steps 7-8); AGI exactly at the cap fails.
         ca_eitc: 0.0
         ca_eitc_eligible: false
-        ca_yctc: 0.0
-        ca_foster_youth_tax_credit: 0.0
-        ca_cdcc: 0.0
-        ca_renter_credit: 0.0
-        adjusted_gross_income: 32901.0
-    spm_units:
-      spm_unit:
-        ca_state_supplement: 0.0
+        adjusted_gross_income: 32_901.0

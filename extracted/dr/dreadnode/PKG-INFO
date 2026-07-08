@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: dreadnode
-Version: 2.0.31
+Version: 2.0.32
 Summary: Dreadnode SDK
 Project-URL: Homepage, https://dreadnode.io
 Project-URL: Documentation, https://docs.dreadnode.io
@@ -27,14 +27,13 @@ Requires-Dist: loguru>=0.7.3
 Requires-Dist: markdown-it-py[linkify]>=2.1.0
 Requires-Dist: markdownify<2.0.0,>=1.1.0
 Requires-Dist: mcp<2.0.0,>=1.25.0
-Requires-Dist: moviepy<3.0.0,>=2.1.2
 Requires-Dist: networkx>=3.6.1
 Requires-Dist: numpy<=2.3.5,>=2.3.0
 Requires-Dist: optuna<5.0.0,>=4.5.0
 Requires-Dist: orjson>=3.11.5
 Requires-Dist: packaging>=24.0
 Requires-Dist: pandas<3.0.0,>=2.2.3
-Requires-Dist: pillow<12.3.0,>=12.2.0
+Requires-Dist: pillow<13.0.0,>=11.0.0
 Requires-Dist: prompt-toolkit<4.0.0,>=3.0.52
 Requires-Dist: pyarrow>=4.0.0
 Requires-Dist: pydantic-xml>=2.14.0
@@ -50,6 +49,7 @@ Requires-Dist: websockets>=14.0
 Requires-Dist: xmltodict>=1.0.2
 Provides-Extra: all
 Requires-Dist: confusables<2.0.0,>=1.2.0; extra == 'all'
+Requires-Dist: moviepy<3.0.0,>=2.1.2; extra == 'all'
 Requires-Dist: nltk<4.0.0,>=3.9.1; extra == 'all'
 Requires-Dist: presidio-analyzer<3.0.0,>=2.2.359; extra == 'all'
 Requires-Dist: python-jsonpath>=2.0.1; extra == 'all'
@@ -75,6 +75,8 @@ Requires-Dist: textstat<1.0.0,>=0.7.10; extra == 'scoring'
 Provides-Extra: training
 Requires-Dist: ray[default,serve]<3.0.0,>=2.10.0; extra == 'training'
 Requires-Dist: torch>=2.9.0; extra == 'training'
+Provides-Extra: video
+Requires-Dist: moviepy<3.0.0,>=2.1.2; extra == 'video'
 Description-Content-Type: text/markdown
 
 <p align="center">

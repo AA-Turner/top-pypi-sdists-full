@@ -251,6 +251,7 @@ class AWSCloudConfig(_message.Message):
         "cloudwatch_config",
         "secretmanager_config",
         "gcp_workload_identity",
+        "permissions_boundary_arn",
     )
     ACCOUNT_ID_FIELD_NUMBER: _ClassVar[int]
     MANAGEMENT_ROLE_ARN_FIELD_NUMBER: _ClassVar[int]
@@ -264,6 +265,7 @@ class AWSCloudConfig(_message.Message):
     CLOUDWATCH_CONFIG_FIELD_NUMBER: _ClassVar[int]
     SECRETMANAGER_CONFIG_FIELD_NUMBER: _ClassVar[int]
     GCP_WORKLOAD_IDENTITY_FIELD_NUMBER: _ClassVar[int]
+    PERMISSIONS_BOUNDARY_ARN_FIELD_NUMBER: _ClassVar[int]
     account_id: str
     management_role_arn: str
     region: str
@@ -276,6 +278,7 @@ class AWSCloudConfig(_message.Message):
     cloudwatch_config: AWSCloudWatchConfig
     secretmanager_config: AWSSecretManagerConfig
     gcp_workload_identity: GCPWorkloadIdentity
+    permissions_boundary_arn: str
     def __init__(
         self,
         account_id: _Optional[str] = ...,
@@ -290,6 +293,7 @@ class AWSCloudConfig(_message.Message):
         cloudwatch_config: _Optional[_Union[AWSCloudWatchConfig, _Mapping]] = ...,
         secretmanager_config: _Optional[_Union[AWSSecretManagerConfig, _Mapping]] = ...,
         gcp_workload_identity: _Optional[_Union[GCPWorkloadIdentity, _Mapping]] = ...,
+        permissions_boundary_arn: _Optional[str] = ...,
     ) -> None: ...
 
 class GCPCloudConfig(_message.Message):

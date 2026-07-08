@@ -1416,6 +1416,65 @@ class Geocif:
             )
         return df[df["Region"].isin(keep)].copy()
 
+    def _filter_by_min_production_share(self, df: pd.DataFrame) -> pd.DataFrame:
+        """Drop regions whose 5-year mean share of country production is below
+        ``min_production_share_pct`` (config knob, percent). Per-country
+        override wins over ``[DEFAULT]``; missing or ``<=0`` disables the
+        filter. Share is computed by ``diagnostics.compute_production_pct``
+        (mean of area*yield over the last 5 available years, normalized to
+        the country total).
+        """
+        threshold = 0.0
+        for section in (self.country, "DEFAULT"):
+            if section and self.parser.has_option(section, "min_production_share_pct"):
+                try:
+                    threshold = self.parser.getfloat(section, "min_production_share_pct")
+                    break
+                except (ValueError, TypeError):
+                    threshold = 0.0
+        if threshold <= 0.0:
+            return df
+
+        # df["Country"] is Title Case (e.g. "Kenya") but self.country is the
+        # config-section key ("kenya"). Match by normalized comparison.
+        if "Country" not in df.columns:
+            return df
+        country_val = next(
+            (c for c in df["Country"].unique()
+             if str(c).lower().replace(" ", "_") == self.country),
+            None,
+        )
+        if country_val is None:
+            return df
+
+        from .viz import diagnostics as diag
+        # self.target is the post-rename yield column (config: new_name_target,
+        # typically 'Yield'). compute_production_pct defaults to a different
+        # obs_col name ('Observed Yield (tn per ha)') that doesn't exist here,
+        # so pass self.target explicitly.
+        prod_pct = diag.compute_production_pct(df, country_val, obs_col=self.target)
+        if not prod_pct:
+            self.logger.warning(
+                f"min_production_share_pct={threshold}: production_pct empty "
+                f"(check Area (ha)/{self.target} availability) — filter skipped "
+                f"for {self.country}/{self.crop}"
+            )
+            return df
+
+        kept = {r for r, p in prod_pct.items() if p >= threshold}
+        dropped = {r: p for r, p in prod_pct.items() if p < threshold}
+        if dropped:
+            dropped_str = ", ".join(
+                f"{r}={p:.3f}%"
+                for r, p in sorted(dropped.items(), key=lambda kv: kv[1])
+            )
+            self.logger.warning(
+                f"min_production_share_pct={threshold}: dropped "
+                f"{len(dropped)} regions below threshold "
+                f"({self.country}/{self.crop}): {dropped_str}"
+            )
+        return df[df["Region"].isin(kept)].copy()
+
     def _prepare_ml_dataframe(self) -> pd.DataFrame:
         """Convert raw data into ML-ready format."""
         df = self._filter_by_simulation_stages()
@@ -1429,6 +1488,11 @@ class Geocif:
 
         if self.parser.getboolean("DEFAULT", "filter_low_production_regions", fallback=False):
             df = self._filter_low_production_regions(df)
+
+        # Absolute production-share filter (percent). Reads
+        # [<country>] min_production_share_pct then [DEFAULT]. Ignored if
+        # <=0 or unset. Complements the fixed-5%-quantile filter above.
+        df = self._filter_by_min_production_share(df)
 
         self._save_ml_dataframe(df)
         df[self.cat_features] = df[self.cat_features].astype("category")
@@ -1987,14 +2051,81 @@ class Geocif:
         )
 
     def _generate_correlation_plots(self, df: pd.DataFrame) -> Tuple[Dict, Dict]:
-        """Generate correlation plots and return selected features."""
+        """Generate correlation plots and return selected features.
+
+        Model-agnostic step: (dict_selected_features, dict_best_cid) depend
+        only on df (features + observed yield), never on self.model_name. To
+        avoid recomputing + rewriting identical PNGs for every model in the
+        (country, crop, season) loop, cache the result to disk keyed by
+        (country, crop, forecast_season, simulation_stages) and short-circuit
+        subsequent workers. First worker computes + plots + writes cache;
+        peers hit the cache and skip plot rendering entirely.
+
+        Two workers may race the first compute (both cache-miss); atomic
+        rename below ensures the on-disk file is never partial.
+        """
         if not self.correlation_plots:
             return {}, {}
 
-        self.logger.info(f"Correlation plot for {self.country} {self.crop}")
         kwargs = self._build_correlation_kwargs()
 
-        return correlations.all_correlated_feature_by_time(df, **kwargs)
+        cache_path = self._correlation_cache_path(kwargs["dir_output"])
+        cached = self._load_correlation_cache(cache_path)
+        if cached is not None:
+            self.logger.info(
+                f"Correlation plot cache HIT for {self.country} {self.crop} "
+                f"({self.model_name} — skipping recompute+replot)"
+            )
+            return cached
+
+        self.logger.info(f"Correlation plot for {self.country} {self.crop}")
+        result = correlations.all_correlated_feature_by_time(df, **kwargs)
+        self._save_correlation_cache(cache_path, result)
+        return result
+
+    def _correlation_cache_path(self, dir_output: Path) -> Path:
+        """Cache pickle path keyed on the current simulation_stages signature.
+
+        Different stage subsets (multi-step / pre-season) produce different
+        selected features, so the signature must include them; forecast_season
+        is already in dir_output.
+        """
+        import hashlib
+        sim = getattr(self, "simulation_stages", None)
+        sig_src = str(sorted(str(s) for s in sim)) if sim is not None else "default"
+        sig = hashlib.md5(sig_src.encode()).hexdigest()[:12]
+        return dir_output / "_corr_cache" / f"step_{sig}.pkl"
+
+    def _load_correlation_cache(self, cache_path: Path):
+        """Return cached (dict_selected_features, dict_best_cid) or None."""
+        if not cache_path.exists():
+            return None
+        try:
+            import pickle
+            with open(cache_path, "rb") as f:
+                return pickle.load(f)
+        except (pickle.UnpicklingError, EOFError, OSError) as e:
+            self.logger.warning(
+                f"Correlation cache at {cache_path} unreadable ({e}); recomputing"
+            )
+            return None
+
+    def _save_correlation_cache(self, cache_path: Path, result) -> None:
+        """Atomically persist correlation result via tmp + rename."""
+        import pickle
+        cache_path.parent.mkdir(parents=True, exist_ok=True)
+        tmp = cache_path.with_suffix(cache_path.suffix + ".tmp")
+        try:
+            with open(tmp, "wb") as f:
+                pickle.dump(result, f)
+            os.replace(tmp, cache_path)
+        except OSError as e:
+            self.logger.warning(f"Failed to write correlation cache {cache_path}: {e}")
+            if tmp.exists():
+                try:
+                    tmp.unlink()
+                except OSError:
+                    pass
 
     def _build_correlation_kwargs(self) -> Dict:
         """Build keyword arguments for correlation analysis."""
@@ -2004,8 +2135,8 @@ class Geocif:
             "country": self.country,
             "crop": self.crop,
             "dir_output": (
-                self.dir_analysis / self.country / self.crop / 
-                self.model_name / str(self.forecast_season)
+                self.dir_analysis / self.country / self.crop /
+                str(self.forecast_season)
             ),
             "forecast_season": self.forecast_season,
             "method": self.method,
@@ -2038,6 +2169,37 @@ class Geocif:
         self.df_test = df[mask].copy()
 
         self.df_train = self.df_train.dropna(subset=[self.target])
+
+        # Per-country training-year floor: [<country>] training_year_start in
+        # countries.txt. If set, drops df_train rows with Harvest Year < this
+        # value BEFORE ML / baseline computations see them. Affects ALL models
+        # (ML + null + trend + trend_all) — use when a country's yield history
+        # has a genuine regime break AND you want every model to only train on
+        # the recent regime. Example: Kenya Long-rains has data 1991-2001 then
+        # a 13-year gap then 2015-2024; setting training_year_start = 2015
+        # excludes the pre-gap chunk from every model's training set.
+        # df_test is left untouched (LOOCV forecasts still span the full
+        # outlook_since_year..current_year range).
+        country_key = self.country.lower().replace(" ", "_") if getattr(self, "country", None) else None
+        if country_key and self.parser.has_option(country_key, "training_year_start"):
+            try:
+                yr_floor = self.parser.getint(country_key, "training_year_start")
+                before = len(self.df_train)
+                self.df_train = self.df_train[
+                    self.df_train["Harvest Year"].astype(int) >= yr_floor
+                ].copy()
+                dropped = before - len(self.df_train)
+                if dropped > 0:
+                    cache_key = (self.country, self.crop, yr_floor, dropped)
+                    if getattr(self, "_last_year_floor_drop", None) != cache_key:
+                        self.logger.warning(
+                            f"training_year_start={yr_floor}: dropped {dropped} "
+                            f"df_train rows with Harvest Year < {yr_floor} "
+                            f"({self.country}/{self.crop})"
+                        )
+                        self._last_year_floor_drop = cache_key
+            except (ValueError, TypeError):
+                pass
 
         # General min-years-per-region filter. Drops regions whose training-row
         # count is below [ML] min_years_per_region from both df_train and
@@ -3440,8 +3602,10 @@ class Geocif:
         elif self.model_name == "last_year":
             y_pred = np.full(len(X_test), df_region[f"Last Year {self.target}"].values)
         elif self.model_name == "null":
-            # Per-region mean observed yield across training years
-            # (paper-conformant Null baseline; arxiv:2506.19046 sec 3.2).
+            # Per-region mean observed yield across the SAME training rows
+            # trend uses: past-only (Harvest Year < forecast_season) and
+            # capped at the 12 most recent past years. Keeps null and trend
+            # on the same footing for LOOCV fair-year comparison.
             #
             # df_region is a CLUSTER subset (rows for every admin sharing
             # the cluster's Region_ID), not a single admin's rows.  Under
@@ -3452,8 +3616,21 @@ class Geocif:
             # ITS OWN admin's mean.
             y_pred = np.full(len(X_test), np.nan, dtype=float)
             for region_name, sub in df_region.groupby("Region", observed=True):
-                tmask = self.df_train["Region"] == region_name
-                mean_obs = float(self.df_train.loc[tmask, self.target].mean())
+                row_mask = (
+                    (self.df_train["Region"] == region_name)
+                    & (self.df_train["Harvest Year"].astype(float)
+                       < float(self.forecast_season))
+                )
+                past = (
+                    self.df_train.loc[row_mask, ["Harvest Year", self.target]]
+                    .dropna()
+                    .sort_values("Harvest Year")
+                    .tail(12)
+                )
+                mean_obs = (
+                    float(past[self.target].mean())
+                    if not past.empty else np.nan
+                )
                 y_pred[sub.index.to_numpy()] = mean_obs
         elif self.model_name in ("trend", "trend_all"):
             # Theil-Sen linear trend.
@@ -4760,6 +4937,10 @@ class ModelTrainer:
         """Factory method to get appropriate model fitter."""
         fitters = {
             "catboost": CatBoostFitter(self.obj),
+            # catboost_quantile: same CatBoostFitter path — the loss switch
+            # (Quantile:alpha=0.25) lives in trainers.get_model(), and the
+            # Pool wiring/predict path is identical to plain catboost.
+            "catboost_quantile": CatBoostFitter(self.obj),
             "tabpfn": TabPFNFitter(self.obj),
             # tabpfn_phe is a Post-Hoc Ensembling wrapper around TabPFN
             # (AutoTabPFNRegressor from tabpfn_extensions) — same sklearn

@@ -5,6 +5,7 @@ from agilicus.agilicus_api import (
     AuditDestination,
     AuditDestinationSpec,
     AuditDestinationFilter,
+    AuditDestinationEventLevelFilter,
     AuditDestinationAuthentication,
     AuditDestinationWebhookSettings,
     HTTPBasicAuth,
@@ -14,6 +15,7 @@ from agilicus.agilicus_api import (
 from .credentials_commands import get_oauth2_auth
 
 from . import context
+from .model_helpers import model_enum_to_list
 from .input_helpers import build_updated_model_from_dict
 from .input_helpers import update_org_from_input_or_ctx
 from .input_helpers import strip_none
@@ -30,6 +32,7 @@ DESTINATION_TYPES = ["file", "webhook", "graylog", "connector", "syslog"]
 FILTER_TYPES = ["subsystem", "audit_agent_type", "audit_agent_id", "hostname"]
 AUTH_TYPES = ["none", "http_basic", "http_bearer", "agilicus_bearer", "oauth2"]
 WEBHOOK_FORMATS = ["agilicus", "unified"]
+EVENT_TYPES = model_enum_to_list(AuditDestinationEventLevelFilter)
 
 page_fields = ["id", "name", "org_id"]
 
@@ -46,7 +49,15 @@ def _get_properties(property_names, properties) -> dict:
 
 def _get_audit_destination_properties(properties) -> dict:
     return _get_properties(
-        ["name", "org_id", "comment", "destination_type", "location", "enabled"],
+        [
+            "name",
+            "org_id",
+            "comment",
+            "destination_type",
+            "location",
+            "enabled",
+            "event_level_filter",
+        ],
         properties,
     )
 

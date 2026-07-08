@@ -22,7 +22,20 @@ class InitConfigFile(CopyModuleDocstringConfigFile):
         return "__init__"
 
     def module_path(self) -> Path:
+        """Return the target path of the generated `__init__.py`.
+
+        The file lives inside the package directory that mirrors the source
+        package within the target project's tree.
+
+        Returns:
+            Path to the `__init__.py` that will be written.
+        """
         return super().module_path().with_suffix("") / self.filename()
 
     def import_path(self) -> Path:
+        """Return the package directory used to import the managed package.
+
+        Returns:
+            Directory of the package whose `__init__.py` this config manages.
+        """
         return super().import_path().parent

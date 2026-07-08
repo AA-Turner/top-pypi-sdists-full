@@ -14,12 +14,14 @@ mod tests {
     use super::reweight::madsen_lm_accept_factor;
     use super::{
         LinearInequalityConstraints, PenaltyConfig, PirlsConfig, PirlsLinearSolvePath,
-        PirlsProblem, PirlsWorkspace, WorkingDerivativeBuffersMut, bernoulli_geometry_from_jet,
-        calculate_deviance, calculate_loglikelihood, calculate_loglikelihood_omitting_constants,
-        compute_constraint_kkt_diagnostics, compute_observed_hessian_curvature_arrays,
-        fit_model_for_fixed_rho, select_active_set_release, should_log_pirls_decision_summary,
-        should_use_sparse_native_pirls, solve_newton_directionwith_linear_constraints,
-        solve_newton_directionwith_lower_bounds, tweedie_log_weight_mu_power, update_glmvectors,
+        PirlsProblem, PirlsWorkspace, WeightFamily, WeightLink, WorkingDerivativeBuffersMut,
+        bernoulli_geometry_from_jet, calculate_deviance, calculate_loglikelihood,
+        calculate_loglikelihood_omitting_constants, compute_constraint_kkt_diagnostics,
+        compute_observed_hessian_curvature_arrays, fit_model_for_fixed_rho,
+        observed_weight_dispatch, observed_weight_noncanonical, select_active_set_release,
+        should_log_pirls_decision_summary, should_use_sparse_native_pirls,
+        solve_newton_directionwith_linear_constraints, solve_newton_directionwith_lower_bounds,
+        tweedie_log_weight_mu_power, update_glmvectors, variance_jet_for_weight_family,
         write_gamma_log_working_state, write_negative_binomial_log_working_state,
         write_poisson_log_working_state, write_tweedie_log_working_state,
     };
@@ -1836,6 +1838,55 @@ mod tests {
     }
 
     #[test]
+    pub(crate) fn gamma_log_observed_curvature_dispatch_avoids_generic_overflow() {
+        let y = 1.25;
+        let phi = 0.5;
+        let prior_weight = 1.75;
+        let eta: f64 = 400.0;
+        let mu = eta.exp();
+        let jet = MixtureInverseLinkJet {
+            mu,
+            d1: mu,
+            d2: mu,
+            d3: mu,
+        };
+        let h4 = mu;
+
+        let generic = observed_weight_noncanonical(
+            y,
+            mu,
+            jet.d1,
+            jet.d2,
+            jet.d3,
+            h4,
+            variance_jet_for_weight_family(WeightFamily::Gamma, mu),
+            phi,
+            prior_weight,
+        );
+        assert!(
+            !generic.0.is_finite() || !generic.1.is_finite() || !generic.2.is_finite(),
+            "generic Gamma-log curvature should expose the overflow/cancellation-prone path at eta={eta}: {generic:?}"
+        );
+
+        let (w_obs, c_obs, d_obs) = observed_weight_dispatch(
+            WeightFamily::Gamma,
+            WeightLink::Log,
+            eta,
+            y,
+            mu,
+            phi,
+            prior_weight,
+            jet,
+            h4,
+        );
+        let expected_w = prior_weight * y / (phi * mu);
+        assert!(w_obs.is_finite() && c_obs.is_finite() && d_obs.is_finite());
+        assert_relative_eq!(w_obs, expected_w, epsilon = 0.0, max_relative = 1e-12);
+        assert_relative_eq!(c_obs, -expected_w, epsilon = 0.0, max_relative = 1e-12);
+        assert_relative_eq!(d_obs, expected_w, epsilon = 0.0, max_relative = 1e-12);
+    }
+
+    #[test]
     pub(crate) fn binomial_mixture_observed_curvature_tolerates_indefinite_rows() {
         // Regression for issue #1598.
         //
@@ -2330,6 +2381,7 @@ mod tests {
             &lower_bounds,
             &mut direction,
             Some(&mut active_hint),
+            None,
         )
         .expect("lower-bound active-set solve should succeed");
 
@@ -2337,6 +2389,83 @@ mod tests {
         let projected = &beta + &direction;
         assert_relative_eq!(projected[0], beta[0], epsilon = 1e-14);
         assert!(active_hint.is_empty());
+    }
+
+    /// gam#979: the active-set release (dual-feasibility) test must be judged on
+    /// the TRUE curvature, not the step-conditioned Hessian. When a caller
+    /// reflects negative-curvature modes to keep the QP step bounded (survival
+    /// joint-Newton), the reflection can flip the sign of the KKT multiplier of a
+    /// bound aligned with that mode, so the bound is released spuriously — the
+    /// freed coefficient then steps far off the bound, only to be re-added on the
+    /// next outer re-linearization (the active-set zigzag that ground the n=3000
+    /// survival marginal-slope fit for 30 cycles). Threading the true Hessian via
+    /// `kkt_hessian` makes the release honor the real curvature.
+    ///
+    /// The two matrices are chosen so the release decision FLIPS between them:
+    /// with only coord 1 active (β₁ pinned at its lower bound, d₁=0) the free
+    /// step is d₀ = −g₀/H₀₀ = −1, and the coord-1 multiplier λ₁ = g₁ + (H·d)₁ =
+    /// g₁ + H₁₀·d₀ depends on the off-diagonal H₁₀, which the reflection changes.
+    #[test]
+    pub(crate) fn lower_bound_release_uses_true_curvature_not_reflected_step_979() {
+        // Step Hessian (stands in for the reflected, PD model used for the step).
+        let h_step = array![[2.0, 3.0], [3.0, 5.0]];
+        // True (un-reflected) curvature: indefinite, with a smaller off-diagonal
+        // so the coord-1 multiplier stays positive (bound genuinely binds).
+        let h_kkt = array![[2.0, 0.5], [0.5, -3.0]];
+        let gradient = array![2.0, 1.0];
+        let beta = array![0.0, 0.0];
+        let lower_bounds = array![f64::NEG_INFINITY, 0.0];
+
+        // WITH the true-curvature KKT test: λ₁ = 1 + 0.5·(−1) = 0.5 > 0, so the
+        // bound is KEPT. β₁ stays pinned at its lower bound (no zigzag).
+        let mut dir_fixed = Array1::zeros(2);
+        let mut active_fixed = vec![1];
+        solve_newton_directionwith_lower_bounds(
+            &h_step,
+            &gradient,
+            &beta,
+            &lower_bounds,
+            &mut dir_fixed,
+            Some(&mut active_fixed),
+            Some(&h_kkt),
+        )
+        .expect("true-curvature bounded solve should succeed");
+        assert_eq!(
+            active_fixed,
+            vec![1],
+            "true-curvature release must KEEP the genuinely-binding bound active"
+        );
+        assert!(
+            (beta[1] + dir_fixed[1]).abs() < 1e-12,
+            "coord 1 must stay pinned at its lower bound; got {}",
+            beta[1] + dir_fixed[1]
+        );
+
+        // WITHOUT it (kkt=None ⇒ the release test uses the STEP Hessian, the old
+        // behavior): λ₁ = 1 + 3·(−1) = −2 < 0, so the bound is released
+        // spuriously and coord 1 flies off to 4.0 — the overshoot the outer loop
+        // then has to walk back, cycle after cycle.
+        let mut dir_bug = Array1::zeros(2);
+        let mut active_bug = vec![1];
+        solve_newton_directionwith_lower_bounds(
+            &h_step,
+            &gradient,
+            &beta,
+            &lower_bounds,
+            &mut dir_bug,
+            Some(&mut active_bug),
+            None,
+        )
+        .expect("step-curvature bounded solve should succeed");
+        assert!(
+            active_bug.is_empty(),
+            "sanity: with the step Hessian the bound is (wrongly) released"
+        );
+        assert!(
+            (beta[1] + dir_bug[1]) > 1.0,
+            "sanity: the spuriously-freed coord overshoots its bound; got {}",
+            beta[1] + dir_bug[1]
+        );
     }
 
     #[test]
@@ -2432,6 +2561,7 @@ mod tests {
             &lower_bounds,
             &mut direction,
             Some(&mut active_hint),
+            None,
         )
         .expect("stale warm lower-bound hint should be releasable");
 
@@ -2810,6 +2940,7 @@ mod root_cause_tests {
             &lower_bounds,
             &mut direction,
             Some(&mut active_hint),
+            None,
         )
         .expect("solve should succeed");
 

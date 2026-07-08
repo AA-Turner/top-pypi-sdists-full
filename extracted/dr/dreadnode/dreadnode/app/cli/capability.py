@@ -28,6 +28,7 @@ from dreadnode.app.cli.shared import (
     ensure_name_only_refs,
     ensure_version,
     print_error,
+    print_markdown,
     print_success,
     print_warning,
     resolve_publish_flag,
@@ -597,6 +598,7 @@ def info(
     ref: str,
     *,
     as_json: t.Annotated[bool, cyclopts.Parameter(name="--json", negative=())] = False,
+    readme: t.Annotated[bool, cyclopts.Parameter(name="--readme", alias="-R", negative=())] = False,
     platform: PlatformArgs = PlatformArgs(),
 ) -> None:
     """Show details and available versions for a capability.
@@ -608,9 +610,26 @@ def info(
         ref: Capability to inspect (e.g. my-cap, my-cap@1.0.0,
             or acme/my-cap).
         as_json: Output raw JSON instead of a summary.
+        readme: Render the bundled README (markdown) instead of the
+            summary metadata.
     """
     api, profile = platform.connect()
     vref = ensure_version(api, "capability", ArtifactRef.parse(ref, profile.org_key))
+
+    if readme:
+        from dreadnode.app.api.client import NotFoundError
+
+        try:
+            payload = api.get_capability_readme(vref.org, vref.name, vref.version)
+        except NotFoundError:
+            print_warning(f"No README found in {vref.qualified_name}")
+            return
+        content = str(payload.get("content") or "")
+        if not content.strip():
+            print_warning(f"README in {vref.qualified_name} is empty")
+            return
+        print_markdown(content)
+        return
 
     detail = api.get_capability(vref.org, vref.name, vref.version)
     versions_payload = api.list_capability_versions(vref.org, vref.name)
@@ -627,6 +646,7 @@ def info(
     if version_items:
         console.print(f"  [dim]versions:[/dim] {', '.join(str(v) for v in version_items)}")
     _hint(f"dn capability install {vref.qualified_name}")
+    _hint(f"dn capability info {vref.qualified_name} --readme")
 
 
 # ---------------------------------------------------------------------------

@@ -173,11 +173,6 @@ Call::ParentCall* Call::parent_call() {
 }
 
 absl::Status Call::InitParent(Call* parent, uint32_t propagation_mask) {
-  // Virtual RPCs: Provide a link back to the parent session arena to fetch
-  // context.
-  auto* parent_ctx = arena()->New<ParentCallContext>();
-  parent_ctx->arena = parent->arena()->Ref();
-  arena()->SetContext<ParentCallContext>(parent_ctx);
   child_ = arena()->New<ChildCall>(parent);
 
   parent->InternalRef("child");
@@ -634,7 +629,7 @@ const char* grpc_call_error_to_string(grpc_call_error error) {
     case GRPC_CALL_OK:
       return "GRPC_CALL_OK";
   }
-  GPR_UNREACHABLE_CODE(return "GRPC_CALL_ERROR_UNKNOWN");
+  GPR_UNREACHABLE_CODE(return "GRPC_CALL_ERROR_UNKNOW");
 }
 
 void grpc_call_run_in_event_engine(const grpc_call* call,

@@ -194,6 +194,11 @@ class Agent(Executor[AgentEvent, Trajectory]):
     # Private state
     _generator: Generator | None = PrivateAttr(None, init=False)
     _current_input: str = PrivateAttr("", init=False)
+    _capability: tuple[str, str] | None = PrivateAttr(None, init=False)
+    """The (name, version) capability this agent runs under, if any. Bound to
+    ``current_capability`` for the duration of a run (and reset afterward) so
+    runtime tools attribute emitted items to the right producer without leaking
+    attribution into later agents that share the async context."""
     _permission_bridge: PermissionBridge | None = PrivateAttr(None, init=False)
     """Tool-approval bridge injected by the runtime so foreign engines wire their
     permission callback into the native HITL path. ``None`` for bare-SDK use."""
@@ -1204,6 +1209,13 @@ class Agent(Executor[AgentEvent, Trajectory]):
             active_trajectory = self.trajectory
 
         async with AsyncExitStack() as stack:
+            # Scope capability attribution to THIS run (reset on exit) so it never
+            # leaks into a later agent sharing the async context.
+            if self._capability is not None:
+                from dreadnode.tracing.span import bind_capability
+
+                stack.enter_context(bind_capability(self._capability))
+
             # Enter tool contexts
             for tool_container in self.tools:
                 if hasattr(tool_container, "__aenter__") and hasattr(tool_container, "__aexit__"):

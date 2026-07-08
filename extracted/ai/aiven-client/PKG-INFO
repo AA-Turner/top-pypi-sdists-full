@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: aiven-client
-Version: 4.15.0
+Version: 4.16.0
 Summary: Aiven.io client library / command-line client
 Project-URL: Homepage, https://github.com/aiven/aiven-client
 Project-URL: Bug Tracker, https://github.com/aiven/aiven-client/issues
@@ -23,13 +23,10 @@ Requires-Dist: requests-toolbelt>=0.9.0
 Requires-Dist: requests>=2.2.1; sys_platform == 'linux'
 Requires-Dist: requests>=2.9.1; sys_platform != 'linux'
 Provides-Extra: dev
-Requires-Dist: black>=24.4.2; extra == 'dev'
 Requires-Dist: click; extra == 'dev'
-Requires-Dist: flake8; extra == 'dev'
-Requires-Dist: isort<7.0,>=6.1.0; extra == 'dev'
 Requires-Dist: mypy<2.0,>=1.17.1; extra == 'dev'
 Requires-Dist: pytest; extra == 'dev'
-Requires-Dist: ruff; extra == 'dev'
+Requires-Dist: ruff>=0.15.11; extra == 'dev'
 Requires-Dist: types-requests<3.0,>=2.26.1; extra == 'dev'
 Description-Content-Type: text/x-rst
 

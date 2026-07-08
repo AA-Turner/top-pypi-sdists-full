@@ -1,3 +1,4 @@
+from __future__ import annotations
 import asyncio
 from json import dumps as json_dumps
 from ssl import SSLContext

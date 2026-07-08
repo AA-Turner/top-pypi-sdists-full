@@ -8,11 +8,21 @@ import sys
 import textwrap
 import warnings
 from abc import ABC
-from collections.abc import Iterable, Mapping, Sequence
+from collections.abc import Callable, Iterable, Mapping, Sequence
 from dataclasses import asdict
 from json import JSONDecodeError
 from pathlib import Path
-from typing import IO, Annotated, Any, Literal, cast, overload
+from typing import (
+    IO,
+    Annotated,
+    Any,
+    Concatenate,
+    Literal,
+    ParamSpec,
+    TypeVar,
+    cast,
+    overload,
+)
 
 import polars as pl
 import polars.exceptions as plexc
@@ -21,7 +31,7 @@ from dataframely._compat import deltalake
 from dataframely._filter import Filter
 from dataframely._native import format_rule_failures
 from dataframely._plugin import all_rules_required
-from dataframely._polars import FrameType, collect_if
+from dataframely._polars import FrameType, collect_all_if
 from dataframely._serialization import (
     SERIALIZATION_FORMAT_VERSION,
     SchemaJSONDecoder,
@@ -52,6 +62,9 @@ else:
     from typing_extensions import Self
 
 _FILTER_COLUMN_PREFIX = "__DATAFRAMELY_FILTER_COLUMN__"
+
+P = ParamSpec("P")
+T = TypeVar("T")
 
 
 class Collection(BaseCollection, ABC):
@@ -367,7 +380,14 @@ class Collection(BaseCollection, ABC):
 
     @classmethod
     def validate(
-        cls, data: Mapping[str, FrameType], /, *, cast: bool = False, eager: bool = True
+        cls,
+        data: Mapping[str, FrameType],
+        /,
+        *,
+        cast: bool = False,
+        eager: bool = True,
+        skip_member_validation: bool = False,
+        **kwargs: Any,
     ) -> Self:
         """Validate that a set of data frames satisfy the collection's invariants.
 
@@ -387,6 +407,13 @@ class Collection(BaseCollection, ABC):
                 :meth:`~polars.LazyFrame.collect` on the individual member or
                 :meth:`collect_all` on the collection. Note that, in the latter case,
                 information from error messages is limited.
+            skip_member_validation: Whether to skip validating individual members and only
+                apply the collection filters. **Use this option with caution** as it
+                requires the caller to ensure that the individual members have been
+                validated. This option is particularly useful in performance-critical
+                scenarios where the members are known to be valid.
+            kwargs: Keyword arguments passed directly to :meth:`polars.collect_all` and
+                :meth:`polars.LazyFrame.collect` when `eager=True`.
 
         Raises:
             ValueError: If an insufficient set of input data frames is provided, i.e. if
@@ -408,7 +435,13 @@ class Collection(BaseCollection, ABC):
         if eager:
             # If we perform the validation eagerly, we call filter and check the failure
             # information to properly construct a useful error message.
-            filtered, failures = cls.filter(data, cast=cast, eager=True)
+            filtered, failures = cls.filter(
+                data,
+                cast=cast,
+                eager=True,
+                skip_member_validation=skip_member_validation,
+                **kwargs,
+            )
             if any(len(failure) > 0 for failure in failures.values()):
                 errors: dict[str, str] = {}
                 for member, failure in failures.items():
@@ -439,7 +472,17 @@ class Collection(BaseCollection, ABC):
             # efficiently as we cannot easily propagate error messages from different
             # members anyways.
             members: dict[str, pl.LazyFrame] = {
-                name: member.schema.validate(data[name].lazy(), cast=cast, eager=False)
+                name: (
+                    (
+                        member.schema.cast(data[name].lazy())
+                        if cast
+                        else data[name].lazy()
+                    )
+                    if skip_member_validation
+                    else member.schema.validate(
+                        data[name].lazy(), cast=cast, eager=False
+                    )
+                )
                 for name, member in cls.members().items()
                 if name in data
             }
@@ -476,7 +519,9 @@ class Collection(BaseCollection, ABC):
             return cls._init(members)
 
     @classmethod
-    def is_valid(cls, data: Mapping[str, FrameType], /, *, cast: bool = False) -> bool:
+    def is_valid(
+        cls, data: Mapping[str, FrameType], /, *, cast: bool = False, **kwargs: Any
+    ) -> bool:
         """Utility method to check whether :meth:`validate` raises an exception.
 
         Args:
@@ -485,6 +530,8 @@ class Collection(BaseCollection, ABC):
                 the member as key.
             cast: Whether columns with a wrong data type in the member data frame are
                 cast to their schemas' defined data types if possible.
+            kwargs: Keyword arguments passed directly to :meth:`polars.collect_all` and
+                :meth:`polars.LazyFrame.collect`.
 
         Returns:
             Whether the provided members satisfy the invariants of the collection.
@@ -499,7 +546,7 @@ class Collection(BaseCollection, ABC):
         members: dict[str, pl.LazyFrame] = {}
         for member, schema in cls.member_schemas().items():
             if member in data:
-                if not schema.is_valid(data[member], cast=cast):
+                if not schema.is_valid(data[member], cast=cast, **kwargs):
                     return False
                 members[member] = data[member].lazy()
 
@@ -510,9 +557,12 @@ class Collection(BaseCollection, ABC):
             keep = [filter.logic(result_cls).select(primary_key) for filter in filters]
             joined = _join_all(*keep, on=primary_key, how="inner")
             removed_rows = pl.collect_all(
-                data[member].lazy().join(joined, on=primary_key, how="anti")
-                for member in cls.members()
-                if member in data
+                (
+                    data[member].lazy().join(joined, on=primary_key, how="anti")
+                    for member in cls.members()
+                    if member in data
+                ),
+                **kwargs,
             )
             return all(df.is_empty() for df in removed_rows)
 
@@ -522,7 +572,14 @@ class Collection(BaseCollection, ABC):
 
     @classmethod
     def filter(
-        cls, data: Mapping[str, FrameType], /, *, cast: bool = False, eager: bool = True
+        cls,
+        data: Mapping[str, FrameType],
+        /,
+        *,
+        cast: bool = False,
+        eager: bool = True,
+        skip_member_validation: bool = False,
+        **kwargs: Any,
     ) -> CollectionFilterResult[Self]:
         """Filter the members data frame by their schemas and the collection's filters.
 
@@ -538,6 +595,13 @@ class Collection(BaseCollection, ABC):
             eager: Whether the filter operation should be performed eagerly.
                 Note that until https://github.com/pola-rs/polars/pull/24129 is
                 released, eagerly filtering can provide significant speedups.
+            skip_member_validation: Whether to skip filtering individual members and only
+                apply the collection filters. **Use this option with caution** as it
+                requires the caller to ensure that the individual members have been
+                validated. This option is particularly useful in performance-critical
+                scenarios where the members are known to already be valid.
+            kwargs: Keyword arguments passed directly to :meth:`polars.collect_all` and
+                :meth:`polars.LazyFrame.collect` when `eager=True`.
 
         Returns:
             A named tuple with fields `result` and `failure`. The `result` field
@@ -579,10 +643,20 @@ class Collection(BaseCollection, ABC):
             if member.is_optional and member_name not in data:
                 continue
 
-            member_result, failures[member_name] = member.schema.filter(
-                data[member_name].lazy(), cast=cast, eager=eager
-            )
-            results[member_name] = member_result.lazy()
+            if skip_member_validation:
+                results[member_name] = (
+                    member.schema.cast(data[member_name].lazy())
+                    if cast
+                    else data[member_name].lazy()
+                )
+                failures[member_name] = FailureInfo._create_empty(
+                    member.schema, with_casting_rules=cast
+                )
+            else:
+                member_result, failures[member_name] = member.schema.filter(
+                    data[member_name].lazy(), cast=cast, eager=eager, **kwargs
+                )
+                results[member_name] = member_result.lazy()
 
         # Once we've done that, we can apply the filters on this collection. To this end,
         # we iterate over all filters and store the filter results.
@@ -592,28 +666,25 @@ class Collection(BaseCollection, ABC):
             result_cls = cls._init(results)
             primary_key = cls.common_primary_key()
 
-            keep: dict[str, pl.LazyFrame] = {}
-            for name, filter in filters.items():
-                keep[name] = (
-                    filter.logic(result_cls)
-                    .select(primary_key)
-                    .pipe(collect_if, eager)
-                    .lazy()
-                )
+            keep = {
+                name: filter.logic(result_cls).select(primary_key)
+                for name, filter in filters.items()
+            }
+            keep = collect_all_if(keep, eager, **kwargs)
 
-            drop: dict[str, pl.LazyFrame] = {}
-            for failure_propagating_member in failure_propagating_members:
-                annotation_column = f"{failure_propagating_member}|failure_propagation"
-                drop[annotation_column] = (
+            drop: dict[str, pl.LazyFrame] = {
+                f"{failure_propagating_member}|failure_propagation": (
                     failures[failure_propagating_member]
                     ._lf.select(primary_key)
                     .unique()
-                    .pipe(collect_if, eager)
-                    .lazy()
                 )
+                for failure_propagating_member in failure_propagating_members
+            }
+            drop = collect_all_if(drop, eager, **kwargs)
 
             # Now we can iterate over the results and left-join onto each individual
-            # filter to obtain independent boolean indicators of whether to keep the row
+            # filter to obtain independent boolean indicators of whether to keep the row.
+            lfs_with_eval: dict[str, pl.LazyFrame] = {}
             for member_name, filtered in results.items():
                 member_info = cls.members()[member_name]
                 if member_info.ignored_in_filters:
@@ -635,7 +706,11 @@ class Collection(BaseCollection, ABC):
                         maintain_order="left",
                     ).with_columns(pl.col(name).fill_null(True))
 
-                lf_with_eval = lf_with_eval.pipe(collect_if, eager).lazy()
+                lfs_with_eval[member_name] = lf_with_eval
+
+            lfs_with_eval = collect_all_if(lfs_with_eval, eager, **kwargs)
+            for member_name, lf_with_eval in lfs_with_eval.items():
+                member_info = cls.members()[member_name]
 
                 # Filtering `lf_with_eval` by the rows for which all joins
                 # "succeeded", we can identify the rows that pass all the filters. We
@@ -700,7 +775,7 @@ class Collection(BaseCollection, ABC):
 
         result = CollectionFilterResult(cls._init(results), failures)
         if eager:
-            return result.collect_all()
+            return result.collect_all(**kwargs)
         return result
 
     def join(
@@ -795,21 +870,51 @@ class Collection(BaseCollection, ABC):
 
     # ---------------------------------- COLLECTION ---------------------------------- #
 
-    def collect_all(self) -> Self:
+    def collect_all(self, **kwargs: Any) -> Self:
         """Collect all members of the collection.
 
         This method collects all members in parallel for maximum efficiency. It is
         particularly useful when :meth:`filter` is called with lazy frame inputs.
 
+        Args:
+            kwargs: Keyword arguments passed directly to :meth:`polars.collect_all`.
+
         Returns:
             The same collection with all members collected once. Members annotated
             with :class:`~dataframely.DataFrame` are returned as DataFrames, while
             members annotated with :class:`~dataframely.LazyFrame` are returned as
-            "shallow-lazy" frames (obtained by calling ``.collect().lazy()``).
+            "shallow-lazy" frames (obtained by calling `.collect().lazy()`).
         """
         lazy_dict = self.to_dict()
-        dfs = pl.collect_all(lazy_dict.values())
+        dfs = pl.collect_all(lazy_dict.values(), **kwargs)
         return self._init(dict(zip(lazy_dict, dfs)))
+
+    def pipe(
+        self,
+        function: Callable[Concatenate[Self, P], T],
+        *args: P.args,
+        **kwargs: P.kwargs,
+    ) -> T:
+        """Apply a function to this collection.
+
+        This method allows chaining operations on a collection in a fluent style,
+        analogously to :meth:`polars.LazyFrame.pipe`.
+
+        Args:
+            function: The callable to apply. It receives this collection as its first
+                argument, followed by any additional ``args`` and ``kwargs``.
+            args: Additional positional arguments to pass to ``function``.
+            kwargs: Additional keyword arguments to pass to ``function``.
+
+        Returns:
+            The return value of ``function`` when called as described.
+
+        Example:
+            >>> def add_prefix(collection: MyCollection, prefix: str) -> MyCollection:
+            ...     ...
+            >>> result = my_collection.pipe(add_prefix, prefix="foo")
+        """
+        return function(self, *args, **kwargs)
 
     # --------------------------------- SERIALIZATION -------------------------------- #
 

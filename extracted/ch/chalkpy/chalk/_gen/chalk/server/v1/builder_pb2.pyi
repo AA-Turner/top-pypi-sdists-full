@@ -9,6 +9,7 @@ from chalk._gen.chalk.server.v1 import deployment_pb2 as _deployment_pb2
 from chalk._gen.chalk.server.v1 import environment_pb2 as _environment_pb2
 from chalk._gen.chalk.server.v1 import graph_pb2 as _graph_pb2_1
 from chalk._gen.chalk.server.v1 import log_pb2 as _log_pb2
+from chalk._gen.chalk.usage.v1 import rate_pb2 as _rate_pb2
 from chalk._gen.chalk.utils.v1 import field_change_pb2 as _field_change_pb2
 from google.api import field_behavior_pb2 as _field_behavior_pb2
 from google.protobuf import field_mask_pb2 as _field_mask_pb2
@@ -41,6 +42,12 @@ class DeploymentBuildStatus(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
     DEPLOYMENT_BUILD_STATUS_CANCELLED: _ClassVar[DeploymentBuildStatus]
     DEPLOYMENT_BUILD_STATUS_EXPIRED: _ClassVar[DeploymentBuildStatus]
     DEPLOYMENT_BUILD_STATUS_BOOT_ERRORS: _ClassVar[DeploymentBuildStatus]
+
+class CustomerVectorAggregatorStatsdProtocol(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
+    __slots__ = ()
+    CUSTOMER_VECTOR_AGGREGATOR_STATSD_PROTOCOL_UNSPECIFIED: _ClassVar[CustomerVectorAggregatorStatsdProtocol]
+    CUSTOMER_VECTOR_AGGREGATOR_STATSD_PROTOCOL_UDP: _ClassVar[CustomerVectorAggregatorStatsdProtocol]
+    CUSTOMER_VECTOR_AGGREGATOR_STATSD_PROTOCOL_TCP: _ClassVar[CustomerVectorAggregatorStatsdProtocol]
 
 class TelemetryCollectorTolerationMode(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
     __slots__ = ()
@@ -127,6 +134,9 @@ DEPLOYMENT_BUILD_STATUS_TIMEOUT: DeploymentBuildStatus
 DEPLOYMENT_BUILD_STATUS_CANCELLED: DeploymentBuildStatus
 DEPLOYMENT_BUILD_STATUS_EXPIRED: DeploymentBuildStatus
 DEPLOYMENT_BUILD_STATUS_BOOT_ERRORS: DeploymentBuildStatus
+CUSTOMER_VECTOR_AGGREGATOR_STATSD_PROTOCOL_UNSPECIFIED: CustomerVectorAggregatorStatsdProtocol
+CUSTOMER_VECTOR_AGGREGATOR_STATSD_PROTOCOL_UDP: CustomerVectorAggregatorStatsdProtocol
+CUSTOMER_VECTOR_AGGREGATOR_STATSD_PROTOCOL_TCP: CustomerVectorAggregatorStatsdProtocol
 TELEMETRY_COLLECTOR_TOLERATION_MODE_UNSPECIFIED: TelemetryCollectorTolerationMode
 TELEMETRY_COLLECTOR_TOLERATION_MODE_NO_SCHEDULE_ALL: TelemetryCollectorTolerationMode
 TELEMETRY_COLLECTOR_TOLERATION_MODE_NO_SCHEDULE_ALL_EXCEPT_NO_NETWORK: TelemetryCollectorTolerationMode
@@ -268,18 +278,26 @@ class RunPostIndexValidationResponse(_message.Message):
     def __init__(self, job_id: _Optional[str] = ...) -> None: ...
 
 class StartShadowBuildFromDeploymentRequest(_message.Message):
-    __slots__ = ("existing_deployment_id", "force_venv_rebuild", "skip_handle_conversion_errors")
+    __slots__ = (
+        "existing_deployment_id",
+        "force_venv_rebuild",
+        "skip_handle_conversion_errors",
+        "validate_named_queries_after_build",
+    )
     EXISTING_DEPLOYMENT_ID_FIELD_NUMBER: _ClassVar[int]
     FORCE_VENV_REBUILD_FIELD_NUMBER: _ClassVar[int]
     SKIP_HANDLE_CONVERSION_ERRORS_FIELD_NUMBER: _ClassVar[int]
+    VALIDATE_NAMED_QUERIES_AFTER_BUILD_FIELD_NUMBER: _ClassVar[int]
     existing_deployment_id: str
     force_venv_rebuild: bool
     skip_handle_conversion_errors: bool
+    validate_named_queries_after_build: bool
     def __init__(
         self,
         existing_deployment_id: _Optional[str] = ...,
         force_venv_rebuild: bool = ...,
         skip_handle_conversion_errors: bool = ...,
+        validate_named_queries_after_build: bool = ...,
     ) -> None: ...
 
 class StartShadowBuildFromDeploymentResponse(_message.Message):
@@ -1938,14 +1956,77 @@ class VectorAggregatorVictoriaMetricsSinkSpec(_message.Message):
     ) -> None: ...
 
 class VectorAggregatorChalkDatadogExportSpec(_message.Message):
-    __slots__ = ("logs", "traces", "metrics")
+    __slots__ = ("logs", "traces", "metrics", "metrics_sink")
     LOGS_FIELD_NUMBER: _ClassVar[int]
     TRACES_FIELD_NUMBER: _ClassVar[int]
     METRICS_FIELD_NUMBER: _ClassVar[int]
+    METRICS_SINK_FIELD_NUMBER: _ClassVar[int]
     logs: bool
     traces: bool
     metrics: bool
-    def __init__(self, logs: bool = ..., traces: bool = ..., metrics: bool = ...) -> None: ...
+    metrics_sink: VectorAggregatorChalkDatadogMetricsSinkSpec
+    def __init__(
+        self,
+        logs: bool = ...,
+        traces: bool = ...,
+        metrics: bool = ...,
+        metrics_sink: _Optional[_Union[VectorAggregatorChalkDatadogMetricsSinkSpec, _Mapping]] = ...,
+    ) -> None: ...
+
+class VectorAggregatorChalkDatadogMetricsSinkSpec(_message.Message):
+    __slots__ = (
+        "request_concurrency",
+        "batch_max_events",
+        "batch_max_bytes",
+        "batch_timeout_secs",
+        "request_timeout_secs",
+        "buffer_max_size",
+        "buffer_when_full",
+    )
+    REQUEST_CONCURRENCY_FIELD_NUMBER: _ClassVar[int]
+    BATCH_MAX_EVENTS_FIELD_NUMBER: _ClassVar[int]
+    BATCH_MAX_BYTES_FIELD_NUMBER: _ClassVar[int]
+    BATCH_TIMEOUT_SECS_FIELD_NUMBER: _ClassVar[int]
+    REQUEST_TIMEOUT_SECS_FIELD_NUMBER: _ClassVar[int]
+    BUFFER_MAX_SIZE_FIELD_NUMBER: _ClassVar[int]
+    BUFFER_WHEN_FULL_FIELD_NUMBER: _ClassVar[int]
+    request_concurrency: int
+    batch_max_events: int
+    batch_max_bytes: int
+    batch_timeout_secs: int
+    request_timeout_secs: int
+    buffer_max_size: int
+    buffer_when_full: str
+    def __init__(
+        self,
+        request_concurrency: _Optional[int] = ...,
+        batch_max_events: _Optional[int] = ...,
+        batch_max_bytes: _Optional[int] = ...,
+        batch_timeout_secs: _Optional[int] = ...,
+        request_timeout_secs: _Optional[int] = ...,
+        buffer_max_size: _Optional[int] = ...,
+        buffer_when_full: _Optional[str] = ...,
+    ) -> None: ...
+
+class VectorAggregatorMetricAggregationSpec(_message.Message):
+    __slots__ = ("enabled", "interval_ms", "mode")
+    ENABLED_FIELD_NUMBER: _ClassVar[int]
+    INTERVAL_MS_FIELD_NUMBER: _ClassVar[int]
+    MODE_FIELD_NUMBER: _ClassVar[int]
+    enabled: bool
+    interval_ms: int
+    mode: str
+    def __init__(self, enabled: bool = ..., interval_ms: _Optional[int] = ..., mode: _Optional[str] = ...) -> None: ...
+
+class VectorCollectorMetricAggregationSpec(_message.Message):
+    __slots__ = ("enabled", "interval_ms", "mode")
+    ENABLED_FIELD_NUMBER: _ClassVar[int]
+    INTERVAL_MS_FIELD_NUMBER: _ClassVar[int]
+    MODE_FIELD_NUMBER: _ClassVar[int]
+    enabled: bool
+    interval_ms: int
+    mode: str
+    def __init__(self, enabled: bool = ..., interval_ms: _Optional[int] = ..., mode: _Optional[str] = ...) -> None: ...
 
 class CustomerVectorAggregatorDatadogSignalExportSpec(_message.Message):
     __slots__ = ("enabled", "remap_vrl")
@@ -1955,20 +2036,57 @@ class CustomerVectorAggregatorDatadogSignalExportSpec(_message.Message):
     remap_vrl: str
     def __init__(self, enabled: bool = ..., remap_vrl: _Optional[str] = ...) -> None: ...
 
+class CustomerVectorAggregatorDatadogMetricsSinkSpec(_message.Message):
+    __slots__ = (
+        "request_concurrency",
+        "batch_max_events",
+        "batch_max_bytes",
+        "batch_timeout_secs",
+        "request_timeout_secs",
+        "buffer_max_size",
+        "buffer_when_full",
+    )
+    REQUEST_CONCURRENCY_FIELD_NUMBER: _ClassVar[int]
+    BATCH_MAX_EVENTS_FIELD_NUMBER: _ClassVar[int]
+    BATCH_MAX_BYTES_FIELD_NUMBER: _ClassVar[int]
+    BATCH_TIMEOUT_SECS_FIELD_NUMBER: _ClassVar[int]
+    REQUEST_TIMEOUT_SECS_FIELD_NUMBER: _ClassVar[int]
+    BUFFER_MAX_SIZE_FIELD_NUMBER: _ClassVar[int]
+    BUFFER_WHEN_FULL_FIELD_NUMBER: _ClassVar[int]
+    request_concurrency: int
+    batch_max_events: int
+    batch_max_bytes: int
+    batch_timeout_secs: int
+    request_timeout_secs: int
+    buffer_max_size: int
+    buffer_when_full: str
+    def __init__(
+        self,
+        request_concurrency: _Optional[int] = ...,
+        batch_max_events: _Optional[int] = ...,
+        batch_max_bytes: _Optional[int] = ...,
+        batch_timeout_secs: _Optional[int] = ...,
+        request_timeout_secs: _Optional[int] = ...,
+        buffer_max_size: _Optional[int] = ...,
+        buffer_when_full: _Optional[str] = ...,
+    ) -> None: ...
+
 class CustomerVectorAggregatorDatadogExportConfig(_message.Message):
-    __slots__ = ("api_key", "api_key_secret_arn", "api_host", "logs", "traces", "metrics")
+    __slots__ = ("api_key", "api_key_secret_arn", "api_host", "logs", "traces", "metrics", "metrics_sink")
     API_KEY_FIELD_NUMBER: _ClassVar[int]
     API_KEY_SECRET_ARN_FIELD_NUMBER: _ClassVar[int]
     API_HOST_FIELD_NUMBER: _ClassVar[int]
     LOGS_FIELD_NUMBER: _ClassVar[int]
     TRACES_FIELD_NUMBER: _ClassVar[int]
     METRICS_FIELD_NUMBER: _ClassVar[int]
+    METRICS_SINK_FIELD_NUMBER: _ClassVar[int]
     api_key: str
     api_key_secret_arn: str
     api_host: str
     logs: CustomerVectorAggregatorDatadogSignalExportSpec
     traces: CustomerVectorAggregatorDatadogSignalExportSpec
     metrics: CustomerVectorAggregatorDatadogSignalExportSpec
+    metrics_sink: CustomerVectorAggregatorDatadogMetricsSinkSpec
     def __init__(
         self,
         api_key: _Optional[str] = ...,
@@ -1977,14 +2095,80 @@ class CustomerVectorAggregatorDatadogExportConfig(_message.Message):
         logs: _Optional[_Union[CustomerVectorAggregatorDatadogSignalExportSpec, _Mapping]] = ...,
         traces: _Optional[_Union[CustomerVectorAggregatorDatadogSignalExportSpec, _Mapping]] = ...,
         metrics: _Optional[_Union[CustomerVectorAggregatorDatadogSignalExportSpec, _Mapping]] = ...,
+        metrics_sink: _Optional[_Union[CustomerVectorAggregatorDatadogMetricsSinkSpec, _Mapping]] = ...,
+    ) -> None: ...
+
+class CustomerVectorAggregatorStatsdMetricsSinkSpec(_message.Message):
+    __slots__ = ("batch_max_events", "batch_timeout_secs", "buffer_max_size", "buffer_when_full")
+    BATCH_MAX_EVENTS_FIELD_NUMBER: _ClassVar[int]
+    BATCH_TIMEOUT_SECS_FIELD_NUMBER: _ClassVar[int]
+    BUFFER_MAX_SIZE_FIELD_NUMBER: _ClassVar[int]
+    BUFFER_WHEN_FULL_FIELD_NUMBER: _ClassVar[int]
+    batch_max_events: int
+    batch_timeout_secs: int
+    buffer_max_size: int
+    buffer_when_full: str
+    def __init__(
+        self,
+        batch_max_events: _Optional[int] = ...,
+        batch_timeout_secs: _Optional[int] = ...,
+        buffer_max_size: _Optional[int] = ...,
+        buffer_when_full: _Optional[str] = ...,
+    ) -> None: ...
+
+class CustomerVectorAggregatorStatsdExportConfig(_message.Message):
+    __slots__ = ("enabled", "host", "port", "protocol", "metrics_sink", "remap_vrl")
+    ENABLED_FIELD_NUMBER: _ClassVar[int]
+    HOST_FIELD_NUMBER: _ClassVar[int]
+    PORT_FIELD_NUMBER: _ClassVar[int]
+    PROTOCOL_FIELD_NUMBER: _ClassVar[int]
+    METRICS_SINK_FIELD_NUMBER: _ClassVar[int]
+    REMAP_VRL_FIELD_NUMBER: _ClassVar[int]
+    enabled: bool
+    host: str
+    port: int
+    protocol: CustomerVectorAggregatorStatsdProtocol
+    metrics_sink: CustomerVectorAggregatorStatsdMetricsSinkSpec
+    remap_vrl: str
+    def __init__(
+        self,
+        enabled: bool = ...,
+        host: _Optional[str] = ...,
+        port: _Optional[int] = ...,
+        protocol: _Optional[_Union[CustomerVectorAggregatorStatsdProtocol, str]] = ...,
+        metrics_sink: _Optional[_Union[CustomerVectorAggregatorStatsdMetricsSinkSpec, _Mapping]] = ...,
+        remap_vrl: _Optional[str] = ...,
     ) -> None: ...
 
 class CustomerVectorAggregatorConfig(_message.Message):
-    __slots__ = ("datadog_export",)
+    __slots__ = (
+        "datadog_export",
+        "replicas",
+        "statsd_export",
+        "logs_remap_vrl",
+        "metrics_remap_vrl",
+        "traces_remap_vrl",
+    )
     DATADOG_EXPORT_FIELD_NUMBER: _ClassVar[int]
+    REPLICAS_FIELD_NUMBER: _ClassVar[int]
+    STATSD_EXPORT_FIELD_NUMBER: _ClassVar[int]
+    LOGS_REMAP_VRL_FIELD_NUMBER: _ClassVar[int]
+    METRICS_REMAP_VRL_FIELD_NUMBER: _ClassVar[int]
+    TRACES_REMAP_VRL_FIELD_NUMBER: _ClassVar[int]
     datadog_export: CustomerVectorAggregatorDatadogExportConfig
+    replicas: int
+    statsd_export: CustomerVectorAggregatorStatsdExportConfig
+    logs_remap_vrl: str
+    metrics_remap_vrl: str
+    traces_remap_vrl: str
     def __init__(
-        self, datadog_export: _Optional[_Union[CustomerVectorAggregatorDatadogExportConfig, _Mapping]] = ...
+        self,
+        datadog_export: _Optional[_Union[CustomerVectorAggregatorDatadogExportConfig, _Mapping]] = ...,
+        replicas: _Optional[int] = ...,
+        statsd_export: _Optional[_Union[CustomerVectorAggregatorStatsdExportConfig, _Mapping]] = ...,
+        logs_remap_vrl: _Optional[str] = ...,
+        metrics_remap_vrl: _Optional[str] = ...,
+        traces_remap_vrl: _Optional[str] = ...,
     ) -> None: ...
 
 class AggregatorSpec(_message.Message):
@@ -1995,6 +2179,8 @@ class AggregatorSpec(_message.Message):
         "vector_click_house_sink",
         "export_to_chalk_datadog",
         "vector_victoria_metrics_sink",
+        "replicas",
+        "metric_aggregation",
     )
     IMAGE_VERSION_FIELD_NUMBER: _ClassVar[int]
     REQUEST_FIELD_NUMBER: _ClassVar[int]
@@ -2002,12 +2188,16 @@ class AggregatorSpec(_message.Message):
     VECTOR_CLICK_HOUSE_SINK_FIELD_NUMBER: _ClassVar[int]
     EXPORT_TO_CHALK_DATADOG_FIELD_NUMBER: _ClassVar[int]
     VECTOR_VICTORIA_METRICS_SINK_FIELD_NUMBER: _ClassVar[int]
+    REPLICAS_FIELD_NUMBER: _ClassVar[int]
+    METRIC_AGGREGATION_FIELD_NUMBER: _ClassVar[int]
     image_version: str
     request: KubeResourceConfig
     limit: KubeResourceConfig
     vector_click_house_sink: VectorAggregatorClickHouseSinkSpec
     export_to_chalk_datadog: VectorAggregatorChalkDatadogExportSpec
     vector_victoria_metrics_sink: VectorAggregatorVictoriaMetricsSinkSpec
+    replicas: int
+    metric_aggregation: VectorAggregatorMetricAggregationSpec
     def __init__(
         self,
         image_version: _Optional[str] = ...,
@@ -2016,6 +2206,8 @@ class AggregatorSpec(_message.Message):
         vector_click_house_sink: _Optional[_Union[VectorAggregatorClickHouseSinkSpec, _Mapping]] = ...,
         export_to_chalk_datadog: _Optional[_Union[VectorAggregatorChalkDatadogExportSpec, _Mapping]] = ...,
         vector_victoria_metrics_sink: _Optional[_Union[VectorAggregatorVictoriaMetricsSinkSpec, _Mapping]] = ...,
+        replicas: _Optional[int] = ...,
+        metric_aggregation: _Optional[_Union[VectorAggregatorMetricAggregationSpec, _Mapping]] = ...,
     ) -> None: ...
 
 class CustomerCollectorConfig(_message.Message):
@@ -2209,17 +2401,26 @@ class VectorClusterMetricsShadowTables(_message.Message):
     ) -> None: ...
 
 class OtelCollectorSpec(_message.Message):
-    __slots__ = ("otel_collector_version", "request", "limit", "toleration_mode", "otel_collector_image")
+    __slots__ = (
+        "otel_collector_version",
+        "request",
+        "limit",
+        "toleration_mode",
+        "otel_collector_image",
+        "metric_aggregation",
+    )
     OTEL_COLLECTOR_VERSION_FIELD_NUMBER: _ClassVar[int]
     REQUEST_FIELD_NUMBER: _ClassVar[int]
     LIMIT_FIELD_NUMBER: _ClassVar[int]
     TOLERATION_MODE_FIELD_NUMBER: _ClassVar[int]
     OTEL_COLLECTOR_IMAGE_FIELD_NUMBER: _ClassVar[int]
+    METRIC_AGGREGATION_FIELD_NUMBER: _ClassVar[int]
     otel_collector_version: str
     request: KubeResourceConfig
     limit: KubeResourceConfig
     toleration_mode: TelemetryCollectorTolerationMode
     otel_collector_image: OtelCollectorImage
+    metric_aggregation: VectorCollectorMetricAggregationSpec
     def __init__(
         self,
         otel_collector_version: _Optional[str] = ...,
@@ -2227,6 +2428,7 @@ class OtelCollectorSpec(_message.Message):
         limit: _Optional[_Union[KubeResourceConfig, _Mapping]] = ...,
         toleration_mode: _Optional[_Union[TelemetryCollectorTolerationMode, str]] = ...,
         otel_collector_image: _Optional[_Union[OtelCollectorImage, str]] = ...,
+        metric_aggregation: _Optional[_Union[VectorCollectorMetricAggregationSpec, _Mapping]] = ...,
     ) -> None: ...
 
 class GpuTelemetrySpec(_message.Message):
@@ -3056,6 +3258,46 @@ class GetNodepoolsResponse(_message.Message):
         karpenter_nodepools: _Optional[_Iterable[_Union[_karpenter_pb2.KarpenterNodepool, _Mapping]]] = ...,
         gke_nodepools: _Optional[_Iterable[_Union[_gke_pb2.GKENodePool, _Mapping]]] = ...,
     ) -> None: ...
+
+class ChalkMachineTypeMapping(_message.Message):
+    __slots__ = ("cloud", "machine_type", "workload_type", "spilling", "gpu", "instance_type", "cpus", "memory_gb")
+    CLOUD_FIELD_NUMBER: _ClassVar[int]
+    MACHINE_TYPE_FIELD_NUMBER: _ClassVar[int]
+    WORKLOAD_TYPE_FIELD_NUMBER: _ClassVar[int]
+    SPILLING_FIELD_NUMBER: _ClassVar[int]
+    GPU_FIELD_NUMBER: _ClassVar[int]
+    INSTANCE_TYPE_FIELD_NUMBER: _ClassVar[int]
+    CPUS_FIELD_NUMBER: _ClassVar[int]
+    MEMORY_GB_FIELD_NUMBER: _ClassVar[int]
+    cloud: _rate_pb2.BillingCloud
+    machine_type: str
+    workload_type: str
+    spilling: bool
+    gpu: bool
+    instance_type: str
+    cpus: float
+    memory_gb: float
+    def __init__(
+        self,
+        cloud: _Optional[_Union[_rate_pb2.BillingCloud, str]] = ...,
+        machine_type: _Optional[str] = ...,
+        workload_type: _Optional[str] = ...,
+        spilling: bool = ...,
+        gpu: bool = ...,
+        instance_type: _Optional[str] = ...,
+        cpus: _Optional[float] = ...,
+        memory_gb: _Optional[float] = ...,
+    ) -> None: ...
+
+class GetAvailableChalkMachineTypesRequest(_message.Message):
+    __slots__ = ()
+    def __init__(self) -> None: ...
+
+class GetAvailableChalkMachineTypesResponse(_message.Message):
+    __slots__ = ("mappings",)
+    MAPPINGS_FIELD_NUMBER: _ClassVar[int]
+    mappings: _containers.RepeatedCompositeFieldContainer[ChalkMachineTypeMapping]
+    def __init__(self, mappings: _Optional[_Iterable[_Union[ChalkMachineTypeMapping, _Mapping]]] = ...) -> None: ...
 
 class AddNodepoolRequest(_message.Message):
     __slots__ = ("karpenter_nodepool", "gke_nodepool")

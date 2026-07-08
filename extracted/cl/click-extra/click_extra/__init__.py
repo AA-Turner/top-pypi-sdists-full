@@ -101,9 +101,11 @@ from .config import (
     ConfigValidator,
     ExportConfigOption,
     NoConfigOption,
+    SchemaFieldInfo,
     ValidateConfigOption,
     ValidationError,
     ValidationReport,
+    field_docstrings,
     flatten_config_keys,
     format_from_path,
     get_tool_config,
@@ -112,6 +114,7 @@ from .config import (
     parse_content,
     read_file,
     run_config_validation,
+    schema_field_infos,
     serialize_content,
 )
 from .context import Context, pass_context
@@ -312,6 +315,7 @@ __all__ = [
     "ProgressOption",
     "QuietOption",
     "Result",
+    "SchemaFieldInfo",
     "Section",
     "SectionMixin",
     "ShowParamsOption",
@@ -355,6 +359,7 @@ __all__ = [
     "echo_via_pager",
     "edit",
     "export_config_option",
+    "field_docstrings",
     "file_path",
     "flatten_config_keys",
     "format_cli_prompt",
@@ -412,6 +417,7 @@ __all__ = [
     "run_jobs",
     "run_lanes",
     "run_test_suite",
+    "schema_field_infos",
     "search_params",
     "secho",
     "select_columns",
@@ -453,10 +459,10 @@ if not _HAS_CLICK_8_4_EXPORTS:
 del _HAS_CLICK_8_4_EXPORTS
 
 
-__version__ = "8.2.0"
+__version__ = "8.3.0"
 __git_branch__ = ""
 __git_date__ = ""
 __git_long_hash__ = ""
 __git_short_hash__ = ""
 __git_tag__ = ""
-__git_tag_sha__ = "5a3e4f8b4ecad0bbddf56d372727e2c08c1eb000"
+__git_tag_sha__ = "efec075ec6bcd1f7747a135936f4a48a5d34eede"

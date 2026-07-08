@@ -234,12 +234,12 @@ def render_mm(self, code, options, _fmt, prefix="mermaid"):
             mm_args.extend(["--configFile", self.builder.config.mermaid_sequence_config])
 
         try:
-            p = Popen(mm_args, shell=mermaid_cmd_shell, stdout=PIPE, stdin=PIPE, stderr=PIPE)
+            p = Popen(mm_args, shell=mermaid_cmd_shell, stdout=PIPE, stdin=PIPE, stderr=PIPE, text=True)
         except FileNotFoundError:
             logger.warning("command %r cannot be run (needed for mermaid output), check the mermaid_cmd setting" % mermaid_cmd)
             return None, None
 
-        stdout, stderr = p.communicate(str.encode(code))
+        stdout, stderr = p.communicate(code)
         if self.builder.config.mermaid_verbose:
             logger.info(stdout)
 
@@ -406,7 +406,14 @@ def _resolve_local_url(url: str, context: dict) -> str:
     """
     if not url or url.startswith(("http://", "https://", "//", "/")):
         return url
-    return context["pathto"]("_static/" + url, resource=True)
+    resolved = context["pathto"]("_static/" + url, resource=True)
+    # ``pathto`` omits the leading ``./`` when the target is at the same
+    # directory level as the current page. A bare relative path is an invalid
+    # ES module specifier (it is treated as a package name), so ensure the
+    # result is a valid relative import. See issue #246.
+    if not resolved.startswith(("./", "../", "/")):
+        resolved = "./" + resolved
+    return resolved
 
 
 def install_js(

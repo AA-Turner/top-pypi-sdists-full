@@ -1828,7 +1828,9 @@ impl SaeManifoldTerm {
 
     /// Set the curvature-homotopy dial `η ∈ [0, 1]` on every atom (#1007). At
     /// the default `η = 1` the basis is the full curved basis; `η = 0` is the
-    /// linear (Eckart-Young) relaxation. The next `refresh_basis` — which every
+    /// base-topology relaxation (the atom on its base, η-invariant columns only —
+    /// not a linear/affine model for curved bases, whose base columns still embed
+    /// curvature). The next `refresh_basis` — which every
     /// joint-fit entry point runs — installs the dialed basis, so the dial takes
     /// effect on the following corrector solve. Errors on a non-finite or
     /// out-of-range `η`.
@@ -1879,8 +1881,10 @@ impl SaeManifoldTerm {
     /// True when the curvature-homotopy `η` dial cannot move the basis: no
     /// atom evaluator declares curved columns (caller-managed atoms have no
     /// evaluator, hence no split — equally immovable). A one-harmonic periodic
-    /// bank (`M = 3`) is the canonical case: constant + fundamental are all
-    /// linear columns. Combined with an all-zero isometry ramp this makes the
+    /// bank (`M = 3`) is the canonical case: constant + fundamental are all base
+    /// (η-invariant) columns — the fundamental `[sin, cos]` is itself curved (it
+    /// traces the circle), so "base" here means "nothing left to dial", not
+    /// "linear". Combined with an all-zero isometry ramp this makes the
     /// entry walk's corrector problem η-invariant, which
     /// [`SaeManifoldOuterObjective::run_curvature_homotopy_entry_at_rho`] uses
     /// to collapse the η-grid to its first corrector.
@@ -1900,7 +1904,7 @@ impl SaeManifoldTerm {
 
     /// Per-atom curved-column basis derivative `∂Φ^η/∂η` (#1007): the raw
     /// (un-dialed) basis on each evaluator's *curved* columns and zero on the
-    /// linear columns and on caller-managed atoms (no evaluator → no split).
+    /// base (η-invariant) columns and on caller-managed atoms (no evaluator → no split).
     /// This is the η-independent derivative channel, so it is exact at any
     /// current `η`.
     pub(crate) fn curvature_basis_eta_derivatives(&self) -> Result<Vec<Array2<f64>>, String> {
@@ -1934,7 +1938,7 @@ impl SaeManifoldTerm {
     /// (W = I for the Gaussian reconstruction channel)
     /// `∂g_β/∂η[k,μ,c] = Σ_i a_ik (∂Φ^η_k[i,μ]/∂η) r_i[c]`
     /// `              + Σ_i a_ik Φ^η_k[i,μ] (∂r_i[c]/∂η)`,
-    /// with `∂Φ^η/∂η` the raw curved-column basis (zero on linear columns) and
+    /// with `∂Φ^η/∂η` the raw curved-column basis (zero on base columns) and
     /// `∂r_i/∂η = Σ_{k'} a_ik' (∂Φ^η_{k'}[i,:]/∂η) · B_{k'}`. The smoothness and
     /// ARD penalties do not depend on `η`, so they contribute nothing. The
     /// predictor solves `Δβ = −H⁻¹ · ∂g_β/∂η · Δη` on the cached evidence factor.
@@ -2015,7 +2019,7 @@ impl SaeManifoldTerm {
     /// `∂fitted_i/∂η = Σ_{k'} a_ik' (∂Φ^η_{k'}[i,:]/∂η)·B_{k'}` exactly as in the
     /// β predictor. Supplying this as `w_t` (instead of the historical `w_t = 0`)
     /// lets the predictor move coordinates as curvature turns on, so the homotopy
-    /// corrector tracks onto the curved branch rather than the linear shadow.
+    /// corrector tracks onto the curved branch rather than the base-topology shadow.
     /// Returns a zero vector for a curvature-inert dictionary (no curved columns).
     pub(crate) fn curvature_t_gradient_eta_derivative(
         &self,
@@ -2291,16 +2295,14 @@ impl SaeManifoldTerm {
         if n == 0 || k < 2 {
             return Ok(());
         }
-        let mut norms = vec![0.0_f64; k];
-        for (atom_idx, atom) in self.atoms.iter().enumerate() {
-            let mut acc = 0.0_f64;
-            for &value in atom.decoder_coefficients.iter() {
-                acc += value * value;
-            }
-            norms[atom_idx] = acc.sqrt();
-        }
-        // Median decoder norm: the robust dictionary scale. (A mean would let a
-        // few large atoms mask a cluster of collapsed ones.)
+        let norms: Vec<f64> = self
+            .atoms
+            .iter()
+            .map(|atom| atom.contribution_frobenius_scale())
+            .collect();
+        // Median physical contribution scale: the robust dictionary scale. This is
+        // `exp(s_k)‖B_k‖_F`, not just `‖B_k‖_F`, so the same guard remains live after
+        // the quotient representation moves magnitude into `s_k`.
         let mut sorted = norms.clone();
         sorted.sort_by(|a, b| a.partial_cmp(b).unwrap_or(std::cmp::Ordering::Equal));
         let median = if k % 2 == 1 {
@@ -3104,15 +3106,23 @@ impl SaeManifoldTerm {
     pub(crate) fn structural_coherence_collapse_detected(
         &self,
     ) -> Result<Option<(usize, usize, f64)>, String> {
+        Ok(self
+            .structural_coherence_collapsed_pairs()?
+            .into_iter()
+            .max_by(|a, b| a.2.partial_cmp(&b.2).unwrap_or(std::cmp::Ordering::Equal))
+            .map(|(j, kk, coherence, _bar)| (j, kk, coherence)))
+    }
+
+    fn structural_coherence_collapsed_pairs(&self) -> Result<Vec<(usize, usize, f64, f64)>, String> {
         let k = self.k_atoms();
         let p = self.output_dim();
         if k < 2 || p == 0 {
-            return Ok(None);
+            return Ok(Vec::new());
         }
         let frames = (0..k)
             .map(|atom| crate::manifold::certificate::certificate_output_frame(self, atom))
             .collect::<Result<Vec<_>, String>>()?;
-        let mut worst: Option<(usize, usize, f64)> = None;
+        let mut collapsed = Vec::new();
         for j in 0..k {
             for kk in (j + 1)..k {
                 let rj = frames[j].ncols();
@@ -3129,12 +3139,123 @@ impl SaeManifoldTerm {
                 let b = rk as f64 / p as f64;
                 let mu_null = (a * (1.0 - b)).max(0.0).sqrt() + (b * (1.0 - a)).max(0.0).sqrt();
                 let bar = 0.5 * (mu_null.min(1.0) + 1.0);
-                if coherence > bar && worst.as_ref().is_none_or(|&(_, _, c)| coherence > c) {
-                    worst = Some((j, kk, coherence));
+                if coherence > bar {
+                    collapsed.push((j, kk, coherence, bar));
                 }
             }
         }
-        Ok(worst)
+        Ok(collapsed)
+    }
+
+    /// High-EV structural co-collapse guard. Decoder-norm and EV guards catch atoms
+    /// that vanish; this one catches atoms that keep norm and EV while occupying the
+    /// same output frame. Those states must not be treated as healthy reconstruction
+    /// incumbents, and a bounded residual-PC reseed gives the fit a separated basin to
+    /// descend from instead of cycling through restore -> duplicate -> restore.
+    pub(crate) fn enforce_structural_coherence_guard(
+        &mut self,
+        target: ArrayView2<'_, f64>,
+        iteration: usize,
+        rho: &SaeManifoldRho,
+    ) -> Result<(), String> {
+        if !self.guards_enabled || self.k_atoms() < 2 {
+            return Ok(());
+        }
+        let mut pairs = self.structural_coherence_collapsed_pairs()?;
+        if pairs.is_empty() {
+            return Ok(());
+        }
+        pairs.sort_by(|a, b| b.2.partial_cmp(&a.2).unwrap_or(std::cmp::Ordering::Equal));
+        let k = self.k_atoms();
+        let decoder_norms: Vec<f64> = self
+            .atoms
+            .iter()
+            .map(|atom| {
+                atom.decoder_coefficients
+                    .iter()
+                    .map(|value| value * value)
+                    .sum::<f64>()
+                    .sqrt()
+            })
+            .collect();
+        let mut selected = vec![false; k];
+        let mut floor_by_atom = vec![0.0_f64; k];
+        let mut coherence_by_atom = vec![0.0_f64; k];
+        for &(j, kk, coherence, bar) in &pairs {
+            let atom = if selected[j] && selected[kk] {
+                continue;
+            } else if selected[j] {
+                kk
+            } else if selected[kk] {
+                j
+            } else if decoder_norms[j] < decoder_norms[kk] {
+                j
+            } else if decoder_norms[kk] < decoder_norms[j] {
+                kk
+            } else {
+                kk
+            };
+            selected[atom] = true;
+            floor_by_atom[atom] = bar;
+            coherence_by_atom[atom] = coherence;
+        }
+        let mut to_reseed = Vec::new();
+        for atom in 0..k {
+            if !selected[atom] {
+                continue;
+            }
+            let reseeds_used = self
+                .collapse_events
+                .iter()
+                .filter(|event| event.atom == atom && event.action == CollapseAction::Reseeded)
+                .count();
+            if reseeds_used < SAE_ATOM_COLLAPSE_RESEED_BUDGET
+                && self.structural_cocollapse_reseeds < SAE_DICTIONARY_COCOLLAPSE_RESEED_BUDGET
+            {
+                to_reseed.push(atom);
+                self.collapse_events.push(CollapseEvent {
+                    iteration,
+                    atom,
+                    max_active_mass: coherence_by_atom[atom],
+                    floor: floor_by_atom[atom],
+                    action: CollapseAction::Reseeded,
+                });
+            } else {
+                let already_terminal = self
+                    .collapse_events
+                    .iter()
+                    .any(|event| event.atom == atom && event.action == CollapseAction::Terminal);
+                if !already_terminal {
+                    self.collapse_events.push(CollapseEvent {
+                        iteration,
+                        atom,
+                        max_active_mass: coherence_by_atom[atom],
+                        floor: floor_by_atom[atom],
+                        action: CollapseAction::Terminal,
+                    });
+                }
+            }
+        }
+        if to_reseed.is_empty() {
+            return Ok(());
+        }
+        self.structural_cocollapse_reseeds += 1;
+        log::warn!(
+            "SaeManifoldTerm: structural coherence collapse — reseeding {} duplicate-output \
+             atom(s) onto residual PCs (structural multi-start \
+             {}/{SAE_DICTIONARY_COCOLLAPSE_RESEED_BUDGET})",
+            to_reseed.len(),
+            self.structural_cocollapse_reseeds
+        );
+        let pc_pair_offset = self.structural_cocollapse_reseeds.saturating_sub(1);
+        self.reseed_atoms_onto_distinct_residual_pcs(&to_reseed, target, rho, pc_pair_offset)?;
+        for &atom in &to_reseed {
+            self.reseed_collapsed_atom_logits(atom);
+        }
+        self.refit_decoder_sequential_deflation(target, rho)?;
+        self.anchor_logits_to_residual_ownership(target)?;
+        self.refit_decoder_sequential_deflation(target, rho)?;
+        Ok(())
     }
 
     /// #2027 cold-start SEQUENTIAL CHART deflation — seed each atom's CHART *and*
@@ -3169,21 +3290,64 @@ impl SaeManifoldTerm {
         if n == 0 || k == 0 {
             return Ok(());
         }
+        // #2080/#2023 — JOINT (independence) chart separation for entangled factors.
+        // The per-atom PCA-residual seed below separates by VARIANCE, so an
+        // entangled product-of-circles (equal-variance factors on overlapping
+        // frames) has every atom read the SAME dominant mixed direction → shared
+        // decoder subspace → μ̂ = 1.0 co-collapse (EV-invisible). Capture the signal
+        // span ONCE and run the joint Jacobi ISA split to separate up to K circle
+        // planes SIMULTANEOUSLY by kurtosis contrast (statistical independence),
+        // not variance. Each certified plane already carries its per-row
+        // `phases_turns` in the exact `[0, 1)` chart-seed format the Periodic PCA
+        // seed emits (see `certify_plane`), so only the chart SOURCE changes; the
+        // decoder LS + `quotient_scale` peel + residual deflation below are
+        // unchanged. When the span carries fewer than K κ-certified circle planes
+        // (non-circle atom, or too little independent structure) the remaining
+        // atoms fall back to the PCA peel, so peelable/disjoint fixtures are
+        // untouched — the κ certificate itself is the gate, never a tuned knob.
+        let joint_planes: Vec<super::isa_seed::IsaPlaneCandidate> =
+            match super::isa_seed::capture_signal_span(target, k)? {
+                Some(parts) => super::isa_seed::isa_extract_certified_planes(
+                    target,
+                    &parts,
+                    k,
+                    &super::isa_seed::IsaSeedConfig::default(),
+                ),
+                None => Vec::new(),
+            };
+        let mut next_isa_plane = joint_planes.into_iter();
+
         let mut residual = target.to_owned();
         for atom in 0..k {
-            // 1. Re-seed THIS atom's chart from the current residual's leading
-            //    structure (one-atom PCA seed on the residual left by prior atoms).
+            // 1. Seed THIS atom's chart. Prefer a jointly-separated ISA circle
+            //    plane (independence contrast); otherwise re-seed from the current
+            //    residual's leading structure (one-atom PCA seed on the residual
+            //    left by prior atoms).
             let kind = self.atoms[atom].basis_kind.clone();
             let dim = self.atoms[atom].latent_dim;
-            let seeded = sae_pca_seed_initial_coords(
-                residual.view(),
-                std::slice::from_ref(&kind),
-                std::slice::from_ref(&dim),
-            )?;
+            let isa_plane = if dim > 0 && matches!(kind, SaeAtomBasisKind::Periodic) {
+                next_isa_plane.next()
+            } else {
+                None
+            };
             let mut flat = Array1::<f64>::zeros(n * dim);
-            for row in 0..n {
-                for axis in 0..dim {
-                    flat[row * dim + axis] = seeded[[0, row, axis]];
+            if let Some(plane) = isa_plane {
+                // The certified per-row phase (turns, `[0, 1)`) IS the circle chart
+                // seed on axis 0; higher axes stay zero, matching the Periodic PCA
+                // seed which only writes axis 0.
+                for row in 0..n {
+                    flat[row * dim] = plane.phases_turns[[row, 0]];
+                }
+            } else {
+                let seeded = sae_pca_seed_initial_coords(
+                    residual.view(),
+                    std::slice::from_ref(&kind),
+                    std::slice::from_ref(&dim),
+                )?;
+                for row in 0..n {
+                    for axis in 0..dim {
+                        flat[row * dim + axis] = seeded[[0, row, axis]];
+                    }
                 }
             }
             self.assignment.coords[atom].set_flat(flat.view());
@@ -4033,16 +4197,19 @@ impl SaeManifoldTerm {
         let mut best_reconstruction_ev = self
             .dictionary_reconstruction_ev(target, rho)
             .unwrap_or(f64::NEG_INFINITY);
+        let initial_reconstruction_is_structurally_healthy = best_reconstruction_ev.is_finite()
+            && self.structural_coherence_collapse_detected()?.is_none();
         // #2081 — the incumbent carries its coordinate-uniformity score alongside
         // EV so the keep-best can break (near-)equal-EV ties on coordinate fidelity.
-        let mut best_reconstruction_uniformity = if best_reconstruction_ev.is_finite() {
+        let mut best_reconstruction_uniformity = if initial_reconstruction_is_structurally_healthy {
             self.coordinate_uniformity_aggregate()
         } else {
             None
         };
-        let mut best_reconstruction_state = if best_reconstruction_ev.is_finite() {
+        let mut best_reconstruction_state = if initial_reconstruction_is_structurally_healthy {
             Some(self.snapshot_mutable_state())
         } else {
+            best_reconstruction_ev = f64::NEG_INFINITY;
             None
         };
         // #2100/#1117 — objective-stagnation convergence for the JOINT outer loop,
@@ -4394,6 +4561,7 @@ impl SaeManifoldTerm {
                 rho,
                 Some(&target_col_stats),
             )?;
+            self.enforce_structural_coherence_guard(target, outer_iteration, rho)?;
             // #2089 defense-in-depth: never grind a hopeless fit (and never let a
             // CPU watchdog SIGKILL the host while it does). When the co-collapse
             // multi-start budget is fully spent yet the dictionary is STILL at or
@@ -4512,17 +4680,19 @@ impl SaeManifoldTerm {
             if let Ok(ev) = self.dictionary_reconstruction_ev(target, rho) {
                 // #2081 — keep the best basin on EV FIRST and, at (near-)equal EV,
                 // on the coordinate-uniformity certificate ([`prefer_candidate_basin`]).
-                let candidate_uniformity = self.coordinate_uniformity_aggregate();
-                if prefer_candidate_basin(
-                    ev,
-                    candidate_uniformity,
-                    best_reconstruction_ev,
-                    best_reconstruction_uniformity,
-                    SAE_FINAL_EV_DEGRADATION_TOL,
-                ) {
-                    best_reconstruction_ev = ev;
-                    best_reconstruction_uniformity = candidate_uniformity;
-                    best_reconstruction_state = Some(self.snapshot_mutable_state());
+                if self.structural_coherence_collapse_detected()?.is_none() {
+                    let candidate_uniformity = self.coordinate_uniformity_aggregate();
+                    if prefer_candidate_basin(
+                        ev,
+                        candidate_uniformity,
+                        best_reconstruction_ev,
+                        best_reconstruction_uniformity,
+                        SAE_FINAL_EV_DEGRADATION_TOL,
+                    ) {
+                        best_reconstruction_ev = ev;
+                        best_reconstruction_uniformity = candidate_uniformity;
+                        best_reconstruction_state = Some(self.snapshot_mutable_state());
+                    }
                 }
             }
         }
@@ -4944,10 +5114,22 @@ impl SaeManifoldTerm {
     /// Errors if any atom lacks a basis evaluator (a streaming fit must be able
     /// to re-evaluate `Φ(t)` at the per-chunk coordinates) or if the supplied
     /// shapes disagree with the term's atom layout.
+    /// The resident term's frozen routing (#1033) restricted to the contiguous
+    /// row range `[start, end)`, or `None` when routing is not frozen. Passed to
+    /// [`Self::materialize_chunk`] so a chunk's gates read the same frozen logits
+    /// as the dense path instead of thawing back to the free logits.
+    pub(crate) fn chunk_frozen_logits(&self, start: usize, end: usize) -> Option<Array2<f64>> {
+        self.assignment
+            .frozen_logits
+            .as_ref()
+            .map(|f| f.slice(ndarray::s![start..end, ..]).to_owned())
+    }
+
     pub fn materialize_chunk(
         &self,
         chunk_logits: Array2<f64>,
         chunk_coords: Vec<Array2<f64>>,
+        chunk_frozen_logits: Option<Array2<f64>>,
     ) -> Result<SaeManifoldTerm, String> {
         let k_atoms = self.k_atoms();
         if chunk_logits.ncols() != k_atoms {
@@ -5060,8 +5242,30 @@ impl SaeManifoldTerm {
                 )
             })
             .collect();
-        let assignment =
+        let mut assignment =
             SaeAssignment::with_mode(chunk_logits, coord_values, self.assignment.mode)?;
+        // Carry the assignment-defining metadata that `with_mode` resets to
+        // defaults, so the chunk computes the SAME model as the resident term.
+        // Without this the streaming/chunked path silently diverges from the dense
+        // path: ungated atoms revert to their raw-logit gate instead of the fixed
+        // unit gate (#1026), frozen routing thaws back to the free logits (#1033),
+        // and the per-fit truncated-IBP α override is dropped (#1777). All three
+        // change the forward gate map, hence the loss, gradient, and log-det.
+        //   * `ungated` is per-atom (length K) — row-independent.
+        //   * `ibp_alpha_override` is scalar — row-independent.
+        //   * frozen routing is per-row (n×K) — the caller slices it to the chunk's
+        //     rows and passes it as `chunk_frozen_logits`.
+        assignment.ungated = self.assignment.ungated.clone();
+        assignment.ibp_alpha_override = self.assignment.ibp_alpha_override;
+        if let Some(frozen) = chunk_frozen_logits {
+            if frozen.dim() != (n_chunk, k_atoms) {
+                return Err(format!(
+                    "SaeManifoldTerm::materialize_chunk: chunk_frozen_logits shape {:?} != ({n_chunk}, {k_atoms})",
+                    frozen.dim()
+                ));
+            }
+            assignment.frozen_logits = Some(frozen);
+        }
         let mut term = SaeManifoldTerm::new(atoms, assignment)?;
         // The temperature schedule is global outer state; the chunk term is
         // assembled at the schedule's current temperature, which the caller
@@ -5174,7 +5378,8 @@ impl SaeManifoldTerm {
             while start < n_total {
                 let end = (start + chunk_size).min(n_total);
                 let (logits, coords, _z_chunk) = chunk_init(start, end)?;
-                let chunk = self.materialize_chunk(logits, coords)?;
+                let chunk =
+                    self.materialize_chunk(logits, coords, self.chunk_frozen_logits(start, end))?;
                 chunk.accumulate_decoder_gram(&mut grams);
                 start = end;
             }
@@ -5233,7 +5438,8 @@ impl SaeManifoldTerm {
                         self.output_dim()
                     ));
                 }
-                let mut chunk = self.materialize_chunk(logits, coords)?;
+                let mut chunk =
+                    self.materialize_chunk(logits, coords, self.chunk_frozen_logits(start, end))?;
                 // #991: inherit the design honesty weight slice (see
                 // streaming_exact_arrow_log_det for the no-renormalize rule).
                 if let Some(w) = self.row_loss_weights.as_deref() {
@@ -5491,7 +5697,8 @@ impl SaeManifoldTerm {
             let n_chunk = end - start;
             let penalty_scale = n_chunk as f64 / n_total as f64;
             let (logits, coords, z_chunk) = chunk_init(start, end)?;
-            let mut chunk = self.materialize_chunk(logits, coords)?;
+            let mut chunk =
+                self.materialize_chunk(logits, coords, self.chunk_frozen_logits(start, end))?;
             // #991: inherit the design honesty weight slice (global mean-1
             // normalization preserved; see streaming_exact_arrow_log_det).
             if let Some(w) = self.row_loss_weights.as_deref() {
@@ -5532,7 +5739,8 @@ impl SaeManifoldTerm {
             let n_chunk = end - start;
             let penalty_scale = n_chunk as f64 / n_total as f64;
             let (logits, coords, z_chunk) = chunk_init(start, end)?;
-            let mut chunk = self.materialize_chunk(logits, coords)?;
+            let mut chunk =
+                self.materialize_chunk(logits, coords, self.chunk_frozen_logits(start, end))?;
             // #991: inherit the design honesty weight slice (global mean-1
             // normalization preserved; see streaming_exact_arrow_log_det).
             if let Some(w) = self.row_loss_weights.as_deref() {

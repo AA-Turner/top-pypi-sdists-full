@@ -45,6 +45,7 @@ __all__ = (
     "ListGlobalResolversPaginatorName",
     "ListHostedZoneAssociationsPaginatorName",
     "ListManagedFirewallDomainListsPaginatorName",
+    "ListSharedDNSViewsPaginatorName",
     "PaginatorName",
     "ProfileResourceStatusType",
     "ResourceServiceName",
@@ -76,6 +77,7 @@ ListFirewallRulesPaginatorName = Literal["list_firewall_rules"]
 ListGlobalResolversPaginatorName = Literal["list_global_resolvers"]
 ListHostedZoneAssociationsPaginatorName = Literal["list_hosted_zone_associations"]
 ListManagedFirewallDomainListsPaginatorName = Literal["list_managed_firewall_domain_lists"]
+ListSharedDNSViewsPaginatorName = Literal["list_shared_dns_views"]
 ProfileResourceStatusType = Literal[
     "CREATING", "DELETING", "DISABLED", "DISABLING", "ENABLING", "OPERATIONAL", "UPDATING"
 ]
@@ -372,6 +374,7 @@ ServiceName = Literal[
     "partnercentral-account",
     "partnercentral-benefits",
     "partnercentral-channel",
+    "partnercentral-revenue-measurement",
     "partnercentral-selling",
     "payment-cryptography",
     "payment-cryptography-data",
@@ -520,4 +523,5 @@ PaginatorName = Literal[
     "list_global_resolvers",
     "list_hosted_zone_associations",
     "list_managed_firewall_domain_lists",
+    "list_shared_dns_views",
 ]

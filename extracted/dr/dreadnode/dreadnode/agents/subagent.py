@@ -5,6 +5,7 @@ Similar to Claude Code's Task tool, this allows spawning specialized agents
 to handle specific subtasks autonomously.
 """
 
+import asyncio
 import typing as t
 from textwrap import dedent
 
@@ -93,8 +94,11 @@ class SubAgentToolset(Toolset):
     parent_agent: t.Any = Config(default=None)
     """The parent agent to clone sub-agents from."""
 
-    run_in_background: bool = Config(default=False)
-    """Whether to run sub-agents in background (not yet implemented)."""
+    timeout: float | None = Config(default=3600.0)
+    """Maximum seconds a spawned sub-agent may run before it is cancelled and
+    reported as a timeout. ``None`` disables the ceiling (unbounded). A wedged
+    tool inside a sub-agent (hung MCP transport, stuck LLM stream) would
+    otherwise hang the parent session indefinitely."""
 
     @tool_method
     async def spawn_agent(
@@ -126,7 +130,6 @@ class SubAgentToolset(Toolset):
         - Complex tasks requiring focused work
         - Exploration that might take many steps
         - Tasks where you want isolated context
-        - Parallel work (with run_in_background)
 
         ## Examples
 
@@ -173,7 +176,37 @@ class SubAgentToolset(Toolset):
         sub_agent.reset()
 
         try:
-            trajectory = await sub_agent.run(task)
+            # Bound the sub-agent run so a wedged tool inside it can't hang the
+            # parent session forever. ``asyncio.timeout(None)`` is a no-op, so a
+            # single path covers both the bounded and unbounded cases. On expiry
+            # it cancels the inner run and raises ``TimeoutError`` here; the
+            # ``CancelledError`` it uses internally never escapes. We check
+            # ``cm.expired()`` to tell our ceiling breach apart from a builtin
+            # ``TimeoutError`` raised *inside* the sub-agent, and deliberately do
+            # NOT catch ``CancelledError`` (a genuine parent-step cancellation
+            # must propagate, not be swallowed into a tool result).
+            async with asyncio.timeout(self.timeout) as cm:
+                trajectory = await sub_agent.run(task)
+        except TimeoutError as e:
+            if not cm.expired():
+                # A builtin ``TimeoutError`` from within the sub-agent (socket,
+                # inner ``async_timeout``, …) — not our ceiling. Surface it as an
+                # ordinary failure rather than a false "cancelled at ceiling".
+                logger.error(f"Sub-agent failed: {e}")
+                return f"Sub-agent failed: {e}"
+            logger.warning("Sub-agent '{}' timed out after {}s", config["name"], self.timeout)
+            # The cancelled run still burned tokens; carry its partial cost so
+            # the parent session's accounting isn't understated.
+            return self._tool_result(
+                f"Sub-agent '{config['name']}' timed out after {self.timeout} seconds "
+                "and was cancelled. Consider narrowing the task or raising the "
+                "SubAgentToolset timeout.",
+                sub_agent.trajectory,
+            )
+        except Exception as e:
+            logger.error(f"Sub-agent failed: {e}")
+            return f"Sub-agent failed: {e}"
+        else:
             # Get the last assistant message content as the response
             last_message = trajectory.messages[-1] if trajectory.messages else None
             response = str(last_message.content) if last_message else ""
@@ -185,17 +218,17 @@ class SubAgentToolset(Toolset):
             result += f"**Result:**\n{response}"
 
             logger.info(f"Sub-agent completed in {len(trajectory.steps)} steps")
-        except Exception as e:
-            logger.error(f"Sub-agent failed: {e}")
-            return f"Sub-agent failed: {e}"
-        else:
-            # Stash the sub-agent's LLM cost on the tool result metadata so
-            # the agent framework can lift it onto the ``ToolEnd`` event and
-            # the TUI can display it in the parent session's footer.
-            msg = Message(role="tool", content=result)
-            if trajectory.usage.cost_usd is not None:
-                msg.metadata["subagent_cost_usd"] = trajectory.usage.cost_usd
-            return msg
+            return self._tool_result(result, trajectory)
+
+    @staticmethod
+    def _tool_result(content: str, trajectory: t.Any) -> Message:
+        """Build the tool-result message, stashing the sub-agent's LLM cost on
+        its metadata so the agent framework can lift it onto the ``ToolEnd``
+        event and the TUI can display it in the parent session's footer."""
+        msg = Message(role="tool", content=content)
+        if trajectory.usage.cost_usd is not None:
+            msg.metadata["subagent_cost_usd"] = trajectory.usage.cost_usd
+        return msg
 
 
 def create_subagent_tool(parent_agent: "Agent") -> SubAgentToolset:

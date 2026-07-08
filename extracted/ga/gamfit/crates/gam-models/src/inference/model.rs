@@ -314,6 +314,15 @@ pub struct FittedModelPayload {
     pub linkwiggle_degree: Option<usize>,
     #[serde(default)]
     pub beta_link_wiggle: Option<Vec<f64>>,
+    /// Frozen-index mean-coordinate shift `s` for the standard binomial-mean
+    /// link-warp predict runtime (#2141). Predict evaluates the warp basis at
+    /// the frozen index `η̂ = X·(β_saved + s)` the fit pinned `B` at, rather than
+    /// at the de-aliased base predictor `X·β_saved` — reproducing the fitted `q`
+    /// (and thus the fitted deviance) at predict time. `None` for models whose
+    /// warp path never de-aliased (location-scale / dynamic-basis), where the
+    /// base predictor already is the warp index (back-compatible serde default).
+    #[serde(default)]
+    pub link_wiggle_index_shift: Option<Vec<f64>>,
     #[serde(default)]
     pub baseline_timewiggle_knots: Option<Vec<f64>>,
     #[serde(default)]
@@ -697,6 +706,7 @@ impl FittedModelPayload {
             linkwiggle_knots: None,
             linkwiggle_degree: None,
             beta_link_wiggle: None,
+            link_wiggle_index_shift: None,
             baseline_timewiggle_knots: None,
             baseline_timewiggle_degree: None,
             baseline_timewiggle_penalty_orders: None,
@@ -925,6 +935,13 @@ pub struct SavedLinkWiggleRuntime {
     pub knots: Vec<f64>,
     pub degree: usize,
     pub beta: Vec<f64>,
+    /// Frozen-index mean-coordinate shift `s` (#2141). When present the predict
+    /// layer evaluates the warp basis at the frozen index
+    /// `η̂ = base + X·s` rather than at the de-aliased base predictor `base`, so
+    /// predict reproduces the exact `q` (and deviance) the fit computed. `None`
+    /// for warp paths that never de-aliased (location-scale / dynamic-basis),
+    /// where the base predictor already is the warp index.
+    pub index_shift: Option<Vec<f64>>,
 }
 
 #[derive(Clone, Debug)]
@@ -1393,10 +1410,36 @@ impl SavedLinkWiggleRuntime {
     }
 
     pub fn apply(&self, q0: &Array1<f64>) -> Result<Array1<f64>, FittedModelError> {
-        self.validate_monotone_derivative(q0)?;
-        let xwiggle = self.constrained_basis(q0, BasisOptions::value())?;
+        self.apply_with_index(q0, q0)
+    }
+
+    /// Apply the warp with the additive base predictor `base` and the warp basis
+    /// evaluated at a possibly distinct index `warp_index` (#2141):
+    /// `q = base + B(warp_index)·β`. The frozen-basis de-aliased binomial-mean
+    /// link fit pins `B` at the frozen index `η̂`, which differs from the
+    /// de-aliased base predictor `base` by `X·s`; evaluating `B` at `warp_index`
+    /// (= `base + X·s`) reproduces the exact `q` the fit scored. Monotonicity is
+    /// certified at `warp_index`, where the link's `dq/dη = 1 + B'(warp_index)·β`
+    /// is defined. When no shift is active `warp_index == base` and this reduces
+    /// to the original `q = q0 + B(q0)·β`.
+    pub fn apply_with_index(
+        &self,
+        base: &Array1<f64>,
+        warp_index: &Array1<f64>,
+    ) -> Result<Array1<f64>, FittedModelError> {
+        if base.len() != warp_index.len() {
+            return Err(FittedModelError::SchemaMismatch {
+                reason: format!(
+                    "link-wiggle base predictor has {} rows but warp index has {}",
+                    base.len(),
+                    warp_index.len()
+                ),
+            });
+        }
+        self.validate_monotone_derivative(warp_index)?;
+        let xwiggle = self.constrained_basis(warp_index, BasisOptions::value())?;
         let beta_link_wiggle = Array1::from_vec(self.beta.clone());
-        Ok(q0 + &xwiggle.dot(&beta_link_wiggle))
+        Ok(base + &xwiggle.dot(&beta_link_wiggle))
     }
 
     pub fn derivative_q0(&self, q0: &Array1<f64>) -> Result<Array1<f64>, FittedModelError> {
@@ -2615,6 +2658,22 @@ impl FittedModel {
 
     fn synchronize_stateful_link_metadata(&mut self) {
         let payload = self.payload_mut();
+        // `fit_result` and `unified` are two names for the SAME canonical
+        // UnifiedFitResult — every production builder (run_fit, the
+        // model_payload_builders) sets both to the identical fit. Consumers and
+        // the mutual-exclusivity persistence checks read `fit_result.or(unified)`,
+        // but the dense-path persistence gate and the marginal-slope serialization
+        // key on `fit_result` alone (`self.fit_result.as_ref().expect("checked
+        // above")`). A payload constructed directly from just a `unified` fit
+        // (nothing wrong with that — it is the same value) would then fail
+        // `validate_for_persistence` with "missing canonical fit_result payload".
+        // Mirror the two so whichever the caller populated, the canonical
+        // `fit_result` slot (and its `unified` alias) is always present.
+        match (payload.fit_result.is_none(), payload.unified.is_none()) {
+            (true, false) => payload.fit_result = payload.unified.clone(),
+            (false, true) => payload.unified = payload.fit_result.clone(),
+            _ => {}
+        }
         payload.used_device = payload
             .fit_result
             .as_ref()
@@ -2934,10 +2993,16 @@ impl FittedModel {
                             .to_string(),
                 })?,
         };
+        // #2141: the frozen-index shift lets predict evaluate the warp basis at
+        // the index `η̂` the fit pinned `B` at (`base + X·s`). `None` for
+        // pre-#2141 saves and for non-de-aliased warp paths, where the base
+        // predictor already is the warp index.
+        let index_shift = payload.link_wiggle_index_shift.clone();
         Ok(Some(SavedLinkWiggleRuntime {
             knots,
             degree,
             beta,
+            index_shift,
         }))
     }
 
@@ -3357,7 +3422,10 @@ impl FittedModel {
         data: ndarray::ArrayView2<'_, f64>,
         col_map: &HashMap<String, usize>,
     ) -> Result<Option<Array1<f64>>, FittedModelError> {
-        use gam_terms::basis::{CenterStrategy, MeasureJetExtrapolationSpectrum, PenaltySource};
+        use gam_terms::basis::{
+            CenterStrategy, MeasureJetExtrapolationSpectrum, MeasureJetIdentifiability,
+            PenaltySource,
+        };
         use gam_terms::smooth::build_term_collection_design;
         use gam_terms::smooth::SmoothBasisSpec;
         let Some(saved_spec) = self.resolved_termspec.as_ref() else {
@@ -3410,7 +3478,7 @@ impl FittedModel {
         let phi_scale = fit.coefficient_covariance_scale();
         let mut total = Array1::<f64>::zeros(data.nrows());
         let mut contributed = false;
-        for term in &spec.smooth_terms {
+        for (smooth_idx, term) in spec.smooth_terms.iter().enumerate() {
             let SmoothBasisSpec::MeasureJet {
                 feature_cols,
                 spec: mj,
@@ -3591,6 +3659,130 @@ impl FittedModel {
                 total[i] += phi_scale * v;
             }
             contributed = true;
+            // #2225 errors-in-variables input-measurement-error term. When the
+            // fit froze an ambient input-noise scale σ_coord, price the
+            // delta-method propagation of that input noise through the fitted
+            // surface: `Var_input(x★) = σ_coord²·‖∇f̂(x★)‖²`, evaluated with the
+            // analytic ambient gradient ∇f̂ (representers + head). This prices the
+            // TANGENTIAL movement of a noisy query along the manifold — where the
+            // intrinsic response genuinely changes — complementary to the
+            // PERPENDICULAR off-web ignorance the extrapolation term prices. It is
+            // a pure propagation of the point estimate, so — unlike the
+            // λ̂⁻¹-scaled extrapolation term — it carries NO φ̂ factor. Everything
+            // is in the frozen centers' (standardized) frame: `queries`, centers,
+            // `mj.length_scale`, and σ_coord are all standardized consistently.
+            if let Some(sigma_coord) = frozen.sigma_coord {
+                'input_var: {
+                    let MeasureJetIdentifiability::FrozenTransform { transform } =
+                        &mj.identifiability
+                    else {
+                        log::warn!(
+                            "measure-jet term '{}': identifiability is not a frozen transform; \
+                             skipping its input-measurement-error variance",
+                            term.name
+                        );
+                        break 'input_var;
+                    };
+                    let full_cols = design.design.ncols();
+                    if fit.beta.len() != full_cols {
+                        log::warn!(
+                            "measure-jet term '{}': joint coefficient vector length {} disagrees \
+                             with the replayed design's {} columns; skipping its \
+                             input-measurement-error variance",
+                            term.name,
+                            fit.beta.len(),
+                            full_cols
+                        );
+                        break 'input_var;
+                    }
+                    if design.smooth.term_designs.len() != spec.smooth_terms.len() {
+                        log::warn!(
+                            "measure-jet term '{}': smooth design/term count mismatch ({} vs {}); \
+                             skipping its input-measurement-error variance",
+                            term.name,
+                            design.smooth.term_designs.len(),
+                            spec.smooth_terms.len()
+                        );
+                        break 'input_var;
+                    }
+                    let m = centers.nrows();
+                    let m_aug = transform.nrows();
+                    let reduced = transform.ncols();
+                    let term_cols = design.smooth.term_designs[smooth_idx].ncols();
+                    if term_cols != reduced {
+                        log::warn!(
+                            "measure-jet term '{}': replayed reduced width {term_cols} disagrees \
+                             with the frozen transform ({m_aug}×{reduced}); skipping its \
+                             input-measurement-error variance",
+                            term.name
+                        );
+                        break 'input_var;
+                    }
+                    // Reduced-coefficient block of this term inside the joint β̂.
+                    let smooth_start = full_cols - design.smooth.total_smooth_cols();
+                    let offset_in_smooth: usize = design.smooth.term_designs[..smooth_idx]
+                        .iter()
+                        .map(|d| d.ncols())
+                        .sum();
+                    let g0 = smooth_start + offset_in_smooth;
+                    let beta_term = fit.beta.slice(ndarray::s![g0..g0 + term_cols]).to_owned();
+                    // Lift to raw representer+head coefficients z_full = Z·β̂_term.
+                    let z_full = transform.dot(&beta_term);
+                    let head_rank = m_aug - m;
+                    let rep = z_full.slice(ndarray::s![..m]).to_owned();
+                    let head_coeffs = z_full.slice(ndarray::s![m..]).to_owned();
+                    let head_t = if head_rank > 0 {
+                        Some(gam_terms::basis::measure_jet_affine_head_transform(
+                            centers.view(),
+                            frozen.masses.view(),
+                        ))
+                    } else {
+                        None
+                    };
+                    if let Some(t) = head_t.as_ref() {
+                        if t.ncols() != head_rank {
+                            log::warn!(
+                                "measure-jet term '{}': reconstructed head lift rank {} disagrees \
+                                 with the frozen head block {head_rank}; skipping its \
+                                 input-measurement-error variance",
+                                term.name,
+                                t.ncols()
+                            );
+                            break 'input_var;
+                        }
+                    }
+                    let sigma2 = sigma_coord * sigma_coord;
+                    let mut input_var = Array1::<f64>::zeros(data.nrows());
+                    let mut ok = true;
+                    for i in 0..data.nrows() {
+                        match gam_terms::basis::measure_jet_ambient_gradient(
+                            queries.row(i),
+                            centers.view(),
+                            rep.view(),
+                            mj.length_scale,
+                            head_t.as_ref().map(|t| t.view()),
+                            head_coeffs.view(),
+                        ) {
+                            Ok(grad) => {
+                                let norm_sq: f64 = grad.iter().map(|g| g * g).sum();
+                                input_var[i] = sigma2 * norm_sq;
+                            }
+                            Err(e) => {
+                                log::warn!(
+                                    "measure-jet term '{}': ambient gradient failed ({e}); \
+                                     skipping its input-measurement-error variance",
+                                    term.name
+                                );
+                                ok = false;
+                                break;
+                            }
+                        }
+                    }
+                    if ok {
+                        total += &input_var;
+                    }
+                }
+            }
         }
         Ok(contributed.then_some(total))
     }
@@ -4426,6 +4618,9 @@ impl FittedModel {
         }
         if let Some(v) = self.beta_link_wiggle.as_ref() {
             validate_all_finite("beta_link_wiggle", v.iter().copied()).map_err(corrupt)?;
+        }
+        if let Some(v) = self.link_wiggle_index_shift.as_ref() {
+            validate_all_finite("link_wiggle_index_shift", v.iter().copied()).map_err(corrupt)?;
         }
         if let Some(v) = self.beta_baseline_timewiggle.as_ref() {
             validate_all_finite("beta_baseline_timewiggle", v.iter().copied()).map_err(corrupt)?;

@@ -28,12 +28,25 @@ class KernelPolicy(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
     KERNEL_POLICY_RESTRICTED: _ClassVar[KernelPolicy]
     KERNEL_POLICY_OPEN: _ClassVar[KernelPolicy]
 
+class ProcessState(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
+    __slots__ = ()
+    PROCESS_STATE_UNSPECIFIED: _ClassVar[ProcessState]
+    PROCESS_STATE_RUNNING: _ClassVar[ProcessState]
+    PROCESS_STATE_EXITED: _ClassVar[ProcessState]
+    PROCESS_STATE_FAILED: _ClassVar[ProcessState]
+    PROCESS_STATE_TIMED_OUT: _ClassVar[ProcessState]
+
 COMPUTE_CLASS_UNSPECIFIED: ComputeClass
 COMPUTE_CLASS_K8S: ComputeClass
 COMPUTE_CLASS_HOST: ComputeClass
 KERNEL_POLICY_UNSPECIFIED: KernelPolicy
 KERNEL_POLICY_RESTRICTED: KernelPolicy
 KERNEL_POLICY_OPEN: KernelPolicy
+PROCESS_STATE_UNSPECIFIED: ProcessState
+PROCESS_STATE_RUNNING: ProcessState
+PROCESS_STATE_EXITED: ProcessState
+PROCESS_STATE_FAILED: ProcessState
+PROCESS_STATE_TIMED_OUT: ProcessState
 
 class ResourceLimits(_message.Message):
     __slots__ = ("cpu", "memory", "gpu")
@@ -190,10 +203,29 @@ class ContainerSecurityPolicy(_message.Message):
     def __init__(self, kernel_policy: _Optional[_Union[KernelPolicy, str]] = ...) -> None: ...
 
 class NetworkPolicy(_message.Message):
-    __slots__ = ("allowed_routes",)
+    __slots__ = ("allowed_routes", "denied_routes", "allowed_hosts")
+    class AllowedHostsEntry(_message.Message):
+        __slots__ = ("key", "value")
+        KEY_FIELD_NUMBER: _ClassVar[int]
+        VALUE_FIELD_NUMBER: _ClassVar[int]
+        key: str
+        value: NetworkPolicyRuleList
+        def __init__(
+            self, key: _Optional[str] = ..., value: _Optional[_Union[NetworkPolicyRuleList, _Mapping]] = ...
+        ) -> None: ...
+
     ALLOWED_ROUTES_FIELD_NUMBER: _ClassVar[int]
+    DENIED_ROUTES_FIELD_NUMBER: _ClassVar[int]
+    ALLOWED_HOSTS_FIELD_NUMBER: _ClassVar[int]
     allowed_routes: _containers.RepeatedCompositeFieldContainer[AllowedRoute]
-    def __init__(self, allowed_routes: _Optional[_Iterable[_Union[AllowedRoute, _Mapping]]] = ...) -> None: ...
+    denied_routes: _containers.RepeatedScalarFieldContainer[str]
+    allowed_hosts: _containers.MessageMap[str, NetworkPolicyRuleList]
+    def __init__(
+        self,
+        allowed_routes: _Optional[_Iterable[_Union[AllowedRoute, _Mapping]]] = ...,
+        denied_routes: _Optional[_Iterable[str]] = ...,
+        allowed_hosts: _Optional[_Mapping[str, NetworkPolicyRuleList]] = ...,
+    ) -> None: ...
 
 class AllowedRoute(_message.Message):
     __slots__ = ("route", "port_ranges")
@@ -212,6 +244,83 @@ class PortRange(_message.Message):
     start_port: int
     end_port: int
     def __init__(self, start_port: _Optional[int] = ..., end_port: _Optional[int] = ...) -> None: ...
+
+class NetworkPolicyRuleList(_message.Message):
+    __slots__ = ("rules",)
+    RULES_FIELD_NUMBER: _ClassVar[int]
+    rules: _containers.RepeatedCompositeFieldContainer[NetworkPolicyRule]
+    def __init__(self, rules: _Optional[_Iterable[_Union[NetworkPolicyRule, _Mapping]]] = ...) -> None: ...
+
+class NetworkPolicyRule(_message.Message):
+    __slots__ = ("transform", "match", "forward_url")
+    TRANSFORM_FIELD_NUMBER: _ClassVar[int]
+    MATCH_FIELD_NUMBER: _ClassVar[int]
+    FORWARD_URL_FIELD_NUMBER: _ClassVar[int]
+    transform: _containers.RepeatedCompositeFieldContainer[NetworkTransformer]
+    match: NetworkPolicyMatch
+    forward_url: str
+    def __init__(
+        self,
+        transform: _Optional[_Iterable[_Union[NetworkTransformer, _Mapping]]] = ...,
+        match: _Optional[_Union[NetworkPolicyMatch, _Mapping]] = ...,
+        forward_url: _Optional[str] = ...,
+    ) -> None: ...
+
+class NetworkTransformer(_message.Message):
+    __slots__ = ("headers",)
+    class HeadersEntry(_message.Message):
+        __slots__ = ("key", "value")
+        KEY_FIELD_NUMBER: _ClassVar[int]
+        VALUE_FIELD_NUMBER: _ClassVar[int]
+        key: str
+        value: str
+        def __init__(self, key: _Optional[str] = ..., value: _Optional[str] = ...) -> None: ...
+
+    HEADERS_FIELD_NUMBER: _ClassVar[int]
+    headers: _containers.ScalarMap[str, str]
+    def __init__(self, headers: _Optional[_Mapping[str, str]] = ...) -> None: ...
+
+class NetworkPolicyMatch(_message.Message):
+    __slots__ = ("path", "method", "query_string", "headers")
+    PATH_FIELD_NUMBER: _ClassVar[int]
+    METHOD_FIELD_NUMBER: _ClassVar[int]
+    QUERY_STRING_FIELD_NUMBER: _ClassVar[int]
+    HEADERS_FIELD_NUMBER: _ClassVar[int]
+    path: NetworkPolicyMatcher
+    method: _containers.RepeatedScalarFieldContainer[str]
+    query_string: _containers.RepeatedCompositeFieldContainer[NetworkPolicyKeyValueMatcher]
+    headers: _containers.RepeatedCompositeFieldContainer[NetworkPolicyKeyValueMatcher]
+    def __init__(
+        self,
+        path: _Optional[_Union[NetworkPolicyMatcher, _Mapping]] = ...,
+        method: _Optional[_Iterable[str]] = ...,
+        query_string: _Optional[_Iterable[_Union[NetworkPolicyKeyValueMatcher, _Mapping]]] = ...,
+        headers: _Optional[_Iterable[_Union[NetworkPolicyKeyValueMatcher, _Mapping]]] = ...,
+    ) -> None: ...
+
+class NetworkPolicyKeyValueMatcher(_message.Message):
+    __slots__ = ("key", "value")
+    KEY_FIELD_NUMBER: _ClassVar[int]
+    VALUE_FIELD_NUMBER: _ClassVar[int]
+    key: NetworkPolicyMatcher
+    value: NetworkPolicyMatcher
+    def __init__(
+        self,
+        key: _Optional[_Union[NetworkPolicyMatcher, _Mapping]] = ...,
+        value: _Optional[_Union[NetworkPolicyMatcher, _Mapping]] = ...,
+    ) -> None: ...
+
+class NetworkPolicyMatcher(_message.Message):
+    __slots__ = ("exact", "starts_with", "regex")
+    EXACT_FIELD_NUMBER: _ClassVar[int]
+    STARTS_WITH_FIELD_NUMBER: _ClassVar[int]
+    REGEX_FIELD_NUMBER: _ClassVar[int]
+    exact: str
+    starts_with: str
+    regex: str
+    def __init__(
+        self, exact: _Optional[str] = ..., starts_with: _Optional[str] = ..., regex: _Optional[str] = ...
+    ) -> None: ...
 
 class ContainerRequest(_message.Message):
     __slots__ = ("spec",)
@@ -389,16 +498,305 @@ class ExecCommandResponse(_message.Message):
         self, stdout: _Optional[bytes] = ..., stderr: _Optional[bytes] = ..., exit_code: _Optional[int] = ...
     ) -> None: ...
 
+class SessionRequest(_message.Message):
+    __slots__ = (
+        "new_process",
+        "attach_session",
+        "detach_session",
+        "stdin_data",
+        "stdin_eof",
+        "signal",
+        "pty_info",
+        "get_process_status",
+    )
+    NEW_PROCESS_FIELD_NUMBER: _ClassVar[int]
+    ATTACH_SESSION_FIELD_NUMBER: _ClassVar[int]
+    DETACH_SESSION_FIELD_NUMBER: _ClassVar[int]
+    STDIN_DATA_FIELD_NUMBER: _ClassVar[int]
+    STDIN_EOF_FIELD_NUMBER: _ClassVar[int]
+    SIGNAL_FIELD_NUMBER: _ClassVar[int]
+    PTY_INFO_FIELD_NUMBER: _ClassVar[int]
+    GET_PROCESS_STATUS_FIELD_NUMBER: _ClassVar[int]
+    new_process: NewProcess
+    attach_session: AttachSession
+    detach_session: DetachSession
+    stdin_data: StdinData
+    stdin_eof: StdinEof
+    signal: SessionSignal
+    pty_info: PtyInfo
+    get_process_status: GetProcessStatus
+    def __init__(
+        self,
+        new_process: _Optional[_Union[NewProcess, _Mapping]] = ...,
+        attach_session: _Optional[_Union[AttachSession, _Mapping]] = ...,
+        detach_session: _Optional[_Union[DetachSession, _Mapping]] = ...,
+        stdin_data: _Optional[_Union[StdinData, _Mapping]] = ...,
+        stdin_eof: _Optional[_Union[StdinEof, _Mapping]] = ...,
+        signal: _Optional[_Union[SessionSignal, _Mapping]] = ...,
+        pty_info: _Optional[_Union[PtyInfo, _Mapping]] = ...,
+        get_process_status: _Optional[_Union[GetProcessStatus, _Mapping]] = ...,
+    ) -> None: ...
+
+class SessionResponse(_message.Message):
+    __slots__ = (
+        "error",
+        "session_attached",
+        "output_data",
+        "process_status",
+        "process_exited",
+        "session_detached",
+        "process_failed",
+        "process_timed_out",
+    )
+    ERROR_FIELD_NUMBER: _ClassVar[int]
+    SESSION_ATTACHED_FIELD_NUMBER: _ClassVar[int]
+    OUTPUT_DATA_FIELD_NUMBER: _ClassVar[int]
+    PROCESS_STATUS_FIELD_NUMBER: _ClassVar[int]
+    PROCESS_EXITED_FIELD_NUMBER: _ClassVar[int]
+    SESSION_DETACHED_FIELD_NUMBER: _ClassVar[int]
+    PROCESS_FAILED_FIELD_NUMBER: _ClassVar[int]
+    PROCESS_TIMED_OUT_FIELD_NUMBER: _ClassVar[int]
+    error: SessionError
+    session_attached: SessionAttached
+    output_data: OutputData
+    process_status: ProcessStatus
+    process_exited: ProcessExited
+    session_detached: SessionDetached
+    process_failed: ProcessFailed
+    process_timed_out: ProcessTimedOut
+    def __init__(
+        self,
+        error: _Optional[_Union[SessionError, _Mapping]] = ...,
+        session_attached: _Optional[_Union[SessionAttached, _Mapping]] = ...,
+        output_data: _Optional[_Union[OutputData, _Mapping]] = ...,
+        process_status: _Optional[_Union[ProcessStatus, _Mapping]] = ...,
+        process_exited: _Optional[_Union[ProcessExited, _Mapping]] = ...,
+        session_detached: _Optional[_Union[SessionDetached, _Mapping]] = ...,
+        process_failed: _Optional[_Union[ProcessFailed, _Mapping]] = ...,
+        process_timed_out: _Optional[_Union[ProcessTimedOut, _Mapping]] = ...,
+    ) -> None: ...
+
+class SessionError(_message.Message):
+    __slots__ = ("code", "message")
+    CODE_FIELD_NUMBER: _ClassVar[int]
+    MESSAGE_FIELD_NUMBER: _ClassVar[int]
+    code: str
+    message: str
+    def __init__(self, code: _Optional[str] = ..., message: _Optional[str] = ...) -> None: ...
+
+class NewProcess(_message.Message):
+    __slots__ = ("container_id", "command", "args", "workdir", "env", "timeout_secs", "pty_info")
+    class EnvEntry(_message.Message):
+        __slots__ = ("key", "value")
+        KEY_FIELD_NUMBER: _ClassVar[int]
+        VALUE_FIELD_NUMBER: _ClassVar[int]
+        key: str
+        value: str
+        def __init__(self, key: _Optional[str] = ..., value: _Optional[str] = ...) -> None: ...
+
+    CONTAINER_ID_FIELD_NUMBER: _ClassVar[int]
+    COMMAND_FIELD_NUMBER: _ClassVar[int]
+    ARGS_FIELD_NUMBER: _ClassVar[int]
+    WORKDIR_FIELD_NUMBER: _ClassVar[int]
+    ENV_FIELD_NUMBER: _ClassVar[int]
+    TIMEOUT_SECS_FIELD_NUMBER: _ClassVar[int]
+    PTY_INFO_FIELD_NUMBER: _ClassVar[int]
+    container_id: str
+    command: str
+    args: _containers.RepeatedScalarFieldContainer[str]
+    workdir: str
+    env: _containers.ScalarMap[str, str]
+    timeout_secs: int
+    pty_info: PtyInfo
+    def __init__(
+        self,
+        container_id: _Optional[str] = ...,
+        command: _Optional[str] = ...,
+        args: _Optional[_Iterable[str]] = ...,
+        workdir: _Optional[str] = ...,
+        env: _Optional[_Mapping[str, str]] = ...,
+        timeout_secs: _Optional[int] = ...,
+        pty_info: _Optional[_Union[PtyInfo, _Mapping]] = ...,
+    ) -> None: ...
+
+class PtyInfo(_message.Message):
+    __slots__ = ("cols", "rows")
+    COLS_FIELD_NUMBER: _ClassVar[int]
+    ROWS_FIELD_NUMBER: _ClassVar[int]
+    cols: int
+    rows: int
+    def __init__(self, cols: _Optional[int] = ..., rows: _Optional[int] = ...) -> None: ...
+
+class AttachSession(_message.Message):
+    __slots__ = ("container_id", "session_id", "pty_info")
+    CONTAINER_ID_FIELD_NUMBER: _ClassVar[int]
+    SESSION_ID_FIELD_NUMBER: _ClassVar[int]
+    PTY_INFO_FIELD_NUMBER: _ClassVar[int]
+    container_id: str
+    session_id: str
+    pty_info: PtyInfo
+    def __init__(
+        self,
+        container_id: _Optional[str] = ...,
+        session_id: _Optional[str] = ...,
+        pty_info: _Optional[_Union[PtyInfo, _Mapping]] = ...,
+    ) -> None: ...
+
+class SessionAttached(_message.Message):
+    __slots__ = ("session_id",)
+    SESSION_ID_FIELD_NUMBER: _ClassVar[int]
+    session_id: str
+    def __init__(self, session_id: _Optional[str] = ...) -> None: ...
+
+class DetachSession(_message.Message):
+    __slots__ = ()
+    def __init__(self) -> None: ...
+
+class SessionDetached(_message.Message):
+    __slots__ = ()
+    def __init__(self) -> None: ...
+
+class StdinData(_message.Message):
+    __slots__ = ("data",)
+    DATA_FIELD_NUMBER: _ClassVar[int]
+    data: bytes
+    def __init__(self, data: _Optional[bytes] = ...) -> None: ...
+
+class StdinEof(_message.Message):
+    __slots__ = ()
+    def __init__(self) -> None: ...
+
+class SessionSignal(_message.Message):
+    __slots__ = ("signal",)
+    SIGNAL_FIELD_NUMBER: _ClassVar[int]
+    signal: int
+    def __init__(self, signal: _Optional[int] = ...) -> None: ...
+
+class OutputData(_message.Message):
+    __slots__ = ("stream", "data")
+    class Stream(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
+        __slots__ = ()
+        STREAM_UNSPECIFIED: _ClassVar[OutputData.Stream]
+        STREAM_STDOUT: _ClassVar[OutputData.Stream]
+        STREAM_STDERR: _ClassVar[OutputData.Stream]
+        STREAM_PTY_OUTPUT: _ClassVar[OutputData.Stream]
+
+    STREAM_UNSPECIFIED: OutputData.Stream
+    STREAM_STDOUT: OutputData.Stream
+    STREAM_STDERR: OutputData.Stream
+    STREAM_PTY_OUTPUT: OutputData.Stream
+    STREAM_FIELD_NUMBER: _ClassVar[int]
+    DATA_FIELD_NUMBER: _ClassVar[int]
+    stream: OutputData.Stream
+    data: bytes
+    def __init__(
+        self, stream: _Optional[_Union[OutputData.Stream, str]] = ..., data: _Optional[bytes] = ...
+    ) -> None: ...
+
+class GetProcessStatus(_message.Message):
+    __slots__ = ()
+    def __init__(self) -> None: ...
+
+class ProcessStatus(_message.Message):
+    __slots__ = ("state", "exit_code", "signal")
+    STATE_FIELD_NUMBER: _ClassVar[int]
+    EXIT_CODE_FIELD_NUMBER: _ClassVar[int]
+    SIGNAL_FIELD_NUMBER: _ClassVar[int]
+    state: ProcessState
+    exit_code: int
+    signal: int
+    def __init__(
+        self,
+        state: _Optional[_Union[ProcessState, str]] = ...,
+        exit_code: _Optional[int] = ...,
+        signal: _Optional[int] = ...,
+    ) -> None: ...
+
+class ProcessExited(_message.Message):
+    __slots__ = ("exit_code", "signal")
+    EXIT_CODE_FIELD_NUMBER: _ClassVar[int]
+    SIGNAL_FIELD_NUMBER: _ClassVar[int]
+    exit_code: int
+    signal: int
+    def __init__(self, exit_code: _Optional[int] = ..., signal: _Optional[int] = ...) -> None: ...
+
+class ProcessFailed(_message.Message):
+    __slots__ = ("message",)
+    MESSAGE_FIELD_NUMBER: _ClassVar[int]
+    message: str
+    def __init__(self, message: _Optional[str] = ...) -> None: ...
+
+class ProcessTimedOut(_message.Message):
+    __slots__ = ("exit_code", "signal")
+    EXIT_CODE_FIELD_NUMBER: _ClassVar[int]
+    SIGNAL_FIELD_NUMBER: _ClassVar[int]
+    exit_code: int
+    signal: int
+    def __init__(self, exit_code: _Optional[int] = ..., signal: _Optional[int] = ...) -> None: ...
+
+class SessionInfo(_message.Message):
+    __slots__ = ("session_id", "new_process", "process_status")
+    SESSION_ID_FIELD_NUMBER: _ClassVar[int]
+    NEW_PROCESS_FIELD_NUMBER: _ClassVar[int]
+    PROCESS_STATUS_FIELD_NUMBER: _ClassVar[int]
+    session_id: str
+    new_process: NewProcess
+    process_status: ProcessStatus
+    def __init__(
+        self,
+        session_id: _Optional[str] = ...,
+        new_process: _Optional[_Union[NewProcess, _Mapping]] = ...,
+        process_status: _Optional[_Union[ProcessStatus, _Mapping]] = ...,
+    ) -> None: ...
+
+class GetSessionRequest(_message.Message):
+    __slots__ = ("container_id", "session_id")
+    CONTAINER_ID_FIELD_NUMBER: _ClassVar[int]
+    SESSION_ID_FIELD_NUMBER: _ClassVar[int]
+    container_id: str
+    session_id: str
+    def __init__(self, container_id: _Optional[str] = ..., session_id: _Optional[str] = ...) -> None: ...
+
+class GetSessionResponse(_message.Message):
+    __slots__ = ("session",)
+    SESSION_FIELD_NUMBER: _ClassVar[int]
+    session: SessionInfo
+    def __init__(self, session: _Optional[_Union[SessionInfo, _Mapping]] = ...) -> None: ...
+
+class ListSessionsRequest(_message.Message):
+    __slots__ = ("container_id",)
+    CONTAINER_ID_FIELD_NUMBER: _ClassVar[int]
+    container_id: str
+    def __init__(self, container_id: _Optional[str] = ...) -> None: ...
+
+class ListSessionsResponse(_message.Message):
+    __slots__ = ("sessions",)
+    SESSIONS_FIELD_NUMBER: _ClassVar[int]
+    sessions: _containers.RepeatedCompositeFieldContainer[SessionInfo]
+    def __init__(self, sessions: _Optional[_Iterable[_Union[SessionInfo, _Mapping]]] = ...) -> None: ...
+
+class ContainerHostInfo(_message.Message):
+    __slots__ = ("host_id",)
+    HOST_ID_FIELD_NUMBER: _ClassVar[int]
+    host_id: str
+    def __init__(self, host_id: _Optional[str] = ...) -> None: ...
+
 class UpdateContainerStatusRequest(_message.Message):
-    __slots__ = ("container_id", "status", "status_message")
+    __slots__ = ("container_id", "status", "status_message", "host_info")
     CONTAINER_ID_FIELD_NUMBER: _ClassVar[int]
     STATUS_FIELD_NUMBER: _ClassVar[int]
     STATUS_MESSAGE_FIELD_NUMBER: _ClassVar[int]
+    HOST_INFO_FIELD_NUMBER: _ClassVar[int]
     container_id: str
     status: str
     status_message: str
+    host_info: ContainerHostInfo
     def __init__(
-        self, container_id: _Optional[str] = ..., status: _Optional[str] = ..., status_message: _Optional[str] = ...
+        self,
+        container_id: _Optional[str] = ...,
+        status: _Optional[str] = ...,
+        status_message: _Optional[str] = ...,
+        host_info: _Optional[_Union[ContainerHostInfo, _Mapping]] = ...,
     ) -> None: ...
 
 class UpdateContainerStatusResponse(_message.Message):

@@ -1742,6 +1742,66 @@ async def test_app_info_with_credential_optional_flag():
     assert optional_item is not None
 
 
+async def test_app_info_with_credential_name():
+    """Test that x-credential-name uses the explicit `name` when set, and falls back
+    to the auth type default name otherwise"""
+    from connector_sdk_types.oai.modules.credentials_module_types import (
+        AuthModel,
+        CredentialConfig,
+    )
+
+    integration = Integration(
+        app_id="test",
+        version="0.1.0",
+        credentials=[
+            CredentialConfig(
+                id="named_cred",
+                name="SCIM Token",
+                type=AuthModel.TOKEN,
+                description="Named credential",
+            ),
+            CredentialConfig(
+                id="unnamed_cred",
+                type=AuthModel.TOKEN,
+                description="Unnamed credential",
+            ),
+        ],
+        description_data=DescriptionData(
+            app_vendor_domain="test.com",
+            user_friendly_name="Test",
+            description="Test description",
+            categories=[],
+        ),
+        exception_handlers=[],
+    )
+
+    app_info = await integration.dispatch(
+        StandardCapabilityName.APP_INFO,
+        AppInfoRequest(
+            request=AppInfoRequestPayload(),
+            credentials=None,
+            settings=None,
+        ).model_dump_json(),
+    )
+    app_info = json.loads(app_info)
+
+    oas = app_info["response"]["app_schema"]
+    credentials_schema = oas["components"]["schemas"]["Credentials"]
+    items = credentials_schema["items"]["allOf"]
+
+    def get_credential_name(cred_id: str) -> str:
+        item = next(
+            item
+            for item in items
+            if cred_id in str(item.get("properties", {}).get("id", {}).get("enum", []))
+        )
+        auth_info = item["properties"]["token"]
+        return auth_info["x-credential-name"]
+
+    assert get_credential_name("named_cred") == "SCIM Token"
+    assert get_credential_name("unnamed_cred") == "Token"
+
+
 async def test_app_info_with_oauth_credential_no_oauth_settings():
     """Test OAuth credential without oauth_settings (should not have OAuth flows)."""
     from connector_sdk_types.oai.modules.credentials_module_types import (

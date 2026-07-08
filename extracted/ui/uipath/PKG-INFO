@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: uipath
-Version: 2.13.2
+Version: 2.13.6
 Summary: Python SDK and CLI for UiPath Platform, enabling programmatic interaction with automation services, process management, and deployment tools.
 Project-URL: Homepage, https://uipath.com
 Project-URL: Repository, https://github.com/UiPath/uipath-python
@@ -29,9 +29,9 @@ Requires-Dist: pyyaml<7.0,>=6.0
 Requires-Dist: rich>=14.2.0
 Requires-Dist: tenacity>=9.0.0
 Requires-Dist: truststore>=0.10.1
-Requires-Dist: uipath-core<0.6.0,>=0.5.26
-Requires-Dist: uipath-platform<0.3.0,>=0.2.1
-Requires-Dist: uipath-runtime<0.13.0,>=0.11.7
+Requires-Dist: uipath-core<0.6.0,>=0.5.30
+Requires-Dist: uipath-platform<0.3.0,>=0.2.4
+Requires-Dist: uipath-runtime<0.13.0,>=0.12.2
 Description-Content-Type: text/markdown
 
 # UiPath Python SDK

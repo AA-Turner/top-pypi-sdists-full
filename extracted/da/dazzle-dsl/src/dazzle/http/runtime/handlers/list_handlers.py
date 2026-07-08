@@ -102,6 +102,8 @@ def create_list_handler(
     htmx_peek_by_table_id: dict[str, str] | None = None,
     htmx_entity_name: str | None = None,
     htmx_empty_message: str = "No items found.",
+    htmx_bulk_actions: bool = False,
+    htmx_inline_editable: list[str] | None = None,
     search_fields: list[str] | None = None,
     filter_fields: list[str] | None = None,
     ref_targets: dict[str, str] | None = None,
@@ -164,6 +166,15 @@ def create_list_handler(
             request.state.htmx_peek_by_table_id = htmx_peek_by_table_id
         request.state.htmx_entity_name = htmx_entity_name
         request.state.htmx_empty_message = htmx_empty_message
+        # Convergence C1.1: the row-hydrate path renders bulk-select checkbox
+        # cells iff the entity's list surface declares `ux: bulk_actions:`.
+        # (Never threaded before — API-hydrated rows NEVER had checkboxes, one
+        # of the four legs of the dead-bulk-feature chain.)
+        request.state.htmx_bulk_actions = htmx_bulk_actions
+        # C2.3: the editable column set — hydrated cells render their
+        # dz-grid-edit seams from it (also never threaded before: rows lost
+        # the edit affordance when ADR-0049 moved row rendering to /api).
+        request.state.htmx_inline_editable = htmx_inline_editable or []
 
     if optional_auth_dep is not None:
 
@@ -570,6 +581,8 @@ async def _list_handler_body(
                 "entity_name": getattr(request.state, "htmx_entity_name", "Item"),
                 "api_endpoint": str(request.url.path),
                 "table_id": table_id,
+                "bulk_actions": getattr(request.state, "htmx_bulk_actions", False),
+                "inline_editable": getattr(request.state, "htmx_inline_editable", []),
                 "sort_field": sort or "",
                 "sort_dir": dir,
                 "filter_values": filters,
@@ -614,7 +627,8 @@ async def _list_handler_body(
             # instead of hanging indefinitely (#496).
             return HTMLResponse(
                 content=(
-                    '<tr><td colspan="99" class="text-center py-8 text-[hsl(var(--destructive))]">'
+                    '<tr><td colspan="99" style="text-align: center; padding-block: 2rem; '
+                    'color: var(--colour-danger)">'
                     "Something went wrong loading this list.</td></tr>"
                 ),
                 status_code=200,

@@ -46,6 +46,7 @@ class _OnboardingScreenEnumTypeWrapper(google.protobuf.internal.enum_type_wrappe
     DOWNLOAD_AGENTS_MD: _OnboardingScreen.ValueType  # 17
     COMPILE_SA_BASELINE: _OnboardingScreen.ValueType  # 18
     COMPILE_SA_BASELINE_SUCCESS: _OnboardingScreen.ValueType  # 19
+    LOGIN: _OnboardingScreen.ValueType  # 20
 
 class OnboardingScreen(_OnboardingScreen, metaclass=_OnboardingScreenEnumTypeWrapper): ...
 
@@ -69,6 +70,7 @@ TRY_AGENTIC_AUTOFIX: OnboardingScreen.ValueType  # 16
 DOWNLOAD_AGENTS_MD: OnboardingScreen.ValueType  # 17
 COMPILE_SA_BASELINE: OnboardingScreen.ValueType  # 18
 COMPILE_SA_BASELINE_SUCCESS: OnboardingScreen.ValueType  # 19
+LOGIN: OnboardingScreen.ValueType  # 20
 Global___OnboardingScreen: typing_extensions.TypeAlias = OnboardingScreen
 
 class _OnboardingAction:
@@ -107,6 +109,23 @@ STEP_COMPLETED: OnboardingAction.ValueType  # 5
 STEP_FAILED: OnboardingAction.ValueType  # 6
 """explicit failure"""
 Global___OnboardingAction: typing_extensions.TypeAlias = OnboardingAction
+
+class _LoginType:
+    ValueType = typing.NewType("ValueType", builtins.int)
+    V: typing_extensions.TypeAlias = ValueType
+
+class _LoginTypeEnumTypeWrapper(google.protobuf.internal.enum_type_wrapper._EnumTypeWrapper[_LoginType.ValueType], builtins.type):
+    DESCRIPTOR: google.protobuf.descriptor.EnumDescriptor
+    LOGIN_TYPE_UNSPECIFIED: _LoginType.ValueType  # 0
+    PLATFORM: _LoginType.ValueType  # 1
+    STATE: _LoginType.ValueType  # 2
+
+class LoginType(_LoginType, metaclass=_LoginTypeEnumTypeWrapper): ...
+
+LOGIN_TYPE_UNSPECIFIED: LoginType.ValueType  # 0
+PLATFORM: LoginType.ValueType  # 1
+STATE: LoginType.ValueType  # 2
+Global___LoginType: typing_extensions.TypeAlias = LoginType
 
 @typing.final
 class AdapterInfo(google.protobuf.message.Message):
@@ -462,6 +481,7 @@ class ResourceCounts(google.protobuf.message.Message):
     UNIT_TESTS_FIELD_NUMBER: builtins.int
     SEMANTIC_MODELS_FIELD_NUMBER: builtins.int
     SAVED_QUERIES_FIELD_NUMBER: builtins.int
+    CATALOGS_FIELD_NUMBER: builtins.int
     event_id: builtins.str
     """event_id is the unique identifier for this event. It is a generated UUID."""
     invocation_id: builtins.str
@@ -496,6 +516,8 @@ class ResourceCounts(google.protobuf.message.Message):
     """total count of semantic models in the project."""
     saved_queries: builtins.int
     """total count of saved queries in the project."""
+    catalogs: builtins.int
+    """total count of catalogs in the project."""
     @property
     def enrichment(self) -> dbtlabs.proto.public.v1.events.vortex_pb2.VortexMessageEnrichment:
         """This field is a toggle to enable enrichment of the message by the Vortex service."""
@@ -520,9 +542,10 @@ class ResourceCounts(google.protobuf.message.Message):
         unit_tests: builtins.int = ...,
         semantic_models: builtins.int = ...,
         saved_queries: builtins.int = ...,
+        catalogs: builtins.int = ...,
     ) -> None: ...
     def HasField(self, field_name: typing.Literal["enrichment", b"enrichment"]) -> builtins.bool: ...
-    def ClearField(self, field_name: typing.Literal["analyses", b"analyses", "enrichment", b"enrichment", "event_id", b"event_id", "exposures", b"exposures", "groups", b"groups", "invocation_id", b"invocation_id", "macros", b"macros", "metrics", b"metrics", "models", b"models", "operations", b"operations", "saved_queries", b"saved_queries", "seeds", b"seeds", "semantic_models", b"semantic_models", "snapshots", b"snapshots", "sources", b"sources", "tests", b"tests", "unit_tests", b"unit_tests"]) -> None: ...
+    def ClearField(self, field_name: typing.Literal["analyses", b"analyses", "catalogs", b"catalogs", "enrichment", b"enrichment", "event_id", b"event_id", "exposures", b"exposures", "groups", b"groups", "invocation_id", b"invocation_id", "macros", b"macros", "metrics", b"metrics", "models", b"models", "operations", b"operations", "saved_queries", b"saved_queries", "seeds", b"seeds", "semantic_models", b"semantic_models", "snapshots", b"snapshots", "sources", b"sources", "tests", b"tests", "unit_tests", b"unit_tests"]) -> None: ...
 
 Global___ResourceCounts: typing_extensions.TypeAlias = ResourceCounts
 
@@ -558,6 +581,7 @@ class RunModel(google.protobuf.message.Message):
     RESOURCE_TYPE_FIELD_NUMBER: builtins.int
     TABLE_FORMAT_FIELD_NUMBER: builtins.int
     CATALOG_NAME_FIELD_NUMBER: builtins.int
+    CATALOG_TYPE_FIELD_NUMBER: builtins.int
     event_id: builtins.str
     """event_id is the unique identifier for this event. It is a generated UUID."""
     invocation_id: builtins.str
@@ -620,6 +644,12 @@ class RunModel(google.protobuf.message.Message):
     """the catalog name from catalogs.yml, if the model opted into a write integration.
     empty string when the model does not use catalogs.yml.
     """
+    catalog_type: builtins.str
+    """the catalog type of the model's active write integration in catalogs.yml
+    (ex. "iceberg_rest", "unity", "glue", "built_in", "biglake_metastore").
+    this is the catalog backend kind, distinct from catalog_name (the user-chosen
+    catalog label). empty string when the model does not use catalogs.yml.
+    """
     @property
     def enrichment(self) -> dbtlabs.proto.public.v1.events.vortex_pb2.VortexMessageEnrichment:
         """This field is a toggle to enable enrichment of the message by the Vortex service."""
@@ -649,9 +679,10 @@ class RunModel(google.protobuf.message.Message):
         resource_type: builtins.str = ...,
         table_format: builtins.str = ...,
         catalog_name: builtins.str = ...,
+        catalog_type: builtins.str = ...,
     ) -> None: ...
     def HasField(self, field_name: typing.Literal["enrichment", b"enrichment"]) -> builtins.bool: ...
-    def ClearField(self, field_name: typing.Literal["access", b"access", "catalog_name", b"catalog_name", "contract_enforced", b"contract_enforced", "enrichment", b"enrichment", "event_id", b"event_id", "execution_time", b"execution_time", "has_group", b"has_group", "hashed_contents", b"hashed_contents", "index", b"index", "invocation_id", b"invocation_id", "language", b"language", "model_id", b"model_id", "model_incremental_strategy", b"model_incremental_strategy", "model_materialization", b"model_materialization", "resource_type", b"resource_type", "run_model_id", b"run_model_id", "run_skipped", b"run_skipped", "run_skipped_reason", b"run_skipped_reason", "run_status", b"run_status", "table_format", b"table_format", "total", b"total", "versioned", b"versioned"]) -> None: ...
+    def ClearField(self, field_name: typing.Literal["access", b"access", "catalog_name", b"catalog_name", "catalog_type", b"catalog_type", "contract_enforced", b"contract_enforced", "enrichment", b"enrichment", "event_id", b"event_id", "execution_time", b"execution_time", "has_group", b"has_group", "hashed_contents", b"hashed_contents", "index", b"index", "invocation_id", b"invocation_id", "language", b"language", "model_id", b"model_id", "model_incremental_strategy", b"model_incremental_strategy", "model_materialization", b"model_materialization", "resource_type", b"resource_type", "run_model_id", b"run_model_id", "run_skipped", b"run_skipped", "run_skipped_reason", b"run_skipped_reason", "run_status", b"run_status", "table_format", b"table_format", "total", b"total", "versioned", b"versioned"]) -> None: ...
 
 Global___RunModel: typing_extensions.TypeAlias = RunModel
 
@@ -706,3 +737,79 @@ class Onboarding(google.protobuf.message.Message):
     def ClearField(self, field_name: typing.Literal["action", b"action", "enrichment", b"enrichment", "event_id", b"event_id", "invocation_id", b"invocation_id", "screen", b"screen", "success", b"success", "user_id", b"user_id"]) -> None: ...
 
 Global___Onboarding: typing_extensions.TypeAlias = Onboarding
+
+@typing.final
+class Login(google.protobuf.message.Message):
+    """Login Event is emitted when the user runs `dbt login`. It captures whether
+    the attempt succeeded and, when possible, identity context derived from the
+    JWT or the local user cookie.
+    """
+
+    DESCRIPTOR: google.protobuf.descriptor.Descriptor
+
+    ENRICHMENT_FIELD_NUMBER: builtins.int
+    EVENT_ID_FIELD_NUMBER: builtins.int
+    INVOCATION_ID_FIELD_NUMBER: builtins.int
+    SUCCESS_FIELD_NUMBER: builtins.int
+    LOGIN_TYPE_FIELD_NUMBER: builtins.int
+    USER_COOKIE_FIELD_NUMBER: builtins.int
+    PROJECT_ID_FIELD_NUMBER: builtins.int
+    PLATFORM_USER_ID_FIELD_NUMBER: builtins.int
+    PLATFORM_ACCOUNT_ID_FIELD_NUMBER: builtins.int
+    PLATFORM_ACCOUNT_IDENTIFIER_FIELD_NUMBER: builtins.int
+    event_id: builtins.str
+    """Unique identifier for this event (UUID). Required."""
+    invocation_id: builtins.str
+    """Globally unique identifier for the fusion invocation. Required."""
+    success: builtins.bool
+    """Whether the login attempt succeeded."""
+    login_type: Global___LoginType.ValueType
+    """Which OAuth flow completed the login. LOGIN_TYPE_UNSPECIFIED on failure."""
+    user_cookie: builtins.str
+    """User cookie UUID from ~/.dbt/.user.yml."""
+    project_id: builtins.str
+    """MD5 hash of the project name from dbt_project.yml.
+    Absent if run outside a dbt project.
+    """
+    platform_user_id: builtins.int
+    """Platform user ID from the "sub" JWT claim.
+    Absent if no JWT is available.
+    """
+    platform_account_id: builtins.int
+    """Platform tenant account ID from the "https://dbt.com/account_id" JWT claim.
+    Absent if no JWT is available.
+    """
+    platform_account_identifier: builtins.str
+    """Platform account identifier from the "https://dbt.com/account_identifier" JWT claim.
+    Absent if no JWT is available or the claim is absent.
+    """
+    @property
+    def enrichment(self) -> dbtlabs.proto.public.v1.events.vortex_pb2.VortexMessageEnrichment:
+        """This field is a toggle to enable enrichment of the message by the Vortex service."""
+
+    def __init__(
+        self,
+        *,
+        enrichment: dbtlabs.proto.public.v1.events.vortex_pb2.VortexMessageEnrichment | None = ...,
+        event_id: builtins.str = ...,
+        invocation_id: builtins.str = ...,
+        success: builtins.bool = ...,
+        login_type: Global___LoginType.ValueType = ...,
+        user_cookie: builtins.str = ...,
+        project_id: builtins.str | None = ...,
+        platform_user_id: builtins.int | None = ...,
+        platform_account_id: builtins.int | None = ...,
+        platform_account_identifier: builtins.str | None = ...,
+    ) -> None: ...
+    def HasField(self, field_name: typing.Literal["_platform_account_id", b"_platform_account_id", "_platform_account_identifier", b"_platform_account_identifier", "_platform_user_id", b"_platform_user_id", "_project_id", b"_project_id", "enrichment", b"enrichment", "platform_account_id", b"platform_account_id", "platform_account_identifier", b"platform_account_identifier", "platform_user_id", b"platform_user_id", "project_id", b"project_id"]) -> builtins.bool: ...
+    def ClearField(self, field_name: typing.Literal["_platform_account_id", b"_platform_account_id", "_platform_account_identifier", b"_platform_account_identifier", "_platform_user_id", b"_platform_user_id", "_project_id", b"_project_id", "enrichment", b"enrichment", "event_id", b"event_id", "invocation_id", b"invocation_id", "login_type", b"login_type", "platform_account_id", b"platform_account_id", "platform_account_identifier", b"platform_account_identifier", "platform_user_id", b"platform_user_id", "project_id", b"project_id", "success", b"success", "user_cookie", b"user_cookie"]) -> None: ...
+    @typing.overload
+    def WhichOneof(self, oneof_group: typing.Literal["_platform_account_id", b"_platform_account_id"]) -> typing.Literal["platform_account_id"] | None: ...
+    @typing.overload
+    def WhichOneof(self, oneof_group: typing.Literal["_platform_account_identifier", b"_platform_account_identifier"]) -> typing.Literal["platform_account_identifier"] | None: ...
+    @typing.overload
+    def WhichOneof(self, oneof_group: typing.Literal["_platform_user_id", b"_platform_user_id"]) -> typing.Literal["platform_user_id"] | None: ...
+    @typing.overload
+    def WhichOneof(self, oneof_group: typing.Literal["_project_id", b"_project_id"]) -> typing.Literal["project_id"] | None: ...
+
+Global___Login: typing_extensions.TypeAlias = Login

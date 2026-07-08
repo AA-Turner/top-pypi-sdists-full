@@ -63,12 +63,7 @@ impl std::fmt::Display for Source {
     }
 }
 
-/// Merge multiple parsed configs into one (#352).
-///
-/// Substrate for the plugin model (#341): plugin TOML fragments merge
-/// additively into the project config. Implemented once, here in the shared
-/// core, per the one-implementation principle — launchers and bindings only
-/// *discover* fragments and hand them down.
+/// Merge multiple parsed configs into one.
 ///
 /// Order-significant; at least one entry is required and a single entry is
 /// returned unchanged. List-shaped config (`[[table]]`, `[[dirsql.extension]]`,
@@ -84,8 +79,7 @@ impl std::fmt::Display for Source {
 /// collision check; `Db::create_table` rejects them downstream.
 ///
 /// Plugin whitelist enforcement ("a fragment may not set `root`") is the
-/// discovery layer's job, per fragment, *before* calling this — the merge
-/// stays plugin-agnostic.
+/// discovery layer's job, per fragment, before calling this.
 pub fn combine_configs(configs: &[(Source, Config)]) -> Result<Config> {
     let (first, rest) = configs.split_first().ok_or(ConfigError::NoConfigs)?;
     if rest.is_empty() {
@@ -95,7 +89,6 @@ pub fn combine_configs(configs: &[(Source, Config)]) -> Result<Config> {
     let mut tables = Vec::new();
     let mut ignore = Vec::new();
     let mut extensions = Vec::new();
-    // Table name -> the source that first defined it, for collision errors.
     let mut table_sources: std::collections::HashMap<String, &Source> =
         std::collections::HashMap::new();
 
@@ -204,8 +197,8 @@ pub struct Config {
     pub ignore: Vec<String>,
     pub tables: Vec<TableConfig>,
     /// Enable persistent on-disk SQLite cache. When false (the default), the
-    /// database is rebuilt from scratch on every startup (in an anonymous
-    /// disk-backed temp database, #402).
+    /// database is rebuilt from scratch on every startup in an anonymous
+    /// disk-backed temp database.
     pub persist: bool,
     /// Optional override for the on-disk cache location. Resolved relative
     /// to the config file's parent directory when relative.
@@ -259,7 +252,7 @@ pub struct ExtensionSpec {
 /// A config-defined table maps a glob pattern to a SQL DDL. Each matched
 /// file produces one row whose columns are derived from filesystem facts:
 /// glob path captures (named `{placeholder}` segments) and stat virtuals
-/// (`_path`, `_basename`, `_dir`, `_ext`, `_size`, `_mtime`, `_ctime`).
+/// (`path`, `basename`, `dir`, `ext`, `size`, `mtime`, `ctime`).
 /// Content interpretation (frontmatter, JSON dot-paths, CSV parsing, etc.)
 /// is intentionally out of scope; for that, register a programmatic
 /// [`crate::Table`] with your own extract closure.
@@ -274,8 +267,6 @@ pub struct TableConfig {
     /// row. See `dirsql::command` for the execution contract.
     pub on_file: Option<String>,
 }
-
-// --- Raw deserialization types (serde) ---
 
 #[derive(Deserialize)]
 struct RawConfig {
@@ -323,7 +314,6 @@ pub fn load_config(path: &Path) -> Result<Config> {
 pub fn load_config_str(content: &str) -> Result<Config> {
     let raw: RawConfig = toml::from_str(content)?;
 
-    // A missing `[dirsql]` section behaves as an all-defaults one.
     let d = raw.dirsql.unwrap_or_default();
     let root = d.root;
     let ignore = d.ignore.unwrap_or_default();
@@ -334,9 +324,8 @@ pub fn load_config_str(content: &str) -> Result<Config> {
     let raw_post_query = d.post_query;
     let hook_timeout = parse_timeout_secs("hook-timeout", d.hook_timeout)?;
 
-    // A present-but-empty `pre-query = ""` is as unusable as a missing key:
-    // reject it at parse time rather than spawning an empty command later
-    // (mirrors the `on-file` handling below).
+    // Present-but-empty hook commands are rejected at parse time rather than
+    // spawning an empty command later.
     let pre_query = match raw_pre_query {
         Some(cmd) if cmd.trim().is_empty() => {
             return Err(ConfigError::EmptyField("pre-query"));
@@ -344,9 +333,6 @@ pub fn load_config_str(content: &str) -> Result<Config> {
         other => other,
     };
 
-    // A present-but-empty `post-query = ""` is as unusable as a missing key:
-    // reject it at parse time rather than spawning an empty command later
-    // (mirrors the `pre-query` handling above).
     let post_query = match raw_post_query {
         Some(cmd) if cmd.trim().is_empty() => {
             return Err(ConfigError::EmptyField("post-query"));
@@ -356,8 +342,8 @@ pub fn load_config_str(content: &str) -> Result<Config> {
 
     let mut extensions = Vec::with_capacity(raw_extensions.len());
     for raw_ext in raw_extensions {
-        // An empty `path = ""` is as unusable as a missing key: reject it at
-        // parse time rather than silently resolving it to a directory later.
+        // An empty `path = ""` is rejected at parse time rather than silently
+        // resolving to a directory later.
         let path = raw_ext
             .path
             .filter(|p| !p.is_empty())
@@ -375,8 +361,6 @@ pub fn load_config_str(content: &str) -> Result<Config> {
         let ddl = raw_table.ddl.ok_or(ConfigError::MissingField("ddl"))?;
         let glob = raw_table.glob.ok_or(ConfigError::MissingField("glob"))?;
 
-        // A present-but-empty `on-file = ""` is as unusable as a missing key:
-        // reject it at parse time rather than spawning an empty command later.
         let on_file = match raw_table.on_file {
             Some(cmd) if cmd.trim().is_empty() => {
                 return Err(ConfigError::EmptyField("on-file"));
@@ -405,11 +389,8 @@ pub fn load_config_str(content: &str) -> Result<Config> {
     })
 }
 
-/// Validate an optional timeout config value (whole seconds) and convert it
-/// to a [`Duration`]. Zero and negative values are as unusable as a garbage
-/// string — reject them at parse time with the offending field's name rather
-/// than silently producing a command that can never run (`0`) or a bogus
-/// cast (negative).
+/// Validate an optional timeout config value (whole seconds) into a
+/// [`Duration`], rejecting zero and negative values at parse time.
 fn parse_timeout_secs(field: &'static str, raw: Option<i64>) -> Result<Option<Duration>> {
     match raw {
         Some(secs) if secs <= 0 => Err(ConfigError::InvalidTimeout { field, value: secs }),
@@ -429,11 +410,11 @@ mod tests {
 ignore = ["node_modules/**", ".git/**"]
 
 [[table]]
-ddl = "CREATE TABLE comments (thread_id TEXT, _path TEXT)"
+ddl = "CREATE TABLE comments (thread_id TEXT, path TEXT)"
 glob = "_comments/{thread_id}/index.jsonl"
 
 [[table]]
-ddl = "CREATE TABLE items (_path TEXT, _size INTEGER)"
+ddl = "CREATE TABLE items (path TEXT, size INTEGER)"
 glob = "catalog/*.json"
 strict = true
 "#;
@@ -442,7 +423,7 @@ strict = true
         assert_eq!(config.tables.len(), 2);
 
         let t0 = &config.tables[0];
-        assert_eq!(t0.ddl, "CREATE TABLE comments (thread_id TEXT, _path TEXT)");
+        assert_eq!(t0.ddl, "CREATE TABLE comments (thread_id TEXT, path TEXT)");
         assert_eq!(t0.glob, "_comments/{thread_id}/index.jsonl");
         assert!(t0.strict.is_none());
 
@@ -493,7 +474,6 @@ ignore = ["*.tmp"]
     fn invalid_toml_returns_error() {
         let toml = "this is not valid toml [[[";
         let err = load_config_str(toml).unwrap_err();
-        // Single-line `matches!` pins the variant without a dead fallback arm.
         assert!(matches!(err, ConfigError::Toml(_)), "got: {err:?}");
     }
 
@@ -511,7 +491,6 @@ glob = "*.json"
     #[test]
     fn load_config_missing_file_returns_io_error() {
         let err = load_config(Path::new("/nonexistent/.dirsql.toml")).unwrap_err();
-        // Single-line `matches!` pins the variant without a dead fallback arm.
         assert!(matches!(err, ConfigError::Io(_)), "got: {err:?}");
     }
 
@@ -522,7 +501,7 @@ glob = "*.json"
 root = "docs"
 
 [[table]]
-ddl = "CREATE TABLE t (_path TEXT)"
+ddl = "CREATE TABLE t (path TEXT)"
 glob = "*.json"
 "#;
         let config = load_config_str(toml).unwrap();
@@ -533,7 +512,7 @@ glob = "*.json"
     fn root_absent_by_default() {
         let toml = r#"
 [[table]]
-ddl = "CREATE TABLE t (_path TEXT)"
+ddl = "CREATE TABLE t (path TEXT)"
 glob = "*.json"
 "#;
         let config = load_config_str(toml).unwrap();
@@ -547,7 +526,7 @@ glob = "*.json"
 root = "/tmp/data"
 
 [[table]]
-ddl = "CREATE TABLE t (_path TEXT)"
+ddl = "CREATE TABLE t (path TEXT)"
 glob = "*.json"
 "#;
         let config = load_config_str(toml).unwrap();
@@ -558,7 +537,7 @@ glob = "*.json"
     fn persist_defaults_to_false() {
         let toml = r#"
 [[table]]
-ddl = "CREATE TABLE t (_path TEXT)"
+ddl = "CREATE TABLE t (path TEXT)"
 glob = "*.json"
 "#;
         let config = load_config_str(toml).unwrap();
@@ -574,7 +553,7 @@ persist = true
 persist_path = "/var/cache/dirsql.db"
 
 [[table]]
-ddl = "CREATE TABLE t (_path TEXT)"
+ddl = "CREATE TABLE t (path TEXT)"
 glob = "*.json"
 "#;
         let config = load_config_str(toml).unwrap();
@@ -589,15 +568,15 @@ glob = "*.json"
     fn multiple_tables_preserve_order() {
         let toml = r#"
 [[table]]
-ddl = "CREATE TABLE a (_path TEXT)"
+ddl = "CREATE TABLE a (path TEXT)"
 glob = "a/*.json"
 
 [[table]]
-ddl = "CREATE TABLE b (_path TEXT)"
+ddl = "CREATE TABLE b (path TEXT)"
 glob = "b/*.csv"
 
 [[table]]
-ddl = "CREATE TABLE c (_path TEXT)"
+ddl = "CREATE TABLE c (path TEXT)"
 glob = "c/*.yaml"
 "#;
         let config = load_config_str(toml).unwrap();
@@ -609,19 +588,14 @@ glob = "c/*.yaml"
 
     #[test]
     fn unknown_top_level_keys_in_table_are_rejected() {
-        // format/each/columns were removed from the grammar; serde's default
-        // is permissive (unknown keys are ignored), but make sure existing
-        // configs aren't silently broken: if a user still has `format = ...`
-        // their table loads (the field is just dropped).
+        // serde ignores unknown table keys, so configs still carrying removed
+        // keys (e.g. `format`) load with the key dropped.
         let toml = r#"
 [[table]]
-ddl = "CREATE TABLE t (_path TEXT)"
+ddl = "CREATE TABLE t (path TEXT)"
 glob = "*.json"
 format = "json"
 "#;
-        // serde ignores unknown fields by default. We accept this as the
-        // migration story; the config still parses and the table works
-        // (filesystem-fact rows are produced regardless of the dropped key).
         let config = load_config_str(toml).unwrap();
         assert_eq!(config.tables.len(), 1);
     }
@@ -634,7 +608,7 @@ path = "./ext/vec0.dylib"
 entrypoint = "sqlite3_vec_init"
 
 [[table]]
-ddl = "CREATE TABLE t (_path TEXT)"
+ddl = "CREATE TABLE t (path TEXT)"
 glob = "*.json"
 "#;
         let config = load_config_str(toml).unwrap();
@@ -674,7 +648,7 @@ entrypoint = "sqlite3_x_init"
     fn extensions_default_empty_when_absent() {
         let toml = r#"
 [[table]]
-ddl = "CREATE TABLE t (_path TEXT)"
+ddl = "CREATE TABLE t (path TEXT)"
 glob = "*.json"
 "#;
         let config = load_config_str(toml).unwrap();
@@ -716,7 +690,7 @@ on-file = "uv run python extract_papers.py {path}"
     fn on_file_absent_is_none() {
         let toml = r#"
 [[table]]
-ddl = "CREATE TABLE t (_path TEXT)"
+ddl = "CREATE TABLE t (path TEXT)"
 glob = "*.json"
 "#;
         let config = load_config_str(toml).unwrap();
@@ -727,7 +701,7 @@ glob = "*.json"
     fn on_file_empty_errors() {
         let toml = r#"
 [[table]]
-ddl = "CREATE TABLE t (_path TEXT)"
+ddl = "CREATE TABLE t (path TEXT)"
 glob = "*.json"
 on-file = "   "
 "#;
@@ -745,7 +719,7 @@ on-file = "   "
 pre-query = "uv run python to_sql.py {args}"
 
 [[table]]
-ddl = "CREATE TABLE t (_path TEXT)"
+ddl = "CREATE TABLE t (path TEXT)"
 glob = "*.json"
 "#;
         let config = load_config_str(toml).unwrap();
@@ -759,7 +733,7 @@ glob = "*.json"
     fn pre_query_absent_is_none() {
         let toml = r#"
 [[table]]
-ddl = "CREATE TABLE t (_path TEXT)"
+ddl = "CREATE TABLE t (path TEXT)"
 glob = "*.json"
 "#;
         let config = load_config_str(toml).unwrap();
@@ -786,7 +760,7 @@ pre-query = "   "
 post-query = "jq '{results: .}'"
 
 [[table]]
-ddl = "CREATE TABLE t (_path TEXT)"
+ddl = "CREATE TABLE t (path TEXT)"
 glob = "*.json"
 "#;
         let config = load_config_str(toml).unwrap();
@@ -797,7 +771,7 @@ glob = "*.json"
     fn post_query_absent_is_none() {
         let toml = r#"
 [[table]]
-ddl = "CREATE TABLE t (_path TEXT)"
+ddl = "CREATE TABLE t (path TEXT)"
 glob = "*.json"
 "#;
         let config = load_config_str(toml).unwrap();
@@ -817,14 +791,10 @@ post-query = "   "
         );
     }
 
-    // --- combine_configs (#352) ---
-
-    /// Shorthand: a `Source::Path` label.
     fn src(label: &str) -> Source {
         Source::Path(PathBuf::from(label))
     }
 
-    /// Shorthand: parse a config fragment, panicking on parse errors.
     fn cfg(toml: &str) -> Config {
         load_config_str(toml).unwrap()
     }
@@ -851,7 +821,7 @@ path = "vec0.so"
 entrypoint = "sqlite3_vec_init"
 
 [[table]]
-ddl = "CREATE TABLE t (_path TEXT)"
+ddl = "CREATE TABLE t (path TEXT)"
 glob = "*.json"
 "#);
         let merged = combine_configs(&[(src("/proj/.dirsql.toml"), config.clone())]).unwrap();
@@ -871,16 +841,16 @@ glob = "*.json"
     fn combine_concatenates_tables_in_input_order() {
         let a = cfg(r#"
 [[table]]
-ddl = "CREATE TABLE a (_path TEXT)"
+ddl = "CREATE TABLE a (path TEXT)"
 glob = "a/*.json"
 
 [[table]]
-ddl = "CREATE TABLE b (_path TEXT)"
+ddl = "CREATE TABLE b (path TEXT)"
 glob = "b/*.json"
 "#);
         let b = cfg(r#"
 [[table]]
-ddl = "CREATE TABLE c (_path TEXT)"
+ddl = "CREATE TABLE c (path TEXT)"
 glob = "c/*.json"
 "#);
         let merged = combine_configs(&[(src("/a"), a), (src("/b"), b)]).unwrap();
@@ -888,9 +858,9 @@ glob = "c/*.json"
         assert_eq!(
             ddls,
             vec![
-                "CREATE TABLE a (_path TEXT)",
-                "CREATE TABLE b (_path TEXT)",
-                "CREATE TABLE c (_path TEXT)",
+                "CREATE TABLE a (path TEXT)",
+                "CREATE TABLE b (path TEXT)",
+                "CREATE TABLE c (path TEXT)",
             ]
         );
         assert_eq!(merged.tables[2].glob, "c/*.json");
@@ -953,9 +923,8 @@ glob = "c/*.json"
 
     #[test]
     fn combine_singleton_with_internal_duplicate_returns_unchanged() {
-        // "A single entry returns it unchanged" holds even when the config
-        // carries an internal duplicate table name: the identity path runs no
-        // collision check, exactly like a plain single-config load.
+        // The single-entry identity path runs no collision check, exactly like
+        // a plain single-config load.
         let config = cfg(concat!(
             "[[table]]\nddl = \"CREATE TABLE t (x TEXT)\"\nglob = \"a/*.json\"\n",
             "[[table]]\nddl = \"CREATE TABLE t (y TEXT)\"\nglob = \"b/*.json\"\n",
@@ -966,8 +935,6 @@ glob = "c/*.json"
 
     #[test]
     fn combine_intra_config_duplicate_in_multi_merge_errors() {
-        // A collision *anywhere* in a multi-config merge errors — including a
-        // duplicate within one source, which names that source on both sides.
         let a = cfg(concat!(
             "[[table]]\nddl = \"CREATE TABLE t (x TEXT)\"\nglob = \"a/*.json\"\n",
             "[[table]]\nddl = \"CREATE TABLE t (y TEXT)\"\nglob = \"b/*.json\"\n",
@@ -990,8 +957,6 @@ glob = "c/*.json"
 
     #[test]
     fn combine_duplicate_table_name_detected_through_quoting() {
-        // `CREATE TABLE "t"` and `CREATE TABLE t` name the same table: the
-        // collision check compares parsed names, not raw DDL strings.
         let a = cfg("[[table]]\nddl = 'CREATE TABLE \"t\" (x TEXT)'\nglob = \"a/*.json\"\n");
         let b = cfg("[[table]]\nddl = \"CREATE TABLE t (y TEXT)\"\nglob = \"b/*.json\"\n");
         let err = combine_configs(&[(src("/a"), a), (src("/b"), b)]).unwrap_err();
@@ -1003,8 +968,6 @@ glob = "c/*.json"
 
     #[test]
     fn combine_unparseable_ddl_concatenates_without_collision_check() {
-        // Tables whose DDL yields no parseable name cannot collide here; they
-        // pass through and `Db::create_table` rejects them downstream.
         let a = cfg("[[table]]\nddl = \"not a create table\"\nglob = \"a/*.json\"\n");
         let b = cfg("[[table]]\nddl = \"also not a create table\"\nglob = \"b/*.json\"\n");
         let merged = combine_configs(&[(src("/a"), a), (src("/b"), b)]).unwrap();
@@ -1127,8 +1090,6 @@ glob = "c/*.json"
 
     #[test]
     fn combine_error_display_includes_package_source_verbatim() {
-        // A plugin fragment is labeled by package name, not path; the error
-        // message carries the label verbatim for both `Source` variants.
         let a = cfg("[[table]]\nddl = \"CREATE TABLE t (x TEXT)\"\nglob = \"a/*.json\"\n");
         let b = cfg("[[table]]\nddl = \"CREATE TABLE t (y TEXT)\"\nglob = \"b/*.json\"\n");
         let err = combine_configs(&[
@@ -1233,8 +1194,6 @@ hook-timeout = -5
 
     #[test]
     fn invalid_timeout_error_names_the_field_and_value() {
-        // The message is the user's only pointer to the bad key — it must name
-        // both the field and the offending value.
         let err = ConfigError::InvalidTimeout {
             field: "hook-timeout",
             value: -1,
@@ -1247,9 +1206,6 @@ hook-timeout = -5
 
     #[test]
     fn extension_empty_path_errors() {
-        // An empty `path = ""` is as unusable as a missing key — it must be
-        // rejected at parse time, not silently accepted and later resolved to
-        // the config's parent directory. (RED for #225 review finding #4.)
         let toml = r#"
 [[dirsql.extension]]
 path = ""

@@ -165,24 +165,25 @@ def resolve_status_tone(value: Any, semantic_map: dict[str, str] | None = None) 
 # #1493 slice 2 part 3 — WCAG colour+icon+text. A status badge must not rely on
 # colour alone (WCAG 1.4.1 Use of Color): each non-neutral tone carries a glyph
 # so the state reads for colour-blind / monochrome users. Neutral carries no
-# emphasis (grey, the default "no special state"), so it stays icon-free — which
-# also keeps the common name-guess-miss badge byte-identical to the pre-#1493
-# output. Glyphs are numeric HTML entities (mirrors `_bool_icon_filter`).
+# emphasis (grey, the default "no special state"), so it stays icon-free.
+# HaTchi-MaXchi Phase 3 (TASTE-6): glyphs come from the vendored Lucide
+# registry (inline SVG via `lucide_icon_html`), superseding the #1493 numeric
+# HTML entities — same WCAG guarantee, dialect-grade rendering.
 _BADGE_TONE_ICONS: dict[str, str] = {
-    "success": "&#10003;",  # ✓ check
-    "warning": "&#9888;",  # ⚠ warning sign
-    "destructive": "&#10005;",  # ✕ multiplication x (matches the bool-icon cross)
-    "info": "&#8505;",  # ℹ information source
+    "success": "circle-check",
+    "warning": "triangle-alert",
+    "destructive": "circle-x",
+    "info": "info",
 }
 
 
 def resolve_status_icon(tone: str | None) -> str:
-    """Return the WCAG non-colour glyph (HTML entity) for a badge tone.
+    """Return the vendored-registry icon NAME for a badge tone.
 
     Empty string for ``neutral`` / unknown — a neutral badge carries no semantic
     emphasis, so colour+text alone suffices and emitting no icon keeps the
     (dominant) neutral badge output unchanged. Tones are normalised first, so
-    a declared ``positive`` resolves to the ``success`` glyph.
+    a declared ``positive`` resolves to the ``success`` icon.
     """
     if not tone:
         return ""
@@ -196,10 +197,16 @@ def badge_icon_html(tone: str | None) -> str:
     label, so every badge surface carries colour+icon+text. `aria-hidden` keeps
     it decorative — the `aria-label="Status: …"` on the badge owns the a11y name.
     """
-    glyph = resolve_status_icon(tone)
-    if not glyph:
+    # Deferred import: filters is imported by fragment/renderer/_data_row,
+    # and importing fragment.icon_html at module top runs fragment/__init__
+    # -> renderer -> _data_row -> filters (cycle). #1438-sanctioned workaround;
+    # baseline raised with this justification.
+    from dazzle.render.fragment.icon_html import lucide_icon_html
+
+    name = resolve_status_icon(tone)
+    if not name:
         return ""
-    return f'<span class="dz-badge-icon" aria-hidden="true">{glyph}</span>'
+    return lucide_icon_html(name, cls="dz-badge-icon")
 
 
 def infer_terminal_tone_map(state_machine: Any) -> dict[str, str]:
@@ -274,8 +281,8 @@ def _badge_tone_filter(value: Any) -> str:
 def _bool_icon_filter(value: Any) -> Markup:
     """Render a boolean as a check or cross icon."""
     if value:
-        return Markup('<span class="text-[hsl(var(--success))]">&#10003;</span>')
-    return Markup('<span class="text-[hsl(var(--muted-foreground)/0.3)]">&#10005;</span>')
+        return Markup('<span style="color: var(--colour-success)">&#10003;</span>')
+    return Markup('<span style="color: var(--colour-text-muted); opacity: 0.5">&#10005;</span>')
 
 
 def _timeago_filter(value: Any) -> str:

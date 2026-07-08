@@ -72,7 +72,6 @@
 #include "src/core/lib/transport/connectivity_state.h"
 #include "src/core/lib/transport/transport.h"
 #include "src/core/lib/transport/transport_framing_endpoint_extension.h"
-#include "src/core/mitigation_engine/mitigation_engine.h"
 #include "src/core/telemetry/call_tracer.h"
 #include "src/core/telemetry/context_list_entry.h"
 #include "src/core/telemetry/stats.h"
@@ -230,9 +229,6 @@ typedef enum {
   GRPC_CHTTP2_KEEPALIVE_STATE_DYING,
   GRPC_CHTTP2_KEEPALIVE_STATE_DISABLED,
 } grpc_chttp2_keepalive_state;
-
-constexpr uint16_t kMaxNoopDataFrames = 16384u;
-constexpr uint16_t kMaxNoopContinuationFrames = 128u;
 
 struct grpc_chttp2_transport final : public grpc_core::FilterStackTransport,
                                      public grpc_core::KeepsGrpcInitialized {
@@ -476,8 +472,6 @@ struct grpc_chttp2_transport final : public grpc_core::FilterStackTransport,
   uint8_t incoming_frame_flags = 0;
   uint8_t header_eof = 0;
   bool is_first_frame = true;
-  uint16_t noop_continuation_frames = 0u;
-  uint16_t noop_data_frames = 0u;
   uint32_t expect_continuation_stream_id = 0;
   uint32_t incoming_frame_size = 0;
 
@@ -624,9 +618,6 @@ struct grpc_chttp2_transport final : public grpc_core::FilterStackTransport,
   grpc_core::Timestamp last_ztrace_time = grpc_core::Timestamp::InfPast();
 
   GPR_NO_UNIQUE_ADDRESS grpc_core::latent_see::Flow write_flow;
-
-  // Current mitigation engine, retrieved once per connection.
-  grpc_core::RefCountedPtr<grpc_core::MitigationEngine> mitigation_engine;
 };
 
 typedef enum {
@@ -887,11 +878,6 @@ void grpc_chttp2_stream_unref(grpc_chttp2_stream* s);
 #endif
 
 void grpc_chttp2_ack_ping(grpc_chttp2_transport* t, uint64_t id);
-grpc_error_handle grpc_chttp2_increase_num_pending_induced_frames(
-    grpc_chttp2_transport* t);
-
-void grpc_chttp2_close_transport_locked(grpc_chttp2_transport* t,
-                                        grpc_error_handle error);
 
 /// Sends GOAWAY with error code ENHANCE_YOUR_CALM and additional debug data
 /// resembling "too_many_pings" followed by immediately closing the connection.

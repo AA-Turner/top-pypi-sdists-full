@@ -24,6 +24,7 @@ from plato.chronos.api.settings import get_setting, update_setting
 from plato.chronos.errors import NotFoundError
 from plato.chronos.models import OTelSpanSchema, UpdateSettingRequest
 from plato.chronos.sdk import Chronos
+from plato.cli.chronos.import_traces import import_app
 from plato.cli.chronos.settings import get_settings
 from plato.cli.chronos.workspace_upload import (
     download_git_workspace_via_archive,
@@ -36,6 +37,7 @@ from plato.cli.utils import console, safe_print
 
 chronos_app = typer.Typer(help="Chronos job management commands.")
 chronos_app.add_typer(workspace_app, name="workspace")
+chronos_app.add_typer(import_app, name="import")
 logger = logging.getLogger(__name__)
 settings = get_settings()
 

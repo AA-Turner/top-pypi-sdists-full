@@ -224,8 +224,7 @@ class OfflineRecognizerTransducerQnnImpl : public OfflineRecognizerImpl {
       }
 
       LogSoftmax(logit.data(), vocab_size);
-      auto y = static_cast<int32_t>(std::distance(
-          logit.begin(), std::max_element(logit.begin(), logit.end())));
+      auto y = MaxElementIndex(logit.data(), logit.size());
       float log_prob = logit[y];
 
       if (y != 0 && y != unk_id_) {
@@ -332,7 +331,7 @@ class OfflineRecognizerTransducerQnnImpl : public OfflineRecognizerImpl {
   }
 
   void InitHotwords() {
-    std::ifstream is(config_.hotwords_file);
+    auto is = OpenInputFile(config_.hotwords_file);
     if (!is) {
       SHERPA_ONNX_LOGE("Open hotwords file failed: '%s'",
                        config_.hotwords_file.c_str());

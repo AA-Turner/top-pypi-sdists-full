@@ -1,19 +1,16 @@
 from __future__ import annotations
 
 from collections.abc import Callable
-from typing import TYPE_CHECKING, TypeVar
+from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from typing import TypeAlias
     from warnings import _ActionKind
 
     # action, message, category, module, lineno
-    WarningFilter: TypeAlias = tuple[_ActionKind, str, type[Warning], str, int]
-
-F = TypeVar("F", bound=Callable)
+    type WarningFilter = tuple[_ActionKind, str, type[Warning], str, int]
 
 
-def doctest_needs(mod: str) -> Callable[[F], F]:
+def doctest_needs[F: Callable](mod: str) -> Callable[[F], F]:
     """Mark function with doctest dependency."""
 
     def decorator(func: F) -> F:
@@ -23,7 +20,7 @@ def doctest_needs(mod: str) -> Callable[[F], F]:
     return decorator
 
 
-def doctest_filterwarnings(
+def doctest_filterwarnings[F: Callable](
     action: _ActionKind,
     message: str = r"",
     category: type[Warning] = Warning,

@@ -4,35 +4,29 @@ from collections.abc import Iterable, Iterator
 from pathlib import Path
 from types import ModuleType
 
-import typer
 from pyrig_runtime.core.introspection.packages import walk_package
 
 from pyrig.core.strings import write_text_utf8
 
 
-def make_package_dir(path: Path, until: tuple[Path, ...], content: str) -> None:
-    """Create a directory and add `__init__.py` files up the directory tree.
+def make_package_dir(path: Path, root: Path, content: str) -> None:
+    """Create a directory tree and mark it as packages with `__init__.py` files.
 
-    Creates the target directory (and all missing parents), then places
-    `__init__.py` files in the target directory and each ancestor up the
-    tree. Traversal stops at the first directory (starting from the target
-    itself, then its ancestors) that appears in `until`. Existing
-    `__init__.py` files are not overwritten.
+    Create `path` and any missing parents, then write an `__init__.py` into
+    `path` and each ancestor up to and including `root`. Existing `__init__.py`
+    files are left unchanged.
 
     Args:
-        path: Directory path to create.
-        until: Directories at which to stop adding `__init__.py` files.
-            Directories in this tuple do not receive an `__init__.py`. The
-            current working directory and the empty path are always
-            implicitly included as stop points.
-        content: Content to write into each `__init__.py` file.
+        path: Directory to create and mark as a package.
+        root: Directory at which to stop, which must be an ancestor of
+            `path` (or `path` itself). It receives an `__init__.py`;
+            directories above it are left untouched.
+        content: Text written into each newly created `__init__.py`.
     """
+    relative = path.relative_to(root)
     path.mkdir(parents=True, exist_ok=True)
-    until = (*until, Path(), Path.cwd())
-    for p in (path, *path.parents):
-        if p in until:
-            break
-        make_init_file(p, content=content)
+    for p in (relative, *relative.parents):
+        make_init_file(root / p, content=content)
 
 
 def make_init_files(paths: Iterable[Path], content: str) -> tuple[Path, ...]:
@@ -54,7 +48,6 @@ def make_init_files(paths: Iterable[Path], content: str) -> tuple[Path, ...]:
 def make_init_file(path: Path, content: str) -> bool:
     """Create an `__init__.py` file in the specified directory.
 
-    Echoes `Creating: <path>/__init__.py` to stdout when a file is created.
     No-op if `__init__.py` already exists in the directory.
 
     Args:
@@ -68,8 +61,6 @@ def make_init_file(path: Path, content: str) -> bool:
 
     if path.exists():
         return False
-
-    typer.echo(f"Creating: {path}")
 
     write_text_utf8(path, content)
     return True

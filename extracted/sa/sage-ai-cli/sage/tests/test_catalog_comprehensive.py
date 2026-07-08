@@ -532,7 +532,8 @@ class TestGetFullCatalog:
         mock_fetch.return_value = remote_models
 
         result = get_full_catalog()
-        assert result == remote_models
+        assert len(result) >= len(MODEL_CATALOG)
+        assert any(m.name == "remote" for m in result)
 
     @patch("sage.models.catalog.fetch_remote_catalog")
     def test_falls_back_to_hardcoded(self, mock_fetch):

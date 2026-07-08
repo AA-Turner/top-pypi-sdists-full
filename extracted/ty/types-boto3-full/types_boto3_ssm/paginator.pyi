@@ -49,6 +49,7 @@ Usage::
         GetResourcePoliciesPaginator,
         ListAssociationVersionsPaginator,
         ListAssociationsPaginator,
+        ListCloudConnectorsPaginator,
         ListCommandInvocationsPaginator,
         ListCommandsPaginator,
         ListComplianceItemsPaginator,
@@ -62,6 +63,7 @@ Usage::
         ListOpsMetadataPaginator,
         ListResourceComplianceSummariesPaginator,
         ListResourceDataSyncPaginator,
+        ValidateCloudConnectorPaginator,
     )
 
     session = Session()
@@ -104,6 +106,7 @@ Usage::
     get_resource_policies_paginator: GetResourcePoliciesPaginator = client.get_paginator("get_resource_policies")
     list_association_versions_paginator: ListAssociationVersionsPaginator = client.get_paginator("list_association_versions")
     list_associations_paginator: ListAssociationsPaginator = client.get_paginator("list_associations")
+    list_cloud_connectors_paginator: ListCloudConnectorsPaginator = client.get_paginator("list_cloud_connectors")
     list_command_invocations_paginator: ListCommandInvocationsPaginator = client.get_paginator("list_command_invocations")
     list_commands_paginator: ListCommandsPaginator = client.get_paginator("list_commands")
     list_compliance_items_paginator: ListComplianceItemsPaginator = client.get_paginator("list_compliance_items")
@@ -117,6 +120,7 @@ Usage::
     list_ops_metadata_paginator: ListOpsMetadataPaginator = client.get_paginator("list_ops_metadata")
     list_resource_compliance_summaries_paginator: ListResourceComplianceSummariesPaginator = client.get_paginator("list_resource_compliance_summaries")
     list_resource_data_sync_paginator: ListResourceDataSyncPaginator = client.get_paginator("list_resource_data_sync")
+    validate_cloud_connector_paginator: ValidateCloudConnectorPaginator = client.get_paginator("validate_cloud_connector")
     ```
 """
 
@@ -202,6 +206,8 @@ from .type_defs import (
     ListAssociationsResultTypeDef,
     ListAssociationVersionsRequestPaginateTypeDef,
     ListAssociationVersionsResultTypeDef,
+    ListCloudConnectorsRequestPaginateTypeDef,
+    ListCloudConnectorsResultTypeDef,
     ListCommandInvocationsRequestPaginateTypeDef,
     ListCommandInvocationsResultTypeDef,
     ListCommandsRequestPaginateTypeDef,
@@ -228,6 +234,8 @@ from .type_defs import (
     ListResourceComplianceSummariesResultTypeDef,
     ListResourceDataSyncRequestPaginateTypeDef,
     ListResourceDataSyncResultTypeDef,
+    ValidateCloudConnectorRequestPaginateTypeDef,
+    ValidateCloudConnectorResultTypeDef,
 )
 
 if sys.version_info >= (3, 12):
@@ -273,6 +281,7 @@ __all__ = (
     "GetResourcePoliciesPaginator",
     "ListAssociationVersionsPaginator",
     "ListAssociationsPaginator",
+    "ListCloudConnectorsPaginator",
     "ListCommandInvocationsPaginator",
     "ListCommandsPaginator",
     "ListComplianceItemsPaginator",
@@ -286,6 +295,7 @@ __all__ = (
     "ListOpsMetadataPaginator",
     "ListResourceComplianceSummariesPaginator",
     "ListResourceDataSyncPaginator",
+    "ValidateCloudConnectorPaginator",
 )
 
 if TYPE_CHECKING:
@@ -1002,6 +1012,24 @@ class ListAssociationsPaginator(_ListAssociationsPaginatorBase):
         """
 
 if TYPE_CHECKING:
+    _ListCloudConnectorsPaginatorBase = Paginator[ListCloudConnectorsResultTypeDef]
+else:
+    _ListCloudConnectorsPaginatorBase = Paginator  # type: ignore[assignment]
+
+class ListCloudConnectorsPaginator(_ListCloudConnectorsPaginatorBase):
+    """
+    [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ssm/paginator/ListCloudConnectors.html#SSM.Paginator.ListCloudConnectors)
+    [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_ssm/paginators/#listcloudconnectorspaginator)
+    """
+    def paginate(  # type: ignore[override]
+        self, **kwargs: Unpack[ListCloudConnectorsRequestPaginateTypeDef]
+    ) -> PageIterator[ListCloudConnectorsResultTypeDef]:
+        """
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ssm/paginator/ListCloudConnectors.html#SSM.Paginator.ListCloudConnectors.paginate)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_ssm/paginators/#listcloudconnectorspaginator)
+        """
+
+if TYPE_CHECKING:
     _ListCommandInvocationsPaginatorBase = Paginator[ListCommandInvocationsResultTypeDef]
 else:
     _ListCommandInvocationsPaginatorBase = Paginator  # type: ignore[assignment]
@@ -1235,4 +1263,22 @@ class ListResourceDataSyncPaginator(_ListResourceDataSyncPaginatorBase):
         """
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ssm/paginator/ListResourceDataSync.html#SSM.Paginator.ListResourceDataSync.paginate)
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_ssm/paginators/#listresourcedatasyncpaginator)
+        """
+
+if TYPE_CHECKING:
+    _ValidateCloudConnectorPaginatorBase = Paginator[ValidateCloudConnectorResultTypeDef]
+else:
+    _ValidateCloudConnectorPaginatorBase = Paginator  # type: ignore[assignment]
+
+class ValidateCloudConnectorPaginator(_ValidateCloudConnectorPaginatorBase):
+    """
+    [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ssm/paginator/ValidateCloudConnector.html#SSM.Paginator.ValidateCloudConnector)
+    [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_ssm/paginators/#validatecloudconnectorpaginator)
+    """
+    def paginate(  # type: ignore[override]
+        self, **kwargs: Unpack[ValidateCloudConnectorRequestPaginateTypeDef]
+    ) -> PageIterator[ValidateCloudConnectorResultTypeDef]:
+        """
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ssm/paginator/ValidateCloudConnector.html#SSM.Paginator.ValidateCloudConnector.paginate)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_ssm/paginators/#validatecloudconnectorpaginator)
         """

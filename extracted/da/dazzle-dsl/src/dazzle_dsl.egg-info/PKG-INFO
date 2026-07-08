@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: dazzle-dsl
-Version: 0.93.0
+Version: 0.96.0
 Summary: DAZZLE — declarative SaaS framework with built-in compliance (SOC 2, ISO 27001), provable RBAC, and graph features
 Author: DAZZLE Contributors
 Maintainer: DAZZLE Contributors
@@ -150,6 +150,11 @@ Requires-Dist: babel>=2.13; extra == "i18n"
 Provides-Extra: aws-test
 Requires-Dist: boto3>=1.35; extra == "aws-test"
 Requires-Dist: moto[s3]>=5.0; extra == "aws-test"
+Provides-Extra: graphql
+Requires-Dist: strawberry-graphql>=0.235; extra == "graphql"
+Provides-Extra: test-full
+Requires-Dist: dazzle-dsl[aws,graph,graphql,observability,sendgrid,signing]; extra == "test-full"
+Requires-Dist: aiosqlite>=0.19; extra == "test-full"
 Dynamic: license-file
 
 # DAZZLE

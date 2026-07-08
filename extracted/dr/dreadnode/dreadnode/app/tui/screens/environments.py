@@ -158,6 +158,7 @@ class EnvironmentScreen(DreadnodeScreen):
         Binding("j", "cursor_down", "Down", show=False),
         Binding("k", "cursor_up", "Up", show=False),
         Binding("r", "refresh_environments", "Refresh", show=True),
+        Binding("d", "show_readme", "README", show=False),
         Binding("n", "next_page", "Next", show=True),
         Binding("p", "prev_page", "Prev", show=True),
     ]
@@ -238,7 +239,7 @@ class EnvironmentScreen(DreadnodeScreen):
             return
 
         if event.character and event.character.isprintable() and len(event.character) == 1:
-            if not self._search_query and key in {"r", "n", "p", "j", "k"}:
+            if not self._search_query and key in {"r", "n", "p", "j", "k", "d"}:
                 return
             self._search_query += event.character
             self._cursor = 0
@@ -269,6 +270,35 @@ class EnvironmentScreen(DreadnodeScreen):
 
     def action_refresh_environments(self) -> None:
         self._load_environments(self._page)
+
+    def action_show_readme(self) -> None:
+        """Open the remote README for the focused task/environment."""
+        if not self._visible_environments:
+            return
+        if not (0 <= self._cursor < len(self._visible_environments)):
+            return
+        env = self._visible_environments[self._cursor]
+        name = env.get("name")
+        if not isinstance(name, str) or not name:
+            return
+
+        api = self._api
+        org = self._org
+
+        async def _fetch() -> dict[str, t.Any]:
+            return await asyncio.to_thread(api.get_task_readme, org, name)
+
+        # Local import keeps screens that don't need ReadmeScreen lighter.
+        from dreadnode.app.tui.screens.readme import ReadmeScreen
+
+        self.app.push_screen(
+            ReadmeScreen(
+                title="Task README",
+                subject=name,
+                fetcher=_fetch,
+                empty_message="No README ships with this task archive.",
+            )
+        )
 
     def action_next_page(self) -> None:
         if not self._has_next:

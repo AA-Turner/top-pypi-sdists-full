@@ -798,7 +798,9 @@ def test_use_task_unmounted_instance_is_collected(monkeypatch):
                 while len(payload_refs) < n + 1 and time.time() < deadline:
                     await asyncio.sleep(0.01)
                 alive = len(payload_refs)
-                deadline = time.time() + 10
+                # generous deadline: on a loaded 1-2 core CI runner the tiny worker threads
+                # can be starved for seconds by this very loop's gc churn
+                deadline = time.time() + 30
                 while time.time() < deadline:
                     # pytest's LogCaptureHandler retains LogRecords whose args hold the
                     # task results ("setting result to %r"); clear them or they pin the
@@ -811,7 +813,7 @@ def test_use_task_unmounted_instance_is_collected(monkeypatch):
                     alive = sum(1 for ref in payload_refs if ref() is not None)
                     if alive <= 1:  # only the currently mounted instance may hold one
                         break
-                    await asyncio.sleep(0.05)
+                    await asyncio.sleep(0.1)
                 holder["alive"] = alive
                 rc.close()
 
@@ -949,3 +951,67 @@ def test_task_async_cancel_from_other_thread_wakes_sleeping_loop():
     assert finished.wait(10), "cancel from another thread did not wake the sleeping task loop"
     assert time.monotonic() - t0 < 5
     assert sleeper.cancelled
+
+
+def test_cancel_after_context_close_is_a_noop(monkeypatch):
+    # At kernel close, _drop_call_state (registered via context.on_close) drops the
+    # call bookkeeping - including _cancel - while the reactive state still reads
+    # pending. App code commonly guards on-close cleanup with
+    # `if task.pending: task.cancel()`; arriving a moment after the drop must be a
+    # no-op, not "RuntimeError: Cannot cancel task, never started".
+    monkeypatch.setattr(solara.tasks, "_using_solara_server", lambda: True)
+    proceed = threading.Event()
+    context_holder = {}
+
+    @solara.tasks.task
+    async def runs_forever():
+        while not proceed.is_set():
+            await asyncio.sleep(0.001)
+
+    outcome: dict = {}
+
+    def app_like_guard():
+        # what app cleanup does during kernel close. on_close callbacks run
+        # LIFO, so registering this BEFORE the task starts makes it run AFTER
+        # _drop_call_state (registered at task start) - the production order
+        # where the call bookkeeping is gone but the state still reads pending
+        try:
+            if runs_forever.pending:
+                runs_forever.cancel()
+            outcome["ok"] = True
+        except RuntimeError as e:
+            outcome["error"] = str(e)
+
+    def page_thread():
+        async def run():
+            context = kernel_context.VirtualKernelContext(id="task-cancel-after-close", kernel=kernel.Kernel(), session_id="session-cancel-after-close")
+            context_holder["context"] = context
+            with context:
+                context.on_close(app_like_guard)
+                runs_forever()
+
+        asyncio.run(run())
+
+    try:
+        thread = threading.Thread(target=page_thread)
+        thread.start()
+        thread.join()
+        context = context_holder["context"]
+        with context:
+            assert runs_forever.pending
+        proceed.set()
+        with context:
+            context.close()
+        assert outcome == {"ok": True}, outcome
+    finally:
+        proceed.set()
+
+    # a genuinely never-started task still raises (misuse detection unchanged)
+    @solara.tasks.task
+    async def never_started():
+        pass
+
+    with pytest.raises(RuntimeError, match="never started"):
+        never_started.cancel()
+    with pytest.raises(RuntimeError, match="never started"):
+        never_started.retry()

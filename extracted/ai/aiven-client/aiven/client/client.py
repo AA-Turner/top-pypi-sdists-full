@@ -6,12 +6,12 @@ from __future__ import annotations
 
 from ._typing import assert_never
 from .common import UNDEFINED
-from .session import get_requests_session
+from .session import DEFAULT_IDLE_TIMEOUT, DEFAULT_MAX_AGE, get_requests_session
 from collections.abc import Callable, Collection, Mapping, Sequence
 from http import HTTPStatus
 from requests import Response
 from requests_toolbelt import MultipartEncoder  # type: ignore
-from typing import Any, BinaryIO, Final, Literal, NamedTuple, TYPE_CHECKING, TypedDict
+from typing import TYPE_CHECKING, Any, BinaryIO, Final, Literal, NamedTuple, TypedDict
 from urllib.parse import quote
 
 import datetime
@@ -42,7 +42,12 @@ class Error(Exception):
 
     def __str__(self) -> str:
         response_text, status = self.args
-        return f"{response_text}, status({type(status)})={str(status)}"
+        try:
+            body = json.loads(response_text)
+            message = body.get("message", response_text)
+        except (json.JSONDecodeError, AttributeError, TypeError):
+            message = response_text
+        return f"{message} (status {status})"
 
 
 class ResponseError(Exception):
@@ -86,12 +91,14 @@ class AivenClientBase:
         show_http: bool = False,
         request_timeout: int | None = None,
         default_retry_spec: RetrySpec = DEFAULT_RETRY,
+        idle_timeout: float | None = DEFAULT_IDLE_TIMEOUT,
+        max_age: float | None = DEFAULT_MAX_AGE,
     ) -> None:
         self.log = logging.getLogger("AivenClient")
         self.auth_token: str | None = None
         self.base_url = base_url
         self.log.debug("using %r", self.base_url)
-        self.session = get_requests_session(timeout=request_timeout)
+        self.session = get_requests_session(timeout=request_timeout, idle_timeout=idle_timeout, max_age=max_age)
         self.http_log = logging.getLogger("aiven_http")
         self.init_http_logging(show_http)
         self.api_prefix = "/v1"
@@ -1673,6 +1680,15 @@ class AivenClient(AivenClientBase):
             path = self.build_path("project", project, "service_types")
         return self.verify(self.get, path, result_key="service_types")
 
+    def get_service_type(self, project: str, service_type: str) -> Mapping:
+        """Fetch a single service type definition.
+
+        Much cheaper than get_service_types(), which returns the full catalog
+        (tens of MB). Use this when only one service type's definition is needed.
+        """
+        path = self.build_path("project", project, "service-types", service_type)
+        return self.verify(self.get, path)
+
     def create_account(self, account_name: str) -> Mapping:
         body = {
             "account_name": account_name,
@@ -2731,9 +2747,10 @@ class AivenClient(AivenClientBase):
         cloud_region: str | None,
         reserved_cidr: str | None,
         display_name: str | None,
+        contact_emails: list[dict[str, str]] | None,
         tags: Mapping[str, str | None] | None,
     ) -> Mapping[Any, Any]:
-        body = {
+        body: dict[str, Any] = {
             key: value
             for key, value in {
                 "deployment_model": deployment_model,
@@ -2742,6 +2759,7 @@ class AivenClient(AivenClientBase):
                 "reserved_cidr": reserved_cidr,
                 "display_name": display_name,
                 "tags": tags,
+                "contact_emails": contact_emails,
             }.items()
             if value is not None
         }
@@ -2846,6 +2864,7 @@ class AivenClient(AivenClientBase):
             cloud_region=None,
             reserved_cidr=None,
             display_name=None,
+            contact_emails=None,
             tags=None,
         )
         return {"tags": output.get("custom_cloud_environment", {}).get("tags", {})}
@@ -2859,6 +2878,7 @@ class AivenClient(AivenClientBase):
             cloud_region=None,
             reserved_cidr=None,
             display_name=None,
+            contact_emails=None,
             tags=tag_updates,
         )
         # There have been no errors raised
@@ -2873,6 +2893,7 @@ class AivenClient(AivenClientBase):
             cloud_region=None,
             reserved_cidr=None,
             display_name=None,
+            contact_emails=None,
             tags=tags,
         )
         # There have been no errors raised

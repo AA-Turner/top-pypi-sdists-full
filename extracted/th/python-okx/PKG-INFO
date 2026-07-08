@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: python-okx
-Version: 0.4.2
+Version: 0.4.3
 Summary: Python SDK for OKX
 Home-page: https://okx.com/docs-v5/
 Author: okxv5api
@@ -21,13 +21,6 @@ Requires-Dist: requests>=2.25.0
 Requires-Dist: websockets>=10.0
 Requires-Dist: certifi>=2021.0.0
 Requires-Dist: loguru>=0.7.0
-Requires-Dist: python-dotenv>=1.0.0
-Requires-Dist: pytest>=7.0.0
-Requires-Dist: pytest-asyncio>=0.21.0
-Requires-Dist: pytest-cov>=4.0.0
-Requires-Dist: ruff>=0.1.0
-Requires-Dist: build>=1.0.0
-Requires-Dist: twine>=4.0.0
 Dynamic: author
 Dynamic: author-email
 Dynamic: classifier
@@ -128,7 +121,7 @@ git clone https://github.com/okxapi/python-okx.git
 cd python-okx
 
 # Install dependencies
-pip install -r requirements.txt
+pip install -r dev_requirements.txt
 pip install -e .
 
 # Run tests

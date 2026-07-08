@@ -1,3 +1,18 @@
+# Partner API signature-replay contract tests (non-state-specific / federal partner families).
+# Each case replays an observed request signature (a real key set a partner sends) and pins
+# CURRENT model outputs as the contract.
+#
+# 2026-07-04 fidelity fix:
+#  * W1 (issue #8802): production's Python wrapper backfills employment_income ->
+#    employment_income_before_lsr, self_employment_income -> self_employment_income_before_lsr,
+#    weekly_hours_worked -> weekly_hours_worked_before_lsr (and sstb / long_term_capital_gains
+#    analogues). The YAML runner does NOT, so those input keys are converted here (same values)
+#    to reproduce production values. Output echoes of weekly_hours_worked are left untouched.
+#  * Geography (issue #8887): geography keys are kept exactly as each partner sends them.
+#    state_code_str does NOT backfill the state_code enum, and a bare zip_code does not either,
+#    so enum readers (snap_utility_region, chip, etc.) evaluate under the California default in
+#    PRODUCTION TOO. This fixture faithfully pins that production behavior; do not 'fix' it by
+#    adding a state_code enum input.
 - name: signature_1 (90 reqs, +5 dupes)
   period: 2026
   absolute_error_margin: 0.1
@@ -92,7 +107,7 @@
         is_incapable_of_self_care: false
         immigration_status_str: CITIZEN
         employment_income_before_lsr: 36000
-        weekly_hours_worked: 40
+        weekly_hours_worked_before_lsr: 40
       spouse:
         age: 33
         is_tax_unit_head: false
@@ -104,7 +119,7 @@
         is_incapable_of_self_care: false
         immigration_status_str: CITIZEN
         employment_income_before_lsr: 12000
-        weekly_hours_worked: 20
+        weekly_hours_worked_before_lsr: 20
       child1:
         age: 8
         is_tax_unit_head: false
@@ -116,7 +131,7 @@
         is_incapable_of_self_care: false
         immigration_status_str: CITIZEN
         employment_income_before_lsr: 0
-        weekly_hours_worked: 0
+        weekly_hours_worked_before_lsr: 0
       child2:
         age: 3
         is_tax_unit_head: false
@@ -128,7 +143,7 @@
         is_incapable_of_self_care: false
         immigration_status_str: CITIZEN
         employment_income_before_lsr: 0
-        weekly_hours_worked: 0
+        weekly_hours_worked_before_lsr: 0
     households:
       household:
         members: *id001
@@ -265,7 +280,7 @@
         social_security: 0
         ssi: 0
         rent: 18000
-        weekly_hours_worked: 40
+        weekly_hours_worked_before_lsr: 40
       spouse:
         age: 33
         is_tax_unit_head: false
@@ -280,7 +295,7 @@
         social_security: 0
         ssi: 0
         rent: 0
-        weekly_hours_worked: 20
+        weekly_hours_worked_before_lsr: 20
       child1:
         age: 8
         is_tax_unit_head: false
@@ -294,7 +309,7 @@
         employment_income_before_lsr: 0
         ssi: 0
         rent: 0
-        weekly_hours_worked: 0
+        weekly_hours_worked_before_lsr: 0
       child2:
         age: 3
         is_tax_unit_head: false
@@ -308,7 +323,7 @@
         employment_income_before_lsr: 0
         ssi: 0
         rent: 0
-        weekly_hours_worked: 0
+        weekly_hours_worked_before_lsr: 0
     households:
       household:
         members: *id001
@@ -432,7 +447,7 @@
         employment_income_before_lsr: 36000
         rent: 18000
         other_medical_expenses: 0
-        weekly_hours_worked: 40
+        weekly_hours_worked_before_lsr: 40
       spouse:
         age: 33
         is_tax_unit_head: false
@@ -446,7 +461,7 @@
         employment_income_before_lsr: 12000
         rent: 0
         other_medical_expenses: 0
-        weekly_hours_worked: 20
+        weekly_hours_worked_before_lsr: 20
       child1:
         age: 8
         is_tax_unit_head: false
@@ -459,7 +474,7 @@
         immigration_status_str: CITIZEN
         employment_income_before_lsr: 0
         rent: 0
-        weekly_hours_worked: 0
+        weekly_hours_worked_before_lsr: 0
         other_medical_expenses: 0
       child2:
         age: 3
@@ -473,7 +488,7 @@
         immigration_status_str: CITIZEN
         employment_income_before_lsr: 0
         rent: 0
-        weekly_hours_worked: 0
+        weekly_hours_worked_before_lsr: 0
         other_medical_expenses: 0
     households:
       household:
@@ -536,7 +551,7 @@
         employment_income_before_lsr: 36000
         rent: 18000
         other_medical_expenses: 0
-        weekly_hours_worked: 40
+        weekly_hours_worked_before_lsr: 40
       spouse:
         age: 33
         is_tax_unit_head: false
@@ -550,7 +565,7 @@
         employment_income_before_lsr: 12000
         rent: 0
         other_medical_expenses: 0
-        weekly_hours_worked: 20
+        weekly_hours_worked_before_lsr: 20
       child1:
         age: 8
         is_tax_unit_head: false
@@ -563,7 +578,7 @@
         immigration_status_str: CITIZEN
         employment_income_before_lsr: 0
         rent: 0
-        weekly_hours_worked: 0
+        weekly_hours_worked_before_lsr: 0
         other_medical_expenses: 0
       child2:
         age: 3
@@ -577,7 +592,7 @@
         immigration_status_str: CITIZEN
         employment_income_before_lsr: 0
         rent: 0
-        weekly_hours_worked: 0
+        weekly_hours_worked_before_lsr: 0
         other_medical_expenses: 0
     households:
       household:
@@ -637,9 +652,9 @@
         is_incapable_of_self_care: false
         immigration_status_str: CITIZEN
         employment_income_before_lsr: 36000
-        self_employment_income: 0
+        self_employment_income_before_lsr: 0
         health_insurance_premiums: 0
-        weekly_hours_worked: 40
+        weekly_hours_worked_before_lsr: 40
       spouse:
         age: 33
         is_tax_unit_head: false
@@ -651,9 +666,9 @@
         is_incapable_of_self_care: false
         immigration_status_str: CITIZEN
         employment_income_before_lsr: 12000
-        self_employment_income: 0
+        self_employment_income_before_lsr: 0
         health_insurance_premiums: 0
-        weekly_hours_worked: 20
+        weekly_hours_worked_before_lsr: 20
       child1:
         age: 8
         is_tax_unit_head: false
@@ -665,8 +680,8 @@
         is_incapable_of_self_care: false
         immigration_status_str: CITIZEN
         employment_income_before_lsr: 0
-        self_employment_income: 0
-        weekly_hours_worked: 0
+        self_employment_income_before_lsr: 0
+        weekly_hours_worked_before_lsr: 0
         health_insurance_premiums: 0
       child2:
         age: 3
@@ -679,8 +694,8 @@
         is_incapable_of_self_care: false
         immigration_status_str: CITIZEN
         employment_income_before_lsr: 0
-        self_employment_income: 0
-        weekly_hours_worked: 0
+        self_employment_income_before_lsr: 0
+        weekly_hours_worked_before_lsr: 0
         health_insurance_premiums: 0
     households:
       household:
@@ -749,7 +764,7 @@
         employment_income_before_lsr: 36000
         rent: 18000
         health_insurance_premiums: 0
-        weekly_hours_worked: 40
+        weekly_hours_worked_before_lsr: 40
       spouse:
         age: 33
         is_tax_unit_head: false
@@ -766,7 +781,7 @@
         employment_income_before_lsr: 12000
         rent: 0
         health_insurance_premiums: 0
-        weekly_hours_worked: 20
+        weekly_hours_worked_before_lsr: 20
       child1:
         age: 8
         is_tax_unit_head: false
@@ -782,7 +797,7 @@
         immigration_status_str: CITIZEN
         employment_income_before_lsr: 0
         rent: 0
-        weekly_hours_worked: 0
+        weekly_hours_worked_before_lsr: 0
         health_insurance_premiums: 0
       child2:
         age: 3
@@ -799,7 +814,7 @@
         immigration_status_str: CITIZEN
         employment_income_before_lsr: 0
         rent: 0
-        weekly_hours_worked: 0
+        weekly_hours_worked_before_lsr: 0
         health_insurance_premiums: 0
     households:
       household:
@@ -866,7 +881,7 @@
         employment_income_before_lsr: 36000
         rent: 18000
         health_insurance_premiums: 0
-        weekly_hours_worked: 40
+        weekly_hours_worked_before_lsr: 40
       spouse:
         age: 33
         is_tax_unit_head: false
@@ -880,7 +895,7 @@
         employment_income_before_lsr: 12000
         rent: 0
         health_insurance_premiums: 0
-        weekly_hours_worked: 20
+        weekly_hours_worked_before_lsr: 20
       child1:
         age: 8
         is_tax_unit_head: false
@@ -893,7 +908,7 @@
         immigration_status_str: CITIZEN
         employment_income_before_lsr: 0
         rent: 0
-        weekly_hours_worked: 0
+        weekly_hours_worked_before_lsr: 0
         health_insurance_premiums: 0
       child2:
         age: 3
@@ -907,7 +922,7 @@
         immigration_status_str: CITIZEN
         employment_income_before_lsr: 0
         rent: 0
-        weekly_hours_worked: 0
+        weekly_hours_worked_before_lsr: 0
         health_insurance_premiums: 0
     households:
       household:
@@ -972,7 +987,7 @@
         is_incapable_of_self_care: false
         immigration_status_str: CITIZEN
         employment_income_before_lsr: 36000
-        weekly_hours_worked: 40
+        weekly_hours_worked_before_lsr: 40
       spouse:
         age: 33
         is_tax_unit_head: false
@@ -984,7 +999,7 @@
         is_incapable_of_self_care: false
         immigration_status_str: CITIZEN
         employment_income_before_lsr: 12000
-        weekly_hours_worked: 20
+        weekly_hours_worked_before_lsr: 20
       child1:
         age: 8
         is_tax_unit_head: false
@@ -996,7 +1011,7 @@
         is_incapable_of_self_care: false
         immigration_status_str: CITIZEN
         employment_income_before_lsr: 0
-        weekly_hours_worked: 0
+        weekly_hours_worked_before_lsr: 0
       child2:
         age: 3
         is_tax_unit_head: false
@@ -1008,7 +1023,7 @@
         is_incapable_of_self_care: false
         immigration_status_str: CITIZEN
         employment_income_before_lsr: 0
-        weekly_hours_worked: 0
+        weekly_hours_worked_before_lsr: 0
     households:
       household:
         members: *id001
@@ -1069,7 +1084,7 @@
         immigration_status_str: CITIZEN
         employment_income_before_lsr: 36000
         rent: 18000
-        weekly_hours_worked: 40
+        weekly_hours_worked_before_lsr: 40
       spouse:
         age: 33
         is_tax_unit_head: false
@@ -1082,7 +1097,7 @@
         immigration_status_str: CITIZEN
         employment_income_before_lsr: 12000
         rent: 0
-        weekly_hours_worked: 20
+        weekly_hours_worked_before_lsr: 20
       child1:
         age: 8
         is_tax_unit_head: false
@@ -1095,7 +1110,7 @@
         immigration_status_str: CITIZEN
         employment_income_before_lsr: 0
         rent: 0
-        weekly_hours_worked: 0
+        weekly_hours_worked_before_lsr: 0
       child2:
         age: 3
         is_tax_unit_head: false
@@ -1108,7 +1123,7 @@
         immigration_status_str: CITIZEN
         employment_income_before_lsr: 0
         rent: 0
-        weekly_hours_worked: 0
+        weekly_hours_worked_before_lsr: 0
     households:
       household:
         members: *id001
@@ -1165,7 +1180,7 @@
         immigration_status_str: CITIZEN
         employment_income_before_lsr: 36000
         health_insurance_premiums: 0
-        weekly_hours_worked: 40
+        weekly_hours_worked_before_lsr: 40
       spouse:
         age: 33
         is_tax_unit_head: false
@@ -1178,7 +1193,7 @@
         immigration_status_str: CITIZEN
         employment_income_before_lsr: 12000
         health_insurance_premiums: 0
-        weekly_hours_worked: 20
+        weekly_hours_worked_before_lsr: 20
       child1:
         age: 8
         is_tax_unit_head: false
@@ -1190,7 +1205,7 @@
         is_incapable_of_self_care: false
         immigration_status_str: CITIZEN
         employment_income_before_lsr: 0
-        weekly_hours_worked: 0
+        weekly_hours_worked_before_lsr: 0
         health_insurance_premiums: 0
       child2:
         age: 3
@@ -1203,7 +1218,7 @@
         is_incapable_of_self_care: false
         immigration_status_str: CITIZEN
         employment_income_before_lsr: 0
-        weekly_hours_worked: 0
+        weekly_hours_worked_before_lsr: 0
         health_insurance_premiums: 0
     households:
       household:
@@ -1269,7 +1284,7 @@
         immigration_status_str: CITIZEN
         employment_income_before_lsr: 36000
         rent: 18000
-        weekly_hours_worked: 40
+        weekly_hours_worked_before_lsr: 40
       spouse:
         age: 33
         is_tax_unit_head: false
@@ -1282,7 +1297,7 @@
         immigration_status_str: CITIZEN
         employment_income_before_lsr: 12000
         rent: 0
-        weekly_hours_worked: 20
+        weekly_hours_worked_before_lsr: 20
       child1:
         age: 8
         is_tax_unit_head: false
@@ -1295,7 +1310,7 @@
         immigration_status_str: CITIZEN
         employment_income_before_lsr: 0
         rent: 0
-        weekly_hours_worked: 0
+        weekly_hours_worked_before_lsr: 0
       child2:
         age: 3
         is_tax_unit_head: false
@@ -1308,7 +1323,7 @@
         immigration_status_str: CITIZEN
         employment_income_before_lsr: 0
         rent: 0
-        weekly_hours_worked: 0
+        weekly_hours_worked_before_lsr: 0
     households:
       household:
         members: *id001
@@ -1371,7 +1386,7 @@
         is_incapable_of_self_care: false
         immigration_status_str: CITIZEN
         employment_income_before_lsr: 36000
-        weekly_hours_worked: 40
+        weekly_hours_worked_before_lsr: 40
       spouse:
         age: 33
         is_tax_unit_head: false
@@ -1386,7 +1401,7 @@
         is_incapable_of_self_care: false
         immigration_status_str: CITIZEN
         employment_income_before_lsr: 12000
-        weekly_hours_worked: 20
+        weekly_hours_worked_before_lsr: 20
       child1:
         age: 8
         is_tax_unit_head: false
@@ -1401,7 +1416,7 @@
         is_incapable_of_self_care: false
         immigration_status_str: CITIZEN
         employment_income_before_lsr: 0
-        weekly_hours_worked: 0
+        weekly_hours_worked_before_lsr: 0
       child2:
         age: 3
         is_tax_unit_head: false
@@ -1416,7 +1431,7 @@
         is_incapable_of_self_care: false
         immigration_status_str: CITIZEN
         employment_income_before_lsr: 0
-        weekly_hours_worked: 0
+        weekly_hours_worked_before_lsr: 0
     households:
       household:
         members: *id001
@@ -1475,7 +1490,7 @@
         is_incapable_of_self_care: false
         immigration_status_str: CITIZEN
         employment_income_before_lsr: 36000
-        weekly_hours_worked: 40
+        weekly_hours_worked_before_lsr: 40
       spouse:
         age: 33
         is_tax_unit_head: false
@@ -1487,7 +1502,7 @@
         is_incapable_of_self_care: false
         immigration_status_str: CITIZEN
         employment_income_before_lsr: 12000
-        weekly_hours_worked: 20
+        weekly_hours_worked_before_lsr: 20
       child1:
         age: 8
         is_tax_unit_head: false
@@ -1499,7 +1514,7 @@
         is_incapable_of_self_care: false
         immigration_status_str: CITIZEN
         employment_income_before_lsr: 0
-        weekly_hours_worked: 0
+        weekly_hours_worked_before_lsr: 0
       child2:
         age: 3
         is_tax_unit_head: false
@@ -1511,7 +1526,7 @@
         is_incapable_of_self_care: false
         immigration_status_str: CITIZEN
         employment_income_before_lsr: 0
-        weekly_hours_worked: 0
+        weekly_hours_worked_before_lsr: 0
     households:
       household:
         members: *id001
@@ -1571,7 +1586,7 @@
         immigration_status_str: CITIZEN
         employment_income_before_lsr: 36000
         rent: 18000
-        weekly_hours_worked: 40
+        weekly_hours_worked_before_lsr: 40
       spouse:
         age: 33
         is_tax_unit_head: false
@@ -1584,7 +1599,7 @@
         immigration_status_str: CITIZEN
         employment_income_before_lsr: 12000
         rent: 0
-        weekly_hours_worked: 20
+        weekly_hours_worked_before_lsr: 20
       child1:
         age: 8
         is_tax_unit_head: false
@@ -1597,7 +1612,7 @@
         immigration_status_str: CITIZEN
         employment_income_before_lsr: 0
         rent: 0
-        weekly_hours_worked: 0
+        weekly_hours_worked_before_lsr: 0
       child2:
         age: 3
         is_tax_unit_head: false
@@ -1610,7 +1625,7 @@
         immigration_status_str: CITIZEN
         employment_income_before_lsr: 0
         rent: 0
-        weekly_hours_worked: 0
+        weekly_hours_worked_before_lsr: 0
     households:
       household:
         members: *id001
@@ -1672,7 +1687,7 @@
         social_security: 0
         ssi: 0
         rent: 18000
-        weekly_hours_worked: 40
+        weekly_hours_worked_before_lsr: 40
       spouse:
         age: 33
         is_tax_unit_head: false
@@ -1687,7 +1702,7 @@
         social_security: 0
         ssi: 0
         rent: 0
-        weekly_hours_worked: 20
+        weekly_hours_worked_before_lsr: 20
       child1:
         age: 8
         is_tax_unit_head: false
@@ -1701,7 +1716,7 @@
         employment_income_before_lsr: 0
         ssi: 0
         rent: 0
-        weekly_hours_worked: 0
+        weekly_hours_worked_before_lsr: 0
       child2:
         age: 3
         is_tax_unit_head: false
@@ -1715,7 +1730,7 @@
         employment_income_before_lsr: 0
         ssi: 0
         rent: 0
-        weekly_hours_worked: 0
+        weekly_hours_worked_before_lsr: 0
     households:
       household:
         members: *id001

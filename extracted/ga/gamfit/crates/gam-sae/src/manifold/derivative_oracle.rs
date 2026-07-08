@@ -1,197 +1,5 @@
 use super::{ArrowFactorCache, arrow_factor_max_pivot, arrow_factor_min_pivot};
-use std::ops::{Add, Div, Mul, Neg, Sub};
-
-#[derive(Clone, Copy, Debug, PartialEq)]
-pub struct Dual {
-    pub value: f64,
-    pub derivative: f64,
-}
-
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum DualKinkOp {
-    Abs,
-    Max,
-}
-
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-pub enum DualKinkBranch {
-    Left,
-    Right,
-}
-
-#[derive(Clone, Copy, Debug, PartialEq)]
-pub struct DualKinkBranchRecord {
-    pub op: DualKinkOp,
-    pub branch: DualKinkBranch,
-    pub at_kink: bool,
-    pub left_value: f64,
-    pub right_value: f64,
-}
-
-impl Dual {
-    pub fn constant(value: f64) -> Self {
-        Self {
-            value,
-            derivative: 0.0,
-        }
-    }
-
-    pub fn with_derivative(value: f64, derivative: f64) -> Self {
-        Self { value, derivative }
-    }
-
-    pub fn ln(self) -> Self {
-        Self {
-            value: self.value.ln(),
-            derivative: self.derivative / self.value,
-        }
-    }
-
-    pub fn sqrt(self) -> Self {
-        let root = self.value.sqrt();
-        Self {
-            value: root,
-            derivative: self.derivative / (2.0 * root),
-        }
-    }
-
-    pub fn recip(self) -> Self {
-        Self {
-            value: self.value.recip(),
-            derivative: -self.derivative / (self.value * self.value),
-        }
-    }
-
-    pub fn abs(self, certificate: &mut BranchCertificate) -> Self {
-        self.select_max_branch(-self, DualKinkOp::Abs, certificate)
-    }
-
-    pub fn max(self, rhs: Self, certificate: &mut BranchCertificate) -> Self {
-        self.select_max_branch(rhs, DualKinkOp::Max, certificate)
-    }
-
-    fn select_max_branch(
-        self,
-        rhs: Self,
-        op: DualKinkOp,
-        certificate: &mut BranchCertificate,
-    ) -> Self {
-        let at_kink = self.value == rhs.value;
-        let branch = if self.value >= rhs.value {
-            DualKinkBranch::Left
-        } else {
-            DualKinkBranch::Right
-        };
-        certificate.record_kink_branch(DualKinkBranchRecord {
-            op,
-            branch,
-            at_kink,
-            left_value: self.value,
-            right_value: rhs.value,
-        });
-        if branch == DualKinkBranch::Left {
-            self
-        } else {
-            rhs
-        }
-    }
-}
-
-impl Add for Dual {
-    type Output = Self;
-
-    fn add(self, rhs: Self) -> Self::Output {
-        Self {
-            value: self.value + rhs.value,
-            derivative: self.derivative + rhs.derivative,
-        }
-    }
-}
-
-impl Add<f64> for Dual {
-    type Output = Self;
-
-    fn add(self, rhs: f64) -> Self::Output {
-        Self {
-            value: self.value + rhs,
-            derivative: self.derivative,
-        }
-    }
-}
-
-impl Sub for Dual {
-    type Output = Self;
-
-    fn sub(self, rhs: Self) -> Self::Output {
-        Self {
-            value: self.value - rhs.value,
-            derivative: self.derivative - rhs.derivative,
-        }
-    }
-}
-
-impl Sub<f64> for Dual {
-    type Output = Self;
-
-    fn sub(self, rhs: f64) -> Self::Output {
-        Self {
-            value: self.value - rhs,
-            derivative: self.derivative,
-        }
-    }
-}
-
-impl Mul for Dual {
-    type Output = Self;
-
-    fn mul(self, rhs: Self) -> Self::Output {
-        Self {
-            value: self.value * rhs.value,
-            derivative: self.derivative.mul_add(rhs.value, self.value * rhs.derivative),
-        }
-    }
-}
-
-impl Mul<f64> for Dual {
-    type Output = Self;
-
-    fn mul(self, rhs: f64) -> Self::Output {
-        Self {
-            value: self.value * rhs,
-            derivative: self.derivative * rhs,
-        }
-    }
-}
-
-impl Div for Dual {
-    type Output = Self;
-
-    fn div(self, rhs: Self) -> Self::Output {
-        self * rhs.recip()
-    }
-}
-
-impl Div<f64> for Dual {
-    type Output = Self;
-
-    fn div(self, rhs: f64) -> Self::Output {
-        Self {
-            value: self.value / rhs,
-            derivative: self.derivative / rhs,
-        }
-    }
-}
-
-impl Neg for Dual {
-    type Output = Self;
-
-    fn neg(self) -> Self::Output {
-        Self {
-            value: -self.value,
-            derivative: -self.derivative,
-        }
-    }
-}
+use super::dual::{Dual, DualKinkBranchRecord};
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum MajorizerAnchorMode {
@@ -360,10 +168,10 @@ impl BranchCertificate {
     }
 
     /// Route derivatives through individual eigenpairs only when the spectral
-    /// separation is resolved above eigensolver round-off. At degeneracy the
-    /// smooth object is the invariant-subspace block, with derivatives given by
-    /// the block Daleckii-Krein/Sylvester form; individual eigenpairs have a
-    /// genuine kink and must not be reported as a scalar forward-mode result.
+    /// separation is resolved above eigensolver round-off. At degeneracy this
+    /// module records an unresolved invariant-subspace block and refuses scalar
+    /// derivative reporting. It does not implement the confluent
+    /// Daleckii-Krein/Sylvester block derivative.
     pub fn eigen_derivative_route(&self) -> EigenDerivativeRoute {
         if self.min_eigen_gap.is_finite() && self.min_eigen_gap < self.eigen_gap_threshold {
             EigenDerivativeRoute::InvariantSubspaceBlock
@@ -376,6 +184,7 @@ impl BranchCertificate {
         match self.eigen_derivative_route() {
             EigenDerivativeRoute::IndividualEigenpairs => Ok(()),
             EigenDerivativeRoute::InvariantSubspaceBlock => Err(BranchCertificateMismatch {
+                refusal: BranchCertificateRefusal::UnresolvedInvariantSubspaceBlock,
                 changed_fields: vec!["min_eigen_gap".to_string()],
                 baseline: self.clone(),
                 probe: self.clone(),
@@ -432,8 +241,10 @@ impl BranchCertificate {
         }
         let baseline_eigen_route = self.eigen_derivative_route();
         let probe_eigen_route = probe.eigen_derivative_route();
-        if baseline_eigen_route == EigenDerivativeRoute::InvariantSubspaceBlock
-            || probe_eigen_route == EigenDerivativeRoute::InvariantSubspaceBlock
+        let unresolved_invariant_subspace =
+            baseline_eigen_route == EigenDerivativeRoute::InvariantSubspaceBlock
+                || probe_eigen_route == EigenDerivativeRoute::InvariantSubspaceBlock;
+        if unresolved_invariant_subspace
             || baseline_eigen_route != probe_eigen_route
             || self.min_eigen_gap != probe.min_eigen_gap
             || self.eigen_gap_threshold != probe.eigen_gap_threshold
@@ -448,6 +259,11 @@ impl BranchCertificate {
             Ok(())
         } else {
             Err(BranchCertificateMismatch {
+                refusal: if unresolved_invariant_subspace {
+                    BranchCertificateRefusal::UnresolvedInvariantSubspaceBlock
+                } else {
+                    BranchCertificateRefusal::BranchChanged
+                },
                 changed_fields,
                 baseline: self.clone(),
                 probe: probe.clone(),
@@ -456,8 +272,15 @@ impl BranchCertificate {
     }
 }
 
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum BranchCertificateRefusal {
+    BranchChanged,
+    UnresolvedInvariantSubspaceBlock,
+}
+
 #[derive(Clone, Debug)]
 pub struct BranchCertificateMismatch {
+    pub refusal: BranchCertificateRefusal,
     pub changed_fields: Vec<String>,
     pub baseline: BranchCertificate,
     pub probe: BranchCertificate,
@@ -465,11 +288,19 @@ pub struct BranchCertificateMismatch {
 
 impl std::fmt::Display for BranchCertificateMismatch {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(
-            f,
-            "derivative oracle branch changed in fields {:?}",
-            self.changed_fields
-        )
+        match self.refusal {
+            BranchCertificateRefusal::BranchChanged => write!(
+                f,
+                "derivative oracle branch changed in fields {:?}",
+                self.changed_fields
+            ),
+            BranchCertificateRefusal::UnresolvedInvariantSubspaceBlock => write!(
+                f,
+                "derivative oracle refuses unresolved invariant-subspace eigen branch: \
+                 min_eigen_gap={} threshold={} fields {:?}",
+                self.probe.min_eigen_gap, self.probe.eigen_gap_threshold, self.changed_fields
+            ),
+        }
     }
 }
 
@@ -543,10 +374,10 @@ pub fn dual_spd_logdet(matrix: &[Vec<Dual>]) -> Result<Dual, String> {
                 sum = sum - lower[row][inner] * lower[col][inner];
             }
             if row == col {
-                if !(sum.value.is_finite() && sum.value > 0.0) {
+                if !(sum.re.is_finite() && sum.re > 0.0) {
                     return Err(format!(
                         "dual_spd_logdet: non-positive branch pivot at row {row}: {}",
-                        sum.value
+                        sum.re
                     ));
                 }
                 lower[row][col] = sum.sqrt();
@@ -559,10 +390,10 @@ pub fn dual_spd_logdet(matrix: &[Vec<Dual>]) -> Result<Dual, String> {
     let mut logdet = Dual::constant(0.0);
     for (idx, row) in lower.iter().enumerate() {
         let diag = row[idx];
-        if !(diag.value.is_finite() && diag.value > 0.0) {
+        if !(diag.re.is_finite() && diag.re > 0.0) {
             return Err(format!(
                 "dual_spd_logdet: non-positive Cholesky diagonal at row {idx}: {}",
-                diag.value
+                diag.re
             ));
         }
         logdet = logdet + diag.ln() * 2.0;
@@ -578,8 +409,8 @@ pub fn exact_logdet_channel(
     let dual = dual_spd_logdet(matrix)?;
     Ok(ExactTraceChannel {
         channel,
-        value: dual.value,
-        derivative: dual.derivative,
+        value: dual.re,
+        derivative: dual.eps,
         certificate,
     })
 }
@@ -618,6 +449,7 @@ mod tests {
         let err = baseline
             .assert_same_branch(&probe)
             .expect_err("reanchored majorizer differentiates a different object");
+        assert_eq!(err.refusal, BranchCertificateRefusal::BranchChanged);
         assert_eq!(err.changed_fields, vec!["majorizer_anchor".to_string()]);
     }
 
@@ -654,7 +486,46 @@ mod tests {
         };
         let err = guarded_exact_trace_report(cert, vec![channel])
             .expect_err("individual eigenpair derivative must be refused at a crossing");
+        assert_eq!(
+            err.refusal,
+            BranchCertificateRefusal::UnresolvedInvariantSubspaceBlock
+        );
         assert!(err.changed_fields.iter().any(|field| field == "min_eigen_gap"));
+    }
+
+    #[test]
+    fn eigen_gap_threshold_is_the_exact_refusal_boundary() {
+        // A gap one machine epsilon wide sits below the round-off threshold and
+        // must refuse rather than leak a scalar eigenvalue derivative, while a
+        // gap several epsilons wide resolves and keeps the individual route.
+        // This pins the threshold as the decision boundary so no wrong
+        // derivative slips through in the near-degenerate regime.
+        let just_below = eigen_gap_certificate(&[1.0, 1.0 + f64::EPSILON]);
+        assert!(just_below.min_eigen_gap < just_below.threshold);
+        let refused = certificate(MajorizerAnchorMode::FrozenAnchor).with_eigen_gap(just_below);
+        assert_eq!(
+            refused.eigen_derivative_route(),
+            EigenDerivativeRoute::InvariantSubspaceBlock
+        );
+        let err = refused
+            .assert_derivative_reportable()
+            .expect_err("gap below round-off must refuse a scalar derivative");
+        assert_eq!(
+            err.refusal,
+            BranchCertificateRefusal::UnresolvedInvariantSubspaceBlock
+        );
+        assert!(err.changed_fields.iter().any(|field| field == "min_eigen_gap"));
+
+        let just_above = eigen_gap_certificate(&[1.0, 1.0 + 16.0 * f64::EPSILON]);
+        assert!(just_above.min_eigen_gap > just_above.threshold);
+        let resolved = certificate(MajorizerAnchorMode::FrozenAnchor).with_eigen_gap(just_above);
+        assert_eq!(
+            resolved.eigen_derivative_route(),
+            EigenDerivativeRoute::IndividualEigenpairs
+        );
+        resolved
+            .assert_derivative_reportable()
+            .expect("gap above round-off resolves to the individual eigenpair route");
     }
 
     #[test]
@@ -676,32 +547,11 @@ mod tests {
         let err = cert
             .assert_same_branch(&cert)
             .expect_err("same degenerate eigenpair branch still has no scalar derivative");
+        assert_eq!(
+            err.refusal,
+            BranchCertificateRefusal::UnresolvedInvariantSubspaceBlock
+        );
         assert!(err.changed_fields.iter().any(|field| field == "min_eigen_gap"));
-    }
-
-    #[test]
-    fn dual_max_records_tie_subgradient_branch_in_certificate() {
-        let mut cert = certificate(MajorizerAnchorMode::FrozenAnchor);
-        let left = Dual::with_derivative(1.0, 2.0);
-        let right = Dual::with_derivative(1.0, -3.0);
-        let chosen = left.max(right, &mut cert);
-        assert_eq!(chosen, left);
-        assert_eq!(cert.kink_branches.len(), 1);
-        assert_eq!(cert.kink_branches[0].op, DualKinkOp::Max);
-        assert_eq!(cert.kink_branches[0].branch, DualKinkBranch::Left);
-        assert!(cert.kink_branches[0].at_kink);
-    }
-
-    #[test]
-    fn dual_abs_records_zero_subgradient_sign_in_certificate() {
-        let mut cert = certificate(MajorizerAnchorMode::FrozenAnchor);
-        let dual = Dual::with_derivative(0.0, 7.0);
-        let chosen = dual.abs(&mut cert);
-        assert_eq!(chosen.derivative, 7.0);
-        assert_eq!(cert.kink_branches.len(), 1);
-        assert_eq!(cert.kink_branches[0].op, DualKinkOp::Abs);
-        assert_eq!(cert.kink_branches[0].branch, DualKinkBranch::Left);
-        assert!(cert.kink_branches[0].at_kink);
     }
 
     #[test]
@@ -757,7 +607,7 @@ mod tests {
         );
         assert!(
             beta_exact.is_finite() && report.total_derivative.is_finite(),
-            "dual oracle reports exact finite per-channel derivatives"
+            "dual SPD Cholesky logdet reports exact finite per-channel derivatives"
         );
     }
 }

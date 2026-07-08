@@ -87,6 +87,10 @@ class CredentialConfig(BaseModel):
     id: StrictStr = Field(
         description="The ID of the authentication schema. Must be unique within one app - no two credentials should share the same ID."
     )
+    name: str = Field(
+        default="",
+        description="The user friendly name of this credential, when supplied it is used instead of the x-credential-type extension to display the name.",
+    )
     type: AuthModel = Field(description="The authentication type, simplified identificator.")
     description: StrictStr = Field(
         description="The markdown description of the authentication. Used primarily for instructions provided to customers."

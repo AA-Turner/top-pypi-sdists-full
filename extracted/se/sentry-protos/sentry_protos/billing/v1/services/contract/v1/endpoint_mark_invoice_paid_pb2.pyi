@@ -6,6 +6,7 @@ isort:skip_file
 import builtins
 import google.protobuf.descriptor
 import google.protobuf.message
+import sentry_protos.billing.v1.services.contract.v1.invoice_pb2
 import typing
 
 DESCRIPTOR: google.protobuf.descriptor.FileDescriptor
@@ -34,13 +35,21 @@ class MarkInvoicePaidResponse(google.protobuf.message.Message):
     DESCRIPTOR: google.protobuf.descriptor.Descriptor
 
     UPDATED_FIELD_NUMBER: builtins.int
+    INVOICE_FIELD_NUMBER: builtins.int
     updated: builtins.bool
     """True if a matching invoice was found and updated."""
+    @property
+    def invoice(self) -> sentry_protos.billing.v1.services.contract.v1.invoice_pb2.Invoice:
+        """The updated invoice; unset when updated is false."""
+
     def __init__(
         self,
         *,
         updated: builtins.bool = ...,
+        invoice: sentry_protos.billing.v1.services.contract.v1.invoice_pb2.Invoice | None = ...,
     ) -> None: ...
-    def ClearField(self, field_name: typing.Literal["updated", b"updated"]) -> None: ...
+    def HasField(self, field_name: typing.Literal["_invoice", b"_invoice", "invoice", b"invoice"]) -> builtins.bool: ...
+    def ClearField(self, field_name: typing.Literal["_invoice", b"_invoice", "invoice", b"invoice", "updated", b"updated"]) -> None: ...
+    def WhichOneof(self, oneof_group: typing.Literal["_invoice", b"_invoice"]) -> typing.Literal["invoice"] | None: ...
 
 global___MarkInvoicePaidResponse = MarkInvoicePaidResponse

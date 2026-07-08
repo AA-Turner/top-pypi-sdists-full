@@ -104,3 +104,26 @@
         members: [head, person]
   output:
     is_hud_dependent: [false, false]
+
+- name: Without a designated household head, the oldest member is treated as the family head.
+  period: 2022
+  input:
+    people:
+      older:
+        age: 45
+        is_disabled: true
+      younger:
+        age: 40
+        is_disabled: true
+    tax_units:
+      tax_unit1:
+        members: [older]
+      tax_unit2:
+        members: [younger]
+    spm_units:
+      spm_unit:
+        members: [older, younger]
+  output:
+    # Both are disabled adults filing separately; only the oldest is
+    # excluded as the family head, so the younger one is a dependent.
+    is_hud_dependent: [false, true]

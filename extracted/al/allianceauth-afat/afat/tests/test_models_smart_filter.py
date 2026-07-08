@@ -7,11 +7,11 @@ from datetime import datetime, timedelta, timezone
 from unittest.mock import MagicMock, patch
 
 # Django
-from django.contrib.auth.models import User
+from django.contrib.auth.models import User as BaseAuthUser
 from django.db.models.signals import pre_save
 
 # Alliance Auth
-from allianceauth.authentication.models import CharacterOwnership
+from allianceauth.authentication.models import CharacterOwnership, User
 from allianceauth.authentication.signals import assign_state_on_active_change
 
 # Alliance Auth AFAT
@@ -206,14 +206,17 @@ class TestFatsInTimeFilter(BaseTestCase):
         mock_queryset.values_list.return_value = []
         mock_fat_filter.return_value = mock_queryset
 
-        # Disconnect the signal to avoid triggering it during user creation
-        pre_save.disconnect(assign_state_on_active_change, sender=User)
+        # Disconnect the core signal (registered on the base auth User) to avoid
+        # triggering it during user creation. Use BaseAuthUser (django's
+        # built-in User) as the sender because the core receiver was
+        # registered against that class.
+        pre_save.disconnect(assign_state_on_active_change, sender=BaseAuthUser)
 
         user1 = User.objects.create(pk=1, username="user1")
         user2 = User.objects.create(pk=2, username="user2")
 
         # Reconnect the signal after user creation
-        pre_save.connect(assign_state_on_active_change, sender=User)
+        pre_save.connect(assign_state_on_active_change, sender=BaseAuthUser)
 
         users = [user1, user2]
         filter_instance = FatsInTimeFilter(days=30, fats_needed=2)

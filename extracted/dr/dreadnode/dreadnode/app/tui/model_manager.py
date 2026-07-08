@@ -51,6 +51,8 @@ class ModelCatalogContext(t.Protocol):
 
     def current_org(self) -> str | None: ...
 
+    def model_was_explicitly_selected(self) -> bool: ...
+
 
 class ModelUiHost(t.Protocol):
     def model_browser_open(self) -> bool: ...
@@ -84,6 +86,21 @@ class BackgroundRunner(t.Protocol):
     def run_exclusive(self, coro: t.Awaitable[t.Any], *, group: str) -> None: ...
 
 
+def parse_model_order(value: t.Any) -> int | None:
+    """Parse a model's display-order hint, mirroring the model browser's sort."""
+    if isinstance(value, bool):
+        return None
+    if isinstance(value, int) and value >= 1:
+        return value
+    if isinstance(value, str) and value.strip():
+        try:
+            parsed = int(value)
+        except ValueError:
+            return None
+        return parsed if parsed >= 1 else None
+    return None
+
+
 class ModelNotifier(t.Protocol):
     def flash_info(self, message: str) -> None: ...
 
@@ -94,6 +111,8 @@ class ModelSelectionActions(t.Protocol):
     def apply_model(self, model_id: str) -> None: ...
 
     def persist_default_model_choice(self, model_id: str) -> None: ...
+
+    def mark_model_explicitly_selected(self) -> None: ...
 
 
 class ModelManager:
@@ -149,6 +168,7 @@ class ModelManager:
         current_model = self._context.current_model()
         if not model_id or model_id == current_model:
             return
+        self._actions.mark_model_explicitly_selected()
         self._actions.apply_model(model_id)
         self._notifier.flash_info(f"Model: {model_id}")
 
@@ -220,8 +240,53 @@ class ModelManager:
         )
 
     def platform_model_ids(self) -> list[str]:
-        """Return enabled platform-hosted model IDs."""
-        return [model["id"] for model in self._state.platform_models if model.get("enabled", True)]
+        """Return enabled platform-hosted model IDs, ordered like the model browser.
+
+        Sorted by each model's ``order`` hint (unordered models sort last),
+        falling back to preference-list position — the same key
+        ``screens/models.py`` uses to pick the browser's featured/first entry.
+        """
+        enabled = [m for m in self._state.platform_models if m.get("enabled", True)]
+        keyed = [
+            (self.parse_model_order(m.get("order")), index, m) for index, m in enumerate(enabled)
+        ]
+        keyed.sort(key=lambda item: (item[0] is None, item[0] or 0, item[1]))
+        return [m["id"] for _order, _index, m in keyed]
+
+    @staticmethod
+    def parse_model_order(value: t.Any) -> int | None:
+        """Parse a model's display-order hint, mirroring the model browser's sort."""
+        return parse_model_order(value)
+
+    def apply_default_platform_model_if_unset(self) -> None:
+        """Default a fresh profile straight to a platform-hosted (dn/) model.
+
+        Without this, a brand-new profile sits on the hardcoded BYOK
+        fallback (``client.runtime_client.DEFAULT_MODEL``) until the user
+        manually picks something — which fails outright for anyone without
+        their own provider API key configured. Only fires when nothing has
+        already made an explicit choice: no persisted profile default, no
+        explicit ``--model`` flag or in-session pick this run (tracked via
+        ``model_was_explicitly_selected``), and the app is still sitting on
+        that hardcoded fallback.
+        """
+        profile = self._context.current_profile()
+        if profile is not None and profile.default_model:
+            return
+
+        if self._context.model_was_explicitly_selected():
+            return
+
+        from dreadnode.app.client.runtime_client import DEFAULT_MODEL
+
+        if self._context.current_model() != DEFAULT_MODEL:
+            return
+
+        allowed_model_ids = self.platform_model_ids()
+        if not allowed_model_ids:
+            return
+
+        self._apply_and_persist_fallback_model(allowed_model_ids[0])
 
     def apply_restricted_current_model_fallback(self) -> None:
         """Switch away from a stale platform model no longer allowed by the org."""
@@ -235,7 +300,10 @@ class ModelManager:
         if current_model in allowed_model_ids or not allowed_model_ids:
             return
 
-        fallback_model = allowed_model_ids[0]
+        self._apply_and_persist_fallback_model(allowed_model_ids[0])
+
+    def _apply_and_persist_fallback_model(self, fallback_model: str) -> None:
+        """Switch to `fallback_model` and persist it as the profile default."""
         self._actions.apply_model(fallback_model)
         self._actions.persist_default_model_choice(fallback_model)
 
@@ -739,6 +807,12 @@ class ModelManager:
         api_key = result.get("api_key") or result.get("key")
         if not (isinstance(base_url, str) and isinstance(api_key, str)):
             return
+
+        # Only default a fresh profile onto a platform model once we've
+        # confirmed the proxy key actually provisions — otherwise a
+        # zero-credit org or a transient LiteLLM outage would permanently
+        # persist a default the user can never actually use.
+        self.apply_default_platform_model_if_unset()
 
         # Validate cache freshness/integrity against current preferences
         # without replacing the preference-derived visible model list.

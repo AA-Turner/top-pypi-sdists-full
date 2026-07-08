@@ -26,6 +26,67 @@ from xml.etree import ElementTree
 _java_bin = None
 _java_options = []
 
+# Allowlist of safe JVM tuning flags for NLTK's Java wrapper.
+# Anything not matching is rejected to prevent argument injection
+# (CVE-2026-12841, CWE-88).  An allowlist is used rather than a
+# denylist so that -jar, @argfile, and future dangerous flags are
+# blocked without needing to be enumerated explicitly.
+_SAFE_JVM_PREFIXES = (
+    "-xmx",  # max heap size:   -Xmx512m
+    "-mx",  # max heap (legacy alias of -Xmx, used by Stanford/CoreNLP): -mx2g
+    "-xms",  # initial heap:    -Xms128m
+    "-ms",  # initial heap (legacy alias of -Xms): -ms128m
+    "-xss",  # thread stack:    -Xss4m
+    "-ss",  # thread stack (legacy alias of -Xss): -ss4m
+    "-xbatch",  # disable bg JIT
+    "-xint",  # interpret-only mode
+    "-xcomp",  # compile-only mode
+    "-xmixed",  # mixed mode (JVM default)
+    "-verbose",  # diagnostic output: -verbose:gc
+    "-xx:",  # advanced tuning:  -XX:+UseG1GC
+)
+
+_SAFE_JVM_EXACT = frozenset({"-server", "-client"})
+
+
+def _validate_java_options(options):
+    """
+    Raise ValueError if *options* contains JVM flags that can change
+    the executed program, load agents, or expand argument files.
+
+    Uses an allowlist of safe JVM memory/tuning flags that NLTK's Java
+    wrapper is known to need.  This is intentionally stricter than a
+    denylist so that -jar, @argfile, and future dangerous flags are
+    rejected without needing to be enumerated (CVE-2026-12841, CWE-88).
+    """
+    for flag in options:
+        n = flag.lower()
+
+        # @argfile references are expanded by the Java launcher before
+        # any other argument processing and can smuggle blocked flags.
+        if n.startswith("@"):
+            raise ValueError(
+                f"java_options contains a disallowed Java argument file "
+                f"reference: {flag!r} (CVE-2026-12841, CWE-88)."
+            )
+
+        # Allow -Dkey=value system properties. The prefix is always
+        # uppercase -D in valid usage; check the original flag.
+        if flag.startswith("-D") and "=" in flag:
+            continue
+
+        if n in _SAFE_JVM_EXACT:
+            continue
+
+        if n.startswith(_SAFE_JVM_PREFIXES):
+            continue
+
+        raise ValueError(
+            f"java_options contains a disallowed JVM/launcher flag: {flag!r}. "
+            "Only JVM memory-tuning and safe runtime flags are permitted "
+            "(CVE-2026-12841, CWE-88)."
+        )
+
 
 # [xx] add classpath option to config_java?
 def config_java(bin=None, options=None, verbose=False):
@@ -57,10 +118,21 @@ def config_java(bin=None, options=None, verbose=False):
     if options is not None:
         if isinstance(options, str):
             options = options.split()
-        _java_options = list(options)
+        options = list(options)
+        _validate_java_options(options)
+        _java_options[:] = options
 
 
-def java(cmd, classpath=None, stdin=None, stdout=None, stderr=None, blocking=True):
+def java(
+    cmd,
+    classpath=None,
+    stdin=None,
+    stdout=None,
+    stderr=None,
+    blocking=True,
+    *,
+    options=None,
+):
     """
     Execute the given java command, by opening a subprocess that calls
     Java.  If java has not yet been configured, it will be configured
@@ -97,6 +169,8 @@ def java(cmd, classpath=None, stdin=None, stdout=None, stderr=None, blocking=Tru
     :param blocking: If ``false``, then return immediately after
         spawning the subprocess.  In this case, the return value is
         the ``Popen`` object, and not a ``(stdout, stderr)`` tuple.
+    :param options: Java options to use for this subprocess call. If not
+        specified, use the global options configured by ``config_java()``.
 
     :return: If ``blocking=True``, then return a tuple ``(stdout,
         stderr)``, containing the stdout and stderr outputs generated
@@ -134,13 +208,19 @@ def java(cmd, classpath=None, stdin=None, stdout=None, stderr=None, blocking=Tru
     # Construct the full command string.
     cmd = list(cmd)
     cmd = ["-cp", classpath] + cmd
-    cmd = [_java_bin] + _java_options + cmd
+    if options is None:
+        java_options = _java_options
+    else:
+        if isinstance(options, str):
+            options = options.split()
+        java_options = list(options)
+    cmd = [_java_bin] + java_options + cmd
 
     # Call java via a subprocess
     p = subprocess.Popen(cmd, stdin=stdin, stdout=stdout, stderr=stderr)
     if not blocking:
         return p
-    (stdout, stderr) = p.communicate()
+    stdout, stderr = p.communicate()
 
     # Check the return code.
     if p.returncode != 0:
@@ -660,9 +740,37 @@ def find_binary_iter(
     :param url: URL presented to user for download help.
     :param verbose: Whether or not to print path when a file is found.
     """
-    yield from find_file_iter(
+    # Searching by a *bare* tool name (no explicit ``path_to_bin`` and no
+    # directory component in ``name``) is the insecure case: ``find_file_iter``
+    # probes the current working directory for ``<name>/<name>`` and the bare
+    # name before the configured ``env_vars`` / ``searchpath``, so a planted
+    # ``./<name>/...`` could be returned and -- because it contains a separator
+    # -- run relative to the CWD rather than looked up on PATH: arbitrary code
+    # execution (CWE-426 / CWE-427). Only in that case do we refuse CWD-relative
+    # matches and accept solely a trusted absolute location (env var / searchpath
+    # / ``which``). An explicit path supplied via ``path_to_bin`` or via ``name``
+    # itself (e.g. ``tools/prover9``) is the caller's own choice and is honored
+    # as before. ``not path_to_bin`` (rather than ``is None``) so an empty-string
+    # path_to_bin -- which ``path_to_bin or name`` already falls back to ``name``
+    # for -- cannot bypass the check.
+    searching_bare_name = not path_to_bin and os.path.dirname(name) == ""
+    safe_match = False
+    for path in find_file_iter(
         path_to_bin or name, env_vars, searchpath, binary_names, url, verbose
-    )
+    ):
+        if searching_bare_name and not os.path.isabs(path):
+            continue
+        safe_match = True
+        yield path
+    if searching_bare_name and not safe_match:
+        # ``find_file_iter`` itself raises ``LookupError`` when nothing matches,
+        # so reaching here means it found only untrusted CWD-relative
+        # executables, which were rejected above.
+        raise LookupError(
+            f"NLTK found {name!r} only in the current working directory, which "
+            "is not a trusted location for executables. Install it on PATH or in "
+            "a configured location, or pass an explicit path_to_bin."
+        )
 
 
 def find_binary(

@@ -1,4 +1,16 @@
-- name: snap_income_just_below_binding_gross_limit_54640 (ca)
+# California (CalFresh) cases that differ from the federal.yaml (TX) baseline
+# for state-policy reasons:
+# - CA applies the BBCE NET income test (net_applies CA = true), so the binding
+#   eligibility boundary is net income at 100% of the poverty guideline, not
+#   the 200% BBCE gross limit.
+# - CA is an always-SUA state (SUA $663 in FY2026, applied without utility
+#   expense inputs).
+# - CA extends CalFresh to additional immigration statuses (CFAP) and delays
+#   the OBBB refugee exclusion to 2026-04-01 (ACL 25-92).
+# SNAP compares income to the poverty guideline in effect at the preceding
+# Oct 1: Jan-Sep 2026 use the 2025 FPG (3-person $26,650, i.e. a monthly net
+# limit of $2,220.83); Oct-Dec 2026 use the 2026 FPG ($27,320 -> $2,276.67).
+- name: snap_ca_net_income_just_below_fy2026_net_limit (ca)
   period: 2026
   absolute_error_margin: 0.1
   input:
@@ -10,7 +22,7 @@
         is_tax_unit_dependent: false
         is_disabled: false
         immigration_status_str: CITIZEN
-        employment_income_before_lsr: 54540
+        employment_income_before_lsr: 36_000
       spouse:
         age: 33
         is_tax_unit_head: false
@@ -33,7 +45,7 @@
         - head
         - spouse
         - child1
-        state_code_str: CA
+        state_code: CA
         zip_code: '90001'
         county_str: LOS_ANGELES_COUNTY_CA
     spm_units:
@@ -58,9 +70,16 @@
   output:
     spm_units:
       spm_unit:
-        snap: 0.0
-        is_snap_eligible: false
-- name: snap_income_at_binding_gross_limit_54640 (ca)
+        # Gross ratio 36,000/26,650 = 1.35 fails the federal 130% test, but CA
+        # BBCE (200% gross + net test) rescues: net = 36,000/12 x 0.8 - 209 =
+        # 2,191.00 (SUA 663 < half of pre-shelter net, so no shelter deduction)
+        # <= 2,220.83 Jan-Sep limit -> eligible all year. EC = floor(2,191) x
+        # 0.3 = 657.30 -> 785 - 657.30 = 127.70/month Jan-Sep; Oct-Dec: net
+        # 2,186.32 -> EC 655.80 -> 802.60 - 655.80 = 146.80.
+        # Annual = 9 x 127.70 + 3 x 146.80 = 1,589.70.
+        snap: 1_589.69
+        is_snap_eligible: true
+- name: snap_ca_net_income_at_fy2026_net_limit_36447 (ca)
   period: 2026
   absolute_error_margin: 0.1
   input:
@@ -72,7 +91,7 @@
         is_tax_unit_dependent: false
         is_disabled: false
         immigration_status_str: CITIZEN
-        employment_income_before_lsr: 54640
+        employment_income_before_lsr: 36_447
       spouse:
         age: 33
         is_tax_unit_head: false
@@ -95,7 +114,7 @@
         - head
         - spouse
         - child1
-        state_code_str: CA
+        state_code: CA
         zip_code: '90001'
         county_str: LOS_ANGELES_COUNTY_CA
     spm_units:
@@ -120,9 +139,14 @@
   output:
     spm_units:
       spm_unit:
-        snap: 0.0
-        is_snap_eligible: false
-- name: snap_income_just_above_binding_gross_limit_54640 (ca)
+        # At the binding CA net limit: net = 36,447/12 x 0.8 - 209 = 2,220.80,
+        # just under the Jan-Sep limit of 26,650/12 = 2,220.83 -> eligible.
+        # EC = floor(2,220) x 0.3 = 666.00 -> 785 - 666.00 = 119.00/month
+        # Jan-Sep; Oct-Dec: net 2,216.12 -> EC 664.80 -> 802.60 - 664.80 =
+        # 137.80. Annual = 9 x 119.00 + 3 x 137.80 = 1,484.40.
+        snap: 1_484.39
+        is_snap_eligible: true
+- name: snap_ca_net_income_above_net_limit_all_year_38000 (ca)
   period: 2026
   absolute_error_margin: 0.1
   input:
@@ -134,7 +158,7 @@
         is_tax_unit_dependent: false
         is_disabled: false
         immigration_status_str: CITIZEN
-        employment_income_before_lsr: 54740
+        employment_income_before_lsr: 38_000
       spouse:
         age: 33
         is_tax_unit_head: false
@@ -157,7 +181,7 @@
         - head
         - spouse
         - child1
-        state_code_str: CA
+        state_code: CA
         zip_code: '90001'
         county_str: LOS_ANGELES_COUNTY_CA
     spm_units:
@@ -182,21 +206,27 @@
   output:
     spm_units:
       spm_unit:
+        # Deliberate ineligible-side pin of CA's net-test route: net =
+        # 38,000/12 x 0.8 - 209 = 2,324.33 exceeds the net limit in every
+        # month (Jan-Sep 2,220.83; Oct-Dec: 2,319.65 > 2,276.67), and the
+        # federal 130% gross test also fails (ratio 1.43), so the unit is
+        # ineligible all year. In a no-net-test 200% state this income would
+        # be eligible.
         snap: 0.0
         is_snap_eligible: false
-- name: snap_head_age_59_assets_4000_not_elderly (ca)
+- name: snap_ca_head_immigration_refugee_cfap_transition (ca)
   period: 2026
   absolute_error_margin: 0.1
   input:
     people:
       head:
-        age: 59
+        age: 35
         is_tax_unit_head: true
         is_tax_unit_spouse: false
         is_tax_unit_dependent: false
         is_disabled: false
-        immigration_status_str: CITIZEN
-        employment_income_before_lsr: 20000
+        immigration_status_str: REFUGEE
+        employment_income_before_lsr: 20_000
       spouse:
         age: 33
         is_tax_unit_head: false
@@ -219,16 +249,13 @@
         - head
         - spouse
         - child1
-        state_code_str: CA
+        state_code: CA
         zip_code: '90001'
         county_str: LOS_ANGELES_COUNTY_CA
     spm_units:
       spm_unit:
-        members:
-        - head
-        - spouse
-        - child1
-        snap_assets: 4000
+        members: *id004
+        snap_assets: 500
     tax_units:
       tax_unit:
         members: *id004
@@ -247,21 +274,29 @@
   output:
     spm_units:
       spm_unit:
-        snap: 3122.39
+        # CA delays the OBBB refugee exclusion to 2026-04-01 (ACL 25-92), and
+        # CalWORKs ($7,700/year here) counts as unearned income ($641.67/mo):
+        # Jan-Mar (refugee still in unit, size 3): net = 1,333.33 (earned after
+        # 20% deduction) + 641.67 - 209 = 1,766.00 -> EC = floor(1,766) x 0.3 =
+        # 529.50 -> 785 - 529.50 = 255.50/month. Apr-Sep (head excluded, size 2): 546 - 529.50
+        # = 16.50 < minimum allotment 23.84 -> 23.84/month. Oct-Dec: 558.24 -
+        # 528.30 = 29.94/month. Annual = 3 x 255.50 + 6 x 23.84 + 3 x 29.94 =
+        # 999.36.
+        snap: 999.36
         is_snap_eligible: true
-- name: snap_head_age_60_assets_4000_elderly (ca)
+- name: snap_ca_head_immigration_undocumented_calworks_interaction (ca)
   period: 2026
   absolute_error_margin: 0.1
   input:
     people:
       head:
-        age: 60
+        age: 35
         is_tax_unit_head: true
         is_tax_unit_spouse: false
         is_tax_unit_dependent: false
         is_disabled: false
-        immigration_status_str: CITIZEN
-        employment_income_before_lsr: 20000
+        immigration_status_str: UNDOCUMENTED
+        employment_income_before_lsr: 20_000
       spouse:
         age: 33
         is_tax_unit_head: false
@@ -284,16 +319,13 @@
         - head
         - spouse
         - child1
-        state_code_str: CA
+        state_code: CA
         zip_code: '90001'
         county_str: LOS_ANGELES_COUNTY_CA
     spm_units:
       spm_unit:
-        members:
-        - head
-        - spouse
-        - child1
-        snap_assets: 4000
+        members: *id005
+        snap_assets: 500
     tax_units:
       tax_unit:
         members: *id005
@@ -312,257 +344,11 @@
   output:
     spm_units:
       spm_unit:
-        snap: 3122.39
-        is_snap_eligible: true
-- name: snap_head_disabled_assets_4000 (ca)
-  period: 2026
-  absolute_error_margin: 0.1
-  input:
-    people:
-      head:
-        age: 35
-        is_tax_unit_head: true
-        is_tax_unit_spouse: false
-        is_tax_unit_dependent: false
-        is_disabled: true
-        is_usda_disabled: true
-        immigration_status_str: CITIZEN
-        employment_income_before_lsr: 20000
-      spouse:
-        age: 33
-        is_tax_unit_head: false
-        is_tax_unit_spouse: true
-        is_tax_unit_dependent: false
-        is_disabled: false
-        immigration_status_str: CITIZEN
-        employment_income_before_lsr: 0
-      child1:
-        age: 5
-        is_tax_unit_head: false
-        is_tax_unit_spouse: false
-        is_tax_unit_dependent: true
-        is_disabled: false
-        immigration_status_str: CITIZEN
-        employment_income_before_lsr: 0
-    households:
-      household:
-        members: &id006
-        - head
-        - spouse
-        - child1
-        state_code_str: CA
-        zip_code: '90001'
-        county_str: LOS_ANGELES_COUNTY_CA
-    spm_units:
-      spm_unit:
-        members:
-        - head
-        - spouse
-        - child1
-        snap_assets: 4000
-    tax_units:
-      tax_unit:
-        members: *id006
-        tax_unit_is_joint: true
-    families:
-      family:
-        members: *id006
-    marital_units:
-      mu_couple:
-        members:
-        - head
-        - spouse
-      mu_child1:
-        members:
-        - child1
-  output:
-    spm_units:
-      spm_unit:
-        snap: 3122.39
-        is_snap_eligible: true
-- name: snap_head_immigration_lpr (ca)
-  period: 2026
-  absolute_error_margin: 0.1
-  input:
-    people:
-      head:
-        age: 35
-        is_tax_unit_head: true
-        is_tax_unit_spouse: false
-        is_tax_unit_dependent: false
-        is_disabled: false
-        immigration_status_str: LEGAL_PERMANENT_RESIDENT
-        employment_income_before_lsr: 20000
-      spouse:
-        age: 33
-        is_tax_unit_head: false
-        is_tax_unit_spouse: true
-        is_tax_unit_dependent: false
-        is_disabled: false
-        immigration_status_str: CITIZEN
-        employment_income_before_lsr: 0
-      child1:
-        age: 5
-        is_tax_unit_head: false
-        is_tax_unit_spouse: false
-        is_tax_unit_dependent: true
-        is_disabled: false
-        immigration_status_str: CITIZEN
-        employment_income_before_lsr: 0
-    households:
-      household:
-        members: &id007
-        - head
-        - spouse
-        - child1
-        state_code_str: CA
-        zip_code: '90001'
-        county_str: LOS_ANGELES_COUNTY_CA
-    spm_units:
-      spm_unit:
-        members: *id007
-        snap_assets: 500
-    tax_units:
-      tax_unit:
-        members: *id007
-        tax_unit_is_joint: true
-    families:
-      family:
-        members: *id007
-    marital_units:
-      mu_couple:
-        members:
-        - head
-        - spouse
-      mu_child1:
-        members:
-        - child1
-  output:
-    spm_units:
-      spm_unit:
-        snap: 3122.39
-        is_snap_eligible: true
-- name: snap_head_immigration_refugee (ca)
-  period: 2026
-  absolute_error_margin: 0.1
-  input:
-    people:
-      head:
-        age: 35
-        is_tax_unit_head: true
-        is_tax_unit_spouse: false
-        is_tax_unit_dependent: false
-        is_disabled: false
-        immigration_status_str: REFUGEE
-        employment_income_before_lsr: 20000
-      spouse:
-        age: 33
-        is_tax_unit_head: false
-        is_tax_unit_spouse: true
-        is_tax_unit_dependent: false
-        is_disabled: false
-        immigration_status_str: CITIZEN
-        employment_income_before_lsr: 0
-      child1:
-        age: 5
-        is_tax_unit_head: false
-        is_tax_unit_spouse: false
-        is_tax_unit_dependent: true
-        is_disabled: false
-        immigration_status_str: CITIZEN
-        employment_income_before_lsr: 0
-    households:
-      household:
-        members: &id008
-        - head
-        - spouse
-        - child1
-        state_code_str: CA
-        zip_code: '90001'
-        county_str: LOS_ANGELES_COUNTY_CA
-    spm_units:
-      spm_unit:
-        members: *id008
-        snap_assets: 500
-    tax_units:
-      tax_unit:
-        members: *id008
-        tax_unit_is_joint: true
-    families:
-      family:
-        members: *id008
-    marital_units:
-      mu_couple:
-        members:
-        - head
-        - spouse
-      mu_child1:
-        members:
-        - child1
-  output:
-    spm_units:
-      spm_unit:
-        snap: 999.36
-        is_snap_eligible: true
-- name: snap_head_immigration_undocumented (ca)
-  period: 2026
-  absolute_error_margin: 0.1
-  input:
-    people:
-      head:
-        age: 35
-        is_tax_unit_head: true
-        is_tax_unit_spouse: false
-        is_tax_unit_dependent: false
-        is_disabled: false
-        immigration_status_str: UNDOCUMENTED
-        employment_income_before_lsr: 20000
-      spouse:
-        age: 33
-        is_tax_unit_head: false
-        is_tax_unit_spouse: true
-        is_tax_unit_dependent: false
-        is_disabled: false
-        immigration_status_str: CITIZEN
-        employment_income_before_lsr: 0
-      child1:
-        age: 5
-        is_tax_unit_head: false
-        is_tax_unit_spouse: false
-        is_tax_unit_dependent: true
-        is_disabled: false
-        immigration_status_str: CITIZEN
-        employment_income_before_lsr: 0
-    households:
-      household:
-        members: &id009
-        - head
-        - spouse
-        - child1
-        state_code_str: CA
-        zip_code: '90001'
-        county_str: LOS_ANGELES_COUNTY_CA
-    spm_units:
-      spm_unit:
-        members: *id009
-        snap_assets: 500
-    tax_units:
-      tax_unit:
-        members: *id009
-        tax_unit_is_joint: true
-    families:
-      family:
-        members: *id009
-    marital_units:
-      mu_couple:
-        members:
-        - head
-        - spouse
-      mu_child1:
-        members:
-        - child1
-  output:
-    spm_units:
-      spm_unit:
-        snap: 1006.02
+        # Undocumented head is excluded all year (not a CFAP status): unit size
+        # 2, and the CalWORKs grant is smaller ($5,133.33/year -> $427.78/mo
+        # unearned) because the head is also excluded from the CalWORKs AU:
+        # net = 1,333.33 + 427.78 - 209 = 1,552.11 -> EC 465.60 -> 546 - 465.60
+        # = 80.40/month Jan-Sep; Oct-Dec: 558.24 - 464.10 = 94.14.
+        # Annual = 9 x 80.40 + 3 x 94.14 = 1,006.02.
+        snap: 1_006.02
         is_snap_eligible: true

@@ -507,6 +507,7 @@ def update(
     import subprocess
 
     from dreadnode.app.tui.update_check import (
+        build_noop_upgrade_diagnostic,
         check_for_update,
         detect_upgrade_command,
         verify_upgrade,
@@ -534,7 +535,7 @@ def update(
     console.print(f"Running: [dim]{cmd_display}[/dim]")
 
     try:
-        result = subprocess.run(cmd, check=False)  # noqa: S603
+        result = subprocess.run(cmd, capture_output=True, text=True, check=False)  # noqa: S603
     except Exception as exc:
         console.print(f"[red]Update failed: {exc}[/red]")
         sys.exit(1)
@@ -548,10 +549,10 @@ def update(
         print_success(f"Updated to v{verified} — restart [bold]dn[/bold] to use the new version")
         return
 
-    console.print(
-        "[red]Upgrade command succeeded but version unchanged — "
-        "you may have multiple installations. Check which dn is on your PATH.[/red]"
-    )
+    for index, line in enumerate(
+        build_noop_upgrade_diagnostic(info.latest, result.stdout or "", result.stderr or "")
+    ):
+        console.print(line, style="red" if index == 0 else "dim")
     sys.exit(1)
 
 

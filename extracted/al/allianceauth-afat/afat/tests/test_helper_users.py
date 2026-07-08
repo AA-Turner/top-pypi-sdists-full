@@ -1,6 +1,9 @@
 # Django
-from django.contrib.auth.models import Group, Permission, User
 from django.contrib.contenttypes.models import ContentType
+
+# Alliance Auth
+from allianceauth.authentication.models import Permission, User
+from allianceauth.groupmanagement.models import Group
 
 # Alliance Auth AFAT
 from afat.helper.users import users_with_permission

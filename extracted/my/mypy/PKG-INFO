@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: mypy
-Version: 2.1.0
+Version: 2.2.0
 Summary: Optional static typing for Python
 Author-email: Jukka Lehtosalo <jukka.lehtosalo@iki.fi>
 License-Expression: MIT
@@ -18,6 +18,7 @@ Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
+Classifier: Programming Language :: Python :: 3.15
 Classifier: Topic :: Software Development
 Classifier: Typing :: Typed
 Requires-Python: >=3.10
@@ -29,8 +30,8 @@ Requires-Dist: typing_extensions>=4.14.0; python_version >= "3.15"
 Requires-Dist: mypy_extensions>=1.0.0
 Requires-Dist: pathspec>=1.0.0
 Requires-Dist: tomli>=1.1.0; python_version < "3.11"
-Requires-Dist: librt>=0.11.0; platform_python_implementation != "PyPy"
-Requires-Dist: ast-serialize<1.0.0,>=0.3.0
+Requires-Dist: librt>=0.12.0; platform_python_implementation != "PyPy"
+Requires-Dist: ast-serialize<1.0.0,>=0.6.0
 Provides-Extra: dmypy
 Requires-Dist: psutil>=4.0; extra == "dmypy"
 Provides-Extra: mypyc

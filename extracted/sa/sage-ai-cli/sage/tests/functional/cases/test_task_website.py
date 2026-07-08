@@ -63,3 +63,27 @@ class TestTaskWebsite:
         assert verify.install_ok
         assert verify.build_ok
         assert verify.run_ok
+
+    def test_cli_advertisement_platform(self):
+        req = {
+            "cli_request": "sage ask 'Build an advertisement platform webapp with react-native-web frontend, fastapi backend, bun js_runtime, and ssr enabled.'",
+            "description": "CLI Advertisement Platform",
+        }
+        res, verify = run_test_with_verification("cli", req, MODEL)
+        
+        assert res.exit_code == 0
+        assert verify.install_ok, f"Install failed: {verify.details.get('install')}"
+        assert verify.build_ok, f"Build failed: {verify.details.get('build')}"
+        assert verify.run_ok, f"Run failed: {verify.details.get('run')}"
+
+    def test_cli_faceless_video_platform(self):
+        req = {
+            "cli_request": "sage ask 'Build a faceless AI video platform webapp with react-native-web frontend, fastapi backend, bun js_runtime, and ssr enabled.'",
+            "description": "CLI Faceless AI Video Platform",
+        }
+        res, verify = run_test_with_verification("cli", req, MODEL)
+        
+        assert res.exit_code == 0
+        assert verify.install_ok, f"Install failed: {verify.details.get('install')}"
+        assert verify.build_ok, f"Build failed: {verify.details.get('build')}"
+        assert verify.run_ok, f"Run failed: {verify.details.get('run')}"

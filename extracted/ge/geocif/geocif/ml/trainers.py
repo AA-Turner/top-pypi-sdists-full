@@ -290,18 +290,33 @@ def auto_train(
     else:
         hyperparams = {}
 
-        if model_name in ["catboost", "merf"]:
+        if model_name in ["catboost", "merf", "catboost_quantile"]:
             from catboost import CatBoostRegressor, CatBoostClassifier
 
-            loss_function = "RMSE" if model_type == "REGRESSION" else "MultiClass"
+            # catboost_quantile trains catboost against the 0.25-quantile
+            # loss instead of RMSE. Same hyperparams; useful for insurance-
+            # trigger scenarios where distinguishing the LOW tail matters
+            # more than mean accuracy (RMSE loss mean-reverts and rarely
+            # predicts below-threshold yields on small data).
+            if model_name == "catboost_quantile":
+                loss_function = "Quantile:alpha=0.25"
+            else:
+                loss_function = "RMSE" if model_type == "REGRESSION" else "MultiClass"
+            # Small-n / high-feature-count tuning (Kenya-maize regime,
+            # ~300 rows × ~500 features per fold):
+            #   subsample=0.7   → activate Bernoulli bagging (was 1.0 → inert)
+            #   border_count=64 → coarser feature quantization (default 254
+            #                     over-fits noise at small n)
+            #   reg_lambda=12   → stronger L2 (was 5.0)
             hyperparams = {
                 "iterations": 2500,
                 "learning_rate": 0.01,
                 "depth": 4,
-                "subsample": 1.0,
+                "subsample": 0.7,
                 "bootstrap_type": "Bernoulli",
                 "random_strength": 0.5,
-                "reg_lambda": 5.0,
+                "reg_lambda": 12.0,
+                "border_count": 64,
                 "min_data_in_leaf": 5,
                 "loss_function": loss_function,
                 "early_stopping_rounds": 50,
@@ -309,7 +324,7 @@ def auto_train(
                 "verbose": False,
             }
 
-            if model_name == "catboost":
+            if model_name in ("catboost", "catboost_quantile"):
                 model_cls = CatBoostRegressor if model_type == "REGRESSION" else CatBoostClassifier
                 model = model_cls(**hyperparams, cat_features=cat_features)
 

@@ -33,16 +33,6 @@ sanity_check: &sanity_check_steps
           make sanity-check
 
 jobs:
-  run-test-3-8:
-    docker:
-      - image: python:3.8
-    <<: *test_steps
-
-  run-test-3-9:
-    docker:
-      - image: python:3.9
-    <<: *test_steps
-
   run-test-3-10:
     docker:
       - image: python:3.10
@@ -60,12 +50,12 @@ jobs:
 
   run-sanity-check:
     docker:
-      - image: python:3.9
+      - image: python:3.10
     <<: *sanity_check_steps
 
   deploy: # cci-ignore
     docker:
-      - image: python:3.8.6
+      - image: python:3.10
 
     steps:
       - checkout
@@ -76,8 +66,6 @@ jobs:
 workflows:
   build:
     jobs:
-      - run-test-3-8
-      - run-test-3-9
       - run-test-3-10
       - run-test-3-11
       - run-test-3-12
@@ -86,10 +74,6 @@ workflows:
 
   deploy: # cci-ignore
     jobs:
-      - run-test-3-8:
-          <<: *deploy_filter
-      - run-test-3-9:
-          <<: *deploy_filter
       - run-test-3-10:
           <<: *deploy_filter
       - run-test-3-11:
@@ -101,8 +85,6 @@ workflows:
           <<: *deploy_filter
       - deploy:
           requires:
-            - run-test-3-8
-            - run-test-3-9
             - run-test-3-10
             - run-test-3-11
             - run-test-3-12

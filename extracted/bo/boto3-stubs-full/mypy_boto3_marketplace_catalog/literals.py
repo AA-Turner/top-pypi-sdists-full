@@ -45,6 +45,7 @@ __all__ = (
     "OwnershipTypeType",
     "PaginatorName",
     "RegionName",
+    "ResaleAuthorizationResellerRoleStringType",
     "ResaleAuthorizationSortByType",
     "ResaleAuthorizationStatusStringType",
     "ResourceServiceName",
@@ -92,6 +93,7 @@ OfferSortByType = Literal[
 OfferStateStringType = Literal["Draft", "Released"]
 OfferTargetingStringType = Literal["BuyerAccounts", "CountryCodes", "None", "ParticipatingPrograms"]
 OwnershipTypeType = Literal["SELF", "SHARED"]
+ResaleAuthorizationResellerRoleStringType = Literal["ChannelPartner", "Distributor"]
 ResaleAuthorizationSortByType = Literal[
     "AvailabilityEndDate",
     "CreatedDate",
@@ -405,6 +407,7 @@ ServiceName = Literal[
     "partnercentral-account",
     "partnercentral-benefits",
     "partnercentral-channel",
+    "partnercentral-revenue-measurement",
     "partnercentral-selling",
     "payment-cryptography",
     "payment-cryptography-data",

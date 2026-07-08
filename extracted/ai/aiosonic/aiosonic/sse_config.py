@@ -1,3 +1,4 @@
+from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Any, Dict, Optional, Union
 
@@ -15,7 +16,7 @@ class RequestConfig:
     retry_delay: int = 3000
     keep_connection: bool = False
 
-    def with_headers_copy(self) -> "RequestConfig":
+    def with_headers_copy(self) -> RequestConfig:
         new = RequestConfig(
             method=self.method,
             url=self.url,

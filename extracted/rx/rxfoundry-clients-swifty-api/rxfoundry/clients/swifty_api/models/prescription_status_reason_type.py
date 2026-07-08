@@ -21,7 +21,7 @@ from typing_extensions import Self
 
 class PrescriptionStatusReasonType(str, Enum):
     """
-    - `DUPLICATE` - Prescription is a duplicate of another prescription. - `DUPLICATE_SURESCRIPTS` - Prescription is a duplicate of another prescription from SureScripts. - `CANCELLED_SURESCRIPTS` - Prescription was cancelled by SureScripts. - `RX_TRANSFER_SURESCRIPTS` - Prescription originated from a SureScripts transfer workflow. - `CANCELLED_MANUAL` - Prescription was cancelled manually by the pharmacy. - `TRANSFERRED_OUT` - Prescription was transferred out of SwiftyRx. - `CHANGE_REQUESTED` - Prescription change request was initiated by the pharmacy. - `CHANGE_COMPLETED` - Prescription change request was completed by the pharmacy. - `TRANSFER_REQUESTED` - Prescription transfer request was initiated by the pharmacy. - `UPDATE_IN_PROGRESS` - Prescription update is in progress. - `UPDATE_COMPLETED` - Prescription update is completed. 
+    - `DUPLICATE` - Prescription is a duplicate of another prescription. - `DUPLICATE_SURESCRIPTS` - Prescription is a duplicate of another prescription from SureScripts. - `CANCELLED_SURESCRIPTS` - Prescription was cancelled by SureScripts. - `RX_TRANSFER_SURESCRIPTS` - Prescription originated from a SureScripts transfer workflow. - `CANCELLED_MANUAL` - Prescription was cancelled manually by the pharmacy. - `TRANSFERRED_OUT` - Prescription was transferred out of SwiftyRx. - `CHANGE_REQUESTED` - Prescription change request was initiated by the pharmacy. - `CHANGE_COMPLETED` - Prescription change request was completed by the pharmacy. - `TRANSFER_OUT_REQUESTED` - Prescription transfer request was requested. - `TRANSFER_OUT_REQUEST_SENT` - Prescription transfer request was sent to the target pharmacy. - `UPDATE_IN_PROGRESS` - Prescription update is in progress. - `UPDATE_COMPLETED` - Prescription update is completed. 
     """
 
     """
@@ -35,7 +35,8 @@ class PrescriptionStatusReasonType(str, Enum):
     TRANSFERRED_OUT = 'TRANSFERRED_OUT'
     CHANGE_REQUESTED = 'CHANGE_REQUESTED'
     CHANGE_COMPLETED = 'CHANGE_COMPLETED'
-    TRANSFER_REQUESTED = 'TRANSFER_REQUESTED'
+    TRANSFER_OUT_REQUESTED = 'TRANSFER_OUT_REQUESTED'
+    TRANSFER_OUT_REQUEST_SENT = 'TRANSFER_OUT_REQUEST_SENT'
     UPDATE_IN_PROGRESS = 'UPDATE_IN_PROGRESS'
     UPDATE_COMPLETED = 'UPDATE_COMPLETED'
 

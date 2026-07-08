@@ -14,13 +14,12 @@ __all__ = [
 
 import contextlib
 import json
+import os
 from collections.abc import AsyncIterator
 from pathlib import Path
-from typing import TYPE_CHECKING, Annotated, Any, Self, TypeVar, cast
+from typing import Annotated, Any, Self, TypeVar, cast
 
-from aiobotocore.session import get_session
-from botocore.config import Config
-from botocore.errorfactory import ClientError
+import dotenv
 from cryptography.fernet import Fernet
 from joserfc.jwk import KeySet, KeySetSerialization
 from pydantic import (
@@ -32,15 +31,18 @@ from pydantic import (
     SecretStr,
     TypeAdapter,
     UrlConstraints,
+    field_validator,
     model_validator,
 )
 from pydantic_settings import BaseSettings, SettingsConfigDict
+from signurlarity.aio.client import AsyncClient
+from signurlarity.exceptions import SignurlarityError
 
+from .config.sources import ConfigSourceUrl
+from .extensions import DiracEntryPoint, select_from_extension
 from .properties import SecurityProperty
 from .s3 import s3_bucket_exists
-
-if TYPE_CHECKING:
-    from types_aiobotocore_s3.client import S3Client
+from .utils import dotenv_files_from_environment
 
 T = TypeVar("T")
 
@@ -328,17 +330,12 @@ class SandboxStoreSettings(ServiceSettingsBase):
     Controls parallelism of database DELETE operations.
     """
 
-    _client: S3Client = PrivateAttr()
+    _client: AsyncClient = PrivateAttr()
 
     @contextlib.asynccontextmanager
     async def lifetime_function(self) -> AsyncIterator[None]:
-        async with get_session().create_client(
-            "s3",
-            **self.s3_client_kwargs,
-            config=Config(
-                signature_version="v4",
-                max_pool_connections=self.s3_max_pool_connections,
-            ),
+        async with AsyncClient(
+            **self.s3_client_kwargs, httpx_max_connections=self.s3_max_pool_connections
         ) as self._client:  # type: ignore
             if not await s3_bucket_exists(self._client, self.bucket_name):
                 if not self.auto_create_bucket:
@@ -347,7 +344,7 @@ class SandboxStoreSettings(ServiceSettingsBase):
                     )
                 try:
                     await self._client.create_bucket(Bucket=self.bucket_name)
-                except ClientError as e:
+                except SignurlarityError as e:
                     raise ValueError(
                         f"Failed to create bucket {self.bucket_name}"
                     ) from e
@@ -355,7 +352,115 @@ class SandboxStoreSettings(ServiceSettingsBase):
             yield
 
     @property
-    def s3_client(self) -> S3Client:
+    def s3_client(self) -> AsyncClient:
         if self._client is None:
             raise RuntimeError("S3 client accessed before lifetime function")
         return self._client
+
+
+class FactorySettings(ServiceSettingsBase):
+    """Factory settings.
+
+    Settings which do not fit into dedicated classes,
+    or are dynamically generated.
+    """
+
+    # We want to be able to read both from specific environment variables
+    # but also to create the object directly with the attribute name
+    # https://pydantic.dev/docs/validation/latest/concepts/alias#validation
+    model_config = SettingsConfigDict(
+        use_attribute_docstrings=True, validate_by_alias=True, validate_by_name=True
+    )
+
+    config_backend_url: ConfigSourceUrl | None = Field(
+        default=None,
+        validation_alias="DIRACX_CONFIG_BACKEND_URL",
+    )
+    """The URL of the configuration backend.
+    """
+
+    legacy_exchange_hashed_api_key: str = Field(
+        default="", validation_alias="DIRACX_LEGACY_EXCHANGE_HASHED_API_KEY"
+    )
+    """The hashed API key for the legacy exchange endpoint.
+    """
+
+    tasks_redis_url: str = Field(
+        default="redis://localhost", validation_alias="DIRACX_TASKS_REDIS_URL"
+    )
+    """The url for the redis server to manage tasks"""
+
+    enabled_services: dict[str, bool] = Field(default_factory=dict)
+    """The following environment variables dictates which routers are enabled."""
+
+    opensearch_dbs: dict[str, str] = Field(default_factory=dict)
+    """The following environment variables configure the OpenSearch database connections."""
+
+    sql_dbs: dict[str, str] = Field(default_factory=dict)
+    """The following environment variables configure the SQL database connections."""
+
+    @model_validator(mode="before")
+    @classmethod
+    def load_dotenv_files(cls, data: Any) -> Any:
+        """Load dotenv files before reading settings from environment."""
+        for env_file in dotenv_files_from_environment("DIRACX_SERVICE_DOTENV"):
+            if not dotenv.load_dotenv(env_file):
+                raise NotImplementedError(f"Could not load dotenv file {env_file}")
+        return data
+
+    @field_validator("enabled_services", mode="before")
+    @classmethod
+    def build_enabled_services(cls, value: Any) -> dict[str, bool]:
+        """Build enabled services from the installed service entry points."""
+        enabled_services: dict[str, bool] = {
+            entry_point.name: True
+            for entry_point in select_from_extension(group=DiracEntryPoint.SERVICES)
+            if "well-known" not in entry_point.name
+        }
+
+        for service_name in enabled_services:
+            env_name = f"DIRACX_SERVICE_{service_name.upper()}_ENABLED"
+            if env_value := os.environ.get(env_name):
+                enabled_services[service_name] = TypeAdapter(bool).validate_python(
+                    env_value
+                )
+
+        if isinstance(value, dict):
+            enabled_services.update(value)
+        return enabled_services
+
+    @field_validator("opensearch_dbs", mode="before")
+    @classmethod
+    def build_opensearch_dbs(cls, value: Any) -> dict[str, str]:
+        """Build OpenSearch database URLs from the installed entry points."""
+        opensearch_dbs: dict[str, str] = {
+            entry_point.name: ""
+            for entry_point in select_from_extension(group=DiracEntryPoint.OS_DB)
+        }
+
+        for db_name in opensearch_dbs:
+            env_name = f"DIRACX_OS_DB_{db_name.upper()}"
+            if env_value := os.environ.get(env_name):
+                opensearch_dbs[db_name] = env_value
+
+        if isinstance(value, dict):
+            opensearch_dbs.update(value)
+        return opensearch_dbs
+
+    @field_validator("sql_dbs", mode="before")
+    @classmethod
+    def build_sql_dbs(cls, value: Any) -> dict[str, str]:
+        """Build SQL database URLs from the installed entry points."""
+        sql_dbs: dict[str, str] = {
+            entry_point.name: ""
+            for entry_point in select_from_extension(group=DiracEntryPoint.SQL_DB)
+        }
+
+        for db_name in sql_dbs:
+            env_name = f"DIRACX_DB_URL_{db_name.upper()}"
+            if env_value := os.environ.get(env_name):
+                sql_dbs[db_name] = env_value
+
+        if isinstance(value, dict):
+            sql_dbs.update(value)
+        return sql_dbs

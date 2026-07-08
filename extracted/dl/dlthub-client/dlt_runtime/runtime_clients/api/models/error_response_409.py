@@ -17,7 +17,7 @@ T = TypeVar("T", bound="ErrorResponse409")
 
 @_attrs_define
 class ErrorResponse409:
-    """Conflict Exception
+    """Org Region Already Set Exception
 
     Attributes:
         detail (str | Unset):

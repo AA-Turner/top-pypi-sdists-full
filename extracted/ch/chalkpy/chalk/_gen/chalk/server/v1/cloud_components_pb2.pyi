@@ -18,6 +18,31 @@ from typing import (
 
 DESCRIPTOR: _descriptor.FileDescriptor
 
+class CloudStorageRole(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
+    __slots__ = ()
+    CLOUD_STORAGE_ROLE_UNSPECIFIED: _ClassVar[CloudStorageRole]
+    CLOUD_STORAGE_ROLE_DATASET: _ClassVar[CloudStorageRole]
+    CLOUD_STORAGE_ROLE_PLAN_STAGES: _ClassVar[CloudStorageRole]
+    CLOUD_STORAGE_ROLE_SOURCE_BUNDLE: _ClassVar[CloudStorageRole]
+    CLOUD_STORAGE_ROLE_MODEL_REGISTRY: _ClassVar[CloudStorageRole]
+    CLOUD_STORAGE_ROLE_VOLUME: _ClassVar[CloudStorageRole]
+
+class ClusterClass(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
+    __slots__ = ()
+    CLUSTER_CLASS_UNSPECIFIED: _ClassVar[ClusterClass]
+    CLUSTER_CLASS_HOSTED: _ClassVar[ClusterClass]
+    CLUSTER_CLASS_SERVERLESS: _ClassVar[ClusterClass]
+
+CLOUD_STORAGE_ROLE_UNSPECIFIED: CloudStorageRole
+CLOUD_STORAGE_ROLE_DATASET: CloudStorageRole
+CLOUD_STORAGE_ROLE_PLAN_STAGES: CloudStorageRole
+CLOUD_STORAGE_ROLE_SOURCE_BUNDLE: CloudStorageRole
+CLOUD_STORAGE_ROLE_MODEL_REGISTRY: CloudStorageRole
+CLOUD_STORAGE_ROLE_VOLUME: CloudStorageRole
+CLUSTER_CLASS_UNSPECIFIED: ClusterClass
+CLUSTER_CLASS_HOSTED: ClusterClass
+CLUSTER_CLASS_SERVERLESS: ClusterClass
+
 class CloudComponentVpc(_message.Message):
     __slots__ = ("name", "config", "designator")
     NAME_FIELD_NUMBER: _ClassVar[int]
@@ -46,6 +71,8 @@ class CloudComponentVpcResponse(_message.Message):
         "created_at",
         "updated_at",
         "applied_at",
+        "status",
+        "status_error",
     )
     NAME_FIELD_NUMBER: _ClassVar[int]
     ID_FIELD_NUMBER: _ClassVar[int]
@@ -58,6 +85,8 @@ class CloudComponentVpcResponse(_message.Message):
     CREATED_AT_FIELD_NUMBER: _ClassVar[int]
     UPDATED_AT_FIELD_NUMBER: _ClassVar[int]
     APPLIED_AT_FIELD_NUMBER: _ClassVar[int]
+    STATUS_FIELD_NUMBER: _ClassVar[int]
+    STATUS_ERROR_FIELD_NUMBER: _ClassVar[int]
     name: str
     id: str
     designator: str
@@ -69,6 +98,8 @@ class CloudComponentVpcResponse(_message.Message):
     created_at: _timestamp_pb2.Timestamp
     updated_at: _timestamp_pb2.Timestamp
     applied_at: _timestamp_pb2.Timestamp
+    status: str
+    status_error: str
     def __init__(
         self,
         name: _Optional[str] = ...,
@@ -82,6 +113,8 @@ class CloudComponentVpcResponse(_message.Message):
         created_at: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ...,
         updated_at: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ...,
         applied_at: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ...,
+        status: _Optional[str] = ...,
+        status_error: _Optional[str] = ...,
     ) -> None: ...
 
 class CloudComponentVpcRequest(_message.Message):
@@ -220,29 +253,54 @@ class AwsSubnetConfig(_message.Message):
     ) -> None: ...
 
 class GCPVpcConfig(_message.Message):
-    __slots__ = ()
-    def __init__(self) -> None: ...
+    __slots__ = ("vpc_peer_addr", "subnets", "backup_subnets")
+    VPC_PEER_ADDR_FIELD_NUMBER: _ClassVar[int]
+    SUBNETS_FIELD_NUMBER: _ClassVar[int]
+    BACKUP_SUBNETS_FIELD_NUMBER: _ClassVar[int]
+    vpc_peer_addr: str
+    subnets: _containers.RepeatedCompositeFieldContainer[GCPSubnetConfig]
+    backup_subnets: _containers.RepeatedCompositeFieldContainer[GCPSubnetConfig]
+    def __init__(
+        self,
+        vpc_peer_addr: _Optional[str] = ...,
+        subnets: _Optional[_Iterable[_Union[GCPSubnetConfig, _Mapping]]] = ...,
+        backup_subnets: _Optional[_Iterable[_Union[GCPSubnetConfig, _Mapping]]] = ...,
+    ) -> None: ...
 
-class CloudComponentStorage(_message.Message):
-    __slots__ = ("name", "designator", "plan_stages_bucket", "source_upload_bucket", "dataset_bucket")
+class GCPSubnetConfig(_message.Message):
+    __slots__ = ("name", "cidr_range", "purpose", "role", "secondary_ip_ranges")
     NAME_FIELD_NUMBER: _ClassVar[int]
-    DESIGNATOR_FIELD_NUMBER: _ClassVar[int]
-    PLAN_STAGES_BUCKET_FIELD_NUMBER: _ClassVar[int]
-    SOURCE_UPLOAD_BUCKET_FIELD_NUMBER: _ClassVar[int]
-    DATASET_BUCKET_FIELD_NUMBER: _ClassVar[int]
+    CIDR_RANGE_FIELD_NUMBER: _ClassVar[int]
+    PURPOSE_FIELD_NUMBER: _ClassVar[int]
+    ROLE_FIELD_NUMBER: _ClassVar[int]
+    SECONDARY_IP_RANGES_FIELD_NUMBER: _ClassVar[int]
     name: str
-    designator: str
-    plan_stages_bucket: str
-    source_upload_bucket: str
-    dataset_bucket: str
+    cidr_range: str
+    purpose: str
+    role: str
+    secondary_ip_ranges: _containers.RepeatedCompositeFieldContainer[GCPSecondaryIpRange]
     def __init__(
         self,
         name: _Optional[str] = ...,
-        designator: _Optional[str] = ...,
-        plan_stages_bucket: _Optional[str] = ...,
-        source_upload_bucket: _Optional[str] = ...,
-        dataset_bucket: _Optional[str] = ...,
+        cidr_range: _Optional[str] = ...,
+        purpose: _Optional[str] = ...,
+        role: _Optional[str] = ...,
+        secondary_ip_ranges: _Optional[_Iterable[_Union[GCPSecondaryIpRange, _Mapping]]] = ...,
     ) -> None: ...
+
+class GCPSecondaryIpRange(_message.Message):
+    __slots__ = ("range_name", "ip_cidr_range")
+    RANGE_NAME_FIELD_NUMBER: _ClassVar[int]
+    IP_CIDR_RANGE_FIELD_NUMBER: _ClassVar[int]
+    range_name: str
+    ip_cidr_range: str
+    def __init__(self, range_name: _Optional[str] = ..., ip_cidr_range: _Optional[str] = ...) -> None: ...
+
+class CloudComponentStorage(_message.Message):
+    __slots__ = ("uri",)
+    URI_FIELD_NUMBER: _ClassVar[int]
+    uri: str
+    def __init__(self, uri: _Optional[str] = ...) -> None: ...
 
 class CloudComponentStorageResponse(_message.Message):
     __slots__ = (
@@ -311,6 +369,54 @@ class CloudComponentStorageRequest(_message.Message):
         spec: _Optional[_Union[CloudComponentStorage, _Mapping]] = ...,
         managed: bool = ...,
         cloud_credential_id: _Optional[str] = ...,
+    ) -> None: ...
+
+class EnvironmentCloudStorageBinding(_message.Message):
+    __slots__ = ("id", "cloud_storage_id", "storage_role", "environment_id", "created_at", "updated_at")
+    ID_FIELD_NUMBER: _ClassVar[int]
+    CLOUD_STORAGE_ID_FIELD_NUMBER: _ClassVar[int]
+    STORAGE_ROLE_FIELD_NUMBER: _ClassVar[int]
+    ENVIRONMENT_ID_FIELD_NUMBER: _ClassVar[int]
+    CREATED_AT_FIELD_NUMBER: _ClassVar[int]
+    UPDATED_AT_FIELD_NUMBER: _ClassVar[int]
+    id: str
+    cloud_storage_id: str
+    storage_role: CloudStorageRole
+    environment_id: str
+    created_at: _timestamp_pb2.Timestamp
+    updated_at: _timestamp_pb2.Timestamp
+    def __init__(
+        self,
+        id: _Optional[str] = ...,
+        cloud_storage_id: _Optional[str] = ...,
+        storage_role: _Optional[_Union[CloudStorageRole, str]] = ...,
+        environment_id: _Optional[str] = ...,
+        created_at: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ...,
+        updated_at: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ...,
+    ) -> None: ...
+
+class ClusterCloudStorageBinding(_message.Message):
+    __slots__ = ("id", "cloud_storage_id", "storage_role", "cluster_id", "created_at", "updated_at")
+    ID_FIELD_NUMBER: _ClassVar[int]
+    CLOUD_STORAGE_ID_FIELD_NUMBER: _ClassVar[int]
+    STORAGE_ROLE_FIELD_NUMBER: _ClassVar[int]
+    CLUSTER_ID_FIELD_NUMBER: _ClassVar[int]
+    CREATED_AT_FIELD_NUMBER: _ClassVar[int]
+    UPDATED_AT_FIELD_NUMBER: _ClassVar[int]
+    id: str
+    cloud_storage_id: str
+    storage_role: CloudStorageRole
+    cluster_id: str
+    created_at: _timestamp_pb2.Timestamp
+    updated_at: _timestamp_pb2.Timestamp
+    def __init__(
+        self,
+        id: _Optional[str] = ...,
+        cloud_storage_id: _Optional[str] = ...,
+        storage_role: _Optional[_Union[CloudStorageRole, str]] = ...,
+        cluster_id: _Optional[str] = ...,
+        created_at: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ...,
+        updated_at: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ...,
     ) -> None: ...
 
 class GarContainerRegistryConfig(_message.Message):
@@ -432,20 +538,60 @@ class CloudComponentContainerRegistryRequest(_message.Message):
         cloud_credential_id: _Optional[str] = ...,
     ) -> None: ...
 
+class MaintenanceWindow(_message.Message):
+    __slots__ = ("mode", "schedule", "duration", "override_active_until")
+    class Mode(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
+        __slots__ = ()
+        MODE_UNSPECIFIED: _ClassVar[MaintenanceWindow.Mode]
+        MODE_UNRESTRICTED: _ClassVar[MaintenanceWindow.Mode]
+        MODE_CUSTOM: _ClassVar[MaintenanceWindow.Mode]
+
+    MODE_UNSPECIFIED: MaintenanceWindow.Mode
+    MODE_UNRESTRICTED: MaintenanceWindow.Mode
+    MODE_CUSTOM: MaintenanceWindow.Mode
+    MODE_FIELD_NUMBER: _ClassVar[int]
+    SCHEDULE_FIELD_NUMBER: _ClassVar[int]
+    DURATION_FIELD_NUMBER: _ClassVar[int]
+    OVERRIDE_ACTIVE_UNTIL_FIELD_NUMBER: _ClassVar[int]
+    mode: MaintenanceWindow.Mode
+    schedule: str
+    duration: str
+    override_active_until: _timestamp_pb2.Timestamp
+    def __init__(
+        self,
+        mode: _Optional[_Union[MaintenanceWindow.Mode, str]] = ...,
+        schedule: _Optional[str] = ...,
+        duration: _Optional[str] = ...,
+        override_active_until: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ...,
+    ) -> None: ...
+
 class CloudComponentCluster(_message.Message):
-    __slots__ = ("name", "designator", "kubernetes_version", "dns_zone", "data_plane_redis", "dataplane_controller")
+    __slots__ = (
+        "name",
+        "designator",
+        "kubernetes_version",
+        "dns_zone",
+        "data_plane_redis",
+        "dataplane_controller",
+        "cluster_class",
+        "maintenance_window",
+    )
     NAME_FIELD_NUMBER: _ClassVar[int]
     DESIGNATOR_FIELD_NUMBER: _ClassVar[int]
     KUBERNETES_VERSION_FIELD_NUMBER: _ClassVar[int]
     DNS_ZONE_FIELD_NUMBER: _ClassVar[int]
     DATA_PLANE_REDIS_FIELD_NUMBER: _ClassVar[int]
     DATAPLANE_CONTROLLER_FIELD_NUMBER: _ClassVar[int]
+    CLUSTER_CLASS_FIELD_NUMBER: _ClassVar[int]
+    MAINTENANCE_WINDOW_FIELD_NUMBER: _ClassVar[int]
     name: str
     designator: str
     kubernetes_version: str
     dns_zone: str
     data_plane_redis: DataPlaneRedis
     dataplane_controller: DataplaneController
+    cluster_class: ClusterClass
+    maintenance_window: MaintenanceWindow
     def __init__(
         self,
         name: _Optional[str] = ...,
@@ -454,6 +600,8 @@ class CloudComponentCluster(_message.Message):
         dns_zone: _Optional[str] = ...,
         data_plane_redis: _Optional[_Union[DataPlaneRedis, _Mapping]] = ...,
         dataplane_controller: _Optional[_Union[DataplaneController, _Mapping]] = ...,
+        cluster_class: _Optional[_Union[ClusterClass, str]] = ...,
+        maintenance_window: _Optional[_Union[MaintenanceWindow, _Mapping]] = ...,
     ) -> None: ...
 
 class DataPlaneRedis(_message.Message):
@@ -590,36 +738,42 @@ class DeploymentManifestUpdate(_message.Message):
     def __init__(self) -> None: ...
 
 class ClusterDeploymentManifest(_message.Message):
-    __slots__ = ("cluster", "cloud_config", "team", "vpc")
+    __slots__ = ("cluster", "cloud_config", "team", "vpc", "cluster_id")
     CLUSTER_FIELD_NUMBER: _ClassVar[int]
     CLOUD_CONFIG_FIELD_NUMBER: _ClassVar[int]
     TEAM_FIELD_NUMBER: _ClassVar[int]
     VPC_FIELD_NUMBER: _ClassVar[int]
+    CLUSTER_ID_FIELD_NUMBER: _ClassVar[int]
     cluster: CloudComponentCluster
     cloud_config: _environment_pb2.CloudConfig
     team: _team_pb2.Team
     vpc: CloudComponentVpc
+    cluster_id: str
     def __init__(
         self,
         cluster: _Optional[_Union[CloudComponentCluster, _Mapping]] = ...,
         cloud_config: _Optional[_Union[_environment_pb2.CloudConfig, _Mapping]] = ...,
         team: _Optional[_Union[_team_pb2.Team, _Mapping]] = ...,
         vpc: _Optional[_Union[CloudComponentVpc, _Mapping]] = ...,
+        cluster_id: _Optional[str] = ...,
     ) -> None: ...
 
 class VpcDeploymentManifest(_message.Message):
-    __slots__ = ("vpc", "cloud_config", "team")
+    __slots__ = ("vpc", "cloud_config", "team", "vpc_id")
     VPC_FIELD_NUMBER: _ClassVar[int]
     CLOUD_CONFIG_FIELD_NUMBER: _ClassVar[int]
     TEAM_FIELD_NUMBER: _ClassVar[int]
+    VPC_ID_FIELD_NUMBER: _ClassVar[int]
     vpc: CloudComponentVpc
     cloud_config: _environment_pb2.CloudConfig
     team: _team_pb2.Team
+    vpc_id: str
     def __init__(
         self,
         vpc: _Optional[_Union[CloudComponentVpc, _Mapping]] = ...,
         cloud_config: _Optional[_Union[_environment_pb2.CloudConfig, _Mapping]] = ...,
         team: _Optional[_Union[_team_pb2.Team, _Mapping]] = ...,
+        vpc_id: _Optional[str] = ...,
     ) -> None: ...
 
 class CloudComponentClusterResponse(_message.Message):
@@ -636,6 +790,9 @@ class CloudComponentClusterResponse(_message.Message):
         "created_at",
         "updated_at",
         "applied_at",
+        "status",
+        "status_error",
+        "effective_maintenance_window",
     )
     NAME_FIELD_NUMBER: _ClassVar[int]
     ID_FIELD_NUMBER: _ClassVar[int]
@@ -649,6 +806,9 @@ class CloudComponentClusterResponse(_message.Message):
     CREATED_AT_FIELD_NUMBER: _ClassVar[int]
     UPDATED_AT_FIELD_NUMBER: _ClassVar[int]
     APPLIED_AT_FIELD_NUMBER: _ClassVar[int]
+    STATUS_FIELD_NUMBER: _ClassVar[int]
+    STATUS_ERROR_FIELD_NUMBER: _ClassVar[int]
+    EFFECTIVE_MAINTENANCE_WINDOW_FIELD_NUMBER: _ClassVar[int]
     name: str
     id: str
     designator: str
@@ -661,6 +821,9 @@ class CloudComponentClusterResponse(_message.Message):
     created_at: _timestamp_pb2.Timestamp
     updated_at: _timestamp_pb2.Timestamp
     applied_at: _timestamp_pb2.Timestamp
+    status: str
+    status_error: str
+    effective_maintenance_window: MaintenanceWindow
     def __init__(
         self,
         name: _Optional[str] = ...,
@@ -675,6 +838,9 @@ class CloudComponentClusterResponse(_message.Message):
         created_at: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ...,
         updated_at: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ...,
         applied_at: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ...,
+        status: _Optional[str] = ...,
+        status_error: _Optional[str] = ...,
+        effective_maintenance_window: _Optional[_Union[MaintenanceWindow, _Mapping]] = ...,
     ) -> None: ...
 
 class CloudComponentClusterRequest(_message.Message):
@@ -829,6 +995,134 @@ class ListCloudComponentStorageResponse(_message.Message):
     def __init__(
         self, storages: _Optional[_Iterable[_Union[CloudComponentStorageResponse, _Mapping]]] = ...
     ) -> None: ...
+
+class CreateBindingEnvironmentCloudStorageRequest(_message.Message):
+    __slots__ = ("environment_id", "cloud_storage_id", "storage_role")
+    ENVIRONMENT_ID_FIELD_NUMBER: _ClassVar[int]
+    CLOUD_STORAGE_ID_FIELD_NUMBER: _ClassVar[int]
+    STORAGE_ROLE_FIELD_NUMBER: _ClassVar[int]
+    environment_id: str
+    cloud_storage_id: str
+    storage_role: CloudStorageRole
+    def __init__(
+        self,
+        environment_id: _Optional[str] = ...,
+        cloud_storage_id: _Optional[str] = ...,
+        storage_role: _Optional[_Union[CloudStorageRole, str]] = ...,
+    ) -> None: ...
+
+class CreateBindingEnvironmentCloudStorageResponse(_message.Message):
+    __slots__ = ("binding",)
+    BINDING_FIELD_NUMBER: _ClassVar[int]
+    binding: EnvironmentCloudStorageBinding
+    def __init__(self, binding: _Optional[_Union[EnvironmentCloudStorageBinding, _Mapping]] = ...) -> None: ...
+
+class GetBindingEnvironmentCloudStorageRequest(_message.Message):
+    __slots__ = ("environment_id", "storage_role")
+    ENVIRONMENT_ID_FIELD_NUMBER: _ClassVar[int]
+    STORAGE_ROLE_FIELD_NUMBER: _ClassVar[int]
+    environment_id: str
+    storage_role: CloudStorageRole
+    def __init__(
+        self, environment_id: _Optional[str] = ..., storage_role: _Optional[_Union[CloudStorageRole, str]] = ...
+    ) -> None: ...
+
+class GetBindingEnvironmentCloudStorageResponse(_message.Message):
+    __slots__ = ("binding",)
+    BINDING_FIELD_NUMBER: _ClassVar[int]
+    binding: EnvironmentCloudStorageBinding
+    def __init__(self, binding: _Optional[_Union[EnvironmentCloudStorageBinding, _Mapping]] = ...) -> None: ...
+
+class ListBindingEnvironmentCloudStorageRequest(_message.Message):
+    __slots__ = ("environment_id",)
+    ENVIRONMENT_ID_FIELD_NUMBER: _ClassVar[int]
+    environment_id: str
+    def __init__(self, environment_id: _Optional[str] = ...) -> None: ...
+
+class ListBindingEnvironmentCloudStorageResponse(_message.Message):
+    __slots__ = ("bindings",)
+    BINDINGS_FIELD_NUMBER: _ClassVar[int]
+    bindings: _containers.RepeatedCompositeFieldContainer[EnvironmentCloudStorageBinding]
+    def __init__(
+        self, bindings: _Optional[_Iterable[_Union[EnvironmentCloudStorageBinding, _Mapping]]] = ...
+    ) -> None: ...
+
+class DeleteBindingEnvironmentCloudStorageRequest(_message.Message):
+    __slots__ = ("environment_id", "storage_role")
+    ENVIRONMENT_ID_FIELD_NUMBER: _ClassVar[int]
+    STORAGE_ROLE_FIELD_NUMBER: _ClassVar[int]
+    environment_id: str
+    storage_role: CloudStorageRole
+    def __init__(
+        self, environment_id: _Optional[str] = ..., storage_role: _Optional[_Union[CloudStorageRole, str]] = ...
+    ) -> None: ...
+
+class DeleteBindingEnvironmentCloudStorageResponse(_message.Message):
+    __slots__ = ()
+    def __init__(self) -> None: ...
+
+class CreateBindingClusterCloudStorageRequest(_message.Message):
+    __slots__ = ("cluster_id", "cloud_storage_id", "storage_role")
+    CLUSTER_ID_FIELD_NUMBER: _ClassVar[int]
+    CLOUD_STORAGE_ID_FIELD_NUMBER: _ClassVar[int]
+    STORAGE_ROLE_FIELD_NUMBER: _ClassVar[int]
+    cluster_id: str
+    cloud_storage_id: str
+    storage_role: CloudStorageRole
+    def __init__(
+        self,
+        cluster_id: _Optional[str] = ...,
+        cloud_storage_id: _Optional[str] = ...,
+        storage_role: _Optional[_Union[CloudStorageRole, str]] = ...,
+    ) -> None: ...
+
+class CreateBindingClusterCloudStorageResponse(_message.Message):
+    __slots__ = ("binding",)
+    BINDING_FIELD_NUMBER: _ClassVar[int]
+    binding: ClusterCloudStorageBinding
+    def __init__(self, binding: _Optional[_Union[ClusterCloudStorageBinding, _Mapping]] = ...) -> None: ...
+
+class GetBindingClusterCloudStorageRequest(_message.Message):
+    __slots__ = ("cluster_id", "storage_role")
+    CLUSTER_ID_FIELD_NUMBER: _ClassVar[int]
+    STORAGE_ROLE_FIELD_NUMBER: _ClassVar[int]
+    cluster_id: str
+    storage_role: CloudStorageRole
+    def __init__(
+        self, cluster_id: _Optional[str] = ..., storage_role: _Optional[_Union[CloudStorageRole, str]] = ...
+    ) -> None: ...
+
+class GetBindingClusterCloudStorageResponse(_message.Message):
+    __slots__ = ("binding",)
+    BINDING_FIELD_NUMBER: _ClassVar[int]
+    binding: ClusterCloudStorageBinding
+    def __init__(self, binding: _Optional[_Union[ClusterCloudStorageBinding, _Mapping]] = ...) -> None: ...
+
+class ListBindingClusterCloudStorageRequest(_message.Message):
+    __slots__ = ("cluster_id",)
+    CLUSTER_ID_FIELD_NUMBER: _ClassVar[int]
+    cluster_id: str
+    def __init__(self, cluster_id: _Optional[str] = ...) -> None: ...
+
+class ListBindingClusterCloudStorageResponse(_message.Message):
+    __slots__ = ("bindings",)
+    BINDINGS_FIELD_NUMBER: _ClassVar[int]
+    bindings: _containers.RepeatedCompositeFieldContainer[ClusterCloudStorageBinding]
+    def __init__(self, bindings: _Optional[_Iterable[_Union[ClusterCloudStorageBinding, _Mapping]]] = ...) -> None: ...
+
+class DeleteBindingClusterCloudStorageRequest(_message.Message):
+    __slots__ = ("cluster_id", "storage_role")
+    CLUSTER_ID_FIELD_NUMBER: _ClassVar[int]
+    STORAGE_ROLE_FIELD_NUMBER: _ClassVar[int]
+    cluster_id: str
+    storage_role: CloudStorageRole
+    def __init__(
+        self, cluster_id: _Optional[str] = ..., storage_role: _Optional[_Union[CloudStorageRole, str]] = ...
+    ) -> None: ...
+
+class DeleteBindingClusterCloudStorageResponse(_message.Message):
+    __slots__ = ()
+    def __init__(self) -> None: ...
 
 class CreateCloudComponentContainerRegistryRequest(_message.Message):
     __slots__ = ("container_registry",)

@@ -37,10 +37,37 @@ class EventBusEnvelope(_message.Message):
     ) -> None: ...
 
 class EventBusMessage(_message.Message):
-    __slots__ = ("webhook_event",)
+    __slots__ = ("webhook_event", "infra_deployment_event")
     WEBHOOK_EVENT_FIELD_NUMBER: _ClassVar[int]
+    INFRA_DEPLOYMENT_EVENT_FIELD_NUMBER: _ClassVar[int]
     webhook_event: WebhookEvent
-    def __init__(self, webhook_event: _Optional[_Union[WebhookEvent, _Mapping]] = ...) -> None: ...
+    infra_deployment_event: InfraDeploymentEvent
+    def __init__(
+        self,
+        webhook_event: _Optional[_Union[WebhookEvent, _Mapping]] = ...,
+        infra_deployment_event: _Optional[_Union[InfraDeploymentEvent, _Mapping]] = ...,
+    ) -> None: ...
+
+class InfraDeploymentEvent(_message.Message):
+    __slots__ = ("cluster_id", "vpc_id", "status", "error", "action")
+    CLUSTER_ID_FIELD_NUMBER: _ClassVar[int]
+    VPC_ID_FIELD_NUMBER: _ClassVar[int]
+    STATUS_FIELD_NUMBER: _ClassVar[int]
+    ERROR_FIELD_NUMBER: _ClassVar[int]
+    ACTION_FIELD_NUMBER: _ClassVar[int]
+    cluster_id: str
+    vpc_id: str
+    status: str
+    error: str
+    action: str
+    def __init__(
+        self,
+        cluster_id: _Optional[str] = ...,
+        vpc_id: _Optional[str] = ...,
+        status: _Optional[str] = ...,
+        error: _Optional[str] = ...,
+        action: _Optional[str] = ...,
+    ) -> None: ...
 
 class WebhookEvent(_message.Message):
     __slots__ = ("webhook_id", "subscription", "payload", "event_timestamp", "idempotency_key")

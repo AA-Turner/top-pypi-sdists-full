@@ -26,7 +26,8 @@ pub use span::{Position, Span};
 
 use crate::error::{Error, Result};
 use crate::limits::LimitExceeded;
-use std::time::{Duration, Instant};
+use crate::time_compat::Instant;
+use std::time::Duration;
 
 /// Default maximum AST depth (matches ExecutionLimits default)
 const DEFAULT_MAX_AST_DEPTH: usize = 100;
@@ -826,11 +827,14 @@ impl<'a> Parser<'a> {
         let words = if self.is_keyword("in") {
             self.advance(); // consume 'in'
 
-            // Parse word list until do/newline/;
+            // Parse word list until a list terminator (newline/;)
             let mut words = Vec::new();
             loop {
                 match &self.current_token {
-                    Some(tokens::Token::Word(w)) if w == "do" => break,
+                    // `do`/`done` are reserved words only in command position.
+                    // Inside the `in` list they are ordinary words until a list
+                    // terminator (`;`/newline), matching bash: `for a in do; do
+                    // echo $a; done` iterates over the single word `do`.
                     Some(tokens::Token::Word(w))
                     | Some(tokens::Token::QuotedWord(w))
                     | Some(tokens::Token::QuotedGlobWord(w)) => {
@@ -929,11 +933,13 @@ impl<'a> Parser<'a> {
         }
         self.advance(); // consume 'in'
 
-        // Parse word list until do/newline/;
+        // Parse word list until a list terminator (newline/;)
         let mut words = Vec::new();
         loop {
             match &self.current_token {
-                Some(tokens::Token::Word(w)) if w == "do" => break,
+                // `do`/`done` are reserved words only in command position.
+                // Inside the `in` list they are ordinary words until a list
+                // terminator (`;`/newline), matching bash.
                 Some(tokens::Token::Word(w))
                 | Some(tokens::Token::QuotedWord(w))
                 | Some(tokens::Token::QuotedGlobWord(w)) => {

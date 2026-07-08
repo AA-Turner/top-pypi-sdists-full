@@ -1,51 +1,7 @@
-- name: il_hbwd_age_15_too_young (il)
-  period: 2026
-  absolute_error_margin: 0.1
-  input:
-    people:
-      head:
-        age: 15
-        is_tax_unit_head: true
-        is_tax_unit_spouse: false
-        is_tax_unit_dependent: false
-        is_disabled: true
-        is_blind: false
-        is_pregnant: false
-        is_female: false
-        immigration_status_str: CITIZEN
-        employment_income_before_lsr: 10000
-        has_bcc_qualifying_coverage: false
-        is_full_time_student: false
-        ca_calworks_child_care_time_category: MONTHLY
-        ca_calworks_child_care_full_time: false
-        ca_riv_general_relief_meets_work_requirements: false
-    households:
-      household:
-        members: &id001
-        - head
-        state_code_str: IL
-        zip_code: '60601'
-        county_str: COOK_COUNTY_IL
-    spm_units:
-      spm_unit:
-        members: *id001
-    tax_units:
-      tax_unit:
-        members: *id001
-        tax_unit_is_joint: false
-    families:
-      family:
-        members: *id001
-    marital_units:
-      mu_head:
-        members:
-        - head
-  output:
-    people:
-      head:
-        il_hbwd_eligible: false
-        il_hbwd_person: 0.0
-- name: il_hbwd_age_16_eligible (il)
+# IL Health Benefits for Workers with Disabilities (HBWD) — Medicaid buy-in
+# for disabled workers age 16-64 with earnings; il_hbwd_person is the
+# negative monthly premium (89 Ill. Admin. Code 120.510(n)).
+- name: il_hbwd_age_16_minimum_age_eligible (il)
   period: 2026
   absolute_error_margin: 0.1
   input:
@@ -56,87 +12,33 @@
         is_tax_unit_spouse: false
         is_tax_unit_dependent: false
         is_disabled: true
-        is_blind: false
-        is_pregnant: false
-        is_female: false
-        immigration_status_str: CITIZEN
-        employment_income_before_lsr: 10000
-        has_bcc_qualifying_coverage: false
-        is_full_time_student: false
-        ca_calworks_child_care_time_category: MONTHLY
-        ca_calworks_child_care_full_time: false
-        ca_riv_general_relief_meets_work_requirements: false
+        employment_income_before_lsr: 10_000
     households:
       household:
-        members: &id002
-        - head
-        state_code_str: IL
+        members: [head]
+        state_code: IL
         zip_code: '60601'
         county_str: COOK_COUNTY_IL
     spm_units:
       spm_unit:
-        members: *id002
+        members: [head]
     tax_units:
       tax_unit:
-        members: *id002
+        members: [head]
         tax_unit_is_joint: false
     families:
       family:
-        members: *id002
+        members: [head]
     marital_units:
       mu_head:
-        members:
-        - head
+        members: [head]
   output:
     people:
       head:
-        il_hbwd_eligible: true
-        il_hbwd_person: -156.0
-- name: il_hbwd_age_64_eligible (il)
-  period: 2026
-  absolute_error_margin: 0.1
-  input:
-    people:
-      head:
-        age: 64
-        is_tax_unit_head: true
-        is_tax_unit_spouse: false
-        is_tax_unit_dependent: false
-        is_disabled: true
-        is_blind: false
-        is_pregnant: false
-        is_female: false
-        immigration_status_str: CITIZEN
-        employment_income_before_lsr: 10000
-        has_bcc_qualifying_coverage: false
-        is_full_time_student: false
-        ca_calworks_child_care_time_category: MONTHLY
-        ca_calworks_child_care_full_time: false
-        ca_riv_general_relief_meets_work_requirements: false
-    households:
-      household:
-        members: &id003
-        - head
-        state_code_str: IL
-        zip_code: '60601'
-        county_str: COOK_COUNTY_IL
-    spm_units:
-      spm_unit:
-        members: *id003
-    tax_units:
-      tax_unit:
-        members: *id003
-        tax_unit_is_joint: false
-    families:
-      family:
-        members: *id003
-    marital_units:
-      mu_head:
-        members:
-        - head
-  output:
-    people:
-      head:
+        # Age 16 meets the lower age bound (16-64). Premium: gross earned
+        # $833.33/mo minus employment-expense exemptions (OASDI $51.67 + IL
+        # withholding ~$29) minus $25 flat and $50 earned exemptions ~ $677
+        # -> earned bracket $500-750 -> $13/mo premium -> -156/yr.
         il_hbwd_eligible: true
         il_hbwd_person: -156.0
 - name: il_hbwd_age_65_age_out (il)
@@ -150,40 +52,110 @@
         is_tax_unit_spouse: false
         is_tax_unit_dependent: false
         is_disabled: true
-        is_blind: false
-        is_pregnant: false
-        is_female: false
-        immigration_status_str: CITIZEN
-        employment_income_before_lsr: 10000
-        has_bcc_qualifying_coverage: false
-        is_full_time_student: false
-        ca_calworks_child_care_time_category: MONTHLY
-        ca_calworks_child_care_full_time: false
-        ca_riv_general_relief_meets_work_requirements: false
+        employment_income_before_lsr: 10_000
     households:
       household:
-        members: &id004
-        - head
-        state_code_str: IL
+        members: [head]
+        state_code: IL
         zip_code: '60601'
         county_str: COOK_COUNTY_IL
     spm_units:
       spm_unit:
-        members: *id004
+        members: [head]
     tax_units:
       tax_unit:
-        members: *id004
+        members: [head]
         tax_unit_is_joint: false
     families:
       family:
-        members: *id004
+        members: [head]
     marital_units:
       mu_head:
-        members:
-        - head
+        members: [head]
   output:
     people:
       head:
+        # Age-route ineligible: 65 is outside the 16-64 window (binding
+        # boundary against the age-16 case).
+        il_hbwd_eligible: false
+        il_hbwd_person: 0.0
+- name: il_hbwd_mid_premium_bracket (il)
+  period: 2026
+  absolute_error_margin: 0.1
+  input:
+    people:
+      head:
+        age: 40
+        is_tax_unit_head: true
+        is_tax_unit_spouse: false
+        is_tax_unit_dependent: false
+        is_disabled: true
+        employment_income_before_lsr: 30_000
+    households:
+      household:
+        members: [head]
+        state_code: IL
+        zip_code: '60601'
+        county_str: COOK_COUNTY_IL
+    spm_units:
+      spm_unit:
+        members: [head]
+    tax_units:
+      tax_unit:
+        members: [head]
+        tax_unit_is_joint: false
+    families:
+      family:
+        members: [head]
+    marital_units:
+      mu_head:
+        members: [head]
+  output:
+    people:
+      head:
+        # Mid-scale premium: gross $2,500/mo minus expense exemptions
+        # (OASDI $155 + IL withholding ~$112) minus $25 flat and $50 earned
+        # exemptions ~ $2,158 -> earned bracket $2,000-2,250 -> $50/mo
+        # premium -> -600/yr. Income still under 350% FPG.
+        il_hbwd_eligible: true
+        il_hbwd_person: -600.0
+- name: il_hbwd_assets_above_limit_ineligible (il)
+  period: 2026
+  absolute_error_margin: 0.1
+  input:
+    people:
+      head:
+        age: 40
+        is_tax_unit_head: true
+        is_tax_unit_spouse: false
+        is_tax_unit_dependent: false
+        is_disabled: true
+        employment_income_before_lsr: 10_000
+    households:
+      household:
+        members: [head]
+        state_code: IL
+        zip_code: '60601'
+        county_str: COOK_COUNTY_IL
+    spm_units:
+      spm_unit:
+        members: [head]
+        spm_unit_cash_assets: 30_000
+    tax_units:
+      tax_unit:
+        members: [head]
+        tax_unit_is_joint: false
+    families:
+      family:
+        members: [head]
+    marital_units:
+      mu_head:
+        members: [head]
+  output:
+    people:
+      head:
+        # Resource-route ineligible: $30,000 countable assets exceed the
+        # $25,000 HBWD asset limit (120.510(a)(9)).
         il_hbwd_eligible: false
         il_hbwd_person: 0.0
 - name: il_hbwd_not_disabled_ineligible (il)
@@ -197,39 +169,29 @@
         is_tax_unit_spouse: false
         is_tax_unit_dependent: false
         is_disabled: false
-        is_blind: false
-        is_pregnant: false
-        is_female: false
-        immigration_status_str: CITIZEN
-        employment_income_before_lsr: 10000
-        has_bcc_qualifying_coverage: false
-        is_full_time_student: false
-        ca_calworks_child_care_time_category: MONTHLY
-        ca_calworks_child_care_full_time: false
-        ca_riv_general_relief_meets_work_requirements: false
+        employment_income_before_lsr: 10_000
     households:
       household:
-        members: &id005
-        - head
-        state_code_str: IL
+        members: [head]
+        state_code: IL
         zip_code: '60601'
         county_str: COOK_COUNTY_IL
     spm_units:
       spm_unit:
-        members: *id005
+        members: [head]
     tax_units:
       tax_unit:
-        members: *id005
+        members: [head]
         tax_unit_is_joint: false
     families:
       family:
-        members: *id005
+        members: [head]
     marital_units:
       mu_head:
-        members:
-        - head
+        members: [head]
   output:
     people:
       head:
+        # Categorical-route ineligible: worker without a disability.
         il_hbwd_eligible: false
         il_hbwd_person: 0.0

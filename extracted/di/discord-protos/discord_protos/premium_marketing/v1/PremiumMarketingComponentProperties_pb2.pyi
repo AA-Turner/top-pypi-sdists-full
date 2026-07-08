@@ -639,6 +639,9 @@ class PremiumMarketingComponentProperties(_message.Message):
         DISMISSIBLE_CONTENT_BATTLENET_CONNECTION_DEPRECATION_LINKED_ROLES: PremiumMarketingComponentProperties._DismissibleContent.ValueType  # 785
         DISMISSIBLE_CONTENT_BATTLENET_CONNECTION_DEPRECATION_LINKED_ROLES_DISABLE: PremiumMarketingComponentProperties._DismissibleContent.ValueType  # 786
         DISMISSIBLE_CONTENT_GUILD_THEME_MEMBER_COACHMARK: PremiumMarketingComponentProperties._DismissibleContent.ValueType  # 787
+        DISMISSIBLE_CONTENT_AUTOCLIPPING_ACCOUNT_PANEL_COACHMARK: PremiumMarketingComponentProperties._DismissibleContent.ValueType  # 788
+        DISMISSIBLE_CONTENT_AUTOCLIPPING_VIDEO_CALL_TILE: PremiumMarketingComponentProperties._DismissibleContent.ValueType  # 789
+        DISMISSIBLE_CONTENT_YOU_BAR_DM_SWIPE_COACHMARK: PremiumMarketingComponentProperties._DismissibleContent.ValueType  # 790
 
     class DismissibleContent(_DismissibleContent, metaclass=_DismissibleContentEnumTypeWrapper): ...
     DISMISSIBLE_CONTENT_HUB_WAITLIST_UPSELL: PremiumMarketingComponentProperties.DismissibleContent.ValueType  # 0
@@ -1225,6 +1228,9 @@ class PremiumMarketingComponentProperties(_message.Message):
     DISMISSIBLE_CONTENT_BATTLENET_CONNECTION_DEPRECATION_LINKED_ROLES: PremiumMarketingComponentProperties.DismissibleContent.ValueType  # 785
     DISMISSIBLE_CONTENT_BATTLENET_CONNECTION_DEPRECATION_LINKED_ROLES_DISABLE: PremiumMarketingComponentProperties.DismissibleContent.ValueType  # 786
     DISMISSIBLE_CONTENT_GUILD_THEME_MEMBER_COACHMARK: PremiumMarketingComponentProperties.DismissibleContent.ValueType  # 787
+    DISMISSIBLE_CONTENT_AUTOCLIPPING_ACCOUNT_PANEL_COACHMARK: PremiumMarketingComponentProperties.DismissibleContent.ValueType  # 788
+    DISMISSIBLE_CONTENT_AUTOCLIPPING_VIDEO_CALL_TILE: PremiumMarketingComponentProperties.DismissibleContent.ValueType  # 789
+    DISMISSIBLE_CONTENT_YOU_BAR_DM_SWIPE_COACHMARK: PremiumMarketingComponentProperties.DismissibleContent.ValueType  # 790
 
     class _AssetVariant:
         ValueType = _typing.NewType("ValueType", _builtins.int)

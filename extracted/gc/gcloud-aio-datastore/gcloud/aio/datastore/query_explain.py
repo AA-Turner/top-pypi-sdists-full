@@ -1,11 +1,6 @@
 import enum
 import re
 from typing import Any
-from typing import Dict
-from typing import List
-from typing import Optional
-from typing import Tuple
-from typing import Union
 
 
 class ExplainOptions(enum.Enum):
@@ -13,11 +8,11 @@ class ExplainOptions(enum.Enum):
     DEFAULT = False
     ANALYZE = True
 
-    def to_repr(self) -> Dict[str, bool]:
+    def to_repr(self) -> dict[str, bool]:
         return {'analyze': self.value}
 
     @classmethod
-    def from_repr(cls, data: Dict[str, bool]) -> 'ExplainOptions':
+    def from_repr(cls, data: dict[str, bool]) -> 'ExplainOptions':
         analyze_value = data.get('analyze', False)
         return cls.ANALYZE if analyze_value else cls.DEFAULT
 
@@ -40,10 +35,13 @@ class IndexDefinition:
 
     _PROPERTIES_PATTERN = re.compile(
         r'\s*([^\s,()]+)\s+(ASC|DESC)\s*',
-        flags=re.IGNORECASE)
+        flags=re.IGNORECASE,
+    )
 
-    def __init__(self, query_scope: str = '',
-                 properties: Optional[List[Tuple[str, str]]] = None):
+    def __init__(
+            self, query_scope: str = '',
+            properties: list[tuple[str, str]] | None = None,
+    ):
         self.query_scope = query_scope
         self.properties = properties or []
 
@@ -57,7 +55,7 @@ class IndexDefinition:
                 and self.properties == other.properties)
 
     @classmethod
-    def from_repr(cls, data: Dict[str, Any]) -> 'IndexDefinition':
+    def from_repr(cls, data: dict[str, Any]) -> 'IndexDefinition':
         query_scope = ''
         properties = []
 
@@ -69,7 +67,7 @@ class IndexDefinition:
 
         return cls(query_scope=query_scope, properties=properties)
 
-    def to_repr(self) -> Dict[str, Any]:
+    def to_repr(self) -> dict[str, Any]:
         value = ', '.join(f'{name} {order}' for name, order in self.properties)
         properties = f'({value})'
         return {'query_scope': self.query_scope, 'properties': properties}
@@ -78,7 +76,7 @@ class IndexDefinition:
 class PlanSummary:
     """Container class for planSummary returned by query explain."""
 
-    def __init__(self, indexes_used: Optional[List[IndexDefinition]] = None):
+    def __init__(self, indexes_used: list[IndexDefinition] | None = None):
         self.indexes_used = indexes_used or []
 
     def __repr__(self) -> str:
@@ -90,7 +88,7 @@ class PlanSummary:
         return self.indexes_used == other.indexes_used
 
     @classmethod
-    def from_repr(cls, data: Dict[str, Any]) -> 'PlanSummary':
+    def from_repr(cls, data: dict[str, Any]) -> 'PlanSummary':
         indexes_used = data.get('indexesUsed', [])
         index_definitions = []
         for index in indexes_used:
@@ -98,7 +96,7 @@ class PlanSummary:
 
         return cls(indexes_used=index_definitions)
 
-    def to_repr(self) -> Dict[str, Any]:
+    def to_repr(self) -> dict[str, Any]:
         indexes_used = [index.to_repr() for index in self.indexes_used]
         return {'indexesUsed': indexes_used}
 
@@ -106,10 +104,11 @@ class PlanSummary:
 class ExecutionStats:
     """Container class for executionStats returned by analyze mode."""
 
-    def __init__(self, results_returned: int = 0,
-                 execution_duration: float = 0.0,
-                 read_operations: int = 0,
-                 debug_stats: Optional[Dict[str, Any]] = None):
+    def __init__(
+            self, results_returned: int = 0, execution_duration: float = 0.0,
+            read_operations: int = 0,
+            debug_stats: dict[str, Any] | None = None,
+    ):
         self.results_returned = results_returned
         self.execution_duration = execution_duration
         self.read_operations = read_operations
@@ -128,19 +127,23 @@ class ExecutionStats:
 
     @staticmethod
     def _parse_execution_duration(
-            execution_duration: Optional[Union[str, float]]) -> float:
+            execution_duration: str | float | None,
+    ) -> float:
         """Convert execution_duration from str (e.g. "0.01785s") to float."""
         if isinstance(execution_duration, float):
             # avoid parsing if already a float
             return execution_duration
-        if not isinstance(execution_duration,
-                          str) or not execution_duration.endswith('s'):
+
+        if (
+                not isinstance(execution_duration, str)
+                or not execution_duration.endswith('s')
+        ):
             raise ValueError(f'executionDuration must be a str ending with '
                              f'"s", got: {execution_duration}.')
         return float(execution_duration.rstrip('s'))
 
     @staticmethod
-    def _parse_debug_stats(debug_stats: Dict[str, Any]) -> Dict[str, Any]:
+    def _parse_debug_stats(debug_stats: dict[str, Any]) -> dict[str, Any]:
         """Convert debug_stats values from str to int."""
         for key, val in debug_stats.items():
             if isinstance(val, str) and val.isdigit():
@@ -153,7 +156,7 @@ class ExecutionStats:
         return debug_stats
 
     @classmethod
-    def from_repr(cls, data: Dict[str, Any]) -> 'ExecutionStats':
+    def from_repr(cls, data: dict[str, Any]) -> 'ExecutionStats':
         return cls(
             results_returned=int(data.get('resultsReturned', 0)),
             execution_duration=cls._parse_execution_duration(
@@ -162,7 +165,7 @@ class ExecutionStats:
             debug_stats=cls._parse_debug_stats(data.get('debugStats', {}))
         )
 
-    def to_repr(self) -> Dict[str, Any]:
+    def to_repr(self) -> dict[str, Any]:
         return {
             'resultsReturned': self.results_returned,
             'executionDuration': self.execution_duration,
@@ -174,8 +177,10 @@ class ExecutionStats:
 class ExplainMetrics:
     """Container class for explainMetrics returned by query explain."""
 
-    def __init__(self, plan_summary: Optional[PlanSummary] = None,
-                 execution_stats: Optional[ExecutionStats] = None):
+    def __init__(
+            self, plan_summary: PlanSummary | None = None,
+            execution_stats: ExecutionStats | None = None,
+    ):
         self.plan_summary = plan_summary
         self.execution_stats = execution_stats
 
@@ -189,7 +194,7 @@ class ExplainMetrics:
                 and self.execution_stats == other.execution_stats)
 
     @classmethod
-    def from_repr(cls, data: Dict[str, Any]) -> 'ExplainMetrics':
+    def from_repr(cls, data: dict[str, Any]) -> 'ExplainMetrics':
         plan_summary = None
         execution_stats = None
 
@@ -200,7 +205,7 @@ class ExplainMetrics:
 
         return cls(plan_summary=plan_summary, execution_stats=execution_stats)
 
-    def to_repr(self) -> Dict[str, Any]:
+    def to_repr(self) -> dict[str, Any]:
         explain_metrics = {}
         if self.plan_summary:
             explain_metrics['planSummary'] = self.plan_summary.to_repr()

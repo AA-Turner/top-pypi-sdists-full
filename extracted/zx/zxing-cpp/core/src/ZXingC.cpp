@@ -72,8 +72,9 @@ P copy(const C& c, int* len) noexcept
 
 
 extern "C" {
+
 /*
- * ZXing/ImageView.h
+ * MARK: - ImageView.h
  */
 
 ZXing_ImageView* ZXing_ImageView_new(const uint8_t* data, int width, int height, ZXing_ImageFormat format, int rowStride,
@@ -131,7 +132,7 @@ ZXing_ImageFormat ZXing_Image_format(const ZXing_Image* img)
 }
 
 /*
- * ZXing/BarcodeFormat.h
+ * MARK: - BarcodeFormat.h
  */
 
 ZXing_BarcodeFormat ZXing_BarcodeFormatSymbology(ZXing_BarcodeFormat format)
@@ -149,18 +150,12 @@ ZXing_BarcodeFormat ZXing_BarcodeFormatFromString(const char* str)
 
 char* ZXing_BarcodeFormatToString(ZXing_BarcodeFormat format)
 {
-	try {
-		return copy(ToString(transmute_cast<BarcodeFormat>(format)));
-	}
-	ZX_CATCH(NULL)
+	ZX_TRY(copy(ToString(transmute_cast<BarcodeFormat>(format))));
 }
 
 ZXing_BarcodeFormat* ZXing_BarcodeFormatsList(ZXing_BarcodeFormat filter, int* outCount)
 {
-	try {
-		return (ZXing_BarcodeFormat*)copy(BarcodeFormats::list(transmute_cast<BarcodeFormat>(filter)), outCount);
-	}
-	ZX_CATCH(NULL)
+	ZX_TRY((ZXing_BarcodeFormat*)copy(BarcodeFormats::list(transmute_cast<BarcodeFormat>(filter)), outCount));
 }
 
 ZXing_BarcodeFormat* ZXing_BarcodeFormatsFromString(const char* str, int* outCount)
@@ -170,25 +165,18 @@ ZXing_BarcodeFormat* ZXing_BarcodeFormatsFromString(const char* str, int* outCou
 			*outCount = 0;
 		return NULL;
 	}
-	try {
-		return (ZXing_BarcodeFormat*)copy(BarcodeFormats(str), outCount);
-	}
-	ZX_CATCH(NULL)
+	ZX_TRY((ZXing_BarcodeFormat*)copy(BarcodeFormats(str), outCount));
 }
 
 char* ZXing_BarcodeFormatsToString(const ZXing_BarcodeFormat* formats, int count)
 {
 	if (!formats || count == 0)
 		return copy(std::string{});
-	try {
-		std::vector<BarcodeFormat> v((BarcodeFormat*)formats, (BarcodeFormat*)formats + count);
-		return copy(ToString(BarcodeFormats(std::move(v))));
-	}
-	ZX_CATCH(NULL)
+	ZX_TRY(copy(ToString(BarcodeFormats(std::vector((BarcodeFormat*)formats, (BarcodeFormat*)formats + count)))));
 }
 
 /*
- * ZXing/Barcode.h
+ * MARK: - Barcode.h
  */
 
 char* ZXing_ContentTypeToString(ZXing_ContentType type)
@@ -284,7 +272,7 @@ ZXing_Barcode* ZXing_Barcodes_move(ZXing_Barcodes* barcodes, int i)
 }
 
 /*
- * ZXing/ReaderOptions.h
+ * MARK: - ReaderOptions.h
  */
 
 ZXing_ReaderOptions* ZXing_ReaderOptions_new()
@@ -309,7 +297,7 @@ ZX_PROPERTY(bool, tryDownscale, TryDownscale)
 	ZX_PROPERTY(bool, tryDenoise, TryDenoise)
 #endif
 ZX_PROPERTY(bool, isPure, IsPure)
-ZX_PROPERTY(bool, validateOptionalCheckSum, ValidateOptionalCheckSum)
+ZX_PROPERTY(bool, validateOptionalChecksum, ValidateOptionalChecksum)
 ZX_PROPERTY(bool, returnErrors, ReturnErrors)
 ZX_PROPERTY(int, minLineCount, MinLineCount)
 ZX_PROPERTY(int, maxNumberOfSymbols, MaxNumberOfSymbols)
@@ -343,7 +331,7 @@ ZX_ENUM_PROPERTY(TextMode, textMode, TextMode)
 #undef ZX_ENUM_PROPERTY
 
 /*
- * ZXing/ReadBarcode.h
+ * MARK: - ReadBarcode.h
  */
 
 ZXing_Barcodes* ZXing_ReadBarcodes(const ZXing_ImageView* iv, const ZXing_ReaderOptions* opts)
@@ -358,7 +346,7 @@ ZXing_Barcodes* ZXing_ReadBarcodes(const ZXing_ImageView* iv, const ZXing_Reader
 
 
 /*
- * ZXing/WriteBarcode.h
+ * MARK: - CreateBarcode.h
  */
 
 ZXing_CreatorOptions* ZXing_CreatorOptions_new(ZXing_BarcodeFormat format)
@@ -396,6 +384,22 @@ void ZXing_CreatorOptions_setOptions(ZXing_CreatorOptions* opts, const char* val
 	opts->options(val);
 }
 
+ZXing_Barcode* ZXing_CreateBarcodeFromText(const char* data, int size, const ZXing_CreatorOptions* opts)
+{
+	ZX_CHECK(opts, "CreatorOptions param is NULL")
+	ZX_TRY(new Barcode(CreateBarcodeFromText({data, size ? static_cast<size_t>(size) : data ? strlen(data) : 0}, *opts));)
+}
+
+ZXing_Barcode* ZXing_CreateBarcodeFromBytes(const void* data, int size, const ZXing_CreatorOptions* opts)
+{
+	ZX_CHECK(opts, "CreatorOptions param is NULL")
+	ZX_TRY(new Barcode(CreateBarcodeFromBytes(data, size, *opts)))
+}
+
+
+/*
+ * MARK: - WriteBarcode.h
+ */
 
 ZXing_WriterOptions* ZXing_WriterOptions_new()
 {
@@ -418,32 +422,20 @@ ZX_PROPERTY(bool, addQuietZones, AddQuietZones)
 
 #undef ZX_PROPERTY
 
-ZXing_Barcode* ZXing_CreateBarcodeFromText(const char* data, int size, const ZXing_CreatorOptions* opts)
-{
-	ZX_CHECK(data && opts, "Data and/or options param in CreateBarcodeFromText is NULL")
-	ZX_TRY(new Barcode(CreateBarcodeFromText({data, size ? static_cast<size_t>(size) : strlen(data)}, *opts));)
-}
-
-ZXing_Barcode* ZXing_CreateBarcodeFromBytes(const void* data, int size, const ZXing_CreatorOptions* opts)
-{
-	ZX_CHECK(data && size && opts, "Data and/or options param in CreateBarcodeFromBytes is NULL")
-	ZX_TRY(new Barcode(CreateBarcodeFromBytes(data, size, *opts)))
-}
-
 char* ZXing_WriteBarcodeToSVG(const ZXing_Barcode* barcode, const ZXing_WriterOptions* opts)
 {
-	ZX_CHECK(barcode, "Barcode param in WriteBarcodeToSVG is NULL")
+	ZX_CHECK(barcode, "Barcode param is NULL")
 	ZX_TRY(copy(opts ? WriteBarcodeToSVG(*barcode, *opts) : WriteBarcodeToSVG(*barcode)))
 }
 
 ZXing_Image* ZXing_WriteBarcodeToImage(const ZXing_Barcode* barcode, const ZXing_WriterOptions* opts)
 {
-	ZX_CHECK(barcode, "Barcode param in WriteBarcodeToSVG is NULL")
+	ZX_CHECK(barcode, "Barcode param is NULL")
 	ZX_TRY(new Image(opts ? WriteBarcodeToImage(*barcode, *opts) : WriteBarcodeToImage(*barcode)))
 }
 
 /*
- * ZXingC.h
+ * MARK: - ZXingC.h
  */
 
 char* ZXing_LastErrorMsg()

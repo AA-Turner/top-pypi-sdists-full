@@ -134,7 +134,7 @@ static bool EAN13(PartialResult& res, PatternView begin)
 	auto mid = begin.subView(27, MID_PATTERN.size());
 	auto end = begin.subView(56, END_PATTERN.size());
 
-	CHECK(end.isValid() && IsRightGuard(end, END_PATTERN, QUIET_ZONE_RIGHT_EAN) && IsPattern(mid, MID_PATTERN));
+	CHECK(IsRightGuard(end, END_PATTERN, QUIET_ZONE_RIGHT_EAN) && IsPattern(mid, MID_PATTERN));
 
 	auto next = begin.subView(END_PATTERN.size(), CHAR_LEN);
 	res.txt = " "; // make space for lgPattern character
@@ -166,7 +166,7 @@ static bool EAN8(PartialResult& res, PatternView begin)
 	auto mid = begin.subView(19, MID_PATTERN.size());
 	auto end = begin.subView(40, END_PATTERN.size());
 
-	CHECK(end.isValid() && IsRightGuard(end, END_PATTERN, QUIET_ZONE_RIGHT_EAN) && IsPattern(mid, MID_PATTERN));
+	CHECK(IsRightGuard(end, END_PATTERN, QUIET_ZONE_RIGHT_EAN) && IsPattern(mid, MID_PATTERN));
 
 	// additional plausibility check for the module size: it has to be about the same for both
 	// the guard patterns and the payload/data part.
@@ -193,7 +193,7 @@ static bool UPCE(PartialResult& res, PatternView begin)
 {
 	auto end = begin.subView(27, UPCE_END_PATTERN.size());
 
-	CHECK(end.isValid() && IsRightGuard(end, UPCE_END_PATTERN, QUIET_ZONE_RIGHT_UPC));
+	CHECK(IsRightGuard(end, UPCE_END_PATTERN, QUIET_ZONE_RIGHT_UPC));
 
 	// additional plausibility check for the module size: it has to be about the same for both
 	// the guard patterns and the payload/data part. This speeds up the falsepositives use case
@@ -274,10 +274,8 @@ BarcodeData MultiUPCEANReader::decodePattern(int rowNumber, PatternView& next, s
 
 	PartialResult res;
 	auto begin = next;
-	
-	if (!(((_opts.hasFormat(BarcodeFormat::EAN13 | BarcodeFormat::UPCA)) && EAN13(res, begin)) ||
-		  (_opts.hasFormat(BarcodeFormat::EAN8) && EAN8(res, begin)) ||
-		  (_opts.hasFormat(BarcodeFormat::UPCE) && UPCE(res, begin))))
+
+	if (!((((readEAN13 || readUPCA) && EAN13(res, begin)) || (readEAN8 && EAN8(res, begin)) || (readUPCE && UPCE(res, begin)))))
 		return {};
 
 	// ISO/IEC 15420:2009 (& GS1 General Specifications 5.1.3) states that the content for "]E0" should be 13 digits,
@@ -291,7 +289,7 @@ BarcodeData MultiUPCEANReader::decodePattern(int rowNumber, PatternView& next, s
 	Error error = !GTIN::IsCheckDigitValid(res.txt) ? ChecksumError() : Error();
 
 	// if we explicitly excluded EAN13, don't return an EAN13 symbol
-	if (res.format == BarcodeFormat::EAN13 && !_opts.hasFormat(BarcodeFormat::EAN13)) {
+	if (res.format == BarcodeFormat::EAN13 && !readEAN13) {
 		if (res.txt.front() == '0')
 			res.format = BarcodeFormat::UPCA;
 		else

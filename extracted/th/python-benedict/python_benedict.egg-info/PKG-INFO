@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: python-benedict
-Version: 0.37.0
+Version: 0.38.0
 Summary: python-benedict is a dict subclass with keylist/keypath/keyattr support, normalized I/O operations (base64, csv, ini, json, pickle, plist, query-string, toml, xls, xml, yaml) and many utilities... for humans, obviously.
 Author-email: Fabio Caccamo <fabio.caccamo@gmail.com>
 Maintainer-email: Fabio Caccamo <fabio.caccamo@gmail.com>
@@ -68,7 +68,7 @@ Provides-Extra: html
 Requires-Dist: beautifulsoup4<5.0.0,>=4.12.0; extra == "html"
 Requires-Dist: python-benedict[xml]; extra == "html"
 Provides-Extra: io
-Requires-Dist: python-fsutil<1.0.0,>=0.16.1; extra == "io"
+Requires-Dist: python-fsutil<1.0.0,>=0.17.0; extra == "io"
 Requires-Dist: requests<3.0.0,>=2.33.0; extra == "io"
 Requires-Dist: python-benedict[html,toml,xls,xml,yaml]; extra == "io"
 Provides-Extra: parse
@@ -78,7 +78,7 @@ Requires-Dist: phonenumbers<10.0.0,>=8.12.0; extra == "parse"
 Requires-Dist: python-dateutil<3.0.0,>=2.8.0; extra == "parse"
 Provides-Extra: s3
 Requires-Dist: boto3<2.0.0,>=1.24.89; extra == "s3"
-Requires-Dist: python-fsutil<1.0.0,>=0.16.1; extra == "s3"
+Requires-Dist: python-fsutil<1.0.0,>=0.17.0; extra == "s3"
 Provides-Extra: schema
 Requires-Dist: pydantic<3.0.0,>=2.0.0; extra == "schema"
 Provides-Extra: toml
@@ -86,7 +86,7 @@ Requires-Dist: tomli<3.0.0,>=2.0.0; python_version < "3.11" and extra == "toml"
 Requires-Dist: tomli-w<2.0.0,>=1.0.0; extra == "toml"
 Provides-Extra: xls
 Requires-Dist: openpyxl<4.0.0,>=3.0.0; extra == "xls"
-Requires-Dist: python-fsutil<1.0.0,>=0.16.1; extra == "xls"
+Requires-Dist: python-fsutil<1.0.0,>=0.17.0; extra == "xls"
 Requires-Dist: xlrd<3.0.0,>=2.0.0; extra == "xls"
 Provides-Extra: xml
 Requires-Dist: xmltodict<2.0.0,>=0.12.0; extra == "xml"

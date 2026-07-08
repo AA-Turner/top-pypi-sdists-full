@@ -20,6 +20,7 @@ from dazzle.core.capabilities import resolve_capabilities
 from dazzle.core.db_url import add_psycopg_driver, normalise_postgres_scheme
 from dazzle.core.environment import is_production
 from dazzle.core.ir import AppSpec, EntitySpec, TenancyMode
+from dazzle.core.ir.fields import FieldTypeKind
 from dazzle.core.manifest import load_manifest
 from dazzle.core.strings import entity_slug as _entity_slug
 from dazzle.core.validator import validate_storage_refs
@@ -35,6 +36,7 @@ from dazzle.http.runtime.auth.partition_root import (
     reconcile_membership_partition_roots,
 )
 from dazzle.http.runtime.csrf import apply_csrf_protection
+from dazzle.http.runtime.document_routes import create_document_routes
 from dazzle.http.runtime.exception_handlers import register_exception_handlers
 from dazzle.http.runtime.file_routes import create_file_routes, create_static_file_routes
 from dazzle.http.runtime.file_storage import FileService
@@ -1813,6 +1815,26 @@ class DazzleBackendApp:
                 # the entity-list rows into the inline detail-panel chevron.
                 "peek_mode": resolve_peek_mode(_ls, entity).value if _ls else "off",
                 "peek_by_table_id": peek_by_table_id,
+                # Convergence C1.1: rows hydrated over /api render bulk-select
+                # checkboxes iff the (first) list surface declares bulk actions
+                # (first-surface value, same convention as peek_mode).
+                "bulk_actions": bool(
+                    _ls is not None and getattr(getattr(_ls, "ux", None), "bulk_actions", None)
+                ),
+                # Convergence C2.3: the type-derived inline-editable column set
+                # (mirrors template_compiler's rule). Never threaded before —
+                # hydrated rows lost their edit affordance when ADR-0049 moved
+                # row rendering to /api.
+                "inline_editable": [
+                    str(c.get("key", ""))
+                    for c in cols
+                    if str(c.get("type", "")) in ("text", "bool", "badge", "date")
+                    and str(c.get("key", "")) not in ("id", "created_at", "updated_at")
+                    and not str(c.get("key", "")).endswith("_id")
+                    # A badge cell edits via a <select> built from the column's
+                    # enum options — without them the editor would be empty.
+                    and (str(c.get("type", "")) != "badge" or c.get("filter_options"))
+                ],
             }
 
         # Build per-entity audit config mapping.
@@ -1893,6 +1915,38 @@ class DazzleBackendApp:
         if self._appspec and self._appspec.tenancy:
             _admin_personas = list(self._appspec.tenancy.admin_personas)
 
+        # #1551: early-construct the FileService so the route generator can
+        # wire attach-time triple verification into create/update handlers.
+        # _mount_file_routes (called later) skips reconstruction when the
+        # service is already set and proceeds directly to route mounting.
+        # This must happen before generate_all_routes because handler
+        # factories capture file_service at construction time (closures).
+        _entity_file_fields: dict[str, list[str]] = {}
+        if self._enable_files and self._appspec:
+            from dazzle.http.runtime.file_storage import (
+                FileMetadataStore,
+                FileValidator,
+                LocalStorageBackend,
+            )
+
+            _storage = LocalStorageBackend(self._files_path, "/files")
+            _metadata_store = FileMetadataStore(database_url=self._database_url)
+            _validator = FileValidator()
+            self._file_service = FileService(_storage, _metadata_store, _validator)
+
+            for _ent in self._appspec.domain.entities:
+                _ff = [f.name for f in _ent.fields if f.type.kind == FieldTypeKind.FILE]
+                if _ff:
+                    _entity_file_fields[_ent.name] = _ff
+
+        # #1551 review fix — wire byte_audit whenever document routes will be
+        # mounted, NOT only when _has_auditable_entities. An app with file
+        # fields but no scope:/permit:/audit: declarations (the "posture" access
+        # path) serves stored bytes with byte_audit = None → silently unaudited.
+        # _wire_byte_audit reuses audit_logger if already constructed above;
+        # otherwise it builds one from the same inputs when a DB is present.
+        self._wire_byte_audit(audit_logger)
+
         route_generator = RouteGenerator(
             security_profile=self._security_profile,
             services=self._services,
@@ -1920,6 +1974,8 @@ class DazzleBackendApp:
             entity_storage_bindings=entity_storage_bindings,
             entity_soft_delete={e.name: e.soft_delete for e in self._entities},
             admin_personas=_admin_personas,
+            file_service=self._file_service,
+            entity_file_fields=_entity_file_fields or None,
         )
 
         # Cycle 249 (EX-049): populate persona_backed_entities from appspec
@@ -2006,7 +2062,10 @@ class DazzleBackendApp:
         self._mount_grant_routes(auth_dep)
         self._mount_audit_history_routes(auth_dep)
         self._mount_locale_routes()
-        self._mount_file_routes()
+        self._mount_file_routes(optional_auth_dep)
+        self._mount_document_routes(
+            cedar_access_specs, _fk_graph, optional_auth_dep, _admin_personas
+        )
         self._mount_search_routes()
         self._mount_fts_routes(auth_dep)
         self._mount_signing_routes()
@@ -2147,20 +2206,29 @@ class DazzleBackendApp:
         if getattr(self._app.state, "usage_collector", None) is not None:
             self._app.include_router(create_usage_routes())
 
-    def _mount_file_routes(self) -> None:
+    def _mount_file_routes(self, optional_auth_dep: Any = None) -> None:
         assert self._app is not None
+        # #1551: the legacy /files surface honours the app's auth posture
+        # (same expression the document/bulk routes use).
+        _files_auth_posture = self._enable_auth and not self._enable_test_mode
         # File uploads
         if self._enable_files:
-            from dazzle.http.runtime.file_storage import (
-                FileMetadataStore,
-                FileValidator,
-                LocalStorageBackend,
-            )
+            # #1551: the FileService may already be constructed (early-init in
+            # _setup_routes for route-generator wiring). Reuse it if so; build
+            # it now if not (e.g. when _mount_file_routes is called standalone
+            # in tests or subsystem contexts that skip _setup_routes).
+            if self._file_service is None:
+                from dazzle.http.runtime.file_storage import (
+                    FileMetadataStore,
+                    FileValidator,
+                    LocalStorageBackend,
+                )
 
-            storage = LocalStorageBackend(self._files_path, "/files")
-            metadata_store = FileMetadataStore(database_url=self._database_url)
-            validator = FileValidator()
-            self._file_service = FileService(storage, metadata_store, validator)
+                storage = LocalStorageBackend(self._files_path, "/files")
+                metadata_store = FileMetadataStore(database_url=self._database_url)
+                validator = FileValidator()
+                self._file_service = FileService(storage, metadata_store, validator)
+            # else: already early-constructed in _setup_routes (no reconstruction needed)
 
             # Profile-based upload size limits (v1.0.0)
             _upload_limits = {"basic": 50, "standard": 10, "strict": 5}
@@ -2169,8 +2237,6 @@ class DazzleBackendApp:
             # Per-entity/field size overrides from DSL (v0.39.0, #436)
             _field_size_overrides: dict[tuple[str, str], int] = {}
             if self._appspec:
-                from dazzle.core.ir.fields import FieldTypeKind
-
                 for _ent in self._appspec.domain.entities:
                     for _f in _ent.fields:
                         if _f.type.kind == FieldTypeKind.FILE and _f.type.max_size:
@@ -2201,11 +2267,15 @@ class DazzleBackendApp:
                 max_upload_size=_max_mb * 1024 * 1024,
                 field_size_overrides=_field_size_overrides,
                 on_upload_callbacks=_upload_callbacks,
+                optional_auth_dep=optional_auth_dep,
+                require_auth_by_default=_files_auth_posture,
             )
             create_static_file_routes(
                 self._app,
                 base_path=str(self._files_path),
                 url_prefix="/files",
+                optional_auth_dep=optional_auth_dep,
+                require_auth_by_default=_files_auth_posture,
             )
 
     def _mount_search_routes(self) -> None:
@@ -2275,6 +2345,67 @@ class DazzleBackendApp:
                 # here means the package is broken, not opted out.
                 logger.exception("Failed to import dazzle.signing.routes")
 
+    def _wire_byte_audit(self, audit_logger: "AuditLogger | None") -> None:
+        """Set app.state.byte_audit whenever stored bytes can be served.
+
+        The predicate is ``self._file_service is not None`` — the same
+        condition that gates ``_mount_document_routes``.  This covers apps
+        that have file fields but no RBAC/audit declarations (the "posture"
+        access path): without this fix those apps would serve bytes with
+        ``byte_audit = None`` → silently unaudited first-access.
+
+        When ``audit_logger`` is already constructed (``_has_auditable_entities``
+        was True) it is reused.  Otherwise a fresh ``AuditLogger`` is built
+        from the same inputs, provided a database is configured.  If no database
+        is available (a fileless / DB-less test rig) this is a no-op —
+        ``serve_bytes`` already handles ``audit=None`` as a permitted no-op.
+
+        Must be called in ``_setup_routes`` after ``self._file_service`` is
+        potentially constructed (i.e. after the early-init block at #1551).
+        """
+        if not getattr(self, "_file_service", None):
+            return
+        _logger = audit_logger
+        if _logger is None and self._database_url:
+            from dazzle.http.runtime.audit_log import AuditLogger
+
+            _logger = AuditLogger(
+                database_url=self._database_url,
+                audit_integrity=self._config.audit_integrity,
+            )
+            self._audit_logger = _logger
+        if _logger is not None:
+            assert self._app is not None
+            from dazzle.http.runtime.byte_serving import ByteAudit
+
+            self._app.state.byte_audit = ByteAudit(_logger)
+
+    def _mount_document_routes(
+        self, cedar_access_specs: Any, _fk_graph: Any, optional_auth_dep: Any, _admin_personas: Any
+    ) -> None:
+        """hx-pdf P1 (#162): the scope-gated document range proxy.
+
+        Mounted whenever file storage is enabled — the route is the
+        scope-correct read path for file fields (document access =
+        entity access), the target of the pdf Hyperpart's
+        ``data-dz-pdf-src``.
+        """
+        assert self._app is not None
+        if not getattr(self, "_file_service", None):
+            return
+        self._app.include_router(
+            create_document_routes(
+                file_service=self._file_service,
+                services=self.services_by_entity(),
+                cedar_access_specs=cedar_access_specs,
+                fk_graph=_fk_graph,
+                optional_auth_dep=optional_auth_dep,
+                admin_personas=_admin_personas,
+                audit_logger=getattr(self, "_audit_logger", None),
+                require_auth_by_default=self._enable_auth and not self._enable_test_mode,
+            )
+        )
+
     def _mount_bulk_routes(
         self, cedar_access_specs: Any, _fk_graph: Any, optional_auth_dep: Any, _admin_personas: Any
     ) -> None:
@@ -2290,6 +2421,15 @@ class DazzleBackendApp:
             # name (`list_invoices`, ...), so pass the entity-keyed view
             # (#1181) — otherwise every bulk route is silently skipped under
             # auth ("no service for scope enforcement").
+            # C0b: the all-matching resolver re-runs the echoed query through
+            # gated_list with the SAME search/filter/visibility config the
+            # list view used — parity is the §15 guarantee. (Same derivation
+            # of the legacy visibility specs as the CRUD route generation.)
+            _visibility_specs: dict[str, Any] = {
+                entity.name: entity.metadata["access"]
+                for entity in self._entities
+                if entity.metadata and "access" in entity.metadata
+            }
             bulk_router = create_bulk_routes(
                 list(self._appspec.surfaces),
                 repositories=self._repositories,
@@ -2298,6 +2438,10 @@ class DazzleBackendApp:
                 fk_graph=_fk_graph,
                 optional_auth_dep=optional_auth_dep,
                 admin_personas=_admin_personas,
+                entity_search_fields=self._entity_search_fields,
+                entity_filter_fields=self._entity_filter_fields,
+                entity_access_specs=_visibility_specs,
+                entity_ref_targets=self._entity_ref_targets,
             )
             if bulk_router is not None:
                 self._app.include_router(bulk_router)

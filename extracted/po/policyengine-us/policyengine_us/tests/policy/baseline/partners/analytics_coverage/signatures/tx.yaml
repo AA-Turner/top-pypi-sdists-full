@@ -1,3 +1,18 @@
+# Signature-fidelity fix (2026-07-04): state_code added on each household per
+# analytics (every MFB state-output request sends the state_code enum);
+# employment_income / self_employment_income / capital_gains converted to the
+# *_before_lsr / *_before_response input keys that production's Simulation
+# wrapper backfills (issue #8802). Outputs re-pinned to current model values
+# under the corrected inputs.
+# Sanity check (signature_30) - tx_ccs = $3,335.28/yr = TX Child Care Services
+# subsidy: min($6,000 pre-subsidy childcare expense, TX max reimbursement rate)
+# minus the income-based parent copay; tx_ccs_eligible = 1. The TX DART reduced-
+# fare benefit also activates ($756/adult). Genuine TX state amounts (tx_tanf and
+# federal tanf remain $0). Federal programs additionally re-benchmark to TX:
+# child1 (age 8) shifts from Medicaid to CHIP ($1,456.51) as the family's 145.5%
+# FPL exceeds TX's ~133% FPL age-6-18 Medicaid limit (CA's is ~266%); child2 keeps
+# Medicaid at the TX per-capita amount $10,619.75; aca_ptc and Head Start move to
+# TX benchmarks. All previously pinned under the incorrect California default.
 - name: signature_30 (8 reqs)
   period: 2026
   absolute_error_margin: 0.1
@@ -16,10 +31,10 @@
         is_medicare_eligible: false
         immigration_status_str: CITIZEN
         employment_income_before_lsr: 36000
-        self_employment_income: 0
+        self_employment_income_before_lsr: 0
         social_security: 0
         social_security_disability: 0
-        capital_gains: 0
+        long_term_capital_gains_before_response: 0
         rental_income: 0
         taxable_ira_distributions: 0
         taxable_pension_income: 0
@@ -48,9 +63,9 @@
         is_medicare_eligible: false
         immigration_status_str: CITIZEN
         employment_income_before_lsr: 12000
-        self_employment_income: 0
+        self_employment_income_before_lsr: 0
         social_security: 0
-        capital_gains: 0
+        long_term_capital_gains_before_response: 0
         rental_income: 0
         taxable_ira_distributions: 0
         taxable_pension_income: 0
@@ -79,7 +94,7 @@
         is_medicare_eligible: false
         immigration_status_str: CITIZEN
         employment_income_before_lsr: 0
-        self_employment_income: 0
+        self_employment_income_before_lsr: 0
         ssi_reported: 0
         ssi_countable_resources: 0
         ssi_earned_income: 0
@@ -103,7 +118,7 @@
         is_medicare_eligible: false
         immigration_status_str: CITIZEN
         employment_income_before_lsr: 0
-        self_employment_income: 0
+        self_employment_income_before_lsr: 0
         ssi_reported: 0
         ssi_countable_resources: 0
         ssi_earned_income: 0
@@ -116,6 +131,7 @@
         medicare_quarters_of_coverage: 0
     households:
       household:
+        state_code: TX
         members: &id001
         - head
         - spouse
@@ -165,7 +181,7 @@
   output:
     tax_units:
       tax_unit:
-        aca_ptc: 15935.95
+        aca_ptc: 13734.22
         ctc_value: 3400.0
         eitc: 3769.5
     people:
@@ -183,8 +199,8 @@
         msp_category: 0
         msp_eligible: false
         ssi: 0.0
-        tx_dart_benefit_person: 0.0
-        tx_fpp_benefit: 0.0
+        tx_dart_benefit_person: 756.0
+        tx_fpp_benefit: 266.84
         tx_harris_rides_eligible: false
         was_in_foster_care: false
         wic: 0.0
@@ -203,28 +219,28 @@
         msp_category: 0
         msp_eligible: false
         ssi: 0.0
-        tx_dart_benefit_person: 0.0
-        tx_fpp_benefit: 0.0
+        tx_dart_benefit_person: 756.0
+        tx_fpp_benefit: 266.84
         tx_harris_rides_eligible: false
         was_in_foster_care: false
         wic: 0.0
         wic_category: 5
       child1:
-        chip: 0.0
+        chip: 1456.51
         commodity_supplemental_food_program: 0.0
         early_head_start: 0.0
         head_start: 0.0
         is_disabled: false
-        is_medicaid_eligible: true
+        is_medicaid_eligible: false
         is_optional_senior_or_disabled_for_medicaid: false
-        medicaid: 7155.35
-        medicaid_category: 2
+        medicaid: 0.0
+        medicaid_category: 9
         msp: 0.0
         msp_category: 0
         msp_eligible: false
         ssi: 0.0
-        tx_dart_benefit_person: 0.0
-        tx_fpp_benefit: 0.0
+        tx_dart_benefit_person: 756.0
+        tx_fpp_benefit: 266.84
         tx_harris_rides_eligible: false
         was_in_foster_care: false
         wic: 0.0
@@ -233,30 +249,30 @@
         chip: 0.0
         commodity_supplemental_food_program: 0.0
         early_head_start: 0.0
-        head_start: 22285.26
+        head_start: 12320.27
         is_disabled: false
         is_medicaid_eligible: true
         is_optional_senior_or_disabled_for_medicaid: false
-        medicaid: 7155.35
+        medicaid: 10619.75
         medicaid_category: 1
         msp: 0.0
         msp_category: 0
         msp_eligible: false
         ssi: 0.0
-        tx_dart_benefit_person: 0.0
-        tx_fpp_benefit: 0.0
+        tx_dart_benefit_person: 1512.0
+        tx_fpp_benefit: 266.84
         tx_harris_rides_eligible: false
         was_in_foster_care: false
         wic: 723.15
         wic_category: 4
     spm_units:
       spm_unit:
-        lifeline: 228.0
+        lifeline: 153.0
         school_meal_daily_subsidy: 7.15
         school_meal_tier: 0
         snap: 11994.84
         tanf: 0.0
-        tx_ccs: 0.0
+        tx_ccs: 3335.28
         tx_tanf: 0.0
 - name: signature_48 (5 reqs, +4 dupes)
   period: 2026
@@ -276,10 +292,10 @@
         is_veteran: false
         immigration_status_str: CITIZEN
         employment_income_before_lsr: 36000
-        self_employment_income: 0
+        self_employment_income_before_lsr: 0
         social_security: 0
         social_security_disability: 0
-        capital_gains: 0
+        long_term_capital_gains_before_response: 0
         rental_income: 0
         taxable_ira_distributions: 0
         taxable_pension_income: 0
@@ -308,9 +324,9 @@
         is_veteran: false
         immigration_status_str: CITIZEN
         employment_income_before_lsr: 12000
-        self_employment_income: 0
+        self_employment_income_before_lsr: 0
         social_security: 0
-        capital_gains: 0
+        long_term_capital_gains_before_response: 0
         rental_income: 0
         taxable_ira_distributions: 0
         taxable_pension_income: 0
@@ -339,7 +355,7 @@
         is_veteran: false
         immigration_status_str: CITIZEN
         employment_income_before_lsr: 0
-        self_employment_income: 0
+        self_employment_income_before_lsr: 0
         ssi_reported: 0
         ssi_countable_resources: 0
         ssi_earned_income: 0
@@ -363,7 +379,7 @@
         is_veteran: false
         immigration_status_str: CITIZEN
         employment_income_before_lsr: 0
-        self_employment_income: 0
+        self_employment_income_before_lsr: 0
         ssi_reported: 0
         ssi_countable_resources: 0
         ssi_earned_income: 0
@@ -376,6 +392,7 @@
         medicare_quarters_of_coverage: 0
     households:
       household:
+        state_code: TX
         members: *id001
         zip_code: '75201'
         county_str: DALLAS_COUNTY_TX
@@ -417,7 +434,7 @@
   output:
     tax_units:
       tax_unit:
-        aca_ptc: 15935.95
+        aca_ptc: 13734.22
         ctc_value: 3400.0
         eitc: 3769.5
     people:
@@ -435,8 +452,8 @@
         msp_category: 0
         msp_eligible: false
         ssi: 0.0
-        tx_dart_benefit_person: 0.0
-        tx_fpp_benefit: 0.0
+        tx_dart_benefit_person: 756.0
+        tx_fpp_benefit: 266.84
         tx_harris_rides_eligible: false
         was_in_foster_care: false
         wic: 0.0
@@ -455,28 +472,28 @@
         msp_category: 0
         msp_eligible: false
         ssi: 0.0
-        tx_dart_benefit_person: 0.0
-        tx_fpp_benefit: 0.0
+        tx_dart_benefit_person: 756.0
+        tx_fpp_benefit: 266.84
         tx_harris_rides_eligible: false
         was_in_foster_care: false
         wic: 0.0
         wic_category: 5
       child1:
-        chip: 0.0
+        chip: 1456.51
         commodity_supplemental_food_program: 0.0
         early_head_start: 0.0
         head_start: 0.0
-        is_medicaid_eligible: true
+        is_medicaid_eligible: false
         is_medicare_eligible: false
         is_optional_senior_or_disabled_for_medicaid: false
-        medicaid: 7155.35
-        medicaid_category: 2
+        medicaid: 0.0
+        medicaid_category: 9
         msp: 0.0
         msp_category: 0
         msp_eligible: false
         ssi: 0.0
-        tx_dart_benefit_person: 0.0
-        tx_fpp_benefit: 0.0
+        tx_dart_benefit_person: 756.0
+        tx_fpp_benefit: 266.84
         tx_harris_rides_eligible: false
         was_in_foster_care: false
         wic: 0.0
@@ -485,30 +502,30 @@
         chip: 0.0
         commodity_supplemental_food_program: 0.0
         early_head_start: 0.0
-        head_start: 22285.26
+        head_start: 12320.27
         is_medicaid_eligible: true
         is_medicare_eligible: false
         is_optional_senior_or_disabled_for_medicaid: false
-        medicaid: 7155.35
+        medicaid: 10619.75
         medicaid_category: 1
         msp: 0.0
         msp_category: 0
         msp_eligible: false
         ssi: 0.0
-        tx_dart_benefit_person: 0.0
-        tx_fpp_benefit: 0.0
+        tx_dart_benefit_person: 1512.0
+        tx_fpp_benefit: 266.84
         tx_harris_rides_eligible: false
         was_in_foster_care: false
         wic: 723.15
         wic_category: 4
     spm_units:
       spm_unit:
-        lifeline: 228.0
+        lifeline: 153.0
         school_meal_daily_subsidy: 7.15
         school_meal_tier: 0
         snap: 11994.84
         tanf: 0.0
-        tx_ccs: 0.0
+        tx_ccs: 3335.28
         tx_tanf: 0.0
 - name: signature_74 (4 reqs)
   period: 2026
@@ -530,10 +547,10 @@
         is_medicare_eligible: false
         immigration_status_str: CITIZEN
         employment_income_before_lsr: 36000
-        self_employment_income: 0
+        self_employment_income_before_lsr: 0
         social_security: 0
         social_security_disability: 0
-        capital_gains: 0
+        long_term_capital_gains_before_response: 0
         rental_income: 0
         taxable_ira_distributions: 0
         taxable_pension_income: 0
@@ -564,9 +581,9 @@
         is_medicare_eligible: false
         immigration_status_str: CITIZEN
         employment_income_before_lsr: 12000
-        self_employment_income: 0
+        self_employment_income_before_lsr: 0
         social_security: 0
-        capital_gains: 0
+        long_term_capital_gains_before_response: 0
         rental_income: 0
         taxable_ira_distributions: 0
         taxable_pension_income: 0
@@ -597,7 +614,7 @@
         is_medicare_eligible: false
         immigration_status_str: CITIZEN
         employment_income_before_lsr: 0
-        self_employment_income: 0
+        self_employment_income_before_lsr: 0
         ssi_reported: 0
         ssi_countable_resources: 0
         ssi_earned_income: 0
@@ -623,7 +640,7 @@
         is_medicare_eligible: false
         immigration_status_str: CITIZEN
         employment_income_before_lsr: 0
-        self_employment_income: 0
+        self_employment_income_before_lsr: 0
         ssi_reported: 0
         ssi_countable_resources: 0
         ssi_earned_income: 0
@@ -636,6 +653,7 @@
         medicare_quarters_of_coverage: 0
     households:
       household:
+        state_code: TX
         members: *id001
         zip_code: '75201'
         county_str: DALLAS_COUNTY_TX
@@ -677,7 +695,7 @@
   output:
     tax_units:
       tax_unit:
-        aca_ptc: 27263.95
+        aca_ptc: 13734.22
         ctc_value: 3400.0
         eitc: 3769.5
     people:
@@ -693,8 +711,8 @@
         msp_category: 0
         msp_eligible: false
         ssi: 0.0
-        tx_dart_benefit_person: 0.0
-        tx_fpp_benefit: 0.0
+        tx_dart_benefit_person: 756.0
+        tx_fpp_benefit: 266.84
         tx_harris_rides_eligible: false
         was_in_foster_care: false
         wic: 0.0
@@ -711,35 +729,35 @@
         msp_category: 0
         msp_eligible: false
         ssi: 0.0
-        tx_dart_benefit_person: 0.0
-        tx_fpp_benefit: 0.0
+        tx_dart_benefit_person: 756.0
+        tx_fpp_benefit: 266.84
         tx_harris_rides_eligible: false
         was_in_foster_care: false
         wic: 0.0
         wic_category: 5
       child1:
-        chip: 0.0
+        chip: 1456.51
         commodity_supplemental_food_program: 0.0
         early_head_start: 0.0
         head_start: 0.0
         is_optional_senior_or_disabled_for_medicaid: false
         medicaid: 0.0
-        medicaid_category: 2
+        medicaid_category: 9
         msp: 0.0
         msp_category: 0
         msp_eligible: false
         ssi: 0.0
-        tx_dart_benefit_person: 0.0
-        tx_fpp_benefit: 0.0
+        tx_dart_benefit_person: 756.0
+        tx_fpp_benefit: 266.84
         tx_harris_rides_eligible: false
         was_in_foster_care: false
         wic: 0.0
         wic_category: 5
       child2:
-        chip: 0.0
+        chip: 1456.51
         commodity_supplemental_food_program: 0.0
         early_head_start: 0.0
-        head_start: 22285.26
+        head_start: 12320.27
         is_optional_senior_or_disabled_for_medicaid: false
         medicaid: 0.0
         medicaid_category: 1
@@ -747,19 +765,19 @@
         msp_category: 0
         msp_eligible: false
         ssi: 0.0
-        tx_dart_benefit_person: 0.0
-        tx_fpp_benefit: 0.0
+        tx_dart_benefit_person: 1512.0
+        tx_fpp_benefit: 266.84
         tx_harris_rides_eligible: false
         was_in_foster_care: false
         wic: 723.15
         wic_category: 4
     spm_units:
       spm_unit:
-        lifeline: 228.0
+        lifeline: 153.0
         school_meal_daily_subsidy: 7.15
         school_meal_tier: 0
         tanf: 0.0
-        tx_ccs: 0.0
+        tx_ccs: 3335.28
         tx_tanf: 0.0
 - name: signature_87 (3 reqs)
   period: 2026
@@ -778,10 +796,10 @@
         is_veteran: false
         immigration_status_str: CITIZEN
         employment_income_before_lsr: 36000
-        self_employment_income: 0
+        self_employment_income_before_lsr: 0
         social_security: 0
         social_security_disability: 0
-        capital_gains: 0
+        long_term_capital_gains_before_response: 0
         rental_income: 0
         taxable_ira_distributions: 0
         taxable_pension_income: 0
@@ -809,9 +827,9 @@
         is_veteran: false
         immigration_status_str: CITIZEN
         employment_income_before_lsr: 12000
-        self_employment_income: 0
+        self_employment_income_before_lsr: 0
         social_security: 0
-        capital_gains: 0
+        long_term_capital_gains_before_response: 0
         rental_income: 0
         taxable_ira_distributions: 0
         taxable_pension_income: 0
@@ -839,7 +857,7 @@
         is_veteran: false
         immigration_status_str: CITIZEN
         employment_income_before_lsr: 0
-        self_employment_income: 0
+        self_employment_income_before_lsr: 0
         ssi_reported: 0
         ssi_countable_resources: 0
         ssi_earned_income: 0
@@ -862,7 +880,7 @@
         is_veteran: false
         immigration_status_str: CITIZEN
         employment_income_before_lsr: 0
-        self_employment_income: 0
+        self_employment_income_before_lsr: 0
         ssi_reported: 0
         ssi_countable_resources: 0
         ssi_earned_income: 0
@@ -875,6 +893,7 @@
         medicare_quarters_of_coverage: 0
     households:
       household:
+        state_code: TX
         members: *id001
         zip_code: '75201'
         county_str: DALLAS_COUNTY_TX
@@ -916,7 +935,7 @@
   output:
     tax_units:
       tax_unit:
-        aca_ptc: 15935.95
+        aca_ptc: 13734.22
         ctc_value: 3400.0
         eitc: 3769.5
     people:
@@ -935,8 +954,8 @@
         msp_category: 0
         msp_eligible: false
         ssi: 0.0
-        tx_dart_benefit_person: 0.0
-        tx_fpp_benefit: 0.0
+        tx_dart_benefit_person: 756.0
+        tx_fpp_benefit: 266.84
         tx_harris_rides_eligible: false
         was_in_foster_care: false
         wic: 0.0
@@ -956,29 +975,29 @@
         msp_category: 0
         msp_eligible: false
         ssi: 0.0
-        tx_dart_benefit_person: 0.0
-        tx_fpp_benefit: 0.0
+        tx_dart_benefit_person: 756.0
+        tx_fpp_benefit: 266.84
         tx_harris_rides_eligible: false
         was_in_foster_care: false
         wic: 0.0
         wic_category: 5
       child1:
-        chip: 0.0
+        chip: 1456.51
         commodity_supplemental_food_program: 0.0
         early_head_start: 0.0
         head_start: 0.0
         is_disabled: false
-        is_medicaid_eligible: true
+        is_medicaid_eligible: false
         is_medicare_eligible: false
         is_optional_senior_or_disabled_for_medicaid: false
-        medicaid: 7155.35
-        medicaid_category: 2
+        medicaid: 0.0
+        medicaid_category: 9
         msp: 0.0
         msp_category: 0
         msp_eligible: false
         ssi: 0.0
-        tx_dart_benefit_person: 0.0
-        tx_fpp_benefit: 0.0
+        tx_dart_benefit_person: 756.0
+        tx_fpp_benefit: 266.84
         tx_harris_rides_eligible: false
         was_in_foster_care: false
         wic: 0.0
@@ -987,30 +1006,30 @@
         chip: 0.0
         commodity_supplemental_food_program: 0.0
         early_head_start: 0.0
-        head_start: 22285.26
+        head_start: 12320.27
         is_disabled: false
         is_medicaid_eligible: true
         is_medicare_eligible: false
         is_optional_senior_or_disabled_for_medicaid: false
-        medicaid: 7155.35
+        medicaid: 10619.75
         medicaid_category: 1
         msp: 0.0
         msp_category: 0
         msp_eligible: false
         ssi: 0.0
-        tx_dart_benefit_person: 0.0
-        tx_fpp_benefit: 0.0
+        tx_dart_benefit_person: 1512.0
+        tx_fpp_benefit: 266.84
         tx_harris_rides_eligible: false
         was_in_foster_care: false
         wic: 723.15
         wic_category: 4
     spm_units:
       spm_unit:
-        lifeline: 228.0
+        lifeline: 153.0
         school_meal_daily_subsidy: 7.15
         school_meal_tier: 0
         tanf: 0.0
-        tx_ccs: 0.0
+        tx_ccs: 3335.28
         tx_tanf: 0.0
 - name: signature_97 (3 reqs, +1 dupes)
   period: 2026
@@ -1029,10 +1048,10 @@
         is_veteran: false
         immigration_status_str: CITIZEN
         employment_income_before_lsr: 36000
-        self_employment_income: 0
+        self_employment_income_before_lsr: 0
         social_security: 0
         social_security_disability: 0
-        capital_gains: 0
+        long_term_capital_gains_before_response: 0
         rental_income: 0
         taxable_ira_distributions: 0
         taxable_pension_income: 0
@@ -1060,9 +1079,9 @@
         is_veteran: false
         immigration_status_str: CITIZEN
         employment_income_before_lsr: 12000
-        self_employment_income: 0
+        self_employment_income_before_lsr: 0
         social_security: 0
-        capital_gains: 0
+        long_term_capital_gains_before_response: 0
         rental_income: 0
         taxable_ira_distributions: 0
         taxable_pension_income: 0
@@ -1090,7 +1109,7 @@
         is_veteran: false
         immigration_status_str: CITIZEN
         employment_income_before_lsr: 0
-        self_employment_income: 0
+        self_employment_income_before_lsr: 0
         ssi_reported: 0
         ssi_countable_resources: 0
         ssi_earned_income: 0
@@ -1113,7 +1132,7 @@
         is_veteran: false
         immigration_status_str: CITIZEN
         employment_income_before_lsr: 0
-        self_employment_income: 0
+        self_employment_income_before_lsr: 0
         ssi_reported: 0
         ssi_countable_resources: 0
         ssi_earned_income: 0
@@ -1126,6 +1145,7 @@
         medicare_quarters_of_coverage: 0
     households:
       household:
+        state_code: TX
         members: *id001
         zip_code: '75201'
         county_str: DALLAS_COUNTY_TX
@@ -1167,7 +1187,7 @@
   output:
     tax_units:
       tax_unit:
-        aca_ptc: 15935.95
+        aca_ptc: 13734.22
         ctc_value: 3400.0
         eitc: 3769.5
     people:
@@ -1186,8 +1206,8 @@
         msp_category: 0
         msp_eligible: false
         ssi: 0.0
-        tx_dart_benefit_person: 0.0
-        tx_fpp_benefit: 0.0
+        tx_dart_benefit_person: 756.0
+        tx_fpp_benefit: 266.84
         tx_harris_rides_eligible: false
         was_in_foster_care: false
         wic: 0.0
@@ -1207,29 +1227,29 @@
         msp_category: 0
         msp_eligible: false
         ssi: 0.0
-        tx_dart_benefit_person: 0.0
-        tx_fpp_benefit: 0.0
+        tx_dart_benefit_person: 756.0
+        tx_fpp_benefit: 266.84
         tx_harris_rides_eligible: false
         was_in_foster_care: false
         wic: 0.0
         wic_category: 5
       child1:
-        chip: 0.0
+        chip: 1456.51
         commodity_supplemental_food_program: 0.0
         early_head_start: 0.0
         head_start: 0.0
         is_disabled: false
-        is_medicaid_eligible: true
+        is_medicaid_eligible: false
         is_medicare_eligible: false
         is_optional_senior_or_disabled_for_medicaid: false
-        medicaid: 7155.35
-        medicaid_category: 2
+        medicaid: 0.0
+        medicaid_category: 9
         msp: 0.0
         msp_category: 0
         msp_eligible: false
         ssi: 0.0
-        tx_dart_benefit_person: 0.0
-        tx_fpp_benefit: 0.0
+        tx_dart_benefit_person: 756.0
+        tx_fpp_benefit: 266.84
         tx_harris_rides_eligible: false
         was_in_foster_care: false
         wic: 0.0
@@ -1238,31 +1258,31 @@
         chip: 0.0
         commodity_supplemental_food_program: 0.0
         early_head_start: 0.0
-        head_start: 22285.26
+        head_start: 12320.27
         is_disabled: false
         is_medicaid_eligible: true
         is_medicare_eligible: false
         is_optional_senior_or_disabled_for_medicaid: false
-        medicaid: 7155.35
+        medicaid: 10619.75
         medicaid_category: 1
         msp: 0.0
         msp_category: 0
         msp_eligible: false
         ssi: 0.0
-        tx_dart_benefit_person: 0.0
-        tx_fpp_benefit: 0.0
+        tx_dart_benefit_person: 1512.0
+        tx_fpp_benefit: 266.84
         tx_harris_rides_eligible: false
         was_in_foster_care: false
         wic: 723.15
         wic_category: 4
     spm_units:
       spm_unit:
-        lifeline: 228.0
+        lifeline: 153.0
         school_meal_daily_subsidy: 7.15
         school_meal_tier: 0
         snap: 11994.84
         tanf: 0.0
-        tx_ccs: 0.0
+        tx_ccs: 3335.28
         tx_tanf: 0.0
 - name: signature_149 (1 reqs)
   period: 2026
@@ -1282,10 +1302,10 @@
         is_veteran: false
         immigration_status_str: CITIZEN
         employment_income_before_lsr: 36000
-        self_employment_income: 0
+        self_employment_income_before_lsr: 0
         social_security: 0
         social_security_disability: 0
-        capital_gains: 0
+        long_term_capital_gains_before_response: 0
         rental_income: 0
         taxable_ira_distributions: 0
         taxable_pension_income: 0
@@ -1314,9 +1334,9 @@
         is_veteran: false
         immigration_status_str: CITIZEN
         employment_income_before_lsr: 12000
-        self_employment_income: 0
+        self_employment_income_before_lsr: 0
         social_security: 0
-        capital_gains: 0
+        long_term_capital_gains_before_response: 0
         rental_income: 0
         taxable_ira_distributions: 0
         taxable_pension_income: 0
@@ -1345,7 +1365,7 @@
         is_veteran: false
         immigration_status_str: CITIZEN
         employment_income_before_lsr: 0
-        self_employment_income: 0
+        self_employment_income_before_lsr: 0
         ssi_reported: 0
         ssi_countable_resources: 0
         ssi_earned_income: 0
@@ -1369,7 +1389,7 @@
         is_veteran: false
         immigration_status_str: CITIZEN
         employment_income_before_lsr: 0
-        self_employment_income: 0
+        self_employment_income_before_lsr: 0
         ssi_reported: 0
         ssi_countable_resources: 0
         ssi_earned_income: 0
@@ -1382,6 +1402,7 @@
         medicare_quarters_of_coverage: 0
     households:
       household:
+        state_code: TX
         members: *id001
         zip_code: '75201'
         county_str: DALLAS_COUNTY_TX
@@ -1423,7 +1444,7 @@
   output:
     tax_units:
       tax_unit:
-        aca_ptc: 15935.95
+        aca_ptc: 13734.22
         ctc_value: 3400.0
         eitc: 3769.5
     people:
@@ -1441,8 +1462,8 @@
         msp_category: 0
         msp_eligible: false
         ssi: 0.0
-        tx_dart_benefit_person: 0.0
-        tx_fpp_benefit: 0.0
+        tx_dart_benefit_person: 756.0
+        tx_fpp_benefit: 266.84
         tx_harris_rides_eligible: false
         was_in_foster_care: false
         wic: 0.0
@@ -1461,28 +1482,28 @@
         msp_category: 0
         msp_eligible: false
         ssi: 0.0
-        tx_dart_benefit_person: 0.0
-        tx_fpp_benefit: 0.0
+        tx_dart_benefit_person: 756.0
+        tx_fpp_benefit: 266.84
         tx_harris_rides_eligible: false
         was_in_foster_care: false
         wic: 0.0
         wic_category: 5
       child1:
-        chip: 0.0
+        chip: 1456.51
         commodity_supplemental_food_program: 0.0
         early_head_start: 0.0
         head_start: 0.0
-        is_medicaid_eligible: true
+        is_medicaid_eligible: false
         is_medicare_eligible: false
         is_optional_senior_or_disabled_for_medicaid: false
-        medicaid: 7155.35
-        medicaid_category: 2
+        medicaid: 0.0
+        medicaid_category: 9
         msp: 0.0
         msp_category: 0
         msp_eligible: false
         ssi: 0.0
-        tx_dart_benefit_person: 0.0
-        tx_fpp_benefit: 0.0
+        tx_dart_benefit_person: 756.0
+        tx_fpp_benefit: 266.84
         tx_harris_rides_eligible: false
         was_in_foster_care: false
         wic: 0.0
@@ -1491,29 +1512,29 @@
         chip: 0.0
         commodity_supplemental_food_program: 0.0
         early_head_start: 0.0
-        head_start: 22285.26
+        head_start: 12320.27
         is_medicaid_eligible: true
         is_medicare_eligible: false
         is_optional_senior_or_disabled_for_medicaid: false
-        medicaid: 7155.35
+        medicaid: 10619.75
         medicaid_category: 1
         msp: 0.0
         msp_category: 0
         msp_eligible: false
         ssi: 0.0
-        tx_dart_benefit_person: 0.0
-        tx_fpp_benefit: 0.0
+        tx_dart_benefit_person: 1512.0
+        tx_fpp_benefit: 266.84
         tx_harris_rides_eligible: false
         was_in_foster_care: false
         wic: 723.15
         wic_category: 4
     spm_units:
       spm_unit:
-        lifeline: 228.0
+        lifeline: 153.0
         school_meal_daily_subsidy: 7.15
         school_meal_tier: 0
         tanf: 0.0
-        tx_ccs: 0.0
+        tx_ccs: 3335.28
         tx_tanf: 0.0
 - name: signature_165 (1 reqs, +2 dupes)
   period: 2026
@@ -1534,10 +1555,10 @@
         is_medicaid_eligible: false
         immigration_status_str: CITIZEN
         employment_income_before_lsr: 36000
-        self_employment_income: 0
+        self_employment_income_before_lsr: 0
         social_security: 0
         social_security_disability: 0
-        capital_gains: 0
+        long_term_capital_gains_before_response: 0
         rental_income: 0
         taxable_ira_distributions: 0
         taxable_pension_income: 0
@@ -1567,9 +1588,9 @@
         is_medicaid_eligible: false
         immigration_status_str: CITIZEN
         employment_income_before_lsr: 12000
-        self_employment_income: 0
+        self_employment_income_before_lsr: 0
         social_security: 0
-        capital_gains: 0
+        long_term_capital_gains_before_response: 0
         rental_income: 0
         taxable_ira_distributions: 0
         taxable_pension_income: 0
@@ -1599,7 +1620,7 @@
         is_medicaid_eligible: false
         immigration_status_str: CITIZEN
         employment_income_before_lsr: 0
-        self_employment_income: 0
+        self_employment_income_before_lsr: 0
         ssi_reported: 0
         ssi_countable_resources: 0
         ssi_earned_income: 0
@@ -1624,7 +1645,7 @@
         is_medicaid_eligible: false
         immigration_status_str: CITIZEN
         employment_income_before_lsr: 0
-        self_employment_income: 0
+        self_employment_income_before_lsr: 0
         ssi_reported: 0
         ssi_countable_resources: 0
         ssi_earned_income: 0
@@ -1637,6 +1658,7 @@
         medicare_quarters_of_coverage: 0
     households:
       household:
+        state_code: TX
         members: *id001
         zip_code: '75201'
         county_str: DALLAS_COUNTY_TX
@@ -1678,7 +1700,7 @@
   output:
     tax_units:
       tax_unit:
-        aca_ptc: 27263.95
+        aca_ptc: 13734.22
         ctc_value: 3400.0
         eitc: 3769.5
     people:
@@ -1696,8 +1718,8 @@
         msp_category: 0
         msp_eligible: false
         ssi: 0.0
-        tx_dart_benefit_person: 0.0
-        tx_fpp_benefit: 0.0
+        tx_dart_benefit_person: 756.0
+        tx_fpp_benefit: 266.84
         tx_harris_rides_eligible: false
         was_in_foster_care: false
         wic: 0.0
@@ -1716,14 +1738,14 @@
         msp_category: 0
         msp_eligible: false
         ssi: 0.0
-        tx_dart_benefit_person: 0.0
-        tx_fpp_benefit: 0.0
+        tx_dart_benefit_person: 756.0
+        tx_fpp_benefit: 266.84
         tx_harris_rides_eligible: false
         was_in_foster_care: false
         wic: 0.0
         wic_category: 5
       child1:
-        chip: 0.0
+        chip: 1456.51
         commodity_supplemental_food_program: 0.0
         early_head_start: 0.0
         head_start: 0.0
@@ -1731,22 +1753,22 @@
         is_medicare_eligible: false
         is_optional_senior_or_disabled_for_medicaid: false
         medicaid: 0.0
-        medicaid_category: 2
+        medicaid_category: 9
         msp: 0.0
         msp_category: 0
         msp_eligible: false
         ssi: 0.0
-        tx_dart_benefit_person: 0.0
-        tx_fpp_benefit: 0.0
+        tx_dart_benefit_person: 756.0
+        tx_fpp_benefit: 266.84
         tx_harris_rides_eligible: false
         was_in_foster_care: false
         wic: 0.0
         wic_category: 5
       child2:
-        chip: 0.0
+        chip: 1456.51
         commodity_supplemental_food_program: 0.0
         early_head_start: 0.0
-        head_start: 22285.26
+        head_start: 12320.27
         is_medicaid_eligible: false
         is_medicare_eligible: false
         is_optional_senior_or_disabled_for_medicaid: false
@@ -1756,17 +1778,17 @@
         msp_category: 0
         msp_eligible: false
         ssi: 0.0
-        tx_dart_benefit_person: 0.0
-        tx_fpp_benefit: 0.0
+        tx_dart_benefit_person: 1512.0
+        tx_fpp_benefit: 266.84
         tx_harris_rides_eligible: false
         was_in_foster_care: false
         wic: 723.15
         wic_category: 4
     spm_units:
       spm_unit:
-        lifeline: 228.0
+        lifeline: 153.0
         school_meal_daily_subsidy: 7.15
         school_meal_tier: 0
         tanf: 0.0
-        tx_ccs: 0.0
+        tx_ccs: 3335.28
         tx_tanf: 0.0

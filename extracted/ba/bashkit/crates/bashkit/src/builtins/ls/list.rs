@@ -28,6 +28,7 @@ const LS_SUPPORTED_IDS: &[&str] = &[
     "t",              // -t
     "classify",       // -F / --classify
     "C",              // -C
+    "directory",      // -d / --directory
     // Non-flag positional + always-supported infrastructure.
     "paths",
     "help",
@@ -43,11 +44,12 @@ pub(super) struct LsOptions {
     pub(super) sort_by_time: bool,
     pub(super) classify: bool,
     pub(super) columns: bool,
+    pub(super) directory: bool,
 }
 
 /// The ls builtin - list directory contents.
 ///
-/// Usage: ls [-l] [-a] [-h] [-1] [-R] [-t] [-F] [-C] [PATH...]
+/// Usage: ls [-l] [-a] [-h] [-1] [-R] [-t] [-F] [-C] [-d] [PATH...]
 ///
 /// Options:
 ///   -l   Use long listing format
@@ -58,6 +60,7 @@ pub(super) struct LsOptions {
 ///   -t   Sort by modification time, newest first
 ///   -F   Append indicator (/ for dirs, * for executables, @ for symlinks, | for FIFOs)
 ///   -C   List entries in columns (multi-column output)
+///   -d   List directories themselves, not their contents
 pub struct Ls;
 
 #[async_trait]
@@ -134,6 +137,7 @@ impl Builtin for Ls {
             sort_by_time: matches.get_flag("t"),
             classify,
             columns: matches.get_flag("C"),
+            directory: matches.get_flag("directory"),
         };
 
         // PATHS holds OsString values; convert to owned strings for the
@@ -172,7 +176,11 @@ impl Builtin for Ls {
 
             let metadata = ctx.fs.stat(&path).await?;
 
-            if metadata.file_type.is_file() {
+            // With -d/--directory, list the directory entry itself rather than
+            // descending into it: treat directory arguments like ordinary
+            // non-directory entries. classify_suffix() still appends "/" under
+            // -F because it keys off the metadata. (POSIX; common `ls -d */`.)
+            if metadata.file_type.is_file() || opts.directory {
                 file_args.push((path_str, metadata));
             } else {
                 dir_args.push((i, path_str, path));
@@ -438,27 +446,10 @@ pub(super) fn format_long_entry(name: &str, metadata: &crate::fs::Metadata, huma
         format!("{:>8}", metadata.size)
     };
 
-    // Format modified time
-    let modified = metadata
-        .modified
-        .duration_since(std::time::UNIX_EPOCH)
-        .map(|d| {
-            let secs = d.as_secs();
-            // Simple date formatting: YYYY-MM-DD HH:MM
-            let days = secs / 86400;
-            let hours = (secs % 86400) / 3600;
-            let mins = (secs % 3600) / 60;
-            // Approximate date calculation
-            let years = 1970 + (days / 365);
-            let remaining_days = days % 365;
-            let month = remaining_days / 30 + 1;
-            let day = remaining_days % 30 + 1;
-            format!(
-                "{:04}-{:02}-{:02} {:02}:{:02}",
-                years, month, day, hours, mins
-            )
-        })
-        .unwrap_or_else(|_| "????-??-?? ??:??".to_string());
+    // Format modified time as UTC in long-iso style (YYYY-MM-DD HH:MM)
+    let modified = crate::time_compat::to_chrono_utc(metadata.modified)
+        .format("%Y-%m-%d %H:%M")
+        .to_string();
 
     format!("{}{} {} {} {}\n", file_type, perms, size, modified, name)
 }

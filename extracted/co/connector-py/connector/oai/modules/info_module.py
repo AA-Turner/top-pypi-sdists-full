@@ -21,6 +21,7 @@ from connector_sdk_types.generated import (
     TokenAuthentication,
 )
 from connector_sdk_types.oai.modules.credentials_module_types import (
+    AUTH_MODEL_TO_NAME,
     AuthModel,
     OAuthConfig,
 )
@@ -475,6 +476,11 @@ class InfoModule(BaseIntegrationModule):
 
                 # Optional flag
                 authentication[credential.id]["x-optional"] = credential.optional
+
+                # User friendly credential name if supplied, falls back to the auth type
+                authentication[credential.id]["x-credential-name"] = (
+                    credential.name or AUTH_MODEL_TO_NAME[credential.type]
+                )
 
                 # Specific connector OAuth settings
                 if isinstance(credential, OAuthConfig) and credential.oauth_settings:

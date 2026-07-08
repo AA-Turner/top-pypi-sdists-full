@@ -1,3 +1,14 @@
+# Signature-fidelity fix (2026-07-04): state_code added on each household per
+# analytics (every MFB state-output request sends the state_code enum);
+# employment_income / self_employment_income / capital_gains converted to the
+# *_before_lsr / *_before_response input keys that production's Simulation
+# wrapper backfills (issue #8802). Outputs re-pinned to current model values
+# under the corrected inputs.
+# Sanity check (signature_2) - co_tanf = $8,136/yr = CO Works grant standard
+# $9,456/yr (2-adult/2-child monthly base x 12) minus countable income $1,320/yr
+# (the $4,000 co_tanf_countable_gross_earned_income input after the CO Works
+# earned-income disregard); co_tanf_eligible = 1. Genuine CO amount, previously
+# pinned $0 under the (incorrect) California default.
 - name: signature_2 (62 reqs, +8 dupes)
   period: 2026
   absolute_error_margin: 0.1
@@ -15,9 +26,9 @@
         is_snap_ineligible_student: false
         immigration_status_str: CITIZEN
         employment_income_before_lsr: 36000
-        self_employment_income: 0
+        self_employment_income_before_lsr: 0
         social_security: 0
-        capital_gains: 0
+        long_term_capital_gains_before_response: 0
         rental_income: 0
         taxable_ira_distributions: 0
         taxable_pension_income: 0
@@ -41,9 +52,9 @@
         is_snap_ineligible_student: false
         immigration_status_str: CITIZEN
         employment_income_before_lsr: 12000
-        self_employment_income: 0
+        self_employment_income_before_lsr: 0
         social_security: 0
-        capital_gains: 0
+        long_term_capital_gains_before_response: 0
         rental_income: 0
         taxable_ira_distributions: 0
         taxable_pension_income: 0
@@ -67,7 +78,7 @@
         is_snap_ineligible_student: false
         immigration_status_str: CITIZEN
         employment_income_before_lsr: 0
-        self_employment_income: 0
+        self_employment_income_before_lsr: 0
         ssi_reported: 0
         ssi_countable_resources: 0
         ssi_earned_income: 0
@@ -87,7 +98,7 @@
         is_snap_ineligible_student: false
         immigration_status_str: CITIZEN
         employment_income_before_lsr: 0
-        self_employment_income: 0
+        self_employment_income_before_lsr: 0
         ssi_reported: 0
         ssi_countable_resources: 0
         ssi_earned_income: 0
@@ -97,6 +108,7 @@
         current_pregnancies: 0
     households:
       household:
+        state_code: CO
         members: &id001
         - head
         - spouse
@@ -168,38 +180,38 @@
         wic_category: 5
       child1:
         co_chp_eligible: false
-        co_family_affordability_credit: 0.0
+        co_family_affordability_credit: 1610.93
         co_oap: 0.0
         co_state_supplement: 0.0
         commodity_supplemental_food_program: 0.0
         is_optional_senior_or_disabled_for_medicaid: false
-        medicaid: 7155.35
+        medicaid: 8472.04
         medicaid_category: 2
         ssi: 0.0
         wic: 0.0
         wic_category: 5
       child2:
         co_chp_eligible: false
-        co_family_affordability_credit: 0.0
+        co_family_affordability_credit: 2147.91
         co_oap: 0.0
         co_state_supplement: 0.0
         commodity_supplemental_food_program: 0.0
         is_optional_senior_or_disabled_for_medicaid: false
-        medicaid: 7155.35
+        medicaid: 8472.04
         medicaid_category: 1
         ssi: 0.0
         wic: 723.15
         wic_category: 4
     tax_units:
       tax_unit:
-        co_ctc: 0.0
-        co_eitc: 0.0
+        co_ctc: 600.0
+        co_eitc: 942.37
         ctc_value: 3400.0
         eitc: 3769.5
     spm_units:
       spm_unit:
-        co_tanf: 0.0
-        lifeline: 228.0
+        co_tanf: 8136.0
+        lifeline: 111.0
         school_meal_daily_subsidy: 7.15
         school_meal_tier: 0
         snap: 11994.84
@@ -220,9 +232,9 @@
         is_snap_ineligible_student: false
         immigration_status_str: CITIZEN
         employment_income_before_lsr: 36000
-        self_employment_income: 0
+        self_employment_income_before_lsr: 0
         social_security: 0
-        capital_gains: 0
+        long_term_capital_gains_before_response: 0
         rental_income: 0
         taxable_ira_distributions: 0
         taxable_pension_income: 0
@@ -246,9 +258,9 @@
         is_snap_ineligible_student: false
         immigration_status_str: CITIZEN
         employment_income_before_lsr: 12000
-        self_employment_income: 0
+        self_employment_income_before_lsr: 0
         social_security: 0
-        capital_gains: 0
+        long_term_capital_gains_before_response: 0
         rental_income: 0
         taxable_ira_distributions: 0
         taxable_pension_income: 0
@@ -272,7 +284,7 @@
         is_snap_ineligible_student: false
         immigration_status_str: CITIZEN
         employment_income_before_lsr: 0
-        self_employment_income: 0
+        self_employment_income_before_lsr: 0
         ssi_reported: 0
         ssi_countable_resources: 0
         ssi_earned_income: 0
@@ -292,7 +304,7 @@
         is_snap_ineligible_student: false
         immigration_status_str: CITIZEN
         employment_income_before_lsr: 0
-        self_employment_income: 0
+        self_employment_income_before_lsr: 0
         ssi_reported: 0
         ssi_countable_resources: 0
         ssi_earned_income: 0
@@ -302,6 +314,7 @@
         current_pregnancies: 0
     households:
       household:
+        state_code: CO
         members: *id001
     spm_units:
       spm_unit:
@@ -365,38 +378,38 @@
         wic_category: 5
       child1:
         co_chp_eligible: false
-        co_family_affordability_credit: 0.0
+        co_family_affordability_credit: 1610.93
         co_oap: 0.0
         co_state_supplement: 0.0
         commodity_supplemental_food_program: 0.0
         is_optional_senior_or_disabled_for_medicaid: false
-        medicaid: 7155.35
+        medicaid: 8472.04
         medicaid_category: 2
         ssi: 0.0
         wic: 0.0
         wic_category: 5
       child2:
         co_chp_eligible: false
-        co_family_affordability_credit: 0.0
+        co_family_affordability_credit: 2147.91
         co_oap: 0.0
         co_state_supplement: 0.0
         commodity_supplemental_food_program: 0.0
         is_optional_senior_or_disabled_for_medicaid: false
-        medicaid: 7155.35
+        medicaid: 8472.04
         medicaid_category: 1
         ssi: 0.0
         wic: 723.15
         wic_category: 4
     tax_units:
       tax_unit:
-        co_ctc: 0.0
-        co_eitc: 0.0
+        co_ctc: 600.0
+        co_eitc: 942.37
         ctc_value: 3400.0
         eitc: 3769.5
     spm_units:
       spm_unit:
-        co_tanf: 0.0
-        lifeline: 228.0
+        co_tanf: 8136.0
+        lifeline: 111.0
         school_meal_daily_subsidy: 7.15
         school_meal_tier: 0
 - name: signature_26 (9 reqs)
@@ -416,9 +429,9 @@
         is_snap_ineligible_student: false
         immigration_status_str: CITIZEN
         employment_income_before_lsr: 36000
-        self_employment_income: 0
+        self_employment_income_before_lsr: 0
         social_security: 0
-        capital_gains: 0
+        long_term_capital_gains_before_response: 0
         rental_income: 0
         taxable_ira_distributions: 0
         taxable_pension_income: 0
@@ -443,9 +456,9 @@
         is_snap_ineligible_student: false
         immigration_status_str: CITIZEN
         employment_income_before_lsr: 12000
-        self_employment_income: 0
+        self_employment_income_before_lsr: 0
         social_security: 0
-        capital_gains: 0
+        long_term_capital_gains_before_response: 0
         rental_income: 0
         taxable_ira_distributions: 0
         taxable_pension_income: 0
@@ -470,7 +483,7 @@
         is_snap_ineligible_student: false
         immigration_status_str: CITIZEN
         employment_income_before_lsr: 0
-        self_employment_income: 0
+        self_employment_income_before_lsr: 0
         ssi_reported: 0
         ssi_countable_resources: 0
         ssi_earned_income: 0
@@ -491,7 +504,7 @@
         is_snap_ineligible_student: false
         immigration_status_str: CITIZEN
         employment_income_before_lsr: 0
-        self_employment_income: 0
+        self_employment_income_before_lsr: 0
         ssi_reported: 0
         ssi_countable_resources: 0
         ssi_earned_income: 0
@@ -502,6 +515,7 @@
         other_medical_expenses: 0
     households:
       household:
+        state_code: CO
         members: *id001
     spm_units:
       spm_unit:
@@ -565,38 +579,38 @@
         wic_category: 5
       child1:
         co_chp_eligible: false
-        co_family_affordability_credit: 0.0
+        co_family_affordability_credit: 1610.93
         co_oap: 0.0
         co_state_supplement: 0.0
         commodity_supplemental_food_program: 0.0
         is_optional_senior_or_disabled_for_medicaid: false
-        medicaid: 7155.35
+        medicaid: 8472.04
         medicaid_category: 2
         ssi: 0.0
         wic: 0.0
         wic_category: 5
       child2:
         co_chp_eligible: false
-        co_family_affordability_credit: 0.0
+        co_family_affordability_credit: 2147.91
         co_oap: 0.0
         co_state_supplement: 0.0
         commodity_supplemental_food_program: 0.0
         is_optional_senior_or_disabled_for_medicaid: false
-        medicaid: 7155.35
+        medicaid: 8472.04
         medicaid_category: 1
         ssi: 0.0
         wic: 723.15
         wic_category: 4
     tax_units:
       tax_unit:
-        co_ctc: 0.0
-        co_eitc: 0.0
+        co_ctc: 600.0
+        co_eitc: 942.37
         ctc_value: 3400.0
         eitc: 3769.5
     spm_units:
       spm_unit:
-        co_tanf: 0.0
-        lifeline: 228.0
+        co_tanf: 8136.0
+        lifeline: 111.0
         school_meal_daily_subsidy: 7.15
         school_meal_tier: 0
         snap: 11994.84
@@ -612,9 +626,9 @@
         is_tax_unit_dependent: false
         immigration_status_str: CITIZEN
         employment_income_before_lsr: 36000
-        self_employment_income: 0
+        self_employment_income_before_lsr: 0
         social_security: 0
-        capital_gains: 0
+        long_term_capital_gains_before_response: 0
         rental_income: 0
         taxable_ira_distributions: 0
         taxable_pension_income: 0
@@ -627,9 +641,9 @@
         is_tax_unit_dependent: false
         immigration_status_str: CITIZEN
         employment_income_before_lsr: 12000
-        self_employment_income: 0
+        self_employment_income_before_lsr: 0
         social_security: 0
-        capital_gains: 0
+        long_term_capital_gains_before_response: 0
         rental_income: 0
         taxable_ira_distributions: 0
         taxable_pension_income: 0
@@ -642,7 +656,7 @@
         is_tax_unit_dependent: true
         immigration_status_str: CITIZEN
         employment_income_before_lsr: 0
-        self_employment_income: 0
+        self_employment_income_before_lsr: 0
       child2:
         age: 3
         is_tax_unit_head: false
@@ -650,9 +664,10 @@
         is_tax_unit_dependent: true
         immigration_status_str: CITIZEN
         employment_income_before_lsr: 0
-        self_employment_income: 0
+        self_employment_income_before_lsr: 0
     households:
       household:
+        state_code: CO
         members: *id001
     spm_units:
       spm_unit:
@@ -675,8 +690,8 @@
     tax_units:
       tax_unit:
         co_care_worker_credit: 0.0
-        co_ctc: 0.0
-        co_eitc: 0.0
+        co_ctc: 600.0
+        co_eitc: 942.37
         ctc_value: 4400.0
         eitc: 3769.5
     people:
@@ -685,9 +700,9 @@
       spouse:
         co_family_affordability_credit: 0.0
       child1:
-        co_family_affordability_credit: 0.0
+        co_family_affordability_credit: 1610.93
       child2:
-        co_family_affordability_credit: 0.0
+        co_family_affordability_credit: 2147.91
 - name: signature_108 (2 reqs)
   period: 2026
   absolute_error_margin: 0.1
@@ -705,9 +720,9 @@
         is_snap_ineligible_student: false
         immigration_status_str: CITIZEN
         employment_income_before_lsr: 36000
-        self_employment_income: 0
+        self_employment_income_before_lsr: 0
         social_security: 0
-        capital_gains: 0
+        long_term_capital_gains_before_response: 0
         rental_income: 0
         taxable_ira_distributions: 0
         taxable_pension_income: 0
@@ -732,9 +747,9 @@
         is_snap_ineligible_student: false
         immigration_status_str: CITIZEN
         employment_income_before_lsr: 12000
-        self_employment_income: 0
+        self_employment_income_before_lsr: 0
         social_security: 0
-        capital_gains: 0
+        long_term_capital_gains_before_response: 0
         rental_income: 0
         taxable_ira_distributions: 0
         taxable_pension_income: 0
@@ -759,7 +774,7 @@
         is_snap_ineligible_student: false
         immigration_status_str: CITIZEN
         employment_income_before_lsr: 0
-        self_employment_income: 0
+        self_employment_income_before_lsr: 0
         ssi: 0
         ssi_reported: 0
         ssi_countable_resources: 0
@@ -780,7 +795,7 @@
         is_snap_ineligible_student: false
         immigration_status_str: CITIZEN
         employment_income_before_lsr: 0
-        self_employment_income: 0
+        self_employment_income_before_lsr: 0
         ssi: 0
         ssi_reported: 0
         ssi_countable_resources: 0
@@ -791,6 +806,7 @@
         current_pregnancies: 0
     households:
       household:
+        state_code: CO
         members: *id001
     spm_units:
       spm_unit:
@@ -852,36 +868,36 @@
         wic_category: 5
       child1:
         co_chp_eligible: false
-        co_family_affordability_credit: 0.0
+        co_family_affordability_credit: 1610.93
         co_oap: 0.0
         co_state_supplement: 0.0
         commodity_supplemental_food_program: 0.0
         is_optional_senior_or_disabled_for_medicaid: false
-        medicaid: 7155.35
+        medicaid: 8472.04
         medicaid_category: 2
         wic: 0.0
         wic_category: 5
       child2:
         co_chp_eligible: false
-        co_family_affordability_credit: 0.0
+        co_family_affordability_credit: 2147.91
         co_oap: 0.0
         co_state_supplement: 0.0
         commodity_supplemental_food_program: 0.0
         is_optional_senior_or_disabled_for_medicaid: false
-        medicaid: 7155.35
+        medicaid: 8472.04
         medicaid_category: 1
         wic: 723.15
         wic_category: 4
     tax_units:
       tax_unit:
-        co_ctc: 0.0
-        co_eitc: 0.0
+        co_ctc: 600.0
+        co_eitc: 942.37
         ctc_value: 3400.0
         eitc: 3769.5
     spm_units:
       spm_unit:
-        co_tanf: 0.0
-        lifeline: 228.0
+        co_tanf: 8136.0
+        lifeline: 111.0
         school_meal_daily_subsidy: 7.15
         school_meal_tier: 0
         snap: 11994.84
@@ -902,9 +918,9 @@
         is_snap_ineligible_student: false
         immigration_status_str: CITIZEN
         employment_income_before_lsr: 36000
-        self_employment_income: 0
+        self_employment_income_before_lsr: 0
         social_security: 0
-        capital_gains: 0
+        long_term_capital_gains_before_response: 0
         rental_income: 0
         taxable_ira_distributions: 0
         taxable_pension_income: 0
@@ -929,9 +945,9 @@
         is_snap_ineligible_student: false
         immigration_status_str: CITIZEN
         employment_income_before_lsr: 12000
-        self_employment_income: 0
+        self_employment_income_before_lsr: 0
         social_security: 0
-        capital_gains: 0
+        long_term_capital_gains_before_response: 0
         rental_income: 0
         taxable_ira_distributions: 0
         taxable_pension_income: 0
@@ -956,7 +972,7 @@
         is_snap_ineligible_student: false
         immigration_status_str: CITIZEN
         employment_income_before_lsr: 0
-        self_employment_income: 0
+        self_employment_income_before_lsr: 0
         ssi: 0
         ssi_reported: 0
         ssi_countable_resources: 0
@@ -977,7 +993,7 @@
         is_snap_ineligible_student: false
         immigration_status_str: CITIZEN
         employment_income_before_lsr: 0
-        self_employment_income: 0
+        self_employment_income_before_lsr: 0
         ssi: 0
         ssi_reported: 0
         ssi_countable_resources: 0
@@ -988,6 +1004,7 @@
         current_pregnancies: 0
     households:
       household:
+        state_code: CO
         members: *id001
     spm_units:
       spm_unit:
@@ -1051,37 +1068,37 @@
         wic_category: 5
       child1:
         co_chp_eligible: false
-        co_family_affordability_credit: 0.0
+        co_family_affordability_credit: 1610.93
         co_oap: 0.0
         co_state_supplement: 0.0
         commodity_supplemental_food_program: 0.0
         is_optional_senior_or_disabled_for_medicaid: false
-        medicaid: 7155.35
+        medicaid: 8472.04
         medicaid_category: 2
         ssi: 0.0
         wic: 0.0
         wic_category: 5
       child2:
         co_chp_eligible: false
-        co_family_affordability_credit: 0.0
+        co_family_affordability_credit: 2147.91
         co_oap: 0.0
         co_state_supplement: 0.0
         commodity_supplemental_food_program: 0.0
         is_optional_senior_or_disabled_for_medicaid: false
-        medicaid: 7155.35
+        medicaid: 8472.04
         medicaid_category: 1
         ssi: 0.0
         wic: 723.15
         wic_category: 4
     tax_units:
       tax_unit:
-        co_ctc: 0.0
-        co_eitc: 0.0
+        co_ctc: 600.0
+        co_eitc: 942.37
         ctc_value: 3400.0
         eitc: 3769.5
     spm_units:
       spm_unit:
-        co_tanf: 0.0
-        lifeline: 228.0
+        co_tanf: 8136.0
+        lifeline: 111.0
         school_meal_daily_subsidy: 7.15
         school_meal_tier: 0

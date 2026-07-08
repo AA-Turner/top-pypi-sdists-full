@@ -23,10 +23,10 @@ See issue #1064 for the full decomposition plan.
 
 from __future__ import annotations
 
-import json
 from typing import TYPE_CHECKING
 
 from dazzle.render.fragment.context import RenderContext
+from dazzle.render.fragment.icon_html import lucide_icon_html, lucide_svg_html
 from dazzle.render.fragment.primitives import (
     KPI,
     ActionCard,
@@ -77,41 +77,33 @@ class _RenderTablesMixin:
 
     def _emit_slide_over(self, so: SlideOver, ctx: RenderContext) -> str:
         """The one shared right-side slide-over panel for `peek: slide_over`
-        (#1494, 2c, Slice 2). Emitted once per list; a row's chevron `hx-get`s
-        the detail body into `#slideover-content-{table_id}` and reveals
-        `#slideover-{table_id}`. Open/close is **JS-free** — an inline
-        `hx-on:click` toggling the `hidden` attribute on the container (backdrop
-        + close button hide it; the row chevron reveals it). Markup matches the
-        purpose-built `.dz-slideover-*` CSS family; `data-dz-width` picks the
-        max-width preset."""
-        panel_id_raw = slideover_panel_id(so.table_id)
-        panel_id = ctx.escape_attr(panel_id_raw)
+        (#1494 2c; converged onto the HM drawer Hyperpart in Tier F2). A
+        native `<dialog class="dz-drawer">`: a row's chevron `hx-get`s the
+        detail body into `#slideover-content-{table_id}` and opens the
+        dialog via the HM `dz-dialog.js` opener (`data-dz-dialog-open` on
+        the chevron). Close is the platform's own — `<form method="dialog">`
+        button, Esc, and a backdrop tap (`closedby="any"`) — with focus
+        trapping and an inert background for free. `data-dz-width` picks
+        the drawer width preset."""
+        panel_id = ctx.escape_attr(slideover_panel_id(so.table_id))
         content_id = ctx.escape_attr(slideover_content_id(so.table_id))
         title = ctx.escape(so.title)  # text context (<h2> body)
-        title_attr = ctx.escape_attr(so.title)  # attribute context (aria-label)
         width = ctx.escape_attr(so.width)
-        # The container id crosses into a JS-string context inside the hx-on
-        # close handlers — json.dumps for the JS layer, escape_attr for the HTML
-        # attribute layer (#1494 Slice-2 hardening; table_id is a parser-validated
-        # identifier, so this is defense-in-depth).
-        panel_js = ctx.escape_attr(json.dumps(panel_id_raw))
-        hide = f"document.getElementById({panel_js}).setAttribute('hidden','')"
         return (
-            f'<div id="{panel_id}" class="dz-slideover" data-dz-width="{width}" hidden>'
-            f'<div class="dz-slideover-backdrop" hx-on:click="{hide}"></div>'
-            f'<aside class="dz-slideover-panel" role="dialog" aria-modal="true" '
-            f'aria-label="{title_attr}">'
-            f'<header class="dz-slideover-header">'
-            f'<h2 class="dz-slideover-title">{title}</h2>'
-            f'<button type="button" class="dz-slideover-close" aria-label="Close" '
-            f'hx-on:click="{hide}">'
+            f'<dialog id="{panel_id}" class="dz-drawer" data-dz-width="{width}" '
+            f'closedby="any" aria-labelledby="{panel_id}-title">'
+            f'<header class="dz-drawer__header">'
+            f'<h2 class="dz-drawer__title" id="{panel_id}-title">{title}</h2>'
+            f'<form method="dialog">'
+            f'<button type="submit" class="dz-drawer__close" aria-label="Close">'
             '<svg width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true" '
             'xmlns="http://www.w3.org/2000/svg">'
             '<path d="M4 4l8 8M12 4l-8 8" stroke="currentColor" stroke-width="1.5" '
             'stroke-linecap="round"/></svg></button>'
+            f"</form>"
             f"</header>"
-            f'<div id="{content_id}" class="dz-slideover-body"></div>'
-            f"</aside></div>"
+            f'<div id="{content_id}" class="dz-drawer__body"></div>'
+            f"</dialog>"
         )
 
     def _emit_table(self, t: Table, ctx: RenderContext) -> str:
@@ -121,25 +113,22 @@ class _RenderTablesMixin:
         # the legacy string-column shape backwards-compatible.
         head_cells_parts: list[str] = []
         # Issue #1029 phase 7: bulk_select prepends a select-all
-        # checkbox header cell. Alpine `dzTable` controller owns
-        # bulkCount + toggleSelectAll.
+        # checkbox header cell (the HM grid controller's
+        # data-dz-grid-select-all seam drives its tri-state).
         if t.bulk_select:
-            # Task 5: the select-all checkbox reflects selection state via the
-            # dzTable controller's bulkCount vs the rendered row count (legacy
-            # parity) — checked when all rows selected, indeterminate for some.
+            # Convergence C1.1: selection is owned by the HM grid controller
+            # (dz-grid.js, delegated + state-in-DOM) — the select-all box is
+            # `[data-dz-grid-select-all]`; the controller drives its checked /
+            # indeterminate tri-state from the row boxes on every change/swap.
             head_cells_parts.append(
                 '<th scope="col" class="dz-table-th-select">'
                 '<input type="checkbox" class="dz-table-col-menu-checkbox" '
-                '@change="toggleSelectAll($event.target.checked)" '
-                ':checked="bulkCount > 0 && bulkCount === '
-                "$el.closest('table').querySelectorAll('tbody tr[data-dz-row-id]').length\" "
-                ':indeterminate="bulkCount > 0 && bulkCount < '
-                "$el.closest('table').querySelectorAll('tbody tr[data-dz-row-id]').length\" "
+                "data-dz-grid-select-all "
                 'aria-label="Select all rows">'
                 "</th>"
             )
         # Task 4e: when column keys are supplied (the canonical list path), each
-        # data header carries `data-dz-col="{key}"` so the dzTable controller's
+        # data header carries `data-dz-col="{key}"` so dz-grid-cols.js's
         # column-visibility toggle (which sets style.display on every
         # `[data-dz-col]` cell) hides the header in lock-step with the hydrated
         # body cells (which already carry data-dz-col via render_data_row).
@@ -148,25 +137,45 @@ class _RenderTablesMixin:
         for i, c in enumerate(t.columns):
             if keys:
                 # Canonical list header: data-dz-col (column-visibility) +
-                # dz-table-th; sortable columns are dzTable toggleSort buttons.
+                # dz-table-th; sortable columns are data-dz-grid-sort buttons.
                 ck = ctx.escape_attr(keys[i])
                 label = ctx.escape(str(c))
                 if keys[i] in sortable:
+                    # Convergence C1.1: sort is owned by the HM grid controller
+                    # — state lives on the th's `aria-sort` (cycled by
+                    # dz-grid.js, one active column), the button carries
+                    # `data-dz-grid-sort`, and the caret is pure CSS keyed off
+                    # aria-sort (HM table.css). No Alpine bindings. The
+                    # surface's DEFAULT sort pre-populates its header's
+                    # aria-sort so the first composed refresh keeps the order.
+                    if keys[i] == t.sort_field:
+                        aria = "descending" if t.sort_dir == "desc" else "ascending"
+                    else:
+                        aria = "none"
                     head_cells_parts.append(
-                        f'<th data-dz-col="{ck}" :aria-sort="ariaSortDir(\'{ck}\')" '
+                        f'<th data-dz-col="{ck}" aria-sort="{aria}" '
                         'scope="col" class="dz-table-th">'
-                        f'<button type="button" @click="toggleSort(\'{ck}\')" '
+                        # C2.2: the pointer-drag resize handle (decorative for
+                        # SR; dz-grid-resize.js drives col[data-dz-col] widths).
+                        f'<span class="dz-table-resize-handle" '
+                        f'data-dz-grid-resize="{ck}" aria-hidden="true"></span>'
+                        f'<button type="button" data-dz-grid-sort="{ck}" '
                         f'aria-label="Sort by {label}" class="dz-table-sort-button">'
                         f"{label}"
                         '<svg width="12" height="12" viewBox="0 0 12 12" fill="none" '
                         'aria-hidden="true" xmlns="http://www.w3.org/2000/svg" '
-                        f':class="sortIcon(\'{ck}\')" class="dz-table-sort-icon">'
-                        '<path d="M2 4.5l4 4 4-4" stroke="currentColor" stroke-width="1.5" '
+                        'class="dz-table-sort-icon">'
+                        # chevron-UP: the HM caret CSS shows it as-is for
+                        # ascending and rotates 180° for descending.
+                        '<path d="M2 7.5l4-4 4 4" stroke="currentColor" stroke-width="1.5" '
                         'stroke-linecap="round" stroke-linejoin="round"/></svg></button></th>'
                     )
                 else:
                     head_cells_parts.append(
-                        f'<th data-dz-col="{ck}" scope="col" class="dz-table-th">{label}</th>'
+                        f'<th data-dz-col="{ck}" scope="col" class="dz-table-th">'
+                        f'<span class="dz-table-resize-handle" '
+                        f'data-dz-grid-resize="{ck}" aria-hidden="true"></span>'
+                        f"{label}</th>"
                     )
             elif isinstance(c, SortHeader):
                 head_cells_parts.append(f"<th>{self._emit(c, ctx)}</th>")
@@ -193,9 +202,17 @@ class _RenderTablesMixin:
                 else ""
             )
             id_attr = f' id="{ctx.escape_attr(t.tbody_id)}"' if t.tbody_id else ""
+            # Convergence C1.1: the tbody is the grid controller's body seam —
+            # `data-dz-grid-body` + the immutable `data-dz-grid-src` base, and
+            # `dz-grid:refresh` joins the trigger so a sort / filter / page /
+            # bulk-refresh re-fetches with the controller-composed query. The
+            # Alpine @htmx:* loading bindings are gone (they bound htmx-2
+            # event names that never fire under the vendored htmx-4; loading
+            # is the pure-CSS `.htmx-request` overlay, #972).
             triggers: list[str] = []
             if t.hx_trigger:
                 triggers.append(t.hx_trigger)
+            triggers.append("dz-grid:refresh")
             if t.refresh_interval:
                 triggers.append(f"every {int(t.refresh_interval)}s")
             trigger_attr = f' hx-trigger="{", ".join(triggers)}"' if triggers else ""
@@ -205,19 +222,29 @@ class _RenderTablesMixin:
                 else ""
             )
             skeleton_tbody = (
-                f"<tbody{id_attr} "
+                f"<tbody{id_attr} data-dz-grid-body "
+                f'data-dz-grid-src="{ctx.escape_attr(t.hx_endpoint)}" '
                 f'hx-get="{ctx.escape_attr(t.hx_endpoint)}"'
                 f"{trigger_attr} "
                 'hx-swap="innerMorph" '
                 'hx-headers=\'{"Accept": "text/html"}\''
                 f"{indicator_attr} "
-                '@htmx:before-request="loading = true" '
-                '@htmx:after-settle="loading = false" '
                 'class="dz-table-body"></tbody>'
             )
+            # C2.2: per-column <col> resize targets — widths on the col
+            # resize header + cells together, and cols survive tbody swaps.
+            col_parts: list[str] = []
+            if t.bulk_select:
+                col_parts.append('<col class="dz-table-col-select">')
+            for k in keys or ():
+                col_parts.append(f'<col data-dz-col="{ctx.escape_attr(k)}">')
+            if t.has_actions:
+                col_parts.append('<col class="dz-table-col-actions">')
+            colgroup_html = f"<colgroup>{''.join(col_parts)}</colgroup>" if keys else ""
             return (
                 f'<table class="dz-table-grid">'
                 f"{caption_html}"
+                f"{colgroup_html}"
                 f"<thead><tr>{head_html}</tr></thead>"
                 f"{skeleton_tbody}"
                 f"</table>"
@@ -237,12 +264,15 @@ class _RenderTablesMixin:
             checkbox_cell = ""
             if t.bulk_select:
                 row_id = ctx.escape_attr(t.row_ids[i]) if t.row_ids else ""
+                # Convergence C2.4: the HM grid selection seam (delegated
+                # dz-grid.js change handler; the checkbox's own .checked IS
+                # the state) — the Alpine toggleRow/selected bindings this
+                # emitted were dzTable's, retired with its mount.
                 checkbox_cell = (
                     f'<td class="dz-tr-checkbox-cell" '
                     f'onclick="event.stopPropagation()">'
                     f'<input type="checkbox" class="dz-tr-checkbox" '
-                    f"@change=\"toggleRow('{row_id}')\" "
-                    f":checked=\"selected.has('{row_id}')\" "
+                    f"data-dz-grid-select data-dz-grid-row-id='{row_id}' "
                     f'aria-label="Select row" />'
                     f"</td>"
                 )
@@ -294,7 +324,8 @@ class _RenderTablesMixin:
         empty_cta = ""
         if s.empty_action_href and s.empty_action_label:
             empty_cta = (
-                f'<a href="{ctx.escape_attr(s.empty_action_href)}" class="dz-button-primary">'
+                f'<a href="{ctx.escape_attr(s.empty_action_href)}" '
+                f'class="dz-button" data-dz-variant="primary" data-dz-size="sm">'
                 '<svg width="12" height="12" viewBox="0 0 12 12" fill="none" aria-hidden="true">'
                 '<path d="M6 1v10M1 6h10" stroke="currentColor" stroke-width="1.5" '
                 'stroke-linecap="round"/></svg>'
@@ -319,8 +350,18 @@ class _RenderTablesMixin:
         )
         # The /api response fills this via an hx-swap-oob pagination swap
         # (list_handlers). Empty at first paint; absent for infinite lists.
+        # C1.1: the SR announcer — dz-grid.js mirrors the footer's result-window
+        # summary ("Showing 1-4 of 6") into this visually-hidden live region on
+        # every swap (the footer itself is repainted wholesale, which screen
+        # readers can't track).
+        announcer = (
+            '<span class="dz-grid-announce" data-dz-grid-announce '
+            'aria-live="polite" aria-atomic="true"></span>'
+        )
         pagination_footer = (
-            f'<div id="{table_id}-pagination" class="dz-table-footer"></div>' if s.paginated else ""
+            f'{announcer}<div id="{table_id}-pagination" class="dz-table-footer"></div>'
+            if s.paginated
+            else ""
         )
 
         return (
@@ -368,27 +409,35 @@ class _RenderTablesMixin:
         )
 
     def _emit_related_table(self, tabs: list[RelatedTab], ctx: RenderContext) -> str:
+        """Multi-tab strips ride the HM tabs Hyperpart (Tier F4): honest
+        link-strip buttons (`aria-current`, no role=tablist) driven by the
+        ingested dz-tabs.js — panels toggle via the native `hidden`
+        attribute, keyed by `data-dz-tab-target` → panel id. Replaces the
+        Alpine activeTab island (x-data/:class/x-show)."""
         multi = len(tabs) > 1
-        first = tabs[0].tab_id if tabs else ""
-        parts = [f"<div x-data=\"{{ activeTab: '{ctx.escape_attr(first)}' }}\">"]
+        parts = ['<div class="dz-tabs">']
         if multi:
             buttons = "".join(
-                f'<button type="button" class="dz-related-tab" role="tab" '
-                f":class=\"{{ 'is-active': activeTab === '{ctx.escape_attr(t.tab_id)}' }}\" "
-                f":aria-selected=\"activeTab === '{ctx.escape_attr(t.tab_id)}'\" "
-                f"@click=\"activeTab = '{ctx.escape_attr(t.tab_id)}'\">"
+                f'<button type="button" class="dz-tabs__tab"'
+                f"{' aria-current="true"' if i == 0 else ''} "
+                f'data-dz-tab-target="dz-related-tab-{ctx.escape_attr(t.tab_id)}">'
                 f'{ctx.escape(t.label)}<span class="dz-related-tab-count">{len(t.rows)}</span>'
                 "</button>"
-                for t in tabs
+                for i, t in enumerate(tabs)
             )
-            parts.append(f'<div class="dz-related-tabs" role="tablist">{buttons}</div>')
-        for t in tabs:
-            x_show = f" x-show=\"activeTab === '{ctx.escape_attr(t.tab_id)}'\"" if multi else ""
+            parts.append(f'<div class="dz-tabs__list">{buttons}</div>')
+        for i, t in enumerate(tabs):
+            panel_attrs = (
+                f' id="dz-related-tab-{ctx.escape_attr(t.tab_id)}" class="dz-tabs__panel"'
+                f"{'' if i == 0 else ' hidden'}"
+                if multi
+                else ""
+            )
             head = "".join(f'<th scope="col">{ctx.escape(h)}</th>' for h in t.headers)
             if t.rows:
                 body_rows = []
-                for i, row in enumerate(t.rows):
-                    drill = t.row_drill[i] if t.row_drill else ""
+                for ri, row in enumerate(t.rows):
+                    drill = t.row_drill[ri] if t.row_drill else ""
                     attrs = (
                         f' hx-get="{ctx.escape_attr(drill)}" hx-push-url="true" '
                         'hx-trigger="click" hx-target="body" hx-swap="innerHTML"'
@@ -405,7 +454,7 @@ class _RenderTablesMixin:
                     "</td></tr>"
                 )
             parts.append(
-                f'<div{x_show} role="tabpanel"><div class="dz-related-table-card">'
+                f'<div{panel_attrs}><div class="dz-related-table-card">'
                 f"{self._related_create_row(t, ctx)}"
                 '<div class="dz-related-table-scroll">'
                 '<table class="dz-related-table">'
@@ -472,24 +521,27 @@ class _RenderTablesMixin:
         return "".join(parts)
 
     def _emit_column_visibility_menu(self, m: ColumnVisibilityMenu, ctx: RenderContext) -> str:
-        """Task 4c: the column-visibility dropdown, bound to dzTable."""
+        """Convergence C2.1: the column-visibility menu as a native <details>
+        disclosure (the HM `.dz-menu` idiom — no open/close JS), with the
+        toggles on the delegated `dz-grid-cols.js` extension's seam
+        (`data-dz-grid-col-toggle`; checked = visible; persisted per grid id).
+        The ARIA menu roles are deliberately dropped — a details disclosure
+        can't back the menu keyboard contract (the Bucket-B precedent)."""
         items: list[str] = []
         for key, label in m.columns:
             ck = ctx.escape_attr(key)
             cl_attr = ctx.escape_attr(label)
             items.append(
-                '<label role="menuitemcheckbox" class="dz-table-col-menu-item">'
-                '<input type="checkbox" class="dz-table-col-menu-checkbox" '
-                f":checked=\"isColumnVisible('{ck}')\" "
-                f"@change=\"toggleColumn('{ck}')\" "
+                '<label class="dz-table-col-menu-item">'
+                '<input type="checkbox" checked class="dz-table-col-menu-checkbox" '
+                f'data-dz-grid-col-toggle="{ck}" '
                 f'aria-label="Show {cl_attr} column">'
                 f"<span>{ctx.escape(label)}</span></label>"
             )
         return (
-            '<div class="dz-table-col-menu" @click.outside="colMenuOpen = false">'
-            '<button type="button" @click="colMenuOpen = !colMenuOpen" '
-            ':aria-expanded="colMenuOpen" aria-label="Toggle column visibility" '
-            'aria-haspopup="menu" class="dz-table-col-menu-trigger">'
+            '<details class="dz-table-col-menu">'
+            '<summary class="dz-table-col-menu-trigger" '
+            'aria-label="Toggle column visibility">'
             '<svg width="14" height="14" viewBox="0 0 14 14" fill="none" '
             'aria-hidden="true" xmlns="http://www.w3.org/2000/svg">'
             '<rect x="1" y="1" width="3" height="12" rx="0.5" stroke="currentColor" '
@@ -498,10 +550,13 @@ class _RenderTablesMixin:
             'stroke-width="1.5"/>'
             '<rect x="10" y="1" width="3" height="12" rx="0.5" stroke="currentColor" '
             'stroke-width="1.5"/>'
-            "</svg>Columns</button>"
-            '<div x-show="colMenuOpen" x-transition.opacity.duration.80ms '
-            'role="menu" class="dz-table-col-menu-panel">'
-            f"{''.join(items)}</div></div>"
+            "</svg>Columns</summary>"
+            '<div class="dz-table-col-menu-panel">'
+            f"{''.join(items)}"
+            # #853 escape hatch: show every column + clear the stored set.
+            '<button type="button" class="dz-table-col-menu-reset" '
+            "data-dz-grid-cols-reset>Show all columns</button>"
+            "</div></details>"
         )
 
     def _emit_kpi(self, k: KPI, ctx: RenderContext) -> str:
@@ -543,8 +598,7 @@ class _RenderTablesMixin:
         tone = ctx.escape_attr(a.tone)
         label = ctx.escape(a.label)
         icon_html = (
-            f'<span class="dz-action-card-icon" data-lucide="{ctx.escape_attr(a.icon)}" '
-            f'aria-hidden="true"></span>'
+            lucide_icon_html(a.icon, cls="dz-action-card-icon")
             if a.icon
             else '<span class="dz-action-card-icon-spacer"></span>'
         )
@@ -978,12 +1032,8 @@ class _RenderTablesMixin:
             label = lst.empty_message or "No items found."
             empty_html = (
                 f'<div class="dz-empty-state" data-dz-empty-kind="read-only" role="status">'
-                f'<svg class="dz-empty-state-icon" fill="none" stroke="currentColor" '
-                f'viewBox="0 0 24 24" aria-hidden="true">'
-                f'<path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" '
-                f'd="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-2.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4"/>'
-                f"</svg>"
-                f'<p class="dz-empty-state-message">{ctx.escape(label)}</p>'
+                f"{lucide_svg_html('inbox', cls='dz-empty-state__icon')}"
+                f'<p class="dz-empty-state__description">{ctx.escape(label)}</p>'
                 f"</div>"
             )
             return f'<div class="dz-list-region">{actions_row}{empty_html}</div>'
@@ -1071,13 +1121,8 @@ class _RenderTablesMixin:
             return (
                 f'<div class="dz-grid-region">'
                 f'<div class="dz-empty-state" data-dz-empty-kind="read-only" role="status">'
-                f'<svg class="dz-empty-state-icon" fill="none" stroke="currentColor" '
-                f'viewBox="0 0 24 24" aria-hidden="true">'
-                f'<path stroke-linecap="round" stroke-linejoin="round" '
-                f'stroke-width="1.5" '
-                f'd="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-2.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4"/>'
-                f"</svg>"
-                f'<p class="dz-empty-state-message">{ctx.escape(label)}</p>'
+                f"{lucide_svg_html('inbox', cls='dz-empty-state__icon')}"
+                f'<p class="dz-empty-state__description">{ctx.escape(label)}</p>'
                 f"</div>"
                 f"</div>"
             )
@@ -1135,11 +1180,7 @@ class _RenderTablesMixin:
         rows: list[str] = []
         for entry in s.entries:
             if entry.icon:
-                icon_html = (
-                    f'<span class="dz-status-list-icon" '
-                    f'data-lucide="{ctx.escape_attr(entry.icon)}" '
-                    f'aria-hidden="true"></span>'
-                )
+                icon_html = lucide_icon_html(entry.icon, cls="dz-status-list-icon")
             else:
                 icon_html = '<span class="dz-status-list-icon-spacer" aria-hidden="true"></span>'
 

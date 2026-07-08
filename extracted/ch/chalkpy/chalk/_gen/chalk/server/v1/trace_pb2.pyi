@@ -477,6 +477,7 @@ class SearchTraceSummariesRequest(_message.Message):
         "min_span_count",
         "max_span_count",
         "root_span_names",
+        "query",
     )
     START_TIME_FIELD_NUMBER: _ClassVar[int]
     END_TIME_FIELD_NUMBER: _ClassVar[int]
@@ -493,6 +494,7 @@ class SearchTraceSummariesRequest(_message.Message):
     MIN_SPAN_COUNT_FIELD_NUMBER: _ClassVar[int]
     MAX_SPAN_COUNT_FIELD_NUMBER: _ClassVar[int]
     ROOT_SPAN_NAMES_FIELD_NUMBER: _ClassVar[int]
+    QUERY_FIELD_NUMBER: _ClassVar[int]
     start_time: _timestamp_pb2.Timestamp
     end_time: _timestamp_pb2.Timestamp
     limit: int
@@ -508,6 +510,7 @@ class SearchTraceSummariesRequest(_message.Message):
     min_span_count: int
     max_span_count: int
     root_span_names: _containers.RepeatedScalarFieldContainer[str]
+    query: str
     def __init__(
         self,
         start_time: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ...,
@@ -525,6 +528,7 @@ class SearchTraceSummariesRequest(_message.Message):
         min_span_count: _Optional[int] = ...,
         max_span_count: _Optional[int] = ...,
         root_span_names: _Optional[_Iterable[str]] = ...,
+        query: _Optional[str] = ...,
     ) -> None: ...
 
 class SearchTraceSummariesResponse(_message.Message):
@@ -548,6 +552,7 @@ class GetTraceCallGraphRequest(_message.Message):
         "attribute_filters",
         "resource_attribute_filters",
         "cursor",
+        "query",
     )
     START_TIME_FIELD_NUMBER: _ClassVar[int]
     END_TIME_FIELD_NUMBER: _ClassVar[int]
@@ -556,6 +561,7 @@ class GetTraceCallGraphRequest(_message.Message):
     ATTRIBUTE_FILTERS_FIELD_NUMBER: _ClassVar[int]
     RESOURCE_ATTRIBUTE_FILTERS_FIELD_NUMBER: _ClassVar[int]
     CURSOR_FIELD_NUMBER: _ClassVar[int]
+    QUERY_FIELD_NUMBER: _ClassVar[int]
     start_time: _timestamp_pb2.Timestamp
     end_time: _timestamp_pb2.Timestamp
     limit: int
@@ -563,6 +569,7 @@ class GetTraceCallGraphRequest(_message.Message):
     attribute_filters: _containers.RepeatedCompositeFieldContainer[AttributeFilter]
     resource_attribute_filters: _containers.RepeatedCompositeFieldContainer[AttributeFilter]
     cursor: str
+    query: str
     def __init__(
         self,
         start_time: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ...,
@@ -572,6 +579,7 @@ class GetTraceCallGraphRequest(_message.Message):
         attribute_filters: _Optional[_Iterable[_Union[AttributeFilter, _Mapping]]] = ...,
         resource_attribute_filters: _Optional[_Iterable[_Union[AttributeFilter, _Mapping]]] = ...,
         cursor: _Optional[str] = ...,
+        query: _Optional[str] = ...,
     ) -> None: ...
 
 class GetTraceCallGraphResponse(_message.Message):
@@ -622,6 +630,7 @@ class ListSpanRequest(_message.Message):
         "attribute_filters",
         "span_kind",
         "resource_attribute_filters",
+        "query",
     )
     TRACE_ID_FIELD_NUMBER: _ClassVar[int]
     START_TIME_FIELD_NUMBER: _ClassVar[int]
@@ -637,6 +646,7 @@ class ListSpanRequest(_message.Message):
     ATTRIBUTE_FILTERS_FIELD_NUMBER: _ClassVar[int]
     SPAN_KIND_FIELD_NUMBER: _ClassVar[int]
     RESOURCE_ATTRIBUTE_FILTERS_FIELD_NUMBER: _ClassVar[int]
+    QUERY_FIELD_NUMBER: _ClassVar[int]
     trace_id: str
     start_time: _timestamp_pb2.Timestamp
     end_time: _timestamp_pb2.Timestamp
@@ -651,6 +661,7 @@ class ListSpanRequest(_message.Message):
     attribute_filters: _containers.RepeatedCompositeFieldContainer[AttributeFilter]
     span_kind: ChalkSpanKind
     resource_attribute_filters: _containers.RepeatedCompositeFieldContainer[AttributeFilter]
+    query: str
     def __init__(
         self,
         trace_id: _Optional[str] = ...,
@@ -667,6 +678,7 @@ class ListSpanRequest(_message.Message):
         attribute_filters: _Optional[_Iterable[_Union[AttributeFilter, _Mapping]]] = ...,
         span_kind: _Optional[_Union[ChalkSpanKind, str]] = ...,
         resource_attribute_filters: _Optional[_Iterable[_Union[AttributeFilter, _Mapping]]] = ...,
+        query: _Optional[str] = ...,
     ) -> None: ...
 
 class ListSpanResponse(_message.Message):
@@ -791,21 +803,24 @@ class GetSpanFacetsResponse(_message.Message):
     def __init__(self, facets: _Optional[_Iterable[_Union[SpanFacet, _Mapping]]] = ...) -> None: ...
 
 class GetSpanFacetValuesRequest(_message.Message):
-    __slots__ = ("path", "start_time", "end_time", "limit")
+    __slots__ = ("path", "start_time", "end_time", "limit", "query")
     PATH_FIELD_NUMBER: _ClassVar[int]
     START_TIME_FIELD_NUMBER: _ClassVar[int]
     END_TIME_FIELD_NUMBER: _ClassVar[int]
     LIMIT_FIELD_NUMBER: _ClassVar[int]
+    QUERY_FIELD_NUMBER: _ClassVar[int]
     path: str
     start_time: _timestamp_pb2.Timestamp
     end_time: _timestamp_pb2.Timestamp
     limit: int
+    query: str
     def __init__(
         self,
         path: _Optional[str] = ...,
         start_time: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ...,
         end_time: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ...,
         limit: _Optional[int] = ...,
+        query: _Optional[str] = ...,
     ) -> None: ...
 
 class SpanFacetValue(_message.Message):
@@ -823,17 +838,19 @@ class GetSpanFacetValuesResponse(_message.Message):
     def __init__(self, values: _Optional[_Iterable[_Union[SpanFacetValue, _Mapping]]] = ...) -> None: ...
 
 class ListSpanAggregatedRequest(_message.Message):
-    __slots__ = ("start_time", "end_time", "window_period", "operation_name", "service_name")
+    __slots__ = ("start_time", "end_time", "window_period", "operation_name", "service_name", "query")
     START_TIME_FIELD_NUMBER: _ClassVar[int]
     END_TIME_FIELD_NUMBER: _ClassVar[int]
     WINDOW_PERIOD_FIELD_NUMBER: _ClassVar[int]
     OPERATION_NAME_FIELD_NUMBER: _ClassVar[int]
     SERVICE_NAME_FIELD_NUMBER: _ClassVar[int]
+    QUERY_FIELD_NUMBER: _ClassVar[int]
     start_time: _timestamp_pb2.Timestamp
     end_time: _timestamp_pb2.Timestamp
     window_period: _duration_pb2.Duration
     operation_name: str
     service_name: str
+    query: str
     def __init__(
         self,
         start_time: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ...,
@@ -841,6 +858,7 @@ class ListSpanAggregatedRequest(_message.Message):
         window_period: _Optional[_Union[_duration_pb2.Duration, _Mapping]] = ...,
         operation_name: _Optional[str] = ...,
         service_name: _Optional[str] = ...,
+        query: _Optional[str] = ...,
     ) -> None: ...
 
 class ListSpanAggregatedResponse(_message.Message):
@@ -889,3 +907,67 @@ class GetSpanSourceAggregatesResponse(_message.Message):
     AGGREGATES_FIELD_NUMBER: _ClassVar[int]
     aggregates: _containers.RepeatedCompositeFieldContainer[SpanSourceAggregate]
     def __init__(self, aggregates: _Optional[_Iterable[_Union[SpanSourceAggregate, _Mapping]]] = ...) -> None: ...
+
+class TraceFacet(_message.Message):
+    __slots__ = ("path", "name")
+    PATH_FIELD_NUMBER: _ClassVar[int]
+    NAME_FIELD_NUMBER: _ClassVar[int]
+    path: str
+    name: str
+    def __init__(self, path: _Optional[str] = ..., name: _Optional[str] = ...) -> None: ...
+
+class GetTraceFacetsRequest(_message.Message):
+    __slots__ = ("start_time", "end_time", "limit")
+    START_TIME_FIELD_NUMBER: _ClassVar[int]
+    END_TIME_FIELD_NUMBER: _ClassVar[int]
+    LIMIT_FIELD_NUMBER: _ClassVar[int]
+    start_time: _timestamp_pb2.Timestamp
+    end_time: _timestamp_pb2.Timestamp
+    limit: int
+    def __init__(
+        self,
+        start_time: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ...,
+        end_time: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ...,
+        limit: _Optional[int] = ...,
+    ) -> None: ...
+
+class GetTraceFacetsResponse(_message.Message):
+    __slots__ = ("facets",)
+    FACETS_FIELD_NUMBER: _ClassVar[int]
+    facets: _containers.RepeatedCompositeFieldContainer[TraceFacet]
+    def __init__(self, facets: _Optional[_Iterable[_Union[TraceFacet, _Mapping]]] = ...) -> None: ...
+
+class TraceFacetValue(_message.Message):
+    __slots__ = ("value", "count")
+    VALUE_FIELD_NUMBER: _ClassVar[int]
+    COUNT_FIELD_NUMBER: _ClassVar[int]
+    value: str
+    count: int
+    def __init__(self, value: _Optional[str] = ..., count: _Optional[int] = ...) -> None: ...
+
+class GetTraceFacetValuesRequest(_message.Message):
+    __slots__ = ("path", "start_time", "end_time", "limit", "query")
+    PATH_FIELD_NUMBER: _ClassVar[int]
+    START_TIME_FIELD_NUMBER: _ClassVar[int]
+    END_TIME_FIELD_NUMBER: _ClassVar[int]
+    LIMIT_FIELD_NUMBER: _ClassVar[int]
+    QUERY_FIELD_NUMBER: _ClassVar[int]
+    path: str
+    start_time: _timestamp_pb2.Timestamp
+    end_time: _timestamp_pb2.Timestamp
+    limit: int
+    query: str
+    def __init__(
+        self,
+        path: _Optional[str] = ...,
+        start_time: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ...,
+        end_time: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ...,
+        limit: _Optional[int] = ...,
+        query: _Optional[str] = ...,
+    ) -> None: ...
+
+class GetTraceFacetValuesResponse(_message.Message):
+    __slots__ = ("values",)
+    VALUES_FIELD_NUMBER: _ClassVar[int]
+    values: _containers.RepeatedCompositeFieldContainer[TraceFacetValue]
+    def __init__(self, values: _Optional[_Iterable[_Union[TraceFacetValue, _Mapping]]] = ...) -> None: ...

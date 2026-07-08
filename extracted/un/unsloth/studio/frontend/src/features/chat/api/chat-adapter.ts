@@ -47,6 +47,7 @@ import {
   useChatRuntimeStore,
 } from "../stores/chat-runtime-store";
 import { useExternalProvidersStore } from "../stores/external-providers-store";
+import type { ModelType } from "../types";
 import { isMultimodalResponse } from "../types/api";
 import type {
   GgufVariantDetail,
@@ -139,8 +140,39 @@ interface ServerTimings {
   diffusion_steps_per_second?: number;
 }
 
+interface ResponseDetailsMetadata {
+  modelId: string;
+  modelLabel: string;
+  responseModelId: string;
+  providerId?: string;
+  providerName: string;
+  providerType: string;
+  startedAt: number;
+  finishedAt: number;
+  durationMs: number;
+  sessionId?: string;
+  cancelId: string;
+  toolCalls: string[];
+  tools: {
+    search: boolean;
+    fetch: boolean;
+    code: boolean;
+    images: boolean;
+    mcp: boolean;
+    docs: boolean;
+    artifacts: boolean;
+    confirmToolCalls: boolean;
+    bypassPermissions: boolean;
+  };
+}
+
 type RunMessages = Parameters<ChatModelAdapter["run"]>[0]["messages"];
 type RunMessage = RunMessages[number];
+
+type OpenAIStreamAdapterOptions = {
+  modelType?: ModelType;
+  pairId?: string;
+};
 
 /** Tracks which user messages were sent with an audio file (messageId → filename). */
 export const sentAudioNames = new Map<string, string>();
@@ -183,6 +215,124 @@ const pendingFirstThreadSaves = new Map<string, Promise<void>>();
 
 function wait(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+function parseSystemVariablesMap(raw: string): Record<string, unknown> {
+  if (!raw.trim()) {
+    return {};
+  }
+  try {
+    const parsed = JSON.parse(raw) as unknown;
+    if (parsed && typeof parsed === "object" && !Array.isArray(parsed)) {
+      return parsed as Record<string, unknown>;
+    }
+  } catch {
+    // Invalid JSON: keep unresolved placeholders in output prompt.
+  }
+  return {};
+}
+
+function hasOwn(object: object, key: string): boolean {
+  return Object.prototype.hasOwnProperty.call(object, key);
+}
+
+function getNestedValue(
+  values: Record<string, unknown>,
+  path: string,
+): unknown | undefined {
+  const parts = path.split(".").map((part) => part.trim()).filter(Boolean);
+  if (parts.length === 0) {
+    return undefined;
+  }
+  let current: unknown = values;
+  for (const part of parts) {
+    if (!current || typeof current !== "object" || Array.isArray(current)) {
+      return undefined;
+    }
+    if (!hasOwn(current, part)) {
+      return undefined;
+    }
+    current = (current as Record<string, unknown>)[part];
+  }
+  return current;
+}
+
+function padDatePart(value: number): string {
+  return String(value).padStart(2, "0");
+}
+
+function formatLocalDate(now: Date): string {
+  return [
+    now.getFullYear(),
+    padDatePart(now.getMonth() + 1),
+    padDatePart(now.getDate()),
+  ].join("-");
+}
+
+function formatLocalTime(now: Date): string {
+  return [
+    padDatePart(now.getHours()),
+    padDatePart(now.getMinutes()),
+    padDatePart(now.getSeconds()),
+  ].join(":");
+}
+
+function formatTimezoneOffset(now: Date): string {
+  const offsetMinutes = -now.getTimezoneOffset();
+  const sign = offsetMinutes >= 0 ? "+" : "-";
+  const abs = Math.abs(offsetMinutes);
+  const hours = Math.floor(abs / 60);
+  const minutes = abs % 60;
+  return `${sign}${padDatePart(hours)}:${padDatePart(minutes)}`;
+}
+
+function stringifyTemplateValue(value: unknown): string {
+  if (value == null) {
+    return "";
+  }
+  if (typeof value === "string") {
+    return value;
+  }
+  if (typeof value === "number" || typeof value === "boolean") {
+    return String(value);
+  }
+  try {
+    return JSON.stringify(value);
+  } catch {
+    return String(value);
+  }
+}
+
+function resolveSystemPromptVariables(
+  prompt: string,
+  customVariablesRaw: string,
+): string {
+  if (!prompt) {
+    return prompt;
+  }
+  const now = new Date();
+  const localDate = formatLocalDate(now);
+  const localTime = formatLocalTime(now);
+  const systemVariables: Record<string, string> = {
+    $date: localDate,
+    $time: localTime,
+    $now: `${localDate}T${localTime}${formatTimezoneOffset(now)}`,
+  };
+  const customVariables = parseSystemVariablesMap(customVariablesRaw);
+  return prompt.replaceAll(
+    /{{\s*([a-zA-Z_$][a-zA-Z0-9_$.-]*)\s*}}/g,
+    (full, keyRaw) => {
+      const key = String(keyRaw).trim();
+      if (hasOwn(systemVariables, key)) {
+        return systemVariables[key] ?? full;
+      }
+      const resolved = getNestedValue(customVariables, key);
+      if (resolved === undefined) {
+        return full;
+      }
+      return stringifyTemplateValue(resolved);
+    },
+  );
 }
 
 export const ThreadAutosaveHandle: ThreadAutosaveHandle = {
@@ -1064,7 +1214,17 @@ export function findLatestUserAudioBase64(
 
 async function resolveUseAdapter(
   threadId: string | undefined,
+  options: OpenAIStreamAdapterOptions = {},
 ): Promise<boolean | undefined> {
+  if (options.modelType === "model1" || options.modelType === "model2") {
+    return undefined;
+  }
+  if (
+    options.pairId &&
+    (options.modelType === "base" || options.modelType === "lora")
+  ) {
+    return options.modelType === "lora";
+  }
   if (!threadId) {
     return undefined;
   }
@@ -1511,7 +1671,9 @@ async function autoLoadSmallestModel(): Promise<{
   }
 }
 
-export function createOpenAIStreamAdapter(): ChatModelAdapter {
+export function createOpenAIStreamAdapter(
+  options: OpenAIStreamAdapterOptions = {},
+): ChatModelAdapter {
   return {
     async *run({ messages, abortSignal, unstable_threadId }) {
       await useChatRuntimeStore.getState().hydratePersistedSettings();
@@ -1633,6 +1795,9 @@ export function createOpenAIStreamAdapter(): ChatModelAdapter {
             (provider) => provider.id === externalSelection.providerId,
           )
         : null;
+      const selectedModelSummary = runtime.models.find(
+        (model) => model.id === params.checkpoint,
+      );
       const externalApiKey = externalProvider
         ? getExternalProviderApiKey(externalProvider.id).trim()
         : "";
@@ -1778,7 +1943,14 @@ export function createOpenAIStreamAdapter(): ChatModelAdapter {
       }
 
       const safeSystemPrompt =
-        typeof params.systemPrompt === "string" ? params.systemPrompt : "";
+        typeof params.systemPrompt === "string"
+          ? resolveSystemPromptVariables(
+              params.systemPrompt,
+              typeof params.systemVariables === "string"
+                ? params.systemVariables
+                : "",
+            )
+          : "";
       const projectInstructions =
         await resolveProjectInstructions(resolvedThreadId);
       const combinedSystemPrompt = [
@@ -1951,7 +2123,7 @@ export function createOpenAIStreamAdapter(): ChatModelAdapter {
         }
         runtime.clearPendingAudio();
       }
-      const useAdapter = await resolveUseAdapter(resolvedThreadId);
+      const useAdapter = await resolveUseAdapter(resolvedThreadId, options);
 
       // ── Audio model path (non-streaming) ─────────────────────
       const activeModel = runtime.models.find(
@@ -2008,6 +2180,7 @@ export function createOpenAIStreamAdapter(): ChatModelAdapter {
       let waitingFirstChunk = true;
       let firstTokenSettled = false;
       const streamStartTime = Date.now();
+      let responseModelId = externalSelection?.modelId ?? params.checkpoint;
       let firstTokenTime: number | undefined;
       let totalChunks = 0;
       let resolveFirstToken: (() => void) | null = null;
@@ -2229,6 +2402,59 @@ export function createOpenAIStreamAdapter(): ChatModelAdapter {
         const externalBackendProviderType = toExternalBackendProviderType(
           externalProvider?.providerType,
         );
+        const buildResponseDetails = (
+          finishedAt: number,
+        ): ResponseDetailsMetadata => ({
+          modelId: params.checkpoint,
+          modelLabel:
+            (isExternalRequest || responseModelId !== params.checkpoint
+              ? responseModelId
+              : selectedModelSummary?.name || responseModelId) ||
+            params.checkpoint ||
+            "Unknown model",
+          responseModelId:
+            responseModelId ||
+            externalSelection?.modelId ||
+            params.checkpoint,
+          ...(externalProvider?.id ? { providerId: externalProvider.id } : {}),
+          providerName:
+            externalProvider?.name ??
+            (isExternalRequest ? "External provider" : "Local model"),
+          providerType: externalProvider?.providerType ?? "local",
+          startedAt: streamStartTime,
+          finishedAt,
+          durationMs: finishedAt - streamStartTime,
+          ...(sandboxSessionId ? { sessionId: sandboxSessionId } : {}),
+          cancelId,
+          toolCalls: Array.from(
+            new Set(
+              toolCallParts
+                .map((part) => part.toolName)
+                .filter(
+                  (toolName): toolName is string =>
+                    typeof toolName === "string" && toolName.length > 0,
+                ),
+            ),
+          ),
+          tools: {
+            search:
+              webSearchEnabledForThisTurn ||
+              (!isExternalRequest && supportsTools && toolsEnabled),
+            fetch: webFetchEnabledForThisTurn,
+            code:
+              codeExecEnabledForThisTurn ||
+              (!isExternalRequest && supportsTools && codeToolsEnabled),
+            images: imageGenerationEnabledForThisTurn,
+            mcp: !isExternalRequest && supportsTools && mcpEnabledForChat,
+            docs:
+              !isExternalRequest &&
+              supportsTools &&
+              (ragEnabled || projectRagEnabled),
+            artifacts: renderHtmlToolEnabledForThisTurn,
+            confirmToolCalls,
+            bypassPermissions,
+          },
+        });
         const externalCapabilities = getProviderCapabilities(
           externalProvider?.providerType,
         );
@@ -2585,11 +2811,18 @@ export function createOpenAIStreamAdapter(): ChatModelAdapter {
                             params.checkpoint,
                           ),
                           autoinject_min_score: ragAutoInjectMinScore,
+
+                          ...(ragAutoInject === "off"
+                            ? { whole_doc: false }
+                            : {}),
+                          context_length:
+                            runtime.ggufContextLength ?? params.maxSeqLength ?? undefined,
                         },
                       }
                     : {}),
                   auto_heal_tool_calls:
                     useChatRuntimeStore.getState().autoHealToolCalls,
+                  nudge_tool_calls: useChatRuntimeStore.getState().nudgeToolCalls,
                   max_tool_calls_per_message:
                     useChatRuntimeStore.getState().maxToolCallsPerMessage,
                   tool_call_timeout: (() => {
@@ -2618,12 +2851,28 @@ export function createOpenAIStreamAdapter(): ChatModelAdapter {
             const stream = streamChatCompletions(requestPayload, abortSignal);
 
             for await (const chunk of stream) {
+              const chunkModel = (chunk as { model?: unknown }).model;
+              if (typeof chunkModel === "string" && chunkModel.length > 0) {
+                responseModelId = chunkModel;
+              }
+
               // Handle tool status events
               const toolStatusText = (
                 chunk as unknown as { _toolStatus?: string }
               )._toolStatus;
               if (toolStatusText !== undefined) {
                 runtime.setToolStatus(toolStatusText || null);
+                continue;
+              }
+
+              // Local GGUF sends server-timed reasoning duration. Guard the type
+              // so a malformed or proxied chunk (string/null/NaN duration) can
+              // never turn the label into NaN.
+              const reasoningMs = (
+                chunk as { _reasoningDurationMs?: number } | null | undefined
+              )?._reasoningDurationMs;
+              if (typeof reasoningMs === "number" && Number.isFinite(reasoningMs)) {
+                reasoningDuration = Math.max(0, Math.round(reasoningMs / 1000));
                 continue;
               }
 
@@ -3175,6 +3424,7 @@ export function createOpenAIStreamAdapter(): ChatModelAdapter {
               }
               const textParts = parseAssistantContent(cumulativeText);
 
+              // Fallback when no server-side reasoning_summary arrives.
               if (
                 textParts.some((part) => part.type === "reasoning") &&
                 !reasoningStartAt
@@ -3273,16 +3523,24 @@ export function createOpenAIStreamAdapter(): ChatModelAdapter {
           });
         }
 
+        const finishedAt = Date.now();
         const finalTiming = buildTiming(
           streamStartTime,
           totalChunks,
           serverPromptEvalTime ?? firstTokenTime,
-          Date.now() - streamStartTime,
+          finishedAt - streamStartTime,
           finalTokenCount,
           toolCallParts.length,
           finalTokPerSec,
         );
 
+        // Finalize reasoning-only streams.
+        if (reasoningStartAt && !reasoningDuration) {
+          reasoningDuration = Math.max(
+            0,
+            Math.round((Date.now() - reasoningStartAt) / 1000),
+          );
+        }
         yield {
           content: [
             ...buildAssistantContent(cumulativeText),
@@ -3306,6 +3564,7 @@ export function createOpenAIStreamAdapter(): ChatModelAdapter {
                     modelId: params.checkpoint,
                   }
                 : undefined,
+              responseDetails: buildResponseDetails(finishedAt),
               timing: finalTiming,
             },
           },

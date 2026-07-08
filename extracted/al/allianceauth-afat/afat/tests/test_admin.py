@@ -5,14 +5,18 @@ Test cases for the admin.py module.
 # Standard Library
 import importlib
 import sys
+from types import SimpleNamespace
 from unittest.mock import MagicMock, patch
 
 # Django
 from django.contrib import admin
-from django.contrib.auth.models import User
+
+# Alliance Auth
+from allianceauth.authentication.models import User
 
 # Alliance Auth AFAT
 from afat.admin import (
+    AFatAdmin,
     AFatLinkAdmin,
     AFatLinkTypeAdmin,
     AFatLogAdmin,
@@ -661,3 +665,80 @@ class TestAFatLinkAdmin(BaseTestCase):
 
         admin_instance = AFatLinkAdmin(FatLink, admin.site)
         self.assertIsNone(admin_instance.number_of_fats(self.fat_link))
+
+
+class TestAFatAdmin(BaseTestCase):
+    """
+    Test cases for AFatAdmin class.
+    """
+
+    def test_returns_solar_system_name_for_fat_with_valid_solar_system(self):
+        """
+        Test returns the solar system name when the related object is present.
+
+        :return:
+        :rtype:
+        """
+
+        solar_system = SimpleNamespace(name="Jita")
+        ship = SimpleNamespace(name="Rifter")
+        obj = SimpleNamespace(solar_system=solar_system, ship=ship)
+
+        admin_instance = AFatAdmin(Fat, admin.site)
+
+        self.assertEqual(admin_instance._solar_system(obj), "Jita")
+
+    def test_returns_ship_name_for_fat_with_valid_ship(self):
+        """
+        Test returns the ship name when the related object is present.
+
+        :return:
+        :rtype:
+        """
+
+        solar_system = SimpleNamespace(name="Amarr")
+        ship = SimpleNamespace(name="Raven")
+        obj = SimpleNamespace(solar_system=solar_system, ship=ship)
+
+        admin_instance = AFatAdmin(Fat, admin.site)
+
+        self.assertEqual(admin_instance._ship(obj), "Raven")
+
+    def test_returns_none_when_related_object_has_no_name(self):
+        """
+        Test returning None when the related object has no name.
+
+        :return:
+        :rtype:
+        """
+
+        solar_system = SimpleNamespace(name=None)
+        ship = SimpleNamespace(name=None)
+        obj = SimpleNamespace(solar_system=solar_system, ship=ship)
+
+        admin_instance = AFatAdmin(Fat, admin.site)
+
+        self.assertIsNone(admin_instance._solar_system(obj))
+        self.assertIsNone(admin_instance._ship(obj))
+
+    def test_raises_attribute_error_when_related_object_missing(self):
+        """
+        Test raises AttributeError when the related object is missing.
+
+        :return:
+        :rtype:
+        """
+
+        # solar_system missing
+        obj_missing_solar = SimpleNamespace(ship=SimpleNamespace(name="Rifter"))
+
+        # ship missing
+        obj_missing_ship = SimpleNamespace(solar_system=SimpleNamespace(name="Jita"))
+
+        admin_instance = AFatAdmin(Fat, admin.site)
+
+        with self.assertRaises(AttributeError):
+            _ = admin_instance._solar_system(obj_missing_solar)
+
+        with self.assertRaises(AttributeError):
+            _ = admin_instance._ship(obj_missing_ship)

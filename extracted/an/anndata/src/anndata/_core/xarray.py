@@ -4,10 +4,12 @@ import warnings
 from collections.abc import Hashable, Mapping
 from dataclasses import dataclass
 from functools import wraps
-from typing import TYPE_CHECKING, Self, TypeVar, overload
+from typing import TYPE_CHECKING, Self, overload
 
 import numpy as np
 import pandas as pd
+
+from anndata._warnings import warn
 
 from ..compat import XDataArray, XDataset, XVariable, pandas_as_str
 
@@ -17,11 +19,8 @@ if TYPE_CHECKING:
 
     from .._types import Dataset2DIlocIndexer
 
-P = TypeVar("P")
-R = TypeVar("R")
 
-
-def requires_xarray(func: Callable[P, R]) -> Callable[P, R]:
+def requires_xarray[R, **P](func: Callable[P, R]) -> Callable[P, R]:
     @wraps(func)
     def wrapper(*args: P.args, **kwargs: P.kwargs) -> R:
         try:
@@ -292,10 +291,9 @@ class Dataset2D(Mapping[Hashable, XDataArray | Self]):
         if len(self.columns.symmetric_difference(val)) > 0:
             msg = "Trying to rename the keys of the mapping with new names - please use a different API to rename the keys of the underlying dataset mapping."
             raise ValueError(msg)
-        warnings.warn(
+        warn(
             "Renaming or reordering columns on `Dataset2D` has no effect because the underlying data structure has no apparent ordering on its keys",
             UserWarning,
-            stacklevel=2,
         )
 
     def __setitem__(

@@ -23,7 +23,6 @@
 
 #include <cstddef>
 #include <cstdint>
-#include <optional>
 #include <string>
 #include <utility>
 
@@ -42,7 +41,7 @@
 #include "absl/status/status.h"
 #include "absl/strings/str_cat.h"
 
-// TODO(akshitpatel): [PH2][P4] : Write micro benchmarks for
+// TODO(tjagtap) TODO(akshitpatel): [PH2][P3] : Write micro benchmarks for
 // assembler and disassembler code
 
 namespace grpc_core {
@@ -101,8 +100,6 @@ class HeaderAssembler {
 
     // Start header workflow
     header_in_progress_ = true;
-    GRPC_DCHECK_GT(stream_id_, 0u);
-    GRPC_DCHECK_EQ(stream_id_, frame.stream_id);
 
     // Manage payload
     frame.payload.MoveFirstNBytesIntoSliceBuffer(current_len, buffer_);
@@ -124,8 +121,6 @@ class HeaderAssembler {
   Http2Status AppendFrame(Http2ContinuationFrame& frame) {
     // Validate Assembler state
     GRPC_DCHECK(header_in_progress_);
-    GRPC_DCHECK_GT(stream_id_, 0u);
-    GRPC_DCHECK_EQ(stream_id_, frame.stream_id);
 
     // Manage payload
     const size_t current_len = frame.payload.Length();
@@ -200,27 +195,18 @@ class HeaderAssembler {
                   << max_header_list_size_soft_limit
                   << "max_header_list_size_hard_limit: "
                   << max_header_list_size_hard_limit;
-    if (buffer_.Length() > 0) {
-      Http2Status status = ParseHeader(
-          parser, std::move(buffer_), /*grpc_metadata_batch=*/nullptr,
-          ParseHeaderArgs{
-              /*is_initial_metadata=*/is_initial_metadata,
-              /*is_end_headers=*/is_ready_,
-              /*is_client=*/is_client_,
-              /*max_header_list_size_soft_limit=*/
-              max_header_list_size_soft_limit,
-              /*max_header_list_size_hard_limit=*/
-              max_header_list_size_hard_limit,
-              /*stream_id=*/stream_id_,
-          });
-      Cleanup();
-      return status;
-    }
-
-    GRPC_DCHECK(!is_ready_);
-    GRPC_DCHECK(buffer_.Length() == 0);
-    GRPC_DCHECK(!header_in_progress_);
-    return Http2Status::Ok();
+    Http2Status status = ParseHeader(
+        parser, std::move(buffer_), /*grpc_metadata_batch=*/nullptr,
+        ParseHeaderArgs{
+            /*is_initial_metadata=*/is_initial_metadata,
+            /*is_end_headers=*/is_ready_,
+            /*is_client=*/is_client_,
+            /*max_header_list_size_soft_limit=*/max_header_list_size_soft_limit,
+            /*max_header_list_size_hard_limit=*/max_header_list_size_hard_limit,
+            /*stream_id=*/stream_id_,
+        });
+    Cleanup();
+    return status;
   }
 
   size_t GetBufferedHeadersLength() const { return buffer_.Length(); }
@@ -231,6 +217,7 @@ class HeaderAssembler {
   explicit HeaderAssembler(const bool is_client)
       : header_in_progress_(false),
         is_ready_(false),
+        allow_true_binary_metadata_acked_(true),
         is_client_(is_client),
         stream_id_(0) {}
 
@@ -241,24 +228,12 @@ class HeaderAssembler {
   HeaderAssembler(const HeaderAssembler&) = delete;
   HeaderAssembler& operator=(const HeaderAssembler&) = delete;
 
-  // This is set only once in the lifetime of a transport.
-  // TODO(tjagtap) [PH2][P3] : This value in settings can only be set once as
-  // the allow_true_binary_metadata setting is sent only once. Re-think this
-  // once we add actual use of this value.
-  void MaybeSetAllowTrueBinaryMetadataAcked(
-      const bool allow_true_binary_metadata_acked) {
-    if (allow_true_binary_metadata_acked_.has_value()) {
-      return;
-    }
-    allow_true_binary_metadata_acked_ = allow_true_binary_metadata_acked;
-  }
-
-  void SetStreamId(uint32_t stream_id) {
+  void InitializeStream(const uint32_t stream_id,
+                        const bool allow_true_binary_metadata_acked) {
+    GRPC_DCHECK_EQ(stream_id_, 0u);
     GRPC_DCHECK_NE(stream_id, 0u);
-    GRPC_DCHECK(!header_in_progress_);
-    GRPC_DCHECK_EQ(is_ready_, false);
-    GRPC_DCHECK(buffer_.Length() == 0);
     stream_id_ = stream_id;
+    allow_true_binary_metadata_acked_ = allow_true_binary_metadata_acked;
   }
 
   // HPACK parser helpers
@@ -275,15 +250,14 @@ class HeaderAssembler {
           "is_initial_metadata: ", is_initial_metadata,
           " is_end_headers: ", is_end_headers, " is_client: ", is_client,
           " max_header_list_size_soft_limit: ", max_header_list_size_soft_limit,
-          " max_header_list_size_hard_limit: ", max_header_list_size_hard_limit,
-          " stream_id:", stream_id);
+          " max_header_list_size_hard_limit: ",
+          max_header_list_size_hard_limit);
     }
   };
 
   static Http2Status ParseHeader(HPackParser& parser, SliceBuffer&& buffer,
                                  grpc_metadata_batch* grpc_metadata_batch,
                                  const ParseHeaderArgs args) {
-    // TODO(alishananda): Propagate mitigation engine here.
     parser.BeginFrame(
         /*grpc_metadata_batch*/ grpc_metadata_batch,
         args.max_header_list_size_soft_limit,
@@ -294,8 +268,7 @@ class HeaderAssembler {
                              args.is_initial_metadata
                                  ? HPackParser::LogInfo::Type::kHeaders
                                  : HPackParser::LogInfo::Type::kTrailers,
-                             args.is_client},
-        /*mitigation_engine=*/nullptr);
+                             args.is_client});
     // TODO(tjagtap) [PH2][P5] Bug fix : Check if the received metadata honours
     // allow_true_binary_metadata or not. Will need changes to HPack code.
     absl::Status stream_error = absl::OkStatus();
@@ -341,21 +314,16 @@ class HeaderAssembler {
     return boundary;
   }
 
-  std::optional<bool> TestOnlyAllowTrueBinaryMetadataAcked() const {
-    return allow_true_binary_metadata_acked_;
-  }
-
  private:
   void Cleanup() {
     buffer_.Clear();
     header_in_progress_ = false;
     is_ready_ = false;
-    stream_id_ = 0;
   }
 
   bool header_in_progress_;
   bool is_ready_;
-  std::optional<bool> allow_true_binary_metadata_acked_;
+  bool allow_true_binary_metadata_acked_;
   const bool is_client_;
   uint32_t stream_id_;
   SliceBuffer buffer_;

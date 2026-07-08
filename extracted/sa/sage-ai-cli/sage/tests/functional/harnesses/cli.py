@@ -31,7 +31,7 @@ def execute(request: dict, model: str) -> TestResult:
         else:
             playwright_browsers_path = str(real_home / ".cache" / "ms-playwright")
     env["PLAYWRIGHT_BROWSERS_PATH"] = playwright_browsers_path
-    env["SAGE_API_BASE"] = "http://127.0.0.1:8091"
+    env["SAGE_API_BASE"] = os.environ.get("SAGE_API_BASE", "http://127.0.0.1:8091")
     env["SAGE_DISABLE_RAG"] = "1"
     
     try:

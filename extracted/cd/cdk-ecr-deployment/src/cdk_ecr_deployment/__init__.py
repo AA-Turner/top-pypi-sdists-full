@@ -139,7 +139,7 @@ import jsii
 import publication
 import typing_extensions
 
-from jsii._type_checking import check_type
+from jsii._type_checking import cached_type_hints, check_type
 
 
 from ._jsii import *
@@ -204,7 +204,7 @@ class ECRDeployment(
         :param vpc_subnets: Where in the VPC to place the deployment lambda handler. Only used if 'vpc' is supplied. Default: - the Vpc default strategy if not specified
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__d24bf38ee05e035f6d77ace8eb6a8a39c5a3ef61dbe1a8d4758949a3710c9f8d)
+            type_hints = cached_type_hints(_typecheckingstub__d24bf38ee05e035f6d77ace8eb6a8a39c5a3ef61dbe1a8d4758949a3710c9f8d)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         props = ECRDeploymentProps(
@@ -232,7 +232,7 @@ class ECRDeployment(
         :param statement: -
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__325690cb0a83adf6fab8d9967af566ee5c34ec280a23ccfb834cfb92b2023e9c)
+            type_hints = cached_type_hints(_typecheckingstub__325690cb0a83adf6fab8d9967af566ee5c34ec280a23ccfb834cfb92b2023e9c)
             check_type(argname="argument statement", value=statement, expected_type=type_hints["statement"])
         return typing.cast("_aws_cdk_aws_iam_ceddda9d.AddToPrincipalPolicyResult", jsii.invoke(self, "addToPrincipalPolicy", [statement]))
 
@@ -286,7 +286,7 @@ class ECRDeploymentProps:
         if isinstance(vpc_subnets, dict):
             vpc_subnets = _aws_cdk_aws_ec2_ceddda9d.SubnetSelection(**vpc_subnets)
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__36cce9ade11503a84b3a05f93d6aeb623f18eb537004fb3c37776c491a77f224)
+            type_hints = cached_type_hints(_typecheckingstub__36cce9ade11503a84b3a05f93d6aeb623f18eb537004fb3c37776c491a77f224)
             check_type(argname="argument dest", value=dest, expected_type=type_hints["dest"])
             check_type(argname="argument src", value=src, expected_type=type_hints["src"])
             check_type(argname="argument arch_image_tags", value=arch_image_tags, expected_type=type_hints["arch_image_tags"])
@@ -519,7 +519,7 @@ class _IImageNameProxy:
     @creds.setter
     def creds(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__f81ae2679d7471479e5816734a1164966670a97a769e663d3dba0018a25318b1)
+            type_hints = cached_type_hints(_typecheckingstub__f81ae2679d7471479e5816734a1164966670a97a769e663d3dba0018a25318b1)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "creds", value) # pyright: ignore[reportArgumentType]
 
@@ -544,7 +544,7 @@ class S3ArchiveName(
         :param creds: - The credentials of the docker image. Format ``user:password`` or ``AWS Secrets Manager secret arn`` or ``AWS Secrets Manager secret name``. If specifying an AWS Secrets Manager secret, the format of the secret should be either plain text (``user:password``) or JSON (``{"username":"<username>","password":"<password>"}``). For more details on JSON format, see https://docs.aws.amazon.com/AmazonECS/latest/developerguide/private-auth.html
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__74d0c83474fcf1d53ec37992ef6e48d3662feb17e26f3db1dc7656e18db0174f)
+            type_hints = cached_type_hints(_typecheckingstub__74d0c83474fcf1d53ec37992ef6e48d3662feb17e26f3db1dc7656e18db0174f)
             check_type(argname="argument p", value=p, expected_type=type_hints["p"])
             check_type(argname="argument ref", value=ref, expected_type=type_hints["ref"])
             check_type(argname="argument creds", value=creds, expected_type=type_hints["creds"])
@@ -574,7 +574,7 @@ class S3ArchiveName(
     @creds.setter
     def creds(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__688773b22e812b1f885bcb3c6db14df681ea8a4de7c61c9c548cc3b5251b4a09)
+            type_hints = cached_type_hints(_typecheckingstub__688773b22e812b1f885bcb3c6db14df681ea8a4de7c61c9c548cc3b5251b4a09)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "creds", value) # pyright: ignore[reportArgumentType]
 
@@ -594,7 +594,7 @@ class DockerImageName(
         :param creds: - The credentials of the docker image. Format ``user:password`` or ``AWS Secrets Manager secret arn`` or ``AWS Secrets Manager secret name``. If specifying an AWS Secrets Manager secret, the format of the secret should be either plain text (``user:password``) or JSON (``{"username":"<username>","password":"<password>"}``). For more details on JSON format, see https://docs.aws.amazon.com/AmazonECS/latest/developerguide/private-auth.html
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__2eb797245c2bef1d3b45b384edb79598f7dd44ad79e3cd42f8935d22e169e449)
+            type_hints = cached_type_hints(_typecheckingstub__2eb797245c2bef1d3b45b384edb79598f7dd44ad79e3cd42f8935d22e169e449)
             check_type(argname="argument name", value=name, expected_type=type_hints["name"])
             check_type(argname="argument creds", value=creds, expected_type=type_hints["creds"])
         jsii.create(self.__class__, self, [name, creds])
@@ -623,7 +623,7 @@ class DockerImageName(
     @creds.setter
     def creds(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__72af2920d9000bc2347ecd474276dc87af6bbfa4c1a44723c544387087315a29)
+            type_hints = cached_type_hints(_typecheckingstub__72af2920d9000bc2347ecd474276dc87af6bbfa4c1a44723c544387087315a29)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "creds", value) # pyright: ignore[reportArgumentType]
 

@@ -252,6 +252,21 @@ use fail::fail_point;
 /// This is handled at the interpreter level to prevent custom filesystems from bypassing it.
 const DEV_NULL: &str = "/dev/null";
 
+/// Convert a [`SubCommand`](crate::builtins::SubCommand)'s command-scoped
+/// `(VAR, value)` pairs into AST [`Assignment`]s, so a plan's inner command
+/// runs with `VAR=value cmd ...` semantics (used by `xargs --process-slot-var`).
+fn subcommand_env_assignments(pairs: &[(String, String)]) -> Vec<Assignment> {
+    pairs
+        .iter()
+        .map(|(name, value)| Assignment {
+            name: name.clone(),
+            index: None,
+            value: AssignmentValue::Scalar(Word::quoted_literal(value.clone())),
+            append: false,
+        })
+        .collect()
+}
+
 /// Check if a name is a shell keyword (for `command -v`/`command -V`).
 fn is_keyword(name: &str) -> bool {
     matches!(
@@ -1868,6 +1883,10 @@ impl Interpreter {
         self.arrays_mut().remove("BASH_SOURCE");
     }
 
+    // Only called from the tokio-timeout recovery path in Bash::exec, which is
+    // native-only (wasm has no reliable timer driver, so no timeout to recover
+    // from — see TM-DOS-057 in lib.rs).
+    #[cfg(not(target_family = "wasm"))]
     pub(crate) fn clear_cancelled_execution_state(&mut self) {
         self.reconcile_cancelled_execution_state(0, 0, 0, None);
     }
@@ -3956,7 +3975,7 @@ impl Interpreter {
     /// User and system CPU time are always reported as 0.
     /// This is a documented incompatibility with bash.
     async fn execute_time(&mut self, time_cmd: &TimeCommand) -> Result<ExecResult> {
-        use std::time::Instant;
+        use crate::time_compat::Instant;
 
         let start = Instant::now();
 
@@ -5586,7 +5605,7 @@ impl Interpreter {
             let trace_start = if self.trace.mode() != crate::trace::TraceMode::Off {
                 self.trace
                     .command_start(name, &args, self.cwd.to_string_lossy().as_ref());
-                Some(std::time::Instant::now())
+                Some(crate::time_compat::Instant::now())
             } else {
                 None
             };
@@ -7976,7 +7995,7 @@ impl Interpreter {
                         .map(|s| Word::quoted_literal(s.clone()))
                         .collect(),
                     redirects: inner_redirects,
-                    assignments: Vec::new(),
+                    assignments: subcommand_env_assignments(&command.assignments),
                     span: Span::new(),
                 });
 
@@ -8030,7 +8049,7 @@ impl Interpreter {
                             .map(|s| Word::quoted_literal(s.clone()))
                             .collect(),
                         redirects: cmd_redirects,
-                        assignments: Vec::new(),
+                        assignments: subcommand_env_assignments(&cmd.assignments),
                         span: Span::new(),
                     });
 
@@ -8077,7 +8096,7 @@ impl Interpreter {
                             .map(|s| Word::quoted_literal(s.clone()))
                             .collect(),
                         redirects: cmd_redirects,
-                        assignments: Vec::new(),
+                        assignments: subcommand_env_assignments(&cmd.assignments),
                         span: Span::new(),
                     });
 
@@ -10916,7 +10935,8 @@ mod tests {
 
     #[tokio::test]
     async fn test_extglob_no_hang() {
-        use std::time::{Duration, Instant};
+        use crate::time_compat::Instant;
+        use std::time::Duration;
         let start = Instant::now();
         let result = run_script(
             r#"shopt -s extglob; [[ "aaaaaaaaaaaa" == +(a|aa) ]] && echo yes || echo no"#,

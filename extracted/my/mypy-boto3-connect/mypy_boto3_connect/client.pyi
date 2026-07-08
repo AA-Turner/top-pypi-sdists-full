@@ -161,6 +161,8 @@ from .type_defs import (
     CreateAgentStatusResponseTypeDef,
     CreateAttachedFileRequestTypeDef,
     CreateAttachedFileResponseTypeDef,
+    CreateAuthCodeRequestTypeDef,
+    CreateAuthCodeResponseTypeDef,
     CreateContactFlowModuleAliasRequestTypeDef,
     CreateContactFlowModuleAliasResponseTypeDef,
     CreateContactFlowModuleRequestTypeDef,
@@ -258,6 +260,7 @@ from .type_defs import (
     DeleteRoutingProfileRequestTypeDef,
     DeleteRuleRequestTypeDef,
     DeleteSecurityProfileRequestTypeDef,
+    DeleteSessionRequestTypeDef,
     DeleteTaskTemplateRequestTypeDef,
     DeleteTestCaseRequestTypeDef,
     DeleteTrafficDistributionGroupRequestTypeDef,
@@ -1142,6 +1145,16 @@ class ConnectClient(BaseClient):
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_connect/client/#create_attached_file)
         """
 
+    def create_auth_code(
+        self, **kwargs: Unpack[CreateAuthCodeRequestTypeDef]
+    ) -> CreateAuthCodeResponseTypeDef:
+        """
+        Creates an authorization code for the specified Connect Customer instance.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connect/client/create_auth_code.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_connect/client/#create_auth_code)
+        """
+
     def create_contact(
         self, **kwargs: Unpack[CreateContactRequestTypeDef]
     ) -> CreateContactResponseTypeDef:
@@ -1756,6 +1769,14 @@ class ConnectClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connect/client/delete_security_profile.html)
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_connect/client/#delete_security_profile)
+        """
+
+    def delete_session(self, **kwargs: Unpack[DeleteSessionRequestTypeDef]) -> dict[str, Any]:
+        """
+        Deletes a session for the specified Connect Customer instance.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connect/client/delete_session.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_connect/client/#delete_session)
         """
 
     def delete_task_template(

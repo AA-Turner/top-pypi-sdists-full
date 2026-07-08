@@ -190,11 +190,47 @@ pub fn recover_spikes(
         .collect();
 
     let threshold = order_threshold(&singular_values, rows, cols, sigma);
-    let model_order = singular_values
+    let threshold_order = singular_values
         .iter()
         .filter(|&&s| s > threshold)
         .count()
         .min(max_order);
+
+    // Scale-invariant rank refinement. When the singular spectrum shows an
+    // unambiguous *relative* collapse `σ_{k+1}/σ_k < dramatic_gap`, that gap pins
+    // the true model order regardless of the supplied `sigma`, making the decoder
+    // robust to a mis-specified noise level in either direction: a caller passing a
+    // conservative (over-large) population sigma would otherwise under-select and
+    // drop genuine spikes, while f32-quantised inputs leave a numerical shelf that
+    // sits far above the f64 numerical floor and would otherwise be over-selected.
+    //
+    // The threshold is derived, not tuned: it is `√(ε_f32)`, the geometric mean
+    // between the f32 quantisation shelf and unity. When the codes are f32 the
+    // Hankel's round-off/quantisation singular values sit at `≈ ε_f32·σ_1` relative
+    // to the top singular value (`ε_f32 ≈ 1.19e-7`), so a relative drop of `√ε_f32
+    // ≈ 3.4e-4` is a full ~3.5 orders of magnitude above that shelf yet far below
+    // any signal structure (distinct spike amplitudes differ by O(1) ratios) or a
+    // genuinely noisy spectrum (whose signal→noise relative drop equals the passed
+    // noise level, which the Gavish–Donoho path already handles and which is `≫
+    // √ε_f32` for any noise a caller would bother modelling). Only the quantisation
+    // shelf collapses below `√ε_f32`, so honest GD selection is preserved whenever
+    // no such gap exists. `√ε` also matches the Newton step tolerance used in the
+    // argmax polish elsewhere in this module.
+    let dramatic_gap = (f32::EPSILON as f64).sqrt();
+    let gap_order = {
+        let mut order = None;
+        for k in 1..max_order.min(singular_values.len()) {
+            if singular_values[k - 1] <= 0.0 {
+                break;
+            }
+            if singular_values[k] / singular_values[k - 1] < dramatic_gap {
+                order = Some(k);
+                break;
+            }
+        }
+        order
+    };
+    let model_order = gap_order.unwrap_or(threshold_order);
 
     if model_order == 0 {
         // Pure noise / no resolvable spike: the whole signal is the residual.
@@ -220,12 +256,25 @@ pub fn recover_spikes(
         .eigenvalues()
         .map_err(|e| format!("matrix-pencil eigenproblem failed: {e:?}"))?;
 
-    // Unit-modulus phasors and circle positions t = arg(z)/(2π) mod 1.
+    // Unit-modulus phasors and circle positions t = arg(z)/(2π) mod 1. The
+    // shift-invariance pencil `Φ = V1⁺V2` built from `svd.V()` has eigenvalues
+    // equal to the GENERATING phasors `z_j = e^{2πi t_j}` directly: faer's `V`
+    // columns span the Hankel row space `span{(z_j^k)_k}` itself (the shift
+    // relation `V2 = V1·diag(z_j)` reads off `z_j`, not its conjugate). Only the
+    // magnitude is normalised to the unit circle; NO conjugation is applied.
+    //
+    // A spurious `z̄ = conj(z)` here arg-NEGATES every phasor and reports the
+    // reflected circle position `1 − t`, and — because the downstream Vandermonde
+    // amplitude solve then fits the reflected frequencies — inflates the residual
+    // so much that the measure readout rejects the multi-spike result and falls
+    // back to the single-coordinate path. That reflection was the
+    // `exact_recovery_two_spikes_no_noise` failure: planted {0.20, 0.45} came back
+    // as {0.55, 0.80}, a position error of exactly the reflection distance 0.35.
     let phasors: Vec<c64> = roots
         .iter()
         .map(|z| {
             let norm = z.norm();
-            if norm > 0.0 { z / norm } else { c64::new(1.0, 0.0) }
+            if norm > 0.0 { *z / norm } else { c64::new(1.0, 0.0) }
         })
         .collect();
     let positions: Vec<f64> = phasors

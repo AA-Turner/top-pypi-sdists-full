@@ -1,6 +1,6 @@
 Metadata-Version: 2.3
 Name: solara
-Version: 1.60.0
+Version: 1.60.1
 Dynamic: Summary
 Project-URL: Home, https://www.github.com/widgetti/solara
 Project-URL: Documentation, https://solara.dev
@@ -28,8 +28,8 @@ License: The MIT License (MIT)
         THE SOFTWARE.
 Classifier: License :: OSI Approved :: MIT License
 Requires-Python: >=3.8
-Requires-Dist: solara-server[dev,starlette]==1.60.0
-Requires-Dist: solara-ui[all]==1.60.0
+Requires-Dist: solara-server[dev,starlette]==1.60.1
+Requires-Dist: solara-ui[all]==1.60.1
 Provides-Extra: all
 Requires-Dist: altair; extra == 'all'
 Requires-Dist: bqplot-image-gl; extra == 'all'
@@ -57,13 +57,13 @@ Requires-Dist: pyarrow; extra == 'all'
 Requires-Dist: pytest; extra == 'all'
 Requires-Dist: pytest-asyncio; extra == 'all'
 Requires-Dist: pytest-cov; extra == 'all'
-Requires-Dist: pytest-ipywidgets[all]==1.60.0; extra == 'all'
+Requires-Dist: pytest-ipywidgets[all]==1.60.1; extra == 'all'
 Requires-Dist: pytest-mock; extra == 'all'
 Requires-Dist: pytest-playwright; extra == 'all'
 Requires-Dist: pytest-timeout; extra == 'all'
 Requires-Dist: python-dotenv; extra == 'all'
 Requires-Dist: ruff; extra == 'all'
-Requires-Dist: solara-assets==1.60.0; extra == 'all'
+Requires-Dist: solara-assets==1.60.1; extra == 'all'
 Requires-Dist: tiktoken; (python_version >= '3.9') and extra == 'all'
 Requires-Dist: types-markdown; extra == 'all'
 Requires-Dist: types-pyyaml; extra == 'all'
@@ -73,7 +73,7 @@ Requires-Dist: vaex-hdf5; (python_version < '3.11') and extra == 'all'
 Requires-Dist: vaex-jupyter; (python_version < '3.11') and extra == 'all'
 Requires-Dist: vega-datasets; extra == 'all'
 Provides-Extra: assets
-Requires-Dist: solara-assets==1.60.0; extra == 'assets'
+Requires-Dist: solara-assets==1.60.1; extra == 'assets'
 Provides-Extra: dev
 Requires-Dist: bqplot-image-gl; extra == 'dev'
 Requires-Dist: bqplot<0.13; extra == 'dev'
@@ -121,7 +121,7 @@ Requires-Dist: vaex-core; (python_version < '3.11') and extra == 'documentation'
 Requires-Dist: vaex-hdf5; (python_version < '3.11') and extra == 'documentation'
 Requires-Dist: vega-datasets; extra == 'documentation'
 Provides-Extra: pytest
-Requires-Dist: pytest-ipywidgets[all]==1.60.0; extra == 'pytest'
+Requires-Dist: pytest-ipywidgets[all]==1.60.1; extra == 'pytest'
 Provides-Extra: redis
 Requires-Dist: solara-ui[redis]; extra == 'redis'
 Description-Content-Type: text/markdown

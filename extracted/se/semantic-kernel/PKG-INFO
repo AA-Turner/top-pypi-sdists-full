@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: semantic-kernel
-Version: 1.43.1
+Version: 1.44.0
 Summary: Semantic Kernel Python SDK
 Author-email: Microsoft <SK-Support@microsoft.com>
 Requires-Python: >=3.10
@@ -55,12 +55,12 @@ Requires-Dist: google-cloud-aiplatform>=1.114,<1.134 ; extra == "google"
 Requires-Dist: google-genai >= 1.51,< 1.75 ; extra == "google"
 Requires-Dist: transformers[torch] ~= 4.28 ; extra == "hugging-face"
 Requires-Dist: sentence-transformers >= 2.2,< 6.0 ; extra == "hugging-face"
-Requires-Dist: torch == 2.8.0 ; extra == "hugging-face"
+Requires-Dist: torch==2.12.0 ; extra == "hugging-face"
 Requires-Dist: mcp>=1.8 ; extra == "mcp"
 Requires-Dist: pymilvus >= 2.3,< 2.7 ; extra == "milvus"
 Requires-Dist: milvus >= 2.3,<2.3.8 ; extra == "milvus" and ( platform_system != 'Windows')
 Requires-Dist: mistralai >= 1.2,< 2.4.6 ; extra == "mistralai"
-Requires-Dist: pymongo >= 4.8.0, < 4.16 ; extra == "mongo"
+Requires-Dist: pymongo >= 4.8.0, < 4.17 ; extra == "mongo"
 Requires-Dist: motor >= 3.3.2,< 3.8.0 ; extra == "mongo"
 Requires-Dist: ipykernel >= 6.29,< 8.0 ; extra == "notebooks"
 Requires-Dist: ollama ~= 0.4 ; extra == "ollama"
@@ -79,7 +79,7 @@ Requires-Dist: types-redis ~= 4.6.0.20240425 ; extra == "redis"
 Requires-Dist: redisvl ~= 0.4 ; extra == "redis"
 Requires-Dist: pyodbc >= 5.2 ; extra == "sql"
 Requires-Dist: usearch ~= 2.16 ; extra == "usearch"
-Requires-Dist: pyarrow >= 12.0,< 22.0 ; extra == "usearch"
+Requires-Dist: pyarrow>=12.0,<24.0 ; extra == "usearch"
 Requires-Dist: weaviate-client>=4.17.0,<5.0 ; extra == "weaviate"
 Project-URL: homepage, https://learn.microsoft.com/en-us/semantic-kernel/overview/
 Project-URL: issues, https://github.com/microsoft/semantic-kernel/issues

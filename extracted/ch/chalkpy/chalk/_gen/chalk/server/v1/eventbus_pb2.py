@@ -18,7 +18,7 @@ from google.protobuf import timestamp_pb2 as google_dot_protobuf_dot_timestamp__
 
 
 DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(
-    b'\n\x1e\x63halk/server/v1/eventbus.proto\x12\x0f\x63halk.server.v1\x1a\x1cgoogle/protobuf/struct.proto\x1a\x1fgoogle/protobuf/timestamp.proto"\xdd\x02\n\x10\x45ventBusEnvelope\x12\x19\n\x08\x65vent_id\x18\x01 \x01(\tR\x07\x65ventId\x12\x39\n\ncreated_at\x18\x02 \x01(\x0b\x32\x1a.google.protobuf.TimestampR\tcreatedAt\x12%\n\x0e\x65nvironment_id\x18\x03 \x01(\tR\renvironmentId\x12:\n\x07message\x18\x04 \x01(\x0b\x32 .chalk.server.v1.EventBusMessageR\x07message\x12Q\n\nattributes\x18\x05 \x03(\x0b\x32\x31.chalk.server.v1.EventBusEnvelope.AttributesEntryR\nattributes\x1a=\n\x0f\x41ttributesEntry\x12\x10\n\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n\x05value\x18\x02 \x01(\tR\x05value:\x02\x38\x01"b\n\x0f\x45ventBusMessage\x12\x44\n\rwebhook_event\x18\x01 \x01(\x0b\x32\x1d.chalk.server.v1.WebhookEventH\x00R\x0cwebhookEventB\t\n\x07payload"\x8f\x02\n\x0cWebhookEvent\x12!\n\nwebhook_id\x18\x01 \x01(\tB\x02\x18\x01R\twebhookId\x12"\n\x0csubscription\x18\x02 \x01(\tR\x0csubscription\x12\x31\n\x07payload\x18\x03 \x01(\x0b\x32\x17.google.protobuf.StructR\x07payload\x12\x43\n\x0f\x65vent_timestamp\x18\x04 \x01(\x0b\x32\x1a.google.protobuf.TimestampR\x0e\x65ventTimestamp\x12,\n\x0fidempotency_key\x18\x05 \x01(\tH\x00R\x0eidempotencyKey\x88\x01\x01\x42\x12\n\x10_idempotency_keyB\x96\x01\n\x13\x63om.chalk.server.v1B\rEventbusProtoP\x01Z\x12server/v1;serverv1\xa2\x02\x03\x43SX\xaa\x02\x0f\x43halk.Server.V1\xca\x02\x0f\x43halk\\Server\\V1\xe2\x02\x1b\x43halk\\Server\\V1\\GPBMetadata\xea\x02\x11\x43halk::Server::V1b\x06proto3'
+    b'\n\x1e\x63halk/server/v1/eventbus.proto\x12\x0f\x63halk.server.v1\x1a\x1cgoogle/protobuf/struct.proto\x1a\x1fgoogle/protobuf/timestamp.proto"\xdd\x02\n\x10\x45ventBusEnvelope\x12\x19\n\x08\x65vent_id\x18\x01 \x01(\tR\x07\x65ventId\x12\x39\n\ncreated_at\x18\x02 \x01(\x0b\x32\x1a.google.protobuf.TimestampR\tcreatedAt\x12%\n\x0e\x65nvironment_id\x18\x03 \x01(\tR\renvironmentId\x12:\n\x07message\x18\x04 \x01(\x0b\x32 .chalk.server.v1.EventBusMessageR\x07message\x12Q\n\nattributes\x18\x05 \x03(\x0b\x32\x31.chalk.server.v1.EventBusEnvelope.AttributesEntryR\nattributes\x1a=\n\x0f\x41ttributesEntry\x12\x10\n\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n\x05value\x18\x02 \x01(\tR\x05value:\x02\x38\x01"\xc1\x01\n\x0f\x45ventBusMessage\x12\x44\n\rwebhook_event\x18\x01 \x01(\x0b\x32\x1d.chalk.server.v1.WebhookEventH\x00R\x0cwebhookEvent\x12]\n\x16infra_deployment_event\x18\x02 \x01(\x0b\x32%.chalk.server.v1.InfraDeploymentEventH\x00R\x14infraDeploymentEventB\t\n\x07payload"\xb2\x01\n\x14InfraDeploymentEvent\x12\x1f\n\ncluster_id\x18\x01 \x01(\tH\x00R\tclusterId\x12\x17\n\x06vpc_id\x18\x02 \x01(\tH\x00R\x05vpcId\x12\x16\n\x06status\x18\x03 \x01(\tR\x06status\x12\x19\n\x05\x65rror\x18\x04 \x01(\tH\x01R\x05\x65rror\x88\x01\x01\x12\x16\n\x06\x61\x63tion\x18\x05 \x01(\tR\x06\x61\x63tionB\x0b\n\tcomponentB\x08\n\x06_error"\x8f\x02\n\x0cWebhookEvent\x12!\n\nwebhook_id\x18\x01 \x01(\tB\x02\x18\x01R\twebhookId\x12"\n\x0csubscription\x18\x02 \x01(\tR\x0csubscription\x12\x31\n\x07payload\x18\x03 \x01(\x0b\x32\x17.google.protobuf.StructR\x07payload\x12\x43\n\x0f\x65vent_timestamp\x18\x04 \x01(\x0b\x32\x1a.google.protobuf.TimestampR\x0e\x65ventTimestamp\x12,\n\x0fidempotency_key\x18\x05 \x01(\tH\x00R\x0eidempotencyKey\x88\x01\x01\x42\x12\n\x10_idempotency_keyB\x96\x01\n\x13\x63om.chalk.server.v1B\rEventbusProtoP\x01Z\x12server/v1;serverv1\xa2\x02\x03\x43SX\xaa\x02\x0f\x43halk.Server.V1\xca\x02\x0f\x43halk\\Server\\V1\xe2\x02\x1b\x43halk\\Server\\V1\\GPBMetadata\xea\x02\x11\x43halk::Server::V1b\x06proto3'
 )
 
 _globals = globals()
@@ -37,8 +37,10 @@ if _descriptor._USE_C_DESCRIPTORS == False:
     _globals["_EVENTBUSENVELOPE"]._serialized_end = 464
     _globals["_EVENTBUSENVELOPE_ATTRIBUTESENTRY"]._serialized_start = 403
     _globals["_EVENTBUSENVELOPE_ATTRIBUTESENTRY"]._serialized_end = 464
-    _globals["_EVENTBUSMESSAGE"]._serialized_start = 466
-    _globals["_EVENTBUSMESSAGE"]._serialized_end = 564
-    _globals["_WEBHOOKEVENT"]._serialized_start = 567
-    _globals["_WEBHOOKEVENT"]._serialized_end = 838
+    _globals["_EVENTBUSMESSAGE"]._serialized_start = 467
+    _globals["_EVENTBUSMESSAGE"]._serialized_end = 660
+    _globals["_INFRADEPLOYMENTEVENT"]._serialized_start = 663
+    _globals["_INFRADEPLOYMENTEVENT"]._serialized_end = 841
+    _globals["_WEBHOOKEVENT"]._serialized_start = 844
+    _globals["_WEBHOOKEVENT"]._serialized_end = 1115
 # @@protoc_insertion_point(module_scope)

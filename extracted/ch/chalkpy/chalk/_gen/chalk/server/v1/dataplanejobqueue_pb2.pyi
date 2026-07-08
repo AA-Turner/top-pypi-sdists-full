@@ -614,6 +614,34 @@ class ForceCancelJobQueueJobResponse(_message.Message):
     __slots__ = ()
     def __init__(self) -> None: ...
 
+class ForceCancelJobQueueJobsRequest(_message.Message):
+    __slots__ = ("environment_id", "job_queue_ids")
+    ENVIRONMENT_ID_FIELD_NUMBER: _ClassVar[int]
+    JOB_QUEUE_IDS_FIELD_NUMBER: _ClassVar[int]
+    environment_id: str
+    job_queue_ids: _containers.RepeatedScalarFieldContainer[int]
+    def __init__(
+        self, environment_id: _Optional[str] = ..., job_queue_ids: _Optional[_Iterable[int]] = ...
+    ) -> None: ...
+
+class ForceCancelJobQueueJobResult(_message.Message):
+    __slots__ = ("job_queue_id", "success", "error")
+    JOB_QUEUE_ID_FIELD_NUMBER: _ClassVar[int]
+    SUCCESS_FIELD_NUMBER: _ClassVar[int]
+    ERROR_FIELD_NUMBER: _ClassVar[int]
+    job_queue_id: int
+    success: bool
+    error: str
+    def __init__(
+        self, job_queue_id: _Optional[int] = ..., success: bool = ..., error: _Optional[str] = ...
+    ) -> None: ...
+
+class ForceCancelJobQueueJobsResponse(_message.Message):
+    __slots__ = ("results",)
+    RESULTS_FIELD_NUMBER: _ClassVar[int]
+    results: _containers.RepeatedCompositeFieldContainer[ForceCancelJobQueueJobResult]
+    def __init__(self, results: _Optional[_Iterable[_Union[ForceCancelJobQueueJobResult, _Mapping]]] = ...) -> None: ...
+
 class CancelWorkflowExecutionRequest(_message.Message):
     __slots__ = ("workflow_execution_id",)
     WORKFLOW_EXECUTION_ID_FIELD_NUMBER: _ClassVar[int]

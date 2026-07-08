@@ -17,7 +17,7 @@ class OrganizationResponse:
     """The organization where new workspaces are created by default
 
     Attributes:
-        dataplane_id (str): Data plane id for this org.
+        dataplane_id (None | str): Data plane id for this org; null until a region is set.
         date_added (datetime.datetime): datetime with the constraint that the value must have timezone info
         date_updated (datetime.datetime): datetime with the constraint that the value must have timezone info
         description (None | str): The description of the organization
@@ -25,7 +25,7 @@ class OrganizationResponse:
         name (str): The name of the organization
     """
 
-    dataplane_id: str
+    dataplane_id: None | str
     date_added: datetime.datetime
     date_updated: datetime.datetime
     description: None | str
@@ -34,6 +34,7 @@ class OrganizationResponse:
     additional_properties: dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
+        dataplane_id: None | str
         dataplane_id = self.dataplane_id
 
         date_added = self.date_added.isoformat()
@@ -65,7 +66,13 @@ class OrganizationResponse:
     @classmethod
     def from_dict(cls: type[T], src_dict: Mapping[str, Any]) -> T:
         d = dict(src_dict)
-        dataplane_id = d.pop("dataplane_id")
+
+        def _parse_dataplane_id(data: object) -> None | str:
+            if data is None:
+                return data
+            return cast(None | str, data)
+
+        dataplane_id = _parse_dataplane_id(d.pop("dataplane_id"))
 
         date_added = isoparse(d.pop("date_added"))
 

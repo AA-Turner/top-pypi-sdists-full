@@ -105,6 +105,8 @@ class MetricKind(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
     METRIC_KIND_QUERY_PROGRESS_OPERATOR_ROWS_PROCESSED: _ClassVar[MetricKind]
     METRIC_KIND_SCHEDULED_QUERY_COUNT: _ClassVar[MetricKind]
     METRIC_KIND_SCHEDULED_QUERY_SUCCESS_RATIO: _ClassVar[MetricKind]
+    METRIC_KIND_HYPERVISOR_CONTAINER_CPU_UTILIZATION: _ClassVar[MetricKind]
+    METRIC_KIND_HYPERVISOR_CONTAINER_MEMORY_BYTES: _ClassVar[MetricKind]
 
 class FilterKind(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
     __slots__ = ()
@@ -134,6 +136,7 @@ class FilterKind(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
     FILTER_KIND_FUNCTION_NAME: _ClassVar[FilterKind]
     FILTER_KIND_SERVICE_KIND: _ClassVar[FilterKind]
     FILTER_KIND_CONSUMER_GROUP: _ClassVar[FilterKind]
+    FILTER_KIND_CONTAINER_ID: _ClassVar[FilterKind]
 
 class ComparatorKind(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
     __slots__ = ()
@@ -314,6 +317,8 @@ METRIC_KIND_QUERY_PROGRESS_OPERATOR_OUTPUT_BYTES: MetricKind
 METRIC_KIND_QUERY_PROGRESS_OPERATOR_ROWS_PROCESSED: MetricKind
 METRIC_KIND_SCHEDULED_QUERY_COUNT: MetricKind
 METRIC_KIND_SCHEDULED_QUERY_SUCCESS_RATIO: MetricKind
+METRIC_KIND_HYPERVISOR_CONTAINER_CPU_UTILIZATION: MetricKind
+METRIC_KIND_HYPERVISOR_CONTAINER_MEMORY_BYTES: MetricKind
 FILTER_KIND_UNSPECIFIED: FilterKind
 FILTER_KIND_FEATURE_STATUS: FilterKind
 FILTER_KIND_FEATURE_NAME: FilterKind
@@ -340,6 +345,7 @@ FILTER_KIND_SCALING_GROUP: FilterKind
 FILTER_KIND_FUNCTION_NAME: FilterKind
 FILTER_KIND_SERVICE_KIND: FilterKind
 FILTER_KIND_CONSUMER_GROUP: FilterKind
+FILTER_KIND_CONTAINER_ID: FilterKind
 COMPARATOR_KIND_UNSPECIFIED: ComparatorKind
 COMPARATOR_KIND_EQ: ComparatorKind
 COMPARATOR_KIND_NEQ: ComparatorKind

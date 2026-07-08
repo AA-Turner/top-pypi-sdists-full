@@ -67,6 +67,7 @@ from .oncalls import Oncall, OncallQuery
 from .references import (
     IncidentReference,
     IntegrationReference,
+    PriorityReference,
     ScheduleReference,
     ServiceReference,
     TeamReference,
@@ -76,13 +77,35 @@ from .schedules import (
     Schedule,
     ScheduleCreateData,
     ScheduleCreateRequest,
+    ScheduleDetail,
     ScheduleLayer,
     ScheduleLayerCreate,
     ScheduleLayerRestriction,
     ScheduleLayerUser,
     ScheduleOverrideCreate,
     ScheduleQuery,
+    SchedulesListResponse,
+    ScheduleSummary,
     ScheduleUpdateRequest,
+    SourceStatus,
+)
+from .schedules_v3 import (
+    AssignmentStrategy,
+    CustomShift,
+    CustomShiftCreate,
+    CustomShiftUpdate,
+    OverrideShift,
+    OverrideShiftCreate,
+    OverrideShiftUpdate,
+    Rotation,
+    RotationEvent,
+    RotationEventCreate,
+    RotationEventUpdate,
+    ScheduleV3,
+    ScheduleV3Create,
+    ScheduleV3Update,
+    ShiftMember,
+    ZonedDateTime,
 )
 from .services import Service, ServiceCreate, ServiceQuery
 from .status_pages import (
@@ -112,6 +135,7 @@ from .status_pages import (
 )
 from .teams import Team, TeamCreateRequest, TeamMemberAdd, TeamQuery
 from .users import CreateUserRequest, User, UserQuery
+from .webhooks import ExtensionSchema, WebhookCreate, WebhookSubscription, WebhookUpdate
 
 __all__ = [
     "MAX_RESULTS",
@@ -149,6 +173,7 @@ __all__ = [
     "EventOrchestrationRuleCreateRequest",
     "EventOrchestrationRuleSet",
     "EventOrchestrationService",
+    "ExtensionSchema",
     "Incident",
     "IncidentCreate",
     "IncidentCreateRequest",
@@ -181,6 +206,7 @@ __all__ = [
     "Schedule",
     "ScheduleCreateData",
     "ScheduleCreateRequest",
+    "ScheduleDetail",
     "ScheduleLayer",
     "ScheduleLayerCreate",
     "ScheduleLayerRestriction",
@@ -188,11 +214,17 @@ __all__ = [
     "ScheduleOverrideCreate",
     "ScheduleQuery",
     "ScheduleReference",
+    "ScheduleSummary",
     "ScheduleUpdateRequest",
+    "ScheduleV3",
+    "ScheduleV3Create",
+    "ScheduleV3Update",
+    "SchedulesListResponse",
     "Service",
     "ServiceCreate",
     "ServiceQuery",
     "ServiceReference",
+    "SourceStatus",
     "StatusPage",
     "StatusPageImpact",
     "StatusPageImpactQuery",
@@ -227,4 +259,7 @@ __all__ = [
     "UserQuery",
     "UserReference",
     "CreateUserRequest",
+    "WebhookCreate",
+    "WebhookSubscription",
+    "WebhookUpdate",
 ]

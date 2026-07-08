@@ -1,34 +1,26 @@
-- name: ca_ala_age_18_low_income (ca)
+# Alameda County General Assistance (gov/local/ca/ala/ga).
+# Grant = base amount (single $336 / couple $548 per month) minus countable
+# income (employment, self-employment, social security, UI, veterans benefits),
+# for income < base, age >= 18, qualified immigration status, no SSI,
+# personal property <= $1,000.
+- name: ca_ala_single_no_income_max_grant (ca)
   period: 2026
   absolute_error_margin: 0.1
   input:
     people:
       head:
-        age: 18
+        age: 30
         is_tax_unit_head: true
-        is_tax_unit_spouse: false
-        is_tax_unit_dependent: false
-        is_disabled: false
-        is_blind: false
-        is_pregnant: false
-        is_female: false
         immigration_status_str: CITIZEN
         employment_income_before_lsr: 0
-        has_bcc_qualifying_coverage: false
-        is_full_time_student: false
-        ca_calworks_child_care_time_category: MONTHLY
-        ca_calworks_child_care_full_time: false
-        ca_riv_general_relief_meets_work_requirements: false
     households:
       household:
         members: &id001
         - head
-        state_code_str: CA
-        zip_code: '90001'
-        county_str: LOS_ANGELES_COUNTY_CA
+        state_code: CA
+        zip_code: '94601'
+        county_str: ALAMEDA_COUNTY_CA
         in_ala: true
-        in_la: false
-        in_riv: false
     spm_units:
       spm_unit:
         members: *id001
@@ -46,7 +38,55 @@
   output:
     spm_units:
       spm_unit:
-        ca_ala_general_assistance: 4032.0
+        # Single rate $336/month with zero countable income: 336 x 12 = 4,032.
+        ca_ala_general_assistance: 4_032
+        ca_ala_general_assistance_income_eligible: true
+- name: ca_ala_couple_partial_earned_income (ca)
+  period: 2026
+  absolute_error_margin: 0.1
+  input:
+    people:
+      head:
+        age: 30
+        is_tax_unit_head: true
+        immigration_status_str: CITIZEN
+        # $2,400/year = $200/month countable earnings.
+        employment_income_before_lsr: 2_400
+      spouse:
+        age: 28
+        is_tax_unit_spouse: true
+        immigration_status_str: CITIZEN
+        employment_income_before_lsr: 0
+    households:
+      household:
+        members: &id002
+        - head
+        - spouse
+        state_code: CA
+        zip_code: '94601'
+        county_str: ALAMEDA_COUNTY_CA
+        in_ala: true
+    spm_units:
+      spm_unit:
+        members: *id002
+    tax_units:
+      tax_unit:
+        members: *id002
+        tax_unit_is_joint: true
+    families:
+      family:
+        members: *id002
+    marital_units:
+      mu_couple:
+        members:
+        - head
+        - spouse
+  output:
+    spm_units:
+      spm_unit:
+        # Two eligible adults -> couple rate $548/month; grant = (548 - 200)
+        # x 12 = 348 x 12 = 4,176.
+        ca_ala_general_assistance: 4_176
         ca_ala_general_assistance_income_eligible: true
 - name: ca_ala_age_17_too_young (ca)
   period: 2026
@@ -54,41 +94,30 @@
   input:
     people:
       head:
+        # One year below the age-18 threshold; flipping the age_threshold
+        # parameter to 17 would make this household eligible.
         age: 17
         is_tax_unit_head: true
-        is_tax_unit_spouse: false
-        is_tax_unit_dependent: false
-        is_disabled: false
-        is_blind: false
-        is_pregnant: false
-        is_female: false
         immigration_status_str: CITIZEN
         employment_income_before_lsr: 0
-        has_bcc_qualifying_coverage: false
-        is_full_time_student: false
-        ca_calworks_child_care_time_category: MONTHLY
-        ca_calworks_child_care_full_time: false
-        ca_riv_general_relief_meets_work_requirements: false
     households:
       household:
-        members: &id002
+        members: &id003
         - head
-        state_code_str: CA
-        zip_code: '90001'
-        county_str: LOS_ANGELES_COUNTY_CA
+        state_code: CA
+        zip_code: '94601'
+        county_str: ALAMEDA_COUNTY_CA
         in_ala: true
-        in_la: false
-        in_riv: false
     spm_units:
       spm_unit:
-        members: *id002
+        members: *id003
     tax_units:
       tax_unit:
-        members: *id002
+        members: *id003
         tax_unit_is_joint: false
     families:
       family:
-        members: *id002
+        members: *id003
     marital_units:
       mu_head:
         members:
@@ -96,5 +125,6 @@
   output:
     spm_units:
       spm_unit:
-        ca_ala_general_assistance: 0.0
+        # No eligible person -> base amount 0, so income (0) is not < 0.
+        ca_ala_general_assistance: 0
         ca_ala_general_assistance_income_eligible: false

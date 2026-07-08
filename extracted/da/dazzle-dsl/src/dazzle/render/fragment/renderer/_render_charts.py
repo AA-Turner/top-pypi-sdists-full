@@ -18,6 +18,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 from dazzle.render.fragment.context import RenderContext
+from dazzle.render.fragment.icon_html import lucide_svg_html
 from dazzle.render.fragment.primitives import (
     BarChart,
     BoxPlot,
@@ -208,7 +209,7 @@ class _RenderChartsMixin:
 
     def _emit_kanban_board(self, k: KanbanBoard, ctx: RenderContext) -> str:
         cols = "".join(
-            f'<div class="dz-kanban__column" data-key="{ctx.escape_attr(key)}">'
+            f'<div class="dz-kanban__column" data-dz-key="{ctx.escape_attr(key)}">'
             + "".join(self._emit(item, ctx) for item in items)  # type: ignore[arg-type]
             + "</div>"
             for key, items in k.columns
@@ -250,7 +251,7 @@ class _RenderChartsMixin:
                 f"{_DIAGRAM_MERMAID_SCRIPT}"
             )
         nodes_html = "".join(
-            f'<li class="dz-diagram__node" data-key="{ctx.escape_attr(name)}">'
+            f'<li class="dz-diagram__node" data-dz-key="{ctx.escape_attr(name)}">'
             f"{ctx.escape(name)}</li>"
             for name in d.nodes
         )
@@ -414,7 +415,7 @@ class _RenderChartsMixin:
 
         Empty path renders the `dz-empty-dense` fallback inside the
         region wrapper. Reference bands use the same colour map as the
-        chart-family SVG helpers (`hsl(var(--primary))` for `target`
+        chart-family SVG helpers (`var(--colour-brand)` for `target`
         etc.); `from`/`to` positions are rendered as percentage of
         max_value.
 
@@ -552,9 +553,9 @@ class _RenderChartsMixin:
             f'aria-label="Sparkline — {count} points, latest '
             f'{last_value_str}, peak {max_val_str}">'
             f'<polygon points="0,{h} {pts_str} {w},{h}" '
-            f'fill="hsl(var(--primary))" fill-opacity="0.15" stroke="none" />'
+            f'fill="var(--colour-brand)" fill-opacity="0.15" stroke="none" />'
             f'<polyline points="{pts_str}" fill="none" '
-            f'stroke="hsl(var(--primary))" stroke-width="1.25" '
+            f'stroke="var(--colour-brand)" stroke-width="1.25" '
             f'stroke-linejoin="round" stroke-linecap="round" />'
             f"</svg>"
         )
@@ -700,12 +701,8 @@ class _RenderChartsMixin:
             label = k.empty_message or "No items found."
             return (
                 f'<div class="dz-empty-state" data-dz-empty-kind="read-only" role="status">'
-                f'<svg class="dz-empty-state-icon" fill="none" stroke="currentColor" '
-                f'viewBox="0 0 24 24" aria-hidden="true">'
-                f'<path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" '
-                f'd="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-2.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4"/>'
-                f"</svg>"
-                f'<p class="dz-empty-state-message">{ctx.escape(label)}</p>'
+                f"{lucide_svg_html('kanban', cls='dz-empty-state__icon')}"
+                f'<p class="dz-empty-state__description">{ctx.escape(label)}</p>'
                 f"</div>"
             )
 

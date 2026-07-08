@@ -6,6 +6,7 @@ Connects to an already-running runtime server over HTTP + WebSocket.
 
 import asyncio
 import contextlib
+import contextvars
 import json
 import os
 import typing as t
@@ -100,6 +101,7 @@ class RuntimeClient:
         default_notify_source: str | None = None,
         default_session_labels: dict[str, list[str]] | None = None,
         default_session_origin: str | None = None,
+        default_session_group_id: str | None = None,
     ) -> None:
         # Resolve env lazily per instance so tests setting env after import still work.
         self.server_url = (server_url or _default_runtime_url()).rstrip("/")
@@ -117,11 +119,31 @@ class RuntimeClient:
         # Reserved labels that this client stamps on every ``create_session``
         # call (CAP-WCLI-022). Worker-bound clients populate this with
         # ``worker:<name>``; standalone clients leave it empty.
-        self._default_session_labels: dict[str, list[str]] = dict(default_session_labels or {})
+        env_labels: dict[str, list[str]] = {}
+        worker_name = os.environ.get("DREADNODE_WORKER_NAME", "").strip()
+        if worker_name:
+            env_labels["worker"] = [worker_name]
+        capability = os.environ.get("DREADNODE_CAPABILITY_LABEL", "").strip()
+        if capability:
+            env_labels["capability"] = [capability]
+        capability_version = os.environ.get("DREADNODE_CAPABILITY_VERSION", "").strip()
+        if capability_version:
+            env_labels["capability_version"] = [capability_version]
+        source_labels = default_session_labels if default_session_labels is not None else env_labels
+        self._default_session_labels = {key: list(values) for key, values in source_labels.items()}
         # SES-ORG-003: worker-bound clients set this to ``worker`` so the
         # platform stamps ``origin=worker`` on every session. Standalone
         # clients leave it ``None`` and the runtime's default ``user`` applies.
-        self._default_session_origin = default_session_origin
+        self._default_session_origin = default_session_origin or (
+            os.environ.get("DREADNODE_SESSION_ORIGIN", "").strip() or None
+        )
+        self._default_session_group_id = default_session_group_id or (
+            os.environ.get("DREADNODE_SESSION_GROUP_ID", "").strip() or None
+        )
+        self._active_session_group_id: contextvars.ContextVar[str | None] = contextvars.ContextVar(
+            f"dreadnode_active_session_group_id_{id(self)}",
+            default=None,
+        )
         self._started = False
         self._interactive_transport: _RuntimeInteractiveTransport | None = None
 
@@ -457,6 +479,7 @@ class RuntimeClient:
         agent: str | None = None,
         model: str | None = None,
         session_id: str | None = None,
+        group_id: str | None = None,
         project: str | None = None,
         generate_params_extra: dict[str, t.Any] | None = None,
         policy: str | dict[str, t.Any] | None = None,
@@ -489,6 +512,11 @@ class RuntimeClient:
             payload["model"] = model
         if session_id is not None:
             payload["session_id"] = session_id
+        resolved_group_id = (
+            group_id or self._active_session_group_id.get() or self._default_session_group_id
+        )
+        if resolved_group_id is not None:
+            payload["group_id"] = resolved_group_id
         if project is not None:
             payload["project"] = project
         if generate_params_extra is not None:
@@ -525,6 +553,76 @@ class RuntimeClient:
             session.capability,
         )
         return session
+
+    @contextlib.asynccontextmanager
+    async def workflow(
+        self,
+        title: str,
+        *,
+        kind: t.Literal["worker_run", "evaluation_item", "workflow"] = "workflow",
+        project: str | None = None,
+        capability: str | None = None,
+        capability_version: str | None = None,
+        worker: str | None = None,
+        metadata: dict[str, t.Any] | None = None,
+    ) -> t.AsyncIterator[str | None]:
+        """Create a session group and attach child ``create_session`` calls to it.
+
+        If the local runtime is not connected to the platform, the context still
+        runs and yields ``None`` so capability logic does not fail just because
+        grouping is unavailable.
+        """
+        await self.start()
+        group_id: str | None = None
+        resolved_capability = capability or (
+            os.environ.get("DREADNODE_CAPABILITY_LABEL", "").strip() or None
+        )
+        resolved_capability_version = capability_version or (
+            os.environ.get("DREADNODE_CAPABILITY_VERSION", "").strip() or None
+        )
+        resolved_worker = worker or (os.environ.get("DREADNODE_WORKER_NAME", "").strip() or None)
+        try:
+            payload: dict[str, t.Any] = {
+                "kind": kind,
+                "title": title,
+                "project": project,
+                "capability": resolved_capability,
+                "capability_version": resolved_capability_version,
+                "worker": resolved_worker,
+                "metadata": metadata or {},
+            }
+            response = await self._http_client.post("/api/session-groups", json=payload)
+            if response.status_code == 404:
+                logger.debug("Workflow group skipped: platform sync unavailable")
+            else:
+                response.raise_for_status()
+                group = response.json()
+                raw_group_id = group.get("id")
+                if raw_group_id is not None:
+                    group_id = str(raw_group_id)
+        except Exception:
+            logger.opt(exception=True).warning("Failed to create workflow group '{}'", title)
+
+        token = self._active_session_group_id.set(group_id)
+        try:
+            yield group_id
+        except Exception:
+            if group_id is not None:
+                with contextlib.suppress(Exception):
+                    await self._http_client.patch(
+                        f"/api/session-groups/{group_id}",
+                        json={"status": "failed"},
+                    )
+            raise
+        else:
+            if group_id is not None:
+                with contextlib.suppress(Exception):
+                    await self._http_client.patch(
+                        f"/api/session-groups/{group_id}",
+                        json={"status": "completed"},
+                    )
+        finally:
+            self._active_session_group_id.reset(token)
 
     async def get_session(self, session_id: str) -> models.SessionInfo | None:
         """Fetch a single session by id, hydrating from the platform if needed.

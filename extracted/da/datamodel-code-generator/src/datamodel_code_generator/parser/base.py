@@ -105,6 +105,7 @@ _PYDANTIC_V2_DATACLASS_MODULE: Final = "datamodel_code_generator.model.pydantic_
 _PYDANTIC_V2_MODULE: Final = "datamodel_code_generator.model.pydantic_v2"
 _PYDANTIC_V2_ROOT_MODEL_MODULE: Final = "datamodel_code_generator.model.pydantic_v2.root_model"
 _TYPED_DICT_MODULE: Final = "datamodel_code_generator.model.typed_dict"
+_CLASS_NAME_SEPARATOR_PATTERN: Final = re.compile(r"[^A-Za-z0-9]+")
 
 
 @cache
@@ -935,7 +936,7 @@ def get_module_directory(module: tuple[str, ...]) -> tuple[str, ...]:
 
 def title_to_class_name(title: str) -> str:
     """Convert a schema title to a valid Python class name."""
-    classname = re.sub(r"[^A-Za-z0-9]+", " ", title)
+    classname = _CLASS_NAME_SEPARATOR_PATTERN.sub(" ", title)
     return "".join(x for x in classname.title() if not x.isspace())
 
 
@@ -1226,7 +1227,7 @@ class Parser(ABC, Generic[ParserConfigT, SchemaFeaturesT]):
                 "DataTypeManager": DataTypeManager,
             }
         )
-        return config_class.model_validate(options)  # type: ignore[return-value]
+        return config_class.model_validate(options)  # ty: ignore[invalid-return-type]
 
     def _create_data_model(self, model_type: type[DataModel] | None = None, **kwargs: Any) -> DataModel:
         """Create data model instance with dataclass_arguments support for DataClass."""
@@ -1276,7 +1277,7 @@ class Parser(ABC, Generic[ParserConfigT, SchemaFeaturesT]):
             raise ValueError(msg)
 
         if config is None:
-            config = self._create_default_config(options)  # ty: ignore
+            config = self._create_default_config(options)  # ty: ignore[invalid-argument-type]
 
         self.config = config
 
@@ -1333,6 +1334,7 @@ class Parser(ABC, Generic[ParserConfigT, SchemaFeaturesT]):
         self.use_single_line_docstring: bool = config.use_single_line_docstring
         self.use_default_kwarg: bool = config.use_default_kwarg
         self.use_missing_sentinel: bool = config.use_missing_sentinel
+        self._data_model_field_common_kwargs_cache: dict[str, Any] = {"use_missing_sentinel": self.use_missing_sentinel}
         self.reuse_model: bool = config.reuse_model
         self.reuse_scope: ReuseScope | None = config.reuse_scope
         self.shared_module_name: str = config.shared_module_name
@@ -1385,6 +1387,10 @@ class Parser(ABC, Generic[ParserConfigT, SchemaFeaturesT]):
         self.extra_template_data: defaultdict[str, Any] = config.extra_template_data or defaultdict(dict)
         self.validators = config.validators
         self.generate_schema_validators: bool = config.generate_schema_validators
+        if typed_extra_plain_annotation_key := self.data_model_type.TYPED_EXTRA_PLAIN_ANNOTATION_TEMPLATE_DATA_KEY:
+            self.extra_template_data.setdefault(ALL_MODEL, {})[typed_extra_plain_annotation_key] = (
+                config.target_python_version.has_native_deferred_annotations
+            )
 
         if self.validators:
             for model_name, model_config in self.validators.items():
@@ -1520,6 +1526,9 @@ class Parser(ABC, Generic[ParserConfigT, SchemaFeaturesT]):
         self._type_override_imports: dict[str, Import] = {
             key: Import.from_full_path(value) for key, value in self.type_overrides.items()
         }
+        self._model_type_override_imports: dict[str, Import] = {
+            key: import_ for key, import_ in self._type_override_imports.items() if "." not in key
+        }
         self.read_only_write_only_model_type: ReadOnlyWriteOnlyModelType | None = config.read_only_write_only_model_type
         self.use_frozen_field: bool = config.use_frozen_field
         self.use_serialization_alias: bool = config.use_serialization_alias
@@ -1529,7 +1538,7 @@ class Parser(ABC, Generic[ParserConfigT, SchemaFeaturesT]):
         self.field_type_collision_strategy: FieldTypeCollisionStrategy | None = config.field_type_collision_strategy
 
     def _data_model_field_common_kwargs(self) -> dict[str, Any]:
-        return {"use_missing_sentinel": self.use_missing_sentinel}
+        return self._data_model_field_common_kwargs_cache
 
     def _should_preserve_explicit_root_class_name(self, class_name: str) -> bool:
         if not self.allow_leading_underscore_class_name:
@@ -2565,7 +2574,7 @@ class Parser(ABC, Generic[ParserConfigT, SchemaFeaturesT]):
                 if data_type.alias:
                     if isinstance(enum_member, list):
                         for enum_member_ in enum_member:
-                            enum_member_.alias = data_type.alias  # ty: ignore
+                            enum_member_.alias = data_type.alias  # ty: ignore[unresolved-attribute]
                     else:
                         enum_member.alias = data_type.alias
 
@@ -2689,7 +2698,7 @@ class Parser(ABC, Generic[ParserConfigT, SchemaFeaturesT]):
                     resolver._reset_for_reuse(all_class_names.copy())  # noqa: SLF001
                     source = cast("DataModel", colliding_reference.source)
                     resolver.exclude_names.add(cast("str", filed_name))
-                    new_class_name = resolver.add(["type"], cast("str", source.class_name)).name  # ty: ignore
+                    new_class_name = resolver.add(["type"], cast("str", source.class_name)).name  # ty: ignore[redundant-cast]
                     source.class_name = new_class_name
                     all_class_names.add(new_class_name)
                 elif not rename_type:
@@ -2803,14 +2812,12 @@ class Parser(ABC, Generic[ParserConfigT, SchemaFeaturesT]):
         Only model-level overrides (keys without dots) cause model removal.
         Scoped overrides (ClassName.field) only affect specific fields.
         """
-        if not self.type_overrides:
+        if not self._model_type_override_imports:
             return models
-        # Only model-level overrides (no dot) cause model removal
-        model_level_overrides = {k for k in self.type_overrides if "." not in k}
-        return [m for m in models if m.class_name not in model_level_overrides]
+        return [m for m in models if m.class_name not in self._model_type_override_imports]
 
     def __apply_type_overrides(self, models: list[DataModel]) -> None:
-        """Replace field type references with custom import types.
+        """Replace type references with custom import types.
 
         Supports two key formats:
         - Model-level: {"CustomType": "my_app.Type"} - applies to all references
@@ -2821,14 +2828,31 @@ class Parser(ABC, Generic[ParserConfigT, SchemaFeaturesT]):
         if not self._type_override_imports:
             return
         for model in models:
+            fields_overridden = False
             for field in model.fields:
                 # Check scoped override first: "ClassName.field_name"
                 scoped_key = f"{model.class_name}.{field.name}"
-                if scoped_key in self._type_override_imports:
-                    self._apply_override_to_field(field, self._type_override_imports[scoped_key])
-                else:
-                    # Apply model-level overrides to nested types
-                    self._apply_override_to_data_type(field.data_type)
+                match self._type_override_imports.get(scoped_key):
+                    case Import() as override_import:
+                        self._apply_override_to_field(field, override_import)
+                        fields_overridden = True
+                    case None if self._model_type_override_imports:
+                        # Apply model-level overrides to nested types
+                        fields_overridden = self._apply_override_to_data_type(field.data_type) or fields_overridden
+                    case None:
+                        pass
+            if fields_overridden:
+                model.clear_imports_cache()
+            if not self._model_type_override_imports:
+                continue
+            base_classes_overridden = False
+            for base_class in model.base_classes:
+                if self._apply_override_to_data_type(base_class):
+                    base_classes_overridden = True
+                    for import_ in base_class.all_imports:
+                        Parser._append_model_import(model, import_)
+            if base_classes_overridden:
+                model.clear_imports_cache()
 
     def _apply_override_to_field(self, field: DataModelFieldBase, override_import: Import) -> None:
         """Apply override to entire field's data_type."""
@@ -2839,16 +2863,27 @@ class Parser(ABC, Generic[ParserConfigT, SchemaFeaturesT]):
         self.generation_store.detach_data_type_ref(field.data_type)
         self.generation_store.set_nested_data_types(field.data_type, [])
 
-    def _apply_override_to_data_type(self, data_type: DataType) -> None:
+    @staticmethod
+    def _append_model_import(model: DataModel, import_: Import) -> None:
+        """Append an import to a model once."""
+        if import_ in model.imports:
+            return
+        model._additional_imports.append(import_)  # noqa: SLF001
+
+    def _apply_override_to_data_type(self, data_type: DataType) -> bool:
         """Recursively apply model-level overrides to a DataType."""
-        if data_type.reference and data_type.reference.name in self._type_override_imports:
-            override_import = self._type_override_imports[data_type.reference.name]
+        overridden = False
+        if data_type.reference and (override_import := self._model_type_override_imports.get(data_type.reference.name)):
             data_type.import_ = override_import
             data_type.alias = override_import.import_
             self.generation_store.detach_data_type_ref(data_type)
+            overridden = True
         # Handle nested types (List[CustomType], Optional[CustomType], etc.)
         for nested in data_type.data_types:
-            self._apply_override_to_data_type(nested)
+            overridden = self._apply_override_to_data_type(nested) or overridden
+        if data_type.dict_key:
+            overridden = self._apply_override_to_data_type(data_type.dict_key) or overridden
+        return overridden
 
     @staticmethod
     def __disable_union_operator_for_forward_ref_parents(data_type: DataType) -> None:
@@ -2882,14 +2917,20 @@ class Parser(ABC, Generic[ParserConfigT, SchemaFeaturesT]):
             )
             # When annotations are deferred (from __future__ or native PEP-649) only
             # TypeAliasBase / RootModel need quoting; regular DataModels are fine as-is.
-            # Without deferred annotations, self-referencing fields in any model need quoting.
-            if not is_type_alias_or_root and use_deferred_annotations:
+            # Class-body __annotations__ dicts are an exception: their right hand side is
+            # evaluated immediately, so typed extra references still need forward refs.
+            process_all_fields = is_type_alias_or_root or not use_deferred_annotations
+            if not process_all_fields and not any(
+                getattr(field, "use_pydantic_extra_annotations_dict", False) for field in model.fields
+            ):
                 continue
             if isinstance(model, TypeStatement):
                 continue
 
             has_forward_ref = False
             for field in model.fields:
+                if not process_all_fields and not getattr(field, "use_pydantic_extra_annotations_dict", False):
+                    continue
                 for data_type in field.data_type.all_data_types:
                     if not data_type.reference:
                         continue

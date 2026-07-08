@@ -49,17 +49,21 @@ mod amortized_encoder_tests {
         }
     }
 
-    /// The fitted amplitudes the encoder derives are exactly the assignment
-    /// masses the reconstruction is assembled from — feeding them back is the
-    /// self-consistency the distilled map is supervised against.
+    /// The fitted amplitudes the encoder derives are the realised intensity
+    /// coordinates the reconstruction uses: the existence gate times the explicit
+    /// cone radial scale.  Returning the bare gate would silently re-couple
+    /// presence and intensity for amortized encoding as soon as `log_amplitude`
+    /// moves away from zero.
     #[test]
-    fn fitted_assignment_amplitudes_match_the_assignment_masses() {
-        let (term, _target, rho) = small_two_atom_periodic_term();
+    fn fitted_assignment_amplitudes_include_explicit_log_amplitude_1939() {
+        let (mut term, _target, rho) = small_two_atom_periodic_term();
+        term.atoms[0].log_amplitude = 2.0_f64.ln();
+        term.atoms[1].log_amplitude = 0.25_f64.ln();
         let n = term.n_obs();
         let k = term.k_atoms();
         let amplitudes = term
             .fitted_assignment_amplitudes(&rho)
-            .expect("fitted amplitudes derive from the assignment");
+            .expect("fitted amplitudes derive from assignment and cone scale");
         assert_eq!(amplitudes.dim(), (n, k));
         for row in 0..n {
             let a = term
@@ -67,10 +71,11 @@ mod amortized_encoder_tests {
                 .try_assignments_row_for_rho(row, &rho)
                 .expect("assignment row resolves");
             for atom_idx in 0..k {
+                let expected = a[atom_idx] * term.atoms[atom_idx].log_amplitude.exp();
                 assert_eq!(
                     amplitudes[[row, atom_idx]],
-                    a[atom_idx],
-                    "amplitude[{row},{atom_idx}] must equal the assignment mass"
+                    expected,
+                    "amplitude[{row},{atom_idx}] must equal gate times explicit cone scale"
                 );
             }
         }
@@ -875,6 +880,31 @@ mod step2_quotient_scale_tests {
         );
     }
 
+    /// #2099 — collapse guards must measure the atom's physical contribution
+    /// scale `exp(s_k)‖B_k‖_F`, not the raw decoder norm alone. After the quotient
+    /// peels both decoders to unit Frobenius, `‖B_k‖` cannot distinguish a live atom
+    /// from one whose explicit log-amplitude has collapsed.
+    #[test]
+    fn quotient_collapse_scale_tracks_log_amplitude_not_unit_decoder_norm() {
+        let (mut term, _target, _rho) = small_two_atom_periodic_term();
+        for atom in term.atoms.iter_mut() {
+            atom.absorb_decoder_norm_into_log_amplitude(f64::MIN_POSITIVE);
+        }
+        let live_scale = term.atoms[0].contribution_frobenius_scale();
+        term.atoms[1].log_amplitude = term.atoms[0].log_amplitude - 4.0_f64.ln();
+        let collapsed_scale = term.atoms[1].contribution_frobenius_scale();
+
+        assert!(
+            (frob(&term.atoms[0].decoder_coefficients) - 1.0).abs() <= 1e-9
+                && (frob(&term.atoms[1].decoder_coefficients) - 1.0).abs() <= 1e-9,
+            "fixture must exercise equal unit decoders"
+        );
+        assert!(
+            collapsed_scale < live_scale,
+            "physical scale must see the explicit-amplitude collapse: live={live_scale}, collapsed={collapsed_scale}"
+        );
+    }
+
     /// #2022 gate (i) — lever DEFAULT-OFF ⇒ the step never peels ⇒ `s` stays 0 ⇒
     /// bit-for-bit. Verified by construction: `absorb_*` is only invoked from the
     /// step under the `quotient_scale` kwarg (default false) and from the gated
@@ -1324,6 +1354,116 @@ mod lever_wiring_2072_tests {
         assert!(
             ref_gap > 1e-6,
             "the PCA and data-row producers must differ at this offset; gap {ref_gap:e}"
+        );
+    }
+}
+
+#[cfg(test)]
+mod shape_uncertainty_joint_recompute_tests {
+    use super::*;
+    use crate::manifold::tests::gamma_fd_tiny_fixture;
+
+    /// After a structure-search / finalization change, the shape bands are
+    /// rebuilt at the FINAL state by `recompute_joint_shape_uncertainty`, which
+    /// must return the JOINT inverse-Hessian covariance — NOT the per-atom
+    /// inner-Hessian marginal the pre-fix path fell back to. Two properties
+    /// distinguish the two and are pinned here:
+    ///   1. the recompute reproduces the direct-Schur `assemble_shape_uncertainty`
+    ///      bands (it IS the joint path); and
+    ///   2. the joint band carries per-output-channel variance AND differs
+    ///      materially from the per-atom-marginal completion — so replacing the
+    ///      marginal with the joint recompute genuinely changes the reported band.
+    #[test]
+    fn recompute_reproduces_joint_and_differs_from_per_atom_marginal() {
+        // A reliably-converging tiny state: the fixture target was assembled under
+        // a softmax gate, so switching to an IBP-MAP gate at the PD-region ρ
+        // (`log_lambda_sparse = 0.5`, the deflation-regression config) leaves a
+        // genuine reconstruction residual — a real dispersion and nonzero bands —
+        // while the state stays near its inner optimum so the undamped joint
+        // factor converges in a few steps.
+        let (mut term, target, mut rho) = gamma_fd_tiny_fixture();
+        term.assignment.mode = AssignmentMode::ibp_map(0.7, 0.9, true);
+        rho.log_lambda_sparse = 0.5;
+
+        // Reference joint bands via the direct Schur path.
+        let (_c, loss, cache) = term
+            .reml_criterion_with_cache(target.view(), &rho, None, 5, 0.4, 1.0e-6, 1.0e-6)
+            .expect("converged joint cache");
+        let dispersion = term
+            .reconstruction_dispersion(&loss, &cache, &rho)
+            .expect("dispersion");
+        assert!(dispersion > 0.0, "a real residual ⇒ positive dispersion");
+        let joint = term
+            .assemble_shape_uncertainty(&cache, dispersion)
+            .expect("direct joint bands");
+
+        // Property 1: the final-state recompute reproduces the joint path (it IS
+        // the joint path, rebuilt from the term + ρ rather than a cached factor).
+        let recomputed = term
+            .recompute_joint_shape_uncertainty(target.view(), &rho, None, 5, 0.4, 1.0e-6, 1.0e-6)
+            .expect("joint recompute");
+        assert_eq!(recomputed.atoms.len(), joint.atoms.len());
+        for (k, (a, b)) in recomputed.atoms.iter().zip(joint.atoms.iter()).enumerate() {
+            assert_eq!(a.band_sd.dim(), b.band_sd.dim(), "atom {k} band shape");
+            for (x, y) in a.band_sd.iter().zip(b.band_sd.iter()) {
+                assert!(
+                    (x - y).abs() <= 1e-9 * (1.0 + y.abs()),
+                    "atom {k}: recompute must reproduce the joint band ({x} vs {y})"
+                );
+            }
+        }
+
+        // The joint per-channel SD genuinely varies across the p output channels
+        // (the coordinate-Schur coupling makes each channel's decoder covariance
+        // differ) — a per-atom marginal `φ·Φᵀ H_k⁻¹ Φ` is IDENTICAL across
+        // channels. Measured scale-free as the within-row max/min ratio so a tiny
+        // dispersion (which scales every band equally) does not hide the spread.
+        let mut joint_channel_spread = 0.0_f64;
+        for atom in &joint.atoms {
+            for gi in 0..atom.band_sd.nrows() {
+                let row = atom.band_sd.row(gi);
+                let min = row.iter().cloned().fold(f64::INFINITY, f64::min);
+                let max = row.iter().cloned().fold(f64::NEG_INFINITY, f64::max);
+                if max > 0.0 {
+                    joint_channel_spread = joint_channel_spread.max((max - min) / max);
+                }
+            }
+        }
+        assert!(
+            joint_channel_spread > 1e-6,
+            "the JOINT band must carry per-output-channel variance (relative spread \
+             {joint_channel_spread:.3e}); a constant-across-channel band is the per-atom \
+             marginal the fix replaced"
+        );
+
+        // Property 2 (non-vacuity): the per-atom inner-Hessian marginal the
+        // fallback produces DIFFERS materially from the joint band. Compared
+        // scale-free (both scale by the same dispersion), so the gap reflects the
+        // dropped cross-atom / coordinate couplings, not the dispersion.
+        term.set_atom_inner_fits(target.view(), &rho, dispersion)
+            .expect("inner fits harvested");
+        let mut marginal = joint.clone();
+        marginal.invalidate_bands_for_recompute();
+        term.complete_born_atom_shape_bands(&mut marginal)
+            .expect("per-atom marginal completion");
+        let mut max_rel_gap = 0.0_f64;
+        let mut compared = 0usize;
+        for (a, b) in marginal.atoms.iter().zip(joint.atoms.iter()) {
+            for (x, y) in a.band_sd.iter().zip(b.band_sd.iter()) {
+                if x.is_finite() && y.is_finite() && *y > 0.0 {
+                    max_rel_gap = max_rel_gap.max((x - y).abs() / y);
+                    compared += 1;
+                }
+            }
+        }
+        assert!(
+            compared > 0,
+            "the per-atom marginal must fill finite bands to compare"
+        );
+        assert!(
+            max_rel_gap > 1e-3,
+            "the per-atom marginal must differ materially from the joint band \
+             (max rel gap {max_rel_gap:.3e}); otherwise the joint recompute changes nothing"
         );
     }
 }

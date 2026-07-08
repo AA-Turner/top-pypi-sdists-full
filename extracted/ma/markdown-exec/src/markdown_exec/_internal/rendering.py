@@ -6,6 +6,7 @@ from contextlib import contextmanager
 from functools import cache
 from textwrap import indent
 from typing import TYPE_CHECKING, Any
+from warnings import warn
 
 from markdown import Markdown
 from markupsafe import Markup
@@ -97,7 +98,15 @@ def add_source(
         return source_block + "\n\n" + output
     if location == "below":
         return output + "\n\n" + source_block
+    if location == "block":
+        return source_block + f'\n\n<div class="result" markdown="1" >\n\n{output}\n\n</div>'
+    # YORE: Bump 2: Remove block.
     if location == "material-block":
+        warn(
+            "The `material-block` source display option is deprecated and renamed `block`.",
+            DeprecationWarning,
+            stacklevel=0,
+        )
         return source_block + f'\n\n<div class="result" markdown="1" >\n\n{output}\n\n</div>'
 
     source_tab_title, result_tab_title = tabs
@@ -172,17 +181,6 @@ from what you expect (tables not rendered, attribute lists not injected,
 emojis not working, etc.).
 """
 
-# FIXME: When a heading contains an XML entity such as &mdash;,
-# the entity is stashed and replaced with a placeholder.
-# The heading therefore contains this placeholder.
-# When reporting the heading to the upper conversion layer (for the ToC),
-# the placeholder gets unstashed using the upper Markdown instance
-# instead of the neste one. If the upper instance doesn't know the placeholder,
-# nothing happens. But if it knows it, we then get a heading with garbabe/previous
-# contents within it, messing up the ToC.
-# We should fix this somehow. In the meantime, the workaround is to avoid
-# XML entities that get stashed in headings.
-
 
 @cache
 def _register_headings_processors(md: Markdown) -> None:
@@ -200,12 +198,14 @@ def _register_headings_processors(md: Markdown) -> None:
 
 def _mimic(md: Markdown, headings: list[Element], *, update_toc: bool = True) -> Markdown:
     new_md = Markdown()
-    extensions: list[Extension | str] = markdown_config.exts or md.registeredExtensions  # type: ignore[assignment]
+    extensions: list[Extension | str] = markdown_config.exts or md.registeredExtensions  # ty:ignore[invalid-assignment]
     extensions_config: dict[str, dict[str, Any]] = markdown_config.exts_config or {}
 
     # Needed for Zensical.
     if "tables" not in extensions:
         extensions.append("tables")
+    if "md_in_html" not in extensions:
+        extensions.append("md_in_html")
 
     new_md.registerExtensions(extensions, extensions_config)
     new_md.treeprocessors.register(
@@ -213,7 +213,7 @@ def _mimic(md: Markdown, headings: list[Element], *, update_toc: bool = True) ->
         IdPrependingTreeprocessor.name,
         priority=4,  # right after 'toc' (needed because that extension adds ids to headings)
     )
-    new_md._original_md = md  # type: ignore[attr-defined]
+    new_md._original_md = md  # ty:ignore[unresolved-attribute]
 
     if update_toc:
         _register_headings_processors(md)

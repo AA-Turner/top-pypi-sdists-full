@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: datacollective
-Version: 0.5.2
+Version: 0.5.3
 Summary: A Python package for interfacing with the Mozilla Data Collective's API
 Author: Mozilla Data Collective
 Author-email: Mozilla Data Collective <support@mozilladatacollective.com>

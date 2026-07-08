@@ -63,9 +63,50 @@ def has_compliance_evidence(app: ir.AppSpec) -> bool:
     return app.policies is not None and bool(app.policies.classifications)
 
 
+def has_ledger(app: ir.AppSpec) -> bool:
+    """True if the app declares double-entry ledger accounts."""
+    return bool(app.ledgers)
+
+
+def has_background_work(app: ir.AppSpec) -> bool:
+    """True if the app declares processes or schedules (durable background work)."""
+    return bool(app.processes) or bool(app.schedules)
+
+
+def has_approvals(app: ir.AppSpec) -> bool:
+    """True if the app declares approval rules (explicit sign-off controls)."""
+    return bool(app.approvals)
+
+
+def has_slas(app: ir.AppSpec) -> bool:
+    """True if the app declares SLA commitments."""
+    return bool(app.slas)
+
+
+def has_ai_assist(app: ir.AppSpec) -> bool:
+    """True if the app declares LLM intents (governed, model-declared AI steps)."""
+    return bool(app.llm_intents)
+
+
 def always(_app: ir.AppSpec) -> bool:
     """For framework constants true of every Dazzle app (Postgres, SSR)."""
     return True
+
+
+def has_byte_access_boundary(app: ir.AppSpec) -> bool:
+    """True when the app has at least one FILE-type field on some entity.
+
+    An app with no stored files serves no bytes through the byte core, so the
+    audited byte-access boundary claim must not activate.  A file-less app is
+    not wrong — it simply has no file-serving surface to audit.
+
+    The static proof is `dazzle rbac byte-routes --strict` (#1551 task 7).
+    """
+    return any(
+        field.type.kind == ir.FieldTypeKind.FILE
+        for entity in app.domain.entities
+        for field in entity.fields
+    )
 
 
 REGISTRY: dict[str, Callable[[ir.AppSpec], bool]] = {
@@ -75,5 +116,11 @@ REGISTRY: dict[str, Callable[[ir.AppSpec], bool]] = {
     "is_multi_tenant": is_multi_tenant,
     "has_events": has_events,
     "has_compliance_evidence": has_compliance_evidence,
+    "has_ledger": has_ledger,
+    "has_background_work": has_background_work,
+    "has_approvals": has_approvals,
+    "has_slas": has_slas,
+    "has_ai_assist": has_ai_assist,
     "always": always,
+    "has_byte_access_boundary": has_byte_access_boundary,
 }

@@ -1,12 +1,12 @@
 Metadata-Version: 2.4
 Name: sphinxcontrib-mermaid
-Version: 2.0.2
+Version: 2.0.3
 Summary: Mermaid diagrams in your Sphinx-powered docs
 Project-URL: Repository, https://github.com/mgaitan/sphinxcontrib-mermaid
 Project-URL: Homepage, https://github.com/mgaitan/sphinxcontrib-mermaid
 Project-URL: Changelog, https://github.com/mgaitan/sphinxcontrib-mermaid/blob/master/CHANGELOG.md
 Author-email: Martín Gaitán <gaitan@gmail.com>
-License: BSD
+License-Expression: BSD-2-Clause
 License-File: LICENSE
 Keywords: diagrams,documentation,mermaid,sphinx
 Classifier: Development Status :: 4 - Beta
@@ -14,7 +14,6 @@ Classifier: Environment :: Console
 Classifier: Environment :: Web Environment
 Classifier: Framework :: Sphinx :: Extension
 Classifier: Intended Audience :: Developers
-Classifier: License :: OSI Approved :: BSD License
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python :: 3
 Classifier: Programming Language :: Python :: 3.10

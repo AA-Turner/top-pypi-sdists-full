@@ -144,11 +144,15 @@ __all__ = (
     "ListManagedFirewallDomainListsInputPaginateTypeDef",
     "ListManagedFirewallDomainListsInputTypeDef",
     "ListManagedFirewallDomainListsOutputTypeDef",
+    "ListSharedDNSViewsInputPaginateTypeDef",
+    "ListSharedDNSViewsInputTypeDef",
+    "ListSharedDNSViewsOutputTypeDef",
     "ListTagsForResourceRequestTypeDef",
     "ListTagsForResourceResponseTypeDef",
     "ManagedFirewallDomainListsItemTypeDef",
     "PaginatorConfigTypeDef",
     "ResponseMetadataTypeDef",
+    "SharedDNSViewSummaryTypeDef",
     "TagResourceRequestTypeDef",
     "TimestampTypeDef",
     "UntagResourceRequestTypeDef",
@@ -584,9 +588,9 @@ class ListGlobalResolversInputTypeDef(TypedDict):
 
 
 class ListHostedZoneAssociationsInputTypeDef(TypedDict):
-    resourceArn: str
     maxResults: NotRequired[int]
     nextToken: NotRequired[str]
+    resourceArn: NotRequired[str]
 
 
 class ListManagedFirewallDomainListsInputTypeDef(TypedDict):
@@ -601,6 +605,31 @@ ManagedFirewallDomainListsItemTypeDef = TypedDict(
         "id": str,
         "name": str,
         "managedListType": str,
+        "description": NotRequired[str],
+    },
+)
+
+
+class ListSharedDNSViewsInputTypeDef(TypedDict):
+    maxResults: NotRequired[int]
+    nextToken: NotRequired[str]
+
+
+SharedDNSViewSummaryTypeDef = TypedDict(
+    "SharedDNSViewSummaryTypeDef",
+    {
+        "id": str,
+        "arn": str,
+        "clientToken": str,
+        "dnssecValidation": DnsSecValidationTypeType,
+        "ednsClientSubnet": EdnsClientSubnetTypeType,
+        "firewallRulesFailOpen": FirewallRulesFailOpenTypeType,
+        "name": str,
+        "globalResolverId": str,
+        "createdAt": datetime,
+        "updatedAt": datetime,
+        "status": ProfileResourceStatusType,
+        "ownerAccountId": str,
         "description": NotRequired[str],
     },
 )
@@ -1328,7 +1357,7 @@ class ListGlobalResolversInputPaginateTypeDef(TypedDict):
 
 
 class ListHostedZoneAssociationsInputPaginateTypeDef(TypedDict):
-    resourceArn: str
+    resourceArn: NotRequired[str]
     PaginationConfig: NotRequired[PaginatorConfigTypeDef]
 
 
@@ -1337,8 +1366,18 @@ class ListManagedFirewallDomainListsInputPaginateTypeDef(TypedDict):
     PaginationConfig: NotRequired[PaginatorConfigTypeDef]
 
 
+class ListSharedDNSViewsInputPaginateTypeDef(TypedDict):
+    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
+
+
 class ListManagedFirewallDomainListsOutputTypeDef(TypedDict):
     managedFirewallDomainLists: list[ManagedFirewallDomainListsItemTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    nextToken: NotRequired[str]
+
+
+class ListSharedDNSViewsOutputTypeDef(TypedDict):
+    dnsViews: list[SharedDNSViewSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 

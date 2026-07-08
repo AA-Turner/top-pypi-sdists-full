@@ -3746,6 +3746,10 @@ class StandardProtocols(google.protobuf.message.Message):
         """Indicates support for reading, writing and propagating Element's metadata"""
         MULTIMAP_STATE: StandardProtocols._Enum.ValueType  # 12
         """Indicates whether the SDK supports multimap state."""
+        NAMED_DATA_STREAMS: StandardProtocols._Enum.ValueType  # 13
+        """Indicates whether the SDK supports data stream ids being requested by the runner in
+        ProcessBundleRequests.
+        """
 
     class Enum(_Enum, metaclass=_EnumEnumTypeWrapper): ...
     LEGACY_PROGRESS_REPORTING: StandardProtocols.Enum.ValueType  # 0
@@ -3802,6 +3806,10 @@ class StandardProtocols(google.protobuf.message.Message):
     """Indicates support for reading, writing and propagating Element's metadata"""
     MULTIMAP_STATE: StandardProtocols.Enum.ValueType  # 12
     """Indicates whether the SDK supports multimap state."""
+    NAMED_DATA_STREAMS: StandardProtocols.Enum.ValueType  # 13
+    """Indicates whether the SDK supports data stream ids being requested by the runner in
+    ProcessBundleRequests.
+    """
 
     def __init__(
         self,

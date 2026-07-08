@@ -628,23 +628,7 @@ def emit_node_package_json(
     When js_runtime='bun', scripts use `bun` instead of `npm`/`node`,
     and the package manager is configured for Bun.
     """
-    import os
-    if os.environ.get("SAGE_TESTING") == "1" and framework == "react-native-web":
-        pkg = {
-            "name": project_name,
-            "version": "0.1.0",
-            "private": True,
-            "scripts": {
-                "lint": "echo 'react-native lint bypass'",
-                "test": "echo 'react-native test bypass'"
-            },
-            "dependencies": {}
-        }
-        frontend_root.mkdir(parents=True, exist_ok=True)
-        (frontend_root / "package.json").write_text(
-            json.dumps(pkg, indent=2) + "\n", encoding="utf-8"
-        )
-        return
+
 
     frontend_root.mkdir(parents=True, exist_ok=True)
 

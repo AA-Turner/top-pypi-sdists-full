@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: google-adk
-Version: 2.3.0
+Version: 2.4.0
 Summary: Agent Development Kit
 Author-email: Google LLC <googleapis-packages@google.com>
 Requires-Python: >=3.10
@@ -24,7 +24,7 @@ Requires-Dist: authlib>=1.6.6,<2
 Requires-Dist: click>=8.1.8,<9
 Requires-Dist: fastapi>=0.133,<1
 Requires-Dist: google-auth[pyopenssl]>=2.47
-Requires-Dist: google-genai>=2.8,<3
+Requires-Dist: google-genai>=2.9,<3
 Requires-Dist: graphviz>=0.20.2,<1
 Requires-Dist: httpx>=0.27,<1
 Requires-Dist: jsonschema>=4.23,<5
@@ -47,12 +47,13 @@ Requires-Dist: a2a-sdk>=0.3.4,<0.4 ; extra == "a2a"
 Requires-Dist: google-cloud-agentidentitycredentials>=0.1,<0.2 ; extra == "agent-identity"
 Requires-Dist: google-cloud-iamconnectorcredentials>=0.1,<0.2 ; extra == "agent-identity"
 Requires-Dist: anyio>=4.9,<5 ; extra == "all"
+Requires-Dist: daytona>=0.191 ; extra == "all"
 Requires-Dist: e2b>=2,<3 ; extra == "all"
 Requires-Dist: google-api-python-client>=2.157,<3 ; extra == "all"
 Requires-Dist: google-cloud-aiplatform[agent-engines]>=1.148.1,<2 ; extra == "all"
 Requires-Dist: google-cloud-bigquery>=2.2 ; extra == "all"
 Requires-Dist: google-cloud-bigquery-storage>=2 ; extra == "all"
-Requires-Dist: google-cloud-bigtable>=2.32 ; extra == "all"
+Requires-Dist: google-cloud-bigtable>=2.39.1 ; extra == "all"
 Requires-Dist: google-cloud-dataplex>=1.7,<3 ; extra == "all"
 Requires-Dist: google-cloud-discoveryengine>=0.13.12,<0.14 ; extra == "all"
 Requires-Dist: google-cloud-parametermanager>=0.4,<1 ; extra == "all"
@@ -74,7 +75,9 @@ Requires-Dist: sqlalchemy>=2,<3 ; extra == "all"
 Requires-Dist: sqlalchemy-spanner>=1.14 ; extra == "all"
 Requires-Dist: google-antigravity>=0.1,<0.2 ; extra == "antigravity"
 Requires-Dist: protobuf>=6 ; extra == "antigravity"
+Requires-Dist: google-benchmark>=1.9 ; extra == "benchmark"
 Requires-Dist: google-adk-community ; extra == "community"
+Requires-Dist: daytona>=0.191 ; extra == "daytona"
 Requires-Dist: sqlalchemy>=2,<3 ; extra == "db"
 Requires-Dist: sqlalchemy-spanner>=1.14 ; extra == "db"
 Requires-Dist: flit>=3.10 ; extra == "dev"
@@ -112,16 +115,17 @@ Requires-Dist: google-cloud-firestore>=2.11,<3 ; extra == "extensions"
 Requires-Dist: k8s-agent-sandbox>=0.1.1.post3 ; extra == "extensions"
 Requires-Dist: kubernetes>=29 ; extra == "extensions"
 Requires-Dist: langgraph>=0.2.60,<0.4.8 ; extra == "extensions"
-Requires-Dist: litellm>=1.83.7,<=1.83.14 ; extra == "extensions"
+Requires-Dist: litellm>=1.84 ; extra == "extensions"
 Requires-Dist: llama-index-embeddings-google-genai>=0.3 ; extra == "extensions"
 Requires-Dist: llama-index-readers-file>=0.4 ; extra == "extensions"
 Requires-Dist: lxml>=5.3 ; extra == "extensions"
+Requires-Dist: openai>=2.20,<3 ; extra == "extensions"
 Requires-Dist: pypika>=0.50 ; extra == "extensions"
 Requires-Dist: toolbox-adk>=1,<2 ; extra == "extensions"
 Requires-Dist: google-cloud-aiplatform[agent-engines]>=1.148.1,<2 ; extra == "gcp"
 Requires-Dist: google-cloud-bigquery>=2.2 ; extra == "gcp"
 Requires-Dist: google-cloud-bigquery-storage>=2 ; extra == "gcp"
-Requires-Dist: google-cloud-bigtable>=2.32 ; extra == "gcp"
+Requires-Dist: google-cloud-bigtable>=2.39.1 ; extra == "gcp"
 Requires-Dist: google-cloud-dataplex>=1.7,<3 ; extra == "gcp"
 Requires-Dist: google-cloud-discoveryengine>=0.13.12,<0.14 ; extra == "gcp"
 Requires-Dist: google-cloud-parametermanager>=0.4,<1 ; extra == "gcp"
@@ -149,6 +153,8 @@ Requires-Dist: anthropic>=0.78 ; extra == "test"
 Requires-Dist: anyio>=4.9,<5 ; extra == "test"
 Requires-Dist: beautifulsoup4>=3.2.2 ; extra == "test"
 Requires-Dist: crewai[tools] ; extra == "test" and ( python_version>='3.11' and python_version<'3.12')
+Requires-Dist: daytona>=0.191 ; extra == "test"
+Requires-Dist: docker>=7 ; extra == "test"
 Requires-Dist: e2b>=2,<3 ; extra == "test"
 Requires-Dist: gepa>=0.1 ; extra == "test"
 Requires-Dist: google-antigravity>=0.1,<0.2 ; extra == "test"
@@ -157,7 +163,7 @@ Requires-Dist: google-cloud-agentidentitycredentials>=0.1,<0.2 ; extra == "test"
 Requires-Dist: google-cloud-aiplatform[agent-engines, evaluation]>=1.148.1,<2 ; extra == "test"
 Requires-Dist: google-cloud-bigquery>=2.2 ; extra == "test"
 Requires-Dist: google-cloud-bigquery-storage>=2 ; extra == "test"
-Requires-Dist: google-cloud-bigtable>=2.32 ; extra == "test"
+Requires-Dist: google-cloud-bigtable>=2.39.1 ; extra == "test"
 Requires-Dist: google-cloud-dataplex>=1.7,<3 ; extra == "test"
 Requires-Dist: google-cloud-discoveryengine>=0.13.12,<0.14 ; extra == "test"
 Requires-Dist: google-cloud-firestore>=2.11,<3 ; extra == "test"
@@ -173,11 +179,11 @@ Requires-Dist: jinja2>=3.1.4,<4 ; extra == "test"
 Requires-Dist: kubernetes>=29 ; extra == "test"
 Requires-Dist: langchain-community>=0.3.17 ; extra == "test"
 Requires-Dist: langgraph>=0.2.60,<0.4.8 ; extra == "test"
-Requires-Dist: litellm>=1.83.7,<=1.83.14 ; extra == "test"
+Requires-Dist: litellm>=1.84 ; extra == "test"
 Requires-Dist: llama-index-readers-file>=0.4 ; extra == "test"
 Requires-Dist: lxml>=5.3 ; extra == "test"
 Requires-Dist: mcp>=1.24,<2 ; extra == "test"
-Requires-Dist: openai>=1.100.2 ; extra == "test"
+Requires-Dist: openai>=2.20,<3 ; extra == "test"
 Requires-Dist: opentelemetry-exporter-gcp-logging>=1.9.0a0,<=1.12.0a0 ; extra == "test"
 Requires-Dist: opentelemetry-exporter-gcp-monitoring>=1.9.0a0,<2 ; extra == "test"
 Requires-Dist: opentelemetry-exporter-gcp-trace>=1.9,<2 ; extra == "test"
@@ -210,7 +216,9 @@ Provides-Extra: a2a
 Provides-Extra: agent-identity
 Provides-Extra: all
 Provides-Extra: antigravity
+Provides-Extra: benchmark
 Provides-Extra: community
+Provides-Extra: daytona
 Provides-Extra: db
 Provides-Extra: dev
 Provides-Extra: docs

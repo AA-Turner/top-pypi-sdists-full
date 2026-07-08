@@ -778,6 +778,7 @@ def process_tool_call(api_key: str, node_id: str, session_id: Optional[str],
 _state: dict = {
     "last_ingest_ms": None,     # Optional[int]  (epoch-ms, ingest stamp)
     "seen_recent_ids": {},      # dict[str, int]  event id -> created_at ms
+    "resume_cursor": None,      # Optional[tuple[int, Optional[str]]] — keyset after page cap
 }
 _state_lock = threading.Lock()
 
@@ -1056,15 +1057,20 @@ def watch_iteration(api_key: str, node_id: str,
             _state["seen_recent_ids"] = persisted_ids
         watermark = int(_state["last_ingest_ms"])
         seen: dict = dict(_state["seen_recent_ids"])
+        resume_cursor = _state.get("resume_cursor")
 
     processed = 0
     max_ingest = watermark
     saw_rows = False
-    # Window start: a bounded lookback behind the watermark. Rows in the
-    # window we already dispatched are skipped via ``seen``; rows that
-    # committed late (stamp older than the watermark) are caught here.
-    cursor_ca = max(0, watermark - _INGEST_LOOKBACK_MS)
-    cursor_id: Optional[str] = None  # None → inclusive window start
+    # If the previous iteration hit the page cap, resume from where it stopped
+    # so we advance past row 2,000 instead of rescanning the same first 2,000
+    # rows forever (see #3558).  Otherwise start from the lookback window.
+    if resume_cursor is not None:
+        cursor_ca, cursor_id = resume_cursor
+    else:
+        cursor_ca = max(0, watermark - _INGEST_LOOKBACK_MS)
+        cursor_id = None
+    hit_page_cap = False
     for _page in range(_MAX_PAGES_PER_ITERATION):
         # ``limit=500`` per page matches the PRD spec; the page cap bounds
         # one iteration's work (the next 2 s poll picks up the rest).
@@ -1113,8 +1119,18 @@ def watch_iteration(api_key: str, node_id: str,
         last_ca = last.get("created_at")
         cursor_ca = int(last_ca) if isinstance(last_ca, (int, float)) else cursor_ca
         cursor_id = str(last.get("id") or "")
+    else:
+        # All pages exhausted without a short final page: save the keyset
+        # cursor so the next iteration resumes here instead of restarting
+        # from the lookback window (#3558 page-cap starvation fix).
+        hit_page_cap = True
 
     if not saw_rows:
+        # Nothing to scan.  Clear any stale resume cursor so the next
+        # iteration doesn't try to pick up mid-way through an empty window.
+        if resume_cursor is not None:
+            with _state_lock:
+                _state["resume_cursor"] = None
         return 0
 
     # Advance the watermark, prune the dedup map to the new lookback window
@@ -1129,11 +1145,109 @@ def watch_iteration(api_key: str, node_id: str,
     with _state_lock:
         _state["last_ingest_ms"] = max_ingest
         _state["seen_recent_ids"] = seen
+        _state["resume_cursor"] = (cursor_ca, cursor_id) if hit_page_cap else None
         snapshot_ms = int(_state["last_ingest_ms"])
         snapshot_ids = dict(_state["seen_recent_ids"])
     _persist_watermark(snapshot_ms, snapshot_ids)
 
     return processed
+
+
+# ── OpenClaw native exec-approval gate (2026-07-08) ─────────────────────────
+# ClawMetry's own watcher is REACTIVE: it sees a tool_call only after the
+# transcript records it, so a destructive `rm -rf` on an OpenClaw agent has
+# already run by the time a policy could match (confirmed live 2026-07-08:
+# rm -rf executed, dir gone, no approval fired — OpenClaw never emitted a
+# matchable tool_call event either). The real fix is OpenClaw's OWN
+# pre-execution gate: `openclaw exec-policy preset cautious` sets
+# security=allowlist / ask=on-miss / askFallback=deny, so a non-allowlisted
+# exec PAUSES before running and is denied if unanswered.
+#
+# We drive it from the daemon (not a cloud→host call): the daemon already
+# runs inside the OpenClaw box and already fetches the cloud policies every
+# 2s. When an enabled require-approval policy that covers exec is present we
+# apply `cautious`; when none are, we restore `yolo` — but only when WE were
+# the one who changed it (tracked in a small state file), so we never clobber
+# a posture the operator set by hand. Best-effort; never raises into the loop.
+_EXEC_POLICY_STATE = Path.home() / ".clawmetry" / "exec_policy_applied"
+
+
+def _openclaw_env_and_bin():
+    """Resolve the `openclaw` binary with an augmented PATH (the daemon runs
+    under a minimal launchd/systemd PATH where node-shim CLIs aren't found —
+    same gotcha cli.py handles). Returns (bin_path, env) or (None, env)."""
+    import shutil
+    extra = ["/usr/local/bin", "/opt/homebrew/bin",
+             os.path.expanduser("~/.local/bin"), "/usr/bin"]
+    env = os.environ.copy()
+    env["PATH"] = ":".join(extra) + ":" + env.get("PATH", "")
+    return shutil.which("openclaw", path=env["PATH"]), env
+
+
+def _policies_want_exec_gate(policies) -> bool:
+    """True when any active policy asks for approval on a shell/exec command.
+    These are exactly the presets the UI ships (rm_rf, force_push, db, sudo,
+    package installs, network, system-config) plus the tool-agnostic secrets
+    rule — all `require_approval` and all covering `exec` (tool 'exec' or '')."""
+    for p in policies or []:
+        if not isinstance(p, dict):
+            continue
+        if (p.get("action") or "require_approval") != "require_approval":
+            continue
+        tool = (p.get("tool") or "").lower()
+        if tool in ("", "exec", "shell", "bash"):
+            return True
+    return False
+
+
+def _apply_openclaw_exec_preset(preset: str) -> bool:
+    """Run `openclaw exec-policy preset <preset>` locally. Returns True on a
+    clean apply. Never raises."""
+    import subprocess
+    ocbin, env = _openclaw_env_and_bin()
+    if not ocbin:
+        return False
+    try:
+        r = subprocess.run([ocbin, "exec-policy", "preset", preset, "--json"],
+                           capture_output=True, text=True, timeout=60, env=env)
+        if r.returncode != 0:
+            log.warning("openclaw exec-policy preset %s failed: %s",
+                        preset, (r.stderr or "")[-300:])
+            return False
+        log.info("openclaw exec-policy → %s (native pre-exec gate)", preset)
+        return True
+    except Exception as e:
+        log.warning("openclaw exec-policy preset %s error: %s", preset, e)
+        return False
+
+
+def sync_openclaw_exec_policy(policies) -> None:
+    """Align OpenClaw's native exec-approval posture with the active policies.
+    Only touches OpenClaw when the desired posture CHANGES, and only restores
+    `yolo` if a prior run was the one that set `cautious` (state file), so a
+    hand-configured posture is never clobbered. No-op when openclaw isn't on
+    this host."""
+    ocbin, _ = _openclaw_env_and_bin()
+    if not ocbin:
+        return  # not an OpenClaw box — nothing to gate
+    want = "cautious" if _policies_want_exec_gate(policies) else "yolo"
+    try:
+        prev = _EXEC_POLICY_STATE.read_text().strip() if _EXEC_POLICY_STATE.exists() else ""
+    except Exception:
+        prev = ""
+    if want == prev:
+        return  # already in the posture we last applied
+    # Guard the restore: only relax to yolo if WE previously set cautious.
+    # (Fresh install with no gate wanted + no prior state → don't force yolo
+    # onto an operator who may have set deny-all by hand.)
+    if want == "yolo" and prev != "cautious":
+        return
+    if _apply_openclaw_exec_preset(want):
+        try:
+            _EXEC_POLICY_STATE.parent.mkdir(parents=True, exist_ok=True)
+            _EXEC_POLICY_STATE.write_text(want)
+        except Exception:
+            pass
 
 
 def watcher_loop(api_key: str, node_id: str,
@@ -1157,6 +1271,13 @@ def watcher_loop(api_key: str, node_id: str,
             return
         try:
             policies = load_policies(api_key=api_key)
+            # Drive OpenClaw's native pre-execution gate from the same policy
+            # set (the reactive watcher below can't PREVENT a command, only
+            # catch it after the fact — see sync_openclaw_exec_policy).
+            try:
+                sync_openclaw_exec_policy(policies)
+            except Exception as _pe:
+                log.debug("exec-policy sync skipped: %s", _pe)
             n = watch_iteration(api_key, node_id, policies=policies)
             if n:
                 log.debug(f"approvals: scanned {n} new toolCalls")

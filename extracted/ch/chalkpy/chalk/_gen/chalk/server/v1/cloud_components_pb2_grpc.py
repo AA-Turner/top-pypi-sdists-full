@@ -85,6 +85,46 @@ class CloudComponentsServiceStub(object):
             request_serializer=chalk_dot_server_dot_v1_dot_cloud__components__pb2.DeleteCloudComponentStorageRequest.SerializeToString,
             response_deserializer=chalk_dot_server_dot_v1_dot_cloud__components__pb2.DeleteCloudComponentStorageResponse.FromString,
         )
+        self.CreateBindingEnvironmentCloudStorage = channel.unary_unary(
+            "/chalk.server.v1.CloudComponentsService/CreateBindingEnvironmentCloudStorage",
+            request_serializer=chalk_dot_server_dot_v1_dot_cloud__components__pb2.CreateBindingEnvironmentCloudStorageRequest.SerializeToString,
+            response_deserializer=chalk_dot_server_dot_v1_dot_cloud__components__pb2.CreateBindingEnvironmentCloudStorageResponse.FromString,
+        )
+        self.GetBindingEnvironmentCloudStorage = channel.unary_unary(
+            "/chalk.server.v1.CloudComponentsService/GetBindingEnvironmentCloudStorage",
+            request_serializer=chalk_dot_server_dot_v1_dot_cloud__components__pb2.GetBindingEnvironmentCloudStorageRequest.SerializeToString,
+            response_deserializer=chalk_dot_server_dot_v1_dot_cloud__components__pb2.GetBindingEnvironmentCloudStorageResponse.FromString,
+        )
+        self.ListBindingEnvironmentCloudStorage = channel.unary_unary(
+            "/chalk.server.v1.CloudComponentsService/ListBindingEnvironmentCloudStorage",
+            request_serializer=chalk_dot_server_dot_v1_dot_cloud__components__pb2.ListBindingEnvironmentCloudStorageRequest.SerializeToString,
+            response_deserializer=chalk_dot_server_dot_v1_dot_cloud__components__pb2.ListBindingEnvironmentCloudStorageResponse.FromString,
+        )
+        self.DeleteBindingEnvironmentCloudStorage = channel.unary_unary(
+            "/chalk.server.v1.CloudComponentsService/DeleteBindingEnvironmentCloudStorage",
+            request_serializer=chalk_dot_server_dot_v1_dot_cloud__components__pb2.DeleteBindingEnvironmentCloudStorageRequest.SerializeToString,
+            response_deserializer=chalk_dot_server_dot_v1_dot_cloud__components__pb2.DeleteBindingEnvironmentCloudStorageResponse.FromString,
+        )
+        self.CreateBindingClusterCloudStorage = channel.unary_unary(
+            "/chalk.server.v1.CloudComponentsService/CreateBindingClusterCloudStorage",
+            request_serializer=chalk_dot_server_dot_v1_dot_cloud__components__pb2.CreateBindingClusterCloudStorageRequest.SerializeToString,
+            response_deserializer=chalk_dot_server_dot_v1_dot_cloud__components__pb2.CreateBindingClusterCloudStorageResponse.FromString,
+        )
+        self.GetBindingClusterCloudStorage = channel.unary_unary(
+            "/chalk.server.v1.CloudComponentsService/GetBindingClusterCloudStorage",
+            request_serializer=chalk_dot_server_dot_v1_dot_cloud__components__pb2.GetBindingClusterCloudStorageRequest.SerializeToString,
+            response_deserializer=chalk_dot_server_dot_v1_dot_cloud__components__pb2.GetBindingClusterCloudStorageResponse.FromString,
+        )
+        self.ListBindingClusterCloudStorage = channel.unary_unary(
+            "/chalk.server.v1.CloudComponentsService/ListBindingClusterCloudStorage",
+            request_serializer=chalk_dot_server_dot_v1_dot_cloud__components__pb2.ListBindingClusterCloudStorageRequest.SerializeToString,
+            response_deserializer=chalk_dot_server_dot_v1_dot_cloud__components__pb2.ListBindingClusterCloudStorageResponse.FromString,
+        )
+        self.DeleteBindingClusterCloudStorage = channel.unary_unary(
+            "/chalk.server.v1.CloudComponentsService/DeleteBindingClusterCloudStorage",
+            request_serializer=chalk_dot_server_dot_v1_dot_cloud__components__pb2.DeleteBindingClusterCloudStorageRequest.SerializeToString,
+            response_deserializer=chalk_dot_server_dot_v1_dot_cloud__components__pb2.DeleteBindingClusterCloudStorageResponse.FromString,
+        )
         self.CreateCloudComponentContainerRegistry = channel.unary_unary(
             "/chalk.server.v1.CloudComponentsService/CreateCloudComponentContainerRegistry",
             request_serializer=chalk_dot_server_dot_v1_dot_cloud__components__pb2.CreateCloudComponentContainerRegistryRequest.SerializeToString,
@@ -339,6 +379,54 @@ class CloudComponentsServiceServicer(object):
         context.set_details("Method not implemented!")
         raise NotImplementedError("Method not implemented!")
 
+    def CreateBindingEnvironmentCloudStorage(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details("Method not implemented!")
+        raise NotImplementedError("Method not implemented!")
+
+    def GetBindingEnvironmentCloudStorage(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details("Method not implemented!")
+        raise NotImplementedError("Method not implemented!")
+
+    def ListBindingEnvironmentCloudStorage(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details("Method not implemented!")
+        raise NotImplementedError("Method not implemented!")
+
+    def DeleteBindingEnvironmentCloudStorage(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details("Method not implemented!")
+        raise NotImplementedError("Method not implemented!")
+
+    def CreateBindingClusterCloudStorage(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details("Method not implemented!")
+        raise NotImplementedError("Method not implemented!")
+
+    def GetBindingClusterCloudStorage(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details("Method not implemented!")
+        raise NotImplementedError("Method not implemented!")
+
+    def ListBindingClusterCloudStorage(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details("Method not implemented!")
+        raise NotImplementedError("Method not implemented!")
+
+    def DeleteBindingClusterCloudStorage(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details("Method not implemented!")
+        raise NotImplementedError("Method not implemented!")
+
     def CreateCloudComponentContainerRegistry(self, request, context):
         """Missing associated documentation comment in .proto file."""
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
@@ -346,7 +434,9 @@ class CloudComponentsServiceServicer(object):
         raise NotImplementedError("Method not implemented!")
 
     def UpdateCloudComponentContainerRegistry(self, request, context):
-        """Missing associated documentation comment in .proto file."""
+        """Deprecated: container registries are immutable metadata records. Create a new
+        registry and delete the old one instead of updating in place.
+        """
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details("Method not implemented!")
         raise NotImplementedError("Method not implemented!")
@@ -609,6 +699,46 @@ def add_CloudComponentsServiceServicer_to_server(servicer, server):
             servicer.DeleteCloudComponentStorage,
             request_deserializer=chalk_dot_server_dot_v1_dot_cloud__components__pb2.DeleteCloudComponentStorageRequest.FromString,
             response_serializer=chalk_dot_server_dot_v1_dot_cloud__components__pb2.DeleteCloudComponentStorageResponse.SerializeToString,
+        ),
+        "CreateBindingEnvironmentCloudStorage": grpc.unary_unary_rpc_method_handler(
+            servicer.CreateBindingEnvironmentCloudStorage,
+            request_deserializer=chalk_dot_server_dot_v1_dot_cloud__components__pb2.CreateBindingEnvironmentCloudStorageRequest.FromString,
+            response_serializer=chalk_dot_server_dot_v1_dot_cloud__components__pb2.CreateBindingEnvironmentCloudStorageResponse.SerializeToString,
+        ),
+        "GetBindingEnvironmentCloudStorage": grpc.unary_unary_rpc_method_handler(
+            servicer.GetBindingEnvironmentCloudStorage,
+            request_deserializer=chalk_dot_server_dot_v1_dot_cloud__components__pb2.GetBindingEnvironmentCloudStorageRequest.FromString,
+            response_serializer=chalk_dot_server_dot_v1_dot_cloud__components__pb2.GetBindingEnvironmentCloudStorageResponse.SerializeToString,
+        ),
+        "ListBindingEnvironmentCloudStorage": grpc.unary_unary_rpc_method_handler(
+            servicer.ListBindingEnvironmentCloudStorage,
+            request_deserializer=chalk_dot_server_dot_v1_dot_cloud__components__pb2.ListBindingEnvironmentCloudStorageRequest.FromString,
+            response_serializer=chalk_dot_server_dot_v1_dot_cloud__components__pb2.ListBindingEnvironmentCloudStorageResponse.SerializeToString,
+        ),
+        "DeleteBindingEnvironmentCloudStorage": grpc.unary_unary_rpc_method_handler(
+            servicer.DeleteBindingEnvironmentCloudStorage,
+            request_deserializer=chalk_dot_server_dot_v1_dot_cloud__components__pb2.DeleteBindingEnvironmentCloudStorageRequest.FromString,
+            response_serializer=chalk_dot_server_dot_v1_dot_cloud__components__pb2.DeleteBindingEnvironmentCloudStorageResponse.SerializeToString,
+        ),
+        "CreateBindingClusterCloudStorage": grpc.unary_unary_rpc_method_handler(
+            servicer.CreateBindingClusterCloudStorage,
+            request_deserializer=chalk_dot_server_dot_v1_dot_cloud__components__pb2.CreateBindingClusterCloudStorageRequest.FromString,
+            response_serializer=chalk_dot_server_dot_v1_dot_cloud__components__pb2.CreateBindingClusterCloudStorageResponse.SerializeToString,
+        ),
+        "GetBindingClusterCloudStorage": grpc.unary_unary_rpc_method_handler(
+            servicer.GetBindingClusterCloudStorage,
+            request_deserializer=chalk_dot_server_dot_v1_dot_cloud__components__pb2.GetBindingClusterCloudStorageRequest.FromString,
+            response_serializer=chalk_dot_server_dot_v1_dot_cloud__components__pb2.GetBindingClusterCloudStorageResponse.SerializeToString,
+        ),
+        "ListBindingClusterCloudStorage": grpc.unary_unary_rpc_method_handler(
+            servicer.ListBindingClusterCloudStorage,
+            request_deserializer=chalk_dot_server_dot_v1_dot_cloud__components__pb2.ListBindingClusterCloudStorageRequest.FromString,
+            response_serializer=chalk_dot_server_dot_v1_dot_cloud__components__pb2.ListBindingClusterCloudStorageResponse.SerializeToString,
+        ),
+        "DeleteBindingClusterCloudStorage": grpc.unary_unary_rpc_method_handler(
+            servicer.DeleteBindingClusterCloudStorage,
+            request_deserializer=chalk_dot_server_dot_v1_dot_cloud__components__pb2.DeleteBindingClusterCloudStorageRequest.FromString,
+            response_serializer=chalk_dot_server_dot_v1_dot_cloud__components__pb2.DeleteBindingClusterCloudStorageResponse.SerializeToString,
         ),
         "CreateCloudComponentContainerRegistry": grpc.unary_unary_rpc_method_handler(
             servicer.CreateCloudComponentContainerRegistry,
@@ -1182,6 +1312,238 @@ class CloudComponentsService(object):
             "/chalk.server.v1.CloudComponentsService/DeleteCloudComponentStorage",
             chalk_dot_server_dot_v1_dot_cloud__components__pb2.DeleteCloudComponentStorageRequest.SerializeToString,
             chalk_dot_server_dot_v1_dot_cloud__components__pb2.DeleteCloudComponentStorageResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+        )
+
+    @staticmethod
+    def CreateBindingEnvironmentCloudStorage(
+        request,
+        target,
+        options=(),
+        channel_credentials=None,
+        call_credentials=None,
+        insecure=False,
+        compression=None,
+        wait_for_ready=None,
+        timeout=None,
+        metadata=None,
+    ):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            "/chalk.server.v1.CloudComponentsService/CreateBindingEnvironmentCloudStorage",
+            chalk_dot_server_dot_v1_dot_cloud__components__pb2.CreateBindingEnvironmentCloudStorageRequest.SerializeToString,
+            chalk_dot_server_dot_v1_dot_cloud__components__pb2.CreateBindingEnvironmentCloudStorageResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+        )
+
+    @staticmethod
+    def GetBindingEnvironmentCloudStorage(
+        request,
+        target,
+        options=(),
+        channel_credentials=None,
+        call_credentials=None,
+        insecure=False,
+        compression=None,
+        wait_for_ready=None,
+        timeout=None,
+        metadata=None,
+    ):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            "/chalk.server.v1.CloudComponentsService/GetBindingEnvironmentCloudStorage",
+            chalk_dot_server_dot_v1_dot_cloud__components__pb2.GetBindingEnvironmentCloudStorageRequest.SerializeToString,
+            chalk_dot_server_dot_v1_dot_cloud__components__pb2.GetBindingEnvironmentCloudStorageResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+        )
+
+    @staticmethod
+    def ListBindingEnvironmentCloudStorage(
+        request,
+        target,
+        options=(),
+        channel_credentials=None,
+        call_credentials=None,
+        insecure=False,
+        compression=None,
+        wait_for_ready=None,
+        timeout=None,
+        metadata=None,
+    ):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            "/chalk.server.v1.CloudComponentsService/ListBindingEnvironmentCloudStorage",
+            chalk_dot_server_dot_v1_dot_cloud__components__pb2.ListBindingEnvironmentCloudStorageRequest.SerializeToString,
+            chalk_dot_server_dot_v1_dot_cloud__components__pb2.ListBindingEnvironmentCloudStorageResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+        )
+
+    @staticmethod
+    def DeleteBindingEnvironmentCloudStorage(
+        request,
+        target,
+        options=(),
+        channel_credentials=None,
+        call_credentials=None,
+        insecure=False,
+        compression=None,
+        wait_for_ready=None,
+        timeout=None,
+        metadata=None,
+    ):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            "/chalk.server.v1.CloudComponentsService/DeleteBindingEnvironmentCloudStorage",
+            chalk_dot_server_dot_v1_dot_cloud__components__pb2.DeleteBindingEnvironmentCloudStorageRequest.SerializeToString,
+            chalk_dot_server_dot_v1_dot_cloud__components__pb2.DeleteBindingEnvironmentCloudStorageResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+        )
+
+    @staticmethod
+    def CreateBindingClusterCloudStorage(
+        request,
+        target,
+        options=(),
+        channel_credentials=None,
+        call_credentials=None,
+        insecure=False,
+        compression=None,
+        wait_for_ready=None,
+        timeout=None,
+        metadata=None,
+    ):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            "/chalk.server.v1.CloudComponentsService/CreateBindingClusterCloudStorage",
+            chalk_dot_server_dot_v1_dot_cloud__components__pb2.CreateBindingClusterCloudStorageRequest.SerializeToString,
+            chalk_dot_server_dot_v1_dot_cloud__components__pb2.CreateBindingClusterCloudStorageResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+        )
+
+    @staticmethod
+    def GetBindingClusterCloudStorage(
+        request,
+        target,
+        options=(),
+        channel_credentials=None,
+        call_credentials=None,
+        insecure=False,
+        compression=None,
+        wait_for_ready=None,
+        timeout=None,
+        metadata=None,
+    ):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            "/chalk.server.v1.CloudComponentsService/GetBindingClusterCloudStorage",
+            chalk_dot_server_dot_v1_dot_cloud__components__pb2.GetBindingClusterCloudStorageRequest.SerializeToString,
+            chalk_dot_server_dot_v1_dot_cloud__components__pb2.GetBindingClusterCloudStorageResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+        )
+
+    @staticmethod
+    def ListBindingClusterCloudStorage(
+        request,
+        target,
+        options=(),
+        channel_credentials=None,
+        call_credentials=None,
+        insecure=False,
+        compression=None,
+        wait_for_ready=None,
+        timeout=None,
+        metadata=None,
+    ):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            "/chalk.server.v1.CloudComponentsService/ListBindingClusterCloudStorage",
+            chalk_dot_server_dot_v1_dot_cloud__components__pb2.ListBindingClusterCloudStorageRequest.SerializeToString,
+            chalk_dot_server_dot_v1_dot_cloud__components__pb2.ListBindingClusterCloudStorageResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+        )
+
+    @staticmethod
+    def DeleteBindingClusterCloudStorage(
+        request,
+        target,
+        options=(),
+        channel_credentials=None,
+        call_credentials=None,
+        insecure=False,
+        compression=None,
+        wait_for_ready=None,
+        timeout=None,
+        metadata=None,
+    ):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            "/chalk.server.v1.CloudComponentsService/DeleteBindingClusterCloudStorage",
+            chalk_dot_server_dot_v1_dot_cloud__components__pb2.DeleteBindingClusterCloudStorageRequest.SerializeToString,
+            chalk_dot_server_dot_v1_dot_cloud__components__pb2.DeleteBindingClusterCloudStorageResponse.FromString,
             options,
             channel_credentials,
             insecure,

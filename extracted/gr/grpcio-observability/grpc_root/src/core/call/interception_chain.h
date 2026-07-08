@@ -29,6 +29,7 @@
 
 namespace grpc_core {
 
+class Blackboard;
 class InterceptionChainBuilder;
 
 // One hijacked call. Using this we can get access to the CallHandler for the
@@ -173,8 +174,9 @@ class InterceptionChainBuilder final {
   using FinalDestination = std::variant<RefCountedPtr<UnstartedCallDestination>,
                                         RefCountedPtr<CallDestination>>;
 
-  explicit InterceptionChainBuilder(ChannelArgs args)
-      : args_(std::move(args)) {}
+  explicit InterceptionChainBuilder(ChannelArgs args,
+                                    const Blackboard* blackboard = nullptr)
+      : args_(std::move(args)), blackboard_(blackboard) {}
 
   // Add a filter with a `Call` class as an inner member.
   // Call class must be one compatible with the filters described in
@@ -183,8 +185,8 @@ class InterceptionChainBuilder final {
   absl::enable_if_t<sizeof(typename T::Call) != 0, InterceptionChainBuilder&>
   Add(RefCountedPtr<const FilterConfig> config) {
     if (!status_.ok()) return *this;
-    auto filter = T::Create(
-        args_, {FilterInstanceId(FilterTypeId<T>()), std::move(config)});
+    auto filter = T::Create(args_, {FilterInstanceId(FilterTypeId<T>()),
+                                    std::move(config), blackboard_});
     if (!filter.ok()) {
       status_ = filter.status();
       return *this;
@@ -200,8 +202,8 @@ class InterceptionChainBuilder final {
   absl::enable_if_t<std::is_base_of<Interceptor, T>::value,
                     InterceptionChainBuilder&>
   Add(RefCountedPtr<const FilterConfig> config) {
-    AddInterceptor(T::Create(
-        args_, {FilterInstanceId(FilterTypeId<T>()), std::move(config)}));
+    AddInterceptor(T::Create(args_, {FilterInstanceId(FilterTypeId<T>()),
+                                     std::move(config), blackboard_}));
     return *this;
   };
 
@@ -280,6 +282,7 @@ class InterceptionChainBuilder final {
   absl::Status status_;
   std::map<size_t, size_t> filter_type_counts_;
   static std::atomic<size_t> next_filter_id_;
+  const Blackboard* blackboard_ = nullptr;
 };
 
 }  // namespace grpc_core

@@ -523,16 +523,23 @@ class ExprBlockingCall(_message.Message):
     ) -> None: ...
 
 class BlockingFunction(_message.Message):
-    __slots__ = ("catalog_call", "call_resolver")
+    __slots__ = ("catalog_call", "call_resolver", "http_request")
     CATALOG_CALL_FIELD_NUMBER: _ClassVar[int]
     CALL_RESOLVER_FIELD_NUMBER: _ClassVar[int]
+    HTTP_REQUEST_FIELD_NUMBER: _ClassVar[int]
     catalog_call: CatalogCall
     call_resolver: CallResolver
+    http_request: HttpRequest
     def __init__(
         self,
         catalog_call: _Optional[_Union[CatalogCall, _Mapping]] = ...,
         call_resolver: _Optional[_Union[CallResolver, _Mapping]] = ...,
+        http_request: _Optional[_Union[HttpRequest, _Mapping]] = ...,
     ) -> None: ...
+
+class HttpRequest(_message.Message):
+    __slots__ = ()
+    def __init__(self) -> None: ...
 
 class CatalogCall(_message.Message):
     __slots__ = ("qualified_name", "input_types", "output_type")

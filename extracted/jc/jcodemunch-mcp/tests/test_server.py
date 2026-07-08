@@ -21,7 +21,7 @@ async def test_server_lists_all_tools():
     try:
         tools = await list_tools()
 
-        assert len(tools) == 86  # +1: index_dependency (dependency-docs P1, v1.108.94)
+        assert len(tools) == 89  # +1: get_architecture_metrics (Gini/Lakos/DSM)
 
         names = {t.name for t in tools}
         expected = {
@@ -41,9 +41,10 @@ async def test_server_lists_all_tools():
             "check_rename_safe", "check_delete_safe", "check_edit_safe", "find_implementations",
             "get_dead_code_v2", "get_extraction_candidates",
             "plan_refactoring",
-            "get_symbol_complexity", "get_churn_rate", "get_delivery_metrics", "get_hotspots", "get_repo_health",
+            "get_symbol_complexity", "get_churn_rate", "get_delivery_metrics", "get_parity_map", "get_hotspots", "get_repo_health",
             "audit_agent_config", "get_untested_symbols", "search_ast",
-            "get_tectonic_map", "get_signal_chains", "render_diagram",
+            "get_tectonic_map", "get_signal_chains", "get_decorator_census",
+            "get_architecture_metrics", "render_diagram",
             "get_project_intel", "list_workspaces",
             "get_symbol_provenance", "get_pr_risk_profile", "get_endpoint_impact",
             "winnow_symbols", "get_watch_status", "analyze_perf", "tune_weights",
@@ -677,10 +678,10 @@ async def test_disabled_tools_filtered_from_schema(monkeypatch):
         assert "index_repo" not in tool_names
         assert "search_columns" not in tool_names
         assert "get_file_tree" in tool_names  # Not disabled
-        # 86 default tools + test_summarizer (config cleared) - 2 disabled = 85
+        # 89 default tools + test_summarizer (config cleared) - 2 disabled = 88
         # set_tool_tier + announce_model are undisableable; jcodemunch_guide
         # is in _ALWAYS_PRESENT_TOOLS for tier survival but honors disabled_tools.
-        assert len(tools) == 85
+        assert len(tools) == 88
     finally:
         config_module._GLOBAL_CONFIG.clear()
         config_module._GLOBAL_CONFIG.update(orig_config)
@@ -688,7 +689,7 @@ async def test_disabled_tools_filtered_from_schema(monkeypatch):
 
 @pytest.mark.asyncio
 async def test_disabled_tools_empty_all_tools_present(monkeypatch):
-    """When disabled_tools is empty, all tools are present (86 default + test_summarizer)."""
+    """When disabled_tools is empty, all tools are present (89 default + test_summarizer)."""
     from jcodemunch_mcp import config as config_module
 
     orig_config = config_module._GLOBAL_CONFIG.copy()
@@ -698,7 +699,7 @@ async def test_disabled_tools_empty_all_tools_present(monkeypatch):
         config_module._GLOBAL_CONFIG["disabled_tools"] = []
 
         tools = await list_tools()
-        assert len(tools) == 87  # 86 + test_summarizer (config cleared, so disabled gate off)
+        assert len(tools) == 90  # 89 + test_summarizer (config cleared, so disabled gate off)
     finally:
         config_module._GLOBAL_CONFIG.clear()
         config_module._GLOBAL_CONFIG.update(orig_config)

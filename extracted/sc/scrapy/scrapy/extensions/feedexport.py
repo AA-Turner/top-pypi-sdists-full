@@ -250,20 +250,22 @@ class S3FeedStorage(BlockingFeedStorage):
 
     def _store_in_thread(self, file: IO[bytes]) -> None:
         file.seek(0)
-        if self.acl:
-            self.s3_client.upload_fileobj(
-                Bucket=self.bucketname,
-                Key=self.keyname,
-                Fileobj=file,
-                ExtraArgs={"ACL": self.acl},
-            )
-        else:
-            self.s3_client.upload_fileobj(
-                Bucket=self.bucketname,
-                Key=self.keyname,
-                Fileobj=file,
-            )
-        file.close()
+        try:
+            if self.acl:
+                self.s3_client.upload_fileobj(
+                    Bucket=self.bucketname,
+                    Key=self.keyname,
+                    Fileobj=file,
+                    ExtraArgs={"ACL": self.acl},
+                )
+            else:
+                self.s3_client.upload_fileobj(
+                    Bucket=self.bucketname,
+                    Key=self.keyname,
+                    Fileobj=file,
+                )
+        finally:
+            file.close()
 
 
 class GCSFeedStorage(BlockingFeedStorage):
@@ -306,12 +308,15 @@ class GCSFeedStorage(BlockingFeedStorage):
 
     def _store_in_thread(self, file: IO[bytes]) -> None:
         file.seek(0)
-        from google.cloud.storage import Client  # noqa: PLC0415
+        try:
+            from google.cloud.storage import Client  # noqa: PLC0415
 
-        client = Client(project=self.project_id)
-        bucket = client.get_bucket(self.bucket_name)
-        blob = bucket.blob(self.blob_name)
-        blob.upload_from_file(file, predefined_acl=self.acl)
+            client = Client(project=self.project_id)
+            bucket = client.get_bucket(self.bucket_name)
+            blob = bucket.blob(self.blob_name)
+            blob.upload_from_file(file, predefined_acl=self.acl)
+        finally:
+            file.close()
 
 
 class FTPFeedStorage(BlockingFeedStorage):

@@ -16,7 +16,7 @@ class CreateOrganizationRequest:
     """
     Attributes:
         name (str): The name of the organization
-        dataplane_id (None | str | Unset): Plane id from GET /dataplanes. Defaults to the first available plane.
+        dataplane_id (None | str | Unset): Data plane id for the org's region; omit to set it later.
         description (None | str | Unset): The description of the organization
     """
 

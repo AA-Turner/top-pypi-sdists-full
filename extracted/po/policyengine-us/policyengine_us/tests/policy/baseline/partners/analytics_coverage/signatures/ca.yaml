@@ -1,3 +1,13 @@
+# Amplifi (California) partner API signature-replay contract tests.
+# 2026-07-04 fidelity fix: reproduce PRODUCTION values that the API's Python wrapper
+# produces but the raw YAML runner does not. The wrapper backfills the labor-supply-
+# response inputs (employment_income -> employment_income_before_lsr, self_employment_income
+# -> self_employment_income_before_lsr, etc.); the YAML runner does NOT (issue #8802), so
+# those keys are written in *_before_lsr form here. Values are unchanged; only the key names
+# are the wrapper's. Outputs pin CURRENT model results.
+# state_code_str: CA is kept exactly as Amplifi sends it (verified in the analytics database).
+# state_code_str does not backfill the state_code enum (issue #8887), but the enum default IS
+# California, so for these CA households production and YAML agree either way.
 - name: signature_15 (14 reqs, +1 dupes)
   period: 2026
   absolute_error_margin: 0.1
@@ -1571,7 +1581,7 @@
         is_pregnant: false
         is_aca_eshi_eligible: false
         immigration_status_str: CITIZEN
-        self_employment_income: 0
+        self_employment_income_before_lsr: 0
         health_insurance_premiums: 0
         receives_medicaid: false
         ca_calworks_child_care_time_category: MONTHLY
@@ -1584,7 +1594,7 @@
         is_pregnant: false
         is_aca_eshi_eligible: false
         immigration_status_str: CITIZEN
-        self_employment_income: 0
+        self_employment_income_before_lsr: 0
         health_insurance_premiums: 0
         receives_medicaid: false
         ca_calworks_child_care_time_category: MONTHLY
@@ -1597,7 +1607,7 @@
         is_pregnant: false
         is_aca_eshi_eligible: false
         immigration_status_str: CITIZEN
-        self_employment_income: 0
+        self_employment_income_before_lsr: 0
         receives_medicaid: false
         health_insurance_premiums: 0
         ca_calworks_child_care_time_category: MONTHLY
@@ -1610,7 +1620,7 @@
         is_pregnant: false
         is_aca_eshi_eligible: false
         immigration_status_str: CITIZEN
-        self_employment_income: 0
+        self_employment_income_before_lsr: 0
         receives_medicaid: false
         health_insurance_premiums: 0
         ca_calworks_child_care_time_category: MONTHLY
@@ -4086,7 +4096,7 @@
         is_pregnant: false
         is_aca_eshi_eligible: false
         immigration_status_str: CITIZEN
-        self_employment_income: 0
+        self_employment_income_before_lsr: 0
         rent: 18000
         health_insurance_premiums: 0
         receives_medicaid: false
@@ -4100,7 +4110,7 @@
         is_pregnant: false
         is_aca_eshi_eligible: false
         immigration_status_str: CITIZEN
-        self_employment_income: 0
+        self_employment_income_before_lsr: 0
         rent: 0
         health_insurance_premiums: 0
         receives_medicaid: false
@@ -4114,7 +4124,7 @@
         is_pregnant: false
         is_aca_eshi_eligible: false
         immigration_status_str: CITIZEN
-        self_employment_income: 0
+        self_employment_income_before_lsr: 0
         rent: 0
         receives_medicaid: false
         health_insurance_premiums: 0
@@ -4128,7 +4138,7 @@
         is_pregnant: false
         is_aca_eshi_eligible: false
         immigration_status_str: CITIZEN
-        self_employment_income: 0
+        self_employment_income_before_lsr: 0
         rent: 0
         receives_medicaid: false
         health_insurance_premiums: 0

@@ -692,6 +692,74 @@ fn issue_789_transformation_normal_rejects_marginal_slope_controls_before_dispat
 }
 
 #[test]
+fn bernoulli_marginal_slope_ctn_stage1_recipe_only_dispatches_to_bms_issue_2139() {
+    let data = workflow_test_dataset();
+    let recipe = CtnStage1Recipe::new(
+        "z",
+        "bmi",
+        TransformationNormalConfig::default(),
+        None,
+        None,
+    )
+    .expect("valid CTN Stage-1 recipe");
+    let config = FitConfig {
+        family: Some("bernoulli-marginal-slope".to_string()),
+        ctn_stage1: Some(recipe),
+        ..FitConfig::default()
+    };
+
+    let err = materialize("event ~ bmi", &data, &config)
+        .err()
+        .expect("recipe-only BMS request should reach BMS validation");
+    let msg = err.to_string();
+    assert!(
+        msg.contains("Bernoulli marginal-slope requires logslope_formula"),
+        "recipe-only BMS request should fail with BMS-specific validation, got: {msg}"
+    );
+    assert!(
+        !msg.contains("unknown family"),
+        "family=bernoulli-marginal-slope with ctn_stage1 must not fall through to standard-family dispatch: {msg}"
+    );
+}
+
+#[test]
+fn family_transformation_normal_routes_to_ctn_materializer() {
+    let data = workflow_test_dataset();
+    let config = FitConfig {
+        family: Some("transformation-normal".to_string()),
+        ..FitConfig::default()
+    };
+
+    let mat = materialize("bmi ~ s(age_entry, k=4)", &data, &config)
+        .expect("family='transformation-normal' must materialize as CTN");
+
+    assert!(
+        matches!(mat.request, FitRequest::TransformationNormal(_)),
+        "family='transformation-normal' must not silently fall through to a standard Gaussian GAM"
+    );
+}
+
+#[test]
+fn family_transformation_normal_uses_ctn_conflict_validation() {
+    let data = workflow_test_dataset();
+    let config = FitConfig {
+        family: Some("transformation_normal".to_string()),
+        noise_formula: Some("~ 1".to_string()),
+        ..FitConfig::default()
+    };
+
+    let err = materialize("bmi ~ s(age_entry, k=4)", &data, &config)
+        .err()
+        .expect("family='transformation-normal' must reject CTN-incompatible controls");
+
+    assert!(
+        err.to_string()
+            .contains("transformation_normal cannot be combined with noise_formula"),
+        "unexpected error: {err}"
+    );
+}
+
+#[test]
 fn survival_marginal_slope_rejects_zero_event_data_before_fit() {
     let mut data = workflow_test_dataset();
     data.values.column_mut(2).fill(0.0);
@@ -1330,7 +1398,8 @@ fn bernoulli_marginal_slope_prune_rejects_penalized_redundant_scalar_term() {
         "test BMS formula",
         &mut notes,
     )
-    .expect_err("explicitly penalized duplicate scalar term must be rejected");
+    .err()
+        .expect("explicitly penalized duplicate scalar term must be rejected");
     let msg = err.to_string();
     assert!(
         msg.contains("explicitly penalized linear term 'constant_spline_col' is redundant"),
@@ -1435,7 +1504,8 @@ fn linkwiggle_noncubic_degree_is_rejected_at_the_routing_boundary_issue_384() {
         // logslope_formula = linkwiggle(...) is the score-warp route the Python
         // marginal-slope path uses.
         let err = route_marginal_slope_deviation_blocks(None, Some(&spec))
-            .expect_err("non-cubic linkwiggle must be rejected before any fit");
+            .err()
+        .expect("non-cubic linkwiggle must be rejected before any fit");
         assert!(
             err.contains("degree must be 3"),
             "rejection must name the cubic-only contract, got: {err}"
@@ -1447,7 +1517,8 @@ fn linkwiggle_noncubic_degree_is_rejected_at_the_routing_boundary_issue_384() {
 
         // The main-formula link-deviation route is gated identically.
         let err_main = route_marginal_slope_deviation_blocks(Some(&spec), None)
-            .expect_err("non-cubic link-deviation must be rejected before any fit");
+            .err()
+        .expect("non-cubic link-deviation must be rejected before any fit");
         assert!(err_main.contains("degree must be 3"));
     }
 
@@ -1564,7 +1635,8 @@ fn survival_inverse_link_result_requires_convergence() {
         "survival inverse-link optimization (SAS, dim=2)",
         |_| Some(InverseLink::Standard(StandardLink::Logit)),
     )
-    .expect_err("non-converged inverse-link search should fail");
+    .err()
+        .expect("non-converged inverse-link search should fail");
 
     assert!(err.contains("did not converge"));
     assert!(err.contains("final_objective"));
@@ -1577,7 +1649,8 @@ fn survival_inverse_link_result_requires_recoverable_state() {
         "survival inverse-link optimization (mixture, dim=2)",
         |_| None,
     )
-    .expect_err("unrecoverable inverse-link state should fail");
+    .err()
+        .expect("unrecoverable inverse-link state should fail");
 
     assert!(err.contains("produced an invalid inverse-link state"));
     assert!(err.contains("9.0"));

@@ -7,11 +7,11 @@ from ... import errors
 from ...client import AuthenticatedClient, Client
 from ...models.create_user_api_key_request import CreateUserApiKeyRequest
 from ...models.create_user_api_key_response import CreateUserApiKeyResponse
+from ...models.create_user_api_key_response_409 import CreateUserApiKeyResponse409
 from ...models.error_response_400 import ErrorResponse400
 from ...models.error_response_401 import ErrorResponse401
 from ...models.error_response_403 import ErrorResponse403
 from ...models.error_response_404 import ErrorResponse404
-from ...models.error_response_409 import ErrorResponse409
 from ...types import Response
 
 
@@ -38,11 +38,11 @@ def _parse_response(
     *, client: AuthenticatedClient | Client, response: httpx.Response
 ) -> (
     CreateUserApiKeyResponse
+    | CreateUserApiKeyResponse409
     | ErrorResponse400
     | ErrorResponse401
     | ErrorResponse403
     | ErrorResponse404
-    | ErrorResponse409
     | None
 ):
     if response.status_code == 201:
@@ -71,7 +71,7 @@ def _parse_response(
         return response_404
 
     if response.status_code == 409:
-        response_409 = ErrorResponse409.from_dict(response.json())
+        response_409 = CreateUserApiKeyResponse409.from_dict(response.json())
 
         return response_409
 
@@ -85,11 +85,11 @@ def _build_response(
     *, client: AuthenticatedClient | Client, response: httpx.Response
 ) -> Response[
     CreateUserApiKeyResponse
+    | CreateUserApiKeyResponse409
     | ErrorResponse400
     | ErrorResponse401
     | ErrorResponse403
     | ErrorResponse404
-    | ErrorResponse409
 ]:
     return Response(
         status_code=HTTPStatus(response.status_code),
@@ -105,11 +105,11 @@ def sync_detailed(
     body: CreateUserApiKeyRequest,
 ) -> Response[
     CreateUserApiKeyResponse
+    | CreateUserApiKeyResponse409
     | ErrorResponse400
     | ErrorResponse401
     | ErrorResponse403
     | ErrorResponse404
-    | ErrorResponse409
 ]:
     """CreateUserApiKey
 
@@ -123,7 +123,7 @@ def sync_detailed(
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        Response[CreateUserApiKeyResponse | ErrorResponse400 | ErrorResponse401 | ErrorResponse403 | ErrorResponse404 | ErrorResponse409]
+        Response[CreateUserApiKeyResponse | CreateUserApiKeyResponse409 | ErrorResponse400 | ErrorResponse401 | ErrorResponse403 | ErrorResponse404]
     """
 
     kwargs = _get_kwargs(
@@ -143,11 +143,11 @@ def sync(
     body: CreateUserApiKeyRequest,
 ) -> (
     CreateUserApiKeyResponse
+    | CreateUserApiKeyResponse409
     | ErrorResponse400
     | ErrorResponse401
     | ErrorResponse403
     | ErrorResponse404
-    | ErrorResponse409
     | None
 ):
     """CreateUserApiKey
@@ -162,7 +162,7 @@ def sync(
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        CreateUserApiKeyResponse | ErrorResponse400 | ErrorResponse401 | ErrorResponse403 | ErrorResponse404 | ErrorResponse409
+        CreateUserApiKeyResponse | CreateUserApiKeyResponse409 | ErrorResponse400 | ErrorResponse401 | ErrorResponse403 | ErrorResponse404
     """
 
     return sync_detailed(
@@ -177,11 +177,11 @@ async def asyncio_detailed(
     body: CreateUserApiKeyRequest,
 ) -> Response[
     CreateUserApiKeyResponse
+    | CreateUserApiKeyResponse409
     | ErrorResponse400
     | ErrorResponse401
     | ErrorResponse403
     | ErrorResponse404
-    | ErrorResponse409
 ]:
     """CreateUserApiKey
 
@@ -195,7 +195,7 @@ async def asyncio_detailed(
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        Response[CreateUserApiKeyResponse | ErrorResponse400 | ErrorResponse401 | ErrorResponse403 | ErrorResponse404 | ErrorResponse409]
+        Response[CreateUserApiKeyResponse | CreateUserApiKeyResponse409 | ErrorResponse400 | ErrorResponse401 | ErrorResponse403 | ErrorResponse404]
     """
 
     kwargs = _get_kwargs(
@@ -213,11 +213,11 @@ async def asyncio(
     body: CreateUserApiKeyRequest,
 ) -> (
     CreateUserApiKeyResponse
+    | CreateUserApiKeyResponse409
     | ErrorResponse400
     | ErrorResponse401
     | ErrorResponse403
     | ErrorResponse404
-    | ErrorResponse409
     | None
 ):
     """CreateUserApiKey
@@ -232,7 +232,7 @@ async def asyncio(
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        CreateUserApiKeyResponse | ErrorResponse400 | ErrorResponse401 | ErrorResponse403 | ErrorResponse404 | ErrorResponse409
+        CreateUserApiKeyResponse | CreateUserApiKeyResponse409 | ErrorResponse400 | ErrorResponse401 | ErrorResponse403 | ErrorResponse404
     """
 
     return (

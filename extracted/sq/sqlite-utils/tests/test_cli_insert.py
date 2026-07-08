@@ -127,12 +127,12 @@ def test_insert_multiple_with_compound_primary_key(db_path, tmpdir):
     assert dogs == list(db.query("select * from dogs order by breed, id"))
     assert {"breed", "id"} == set(db["dogs"].pks)
     assert (
-        "CREATE TABLE [dogs] (\n"
-        "   [breed] TEXT,\n"
-        "   [id] INTEGER,\n"
-        "   [name] TEXT,\n"
-        "   [age] INTEGER,\n"
-        "   PRIMARY KEY ([id], [breed])\n"
+        'CREATE TABLE "dogs" (\n'
+        '   "breed" TEXT,\n'
+        '   "id" INTEGER,\n'
+        '   "name" TEXT,\n'
+        '   "age" INTEGER,\n'
+        '   PRIMARY KEY ("id", "breed")\n'
         ")"
     ) == db["dogs"].schema
 
@@ -154,11 +154,11 @@ def test_insert_not_null_default(db_path, tmpdir):
     assert result.exit_code == 0
     db = Database(db_path)
     assert (
-        "CREATE TABLE [dogs] (\n"
-        "   [id] INTEGER PRIMARY KEY,\n"
-        "   [name] TEXT NOT NULL,\n"
-        "   [age] INTEGER NOT NULL DEFAULT '1',\n"
-        "   [score] INTEGER DEFAULT '5'\n)"
+        'CREATE TABLE "dogs" (\n'
+        '   "id" INTEGER PRIMARY KEY,\n'
+        '   "name" TEXT NOT NULL,\n'
+        "   \"age\" INTEGER NOT NULL DEFAULT '1',\n"
+        "   \"score\" INTEGER DEFAULT '5'\n)"
     ) == db["dogs"].schema
 
 
@@ -227,7 +227,7 @@ def test_insert_csv_tsv(content, options, db_path, tmpdir):
         fp.write(content)
     result = CliRunner().invoke(
         cli.cli,
-        ["insert", db_path, "data", file_path] + options,
+        ["insert", db_path, "data", file_path] + options + ["--no-detect-types"],
         catch_exceptions=False,
     )
     assert result.exit_code == 0
@@ -236,7 +236,7 @@ def test_insert_csv_tsv(content, options, db_path, tmpdir):
 
 @pytest.mark.parametrize("empty_null", (True, False))
 def test_insert_csv_empty_null(db_path, empty_null):
-    options = ["--csv"]
+    options = ["--csv", "--no-detect-types"]
     if empty_null:
         options.append("--empty-null")
     result = CliRunner().invoke(
@@ -430,7 +430,7 @@ def test_insert_text(db_path):
     "options,input",
     (
         ([], '[{"id": "1", "name": "Bob"}, {"id": "2", "name": "Cat"}]'),
-        (["--csv"], "id,name\n1,Bob\n2,Cat"),
+        (["--csv", "--no-detect-types"], "id,name\n1,Bob\n2,Cat"),
         (["--nl"], '{"id": "1", "name": "Bob"}\n{"id": "2", "name": "Cat"}'),
     ),
 )
@@ -466,7 +466,7 @@ def test_insert_convert_text(db_path):
     )
     assert result.exit_code == 0, result.output
     db = Database(db_path)
-    rows = list(db.query("select [text] from [text]"))
+    rows = list(db.query('select "text" from "text"'))
     assert rows == [{"text": "THIS IS TEXT\nWILL BE UPPER NOW"}]
 
 
@@ -486,7 +486,7 @@ def test_insert_convert_text_returning_iterator(db_path):
     )
     assert result.exit_code == 0, result.output
     db = Database(db_path)
-    rows = list(db.query("select [word] from [text]"))
+    rows = list(db.query('select "word" from "text"'))
     assert rows == [{"word": "A"}, {"word": "bunch"}, {"word": "of"}, {"word": "words"}]
 
 
@@ -506,7 +506,7 @@ def test_insert_convert_lines(db_path):
     )
     assert result.exit_code == 0, result.output
     db = Database(db_path)
-    rows = list(db.query("select [line] from [all]"))
+    rows = list(db.query('select "line" from "all"'))
     assert rows == [{"line": "THIS IS TEXT"}, {"line": "WILL BE UPPER NOW"}]
 
 
@@ -597,3 +597,97 @@ def test_insert_streaming_batch_size_1(db_path):
     proc.stdin.close()
     proc.wait()
     assert proc.returncode == 0
+
+
+def test_insert_csv_headers_only(tmpdir):
+    """Test that CSV with only header row (no data) works with --detect-types (issue #702)"""
+    db_path = str(tmpdir / "test.db")
+    csv_path = str(tmpdir / "headers_only.csv")
+    with open(csv_path, "w") as fp:
+        fp.write("id,name,age\n")
+    # Should not crash with --detect-types (which is now the default)
+    result = CliRunner().invoke(
+        cli.cli,
+        ["insert", db_path, "data", csv_path, "--csv"],
+        catch_exceptions=False,
+    )
+    assert result.exit_code == 0
+    # Table should not exist since there were no data rows
+    db = Database(db_path)
+    assert not db["data"].exists()
+
+
+def test_insert_into_view_errors(tmpdir):
+    db_path = str(tmpdir / "test.db")
+    db = Database(db_path)
+    db["t"].insert({"id": 1})
+    db.create_view("v", "select * from t")
+    db.close()
+    result = CliRunner().invoke(
+        cli.cli, ["insert", db_path, "v", "-"], input='{"id": 2}'
+    )
+    assert result.exit_code == 1
+    assert result.output.strip() == "Error: Table v is actually a view"
+
+
+def test_insert_csv_detect_types_leaves_existing_table_alone(db_path):
+    # Type detection is the default for CSV/TSV inserts, but it must only
+    # apply to tables created by this command - transforming a pre-existing
+    # table would rewrite its column types and corrupt data such as
+    # TEXT zip codes with leading zeros
+    db = Database(db_path)
+    db["places"].insert({"name": "Boston", "zip": "01234"})
+    result = CliRunner().invoke(
+        cli.cli,
+        ["insert", db_path, "places", "-", "--csv"],
+        catch_exceptions=False,
+        input="name,zip\nSF,94107",
+    )
+    assert result.exit_code == 0, result.output
+    assert db["places"].columns_dict["zip"] is str
+    assert list(db["places"].rows) == [
+        {"name": "Boston", "zip": "01234"},
+        {"name": "SF", "zip": "94107"},
+    ]
+
+
+def test_insert_csv_detect_types_new_table(db_path):
+    # A table created by the insert still gets detected types
+    result = CliRunner().invoke(
+        cli.cli,
+        ["insert", db_path, "data", "-", "--csv"],
+        catch_exceptions=False,
+        input="name,age,weight\nCleo,5,12.5",
+    )
+    assert result.exit_code == 0, result.output
+    db = Database(db_path)
+    assert db["data"].columns_dict == {"name": str, "age": int, "weight": float}
+
+
+def test_upsert_csv_detect_types_leaves_existing_table_alone(db_path):
+    db = Database(db_path)
+    db["places"].insert({"id": 1, "name": "Boston", "zip": "01234"}, pk="id")
+    result = CliRunner().invoke(
+        cli.cli,
+        ["upsert", db_path, "places", "-", "--csv", "--pk", "id"],
+        catch_exceptions=False,
+        input="id,name,zip\n2,SF,94107",
+    )
+    assert result.exit_code == 0, result.output
+    assert db["places"].columns_dict["zip"] is str
+    assert db["places"].get(1)["zip"] == "01234"
+
+
+def test_insert_invalid_pk_clean_error(db_path):
+    # An invalid --pk against an existing table should be a clean CLI
+    # error, not a raw InvalidColumns traceback
+    db = Database(db_path)
+    db["t"].insert({"a": 1})
+    result = CliRunner().invoke(
+        cli.cli,
+        ["insert", db_path, "t", "-", "--pk", "badcol"],
+        input='{"a": 2}',
+    )
+    assert result.exit_code == 1
+    assert result.exception is None or isinstance(result.exception, SystemExit)
+    assert result.output.startswith("Error: Invalid primary key column")

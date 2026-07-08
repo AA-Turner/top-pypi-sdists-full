@@ -17,6 +17,7 @@ from dlt.common.time import ensure_datetime
 from dlt_runtime.exceptions import RuntimeClientException
 from tabulate import tabulate
 
+from dlt_runtime.runtime_clients.api.models.dataplane_info import DataplaneInfo
 from dlt_runtime.runtime_clients.api.models.run_status import RunStatus
 from dlt_runtime.runtime_clients.api.types import Unset
 from dlt_runtime.strings import (
@@ -515,6 +516,37 @@ def _prompt_workspace_selection(
         # "user-cancelled input" rather than re-raising the interrupt.
         raise EOFError("Workspace selection cancelled") from e
     return _resolve_picker_choice(groups, int(choice))
+
+
+def _prompt_region_selection(regions: list[DataplaneInfo]) -> str:
+    """Interactive menu for organization region selection.
+
+    Returns the chosen plane's ``id``; the choice is permanent.
+    """
+    fmt.echo(
+        "\nChoose your organization's region. "
+        "This is permanent and cannot be changed later."
+    )
+    for i, dp in enumerate(regions):
+        fmt.echo(f"  [{i}] {dp.name} ({dp.region})")
+    if not fmt.is_interactive() and fmt.ALWAYS_CHOOSE_VALUE is None:
+        raise RuntimeClientException(
+            "Non-interactive mode: cannot prompt for an organization region. "
+            "Re-run in an interactive terminal without `--non-interactive` to "
+            "pick a region, or set it in the web app and then retry."
+        )
+    choices = [str(i) for i in range(len(regions))]
+    try:
+        choice = fmt.prompt("Select a region", choices=choices)
+        chosen = regions[int(choice)]
+        if not fmt.confirm(
+            f"Set region to '{chosen.name}'? This cannot be changed.",
+            default=False,
+        ):
+            raise EOFError("Organization region selection cancelled")
+    except KeyboardInterrupt as e:
+        raise EOFError("Organization region selection cancelled") from e
+    return chosen.id
 
 
 def _prompt_new_workspace(default_name: str = "default") -> tuple[str, str]:

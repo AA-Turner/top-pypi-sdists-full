@@ -175,19 +175,23 @@ class LinuxContainer(DeveloperEnvironmentInterface[LinuxContainerConfig]):
                 "-v",
                 "/var/run/docker.sock:/var/run/docker.sock",
             ]
+            command.extend((
+                "--add-host",
+                "host.docker.internal:host-gateway",
+            ))
             if sys.platform != "win32":
                 command.extend((
-                    "--add-host",
-                    "host.docker.internal:host-gateway",
                     "-e",
                     f"HOST_UID={os.getuid()}",
                     "-e",
                     f"HOST_GID={os.getgid()}",
-                    "-e",
-                    "BROWSER",
-                    "-v",
-                    f"{self._xdg_open_script_path}:/usr/local/bin/xdg-open:ro",
                 ))
+            command.extend((
+                "-e",
+                "BROWSER",
+                "-v",
+                f"{self._xdg_open_script_path}:/usr/local/bin/xdg-open:ro",
+            ))
 
             command.extend((
                 "-e",
@@ -200,6 +204,10 @@ class LinuxContainer(DeveloperEnvironmentInterface[LinuxContainerConfig]):
                 GitEnvVars.AUTHOR_NAME,
                 "-e",
                 GitEnvVars.AUTHOR_EMAIL,
+                "-e",
+                AppEnvVars.ENV_TYPE,
+                "-e",
+                AppEnvVars.ENV_MANAGER,
             ))
             if self.config.arch is not None:
                 command.extend(("--platform", f"linux/{self.config.arch}"))
@@ -239,6 +247,8 @@ class LinuxContainer(DeveloperEnvironmentInterface[LinuxContainerConfig]):
             env = EnvVars()
             env["DD_SHELL"] = self.config.shell
             env["BROWSER"] = "xdg-open"
+            env[AppEnvVars.ENV_TYPE] = self.name
+            env[AppEnvVars.ENV_MANAGER] = "dda"
             env[AppEnvVars.TELEMETRY_USER_MACHINE_ID] = self.app.telemetry.user.machine_id
             if self.app.telemetry.api_key is not None:
                 env[AppEnvVars.TELEMETRY_API_KEY] = self.app.telemetry.api_key
@@ -450,8 +460,11 @@ class LinuxContainer(DeveloperEnvironmentInterface[LinuxContainerConfig]):
 
     def _write_xdg_open_script(self) -> None:
         self._xdg_open_script_path.parent.ensure_dir()
+        # The script is mounted into and executed by the Linux container, so force LF line endings.
+        # Without `newline="\n"`, `write_text` on a Windows host emits CRLF and the
+        # `#!/usr/bin/env python3` shebang resolves to a nonexistent `python3\r` interpreter.
         self._xdg_open_script_path.write_text(
-            _make_xdg_open_script(self.browser_proxy_port, self.ssh_port), encoding="utf-8"
+            _make_xdg_open_script(self.browser_proxy_port, self.ssh_port), encoding="utf-8", newline="\n"
         )
         os.chmod(self._xdg_open_script_path, 0o755)  # noqa: S103
 

@@ -1,3 +1,4 @@
+from __future__ import annotations
 import os
 from io import IOBase
 from os.path import basename

@@ -16506,6 +16506,7 @@ class ImageTypeDef(TypedDict):
     SourceImageId: NotRequired[str]
     SourceImageRegion: NotRequired[str]
     FreeTierEligible: NotRequired[bool]
+    PublicSsmParameterName: NotRequired[str]
     ImageWatermarks: NotRequired[list[ImageWatermarkTypeDef]]
     ImageId: NotRequired[str]
     ImageLocation: NotRequired[str]

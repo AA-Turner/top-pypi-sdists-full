@@ -38,7 +38,16 @@ class CronAggregateBackfill(_message.Message):
         "allow_empty_tiles",
         "targets",
         "environment",
+        "planner_options",
     )
+    class PlannerOptionsEntry(_message.Message):
+        __slots__ = ("key", "value")
+        KEY_FIELD_NUMBER: _ClassVar[int]
+        VALUE_FIELD_NUMBER: _ClassVar[int]
+        key: str
+        value: str
+        def __init__(self, key: _Optional[str] = ..., value: _Optional[str] = ...) -> None: ...
+
     NAME_FIELD_NUMBER: _ClassVar[int]
     SCHEDULE_FIELD_NUMBER: _ClassVar[int]
     FILE_NAME_FIELD_NUMBER: _ClassVar[int]
@@ -52,6 +61,7 @@ class CronAggregateBackfill(_message.Message):
     ALLOW_EMPTY_TILES_FIELD_NUMBER: _ClassVar[int]
     TARGETS_FIELD_NUMBER: _ClassVar[int]
     ENVIRONMENT_FIELD_NUMBER: _ClassVar[int]
+    PLANNER_OPTIONS_FIELD_NUMBER: _ClassVar[int]
     name: str
     schedule: str
     file_name: str
@@ -65,6 +75,7 @@ class CronAggregateBackfill(_message.Message):
     allow_empty_tiles: bool
     targets: _containers.RepeatedScalarFieldContainer[CronAggregateBackfillTarget]
     environment: str
+    planner_options: _containers.ScalarMap[str, str]
     def __init__(
         self,
         name: _Optional[str] = ...,
@@ -80,4 +91,5 @@ class CronAggregateBackfill(_message.Message):
         allow_empty_tiles: bool = ...,
         targets: _Optional[_Iterable[_Union[CronAggregateBackfillTarget, str]]] = ...,
         environment: _Optional[str] = ...,
+        planner_options: _Optional[_Mapping[str, str]] = ...,
     ) -> None: ...

@@ -26,8 +26,6 @@
 
 #include <memory>
 
-#include "absl/functional/any_invocable.h"
-
 namespace grpc {
 namespace experimental {
 /// Create a new \em custom virtual \a Channel using \a call.
@@ -44,11 +42,8 @@ std::shared_ptr<Channel> CreateVirtualChannel(grpc::internal::Call call);
 ///
 /// \param call The call object to create the virtual channel from.
 /// \param args Options for channel creation.
-/// \param goaway_callback Callback to be invoked when the channel receives a
-/// GOAWAY.
-std::shared_ptr<Channel> CreateVirtualChannel(
-    grpc::internal::Call call, const ChannelArguments& args,
-    absl::AnyInvocable<void()> goaway_callback = nullptr);
+std::shared_ptr<Channel> CreateVirtualChannel(grpc::internal::Call call,
+                                              const ChannelArguments& args);
 }  // namespace experimental
 }  // namespace grpc
 

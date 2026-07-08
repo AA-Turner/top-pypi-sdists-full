@@ -1,7 +1,5 @@
 from __future__ import annotations
 
-import typing
-import warnings
 from contextlib import nullcontext
 from os import PathLike
 from pathlib import Path
@@ -17,7 +15,8 @@ from testing.anndata._doctest import doctest_needs
 from ..._core.anndata import AnnData
 from ..._core.xarray import requires_xarray
 from ..._settings import settings
-from ...compat import ZarrGroup, is_zarr_v2
+from ...compat import ZarrGroup
+from ...utils import get_literal_members, warn
 from .. import read_dispatched
 
 if TYPE_CHECKING:
@@ -25,6 +24,9 @@ if TYPE_CHECKING:
 
     from anndata._io.specs.registry import IOSpec
     from anndata._types import Read, StorageType
+
+
+ANNDATA_ELEMS: tuple[AnnDataElem, ...] = get_literal_members(AnnDataElem)
 
 
 @doctest_needs("xarray")
@@ -105,13 +107,11 @@ def read_lazy(
         import zarr
 
         if not isinstance(store, ZarrGroup):
-            # v3 returns a ValueError for consolidated metadata not found
-            err_cls = KeyError if is_zarr_v2() else ValueError
             try:
                 f = zarr.open_consolidated(store, mode="r")
-            except err_cls:
+            except ValueError:
                 msg = "Did not read zarr as consolidated. Consider consolidating your metadata."
-                warnings.warn(msg, UserWarning, stacklevel=2)
+                warn(msg, UserWarning)
                 has_keys = False
                 f = zarr.open_group(store, mode="r")
         else:
@@ -126,13 +126,11 @@ def read_lazy(
             iter_object = (
                 dict(elem).items()
                 if has_keys
-                else (
+                else tuple(
                     (k, v)
-                    for k, v in (
-                        (k, elem.get(k, None)) for k in typing.get_args(AnnDataElem)
-                    )
-                    if v
-                    is not None  # need to do this instead of `k in elem` to prevent unnecessary metadata accesses
+                    for k, v in ((k, elem.get(k, None)) for k in ANNDATA_ELEMS)
+                    # need to do this instead of `k in elem` to prevent unnecessary metadata accesses
+                    if v is not None
                 )
             )
             return AnnData(**{k: read_dispatched(v, callback) for k, v in iter_object})

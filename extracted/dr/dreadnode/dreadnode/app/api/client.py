@@ -933,6 +933,152 @@ class ApiClient:
         self.request("DELETE", f"/org/{org}/ws/{workspace}/projects/{project}")
 
     # =========================================================================
+    # Items (structured records emitted by agents)
+    # =========================================================================
+
+    def create_item(
+        self,
+        org: str,
+        workspace: str,
+        project: str,
+        *,
+        item_type: str,
+        data: dict[str, t.Any],
+        ref: str | None = None,
+        title: str | None = None,
+        status: str | None = None,
+        notes: str | None = None,
+        session_id: str | None = None,
+        trace_id: str | None = None,
+        span_id: str | None = None,
+        capability: str | None = None,
+        capability_version: str | None = None,
+        schema_ref: str | None = None,
+        source: str = "runtime",
+        dedupe_key: str | None = None,
+        links: list[dict[str, t.Any]] | None = None,
+    ) -> dict[str, t.Any]:
+        """POST /org/{org}/ws/{workspace}/projects/{project}/items - Create an item.
+
+        Used by the runtime ``report_item`` tool to emit structured records
+        (findings, assets, …) during a run. ``dedupe_key`` makes the create
+        idempotent so a retry or later span-extraction reconciles to one row.
+        ``status``/``notes`` populate the mutable disposition overlay (a finding's
+        severity lives in ``data``). ``links`` are inline
+        ``{"target_item_id"/"target_ref", "relationship"}`` edges created with the
+        item. Returns the created item dict (including its ``id``).
+        """
+        payload: dict[str, t.Any] = {
+            "item_type": item_type,
+            "data": data,
+            "source": source,
+        }
+        if ref is not None:
+            payload["ref"] = ref
+        if dedupe_key is not None:
+            payload["dedupe_key"] = dedupe_key
+        if title is not None:
+            payload["title"] = title
+        if status is not None:
+            payload["status"] = status
+        if notes is not None:
+            payload["notes"] = notes
+        if session_id is not None:
+            payload["session_id"] = session_id
+        if trace_id is not None:
+            payload["trace_id"] = trace_id
+        if span_id is not None:
+            payload["span_id"] = span_id
+        if capability is not None:
+            payload["capability"] = capability
+        if capability_version is not None:
+            payload["capability_version"] = capability_version
+        if schema_ref is not None:
+            payload["schema_ref"] = schema_ref
+        if links:
+            payload["links"] = links
+
+        response = self.request(
+            "POST",
+            f"/org/{org}/ws/{workspace}/projects/{project}/items",
+            json_data=payload,
+        )
+        return t.cast("dict[str, t.Any]", response.json())
+
+    def resolve_item_ref(self, org: str, workspace: str, project: str, ref: str) -> str | None:
+        """Resolve an agent-assigned ref to an item id, or None if not found."""
+        response = self.request(
+            "GET",
+            f"/org/{org}/ws/{workspace}/projects/{project}/items",
+            params={"ref": ref, "limit": 1},
+        )
+        items = response.json().get("items", [])
+        return str(items[0]["id"]) if items else None
+
+    def update_item(
+        self,
+        org: str,
+        workspace: str,
+        project: str,
+        item_id: str,
+        *,
+        data: dict[str, t.Any] | None = None,
+        title: str | None = None,
+        status: str | None = None,
+        notes: str | None = None,
+    ) -> dict[str, t.Any]:
+        """PATCH …/projects/{project}/items/{item_id} - Edit an item.
+
+        ``data`` is a partial patch: provided keys are shallow-merged onto the
+        existing payload then re-validated (so e.g. a finding's ``severity`` can
+        be patched alone; omitted keys are unchanged, not deleted). ``title``
+        updates the promoted label; ``status``/``notes`` route into the mutable
+        disposition overlay. Only provided fields change.
+        """
+        payload: dict[str, t.Any] = {}
+        if data is not None:
+            payload["data"] = data
+        if title is not None:
+            payload["title"] = title
+        if status is not None:
+            payload["status"] = status
+        if notes is not None:
+            payload["notes"] = notes
+        response = self.request(
+            "PATCH",
+            f"/org/{org}/ws/{workspace}/projects/{project}/items/{item_id}",
+            json_data=payload,
+        )
+        return t.cast("dict[str, t.Any]", response.json())
+
+    def create_item_link(
+        self,
+        org: str,
+        workspace: str,
+        project: str,
+        item_id: str,
+        *,
+        target_item_id: str | None = None,
+        target_ref: str | None = None,
+        relationship: str,
+    ) -> dict[str, t.Any]:
+        """POST …/items/{item_id}/links - Link this item to another (same project).
+
+        Target by id or agent-assigned ref (exactly one).
+        """
+        body: dict[str, t.Any] = {"relationship": relationship}
+        if target_ref is not None:
+            body["target_ref"] = target_ref
+        else:
+            body["target_item_id"] = target_item_id
+        response = self.request(
+            "POST",
+            f"/org/{org}/ws/{workspace}/projects/{project}/items/{item_id}/links",
+            json_data=body,
+        )
+        return t.cast("dict[str, t.Any]", response.json())
+
+    # =========================================================================
     # Project Memory
     # =========================================================================
 
@@ -2128,6 +2274,19 @@ class ApiClient:
         )
         return response.content
 
+    def get_capability_readme(
+        self, org: str, name: str, version: str | None = None
+    ) -> dict[str, t.Any]:
+        """GET /org/{org}/capabilities/{name}[/{version}]/readme - Fetch bundle README."""
+        safe_name = _url_quote(name, safe="")
+        path = (
+            f"/org/{org}/capabilities/{safe_name}/{version}/readme"
+            if version
+            else f"/org/{org}/capabilities/{safe_name}/readme"
+        )
+        response = self.request("GET", path)
+        return t.cast("dict[str, t.Any]", response.json())
+
     def get_capability_bundle_url(self, org: str, name: str, version: str) -> dict[str, t.Any]:
         """GET /org/{org}/capabilities/{name}/{version}/bundle - Get bundle download URL."""
         response = self.request("GET", f"/org/{org}/capabilities/{name}/{version}/bundle")
@@ -2334,6 +2493,11 @@ class ApiClient:
         response = self.request("GET", f"/org/{org}/tasks/{name}/versions")
         return t.cast("dict[str, t.Any]", response.json())
 
+    def get_task_readme(self, org: str, name: str) -> dict[str, t.Any]:
+        """GET /org/{org}/tasks/{name}/readme - Fetch task archive README."""
+        response = self.request("GET", f"/org/{org}/tasks/{name}/readme")
+        return t.cast("dict[str, t.Any]", response.json())
+
     def get_task_instruction(
         self,
         org: str,
@@ -2473,6 +2637,7 @@ class ApiClient:
         message_count: int = 0,
         project_id: str | None = None,
         runtime_id: str | None = None,
+        group_id: str | None = None,
         labels: dict[str, list[str]] | None = None,
         visibility: t.Literal["private", "workspace"] = "private",
         origin: t.Literal["user", "eval", "worker"] = "user",
@@ -2496,9 +2661,81 @@ class ApiClient:
             payload["project_id"] = project_id
         if runtime_id is not None:
             payload["runtime_id"] = runtime_id
+        if group_id is not None:
+            payload["group_id"] = group_id
         if labels is not None:
             payload["labels"] = labels
         response = self.request("POST", f"/org/{org}/ws/{workspace}/sessions", json_data=payload)
+        return t.cast("dict[str, t.Any]", response.json())
+
+    def create_session_group(
+        self,
+        org: str,
+        workspace: str,
+        *,
+        project_id: str,
+        kind: t.Literal["worker_run", "evaluation_item", "workflow"] = "workflow",
+        title: str | None = None,
+        status: t.Literal["running", "completed", "failed", "cancelled"] | None = "running",
+        runtime_id: str | None = None,
+        capability: str | None = None,
+        capability_version: str | None = None,
+        worker: str | None = None,
+        evaluation_id: str | None = None,
+        evaluation_item_id: str | None = None,
+        evaluation_item_attempt_id: str | None = None,
+        metadata: dict[str, t.Any] | None = None,
+    ) -> dict[str, t.Any]:
+        """POST /org/{org}/ws/{workspace}/sessions/groups - Create a group."""
+        payload: dict[str, t.Any] = {
+            "kind": kind,
+            "project_id": project_id,
+            "status": status,
+            "metadata": metadata or {},
+        }
+        if title is not None:
+            payload["title"] = title
+        if runtime_id is not None:
+            payload["runtime_id"] = runtime_id
+        if capability is not None:
+            payload["capability"] = capability
+        if capability_version is not None:
+            payload["capability_version"] = capability_version
+        if worker is not None:
+            payload["worker"] = worker
+        if evaluation_id is not None:
+            payload["evaluation_id"] = evaluation_id
+        if evaluation_item_id is not None:
+            payload["evaluation_item_id"] = evaluation_item_id
+        if evaluation_item_attempt_id is not None:
+            payload["evaluation_item_attempt_id"] = evaluation_item_attempt_id
+        response = self.request(
+            "POST",
+            f"/org/{org}/ws/{workspace}/sessions/groups",
+            json_data=payload,
+        )
+        return t.cast("dict[str, t.Any]", response.json())
+
+    def update_session_group(
+        self,
+        org: str,
+        workspace: str,
+        group_id: str,
+        *,
+        title: str | None = None,
+        status: t.Literal["running", "completed", "failed", "cancelled"] | None = None,
+    ) -> dict[str, t.Any]:
+        """PATCH /org/{org}/ws/{workspace}/sessions/groups/{id}."""
+        payload: dict[str, t.Any] = {}
+        if title is not None:
+            payload["title"] = title
+        if status is not None:
+            payload["status"] = status
+        response = self.request(
+            "PATCH",
+            f"/org/{org}/ws/{workspace}/sessions/groups/{group_id}",
+            json_data=payload,
+        )
         return t.cast("dict[str, t.Any]", response.json())
 
     def update_session(

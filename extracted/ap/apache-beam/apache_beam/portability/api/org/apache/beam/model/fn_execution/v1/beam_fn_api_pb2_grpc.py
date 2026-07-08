@@ -50,6 +50,9 @@ class BeamFnControlServicer(object):
     def Control(self, request_iterator, context):
         """Instructions sent by the runner to the SDK requesting different types
         of work.
+
+        Header metadata has the specified keys pairs:
+        - "worker_id": the id of the sdk
         """
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details('Method not implemented!')
@@ -58,6 +61,9 @@ class BeamFnControlServicer(object):
     def GetProcessBundleDescriptor(self, request, context):
         """Used to get the full process bundle descriptors for bundles one
         is asked to process.
+
+        Header metadata has the specified keys pairs:
+        - "worker_id": the id of the sdk
         """
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details('Method not implemented!')
@@ -152,7 +158,15 @@ class BeamFnDataServicer(object):
     """
 
     def Data(self, request_iterator, context):
-        """Used to send data between harnesses.
+        """Used to send data between harnesses. Sdks default to using an unnamed data stream
+        (without "data_stream_id" header value) for bundles unless the runner requests another named stream to be
+        used for a bundle. SDKs can advertise that they support named data streams with the capability
+        `beam:protocol:named_data_streams:v1`.
+
+        Header metadata has the specified keys pairs:
+        - "worker_id": value is the id of the sdk
+        - "data_stream_id": value is the id of the data stream, distinguishing it from other data streams from the same
+        sdk. This field should only be populated if requested in a received ProcessBundleRequest from the runner.
         """
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details('Method not implemented!')
@@ -216,6 +230,9 @@ class BeamFnStateServicer(object):
 
     def State(self, request_iterator, context):
         """Used to get/append/clear state stored by the runner on behalf of the SDK.
+
+        Header metadata has the specified keys pairs:
+        - "worker_id": the id of the sdk
         """
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details('Method not implemented!')
@@ -281,6 +298,9 @@ class BeamFnLoggingServicer(object):
     def Logging(self, request_iterator, context):
         """Allows for the SDK to emit log entries which the runner can
         associate with the active job.
+
+        Header metadata has the specified keys pairs:
+        - "worker_id": the id of the sdk
         """
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details('Method not implemented!')
@@ -441,7 +461,9 @@ class BeamFnWorkerStatusServicer(object):
     """
 
     def WorkerStatus(self, request_iterator, context):
-        """Missing associated documentation comment in .proto file."""
+        """Header metadata has the specified keys pairs:
+        - "worker_id": the id of the sdk
+        """
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: ipyflow-core
-Version: 0.0.229
+Version: 0.0.230
 Summary: Backend package for ipyflow's dataflow functionality
 Home-page: https://github.com/ipyflow/ipyflow
 Author: Stephen Macke
@@ -31,7 +31,7 @@ Requires-Dist: ipython<8.13; python_version >= "3.8" and python_version < "3.9"
 Requires-Dist: ipython<=7.16; python_version < "3.8"
 Requires-Dist: ipywidgets
 Requires-Dist: nest_asyncio
-Requires-Dist: pyccolo==0.0.86
+Requires-Dist: pyccolo>=0.0.92
 Requires-Dist: traitlets
 Provides-Extra: typecheck
 Requires-Dist: mypy; extra == "typecheck"
@@ -42,7 +42,7 @@ Requires-Dist: isort; extra == "test"
 Requires-Dist: mypy; extra == "test"
 Requires-Dist: numpy; extra == "test"
 Requires-Dist: pandas; extra == "test"
-Requires-Dist: pipescript>=0.0.20; python_version >= "3.9" and extra == "test"
+Requires-Dist: pipescript>=0.0.26; python_version >= "3.9" and extra == "test"
 Requires-Dist: pytest; extra == "test"
 Requires-Dist: pytest-cov; extra == "test"
 Requires-Dist: ruff; extra == "test"
@@ -59,7 +59,7 @@ Requires-Dist: isort; extra == "dev"
 Requires-Dist: mypy; extra == "dev"
 Requires-Dist: numpy; extra == "dev"
 Requires-Dist: pandas; extra == "dev"
-Requires-Dist: pipescript>=0.0.20; python_version >= "3.9" and extra == "dev"
+Requires-Dist: pipescript>=0.0.26; python_version >= "3.9" and extra == "dev"
 Requires-Dist: pytest; extra == "dev"
 Requires-Dist: pytest-cov; extra == "dev"
 Requires-Dist: ruff; extra == "dev"
@@ -75,6 +75,7 @@ Dynamic: license-file
 [![License: BSD3](https://img.shields.io/badge/License-BSD3-maroon.svg)](https://opensource.org/licenses/BSD-3-Clause)
 [![](https://img.shields.io/pypi/v/ipyflow.svg)](https://pypi.org/project/ipyflow)
 ![](https://img.shields.io/pypi/pyversions/ipyflow.svg)
+[![lite-badge](https://jupyterlite.rtfd.io/en/latest/_static/badge.svg)](https://ipyflow.github.io/ipyflow/lab/index.html?path=demo.ipynb)
 
 TL;DR
 -----

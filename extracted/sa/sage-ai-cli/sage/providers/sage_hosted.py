@@ -507,6 +507,8 @@ class SageHostedProvider(ProviderBase):
                 httpx.WriteTimeout,
             ) as exc:
                 _last_exc = exc
+                with open("/tmp/debug_provider.txt", "a") as f:
+                    f.write("Caught protocol exc: " + repr(exc) + " for " + self._api_base + "\n")
                 if _attempt < _MAX_RETRIES - 1:
                     continue
             except RuntimeError as exc:
@@ -520,6 +522,8 @@ class SageHostedProvider(ProviderBase):
                     "service unavailable", "gateway timeout",
                     "overloaded", "rate limit", "timeout",
                 ))
+                with open("/tmp/debug_provider.txt", "a") as f:
+                    f.write("Caught RuntimeError: " + repr(exc) + " retryable: " + str(_retryable) + "\n")
                 if "is not deployed" in _exc_msg:
                     _retryable = False
                 if _retryable:

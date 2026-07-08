@@ -9,6 +9,7 @@ import google.protobuf.internal.enum_type_wrapper
 import google.protobuf.message
 import google.protobuf.timestamp_pb2
 import sentry_protos.billing.v1.common.v1.payment_config_pb2
+import sentry_protos.billing.v1.common.v1.stripe_charge_pb2
 import sys
 import typing
 
@@ -37,6 +38,8 @@ class _ChargeMethodEnumTypeWrapper(google.protobuf.internal.enum_type_wrapper._E
     """
     CHARGE_METHOD_STRIPE: _ChargeMethod.ValueType  # 2
     """Call the Stripe API to bill the customer for this charge."""
+    CHARGE_METHOD_STRIPE_PAYMENT_INTENT: _ChargeMethod.ValueType  # 3
+    """Record an already-succeeded Stripe charge without calling Stripe."""
 
 class ChargeMethod(_ChargeMethod, metaclass=_ChargeMethodEnumTypeWrapper):
     """How the charge should be executed against the payment provider."""
@@ -53,6 +56,8 @@ externally.
 """
 CHARGE_METHOD_STRIPE: ChargeMethod.ValueType  # 2
 """Call the Stripe API to bill the customer for this charge."""
+CHARGE_METHOD_STRIPE_PAYMENT_INTENT: ChargeMethod.ValueType  # 3
+"""Record an already-succeeded Stripe charge without calling Stripe."""
 global___ChargeMethod = ChargeMethod
 
 @typing.final
@@ -67,6 +72,7 @@ class CaptureChargeRequest(google.protobuf.message.Message):
     INVOICE_ID_FIELD_NUMBER: builtins.int
     INVOICE_GUID_FIELD_NUMBER: builtins.int
     PAYMENT_CONFIG_FIELD_NUMBER: builtins.int
+    STRIPE_CHARGE_FIELD_NUMBER: builtins.int
     charge_method: global___ChargeMethod.ValueType
     amount_cents: builtins.int
     description: builtins.str
@@ -77,6 +83,10 @@ class CaptureChargeRequest(google.protobuf.message.Message):
     def current_ts(self) -> google.protobuf.timestamp_pb2.Timestamp: ...
     @property
     def payment_config(self) -> sentry_protos.billing.v1.common.v1.payment_config_pb2.PaymentConfig: ...
+    @property
+    def stripe_charge(self) -> sentry_protos.billing.v1.common.v1.stripe_charge_pb2.StripeCharge:
+        """Required when charge_method is CHARGE_METHOD_STRIPE_PAYMENT_INTENT."""
+
     def __init__(
         self,
         *,
@@ -88,9 +98,10 @@ class CaptureChargeRequest(google.protobuf.message.Message):
         invoice_id: builtins.str | None = ...,
         invoice_guid: builtins.str | None = ...,
         payment_config: sentry_protos.billing.v1.common.v1.payment_config_pb2.PaymentConfig | None = ...,
+        stripe_charge: sentry_protos.billing.v1.common.v1.stripe_charge_pb2.StripeCharge | None = ...,
     ) -> None: ...
-    def HasField(self, field_name: typing.Literal["_description", b"_description", "_invoice_guid", b"_invoice_guid", "_invoice_id", b"_invoice_id", "_payment_config", b"_payment_config", "current_ts", b"current_ts", "description", b"description", "invoice_guid", b"invoice_guid", "invoice_id", b"invoice_id", "payment_config", b"payment_config"]) -> builtins.bool: ...
-    def ClearField(self, field_name: typing.Literal["_description", b"_description", "_invoice_guid", b"_invoice_guid", "_invoice_id", b"_invoice_id", "_payment_config", b"_payment_config", "amount_cents", b"amount_cents", "charge_method", b"charge_method", "current_ts", b"current_ts", "description", b"description", "invoice_guid", b"invoice_guid", "invoice_id", b"invoice_id", "organization_id", b"organization_id", "payment_config", b"payment_config"]) -> None: ...
+    def HasField(self, field_name: typing.Literal["_description", b"_description", "_invoice_guid", b"_invoice_guid", "_invoice_id", b"_invoice_id", "_payment_config", b"_payment_config", "_stripe_charge", b"_stripe_charge", "current_ts", b"current_ts", "description", b"description", "invoice_guid", b"invoice_guid", "invoice_id", b"invoice_id", "payment_config", b"payment_config", "stripe_charge", b"stripe_charge"]) -> builtins.bool: ...
+    def ClearField(self, field_name: typing.Literal["_description", b"_description", "_invoice_guid", b"_invoice_guid", "_invoice_id", b"_invoice_id", "_payment_config", b"_payment_config", "_stripe_charge", b"_stripe_charge", "amount_cents", b"amount_cents", "charge_method", b"charge_method", "current_ts", b"current_ts", "description", b"description", "invoice_guid", b"invoice_guid", "invoice_id", b"invoice_id", "organization_id", b"organization_id", "payment_config", b"payment_config", "stripe_charge", b"stripe_charge"]) -> None: ...
     @typing.overload
     def WhichOneof(self, oneof_group: typing.Literal["_description", b"_description"]) -> typing.Literal["description"] | None: ...
     @typing.overload
@@ -99,6 +110,8 @@ class CaptureChargeRequest(google.protobuf.message.Message):
     def WhichOneof(self, oneof_group: typing.Literal["_invoice_id", b"_invoice_id"]) -> typing.Literal["invoice_id"] | None: ...
     @typing.overload
     def WhichOneof(self, oneof_group: typing.Literal["_payment_config", b"_payment_config"]) -> typing.Literal["payment_config"] | None: ...
+    @typing.overload
+    def WhichOneof(self, oneof_group: typing.Literal["_stripe_charge", b"_stripe_charge"]) -> typing.Literal["stripe_charge"] | None: ...
 
 global___CaptureChargeRequest = CaptureChargeRequest
 

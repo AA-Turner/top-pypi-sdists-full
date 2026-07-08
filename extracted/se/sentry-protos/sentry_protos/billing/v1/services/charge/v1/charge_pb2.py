@@ -24,7 +24,7 @@ _sym_db = _symbol_database.Default()
 
 
 
-DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n8sentry_protos/billing/v1/services/charge/v1/charge.proto\x12+sentry_protos.billing.v1.services.charge.v1\"\xd9\x02\n\x0ePlatformCharge\x12\x11\n\tstripe_id\x18\x01 \x01(\t\x12\x17\n\x0forganization_id\x18\x02 \x01(\x04\x12\x17\n\ninvoice_id\x18\x03 \x01(\x04H\x00\x88\x01\x01\x12\x0c\n\x04paid\x18\x04 \x01(\x08\x12\x0e\n\x06\x61mount\x18\x05 \x01(\x04\x12\x19\n\x0c\x66\x61ilure_code\x18\x06 \x01(\tH\x01\x88\x01\x01\x12\x14\n\x08refunded\x18\x07 \x01(\x08\x42\x02\x18\x01\x12\x1b\n\x0f\x61mount_refunded\x18\x08 \x01(\x04\x42\x02\x18\x01\x12\x18\n\x0b\x63\x61rd_last_4\x18\t \x01(\tH\x02\x88\x01\x01\x12L\n\x07refunds\x18\n \x03(\x0b\x32;.sentry_protos.billing.v1.services.charge.v1.PlatformRefundB\r\n\x0b_invoice_idB\x0f\n\r_failure_codeB\x0e\n\x0c_card_last_4\"\xa3\x01\n\x0ePlatformRefund\x12\x11\n\tstripe_id\x18\x01 \x01(\t\x12\x17\n\x0forganization_id\x18\x02 \x01(\x04\x12\x14\n\x0c\x61mount_cents\x18\x03 \x01(\x04\x12\x13\n\x06reason\x18\x04 \x01(\tH\x00\x88\x01\x01\x12\x15\n\rdate_added_st\x18\x05 \x01(\x03\x12\x18\n\x10stripe_charge_id\x18\x06 \x01(\tB\t\n\x07_reasonb\x06proto3')
+DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n8sentry_protos/billing/v1/services/charge/v1/charge.proto\x12+sentry_protos.billing.v1.services.charge.v1\"\xf0\x02\n\x0ePlatformCharge\x12\x11\n\tstripe_id\x18\x01 \x01(\t\x12\x17\n\x0forganization_id\x18\x02 \x01(\x04\x12\x17\n\ninvoice_id\x18\x03 \x01(\x04H\x00\x88\x01\x01\x12\x0c\n\x04paid\x18\x04 \x01(\x08\x12\x0e\n\x06\x61mount\x18\x05 \x01(\x04\x12\x19\n\x0c\x66\x61ilure_code\x18\x06 \x01(\tH\x01\x88\x01\x01\x12\x14\n\x08refunded\x18\x07 \x01(\x08\x42\x02\x18\x01\x12\x1b\n\x0f\x61mount_refunded\x18\x08 \x01(\x04\x42\x02\x18\x01\x12\x18\n\x0b\x63\x61rd_last_4\x18\t \x01(\tH\x02\x88\x01\x01\x12L\n\x07refunds\x18\n \x03(\x0b\x32;.sentry_protos.billing.v1.services.charge.v1.PlatformRefund\x12\x15\n\rdate_added_st\x18\x0b \x01(\x03\x42\r\n\x0b_invoice_idB\x0f\n\r_failure_codeB\x0e\n\x0c_card_last_4\"\xa3\x01\n\x0ePlatformRefund\x12\x11\n\tstripe_id\x18\x01 \x01(\t\x12\x17\n\x0forganization_id\x18\x02 \x01(\x04\x12\x14\n\x0c\x61mount_cents\x18\x03 \x01(\x04\x12\x13\n\x06reason\x18\x04 \x01(\tH\x00\x88\x01\x01\x12\x15\n\rdate_added_st\x18\x05 \x01(\x03\x12\x18\n\x10stripe_charge_id\x18\x06 \x01(\tB\t\n\x07_reasonb\x06proto3')
 
 _globals = globals()
 _builder.BuildMessageAndEnumDescriptors(DESCRIPTOR, _globals)
@@ -36,7 +36,7 @@ if not _descriptor._USE_C_DESCRIPTORS:
   _globals['_PLATFORMCHARGE'].fields_by_name['amount_refunded']._loaded_options = None
   _globals['_PLATFORMCHARGE'].fields_by_name['amount_refunded']._serialized_options = b'\030\001'
   _globals['_PLATFORMCHARGE']._serialized_start=106
-  _globals['_PLATFORMCHARGE']._serialized_end=451
-  _globals['_PLATFORMREFUND']._serialized_start=454
-  _globals['_PLATFORMREFUND']._serialized_end=617
+  _globals['_PLATFORMCHARGE']._serialized_end=474
+  _globals['_PLATFORMREFUND']._serialized_start=477
+  _globals['_PLATFORMREFUND']._serialized_end=640
 # @@protoc_insertion_point(module_scope)

@@ -2074,6 +2074,7 @@ if TYPE_CHECKING:
         ParetoRouterPlugin,
         ParetoRouterPluginID,
         ParetoRouterPluginTypedDict,
+        PriceSource,
     )
     from .payloadtoolargeresponseerrordata import (
         PayloadTooLargeResponseErrorData,
@@ -2365,10 +2366,10 @@ if TYPE_CHECKING:
         ShellServerToolEnvironmentTypedDict,
     )
     from .speechrequest import (
-        ResponseFormatEnum,
         SpeechRequest,
         SpeechRequestProvider,
         SpeechRequestProviderTypedDict,
+        SpeechRequestResponseFormat,
         SpeechRequestTypedDict,
     )
     from .stopservertoolswhencondition import (
@@ -2442,10 +2443,14 @@ if TYPE_CHECKING:
         STTRequest,
         STTRequestProvider,
         STTRequestProviderTypedDict,
+        STTRequestResponseFormat,
         STTRequestTypedDict,
     )
     from .sttresponse import STTResponse, STTResponseTypedDict
+    from .sttsegment import STTSegment, STTSegmentTypedDict
+    from .stttimestampgranularity import STTTimestampGranularity
     from .sttusage import STTUsage, STTUsageTypedDict
+    from .sttword import STTWord, STTWordTypedDict
     from .subagentnestedtool import SubagentNestedTool, SubagentNestedToolTypedDict
     from .subagentreasoning import (
         SubagentReasoning,
@@ -4192,6 +4197,7 @@ __all__ = [
     "PreviewWebSearchUserLocation",
     "PreviewWebSearchUserLocationType",
     "PreviewWebSearchUserLocationTypedDict",
+    "PriceSource",
     "Pricing",
     "PricingTypedDict",
     "PromptInjectionScanScope",
@@ -4294,7 +4300,6 @@ __all__ = [
     "ResetInterval",
     "Response",
     "ResponseFormat",
-    "ResponseFormatEnum",
     "ResponseFormatTypedDict",
     "ResponseHealingPlugin",
     "ResponseHealingPluginID",
@@ -4332,11 +4337,17 @@ __all__ = [
     "STTRequest",
     "STTRequestProvider",
     "STTRequestProviderTypedDict",
+    "STTRequestResponseFormat",
     "STTRequestTypedDict",
     "STTResponse",
     "STTResponseTypedDict",
+    "STTSegment",
+    "STTSegmentTypedDict",
+    "STTTimestampGranularity",
     "STTUsage",
     "STTUsageTypedDict",
+    "STTWord",
+    "STTWordTypedDict",
     "SearchContextSizeEnum",
     "SearchModelsServerToolConfig",
     "SearchModelsServerToolConfigTypedDict",
@@ -4382,6 +4393,7 @@ __all__ = [
     "SpeechRequest",
     "SpeechRequestProvider",
     "SpeechRequestProviderTypedDict",
+    "SpeechRequestResponseFormat",
     "SpeechRequestTypedDict",
     "Speed",
     "Stance",
@@ -6262,6 +6274,7 @@ _dynamic_imports: dict[str, str] = {
     "ParetoRouterPlugin": ".paretorouterplugin",
     "ParetoRouterPluginID": ".paretorouterplugin",
     "ParetoRouterPluginTypedDict": ".paretorouterplugin",
+    "PriceSource": ".paretorouterplugin",
     "PayloadTooLargeResponseErrorData": ".payloadtoolargeresponseerrordata",
     "PayloadTooLargeResponseErrorDataTypedDict": ".payloadtoolargeresponseerrordata",
     "PaymentRequiredResponseErrorData": ".paymentrequiredresponseerrordata",
@@ -6468,10 +6481,10 @@ _dynamic_imports: dict[str, str] = {
     "ShellServerToolEngine": ".shellservertoolengine",
     "ShellServerToolEnvironment": ".shellservertoolenvironment",
     "ShellServerToolEnvironmentTypedDict": ".shellservertoolenvironment",
-    "ResponseFormatEnum": ".speechrequest",
     "SpeechRequest": ".speechrequest",
     "SpeechRequestProvider": ".speechrequest",
     "SpeechRequestProviderTypedDict": ".speechrequest",
+    "SpeechRequestResponseFormat": ".speechrequest",
     "SpeechRequestTypedDict": ".speechrequest",
     "StopServerToolsWhenCondition": ".stopservertoolswhencondition",
     "StopServerToolsWhenConditionTypedDict": ".stopservertoolswhencondition",
@@ -6521,11 +6534,17 @@ _dynamic_imports: dict[str, str] = {
     "STTRequest": ".sttrequest",
     "STTRequestProvider": ".sttrequest",
     "STTRequestProviderTypedDict": ".sttrequest",
+    "STTRequestResponseFormat": ".sttrequest",
     "STTRequestTypedDict": ".sttrequest",
     "STTResponse": ".sttresponse",
     "STTResponseTypedDict": ".sttresponse",
+    "STTSegment": ".sttsegment",
+    "STTSegmentTypedDict": ".sttsegment",
+    "STTTimestampGranularity": ".stttimestampgranularity",
     "STTUsage": ".sttusage",
     "STTUsageTypedDict": ".sttusage",
+    "STTWord": ".sttword",
+    "STTWordTypedDict": ".sttword",
     "SubagentNestedTool": ".subagentnestedtool",
     "SubagentNestedToolTypedDict": ".subagentnestedtool",
     "SubagentReasoning": ".subagentreasoning",

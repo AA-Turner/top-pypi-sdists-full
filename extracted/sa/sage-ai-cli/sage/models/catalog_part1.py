@@ -1,9 +1,9 @@
 from __future__ import annotations
+
 from sage.models.catalog_base import CatalogModel, _gcs_url, _hf_url
 
 MODEL_CATALOG_PART1: list[CatalogModel] = [
-    # ── Meta Llama ──────────────────────────────────────────
-    CatalogModel(
+CatalogModel(
         name="llama3.2-1b",
         display_name="Llama 3.2 1B",
         filename="Llama-3.2-1B-Instruct-Q4_K_M.gguf",
@@ -13,7 +13,7 @@ MODEL_CATALOG_PART1: list[CatalogModel] = [
         family="Llama",
         description="Meta's tiny Llama — fast, good for simple coding",
     ),
-    CatalogModel(
+CatalogModel(
         name="llama3.2-3b",
         display_name="Llama 3.2 3B",
         filename="Llama-3.2-3B-Instruct-Q4_K_M.gguf",
@@ -24,7 +24,7 @@ MODEL_CATALOG_PART1: list[CatalogModel] = [
         description="Meta Llama 3.2 3B — solid coding ability",
         default=True,
     ),
-    CatalogModel(
+CatalogModel(
         name="llama3.1-8b",
         display_name="Llama 3.1 8B",
         filename="Meta-Llama-3.1-8B-Instruct-Q4_K_M.gguf",
@@ -34,8 +34,7 @@ MODEL_CATALOG_PART1: list[CatalogModel] = [
         family="Llama",
         description="Meta Llama 3.1 8B — strong general + coding",
     ),
-    # ── Alibaba Qwen (Coder) ───────────────────────────────
-    CatalogModel(
+CatalogModel(
         name="qwen2.5-coder-1.5b",
         display_name="Qwen 2.5 Coder 1.5B",
         filename="Qwen2.5-Coder-1.5B-Instruct-Q4_K_M.gguf",
@@ -45,7 +44,7 @@ MODEL_CATALOG_PART1: list[CatalogModel] = [
         family="Qwen",
         description="Alibaba's coding model — best code quality for its size",
     ),
-    CatalogModel(
+CatalogModel(
         name="qwen2.5-coder-3b",
         display_name="Qwen 2.5 Coder 3B",
         filename="Qwen2.5-Coder-3B-Instruct-Q4_K_M.gguf",
@@ -55,7 +54,7 @@ MODEL_CATALOG_PART1: list[CatalogModel] = [
         family="Qwen",
         description="Qwen Coder 3B — excellent code generation",
     ),
-    CatalogModel(
+CatalogModel(
         name="qwen2.5-coder-7b",
         display_name="Qwen 2.5 Coder 7B",
         filename="Qwen2.5-Coder-7B-Instruct-Q4_K_M.gguf",
@@ -66,7 +65,7 @@ MODEL_CATALOG_PART1: list[CatalogModel] = [
         description="Qwen Coder 7B — top-tier coding, rivals GPT-3.5",
         default=True,
     ),
-    CatalogModel(
+CatalogModel(
         name="qwen2.5-7b",
         display_name="Qwen 2.5 7B",
         filename="Qwen2.5-7B-Instruct-Q4_K_M.gguf",
@@ -76,8 +75,7 @@ MODEL_CATALOG_PART1: list[CatalogModel] = [
         family="Qwen",
         description="Qwen 2.5 7B — strong general-purpose + reasoning",
     ),
-    # ── DeepSeek ────────────────────────────────────────────
-    CatalogModel(
+CatalogModel(
         name="deepseek-r1-1.5b",
         display_name="DeepSeek R1 Distill Qwen 1.5B",
         filename="DeepSeek-R1-Distill-Qwen-1.5B-Q4_K_M.gguf",
@@ -87,7 +85,7 @@ MODEL_CATALOG_PART1: list[CatalogModel] = [
         family="DeepSeek",
         description="DeepSeek R1 reasoning distilled into tiny model",
     ),
-    CatalogModel(
+CatalogModel(
         name="deepseek-r1-7b",
         display_name="DeepSeek R1 Distill Qwen 7B",
         filename="DeepSeek-R1-Distill-Qwen-7B-Q4_K_M.gguf",
@@ -98,8 +96,7 @@ MODEL_CATALOG_PART1: list[CatalogModel] = [
         description="DeepSeek R1 reasoning — strong chain-of-thought",
         default=True,
     ),
-    # ── Mistral ─────────────────────────────────────────────
-    CatalogModel(
+CatalogModel(
         name="mistral-7b",
         display_name="Mistral 7B Instruct v0.3",
         filename="Mistral-7B-Instruct-v0.3-Q4_K_M.gguf",
@@ -109,8 +106,7 @@ MODEL_CATALOG_PART1: list[CatalogModel] = [
         family="Mistral",
         description="Mistral 7B v0.3 — fast, strong general model",
     ),
-    # ── Google CodeGemma ────────────────────────────────────
-    CatalogModel(
+CatalogModel(
         name="codegemma-7b",
         display_name="CodeGemma 7B Instruct",
         filename="codegemma-7b-it-Q4_K_M.gguf",
@@ -120,8 +116,7 @@ MODEL_CATALOG_PART1: list[CatalogModel] = [
         family="Gemma",
         description="Google CodeGemma — specifically trained for code tasks",
     ),
-    # ── TinyLlama (ultra-fast) ──────────────────────────────
-    CatalogModel(
+CatalogModel(
         name="tinyllama-1.1b",
         display_name="TinyLlama 1.1B Chat",
         filename="tinyllama-1.1b-chat-v1.0.Q4_K_M.gguf",
@@ -131,8 +126,7 @@ MODEL_CATALOG_PART1: list[CatalogModel] = [
         family="TinyLlama",
         description="Ultra-fast tiny model — good for quick tasks",
     ),
-    # ── HuggingFace SmolLM2 ────────────────────────────────
-    CatalogModel(
+CatalogModel(
         name="smollm2-1.7b",
         display_name="SmolLM2 1.7B Instruct",
         filename="SmolLM2-1.7B-Instruct-Q4_K_M.gguf",
@@ -142,8 +136,7 @@ MODEL_CATALOG_PART1: list[CatalogModel] = [
         family="SmolLM",
         description="HuggingFace SmolLM2 — small but surprisingly capable",
     ),
-    # ── 01.AI Yi Coder ─────────────────────────────────────
-    CatalogModel(
+CatalogModel(
         name="yi-coder-1.5b",
         display_name="Yi Coder 1.5B Chat",
         filename="Yi-Coder-1.5B-Chat-Q4_K_M.gguf",
@@ -153,7 +146,7 @@ MODEL_CATALOG_PART1: list[CatalogModel] = [
         family="Yi",
         description="01.AI Yi Coder — tiny but code-focused",
     ),
-    CatalogModel(
+CatalogModel(
         name="yi-coder-9b",
         display_name="Yi Coder 9B Chat",
         filename="Yi-Coder-9B-Chat-Q4_K_M.gguf",
@@ -163,8 +156,7 @@ MODEL_CATALOG_PART1: list[CatalogModel] = [
         family="Yi",
         description="01.AI Yi Coder 9B — strong code-focused model",
     ),
-    # ── Qwen Extended ──────────────────────────────────────
-    CatalogModel(
+CatalogModel(
         name="qwen2.5-coder-14b",
         display_name="Qwen 2.5 Coder 14B",
         filename="Qwen2.5-Coder-14B-Instruct-Q4_K_M.gguf",
@@ -174,7 +166,7 @@ MODEL_CATALOG_PART1: list[CatalogModel] = [
         family="Qwen",
         description="Qwen Coder 14B — excellent code generation",
     ),
-    CatalogModel(
+CatalogModel(
         name="qwen2.5-14b",
         display_name="Qwen 2.5 14B",
         filename="Qwen2.5-14B-Instruct-Q4_K_M.gguf",
@@ -184,7 +176,7 @@ MODEL_CATALOG_PART1: list[CatalogModel] = [
         family="Qwen",
         description="Qwen 2.5 14B — strong general-purpose + reasoning",
     ),
-    CatalogModel(
+CatalogModel(
         name="qwen2.5-32b",
         display_name="Qwen 2.5 32B",
         filename="Qwen2.5-32B-Instruct-Q4_K_M.gguf",
@@ -194,8 +186,7 @@ MODEL_CATALOG_PART1: list[CatalogModel] = [
         family="Qwen",
         description="Qwen 2.5 32B — powerful reasoning and coding",
     ),
-    # ── Qwen 3 ─────────────────────────────────────────────
-    CatalogModel(
+CatalogModel(
         name="qwen3-1.7b",
         display_name="Qwen 3 1.7B",
         filename="Qwen3-1.7B-Q4_K_M.gguf",
@@ -205,7 +196,7 @@ MODEL_CATALOG_PART1: list[CatalogModel] = [
         family="Qwen",
         description="Qwen 3 — latest generation small model",
     ),
-    CatalogModel(
+CatalogModel(
         name="qwen3-4b",
         display_name="Qwen 3 4B",
         filename="Qwen3-4B-Q4_K_M.gguf",
@@ -215,7 +206,7 @@ MODEL_CATALOG_PART1: list[CatalogModel] = [
         family="Qwen",
         description="Qwen 3 4B — excellent for size",
     ),
-    CatalogModel(
+CatalogModel(
         name="qwen3-8b",
         display_name="Qwen 3 8B",
         filename="Qwen3-8B-Q4_K_M.gguf",
@@ -225,7 +216,7 @@ MODEL_CATALOG_PART1: list[CatalogModel] = [
         family="Qwen",
         description="Qwen 3 8B — strong all-around model",
     ),
-    CatalogModel(
+CatalogModel(
         name="qwen3-14b",
         display_name="Qwen 3 14B",
         filename="Qwen3-14B-Q4_K_M.gguf",
@@ -235,7 +226,7 @@ MODEL_CATALOG_PART1: list[CatalogModel] = [
         family="Qwen",
         description="Qwen 3 14B — powerful latest-gen model",
     ),
-    CatalogModel(
+CatalogModel(
         name="qwen3-30b",
         display_name="Qwen 3 30B MoE",
         filename="Qwen3-30B-A3B-Q4_K_M.gguf",
@@ -245,8 +236,7 @@ MODEL_CATALOG_PART1: list[CatalogModel] = [
         family="Qwen",
         description="Qwen 3 30B MoE — efficient mixture of experts",
     ),
-    # ── DeepSeek Extended ──────────────────────────────────
-    CatalogModel(
+CatalogModel(
         name="deepseek-r1-14b",
         display_name="DeepSeek R1 Distill 14B",
         filename="DeepSeek-R1-Distill-Qwen-14B-Q4_K_M.gguf",
@@ -256,7 +246,7 @@ MODEL_CATALOG_PART1: list[CatalogModel] = [
         family="DeepSeek",
         description="DeepSeek R1 reasoning — strong chain-of-thought",
     ),
-    CatalogModel(
+CatalogModel(
         name="deepseek-r1-32b",
         display_name="DeepSeek R1 Distill 32B",
         filename="DeepSeek-R1-Distill-Qwen-32B-Q4_K_M.gguf",
@@ -266,7 +256,7 @@ MODEL_CATALOG_PART1: list[CatalogModel] = [
         family="DeepSeek",
         description="DeepSeek R1 32B — powerful reasoning",
     ),
-    CatalogModel(
+CatalogModel(
         name="deepseek-coder-v2",
         display_name="DeepSeek Coder V2 Lite",
         filename="DeepSeek-Coder-V2-Lite-Instruct-Q4_K_M.gguf",
@@ -276,8 +266,7 @@ MODEL_CATALOG_PART1: list[CatalogModel] = [
         family="DeepSeek",
         description="DeepSeek Coder V2 — MoE code model",
     ),
-    # ── Mistral Extended ───────────────────────────────────
-    CatalogModel(
+CatalogModel(
         name="mistral-nemo-12b",
         display_name="Mistral Nemo 12B",
         filename="Mistral-Nemo-Instruct-2407-Q4_K_M.gguf",
@@ -287,7 +276,7 @@ MODEL_CATALOG_PART1: list[CatalogModel] = [
         family="Mistral",
         description="Mistral Nemo — 128k context with NVIDIA",
     ),
-    CatalogModel(
+CatalogModel(
         name="mistral-small-24b",
         display_name="Mistral Small 24B",
         filename="Mistral-Small-24B-Instruct-2501-Q4_K_M.gguf",
@@ -297,7 +286,7 @@ MODEL_CATALOG_PART1: list[CatalogModel] = [
         family="Mistral",
         description="Mistral Small — benchmark-leading small LLM",
     ),
-    CatalogModel(
+CatalogModel(
         name="codestral-22b",
         display_name="Codestral 22B",
         filename="Codestral-22B-v0.1-Q4_K_M.gguf",
@@ -307,8 +296,7 @@ MODEL_CATALOG_PART1: list[CatalogModel] = [
         family="Mistral",
         description="Codestral — Mistral's code model",
     ),
-    # ── Google Gemma 2 ─────────────────────────────────────
-    CatalogModel(
+CatalogModel(
         name="gemma2-2b",
         display_name="Gemma 2 2B",
         filename="gemma-2-2b-it-Q4_K_M.gguf",
@@ -318,7 +306,7 @@ MODEL_CATALOG_PART1: list[CatalogModel] = [
         family="Gemma",
         description="Google Gemma 2 — efficient small model",
     ),
-    CatalogModel(
+CatalogModel(
         name="gemma2-9b",
         display_name="Gemma 2 9B",
         filename="gemma-2-9b-it-Q4_K_M.gguf",
@@ -328,7 +316,7 @@ MODEL_CATALOG_PART1: list[CatalogModel] = [
         family="Gemma",
         description="Google Gemma 2 9B — strong mid-size model",
     ),
-    CatalogModel(
+CatalogModel(
         name="gemma2-27b",
         display_name="Gemma 2 27B",
         filename="gemma-2-27b-it-Q4_K_M.gguf",
@@ -338,8 +326,7 @@ MODEL_CATALOG_PART1: list[CatalogModel] = [
         family="Gemma",
         description="Google Gemma 2 27B — powerful large model",
     ),
-    # ── Microsoft Phi ──────────────────────────────────────
-    CatalogModel(
+CatalogModel(
         name="phi3-mini",
         display_name="Phi 3 Mini 4K",
         filename="Phi-3-mini-4k-instruct-Q4_K_M.gguf",
@@ -349,7 +336,7 @@ MODEL_CATALOG_PART1: list[CatalogModel] = [
         family="Phi",
         description="Microsoft Phi 3 Mini — excellent small model",
     ),
-    CatalogModel(
+CatalogModel(
         name="phi3.5-mini",
         display_name="Phi 3.5 Mini",
         filename="Phi-3.5-mini-instruct-Q4_K_M.gguf",
@@ -359,7 +346,7 @@ MODEL_CATALOG_PART1: list[CatalogModel] = [
         family="Phi",
         description="Microsoft Phi 3.5 — improved small model",
     ),
-    CatalogModel(
+CatalogModel(
         name="phi4",
         display_name="Phi 4",
         filename="Phi-4-Q4_K_M.gguf",
@@ -369,8 +356,7 @@ MODEL_CATALOG_PART1: list[CatalogModel] = [
         family="Phi",
         description="Microsoft Phi 4 — state-of-the-art open model",
     ),
-    # ── IBM Granite ────────────────────────────────────────
-    CatalogModel(
+CatalogModel(
         name="granite3.1-2b",
         display_name="Granite 3.1 2B",
         filename="granite-3.1-2b-instruct-Q4_K_M.gguf",
@@ -380,7 +366,7 @@ MODEL_CATALOG_PART1: list[CatalogModel] = [
         family="Granite",
         description="IBM Granite 3.1 2B — enterprise-ready small model",
     ),
-    CatalogModel(
+CatalogModel(
         name="granite3.1-8b",
         display_name="Granite 3.1 8B",
         filename="granite-3.1-8b-instruct-Q4_K_M.gguf",
@@ -390,8 +376,7 @@ MODEL_CATALOG_PART1: list[CatalogModel] = [
         family="Granite",
         description="IBM Granite 3.1 8B — enterprise LLM",
     ),
-    # ── StarCoder 2 ────────────────────────────────────────
-    CatalogModel(
+CatalogModel(
         name="starcoder2-3b",
         display_name="StarCoder 2 3B",
         filename="starcoder2-3b-Q4_K_M.gguf",
@@ -401,7 +386,7 @@ MODEL_CATALOG_PART1: list[CatalogModel] = [
         family="StarCoder",
         description="StarCoder 2 3B — transparent open code LLM",
     ),
-    CatalogModel(
+CatalogModel(
         name="starcoder2-7b",
         display_name="StarCoder 2 7B",
         filename="starcoder2-7b-Q4_K_M.gguf",
@@ -411,7 +396,7 @@ MODEL_CATALOG_PART1: list[CatalogModel] = [
         family="StarCoder",
         description="StarCoder 2 7B — strong code generation",
     ),
-    CatalogModel(
+CatalogModel(
         name="starcoder2-15b",
         display_name="StarCoder 2 15B",
         filename="starcoder2-15b-Q4_K_M.gguf",
@@ -421,8 +406,7 @@ MODEL_CATALOG_PART1: list[CatalogModel] = [
         family="StarCoder",
         description="StarCoder 2 15B — largest StarCoder model",
     ),
-    # ── Code Llama ─────────────────────────────────────────
-    CatalogModel(
+CatalogModel(
         name="codellama-7b",
         display_name="Code Llama 7B",
         filename="CodeLlama-7b-Instruct-Q4_K_M.gguf",
@@ -432,7 +416,7 @@ MODEL_CATALOG_PART1: list[CatalogModel] = [
         family="Llama",
         description="Meta Code Llama 7B — code generation",
     ),
-    CatalogModel(
+CatalogModel(
         name="codellama-13b",
         display_name="Code Llama 13B",
         filename="CodeLlama-13b-Instruct-Q4_K_M.gguf",
@@ -442,7 +426,7 @@ MODEL_CATALOG_PART1: list[CatalogModel] = [
         family="Llama",
         description="Meta Code Llama 13B — stronger code model",
     ),
-    CatalogModel(
+CatalogModel(
         name="codellama-34b",
         display_name="Code Llama 34B",
         filename="CodeLlama-34b-Instruct-Q4_K_M.gguf",
@@ -452,8 +436,7 @@ MODEL_CATALOG_PART1: list[CatalogModel] = [
         family="Llama",
         description="Meta Code Llama 34B — largest code model",
     ),
-    # ── SmolLM2 Extended ───────────────────────────────────
-    CatalogModel(
+CatalogModel(
         name="smollm2-360m",
         display_name="SmolLM2 360M",
         filename="SmolLM2-360M-Instruct-Q4_K_M.gguf",
@@ -463,8 +446,7 @@ MODEL_CATALOG_PART1: list[CatalogModel] = [
         family="SmolLM",
         description="SmolLM2 360M — ultra-tiny model",
     ),
-    # ── Hermes ─────────────────────────────────────────────
-    CatalogModel(
+CatalogModel(
         name="hermes3-8b",
         display_name="Hermes 3 Llama 8B",
         filename="Hermes-3-Llama-3.1-8B-Q4_K_M.gguf",
@@ -474,8 +456,7 @@ MODEL_CATALOG_PART1: list[CatalogModel] = [
         family="Hermes",
         description="Nous Hermes 3 — flagship helpful assistant",
     ),
-    # ── Dolphin ────────────────────────────────────────────
-    CatalogModel(
+CatalogModel(
         name="dolphin-llama3-8b",
         display_name="Dolphin 2.9 Llama 3 8B",
         filename="dolphin-2.9.1-llama-3-8b-Q4_K_M.gguf",
@@ -485,8 +466,7 @@ MODEL_CATALOG_PART1: list[CatalogModel] = [
         family="Dolphin",
         description="Dolphin 2.9 — uncensored general purpose",
     ),
-    # ── Falcon ─────────────────────────────────────────────
-    CatalogModel(
+CatalogModel(
         name="falcon3-1b",
         display_name="Falcon 3 1B",
         filename="falcon3-1b-instruct-Q4_K_M.gguf",
@@ -496,7 +476,7 @@ MODEL_CATALOG_PART1: list[CatalogModel] = [
         family="Falcon",
         description="Falcon 3 1B — efficient tiny model",
     ),
-    CatalogModel(
+CatalogModel(
         name="falcon3-3b",
         display_name="Falcon 3 3B",
         filename="falcon3-3b-instruct-Q4_K_M.gguf",
@@ -506,7 +486,7 @@ MODEL_CATALOG_PART1: list[CatalogModel] = [
         family="Falcon",
         description="Falcon 3 3B — small performant model",
     ),
-    CatalogModel(
+CatalogModel(
         name="falcon3-7b",
         display_name="Falcon 3 7B",
         filename="falcon3-7b-instruct-Q4_K_M.gguf",
@@ -516,7 +496,7 @@ MODEL_CATALOG_PART1: list[CatalogModel] = [
         family="Falcon",
         description="Falcon 3 7B — strong mid-size model",
     ),
-    CatalogModel(
+CatalogModel(
         name="falcon3-10b",
         display_name="Falcon 3 10B",
         filename="falcon3-10b-instruct-Q4_K_M.gguf",
@@ -526,8 +506,7 @@ MODEL_CATALOG_PART1: list[CatalogModel] = [
         family="Falcon",
         description="Falcon 3 10B — largest Falcon 3",
     ),
-    # ── OLMo ───────────────────────────────────────────────
-    CatalogModel(
+CatalogModel(
         name="olmo2-7b",
         display_name="OLMo 2 7B",
         filename="OLMo-2-1124-7B-Instruct-Q4_K_M.gguf",
@@ -537,7 +516,7 @@ MODEL_CATALOG_PART1: list[CatalogModel] = [
         family="OLMo",
         description="Allen AI OLMo 2 7B — open science model",
     ),
-    CatalogModel(
+CatalogModel(
         name="olmo2-13b",
         display_name="OLMo 2 13B",
         filename="OLMo-2-1124-13B-Instruct-Q4_K_M.gguf",
@@ -547,8 +526,7 @@ MODEL_CATALOG_PART1: list[CatalogModel] = [
         family="OLMo",
         description="Allen AI OLMo 2 13B — stronger open model",
     ),
-    # ── EXAONE ─────────────────────────────────────────────
-    CatalogModel(
+CatalogModel(
         name="exaone-7.8b",
         display_name="EXAONE 3.5 7.8B",
         filename="EXAONE-3.5-7.8B-Instruct-Q4_K_M.gguf",
@@ -558,7 +536,7 @@ MODEL_CATALOG_PART1: list[CatalogModel] = [
         family="EXAONE",
         description="LG EXAONE 3.5 — bilingual reasoning",
     ),
-    CatalogModel(
+CatalogModel(
         name="exaone-32b",
         display_name="EXAONE 3.5 32B",
         filename="EXAONE-3.5-32B-Instruct-Q4_K_M.gguf",
@@ -568,8 +546,7 @@ MODEL_CATALOG_PART1: list[CatalogModel] = [
         family="EXAONE",
         description="LG EXAONE 3.5 32B — powerful reasoning",
     ),
-    # ── GLM ────────────────────────────────────────────────
-    CatalogModel(
+CatalogModel(
         name="glm4-9b",
         display_name="GLM 4 9B",
         filename="glm-4-9b-chat-Q4_K_M.gguf",
@@ -579,8 +556,7 @@ MODEL_CATALOG_PART1: list[CatalogModel] = [
         family="GLM",
         description="Zhipu GLM 4 — multi-lingual general model",
     ),
-    # ── Internlm ───────────────────────────────────────────
-    CatalogModel(
+CatalogModel(
         name="internlm2.5-7b",
         display_name="InternLM 2.5 7B",
         filename="internlm2_5-7b-chat-Q4_K_M.gguf",
@@ -590,7 +566,7 @@ MODEL_CATALOG_PART1: list[CatalogModel] = [
         family="InternLM",
         description="InternLM 2.5 — strong reasoning model",
     ),
-    CatalogModel(
+CatalogModel(
         name="internlm2.5-20b",
         display_name="InternLM 2.5 20B",
         filename="internlm2_5-20b-chat-Q4_K_M.gguf",
@@ -600,8 +576,7 @@ MODEL_CATALOG_PART1: list[CatalogModel] = [
         family="InternLM",
         description="InternLM 2.5 20B — powerful reasoning",
     ),
-    # ── Solar ──────────────────────────────────────────────
-    CatalogModel(
+CatalogModel(
         name="solar-10.7b",
         display_name="Solar 10.7B",
         filename="solar-10.7b-instruct-v1.0-Q4_K_M.gguf",
@@ -611,7 +586,7 @@ MODEL_CATALOG_PART1: list[CatalogModel] = [
         family="Solar",
         description="Upstage Solar — single-turn powerhouse",
     ),
-    CatalogModel(
+CatalogModel(
         name="solar-pro",
         display_name="Solar Pro 22B",
         filename="solar-pro-preview-instruct-Q4_K_M.gguf",
@@ -621,8 +596,7 @@ MODEL_CATALOG_PART1: list[CatalogModel] = [
         family="Solar",
         description="Solar Pro — advanced flagship model",
     ),
-    # ── Specialized ────────────────────────────────────────
-    CatalogModel(
+CatalogModel(
         name="magicoder-7b",
         display_name="Magicoder 7B",
         filename="magicoder-s-ds-6.7b-Q4_K_M.gguf",
@@ -632,7 +606,7 @@ MODEL_CATALOG_PART1: list[CatalogModel] = [
         family="Magicoder",
         description="Magicoder — OSS-Instruct code model",
     ),
-    CatalogModel(
+CatalogModel(
         name="opencoder-8b",
         display_name="OpenCoder 8B",
         filename="OpenCoder-8B-Instruct-Q4_K_M.gguf",
@@ -642,7 +616,7 @@ MODEL_CATALOG_PART1: list[CatalogModel] = [
         family="OpenCoder",
         description="OpenCoder — open reproducible code LLM",
     ),
-    CatalogModel(
+CatalogModel(
         name="deepcoder-14b",
         display_name="DeepCoder 14B",
         filename="DeepCoder-14B-Preview-Q4_K_M.gguf",
@@ -652,7 +626,7 @@ MODEL_CATALOG_PART1: list[CatalogModel] = [
         family="DeepSeek",
         description="DeepCoder — O3-mini level coding",
     ),
-    CatalogModel(
+CatalogModel(
         name="wizardcoder-33b",
         display_name="WizardCoder 33B",
         filename="WizardCoder-33B-V1.1-Q4_K_M.gguf",
@@ -662,8 +636,7 @@ MODEL_CATALOG_PART1: list[CatalogModel] = [
         family="WizardLM",
         description="WizardCoder — state-of-the-art code gen",
     ),
-    # ── Additional GGUF Models ────────────────────────────────
-    CatalogModel(
+CatalogModel(
         name="athene-v2-72b",
         display_name="Athene V2 72B",
         filename="Athene-V2-Chat-Q4_K_M.gguf",
@@ -673,7 +646,7 @@ MODEL_CATALOG_PART1: list[CatalogModel] = [
         family="Athene",
         description="Athene V2 — code completion, math, log extraction",
     ),
-    CatalogModel(
+CatalogModel(
         name="cogito-3b",
         display_name="Cogito 3B",
         filename="Cogito-v1-Preview-Llama-3B-Q4_K_M.gguf",
@@ -683,7 +656,7 @@ MODEL_CATALOG_PART1: list[CatalogModel] = [
         family="Cogito",
         description="Cogito — hybrid reasoning model",
     ),
-    CatalogModel(
+CatalogModel(
         name="deepscaler-1.5b",
         display_name="DeepScaler 1.5B",
         filename="DeepScaler-1.5B-Preview-Q4_K_M.gguf",
@@ -693,7 +666,7 @@ MODEL_CATALOG_PART1: list[CatalogModel] = [
         family="DeepSeek",
         description="DeepScaler — surpasses o1-preview on math with 1.5B",
     ),
-    CatalogModel(
+CatalogModel(
         name="nemotron-70b",
         display_name="Llama 3.1 Nemotron 70B",
         filename="Llama-3.1-Nemotron-70B-Instruct-Q4_K_M.gguf",
@@ -703,7 +676,7 @@ MODEL_CATALOG_PART1: list[CatalogModel] = [
         family="NVIDIA",
         description="NVIDIA Nemotron 70B — highly helpful assistant",
     ),
-    CatalogModel(
+CatalogModel(
         name="tulu3-8b",
         display_name="Tülu 3 8B",
         filename="Llama-3.1-Tulu-3-8B-Q4_K_M.gguf",
@@ -713,7 +686,7 @@ MODEL_CATALOG_PART1: list[CatalogModel] = [
         family="Allen AI",
         description="Tülu 3 — leading instruction following model",
     ),
-    CatalogModel(
+CatalogModel(
         name="marco-o1",
         display_name="Marco-O1",
         filename="Marco-o1-Q4_K_M.gguf",
@@ -723,7 +696,7 @@ MODEL_CATALOG_PART1: list[CatalogModel] = [
         family="Alibaba",
         description="Marco-O1 — open reasoning for real-world solutions",
     ),
-    CatalogModel(
+CatalogModel(
         name="openthinker-7b",
         display_name="OpenThinker 7B",
         filename="OpenThinker-7B-Q4_K_M.gguf",
@@ -733,7 +706,7 @@ MODEL_CATALOG_PART1: list[CatalogModel] = [
         family="OpenThinker",
         description="OpenThinker — distilled from DeepSeek-R1",
     ),
-    CatalogModel(
+CatalogModel(
         name="aya-expanse-32b",
         display_name="Aya Expanse 32B",
         filename="aya-expanse-32b-Q4_K_M.gguf",
@@ -743,7 +716,7 @@ MODEL_CATALOG_PART1: list[CatalogModel] = [
         family="Cohere",
         description="Aya Expanse — 23 language multilingual model",
     ),
-    CatalogModel(
+CatalogModel(
         name="aya-expanse-8b",
         display_name="Aya Expanse 8B",
         filename="aya-expanse-8b-Q4_K_M.gguf",
@@ -753,7 +726,7 @@ MODEL_CATALOG_PART1: list[CatalogModel] = [
         family="Cohere",
         description="Aya Expanse 8B — efficient multilingual model",
     ),
-    CatalogModel(
+CatalogModel(
         name="command-r",
         display_name="Command R 35B",
         filename="command-r-08-2024-Q4_K_M.gguf",
@@ -763,7 +736,7 @@ MODEL_CATALOG_PART1: list[CatalogModel] = [
         family="Cohere",
         description="Command R — conversational with 128K context",
     ),
-    CatalogModel(
+CatalogModel(
         name="dbrx",
         display_name="DBRX 132B",
         filename="dbrx-instruct-Q4_K_M.gguf",
@@ -773,7 +746,7 @@ MODEL_CATALOG_PART1: list[CatalogModel] = [
         family="Databricks",
         description="DBRX — open general-purpose LLM by Databricks",
     ),
-    CatalogModel(
+CatalogModel(
         name="nemotron-mini-4b",
         display_name="Nemotron Mini 4B",
         filename="nemotron-mini-4b-instruct-Q4_K_M.gguf",
@@ -783,7 +756,7 @@ MODEL_CATALOG_PART1: list[CatalogModel] = [
         family="NVIDIA",
         description="Nemotron Mini — roleplay, RAG, function calling",
     ),
-    CatalogModel(
+CatalogModel(
         name="smallthinker-3b",
         display_name="SmallThinker 3B",
         filename="smallthinker-3b-preview-Q4_K_M.gguf",
@@ -793,13 +766,7 @@ MODEL_CATALOG_PART1: list[CatalogModel] = [
         family="Qwen",
         description="SmallThinker — reasoning fine-tuned Qwen 2.5 3B",
     ),
-
-    # ══════════════════════════════════════════════════════════
-    # Additional GGUF Models (Auto-generated from sync script)
-    # All hosted on GCS: https://storage.googleapis.com/sage-ai-models/gguf/
-    # ══════════════════════════════════════════════════════════
-
-    CatalogModel(
+CatalogModel(
         name="llama-3.3-70-b",
         display_name="Llama 3.3 70B",
         filename="Llama-3.3-70B-Instruct-Q4_K_M.gguf",
@@ -810,7 +777,7 @@ MODEL_CATALOG_PART1: list[CatalogModel] = [
         description="Meta Llama model for general tasks",
         category="general",
     ),
-    CatalogModel(
+CatalogModel(
         name="llama-2-7b",
         display_name="llama 2 7b",
         filename="llama-2-7b-chat.Q4_K_M.gguf",
@@ -821,7 +788,7 @@ MODEL_CATALOG_PART1: list[CatalogModel] = [
         description="Meta Llama model for general tasks",
         category="general",
     ),
-    CatalogModel(
+CatalogModel(
         name="llama-2-13b",
         display_name="llama 2 13b",
         filename="llama-2-13b-chat.Q4_K_M.gguf",
@@ -832,7 +799,7 @@ MODEL_CATALOG_PART1: list[CatalogModel] = [
         description="Meta Llama model for general tasks",
         category="general",
     ),
-    CatalogModel(
+CatalogModel(
         name="llama-2-70b",
         display_name="llama 2 70b",
         filename="llama-2-70b-chat.Q4_K_M.gguf",
@@ -843,7 +810,7 @@ MODEL_CATALOG_PART1: list[CatalogModel] = [
         description="Meta Llama model for general tasks",
         category="general",
     ),
-    CatalogModel(
+CatalogModel(
         name="mixtral-8x7-b",
         display_name="Mixtral 8x7B v0.1",
         filename="Mixtral-8x7B-Instruct-v0.1-Q4_K_M.gguf",
@@ -854,7 +821,7 @@ MODEL_CATALOG_PART1: list[CatalogModel] = [
         description="Mistral MoE model for efficient inference",
         category="general",
     ),
-    CatalogModel(
+CatalogModel(
         name="mixtral-8x22-b",
         display_name="Mixtral 8x22B v0.1",
         filename="Mixtral-8x22B-Instruct-v0.1-Q4_K_M.gguf",
@@ -865,7 +832,7 @@ MODEL_CATALOG_PART1: list[CatalogModel] = [
         description="Mistral MoE model for efficient inference",
         category="general",
     ),
-    CatalogModel(
+CatalogModel(
         name="qwen2-0.5-b",
         display_name="Qwen2 0.5B",
         filename="Qwen2-0.5B-Instruct-Q4_K_M.gguf",
@@ -876,7 +843,7 @@ MODEL_CATALOG_PART1: list[CatalogModel] = [
         description="Alibaba Qwen model with strong capabilities",
         category="general",
     ),
-    CatalogModel(
+CatalogModel(
         name="qwen2-1.5-b",
         display_name="Qwen2 1.5B",
         filename="Qwen2-1.5B-Instruct-Q4_K_M.gguf",
@@ -887,7 +854,7 @@ MODEL_CATALOG_PART1: list[CatalogModel] = [
         description="Alibaba Qwen model with strong capabilities",
         category="general",
     ),
-    CatalogModel(
+CatalogModel(
         name="qwen2-7-b",
         display_name="Qwen2 7B",
         filename="Qwen2-7B-Instruct-Q4_K_M.gguf",
@@ -898,7 +865,7 @@ MODEL_CATALOG_PART1: list[CatalogModel] = [
         description="Alibaba Qwen model with strong capabilities",
         category="general",
     ),
-    CatalogModel(
+CatalogModel(
         name="qwen2-72-b",
         display_name="Qwen2 72B",
         filename="Qwen2-72B-Instruct-Q4_K_M.gguf",
@@ -909,7 +876,7 @@ MODEL_CATALOG_PART1: list[CatalogModel] = [
         description="Alibaba Qwen model with strong capabilities",
         category="general",
     ),
-    CatalogModel(
+CatalogModel(
         name="qwen2.5-0.5-b",
         display_name="Qwen2.5 0.5B",
         filename="Qwen2.5-0.5B-Instruct-Q4_K_M.gguf",
@@ -920,7 +887,7 @@ MODEL_CATALOG_PART1: list[CatalogModel] = [
         description="Alibaba Qwen model with strong capabilities",
         category="general",
     ),
-    CatalogModel(
+CatalogModel(
         name="qwen2.5-1.5-b",
         display_name="Qwen2.5 1.5B",
         filename="Qwen2.5-1.5B-Instruct-Q4_K_M.gguf",
@@ -931,7 +898,7 @@ MODEL_CATALOG_PART1: list[CatalogModel] = [
         description="Alibaba Qwen model with strong capabilities",
         category="general",
     ),
-    CatalogModel(
+CatalogModel(
         name="qwen2.5-3-b",
         display_name="Qwen2.5 3B",
         filename="Qwen2.5-3B-Instruct-Q4_K_M.gguf",
@@ -942,7 +909,7 @@ MODEL_CATALOG_PART1: list[CatalogModel] = [
         description="Alibaba Qwen model with strong capabilities",
         category="general",
     ),
-    CatalogModel(
+CatalogModel(
         name="qwen2.5-72-b",
         display_name="Qwen2.5 72B",
         filename="Qwen2.5-72B-Instruct-Q4_K_M.gguf",
@@ -953,7 +920,7 @@ MODEL_CATALOG_PART1: list[CatalogModel] = [
         description="Alibaba Qwen model with strong capabilities",
         category="general",
     ),
-    CatalogModel(
+CatalogModel(
         name="qwen2.5-coder-0.5-b",
         display_name="Qwen2.5 Coder 0.5B",
         filename="Qwen2.5-Coder-0.5B-Instruct-Q4_K_M.gguf",
@@ -964,7 +931,7 @@ MODEL_CATALOG_PART1: list[CatalogModel] = [
         description="Qwen model optimized for code generation",
         category="coding",
     ),
-    CatalogModel(
+CatalogModel(
         name="qwen2.5-coder-32-b",
         display_name="Qwen2.5 Coder 32B",
         filename="Qwen2.5-Coder-32B-Instruct-Q4_K_M.gguf",
@@ -975,7 +942,7 @@ MODEL_CATALOG_PART1: list[CatalogModel] = [
         description="Qwen model optimized for code generation",
         category="coding",
     ),
-    CatalogModel(
+CatalogModel(
         name="qw-q-32-b",
         display_name="QwQ 32B Preview",
         filename="QwQ-32B-Preview-Q4_K_M.gguf",
@@ -986,7 +953,7 @@ MODEL_CATALOG_PART1: list[CatalogModel] = [
         description="Qwen reasoning model with strong analytical capabilities",
         category="reasoning",
     ),
-    CatalogModel(
+CatalogModel(
         name="qwen2-math-1.5-b",
         display_name="Qwen2 Math 1.5B",
         filename="Qwen2-Math-1.5B-Instruct-Q4_K_M.gguf",
@@ -997,7 +964,7 @@ MODEL_CATALOG_PART1: list[CatalogModel] = [
         description="Qwen model specialized for mathematical reasoning",
         category="reasoning",
     ),
-    CatalogModel(
+CatalogModel(
         name="qwen2-math-7-b",
         display_name="Qwen2 Math 7B",
         filename="Qwen2-Math-7B-Instruct-Q4_K_M.gguf",
@@ -1008,7 +975,7 @@ MODEL_CATALOG_PART1: list[CatalogModel] = [
         description="Qwen model specialized for mathematical reasoning",
         category="reasoning",
     ),
-    CatalogModel(
+CatalogModel(
         name="qwen2-math-72-b",
         display_name="Qwen2 Math 72B",
         filename="Qwen2-Math-72B-Instruct-Q4_K_M.gguf",
@@ -1019,7 +986,7 @@ MODEL_CATALOG_PART1: list[CatalogModel] = [
         description="Qwen model specialized for mathematical reasoning",
         category="reasoning",
     ),
-    CatalogModel(
+CatalogModel(
         name="deepseek-llm-7b",
         display_name="deepseek llm 7b",
         filename="deepseek-llm-7b-chat-Q4_K_M.gguf",
@@ -1030,7 +997,7 @@ MODEL_CATALOG_PART1: list[CatalogModel] = [
         description="DeepSeek model for general tasks",
         category="general",
     ),
-    CatalogModel(
+CatalogModel(
         name="deepseek-llm-67b",
         display_name="deepseek llm 67b",
         filename="deepseek-llm-67b-chat-Q4_K_M.gguf",
@@ -1041,7 +1008,7 @@ MODEL_CATALOG_PART1: list[CatalogModel] = [
         description="DeepSeek model for general tasks",
         category="general",
     ),
-    CatalogModel(
+CatalogModel(
         name="deepseek-coder-1.3b",
         display_name="deepseek coder 1.3b",
         filename="deepseek-coder-1.3b-instruct-Q4_K_M.gguf",
@@ -1052,7 +1019,7 @@ MODEL_CATALOG_PART1: list[CatalogModel] = [
         description="DeepSeek model optimized for code generation",
         category="coding",
     ),
-    CatalogModel(
+CatalogModel(
         name="deepseek-coder-6.7b",
         display_name="deepseek coder 6.7b",
         filename="deepseek-coder-6.7b-instruct-Q4_K_M.gguf",
@@ -1063,7 +1030,7 @@ MODEL_CATALOG_PART1: list[CatalogModel] = [
         description="DeepSeek model optimized for code generation",
         category="coding",
     ),
-    CatalogModel(
+CatalogModel(
         name="deepseek-coder-33b",
         display_name="deepseek coder 33b",
         filename="deepseek-coder-33b-instruct-Q4_K_M.gguf",
@@ -1074,7 +1041,7 @@ MODEL_CATALOG_PART1: list[CatalogModel] = [
         description="DeepSeek model optimized for code generation",
         category="coding",
     ),
-    CatalogModel(
+CatalogModel(
         name="mistral-large",
         display_name="Mistral Large 2407",
         filename="Mistral-Large-Instruct-2407-Q4_K_M.gguf",
@@ -1085,7 +1052,7 @@ MODEL_CATALOG_PART1: list[CatalogModel] = [
         description="Mistral AI model for efficient inference",
         category="general",
     ),
-    CatalogModel(
+CatalogModel(
         name="command-r-plus-08",
         display_name="command r plus 08 2024",
         filename="command-r-plus-08-2024-Q4_K_M.gguf",
@@ -1096,7 +1063,7 @@ MODEL_CATALOG_PART1: list[CatalogModel] = [
         description="Cohere model for RAG and conversation",
         category="general",
     ),
-    CatalogModel(
+CatalogModel(
         name="c4ai-command-r7b-12",
         display_name="c4ai command r7b 12 2024",
         filename="c4ai-command-r7b-12-2024-Q4_K_M.gguf",
@@ -1107,7 +1074,7 @@ MODEL_CATALOG_PART1: list[CatalogModel] = [
         description="Cohere model for RAG and conversation",
         category="general",
     ),
-    CatalogModel(
+CatalogModel(
         name="dolphin-2.9.4-llama3.1-8b",
         display_name="dolphin 2.9.4 llama3.1 8b",
         filename="dolphin-2.9.4-llama3.1-8b-Q4_K_M.gguf",
@@ -1118,7 +1085,7 @@ MODEL_CATALOG_PART1: list[CatalogModel] = [
         description="Uncensored model fine-tuned for helpfulness",
         category="general",
     ),
-    CatalogModel(
+CatalogModel(
         name="dolphin-2.9-mixtral-8x22b",
         display_name="dolphin 2.9 mixtral 8x22b",
         filename="dolphin-2.9-mixtral-8x22b-Q4_K_M.gguf",
@@ -1129,7 +1096,7 @@ MODEL_CATALOG_PART1: list[CatalogModel] = [
         description="Uncensored model fine-tuned for helpfulness",
         category="general",
     ),
-    CatalogModel(
+CatalogModel(
         name="dolphin-2.8-mistral-7b-v02",
         display_name="dolphin 2.8 mistral 7b v02",
         filename="dolphin-2.8-mistral-7b-v02-Q4_K_M.gguf",
@@ -1140,7 +1107,7 @@ MODEL_CATALOG_PART1: list[CatalogModel] = [
         description="Uncensored model fine-tuned for helpfulness",
         category="general",
     ),
-    CatalogModel(
+CatalogModel(
         name="dolphin-2.6-phi-2",
         display_name="dolphin 2.6 phi 2",
         filename="dolphin-2.6-phi-2-Q4_K_M.gguf",
@@ -1151,7 +1118,7 @@ MODEL_CATALOG_PART1: list[CatalogModel] = [
         description="Uncensored model fine-tuned for helpfulness",
         category="general",
     ),
-    CatalogModel(
+CatalogModel(
         name="vicuna-7b",
         display_name="vicuna 7b v1.5",
         filename="vicuna-7b-v1.5-Q4_K_M.gguf",
@@ -1162,7 +1129,7 @@ MODEL_CATALOG_PART1: list[CatalogModel] = [
         description="Fine-tuned LLaMA for conversation",
         category="general",
     ),
-    CatalogModel(
+CatalogModel(
         name="vicuna-13b",
         display_name="vicuna 13b v1.5",
         filename="vicuna-13b-v1.5-Q4_K_M.gguf",
@@ -1173,7 +1140,7 @@ MODEL_CATALOG_PART1: list[CatalogModel] = [
         description="Fine-tuned LLaMA for conversation",
         category="general",
     ),
-    CatalogModel(
+CatalogModel(
         name="vicuna-33b",
         display_name="vicuna 33b v1.3",
         filename="vicuna-33b-v1.3-Q4_K_M.gguf",
@@ -1184,7 +1151,7 @@ MODEL_CATALOG_PART1: list[CatalogModel] = [
         description="Fine-tuned LLaMA for conversation",
         category="general",
     ),
-    CatalogModel(
+CatalogModel(
         name="zephyr-7b-beta",
         display_name="zephyr 7b beta",
         filename="zephyr-7b-beta-Q4_K_M.gguf",
@@ -1195,7 +1162,7 @@ MODEL_CATALOG_PART1: list[CatalogModel] = [
         description="Zephyr fine-tuned model for helpful assistance",
         category="general",
     ),
-    CatalogModel(
+CatalogModel(
         name="openchat-3.5",
         display_name="openchat 3.5 0106",
         filename="openchat-3.5-0106-Q4_K_M.gguf",
@@ -1206,7 +1173,7 @@ MODEL_CATALOG_PART1: list[CatalogModel] = [
         description="OpenChat model surpassing ChatGPT benchmarks",
         category="general",
     ),
-    CatalogModel(
+CatalogModel(
         name="open-hermes-2.5-mistral-7-b",
         display_name="OpenHermes 2.5 Mistral 7B",
         filename="OpenHermes-2.5-Mistral-7B-Q4_K_M.gguf",
@@ -1217,7 +1184,7 @@ MODEL_CATALOG_PART1: list[CatalogModel] = [
         description="Nous Research model for general tasks",
         category="general",
     ),
-    CatalogModel(
+CatalogModel(
         name="starling-lm-7-b-alpha",
         display_name="Starling LM 7B alpha",
         filename="Starling-LM-7B-alpha-Q4_K_M.gguf",
@@ -1228,7 +1195,7 @@ MODEL_CATALOG_PART1: list[CatalogModel] = [
         description="Berkeley model trained with RLHF",
         category="general",
     ),
-    CatalogModel(
+CatalogModel(
         name="neural-7b-v3-3",
         display_name="neural 7b v3 3",
         filename="neural-chat-7b-v3-3-Q4_K_M.gguf",
@@ -1239,7 +1206,7 @@ MODEL_CATALOG_PART1: list[CatalogModel] = [
         description="Intel Neural Chat model for conversation",
         category="general",
     ),
-    CatalogModel(
+CatalogModel(
         name="wizard-lm-2-7-b",
         display_name="WizardLM 2 7B",
         filename="WizardLM-2-7B-Q4_K_M.gguf",
@@ -1250,7 +1217,7 @@ MODEL_CATALOG_PART1: list[CatalogModel] = [
         description="WizardLM model for coding and reasoning",
         category="general",
     ),
-    CatalogModel(
+CatalogModel(
         name="wizard-lm-2-8x22-b",
         display_name="WizardLM 2 8x22B",
         filename="WizardLM-2-8x22B-Q4_K_M.gguf",
@@ -1261,7 +1228,7 @@ MODEL_CATALOG_PART1: list[CatalogModel] = [
         description="WizardLM model for coding and reasoning",
         category="general",
     ),
-    CatalogModel(
+CatalogModel(
         name="wizard-lm-13-b",
         display_name="WizardLM 13B V1.2",
         filename="WizardLM-13B-V1.2-Q4_K_M.gguf",
@@ -1272,7 +1239,7 @@ MODEL_CATALOG_PART1: list[CatalogModel] = [
         description="WizardLM model for coding and reasoning",
         category="general",
     ),
-    CatalogModel(
+CatalogModel(
         name="wizard-math-7-b",
         display_name="WizardMath 7B V1.1",
         filename="WizardMath-7B-V1.1-Q4_K_M.gguf",
@@ -1283,7 +1250,7 @@ MODEL_CATALOG_PART1: list[CatalogModel] = [
         description="WizardLM model specialized for mathematical reasoning",
         category="reasoning",
     ),
-    CatalogModel(
+CatalogModel(
         name="wizard-math-70-b",
         display_name="WizardMath 70B V1.0",
         filename="WizardMath-70B-V1.0-Q4_K_M.gguf",
@@ -1294,7 +1261,7 @@ MODEL_CATALOG_PART1: list[CatalogModel] = [
         description="WizardLM model specialized for mathematical reasoning",
         category="reasoning",
     ),
-    CatalogModel(
+CatalogModel(
         name="nous-hermes-2-mixtral-8x7-b-dpo",
         display_name="Nous Hermes 2 Mixtral 8x7B DPO",
         filename="Nous-Hermes-2-Mixtral-8x7B-DPO-Q4_K_M.gguf",
@@ -1305,7 +1272,7 @@ MODEL_CATALOG_PART1: list[CatalogModel] = [
         description="Nous Research model for general tasks",
         category="general",
     ),
-    CatalogModel(
+CatalogModel(
         name="nous-hermes-2-solar-10.7-b",
         display_name="Nous Hermes 2 SOLAR 10.7B",
         filename="Nous-Hermes-2-SOLAR-10.7B-Q4_K_M.gguf",
@@ -1316,7 +1283,7 @@ MODEL_CATALOG_PART1: list[CatalogModel] = [
         description="Nous Research model for general tasks",
         category="general",
     ),
-    CatalogModel(
+CatalogModel(
         name="phi-3-medium-4k",
         display_name="Phi 3 medium 4k",
         filename="Phi-3-medium-4k-instruct-Q4_K_M.gguf",
@@ -1327,7 +1294,7 @@ MODEL_CATALOG_PART1: list[CatalogModel] = [
         description="Microsoft Phi model with strong reasoning",
         category="general",
     ),
-    CatalogModel(
+CatalogModel(
         name="phi-3-medium-128k",
         display_name="Phi 3 medium 128k",
         filename="Phi-3-medium-128k-instruct-Q4_K_M.gguf",
@@ -1338,7 +1305,7 @@ MODEL_CATALOG_PART1: list[CatalogModel] = [
         description="Microsoft Phi model with strong reasoning",
         category="general",
     ),
-    CatalogModel(
+CatalogModel(
         name="code-qwen1.5-7-b",
         display_name="CodeQwen1.5 7B",
         filename="CodeQwen1.5-7B-Chat-Q4_K_M.gguf",
@@ -1349,7 +1316,7 @@ MODEL_CATALOG_PART1: list[CatalogModel] = [
         description="Qwen model optimized for code generation",
         category="coding",
     ),
-    CatalogModel(
+CatalogModel(
         name="codegeex4-all-9b",
         display_name="codegeex4 all 9b",
         filename="codegeex4-all-9b-Q4_K_M.gguf",
@@ -1360,7 +1327,7 @@ MODEL_CATALOG_PART1: list[CatalogModel] = [
         description="Open model optimized for code generation",
         category="coding",
     ),
-    CatalogModel(
+CatalogModel(
         name="stable-code-3b",
         display_name="stable code 3b",
         filename="stable-code-instruct-3b-Q4_K_M.gguf",
@@ -1371,7 +1338,7 @@ MODEL_CATALOG_PART1: list[CatalogModel] = [
         description="Stability model optimized for code generation",
         category="coding",
     ),
-    CatalogModel(
+CatalogModel(
         name="dolphincoder-starcoder2-7b",
         display_name="dolphincoder starcoder2 7b",
         filename="dolphincoder-starcoder2-7b-Q4_K_M.gguf",
@@ -1382,7 +1349,7 @@ MODEL_CATALOG_PART1: list[CatalogModel] = [
         description="Microsoft model optimized for code generation",
         category="coding",
     ),
-    CatalogModel(
+CatalogModel(
         name="dolphincoder-starcoder2-15b",
         display_name="dolphincoder starcoder2 15b",
         filename="dolphincoder-starcoder2-15b-Q4_K_M.gguf",
@@ -1393,7 +1360,7 @@ MODEL_CATALOG_PART1: list[CatalogModel] = [
         description="Microsoft model optimized for code generation",
         category="coding",
     ),
-    CatalogModel(
+CatalogModel(
         name="starcoder",
         display_name="starcoder",
         filename="starcoder-Q4_K_M.gguf",
@@ -1404,7 +1371,7 @@ MODEL_CATALOG_PART1: list[CatalogModel] = [
         description="StarCoder model optimized for code generation",
         category="coding",
     ),
-    CatalogModel(
+CatalogModel(
         name="sqlcoder-7b-2",
         display_name="sqlcoder 7b 2",
         filename="sqlcoder-7b-2-Q4_K_M.gguf",
@@ -1415,7 +1382,7 @@ MODEL_CATALOG_PART1: list[CatalogModel] = [
         description="Open model optimized for code generation",
         category="coding",
     ),
-    CatalogModel(
+CatalogModel(
         name="phind-code-llama-34-b-v2",
         display_name="Phind CodeLlama 34B v2",
         filename="Phind-CodeLlama-34B-v2-Q4_K_M.gguf",
@@ -1426,7 +1393,7 @@ MODEL_CATALOG_PART1: list[CatalogModel] = [
         description="Llama model optimized for code generation",
         category="coding",
     ),
-    CatalogModel(
+CatalogModel(
         name="yi-1.5-6-b",
         display_name="Yi 1.5 6B",
         filename="Yi-1.5-6B-Chat-Q4_K_M.gguf",
@@ -1437,7 +1404,7 @@ MODEL_CATALOG_PART1: list[CatalogModel] = [
         description="Yi model for general tasks",
         category="general",
     ),
-    CatalogModel(
+CatalogModel(
         name="yi-1.5-9-b",
         display_name="Yi 1.5 9B",
         filename="Yi-1.5-9B-Chat-Q4_K_M.gguf",
@@ -1448,7 +1415,7 @@ MODEL_CATALOG_PART1: list[CatalogModel] = [
         description="Yi model for general tasks",
         category="general",
     ),
-    CatalogModel(
+CatalogModel(
         name="yi-1.5-34-b",
         display_name="Yi 1.5 34B",
         filename="Yi-1.5-34B-Chat-Q4_K_M.gguf",
@@ -1459,7 +1426,7 @@ MODEL_CATALOG_PART1: list[CatalogModel] = [
         description="Yi model for general tasks",
         category="general",
     ),
-    CatalogModel(
+CatalogModel(
         name="mathstral-7-b",
         display_name="Mathstral 7B v0.1",
         filename="Mathstral-7B-v0.1-Q4_K_M.gguf",
@@ -1470,7 +1437,7 @@ MODEL_CATALOG_PART1: list[CatalogModel] = [
         description="Mistral model specialized for mathematical reasoning",
         category="reasoning",
     ),
-    CatalogModel(
+CatalogModel(
         name="internlm2-1-8b",
         display_name="internlm2 1 8b",
         filename="internlm2-chat-1_8b-Q4_K_M.gguf",
@@ -1481,7 +1448,7 @@ MODEL_CATALOG_PART1: list[CatalogModel] = [
         description="InternLM model for general tasks",
         category="general",
     ),
-    CatalogModel(
+CatalogModel(
         name="falcon-11-b",
         display_name="falcon 11B",
         filename="falcon-11B-Q4_K_M.gguf",
@@ -1492,7 +1459,7 @@ MODEL_CATALOG_PART1: list[CatalogModel] = [
         description="TII Falcon model trained on RefinedWeb",
         category="general",
     ),
-    CatalogModel(
+CatalogModel(
         name="falcon-7b",
         display_name="falcon 7b",
         filename="falcon-7b-instruct-Q4_K_M.gguf",
@@ -1503,7 +1470,7 @@ MODEL_CATALOG_PART1: list[CatalogModel] = [
         description="TII Falcon model trained on RefinedWeb",
         category="general",
     ),
-    CatalogModel(
+CatalogModel(
         name="falcon-40b",
         display_name="falcon 40b",
         filename="falcon-40b-instruct-Q4_K_M.gguf",
@@ -1514,7 +1481,7 @@ MODEL_CATALOG_PART1: list[CatalogModel] = [
         description="TII Falcon model trained on RefinedWeb",
         category="general",
     ),
-    CatalogModel(
+CatalogModel(
         name="reflection-llama-3.1-70-b",
         display_name="Reflection Llama 3.1 70B",
         filename="Reflection-Llama-3.1-70B-Q4_K_M.gguf",
@@ -1525,7 +1492,7 @@ MODEL_CATALOG_PART1: list[CatalogModel] = [
         description="Meta Llama model for general tasks",
         category="general",
     ),
-    CatalogModel(
+CatalogModel(
         name="nu-extract",
         display_name="NuExtract v1.5",
         filename="NuExtract-v1.5-Q4_K_M.gguf",
@@ -1536,7 +1503,7 @@ MODEL_CATALOG_PART1: list[CatalogModel] = [
         description="Open model for general tasks",
         category="general",
     ),
-    CatalogModel(
+CatalogModel(
         name="llama-guard-3-8-b",
         display_name="Llama Guard 3 8B",
         filename="Llama-Guard-3-8B-Q4_K_M.gguf",
@@ -1547,7 +1514,7 @@ MODEL_CATALOG_PART1: list[CatalogModel] = [
         description="Meta Llama model for general tasks",
         category="general",
     ),
-    CatalogModel(
+CatalogModel(
         name="llama-guard-3-1-b",
         display_name="Llama Guard 3 1B",
         filename="Llama-Guard-3-1B-Q4_K_M.gguf",
@@ -1558,7 +1525,7 @@ MODEL_CATALOG_PART1: list[CatalogModel] = [
         description="Meta Llama model for general tasks",
         category="general",
     ),
-    CatalogModel(
+CatalogModel(
         name="granite-3.0-8b",
         display_name="granite 3.0 8b",
         filename="granite-3.0-8b-instruct-Q4_K_M.gguf",
@@ -1569,7 +1536,7 @@ MODEL_CATALOG_PART1: list[CatalogModel] = [
         description="IBM Granite model for enterprise use",
         category="general",
     ),
-    CatalogModel(
+CatalogModel(
         name="granite-3.0-2b",
         display_name="granite 3.0 2b",
         filename="granite-3.0-2b-instruct-Q4_K_M.gguf",
@@ -1580,7 +1547,7 @@ MODEL_CATALOG_PART1: list[CatalogModel] = [
         description="IBM Granite model for enterprise use",
         category="general",
     ),
-    CatalogModel(
+CatalogModel(
         name="granite-3.1-1b-a400m",
         display_name="granite 3.1 1b a400m",
         filename="granite-3.1-1b-a400m-instruct-Q4_K_M.gguf",
@@ -1591,7 +1558,7 @@ MODEL_CATALOG_PART1: list[CatalogModel] = [
         description="IBM Granite model for enterprise use",
         category="general",
     ),
-    CatalogModel(
+CatalogModel(
         name="granite-3.1-3b-a800m",
         display_name="granite 3.1 3b a800m",
         filename="granite-3.1-3b-a800m-instruct-Q4_K_M.gguf",
@@ -1602,7 +1569,7 @@ MODEL_CATALOG_PART1: list[CatalogModel] = [
         description="IBM Granite model for enterprise use",
         category="general",
     ),
-    CatalogModel(
+CatalogModel(
         name="granite-3b-code",
         display_name="granite 3b code",
         filename="granite-3b-code-instruct-Q4_K_M.gguf",
@@ -1613,7 +1580,7 @@ MODEL_CATALOG_PART1: list[CatalogModel] = [
         description="IBM model optimized for code generation",
         category="coding",
     ),
-    CatalogModel(
+CatalogModel(
         name="granite-8b-code",
         display_name="granite 8b code",
         filename="granite-8b-code-instruct-Q4_K_M.gguf",
@@ -1624,7 +1591,7 @@ MODEL_CATALOG_PART1: list[CatalogModel] = [
         description="IBM model optimized for code generation",
         category="coding",
     ),
-    CatalogModel(
+CatalogModel(
         name="granite-20b-code",
         display_name="granite 20b code",
         filename="granite-20b-code-instruct-Q4_K_M.gguf",
@@ -1635,7 +1602,7 @@ MODEL_CATALOG_PART1: list[CatalogModel] = [
         description="IBM model optimized for code generation",
         category="coding",
     ),
-    CatalogModel(
+CatalogModel(
         name="granite-34b-code",
         display_name="granite 34b code",
         filename="granite-34b-code-instruct-Q4_K_M.gguf",
@@ -1646,5 +1613,1093 @@ MODEL_CATALOG_PART1: list[CatalogModel] = [
         description="IBM model optimized for code generation",
         category="coding",
     ),
-
+CatalogModel(
+        name="ol-mo-7-b",
+        display_name="OLMo 7B",
+        filename="OLMo-7B-Instruct-Q4_K_M.gguf",
+        url=_gcs_url("OLMo-7B-Instruct-Q4_K_M.gguf"),
+        size_gb=3.9,
+        params="7B",
+        family="Allen AI",
+        description="Allen AI open language model",
+        category="general",
+    ),
+CatalogModel(
+        name="llama-3.1-tulu-3-70-b",
+        display_name="Llama 3.1 Tulu 3 70B",
+        filename="Llama-3.1-Tulu-3-70B-Q4_K_M.gguf",
+        url=_gcs_url("Llama-3.1-Tulu-3-70B-Q4_K_M.gguf"),
+        size_gb=38.5,
+        params="70B",
+        family="Llama",
+        description="Meta Llama model for general tasks",
+        category="general",
+    ),
+CatalogModel(
+        name="sailor2-1-b",
+        display_name="Sailor2 1B",
+        filename="Sailor2-1B-Chat-Q4_K_M.gguf",
+        url=_gcs_url("Sailor2-1B-Chat-Q4_K_M.gguf"),
+        size_gb=0.6,
+        params="1B",
+        family="Sailor",
+        description="Multilingual model for South-East Asia",
+        category="general",
+    ),
+CatalogModel(
+        name="sailor2-8-b",
+        display_name="Sailor2 8B",
+        filename="Sailor2-8B-Chat-Q4_K_M.gguf",
+        url=_gcs_url("Sailor2-8B-Chat-Q4_K_M.gguf"),
+        size_gb=4.4,
+        params="8B",
+        family="Sailor",
+        description="Multilingual model for South-East Asia",
+        category="general",
+    ),
+CatalogModel(
+        name="sailor2-20-b",
+        display_name="Sailor2 20B",
+        filename="Sailor2-20B-Chat-Q4_K_M.gguf",
+        url=_gcs_url("Sailor2-20B-Chat-Q4_K_M.gguf"),
+        size_gb=11.0,
+        params="20B",
+        family="Sailor",
+        description="Multilingual model for South-East Asia",
+        category="general",
+    ),
+CatalogModel(
+        name="aya-23-8-b",
+        display_name="aya 23 8B",
+        filename="aya-23-8B-Q4_K_M.gguf",
+        url=_gcs_url("aya-23-8B-Q4_K_M.gguf"),
+        size_gb=4.4,
+        params="8B",
+        family="Cohere",
+        description="Cohere model for general tasks",
+        category="general",
+    ),
+CatalogModel(
+        name="aya-23-35-b",
+        display_name="aya 23 35B",
+        filename="aya-23-35B-Q4_K_M.gguf",
+        url=_gcs_url("aya-23-35B-Q4_K_M.gguf"),
+        size_gb=19.2,
+        params="35B",
+        family="Cohere",
+        description="Cohere model for general tasks",
+        category="general",
+    ),
+CatalogModel(
+        name="cogito-v1-llama-8-b",
+        display_name="Cogito v1 Preview Llama 8B",
+        filename="Cogito-v1-Preview-Llama-8B-Q4_K_M.gguf",
+        url=_gcs_url("Cogito-v1-Preview-Llama-8B-Q4_K_M.gguf"),
+        size_gb=4.4,
+        params="8B",
+        family="Llama",
+        description="Meta Llama model for general tasks",
+        category="general",
+    ),
+CatalogModel(
+        name="cogito-v1-llama-70-b",
+        display_name="Cogito v1 Preview Llama 70B",
+        filename="Cogito-v1-Preview-Llama-70B-Q4_K_M.gguf",
+        url=_gcs_url("Cogito-v1-Preview-Llama-70B-Q4_K_M.gguf"),
+        size_gb=38.5,
+        params="70B",
+        family="Llama",
+        description="Meta Llama model for general tasks",
+        category="general",
+    ),
+CatalogModel(
+        name="exaone-deep-2.4-b",
+        display_name="EXAONE Deep 2.4B",
+        filename="EXAONE-Deep-2.4B-Q4_K_M.gguf",
+        url=_gcs_url("EXAONE-Deep-2.4B-Q4_K_M.gguf"),
+        size_gb=1.3,
+        params="2.4B",
+        family="LG AI",
+        description="LG AI model for bilingual tasks",
+        category="general",
+    ),
+CatalogModel(
+        name="smol-lm-135-m",
+        display_name="SmolLM 135M",
+        filename="SmolLM-135M-Instruct-Q4_K_M.gguf",
+        url=_gcs_url("SmolLM-135M-Instruct-Q4_K_M.gguf"),
+        size_gb=2.0,
+        params="135M",
+        family="Small",
+        description="Small model for general tasks",
+        category="small",
+    ),
+CatalogModel(
+        name="smol-lm-1.7-b",
+        display_name="SmolLM 1.7B",
+        filename="SmolLM-1.7B-Instruct-Q4_K_M.gguf",
+        url=_gcs_url("SmolLM-1.7B-Instruct-Q4_K_M.gguf"),
+        size_gb=0.9,
+        params="1.7B",
+        family="Small",
+        description="Small model for general tasks",
+        category="small",
+    ),
+CatalogModel(
+        name="tiny-dolphin-2.8.2-1.1b",
+        display_name="TinyDolphin 2.8.2 1.1b",
+        filename="TinyDolphin-2.8.2-1.1b-Q4_K_M.gguf",
+        url=_gcs_url("TinyDolphin-2.8.2-1.1b-Q4_K_M.gguf"),
+        size_gb=0.6,
+        params="1.1B",
+        family="Microsoft",
+        description="Uncensored model fine-tuned for helpfulness",
+        category="small",
+    ),
+CatalogModel(
+        name="gemma-2b-it",
+        display_name="gemma 2b it",
+        filename="gemma-2b-it-Q4_K_M.gguf",
+        url=_gcs_url("gemma-2b-it-Q4_K_M.gguf"),
+        size_gb=1.1,
+        params="2B",
+        family="Google",
+        description="Google Gemma model for efficient performance",
+        category="general",
+    ),
+CatalogModel(
+        name="gemma-7b-it",
+        display_name="gemma 7b it",
+        filename="gemma-7b-it-Q4_K_M.gguf",
+        url=_gcs_url("gemma-7b-it-Q4_K_M.gguf"),
+        size_gb=3.9,
+        params="7B",
+        family="Google",
+        description="Google Gemma model for efficient performance",
+        category="general",
+    ),
+CatalogModel(
+        name="firefunction-v2",
+        display_name="firefunction v2",
+        filename="firefunction-v2-Q4_K_M.gguf",
+        url=_gcs_url("firefunction-v2-Q4_K_M.gguf"),
+        size_gb=2.0,
+        params="varies",
+        family="Open",
+        description="Open model for general tasks",
+        category="general",
+    ),
+CatalogModel(
+        name="llama-3-groq-8-b-tool-use",
+        display_name="Llama 3 Groq 8B Tool Use",
+        filename="Llama-3-Groq-8B-Tool-Use-Q4_K_M.gguf",
+        url=_gcs_url("Llama-3-Groq-8B-Tool-Use-Q4_K_M.gguf"),
+        size_gb=4.4,
+        params="8B",
+        family="Llama",
+        description="Meta Llama model for general tasks",
+        category="general",
+    ),
+CatalogModel(
+        name="llama-3-groq-70-b-tool-use",
+        display_name="Llama 3 Groq 70B Tool Use",
+        filename="Llama-3-Groq-70B-Tool-Use-Q4_K_M.gguf",
+        url=_gcs_url("Llama-3-Groq-70B-Tool-Use-Q4_K_M.gguf"),
+        size_gb=38.5,
+        params="70B",
+        family="Llama",
+        description="Meta Llama model for general tasks",
+        category="general",
+    ),
+CatalogModel(
+        name="llama-pro-8-b",
+        display_name="Llama Pro 8B",
+        filename="Llama-Pro-8B-Instruct-Q4_K_M.gguf",
+        url=_gcs_url("Llama-Pro-8B-Instruct-Q4_K_M.gguf"),
+        size_gb=4.4,
+        params="8B",
+        family="Llama",
+        description="Meta Llama model for general tasks",
+        category="general",
+    ),
+CatalogModel(
+        name="llama-3-qa-1.5-8-b",
+        display_name="Llama 3QA 1.5 8B",
+        filename="Llama-3-ChatQA-1.5-8B-Q4_K_M.gguf",
+        url=_gcs_url("Llama-3-ChatQA-1.5-8B-Q4_K_M.gguf"),
+        size_gb=4.4,
+        params="8B",
+        family="Llama",
+        description="Meta Llama model for general tasks",
+        category="general",
+    ),
+CatalogModel(
+        name="llama-3-qa-1.5-70-b",
+        display_name="Llama 3QA 1.5 70B",
+        filename="Llama-3-ChatQA-1.5-70B-Q4_K_M.gguf",
+        url=_gcs_url("Llama-3-ChatQA-1.5-70B-Q4_K_M.gguf"),
+        size_gb=38.5,
+        params="70B",
+        family="Llama",
+        description="Meta Llama model for general tasks",
+        category="general",
+    ),
+CatalogModel(
+        name="bespoke-minicheck-7-b",
+        display_name="Bespoke Minicheck 7B",
+        filename="Bespoke-Minicheck-7B-Q4_K_M.gguf",
+        url=_gcs_url("Bespoke-Minicheck-7B-Q4_K_M.gguf"),
+        size_gb=3.9,
+        params="7B",
+        family="Open",
+        description="Open model for general tasks",
+        category="general",
+    ),
+CatalogModel(
+        name="r1",
+        display_name="r1 1776",
+        filename="r1-1776-Q4_K_M.gguf",
+        url=_gcs_url("r1-1776-Q4_K_M.gguf"),
+        size_gb=2.0,
+        params="varies",
+        family="Open",
+        description="Open model for general tasks",
+        category="general",
+    ),
+CatalogModel(
+        name="open-thinker-32-b",
+        display_name="OpenThinker 32B",
+        filename="OpenThinker-32B-Q4_K_M.gguf",
+        url=_gcs_url("OpenThinker-32B-Q4_K_M.gguf"),
+        size_gb=17.6,
+        params="32B",
+        family="OpenThinker",
+        description="OpenThinker model with enhanced reasoning capabilities",
+        category="reasoning",
+    ),
+CatalogModel(
+        name="devstral-small",
+        display_name="Devstral Small 2411",
+        filename="Devstral-Small-2411-Q4_K_M.gguf",
+        url=_gcs_url("Devstral-Small-2411-Q4_K_M.gguf"),
+        size_gb=2.0,
+        params="varies",
+        family="Open",
+        description="Open model for general tasks",
+        category="general",
+    ),
+CatalogModel(
+        name="magistral-8-b",
+        display_name="Magistral 8B 2506",
+        filename="Magistral-8B-2506-Q4_K_M.gguf",
+        url=_gcs_url("Magistral-8B-2506-Q4_K_M.gguf"),
+        size_gb=4.4,
+        params="8B",
+        family="Open",
+        description="Open model for general tasks",
+        category="general",
+    ),
+CatalogModel(
+        name="llava-mistral-7b",
+        display_name="llava v1.6 mistral 7b",
+        filename="llava-v1.6-mistral-7b-Q4_K_M.gguf",
+        url=_gcs_url("llava-v1.6-mistral-7b-Q4_K_M.gguf"),
+        size_gb=3.9,
+        params="7B",
+        family="Mistral",
+        description="Mistral vision-language model for image understanding",
+        category="vision",
+    ),
+CatalogModel(
+        name="llava-phi-3-mini",
+        display_name="llava phi 3 mini",
+        filename="llava-phi-3-mini-Q4_K_M.gguf",
+        url=_gcs_url("llava-phi-3-mini-Q4_K_M.gguf"),
+        size_gb=2.0,
+        params="varies",
+        family="Microsoft",
+        description="Microsoft vision-language model for image understanding",
+        category="vision",
+    ),
+CatalogModel(
+        name="mini-cpm-v-2-6",
+        display_name="MiniCPM V 2 6",
+        filename="MiniCPM-V-2_6-Q4_K_M.gguf",
+        url=_gcs_url("MiniCPM-V-2_6-Q4_K_M.gguf"),
+        size_gb=2.0,
+        params="varies",
+        family="MiniCPM",
+        description="MiniCPM multimodal model",
+        category="general",
+    ),
+CatalogModel(
+        name="moondream2",
+        display_name="moondream2",
+        filename="moondream2-Q4_K_M.gguf",
+        url=_gcs_url("moondream2-Q4_K_M.gguf"),
+        size_gb=2.0,
+        params="varies",
+        family="Moondream",
+        description="Small vision model for edge devices",
+        category="vision",
+    ),
+CatalogModel(
+        name="bak-l-la-va-1",
+        display_name="BakLLaVA 1",
+        filename="BakLLaVA-1-Q4_K_M.gguf",
+        url=_gcs_url("BakLLaVA-1-Q4_K_M.gguf"),
+        size_gb=2.0,
+        params="varies",
+        family="LLaVA",
+        description="LLaVA vision-language model for image understanding",
+        category="vision",
+    ),
+CatalogModel(
+        name="meta-llama-3-8-b",
+        display_name="Meta Llama 3 8B",
+        filename="Meta-Llama-3-8B-Instruct-Q4_K_M.gguf",
+        url=_gcs_url("Meta-Llama-3-8B-Instruct-Q4_K_M.gguf"),
+        size_gb=4.4,
+        params="8B",
+        family="Llama",
+        description="Meta Llama model for general tasks",
+        category="general",
+    ),
+CatalogModel(
+        name="meta-llama-3-70-b",
+        display_name="Meta Llama 3 70B",
+        filename="Meta-Llama-3-70B-Instruct-Q4_K_M.gguf",
+        url=_gcs_url("Meta-Llama-3-70B-Instruct-Q4_K_M.gguf"),
+        size_gb=38.5,
+        params="70B",
+        family="Llama",
+        description="Meta Llama model for general tasks",
+        category="general",
+    ),
+CatalogModel(
+        name="meta-llama-3.1-70-b",
+        display_name="Meta Llama 3.1 70B",
+        filename="Meta-Llama-3.1-70B-Instruct-Q4_K_M.gguf",
+        url=_gcs_url("Meta-Llama-3.1-70B-Instruct-Q4_K_M.gguf"),
+        size_gb=38.5,
+        params="70B",
+        family="Llama",
+        description="Meta Llama model for general tasks",
+        category="general",
+    ),
+CatalogModel(
+        name="meta-llama-3.1-405-b",
+        display_name="Meta Llama 3.1 405B",
+        filename="Meta-Llama-3.1-405B-Instruct-Q4_K_M.gguf",
+        url=_gcs_url("Meta-Llama-3.1-405B-Instruct-Q4_K_M.gguf"),
+        size_gb=222.8,
+        params="405B",
+        family="Llama",
+        description="Meta Llama model for general tasks",
+        category="general",
+    ),
+CatalogModel(
+        name="llama-3.2-11-b-vision",
+        display_name="Llama 3.2 11B Vision",
+        filename="Llama-3.2-11B-Vision-Instruct-Q4_K_M.gguf",
+        url=_gcs_url("Llama-3.2-11B-Vision-Instruct-Q4_K_M.gguf"),
+        size_gb=6.1,
+        params="11B",
+        family="Llama",
+        description="Llama vision-language model for image understanding",
+        category="vision",
+    ),
+CatalogModel(
+        name="llama-3.2-90-b-vision",
+        display_name="Llama 3.2 90B Vision",
+        filename="Llama-3.2-90B-Vision-Instruct-Q4_K_M.gguf",
+        url=_gcs_url("Llama-3.2-90B-Vision-Instruct-Q4_K_M.gguf"),
+        size_gb=49.5,
+        params="90B",
+        family="Llama",
+        description="Llama vision-language model for image understanding",
+        category="vision",
+    ),
+CatalogModel(
+        name="qwen2.5-vl-3-b",
+        display_name="Qwen2.5 VL 3B",
+        filename="Qwen2.5-VL-3B-Instruct-Q4_K_M.gguf",
+        url=_gcs_url("Qwen2.5-VL-3B-Instruct-Q4_K_M.gguf"),
+        size_gb=1.7,
+        params="3B",
+        family="Qwen",
+        description="Alibaba Qwen model with strong capabilities",
+        category="vision",
+    ),
+CatalogModel(
+        name="qwen2.5-vl-7-b",
+        display_name="Qwen2.5 VL 7B",
+        filename="Qwen2.5-VL-7B-Instruct-Q4_K_M.gguf",
+        url=_gcs_url("Qwen2.5-VL-7B-Instruct-Q4_K_M.gguf"),
+        size_gb=3.9,
+        params="7B",
+        family="Qwen",
+        description="Alibaba Qwen model with strong capabilities",
+        category="vision",
+    ),
+CatalogModel(
+        name="qwen2.5-vl-72-b",
+        display_name="Qwen2.5 VL 72B",
+        filename="Qwen2.5-VL-72B-Instruct-Q4_K_M.gguf",
+        url=_gcs_url("Qwen2.5-VL-72B-Instruct-Q4_K_M.gguf"),
+        size_gb=39.6,
+        params="72B",
+        family="Qwen",
+        description="Alibaba Qwen model with strong capabilities",
+        category="vision",
+    ),
+CatalogModel(
+        name="qwen3-0.6-b",
+        display_name="Qwen3 0.6B",
+        filename="Qwen3-0.6B-Q4_K_M.gguf",
+        url=_gcs_url("Qwen3-0.6B-Q4_K_M.gguf"),
+        size_gb=0.3,
+        params="0.6B",
+        family="Qwen",
+        description="Alibaba Qwen model with strong capabilities",
+        category="general",
+    ),
+CatalogModel(
+        name="qwen3-32-b",
+        display_name="Qwen3 32B",
+        filename="Qwen3-32B-Q4_K_M.gguf",
+        url=_gcs_url("Qwen3-32B-Q4_K_M.gguf"),
+        size_gb=17.6,
+        params="32B",
+        family="Qwen",
+        description="Alibaba Qwen model with strong capabilities",
+        category="general",
+    ),
+CatalogModel(
+        name="deep-seek-r1-distill-llama-8-b",
+        display_name="DeepSeek R1 Distill Llama 8B",
+        filename="DeepSeek-R1-Distill-Llama-8B-Q4_K_M.gguf",
+        url=_gcs_url("DeepSeek-R1-Distill-Llama-8B-Q4_K_M.gguf"),
+        size_gb=4.4,
+        params="8B",
+        family="Llama",
+        description="DeepSeek R1 reasoning model with chain-of-thought",
+        category="reasoning",
+    ),
+CatalogModel(
+        name="deep-seek-r1-distill-llama-70-b",
+        display_name="DeepSeek R1 Distill Llama 70B",
+        filename="DeepSeek-R1-Distill-Llama-70B-Q4_K_M.gguf",
+        url=_gcs_url("DeepSeek-R1-Distill-Llama-70B-Q4_K_M.gguf"),
+        size_gb=38.5,
+        params="70B",
+        family="Llama",
+        description="DeepSeek R1 reasoning model with chain-of-thought",
+        category="reasoning",
+    ),
+CatalogModel(
+        name="deep-seek-v3",
+        display_name="DeepSeek V3",
+        filename="DeepSeek-V3-Q4_K_M.gguf",
+        url=_gcs_url("DeepSeek-V3-Q4_K_M.gguf"),
+        size_gb=2.0,
+        params="varies",
+        family="DeepSeek",
+        description="DeepSeek model for general tasks",
+        category="general",
+    ),
+CatalogModel(
+        name="gemma-3-1b-it",
+        display_name="gemma 3 1b it",
+        filename="gemma-3-1b-it-Q4_K_M.gguf",
+        url=_gcs_url("gemma-3-1b-it-Q4_K_M.gguf"),
+        size_gb=0.6,
+        params="1B",
+        family="Google",
+        description="Google Gemma model for efficient performance",
+        category="general",
+    ),
+CatalogModel(
+        name="gemma-3-4b-it",
+        display_name="gemma 3 4b it",
+        filename="gemma-3-4b-it-Q4_K_M.gguf",
+        url=_gcs_url("gemma-3-4b-it-Q4_K_M.gguf"),
+        size_gb=2.2,
+        params="4B",
+        family="Google",
+        description="Google Gemma model for efficient performance",
+        category="general",
+    ),
+CatalogModel(
+        name="gemma-3-12b-it",
+        display_name="gemma 3 12b it",
+        filename="gemma-3-12b-it-Q4_K_M.gguf",
+        url=_gcs_url("gemma-3-12b-it-Q4_K_M.gguf"),
+        size_gb=6.6,
+        params="12B",
+        family="Google",
+        description="Google Gemma model for efficient performance",
+        category="general",
+    ),
+CatalogModel(
+        name="gemma-3-27b-it",
+        display_name="gemma 3 27b it",
+        filename="gemma-3-27b-it-Q4_K_M.gguf",
+        url=_gcs_url("gemma-3-27b-it-Q4_K_M.gguf"),
+        size_gb=14.9,
+        params="27B",
+        family="Google",
+        description="Google Gemma model for efficient performance",
+        category="general",
+    ),
+CatalogModel(
+        name="phi-4-mini",
+        display_name="Phi 4 mini",
+        filename="Phi-4-mini-instruct-Q4_K_M.gguf",
+        url=_gcs_url("Phi-4-mini-instruct-Q4_K_M.gguf"),
+        size_gb=2.0,
+        params="varies",
+        family="Microsoft",
+        description="Microsoft Phi model with strong reasoning",
+        category="general",
+    ),
+CatalogModel(
+        name="phi-4-reasoning",
+        display_name="Phi 4 reasoning",
+        filename="Phi-4-reasoning-Q4_K_M.gguf",
+        url=_gcs_url("Phi-4-reasoning-Q4_K_M.gguf"),
+        size_gb=2.0,
+        params="varies",
+        family="Microsoft",
+        description="Microsoft Phi model with strong reasoning",
+        category="reasoning",
+    ),
+CatalogModel(
+        name="phi-4-mini-reasoning",
+        display_name="Phi 4 mini reasoning",
+        filename="Phi-4-mini-reasoning-Q4_K_M.gguf",
+        url=_gcs_url("Phi-4-mini-reasoning-Q4_K_M.gguf"),
+        size_gb=2.0,
+        params="varies",
+        family="Microsoft",
+        description="Microsoft Phi model with strong reasoning",
+        category="reasoning",
+    ),
+CatalogModel(
+        name="granite-3.2-2b",
+        display_name="granite 3.2 2b",
+        filename="granite-3.2-2b-instruct-Q4_K_M.gguf",
+        url=_gcs_url("granite-3.2-2b-instruct-Q4_K_M.gguf"),
+        size_gb=1.1,
+        params="2B",
+        family="IBM",
+        description="IBM Granite model for enterprise use",
+        category="general",
+    ),
+CatalogModel(
+        name="granite-3.2-8b",
+        display_name="granite 3.2 8b",
+        filename="granite-3.2-8b-instruct-Q4_K_M.gguf",
+        url=_gcs_url("granite-3.2-8b-instruct-Q4_K_M.gguf"),
+        size_gb=4.4,
+        params="8B",
+        family="IBM",
+        description="IBM Granite model for enterprise use",
+        category="general",
+    ),
+CatalogModel(
+        name="granite-3.3-2b",
+        display_name="granite 3.3 2b",
+        filename="granite-3.3-2b-instruct-Q4_K_M.gguf",
+        url=_gcs_url("granite-3.3-2b-instruct-Q4_K_M.gguf"),
+        size_gb=1.1,
+        params="2B",
+        family="IBM",
+        description="IBM Granite model for enterprise use",
+        category="general",
+    ),
+CatalogModel(
+        name="granite-3.3-8b",
+        display_name="granite 3.3 8b",
+        filename="granite-3.3-8b-instruct-Q4_K_M.gguf",
+        url=_gcs_url("granite-3.3-8b-instruct-Q4_K_M.gguf"),
+        size_gb=4.4,
+        params="8B",
+        family="IBM",
+        description="IBM Granite model for enterprise use",
+        category="general",
+    ),
+CatalogModel(
+        name="granite4-350m",
+        display_name="granite4 350m",
+        filename="granite4-350m-instruct-Q4_K_M.gguf",
+        url=_gcs_url("granite4-350m-instruct-Q4_K_M.gguf"),
+        size_gb=2.0,
+        params="350M",
+        family="IBM",
+        description="IBM Granite model for enterprise use",
+        category="general",
+    ),
+CatalogModel(
+        name="granite4-3b",
+        display_name="granite4 3b",
+        filename="granite4-3b-instruct-Q4_K_M.gguf",
+        url=_gcs_url("granite4-3b-instruct-Q4_K_M.gguf"),
+        size_gb=1.7,
+        params="3B",
+        family="IBM",
+        description="IBM Granite model for enterprise use",
+        category="general",
+    ),
+CatalogModel(
+        name="hermes-3-llama-3.1-70-b",
+        display_name="Hermes 3 Llama 3.1 70B",
+        filename="Hermes-3-Llama-3.1-70B-Q4_K_M.gguf",
+        url=_gcs_url("Hermes-3-Llama-3.1-70B-Q4_K_M.gguf"),
+        size_gb=38.5,
+        params="70B",
+        family="Llama",
+        description="Nous Research model for general tasks",
+        category="general",
+    ),
+CatalogModel(
+        name="hermes-3-llama-3.1-405-b",
+        display_name="Hermes 3 Llama 3.1 405B",
+        filename="Hermes-3-Llama-3.1-405B-Q4_K_M.gguf",
+        url=_gcs_url("Hermes-3-Llama-3.1-405B-Q4_K_M.gguf"),
+        size_gb=222.8,
+        params="405B",
+        family="Llama",
+        description="Nous Research model for general tasks",
+        category="general",
+    ),
+CatalogModel(
+        name="dolphin-3.0-llama3.1-8b",
+        display_name="dolphin 3.0 llama3.1 8b",
+        filename="dolphin-3.0-llama3.1-8b-Q4_K_M.gguf",
+        url=_gcs_url("dolphin-3.0-llama3.1-8b-Q4_K_M.gguf"),
+        size_gb=4.4,
+        params="8B",
+        family="Llama",
+        description="Uncensored model fine-tuned for helpfulness",
+        category="general",
+    ),
+CatalogModel(
+        name="command-a",
+        display_name="command a",
+        filename="command-a-Q4_K_M.gguf",
+        url=_gcs_url("command-a-Q4_K_M.gguf"),
+        size_gb=2.0,
+        params="varies",
+        family="Cohere",
+        description="Cohere model for RAG and conversation",
+        category="general",
+    ),
+CatalogModel(
+        name="ol-mo-3-7-b",
+        display_name="OLMo 3 7B",
+        filename="OLMo-3-7B-Instruct-Q4_K_M.gguf",
+        url=_gcs_url("OLMo-3-7B-Instruct-Q4_K_M.gguf"),
+        size_gb=3.9,
+        params="7B",
+        family="Allen AI",
+        description="Allen AI open language model",
+        category="general",
+    ),
+CatalogModel(
+        name="ol-mo-3-32-b",
+        display_name="OLMo 3 32B",
+        filename="OLMo-3-32B-Instruct-Q4_K_M.gguf",
+        url=_gcs_url("OLMo-3-32B-Instruct-Q4_K_M.gguf"),
+        size_gb=17.6,
+        params="32B",
+        family="Allen AI",
+        description="Allen AI open language model",
+        category="general",
+    ),
+CatalogModel(
+        name="ol-mo-3.1-32-b",
+        display_name="OLMo 3.1 32B",
+        filename="OLMo-3.1-32B-Instruct-Q4_K_M.gguf",
+        url=_gcs_url("OLMo-3.1-32B-Instruct-Q4_K_M.gguf"),
+        size_gb=17.6,
+        params="32B",
+        family="Allen AI",
+        description="Allen AI open language model",
+        category="general",
+    ),
+CatalogModel(
+        name="exaone-deep-7.8-b",
+        display_name="EXAONE Deep 7.8B",
+        filename="EXAONE-Deep-7.8B-Q4_K_M.gguf",
+        url=_gcs_url("EXAONE-Deep-7.8B-Q4_K_M.gguf"),
+        size_gb=4.3,
+        params="7.8B",
+        family="LG AI",
+        description="LG AI model for bilingual tasks",
+        category="general",
+    ),
+CatalogModel(
+        name="exaone-deep-32-b",
+        display_name="EXAONE Deep 32B",
+        filename="EXAONE-Deep-32B-Q4_K_M.gguf",
+        url=_gcs_url("EXAONE-Deep-32B-Q4_K_M.gguf"),
+        size_gb=17.6,
+        params="32B",
+        family="LG AI",
+        description="LG AI model for bilingual tasks",
+        category="general",
+    ),
+CatalogModel(
+        name="nemotron-cascade-2",
+        display_name="nemotron cascade 2",
+        filename="nemotron-cascade-2-Q4_K_M.gguf",
+        url=_gcs_url("nemotron-cascade-2-Q4_K_M.gguf"),
+        size_gb=2.0,
+        params="varies",
+        family="NVIDIA",
+        description="NVIDIA model for general tasks",
+        category="general",
+    ),
+CatalogModel(
+        name="nemotron-3-nano-4b",
+        display_name="nemotron 3 nano 4b",
+        filename="nemotron-3-nano-4b-Q4_K_M.gguf",
+        url=_gcs_url("nemotron-3-nano-4b-Q4_K_M.gguf"),
+        size_gb=2.2,
+        params="4B",
+        family="NVIDIA",
+        description="NVIDIA model for general tasks",
+        category="general",
+    ),
+CatalogModel(
+        name="ministral-3-b",
+        display_name="Ministral 3B",
+        filename="Ministral-3B-Instruct-Q4_K_M.gguf",
+        url=_gcs_url("Ministral-3B-Instruct-Q4_K_M.gguf"),
+        size_gb=1.7,
+        params="3B",
+        family="Mistral",
+        description="Mistral model for general tasks",
+        category="general",
+    ),
+CatalogModel(
+        name="ministral-8-b",
+        display_name="Ministral 8B",
+        filename="Ministral-8B-Instruct-Q4_K_M.gguf",
+        url=_gcs_url("Ministral-8B-Instruct-Q4_K_M.gguf"),
+        size_gb=4.4,
+        params="8B",
+        family="Mistral",
+        description="Mistral model for general tasks",
+        category="general",
+    ),
+CatalogModel(
+        name="mistral-small-3.1-24-b",
+        display_name="Mistral Small 3.1 24B",
+        filename="Mistral-Small-3.1-24B-Instruct-Q4_K_M.gguf",
+        url=_gcs_url("Mistral-Small-3.1-24B-Instruct-Q4_K_M.gguf"),
+        size_gb=13.2,
+        params="24B",
+        family="Mistral",
+        description="Mistral AI model for efficient inference",
+        category="general",
+    ),
+CatalogModel(
+        name="mistral-small-3.2-24-b",
+        display_name="Mistral Small 3.2 24B",
+        filename="Mistral-Small-3.2-24B-Instruct-Q4_K_M.gguf",
+        url=_gcs_url("Mistral-Small-3.2-24B-Instruct-Q4_K_M.gguf"),
+        size_gb=13.2,
+        params="24B",
+        family="Mistral",
+        description="Mistral AI model for efficient inference",
+        category="general",
+    ),
+CatalogModel(
+        name="devstral-2",
+        display_name="Devstral 2",
+        filename="Devstral-2-Q4_K_M.gguf",
+        url=_gcs_url("Devstral-2-Q4_K_M.gguf"),
+        size_gb=2.0,
+        params="varies",
+        family="Open",
+        description="Open model for general tasks",
+        category="general",
+    ),
+CatalogModel(
+        name="stablelm-2-1-6b",
+        display_name="stablelm 2 1 6b",
+        filename="stablelm-2-1_6b-chat-Q4_K_M.gguf",
+        url=_gcs_url("stablelm-2-1_6b-chat-Q4_K_M.gguf"),
+        size_gb=3.3,
+        params="6B",
+        family="Stability",
+        description="Stability AI language model",
+        category="general",
+    ),
+CatalogModel(
+        name="stablelm-2-12b",
+        display_name="stablelm 2 12b",
+        filename="stablelm-2-12b-chat-Q4_K_M.gguf",
+        url=_gcs_url("stablelm-2-12b-chat-Q4_K_M.gguf"),
+        size_gb=6.6,
+        params="12B",
+        family="Stability",
+        description="Stability AI language model",
+        category="general",
+    ),
+CatalogModel(
+        name="stablelm-zephyr-3b",
+        display_name="stablelm zephyr 3b",
+        filename="stablelm-zephyr-3b-Q4_K_M.gguf",
+        url=_gcs_url("stablelm-zephyr-3b-Q4_K_M.gguf"),
+        size_gb=1.7,
+        params="3B",
+        family="Zephyr",
+        description="Stability AI language model",
+        category="general",
+    ),
+CatalogModel(
+        name="reader-lm-0.5b",
+        display_name="reader lm 0.5b",
+        filename="reader-lm-0.5b-Q4_K_M.gguf",
+        url=_gcs_url("reader-lm-0.5b-Q4_K_M.gguf"),
+        size_gb=0.3,
+        params="0.5B",
+        family="Open",
+        description="Open model for general tasks",
+        category="general",
+    ),
+CatalogModel(
+        name="reader-lm-1.5b",
+        display_name="reader lm 1.5b",
+        filename="reader-lm-1.5b-Q4_K_M.gguf",
+        url=_gcs_url("reader-lm-1.5b-Q4_K_M.gguf"),
+        size_gb=0.8,
+        params="1.5B",
+        family="Open",
+        description="Open model for general tasks",
+        category="general",
+    ),
+CatalogModel(
+        name="phi-2",
+        display_name="phi 2",
+        filename="phi-2-Q4_K_M.gguf",
+        url=_gcs_url("phi-2-Q4_K_M.gguf"),
+        size_gb=2.0,
+        params="varies",
+        family="Microsoft",
+        description="Microsoft Phi model with strong reasoning",
+        category="general",
+    ),
+CatalogModel(
+        name="functiongemma-2b",
+        display_name="functiongemma 2b",
+        filename="functiongemma-2b-Q4_K_M.gguf",
+        url=_gcs_url("functiongemma-2b-Q4_K_M.gguf"),
+        size_gb=1.1,
+        params="2B",
+        family="Google",
+        description="Google Gemma model for efficient performance",
+        category="general",
+    ),
+CatalogModel(
+        name="shieldgemma-2b",
+        display_name="shieldgemma 2b",
+        filename="shieldgemma-2b-Q4_K_M.gguf",
+        url=_gcs_url("shieldgemma-2b-Q4_K_M.gguf"),
+        size_gb=1.1,
+        params="2B",
+        family="Google",
+        description="Google Gemma model for efficient performance",
+        category="general",
+    ),
+CatalogModel(
+        name="shieldgemma-9b",
+        display_name="shieldgemma 9b",
+        filename="shieldgemma-9b-Q4_K_M.gguf",
+        url=_gcs_url("shieldgemma-9b-Q4_K_M.gguf"),
+        size_gb=5.0,
+        params="9B",
+        family="Google",
+        description="Google Gemma model for efficient performance",
+        category="general",
+    ),
+CatalogModel(
+        name="shieldgemma-27b",
+        display_name="shieldgemma 27b",
+        filename="shieldgemma-27b-Q4_K_M.gguf",
+        url=_gcs_url("shieldgemma-27b-Q4_K_M.gguf"),
+        size_gb=14.9,
+        params="27B",
+        family="Google",
+        description="Google Gemma model for efficient performance",
+        category="general",
+    ),
+CatalogModel(
+        name="orca-mini-3b",
+        display_name="orca mini 3b",
+        filename="orca-mini-3b-Q4_K_M.gguf",
+        url=_gcs_url("orca-mini-3b-Q4_K_M.gguf"),
+        size_gb=1.7,
+        params="3B",
+        family="Orca",
+        description="Microsoft Orca model with strong reasoning",
+        category="general",
+    ),
+CatalogModel(
+        name="orca-mini-7b",
+        display_name="orca mini 7b",
+        filename="orca-mini-7b-Q4_K_M.gguf",
+        url=_gcs_url("orca-mini-7b-Q4_K_M.gguf"),
+        size_gb=3.9,
+        params="7B",
+        family="Orca",
+        description="Microsoft Orca model with strong reasoning",
+        category="general",
+    ),
+CatalogModel(
+        name="orca-mini-13b",
+        display_name="orca mini 13b",
+        filename="orca-mini-13b-Q4_K_M.gguf",
+        url=_gcs_url("orca-mini-13b-Q4_K_M.gguf"),
+        size_gb=7.2,
+        params="13B",
+        family="Orca",
+        description="Microsoft Orca model with strong reasoning",
+        category="general",
+    ),
+CatalogModel(
+        name="orca-2-7b",
+        display_name="Orca 2 7b",
+        filename="Orca-2-7b-Q4_K_M.gguf",
+        url=_gcs_url("Orca-2-7b-Q4_K_M.gguf"),
+        size_gb=3.9,
+        params="7B",
+        family="Orca",
+        description="Microsoft Orca model with strong reasoning",
+        category="general",
+    ),
+CatalogModel(
+        name="orca-2-13b",
+        display_name="Orca 2 13b",
+        filename="Orca-2-13b-Q4_K_M.gguf",
+        url=_gcs_url("Orca-2-13b-Q4_K_M.gguf"),
+        size_gb=7.2,
+        params="13B",
+        family="Orca",
+        description="Microsoft Orca model with strong reasoning",
+        category="general",
+    ),
+CatalogModel(
+        name="chinese-llama-2-7-b",
+        display_name="Chinese Llama 2 7B",
+        filename="Chinese-Llama-2-7B-Q4_K_M.gguf",
+        url=_gcs_url("Chinese-Llama-2-7B-Q4_K_M.gguf"),
+        size_gb=3.9,
+        params="7B",
+        family="Llama",
+        description="Meta Llama model for general tasks",
+        category="general",
+    ),
+CatalogModel(
+        name="chinese-llama-2-13-b",
+        display_name="Chinese Llama 2 13B",
+        filename="Chinese-Llama-2-13B-Q4_K_M.gguf",
+        url=_gcs_url("Chinese-Llama-2-13B-Q4_K_M.gguf"),
+        size_gb=7.2,
+        params="13B",
+        family="Llama",
+        description="Meta Llama model for general tasks",
+        category="general",
+    ),
+CatalogModel(
+        name="yarn-llama-2-7-b-128-k",
+        display_name="Yarn Llama 2 7B 128K",
+        filename="Yarn-Llama-2-7B-128K-Q4_K_M.gguf",
+        url=_gcs_url("Yarn-Llama-2-7B-128K-Q4_K_M.gguf"),
+        size_gb=3.9,
+        params="7B",
+        family="Llama",
+        description="Meta Llama model for general tasks",
+        category="general",
+    ),
+CatalogModel(
+        name="yarn-llama-2-13-b-128-k",
+        display_name="Yarn Llama 2 13B 128K",
+        filename="Yarn-Llama-2-13B-128K-Q4_K_M.gguf",
+        url=_gcs_url("Yarn-Llama-2-13B-128K-Q4_K_M.gguf"),
+        size_gb=7.2,
+        params="13B",
+        family="Llama",
+        description="Meta Llama model for general tasks",
+        category="general",
+    ),
+CatalogModel(
+        name="yarn-mistral-7-b-128-k",
+        display_name="Yarn Mistral 7B 128K",
+        filename="Yarn-Mistral-7B-128K-Q4_K_M.gguf",
+        url=_gcs_url("Yarn-Mistral-7B-128K-Q4_K_M.gguf"),
+        size_gb=3.9,
+        params="7B",
+        family="Mistral",
+        description="Mistral AI model for efficient inference",
+        category="general",
+    ),
+CatalogModel(
+        name="samantha-mistral-7b",
+        display_name="samantha mistral 7b",
+        filename="samantha-mistral-7b-Q4_K_M.gguf",
+        url=_gcs_url("samantha-mistral-7b-Q4_K_M.gguf"),
+        size_gb=3.9,
+        params="7B",
+        family="Mistral",
+        description="Mistral AI model for efficient inference",
+        category="general",
+    ),
+CatalogModel(
+        name="mistral-7-b-open-orca",
+        display_name="Mistral 7B OpenOrca",
+        filename="Mistral-7B-OpenOrca-Q4_K_M.gguf",
+        url=_gcs_url("Mistral-7B-OpenOrca-Q4_K_M.gguf"),
+        size_gb=3.9,
+        params="7B",
+        family="Mistral",
+        description="Mistral AI model for efficient inference",
+        category="general",
+    ),
+CatalogModel(
+        name="mistral-lite-7-b",
+        display_name="MistralLite 7B",
+        filename="MistralLite-7B-Q4_K_M.gguf",
+        url=_gcs_url("MistralLite-7B-Q4_K_M.gguf"),
+        size_gb=3.9,
+        params="7B",
+        family="Mistral",
+        description="Mistral AI model for efficient inference",
+        category="general",
+    ),
+CatalogModel(
+        name="nexus-raven-v2-13-b",
+        display_name="NexusRaven V2 13B",
+        filename="NexusRaven-V2-13B-Q4_K_M.gguf",
+        url=_gcs_url("NexusRaven-V2-13B-Q4_K_M.gguf"),
+        size_gb=7.2,
+        params="13B",
+        family="Open",
+        description="Open model for general tasks",
+        category="general",
+    ),
+CatalogModel(
+        name="stable-beluga-7-b",
+        display_name="StableBeluga 7B",
+        filename="StableBeluga-7B-Q4_K_M.gguf",
+        url=_gcs_url("StableBeluga-7B-Q4_K_M.gguf"),
+        size_gb=3.9,
+        params="7B",
+        family="Stability",
+        description="Stability AI language model",
+        category="general",
+    )
 ]

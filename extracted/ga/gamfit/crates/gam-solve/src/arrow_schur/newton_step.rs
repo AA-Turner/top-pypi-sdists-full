@@ -107,6 +107,8 @@ pub fn solve_arrow_newton_step_with_options(
     // can alias htt_factors directly; otherwise pay a second per-row
     // Cholesky (O(N d³), same complexity class as the Newton solve).
     let htt_factors = step.htt_factors;
+    let mut schur_factor = step.schur_factor;
+    let schur_log_det_override = step.schur_log_det_override;
     // The per-row deflated directions must describe the factors the gradient's
     // selected-inverse actually uses. For the ridge-0 evidence cache the damped
     // and undamped factors coincide, so the step's directions apply directly;
@@ -133,10 +135,25 @@ pub fn solve_arrow_newton_step_with_options(
             undamped.deflation_row_spectra,
         )
     };
+    let mut schur_factor_is_undamped = sys.k == 0 || (ridge_t == 0.0 && ridge_beta == 0.0);
+    if sys.k > 0 && !schur_factor_is_undamped {
+        let evidence_htt_factors = match &htt_factors_undamped {
+            ArrowUndampedFactors::SameAsDamped => &htt_factors,
+            ArrowUndampedFactors::Owned(factors) => factors,
+        };
+        let evidence_schur = build_dense_schur_direct(sys, evidence_htt_factors, 0.0, &backend)?;
+        let (evidence_schur_factor, floored_evidence_schur) =
+            factor_dense_reduced_schur(&evidence_schur, options.schur_pd_floor, true)?;
+        drop(floored_evidence_schur);
+        schur_factor = Some(evidence_schur_factor);
+        schur_factor_is_undamped = true;
+    }
+
     let mut cache = ArrowFactorCache {
         htt_factors,
         htt_factors_undamped,
-        schur_factor: step.schur_factor,
+        schur_factor,
+        schur_factor_is_undamped,
         joint_hessian_log_det: None,
         solver_mode: options.mode,
         ridge_t,
@@ -181,8 +198,11 @@ pub fn solve_arrow_newton_step_with_options(
     // Quadrature (no dense `k × k` Cholesky was formed, so `schur_factor` is
     // `None`); fold it into the joint log-det directly. Every other path has a
     // dense `schur_factor` (or `k == 0`) and uses the exact diagonal-sum form.
-    cache.joint_hessian_log_det = match step.schur_log_det_override {
-        Some(schur_log_det) => cache.undamped_arrow_log_det_with_schur(schur_log_det),
+    cache.joint_hessian_log_det = match schur_log_det_override {
+        Some(schur_log_det) if ridge_t == 0.0 && ridge_beta == 0.0 => {
+            cache.undamped_arrow_log_det_with_schur(schur_log_det)
+        }
+        Some(_) => cache.compute_undamped_arrow_log_det(),
         None => cache.compute_undamped_arrow_log_det(),
     };
     Ok((delta_t, delta_beta, cache))
@@ -425,12 +445,14 @@ pub(crate) fn try_device_arrow_direct(
 /// device branch only fires when `radius == INFINITY` (never set in production).
 /// So every real SAE fit ran the inner arrow-Schur on the CPU (GPU 0%).
 ///
-/// Direct mode is the **exact full Newton step** — there is no trust-region
-/// truncation to honor — so the unbounded device PCG, run to tight tolerance and
-/// high iteration count, converges to the SAME step the dense Direct CPU path
-/// produces (to ~1e-8). The `radius == INFINITY` concern that gates the
-/// InexactPCG device branch therefore does not apply here: the bounded radius in
-/// the options is irrelevant because Direct never truncates.
+/// This seam is valid only when the unbounded device PCG step is also the step
+/// the dense Direct CPU path would accept. Dense Direct first factors `S` and
+/// computes the exact Newton step, but it still falls back to Steihaug-CG when
+/// that step leaves a finite trust ball. The device kernel does not implement
+/// Steihaug truncation, so after it returns the unbounded step we admit it only
+/// when [`step_inside_trust_region`] proves the β step is inside the active
+/// trust radius (or the radius is unbounded). Otherwise we transparently decline
+/// and let the existing CPU Direct path compute the principled truncated step.
 ///
 /// Returns `Some(Ok(..))` when the device produced a converged step (caller
 /// returns it), `Some(Err(..))` only for a numerical failure the LM escalation
@@ -527,10 +549,10 @@ pub(crate) fn try_device_arrow_direct_sae_pcg(
         sys.d,
         device_data.frame.is_some()
     );
-    // Direct mode = exact full step: run the unbounded device PCG to a tight
-    // tolerance and a high iteration ceiling so it converges to the same step the
-    // dense Direct factorization yields. The control floor here is independent of
-    // the (irrelevant, never-truncated) trust-region radius.
+    // First compute the unbounded Direct Newton step: when it lies inside the
+    // trust ball it is exactly the step the dense Direct path accepts. If the
+    // post-solve radius check below fails, this seam declines so CPU Direct can
+    // compute the required Steihaug boundary step.
     let max_iterations = options.pcg.max_iterations.max(sys.k.saturating_add(1));
     let relative_tolerance = options.pcg.relative_tolerance.min(1e-12);
     match crate::gpu_kernels::arrow_schur::solve_sae_matrix_free_pcg(
@@ -543,6 +565,14 @@ pub(crate) fn try_device_arrow_direct_sae_pcg(
         relative_tolerance,
     ) {
         Ok((delta_beta, mut diag)) => {
+            if !step_inside_trust_region(delta_beta.view(), options.trust_region.radius, None) {
+                trace_decline!(
+                    "unbounded device step lies outside finite trust radius {} — \
+                     CPU Direct must compute the Steihaug-truncated step",
+                    options.trust_region.radius
+                );
+                return None;
+            }
             diag.used_device_arrow = true;
             let delta_t = back_substitute_delta_t(sys, htt_factors, delta_beta.view(), backend);
             // The matrix-free device PCG returns the step ONLY (it never forms the
@@ -1801,10 +1831,10 @@ pub(crate) fn solve_arrow_newton_step_artifacts(
         ArrowSolverMode::Direct => {
             // #1551 production device seam: when the matrix-free SAE PCG frames are
             // present and the GPU admits the CG-amortised work, run the exact full
-            // Direct step on the device (no trust-region truncation in Direct mode,
-            // so the unbounded device PCG converges to the dense Direct step). On any
-            // device decline this returns `None` and the CPU dense path below runs
-            // bit-identically.
+            // Direct step on the device when that unbounded step is inside the
+            // active trust radius. If the step needs Steihaug truncation, or on any
+            // other device decline, this returns `None` and the CPU dense path below
+            // runs bit-identically.
             if let Some(device_step) = try_device_arrow_direct_sae_pcg(
                 sys,
                 &htt_factors,

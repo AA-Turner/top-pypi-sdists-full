@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: openfoodfacts
-Version: 5.2.0
+Version: 5.3.0
 Summary: Official Python SDK of Open Food Facts
 Author-email: The Open Food Facts team <contact@openfoodfacts.org>
 License-Expression: MIT
@@ -17,9 +17,9 @@ Requires-Dist: requests>=2.20.0
 Requires-Dist: pydantic<3.0.0,>=2.0.0
 Requires-Dist: tqdm<5.0.0,>=4.0.0
 Provides-Extra: redis
-Requires-Dist: redis[hiredis]~=7.1.1; extra == "redis"
+Requires-Dist: redis[hiredis]<8.1.0,>=7.1.1; extra == "redis"
 Provides-Extra: pillow
-Requires-Dist: Pillow<12.2,>=9.3; extra == "pillow"
+Requires-Dist: Pillow<12.3,>=9.3; extra == "pillow"
 Provides-Extra: ml
 Requires-Dist: tritonclient[grpc]<3.0.0,>2.0.0; extra == "ml"
 Requires-Dist: opencv-python-headless<5.0.0,>4.0.0; extra == "ml"

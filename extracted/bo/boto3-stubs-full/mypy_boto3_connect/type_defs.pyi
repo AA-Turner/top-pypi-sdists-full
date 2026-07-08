@@ -264,6 +264,7 @@ __all__ = (
     "AttributeTypeDef",
     "AudioFeaturesTypeDef",
     "AudioQualityMetricsInfoTypeDef",
+    "AuthScopeTypeDef",
     "AuthenticationProfileSummaryTypeDef",
     "AuthenticationProfileTypeDef",
     "AutoAcceptConfigTypeDef",
@@ -362,6 +363,8 @@ __all__ = (
     "CreateAgentStatusResponseTypeDef",
     "CreateAttachedFileRequestTypeDef",
     "CreateAttachedFileResponseTypeDef",
+    "CreateAuthCodeRequestTypeDef",
+    "CreateAuthCodeResponseTypeDef",
     "CreateCaseActionDefinitionOutputTypeDef",
     "CreateCaseActionDefinitionTypeDef",
     "CreateCaseActionDefinitionUnionTypeDef",
@@ -492,6 +495,7 @@ __all__ = (
     "DeleteRoutingProfileRequestTypeDef",
     "DeleteRuleRequestTypeDef",
     "DeleteSecurityProfileRequestTypeDef",
+    "DeleteSessionRequestTypeDef",
     "DeleteTaskTemplateRequestTypeDef",
     "DeleteTestCaseRequestTypeDef",
     "DeleteTrafficDistributionGroupRequestTypeDef",
@@ -1865,6 +1869,12 @@ class AttributeTypeDef(TypedDict):
 class AudioFeaturesTypeDef(TypedDict):
     EchoReduction: NotRequired[MeetingFeatureStatusType]
 
+class AuthScopeTypeDef(TypedDict):
+    EntityType: Literal["CUSTOMER_PROFILE"]
+    SecurityProfileIds: NotRequired[Sequence[str]]
+    EntityId: NotRequired[str]
+    DomainName: NotRequired[str]
+
 class AuthenticationProfileSummaryTypeDef(TypedDict):
     Id: NotRequired[str]
     Arn: NotRequired[str]
@@ -2615,6 +2625,10 @@ class DeleteRuleRequestTypeDef(TypedDict):
 class DeleteSecurityProfileRequestTypeDef(TypedDict):
     InstanceId: str
     SecurityProfileId: str
+
+class DeleteSessionRequestTypeDef(TypedDict):
+    InstanceId: str
+    SessionId: str
 
 class DeleteTaskTemplateRequestTypeDef(TypedDict):
     InstanceId: str
@@ -4635,6 +4649,13 @@ class CreateAttachedFileResponseTypeDef(TypedDict):
     FileStatus: FileStatusTypeType
     ResponseMetadata: ResponseMetadataTypeDef
 
+class CreateAuthCodeResponseTypeDef(TypedDict):
+    AuthCode: str
+    SessionId: str
+    EntityType: Literal["CUSTOMER_PROFILE"]
+    EntityId: str
+    ResponseMetadata: ResponseMetadataTypeDef
+
 class CreateContactFlowModuleAliasResponseTypeDef(TypedDict):
     ContactFlowModuleArn: str
     Id: str
@@ -5408,6 +5429,12 @@ class ListInstanceAttributesResponseTypeDef(TypedDict):
 class MeetingFeaturesConfigurationTypeDef(TypedDict):
     Audio: NotRequired[AudioFeaturesTypeDef]
 
+class CreateAuthCodeRequestTypeDef(TypedDict):
+    InstanceId: str
+    Scope: AuthScopeTypeDef
+    SessionInactivityDurationMinutes: int
+    MaxSessionDurationMinutes: NotRequired[int]
+
 class ListAuthenticationProfilesResponseTypeDef(TypedDict):
     AuthenticationProfileSummaryList: list[AuthenticationProfileSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
@@ -5881,10 +5908,10 @@ class UpdateViewContentRequestTypeDef(TypedDict):
     Content: ViewInputContentTypeDef
 
 class GetFederationTokenResponseTypeDef(TypedDict):
+    UserId: str
+    UserArn: str
     Credentials: CredentialsTypeDef
     SignInUrl: str
-    UserArn: str
-    UserId: str
     ResponseMetadata: ResponseMetadataTypeDef
 
 class MediaConcurrencyTypeDef(TypedDict):

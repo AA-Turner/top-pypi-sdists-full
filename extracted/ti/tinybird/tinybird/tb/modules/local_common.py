@@ -79,7 +79,10 @@ def get_tinybird_local_client(
 
 
 def get_tinybird_local_config(
-    config_obj: Dict[str, Any], test: bool = False, silent: bool = False, branch: Optional[str] = None
+    config_obj: Dict[str, Any],
+    test: bool = False,
+    silent: bool = False,
+    branch: Optional[str] = None,
 ) -> tuple[CLIConfig, bool]:
     """Craft a client config with a workspace name based on the path of the project files.
 
@@ -142,6 +145,8 @@ def get_tinybird_local_config(
             if not ws:
                 raise AuthNoTokenException()
             workspace_created = True
+
+        config_obj["local_workspace_name"] = ws_name
 
         ws_token = ws["token"]
         config.set_token(ws_token)

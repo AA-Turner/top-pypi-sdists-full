@@ -41,12 +41,10 @@ def reimport_module(module: ModuleType) -> ModuleType:
 
     Evicts the module from `sys.modules` before re-importing it, so on-disk
     changes to the module's source are picked up without restarting the
-    interpreter.
+    interpreter. Packages and plain modules are both handled.
 
     Args:
         module: Module to re-import.
-        is_package: Set to `True` when the target is a package rather than a
-            plain module. Defaults to `False`.
 
     Returns:
         A freshly imported module object, distinct from the original.
@@ -72,8 +70,6 @@ def import_module_with_file_fallback(path: Path, name: str) -> ModuleType:
     Args:
         path: Path to the module file, used only when the standard import fails.
         name: Name under which to register the imported module.
-        is_package: Set to `True` when the target is a package rather than a
-            plain module. Defaults to `False`.
 
     Returns:
         The imported module.
@@ -98,13 +94,10 @@ def import_module_from_file(path: Path, name: str) -> ModuleType:
     again if execution fails, leaving no invalid cache entry behind.
 
     Args:
-        path: Path to the source file; resolved to an absolute path. When
-            `is_package` is `True` and the path is not already an `__init__.py`,
+        path: Path to the source file or package directory; resolved to an
+            absolute path. A directory is treated as a package, and
             `__init__.py` is appended to it.
         name: Name under which to register the imported module.
-        is_package: Set to `True` when the target is a package rather than a
-            plain module, enabling package semantics (e.g., relative imports).
-            Defaults to `False`.
 
     Returns:
         The imported and executed module.
@@ -114,13 +107,14 @@ def import_module_from_file(path: Path, name: str) -> ModuleType:
         FileNotFoundError: If the file does not exist.
     """
     path = path.resolve()
-    is_pkg = path.is_dir() or path.name == "__init__.py"
-    if is_pkg and path.name != "__init__.py":
+    path_name = path.name
+    is_pkg = path.is_dir() or path_name == "__init__.py"
+    if is_pkg and path_name != "__init__.py":
         path = path / "__init__.py"
     loader = SourceFileLoader(name, str(path))
     spec = spec_from_loader(name=name, loader=loader, is_package=is_pkg)
     if spec is None:
-        msg = f"Could not create spec for {path}"
+        msg = f"could not create spec for {path}"
         raise ImportError(msg)
 
     module = module_from_spec(spec)

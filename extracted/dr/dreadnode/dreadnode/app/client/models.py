@@ -210,6 +210,7 @@ class SessionInfo:
     session_id: str
     project: str | None
     created_at: str
+    group_id: str | None = None
     updated_at: str | None = None
     message_count: int = 0
     session_dir: str | None = None
@@ -256,6 +257,7 @@ class SessionInfo:
                     labels[str(key)] = [str(v) for v in values]
         return cls(
             session_id=str(data.get("session_id", "")),
+            group_id=str(data["group_id"]) if data.get("group_id") else None,
             project=str(data["project"]) if data.get("project") else None,
             created_at=str(data.get("created_at", "")),
             updated_at=str(data["updated_at"]) if data.get("updated_at") else None,

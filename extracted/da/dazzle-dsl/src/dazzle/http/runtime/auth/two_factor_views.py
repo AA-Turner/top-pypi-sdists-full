@@ -206,8 +206,8 @@ _SETUP_BODY_HTML = """\
   <div class="dz-auth-card">
     <h1 class="dz-auth-card-title">Set Up 2FA</h1>
     <p class="dz-auth-card-subtitle">{product_name}</p>
-    <div id="dz-auth-error" class="dz-auth-error hidden" role="alert"></div>
-    <div id="dz-auth-success" class="dz-auth-success hidden" role="status"></div>
+    <div id="dz-auth-error" class="dz-auth-error" role="alert" hidden></div>
+    <div id="dz-auth-success" class="dz-auth-success" role="status" hidden></div>
 
     <div id="dz-totp-section">
       <h2 class="dz-auth-section-title">Authenticator App</h2>
@@ -215,11 +215,11 @@ _SETUP_BODY_HTML = """\
         Scan this QR code with your authenticator app (Google Authenticator, Authy, etc.)
       </p>
       <div id="dz-qr-container" class="dz-auth-qr-container">
-        <button id="dz-setup-totp" class="dz-button dz-button-outline">
+        <button id="dz-setup-totp" class="dz-button" data-dz-variant="outline">
           Generate QR Code
         </button>
       </div>
-      <div id="dz-totp-verify" class="hidden">
+      <div id="dz-totp-verify" hidden>
         <p class="dz-auth-section-body">
           Or enter the secret manually:
           <code id="dz-totp-secret" class="dz-auth-secret-inline"></code>
@@ -231,7 +231,7 @@ _SETUP_BODY_HTML = """\
                    inputmode="numeric" pattern="[0-9]*" maxlength="6"
                    placeholder="000000" class="dz-auth-input-code">
           </div>
-          <button type="submit" class="dz-button dz-button-primary dz-auth-submit">
+          <button type="submit" class="dz-button dz-auth-submit" data-dz-variant="primary">
             Verify &amp; Enable
           </button>
         </form>
@@ -245,12 +245,12 @@ _SETUP_BODY_HTML = """\
       <p class="dz-auth-section-body">
         Receive a one-time code via email when you sign in.
       </p>
-      <button id="dz-enable-email-otp" class="dz-button dz-button-outline dz-auth-submit">
+      <button id="dz-enable-email-otp" class="dz-button dz-auth-submit" data-dz-variant="outline">
         Enable Email OTP
       </button>
     </div>
 
-    <div id="dz-recovery-section" class="hidden">
+    <div id="dz-recovery-section" hidden>
       <div class="dz-auth-recovery-alert" role="alert">
         <h3 class="dz-auth-recovery-alert-title">Save Your Recovery Codes</h3>
         <p class="dz-auth-recovery-alert-body">
@@ -270,8 +270,8 @@ _SETTINGS_BODY_HTML = """\
   <div class="dz-auth-card">
     <h1 class="dz-auth-card-title">2FA Settings</h1>
     <p class="dz-auth-card-subtitle">{product_name}</p>
-    <div id="dz-auth-error" class="dz-auth-error hidden" role="alert"></div>
-    <div id="dz-auth-success" class="dz-auth-success hidden" role="status"></div>
+    <div id="dz-auth-error" class="dz-auth-error" role="alert" hidden></div>
+    <div id="dz-auth-success" class="dz-auth-success" role="status" hidden></div>
     <div id="dz-status">
       <p class="dz-auth-status-loading">Loading status...</p>
     </div>

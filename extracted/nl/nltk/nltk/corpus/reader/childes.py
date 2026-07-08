@@ -15,8 +15,10 @@ __docformat__ = "epytext en"
 import re
 from collections import defaultdict
 
+from defusedxml.ElementTree import parse as safe_parse
+
 from nltk.corpus.reader.util import concat
-from nltk.corpus.reader.xmldocs import ElementTree, XMLCorpusReader
+from nltk.corpus.reader.xmldocs import XMLCorpusReader
 from nltk.util import LazyConcatenation, LazyMap, flatten
 
 # to resolve the namespace issue
@@ -216,7 +218,8 @@ class CHILDESCorpusReader(XMLCorpusReader):
 
     def _get_corpus(self, fileid):
         results = dict()
-        xmldoc = ElementTree.parse(fileid).getroot()
+        with fileid.open() as fp:
+            xmldoc = safe_parse(fp).getroot()
         for key, value in xmldoc.items():
             results[key] = value
         return results
@@ -236,7 +239,8 @@ class CHILDESCorpusReader(XMLCorpusReader):
         def dictOfDicts():
             return defaultdict(dictOfDicts)
 
-        xmldoc = ElementTree.parse(fileid).getroot()
+        with fileid.open() as fp:
+            xmldoc = safe_parse(fp).getroot()
         # getting participants' data
         pat = dictOfDicts()
         for participant in xmldoc.findall(
@@ -262,7 +266,8 @@ class CHILDESCorpusReader(XMLCorpusReader):
         return LazyMap(get_age, self.abspaths(fileids))
 
     def _get_age(self, fileid, speaker, month):
-        xmldoc = ElementTree.parse(fileid).getroot()
+        with fileid.open() as fp:
+            xmldoc = safe_parse(fp).getroot()
         for pat in xmldoc.findall(f".//{{{NS}}}Participants/{{{NS}}}participant"):
             try:
                 if pat.get("id") == speaker:
@@ -270,13 +275,23 @@ class CHILDESCorpusReader(XMLCorpusReader):
                     if month:
                         age = self.convert_age(age)
                     return age
-            # some files don't have age data
-            except (TypeError, AttributeError) as e:
+            # some files have missing (TypeError) or malformed (ValueError) age
+            # data; AttributeError is kept for backward compatibility
+            except (TypeError, AttributeError, ValueError) as e:
                 return None
 
     def convert_age(self, age_year):
-        "Caclculate age in months from a string in CHILDES format"
+        "Calculate age in months from a string in CHILDES format"
         m = re.match(r"P(\d+)Y(\d+)M?(\d?\d?)D?", age_year)
+        if m is None:
+            # A string that does not fit the CHILDES age shape would otherwise
+            # make ``m.group(1)`` raise a cryptic ``AttributeError`` out of this
+            # public helper (CWE-476); fail with a clear, catchable error.
+            raise ValueError(
+                f"Cannot convert age {age_year!r}: expected a CHILDES age string "
+                "of the form 'P<years>Y<months>' with an optional 'M' and "
+                "'<days>D', e.g. 'P2Y10M', 'P2Y10', or 'P2Y1M15D'"
+            )
         age_month = int(m.group(1)) * 12 + int(m.group(2))
         try:
             if int(m.group(3)) > 15:
@@ -354,7 +369,8 @@ class CHILDESCorpusReader(XMLCorpusReader):
             isinstance(speaker, str) and speaker != "ALL"
         ):  # ensure we have a list of speakers
             speaker = [speaker]
-        xmldoc = ElementTree.parse(fileid).getroot()
+        with fileid.open() as fp:
+            xmldoc = safe_parse(fp).getroot()
         # processing each xml doc
         results = []
         for xmlsent in xmldoc.findall(".//{%s}u" % NS):

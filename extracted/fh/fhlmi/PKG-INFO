@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: fhlmi
-Version: 0.47.0
+Version: 0.48.0
 Summary: A client to provide LLM responses for FutureHouse applications.
 Author-email: FutureHouse technical staff <hello@futurehouse.org>
 License:                                  Apache License
@@ -513,7 +513,7 @@ The rate limiter supports two storage backends:
    # Set REDIS_URL environment variable
    import os
 
-   os.environ["REDIS_URL"] = "localhost:6379"
+   os.environ["REDIS_URL"] = "redis://localhost:6379"
 
    from lmi.rate_limiter import GlobalRateLimiter
 

@@ -9,7 +9,12 @@ import requests
 from docker.client import DockerClient
 
 from tinybird.tb.client import AuthNoTokenException
-from tinybird.tb.modules.cli import cli
+from tinybird.tb.modules.cli import (
+    cli,
+    get_current_git_branch,
+    get_tinybird_branch_name_from_git_branch,
+    is_main_git_branch,
+)
 from tinybird.tb.modules.common import (
     _get_workspace_plan_name,
     echo_json,
@@ -80,9 +85,6 @@ def clear_local_workspace() -> None:
     user_token = tokens["user_token"]
     admin_token = tokens["admin_token"]
     user_client = config.get_client(host=TB_LOCAL_ADDRESS, token=user_token)
-    ws_name = config.get("name")
-    if not ws_name:
-        raise AuthNoTokenException()
 
     user_workspaces = requests.get(
         f"{TB_LOCAL_ADDRESS}/v1/user/workspaces?with_organization=true&token={admin_token}"
@@ -90,19 +92,30 @@ def clear_local_workspace() -> None:
     user_org_id = user_workspaces.get("organization_id", {})
     local_workspaces = user_workspaces.get("workspaces", [])
 
+    branch_ws_name = None
+    ws_name = config.get("name")
+    git_branch = get_current_git_branch()
+    if git_branch and not is_main_git_branch(git_branch):
+        branch_ws_name = get_tinybird_branch_name_from_git_branch(git_branch)
+        if branch_ws_name:
+            ws_name = branch_ws_name
+    if not ws_name:
+        raise AuthNoTokenException()
+
     ws = next((ws for ws in local_workspaces if ws["name"] == ws_name), None)
 
-    if not ws:
+    if not ws and ws_name != branch_ws_name:
         raise CLILocalException(FeedbackManager.error(message=f"Workspace '{ws_name}' not found."))
 
-    requests.delete(f"{TB_LOCAL_ADDRESS}/v1/workspaces/{ws['id']}?token={user_token}&hard_delete_confirmation=yes")
-    user_workspaces = user_client.user_workspaces(version="v1")
-    ws = next((ws for ws in user_workspaces["workspaces"] if ws["name"] == ws_name), None)
-
     if ws:
-        raise CLILocalException(
-            FeedbackManager.error(message=f"Workspace '{ws_name}' was not cleared properly. Please try again.")
-        )
+        requests.delete(f"{TB_LOCAL_ADDRESS}/v1/workspaces/{ws['id']}?token={user_token}&hard_delete_confirmation=yes")
+        user_workspaces = user_client.user_workspaces(version="v1")
+        ws = next((ws for ws in user_workspaces["workspaces"] if ws["name"] == ws_name), None)
+
+        if ws:
+            raise CLILocalException(
+                FeedbackManager.error(message=f"Workspace '{ws_name}' was not cleared properly. Please try again.")
+            )
 
     user_client.create_workspace(ws_name, assign_to_organization_id=user_org_id, version="v1")
     user_workspaces = requests.get(f"{TB_LOCAL_ADDRESS}/v1/user/workspaces?token={admin_token}").json()

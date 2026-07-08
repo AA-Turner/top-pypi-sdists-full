@@ -1,3 +1,4 @@
+from __future__ import annotations
 import asyncio
 from typing import TYPE_CHECKING, AsyncIterator, Dict, Iterator, List, Optional, Union
 
@@ -60,7 +61,7 @@ def _resolve_body(request: dict) -> Union[bytes, AsyncIterator[bytes], Iterator[
     return b""
 
 
-def _build_response(res: dict, queue, sem_release, flow_cb) -> "aiosonic.HttpResponse":
+def _build_response(res: dict, queue, sem_release, flow_cb) -> aiosonic.HttpResponse:
     from aiosonic import HttpResponse
 
     response = HttpResponse()
@@ -85,7 +86,7 @@ class Http2Handler(object):
     stream lifetime.
     """
 
-    def __init__(self, connection: "Connection"):
+    def __init__(self, connection: Connection):
         assert connection
         self.connection = connection
         h2conn = connection.h2conn
@@ -162,7 +163,7 @@ class Http2Handler(object):
     def _deregister_stream(self, stream_id: int) -> dict:
         return self.requests.pop(stream_id, {})
 
-    async def request(self, headers: "aiosonic.HeadersType", body: Optional[ParsedBodyType]):
+    async def request(self, headers: aiosonic.HeadersType, body: Optional[ParsedBodyType]):
         if getattr(self, "_closing", False):
             raise ConnectionDisconnected()
 

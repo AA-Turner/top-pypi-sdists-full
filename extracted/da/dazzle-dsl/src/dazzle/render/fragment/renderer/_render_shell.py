@@ -35,6 +35,8 @@ import json
 from typing import TYPE_CHECKING
 
 from dazzle.render.fragment.context import RenderContext
+from dazzle.render.fragment.icon_html import lucide_icon_html, lucide_svg_html
+from dazzle.render.fragment.nav_icons import infer_nav_icon
 from dazzle.render.fragment.primitives import (
     AppShell,
     ErrorPage,
@@ -86,23 +88,19 @@ _WORKSPACE_CONTEXT_SCRIPT_TEMPLATE = _load_static("workspace_context_script.html
 
 # Workspace toolbar — emitted byte-for-byte by `_emit_workspace_toolbar`
 # (Phase 4B.5.b.2.i). Fixed shape: Reset button + Save button with
-# five x-cloak+x-show saveState spans (clean/dirty/saving/saved/error).
+# five data-dz-when saveState spans (clean/dirty/saving/saved/error),
+# shown one-at-a-time by CSS off the button's data-dz-save-state.
 # Spinner SVG (24×24) + checkmark SVG (20×20) are inlined verbatim
 # from the legacy `_content.html` template.
 _WORKSPACE_TOOLBAR_HTML = (
     '<div class="dz-workspace-toolbar">'
     '<div class="dz-workspace-toolbar-spacer"></div>'
-    '<button @click="resetLayout()" class="dz-workspace-reset">Reset</button>'
-    '<button @click="save()" '
-    ":disabled=\"saveState === 'clean' || saveState === 'saving' || "
-    "saveState === 'saved'\" "
-    ':data-dz-save-state="saveState" '
-    ":title=\"saveState === 'error' ? _saveError : ''\" "
+    '<button data-dz-action="reset" class="dz-workspace-reset">Reset</button>'
+    '<button data-dz-action="save" data-dz-save-state="clean" disabled '
     'class="dz-workspace-save">'
-    "<span x-cloak x-show=\"saveState === 'clean'\">Saved</span>"
-    "<span x-cloak x-show=\"saveState === 'dirty'\">Save layout</span>"
-    "<span x-cloak x-show=\"saveState === 'saving'\" "
-    'class="dz-workspace-save-busy">'
+    '<span data-dz-when="clean">Saved</span>'
+    '<span data-dz-when="dirty">Save layout</span>'
+    '<span data-dz-when="saving" class="dz-workspace-save-busy">'
     '<svg class="dz-workspace-save-busy-icon" viewBox="0 0 24 24" fill="none">'
     '<circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" '
     'stroke-width="4"/>'
@@ -111,16 +109,16 @@ _WORKSPACE_TOOLBAR_HTML = (
     "</svg>"
     "Saving"
     "</span>"
-    "<span x-cloak x-show=\"saveState === 'saved'\" "
-    'class="dz-workspace-save-busy">'
+    '<span data-dz-when="saved" class="dz-workspace-save-busy">'
     '<svg class="dz-workspace-save-busy-icon" viewBox="0 0 20 20" fill="currentColor">'
     '<path fill-rule="evenodd" '
     'd="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 '
-    '011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/>'
+    '011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" '
+    'clip-rule="evenodd"/>'
     "</svg>"
     "Saved"
     "</span>"
-    "<span x-cloak x-show=\"saveState === 'error'\">Retry</span>"
+    '<span data-dz-when="error">Retry</span>'
     "</button>"
     "</div>"
 )
@@ -260,6 +258,34 @@ class _RenderShellMixin:
                 f'<footer class="dz-app-footer">{self._emit(a.footer, ctx)}</footer>'  # type: ignore[arg-type]
             )
         parts.append("</div>")
+        # Command palette (tranche 2B adoption): one empty dz-command dialog
+        # per shell, wired to the app's hx-get endpoint. dz-command.js opens
+        # it on ⌘K; the input fetches persona-scoped results on focus. The
+        # dialog SHELL is fixed markup (render-pure); the results come from
+        # the endpoint (page layer owns CommandEntry rendering).
+        if a.command_endpoint:
+            ep = ctx.escape_attr(a.command_endpoint)
+            # Mirrors the canonical `command` Hyperpart markup (HM registry;
+            # Phase 5 will gate this against it). `closedby="any"` gives
+            # native light-dismiss where supported; the close button is the
+            # always-visible dismiss affordance — essential on touch, where
+            # there is no Esc key. dz-command.js provides the cross-browser
+            # backdrop/close handlers. input/close/results stay DOM-order
+            # siblings so `next .dz-command__results` resolves.
+            parts.append(
+                '<dialog class="dz-command" aria-label="Command palette" closedby="any">'
+                '<div class="dz-command__bar">'
+                '<input class="dz-command__input" type="search" name="q" '
+                'placeholder="Search workspaces and records…" autocomplete="off" '
+                'aria-label="Search" '
+                f'hx-get="{ep}" hx-trigger="input changed delay:150ms, search, focus once" '
+                'hx-target="next .dz-command__results" hx-swap="innerHTML">'
+                '<button type="button" class="dz-command__close" data-hm-close-command '
+                'aria-label="Close command palette">'
+                f"{lucide_svg_html('x', cls='')}</button></div>"
+                '<div class="dz-command__results" role="listbox" aria-label="Results"></div>'
+                "</dialog>"
+            )
         parts.append("</div>")
         return "".join(parts)
 
@@ -308,7 +334,7 @@ class _RenderShellMixin:
         )
         # #1294 — built-in sidebar toggle. Emitted at the start of the
         # leading area so the sidebar nav is reachable (and collapsible)
-        # on every app-shell page. The JS controller (dz-alpine.js) wires
+        # on every app-shell page. The HM controller (dz-app-shell.js) wires
         # the click → flip `data-dz-sidebar` on `.dz-app-shell` + persist
         # the `dz_sidebar` cookie; aria-expanded is synced on load + click.
         toggle_html = ""
@@ -338,13 +364,11 @@ class _RenderShellMixin:
         href = ctx.escape_attr(n.href.value)
         label = ctx.escape(n.label)
         current_attr = ' aria-current="page"' if n.active else ""
-        icon_html = ""
-        if n.icon:
-            icon_html = (
-                f'<span class="dz-nav-link__icon" '
-                f'data-dz-icon="{ctx.escape_attr(n.icon)}" '
-                f'aria-hidden="true"></span>'
-            )
+        # HaTchi-MaXchi Phase 3 (TASTE-6): every nav item carries a
+        # registry icon — authored names win, otherwise inferred from the
+        # label. Inline SVG; inference is registry-closed so this seam
+        # never depends on client hydration.
+        icon_html = lucide_icon_html(n.icon or infer_nav_icon(n.label), cls="dz-nav-link__icon")
         return (
             f'<li class="dz-nav-item">'
             f'<a class="dz-nav-link" href="{href}"{current_attr}>'
@@ -357,13 +381,7 @@ class _RenderShellMixin:
         """Native `<details>` so collapsed/expanded works without JS."""
         label = ctx.escape(g.label)
         open_attr = "" if g.collapsed else " open"
-        icon_html = ""
-        if g.icon:
-            icon_html = (
-                f'<span class="dz-nav-group__icon" '
-                f'data-dz-icon="{ctx.escape_attr(g.icon)}" '
-                f'aria-hidden="true"></span>'
-            )
+        icon_html = lucide_icon_html(g.icon or infer_nav_icon(g.label), cls="dz-nav-group__icon")
         items_html = "".join(self._emit_nav_item(item, ctx) for item in g.items)
         return (
             f'<details class="dz-nav-group"{open_attr}>'
@@ -443,7 +461,7 @@ class _RenderShellMixin:
         by the parent `dzDashboardBuilder()` x-data; this primitive
         emits the markup that binds to it.
 
-        Five `x-cloak`+`x-show` spans cover the saveState states:
+        Five `data-dz-when` spans cover the saveState states:
         clean / dirty / saving / saved / error. The two busy states
         (`saving`, `saved`) carry their own SVG icons (spinner +
         checkmark respectively)."""
@@ -461,28 +479,31 @@ class _RenderShellMixin:
         return f' hx-headers="{ctx.escape_attr(payload)}"'
 
     def _emit_workspace_overflow(self, w: WorkspaceShell, ctx: RenderContext) -> str:
-        """Render the 3a `More ⋯` overflow menu (#1491) — a native `<details>`
-        dropdown holding the actions demoted past the prominence budget. JS-free
-        (uses the browser's `<details>` open/close); empty when nothing overflowed
-        (the common ≤budget heading), so the output stays byte-identical there."""
+        """Render the 3a `More ⋯` overflow menu (#1491) — the HM `menu`
+        Hyperpart: a native `<details>` disclosure holding the actions demoted
+        past the prominence budget. JS-free (the browser owns open/close); empty
+        when nothing overflowed (the common ≤budget heading), so the output stays
+        byte-identical there. Honest disclosure — no `role="menu"`/`menuitem"`
+        (a `<details>` can't back the ARIA menu keyboard contract), matching the
+        HM menu/tabs candor. The `data-test-id` is kept as the stable hook."""
         if not w.overflow_actions:
             return ""
         items = "".join(
             f'<a href="{ctx.escape_attr(a.route)}" hx-boost="true" '
-            f'class="dz-workspace-more__item" role="menuitem"'
+            f'class="dz-menu__item"'
             f"{self._usage_action_attr(w.workspace_name, a.route, ctx)}>"
             f"{ctx.escape(a.label)}</a>"
             for a in w.overflow_actions
         )
         return (
-            f'<details class="dz-workspace-more" data-test-id="dz-workspace-more">'
-            f'<summary class="dz-workspace-more__trigger" aria-label="More actions">'
+            f'<details class="dz-menu" data-test-id="dz-workspace-more">'
+            f'<summary class="dz-button" data-dz-variant="outline" aria-label="More actions">'
             f'<svg width="16" height="16" fill="none" stroke="currentColor" '
             f'viewBox="0 0 24 24" aria-hidden="true">'
             f'<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" '
             f'd="M12 5h.01M12 12h.01M12 19h.01"/></svg>'
             f"<span>More</span></summary>"
-            f'<div class="dz-workspace-more__menu" role="menu">{items}</div>'
+            f'<div class="dz-menu__panel">{items}</div>'
             f"</details>"
         )
 
@@ -534,7 +555,7 @@ class _RenderShellMixin:
 
         return (
             f'<div class="dz-workspace" '
-            f'x-data="dzDashboardBuilder()" '
+            f"data-dz-dashboard-builder "
             f'data-workspace-name="{ctx.escape_attr(w.workspace_name)}"'
             f"{fold_attr}>"
             f'<div class="dz-workspace-heading">'

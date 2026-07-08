@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, overload
 
 import h5py
 import numpy as np
@@ -10,14 +10,16 @@ from scipy.sparse import issparse
 from ..compat import CupyArray, CupySparseMatrix
 from .aligned_df import _gen_dataframe
 from .aligned_mapping import AlignedMappingProperty, AxisArrays
-from .index import _normalize_index, _subset, get_vector, unpack_index
+from .index import _get_vector_ambiguous, _normalize_index, _subset, unpack_index
 from .sparse_dataset import sparse_dataset
 
 if TYPE_CHECKING:
     from collections.abc import Mapping, Sequence
     from typing import ClassVar
 
-    from ..compat import CSMatrix, Index, Index1DNorm
+    from ..acc import AdRef
+    from ..compat import CSMatrix
+    from ..typing import Index, InMemoryArray, _Index1DNorm
     from .aligned_mapping import AxisArraysView
     from .anndata import AnnData
     from .sparse_dataset import BaseCompressedSparseDataset
@@ -54,7 +56,9 @@ class Raw:
             self.varm = varm
         elif X is None:  # construct from adata
             # Move from GPU to CPU since it's large and not always used
-            if isinstance(adata.X, CupyArray | CupySparseMatrix):
+            if adata.X is None:
+                self._X = None
+            elif isinstance(adata.X, CupyArray | CupySparseMatrix):
                 self._X = adata.X.get()
             else:
                 self._X = adata.X.copy()
@@ -113,8 +117,8 @@ class Raw:
     def n_obs(self) -> int:
         return self._n_obs
 
-    varm: AlignedMappingProperty[AxisArrays | AxisArraysView] = AlignedMappingProperty(
-        AxisArrays, 1
+    varm: AlignedMappingProperty[AxisArrays | AxisArraysView, str] = (
+        AlignedMappingProperty(AxisArrays, 1)
     )
 
     @property
@@ -125,8 +129,18 @@ class Raw:
     def obs_names(self) -> pd.Index[str]:
         return self._adata.obs_names
 
-    def __getitem__(self, index: Index | tuple[AnnData, Index]) -> Raw:
+    @overload
+    def __getitem__(self, index: AdRef) -> InMemoryArray: ...
+    @overload
+    def __getitem__(self, index: Index | tuple[AnnData, Index]) -> Raw: ...
+    def __getitem__(
+        self, index: Index | tuple[AnnData, Index] | AdRef
+    ) -> Raw | InMemoryArray:
+        from ..acc import AdRef
         from .anndata import AnnData
+
+        if isinstance(index, AdRef):
+            return index.acc.get(self, index.idx)  # type: ignore  # no official Raw support here
 
         if (
             isinstance(index, tuple)
@@ -175,7 +189,7 @@ class Raw:
         from anndata import AnnData
 
         return AnnData(
-            X=self.X.copy(),
+            X=None if self.X is None else self.X.copy(),
             var=self.var.copy(),
             varm=None if self._varm is None else self._varm.copy(),
             obs=self._adata.obs.copy(),
@@ -186,7 +200,7 @@ class Raw:
 
     def _normalize_indices(
         self, packed_index: Index
-    ) -> tuple[Index1DNorm | int | np.integer, Index1DNorm | int | np.integer]:
+    ) -> tuple[_Index1DNorm | int | np.integer, _Index1DNorm | int | np.integer]:
         # deal with slicing with pd.Series
         if isinstance(packed_index, pd.Series):
             packed_index = packed_index.values
@@ -202,11 +216,11 @@ class Raw:
         var = _normalize_index(var, self.var_names)
         return obs, var
 
-    def var_vector(self, k: str) -> np.ndarray:
+    def var_vector(self, k: str, /) -> InMemoryArray:
         # TODO decorator to copy AnnData.var_vector docstring
-        return get_vector(self, k, "var", "obs")
+        return _get_vector_ambiguous(self, k, "var")
 
-    def obs_vector(self, k: str) -> np.ndarray:
+    def obs_vector(self, k: str, /) -> InMemoryArray:
         # TODO decorator to copy AnnData.obs_vector docstring
         idx = self._normalize_indices((slice(None), k))
         a = self.X[idx]

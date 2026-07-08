@@ -1911,8 +1911,9 @@ pub(crate) fn ill_conditioning_tolerated_returns_cache_with_exact_logdet() {
 
     // Cache log-determinant (Σ log|H_tt^i| + log|S_β|) must equal the exact
     // dense log|H|, regardless of conditioning — the whole point.
-    let (log_det_tt, log_det_schur) = cache.arrow_log_det();
-    let log_det_cache = log_det_tt + log_det_schur.expect("dense Schur factor present");
+    let log_det_cache = cache
+        .arrow_log_det()
+        .expect("authoritative joint logdet");
 
     // Dense reference: assemble H and take log|H| = 2 Σ log L_ii.
     let dim = n * d + k;
@@ -2392,8 +2393,9 @@ pub(crate) fn ibp_cross_row_woodbury_logdet_matches_dense() {
         dense_logdet += 2.0 * l[[i, i]].ln();
     }
 
-    let (tt, schur) = cache.arrow_log_det();
-    let cache_logdet = tt + schur.expect("direct mode has a Schur factor");
+    let cache_logdet = cache
+        .arrow_log_det()
+        .expect("authoritative Woodbury joint logdet");
     assert!(
         (cache_logdet - dense_logdet).abs() < 1e-9,
         "cache log det H_full {cache_logdet} vs dense {dense_logdet}"
@@ -2474,6 +2476,46 @@ pub(crate) fn streaming_cross_row_woodbury_log_det_honors_pd_floor_1795() {
     assert!(
         correction.is_finite() && correction > 0.0,
         "floored cross-row Woodbury log-det must be finite and positive, got {correction}"
+    );
+}
+
+
+/// #1795 — the cross-row IBP preconditioner builder is another reduced-Schur
+/// factorization entry point. It must use the same spectral PD-floor as the
+/// direct dense solve, rather than a raw Cholesky, because the preconditioner
+/// inverts the same collapsed decoder subspace before CG handles the explicit
+/// cross-row Woodbury coupling.
+#[test]
+pub(crate) fn cross_row_preconditioner_build_honors_pd_floor_1795() {
+    let backend = CpuBatchedBlockSolver;
+    let mut sys = diagonal_arrow_fixture(2.0, 1.0);
+    // With zero H_tβ blocks, the reduced Schur is exactly H_ββ. This matrix has
+    // eigenvalues {+3, −1}: a bare Cholesky must reject it, while the #1038
+    // spectral floor unit-deflates the collapsed direction relative to λ_max=3.
+    sys.hbb = array![[1.0_f64, 2.0], [2.0, 1.0]];
+
+    let unfloored = ArrowBlockDiagInverse::build(&sys, 0.0, 0.0, None, false, &backend);
+    assert!(
+        matches!(unfloored, Err(ArrowSchurError::SchurFactorFailed { .. })),
+        "un-floored cross-row preconditioner must surface the non-PD Schur"
+    );
+
+    let floored = ArrowBlockDiagInverse::build(
+        &sys,
+        0.0,
+        0.0,
+        Some(SPECTRAL_DEFLATION_REL_FLOOR),
+        false,
+        &backend,
+    )
+    .expect("cross-row preconditioner must honor the spectral PD-floor");
+
+    let rhs_t = Array1::<f64>::zeros(sys.row_offsets[sys.rows.len()]);
+    let rhs_beta = array![0.25_f64, -0.5];
+    let (_sol_t, sol_beta) = floored.apply(rhs_t.view(), rhs_beta.view());
+    assert!(
+        sol_beta.iter().all(|v| v.is_finite()),
+        "floored cross-row preconditioner solve must produce finite beta components, got {sol_beta:?}"
     );
 }
 
@@ -2629,8 +2671,9 @@ pub(crate) fn ibp_cross_row_woodbury_absent_is_strict_noop() {
     for i in 0..l.nrows() {
         dense_logdet += 2.0 * l[[i, i]].ln();
     }
-    let (tt, schur) = cache.arrow_log_det();
-    let cache_logdet = tt + schur.expect("direct Schur");
+    let cache_logdet = cache
+        .arrow_log_det()
+        .expect("authoritative bare joint logdet");
     assert!(
         (cache_logdet - dense_logdet).abs() < 1e-9,
         "bare cache log det {cache_logdet} vs dense H₀ {dense_logdet}"

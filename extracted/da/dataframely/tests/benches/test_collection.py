@@ -15,13 +15,13 @@ def partitioned_dataset(dataset: pl.DataFrame) -> dict[str, pl.DataFrame]:
             "elevation",
             "aspect",
             "slope",
-            idx=pl.int_range(pl.len(), dtype=pl.UInt32),
+            idx=pl.int_range(pl.len(), dtype=pl.UInt32).shuffle(),
         ),
         "second": dataset.select(
             "horizontal_distance_to_hydrology",
             "vertical_distance_to_hydrology",
             "horizontal_distance_to_roadways",
-            idx=pl.int_range(pl.len(), dtype=pl.UInt32),
+            idx=pl.int_range(pl.len(), dtype=pl.UInt32).shuffle(),
         ),
     }
 
@@ -95,18 +95,24 @@ class MultiFilterCollection(dy.Collection):
 
 
 @pytest.mark.benchmark(group="collection-filter-multi")
+@pytest.mark.parametrize("engine", ["in-memory", "streaming"])
 def test_multi_filter_validate(
-    benchmark: BenchmarkFixture, partitioned_dataset: dict[str, pl.DataFrame]
+    benchmark: BenchmarkFixture,
+    partitioned_dataset: dict[str, pl.DataFrame],
+    engine: str,
 ) -> None:
-    benchmark(MultiFilterCollection.validate, partitioned_dataset)
+    benchmark(MultiFilterCollection.validate, partitioned_dataset, engine=engine)
 
 
 @pytest.mark.benchmark(group="collection-filter-multi")
+@pytest.mark.parametrize("engine", ["in-memory", "streaming"])
 def test_multi_filter_filter(
-    benchmark: BenchmarkFixture, partitioned_dataset: dict[str, pl.DataFrame]
+    benchmark: BenchmarkFixture,
+    partitioned_dataset: dict[str, pl.DataFrame],
+    engine: str,
 ) -> None:
     def benchmark_fn() -> None:
-        _, failure = MultiFilterCollection.filter(partitioned_dataset)
+        _, failure = MultiFilterCollection.filter(partitioned_dataset, engine=engine)
         _ = [len(f) for f in failure.values()]
 
     benchmark(benchmark_fn)

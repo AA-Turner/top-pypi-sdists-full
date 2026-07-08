@@ -35,4 +35,5 @@ class ManagedTransforms(object):
     MYSQL_WRITE = PropertiesFromEnumValue('beam:schematransform:org.apache.beam:mysql_write:v1', '', EMPTY_MONITORING_INFO_SPEC, EMPTY_MONITORING_INFO_LABEL_PROPS)
     SQL_SERVER_READ = PropertiesFromEnumValue('beam:schematransform:org.apache.beam:sql_server_read:v1', '', EMPTY_MONITORING_INFO_SPEC, EMPTY_MONITORING_INFO_LABEL_PROPS)
     SQL_SERVER_WRITE = PropertiesFromEnumValue('beam:schematransform:org.apache.beam:sql_server_write:v1', '', EMPTY_MONITORING_INFO_SPEC, EMPTY_MONITORING_INFO_LABEL_PROPS)
+    DELTA_LAKE_READ = PropertiesFromEnumValue('beam:schematransform:org.apache.beam:delta_lake_read:v1', '', EMPTY_MONITORING_INFO_SPEC, EMPTY_MONITORING_INFO_LABEL_PROPS)
 

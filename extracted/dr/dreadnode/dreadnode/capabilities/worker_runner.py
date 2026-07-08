@@ -139,6 +139,18 @@ class WorkerRunner:
         if self._on_state_change is not None:
             self._on_state_change(state, error)
 
+    def _workflow_title(self, phase: str) -> str:
+        worker_name = self.worker.name or self._qualified
+        return f"{worker_name} {phase}"
+
+    def _workflow_kwargs(self) -> dict[str, t.Any]:
+        worker_name = self.worker.name or self._qualified
+        return {
+            "kind": "worker_run",
+            "worker": worker_name,
+            "metadata": {"worker": self._qualified},
+        }
+
     async def start(self) -> None:
         """Run ``on_startup`` sequentially, then spawn all handler loops.
 
@@ -152,7 +164,11 @@ class WorkerRunner:
 
         try:
             for handler in worker._startup_handlers:
-                await handler(client)
+                async with client.workflow(
+                    self._workflow_title("startup"),
+                    **self._workflow_kwargs(),
+                ):
+                    await handler(client)
 
             if worker._event_handlers:
                 kinds = frozenset(worker._event_handlers.keys())
@@ -237,7 +253,11 @@ class WorkerRunner:
         shutdown_errors: list[str] = []
         for handler in reversed(self.worker._shutdown_handlers):
             try:
-                await handler(self.client)
+                async with self.client.workflow(
+                    self._workflow_title("shutdown"),
+                    **self._workflow_kwargs(),
+                ):
+                    await handler(self.client)
             except Exception as exc:
                 logger.opt(exception=True).warning(
                     "Worker '{}' shutdown handler error", self._qualified
@@ -282,7 +302,11 @@ class WorkerRunner:
     ) -> None:
         """Invoke one ``on_event`` handler; swallow exceptions (CAP-WAPI-016)."""
         try:
-            await handler(envelope, self.client)
+            async with self.client.workflow(
+                self._workflow_title(envelope.kind),
+                **self._workflow_kwargs(),
+            ):
+                await handler(envelope, self.client)
         except asyncio.CancelledError:
             raise
         except Exception:
@@ -304,7 +328,11 @@ class WorkerRunner:
             delay = self._compute_next_delay(spec)
             await asyncio.sleep(delay)
             try:
-                await handler(self.client)
+                async with self.client.workflow(
+                    self._workflow_title("scheduled run"),
+                    **self._workflow_kwargs(),
+                ):
+                    await handler(self.client)
             except asyncio.CancelledError:
                 return
             except Exception:

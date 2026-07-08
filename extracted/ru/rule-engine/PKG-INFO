@@ -1,15 +1,14 @@
 Metadata-Version: 2.4
 Name: rule-engine
-Version: 5.0.1
+Version: 5.0.2
 Summary: A lightweight, optionally typed expression language with a custom grammar for matching arbitrary Python objects.
 Author-email: Spencer McIntyre <zeroSteiner@gmail.com>
 Maintainer-email: Spencer McIntyre <zeroSteiner@gmail.com>
-License: BSD
+License-Expression: BSD-3-Clause
 Project-URL: Homepage, https://github.com/zeroSteiner/rule-engine
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Environment :: Console
 Classifier: Intended Audience :: Developers
-Classifier: License :: OSI Approved :: BSD License
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11

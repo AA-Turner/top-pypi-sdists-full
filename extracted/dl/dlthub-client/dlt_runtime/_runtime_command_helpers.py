@@ -86,6 +86,7 @@ from dlt_runtime.runtime_clients.api.api.deployments import (
     get_latest_deployment,
     list_deployments,
 )
+from dlt_runtime.runtime_clients.api.api.dataplanes import list_dataplanes
 from dlt_runtime.runtime_clients.api.api.runs import (
     get_run,
     list_runs,
@@ -106,6 +107,7 @@ from dlt_runtime.runtime_clients.api.client import Client as ApiClient
 from dlt_runtime.runtime_clients.api.models.dataplane_access_token_response import (
     DataplaneAccessTokenResponse,
 )
+from dlt_runtime.runtime_clients.api.models.dataplane_info import DataplaneInfo
 from dlt_runtime.runtime_clients.api.models.detailed_run_response import (
     DetailedRunResponse,
 )
@@ -700,6 +702,15 @@ def _fetch_run_detail(
         )
     if not isinstance(result.parsed, DetailedRunResponse):
         raise exception_from_response("Failed to get run info", result)
+    return result.parsed
+
+
+def _fetch_available_regions(*, api_client: ApiClient) -> list[DataplaneInfo]:
+    """Fetch available regions."""
+    with handle_client_exceptions("Failed to fetch available regions"):
+        result = list_dataplanes.sync_detailed(client=api_client)
+    if not isinstance(result.parsed, list):
+        raise exception_from_response("Failed to fetch available regions", result)
     return result.parsed
 
 

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: openrouter
-Version: 0.11.3
+Version: 0.11.8
 Summary: Official Python Client SDK for OpenRouter.
 Author: OpenRouter
 License: Apache-2.0
@@ -237,10 +237,10 @@ with OpenRouter(
     api_key=os.getenv("OPENROUTER_API_KEY", ""),
 ) as open_router:
 
-    res = open_router.files.upload(file={
+    res = open_router.stt.create_transcription_multipart(file={
         "file_name": "example.file",
         "content": open("example.file", "rb"),
-    })
+    }, model="openai/whisper-large-v3", language="en")
 
     # Handle response
     print(res)

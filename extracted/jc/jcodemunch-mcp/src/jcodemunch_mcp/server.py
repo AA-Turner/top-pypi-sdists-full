@@ -68,10 +68,11 @@ _CANONICAL_TOOL_NAMES: tuple[str, ...] = (
     # Architecture
     "get_dependency_cycles", "get_coupling_metrics", "get_layer_violations",
     "get_extraction_candidates", "get_cross_repo_map", "get_group_contracts",
-    "get_tectonic_map", "get_signal_chains",
+    "get_tectonic_map", "get_signal_chains", "get_decorator_census", "get_architecture_metrics",
     "render_diagram", "get_project_intel", "list_workspaces",
     # Quality & Metrics
     "get_symbol_complexity", "get_churn_rate", "get_delivery_metrics", "get_hotspots",
+    "get_parity_map",
     "get_repo_health", "get_symbol_importance", "get_repo_map", "find_dead_code",
     "get_dead_code_v2", "get_untested_symbols", "find_similar_symbols", "search_ast",
     # Diffs & Embeddings
@@ -127,9 +128,10 @@ _SNIPPET_TOOL_CATEGORIES: list[tuple[str, list[str]]] = [
                       "get_cross_repo_map", "get_tectonic_map",
                       "get_signal_chains", "render_diagram",
                       "get_project_intel", "list_workspaces",
-                      "get_group_contracts"]),
+                      "get_group_contracts", "get_decorator_census",
+                      "get_architecture_metrics"]),
     ("Quality & Metrics", ["get_symbol_complexity", "get_churn_rate",
-                            "get_delivery_metrics", "get_hotspots",
+                            "get_delivery_metrics", "get_parity_map", "get_hotspots",
                             "get_repo_health", "diff_health_radar",
                             "get_file_risk", "get_symbol_importance",
                             "get_repo_map", "find_similar_symbols",
@@ -185,13 +187,14 @@ _TOOL_TIER_STANDARD: frozenset[str] = _TOOL_TIER_CORE | frozenset({
     "find_implementations",
     # Quality & Metrics
     "get_symbol_complexity", "get_churn_rate", "get_delivery_metrics", "get_hotspots",
+    "get_parity_map",
     "get_symbol_importance", "get_repo_map", "find_dead_code", "get_dead_code_v2",
     "get_untested_symbols", "find_similar_symbols",
     "get_repo_health", "search_ast", "winnow_symbols",
     # Architecture
     "get_dependency_cycles", "get_coupling_metrics", "get_layer_violations",
     "get_cross_repo_map", "get_group_contracts",
-    "get_tectonic_map", "get_signal_chains",
+    "get_tectonic_map", "get_signal_chains", "get_decorator_census", "get_architecture_metrics",
     "render_diagram", "get_project_intel", "list_workspaces",
     # Utilities
     "invalidate_cache", "get_watch_status", "analyze_perf", "tune_weights", "check_embedding_drift",
@@ -947,16 +950,29 @@ async def list_tools() -> list[Tool]:
 # while still gating the handful that mutate index/session/config state.
 #
 # The write-set is derived from the authoritative counter.STATE_CHANGING_ACTIONS
-# so it can't drift from source. Only the counter front door is added on top:
+# so it can't drift from source. Two things are added on top:
 #   * order / route — the front door can dispatch a state-changing action, so
 #     they are not read-only. (menu stays read-only.)
+#   * _ANNOTATION_ONLY_WRITERS — dual-mode tools whose DEFAULT path is a pure read
+#     but which can mutate under a specific argument. They must be readOnlyHint=
+#     False (conservative — mislabeling a writer read-only is the harmful
+#     direction, and this matches jdoc/jdata's write-set), yet they are
+#     deliberately NOT in counter.STATE_CHANGING_ACTIONS: that set gates the
+#     order() dispatcher's allow_state_change opt-in, and forcing it on the common
+#     read path would break e.g. order("check_embedding_drift") drift reports. So
+#     the annotation write-set and the order-gate write-set diverge by exactly
+#     these dual-mode tools.
 # (index_dependency lives in STATE_CHANGING_ACTIONS itself as of v1.108.104, so
 # it no longer needs a special case here — the counter's order gate and these
-# annotations now derive from one list.)
+# annotations otherwise derive from one list.)
+_ANNOTATION_ONLY_WRITERS: frozenset[str] = frozenset({
+    "check_embedding_drift",  # reports by default; force=true re-pins the canary
+})
+
 _NON_READONLY_TOOLS: frozenset[str] = _counter.STATE_CHANGING_ACTIONS | {
     "order",
     "route",
-}
+} | _ANNOTATION_ONLY_WRITERS
 
 
 def _apply_readonly_annotations(tools: list[Tool]) -> list[Tool]:
@@ -2902,6 +2918,150 @@ def _build_tools_list() -> list[Tool]:
                         "description": "Days within which a re-touch counts as churn-back; also "
                                        "defines the provisional tail (default 14).",
                         "default": 14,
+                    },
+                },
+                "required": ["repo"],
+            },
+        ),
+        Tool(
+            name="get_parity_map",
+            description=(
+                "Map migration/port parity between a SOURCE symbol tree and a TARGET tree "
+                "(two subpaths of one repo, or two repos). For each source function/method/class "
+                "it reports: ported (equivalent counterpart exists), ported_diverged (counterpart "
+                "exists but its signature/body drifted — the failure a name-only check reports as "
+                "done), unported (no counterpart), orphaned (unported and no migrated caller — a "
+                "possible intentional drop), or added (target-only surface). Rename-aware: a "
+                "ported-and-renamed symbol is matched by structural+behavioral similarity, not a "
+                "false unported+added pair. When include_port_plan is set, the unported symbols are "
+                "ordered by the source dependency graph (leaves first) with cycles grouped, each "
+                "carrying unblocked + blocking_deps. Read-only and plan-only: it never edits or "
+                "ports anything. parity_pct is a labelled estimate."
+            ),
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "source_repo": {
+                        "type": "string",
+                        "description": "Repo id of the tree being ported FROM.",
+                    },
+                    "target_repo": {
+                        "type": "string",
+                        "description": "Repo id of the tree being ported TO (may equal source_repo).",
+                    },
+                    "source_path": {
+                        "type": "string",
+                        "description": "Optional subtree within source_repo (file-path prefix).",
+                    },
+                    "target_path": {
+                        "type": "string",
+                        "description": "Optional subtree within target_repo (file-path prefix).",
+                    },
+                    "match_threshold": {
+                        "type": "number",
+                        "description": "Similarity floor (0-1) for rename matching (default 0.75).",
+                        "default": 0.75,
+                    },
+                    "divergence": {
+                        "type": "string",
+                        "description": "Divergence policy: 'signature' (default), 'signature+body', "
+                                       "or 'name_only' (presence only, no divergence check).",
+                        "enum": ["signature", "signature+body", "name_only"],
+                        "default": "signature",
+                    },
+                    "rename": {
+                        "type": "boolean",
+                        "description": "Match renamed symbols by similarity (default true). "
+                                       "Auto-disabled past the pair budget on very large scopes.",
+                        "default": True,
+                    },
+                    "include_port_plan": {
+                        "type": "boolean",
+                        "description": "Emit the dependency-ordered plan over unported symbols.",
+                        "default": True,
+                    },
+                },
+                "required": ["source_repo", "target_repo"],
+            },
+        ),
+        Tool(
+            name="get_decorator_census",
+            description=(
+                "Repo-wide census of decorators / annotations / attributes: 'where is every "
+                "@app.route / @Injectable / @pytest.fixture / [Serializable], and how many?' in one "
+                "read-only call. Cross-language by construction (aggregates the decorators the index "
+                "stored on each symbol). Forms are NORMALIZED (leading @, call-arguments, and [] "
+                "brackets stripped) so @app.route('/a') and @app.route('/b') count under one bucket "
+                "instead of scattering; each bucket keeps the distinct raw_forms it collapsed, a "
+                "per-decorator symbol-kind breakdown, and a file count. Filter by name_filter "
+                "(substring on the normalized name), scope_path (subtree), or kind; include_sites "
+                "lists the exact decorated symbols. Pairs with get_signal_chains / get_endpoint_impact "
+                "(this surfaces the decorator surface; those resolve what it wires together)."
+            ),
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "repo": {
+                        "type": "string",
+                        "description": "Repository identifier (owner/repo or just repo name)",
+                    },
+                    "name_filter": {
+                        "type": "string",
+                        "description": "Case-insensitive substring on the normalized decorator "
+                                       "name (e.g. 'route', 'fixture', 'inject').",
+                    },
+                    "scope_path": {
+                        "type": "string",
+                        "description": "Optional subtree prefix (file-path) to restrict the census.",
+                    },
+                    "kind": {
+                        "type": "string",
+                        "description": "Optional symbol-kind filter (function/method/class/...).",
+                    },
+                    "include_sites": {
+                        "type": "boolean",
+                        "description": "List the decorated symbols per bucket (capped at max_sites_per).",
+                        "default": False,
+                    },
+                    "max_decorators": {
+                        "type": "integer",
+                        "description": "Cap on histogram rows (default 100).",
+                        "default": 100,
+                    },
+                    "max_sites_per": {
+                        "type": "integer",
+                        "description": "Cap on sites listed per decorator when include_sites (default 50).",
+                        "default": 50,
+                    },
+                },
+                "required": ["repo"],
+            },
+        ),
+        Tool(
+            name="get_architecture_metrics",
+            description=(
+                "Structural concentration, dependency depth, and modularity in one read-only "
+                "call, over the file import graph. concentration: Gini coefficient (0 even -> 1 "
+                "hoarded) over per-file symbol count, size, fan-in (importers), and fan-out "
+                "(imports) + the top concentrators — answers 'is complexity/coupling piling up in "
+                "a few files?' which a hotspot list (the peaks) can't. depth: longest dependency "
+                "chain + level distribution (Lakos levelization) over the cycle-condensed DAG. "
+                "modularity: cluster count + the hidden coupling a Design Structure Matrix "
+                "highlights (back-edges = cycle-participating import edges) without the NxN matrix. "
+                "Does not duplicate get_layer_violations (specific violations) or "
+                "get_dependency_cycles (the cycles); does not touch the health-radar composite."
+            ),
+            inputSchema={
+                "type": "object",
+                "properties": {
+                    "repo": {
+                        "type": "string",
+                        "description": "Repository identifier (owner/repo or just repo name)",
+                    },
+                    "top_n": {
+                        "type": "integer",
+                        "description": "Number of top concentrators to list per Gini metric (default 10).",
+                        "default": 10,
                     },
                 },
                 "required": ["repo"],
@@ -5112,6 +5272,47 @@ async def call_tool(name: str, arguments: dict) -> list[TextContent] | CallToolR
                     repo=arguments["repo"],
                     window_days=arguments.get("window_days", 30),
                     rework_horizon_days=arguments.get("rework_horizon_days", 14),
+                    storage_path=storage_path,
+                )
+            )
+        elif name == "get_parity_map":
+            from .tools.get_parity_map import get_parity_map
+            result = await asyncio.to_thread(
+                functools.partial(
+                    get_parity_map,
+                    source_repo=arguments["source_repo"],
+                    target_repo=arguments["target_repo"],
+                    source_path=arguments.get("source_path"),
+                    target_path=arguments.get("target_path"),
+                    match_threshold=arguments.get("match_threshold", 0.75),
+                    divergence=arguments.get("divergence", "signature"),
+                    rename=arguments.get("rename", True),
+                    include_port_plan=arguments.get("include_port_plan", True),
+                    storage_path=storage_path,
+                )
+            )
+        elif name == "get_decorator_census":
+            from .tools.get_decorator_census import get_decorator_census
+            result = await asyncio.to_thread(
+                functools.partial(
+                    get_decorator_census,
+                    repo=arguments["repo"],
+                    name_filter=arguments.get("name_filter"),
+                    scope_path=arguments.get("scope_path"),
+                    kind=arguments.get("kind"),
+                    include_sites=arguments.get("include_sites", False),
+                    max_decorators=arguments.get("max_decorators", 100),
+                    max_sites_per=arguments.get("max_sites_per", 50),
+                    storage_path=storage_path,
+                )
+            )
+        elif name == "get_architecture_metrics":
+            from .tools.get_architecture_metrics import get_architecture_metrics
+            result = await asyncio.to_thread(
+                functools.partial(
+                    get_architecture_metrics,
+                    repo=arguments["repo"],
+                    top_n=arguments.get("top_n", 10),
                     storage_path=storage_path,
                 )
             )
@@ -7715,6 +7916,33 @@ def main(argv: Optional[list[str]] = None):
     delivery_parser.add_argument("--storage-path", default=None,
         help="Override index storage location.")
 
+    # --- parity ---
+    parity_parser = subparsers.add_parser(
+        "parity",
+        help="Map migration parity between two symbol trees (ported / diverged / unported) + port plan.",
+    )
+    parity_parser.add_argument("source",
+        help="Source repo id (ported FROM); a path, owner/name, or bare display name.")
+    parity_parser.add_argument("target",
+        help="Target repo id (ported TO); may equal source when comparing two subpaths.")
+    parity_parser.add_argument("--source-path", default=None,
+        help="Optional subtree within the source repo (file-path prefix).")
+    parity_parser.add_argument("--target-path", default=None,
+        help="Optional subtree within the target repo (file-path prefix).")
+    parity_parser.add_argument("--match-threshold", type=float, default=0.75,
+        help="Similarity floor (0-1) for rename matching (default 0.75).")
+    parity_parser.add_argument("--divergence", default="signature",
+        choices=["signature", "signature+body", "name_only"],
+        help="Divergence policy (default 'signature').")
+    parity_parser.add_argument("--no-rename", action="store_true",
+        help="Disable rename matching (exact-name only).")
+    parity_parser.add_argument("--no-port-plan", action="store_true",
+        help="Skip the dependency-ordered port plan.")
+    parity_parser.add_argument("--json", action="store_true",
+        help="Emit the structured payload as JSON.")
+    parity_parser.add_argument("--storage-path", default=None,
+        help="Override index storage location.")
+
     # --- digest ---
     digest_parser = subparsers.add_parser(
         "digest",
@@ -7947,7 +8175,7 @@ def main(argv: Optional[list[str]] = None):
     if any(arg in top_level_flags for arg in raw_argv):
         args = parser.parse_args(raw_argv)
     else:
-        known_commands = {"serve", "watch", "hook-event", "hook-pretooluse", "hook-posttooluse", "hook-copilot-posttooluse", "hook-precompact", "hook-taskcomplete", "hook-subagent-start", "watch-claude", "watch-all", "watch-install", "watch-uninstall", "watch-status", "config", "list-repos", "delete-index", "org-report", "org-rollup", "license", "index", "index-file", "import-trace", "import-scip", "claude-md", "init", "install", "install-status", "uninstall", "install-pack", "download-model", "upgrade", "whatsnew", "receipt", "digest", "reflect", "delivery", "health", "file-risk", "observatory", "keyring"}
+        known_commands = {"serve", "watch", "hook-event", "hook-pretooluse", "hook-posttooluse", "hook-copilot-posttooluse", "hook-precompact", "hook-taskcomplete", "hook-subagent-start", "watch-claude", "watch-all", "watch-install", "watch-uninstall", "watch-status", "config", "list-repos", "delete-index", "org-report", "org-rollup", "license", "index", "index-file", "import-trace", "import-scip", "claude-md", "init", "install", "install-status", "uninstall", "install-pack", "download-model", "upgrade", "whatsnew", "receipt", "digest", "reflect", "delivery", "parity", "health", "file-risk", "observatory", "keyring"}
         # MCP-tool-name typos: route to the right CLI verb with a friendly hint.
         # `index_repo` and `index_folder` are MCP tools, not CLI subcommands.
         _CLI_ALIASES = {
@@ -8387,6 +8615,25 @@ def main(argv: Optional[list[str]] = None):
         if args.storage_path:
             argv += ["--storage-path", args.storage_path]
         sys.exit(delivery_main(argv))
+
+    if args.command == "parity":
+        from .cli.parity import main as parity_main
+        argv = [args.source, args.target,
+                "--match-threshold", str(args.match_threshold),
+                "--divergence", args.divergence]
+        if args.source_path:
+            argv += ["--source-path", args.source_path]
+        if args.target_path:
+            argv += ["--target-path", args.target_path]
+        if args.no_rename:
+            argv += ["--no-rename"]
+        if args.no_port_plan:
+            argv += ["--no-port-plan"]
+        if args.json:
+            argv += ["--json"]
+        if args.storage_path:
+            argv += ["--storage-path", args.storage_path]
+        sys.exit(parity_main(argv))
 
     if args.command == "digest":
         from .cli.digest import main as digest_main

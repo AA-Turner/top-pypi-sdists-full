@@ -40,6 +40,7 @@ Usage::
         GetResourceConfigHistoryPaginator,
         ListAggregateDiscoveredResourcesPaginator,
         ListConfigurationRecordersPaginator,
+        ListConnectorsPaginator,
         ListDiscoveredResourcesPaginator,
         ListResourceEvaluationsPaginator,
         ListTagsForResourcePaginator,
@@ -78,6 +79,7 @@ Usage::
     get_resource_config_history_paginator: GetResourceConfigHistoryPaginator = client.get_paginator("get_resource_config_history")
     list_aggregate_discovered_resources_paginator: ListAggregateDiscoveredResourcesPaginator = client.get_paginator("list_aggregate_discovered_resources")
     list_configuration_recorders_paginator: ListConfigurationRecordersPaginator = client.get_paginator("list_configuration_recorders")
+    list_connectors_paginator: ListConnectorsPaginator = client.get_paginator("list_connectors")
     list_discovered_resources_paginator: ListDiscoveredResourcesPaginator = client.get_paginator("list_discovered_resources")
     list_resource_evaluations_paginator: ListResourceEvaluationsPaginator = client.get_paginator("list_resource_evaluations")
     list_tags_for_resource_paginator: ListTagsForResourcePaginator = client.get_paginator("list_tags_for_resource")
@@ -150,6 +152,8 @@ from .type_defs import (
     ListAggregateDiscoveredResourcesResponseTypeDef,
     ListConfigurationRecordersRequestPaginateTypeDef,
     ListConfigurationRecordersResponseTypeDef,
+    ListConnectorsRequestPaginateTypeDef,
+    ListConnectorsResponseTypeDef,
     ListDiscoveredResourcesRequestPaginateTypeDef,
     ListDiscoveredResourcesResponseTypeDef,
     ListResourceEvaluationsRequestPaginateTypeDef,
@@ -197,6 +201,7 @@ __all__ = (
     "GetResourceConfigHistoryPaginator",
     "ListAggregateDiscoveredResourcesPaginator",
     "ListConfigurationRecordersPaginator",
+    "ListConnectorsPaginator",
     "ListDiscoveredResourcesPaginator",
     "ListResourceEvaluationsPaginator",
     "ListTagsForResourcePaginator",
@@ -858,6 +863,27 @@ class ListConfigurationRecordersPaginator(_ListConfigurationRecordersPaginatorBa
         """
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/config/paginator/ListConfigurationRecorders.html#ConfigService.Paginator.ListConfigurationRecorders.paginate)
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_config/paginators/#listconfigurationrecorderspaginator)
+        """
+
+
+if TYPE_CHECKING:
+    _ListConnectorsPaginatorBase = Paginator[ListConnectorsResponseTypeDef]
+else:
+    _ListConnectorsPaginatorBase = Paginator  # type: ignore[assignment]
+
+
+class ListConnectorsPaginator(_ListConnectorsPaginatorBase):
+    """
+    [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/config/paginator/ListConnectors.html#ConfigService.Paginator.ListConnectors)
+    [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_config/paginators/#listconnectorspaginator)
+    """
+
+    def paginate(  # type: ignore[override]
+        self, **kwargs: Unpack[ListConnectorsRequestPaginateTypeDef]
+    ) -> PageIterator[ListConnectorsResponseTypeDef]:
+        """
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/config/paginator/ListConnectors.html#ConfigService.Paginator.ListConnectors.paginate)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_config/paginators/#listconnectorspaginator)
         """
 
 

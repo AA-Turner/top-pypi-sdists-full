@@ -20,6 +20,10 @@ from chalk._gen.chalk.server.v1.trace_pb2 import (
     GetSpanSourceAggregatesResponse,
     GetTraceCallGraphRequest,
     GetTraceCallGraphResponse,
+    GetTraceFacetValuesRequest,
+    GetTraceFacetValuesResponse,
+    GetTraceFacetsRequest,
+    GetTraceFacetsResponse,
     GetTraceRequest,
     GetTraceResponse,
     ListSpanAggregatedRequest,
@@ -62,6 +66,16 @@ class TraceServiceStub:
         GetTraceCallGraphResponse,
     ]
     """GetTraceCallGraph retrieves the pre-indexed trace data needed to render a call graph."""
+    GetTraceFacets: UnaryUnaryMultiCallable[
+        GetTraceFacetsRequest,
+        GetTraceFacetsResponse,
+    ]
+    """GetTraceFacets returns available facets for filtering trace summaries"""
+    GetTraceFacetValues: UnaryUnaryMultiCallable[
+        GetTraceFacetValuesRequest,
+        GetTraceFacetValuesResponse,
+    ]
+    """GetTraceFacetValues returns values for a specific trace summary facet"""
     GetSpan: UnaryUnaryMultiCallable[
         GetSpanRequest,
         GetSpanResponse,
@@ -129,6 +143,20 @@ class TraceServiceServicer(metaclass=ABCMeta):
         context: ServicerContext,
     ) -> GetTraceCallGraphResponse:
         """GetTraceCallGraph retrieves the pre-indexed trace data needed to render a call graph."""
+    @abstractmethod
+    def GetTraceFacets(
+        self,
+        request: GetTraceFacetsRequest,
+        context: ServicerContext,
+    ) -> GetTraceFacetsResponse:
+        """GetTraceFacets returns available facets for filtering trace summaries"""
+    @abstractmethod
+    def GetTraceFacetValues(
+        self,
+        request: GetTraceFacetValuesRequest,
+        context: ServicerContext,
+    ) -> GetTraceFacetValuesResponse:
+        """GetTraceFacetValues returns values for a specific trace summary facet"""
     @abstractmethod
     def GetSpan(
         self,

@@ -13,8 +13,9 @@
 // Must be last.
 #include "upb/port/def.inc"
 
-extern const UPB_PRIVATE(upb_GeneratedExtensionListEntry)* UPB_PRIVATE(upb_generated_extension_list);
+extern const struct upb_MiniTable UPB_PRIVATE(_kUpb_MiniTable_StaticallyTreeShaken);
 const upb_MiniTable xds__type__matcher__v3__HttpAttributesCelMatchInput_msg_init = {
+  NULL,
   NULL,
   8, 0, kUpb_ExtMode_NonExtendable, 0, UPB_FASTTABLE_MASK(255), 0,
 #ifdef UPB_TRACING_ENABLED
@@ -22,6 +23,7 @@ const upb_MiniTable xds__type__matcher__v3__HttpAttributesCelMatchInput_msg_init
 #endif
 };
 
+const upb_MiniTable* xds__type__matcher__v3__HttpAttributesCelMatchInput_msg_init_ptr = &xds__type__matcher__v3__HttpAttributesCelMatchInput_msg_init;
 static const upb_MiniTable *messages_layout[1] = {
   &xds__type__matcher__v3__HttpAttributesCelMatchInput_msg_init,
 };

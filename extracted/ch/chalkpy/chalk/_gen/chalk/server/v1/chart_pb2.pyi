@@ -26,6 +26,19 @@ class ChartMetricsBackend(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
     CHART_METRICS_BACKEND_VICTORIA_METRICS: _ClassVar[ChartMetricsBackend]
     CHART_METRICS_BACKEND_VICTORIA_METRICS_STRICT: _ClassVar[ChartMetricsBackend]
 
+class MetricKindGroup(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
+    __slots__ = ()
+    METRIC_KIND_GROUP_UNSPECIFIED: _ClassVar[MetricKindGroup]
+    METRIC_KIND_GROUP_FEATURES: _ClassVar[MetricKindGroup]
+    METRIC_KIND_GROUP_RESOLVERS: _ClassVar[MetricKindGroup]
+    METRIC_KIND_GROUP_QUERIES: _ClassVar[MetricKindGroup]
+    METRIC_KIND_GROUP_STREAMING: _ClassVar[MetricKindGroup]
+    METRIC_KIND_GROUP_CRONS: _ClassVar[MetricKindGroup]
+    METRIC_KIND_GROUP_ONLINE_STORE: _ClassVar[MetricKindGroup]
+    METRIC_KIND_GROUP_GPU: _ClassVar[MetricKindGroup]
+    METRIC_KIND_GROUP_BILLING: _ClassVar[MetricKindGroup]
+    METRIC_KIND_GROUP_INFRASTRUCTURE: _ClassVar[MetricKindGroup]
+
 class MetricFormulaOperandKind(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
     __slots__ = ()
     METRIC_FORMULA_OPERAND_KIND_UNSPECIFIED: _ClassVar[MetricFormulaOperandKind]
@@ -44,6 +57,16 @@ CHART_METRICS_BACKEND_UNSPECIFIED: ChartMetricsBackend
 CHART_METRICS_BACKEND_TIMESCALE: ChartMetricsBackend
 CHART_METRICS_BACKEND_VICTORIA_METRICS: ChartMetricsBackend
 CHART_METRICS_BACKEND_VICTORIA_METRICS_STRICT: ChartMetricsBackend
+METRIC_KIND_GROUP_UNSPECIFIED: MetricKindGroup
+METRIC_KIND_GROUP_FEATURES: MetricKindGroup
+METRIC_KIND_GROUP_RESOLVERS: MetricKindGroup
+METRIC_KIND_GROUP_QUERIES: MetricKindGroup
+METRIC_KIND_GROUP_STREAMING: MetricKindGroup
+METRIC_KIND_GROUP_CRONS: MetricKindGroup
+METRIC_KIND_GROUP_ONLINE_STORE: MetricKindGroup
+METRIC_KIND_GROUP_GPU: MetricKindGroup
+METRIC_KIND_GROUP_BILLING: MetricKindGroup
+METRIC_KIND_GROUP_INFRASTRUCTURE: MetricKindGroup
 METRIC_FORMULA_OPERAND_KIND_UNSPECIFIED: MetricFormulaOperandKind
 METRIC_FORMULA_OPERAND_KIND_SERIES: MetricFormulaOperandKind
 METRIC_FORMULA_OPERAND_KIND_DATASET: MetricFormulaOperandKind
@@ -331,21 +354,24 @@ class GetChartSnapshotRequest(_message.Message):
     ) -> None: ...
 
 class GetChartSnapshotResponse(_message.Message):
-    __slots__ = ("charts", "x_series", "window_period", "sql_query_strings")
+    __slots__ = ("charts", "x_series", "window_period", "sql_query_strings", "metrics_backend")
     CHARTS_FIELD_NUMBER: _ClassVar[int]
     X_SERIES_FIELD_NUMBER: _ClassVar[int]
     WINDOW_PERIOD_FIELD_NUMBER: _ClassVar[int]
     SQL_QUERY_STRINGS_FIELD_NUMBER: _ClassVar[int]
+    METRICS_BACKEND_FIELD_NUMBER: _ClassVar[int]
     charts: _containers.RepeatedCompositeFieldContainer[_densetimeserieschart_pb2.DenseTimeSeriesChart]
     x_series: _containers.RepeatedCompositeFieldContainer[_timestamp_pb2.Timestamp]
     window_period: _duration_pb2.Duration
     sql_query_strings: _containers.RepeatedScalarFieldContainer[str]
+    metrics_backend: ChartMetricsBackend
     def __init__(
         self,
         charts: _Optional[_Iterable[_Union[_densetimeserieschart_pb2.DenseTimeSeriesChart, _Mapping]]] = ...,
         x_series: _Optional[_Iterable[_Union[_timestamp_pb2.Timestamp, _Mapping]]] = ...,
         window_period: _Optional[_Union[_duration_pb2.Duration, _Mapping]] = ...,
         sql_query_strings: _Optional[_Iterable[str]] = ...,
+        metrics_backend: _Optional[_Union[ChartMetricsBackend, str]] = ...,
     ) -> None: ...
 
 class GetChartSnapshotByQueryRequest(_message.Message):
@@ -486,21 +512,24 @@ class WindowFunctionOption(_message.Message):
     ) -> None: ...
 
 class MetricOptions(_message.Message):
-    __slots__ = ("kind", "filters", "groups", "window_functions")
+    __slots__ = ("kind", "filters", "groups", "window_functions", "metric_kind_group")
     KIND_FIELD_NUMBER: _ClassVar[int]
     FILTERS_FIELD_NUMBER: _ClassVar[int]
     GROUPS_FIELD_NUMBER: _ClassVar[int]
     WINDOW_FUNCTIONS_FIELD_NUMBER: _ClassVar[int]
+    METRIC_KIND_GROUP_FIELD_NUMBER: _ClassVar[int]
     kind: _chart_pb2.MetricKind
     filters: _containers.RepeatedCompositeFieldContainer[FilterOption]
     groups: _containers.RepeatedCompositeFieldContainer[GroupOption]
     window_functions: _containers.RepeatedCompositeFieldContainer[WindowFunctionOption]
+    metric_kind_group: MetricKindGroup
     def __init__(
         self,
         kind: _Optional[_Union[_chart_pb2.MetricKind, str]] = ...,
         filters: _Optional[_Iterable[_Union[FilterOption, _Mapping]]] = ...,
         groups: _Optional[_Iterable[_Union[GroupOption, _Mapping]]] = ...,
         window_functions: _Optional[_Iterable[_Union[WindowFunctionOption, _Mapping]]] = ...,
+        metric_kind_group: _Optional[_Union[MetricKindGroup, str]] = ...,
     ) -> None: ...
 
 class MetricFormulaFeatureOperandInput(_message.Message):

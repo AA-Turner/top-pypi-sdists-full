@@ -30,6 +30,7 @@ Exceptions:
         Raised when a read operation times out.
 """
 
+from __future__ import annotations
 import asyncio
 import base64
 import hashlib
@@ -71,7 +72,7 @@ class Message:
     opcode: int
 
     @classmethod
-    def create_text(cls, data: str) -> "Message":
+    def create_text(cls, data: str) -> Message:
         return cls(
             type=MessageType.TEXT,
             data=data,
@@ -80,7 +81,7 @@ class Message:
         )
 
     @classmethod
-    def create_binary(cls, data: bytes) -> "Message":
+    def create_binary(cls, data: bytes) -> Message:
         return cls(
             type=MessageType.BINARY,
             data=data,

@@ -6,7 +6,7 @@ from __future__ import annotations
 
 from aiven.client import AivenClient, argx
 from aiven.client.argx import UserError
-from aiven.client.cli import AivenCLI, ClientFactory, convert_str_to_value, EOL_ADVANCE_WARNING_TIME
+from aiven.client.cli import EOL_ADVANCE_WARNING_TIME, AivenCLI, ClientFactory, convert_str_to_value
 from aiven.client.common import UNDEFINED
 from argparse import Namespace
 from collections.abc import Iterator, Mapping
@@ -408,6 +408,16 @@ def test_service_topic_create(command_line: str, expected_post_data: Mapping[str
                 "cleanup_policy": "compact",
             },
         ),
+        (
+            "service topic-update --project project1 --retention 168 service1 topic1",
+            {
+                "partitions": None,
+                "replication": None,
+                "min_insync_replicas": None,
+                "retention_bytes": None,
+                "retention_hours": 168,
+            },
+        ),
     ],
 )
 def test_service_topic_update(command_line: str, expected_put_data: Mapping[str, str | int | None]) -> None:
@@ -434,6 +444,81 @@ def test_service_topic_update(command_line: str, expected_put_data: Mapping[str,
     )
     data_dict = json.loads(session.put.call_args_list[0].kwargs["data"])
     assert data_dict == expected_put_data
+
+
+def test_service_topic_get_includes_configs(capsys: CaptureFixture[str]) -> None:
+    aiven_client = mock.Mock(spec_set=AivenClient)
+    aiven_client.get_service_topic.return_value = {
+        "topic_name": "topic1",
+        "partitions": [
+            {
+                "consumer_groups": [],
+                "earliest_offset": 0,
+                "isr": 3,
+                "latest_offset": 42,
+                "partition": 0,
+                "size": 1024,
+            }
+        ],
+        "replication": 3,
+        "min_insync_replicas": 2,
+        "retention_bytes": -1,
+        "retention_hours": -1,
+        "cleanup_policy": "delete",
+        "tags": [{"key": "env", "value": "test"}],
+        "config": {
+            "cleanup_policy": {"value": "delete", "source": "DYNAMIC_TOPIC_CONFIG"},
+            "remote_storage_enable": {"value": True, "source": "DYNAMIC_TOPIC_CONFIG"},
+        },
+    }
+
+    assert (
+        build_aiven_cli(aiven_client).run(args=["service", "topic-get", "--project", "project1", "service1", "topic1"])
+        is None
+    )
+
+    stdout, _ = capsys.readouterr()
+    assert "TOPIC_NAME" in stdout
+    assert "topic1" in stdout
+    assert "unlimited" in stdout
+    assert "env=test" in stdout
+    assert "CONFIG_NAME" in stdout
+    assert "remote_storage_enable" in stdout
+    assert "DYNAMIC_TOPIC_CONFIG" in stdout
+    assert "PARTITION" in stdout
+    assert "(No consumer groups)" in stdout
+
+
+def test_service_topic_get_json_includes_configs(capsys: CaptureFixture[str]) -> None:
+    aiven_client = mock.Mock(spec_set=AivenClient)
+    aiven_client.get_service_topic.return_value = {
+        "partitions": [
+            {
+                "consumer_groups": [{"group_name": "group1", "offset": 40}],
+                "earliest_offset": 0,
+                "isr": 3,
+                "latest_offset": 42,
+                "partition": 0,
+                "size": 1024,
+            }
+        ],
+        "config": {
+            "cleanup_policy": {"value": "delete", "source": "DYNAMIC_TOPIC_CONFIG"},
+        },
+    }
+
+    assert (
+        build_aiven_cli(aiven_client).run(
+            args=["service", "topic-get", "--project", "project1", "--json", "service1", "topic1"]
+        )
+        is None
+    )
+
+    stdout, _ = capsys.readouterr()
+    data = json.loads(stdout)
+    assert data["config"] == {"cleanup_policy": {"value": "delete", "source": "DYNAMIC_TOPIC_CONFIG"}}
+    assert data["consumer_groups"] == [{"consumer_group": "group1", "lag": 2, "offset": 40, "partition": 0}]
+    assert data["partitions"][0]["groups"] == 1
 
 
 def test_service_create_from_pitr() -> None:
@@ -1946,6 +2031,49 @@ def test_byoc_update() -> None:
         cloud_region="eu-west-2",
         reserved_cidr="10.1.0.0/24",
         display_name="Another name",
+        contact_emails=None,
+        tags=None,
+    )
+
+
+def test_byoc_update_contact_emails() -> None:
+    aiven_client = mock.Mock(spec_set=AivenClient)
+    aiven_client.byoc_update.return_value = {
+        "custom_cloud_environment": {
+            "cloud_provider": "aws",
+            "cloud_region": "eu-west-2",
+            "contact_emails": [
+                {"email": "admin@example.com", "real_name": "John Doe", "role": "Admin"},
+                {"email": "ops@example.com", "real_name": "Jane Smith", "role": "Operator"},
+            ],
+            "custom_cloud_environment_id": "d6a490ad-f43d-49d8-b3e5-45bc5dbfb387",
+            "deployment_model": "standard",
+            "reserved_cidr": "10.1.0.0/24",
+            "display_name": "My Cloud",
+            "state": "draft",
+        }
+    }
+    args = [
+        "byoc",
+        "update",
+        "--organization-id=org123456789a",
+        "--byoc-id=d6a490ad-f43d-49d8-b3e5-45bc5dbfb387",
+        '--contact-email=email="admin@example.com",real_name="John Doe",role="Admin"',
+        '--contact-email=email="ops@example.com",real_name="Jane Smith",role="Operator"',
+    ]
+    build_aiven_cli(aiven_client).run(args=args)
+    aiven_client.byoc_update.assert_called_once_with(
+        organization_id="org123456789a",
+        byoc_id="d6a490ad-f43d-49d8-b3e5-45bc5dbfb387",
+        deployment_model=None,
+        cloud_provider=None,
+        cloud_region=None,
+        reserved_cidr=None,
+        display_name=None,
+        contact_emails=[
+            {"email": "admin@example.com", "real_name": "John Doe", "role": "Admin"},
+            {"email": "ops@example.com", "real_name": "Jane Smith", "role": "Operator"},
+        ],
         tags=None,
     )
 

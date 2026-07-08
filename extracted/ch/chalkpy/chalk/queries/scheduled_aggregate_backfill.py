@@ -32,6 +32,7 @@ class ScheduledAggregateBackfill:
         lower_bound: Start of the backfill window (UTC). Defaults to the feature's lookback.
         upper_bound: End of the backfill window (UTC). Defaults to now.
         allow_empty_tiles: If ``False``, tiles with no data raise an error.
+        planner_options: Planner options to apply when executing the backfill.
         environment: If set, this backfill is only scheduled when deploying to the named
             environment. Deploying to any other environment silently skips it — the backfill
             is not planned or persisted anywhere. Unlike ``ScheduledQuery``'s
@@ -53,6 +54,7 @@ class ScheduledAggregateBackfill:
         lower_bound: datetime | None = None,
         upper_bound: datetime | None = None,
         allow_empty_tiles: bool = True,
+        planner_options: dict[str, str] | None = None,
         environment: str | None = None,
     ):
         super().__init__()
@@ -127,6 +129,7 @@ class ScheduledAggregateBackfill:
         self.lower_bound = lower_bound
         self.upper_bound = upper_bound
         self.allow_empty_tiles = allow_empty_tiles
+        self.planner_options = {k: str(v) for k, v in planner_options.items()} if planner_options else None
         self.environment = environment
         self.filename = caller_filename
 

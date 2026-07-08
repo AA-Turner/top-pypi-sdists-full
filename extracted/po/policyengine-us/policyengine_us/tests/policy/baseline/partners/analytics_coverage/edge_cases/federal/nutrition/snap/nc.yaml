@@ -1,4 +1,8 @@
-- name: snap_income_just_below_binding_gross_limit_54640 (nc)
+# North Carolina cases that differ from the federal.yaml (TX) baseline for
+# state-policy reasons: NC elected a 200%-FPG BBCE gross limit (TX uses 165%)
+# with no BBCE net test, and NC uses a household-size-dependent SUA ($768 for
+# a 3-person unit in FY2026) rather than a flat state SUA.
+- name: snap_income_46000_eligible_under_200_pct_bbce_limit (nc)
   period: 2026
   absolute_error_margin: 0.1
   input:
@@ -10,7 +14,7 @@
         is_tax_unit_dependent: false
         is_disabled: false
         immigration_status_str: CITIZEN
-        employment_income_before_lsr: 54540
+        employment_income_before_lsr: 46_000
       spouse:
         age: 33
         is_tax_unit_head: false
@@ -33,13 +37,15 @@
         - head
         - spouse
         - child1
-        state_code_str: NC
+        state_code: NC
         zip_code: '27601'
         county_str: WAKE_COUNTY_NC
     spm_units:
       spm_unit:
         members: *id001
         snap_assets: 500
+        housing_cost: 18_000
+        heating_cooling_expense: 2_400
     tax_units:
       tax_unit:
         members: *id001
@@ -58,9 +64,17 @@
   output:
     spm_units:
       spm_unit:
-        snap: 0.0
+        # $46,000 exceeds the TX/IL 165% BBCE limit (FY2026: $43,972.50) but
+        # stays under NC's 200% limit all year (Jan-Sep: 2 x 26,650 = 53,300).
+        # NC is not an always-SUA state, so the heating/cooling expense input
+        # selects the SUA (NC 3-person: $768). Jan-Sep: pre-shelter net =
+        # 2,857.67; shelter expense = 1,500 + 768 = 2,268 - 1,428.83 = 839.17
+        # -> capped at 744 -> net = 2,113.67 -> EC 633.90 -> 785 - 633.90 =
+        # 151.10/month; Oct-Dec (cap 760.68): 802.60 - 627.60 = 175.00.
+        # Annual = 9 x 151.10 + 3 x 175.00 = 1,884.90.
+        snap: 1_884.89
         is_snap_eligible: true
-- name: snap_income_at_binding_gross_limit_54640 (nc)
+- name: snap_income_above_200_pct_bbce_limit_54740 (nc)
   period: 2026
   absolute_error_margin: 0.1
   input:
@@ -72,7 +86,7 @@
         is_tax_unit_dependent: false
         is_disabled: false
         immigration_status_str: CITIZEN
-        employment_income_before_lsr: 54640
+        employment_income_before_lsr: 54_740
       spouse:
         age: 33
         is_tax_unit_head: false
@@ -95,13 +109,15 @@
         - head
         - spouse
         - child1
-        state_code_str: NC
+        state_code: NC
         zip_code: '27601'
         county_str: WAKE_COUNTY_NC
     spm_units:
       spm_unit:
         members: *id002
         snap_assets: 500
+        housing_cost: 18_000
+        heating_cooling_expense: 2_400
     tax_units:
       tax_unit:
         members: *id002
@@ -120,449 +136,9 @@
   output:
     spm_units:
       spm_unit:
-        snap: 0.0
-        is_snap_eligible: true
-- name: snap_income_just_above_binding_gross_limit_54640 (nc)
-  period: 2026
-  absolute_error_margin: 0.1
-  input:
-    people:
-      head:
-        age: 35
-        is_tax_unit_head: true
-        is_tax_unit_spouse: false
-        is_tax_unit_dependent: false
-        is_disabled: false
-        immigration_status_str: CITIZEN
-        employment_income_before_lsr: 54740
-      spouse:
-        age: 33
-        is_tax_unit_head: false
-        is_tax_unit_spouse: true
-        is_tax_unit_dependent: false
-        is_disabled: false
-        immigration_status_str: CITIZEN
-        employment_income_before_lsr: 0
-      child1:
-        age: 5
-        is_tax_unit_head: false
-        is_tax_unit_spouse: false
-        is_tax_unit_dependent: true
-        is_disabled: false
-        immigration_status_str: CITIZEN
-        employment_income_before_lsr: 0
-    households:
-      household:
-        members: &id003
-        - head
-        - spouse
-        - child1
-        state_code_str: NC
-        zip_code: '27601'
-        county_str: WAKE_COUNTY_NC
-    spm_units:
-      spm_unit:
-        members: *id003
-        snap_assets: 500
-    tax_units:
-      tax_unit:
-        members: *id003
-        tax_unit_is_joint: true
-    families:
-      family:
-        members: *id003
-    marital_units:
-      mu_couple:
-        members:
-        - head
-        - spouse
-      mu_child1:
-        members:
-        - child1
-  output:
-    spm_units:
-      spm_unit:
+        # Deliberate ineligible-side pin of NC's 200% BBCE upper boundary:
+        # 54,740 exceeds 200% of the FPG in every month (Jan-Sep: 53,300;
+        # Oct-Dec: 54,640) and the federal 130% gross test, so the unit is
+        # ineligible all year.
         snap: 0.0
         is_snap_eligible: false
-- name: snap_head_age_59_assets_4000_not_elderly (nc)
-  period: 2026
-  absolute_error_margin: 0.1
-  input:
-    people:
-      head:
-        age: 59
-        is_tax_unit_head: true
-        is_tax_unit_spouse: false
-        is_tax_unit_dependent: false
-        is_disabled: false
-        immigration_status_str: CITIZEN
-        employment_income_before_lsr: 20000
-      spouse:
-        age: 33
-        is_tax_unit_head: false
-        is_tax_unit_spouse: true
-        is_tax_unit_dependent: false
-        is_disabled: false
-        immigration_status_str: CITIZEN
-        employment_income_before_lsr: 0
-      child1:
-        age: 5
-        is_tax_unit_head: false
-        is_tax_unit_spouse: false
-        is_tax_unit_dependent: true
-        is_disabled: false
-        immigration_status_str: CITIZEN
-        employment_income_before_lsr: 0
-    households:
-      household:
-        members: &id004
-        - head
-        - spouse
-        - child1
-        state_code_str: NC
-        zip_code: '27601'
-        county_str: WAKE_COUNTY_NC
-    spm_units:
-      spm_unit:
-        members:
-        - head
-        - spouse
-        - child1
-        snap_assets: 4000
-    tax_units:
-      tax_unit:
-        members: *id004
-        tax_unit_is_joint: true
-    families:
-      family:
-        members: *id004
-    marital_units:
-      mu_couple:
-        members:
-        - head
-        - spouse
-      mu_child1:
-        members:
-        - child1
-  output:
-    spm_units:
-      spm_unit:
-        snap: 5796.29
-        is_snap_eligible: true
-- name: snap_head_age_60_assets_4000_elderly (nc)
-  period: 2026
-  absolute_error_margin: 0.1
-  input:
-    people:
-      head:
-        age: 60
-        is_tax_unit_head: true
-        is_tax_unit_spouse: false
-        is_tax_unit_dependent: false
-        is_disabled: false
-        immigration_status_str: CITIZEN
-        employment_income_before_lsr: 20000
-      spouse:
-        age: 33
-        is_tax_unit_head: false
-        is_tax_unit_spouse: true
-        is_tax_unit_dependent: false
-        is_disabled: false
-        immigration_status_str: CITIZEN
-        employment_income_before_lsr: 0
-      child1:
-        age: 5
-        is_tax_unit_head: false
-        is_tax_unit_spouse: false
-        is_tax_unit_dependent: true
-        is_disabled: false
-        immigration_status_str: CITIZEN
-        employment_income_before_lsr: 0
-    households:
-      household:
-        members: &id005
-        - head
-        - spouse
-        - child1
-        state_code_str: NC
-        zip_code: '27601'
-        county_str: WAKE_COUNTY_NC
-    spm_units:
-      spm_unit:
-        members:
-        - head
-        - spouse
-        - child1
-        snap_assets: 4000
-    tax_units:
-      tax_unit:
-        members: *id005
-        tax_unit_is_joint: true
-    families:
-      family:
-        members: *id005
-    marital_units:
-      mu_couple:
-        members:
-        - head
-        - spouse
-      mu_child1:
-        members:
-        - child1
-  output:
-    spm_units:
-      spm_unit:
-        snap: 5796.29
-        is_snap_eligible: true
-- name: snap_head_disabled_assets_4000 (nc)
-  period: 2026
-  absolute_error_margin: 0.1
-  input:
-    people:
-      head:
-        age: 35
-        is_tax_unit_head: true
-        is_tax_unit_spouse: false
-        is_tax_unit_dependent: false
-        is_disabled: true
-        is_usda_disabled: true
-        immigration_status_str: CITIZEN
-        employment_income_before_lsr: 20000
-      spouse:
-        age: 33
-        is_tax_unit_head: false
-        is_tax_unit_spouse: true
-        is_tax_unit_dependent: false
-        is_disabled: false
-        immigration_status_str: CITIZEN
-        employment_income_before_lsr: 0
-      child1:
-        age: 5
-        is_tax_unit_head: false
-        is_tax_unit_spouse: false
-        is_tax_unit_dependent: true
-        is_disabled: false
-        immigration_status_str: CITIZEN
-        employment_income_before_lsr: 0
-    households:
-      household:
-        members: &id006
-        - head
-        - spouse
-        - child1
-        state_code_str: NC
-        zip_code: '27601'
-        county_str: WAKE_COUNTY_NC
-    spm_units:
-      spm_unit:
-        members:
-        - head
-        - spouse
-        - child1
-        snap_assets: 4000
-    tax_units:
-      tax_unit:
-        members: *id006
-        tax_unit_is_joint: true
-    families:
-      family:
-        members: *id006
-    marital_units:
-      mu_couple:
-        members:
-        - head
-        - spouse
-      mu_child1:
-        members:
-        - child1
-  output:
-    spm_units:
-      spm_unit:
-        snap: 5796.29
-        is_snap_eligible: true
-- name: snap_head_immigration_lpr (nc)
-  period: 2026
-  absolute_error_margin: 0.1
-  input:
-    people:
-      head:
-        age: 35
-        is_tax_unit_head: true
-        is_tax_unit_spouse: false
-        is_tax_unit_dependent: false
-        is_disabled: false
-        immigration_status_str: LEGAL_PERMANENT_RESIDENT
-        employment_income_before_lsr: 20000
-      spouse:
-        age: 33
-        is_tax_unit_head: false
-        is_tax_unit_spouse: true
-        is_tax_unit_dependent: false
-        is_disabled: false
-        immigration_status_str: CITIZEN
-        employment_income_before_lsr: 0
-      child1:
-        age: 5
-        is_tax_unit_head: false
-        is_tax_unit_spouse: false
-        is_tax_unit_dependent: true
-        is_disabled: false
-        immigration_status_str: CITIZEN
-        employment_income_before_lsr: 0
-    households:
-      household:
-        members: &id007
-        - head
-        - spouse
-        - child1
-        state_code_str: NC
-        zip_code: '27601'
-        county_str: WAKE_COUNTY_NC
-    spm_units:
-      spm_unit:
-        members: *id007
-        snap_assets: 500
-    tax_units:
-      tax_unit:
-        members: *id007
-        tax_unit_is_joint: true
-    families:
-      family:
-        members: *id007
-    marital_units:
-      mu_couple:
-        members:
-        - head
-        - spouse
-      mu_child1:
-        members:
-        - child1
-  output:
-    spm_units:
-      spm_unit:
-        snap: 5796.29
-        is_snap_eligible: true
-- name: snap_head_immigration_refugee (nc)
-  period: 2026
-  absolute_error_margin: 0.1
-  input:
-    people:
-      head:
-        age: 35
-        is_tax_unit_head: true
-        is_tax_unit_spouse: false
-        is_tax_unit_dependent: false
-        is_disabled: false
-        immigration_status_str: REFUGEE
-        employment_income_before_lsr: 20000
-      spouse:
-        age: 33
-        is_tax_unit_head: false
-        is_tax_unit_spouse: true
-        is_tax_unit_dependent: false
-        is_disabled: false
-        immigration_status_str: CITIZEN
-        employment_income_before_lsr: 0
-      child1:
-        age: 5
-        is_tax_unit_head: false
-        is_tax_unit_spouse: false
-        is_tax_unit_dependent: true
-        is_disabled: false
-        immigration_status_str: CITIZEN
-        employment_income_before_lsr: 0
-    households:
-      household:
-        members: &id008
-        - head
-        - spouse
-        - child1
-        state_code_str: NC
-        zip_code: '27601'
-        county_str: WAKE_COUNTY_NC
-    spm_units:
-      spm_unit:
-        members: *id008
-        snap_assets: 500
-    tax_units:
-      tax_unit:
-        members: *id008
-        tax_unit_is_joint: true
-    families:
-      family:
-        members: *id008
-    marital_units:
-      mu_couple:
-        members:
-        - head
-        - spouse
-      mu_child1:
-        members:
-        - child1
-  output:
-    spm_units:
-      spm_unit:
-        snap: 2912.22
-        is_snap_eligible: true
-- name: snap_head_immigration_undocumented (nc)
-  period: 2026
-  absolute_error_margin: 0.1
-  input:
-    people:
-      head:
-        age: 35
-        is_tax_unit_head: true
-        is_tax_unit_spouse: false
-        is_tax_unit_dependent: false
-        is_disabled: false
-        immigration_status_str: UNDOCUMENTED
-        employment_income_before_lsr: 20000
-      spouse:
-        age: 33
-        is_tax_unit_head: false
-        is_tax_unit_spouse: true
-        is_tax_unit_dependent: false
-        is_disabled: false
-        immigration_status_str: CITIZEN
-        employment_income_before_lsr: 0
-      child1:
-        age: 5
-        is_tax_unit_head: false
-        is_tax_unit_spouse: false
-        is_tax_unit_dependent: true
-        is_disabled: false
-        immigration_status_str: CITIZEN
-        employment_income_before_lsr: 0
-    households:
-      household:
-        members: &id009
-        - head
-        - spouse
-        - child1
-        state_code_str: NC
-        zip_code: '27601'
-        county_str: WAKE_COUNTY_NC
-    spm_units:
-      spm_unit:
-        members: *id009
-        snap_assets: 500
-    tax_units:
-      tax_unit:
-        members: *id009
-        tax_unit_is_joint: true
-    families:
-      family:
-        members: *id009
-    marital_units:
-      mu_couple:
-        members:
-        - head
-        - spouse
-      mu_child1:
-        members:
-        - child1
-  output:
-    spm_units:
-      spm_unit:
-        snap: 2912.22
-        is_snap_eligible: true

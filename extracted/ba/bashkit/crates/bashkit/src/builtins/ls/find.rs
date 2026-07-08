@@ -326,6 +326,7 @@ pub(super) fn build_find_exec_commands(
             name: cmd_args[0].clone(),
             args: cmd_args[1..].to_vec(),
             stdin: None,
+            assignments: Vec::new(),
         }]
     } else {
         // Per-file mode: -exec cmd {} \;
@@ -341,6 +342,7 @@ pub(super) fn build_find_exec_commands(
                     name: cmd_args[0].clone(),
                     args: cmd_args[1..].to_vec(),
                     stdin: None,
+                    assignments: Vec::new(),
                 }
             })
             .collect()
@@ -672,7 +674,7 @@ fn find_printf_format(
                         chars.next();
                         let secs = metadata
                             .modified
-                            .duration_since(std::time::UNIX_EPOCH)
+                            .duration_since(crate::time_compat::UNIX_EPOCH)
                             .ok()
                             .map(|d| d.as_secs())
                             .unwrap_or(0);

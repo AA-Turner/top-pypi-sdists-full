@@ -74,6 +74,13 @@ class CapabilityManifest(BaseManifest):
     dependencies: dict[str, t.Any] | None = None
     checks: list[dict[str, t.Any]] | None = None
     flags: dict[str, t.Any] | None = None
+    # Structured item production config. Supported forms:
+    # true/false for enable/disable, a built-in type or list of built-in types,
+    # or a mapping of custom type names to "module:PydanticClass". Dict forms may
+    # also use reserved keys like enabled/values/custom. See dreadnode.items.config.
+    produces: bool | str | list[str] | dict[str, t.Any] | None = None
+    # Legacy items subsystem config. Prefer `produces` for new capabilities.
+    items: dict[str, t.Any] | None = None
 
 
 # Mapping from singular type name to manifest class

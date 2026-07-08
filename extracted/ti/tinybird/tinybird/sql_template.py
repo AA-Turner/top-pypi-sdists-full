@@ -1953,11 +1953,12 @@ def get_var_data(content, node_id=None):
     """
 
     def node_to_value(x):
-        if type(x) in (ast.Bytes, ast.Str):
-            return x.s
-        elif type(x) == ast.Num:  # noqa: E721
-            return x.n
-        elif type(x) == ast.NameConstant:  # noqa: E721
+        # ast.Constant supersedes the deprecated ast.Bytes/ast.Str/ast.Num/
+        # ast.NameConstant node classes. Those were aliases of ast.Constant
+        # since Python 3.8 (emitting DeprecationWarning on access in 3.12) and
+        # were removed in Python 3.14. The parser only ever produces
+        # ast.Constant nodes, so .value holds str/bytes/int/float/bool/None.
+        if type(x) == ast.Constant:  # noqa: E721
             return x.value
         elif type(x) == ast.Name:  # noqa: E721
             return x.id
@@ -1971,8 +1972,6 @@ def get_var_data(content, node_id=None):
             if not r:
                 r = node_to_value(x.right)
             return r
-        elif type(x) == ast.Constant:  # noqa: E721
-            return x.value
         elif type(x) == ast.UnaryOp and type(x.operand) == ast.Constant:  # noqa: E721
             if type(x.op) == ast.USub:  # noqa: E721
                 return x.operand.value * -1
@@ -1991,11 +1990,9 @@ def get_var_data(content, node_id=None):
             return []
 
         first_elem = x.elts[0]
-        if type(first_elem) in (ast.Bytes, ast.Str):
-            return [elem.s for elem in x.elts]
-        elif type(first_elem) == ast.Num:  # noqa: E721
-            return [elem.n for elem in x.elts]
-        elif type(first_elem) == ast.NameConstant or type(first_elem) == ast.Constant:  # noqa: E721
+        # See node_to_value: ast.Constant supersedes the deprecated
+        # ast.Bytes/ast.Str/ast.Num/ast.NameConstant (removed in 3.14).
+        if type(first_elem) == ast.Constant:  # noqa: E721
             return [elem.value for elem in x.elts]
         elif type(first_elem) == ast.Name:  # noqa: E721
             return [elem.id for elem in x.elts]

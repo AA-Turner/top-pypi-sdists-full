@@ -1,26 +1,28 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: html5tagger
-Version: 1.3.0
+Version: 1.4.0
 Summary: Pythonic HTML generation/templating (no template files)
-Home-page: https://github.com/sanic-org/html5tagger
-Author: Sanic Community
-Author-email: tronic@noreply.users.github.com
-Keywords: HTML,HTML5,templating,Jinja2
+Project-URL: Homepage, https://github.com/sanic-org/html5tagger
+Project-URL: Repository, https://github.com/sanic-org/html5tagger
+Project-URL: Issues, https://github.com/sanic-org/html5tagger/issues
+Author-email: Sanic Community <tronic@noreply.users.github.com>
+License: Unlicense
+License-File: LICENSE
+Keywords: HTML,HTML5,Jinja2,templating
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Intended Audience :: Developers
-Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.7
-Classifier: Programming Language :: Python :: 3.8
-Classifier: Programming Language :: Python :: 3.9
-Classifier: Programming Language :: Python :: 3.10
-Classifier: Programming Language :: Python :: 3.11
-Classifier: Topic :: Text Processing :: Markup :: HTML
 Classifier: License :: OSI Approved :: MIT License
 Classifier: License :: Public Domain
 Classifier: Operating System :: OS Independent
-Requires-Python: >=3.7
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
+Classifier: Topic :: Text Processing :: Markup :: HTML
+Requires-Python: >=3.10
 Description-Content-Type: text/markdown
-License-File: LICENSE
 
 # HTML5 Generation with html5tagger: Fast, Pure Python, No Dependencies
 
@@ -106,9 +108,11 @@ You can `str(doc)` to get the HTML code, and using `doc` directly usually has th
 
 The actual HTML output is similar. No whitespace is added to the document, it is all on one line unless the content contains newlines. You may notice that `body` and other familiar tags are missing and that the escaping is very minimal. This is HTML5: the document is standards-compliant with a lot less cruft.
 
-## Templating
+## Templating (v1 deprecated)
 
-Use template variables to build a document once and only update the dynamic parts at render time for faster performance. Access template variables via doc.TitleText and add content in parenthesis after the tag name. The underscore at the end of a tag name indicates the tag is added to the document and can have content in parenthesis, but any further tags on the same line go to the original document, not the template.
+> ⚠️ **Deprecation notice:** The v1.3 templating API is deprecated as of html5tagger 1.4 and will be removed in 2.0. If you rely on it, pin `html5tagger<2` in your dependencies. Otherwise, upgrade to html5tagger 2.0 for the new templating API.
+
+The old API lets you mutate template tags inside a `Builder` and later render the document. html5tagger 2.0 replaces this with immutable `Template` objects that you render by calling them with the desired slot values. Placeholders no longer use an underscore suffix: `doc.TagName` adds the placeholder to the document (in v1 `doc.TagName_` did so), and `doc.TagName(value)` sets a default. To migrate, remove the underscore and use `Template(doc)` to compile your document into a static template that can be called with `TagName=` keyword arguments to render HTML output.
 
 ## Nesting
 
@@ -116,7 +120,7 @@ In HTML5 elements such as `<p>` do not need any closing tag, so we can keep addi
 
 A tag is automatically closed when you add content to it or when another tag is added. Setting attributes alone does not close an element. Use `(None)` to close an empty element if any subsequent content is not meant to go inside it, e.g. `doc.script(None, src="...")`.
 
-For elements like `<table>` and `<ul>`, you can use `with` blocks, pass sub-snippet arguments, or add a template variable. Unlike adding another tag, adding a template does NOT close its preceding tag but instead the variable goes inside any open element.
+For elements like `<table>` and `<ul>`, you can use `with` blocks, pass sub-snippet arguments, or add a template variable.
 
 ```python
 with doc.ul:  # Nest using with
@@ -126,13 +130,13 @@ with doc.ul:  # Nest using with
     doc.ul(E.li("Easy").li("Peasy"))  # Nest using (...)
 ```
 
-## Escaping
+## Escaping and special methods
 
-All content and attributes are automatically escaped. For instance, we can put the entire document into an iframe's srcdoc attribute where only the minimal but necessary escaping is applied. Use custom methods `_script`, `_style` and `_comment` for corresponding inline formats, to follow their custom escaping rules.
+All content and attributes are automatically escaped with rules depending on context where it appears. For instance, we can put the entire document into an iframe's srcdoc attribute where only the minimal but necessary escaping is applied. Methods `script`, `style` and `_comment` follow their custom escaping rules. Note that parenthesis must be added after these with optional attributes and str content: the element will immediately close without needing explicit `None` content for an empty element.
 
 ```python
 doc = Document("Escaping & Context")
-doc._style('h1::after {content: "</Style>"}').h1("<Escape>")
+doc.style('h1::after {content: "</Style>"}').h1("<Escape>")
 doc._comment("All-->OK")
 doc.iframe(srcdoc=Document().p("&amp; is used for &"))
 ```
@@ -148,7 +152,7 @@ Works perfectly in browsers.
 
 ## Name mangling and boolean attributes
 
-Underscore at the end of name is ignored so that `class_` and `for_` among other attributes may be used despite being reserved words in Python. Other underscores convert into hyphens.
+Underscore at the end of name is ignored so that `for_` and other attributes may be used despite being reserved words in Python. Other underscores convert into hyphens.
 
 ⚠️ The above only is true for HTML elements and attributes, but template placeholders only use an ending underscore to denote that the it is to be placed on the document, rather than be fetched for use.
 
@@ -161,6 +165,45 @@ E.input(type="checkbox", id="somebox", checked=True).label(for_="somebox", aria_
 ```html
 <input type=checkbox id=somebox checked><label for=somebox aria-role=img>🥳</label>
 ```
+
+## Appending classes
+
+The special `classes` keyword argument in the call operator appends classes to the current element. It does not create a `classes` attribute; instead it merges the given classes into the existing `class` attribute (if any). This is useful for dynamic class lists, for example when combined with CSS selectors or when the class names come from variables.
+
+`classes` accepts a whitespace-separated string, a list of class strings, or a dictionary where each key is included as a class only if its value is truthy:
+
+```python
+doc.div(classes="foo bar")
+doc.div(classes=["foo", "bar"])
+doc.div(classes={"foo": True, "bar": False})
+```
+
+```html
+<div class="foo bar"></div>
+<div class="foo bar"></div>
+<div class=foo></div>
+```
+
+## CSS selector style attributes
+
+As an alternative to keyword arguments, attributes may be set using CSS selector syntax with the subscript (`[]`) operator. This supports `#id`, `.class` and `[attribute=value]`, including boolean attributes with `[attribute]`. This is only intended to be used with static content, and for any dynamic values you should follow the `[]` with a `()`.
+
+```python
+doc.main["#lead.container.article"]("Hello")
+doc.a["[href=/files]"]("a link")
+doc.input["[type=checkbox][checked]"]
+doc.div["#widget.foo[aria-label=Foo Widget]"](classes=["bar", "baz"], data_user=userid)
+```
+
+```html
+<main id=lead class="container article">Hello</main>
+<a href="/files">a link</a>
+<input type=checkbox checked>
+<div id=widget class="foo bar baz" aria-label="Foo Widget" data-user=user123>
+```
+
+Multiple selectors may be combined in one string and the `[]` and `()` operators may be chained. Overriding values already set is not possible. To append classes use the `classes` keyword argument in the call operator. The values can be single or double quoted or without quotes (no CSS restrictions, anything but `]` allowed). Limited support for backslash escapes is provided as well, e.g. for escaping the backslash itself or the quote character within a quoted value.
+
 
 ## Preformatted HTML
 
@@ -181,13 +224,28 @@ Jinja2 renders similar document from memory template within about 10 µs but it 
 
 In the above benchmark html5tagger created the entire document from scratch, one element and attribute at a time. Unless you are creating very large documents dynamically, this should be quite fast enough.
 
-
 ## Further development
 
 There have been no changes to the tagging API since 2018 when this module was brought to production use, and thus the interface is considered stable.
 
-In 2023 support for templating was added, allowing documents to be preformatted for all their static parts (as long strings), with only templates filled in between. This is a work on progress and has not been optimized yet.
+The legacy templating API added as a draft in version 1.3 is deprecated as of version 1.4 and will be removed in 2.0, where it is replaced by a redesigned templating system. Users who depend on the old templating behaviour should pin `html5tagger<2`; all others are encouraged to upgrade to 2.0.
 
-Additionally, `_script` and `_style` special methods were added in 2023. These may eventually replace also the non-underscored automatic versions but for now a separate method was easier to implement.
+## Development
 
-Pull requests are still welcome.
+This project uses [uv](https://docs.astral.sh/uv/) for dependency management,
+[nox](https://nox.thea.codes/) for task automation, [ruff](https://docs.astral.sh/ruff/)
+for linting and formatting, and [ty](https://docs.astral.sh/ty/) for type checking.
+
+Set up the environment and run the full test suite:
+
+```sh
+uv sync
+uv run nox
+```
+
+Run only linting or tests:
+
+```sh
+uv run nox -s lint
+uv run nox -s test
+```

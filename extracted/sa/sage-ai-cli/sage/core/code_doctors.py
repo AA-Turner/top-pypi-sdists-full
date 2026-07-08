@@ -375,9 +375,7 @@ def fix_react_native_package_json(frontend_root: Path) -> int:
     and remove vitest from both dependencies and devDependencies.
     Returns 1 if the file was modified.
     """
-    import os
-    if os.environ.get("SAGE_TESTING") == "1":
-        return 0
+
     pkg = frontend_root / "package.json"
     if not pkg.exists():
         return 0
@@ -431,9 +429,7 @@ def fix_react_native_jest_config(frontend_root: Path) -> int:
     Specifically, it needs 'jest-expo' preset and transformIgnorePatterns to avoid
     syntax errors when parsing react-native node_modules.
     """
-    import os
-    if os.environ.get("SAGE_TESTING") == "1":
-        return 0
+
     pkg = frontend_root / "package.json"
     if not pkg.exists():
         return 0

@@ -558,6 +558,7 @@ class DeadLetterConfigTypeDef(TypedDict):
     TargetArn: NotRequired[str]
 
 class DurableConfigTypeDef(TypedDict):
+    KMSKeyArn: NotRequired[str]
     RetentionPeriodInDays: NotRequired[int]
     ExecutionTimeout: NotRequired[int]
 
@@ -676,6 +677,7 @@ class ExecutionTypeDef(TypedDict):
     Status: ExecutionStatusType
     StartTimestamp: datetime
     EndTimestamp: NotRequired[datetime]
+    KMSKeyArn: NotRequired[str]
 
 FilterTypeDef = TypedDict(
     "FilterTypeDef",
@@ -744,6 +746,7 @@ class GetDurableExecutionHistoryRequestTypeDef(TypedDict):
 
 class GetDurableExecutionRequestTypeDef(TypedDict):
     DurableExecutionArn: str
+    IncludeExecutionData: NotRequired[bool]
 
 class TraceHeaderTypeDef(TypedDict):
     XAmznTraceId: NotRequired[str]
@@ -1493,6 +1496,8 @@ class GetDurableExecutionResponseTypeDef(TypedDict):
     EndTimestamp: datetime
     Version: str
     TraceHeader: TraceHeaderTypeDef
+    ExecutionDataIncluded: bool
+    DurableConfig: DurableConfigTypeDef
     ResponseMetadata: ResponseMetadataTypeDef
 
 class GetFunctionConfigurationRequestWaitExtraExtraTypeDef(TypedDict):

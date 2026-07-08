@@ -114,18 +114,18 @@ def test_lookup_with_extra_insert_parameters(fresh_db):
         columns={"make_this_integer": int},
     )
     assert species.schema == (
-        "CREATE TABLE [species] (\n"
-        "   [renamed_id] INTEGER PRIMARY KEY,\n"
-        "   [this_at_front] INTEGER,\n"
-        "   [name] TEXT,\n"
-        "   [type] TEXT,\n"
-        "   [first_seen] TEXT,\n"
-        "   [make_not_null] INTEGER NOT NULL,\n"
-        "   [fk_to_other] INTEGER REFERENCES [other_table]([id]),\n"
-        "   [default_is_dog] TEXT DEFAULT 'dog',\n"
-        "   [extract_this] INTEGER REFERENCES [extract_this]([id]),\n"
-        "   [convert_to_upper] TEXT,\n"
-        "   [make_this_integer] INTEGER\n"
+        'CREATE TABLE "species" (\n'
+        '   "renamed_id" INTEGER PRIMARY KEY,\n'
+        '   "this_at_front" INTEGER,\n'
+        '   "name" TEXT,\n'
+        '   "type" TEXT,\n'
+        '   "first_seen" TEXT,\n'
+        '   "make_not_null" INTEGER NOT NULL,\n'
+        '   "fk_to_other" INTEGER REFERENCES "other_table"("id"),\n'
+        "   \"default_is_dog\" TEXT DEFAULT 'dog',\n"
+        '   "extract_this" INTEGER REFERENCES "extract_this"("id"),\n'
+        '   "convert_to_upper" TEXT,\n'
+        '   "make_this_integer" INTEGER\n'
         ")"
     )
     assert species.get(id) == {
@@ -157,3 +157,27 @@ def test_lookup_with_extra_insert_parameters(fresh_db):
 def test_lookup_new_table_strict(fresh_db, strict):
     fresh_db["species"].lookup({"name": "Palm"}, strict=strict)
     assert fresh_db["species"].strict == strict or not fresh_db.supports_strict
+
+
+def test_lookup_null_value_idempotent(fresh_db):
+    # https://github.com/simonw/sqlite-utils/issues/186
+    # Repeated lookups of a null value should return the same row,
+    # not insert a duplicate row each time
+    species = fresh_db["species"]
+    first_id = species.lookup({"name": None})
+    second_id = species.lookup({"name": None})
+    assert first_id == second_id
+    assert list(species.rows) == [{"id": first_id, "name": None}]
+
+
+def test_lookup_compound_key_with_null_idempotent(fresh_db):
+    species = fresh_db["species"]
+    palm_id = species.lookup({"name": "Palm", "type": None})
+    oak_id = species.lookup({"name": "Oak", "type": "Tree"})
+    assert palm_id == species.lookup({"name": "Palm", "type": None})
+    assert oak_id == species.lookup({"name": "Oak", "type": "Tree"})
+    assert palm_id != oak_id
+    assert list(species.rows) == [
+        {"id": palm_id, "name": "Palm", "type": None},
+        {"id": oak_id, "name": "Oak", "type": "Tree"},
+    ]

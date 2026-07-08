@@ -19,10 +19,12 @@ from tests.test_downloader_handlers_http_base import (
     TestHttpsCustomCiphersBase,
     TestHttpsInvalidDNSIdBase,
     TestHttpsInvalidDNSPatternBase,
+    TestHttpsTLSVersionBase,
     TestHttpsWrongHostnameBase,
     TestHttpWithCrawlerBase,
     TestMitmProxyBase,
     TestRealWebsiteBase,
+    TestSimpleHttpsBase,
 )
 from tests.utils.decorators import coroutine_test
 
@@ -155,6 +157,10 @@ class TestHttp2(H2DownloadHandlerMixin, TestHttpsBase):
                 await download_handler.download_request(request)
 
 
+class TestSimpleHttp2(H2DownloadHandlerMixin, TestSimpleHttpsBase):
+    pass
+
+
 class TestHttp2WrongHostname(H2DownloadHandlerMixin, TestHttpsWrongHostnameBase):
     pass
 
@@ -170,6 +176,10 @@ class TestHttp2InvalidDNSPattern(
 
 
 class TestHttp2CustomCiphers(H2DownloadHandlerMixin, TestHttpsCustomCiphersBase):
+    pass
+
+
+class TestHttp2TLSVersion(H2DownloadHandlerMixin, TestHttpsTLSVersionBase):
     pass
 
 

@@ -90,8 +90,8 @@ class SearchSelect:
     Emits the exact DOM contract the fidelity scorer's interaction check
     keys off (`search-input-{name}`, `search-results-{name}`,
     `hx-indicator`, `delay:` debounce, an empty-state prompt, and
-    `aria-invalid` error wiring). The Alpine open/close + htmx wiring is
-    self-contained (`x-data="{ open: false }"`), no external controller.
+    `aria-invalid` error wiring). The open/close (dz-search-select.js) + htmx wiring is
+    driven by the delegated HM `dz-search-select.js` controller (state-in-DOM: `data-dz-open` on the widget root).
 
     `initial_value` is the persisted FK id; `initial_label` the display
     text shown in the visible input on EDIT (matches the legacy
@@ -126,7 +126,7 @@ class RefPicker:
     (sufficient for enum), RefPicker carries a `ref_api` URL pointing
     at the related entity's list endpoint. Options are populated
     client-side at render time by the existing `dz.filterRefSelect`
-    machinery in `dz-alpine.js`.
+    machinery in `dz-utils.js` (auto-mounted off `data-ref-api`).
 
     `initial_label` lets EDIT forms display the currently-selected
     record's display field without an extra round-trip on render —
@@ -154,8 +154,8 @@ class FileUpload:
     Renders as a `<div data-dz-widget="file-upload">` carrying a
     hidden `<input>` that holds the FK to a stored Document (or any
     file-resource entity) once upload completes. The drop-zone UI
-    + multipart POST to `upload_url` is wired by Alpine
-    (`dz.fileUpload` in `dz-alpine.js`); this primitive emits the
+    + multipart POST to `upload_url` was wired by the retired dzFileUpload
+    Alpine island (never mounted; orphan-swept 2026-07-06) — this primitive emits the
     DOM contract the legacy Jinja path already produces.
 
     `initial_value` carries the persisted file URL/key in EDIT mode
@@ -186,7 +186,7 @@ class MoneyField:
     """Money input for a first-class `: money` field — at parity with the
     legacy `_render_money` widget.
 
-    Renders the `x-data="dzMoney"` controller contract: a major-unit text
+    Renders the HM `data-dz-money` controller contract: a major-unit text
     input (`inputmode="decimal"`, `x-model="displayValue"`) backed by a
     hidden `{name}_minor` input (the integer minor units the controller
     keeps in sync) plus a `{name}_currency` carrier. Two modes:
@@ -198,7 +198,7 @@ class MoneyField:
       of `currency_options` (each `(code, scale, symbol)`) driving
       `onCurrencyChange`.
 
-    The dzMoney Alpine controller already exists client-side; this primitive
+    The delegated `dz-money.js` controller ships in the HM dist; this primitive
     only emits the mount attributes it reads."""
 
     name: str
@@ -327,9 +327,8 @@ class RichTextField:
 class FormStepper:
     """Wizard stage-tabs for a multi-section experience form (`widget`-free).
     Parity with the legacy `form_renderer.render_form_stepper` — an
-    `<ol class="dz-form-stepper">` whose items are dzWizard-driven
-    (`isActive()`/`isCurrent()`/`goToStep()` live on the surrounding
-    `x-data="dzWizard"` scope). Only the experience-flow form path renders a
+    `<ol class="dz-form-stepper">` whose items are dz-wizard.js-driven
+    (navigation and state updates live in the delegated controller). Only the experience-flow form path renders a
     stepper; the main CREATE/EDIT form path groups sections without one."""
 
     sections: tuple[str, ...]

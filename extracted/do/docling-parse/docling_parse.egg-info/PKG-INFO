@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: docling-parse
-Version: 7.6.0
+Version: 7.7.0
 Summary: Simple package to extract text with coordinates from programmatic PDFs
 Author-email: Peter Staar <taa@zurich.ibm.com>, Christoph Auer <cau@zurich.ibm.com>, Michele Dolfi <dol@zurich.ibm.com>, Panos Vagenas <pva@zurich.ibm.com>, Maxim Lysak <mly@zurich.ibm.com>
 License-Expression: MIT
@@ -47,6 +47,7 @@ uv run python ./docling_parse/visualize.py -i <path-to-pdf-file> -c word --inter
 ```
 
 <table>
+
   <tr>
     <th>original</th>
     <th>char</th>

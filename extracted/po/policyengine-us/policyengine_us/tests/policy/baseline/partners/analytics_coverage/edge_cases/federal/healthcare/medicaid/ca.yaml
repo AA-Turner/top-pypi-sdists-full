@@ -1,4 +1,11 @@
-- name: medicaid_age_19_adult_category (ca)
+# California-specific Medicaid policy (only cases whose outputs differ from
+# the federal.yaml TX baseline for CA-policy reasons):
+# - CA extends the infant category through age 1 (age < 2 vs age < 1
+#   elsewhere; infant/age_range/in_ca.yaml) with a 2.66 FPL limit.
+# - CA keeps a high senior/disabled asset limit in 2026 ($130,000 vs $2,000
+#   in most states) and a 1.38 FPL income limit for the optional pathway.
+# CA Medicaid per capita: $124,063,730,563 / 13,431,928 enrolled = $9,236.48.
+- name: medicaid_ca_infant_age_1_extended_age_range (ca)
   period: 2026
   absolute_error_margin: 0.1
   input:
@@ -11,7 +18,7 @@
         is_disabled: false
         is_pregnant: false
         immigration_status_str: CITIZEN
-        employment_income_before_lsr: 0
+        employment_income_before_lsr: 55_000
         is_medicare_eligible: false
         ssi_countable_resources: 0
         is_aca_eshi_eligible: false
@@ -28,7 +35,7 @@
         ssi_countable_resources: 0
         is_aca_eshi_eligible: false
       child1:
-        age: 19
+        age: 1
         is_tax_unit_head: false
         is_tax_unit_spouse: false
         is_tax_unit_dependent: true
@@ -45,7 +52,7 @@
         - head
         - spouse
         - child1
-        state_code_str: CA
+        state_code: CA
         zip_code: '90001'
         county_str: LOS_ANGELES_COUNTY_CA
     spm_units:
@@ -74,129 +81,13 @@
         is_ssi_aged: false
         msp: 0.0
         msp_eligible: false
-        medicaid: 10074.67
-        is_medicaid_eligible: true
+        # 55,000 / 27,320 (3p FPG) = 2.01 FPL > CA parent limit 1.14 -> NONE.
+        medicaid: 0.0
+        is_medicaid_eligible: false
+        medicaid_category: 9  # NONE
         chip: 0.0
-        is_aca_ptc_eligible: false
+        is_aca_ptc_eligible: true
       spouse:
-        ssi: 0.0
-        is_ssi_eligible: false
-        is_ssi_aged: false
-        msp: 0.0
-        msp_eligible: false
-        medicaid: 9876.63
-        is_medicaid_eligible: true
-        chip: 0.0
-        is_aca_ptc_eligible: false
-      child1:
-        ssi: 0.0
-        is_ssi_eligible: false
-        is_ssi_aged: false
-        msp: 0.0
-        msp_eligible: false
-        medicaid: 7758.14
-        is_medicaid_eligible: true
-        chip: 0.0
-        is_aca_ptc_eligible: false
-    tax_units:
-      tax_unit:
-        aca_ptc: 0.0
-        premium_tax_credit: 0.0
-- name: medicaid_adult_at_138pct_fpl_expansion (ca)
-  period: 2026
-  absolute_error_margin: 0.1
-  input:
-    people:
-      head:
-        age: 30
-        is_tax_unit_head: true
-        is_tax_unit_spouse: false
-        is_tax_unit_dependent: false
-        is_disabled: false
-        is_pregnant: false
-        immigration_status_str: CITIZEN
-        employment_income_before_lsr: 22000
-        is_medicare_eligible: false
-        ssi_countable_resources: 0
-        is_aca_eshi_eligible: false
-    households:
-      household:
-        members: &id002
-        - head
-        state_code_str: CA
-        zip_code: '90001'
-        county_str: LOS_ANGELES_COUNTY_CA
-    spm_units:
-      spm_unit:
-        members: *id002
-    tax_units:
-      tax_unit:
-        members: *id002
-        tax_unit_is_joint: false
-    families:
-      family:
-        members: *id002
-    marital_units:
-      mu_head:
-        members:
-        - head
-  output:
-    people:
-      head:
-        ssi: 0.0
-        is_ssi_eligible: false
-        is_ssi_aged: false
-        msp: 0.0
-        msp_eligible: false
-        medicaid: 9236.48
-        is_medicaid_eligible: true
-        chip: 0.0
-        is_aca_ptc_eligible: false
-    tax_units:
-      tax_unit:
-        aca_ptc: 0.0
-        premium_tax_credit: 0.0
-- name: medicaid_adult_above_138pct_fpl (ca)
-  period: 2026
-  absolute_error_margin: 0.1
-  input:
-    people:
-      head:
-        age: 30
-        is_tax_unit_head: true
-        is_tax_unit_spouse: false
-        is_tax_unit_dependent: false
-        is_disabled: false
-        is_pregnant: false
-        immigration_status_str: CITIZEN
-        employment_income_before_lsr: 23000
-        is_medicare_eligible: false
-        ssi_countable_resources: 0
-        is_aca_eshi_eligible: false
-    households:
-      household:
-        members: &id003
-        - head
-        state_code_str: CA
-        zip_code: '90001'
-        county_str: LOS_ANGELES_COUNTY_CA
-    spm_units:
-      spm_unit:
-        members: *id003
-    tax_units:
-      tax_unit:
-        members: *id003
-        tax_unit_is_joint: false
-    families:
-      family:
-        members: *id003
-    marital_units:
-      mu_head:
-        members:
-        - head
-  output:
-    people:
-      head:
         ssi: 0.0
         is_ssi_eligible: false
         is_ssi_aged: false
@@ -204,9 +95,89 @@
         msp_eligible: false
         medicaid: 0.0
         is_medicaid_eligible: false
+        medicaid_category: 9  # NONE
         chip: 0.0
         is_aca_ptc_eligible: true
+      child1:
+        ssi: 0.0
+        is_ssi_eligible: false
+        is_ssi_aged: false
+        msp: 0.0
+        msp_eligible: false
+        # CA-only INFANT at age 1: 2.01 FPL < CA infant limit 2.66 with the
+        # extended age < 2 range (in TX this age/income would be over the
+        # 1.49 young child limit). 9,236.48 x (child SLCSP index 312.00 /
+        # household avg 432.99) = 6,655.48.
+        medicaid: 6_655.48
+        is_medicaid_eligible: true
+        medicaid_category: 0  # INFANT
+        chip: 0.0
+        is_aca_ptc_eligible: false
     tax_units:
       tax_unit:
-        aca_ptc: 4648.1
-        premium_tax_credit: 4648.1
+        aca_ptc: 8_092.33
+        premium_tax_credit: 8_092.33
+- name: medicaid_ca_senior_high_asset_limit (ca)
+  period: 2026
+  absolute_error_margin: 0.1
+  input:
+    people:
+      head:
+        age: 67
+        is_tax_unit_head: true
+        is_tax_unit_spouse: false
+        is_tax_unit_dependent: false
+        is_disabled: false
+        is_pregnant: false
+        immigration_status_str: CITIZEN
+        employment_income_before_lsr: 0
+        social_security_retirement: 16_000
+        is_medicare_eligible: true
+        ssi_countable_resources: 50_000
+        is_aca_eshi_eligible: false
+    households:
+      household:
+        members: &id002
+        - head
+        state_code: CA
+        zip_code: '90001'
+        county_str: LOS_ANGELES_COUNTY_CA
+    spm_units:
+      spm_unit:
+        members: *id002
+    tax_units:
+      tax_unit:
+        members: *id002
+        tax_unit_is_joint: false
+    families:
+      family:
+        members: *id002
+    marital_units:
+      mu_head:
+        members:
+        - head
+  output:
+    people:
+      head:
+        # SSI resource test fails ($50,000 > $2,000), so no SSI.
+        ssi: 0.0
+        is_ssi_eligible: false
+        is_ssi_aged: true
+        # QMB: countable income 16,000 - 240 annual disregard = 15,760
+        # < 15,960 (100% FPG) -> MSP pays Part A + Part B premiums:
+        # (565.00 + 202.90) x 12 = 9,214.80.
+        msp: 9_214.8
+        msp_eligible: true
+        # CA-only optional senior/disabled pathway: $50,000 resources are
+        # under CA's $130,000 2026 asset limit (vs $2,000 in most states)
+        # and income is under CA's 1.38 FPL limit. Single enrollee:
+        # medicaid = CA per capita 9,236.48.
+        medicaid: 9_236.48
+        is_medicaid_eligible: true
+        medicaid_category: 8  # SENIOR_OR_DISABLED
+        chip: 0.0
+        is_aca_ptc_eligible: false
+    tax_units:
+      tax_unit:
+        aca_ptc: 0.0
+        premium_tax_credit: 0.0

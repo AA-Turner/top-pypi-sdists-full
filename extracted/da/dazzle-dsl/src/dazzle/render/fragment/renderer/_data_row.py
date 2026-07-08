@@ -28,6 +28,7 @@ from dazzle.render.filters import (
     badge_icon_html,
     resolve_status_tone,
 )
+from dazzle.render.fragment.icon_html import lucide_svg_html
 from dazzle.render.fragment.primitives import DataTable, RowCapabilities
 
 
@@ -44,8 +45,8 @@ class _RowArchetype:
     list_kind: str
 
 
-# The three archetypes (design §3.3). `data-table` is the rich CRUD row (Alpine
-# `dzTable` controller mounted); `embedded` is the plain Fragment `Table` row;
+# The three archetypes (design §3.3). `data-table` is the rich CRUD row (the
+# HM grid root's delegated controllers); `embedded` is the plain Fragment `Table` row;
 # `region` is the workspace `kind: list` row. All three flow through
 # `assemble_list_row` — only HTML production converges; RBAC/scope/sort and the
 # per-archetype cell content stay in the callers.
@@ -122,6 +123,13 @@ def assemble_list_row(
     head = "<tr"
     if dom_id:
         head += f' id="{dom_id}"'
+    elif row_id_attr:
+        # HM grid contract (convergence C0a): a row with an identity carries a
+        # stable `id` — the idiomorph MORPH KEY — so a live selection follows
+        # its ROW (not its DOM position) across a re-sort/paginate. The id
+        # encodes `data-dz-row-id` (the payload anchor) so the two agree. An
+        # explicit `dom_id` (drawer/detail anchor) wins: any id is a morph key.
+        head += f' id="dz-grid-row-{row_id_attr}"'
     if data_dazzle_row:
         head += f' data-dazzle-row="{data_dazzle_row}"'
     if row_id_attr:
@@ -134,93 +142,6 @@ def assemble_list_row(
         head += f" {drill_attrs}"
     head += ">"
     return f"{head}{checkbox_cell}{cells_html}{actions_cell}</tr>{peek_panel_row}"
-
-
-def _render_inline_edit(item: dict[str, Any], col: dict[str, Any], value: Any) -> str:
-    """Inline mirror of `fragments/inline_edit.html` (v0.67.68).
-
-    4 input variants keyed off `col.type`:
-      - text (default)
-      - bool (checkbox)
-      - badge (enum select)
-      - date (date input)
-    All variants emit identical Alpine bindings the legacy template did
-    so the dzTable controller (`editing`, `commitEdit`, `cancelEdit`,
-    `isEditing`) keeps working unchanged.
-    """
-
-    col_key = _html_mod.escape(str(col.get("key", "")), quote=True)
-    col_type = str(col.get("type", "") or "")
-    col_label = _html_mod.escape(str(col.get("label", "")), quote=True)
-
-    if col_type == "bool":
-        checked_init = "true" if value else "false"
-        editor = (
-            '<div class="dz-inline-edit-bool-row">'
-            f'<input type="checkbox" name="{col_key}" '  # nosemgrep
-            f":checked=\"editing ? (editing.originalValue === 'true' || "
-            f'editing.originalValue === true) : {checked_init}" '
-            f':disabled="editing && editing.saving" '
-            f'x-init="$el.focus()" '
-            f'@change="commitEdit($el.checked)" '
-            f'@keydown.escape.prevent="cancelEdit()" '
-            f'class="dz-inline-edit-checkbox" '
-            f'aria-label="Edit {col_label}" />'
-            f'<label class="dz-inline-edit-bool-label">{col_label}</label>'
-            "</div>"
-        )
-    elif col_type == "badge":
-        opts: list[str] = []
-        for opt in col.get("filter_options", []) or []:
-            opt_value = _html_mod.escape(str(opt.get("value", "")), quote=True)
-            opt_label = _html_mod.escape(str(opt.get("label", "")), quote=False)
-            selected = " selected" if str(opt.get("value", "")) == str(value) else ""
-            opts.append(f'<option value="{opt_value}"{selected}>{opt_label}</option>')
-        editor = (
-            f'<select name="{col_key}" '  # nosemgrep
-            f':disabled="editing && editing.saving" '
-            f'x-init="$el.focus()" '
-            f'@change="commitEdit($el.value)" '
-            f'@keydown.escape.prevent="cancelEdit()" '
-            f':data-dz-edit-error="!!(editing && editing.error)" '
-            f'class="dz-inline-edit-input dz-inline-edit-select" '
-            f'aria-label="Edit {col_label}">'
-            f"{''.join(opts)}</select>"
-        )
-    else:
-        # text or date variant
-        editor_value_json = json.dumps(value if value is not None else "")
-        input_type = "date" if col_type == "date" else "text"
-        editor = (
-            f'<input type="{input_type}" name="{col_key}" '  # nosemgrep
-            f":value='editing ? editing.originalValue : {editor_value_json}' "
-            f':disabled="editing && editing.saving" '
-            f'x-init="$el.focus(); $el.select()" '
-            f'@keydown.enter.prevent="commitEdit($el.value)" '
-            f'@keydown.tab.prevent="commitEdit($el.value)" '
-            f'@keydown.escape.prevent="cancelEdit()" '
-            f':data-dz-edit-error="!!(editing && editing.error)" '
-            f'class="dz-inline-edit-input" '
-            f'aria-label="Edit {col_label}" />'
-        )
-
-    spinner = (
-        '<div x-show="editing && editing.saving" aria-hidden="true" '
-        'class="dz-inline-edit-spinner">'
-        '<svg class="dz-inline-edit-spinner-icon" viewBox="0 0 24 24" '
-        'fill="none" xmlns="http://www.w3.org/2000/svg">'
-        '<circle class="opacity-25" cx="12" cy="12" r="10" '
-        'stroke="currentColor" stroke-width="2"/>'
-        '<path class="opacity-75" fill="currentColor" '
-        'd="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/>'
-        "</svg></div>"
-    )
-    error = (
-        '<div x-show="editing && editing.error" '
-        'x-text="editing && editing.error" role="alert" '
-        'class="dz-inline-edit-error"></div>'
-    )
-    return f'<div class="dz-inline-edit">{editor}{spinner}{error}</div>'
 
 
 def _json_summary(value: Any, *, max_pairs: int = 4, length: int = 80) -> str:
@@ -242,7 +163,14 @@ def _json_summary(value: Any, *, max_pairs: int = 4, length: int = 80) -> str:
     return text[:length] + "…" if len(text) > length else text
 
 
-def _render_cell_display(col: dict[str, Any], value: Any) -> str:
+def _render_cell_display(
+    col: dict[str, Any],
+    value: Any,
+    *,
+    truncate: bool = True,
+    entity_name: str = "",
+    record_id: str = "",
+) -> str:
     """Render the display-mode value for one table cell.
 
     Mirrors the type-dispatch in `table_rows.html` (badge / bool /
@@ -251,6 +179,13 @@ def _render_cell_display(col: dict[str, Any], value: Any) -> str:
     humanised at the core so detail views (which feed the cell core
     form-typed values) stop leaking raw ISO / `True` / full-precision
     floats / mangled JSON.
+
+    ``truncate`` is consulted ONLY by the default text branch (#1533):
+    list cells clip prose to a scannable width; a detail page's whole
+    job is the full record, so its seam passes ``truncate=False`` and
+    the value renders whole in a ``dz-detail-text`` wrapper
+    (``white-space: pre-wrap`` — textarea paragraphs survive). Every
+    typed branch above the default is identical in both modes.
     """
 
     col_type = str(col.get("type", "") or "")
@@ -309,11 +244,19 @@ def _render_cell_display(col: dict[str, Any], value: Any) -> str:
             return "—"
         return _html_mod.escape(f"{value}%", quote=False)
     if col_type == "file":
-        # ADR-0049 Phase 2: file fields render a download link (detail-view
-        # parity). Files aren't typical list columns, so this is additive.
+        # ADR-0049 Phase 2 / #1551: file fields render a download link via the
+        # scope-gated document route. ``entity_name`` + ``record_id`` are
+        # threaded from the row caller (``_render_table_row``); callers that
+        # don't have that context (e.g. the detail-view seam) fall back to the
+        # raw stored value as the href.
         if value in (None, "", "—"):
             return "—"
-        href = _html_mod.escape(str(value), quote=True)
+        if entity_name and record_id:
+            col_key = str(col.get("key", ""))
+            url = f"/_dazzle/documents/{entity_name}/{record_id}/{col_key}/file"
+            href = _html_mod.escape(url, quote=True)
+        else:
+            href = _html_mod.escape(str(value), quote=True)
         label = _html_mod.escape(str(_basename_or_url_filter(value)), quote=False)
         return (
             f'<a href="{href}" target="_blank" rel="noopener" class="dz-detail-file-link">'
@@ -328,8 +271,12 @@ def _render_cell_display(col: dict[str, Any], value: Any) -> str:
         inner = _json_summary(value)
     elif isinstance(value, float):
         inner = _metric_number_filter(value)
-    else:
+    elif truncate:
         inner = _truncate_filter(value or "")
+    else:
+        inner = str(value or "")
+    if not truncate:
+        return f'<span class="dz-detail-text">{_html_mod.escape(inner, quote=False)}</span>'
     return f'<span class="dz-tr-cell-truncate">{_html_mod.escape(inner, quote=False)}</span>'
 
 
@@ -354,16 +301,6 @@ def _render_table_row(table: dict[str, Any], item: dict[str, Any]) -> str:
 
     item_id = str(item.get("id", "") or "")
     item_id_attr = _html_mod.escape(item_id, quote=True)
-    item_id_json = json.dumps(item_id)
-    # #1327: `item_id_json` is a *double*-quoted JS literal ("<id>"). Embedded in
-    # a double-quoted Alpine attribute (`:class="…"`, `x-if="…"`) its inner `"`
-    # terminates the HTML attribute early → Alpine "Unexpected token". For those
-    # attributes use a *single*-quoted JS literal instead (mirrors the checkbox's
-    # `selected.has('…')` at the cell below). JS-escape `\`/`'` then HTML-escape
-    # so non-UUID string ids stay correct. `item_id_json` is still used inside
-    # the single-quoted `@dblclick='…'` attribute, where double quotes are safe.
-    _item_id_js_escaped = item_id.replace("\\", "\\\\").replace("'", "\\'")
-    item_id_js = "'" + _html_mod.escape(_item_id_js_escaped, quote=True) + "'"
 
     # Row label: first non-{ref,badge,bool,currency} column else id; ref dicts
     # resolve via `_ref_display_name`.
@@ -377,13 +314,6 @@ def _render_table_row(table: dict[str, Any], item: dict[str, Any]) -> str:
         raw_label = _ref_display_name(raw_label)
     row_label = _html_mod.escape(str(raw_label or ""), quote=False)
     row_label_attr = _html_mod.escape(str(raw_label or ""), quote=True)
-
-    # Row state Alpine binds — emitted as a single :class attribute.
-    row_state_class = (
-        f"{{'is-selected': selected.has({item_id_js}), "
-        f"'is-saving': editing && editing.rowId === {item_id_js} && editing.saving, "
-        f"'is-error': editing && editing.rowId === {item_id_js} && editing.error}}"
-    )
 
     # #1494 (2c): the row-peek chevron. `peek: expand` toggles a hidden *sibling
     # panel row* in place; `peek: slide_over` loads the same detail body into the
@@ -424,18 +354,14 @@ def _render_table_row(table: dict[str, Any], item: dict[str, Any]) -> str:
             )
         elif peek_slide:
             # The chevron loads the detail body into this list's one shared
-            # SlideOver panel (`#slideover-content-{table_id}`) and reveals the
-            # container (`#slideover-{table_id}`). JS-free reveal via inline
-            # hx-on; the backdrop/close button (on the SlideOver) re-hide it.
+            # drawer (`#slideover-content-{table_id}`) and opens the native
+            # <dialog> via the HM dz-dialog.js opener (data-dz-dialog-open
+            # names the dialog id — Tier F2; replaces the inline hx-on
+            # hidden-toggle). Close is the dialog's own (form/Esc/backdrop).
             table_id = str(table.get("table_id") or "")
             slide_url_attr = _html_mod.escape(f"{detail_url}?peek=1", quote=True)
             content_target = _html_mod.escape(slideover_content_id(table_id), quote=True)
-            # panel id crosses into a JS-string context inside hx-on — json.dumps
-            # for the JS layer, then HTML-escape for the attribute layer (the
-            # #1494 Slice-2 hardening; table_id is a parser-validated identifier,
-            # so this is defense-in-depth).
-            panel_js = _html_mod.escape(json.dumps(slideover_panel_id(table_id)), quote=True)
-            reveal_js = f"document.getElementById({panel_js}).removeAttribute('hidden')"
+            panel_attr = _html_mod.escape(slideover_panel_id(table_id), quote=True)
             peek_toggle_html = (
                 f'<button type="button" '  # nosemgrep
                 f'class="dz-tr-action dz-tr-peek-toggle" '
@@ -444,7 +370,7 @@ def _render_table_row(table: dict[str, Any], item: dict[str, Any]) -> str:
                 f'hx-get="{slide_url_attr}" '
                 f'hx-target="#{content_target}" '
                 f'hx-swap="innerHTML" '
-                f'hx-on:click="{reveal_js}">'
+                f'data-dz-dialog-open="{panel_attr}">'
                 '<svg width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden="true" '
                 'xmlns="http://www.w3.org/2000/svg">'
                 '<path d="M5.5 3.5L9 7l-3.5 3.5" stroke="currentColor" stroke-width="1.25" '
@@ -456,35 +382,30 @@ def _render_table_row(table: dict[str, Any], item: dict[str, Any]) -> str:
             f'data-dazzle-action="{entity_name_attr}.view" '
             f'aria-label="View {row_label_attr}" '
             f'class="dz-tr-action">'
-            '<svg width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden="true" '
-            'xmlns="http://www.w3.org/2000/svg">'
-            '<path d="M7 2.5C4.5 2.5 2.5 5 2.5 7s2 4.5 4.5 4.5S11.5 9 11.5 7 9.5 2.5 7 2.5z" '
-            'stroke="currentColor" stroke-width="1.25" stroke-linejoin="round"/>'
-            '<circle cx="7" cy="7" r="1.5" stroke="currentColor" stroke-width="1.25"/>'
-            "</svg></a>"
+            f"{lucide_svg_html('eye', cls='dz-tr-action-icon')}</a>"
         )
         edit_link_html = (
             f'<a href="{detail_url_attr}/edit" '  # nosemgrep
             f'data-dazzle-action="{entity_name_attr}.edit" '
             f'aria-label="Edit {row_label_attr}" '
             f'class="dz-tr-action">'
-            '<svg width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden="true" '
-            'xmlns="http://www.w3.org/2000/svg">'
-            '<path d="M9.5 2.5l2 2L4 12H2v-2L9.5 2.5z" stroke="currentColor" stroke-width="1.25" '
-            'stroke-linecap="round" stroke-linejoin="round"/>'
-            "</svg></a>"
+            f"{lucide_svg_html('pencil', cls='dz-tr-action-icon')}</a>"
         )
 
     checkbox_cell = ""
     if bulk_actions:
+        # Convergence C1.1: the row box is the HM grid controller's selection
+        # seam — `data-dz-grid-select` (delegated change handler) +
+        # `data-dz-grid-row-id` (the bulk payload anchor; the row's stable
+        # `id` encodes the same value = the idiomorph morph key). The
+        # checkbox's own `.checked` IS the state — no Alpine bindings.
         checkbox_cell = (
             '<td class="dz-tr-checkbox-cell" onclick="event.stopPropagation()">'
             f'<label class="visually-hidden" for="row-check-{item_id_attr}">'
             f"Select {row_label}</label>"
             f'<input type="checkbox" id="row-check-{item_id_attr}" '  # nosemgrep
             f'class="dz-tr-checkbox" '
-            f":checked=\"selected.has('{item_id_attr}')\" "
-            f"@change=\"toggleRow('{item_id_attr}')\" "
+            f'data-dz-grid-select data-dz-grid-row-id="{item_id_attr}" '
             f'aria-label="Select {row_label_attr}" /></td>'
         )
 
@@ -507,34 +428,55 @@ def _render_table_row(table: dict[str, Any], item: dict[str, Any]) -> str:
             if explicit:
                 display_html = _html_mod.escape(str(explicit), quote=False)
             else:
-                display_html = _render_cell_display(col, cell_value)
+                display_html = _render_cell_display(
+                    col, cell_value, entity_name=entity_name, record_id=item_id
+                )
         else:
-            display_html = _render_cell_display(col, cell_value)
+            display_html = _render_cell_display(
+                col, cell_value, entity_name=entity_name, record_id=item_id
+            )
 
         if col_key in inline_editable:
-            edit_html = _render_inline_edit(item, col, cell_value)
-            # Display mode template — Alpine dblclick toggles edit mode.
-            edit_val_for_dblclick = json.dumps(cell_value if cell_value is not None else "")
+            # Convergence C2.3: the CELL owns its edit affordance — one seam
+            # span carrying everything the delegated dz-grid-edit.js extension
+            # needs (kind / raw value / select options / a11y label). No
+            # Alpine templates; the editor input is built by the controller
+            # and the typed buffer lives on the grid root, out of the morph
+            # path.
+            kind = {"bool": "bool", "badge": "select", "date": "date"}.get(col_type, "text")
+            if col_type == "bool":
+                raw = "true" if cell_value else "false"
+            else:
+                raw = "" if cell_value is None else str(cell_value)
+            raw_attr = _html_mod.escape(raw, quote=True)
+            label_attr = _html_mod.escape(str(col.get("label", col_key)), quote=True)
+            options_attr = ""
+            if kind == "select":
+                pairs = [
+                    [str(o.get("value", "")), str(o.get("label", ""))]
+                    for o in (col.get("filter_options") or [])
+                ]
+                options_attr = (
+                    f' data-dz-edit-options="{_html_mod.escape(json.dumps(pairs), quote=True)}"'
+                )
             title_attr = ""
             if cell_value is not None:
                 title_attr = f' title="{_html_mod.escape(str(cell_value), quote=True)}"'
-            display_template_html = (
-                f"<template x-if=\"!isEditing({item_id_js}, '{col_key_attr}')\">"
+            cell_inner = (
                 f'<span class="dz-tr-cell-display" '
-                f"@dblclick='startEdit({item_id_json}, \"{col_key_attr}\", {edit_val_for_dblclick})'"
-                f"{title_attr}>{display_html}</span></template>"
+                f'data-dz-grid-edit="{col_key_attr}" '
+                f'data-dz-edit-kind="{kind}" '
+                f'data-dz-edit-value="{raw_attr}" '
+                f'data-dz-edit-label="{label_attr}"'
+                f"{options_attr}{title_attr}>{display_html}</span>"
             )
-            edit_template_html = (
-                f"<template x-if=\"isEditing({item_id_js}, '{col_key_attr}')\">"
-                f"{edit_html}</template>"
-            )
-            cell_inner = f"{edit_template_html}{display_template_html}"
         else:
             cell_inner = display_html
 
+        # C2.1: no per-cell visibility binding — dz-grid-cols.js projects the
+        # hidden set onto [data-dz-col] cells after every swap.
         cell_parts.append(
             f'<td data-dz-col="{col_key_attr}" '  # nosemgrep
-            f"x-show=\"isColumnVisible('{col_key_attr}')\" "
             f'class="{cell_classes}" onclick="event.stopPropagation()">'
             f"{cell_inner}</td>"
         )
@@ -549,11 +491,7 @@ def _render_table_row(table: dict[str, Any], item: dict[str, Any]) -> str:
         f'hx-target="closest tr" '
         f'hx-swap="outerHTML swap:300ms" '
         f'class="dz-tr-action is-destructive">'
-        '<svg width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden="true" '
-        'xmlns="http://www.w3.org/2000/svg">'
-        '<path d="M2 3.5h10M5.5 3.5V2.5h3v1M5.5 6v4M8.5 6v4M3 3.5l.5 8h7l.5-8" '
-        'stroke="currentColor" stroke-width="1.25" stroke-linecap="round" '
-        'stroke-linejoin="round"/></svg></button>'
+        f"{lucide_svg_html('trash-2', cls='dz-tr-action-icon')}</button>"
     )
     actions_cell = (
         '<td class="dz-tr-actions-cell" onclick="event.stopPropagation()">'
@@ -589,7 +527,11 @@ def _render_table_row(table: dict[str, Any], item: dict[str, Any]) -> str:
         row_id_attr=item_id_attr,
         dom_id=f"row-{item_id_attr}",
         data_dazzle_row=entity_name_attr,
-        state_bind=f':class="{row_state_class}"',
+        # Convergence C2.3: no Alpine row-state bind. is-selected, is-saving
+        # and is-error are all owned by the delegated controllers (dz-grid.js /
+        # dz-grid-edit.js toggle the classes directly); an Alpine :class bind
+        # would strip them on any re-evaluation.
+        state_bind="",
         drill_attrs=drill_attrs,
         checkbox_cell=checkbox_cell,
         actions_cell=actions_cell,

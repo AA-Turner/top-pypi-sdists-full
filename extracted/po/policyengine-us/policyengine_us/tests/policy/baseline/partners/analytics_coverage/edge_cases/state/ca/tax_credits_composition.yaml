@@ -1,17 +1,36 @@
-- name: statetax_size_1_single_adult_age_30 (ca)
+# California credit-stacking composition cases (2026). These pin how CA's
+# refundable credits (CalEITC + YCTC + FYTC) and nonrefundable credits
+# (exemptions + renter + CDCC) combine in ca_income_tax:
+# nonrefundable credits cap at liability; refundable credits can push
+# ca_income_tax negative.
+- name: ca_credits_refundable_stack_foster_parent (ca)
   period: 2026
   absolute_error_margin: 0.1
   input:
     people:
       head:
-        age: 30
+        age: 24
         is_tax_unit_head: true
         is_tax_unit_spouse: false
         is_tax_unit_dependent: false
         is_disabled: false
         immigration_status_str: CITIZEN
-        employment_income_before_lsr: 20000
-        capital_gains: 0
+        employment_income_before_lsr: 20_000
+        long_term_capital_gains_before_response: 0
+        rent: 0
+        was_in_foster_care: true
+        is_full_time_student: false
+        ssi_countable_resources: 0
+        co_care_worker_credit_eligible_care_worker: false
+      child1:
+        age: 3
+        is_tax_unit_head: false
+        is_tax_unit_spouse: false
+        is_tax_unit_dependent: true
+        is_disabled: false
+        immigration_status_str: CITIZEN
+        employment_income_before_lsr: 0
+        long_term_capital_gains_before_response: 0
         rent: 0
         was_in_foster_care: false
         is_full_time_student: false
@@ -21,7 +40,8 @@
       household:
         members: &id001
         - head
-        state_code_str: CA
+        - child1
+        state_code: CA
         zip_code: '90001'
         county_str: LOS_ANGELES_COUNTY_CA
     spm_units:
@@ -38,73 +58,27 @@
       mu_head:
         members:
         - head
-  output:
-    tax_units:
-      tax_unit:
-        ca_eitc: 123.78
-        ca_eitc_eligible: true
-        ca_yctc: 0.0
-        ca_foster_youth_tax_credit: 0.0
-        ca_cdcc: 0.0
-        ca_renter_credit: 0.0
-        adjusted_gross_income: 20000.0
-    spm_units:
-      spm_unit:
-        ca_state_supplement: 0.0
-- name: statetax_size_1_single_elderly_age_65 (ca)
-  period: 2026
-  absolute_error_margin: 0.1
-  input:
-    people:
-      head:
-        age: 65
-        is_tax_unit_head: true
-        is_tax_unit_spouse: false
-        is_tax_unit_dependent: false
-        is_disabled: false
-        immigration_status_str: CITIZEN
-        employment_income_before_lsr: 0
-        capital_gains: 0
-        rent: 0
-        was_in_foster_care: false
-        is_full_time_student: false
-        ssi_countable_resources: 0
-        co_care_worker_credit_eligible_care_worker: false
-    households:
-      household:
-        members: &id002
-        - head
-        state_code_str: CA
-        zip_code: '90001'
-        county_str: LOS_ANGELES_COUNTY_CA
-    spm_units:
-      spm_unit:
-        members: *id002
-    tax_units:
-      tax_unit:
-        members: *id002
-        tax_unit_is_joint: false
-    families:
-      family:
-        members: *id002
-    marital_units:
-      mu_head:
+      mu_child1:
         members:
-        - head
+        - child1
   output:
     tax_units:
       tax_unit:
-        ca_eitc: 0.0
-        ca_eitc_eligible: true
-        ca_yctc: 0.0
-        ca_foster_youth_tax_credit: 0.0
-        ca_cdcc: 0.0
-        ca_renter_credit: 0.0
-        adjusted_gross_income: 0.0
-    spm_units:
-      spm_unit:
-        ca_state_supplement: 4101.72
-- name: statetax_size_2_married_couple_no_children (ca)
+        # 1 child, earnings 20,000: 664 x (32,901 - 20,000) / 20,885.42
+        # = 410.16.
+        ca_eitc: 410.16
+        # Child age 3, earnings below 28,046.53 -> full 1,215.95.
+        ca_yctc: 1_215.95
+        # Former foster youth head age 24 -> full 1,215.95.
+        ca_foster_youth_tax_credit: 1_215.95
+        # Refundable stack: 410.16 + 1,215.95 + 1,215.95 = 2,842.06.
+        ca_refundable_credits: 2_842.06
+        # HOH taxable = 20,000 - 11,412 = 8,588 -> tax 85.88; exemption
+        # credits 642.23 cap it to 0.
+        ca_income_tax_before_refundable_credits: 0.0
+        # Refundable credits push CA income tax negative: 0 - 2,842.06.
+        ca_income_tax: -2_842.06
+- name: ca_credits_nonrefundable_capped_renter_family (ca)
   period: 2026
   absolute_error_margin: 0.1
   input:
@@ -116,9 +90,9 @@
         is_tax_unit_dependent: false
         is_disabled: false
         immigration_status_str: CITIZEN
-        employment_income_before_lsr: 20000
-        capital_gains: 0
-        rent: 0
+        employment_income_before_lsr: 18_000
+        long_term_capital_gains_before_response: 0
+        rent: 12_000
         was_in_foster_care: false
         is_full_time_student: false
         ssi_countable_resources: 0
@@ -130,8 +104,22 @@
         is_tax_unit_dependent: false
         is_disabled: false
         immigration_status_str: CITIZEN
+        employment_income_before_lsr: 12_000
+        long_term_capital_gains_before_response: 0
+        rent: 0
+        was_in_foster_care: false
+        is_full_time_student: false
+        ssi_countable_resources: 0
+        co_care_worker_credit_eligible_care_worker: false
+      child1:
+        age: 4
+        is_tax_unit_head: false
+        is_tax_unit_spouse: false
+        is_tax_unit_dependent: true
+        is_disabled: false
+        immigration_status_str: CITIZEN
         employment_income_before_lsr: 0
-        capital_gains: 0
+        long_term_capital_gains_before_response: 0
         rent: 0
         was_in_foster_care: false
         is_full_time_student: false
@@ -139,281 +127,24 @@
         co_care_worker_credit_eligible_care_worker: false
     households:
       household:
-        members: &id003
+        members: &id002
         - head
         - spouse
-        state_code_str: CA
+        - child1
+        state_code: CA
         zip_code: '90001'
         county_str: LOS_ANGELES_COUNTY_CA
     spm_units:
       spm_unit:
-        members: *id003
+        members: *id002
+        childcare_expenses: 3_000
     tax_units:
       tax_unit:
-        members: *id003
+        members: *id002
         tax_unit_is_joint: true
     families:
       family:
-        members: *id003
-    marital_units:
-      mu_couple:
-        members:
-        - head
-        - spouse
-  output:
-    tax_units:
-      tax_unit:
-        ca_eitc: 123.78
-        ca_eitc_eligible: true
-        ca_yctc: 0.0
-        ca_foster_youth_tax_credit: 0.0
-        ca_cdcc: 0.0
-        ca_renter_credit: 0.0
-        adjusted_gross_income: 20000.0
-    spm_units:
-      spm_unit:
-        ca_state_supplement: 0.0
-- name: statetax_size_2_single_parent_1_child (ca)
-  period: 2026
-  absolute_error_margin: 0.1
-  input:
-    people:
-      head:
-        age: 30
-        is_tax_unit_head: true
-        is_tax_unit_spouse: false
-        is_tax_unit_dependent: false
-        is_disabled: false
-        immigration_status_str: CITIZEN
-        employment_income_before_lsr: 20000
-        capital_gains: 0
-        rent: 0
-        was_in_foster_care: false
-        is_full_time_student: false
-        ssi_countable_resources: 0
-        co_care_worker_credit_eligible_care_worker: false
-      child1:
-        age: 5
-        is_tax_unit_head: false
-        is_tax_unit_spouse: false
-        is_tax_unit_dependent: true
-        is_disabled: false
-        immigration_status_str: CITIZEN
-        employment_income_before_lsr: 0
-        capital_gains: 0
-        rent: 0
-        was_in_foster_care: false
-        is_full_time_student: false
-        ssi_countable_resources: 0
-        co_care_worker_credit_eligible_care_worker: false
-    households:
-      household:
-        members: &id004
-        - head
-        - child1
-        state_code_str: CA
-        zip_code: '90001'
-        county_str: LOS_ANGELES_COUNTY_CA
-    spm_units:
-      spm_unit:
-        members: *id004
-    tax_units:
-      tax_unit:
-        members: *id004
-        tax_unit_is_joint: false
-    families:
-      family:
-        members: *id004
-    marital_units:
-      mu_head:
-        members:
-        - head
-      mu_child1:
-        members:
-        - child1
-  output:
-    tax_units:
-      tax_unit:
-        ca_eitc: 410.16
-        ca_eitc_eligible: true
-        ca_yctc: 1215.95
-        ca_foster_youth_tax_credit: 0.0
-        ca_cdcc: 0.0
-        ca_renter_credit: 0.0
-        adjusted_gross_income: 20000.0
-    spm_units:
-      spm_unit:
-        ca_state_supplement: 0.0
-- name: statetax_size_3_single_parent_2_children (ca)
-  period: 2026
-  absolute_error_margin: 0.1
-  input:
-    people:
-      head:
-        age: 30
-        is_tax_unit_head: true
-        is_tax_unit_spouse: false
-        is_tax_unit_dependent: false
-        is_disabled: false
-        immigration_status_str: CITIZEN
-        employment_income_before_lsr: 20000
-        capital_gains: 0
-        rent: 0
-        was_in_foster_care: false
-        is_full_time_student: false
-        ssi_countable_resources: 0
-        co_care_worker_credit_eligible_care_worker: false
-      child1:
-        age: 8
-        is_tax_unit_head: false
-        is_tax_unit_spouse: false
-        is_tax_unit_dependent: true
-        is_disabled: false
-        immigration_status_str: CITIZEN
-        employment_income_before_lsr: 0
-        capital_gains: 0
-        rent: 0
-        was_in_foster_care: false
-        is_full_time_student: false
-        ssi_countable_resources: 0
-        co_care_worker_credit_eligible_care_worker: false
-      child2:
-        age: 3
-        is_tax_unit_head: false
-        is_tax_unit_spouse: false
-        is_tax_unit_dependent: true
-        is_disabled: false
-        immigration_status_str: CITIZEN
-        employment_income_before_lsr: 0
-        capital_gains: 0
-        rent: 0
-        was_in_foster_care: false
-        is_full_time_student: false
-        ssi_countable_resources: 0
-        co_care_worker_credit_eligible_care_worker: false
-    households:
-      household:
-        members: &id005
-        - head
-        - child1
-        - child2
-        state_code_str: CA
-        zip_code: '90001'
-        county_str: LOS_ANGELES_COUNTY_CA
-    spm_units:
-      spm_unit:
-        members: *id005
-    tax_units:
-      tax_unit:
-        members: *id005
-        tax_unit_is_joint: false
-    families:
-      family:
-        members: *id005
-    marital_units:
-      mu_head:
-        members:
-        - head
-      mu_child1:
-        members:
-        - child1
-      mu_child2:
-        members:
-        - child2
-  output:
-    tax_units:
-      tax_unit:
-        ca_eitc: 580.26
-        ca_eitc_eligible: true
-        ca_yctc: 1215.95
-        ca_foster_youth_tax_credit: 0.0
-        ca_cdcc: 0.0
-        ca_renter_credit: 0.0
-        adjusted_gross_income: 20000.0
-    spm_units:
-      spm_unit:
-        ca_state_supplement: 0.0
-- name: statetax_size_4_couple_2_children (ca)
-  period: 2026
-  absolute_error_margin: 0.1
-  input:
-    people:
-      head:
-        age: 35
-        is_tax_unit_head: true
-        is_tax_unit_spouse: false
-        is_tax_unit_dependent: false
-        is_disabled: false
-        immigration_status_str: CITIZEN
-        employment_income_before_lsr: 20000
-        capital_gains: 0
-        rent: 0
-        was_in_foster_care: false
-        is_full_time_student: false
-        ssi_countable_resources: 0
-        co_care_worker_credit_eligible_care_worker: false
-      spouse:
-        age: 33
-        is_tax_unit_head: false
-        is_tax_unit_spouse: true
-        is_tax_unit_dependent: false
-        is_disabled: false
-        immigration_status_str: CITIZEN
-        employment_income_before_lsr: 0
-        capital_gains: 0
-        rent: 0
-        was_in_foster_care: false
-        is_full_time_student: false
-        ssi_countable_resources: 0
-        co_care_worker_credit_eligible_care_worker: false
-      child1:
-        age: 8
-        is_tax_unit_head: false
-        is_tax_unit_spouse: false
-        is_tax_unit_dependent: true
-        is_disabled: false
-        immigration_status_str: CITIZEN
-        employment_income_before_lsr: 0
-        capital_gains: 0
-        rent: 0
-        was_in_foster_care: false
-        is_full_time_student: false
-        ssi_countable_resources: 0
-        co_care_worker_credit_eligible_care_worker: false
-      child2:
-        age: 3
-        is_tax_unit_head: false
-        is_tax_unit_spouse: false
-        is_tax_unit_dependent: true
-        is_disabled: false
-        immigration_status_str: CITIZEN
-        employment_income_before_lsr: 0
-        capital_gains: 0
-        rent: 0
-        was_in_foster_care: false
-        is_full_time_student: false
-        ssi_countable_resources: 0
-        co_care_worker_credit_eligible_care_worker: false
-    households:
-      household:
-        members: &id006
-        - head
-        - spouse
-        - child1
-        - child2
-        state_code_str: CA
-        zip_code: '90001'
-        county_str: LOS_ANGELES_COUNTY_CA
-    spm_units:
-      spm_unit:
-        members: *id006
-    tax_units:
-      tax_unit:
-        members: *id006
-        tax_unit_is_joint: true
-    families:
-      family:
-        members: *id006
+        members: *id002
     marital_units:
       mu_couple:
         members:
@@ -422,19 +153,25 @@
       mu_child1:
         members:
         - child1
-      mu_child2:
-        members:
-        - child2
   output:
     tax_units:
       tax_unit:
-        ca_eitc: 580.26
-        ca_eitc_eligible: true
-        ca_yctc: 1215.95
-        ca_foster_youth_tax_credit: 0.0
+        # 1 child, joint earnings 30,000: 664 x (32,901 - 30,000) / 20,885.42
+        # = 92.23.
+        ca_eitc: 92.23
+        # Child age 4: 1,215.95 - (30,000 - 28,046.53) / 100 x 21.71 = 791.85.
+        ca_yctc: 791.85
+        # Joint AGI 30,000 under the 110,434.30 cap with rent -> 120.
+        ca_renter_credit: 120.0
+        # Federal CDCC is 0 (federal taxable income is 0 -> liability cap),
+        # so the CA match is 0 despite $3,000 of childcare expenses.
         ca_cdcc: 0.0
-        ca_renter_credit: 0.0
-        adjusted_gross_income: 20000.0
-    spm_units:
-      spm_unit:
-        ca_state_supplement: 0.0
+        # Exemptions (2 x 156.47 + 485.76 = 469.4... = 798.70) + renter 120
+        # = 918.70.
+        ca_non_refundable_credits: 918.7
+        # Joint taxable = 30,000 - 11,412 = 18,588 -> tax 185.88; the 918.70
+        # nonrefundable stack caps it at 0 (renter credit partially wasted).
+        ca_income_tax_before_refundable_credits: 0.0
+        # Refundable stack still pays out: 92.23 + 791.85 = 884.08.
+        ca_refundable_credits: 884.08
+        ca_income_tax: -884.08

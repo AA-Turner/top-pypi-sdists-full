@@ -31,6 +31,7 @@ from dreadnode.app.cli.shared import (
     ensure_version,
     print_error,
     print_info,
+    print_markdown,
     print_success,
     print_warning,
     resolve_publish_flag,
@@ -705,6 +706,7 @@ def info(
     ref: str,
     *,
     as_json: t.Annotated[bool, cyclopts.Parameter(name="--json", negative=())] = False,
+    readme: t.Annotated[bool, cyclopts.Parameter(name="--readme", alias="-R", negative=())] = False,
     platform: PlatformArgs = PlatformArgs(),
 ) -> None:
     """Show details and instructions for a task.
@@ -715,9 +717,27 @@ def info(
     Args:
         ref: Task to inspect (e.g. my-task, my-task@1.0.0).
         as_json: Output raw JSON instead of formatted summary.
+        readme: Render the bundled README (markdown) instead of
+            the summary metadata.
     """
     api, profile = platform.connect()
     vref = ensure_version(api, "task", ArtifactRef.parse(ref, profile.org_key))
+
+    if readme:
+        from dreadnode.app.api.client import NotFoundError
+
+        try:
+            payload = api.get_task_readme(vref.org, vref.name)
+        except NotFoundError:
+            print_warning(f"No README found in {vref.qualified_name}")
+            return
+        content = str(payload.get("content") or "")
+        if not content.strip():
+            print_warning(f"README in {vref.qualified_name} is empty")
+            return
+        print_markdown(content)
+        return
+
     task = api.get_task(vref.org, vref.name, vref.version)
 
     if as_json:
@@ -737,6 +757,7 @@ def info(
         console.print(f"[dim]{'─' * 40}[/dim]")
         console.print(instruction.strip())
     _hint(f"dn task pull {vref.qualified_name}")
+    _hint(f"dn task info {vref.qualified_name} --readme")
 
 
 # ---------------------------------------------------------------------------

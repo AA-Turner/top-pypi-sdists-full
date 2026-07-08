@@ -23,7 +23,6 @@
 #include <grpc/support/port_platform.h>
 
 #include <algorithm>
-#include <cstddef>
 #include <cstdint>
 #include <optional>
 #include <string>
@@ -50,7 +49,6 @@
 #include "src/core/util/grpc_check.h"
 #include "src/core/util/ref_counted.h"
 #include "src/core/util/time.h"
-#include "absl/container/flat_hash_map.h"
 #include "absl/functional/any_invocable.h"
 #include "absl/log/log.h"
 #include "absl/status/status.h"
@@ -76,9 +74,7 @@ class SettingsPromiseManager final : public RefCounted<SettingsPromiseManager> {
   explicit SettingsPromiseManager(
       absl::AnyInvocable<void(absl::StatusOr<uint32_t>)> on_receive_settings)
       : on_receive_first_settings_(std::move(on_receive_settings)),
-        state_(SettingsState::kWaitingForFirstPeerSettings) {
-    pending_peer_settings_.reserve(Http2Settings::kNumSettings + 1);
-  }
+        state_(SettingsState::kWaitingForFirstPeerSettings) {}
 
   ~SettingsPromiseManager() override {
     GRPC_DCHECK(on_receive_first_settings_ == nullptr);
@@ -117,19 +113,12 @@ class SettingsPromiseManager final : public RefCounted<SettingsPromiseManager> {
   // Called when transport receives a SETTINGS ACK frame from peer.
   // This SETTINGS ACK was sent by peer to confirm receipt of SETTINGS frame
   // sent by us. Stop the settings timeout promise.
-  http2::Http2Status OnSettingsAckReceived() {
+  GRPC_MUST_USE_RESULT bool OnSettingsAckReceived() {
     bool is_valid = settings_.AckLastSend();
     if (is_valid) {
       RecordReceivedAck();
-    } else {
-      LOG(ERROR) << "Settings ack received without sending settings.";
-      // CHTTP2 and PH2 return connection error for an unsolicited SETTINGS ACK.
-      // RFC 9113 does not explicitly specify unsolicited ACK handling.
-      return http2::Http2Status::Http2ConnectionError(
-          http2::Http2ErrorCode::kInternalError,
-          std::string(GrpcErrors::kUnsolicitedSettingsAck));
     }
-    return http2::Http2Status::Ok();
+    return is_valid;
   }
 
   // Called when our transport enqueues a SETTINGS frame to send to the peer.
@@ -204,24 +193,15 @@ class SettingsPromiseManager final : public RefCounted<SettingsPromiseManager> {
   // Buffers SETTINGS frames received from peer.
   // Buffered to apply settings at start of next write cycle, only after
   // SETTINGS ACK is written to the endpoint.
-  http2::Http2Status BufferPeerSettings(
-      std::vector<Http2SettingsFrame::Setting>&& settings) {
-    http2::Http2Status status = ValidateSettingsValues(settings);
-    if (!status.IsOk()) {
-      return status;
-    }
+  void BufferPeerSettings(std::vector<Http2SettingsFrame::Setting>&& settings) {
     if (state_ == SettingsState::kWaitingForFirstPeerSettings) {
       state_ = SettingsState::kFirstPeerSettingsReceived;
     }
     ++num_acks_to_send_;
-    for (const auto& setting : settings) {
-      // RFC9113: An endpoint that receives a SETTINGS frame with any unknown or
-      // unsupported identifier MUST ignore that setting.
-      if (Http2Settings::IsKnownSettingId(setting.id)) {
-        pending_peer_settings_[setting.id] = setting.value;
-      }
-    }
-    return http2::Http2Status::Ok();
+    pending_peer_settings_.reserve(pending_peer_settings_.size() +
+                                   settings.size());
+    pending_peer_settings_.insert(pending_peer_settings_.end(),
+                                  settings.begin(), settings.end());
   }
 
   // Applies settings buffered by BufferPeerSettings().
@@ -231,20 +211,13 @@ class SettingsPromiseManager final : public RefCounted<SettingsPromiseManager> {
   http2::Http2ErrorCode MaybeReportAndApplyBufferedPeerSettings(
       grpc_event_engine::experimental::EventEngine* event_engine,
       bool& should_spawn_security_frame_loop) {
-    std::vector<Http2SettingsFrame::Setting> settings_to_apply;
-    settings_to_apply.reserve(pending_peer_settings_.size());
-    for (const auto& [id, value] : pending_peer_settings_) {
-      settings_to_apply.emplace_back(id, value);
-    }
-    pending_peer_settings_.clear();
-    http2::Http2ErrorCode status =
-        settings_.ApplyIncomingSettings(settings_to_apply);
+    http2::Http2ErrorCode status = settings_.ApplyIncomingSettings(
+        std::exchange(pending_peer_settings_, {}));
     if (state_ == SettingsState::kFirstPeerSettingsReceived) {
       MaybeReportInitialSettings(event_engine);
       state_ = SettingsState::kReady;
       should_spawn_security_frame_loop = IsSecurityFrameExpected();
     }
-    GRPC_DCHECK(pending_peer_settings_.empty());
     return status;
   }
 
@@ -296,11 +269,11 @@ class SettingsPromiseManager final : public RefCounted<SettingsPromiseManager> {
     return settings_.ChannelzProperties().SetColumn(
         "Counters",
         channelz::PropertyList().Set("initial_window_size_increase_count",
-                                     num_peer_initial_window_size_increases_));
+                                     initial_window_size_increase_count_));
   }
 
   void IncrementInitialWindowSizeIncreaseCount() {
-    ++num_peer_initial_window_size_increases_;
+    ++initial_window_size_increase_count_;
   }
 
   bool IsSecurityFrameExpected() const {
@@ -308,11 +281,8 @@ class SettingsPromiseManager final : public RefCounted<SettingsPromiseManager> {
         << "Security frame must not be received before SETTINGS frame";
     // TODO(tjagtap) : [PH2][P3] : Evaluate when to accept the frame and when to
     // reject it. Compare it with the requirement and with CHTTP2.
-    const bool is_expected = (settings_.local().allow_security_frame()) &&
-                             settings_.peer().allow_security_frame();
-    GRPC_SETTINGS_TIMEOUT_DLOG
-        << "SettingsPromiseManager::IsSecurityFrameExpected: " << is_expected;
-    return is_expected;
+    return (settings_.local().allow_security_frame()) &&
+           settings_.peer().allow_security_frame();
   };
 
  private:
@@ -449,7 +419,7 @@ class SettingsPromiseManager final : public RefCounted<SettingsPromiseManager> {
   // Data Members for SETTINGS being received from the peer.
 
   absl::AnyInvocable<void(absl::StatusOr<uint32_t>)> on_receive_first_settings_;
-  absl::flat_hash_map<uint16_t, uint32_t> pending_peer_settings_;
+  std::vector<Http2SettingsFrame::Setting> pending_peer_settings_;
   // Number of incoming SETTINGS frames that we have received but not ACKed yet.
   uint32_t num_acks_to_send_ = 0;
 
@@ -460,11 +430,8 @@ class SettingsPromiseManager final : public RefCounted<SettingsPromiseManager> {
   };
   SettingsState state_;
 
-  // Number of times the peer has increased the initial window size. Currently,
-  // PH2 handles this by iterating over all the active streams to potentially
-  // make them writable. This is tracked via channelz in case it causes any
-  // performance issues in the future.
-  size_t num_peer_initial_window_size_increases_ = 0;
+  // Counters
+  size_t initial_window_size_increase_count_ = 0;
 };
 
 }  // namespace grpc_core

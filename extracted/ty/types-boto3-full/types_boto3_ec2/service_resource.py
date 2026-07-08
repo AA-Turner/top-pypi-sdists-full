@@ -2936,6 +2936,7 @@ class Image(ServiceResource):
     source_image_id: str
     source_image_region: str
     free_tier_eligible: bool
+    public_ssm_parameter_name: str
     image_watermarks: list[ImageWatermarkTypeDef]
     image_id: str
     image_location: str

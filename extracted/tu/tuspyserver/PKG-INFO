@@ -1,6 +1,6 @@
 Metadata-Version: 2.3
 Name: tuspyserver
-Version: 4.2.5
+Version: 4.2.9
 Summary: A Python tus server implementation as a FastAPI router
 Author: Edi Hasaj
 Author-email: Edi Hasaj <edi.hasaj@applifyer.com>
@@ -282,7 +282,7 @@ scheduler.start()
 
 ## Example
 
-You can find a complete working basic example in the [example](https://github/edihasaj/tuspyserver/tree/main/examples) folder.
+You can find a complete working basic example in the [example](https://github.com/edihasaj/tuspyserver/tree/main/examples) folder.
 
 the example consists of a `backend` serving fastapi with uvicorn, and a `frontend` npm project.
 
@@ -305,18 +305,27 @@ Uploaded files get placed in the `example/backend/uploads` folder.
 ## Developing
 
 Contributions welcome! Please open issues or PRs on [GitHub](https://github.com/edihasaj/tuspyserver).
+The proposed contribution of tuspyserver to the tus organization is tracked in
+[tus/tus.io#525](https://github.com/tus/tus.io/issues/525).
 
 You need [`uv`](https://docs.astral.sh/uv/) to develop the project. The project is setup as a [uv workspace](https://docs.astral.sh/uv/concepts/projects/workspaces/)
 where the root is the [library](https://docs.astral.sh/uv/concepts/projects/init/#libraries) and the example directory is an [unpackaged app](https://docs.astral.sh/uv/concepts/projects/init/#applications)
 
 ### Releasing
 
-To release the package, follow the following steps:
+Releases are fully automated. Every push to `main` runs
+[`.github/workflows/publish.yml`](.github/workflows/publish.yml), which:
 
-1. Update the version in `pyproject.toml` using [semver](https://semver.org/)
-2. Merge PR to main or push directly to main
-3. Open a PR to merge `main` → `production`.
-4. Upon merge, CI/CD will publish to PyPI.
+1. Computes the next version — takes the higher of the `pyproject.toml` version
+   and the latest release on PyPI, then walks up to the first unused patch. PyPI
+   is the source of truth for what has already shipped.
+2. Sets that version, builds, and publishes to PyPI using the `PYPI_API_TOKEN`
+   repository secret.
+
+So to ship a patch release, just merge to `main` — no manual version bump
+needed. For a minor/major release, bump the version in `pyproject.toml` in the
+same change and CI will publish from there. The version in `pyproject.toml`
+acts as a floor and does not need to track every published patch.
 
 
 *© 2025 Edi Hasaj [X](https://x.com/hasajedi)*

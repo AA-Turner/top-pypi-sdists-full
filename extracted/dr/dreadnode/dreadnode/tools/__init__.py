@@ -16,6 +16,7 @@ if t.TYPE_CHECKING:
     from dreadnode.tools.project_memory import ProjectMemory
     from dreadnode.tools.read import read
     from dreadnode.tools.report import report
+    from dreadnode.tools.report_items import link_items, report_item, update_item
     from dreadnode.tools.think import think
     from dreadnode.tools.todo import todo
     from dreadnode.tools.web_extract import web_extract
@@ -41,13 +42,16 @@ __all__ = [
     "glob",
     "grep",
     "insert_lines",
+    "link_items",
     "ls",
     "multiedit",
     "python",
     "read",
     "report",
+    "report_item",
     "think",
     "todo",
+    "update_item",
     "web_extract",
     "web_search",
     "write",
@@ -66,6 +70,9 @@ _SUBMODULE_OVERRIDES: dict[str, str] = {
     "ask_user": "interaction",
     "confirm": "interaction",
     "UserCancelled": "interaction",
+    "report_item": "report_items",
+    "update_item": "report_items",
+    "link_items": "report_items",
 }
 
 
@@ -83,6 +90,7 @@ def __getattr__(name: str) -> t.Any:
 def default_tools(
     *,
     additional_toolsets: list["Toolset"] | None = None,
+    include_items: bool = False,
 ) -> dict[str, "Tool | Toolset"]:
     """All standard tools, keyed by function name.
 
@@ -128,6 +136,10 @@ def default_tools(
         confirm,
         Memory(),
     ]
+    if include_items:
+        from dreadnode.tools.report_items import link_items, report_item, update_item
+
+        tools.extend([report_item, update_item, link_items])
     if additional_toolsets:
         tools.extend(additional_toolsets)
     return {tool.name: tool for tool in tools}

@@ -301,11 +301,17 @@ def init_tracing(
         logger.error(f"Failed to initialize tracing: {e}")
 
 
-def shutdown_tracing(timeout_millis: int = 30000) -> None:
+def shutdown_tracing(timeout_millis: int = 30000) -> bool:
     """Shutdown the tracer provider and flush spans.
 
     Args:
         timeout_millis: Timeout in milliseconds to wait for flush (default 30s)
+
+    Returns:
+        True when the final flush (and shutdown) completed cleanly — False
+        means queued spans may have been dropped. Callers that must guarantee
+        export (e.g. offline transcript replay) should treat False as a
+        failure rather than a warning.
     """
     global _tracer_provider, _initialized, _log_handler
 
@@ -317,18 +323,38 @@ def shutdown_tracing(timeout_millis: int = 30000) -> None:
             pass
         _log_handler = None
 
+    flushed = True
     if _tracer_provider:
         try:
             flush_success = _tracer_provider.force_flush(timeout_millis=timeout_millis)
             if not flush_success:
                 logger.warning("Span flush timed out")
+                flushed = False
             _tracer_provider.shutdown()
             logger.debug("Tracing shutdown complete")
         except Exception as e:
             logger.warning(f"Error shutting down tracer: {e}")
+            flushed = False
 
     _tracer_provider = None
     _initialized = False
+    return flushed
+
+
+def force_flush_tracing(timeout_millis: int = 30000) -> bool:
+    """Drain the BatchSpanProcessor queue without shutting the provider down.
+
+    Returns True when the flush completed (or tracing is uninitialized).
+    Offline transcript replay calls this between transcript files so the
+    BSP queue (max 10k spans) can never overflow and silently drop spans.
+    """
+    if _tracer_provider is None:
+        return True
+    try:
+        return bool(_tracer_provider.force_flush(timeout_millis=timeout_millis))
+    except Exception:
+        logger.warning("force_flush_tracing failed", exc_info=True)
+        return False
 
 
 def get_tracer(name: str = "plato") -> Tracer:
@@ -516,6 +542,8 @@ def start_step_span(
     duration_ms: float | None = None,
     screenshot: str | None = None,
     screenshot_format: str | None = None,
+    start_time_ns: int | None = None,
+    end_time_ns: int | None = None,
 ) -> Iterator[Span]:
     """Create one live ATIF step span and yield it to the caller.
 
@@ -533,28 +561,64 @@ def start_step_span(
         cost_usd: Cost in USD
         screenshot: Base64-encoded screenshot image data
         screenshot_format: Image MIME type (e.g., "image/png")
+        start_time_ns: Optional historical span start (unix nanoseconds). Used by
+            offline transcript replay so backfilled steps sit at their true
+            wall-clock position instead of the upload time.
+        end_time_ns: Optional historical span end (unix nanoseconds). Only
+            honored together with ``start_time_ns``.
     """
-    with tracer.start_as_current_span(f"atif.step.{step_id}") as span:
-        _set_step_attributes(
-            span,
-            step_id=step_id,
-            source=source,
-            message=message,
-            model_name=model_name,
-            reasoning=reasoning,
-            tool_calls=tool_calls,
-            observation=observation,
-            prompt_tokens=prompt_tokens,
-            completion_tokens=completion_tokens,
-            cache_read_tokens=cache_read_tokens,
-            cache_write_tokens=cache_write_tokens,
-            reasoning_tokens=reasoning_tokens,
-            cost_usd=cost_usd,
-            duration_ms=duration_ms,
-            screenshot=screenshot,
-            screenshot_format=screenshot_format,
-        )
-        yield span
+    if start_time_ns is None:
+        # Live path: identical behavior to before the replay support existed.
+        with tracer.start_as_current_span(f"atif.step.{step_id}") as span:
+            _set_step_attributes(
+                span,
+                step_id=step_id,
+                source=source,
+                message=message,
+                model_name=model_name,
+                reasoning=reasoning,
+                tool_calls=tool_calls,
+                observation=observation,
+                prompt_tokens=prompt_tokens,
+                completion_tokens=completion_tokens,
+                cache_read_tokens=cache_read_tokens,
+                cache_write_tokens=cache_write_tokens,
+                reasoning_tokens=reasoning_tokens,
+                cost_usd=cost_usd,
+                duration_ms=duration_ms,
+                screenshot=screenshot,
+                screenshot_format=screenshot_format,
+            )
+            yield span
+        return
+
+    # Replay path: stamp the span at its historical position. ``end_on_exit``
+    # must be False so the explicit ``end_time`` is honored.
+    span = tracer.start_span(f"atif.step.{step_id}", start_time=start_time_ns)
+    try:
+        with trace.use_span(span, end_on_exit=False):
+            _set_step_attributes(
+                span,
+                step_id=step_id,
+                source=source,
+                message=message,
+                model_name=model_name,
+                reasoning=reasoning,
+                tool_calls=tool_calls,
+                observation=observation,
+                prompt_tokens=prompt_tokens,
+                completion_tokens=completion_tokens,
+                cache_read_tokens=cache_read_tokens,
+                cache_write_tokens=cache_write_tokens,
+                reasoning_tokens=reasoning_tokens,
+                cost_usd=cost_usd,
+                duration_ms=duration_ms,
+                screenshot=screenshot,
+                screenshot_format=screenshot_format,
+            )
+            yield span
+    finally:
+        span.end(end_time=end_time_ns if end_time_ns is not None else start_time_ns)
 
 
 def emit_step(
@@ -576,6 +640,8 @@ def emit_step(
     duration_ms: float | None = None,
     screenshot: str | None = None,
     screenshot_format: str | None = None,
+    start_time_ns: int | None = None,
+    end_time_ns: int | None = None,
 ) -> None:
     """Emit one ATIF step as an OTel span."""
     with start_step_span(
@@ -596,6 +662,8 @@ def emit_step(
         duration_ms=duration_ms,
         screenshot=screenshot,
         screenshot_format=screenshot_format,
+        start_time_ns=start_time_ns,
+        end_time_ns=end_time_ns,
     ):
         pass
 
@@ -714,6 +782,8 @@ def session_span(
     model_name: str | None = None,
     system_prompt: str | None = None,
     mcp_config: str | None = None,
+    start_time_ns: int | None = None,
+    end_time_ns: int | None = None,
 ) -> Iterator[Span]:
     """Create root session span with atif.agent.* attributes.
 
@@ -728,9 +798,27 @@ def session_span(
         model_name: Default model used by the agent
         system_prompt: Full system prompt sent to the agent (traced as step 1)
         mcp_config: MCP config content string (traced alongside system prompt)
+        start_time_ns: Optional historical span start (unix nanoseconds) for
+            offline transcript replay.
+        end_time_ns: Optional historical span end; only honored with
+            ``start_time_ns``.
     """
     display_name = os.environ.get("PLATO_AGENT_DISPLAY_NAME") or agent_name
-    with tracer.start_as_current_span("session") as span:
+
+    @contextmanager
+    def _open_root() -> Iterator[Span]:
+        if start_time_ns is None:
+            with tracer.start_as_current_span("session") as span:
+                yield span
+            return
+        span = tracer.start_span("session", start_time=start_time_ns)
+        try:
+            with trace.use_span(span, end_on_exit=False):
+                yield span
+        finally:
+            span.end(end_time=end_time_ns if end_time_ns is not None else None)
+
+    with _open_root() as span:
         span.set_attribute("plato.phase", "agent")
         span.set_attribute("atif.version", "0.1.0")
         span.set_attribute("atif.agent.name", display_name)
@@ -748,7 +836,13 @@ def session_span(
         ]
         system_message = "\n\n".join(p for p in system_parts if p)
         if system_message:
-            emit_step(tracer, step_id=1, source="system", message=system_message)
+            emit_step(
+                tracer,
+                step_id=1,
+                source="system",
+                message=system_message,
+                start_time_ns=start_time_ns,
+            )
 
         with aggregate_step_costs(span, tracer, name=display_name, version=agent_version):
             yield span

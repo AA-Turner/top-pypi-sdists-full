@@ -119,7 +119,7 @@ class PyprojectConfigFile(TOMLConfigFile):
                         "ignore": ["COM812", "ANN401"],
                         "fixable": ["ALL"],
                         "per-file-ignores": {
-                            f"{ProjectTester.I.tests_package_name()}/**/*.py": ["S101"],
+                            f"{ProjectTester.I.package_name()}/**/*.py": ["S101"],
                         },
                         "pydocstyle": {"convention": PythonLinter.I.pydocstyle()},
                     },
@@ -131,7 +131,7 @@ class PyprojectConfigFile(TOMLConfigFile):
                 },
                 ProjectTester.I.name(): {
                     "ini_options": {
-                        "testpaths": [ProjectTester.I.tests_package_root().as_posix()],
+                        "testpaths": [ProjectTester.I.package_root().as_posix()],
                         "addopts": str(CoverageTester.I.additional_test_args()),
                     }
                 },
@@ -237,10 +237,9 @@ class PyprojectConfigFile(TOMLConfigFile):
         """
         constraint = self.requires_python()
         version_constraint = VersionConstraint(constraint)
-        version = version_constraint.upper_inclusive()
-        if version is None:
-            version = self.latest_python_version(level=level)
-
+        version = version_constraint.find_upper_inclusive(
+            default=self.latest_python_version(level=level)
+        )
         return adjust_version_to_level(version, level)
 
     def first_supported_python_version(self) -> Version:
@@ -256,7 +255,7 @@ class PyprojectConfigFile(TOMLConfigFile):
         version_constraint = VersionConstraint(constraint)
         lower = version_constraint.find_lower_inclusive()
         if lower is None:
-            msg = "Need a lower bound for python version"
+            msg = "lower bound for python version is required"
             raise LookupError(msg)
         return lower
 

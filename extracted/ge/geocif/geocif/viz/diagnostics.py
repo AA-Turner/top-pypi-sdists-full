@@ -1141,6 +1141,226 @@ def mape_by_year(
 
 
 # ---------------------------------------------------------------------------
+# RMSE variants (Mg/ha, natural units, no percentage cap)
+# ---------------------------------------------------------------------------
+
+def rmse_box_by_region(
+    df,
+    title,
+    dir_out,
+    fname,
+    *,
+    rmse_col: str = "RMSE",
+    region_col: str = "Region",
+    production_pct: dict | None = None,
+    ascending: bool = True,
+):
+    """Horizontal box plot of RMSE (Mg/ha) per region — RMSE twin of
+    ``mape_box_by_region``. Same sort logic, no percentage cap.
+    """
+    if df.empty or rmse_col not in df.columns or region_col not in df.columns:
+        return
+    by_region: dict = {
+        r: g[rmse_col].dropna().values for r, g in df.groupby(region_col)
+    }
+    by_region = {r: v for r, v in by_region.items() if len(v) > 0}
+    if not by_region:
+        return
+
+    if production_pct:
+        order = _sort_by_production(
+            list(by_region.keys()), production_pct, ascending=ascending,
+        )
+        if order is not None:
+            keys = list(by_region.keys())
+            regions_sorted = [keys[i] for i in order]
+        else:
+            regions_sorted = sorted(by_region.keys())
+    else:
+        regions_sorted = sorted(
+            by_region.keys(),
+            key=lambda r: float(np.median(by_region[r])),
+            reverse=True,
+        )
+    labels = (
+        _label_with_pct(regions_sorted, production_pct)
+        if production_pct else list(regions_sorted)
+    )
+    data = [by_region[r] for r in regions_sorted]
+
+    with _science_style_context():
+        fig, ax = plt.subplots(
+            figsize=(9, max(3.5, len(regions_sorted) * 0.42)),
+        )
+        bp = ax.boxplot(
+            data, vert=False, tick_labels=labels,
+            patch_artist=True, widths=0.6, showfliers=False,
+            medianprops={"color": "black", "linewidth": 1.4},
+        )
+        for patch in bp["boxes"]:
+            patch.set_facecolor("steelblue")
+            patch.set_alpha(0.35)
+            patch.set_edgecolor("steelblue")
+
+        rng = np.random.default_rng(42)
+        for i, vals in enumerate(data):
+            if len(vals) == 0:
+                continue
+            ys = (i + 1) + rng.uniform(-0.18, 0.18, size=len(vals))
+            ax.scatter(
+                vals, ys, s=14, color="#1f4e79", alpha=0.65,
+                edgecolors="none", zorder=3,
+            )
+        ax.set_xlabel("RMSE (Mg/ha)")
+        if title:
+            ax.set_title(title, fontsize=10, fontweight="bold")
+        ax.grid(True, axis="x", linestyle=":", alpha=0.4)
+        ax.tick_params(axis="y", which="minor", length=0)
+        plt.tight_layout()
+        Path(dir_out).mkdir(parents=True, exist_ok=True)
+        fig.savefig(Path(dir_out) / fname, dpi=250, bbox_inches="tight")
+        plt.close(fig)
+
+
+def rmse_box_by_year(
+    df,
+    title,
+    dir_out,
+    fname,
+    *,
+    rmse_col: str = "RMSE",
+    year_col: str = "Harvest Year",
+):
+    """Vertical box plot of RMSE per year — RMSE twin of
+    ``mape_box_by_year``. No percentage cap.
+    """
+    if df.empty or rmse_col not in df.columns or year_col not in df.columns:
+        return
+    by_year: dict = {
+        int(y): g[rmse_col].dropna().values for y, g in df.groupby(year_col)
+    }
+    by_year = {y: v for y, v in by_year.items() if len(v) > 0}
+    if not by_year:
+        return
+
+    years_sorted = sorted(by_year.keys())
+    data = [by_year[y] for y in years_sorted]
+
+    with _science_style_context():
+        fig, ax = plt.subplots(
+            figsize=(max(10, len(years_sorted) * 0.55), 5.5),
+        )
+        bp = ax.boxplot(
+            data, vert=True,
+            tick_labels=[str(y) for y in years_sorted],
+            patch_artist=True, widths=0.55, showfliers=False,
+            medianprops={"color": "black", "linewidth": 1.4},
+        )
+        for patch in bp["boxes"]:
+            patch.set_facecolor("steelblue")
+            patch.set_alpha(0.35)
+            patch.set_edgecolor("steelblue")
+
+        rng = np.random.default_rng(42)
+        for i, vals in enumerate(data):
+            if len(vals) == 0:
+                continue
+            xs = (i + 1) + rng.uniform(-0.18, 0.18, size=len(vals))
+            ax.scatter(
+                xs, vals, s=14, color="#1f4e79", alpha=0.65,
+                edgecolors="none", zorder=3,
+            )
+        ax.set_ylabel("RMSE (Mg/ha)")
+        ax.set_xlabel("Forecast year")
+        if title:
+            ax.set_title(title, fontsize=10, fontweight="bold")
+        ax.grid(True, axis="y", linestyle=":", alpha=0.4)
+        plt.xticks(rotation=45, ha="right")
+        plt.tight_layout()
+        Path(dir_out).mkdir(parents=True, exist_ok=True)
+        fig.savefig(Path(dir_out) / fname, dpi=250, bbox_inches="tight")
+        plt.close(fig)
+
+
+def rmse_by_year(
+    df,
+    title,
+    dir_out,
+    fname,
+    *,
+    year_col: str = "Harvest Year",
+    rmse_col: str = "RMSE",
+    obs_col: str | None = None,
+    pred_col: str | None = None,
+    area_col: str = "Area (ha)",
+    threshold: float | None = None,
+):
+    """Bar chart of RMSE (Mg/ha) per year with 5-yr moving avg — RMSE twin
+    of ``mape_by_year``.  When area is available, uses area-weighted
+    national RMSE per year (sqrt of area-weighted squared error); otherwise
+    falls back to mean of per-row ``rmse_col`` values.
+    """
+    if df.empty or year_col not in df.columns:
+        return
+
+    use_national = (
+        obs_col is not None and pred_col is not None
+        and obs_col in df.columns and pred_col in df.columns
+        and area_col in df.columns and df[area_col].notna().any()
+    )
+
+    if use_national:
+        d = df.dropna(subset=[obs_col, pred_col, area_col]).copy()
+        d["_sqerr"] = (d[pred_col] - d[obs_col]) ** 2
+        d["_wsqerr"] = d["_sqerr"] * d[area_col]
+        by_year_df = d.groupby(year_col).agg(
+            _wsqerr=("_wsqerr", "sum"),
+            _area=(area_col, "sum"),
+        )
+        by_year_df = by_year_df[by_year_df["_area"] > 0]
+        if by_year_df.empty:
+            return
+        rmse_series = np.sqrt(
+            by_year_df["_wsqerr"] / by_year_df["_area"]
+        ).sort_index()
+    else:
+        if rmse_col not in df.columns:
+            return
+        rmse_series = df.groupby(year_col)[rmse_col].mean().sort_index()
+
+    if rmse_series.empty:
+        return
+
+    rolling_window = 5
+    rmse_rolling = rmse_series.rolling(
+        window=rolling_window, min_periods=rolling_window
+    ).mean()
+
+    with _science_style_context():
+        fig, ax = plt.subplots(figsize=(10, 6))
+        x_labels = [str(int(y)) for y in rmse_series.index]
+        ax.bar(x_labels, rmse_series.values, color="steelblue")
+        if threshold is not None:
+            ax.axhline(y=threshold, color="gray", linestyle="--")
+        ax.plot(
+            x_labels, rmse_rolling.values,
+            color="darkorange", linewidth=2, marker="o", markersize=4,
+            label=f"{rolling_window}-yr moving avg", zorder=3,
+        )
+        ax.legend(loc="upper right", fontsize=8, frameon=False)
+        ax.set_xlabel("")
+        ax.set_ylabel("RMSE (Mg/ha)")
+        if title:
+            ax.set_title(title, fontsize=10, fontweight="bold")
+        ax.tick_params(axis='x', which='minor', length=0)
+        plt.xticks(rotation=0)
+        plt.tight_layout()
+        Path(dir_out).mkdir(parents=True, exist_ok=True)
+        fig.savefig(Path(dir_out) / fname, dpi=250, bbox_inches="tight")
+        plt.close(fig)
+
+
+# ---------------------------------------------------------------------------
 # MAPE choropleth map
 # ---------------------------------------------------------------------------
 

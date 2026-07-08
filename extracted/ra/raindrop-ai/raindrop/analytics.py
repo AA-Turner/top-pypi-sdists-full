@@ -5,7 +5,7 @@ import os
 import base64
 import math
 from contextlib import contextmanager
-from typing import Callable, Union, List, Dict, Optional, Literal, Any
+from typing import Any, Callable, Dict, Iterator, List, Literal, Optional, Union
 import requests
 from datetime import datetime, timezone
 import logging
@@ -31,6 +31,8 @@ from raindrop.local_debugger import (
     resolve_local_workshop_url,
 )
 from raindrop.redact import perform_pii_redaction
+from raindrop._state import ClientState, ModuleBackedState, RaindropState
+from raindrop import _tracing as _rd_tracing
 import weakref
 import urllib.parse
 
@@ -80,6 +82,17 @@ __all__ = [
     # Re-exported from traceloop for auto-instrumentation control
     "Instruments",
 ]
+
+
+def __getattr__(name: str) -> Any:
+    # Convenience so ``import raindrop.analytics as raindrop`` users can reach
+    # the instance-based client without a second import. Lazy to avoid a
+    # circular import (client.py imports this module).
+    if name == "Raindrop":
+        from raindrop.client import Raindrop
+
+        return Raindrop
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
 
 
 # Library logging: never call ``logging.basicConfig`` here — that mutates the
@@ -184,6 +197,19 @@ max_ingest_size_bytes = 1 * 1024 * 1024  # 1 MB
 _direct_tool_upload_size = 50
 _direct_tool_spans_buffer: list[dict[str, Any]] = []
 
+# The globals above are the storage of the DEFAULT client — the one behind
+# the module-level API (init / track_ai / begin / ...). Pipeline functions
+# never touch them directly anymore; they go through a state object so the
+# same code also serves per-instance ``raindrop.Raindrop`` clients (see
+# raindrop/_state.py). ``ModuleBackedState`` proxies right back to these
+# globals, so legacy reads/writes like ``analytics.max_queue_size = 500``
+# keep steering the default pipeline exactly as before.
+_default_state = ModuleBackedState()
+
+
+def _resolve_state(state: Optional[RaindropState]) -> RaindropState:
+    return _default_state if state is None else state
+
 _partial_buffers: dict[str, PartialTrackAIEvent] = {}
 _partial_timers: dict[str, Timer] = {}
 # Holds un-serialized PartialTrackAIEvent objects; serialization / redaction /
@@ -201,8 +227,8 @@ PROJECT_ID_HEADER = "X-Raindrop-Project-Id"
 _PROJECT_ID_PATTERN = re.compile(r"^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$")
 
 
-def _project_id_headers() -> Dict[str, str]:
-    pid = project_id
+def _project_id_headers(state: Optional[RaindropState] = None) -> Dict[str, str]:
+    pid = _resolve_state(state).project_id
     if pid:
         return {PROJECT_ID_HEADER: pid}
     return {}
@@ -266,8 +292,17 @@ _RATE_LIMITED_LOG_INTERVAL_SECONDS = 30.0
 _rate_limited_log_last: dict[str, float] = {}
 _rate_limited_log_lock = threading.Lock()
 
+# Pipeline states of live per-instance clients (the default module client is
+# NOT here; the shared atexit hook drains it directly). Holds STATES, not
+# clients, and holds them STRONGLY: buffered events must survive to the
+# atexit drain even when the host app dropped its last reference to the
+# client object. A state leaves the registry when its flush loop exits after
+# detecting the collected client (post final drain), so dropped clients don't
+# leak state forever; a late enqueue re-registers via start_flush_thread.
+_instance_states: set = set()
 
-def _rate_limited_log(key: str, level: int, msg: str, *args) -> None:
+
+def _rate_limited_log(key: str, level: int, msg: str, *args: Any) -> None:
     now = time.monotonic()
     with _rate_limited_log_lock:
         last = _rate_limited_log_last.get(key)
@@ -277,11 +312,12 @@ def _rate_limited_log(key: str, level: int, msg: str, *args) -> None:
     logger.log(level, msg, *args)
 
 
-def _shutdown_budget() -> float | None:
+def _shutdown_budget(state: Optional[RaindropState] = None) -> float | None:
     """Seconds left in the shutdown flush window, or None outside shutdown."""
-    if _shutdown_deadline is None:
+    deadline = _resolve_state(state)._shutdown_deadline
+    if deadline is None:
         return None
-    return _shutdown_deadline - time.monotonic()
+    return deadline - time.monotonic()
 
 
 def _redact_url_for_log(url: str) -> str:
@@ -301,7 +337,7 @@ def _redact_url_for_log(url: str) -> str:
         return "<unparseable-url>"
 
 
-def set_debug_logs(value: bool):
+def set_debug_logs(value: bool) -> None:
     global debug_logs
     debug_logs = value
     if debug_logs:
@@ -309,11 +345,14 @@ def set_debug_logs(value: bool):
         _remove_instrumentation_filters()
     else:
         logger.setLevel(logging.INFO)
-        if _tracing_enabled:
+        # The instrumentation-noise filters belong with ANY live tracing
+        # pipeline in the process — the module-level client's OR one owned
+        # by a Raindrop instance (module _tracing_enabled stays False then).
+        if _tracing_enabled or _rd_tracing.pipeline_owner_hint() is not None:
             _install_instrumentation_filters()
 
 
-def set_redact_pii(value: bool):
+def set_redact_pii(value: bool) -> None:
     global redact_pii
     redact_pii = value
     if redact_pii:
@@ -322,43 +361,73 @@ def set_redact_pii(value: bool):
         logger.info("PII redaction disabled")
 
 
-def start_flush_thread():
+def start_flush_thread(state: Optional[RaindropState] = None) -> None:
     logger.debug("Opening flush thread")
-    global flush_thread
-    if flush_thread is None:
-        flush_thread = threading.Thread(target=flush_loop)
-        flush_thread.daemon = True
-        flush_thread.start()
+    st = _resolve_state(state)
+    if st.flush_thread is None:
+        # Any instance state with a live flush loop must be visible to the
+        # atexit drain — including one re-started by a late enqueue after its
+        # collected-client loop exited and unregistered it.
+        if isinstance(st, ClientState):
+            _instance_states.add(st)
+        st.flush_thread = threading.Thread(target=flush_loop, args=(st,))
+        st.flush_thread.daemon = True
+        st.flush_thread.start()
 
 
-def flush_loop():
-    while not shutdown_event.is_set():
+def flush_loop(state: Optional[RaindropState] = None) -> None:
+    st = _resolve_state(state)
+    while not st.shutdown_event.is_set():
         try:
-            flush()
+            # Loop-driven flushes throttle the TRACE flush: the OTLP pipeline
+            # is process-global, so N clients' loops would otherwise all
+            # force-flush the same BatchSpanProcessor every second.
+            flush(state=st, _throttle_traces=True)
         except Exception as e:
             logger.error(f"Error in flush loop: {e}")
-        time.sleep(upload_interval)
+        # A per-instance loop whose owning client was garbage-collected has
+        # no way to receive shutdown(): exit instead of keeping the dead
+        # state alive forever. Clear ``flush_thread`` BEFORE the final drain
+        # so a late enqueue (e.g. via a still-referenced Interaction that
+        # outlived its client) either lands before the drain below or
+        # restarts a fresh loop — never strands events behind a dead thread.
+        ref = getattr(st, "client_ref", None)
+        if ref is not None and ref() is None:
+            st.flush_thread = None
+            try:
+                # Full shutdown-style drain: force-flush OPEN interactions
+                # still sitting in the partial-merge buffers (their 2s
+                # inactivity timers may not fire before process exit), then
+                # drain the queues. Anything enqueued later re-registers via
+                # start_flush_thread, so unregistering below loses nothing.
+                for eid in list(st._partial_timers.keys()):
+                    _flush_partial_event(eid, state=st)
+                flush(state=st)
+            except Exception as e:
+                logger.error(f"Error in flush loop: {e}")
+            _instance_states.discard(st)
+            logger.debug("[raindrop] flush loop exiting: client was collected")
+            break
+        time.sleep(st.upload_interval)
 
 
-def flush() -> None:
-    global buffer
-    global _direct_tool_spans_buffer
-    global _partial_flush_queue
+def flush(state: Optional[RaindropState] = None, _throttle_traces: bool = False) -> None:
+    st = _resolve_state(state)
 
-    if buffer is None:
+    if st.buffer is None:
         logger.error("No buffer available")
-        _flush_traces()
+        _flush_traces(state=st, force=not _throttle_traces)
         return
 
     logger.debug("Starting flush")
 
-    with flush_lock:
-        current_buffer = buffer
-        buffer = []
-        current_direct_tool_spans = _direct_tool_spans_buffer
-        _direct_tool_spans_buffer = []
-        current_partials = _partial_flush_queue
-        _partial_flush_queue = []
+    with st.flush_lock:
+        current_buffer = st.buffer
+        st.buffer = []
+        current_direct_tool_spans = st._direct_tool_spans_buffer
+        st._direct_tool_spans_buffer = []
+        current_partials = st._partial_flush_queue
+        st._partial_flush_queue = []
 
     logger.debug(f"Flushing buffer size: {len(current_buffer)}")
 
@@ -371,10 +440,10 @@ def flush() -> None:
         grouped_events[endpoint].append(data)
 
     for endpoint, events_data in grouped_events.items():
-        for i in range(0, len(events_data), upload_size):
-            batch = events_data[i : i + upload_size]
+        for i in range(0, len(events_data), st.upload_size):
+            batch = events_data[i : i + st.upload_size]
             logger.debug(f"Sending {len(batch)} events to {endpoint}")
-            send_request(endpoint, batch)
+            send_request(endpoint, batch, state=st)
 
     for partial_event in current_partials:
         # Serialization / PII redaction / size checks deliberately run here,
@@ -382,7 +451,7 @@ def flush() -> None:
         # Guarded per event: one unserializable payload must not discard the
         # rest of the drained batch.
         try:
-            partial_data = _serialize_partial_event(partial_event)
+            partial_data = _serialize_partial_event(partial_event, state=st)
         except Exception as e:
             _rate_limited_log(
                 "partial_serialize_failed",
@@ -393,17 +462,34 @@ def flush() -> None:
             )
             continue
         if partial_data is not None:
-            send_request("events/track_partial", partial_data)
+            send_request("events/track_partial", partial_data, state=st)
 
-    _flush_direct_tool_spans(current_direct_tool_spans)
+    _flush_direct_tool_spans(current_direct_tool_spans, state=st)
 
     logger.debug("Flush complete")
-    _flush_traces()
+    _flush_traces(state=st, force=not _throttle_traces)
 
 
-def _flush_traces() -> None:
-    if not _tracing_enabled:
+# The OTLP trace pipeline is process-global (one TracerWrapper), while flush
+# loops are per-client. Rate-limit loop-driven trace flushes so N clients
+# don't all force-flush the same BatchSpanProcessor on independent 1s timers;
+# explicit flush()/shutdown() calls always flush (force=True).
+_TRACE_FLUSH_MIN_INTERVAL_SECONDS = 1.0
+_trace_flush_lock = threading.Lock()
+_trace_flush_last = 0.0
+
+
+def _flush_traces(state: Optional[RaindropState] = None, force: bool = True) -> None:
+    if not _resolve_state(state)._tracing_enabled:
         return
+
+    if not force:
+        global _trace_flush_last
+        with _trace_flush_lock:
+            now = time.monotonic()
+            if now - _trace_flush_last < _TRACE_FLUSH_MIN_INTERVAL_SECONDS:
+                return
+            _trace_flush_last = now
 
     try:
         if TracerWrapper.verify_initialized():
@@ -574,27 +660,28 @@ def _build_direct_traces_payload(spans: List[Dict[str, Any]]) -> Dict[str, Any]:
 _LOCAL_MIRROR_TIMEOUT_SECONDS = 2.0
 
 
-def _post_local_mirror(path: str, payload: Any) -> None:
-    if not local_workshop_url:
+def _post_local_mirror(path: str, payload: Any, state: Optional[RaindropState] = None) -> None:
+    st = _resolve_state(state)
+    if not st.local_workshop_url:
         return
 
     # The mirror obeys the shutdown deadline too: with Workshop mirroring
     # enabled, sequential 2s mirror POSTs during the final flush could
     # otherwise push process exit well past the shutdown bound.
     timeout = _LOCAL_MIRROR_TIMEOUT_SECONDS
-    budget = _shutdown_budget()
+    budget = _shutdown_budget(state=st)
     if budget is not None:
         if budget <= 0:
             logger.debug("Local Workshop mirror skipped: shutdown deadline exceeded")
             return
         timeout = min(timeout, budget)
 
-    url = f"{local_workshop_url}{path}"
+    url = f"{st.local_workshop_url}{path}"
     # Deliberately omit Authorization: the local Workshop daemon doesn't
     # validate cloud credentials, and the mirror URL can come from env vars
     # or user input — never let a misconfigured RAINDROP_LOCAL_DEBUGGER /
     # RAINDROP_WORKSHOP host receive the cloud write key.
-    headers = {"Content-Type": "application/json", **_project_id_headers()}
+    headers = {"Content-Type": "application/json", **_project_id_headers(state=st)}
     try:
         requests.post(url, json=payload, headers=headers, timeout=timeout)
     except Exception as exc:
@@ -605,7 +692,7 @@ def _post_local_mirror(path: str, payload: Any) -> None:
         )
 
 
-def _post_with_retries(url: str, payload: Any, log_key: str) -> None:
+def _post_with_retries(url: str, payload: Any, log_key: str, state: Optional[RaindropState] = None) -> None:
     """POST to the cloud API with bounded timeouts and capped retries.
 
     Outside shutdown: up to ``_HTTP_MAX_ATTEMPTS`` attempts with a short,
@@ -619,17 +706,18 @@ def _post_with_retries(url: str, payload: Any, log_key: str) -> None:
     is exhausted, payloads are dropped with a rate-limited warning rather
     than wedging process exit.
     """
+    st = _resolve_state(state)
     headers = {
         "Content-Type": "application/json",
-        "Authorization": f"Bearer {write_key}",
-        **_project_id_headers(),
+        "Authorization": f"Bearer {st.write_key}",
+        **_project_id_headers(state=st),
     }
     # Never log the raw URL: a caller-configured endpoint may embed userinfo
     # credentials (https://user:pass@host/...).
     safe_url = _redact_url_for_log(url)
 
     for attempt in range(_HTTP_MAX_ATTEMPTS):
-        budget = _shutdown_budget()
+        budget = _shutdown_budget(state=st)
         if budget is not None and budget <= 0:
             _rate_limited_log(
                 f"{log_key}.shutdown_deadline",
@@ -651,7 +739,7 @@ def _post_with_retries(url: str, payload: Any, log_key: str) -> None:
                 max(0.05, budget - connect_timeout),
             )
             timeout = (connect_timeout, read_timeout)
-        elif shutdown_event.is_set():
+        elif st.shutdown_event.is_set():
             # shutdown() has completed and cleared the deadline; stragglers
             # send synchronously on the caller's thread. Keep them short.
             timeout = _POST_SHUTDOWN_TIMEOUT
@@ -677,7 +765,7 @@ def _post_with_retries(url: str, payload: Any, log_key: str) -> None:
             )
             # In (or after) shutdown, the remaining time is better spent on
             # other queued payloads than on retrying this one.
-            if _shutdown_budget() is not None or shutdown_event.is_set():
+            if _shutdown_budget(state=st) is not None or st.shutdown_event.is_set():
                 break
             if attempt < _HTTP_MAX_ATTEMPTS - 1:
                 backoff_idx = min(attempt, len(_HTTP_RETRY_BACKOFF_SECONDS) - 1)
@@ -691,31 +779,32 @@ def _post_with_retries(url: str, payload: Any, log_key: str) -> None:
     )
 
 
-def _send_traces_request(payload: Dict[str, Any]) -> None:
-    _post_local_mirror("traces", payload)
+def _send_traces_request(payload: Dict[str, Any], state: Optional[RaindropState] = None) -> None:
+    st = _resolve_state(state)
+    _post_local_mirror("traces", payload, state=st)
 
-    if not write_key:
+    if not st.write_key:
         return
 
     url = urllib.parse.urljoin(
-        api_url if api_url.endswith("/") else f"{api_url}/", "traces"
+        st.api_url if st.api_url.endswith("/") else f"{st.api_url}/", "traces"
     )
-    _post_with_retries(url, payload, log_key="send.traces")
+    _post_with_retries(url, payload, log_key="send.traces", state=st)
 
 
-def _flush_direct_tool_spans(spans: List[Dict[str, Any]]) -> None:
+def _flush_direct_tool_spans(spans: List[Dict[str, Any]], state: Optional[RaindropState] = None) -> None:
     if not spans:
         return
 
     for i in range(0, len(spans), _direct_tool_upload_size):
         batch = spans[i : i + _direct_tool_upload_size]
-        _send_traces_request(_build_direct_traces_payload(batch))
+        _send_traces_request(_build_direct_traces_payload(batch), state=state)
 
 
-def _enqueue_direct_tool_span(span: Dict[str, Any]) -> None:
-    global _direct_tool_spans_buffer
+def _enqueue_direct_tool_span(span: Dict[str, Any], state: Optional[RaindropState] = None) -> None:
+    st = _resolve_state(state)
 
-    if len(_direct_tool_spans_buffer) >= max_queue_size:
+    if len(st._direct_tool_spans_buffer) >= st.max_queue_size:
         _rate_limited_log(
             "direct_tool_span_buffer_full",
             logging.ERROR,
@@ -723,38 +812,41 @@ def _enqueue_direct_tool_span(span: Dict[str, Any]) -> None:
         )
         return
 
-    if shutdown_event.is_set():
-        _flush_direct_tool_spans([span])
+    if st.shutdown_event.is_set():
+        _flush_direct_tool_spans([span], state=st)
         return
 
-    with flush_lock:
-        _direct_tool_spans_buffer.append(span)
-        start_flush_thread()
+    with st.flush_lock:
+        st._direct_tool_spans_buffer.append(span)
+        start_flush_thread(state=st)
 
 
 def send_request(
-    endpoint: str, data_entries: Union[List[Dict[str, Union[str, Dict]]], Dict[str, Any]]
+    endpoint: str,
+    data_entries: Union[List[Dict[str, Union[str, Dict]]], Dict[str, Any]],
+    state: Optional[RaindropState] = None,
 ) -> None:
-    _post_local_mirror(endpoint, data_entries)
+    st = _resolve_state(state)
+    _post_local_mirror(endpoint, data_entries, state=st)
 
-    if not write_key:
+    if not st.write_key:
         return
 
-    url = f"{api_url}{endpoint}"
-    _post_with_retries(url, data_entries, log_key=f"send.{endpoint}")
+    url = f"{st.api_url}{endpoint}"
+    _post_with_retries(url, data_entries, log_key=f"send.{endpoint}", state=st)
 
 
-def save_to_buffer(event: Dict[str, Union[str, Dict]]) -> None:
-    global buffer
+def save_to_buffer(event: Dict[str, Union[str, Dict]], state: Optional[RaindropState] = None) -> None:
+    st = _resolve_state(state)
 
-    if len(buffer) >= max_queue_size * 0.8:
+    if len(st.buffer) >= st.max_queue_size * 0.8:
         _rate_limited_log(
             "buffer_capacity",
             logging.WARNING,
-            f"Buffer is at {len(buffer) / max_queue_size * 100:.2f}% capacity",
+            f"Buffer is at {len(st.buffer) / st.max_queue_size * 100:.2f}% capacity",
         )
 
-    if len(buffer) >= max_queue_size:
+    if len(st.buffer) >= st.max_queue_size:
         _rate_limited_log(
             "buffer_full", logging.ERROR, "Buffer is full. Discarding event."
         )
@@ -762,20 +854,25 @@ def save_to_buffer(event: Dict[str, Union[str, Dict]]) -> None:
 
     logger.debug(f"Adding event to buffer: {event}")
 
-    if shutdown_event.is_set():
-        send_request(event["type"], [event["data"]])
+    if st.shutdown_event.is_set():
+        send_request(event["type"], [event["data"]], state=st)
         return
 
-    with flush_lock:
-        buffer.append(event)
-        start_flush_thread()
+    with st.flush_lock:
+        st.buffer.append(event)
+        start_flush_thread(state=st)
 
 
-def identify(user_id: str, traits: Dict[str, Union[str, int, bool, float]]) -> None:
-    if not _check_write_key():
+def identify(
+    user_id: str,
+    traits: Dict[str, Union[str, int, bool, float]],
+    state: Optional[RaindropState] = None,
+) -> None:
+    st = _resolve_state(state)
+    if not _check_write_key(state=st):
         return
     data = {"user_id": user_id, "traits": traits}
-    save_to_buffer({"type": "users/identify", "data": data})
+    save_to_buffer({"type": "users/identify", "data": data}, state=st)
 
 
 def track_ai(
@@ -789,8 +886,10 @@ def track_ai(
     properties: Optional[Dict[str, Union[str, int, bool, float]]] = None,
     timestamp: Optional[str] = None,
     attachments: Optional[List[Attachment]] = None,
+    state: Optional[RaindropState] = None,
 ) -> str:
-    if not _check_write_key():
+    st = _resolve_state(state)
+    if not _check_write_key(state=st):
         return
 
     event_id = event_id or str(uuid.uuid4())
@@ -804,8 +903,8 @@ def track_ai(
             properties=properties or {},
             ai_data=dict(  # Pydantic will coerce to AIData
                 model=model,
-                input=_cap_text(input) if input is not None else None,
-                output=_cap_text(output) if output is not None else None,
+                input=_cap_text(input, state=st) if input is not None else None,
+                output=_cap_text(output, state=st) if output is not None else None,
                 convo_id=convo_id,
             ),
             attachments=attachments,
@@ -817,13 +916,13 @@ def track_ai(
     if payload.properties is None:
         payload.properties = {}
     payload.properties["$context"] = _get_context()
-    if _wizard_session is not None:
-        payload.properties["raindrop.wizardSession"] = _wizard_session
+    if st._wizard_session is not None:
+        payload.properties["raindrop.wizardSession"] = st._wizard_session
 
     data = payload.model_dump(mode="json")
 
     # Apply PII redaction if enabled
-    if redact_pii:
+    if st.redact_pii:
         data = perform_pii_redaction(data)
 
     size = _get_size(data)
@@ -834,11 +933,11 @@ def track_ai(
         )
         return None  # Skip adding oversized events to buffer
 
-    save_to_buffer({"type": "events/track", "data": data})
+    save_to_buffer({"type": "events/track", "data": data}, state=st)
     return event_id
 
 
-def shutdown():
+def shutdown(state: Optional[RaindropState] = None, _deadline: float | None = None) -> None:
     """Flush pending telemetry and stop, under a hard overall deadline.
 
     Registered via ``atexit``: a dead or slow network must never wedge the
@@ -846,29 +945,43 @@ def shutdown():
     single attempt clamped to the remaining shutdown budget (see
     ``_post_with_retries``); once the budget is exhausted, remaining payloads
     are dropped with a rate-limited warning.
+
+    ``_deadline`` (monotonic) lets the shared atexit hook drain SEVERAL
+    clients under one overall budget instead of one full deadline each.
     """
-    global _shutdown_deadline
+    st = _resolve_state(state)
     logger.info("Shutting down raindrop analytics")
-    _shutdown_deadline = time.monotonic() + _SHUTDOWN_DEADLINE_SECONDS
+    st._shutdown_deadline = (
+        _deadline
+        if _deadline is not None
+        else time.monotonic() + _SHUTDOWN_DEADLINE_SECONDS
+    )
 
     try:
-        for eid in list(_partial_timers.keys()):
-            _flush_partial_event(eid)
+        for eid in list(st._partial_timers.keys()):
+            _flush_partial_event(eid, state=st)
 
-        shutdown_event.set()
-        if flush_thread:
-            budget = _shutdown_budget()
-            flush_thread.join(timeout=max(0.1, budget if budget is not None else 10.0))
-        flush()  # Final flush to ensure all events are sent
+        st.shutdown_event.set()
+        if st.flush_thread:
+            budget = _shutdown_budget(state=st)
+            st.flush_thread.join(
+                timeout=max(0.1, budget if budget is not None else 10.0)
+            )
+        flush(state=st)  # Final flush to ensure all events are sent
     finally:
         # Scope the deadline to this call: nothing runs after the atexit hook
         # in production, but tests (and manual callers) may keep using the
         # module after an explicit shutdown().
-        _shutdown_deadline = None
+        st._shutdown_deadline = None
+        # An explicitly shut-down instance is fully drained: drop it from the
+        # atexit registry so its state doesn't outlive its usefulness.
+        if isinstance(st, ClientState):
+            _instance_states.discard(st)
 
 
-def _check_write_key():
-    if write_key is None and local_workshop_url is None:
+def _check_write_key(state: Optional[RaindropState] = None) -> bool:
+    st = _resolve_state(state)
+    if st.write_key is None and st.local_workshop_url is None:
         logger.warning(
             "write_key is not set and no local Workshop daemon is configured. "
             "Set RAINDROP_WRITE_KEY or RAINDROP_LOCAL_DEBUGGER (or pass "
@@ -878,7 +991,7 @@ def _check_write_key():
     return True
 
 
-def _get_context():
+def _get_context() -> Dict[str, Any]:
     return {
         "library": {
             "name": "python-sdk",
@@ -890,7 +1003,7 @@ def _get_context():
     }
 
 
-def _get_timestamp():
+def _get_timestamp() -> str:
     return datetime.now(timezone.utc).replace(microsecond=0).isoformat()
 
 
@@ -920,13 +1033,17 @@ def _truncate_json_if_needed(json_str: str) -> str:
     return json_str
 
 
-def _effective_field_limit() -> int:
+def _effective_field_limit(state: Optional[RaindropState] = None) -> int:
     """Character budget for one serialized payload field.
 
-    The SDK default (``max_text_field_chars``) always applies; the OTel
-    span-attribute limit env var additionally applies when it is stricter.
+    Per-client override first (``Raindrop(max_text_field_chars=...)``), then
+    the process-wide default (module global, settable via module ``init()``);
+    the OTel span-attribute limit env var additionally applies when it is
+    stricter.
     """
-    limit = max_text_field_chars
+    limit = getattr(_resolve_state(state), "max_text_field_chars", None)
+    if limit is None:
+        limit = max_text_field_chars
     limit_str = os.getenv("OTEL_SPAN_ATTRIBUTE_VALUE_LENGTH_LIMIT")
     if limit_str:
         try:
@@ -951,7 +1068,9 @@ def _truncate_to_limit(text: str, limit: int) -> str:
     return text[:limit]
 
 
-def _cap_text(value: str, limit: int | None = None) -> str:
+def _cap_text(
+    value: str, limit: int | None = None, state: Optional[RaindropState] = None
+) -> str:
     """Cap a raw text field BEFORE any serialization.
 
     The length check is O(1), so multi-MB inputs/outputs cost nothing on the
@@ -961,7 +1080,7 @@ def _cap_text(value: str, limit: int | None = None) -> str:
     if not isinstance(value, str):
         return value
     if limit is None:
-        limit = _effective_field_limit()
+        limit = _effective_field_limit(state)
     if len(value) <= limit:
         return value
     return _truncate_to_limit(value, limit)
@@ -1027,7 +1146,13 @@ def _bounded_clone(obj: Any, char_budget: int, _depth: int = 0) -> Any:
     return walk(obj, _depth)
 
 
-def _dumps_bounded(obj: Any, *, limit: int | None = None, cls=None) -> str:
+def _dumps_bounded(
+    obj: Any,
+    *,
+    limit: int | None = None,
+    cls: Any = None,
+    state: Optional[RaindropState] = None,
+) -> str:
     """JSON-serialize ``obj`` with a hard output budget.
 
     Unlike serialize-then-truncate, the encoding cost here is proportional to
@@ -1042,11 +1167,11 @@ def _dumps_bounded(obj: Any, *, limit: int | None = None, cls=None) -> str:
     valid JSON; that is expected for display purposes.
     """
     if limit is None:
-        limit = _effective_field_limit()
+        limit = _effective_field_limit(state)
     if isinstance(obj, str):
         # Cap first (O(limit) dumps cost), then re-truncate: quoting and
         # escape expansion (\uXXXX) can push the encoded form past the limit.
-        text = json.dumps(_cap_text(obj, limit))
+        text = json.dumps(_cap_text(obj, limit, state=state))
         return text if len(text) <= limit else _truncate_to_limit(text, limit)
 
     # Slack covers JSON syntax overhead (quotes, braces, escapes) so payloads
@@ -1067,7 +1192,7 @@ def _dumps_bounded(obj: Any, *, limit: int | None = None, cls=None) -> str:
     return text
 
 
-def _should_send_prompts():
+def _should_send_prompts() -> Any:
     return (
         os.getenv("TRACELOOP_TRACE_CONTENT") or "true"
     ).lower() == "true" or context_api.get_value("override_enable_content_tracing")
@@ -1138,6 +1263,7 @@ def track_signal(
     comment: Optional[str] = None,
     after: Optional[str] = None,
     sentiment: Optional[Literal["POSITIVE", "NEGATIVE"]] = None,
+    state: Optional[RaindropState] = None,
 ) -> None:
     """
     Track a signal event.
@@ -1153,7 +1279,8 @@ def track_signal(
         after: Optional after content string (required and used only if signal_type is 'edit').
         sentiment: Optional sentiment indicating if the signal is POSITIVE (default is NEGATIVE)
     """
-    if not _check_write_key():
+    st = _resolve_state(state)
+    if not _check_write_key(state=st):
         return
 
     # Prepare the final properties dictionary
@@ -1213,7 +1340,7 @@ def track_signal(
         )
         return  # Skip adding oversized events to buffer
 
-    save_to_buffer({"type": "signals/track", "data": data})
+    save_to_buffer({"type": "signals/track", "data": data}, state=st)
 
 
 INTERACTION_TRACE_ID_REGISTRY: weakref.WeakValueDictionary[int, Interaction] = (
@@ -1232,10 +1359,12 @@ def begin(
     input: Optional[str] = None,
     attachments: Optional[List[Attachment]] = None,
     convo_id: Optional[str] = None,
+    state: Optional[RaindropState] = None,
 ) -> Interaction:
     """
     Starts (or resumes) an interaction and returns a helper object.
     """
+    st = _resolve_state(state)
     if not isinstance(user_id, str) or not user_id.strip():
         # The API rejects events without a user_id; return a disabled
         # Interaction whose mutators/finish/span/tool calls all no-op so
@@ -1251,6 +1380,7 @@ def begin(
             event=event,
             convo_id=convo_id,
             disabled=True,
+            state=st,
         )
 
     eid = event_id or str(uuid.uuid4())
@@ -1258,7 +1388,7 @@ def begin(
     # Instantiate ai_data if either input or convo_id is supplied so that convo_id isn't lost when input is set later
     ai_data_partial = None
     if input is not None or convo_id is not None:
-        capped_input = _cap_text(input) if input is not None else None
+        capped_input = _cap_text(input, state=st) if input is not None else None
         ai_data_partial = PartialAIData(input=capped_input, convo_id=convo_id)
 
     # Combine properties with initial_fields, giving precedence to initial_fields if keys clash
@@ -1284,22 +1414,67 @@ def begin(
         "event": event,
         "event_id": eid,
     }
-    if _tracing_enabled:
+    if st._tracing_enabled:
         Traceloop.set_association_properties(
             {k: v for k, v in span_attributes.items() if v is not None}
         )
 
-    interaction = Interaction(eid, user_id=user_id, event=event, convo_id=convo_id)
-    INTERACTION_EVENT_ID_REGISTRY[eid] = interaction
-    if current_trace_id is not None and current_trace_id != 0:
-        INTERACTION_TRACE_ID_REGISTRY[current_trace_id] = interaction
+    # Bind this client's routing identity (project + key hint) to the current
+    # execution context so auto-instrumented spans emitted after begin()
+    # returns are stamped for the same project as the interaction.
+    # Concurrency-safe: contextvars are per-thread and per-asyncio-task.
+    # Lifecycle: the binding rides on the Interaction and finish() removes it
+    # (identity-based, non-LIFO safe); the Interaction is also the binding's
+    # weakly-held OWNER, so an abandoned interaction (exception or return
+    # without finish, then dropped) stops routing the moment it is collected
+    # — a reused worker thread can't inherit it indefinitely. Bound LAST —
+    # after everything fallible above — with the guarded tail below, so no
+    # exception can escape begin() with a binding leaked.
+    bound_ctx = None
+    try:
+        interaction = Interaction(
+            eid,
+            user_id=user_id,
+            event=event,
+            convo_id=convo_id,
+            state=st,
+        )
+        bound_ctx = _rd_tracing.bind_current(
+            st.project_id, st.auth_hint, owner=interaction
+        )
+        interaction._bound_ctx = bound_ctx
+        st.INTERACTION_EVENT_ID_REGISTRY[eid] = interaction
+        if current_trace_id is not None and current_trace_id != 0:
+            st.INTERACTION_TRACE_ID_REGISTRY[current_trace_id] = interaction
 
-    _track_ai_partial(partial_event)
+        _track_ai_partial(partial_event, state=st)
+    except Exception:
+        # Crash protection (AGENTS.md): telemetry setup must never take the
+        # host app down. Degrade like the invalid-user_id path — clean up
+        # the binding and hand back a disabled no-op Interaction so caller
+        # code (mutators/finish/spans) keeps running.
+        _rd_tracing.unbind_current(bound_ctx)
+        logger.error(
+            "[raindrop] begin() failed; returning disabled interaction.",
+            exc_info=True,
+        )
+        return Interaction(
+            event_id=eid,
+            user_id=user_id,
+            event=event,
+            convo_id=convo_id,
+            disabled=True,
+            state=st,
+        )
+    except BaseException:
+        # KeyboardInterrupt/SystemExit: clean up but never swallow.
+        _rd_tracing.unbind_current(bound_ctx)
+        raise
     return interaction
 
 
 @contextmanager
-def _temp_env(key: str, value: str):
+def _temp_env(key: str, value: str) -> Iterator[None]:
     """Temporarily sets an environment variable. Hacky helper to deal with traceloop's BS"""
     orig = os.environ.get(key)
     os.environ[key] = value
@@ -1322,8 +1497,8 @@ def init(
     local_workshop_url: Any = UNSET,
     max_text_field_chars: int | None = None,
     project_id: str | None = None,
-    **traceloop_kwargs,
-):
+    **traceloop_kwargs: Any,
+) -> None:
     """Initialize Raindrop with Traceloop integration.
 
     Args:
@@ -1360,9 +1535,52 @@ def init(
             Can include ``instruments`` or ``block_instruments`` for
             fine-grained control over which libraries are instrumented.
     """
+    _configure(
+        _default_state,
+        api_key=api_key,
+        wizard_session=wizard_session,
+        tracing_enabled=tracing_enabled,
+        auto_instrument=auto_instrument,
+        bypass_otel_for_tools=bypass_otel_for_tools,
+        endpoint=endpoint,
+        local_workshop_url=local_workshop_url,
+        max_text_field_chars=max_text_field_chars,
+        project_id=project_id,
+        # The module-level client keeps its historical re-init semantics:
+        # every init() call re-runs Traceloop.init (a de-facto no-op after
+        # the first thanks to TracerWrapper's singleton), so repeated
+        # configuration in tests and notebooks behaves exactly as before.
+        _always_init_traceloop=True,
+        **traceloop_kwargs,
+    )
+
+
+def _configure(
+    st: RaindropState,
+    *,
+    api_key: str | None,
+    wizard_session: str | None,
+    tracing_enabled: bool,
+    auto_instrument: bool,
+    bypass_otel_for_tools: bool,
+    endpoint: str | None,
+    local_workshop_url: Any,
+    max_text_field_chars: int | None,
+    project_id: str | None,
+    _always_init_traceloop: bool = False,
+    **traceloop_kwargs: Any,
+) -> None:
+    """Shared configuration for the module-level client and Raindrop instances."""
     if max_text_field_chars is not None:
         if max_text_field_chars > 0:
-            globals()["max_text_field_chars"] = max_text_field_chars
+            if st is _default_state:
+                # Module-level init() keeps its historical process-wide
+                # semantics (the module global is the inherited default).
+                globals()["max_text_field_chars"] = max_text_field_chars
+            else:
+                # Instances cap ONLY themselves — constructing a client must
+                # not mutate another client's (or the default's) field cap.
+                st.max_text_field_chars = max_text_field_chars
         else:
             logger.warning(
                 "[raindrop] init(max_text_field_chars=%r) ignored; must be > 0",
@@ -1371,29 +1589,31 @@ def init(
 
     resolved_local = resolve_local_workshop_url(local_workshop_url)
 
-    global write_key
-    write_key = api_key or None
+    st.write_key = api_key or None
+
+    # Every configured credential registers — tracing-enabled or not. Global
+    # auto-instrumentation traces a non-tracing client's code paths all the
+    # same, so the export guard must know a second key exists in the process
+    # even when that client never touches the tracing pipeline itself.
+    _rd_tracing.register_client_key(_rd_tracing.auth_hint_for_key(st.write_key))
 
     resolved_project_id = _resolve_project_id(project_id)
-    globals()["project_id"] = resolved_project_id
+    st.project_id = resolved_project_id
 
-    global api_url
     if endpoint is not None:
-        api_url = endpoint if endpoint.endswith("/") else f"{endpoint}/"
+        st.api_url = endpoint if endpoint.endswith("/") else f"{endpoint}/"
 
-    globals()["local_workshop_url"] = resolved_local
+    st.local_workshop_url = resolved_local
 
-    global _wizard_session
-    _wizard_session = wizard_session
+    st._wizard_session = wizard_session
 
-    global _tracing_enabled
-    _tracing_enabled = tracing_enabled
+    st._tracing_enabled = tracing_enabled
 
-    global _bypass_otel_for_tools
-    _bypass_otel_for_tools = bool(bypass_otel_for_tools and tracing_enabled)
+    st._bypass_otel_for_tools = bool(bypass_otel_for_tools and tracing_enabled)
 
-    if not _tracing_enabled:
-        _remove_instrumentation_filters()
+    if not st._tracing_enabled:
+        if st is _default_state:
+            _remove_instrumentation_filters()
         return
 
     # Traceloop's OTEL exporter sends to the cloud endpoint and authenticates
@@ -1401,15 +1621,16 @@ def init(
     # errors or silently dropped spans, so disable tracing entirely until the
     # caller supplies one. Local-only Workshop mode still gets manual events
     # (track_ai, identify, signals) via the analytics fan-out path.
-    if not write_key:
-        _tracing_enabled = False
-        _bypass_otel_for_tools = False
+    if not st.write_key:
+        st._tracing_enabled = False
+        st._bypass_otel_for_tools = False
         logger.warning(
             "[raindrop] tracing_enabled=True requires api_key for OTEL export; "
             "disabling auto-instrumentation. Pass api_key=... or unset "
             "tracing_enabled to silence this warning."
         )
-        _remove_instrumentation_filters()
+        if st is _default_state:
+            _remove_instrumentation_filters()
         return
 
     if not debug_logs:
@@ -1420,7 +1641,7 @@ def init(
     if not auto_instrument and "instruments" not in traceloop_kwargs:
         traceloop_kwargs["instruments"] = set()
 
-    parsed_url = urllib.parse.urlparse(api_url)
+    parsed_url = urllib.parse.urlparse(st.api_url)
     api_endpoint = f"{parsed_url.scheme}://{parsed_url.netloc}"
 
     # Route auto-instrumented OTEL spans to the same project as manual events.
@@ -1446,12 +1667,159 @@ def init(
                 **caller_headers,
             }
 
-    with _temp_env("TRACELOOP_METRICS_ENABLED", "false"):
-        Traceloop.init(
-            api_endpoint=api_endpoint,
-            api_key=api_key,
-            telemetry_enabled=False,
-            **traceloop_kwargs,
+    # --- One span pipeline per process --------------------------------------
+    # OTel/Traceloop is a process singleton: one tracer provider, one OTLP
+    # exporter authenticating with ONE key. The first tracing-enabled client
+    # owns it. Later tracing-enabled clients share the pipeline: same key is
+    # business as usual (spans route per-project via the raindrop.project_id
+    # attribute), a different key is unsupported — its spans are dropped by
+    # the export guard rather than silently delivered to the owner's org.
+    #
+    # The claim -> init -> (release on failure) sequence runs under one lock
+    # so a client constructed concurrently with the claimer waits for the
+    # claimer's OUTCOME: if that init failed and released the claim, the
+    # waiter claims and initializes cleanly instead of sharing a phantom
+    # pipeline.
+    auth_hint = _rd_tracing.auth_hint_for_key(st.write_key)
+    with _rd_tracing.pipeline_init_lock:
+        claimed = _rd_tracing.claim_pipeline(auth_hint, resolved_project_id)
+        owner_hint = _rd_tracing.pipeline_owner_hint()
+        if not claimed and auth_hint != owner_hint:
+            # From this point on the process contains code paths belonging to
+            # a different key/org, so unstamped spans are no longer provably
+            # the owner's: the export guard flips to positive attribution
+            # (only spans stamped with the owner's hint export). See
+            # _GuardedSpanExporter._partition.
+            _rd_tracing.mark_foreign_client()
+            logger.warning(
+                "[raindrop] The OTel tracing pipeline is already initialized "
+                "with a DIFFERENT api_key. One process supports one tracing "
+                "key/org: auto-instrumented spans from this client will be "
+                "dropped at export, and spans not bound to any client "
+                "(no begin()/as_current()) will be dropped as unattributable "
+                "(manual events are unaffected and route normally). Run this "
+                "client in its own process for tracing."
+            )
+
+        if claimed or _always_init_traceloop:
+            # Build the span exporter ourselves — byte-identical to the one
+            # Traceloop would build (same endpoint join + headers) — wrapped
+            # in the cross-key export guard. Only the CLAIMING init builds
+            # one: on a legacy module-level re-init, Traceloop's TracerWrapper
+            # singleton ignores any new exporter/headers, so the original
+            # guarded exporter (and its credential) provably stays in place.
+            #
+            # FAIL CLOSED: the guard is a security control (it is what makes
+            # "a different key's spans are dropped, never exported under the
+            # wrong org" true). If it cannot be installed — unsupported
+            # headers type or exporter construction failure — tracing is
+            # disabled for this init rather than running unguarded.
+            if claimed:
+                try:
+                    caller_exporter = traceloop_kwargs.get("exporter")
+                    if caller_exporter is not None:
+                        # BYO exporter keeps its transport but not an exemption
+                        # from the security control: wrap it in the guard.
+                        traceloop_kwargs["exporter"] = (
+                            _rd_tracing._GuardedSpanExporter(
+                                caller_exporter, owner_hint
+                            )
+                        )
+                    else:
+                        exporter_headers = traceloop_kwargs.get("headers")
+                        if isinstance(exporter_headers, str):
+                            # Same parser Traceloop.init applies to str headers.
+                            from opentelemetry.util.re import parse_env_headers
+
+                            exporter_headers = parse_env_headers(exporter_headers)
+                        if exporter_headers is None:
+                            exporter_headers = {
+                                "Authorization": f"Bearer {api_key}"
+                            }
+                        if not isinstance(exporter_headers, dict):
+                            raise TypeError(
+                                "unsupported traceloop headers type: "
+                                f"{type(exporter_headers).__name__}"
+                            )
+                        traceloop_kwargs["exporter"] = (
+                            _rd_tracing.build_guarded_exporter(
+                                api_endpoint, exporter_headers, owner_hint
+                            )
+                        )
+                except Exception as exc:
+                    st._tracing_enabled = False
+                    st._bypass_otel_for_tools = False
+                    _rd_tracing.release_pipeline_claim()
+                    logger.warning(
+                        "[raindrop] could not install the guarded span "
+                        "exporter (%s: %s); disabling tracing rather than "
+                        "running an unguarded pipeline. Manual events are "
+                        "unaffected.",
+                        type(exc).__name__,
+                        exc,
+                    )
+                    return
+
+            try:
+                with _temp_env("TRACELOOP_METRICS_ENABLED", "false"):
+                    Traceloop.init(
+                        api_endpoint=api_endpoint,
+                        api_key=api_key,
+                        telemetry_enabled=False,
+                        **traceloop_kwargs,
+                    )
+            except Exception as e:
+                # Never crash the host app over telemetry setup: continue
+                # with tracing disabled; manual events (track_ai/begin/
+                # signals) still work through the analytics pipeline.
+                st._tracing_enabled = False
+                st._bypass_otel_for_tools = False
+                if claimed:
+                    # Don't leave a phantom claim: the next tracing-enabled
+                    # client should get a clean init attempt.
+                    _rd_tracing.release_pipeline_claim()
+                logger.warning(
+                    "[raindrop] tracing initialization failed (%s: %s); "
+                    "continuing with tracing disabled.",
+                    type(e).__name__,
+                    e,
+                )
+                return
+        else:
+            logger.debug(
+                "[raindrop] tracing pipeline already initialized; sharing it "
+                "(spans from this client route via the raindrop.project_id "
+                "span attribute)."
+            )
+
+    _register_context_span_processor()
+
+
+_context_span_processor_added = False
+
+
+def _register_context_span_processor() -> None:
+    """Attach the per-span project/key stamper to the active tracer provider.
+
+    Idempotent per process: OTel rejects duplicate provider setup and
+    Traceloop.init() is effectively a singleton, so we register the processor
+    at most once. Best-effort — a missing provider (e.g. a no-op
+    ProxyTracerProvider without ``add_span_processor``) or any error must
+    never crash init().
+    """
+    global _context_span_processor_added
+    if _context_span_processor_added:
+        return
+    try:
+        provider = trace.get_tracer_provider()
+        add_processor = getattr(provider, "add_span_processor", None)
+        if add_processor is None:
+            return
+        add_processor(_rd_tracing._RaindropContextSpanProcessor())
+        _context_span_processor_added = True
+    except Exception as exc:
+        logger.debug(
+            "[raindrop] could not register context span processor: %s", exc
         )
 
 
@@ -1504,27 +1872,39 @@ def tool(
     )
 
 
-def set_span_properties(properties: Dict[str, Any]) -> None:
+def set_span_properties(
+    properties: Dict[str, Any], state: Optional[RaindropState] = None
+) -> None:
     """
     Set association properties on the current span for tracing.
+
+    Gates on the DEFAULT (module-level) client's tracing flag when called
+    without a state — it is the module-level API. Instance users should call
+    ``Raindrop.set_span_properties``, which gates on that client's flag.
 
     Args:
         properties: Dictionary of properties to associate with the current span
     """
-    if not _tracing_enabled:
+    if not _resolve_state(state)._tracing_enabled:
         return
 
     Traceloop.set_association_properties(properties)
 
 
 class TraceEntitySpan:
-    def __init__(self, span):
+    def __init__(self, span: Any, state: Optional[RaindropState] = None) -> None:
         self._span = span
+        # Owning client's state: set_properties must gate on the OWNER's
+        # tracing flag, not the module default's — an instance-only-tracing
+        # process has the module flag off while instance spans are live.
+        self._state = state
 
     def record_input(self, data: Any) -> None:
         if self._span and _should_send_prompts():
             try:
-                truncated = _dumps_bounded({"args": [data]}, cls=JSONEncoder)
+                truncated = _dumps_bounded(
+                    {"args": [data]}, cls=JSONEncoder, state=self._state
+                )
                 self._span.set_attribute(
                     SpanAttributes.TRACELOOP_ENTITY_INPUT, truncated
                 )
@@ -1534,7 +1914,7 @@ class TraceEntitySpan:
     def record_output(self, data: Any) -> None:
         if self._span and _should_send_prompts():
             try:
-                truncated = _dumps_bounded(data, cls=JSONEncoder)
+                truncated = _dumps_bounded(data, cls=JSONEncoder, state=self._state)
                 self._span.set_attribute(
                     SpanAttributes.TRACELOOP_ENTITY_OUTPUT, truncated
                 )
@@ -1542,7 +1922,7 @@ class TraceEntitySpan:
                 logger.debug(f"[raindrop] Could not serialize output for span: {e}")
 
     def set_properties(self, props: Dict[str, Any]) -> None:
-        if _tracing_enabled and props:
+        if _resolve_state(self._state)._tracing_enabled and props:
             Traceloop.set_association_properties(props)
 
 
@@ -1552,11 +1932,21 @@ class ManualSpan:
     Unlike context-managed spans, this requires explicit .end() calls.
     """
 
-    def __init__(self, span, kind: str, name: str, event_id: str | None = None):
+    def __init__(
+        self,
+        span: Any,
+        kind: str,
+        name: str,
+        event_id: str | None = None,
+        state: Optional[RaindropState] = None,
+    ) -> None:
         self._span = span
         self._kind = kind
         self._name = name
         self._event_id = event_id
+        # Owning client's state: sizes record_input/record_output payload
+        # caps with that client's max_text_field_chars.
+        self._state = state
         self._ended = False
 
     @property
@@ -1566,7 +1956,9 @@ class ManualSpan:
     def record_input(self, data: Any) -> None:
         if self._span and _should_send_prompts():
             try:
-                truncated = _dumps_bounded({"args": [data]}, cls=JSONEncoder)
+                truncated = _dumps_bounded(
+                    {"args": [data]}, cls=JSONEncoder, state=self._state
+                )
                 self._span.set_attribute(
                     SpanAttributes.TRACELOOP_ENTITY_INPUT, truncated
                 )
@@ -1576,7 +1968,7 @@ class ManualSpan:
     def record_output(self, data: Any) -> None:
         if self._span and _should_send_prompts():
             try:
-                truncated = _dumps_bounded(data, cls=JSONEncoder)
+                truncated = _dumps_bounded(data, cls=JSONEncoder, state=self._state)
                 self._span.set_attribute(
                     SpanAttributes.TRACELOOP_ENTITY_OUTPUT, truncated
                 )
@@ -1602,18 +1994,26 @@ class ManualSpan:
 
 
 class _EntitySpanContext:
-    def __init__(self, kind: Literal["task", "tool"], name: str, version: int | None):
+    def __init__(
+        self,
+        kind: Literal["task", "tool"],
+        name: str,
+        version: int | None,
+        state: Optional[RaindropState] = None,
+    ) -> None:
         self._kind = kind
         self._name = name
         self._version = version
+        self._state = state
         self._span = None
         self._ctx_token = None
         self._span_cm = None
-        self._helper = TraceEntitySpan(None)
+        self._helper = TraceEntitySpan(None, state=state)
 
     # internal start/finish
     def _start(self) -> None:
-        if not _tracing_enabled or not TracerWrapper.verify_initialized():
+        st = _resolve_state(self._state)
+        if not st._tracing_enabled or not TracerWrapper.verify_initialized():
             return
         tlp_kind = (
             TraceloopSpanKindValues.TASK
@@ -1634,10 +2034,16 @@ class _EntitySpanContext:
         if self._version is not None:
             span.set_attribute(SpanAttributes.TRACELOOP_ENTITY_VERSION, self._version)
 
-        self._span = span
-        self._helper = TraceEntitySpan(span)
+        # Pin the owning client's routing identity, like start_span/track_tool:
+        # an instance's task/tool span must route to that instance's project
+        # even without an ambient begin()/as_current() binding. The context
+        # processor still covers spans from the default (project-less) client.
+        _rd_tracing.stamp_span(span, st.project_id, st.auth_hint)
 
-    def _end(self, exc_type, exc, tb) -> bool:
+        self._span = span
+        self._helper = TraceEntitySpan(span, state=self._state)
+
+    def _end(self, exc_type: Any, exc: Any, tb: Any) -> bool:
         if not self._span:
             return False
         try:
@@ -1654,7 +2060,7 @@ class _EntitySpanContext:
         self._start()
         return self._helper
 
-    def __exit__(self, exc_type, exc, tb) -> bool:
+    def __exit__(self, exc_type: Any, exc: Any, tb: Any) -> bool:
         return self._end(exc_type, exc, tb)
 
     # async
@@ -1662,16 +2068,20 @@ class _EntitySpanContext:
         self._start()
         return self._helper
 
-    async def __aexit__(self, exc_type, exc, tb) -> bool:
+    async def __aexit__(self, exc_type: Any, exc: Any, tb: Any) -> bool:
         return self._end(exc_type, exc, tb)
 
 
-def task_span(name: str, version: int | None = None) -> _EntitySpanContext:
-    return _EntitySpanContext("task", name, version)
+def task_span(
+    name: str, version: int | None = None, state: Optional[RaindropState] = None
+) -> _EntitySpanContext:
+    return _EntitySpanContext("task", name, version, state=state)
 
 
-def tool_span(name: str, version: int | None = None) -> _EntitySpanContext:
-    return _EntitySpanContext("tool", name, version)
+def tool_span(
+    name: str, version: int | None = None, state: Optional[RaindropState] = None
+) -> _EntitySpanContext:
+    return _EntitySpanContext("tool", name, version, state=state)
 
 
 def start_span(
@@ -1682,6 +2092,7 @@ def start_span(
     user_id: str | None = None,
     event: str | None = None,
     convo_id: str | None = None,
+    state: Optional[RaindropState] = None,
 ) -> ManualSpan:
     """
     Create a manual span that must be explicitly ended with .end().
@@ -1701,8 +2112,9 @@ def start_span(
     Returns:
         ManualSpan instance (safe to use even if tracing is disabled)
     """
-    if not _tracing_enabled or not TracerWrapper.verify_initialized():
-        return ManualSpan(None, kind, name, event_id)
+    st = _resolve_state(state)
+    if not st._tracing_enabled or not TracerWrapper.verify_initialized():
+        return ManualSpan(None, kind, name, event_id, state=st)
 
     tlp_kind = (
         TraceloopSpanKindValues.TASK if kind == "task" else TraceloopSpanKindValues.TOOL
@@ -1728,37 +2140,45 @@ def start_span(
         if value is not None:
             span.set_attribute(f"traceloop.association.properties.{key}", value)
 
-    return ManualSpan(span, kind, name, event_id)
+    # Pin the owning client's routing identity on the span itself: a manual
+    # span may be created/ended from a different task/thread than the one
+    # that bound the context, so the on-start context stamp alone isn't
+    # sufficient.
+    _rd_tracing.stamp_span(span, st.project_id, st.auth_hint)
+
+    return ManualSpan(span, kind, name, event_id, state=st)
 
 
-def resume_interaction(event_id: str | None = None) -> Interaction:
+def resume_interaction(event_id: str | None = None, state: Optional[RaindropState] = None) -> Interaction:
     """Return an Interaction associated with the current trace or given event_id."""
+    st = _resolve_state(state)
 
     if event_id is not None:
-        if (interaction := INTERACTION_EVENT_ID_REGISTRY.get(event_id)) is not None:
+        if (interaction := st.INTERACTION_EVENT_ID_REGISTRY.get(event_id)) is not None:
             return interaction
-        return Interaction(event_id)
+        return Interaction(event_id, state=st)
 
     if (trace_id := _safe_current_trace_id()) is not None:
-        if (interaction := INTERACTION_TRACE_ID_REGISTRY.get(trace_id)) is not None:
+        if (interaction := st.INTERACTION_TRACE_ID_REGISTRY.get(trace_id)) is not None:
             return interaction
 
     # Fallback: create a fresh Interaction when no identifiers are available
     # TODO: Return No-Op interaction if event_id is None
     logger.debug("No interaction found, creating a new one")
-    return Interaction()
+    return Interaction(state=st)
 
 
-def _track_ai_partial(event: PartialTrackAIEvent) -> None:
+def _track_ai_partial(event: PartialTrackAIEvent, state: Optional[RaindropState] = None) -> None:
     """
     Merge the incoming patch into an in-memory doc and flush to backend:
       • on `.finish()`  (is_pending == False)
       • or after 20 s of inactivity
     """
+    st = _resolve_state(state)
     eid = event.event_id
 
     # 1. merge
-    existing = _partial_buffers.get(eid, PartialTrackAIEvent(event_id=eid))
+    existing = st._partial_buffers.get(eid, PartialTrackAIEvent(event_id=eid))
     existing.is_pending = (
         existing.is_pending if existing.is_pending is not None else True
     )
@@ -1766,7 +2186,7 @@ def _track_ai_partial(event: PartialTrackAIEvent) -> None:
     incoming = event.model_dump(exclude_none=True)
 
     # deep merge ai_data / properties
-    def _deep(d: dict, u: dict):
+    def _deep(d: dict, u: dict) -> dict:
         for k, v in u.items():
             d[k] = (
                 _deep(d.get(k, {}) if isinstance(v, dict) else v, v)
@@ -1778,17 +2198,19 @@ def _track_ai_partial(event: PartialTrackAIEvent) -> None:
     merged = _deep(merged_dict, incoming)
     merged_obj = PartialTrackAIEvent(**merged)
 
-    _partial_buffers[eid] = merged_obj
+    st._partial_buffers[eid] = merged_obj
 
     # 2. timer handling
-    if t := _partial_timers.get(eid):
+    if t := st._partial_timers.get(eid):
         t.cancel()
     if merged_obj.is_pending is False:
-        _flush_partial_event(eid)
+        _flush_partial_event(eid, state=st)
     else:
-        _partial_timers[eid] = Timer(_PARTIAL_TIMEOUT, _flush_partial_event, args=[eid])
-        _partial_timers[eid].daemon = True
-        _partial_timers[eid].start()
+        st._partial_timers[eid] = Timer(
+            _PARTIAL_TIMEOUT, _flush_partial_event, args=[eid], kwargs={"state": st}
+        )
+        st._partial_timers[eid].daemon = True
+        st._partial_timers[eid].start()
 
     if debug_logs:
         logger.debug(
@@ -1829,24 +2251,27 @@ def _should_drop_empty_ai_event(evt: PartialTrackAIEvent) -> bool:
     return not ai.input and not ai.output
 
 
-def _serialize_partial_event(evt: PartialTrackAIEvent) -> Optional[Dict[str, Any]]:
+def _serialize_partial_event(
+    evt: PartialTrackAIEvent, state: Optional[RaindropState] = None
+) -> Optional[Dict[str, Any]]:
     """Serialize a buffered partial event for ``events/track_partial``.
 
     Runs on the background flush thread (or synchronously during shutdown) —
     NOT on the caller's thread. Returns ``None`` when the event should be
     skipped (oversized).
     """
+    st = _resolve_state(state)
     # convert to ordinary TrackAIEvent-ish dict before send
     data = evt.model_dump(mode="json", exclude_none=True)
 
     # Inject wizard session if set
-    if _wizard_session is not None:
+    if st._wizard_session is not None:
         if "properties" not in data or data["properties"] is None:
             data["properties"] = {}
-        data["properties"]["raindrop.wizardSession"] = _wizard_session
+        data["properties"]["raindrop.wizardSession"] = st._wizard_session
 
     # Apply PII redaction if enabled
-    if redact_pii:
+    if st.redact_pii:
         data = perform_pii_redaction(data)
 
     size = _get_size(data)
@@ -1857,7 +2282,7 @@ def _serialize_partial_event(evt: PartialTrackAIEvent) -> Optional[Dict[str, Any
     return data
 
 
-def _flush_partial_event(event_id: str) -> None:
+def _flush_partial_event(event_id: str, state: Optional[RaindropState] = None) -> None:
     """
     Enqueue the accumulated patch for asynchronous send to `events/track_partial`.
 
@@ -1868,10 +2293,11 @@ def _flush_partial_event(event_id: str) -> None:
     caller regardless of payload size. During shutdown the event is serialized
     and sent synchronously under the shutdown deadline.
     """
-    if t := _partial_timers.pop(event_id, None):
+    st = _resolve_state(state)
+    if t := st._partial_timers.pop(event_id, None):
         t.cancel()
 
-    evt = _partial_buffers.pop(event_id, None)
+    evt = st._partial_buffers.pop(event_id, None)
     if not evt:
         return
 
@@ -1886,12 +2312,12 @@ def _flush_partial_event(event_id: str) -> None:
         )
         return
 
-    if shutdown_event.is_set():
+    if st.shutdown_event.is_set():
         # Synchronous send on the caller's thread (e.g. a late finish()
         # during atexit ordering). Guarded like the flush-thread path: a
         # serialization failure must never propagate into caller code.
         try:
-            data = _serialize_partial_event(evt)
+            data = _serialize_partial_event(evt, state=st)
         except Exception as e:
             _rate_limited_log(
                 "partial_serialize_failed",
@@ -1902,19 +2328,54 @@ def _flush_partial_event(event_id: str) -> None:
             )
             return
         if data is not None:
-            send_request("events/track_partial", data)
+            send_request("events/track_partial", data, state=st)
         return
 
-    with flush_lock:
-        if len(_partial_flush_queue) >= max_queue_size:
+    with st.flush_lock:
+        if len(st._partial_flush_queue) >= st.max_queue_size:
             _rate_limited_log(
                 "partial_queue_full",
                 logging.ERROR,
                 "Partial queue is full. Discarding event.",
             )
             return
-        _partial_flush_queue.append(evt)
-        start_flush_thread()
+        st._partial_flush_queue.append(evt)
+        start_flush_thread(state=st)
 
 
-atexit.register(shutdown)
+def _shutdown_all() -> None:
+    """atexit hook: drain the default client and all live instance states.
+
+    ALL clients — default included — share ONE overall deadline, so a
+    process with several clients and a dead network exits within the same
+    ``_SHUTDOWN_DEADLINE_SECONDS`` bound as a single-client process. Iterates
+    STATES (held strongly while their pipeline is live) rather than client
+    objects, so buffered events survive to exit even when the host app
+    dropped its last reference to the client itself.
+    """
+    deadline = time.monotonic() + _SHUTDOWN_DEADLINE_SECONDS
+    shutdown(_deadline=deadline)
+    for st in list(_instance_states):
+        try:
+            shutdown(state=st, _deadline=deadline)
+        except Exception as e:
+            logger.debug("[raindrop] instance shutdown failed: %s", e)
+
+    # Final PROCESS-GLOBAL trace flush: the OTLP pipeline outlives the client
+    # that initialized it (auto-instrumentation keeps producing spans after
+    # that client is shut down or collected), and the per-client flushes
+    # above only run _flush_traces for clients whose own tracing flag is
+    # set. Flush the shared TracerWrapper directly so spans buffered after
+    # the owner disappeared aren't dropped at exit. Gated on pipeline
+    # ownership: in never-traced processes, TracerWrapper.verify_initialized
+    # PRINTS a not-initialized warning to stdout — never pollute exits.
+    if _rd_tracing.pipeline_owner_hint() is None:
+        return
+    try:
+        if TracerWrapper.verify_initialized():
+            TracerWrapper().flush()
+    except Exception as e:
+        logger.debug("[raindrop] final global trace flush failed: %s", e)
+
+
+atexit.register(_shutdown_all)

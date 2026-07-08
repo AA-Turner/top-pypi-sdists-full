@@ -5,10 +5,11 @@
 //! `tests` module.
 
 use super::derivative_oracle::{
-    BranchCertificate, DerivativeTraceChannel, Dual, ExactTraceChannel, ExactTraceReport,
+    DerivativeTraceChannel, ExactTraceChannel, ExactTraceReport,
     MajorizerAnchorMode, PivotBranch, dual_spd_logdet, guarded_exact_trace_report,
 };
 use super::construction::{active_softmax_gershgorin_majorizer_entry, softmax_majorizer_log_mean};
+use super::dual::{Dual, DualKinkBranch};
 use super::tests::{fixed_state_logdet, gamma_fd_tiny_fixture};
 use super::*;
 
@@ -213,20 +214,6 @@ fn dual_half_logdet_trace_2156(cache: &ArrowFactorCache, h: &Array2<f64>, dh: &A
     0.5 * report.total_derivative
 }
 
-fn dual_logdet_trace_2156(
-    label: &'static str,
-    cache: &ArrowFactorCache,
-    h: &Array2<f64>,
-    dh: &Array2<f64>,
-) -> (f64, BranchCertificate) {
-    let report = dual_trace_report_2156(
-        cache,
-        h,
-        vec![(DerivativeTraceChannel::Other(label), dh.clone())],
-    );
-    (report.total_derivative, report.certificate)
-}
-
 fn relative_error_2156(exact: f64, production: f64) -> f64 {
     (exact - production).abs() / exact.abs().max(production.abs()).max(1.0)
 }
@@ -244,15 +231,6 @@ fn assert_dual_trace_matches_analytic_2156(
          dual={exact_half:.16e}, analytic={analytic_half:.16e}, rel={rel:.3e}"
     );
     rel
-}
-
-fn assert_dual_parity_2156(label: &str, dual: f64, analytic: f64) {
-    let rel = relative_error_2156(dual, analytic);
-    assert!(
-        rel < 1.0e-10,
-        "{label} dual-vs-analytic logdet derivative mismatch: \
-         dual={dual:.16e}, analytic={analytic:.16e}, rel={rel:.3e}"
-    );
 }
 
 fn row_deflation_pushforward_2156(
@@ -274,11 +252,17 @@ fn row_deflation_pushforward_2156(
     assert_eq!(u.ncols(), q, "deflation eigenbasis col count");
     let in_basis = u.t().dot(raw).dot(u);
     let mut pushed = Array2::<f64>::zeros((q, q));
-    let eps = 1.0e-12;
+    let eigen_scale = spec
+        .raw_evals
+        .iter()
+        .chain(spec.cond_evals.iter())
+        .copied()
+        .fold(0.0_f64, |scale, value| scale.max(value.abs()));
+    let gap_threshold = eigen_gap_threshold(eigen_scale, spec.raw_evals.len());
     for a in 0..q {
         for b in 0..q {
             let denom = spec.raw_evals[a] - spec.raw_evals[b];
-            let factor = if denom.abs() > eps {
+            let factor = if denom.abs() > gap_threshold {
                 (spec.cond_evals[a] - spec.cond_evals[b]) / denom
             } else if spec.cond_evals[a] == spec.raw_evals[a] {
                 1.0
@@ -496,142 +480,6 @@ fn ard_rho_derivative_matrix_2156(
     dh
 }
 
-fn theta_derivative_matrix_2156(
-    term: &SaeManifoldTerm,
-    rho: &SaeManifoldRho,
-    cache: &ArrowFactorCache,
-    row: usize,
-    local_w: usize,
-) -> Array2<f64> {
-    let total_t = cache.delta_t_len();
-    let dim = total_t + cache.k;
-    let base = cache.row_offsets[row];
-    let vars = term
-        .row_vars_for_cache_row(row, cache)
-        .expect("theta derivative row vars");
-    let seed = vars[local_w];
-    let second_jets = term.atom_second_jets().expect("second jets");
-    let border = term.border_channels_for_cache(cache).expect("border channels");
-    let mut assignments = Array1::<f64>::zeros(term.k_atoms());
-    term.assignment
-        .try_assignments_row_for_rho_into(
-            row,
-            rho,
-            assignments.as_slice_mut().expect("assignment scratch"),
-        )
-        .expect("theta derivative assignments");
-    let mut jets = term
-        .row_jets_for_logdet(rho, row, vars, assignments.view(), &second_jets, &border)
-        .expect("theta derivative row jets");
-    if term.ibp_low_rank_whiten() {
-        whiten_row_jets_for_low_rank_metric_2156(term, row, &mut jets);
-    }
-
-    let softmax_majorizer = match (term.assignment.mode, seed) {
-        (
-            AssignmentMode::Softmax {
-                temperature,
-                sparsity,
-            },
-            SaeLocalRowVar::Logit { atom },
-        ) => {
-            let scale = rho.lambda_sparse() * sparsity / (temperature * temperature);
-            let row_logits: Vec<f64> = (0..term.k_atoms())
-                .map(|k| term.assignment.logits[[row, k]])
-                .collect();
-            Some((
-                atom,
-                1.0 / temperature,
-                gam_terms::analytic_penalties::SoftmaxAssignmentSparsityPenalty::new(
-                    term.k_atoms(),
-                    temperature,
-                )
-                .row_psd_majorizer_logit_derivative(&row_logits, scale, atom),
-            ))
-        }
-        _ => None,
-    };
-    let ibp_channels =
-        ibp_assignment_third_channels(&term.assignment, rho, term.ibp_low_rank_whiten())
-            .expect("IBP theta channels");
-
-    let mut row_d = Array2::<f64>::zeros((cache.row_dims[row], cache.row_dims[row]));
-    for a in 0..jets.vars.len() {
-        for b in 0..jets.vars.len() {
-            let mut entry = match (softmax_majorizer.as_ref(), jets.vars[a], jets.vars[b]) {
-                (
-                    Some((atom_w, inv_tau, _)),
-                    SaeLocalRowVar::Coord { atom: atom_a, .. },
-                    SaeLocalRowVar::Coord { atom: atom_b, .. },
-                ) => {
-                    let h_ab = sae_dot(&jets.first[a], &jets.first[b]);
-                    h_ab
-                        * SaeManifoldTerm::softmax_data_weight_product_logit_factor(
-                            assignments.as_slice().expect("softmax assignments"),
-                            atom_a,
-                            atom_b,
-                            *atom_w,
-                            *inv_tau,
-                        )
-                }
-                _ => {
-                    sae_dot(&jets.second[a][local_w], &jets.first[b])
-                        + sae_dot(&jets.first[a], &jets.second[b][local_w])
-                }
-            };
-            if let (
-                Some((_atom_w, _inv_tau, majorizer)),
-                SaeLocalRowVar::Logit { atom: atom_a },
-                SaeLocalRowVar::Logit { atom: atom_b },
-            ) = (softmax_majorizer.as_ref(), jets.vars[a], jets.vars[b])
-            {
-                if atom_a == atom_b {
-                    entry += majorizer[[atom_a, atom_a]];
-                }
-            }
-            if a == b {
-                entry += match jets.vars[a] {
-                    SaeLocalRowVar::Logit { atom } => term
-                        .assignment_prior_hdiag_derivative_entry(
-                            rho,
-                            row,
-                            atom,
-                            seed,
-                            ibp_channels.as_ref(),
-                        ),
-                    SaeLocalRowVar::Coord { atom, axis } if a == local_w => {
-                        term.ard_majorized_hessian_derivative(rho, row, atom, axis)
-                    }
-                    _ => 0.0,
-                };
-            }
-            row_d[[a, b]] = entry;
-        }
-    }
-
-    let row_d = row_deflation_pushforward_2156(cache, row, &row_d);
-    let mut dh = Array2::<f64>::zeros((dim, dim));
-    add_row_block_2156(&mut dh, cache, row, &row_d);
-    for a in 0..jets.vars.len() {
-        for (beta_pos, channel) in border.iter().enumerate() {
-            let entry = sae_dot(&jets.second[a][local_w], &jets.beta[beta_pos])
-                + sae_dot(&jets.first[a], &jets.beta_deriv[local_w][beta_pos]);
-            let t_idx = base + a;
-            let b_idx = total_t + channel.index;
-            dh[[t_idx, b_idx]] = entry;
-            dh[[b_idx, t_idx]] = entry;
-        }
-    }
-    for (beta_i, channel_i) in border.iter().enumerate() {
-        for (beta_j, channel_j) in border.iter().enumerate() {
-            let entry = sae_dot(&jets.beta_deriv[local_w][beta_i], &jets.beta[beta_j])
-                + sae_dot(&jets.beta[beta_i], &jets.beta_deriv[local_w][beta_j]);
-            dh[[total_t + channel_i.index, total_t + channel_j.index]] = entry;
-        }
-    }
-    dh
-}
-
 fn dual_logdet_channel_2156(
     channel: DerivativeTraceChannel,
     h: &Array2<f64>,
@@ -650,8 +498,8 @@ fn dual_logdet_channel_2156(
     let logdet = dual_spd_logdet(&matrix).expect("dual SPD logdet channel");
     ExactTraceChannel {
         channel,
-        value: logdet.value,
-        derivative: logdet.derivative,
+        value: logdet.re,
+        derivative: logdet.eps,
         certificate,
     }
 }
@@ -748,7 +596,7 @@ fn softmax_logit_dual_channel_report_2156(
     for atom in 0..term.k_atoms() {
         assert_close_2156(
             "dual softmax value",
-            dual_a[atom].value,
+            dual_a[atom].re,
             assignments[atom],
             1.0,
         );
@@ -1078,6 +926,17 @@ fn configure_decisive_softmax_logits_2156(term: &mut SaeManifoldTerm) {
 }
 
 fn assert_branch_certificate_green_2156(label: &str, certificate: &BranchCertificate) {
+    certificate
+        .assert_derivative_reportable()
+        .unwrap_or_else(|err| panic!("{label} derivative branch must be reportable: {err}"));
+    assert!(
+        certificate
+            .kink_branches
+            .iter()
+            .all(|record| record.branch != DualKinkBranch::Tie),
+        "{label} kink branch certificate must not contain a tie: {:?}",
+        certificate.kink_branches
+    );
     assert_eq!(
         certificate.min_row_pivot_branch,
         PivotBranch::Positive,
@@ -1166,9 +1025,24 @@ fn assert_dual_rho_logdet_parity_2156(
     max_rel
 }
 
-fn assert_dual_theta_logdet_parity_2156(
+fn perturb_theta_slot_2156(term: &mut SaeManifoldTerm, row: usize, var: SaeLocalRowVar, delta: f64) {
+    match var {
+        SaeLocalRowVar::Logit { atom } => {
+            term.assignment.logits[[row, atom]] += delta;
+        }
+        SaeLocalRowVar::Coord { atom, axis } => {
+            let mut flat = term.assignment.coords[atom].as_flat().clone();
+            let idx = row * term.assignment.coords[atom].latent_dim() + axis;
+            flat[idx] += delta;
+            term.assignment.coords[atom].set_flat(flat.view());
+        }
+    }
+}
+
+fn assert_live_theta_logdet_fd_2156(
     label: &str,
     term: &SaeManifoldTerm,
+    target: &Array2<f64>,
     rho: &SaeManifoldRho,
     cache: &ArrowFactorCache,
     probes: &[(usize, usize)],
@@ -1176,25 +1050,33 @@ fn assert_dual_theta_logdet_parity_2156(
     let certificate =
         BranchCertificate::from_arrow_cache(cache, MajorizerAnchorMode::FrozenAnchor);
     assert_branch_certificate_green_2156(label, &certificate);
-    eprintln!("gam#2156 {label} theta branch certificate: {certificate:?}");
-    let h = dense_cached_arrow_hessian_2156(cache);
+    eprintln!("gam#2156 {label} live-theta branch certificate: {certificate:?}");
     let solver = DeflatedArrowSolver::plain(cache);
     let gamma = term
         .logdet_theta_adjoint(rho, cache, &solver)
         .expect("production theta adjoint");
+    let h = 1.0e-5;
     let mut max_rel = 0.0_f64;
     for &(row, local_pos) in probes {
-        let dh = theta_derivative_matrix_2156(term, rho, cache, row, local_pos);
-        let (dual, theta_certificate) = dual_logdet_trace_2156("theta", cache, &h, &dh);
-        eprintln!(
-            "gam#2156 {label} theta row={row} local_pos={local_pos} branch certificate: {theta_certificate:?}"
-        );
+        let vars = term
+            .row_vars_for_cache_row(row, cache)
+            .expect("live theta FD row vars");
+        let var = vars[local_pos];
+        let mut plus = term.clone();
+        let mut minus = term.clone();
+        perturb_theta_slot_2156(&mut plus, row, var, h);
+        perturb_theta_slot_2156(&mut minus, row, var, -h);
+        let fd =
+            (fixed_state_logdet(plus, target, rho) - fixed_state_logdet(minus, target, rho))
+                / (2.0 * h);
         let analytic = gamma.t[cache.row_offsets[row] + local_pos];
-        let rel = relative_error_2156(dual, analytic);
-        assert_dual_parity_2156(
-            &format!("{label} theta row={row} local_pos={local_pos}"),
-            dual,
-            analytic,
+        let rel = relative_error_2156(fd, analytic);
+        let tol = 3.0e-3 * (1.0 + fd.abs().max(analytic.abs()));
+        assert!(
+            (fd - analytic).abs() <= tol,
+            "{label} live θ logdet FD mismatch row={row} local_pos={local_pos}: \
+             fd={fd:.12e}, gamma={analytic:.12e}, abs_err={:.3e}, tol={tol:.3e}",
+            (fd - analytic).abs()
         );
         max_rel = max_rel.max(rel);
     }
@@ -1265,9 +1147,10 @@ pub(crate) fn end_to_end_dual_vs_analytic_logdet_parity_battery_2156_2144() {
     let softmax_theta_probes: Vec<(usize, usize)> = (0..softmax_cache.n_rows())
         .flat_map(|row| (0..softmax_cache.row_dims[row]).map(move |local| (row, local)))
         .collect();
-    let softmax_theta_max_rel = assert_dual_theta_logdet_parity_2156(
+    let softmax_theta_max_rel = assert_live_theta_logdet_fd_2156(
         "softmax",
         &softmax_term,
+        &target,
         &softmax_rho,
         &softmax_cache,
         &softmax_theta_probes,
@@ -1305,6 +1188,17 @@ pub(crate) fn end_to_end_dual_vs_analytic_logdet_parity_battery_2156_2144() {
         ibp_term.ibp_low_rank_whiten() && low_rank_certificate.cross_row_woodbury_rank > 0,
         "IBP parity fixture must exercise the low-rank metric and IBP Woodbury branch; \
          certificate={low_rank_certificate:?}"
+    );
+    let ibp_theta_probes: Vec<(usize, usize)> = (0..ibp_cache.n_rows())
+        .flat_map(|row| (0..ibp_cache.row_dims[row]).map(move |local| (row, local)))
+        .collect();
+    let ibp_theta_max_rel = assert_live_theta_logdet_fd_2156(
+        "low_rank_metric_ibp",
+        &ibp_term,
+        &ibp_target,
+        &ibp_rho,
+        &ibp_cache,
+        &ibp_theta_probes,
     );
     let ibp_max_rel = assert_dual_rho_logdet_parity_2156(
         "low_rank_metric_ibp",
@@ -1345,6 +1239,17 @@ pub(crate) fn end_to_end_dual_vs_analytic_logdet_parity_battery_2156_2144() {
                 .any(|&flag| flag),
         "deflated parity fixture must exercise deflated rows; certificate={deflated_certificate:?}"
     );
+    let deflated_theta_probes: Vec<(usize, usize)> = (0..deflated_cache.n_rows())
+        .flat_map(|row| (0..deflated_cache.row_dims[row]).map(move |local| (row, local)))
+        .collect();
+    let deflated_theta_max_rel = assert_live_theta_logdet_fd_2156(
+        "deflated_rows_ibp_theta",
+        &deflated_term,
+        &deflated_target,
+        &deflated_rho,
+        &deflated_cache,
+        &deflated_theta_probes,
+    );
     let deflated_ard_max_rel = assert_dual_ard_logdet_parity_2156(
         "deflated_rows_ard",
         &deflated_term,
@@ -1353,7 +1258,7 @@ pub(crate) fn end_to_end_dual_vs_analytic_logdet_parity_battery_2156_2144() {
     );
 
     eprintln!(
-        "gam#2156/#2144 dual logdet parity max_rel: softmax_theta={softmax_theta_max_rel:.3e}, softmax_rho={softmax_max_rel:.3e}, low_rank_metric_ibp_rho={ibp_max_rel:.3e}, deflated_ard={deflated_ard_max_rel:.3e}"
+        "gam#2156/#2144 logdet parity max_rel: softmax_theta_live_fd={softmax_theta_max_rel:.3e}, softmax_rho={softmax_max_rel:.3e}, low_rank_metric_ibp_theta_live_fd={ibp_theta_max_rel:.3e}, low_rank_metric_ibp_rho={ibp_max_rel:.3e}, deflated_ibp_theta_live_fd={deflated_theta_max_rel:.3e}, deflated_ard={deflated_ard_max_rel:.3e}"
     );
 }
 
@@ -1625,8 +1530,9 @@ pub(crate) fn sae_logdet_theta_adjoint_logit0_dense_trace_localization_2156() {
 
     let h_dense = dense_cached_arrow_hessian_2156(&cache);
     let dense_value = dense_cholesky_logdet_2156(&h_dense);
-    let (cache_tt, cache_beta) = cache.arrow_log_det();
-    let cache_value = cache_tt + cache_beta.expect("dense Schur logdet");
+    let cache_value = cache
+        .arrow_log_det()
+        .expect("authoritative cache joint logdet");
     let evidence_value =
         arrow_log_det_from_cache(&cache).expect("evidence arrow logdet from cache");
     eprintln!(
@@ -1655,17 +1561,18 @@ pub(crate) fn sae_logdet_theta_adjoint_logit0_dense_trace_localization_2156() {
     };
     let fd_total = (at(h) - at(-h)) / (2.0 * h);
     eprintln!(
-        "gam#2156 row=0 logit=0 dense_trace={trace:.12e} gamma={analytic:.12e} fd_total={fd_total:.12e}"
+        "gam#2156 row=0 logit=0 dense_trace={trace:.12e} gamma={analytic:.12e} fd_total={fd_total:.12e} gamma_live_fd_abs_err={:.12e}",
+        (analytic - fd_total).abs()
     );
     let trace_tol = 1.0e-5 * (1.0 + trace.abs().max(fd_total.abs()));
     assert!(
         (trace - fd_total).abs() <= trace_tol,
         "gam#2156 operator mismatch: dense trace from row jets does not match fixed-state FD: trace={trace:.12e}, fd_total={fd_total:.12e}"
     );
-    let gamma_tol = 1.0e-5 * (1.0 + analytic.abs().max(trace.abs()));
+    let gamma_tol = 1.0e-5 * (1.0 + analytic.abs().max(fd_total.abs()));
     assert!(
-        (analytic - trace).abs() <= gamma_tol,
-        "gam#2156 trace assembly mismatch: gamma={analytic:.12e}, dense trace={trace:.12e}, fd_total={fd_total:.12e}"
+        (analytic - fd_total).abs() <= gamma_tol,
+        "gam#2156 live objective mismatch: gamma={analytic:.12e}, fd_total={fd_total:.12e}, dense trace={trace:.12e}"
     );
 }
 
@@ -1874,8 +1781,8 @@ pub(crate) fn ibp_rho_trace_matches_exact_numerical_oracle_1416() {
         let mut r = rho.clone();
         r.log_lambda_sparse += dr;
         let c = ibp_1416_oracle_cache(&term, &r);
-        let (tt, beta) = c.arrow_log_det();
-        tt + beta.unwrap_or(0.0)
+        c.arrow_log_det()
+            .expect("authoritative IBP oracle rho logdet")
     };
     let h = 1.0e-6;
     let fd_half = 0.5 * (fd_rho(h) - fd_rho(-h)) / (2.0 * h);
@@ -1922,8 +1829,8 @@ pub(crate) fn ibp_logit_adjoint_matches_exact_numerical_oracle_1416() {
         let mut t = term.clone();
         t.assignment.logits[[1, 0]] += dl;
         let c = ibp_1416_oracle_cache_with_coord(&t, &rho);
-        let (tt, beta) = c.arrow_log_det();
-        tt + beta.unwrap_or(0.0)
+        c.arrow_log_det()
+            .expect("authoritative IBP oracle theta logdet")
     };
     let h = 1.0e-6;
     let fd = (fd_logdet(h) - fd_logdet(-h)) / (2.0 * h);
@@ -2176,6 +2083,105 @@ pub(crate) fn sae_logdet_theta_adjoint_matches_dense_fd_ibp_low_rank_metric_2144
         assert!(
             (fd - analytic).abs() <= tol,
             "majorized IBP Gamma row={row} local_pos={local_pos}: fd={fd:.8e}, analytic={analytic:.8e}"
+        );
+    }
+}
+
+/// gam#2144 — the log-det row jets must be whitened whenever the metric
+/// `whitens_likelihood()` at ANY rank, not only when rank-deficient. The
+/// arrow-Schur assembly builds the likelihood Hessian from whitened Jacobians
+/// (`Jᵀ U Uᵀ J`) under any whitening factor, so a FULL-RANK non-identity factor
+/// (here `diag(1, 2, 1.5)`, `rank == p == 3`) rescales the output-space
+/// derivatives just like a low-rank sketch does. The pre-fix code gated jet
+/// whitening on `ibp_low_rank_whiten()` (`whitens_likelihood && rank < p`), so
+/// full-rank whitening left the row jets in RAW output space — differentiating
+/// `JᵀJ` against an assembled `Jᵀ U Uᵀ J`. This pins the production
+/// `logdet_theta_adjoint` against a fixed-state central difference of the
+/// authoritative whitened joint `log|H|`; the unpatched (identity-on-the-jet)
+/// path fails it.
+#[test]
+pub(crate) fn sae_logdet_theta_adjoint_matches_dense_fd_full_rank_whitening_2144() {
+    use gam_problem::RowMetric;
+    use std::sync::Arc;
+    let (mut term, target, mut rho) = gamma_fd_tiny_fixture();
+    term.assignment.mode = AssignmentMode::ibp_map(0.7, 0.9, false);
+    let n = term.n_obs();
+    let p = term.output_dim();
+    // Full-rank (rank == p) DIAGONAL non-identity whitening factor U = diag(d).
+    // M_n = U Uᵀ = diag(d²) is genuinely non-identity, so the whitened Jacobian
+    // Jᵀ U Uᵀ J ≠ JᵀJ, yet the metric has NO null space — `ibp_low_rank_whiten()`
+    // is false while `whiten_logdet_row_jets()` is true.
+    let d = [1.0_f64, 2.0, 1.5];
+    assert_eq!(p, d.len(), "diagonal whitening factor width must equal p");
+    let s = p;
+    let mut u = Array2::<f64>::zeros((n, p * s));
+    for row in 0..n {
+        for i in 0..p {
+            u[[row, i * s + i]] = d[i];
+        }
+    }
+    term.set_row_metric(RowMetric::behavioral_fisher(Arc::new(u), p, s).unwrap())
+        .unwrap();
+    assert!(
+        term.whiten_logdet_row_jets(),
+        "full-rank whitening metric must whiten the log-det row jets"
+    );
+    assert!(
+        !term.ibp_low_rank_whiten(),
+        "rank-{s} == p={p} metric must NOT engage the low-rank IBP majorizer"
+    );
+    // Full-rank whitening does NOT engage the low-rank PSD majorizer
+    // (`ibp_low_rank_whiten() == false`), so the fixed-alpha `ibp_map` joint
+    // Hessian is un-majorized and shares the #1416 non-PD landscape: at
+    // `log_lambda_sparse = 0.5` (the level the low-rank sibling can use because
+    // its majorizer keeps the IBP curvature PD) the reduced Schur complement is
+    // indefinite and setup fails. Sit in the same PD island #1416 uses
+    // (`ρ_sparse ∈ [−1.0, −0.4]`, interior `−0.8`); the diagonal whitening only
+    // amplifies the data curvature there (channel-1 gets `d² = 4×`), so the
+    // island stays solidly PD while `Jᵀ U Uᵀ J ≠ JᵀJ` still discriminates the
+    // whitened row jets from the raw (unpatched) ones. Setup fix only — no
+    // tolerance weakened.
+    rho.log_lambda_sparse = -0.8;
+    let (_value, _loss, cache) = term
+        .reml_criterion_with_cache(target.view(), &rho, None, 200, 0.4, 1.0e-6, 1.0e-6)
+        .expect("converged full-rank whitened cache");
+    let solver = DeflatedArrowSolver::plain(&cache);
+    let gamma = term
+        .logdet_theta_adjoint(&rho, &cache, &solver)
+        .expect("Gamma");
+    let h = 1.0e-5;
+    let probes_idx = [
+        (0usize, 0usize, SaeLocalRowVar::Logit { atom: 0 }),
+        (4usize, 1usize, SaeLocalRowVar::Logit { atom: 1 }),
+        (1usize, 2usize, SaeLocalRowVar::Coord { atom: 0, axis: 0 }),
+        (6usize, 3usize, SaeLocalRowVar::Coord { atom: 1, axis: 0 }),
+    ];
+    for (row, local_pos, var) in probes_idx {
+        let mut plus = term.clone();
+        let mut minus = term.clone();
+        match var {
+            SaeLocalRowVar::Logit { atom } => {
+                plus.assignment.logits[[row, atom]] += h;
+                minus.assignment.logits[[row, atom]] -= h;
+            }
+            SaeLocalRowVar::Coord { atom, axis } => {
+                let mut flat_p = plus.assignment.coords[atom].as_flat().clone();
+                let mut flat_m = minus.assignment.coords[atom].as_flat().clone();
+                let idx = row * plus.assignment.coords[atom].latent_dim() + axis;
+                flat_p[idx] += h;
+                flat_m[idx] -= h;
+                plus.assignment.coords[atom].set_flat(flat_p.view());
+                minus.assignment.coords[atom].set_flat(flat_m.view());
+            }
+        }
+        let fd = (fixed_state_logdet(plus, &target, &rho)
+            - fixed_state_logdet(minus, &target, &rho))
+            / (2.0 * h);
+        let analytic = gamma.t[cache.row_offsets[row] + local_pos];
+        let tol = 3.0e-3 * (1.0 + fd.abs().max(analytic.abs()));
+        assert!(
+            (fd - analytic).abs() <= tol,
+            "full-rank whitened Gamma row={row} local_pos={local_pos}: fd={fd:.8e}, analytic={analytic:.8e}"
         );
     }
 }

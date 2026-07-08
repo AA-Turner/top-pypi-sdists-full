@@ -1,4 +1,5 @@
 from __future__ import annotations
+
 from dataclasses import dataclass, field
 
 @dataclass(frozen=True)
@@ -18,13 +19,10 @@ class CatalogModel:
     category: str = "general"  # coding, reasoning, general, vision, small, embedding
     default: bool = False  # Whether this is a default-install model
 
+GCS_BUCKET = "https://storage.googleapis.com/sage-ai-models"
 
-# ── GCS public bucket (primary) + HuggingFace (fallback) ──
+def _gcs_url(path: str) -> str:
+    return f"{GCS_BUCKET}/gguf/{path}"
 
-GCS_BUCKET = "https://storage.googleapis.com/sage-ai-models/gguf"
-
-def _gcs_url(filename: str) -> str:
-    return f"{GCS_BUCKET}/{filename}"
-
-def _hf_url(repo: str, filename: str) -> str:
-    return f"https://huggingface.co/{repo}/resolve/main/{filename}"
+def _hf_url(repo: str, file: str) -> str:
+    return f"https://huggingface.co/{repo}/resolve/main/{file}"

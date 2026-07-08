@@ -207,6 +207,7 @@ impl SaeManifoldTerm {
             evidence_gauge_deflation_last_delta_sign: 0,
             dictionary_cocollapse_reseeds: 0,
             best_cocollapse_incumbent: None,
+            structural_cocollapse_reseeds: 0,
             decoder_repulsion_gate: None,
             barrier_coactivation_gate: None,
             // #1801 — default false: the dense/full-batch assembly refreshes the
@@ -389,6 +390,7 @@ impl SaeManifoldTerm {
         primary.evidence_gauge_deflation_last_delta_sign = 0;
         primary.dictionary_cocollapse_reseeds = 0;
         primary.best_cocollapse_incumbent = None;
+        primary.structural_cocollapse_reseeds = 0;
         // Stale tier-1 diagnostics — rebuilt at the next assembly / post-fit pass.
         primary.collapse_events = Vec::new();
         primary.curvature_walk_report = None;
@@ -2238,11 +2240,31 @@ impl SaeManifoldTerm {
     /// θ-adjoint / ρ-trace contractions read this to differentiate the SAME
     /// majorized operator the evidence log-det factors. `false` (bit-identical
     /// legacy path) for the identity metric (`rank == p`) or no metric.
+    ///
+    /// NOTE: this gates the low-rank PSD *majorization* ONLY. Whitening of the
+    /// log-det row jets is a separate concern — the assembly whitens the
+    /// likelihood Hessian (`JᵀU UᵀJ`) whenever the metric `whitens_likelihood()`,
+    /// at ANY rank, so the row jets must be whitened under the same predicate
+    /// (`whiten_logdet_row_jets()`), NOT only when rank-deficient. A full-rank
+    /// non-identity whitening factor (e.g. `diag(1,2)`) still rescales the
+    /// output-space derivatives; gating whitening on rank-deficiency alone would
+    /// differentiate `JᵀJ` against an assembled `JᵀU UᵀJ`.
     pub(crate) fn ibp_low_rank_whiten(&self) -> bool {
         let p = self.output_dim();
         self.row_metric
             .as_ref()
             .is_some_and(|m| m.whitens_likelihood() && m.metric_rank() < p)
+    }
+
+    /// gam#2144 — `true` when the installed row metric whitens the likelihood at
+    /// ANY rank. Drives whitening of the log-det row jets so they differentiate
+    /// the SAME whitened operator (`JᵀU UᵀJ`) the assembly builds. Independent of
+    /// [`ibp_low_rank_whiten`], which additionally requires rank-deficiency for
+    /// the PSD majorization. `false` for the identity metric or no metric.
+    pub(crate) fn whiten_logdet_row_jets(&self) -> bool {
+        self.row_metric
+            .as_ref()
+            .is_some_and(|m| m.whitens_likelihood())
     }
 
     pub fn beta_dim(&self) -> usize {
@@ -3583,11 +3605,12 @@ impl SaeManifoldTerm {
 
     /// #1026 — the fitted per-row assignment masses `a[i,k]` (the activation
     /// amplitudes `z_k` the amortized encode recovers `t` against), as an
-    /// `n × K` matrix. These are exactly the masses
-    /// [`Self::try_fitted_with_rho`] assembles the reconstruction from, so
-    /// feeding them to [`Self::amortized_encode_target`] re-encodes the SAME
-    /// inference the dictionary was fit against — the self-consistency the
-    /// distilled encoder is supervised to approximate.
+    /// `n × K` matrix. These are the realised positive intensities
+    /// `a_{ik}·exp(s_k)` that [`Self::try_fitted_with_rho`] multiplies into each
+    /// atom's unit-shape decoded row.  The gate `a_{ik}` remains the existence
+    /// posterior/indicator, while the atom log-amplitude `s_k` is the radial
+    /// intensity scale; feeding the product to [`Self::amortized_encode_target`]
+    /// re-encodes the SAME inference the dictionary was fit against.
     pub fn fitted_assignment_amplitudes(
         &self,
         rho: &SaeManifoldRho,
@@ -3598,7 +3621,8 @@ impl SaeManifoldTerm {
         for row in 0..n {
             let a = self.assignment.try_assignments_row_for_rho(row, rho)?;
             for atom_idx in 0..k_atoms {
-                amplitudes[[row, atom_idx]] = a[atom_idx];
+                amplitudes[[row, atom_idx]] =
+                    a[atom_idx] * self.atoms[atom_idx].log_amplitude.exp();
             }
         }
         Ok(amplitudes)
@@ -3987,6 +4011,19 @@ impl SaeManifoldTerm {
         let n = self.n_obs();
         let p = self.output_dim();
         let k_atoms = self.k_atoms();
+        // #Bug2: reconstruct over the SAME per-row active support the compact
+        // Arrow-Schur assembly used, so this scalar objective value and the
+        // assembled Newton gradient/Hessian are derivatives of ONE truncated
+        // reconstruction. When a compact layout is engaged (softmax top-k /
+        // large-K IBP), the assembly forms `fitted` from the row's active atoms
+        // only; summing all K here would make `loss_scaled` a DIFFERENT objective
+        // than the Newton step descends whenever dropped atoms carry mass. `None`
+        // (dense layout) ⇒ the historical full-K sum, bit-for-bit. Guarded on the
+        // row count so a stale/foreign layout is never mis-indexed.
+        let recon_layout = self
+            .last_row_layout
+            .as_ref()
+            .filter(|l| l.active_atoms.len() == n);
         // #1017: the data-fit is the dominant per-line-search-trial cost (it
         // re-runs every Armijo halving × every inner Newton iteration × every
         // outer ρ evaluation). The old path materialised the whole `n × p`
@@ -4019,11 +4056,26 @@ impl SaeManifoldTerm {
             for slot in fitted_row.iter_mut() {
                 *slot = 0.0;
             }
-            for atom_idx in 0..k_atoms {
-                self.atoms[atom_idx].fill_decoded_row(row, g_buf);
-                let a_k = a[atom_idx];
-                for out_col in 0..p {
-                    fitted_row[out_col] += a_k * g_buf[out_col];
+            match recon_layout {
+                // Compact active support: reconstruct only the row's active atoms,
+                // exactly as the compact assembly forms `fitted`.
+                Some(layout) => {
+                    for &atom_idx in &layout.active_atoms[row] {
+                        self.atoms[atom_idx].fill_decoded_row(row, g_buf);
+                        let a_k = a[atom_idx];
+                        for out_col in 0..p {
+                            fitted_row[out_col] += a_k * g_buf[out_col];
+                        }
+                    }
+                }
+                None => {
+                    for atom_idx in 0..k_atoms {
+                        self.atoms[atom_idx].fill_decoded_row(row, g_buf);
+                        let a_k = a[atom_idx];
+                        for out_col in 0..p {
+                            fitted_row[out_col] += a_k * g_buf[out_col];
+                        }
+                    }
                 }
             }
             for out_col in 0..p {
@@ -4595,12 +4647,14 @@ impl SaeManifoldTerm {
         layout: &SaeRowLayout,
     ) -> (LatentManifold, Array1<f64>) {
         let active = &layout.active_atoms[row];
+        let logit_atoms = &layout.logit_atoms[row];
         let q_active = layout.row_q_active(row);
-        let mut parts: Vec<LatentManifold> = Vec::with_capacity(active.len() + active.len());
+        let mut parts: Vec<LatentManifold> = Vec::with_capacity(logit_atoms.len() + active.len());
         let mut point = Array1::<f64>::zeros(q_active);
-        // Logit slots: one Euclidean part per active atom, in `active` order.
+        // Logit slots: one Euclidean part per FREE-logit atom (softmax's reference
+        // atom has coords but no logit slot; `logit_atoms == active` otherwise). (#Bug1)
         let logits_row = self.assignment.logits.row(row);
-        for (j, &k) in active.iter().enumerate() {
+        for (j, &k) in logit_atoms.iter().enumerate() {
             parts.push(LatentManifold::Euclidean);
             point[j] = logits_row[k];
         }
@@ -5607,8 +5661,9 @@ impl SaeManifoldTerm {
             };
             let stalled = new_loss_total.is_finite()
                 && relative_decrease.is_finite()
-                && (relative_decrease < SAE_MANIFOLD_INNER_OBJECTIVE_STALL_REL_TOL
-                    || captured_fraction < SAE_MANIFOLD_INNER_OBJECTIVE_STALL_FRACTION);
+                && captured_fraction.is_finite()
+                && relative_decrease < SAE_MANIFOLD_INNER_OBJECTIVE_STALL_REL_TOL
+                && captured_fraction < SAE_MANIFOLD_INNER_OBJECTIVE_STALL_FRACTION;
             previous_loss_total = new_loss_total;
             if stalled && refine_rounds >= SAE_MANIFOLD_INNER_OBJECTIVE_STALL_MIN_ROUNDS {
                 let stationary_sys = self
@@ -5634,13 +5689,16 @@ impl SaeManifoldTerm {
                     {
                         return Ok(stationary_cache);
                     }
-                    return Err(format!(
-                        "SaeManifoldTerm::reml_criterion: objective stalled but the stalled \
-                         point is not stationary (‖g‖={stationary_grad_norm:.6e}, \
-                         ‖Π⊥gauge g‖={stationary_quotient_grad_norm:.6e}, \
-                         tol {grad_tolerance:.6e}); refusing to rank an off-optimum \
-                         Laplace criterion"
-                    ));
+                    // A flat objective round is only a convergence shortcut when
+                    // the KKT certificate above is stationary. If not, keep using
+                    // the deterministic refinement budget: either later rounds
+                    // reach stationarity, or the normal `total_inner_iter >=
+                    // refine_limit` branch reports non-convergence without
+                    // ranking an off-optimum Laplace criterion. Returning `Err`
+                    // here was too strong for K=1 circle fits: one weakly
+                    // identified round could abort a still-descending solve and
+                    // poison the outer BFGS line search with a false value-probe
+                    // refusal.
                 }
                 // Stagnated AND the undamped factor still fails: this is the
                 // numerical fixed point of the inner solve under rank-deficient
@@ -6256,7 +6314,8 @@ impl SaeManifoldTerm {
                 .iter()
                 .map(|coord| coord.as_matrix().slice(s![0..n_total, ..]).to_owned())
                 .collect();
-            let mut full_chunk = self.materialize_chunk(full_logits, full_coords)?;
+            let mut full_chunk =
+                self.materialize_chunk(full_logits, full_coords, self.chunk_frozen_logits(0, n_total))?;
             if let Some(w) = self.row_loss_weights.as_deref() {
                 full_chunk.row_loss_weights = Some(w[0..n_total].to_vec());
             }
@@ -6336,7 +6395,11 @@ impl SaeManifoldTerm {
                 .iter()
                 .map(|coord| coord.as_matrix().slice(s![start..end, ..]).to_owned())
                 .collect();
-            let mut chunk = self.materialize_chunk(chunk_logits, chunk_coords)?;
+            let mut chunk = self.materialize_chunk(
+                chunk_logits,
+                chunk_coords,
+                self.chunk_frozen_logits(start, end),
+            )?;
             // #1117 — rank deficiency is removed at the basis layer at fit entry
             // (`reduce_atoms_to_data_supported_rank`), so each chunk inherits the
             // already-reduced full-rank atoms via `materialize_chunk`; there are
@@ -6674,10 +6737,13 @@ impl SaeManifoldTerm {
                         );
                         let a = a.as_slice().expect("softmax row must be contiguous");
                         let m = softmax_majorizer_log_mean(a);
-                        for (pos, &atom) in layout.active_atoms[row].iter().enumerate() {
+                        // #Bug1: only FREE-logit atoms carry a compact logit slot; the
+                        // softmax reference atom (last active) has none — matching the
+                        // dense branch which sums only the K−1 free logit slots.
+                        for (j, &atom) in layout.logit_atoms[row].iter().enumerate() {
                             let d_atom =
                                 active_softmax_gershgorin_majorizer_entry(a, atom, m, scale);
-                            trace += inv_diag[row_base + pos] * d_atom;
+                            trace += inv_diag[row_base + j] * d_atom;
                         }
                     }
                     None => {
@@ -7110,11 +7176,16 @@ impl SaeManifoldTerm {
         let w = u.t().dot(inv_vv).dot(u);
         // correction = Σ_{m,l} W[m,l]·M[m,l]·(1 − F[m,l]).
         let mut acc = 0.0_f64;
-        let eps = 1.0e-12;
+        let eigen_scale = raw
+            .iter()
+            .chain(cond.iter())
+            .copied()
+            .fold(0.0_f64, |scale, value| scale.max(value.abs()));
+        let gap_threshold = eigen_gap_threshold(eigen_scale, raw.len());
         for a in 0..q {
             for b in 0..q {
                 let denom = raw[a] - raw[b];
-                let f1 = if denom.abs() > eps {
+                let f1 = if denom.abs() > gap_threshold {
                     (cond[a] - cond[b]) / denom
                 } else if cond[a] == raw[a] {
                     1.0
@@ -7122,24 +7193,6 @@ impl SaeManifoldTerm {
                     0.0
                 };
                 acc += w[[a, b]] * m[[a, b]] * (1.0 - f1);
-            }
-        }
-        acc
-    }
-
-    fn deflated_unit_stiffening_contraction(d_mat: &Array2<f64>, dirs: &[Array1<f64>]) -> f64 {
-        let q = d_mat.nrows();
-        let mut acc = 0.0_f64;
-        for v in dirs {
-            for a in 0..q {
-                let va = if a < v.len() { v[a] } else { 0.0 };
-                if va == 0.0 {
-                    continue;
-                }
-                for b in 0..q {
-                    let vb = if b < v.len() { v[b] } else { 0.0 };
-                    acc += va * vb * d_mat[[a, b]];
-                }
             }
         }
         acc
@@ -7252,8 +7305,8 @@ impl SaeManifoldTerm {
             let mut jets = jet_window
                 .pop_front()
                 .expect("jet window must be non-empty");
-            if self.ibp_low_rank_whiten() {
-                self.whiten_logdet_row_jets_for_low_rank_metric(row, &mut jets)?;
+            if self.whiten_logdet_row_jets() {
+                self.apply_whiten_to_logdet_row_jets(row, &mut jets)?;
             }
             // Atom index (k-weight) of each local t-var.
             let var_atom: Vec<usize> = jets
@@ -7466,6 +7519,14 @@ impl SaeManifoldTerm {
                 let mut contribution = 0.0_f64;
                 match *var {
                     SaeLocalRowVar::Logit { atom } => {
+                        // #Bug4: a FIXED logit (ungated atom, or every atom under
+                        // frozen routing) is not a free Newton parameter — its
+                        // assembled gradient/Hessian slots are zeroed — so the
+                        // log-α × logit data mixed derivative on that slot must be
+                        // zero too. Skip it (leave `contribution == 0`).
+                        if self.assignment.logit_is_fixed(atom) {
+                            continue;
+                        }
                         let sigma = assignments[atom] / prior[atom];
                         let sigma_jac = sigma * (1.0 - sigma) * inv_tau;
                         let da_dl = sigma_jac * prior[atom];
@@ -7561,8 +7622,12 @@ impl SaeManifoldTerm {
         let mut vars: Vec<Option<SaeLocalRowVar>> = vec![None; q_row];
         match self.last_row_layout {
             Some(ref layout) => {
+                // #Bug1: logit vars go on the leading free-logit slots; the softmax
+                // reference atom takes a coord block but no logit slot.
+                for (j, &atom) in layout.logit_atoms[row].iter().enumerate() {
+                    vars[j] = Some(SaeLocalRowVar::Logit { atom });
+                }
                 for (pos, &atom) in layout.active_atoms[row].iter().enumerate() {
-                    vars[pos] = Some(SaeLocalRowVar::Logit { atom });
                     let start = layout.coord_starts[row][pos];
                     let d = self.assignment.coords[atom].latent_dim();
                     for axis in 0..d {
@@ -7657,6 +7722,15 @@ impl SaeManifoldTerm {
         let SaeLocalRowVar::Logit { atom: wrt_atom } = wrt else {
             return 0.0;
         };
+        // #Bug4: a FIXED logit (ungated atom, or every atom under frozen routing)
+        // has its assembled `htt` diagonal entry ZEROED (see
+        // `assignment_prior_grad_hdiag`), so the θ-adjoint third derivative of that
+        // zeroed entry must also be zero. Mirror the IBP channel zeroing in
+        // `ibp_assignment_third_channels`. The ThresholdGate/IBP branches below are
+        // both diagonal (`diag_atom == wrt_atom`), so masking on `wrt_atom` suffices.
+        if self.assignment.logit_is_fixed(wrt_atom) {
+            return 0.0;
+        }
         match self.assignment.mode {
             AssignmentMode::Softmax { .. } => {
                 // #1038: the softmax entropy Hessian is now stored DENSE in
@@ -7766,8 +7840,11 @@ impl SaeManifoldTerm {
                 let assignment_base = row * k_atoms;
                 match self.last_row_layout {
                     Some(ref layout) => {
-                        for (pos, &atom) in layout.active_atoms[row].iter().enumerate() {
-                            t[base + pos] = assignment_grad[assignment_base + atom];
+                        // #Bug1: assignment log-strength gradient lands on FREE logit
+                        // slots only; softmax's reference atom has none (matching the
+                        // dense `0..assignment_dim` = K−1 branch).
+                        for (slot, &atom) in layout.logit_atoms[row].iter().enumerate() {
+                            t[base + slot] = assignment_grad[assignment_base + atom];
                         }
                     }
                     None => {
@@ -7873,7 +7950,12 @@ impl SaeManifoldTerm {
         Ok(())
     }
 
-    fn whiten_logdet_row_jets_for_low_rank_metric(
+    /// Whiten every log-det row-jet channel by the row metric factor
+    /// (`values ← Uᵀ values`), matching the assembly's whitened likelihood
+    /// Hessian. Applies at any rank (full-rank ⇒ `rank == p`, length preserved;
+    /// low-rank ⇒ `rank < p`, channels shrink to the whitened dim). Gated by
+    /// [`whiten_logdet_row_jets`] at the call sites.
+    fn apply_whiten_to_logdet_row_jets(
         &self,
         row: usize,
         jets: &mut SaeRowJets,
@@ -7881,7 +7963,7 @@ impl SaeManifoldTerm {
         let metric = self
             .row_metric
             .as_ref()
-            .ok_or_else(|| "logdet_theta_adjoint: low-rank whitening metric absent".to_string())?;
+            .ok_or_else(|| "logdet_theta_adjoint: whitening metric absent".to_string())?;
         let p = self.output_dim();
         for first in jets.first.iter_mut() {
             Self::whiten_logdet_metric_vec(metric, row, p, first)?;
@@ -7937,6 +8019,13 @@ impl SaeManifoldTerm {
         // row-local channel (handled inline via
         // `assignment_prior_hdiag_derivative_entry`) and a cross-row channel
         // (accumulated column-wise after the row loop, below).
+        if cache.arrow_log_det().is_none() {
+            return Err(
+                "logdet_theta_adjoint: cache lacks an authoritative joint-Hessian log-det \
+                 for the selected-inverse operator"
+                    .to_string(),
+            );
+        }
         let n = self.n_obs();
         let total_t = cache.delta_t_len();
         let mut gamma_t = Array1::<f64>::zeros(total_t);
@@ -7988,6 +8077,12 @@ impl SaeManifoldTerm {
         // gradient desyncs from the majorized evidence log-det. Bit-identical
         // (`false`) on the identity/no-metric path.
         let majorize_ibp = self.ibp_low_rank_whiten();
+        // gam#2144: whitening of the row jets tracks `whitens_likelihood()` at ANY
+        // rank (the assembly whitens `JᵀU UᵀJ` for full- and low-rank alike),
+        // whereas `majorize_ibp` additionally requires rank-deficiency for the PSD
+        // majorization. Split the two so a full-rank non-identity metric still
+        // whitens the jets.
+        let whiten_row_jets = self.whiten_logdet_row_jets();
         let ibp_channels = ibp_assignment_third_channels(&self.assignment, rho, majorize_ibp)?;
         let k_atoms = self.k_atoms();
         // #1038 softmax entropy: the dense per-row entropy Hessian written into
@@ -8019,14 +8114,16 @@ impl SaeManifoldTerm {
         };
         // Per active logit site: row, atom, global t-index, raw selected-inverse
         // diagonal. The raw diagonal drives the empirical-M contraction and the
-        // cross-row Woodbury self-subtraction. Daleckii-Krein row-deflation
-        // corrections are applied only in the row-local `dh_mat` contractions.
+        // cross-row Woodbury self-subtraction. The cached unit-diagonal
+        // Daleckii-Krein weight lets the later empirical-M pass correct only the
+        // no-self row-base derivative, leaving the Woodbury self derivative raw.
         #[derive(Clone, Copy)]
         struct IbpLogitSite {
             row: usize,
             atom: usize,
             t_index: usize,
             raw_diag: f64,
+            no_self_diag_deflation_weight: f64,
         }
         let mut ibp_logit_sites: Vec<IbpLogitSite> = Vec::new();
 
@@ -8060,8 +8157,8 @@ impl SaeManifoldTerm {
             let mut jets = jet_window
                 .pop_front()
                 .expect("jet window must be non-empty");
-            if majorize_ibp {
-                self.whiten_logdet_row_jets_for_low_rank_metric(row, &mut jets)?;
+            if whiten_row_jets {
+                self.apply_whiten_to_logdet_row_jets(row, &mut jets)?;
             }
 
             // #932 FRONT C: row-local Takahashi on the plain arrow; per-row
@@ -8091,17 +8188,55 @@ impl SaeManifoldTerm {
                 (inv_vv, inv_vbeta)
             };
 
+            // Per-row UNIT-stiffness deflated directions: the selected inverse
+            // `inv_vv` is the DEFLATED inverse (it assigns `1/λ̃ = 1` to each
+            // `vᵢ`), so every `inv_vv`-weighted t–t contraction of `∂H/∂θ_w`
+            // below spuriously contracts the RAW derivative where the re-deflating
+            // criterion uses the deflation-map derivative `DΦ`. The kept-subspace Γ
+            // subtracts `tr(inv_vv·(D − DΦ[D]))` over the t–t block via the same
+            // Daleckii–Krein helper the ρ-traces use (the t–β / β–β blocks are not
+            // deflated). IBP cross-row Woodbury caches factor the no-self base, so
+            // the correction matrix below removes the local self derivative before
+            // applying `DΦ`; the full self/off-row rank-one derivative stays in the
+            // ordinary raw contractions.
+            let defl_dirs = cache
+                .deflated_row_directions
+                .get(row)
+                .map(Vec::as_slice)
+                .unwrap_or(&[]);
+            let defl_spectrum = cache
+                .deflation_row_spectra
+                .get(row)
+                .and_then(Option::as_ref);
+
             // Record each active logit's column, global t-index, and raw
-            // selected-inverse diagonal for the IBP cross-row passes.
+            // selected-inverse diagonal for the IBP cross-row passes. Also cache
+            // the per-slot Daleckii-Krein weight for a unit diagonal derivative:
+            // the empirical-M `m_channel` later splits into a no-self row-base
+            // derivative plus a rank-one self derivative, and only the no-self
+            // piece belongs under the row deflation map.
             if ibp_channels.is_some() {
                 for (pos, var) in jets.vars.iter().enumerate() {
                     if let SaeLocalRowVar::Logit { atom } = *var {
                         let raw_diag = inv_vv[[pos, pos]];
+                        let no_self_diag_deflation_weight = if defl_dirs.is_empty() {
+                            0.0
+                        } else {
+                            let mut unit_diag = Array2::<f64>::zeros((q, q));
+                            unit_diag[[pos, pos]] = 1.0;
+                            Self::deflation_block_correction(
+                                &inv_vv,
+                                &unit_diag,
+                                defl_dirs,
+                                defl_spectrum,
+                            )
+                        };
                         ibp_logit_sites.push(IbpLogitSite {
                             row,
                             atom,
                             t_index: base + pos,
                             raw_diag,
+                            no_self_diag_deflation_weight,
                         });
                     }
                 }
@@ -8137,43 +8272,6 @@ impl SaeManifoldTerm {
                     }
                     _ => None,
                 };
-            // Per-row UNIT-stiffness deflated directions: the selected inverse
-            // `inv_vv` is the DEFLATED inverse (it assigns `1/λ̃ = 1` to each
-            // `vᵢ`), so every `inv_vv`-weighted t–t contraction of `∂H/∂θ_w`
-            // below spuriously contracts the RAW derivative where the re-deflating
-            // criterion uses the deflation-map derivative `DΦ`. The kept-subspace Γ
-            // subtracts `tr(inv_vv·(D − DΦ[D]))` over the t–t block via the same
-            // Daleckii–Krein helper the ρ-traces use (the t–β / β–β blocks are not
-            // deflated). `θ` enters only the per-row block (no cross-row Woodbury
-            // self-downdate on the θ path), so the raw t–t derivative `D` is used
-            // directly.
-            let defl_dirs = cache
-                .deflated_row_directions
-                .get(row)
-                .map(Vec::as_slice)
-                .unwrap_or(&[]);
-            let defl_spectrum = cache
-                .deflation_row_spectra
-                .get(row)
-                .and_then(Option::as_ref);
-            let softmax_kept_inv_vv = if !defl_dirs.is_empty() && softmax_adjoint_row.is_some() {
-                let mut kept = inv_vv.clone();
-                for v in defl_dirs {
-                    for a in 0..q {
-                        let va = if a < v.len() { v[a] } else { 0.0 };
-                        if va == 0.0 {
-                            continue;
-                        }
-                        for b in 0..q {
-                            let vb = if b < v.len() { v[b] } else { 0.0 };
-                            kept[[a, b]] -= va * vb;
-                        }
-                    }
-                }
-                Some(kept)
-            } else {
-                None
-            };
             for w in 0..q {
                 let mut gamma = 0.0_f64;
                 // The active logit `w` differentiates against; `None` unless this
@@ -8264,52 +8362,23 @@ impl SaeManifoldTerm {
                             }
                         }
                         deflated_base_dh_mat[[a, b]] = deflated_base_dh;
-                        // gam#2156: softmax-logit traces differentiate the same
-                        // undamped evidence operator exposed by
-                        // `ArrowFactorCache::arrow_log_det` and
-                        // `arrow_log_det_from_cache`. For deflated rows, contract
-                        // the softmax logit t-t derivative against the kept
-                        // selected inverse `(H⁻¹)_tt - Σ_i v_i v_iᵀ`; the
-                        // Daleckii-Krein correction below then supplies the
-                        // remaining `DΦ` rotation term. Non-deflated rows keep the
-                        // exact old contraction path.
-                        let inv_entry = if let (Some(kept), Some(_)) =
-                            (softmax_kept_inv_vv.as_ref(), softmax_d_dw)
-                        {
-                            kept[[b, a]]
-                        } else {
-                            inv_vv[[b, a]]
-                        };
-                        gamma += inv_entry * dh;
+                        gamma += inv_vv[[b, a]] * dh;
                     }
                 }
                 if !defl_dirs.is_empty() {
-                    // Low-rank IBP metric channels already arrive as the symmetric
-                    // Daleckii-Krein derivative of the metric block. Applying the
-                    // generic row-deflation correction here patches the same
-                    // active-null pairs a second time.
-                    if !majorize_ibp {
-                        let correction = Self::deflation_block_correction(
-                            &inv_vv,
-                            &deflated_base_dh_mat,
-                            defl_dirs,
-                            defl_spectrum,
-                        );
-                        if softmax_d_dw.is_some() {
-                            // The direct softmax-logit contraction above already
-                            // removed the unit-stiffening block `Σ_i v_i v_iᵀ`.
-                            // Subtract only the residual DK deflation-map term:
-                            // `tr(inv_vv·(D-DΦ[D])) - Σ_i v_iᵀDv_i`, i.e. the
-                            // z-derivative/rotation of the deflation map.
-                            gamma -= correction
-                                - Self::deflated_unit_stiffening_contraction(
-                                    &deflated_base_dh_mat,
-                                    defl_dirs,
-                                );
-                        } else {
-                            gamma -= correction;
-                        }
-                    }
+                    // The row factor/log-det operator is the spectrally
+                    // conditioned `Φ(H_tt)`, while the local theta channels above
+                    // assemble the raw row derivative `D`. Subtract
+                    // `tr(inv_vv · (D - DΦ[D]))` for every deflated row, including
+                    // the low-rank IBP majorizer path, so the theta adjoint
+                    // differentiates the same operator as `arrow_log_det`,
+                    // `apply_cached_arrow_hessian`, and the selected inverse.
+                    gamma -= Self::deflation_block_correction(
+                        &inv_vv,
+                        &deflated_base_dh_mat,
+                        defl_dirs,
+                        defl_spectrum,
+                    );
                 }
                 for a in 0..q {
                     for (beta_pos, channel) in border.iter().enumerate() {
@@ -8364,19 +8433,19 @@ impl SaeManifoldTerm {
         //   Γ_wk += [ Σ_i (H⁻¹)_ik,ik · ∂_M H_ik ] · J_wk = C_k · J_wk,
         // where ∂_M H_ik = `m_channel[i*K+k]` and J_wk = `z_jac[w*K+k]`. The
         // row-local direct-`z` channel was already added inline above; this pass
-        // owns the empirical-mass branch, with the Daleckii-Krein subtraction below
-        // restricted to the Woodbury-downdated no-self base.
+        // owns the empirical-mass branch. The no-self part of `m_channel` is a
+        // derivative of the deflated row base `H₀'`, so it receives the same
+        // Daleckii-Krein `DΦ` correction as the row-local channel; the rank-one
+        // self part stays raw and is paired with the off-row Woodbury derivative.
         if let Some(channels) = ibp_channels.as_ref() {
-            // gam#2144: contract the empirical-M diagonal channel against the raw
-            // selected-inverse diagonal only. The row-local `dh_mat` pass has already
-            // applied the Daleckii-Krein derivative of the deflated row block; adding
-            // another per-slot DK patch here counts the active-null cross pairs a
-            // second time. The Woodbury pass below owns the rank-one off-row
-            // derivative.
             let mut col_coeff = vec![0.0_f64; k_atoms];
             for site in &ibp_logit_sites {
                 let idx = site.row * k_atoms + site.atom;
-                col_coeff[site.atom] += site.raw_diag * channels.m_channel[idx];
+                let j = channels.z_jac[idx];
+                let self_mass = channels.cross_row_dd[site.atom] * j * j;
+                let no_self_mass = channels.m_channel[idx] - self_mass;
+                col_coeff[site.atom] += site.raw_diag * channels.m_channel[idx]
+                    - site.no_self_diag_deflation_weight * no_self_mass;
             }
             for site in &ibp_logit_sites {
                 let idx = site.row * k_atoms + site.atom;

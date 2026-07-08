@@ -8,7 +8,6 @@ from ...client import AuthenticatedClient, Client
 from ...models.error_response_401 import ErrorResponse401
 from ...models.error_response_403 import ErrorResponse403
 from ...models.error_response_404 import ErrorResponse404
-from ...models.error_response_412 import ErrorResponse412
 from ...models.me_response import MeResponse
 from ...types import Response
 
@@ -24,14 +23,7 @@ def _get_kwargs() -> dict[str, Any]:
 
 def _parse_response(
     *, client: AuthenticatedClient | Client, response: httpx.Response
-) -> (
-    ErrorResponse401
-    | ErrorResponse403
-    | ErrorResponse404
-    | ErrorResponse412
-    | MeResponse
-    | None
-):
+) -> ErrorResponse401 | ErrorResponse403 | ErrorResponse404 | MeResponse | None:
     if response.status_code == 200:
         response_200 = MeResponse.from_dict(response.json())
 
@@ -52,11 +44,6 @@ def _parse_response(
 
         return response_404
 
-    if response.status_code == 412:
-        response_412 = ErrorResponse412.from_dict(response.json())
-
-        return response_412
-
     if client.raise_on_unexpected_status:
         raise errors.UnexpectedStatus(response.status_code, response.content)
     else:
@@ -65,13 +52,7 @@ def _parse_response(
 
 def _build_response(
     *, client: AuthenticatedClient | Client, response: httpx.Response
-) -> Response[
-    ErrorResponse401
-    | ErrorResponse403
-    | ErrorResponse404
-    | ErrorResponse412
-    | MeResponse
-]:
+) -> Response[ErrorResponse401 | ErrorResponse403 | ErrorResponse404 | MeResponse]:
     return Response(
         status_code=HTTPStatus(response.status_code),
         content=response.content,
@@ -83,20 +64,15 @@ def _build_response(
 def sync_detailed(
     *,
     client: AuthenticatedClient | Client,
-) -> Response[
-    ErrorResponse401
-    | ErrorResponse403
-    | ErrorResponse404
-    | ErrorResponse412
-    | MeResponse
-]:
+) -> Response[ErrorResponse401 | ErrorResponse403 | ErrorResponse404 | MeResponse]:
     """Me
 
 
     Get the current user's info including organizations and workspaces.
 
-    Returns 412 with the body pointing at ``POST /api/v1/me/onboarding`` when the
-    caller is authenticated but has not completed onboarding yet.
+    On the first call for a user who has no organization yet, bootstraps a personal
+    organization and a playground workspace, so a freshly authenticated user always
+    gets a 200.
 
     Requires Authorization Header.
 
@@ -105,7 +81,7 @@ def sync_detailed(
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        Response[ErrorResponse401 | ErrorResponse403 | ErrorResponse404 | ErrorResponse412 | MeResponse]
+        Response[ErrorResponse401 | ErrorResponse403 | ErrorResponse404 | MeResponse]
     """
 
     kwargs = _get_kwargs()
@@ -120,21 +96,15 @@ def sync_detailed(
 def sync(
     *,
     client: AuthenticatedClient | Client,
-) -> (
-    ErrorResponse401
-    | ErrorResponse403
-    | ErrorResponse404
-    | ErrorResponse412
-    | MeResponse
-    | None
-):
+) -> ErrorResponse401 | ErrorResponse403 | ErrorResponse404 | MeResponse | None:
     """Me
 
 
     Get the current user's info including organizations and workspaces.
 
-    Returns 412 with the body pointing at ``POST /api/v1/me/onboarding`` when the
-    caller is authenticated but has not completed onboarding yet.
+    On the first call for a user who has no organization yet, bootstraps a personal
+    organization and a playground workspace, so a freshly authenticated user always
+    gets a 200.
 
     Requires Authorization Header.
 
@@ -143,7 +113,7 @@ def sync(
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        ErrorResponse401 | ErrorResponse403 | ErrorResponse404 | ErrorResponse412 | MeResponse
+        ErrorResponse401 | ErrorResponse403 | ErrorResponse404 | MeResponse
     """
 
     return sync_detailed(
@@ -154,20 +124,15 @@ def sync(
 async def asyncio_detailed(
     *,
     client: AuthenticatedClient | Client,
-) -> Response[
-    ErrorResponse401
-    | ErrorResponse403
-    | ErrorResponse404
-    | ErrorResponse412
-    | MeResponse
-]:
+) -> Response[ErrorResponse401 | ErrorResponse403 | ErrorResponse404 | MeResponse]:
     """Me
 
 
     Get the current user's info including organizations and workspaces.
 
-    Returns 412 with the body pointing at ``POST /api/v1/me/onboarding`` when the
-    caller is authenticated but has not completed onboarding yet.
+    On the first call for a user who has no organization yet, bootstraps a personal
+    organization and a playground workspace, so a freshly authenticated user always
+    gets a 200.
 
     Requires Authorization Header.
 
@@ -176,7 +141,7 @@ async def asyncio_detailed(
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        Response[ErrorResponse401 | ErrorResponse403 | ErrorResponse404 | ErrorResponse412 | MeResponse]
+        Response[ErrorResponse401 | ErrorResponse403 | ErrorResponse404 | MeResponse]
     """
 
     kwargs = _get_kwargs()
@@ -189,21 +154,15 @@ async def asyncio_detailed(
 async def asyncio(
     *,
     client: AuthenticatedClient | Client,
-) -> (
-    ErrorResponse401
-    | ErrorResponse403
-    | ErrorResponse404
-    | ErrorResponse412
-    | MeResponse
-    | None
-):
+) -> ErrorResponse401 | ErrorResponse403 | ErrorResponse404 | MeResponse | None:
     """Me
 
 
     Get the current user's info including organizations and workspaces.
 
-    Returns 412 with the body pointing at ``POST /api/v1/me/onboarding`` when the
-    caller is authenticated but has not completed onboarding yet.
+    On the first call for a user who has no organization yet, bootstraps a personal
+    organization and a playground workspace, so a freshly authenticated user always
+    gets a 200.
 
     Requires Authorization Header.
 
@@ -212,7 +171,7 @@ async def asyncio(
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        ErrorResponse401 | ErrorResponse403 | ErrorResponse404 | ErrorResponse412 | MeResponse
+        ErrorResponse401 | ErrorResponse403 | ErrorResponse404 | MeResponse
     """
 
     return (

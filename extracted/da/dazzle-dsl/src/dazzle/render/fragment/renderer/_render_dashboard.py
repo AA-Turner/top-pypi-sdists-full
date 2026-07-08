@@ -21,6 +21,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 from dazzle.render.fragment.context import RenderContext
+from dazzle.render.fragment.icon_html import lucide_icon_html
 from dazzle.render.fragment.primitives import (
     CohortStripRegion,
     DashboardCard,
@@ -436,14 +437,14 @@ class _RenderDashboardMixin:
                 chip_parts.append(
                     f'<a class="dz-task-inbox-chip" '
                     f'href="{ctx.escape_attr(chip.drill_url)}" '
-                    f'data-chip-id="{ctx.escape_attr(chip.chip_id)}">'
+                    f'data-dz-chip-id="{ctx.escape_attr(chip.chip_id)}">'
                     f"{inner}"
                     f"</a>"
                 )
             else:
                 chip_parts.append(
                     f'<div class="dz-task-inbox-chip" '
-                    f'data-chip-id="{ctx.escape_attr(chip.chip_id)}">'
+                    f'data-dz-chip-id="{ctx.escape_attr(chip.chip_id)}">'
                     f"{inner}"
                     f"</div>"
                 )
@@ -461,9 +462,9 @@ class _RenderDashboardMixin:
                 if item.meta
                 else ""
             )
+            icon_html = lucide_icon_html(item.icon, cls="dz-task-inbox-item-icon")
             inner = (
-                f'<div class="dz-task-inbox-item-icon" '
-                f'data-icon="{ctx.escape_attr(item.icon)}"></div>'
+                f"{icon_html}"
                 f'<div class="dz-task-inbox-item-body">'
                 f'<div class="dz-task-inbox-item-title">{ctx.escape(item.title)}</div>'
                 f"{meta_html}"
@@ -473,7 +474,7 @@ class _RenderDashboardMixin:
                 item_parts.append(
                     f'<li class="dz-task-inbox-item" '
                     f'data-dz-urgency="{ctx.escape_attr(urgency)}" '
-                    f'data-item-id="{ctx.escape_attr(item.item_id)}">'
+                    f'data-dz-item-id="{ctx.escape_attr(item.item_id)}">'
                     f'<a class="dz-task-inbox-item-link" '
                     f'href="{ctx.escape_attr(item.drill_url)}">'
                     f"{inner}"
@@ -483,7 +484,7 @@ class _RenderDashboardMixin:
                 item_parts.append(
                     f'<li class="dz-task-inbox-item" '
                     f'data-dz-urgency="{ctx.escape_attr(urgency)}" '
-                    f'data-item-id="{ctx.escape_attr(item.item_id)}">'
+                    f'data-dz-item-id="{ctx.escape_attr(item.item_id)}">'
                     f"{inner}"
                     f"</li>"
                 )

@@ -1,3 +1,13 @@
+# Signature-fidelity fix (2026-07-04): state_code added on each household per
+# analytics (every MFB state-output request sends the state_code enum);
+# employment_income / self_employment_income / capital_gains converted to the
+# *_before_lsr / *_before_response input keys that production's Simulation
+# wrapper backfills (issue #8802). Outputs re-pinned to current model values
+# under the corrected inputs.
+# Sanity check (signature_3) - nc_scca_maximum_payment = $16,932/yr = Wake County
+# monthly market rates ($455 school-age + $1,256 preschool = $1,711) minus the
+# $300/mo parent fee = $1,411/mo x 12. Genuine NC (Wake County) amounts, previously
+# pinned $0 under the California default.
 - name: signature_3 (54 reqs, +12 dupes)
   period: 2026
   absolute_error_margin: 0.1
@@ -15,9 +25,9 @@
         is_snap_ineligible_student: false
         immigration_status_str: CITIZEN
         employment_income_before_lsr: 36000
-        self_employment_income: 0
+        self_employment_income_before_lsr: 0
         social_security: 0
-        capital_gains: 0
+        long_term_capital_gains_before_response: 0
         rental_income: 0
         taxable_ira_distributions: 0
         taxable_pension_income: 0
@@ -41,9 +51,9 @@
         is_snap_ineligible_student: false
         immigration_status_str: CITIZEN
         employment_income_before_lsr: 12000
-        self_employment_income: 0
+        self_employment_income_before_lsr: 0
         social_security: 0
-        capital_gains: 0
+        long_term_capital_gains_before_response: 0
         rental_income: 0
         taxable_ira_distributions: 0
         taxable_pension_income: 0
@@ -67,7 +77,7 @@
         is_snap_ineligible_student: false
         immigration_status_str: CITIZEN
         employment_income_before_lsr: 0
-        self_employment_income: 0
+        self_employment_income_before_lsr: 0
         ssi_reported: 0
         ssi_countable_resources: 0
         ssi_earned_income: 0
@@ -87,7 +97,7 @@
         is_snap_ineligible_student: false
         immigration_status_str: CITIZEN
         employment_income_before_lsr: 0
-        self_employment_income: 0
+        self_employment_income_before_lsr: 0
         ssi_reported: 0
         ssi_countable_resources: 0
         ssi_earned_income: 0
@@ -97,6 +107,7 @@
         current_pregnancies: 0
     households:
       household:
+        state_code: NC
         members: &id001
         - head
         - spouse
@@ -146,7 +157,7 @@
   output:
     tax_units:
       tax_unit:
-        aca_ptc: 11228.81
+        aca_ptc: 11456.57
         ctc_value: 3400.0
         eitc: 3769.5
     people:
@@ -166,23 +177,23 @@
         wic_category: 5
       child1:
         is_optional_senior_or_disabled_for_medicaid: false
-        medicaid: 7155.35
+        medicaid: 5424.72
         medicaid_category: 2
         ssi: 0.0
         wic: 0.0
         wic_category: 5
       child2:
         is_optional_senior_or_disabled_for_medicaid: false
-        medicaid: 7155.35
+        medicaid: 5424.72
         medicaid_category: 1
         ssi: 0.0
         wic: 723.15
         wic_category: 4
     spm_units:
       spm_unit:
-        lifeline: 228.0
-        nc_scca_maximum_payment: 0.0
-        nc_tanf: 0.0
+        lifeline: 111.0
+        nc_scca_maximum_payment: 16932.0
+        nc_tanf: 1564.0
         school_meal_daily_subsidy: 7.15
         school_meal_tier: 0
         snap: 11994.84
@@ -203,9 +214,9 @@
         is_snap_ineligible_student: false
         immigration_status_str: CITIZEN
         employment_income_before_lsr: 36000
-        self_employment_income: 0
+        self_employment_income_before_lsr: 0
         social_security: 0
-        capital_gains: 0
+        long_term_capital_gains_before_response: 0
         rental_income: 0
         taxable_ira_distributions: 0
         taxable_pension_income: 0
@@ -229,9 +240,9 @@
         is_snap_ineligible_student: false
         immigration_status_str: CITIZEN
         employment_income_before_lsr: 12000
-        self_employment_income: 0
+        self_employment_income_before_lsr: 0
         social_security: 0
-        capital_gains: 0
+        long_term_capital_gains_before_response: 0
         rental_income: 0
         taxable_ira_distributions: 0
         taxable_pension_income: 0
@@ -255,7 +266,7 @@
         is_snap_ineligible_student: false
         immigration_status_str: CITIZEN
         employment_income_before_lsr: 0
-        self_employment_income: 0
+        self_employment_income_before_lsr: 0
         ssi_reported: 0
         ssi_countable_resources: 0
         ssi_earned_income: 0
@@ -275,7 +286,7 @@
         is_snap_ineligible_student: false
         immigration_status_str: CITIZEN
         employment_income_before_lsr: 0
-        self_employment_income: 0
+        self_employment_income_before_lsr: 0
         ssi_reported: 0
         ssi_countable_resources: 0
         ssi_earned_income: 0
@@ -285,6 +296,7 @@
         current_pregnancies: 0
     households:
       household:
+        state_code: NC
         members: *id001
         zip_code: '27601'
         county_str: WAKE_COUNTY_NC
@@ -326,7 +338,7 @@
   output:
     tax_units:
       tax_unit:
-        aca_ptc: 11228.81
+        aca_ptc: 11456.57
         ctc_value: 3400.0
         eitc: 3769.5
     people:
@@ -346,23 +358,23 @@
         wic_category: 5
       child1:
         is_optional_senior_or_disabled_for_medicaid: false
-        medicaid: 7155.35
+        medicaid: 5424.72
         medicaid_category: 2
         ssi: 0.0
         wic: 0.0
         wic_category: 5
       child2:
         is_optional_senior_or_disabled_for_medicaid: false
-        medicaid: 7155.35
+        medicaid: 5424.72
         medicaid_category: 1
         ssi: 0.0
         wic: 723.15
         wic_category: 4
     spm_units:
       spm_unit:
-        lifeline: 228.0
-        nc_scca_maximum_payment: 0.0
-        nc_tanf: 0.0
+        lifeline: 111.0
+        nc_scca_maximum_payment: 16932.0
+        nc_tanf: 1564.0
         school_meal_daily_subsidy: 7.15
         school_meal_tier: 0
 - name: signature_94 (3 reqs, +5 dupes)
@@ -382,9 +394,9 @@
         is_snap_ineligible_student: false
         immigration_status_str: CITIZEN
         employment_income_before_lsr: 36000
-        self_employment_income: 0
+        self_employment_income_before_lsr: 0
         social_security: 0
-        capital_gains: 0
+        long_term_capital_gains_before_response: 0
         rental_income: 0
         taxable_ira_distributions: 0
         taxable_pension_income: 0
@@ -409,9 +421,9 @@
         is_snap_ineligible_student: false
         immigration_status_str: CITIZEN
         employment_income_before_lsr: 12000
-        self_employment_income: 0
+        self_employment_income_before_lsr: 0
         social_security: 0
-        capital_gains: 0
+        long_term_capital_gains_before_response: 0
         rental_income: 0
         taxable_ira_distributions: 0
         taxable_pension_income: 0
@@ -436,7 +448,7 @@
         is_snap_ineligible_student: false
         immigration_status_str: CITIZEN
         employment_income_before_lsr: 0
-        self_employment_income: 0
+        self_employment_income_before_lsr: 0
         ssi: 0
         ssi_reported: 0
         ssi_countable_resources: 0
@@ -457,7 +469,7 @@
         is_snap_ineligible_student: false
         immigration_status_str: CITIZEN
         employment_income_before_lsr: 0
-        self_employment_income: 0
+        self_employment_income_before_lsr: 0
         ssi: 0
         ssi_reported: 0
         ssi_countable_resources: 0
@@ -468,6 +480,7 @@
         current_pregnancies: 0
     households:
       household:
+        state_code: NC
         members: *id001
         zip_code: '27601'
         county_str: WAKE_COUNTY_NC
@@ -509,7 +522,7 @@
   output:
     tax_units:
       tax_unit:
-        aca_ptc: 11228.81
+        aca_ptc: 11456.57
         ctc_value: 3400.0
         eitc: 3769.5
     people:
@@ -529,23 +542,23 @@
         wic_category: 5
       child1:
         is_optional_senior_or_disabled_for_medicaid: false
-        medicaid: 7155.35
+        medicaid: 5424.72
         medicaid_category: 2
         ssi: 0.0
         wic: 0.0
         wic_category: 5
       child2:
         is_optional_senior_or_disabled_for_medicaid: false
-        medicaid: 7155.35
+        medicaid: 5424.72
         medicaid_category: 1
         ssi: 0.0
         wic: 723.15
         wic_category: 4
     spm_units:
       spm_unit:
-        lifeline: 228.0
-        nc_scca_maximum_payment: 0.0
-        nc_tanf: 0.0
+        lifeline: 111.0
+        nc_scca_maximum_payment: 16932.0
+        nc_tanf: 1564.0
         school_meal_daily_subsidy: 7.15
         school_meal_tier: 0
         snap: 11994.84
@@ -566,9 +579,9 @@
         is_snap_ineligible_student: false
         immigration_status_str: CITIZEN
         employment_income_before_lsr: 36000
-        self_employment_income: 0
+        self_employment_income_before_lsr: 0
         social_security: 0
-        capital_gains: 0
+        long_term_capital_gains_before_response: 0
         rental_income: 0
         taxable_ira_distributions: 0
         taxable_pension_income: 0
@@ -593,9 +606,9 @@
         is_snap_ineligible_student: false
         immigration_status_str: CITIZEN
         employment_income_before_lsr: 12000
-        self_employment_income: 0
+        self_employment_income_before_lsr: 0
         social_security: 0
-        capital_gains: 0
+        long_term_capital_gains_before_response: 0
         rental_income: 0
         taxable_ira_distributions: 0
         taxable_pension_income: 0
@@ -620,7 +633,7 @@
         is_snap_ineligible_student: false
         immigration_status_str: CITIZEN
         employment_income_before_lsr: 0
-        self_employment_income: 0
+        self_employment_income_before_lsr: 0
         ssi: 0
         ssi_reported: 0
         ssi_countable_resources: 0
@@ -641,7 +654,7 @@
         is_snap_ineligible_student: false
         immigration_status_str: CITIZEN
         employment_income_before_lsr: 0
-        self_employment_income: 0
+        self_employment_income_before_lsr: 0
         ssi: 0
         ssi_reported: 0
         ssi_countable_resources: 0
@@ -652,6 +665,7 @@
         current_pregnancies: 0
     households:
       household:
+        state_code: NC
         members: *id001
         zip_code: '27601'
         county_str: WAKE_COUNTY_NC
@@ -693,7 +707,7 @@
   output:
     tax_units:
       tax_unit:
-        aca_ptc: 11228.81
+        aca_ptc: 11456.57
         ctc_value: 3400.0
         eitc: 3769.5
     people:
@@ -711,21 +725,21 @@
         wic_category: 5
       child1:
         is_optional_senior_or_disabled_for_medicaid: false
-        medicaid: 7155.35
+        medicaid: 5424.72
         medicaid_category: 2
         wic: 0.0
         wic_category: 5
       child2:
         is_optional_senior_or_disabled_for_medicaid: false
-        medicaid: 7155.35
+        medicaid: 5424.72
         medicaid_category: 1
         wic: 723.15
         wic_category: 4
     spm_units:
       spm_unit:
-        lifeline: 228.0
-        nc_scca_maximum_payment: 0.0
-        nc_tanf: 0.0
+        lifeline: 111.0
+        nc_scca_maximum_payment: 16932.0
+        nc_tanf: 1564.0
         school_meal_daily_subsidy: 7.15
         school_meal_tier: 0
 - name: signature_172 (1 reqs, +1 dupes)
@@ -745,9 +759,9 @@
         is_snap_ineligible_student: false
         immigration_status_str: CITIZEN
         employment_income_before_lsr: 36000
-        self_employment_income: 0
+        self_employment_income_before_lsr: 0
         social_security: 0
-        capital_gains: 0
+        long_term_capital_gains_before_response: 0
         rental_income: 0
         taxable_ira_distributions: 0
         taxable_pension_income: 0
@@ -772,9 +786,9 @@
         is_snap_ineligible_student: false
         immigration_status_str: CITIZEN
         employment_income_before_lsr: 12000
-        self_employment_income: 0
+        self_employment_income_before_lsr: 0
         social_security: 0
-        capital_gains: 0
+        long_term_capital_gains_before_response: 0
         rental_income: 0
         taxable_ira_distributions: 0
         taxable_pension_income: 0
@@ -799,7 +813,7 @@
         is_snap_ineligible_student: false
         immigration_status_str: CITIZEN
         employment_income_before_lsr: 0
-        self_employment_income: 0
+        self_employment_income_before_lsr: 0
         ssi_reported: 0
         ssi_countable_resources: 0
         ssi_earned_income: 0
@@ -820,7 +834,7 @@
         is_snap_ineligible_student: false
         immigration_status_str: CITIZEN
         employment_income_before_lsr: 0
-        self_employment_income: 0
+        self_employment_income_before_lsr: 0
         ssi_reported: 0
         ssi_countable_resources: 0
         ssi_earned_income: 0
@@ -831,6 +845,7 @@
         other_medical_expenses: 0
     households:
       household:
+        state_code: NC
         members: *id001
         zip_code: '27601'
         county_str: WAKE_COUNTY_NC
@@ -872,7 +887,7 @@
   output:
     tax_units:
       tax_unit:
-        aca_ptc: 11228.81
+        aca_ptc: 11456.57
         ctc_value: 3400.0
         eitc: 3769.5
     people:
@@ -892,23 +907,23 @@
         wic_category: 5
       child1:
         is_optional_senior_or_disabled_for_medicaid: false
-        medicaid: 7155.35
+        medicaid: 5424.72
         medicaid_category: 2
         ssi: 0.0
         wic: 0.0
         wic_category: 5
       child2:
         is_optional_senior_or_disabled_for_medicaid: false
-        medicaid: 7155.35
+        medicaid: 5424.72
         medicaid_category: 1
         ssi: 0.0
         wic: 723.15
         wic_category: 4
     spm_units:
       spm_unit:
-        lifeline: 228.0
-        nc_scca_maximum_payment: 0.0
-        nc_tanf: 0.0
+        lifeline: 111.0
+        nc_scca_maximum_payment: 16932.0
+        nc_tanf: 1564.0
         school_meal_daily_subsidy: 7.15
         school_meal_tier: 0
         snap: 11994.84

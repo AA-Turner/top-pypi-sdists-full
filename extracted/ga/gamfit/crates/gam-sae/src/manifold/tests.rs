@@ -40,7 +40,7 @@ pub(crate) fn assert_eta_one_parity(
     assert_matrix_same_bits(&eta.phi, &phi);
     assert_tensor3_same_bits(&eta.jet, &jet);
     assert_eq!(eta.split.curved_cols.len(), expected_curved);
-    for &col in &eta.split.linear_cols {
+    for &col in &eta.split.base_cols {
         for row in 0..phi.nrows() {
             assert_eq!(eta.dphi_deta[[row, col]], 0.0);
             for axis in 0..jet.shape()[2] {
@@ -1582,6 +1582,56 @@ pub(crate) fn small_two_atom_periodic_term() -> (SaeManifoldTerm, Array2<f64>, S
         vec![array![0.9_f64.ln()], array![1.1_f64.ln()]],
     );
     (term, target, rho)
+}
+
+/// #Bug4 — the ThresholdGate θ-adjoint prior THIRD derivative
+/// (`assignment_prior_hdiag_derivative_entry`) must be ZERO for a FIXED
+/// (ungated / frozen) logit, matching the zeroed assembled `htt` diagonal entry.
+/// A FREE logit inside the smoothing/optimization band carries a nonzero third
+/// derivative (non-vacuous fixture); the ungated atom's must be exactly zero.
+#[test]
+pub(crate) fn threshold_gate_fixed_logit_third_derivative_is_zero_bug4() {
+    use crate::manifold::arrow_solver::SaeLocalRowVar;
+    let (mut term, _target, rho) = small_two_atom_periodic_term();
+    // ThresholdGate mode with atom 1 UNGATED — a fixed/inert logit.
+    term.assignment.mode = AssignmentMode::threshold_gate(1.0, 0.0);
+    term.assignment.ungated = vec![false, true];
+    // Both atoms' logits well inside the optimization band (cutoff is −36), so a
+    // FREE logit genuinely carries a nonzero third derivative.
+    for row in 0..term.n_obs() {
+        term.assignment.logits[[row, 0]] = 0.5;
+        term.assignment.logits[[row, 1]] = 0.5;
+    }
+    assert!(
+        term.assignment.logit_is_fixed(1) && !term.assignment.logit_is_fixed(0),
+        "atom 1 must be fixed (ungated), atom 0 free"
+    );
+
+    // FREE atom 0 inside the band ⇒ nonzero third derivative (fixture is live).
+    let free = term.assignment_prior_hdiag_derivative_entry(
+        &rho,
+        0,
+        0,
+        SaeLocalRowVar::Logit { atom: 0 },
+        None,
+    );
+    assert!(
+        free.abs() > 0.0,
+        "a FREE logit inside the band must carry a nonzero third derivative; got {free}"
+    );
+
+    // FIXED atom 1 ⇒ the θ-adjoint third derivative MUST be exactly zero.
+    let fixed = term.assignment_prior_hdiag_derivative_entry(
+        &rho,
+        0,
+        1,
+        SaeLocalRowVar::Logit { atom: 1 },
+        None,
+    );
+    assert_eq!(
+        fixed, 0.0,
+        "a FIXED (ungated) logit third derivative must be zero; got {fixed}"
+    );
 }
 
 /// #1026 — the per-atom **held-out EV attribution** that pairs with each
@@ -4012,10 +4062,70 @@ pub(crate) fn sae_arrow_schur_beta_quadratic_model_matches_penalized_loss_change
     );
 }
 
+/// #1610 — the separation barrier's PSD majorizer must survive the production
+/// matrix-free / framed β-tier. The dense path writes a per-atom scalar ridge onto
+/// `sys.hbb`; the deferred path must return the SAME scalar through `atom_curv` so
+/// assembly can fold it into the structured penalty operator instead of silently
+/// dropping collapse-prevention curvature.
+#[test]
+pub(crate) fn separation_barrier_deferred_curvature_matches_dense_hbb_1610() {
+    let (term, _target, _rho) = small_two_atom_periodic_term();
+    let beta_dim = term.beta_dim();
+    let mut dense = ArrowSchurSystem::new(0, 0, beta_dim);
+    dense.gb = Array1::<f64>::zeros(beta_dim);
+    dense.hbb = Array2::<f64>::zeros((beta_dim, beta_dim));
+    let mut dense_atom_curv = vec![0.0_f64; term.k_atoms()];
+    assert!(
+        term.add_sae_separation_barrier(&mut dense, 1.0, true, &mut dense_atom_curv),
+        "fixture must activate the co-collapse separation barrier on the dense path"
+    );
+    assert!(
+        dense_atom_curv.iter().all(|v| *v == 0.0),
+        "dense path writes curvature directly to hbb, not the deferred atom accumulator"
+    );
+
+    let mut deferred = ArrowSchurSystem::new(0, 0, beta_dim);
+    deferred.gb = Array1::<f64>::zeros(beta_dim);
+    deferred.hbb = Array2::<f64>::zeros((0, 0));
+    let mut atom_curv = vec![0.0_f64; term.k_atoms()];
+    assert!(
+        term.add_sae_separation_barrier(&mut deferred, 1.0, false, &mut atom_curv),
+        "fixture must activate the co-collapse separation barrier on the deferred path"
+    );
+
+    for idx in 0..beta_dim {
+        assert!(
+            (dense.gb[idx] - deferred.gb[idx]).abs() <= 1.0e-12,
+            "dense and deferred paths must assemble the same barrier gradient at β[{idx}]"
+        );
+    }
+
+    let offsets = term.beta_offsets();
+    for atom_idx in 0..term.k_atoms() {
+        let start = offsets[atom_idx];
+        let end = if atom_idx + 1 < offsets.len() {
+            offsets[atom_idx + 1]
+        } else {
+            beta_dim
+        };
+        assert!(
+            atom_curv[atom_idx] > 0.0,
+            "deferred path must export positive per-atom collapse-prevention curvature"
+        );
+        for idx in start..end {
+            assert!(
+                (dense.hbb[[idx, idx]] - atom_curv[atom_idx]).abs() <= 1.0e-12,
+                "deferred atom curvature must equal the dense hbb diagonal for atom {atom_idx}"
+            );
+        }
+    }
+}
+
 /// `SaeRowLayout::from_dense_weights` must keep, per row, the
 /// top-`k_active_cap` atoms above the magnitude cutoff (always at least
 /// one), with compact coord starts that reproduce the `expand_row`
 /// round-trip back to full-q positions.
+
 #[test]
 pub(crate) fn sae_row_layout_from_dense_weights_top_k_and_cutoff() {
     // 3 atoms, coord dims [2, 1, 2] ⇒ full q = 3 + 5 = 8.
@@ -4033,7 +4143,7 @@ pub(crate) fn sae_row_layout_from_dense_weights_top_k_and_cutoff() {
         Array1::from_vec(vec![0.001, 0.002, 0.0005]),
     ];
     let layout =
-        SaeRowLayout::from_dense_weights(&assignments, 2, 0.05, coord_dims, coord_offsets_full);
+        SaeRowLayout::from_dense_weights(&assignments, 2, 0.05, coord_dims, coord_offsets_full, None);
     assert_eq!(layout.active_atoms[0], vec![0, 2]);
     assert_eq!(layout.active_atoms[1], vec![0, 1]);
     // Row 0 compact dim = |{0,2}| + d_0 + d_2 = 2 + 2 + 2 = 6.
@@ -4092,6 +4202,7 @@ pub(crate) fn from_dense_weights_large_k_support_proposal_1450() {
         1e-3,
         vec![d; k_atoms],
         coord_offsets,
+        None,
     );
     for row in 0..n {
         assert_eq!(layout.active_atoms[row], planted, "row {row} wrong atoms");
@@ -4135,6 +4246,7 @@ pub(crate) fn sae_row_layout_from_dense_weights_large_k_work_scales_with_active(
         relative_cutoff,
         coord_dims,
         coord_offsets_full,
+        None,
     );
     for row in 0..n {
         // Exact support recovery: the proposal must return exactly the planted

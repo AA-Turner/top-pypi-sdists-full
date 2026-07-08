@@ -222,9 +222,11 @@ def test_phase_build_llama_cpp_skipped_without_install(monkeypatch):
     from sage.core import bootstrap
     if "llama_cpp" in sys.modules:
         monkeypatch.delitem(sys.modules, "llama_cpp", raising=False)
+    import builtins
+    orig_import = builtins.__import__
     monkeypatch.setattr("builtins.__import__", lambda name, *a, **kw: (
         (_ for _ in ()).throw(ImportError("no llama_cpp")) if name == "llama_cpp"
-        else __import__(name, *a, **kw)
+        else orig_import(name, *a, **kw)
     ))
     status, detail = bootstrap.phase_build_llama_cpp(bootstrap.BootstrapOptions(quiet=True))
     assert status == "skipped"

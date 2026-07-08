@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: citeproc-py
-Version: 0.9.3
+Version: 0.10.0
 Summary: Citations and bibliography formatter
 Home-page: https://github.com/brechtm/citeproc-py
 Author: Brecht Machiels
@@ -61,7 +61,7 @@ Dynamic: summary
 
 
 citeproc-py is a [CSL](https://citationstyles.org/) processor for Python. It aims to implement the
-[CSL 1.0.1 specification](https://docs.citationstyles.org/en/1.0.1/specification.html).
+[CSL 1.0.2 specification](https://docs.citationstyles.org/en/v1.0.2/specification.html).
 citeproc-py can output styled citations and
 bibliographies in a number of different output formats. Currently
 supported are plain text, reStructuredText and HTML. Other formats can
@@ -159,6 +159,24 @@ If you want git to fully ignore the submodule, you can type
 git update-index --assume-unchanged citeproc/data/schema
 ```
 
+
+# v0.10.0 (Tue Jul 07 2026)
+
+#### 🚀 Enhancement
+
+- fix: preserve text case for non-english title case [#192](https://github.com/citeproc-py/citeproc-py/pull/192) ([@mairasalazar](https://github.com/mairasalazar))
+- Upgrade to csl 1.0.2 [#192](https://github.com/citeproc-py/citeproc-py/pull/192) ([@mairasalazar](https://github.com/mairasalazar))
+
+#### 🔩 Dependency Updates
+
+- Bump actions/checkout from 6 to 7 [#193](https://github.com/citeproc-py/citeproc-py/pull/193) ([@dependabot[bot]](https://github.com/dependabot[bot]))
+
+#### Authors: 2
+
+- [@dependabot[bot]](https://github.com/dependabot[bot])
+- Maira Salazar ([@mairasalazar](https://github.com/mairasalazar))
+
+---
 
 # v0.9.3 (Thu Apr 30 2026)
 

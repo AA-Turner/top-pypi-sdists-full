@@ -498,99 +498,66 @@ def _stack_package_files(plan: ProjectPlan) -> list[FileSlot]:
     if plan.stack.frontend:
         import os
         import json
-        if os.environ.get("SAGE_TESTING") == "1" and plan.stack.frontend == "react-native-web":
+
+        out.extend(
+            [
+                FileSlot(
+                    path="frontend/package.json",
+                    role="npm dependencies and scripts (start, test, typecheck, lint, build)",
+                    language="json",
+                ),
+                FileSlot(
+                    path="frontend/tsconfig.json",
+                    role="TypeScript config (extends expo/tsconfig.base for RN+Web)",
+                    language="json",
+                    template=_tsconfig_for(plan.stack.frontend),
+                ),
+                FileSlot(
+                    path="frontend/.npmrc",
+                    role="npm config — legacy-peer-deps for Expo SDK conflicts",
+                    language="ini",
+                    template="legacy-peer-deps=true\n",
+                ),
+                FileSlot(
+                    path="frontend/Dockerfile",
+                    role="Frontend Docker image — node:20-alpine, builds the app",
+                    language="dockerfile",
+                ),
+            ]
+        )
+        if plan.stack.frontend == "react-native-web":
             out.extend(
                 [
                     FileSlot(
-                        path="frontend/package.json",
-                        role="npm dependencies and scripts",
+                        path="frontend/app.json",
+                        role="Expo config (slug, name, plugins: expo-router, expo-secure-store)",
                         language="json",
-                        template=json.dumps({
-                            "name": "react-native-mock-app",
-                            "version": "0.1.0",
-                            "private": True,
-                            "scripts": {
-                                "lint": "echo 'react-native lint bypass'",
-                                "test": "echo 'react-native test bypass'"
-                            },
-                            "dependencies": {}
-                        }, indent=2) + "\n"
                     ),
                     FileSlot(
-                        path="frontend/index.js",
-                        role="React Native entry point",
+                        path="frontend/app/_layout.tsx",
+                        role=(
+                            "Root expo-router Stack with SafeAreaProvider, "
+                            "GestureHandlerRootView, and AuthProvider wrapping children."
+                        ),
+                        language="typescript",
+                    ),
+                    FileSlot(
+                        path="frontend/babel.config.js",
+                        role="babel-preset-expo with reanimated plugin",
                         language="javascript",
-                        template="// Minimal React Native entry point for testing\nconsole.log('React Native app loaded');\n"
                     ),
                     FileSlot(
-                        path="frontend/test.js",
-                        role="Trivial unit test",
+                        path="frontend/metro.config.js",
+                        role="Expo metro config",
                         language="javascript",
-                        is_test=True,
-                        template="// Trivial unit test\ntest('trivial pass', () => {\n  expect(true).toBe(true);\n});\n"
-                    )
-                ]
-            )
-        else:
-            out.extend(
-                [
-                    FileSlot(
-                        path="frontend/package.json",
-                        role="npm dependencies and scripts (start, test, typecheck, lint, build)",
-                        language="json",
                     ),
                     FileSlot(
-                        path="frontend/tsconfig.json",
-                        role="TypeScript config (extends expo/tsconfig.base for RN+Web)",
-                        language="json",
-                        template=_tsconfig_for(plan.stack.frontend),
-                    ),
-                    FileSlot(
-                        path="frontend/.npmrc",
-                        role="npm config — legacy-peer-deps for Expo SDK conflicts",
-                        language="ini",
-                        template="legacy-peer-deps=true\n",
-                    ),
-                    FileSlot(
-                        path="frontend/Dockerfile",
-                        role="Frontend Docker image — node:20-alpine, builds the app",
-                        language="dockerfile",
+                        path="frontend/jest.config.js",
+                        role="jest-expo preset + jest-native setup",
+                        language="javascript",
                     ),
                 ]
             )
-            if plan.stack.frontend == "react-native-web":
-                out.extend(
-                    [
-                        FileSlot(
-                            path="frontend/app.json",
-                            role="Expo config (slug, name, plugins: expo-router, expo-secure-store)",
-                            language="json",
-                        ),
-                        FileSlot(
-                            path="frontend/app/_layout.tsx",
-                            role=(
-                                "Root expo-router Stack with SafeAreaProvider, "
-                                "GestureHandlerRootView, and AuthProvider wrapping children."
-                            ),
-                            language="typescript",
-                        ),
-                        FileSlot(
-                            path="frontend/babel.config.js",
-                            role="babel-preset-expo with reanimated plugin",
-                            language="javascript",
-                        ),
-                        FileSlot(
-                            path="frontend/metro.config.js",
-                            role="Expo metro config",
-                            language="javascript",
-                        ),
-                        FileSlot(
-                            path="frontend/jest.config.js",
-                            role="jest-expo preset + jest-native setup",
-                            language="javascript",
-                        ),
-                    ]
-                )
     return out
 
 

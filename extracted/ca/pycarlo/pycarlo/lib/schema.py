@@ -390,6 +390,27 @@ class AgentHealthEvidenceSource(pycarlo.lib.types.Enum):
     __choices__ = ("CONVERSATION", "ERROR", "EVAL", "GRAPH", "PR_DIFF")
 
 
+class AgentHealthFocusArea(pycarlo.lib.types.Enum):
+    """Coarse 4-way lens an issue or evidence row is filed under.
+    Orthogonal to `category` (the fine-grained detector-family
+    taxonomy): resource cost (PERFORMANCE), execution correctness
+    (BEHAVIORAL), content correctness (OUTPUTS), or context-
+    window/prompt content management (CONTEXT). Declared per detector
+    on evidence; derived on issues as the plurality across cited
+    evidence.
+
+    Enumeration Choices:
+
+    * `BEHAVIORAL`None
+    * `CONTEXT`None
+    * `OUTPUTS`None
+    * `PERFORMANCE`None
+    """
+
+    __schema__ = schema
+    __choices__ = ("BEHAVIORAL", "CONTEXT", "OUTPUTS", "PERFORMANCE")
+
+
 class AgentHealthGranularity(pycarlo.lib.types.Enum):
     """Grain of the fact an evidence row is based on.
 
@@ -402,6 +423,23 @@ class AgentHealthGranularity(pycarlo.lib.types.Enum):
 
     __schema__ = schema
     __choices__ = ("CONVERSATION", "SPAN", "TRACE")
+
+
+class AgentHealthIssueLifecycle(pycarlo.lib.types.Enum):
+    """Cross-run status of an issue vs the previous published report.
+    NEW = first seen in this report; ONGOING = matched an issue in the
+    prior report (by deterministic id or shared evidence fingerprint).
+    A resolved issue has no current evidence to cite, so it is not an
+    issue — it surfaces on the payload's `resolvedIssues` instead.
+
+    Enumeration Choices:
+
+    * `NEW`None
+    * `ONGOING`None
+    """
+
+    __schema__ = schema
+    __choices__ = ("NEW", "ONGOING")
 
 
 class AgentHealthPriority(pycarlo.lib.types.Enum):
@@ -417,6 +455,23 @@ class AgentHealthPriority(pycarlo.lib.types.Enum):
 
     __schema__ = schema
     __choices__ = ("CRITICAL", "HIGH", "LOW", "MEDIUM")
+
+
+class AgentHealthResolvedIssueStatus(pycarlo.lib.types.Enum):
+    """Whether a prior-report issue's disappearance is a real resolution.
+    RESOLVED = every detector behind the prior issue could have re-
+    fired this run and none did; UNVERIFIED = a source the issue
+    needed didn't run this window, so resolved-vs-still-failing is
+    unknown (a coverage gap).
+
+    Enumeration Choices:
+
+    * `RESOLVED`None
+    * `UNVERIFIED`None
+    """
+
+    __schema__ = schema
+    __choices__ = ("RESOLVED", "UNVERIFIED")
 
 
 class AgentHealthSeverity(pycarlo.lib.types.Enum):
@@ -5331,6 +5386,23 @@ class MonitorTrainingStatusType(pycarlo.lib.types.Enum):
 
     __schema__ = schema
     __choices__ = ("INSUFFICIENT_DATA", "IN_TRAINING", "NO_STATUS", "SUCCESS")
+
+
+class MonitorTuningAgentRunSource(pycarlo.lib.types.Enum):
+    """Origin of a monitor tuning run.      ``MANUAL`` — triggered in-
+    product by a user (create/apply) or by Bob's     domain-scoped
+    autonomous path. ``PROACTIVE`` — dispatched by the noisy-monitor
+    scheduler. Lets read surfaces (FE button swap, Ops Agent) and
+    analytics single     out proactively-produced suggestions.
+
+    Enumeration Choices:
+
+    * `MANUAL`None
+    * `PROACTIVE`None
+    """
+
+    __schema__ = schema
+    __choices__ = ("MANUAL", "PROACTIVE")
 
 
 class MonitorTuningAgentRunStatus(pycarlo.lib.types.Enum):
@@ -19606,8 +19678,10 @@ class AgentHealthEvidence(sgqlc.types.Type):
         "title",
         "summary",
         "node_id",
+        "canonical_node_id",
         "tool_name",
         "category",
+        "focus_area",
         "issue_type",
         "granularity",
         "severity",
@@ -19631,11 +19705,24 @@ class AgentHealthEvidence(sgqlc.types.Type):
     node_id = sgqlc.types.Field(String, graphql_name="nodeId")
     """Agent graph node the fact is anchored to."""
 
+    canonical_node_id = sgqlc.types.Field(String, graphql_name="canonicalNodeId")
+    """The owning agent graph node id — nodeId rolled up to the
+    meaningful tool/task that owns it. The stable cross-run identity
+    handle; nodeId stays raw for display and deep-linking. Null for
+    content findings, graph-free runs, and reports produced before
+    this field shipped.
+    """
+
     tool_name = sgqlc.types.Field(String, graphql_name="toolName")
     """Tool involved, when the fact is tool-scoped."""
 
     category = sgqlc.types.Field(AgentHealthEvidenceCategory, graphql_name="category")
     """Aspect of agent behavior the fact speaks to."""
+
+    focus_area = sgqlc.types.Field(AgentHealthFocusArea, graphql_name="focusArea")
+    """Coarse lens the producing detector declares, independent of
+    category. Null on reports produced before focus areas shipped.
+    """
 
     issue_type = sgqlc.types.Field(String, graphql_name="issueType")
     """Stable taxonomy slug (e.g. error_rate, tool_cycle, chokepoint);
@@ -19716,6 +19803,7 @@ class AgentHealthFindingPayload(sgqlc.types.Type):
         "evidence_count",
         "window_start",
         "window_end",
+        "resolved_issues",
     )
     health = sgqlc.types.Field(AgentHealthSeverity, graphql_name="health")
     """Overall health rollup — the max severity across all issues."""
@@ -19749,6 +19837,15 @@ class AgentHealthFindingPayload(sgqlc.types.Type):
 
     window_end = sgqlc.types.Field(DateTime, graphql_name="windowEnd")
     """End of the analyzed time window."""
+
+    resolved_issues = sgqlc.types.Field(
+        sgqlc.types.list_of(sgqlc.types.non_null("AgentHealthResolvedIssue")),
+        graphql_name="resolvedIssues",
+    )
+    """Prior-report issues absent from this report — resolved or no-
+    longer-checkable. Empty on a first run (no prior report to diff);
+    null on reports produced before lifecycle tracking shipped.
+    """
 
 
 class AgentHealthFindingResult(sgqlc.types.Type):
@@ -19814,6 +19911,8 @@ class AgentHealthIssue(sgqlc.types.Type):
         "confidence",
         "confidence_score",
         "related_evidence_ids",
+        "focus_area",
+        "lifecycle",
         "evidence",
         "recommended_actions",
         "action_context",
@@ -19850,6 +19949,19 @@ class AgentHealthIssue(sgqlc.types.Type):
         sgqlc.types.list_of(sgqlc.types.non_null(String)), graphql_name="relatedEvidenceIds"
     )
     """Ids of the evidence rows this issue is built from."""
+
+    focus_area = sgqlc.types.Field(AgentHealthFocusArea, graphql_name="focusArea")
+    """Coarse lens the issue is filed under — the plurality focus area
+    across its cited evidence. Null on reports produced before focus
+    areas shipped.
+    """
+
+    lifecycle = sgqlc.types.Field(AgentHealthIssueLifecycle, graphql_name="lifecycle")
+    """Cross-run status vs the previous published report. Null when there
+    was no prior report to diff against (first run, or the lookup was
+    skipped/failed) and on reports produced before lifecycle tracking
+    shipped.
+    """
 
     evidence = sgqlc.types.Field(
         sgqlc.types.list_of(sgqlc.types.non_null(AgentHealthEvidence)), graphql_name="evidence"
@@ -19930,6 +20042,36 @@ class AgentHealthRecommendedAction(sgqlc.types.Type):
         sgqlc.types.list_of(sgqlc.types.non_null(String)), graphql_name="addressesIssueIds"
     )
     """Issue id(s) this fix resolves."""
+
+
+class AgentHealthResolvedIssue(sgqlc.types.Type):
+    """A prior-report issue absent from this report — the lifecycle exit
+    record.  A resolved or no-longer-checkable issue has no current
+    evidence to cite, so it can't be an issue on this report; it
+    surfaces here so a finding that dropped out is explained
+    ("resolved since <date>") rather than silently vanishing when the
+    rolling analysis window moves on.
+    """
+
+    __schema__ = schema
+    __field_names__ = ("prior_issue_id", "title", "severity", "since", "status")
+    prior_issue_id = sgqlc.types.Field(String, graphql_name="priorIssueId")
+    """The prior report's deterministic issue id."""
+
+    title = sgqlc.types.Field(String, graphql_name="title")
+    """The prior issue's headline, carried for display."""
+
+    severity = sgqlc.types.Field(AgentHealthSeverity, graphql_name="severity")
+    """The severity the issue held in the prior report."""
+
+    since = sgqlc.types.Field(DateTime, graphql_name="since")
+    """The prior report's detection time — the 'resolved since' handle."""
+
+    status = sgqlc.types.Field(AgentHealthResolvedIssueStatus, graphql_name="status")
+    """RESOLVED when the issue's silence this run is a real below-
+    threshold signal; UNVERIFIED when a source it needed didn't run
+    this window.
+    """
 
 
 class AgentHealthWorkflowSummary(sgqlc.types.Type):
@@ -39231,6 +39373,7 @@ class MonitorTuningRunResult(sgqlc.types.Type):
         "monitor_uuid",
         "status",
         "dry_run",
+        "source",
         "monitor_type",
         "recommendations",
         "error_message",
@@ -39247,6 +39390,13 @@ class MonitorTuningRunResult(sgqlc.types.Type):
     )
 
     dry_run = sgqlc.types.Field(sgqlc.types.non_null(Boolean), graphql_name="dryRun")
+
+    source = sgqlc.types.Field(
+        sgqlc.types.non_null(MonitorTuningAgentRunSource), graphql_name="source"
+    )
+    """Origin of the run — MANUAL (in-product / Bob) or PROACTIVE (noisy-
+    monitor scheduler).
+    """
 
     monitor_type = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="monitorType")
 
@@ -39266,6 +39416,47 @@ class MonitorTuningRunResult(sgqlc.types.Type):
     triggered_by_execution_id = sgqlc.types.Field(
         sgqlc.types.non_null(UUID), graphql_name="triggeredByExecutionId"
     )
+
+
+class MonitorTuningSuggestion(sgqlc.types.Type):
+    """A monitor with a pending, not-yet-applied proactive tuning
+    suggestion.
+    """
+
+    __schema__ = schema
+    __field_names__ = (
+        "monitor_uuid",
+        "monitor_name",
+        "monitor_type",
+        "run_uuid",
+        "created_time",
+        "recommendation_count",
+        "recommendation_titles",
+        "breach_count7d",
+    )
+    monitor_uuid = sgqlc.types.Field(sgqlc.types.non_null(UUID), graphql_name="monitorUuid")
+
+    monitor_name = sgqlc.types.Field(String, graphql_name="monitorName")
+    """Null when the monitor has no name set."""
+
+    monitor_type = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="monitorType")
+
+    run_uuid = sgqlc.types.Field(sgqlc.types.non_null(UUID), graphql_name="runUuid")
+    """UUID of the underlying tuning run backing this suggestion."""
+
+    created_time = sgqlc.types.Field(sgqlc.types.non_null(DateTime), graphql_name="createdTime")
+
+    recommendation_count = sgqlc.types.Field(
+        sgqlc.types.non_null(Int), graphql_name="recommendationCount"
+    )
+
+    recommendation_titles = sgqlc.types.Field(
+        sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null(String))),
+        graphql_name="recommendationTitles",
+    )
+
+    breach_count7d = sgqlc.types.Field(sgqlc.types.non_null(Int), graphql_name="breachCount7d")
+    """Distinct incidents for this monitor in the trailing 7 days."""
 
 
 class MonitorTypeCount(sgqlc.types.Type):
@@ -65814,6 +66005,7 @@ class Query(sgqlc.types.Type):
         "get_incident_warehouse_tables",
         "get_alert_warehouse_tables",
         "get_monitor_tuning_runs",
+        "get_monitor_tuning_suggestions",
         "agentic_notification_routes",
         "queued_job",
         "active_sso_migration_job",
@@ -80335,6 +80527,12 @@ class Query(sgqlc.types.Type):
                 ),
                 ("dry_run", sgqlc.types.Arg(Boolean, graphql_name="dryRun", default=None)),
                 (
+                    "source",
+                    sgqlc.types.Arg(
+                        MonitorTuningAgentRunSource, graphql_name="source", default=None
+                    ),
+                ),
+                (
                     "created_after",
                     sgqlc.types.Arg(DateTime, graphql_name="createdAfter", default=None),
                 ),
@@ -80359,6 +80557,8 @@ class Query(sgqlc.types.Type):
       tuning row by its UUID.
     * `dry_run` (`Boolean`): When set, filter to dry-run rows (true)
       or apply rows (false).
+    * `source` (`MonitorTuningAgentRunSource`): When set, filter to
+      rows with this origin.
     * `created_after` (`DateTime`): Inclusive lower bound on the row's
       creation timestamp.
     * `created_before` (`DateTime`): Exclusive upper bound on the
@@ -80366,6 +80566,14 @@ class Query(sgqlc.types.Type):
     * `before` (`String`)None
     * `after` (`String`)None
     * `last` (`Int`)None
+    """
+
+    get_monitor_tuning_suggestions = sgqlc.types.Field(
+        sgqlc.types.list_of(sgqlc.types.non_null(MonitorTuningSuggestion)),
+        graphql_name="getMonitorTuningSuggestions",
+    )
+    """(experimental) Account-wide monitors with a pending proactive
+    tuning suggestion, newest first.
     """
 
     agentic_notification_routes = sgqlc.types.Field(

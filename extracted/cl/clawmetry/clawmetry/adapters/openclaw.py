@@ -153,6 +153,104 @@ def _openclaw_doctor_findings() -> list:
         return []
 
 
+def _clawrouter_detect() -> dict:
+    """Detect the ClawRouter bundled provider plugin (OpenClaw 2026.7.1, #99658).
+
+    ClawRouter adds credential-scoped dynamic model discovery,
+    OpenAI-compatible + native Anthropic/Gemini transports, and managed
+    budget/quota reporting across OpenClaw usage surfaces. Config and quota
+    data are written to ``~/.openclaw/clawrouter/`` by the harness onboarding
+    step (override with ``OPENCLAW_CLAWROUTER_HOME``).
+
+    Returns a dict with zero or more of:
+    - ``clawRouterEnabled`` (bool)
+    - ``clawRouterVersion`` (str)
+    - ``clawRouterTransports`` (list[str])
+    - ``clawRouterModels`` (list[str])
+    - ``clawRouterBudgetUsd`` (float) — aggregate managed budget in USD
+    - ``clawRouterQuotaCredentials`` (int) — number of credential scopes
+
+    Returns ``{}`` when the plugin is absent (pre-2026.7.1 or unconfigured).
+    Read-only, never raises.
+    """
+    import json as _json
+
+    home = os.environ.get("OPENCLAW_CLAWROUTER_HOME") or os.path.expanduser(
+        os.path.join("~", ".openclaw", "clawrouter"))
+    config_path = os.path.join(home, "config.json")
+    quota_path = os.path.join(home, "quota.json")
+
+    out: dict = {}
+
+    # Main config: enabled flag, version, transport list, model catalog
+    try:
+        with open(config_path, encoding="utf-8") as _fh:
+            cfg = _json.load(_fh)
+        out["clawRouterEnabled"] = bool(cfg.get("enabled", True))
+        version = cfg.get("version") or cfg.get("pluginVersion")
+        if version:
+            out["clawRouterVersion"] = str(version)
+        transports = cfg.get("transports") or cfg.get("transport") or []
+        if isinstance(transports, list) and transports:
+            out["clawRouterTransports"] = [str(t) for t in transports if t]
+        models = cfg.get("models") or cfg.get("modelCatalog") or []
+        if isinstance(models, list) and models:
+            out["clawRouterModels"] = [
+                str(m.get("name") or m) if isinstance(m, dict) else str(m)
+                for m in models if m
+            ]
+    except (OSError, ValueError, KeyError):
+        pass
+
+    # Quota file: aggregate managed budget + credential-scope count
+    try:
+        with open(quota_path, encoding="utf-8") as _fh:
+            quota = _json.load(_fh)
+        budget = quota.get("totalBudgetUsd") or quota.get("budgetUsd")
+        if budget is not None:
+            try:
+                out["clawRouterBudgetUsd"] = float(budget)
+            except (TypeError, ValueError):
+                pass
+        creds = quota.get("credentials") or quota.get("credentialScopes") or []
+        if isinstance(creds, list) and creds:
+            out["clawRouterQuotaCredentials"] = len(creds)
+    except (OSError, ValueError, KeyError):
+        pass
+
+    # Promos file: ClawHub promotional model offers (#3570, openclaw#100236)
+    promos_path = os.path.join(home, "promos.json")
+    try:
+        with open(promos_path, encoding="utf-8") as _fh:
+            promos_data = _json.load(_fh)
+        # List-of-claims format: {"claimedPromos": [...]} or {"claims": [...]}
+        claims = (
+            promos_data.get("claimedPromos")
+            or promos_data.get("claims")
+            or promos_data.get("activeClaims")
+            or []
+        )
+        if isinstance(claims, list) and claims:
+            active = [c for c in claims if isinstance(c, dict) and c.get("active", True)]
+            if active:
+                out["clawRouterPromoActive"] = True
+                out["clawRouterPromoCount"] = len(active)
+                first_model = active[0].get("modelRef") or active[0].get("model")
+                if first_model:
+                    out["clawRouterPromoModel"] = str(first_model)
+        elif isinstance(promos_data.get("active"), bool):
+            # Single-promo format: {"active": true, "modelRef": "...", ...}
+            if promos_data["active"]:
+                out["clawRouterPromoActive"] = True
+                promo_model = promos_data.get("modelRef") or promos_data.get("model")
+                if promo_model:
+                    out["clawRouterPromoModel"] = str(promo_model)
+    except (OSError, ValueError, KeyError):
+        pass
+
+    return out
+
+
 def _real_install(sessions_dir: str) -> bool:
     """A genuine OpenClaw install signal, NOT the bare ~/.openclaw dir that
     ClawMetry itself creates as a scratch workspace. Any one of: the openclaw
@@ -326,9 +424,13 @@ def _openshell_sandbox_logs(name: str, count: int = 20) -> list:
     """Retrieve OCSF JSON audit log lines for a NemoClaw sandbox.
 
     Arms OCSF output first (idempotent settings set), then calls
-    ``openshell logs <name> -n <count> --source all``.  Returns a list of
-    parsed OCSF event dicts; silently drops non-JSON lines.  Never raises;
-    returns ``[]`` when openshell is absent or any call fails.
+    ``openshell logs <name> -n <count> --source all``.  For container-backed
+    (non-terminal) sandboxes also merges the last ``count`` lines from the
+    OpenClaw gateway log at ``/tmp/gateway.log`` (override with
+    ``OPENSHELL_GATEWAY_LOG``), matching the harness's two-source merge in
+    ``showSandboxLogsWithDeps`` (#3571).  Returns a list of parsed OCSF event
+    dicts; silently drops non-JSON lines.  Never raises; returns ``[]`` when
+    openshell is absent or any call fails.
     """
     try:
         import shutil as _sh
@@ -352,6 +454,26 @@ def _openshell_sandbox_logs(name: str, count: int = 20) -> list:
             try:
                 events.append(json.loads(line))
             except Exception:
+                pass
+        # For container-backed (non-terminal) sandboxes the harness also tails
+        # /tmp/gateway.log (asserted in test/sandbox-logs-terminal.test.ts).
+        # Read runtime kind via the existing phase-policy helper and merge when
+        # the sandbox is not terminal-kind.
+        phase_info = _openshell_sandbox_phase_policy(name)
+        if phase_info.get("sandboxRuntimeKind", "").lower() != "terminal":
+            _gw_log = os.environ.get("OPENSHELL_GATEWAY_LOG", "/tmp/gateway.log")
+            try:
+                with open(_gw_log, "r", encoding="utf-8", errors="replace") as _gf:
+                    _gw_lines = _gf.readlines()[-count:]
+                for _gw_line in _gw_lines:
+                    _gw_line = _gw_line.strip()
+                    if not _gw_line:
+                        continue
+                    try:
+                        events.append(json.loads(_gw_line))
+                    except Exception:
+                        pass
+            except OSError:
                 pass
         return events
     except Exception:
@@ -1048,6 +1170,90 @@ def _gateway_plugin_health() -> dict:
         return {}
 
 
+def _gateway_host_status() -> dict:
+    """Host/system fields from the OpenClaw gateway.status RPC (#3551).
+
+    As of harness CHANGELOG #100478 the gateway.status response includes
+    host name, network address, OS, runtime, uptime, CPU, memory, and disk
+    details alongside the existing ``plugins`` list.
+
+    Returns a dict with whichever fields are present:
+    - ``"gatewayHostName"``       — machine hostname
+    - ``"gatewayNetworkAddress"`` — primary network address / IP
+    - ``"gatewayHostOS"``         — OS name or platform string
+    - ``"gatewayHostRuntime"``    — runtime identifier (e.g. Node version)
+    - ``"gatewayHostUptime"``     — uptime in seconds
+    - ``"gatewayHostCPU"``        — CPU usage value or dict
+    - ``"gatewayHostMemory"``     — memory info (bytes or dict)
+    - ``"gatewayHostDisk"``       — disk info (bytes or dict)
+
+    Returns ``{}`` when the RPC is unavailable or the response carries no
+    host fields. Never raises.
+    """
+    try:
+        d = _d()
+        rpc = getattr(d, "_gw_ws_rpc", None)
+        if rpc is None:
+            return {}
+        payload = rpc("gateway.status")
+        if not isinstance(payload, dict):
+            return {}
+        result: dict = {}
+        host_name = (
+            payload.get("hostName")
+            or payload.get("host_name")
+            or payload.get("hostname")
+            or payload.get("host")
+        )
+        if host_name:
+            result["gatewayHostName"] = str(host_name)
+        address = (
+            payload.get("networkAddress")
+            or payload.get("network_address")
+            or payload.get("address")
+            or payload.get("ip")
+        )
+        if address:
+            result["gatewayNetworkAddress"] = str(address)
+        os_val = payload.get("os") or payload.get("platform")
+        if os_val:
+            result["gatewayHostOS"] = str(os_val)
+        runtime = (
+            payload.get("runtime")
+            or payload.get("nodeVersion")
+            or payload.get("node_version")
+        )
+        if runtime:
+            result["gatewayHostRuntime"] = str(runtime)
+        uptime = (
+            payload.get("uptime")
+            or payload.get("uptimeSeconds")
+            or payload.get("uptime_seconds")
+        )
+        if uptime is not None:
+            result["gatewayHostUptime"] = uptime
+        cpu = payload.get("cpu") or payload.get("cpuUsage") or payload.get("cpu_usage")
+        if cpu is not None:
+            result["gatewayHostCPU"] = cpu
+        memory = (
+            payload.get("memory")
+            or payload.get("memoryUsage")
+            or payload.get("memory_usage")
+        )
+        if memory is not None:
+            result["gatewayHostMemory"] = memory
+        disk = (
+            payload.get("disk")
+            or payload.get("diskUsage")
+            or payload.get("disk_usage")
+        )
+        if disk is not None:
+            result["gatewayHostDisk"] = disk
+        return result
+    except Exception:
+        return {}
+
+
 class OpenClawAdapter(AgentAdapter):
     name = "openclaw"
     display_name = "OpenClaw"
@@ -1118,6 +1324,9 @@ class OpenClawAdapter(AgentAdapter):
             # Only meaningful — and safe to query — when the gateway is live.
             if running:
                 meta.update(_gateway_plugin_health())
+                # Gateway host/system status (#3551): host name, OS, runtime,
+                # uptime, CPU, memory, disk from the same gateway.status RPC.
+                meta.update(_gateway_host_status())
             # Docker runtime health (#3390): the NemoClaw harness treats Docker
             # daemon liveness as a distinct signal from gateway liveness. Only
             # written when docker CLI is present so non-Docker environments are
@@ -1132,6 +1341,13 @@ class OpenClawAdapter(AgentAdapter):
             _doctor = _openclaw_doctor_findings()
             if _doctor:
                 meta["doctorFindings"] = _doctor
+            # ClawRouter bundled provider plugin (#3524, OpenClaw 2026.7.1
+            # #99658). Credential-scoped dynamic model discovery, multi-transport
+            # routing, and managed budget/quota reporting across OpenClaw usage
+            # surfaces. Returns {} on pre-2026.7.1 installs.
+            _cr = _clawrouter_detect()
+            if _cr:
+                meta.update(_cr)
             return DetectResult(
                 name=self.name,
                 display_name=self.display_name,
@@ -1165,6 +1381,7 @@ class OpenClawAdapter(AgentAdapter):
         for s in raw[:limit]:
             updated_ms = s.get("updatedAt") or 0
             started_at = (updated_ms / 1000.0) if updated_ms else 0.0
+            _sk = (s.get("kind") or "").lower()
             extra = {
                 "kind": s.get("kind") or "direct",
                 "contextTokens": s.get("contextTokens"),
@@ -1259,6 +1476,32 @@ class OpenClawAdapter(AgentAdapter):
             _cdcont = s.get("cronDeliveredContent") or s.get("deliveredContent")
             if _cdcont is not None:
                 extra["cronDeliveredContent"] = str(_cdcont)
+            # On-exit cron trigger kind (#3526): OpenClaw 2026.7.1 (#92037)
+            # stamps the schedule kind that triggered this session delivery
+            # ("on-exit", "every", "interval", "cron", …) so callers can
+            # distinguish exit-triggered runs from ordinary scheduled ones.
+            _csk = s.get("cronScheduleKind") or s.get("cronTriggerKind")
+            if _csk is not None:
+                extra["cronScheduleKind"] = str(_csk)
+            # Detached-run marker (#3526): OpenClaw 2026.7.1 (#98755) stamps
+            # cronDetachedRun on sessions that were spawned as a detached
+            # run (independent of the triggering session).
+            _cdr = s.get("cronDetachedRun")
+            if _cdr is None:
+                _cdr = s.get("cronDetached")
+            if _cdr is not None:
+                extra["cronDetachedRun"] = bool(_cdr)
+            # Cron-configured agent-turn model (#3552): OpenClaw PR #95341
+            # stamps the model selected (or defaulted) for the cron job that
+            # triggered this session so usage can be attributed per scheduled
+            # job.  Key name varies across harness builds; try all known forms.
+            _cm = (
+                s.get("cronModel")
+                or s.get("cronAgentModel")
+                or s.get("cronConfiguredModel")
+            )
+            if _cm is not None:
+                extra["cronModel"] = str(_cm)
             # GLM/Zhipu overload classification (#3343): PR #93241 classifies
             # Zhipu GLM overload as a distinct overload state for failover;
             # surface the tag so session views can indicate failover routing.
@@ -1285,6 +1528,79 @@ class OpenClawAdapter(AgentAdapter):
             )
             if _cap_profile is not None:
                 extra["capabilityProfile"] = _cap_profile
+            # Per-agent utilityModel routing (#3538): OpenClaw 2026.7.1 lets
+            # cheaper models generate session/topic/thread titles via a
+            # per-agent utilityModel setting. Surface the model name and its
+            # usage so routes/usage.py can attribute costs correctly.
+            _um = (
+                s.get("utilityModel")
+                or s.get("titleModel")
+                or s.get("sessionTitleModel")
+            )
+            if _um is not None:
+                extra["utilityModel"] = _um
+            _um_tokens = (
+                s.get("utilityModelTokens")
+                or s.get("utilityModelTotalTokens")
+            )
+            if _um_tokens is not None:
+                try:
+                    extra["utilityModelTokens"] = int(_um_tokens)
+                except (TypeError, ValueError):
+                    pass
+            _um_in = s.get("utilityModelInputTokens")
+            if _um_in is not None:
+                try:
+                    extra["utilityModelInputTokens"] = int(_um_in)
+                except (TypeError, ValueError):
+                    pass
+            _um_out = s.get("utilityModelOutputTokens")
+            if _um_out is not None:
+                try:
+                    extra["utilityModelOutputTokens"] = int(_um_out)
+                except (TypeError, ValueError):
+                    pass
+            _um_cost = s.get("utilityModelCostUsd") or s.get("utilityModelCost")
+            if _um_cost is not None:
+                try:
+                    extra["utilityModelCostUsd"] = float(_um_cost)
+                except (TypeError, ValueError):
+                    pass
+            # Talk/Voice Call session fields (#3553): OpenClaw 'Control UI Talk
+            # controls' (harness PR #97170/#97738) stamps transcription-provider,
+            # transport, voice model, and VAD config on talk-kind sessions.
+            # Extract with multi-alias fallbacks for resilience across harness
+            # versions; guard on _sk so non-voice sessions are unaffected.
+            if _sk in ("talk", "voice", "realtime", "voice_call", "talk_call"):
+                _tp = (
+                    s.get("transcriptionProvider")
+                    or s.get("talkTranscriptionProvider")
+                    or s.get("speechProvider")
+                )
+                if _tp is not None:
+                    extra["transcriptionProvider"] = str(_tp)
+                _tt = (
+                    s.get("talkTransport")
+                    or s.get("voiceTransport")
+                    or s.get("transport")
+                )
+                if _tt is not None:
+                    extra["talkTransport"] = str(_tt)
+                _vm = (
+                    s.get("voiceModel")
+                    or s.get("talkVoiceModel")
+                    or s.get("realtimeModel")
+                    or s.get("talkModel")
+                )
+                if _vm is not None:
+                    extra["voiceModel"] = str(_vm)
+                _vad = (
+                    s.get("vadMode")
+                    or s.get("talkVadMode")
+                    or s.get("vadTimingMode")
+                )
+                if _vad is not None:
+                    extra["vadMode"] = str(_vad)
             tok_total = int(s.get("totalTokens") or 0)
             tok_in = int(s.get("inputTokens") or 0)
             tok_out = int(s.get("outputTokens") or 0)
@@ -1302,7 +1618,7 @@ class OpenClawAdapter(AgentAdapter):
                     id=s.get("sessionId") or s.get("key") or "",
                     display_name=s.get("displayName") or "",
                     model=s.get("model") or "",
-                    source=s.get("channel") or "",
+                    source=s.get("channel") or (_sk if _sk in ("talk", "voice", "realtime") else "") or "",
                     started_at=started_at,
                     total_tokens=tok_total,
                     input_tokens=tok_in,
@@ -1448,6 +1764,18 @@ class OpenClawAdapter(AgentAdapter):
                             _final = obj.get("talkFinal")
                             if _final is not None:
                                 extra["final"] = _final
+                            # TTS gateway RPC fields (#3569): tts.speak records
+                            # carry char_count, voice_id, and audio_bytes;
+                            # surface them so cost and identity are observable.
+                            for _field in ("char_count", "voice_id"):
+                                _val = obj.get(_field) or obj.get(
+                                    "characterCount" if _field == "char_count" else "voiceId"
+                                )
+                                if _val is not None:
+                                    extra[_field] = _val
+                            _abytes = obj.get("audio_bytes") or obj.get("audioBytes")
+                            if _abytes is not None:
+                                extra["audio_bytes"] = _abytes
                             # Fast-mode state (#3322): PR #85104 emits fastMode on
                             # event blobs; try all three spellings in precedence order.
                             for _fmkey in ("fastMode", "isFastMode", "talkFastMode"):

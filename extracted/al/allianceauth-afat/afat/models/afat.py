@@ -10,7 +10,6 @@ from eve_sde.models import ItemType, SolarSystem
 from solo.models import SingletonModel
 
 # Django
-from django.contrib.auth.models import User
 from django.core.exceptions import ObjectDoesNotExist
 from django.db import models, transaction
 from django.utils import timezone
@@ -18,6 +17,7 @@ from django.utils.crypto import get_random_string
 from django.utils.translation import gettext_lazy as _
 
 # Alliance Auth
+from allianceauth.authentication.models import User
 from allianceauth.eveonline.models import EveCharacter
 from allianceauth.framework.api.user import get_sentinel_user
 

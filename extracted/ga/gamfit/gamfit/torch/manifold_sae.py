@@ -48,7 +48,6 @@ from typing import Any, Callable, Literal, Mapping, cast
 
 import numpy as np
 import torch
-import torch.nn.functional as F_torch
 from torch import nn
 
 from .._binding import rust_module
@@ -65,6 +64,7 @@ from .penalties import (
     MonotonicityPenalty,
     ibp_map,
     jumprelu_bounded_gate,
+    topk_activation,
 )
 
 
@@ -246,7 +246,11 @@ class ManifoldSAEConfig:
     sparsity: SparsityConfig = field(default_factory=SparsityConfig)
     decoder: DecoderConfig = field(default_factory=DecoderConfig)
     reml: RemlConfig = field(default_factory=RemlConfig)
-    encoder_hidden: int = 16
+    # Default to the direct linear encoder used by the closed-form/Rust SAE
+    # family. A positive value is an explicit opt-in to an extra nonlinear
+    # PyTorch-only mixer, which can reconstruct well while hiding feature
+    # presence from per-atom amplitudes in routing diagnostics.
+    encoder_hidden: int = 0
     init_scale: float = 0.05
     dtype: Any = field(default=None)
     # ``K`` is constructor sugar for ``n_atoms`` (the spelling the docs and the
@@ -556,35 +560,10 @@ def _basis_rust(
 
 
 def _duchon_centers_nd(centers_1d: torch.Tensor, d: int) -> torch.Tensor:
-    """Lift the ``(K,)`` 1-D Duchon centers to a ``(K, d)`` cloud in ``[0, 1]^d``.
-
-    Axis 0 keeps the caller's 1-D centers (so the periodic/leading coordinate of
-    a cylinder or product patch is seeded exactly as in the 1-D case). The
-    remaining ``d - 1`` axes are filled by an additive-recurrence (Kronecker /
-    generalized-golden-ratio) low-discrepancy sequence keyed only to ``(K, d)``:
-    deterministic, buffer-free, and non-degenerate (the centers do not collapse
-    onto a diagonal, so the multi-axis Duchon kernel is well-conditioned). The
-    centers are a *fixed* design the decoder learns against, so any deterministic
-    well-spread placement is admissible; this one is reproducible and stable
-    across forward calls without enlarging the serialized state.
-    """
-    base = centers_1d.reshape(-1, 1)
-    k = int(base.shape[0])
-    dtype = base.dtype
-    device = base.device
-    if d <= 1 or k == 0:
-        return base
-    # Generalized golden ratio phi_d: the real root of x^{d} = x + 1; its
-    # reciprocal powers give the canonical R_d low-discrepancy generators.
-    phi = 2.0
-    for _ in range(32):
-        phi = (1.0 + phi) ** (1.0 / float(d))
-    alphas = [((1.0 / phi) ** (j + 1)) % 1.0 for j in range(d - 1)]
-    idx = torch.arange(1, k + 1, dtype=dtype, device=device).reshape(-1, 1)
-    extra = torch.empty((k, d - 1), dtype=dtype, device=device)
-    for j, a in enumerate(alphas):
-        extra[:, j] = torch.remainder(idx[:, 0] * float(a) + 0.5, 1.0)
-    return torch.cat([base, extra], dim=-1)
+    """Rust-owned lift of ``(K,)`` 1-D Duchon centers to ``(K, d)``."""
+    centers_np = to_numpy_f64(centers_1d.reshape(-1))
+    lifted = rust_module().sae_duchon_centers_nd(centers_np, int(d))
+    return from_numpy_like(lifted, centers_1d)
 
 
 def _eval_basis_on_manifold(
@@ -797,8 +776,13 @@ class _SparsityLayer(nn.Module):
         return assignments, logits
 
     def _topk_activation(self, logits: torch.Tensor) -> torch.Tensor:
+        # Thin wrapper over the Rust source of truth
+        # (`gam_sae::assignment::topk_activation_row_value_grad`): the per-atom
+        # independent, non-negative activation `τ·softplus(logits/τ)` with the
+        # Rust-defined diagonal derivative `σ(logits/τ)` on the backward. The hard
+        # top-k mask stays on the tape here (see `_topk_gate` / `_topk_mask`).
         tau = max(float(self.tau.item()), 1e-6)
-        return tau * F_torch.softplus(logits / tau)
+        return topk_activation(logits, tau)
 
     def _topk_mask(self, scores: torch.Tensor) -> torch.Tensor:
         k = min(self.target_k, scores.shape[-1])
@@ -1711,13 +1695,16 @@ class ManifoldSAE(nn.Module):
         reml_score = torch.tensor(float("nan"), dtype=x.dtype, device=x.device)
         lambdas = torch.exp(self.log_lambda).to(dtype=x.dtype, device=x.device)
 
-        # `amplitudes` is the magnitude the decoder actually used (== z), so a
-        # dropped atom reports zero, never its raw pre-mask activation.
+        # `z` is the signed coefficient used by reconstruction. `amplitudes`
+        # is the corresponding activation magnitude: in the multi-atom
+        # softmax-top-k lane a negative least-squares coefficient is phase/sign
+        # information, not feature absence, so routing diagnostics must observe
+        # |z| while reconstruction keeps the signed value.
         return ManifoldSAEOutput(
             z=z,
             x_hat=x_hat,
             positions=positions,
-            amplitudes=z,
+            amplitudes=z.abs(),
             curves=curves,
             gate=gate_pre,
             assignments=assignments,

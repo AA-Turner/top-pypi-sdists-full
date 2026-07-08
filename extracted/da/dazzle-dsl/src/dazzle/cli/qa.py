@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import importlib.util
+import json
 import os
 import re
 import shutil
@@ -17,6 +18,8 @@ import typer
 
 from dazzle.core.ir.fields import FieldModifier, FieldTypeKind
 from dazzle.core.manifest import load_manifest
+from dazzle.core.model_defaults import DEFAULT_JUDGMENT_MODEL
+from dazzle.qa.capture import build_capture_plan, capture_screenshots, write_manifest
 from dazzle.qa.signing_seed import (
     SeededDoc,
     SigningSeedContext,
@@ -24,6 +27,12 @@ from dazzle.qa.signing_seed import (
     write_mock_inbox,
 )
 from dazzle.qa.signing_verifier import SigningOutcome, verify_signing_outcome
+from dazzle.qa.taste_panel import (
+    assemble_pool,
+    build_report,
+    normalize_pool_frames,
+    run_panel,
+)
 from dazzle.signing.tokens import mint_token
 
 qa_app = typer.Typer(
@@ -869,6 +878,49 @@ def _reset_db_for_trial(project_dir: Path) -> None:
         os.chdir(old_cwd)
 
 
+def _plan_qa_capture(
+    project_dir: Path, persona: str | None, *, include_denied: bool = False
+) -> tuple[Any, list[Any]]:
+    """Load the AppSpec and build the (optionally persona-filtered) capture plan.
+
+    Exits the CLI with a diagnostic when the appspec can't load or the plan
+    is empty — shared error handling extracted from ``qa_capture``.
+    """
+    from dazzle.cli.utils import load_project_appspec
+
+    try:
+        appspec = load_project_appspec(project_dir)
+    except Exception as e:
+        typer.echo(f"Failed to load AppSpec: {e}", err=True)
+        raise typer.Exit(code=1)
+
+    targets = build_capture_plan(appspec, include_denied=include_denied)
+    if not targets:
+        # #1537: say WHY — "nothing declared" and "everything filtered
+        # away" are different failures (the latter was reported as the
+        # former for invoice_ops, and the fleet driver swallowed it).
+        n_ws = len(getattr(appspec, "workspaces", None) or [])
+        n_p = len(getattr(appspec, "personas", None) or [])
+        if n_p == 0:
+            typer.echo("No capture targets: the app declares no personas.", err=True)
+        else:
+            typer.echo(
+                f"No capture targets: {n_ws} workspace(s) and {n_p} persona(s) declared, "
+                "but no user-authored workspace is persona-accessible and no list "
+                "surfaces exist for the fallback.",
+                err=True,
+            )
+        raise typer.Exit(code=1)
+
+    if persona:
+        targets = [t for t in targets if t.persona == persona]
+        if not targets:
+            typer.echo(f"No targets found for persona '{persona}'.", err=True)
+            raise typer.Exit(code=1)
+
+    return appspec, targets
+
+
 @qa_app.command("capture")
 def qa_capture(
     url: str | None = typer.Option(None, "--url", "-u", help="URL of a running app"),
@@ -887,33 +939,23 @@ def qa_capture(
             "sub-strategy to hand a multi-app manifest to a CC subagent."
         ),
     ),
+    dark: bool = typer.Option(False, "--dark", help="Capture with dark color-scheme emulation"),
+    viewport: str = typer.Option("desktop", "--viewport", help="desktop | mobile"),
+    above_fold: bool = typer.Option(
+        False, "--above-fold", help="Viewport-height screenshot instead of full page"
+    ),
+    include_denied: bool = typer.Option(
+        False,
+        "--include-denied",
+        help="Also capture persona/workspace combos the persona cannot access "
+        "(denial-page auditing; the default plan is persona-matched, #1536)",
+    ),
 ) -> None:
     """Capture screenshots only — no LLM evaluation needed."""
-    from dazzle.cli.utils import load_project_appspec
-    from dazzle.qa.capture import build_capture_plan, capture_screenshots, write_manifest
     from dazzle.qa.server import AppConnection, wait_for_ready
 
     project_dir = _resolve_project_dir(app)
-
-    # Load AppSpec
-    try:
-        appspec = load_project_appspec(project_dir)
-    except Exception as e:
-        typer.echo(f"Failed to load AppSpec: {e}", err=True)
-        raise typer.Exit(code=1)
-
-    # Build capture plan
-    targets = build_capture_plan(appspec)
-    if not targets:
-        typer.echo("No capture targets found (no workspaces or personas defined).", err=True)
-        raise typer.Exit(code=1)
-
-    # Filter by persona if requested
-    if persona:
-        targets = [t for t in targets if t.persona == persona]
-        if not targets:
-            typer.echo(f"No targets found for persona '{persona}'.", err=True)
-            raise typer.Exit(code=1)
+    appspec, targets = _plan_qa_capture(project_dir, persona, include_denied=include_denied)
 
     if url is None:
         typer.echo(
@@ -947,6 +989,9 @@ def qa_capture(
                 site_url=connection.site_url,
                 api_url=connection.api_url,
                 project_dir=project_dir,
+                viewport=viewport,
+                color_scheme="dark" if dark else "light",
+                full_page=not above_fold,
             )
         )
 
@@ -965,6 +1010,110 @@ def qa_capture(
         app_name = str(getattr(appspec, "name", None) or project_dir.name)
         write_manifest(screens, app_name=app_name, manifest_path=manifest)
         typer.echo(f"Manifest: {manifest}")
+
+
+@qa_app.command("login")
+def qa_login(
+    persona: str = typer.Argument(..., help="Persona id to sign in as (e.g. admin)"),
+    url: str = typer.Option(..., "--url", "-u", help="Base URL of a running dev app"),
+) -> None:
+    """Print a one-click magic-link URL for a dev persona (#1536 follow-on).
+
+    Uses the dev-gated POST /qa/magic-link endpoint — the server must be
+    running with DAZZLE_ENV=development and DAZZLE_QA_MODE=1 (`dazzle serve
+    --local` sets these; `dazzle e2e env start` sets them when `--personas`
+    is passed). Open the printed URL in a browser to land signed in, then
+    browse the deeper dashboards.
+    """
+    import httpx
+
+    base = url.rstrip("/")
+    try:
+        resp = httpx.post(f"{base}/qa/magic-link", json={"persona_id": persona}, timeout=10.0)
+    except httpx.HTTPError as exc:
+        typer.echo(f"Could not reach {base}: {exc}", err=True)
+        raise typer.Exit(code=1)
+    if resp.status_code == 404:
+        typer.echo(
+            "QA mode is not active on that server (or the persona isn't "
+            "provisioned). The endpoint needs DAZZLE_ENV=development and "
+            "DAZZLE_QA_MODE=1, and the persona must exist "
+            f"({persona}@example.test).",
+            err=True,
+        )
+        raise typer.Exit(code=1)
+    resp.raise_for_status()
+    link = resp.json()["url"]
+    typer.echo(f"{base}{link}")
+    typer.echo("(single-use, 60s TTL — open it now)", err=True)
+
+
+@qa_app.command("taste-panel")
+def qa_taste_panel(
+    manifest: Path = typer.Option(
+        ..., "--manifest", "-m", help="Fleet manifest from `dazzle qa capture --manifest`"
+    ),
+    references: Path = typer.Option(
+        Path(".dazzle/composition/references/taste/references_manifest.json"),
+        "--references",
+        help="References manifest from scripts/taste/capture_references.py",
+    ),
+    judges: int = typer.Option(3, "--judges", help="Independent judge passes per image"),
+    noise_runs: int = typer.Option(2, "--noise-runs", help="Repeat passes for noise SD"),
+    seed: int = typer.Option(7, "--seed", help="Blinding shuffle seed"),
+    model: str | None = typer.Option(None, "--model", help="Override judge model"),
+    out: Path = typer.Option(Path(".dazzle/qa/taste"), "--out", help="Report output dir"),
+) -> None:
+    """Run the blind taste panel: Dazzle fleet vs dialect references.
+
+    Exit code 0 when every rubric dimension reaches parity, 1 otherwise —
+    scriptable as the HaTchi-MaXchi convergence gate (Phases 2-4).
+    """
+    if not manifest.exists():
+        typer.echo(f"Fleet manifest not found: {manifest}", err=True)
+        raise typer.Exit(code=2)
+    if not references.exists():
+        typer.echo(
+            f"References manifest not found: {references}\n"
+            "Run: python scripts/taste/capture_references.py",
+            err=True,
+        )
+        raise typer.Exit(code=2)
+
+    pool = assemble_pool(manifest, references)
+    # Frame-parity contract: judge a fixed frame for every image, Dazzle
+    # and reference alike. Full-page fleet captures get top-cropped to the
+    # reference viewport so below-the-fold content can't skew one side.
+    ref_viewport = json.loads(references.read_text(encoding="utf-8")).get("viewport", {})
+    pool = normalize_pool_frames(
+        pool,
+        frame_width=int(ref_viewport.get("width", 1440)),
+        frame_height=int(ref_viewport.get("height", 900)),
+    )
+    dazzle_n = sum(1 for p in pool if p.source == "dazzle")
+    ref_n = len(pool) - dazzle_n
+    if not dazzle_n or not ref_n:
+        typer.echo(f"Pool needs both sources (dazzle={dazzle_n}, reference={ref_n}).", err=True)
+        raise typer.Exit(code=2)
+
+    typer.echo(
+        f"Panel: {len(pool)} images ({dazzle_n} dazzle, {ref_n} reference), {judges} judges…"
+    )
+    result = run_panel(
+        pool,
+        judges=judges,
+        noise_runs=noise_runs,
+        seed=seed,
+        model=model or DEFAULT_JUDGMENT_MODEL,
+    )
+    data, md = build_report(result)
+
+    out.mkdir(parents=True, exist_ok=True)
+    (out / "taste-panel.json").write_text(json.dumps(data, indent=2) + "\n", encoding="utf-8")
+    (out / "taste-panel.md").write_text(md, encoding="utf-8")
+    typer.echo(md)
+    typer.echo(f"Reports: {out / 'taste-panel.json'}, {out / 'taste-panel.md'}")
+    raise typer.Exit(code=0 if data["parity"] else 1)
 
 
 @qa_app.command("trial")

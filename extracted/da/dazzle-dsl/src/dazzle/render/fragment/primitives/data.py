@@ -151,10 +151,9 @@ class Table:
     # Issue #1029 phase 7: bulk-selection support.
     # When `bulk_select=True`, the renderer prepends a checkbox column
     # to the header + each row. `row_ids` (parallel to `rows`) provides
-    # the per-row id used in `data-dz-row-id` + Alpine `toggleRow('{id}')`
-    # bindings. The dzTable Alpine controller (see legacy
-    # `static/js/dz_table.js`) owns the `selected` Set and exposes
-    # `toggleRow`, `toggleSelectAll`, `bulkDelete`, `clearSelection`.
+    # the per-row id used in `data-dz-row-id` + the HM selection seam
+    # (`data-dz-grid-select` / `data-dz-grid-row-id`; dz-grid.js counts the
+    # checked boxes — the checkbox's own .checked IS the state).
     bulk_select: bool = False
     row_ids: tuple[str, ...] = ()
     # ADR-0049 Phase 1 (D2): skeleton mode. When `skeleton=True` the table
@@ -177,12 +176,18 @@ class Table:
     caption: str = ""
     has_actions: bool = False
     # ADR-0049 Phase 1 Task 4e: parallel column keys (aligned to `columns`).
-    # When set, each data `<th>` carries `data-dz-col="{key}"` so the dzTable
-    # column-visibility toggle hides the header in lock-step with the hydrated
+    # When set, each data `<th>` carries `data-dz-col="{key}"` so the
+    # dz-grid-cols.js visibility toggle hides the header in lock-step with the hydrated
     # `render_data_row` body cells. Empty = plain headers (embedded tables).
     column_keys: tuple[str, ...] = ()
-    # Keys whose canonical list header renders as a dzTable `toggleSort`
-    # button (client-state sort + aria-sort + sort icon), not a static label.
+    # Convergence C1.1: the surface's DEFAULT sort (`ux: sort:`), reflected on
+    # the matching header's initial `aria-sort` — the grid controller reads
+    # sort state off the headers (state-in-DOM), so an all-"none" thead would
+    # silently drop the default order on the first composed refresh.
+    sort_field: str = ""
+    sort_dir: str = "asc"
+    # Keys whose canonical list header renders as a data-dz-grid-sort
+    # button (aria-sort state-in-DOM + sort icon), not a static label.
     # Only consulted in skeleton mode alongside `column_keys`.
     sortable_keys: tuple[str, ...] = ()
 
@@ -288,13 +293,16 @@ class RelatedGroup:
 
 @dataclass(frozen=True, slots=True)
 class ColumnVisibilityMenu:
-    """The list header's column-visibility menu (ADR-0049 Phase 1 Task 4c).
+    """The list toolbar's column-visibility menu (convergence C2.1).
 
-    A dropdown of per-column checkboxes bound to the `dzTable` controller's
-    `isColumnVisible`/`toggleColumn` — mirrors the legacy
-    `render_filterable_table` column menu. `columns` is the ordered tuple of
-    visible `(key, label)` pairs. `_build_list` only constructs the menu when
-    there are more than three visible columns (the legacy gate)."""
+    A native `<details>` disclosure of per-column checkboxes — each carries
+    `data-dz-grid-col-toggle="<key>"` (checked = visible); the delegated
+    `dz-grid-cols.js` extension persists the hidden set to
+    `localStorage["dz-cols-<grid-id>"]` and projects `style.display` onto
+    every `[data-dz-col]` cell in the grid root (re-applied after swaps).
+    No Alpine bindings. `columns` is the ordered tuple of visible
+    `(key, label)` pairs. `_build_list` only constructs the menu when there
+    are more than three visible columns (the legacy gate)."""
 
     columns: tuple[tuple[str, str], ...]
 
@@ -1428,14 +1436,14 @@ class ConfirmGate:
       - off / pending / draft / unknown / "" → checklist (when
         `confirmations` is non-empty) + dual button (secondary
         "Save as draft" + primary "Confirm and enable" gated on
-        Alpine `dzConfirmGate(count)` checking required checkboxes)
+        the HM `dz-confirm-gate.js` controller checking required checkboxes)
       - live / active / on / enabled → "Currently live" summary +
         optional revoke link
       - revoked / disabled / off-revoked → audit summary + optional
         re-enable link
 
     Audit footer auto-renders when `audit_enabled = True` regardless
-    of state. The Alpine component `dzConfirmGate(n)` is expected to
+    of state. The HM delegated controller `dz-confirm-gate.js` is expected to
     be registered globally — the primitive references it but doesn't
     define it.
 
@@ -1523,11 +1531,15 @@ class LazyTab:
 class LazyTabPanel:
     """Tabbed container with per-panel HTMX lazy loading.
 
-    Used by `display: tabbed_list` regions. Each tab becomes a button
-    in the tab list + a panel `<div>` that fetches its own content
-    via `hx-get` on first activation. The first tab fires `load`;
-    subsequent tabs fire on `intersect once`. A vanilla-JS click
-    handler toggles the `is-active` class and shows/hides panels.
+    Used by `display: tabbed_list` regions. Each tab becomes a
+    `<button class="dz-tabs__tab">` in the tab list + a
+    `.dz-tabs__panel` `<div>` that fetches its own content via `hx-get`
+    on first activation. The first tab fires `load`; subsequent tabs
+    fire on `intersect once`. Panel switching is driven by the HM
+    `dz-tabs.js` controller (delegated, scoped per `.dz-tabs` root):
+    the active tab gets `aria-current="true"` and inactive panels carry
+    the native `hidden` attribute — an honest link-strip, no
+    `role="tablist"`, no inline JS.
 
     `region_name` namespaces the DOM ids — `tabs-<region_name>` and
     `tab-<region_name>-<tab.key>` — so multiple LazyTabPanels can
@@ -1763,26 +1775,33 @@ class DashboardGrid:
 class BulkActionToolbar:
     """Bulk-selection toolbar for list surfaces (Phase 7 of #1029).
 
-    Fixed shape singleton matching legacy `bulk_actions.html` byte-
-    for-byte: Delete + Clear-selection buttons. Visibility CSS-driven
-    via `[data-dz-bulk-count]` on the outer `.dz-table` wrapper (set
-    by dzTable's `$watch` on bulkCount); the count text is mirrored
-    to `[data-dz-bulk-count-target]` descendants imperatively per
-    ADR-0022 (no Alpine bindings on children that idiomorph could
-    re-evaluate before scope rebinds).
+    Convergence C1.1: the toolbar rides the HM grid controller's seams —
+    Delete is `[data-dz-grid-bulk-action="delete"]` posting form-encoded to
+    ``{endpoint}/bulk`` (behind an `hx-confirm` dialog; the controller
+    injects action + selected/excluded ids + all-matching + the query echo
+    on config-request, and `data-dz-grid-bulk-refresh` re-fetches rows +
+    footer after the POST settles); Clear is `[data-dz-grid-clear]`; the
+    "Select all N matching" escalation rides `[data-dz-grid-select-all-matching]`
+    with the total mirrored from the footer's `data-dz-grid-total`.
+    Visibility stays CSS-driven via `[data-dz-bulk-count]` on the grid root
+    (written by dz-grid.js's sync()); the count text is mirrored to
+    `[data-dz-bulk-count-target]` (#978 / ADR-0022 — no bindings idiomorph
+    could re-evaluate).
 
-    Alpine state lives on the dzTable controller — `selected` Set,
-    `bulkDelete()`, `clearSelection()` — already shipped in
-    `static/js/dz_table.js`. This primitive emits the matching DOM."""
+    ``endpoint`` is the entity's API base (e.g. ``/api/contacts``) — the
+    bulk POST goes to ``{endpoint}/bulk`` (the C0b route)."""
+
+    endpoint: str = ""
 
 
 @dataclass(frozen=True, slots=True)
 class CreateButton:
     """The "New <Entity>" link in a list-surface header.
 
-    Issue #1029 phase 3 — matches the legacy `filterable_table.html`
-    create-button shape byte-for-byte: `<a href="{href}"
-    data-dazzle-action="{entity_name}.create" class="dz-button-primary">`
+    Issue #1029 phase 3 — the create-button shape: `<a href="{href}"
+    data-dazzle-action="{entity_name}.create" class="dz-button"
+    data-dz-variant="primary" data-dz-size="sm">` (the HM button grammar;
+    was the retired `.dz-button-primary` local class until v0.93.70)
     + 12×12 plus-icon SVG + "New {entity_name with _ replaced by ' '}"
     label.
 
@@ -1912,16 +1931,17 @@ class WorkspaceDrawer:
 
 @dataclass(frozen=True, slots=True)
 class SlideOver:
-    """Right-side slide-over panel for `peek: slide_over` (#1494, 2c, Slice 2).
+    """Right-side slide-over panel for `peek: slide_over` (#1494, 2c, Slice 2;
+    converged onto the HM drawer in Tier F2).
 
-    One shared panel per list, keyed by `table_id`: a row's peek chevron
-    `hx-get`s the entity's detail *body* (`?peek=1`) into the panel body
-    (`#slideover-content-{table_id}`) and reveals the container
-    (`#slideover-{table_id}`); the backdrop + close button re-hide it. **JS-free**
-    — open/close is an inline `hx-on:click` toggling the `hidden` attribute, the
-    same build-free pattern the peek-*expand* panel uses (no JS module, no `dist`
-    rebuild). Renders against the purpose-built `.dz-slideover-*` CSS family;
-    `width` drives the `data-dz-width` max-width preset.
+    One shared panel per list, keyed by `table_id`: a native
+    `<dialog class="dz-drawer">` — a row's peek chevron `hx-get`s the
+    entity's detail *body* (`?peek=1`) into `#slideover-content-{table_id}`
+    and opens `#slideover-{table_id}` via the HM `dz-dialog.js` opener
+    (`data-dz-dialog-open` on the chevron). Close is the platform's own —
+    the header's `<form method="dialog">` button, Esc, and a backdrop tap
+    (`closedby="any"`) — with focus trapping and an inert background for
+    free. `width` drives the `data-dz-width` width preset.
 
     Unlike the workspace-only `dzDrawer` (`#dz-detail-drawer-content`), this
     panel is emitted inline with the list body, so `slide_over` works on both
@@ -1941,7 +1961,7 @@ class AddCardRow:
     """The "Add Card" row that anchors the picker popover (Phase 4B.5.b.2.iii).
 
     Emits `<div class="dz-add-card-row">` with a `+` button toggling
-    `showPicker` on the parent `dzDashboardBuilder()` x-data, plus the
+    `showPicker` on the dashboard-builder controller, plus the
     embedded CardPicker. Visibility of the picker is CSS-driven via
     `[data-show-picker="1"]` on the workspace ancestor (#982); this
     primitive doesn't manage that — it just composes the row + picker.
@@ -1957,13 +1977,13 @@ class WorkspaceToolbar:
     """Workspace toolbar row — Reset + Save buttons (Phase 4B.5.b.2.i).
 
     Fixed shape singleton matching the legacy `_content.html` toolbar
-    section. The Alpine state machine `dzDashboardBuilder()`
+    section. The vanilla controller factory `createDzDashboardBuilder`
     parent owns `saveState`, `resetLayout()`, `save()`, `_saveError`;
     this primitive emits the markup that binds to those.
 
-    Save button has five `x-cloak`+`x-show` spans for the saveState
-    states: clean / dirty / saving / saved / error. `x-cloak` gates
-    visibility until Alpine evaluates `x-show` — protects against
+    Save button has five `data-dz-when` spans for the saveState
+    states: clean / dirty / saving / saved / error. CSS gates
+    visibility the span matching the button's data-dz-save-state.
     degraded state (#866) where alpine:init fails to fire (HTMX morph
     race, layout-JSON parse error, etc.) and the browser's default
     `display: inline` would otherwise stack every status label
@@ -1988,7 +2008,7 @@ class WorkspaceShell:
     """The outer `.dz-workspace` wrapper (Phase 4B.5.b.1).
 
     Emits the dashboard chrome shell:
-      - Outer `<div class="dz-workspace" x-data="dzDashboardBuilder()" ...>`
+      - Outer `<div class="dz-workspace" data-dz-dashboard-builder ...>`
         with `data-workspace-name` (always) and optional `data-fold-count`.
       - Heading row: `<h2 class="dz-workspace-title">` + optional
         primary-actions row (`<div class="dz-workspace-primary-actions">`
@@ -2024,7 +2044,7 @@ class CardPicker:
         the attribute (matching legacy `#963` convention) so embedded
         `"` chars from `tojson` don't terminate the attribute mid-value.
       - A `dz-card-picker-title` heading.
-      - One `<button class="dz-card-picker-entry" @click='addCard(...)'>`
+      - One `<button class="dz-card-picker-entry" data-dz-add-region=...>` (root-delegated addCard)
         per entry, with `data-test-id` + `data-test-region` for the
         Playwright harness.
       - A `dz-card-picker-empty` fallback when entries is empty.

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: toml-rs
-Version: 0.3.14
+Version: 0.3.16
 Classifier: Typing :: Typed
 Classifier: Programming Language :: Rust
 Classifier: Programming Language :: Python
@@ -18,7 +18,7 @@ Classifier: Topic :: Software Development :: Libraries
 Classifier: Development Status :: 5 - Production/Stable
 License-File: UNLICENSE
 Summary: A High-Performance TOML Parser for Python written in Rust
-Keywords: toml,parser
+Keywords: TOML,TOML 1.0,TOML 1.1,TOML parser,TOML dumper
 Author-email: chirizxc <chirizxc@proton.me>
 License-Expression: Unlicense
 Requires-Python: >=3.10

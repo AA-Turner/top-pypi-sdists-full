@@ -3,6 +3,7 @@ See COPYRIGHT.md for copyright information.
 '''
 from __future__ import annotations
 
+import datetime
 from dataclasses import dataclass
 import logging
 from collections.abc import Callable, Mapping
@@ -31,10 +32,11 @@ if TYPE_CHECKING:
 
 _: TypeGetText
 
-# patterns to replace \c and \i in names
-iNameChar = "[_A-Za-z\xC0-\xD6\xD8-\xF6\xF8-\xFF\u0100-\u02FF\u0370-\u037D\u037F-\u1FFF\u200C-\u200D\u2070-\u218F\u2C00-\u2FEF\u3001-\uD7FF\uF900-\uFDCF\uFDF0-\uFFFD]"
-cNameChar = r"[_\-\.:"   "\xB7A-Za-z0-9\xC0-\xD6\xD8-\xF6\xF8-\xFF\u0100-\u02FF\u0370-\u037D\u037F-\u1FFF\u200C-\u200D\u2070-\u218F\u2C00-\u2FEF\u3001-\uD7FF\uF900-\uFDCF\uFDF0-\uFFFD\u0300-\u036F\u203F-\u2040]"
-cMinusCNameChar = r"[_\-\."   "\xB7A-Za-z0-9\xC0-\xD6\xD8-\xF6\xF8-\xFF\u0100-\u02FF\u0370-\u037D\u037F-\u1FFF\u200C-\u200D\u2070-\u218F\u2C00-\u2FEF\u3001-\uD7FF\uF900-\uFDCF\uFDF0-\uFFFD\u0300-\u036F\u203F-\u2040]"
+# XSD Part 2 Appendix F name-character escapes (\i, \c) → Python character classes.
+iNameChar = "[:_A-Za-z\xC0-\xD6\xD8-\xF6\xF8-\xFF\u0100-\u02FF\u0370-\u037D\u037F-\u1FFF\u200C-\u200D\u2070-\u218F\u2C00-\u2FEF\u3001-\uD7FF\uF900-\uFDCF\uFDF0-\uFFFD]"  # \i
+iNameCharMinusColon = iNameChar.replace("[:", "[", 1)  # [\i-[:]]
+cNameChar = r"[:_\-\."   "\xB7A-Za-z0-9\xC0-\xD6\xD8-\xF6\xF8-\xFF\u0100-\u02FF\u0370-\u037D\u037F-\u1FFF\u200C-\u200D\u2070-\u218F\u2C00-\u2FEF\u3001-\uD7FF\uF900-\uFDCF\uFDF0-\uFFFD\u0300-\u036F\u203F-\u2040]"  # \c
+cNameCharMinusColon = cNameChar.replace("[:", "[", 1)  # [\c-[:]]
 
 def _raiseOnNonXsdRegexSyntax(p: str) -> None:
     """
@@ -59,10 +61,22 @@ class XsdPattern:
     # shim class for python wrapper of xsd pattern
     @classmethod
     def compile(cls, p: str) -> XsdPattern:
+        """Expand XSD \\i and \\c escapes to Python character classes.
+
+        Per XSD Part 2 Appendix F:
+          \\i           → NameStartChar (Letter | '_' | ':')
+          [\\i-[:]]     → NCName start (NameStartChar minus ':')
+          \\c           → NameChar (includes ':')
+          [\\c-[:]]     → NameChar minus ':'
+
+        Subtract forms are replaced first so bare \\i/\\c inside them are not touched.
+        """
         _raiseOnNonXsdRegexSyntax(p)
         if r"\i" in p or r"\c" in p:
-            p = p.replace(r"[\i-[:]]", iNameChar).replace(r"\i", iNameChar) \
-                 .replace(r"[\c-[:]]", cMinusCNameChar).replace(r"\c", cNameChar)
+            p = (p.replace(r"[\i-[:]]", iNameCharMinusColon)
+                 .replace(r"\i", iNameChar)
+                 .replace(r"[\c-[:]]", cNameCharMinusColon)
+                 .replace(r"\c", cNameChar))
         pyPattern = re_compile(p + "$") # must match whole string
         return cls(p, pyPattern)
 
@@ -114,7 +128,7 @@ QNamePattern = re_compile("^([_A-Za-z\xC0-\xD6\xD8-\xF6\xF8-\xFF\u0100-\u02FF\u0
                           "[_A-Za-z\xC0-\xD6\xD8-\xF6\xF8-\xFF\u0100-\u02FF\u0370-\u037D\u037F-\u1FFF\u200C-\u200D\u2070-\u218F\u2C00-\u2FEF\u3001-\uD7FF]"
                             r"[_\-\."
                                "\xB7A-Za-z0-9\xC0-\xD6\xD8-\xF6\xF8-\xFF\u0100-\u02FF\u0370-\u037D\u037F-\u1FFF\u200C-\u200D\u2070-\u218F\u2C00-\u2FEF\u3001-\uD7FF\u0300-\u036F\u203F-\u2040]*$")
-namePattern = re_compile("^[_A-Za-z\xC0-\xD6\xD8-\xF6\xF8-\xFF\u0100-\u02FF\u0370-\u037D\u037F-\u1FFF\u200C-\u200D\u2070-\u218F\u2C00-\u2FEF\u3001-\uD7FF]"
+namePattern = re_compile("^[:_A-Za-z\xC0-\xD6\xD8-\xF6\xF8-\xFF\u0100-\u02FF\u0370-\u037D\u037F-\u1FFF\u200C-\u200D\u2070-\u218F\u2C00-\u2FEF\u3001-\uD7FF]"
                             r"[_\-\.:"
                                "\xB7A-Za-z0-9\xC0-\xD6\xD8-\xF6\xF8-\xFF\u0100-\u02FF\u0370-\u037D\u037F-\u1FFF\u200C-\u200D\u2070-\u218F\u2C00-\u2FEF\u3001-\uD7FF\u0300-\u036F\u203F-\u2040]*$")
 
@@ -451,6 +465,72 @@ def fractionValidateValue(value: str, fractionValue: tuple[str, str]) -> XmlVali
     return XmlValidationResult(sValue=sValue, xValue=xValue, xValid=xValid)
 
 
+# XSD Datatypes 3.2.7.4: a date/time value with no timezone may stand for any
+# timezone in the [-14:00, +14:00] range, so its instant is only known to within 14h.
+_XSD_MAX_TIMEZONE_OFFSET = datetime.timedelta(hours=14)
+
+
+def _comparableInstant(value: datetime.datetime | datetime.time) -> datetime.datetime:
+    # Express an xs:dateTime/date/time value as a single datetime so values can be
+    # ordered: timezone-aware values are normalized to (naive) UTC; an xs:time is
+    # anchored to an arbitrary fixed date (XSD Datatypes 3.2.8).
+    # Timezone-naive values are left as-is.
+    if isinstance(value, datetime.datetime):
+        dt = value
+    else:  # datetime.time (xs:time)
+        dt = datetime.datetime(2000, 1, 1, value.hour, value.minute, value.second, value.microsecond, value.tzinfo)
+    if dt.tzinfo is not None:
+        dt = dt.astimezone(datetime.timezone.utc).replace(tzinfo=None)
+    return dt
+
+
+def _orderedComparison(value: Any, bound: Any) -> int | None:
+    """Order ``value`` against an ordering-facet ``bound``.
+
+    ``value`` and ``bound`` must be the same type: they are expected to be the
+    already-validated value and facet bound for the same ``baseXsdType``, e.g. both
+    ``DateTime`` or both ``Time``. Raises ``TypeError`` if they aren't, since a type
+    mismatch indicates a caller bug (a facet compiled against the wrong base type)
+    rather than an ordering that can be resolved here.
+
+    Returns ``-1``/``0``/``1`` when ``value`` is less than/equal to/greater than
+    ``bound``, or ``None`` when the order is indeterminate. Callers should treat
+    ``None`` as failing whichever relation the facet requires (Datatypes 3.2.6.3:
+    "indeterminate comparisons should be considered as 'false'").
+
+    Ordinarily the operands' own comparison operators are used. For an xs:date/time
+    value where exactly one operand carries a timezone, Python raises ``TypeError``
+    rather than ordering offset-naive against offset-aware values; in that case apply
+    the XSD timezone-straddling rule (Datatypes 3.2.7.4) on the underlying instants,
+    yielding ``None`` when the timezone uncertainty leaves the order undetermined.
+    """
+    if type(value) is not type(bound):
+        raise TypeError("Value type ({}) is not comparable with bound type ({}).".format(type(value), type (bound)))
+    try:
+        if value < bound:
+            return -1
+        if value > bound:
+            return 1
+        return 0
+    except TypeError:
+        if not isinstance(value, (datetime.datetime, datetime.time)) or \
+                not isinstance(bound, (datetime.datetime, datetime.time)):
+            raise
+        valueInstant = _comparableInstant(value)
+        boundInstant = _comparableInstant(bound)
+        if value.tzinfo is not None:  # bound is the timezone-naive operand
+            if valueInstant < boundInstant - _XSD_MAX_TIMEZONE_OFFSET:
+                return -1
+            if valueInstant > boundInstant + _XSD_MAX_TIMEZONE_OFFSET:
+                return 1
+        else:  # value is the timezone-naive operand
+            if valueInstant + _XSD_MAX_TIMEZONE_OFFSET < boundInstant:
+                return -1
+            if valueInstant - _XSD_MAX_TIMEZONE_OFFSET > boundInstant:
+                return 1
+        return None
+
+
 def validateValueString(
     baseXsdType: str,
     value: str,
@@ -518,12 +598,25 @@ def _validateValueStringOrRaise(
         if facets:
             if "enumeration" in facets and value not in facets["enumeration"]:
                 raise ValueError("{0} is not in {1}".format(value, facets["enumeration"].keys()))
-            if "length" in facets and len(value) != facets["length"]:
-                raise ValueError("length {0}, expected {1}".format(len(value), facets["length"]))
-            if "minLength" in facets and len(value) < facets["minLength"]:
-                raise ValueError("length {0}, minLength {1}".format(len(value), facets["minLength"]))
-            if "maxLength" in facets and len(value) > facets["maxLength"]:
-                raise ValueError("length {0}, maxLength {1}".format(len(value), facets["maxLength"]))
+            # length/minLength/maxLength are meaningless for QName and NOTATION; per
+            # XSD Datatypes 3.2.18/3.2.19 every value is facet-valid with respect to them.
+            if baseXsdType not in ("QName", "NOTATION"):
+                # length facets count octets of binary data for hexBinary/base64Binary,
+                # characters otherwise (XSD Datatypes 4.3.1); compute the units once.
+                if baseXsdType == "hexBinary":
+                    valueLength = len(value) // 2
+                elif baseXsdType == "base64Binary":
+                    # ignore lexical spaces before counting octets (whitespace already collapsed to spaces)
+                    data = value.replace(" ", "")
+                    valueLength = len(data) * 3 // 4 - data.count("=")
+                else:
+                    valueLength = len(value)
+                if "length" in facets and valueLength != facets["length"]:
+                    raise ValueError("length {0}, expected {1}".format(valueLength, facets["length"]))
+                if "minLength" in facets and valueLength < facets["minLength"]:
+                    raise ValueError("length {0}, minLength {1}".format(valueLength, facets["minLength"]))
+                if "maxLength" in facets and valueLength > facets["maxLength"]:
+                    raise ValueError("length {0}, maxLength {1}".format(valueLength, facets["maxLength"]))
         if baseXsdType in {"string", "normalizedString", "language", "languageOrEmpty", "token", "NMTOKEN", "Name", "NCName", "IDREF", "ENTITY"}:
             xValue = sValue = value
         elif baseXsdType == "ID":
@@ -543,13 +636,20 @@ def _validateValueStringOrRaise(
                 sValue = float(value) # s-value uses Number (float) representation
                 if sValue == 0 and baseXsdType == "XBRLI_NONZERODECIMAL":
                     raise ValueError("zero is not allowed")
+                # totalDigits isn't a valid constraining facet for float/double (XSD Datatypes 3.2.4/3.2.5),
+                # so it's only checked here. Digits are counted from the parsed (normalized) value, excluding
+                # the sign and any insignificant zeros, per XSD Datatypes 4.3.11.
+                if facets and "totalDigits" in facets:
+                    _sign, digits, exp = xValue.normalize().as_tuple()
+                    assert isinstance(exp, int) # decimalPattern rules out NaN/Infinity, whose exponents aren't ints
+                    digitCount = len(digits) + max(0, exp)
+                    if digitCount > facets["totalDigits"]:
+                        raise ValueError("totalDigits facet {0}".format(facets["totalDigits"]))
             else:
                 if floatPattern.match(value) is None:
                     raise ValueError("lexical pattern mismatch")
                 xValue = sValue = float(value)
             if facets:
-                if "totalDigits" in facets and len(value.replace(".","")) > facets["totalDigits"]:
-                    raise ValueError("totalDigits facet {0}".format(facets["totalDigits"]))
                 if "fractionDigits" in facets and ("." in value and
                     len(value[value.index(".") + 1:]) > facets["fractionDigits"]):
                     raise ValueError("fraction digits facet {0}".format(facets["fractionDigits"]))
@@ -568,7 +668,7 @@ def _validateValueStringOrRaise(
                 if (lowerLimit is not None and xValue < lowerLimit) or (upperLimit is not None and xValue > upperLimit):
                     raise ValueError(f"{value} is not {baseXsdType}")
             if facets:
-                if "totalDigits" in facets and len(value.replace(".","")) > facets["totalDigits"]:
+                if "totalDigits" in facets and len(str(abs(xValue))) > facets["totalDigits"]:
                     raise ValueError("totalDigits facet {0}".format(facets["totalDigits"]))
                 if "fractionDigits" in facets and ("." in value and
                     len(value[value.index(".") + 1:]) > facets["fractionDigits"]):
@@ -653,6 +753,20 @@ def _validateValueStringOrRaise(
             else: # no lexical pattern, forget compiling value
                 xValue = value
             sValue = value
+            if facets: # ordering facets on date/time/gYear/... (xValue is a comparable type)
+                # _orderedComparison tolerates xs:date/time values that mix timezoned and
+                # untimezoned operands (which Python won't order); per XSD Datatypes 3.2.6.3
+                # ("indeterminate comparisons should be considered as 'false'") an
+                # indeterminate order fails the facet test, so the value is rejected rather
+                # than accepted or crashing.
+                if "maxInclusive" in facets and _orderedComparison(xValue, facets["maxInclusive"]) not in (-1, 0):
+                    raise ValueError(" > maxInclusive {0}".format(facets["maxInclusive"]))
+                if "maxExclusive" in facets and _orderedComparison(xValue, facets["maxExclusive"]) != -1:
+                    raise ValueError(" >= maxExclusive {0}".format(facets["maxExclusive"]))
+                if "minInclusive" in facets and _orderedComparison(xValue, facets["minInclusive"]) not in (0, 1):
+                    raise ValueError(" < minInclusive {0}".format(facets["minInclusive"]))
+                if "minExclusive" in facets and _orderedComparison(xValue, facets["minExclusive"]) != 1:
+                    raise ValueError(" <= minExclusive {0}".format(facets["minExclusive"]))
     return XmlValidationResult(sValue=sValue, xValue=xValue, xValid=xValid)
 
 

@@ -197,12 +197,13 @@ XdsRouting::PerRouteFilterChainBuilder::PerRouteFilterChainBuilder(
     const XdsRouteConfigResource::VirtualHost& vhost,
     FilterChainBuilder& builder,
     absl::AnyInvocable<void(FilterChainBuilder&)> add_last_filter,
-    Blackboard& blackboard)
+    const Blackboard* old_blackboard, Blackboard* new_blackboard)
     : hcm_filter_configs_(hcm_filter_configs),
       vhost_(vhost),
       builder_(builder),
       add_last_filter_(std::move(add_last_filter)),
-      blackboard_(blackboard) {
+      old_blackboard_(old_blackboard),
+      new_blackboard_(new_blackboard) {
   filter_impls_.reserve(hcm_filter_configs.size());
   for (const auto& http_filter : hcm_filter_configs) {
     // Find filter.  This is guaranteed to succeed, because it's checked
@@ -245,7 +246,9 @@ XdsRouting::PerRouteFilterChainBuilder::GetDefaultFilterChain() {
             filter_impl, vhost_.typed_per_filter_config, filter_config.name);
         config = filter_impl->MergeConfigs(filter_config.filter_config,
                                            std::move(vhost_override_config),
-                                           nullptr, nullptr, blackboard_);
+                                           nullptr, nullptr);
+        filter_impl->UpdateBlackboard(*config, old_blackboard_,
+                                      new_blackboard_);
       }
       GRPC_TRACE_LOG(xds_resolver, INFO)
           << "  Adding filter=" << filter_config.name
@@ -279,7 +282,8 @@ XdsRouting::PerRouteFilterChainBuilder::BuildFilterChainForRoute(
           filter_impl, route.typed_per_filter_config, filter_config.name);
       config = filter_impl->MergeConfigs(
           filter_config.filter_config, std::move(vhost_override_config),
-          std::move(route_override_config), nullptr, blackboard_);
+          std::move(route_override_config), nullptr);
+      filter_impl->UpdateBlackboard(*config, old_blackboard_, new_blackboard_);
     }
     GRPC_TRACE_LOG(xds_resolver, INFO)
         << "  Adding filter=" << filter_config.name
@@ -336,7 +340,9 @@ void XdsRouting::PerRouteFilterChainBuilder::
           config = filter_impl->MergeConfigs(
               filter_config.filter_config, std::move(vhost_override_config),
               std::move(route_override_config),
-              std::move(cluster_weight_override_config), blackboard_);
+              std::move(cluster_weight_override_config));
+          filter_impl->UpdateBlackboard(*config, old_blackboard_,
+                                        new_blackboard_);
         }
         GRPC_TRACE_LOG(xds_resolver, INFO)
             << "  Adding filter=" << filter_config.name << " config="

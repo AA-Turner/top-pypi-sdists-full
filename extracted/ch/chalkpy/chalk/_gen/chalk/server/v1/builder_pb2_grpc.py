@@ -210,6 +210,11 @@ class BuilderServiceStub(object):
             request_serializer=chalk_dot_server_dot_v1_dot_builder__pb2.GetNodepoolsRequest.SerializeToString,
             response_deserializer=chalk_dot_server_dot_v1_dot_builder__pb2.GetNodepoolsResponse.FromString,
         )
+        self.GetAvailableChalkMachineTypes = channel.unary_unary(
+            "/chalk.server.v1.BuilderService/GetAvailableChalkMachineTypes",
+            request_serializer=chalk_dot_server_dot_v1_dot_builder__pb2.GetAvailableChalkMachineTypesRequest.SerializeToString,
+            response_deserializer=chalk_dot_server_dot_v1_dot_builder__pb2.GetAvailableChalkMachineTypesResponse.FromString,
+        )
         self.AddNodepool = channel.unary_unary(
             "/chalk.server.v1.BuilderService/AddNodepool",
             request_serializer=chalk_dot_server_dot_v1_dot_builder__pb2.AddNodepoolRequest.SerializeToString,
@@ -594,6 +599,12 @@ class BuilderServiceServicer(object):
         context.set_details("Method not implemented!")
         raise NotImplementedError("Method not implemented!")
 
+    def GetAvailableChalkMachineTypes(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details("Method not implemented!")
+        raise NotImplementedError("Method not implemented!")
+
     def AddNodepool(self, request, context):
         """Missing associated documentation comment in .proto file."""
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
@@ -953,6 +964,11 @@ def add_BuilderServiceServicer_to_server(servicer, server):
             servicer.GetNodepools,
             request_deserializer=chalk_dot_server_dot_v1_dot_builder__pb2.GetNodepoolsRequest.FromString,
             response_serializer=chalk_dot_server_dot_v1_dot_builder__pb2.GetNodepoolsResponse.SerializeToString,
+        ),
+        "GetAvailableChalkMachineTypes": grpc.unary_unary_rpc_method_handler(
+            servicer.GetAvailableChalkMachineTypes,
+            request_deserializer=chalk_dot_server_dot_v1_dot_builder__pb2.GetAvailableChalkMachineTypesRequest.FromString,
+            response_serializer=chalk_dot_server_dot_v1_dot_builder__pb2.GetAvailableChalkMachineTypesResponse.SerializeToString,
         ),
         "AddNodepool": grpc.unary_unary_rpc_method_handler(
             servicer.AddNodepool,
@@ -2219,6 +2235,35 @@ class BuilderService(object):
             "/chalk.server.v1.BuilderService/GetNodepools",
             chalk_dot_server_dot_v1_dot_builder__pb2.GetNodepoolsRequest.SerializeToString,
             chalk_dot_server_dot_v1_dot_builder__pb2.GetNodepoolsResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+        )
+
+    @staticmethod
+    def GetAvailableChalkMachineTypes(
+        request,
+        target,
+        options=(),
+        channel_credentials=None,
+        call_credentials=None,
+        insecure=False,
+        compression=None,
+        wait_for_ready=None,
+        timeout=None,
+        metadata=None,
+    ):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            "/chalk.server.v1.BuilderService/GetAvailableChalkMachineTypes",
+            chalk_dot_server_dot_v1_dot_builder__pb2.GetAvailableChalkMachineTypesRequest.SerializeToString,
+            chalk_dot_server_dot_v1_dot_builder__pb2.GetAvailableChalkMachineTypesResponse.FromString,
             options,
             channel_credentials,
             insecure,

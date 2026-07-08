@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: drydock-cli
-Version: 3.0.104
+Version: 3.0.106
 Summary: Drydock — a local, provider-agnostic terminal coding agent for local LLMs
 Author: Frank Bobe III
 License-Expression: Apache-2.0

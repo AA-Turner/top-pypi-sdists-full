@@ -43,10 +43,13 @@ __all__ = (
     "OPENAI_IMAGE",
     "OPENAI_REALTIME",
     "OPENAI_REALTIME_TRANSCRIPTION",
+    "OPENAI_TOOL_SEARCH_MIN_GPT_VERSION",
     "OPENAI_TRANSCRIPTION",
     "OPENAI_TTS",
     "SAAS_MODEL_PRESETS",
     "SENTENCE_TRANSFORMERS_DEFAULT",
+    "TOOL_SEARCH_UNSUPPORTED_MODEL_ID_PREFIXES",
+    "ZAI_BASE_URL_DEFAULT",
     "ModelPreset",
     "llama_cpp_server_command",
 )
@@ -71,11 +74,30 @@ class ModelPreset:
 _ANTHROPIC_OPUS = "claude-opus-4-8"
 _ANTHROPIC_SONNET = "claude-sonnet-5"
 _ANTHROPIC_HAIKU = "claude-haiku-4-5"
+# Claude models that predate tool_search_tool_regex_20251119 (Opus 4.1 and
+# earlier — a closed set, so new releases take the native tool-search path
+# without a list update). Prefixes cover the aliases plus the dated
+# `-YYYYMMDD` and Vertex `@YYYYMMDD` snapshot spellings.
+TOOL_SEARCH_UNSUPPORTED_MODEL_ID_PREFIXES = (
+    "claude-2",
+    "claude-3",
+    "claude-opus-4-0",
+    "claude-opus-4-1",
+    "claude-opus-4-20250514",
+    "claude-opus-4@",
+    "claude-sonnet-4-0",
+    "claude-sonnet-4-20250514",
+    "claude-sonnet-4@",
+)
 AWS_BEDROCK_CLAUDE_OPUS = "anthropic.claude-opus-4-8"
 _AWS_BEDROCK_CLAUDE_SONNET = "global.anthropic.claude-sonnet-5"
 _AWS_BEDROCK_CLAUDE_HAIKU = "global.anthropic.claude-haiku-4-5"
 CODEX_GPT = "gpt-5.5"
 _OPENAI_GPT = "gpt-5.5"
+# OpenAI's Responses-API tool_search tool requires gpt-5.4 or newer; gating
+# parses the gpt-N.M version from the model id so new releases take the
+# native tool-search path without a list update.
+OPENAI_TOOL_SEARCH_MIN_GPT_VERSION = (5, 4)
 OPENAI_GPT_MINI = "gpt-5.4-mini"
 OPENAI_GPT_NANO = "gpt-5.4-nano"
 AZURE_OPENAI_DEFAULT_DEPLOYMENT = "your-azure-openai-deployment"
@@ -95,9 +117,11 @@ _OPENROUTER_GEMINI_LITE = "google/gemini-3.1-flash-lite-preview"
 _OPENROUTER_OPENAI_MINI = "openai/gpt-5.4-mini"
 _OPENROUTER_NEMOTRON = "nvidia/nemotron-3-super-120b-a12b:free"
 _OPENROUTER_DEEPSEEK_CHAT = "deepseek/deepseek-v4-pro"
-_OPENROUTER_GLM = "z-ai/glm-5.1"
+_OPENROUTER_GLM = "z-ai/glm-5.2"
 _OPENROUTER_KIMI = "moonshotai/kimi-k2.6"
 _OPENROUTER_TENCENT_HY3 = "tencent/hy3-preview"
+
+ZAI_BASE_URL_DEFAULT = "https://api.z.ai/api/paas/v4"
 
 OLLAMA_GEMMA = "gemma4"
 OLLAMA_QWEN = "qwen3.6:27b"
@@ -162,7 +186,7 @@ CONFIG_INIT_MODEL_ALTERNATIVES: Mapping[str, tuple[tuple[str, ModelPreset], ...]
             ("gemini_flash", ModelPreset("openrouter", _OPENROUTER_GEMINI_FLASH, 1_000_000)),
             ("gemini_lite", ModelPreset("openrouter", _OPENROUTER_GEMINI_LITE)),
             ("deepseek", ModelPreset("openrouter", _OPENROUTER_DEEPSEEK_CHAT, 1_048_576)),
-            ("glm", ModelPreset("openrouter", _OPENROUTER_GLM, 202_752)),
+            ("glm", ModelPreset("openrouter", _OPENROUTER_GLM, 1_048_576)),
             ("kimi", ModelPreset("openrouter", _OPENROUTER_KIMI, 262_144)),
             ("tencent_hy3", ModelPreset("openrouter", _OPENROUTER_TENCENT_HY3, 262_144)),
             ("nemotron", ModelPreset("openrouter", _OPENROUTER_NEMOTRON, 262_144)),
@@ -185,7 +209,7 @@ SAAS_MODEL_PRESETS: Mapping[str, ModelPreset] = MappingProxyType(
         "gemini_flash": ModelPreset("openrouter", _OPENROUTER_GEMINI_FLASH, 1_000_000),
         "gemini_lite": ModelPreset("openrouter", _OPENROUTER_GEMINI_LITE),
         "deepseek": ModelPreset("openrouter", _OPENROUTER_DEEPSEEK_CHAT, 1_048_576),
-        "glm": ModelPreset("openrouter", _OPENROUTER_GLM, 202_752),
+        "glm": ModelPreset("openrouter", _OPENROUTER_GLM, 1_048_576),
         "kimi": ModelPreset("openrouter", _OPENROUTER_KIMI, 262_144),
         "tencent_hy3": ModelPreset("openrouter", _OPENROUTER_TENCENT_HY3, 262_144),
         "nemotron": ModelPreset("openrouter", _OPENROUTER_NEMOTRON, 262_144),

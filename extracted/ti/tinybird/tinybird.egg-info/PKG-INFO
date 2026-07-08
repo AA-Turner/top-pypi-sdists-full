@@ -1,6 +1,6 @@
 Metadata-Version: 2.2
 Name: tinybird
-Version: 4.6.6
+Version: 4.6.8
 Summary: Tinybird Command Line Tool
 Home-page: https://www.tinybird.co/docs/forward/commands
 Author: Tinybird
@@ -51,6 +51,16 @@ The Tinybird command-line tool allows you to use all the Tinybird functionality 
 
 Changelog
 ----------
+
+4.6.8
+*******
+
+- `Fixed` Tinybird Local CLI commands to respect Git branch local workspaces correctly.
+
+4.6.7
+*******
+
+- `Fixed` `tb login` now raises an actionable error when the CLI cannot complete the authentication.
 
 4.6.6
 *******

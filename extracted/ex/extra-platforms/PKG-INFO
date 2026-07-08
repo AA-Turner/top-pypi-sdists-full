@@ -1,8 +1,8 @@
 Metadata-Version: 2.4
 Name: extra-platforms
-Version: 13.0.1
+Version: 13.1.0
 Summary: 🔎 Detect architectures, platforms, shells, terminals, CI systems and agents, grouped by family
-Keywords: Agent detection,Alacritty,Almquist Shell,Alpine Linux,ALT Linux,Amazon Linux,Android,Apple Terminal,Arch Linux,Architecture detection,ARM (32-bit),ARM64 (AArch64),ARMv5TE (little-endian),ARMv6 (little-endian),ARMv7 (little-endian),ARMv8 (32-bit, little-endian),AT&T System Five,Azure Pipelines,Bamboo,Bash,Bourne Shell,Buildkite,Buildroot,C shell,CachyOS,CentOS,CI detection,Circle CI,Cirrus CI,Claude Code,Cline,CloudLinux OS,CodeBuild,Command Prompt,Contour,CPU architecture,Cursor,Cygwin,Dash,Debian,Distro detection,DragonFly BSD,Exherbo Linux,Fedora,Fish,foot,FreeBSD,Generic Linux,Gentoo Linux,Ghostty,GitHub Actions runner,GitLab CI,GNOME Terminal,GNU Screen,GNU/Hurd,Guix Build,Guix System,Haiku,Hardware detection,Heroku CI,Hyper,IBM AIX,IBM i,IBM PowerKVM,IBM z/Architecture (s390x),illumos,Intel 80386 (i386),Intel Pentium (i586),Intel Pentium Pro (i686),iTerm2,Kali Linux,Kitty,Konsole,Korn shell,KVM for IBM z Systems,Linux distribution,Linux Mint,LoongArch (64-bit),macOS,Mageia,Mandriva Linux,Manjaro Linux,MidnightBSD,MIPS (32-bit, big-endian),MIPS (32-bit, little-endian),MIPS64 (big-endian),MIPS64 (little-endian),multiplatform,NetBSD,NixOS,Nobara,Nushell,OpenBSD,openSUSE,OpenWrt,Oracle Linux,OS detection,OS info,Parallels,Pidora,Platform detection,PowerPC (32-bit),PowerPC 64-bit (big-endian),PowerPC 64-bit (little-endian),PowerShell,Pytest,Pytest fixtures,Pytest plugin,Raspbian,RedHat Enterprise Linux,Rio,RISC-V (32-bit),RISC-V (64-bit),Rocky Linux,Scientific Linux,Shell detection,Slackware,Solaris,SPARC (32-bit),SPARC (64-bit),SunOS,SUSE Linux Enterprise Server,System information,Tabby,tcsh,TeamCity,Terminal detection,Tilix,tmux,Travis CI,Tuxedo OS,Ubuntu,Ultramarine,Unix,Void Linux,VS Code Terminal,WebAssembly (32-bit),WebAssembly (64-bit),WezTerm,Windows,Windows Subsystem for Linux,Windows Terminal,x86-64 (AMD64),XenServer,Xonsh,xterm,Zellij,Zsh
+Keywords: Agent detection,Alacritty,Almquist Shell,Alpine Linux,ALT Linux,Amazon Linux,Android,Apple Terminal,Arch Linux,Architecture detection,ARM (32-bit),ARM64 (AArch64),ARMv5TE (little-endian),ARMv6 (little-endian),ARMv7 (little-endian),ARMv8 (32-bit, little-endian),AT&T System Five,Azure Pipelines,Bamboo,Bash,Bourne Shell,Buildkite,Buildroot,C shell,CachyOS,CentOS,ChromeOS,CI detection,Circle CI,Cirrus CI,Claude Code,Clear Linux OS,Cline,CloudLinux OS,CodeBuild,Command Prompt,Contour,CPU architecture,Cursor,Cygwin,Dash,Debian,Distro detection,DragonFly BSD,Exherbo Linux,Fedora,Fish,foot,FreeBSD,Generic Linux,Gentoo Linux,Ghostty,GitHub Actions runner,GitLab CI,GNOME Terminal,GNU Screen,GNU/Hurd,Guix Build,Guix System,Haiku,Hardware detection,Heroku CI,Hyper,IBM AIX,IBM i,IBM PowerKVM,IBM z/Architecture (s390x),illumos,Intel 80386 (i386),Intel Pentium (i586),Intel Pentium Pro (i686),iTerm2,Kali Linux,Kitty,Konsole,Korn shell,KVM for IBM z Systems,Linux distribution,Linux Mint,LoongArch (64-bit),macOS,Mageia,Mandriva Linux,Manjaro Linux,MidnightBSD,MIPS (32-bit, big-endian),MIPS (32-bit, little-endian),MIPS64 (big-endian),MIPS64 (little-endian),multiplatform,NetBSD,NixOS,Nobara,Nushell,OpenBSD,openSUSE,OpenWrt,Oracle Linux,OS detection,OS info,Parallels,Pidora,Platform detection,PowerPC (32-bit),PowerPC 64-bit (big-endian),PowerPC 64-bit (little-endian),PowerShell,Pytest,Pytest fixtures,Pytest plugin,Raspbian,RedHat Enterprise Linux,Rio,RISC-V (32-bit),RISC-V (64-bit),Rocky Linux,Scientific Linux,Shell detection,Slackware,SliTaz GNU/Linux,Solaris,Source Mage GNU/Linux,SPARC (32-bit),SPARC (64-bit),SunOS,SUSE Linux Enterprise Server,System information,Tabby,tcsh,TeamCity,Terminal detection,Tilix,tmux,Travis CI,Tuxedo OS,Ubuntu,Ultramarine,Unix,Void Linux,VS Code Terminal,WebAssembly (32-bit),WebAssembly (64-bit),WezTerm,Windows,Windows Subsystem for Linux,Windows Terminal,x86-64 (AMD64),XenServer,Xonsh,xterm,Zellij,Zsh
 Author: Kevin Deldycke
 Author-email: Kevin Deldycke <kevin@deldycke.com>
 License-Expression: Apache-2.0
@@ -79,7 +79,7 @@ Requires-Dist: pytest>=8.2.1 ; extra == 'pytest'
 Requires-Python: >=3.10
 Project-URL: Changelog, https://github.com/kdeldycke/extra-platforms/blob/main/changelog.md
 Project-URL: Documentation, https://kdeldycke.github.io/extra-platforms
-Project-URL: Download, https://github.com/kdeldycke/extra-platforms/releases/tag/v13.0.1
+Project-URL: Download, https://github.com/kdeldycke/extra-platforms/releases/tag/v13.1.0
 Project-URL: Funding, https://github.com/sponsors/kdeldycke
 Project-URL: Homepage, https://github.com/kdeldycke/extra-platforms
 Project-URL: Issues, https://github.com/kdeldycke/extra-platforms/issues
@@ -118,7 +118,7 @@ Quickly inspect your current environment without installing anything, thanks to 
 
 ```shell-session
 $ uvx extra-platforms
-extra-platforms 13.0.0
+extra-platforms 13.0.1
 
 ── Architecture ── 📱 ARM64 (AArch64) ──[AARCH64]────────────
             id: aarch64
@@ -161,7 +161,7 @@ $ uvx --with extra-platforms python
 ```pycon
 >>> import extra_platforms
 >>> extra_platforms.__version__
-'13.0.0'
+'13.0.1'
 ```
 
 ## Examples
@@ -234,6 +234,7 @@ List all platforms of a family:
 >>> from extra_platforms import LINUX
 >>> LINUX.members
 mappingproxy({
+    'alpine': Platform(id='alpine', name='Alpine Linux'),
     'altlinux': Platform(id='altlinux', name='ALT Linux'),
     'amzn': Platform(id='amzn', name='Amazon Linux'),
     'android': Platform(id='android', name='Android'),
@@ -241,19 +242,26 @@ mappingproxy({
     'buildroot': Platform(id='buildroot', name='Buildroot'),
     'cachyos': Platform(id='cachyos', name='CachyOS'),
     'centos': Platform(id='centos', name='CentOS'),
+    'chromeos': Platform(id='chromeos', name='ChromeOS'),
+    'clearlinux': Platform(id='clearlinux', name='Clear Linux OS'),
     'cloudlinux': Platform(id='cloudlinux', name='CloudLinux OS'),
     'debian': Platform(id='debian', name='Debian'),
     'exherbo': Platform(id='exherbo', name='Exherbo Linux'),
     'fedora': Platform(id='fedora', name='Fedora'),
+    'generic_linux': Platform(id='generic_linux', name='Generic Linux'),
     'gentoo': Platform(id='gentoo', name='Gentoo Linux'),
     'guix': Platform(id='guix', name='Guix System'),
     'ibm_powerkvm': Platform(id='ibm_powerkvm', name='IBM PowerKVM'),
+    'kali': Platform(id='kali', name='Kali Linux'),
     'kvmibm': Platform(id='kvmibm', name='KVM for IBM z Systems'),
     'linuxmint': Platform(id='linuxmint', name='Linux Mint'),
     'mageia': Platform(id='mageia', name='Mageia'),
     'mandriva': Platform(id='mandriva', name='Mandriva Linux'),
+    'manjaro': Platform(id='manjaro', name='Manjaro Linux'),
+    'nixos': Platform(id='nixos', name='NixOS'),
     'nobara': Platform(id='nobara', name='Nobara'),
     'opensuse': Platform(id='opensuse', name='openSUSE'),
+    'openwrt': Platform(id='openwrt', name='OpenWrt'),
     'oracle': Platform(id='oracle', name='Oracle Linux'),
     'parallels': Platform(id='parallels', name='Parallels'),
     'pidora': Platform(id='pidora', name='Pidora'),
@@ -263,18 +271,19 @@ mappingproxy({
     'scientific': Platform(id='scientific', name='Scientific Linux'),
     'slackware': Platform(id='slackware', name='Slackware'),
     'sles': Platform(id='sles', name='SUSE Linux Enterprise Server'),
+    'slitaz': Platform(id='slitaz', name='SliTaz GNU/Linux'),
+    'sourcemage': Platform(id='sourcemage', name='Source Mage GNU/Linux'),
     'tumbleweed': Platform(id='tumbleweed', name='openSUSE Tumbleweed'),
     'tuxedo': Platform(id='tuxedo', name='Tuxedo OS'),
     'ubuntu': Platform(id='ubuntu', name='Ubuntu'),
     'ultramarine': Platform(id='ultramarine', name='Ultramarine'),
-    'nixos': Platform(id='nixos', name='NixOS'),
     'void': Platform(id='void', name='Void Linux'),
-    'generic_linux': Platform(id='generic_linux', name='Generic Linux'),
     'xenserver': Platform(id='xenserver', name='XenServer'),
 })
 >>> LINUX.member_ids
-frozenset({'centos', 'mageia', 'generic_linux', 'ultramarine', 'tuxedo', 'arch', 'buildroot', 'android', 'exherbo', 'nixos', 'void', 'mandriva', 'fedora', 'slackware', 'parallels', 'xenserver', 'kvmibm', 'nobara', 'amzn', 'guix', 'debian', 'oracle', 'cachyos', 'altlinux', 'rhel', 'ibm_powerkvm', 'rocky', 'scientific', 'sles', 'linuxmint', 'tumbleweed', 'ubuntu', 'pidora', 'cloudlinux', 'gentoo', 'raspbian', 'opensuse'})
+frozenset({'rocky', 'kvmibm', 'pidora', 'sourcemage', 'sles', 'tuxedo', 'rhel', 'opensuse', 'android', 'ultramarine', 'fedora', 'ubuntu', 'nixos', 'generic_linux', 'oracle', 'buildroot', 'gentoo', 'void', 'chromeos', 'alpine', 'slackware', 'arch', 'centos', 'amzn', 'xenserver', 'nobara', 'cachyos', 'cloudlinux', 'ibm_powerkvm', 'kali', 'exherbo', 'mandriva', 'openwrt', 'raspbian', 'debian', 'altlinux', 'guix', 'slitaz', 'linuxmint', 'mageia', 'tumbleweed', 'scientific', 'manjaro', 'parallels', 'clearlinux'})
 >>> print("\n".join([p.name for p in LINUX]))
+Alpine Linux
 ALT Linux
 Amazon Linux
 Android
@@ -282,19 +291,26 @@ Arch Linux
 Buildroot
 CachyOS
 CentOS
+ChromeOS
+Clear Linux OS
 CloudLinux OS
 Debian
 Exherbo Linux
 Fedora
+Generic Linux
 Gentoo Linux
 Guix System
 IBM PowerKVM
+Kali Linux
 KVM for IBM z Systems
 Linux Mint
 Mageia
 Mandriva Linux
+Manjaro Linux
+NixOS
 Nobara
 openSUSE
+OpenWrt
 Oracle Linux
 Parallels
 Pidora
@@ -304,13 +320,13 @@ Rocky Linux
 Scientific Linux
 Slackware
 SUSE Linux Enterprise Server
+SliTaz GNU/Linux
+Source Mage GNU/Linux
 openSUSE Tumbleweed
 Tuxedo OS
 Ubuntu
 Ultramarine
-NixOS
 Void Linux
-Generic Linux
 XenServer
 ```
 
@@ -414,6 +430,8 @@ mindmap
             (⛑️ BUILDROOT)
             (⌬ CACHYOS)
             (💠 CENTOS)
+            (🧿 CHROMEOS)
+            (✳️ CLEARLINUX)
             (꩜ CLOUDLINUX)
             (🌀 DEBIAN)
             (🐽 EXHERBO)
@@ -441,6 +459,8 @@ mindmap
             (⚛️ SCIENTIFIC)
             (🚬 SLACKWARE)
             (🦎 SLES)
+            (🕷️ SLITAZ)
+            (🧙 SOURCEMAGE)
             (↻ TUMBLEWEED)
             (🤵 TUXEDO)
             (🎯 UBUNTU)

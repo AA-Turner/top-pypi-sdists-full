@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: PyAthena
-Version: 3.34.0
+Version: 3.35.0
 Summary: Python DB API 2.0 (PEP 249) client for Amazon Athena
 Project-URL: homepage, https://github.com/pyathena-dev/PyAthena/
 Project-URL: repository, https://github.com/pyathena-dev/PyAthena/

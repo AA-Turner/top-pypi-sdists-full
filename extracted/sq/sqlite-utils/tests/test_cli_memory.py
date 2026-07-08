@@ -156,6 +156,24 @@ def test_memory_csv_encoding(tmpdir, use_stdin):
     }
 
 
+def test_memory_csv_headers_only(tmpdir):
+    csv_path = str(tmpdir / "headers_only.csv")
+    with open(csv_path, "w") as fp:
+        fp.write("id,name,age\n")
+
+    result = CliRunner().invoke(
+        cli.cli,
+        ["memory", csv_path, "", "--schema"],
+        catch_exceptions=False,
+    )
+
+    assert result.exit_code == 0
+    assert result.output.strip() == (
+        'CREATE VIEW "t1" AS select * from "headers_only";\n'
+        'CREATE VIEW "t" AS select * from "headers_only";'
+    )
+
+
 @pytest.mark.parametrize("extra_args", ([], ["select 1"]))
 def test_memory_dump(extra_args):
     result = CliRunner().invoke(
@@ -167,13 +185,13 @@ def test_memory_dump(extra_args):
     expected = (
         "BEGIN TRANSACTION;\n"
         'CREATE TABLE IF NOT EXISTS "stdin" (\n'
-        "   [id] INTEGER,\n"
-        "   [name] TEXT\n"
+        '   "id" INTEGER,\n'
+        '   "name" TEXT\n'
         ");\n"
         "INSERT INTO \"stdin\" VALUES(1,'Cleo');\n"
         "INSERT INTO \"stdin\" VALUES(2,'Bants');\n"
-        "CREATE VIEW t1 AS select * from [stdin];\n"
-        "CREATE VIEW t AS select * from [stdin];\n"
+        'CREATE VIEW "t1" AS select * from "stdin";\n'
+        'CREATE VIEW "t" AS select * from "stdin";\n'
         "COMMIT;"
     )
     # Using sqlite-dump it won't have IF NOT EXISTS
@@ -191,11 +209,11 @@ def test_memory_schema(extra_args):
     assert result.exit_code == 0
     assert result.output.strip() == (
         'CREATE TABLE "stdin" (\n'
-        "   [id] INTEGER,\n"
-        "   [name] TEXT\n"
+        '   "id" INTEGER,\n'
+        '   "name" TEXT\n'
         ");\n"
-        "CREATE VIEW t1 AS select * from [stdin];\n"
-        "CREATE VIEW t AS select * from [stdin];"
+        'CREATE VIEW "t1" AS select * from "stdin";\n'
+        'CREATE VIEW "t" AS select * from "stdin";'
     )
 
 
@@ -285,16 +303,16 @@ def test_memory_two_files_with_same_stem(tmpdir):
     assert result.exit_code == 0
     assert result.output == (
         'CREATE TABLE "data" (\n'
-        "   [id] INTEGER,\n"
-        "   [name] TEXT\n"
+        '   "id" INTEGER,\n'
+        '   "name" TEXT\n'
         ");\n"
-        "CREATE VIEW t1 AS select * from [data];\n"
-        "CREATE VIEW t AS select * from [data];\n"
+        'CREATE VIEW "t1" AS select * from "data";\n'
+        'CREATE VIEW "t" AS select * from "data";\n'
         'CREATE TABLE "data_2" (\n'
-        "   [id] INTEGER,\n"
-        "   [name] TEXT\n"
+        '   "id" INTEGER,\n'
+        '   "name" TEXT\n'
         ");\n"
-        "CREATE VIEW t2 AS select * from [data_2];\n"
+        'CREATE VIEW "t2" AS select * from "data_2";\n'
     )
 
 
@@ -328,9 +346,10 @@ def test_memory_return_db(tmpdir):
     from sqlite_utils.cli import cli
 
     path = str(tmpdir / "dogs.csv")
-    open(path, "w").write("id,name\n1,Cleo")
+    with open(path, "w") as f:
+        f.write("id,name\n1,Cleo")
 
-    with click.Context(cli) as ctx:
+    with click.Context(cli) as ctx:  # type: ignore[attr-defined]
         db = ctx.invoke(cli.commands["memory"], paths=(path,), return_db=True)
 
     assert db.table_names() == ["dogs"]
