@@ -21,8 +21,17 @@ from pyasn1.type import univ
 from pyasn1.type import char
 from pyasn1.codec import streaming
 from pyasn1.codec.ber import decoder
+from pyasn1.codec.ber import encoder
 from pyasn1.codec.ber import eoo
 from pyasn1 import error
+
+
+def encode_length(length):
+    if length < 128:
+        return bytes([length])
+
+    lengthBytes = length.to_bytes((length.bit_length() + 7) // 8, 'big')
+    return bytes([0x80 | len(lengthBytes)]) + lengthBytes
 
 
 class LargeTagDecoderTestCase(BaseTestCase):
@@ -31,6 +40,31 @@ class LargeTagDecoderTestCase(BaseTestCase):
 
     def testLongTag(self):
         assert decoder.decode(bytes((0x1f, 2, 1, 0)))[0].tagSet == univ.Integer.tagSet
+
+    def testVeryLongTagRoundTrip(self):
+        # (1 << 140) - 1 is the largest tag ID fitting the 20 octet limit
+        for tagId in (1 << 77, (1 << 140) - 1):
+            largeTag = tag.Tag(tag.tagClassContext, tag.tagFormatSimple, tagId)
+            asn1Spec = univ.Integer().subtype(implicitTag=largeTag)
+            value = univ.Integer(1).subtype(implicitTag=largeTag)
+
+            decoded, rest = decoder.decode(encoder.encode(value), asn1Spec=asn1Spec)
+
+            assert rest == b''
+            assert decoded == 1
+
+    def testExcessiveLongTag(self):
+        # 1 << 140 is the smallest tag ID needing 21 octets, one over the limit
+        excessiveTag = tag.Tag(tag.tagClassContext, tag.tagFormatSimple, 1 << 140)
+        asn1Spec = univ.Integer().subtype(implicitTag=excessiveTag)
+        substrate = encoder.encode(univ.Integer(1).subtype(implicitTag=excessiveTag))
+
+        try:
+            decoder.decode(substrate, asn1Spec=asn1Spec)
+        except error.PyAsn1Error:
+            pass
+        else:
+            assert 0, 'excessive long tag tolerated'
 
     def testTagsEquivalence(self):
         integer = univ.Integer(2).subtype(implicitTag=tag.Tag(tag.tagClassContext, 0, 0))
@@ -449,6 +483,20 @@ class ObjectIdentifierDecoderTestCase(BaseTestCase):
             bytes((0x06, 0x13, 0x88, 0x37, 0x83, 0xC6, 0xDF, 0xD4, 0xCC, 0xB3, 0xFF, 0xFF, 0xFE, 0xF0, 0xB8, 0xD6, 0xB8, 0xCB, 0xE2, 0xB6, 0x47))
         ) == ((2, 999, 18446744073709551535184467440737095), b'')
 
+    def testManySingleByteArcs(self):
+        encodedArcCount = 4096
+        substrate = (
+            bytes([0x06]) +
+            encode_length(encodedArcCount) +
+            bytes([0x01] * encodedArcCount)
+        )
+
+        value, rest = decoder.decode(substrate)
+        assert rest == b''
+        assert len(value) == encodedArcCount + 1
+        assert tuple(value[:3]) == (0, 1, 1)
+        assert tuple(value[-3:]) == (1, 1, 1)
+
     def testExcessiveContinuationOctets(self):
         """Test that OID arcs with excessive continuation octets are rejected."""
         # Create a payload with 25 continuation octets (exceeds 20 limit)
@@ -584,6 +632,20 @@ class RelativeOIDDecoderTestCase(BaseTestCase):
             bytes((0x0D, 0x13, 0x88, 0x37, 0x83, 0xC6, 0xDF, 0xD4, 0xCC, 0xB3, 0xFF, 0xFF, 0xFE, 0xF0, 0xB8, 0xD6, 0xB8, 0xCB, 0xE2, 0xB6, 0x47))
         ) == ((1079, 18446744073709551535184467440737095), b'')
 
+    def testManySingleByteArcs(self):
+        arcCount = 4096
+        substrate = (
+            bytes([0x0d]) +
+            encode_length(arcCount) +
+            bytes([0x01] * arcCount)
+        )
+
+        value, rest = decoder.decode(substrate)
+        assert rest == b''
+        assert len(value) == arcCount
+        assert tuple(value[:3]) == (1, 1, 1)
+        assert tuple(value[-3:]) == (1, 1, 1)
+
     def testExcessiveContinuationOctets(self):
         """Test that RELATIVE-OID arcs with excessive continuation octets are rejected."""
         # Create a payload with 25 continuation octets (exceeds 20 limit)
@@ -680,17 +742,51 @@ class RealDecoderTestCase(BaseTestCase):
             bytes((9, 4, 161, 255, 1, 3))
         ) == (univ.Real((3, 2, -1020)), b'')
 
-# TODO: this requires Real type comparison fix
+    def testBin6(self):  # large exponent, base = 16
+        value, rest = decoder.decode(
+            bytes((9, 5, 162, 0, 255, 255, 1))
+        )
 
-#    def testBin6(self):
-#        assert decoder.decode(
-#            bytes((9, 5, 162, 0, 255, 255, 1))
-#        ) == (univ.Real((1, 2, 262140)), b'')
+        assert tuple(value) == (1, 2, 262140)
+        assert rest == b''
 
-#    def testBin7(self):
-#        assert decoder.decode(
-#            bytes((9, 7, 227, 4, 1, 35, 69, 103, 1))
-#        ) == (univ.Real((-1, 2, 76354972)), b'')
+    def testBin7(self):  # large exponent in 4-octet form, base = 16
+        value, rest = decoder.decode(
+            bytes((9, 7, 227, 4, 1, 35, 69, 103, 1))
+        )
+
+        assert tuple(value) == (-1, 2, 76354972)
+        assert rest == b''
+
+    def testLargeBinaryRoundTrip(self):
+        substrate = encoder.encode(univ.Real((-1, 2, 76354972)))
+        value, rest = decoder.decode(substrate)
+
+        assert tuple(value) == (-1, 2, 76354972)
+        assert rest == b''
+
+    def testLongFormBinaryRealExponentLength(self):
+        value, rest = decoder.decode(
+            bytes((9, 6, 0x83, 3, 0x0f, 0x42, 0x40, 1))
+        )
+
+        assert tuple(value) == (1, 2, 1000000)
+        assert rest == b''
+
+    def testLargeBinaryPrettyPrintOverflow(self):
+        value, rest = decoder.decode(
+            b'\t\t\xeb\x060662.666\xd0B\x00\x00\x00\x00\x00\x00\x00'
+        )
+
+        assert value.prettyPrint() == '<overflow>'
+        assert rest == b'6\xd0B\x00\x00\x00\x00\x00\x00\x00'
+
+        try:
+            float(value)
+        except OverflowError:
+            pass
+        else:
+            assert 0, '__float__() tolerated overflow'
 
     def testPlusInf(self):
         assert decoder.decode(

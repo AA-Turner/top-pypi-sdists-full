@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: niquests
-Version: 3.20.0
+Version: 3.20.1
 Summary: Niquests is a simple, yet elegant, HTTP library. It is a drop-in replacement for Requests, which is under feature freeze.
 Project-URL: Changelog, https://github.com/jawah/niquests/blob/main/HISTORY.md
 Project-URL: Documentation, https://niquests.readthedocs.io

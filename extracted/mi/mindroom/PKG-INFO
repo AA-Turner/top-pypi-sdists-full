@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: mindroom
-Version: 2026.7.69
+Version: 2026.7.87
 Summary: A universal interface for AI agents with persistent memory, where every conversation has a home
 Project-URL: documentation, https://github.com/mindroom-ai/mindroom
 Project-URL: homepage, https://github.com/mindroom-ai/mindroom
@@ -37,7 +37,7 @@ Requires-Dist: markdown-it-py>=4
 Requires-Dist: mcp[cli]>=1.12.4
 Requires-Dist: mdit-py-plugins>=0.5
 Requires-Dist: mem0ai>=0.1.115
-Requires-Dist: mindroom-nio[e2e]>=0.25.2
+Requires-Dist: mindroom-nio[e2e]>=0.26
 Requires-Dist: openai
 Requires-Dist: pydantic-settings>=2.10.1
 Requires-Dist: pydantic>=2
@@ -496,6 +496,9 @@ See [macOS app guide](docs/installation/macos-app.md) for setup, updates, and un
 ### Fastest Path: Hosted Matrix + Local MindRoom (`uvx` only)
 
 Use this path if you want to run MindRoom locally while using hosted chat + Matrix on `mindroom.chat`.
+Watch the 2-minute setup video:
+
+<a href="https://youtu.be/jR3xLUxyWhg"><img src="https://img.youtube.com/vi/jR3xLUxyWhg/maxresdefault.jpg" alt="MindRoom: installing and talking to my first AI agent in 2 minutes" width="480"></a>
 
 ```bash
 # Create ~/.mindroom/config.yaml and ~/.mindroom/.env with hosted defaults
@@ -577,6 +580,8 @@ Plain replies that never reach threaded context still stay plain replies.
 - `!config <operation>` - Manage configuration
 - `!model [name|list|reset]` - Show or switch the model used in the current thread
 - `!thread_mode [room|thread|reset|show]` - Show or switch the thread mode used in the current room (room admin only)
+- `!encrypt [confirm]` - Enable end-to-end encryption for this room (irreversible, room admin only)
+- `!e2ee` - Show encryption diagnostics for this room
 - `!hi` - Show welcome message
 
 <!-- OUTPUT:END -->

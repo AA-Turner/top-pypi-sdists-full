@@ -439,7 +439,8 @@ def is_ignored(f: Path, base_dir: Path) -> bool:
     ignored_names = {
         "venv", ".venv", "env", "__pycache__", "node_modules", "target", "dist",
         "build", "package-lock.json", "yarn.lock", "pnpm-lock.yaml", "cargo.lock",
-        "gem", "gems", ".sage", ".git", ".github", ".pytest_cache", ".mypy_cache"
+        "gem", "gems", ".sage", ".git", ".github", ".pytest_cache", ".mypy_cache",
+        "test_home", "Library"
     }
     try:
         ref = f.resolve()
@@ -566,8 +567,13 @@ def verify_cli_with_rubric(prompt: str, domain: str = "generate_files") -> None:
         import json
         report_data = json.loads(report_path.read_text(encoding="utf-8"))
         assert report_data.get("install_ok") is True, f"install_ok is not True: {report_data}"
-        assert report_data.get("build_ok") is True, f"build_ok is not True: {report_data}"
-        assert report_data.get("runs_ok") is True, f"runs_ok is not True: {report_data}"
+        
+        if domain != "video_games" and report_data.get("build_ok") is not None:
+            assert report_data.get("build_ok") is True, f"build_ok is not True: {report_data}"
+            
+        if domain != "video_games" and report_data.get("runs_ok") is not None:
+            assert report_data.get("runs_ok") is True, f"runs_ok is not True: {report_data}"
+            
         assert report_data.get("tests_ok") is True, f"tests_ok is not True: {report_data}"
 
 

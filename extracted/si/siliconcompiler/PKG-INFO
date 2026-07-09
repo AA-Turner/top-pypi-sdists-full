@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: siliconcompiler
-Version: 0.37.12
+Version: 0.38.0
 Summary: A compiler framework that automates translation from source code to silicon.
 Author: Zero ASIC
 License-Expression: Apache-2.0
@@ -10,7 +10,6 @@ Project-URL: Repository, https://github.com/siliconcompiler/siliconcompiler
 Project-URL: Issues, https://github.com/siliconcompiler/siliconcompiler/issues
 Project-URL: Discussion, https://github.com/siliconcompiler/siliconcompiler/discussions
 Classifier: Environment :: Console
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
@@ -21,58 +20,57 @@ Classifier: Operating System :: MacOS
 Classifier: Operating System :: Microsoft :: Windows
 Classifier: Topic :: Scientific/Engineering :: Electronic Design Automation (EDA)
 Classifier: Topic :: Software Development :: Build Tools
-Requires-Python: >=3.9
+Requires-Python: >=3.10
 Description-Content-Type: text/markdown
 License-File: LICENSE
-Requires-Dist: aiohttp<3.14.0,>=3.10.11
+Requires-Dist: aiohttp<3.15.0,>=3.10.11
 Requires-Dist: distro<2.0.0,>=1.9.0
 Requires-Dist: docker<8.0.0,>=7.1.0
 Requires-Dist: fastjsonschema<2.22.0,>=2.20.0
 Requires-Dist: graphviz<0.22,>=0.20
 Requires-Dist: orjson<4,>=3.11.0
 Requires-Dist: packaging<27,>=21.3
-Requires-Dist: requests<2.33.0,>=2.31.0; python_version < "3.10"
-Requires-Dist: requests<3.0.0,>=2.33.0; python_version >= "3.10"
-Requires-Dist: Pillow<12.2.0,>=11.3.0; python_version < "3.10"
-Requires-Dist: Pillow<13.0.0,>=12.2.0; python_version >= "3.10"
+Requires-Dist: requests<3.0.0,>=2.33.0
+Requires-Dist: Pillow<13.0.0,>=12.2.0
 Requires-Dist: PyYAML<7.0.0,>=6.0.0
 Requires-Dist: GitPython<3.2,>=3.1.44
 Requires-Dist: PyGithub<2.10.0,>=2.8.0
 Requires-Dist: urllib3>=1.26.0
-Requires-Dist: lambdapdk>=0.2.12
+Requires-Dist: lambdapdk>=0.2.14
 Requires-Dist: fasteners>=0.20
+Requires-Dist: tomli>=2.0.0; python_version < "3.11"
 Requires-Dist: pandas>=1.1.5
 Requires-Dist: psutil>=5.8.0
 Requires-Dist: Jinja2>=2.11.3
 Requires-Dist: pyslang==11.0.0
-Requires-Dist: importlib_metadata; python_version < "3.10"
-Requires-Dist: streamlit==1.54.0; python_version > "3.9"
-Requires-Dist: streamlit_agraph==0.0.45; python_version > "3.9"
-Requires-Dist: streamlit-antd-components==0.3.2; python_version > "3.9"
-Requires-Dist: streamlit_javascript==0.1.5; python_version > "3.9"
-Requires-Dist: streamlit-autorefresh==1.0.1; python_version > "3.9"
 Requires-Dist: rich<16.0.0,>=14.0.0
 Provides-Extra: test
-Requires-Dist: pytest==8.4.2; extra == "test"
+Requires-Dist: pytest==9.1.1; extra == "test"
 Requires-Dist: pytest-xdist==3.8.0; extra == "test"
 Requires-Dist: pytest-timeout==2.4.0; extra == "test"
-Requires-Dist: pytest-asyncio==1.2.0; extra == "test"
+Requires-Dist: pytest-asyncio==1.4.0; extra == "test"
 Requires-Dist: pytest-cov==7.1.0; extra == "test"
-Requires-Dist: responses==0.26.1; extra == "test"
+Requires-Dist: responses==0.26.2; extra == "test"
 Requires-Dist: PyVirtualDisplay==3.0; extra == "test"
 Provides-Extra: lint
 Requires-Dist: flake8==7.3.0; extra == "lint"
-Requires-Dist: tclint==0.7.0; extra == "lint"
+Requires-Dist: tclint==0.8.0; extra == "lint"
 Requires-Dist: codespell==2.4.2; extra == "lint"
 Provides-Extra: docs
 Requires-Dist: Sphinx<8.3,>=7.4; extra == "docs"
 Requires-Dist: pip-licenses==5.5.5; extra == "docs"
-Requires-Dist: pydata-sphinx-theme==0.16.1; extra == "docs"
+Requires-Dist: pydata-sphinx-theme==0.19.0; extra == "docs"
 Requires-Dist: sc-leflib>=0.2.0; extra == "docs"
 Provides-Extra: optimizer
 Requires-Dist: google-vizier[jax]==0.1.21; python_version >= "3.10" and extra == "optimizer"
 Provides-Extra: cocotb
 Requires-Dist: cocotb<2.1.0,>=2.0.1; (python_version >= "3.7" and python_version <= "3.13") and extra == "cocotb"
+Provides-Extra: dashboard
+Requires-Dist: streamlit==1.58.0; extra == "dashboard"
+Requires-Dist: streamlit_agraph==0.0.45; extra == "dashboard"
+Requires-Dist: streamlit-antd-components==0.3.2; extra == "dashboard"
+Requires-Dist: streamlit_javascript==0.1.5; extra == "dashboard"
+Requires-Dist: streamlit-autorefresh==1.0.1; extra == "dashboard"
 Dynamic: license-file
 
 ![SiliconCompiler](https://raw.githubusercontent.com/siliconcompiler/siliconcompiler/main/docs/_static/sc_logo_with_text.png)
@@ -106,7 +104,7 @@ SiliconCompiler is a modular hardware build system ("make for silicon"). The pro
 # Getting Started
 
 SiliconCompiler is available as wheel packages on PyPI for macOS, Windows and
-Linux platforms. For working Python 3.9-3.14 environment, just use pip.
+Linux platforms. For working Python 3.10-3.14 environment, just use pip.
 
 ```sh
 pip install --upgrade siliconcompiler

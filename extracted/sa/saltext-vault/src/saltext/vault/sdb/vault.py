@@ -62,7 +62,7 @@ def set_(key, value, profile=None):  # pylint: disable=unused-argument
     Set a key/value pair in the vault service
     """
     if "?" in key:
-        path, key = key.split("?")
+        path, key = key.rsplit("?", 1)
     else:
         path, key = key.rsplit("/", 1)
     data = {key: value}
@@ -99,7 +99,7 @@ def set_(key, value, profile=None):  # pylint: disable=unused-argument
 
     curr_data.update(data)
     try:
-        vault.write_kv(path, data, __opts__, __context__)
+        vault.write_kv(path, curr_data, __opts__, __context__)
         return True
     except Exception as err:  # pylint: disable=broad-except
         log.error("Failed to write secret! %s: %s", type(err).__name__, err)
@@ -112,7 +112,7 @@ def get(key, profile=None):  # pylint: disable=unused-argument
     """
     full_path = key
     if "?" in key:
-        path, key = key.split("?")
+        path, key = key.rsplit("?", 1)
     else:
         path, key = key.rsplit("/", 1)
 

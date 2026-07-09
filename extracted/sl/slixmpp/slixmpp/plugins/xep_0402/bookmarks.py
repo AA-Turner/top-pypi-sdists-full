@@ -6,11 +6,11 @@ from . import stanza
 class XEP_0402(BasePlugin):
 
     """
-    XEP-0402: PEP Native bookmarks
+    XEP-0402: PEP Native Bookmarks
     """
 
     name = "xep_0402"
-    description = "XEP-0402: PEP Native bookmarks"
+    description = "XEP-0402: PEP Native Bookmarks"
     dependencies = {"xep_0402"}
     stanza = stanza
 

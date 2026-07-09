@@ -15,7 +15,7 @@ class TestMAM(SlixTest):
         msgs = []
 
         async def test():
-            iq = await self.xmpp['xep_0313'].retrieve()
+            iq = await self.xmpp.plugin['xep_0313'].retrieve()
             for message in iq['mam']['results']:
                 msgs.append(message)
 
@@ -64,7 +64,7 @@ class TestMAM(SlixTest):
         msgs = []
 
         async def test():
-            iterator = self.xmpp['xep_0313'].retrieve(
+            iterator = self.xmpp.plugin['xep_0313'].retrieve(
                 with_jid=JID('toto@titi'),
                 start='2010-06-07T00:00:00Z',
                 iterator=True,
@@ -189,7 +189,7 @@ class TestMAM(SlixTest):
         msgs = []
 
         async def test():
-            iterator = self.xmpp['xep_0313'].iterate(
+            iterator = self.xmpp.plugin['xep_0313'].iterate(
                 with_jid=JID('toto@titi'),
                 start='2010-06-07T00:00:00Z',
             )

@@ -21,9 +21,9 @@ class PackageManager(Tool):
     back-end or project layout.
     """
 
-    def name(self) -> str:
-        """Return `'uv'`."""
-        return "uv"
+    def dev_dependencies(self) -> tuple[str, ...]:
+        """Return an empty tuple: uv is a system-level tool, not a dev dependency."""
+        return ()
 
     def group(self) -> str:
         """Return `Group.TOOLING`."""
@@ -36,6 +36,10 @@ class PackageManager(Tool):
     def link_url(self) -> str:
         """Return the URL of the uv project page."""
         return "https://github.com/astral-sh/uv"
+
+    def name(self) -> str:
+        """Return `'uv'`."""
+        return "uv"
 
     def version_control_ignore_paths(self) -> tuple[str, ...]:
         """Return `(".venv", "dist/")`."""
@@ -67,9 +71,13 @@ class PackageManager(Tool):
         """Return `Path("src")`."""
         return Path("src")
 
-    def lock_file(self) -> Path:
-        """Return `Path("uv.lock")`, relative to the project root."""
-        return Path("uv.lock")
+    def build_backend(self) -> str:
+        """Return `"uv_build"` for the `[build-system].build-backend` field.
+
+        Override this alongside `build_system_requires` if the project uses a
+        different build back-end.
+        """
+        return "uv_build"
 
     def build_system_requires(self) -> list[str]:
         """Return `["uv_build"]` for the `[build-system].requires` field.
@@ -80,21 +88,13 @@ class PackageManager(Tool):
         """
         return ["uv_build"]
 
-    def build_backend(self) -> str:
-        """Return `"uv_build"` for the `[build-system].build-backend` field.
-
-        Override this alongside `build_system_requires` if the project uses a
-        different build back-end.
-        """
-        return "uv_build"
+    def lock_file(self) -> Path:
+        """Return `Path("uv.lock")`, relative to the project root."""
+        return Path("uv.lock")
 
     def no_auto_install_env_var(self) -> str:
         """Return the name of the env var that disables uv's implicit auto-sync."""
         return "UV_NO_SYNC"
-
-    def dev_dependencies(self) -> tuple[str, ...]:
-        """Return an empty tuple: uv is a system-level tool, not a dev dependency."""
-        return ()
 
     def project_cmd_args(self, *args: str, cmd: FunctionType) -> Args:
         """Construct `Args` for running one of the project's own CLI subcommands.

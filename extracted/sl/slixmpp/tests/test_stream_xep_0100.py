@@ -146,7 +146,7 @@ class TestStreamGateway(SlixTest):
         def raise_v(*a, **kwa):
             raise ValueError("Not good")
 
-        self.xmpp["xep_0077"].api.register(raise_v, "user_validate")
+        self.xmpp.plugin["xep_0077"].api.register(raise_v, "user_validate")
         self.recv(
             """
             <iq type='set'
@@ -188,7 +188,7 @@ class TestStreamGateway(SlixTest):
 
         self.xmpp.add_event_handler("legacy_login", legacy_login)
 
-        self.xmpp["xep_0077"].api["user_validate"](
+        self.xmpp.plugin["xep_0077"].api["user_validate"](
             None,
             None,
             JID("romeo@montague.lit"),
@@ -297,7 +297,7 @@ class TestStreamGateway(SlixTest):
         async def legacy_contact_add(jid, node, ifrom, contact_jid):
             res.update(**locals())
             raise LegacyError
-        self.xmpp["xep_0100"].api.register(
+        self.xmpp.plugin["xep_0100"].api.register(
             legacy_contact_add, "legacy_contact_add"
         )
         self.recv(
@@ -326,7 +326,7 @@ class TestStreamGateway(SlixTest):
         async def legacy_contact_remove(jid, node, ifrom, contact_jid):
             result.update(**locals())
 
-        self.xmpp["xep_0100"].api.register(
+        self.xmpp.plugin["xep_0100"].api.register(
             legacy_contact_remove, "legacy_contact_remove"
         )
 
@@ -354,7 +354,7 @@ class TestStreamGateway(SlixTest):
         )
 
     def testSendMessage(self):
-        self.xmpp["xep_0100"].transform_legacy_message(
+        self.xmpp.plugin["xep_0100"].transform_legacy_message(
             jabber_user_jid="romeo@montague.lit",
             legacy_contact_id="juliet",
             body="Art thou not Romeo, and a Montague?",
@@ -398,7 +398,7 @@ class TestStreamGateway(SlixTest):
 
     def add_user(self):
         self.xmpp.loop.run_until_complete(
-            self.xmpp["xep_0077"].api["user_validate"](
+            self.xmpp.plugin["xep_0077"].api["user_validate"](
                 None,
                 None,
                 JID("romeo@montague.lit"),

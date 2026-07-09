@@ -4,7 +4,10 @@
 
 from logging import getLogger
 
+from ..record.validator import ValidationReason
 from .exception import ZoneException
+
+__all__ = ['ValidationReason', 'ZoneValidator', 'ZoneValidatorRegistry']
 
 
 class ZoneValidatorRegistry:
@@ -67,33 +70,14 @@ class ZoneValidatorRegistry:
             )
             self.enable_sets({'legacy'})
 
+        disabled = zone.disabled_zone_validators
         reasons = []
         for validator in self.active.values():
+            if validator.id in disabled and not validator.id.startswith('_'):
+                continue
             reasons.extend(validator.validate(zone))
 
         return reasons
-
-
-class ValidationReason:
-    def __init__(self, reason, records):
-        self.reason = reason
-        self.records = set(records)
-
-    @property
-    def lenient(self):
-        return bool(self.records) and all(r.lenient for r in self.records)
-
-    def __str__(self):
-        msg = self.reason
-        contexts = {
-            r.context for r in self.records if getattr(r, 'context', None)
-        }
-        if contexts:
-            msg += f" ({', '.join(sorted(contexts))})"
-        return msg
-
-    def __repr__(self):
-        return self.reason
 
 
 class ZoneValidator:
@@ -111,6 +95,9 @@ class ZoneValidator:
     Every zone validator instance has a non-empty ``id`` — a short, stable,
     kebab-case identifier (e.g. ``'multi-value-mx'``). Config-registered
     validators receive their config key as ``id`` automatically.
+
+    When creating ``ValidationReason`` instances, pass ``validator_id=self.id``
+    so that error output can attribute each reason to its source validator.
 
     A config-registered validator whose id matches a built-in's replaces
     that built-in in the registry — e.g. defining a ``validators:`` entry

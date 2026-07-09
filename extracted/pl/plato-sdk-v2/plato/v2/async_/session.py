@@ -101,6 +101,7 @@ from plato.v2.async_.flow_backends import (
     make_ssh_run_cmd,
 )
 from plato.v2.async_.flow_executor import FlowExecutor
+from plato.v2.env_utils import is_proctor_env
 from plato.v2.types import EnvFromArtifact, EnvFromResource, EnvFromSimulator
 from plato.v2.utils.models import (
     EnvironmentInfo,
@@ -788,11 +789,14 @@ class Session:
         pass the agent's output as ``value``.
 
         Args:
-            value: Optional output data for OUTPUT scoring. Not needed for
-                   mutation-only test cases.
+            value: Optional agent output data. Used for both OUTPUT scoring and
+                   PEX output-dimension scoring. Not needed for mutation-only
+                   test cases.
 
         Returns:
-            Evaluation results including score and per-SIM results.
+            Evaluation results including score and per-SIM results. For PEX
+            (proctor) test cases, the proctor scoring package is surfaced on
+            ``pex_result``.
         """
         self._check_closed()
 
@@ -1392,7 +1396,15 @@ class Session:
             context = await browser.new_context()
 
         pages: dict[str, Page] = {}
-        target_envs = [e for e in self.envs if e.alias == env_alias] if env_alias else list(self.envs)
+        if env_alias:
+            target_envs = [e for e in self.envs if e.alias == env_alias]
+        else:
+            target_envs = []
+            for e in self.envs:
+                if is_proctor_env(e):
+                    logger.info("Skipping login for %s (proctor service)", e.alias)
+                    continue
+                target_envs.append(e)
         if env_alias and not target_envs:
             if owns_context:
                 await context.close()
@@ -1662,6 +1674,9 @@ class Session:
                 # callers can pass ``session.envs`` without pre-filtering.
                 continue
             if env_alias is not None and env.alias != env_alias:
+                continue
+            if env_alias is None and is_proctor_env(env):
+                active_log.info("Skipping login for %s (proctor service)", env.alias)
                 continue
 
             cdp_port = CDP_PORT_BASE + idx

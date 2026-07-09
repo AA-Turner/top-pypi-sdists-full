@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: ai-parrot
-Version: 0.25.16
+Version: 0.25.17
 Summary: Framework for building AI agents for Navigator
 Author-email: Jesus Lara <jesuslara@phenobarbital.info>
 License-Expression: MIT
@@ -241,15 +241,15 @@ Requires-Dist: google-cloud-aiplatform>=1.153.0; extra == "google"
 Provides-Extra: groq
 Requires-Dist: groq==0.33.0; extra == "groq"
 Provides-Extra: zai
-Requires-Dist: zai-sdk>=0.2.2; extra == "zai"
+Requires-Dist: zai-sdk>=0.2.3; extra == "zai"
 Provides-Extra: llms
 Requires-Dist: google-genai>=2.6.0; extra == "llms"
 Requires-Dist: openai==2.41.0; extra == "llms"
 Requires-Dist: groq==0.33.0; extra == "llms"
 Requires-Dist: ai-parrot[anthropic,bedrock]; extra == "llms"
 Requires-Dist: claude-agent-sdk>=0.1.68; extra == "llms"
-Requires-Dist: xai-sdk>=0.1.0; extra == "llms"
-Requires-Dist: zai-sdk>=0.2.2; extra == "llms"
+Requires-Dist: xai-sdk>=1.12.0; extra == "llms"
+Requires-Dist: zai-sdk>=0.2.3; extra == "llms"
 Provides-Extra: integrations
 Requires-Dist: querysource>=4.1.11; extra == "integrations"
 Requires-Dist: async-notify[all]>=1.5.2; extra == "integrations"
@@ -258,7 +258,7 @@ Requires-Dist: sweetviz==2.1.4; extra == "eda"
 Provides-Extra: security
 Requires-Dist: pytector[gguf]==0.2.0; extra == "security"
 Provides-Extra: xai
-Requires-Dist: xai-sdk>=0.1.0; extra == "xai"
+Requires-Dist: xai-sdk>=1.12.0; extra == "xai"
 Provides-Extra: gemma4
 Requires-Dist: transformers>=5.0.0; extra == "gemma4"
 Requires-Dist: torch==2.11.0; extra == "gemma4"

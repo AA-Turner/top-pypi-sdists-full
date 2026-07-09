@@ -78,14 +78,14 @@ class XEP_0115(BasePlugin):
                     restart=False,
                     order=10010)
 
-        disco = self.xmpp['xep_0030']
+        disco = self.xmpp.plugin['xep_0030']
         self.static = StaticCaps(self.xmpp, disco.static)
 
         for op in self._disco_ops:
             self.api.register(getattr(self.static, op), op, default=True)
 
         for op in ('supports', 'has_identity'):
-            self.xmpp['xep_0030'].api.register(getattr(self.static, op), op)
+            self.xmpp.plugin['xep_0030'].api.register(getattr(self.static, op), op)
 
         self._run_node_handler = disco._run_node_handler
 
@@ -98,17 +98,17 @@ class XEP_0115(BasePlugin):
         self._locks = defaultdict(Lock)
 
     def plugin_end(self):
-        self.xmpp['xep_0030'].del_feature(feature=stanza.Capabilities.namespace)
+        self.xmpp.plugin['xep_0030'].del_feature(feature=stanza.Capabilities.namespace)
         self.xmpp.del_filter('out', self._filter_add_caps)
         self.xmpp.del_event_handler('entity_caps', self._process_caps)
         self.xmpp.remove_handler('Entity Capabilities')
         if not self.xmpp.is_component:
             self.xmpp.unregister_feature('caps', 10010)
         for op in ('supports', 'has_identity'):
-            self.xmpp['xep_0030'].restore_defaults(op)
+            self.xmpp.plugin['xep_0030'].restore_defaults(op)
 
     def session_bind(self, jid):
-        self.xmpp['xep_0030'].add_feature(stanza.Capabilities.namespace)
+        self.xmpp.plugin['xep_0030'].add_feature(stanza.Capabilities.namespace)
 
     async def _filter_add_caps(self, stanza):
         if not isinstance(stanza, Presence) or not self.broadcast:
@@ -169,7 +169,7 @@ class XEP_0115(BasePlugin):
         if pres['caps']['hash'] not in self.hashes:
             try:
                 log.debug("Unknown caps hash: %s", pres['caps']['hash'])
-                await self.xmpp['xep_0030'].get_info(jid=pres['from'], ifrom=ifrom)
+                await self.xmpp.plugin['xep_0030'].get_info(jid=pres['from'], ifrom=ifrom)
                 return
             except XMPPError:
                 return
@@ -177,7 +177,7 @@ class XEP_0115(BasePlugin):
         log.debug("New caps verification string: %s", ver)
         try:
             node = '%s#%s' % (pres['caps']['node'], ver)
-            caps = await self.xmpp['xep_0030'].get_info(pres['from'], node,
+            caps = await self.xmpp.plugin['xep_0030'].get_info(pres['from'], node,
                                                              ifrom=ifrom)
 
             if isinstance(caps, Iq):
@@ -208,7 +208,7 @@ class XEP_0115(BasePlugin):
         form_types = []
         deduped_form_types = set()
         for stanza in caps['substanzas']:
-            if not isinstance(stanza, self.xmpp['xep_0004'].stanza.Form):
+            if not isinstance(stanza, self.xmpp.plugin['xep_0004'].stanza.Form):
                 log.debug("Non form extension found, ignoring for caps")
                 caps.xml.remove(stanza.xml)
                 continue
@@ -265,7 +265,7 @@ class XEP_0115(BasePlugin):
         form_types = {}
 
         for stanza in info['substanzas']:
-            if isinstance(stanza, self.xmpp['xep_0004'].stanza.Form):
+            if isinstance(stanza, self.xmpp.plugin['xep_0004'].stanza.Form):
                 if 'FORM_TYPE' in stanza.get_fields():
                     f_type = stanza['values']['FORM_TYPE']
                     if len(f_type):
@@ -305,11 +305,11 @@ class XEP_0115(BasePlugin):
         :param preserve: Send presence only to contacts found in the roster.
         """
         try:
-            info = await self.xmpp['xep_0030'].get_info(jid, node, local=True)
+            info = await self.xmpp.plugin['xep_0030'].get_info(jid, node, local=True)
             if isinstance(info, Iq):
                 info = info['disco_info']
             ver = self.generate_verstring(info, self.hash)
-            await self.xmpp['xep_0030'].set_info(
+            await self.xmpp.plugin['xep_0030'].set_info(
                 jid=jid,
                 node='%s#%s' % (self.caps_node, ver),
                 info=info

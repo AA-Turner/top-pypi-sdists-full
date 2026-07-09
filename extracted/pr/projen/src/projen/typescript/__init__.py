@@ -13,7 +13,7 @@ import jsii
 import publication
 import typing_extensions
 
-from jsii._type_checking import check_type
+from jsii._type_checking import cached_type_hints, check_type
 
 
 from .._jsii import *
@@ -70,7 +70,7 @@ class NodeRunnerOptions:
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__1939fe76e1bf004b26e371eb35e14ee2942bdc2871ba55451771cd90263896f2)
+            type_hints = cached_type_hints(_typecheckingstub__1939fe76e1bf004b26e371eb35e14ee2942bdc2871ba55451771cd90263896f2)
             check_type(argname="argument experimental_transform_types", value=experimental_transform_types, expected_type=type_hints["experimental_transform_types"])
             check_type(argname="argument tsconfig", value=tsconfig, expected_type=type_hints["tsconfig"])
             check_type(argname="argument type_check", value=type_check, expected_type=type_hints["type_check"])
@@ -164,7 +164,7 @@ class Projenrc(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__2263ee9c745ea47c774563d843521472e79762041f4e1ae7ba448b00eb619b8d)
+            type_hints = cached_type_hints(_typecheckingstub__2263ee9c745ea47c774563d843521472e79762041f4e1ae7ba448b00eb619b8d)
             check_type(argname="argument project", value=project, expected_type=type_hints["project"])
         options = ProjenrcOptions(
             filename=filename, projen_code_dir=projen_code_dir, runner=runner, swc=swc
@@ -226,7 +226,7 @@ class ProjenrcOptions:
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c19ece862a34d563e3af49bcb2633dab3ba4ac5f67cc57c6fff86d7cca41defc)
+            type_hints = cached_type_hints(_typecheckingstub__c19ece862a34d563e3af49bcb2633dab3ba4ac5f67cc57c6fff86d7cca41defc)
             check_type(argname="argument filename", value=filename, expected_type=type_hints["filename"])
             check_type(argname="argument projen_code_dir", value=projen_code_dir, expected_type=type_hints["projen_code_dir"])
             check_type(argname="argument runner", value=runner, expected_type=type_hints["runner"])
@@ -331,7 +331,7 @@ class ProjenrcTs(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__f8247bfab52de99210dd1174bf8292517bfb90aa0435a94a64a093bcdcceb1d3)
+            type_hints = cached_type_hints(_typecheckingstub__f8247bfab52de99210dd1174bf8292517bfb90aa0435a94a64a093bcdcceb1d3)
             check_type(argname="argument project", value=project, expected_type=type_hints["project"])
         options = ProjenrcTsOptions(
             filename=filename,
@@ -397,7 +397,7 @@ class ProjenrcTsOptions:
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__160fd3491644df95d187ac5907c3e3cc1eb206baf5e8a1cbfca8496701ab6df6)
+            type_hints = cached_type_hints(_typecheckingstub__160fd3491644df95d187ac5907c3e3cc1eb206baf5e8a1cbfca8496701ab6df6)
             check_type(argname="argument filename", value=filename, expected_type=type_hints["filename"])
             check_type(argname="argument projen_code_dir", value=projen_code_dir, expected_type=type_hints["projen_code_dir"])
             check_type(argname="argument runner", value=runner, expected_type=type_hints["runner"])
@@ -504,7 +504,7 @@ class TsJestBabelConfig(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__57c74312f3b84d4697a7e445fdef068f4807b51470030ba0ac243d70498c8bca)
+            type_hints = cached_type_hints(_typecheckingstub__57c74312f3b84d4697a7e445fdef068f4807b51470030ba0ac243d70498c8bca)
             check_type(argname="argument config", value=config, expected_type=type_hints["config"])
         return typing.cast("TsJestBabelConfig", jsii.sinvoke(cls, "custom", [config]))
 
@@ -529,7 +529,7 @@ class TsJestBabelConfig(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__fa38b428b489eb4f2e5ab1fa56039a74d05152687403b422fe16578573506d72)
+            type_hints = cached_type_hints(_typecheckingstub__fa38b428b489eb4f2e5ab1fa56039a74d05152687403b422fe16578573506d72)
             check_type(argname="argument file_path", value=file_path, expected_type=type_hints["file_path"])
         return typing.cast("TsJestBabelConfig", jsii.sinvoke(cls, "fromFile", [file_path]))
 
@@ -566,7 +566,7 @@ class TsJestDiagnostics(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__abb08ee9151f9ffaafab18cc1dd48f6143d5328362bb1f2c80aa95d395bbde58)
+            type_hints = cached_type_hints(_typecheckingstub__abb08ee9151f9ffaafab18cc1dd48f6143d5328362bb1f2c80aa95d395bbde58)
             check_type(argname="argument config", value=config, expected_type=type_hints["config"])
         return typing.cast("TsJestDiagnostics", jsii.sinvoke(cls, "custom", [config]))
 
@@ -604,7 +604,7 @@ class TsJestOptions:
         if isinstance(transform_options, dict):
             transform_options = TsJestTransformOptions(**transform_options)
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__8c225926587b822ce73ff151cc8d04de0c607d2d0315e5c10b19bf90177fe777)
+            type_hints = cached_type_hints(_typecheckingstub__8c225926587b822ce73ff151cc8d04de0c607d2d0315e5c10b19bf90177fe777)
             check_type(argname="argument transform_options", value=transform_options, expected_type=type_hints["transform_options"])
             check_type(argname="argument transform_pattern", value=transform_pattern, expected_type=type_hints["transform_pattern"])
         self._values: typing.Dict[builtins.str, typing.Any] = {}
@@ -687,7 +687,7 @@ class TsJestTransformOptions:
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__1dea54f53ed685b6629951d7aaee8ae0563b656a849a1c5f2cf70786f2333cb1)
+            type_hints = cached_type_hints(_typecheckingstub__1dea54f53ed685b6629951d7aaee8ae0563b656a849a1c5f2cf70786f2333cb1)
             check_type(argname="argument ast_transformers", value=ast_transformers, expected_type=type_hints["ast_transformers"])
             check_type(argname="argument babel_config", value=babel_config, expected_type=type_hints["babel_config"])
             check_type(argname="argument compiler", value=compiler, expected_type=type_hints["compiler"])
@@ -1061,7 +1061,7 @@ class TsJestTsconfig(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__92dd15c4a7cabe98b93189ec1f931bb163c5658476fc9627211024b208dcbf8f)
+            type_hints = cached_type_hints(_typecheckingstub__92dd15c4a7cabe98b93189ec1f931bb163c5658476fc9627211024b208dcbf8f)
             check_type(argname="argument file_path", value=file_path, expected_type=type_hints["file_path"])
         return typing.cast("TsJestTsconfig", jsii.sinvoke(cls, "fromFile", [file_path]))
 
@@ -1088,7 +1088,7 @@ class TsNodeRunnerOptions:
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__996cd2806aa10d291f836ab1bc4fd6b397dbdec7875d027aedb273d748cb57ad)
+            type_hints = cached_type_hints(_typecheckingstub__996cd2806aa10d291f836ab1bc4fd6b397dbdec7875d027aedb273d748cb57ad)
             check_type(argname="argument swc", value=swc, expected_type=type_hints["swc"])
             check_type(argname="argument tsconfig", value=tsconfig, expected_type=type_hints["tsconfig"])
             check_type(argname="argument type_check", value=type_check, expected_type=type_hints["type_check"])
@@ -1169,7 +1169,7 @@ class TsxRunnerOptions:
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__d4d73ec80c59f6436fffd0f95dad78637bd0bbe1b9f4b699fb5a70c1f2d10151)
+            type_hints = cached_type_hints(_typecheckingstub__d4d73ec80c59f6436fffd0f95dad78637bd0bbe1b9f4b699fb5a70c1f2d10151)
             check_type(argname="argument tsconfig", value=tsconfig, expected_type=type_hints["tsconfig"])
             check_type(argname="argument type_check", value=type_check, expected_type=type_hints["type_check"])
         self._values: typing.Dict[builtins.str, typing.Any] = {}
@@ -2324,7 +2324,7 @@ class TypeScriptProjectOptions(_javascript_eb5dbe11.NodeProjectOptions):
         if isinstance(ts_jest_options, dict):
             ts_jest_options = TsJestOptions(**ts_jest_options)
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a914f27f5d915b07b8847d407b03b08cab2aad7b213973084a9026526734c711)
+            type_hints = cached_type_hints(_typecheckingstub__a914f27f5d915b07b8847d407b03b08cab2aad7b213973084a9026526734c711)
             check_type(argname="argument name", value=name, expected_type=type_hints["name"])
             check_type(argname="argument commit_generated", value=commit_generated, expected_type=type_hints["commit_generated"])
             check_type(argname="argument git_ignore_options", value=git_ignore_options, expected_type=type_hints["git_ignore_options"])
@@ -4757,7 +4757,7 @@ class TypeScriptRunner(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__8e3b41b83a92833d538e1f3bf68ef5f60a356dd38b7cb99a42e0b4cd70535fb8)
+            type_hints = cached_type_hints(_typecheckingstub__8e3b41b83a92833d538e1f3bf68ef5f60a356dd38b7cb99a42e0b4cd70535fb8)
             check_type(argname="argument entrypoint", value=entrypoint, expected_type=type_hints["entrypoint"])
         return typing.cast("_projen_04054675.RunScriptConfig", jsii.invoke(self, "configFor", [entrypoint]))
 
@@ -4807,7 +4807,7 @@ class TypeScriptRunnerOptions:
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__abbd2e327d1d796cb4719f5ee784dd071d8d8e68869c179306b998a62fa05e19)
+            type_hints = cached_type_hints(_typecheckingstub__abbd2e327d1d796cb4719f5ee784dd071d8d8e68869c179306b998a62fa05e19)
             check_type(argname="argument tsconfig", value=tsconfig, expected_type=type_hints["tsconfig"])
             check_type(argname="argument type_check", value=type_check, expected_type=type_hints["type_check"])
         self._values: typing.Dict[builtins.str, typing.Any] = {}
@@ -4862,7 +4862,7 @@ class TypedocDocgen(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__05c2a64cbf1d03e81be8fd637cc486671fa9c1ee8abae939265da1f9e27dcc63)
+            type_hints = cached_type_hints(_typecheckingstub__05c2a64cbf1d03e81be8fd637cc486671fa9c1ee8abae939265da1f9e27dcc63)
             check_type(argname="argument project", value=project, expected_type=type_hints["project"])
         jsii.create(self.__class__, self, [project])
 

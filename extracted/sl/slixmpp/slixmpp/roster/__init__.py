@@ -6,3 +6,5 @@
 from slixmpp.roster.item import RosterItem
 from slixmpp.roster.single import RosterNode
 from slixmpp.roster.multi import Roster
+
+__all__ = ['RosterItem', 'RosterNode', 'Roster']

@@ -1,4 +1,3 @@
-
 # Slixmpp: The Slick XMPP Library
 # Copyright (C) 2012  Nathanael C. Fritz
 # This file is part of Slixmpp.
@@ -10,3 +9,5 @@ from slixmpp.features.feature_rosterver.stanza import RosterVer
 
 
 register_plugin(FeatureRosterVer)
+
+__all__ = ['FeatureRosterVer', 'RosterVer']

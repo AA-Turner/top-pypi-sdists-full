@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: daft
-Version: 0.7.17
+Version: 0.7.18
 Requires-Dist: pyarrow>=16.0.0,<25.0.0
 Requires-Dist: fsspec<2026.5.0
 Requires-Dist: tqdm<4.68.0

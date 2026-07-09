@@ -40,6 +40,12 @@ class AcceleratePython(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
     ACCELERATE_PYTHON_AUTO: _ClassVar[AcceleratePython]
     ACCELERATE_PYTHON_NEVER: _ClassVar[AcceleratePython]
 
+class StreamingDeduplicationStage(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
+    __slots__ = ()
+    STREAMING_DEDUPLICATION_STAGE_UNSPECIFIED: _ClassVar[StreamingDeduplicationStage]
+    STREAMING_DEDUPLICATION_STAGE_PARSED_MESSAGE: _ClassVar[StreamingDeduplicationStage]
+    STREAMING_DEDUPLICATION_STAGE_OUTPUT_FEATURES: _ClassVar[StreamingDeduplicationStage]
+
 class StreamMessageFormat(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
     __slots__ = ()
     STREAM_MESSAGE_FORMAT_UNSPECIFIED: _ClassVar[StreamMessageFormat]
@@ -99,6 +105,9 @@ ACCELERATE_PYTHON_UNSPECIFIED: AcceleratePython
 ACCELERATE_PYTHON_REQUIRE: AcceleratePython
 ACCELERATE_PYTHON_AUTO: AcceleratePython
 ACCELERATE_PYTHON_NEVER: AcceleratePython
+STREAMING_DEDUPLICATION_STAGE_UNSPECIFIED: StreamingDeduplicationStage
+STREAMING_DEDUPLICATION_STAGE_PARSED_MESSAGE: StreamingDeduplicationStage
+STREAMING_DEDUPLICATION_STAGE_OUTPUT_FEATURES: StreamingDeduplicationStage
 STREAM_MESSAGE_FORMAT_UNSPECIFIED: StreamMessageFormat
 STREAM_MESSAGE_FORMAT_BODY_ONLY: StreamMessageFormat
 STREAM_MESSAGE_FORMAT_FULL_ENVELOPE: StreamMessageFormat
@@ -1275,15 +1284,18 @@ class SinkResolver(_message.Message):
     ) -> None: ...
 
 class DeduplicationStrategy(_message.Message):
-    __slots__ = ("underscore_expr", "window")
+    __slots__ = ("underscore_expr", "window", "deduplication_stage")
     UNDERSCORE_EXPR_FIELD_NUMBER: _ClassVar[int]
     WINDOW_FIELD_NUMBER: _ClassVar[int]
+    DEDUPLICATION_STAGE_FIELD_NUMBER: _ClassVar[int]
     underscore_expr: _expression_pb2.LogicalExprNode
     window: _duration_pb2.Duration
+    deduplication_stage: StreamingDeduplicationStage
     def __init__(
         self,
         underscore_expr: _Optional[_Union[_expression_pb2.LogicalExprNode, _Mapping]] = ...,
         window: _Optional[_Union[_duration_pb2.Duration, _Mapping]] = ...,
+        deduplication_stage: _Optional[_Union[StreamingDeduplicationStage, str]] = ...,
     ) -> None: ...
 
 class ParseInfo(_message.Message):

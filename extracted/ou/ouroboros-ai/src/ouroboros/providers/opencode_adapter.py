@@ -45,6 +45,7 @@ import structlog
 
 from ouroboros.config import get_opencode_cli_path
 from ouroboros.core.errors import ProviderError
+from ouroboros.core.retry import BASE_TRANSIENT_PATTERNS, is_transient_error
 from ouroboros.core.security import MAX_LLM_RESPONSE_LENGTH, InputValidator
 from ouroboros.core.types import Result
 from ouroboros.providers.base import (
@@ -60,7 +61,7 @@ from ouroboros.providers.codex_cli_stream import (
     terminate_process,
 )
 from ouroboros.providers.profiles import resolve_completion_profile_result
-from ouroboros.runtime.child_env import build_child_env
+from ouroboros.runtime.child_env import DEFAULT_OUROBOROS_STRIP_KEYS, build_child_env
 
 log = structlog.get_logger()
 
@@ -69,16 +70,9 @@ _MAX_OUROBOROS_DEPTH = 5
 # Child-env strip set for OpenCode.  OpenCode does NOT strip CLAUDECODE (unlike
 # codex/copilot/kiro) — preserve that divergence; only the Ouroboros markers
 # are removed.
-_CHILD_ENV_STRIP_KEYS = ("OUROBOROS_AGENT_RUNTIME", "OUROBOROS_LLM_BACKEND")
+_CHILD_ENV_STRIP_KEYS = DEFAULT_OUROBOROS_STRIP_KEYS
 
-_RETRYABLE_ERROR_PATTERNS = (
-    "rate limit",
-    "temporarily unavailable",
-    "timeout",
-    "overloaded",
-    "try again",
-    "connection reset",
-)
+_RETRYABLE_ERROR_PATTERNS = BASE_TRANSIENT_PATTERNS
 
 
 class OpenCodeLLMAdapter:
@@ -356,8 +350,7 @@ class OpenCodeLLMAdapter:
             ``True`` if any retryable pattern is found in the
             lower-cased message.
         """
-        lower = error_message.lower()
-        return any(pattern in lower for pattern in _RETRYABLE_ERROR_PATTERNS)
+        return is_transient_error(error_message)
 
     def _extract_text_from_events(self, events: list[dict[str, Any]]) -> str:
         """Extract assistant text content from OpenCode JSON events.

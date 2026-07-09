@@ -1,12 +1,12 @@
 Metadata-Version: 2.4
 Name: dbt-autofix
-Version: 0.21.1
+Version: 0.21.3
 Summary: CLI to autofix deprecations in dbt projects
 License-File: LICENSE
 Requires-Python: <3.14,>=3.10
 Requires-Dist: click<9.0.0,>=8.2.0
 Requires-Dist: dbt-extractor<=0.6,>=0.5.0
-Requires-Dist: dbt-fusion-package-tools==0.21.1
+Requires-Dist: dbt-fusion-package-tools==0.21.3
 Requires-Dist: httpx>=0.27.0
 Requires-Dist: jinja2<4,>=3.1.3
 Requires-Dist: pyyaml>=6.0.2; python_version >= '3.13'
@@ -47,6 +47,7 @@ The following deprecations are covered by `dbt-autofix deprecations`:
 | `ResourceNamesWithSpacesDeprecation` | SQL files, Python files, YAML files | Replaces spaces with underscores in resource names, updating .sql filenames as necessary | Full | Yes |  
 | `SourceFreshnessProjectHooksNotRun` | `dbt_project.yml` | Set `source_freshness_run_project_hooks` in `dbt_project.yml` "flags" to true | Full | Yes |
 | `MissingArgumentsPropertyInGenericTestDeprecation` | YAML files | Move any keyword arguments defined as top-level property on generic test to `arguments` property | Full | No |
+| `StaticAnalysisDeprecation` | `dbt_project.yml`, YAML files, SQL files | Convert boolean `static_analysis` values to the Fusion enum (`True`→`baseline`, `False`→`off`) | Full | No |
 
 ## Deprecation Coverage - CLI Commands
 

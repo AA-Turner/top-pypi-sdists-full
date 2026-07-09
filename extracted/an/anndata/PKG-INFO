@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: anndata
-Version: 0.13.0
+Version: 0.13.1
 Summary: Annotated data.
 Project-URL: Documentation, https://anndata.readthedocs.io/
 Project-URL: Source, https://github.com/scverse/anndata
@@ -33,7 +33,7 @@ Requires-Dist: packaging>=24.2
 Requires-Dist: pandas>=2.3
 Requires-Dist: scipy!=1.17.0,>=1.14
 Requires-Dist: scverse-misc[settings]>=0.1.0
-Requires-Dist: typing-extensions; python_version <= '3.14'
+Requires-Dist: typing-extensions>=4.16; python_version <= '3.14'
 Requires-Dist: zarr>=3.1
 Provides-Extra: cu11
 Requires-Dist: cupy-cuda11x; extra == 'cu11'

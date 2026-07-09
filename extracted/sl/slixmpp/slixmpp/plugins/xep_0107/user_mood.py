@@ -30,11 +30,11 @@ class XEP_0107(BasePlugin):
         register_stanza_plugin(Message, UserMood)
 
     def plugin_end(self):
-        self.xmpp['xep_0030'].del_feature(feature=UserMood.namespace)
-        self.xmpp['xep_0163'].remove_interest(UserMood.namespace)
+        self.xmpp.plugin['xep_0030'].del_feature(feature=UserMood.namespace)
+        self.xmpp.plugin['xep_0163'].remove_interest(UserMood.namespace)
 
     def session_bind(self, jid):
-        self.xmpp['xep_0163'].register_pep('user_mood', UserMood)
+        self.xmpp.plugin['xep_0163'].register_pep('user_mood', UserMood)
 
     def publish_mood(self, value: str | None = None, text: str | None = None, **pubsubkwargs) -> Future:
         """
@@ -47,7 +47,7 @@ class XEP_0107(BasePlugin):
         mood = UserMood()
         mood['value'] = value
         mood['text'] = text
-        return self.xmpp['xep_0163'].publish(
+        return self.xmpp.plugin['xep_0163'].publish(
             mood,
             node=UserMood.namespace,
             **pubsubkwargs
@@ -58,7 +58,7 @@ class XEP_0107(BasePlugin):
         Clear existing user mood information to stop notifications.
         """
         mood = UserMood()
-        return self.xmpp['xep_0163'].publish(
+        return self.xmpp.plugin['xep_0163'].publish(
             mood,
             node=UserMood.namespace,
             **pubsubkwargs

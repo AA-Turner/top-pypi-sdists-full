@@ -3,19 +3,23 @@ from __future__ import annotations
 import logging
 from collections import defaultdict
 from collections.abc import Callable
+from typing import TYPE_CHECKING
 
 import networkx
 
 from angr.ailment import Block
-from angr.ailment.expression import Call, Expression, VirtualVariable, VirtualVariableCategory
+from angr.ailment.expression import Call, Const, Expression, VirtualVariable, VirtualVariableCategory
 from angr.ailment.statement import Assignment, Label, SideEffectStatement, Statement
-from angr.calling_conventions import SimRegArg, default_cc
+from angr.calling_conventions import SimRegArg, call_clobbered_regs, default_cc
 from angr.knowledge_plugins.key_definitions.constants import ObservationPoint, ObservationPointType
 from angr.utils.ail import is_phi_assignment
 from angr.utils.graph import GraphUtils
 from angr.utils.ssa import get_reg_offset_base
 
 from .s_rda_model import SRDAModel
+
+if TYPE_CHECKING:
+    from angr.knowledge_plugins.functions.function_manager import FunctionManager
 
 log = logging.getLogger(__name__)
 
@@ -31,37 +35,56 @@ def _copy_reg2vvarid(reg2vvarid: dict[int, dict[int, int]]) -> dict[int, dict[in
     return {offset: sizes.copy() for offset, sizes in reg2vvarid.items()}
 
 
+def get_call_clobbered_regs(
+    call: Call, variable_map, functions: FunctionManager | None, arch, platform: str | None, language: str | None
+) -> set[int]:
+    if isinstance(call.target, str):
+        # pseudo calls do not clobber any registers
+        return set()
+    cc = variable_map.calling_convention(call) if variable_map is not None else None
+    if cc is None:
+        # get the default calling convention
+        cc_cls = default_cc(arch.name, platform=platform, language=language)
+        if cc_cls is not None:
+            cc = cc_cls(arch)
+    if cc is not None:
+        # try to get the function
+        func = None
+        if functions is not None and isinstance(call.target, Const) and functions.contains_addr(call.target.value_int):
+            func = functions.get_by_addr(call.target.value_int, meta_only=True)
+        reg_list = call_clobbered_regs(cc, func, arch)
+        if isinstance(cc.RETURN_VAL, SimRegArg):
+            # do not update reg_list directly, otherwise you may update cc.CALLER_SAVED_REGS!
+            reg_list = [*reg_list, cc.RETURN_VAL.reg_name]
+        return {arch.registers[reg_name][0] for reg_name in reg_list}
+    log.warning("Cannot determine registers that are clobbered by call expression %r.", call)
+    return set()
+
+
 class RegVVarPredicate:
     """
     Implements a predicate that is used in get_reg_vvar_by_stmt_idx and get_reg_vvar_by_insn.
     """
 
-    def __init__(self, reg_offset: int, min_size: int, vvars: list[VirtualVariable], arch, variable_map=None):
+    def __init__(
+        self,
+        reg_offset: int,
+        min_size: int,
+        vvars: list[VirtualVariable],
+        arch,
+        platform: str | None = None,
+        language: str | None = None,
+        variable_map=None,
+        functions: FunctionManager | None = None,
+    ):
         self.reg_offset = reg_offset
         self.min_size = min_size
         self.vvars = vvars
         self.arch = arch
+        self.platform = platform
+        self.language = language
         self.variable_map = variable_map
-
-    def _get_call_clobbered_regs(self, stmt: SideEffectStatement) -> set[int]:
-        call = stmt.expr
-        if not isinstance(call, Call):
-            return set()
-        if isinstance(call.target, str):
-            # pseudo calls do not clobber any registers
-            return set()
-        cc = self.variable_map.calling_convention(call) if self.variable_map is not None else None
-        if cc is None:
-            # get the default calling convention
-            cc = default_cc(self.arch.name)  # TODO: platform and language
-        if cc is not None:
-            reg_list = cc.CALLER_SAVED_REGS
-            if isinstance(cc.RETURN_VAL, SimRegArg):
-                # do not update reg_list directly, otherwise you may update cc.CALLER_SAVED_REGS!
-                reg_list = [*reg_list, cc.RETURN_VAL.reg_name]
-            return {self.arch.registers[reg_name][0] for reg_name in reg_list}
-        log.warning("Cannot determine registers that are clobbered by call statement %r.", stmt)
-        return set()
+        self.functions = functions
 
     def predicate(self, stmt: Statement) -> bool:
         if (
@@ -84,10 +107,13 @@ class RegVVarPredicate:
                 if stmt.ret_expr not in self.vvars:
                     self.vvars.append(stmt.ret_expr)
                 return True
-            # is it clobbered maybe?
-            clobbered_regs = self._get_call_clobbered_regs(stmt)
-            if self.reg_offset in clobbered_regs:
-                return True
+            if isinstance(stmt.expr, Call):
+                # is it clobbered maybe?
+                clobbered_regs = get_call_clobbered_regs(
+                    stmt.expr, self.variable_map, self.functions, self.arch, self.platform, self.language
+                )
+                if self.reg_offset in clobbered_regs:
+                    return True
         return False
 
 
@@ -146,6 +172,9 @@ class SRDAView:
             return
 
         traversed = set()
+        if stmt_idx == -1:
+            # start from the end of the block
+            stmt_idx = len(the_block.statements) - 1
         queue: list[tuple[Block, int | None]] = [
             (the_block, stmt_idx if op_type == ObservationPointType.OP_BEFORE else stmt_idx + 1)
         ]
@@ -181,7 +210,14 @@ class SRDAView:
         reg_offset = get_reg_offset_base(reg_offset, self.model.arch)
         vvars = []
         predicater = RegVVarPredicate(
-            reg_offset, min_size, vvars, self.model.arch, variable_map=self.model.variable_map
+            reg_offset,
+            min_size,
+            vvars,
+            self.model.arch,
+            platform=self.model.platform,
+            language=self.model.language,
+            variable_map=self.model.variable_map,
+            functions=self.model.functions,
         )
         self._get_vvar_by_stmt(block_addr, block_idx, stmt_idx, op_type, predicater.predicate)
 
@@ -262,7 +298,14 @@ class SRDAView:
         reg_offset = get_reg_offset_base(reg_offset, self.model.arch)
         vvars = []
         predicater = RegVVarPredicate(
-            reg_offset, min_size, vvars, self.model.arch, variable_map=self.model.variable_map
+            reg_offset,
+            min_size,
+            vvars,
+            self.model.arch,
+            platform=self.model.platform,
+            language=self.model.language,
+            variable_map=self.model.variable_map,
+            functions=self.model.functions,
         )
 
         self._get_vvar_by_insn(addr, op_type, predicater.predicate, block_idx=block_idx)
@@ -405,8 +448,7 @@ class SRDAView:
                 tmp[block_key][key] = (defloc.stmt_idx, vid)
         return {bk: {k: v[1] for k, v in d.items()} for bk, d in tmp.items()}
 
-    @staticmethod
-    def _seed_from_dominators(block, idoms, block_reg_defs) -> dict[int, dict[int, int]]:
+    def _seed_from_dominators(self, block, idoms, block_reg_defs) -> dict[int, dict[int, int]]:
         """
         The register map reaching ``block``'s entry: for each ``(base register, size)``, the definition in the closest
         strict dominator that defines it. In SSA this is exactly the reaching definition at the block entry (phis are
@@ -419,6 +461,28 @@ class SRDAView:
             return reg2vvarid
         found: set[tuple[int, int]] = set()
         while True:
+            # registers will get clobbered by calls, so we check if the block starts or ends with a call statement
+            # note that we do not yet handle the case where a call is folded into the middle of a block
+            if d.statements:
+                first_stmt = d.statements[0]
+                call_expr = None
+                if isinstance(first_stmt, SideEffectStatement) and isinstance(first_stmt.expr, Call):
+                    call_expr = first_stmt.expr
+                elif isinstance(first_stmt, Assignment) and isinstance(first_stmt.src, Call):
+                    call_expr = first_stmt.src
+                if call_expr is not None:
+                    clobbered_regs = get_call_clobbered_regs(
+                        call_expr,
+                        self.model.variable_map,
+                        self.model.functions,
+                        self.model.arch,
+                        self.model.platform,
+                        self.model.language,
+                    )
+                    for reg_offset in clobbered_regs:
+                        if reg_offset in reg2vvarid:
+                            reg2vvarid.pop(reg_offset)
+
             defs = block_reg_defs.get((d.addr, d.idx))
             if defs:
                 for key, vid in defs.items():
@@ -428,6 +492,28 @@ class SRDAView:
                         if base not in reg2vvarid:
                             reg2vvarid[base] = {}
                         reg2vvarid[base][size] = vid
+
+            # register clobbering by calls
+            if d.statements and len(d.statements) > 1:
+                last_stmt = d.statements[-1]
+                call_expr = None
+                if isinstance(last_stmt, SideEffectStatement) and isinstance(last_stmt.expr, Call):
+                    call_expr = last_stmt.expr
+                elif isinstance(last_stmt, Assignment) and isinstance(last_stmt.src, Call):
+                    call_expr = last_stmt.src
+                if call_expr is not None:
+                    clobbered_regs = get_call_clobbered_regs(
+                        call_expr,
+                        self.model.variable_map,
+                        self.model.functions,
+                        self.model.arch,
+                        self.model.platform,
+                        self.model.language,
+                    )
+                    for reg_offset in clobbered_regs:
+                        if reg_offset in reg2vvarid:
+                            reg2vvarid.pop(reg_offset)
+
             nd = idoms.get(d)
             if nd is None or nd is d:
                 break

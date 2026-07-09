@@ -46,7 +46,7 @@ class VPRFPGA(FPGADevice):
 
         self.define_tool_parameter("vpr", "devicecode", "str",
                                    "The name or code for the target FPGA device.")
-        self.define_tool_parameter("vpr", "channelwidth", "int",
+        self.define_tool_parameter("vpr", "channelwidth", "int<1..>",
                                    "The channel width to be used during routing.")
 
         self.define_tool_parameter("vpr", "registers", "{str}",
@@ -200,7 +200,8 @@ class VPRTask(Task):
         self.add_parameter("enable_images", "bool",
                            "true/false generate images of the design at the end of the task",
                            defvalue=True)
-        self.add_parameter("timing_paths", "int", "number of timing paths to report", defvalue=20)
+        self.add_parameter("timing_paths", "int<1..>", "number of timing paths to report",
+                           defvalue=20)
         self.add_parameter("timing_report_type",
                            "<netlist,aggregated,detailed,debug>",
                            "level of detail for timing reports: vpr --timing_report_detail",
@@ -264,7 +265,9 @@ class VPRTask(Task):
 
         self.set_threads()
 
-        self.add_required_key("var", "enable_images")
+        # NOTE: enable_images is required by the PlaceTask/RouteTask setups
+        # (the only tasks that read it); it is not required here in the shared base,
+        # where show/screenshot/genfasm never read it.
         self.add_required_key("var", "timing_paths")
         self.add_required_key("var", "timing_report_type")
         self.add_required_key("var", "enable_timing_analysis")

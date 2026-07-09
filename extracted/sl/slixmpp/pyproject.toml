@@ -67,6 +67,8 @@ lint = [
 ]
 
 docs = [
+    "aiohttp",
+    "cryptography",
     "sphinx",
     "sphinx-autodoc-typehints",
     "furo"

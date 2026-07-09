@@ -8,8 +8,10 @@ class healthcare_benefit_value(Variable):
     definition_period = YEAR
     unit = USD
     documentation = (
-        "Annual household health coverage value. CHIP is counted through "
-        "`chip`, which is gated on eligibility, take-up, and enrollment."
+        "Annual canonical household resource value of health coverage. This "
+        "uses annual health-value and government-cost proxy variables directly, "
+        "including assigned_aca_ptc for ACA premium tax credits. CHIP is counted "
+        "through `chip`, which is gated on eligibility, take-up, and enrollment."
     )
     adds = [
         "medicaid_cost",

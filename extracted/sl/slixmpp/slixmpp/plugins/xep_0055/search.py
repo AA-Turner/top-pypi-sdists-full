@@ -32,10 +32,10 @@ class XEP_0055(BasePlugin):
 
     def plugin_init(self):
         register_stanza_plugin(Iq, stanza.Search)
-        register_stanza_plugin(stanza.Search, self.xmpp["xep_0004"].stanza.Form)
+        register_stanza_plugin(stanza.Search, self.xmpp.plugin["xep_0004"].stanza.Form)
 
         if self.provide_search:
-            self.xmpp["xep_0030"].add_feature(stanza.Search.namespace)
+            self.xmpp.plugin["xep_0030"].add_feature(stanza.Search.namespace)
             self.xmpp.register_handler(
                 CoroutineCallback(
                     "search",

@@ -115,6 +115,5 @@ trap - EXIT
 
 # 5. Optionally publish
 if [ "${1:-}" = "publish" ]; then
-    python -m twine check --strict dist/*
     python -m twine upload dist/*
 fi

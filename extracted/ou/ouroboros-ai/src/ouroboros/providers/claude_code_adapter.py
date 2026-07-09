@@ -41,6 +41,7 @@ import structlog
 
 from ouroboros.core.errors import ProviderError
 from ouroboros.core.json_utils import extract_json_payload
+from ouroboros.core.retry import BASE_TRANSIENT_PATTERNS, is_transient_error
 from ouroboros.core.types import Result
 from ouroboros.providers.base import (
     CompletionConfig,
@@ -57,18 +58,31 @@ log = structlog.get_logger(__name__)
 # Retry configuration for transient API errors
 _MAX_RETRIES = 5
 _MAX_JSON_RETRIES = 3  # Extra retries when response_format requires JSON but LLM returns prose
+# Recovery cue for phantom tool calls under the sealed no-tools envelope
+# (#1537/#1530): some models — notably non-Claude models behind an
+# Anthropic-format proxy — emit tool_use blocks even when the visible tool
+# catalog is emptied via ``--tools ""``. No CLI flag can prevent that, so the
+# one retry the adapter grants gets this hard instruction appended.
+_NO_TOOLS_RECOVERY_CUE = (
+    "CRITICAL: You have NO tools in this session. Tool calls are impossible "
+    "and will be discarded unexecuted. Do NOT emit any tool call or "
+    "function-call markup. Respond with plain text only."
+)
 _INITIAL_BACKOFF_SECONDS = (
     0.5  # Keep low for interactive loops; exponential backoff handles sustained failures
 )
-_RETRYABLE_ERROR_PATTERNS = (
-    "concurrency",
-    "rate",
-    "timeout",
-    "overloaded",
-    "temporarily",
+# Shared transient core (rate/429/5xx/timeout/overloaded/connection/…) plus the
+# Claude-CLI-specific bootstrap signals that only this adapter can safely match.
+# Composed from the single source of truth in ``core.retry`` so the common
+# terms can never drift from the Codex / execution adapters again.
+_CLAUDE_CLI_BOOTSTRAP_PATTERNS = (
     "empty response",  # custom CLI startup delay
     "need retry",  # explicit retry request
     "startup",
+)
+_RETRYABLE_ERROR_PATTERNS = (
+    *BASE_TRANSIENT_PATTERNS,
+    *_CLAUDE_CLI_BOOTSTRAP_PATTERNS,
 )
 
 
@@ -270,8 +284,10 @@ class ClaudeCodeAdapter:
         Returns:
             True if the error is likely transient and worth retrying.
         """
-        error_lower = error_msg.lower()
-        return any(pattern in error_lower for pattern in _RETRYABLE_ERROR_PATTERNS)
+        return is_transient_error(
+            error_msg,
+            extra_patterns=_CLAUDE_CLI_BOOTSTRAP_PATTERNS,
+        )
 
     def _is_retryable_provider_error(self, error: ProviderError) -> bool:
         """Check if a provider error is transient enough to retry.
@@ -297,6 +313,29 @@ class ClaudeCodeAdapter:
         message = error.message.lower()
         is_cli_process_exit = error_type in {"ProcessError", "CalledProcessError"}
         return is_cli_process_exit and "command failed with exit code" in message
+
+    def _is_phantom_tool_use_error(self, error: ProviderError) -> bool:
+        """Whether a failure is a phantom tool call under the sealed envelope.
+
+        With ``allowed_tools=[]`` the visible tool catalog is emptied
+        (``tools=[]`` → ``--tools ""``), so a tool-use turn cannot be an
+        execution leak — only model noise that consumed the turn budget
+        (#1537/#1530). That noise surfaces as either the spy's explicit
+        ``ToolUseBlockViolation``, or as the max-turns failures the CLI/SDK
+        raise when the phantom call exhausts ``max_turns`` before any text
+        streams (``subtype=error_max_turns`` from the result stream, or the
+        SDK's bare ``Reached maximum number of turns`` / ``returned an error
+        result`` exceptions).
+        """
+        if self._allowed_tools is None or self._allowed_tools:
+            return False
+        details = error.details or {}
+        if details.get("error_type") == "ToolUseBlockViolation":
+            return True
+        if details.get("subtype") == "error_max_turns":
+            return True
+        message = error.message or ""
+        return "Reached maximum number of turns" in message or "returned an error result" in message
 
     async def complete(
         self,
@@ -492,17 +531,19 @@ class ClaudeCodeAdapter:
         enforcement is handled by the caller.
         """
         last_error: ProviderError | None = None
+        effective_system_prompt = system_prompt
+        phantom_recovery_used = False
 
         for attempt in range(_MAX_RETRIES):
             try:
                 if self._timeout is None:
                     result = await self._execute_single_request(
-                        prompt, config, system_prompt=system_prompt
+                        prompt, config, system_prompt=effective_system_prompt
                     )
                 else:
                     async with asyncio.timeout(self._timeout):
                         result = await self._execute_single_request(
-                            prompt, config, system_prompt=system_prompt
+                            prompt, config, system_prompt=effective_system_prompt
                         )
 
                 if result.is_ok:
@@ -512,6 +553,30 @@ class ClaudeCodeAdapter:
                             attempts=attempt + 1,
                         )
                     return result
+
+                # Phantom tool call under the sealed no-tools envelope: the
+                # catalog is empty so nothing executed — grant exactly one
+                # recovery attempt with a hard plain-text instruction before
+                # failing loud (#1537/#1530).
+                if (
+                    not phantom_recovery_used
+                    and attempt < _MAX_RETRIES - 1
+                    and self._is_phantom_tool_use_error(result.error)
+                ):
+                    phantom_recovery_used = True
+                    effective_system_prompt = (
+                        f"{system_prompt}\n\n{_NO_TOOLS_RECOVERY_CUE}"
+                        if system_prompt
+                        else _NO_TOOLS_RECOVERY_CUE
+                    )
+                    log.warning(
+                        "claude_code_adapter.phantom_tool_use_recovery",
+                        error_type=result.error.details.get("error_type"),
+                        subtype=result.error.details.get("subtype"),
+                        attempt=attempt + 1,
+                    )
+                    last_error = result.error
+                    continue
 
                 # Check if error is retryable
                 error_msg = result.error.message
@@ -1111,6 +1176,31 @@ class ClaudeCodeAdapter:
             )
 
         # After generator completes naturally, check for errors
+        if (
+            error_result is not None
+            and error_result.details.get("error_type") == "ToolUseBlockViolation"
+            and content.strip()
+        ):
+            # Sealed no-tools envelope: the visible catalog is emptied via
+            # ``tools=[]`` (forwarded as ``--tools ""``), so the emitted tool
+            # call never executed — it is model noise, not an envelope leak.
+            # When a usable final text still streamed, surface it instead of
+            # discarding a good response; the incident stays observable via
+            # the structured warning and ``raw_response`` marker (#1537).
+            log.warning(
+                "claude_code_adapter.phantom_tool_use_salvaged",
+                session_id=session_id,
+                tool_name=error_result.details.get("tool_name"),
+                content_length=len(content),
+            )
+            raw_response.update(
+                {
+                    "phantom_tool_use": True,
+                    "phantom_tool_name": error_result.details.get("tool_name"),
+                }
+            )
+            error_result = None
+
         if error_result:
             return Result.err(error_result)
 

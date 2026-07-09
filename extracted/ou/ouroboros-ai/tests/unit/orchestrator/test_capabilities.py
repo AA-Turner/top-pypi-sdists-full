@@ -44,6 +44,7 @@ from ouroboros.orchestrator.capabilities import (
     stable_code_investigation_question_identity,
     validate_capability_tool_metadata,
 )
+import ouroboros.orchestrator.capabilities.tool_specs as tool_specs_module
 from ouroboros.orchestrator.mcp_tools import assemble_session_tool_catalog
 from ouroboros.orchestrator.policy import (
     PolicyContext,
@@ -92,10 +93,44 @@ _EXPECTED_OUROBOROS_TOOL_EXECUTION_MODES = {
     "ouroboros_start_evolve_step": "background",
     "ouroboros_start_execute_seed": "background",
     "ouroboros_start_ralph": "background",
+    "ouroboros_submit_fanout_results": "status",
 }
 
 _VALID_OUROBOROS_TOOL_EXECUTION_MODES = frozenset(
     {"blocking", "background", "status", "cancel", "subagent_orchestration"}
+)
+
+_PRIVATE_TOOL_SPEC_COMPATIBILITY_ATTRIBUTES = (
+    "_OuroborosToolCapabilitySpec",
+    "_OUROBOROS_COMPANION_FAMILIES",
+    "_OUROBOROS_BACKGROUND_TOOLS",
+    "_OUROBOROS_STATUS_TOOLS",
+    "_OUROBOROS_CANCEL_TOOLS",
+    "_OUROBOROS_WORKSPACE_WRITE_TOOLS",
+    "_OUROBOROS_SUBAGENT_TOOLS",
+    "_OUROBOROS_DEFAULT_EXECUTION_MODE",
+    "_OUROBOROS_DEFAULT_RETRY_METADATA",
+    "_OUROBOROS_JOB_POLL_RETRY_METADATA",
+    "_OUROBOROS_UNSUPPORTED_RETRY_METADATA",
+    "_OUROBOROS_DEFAULT_INTERRUPT_METADATA",
+    "_OUROBOROS_BLOCKING_INTERRUPT_METADATA",
+    "_OUROBOROS_BACKGROUND_INTERRUPT_METADATA",
+    "_OUROBOROS_TERMINAL_CONTROL_INTERRUPT_METADATA_BY_TOOL",
+    "_OUROBOROS_UNSUPPORTED_INTERRUPT_METADATA",
+    "_OUROBOROS_READ_ONLY_INTERRUPT_METADATA",
+    "_OUROBOROS_UNSUPPORTED_CANCEL_METADATA",
+    "_OUROBOROS_SIDE_EFFECT_FREE_METADATA",
+    "_OUROBOROS_MUTATION_TARGETS_BY_SIDE_EFFECT",
+    "_OUROBOROS_STATE_MUTATIONS_BY_TOOL",
+    "_OUROBOROS_BACKGROUND_JOB_CANCEL_METADATA",
+    "_OUROBOROS_EXECUTION_SESSION_CANCEL_METADATA",
+    "_OUROBOROS_BACKGROUND_JOB_CANCEL_CONTROL_METADATA",
+    "_OUROBOROS_EXECUTION_SESSION_CANCEL_CONTROL_METADATA",
+    "_OUROBOROS_TOOL_CAPABILITY_SPECS",
+    "_OUROBOROS_CANCEL_METADATA",
+    "_OUROBOROS_BACKGROUND_BLOCKING_COMPANIONS",
+    "_OUROBOROS_BACKGROUND_LIFECYCLE_ROLE_TOOLS",
+    "_OUROBOROS_JOB_LIFECYCLE_SIBLING_ORDER",
 )
 
 _REQUIRED_OUROBOROS_TOOL_METADATA_FIELDS = frozenset(
@@ -110,6 +145,14 @@ _REQUIRED_OUROBOROS_TOOL_METADATA_FIELDS = frozenset(
         "cancel",
     }
 )
+
+
+def test_private_tool_spec_attributes_remain_importable_from_capabilities_root() -> None:
+    for attribute_name in _PRIVATE_TOOL_SPEC_COMPATIBILITY_ATTRIBUTES:
+        assert getattr(capabilities_module, attribute_name) is getattr(
+            tool_specs_module, attribute_name
+        )
+
 
 _EXPECTED_OUROBOROS_REQUIRED_CONTEXT_KEYS = {
     "ouroboros_ac_tree_hud": ("session_id", "cursor"),
@@ -173,6 +216,7 @@ _EXPECTED_OUROBOROS_REQUIRED_CONTEXT_KEYS = {
     "ouroboros_start_evolve_step": ("lineage_id",),
     "ouroboros_start_execute_seed": ("seed_content", "session_id"),
     "ouroboros_start_ralph": ("lineage_id",),
+    "ouroboros_submit_fanout_results": ("fanout_id", "results"),
 }
 
 _EXPECTED_OUROBOROS_TOOL_COMPANIONS = {
@@ -392,6 +436,10 @@ _EXPECTED_OUROBOROS_TOOL_COMPANIONS = {
         "ouroboros_evolve_rewind",
         "ouroboros_ralph",
     ),
+    "ouroboros_submit_fanout_results": (
+        "ouroboros_interview",
+        "ouroboros_lateral_think",
+    ),
 }
 
 _EXPECTED_OUROBOROS_TOOL_SIDE_EFFECTS = {
@@ -433,6 +481,7 @@ _EXPECTED_OUROBOROS_TOOL_SIDE_EFFECTS = {
     "ouroboros_start_evolve_step": ("workspace_write", "event_store_write"),
     "ouroboros_start_execute_seed": ("workspace_write", "event_store_write"),
     "ouroboros_start_ralph": ("workspace_write", "event_store_write"),
+    "ouroboros_submit_fanout_results": (),
 }
 
 _EXPECTED_MUTATION_TARGETS_BY_SIDE_EFFECT = {
@@ -740,6 +789,7 @@ _EXPECTED_READ_ONLY_OUROBOROS_TOOLS = {
     "ouroboros_query_events",
     "ouroboros_query_projection",
     "ouroboros_session_status",
+    "ouroboros_submit_fanout_results",
 }
 
 _EXPECTED_OUROBOROS_TOOL_RETRY = {
@@ -772,6 +822,7 @@ _EXPECTED_OUROBOROS_TOOL_RETRY = {
     "ouroboros_start_evolve_step": {"supported": True, "mode": "job_poll"},
     "ouroboros_start_execute_seed": {"supported": True, "mode": "job_poll"},
     "ouroboros_start_ralph": {"supported": True, "mode": "job_poll"},
+    "ouroboros_submit_fanout_results": {"supported": True, "mode": "handler_owned"},
 }
 
 _BACKGROUND_INTERRUPT = {
@@ -862,6 +913,7 @@ _EXPECTED_OUROBOROS_TOOL_INTERRUPT = {
     "ouroboros_start_evolve_step": _BACKGROUND_INTERRUPT,
     "ouroboros_start_execute_seed": _BACKGROUND_INTERRUPT,
     "ouroboros_start_ralph": _BACKGROUND_INTERRUPT,
+    "ouroboros_submit_fanout_results": _READ_ONLY_INTERRUPT,
 }
 
 _UNSUPPORTED_CANCEL = {
@@ -932,6 +984,7 @@ _EXPECTED_OUROBOROS_TOOL_CANCEL = {
     "ouroboros_start_evolve_step": _BACKGROUND_JOB_CANCEL,
     "ouroboros_start_execute_seed": _BACKGROUND_JOB_CANCEL,
     "ouroboros_start_ralph": _BACKGROUND_JOB_CANCEL,
+    "ouroboros_submit_fanout_results": _UNSUPPORTED_CANCEL,
 }
 
 _OUROBOROS_TOOL_CONTRACT_CASE_SETS = {
@@ -2769,6 +2822,7 @@ def test_read_only_query_status_projection_tools_have_non_mutating_interrupt_met
         "ouroboros_query_events",
         "ouroboros_query_projection",
         "ouroboros_session_status",
+        "ouroboros_submit_fanout_results",
     }
 
     assert expected_query_status_projection_tools == _EXPECTED_READ_ONLY_OUROBOROS_TOOLS
@@ -3200,6 +3254,7 @@ def test_non_cancel_ouroboros_owned_tools_explicitly_do_not_expose_cancel_semant
         "ouroboros_query_events",
         "ouroboros_query_projection",
         "ouroboros_session_status",
+        "ouroboros_submit_fanout_results",
     }
     assert cancel_capable_tools == {
         "ouroboros_cancel_execution",
@@ -4542,7 +4597,8 @@ def test_lateral_persona_panel_metadata_is_structured_without_prose_parsing() ->
     panel = lateral.metadata.orchestration["lateral_panel"]
     assert panel["panel_id"] == "lateral_persona_panel.v1"
     assert panel["mcp_tool"] == "ouroboros_lateral_think"
-    assert panel["dispatch_modes"] == ["plugin", "inline_fallback"]
+    assert panel["dispatch_modes"] == ["plugin", "sequential"]
+    assert panel["legacy_dispatch_modes"] == ["inline_fallback"]
     assert panel["parallel_preference"] == "parallel_when_runtime_supports_subagents"
     assert panel["sequential_fallback"] == {
         "supported": True,

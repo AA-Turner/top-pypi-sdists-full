@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: verlib2
-Version: 0.3.2
+Version: 26.2
 Summary: A standalone bundle of "distutils.version" and "packaging.version", without anything else.
 Author-email: Donald Stufft <donald@stufft.io>
 Maintainer-email: Andreas Motl <andreas.motl@panodata.org>
@@ -34,18 +34,19 @@ Requires-Python: >=3.6
 Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: importlib-metadata; python_version < "3.8"
+Requires-Dist: typing-extensions; python_version < "3.8"
 Provides-Extra: develop
 Requires-Dist: poethepoet<1; extra == "develop"
 Requires-Dist: pyproject-fmt<3; extra == "develop"
 Requires-Dist: ruff<0.16; extra == "develop"
-Requires-Dist: ty==0.0.26; python_version >= "3.8" and extra == "develop"
+Requires-Dist: ty==0.0.55; python_version >= "3.8" and extra == "develop"
 Requires-Dist: validate-pyproject<1; extra == "develop"
 Provides-Extra: release
 Requires-Dist: build<2; extra == "release"
 Requires-Dist: twine<7; extra == "release"
 Provides-Extra: test
 Requires-Dist: pretend<2; extra == "test"
-Requires-Dist: pytest<9; extra == "test"
+Requires-Dist: pytest<10; extra == "test"
 Requires-Dist: pytest-cov<8; extra == "test"
 Dynamic: license-file
 
@@ -85,6 +86,9 @@ without anything else.
 [packaging.version] is the implementation of [PEP 440].
 [verlib2] bundles both of them into a standalone package.
 
+To retain backward compatibility with earlier versions of Python,
+syntax features like [PEP 570] have been removed from the original code.
+
 ## Rationale
 
 Everyone needs to compare versions, but no one wants to add `packaging` as a dependency.
@@ -116,6 +120,12 @@ Both implementations can be accessed like this:
 from verlib2.distutils.version import LooseVersion, StrictVersion
 from verlib2.packaging.version import Version
 ```
+
+## Versioning
+
+The version numbering of [verlib2] follows that of the [packaging] package,
+because most changes to `verlib2.packaging.version` are mirroring corresponding
+updates to `packaging.version`.
 
 ## Acknowledgements
 
@@ -163,6 +173,7 @@ excellent development tooling.
 [Distutils]: https://pypi.org/project/Distutils/
 [distutils2]: https://hg.python.org/distutils2
 [distutilsversion]: http://bitbucket.org/tarek/distutilsversion/
+[packaging]: https://pypi.org/project/packaging/
 [packaging.version]: https://github.com/pypa/packaging/blob/main/src/packaging/version.py
 [pep440]: https://pypi.org/project/pep440/
 [pep440deb]: https://pypi.org/project/pep440deb/
@@ -173,6 +184,7 @@ excellent development tooling.
 [pep440-version-utils]: https://pypi.org/project/pep440-version-utils/
 [PEP 386]: https://peps.python.org/pep-0386/
 [PEP 440]: https://peps.python.org/pep-0440/
+[PEP 570]: https://peps.python.org/pep-0570/
 [PEP 632]: https://peps.python.org/pep-0632/
 [started]: https://github.com/numpy/numpy/pull/21000
 [verlib]: https://pypi.org/project/verlib/

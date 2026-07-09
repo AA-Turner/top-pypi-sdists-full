@@ -13,7 +13,7 @@ import jsii
 import publication
 import typing_extensions
 
-from jsii._type_checking import check_type
+from jsii._type_checking import cached_type_hints, check_type
 
 
 from .._jsii import *
@@ -76,7 +76,7 @@ class AddPostBuildJobCommandsOptions:
         if isinstance(tools, dict):
             tools = _workflows_2b7f1587.Tools(**tools)
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__7bdd180796a6f791c19f1e1e0a010ee04dc75776d1793b433579cae27121efdc)
+            type_hints = cached_type_hints(_typecheckingstub__7bdd180796a6f791c19f1e1e0a010ee04dc75776d1793b433579cae27121efdc)
             check_type(argname="argument checkout_repo", value=checkout_repo, expected_type=type_hints["checkout_repo"])
             check_type(argname="argument install_deps", value=install_deps, expected_type=type_hints["install_deps"])
             check_type(argname="argument runs_on", value=runs_on, expected_type=type_hints["runs_on"])
@@ -193,7 +193,7 @@ class AddPostBuildJobTaskOptions:
         if isinstance(tools, dict):
             tools = _workflows_2b7f1587.Tools(**tools)
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__8875bca09077fb03ccffe7b968539b2dfce687a745e71024f884a06b58076947)
+            type_hints = cached_type_hints(_typecheckingstub__8875bca09077fb03ccffe7b968539b2dfce687a745e71024f884a06b58076947)
             check_type(argname="argument runs_on", value=runs_on, expected_type=type_hints["runs_on"])
             check_type(argname="argument runs_on_group", value=runs_on_group, expected_type=type_hints["runs_on_group"])
             check_type(argname="argument tools", value=tools, expected_type=type_hints["tools"])
@@ -300,7 +300,7 @@ class BuildWorkflow(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__f4d192684ec38f19e56855947a401da7aa8d483beaeef832704f28ff43d5ffe5)
+            type_hints = cached_type_hints(_typecheckingstub__f4d192684ec38f19e56855947a401da7aa8d483beaeef832704f28ff43d5ffe5)
             check_type(argname="argument project", value=project, expected_type=type_hints["project"])
         options = BuildWorkflowOptions(
             build_task=build_task,
@@ -375,7 +375,7 @@ class BuildWorkflow(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__888ab8af7c03eeaa07ed3e67ba74b689b9baf8622baa2d4e0a2e3b138007c4ec)
+            type_hints = cached_type_hints(_typecheckingstub__888ab8af7c03eeaa07ed3e67ba74b689b9baf8622baa2d4e0a2e3b138007c4ec)
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         job = _workflows_2b7f1587.Job(
             steps=steps,
@@ -429,7 +429,7 @@ class BuildWorkflow(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__7277bb1c03dfd43b03774fdd6ac56b0c2eaeca1eff7566e375594542fd75415b)
+            type_hints = cached_type_hints(_typecheckingstub__7277bb1c03dfd43b03774fdd6ac56b0c2eaeca1eff7566e375594542fd75415b)
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
             check_type(argname="argument commands", value=commands, expected_type=type_hints["commands"])
         options = AddPostBuildJobCommandsOptions(
@@ -468,7 +468,7 @@ class BuildWorkflow(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c03f04bdb16e40ac3b3cb03035363b39ad66a2154cbc7522d85d07261602d4c8)
+            type_hints = cached_type_hints(_typecheckingstub__c03f04bdb16e40ac3b3cb03035363b39ad66a2154cbc7522d85d07261602d4c8)
             check_type(argname="argument task", value=task, expected_type=type_hints["task"])
         options = AddPostBuildJobTaskOptions(
             runs_on=runs_on, runs_on_group=runs_on_group, tools=tools
@@ -485,7 +485,7 @@ class BuildWorkflow(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__43bc47daca0c138fa9c8bc13154f9acea9c452e82f2dc45b3f3a655c654decc0)
+            type_hints = cached_type_hints(_typecheckingstub__43bc47daca0c138fa9c8bc13154f9acea9c452e82f2dc45b3f3a655c654decc0)
             check_type(argname="argument steps", value=steps, expected_type=typing.Tuple[type_hints["steps"], ...]) # pyright: ignore [reportGeneralTypeIssues]
         return typing.cast(None, jsii.invoke(self, "addPostBuildSteps", [*steps]))
 
@@ -552,7 +552,7 @@ class BuildWorkflowCommonOptions:
         if isinstance(workflow_triggers, dict):
             workflow_triggers = _workflows_2b7f1587.Triggers(**workflow_triggers)
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c47ecd67d7b1fa42db0bfe937571471191786b92fd702c85fceb89eb2d1b05c5)
+            type_hints = cached_type_hints(_typecheckingstub__c47ecd67d7b1fa42db0bfe937571471191786b92fd702c85fceb89eb2d1b05c5)
             check_type(argname="argument env", value=env, expected_type=type_hints["env"])
             check_type(argname="argument name", value=name, expected_type=type_hints["name"])
             check_type(argname="argument permissions", value=permissions, expected_type=type_hints["permissions"])
@@ -708,7 +708,7 @@ class BuildWorkflowOptions(BuildWorkflowCommonOptions):
         if isinstance(runs_on_group, dict):
             runs_on_group = _projen_04054675.GroupRunnerOptions(**runs_on_group)
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__9d08c9df51ed0147527f9d30b5f0f37c5e4482b10a1ea4f55a14885626d0721e)
+            type_hints = cached_type_hints(_typecheckingstub__9d08c9df51ed0147527f9d30b5f0f37c5e4482b10a1ea4f55a14885626d0721e)
             check_type(argname="argument env", value=env, expected_type=type_hints["env"])
             check_type(argname="argument name", value=name, expected_type=type_hints["name"])
             check_type(argname="argument permissions", value=permissions, expected_type=type_hints["permissions"])

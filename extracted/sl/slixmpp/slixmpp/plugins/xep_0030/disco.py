@@ -470,8 +470,8 @@ class XEP_0030(BasePlugin):
         iq['to'] = jid
         iq['type'] = 'get'
         iq['disco_items']['node'] = node if node else ''
-        if iterator and self.xmpp['xep_0059']:
-            return self.xmpp['xep_0059'].iterate(iq, 'disco_items')
+        if iterator and self.xmpp.plugin['xep_0059']:
+            return self.xmpp.plugin['xep_0059'].iterate(iq, 'disco_items')
         else:
             return await iq.send(**kwargs)
 

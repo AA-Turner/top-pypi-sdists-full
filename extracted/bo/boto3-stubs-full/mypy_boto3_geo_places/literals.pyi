@@ -8,9 +8,9 @@ Copyright 2026 Vlad Emelianov
 Usage::
 
     ```python
-    from mypy_boto3_geo_places.literals import AutocompleteAdditionalFeatureType
+    from mypy_boto3_geo_places.literals import AccessPointTypeType
 
-    data: AutocompleteAdditionalFeatureType = "Core"
+    data: AccessPointTypeType = "Delivery"
     ```
 """
 
@@ -22,15 +22,21 @@ else:
     from typing_extensions import Literal
 
 __all__ = (
+    "AccessPointTypeType",
+    "AddressTranslationComponentType",
+    "AdminNamesPreferenceType",
     "AutocompleteAdditionalFeatureType",
     "AutocompleteFilterPlaceTypeType",
     "AutocompleteIntendedUseType",
     "GeocodeAdditionalFeatureType",
+    "GeocodeAddressNamesModeType",
     "GeocodeFilterPlaceTypeType",
     "GeocodeIntendedUseType",
     "GetPlaceAdditionalFeatureType",
+    "GetPlaceAddressNamesModeType",
     "GetPlaceIntendedUseType",
     "LocationServicePlacesV2ServiceName",
+    "PlaceAttributeType",
     "PlaceTypeType",
     "PostalAuthorityType",
     "PostalCodeModeType",
@@ -39,32 +45,62 @@ __all__ = (
     "RecordTypeCodeType",
     "ResourceServiceName",
     "ReverseGeocodeAdditionalFeatureType",
+    "ReverseGeocodeAddressNamesModeType",
     "ReverseGeocodeFilterPlaceTypeType",
     "ReverseGeocodeIntendedUseType",
     "SearchNearbyAdditionalFeatureType",
     "SearchNearbyIntendedUseType",
     "SearchTextAdditionalFeatureType",
     "SearchTextIntendedUseType",
+    "SearchTextTravelModeType",
     "ServiceName",
     "SuggestAdditionalFeatureType",
     "SuggestIntendedUseType",
     "SuggestResultItemTypeType",
+    "SuggestTravelModeType",
+    "TranslationNameTypeType",
     "TypePlacementType",
     "ZipClassificationCodeType",
 )
 
+AccessPointTypeType = Literal[
+    "Delivery", "Emergency", "Entrance", "Loading", "Other", "Parking", "Taxi"
+]
+AddressTranslationComponentType = Literal["District", "Locality", "Region", "SubRegion"]
+AdminNamesPreferenceType = Literal["Alternative", "Primary"]
 AutocompleteAdditionalFeatureType = Literal["Core"]
-AutocompleteFilterPlaceTypeType = Literal["Locality", "PostalCode"]
+AutocompleteFilterPlaceTypeType = Literal[
+    "Country",
+    "InterpolatedAddress",
+    "Intersection",
+    "Locality",
+    "PointAddress",
+    "PostalCode",
+    "Region",
+    "Street",
+]
 AutocompleteIntendedUseType = Literal["SingleUse"]
 GeocodeAdditionalFeatureType = Literal["Access", "Intersections", "SecondaryAddresses", "TimeZone"]
+GeocodeAddressNamesModeType = Literal["Administrative", "Matched"]
 GeocodeFilterPlaceTypeType = Literal[
-    "InterpolatedAddress", "Intersection", "Locality", "PointAddress", "PostalCode", "Street"
+    "Country",
+    "InterpolatedAddress",
+    "Intersection",
+    "Locality",
+    "PointAddress",
+    "PointOfInterest",
+    "PostalCode",
+    "Region",
+    "SecondaryAddress",
+    "Street",
 ]
 GeocodeIntendedUseType = Literal["SingleUse", "Storage"]
 GetPlaceAdditionalFeatureType = Literal[
-    "Access", "Contact", "Phonemes", "SecondaryAddresses", "TimeZone"
+    "Access", "Contact", "CrossReferences", "Phonemes", "SecondaryAddresses", "TimeZone"
 ]
+GetPlaceAddressNamesModeType = Literal["Administrative"]
 GetPlaceIntendedUseType = Literal["SingleUse", "Storage"]
+PlaceAttributeType = Literal["DriveThrough"]
 PlaceTypeType = Literal[
     "Block",
     "Country",
@@ -84,22 +120,40 @@ PlaceTypeType = Literal[
     "SubRegion",
 ]
 PostalAuthorityType = Literal["Usps"]
-PostalCodeModeType = Literal["EnumerateSpannedLocalities", "MergeAllSpannedLocalities"]
+PostalCodeModeType = Literal[
+    "EnumerateSpannedDistricts", "EnumerateSpannedLocalities", "MergeAllSpannedLocalities"
+]
 PostalCodeTypeType = Literal["UspsZip", "UspsZipPlus4"]
 QueryTypeType = Literal["BusinessChain", "Category"]
 RecordTypeCodeType = Literal["Firm", "General", "HighRise", "PostOfficeBox", "Rural", "Street"]
 ReverseGeocodeAdditionalFeatureType = Literal["Access", "Intersections", "TimeZone"]
+ReverseGeocodeAddressNamesModeType = Literal["Administrative"]
 ReverseGeocodeFilterPlaceTypeType = Literal[
-    "InterpolatedAddress", "Intersection", "Locality", "PointAddress", "Street"
+    "InterpolatedAddress",
+    "Intersection",
+    "Locality",
+    "PointAddress",
+    "PointOfInterest",
+    "SecondaryAddress",
+    "Street",
 ]
 ReverseGeocodeIntendedUseType = Literal["SingleUse", "Storage"]
-SearchNearbyAdditionalFeatureType = Literal["Access", "Contact", "Phonemes", "TimeZone"]
+SearchNearbyAdditionalFeatureType = Literal[
+    "Access", "Contact", "CrossReferences", "Phonemes", "TimeZone"
+]
 SearchNearbyIntendedUseType = Literal["SingleUse", "Storage"]
-SearchTextAdditionalFeatureType = Literal["Access", "Contact", "Phonemes", "TimeZone"]
+SearchTextAdditionalFeatureType = Literal[
+    "Access", "Contact", "CrossReferences", "Phonemes", "TimeZone"
+]
 SearchTextIntendedUseType = Literal["SingleUse", "Storage"]
-SuggestAdditionalFeatureType = Literal["Access", "Core", "Phonemes", "TimeZone"]
+SearchTextTravelModeType = Literal["Car", "Scooter", "Truck"]
+SuggestAdditionalFeatureType = Literal["Access", "Core", "CrossReferences", "Phonemes", "TimeZone"]
 SuggestIntendedUseType = Literal["SingleUse"]
 SuggestResultItemTypeType = Literal["Place", "Query"]
+SuggestTravelModeType = Literal["Car", "Scooter", "Truck"]
+TranslationNameTypeType = Literal[
+    "Abbreviation", "AreaCode", "BaseName", "Exonym", "Shortened", "Synonym"
+]
 TypePlacementType = Literal["AfterBaseName", "BeforeBaseName"]
 ZipClassificationCodeType = Literal["Military", "PostOfficeBoxes", "Unique"]
 LocationServicePlacesV2ServiceName = Literal["geo-places"]

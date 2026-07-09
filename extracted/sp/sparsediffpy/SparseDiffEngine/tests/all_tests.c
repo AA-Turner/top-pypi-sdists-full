@@ -10,6 +10,7 @@
 #include "forward_pass/affine/test_convolve.h"
 #include "forward_pass/affine/test_diag_mat.h"
 #include "forward_pass/affine/test_hstack.h"
+#include "forward_pass/affine/test_kron.h"
 #include "forward_pass/affine/test_left_matmul_dense.h"
 #include "forward_pass/affine/test_linear_op.h"
 #include "forward_pass/affine/test_neg.h"
@@ -30,6 +31,7 @@
 #include "jacobian_tests/affine/test_diag_mat.h"
 #include "jacobian_tests/affine/test_hstack.h"
 #include "jacobian_tests/affine/test_index.h"
+#include "jacobian_tests/affine/test_kron.h"
 #include "jacobian_tests/affine/test_left_matmul.h"
 #include "jacobian_tests/affine/test_neg.h"
 #include "jacobian_tests/affine/test_promote.h"
@@ -76,6 +78,7 @@
 #include "wsum_hess/affine/test_diag_mat.h"
 #include "wsum_hess/affine/test_hstack.h"
 #include "wsum_hess/affine/test_index.h"
+#include "wsum_hess/affine/test_kron.h"
 #include "wsum_hess/affine/test_left_matmul.h"
 #include "wsum_hess/affine/test_right_matmul.h"
 #include "wsum_hess/affine/test_scalar_mult.h"
@@ -151,6 +154,10 @@ int main(void)
     mu_run_test(test_convolve_forward, tests_run);
     mu_run_test(test_convolve_forward_row, tests_run);
     mu_run_test(test_convolve_forward_param, tests_run);
+    mu_run_test(test_kron_forward_const_left, tests_run);
+    mu_run_test(test_kron_forward_const_right, tests_run);
+    mu_run_test(test_kron_forward_scalar, tests_run);
+    mu_run_test(test_kron_forward_sparse, tests_run);
     mu_run_test(test_diag_mat_forward, tests_run);
     mu_run_test(test_upper_tri_forward_4x4, tests_run);
 
@@ -194,6 +201,7 @@ int main(void)
     mu_run_test(test_jacobian_elementwise_mult_2, tests_run);
     mu_run_test(test_jacobian_elementwise_mult_3, tests_run);
     mu_run_test(test_jacobian_elementwise_mult_4, tests_run);
+    mu_run_test(test_jacobian_elementwise_mult_duplicate_gathers, tests_run);
     mu_run_test(test_quad_over_lin1, tests_run);
     mu_run_test(test_quad_over_lin2, tests_run);
     mu_run_test(test_quad_over_lin3, tests_run);
@@ -223,6 +231,7 @@ int main(void)
     mu_run_test(test_index_jacobian_of_variable, tests_run);
     mu_run_test(test_index_jacobian_of_log, tests_run);
     mu_run_test(test_index_jacobian_repeated, tests_run);
+    mu_run_test(test_index_jacobian_duplicates_exceed_source_nnz, tests_run);
     mu_run_test(test_sum_of_index, tests_run);
     mu_run_test(test_promote_scalar_jacobian, tests_run);
     mu_run_test(test_promote_scalar_to_matrix_jacobian, tests_run);
@@ -244,6 +253,10 @@ int main(void)
     mu_run_test(test_jacobian_matmul, tests_run);
     mu_run_test(test_jacobian_convolve, tests_run);
     mu_run_test(test_jacobian_convolve_composite, tests_run);
+    mu_run_test(test_jacobian_kron_const_left, tests_run);
+    mu_run_test(test_jacobian_kron_const_right, tests_run);
+    mu_run_test(test_jacobian_kron_sparse, tests_run);
+    mu_run_test(test_jacobian_kron_composite, tests_run);
     mu_run_test(test_jacobian_transpose, tests_run);
     mu_run_test(test_jacobian_transpose_pd_preserved, tests_run);
     mu_run_test(test_diag_mat_jacobian_variable, tests_run);
@@ -307,6 +320,7 @@ int main(void)
     mu_run_test(test_wsum_hess_multiply_sparse_random, tests_run);
     mu_run_test(test_wsum_hess_multiply_1, tests_run);
     mu_run_test(test_wsum_hess_multiply_2, tests_run);
+    mu_run_test(test_wsum_hess_multiply_duplicate_gathers, tests_run);
     mu_run_test(test_wsum_hess_left_matmul, tests_run);
     mu_run_test(test_wsum_hess_left_matmul_matrix, tests_run);
     mu_run_test(test_wsum_hess_left_matmul_exp_composite, tests_run);
@@ -317,6 +331,8 @@ int main(void)
     mu_run_test(test_wsum_hess_right_matmul_vector, tests_run);
     mu_run_test(test_wsum_hess_convolve, tests_run);
     mu_run_test(test_wsum_hess_convolve_composite, tests_run);
+    mu_run_test(test_wsum_hess_kron, tests_run);
+    mu_run_test(test_wsum_hess_kron_composite, tests_run);
     mu_run_test(test_wsum_hess_broadcast_row, tests_run);
     mu_run_test(test_wsum_hess_broadcast_col, tests_run);
     mu_run_test(test_wsum_hess_broadcast_scalar_to_matrix, tests_run);

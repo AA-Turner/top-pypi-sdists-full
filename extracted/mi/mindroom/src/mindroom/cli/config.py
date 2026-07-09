@@ -116,9 +116,6 @@ _PROVIDER_HELP = "Default model provider for the generated config."
 _PROVIDER_CHOICES_TEXT = (
     "anthropic, azure, bedrock_claude, codex, llama.cpp, ollama, openai, openrouter, or vertexai_claude"
 )
-_MATRIX_DELIVERY_TEMPLATE_BLOCK = """\
-matrix_delivery:
-  ignore_unverified_devices: false"""
 
 
 def _config_init_storage_plan(
@@ -979,8 +976,6 @@ matrix_space:
   enabled: true
   name: MindRoom
 
-{_MATRIX_DELIVERY_TEMPLATE_BLOCK}
-
 # File-based memory requires no external LLM.
 memory:
   backend: file
@@ -1010,6 +1005,12 @@ authorization:
       - {constants.OWNER_MATRIX_USER_ID_PLACEHOLDER}
 
 defaults:
+  # Execution tools (shell, file, python, coding, docker) run directly in the
+  # MindRoom process. For isolation, run them in a sandboxed worker instead:
+  # deploy the sandbox runner (Docker Compose or Kubernetes) and remove this
+  # line — or replace [] with the tools to route, e.g. [shell, file, python].
+  # See https://docs.mindroom.chat/deployment/sandbox-proxy/
+  worker_tools: []
   tools:
     - scheduler
   markdown: true

@@ -19,7 +19,14 @@ from __future__ import annotations
 
 from typing import Annotated, Any, Dict, List, Literal, Optional, Union
 
-from pydantic import AliasChoices, BaseModel, ConfigDict, Field, field_validator
+from pydantic import (
+    AliasChoices,
+    BaseModel,
+    ConfigDict,
+    Field,
+    field_validator,
+    model_validator,
+)
 
 # ─────────────────────────────────────────────────────────────────────
 # Acceptance criteria (discriminated union)
@@ -519,6 +526,132 @@ class GrokCodeDispatchProfile(BaseModel):
         ],
         description="Executable names allowed through the run_command tool.",
     )
+
+
+class ZaiCodeDispatchProfile(LLMCodeDispatchProfile):
+    """Declarative profile consumed by ``ZaiCodeDispatcher.dispatch()``.
+
+    Subclasses ``LLMCodeDispatchProfile`` so it flows through the inherited
+    dispatch loop unchanged; Z.ai-native fields (``enable_thinking``,
+    ``reasoning_effort``) are consumed by
+    ``ZaiCodeDispatcher._completion_args`` instead of the Nvidia-style
+    ``extra_body.chat_template_kwargs`` block used by the base class.
+    """
+
+    model: str = Field(
+        default="glm-5.2",
+        description="Convenience field; kept in sync with ``llm`` (zai:<model>).",
+    )
+    llm: str = "zai:glm-5.2"
+    enable_thinking: bool = Field(
+        default=True,
+        description="Z.ai native thinking mode (thinking={'type': 'enabled'|'disabled'}).",
+    )
+    reasoning_effort: Literal[
+        "max", "xhigh", "high", "medium", "low", "minimal", "none"
+    ] = Field(
+        default="max",
+        description=(
+            "Z.ai reasoning_effort. GLM-5.2-only, effective only when "
+            "thinking is enabled."
+        ),
+    )
+    max_tokens: int = Field(default=8192, ge=256, le=131072)
+
+    @model_validator(mode="after")
+    def _sync_llm_with_model(self) -> "ZaiCodeDispatchProfile":
+        """Derive ``llm`` from ``model`` unless the caller set ``llm`` explicitly."""
+        if "llm" not in self.model_fields_set:
+            self.llm = f"zai:{self.model}"
+        return self
+
+
+class CodeReviewFinding(BaseModel):
+    """A single finding from the code review (FEAT-270)."""
+
+    message: str
+    severity: Literal["critical", "major", "minor", "nit"]
+    file: str = ""
+    line: int = 0
+
+
+class CodeReviewVerdict(BaseModel):
+    """Extended verdict emitted by all code review dispatchers (FEAT-270).
+
+    Public replacement for the previous ``_CodeReviewVerdict`` private model
+    in ``nodes/qa.py``. A verdict with no findings and no modified files is a
+    pass, matching the old model's backward-compatible defaults.
+
+    The ``findings`` validator coerces plain strings (the format the old model
+    accepted) into ``CodeReviewFinding(message=s, severity="minor")`` so an LLM
+    that returns the legacy format doesn't fail Pydantic validation.
+    """
+
+    passed: bool = True
+    findings: List[CodeReviewFinding] = Field(default_factory=list)
+    summary: str = ""
+    files_modified: List[str] = Field(default_factory=list)
+
+    @field_validator("findings", mode="before")
+    @classmethod
+    def _coerce_plain_strings(cls, v: Any) -> Any:
+        if isinstance(v, list):
+            return [
+                CodeReviewFinding(message=item, severity="minor")
+                if isinstance(item, str)
+                else item
+                for item in v
+            ]
+        return v
+
+
+class ClaudeCodeReviewProfile(ClaudeCodeDispatchProfile):
+    """Review profile for the Claude Code review dispatcher (FEAT-270).
+
+    Inherits ``ClaudeCodeDispatchProfile`` so it carries the ``setting_sources``
+    and ``strict_mcp_config`` fields that ``ClaudeCodeDispatcher._resolve_run_options()``
+    accesses. Overrides defaults for the write-enabled review use case: the
+    ``sdd-codereview`` subagent is allowed to fix issues it finds and commit
+    the fixes to the worktree branch.
+    """
+
+    subagent: Optional[Literal["sdd-research", "sdd-worker", "sdd-qa", "sdd-codereview"]] = "sdd-codereview"
+    permission_mode: Literal["default", "acceptEdits", "plan", "bypassPermissions"] = "default"
+    allowed_tools: List[str] = Field(
+        default_factory=lambda: ["Read", "Write", "Edit", "Bash", "Grep", "Glob"]
+    )
+    model: str = "claude-sonnet-4-6"
+    timeout_seconds: int = Field(default=1800, ge=60, le=7200)
+
+
+class CodexCodeReviewProfile(CodexCodeDispatchProfile):
+    """Review profile for the Codex code review dispatcher (FEAT-270).
+
+    Inherits ``CodexCodeDispatchProfile`` so it carries the ``ignore_user_config``
+    and ``ignore_rules`` fields that ``CodexCodeDispatcher._build_command()`` accesses.
+    Overrides defaults for the write-enabled review use case.
+    """
+
+    subagent: Literal["sdd-worker"] = "sdd-worker"
+    model: str = "gpt-5.5"
+    sandbox: Literal["read-only", "workspace-write", "danger-full-access"] = "workspace-write"
+    approval_policy: Literal["untrusted", "on-request", "never"] = "on-request"
+    timeout_seconds: int = Field(default=1800, ge=60, le=7200)
+
+
+class GeminiCodeReviewProfile(GeminiCodeDispatchProfile):
+    """Review profile for the Gemini code review dispatcher (FEAT-270).
+
+    Inherits ``GeminiCodeDispatchProfile`` so it carries the fields that
+    ``GeminiCodeDispatcher._build_command()`` accesses. Overrides defaults
+    for the write-enabled review use case.
+    """
+
+    subagent: Literal["sdd-worker"] = "sdd-worker"
+    model: str = "auto"
+    sandbox: bool = False
+    approval_mode: Literal["default", "auto_edit", "yolo", "plan"] = "auto_edit"
+    timeout_seconds: int = Field(default=1800, ge=60, le=7200)
 
 
 class DispatchEvent(BaseModel):

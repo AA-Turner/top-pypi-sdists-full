@@ -18,7 +18,7 @@ import re  # noqa: F401
 import json
 
 from pydantic import BaseModel, ConfigDict, Field, StrictInt, StrictStr
-from typing import Any, ClassVar, Dict, List
+from typing import Any, ClassVar, Dict, List, Optional
 from pydantic import ValidationError
 from rapidata.api_client.lazy_model import LazyValidatedModel
 from typing import Optional, Set
@@ -30,7 +30,8 @@ class BoostLeaderboardEndpointInput(LazyValidatedModel):
     """ # noqa: E501
     participants: List[StrictStr]
     total_responses: StrictInt = Field(description="The total responses to add, shared across all participants.", alias="totalResponses")
-    __properties: ClassVar[List[str]] = ["participants", "totalResponses"]
+    seed: Optional[StrictInt] = Field(default=None, description="Optional seed for deterministic matchup selection. Use the same value across leaderboards  of a benchmark to have them boosted on the same image pairs. Omit for random selection.")
+    __properties: ClassVar[List[str]] = ["participants", "totalResponses", "seed"]
 
     # model_config is inherited from LazyValidatedModel
 
@@ -67,6 +68,11 @@ class BoostLeaderboardEndpointInput(LazyValidatedModel):
             exclude=excluded_fields,
             exclude_none=True,
         )
+        # set to None if seed (nullable) is None
+        # and model_fields_set contains the field
+        if self.seed is None and "seed" in self.model_fields_set:
+            _dict['seed'] = None
+
         return _dict
 
     @classmethod
@@ -80,7 +86,8 @@ class BoostLeaderboardEndpointInput(LazyValidatedModel):
 
         _data = {
             "participants": obj.get("participants"),
-            "totalResponses": obj.get("totalResponses")
+            "totalResponses": obj.get("totalResponses"),
+            "seed": obj.get("seed")
         }
         try:
             _obj = cls.model_validate(_data)

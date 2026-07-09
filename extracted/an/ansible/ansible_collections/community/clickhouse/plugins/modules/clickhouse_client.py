@@ -52,15 +52,6 @@ options:
     type: dict
     default: {}
     version_added: '0.5.0'
-attributes:
-  idempotent:
-    support: none
-    description:
-      - Module always will return changed=true.
-  check_mode:
-    support: none
-    description:
-      - Module executes arbitary query. Check mode not supported.
 '''
 
 EXAMPLES = r'''
@@ -98,8 +89,8 @@ EXAMPLES = r'''
 - name: Check the result
   ansible.builtin.assert:
     that:
-      - result.statistics["processed_rows"] == 3
       - result.substituted_query == "INSERT INTO test_table_1 (x) VALUES ('one'), ('two'), ('three')"
+      - result.statistics["processed_rows"] == 3
 
 - name: Check rows were inserted into test table
   register: result
@@ -146,7 +137,7 @@ except ImportError:
 from uuid import UUID
 
 from ansible.module_utils.basic import AnsibleModule
-from ansible.module_utils.common.text.converters import to_native
+from ansible.module_utils._text import to_native
 
 from ansible_collections.community.clickhouse.plugins.module_utils.clickhouse import (
     check_clickhouse_driver,

@@ -209,8 +209,14 @@ class NativeGitRepository(GitRepositoryInterface):
         input: Optional[str] = None,
         auto_cleanup_locks: bool = True,
         timeout: Optional[int] = None,
+        strip_output: bool = True,
     ) -> Tuple[bool, str, str]:
-        """Run a git command and return success, stdout, stderr"""
+        """Run a git command and return success, stdout, stderr.
+
+        strip_output=False is required for column-sensitive output such as
+        `status --porcelain`, where stripping eats the first line's leading
+        status character (e.g. " M file").
+        """
         process = None
         try:
             if cwd is None:
@@ -239,10 +245,17 @@ class NativeGitRepository(GitRepositoryInterface):
                 should_retry, _ = self._handle_lock_file_error(stderr)
                 if should_retry:
                     return self._run_git_command(
-                        command, cwd, input, auto_cleanup_locks=False, timeout=timeout
+                        command,
+                        cwd,
+                        input,
+                        auto_cleanup_locks=False,
+                        timeout=timeout,
+                        strip_output=strip_output,
                     )
 
-            return success, stdout.strip(), stderr.strip()
+            if strip_output:
+                return success, stdout.strip(), stderr.strip()
+            return success, stdout, stderr.strip()
 
         except subprocess.TimeoutExpired:
             if process:
@@ -383,17 +396,25 @@ class NativeGitRepository(GitRepositoryInterface):
             return commits
         return []
 
-    def get_changed_files(self) -> List[str]:
+    def get_changed_files(self, untracked_all: bool = False) -> List[str]:
         """Get list of changed files"""
         if not self.is_git_repository():
             return []
 
-        success, stdout, _ = self._run_git_command(["status", "--porcelain"])
+        args = ["status", "--porcelain"]
+        if untracked_all:
+            # Porcelain collapses an untracked directory into a single "dir/"
+            # line, hiding every file inside it; -uall lists them individually.
+            args.append("-uall")
+        success, stdout, _ = self._run_git_command(args, strip_output=False)
         if success and stdout:
             files = []
             for line in stdout.split("\n"):
                 if line.strip():
-                    filename = line[2:].lstrip() if len(line) > 2 else ""
+                    # Porcelain is fixed-width: XY at 0-1, separator space at
+                    # 2, path from 3. Requires strip_output=False above, or a
+                    # leading " M"-style status on the first line gets eaten.
+                    filename = line[3:] if len(line) > 3 else ""
                     if filename:
                         filename = self._decode_git_path(filename)
                         if not self._is_protected_git_path(filename):
@@ -406,16 +427,18 @@ class NativeGitRepository(GitRepositoryInterface):
         if not self.is_git_repository():
             return []
 
-        success, stdout, _ = self._run_git_command(["status", "--porcelain"])
+        success, stdout, _ = self._run_git_command(
+            ["status", "--porcelain"], strip_output=False
+        )
         if success and stdout:
             files = []
             for line in stdout.split("\n"):
                 if line.strip():
-                    if len(line) < 3:
+                    if len(line) < 4:
                         continue
 
                     status_code = line[:2]
-                    filename = line[2:].lstrip() if len(line) > 2 else ""
+                    filename = line[3:]
 
                     if not filename:
                         continue
@@ -1128,7 +1151,10 @@ class NativeGitRepository(GitRepositoryInterface):
             return []
 
         large_files = []
-        changed_files = self.get_changed_files()
+        # -uall: without it, files inside a brand-new (untracked) directory are
+        # collapsed into one "dir/" entry that fails is_file() and skips the
+        # size check entirely.
+        changed_files = self.get_changed_files(untracked_all=True)
 
         for file_path in changed_files:
             full_path = self.working_directory / file_path

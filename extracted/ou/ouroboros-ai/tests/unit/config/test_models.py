@@ -274,10 +274,14 @@ class TestExecutionConfig:
             max_iterations_per_ac=20,
             retrospective_interval=5,
             tui_autolaunch=True,
+            auto_evaluate=False,
+            context_pack=False,
         )
         assert config.max_iterations_per_ac == 20
         assert config.retrospective_interval == 5
         assert config.tui_autolaunch is True
+        assert config.auto_evaluate is False
+        assert config.context_pack is False
 
     def test_execution_config_defaults(self) -> None:
         """ExecutionConfig has sensible defaults."""
@@ -285,6 +289,8 @@ class TestExecutionConfig:
         assert config.max_iterations_per_ac == 10
         assert config.retrospective_interval == 3
         assert config.tui_autolaunch is False
+        assert config.auto_evaluate is True
+        assert config.context_pack is True
 
 
 class TestResilienceConfig:
@@ -559,6 +565,17 @@ class TestOrchestratorConfig:
         with pytest.raises(ValidationError):
             OrchestratorConfig(usage_limit_pause_hours=0)
 
+    def test_orchestrator_config_accepts_worktree_cleanup_policies(self) -> None:
+        """Worktree cleanup policy accepts keep, remove, and prune-merged."""
+        for policy in ("keep", "remove", "prune-merged"):
+            config = OrchestratorConfig(worktree_cleanup=policy)
+            assert config.worktree_cleanup == policy
+
+    def test_orchestrator_config_rejects_unknown_worktree_cleanup_policy(self) -> None:
+        """Worktree cleanup policy rejects unknown values."""
+        with pytest.raises(ValidationError):
+            OrchestratorConfig(worktree_cleanup="delete")  # type: ignore[arg-type]
+
     def test_orchestrator_config_expands_codex_cli_path(self) -> None:
         """Expands ~ in codex_cli_path."""
         config = OrchestratorConfig(runtime_backend="codex", codex_cli_path="~/bin/codex")
@@ -603,6 +620,38 @@ class TestOrchestratorConfig:
         assert config.runtime_backend == "gjc"
         assert config.gjc_cli_path is not None
         assert "~" not in config.gjc_cli_path
+
+    def test_orchestrator_config_accepts_antigravity_backend(self) -> None:
+        """Antigravity is a valid runtime-only backend."""
+        config = OrchestratorConfig(runtime_backend="antigravity")
+        assert config.runtime_backend == "antigravity"
+        assert config.antigravity_cli_path is None
+
+    def test_orchestrator_config_expands_antigravity_cli_path(self) -> None:
+        """Expands ~ in antigravity_cli_path."""
+        config = OrchestratorConfig(
+            runtime_backend="antigravity",
+            antigravity_cli_path="~/bin/agy",
+        )
+        assert config.runtime_backend == "antigravity"
+        assert config.antigravity_cli_path is not None
+        assert "~" not in config.antigravity_cli_path
+
+    def test_orchestrator_config_accepts_grok_backend(self) -> None:
+        """Grok is a valid runtime-only backend."""
+        config = OrchestratorConfig(runtime_backend="grok")
+        assert config.runtime_backend == "grok"
+        assert config.grok_cli_path is None
+
+    def test_orchestrator_config_expands_grok_cli_path(self) -> None:
+        """Expands ~ in grok_cli_path."""
+        config = OrchestratorConfig(
+            runtime_backend="grok",
+            grok_cli_path="~/bin/grok",
+        )
+        assert config.runtime_backend == "grok"
+        assert config.grok_cli_path is not None
+        assert "~" not in config.grok_cli_path
 
 
 class TestGetDefaultConfig:

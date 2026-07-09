@@ -22,7 +22,7 @@ short_description: Manage Fusion Fleet
 description:
 - Create/Modify/Delete Fusion fleet and members
 author:
-- Everpure Ansible Team (@sdodsley) <pure-ansible-team@purestorage.com>
+- Pure Storage Ansible Team (@sdodsley) <pure-ansible-team@purestorage.com>
 options:
   name:
     description:
@@ -103,7 +103,7 @@ try:
 except ImportError:
     HAS_DISTRO = False
 
-HAS_PYPURECLIENT = True
+HAS_PURESTORAGE = True
 try:
     from pypureclient import flashblade
     from pypureclient import flasharray
@@ -114,7 +114,7 @@ try:
         FleetPatch,
     )
 except ImportError:
-    HAS_PYPURECLIENT = False
+    HAS_PURESTORAGE = False
 
 from ansible.module_utils.basic import AnsibleModule
 from ansible_collections.purestorage.flashblade.plugins.module_utils.purefb import (
@@ -123,9 +123,6 @@ from ansible_collections.purestorage.flashblade.plugins.module_utils.purefb impo
 )
 from ansible_collections.purestorage.flashblade.plugins.module_utils.version import (
     LooseVersion,
-)
-from ansible_collections.purestorage.flashblade.plugins.module_utils.common import (
-    get_error_message,
 )
 import platform
 
@@ -143,7 +140,7 @@ def create_fleet(module, blade):
         if res.status_code != 200:
             module.fail_json(
                 msg="Failed to create fleet {0}. Error: {1}".format(
-                    module.params["name"], get_error_message(res)
+                    module.params["name"], res.errors[0].message
                 )
             )
     module.exit_json(changed=changed)
@@ -160,7 +157,7 @@ def delete_fleet(module, blade):
     if res.status_code != 200:
         module.fail_json(
             msg="Fleet {0} deletion failed. Error: {1}".format(
-                module.params["name"], get_error_message(res)
+                module.params["name"], res.errors[0].message
             )
         )
     module.exit_json(changed=changed)
@@ -175,7 +172,7 @@ def add_fleet_members(module, blade):
     res = blade.post_fleets_fleet_key()
     if res.status_code != 200:
         module.fail_json(
-            msg="Fleet key generation failed. Error: {0}".format(get_error_message(res))
+            msg="Fleet key generation failed. Error: {0}".format(res.errors[0].message)
         )
     fleet_key = list(res.items)[0].fleet_key
     if HAS_URLLIB3 and module.params["disable_warnings"]:
@@ -216,8 +213,8 @@ def add_fleet_members(module, blade):
             )
     local_name = list(remote_system.get_arrays().items)[0].name
     members = list(blade.get_fleets_members().items)
-    for member in members:
-        if member.member.name == local_name:
+    for member in range(len(members)):
+        if members[member].member.name == local_name:
             existing = True
     if not existing:
         changed = True
@@ -238,7 +235,7 @@ def add_fleet_members(module, blade):
             if res.status_code != 200:
                 module.fail_json(
                     "Array {0} failed to join fleet {1}. Error: {2}".format(
-                        local_name, module.params["name"], get_error_message(res)
+                        local_name, module.params["name"], res.errors[0].message
                     )
                 )
     module.exit_json(changed=changed)
@@ -279,11 +276,11 @@ def delete_fleet_members(module, blade):
         )
     local_name = list(remote_system.get_arrays().items)[0].name
     members = list(blade.get_fleets_members().items)
-    for member in members:
-        if member.member.name == local_name:
+    for member in range(len(members)):
+        if members[member].member.name == local_name:
             changed = True
             if not module.check_mode:
-                if member.status not in [
+                if members[member].status not in [
                     "joined",
                     "connected",
                     "partially connected",
@@ -296,7 +293,7 @@ def delete_fleet_members(module, blade):
                 if res.status_code != 200:
                     module.fail_json(
                         "Array {0} failed to be removed from fleet. Error: {1}".format(
-                            module.params["member_url"], get_error_message(res)
+                            module.params["member_url"], res.errors[0].message
                         )
                     )
     module.exit_json(changed=changed)
@@ -315,7 +312,7 @@ def rename_fleet(module, blade):
             )
             if res.status_code != 200:
                 module.fail_json(
-                    msg="Fleet rename failed. Error: {0}".format(get_error_message(res))
+                    msg="Fleet rename failed. Error: {0}".format(res.errors[0].message)
                 )
     module.exit_json(changed=changed)
 
@@ -340,7 +337,7 @@ def main():
         argument_spec, required_together=required_together, supports_check_mode=True
     )
 
-    if not HAS_PYPURECLIENT:
+    if not HAS_PURESTORAGE:
         module.fail_json(msg="py-pure-client sdk is required for this module")
 
     blade = get_system(module)

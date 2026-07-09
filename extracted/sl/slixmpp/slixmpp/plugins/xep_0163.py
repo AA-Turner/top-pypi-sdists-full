@@ -38,12 +38,12 @@ class XEP_0163(BasePlugin):
         :param str name: The event name prefix to use for PEP events.
         :param stanza: The stanza class for the PEP content.
         """
-        pubsub_stanza = self.xmpp['xep_0060'].stanza
+        pubsub_stanza = self.xmpp.plugin['xep_0060'].stanza
         register_stanza_plugin(pubsub_stanza.EventItem, stanza)
 
         self.add_interest(stanza.namespace)
-        self.xmpp['xep_0030'].add_feature(stanza.namespace)
-        self.xmpp['xep_0060'].map_node_event(stanza.namespace, name)
+        self.xmpp.plugin['xep_0030'].add_feature(stanza.namespace)
+        self.xmpp.plugin['xep_0060'].map_node_event(stanza.namespace, name)
 
     def add_interest(self, namespace: str, jid: JID | None = None):
         """
@@ -59,10 +59,10 @@ class XEP_0163(BasePlugin):
             namespace = [namespace]
 
         for ns in namespace:
-            self.xmpp['xep_0030'].add_feature('%s+notify' % ns,
+            self.xmpp.plugin['xep_0030'].add_feature('%s+notify' % ns,
                                               jid=jid)
         asyncio.ensure_future(
-            self.xmpp['xep_0115'].update_caps(jid, broadcast=False),
+            self.xmpp.plugin['xep_0115'].update_caps(jid, broadcast=False),
             loop=self.xmpp.loop,
         )
 
@@ -80,10 +80,10 @@ class XEP_0163(BasePlugin):
             namespace = [namespace]
 
         for ns in namespace:
-            self.xmpp['xep_0030'].del_feature(jid=jid,
+            self.xmpp.plugin['xep_0030'].del_feature(jid=jid,
                                               feature='%s+notify' % namespace)
         asyncio.ensure_future(
-            self.xmpp['xep_0115'].update_caps(jid, broadcast=False),
+            self.xmpp.plugin['xep_0115'].update_caps(jid, broadcast=False),
             loop=self.xmpp.loop,
         )
 
@@ -110,7 +110,7 @@ class XEP_0163(BasePlugin):
         if id is None:
             id = 'current'
 
-        return self.xmpp['xep_0060'].publish(ifrom, node, id=id,
+        return self.xmpp.plugin['xep_0060'].publish(ifrom, node, id=id,
                                              payload=stanza.xml,
                                              options=options, ifrom=ifrom,
                                              callback=callback,

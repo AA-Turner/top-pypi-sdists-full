@@ -12,7 +12,14 @@ import path from "node:path";
 vi.mock("node:child_process", () => ({ execFileSync: vi.fn() }));
 
 const WIN_ARGS = ["--fingerprint-platform=windows", "--no-sandbox"];
-const MSG = "No Windows fonts found";
+const MSG = "Incomplete Windows font set";
+
+// fc-list output containing all 8 Windows tell fonts (the complete set).
+const ALL_WIN_FONTS =
+  "Segoe UI:style=Regular\nSegoe UI Light:style=Light\nCalibri:style=Regular\n" +
+  "Marlett:style=Regular\nMS UI Gothic:style=Regular\n" +
+  "Franklin Gothic Medium:style=Regular\nConsolas:style=Regular\n" +
+  "Courier New:style=Regular";
 
 let cacheDir: string;
 
@@ -111,12 +118,23 @@ describe("maybeWarnWindowsFonts", () => {
     expect(fs.existsSync(marker())).toBe(false);
   });
 
-  it("does not warn when Windows fonts are present", async () => {
+  it("does not warn when the full Windows set is present", async () => {
     vi.spyOn(os, "platform").mockReturnValue("linux");
     const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
     const { maybeWarn, execFileSync } = await load();
-    execFileSync.mockReturnValue("/x/segoeui.ttf: Segoe UI:style=Regular" as any);
+    execFileSync.mockReturnValue(ALL_WIN_FONTS as any);
     maybeWarn(WIN_ARGS);
     expect(warn).not.toHaveBeenCalled();
+  });
+
+  it("warns on a partial Windows set (strict — all 8 required)", async () => {
+    vi.spyOn(os, "platform").mockReturnValue("linux");
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const { maybeWarn, execFileSync } = await load();
+    // Only 1 of the 8 tells present.
+    execFileSync.mockReturnValue("/x/segoeui.ttf: Segoe UI:style=Regular" as any);
+    maybeWarn(WIN_ARGS);
+    expect(warn).toHaveBeenCalledTimes(1);
+    expect(String(warn.mock.calls[0][0])).toContain(MSG);
   });
 });

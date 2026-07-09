@@ -4,6 +4,7 @@ import os
 import subprocess
 import sys
 import tempfile
+import time
 from collections.abc import Iterable
 from pathlib import Path
 from typing import Any, Dict, List, Optional, TypedDict, Union
@@ -15,6 +16,8 @@ from playwright.sync_api import Page
 from playwright.sync_api import TimeoutError as PlaywrightTimeoutError
 
 from abstra_internals.constants import get_persistent_dir
+from abstra_internals.services.audit import FileScanAuditEvent
+from abstra_internals.services.clamav import default_scanner
 
 from .base import AgentTools
 
@@ -1428,6 +1431,18 @@ class BrowserTools(AgentTools):
             suggested_filename = _safe_download_filename(download.suggested_filename)
             path = _resolve_download_path(output_path, suggested_filename, overwrite)
             download.save_as(str(path))
+            scan_started = time.monotonic()
+            scan = default_scanner.scan_file(path)
+            FileScanAuditEvent(
+                scan,
+                source_url=download.url,
+                filename=path.name,
+                file_size_bytes=path.stat().st_size,
+                scan_duration_ms=int((time.monotonic() - scan_started) * 1000),
+            ).register()
+            if scan.is_infected:
+                path.unlink(missing_ok=True)
+                raise RuntimeError(scan.message or "Download blocked by virus scan.")
 
             result = {
                 "path": str(path),
@@ -1527,6 +1542,17 @@ class BrowserTools(AgentTools):
                 )
 
             body = response.body()
+            scan_started = time.monotonic()
+            scan = default_scanner.scan_bytes(body, filename=path.name)
+            FileScanAuditEvent(
+                scan,
+                source_url=resolved_url,
+                filename=path.name,
+                file_size_bytes=len(body),
+                scan_duration_ms=int((time.monotonic() - scan_started) * 1000),
+            ).register()
+            if scan.is_infected:
+                raise RuntimeError(scan.message or "Download blocked by virus scan.")
             path.write_bytes(body)
 
             result = {

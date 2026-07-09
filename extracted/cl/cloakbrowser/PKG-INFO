@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: cloakbrowser
-Version: 0.4.8
+Version: 0.4.9
 Summary: Stealth Chromium that passes every bot detection test. Drop-in Playwright replacement with source-level fingerprint patches.
 Project-URL: Homepage, https://github.com/CloakHQ/CloakBrowser
 Project-URL: Documentation, https://github.com/CloakHQ/CloakBrowser#readme
@@ -189,7 +189,7 @@ page.goto("https://example.com")
 
 ---
 
-## Latest: v0.4.8 — 66 source-level stealth patches (Chromium 148.0.7778.215.5 — Windows + Linux; macOS follows)
+## Latest: v0.4.9 — 66 source-level stealth patches (Chromium 148.0.7778.215.5 — Windows + Linux; macOS follows)
 
 - **CloakBrowser Pro** — the latest binary (Chromium 148.0.7778.215.5, 66 source-level patches) is available to Pro subscribers on **Windows and Linux** (macOS is on 148.0.7778.215.3, next build follows). Set a `license_key` (`licenseKey` in JS) or the `CLOAKBROWSER_LICENSE_KEY` env var and the wrapper fetches the latest build automatically. See [CloakBrowser Pro](#cloakbrowser-pro)
 - **.NET 8 / C# client** — CloakBrowser now ships as a NuGet package (`CloakBrowser`), mirroring the Python and JS wrappers.
@@ -235,13 +235,16 @@ Pro keeps you on the build that's actively maintained against it.
 Use Pro if CloakBrowser is part of production scraping, QA, monitoring, or
 automation where stale browser fingerprints cost you time or blocked runs.
 
+**New: try the latest Pro binary (Chromium 148) free for 7 days** — see how it
+performs against your targets. Cancel anytime.
+
 Activate with your license key (env var, `license_key=` param, or `~/.cloakbrowser/license.key`):
 
 ```bash
 export CLOAKBROWSER_LICENSE_KEY=cb_xxxxxxxx
 ```
 
-Pro plans → **[cloakbrowser.dev](https://cloakbrowser.dev)**
+Pro plans & free trial → **[cloakbrowser.dev](https://cloakbrowser.dev)**
 
 ## Test Results
 
@@ -769,7 +772,7 @@ Supported by the binary but **not set by default** — pass via `args` to custom
 | `--fingerprint-noise=false` | Disable noise injection (canvas, WebGL, audio, client rects) while keeping the deterministic fingerprint seed active |
 | `--fingerprint=off` | **Chromium 148+ binary only.** Pass-through debug mode — turns spoofing off and presents the machine's **real native fingerprint** (keeps only the baseline any Chrome needs). The binary strips the injected seed *and* `--fingerprint-platform`, so there's no mixed OS profile. Most useful on a genuine Windows machine to check whether an issue is our spoofing or the environment. Accepts `off`/`false`/`0`/`disable`/`disabled`. For a *pure* pass-through don't combine it with `geoip=True` / explicit timezone / locale — those stay applied. |
 | `--fingerprint-allow-3p-cookies` | **Chromium 148+ binary only.** Re-enable third-party cookies for embedded flows that need them (reCAPTCHA v3, SSO, some payment challenges). Off by default; turn on only where a login/payment/embedded challenge loads but never finishes. |
-| `--license-through-proxy` | **Chromium 148+ binary only, Linux only.** Route the Pro license/session calls through your `--proxy-server` instead of direct to cloakbrowser.dev. Off by default (these calls go direct, so they never spend proxy bandwidth or touch your scraping session). |
+| `--license-through-proxy` | **Chromium 148+ binary only, Linux only for now.** Route the Pro license/session calls through your `--proxy-server` instead of direct to cloakbrowser.dev. Off by default (these calls go direct, so they never spend proxy bandwidth or touch your scraping session). |
 | `--enable-blink-features=FakeShadowRoot` | Access closed shadow DOM elements |
 
 > **Note:** All stealth tests were verified with the default fingerprint config above. Changing these flags may affect detection results — test your configuration before using in production.

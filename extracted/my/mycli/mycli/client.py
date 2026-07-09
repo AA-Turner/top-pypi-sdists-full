@@ -35,11 +35,13 @@ from mycli.constants import DEFAULT_PROMPT
 from mycli.main_modes import repl as repl_package
 from mycli.output import OutputMixin
 from mycli.packages import special
+from mycli.packages.special.dsn_aliases import DsnAliases
 from mycli.packages.special.favoritequeries import FavoriteQueries
 from mycli.packages.tabular_output import sql_format
 from mycli.schema_prefetcher import SchemaPrefetcher
 from mycli.sqlcompleter import SQLCompleter
 from mycli.sqlexecute import SQLExecute
+from mycli.ssh_tunnel import SshTunnel
 from mycli.types import Query
 
 sqlparse.engine.grouping.MAX_GROUPING_DEPTH = None  # type: ignore[assignment]
@@ -75,6 +77,7 @@ class MyCli(AppStateMixin, OutputMixin, ClientCommandsMixin, ClientConnectionMix
         cli_verbosity: int = 0,
     ) -> None:
         self.sqlexecute = sqlexecute
+        self.ssh_tunnel: SshTunnel | None = None
         self.logfile = logfile
         self.login_path = login_path
         self.toolbar_error_message: str | None = None
@@ -106,6 +109,7 @@ class MyCli(AppStateMixin, OutputMixin, ClientCommandsMixin, ClientConnectionMix
         self.default_keepalive_ticks = c['connection'].as_int('default_keepalive_ticks')
 
         FavoriteQueries.instance = FavoriteQueries.from_config(self.config)
+        DsnAliases.instance = DsnAliases.from_config(self.config)
 
         self.dsn_alias: str | None = None
         self.main_formatter = TabularOutputFormatter(format_name=c["main"]["table_format"])
@@ -198,10 +202,20 @@ class MyCli(AppStateMixin, OutputMixin, ClientCommandsMixin, ClientConnectionMix
         special.set_destructive_keywords(self.destructive_keywords)
 
     def close(self) -> None:
-        if hasattr(self, 'schema_prefetcher'):
+        try:
             self.schema_prefetcher.stop()
+        except Exception:
+            pass
         if self.sqlexecute is not None:
-            self.sqlexecute.close()
+            try:
+                self.sqlexecute.close()
+            except Exception:
+                pass
+        if self.ssh_tunnel is not None:
+            try:
+                self.ssh_tunnel.close()
+            except Exception:
+                pass
 
     def run_cli(self) -> None:
         repl_package.main_repl(self)

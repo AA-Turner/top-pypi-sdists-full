@@ -6,8 +6,10 @@ from unittest import mock
 
 import pytest
 from sqlalchemy.engine.url import URL
+from sqlalchemy.sql.elements import quoted_name
 
 from snowflake.sqlalchemy import base
+from snowflake.sqlalchemy import snowdialect as sd_module
 from snowflake.sqlalchemy.compat import IS_VERSION_20
 from snowflake.sqlalchemy.snowdialect import SnowflakeDialect
 
@@ -362,3 +364,159 @@ class TestSingleTableDispatchSA2:
         # uppercase it correctly inside _always_quote_join.
         assert received["table_name"] == "my_table"
         assert type(received["table_name"]) is str
+
+    @pytest.mark.skipif(not IS_VERSION_20, reason="SA 2.x only")
+    def test_get_columns_quoted_name_with_embedded_dot_is_atomic(self):
+        """quoted_name with embedded dot must not be re-split into extra schema parts."""
+        dialect = _make_dialect()
+        connection = mock.Mock()
+        received = {}
+
+        with mock.patch.object(sd_module, "_StructuredTypeInfoManager") as MockMgr:
+            mock_instance = mock.Mock()
+            mock_instance.get_table_columns_by_full_name.return_value = {}
+            MockMgr.return_value = mock_instance
+
+            dialect.get_columns(
+                connection,
+                quoted_name("weird.name", True),
+                schema="PUBLIC",
+            )
+
+            call_args = mock_instance.get_table_columns_by_full_name.call_args
+            received["full"] = call_args[0][0]
+
+        full = received["full"]
+        in_quote, parts = False, 0
+        for ch in full:
+            if ch == '"':
+                in_quote = not in_quote
+            elif ch == "." and not in_quote:
+                parts += 1
+        assert (
+            parts == 1
+        ), f"Expected 2-part reference (schema.table), got {parts + 1} parts: {full!r}"
+        assert (
+            '"weird.name"' in full
+        ), f"Expected quoted atomic identifier '\"weird.name\"' in {full!r}"
+
+    @pytest.mark.skipif(not IS_VERSION_20, reason="SA 2.x only")
+    def test_get_columns_dotted_plain_string_uses_last_component(self):
+        """A plain 'schema.table' string takes the last component as the table name."""
+        dialect = _make_dialect()
+        connection = mock.Mock()
+        received = {}
+
+        with mock.patch.object(sd_module, "_StructuredTypeInfoManager") as MockMgr:
+            mock_instance = mock.Mock()
+            mock_instance.get_table_columns_by_full_name.return_value = {}
+            MockMgr.return_value = mock_instance
+
+            dialect.get_columns(connection, "myschema.mytable", schema="PUBLIC")
+
+            call_args = mock_instance.get_table_columns_by_full_name.call_args
+            received["full"] = call_args[0][0]
+
+        full = received["full"]
+        assert '"MYTABLE"' in full, f"Expected last component 'MYTABLE' in {full!r}"
+        assert (
+            '"MYSCHEMA"' not in full
+        ), f"Schema component from table_name must be dropped; got {full!r}"
+
+
+def _capture_view_sql(dialect, view_name, schema="PUBLIC"):
+    """Call get_view_definition and return the SQL string passed to execute()."""
+    conn = mock.MagicMock()
+    cursor = mock.MagicMock()
+    cursor.keys.return_value = []
+    cursor.fetchone.return_value = None
+    conn.execute.return_value = cursor
+    try:
+        dialect.get_view_definition(conn, view_name, schema=schema)
+    except Exception:
+        pass
+    assert conn.execute.called
+    sql_arg = conn.execute.call_args[0][0]
+    return sql_arg.text if hasattr(sql_arg, "text") else str(sql_arg)
+
+
+class TestGetViewDefinitionLikeEscaping:
+    """get_view_definition must escape single quotes in the LIKE value."""
+
+    def test_plain_view_name_produces_valid_sql(self):
+        """A normal view name must appear correctly in the LIKE clause."""
+        d = _make_dialect()
+        sql = _capture_view_sql(d, "my_view")
+        assert "LIKE" in sql
+        assert "MY_VIEW" in sql or "my_view" in sql
+
+    @pytest.mark.parametrize(
+        "view_name, expected, not_expected",
+        [
+            pytest.param("o'brien", ["''"], ['"o'], id="simple_quote"),
+            pytest.param("back\\slash", ["\\\\"], [], id="backslash_doubled"),
+        ],
+    )
+    def test_special_chars_are_escaped(self, view_name, expected, not_expected):
+        sql = _capture_view_sql(_make_dialect(), view_name)
+        for fragment in expected:
+            assert (
+                fragment in sql
+            ), f"Expected {fragment!r} in SQL for {view_name!r}, got: {sql!r}"
+        for fragment in not_expected:
+            assert (
+                fragment not in sql
+            ), f"Unexpected {fragment!r} in SQL for {view_name!r}, got: {sql!r}"
+
+
+def _capture_comment_sql(dialect, method_name, table_name, schema="PUBLIC"):
+    """Return the SQL string _get_table_comment/_get_view_comment passes to execute()."""
+    conn = mock.MagicMock()
+    cursor = mock.MagicMock()
+    cursor.fetchone.return_value = None
+    conn.execute.return_value = cursor
+    with mock.patch.object(
+        dialect,
+        "_current_database_schema",
+        return_value=("CURRENT_DB", "CURRENT_SCHEMA"),
+    ):
+        getattr(dialect, method_name)(conn, table_name, schema=schema)
+    assert conn.execute.called
+    sql_arg = conn.execute.call_args[0][0]
+    return sql_arg.text if hasattr(sql_arg, "text") else str(sql_arg)
+
+
+class TestReflectionCommentLikeEscaping:
+    """SNOW-3649853 residual: _get_table_comment / _get_view_comment build a
+    ``SHOW ... LIKE '{table_name}'`` literal, so the interpolated value must be
+    single-quote escaped exactly like get_view_definition (snowdialect.py:1526).
+    """
+
+    @pytest.mark.parametrize("method_name", ["_get_table_comment", "_get_view_comment"])
+    def test_plain_name_unchanged_bcr(self, method_name):
+        # Behaviour-preserving: a quote-free name is untouched (no denormalize,
+        # no over-quoting) — keeps the cross-database-reflection contract.
+        sql = _capture_comment_sql(_make_dialect(), method_name, "my_table")
+        assert "LIKE 'my_table'" in sql
+        assert "''" not in sql
+
+    @pytest.mark.parametrize("method_name", ["_get_table_comment", "_get_view_comment"])
+    @pytest.mark.parametrize(
+        "table_name, expected, not_expected",
+        [
+            pytest.param("o'brien", ["''"], ['"o'], id="simple_quote"),
+            pytest.param("back\\slash", ["\\\\"], [], id="backslash_doubled"),
+        ],
+    )
+    def test_special_chars_escaped(
+        self, method_name, table_name, expected, not_expected
+    ):
+        sql = _capture_comment_sql(_make_dialect(), method_name, table_name)
+        for fragment in expected:
+            assert (
+                fragment in sql
+            ), f"Expected {fragment!r} in SQL for {table_name!r}, got: {sql!r}"
+        for fragment in not_expected:
+            assert (
+                fragment not in sql
+            ), f"Unexpected {fragment!r} in SQL for {table_name!r}, got: {sql!r}"

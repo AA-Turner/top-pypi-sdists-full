@@ -9,6 +9,7 @@
     See the file LICENSE for copying permission.
 """
 
+import unittest
 from slixmpp.test import *
 
 namespace='sn'

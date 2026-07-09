@@ -16,20 +16,24 @@ from ical.types.data_types import serialize_field
 
 from .component import ComponentModel, validate_until_dtstart, validate_recurrence_dates
 from .types import (
+    Attachment,
     CalAddress,
     Classification,
     ExtraProperty,
+    Image,
     Recur,
     RecurrenceId,
     RequestStatus,
     Uri,
     RelatedTo,
+    Period,
 )
 from .util import (
     dtstamp_factory,
     normalize_datetime,
     parse_date_and_datetime,
     parse_date_and_datetime_list,
+    parse_rdate_list,
     uid_factory,
     local_timezone,
 )
@@ -89,6 +93,16 @@ class Journal(ComponentModel):
     last_modified: Optional[datetime.datetime] = Field(
         alias="last-modified", default=None
     )
+
+    color: Optional[str] = None
+    """Specifies a color associated with the journal entry.
+
+    The value MUST be a case-insensitive color name defined in CSS3-Color (e.g., "blue" or "turquoise")
+    or a CSS3 RGB/RGBA color value in hex or functional notation (e.g., "#0000FF").
+    """
+
+    image: list[Image] = Field(default_factory=list)
+    """Specifies one or more images associated with the journal entry."""
     organizer: Optional[CalAddress] = None
     recurrence_id: Optional[RecurrenceId] = Field(default=None, alias="recurrence-id")
 
@@ -98,17 +112,20 @@ class Journal(ComponentModel):
     related: list[str] = Field(default_factory=list)
     rrule: Optional[Recur] = None
     rdate: Annotated[
-        list[Union[datetime.date, datetime.datetime]],
-        BeforeValidator(parse_date_and_datetime_list),
+        list[Union[datetime.date, datetime.datetime, Period]],
+        BeforeValidator(parse_rdate_list),
     ] = Field(default_factory=list)
-    request_status: Optional[RequestStatus] = Field(
-        default=None,
+    request_status: list[RequestStatus] = Field(
         alias="request-status",
+        default_factory=list,
     )
     sequence: Optional[int] = None
     status: Optional[JournalStatus] = None
     summary: Optional[str] = None
     url: Optional[Uri] = None
+
+    attach: list[Attachment] = Field(default_factory=list)
+    """Associate a document object with the journal."""
 
     # Unknown or unsupported properties
     extras: list[ExtraProperty] = Field(default_factory=list)

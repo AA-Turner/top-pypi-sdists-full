@@ -138,7 +138,7 @@ if __name__ == '__main__':
 
     # Some servers don't advertise support for inband registration, even
     # though they allow it. If this applies to your server, use:
-    xmpp['xep_0077'].force_registration = True
+    xmpp.plugin['xep_0077'].force_registration = True
 
     # Connect to the XMPP server and start processing XMPP stanzas.
     xmpp.connect()

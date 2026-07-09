@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: mdtraj
-Version: 1.11.1.post1
+Version: 1.11.1.post2
 Summary: MDTraj: A modern, open library for the analysis of molecular dynamics trajectories
 Home-page: http://mdtraj.org
 Download-URL: https://github.com/rmcgibbo/mdtraj/releases/latest
@@ -26,7 +26,7 @@ Classifier: Operating System :: Unix
 Classifier: Operating System :: MacOS
 Requires-Python: >=3.11
 License-File: LICENSE
-Requires-Dist: numpy~=2.0
+Requires-Dist: numpy<2.5,~=2.0
 Requires-Dist: scipy
 Requires-Dist: pyparsing
 Requires-Dist: packaging

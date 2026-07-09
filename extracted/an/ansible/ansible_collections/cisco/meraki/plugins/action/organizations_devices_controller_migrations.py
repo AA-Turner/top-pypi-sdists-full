@@ -50,7 +50,7 @@ class OrganizationsDevicesControllerMigrations(object):
         self.new_object = dict(
             serials=params.get("serials"),
             target=params.get("target"),
-            organizationId=params.get("organizationId"),
+            organization_id=params.get("organizationId"),
         )
 
     def get_all_params(self, name=None, id=None):

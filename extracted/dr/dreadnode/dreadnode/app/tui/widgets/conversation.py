@@ -85,7 +85,15 @@ def _message_css_class(message: Message) -> str:
 
 
 class ThinkingBlock(Widget):
-    """Collapsible thinking/reasoning block — follows app.output_mode at render time."""
+    """First-class reasoning surface — a dim heading over guttered prose.
+
+    Renders model reasoning (native ``reasoning_content`` / ``thinking_blocks``
+    and the ``think()`` tool) inline, always visible. Visibility of *native*
+    reasoning is gated upstream at capture time by ``show_thinking()``
+    (``/thinking show|hide``); this widget deliberately does **not** follow
+    ``app.output_mode`` — reasoning is a separate concern from tool-output
+    verbosity (ENG-6108), so the ^O toggle no longer hides it.
+    """
 
     DEFAULT_CSS = """
     ThinkingBlock {
@@ -99,18 +107,12 @@ class ThinkingBlock(Widget):
         super().__init__(**kwargs)
         self._body = body
 
-    def on_mount(self) -> None:
-        try:
-            self.display = self.app.output_mode == "expanded"  # type: ignore[attr-defined]
-        except Exception:
-            self.display = False
-
     def render(self) -> Text:
         text = Text()
-        lines = self._body.splitlines()
-        for i, line in enumerate(lines):
-            if i > 0:
-                text.append("\n")
+        text.append("· ", style=FG_FAINTEST)
+        text.append("reasoning", style=FG_FAINTEST)
+        for line in self._body.splitlines():
+            text.append("\n")
             text.append("  │ ", style=FG_FAINTEST)
             text.append(line, style=FG_FAINTEST)
         return text
@@ -205,6 +207,20 @@ def _render_message(message: Message) -> list[t.Any]:
 
         tool_name = _meta(message, "tool_name") or "tool"
         tool_args = _meta(message, "tool_args") or {}
+        # ``think()`` is reasoning, not a tool call — route it to the reasoning
+        # surface (ENG-6108). New sessions store it as a thinking message so this
+        # only fires for historical/foreign transcripts that still carry think
+        # as a ``role="tool"`` row; it keeps them off the mangled 60-char label
+        # + ``↳ null`` path. Only a successful think carrying a real thought is
+        # reasoning-surfaced: an errored think (stored via the live ToolEnd
+        # fallthrough with ``error`` metadata) or a malformed/foreign row with no
+        # thought string falls through to the tool path so the failure / raw
+        # payload stays visible — matching sessions_manager's ToolEnd handling
+        # instead of rendering the tool result (``message.content``) as prose.
+        if tool_name == "think":
+            thought = tool_args.get("thought")
+            if not _meta(message, "error") and isinstance(thought, str) and thought.strip():
+                return [ThinkingBlock(body=thought)]
         label = _format_tool_label(tool_name, tool_args)
         summary = _meta(message, "summary")
         error = _meta(message, "error")

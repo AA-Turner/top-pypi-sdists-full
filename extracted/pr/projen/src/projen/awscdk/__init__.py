@@ -13,7 +13,7 @@ import jsii
 import publication
 import typing_extensions
 
-from jsii._type_checking import check_type
+from jsii._type_checking import cached_type_hints, check_type
 
 
 from .._jsii import *
@@ -123,7 +123,7 @@ class AutoDiscover(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__299bec780848fe97b2969bd034a0cc0c5b289c8b070804a0e7019e2fd00f3385)
+            type_hints = cached_type_hints(_typecheckingstub__299bec780848fe97b2969bd034a0cc0c5b289c8b070804a0e7019e2fd00f3385)
             check_type(argname="argument project", value=project, expected_type=type_hints["project"])
         options = AutoDiscoverOptions(
             edge_lambda_auto_discover=edge_lambda_auto_discover,
@@ -158,7 +158,7 @@ class AutoDiscoverCommonOptions:
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__1481bee32ba67da7f1345305244098d6e141af605bc2741ebcec131913a1447d)
+            type_hints = cached_type_hints(_typecheckingstub__1481bee32ba67da7f1345305244098d6e141af605bc2741ebcec131913a1447d)
             check_type(argname="argument cdk_deps", value=cdk_deps, expected_type=type_hints["cdk_deps"])
             check_type(argname="argument tsconfig_path", value=tsconfig_path, expected_type=type_hints["tsconfig_path"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -800,7 +800,7 @@ class AwsCdkDeps(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__7e7cbe786e69ed7d1f1e68a2d013321fdac1cb7680a8bf70f3fa4b07ceb74728)
+            type_hints = cached_type_hints(_typecheckingstub__7e7cbe786e69ed7d1f1e68a2d013321fdac1cb7680a8bf70f3fa4b07ceb74728)
             check_type(argname="argument project", value=project, expected_type=type_hints["project"])
         options = AwsCdkDepsOptions(
             dependency_type=dependency_type,
@@ -910,7 +910,7 @@ class AwsCdkDepsCommonOptions:
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__9c05bbe4b35f9dae6c42142aae7fe230eef1fce22ef11bac36077d809e0213d1)
+            type_hints = cached_type_hints(_typecheckingstub__9c05bbe4b35f9dae6c42142aae7fe230eef1fce22ef11bac36077d809e0213d1)
             check_type(argname="argument cdk_version", value=cdk_version, expected_type=type_hints["cdk_version"])
             check_type(argname="argument cdk_cli_version", value=cdk_cli_version, expected_type=type_hints["cdk_cli_version"])
             check_type(argname="argument cdk_version_pinning", value=cdk_version_pinning, expected_type=type_hints["cdk_version_pinning"])
@@ -1022,7 +1022,7 @@ class AwsCdkDepsJava(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__7eb2b11f60e9c09abf072a91d795bf85082d0a9a137a3370f588fee0b3657742)
+            type_hints = cached_type_hints(_typecheckingstub__7eb2b11f60e9c09abf072a91d795bf85082d0a9a137a3370f588fee0b3657742)
             check_type(argname="argument project", value=project, expected_type=type_hints["project"])
         options = AwsCdkDepsOptions(
             dependency_type=dependency_type,
@@ -1074,7 +1074,7 @@ class AwsCdkDepsJs(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__b677bc54226a26d7a303b3fd4200e81de0843383a531fa19fc99088dcdcc45ed)
+            type_hints = cached_type_hints(_typecheckingstub__b677bc54226a26d7a303b3fd4200e81de0843383a531fa19fc99088dcdcc45ed)
             check_type(argname="argument project", value=project, expected_type=type_hints["project"])
         options = AwsCdkDepsOptions(
             dependency_type=dependency_type,
@@ -1126,7 +1126,7 @@ class AwsCdkDepsOptions(AwsCdkDepsCommonOptions):
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__729b7d39bd29861eda3ce348c4ce89a58ddaa92435a2fa9945bab5fe70be9700)
+            type_hints = cached_type_hints(_typecheckingstub__729b7d39bd29861eda3ce348c4ce89a58ddaa92435a2fa9945bab5fe70be9700)
             check_type(argname="argument cdk_version", value=cdk_version, expected_type=type_hints["cdk_version"])
             check_type(argname="argument cdk_cli_version", value=cdk_cli_version, expected_type=type_hints["cdk_cli_version"])
             check_type(argname="argument cdk_version_pinning", value=cdk_version_pinning, expected_type=type_hints["cdk_version_pinning"])
@@ -1252,7 +1252,7 @@ class AwsCdkDepsPy(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ce54ea39c6593757ee4eb161fc51de85e4aaa129bbbcf446d83a535b5d6e84c1)
+            type_hints = cached_type_hints(_typecheckingstub__ce54ea39c6593757ee4eb161fc51de85e4aaa129bbbcf446d83a535b5d6e84c1)
             check_type(argname="argument project", value=project, expected_type=type_hints["project"])
         options = AwsCdkDepsOptions(
             dependency_type=dependency_type,
@@ -1535,7 +1535,7 @@ class AwsCdkPackageNames:
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__69fd49df3e67767adad3554c509a9f22dbd4ea6a29e38be200918bee11289c9b)
+            type_hints = cached_type_hints(_typecheckingstub__69fd49df3e67767adad3554c509a9f22dbd4ea6a29e38be200918bee11289c9b)
             check_type(argname="argument constructs", value=constructs, expected_type=type_hints["constructs"])
             check_type(argname="argument core_v2", value=core_v2, expected_type=type_hints["core_v2"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -2470,7 +2470,7 @@ class CdkConfig(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__2193982c803c2bf032d2edee3f43915e940fec35ac37cd9b3e183323b55f5f25)
+            type_hints = cached_type_hints(_typecheckingstub__2193982c803c2bf032d2edee3f43915e940fec35ac37cd9b3e183323b55f5f25)
             check_type(argname="argument project", value=project, expected_type=type_hints["project"])
         options = CdkConfigOptions(
             app=app,
@@ -2494,7 +2494,7 @@ class CdkConfig(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a3621f1dc8f187d3513683cb198ae4ee760d111ac724e61e4a508ed203223e25)
+            type_hints = cached_type_hints(_typecheckingstub__a3621f1dc8f187d3513683cb198ae4ee760d111ac724e61e4a508ed203223e25)
             check_type(argname="argument patterns", value=patterns, expected_type=typing.Tuple[type_hints["patterns"], ...]) # pyright: ignore [reportGeneralTypeIssues]
         return typing.cast(None, jsii.invoke(self, "addExcludes", [*patterns]))
 
@@ -2507,7 +2507,7 @@ class CdkConfig(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__2bee8b8946a942a1e9e6560e3dc7d74645ec8e2f1ec8428719449ffe5d4e23ec)
+            type_hints = cached_type_hints(_typecheckingstub__2bee8b8946a942a1e9e6560e3dc7d74645ec8e2f1ec8428719449ffe5d4e23ec)
             check_type(argname="argument patterns", value=patterns, expected_type=typing.Tuple[type_hints["patterns"], ...]) # pyright: ignore [reportGeneralTypeIssues]
         return typing.cast(None, jsii.invoke(self, "addIncludes", [*patterns]))
 
@@ -2595,7 +2595,7 @@ class CdkConfigCommonOptions:
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__17b71fd85a588dece1cab7a1f10a489c1f99d5cffc9bc94054d08594034d2de9)
+            type_hints = cached_type_hints(_typecheckingstub__17b71fd85a588dece1cab7a1f10a489c1f99d5cffc9bc94054d08594034d2de9)
             check_type(argname="argument build_command", value=build_command, expected_type=type_hints["build_command"])
             check_type(argname="argument cdkout", value=cdkout, expected_type=type_hints["cdkout"])
             check_type(argname="argument context", value=context, expected_type=type_hints["context"])
@@ -2757,7 +2757,7 @@ class CdkConfigOptions(CdkConfigCommonOptions):
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__b4c0c207e869c8418ac98b7fb9e817aeb45676d86479b832ccd72d984318e2aa)
+            type_hints = cached_type_hints(_typecheckingstub__b4c0c207e869c8418ac98b7fb9e817aeb45676d86479b832ccd72d984318e2aa)
             check_type(argname="argument build_command", value=build_command, expected_type=type_hints["build_command"])
             check_type(argname="argument cdkout", value=cdkout, expected_type=type_hints["cdkout"])
             check_type(argname="argument context", value=context, expected_type=type_hints["context"])
@@ -2908,7 +2908,7 @@ class CdkTasks(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ce1a5defb22176f1ca65b4911f52c05d899c5eab98cbccc291f1efd0237304d4)
+            type_hints = cached_type_hints(_typecheckingstub__ce1a5defb22176f1ca65b4911f52c05d899c5eab98cbccc291f1efd0237304d4)
             check_type(argname="argument project", value=project, expected_type=type_hints["project"])
         jsii.create(self.__class__, self, [project])
 
@@ -2996,7 +2996,7 @@ class EdgeLambdaAutoDiscover(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a9422d0ee4e236c5ffc34d2e710ba75c616563f16d32ec0a6a3416b58b193621)
+            type_hints = cached_type_hints(_typecheckingstub__a9422d0ee4e236c5ffc34d2e710ba75c616563f16d32ec0a6a3416b58b193621)
             check_type(argname="argument project", value=project, expected_type=type_hints["project"])
         options = EdgeLambdaAutoDiscoverOptions(
             srcdir=srcdir,
@@ -3039,7 +3039,7 @@ class EdgeLambdaAutoDiscoverOptions(AutoDiscoverCommonOptions):
         if isinstance(lambda_options, dict):
             lambda_options = LambdaFunctionCommonOptions(**lambda_options)
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__3a19bc9afffcad91fb7f4449db1c73797c6f770dd0db516b7f59e84d29bcb7ca)
+            type_hints = cached_type_hints(_typecheckingstub__3a19bc9afffcad91fb7f4449db1c73797c6f770dd0db516b7f59e84d29bcb7ca)
             check_type(argname="argument cdk_deps", value=cdk_deps, expected_type=type_hints["cdk_deps"])
             check_type(argname="argument tsconfig_path", value=tsconfig_path, expected_type=type_hints["tsconfig_path"])
             check_type(argname="argument srcdir", value=srcdir, expected_type=type_hints["srcdir"])
@@ -3176,7 +3176,7 @@ class IntegrationTest(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__896d515448398badabb6ac60bb77271a69d883fd68a6fd4aba04fec56d1f9fba)
+            type_hints = cached_type_hints(_typecheckingstub__896d515448398badabb6ac60bb77271a69d883fd68a6fd4aba04fec56d1f9fba)
             check_type(argname="argument project", value=project, expected_type=type_hints["project"])
         options = IntegrationTestOptions(
             cdk_deps=cdk_deps,
@@ -3238,7 +3238,7 @@ class IntegrationTestAutoDiscover(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__2524d1be3bc0fd23e36d07c6cf5e35fb4c891afe1e39e8ef0e7fbf743d04b1b1)
+            type_hints = cached_type_hints(_typecheckingstub__2524d1be3bc0fd23e36d07c6cf5e35fb4c891afe1e39e8ef0e7fbf743d04b1b1)
             check_type(argname="argument project", value=project, expected_type=type_hints["project"])
         options = IntegrationTestAutoDiscoverOptions(
             integration_test_options=integration_test_options,
@@ -3286,7 +3286,7 @@ class IntegrationTestAutoDiscoverOptions(
         if isinstance(integration_test_options, dict):
             integration_test_options = IntegrationTestCommonOptions(**integration_test_options)
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__5a7f92ff942b86a39fbfe7f4f61ebc859c559811d2dc49399e33c9b96b05cb83)
+            type_hints = cached_type_hints(_typecheckingstub__5a7f92ff942b86a39fbfe7f4f61ebc859c559811d2dc49399e33c9b96b05cb83)
             check_type(argname="argument cdk_deps", value=cdk_deps, expected_type=type_hints["cdk_deps"])
             check_type(argname="argument tsconfig_path", value=tsconfig_path, expected_type=type_hints["tsconfig_path"])
             check_type(argname="argument testdir", value=testdir, expected_type=type_hints["testdir"])
@@ -3374,7 +3374,7 @@ class IntegrationTestCommonOptions:
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a3abb0b06507df05b82717ad4f73c7f94399fe50a7601669944249f797bf32cb)
+            type_hints = cached_type_hints(_typecheckingstub__a3abb0b06507df05b82717ad4f73c7f94399fe50a7601669944249f797bf32cb)
             check_type(argname="argument destroy_after_deploy", value=destroy_after_deploy, expected_type=type_hints["destroy_after_deploy"])
             check_type(argname="argument path_metadata", value=path_metadata, expected_type=type_hints["path_metadata"])
         self._values: typing.Dict[builtins.str, typing.Any] = {}
@@ -3463,7 +3463,7 @@ class IntegrationTestOptions(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__fc2ffba3eb8af6f7fe4ae948b55995ef1a7caefaf030bc1679c8adb632684097)
+            type_hints = cached_type_hints(_typecheckingstub__fc2ffba3eb8af6f7fe4ae948b55995ef1a7caefaf030bc1679c8adb632684097)
             check_type(argname="argument destroy_after_deploy", value=destroy_after_deploy, expected_type=type_hints["destroy_after_deploy"])
             check_type(argname="argument path_metadata", value=path_metadata, expected_type=type_hints["path_metadata"])
             check_type(argname="argument entrypoint", value=entrypoint, expected_type=type_hints["entrypoint"])
@@ -3609,7 +3609,7 @@ class LambdaAutoDiscover(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__9a939b70b44e1e6962ddb6138a0eed05936d05f635675143f6d55de78e0e567b)
+            type_hints = cached_type_hints(_typecheckingstub__9a939b70b44e1e6962ddb6138a0eed05936d05f635675143f6d55de78e0e567b)
             check_type(argname="argument project", value=project, expected_type=type_hints["project"])
         options = LambdaAutoDiscoverOptions(
             srcdir=srcdir,
@@ -3652,7 +3652,7 @@ class LambdaAutoDiscoverOptions(AutoDiscoverCommonOptions):
         if isinstance(lambda_options, dict):
             lambda_options = LambdaFunctionCommonOptions(**lambda_options)
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__b815aff75ea0514452500dbe16178f9307f903e185875511fff24818bde4da53)
+            type_hints = cached_type_hints(_typecheckingstub__b815aff75ea0514452500dbe16178f9307f903e185875511fff24818bde4da53)
             check_type(argname="argument cdk_deps", value=cdk_deps, expected_type=type_hints["cdk_deps"])
             check_type(argname="argument tsconfig_path", value=tsconfig_path, expected_type=type_hints["tsconfig_path"])
             check_type(argname="argument srcdir", value=srcdir, expected_type=type_hints["srcdir"])
@@ -3751,7 +3751,7 @@ class LambdaExtension(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a3aa05bbaebb4896d7485989ab7b3357b7d9b4b5e2d2ad2e75b2ac275e7a64c3)
+            type_hints = cached_type_hints(_typecheckingstub__a3aa05bbaebb4896d7485989ab7b3357b7d9b4b5e2d2ad2e75b2ac275e7a64c3)
             check_type(argname="argument project", value=project, expected_type=type_hints["project"])
         options = LambdaExtensionOptions(
             cdk_deps=cdk_deps,
@@ -3795,7 +3795,7 @@ class LambdaExtensionAutoDiscover(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__61370e3a667f30ecab4ece02004aafdf21a61b7200a7809f846cb20d3159177e)
+            type_hints = cached_type_hints(_typecheckingstub__61370e3a667f30ecab4ece02004aafdf21a61b7200a7809f846cb20d3159177e)
             check_type(argname="argument project", value=project, expected_type=type_hints["project"])
         options = LambdaExtensionAutoDiscoverOptions(
             srcdir=srcdir,
@@ -3838,7 +3838,7 @@ class LambdaExtensionAutoDiscoverOptions(AutoDiscoverCommonOptions):
         if isinstance(lambda_extension_options, dict):
             lambda_extension_options = LambdaExtensionCommonOptions(**lambda_extension_options)
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__f71adb306f80acbe9dd06b0323605bab57af4b6d0cc0c2df17c739c77e8f590d)
+            type_hints = cached_type_hints(_typecheckingstub__f71adb306f80acbe9dd06b0323605bab57af4b6d0cc0c2df17c739c77e8f590d)
             check_type(argname="argument cdk_deps", value=cdk_deps, expected_type=type_hints["cdk_deps"])
             check_type(argname="argument tsconfig_path", value=tsconfig_path, expected_type=type_hints["tsconfig_path"])
             check_type(argname="argument srcdir", value=srcdir, expected_type=type_hints["srcdir"])
@@ -3929,7 +3929,7 @@ class LambdaExtensionCommonOptions:
         if isinstance(bundling_options, dict):
             bundling_options = _javascript_eb5dbe11.BundlingOptions(**bundling_options)
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__e6d86be46d76c2cdb1bc60b3ee7e4f41a87b9ed5e4925eb38129d2ee72aac17b)
+            type_hints = cached_type_hints(_typecheckingstub__e6d86be46d76c2cdb1bc60b3ee7e4f41a87b9ed5e4925eb38129d2ee72aac17b)
             check_type(argname="argument bundling_options", value=bundling_options, expected_type=type_hints["bundling_options"])
             check_type(argname="argument compatible_runtimes", value=compatible_runtimes, expected_type=type_hints["compatible_runtimes"])
         self._values: typing.Dict[builtins.str, typing.Any] = {}
@@ -4015,7 +4015,7 @@ class LambdaExtensionOptions(LambdaExtensionCommonOptions):
         if isinstance(bundling_options, dict):
             bundling_options = _javascript_eb5dbe11.BundlingOptions(**bundling_options)
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__7b4487cc42803c1e1e0e28785046d2cf144d445e0fe75718b4ff3817b312993e)
+            type_hints = cached_type_hints(_typecheckingstub__7b4487cc42803c1e1e0e28785046d2cf144d445e0fe75718b4ff3817b312993e)
             check_type(argname="argument bundling_options", value=bundling_options, expected_type=type_hints["bundling_options"])
             check_type(argname="argument compatible_runtimes", value=compatible_runtimes, expected_type=type_hints["compatible_runtimes"])
             check_type(argname="argument cdk_deps", value=cdk_deps, expected_type=type_hints["cdk_deps"])
@@ -4202,7 +4202,7 @@ class LambdaFunction(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__9c96aae8d19a301890fb68506adb9e271f0a9ee57f80876f6f7f6f5635ffc74c)
+            type_hints = cached_type_hints(_typecheckingstub__9c96aae8d19a301890fb68506adb9e271f0a9ee57f80876f6f7f6f5635ffc74c)
             check_type(argname="argument project", value=project, expected_type=type_hints["project"])
         options = LambdaFunctionOptions(
             cdk_deps=cdk_deps,
@@ -4260,7 +4260,7 @@ class LambdaFunctionCommonOptions:
         if isinstance(bundling_options, dict):
             bundling_options = _javascript_eb5dbe11.BundlingOptions(**bundling_options)
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__5f294df9d6ea5796bcc7e805ef3688a7f80f3e360e5fab93a5431529b2f84720)
+            type_hints = cached_type_hints(_typecheckingstub__5f294df9d6ea5796bcc7e805ef3688a7f80f3e360e5fab93a5431529b2f84720)
             check_type(argname="argument aws_sdk_connection_reuse", value=aws_sdk_connection_reuse, expected_type=type_hints["aws_sdk_connection_reuse"])
             check_type(argname="argument bundling_options", value=bundling_options, expected_type=type_hints["bundling_options"])
             check_type(argname="argument edge_lambda", value=edge_lambda, expected_type=type_hints["edge_lambda"])
@@ -4429,7 +4429,7 @@ class LambdaFunctionOptions(LambdaFunctionCommonOptions):
         if isinstance(bundling_options, dict):
             bundling_options = _javascript_eb5dbe11.BundlingOptions(**bundling_options)
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__1a0313c5a9398ee8aa0fa87e7d7f45d577637921f59d25ae7aa9b80fe07e0af7)
+            type_hints = cached_type_hints(_typecheckingstub__1a0313c5a9398ee8aa0fa87e7d7f45d577637921f59d25ae7aa9b80fe07e0af7)
             check_type(argname="argument aws_sdk_connection_reuse", value=aws_sdk_connection_reuse, expected_type=type_hints["aws_sdk_connection_reuse"])
             check_type(argname="argument bundling_options", value=bundling_options, expected_type=type_hints["bundling_options"])
             check_type(argname="argument edge_lambda", value=edge_lambda, expected_type=type_hints["edge_lambda"])
@@ -4638,7 +4638,7 @@ class LambdaRuntime(metaclass=jsii.JSIIMeta, jsii_type="projen.awscdk.LambdaRunt
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__f53a56a6d91683d16b92664d772de7a4cc3882b41178b1860e87d7936fb0b533)
+            type_hints = cached_type_hints(_typecheckingstub__f53a56a6d91683d16b92664d772de7a4cc3882b41178b1860e87d7936fb0b533)
             check_type(argname="argument function_runtime", value=function_runtime, expected_type=type_hints["function_runtime"])
             check_type(argname="argument esbuild_target", value=esbuild_target, expected_type=type_hints["esbuild_target"])
         options = LambdaRuntimeOptions(default_externals=default_externals)
@@ -4774,7 +4774,7 @@ class LambdaRuntimeOptions:
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__529408614d4ab517d65e565b90aadbe260021c7e52940745c9be92fca1492a84)
+            type_hints = cached_type_hints(_typecheckingstub__529408614d4ab517d65e565b90aadbe260021c7e52940745c9be92fca1492a84)
             check_type(argname="argument default_externals", value=default_externals, expected_type=type_hints["default_externals"])
         self._values: typing.Dict[builtins.str, typing.Any] = {}
         if default_externals is not None:
@@ -4832,7 +4832,7 @@ class SingletonLambdaAutoDiscover(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__f3b705fcc19ee5828a7f0424a9d228b6c638bbe5cd8e854eedf107f071d1a0c7)
+            type_hints = cached_type_hints(_typecheckingstub__f3b705fcc19ee5828a7f0424a9d228b6c638bbe5cd8e854eedf107f071d1a0c7)
             check_type(argname="argument project", value=project, expected_type=type_hints["project"])
         options = SingletonLambdaAutoDiscoverOptions(
             srcdir=srcdir,
@@ -4875,7 +4875,7 @@ class SingletonLambdaAutoDiscoverOptions(AutoDiscoverCommonOptions):
         if isinstance(lambda_options, dict):
             lambda_options = LambdaFunctionCommonOptions(**lambda_options)
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__2edc3750fb9f39e12bb2f0d0f2a245bc0cb76db20a599bdde61d7358a4fbbd6e)
+            type_hints = cached_type_hints(_typecheckingstub__2edc3750fb9f39e12bb2f0d0f2a245bc0cb76db20a599bdde61d7358a4fbbd6e)
             check_type(argname="argument cdk_deps", value=cdk_deps, expected_type=type_hints["cdk_deps"])
             check_type(argname="argument tsconfig_path", value=tsconfig_path, expected_type=type_hints["tsconfig_path"])
             check_type(argname="argument srcdir", value=srcdir, expected_type=type_hints["srcdir"])
@@ -5006,7 +5006,7 @@ class AutoDiscoverOptions(
         if isinstance(integration_test_options, dict):
             integration_test_options = IntegrationTestCommonOptions(**integration_test_options)
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__70a8169edd5eb7d3a8797f7e70d2c732d0ba6af4dfae6647695b912078eb46e2)
+            type_hints = cached_type_hints(_typecheckingstub__70a8169edd5eb7d3a8797f7e70d2c732d0ba6af4dfae6647695b912078eb46e2)
             check_type(argname="argument cdk_deps", value=cdk_deps, expected_type=type_hints["cdk_deps"])
             check_type(argname="argument tsconfig_path", value=tsconfig_path, expected_type=type_hints["tsconfig_path"])
             check_type(argname="argument srcdir", value=srcdir, expected_type=type_hints["srcdir"])
@@ -5803,7 +5803,7 @@ class AwsCdkConstructLibraryOptions(
         if isinstance(lambda_options, dict):
             lambda_options = LambdaFunctionCommonOptions(**lambda_options)
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__afd0fb486a35fef51bf540cdcd69366795c03710cee73c0b5a81431a8ab95fb2)
+            type_hints = cached_type_hints(_typecheckingstub__afd0fb486a35fef51bf540cdcd69366795c03710cee73c0b5a81431a8ab95fb2)
             check_type(argname="argument name", value=name, expected_type=type_hints["name"])
             check_type(argname="argument commit_generated", value=commit_generated, expected_type=type_hints["commit_generated"])
             check_type(argname="argument git_ignore_options", value=git_ignore_options, expected_type=type_hints["git_ignore_options"])
@@ -8772,7 +8772,7 @@ class AwsCdkJavaAppOptions(
         if isinstance(projenrc_java_options, dict):
             projenrc_java_options = _java_21ed9a42.ProjenrcOptions(**projenrc_java_options)
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__106ed1d5e4c0173b124a04a202f17277b84ed8b1cd40b215afcfe08508213d99)
+            type_hints = cached_type_hints(_typecheckingstub__106ed1d5e4c0173b124a04a202f17277b84ed8b1cd40b215afcfe08508213d99)
             check_type(argname="argument name", value=name, expected_type=type_hints["name"])
             check_type(argname="argument commit_generated", value=commit_generated, expected_type=type_hints["commit_generated"])
             check_type(argname="argument git_ignore_options", value=git_ignore_options, expected_type=type_hints["git_ignore_options"])
@@ -9952,7 +9952,7 @@ class AwsCdkPythonAppOptions(
         if isinstance(venv_options, dict):
             venv_options = _python_971b7d9f.VenvOptions(**venv_options)
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__e27f38787d25060d19d8209d5a55fd2b531387f6b87a60a7f639bbb7f11b0af7)
+            type_hints = cached_type_hints(_typecheckingstub__e27f38787d25060d19d8209d5a55fd2b531387f6b87a60a7f639bbb7f11b0af7)
             check_type(argname="argument name", value=name, expected_type=type_hints["name"])
             check_type(argname="argument commit_generated", value=commit_generated, expected_type=type_hints["commit_generated"])
             check_type(argname="argument git_ignore_options", value=git_ignore_options, expected_type=type_hints["git_ignore_options"])
@@ -11605,7 +11605,7 @@ class AwsCdkTypeScriptAppOptions(
         if isinstance(lambda_options, dict):
             lambda_options = LambdaFunctionCommonOptions(**lambda_options)
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__d4516e51d77bf8bd5807e45e842cd19fa87c9a6d72e4f7d0caead33d3286932d)
+            type_hints = cached_type_hints(_typecheckingstub__d4516e51d77bf8bd5807e45e842cd19fa87c9a6d72e4f7d0caead33d3286932d)
             check_type(argname="argument name", value=name, expected_type=type_hints["name"])
             check_type(argname="argument commit_generated", value=commit_generated, expected_type=type_hints["commit_generated"])
             check_type(argname="argument git_ignore_options", value=git_ignore_options, expected_type=type_hints["git_ignore_options"])

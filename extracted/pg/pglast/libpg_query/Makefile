@@ -7,12 +7,12 @@ PGDIR = $(root_dir)/tmp/postgres
 PGDIRBZ2 = $(root_dir)/tmp/postgres.tar.bz2
 PGDIRZIP = $(root_dir)/tmp/postgres.zip
 
-PG_VERSION = 17.7
+PG_VERSION = 18.4
 PG_VERSION_MAJOR = $(call word-dot,$(PG_VERSION),1)
-PG_VERSION_NUM = 170007
+PG_VERSION_NUM = 180004
 PROTOC_VERSION = 25.1
 
-VERSION = 6.2.2
+VERSION = 18.0.0
 VERSION_MAJOR = $(call word-dot,$(VERSION),1)
 VERSION_MINOR = $(call word-dot,$(VERSION),2)
 VERSION_PATCH = $(call word-dot,$(VERSION),3)
@@ -69,7 +69,7 @@ CLEANOBJS = $(OBJ_FILES)
 CLEANFILES = $(PGDIRBZ2) $(PGDIRZIP)
 
 AR ?= ar
-AR := $(AR) rs
+ARFLAGS ?= rs
 INSTALL = install
 LN_S = ln -s
 RM = rm -f
@@ -129,6 +129,7 @@ $(PGDIR):
 	cd $(PGDIR); patch -p1 < $(root_dir)/patches/09_allow_param_junk.patch
 	cd $(PGDIR); patch -p1 < $(root_dir)/patches/10_avoid_namespace_hashtab_impl_gen.patch
 	cd $(PGDIR); patch -p1 < $(root_dir)/patches/11_ifndef_namedatalen.patch
+	cd $(PGDIR); patch -p1 < $(root_dir)/patches/12_remove_acl_check.patch
 	cd $(PGDIR); ./configure $(PG_CONFIGURE_FLAGS)
 	cd $(PGDIR); make -C src/pl/plpgsql/src pl_gram.h plerrcodes.h pl_reserved_kwlist_d.h pl_unreserved_kwlist_d.h
 	cd $(PGDIR); make -C src/port pg_config_paths.h
@@ -188,7 +189,7 @@ extract_source: $(PGDIR)
 	@$(CXX) $(CXXFLAGS) -o $@ -c $<
 
 $(ARLIB): $(OBJ_FILES) Makefile
-	@$(AR) $@ $(OBJ_FILES)
+	@$(AR) $(ARFLAGS) $@ $(OBJ_FILES)
 
 $(SOLIB): $(OBJ_FILES) Makefile
 	@$(CC) $(CFLAGS) -shared -Wl,$(SOFLAG),$(SONAME) $(LDFLAGS) -o $@ $(OBJ_FILES) $(LIBS)

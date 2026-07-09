@@ -46,7 +46,7 @@ from raindrop import analytics as _analytics
 from raindrop._state import ClientState
 from raindrop.interaction import Interaction
 from raindrop.local_debugger import UNSET
-from raindrop.models import Attachment
+from raindrop.models import Attachment, PartialTrackAIEvent
 
 
 class Raindrop:
@@ -133,6 +133,16 @@ class Raindrop:
         """The validated project slug this client routes to (None = default)."""
         return self._state.project_id
 
+    @property
+    def write_key(self) -> str | None:
+        """This client's write (API) key, or None if it was not configured.
+
+        A public read-only accessor for the key backing this instance's
+        pipeline, so callers (e.g. integration wrappers comparing whether two
+        clients are equivalent) do not have to reach into ``_state``.
+        """
+        return self._state.write_key
+
     def __repr__(self) -> str:  # pragma: no cover - debugging nicety
         return (
             f"Raindrop(project_id={self._state.project_id!r}, "
@@ -216,6 +226,18 @@ class Raindrop:
         self, user_id: str, traits: Dict[str, Union[str, int, bool, float]]
     ) -> None:
         return _analytics.identify(user_id, traits, state=self._state)
+
+    def track_ai_partial(self, event: PartialTrackAIEvent) -> None:
+        """Merge a partial ``track_ai`` patch into THIS client's buffers.
+
+        For integration wrappers that stream incremental event updates: the
+        patch merges into this instance's partial-event tables and flushes on
+        ``is_pending=False`` (or after the inactivity timeout), on the
+        instance's own connections. The module-level
+        ``raindrop.analytics._track_ai_partial`` is the default-client
+        equivalent.
+        """
+        return _analytics._track_ai_partial(event, state=self._state)
 
     # -- interactions --------------------------------------------------------- #
 

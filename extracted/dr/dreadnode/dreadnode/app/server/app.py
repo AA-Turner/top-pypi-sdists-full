@@ -3342,6 +3342,23 @@ async def create_session(request: SessionCreateRequest) -> SessionInfo:
     return session.to_info()
 
 
+@app.get("/api/sessions/status")
+async def list_session_statuses() -> JSONResponse:
+    """Return runtime-owned live state for currently loaded sessions."""
+    sessions: dict[str, dict[str, t.Any]] = {}
+    for session in get_state().list_sessions():
+        active_turn_id = session.active_turn_id
+        sessions[session.session_id] = {
+            "session_id": session.session_id,
+            "active_turn_id": active_turn_id,
+            "is_busy": session.is_busy,
+            "queue_depth": session.turn_coordinator.queue_depth,
+            "turn_phase": session.prompt_registry.turn_phase(active_turn_id),
+            "pending_prompt": session.prompt_registry.pending_prompt is not None,
+        }
+    return JSONResponse(content={"sessions": sessions})
+
+
 @app.post("/api/sessions/{session_id}/restore", response_model=SessionRestoreResponse)
 async def restore_session(
     session_id: str,
@@ -3591,6 +3608,7 @@ async def runtime_event_stream_endpoint(websocket: WebSocket) -> None:
     await serve_runtime_event_stream(
         websocket,
         event_bus=get_state().event_bus,
+        consume_ticket=get_state().ws_ticket_store.consume,
     )
 
 

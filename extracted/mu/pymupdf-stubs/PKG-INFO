@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pymupdf-stubs
-Version: 1.27.2.2.post2
+Version: 1.28.0
 Summary: Type stubs for PyMuPDF (fitz), automatically generated
 Project-URL: Homepage, https://github.com/elohmeier/pymupdf-stubs
 Project-URL: Repository, https://github.com/elohmeier/pymupdf-stubs
@@ -25,7 +25,7 @@ Classifier: Topic :: Software Development :: Libraries :: Python Modules
 Classifier: Topic :: Utilities
 Classifier: Typing :: Stubs Only
 Requires-Python: >=3.12
-Requires-Dist: pymupdf<1.28.0,>=1.27.0
+Requires-Dist: pymupdf<1.29.0,>=1.27.0
 Description-Content-Type: text/markdown
 
 # pymupdf-stubs

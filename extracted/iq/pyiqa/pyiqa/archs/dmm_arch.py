@@ -20,6 +20,11 @@ from collections import OrderedDict
 import torch.nn.functional as F
 from pyiqa.utils.registry import ARCH_REGISTRY
 
+try:
+    from torchvision.models import VGG16_Weights
+except ImportError:
+    VGG16_Weights = None
+
 #----------------------- VGGNet-----------------------------------
 names = {'vgg16': ['conv1_1', 'relu1_1', 'conv1_2', 'relu1_2', 'pool1',
                    'conv2_1', 'relu2_1', 'conv2_2', 'relu2_2', 'pool2',
@@ -32,12 +37,24 @@ names = {'vgg16': ['conv1_1', 'relu1_1', 'conv1_2', 'relu1_2', 'pool1',
          }
 
 class FeaturesExtractor(nn.Module):
+    """VGG16 feature extractor for DMM.
+
+    Args:
+        target_features (tuple[str, ...]): VGG feature names to collect.
+        use_input_norm (bool): Whether to apply ImageNet normalization.
+        requires_grad (bool): Whether extracted backbone parameters are trainable.
+        replace_pooling (bool): Whether to replace max-pooling with L2 pooling.
+    """
+
     def __init__(self, target_features=('relu3_3','relu4_3'),  use_input_norm=False, requires_grad=False, replace_pooling=True):
         super(FeaturesExtractor, self).__init__()
         self.use_input_norm = use_input_norm
         self.target_features = target_features
 
-        model = torchvision.models.vgg16(pretrained=True)
+        if VGG16_Weights is not None:
+            model = torchvision.models.vgg16(weights=VGG16_Weights.IMAGENET1K_V1)
+        else:
+            model = torchvision.models.vgg16(pretrained=True)
         names_key = 'vgg16'
 
         if replace_pooling:
@@ -58,6 +75,7 @@ class FeaturesExtractor(nn.Module):
             self.features.eval()
 
     def forward(self, x):
+        """Extract configured feature maps from input image tensor."""
         if self.use_input_norm:
             x = (x - self.mean) / self.std
 
@@ -96,6 +114,7 @@ class L2Pool2d(torch.nn.Module):
         self.kernel = None
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
+        """Apply L2 pooling using a Hann filter kernel."""
         if self.kernel is None:
             C = x.size(1)
             self.kernel = self._hann_filter(self.kernel_size).repeat((C, 1, 1, 1)).to(x)
@@ -121,6 +140,17 @@ class L2Pool2d(torch.nn.Module):
 #----------------------- Main Class-----------------------------------
 @ARCH_REGISTRY.register()
 class DMM(nn.Module):
+    """DMM full-reference IQA model.
+
+    Args:
+        reduce_dim (int): Reserved compatibility argument.
+        kernel_size (int): Reserved compatibility argument.
+        features_to_compute (tuple[str, ...]): Feature names used for DMM.
+        criterion (torch.nn.Module): Reserved compatibility argument.
+        use_dropout (bool): Reserved compatibility argument.
+        **kwargs: Reserved compatibility arguments.
+    """
+
     def __init__(self, reduce_dim=256, kernel_size=5, features_to_compute=('relu3_3','relu4_3'), criterion=torch.nn.CosineSimilarity(), use_dropout=True, **kwargs):
         super().__init__()
         self.criterion = criterion
@@ -130,6 +160,17 @@ class DMM(nn.Module):
         self.unfold = nn.Unfold(kernel_size=self.patchsize, stride=self.stride )
 
     def forward(self, Dist, Ref, as_loss=False):
+        """Compute DMM score or training loss.
+
+        Args:
+            Dist (torch.Tensor): Distorted image tensor ``(N, 3, H, W)``.
+            Ref (torch.Tensor): Reference image tensor ``(N, 3, H, W)``.
+            as_loss (bool): If ``True``, return mean score for optimization.
+
+        Returns:
+            torch.Tensor: Per-sample scores when ``as_loss=False``, otherwise a
+            scalar loss tensor.
+        """
         # preprocess image
         Ref = self.prepare_image_adt(Ref)
         Dist = self.prepare_image_adt(Dist)
@@ -181,6 +222,7 @@ class DMM(nn.Module):
             return dist
 
     def prepare_image_adt(self, tensor_image):
+        """Adaptively resize large images for stable patch-based scoring."""
         b, c, h, w = tensor_image.shape
         msize = min(w, h)
         if msize > 128:

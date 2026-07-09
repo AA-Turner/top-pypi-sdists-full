@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: llama-index-llms-google-genai
-Version: 0.9.5
+Version: 0.9.6
 Summary: llama-index llms google genai integration
 Author-email: Your Name <you@example.com>
 License-Expression: MIT

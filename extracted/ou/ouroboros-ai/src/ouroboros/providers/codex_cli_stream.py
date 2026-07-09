@@ -15,6 +15,7 @@ import asyncio
 import codecs
 from collections.abc import AsyncIterator, Awaitable, Callable
 import contextlib
+import json
 import os
 import signal
 from typing import Any, Protocol
@@ -126,6 +127,33 @@ async def collect_stream_lines(
             )
         lines.append(line)
     return lines
+
+
+def parse_json_event(line: str) -> dict[str, Any] | None:
+    """Parse a JSONL event line into a dict, or ``None`` for non-JSON/non-dict.
+
+    Shared by the orchestrator CLI runtimes (codex, opencode, pi, gjc) whose
+    stdout is newline-delimited JSON.  Callers that must *raise* on malformed
+    output (e.g. gjc) wrap this at the call site:
+    ``if parse_json_event(line) is None: raise ...``.
+    """
+    try:
+        event = json.loads(line)
+    except json.JSONDecodeError:
+        return None
+    return event if isinstance(event, dict) else None
+
+
+def malformed_event_message(line: str, *, display_name: str) -> str:
+    """Build a bounded diagnostic message for a malformed JSONL event line.
+
+    Truncates the offending line to a 240-char preview so a pathological
+    stdout line cannot bloat logs or error payloads.
+    """
+    preview = line.strip()
+    if len(preview) > 240:
+        preview = f"{preview[:237]}..."
+    return f"Malformed {display_name} JSON event: {preview}"
 
 
 async def iter_runtime_stream_lines(
@@ -389,10 +417,57 @@ async def terminate_process(
         await asyncio.wait_for(process.wait(), timeout=shutdown_timeout)
 
 
+class RuntimeStreamMixin:
+    """Shared stream/process helpers for CLI-backed completion adapters."""
+
+    _provider_name: str
+    _process_shutdown_timeout_seconds: float
+
+    def _stream_line_reader(self) -> Callable[..., AsyncIterator[str]]:
+        return iter_stream_lines
+
+    def _stream_line_collector(self) -> Callable[..., Awaitable[list[str]]]:
+        return collect_stream_lines
+
+    def _process_terminator(self) -> Callable[..., Awaitable[None]]:
+        return terminate_process
+
+    def _stream_provider_name(self) -> str:
+        return self._provider_name
+
+    async def _iter_stream_lines(
+        self,
+        stream: asyncio.StreamReader | None,
+        *,
+        chunk_size: int = 16384,
+    ) -> AsyncIterator[str]:
+        async for line in self._stream_line_reader()(
+            stream,
+            chunk_size=chunk_size,
+            provider=self._stream_provider_name(),
+        ):
+            yield line
+
+    async def _collect_stream_lines(
+        self,
+        stream: asyncio.StreamReader | None,
+    ) -> list[str]:
+        return await self._stream_line_collector()(stream, provider=self._stream_provider_name())
+
+    async def _terminate_process(self, process: Any) -> None:
+        await self._process_terminator()(
+            process,
+            shutdown_timeout=self._process_shutdown_timeout_seconds,
+        )
+
+
 __all__ = [
+    "RuntimeStreamMixin",
     "collect_stream_lines",
     "iter_runtime_stream_lines",
     "iter_stream_lines",
+    "malformed_event_message",
+    "parse_json_event",
     "terminate_process",
     "terminate_runtime_process",
 ]

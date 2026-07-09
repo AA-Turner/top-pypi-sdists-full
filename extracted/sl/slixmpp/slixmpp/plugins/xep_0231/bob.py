@@ -58,13 +58,13 @@ class XEP_0231(BasePlugin):
         self.api.register(self._del_bob, 'del_bob', default=True)
 
     def plugin_end(self):
-        self.xmpp['xep_0030'].del_feature(feature='urn:xmpp:bob')
+        self.xmpp.plugin['xep_0030'].del_feature(feature='urn:xmpp:bob')
         self.xmpp.remove_handler('Bits of Binary - Iq')
         self.xmpp.remove_handler('Bits of Binary - Message')
         self.xmpp.remove_handler('Bits of Binary - Presence')
 
     def session_bind(self, jid):
-        self.xmpp['xep_0030'].add_feature('urn:xmpp:bob')
+        self.xmpp.plugin['xep_0030'].add_feature('urn:xmpp:bob')
 
     async def set_bob(self, data: bytes, mtype: str, cid: str | None = None,
                       max_age: int | None = None) -> str:

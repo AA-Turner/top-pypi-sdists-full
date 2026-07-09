@@ -70,7 +70,7 @@ class XEP_0079(BasePlugin):
             else:
                 jid = self.xmpp.boundjid.host
 
-        return self.xmpp['xep_0030'].get_info(
+        return self.xmpp.plugin['xep_0030'].get_info(
                 jid=jid,
                 node='http://jabber.org/protocol/amp',
                 **iqargs)

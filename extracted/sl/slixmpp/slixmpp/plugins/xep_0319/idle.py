@@ -37,10 +37,10 @@ class XEP_0319(BasePlugin):
         self.xmpp.add_filter('out', self._stamp_idle_presence)
 
     def session_bind(self, jid):
-        self.xmpp['xep_0030'].add_feature('urn:xmpp:idle:1')
+        self.xmpp.plugin['xep_0030'].add_feature('urn:xmpp:idle:1')
 
     def plugin_end(self):
-        self.xmpp['xep_0030'].del_feature(feature='urn:xmpp:idle:1')
+        self.xmpp.plugin['xep_0030'].del_feature(feature='urn:xmpp:idle:1')
         self.xmpp.del_filter('out', self._stamp_idle_presence)
         self.xmpp.remove_handler('Idle Presence')
 
@@ -58,7 +58,7 @@ class XEP_0319(BasePlugin):
         else:
             seconds = datetime.now(timezone) - since
         await self.api['set_idle'](jid, None, None, since)
-        await self.xmpp['xep_0012'].set_last_activity(jid=jid, seconds=seconds)
+        await self.xmpp.plugin['xep_0012'].set_last_activity(jid=jid, seconds=seconds)
 
     async def active(self, jid: JID | None = None):
         """Reset the idle timer.
@@ -67,7 +67,7 @@ class XEP_0319(BasePlugin):
             This function is now a coroutine.
         """
         await self.api['set_idle'](jid, None, None, None)
-        await self.xmpp['xep_0012'].del_last_activity(jid)
+        await self.xmpp.plugin['xep_0012'].del_last_activity(jid)
 
     def _set_idle(self, jid, node, ifrom, data):
         self._idle_stamps[jid] = data

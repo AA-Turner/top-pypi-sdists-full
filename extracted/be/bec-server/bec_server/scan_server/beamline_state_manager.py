@@ -4,6 +4,7 @@ import traceback
 
 from bec_lib import bl_states, messages
 from bec_lib.alarm_handler import Alarms
+from bec_lib.bl_state_manager import _state_class_for_state_type
 from bec_lib.devicemanager import DeviceManagerBase
 from bec_lib.endpoints import MessageEndpoints
 from bec_lib.messages import ErrorInfo
@@ -75,9 +76,7 @@ class BeamlineStateManager:
                     self.connector.raise_alarm(severity=Alarms.WARNING, info=info)
 
         for state_name, state in added_states.items():
-            state_class = getattr(bl_states, state.state_type)
-            if not issubclass(state_class, bl_states.BeamlineState):
-                raise ValueError(f"State type {state.state_type} not found in beamline states.")
+            state_class = _state_class_for_state_type(state.state_type)
             model_cls = state_class.CONFIG_CLASS
             model_instance = model_cls(**state.parameters)
             state_instance = state_class(

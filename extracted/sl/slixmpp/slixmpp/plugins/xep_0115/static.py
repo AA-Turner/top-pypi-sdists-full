@@ -27,8 +27,8 @@ class StaticCaps(object):
             static -- The default static XEP-0030 handler object.
         """
         self.xmpp = xmpp
-        self.disco = self.xmpp['xep_0030']
-        self.caps = self.xmpp['xep_0115']
+        self.disco = self.xmpp.plugin['xep_0030']
+        self.caps = self.xmpp.plugin['xep_0115']
         self.static = static
         self.jid_vers = {}
 

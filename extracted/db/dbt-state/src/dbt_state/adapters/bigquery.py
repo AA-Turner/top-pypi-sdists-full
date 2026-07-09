@@ -102,6 +102,10 @@ class BigQueryAdapterExtension(BaseAdapterExtension):
             fqn = self._to_fqn(table)
             bq_table = self._get_table(fqn)
 
+            if bq_table and bq_table.table_type == "EXTERNAL":
+                epochs[self._sql(fqn)] = None
+                continue
+
             modified_ts = (
                 int(bq_table.modified.timestamp() * 1000)
                 if bq_table and bq_table.modified

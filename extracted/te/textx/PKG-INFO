@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: textX
-Version: 4.3.0
+Version: 4.4.0
 Summary: Meta-language for DSL implementation inspired by Xtext
 Keywords: parser,meta-language,meta-model,language,DSL
 Author-email: "Igor R. Dejanović" <igor.dejanovic@gmail.com>, Pierre Bayerl <noemail@nowhere.com>

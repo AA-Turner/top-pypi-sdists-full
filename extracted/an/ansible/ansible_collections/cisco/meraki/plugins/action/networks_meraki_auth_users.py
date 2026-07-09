@@ -240,7 +240,9 @@ class NetworksMerakiAuthUsers(object):
             ("accountType", "accountType"),
             ("emailPasswordToUser", "emailPasswordToUser"),
             ("isAdmin", "isAdmin"),
-            ("authorizations", "authorizations"), ("merakiAuthUserId", "merakiAuthUserId"),
+            ("authorizations", "authorizations"),
+            ("networkId", "networkId"),
+            ("merakiAuthUserId", "merakiAuthUserId"),
             ("delete", "delete"),
         ]
         # Method 1. Params present in request (Ansible) obj are the same as the current (DNAC) params

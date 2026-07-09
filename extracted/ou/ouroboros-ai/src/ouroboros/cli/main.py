@@ -24,10 +24,12 @@ from ouroboros import __version__
 from ouroboros.cli.commands import (
     auto,
     cancel,
+    cleanup,
     codex,
     config,
     detect,
     dispatch,
+    harness,
     init,
     job,
     mcp,
@@ -36,6 +38,7 @@ from ouroboros.cli.commands import (
     qa,
     resume,
     run,
+    seed,
     setup,
     status,
     tui,
@@ -93,11 +96,17 @@ app.command(
     ),
 )(auto.auto_command)
 app.add_typer(init.app, name="init")
+app.add_typer(init.app, name="interview")
+app.command(name="seed", help="Generate a Seed YAML specification from an interview.")(
+    seed.seed_command
+)
 app.add_typer(run.app, name="run")
 app.add_typer(job.app, name="job")
+app.add_typer(harness.app, name="harness")
 app.add_typer(config.app, name="config")
 app.add_typer(status.app, name="status")
 app.add_typer(cancel.app, name="cancel")
+app.add_typer(cleanup.app, name="cleanup")
 app.add_typer(codex.app, name="codex")
 app.add_typer(mcp.app, name="mcp")
 app.add_typer(setup.app, name="setup")

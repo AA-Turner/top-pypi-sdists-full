@@ -37,8 +37,10 @@ from collections.abc import Mapping
 from dataclasses import dataclass, field
 from functools import lru_cache
 import json
+from pathlib import Path
 import re
 from typing import Any
+from uuid import uuid4
 
 from jsonschema import Draft202012Validator
 import structlog
@@ -49,6 +51,7 @@ from ouroboros.backends.capabilities import (
 )
 from ouroboros.core.seed_contract_prompt import render_auto_recursion_guard
 from ouroboros.core.types import Result
+from ouroboros.mcp.tools.assignment import AssignmentMessage
 from ouroboros.mcp.types import (
     ContentType,
     MCPContentItem,
@@ -150,6 +153,21 @@ def _payload_persona(payload: Mapping[str, Any]) -> str:
     if match:
         return match.group(1)
     return "unknown"
+
+
+def _payload_lane_id(payload: Mapping[str, Any]) -> str:
+    """Return the ``context.lane_id`` a fan-out payload correlates by, or ``""``.
+
+    Advisory lanes correlate by ``context.lane_id`` (their persona is absent on
+    some lanes, e.g. ``code_context`` / ``web_context``), so re-entry matches a
+    submitted result to its originating payload by this lane id.
+    """
+    context = payload.get("context")
+    if isinstance(context, Mapping):
+        lane_id = context.get("lane_id")
+        if lane_id:
+            return str(lane_id)
+    return ""
 
 
 def _response_text_json_payload(result: MCPToolResult) -> dict[str, Any] | None:
@@ -776,6 +794,11 @@ def should_dispatch_via_plugin(
     truth. New code should prefer :func:`resolve_subagent_dispatch` to also
     distinguish ``HOST_DRIVEN`` from ``SEQUENTIAL``.
 
+    The envelope path is specifically the host-bridge/passive-plugin mode: a
+    host plugin spawns the child out-of-band. Leader-driven worker-pool runtimes
+    do not emit a passive plugin envelope; they are routed through
+    ``HOST_DRIVEN`` by the resolver instead.
+
     Args:
         runtime_backend: Resolved agent runtime backend name.
         opencode_mode: Configured ``orchestrator.opencode_mode`` value.
@@ -1068,6 +1091,10 @@ def build_qa_subagent(
     if seed_content:
         seed_section = f"\n## Seed Specification\n```yaml\n{seed_content}\n```\n"
 
+    from ouroboros.evaluation.adversarial import render_adversarial_section
+
+    adversarial_section = "\n" + render_adversarial_section(artifact_type)
+
     prompt = f"""{system_prompt}
 
 ---
@@ -1096,7 +1123,7 @@ as a JSON object with these exact fields:
 ```
 {artifact}
 ```
-{reference_section}{history_section}{seed_section}
+{reference_section}{history_section}{seed_section}{adversarial_section}
 Return ONLY the JSON verdict object. No other text."""
 
     context: dict[str, Any] = {
@@ -1401,6 +1428,78 @@ forwarding anything back to ouroboros_interview."""
     return payloads
 
 
+def build_ambiguity_dimension_fanout(
+    *,
+    session_id: str,
+    context_text: str,
+    is_brownfield: bool = False,
+    additional_context: str = "",
+) -> tuple[list[SubagentPayload], str]:
+    """Build the per-dimension ambiguity scoring fan-out (K1, MCP path).
+
+    Splits the single combined ambiguity-scoring call into one focused subagent
+    per dimension (scope/constraints/outputs[/brownfield context]). Each payload
+    carries ``context.dimension`` so results correlate back deterministically;
+    the returned ``correlation_key`` (``"context.dimension"``) is what the host
+    submits results under. Aggregation of the per-dimension clarity scores is
+    the caller's job and reuses the SAME weighted formula as the combined path
+    (``AmbiguityScorer._calculate_overall_score``) — this builder only packages
+    the requests.
+
+    Returns:
+        ``(payloads, correlation_key)`` — payloads in dimension order.
+    """
+    from ouroboros.bigbang.ambiguity import dimension_specs
+
+    if not session_id:
+        raise ValueError("session_id must not be empty")
+    if not context_text:
+        raise ValueError("context_text must not be empty")
+
+    additional_section = ""
+    if additional_context:
+        additional_section = (
+            "\n## Additional context (intentional deferrals — do not penalise)\n"
+            f"{additional_context}\n"
+        )
+
+    requests: list[dict[str, Any]] = []
+    for spec in dimension_specs(is_brownfield=is_brownfield):
+        prompt = f"""## Task
+You are an Ouroboros ambiguity scorer. Score ONE dimension of the requirements.
+
+## Dimension to score
+{spec.rubric}
+
+Score from 0.0 (unclear) to 1.0 (perfectly clear). Scores above 0.8 require very
+specific requirements. Deferred / decide-later items are intentional and must
+NOT reduce the clarity score.
+
+## Requirements conversation
+---
+{context_text}
+---
+{additional_section}
+## Output
+Return ONLY valid JSON, no other text:
+{{"clarity_score": 0.0, "justification": "string"}}"""
+        requests.append(
+            {
+                "tool_name": "ouroboros_interview",
+                "title": f"Ambiguity: {spec.name}",
+                "prompt": prompt,
+                "agent": "general",
+                "context": {
+                    "session_id": session_id,
+                    "dimension": spec.key,
+                    "weight": spec.weight,
+                },
+            }
+        )
+
+    return build_fanout_subagents(requests, "context.dimension"), "context.dimension"
+
+
 def build_generate_seed_subagent(
     *,
     session_id: str,
@@ -1549,48 +1648,91 @@ def build_execute_subagent(
     cwd: str | None = None,
     max_iterations: int = 10,
     skip_qa: bool = False,
+    auto_evaluate: bool = True,
     model_tier: str | None = "medium",
     max_parallel_workers: int | None = None,
 ) -> SubagentPayload:
-    """Build subagent payload for seed execution."""
-    seed_path_note = ""
+    """Build subagent payload for seed execution.
+
+    The child receives a typed ``AssignmentMessage`` (TASK / DELIVERABLE / SCOPE
+    / VERIFY) so the work order is a self-contained contract rather than free
+    prose: SCOPE carries the session, limits, working dir and worker cap; VERIFY
+    states the evidence that gates completion (acceptance criteria + QA). The
+    seed specification and recursion guard travel in the assignment body.
+    """
+    scope_lines: list[str] = [
+        f"Session ID: {session_id or 'new'}",
+        f"Max Iterations: {max_iterations}",
+    ]
     if seed_path:
-        seed_path_note = f"\n## Seed File Path\n{seed_path}\n"
-
-    cwd_note = ""
+        scope_lines.append(f"Seed File Path: {seed_path}")
     if cwd:
-        cwd_note = f"\n## Working Directory\n{cwd}\n"
-
-    qa_note = ""
-    if skip_qa:
-        qa_note = "\n## QA\nSkip QA after execution.\n"
-    else:
-        qa_note = "\n## QA\nRun QA evaluation after execution completes.\n"
-
-    workers_note = ""
+        scope_lines.append(f"Working Directory: {cwd}")
     if max_parallel_workers is not None:
-        workers_note = f"\n## Max Parallel Workers\n{max_parallel_workers}\n"
+        scope_lines.append(f"Max Parallel Workers: {max_parallel_workers}")
 
-    prompt = f"""## Your Task
+    if skip_qa:
+        qa_verify = "QA is skipped for this run — still confirm every acceptance criterion is met."
+    else:
+        qa_verify = "Run QA evaluation after execution completes and confirm it passes."
+    if auto_evaluate:
+        formal_evaluation_verify = (
+            "After successful execution, run formal 3-stage evaluation without host "
+            "involvement: call ouroboros_start_evaluate with the session_id, execution "
+            "artifact, seed_content, and working directory; poll the returned job with "
+            "ouroboros_job_wait/status and include the final APPROVED/not-approved "
+            "verdict in your report. If the evaluation job fails or times out, keep "
+            "the run success intact and report the manual retry command "
+            "`ooo evaluate <session_id>`."
+        )
+    else:
+        formal_evaluation_verify = (
+            "Formal evaluation auto-chain is disabled for this run; preserve the "
+            "legacy manual next step `ooo evaluate <session_id>`."
+        )
 
-Execute the following seed specification. Implement all requirements defined
-in the seed, respecting constraints and acceptance criteria.
+    verify_lines: list[str] = [
+        "Every acceptance criterion in the seed is satisfied.",
+        qa_verify,
+        formal_evaluation_verify,
+    ]
+    if cwd:
+        # Deterministic project verify commands (parsed from
+        # .ouroboros/mechanical.toml) so the worker runs the project's real
+        # test/lint checks instead of guessing. Best-effort — omitted when
+        # the project has no detected commands.
+        from pathlib import Path
 
-## Session ID
-{session_id or "new"}
+        from ouroboros.orchestrator.context_pack import detected_verify_commands
 
-## Max Iterations
-{max_iterations}
-{seed_path_note}{cwd_note}{qa_note}{workers_note}
-## Seed Specification
-```yaml
-{seed_content}
-```
+        commands = detected_verify_commands(Path(cwd))
+        if commands:
+            verify_lines.append(
+                "Project verify commands (run before claiming done): " + "; ".join(commands)
+            )
 
-{render_auto_recursion_guard()}
+    seed_body = (
+        "## Seed Specification\n"
+        "```yaml\n"
+        f"{seed_content}\n"
+        "```\n\n"
+        f"{render_auto_recursion_guard()}\n\n"
+        "Work iteratively, testing as you go. Stop when all acceptance criteria "
+        "are met or max iterations reached."
+    )
 
-Implement the seed requirements. Work iteratively, testing as you go.
-Stop when all acceptance criteria are met or max iterations reached."""
+    prompt = AssignmentMessage(
+        task=(
+            "Execute the seed specification below. Implement every requirement, "
+            "respecting all constraints and acceptance criteria."
+        ),
+        deliverable=(
+            "A working implementation in which every acceptance criterion in the seed is satisfied."
+        ),
+        scope=tuple(scope_lines),
+        verify=tuple(verify_lines),
+        body=seed_body,
+    ).render()
 
     context: dict[str, Any] = {
         "seed_content": seed_content,
@@ -1599,6 +1741,7 @@ Stop when all acceptance criteria are met or max iterations reached."""
         "cwd": cwd,
         "max_iterations": max_iterations,
         "skip_qa": skip_qa,
+        "auto_evaluate": auto_evaluate,
         "model_tier": model_tier,
         "max_parallel_workers": max_parallel_workers,
     }
@@ -2242,3 +2385,679 @@ do not enqueue another background Ralph job."""
             max_total_seconds=max_total_seconds,
         ),
     )
+
+
+# ---------------------------------------------------------------------------
+# Generic interview fan-out core
+# ---------------------------------------------------------------------------
+#
+# Any interview/evaluation step can declare "fan these N prompts out and give
+# me correlated results back" with two primitives:
+#
+#   1. ``build_fanout_subagents`` — turn N request specs into SubagentPayloads.
+#   2. ``stamp_fanout_meta``      — stamp the PR-C-standardized 3-mode dispatch
+#      contract onto the response ``meta`` (the copy-pasted stamping the two
+#      legacy producers previously duplicated inline).
+#
+# Result re-entry (the host submitting the correlated child outputs back) is
+# served by ``FanoutRegistry`` + ``submit_fanout_results`` and the
+# ``ouroboros_submit_fanout_results`` MCP tool.
+
+# host_action cue keyed by inline dispatch mode. PLUGIN_PASSIVE is intentionally
+# absent: that surface consumes the ``_subagents`` bridge envelope built by
+# ``build_multi_subagent_result`` and stamps no host-action cue here.
+_FANOUT_HOST_ACTION_BY_MODE: dict[SubagentDispatchMode, str] = {
+    SubagentDispatchMode.HOST_DRIVEN: "spawn_subagents",
+    SubagentDispatchMode.SEQUENTIAL: "process_payloads_sequentially",
+}
+
+_DEFAULT_FANOUT_DIR = Path.home() / ".ouroboros" / "data" / "fanout"
+
+# Fan-out re-entry kinds — each routes to one revived synthesizer.
+FANOUT_KIND_LATERAL_PERSONA_PANEL = "lateral_persona_panel"
+FANOUT_KIND_CODE_INVESTIGATION = "code_investigation"
+FANOUT_KIND_QUESTION_ADVISORY = "question_advisory"
+
+
+def _fanout_meta_key(prefix: str, key: str) -> str:
+    """Prefix a fan-out meta key, or use it bare when no prefix is given."""
+    return f"{prefix}_{key}" if prefix else key
+
+
+def build_fanout_subagents(
+    requests: list[Mapping[str, Any]],
+    correlation_key: str,
+) -> list[SubagentPayload]:
+    """Build one SubagentPayload per fan-out request spec.
+
+    This is the generic, request-shaped builder that lets any interview step
+    declare a fan-out in one line, instead of copy-pasting a bespoke producer.
+    Each ``request`` is a mapping with the fields consumed by
+    :func:`build_subagent_payload` (``tool_name``, ``title``, ``prompt`` are
+    required; ``agent``, ``model``, ``context``, ``timeout`` are optional).
+
+    ``SubagentPayload.agent`` is an opaque runtime type — arbitrary values are
+    valid, so no ``.md`` role-stem validation is applied and ``context`` is not
+    clamped. The ``correlation_key`` (a dotted path such as ``context.lane_id``
+    or ``context.persona``) names the field the re-entry tool uses to match a
+    submitted result to its originating request; it is not mutated into the
+    payloads here, only carried alongside them by the caller/registry.
+
+    Args:
+        requests: Non-empty list of request specs.
+        correlation_key: Dotted path naming the result-correlation field.
+
+    Returns:
+        List of SubagentPayload, one per request (order preserved).
+
+    Raises:
+        ValueError: If ``requests`` is empty, ``correlation_key`` is blank, or
+            any request omits a required field.
+    """
+    if not requests:
+        raise ValueError("requests must not be empty")
+    if not correlation_key:
+        raise ValueError("correlation_key must not be empty")
+
+    payloads: list[SubagentPayload] = []
+    for index, request in enumerate(requests):
+        if not isinstance(request, Mapping):
+            raise ValueError(f"request[{index}] must be a mapping")
+        context = request.get("context")
+        payloads.append(
+            build_subagent_payload(
+                tool_name=str(request.get("tool_name") or ""),
+                title=str(request.get("title") or ""),
+                prompt=str(request.get("prompt") or ""),
+                agent=str(request.get("agent") or "general"),
+                model=request.get("model"),
+                context=dict(context) if isinstance(context, Mapping) else None,
+                timeout=request.get("timeout"),
+            )
+        )
+    return payloads
+
+
+def stamp_fanout_meta(
+    meta: dict[str, Any],
+    *,
+    prefix: str,
+    dispatch_mode: SubagentDispatchMode,
+    payloads: list[SubagentPayload],
+    correlation_key: str,
+) -> None:
+    """Stamp the standardized 3-mode fan-out dispatch contract onto ``meta``.
+
+    Single source of truth for the dispatch-mode stamping PR-C standardized and
+    that the two legacy producers (interview question advisory + lateral persona
+    panel) previously copy-pasted:
+
+    * ``HOST_DRIVEN``    → ``host_action = "spawn_subagents"``
+    * ``SEQUENTIAL``     → ``host_action = "process_payloads_sequentially"``
+    * ``PLUGIN_PASSIVE`` → no host-action cue (the bridge consumes the
+      ``_subagents`` envelope from :func:`build_multi_subagent_result`).
+
+    Keys are written as ``{prefix}_dispatch_mode`` / ``{prefix}_host_action`` /
+    ``{prefix}_result_correlation_key`` when ``prefix`` is non-empty, or as the
+    bare key names when ``prefix`` is empty. The emitted keys/values are
+    byte-identical to what the legacy producers stamped inline.
+
+    Args:
+        meta: Response meta dict, mutated in place.
+        prefix: Meta key namespace (``""`` for bare keys).
+        dispatch_mode: Resolved runtime dispatch mode.
+        payloads: The fan-out payloads (empty → no-op stamp).
+        correlation_key: Dotted path naming the result-correlation field.
+    """
+    if not payloads:
+        return
+    host_action = _FANOUT_HOST_ACTION_BY_MODE.get(dispatch_mode)
+    if host_action is None:
+        # PLUGIN_PASSIVE: the envelope path stamps no host-action cue here.
+        return
+    meta[_fanout_meta_key(prefix, "dispatch_mode")] = dispatch_mode.value
+    meta[_fanout_meta_key(prefix, "host_action")] = host_action
+    meta[_fanout_meta_key(prefix, "result_correlation_key")] = correlation_key
+
+
+# ---------------------------------------------------------------------------
+# Fan-out result re-entry: persisted expected-key state + synthesizer routing
+# ---------------------------------------------------------------------------
+
+
+@dataclass(frozen=True, slots=True)
+class FanoutRecord:
+    """Persisted fan-out request state, keyed by ``fanout_id``.
+
+    Survives across MCP calls so a later ``ouroboros_submit_fanout_results``
+    submission can validate its expected keys and route to the right revived
+    synthesizer. ``synthesizer_input`` carries exactly the non-output argument
+    each synthesizer needs: the orchestration ``entries`` list for a lateral
+    persona panel, or the ``request`` mapping for a code investigation.
+    """
+
+    fanout_id: str
+    kind: str
+    session_id: str
+    correlation_key: str
+    expected_keys: tuple[str, ...]
+    synthesizer_input: dict[str, Any]
+
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "fanout_id": self.fanout_id,
+            "kind": self.kind,
+            "session_id": self.session_id,
+            "correlation_key": self.correlation_key,
+            "expected_keys": list(self.expected_keys),
+            "synthesizer_input": self.synthesizer_input,
+        }
+
+    @classmethod
+    def from_dict(cls, data: Mapping[str, Any]) -> FanoutRecord:
+        raw_input = data.get("synthesizer_input")
+        return cls(
+            fanout_id=str(data["fanout_id"]),
+            kind=str(data["kind"]),
+            session_id=str(data.get("session_id") or ""),
+            correlation_key=str(data.get("correlation_key") or ""),
+            expected_keys=tuple(str(key) for key in data.get("expected_keys") or ()),
+            synthesizer_input=dict(raw_input) if isinstance(raw_input, Mapping) else {},
+        )
+
+
+class FanoutRegistry:
+    """File-backed store for pending fan-out expected-key state.
+
+    Reuses the interview data directory as the persistence substrate (the same
+    place interview state JSON is written) rather than inventing a new layer:
+    handlers that know the resolved interview state dir thread it in via
+    :meth:`rebase_default`; until then the zero-arg default falls back to
+    ``~/.ouroboros/data/fanout``.
+    Each record is a single ``{fanout_id}.json`` file. Writes are best-effort:
+    a persistence failure degrades re-entry (submissions report the fan-out as
+    unknown) but never breaks the fan-out request path.
+    """
+
+    def __init__(self, directory: Path | None = None) -> None:
+        self._dir = directory or _DEFAULT_FANOUT_DIR
+
+    @property
+    def directory(self) -> Path:
+        return self._dir
+
+    def rebase_default(self, directory: Path) -> None:
+        """Re-root a default-located registry onto the server's real data dir.
+
+        The zero-arg constructor falls back to ``~/.ouroboros/data/fanout``
+        because the server factory does not know the resolved interview state
+        dir at construction time. Handlers that DO know it (via
+        ``resolved_state_dir()``) call this to thread the actual data dir in.
+        A registry constructed with an explicit directory (e.g. tests injecting
+        ``tmp_path``) is never re-rooted, and because producer + submit handlers
+        share one registry instance, both sides observe the same directory.
+        """
+        if self._dir == _DEFAULT_FANOUT_DIR:
+            self._dir = directory
+
+    def _path(self, fanout_id: str) -> Path:
+        return self._dir / f"{fanout_id}.json"
+
+    def register(
+        self,
+        *,
+        kind: str,
+        session_id: str,
+        correlation_key: str,
+        expected_keys: list[str],
+        synthesizer_input: dict[str, Any],
+        fanout_id: str | None = None,
+    ) -> str:
+        """Persist a fan-out record and return its ``fanout_id``.
+
+        A ``fanout_id`` is generated (uuid4-backed, deterministic-friendly when
+        supplied by the caller) and stamped into the returned value so the
+        producer can echo it into the emitted meta. Persistence is best-effort.
+        """
+        resolved_id = fanout_id or f"fanout_{uuid4().hex}"
+        record = FanoutRecord(
+            fanout_id=resolved_id,
+            kind=kind,
+            session_id=session_id,
+            correlation_key=correlation_key,
+            expected_keys=tuple(expected_keys),
+            synthesizer_input=synthesizer_input,
+        )
+        try:
+            self._dir.mkdir(parents=True, exist_ok=True)
+            self._path(resolved_id).write_text(
+                json.dumps(record.to_dict(), ensure_ascii=False),
+                encoding="utf-8",
+            )
+        except OSError as exc:
+            log.warning(
+                "fanout.registry.persist_failed",
+                fanout_id=resolved_id,
+                kind=kind,
+                error=str(exc),
+            )
+        return resolved_id
+
+    def load(self, fanout_id: str) -> FanoutRecord | None:
+        """Load a persisted fan-out record, or ``None`` if unknown/corrupt."""
+        try:
+            content = self._path(fanout_id).read_text(encoding="utf-8")
+        except OSError:
+            return None
+        try:
+            data = json.loads(content)
+        except json.JSONDecodeError:
+            return None
+        if not isinstance(data, Mapping):
+            return None
+        try:
+            return FanoutRecord.from_dict(data)
+        except (KeyError, TypeError, ValueError):
+            return None
+
+
+def _fanout_identity_synthesis(aggregated_outputs: list[Mapping[str, Any]]) -> dict[str, Any]:
+    """Server-side synthesizer: return the correlated outputs for the host.
+
+    The re-entry tool does not run an LLM. Its job is to give the host the
+    correlated child outputs back in dispatch order; the host performs the
+    actual synthesis. This identity synthesizer preserves that contract while
+    still exercising the revived synthesizer aggregation/ordering logic.
+    """
+    return {"aggregated_outputs": [dict(item) for item in aggregated_outputs]}
+
+
+def _fanout_identity_continuation(synthesis: Any) -> dict[str, Any]:
+    """Server-side interview continuation: signal readiness with the synthesis."""
+    return {"ready_to_continue": True, "synthesis": synthesis}
+
+
+def register_lateral_persona_fanout(
+    registry: FanoutRegistry,
+    *,
+    session_id: str,
+    payloads: list[SubagentPayload],
+    correlation_key: str = "context.persona",
+    fanout_id: str | None = None,
+) -> str:
+    """Register a lateral persona-panel fan-out for later result re-entry.
+
+    Expected keys are the payload personas (``context.persona``); the persisted
+    ``entries`` carry ``persona_id`` + ``execution_order`` so
+    :func:`synthesize_lateral_persona_panel_when_complete` can order and gate
+    the submitted outputs.
+    """
+    entries: list[dict[str, Any]] = []
+    expected_keys: list[str] = []
+    for index, payload in enumerate(payloads, start=1):
+        persona = _payload_persona(payload.to_dict())
+        expected_keys.append(persona)
+        entries.append({"persona_id": persona, "execution_order": index})
+    return registry.register(
+        kind=FANOUT_KIND_LATERAL_PERSONA_PANEL,
+        session_id=session_id,
+        correlation_key=correlation_key,
+        expected_keys=expected_keys,
+        synthesizer_input={"entries": entries},
+        fanout_id=fanout_id,
+    )
+
+
+def register_code_investigation_fanout(
+    registry: FanoutRegistry,
+    *,
+    session_id: str,
+    request: Mapping[str, Any],
+    correlation_key: str = "code_facts",
+    fanout_id: str | None = None,
+) -> str:
+    """Register a code-investigation fan-out for later result re-entry.
+
+    Expected keys default to the request's ``required_result_ids`` (or the
+    ``code_facts`` sentinel :func:`synthesize_code_investigation_when_complete`
+    assumes), and the full ``request`` is persisted so the synthesizer can
+    re-run its answer-contract validation on the submitted output.
+    """
+    required = request.get("required_result_ids")
+    if isinstance(required, (list, tuple)) and required:
+        expected_keys = [str(item) for item in required]
+    else:
+        expected_keys = ["code_facts"]
+    return registry.register(
+        kind=FANOUT_KIND_CODE_INVESTIGATION,
+        session_id=session_id,
+        correlation_key=correlation_key,
+        expected_keys=expected_keys,
+        synthesizer_input={"request": dict(request)},
+        fanout_id=fanout_id,
+    )
+
+
+def register_question_advisory_fanout(
+    registry: FanoutRegistry,
+    *,
+    session_id: str,
+    payloads: list[SubagentPayload],
+    correlation_key: str = "context.lane_id",
+    fanout_id: str | None = None,
+) -> str:
+    """Register an interview question-advisory fan-out for later result re-entry.
+
+    The advisory lanes are stamped to correlate by ``context.lane_id`` (a lane's
+    persona is absent on the ``code_context`` / ``web_context`` lanes), so the
+    expected keys are the lane ids carried on the emitted payloads — exactly the
+    keys the stamped ``question_advisory_result_correlation_key`` tells the host
+    to submit under. This is the invariant #1578 broke: the producer stamped
+    ``context.lane_id`` but registered a ``code_facts`` record, so a
+    contract-following host was rejected with ``correlation_mismatch``.
+
+    Advisory lanes have no gating synthesizer (each is independent advice to make
+    the human's answer easier), so submission routes to a deterministic
+    aggregation that returns the correlated lane outputs in dispatch order for
+    the host to synthesize.
+    """
+    expected_keys: list[str] = []
+    for payload in payloads:
+        lane_id = _payload_lane_id(payload.to_dict())
+        if lane_id and lane_id not in expected_keys:
+            expected_keys.append(lane_id)
+    return registry.register(
+        kind=FANOUT_KIND_QUESTION_ADVISORY,
+        session_id=session_id,
+        correlation_key=correlation_key,
+        expected_keys=expected_keys,
+        synthesizer_input={"lane_ids": list(expected_keys)},
+        fanout_id=fanout_id,
+    )
+
+
+def submit_fanout_results(
+    registry: FanoutRegistry,
+    *,
+    session_id: str,
+    correlation_key: str,
+    results: list[Mapping[str, Any]],
+    fanout_id: str,
+) -> dict[str, Any]:
+    """Validate + route a batch of correlated fan-out results back to synthesis.
+
+    Contract:
+
+    * Unknown ``fanout_id`` → ``status="unknown_fanout_id"`` (clean error).
+    * A ``session_id`` / ``correlation_key`` that disagrees with the persisted
+      record → ``status="correlation_mismatch"`` (clean error).
+    * Missing expected keys → ``status="partial"`` + ``missing_keys`` (the host
+      may resubmit with the remaining lanes).
+    * Complete set → route to the revived synthesizer for the record ``kind``
+      and return its structured outcome under ``status="complete"``.
+    """
+    record = registry.load(fanout_id)
+    if record is None:
+        return {
+            "status": "unknown_fanout_id",
+            "fanout_id": fanout_id,
+            "error": f"No pending fan-out is registered for fanout_id={fanout_id!r}.",
+        }
+    if record.session_id and session_id and record.session_id != session_id:
+        return {
+            "status": "correlation_mismatch",
+            "fanout_id": fanout_id,
+            "error": "session_id does not match the registered fan-out.",
+            "expected_session_id": record.session_id,
+        }
+    if record.correlation_key and correlation_key and record.correlation_key != correlation_key:
+        return {
+            "status": "correlation_mismatch",
+            "fanout_id": fanout_id,
+            "error": "correlation_key does not match the registered fan-out.",
+            "expected_correlation_key": record.correlation_key,
+        }
+
+    provided: dict[str, Any] = {}
+    for result in results:
+        key = result.get("key")
+        if key is None:
+            continue
+        provided[str(key)] = result.get("content")
+
+    missing_keys = [key for key in record.expected_keys if key not in provided]
+    if missing_keys:
+        return {
+            "status": "partial",
+            "fanout_id": fanout_id,
+            "kind": record.kind,
+            "missing_keys": missing_keys,
+            "received_keys": sorted(provided),
+            "expected_keys": list(record.expected_keys),
+        }
+
+    if record.kind == FANOUT_KIND_LATERAL_PERSONA_PANEL:
+        entries = record.synthesizer_input.get("entries") or []
+        outcome = continue_interview_after_lateral_persona_synthesis(
+            entries,
+            provided,
+            _fanout_identity_synthesis,
+            _fanout_identity_continuation,
+        )
+        return {
+            "status": "complete",
+            "fanout_id": fanout_id,
+            "kind": record.kind,
+            "correlation_key": record.correlation_key,
+            "result": outcome,
+        }
+
+    if record.kind == FANOUT_KIND_CODE_INVESTIGATION:
+        request = record.synthesizer_input.get("request") or {}
+        outcome = synthesize_code_investigation_when_complete(
+            request,
+            provided,
+            _fanout_identity_synthesis,
+        )
+        return {
+            "status": "complete",
+            "fanout_id": fanout_id,
+            "kind": record.kind,
+            "correlation_key": record.correlation_key,
+            "result": outcome,
+        }
+
+    if record.kind == FANOUT_KIND_QUESTION_ADVISORY:
+        # Advisory lanes are independent advice with no gating synthesizer, so
+        # aggregate the correlated outputs deterministically in dispatch (lane)
+        # order and hand them back for the host to synthesize.
+        lane_ids = record.synthesizer_input.get("lane_ids") or list(record.expected_keys)
+        aggregated = [
+            {"lane_id": lane_id, "output": provided[lane_id]}
+            for lane_id in lane_ids
+            if lane_id in provided
+        ]
+        outcome = _fanout_identity_synthesis(aggregated)
+        return {
+            "status": "complete",
+            "fanout_id": fanout_id,
+            "kind": record.kind,
+            "correlation_key": record.correlation_key,
+            "result": outcome,
+        }
+
+    return {
+        "status": "unknown_kind",
+        "fanout_id": fanout_id,
+        "kind": record.kind,
+        "error": f"No synthesizer is registered for fan-out kind={record.kind!r}.",
+    }
+
+
+# ---------------------------------------------------------------------------
+# Seed-closer tri-panel (K3)
+# ---------------------------------------------------------------------------
+#
+# The single-pass Seed-ready Acceptance Guard (skills/interview/SKILL.md step 8)
+# becomes a 3-lane fan-out: a ``closer`` lane whose verdict GATES closure, plus
+# ``contrarian`` and ``gap_hunter`` lanes whose HIGH-severity findings append as
+# blocking follow-up questions. Correlation is by ``context.lane_id``.
+
+SEED_CLOSER_TRIPANEL_LANES: tuple[tuple[str, str, str], ...] = (
+    (
+        "closer",
+        "seed-closer",
+        "Apply the canonical Seed Closer closure gate. Return a closure verdict "
+        "and the single highest-impact follow-up question if a material decision "
+        "remains unresolved.",
+    ),
+    (
+        "contrarian",
+        "contrarian",
+        "Challenge the interview's conclusions. Surface hidden assumptions, "
+        "overloaded terms, and decisions the interview may have skipped. Rate the "
+        "severity of the most material gap you find.",
+    ),
+    (
+        "gap_hunter",
+        "researcher",
+        "Hunt for missing requirements, unlisted constraints, unhandled edge "
+        "cases, and unverifiable acceptance criteria. Rate the severity of the "
+        "most material gap you find.",
+    ),
+)
+
+_SEED_CLOSER_HIGH_SEVERITY = "high"
+
+
+def build_seed_closer_tripanel_fanout(
+    *,
+    session_id: str,
+    seed_context: str,
+    ambiguity_score: float | None = None,
+) -> tuple[list[SubagentPayload], str]:
+    """Build the 3-lane Seed-closer acceptance fan-out (K3).
+
+    Lanes: ``closer`` (gates), ``contrarian`` + ``gap_hunter`` (advisory,
+    HIGH-severity findings become blocking questions). Each payload carries
+    ``context.lane_id`` for correlation; the returned key is ``context.lane_id``.
+
+    Returns:
+        ``(payloads, correlation_key)`` — payloads in lane order.
+    """
+    if not session_id:
+        raise ValueError("session_id must not be empty")
+    if not seed_context:
+        raise ValueError("seed_context must not be empty")
+
+    closer_summary = _load_seed_closer_summary()
+    ambiguity_line = (
+        f"- Current ambiguity score: {ambiguity_score}\n" if ambiguity_score is not None else ""
+    )
+
+    requests: list[dict[str, Any]] = []
+    for lane_id, agent, lane_task in SEED_CLOSER_TRIPANEL_LANES:
+        if lane_id == "closer":
+            output_shape = (
+                '{"lane_id": "closer", "verdict": "seed_ready" | "not_ready", '
+                '"reason": "string", "blocking_question": "string | null"}'
+            )
+            gate_note = (
+                "\n## Closure Gate Summary\n"
+                f"{closer_summary}\n"
+                "Do NOT treat ambiguity <= 0.2 as sufficient for closure."
+            )
+        else:
+            output_shape = (
+                f'{{"lane_id": "{lane_id}", "severity": "high" | "medium" | "low", '
+                '"finding": "string", "question": "string | null"}'
+            )
+            gate_note = (
+                "\n## Severity Rule\n"
+                'Rate "high" ONLY when the gap would materially change the '
+                "implementation if left unresolved."
+            )
+        prompt = f"""## Task
+You are the Ouroboros seed-closer tri-panel **{lane_id}** lane.
+{lane_task}
+
+## Session
+- session_id: {session_id}
+{ambiguity_line}
+## Seed / Interview Context
+---
+{seed_context}
+---
+{gate_note}
+
+## Output
+Return ONLY valid JSON, no other text:
+{output_shape}"""
+        requests.append(
+            {
+                "tool_name": "ouroboros_interview",
+                "title": f"Seed closer: {lane_id}",
+                "prompt": prompt,
+                "agent": agent,
+                "context": {"session_id": session_id, "lane_id": lane_id},
+            }
+        )
+
+    return build_fanout_subagents(requests, "context.lane_id"), "context.lane_id"
+
+
+def synthesize_seed_closer_tripanel(
+    lane_outputs: Mapping[str, Any],
+) -> dict[str, Any]:
+    """Synthesize the 3 Seed-closer lanes into a deterministic closure decision.
+
+    The ``closer`` verdict gates: if it is not ``seed_ready`` the seed is
+    blocked. Additionally, any HIGH-severity ``contrarian`` / ``gap_hunter``
+    finding blocks and its question is appended to ``blocking_questions``. This
+    is pure and deterministic — no LLM judge — so ``seed_ready`` is testable.
+
+    Args:
+        lane_outputs: Mapping of ``lane_id`` -> that lane's JSON output.
+
+    Returns:
+        ``{"seed_ready", "closer_verdict", "blocking_questions",
+        "high_severity_lanes", "missing_lanes"}``.
+    """
+    expected = [lane_id for lane_id, _agent, _task in SEED_CLOSER_TRIPANEL_LANES]
+    missing = [lane_id for lane_id in expected if lane_id not in lane_outputs]
+
+    closer = lane_outputs.get("closer")
+    closer_verdict = ""
+    if isinstance(closer, Mapping):
+        closer_verdict = str(closer.get("verdict") or "").strip()
+
+    blocking_questions: list[str] = []
+    high_severity_lanes: list[str] = []
+
+    # Closer gate: a non-"seed_ready" verdict blocks with its follow-up.
+    if closer_verdict != "seed_ready":
+        if isinstance(closer, Mapping):
+            question = closer.get("blocking_question") or closer.get("reason")
+            if question:
+                blocking_questions.append(str(question))
+
+    # Advisory lanes: HIGH-severity findings block and append their questions.
+    for lane_id in ("contrarian", "gap_hunter"):
+        output = lane_outputs.get(lane_id)
+        if not isinstance(output, Mapping):
+            continue
+        severity = str(output.get("severity") or "").strip().lower()
+        if severity == _SEED_CLOSER_HIGH_SEVERITY:
+            high_severity_lanes.append(lane_id)
+            question = output.get("question") or output.get("finding")
+            if question:
+                blocking_questions.append(str(question))
+
+    seed_ready = not missing and closer_verdict == "seed_ready" and not high_severity_lanes
+    return {
+        "seed_ready": seed_ready,
+        "closer_verdict": closer_verdict,
+        "blocking_questions": blocking_questions,
+        "high_severity_lanes": high_severity_lanes,
+        "missing_lanes": missing,
+    }

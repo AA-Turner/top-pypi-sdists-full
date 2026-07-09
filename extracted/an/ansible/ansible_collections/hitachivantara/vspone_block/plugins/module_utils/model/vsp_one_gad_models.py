@@ -121,25 +121,23 @@ class VspOneCreateGadSpec(SingleBaseClass):
 class VspOneDeleteGadSpec:
     # Matches Playbook: primary_volume_mirrors
     primary_volume_mirrors: List[dict]
-    # commenting out delete_mode and allow_volume_access_after_force_delete: UCA-5762
-    # delete_mode: Optional[str] = "NORMAL"
-    # allow_volume_access_after_force_delete: Optional[bool] = None
+    delete_mode: Optional[str] = "NORMAL"
+    allow_volume_access_after_force_delete: Optional[bool] = None
 
     # Internal attribute for the Backend API format ["ldev,mu"]
     ids: List[str] = None
 
     def __post_init__(self):
         self.ids = _convert_mirrors_to_ids(self.primary_volume_mirrors)
-        # commenting out delete_mode and allow_volume_access_after_force_delete: UCA-5762
-        # if self.delete_mode is not None:
-        #     if self.delete_mode.upper() not in ["NORMAL", "FORCE"]:
-        #         raise ValueError(VspOneGadValidationMsg.DELETE_MODE_INVALID.value.format(self.delete_mode))
-        #     self.delete_mode = self.delete_mode.upper()
-        # else:
-        #     self.delete_mode = "NORMAL"
-        # if self.delete_mode == "FORCE":
-        #     if self.allow_volume_access_after_force_delete is None:
-        #         raise ValueError(VspOneGadValidationMsg.ALLOW_VOLUME_ACCESS_REQUIRED.value.format())
+        if self.delete_mode is not None:
+            if self.delete_mode.upper() not in ["NORMAL", "FORCE"]:
+                raise ValueError(VspOneGadValidationMsg.DELETE_MODE_INVALID.value.format(self.delete_mode))
+            self.delete_mode = self.delete_mode.upper()
+        else:
+            self.delete_mode = "NORMAL"
+        if self.delete_mode == "FORCE":
+            if self.allow_volume_access_after_force_delete is None:
+                raise ValueError(VspOneGadValidationMsg.ALLOW_VOLUME_ACCESS_REQUIRED.value.format())
 
 
 @dataclass

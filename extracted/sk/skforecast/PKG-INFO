@@ -1,7 +1,7 @@
 Metadata-Version: 2.4
 Name: skforecast
-Version: 0.22.0
-Summary: Skforecast is a Python library for time series forecasting using statistical and machine learning models. It works with any estimator compatible with the scikit-learn API, including popular options like LightGBM, XGBoost, CatBoost, Keras, and many others.
+Version: 0.23.0
+Summary: Skforecast is a Python library for time series forecasting using scikit-learn compatible models, statistical methods, and foundation models. It works with any estimator compatible with the scikit-learn API, including popular options like LightGBM, XGBoost, CatBoost, Keras, and many others.
 Author-email: Joaquin Amat Rodrigo <j.amatrodrigo@gmail.com>, Javier Escobar Ortiz <javier.escobar.ortiz@gmail.com>
 Maintainer-email: Joaquin Amat Rodrigo <j.amatrodrigo@gmail.com>, Javier Escobar Ortiz <javier.escobar.ortiz@gmail.com>
 License-Expression: BSD-3-Clause
@@ -9,7 +9,7 @@ Project-URL: Homepage, https://www.skforecast.org
 Project-URL: Repository, https://github.com/skforecast/skforecast
 Project-URL: Documentation, https://www.skforecast.org
 Project-URL: Release Notes, https://skforecast.org/latest/releases/releases
-Project-URL: LLM Context, https://skforecast.org/llms.txt
+Project-URL: LLM Context, https://skforecast.org/latest/llms.txt
 Project-URL: Download, https://pypi.org/project/skforecast/#files
 Project-URL: Tracker, https://github.com/skforecast/skforecast/issues
 Keywords: data-science,machine-learning,data-mining,time-series,scikit-learn,forecasting,time-series-analysis,time-series-regression,autoregressive,deep-learning,lightgbm,xgboost,catboost
@@ -46,19 +46,17 @@ Requires-Dist: rich>=13.9
 Provides-Extra: stats
 Requires-Dist: statsmodels<0.15,>=0.13; extra == "stats"
 Provides-Extra: plotting
-Requires-Dist: matplotlib<3.11,>=3.7; extra == "plotting"
-Requires-Dist: seaborn<0.14,>=0.12; extra == "plotting"
+Requires-Dist: matplotlib<3.12,>=3.7; extra == "plotting"
 Requires-Dist: statsmodels<0.15,>=0.13; extra == "plotting"
 Provides-Extra: deeplearning
 Requires-Dist: keras<4.0,>=3.0; extra == "deeplearning"
-Requires-Dist: matplotlib<3.11,>=3.7; extra == "deeplearning"
+Requires-Dist: matplotlib<3.12,>=3.7; extra == "deeplearning"
 Provides-Extra: all
-Requires-Dist: matplotlib<3.11,>=3.7; extra == "all"
-Requires-Dist: seaborn<0.14,>=0.12; extra == "all"
+Requires-Dist: matplotlib<3.12,>=3.7; extra == "all"
 Requires-Dist: statsmodels<0.15,>=0.13; extra == "all"
 Requires-Dist: keras<4.0,>=3.0; extra == "all"
 Requires-Dist: tensorflow<2.22,>=2.18; python_version < "3.14" and extra == "all"
-Requires-Dist: torch<2.12,>=2.4; extra == "all"
+Requires-Dist: torch<2.13,>=2.4; extra == "all"
 Provides-Extra: full
 Requires-Dist: skforecast[all]; extra == "full"
 Provides-Extra: docs
@@ -67,20 +65,21 @@ Requires-Dist: mkdocs==1.6.1; extra == "docs"
 Requires-Dist: mkdocs-jupyter==0.26.3; extra == "docs"
 Requires-Dist: mkdocs-material==9.7.6; extra == "docs"
 Requires-Dist: mkdocstrings==1.0.4; extra == "docs"
-Requires-Dist: mkdocstrings-python==2.0.3; extra == "docs"
-Requires-Dist: black==26.3.1; extra == "docs"
+Requires-Dist: mkdocstrings-python==2.0.5; extra == "docs"
+Requires-Dist: black==26.5.1; extra == "docs"
 Provides-Extra: test
-Requires-Dist: pytest>=7.3; extra == "test"
-Requires-Dist: pytest-cov>=4.1; extra == "test"
-Requires-Dist: pytest-xdist>=3.3; extra == "test"
+Requires-Dist: pytest>=9.1.0; extra == "test"
+Requires-Dist: pytest-cov>=7.1.0; extra == "test"
+Requires-Dist: pytest-xdist>=3.8; extra == "test"
 Requires-Dist: statsmodels<0.15,>=0.13; extra == "test"
-Requires-Dist: matplotlib<3.11,>=3.7; extra == "test"
-Requires-Dist: seaborn<0.14,>=0.12; extra == "test"
+Requires-Dist: matplotlib<3.12,>=3.7; extra == "test"
 Requires-Dist: lightgbm<5.0,>=4.0; extra == "test"
 Requires-Dist: xgboost<4.0,>=2.1; extra == "test"
 Requires-Dist: catboost<2.0,>=1.2; extra == "test"
 Requires-Dist: keras<4.0,>=3.0; extra == "test"
-Requires-Dist: torch<2.12,>=2.4; extra == "test"
+Requires-Dist: torch<2.13,>=2.4; extra == "test"
+Requires-Dist: cloudpickle>=3.0; extra == "test"
+Requires-Dist: skops>=0.14; extra == "test"
 Requires-Dist: tomli>=2.0; extra == "test"
 Requires-Dist: pandas[parquet]>=2.1; extra == "test"
 Dynamic: license-file
@@ -106,7 +105,7 @@ Dynamic: license-file
 - :information_source: [About The Project](#about-the-project)
 - :books: [Documentation](#documentation)
 - :computer: [Installation & Dependencies](#installation--dependencies)
-- :sparkles: [What is new in skforecast 0.22?](#what-is-new-in-skforecast-022)
+- :sparkles: [What is new in skforecast?](#what-is-new-in-skforecast)
 - :crystal_ball: [Forecasters](#forecasters)
 - :mortar_board: [Examples and tutorials](#examples-and-tutorials)
 - :handshake: [How to contribute](#how-to-contribute)
@@ -117,7 +116,7 @@ Dynamic: license-file
 
 # About The Project
 
-**Skforecast** is a Python library for time series forecasting using machine learning models. It works with any estimator compatible with the scikit-learn API, including popular options like LightGBM, XGBoost, CatBoost, Keras, and many others.
+**Skforecast** is a Python library for time series forecasting using scikit-learn compatible models, statistical methods, and foundation models. It works with any estimator compatible with the scikit-learn API, including popular options like LightGBM, XGBoost, CatBoost, Keras, and many others.
 
 ### Why use skforecast?
 
@@ -213,7 +212,7 @@ pip install skforecast
 For more installation options, including dependencies and additional features, check out our [Installation Guide](https://skforecast.org/latest/quick-start/how-to-install.html).
 
 
-# What is new in skforecast 0.22?
+# What is new in skforecast?
 
 All significant changes to this project are documented in the release file.
 
@@ -224,7 +223,7 @@ All significant changes to this project are documented in the release file.
 
 A **Forecaster** object in the skforecast library is a comprehensive **container that provides essential functionality and methods** for training a forecasting model and generating predictions for future points in time.
 
-The **skforecast** library offers a **variety of forecaster** types, each tailored to specific requirements such as single or multiple time series, direct or recursive strategies, or custom predictors. Regardless of the specific forecaster type, all instances share the same API.
+The **skforecast** library offers a **variety of forecaster types**, each tailored to specific requirements such as single or multiple time series, direct or recursive strategies, statistical models (ARIMA, ETS), deep learning (RNN/LSTM), and foundation models. Regardless of the forecaster type, all share a unified API for training, prediction, and validation.
 
 | Forecaster | Single series | Multiple series | Recursive strategy | Direct strategy | Probabilistic prediction | Time series differentiation | Exogenous features | Window features |
 |:-----------|:-------------:|:---------------:|:------------------:|:---------------:|:------------------------:|:---------------------------:|:------------------:|:---------------:|
@@ -254,7 +253,7 @@ The **skforecast** library offers a **variety of forecaster** types, each tailor
 Explore our extensive list of examples and tutorials (English and Spanish) to get you started with skforecast. You can find them [here](https://skforecast.org/latest/examples/examples_english.html).
 
 
-## AI-assisted forecasting
+# AI-assisted forecasting
 
 Skforecast includes machine-readable context files so AI assistants (ChatGPT, Claude, Copilot, and others) can generate accurate code. Paste `https://skforecast.org/latest/llms-full.txt` into any LLM, or let your IDE pick up context automatically. Learn more in [AI-assisted forecasting](https://skforecast.org/latest/quick-start/ai-assisted-forecasting.html).
 
@@ -282,12 +281,12 @@ If you use skforecast for a scientific publication, we would appreciate citation
 **Zenodo**
 
 ```
-Amat Rodrigo, Joaquin, & Escobar Ortiz, Javier. (2026). skforecast (v0.22.0). Zenodo. https://doi.org/10.5281/zenodo.8382787
+Amat Rodrigo, Joaquin, & Escobar Ortiz, Javier. (2026). skforecast (v0.23.0). Zenodo. https://doi.org/10.5281/zenodo.8382787
 ```
 
 **APA**:
 ```
-Amat Rodrigo, J., & Escobar Ortiz, J. (2026). skforecast (Version 0.22.0) [Computer software]. https://doi.org/10.5281/zenodo.8382787
+Amat Rodrigo, J., & Escobar Ortiz, J. (2026). skforecast (Version 0.23.0) [Computer software]. https://doi.org/10.5281/zenodo.8382787
 ```
 
 **BibTeX**:
@@ -295,8 +294,8 @@ Amat Rodrigo, J., & Escobar Ortiz, J. (2026). skforecast (Version 0.22.0) [Compu
 @software{skforecast,
   author  = {Amat Rodrigo, Joaquin and Escobar Ortiz, Javier},
   title   = {skforecast},
-  version = {0.22.0},
-  month   = {4},
+  version = {0.23.0},
+  month   = {7},
   year    = {2026},
   license = {BSD-3-Clause},
   url     = {https://skforecast.org/},

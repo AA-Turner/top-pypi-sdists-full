@@ -37,7 +37,7 @@ from flask_caching.utils import get_id
 from flask_caching.utils import make_template_fragment_key  # noqa: F401
 from flask_caching.utils import wants_args
 
-__version__ = "2.3.1"
+__version__ = "2.4.1"
 
 logger = logging.getLogger(__name__)
 
@@ -57,9 +57,13 @@ class CachedResponse(Response):
     to override the cache TTL dynamically
     """
 
-    timeout = None
+    timeout: int | None = None
 
-    def __init__(self, response, timeout):
+    def __init__(self, response: Response, timeout: int | None) -> None:
+        # ``CachedResponse`` adopts the state of an existing Response in
+        # place rather than calling ``Response.__init__``; copying
+        # ``__dict__`` preserves headers, status and body without having
+        # to round-trip the response through Werkzeug's constructor.
         self.__dict__ = response.__dict__
         self.timeout = timeout
 
@@ -447,7 +451,7 @@ class Cache:
                 # Convert non-keyword arguments (which is the way
                 # `make_cache_key` expects them) to keyword arguments
                 # (the way `url_for` expects them)
-                argspec_args = inspect.getfullargspec(f).args
+                argspec_args = get_arg_names(f)
 
                 for arg_name, arg in zip(argspec_args, args, strict=False):
                     kwargs[arg_name] = arg
@@ -733,11 +737,8 @@ class Cache:
         bypass_cache = False
 
         if callable(unless):
-            argspec = inspect.getfullargspec(unless)
-            has_args = len(argspec.args) > 0 or argspec.varargs or argspec.varkw
-
             # If unless() takes args, pass them in.
-            if has_args:
+            if wants_args(unless):
                 if unless(f, *args, **kwargs) is True:
                     bypass_cache = True
             elif unless() is True:

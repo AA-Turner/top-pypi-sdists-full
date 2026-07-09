@@ -49,18 +49,18 @@ class XEP_0084(BasePlugin):
     stanza = stanza
 
     def plugin_init(self):
-        pubsub_stanza = self.xmpp['xep_0060'].stanza
+        pubsub_stanza = self.xmpp.plugin['xep_0060'].stanza
         register_stanza_plugin(pubsub_stanza.Item, Data)
         register_stanza_plugin(pubsub_stanza.EventItem, Data)
 
-        self.xmpp['xep_0060'].map_node_event(Data.namespace, 'avatar_data')
+        self.xmpp.plugin['xep_0060'].map_node_event(Data.namespace, 'avatar_data')
 
     def plugin_end(self):
-        self.xmpp['xep_0030'].del_feature(feature=MetaData.namespace)
-        self.xmpp['xep_0163'].remove_interest(MetaData.namespace)
+        self.xmpp.plugin['xep_0030'].del_feature(feature=MetaData.namespace)
+        self.xmpp.plugin['xep_0163'].remove_interest(MetaData.namespace)
 
     def session_bind(self, jid):
-        self.xmpp['xep_0163'].register_pep('avatar_metadata', MetaData)
+        self.xmpp.plugin['xep_0163'].register_pep('avatar_metadata', MetaData)
 
     def generate_id(self, data) -> str:
         return hashlib.sha1(data).hexdigest()
@@ -71,7 +71,7 @@ class XEP_0084(BasePlugin):
         :param jid: JID of the entity to get the avatar from.
         :param id: Identifier of the item containing the avatar.
         """
-        return self.xmpp['xep_0060'].get_item(
+        return self.xmpp.plugin['xep_0060'].get_item(
             jid,
             Data.namespace,
             id,
@@ -85,7 +85,7 @@ class XEP_0084(BasePlugin):
         """
         payload = Data()
         payload['value'] = data
-        return self.xmpp['xep_0163'].publish(
+        return self.xmpp.plugin['xep_0163'].publish(
             payload,
             id=self.generate_id(data),
             **pubsubkwargs
@@ -114,7 +114,7 @@ class XEP_0084(BasePlugin):
             for pointer in pointers:
                 metadata.add_pointer(pointer)
 
-        return self.xmpp['xep_0163'].publish(
+        return self.xmpp.plugin['xep_0163'].publish(
             metadata,
             id=info['id'],
             **pubsubkwargs
@@ -125,7 +125,7 @@ class XEP_0084(BasePlugin):
         Clear existing avatar metadata information to stop notifications.
         """
         metadata = MetaData()
-        return self.xmpp['xep_0163'].publish(
+        return self.xmpp.plugin['xep_0163'].publish(
             metadata,
             node=MetaData.namespace,
             **pubsubkwargs

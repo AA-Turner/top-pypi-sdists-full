@@ -18,8 +18,7 @@ class ShowFlow(Flowgraph):
         Args:
             task (ShowTask): The specific show/screenshot task to be executed.
         """
-        super().__init__()
-        self.set_name("showflow")
+        super().__init__("showflow")
 
         if task:
             self.node(task.task(), task)
@@ -32,6 +31,5 @@ class ShowFlow(Flowgraph):
 
 ##################################################
 if __name__ == "__main__":
-    from siliconcompiler import ShowTask
     flow = ShowFlow(ShowTask.get_task("gds"))
     flow.write_flowgraph(f"{flow.name}.png")

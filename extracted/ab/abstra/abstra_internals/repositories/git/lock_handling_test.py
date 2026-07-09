@@ -181,12 +181,12 @@ class GitLockFileHandlingTest(unittest.TestCase):
         original_run = self.repo._run_git_command
         call_count = {"count": 0}
 
-        def mock_run(command, cwd=None, input=None):
+        def mock_run(command, cwd=None, input=None, **kwargs):
             call_count["count"] += 1
 
             # First call to "add ." should succeed (no lock yet)
             if "add" in command:
-                return original_run(command, cwd, input)
+                return original_run(command, cwd, input, **kwargs)
 
             # First commit attempt: simulate lock error
             if call_count["count"] == 2 and "commit" in command:
@@ -197,7 +197,7 @@ class GitLockFileHandlingTest(unittest.TestCase):
                 )
 
             # Second commit attempt: should succeed (after cleanup)
-            return original_run(command, cwd, input)
+            return original_run(command, cwd, input, **kwargs)
 
         with patch.object(self.repo, "_run_git_command", side_effect=mock_run):
             success, error = self.repo.commit_changes("Test commit")

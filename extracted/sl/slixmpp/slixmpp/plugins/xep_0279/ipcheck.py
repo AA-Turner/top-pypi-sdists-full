@@ -22,10 +22,10 @@ class XEP_0279(BasePlugin):
         register_stanza_plugin(Iq, IPCheck)
 
     def session_bind(self, jid):
-        self.xmpp['xep_0030'].add_feature('urn:xmpp:sic:0')
+        self.xmpp.plugin['xep_0030'].add_feature('urn:xmpp:sic:0')
 
     def plugin_end(self):
-        self.xmpp['xep_0030'].del_feature(feature='urn:xmpp:sic:0')
+        self.xmpp.plugin['xep_0030'].del_feature(feature='urn:xmpp:sic:0')
 
     def check_ip(self, ifrom=None, timeout=None, callback=None):
         iq = self.xmpp.Iq()

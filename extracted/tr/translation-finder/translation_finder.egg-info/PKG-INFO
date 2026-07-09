@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: translation-finder
-Version: 3.2.0
+Version: 3.2.1
 Summary: A translation file finder used in Weblate.
 Home-page: https://weblate.org/
 Download-URL: https://github.com/WeblateOrg/translation-finder
@@ -38,15 +38,15 @@ Requires-Dist: weblate-language-data>=2026.8
 Provides-Extra: dev
 Requires-Dist: translation-finder[lint,test,types]; extra == "dev"
 Provides-Extra: lint
-Requires-Dist: prek==0.4.5; extra == "lint"
+Requires-Dist: prek==0.4.8; extra == "lint"
 Provides-Extra: test
-Requires-Dist: hypothesis==6.155.7; extra == "test"
+Requires-Dist: hypothesis==6.156.1; extra == "test"
 Requires-Dist: pytest==9.1.1; extra == "test"
 Requires-Dist: pytest-cov==7.1.0; extra == "test"
 Requires-Dist: pytest-github-actions-annotate-failures==0.4.2; extra == "test"
 Provides-Extra: types
-Requires-Dist: ty==0.0.53; extra == "types"
-Requires-Dist: mypy==2.1.0; extra == "types"
+Requires-Dist: ty==0.0.57; extra == "types"
+Requires-Dist: mypy==2.2.0; extra == "types"
 Dynamic: download-url
 Dynamic: license-file
 

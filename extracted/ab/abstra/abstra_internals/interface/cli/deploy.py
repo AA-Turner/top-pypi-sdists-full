@@ -25,6 +25,12 @@ class ZipValidationError(Exception):
     pass
 
 
+class MissingCredentialsError(Exception):
+    """Raised when there are no credentials to authenticate the deploy."""
+
+    pass
+
+
 def _validate_zip_file(zip_path: pathlib.Path) -> None:
     """
     Validates the generated zip file before upload.
@@ -118,7 +124,9 @@ def deploy_without_git(show_start_message: bool = True):
     headers = resolve_headers()
     if not headers:
         DeployMessages.no_credentials()
-        return
+        raise MissingCredentialsError(
+            "No credentials found. Please log in and try again."
+        )
 
     data = create_build(headers)
 

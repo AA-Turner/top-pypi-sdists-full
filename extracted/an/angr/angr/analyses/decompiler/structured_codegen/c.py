@@ -21,6 +21,7 @@ from angr.analyses.decompiler.structurer_nodes import (
     ConditionalBreakNode,
     ConditionNode,
     ContinueNode,
+    IncompleteSwitchCaseHeadStatement,
     IncompleteSwitchCaseNode,
     LoopNode,
     SequenceNode,
@@ -65,7 +66,7 @@ from angr.sim_variable import (
     SimVariable,
 )
 from angr.utils.bits import u2s
-from angr.utils.constants import is_alignment_mask
+from angr.utils.constants import should_use_hex
 from angr.utils.library import get_cpp_function_name
 from angr.utils.loader import is_in_readonly_section, is_in_readonly_segment
 from angr.utils.strings import decode_utf16_string
@@ -191,9 +192,13 @@ def type_equals(t0: SimType, t1: SimType) -> bool:
     return t0 == t1
 
 
-def type_to_c_repr_chunks(ty: SimType, name=None, name_type=None, full=False, indent_str=""):
+def type_to_c_repr_chunks(
+    ty: SimType, name=None, name_type=None, full=False, indent_str="", indent_delta: int = INDENT_DELTA
+):
     """
     Helper generator function to turn a SimType into generated tuples of (C-string, AST node).
+
+    :param indent_delta:    Number of space characters used to indent each struct field one level deeper.
     """
     if isinstance(ty, SimStruct):
         if full:
@@ -208,9 +213,7 @@ def type_to_c_repr_chunks(ty: SimType, name=None, name_type=None, full=False, in
 
             # each of the fields
             # fields should be indented
-            new_indent_str = (
-                " " * 4
-            ) + indent_str  # TODO: hardcoded as 4 character space indents, which is same as SimStruct.c_repr
+            new_indent_str = (" " * indent_delta) + indent_str
             for k, v in ty.fields.items():
                 yield new_indent_str, None
                 yield from type_to_c_repr_chunks(v, name=k, name_type=CStructFieldNameDef(k), full=False, indent_str="")
@@ -257,6 +260,32 @@ def type_to_c_repr_chunks(ty: SimType, name=None, name_type=None, full=False, in
         yield name, name_type
     else:
         assert False
+
+
+def _recursively_collect_referenced_structs(ty, out: dict[int, SimStruct], _seen: set[int] | None = None) -> None:
+    """
+    Walk ``ty`` transitively and record every ``SimStruct`` reachable from it into ``out`` (keyed
+    by object id). Used by the C backend to determine which structs are actually referenced by
+    rendered declarations/expressions, so that unreferenced typedefs can be dropped.
+    """
+    if _seen is None:
+        _seen = set()
+    ty = unpack_typeref(ty)
+    if ty is None or id(ty) in _seen:
+        return
+    _seen.add(id(ty))
+    if isinstance(ty, SimStruct):
+        out[id(ty)] = ty
+        for ftype in ty.fields.values():
+            _recursively_collect_referenced_structs(ftype, out, _seen=_seen)
+    elif isinstance(ty, SimTypePointer):
+        _recursively_collect_referenced_structs(ty.pts_to, out, _seen=_seen)
+    elif isinstance(ty, (SimTypeArray, SimTypeFixedSizeArray)):
+        _recursively_collect_referenced_structs(ty.elem_type, out, _seen=_seen)
+    elif isinstance(ty, SimTypeFunction):
+        for arg in ty.args or ():
+            _recursively_collect_referenced_structs(arg, out, _seen=_seen)
+        _recursively_collect_referenced_structs(ty.returnty, out, _seen=_seen)
 
 
 #
@@ -547,10 +576,47 @@ class CFunction(CConstruct):  # pylint:disable=abstract-method
         yield from self.statements.c_repr_chunks(indent=indent)
         yield "\n", None
 
+    def _collect_referenced_struct_types(self) -> dict[int, SimStruct]:
+        """
+        Collect every ``SimStruct`` that is referenced by the rendered output of this function. This inclues:
+        - the function prototype (argument/return types)
+        - the types of all in-use variables
+        - extern declarations
+        We use the result to filter out struct typedefs that is not referenced.
+        """
+        referenced: dict[int, SimStruct] = {}
+
+        # Function signature
+        if self.functy is not None:
+            for arg_type in self.functy.args or ():
+                _recursively_collect_referenced_structs(arg_type, referenced)
+            _recursively_collect_referenced_structs(self.functy.returnty, referenced)
+
+        # Declared variables (locals, args, globals) that are actually used in the body. This
+        # covers variable declarations and, transitively, the struct types dereferenced by field
+        # accesses on those variables.
+        for var in self.variables_in_use:
+            _recursively_collect_referenced_structs(self.variable_manager.get_variable_type(var), referenced)
+        for cvar_and_types in self.unified_local_vars.values():
+            for _cvar, vartype in cvar_and_types:
+                _recursively_collect_referenced_structs(vartype, referenced)
+
+        # Extern declarations
+        if self.codegen.show_externs and self.codegen.cexterns:
+            for v in self.codegen.cexterns:
+                if v.variable in self.variables_in_use and v.type is not None:
+                    _recursively_collect_referenced_structs(v.type, referenced)
+
+        return referenced
+
     def full_c_repr_chunks(self, indent=0, asexpr=False):
         indent_str = self.indent_str(indent)
+
+        referenced_structs = self._collect_referenced_struct_types()
+        referenced_struct_names = {s.name for s in referenced_structs.values() if s.name}
+
+        name_to_structtypes = {}
         if self.codegen.show_local_types:
-            name_to_structtypes = {}
             local_types = [unpack_typeref(ty) for ty in self.variable_manager.types.iter_own()]
             for ty in local_types:
                 if isinstance(ty, SimStruct):
@@ -570,7 +636,11 @@ class CFunction(CConstruct):  # pylint:disable=abstract-method
                                 name_to_structtypes[field.name] = field
                             local_types.append(field)
 
-                yield from type_to_c_repr_chunks(ty, full=True, indent_str=indent_str)
+                    # drop unreferenced structs
+                    if ty.name in referenced_struct_names:
+                        yield from type_to_c_repr_chunks(
+                            ty, full=True, indent_str=indent_str, indent_delta=self.codegen.indent_delta
+                        )
 
         if self.codegen.show_externs and self.codegen.cexterns:
             # Emit struct definitions for types used by externs
@@ -610,7 +680,9 @@ class CFunction(CConstruct):  # pylint:disable=abstract-method
                 if ty.name in defined_struct_names:
                     continue
                 defined_struct_names.add(ty.name)
-                yield from type_to_c_repr_chunks(ty, full=True, indent_str=indent_str)
+                yield from type_to_c_repr_chunks(
+                    ty, full=True, indent_str=indent_str, indent_delta=self.codegen.indent_delta
+                )
 
             # Emit extern declarations
             for v in sorted(self.codegen.cexterns, key=lambda v: str(v.variable.name)):
@@ -669,8 +741,8 @@ class CFunction(CConstruct):  # pylint:disable=abstract-method
             yield " ", None
         yield "{", brace
         yield "\n", None
-        yield from self.variable_list_repr_chunks(indent=indent + INDENT_DELTA)
-        yield from self.statements.c_repr_chunks(indent=indent + INDENT_DELTA)
+        yield from self.variable_list_repr_chunks(indent=indent + self.codegen.indent_delta)
+        yield from self.statements.c_repr_chunks(indent=indent + self.codegen.indent_delta)
         yield indent_str, None
         yield "}", brace
         yield "\n", None
@@ -851,7 +923,7 @@ class CWhileLoop(CLoop):
         else:
             yield "{", brace
             yield "\n", None
-            yield from self.body.c_repr_chunks(indent=indent + INDENT_DELTA)
+            yield from self.body.c_repr_chunks(indent=indent + self.codegen.indent_delta)
             yield indent_str, None
             yield "}", brace
             yield "\n", None
@@ -888,7 +960,7 @@ class CDoWhileLoop(CLoop):
         if self.body is not None:
             yield "{", brace
             yield "\n", None
-            yield from self.body.c_repr_chunks(indent=indent + INDENT_DELTA)
+            yield from self.body.c_repr_chunks(indent=indent + self.codegen.indent_delta)
             yield indent_str, None
             yield "}", brace
         else:
@@ -953,7 +1025,7 @@ class CForLoop(CStatement):
 
             yield "{", brace
             yield "\n", None
-            yield from self.body.c_repr_chunks(indent=indent + INDENT_DELTA)
+            yield from self.body.c_repr_chunks(indent=indent + self.codegen.indent_delta)
             yield indent_str, None
             yield "}", brace
         else:
@@ -1046,7 +1118,7 @@ class CIfElse(CStatement):
                 yield "\n", None
 
             if node is not None:
-                yield from node.c_repr_chunks(indent=INDENT_DELTA + indent)
+                yield from node.c_repr_chunks(indent=self.codegen.indent_delta + indent)
 
             if not omit_braces:
                 yield indent_str, None
@@ -1076,11 +1148,11 @@ class CIfElse(CStatement):
                     yield " ", None
 
                 if single_stmt_else:
-                    yield from self.else_node.c_repr_chunks(indent=INDENT_DELTA)
+                    yield from self.else_node.c_repr_chunks(indent=self.codegen.indent_delta)
                 else:
                     yield "{", brace
                     yield "\n", None
-                    yield from self.else_node.c_repr_chunks(indent=indent + INDENT_DELTA)
+                    yield from self.else_node.c_repr_chunks(indent=indent + self.codegen.indent_delta)
                     yield indent_str, None
                     yield "}", brace
 
@@ -1120,12 +1192,12 @@ class CIfBreak(CStatement):
         else:
             yield " ", None
         if self.cstyle_ifs:
-            yield self.indent_str(indent=INDENT_DELTA), self
+            yield self.indent_str(indent=self.codegen.indent_delta), self
             yield "break;\n", self
         else:
             yield "{", brace
             yield "\n", None
-            yield self.indent_str(indent=indent + INDENT_DELTA), self
+            yield self.indent_str(indent=indent + self.codegen.indent_delta), self
             yield "break;\n", self
             yield indent_str, None
             yield "}", brace
@@ -1212,12 +1284,12 @@ class CSwitchCase(CStatement):
                     if i != len(id_or_ids) - 1:
                         yield " ", None
                 yield "\n", None
-            yield from case.c_repr_chunks(indent=indent + INDENT_DELTA)
+            yield from case.c_repr_chunks(indent=indent + self.codegen.indent_delta)
 
         if self.default is not None:
             yield indent_str, None
             yield "default:\n", self
-            yield from self.default.c_repr_chunks(indent=indent + INDENT_DELTA)
+            yield from self.default.c_repr_chunks(indent=indent + self.codegen.indent_delta)
 
         yield indent_str, None
         yield "}", brace
@@ -1263,7 +1335,7 @@ class CIncompleteSwitchCase(CStatement):
             yield indent_str, None
             yield f"case {case_addr:#x}", self
             yield ":\n", None
-            yield from case.c_repr_chunks(indent=indent + INDENT_DELTA)
+            yield from case.c_repr_chunks(indent=indent + self.codegen.indent_delta)
 
         yield indent_str, None
         yield "}", brace
@@ -1476,6 +1548,12 @@ class CFunctionCall(CExpression):
             yield func_name, self
         elif isinstance(self.callee_target, str):
             yield self.callee_target, self
+        elif isinstance(self.callee_target, CDirtyExpression):
+            # The call target is an opaque intrinsic/syscall placeholder (e.g. __debugbreak,
+            # syscall). Render just its name; the parentheses + args are emitted below. This
+            # also guarantees the internal "[D] ..." marker never reaches the output.
+            name = self.callee_target.intrinsic_name()
+            yield (name if name is not None else "/* unsupported call */"), self
         else:
             chunks = list(CExpression._try_c_repr_chunks(self.callee_target))
             if isinstance(self.callee_target, (CUnaryOp, CBinaryOp)):
@@ -1875,6 +1953,12 @@ class CUnaryOp(CExpression):
         yield ")", paren
 
     def _c_repr_chunks_reference(self):
+        # C array-to-pointer decay: an array-typed lvalue already decays to a pointer to its first
+        # element, so "&array" is redundant.
+        operand_type = self.operand.type if self.operand is not None else None
+        if operand_type is not None and isinstance(unpack_typeref(operand_type), SimTypeArray):
+            yield from CExpression._try_c_repr_chunks(self.operand)
+            return
         yield "&", self
         yield from CExpression._try_c_repr_chunks(self.operand)
 
@@ -2258,7 +2342,8 @@ class CConstant(CExpression):
         if result is None:
             result = False
             if isinstance(self.value, int):
-                result = hex(self.value).endswith("00") or is_alignment_mask(self.value)
+                bits = self._type.size if self._type is not None else None
+                result = should_use_hex(self.value, bits)
         return result
 
     @fmt_hex.setter
@@ -2555,6 +2640,8 @@ class CDirtyExpression(CExpression):
 
     __slots__ = ("dirty",)
 
+    _IDENT_RE = re.compile(r"[A-Za-z_][A-Za-z0-9_]*")
+
     def __init__(self, dirty, **kwargs):
         super().__init__(**kwargs)
         self.dirty = dirty
@@ -2563,11 +2650,27 @@ class CDirtyExpression(CExpression):
     def type(self):
         return SimTypeInt().with_arch(self.codegen.project.arch)
 
+    def intrinsic_name(self) -> str | None:
+        """Return the dirty callee if it is a clean C identifier, else None."""
+        callee = getattr(self.dirty, "callee", None)
+        if isinstance(callee, str) and self._IDENT_RE.fullmatch(callee):
+            return callee
+        return None
+
     def c_repr_chunks(self, indent=0, asexpr=False):
         if self.collapsed:
             yield "...", self
             return
-        yield str(self.dirty), None
+        # Never leak the internal "[D] ..." diagnostic repr into emitted C. Render a clean
+        # pseudo-intrinsic call when the callee is a valid C identifier, otherwise a safe
+        # placeholder comment.
+        name = self.intrinsic_name()
+        if name is not None:
+            operands = getattr(self.dirty, "operands", None) or []
+            args = ", ".join(repr(op).replace("[D] ", "") for op in operands)
+            yield f"{name}({args})", None
+        else:
+            yield "/* unsupported instruction */", None
 
 
 class CClosingObject:
@@ -2643,6 +2746,7 @@ class CStructuredCodeGenerator(BaseStructuredCodeGenerator, Analysis):
         max_str_len: int | None = None,
         prettify_thiscall: bool = False,
         cstyle_void_param: bool = True,
+        indent_size: int = 4,
         variable_map: VariableMap | None = None,
     ):
         super().__init__(
@@ -2673,6 +2777,7 @@ class CStructuredCodeGenerator(BaseStructuredCodeGenerator, Analysis):
             Stmt.SideEffectStatement: self._handle_Stmt_SideEffectStatement,
             Stmt.Jump: self._handle_Stmt_Jump,
             Stmt.ConditionalJump: self._handle_Stmt_ConditionalJump,
+            IncompleteSwitchCaseHeadStatement: self._handle_Stmt_IncompleteSwitchCaseHead,
             Stmt.Return: self._handle_Stmt_Return,
             Stmt.Label: self._handle_Stmt_Label,
             Stmt.DirtyStatement: self._handle_Stmt_Dirty,
@@ -2739,6 +2844,8 @@ class CStructuredCodeGenerator(BaseStructuredCodeGenerator, Analysis):
         self.max_str_len = max_str_len
         self.prettify_thiscall = prettify_thiscall
         self.cstyle_void_param = cstyle_void_param
+        # Number of space characters per indentation level in the emitted pseudocode.
+        self.indent_delta = indent_size
 
         self._analyze()
 
@@ -2766,6 +2873,8 @@ class CStructuredCodeGenerator(BaseStructuredCodeGenerator, Analysis):
                 self.cstyle_ifs = value
             elif option.param == "cstyle_void_param":
                 self.cstyle_void_param = value
+            elif option.param == "indent_size":
+                self.indent_delta = value
 
     def _analyze(self):
         self._variables_in_use = {}
@@ -3727,6 +3836,39 @@ class CStructuredCodeGenerator(BaseStructuredCodeGenerator, Analysis):
         return CIfElse(
             [(self._handle(stmt.condition), CGoto(self._handle(stmt.true_target), None, tags=stmt.tags, codegen=self))],
             else_node=else_node,
+            cstyle_ifs=self.cstyle_ifs,
+            tags=stmt.tags,
+            codegen=self,
+        )
+
+    def _handle_Stmt_IncompleteSwitchCaseHead(self, stmt: IncompleteSwitchCaseHeadStatement, **kwargs):
+        # an IncompleteSwitchCaseHeadStatement only reaches the code generator when structuring failed to turn it
+        # into a proper switch-case construct. degrade gracefully: render the dispatch semantics that the statement
+        # describes as a cascade of if-gotos instead of an unsupported-statement placeholder.
+        switch_var = self._handle(stmt.switch_variable)
+        bits = getattr(stmt.switch_variable, "bits", None) or self.project.arch.bits
+        const_type = self.default_simtype_from_bits(bits, signed=False)
+        condition_and_nodes = []
+        default_goto = None
+        for _, case_value, target_addr, target_idx, _ in stmt.case_addrs:
+            goto = CGoto(target_addr, target_idx, tags=stmt.tags, codegen=self)
+            if isinstance(case_value, str):
+                if case_value == "default":
+                    default_goto = goto
+                continue
+            cond = CBinaryOp(
+                "CmpEQ",
+                switch_var,
+                CConstant(case_value, const_type, codegen=self, tags=stmt.tags),
+                codegen=self,
+                tags=stmt.tags,
+            )
+            condition_and_nodes.append((cond, goto))
+        if not condition_and_nodes:
+            return default_goto if default_goto is not None else CUnsupportedStatement(stmt, codegen=self)
+        return CIfElse(
+            condition_and_nodes,
+            else_node=default_goto,
             cstyle_ifs=self.cstyle_ifs,
             tags=stmt.tags,
             codegen=self,

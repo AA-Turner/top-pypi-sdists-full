@@ -553,6 +553,10 @@ class EventType(StrEnum):
     MEDIA_ITEM_UPDATED = "media_item_updated"
     MEDIA_ITEM_DELETED = "media_item_deleted"
     PROVIDERS_UPDATED = "providers_updated"
+    # generic event emitted by a provider instance;
+    # object_id = provider instance_id (optionally suffixed with /sub_scope),
+    # data = provider-defined payload
+    PROVIDER_EVENT = "provider_event"
     SYNC_TASKS_UPDATED = "sync_tasks_updated"
     TASKS_UPDATED = "tasks_updated"
     MUSIC_SYNC_COMPLETED = "music_sync_completed"
@@ -662,7 +666,8 @@ class ProviderFeature(StrEnum):
     # PLUGIN FEATURES
     #
     AUDIO_SOURCE = "audio_source"
-    AUDIO_OVERLAY = "audio_overlay"  # plugin can mix an audio overlay into queue playback
+    # provider can enumerate sound effect items (live, not library-backed)
+    SOUND_EFFECTS = "sound_effects"
 
     #
     # OTHER FEATURES (plugin-only)

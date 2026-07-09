@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: bumble
-Version: 0.0.231
+Version: 0.0.232
 Summary: Bluetooth Stack for Apps, Emulation, Test and Experimentation
 Author-email: Google <bumble-dev@google.com>
 License-Expression: Apache-2.0
@@ -13,53 +13,32 @@ Requires-Dist: click>=8.1.3; platform_system != "Emscripten"
 Requires-Dist: cryptography>=44.0.3; platform_system != "Emscripten" and platform_system != "Android"
 Requires-Dist: cryptography>=39.0.0; platform_system == "Emscripten"
 Requires-Dist: cryptography>=42.0.8; platform_system == "Android"
-Requires-Dist: grpcio>=1.62.1; platform_system != "Emscripten"
 Requires-Dist: humanize>=4.6.0; platform_system != "Emscripten"
-Requires-Dist: libusb1>=2.0.1; platform_system != "Emscripten"
-Requires-Dist: libusb-package==1.0.26.4; platform_system != "Emscripten" and platform_system != "Android"
 Requires-Dist: platformdirs>=3.10.0; platform_system != "Emscripten"
 Requires-Dist: prompt_toolkit>=3.0.16; platform_system != "Emscripten"
 Requires-Dist: prettytable>=3.6.0; platform_system != "Emscripten"
-Requires-Dist: protobuf>=3.12.4; platform_system != "Emscripten"
 Requires-Dist: pyee>=13.0.0
-Requires-Dist: pyserial-asyncio>=0.5; platform_system != "Emscripten"
-Requires-Dist: pyserial>=3.5; platform_system != "Emscripten"
-Requires-Dist: pyusb>=1.2; platform_system != "Emscripten"
 Requires-Dist: tomli~=2.2.1; platform_system != "Emscripten" and python_version < "3.11"
 Requires-Dist: websockets>=15.0.1; platform_system != "Emscripten"
-Provides-Extra: build
-Requires-Dist: build>=0.7; extra == "build"
-Provides-Extra: test
-Requires-Dist: pytest>=9.0; extra == "test"
-Requires-Dist: pytest-asyncio>=1.4; extra == "test"
-Requires-Dist: pytest-html>=4.2; extra == "test"
-Requires-Dist: coverage>=6.4; extra == "test"
-Provides-Extra: development
-Requires-Dist: black~=25.1; extra == "development"
-Requires-Dist: bt-test-interfaces>=0.0.6; extra == "development"
-Requires-Dist: grpcio-tools>=1.62.1; extra == "development"
-Requires-Dist: invoke>=1.7.3; extra == "development"
-Requires-Dist: mobly>=1.12.2; extra == "development"
-Requires-Dist: mypy==1.12.0; extra == "development"
-Requires-Dist: nox>=2022; extra == "development"
-Requires-Dist: pylint==3.3.1; extra == "development"
-Requires-Dist: pyyaml>=6.0; extra == "development"
-Requires-Dist: ruff==0.14.10; extra == "development"
-Requires-Dist: types-appdirs>=1.4.3; extra == "development"
-Requires-Dist: types-invoke>=1.7.3; extra == "development"
-Requires-Dist: types-protobuf>=4.21.0; extra == "development"
+Requires-Dist: pyserial-asyncio>=0.5; platform_system != "Emscripten"
+Requires-Dist: pyserial>=3.5; platform_system != "Emscripten"
+Requires-Dist: libusb1>=2.0.1; platform_system != "Emscripten"
+Requires-Dist: libusb-package==1.0.26.4; platform_system != "Emscripten" and platform_system != "Android"
+Requires-Dist: pyusb>=1.2; platform_system != "Emscripten"
+Provides-Extra: android
+Requires-Dist: grpcio>=1.62.1; platform_system != "Emscripten" and extra == "android"
+Requires-Dist: protobuf>=3.12.4; platform_system != "Emscripten" and extra == "android"
 Provides-Extra: avatar
 Requires-Dist: pandora-avatar==0.0.10; extra == "avatar"
 Requires-Dist: rootcanal==1.11.1; python_version >= "3.10" and extra == "avatar"
 Provides-Extra: pandora
 Requires-Dist: bt-test-interfaces>=0.0.6; extra == "pandora"
-Provides-Extra: documentation
-Requires-Dist: mkdocs>=1.6.0; extra == "documentation"
-Requires-Dist: mkdocs-material>=9.6; extra == "documentation"
-Requires-Dist: mkdocstrings[python]>=0.27.0; extra == "documentation"
 Provides-Extra: auracast
 Requires-Dist: lc3py>=1.1.3; (python_version >= "3.10" and ((platform_system == "Linux" and platform_machine == "x86_64") or (platform_system == "Darwin" and platform_machine == "arm64"))) and extra == "auracast"
 Requires-Dist: sounddevice>=0.5.1; extra == "auracast"
+Provides-Extra: all
+Requires-Dist: bumble[android]; extra == "all"
+Requires-Dist: bumble[auracast]; extra == "all"
 Dynamic: license-file
 
 
@@ -97,7 +76,7 @@ To install package dependencies needed to run the bumble examples, execute the f
 
 ```
 python -m pip install --upgrade pip
-python -m pip install ".[test,development,documentation]"
+python -m pip install ".[all]" --group dev
 ```
 
 ### Examples

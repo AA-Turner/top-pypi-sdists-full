@@ -13,7 +13,7 @@ import jsii
 import publication
 import typing_extensions
 
-from jsii._type_checking import check_type
+from jsii._type_checking import cached_type_hints, check_type
 
 
 from .._jsii import *
@@ -69,7 +69,7 @@ class CircleCiProps:
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__3c06d1b34693d265fea30a99659c5747190e9c57d57d9f113945e2e9c2869d82)
+            type_hints = cached_type_hints(_typecheckingstub__3c06d1b34693d265fea30a99659c5747190e9c57d57d9f113945e2e9c2869d82)
             check_type(argname="argument jobs", value=jobs, expected_type=type_hints["jobs"])
             check_type(argname="argument orbs", value=orbs, expected_type=type_hints["orbs"])
             check_type(argname="argument setup", value=setup, expected_type=type_hints["setup"])
@@ -182,7 +182,7 @@ class Circleci(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__e2e6060b99c6fcc0051c7dac0012833613cc8aeda16307b7ed8accef2f464d02)
+            type_hints = cached_type_hints(_typecheckingstub__e2e6060b99c6fcc0051c7dac0012833613cc8aeda16307b7ed8accef2f464d02)
             check_type(argname="argument project", value=project, expected_type=type_hints["project"])
         options = CircleCiProps(
             jobs=jobs, orbs=orbs, setup=setup, version=version, workflows=workflows
@@ -202,7 +202,7 @@ class Circleci(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__07fa7a0ae004a9efdf172ba4d70935adf896efa975017fefd5ecca96d1789b0a)
+            type_hints = cached_type_hints(_typecheckingstub__07fa7a0ae004a9efdf172ba4d70935adf896efa975017fefd5ecca96d1789b0a)
             check_type(argname="argument name", value=name, expected_type=type_hints["name"])
             check_type(argname="argument orb", value=orb, expected_type=type_hints["orb"])
         return typing.cast(None, jsii.invoke(self, "addOrb", [name, orb]))
@@ -283,7 +283,7 @@ class Docker:
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__01002e199af73f14cb99914c29f5c88976ddb7c3567b6f98f72eab06613a1f6b)
+            type_hints = cached_type_hints(_typecheckingstub__01002e199af73f14cb99914c29f5c88976ddb7c3567b6f98f72eab06613a1f6b)
             check_type(argname="argument image", value=image, expected_type=type_hints["image"])
             check_type(argname="argument auth", value=auth, expected_type=type_hints["auth"])
             check_type(argname="argument aws_auth", value=aws_auth, expected_type=type_hints["aws_auth"])
@@ -433,7 +433,7 @@ class Filter:
         if isinstance(tags, dict):
             tags = FilterConfig(**tags)
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__6493d53ad3b6da8c4c026f0ee12c58a1016f759521f6f7ca4f504fb695302217)
+            type_hints = cached_type_hints(_typecheckingstub__6493d53ad3b6da8c4c026f0ee12c58a1016f759521f6f7ca4f504fb695302217)
             check_type(argname="argument branches", value=branches, expected_type=type_hints["branches"])
             check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
         self._values: typing.Dict[builtins.str, typing.Any] = {}
@@ -491,7 +491,7 @@ class FilterConfig:
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__81f19b9f6bd71e5aa29ece449d79c7c236857bb54e3c624432e34d8cbc13904c)
+            type_hints = cached_type_hints(_typecheckingstub__81f19b9f6bd71e5aa29ece449d79c7c236857bb54e3c624432e34d8cbc13904c)
             check_type(argname="argument ignore", value=ignore, expected_type=type_hints["ignore"])
             check_type(argname="argument only", value=only, expected_type=type_hints["only"])
         self._values: typing.Dict[builtins.str, typing.Any] = {}
@@ -593,7 +593,7 @@ class Job:
         if isinstance(macos, dict):
             macos = Macos(**macos)
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__97531d78e2f2b3c8448832e412f0f67b6d3bebdd7fffb6c833ae2f02941f25ce)
+            type_hints = cached_type_hints(_typecheckingstub__97531d78e2f2b3c8448832e412f0f67b6d3bebdd7fffb6c833ae2f02941f25ce)
             check_type(argname="argument identifier", value=identifier, expected_type=type_hints["identifier"])
             check_type(argname="argument circleci_ip_ranges", value=circleci_ip_ranges, expected_type=type_hints["circleci_ip_ranges"])
             check_type(argname="argument docker", value=docker, expected_type=type_hints["docker"])
@@ -813,7 +813,7 @@ class Machine:
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__53881feec4d48228721967bbc45502093f8e241f270887e7eb698227861f12c4)
+            type_hints = cached_type_hints(_typecheckingstub__53881feec4d48228721967bbc45502093f8e241f270887e7eb698227861f12c4)
             check_type(argname="argument image", value=image, expected_type=type_hints["image"])
             check_type(argname="argument docker_layer_caching", value=docker_layer_caching, expected_type=type_hints["docker_layer_caching"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -874,7 +874,7 @@ class Macos:
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ed4f40484bb7d08edd22d95fc5819356e6a1dc781d345e50bdc4e18b7d530987)
+            type_hints = cached_type_hints(_typecheckingstub__ed4f40484bb7d08edd22d95fc5819356e6a1dc781d345e50bdc4e18b7d530987)
             check_type(argname="argument xcode", value=xcode, expected_type=type_hints["xcode"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "xcode": xcode,
@@ -923,7 +923,7 @@ class Matrix:
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__9fed56caa15ccb04aa2e24693becc1edac083f1a34e5f4a0e2caf8c3b5b21c79)
+            type_hints = cached_type_hints(_typecheckingstub__9fed56caa15ccb04aa2e24693becc1edac083f1a34e5f4a0e2caf8c3b5b21c79)
             check_type(argname="argument alias", value=alias, expected_type=type_hints["alias"])
             check_type(argname="argument parameters", value=parameters, expected_type=type_hints["parameters"])
         self._values: typing.Dict[builtins.str, typing.Any] = {}
@@ -989,7 +989,7 @@ class PipelineParameter:
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__01127749913d95b4e7f45fa3bc48b191b3477ff11336e9b4e0f0ef6c16158a1e)
+            type_hints = cached_type_hints(_typecheckingstub__01127749913d95b4e7f45fa3bc48b191b3477ff11336e9b4e0f0ef6c16158a1e)
             check_type(argname="argument type", value=type, expected_type=type_hints["type"])
             check_type(argname="argument default", value=default, expected_type=type_hints["default"])
             check_type(argname="argument description", value=description, expected_type=type_hints["description"])
@@ -1154,7 +1154,7 @@ class Run:
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ef55a171334206583878dc9d13725a2a79510575ee335fad532dcbb2dabc37e9)
+            type_hints = cached_type_hints(_typecheckingstub__ef55a171334206583878dc9d13725a2a79510575ee335fad532dcbb2dabc37e9)
             check_type(argname="argument command", value=command, expected_type=type_hints["command"])
             check_type(argname="argument background", value=background, expected_type=type_hints["background"])
             check_type(argname="argument environment", value=environment, expected_type=type_hints["environment"])
@@ -1291,7 +1291,7 @@ class Schedule:
         if isinstance(filters, dict):
             filters = Filter(**filters)
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__f1eb058b832a1f70afb2296b06a8c2f97e1b047e8cf0a4b94fe0ec43792c51c1)
+            type_hints = cached_type_hints(_typecheckingstub__f1eb058b832a1f70afb2296b06a8c2f97e1b047e8cf0a4b94fe0ec43792c51c1)
             check_type(argname="argument filters", value=filters, expected_type=type_hints["filters"])
             check_type(argname="argument cron", value=cron, expected_type=type_hints["cron"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -1351,7 +1351,7 @@ class StepRun:
         if isinstance(run, dict):
             run = Run(**run)
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__efa1cf3a4b2feef1c889328d0e73fa8f62094d12b0e2dc6f22aae32c20fdfed0)
+            type_hints = cached_type_hints(_typecheckingstub__efa1cf3a4b2feef1c889328d0e73fa8f62094d12b0e2dc6f22aae32c20fdfed0)
             check_type(argname="argument run", value=run, expected_type=type_hints["run"])
         self._values: typing.Dict[builtins.str, typing.Any] = {}
         if run is not None:
@@ -1400,7 +1400,7 @@ class Triggers:
         if isinstance(schedule, dict):
             schedule = Schedule(**schedule)
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__7918035c7d67628f34b078a926269a579082194ef7b6bc77cf819cf875a4a512)
+            type_hints = cached_type_hints(_typecheckingstub__7918035c7d67628f34b078a926269a579082194ef7b6bc77cf819cf875a4a512)
             check_type(argname="argument schedule", value=schedule, expected_type=type_hints["schedule"])
         self._values: typing.Dict[builtins.str, typing.Any] = {}
         if schedule is not None:
@@ -1460,7 +1460,7 @@ class Workflow:
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__1c531c139b5afce396acd7a22ab9d3b6324b786877fd8f036d04a81cbb21f750)
+            type_hints = cached_type_hints(_typecheckingstub__1c531c139b5afce396acd7a22ab9d3b6324b786877fd8f036d04a81cbb21f750)
             check_type(argname="argument identifier", value=identifier, expected_type=type_hints["identifier"])
             check_type(argname="argument jobs", value=jobs, expected_type=type_hints["jobs"])
             check_type(argname="argument triggers", value=triggers, expected_type=type_hints["triggers"])
@@ -1573,7 +1573,7 @@ class WorkflowJob:
         if isinstance(matrix, dict):
             matrix = Matrix(**matrix)
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c171cfd438ea2ad47145a9a03f2eb8778481bbc92f3764eb6e7f7f614e76726a)
+            type_hints = cached_type_hints(_typecheckingstub__c171cfd438ea2ad47145a9a03f2eb8778481bbc92f3764eb6e7f7f614e76726a)
             check_type(argname="argument identifier", value=identifier, expected_type=type_hints["identifier"])
             check_type(argname="argument context", value=context, expected_type=type_hints["context"])
             check_type(argname="argument filters", value=filters, expected_type=type_hints["filters"])

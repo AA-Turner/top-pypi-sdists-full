@@ -16,8 +16,8 @@ class TestJabberSearch(SlixTest):
             jid="characters.shakespeare.lit",
             plugins={"xep_0055"}
         )
-        self.xmpp["xep_0055"].api.register(get_results, "search_query")
-        self.xmpp["xep_0055"].api.register(get_results, "search_query")
+        self.xmpp.plugin["xep_0055"].api.register(get_results, "search_query")
+        self.xmpp.plugin["xep_0055"].api.register(get_results, "search_query")
 
     def testRequestingSearchFields(self):
         self.recv(
@@ -104,7 +104,7 @@ class TestJabberSearch(SlixTest):
         )
 
     def testSearchNoResult(self):
-        self.xmpp["xep_0055"].api.register(get_results, "search_query")
+        self.xmpp.plugin["xep_0055"].api.register(get_results, "search_query")
         self.recv(
             """
             <iq type='get'

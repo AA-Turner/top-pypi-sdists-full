@@ -366,6 +366,71 @@ class TestNormalizeName:
                 assert str(result) == upper.lower()
 
 
+class TestSplitSchemaByDotPrefixDrop:
+    """A quoted segment must be dot-separated; adjacent unquoted text is rejected
+    rather than parsed into an unintended multi-part reference."""
+
+    @pytest.fixture
+    def ip(self):
+        return SnowflakeDialect().identifier_preparer
+
+    @pytest.mark.parametrize(
+        "schema_str, expected_parts",
+        [
+            ('"myschema"', ["myschema"]),
+            ("mydb.myschema", ["mydb", "myschema"]),
+        ],
+    )
+    def test_split_parts(self, ip, schema_str, expected_parts):
+        parts = ip._split_schema_by_dot(schema_str)
+        assert [str(p) for p in parts] == expected_parts
+
+    @pytest.mark.parametrize(
+        "schema_str",
+        ['prefix"QUOTED"', 'tenantA_"TENANT_B"', 'a"B"'],
+    )
+    def test_malformed_raises(self, ip, schema_str):
+        with pytest.raises(ValueError):
+            ip._split_schema_by_dot(schema_str)
+
+
+class TestQualifyObjectName:
+    """_qualify_object_name must treat object_name atomically, never re-splitting on dots."""
+
+    @pytest.fixture
+    def dialect(self):
+        d = SnowflakeDialect()
+        d.default_schema_name = "PUBLIC"
+        return d
+
+    def _count_parts(self, qualified: str) -> int:
+        parts = 0
+        in_quote = False
+        for ch in qualified:
+            if ch == '"':
+                in_quote = not in_quote
+            elif ch == "." and not in_quote:
+                parts += 1
+        return parts + 1 if qualified else 0
+
+    @pytest.mark.parametrize(
+        "object_name, schema, expected_parts",
+        [
+            ("my_table", None, 1),
+            ("my_table", "PUBLIC", 2),
+            ("other.table", "PUBLIC", 2),
+            ("my_table", "OTHER_DB.OTHER_SCHEMA", 3),
+            ("OTHER_DB.OTHER_SCHEMA.SECRETS", None, 1),
+        ],
+    )
+    def test_part_count(self, dialect, object_name, schema, expected_parts):
+        result = dialect._qualify_object_name(object_name, schema=schema)
+        assert self._count_parts(result) == expected_parts, f"got {result!r}"
+
+    def test_no_schema_exact_output(self, dialect):
+        assert dialect._qualify_object_name("my_table") == '"MY_TABLE"'
+
+
 # ---------------------------------------------------------------------------
 # _has_object denormalizes object_name before building SQL
 # ---------------------------------------------------------------------------
@@ -383,53 +448,24 @@ class TestHasObjectNormalization:
         conn.execute.return_value = result_mock
         return d, conn
 
-    def test_plain_lowercase_generates_quoted_uppercase(self):
-        """_has_object('mytable') should generate DESC TABLE \"MYTABLE\" (quoted uppercase)."""
+    @pytest.mark.parametrize(
+        "object_name, schema, expected_fragments",
+        [
+            ("mytable", None, ['"MYTABLE"']),
+            (quoted_name("mytable", True), None, ['"mytable"']),
+            ("MyTable", None, ['"MyTable"']),
+            ("mytable", "myschema", ['"MYTABLE"', '"MYSCHEMA"']),
+        ],
+        ids=["lowercase", "quoted_name", "mixed_case", "with_schema"],
+    )
+    def test_desc_sql_fragments(self, object_name, schema, expected_fragments):
         d, conn = self._dialect_with_mock_connection()
-        d._has_object(conn, "TABLE", "mytable")
-        call_args = conn.execute.call_args
-        sql_text = str(call_args[0][0])
-        # denormalize_name('mytable') -> 'MYTABLE'
-        # _denormalize_quote_join('MYTABLE') -> '"MYTABLE"'
-        assert (
-            '"MYTABLE"' in sql_text
-        ), f"Expected '\"MYTABLE\"' in DESC SQL, got: {sql_text!r}"
-
-    def test_quoted_name_generates_quoted_lowercase(self):
-        """_has_object(quoted_name('mytable', True)) should generate DESC TABLE \"mytable\"."""
-        d, conn = self._dialect_with_mock_connection()
-        d._has_object(conn, "TABLE", quoted_name("mytable", True))
-        call_args = conn.execute.call_args
-        sql_text = str(call_args[0][0])
-        assert (
-            '"mytable"' in sql_text
-        ), f"Expected '\"mytable\"' in DESC SQL, got: {sql_text!r}"
-
-    def test_mixed_case_generates_quoted_mixed(self):
-        """_has_object('MyTable') should generate DESC TABLE \"MyTable\" (case-sensitive)."""
-        d, conn = self._dialect_with_mock_connection()
-        d._has_object(conn, "TABLE", "MyTable")
-        call_args = conn.execute.call_args
-        sql_text = str(call_args[0][0])
-        # denormalize_name('MyTable') -> 'MyTable' (mixed case passes through)
-        # _denormalize_quote_join('MyTable') -> '"MyTable"' (quoted because mixed case)
-        assert (
-            '"MyTable"' in sql_text
-        ), f"Expected '\"MyTable\"' in DESC SQL, got: {sql_text!r}"
-
-    def test_with_schema_plain_lowercase(self):
-        """_has_object with schema denormalizes both schema and object_name."""
-        d, conn = self._dialect_with_mock_connection()
-        d._has_object(conn, "TABLE", "mytable", schema="myschema")
-        call_args = conn.execute.call_args
-        sql_text = str(call_args[0][0])
-        # Both schema and object_name are denormalized: lowercase → UPPERCASE then quoted.
-        assert (
-            '"MYTABLE"' in sql_text
-        ), f"Expected '\"MYTABLE\"' in DESC SQL, got: {sql_text!r}"
-        assert (
-            '"MYSCHEMA"' in sql_text
-        ), f"Expected '\"MYSCHEMA\"' in DESC SQL, got: {sql_text!r}"
+        d._has_object(conn, "TABLE", object_name, schema=schema)
+        sql_text = str(conn.execute.call_args[0][0])
+        for fragment in expected_fragments:
+            assert (
+                fragment in sql_text
+            ), f"Expected {fragment!r} in DESC SQL, got: {sql_text!r}"
 
     def test_programming_error_returns_false(self):
         """_has_object returns False when DESC raises ProgrammingError."""
@@ -513,31 +549,6 @@ class TestCaseSensitiveIdentifiersFlag:
             "case_sensitive_identifiers" not in opts
         ), "case_sensitive_identifiers must not be forwarded to connector opts"
 
-    def test_url_param_replaces_name_utils_atomically(self):
-        """URL-driven flip must swap ``name_utils`` rather than mutate it.
-
-        ``create_connect_args`` runs per DBAPI connection; mutating a live
-        ``_NameUtils`` attribute in place would let concurrent readers on
-        other threads observe a torn state where the flag has flipped but
-        the cached preparer has not.  Replacing the whole instance is
-        atomic at the bytecode level, so a reader sees either the old
-        instance or the new one and never a partially-updated object.
-        """
-        d = SnowflakeDialect()
-        original_nu = d.name_utils
-        url = SAUrl.create(
-            "snowflake",
-            username="u",
-            password="p",
-            host="testaccount",
-            query={"case_sensitive_identifiers": "True"},
-        )
-        d.create_connect_args(url)
-        assert d.name_utils is not original_nu
-        assert d.name_utils.case_sensitive_identifiers is True
-        # The original instance is untouched, proving no in-place mutation.
-        assert original_nu.case_sensitive_identifiers is False
-
     def test_url_param_idempotent_when_unchanged(self):
         """Re-applying the same flag is a no-op — ``name_utils`` is kept."""
         d = SnowflakeDialect(case_sensitive_identifiers=True)
@@ -552,6 +563,52 @@ class TestCaseSensitiveIdentifiersFlag:
         d.create_connect_args(url)
         assert d.name_utils is original_nu
         assert d._case_sensitive_identifiers is True
+
+
+class TestCaseSensitiveSingleSource:
+    """New contract (single source of truth): the dialect attribute
+    ``_case_sensitive_identifiers`` is the sole owner of the flag.  ``_NameUtils``
+    holds no copy — it reads the flag live from the dialect — so a URL-driven
+    flip mutates the dialect attribute in place and is reflected everywhere
+    without rebuilding ``name_utils``.
+    """
+
+    def _url(self, value):
+        return SAUrl.create(
+            "snowflake",
+            username="u",
+            password="p",
+            host="testaccount",
+            query={"case_sensitive_identifiers": value},
+        )
+
+    def test_url_flip_keeps_same_name_utils_instance(self):
+        """A URL-driven flip must NOT replace name_utils (no rebuild)."""
+        d = SnowflakeDialect()
+        original_nu = d.name_utils
+        d.create_connect_args(self._url("True"))
+        assert d._case_sensitive_identifiers is True
+        assert d.name_utils is original_nu
+
+    def test_name_utils_reflects_dialect_flag_live(self):
+        """name_utils.case_sensitive_identifiers tracks the dialect attribute
+        live, on the same instance — no stored copy."""
+        d = SnowflakeDialect()
+        nu = d.name_utils
+        assert nu.case_sensitive_identifiers is False
+        d._case_sensitive_identifiers = True
+        assert nu.case_sensitive_identifiers is True
+
+    def test_normalize_name_reflects_live_flip(self):
+        """A mixed-case name normalizes per the *current* dialect flag on the
+        same name_utils instance, without any rebuild."""
+        d = SnowflakeDialect()
+        nu = d.name_utils
+        # flag off → mixed-case returned as a plain str (no .quote attribute)
+        assert getattr(nu.normalize_name("MyTable"), "quote", None) is None
+        d._case_sensitive_identifiers = True
+        # flag on → same instance now marks it quote=True
+        assert nu.normalize_name("MyTable").quote is True
 
 
 # ---------------------------------------------------------------------------

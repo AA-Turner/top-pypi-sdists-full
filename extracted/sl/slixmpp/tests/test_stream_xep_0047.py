@@ -19,7 +19,7 @@ class TestInBandByteStreams(SlixTest):
 
         self.xmpp.add_event_handler('ibb_stream_start', on_stream_start)
 
-        self.xmpp.wrap(self.xmpp['xep_0047'].open_stream('tester@localhost/receiver',
+        self.xmpp.wrap(self.xmpp.plugin['xep_0047'].open_stream('tester@localhost/receiver',
                                                          sid='testing'))
         self.wait_()
 
@@ -53,7 +53,7 @@ class TestInBandByteStreams(SlixTest):
 
         self.xmpp.add_event_handler('ibb_stream_start', on_stream_start)
 
-        self.xmpp.wrap(self.xmpp['xep_0047'].open_stream('tester@localhost/receiver',
+        self.xmpp.wrap(self.xmpp.plugin['xep_0047'].open_stream('tester@localhost/receiver',
                                                          sid='testing',
                                                          callback=stream_callback))
         self.wait_()
@@ -90,7 +90,7 @@ class TestInBandByteStreams(SlixTest):
         self.xmpp.add_event_handler('ibb_stream_start', on_stream_start)
         self.xmpp.add_event_handler('ibb_stream_data', on_stream_data)
 
-        self.xmpp.wrap(self.xmpp['xep_0047'].open_stream('tester@localhost/receiver',
+        self.xmpp.wrap(self.xmpp.plugin['xep_0047'].open_stream('tester@localhost/receiver',
                                                          sid='testing'))
         self.wait_()
 

@@ -33,7 +33,9 @@ Hyperpart's ``data-dz-pdf-src`` target).
 """
 
 import logging
+import os
 import re
+from datetime import UTC, datetime, timedelta
 from typing import Any
 from uuid import UUID
 
@@ -53,6 +55,19 @@ logger = logging.getLogger(__name__)
 _UUID_RE = re.compile(
     r"[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}"
 )
+
+
+def _pending_upload_ttl() -> timedelta:
+    """#1555: pending, not-yet-attached uploads are time-boxed so a leaked
+    file UUID grants access only for a bounded window. The window is
+    ``DAZZLE_PENDING_UPLOAD_TTL_MINUTES`` (default 60). A value ``<= 0``
+    disables the time-box (unbounded pending window). Read per-request so
+    operators can tune it without a restart."""
+    try:
+        minutes = int(os.environ.get("DAZZLE_PENDING_UPLOAD_TTL_MINUTES", "60"))
+    except ValueError:
+        minutes = 60
+    return timedelta(minutes=minutes)
 
 
 def _extract_file_id(raw: Any) -> UUID | None:
@@ -87,6 +102,8 @@ def verify_file_triple(
     record_id: str,
     field: str,
     raw_value: Any,
+    *,
+    current_user_id: str | None = None,
 ) -> None:
     """#1551: a file-field write must reference a file whose metadata
     triple matches the owning (entity, id, field). Closes the
@@ -97,10 +114,18 @@ def verify_file_triple(
     pending file. The check fires only when the stored triple is
     non-empty and conflicts with the caller's target.
 
+    #1554: the empty-triple first-attach branch is additionally gated by
+    uploader identity — a caller who merely guessed a pending file's UUID
+    cannot adopt another user's upload. The guard fails open when either
+    the stored ``uploaded_by`` or the caller identity is absent (legacy
+    files predating the column / no-auth test rigs), preserving the
+    pre-#1554 first-attach behaviour.
+
     Args:
         file_service: Must implement ``get_metadata(file_id)``
             returning an object with ``entity_name``, ``entity_id``,
-            and ``field_name`` attributes (or None when missing).
+            ``field_name``, and ``uploaded_by`` attributes (or None when
+            missing).
         entity: The entity name the caller is writing to.
         record_id: The record's ID string (use ``""`` on create before
             the new ID is assigned — pending files have ``entity_id=""``
@@ -108,6 +133,8 @@ def verify_file_triple(
         field: The field name on the entity.
         raw_value: Raw field value from the request body (URL/path or
             bare UUID). ``None`` / empty string → no-op (field cleared).
+        current_user_id: The authenticated caller's user id, compared
+            against the pending file's ``uploaded_by`` on first attach.
     """
     file_id = _extract_file_id(raw_value)
     if file_id is None:
@@ -115,15 +142,26 @@ def verify_file_triple(
     metadata = file_service.get_metadata(file_id)
     if metadata is None:
         raise ValueError(f"file {file_id} referenced by {entity}.{field} does not exist")
+    stored_entity = metadata.entity_name or ""
+    stored_id = str(metadata.entity_id or "")
+    stored_field = metadata.field_name or ""
     if (
-        (metadata.entity_name or "") not in ("", entity)
-        or str(metadata.entity_id or "") not in ("", str(record_id))
-        or (metadata.field_name or "") not in ("", field)
+        stored_entity not in ("", entity)
+        or stored_id not in ("", str(record_id))
+        or stored_field not in ("", field)
     ):
         raise ValueError(
             f"file {file_id} triple {metadata.entity_name}/{metadata.entity_id}/"
             f"{metadata.field_name} does not match {entity}/{record_id}/{field}"
         )
+    # #1554: pending first-attach (empty stored triple) is uploader-gated.
+    if not (stored_entity or stored_id or stored_field):
+        uploaded_by = getattr(metadata, "uploaded_by", None)
+        if current_user_id and uploaded_by and str(uploaded_by) != str(current_user_id):
+            raise ValueError(
+                f"pending file {file_id} was uploaded by a different user; "
+                f"only its uploader can attach it"
+            )
 
 
 def create_document_routes(
@@ -225,13 +263,23 @@ def create_document_routes(
         """
         uid = str(getattr(getattr(auth_context, "user", None), "id", "") or "")
         metadata = file_service.get_metadata(file_id)
+        # #1555: time-box the pending window. A leaked UUID grants access only
+        # until the upload TTL elapses; expired → opaque 404 like any other
+        # denial. TTL <= 0 disables the box; a metadata row missing created_at
+        # (legacy) is never expired.
+        ttl = _pending_upload_ttl()
+        created_at = getattr(metadata, "created_at", None)
+        expired = (
+            ttl > timedelta(0) and created_at is not None and datetime.now(UTC) - created_at > ttl
+        )
         # opaque 404 on: unknown file, unauthenticated, wrong uploader,
-        # or file already attached to a record.
+        # file already attached to a record, or an expired pending upload.
         if (
             metadata is None
             or not uid
             or str(metadata.uploaded_by or "") != uid
             or bool(metadata.entity_id)
+            or expired
         ):
             raise HTTPException(status_code=404, detail="Not found")
         decision = AccessDecision(

@@ -505,8 +505,12 @@ class FeeModelPythonWrapper(QuantConnect.Orders.Fees.FeeModel):
         ...
 
 
-class PythonConsolidator(System.Object, QuantConnect.Data.Consolidators.IDataConsolidator):
-    """Provides a base class for python consolidators, necessary to use event handler."""
+class PythonConsolidator(QuantConnect.Indicators.WindowBase[QuantConnect.Data.IBaseData], QuantConnect.Data.Consolidators.IDataConsolidator):
+    """
+    Provides a base class for python consolidators, necessary to use event handler.
+    Inherits the built-in rolling window so custom Python consolidators can access their
+    consolidated history through the indexer, Current, Previous and Window members.
+    """
 
     @property
     def consolidated(self) -> QuantConnect.Data.IBaseData:
@@ -1375,16 +1379,8 @@ class BrokerageModelPythonWrapper(QuantConnect.Python.BasePythonWrapper[QuantCon
         ...
 
 
-class DataConsolidatorPythonWrapper(QuantConnect.Python.BasePythonWrapper[QuantConnect.Data.Consolidators.IDataConsolidator], QuantConnect.Data.Consolidators.IDataConsolidator):
+class DataConsolidatorPythonWrapper(QuantConnect.Data.Consolidators.ConsolidatorBase):
     """Provides an Data Consolidator that wraps a PyObject object that represents a custom Python consolidator"""
-
-    @property
-    def consolidated(self) -> QuantConnect.Data.IBaseData:
-        """
-        Gets the most recently consolidated piece of data. This will be null if this consolidator
-        has not produced any data yet.
-        """
-        ...
 
     @property
     def working_data(self) -> QuantConnect.Data.IBaseData:
@@ -1401,15 +1397,6 @@ class DataConsolidatorPythonWrapper(QuantConnect.Python.BasePythonWrapper[QuantC
         """Gets the type produced by this consolidator"""
         ...
 
-    @property
-    def data_consolidated(self) -> _EventContainer[typing.Callable[[System.Object, QuantConnect.Data.IBaseData], typing.Any], typing.Any]:
-        """Event handler that fires when a new piece of data is produced"""
-        ...
-
-    @data_consolidated.setter
-    def data_consolidated(self, value: _EventContainer[typing.Callable[[System.Object, QuantConnect.Data.IBaseData], typing.Any], typing.Any]) -> None:
-        ...
-
     def __init__(self, consolidator: typing.Any) -> None:
         """
         Constructor for initialising the DataConsolidatorPythonWrapper class with wrapped PyObject object
@@ -1420,6 +1407,14 @@ class DataConsolidatorPythonWrapper(QuantConnect.Python.BasePythonWrapper[QuantC
 
     def dispose(self) -> None:
         """Performs application-defined tasks associated with freeing, releasing, or resetting unmanaged resources."""
+        ...
+
+    def equals(self, obj: typing.Any) -> bool:
+        """Two wrappers are equal if they wrap the same Python object reference."""
+        ...
+
+    def get_hash_code(self) -> int:
+        """Hash code based on the underlying Python object reference."""
         ...
 
     def reset(self) -> None:

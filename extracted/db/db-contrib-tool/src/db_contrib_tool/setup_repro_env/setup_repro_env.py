@@ -3,7 +3,9 @@
 import os
 import pathlib
 import re
-from typing import List, NamedTuple, Optional, Set
+from datetime import datetime, timedelta, timezone
+from typing import Dict, List, NamedTuple, Optional, Set
+from urllib.parse import parse_qs, urlparse
 
 import inject
 import structlog
@@ -47,6 +49,8 @@ EXTERNAL_LOGGERS = [
     "inject",
     "urllib3",
 ]
+# Refresh a pre-signed URL slightly before its real expiry.
+PRESIGNED_URL_EXPIRY_BUFFER = timedelta(seconds=10)
 
 LOGGER = structlog.getLogger(__name__)
 
@@ -63,6 +67,7 @@ class SetupReproParameters(NamedTuple):
     * versions: List of items to download.
     * ignore_failed_push: Download version even if the push task failed.
     * fallback_to_master: Should the latest master be downloaded if the version doesn't exist.
+    * prefer_staging: Look in the 'mongodb-mongo-vX.X-staging' projects instead of 'mongodb-mongo-vX.X'.
 
     * evg_versions_file: Write which evergreen versions were downloaded from to this file.
 
@@ -81,6 +86,8 @@ class SetupReproParameters(NamedTuple):
     evg_versions_file: Optional[str]
 
     download_options: DownloadOptions
+
+    prefer_staging: bool = True
 
     def get_download_target(self, platform: Optional[str] = None) -> DownloadTarget:
         """
@@ -247,6 +254,106 @@ class SetupReproOrchestrator:
         # If the version is not a semvar, we can't add a suffix.
         return ""
 
+    @classmethod
+    def _evg_urls_expired(cls, urls: Dict[str, str]) -> bool:
+        """
+        Determine whether any of the given Evergreen pre-signed URLs have expired.
+
+        Evergreen artifact URLs are pre-signed S3 URLs carrying `X-Amz-Date` and
+        `X-Amz-Expires` query params and expire (typically after 15 minutes). Compute the
+        expiry from those params. URLs without signing params (e.g. plain public URLs or
+        's3://' native URIs) never expire and are treated as valid.
+
+        :param urls: Mapping of artifact name to URL.
+        :return: True if at least one URL has expired (or is about to).
+        """
+        
+        now = datetime.now(timezone.utc)
+        for url in urls.values():
+            query = parse_qs(urlparse(url).query)
+            amz_date = query.get("X-Amz-Date")
+            amz_expires = query.get("X-Amz-Expires")
+            if not amz_date or not amz_expires:
+                continue
+            try:
+                signed_at = datetime.strptime(amz_date[0], "%Y%m%dT%H%M%SZ").replace(
+                    tzinfo=timezone.utc
+                )
+                expires_at = signed_at + timedelta(seconds=int(amz_expires[0]))
+            except (ValueError, IndexError):
+                # Malformed signing params - refresh to be safe.
+                return True
+            if now >= expires_at - PRESIGNED_URL_EXPIRY_BUFFER:
+                return True
+        return False
+
+    def _refresh_expired_evg_urls(
+        self,
+        download_request: DownloadRequest,
+        download_target: DownloadTarget,
+        ignore_failed_push: bool,
+    ) -> DownloadRequest:
+        """
+        Re-discover Evergreen URLs for a download if the stored ones have expired.
+
+        The Evergreen URLs are pre-signed S3 URLs that expire after 15 minutes, so those
+        loaded from a versions file are usually stale. When expired, re-fetch fresh URLs
+        using the Evergreen version id and build variant recorded on the request. The
+        release URLs (downloads.mongodb.org) do not expire, so they are kept as-is.
+
+        :param download_request: Download request to refresh.
+        :param download_target: Attributes of the build variant to download from.
+        :param ignore_failed_push: Whether a failed push should raise an exception.
+        :return: Download request with refreshed Evergreen URLs.
+        """
+        evg_urls_info = download_request.evg_urls_info
+        if evg_urls_info is None:
+            return download_request
+
+        if not self._evg_urls_expired(evg_urls_info.urls):
+            LOGGER.debug(
+                "Stored Evergreen URLs are still valid, skipping refresh",
+                evg_version_id=evg_urls_info.evg_version_id,
+            )
+            return download_request
+
+        LOGGER.info(
+            "Stored Evergreen URLs have expired, refreshing",
+            evg_version_id=evg_urls_info.evg_version_id,
+            evg_build_variant=evg_urls_info.evg_build_variant,
+        )
+
+        try:
+            refreshed_urls_info = self.artifact_discovery_service.find_artifact_urls_for_version(
+                evg_urls_info.evg_version_id,
+                evg_urls_info.evg_build_variant,
+                download_target,
+                ignore_failed_push,
+            )
+        except (EvergreenVersionIsTooOld, MissingBuildVariantError, ValueError) as err:
+            LOGGER.warning(
+                "Could not refresh URLs for versions file entry, using stored URLs",
+                evg_version_id=evg_urls_info.evg_version_id,
+                evg_build_variant=evg_urls_info.evg_build_variant,
+                error=err,
+            )
+            return download_request
+
+        if refreshed_urls_info is None:
+            LOGGER.warning(
+                "Could not refresh URLs for versions file entry, using stored URLs",
+                evg_version_id=evg_urls_info.evg_version_id,
+                evg_build_variant=evg_urls_info.evg_build_variant,
+            )
+            return download_request
+
+        return DownloadRequest(
+            bin_suffix=download_request.bin_suffix,
+            discovery_request=download_request.discovery_request,
+            evg_urls_info=refreshed_urls_info,
+            release_urls_info=download_request.release_urls_info,
+        )
+
     def execute(self, setup_repro_params: SetupReproParameters) -> bool:
         """
         Execute setup repro env mongodb.
@@ -283,6 +390,7 @@ class SetupReproOrchestrator:
                     download_target,
                     setup_repro_params.ignore_failed_push,
                     setup_repro_params.fallback_to_master,
+                    prefer_staging=setup_repro_params.prefer_staging,
                 )
             except (EvergreenVersionIsTooOld, MissingBuildVariantError, ValueError) as err:
                 LOGGER.warning("Could not find URLs in Evergreen", error=err)
@@ -313,6 +421,12 @@ class SetupReproOrchestrator:
 
         downloaded_versions = set()
         for download_request in download_request_set:
+            # Evergreen URLs are pre-signed and expire after 15 minutes.
+            # refresh them if they have expired.
+            # this is common when using a versions file that was generated some time ago.
+            download_request = self._refresh_expired_evg_urls(
+                download_request, download_target, setup_repro_params.ignore_failed_push
+            )
             try:
                 linked_dir = self.artifact_download_service.download_and_extract(
                     download_request,

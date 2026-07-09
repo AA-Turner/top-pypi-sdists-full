@@ -1,7 +1,7 @@
 import unittest
 from slixmpp.test import SlixTest
 from slixmpp.xmlstream.stanzabase import ET
-from slixmpp.xmlstream.tostring import tostring, escape
+from slixmpp.xmlstream.tostring import tostring, escape, tostring_fmt
 
 
 class TestToString(SlixTest):
@@ -112,5 +112,30 @@ class TestToString(SlixTest):
         self.assertTrue(expected == result,
             "Serialization with xml:lang failed: %s" % result)
 
+    def test_tostring_fmt(self):
+        """Test that reformatting XML works"""
+
+        xml = ET.fromstring('<message><body>toto</body><a/><b><c/><c/></b></message>')
+        formatted = tostring_fmt(xml)
+        self.assertEqual(formatted, (
+"""<message>
+  <a />
+  <b>
+    <c />
+    <c />
+  </b>
+  <body>toto</body>
+</message>\n"""))
+        xml = ET.fromstring('<message>  <body>toto</body>\n\n<a/><b>\n<c/><c/> </b> </message>')
+        formatted = tostring_fmt(xml)
+        self.assertEqual(formatted, (
+"""<message>
+  <a />
+  <b>
+    <c />
+    <c />
+  </b>
+  <body>toto</body>
+</message>\n"""))
 
 suite = unittest.TestLoader().loadTestsFromTestCase(TestToString)

@@ -13,7 +13,7 @@ import jsii
 import publication
 import typing_extensions
 
-from jsii._type_checking import check_type
+from jsii._type_checking import cached_type_hints, check_type
 
 
 from .._jsii import *
@@ -81,7 +81,7 @@ class BranchOptions:
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__6f62eb98000deee3820f046309b2262c5063c0cb9581232fd1a44731f86986d7)
+            type_hints = cached_type_hints(_typecheckingstub__6f62eb98000deee3820f046309b2262c5063c0cb9581232fd1a44731f86986d7)
             check_type(argname="argument major_version", value=major_version, expected_type=type_hints["major_version"])
             check_type(argname="argument environment", value=environment, expected_type=type_hints["environment"])
             check_type(argname="argument min_major_version", value=min_major_version, expected_type=type_hints["min_major_version"])
@@ -266,7 +266,7 @@ class CodeArtifactOptions:
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__9a328fe64db40633fedae889a7376e6885e1983f57d171d4f4ef85af668fafdb)
+            type_hints = cached_type_hints(_typecheckingstub__9a328fe64db40633fedae889a7376e6885e1983f57d171d4f4ef85af668fafdb)
             check_type(argname="argument access_key_id_secret", value=access_key_id_secret, expected_type=type_hints["access_key_id_secret"])
             check_type(argname="argument auth_provider", value=auth_provider, expected_type=type_hints["auth_provider"])
             check_type(argname="argument role_to_assume", value=role_to_assume, expected_type=type_hints["role_to_assume"])
@@ -384,7 +384,7 @@ class CommonPublishOptions:
         if isinstance(publish_tools, dict):
             publish_tools = _workflows_2b7f1587.Tools(**publish_tools)
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__9603f09b67279d5ef3dc921367168d873983210161b1d6382c369d0b9ec13b0a)
+            type_hints = cached_type_hints(_typecheckingstub__9603f09b67279d5ef3dc921367168d873983210161b1d6382c369d0b9ec13b0a)
             check_type(argname="argument github_environment", value=github_environment, expected_type=type_hints["github_environment"])
             check_type(argname="argument post_publish_steps", value=post_publish_steps, expected_type=type_hints["post_publish_steps"])
             check_type(argname="argument pre_publish_steps", value=pre_publish_steps, expected_type=type_hints["pre_publish_steps"])
@@ -487,7 +487,7 @@ class ContinuousReleaseOptions:
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__95b36779f92c5190c3ac9d8a636a537bfe6ebc844a55942ee5dfc0a9656d6192)
+            type_hints = cached_type_hints(_typecheckingstub__95b36779f92c5190c3ac9d8a636a537bfe6ebc844a55942ee5dfc0a9656d6192)
             check_type(argname="argument paths", value=paths, expected_type=type_hints["paths"])
         self._values: typing.Dict[builtins.str, typing.Any] = {}
         if paths is not None:
@@ -554,7 +554,7 @@ class GitHubReleasesPublishOptions(CommonPublishOptions):
         if isinstance(publish_tools, dict):
             publish_tools = _workflows_2b7f1587.Tools(**publish_tools)
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c7008ba35b00dedc375d87db7a317e8f077475b6a4e334303337c92bb77171fb)
+            type_hints = cached_type_hints(_typecheckingstub__c7008ba35b00dedc375d87db7a317e8f077475b6a4e334303337c92bb77171fb)
             check_type(argname="argument github_environment", value=github_environment, expected_type=type_hints["github_environment"])
             check_type(argname="argument post_publish_steps", value=post_publish_steps, expected_type=type_hints["post_publish_steps"])
             check_type(argname="argument pre_publish_steps", value=pre_publish_steps, expected_type=type_hints["pre_publish_steps"])
@@ -724,7 +724,7 @@ class GitPublishOptions:
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__d5537e1435c9eea568279fa140de950e1b7275db307b374195986186386d7704)
+            type_hints = cached_type_hints(_typecheckingstub__d5537e1435c9eea568279fa140de950e1b7275db307b374195986186386d7704)
             check_type(argname="argument changelog_file", value=changelog_file, expected_type=type_hints["changelog_file"])
             check_type(argname="argument release_tag_file", value=release_tag_file, expected_type=type_hints["release_tag_file"])
             check_type(argname="argument version_file", value=version_file, expected_type=type_hints["version_file"])
@@ -880,7 +880,7 @@ class GoPublishOptions(CommonPublishOptions):
         if isinstance(publish_tools, dict):
             publish_tools = _workflows_2b7f1587.Tools(**publish_tools)
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__81a5b8a4f17bcea99089b42477d5b778fd3a9066d3d1126736ccf21a9c44bfbc)
+            type_hints = cached_type_hints(_typecheckingstub__81a5b8a4f17bcea99089b42477d5b778fd3a9066d3d1126736ccf21a9c44bfbc)
             check_type(argname="argument github_environment", value=github_environment, expected_type=type_hints["github_environment"])
             check_type(argname="argument post_publish_steps", value=post_publish_steps, expected_type=type_hints["post_publish_steps"])
             check_type(argname="argument pre_publish_steps", value=pre_publish_steps, expected_type=type_hints["pre_publish_steps"])
@@ -1093,7 +1093,7 @@ class ManualReleaseOptions:
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__2492d83058b766179e85fd785d08928e38b53ce70b0f2dc9a1c5edccb668b930)
+            type_hints = cached_type_hints(_typecheckingstub__2492d83058b766179e85fd785d08928e38b53ce70b0f2dc9a1c5edccb668b930)
             check_type(argname="argument changelog", value=changelog, expected_type=type_hints["changelog"])
             check_type(argname="argument changelog_path", value=changelog_path, expected_type=type_hints["changelog_path"])
             check_type(argname="argument git_push_command", value=git_push_command, expected_type=type_hints["git_push_command"])
@@ -1207,7 +1207,7 @@ class MavenPublishOptions(CommonPublishOptions):
         if isinstance(publish_tools, dict):
             publish_tools = _workflows_2b7f1587.Tools(**publish_tools)
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__da2d55bfa47dd9e6869b7f55b573dea54539ab2e9b833766e4140d6d4c4c3d7e)
+            type_hints = cached_type_hints(_typecheckingstub__da2d55bfa47dd9e6869b7f55b573dea54539ab2e9b833766e4140d6d4c4c3d7e)
             check_type(argname="argument github_environment", value=github_environment, expected_type=type_hints["github_environment"])
             check_type(argname="argument post_publish_steps", value=post_publish_steps, expected_type=type_hints["post_publish_steps"])
             check_type(argname="argument pre_publish_steps", value=pre_publish_steps, expected_type=type_hints["pre_publish_steps"])
@@ -1472,7 +1472,7 @@ class NpmPublishOptions(CommonPublishOptions):
         if isinstance(code_artifact_options, dict):
             code_artifact_options = CodeArtifactOptions(**code_artifact_options)
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__458289050585e6e895f9ee709ee4e102166b0f71e3c8b2a0617efa2d24e990fb)
+            type_hints = cached_type_hints(_typecheckingstub__458289050585e6e895f9ee709ee4e102166b0f71e3c8b2a0617efa2d24e990fb)
             check_type(argname="argument github_environment", value=github_environment, expected_type=type_hints["github_environment"])
             check_type(argname="argument post_publish_steps", value=post_publish_steps, expected_type=type_hints["post_publish_steps"])
             check_type(argname="argument pre_publish_steps", value=pre_publish_steps, expected_type=type_hints["pre_publish_steps"])
@@ -1691,7 +1691,7 @@ class NugetPublishOptions(CommonPublishOptions):
         if isinstance(publish_tools, dict):
             publish_tools = _workflows_2b7f1587.Tools(**publish_tools)
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__584d4125e43e970396e9062b357de30ef32a6d1b30bd3a0f00fc7db041ea0bec)
+            type_hints = cached_type_hints(_typecheckingstub__584d4125e43e970396e9062b357de30ef32a6d1b30bd3a0f00fc7db041ea0bec)
             check_type(argname="argument github_environment", value=github_environment, expected_type=type_hints["github_environment"])
             check_type(argname="argument post_publish_steps", value=post_publish_steps, expected_type=type_hints["post_publish_steps"])
             check_type(argname="argument pre_publish_steps", value=pre_publish_steps, expected_type=type_hints["pre_publish_steps"])
@@ -1881,7 +1881,7 @@ class Publisher(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__eee2fd880a34190cc3f39bd885d4276ff656803edbfe41e03f405df373cf1886)
+            type_hints = cached_type_hints(_typecheckingstub__eee2fd880a34190cc3f39bd885d4276ff656803edbfe41e03f405df373cf1886)
             check_type(argname="argument project", value=project, expected_type=type_hints["project"])
         options = PublisherOptions(
             artifact_name=artifact_name,
@@ -1912,7 +1912,7 @@ class Publisher(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__8bc29acfacedcf962e3aef9229c52a0b3f87bcc40c48ec3ef2bb7b9aff15cdf4)
+            type_hints = cached_type_hints(_typecheckingstub__8bc29acfacedcf962e3aef9229c52a0b3f87bcc40c48ec3ef2bb7b9aff15cdf4)
             check_type(argname="argument steps", value=steps, expected_type=typing.Tuple[type_hints["steps"], ...]) # pyright: ignore [reportGeneralTypeIssues]
         return typing.cast(None, jsii.invoke(self, "addGitHubPostPublishingSteps", [*steps]))
 
@@ -1928,7 +1928,7 @@ class Publisher(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__92bbbd5b910dba917f337b84006ddf331f055b5c222b506b0599fb0a9ed444e5)
+            type_hints = cached_type_hints(_typecheckingstub__92bbbd5b910dba917f337b84006ddf331f055b5c222b506b0599fb0a9ed444e5)
             check_type(argname="argument steps", value=steps, expected_type=typing.Tuple[type_hints["steps"], ...]) # pyright: ignore [reportGeneralTypeIssues]
         return typing.cast(None, jsii.invoke(self, "addGitHubPrePublishingSteps", [*steps]))
 
@@ -2324,7 +2324,7 @@ class PublisherOptions:
         if isinstance(workflow_runs_on_group, dict):
             workflow_runs_on_group = _projen_04054675.GroupRunnerOptions(**workflow_runs_on_group)
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__4e430972b008e5968049196f964ee9dfa036c68b2195f125119bc2629263e791)
+            type_hints = cached_type_hints(_typecheckingstub__4e430972b008e5968049196f964ee9dfa036c68b2195f125119bc2629263e791)
             check_type(argname="argument artifact_name", value=artifact_name, expected_type=type_hints["artifact_name"])
             check_type(argname="argument build_job_id", value=build_job_id, expected_type=type_hints["build_job_id"])
             check_type(argname="argument condition", value=condition, expected_type=type_hints["condition"])
@@ -2574,7 +2574,7 @@ class PyPiPublishOptions(CommonPublishOptions):
         if isinstance(code_artifact_options, dict):
             code_artifact_options = CodeArtifactOptions(**code_artifact_options)
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__f90cd44def59be822b686bcd759d7f0a910b9936ca8acc0ef3e69cda5ddc21d2)
+            type_hints = cached_type_hints(_typecheckingstub__f90cd44def59be822b686bcd759d7f0a910b9936ca8acc0ef3e69cda5ddc21d2)
             check_type(argname="argument github_environment", value=github_environment, expected_type=type_hints["github_environment"])
             check_type(argname="argument post_publish_steps", value=post_publish_steps, expected_type=type_hints["post_publish_steps"])
             check_type(argname="argument pre_publish_steps", value=pre_publish_steps, expected_type=type_hints["pre_publish_steps"])
@@ -2834,7 +2834,7 @@ class Release(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__b447ecb34d36869391ee159467e6c78b74da704722d4c6a517e05bbae9016464)
+            type_hints = cached_type_hints(_typecheckingstub__b447ecb34d36869391ee159467e6c78b74da704722d4c6a517e05bbae9016464)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
         options = ReleaseOptions(
             artifacts_directory=artifacts_directory,
@@ -2882,7 +2882,7 @@ class Release(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__3a92183b4ef9afc7a5f36329d0935bbbd7767d95d760424a1478dedd4c089e82)
+            type_hints = cached_type_hints(_typecheckingstub__3a92183b4ef9afc7a5f36329d0935bbbd7767d95d760424a1478dedd4c089e82)
             check_type(argname="argument project", value=project, expected_type=type_hints["project"])
         return typing.cast(typing.Optional["Release"], jsii.sinvoke(cls, "of", [project]))
 
@@ -2919,7 +2919,7 @@ class Release(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__e0f66d9106b15a88644bb5efb62c4d4d18bb7c7b73bb22b904010a8a603f1ec7)
+            type_hints = cached_type_hints(_typecheckingstub__e0f66d9106b15a88644bb5efb62c4d4d18bb7c7b73bb22b904010a8a603f1ec7)
             check_type(argname="argument branch", value=branch, expected_type=type_hints["branch"])
         options = BranchOptions(
             major_version=major_version,
@@ -2946,7 +2946,7 @@ class Release(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__e8df2839c98abec4e8a1e84ad0fc953b4051cdf361a30544804281bc912901e2)
+            type_hints = cached_type_hints(_typecheckingstub__e8df2839c98abec4e8a1e84ad0fc953b4051cdf361a30544804281bc912901e2)
             check_type(argname="argument jobs", value=jobs, expected_type=type_hints["jobs"])
         return typing.cast(None, jsii.invoke(self, "addJobs", [jobs]))
 
@@ -3085,7 +3085,7 @@ class ReleaseProjectOptions:
         if isinstance(workflow_runs_on_group, dict):
             workflow_runs_on_group = _projen_04054675.GroupRunnerOptions(**workflow_runs_on_group)
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__cc5e99254de9f29d2ac3b86e193164816e1ed36e491e602128e7d16fb86aa377)
+            type_hints = cached_type_hints(_typecheckingstub__cc5e99254de9f29d2ac3b86e193164816e1ed36e491e602128e7d16fb86aa377)
             check_type(argname="argument bump_package", value=bump_package, expected_type=type_hints["bump_package"])
             check_type(argname="argument jsii_release_version", value=jsii_release_version, expected_type=type_hints["jsii_release_version"])
             check_type(argname="argument major_version", value=major_version, expected_type=type_hints["major_version"])
@@ -3708,7 +3708,7 @@ class ScheduledReleaseOptions:
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__629cc7488dbd6e87168962d964694e088625a8e208d09e45c120eac7e4963baa)
+            type_hints = cached_type_hints(_typecheckingstub__629cc7488dbd6e87168962d964694e088625a8e208d09e45c120eac7e4963baa)
             check_type(argname="argument schedule", value=schedule, expected_type=type_hints["schedule"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "schedule": schedule,
@@ -3759,7 +3759,7 @@ class TagReleaseOptions:
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c780e45abd4dc2180a4e3ffcbe5fee656f75dc2e5fa799e018e4b79fca875009)
+            type_hints = cached_type_hints(_typecheckingstub__c780e45abd4dc2180a4e3ffcbe5fee656f75dc2e5fa799e018e4b79fca875009)
             check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
         self._values: typing.Dict[builtins.str, typing.Any] = {}
         if tags is not None:
@@ -3900,7 +3900,7 @@ class ReleaseOptions(ReleaseProjectOptions):
         if isinstance(workflow_permissions, dict):
             workflow_permissions = _workflows_2b7f1587.JobPermissions(**workflow_permissions)
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__abcbb9106f2fe858c4efa7a5934906e63b00b56fa33c47c5f910dac2a904f472)
+            type_hints = cached_type_hints(_typecheckingstub__abcbb9106f2fe858c4efa7a5934906e63b00b56fa33c47c5f910dac2a904f472)
             check_type(argname="argument bump_package", value=bump_package, expected_type=type_hints["bump_package"])
             check_type(argname="argument jsii_release_version", value=jsii_release_version, expected_type=type_hints["jsii_release_version"])
             check_type(argname="argument major_version", value=major_version, expected_type=type_hints["major_version"])

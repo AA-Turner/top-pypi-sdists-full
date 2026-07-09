@@ -15,7 +15,7 @@ from uuid import uuid4
 import yaml
 
 from ouroboros.auto.interview_driver import InterviewBackend, InterviewTurn
-from ouroboros.core.seed import Seed
+from ouroboros.core.seed import Seed, ac_texts
 from ouroboros.mcp.errors import MCPServerError
 from ouroboros.mcp.job_manager import JobManager, JobStatus
 from ouroboros.mcp.tools.authoring_handlers import (
@@ -734,7 +734,7 @@ class HandlerEvaluator:
             )
 
         if seed.acceptance_criteria:
-            ac_lines = [f"- {ac}" for ac in seed.acceptance_criteria]
+            ac_lines = [f"- {ac}" for ac in ac_texts(seed.acceptance_criteria)]
             quality_bar = "The execution must satisfy all acceptance criteria:\n" + "\n".join(
                 ac_lines
             )
@@ -815,8 +815,11 @@ class HandlerSeedQAEvaluator:
         quality_bar = (
             "The Seed must be ready for autonomous execution before run starts. "
             "It must preserve the interview/ledger intent, have ambiguity_score <= 0.20, "
-            "contain concrete acceptance criteria, include constraints/non-goals/runtime "
-            "context, and avoid unsupported assumptions or missing requirements."
+            "contain concrete acceptance criteria, and preserve constraints, non-goals, "
+            "and runtime context in executable Seed surfaces. The Seed schema has no "
+            "top-level non_goals/runtime_context fields; constraints, ontology fields, "
+            "brownfield_context, or acceptance criteria are valid preservation surfaces. "
+            "Avoid unsupported assumptions or missing requirements."
         )
         result = await self.qa_handler.handle(
             {

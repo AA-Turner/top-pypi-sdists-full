@@ -10,12 +10,14 @@ from ouroboros.auto.task_class_application import (
 )
 from ouroboros.auto.task_classes import TASK_CLASS_CATALOG, TaskClass
 from ouroboros.core.seed import (
+    AcceptanceCriterionSpec,
     EvaluationPrinciple,
     ExitCondition,
     OntologyField,
     OntologySchema,
     Seed,
     SeedMetadata,
+    ac_texts,
 )
 
 
@@ -56,7 +58,7 @@ def test_prepends_full_template_for_empty_user_ac() -> None:
     profile = TASK_CLASS_CATALOG[TaskClass.CLI]
     applied = apply_default_ac_template(seed, TaskClass.CLI)
     assert applied.injected_ac == profile.default_ac_template
-    assert applied.seed.acceptance_criteria == profile.default_ac_template
+    assert ac_texts(applied.seed.acceptance_criteria) == profile.default_ac_template
 
 
 def test_user_ac_appears_after_template_entries() -> None:
@@ -66,9 +68,48 @@ def test_user_ac_appears_after_template_entries() -> None:
     profile = TASK_CLASS_CATALOG[TaskClass.CLI]
     applied = apply_default_ac_template(seed, TaskClass.CLI)
     expected = profile.default_ac_template + ("Foo must do bar",)
-    assert applied.seed.acceptance_criteria == expected
+    assert ac_texts(applied.seed.acceptance_criteria) == expected
     # injected_ac carries only the entries this call added.
     assert applied.injected_ac == profile.default_ac_template
+
+
+def test_autoresearch_execution_contract_skips_generic_template() -> None:
+    seed = _seed(
+        ac=(
+            "Seed has explicit runtime context and non-goals sections for this autoresearch contract.",
+            "Execution records baseline val_bpb before train.py experiments.",
+        ),
+    ).model_copy(
+        update={
+            "constraints": (
+                "Runtime Context: local autoresearch repository with train.py.",
+                "Non-Goals: do not edit prepare.py.",
+            )
+        }
+    )
+
+    applied = apply_default_ac_template(seed, TaskClass.LIBRARY)
+
+    assert applied.injected_ac == ()
+    assert applied.seed is seed
+    assert not any("public API symbols" in item for item in ac_texts(seed.acceptance_criteria))
+
+
+def test_generic_cli_execution_contract_still_gets_template() -> None:
+    seed = _seed(
+        ac=("Command writes the requested file.",),
+    ).model_copy(
+        update={
+            "constraints": (
+                "Runtime Context: local CLI repository.",
+                "Non-Goals: no network calls.",
+            )
+        }
+    )
+
+    applied = apply_default_ac_template(seed, TaskClass.CLI)
+
+    assert applied.injected_ac == TASK_CLASS_CATALOG[TaskClass.CLI].default_ac_template
 
 
 def test_does_not_duplicate_when_user_already_supplied_one_template_entry() -> None:
@@ -79,8 +120,8 @@ def test_does_not_duplicate_when_user_already_supplied_one_template_entry() -> N
     seed = _seed(ac=(one_template_entry, "User-specific AC"))
     applied = apply_default_ac_template(seed, TaskClass.CLI)
     # The duplicate template entry is skipped; the rest is prepended.
-    assert one_template_entry in applied.seed.acceptance_criteria
-    assert applied.seed.acceptance_criteria.count(one_template_entry) == 1
+    assert one_template_entry in ac_texts(applied.seed.acceptance_criteria)
+    assert ac_texts(applied.seed.acceptance_criteria).count(one_template_entry) == 1
     assert one_template_entry not in applied.injected_ac
 
 
@@ -109,14 +150,14 @@ def test_each_task_class_has_a_nonempty_template() -> None:
 
 
 def test_seed_acceptance_criteria_type_preserved() -> None:
-    """``Seed.acceptance_criteria`` is ``tuple[str, ...]``; after
-    application, the type stays a tuple (pydantic ``frozen=True`` seed
-    can return a different container shape via ``model_copy`` if we
-    are not careful)."""
+    """Application preserves the tuple container and structured AC model."""
     seed = _seed(ac=("user-ac",))
     applied = apply_default_ac_template(seed, TaskClass.CLI)
     assert isinstance(applied.seed.acceptance_criteria, tuple)
-    assert all(isinstance(item, str) for item in applied.seed.acceptance_criteria)
+    assert all(
+        isinstance(item, AcceptanceCriterionSpec) for item in applied.seed.acceptance_criteria
+    )
+    assert ac_texts(applied.seed.acceptance_criteria)[-1] == "user-ac"
 
 
 def test_seed_is_frozen_after_application() -> None:

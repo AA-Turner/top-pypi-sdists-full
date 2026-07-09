@@ -6,6 +6,7 @@ Each tool is a function (params, config) -> str.
 from __future__ import annotations
 
 import os
+import sys
 import re
 import difflib
 import glob as _glob
@@ -92,11 +93,70 @@ def _detect_bash() -> str | None:
     return None
 
 
-_IS_WINDOWS = os.name == "nt"
-# Resolved once at import (in whatever environment drydock runs — host, the task
-# container, Linux, or Windows). None → bash unavailable, fall back to the
-# platform's default shell (cmd.exe on Windows, /bin/sh on POSIX).
+def _is_windows_env(os_name: str, platform: str, environ) -> bool:
+    """Treat as Windows if ANY signal says so — native CPython (os.name 'nt' /
+    sys.platform 'win32') AND odd Pythons run from Git-Bash/MSYS/Cygwin (which
+    report posix but where Windows always exports WINDIR/SystemRoot). WSL (real
+    Linux) does not set WINDIR, so it correctly stays POSIX/bash."""
+    return (
+        os_name == "nt"
+        or platform in ("win32", "cygwin", "msys")
+        or bool(environ.get("WINDIR") or environ.get("SystemRoot"))
+    )
+
+
+_IS_WINDOWS = _is_windows_env(os.name, sys.platform, os.environ)
+
+
+def _detect_shell() -> tuple[str, str]:
+    """Pick the shell tool_bash runs commands in — returns (kind, path).
+
+    Override with env DRYDOCK_SHELL=powershell|cmd|bash to force one. Otherwise:
+    POSIX → bash (so the model's bash-isms work), else /bin/sh.
+    Windows → PowerShell (what users actually launch drydock in — pwsh, else
+    Windows PowerShell), else cmd.exe. WSL / Git-Bash is NEVER required on Windows.
+    """
+    import shutil
+
+    def _powershell():
+        p = shutil.which("pwsh") or shutil.which("powershell")
+        return ("powershell", p) if p else None
+
+    def _bash():
+        b = _detect_bash()
+        return ("bash", b) if b else ("sh", shutil.which("sh") or "/bin/sh")
+
+    forced = os.environ.get("DRYDOCK_SHELL", "").strip().lower()
+    if forced in ("powershell", "pwsh"):
+        return _powershell() or ("cmd", shutil.which("cmd") or "cmd.exe")
+    if forced == "cmd":
+        return ("cmd", shutil.which("cmd") or "cmd.exe")
+    if forced in ("bash", "sh"):
+        return _bash()
+
+    if _IS_WINDOWS:
+        return _powershell() or ("cmd", shutil.which("cmd") or "cmd.exe")
+    return _bash()
+
+
+# Resolved once at import (in whatever environment drydock runs — Linux/macOS,
+# the task container, or native Windows). _BASH_SHELL kept for back-compat.
+_SHELL_KIND, _SHELL_PATH = _detect_shell()
 _BASH_SHELL = _detect_bash()
+
+
+def shell_display_name() -> str:
+    """Human label for the shell the Bash tool actually runs commands in — so the
+    TUI can show 'PowerShell'/'cmd' on Windows instead of the schema name 'Bash'."""
+    return {"powershell": "PowerShell", "cmd": "cmd",
+            "bash": "Bash", "sh": "sh"}.get(_SHELL_KIND, "Bash")
+
+
+def tool_display_name(name: str) -> str:
+    """Map a tool's schema name to its display label. The `Bash` tool (the name
+    the model calls) is shown as the actual shell — so on Windows a user sees
+    'PowerShell', not 'Bash'."""
+    return shell_display_name() if name == "Bash" else name
 
 
 # ANSI escape sequences (CSI colour/cursor, OSC title, and lone two-char escapes).
@@ -182,6 +242,22 @@ SCHEMAS = [
                 "path": {"type": "string", "description": "Path to the image file"},
             },
             "required": ["path"],
+        },
+    },
+    {
+        "name": "Screenshot",
+        "description": "CAPTURE the current screen and SEE it with your vision — use "
+                       "when the user asks you to look at their screen, review what's "
+                       "displayed, debug a GUI, or read something shown on screen. Takes "
+                       "the screenshot and shows it to you directly (no need to call "
+                       "ViewImage after). Works on Windows (PowerShell), macOS, and "
+                       "Linux with a display. Optionally pass `path` to also save the PNG.",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "path": {"type": "string",
+                         "description": "Optional file to save the PNG to. Omit to use a temp file."},
+            },
         },
     },
     {
@@ -547,6 +623,34 @@ SCHEMAS = [
             "required": ["query"],
         },
     },
+    {
+        "name": "BuildKnowledge",
+        "description": (
+            "BUILD or extend the user's GraphRAG knowledge base FROM THEIR documents "
+            "or code. Call this YOURSELF when the user asks you to index / ingest / "
+            "'make a knowledge base from' a folder or file (e.g. 'create a knowledge "
+            "base from my Documents'). Give `path` (a file or directory). mode 'build' "
+            "= (re)build from scratch; 'add' = merge into an existing base. When it "
+            "succeeds you can search it with the Knowledge tool. Do NOT tell the user "
+            "to type a '/graphrag' slash command — actually do it with this tool."
+        ),
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "path": {
+                    "type": "string",
+                    "description": "File or directory to index. A normal path — on "
+                                   "Windows e.g. C:\\Users\\me\\Documents (quotes optional).",
+                },
+                "mode": {
+                    "type": "string",
+                    "description": "'build' (rebuild from scratch, default) or 'add' "
+                                   "(merge into the existing base).",
+                },
+            },
+            "required": ["path"],
+        },
+    },
 ]
 
 # ── Tool implementations ──────────────────────────────────────────────────
@@ -621,6 +725,74 @@ def tool_viewimage(params: dict, config: dict) -> str:
     # The absolute path in this text is what the API boundary attaches.
     return (f"Loaded image {fp} ({kind}, {size // 1024 or 1}KB) — it is now visible "
             "to you. Describe it, read any text in it, or use it to answer the task.")
+
+
+def _capture_screen(out: str) -> str | None:
+    """Grab the whole (virtual) screen to PNG `out`. Returns an error string, or
+    None on success. Per-OS: Windows uses PowerShell + System.Drawing; macOS uses
+    screencapture; Linux tries the common grabbers in turn."""
+    import shutil
+    import subprocess
+    try:
+        if _IS_WINDOWS:
+            ps = (
+                "Add-Type -AssemblyName System.Windows.Forms,System.Drawing; "
+                "$s=[System.Windows.Forms.SystemInformation]::VirtualScreen; "
+                "$b=New-Object System.Drawing.Bitmap $s.Width,$s.Height; "
+                "$g=[System.Drawing.Graphics]::FromImage($b); "
+                "$g.CopyFromScreen($s.Left,$s.Top,0,0,$b.Size); "
+                f"$b.Save('{out}',[System.Drawing.Imaging.ImageFormat]::Png); "
+                "$g.Dispose(); $b.Dispose()"
+            )
+            exe = shutil.which("pwsh") or shutil.which("powershell") or "powershell"
+            subprocess.run([exe, "-NoProfile", "-NonInteractive", "-Command", ps],
+                           capture_output=True, timeout=30)
+        elif sys.platform == "darwin":
+            subprocess.run(["screencapture", "-x", out], capture_output=True, timeout=30)
+        else:  # Linux/BSD — try grabbers in order of ubiquity (X11 + wayland)
+            grabbers = (["scrot", "-o", out], ["import", "-window", "root", out],
+                        ["gnome-screenshot", "-f", out], ["grim", out],
+                        ["spectacle", "-b", "-n", "-o", out], ["maim", out])
+            tried = [g[0] for g in grabbers if shutil.which(g[0])]
+            if not tried:
+                return ("no screenshot tool found. Install one of: scrot, imagemagick "
+                        "(import), gnome-screenshot, grim (wayland), spectacle, maim.")
+            for g in grabbers:
+                if shutil.which(g[0]):
+                    subprocess.run(g, capture_output=True, timeout=30)
+                    if os.path.isfile(out) and os.path.getsize(out):
+                        break
+    except subprocess.TimeoutExpired:
+        return "screen capture timed out (30s)."
+    except Exception as e:  # noqa: BLE001 — report, never crash the loop
+        return f"screen capture failed: {e}"
+    return None
+
+
+def tool_screenshot(params: dict, config: dict) -> str:
+    """Capture the screen to a PNG and make it visible to the vision model — the
+    returned absolute path is auto-attached by the API boundary, same as ViewImage."""
+    import tempfile
+
+    raw = _as_str_arg(params.get("path")).strip()
+    out = os.path.abspath(_resolve_path(raw, config) if raw
+                          else os.path.join(tempfile.gettempdir(), "drydock_screenshot.png"))
+    try:
+        if os.path.dirname(out):
+            os.makedirs(os.path.dirname(out), exist_ok=True)
+    except OSError:
+        pass
+    err = _capture_screen(out)
+    if err:
+        return (f"Error: {err} (On a headless server there is no display to capture.)")
+    if not os.path.isfile(out) or not os.path.getsize(out):
+        return "Error: screen capture produced no image (no display, or the grabber failed)."
+    size = os.path.getsize(out)
+    if size > _MAX_VIEW_IMAGE_BYTES:
+        return (f"Captured the screen to {out} but it is {size // 1_000_000}MB — too "
+                "large to view (limit 20MB). The file is saved; open it manually.")
+    return (f"Captured the screen to {out} (PNG, {size // 1024 or 1}KB) — it is now "
+            "visible to you. Describe what's on screen or use it to answer the task.")
 
 
 def tool_read(params: dict, config: dict) -> str:
@@ -1040,9 +1212,15 @@ def tool_bash(params: dict, config: dict) -> str:
     # would be called as `bash /c ...` and fail. `[bash, "-c", cmd]` runs the same
     # on Linux and Windows. Without bash, fall back to the platform default shell
     # (cmd.exe on Windows, /bin/sh on POSIX) via shell=True.
-    if _BASH_SHELL:
-        popen_cmd, use_shell = [_BASH_SHELL, "-c", cmd], False
-    else:
+    # Build the invocation for the detected shell. Explicit argv (shell=False)
+    # for bash/PowerShell so it's correct on every OS; shell=True lets the
+    # platform default (/bin/sh on POSIX, cmd.exe on Windows) handle the rest.
+    if _SHELL_KIND == "bash":
+        popen_cmd, use_shell = [_SHELL_PATH, "-c", cmd], False
+    elif _SHELL_KIND == "powershell":
+        popen_cmd, use_shell = [_SHELL_PATH, "-NoProfile", "-NonInteractive",
+                                "-Command", cmd], False
+    else:  # "sh" (POSIX) or "cmd" (Windows) → platform default shell
         popen_cmd, use_shell = cmd, True
     try:
         proc = subprocess.Popen(
@@ -1675,10 +1853,39 @@ def tool_knowledge(params: dict, config: dict) -> str:
     return graphrag.format_results(result, query)
 
 
+def tool_build_knowledge(params: dict, config: dict) -> str:
+    """Build/extend the GraphRAG knowledge base from a file or directory of docs —
+    the model-callable equivalent of `/graphrag build|add`, so the agent can do it
+    itself when asked instead of telling the user to run a slash command."""
+    from drydock import graphrag
+
+    path = _as_str_arg(params.get("path")).strip()
+    if not path:
+        return ("Error: `BuildKnowledge` needs a `path` — a file or directory of "
+                "documents/code to index.")
+    mode = (_as_str_arg(params.get("mode")) or "build").strip().lower()
+    if mode not in ("build", "add"):
+        mode = "build"
+    cwd = config.get("cwd") or os.getcwd()
+    store = config.get("graphrag_store") or graphrag.default_store_path(cwd)
+    try:
+        fn = graphrag.build_index if mode == "build" else graphrag.add_to_index
+        stats = fn([path], store, cwd=cwd)
+    except Exception as e:  # noqa: BLE001 — report, never crash the agent loop
+        return f"Error building the knowledge base from {path}: {e}"
+    if not stats.get("chunks"):
+        return (f"No indexable text found under {path}. Nothing was added. (Supported: "
+                "text/code files, .docx, .pdf, .md, etc. Check the path is correct.)")
+    verb = "Built" if mode == "build" else "Updated"
+    return (f"{verb} the knowledge base: {stats['files']} files, {stats['chunks']} "
+            f"chunks, {stats['entities']} entities. Search it with the Knowledge tool.")
+
+
 # ── Register all tools ────────────────────────────────────────────────────
 
 _TOOLS = [
     ("Read", tool_read, True),
+    ("Screenshot", tool_screenshot, True),
     ("Write", tool_write, False),
     ("Edit", tool_edit, False),
     ("Bash", tool_bash, False),
@@ -1688,6 +1895,7 @@ _TOOLS = [
     ("task", tool_task, True),
     ("Dispatch", tool_dispatch, True),
     ("Knowledge", tool_knowledge, True),
+    ("BuildKnowledge", tool_build_knowledge, False),
     ("GraphQuery", tool_graphquery, True),
     ("GraphAdd", tool_graphadd, False),
     ("StigRules", tool_stigrules, True),
@@ -1706,10 +1914,12 @@ def register_all():
         name = schema["name"]
         func = {
             "Read": tool_read, "ViewImage": tool_viewimage,
+            "Screenshot": tool_screenshot,
             "Write": tool_write, "Edit": tool_edit,
             "Bash": tool_bash, "Glob": tool_glob, "Grep": tool_grep,
             "todo": tool_todo, "task": tool_task, "Dispatch": tool_dispatch,
             "Consult": tool_consult, "Knowledge": tool_knowledge,
+            "BuildKnowledge": tool_build_knowledge,
             "GraphQuery": tool_graphquery, "GraphAdd": tool_graphadd,
             "StigRules": tool_stigrules, "StigRule": tool_stigrule, "StigSet": tool_stigset,
             "WebSearch": tool_websearch, "WebFetch": tool_webfetch,
@@ -1719,7 +1929,7 @@ def register_all():
         # Read-only w.r.t. the parent's files (GitStatus/Diff/Log inspect only;
         # GitCommit + GraphAdd write).
         read_only = name in (
-            "Read", "ViewImage", "Glob", "Grep", "task", "Dispatch", "Consult",
+            "Read", "ViewImage", "Screenshot", "Glob", "Grep", "task", "Dispatch", "Consult",
             "Knowledge", "GraphQuery", "StigRules", "StigRule",
             "WebSearch", "WebFetch", "GitStatus", "GitDiff", "GitLog",
         )

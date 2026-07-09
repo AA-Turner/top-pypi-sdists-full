@@ -25,11 +25,11 @@ class XEP_0118(BasePlugin):
     stanza = stanza
 
     def plugin_end(self):
-        self.xmpp['xep_0030'].del_feature(feature=UserTune.namespace)
-        self.xmpp['xep_0163'].remove_interest(UserTune.namespace)
+        self.xmpp.plugin['xep_0030'].del_feature(feature=UserTune.namespace)
+        self.xmpp.plugin['xep_0163'].remove_interest(UserTune.namespace)
 
     def session_bind(self, jid):
-        self.xmpp['xep_0163'].register_pep('user_tune', UserTune)
+        self.xmpp.plugin['xep_0163'].register_pep('user_tune', UserTune)
 
     def publish_tune(self, *, artist: str | None = None,
                      length: int | None =None, rating: int | None = None,
@@ -55,7 +55,7 @@ class XEP_0118(BasePlugin):
         tune['title'] = title
         tune['track'] = track
         tune['uri'] = uri
-        return self.xmpp['xep_0163'].publish(
+        return self.xmpp.plugin['xep_0163'].publish(
             tune,
             node=UserTune.namespace,
             **pubsubkwargs
@@ -66,7 +66,7 @@ class XEP_0118(BasePlugin):
         Clear existing user tune information to stop notifications.
         """
         tune = UserTune()
-        return self.xmpp['xep_0163'].publish(
+        return self.xmpp.plugin['xep_0163'].publish(
             tune,
             node=UserTune.namespace,
             **pubsubkwargs

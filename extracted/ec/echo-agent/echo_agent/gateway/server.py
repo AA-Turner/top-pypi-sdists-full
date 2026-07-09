@@ -34,6 +34,7 @@ from echo_agent.gateway.rate_limiter import RateLimiter
 from echo_agent.gateway.router import DeliveryRouter
 from echo_agent.gateway.session_context import set_session_vars, clear_session_vars
 from echo_agent.gateway.session_policy import SessionResetPolicy
+from echo_agent.gateway.ws_dashboard import DashboardWebSocket
 from echo_agent.gateway.ws_session import resolve_client_session_key
 from echo_agent.session.manager import SessionManager
 
@@ -86,6 +87,7 @@ class GatewayServer:
         self.editor = ProgressiveEditor(bus)
         self.session_policy = SessionResetPolicy(config.session_policy)
         self.health = GatewayHealthProvider(self)
+        self._dashboard_ws = DashboardWebSocket(self)
         self._bus.subscribe_outbound_global(self._handle_outbound)
 
         for name, plat_cfg in config.platforms.items():
@@ -207,15 +209,17 @@ class GatewayServer:
         app = self._app
         assert app is not None
 
-        app.router.add_get("/", self._handle_playground)
+        app.router.add_get("/playground", self._handle_playground)
         app.router.add_post(f"{prefix}/message", self._handle_message)
         app.router.add_get(f"{prefix}/health", self._handle_health)
-        app.router.add_get(f"{prefix}/sessions", self._handle_list_sessions)
         app.router.add_delete(f"{prefix}/sessions/{{key}}", self._handle_reset_session)
+        # Note: GET /sessions is registered by register_management_routes when
+        # _agent_loop is available; fallback registered below for standalone mode.
         app.router.add_post(f"{prefix}/pair", self._handle_pair_generate)
         app.router.add_post(f"{prefix}/pair/verify", self._handle_pair_verify)
         app.router.add_get(f"{prefix}/stats", self._handle_stats)
         app.router.add_get(self._config.ws_path, self._handle_websocket)
+        app.router.add_get("/ws/dashboard", self._dashboard_ws.handle)
 
         if self._a2a_config and self._a2a_config.enabled and self._agent_loop:
             from echo_agent.a2a.server import A2AServer
@@ -236,6 +240,11 @@ class GatewayServer:
         if self._agent_loop:
             from echo_agent.gateway.api import register_management_routes
             register_management_routes(app, prefix, self)
+        else:
+            app.router.add_get(f"{prefix}/sessions", self._handle_list_sessions)
+
+        # Dashboard SPA catch-all — must be last so it doesn't shadow API routes
+        app.router.add_get("/{path:.*}", self._handle_dashboard)
 
     # ── HTTP handlers ────────────────────────────────────────────────────────
 
@@ -364,6 +373,41 @@ class GatewayServer:
 
     def _playground_path(self) -> Path:
         return Path(__file__).resolve().parent / "static" / "index.html"
+
+    def _resolve_dashboard_dir(self) -> Path | None:
+        """Locate the dashboard SPA build directory.
+
+        Checks two candidates in order:
+        1. Bundled in wheel: echo_agent/_bundled/dashboard/
+        2. Development: web/dist/ relative to project root (../../web/dist from server.py)
+        """
+        candidates = [
+            Path(__file__).resolve().parent.parent / "_bundled" / "dashboard",
+            Path(__file__).resolve().parent.parent.parent / "web" / "dist",
+        ]
+        for p in candidates:
+            if (p / "index.html").exists():
+                return p
+        return None
+
+    async def _handle_dashboard(self, request: web.Request) -> web.Response:
+        """Serve dashboard SPA with fallback to index.html for client-side routing."""
+        dashboard_dir = self._resolve_dashboard_dir()
+        if dashboard_dir is None:
+            return await self._handle_playground(request)
+
+        req_path = request.match_info.get("path", "")
+        if req_path:
+            file_path = dashboard_dir / req_path
+            # Prevent path traversal
+            try:
+                file_path = file_path.resolve()
+                if file_path.is_file() and str(file_path).startswith(str(dashboard_dir.resolve())):
+                    return web.FileResponse(file_path)
+            except (OSError, ValueError):
+                pass
+        # SPA fallback — serve index.html for all unmatched paths
+        return web.FileResponse(dashboard_dir / "index.html")
 
     def _authenticate_and_check_rate_limit(
         self, platform: str, user_id: str, chat_id: str, *, trusted: bool = False,

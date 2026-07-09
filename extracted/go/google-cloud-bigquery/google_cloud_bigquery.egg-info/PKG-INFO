@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: google-cloud-bigquery
-Version: 3.42.1
+Version: 3.42.2
 Summary: Google BigQuery API client library
 Author-email: Google LLC <googleapis-packages@google.com>
 License: Apache 2.0
@@ -19,7 +19,7 @@ Classifier: Topic :: Internet
 Requires-Python: >=3.10
 Description-Content-Type: text/x-rst
 License-File: LICENSE
-Requires-Dist: google-api-core[grpc]<3.0.0,>=2.11.1
+Requires-Dist: google-api-core[grpc]<3.0.0,>=2.25.0
 Requires-Dist: google-auth[pyopenssl]<3.0.0,>=2.14.1
 Requires-Dist: google-cloud-core<3.0.0,>=2.4.1
 Requires-Dist: google-resumable-media<3.0.0,>=2.0.0

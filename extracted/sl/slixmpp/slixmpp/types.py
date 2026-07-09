@@ -113,7 +113,7 @@ MucRoomItemKeys = Literal[
 
 MAMDefault = Literal['always', 'never', 'roster']
 
-FilterString = Literal['in', 'out', 'out_sync']
+FilterString = Literal['in', 'out', 'out_sync', 'out_sce']
 
 ErrorTypes = Literal["modify", "cancel", "auth", "wait", "cancel"]
 

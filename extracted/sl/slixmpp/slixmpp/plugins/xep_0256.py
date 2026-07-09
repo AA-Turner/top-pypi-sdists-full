@@ -53,7 +53,7 @@ class XEP_0256(BasePlugin):
                 use_last_activity = True
 
             if use_last_activity:
-                plugin = self.xmpp['xep_0012']
+                plugin = self.xmpp.plugin['xep_0012']
                 try:
                     result = plugin.api['get_last_activity'](stanza['from'],
                                                              None,

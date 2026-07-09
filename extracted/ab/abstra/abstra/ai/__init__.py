@@ -31,6 +31,7 @@ from abstra_internals.contracts_generated import (
 )
 from abstra_internals.controllers.sdk.sdk_ai import Format, Prompt
 from abstra_internals.interface.sdk.ai import (
+    extract_text,
     parse_bank_statement,
     parse_boleto,
     parse_invoice,
@@ -45,6 +46,7 @@ from abstra_internals.interface.sdk.ai_agent import run_agent
 
 __all__ = [
     # Functions
+    "extract_text",
     "parse_bank_statement",
     "parse_boleto",
     "parse_invoice",

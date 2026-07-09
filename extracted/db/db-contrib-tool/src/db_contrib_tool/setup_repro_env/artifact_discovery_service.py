@@ -18,6 +18,7 @@ from db_contrib_tool.services.evergreen_service import (
     NON_VERSION_PROJECTS,
     MONGO_PROJECT_PREFIX,
     ANY_VERSION_PROJECT_RE,
+    RELEASE_VERSION_PROJECT_RE
 )
 from db_contrib_tool.services.git_service import GitService
 from db_contrib_tool.services.platform_service import PlatformService
@@ -93,6 +94,7 @@ class ArtifactDiscoveryService:
         ignore_failed_push: bool,
         fallback_to_master: bool,
         starting_commit: Optional[str] = None,
+        prefer_staging: bool = False,
     ) -> Optional[EvgUrlsInfo]:
         """
         Find the artifacts generated for the given request.
@@ -103,8 +105,10 @@ class ArtifactDiscoveryService:
         :param ignore_failed_push: Whether a failed push should raise an exception.
         :param fallback_to_master: Fallback to the master branch if binaries were not found.
         :param starting_commit: When scanning multiple commits, start scanning after this commit.
+        :param prefer_staging: Look in the '-staging' Evergreen projects instead of the regular ones.
         :return: Links to found artifacts.
         """
+        staging_suffix = "-staging" if prefer_staging else ""
         if request.request_type == RequestType.EVG_VERSION:
             artifact_urls = self.find_artifact_urls_for_version(
                 request.identifier, requested_variant, target, ignore_failed_push
@@ -154,7 +158,7 @@ class ArtifactDiscoveryService:
                     raise
 
         elif request.request_type == RequestType.MONGO_RELEASE_VERSION:
-            mongo_project = f"{MONGO_PROJECT_PREFIX}v{request.identifier}"
+            mongo_project = f"{MONGO_PROJECT_PREFIX}v{request.identifier}{staging_suffix}"
             try:
                 artifact_urls = self.scan_for_artifact_urls(
                     mongo_project, requested_variant, target, ignore_failed_push
@@ -510,6 +514,18 @@ class ArtifactDiscoveryService:
                     urls = self.find_artifact_urls_for_version(
                         version_id, requested_variant, target, ignore_failed_push
                     )
+                    if not urls and RELEASE_VERSION_PROJECT_RE.match(project):
+                        staging_project = f"{project}-staging"
+                        possible_version_id = f"{staging_project}_{commit}".replace("-", "_")
+                        LOGGER.debug(
+                            "Commit found in release project but no artifacts found, checking staging project",
+                            project=staging_project,
+                            possible_version_id=possible_version_id,
+                        )
+                        if self.evg_service.query_version_existence(possible_version_id):
+                            urls = self.find_artifact_urls_for_version(
+                                possible_version_id, requested_variant, target, ignore_failed_push
+                            )
                 except (EvergreenVersionIsTooOld, MissingBuildVariantError):
                     continue
                 else:

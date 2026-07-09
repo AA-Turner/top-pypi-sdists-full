@@ -18,7 +18,7 @@ class ActionBatchCamera(object):
 
         kwargs.update(locals())
 
-        serial = urllib.parse.quote(serial, safe="")
+        serial = urllib.parse.quote(str(serial), safe="")
         resource = f"/devices/{serial}/camera/customAnalytics"
 
         body_params = [
@@ -67,7 +67,7 @@ class ActionBatchCamera(object):
                 f'''"motionDetectorVersion" cannot be "{kwargs["motionDetectorVersion"]}", & must be set to one of: {options}'''
             )
 
-        serial = urllib.parse.quote(serial, safe="")
+        serial = urllib.parse.quote(str(serial), safe="")
         resource = f"/devices/{serial}/camera/qualityAndRetention"
 
         body_params = [
@@ -101,7 +101,7 @@ class ActionBatchCamera(object):
 
         kwargs.update(locals())
 
-        serial = urllib.parse.quote(serial, safe="")
+        serial = urllib.parse.quote(str(serial), safe="")
         resource = f"/devices/{serial}/camera/sense"
 
         body_params = [
@@ -129,7 +129,7 @@ class ActionBatchCamera(object):
 
         kwargs.update(locals())
 
-        serial = urllib.parse.quote(serial, safe="")
+        serial = urllib.parse.quote(str(serial), safe="")
         resource = f"/devices/{serial}/camera/video/settings"
 
         body_params = [
@@ -154,7 +154,7 @@ class ActionBatchCamera(object):
 
         kwargs = locals()
 
-        serial = urllib.parse.quote(serial, safe="")
+        serial = urllib.parse.quote(str(serial), safe="")
         resource = f"/devices/{serial}/camera/wirelessProfiles"
 
         body_params = [

@@ -11,7 +11,7 @@ import jsii
 import publication
 import typing_extensions
 
-from jsii._type_checking import check_type
+from jsii._type_checking import cached_type_hints, check_type
 
 
 import constructs._jsii
@@ -38,7 +38,7 @@ _SUBMODULE_FQN_MAP = {
 }
 
 __jsii_assembly__ = jsii.JSIIAssembly.load(
-    "projen", "0.101.4", __name__[0:-6], "projen@0.101.4.jsii.tgz"
+    "projen", "0.101.6", __name__[0:-6], "projen@0.101.6.jsii.tgz"
 )
 
 __all__ = [

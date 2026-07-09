@@ -14,7 +14,7 @@ class TestLiveCam(SlixTest):
         clients = []
 
         async def run():
-            clients.extend(await self.xmpp['xep_0494'].get_clients())
+            clients.extend(await self.xmpp.plugin['xep_0494'].get_clients())
 
         self.xmpp.wrap(run())
         self.wait_()
@@ -71,7 +71,7 @@ class TestLiveCam(SlixTest):
         result = []
 
         async def run():
-            await self.xmpp['xep_0494'].revoke('toto')
+            await self.xmpp.plugin['xep_0494'].revoke('toto')
             result.append(True)
 
         self.xmpp.wrap(run())
@@ -96,7 +96,7 @@ class TestLiveCam(SlixTest):
 
         async def run():
             try:
-                await self.xmpp['xep_0494'].revoke('toto')
+                await self.xmpp.plugin['xep_0494'].revoke('toto')
             except IqError:
                 result.append(True)
 

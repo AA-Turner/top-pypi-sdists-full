@@ -101,3 +101,19 @@ class ExplainedDecision(BaseSerDeModel):
             clone_rejection_reason=RejectionReason.NO_SUITABLE_MATCH_FOUND,
             is_stale=False,
         )
+
+
+@proto_dataclass(shared_pb2.DbtNodeState)
+class DbtNodeState(BaseSerDeModel):
+    node_unique_id: str
+    target_name: str
+    project_name: str
+    resource_type: str
+    node_hash: str
+    node_body_hash: str
+    node_configs_hash: str
+    node_relation_hash: str
+    node_macros_hash: str
+    node_contract_hash: str
+    profile_name: str
+    node_persisted_descriptions_hash: t.Optional[str] = None

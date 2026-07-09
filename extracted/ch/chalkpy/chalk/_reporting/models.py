@@ -25,6 +25,8 @@ class BatchProgress(BaseModel):
     start: Optional[datetime]
     end: Optional[datetime]
     total_duration_s: float = 0.0
+    stored_online: int = 0
+    stored_offline: int = 0
 
     @classmethod
     def empty(cls) -> "BatchProgress":
@@ -54,6 +56,8 @@ class BatchProgress(BaseModel):
             ),
             total_duration_s=self.total_duration_s + other.total_duration_s,
             end=None,
+            stored_online=self.stored_online + other.stored_online,
+            stored_offline=self.stored_offline + other.stored_offline,
         )
 
 
@@ -62,6 +66,8 @@ class BatchProgressSum(BaseModel):
     computed: int = 0
     failed: int = 0
     total_duration_s: float = 0.0
+    stored_online: int = 0
+    stored_offline: int = 0
 
     @classmethod
     def from_progresses(cls, *args: Union[BatchProgress, Iterable[BatchProgress]]) -> "BatchProgressSum":
@@ -84,6 +90,8 @@ class BatchProgressSum(BaseModel):
             computed=self.computed + other.computed,
             failed=self.failed + other.failed,
             total_duration_s=self.total_duration_s + other.total_duration_s,
+            stored_online=self.stored_online + other.stored_online,
+            stored_offline=self.stored_offline + other.stored_offline,
         )
 
 

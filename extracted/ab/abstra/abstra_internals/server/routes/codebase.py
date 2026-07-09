@@ -20,6 +20,7 @@ from abstra_internals.controllers.codebase_events import CodebaseEventController
 from abstra_internals.logger import AbstraLogger
 from abstra_internals.repositories.factory import Repositories
 from abstra_internals.repositories.project.project import Project
+from abstra_internals.server.guards.file_lock_guard import check_file_lock
 from abstra_internals.server.socket_listener import serve_listener_websocket
 from abstra_internals.services import mcp_context
 from abstra_internals.services.requirements import validate_requirements_content
@@ -152,6 +153,10 @@ def get_editor_bp(repos: Repositories):
 
     @bp.put("/files/<path:path>")
     def _edit_file(path):
+        locked = check_file_lock(path)
+        if locked is not None:
+            return locked
+
         stale = _check_unmodified_since(path)
         if stale is not None:
             return stale
@@ -165,6 +170,10 @@ def get_editor_bp(repos: Repositories):
 
     @bp.post("/files/<path:path>")
     def _create_file(path):
+        locked = check_file_lock(path)
+        if locked is not None:
+            return locked
+
         content = flask.request.get_data()
         overwrite = flask.request.args.get("overwrite", "false").lower() == "true"
         if overwrite:
@@ -180,6 +189,10 @@ def get_editor_bp(repos: Repositories):
 
     @bp.delete("/files/<path:path>")
     def _delete_file(path: str):
+        locked = check_file_lock(path)
+        if locked is not None:
+            return locked
+
         parts = list(os.path.split(path))
         return controller.delete_file(parts).to_dict()
 
@@ -193,6 +206,9 @@ def get_editor_bp(repos: Repositories):
 
             AbstraLogger.debug(f"rename_file: Received JSON: {json}")
             req = AbstraLibApiEditorCodebaseFilesPatchRequest.from_dict(json)
+            locked = check_file_lock("/".join(req.path_parts))
+            if locked is not None:
+                return locked
             result = controller.rename_file(req.path_parts, req.new_path_parts)
             return result.to_dict()
         except FileExistsError as e:

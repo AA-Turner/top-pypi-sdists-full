@@ -4,7 +4,7 @@ requires = ["poetry-core>=2.0"]
 
 [tool.poetry]
 name = "dotenv-linter"
-version = "0.7.0"
+version = "0.8.0"
 description = "Linting dotenv files like a charm!"
 authors = [
   "sobolevn <mail@sobolevn.me>"
@@ -42,16 +42,17 @@ typing_extensions = ">=4.0,<5.0"
 lark = "^1.2"
 
 [tool.poetry.group.dev.dependencies]
-wemake-python-styleguide = "^1.1"
-ruff = "^0.11"
+wemake-python-styleguide = "^1.6"
+ruff = "^0.15"
 
-pytest = "^8.1"
-pytest-cov = "^6.0"
-pytest-randomly = "^3.12"
+pytest = ">=8.1,<10.0"
+pytest-cov = ">=6,<8"
+pytest-randomly = ">=3.12,<5.0"
+covdefaults = "^2.3"
 
 codespell = "^2.2"
 
-mypy = "^1.15"
+mypy = "^2.2"
 
 [tool.poetry.group.docs]
 optional = true
@@ -62,11 +63,10 @@ sphinx-autodoc-typehints = "^3.0"
 sphinx-click = "^6.0"
 tomli = "^2.0"
 myst-parser = "^4.0"
-furo = "^2024.8"
+furo = ">=2024.8,<2026.0"
 
 [tool.poetry.scripts]
 dotenv-linter = "dotenv_linter.cli:cli"
-
 
 [tool.ruff]
 # Ruff config: https://docs.astral.sh/ruff/settings

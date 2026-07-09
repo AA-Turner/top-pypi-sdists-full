@@ -2,15 +2,15 @@
 # -*- coding: utf-8 -*-
 
 # Copyright (c) 2021, Cisco Systems
-# GNU General Public License v3.0+ (see LICENSE or
-# https://www.gnu.org/licenses/gpl-3.0.txt)
+# GNU General Public License v3.0+ (see LICENSE or https://www.gnu.org/licenses/gpl-3.0.txt)
 
 DOCUMENTATION = r"""
 module: networks_webhooks_payload_templates_info
-short_description: Information module for networks _webhooks _payload _templates
+short_description: Information module for networks _webhooks _payloadtemplates
 description:
-  - Get all networks _webhooks _payload _templates.
-  - Get networks _webhooks _payload _templates by id.
+  - Information module for Networks Webhooks Payloadtemplates Info.
+  - Get all networks _webhooks _payloadtemplates.
+  - Get networks _webhooks _payloadtemplates by id.
   - Get the webhook payload template for a network.
   - List the webhook payload templates for a network.
 version_added: '1.0.0'
@@ -23,10 +23,12 @@ options:
     type: dict
   networkId:
     description:
+      - Information module for Networks Webhooks Payloadtemplates Info.
       - NetworkId path parameter. Network ID.
     type: str
   payloadTemplateId:
     description:
+      - Information module for Networks Webhooks Payloadtemplates Info.
       - PayloadTemplateId path parameter. Payload template ID.
     type: str
 requirements:
@@ -49,7 +51,7 @@ notes:
 """
 
 EXAMPLES = r"""
-- name: Get all networks _webhooks _payload _templates
+- name: Get all networks _webhooks _payloadtemplates
   cisco.meraki.networks_webhooks_payload_templates_info:
     meraki_api_key: "{{ meraki_api_key }}"
     meraki_base_url: "{{ meraki_base_url }}"
@@ -74,7 +76,7 @@ EXAMPLES = r"""
     meraki_inherit_logging_config: "{{ meraki_inherit_logging_config }}"
     networkId: string
   register: result
-- name: Get networks _webhooks _payload _templates by id
+- name: Get networks _webhooks _payloadtemplates by id
   cisco.meraki.networks_webhooks_payload_templates_info:
     meraki_api_key: "{{ meraki_api_key }}"
     meraki_base_url: "{{ meraki_base_url }}"

@@ -347,7 +347,7 @@ class XMLStream(asyncio.BaseProtocol):
         self.__handlers = []
         self.__event_handlers = {}
         self.__filters = {
-            'in': [], 'out': [], 'out_sync': []
+            'in': [], 'out': [], 'out_sync': [], 'out_sce': []
         }
 
         self._current_connection_attempt = None
@@ -932,7 +932,7 @@ class XMLStream(asyncio.BaseProtocol):
         """
         self.__root_stanza.remove(stanza_class)
 
-    def add_filter(self, mode: FilterString, handler: Callable[[StanzaBase], StanzaBase | None], order: int | None = None) -> None:
+    def add_filter(self, mode: FilterString, handler: Filter, order: int | None = None) -> None:
         """Add a filter for incoming or outgoing stanzas.
 
         These filters are applied before incoming stanzas are
@@ -944,10 +944,27 @@ class XMLStream(asyncio.BaseProtocol):
         ``None``, then the stanza will be dropped from being
         processed for events or from being sent.
 
-        :param mode: One of ``'in'`` or ``'out'``.
+        There are multiple "modes" of filters for incoming and
+        outgoing stanzas. These modes differ in the order they
+        are processed, as well as whether the filters can be
+        sync or async. For the outgoing direction, the filters
+        of mode ``'out'`` are processed first. Whether a filter
+        in this mode is sync or async is determined by
+        inspecting it. Next, the mode ``'out_sync'`` is
+        processed, which treats all filters as sync. Finally,
+        the mode ``'out_sce'`` is processed, which is reserved
+        for filters applying XEP-0420 Stanza Content Encryption
+        or comparable processing to the whole stanza. These can
+        be sync or async, detected automatically. For the
+        incoming direction, the only available mode is ``'in'``,
+        which only accepts sync filters.
+
+        :param mode: One of ``'in'``, ``'out'``, ``'out_sync'``
+                     or ``'out_sce'``.
         :param handler: The filter function.
         :param int order: The position to insert the filter in
-                          the list of active filters.
+                          the list of active filters for that
+                          mode.
         """
         if order:
             self.__filters[mode].insert(order, handler)
@@ -1232,28 +1249,27 @@ class XMLStream(asyncio.BaseProtocol):
         self.__slow_tasks.remove(task)
         if data is None:
             return
-        for filter in self.__filters['out'][:]:
-            if filter in already_used:
-                continue
-            if iscoroutinefunction(filter):
-                data = await filter(data)  # type: ignore
-            else:
-                filter = cast(SyncFilter, filter)
-                data = filter(data)
-            if data is None:
-                return
 
-        if isinstance(data, StanzaBase):
-            for filter in self.__filters['out_sync']:
-                filter = cast(SyncFilter, filter)
-                data = filter(data)
+        for filter_mode in ['out', 'out_sync', 'out_sce']:
+            for filter in self.__filters[filter_mode][:]:
+                if filter in already_used:
+                    continue
+                is_async_filter = iscoroutinefunction(filter)
+                if filter_mode == 'out_sync':
+                    # Assume these are sync without checking
+                    is_async_filter = False
+                if is_async_filter:
+                    filter = cast(AsyncFilter, filter)
+                    data = await filter(data)  # type: ignore
+                else:
+                    filter = cast(SyncFilter, filter)
+                    data = filter(data)
                 if data is None:
                     return
-            str_data = tostring(data.xml, xmlns=self.default_ns,
-                                stream=self, top_level=True)
-            self.send_raw(str_data)
-        else:
-            self.send_raw(data)
+
+        str_data = tostring(data.xml, xmlns=self.default_ns,
+                            stream=self, top_level=True)
+        self.send_raw(str_data)
 
     async def run_filters(self) -> None:
         """
@@ -1263,12 +1279,16 @@ class XMLStream(asyncio.BaseProtocol):
             data: StanzaBase | str | None
             (data, use_filters) = await self.waiting_queue.get()
             try:
-                if isinstance(data, StanzaBase):
-                    if use_filters:
-                        already_run_filters = set()
-                        for filter in self.__filters['out']:
+                if use_filters and isinstance(data, StanzaBase):
+                    already_run_filters = set()
+                    for filter_mode in ['out', 'out_sync', 'out_sce']:
+                        for filter in self.__filters[filter_mode]:
                             already_run_filters.add(filter)
-                            if iscoroutinefunction(filter):
+                            is_async_filter = iscoroutinefunction(filter)
+                            if filter_mode == 'out_sync':
+                                # Assume these are sync without checking
+                                is_async_filter = False
+                            if is_async_filter:
                                 filter = cast(AsyncFilter, filter)
                                 task = asyncio.create_task(filter(data))  # type:ignore
                                 completed, pending = await wait(
@@ -1295,17 +1315,8 @@ class XMLStream(asyncio.BaseProtocol):
                                 raise ContinueQueue('Empty stanza')
 
                 if isinstance(data, StanzaBase):
-                    if use_filters:
-                        for filter in self.__filters['out_sync']:
-                            filter = cast(SyncFilter, filter)
-                            data = filter(data)
-                            if data is None:
-                                raise ContinueQueue('Empty stanza')
-                    if isinstance(data, StanzaBase):
-                        str_data = tostring(data.xml, xmlns=self.default_ns,
-                                            stream=self, top_level=True)
-                    else:
-                        str_data = data
+                    str_data = tostring(data.xml, xmlns=self.default_ns,
+                                        stream=self, top_level=True)
                     self.send_raw(str_data)
                 elif isinstance(data, (str, bytes)):
                     self.send_raw(data)
@@ -1418,12 +1429,25 @@ class XMLStream(asyncio.BaseProtocol):
         except Exception as exc:
             log.exception("Unable to parse stanza: %s,\n%s", exc, xml)
             stanza = None
-        for filter in self.__filters['in']:
-            if stanza is not None:
-                filter = cast(SyncFilter, filter)
-                stanza = filter(stanza)
         if stanza is None:
             return
+
+        self.recv_stanza(stanza)
+
+    def recv_stanza(self, stanza: StanzaBase) -> None:
+        """
+        Process a stanza that was just received or decrypted. Queue stream
+        events to be processed by matching handlers.
+
+        :param stanza: The :class:`~slixmpp.xmlstream.stanzabase.StanzaBase`
+                       stanza to process.
+        """
+        for filter in self.__filters['in']:
+            filter = cast(SyncFilter, filter)
+            stanza_filtered = filter(stanza)
+            if stanza_filtered is None:
+                return
+            stanza = stanza_filtered
 
         log.debug("RECV: %s", stanza)
 

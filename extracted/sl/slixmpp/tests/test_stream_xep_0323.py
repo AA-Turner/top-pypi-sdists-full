@@ -31,7 +31,7 @@ class TestStreamSensorData(SlixTest):
         myDevice._set_momentary_timestamp("2013-03-07T16:24:30")
         myDevice._add_field_momentary_data("Temperature", "23.4", flags={"automaticReadout": "true"})
 
-        self.xmpp['xep_0323'].register_node(nodeId="Device22", device=myDevice, commTimeout=0.5)
+        self.xmpp.plugin['xep_0323'].register_node(nodeId="Device22", device=myDevice, commTimeout=0.5)
 
         self.recv("""
             <iq type='get'
@@ -70,7 +70,7 @@ class TestStreamSensorData(SlixTest):
                           plugins=['xep_0030',
                                    'xep_0323'])
 
-        self.xmpp['xep_0323']._set_authenticated("darth@deathstar.com")
+        self.xmpp.plugin['xep_0323']._set_authenticated("darth@deathstar.com")
 
         self.recv("""
             <iq type='get'
@@ -99,7 +99,7 @@ class TestStreamSensorData(SlixTest):
                                    'xep_0323'])
 
         myDevice = Device("Device44")
-        self.xmpp['xep_0323'].register_node('Device44', myDevice, commTimeout=0.5)
+        self.xmpp.plugin['xep_0323'].register_node('Device44', myDevice, commTimeout=0.5)
 
         print("."),
 
@@ -158,7 +158,7 @@ class TestStreamSensorData(SlixTest):
         myDevice._add_field(name='Voltage', typename="numeric", unit="V")
         myDevice._add_field_timestamp_data(name="Voltage", value="230.4", timestamp="2000-01-01T00:01:02", flags={"invoiced": "true"})
 
-        self.xmpp['xep_0323'].register_node('Device44', myDevice, commTimeout=0.5)
+        self.xmpp.plugin['xep_0323'].register_node('Device44', myDevice, commTimeout=0.5)
 
         print("."),
 
@@ -241,7 +241,7 @@ class TestStreamSensorData(SlixTest):
         myDevice._add_field_timestamp_data(name="Voltage", value="230.6", timestamp="2000-01-01T01:01:02")
         myDevice._add_field_timestamp_data(name="Height", value="115 m", timestamp="2000-01-01T01:01:02", flags={"invoiced": "true"})
 
-        self.xmpp['xep_0323'].register_node('Device44', myDevice, commTimeout=0.5)
+        self.xmpp.plugin['xep_0323'].register_node('Device44', myDevice, commTimeout=0.5)
 
         print("."),
 
@@ -313,7 +313,7 @@ class TestStreamSensorData(SlixTest):
         myDevice._add_field_timestamp_data(name="Voltage", value="230.6", timestamp="2000-01-01T01:01:02")
         myDevice._add_field_timestamp_data(name="Height", value="115 m", timestamp="2000-01-01T01:01:02", flags={"invoiced": "true"})
 
-        self.xmpp['xep_0323'].register_node('Device44', myDevice, commTimeout=0.5)
+        self.xmpp.plugin['xep_0323'].register_node('Device44', myDevice, commTimeout=0.5)
 
         print("."),
 
@@ -376,7 +376,7 @@ class TestStreamSensorData(SlixTest):
                           plugins=['xep_0030',
                                    'xep_0323'])
 
-        self.xmpp['xep_0323'].request_data(from_jid="tester@localhost", to_jid="you@google.com", callback=None)
+        self.xmpp.plugin['xep_0323'].request_data(from_jid="tester@localhost", to_jid="you@google.com", callback=None)
 
         self.send("""
             <iq type='get'
@@ -387,7 +387,7 @@ class TestStreamSensorData(SlixTest):
             </iq>
             """)
 
-        self.xmpp['xep_0323'].request_data(from_jid="tester@localhost", to_jid="you@google.com", nodeIds=['Device33', 'Device22'], callback=None)
+        self.xmpp.plugin['xep_0323'].request_data(from_jid="tester@localhost", to_jid="you@google.com", nodeIds=['Device33', 'Device22'], callback=None)
 
         self.send("""
             <iq type='get'
@@ -401,7 +401,7 @@ class TestStreamSensorData(SlixTest):
             </iq>
             """)
 
-        self.xmpp['xep_0323'].request_data(from_jid="tester@localhost", to_jid="you@google.com", fields=['Temperature', 'Voltage'], callback=None)
+        self.xmpp.plugin['xep_0323'].request_data(from_jid="tester@localhost", to_jid="you@google.com", fields=['Temperature', 'Voltage'], callback=None)
 
         self.send("""
             <iq type='get'
@@ -427,7 +427,7 @@ class TestStreamSensorData(SlixTest):
             if (result == "rejected") and (error_msg == "Invalid device Device22"):
                 results.append("rejected")
 
-        self.xmpp['xep_0323'].request_data(from_jid="tester@localhost", to_jid="you@google.com", nodeIds=['Device33', 'Device22'], callback=my_callback)
+        self.xmpp.plugin['xep_0323'].request_data(from_jid="tester@localhost", to_jid="you@google.com", nodeIds=['Device33', 'Device22'], callback=my_callback)
 
         self.send("""
             <iq type='get'
@@ -466,7 +466,7 @@ class TestStreamSensorData(SlixTest):
         def my_callback(from_jid, result, nodeId=None, timestamp=None, fields=None, error_msg=None):
             results.append(result)
 
-        self.xmpp['xep_0323'].request_data(from_jid="tester@localhost", to_jid="you@google.com", nodeIds=['Device33', 'Device22'], callback=my_callback)
+        self.xmpp.plugin['xep_0323'].request_data(from_jid="tester@localhost", to_jid="you@google.com", nodeIds=['Device33', 'Device22'], callback=my_callback)
 
         self.send("""
             <iq type='get'
@@ -510,11 +510,11 @@ class TestStreamSensorData(SlixTest):
                 for f in fields:
                     callback_data["field_" + f['name']] = f
 
-        self.xmpp['xep_0323'].request_data(from_jid="tester@localhost",
+        self.xmpp.plugin['xep_0323'].request_data(from_jid="tester@localhost",
                                             to_jid="you@google.com",
                                             nodeIds=['Device33'],
                                             callback=my_callback)
-        #self.xmpp['xep_0323'].request_data(from_jid="tester@localhost", to_jid="you@google.com", nodeIds=['Device33'], callback=my_callback);
+        #self.xmpp.plugin['xep_0323'].request_data(from_jid="tester@localhost", to_jid="you@google.com", nodeIds=['Device33'], callback=my_callback);
 
         self.send("""
             <iq type='get'
@@ -638,7 +638,7 @@ class TestStreamSensorData(SlixTest):
                 callback_data["timestamp"] = timestamp
                 callback_data["error_msg"] = error_msg
 
-        self.xmpp['xep_0323'].request_data(from_jid="tester@localhost",
+        self.xmpp.plugin['xep_0323'].request_data(from_jid="tester@localhost",
                                            to_jid="you@google.com",
                                            nodeIds=['Device33'],
                                            callback=my_callback)
@@ -692,7 +692,7 @@ class TestStreamSensorData(SlixTest):
         myDevice._set_momentary_timestamp("2013-03-07T16:24:30")
         myDevice._add_field_momentary_data("Temperature", "23.4", flags={"automaticReadout": "true"})
 
-        self.xmpp['xep_0323'].register_node(nodeId="Device22", device=myDevice, commTimeout=0.5)
+        self.xmpp.plugin['xep_0323'].register_node(nodeId="Device22", device=myDevice, commTimeout=0.5)
 
         dtnow = datetime.datetime.now()
         ts_2sec = datetime.timedelta(0,2)
@@ -749,7 +749,7 @@ class TestStreamSensorData(SlixTest):
         myDevice._set_momentary_timestamp("2013-03-07T16:24:30")
         myDevice._add_field_momentary_data("Temperature", "23.4", flags={"automaticReadout": "true"})
 
-        self.xmpp['xep_0323'].register_node(nodeId="Device22", device=myDevice, commTimeout=0.5)
+        self.xmpp.plugin['xep_0323'].register_node(nodeId="Device22", device=myDevice, commTimeout=0.5)
 
         dtnow = datetime.datetime.now()
         ts_2sec = datetime.timedelta(0,2)
@@ -811,7 +811,7 @@ class TestStreamSensorData(SlixTest):
         myDevice._add_field_timestamp_data(name="Voltage", value="230.2", timestamp="2000-02-01T00:01:02", flags={"invoiced": "true"})
         myDevice._add_field_timestamp_data(name="Voltage", value="230.3", timestamp="2000-03-01T00:01:02", flags={"invoiced": "true"})
 
-        self.xmpp['xep_0323'].register_node('Device44', myDevice, commTimeout=0.5)
+        self.xmpp.plugin['xep_0323'].register_node('Device44', myDevice, commTimeout=0.5)
 
         print("."),
 
@@ -881,7 +881,7 @@ class TestStreamSensorData(SlixTest):
         myDevice._add_field_timestamp_data(name="Voltage", value="230.2", timestamp="2000-02-01T00:01:02", flags={"invoiced": "true"})
         myDevice._add_field_timestamp_data(name="Voltage", value="230.3", timestamp="2000-03-01T00:01:02", flags={"invoiced": "true"})
 
-        self.xmpp['xep_0323'].register_node('Device44', myDevice, commTimeout=0.5)
+        self.xmpp.plugin['xep_0323'].register_node('Device44', myDevice, commTimeout=0.5)
 
         print("."),
 
@@ -951,7 +951,7 @@ class TestStreamSensorData(SlixTest):
         myDevice._add_field_timestamp_data(name="Voltage", value="230.2", timestamp="2000-02-01T00:01:02", flags={"invoiced": "true"})
         myDevice._add_field_timestamp_data(name="Voltage", value="230.3", timestamp="2000-03-01T00:01:02", flags={"invoiced": "true"})
 
-        self.xmpp['xep_0323'].register_node('Device44', myDevice, commTimeout=0.5)
+        self.xmpp.plugin['xep_0323'].register_node('Device44', myDevice, commTimeout=0.5)
 
         print("."),
 
@@ -1013,11 +1013,11 @@ class TestStreamSensorData(SlixTest):
                 for f in fields:
                     callback_data["field_" + f['name']] = f
 
-        self.xmpp['xep_0323'].request_data(from_jid="tester@localhost",
+        self.xmpp.plugin['xep_0323'].request_data(from_jid="tester@localhost",
                                            to_jid="you@google.com",
                                            nodeIds=['Device33'],
                                            callback=my_callback)
-        #self.xmpp['xep_0323'].request_data(from_jid="tester@localhost", to_jid="you@google.com", nodeIds=['Device33'], callback=my_callback);
+        #self.xmpp.plugin['xep_0323'].request_data(from_jid="tester@localhost", to_jid="you@google.com", nodeIds=['Device33'], callback=my_callback);
 
         self.send("""
             <iq type='get'
@@ -1093,7 +1093,7 @@ class TestStreamSensorData(SlixTest):
         def my_callback(from_jid, result, nodeId=None, timestamp=None, fields=None, error_msg=None):
             results.append(result)
 
-        session = self.xmpp['xep_0323'].request_data(from_jid="tester@localhost", to_jid="you@google.com", nodeIds=['Device33'], callback=my_callback)
+        session = self.xmpp.plugin['xep_0323'].request_data(from_jid="tester@localhost", to_jid="you@google.com", nodeIds=['Device33'], callback=my_callback)
 
         self.send("""
             <iq type='get'
@@ -1115,7 +1115,7 @@ class TestStreamSensorData(SlixTest):
             </iq>
             """)
 
-        self.xmpp['xep_0323'].cancel_request(session=session)
+        self.xmpp.plugin['xep_0323'].cancel_request(session=session)
 
         self.send("""
             <iq type='get'
@@ -1147,7 +1147,7 @@ class TestStreamSensorData(SlixTest):
         myDevice._set_momentary_timestamp("2013-03-07T16:24:30")
         myDevice._add_field_momentary_data("Temperature", "23.4", flags={"automaticReadout": "true"})
 
-        self.xmpp['xep_0323'].register_node(nodeId="Device22", device=myDevice, commTimeout=0.5)
+        self.xmpp.plugin['xep_0323'].register_node(nodeId="Device22", device=myDevice, commTimeout=0.5)
 
         dtnow = datetime.datetime.now()
         ts_2sec = datetime.timedelta(0,2)

@@ -1,8 +1,9 @@
-Metadata-Version: 2.3
+Metadata-Version: 2.4
 Name: dotenv-linter
-Version: 0.7.0
+Version: 0.8.0
 Summary: Linting dotenv files like a charm!
 License: MIT
+License-File: LICENSE
 Keywords: dotenv,linter,wemake.services,code quality
 Author: sobolevn
 Author-email: mail@sobolevn.me
@@ -17,6 +18,7 @@ Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
 Classifier: Topic :: Software Development :: Quality Assurance
 Requires-Dist: attrs
@@ -100,7 +102,7 @@ To do so, add the following to the `.pre-commit-config.yaml` file at the root of
 ```yaml
 repos:
   - repo: https://github.com/wemake-services/dotenv-linter
-    rev: 0.2.0  # Use the ref you want to point at
+    rev: 0.7.0  # Use the ref you want to point at
     hooks:
       - id: dotenv-linter
 ```

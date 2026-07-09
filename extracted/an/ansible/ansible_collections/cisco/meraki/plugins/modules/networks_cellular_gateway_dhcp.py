@@ -2,14 +2,13 @@
 # -*- coding: utf-8 -*-
 
 # Copyright (c) 2021, Cisco Systems
-# GNU General Public License v3.0+ (see LICENSE or
-# https://www.gnu.org/licenses/gpl-3.0.txt)
+# GNU General Public License v3.0+ (see LICENSE or https://www.gnu.org/licenses/gpl-3.0.txt)
 
 DOCUMENTATION = r"""
 module: networks_cellular_gateway_dhcp
-short_description: Resource module for networks _cellular _gateway _dhcp
+short_description: Resource module for networks _cellulargateway _dhcp
 description:
-  - Manage operation update of the resource networks _cellular _gateway _dhcp.
+  - Manage operation update of the resource networks _cellulargateway _dhcp.
   - Update common DHCP settings of MGs.
 version_added: '1.0.0'
 extends_documentation_fragment:

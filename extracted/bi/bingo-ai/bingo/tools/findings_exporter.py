@@ -141,11 +141,11 @@ _RCE_PATTERNS = [
 _CRED_PATTERNS = [
     re.compile(r'(?:password|passwd|pwd)\s*[=:]\s*[\'"]?([^\s\'"]{4,})', re.I),
     re.compile(r'(?:admin|root|sa)\s*[/|:]\s*([^\s]{4,})', re.I),
-    re.compile(r'\$2[aby]\$\d+\$[./A-Za-z0-9]{53}'),          # bcrypt
-    # v4.8.0: MD5/SHA 해시 — 독립적으로 등장한 경우만 매칭 (URL인코딩/SQL 인젝션 출력 오탐 방지)
-    # 이전: r'[0-9a-f]{32,}' → URL 인코딩(%XX), SQL EXTRACTVALUE 출력에서 오탐 발생
-    # 수정: 앞뒤에 non-hex 경계 요구 + 최소 32자 완전 hex 문자열만 허용
-    re.compile(r'(?<![%a-zA-Z0-9/])[0-9a-f]{32,64}(?![0-9a-f])', re.I),  # MD5/SHA hash
+    re.compile(r'\$2[aby]\$\d+\$[./A-Za-z0-9]{53}'),          # bcrypt hash (very specific)
+    # v6.2.10: MD5/SHA 해시 — 세션쿠키 오탐 억제를 위해 "password" 또는 "hash" 컨텍스트 필요
+    # 이전: r'(?<![%a-zA-Z0-9/])[0-9a-f]{32,64}' → 세션ID, Apache mod_status 등에서 오탐 다수
+    # 수정: hash 단어가 주변에 있거나, password= 앞에 있는 경우만 매칭
+    re.compile(r'(?:hash|passwd|md5|sha1|sha256)\s*[:=]\s*([0-9a-f]{32,64})', re.I),
 ]
 
 # v4.8.0: SQLi 컨텍스트 키워드 — 코드에 이것이 있으면 credential보다 sqli 우선
@@ -168,6 +168,22 @@ _WAF_BLOCK_EN = re.compile(
     re.I,
 )
 
+# v6.2.16: WAF 보안 도메인 302 리다이렉트 패턴 (페이로드 차단 = 취약점 없음)
+# 예: Location: http://sh1.igear.co.kr/secure/index.html → WAF payload block, NOT sqli evidence
+_WAF_SECURITY_REDIRECT = re.compile(
+    r'location\s*:\s*https?://(?:'
+    r'[a-z0-9.-]*igear\.co\.kr'      # igear WAF (Korea)
+    r'|[a-z0-9.-]*securecp\.co\.kr'  # SecureCP WAF (Korea)
+    r'|[a-z0-9.-]*cloudbric\.'       # Cloudbric WAF (Korea)
+    r'|[a-z0-9.-]*sitelock\.'        # SiteLock WAF
+    r'|[a-z0-9.-]*sucuri\.'          # Sucuri WAF
+    r'|[a-z0-9.-]*incapsula\.'       # Imperva/Incapsula WAF
+    r'|[a-z0-9.-]*akamai\.'          # Akamai WAF
+    r'|[a-z0-9.-]*cloudflare\.com/cdn-cgi/error'  # Cloudflare block
+    r')/(?:secure|block|blocked|deny|error|403)',
+    re.I,
+)
+
 # v4.9.4: Oracle 실패 오탐 억제 패턴
 # 추출된 값이 동일 문자의 반복이면 oracle이 실패한 것 (aaa..., bbb... 등)
 _ORACLE_FAILURE_REPEATED = re.compile(
@@ -183,8 +199,10 @@ _ORACLE_FAILURE_WARNING = re.compile(
 
 _AUTH_BYPASS_PATTERNS = [
     re.compile(r'(관리자|admin)\s*(패널|panel|dashboard|로그인|login)\s*(성공|접근|완료|OK)', re.I),
-    re.compile(r'HTTP/\d.*?200.*?admin', re.I),
-    re.compile(r'Set-Cookie:.*?(admin|session|auth|jwt)', re.I),
+    # v6.2.10: Set-Cookie 단독으론 auth_bypass 아님 — 제거 (세션쿠키 오탐 다수 발생)
+    # re.compile(r'Set-Cookie:.*?(admin|session|auth|jwt)', re.I),  ← 삭제됨
+    # HTTP 200 + admin — URL 경로가 실제로 admin이어야 함 (응답 헤더 텍스트 아님)
+    re.compile(r'(Location|URL):\s*.*?/admin(?:/|$)', re.I),
     re.compile(r'(welcome|dashboard|admin)\s*-\s*(admin|root|manager)', re.I),
 ]
 
@@ -206,6 +224,12 @@ def _detect_vuln_type(output: str, code_snippet: str = "") -> tuple[str, str] | 
     if len(output) <= 2000 and (
         _WAF_BLOCK_KO.search(output) or _WAF_BLOCK_EN.search(output)
     ):
+        return None
+
+    # ── v6.2.16: WAF 보안도메인 302 리다이렉트 조기 종료 ─────────────────────────
+    # 302 → igear/securecp/cloudbric 등 보안 도메인 = WAF 페이로드 차단.
+    # 이는 취약점 증거가 아님 → 오탐 방지. IP 전체 차단도 아님 (특정 페이로드 차단).
+    if _WAF_SECURITY_REDIRECT.search(output.lower()):
         return None
 
     # ── v4.9.4: Oracle 실패 조기 감지 ─────────────────────────────────────────

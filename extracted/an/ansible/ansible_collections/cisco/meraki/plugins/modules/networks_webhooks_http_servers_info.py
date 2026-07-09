@@ -2,15 +2,15 @@
 # -*- coding: utf-8 -*-
 
 # Copyright (c) 2021, Cisco Systems
-# GNU General Public License v3.0+ (see LICENSE or
-# https://www.gnu.org/licenses/gpl-3.0.txt)
+# GNU General Public License v3.0+ (see LICENSE or https://www.gnu.org/licenses/gpl-3.0.txt)
 
 DOCUMENTATION = r"""
 module: networks_webhooks_http_servers_info
-short_description: Information module for networks _webhooks _http _servers
+short_description: Information module for networks _webhooks _httpservers
 description:
-  - Get all networks _webhooks _http _servers.
-  - Get networks _webhooks _http _servers by id.
+  - Information module for Networks Webhooks Httpservers Info.
+  - Get all networks _webhooks _httpservers.
+  - Get networks _webhooks _httpservers by id.
   - List the HTTP servers for a network.
   - Return an HTTP server for a network.
 version_added: '1.0.0'
@@ -23,10 +23,12 @@ options:
     type: dict
   networkId:
     description:
+      - Information module for Networks Webhooks Httpservers Info.
       - NetworkId path parameter. Network ID.
     type: str
   httpServerId:
     description:
+      - Information module for Networks Webhooks Httpservers Info.
       - HttpServerId path parameter. Http server ID.
     type: str
 requirements:
@@ -49,7 +51,7 @@ notes:
 """
 
 EXAMPLES = r"""
-- name: Get all networks _webhooks _http _servers
+- name: Get all networks _webhooks _httpservers
   cisco.meraki.networks_webhooks_http_servers_info:
     meraki_api_key: "{{ meraki_api_key }}"
     meraki_base_url: "{{ meraki_base_url }}"
@@ -74,7 +76,7 @@ EXAMPLES = r"""
     meraki_inherit_logging_config: "{{ meraki_inherit_logging_config }}"
     networkId: string
   register: result
-- name: Get networks _webhooks _http _servers by id
+- name: Get networks _webhooks _httpservers by id
   cisco.meraki.networks_webhooks_http_servers_info:
     meraki_api_key: "{{ meraki_api_key }}"
     meraki_base_url: "{{ meraki_base_url }}"

@@ -463,10 +463,10 @@ EXAMPLES = r'''
         mac_address: 11:11:11:11:11:11
 
 - name: Set VM customization spec
-  vmware.vmware.vm_apply_customization:
+  vmware.vmware.vm_customization:
     moid: "{{ _deploy_vm.vm.moid }}"
     datacenter: "my-datacenter"
-    use_dhcpv4_for_all_nics: true
+    use_ipv4_dhcp_for_all_nics: true
     cloud_init:
       instance_data:
         instance-id: "{{ _deploy_vm.vm.moid }}"

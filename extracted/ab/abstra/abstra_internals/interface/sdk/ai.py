@@ -169,6 +169,27 @@ def prompt(
     )
 
 
+def extract_text(document_path: Union["Path", str]) -> str:
+    """
+    Extract the full text of a document using AI-powered OCR.
+
+    Unlike the specific parsers (parse_invoice, parse_nfe, ...), this returns the
+    raw text of any document with no predefined schema — useful for feeding a
+    document's contents to `prompt` for extraction or analysis.
+
+    Args:
+        document_path (Union[Path, str]): The path to the document to be parsed.
+            Supported types: .pdf, .jpeg, .jpg, .png.
+
+    Returns:
+        str: The extracted text.
+
+    Raises:
+        ValueError: If the file type is unsupported.
+    """
+    return SDKContextStore.get_by_thread().ai_sdk.extract_text(document_path)
+
+
 def parse_nfse(document_path: Union["Path", str]) -> CloudApiCliModelsNfseResponse:
     """
     Parse a Nota Fiscal de Serviço Eletrônica (NFSe) document using AI-powered OCR to extract service invoice information and tax details from Brazilian electronic service invoices.

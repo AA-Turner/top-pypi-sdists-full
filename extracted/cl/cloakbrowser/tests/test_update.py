@@ -35,6 +35,7 @@ from cloakbrowser.download import (
     _verify_pro_download,
     _verify_signature,
     _write_version_marker,
+    check_for_pro_update,
     check_for_update,
     clear_cache,
     ensure_binary,
@@ -598,6 +599,289 @@ class TestEnsureBinary:
                         result = ensure_binary()
                         mock_dl.assert_called_once()
                         assert result == str(fake_binary)
+
+
+def _make_pro_binary(version: str):
+    """Create a fake cached, executable Pro binary for `version`."""
+    from cloakbrowser.config import get_binary_path
+
+    bp = get_binary_path(version, pro=True)
+    bp.parent.mkdir(parents=True, exist_ok=True)
+    bp.write_bytes(b"binary")
+    bp.chmod(0o755)
+    return bp
+
+
+class TestUnpinnedProUpgrade:
+    """Ticket 431: an unpinned Pro launch must track the server's latest stable,
+    never roll down to a stale cached build, and never fall back to the free binary."""
+
+    OLD = "148.0.7778.215.3"
+    NEW = "148.0.7778.215.5"
+
+    def test_upgrades_to_server_latest(self, tmp_path):
+        marker = tmp_path / f"latest_pro_version_{get_platform_tag()}"
+        with patch.dict(os.environ, {"CLOAKBROWSER_CACHE_DIR": str(tmp_path)}):
+            marker.write_text(self.OLD)
+            _make_pro_binary(self.OLD)  # stale build cached
+
+            def fake_download(version, key):
+                assert version == self.NEW
+                _make_pro_binary(self.NEW)
+
+            with (
+                patch(
+                    "cloakbrowser.license.get_pro_latest_version",
+                    return_value=self.NEW,
+                ),
+                patch(
+                    "cloakbrowser.download._download_pro_binary",
+                    side_effect=fake_download,
+                ) as mock_dl,
+            ):
+                from cloakbrowser.config import get_binary_path
+
+                result = _ensure_pro_binary("cb_key")
+                mock_dl.assert_called_once()
+                assert result == str(get_binary_path(self.NEW, pro=True))
+                assert marker.read_text() == self.NEW  # marker advanced, not stuck
+
+    def test_cached_newer_build_advances_marker_no_download(self, tmp_path):
+        """Marker names an OLD build but a NEWER build is already cached (the customer's
+        multi-version cache): resolve to newest, no download, and advance the marker so
+        `info` never diverges from what launches."""
+        marker = tmp_path / f"latest_pro_version_{get_platform_tag()}"
+        with patch.dict(os.environ, {"CLOAKBROWSER_CACHE_DIR": str(tmp_path)}):
+            marker.write_text(self.OLD)
+            _make_pro_binary(self.OLD)
+            _make_pro_binary(self.NEW)  # newer build already on disk
+
+            with (
+                patch(
+                    "cloakbrowser.license.get_pro_latest_version",
+                    return_value=self.NEW,
+                ),
+                patch("cloakbrowser.download._download_pro_binary") as mock_dl,
+            ):
+                from cloakbrowser.config import get_binary_path
+
+                result = _ensure_pro_binary("cb_key")
+                mock_dl.assert_not_called()  # already cached, no download
+                assert result == str(get_binary_path(self.NEW, pro=True))
+                assert marker.read_text() == self.NEW  # marker advanced, no stale divergence
+
+    def test_steady_state_no_download(self, tmp_path):
+        marker = tmp_path / f"latest_pro_version_{get_platform_tag()}"
+        with patch.dict(os.environ, {"CLOAKBROWSER_CACHE_DIR": str(tmp_path)}):
+            marker.write_text(self.NEW)
+            _make_pro_binary(self.NEW)  # already on latest
+
+            with (
+                patch(
+                    "cloakbrowser.license.get_pro_latest_version",
+                    return_value=self.NEW,
+                ),
+                patch("cloakbrowser.download._download_pro_binary") as mock_dl,
+            ):
+                from cloakbrowser.config import get_binary_path
+
+                result = _ensure_pro_binary("cb_key")
+                mock_dl.assert_not_called()
+                assert result == str(get_binary_path(self.NEW, pro=True))
+
+    def test_server_down_uses_cached_pro(self, tmp_path):
+        """Server unreachable → launch the cached Pro build, never fail, never free."""
+        with patch.dict(os.environ, {"CLOAKBROWSER_CACHE_DIR": str(tmp_path)}):
+            (tmp_path / f"latest_pro_version_{get_platform_tag()}").write_text(self.OLD)
+            _make_pro_binary(self.OLD)
+
+            with (
+                patch(
+                    "cloakbrowser.license.get_pro_latest_version", return_value=None
+                ),
+                patch("cloakbrowser.download._download_pro_binary") as mock_dl,
+            ):
+                from cloakbrowser.config import get_binary_path
+
+                result = _ensure_pro_binary("cb_key")
+                mock_dl.assert_not_called()
+                assert result == str(get_binary_path(self.OLD, pro=True))
+
+    def test_download_failure_falls_back_to_cached(self, tmp_path):
+        """A failed upgrade download falls back to the cached Pro build, not free."""
+        with patch.dict(os.environ, {"CLOAKBROWSER_CACHE_DIR": str(tmp_path)}):
+            (tmp_path / f"latest_pro_version_{get_platform_tag()}").write_text(self.OLD)
+            _make_pro_binary(self.OLD)
+
+            with (
+                patch(
+                    "cloakbrowser.license.get_pro_latest_version",
+                    return_value=self.NEW,
+                ),
+                patch(
+                    "cloakbrowser.download._download_pro_binary",
+                    side_effect=RuntimeError("network down"),
+                ),
+            ):
+                from cloakbrowser.config import get_binary_path
+
+                result = _ensure_pro_binary("cb_key")
+                assert result == str(get_binary_path(self.OLD, pro=True))
+
+    def test_verification_error_surfaces_not_cached_fallback(self, tmp_path):
+        """A tampering signal (BinaryVerificationError) must propagate verbatim, even
+        with a cached Pro build present — never masked by the cached-fallback path."""
+        with patch.dict(os.environ, {"CLOAKBROWSER_CACHE_DIR": str(tmp_path)}):
+            (tmp_path / f"latest_pro_version_{get_platform_tag()}").write_text(self.OLD)
+            _make_pro_binary(self.OLD)
+
+            with (
+                patch(
+                    "cloakbrowser.license.get_pro_latest_version",
+                    return_value=self.NEW,
+                ),
+                patch(
+                    "cloakbrowser.download._download_pro_binary",
+                    side_effect=BinaryVerificationError("checksum mismatch"),
+                ),
+            ):
+                with pytest.raises(BinaryVerificationError, match="checksum mismatch"):
+                    _ensure_pro_binary("cb_key")
+
+    def test_no_cache_no_server_raises_never_free(self, tmp_path):
+        """No cached Pro build AND no server → hard error, never the free binary."""
+        with patch.dict(os.environ, {"CLOAKBROWSER_CACHE_DIR": str(tmp_path)}):
+            with (
+                patch(
+                    "cloakbrowser.license.get_pro_latest_version", return_value=None
+                ),
+                patch("cloakbrowser.download._download_pro_binary") as mock_dl,
+            ):
+                with pytest.raises(RuntimeError, match="latest Pro version"):
+                    _ensure_pro_binary("cb_key")
+                mock_dl.assert_not_called()
+
+    def test_auto_update_false_keeps_cached_no_server_check(self, tmp_path):
+        """CLOAKBROWSER_AUTO_UPDATE=false + a cached Pro build → keep it, no upgrade,
+        no server check (parity with the free path's freeze semantics)."""
+        with patch.dict(
+            os.environ,
+            {
+                "CLOAKBROWSER_CACHE_DIR": str(tmp_path),
+                "CLOAKBROWSER_AUTO_UPDATE": "false",
+            },
+        ):
+            (tmp_path / f"latest_pro_version_{get_platform_tag()}").write_text(self.OLD)
+            _make_pro_binary(self.OLD)
+
+            with (
+                patch(
+                    "cloakbrowser.license.get_pro_latest_version",
+                    return_value=self.NEW,
+                ) as mock_latest,
+                patch("cloakbrowser.download._download_pro_binary") as mock_dl,
+            ):
+                from cloakbrowser.config import get_binary_path
+
+                result = _ensure_pro_binary("cb_key")
+                mock_dl.assert_not_called()
+                mock_latest.assert_not_called()  # frozen → no server check at all
+                assert result == str(get_binary_path(self.OLD, pro=True))
+
+    def test_missing_cache_downloads_latest_never_free(self, tmp_path):
+        """Marker names a build whose binary is gone → fetch latest Pro, never 146.x."""
+        marker = tmp_path / f"latest_pro_version_{get_platform_tag()}"
+        with patch.dict(os.environ, {"CLOAKBROWSER_CACHE_DIR": str(tmp_path)}):
+            marker.write_text(self.OLD)  # marker present, but NO binary on disk
+
+            def fake_download(version, key):
+                assert version == self.NEW  # never the free base (146.x)
+                _make_pro_binary(self.NEW)
+
+            with (
+                patch(
+                    "cloakbrowser.license.get_pro_latest_version",
+                    return_value=self.NEW,
+                ),
+                patch(
+                    "cloakbrowser.download._download_pro_binary",
+                    side_effect=fake_download,
+                ),
+            ):
+                from cloakbrowser.config import get_binary_path
+
+                result = _ensure_pro_binary("cb_key")
+                assert result == str(get_binary_path(self.NEW, pro=True))
+
+
+class TestCheckForProUpdate:
+    """`cloakbrowser update` for Pro installs (ticket 431 Fix 1)."""
+
+    OLD = "148.0.7778.215.3"
+    NEW = "148.0.7778.215.5"
+
+    def test_downloads_and_writes_marker(self, tmp_path):
+        marker = tmp_path / f"latest_pro_version_{get_platform_tag()}"
+        with patch.dict(os.environ, {"CLOAKBROWSER_CACHE_DIR": str(tmp_path)}):
+            marker.write_text(self.OLD)
+            _make_pro_binary(self.OLD)
+
+            with (
+                patch(
+                    "cloakbrowser.license.get_pro_latest_version",
+                    return_value=self.NEW,
+                ),
+                patch(
+                    "cloakbrowser.download._download_pro_binary",
+                    side_effect=lambda v, k: _make_pro_binary(v),
+                ) as mock_dl,
+            ):
+                result = check_for_pro_update("cb_key")
+                mock_dl.assert_called_once()
+                assert result == self.NEW
+                assert marker.read_text() == self.NEW
+
+    def test_already_latest_returns_none(self, tmp_path):
+        marker = tmp_path / f"latest_pro_version_{get_platform_tag()}"
+        with patch.dict(os.environ, {"CLOAKBROWSER_CACHE_DIR": str(tmp_path)}):
+            marker.write_text(self.NEW)
+            _make_pro_binary(self.NEW)
+
+            with (
+                patch(
+                    "cloakbrowser.license.get_pro_latest_version",
+                    return_value=self.NEW,
+                ),
+                patch("cloakbrowser.download._download_pro_binary") as mock_dl,
+            ):
+                assert check_for_pro_update("cb_key") is None
+                mock_dl.assert_not_called()
+
+    def test_server_down_returns_none(self, tmp_path):
+        with patch.dict(os.environ, {"CLOAKBROWSER_CACHE_DIR": str(tmp_path)}):
+            with patch(
+                "cloakbrowser.license.get_pro_latest_version", return_value=None
+            ):
+                assert check_for_pro_update("cb_key") is None
+
+
+class TestEffectiveVersionProNoFreeFallback:
+    """get_effective_version(pro=True) must return None — never the free base —
+    when no cached Pro binary matches the marker (ticket 431 Fix 4)."""
+
+    def test_none_when_no_cached_pro_binary(self, tmp_path):
+        with patch.dict(os.environ, {"CLOAKBROWSER_CACHE_DIR": str(tmp_path)}):
+            # Marker points at a version whose binary is not on disk.
+            (tmp_path / f"latest_pro_version_{get_platform_tag()}").write_text(
+                "148.0.7778.215.5"
+            )
+            assert get_effective_version(pro=True) is None
+
+    def test_none_when_no_marker(self, tmp_path):
+        with patch.dict(os.environ, {"CLOAKBROWSER_CACHE_DIR": str(tmp_path)}):
+            assert get_effective_version(pro=True) is None
+            # Free tier still resolves to a concrete version.
+            assert get_effective_version(pro=False) == get_chromium_version()
 
 
 class TestWriteVersionMarker:

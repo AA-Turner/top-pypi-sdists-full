@@ -78,6 +78,7 @@ from plato.v2._wait_for_ready import (
     is_terminal_status,
     poll_until_ready_sync,
 )
+from plato.v2.env_utils import is_proctor_env
 from plato.v2.sync.environment import Environment
 from plato.v2.sync.flow_executor import FlowExecutor
 from plato.v2.types import EnvFromArtifact, EnvFromResource, EnvFromSimulator
@@ -655,11 +656,14 @@ class Session:
         pass the agent's output as ``value``.
 
         Args:
-            value: Optional output data for OUTPUT scoring. Not needed for
-                   mutation-only test cases.
+            value: Optional agent output data. Used for both OUTPUT scoring and
+                   PEX output-dimension scoring. Not needed for mutation-only
+                   test cases.
 
         Returns:
-            Evaluation results including score and per-SIM results.
+            Evaluation results including score and per-SIM results. For PEX
+            (proctor) test cases, the proctor scoring package is surfaced on
+            ``pex_result``.
         """
         self._check_closed()
 
@@ -1108,6 +1112,10 @@ class Session:
         pages: dict[str, Page] = {}
 
         for env in self.envs:
+            if is_proctor_env(env):
+                logger.info("Skipping login for %s (proctor service)", env.alias)
+                continue
+
             page = context.new_page()
             pages[env.alias] = page
 

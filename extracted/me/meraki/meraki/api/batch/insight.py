@@ -18,7 +18,7 @@ class ActionBatchInsight(object):
 
         kwargs.update(locals())
 
-        organizationId = urllib.parse.quote(organizationId, safe="")
+        organizationId = urllib.parse.quote(str(organizationId), safe="")
         resource = f"/organizations/{organizationId}/insight/monitoredMediaServers"
 
         body_params = [
@@ -48,8 +48,8 @@ class ActionBatchInsight(object):
 
         kwargs.update(locals())
 
-        organizationId = urllib.parse.quote(organizationId, safe="")
-        monitoredMediaServerId = urllib.parse.quote(monitoredMediaServerId, safe="")
+        organizationId = urllib.parse.quote(str(organizationId), safe="")
+        monitoredMediaServerId = urllib.parse.quote(str(monitoredMediaServerId), safe="")
         resource = f"/organizations/{organizationId}/insight/monitoredMediaServers/{monitoredMediaServerId}"
 
         body_params = [
@@ -74,8 +74,8 @@ class ActionBatchInsight(object):
         - monitoredMediaServerId (string): Monitored media server ID
         """
 
-        organizationId = urllib.parse.quote(organizationId, safe="")
-        monitoredMediaServerId = urllib.parse.quote(monitoredMediaServerId, safe="")
+        organizationId = urllib.parse.quote(str(organizationId), safe="")
+        monitoredMediaServerId = urllib.parse.quote(str(monitoredMediaServerId), safe="")
         resource = f"/organizations/{organizationId}/insight/monitoredMediaServers/{monitoredMediaServerId}"
 
         action = {

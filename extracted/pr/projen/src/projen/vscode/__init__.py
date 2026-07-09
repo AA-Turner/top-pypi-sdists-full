@@ -13,7 +13,7 @@ import jsii
 import publication
 import typing_extensions
 
-from jsii._type_checking import check_type
+from jsii._type_checking import cached_type_hints, check_type
 
 
 from .._jsii import *
@@ -78,7 +78,7 @@ class DevContainerFeature:
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__5a7f73b2b024ecc62d8491484836d55c16fc65fe902d48c89e27920fb1de29e7)
+            type_hints = cached_type_hints(_typecheckingstub__5a7f73b2b024ecc62d8491484836d55c16fc65fe902d48c89e27920fb1de29e7)
             check_type(argname="argument name", value=name, expected_type=type_hints["name"])
             check_type(argname="argument version", value=version, expected_type=type_hints["version"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -155,7 +155,7 @@ class DevContainerOptions(_projen_04054675.DevEnvironmentOptions):
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__b22d9ca6de29afcacfab2404c9835e6e3021ec640c49dfdad9bfb651e564c725)
+            type_hints = cached_type_hints(_typecheckingstub__b22d9ca6de29afcacfab2404c9835e6e3021ec640c49dfdad9bfb651e564c725)
             check_type(argname="argument docker_image", value=docker_image, expected_type=type_hints["docker_image"])
             check_type(argname="argument ports", value=ports, expected_type=type_hints["ports"])
             check_type(argname="argument tasks", value=tasks, expected_type=type_hints["tasks"])
@@ -270,7 +270,7 @@ class _IDevContainerEnvironmentProxy(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__59f53078ad4f94636f7ad21968f318db42126c330e189eccadb0cb6fefb6bfd3)
+            type_hints = cached_type_hints(_typecheckingstub__59f53078ad4f94636f7ad21968f318db42126c330e189eccadb0cb6fefb6bfd3)
             check_type(argname="argument features", value=features, expected_type=typing.Tuple[type_hints["features"], ...]) # pyright: ignore [reportGeneralTypeIssues]
         return typing.cast(None, jsii.invoke(self, "addFeatures", [*features]))
 
@@ -321,7 +321,7 @@ class Presentation:
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__924d6d8e838c592ce2bb743a8e91cb4b0f379f000355379bd65232dabc6f4efe)
+            type_hints = cached_type_hints(_typecheckingstub__924d6d8e838c592ce2bb743a8e91cb4b0f379f000355379bd65232dabc6f4efe)
             check_type(argname="argument group", value=group, expected_type=type_hints["group"])
             check_type(argname="argument hidden", value=hidden, expected_type=type_hints["hidden"])
             check_type(argname="argument order", value=order, expected_type=type_hints["order"])
@@ -392,7 +392,7 @@ class ServerReadyAction:
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__66fa6feb4bea9673155e5f489baae5bbdd6d528f7ce29ff754c6915092eb7036)
+            type_hints = cached_type_hints(_typecheckingstub__66fa6feb4bea9673155e5f489baae5bbdd6d528f7ce29ff754c6915092eb7036)
             check_type(argname="argument action", value=action, expected_type=type_hints["action"])
             check_type(argname="argument pattern", value=pattern, expected_type=type_hints["pattern"])
             check_type(argname="argument uri_format", value=uri_format, expected_type=type_hints["uri_format"])
@@ -457,7 +457,7 @@ class VsCode(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__f494cab4044809f412c6dee4a08eb9aa6d128399b6c0dfdbe5d9be6e2622fed5)
+            type_hints = cached_type_hints(_typecheckingstub__f494cab4044809f412c6dee4a08eb9aa6d128399b6c0dfdbe5d9be6e2622fed5)
             check_type(argname="argument project", value=project, expected_type=type_hints["project"])
         jsii.create(self.__class__, self, [project])
 
@@ -503,7 +503,7 @@ class VsCodeLaunchConfig(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__fbb203f423ffcc3e6227caf2f8624610dfdc5c528c756efd2e3094d0db32f059)
+            type_hints = cached_type_hints(_typecheckingstub__fbb203f423ffcc3e6227caf2f8624610dfdc5c528c756efd2e3094d0db32f059)
             check_type(argname="argument vscode", value=vscode, expected_type=type_hints["vscode"])
         jsii.create(self.__class__, self, [vscode])
 
@@ -764,7 +764,7 @@ class VsCodeLaunchConfigurationEntry:
         if isinstance(server_ready_action, dict):
             server_ready_action = ServerReadyAction(**server_ready_action)
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__76028c8d6272b5133841fb2049bcddc9a00879405477a0aa27f058f8ac6dc481)
+            type_hints = cached_type_hints(_typecheckingstub__76028c8d6272b5133841fb2049bcddc9a00879405477a0aa27f058f8ac6dc481)
             check_type(argname="argument name", value=name, expected_type=type_hints["name"])
             check_type(argname="argument request", value=request, expected_type=type_hints["request"])
             check_type(argname="argument type", value=type, expected_type=type_hints["type"])
@@ -1050,7 +1050,7 @@ class VsCodeLaunchInputEntry:
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__e841e7e4ef3640a56bd02bfa85775b91ed62dd7fc9a8fcd482e487b75d2d4baa)
+            type_hints = cached_type_hints(_typecheckingstub__e841e7e4ef3640a56bd02bfa85775b91ed62dd7fc9a8fcd482e487b75d2d4baa)
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "id": id,
@@ -1106,7 +1106,7 @@ class VsCodeLaunchPickStringInputEntry(VsCodeLaunchInputEntry):
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__1efc4534d421a4d5a6d1ee19a7af423129f26ea3d3e365b0cbd5d316713e44b2)
+            type_hints = cached_type_hints(_typecheckingstub__1efc4534d421a4d5a6d1ee19a7af423129f26ea3d3e365b0cbd5d316713e44b2)
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
             check_type(argname="argument description", value=description, expected_type=type_hints["description"])
             check_type(argname="argument options", value=options, expected_type=type_hints["options"])
@@ -1195,7 +1195,7 @@ class VsCodeLaunchPromptStringInputEntry(VsCodeLaunchInputEntry):
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__fd9f5a97332f0e03a451cdcfdd927992c1488c8dafe0f46761677f3cb7f195f7)
+            type_hints = cached_type_hints(_typecheckingstub__fd9f5a97332f0e03a451cdcfdd927992c1488c8dafe0f46761677f3cb7f195f7)
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
             check_type(argname="argument description", value=description, expected_type=type_hints["description"])
             check_type(argname="argument default", value=default, expected_type=type_hints["default"])
@@ -1272,7 +1272,7 @@ class VsCodeRecommendedExtensions(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__e672107e647965d3df7010fe525812b0c15f85ddada55b01f48ebe2c3d565725)
+            type_hints = cached_type_hints(_typecheckingstub__e672107e647965d3df7010fe525812b0c15f85ddada55b01f48ebe2c3d565725)
             check_type(argname="argument vscode", value=vscode, expected_type=type_hints["vscode"])
         jsii.create(self.__class__, self, [vscode])
 
@@ -1285,7 +1285,7 @@ class VsCodeRecommendedExtensions(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ee54c74ab4b20a8248223537312409aad3f546c2c5aeca6044e4346ce5a952d8)
+            type_hints = cached_type_hints(_typecheckingstub__ee54c74ab4b20a8248223537312409aad3f546c2c5aeca6044e4346ce5a952d8)
             check_type(argname="argument extensions", value=extensions, expected_type=typing.Tuple[type_hints["extensions"], ...]) # pyright: ignore [reportGeneralTypeIssues]
         return typing.cast(None, jsii.invoke(self, "addRecommendations", [*extensions]))
 
@@ -1300,7 +1300,7 @@ class VsCodeRecommendedExtensions(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__d1a69619f76a087ea88b4c83f8cee17e5d30db36f27b14f84da086de6e449d0c)
+            type_hints = cached_type_hints(_typecheckingstub__d1a69619f76a087ea88b4c83f8cee17e5d30db36f27b14f84da086de6e449d0c)
             check_type(argname="argument extensions", value=extensions, expected_type=typing.Tuple[type_hints["extensions"], ...]) # pyright: ignore [reportGeneralTypeIssues]
         return typing.cast(None, jsii.invoke(self, "addUnwantedRecommendations", [*extensions]))
 
@@ -1330,7 +1330,7 @@ class VsCodeSettings(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__513f68cf91869cc8da990fa2a1bc57a9c643d25b8264e1c057f76e3decc6dea1)
+            type_hints = cached_type_hints(_typecheckingstub__513f68cf91869cc8da990fa2a1bc57a9c643d25b8264e1c057f76e3decc6dea1)
             check_type(argname="argument vscode", value=vscode, expected_type=type_hints["vscode"])
         jsii.create(self.__class__, self, [vscode])
 
@@ -1350,7 +1350,7 @@ class VsCodeSettings(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__369e06bc45a74498b4cfed5bf740550cd9a57917b148178ef260593cb40c2a59)
+            type_hints = cached_type_hints(_typecheckingstub__369e06bc45a74498b4cfed5bf740550cd9a57917b148178ef260593cb40c2a59)
             check_type(argname="argument setting", value=setting, expected_type=type_hints["setting"])
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
             check_type(argname="argument language", value=language, expected_type=type_hints["language"])
@@ -1370,7 +1370,7 @@ class VsCodeSettings(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__fa3e27ee6b180fccd6eab5d9670c7024eb3f8067cb08859636119e69f07de239)
+            type_hints = cached_type_hints(_typecheckingstub__fa3e27ee6b180fccd6eab5d9670c7024eb3f8067cb08859636119e69f07de239)
             check_type(argname="argument settings", value=settings, expected_type=type_hints["settings"])
             check_type(argname="argument languages", value=languages, expected_type=type_hints["languages"])
         return typing.cast(None, jsii.invoke(self, "addSettings", [settings, languages]))
@@ -1419,7 +1419,7 @@ class DevContainer(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__50747b0b39db339de569d0b44aea84c4de3c0d9d7b268479f1a3852dfb712c0b)
+            type_hints = cached_type_hints(_typecheckingstub__50747b0b39db339de569d0b44aea84c4de3c0d9d7b268479f1a3852dfb712c0b)
             check_type(argname="argument project", value=project, expected_type=type_hints["project"])
         options = DevContainerOptions(
             features=features,
@@ -1443,7 +1443,7 @@ class DevContainer(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__24cf7d35da522ed5017c6db46a2565a5b5a09fbffc1dafabdf917aa798fea91d)
+            type_hints = cached_type_hints(_typecheckingstub__24cf7d35da522ed5017c6db46a2565a5b5a09fbffc1dafabdf917aa798fea91d)
             check_type(argname="argument image", value=image, expected_type=type_hints["image"])
         return typing.cast(None, jsii.invoke(self, "addDockerImage", [image]))
 
@@ -1456,7 +1456,7 @@ class DevContainer(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__6ed3f741b9b118a06d8b8f3508504c5ecb8bcbfc9c285b78e0382ac0aa4186c7)
+            type_hints = cached_type_hints(_typecheckingstub__6ed3f741b9b118a06d8b8f3508504c5ecb8bcbfc9c285b78e0382ac0aa4186c7)
             check_type(argname="argument features", value=features, expected_type=typing.Tuple[type_hints["features"], ...]) # pyright: ignore [reportGeneralTypeIssues]
         return typing.cast(None, jsii.invoke(self, "addFeatures", [*features]))
 
@@ -1469,7 +1469,7 @@ class DevContainer(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__3898b547dc05a8cd9427e24743e3ec87b3108cfb90befb94e77c24e156c3559d)
+            type_hints = cached_type_hints(_typecheckingstub__3898b547dc05a8cd9427e24743e3ec87b3108cfb90befb94e77c24e156c3559d)
             check_type(argname="argument ports", value=ports, expected_type=typing.Tuple[type_hints["ports"], ...]) # pyright: ignore [reportGeneralTypeIssues]
         return typing.cast(None, jsii.invoke(self, "addPorts", [*ports]))
 
@@ -1484,7 +1484,7 @@ class DevContainer(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__4eccb3fb9f6eca40de5ffa59e4b75a85830e1113729bd9b08dc7e4128c2bfde0)
+            type_hints = cached_type_hints(_typecheckingstub__4eccb3fb9f6eca40de5ffa59e4b75a85830e1113729bd9b08dc7e4128c2bfde0)
             check_type(argname="argument tasks", value=tasks, expected_type=typing.Tuple[type_hints["tasks"], ...]) # pyright: ignore [reportGeneralTypeIssues]
         return typing.cast(None, jsii.invoke(self, "addTasks", [*tasks]))
 
@@ -1497,7 +1497,7 @@ class DevContainer(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c13b0cafe05fa1eb28182ec3465e43421a4aa7c7e44e035db34dd4cdbce24537)
+            type_hints = cached_type_hints(_typecheckingstub__c13b0cafe05fa1eb28182ec3465e43421a4aa7c7e44e035db34dd4cdbce24537)
             check_type(argname="argument extensions", value=extensions, expected_type=typing.Tuple[type_hints["extensions"], ...]) # pyright: ignore [reportGeneralTypeIssues]
         return typing.cast(None, jsii.invoke(self, "addVscodeExtensions", [*extensions]))
 
@@ -1533,7 +1533,7 @@ class VsCodeLaunchCommandInputEntry(VsCodeLaunchInputEntry):
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__3572ac292b4bd9b3dc808ba9caa4797adcb64703144da90f4ad010fdedc62a30)
+            type_hints = cached_type_hints(_typecheckingstub__3572ac292b4bd9b3dc808ba9caa4797adcb64703144da90f4ad010fdedc62a30)
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
             check_type(argname="argument command", value=command, expected_type=type_hints["command"])
             check_type(argname="argument args", value=args, expected_type=type_hints["args"])

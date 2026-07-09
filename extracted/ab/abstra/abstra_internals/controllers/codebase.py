@@ -242,6 +242,7 @@ class CodebaseController:
     def delete_file(
         self, path_parts: List[str]
     ) -> AbstraLibApiEditorCodebaseFilesDeleteResponse:
+        from abstra_internals.controllers.file_locks import FileLockController
         from abstra_internals.settings import Settings
 
         path = Path(*path_parts)
@@ -259,6 +260,13 @@ class CodebaseController:
             if was_python:
                 _notify_lsp(path, 3)
         CodebaseEventController.notify_change(path, "deleted")
+
+        try:
+            relative = path.relative_to(Settings.root_path.resolve())
+            FileLockController.release_for_path(str(relative))
+        except ValueError:
+            pass
+
         return AbstraLibApiEditorCodebaseFilesDeleteResponse(ok=True)
 
     def rename_file(
@@ -319,6 +327,15 @@ class CodebaseController:
 
         CodebaseEventController.notify_change(path, "deleted")
         CodebaseEventController.notify_change(new_path, "created")
+
+        from abstra_internals.controllers.file_locks import FileLockController
+        from abstra_internals.settings import Settings
+
+        try:
+            relative_old = path.relative_to(Settings.root_path.resolve())
+            FileLockController.release_for_path(str(relative_old))
+        except ValueError:
+            pass
 
         return AbstraLibApiEditorCodebaseFilesPatchResponse(ok=True)
 

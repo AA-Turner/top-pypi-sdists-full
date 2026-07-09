@@ -1,0 +1,55 @@
+[project]
+name = "scripttest"
+version = "3.0"
+description = "Helper to test command-line scripts"
+readme = "README.rst"
+license = "MIT"
+license-files = ["docs/license.rst"]
+
+authors = [
+  {name = "Ian Bicking", email = "ianb@colorstudy.com" }
+]
+maintainers = [
+  {name = "The pip developers", email = "distutils-sig@python.org"},
+]
+classifiers = [
+    "Development Status :: 5 - Production/Stable",
+    "Intended Audience :: Developers",
+    "Topic :: Software Development :: Testing",
+    "Programming Language :: Python",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3 :: Only",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: Implementation :: CPython",
+    "Programming Language :: Python :: Implementation :: PyPy",
+]
+keywords = ["test", "unittest", "doctest", "command-line scripts"]
+
+requires-python = ">=3.8"
+
+[project.urls]
+Source = "https://github.com/pypa/scripttest/"
+Documentation = "https://scripttest.readthedocs.io/en/stable/"
+
+[build-system]
+requires = ["flit_core >=3.11,<5"]
+build-backend = "flit_core.buildapi"
+
+[tool.flit.sdist]
+include = [
+    "docs/",
+    "tests/",
+    "tox.ini",
+]
+
+[tool.pytest.ini_options]
+addopts = "--ignore scripttest -r aR --color=yes"
+xfail_strict = true
+filterwarnings = [
+    "ignore:cannot collect test class 'TestFileEnvironment'"
+]

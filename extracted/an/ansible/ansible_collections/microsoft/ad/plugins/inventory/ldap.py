@@ -340,7 +340,6 @@ class InventoryModule(BaseInventoryPlugin, Constructable):
             "certificate_key",
             "certificate_password",
             "connection_timeout",
-            "domain_realm",
             "encrypt",
             "password",
             "port",

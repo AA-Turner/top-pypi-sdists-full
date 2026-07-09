@@ -3,6 +3,7 @@ using System.IO;
 using System.Linq;
 using System.Net;
 using System.Net.Http;
+using System.Runtime.InteropServices;
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
@@ -283,12 +284,59 @@ public class LicenseTests : IDisposable
     }
 
     [Fact]
-    public void EffectiveVersion_pro_marker_without_binary_falls_back()
+    public void EffectiveVersion_pro_marker_without_binary_returns_null()
     {
         var marker = Path.Combine(_tmp, $"latest_pro_version_{Config.GetPlatformTag()}");
         File.WriteAllText(marker, "148.0.7778.215.2");
-        // Marker present but no Pro binary on disk -> falls back to bundled version.
-        Assert.Equal(Config.GetChromiumVersion(), Config.GetEffectiveVersion(pro: true));
+        // Ticket 431 Fix 4: marker present but no Pro binary on disk -> null, NOT the
+        // free base. A valid Pro license must never fall back to the free binary.
+        Assert.Null(Config.GetEffectiveVersion(pro: true));
+    }
+
+    [Fact]
+    public void EffectiveVersion_pro_no_marker_returns_null_free_returns_base()
+    {
+        // No Pro marker at all -> null for Pro; free tier still resolves to a version.
+        Assert.Null(Config.GetEffectiveVersion(pro: true));
+        Assert.Equal(Config.GetChromiumVersion(), Config.GetEffectiveVersion(pro: false));
+    }
+
+    // Create a fake cached, executable Pro binary for `version`.
+    private static void MakeProBinary(string version)
+    {
+        var p = Config.GetBinaryPath(version, pro: true);
+        Directory.CreateDirectory(Path.GetDirectoryName(p)!);
+        File.WriteAllText(p, "binary");
+        if (!RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
+            File.SetUnixFileMode(p,
+                UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute);
+    }
+
+    [Fact]
+    public void CheckForProUpdate_already_latest_returns_null()
+    {
+        // Ticket 431 Fix 1: `update` on a Pro install already at latest is a no-op.
+        File.WriteAllText(
+            Path.Combine(_tmp, $"latest_pro_version_{Config.GetPlatformTag()}"),
+            "148.0.7778.215.5");
+        MakeProBinary("148.0.7778.215.5");
+        License.ProLatestVersionOverride = () => "148.0.7778.215.5";
+        try
+        {
+            Assert.Null(Download.CheckForProUpdate("cb_key"));
+        }
+        finally { License.ProLatestVersionOverride = null; }
+    }
+
+    [Fact]
+    public void CheckForProUpdate_server_down_returns_null()
+    {
+        License.ProLatestVersionOverride = () => null;
+        try
+        {
+            Assert.Null(Download.CheckForProUpdate("cb_key"));
+        }
+        finally { License.ProLatestVersionOverride = null; }
     }
 
     // =======================================================================

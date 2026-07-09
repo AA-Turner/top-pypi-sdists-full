@@ -26,10 +26,10 @@ class XEP_0048(BasePlugin):
     }
 
     def plugin_init(self):
-        register_stanza_plugin(self.xmpp['xep_0060'].stanza.Item, Bookmarks)
+        register_stanza_plugin(self.xmpp.plugin['xep_0060'].stanza.Item, Bookmarks)
 
-        self.xmpp['xep_0049'].register(Bookmarks)
-        self.xmpp['xep_0163'].register_pep('bookmarks', Bookmarks)
+        self.xmpp.plugin['xep_0049'].register(Bookmarks)
+        self.xmpp.plugin['xep_0163'].register_pep('bookmarks', Bookmarks)
 
         self.xmpp.add_event_handler('session_start', self._autojoin)
 
@@ -53,13 +53,13 @@ class XEP_0048(BasePlugin):
         for conf in bookmarks['conferences']:
             if conf['autojoin']:
                 log.debug('Auto joining %s as %s', conf['jid'], conf['nick'])
-                self.xmpp['xep_0045'].join_muc(conf['jid'], conf['nick'],
+                self.xmpp.plugin['xep_0045'].join_muc(conf['jid'], conf['nick'],
                         password=conf['password'])
 
     def set_bookmarks(self, bookmarks, method=None, **iqargs):
         if not method:
             method = self.storage_method
-        return self.xmpp[method].store(bookmarks, **iqargs)
+        return self.xmpp.plugin[method].store(bookmarks, **iqargs)
 
     def get_bookmarks(self, method=None, **iqargs):
         if not method:
@@ -67,4 +67,4 @@ class XEP_0048(BasePlugin):
 
         loc = 'storage:bookmarks' if method == 'xep_0223' else 'bookmarks'
 
-        return self.xmpp[method].retrieve(loc, **iqargs)
+        return self.xmpp.plugin[method].retrieve(loc, **iqargs)

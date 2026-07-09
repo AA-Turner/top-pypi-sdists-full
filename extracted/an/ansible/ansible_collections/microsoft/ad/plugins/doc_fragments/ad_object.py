@@ -10,8 +10,6 @@ class ModuleDocFragment:
     DOCUMENTATION = r"""
 requirements:
 - C(ActiveDirectory) PowerShell module
-- When targeting PowerShell 7, Windows Server 2022/Windows 10 build 1903 or
-  later is required.
 options:
   attributes:
     description:

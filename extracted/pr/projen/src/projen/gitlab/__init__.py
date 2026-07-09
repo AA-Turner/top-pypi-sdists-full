@@ -13,7 +13,7 @@ import jsii
 import publication
 import typing_extensions
 
-from jsii._type_checking import check_type
+from jsii._type_checking import cached_type_hints, check_type
 
 
 from .._jsii import *
@@ -84,7 +84,7 @@ class AllowFailure:
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__33f2c30cde1aebaa83de097243717ad8dd6d1c2617b47a4352cbe7e3f351e8b2)
+            type_hints = cached_type_hints(_typecheckingstub__33f2c30cde1aebaa83de097243717ad8dd6d1c2617b47a4352cbe7e3f351e8b2)
             check_type(argname="argument exit_codes", value=exit_codes, expected_type=type_hints["exit_codes"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "exit_codes": exit_codes,
@@ -157,7 +157,7 @@ class Artifacts:
         if isinstance(reports, dict):
             reports = Reports(**reports)
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__16d84c68910ff0d2af18be53491f5cbfd0be88648ace2dce10c35c510d498acc)
+            type_hints = cached_type_hints(_typecheckingstub__16d84c68910ff0d2af18be53491f5cbfd0be88648ace2dce10c35c510d498acc)
             check_type(argname="argument exclude", value=exclude, expected_type=type_hints["exclude"])
             check_type(argname="argument expire_in", value=expire_in, expected_type=type_hints["expire_in"])
             check_type(argname="argument expose_as", value=expose_as, expected_type=type_hints["expose_as"])
@@ -292,7 +292,7 @@ class Assets:
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__8ad15c870fe49288bda1a98e1bfc9db5f862289de2ad5ad62e4c59ce4aab4c73)
+            type_hints = cached_type_hints(_typecheckingstub__8ad15c870fe49288bda1a98e1bfc9db5f862289de2ad5ad62e4c59ce4aab4c73)
             check_type(argname="argument links", value=links, expected_type=type_hints["links"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "links": links,
@@ -356,7 +356,7 @@ class Cache:
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__b7f049681df3dccf35653843c544e06258271520db12493e48ac936a96ecedad)
+            type_hints = cached_type_hints(_typecheckingstub__b7f049681df3dccf35653843c544e06258271520db12493e48ac936a96ecedad)
             check_type(argname="argument fallback_keys", value=fallback_keys, expected_type=type_hints["fallback_keys"])
             check_type(argname="argument key", value=key, expected_type=type_hints["key"])
             check_type(argname="argument paths", value=paths, expected_type=type_hints["paths"])
@@ -468,7 +468,7 @@ class CacheKeyFiles:
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__e8fa76bc1e2253fd95df81fb7b93982051b240cea93ead52d9d95535eeb6f760)
+            type_hints = cached_type_hints(_typecheckingstub__e8fa76bc1e2253fd95df81fb7b93982051b240cea93ead52d9d95535eeb6f760)
             check_type(argname="argument files", value=files, expected_type=type_hints["files"])
             check_type(argname="argument prefix", value=prefix, expected_type=type_hints["prefix"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -600,7 +600,7 @@ class CiConfiguration(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__231c30bc513f8e09e345dd63392e7c50f479df9f480fc36e03e88fc4a5e8cd68)
+            type_hints = cached_type_hints(_typecheckingstub__231c30bc513f8e09e345dd63392e7c50f479df9f480fc36e03e88fc4a5e8cd68)
             check_type(argname="argument project", value=project, expected_type=type_hints["project"])
             check_type(argname="argument name", value=name, expected_type=type_hints["name"])
         options = CiConfigurationOptions(
@@ -627,7 +627,7 @@ class CiConfiguration(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__bc8dc83f6ed2c3927eac45893c863050843bdea6a919dceda0aeb811aab6b03a)
+            type_hints = cached_type_hints(_typecheckingstub__bc8dc83f6ed2c3927eac45893c863050843bdea6a919dceda0aeb811aab6b03a)
             check_type(argname="argument caches", value=caches, expected_type=type_hints["caches"])
         return typing.cast(None, jsii.invoke(self, "addDefaultCaches", [caches]))
 
@@ -659,7 +659,7 @@ class CiConfiguration(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a532b9d3becbdcec0a292538a067f3ddc6a037abdf523500485dc53041825c03)
+            type_hints = cached_type_hints(_typecheckingstub__a532b9d3becbdcec0a292538a067f3ddc6a037abdf523500485dc53041825c03)
             check_type(argname="argument variables", value=variables, expected_type=type_hints["variables"])
         return typing.cast(None, jsii.invoke(self, "addGlobalVariables", [variables]))
 
@@ -672,7 +672,7 @@ class CiConfiguration(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__9bca3189ad53bb4a2659a3c4be7c233788dfd0d6d0e32255e52d6e6d46261ebd)
+            type_hints = cached_type_hints(_typecheckingstub__9bca3189ad53bb4a2659a3c4be7c233788dfd0d6d0e32255e52d6e6d46261ebd)
             check_type(argname="argument includes", value=includes, expected_type=typing.Tuple[type_hints["includes"], ...]) # pyright: ignore [reportGeneralTypeIssues]
         return typing.cast(None, jsii.invoke(self, "addIncludes", [*includes]))
 
@@ -688,7 +688,7 @@ class CiConfiguration(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__f426ddc0c125aabe74a08ecc4ad008c2d2b5b44ef9240f0a0e99c04a9680ae18)
+            type_hints = cached_type_hints(_typecheckingstub__f426ddc0c125aabe74a08ecc4ad008c2d2b5b44ef9240f0a0e99c04a9680ae18)
             check_type(argname="argument jobs", value=jobs, expected_type=type_hints["jobs"])
         return typing.cast(None, jsii.invoke(self, "addJobs", [jobs]))
 
@@ -701,7 +701,7 @@ class CiConfiguration(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ee886ab66358cc25f75eaff5dcbeba2e03d5f72db8d7d299360af81453428f9b)
+            type_hints = cached_type_hints(_typecheckingstub__ee886ab66358cc25f75eaff5dcbeba2e03d5f72db8d7d299360af81453428f9b)
             check_type(argname="argument services", value=services, expected_type=typing.Tuple[type_hints["services"], ...]) # pyright: ignore [reportGeneralTypeIssues]
         return typing.cast(None, jsii.invoke(self, "addServices", [*services]))
 
@@ -714,7 +714,7 @@ class CiConfiguration(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c37256713bb8d361966f0b39f4dba8aac446f1eea7da27fabd8e9ea6833933c6)
+            type_hints = cached_type_hints(_typecheckingstub__c37256713bb8d361966f0b39f4dba8aac446f1eea7da27fabd8e9ea6833933c6)
             check_type(argname="argument stages", value=stages, expected_type=typing.Tuple[type_hints["stages"], ...]) # pyright: ignore [reportGeneralTypeIssues]
         return typing.cast(None, jsii.invoke(self, "addStages", [*stages]))
 
@@ -946,7 +946,7 @@ class CiConfigurationOptions:
         if isinstance(workflow, dict):
             workflow = Workflow(**workflow)
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__cad6204d94421a2493e44c6131e44e9ac2175546be72d0e655df762520673c9e)
+            type_hints = cached_type_hints(_typecheckingstub__cad6204d94421a2493e44c6131e44e9ac2175546be72d0e655df762520673c9e)
             check_type(argname="argument default", value=default, expected_type=type_hints["default"])
             check_type(argname="argument jobs", value=jobs, expected_type=type_hints["jobs"])
             check_type(argname="argument pages", value=pages, expected_type=type_hints["pages"])
@@ -1071,7 +1071,7 @@ class CoverageReport:
         :link: https://docs.gitlab.com/ee/ci/yaml/artifacts_reports.html#artifactsreportscoverage_report
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c4fb846daac000cdcb6374acd70ebc7323f86761a31c2ebb2ef0d1b49a3f0652)
+            type_hints = cached_type_hints(_typecheckingstub__c4fb846daac000cdcb6374acd70ebc7323f86761a31c2ebb2ef0d1b49a3f0652)
             check_type(argname="argument coverage_format", value=coverage_format, expected_type=type_hints["coverage_format"])
             check_type(argname="argument path", value=path, expected_type=type_hints["path"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -1173,7 +1173,7 @@ class Default:
         if isinstance(retry, dict):
             retry = Retry(**retry)
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c8e71d01eda90297db6af675f51033414546212b06d49c00c218dee2071d1ed1)
+            type_hints = cached_type_hints(_typecheckingstub__c8e71d01eda90297db6af675f51033414546212b06d49c00c218dee2071d1ed1)
             check_type(argname="argument after_script", value=after_script, expected_type=type_hints["after_script"])
             check_type(argname="argument artifacts", value=artifacts, expected_type=type_hints["artifacts"])
             check_type(argname="argument before_script", value=before_script, expected_type=type_hints["before_script"])
@@ -1387,7 +1387,7 @@ class DefaultHooks:
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__9ead82c15a4a68e5b98f5a4870a986cf8bfd8558ec475eafed66ba30ae376385)
+            type_hints = cached_type_hints(_typecheckingstub__9ead82c15a4a68e5b98f5a4870a986cf8bfd8558ec475eafed66ba30ae376385)
             check_type(argname="argument pre_get_sources_script", value=pre_get_sources_script, expected_type=type_hints["pre_get_sources_script"])
         self._values: typing.Dict[builtins.str, typing.Any] = {}
         if pre_get_sources_script is not None:
@@ -1458,7 +1458,7 @@ class Engine:
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__4574deb50cf9019e113c67d714da29685143324fc4e1df06c5ea08a874de8223)
+            type_hints = cached_type_hints(_typecheckingstub__4574deb50cf9019e113c67d714da29685143324fc4e1df06c5ea08a874de8223)
             check_type(argname="argument name", value=name, expected_type=type_hints["name"])
             check_type(argname="argument path", value=path, expected_type=type_hints["path"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -1538,7 +1538,7 @@ class Environment:
         if isinstance(kubernetes, dict):
             kubernetes = KubernetesConfig(**kubernetes)
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__7dacf066520edebcaf1914cf8b47a539d32b601c728c745a9821da18fc61c311)
+            type_hints = cached_type_hints(_typecheckingstub__7dacf066520edebcaf1914cf8b47a539d32b601c728c745a9821da18fc61c311)
             check_type(argname="argument name", value=name, expected_type=type_hints["name"])
             check_type(argname="argument action", value=action, expected_type=type_hints["action"])
             check_type(argname="argument auto_stop_in", value=auto_stop_in, expected_type=type_hints["auto_stop_in"])
@@ -1673,7 +1673,7 @@ class Filter:
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__db895e6728876de5be75625df8be94a8c86846327b2443ff1fd7c8c09dc4d6f2)
+            type_hints = cached_type_hints(_typecheckingstub__db895e6728876de5be75625df8be94a8c86846327b2443ff1fd7c8c09dc4d6f2)
             check_type(argname="argument changes", value=changes, expected_type=type_hints["changes"])
             check_type(argname="argument kubernetes", value=kubernetes, expected_type=type_hints["kubernetes"])
             check_type(argname="argument refs", value=refs, expected_type=type_hints["refs"])
@@ -1773,7 +1773,7 @@ class GitlabConfiguration(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__9b7c22b752837d5c419877611c3664caa886539ab5209465bbfe27372b51e714)
+            type_hints = cached_type_hints(_typecheckingstub__9b7c22b752837d5c419877611c3664caa886539ab5209465bbfe27372b51e714)
             check_type(argname="argument project", value=project, expected_type=type_hints["project"])
         options = CiConfigurationOptions(
             default=default,
@@ -1803,7 +1803,7 @@ class GitlabConfiguration(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a0e89c004dae5dc8a66477f9e05d4202e2de25b397ad58439158d4d0e311fa46)
+            type_hints = cached_type_hints(_typecheckingstub__a0e89c004dae5dc8a66477f9e05d4202e2de25b397ad58439158d4d0e311fa46)
             check_type(argname="argument config", value=config, expected_type=type_hints["config"])
         return typing.cast(None, jsii.invoke(self, "createNestedTemplates", [config]))
 
@@ -1859,7 +1859,7 @@ class _IDTokenProxy:
     @aud.setter
     def aud(self, value: typing.Union[builtins.str, typing.List[builtins.str]]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a9e6bbd7c1d3e16ffa82367cdd5ca16ce06a42726f4193639790a39bb2eadef9)
+            type_hints = cached_type_hints(_typecheckingstub__a9e6bbd7c1d3e16ffa82367cdd5ca16ce06a42726f4193639790a39bb2eadef9)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "aud", value) # pyright: ignore[reportArgumentType]
 
@@ -1891,7 +1891,7 @@ class Image:
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__1db043de1bfd971cf362a1d5015d39fcfec9ce12a8564e12b3dc83c2766f5e7f)
+            type_hints = cached_type_hints(_typecheckingstub__1db043de1bfd971cf362a1d5015d39fcfec9ce12a8564e12b3dc83c2766f5e7f)
             check_type(argname="argument name", value=name, expected_type=type_hints["name"])
             check_type(argname="argument entrypoint", value=entrypoint, expected_type=type_hints["entrypoint"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -1974,7 +1974,7 @@ class Include:
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__f6b4b33f824dede3c51f8491f23c1b24aa99de8902ab2b0adb792fbc13ddf8fe)
+            type_hints = cached_type_hints(_typecheckingstub__f6b4b33f824dede3c51f8491f23c1b24aa99de8902ab2b0adb792fbc13ddf8fe)
             check_type(argname="argument file", value=file, expected_type=type_hints["file"])
             check_type(argname="argument local", value=local, expected_type=type_hints["local"])
             check_type(argname="argument project", value=project, expected_type=type_hints["project"])
@@ -2119,7 +2119,7 @@ class IncludeRule:
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__5547025bbe422124f59e782b7141894ba37dbf0049070c73b17f39de1d1843a1)
+            type_hints = cached_type_hints(_typecheckingstub__5547025bbe422124f59e782b7141894ba37dbf0049070c73b17f39de1d1843a1)
             check_type(argname="argument allow_failure", value=allow_failure, expected_type=type_hints["allow_failure"])
             check_type(argname="argument changes", value=changes, expected_type=type_hints["changes"])
             check_type(argname="argument exists", value=exists, expected_type=type_hints["exists"])
@@ -2249,7 +2249,7 @@ class Inherit:
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__78e202056f8d0ee046415cdd0eeba7b03d414bbd38fc367909020c4d2d2766cf)
+            type_hints = cached_type_hints(_typecheckingstub__78e202056f8d0ee046415cdd0eeba7b03d414bbd38fc367909020c4d2d2766cf)
             check_type(argname="argument default", value=default, expected_type=type_hints["default"])
             check_type(argname="argument variables", value=variables, expected_type=type_hints["variables"])
         self._values: typing.Dict[builtins.str, typing.Any] = {}
@@ -2422,7 +2422,7 @@ class Job:
         if isinstance(retry, dict):
             retry = Retry(**retry)
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__485afb8ca4cf12bdaab3c3455c7b90f3ea9d549eb87ec6fd05eae046f3f38bd6)
+            type_hints = cached_type_hints(_typecheckingstub__485afb8ca4cf12bdaab3c3455c7b90f3ea9d549eb87ec6fd05eae046f3f38bd6)
             check_type(argname="argument after_script", value=after_script, expected_type=type_hints["after_script"])
             check_type(argname="argument allow_failure", value=allow_failure, expected_type=type_hints["allow_failure"])
             check_type(argname="argument artifacts", value=artifacts, expected_type=type_hints["artifacts"])
@@ -2886,7 +2886,7 @@ class KubernetesConfig:
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__3b5135e122b0fb90c5ae5d8c65626715c279ba6c8bb4103d4bd7a12969d1f5ad)
+            type_hints = cached_type_hints(_typecheckingstub__3b5135e122b0fb90c5ae5d8c65626715c279ba6c8bb4103d4bd7a12969d1f5ad)
             check_type(argname="argument namespace", value=namespace, expected_type=type_hints["namespace"])
         self._values: typing.Dict[builtins.str, typing.Any] = {}
         if namespace is not None:
@@ -2955,7 +2955,7 @@ class Link:
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__003677e3874ed26747f048e8b5c08a32b87f0226f3522c10b0844ade2521966c)
+            type_hints = cached_type_hints(_typecheckingstub__003677e3874ed26747f048e8b5c08a32b87f0226f3522c10b0844ade2521966c)
             check_type(argname="argument name", value=name, expected_type=type_hints["name"])
             check_type(argname="argument url", value=url, expected_type=type_hints["url"])
             check_type(argname="argument filepath", value=filepath, expected_type=type_hints["filepath"])
@@ -3079,7 +3079,7 @@ class Need:
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c62a8b5d59de20d0811a6eb2ae8ef5a38099d2a9da0ebfd9c9ce8d1406ce4f8e)
+            type_hints = cached_type_hints(_typecheckingstub__c62a8b5d59de20d0811a6eb2ae8ef5a38099d2a9da0ebfd9c9ce8d1406ce4f8e)
             check_type(argname="argument job", value=job, expected_type=type_hints["job"])
             check_type(argname="argument artifacts", value=artifacts, expected_type=type_hints["artifacts"])
             check_type(argname="argument optional", value=optional, expected_type=type_hints["optional"])
@@ -3200,7 +3200,7 @@ class NestedConfiguration(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__23d7f1d8d243fb7e275a0eeba3f1419822bf2c274e47641e553a5675c002a437)
+            type_hints = cached_type_hints(_typecheckingstub__23d7f1d8d243fb7e275a0eeba3f1419822bf2c274e47641e553a5675c002a437)
             check_type(argname="argument project", value=project, expected_type=type_hints["project"])
             check_type(argname="argument parent", value=parent, expected_type=type_hints["parent"])
             check_type(argname="argument name", value=name, expected_type=type_hints["name"])
@@ -3243,7 +3243,7 @@ class Parallel:
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__27837ae5c9e058eb0806d1abd6557c3fa362e2df59dcab8ce1db5416c00525e1)
+            type_hints = cached_type_hints(_typecheckingstub__27837ae5c9e058eb0806d1abd6557c3fa362e2df59dcab8ce1db5416c00525e1)
             check_type(argname="argument matrix", value=matrix, expected_type=type_hints["matrix"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "matrix": matrix,
@@ -3335,7 +3335,7 @@ class Release:
         if isinstance(assets, dict):
             assets = Assets(**assets)
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c38e7545caf21650d3fd8d9c8672f7ac49978e130308eff721d262f5ca861d93)
+            type_hints = cached_type_hints(_typecheckingstub__c38e7545caf21650d3fd8d9c8672f7ac49978e130308eff721d262f5ca861d93)
             check_type(argname="argument description", value=description, expected_type=type_hints["description"])
             check_type(argname="argument tag_name", value=tag_name, expected_type=type_hints["tag_name"])
             check_type(argname="argument assets", value=assets, expected_type=type_hints["assets"])
@@ -3510,7 +3510,7 @@ class Reports:
         if isinstance(coverage_report, dict):
             coverage_report = CoverageReport(**coverage_report)
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__2c9f4030cd6e6d9c8988080afe12341d674a6d0751da1c7937dd3901c9d6062c)
+            type_hints = cached_type_hints(_typecheckingstub__2c9f4030cd6e6d9c8988080afe12341d674a6d0751da1c7937dd3901c9d6062c)
             check_type(argname="argument codequality", value=codequality, expected_type=type_hints["codequality"])
             check_type(argname="argument container_scanning", value=container_scanning, expected_type=type_hints["container_scanning"])
             check_type(argname="argument coverage_report", value=coverage_report, expected_type=type_hints["coverage_report"])
@@ -3740,7 +3740,7 @@ class Retry:
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ecbb57c0c914d3fe61ad0fc30c66b1fa89242257ae2e7fbd309e5819250ac25e)
+            type_hints = cached_type_hints(_typecheckingstub__ecbb57c0c914d3fe61ad0fc30c66b1fa89242257ae2e7fbd309e5819250ac25e)
             check_type(argname="argument max", value=max, expected_type=type_hints["max"])
             check_type(argname="argument when", value=when, expected_type=type_hints["when"])
         self._values: typing.Dict[builtins.str, typing.Any] = {}
@@ -3799,7 +3799,7 @@ class Secret:
         if isinstance(vault, dict):
             vault = VaultConfig(**vault)
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__789ab87a937f7529123f7dfe15f4731fb2ba2cd3529681a1c5b7c2766ac518ed)
+            type_hints = cached_type_hints(_typecheckingstub__789ab87a937f7529123f7dfe15f4731fb2ba2cd3529681a1c5b7c2766ac518ed)
             check_type(argname="argument vault", value=vault, expected_type=type_hints["vault"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "vault": vault,
@@ -3865,7 +3865,7 @@ class Service:
         :Default: image keyword.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__1e209468a3f9aab6f0542611bc5e2b756bac42461413eaead1786a1b83ed3d27)
+            type_hints = cached_type_hints(_typecheckingstub__1e209468a3f9aab6f0542611bc5e2b756bac42461413eaead1786a1b83ed3d27)
             check_type(argname="argument name", value=name, expected_type=type_hints["name"])
             check_type(argname="argument alias", value=alias, expected_type=type_hints["alias"])
             check_type(argname="argument command", value=command, expected_type=type_hints["command"])
@@ -4018,7 +4018,7 @@ class Trigger:
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__78aec6a6c462331cffb8d8af511a7a04ea96a7e260e03f8d857ba57103b6c89f)
+            type_hints = cached_type_hints(_typecheckingstub__78aec6a6c462331cffb8d8af511a7a04ea96a7e260e03f8d857ba57103b6c89f)
             check_type(argname="argument branch", value=branch, expected_type=type_hints["branch"])
             check_type(argname="argument include", value=include, expected_type=type_hints["include"])
             check_type(argname="argument inputs", value=inputs, expected_type=type_hints["inputs"])
@@ -4132,7 +4132,7 @@ class TriggerInclude:
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__bcf49e8ccbe3154c742f6f10df60e39266fb9481b0c26582426590bf8cd03e4b)
+            type_hints = cached_type_hints(_typecheckingstub__bcf49e8ccbe3154c742f6f10df60e39266fb9481b0c26582426590bf8cd03e4b)
             check_type(argname="argument artifact", value=artifact, expected_type=type_hints["artifact"])
             check_type(argname="argument file", value=file, expected_type=type_hints["file"])
             check_type(argname="argument job", value=job, expected_type=type_hints["job"])
@@ -4252,7 +4252,7 @@ class VariableConfig:
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__270d3442d2c5b9f18e475ba2c945ca5765ee61ed94c5ea28d4395b9c3952df58)
+            type_hints = cached_type_hints(_typecheckingstub__270d3442d2c5b9f18e475ba2c945ca5765ee61ed94c5ea28d4395b9c3952df58)
             check_type(argname="argument description", value=description, expected_type=type_hints["description"])
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         self._values: typing.Dict[builtins.str, typing.Any] = {}
@@ -4318,7 +4318,7 @@ class VaultConfig:
         if isinstance(engine, dict):
             engine = Engine(**engine)
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__8bf8b88995e7b236e0548afd560041fc8de683c71708218ce1af2818efd3b248)
+            type_hints = cached_type_hints(_typecheckingstub__8bf8b88995e7b236e0548afd560041fc8de683c71708218ce1af2818efd3b248)
             check_type(argname="argument engine", value=engine, expected_type=type_hints["engine"])
             check_type(argname="argument field", value=field, expected_type=type_hints["field"])
             check_type(argname="argument path", value=path, expected_type=type_hints["path"])
@@ -4389,7 +4389,7 @@ class Workflow:
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__e0b75047f6bf7eb788b08fc007a66573480a38e913bde351acaac05347d467b1)
+            type_hints = cached_type_hints(_typecheckingstub__e0b75047f6bf7eb788b08fc007a66573480a38e913bde351acaac05347d467b1)
             check_type(argname="argument name", value=name, expected_type=type_hints["name"])
             check_type(argname="argument rules", value=rules, expected_type=type_hints["rules"])
         self._values: typing.Dict[builtins.str, typing.Any] = {}
@@ -4461,7 +4461,7 @@ class WorkflowRule:
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__01a2cf4c2a982a749d12511d9e43468f3b4a9cca16d6c56d9a2cfd1154720d63)
+            type_hints = cached_type_hints(_typecheckingstub__01a2cf4c2a982a749d12511d9e43468f3b4a9cca16d6c56d9a2cfd1154720d63)
             check_type(argname="argument changes", value=changes, expected_type=type_hints["changes"])
             check_type(argname="argument exists", value=exists, expected_type=type_hints["exists"])
             check_type(argname="argument if_", value=if_, expected_type=type_hints["if_"])

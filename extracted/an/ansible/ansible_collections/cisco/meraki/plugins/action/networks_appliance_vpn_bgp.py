@@ -34,7 +34,6 @@ argument_spec.update(dict(
     enabled=dict(type="bool"),
     asNumber=dict(type="int"),
     ibgpHoldTimer=dict(type="int"),
-    routerId=dict(type="str"),
     neighbors=dict(type="list"),
     networkId=dict(type="str"),
 ))
@@ -54,9 +53,8 @@ class NetworksApplianceVpnBgp(object):
             enabled=params.get("enabled"),
             asNumber=params.get("asNumber"),
             ibgpHoldTimer=params.get("ibgpHoldTimer"),
-            routerId=params.get("routerId"),
             neighbors=params.get("neighbors"),
-            networkId=params.get("networkId"),
+            network_id=params.get("networkId"),
         )
 
     def get_all_params(self, name=None, id=None):
@@ -80,10 +78,6 @@ class NetworksApplianceVpnBgp(object):
                 'ibgp_hold_timer') is not None:
             new_object_params['ibgpHoldTimer'] = self.new_object.get(
                 'ibgpHoldTimer') or self.new_object.get('ibgp_hold_timer')
-        if self.new_object.get('routerId') is not None or self.new_object.get(
-                'router_id') is not None:
-            new_object_params['routerId'] = self.new_object.get(
-                'routerId') or self.new_object.get('router_id')
         if self.new_object.get('neighbors') is not None or self.new_object.get(
                 'neighbors') is not None:
             new_object_params['neighbors'] = self.new_object.get(
@@ -149,8 +143,9 @@ class NetworksApplianceVpnBgp(object):
             ("enabled", "enabled"),
             ("asNumber", "asNumber"),
             ("ibgpHoldTimer", "ibgpHoldTimer"),
-            ("routerId", "routerId"),
-            ("neighbors", "neighbors"),]
+            ("neighbors", "neighbors"),
+            ("networkId", "networkId"),
+        ]
         # Method 1. Params present in request (Ansible) obj are the same as the current (ISE) params
         # If any does not have eq params, it requires update
         return any(

@@ -13,7 +13,7 @@ import jsii
 import publication
 import typing_extensions
 
-from jsii._type_checking import check_type
+from jsii._type_checking import cached_type_hints, check_type
 
 
 from .._jsii import *
@@ -73,7 +73,7 @@ class AutoDiscoverBase(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__6e0d40deb01944add6fa39de401f505f9685e145c609f4fdf6d9fd5f82ed546a)
+            type_hints = cached_type_hints(_typecheckingstub__6e0d40deb01944add6fa39de401f505f9685e145c609f4fdf6d9fd5f82ed546a)
             check_type(argname="argument project", value=project, expected_type=type_hints["project"])
         options = AutoDiscoverBaseOptions(extension=extension, projectdir=projectdir)
 
@@ -111,7 +111,7 @@ class AutoDiscoverBaseOptions:
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__fc3e0eabfbdc743cc51b0f0008aadbbc7992426b289f7df9a1c47973cdf55310)
+            type_hints = cached_type_hints(_typecheckingstub__fc3e0eabfbdc743cc51b0f0008aadbbc7992426b289f7df9a1c47973cdf55310)
             check_type(argname="argument extension", value=extension, expected_type=type_hints["extension"])
             check_type(argname="argument projectdir", value=projectdir, expected_type=type_hints["projectdir"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -178,7 +178,7 @@ class Catalog:
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__11c7fc53f0b18f058618e63c1d20248cfe9bf1fb58997d3895e8785ebb9d537e)
+            type_hints = cached_type_hints(_typecheckingstub__11c7fc53f0b18f058618e63c1d20248cfe9bf1fb58997d3895e8785ebb9d537e)
             check_type(argname="argument announce", value=announce, expected_type=type_hints["announce"])
             check_type(argname="argument twitter", value=twitter, expected_type=type_hints["twitter"])
         self._values: typing.Dict[builtins.str, typing.Any] = {}
@@ -243,7 +243,7 @@ class IntegrationTestAutoDiscoverBase(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__8ee4a1be9f515c2741b6cf0a36c679c7ecf8f69bcaa6362130ff316a1a771857)
+            type_hints = cached_type_hints(_typecheckingstub__8ee4a1be9f515c2741b6cf0a36c679c7ecf8f69bcaa6362130ff316a1a771857)
             check_type(argname="argument project", value=project, expected_type=type_hints["project"])
         options = IntegrationTestAutoDiscoverBaseOptions(testdir=testdir)
 
@@ -264,7 +264,7 @@ class IntegrationTestAutoDiscoverBaseOptions:
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__4f68afb25c30c2dc8b3fddf3dcf61cb69966d1dba166f772e1a7da1b35cc9d60)
+            type_hints = cached_type_hints(_typecheckingstub__4f68afb25c30c2dc8b3fddf3dcf61cb69966d1dba166f772e1a7da1b35cc9d60)
             check_type(argname="argument testdir", value=testdir, expected_type=type_hints["testdir"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "testdir": testdir,
@@ -318,7 +318,7 @@ class IntegrationTestBase(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__fe725708f0c4ab8a6c3c14c292449bb0d7fcf69085c39d7b1bad5fe34e7d2d84)
+            type_hints = cached_type_hints(_typecheckingstub__fe725708f0c4ab8a6c3c14c292449bb0d7fcf69085c39d7b1bad5fe34e7d2d84)
             check_type(argname="argument project", value=project, expected_type=type_hints["project"])
         options = IntegrationTestBaseOptions(
             entrypoint=entrypoint, tsconfig_path=tsconfig_path, name=name
@@ -414,7 +414,7 @@ class IntegrationTestBaseOptions:
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__7dcdca80859bf80cb9fb647de7e6170902c312a88763e116e53ea6ea877bae62)
+            type_hints = cached_type_hints(_typecheckingstub__7dcdca80859bf80cb9fb647de7e6170902c312a88763e116e53ea6ea877bae62)
             check_type(argname="argument entrypoint", value=entrypoint, expected_type=type_hints["entrypoint"])
             check_type(argname="argument tsconfig_path", value=tsconfig_path, expected_type=type_hints["tsconfig_path"])
             check_type(argname="argument name", value=name, expected_type=type_hints["name"])
@@ -504,7 +504,7 @@ class JsiiBuild(metaclass=jsii.JSIIMeta, jsii_type="projen.cdk.JsiiBuild"):
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__5a3d365a2046cc4fa2e3e4e8b0ce65949f7e8db7699085e57fea96c37077a29e)
+            type_hints = cached_type_hints(_typecheckingstub__5a3d365a2046cc4fa2e3e4e8b0ce65949f7e8db7699085e57fea96c37077a29e)
             check_type(argname="argument options", value=options, expected_type=type_hints["options"])
             check_type(argname="argument extra_job_options", value=extra_job_options, expected_type=type_hints["extra_job_options"])
         jsii.create(self.__class__, self, [options, extra_job_options])
@@ -518,7 +518,7 @@ class JsiiBuild(metaclass=jsii.JSIIMeta, jsii_type="projen.cdk.JsiiBuild"):
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__6afa67929c3fea1cbf4282e942201831ab62334521f3a04118baa97059af2467)
+            type_hints = cached_type_hints(_typecheckingstub__6afa67929c3fea1cbf4282e942201831ab62334521f3a04118baa97059af2467)
             check_type(argname="argument project", value=project, expected_type=type_hints["project"])
         return typing.cast(None, jsii.invoke(self, "applyTo", [project]))
 
@@ -531,7 +531,7 @@ class JsiiBuild(metaclass=jsii.JSIIMeta, jsii_type="projen.cdk.JsiiBuild"):
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__e5509e68c3c5ab1c4a60ec641860aea13b9a100160f402475f055fe45f87e0c6)
+            type_hints = cached_type_hints(_typecheckingstub__e5509e68c3c5ab1c4a60ec641860aea13b9a100160f402475f055fe45f87e0c6)
             check_type(argname="argument construct", value=construct, expected_type=type_hints["construct"])
         return typing.cast(builtins.bool, jsii.invoke(self, "supports", [construct]))
 
@@ -623,7 +623,7 @@ class JsiiBuildOptions:
         if isinstance(publish_to_pypi, dict):
             publish_to_pypi = JsiiPythonTarget(**publish_to_pypi)
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__2be890418c6835b6b4f6b427bf7274ec62dd8b848b74f2b17167b2a513272b3c)
+            type_hints = cached_type_hints(_typecheckingstub__2be890418c6835b6b4f6b427bf7274ec62dd8b848b74f2b17167b2a513272b3c)
             check_type(argname="argument code_artifact_options", value=code_artifact_options, expected_type=type_hints["code_artifact_options"])
             check_type(argname="argument compat", value=compat, expected_type=type_hints["compat"])
             check_type(argname="argument compat_ignore", value=compat_ignore, expected_type=type_hints["compat_ignore"])
@@ -973,7 +973,7 @@ class JsiiDocgen(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__f43e86fe0c2ba3f9132dc6d6f6592f6259d782833b3aee12cbd3d41e8d3a035a)
+            type_hints = cached_type_hints(_typecheckingstub__f43e86fe0c2ba3f9132dc6d6f6592f6259d782833b3aee12cbd3d41e8d3a035a)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
         options = JsiiDocgenOptions(file_path=file_path, version=version)
 
@@ -1000,7 +1000,7 @@ class JsiiDocgenOptions:
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__2f3fb088da3cc3de21fe4de98d7c818b3cbd2a2139fba0682367f39bd3af95be)
+            type_hints = cached_type_hints(_typecheckingstub__2f3fb088da3cc3de21fe4de98d7c818b3cbd2a2139fba0682367f39bd3af95be)
             check_type(argname="argument file_path", value=file_path, expected_type=type_hints["file_path"])
             check_type(argname="argument version", value=version, expected_type=type_hints["version"])
         self._values: typing.Dict[builtins.str, typing.Any] = {}
@@ -1094,7 +1094,7 @@ class JsiiDotNetTarget(_release_1fa091fd.NugetPublishOptions):
         if isinstance(publish_tools, dict):
             publish_tools = _workflows_2b7f1587.Tools(**publish_tools)
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__e809c6916d6d93bf1e91d05e4a79f49eb72f74bccaceeb6a508a3005bb5ec7b5)
+            type_hints = cached_type_hints(_typecheckingstub__e809c6916d6d93bf1e91d05e4a79f49eb72f74bccaceeb6a508a3005bb5ec7b5)
             check_type(argname="argument github_environment", value=github_environment, expected_type=type_hints["github_environment"])
             check_type(argname="argument post_publish_steps", value=post_publish_steps, expected_type=type_hints["post_publish_steps"])
             check_type(argname="argument pre_publish_steps", value=pre_publish_steps, expected_type=type_hints["pre_publish_steps"])
@@ -1332,7 +1332,7 @@ class JsiiGoTarget(_release_1fa091fd.GoPublishOptions):
         if isinstance(publish_tools, dict):
             publish_tools = _workflows_2b7f1587.Tools(**publish_tools)
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__b0ea0b1537651364353b8d1546fea1d78af2aaded6dded156ab976119354df9a)
+            type_hints = cached_type_hints(_typecheckingstub__b0ea0b1537651364353b8d1546fea1d78af2aaded6dded156ab976119354df9a)
             check_type(argname="argument github_environment", value=github_environment, expected_type=type_hints["github_environment"])
             check_type(argname="argument post_publish_steps", value=post_publish_steps, expected_type=type_hints["post_publish_steps"])
             check_type(argname="argument pre_publish_steps", value=pre_publish_steps, expected_type=type_hints["pre_publish_steps"])
@@ -1635,7 +1635,7 @@ class JsiiJavaTarget(_release_1fa091fd.MavenPublishOptions):
         if isinstance(publish_tools, dict):
             publish_tools = _workflows_2b7f1587.Tools(**publish_tools)
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__365483a000ed61cc1587d7ada435961b86f33fb0718cd001430497c2290e0820)
+            type_hints = cached_type_hints(_typecheckingstub__365483a000ed61cc1587d7ada435961b86f33fb0718cd001430497c2290e0820)
             check_type(argname="argument github_environment", value=github_environment, expected_type=type_hints["github_environment"])
             check_type(argname="argument post_publish_steps", value=post_publish_steps, expected_type=type_hints["post_publish_steps"])
             check_type(argname="argument pre_publish_steps", value=pre_publish_steps, expected_type=type_hints["pre_publish_steps"])
@@ -2977,7 +2977,7 @@ class JsiiProjectOptions(_typescript_7a66cf84.TypeScriptProjectOptions):
         if isinstance(publish_to_pypi, dict):
             publish_to_pypi = JsiiPythonTarget(**publish_to_pypi)
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c8323b2edac3105e05d346954d0050d635763ca6b27825b5452fa3d2bc0e25ce)
+            type_hints = cached_type_hints(_typecheckingstub__c8323b2edac3105e05d346954d0050d635763ca6b27825b5452fa3d2bc0e25ce)
             check_type(argname="argument name", value=name, expected_type=type_hints["name"])
             check_type(argname="argument commit_generated", value=commit_generated, expected_type=type_hints["commit_generated"])
             check_type(argname="argument git_ignore_options", value=git_ignore_options, expected_type=type_hints["git_ignore_options"])
@@ -5593,7 +5593,7 @@ class JsiiPythonTarget(_release_1fa091fd.PyPiPublishOptions):
         if isinstance(code_artifact_options, dict):
             code_artifact_options = _release_1fa091fd.CodeArtifactOptions(**code_artifact_options)
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__b9ccf41e184eae5eabcd38be0ea0cb88c9d6eb3d4f60d6bb85e4a73763bfb94a)
+            type_hints = cached_type_hints(_typecheckingstub__b9ccf41e184eae5eabcd38be0ea0cb88c9d6eb3d4f60d6bb85e4a73763bfb94a)
             check_type(argname="argument github_environment", value=github_environment, expected_type=type_hints["github_environment"])
             check_type(argname="argument post_publish_steps", value=post_publish_steps, expected_type=type_hints["post_publish_steps"])
             check_type(argname="argument pre_publish_steps", value=pre_publish_steps, expected_type=type_hints["pre_publish_steps"])
@@ -6949,7 +6949,7 @@ class ConstructLibraryOptions(JsiiProjectOptions):
         if isinstance(catalog, dict):
             catalog = Catalog(**catalog)
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__0faec4221ab7163e96a5287d81c7e28c1c8f831e5f79f595bd4a88cdd2a68813)
+            type_hints = cached_type_hints(_typecheckingstub__0faec4221ab7163e96a5287d81c7e28c1c8f831e5f79f595bd4a88cdd2a68813)
             check_type(argname="argument name", value=name, expected_type=type_hints["name"])
             check_type(argname="argument commit_generated", value=commit_generated, expected_type=type_hints["commit_generated"])
             check_type(argname="argument git_ignore_options", value=git_ignore_options, expected_type=type_hints["git_ignore_options"])

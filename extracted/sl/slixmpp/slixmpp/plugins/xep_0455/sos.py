@@ -44,7 +44,7 @@ class XEP_0455(BasePlugin):
             domain = JID(self.xmpp.boundjid.host)
 
         uris = []
-        results = await self.xmpp['xep_0030'].get_info(jid=domain,
+        results = await self.xmpp.plugin['xep_0030'].get_info(jid=domain,
             **iqkwargs
         )
 

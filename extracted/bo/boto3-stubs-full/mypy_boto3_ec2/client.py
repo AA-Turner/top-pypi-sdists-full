@@ -2990,8 +2990,8 @@ class EC2Client(BaseClient):
         """
         Replaces the EBS-backed root volume for a <code>running</code> instance with a
         new volume that is restored to the original root volume's launch state, that is
-        restored to a specific snapshot taken from the original root volume, or that is
-        restored from an AMI that has the same key characteristics...
+        restored to a specific snapshot taken from the original root volume, that is
+        restored from an AMI that has the same key characteristics as...
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ec2/client/create_replace_root_volume_task.html)
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_ec2/client/#create_replace_root_volume_task)

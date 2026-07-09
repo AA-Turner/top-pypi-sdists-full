@@ -15,6 +15,9 @@ from ical.exceptions import CalendarParseError
 from ical.todo import Todo
 from ical.types.recur import Recur
 from ical.calendar_stream import IcsCalendarStream
+from ical.types import Period, Uri, Image, Conference
+from ical.recur_adapter import merge_and_expand_items
+from pathlib import Path
 
 _TEST_TZ = datetime.timezone(datetime.timedelta(hours=1))
 
@@ -435,3 +438,77 @@ def test_default_end_date() -> None:
     )
 
     assert todo.end == start + datetime.timedelta(days=1)
+
+
+def test_todo_serialization_date_value() -> None:
+    """Test serializing a Todo with a datetime.date value matches the expected output with VALUE=DATE."""
+    import ical.calendar_stream
+    import ical.calendar
+
+    calendar = ical.calendar.Calendar(
+        prodid="test",
+        version="1",
+        vtodo=[
+            Todo(
+                dtstart=datetime.date(2025, 10, 16),
+            )
+        ],
+    )
+    ics_content = ical.calendar_stream.IcsCalendarStream.calendar_to_ics(calendar)
+    assert "DTSTART;VALUE=DATE:20251016" in ics_content
+
+
+def test_todo_recurrence_expansion_period() -> None:
+    """Test that todo recurrence expansion uses the period's duration for due times."""
+    todo = Todo(
+        summary="Test Todo",
+        dtstart=datetime.datetime(2022, 8, 7, 9, 0, 0),
+        due=datetime.datetime(2022, 8, 7, 10, 0, 0),  # 1 hour default duration
+        rdate=[
+            Period(
+                start=datetime.datetime(2022, 8, 8, 10, 0, 0),
+                end=datetime.datetime(2022, 8, 8, 12, 0, 0),
+            )
+        ],
+    )
+
+    todos = [
+        item.item for item in merge_and_expand_items([todo], datetime.timezone.utc)
+    ]
+    assert len(todos) == 1
+
+    assert todos[0].dtstart == datetime.datetime(2022, 8, 8, 10, 0, 0)
+    assert todos[0].due == datetime.datetime(2022, 8, 8, 12, 0, 0)
+
+
+def test_rfc7986_todo_properties() -> None:
+    """Test parsing and serialization of todo-level RFC 7986 properties."""
+    ics_path = (
+        Path(__file__).parent / "parsing/testdata/valid/params_rfc7986_component.ics"
+    )
+    calendar = IcsCalendarStream.calendar_from_ics(ics_path.read_text())
+
+    assert len(calendar.todos) == 1
+    todo = calendar.todos[0]
+    assert todo.color == "red"
+    assert len(todo.image) == 1
+    assert todo.image[0].uri == Uri("http://example.com/todo.jpg")
+    assert todo.image[0].display == "FULLSIZE"
+    assert len(todo.conference) == 1
+    assert todo.conference[0].uri == Uri("https://slack.com/123")
+    assert todo.conference[0].feature == ["CHAT"]
+    assert todo.conference[0].label == "Slack Channel"
+
+    # Verify serialization
+    output_ics = IcsCalendarStream.calendar_to_ics(calendar)
+    assert "COLOR:red" in output_ics
+    assert (
+        "IMAGE;DISPLAY=FULLSIZE:http://example.com/todo.jpg" in output_ics
+        or "IMAGE;DISPLAY=FULLSIZE:http://example.com/todo.jpg" in output_ics
+    )
+    assert (
+        "CONFERENCE;FEATURE=CHAT;LABEL=Slack Channel:https://slack.com/123"
+        in output_ics
+        or "CONFERENCE;LABEL=Slack Channel;FEATURE=CHAT:https://slack.com/123"
+        in output_ics
+    )

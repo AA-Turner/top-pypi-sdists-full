@@ -118,7 +118,7 @@ def _show_welcome(pro: bool = False) -> None:
             f"  Running free tier (v{free_major}). "
             f"Pro = latest binary (v{PRO_MAJOR}) + newest anti-bot patches.\n"
         )
-        sys.stderr.write("  Stay ahead of detection → https://cloakbrowser.dev\n")
+        sys.stderr.write("  Try Pro free for 7 days → https://cloakbrowser.dev\n")
     sys.stderr.write("  Star us if CloakBrowser helps your project!\n")
     sys.stderr.write("\n")
     try:
@@ -304,16 +304,31 @@ def _download_and_extract(version: str | None = None) -> None:
         tmp_path.unlink(missing_ok=True)
 
 
+def _pro_binary_ready(version: str | None) -> bool:
+    """True when a cached, executable Pro binary exists for ``version``."""
+    if not version:
+        return False
+    path = get_binary_path(version, pro=True)
+    return path.exists() and _is_executable(path)
+
+
 def _ensure_pro_binary(
     license_key: str,
     requested_version: str | None = None,
 ) -> str:
-    """Ensure the Pro binary is downloaded and cached. Returns the binary path."""
+    """Ensure the Pro binary is downloaded and cached. Returns the binary path.
+
+    A valid Pro license NEVER falls back to the free binary. If the latest Pro
+    build cannot be resolved or downloaded and no cached Pro binary exists, the
+    error is raised rather than silently launching the free tier.
+    """
     from .license import get_pro_latest_version
 
+    # --- Pinned: launch the exact requested version, no server cross-check, no
+    # marker write (a rollback pin must not stick future unpinned launches). ---
     if requested_version:
-        binary_path = get_binary_path(requested_version, pro=True)
-        if binary_path.exists() and _is_executable(binary_path):
+        if _pro_binary_ready(requested_version):
+            binary_path = get_binary_path(requested_version, pro=True)
             logger.debug(
                 "Pinned Pro binary found in cache: %s (version %s)",
                 binary_path,
@@ -321,31 +336,86 @@ def _ensure_pro_binary(
             )
             _show_welcome(pro=True)
             return str(binary_path)
-        version = requested_version
-    else:
-        effective = get_effective_version(pro=True)
-        binary_path = get_binary_path(effective, pro=True)
-
-        if binary_path.exists() and _is_executable(binary_path):
-            logger.debug(
-                "Pro binary found in cache: %s (version %s)", binary_path, effective
+        logger.info(
+            "Downloading Pro Chromium %s for %s...", requested_version, get_platform_tag()
+        )
+        _download_pro_binary(requested_version, license_key)
+        binary_path = get_binary_path(requested_version, pro=True)
+        if not binary_path.exists():
+            raise RuntimeError(
+                f"Pro download completed but binary not found at: {binary_path}"
             )
-            _show_welcome(pro=True)
-            _maybe_trigger_pro_update_check(license_key)
-            return str(binary_path)
+        _show_welcome(pro=True)
+        return str(binary_path)
 
-        version = get_pro_latest_version()
-        if not version:
-            raise RuntimeError("Could not determine latest Pro version from server")
+    # --- Unpinned: track the server's latest stable. ---
+    effective = get_effective_version(pro=True)
 
-    binary_path = get_binary_path(version, pro=True)
-    if binary_path.exists() and _is_executable(binary_path):
+    # Honor CLOAKBROWSER_AUTO_UPDATE=false the way the free path does: if the user
+    # froze updates AND a Pro build is already cached, keep it and skip the server
+    # check. With no cached build we must still fetch one — a valid Pro license can
+    # never launch the free binary. (The `update` CLI ignores this and always acts.)
+    frozen = os.environ.get("CLOAKBROWSER_AUTO_UPDATE", "").lower() == "false"
+    if frozen and _pro_binary_ready(effective):
+        logger.debug("Pro auto-update disabled; using cached %s", effective)
+        _show_welcome(pro=True)
+        return str(get_binary_path(effective, pro=True))
+
+    # get_pro_latest_version() is rate-limited to one network call per hour and
+    # returns a cached string in between, so this foreground check stays cheap on
+    # steady-state launches while still landing new stable after a version gap.
+    latest = get_pro_latest_version()
+
+    # Prefer the server's latest when it is newer than — or replaces a missing —
+    # the cached build. Otherwise stay on the cached Pro binary (fast, offline-ok).
+    if latest and (
+        not _pro_binary_ready(effective)  # also covers effective is None
+        or _version_newer(latest, effective)
+    ):
+        version: str | None = latest
+    else:
+        version = effective
+
+    if version is None:
+        # Valid Pro license but nothing resolvable (server unreachable AND no
+        # cached Pro build). Never downgrade to the free binary — fail loudly.
+        raise RuntimeError("Could not determine latest Pro version from server")
+
+    if _pro_binary_ready(version):
+        binary_path = get_binary_path(version, pro=True)
+        # Advance the marker if this cached build is newer than what the marker names,
+        # so `info` (and a later server-outage launch) reflect the build we actually
+        # launch — never a stale marker.
+        if version != effective:
+            try:
+                _write_pro_version_marker(version)
+            except OSError:
+                pass
         logger.debug("Pro binary found in cache: %s (version %s)", binary_path, version)
         _show_welcome(pro=True)
         return str(binary_path)
 
-    logger.info("Downloading Pro Chromium %s for %s...", version, get_platform_tag())
-    _download_pro_binary(version, license_key)
+    # `version` (the server latest) needs downloading. On failure, fall back to a
+    # cached Pro build if we have one — never the free binary.
+    try:
+        logger.info(
+            "Downloading Pro Chromium %s for %s...", version, get_platform_tag()
+        )
+        _download_pro_binary(version, license_key)
+    except BinaryVerificationError:
+        # A tampering signal must surface verbatim — never mask it behind the
+        # cached-Pro fallback, which is only for transient download failures.
+        raise
+    except Exception:
+        if _pro_binary_ready(effective):
+            logger.warning(
+                "Pro update to %s failed; launching cached Pro binary %s",
+                version,
+                effective,
+            )
+            _show_welcome(pro=True)
+            return str(get_binary_path(effective, pro=True))
+        raise
 
     binary_path = get_binary_path(version, pro=True)
     if not binary_path.exists():
@@ -353,16 +423,11 @@ def _ensure_pro_binary(
             f"Pro download completed but binary not found at: {binary_path}"
         )
 
-    # Write Pro version marker (atomic) only for unpinned latest resolution.
-    # A rollback pin must not make future unpinned launches stick to the old build.
-    if not requested_version:
-        marker = get_cache_dir() / f"latest_pro_version_{get_platform_tag()}"
-        try:
-            tmp = marker.with_suffix(".tmp")
-            tmp.write_text(version)
-            os.replace(str(tmp), str(marker))
-        except OSError:
-            pass
+    # Advance the marker so future unpinned launches use this build.
+    try:
+        _write_pro_version_marker(version)
+    except OSError:
+        pass
 
     _show_welcome(pro=True)
     return str(binary_path)
@@ -863,14 +928,14 @@ def binary_info(browser_version: str | None = None) -> dict:
     info matches what a pinned launch actually runs, instead of latest.
     """
     requested = normalize_requested_version(browser_version)
-    # Prefer Pro only if a Pro binary actually exists on disk.
+    # Prefer Pro only if a Pro binary actually exists on disk. get_effective_version
+    # returns None for Pro when nothing is cached (it never falls back to free).
     pro_version = requested or get_effective_version(pro=True)
-    pro_path = get_binary_path(pro_version, pro=True)
-    pro = pro_path.exists() and _is_executable(pro_path)
+    pro = _pro_binary_ready(pro_version)  # already false for a None version
 
     if pro:
         effective = pro_version
-        binary_path = pro_path
+        binary_path = get_binary_path(pro_version, pro=True)
     else:
         effective = requested or get_effective_version()
         binary_path = get_binary_path(effective)
@@ -917,6 +982,39 @@ def check_for_update() -> str | None:
     logger.info("Downloading Chromium %s...", latest)
     _download_and_extract(version=latest)
     _write_version_marker(latest)
+    return latest
+
+
+def check_for_pro_update(license_key: str) -> str | None:
+    """Move a Pro install to the server's latest stable. Blocks until complete.
+
+    Returns the new version when a newer Pro build is downloaded or an
+    already-cached newer build is activated, else None (already up to date or the
+    server could not be reached). Requires a valid Pro license key.
+    """
+    from .license import get_pro_latest_version
+
+    latest = get_pro_latest_version()
+    if not latest:
+        return None
+
+    effective = get_effective_version(pro=True)
+    if effective and not _version_newer(latest, effective) and _pro_binary_ready(
+        effective
+    ):
+        # Already on the latest cached Pro build.
+        return None
+
+    if not _pro_binary_ready(latest):
+        logger.info("Downloading Pro Chromium %s...", latest)
+        _download_pro_binary(latest, license_key)
+        binary_path = get_binary_path(latest, pro=True)
+        if not binary_path.exists():
+            raise RuntimeError(
+                f"Pro download completed but binary not found at: {binary_path}"
+            )
+
+    _write_pro_version_marker(latest)
     return latest
 
 
@@ -971,6 +1069,16 @@ def _write_version_marker(version: str) -> None:
     tmp = marker.with_suffix(".tmp")
     tmp.write_text(version)
     tmp.rename(marker)
+
+
+def _write_pro_version_marker(version: str) -> None:
+    """Atomically write the latest Pro version marker for this platform."""
+    cache_dir = get_cache_dir()
+    cache_dir.mkdir(parents=True, exist_ok=True)
+    marker = cache_dir / f"latest_pro_version_{get_platform_tag()}"
+    tmp = marker.with_suffix(".tmp")
+    tmp.write_text(version)
+    os.replace(str(tmp), str(marker))
 
 
 _wrapper_update_checked = False
@@ -1050,49 +1158,4 @@ def _maybe_trigger_update_check() -> None:
     if not _should_check_for_update():
         return
     t = threading.Thread(target=_check_and_download_update, daemon=True)
-    t.start()
-
-
-def _maybe_trigger_pro_update_check(license_key: str) -> None:
-    """Fire-and-forget Pro binary update check in a daemon thread."""
-    check_file = get_cache_dir() / ".last_pro_update_check"
-    if check_file.exists():
-        try:
-            last_check = float(check_file.read_text().strip())
-            if time.time() - last_check < UPDATE_CHECK_INTERVAL:
-                return
-        except (ValueError, OSError):
-            pass
-
-    def _check():
-        try:
-            from .license import get_pro_latest_version
-
-            check_file.parent.mkdir(parents=True, exist_ok=True)
-            check_file.write_text(str(time.time()))
-
-            latest = get_pro_latest_version()
-            if not latest:
-                return
-
-            if get_binary_path(latest, pro=True).exists():
-                return
-
-            logger.info(
-                "Newer Pro binary available: %s. Downloading in background...", latest
-            )
-            _download_pro_binary(latest, license_key)
-
-            marker = get_cache_dir() / f"latest_pro_version_{get_platform_tag()}"
-            tmp = marker.with_suffix(".tmp")
-            tmp.write_text(latest)
-            os.replace(str(tmp), str(marker))
-            logger.info(
-                "Pro background update complete: %s ready. Will use on next launch.",
-                latest,
-            )
-        except Exception:
-            logger.debug("Pro background update failed", exc_info=True)
-
-    t = threading.Thread(target=_check, daemon=True)
     t.start()

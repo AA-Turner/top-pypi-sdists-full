@@ -1634,9 +1634,13 @@ class MainController:
         if isinstance(stage, StageWithFile) and (
             code_content := changes.pop("code_content", None)
         ):
+            from abstra_internals.server.guards.file_lock_guard import (
+                raise_if_file_locked,
+            )
             from abstra_internals.services.file_history import safe_track_edit
 
             target_file = stage.file_path
+            raise_if_file_locked(target_file)
             temp_file = Path(mkdtemp()) / target_file.name
             with temp_file.open("w", encoding="utf-8") as f:
                 f.write(code_content)

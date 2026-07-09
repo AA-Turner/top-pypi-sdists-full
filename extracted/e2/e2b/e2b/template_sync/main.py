@@ -7,7 +7,7 @@ from e2b.api.client.client import AuthenticatedClient
 from e2b.connection_config import ApiParams, ConnectionConfig
 
 from e2b.api.client_sync import get_api_client
-from e2b.template.consts import RESOLVE_SYMLINKS
+from e2b.template.consts import GZIP, RESOLVE_SYMLINKS
 from e2b.template.logger import LogEntry, LogEntryEnd, LogEntryStart
 from e2b.template.main import TemplateBase, TemplateClass
 from e2b.template.types import BuildInfo, InstructionType, TemplateTag, TemplateTagInfo
@@ -41,6 +41,7 @@ class Template(TemplateBase):
         memory_mb: int = 1024,
         skip_cache: bool = False,
         on_build_logs: Optional[Callable[[LogEntry], None]] = None,
+        request_timeout: Optional[float] = None,
     ) -> BuildInfo:
         """
         Internal implementation of the template build process
@@ -100,7 +101,12 @@ class Template(TemplateBase):
             src = args[0] if len(args) > 0 else None
             force_upload = file_upload.get("forceUpload")
             files_hash = file_upload.get("filesHash", None)
-            resolve_symlinks = file_upload.get("resolveSymlinks", RESOLVE_SYMLINKS)
+            resolve_symlinks = file_upload.get("resolveSymlinks")
+            if resolve_symlinks is None:
+                resolve_symlinks = RESOLVE_SYMLINKS
+            gzip = file_upload.get("gzip")
+            if gzip is None:
+                gzip = GZIP
 
             if src is None or files_hash is None:
                 raise ValueError("Source path and files hash are required")
@@ -126,7 +132,9 @@ class Template(TemplateBase):
                         *read_dockerignore(template._template._file_context_path),
                     ],
                     resolve_symlinks,
+                    gzip,
                     stack_trace,
+                    request_timeout=request_timeout,
                 )
                 if on_build_logs:
                     on_build_logs(
@@ -248,6 +256,9 @@ class Template(TemplateBase):
                 memory_mb=memory_mb,
                 skip_cache=skip_cache,
                 on_build_logs=on_build_logs,
+                # Only honor an explicitly set request_timeout for uploads;
+                # otherwise upload_file applies its 1-hour default.
+                request_timeout=opts.get("request_timeout"),
             )
 
             if on_build_logs:
@@ -337,6 +348,9 @@ class Template(TemplateBase):
             memory_mb=memory_mb,
             skip_cache=skip_cache,
             on_build_logs=on_build_logs,
+            # Only honor an explicitly set request_timeout for uploads;
+            # otherwise upload_file applies its 1-hour default.
+            request_timeout=opts.get("request_timeout"),
         )
 
     @staticmethod

@@ -47,6 +47,7 @@ from .literals import (
     ServiceEventTypeType,
     ServiceFunctionCriticalityType,
     ServiceFunctionSourceType,
+    SortOrderType,
     SystemEventTypeType,
     TopologyTypeType,
 )
@@ -280,6 +281,7 @@ class AchievabilityTypeDef(TypedDict):
     availabilitySlo: NotRequired[AchievabilityStatusType]
     multiAzRtoRpo: NotRequired[AchievabilityStatusType]
     multiRegionRtoRpo: NotRequired[AchievabilityStatusType]
+    dataRecoveryTimeBetweenBackups: NotRequired[AchievabilityStatusType]
 
 class AssertionCreatedMetadataTypeDef(TypedDict):
     assertionId: NotRequired[str]
@@ -444,6 +446,8 @@ class DeleteUserJourneyRequestTypeDef(TypedDict):
 class DependencyDiscoveryConfigTypeDef(TypedDict):
     status: DependencyDiscoveryStatusType
     updatedAt: NotRequired[datetime]
+    eligibleResourceCount: NotRequired[int]
+    message: NotRequired[str]
 
 class DisasterRecoverySourceTypeDef(TypedDict):
     value: NotRequired[str]
@@ -552,11 +556,6 @@ class ListAssertionsRequestTypeDef(TypedDict):
 
 TimestampTypeDef = Union[datetime, str]
 
-class ListFailureModeAssessmentsRequestTypeDef(TypedDict):
-    serviceArn: str
-    maxResults: NotRequired[int]
-    nextToken: NotRequired[str]
-
 class ListFailureModeFindingsRequestTypeDef(TypedDict):
     serviceArn: str
     severity: NotRequired[FindingSeverityType]
@@ -589,6 +588,8 @@ class ListResourcesRequestTypeDef(TypedDict):
     serviceArn: str
     serviceFunctionId: NotRequired[str]
     awsRegion: NotRequired[str]
+    resourceTypes: NotRequired[Sequence[str]]
+    billable: NotRequired[bool]
     maxResults: NotRequired[int]
     nextToken: NotRequired[str]
 
@@ -1017,6 +1018,10 @@ class ServiceSummaryTypeDef(TypedDict):
 class ServiceTopologyEdgeSummaryTypeDef(TypedDict):
     sourceResourceIdentifier: str
     destinationResourceIdentifier: str
+    sourceRegion: NotRequired[str]
+    destinationRegion: NotRequired[str]
+    sourceAccount: NotRequired[str]
+    destinationAccount: NotRequired[str]
     properties: NotRequired[list[EdgePropertySummaryTypeDef]]
 
 class EffectivePolicyValuesTypeDef(TypedDict):
@@ -1062,12 +1067,6 @@ class GetServiceRequestWaitTypeDef(TypedDict):
     serviceArn: str
     WaiterConfig: NotRequired[WaiterConfigTypeDef]
 
-class ListFailureModeAssessmentsRequestWaitTypeDef(TypedDict):
-    serviceArn: str
-    maxResults: NotRequired[int]
-    nextToken: NotRequired[str]
-    WaiterConfig: NotRequired[WaiterConfigTypeDef]
-
 class ListReportsRequestWaitTypeDef(TypedDict):
     serviceArn: NotRequired[str]
     reportType: NotRequired[Literal["FAILURE_MODE"]]
@@ -1092,10 +1091,6 @@ InputSourceSummaryTypeDef = TypedDict(
 class ListAssertionsRequestPaginateTypeDef(TypedDict):
     serviceArn: str
     source: NotRequired[AssertionSourceType]
-    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
-
-class ListFailureModeAssessmentsRequestPaginateTypeDef(TypedDict):
-    serviceArn: str
     PaginationConfig: NotRequired[PaginatorConfigTypeDef]
 
 class ListFailureModeFindingsRequestPaginateTypeDef(TypedDict):
@@ -1126,6 +1121,8 @@ class ListResourcesRequestPaginateTypeDef(TypedDict):
     serviceArn: str
     serviceFunctionId: NotRequired[str]
     awsRegion: NotRequired[str]
+    resourceTypes: NotRequired[Sequence[str]]
+    billable: NotRequired[bool]
     PaginationConfig: NotRequired[PaginatorConfigTypeDef]
 
 class ListServiceFunctionsRequestPaginateTypeDef(TypedDict):
@@ -1167,6 +1164,36 @@ class ListDependenciesRequestTypeDef(TypedDict):
     queryRangeGranularity: NotRequired[QueryGranularityType]
     maxResults: NotRequired[int]
     nextToken: NotRequired[str]
+
+class ListFailureModeAssessmentsRequestPaginateTypeDef(TypedDict):
+    serviceArn: str
+    assessmentStatuses: NotRequired[Sequence[AssessmentStatusType]]
+    startedAfter: NotRequired[TimestampTypeDef]
+    endedBefore: NotRequired[TimestampTypeDef]
+    sortBy: NotRequired[Literal["STARTED_AT"]]
+    sortOrder: NotRequired[SortOrderType]
+    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
+
+class ListFailureModeAssessmentsRequestTypeDef(TypedDict):
+    serviceArn: str
+    assessmentStatuses: NotRequired[Sequence[AssessmentStatusType]]
+    startedAfter: NotRequired[TimestampTypeDef]
+    endedBefore: NotRequired[TimestampTypeDef]
+    sortBy: NotRequired[Literal["STARTED_AT"]]
+    sortOrder: NotRequired[SortOrderType]
+    maxResults: NotRequired[int]
+    nextToken: NotRequired[str]
+
+class ListFailureModeAssessmentsRequestWaitTypeDef(TypedDict):
+    serviceArn: str
+    assessmentStatuses: NotRequired[Sequence[AssessmentStatusType]]
+    startedAfter: NotRequired[TimestampTypeDef]
+    endedBefore: NotRequired[TimestampTypeDef]
+    sortBy: NotRequired[Literal["STARTED_AT"]]
+    sortOrder: NotRequired[SortOrderType]
+    maxResults: NotRequired[int]
+    nextToken: NotRequired[str]
+    WaiterConfig: NotRequired[WaiterConfigTypeDef]
 
 class ListServiceEventsRequestPaginateTypeDef(TypedDict):
     serviceArn: str

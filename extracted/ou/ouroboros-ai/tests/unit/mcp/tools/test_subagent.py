@@ -895,12 +895,14 @@ class TestBuildExecuteSubagent:
             cwd="/project",
             max_iterations=5,
             skip_qa=True,
+            auto_evaluate=False,
         )
         assert p.context["session_id"] == "sess-123"
         assert p.context["seed_path"] == "/tmp/seed.yaml"
         assert p.context["cwd"] == "/project"
         assert p.context["max_iterations"] == 5
         assert p.context["skip_qa"] is True
+        assert p.context["auto_evaluate"] is False
 
     def test_max_parallel_workers_propagates_to_context_and_prompt(self) -> None:
         """Worker cap must reach the child runtime via both prompt and context."""
@@ -921,6 +923,40 @@ class TestBuildExecuteSubagent:
         )
         assert p.context["max_parallel_workers"] is None
         assert "Max Parallel Workers" not in p.prompt
+
+    def test_prompt_uses_typed_assignment_contract(self) -> None:
+        """Execution dispatch must frame the work as a TASK/DELIVERABLE/VERIFY order."""
+        p = build_execute_subagent(
+            seed_content="goal: build a CLI tool",
+            session_id="sess-123",
+        )
+        assert "<assignment>" in p.prompt
+        assert "## Deliverable" in p.prompt
+        assert "## Verify" in p.prompt
+        # QA gate surfaces as an explicit verification line by default.
+        assert "Run QA evaluation" in p.prompt
+        assert "formal 3-stage evaluation" in p.prompt
+        assert "ouroboros_start_evaluate" in p.prompt
+
+    def test_skip_qa_changes_the_verify_line(self) -> None:
+        p = build_execute_subagent(
+            seed_content="goal: test",
+            session_id="sess-123",
+            skip_qa=True,
+        )
+        assert "QA is skipped" in p.prompt
+        assert "Run QA evaluation" not in p.prompt
+
+    def test_auto_evaluate_false_uses_legacy_manual_evaluate_line(self) -> None:
+        p = build_execute_subagent(
+            seed_content="goal: test",
+            session_id="sess-123",
+            auto_evaluate=False,
+        )
+        assert p.context["auto_evaluate"] is False
+        assert "Formal evaluation auto-chain is disabled" in p.prompt
+        assert "ooo evaluate <session_id>" in p.prompt
+        assert "ouroboros_start_evaluate" not in p.prompt
 
 
 # ---------------------------------------------------------------------------

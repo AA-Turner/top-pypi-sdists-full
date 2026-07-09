@@ -117,6 +117,7 @@ class LineItemUsageSummary(google.protobuf.message.Message):
     PAYG_BUDGET_EXHAUSTED_FIELD_NUMBER: builtins.int
     RESERVED_BUDGET_EXHAUSTED_FIELD_NUMBER: builtins.int
     TOTAL_QUANTITY_FIELD_NUMBER: builtins.int
+    RESERVED_SPEND_CENTS_FIELD_NUMBER: builtins.int
     line_item_uid: builtins.str
     """Refers to uid in sentry_protos.billing.v1.common.v1.LineItemDetails"""
     payg_spend_cents: builtins.int
@@ -137,6 +138,11 @@ class LineItemUsageSummary(google.protobuf.message.Message):
     both reserved and PAYG usage (in the line item's units). Unlike `quantity`,
     this is not reduced by the reserved amount.
     """
+    reserved_spend_cents: builtins.int
+    """Cents this line item drew from its shared reserved budget in the billing
+    period. Only set for members of a shared reserved-budget pool (e.g. Seer);
+    0 for line items without a reserved budget.
+    """
     def __init__(
         self,
         *,
@@ -146,8 +152,9 @@ class LineItemUsageSummary(google.protobuf.message.Message):
         payg_budget_exhausted: builtins.bool = ...,
         reserved_budget_exhausted: builtins.bool = ...,
         total_quantity: builtins.int = ...,
+        reserved_spend_cents: builtins.int = ...,
     ) -> None: ...
-    def ClearField(self, field_name: typing.Literal["line_item_uid", b"line_item_uid", "payg_budget_exhausted", b"payg_budget_exhausted", "payg_spend_cents", b"payg_spend_cents", "quantity", b"quantity", "reserved_budget_exhausted", b"reserved_budget_exhausted", "total_quantity", b"total_quantity"]) -> None: ...
+    def ClearField(self, field_name: typing.Literal["line_item_uid", b"line_item_uid", "payg_budget_exhausted", b"payg_budget_exhausted", "payg_spend_cents", b"payg_spend_cents", "quantity", b"quantity", "reserved_budget_exhausted", b"reserved_budget_exhausted", "reserved_spend_cents", b"reserved_spend_cents", "total_quantity", b"total_quantity"]) -> None: ...
 
 global___LineItemUsageSummary = LineItemUsageSummary
 

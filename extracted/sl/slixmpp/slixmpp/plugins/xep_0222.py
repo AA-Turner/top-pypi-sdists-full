@@ -32,13 +32,13 @@ class XEP_0222(BasePlugin):
 
         :param node: Node to set the configuration at.
         """
-        config = self.xmpp['xep_0004'].Form()
+        config = self.xmpp.plugin['xep_0004'].Form()
         config['type'] = 'submit'
 
         for field, value in self.profile.items():
             config.add_field(var=field, value=value)
 
-        return self.xmpp['xep_0060'].set_node_config(
+        return self.xmpp.plugin['xep_0060'].set_node_config(
             jid=None, node=node, config=config, **iqkwargs
         )
 
@@ -59,7 +59,7 @@ class XEP_0222(BasePlugin):
         """
         options = pubsubkwargs.pop('options', None)
         if not options:
-            options = self.xmpp['xep_0004'].stanza.Form()
+            options = self.xmpp.plugin['xep_0004'].stanza.Form()
             options['type'] = 'submit'
             options.add_field(
                 var='FORM_TYPE',
@@ -74,7 +74,7 @@ class XEP_0222(BasePlugin):
 
         pubsubkwargs['options'] = options
 
-        return self.xmpp['xep_0163'].publish(stanza, node, id=id, **pubsubkwargs)
+        return self.xmpp.plugin['xep_0163'].publish(stanza, node, id=id, **pubsubkwargs)
 
     def retrieve(self, node: str, id: str | None = None,
                  item_ids: list[str] | None = None, **iqkwargs) -> Future:
@@ -94,7 +94,7 @@ class XEP_0222(BasePlugin):
         if id is not None:
             item_ids.append(id)
 
-        return self.xmpp['xep_0060'].get_items(
+        return self.xmpp.plugin['xep_0060'].get_items(
             jid=None, node=node,
             item_ids=item_ids,
             **iqkwargs

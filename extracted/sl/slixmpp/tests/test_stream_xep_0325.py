@@ -11,6 +11,7 @@
 
 import datetime
 import time
+import unittest
 
 from slixmpp.test import *
 from slixmpp.plugins.xep_0325.device import Device
@@ -35,7 +36,7 @@ class TestStreamControl(SlixTest):
         myDevice = Device("Device22")
         myDevice._add_control_field(name="Temperature", typename="int", value="15")
 
-        self.xmpp['xep_0325'].register_node(nodeId="Device22", device=myDevice, commTimeout=0.5)
+        self.xmpp.plugin['xep_0325'].register_node(nodeId="Device22", device=myDevice, commTimeout=0.5)
 
         self.recv("""
             <iq type='set'
@@ -72,8 +73,8 @@ class TestStreamControl(SlixTest):
         myDevice2._add_control_field(name="Temperature", typename="int", value="19")
         myDevice2._add_control_field(name="Startup", typename="date", value="2013-01-09")
 
-        self.xmpp['xep_0325'].register_node(nodeId="Device22", device=myDevice, commTimeout=0.5)
-        self.xmpp['xep_0325'].register_node(nodeId="Device23", device=myDevice2, commTimeout=0.5)
+        self.xmpp.plugin['xep_0325'].register_node(nodeId="Device22", device=myDevice, commTimeout=0.5)
+        self.xmpp.plugin['xep_0325'].register_node(nodeId="Device23", device=myDevice2, commTimeout=0.5)
 
         self.recv("""
             <iq type='set'
@@ -135,7 +136,7 @@ class TestStreamControl(SlixTest):
         myDevice = Device("Device23")
         myDevice._add_control_field(name="Temperature", typename="int", value="15")
 
-        self.xmpp['xep_0325'].register_node(nodeId="Device23", device=myDevice, commTimeout=0.5)
+        self.xmpp.plugin['xep_0325'].register_node(nodeId="Device23", device=myDevice, commTimeout=0.5)
 
         self.recv("""
             <iq type='set'
@@ -171,7 +172,7 @@ class TestStreamControl(SlixTest):
         myDevice = Device("Device22")
         myDevice._add_control_field(name="Temperature", typename="int", value="15")
 
-        self.xmpp['xep_0325'].register_node(nodeId="Device22", device=myDevice, commTimeout=0.5)
+        self.xmpp.plugin['xep_0325'].register_node(nodeId="Device22", device=myDevice, commTimeout=0.5)
 
         self.recv("""
             <message
@@ -195,7 +196,7 @@ class TestStreamControl(SlixTest):
         myDevice = Device("Device22")
         myDevice._add_control_field(name="Temperature", typename="int", value="15")
 
-        self.xmpp['xep_0325'].register_node(nodeId="Device22", device=myDevice, commTimeout=0.5)
+        self.xmpp.plugin['xep_0325'].register_node(nodeId="Device22", device=myDevice, commTimeout=0.5)
 
         self.recv("""
             <message
@@ -226,7 +227,7 @@ class TestStreamControl(SlixTest):
         fields.append(("Temperature", "double", "20.5"))
         fields.append(("TemperatureAlarmSetting", "string", "High"))
 
-        self.xmpp['xep_0325'].set_request(from_jid="tester@localhost", to_jid="you@google.com", fields=fields, nodeIds=['Device33', 'Device22'], callback=my_callback)
+        self.xmpp.plugin['xep_0325'].set_request(from_jid="tester@localhost", to_jid="you@google.com", fields=fields, nodeIds=['Device33', 'Device22'], callback=my_callback)
 
         self.send("""
             <iq type='set'
@@ -268,7 +269,7 @@ class TestStreamControl(SlixTest):
         fields.append(("Temperature", "double", "20.5"))
         fields.append(("TemperatureAlarmSetting", "string", "High"))
 
-        self.xmpp['xep_0325'].set_request(from_jid="tester@localhost", to_jid="you@google.com", fields=fields, nodeIds=['Device33', 'Device22'], callback=my_callback)
+        self.xmpp.plugin['xep_0325'].set_request(from_jid="tester@localhost", to_jid="you@google.com", fields=fields, nodeIds=['Device33', 'Device22'], callback=my_callback)
 
         self.send("""
             <iq type='set'

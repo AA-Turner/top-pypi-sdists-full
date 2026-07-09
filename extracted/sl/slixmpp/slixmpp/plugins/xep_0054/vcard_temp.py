@@ -49,10 +49,10 @@ class XEP_0054(BasePlugin):
 
     def plugin_end(self):
         self.xmpp.remove_handler('VCardTemp')
-        self.xmpp['xep_0030'].del_feature(feature='vcard-temp')
+        self.xmpp.plugin['xep_0030'].del_feature(feature='vcard-temp')
 
     def session_bind(self, jid):
-        self.xmpp['xep_0030'].add_feature('vcard-temp')
+        self.xmpp.plugin['xep_0030'].add_feature('vcard-temp')
 
     def make_vcard(self) -> VCardTemp:
         """Return an empty vcard element."""

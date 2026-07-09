@@ -169,7 +169,7 @@ class TestP03CLIValidationRouting:
 
     def test_execute_request_with_validation_exists(self):
         """The validation wrapper must exist."""
-        from sage.cli_core import _execute_request_with_validation
+        from sage.core.execution_helpers import _execute_request_with_validation
 
         assert callable(_execute_request_with_validation), (
             "P0-3: _execute_request_with_validation must be callable"
@@ -177,25 +177,25 @@ class TestP03CLIValidationRouting:
 
     def test_validation_wrapper_calls_validators(self):
         """Validation wrapper must call detection functions."""
-        from sage.cli_core import _execute_request_with_validation
+        from sage.core.execution_helpers import _execute_request_with_validation
 
         # Mock everything needed
-        with patch("sage.main._call_llm") as mock_llm:
+        with patch("sage.core.execution_helpers._call_llm") as mock_llm:
             mock_llm.return_value = "Here is my response without reading any files."
 
-            with patch("sage.main._track_files_read") as mock_track_read:
+            with patch("sage.core.execution_helpers._track_files_read") as mock_track_read:
                 mock_track_read.return_value = []
 
-                with patch("sage.main._track_files_written") as mock_track_write:
+                with patch("sage.core.execution_helpers._track_files_written") as mock_track_write:
                     mock_track_write.return_value = []
 
-                    with patch("sage.main._detect_tool_description_vs_execution") as mock_detect:
+                    with patch("sage.cli_core._detect_tool_description_vs_execution") as mock_detect:
                         mock_detect.return_value = (False, [])
 
-                        with patch("sage.main._detect_repetitive_filler") as mock_filler:
+                        with patch("sage.cli_core._detect_repetitive_filler") as mock_filler:
                             mock_filler.return_value = (False, 0.0)
 
-                            with patch("sage.main._get_execution_context") as mock_ctx:
+                            with patch("sage.core.execution_helpers._get_execution_context") as mock_ctx:
                                 mock_ctx.return_value = MagicMock(search_executed=False)
 
                                 try:

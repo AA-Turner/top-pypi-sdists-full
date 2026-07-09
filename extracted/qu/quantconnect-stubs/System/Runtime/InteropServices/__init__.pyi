@@ -2997,6 +2997,21 @@ class NFloat(System.Numerics.IBinaryFloatingPointIeee754[System_Runtime_InteropS
 
     @staticmethod
     @overload
+    def try_parse(s: str, style: System.Globalization.NumberStyles, provider: System.IFormatProvider, result: typing.Optional[System.Runtime.InteropServices.NFloat], chars_consumed: typing.Optional[int]) -> typing.Tuple[bool, System.Runtime.InteropServices.NFloat, int]:
+        ...
+
+    @staticmethod
+    @overload
+    def try_parse(s: System.ReadOnlySpan[str], style: System.Globalization.NumberStyles, provider: System.IFormatProvider, result: typing.Optional[System.Runtime.InteropServices.NFloat], chars_consumed: typing.Optional[int]) -> typing.Tuple[bool, System.Runtime.InteropServices.NFloat, int]:
+        ...
+
+    @staticmethod
+    @overload
+    def try_parse(utf_8_text: System.ReadOnlySpan[int], style: System.Globalization.NumberStyles, provider: System.IFormatProvider, result: typing.Optional[System.Runtime.InteropServices.NFloat], bytes_consumed: typing.Optional[int]) -> typing.Tuple[bool, System.Runtime.InteropServices.NFloat, int]:
+        ...
+
+    @staticmethod
+    @overload
     def try_parse(s: str, provider: System.IFormatProvider, result: typing.Optional[System.Runtime.InteropServices.NFloat]) -> typing.Tuple[bool, System.Runtime.InteropServices.NFloat]:
         ...
 

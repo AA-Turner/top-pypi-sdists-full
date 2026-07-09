@@ -41,7 +41,7 @@ describe("collectDiagnostics", () => {
 
     expect(diag.binary).toBeDefined();
     // fonts section only present on Linux
-    if (os.platform() === "linux") expect(diag.fonts.windows_fonts).toBeTruthy();
+    if (os.platform() === "linux") expect(diag.fonts.windows).toBeDefined();
     else expect(diag.fonts).toBeUndefined();
     expect(typeof diag.geoip.db_present).toBe("boolean");
     expect(Object.keys(diag.modules).length).toBeGreaterThan(0);

@@ -25,11 +25,11 @@ class XEP_0108(BasePlugin):
     stanza = stanza
 
     def plugin_end(self):
-        self.xmpp['xep_0030'].del_feature(feature=UserActivity.namespace)
-        self.xmpp['xep_0163'].remove_interest(UserActivity.namespace)
+        self.xmpp.plugin['xep_0030'].del_feature(feature=UserActivity.namespace)
+        self.xmpp.plugin['xep_0163'].remove_interest(UserActivity.namespace)
 
     def session_bind(self, jid):
-        self.xmpp['xep_0163'].register_pep('user_activity', UserActivity)
+        self.xmpp.plugin['xep_0163'].register_pep('user_activity', UserActivity)
 
     def publish_activity(self, general: str, specific: str | None = None,
                          text: str | None = None, **pubsubkwargs) -> Future:
@@ -45,7 +45,7 @@ class XEP_0108(BasePlugin):
         activity = UserActivity()
         activity['value'] = (general, specific)
         activity['text'] = text
-        return self.xmpp['xep_0163'].publish(
+        return self.xmpp.plugin['xep_0163'].publish(
             activity,
             node=UserActivity.namespace,
             **pubsubkwargs
@@ -56,7 +56,7 @@ class XEP_0108(BasePlugin):
         Clear existing user activity information to stop notifications.
         """
         activity = UserActivity()
-        return self.xmpp['xep_0163'].publish(
+        return self.xmpp.plugin['xep_0163'].publish(
             activity,
             node=UserActivity.namespace,
             **pubsubkwargs

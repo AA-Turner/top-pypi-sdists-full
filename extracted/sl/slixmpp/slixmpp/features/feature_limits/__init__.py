@@ -1,4 +1,3 @@
-
 # Slixmpp: The Slick XMPP Library
 # Copyright (C) 2011  Nathanael C. Fritz
 # This file is part of Slixmpp.
@@ -9,3 +8,5 @@ from .limits import FeatureLimits
 
 
 register_plugin(FeatureLimits)
+
+__all__ = ['FeatureLimits']

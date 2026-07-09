@@ -13,7 +13,7 @@ class XEP_0492(BasePlugin):
     """
 
     name = "xep_0492"
-    description = "XEP-0492: Chat notification settings"
+    description = "XEP-0492: Chat Notification Settings"
     dependencies = {"xep_0402"}
     stanza = stanza
 

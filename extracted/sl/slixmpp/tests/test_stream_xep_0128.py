@@ -15,15 +15,15 @@ class TestStreamExtendedDisco(SlixTest):
                                    'xep_0004',
                                    'xep_0128'])
 
-        form = self.xmpp['xep_0004'].make_form(ftype='result')
+        form = self.xmpp.plugin['xep_0004'].make_form(ftype='result')
         form.addField(var='FORM_TYPE', ftype='hidden', value='testing')
 
         info_ns = 'http://jabber.org/protocol/disco#info'
-        self.xmpp['xep_0030'].add_identity(node='test',
+        self.xmpp.plugin['xep_0030'].add_identity(node='test',
                                            category='client',
                                            itype='bot')
-        self.xmpp['xep_0030'].add_feature(node='test', feature=info_ns)
-        self.xmpp['xep_0128'].set_extended_info(node='test', data=form)
+        self.xmpp.plugin['xep_0030'].add_feature(node='test', feature=info_ns)
+        self.xmpp.plugin['xep_0128'].set_extended_info(node='test', data=form)
 
         self.recv("""
           <iq type="get" id="test" to="tester@localhost">
@@ -54,18 +54,18 @@ class TestStreamExtendedDisco(SlixTest):
                                    'xep_0004',
                                    'xep_0128'])
 
-        form1 = self.xmpp['xep_0004'].make_form(ftype='result')
+        form1 = self.xmpp.plugin['xep_0004'].make_form(ftype='result')
         form1.addField(var='FORM_TYPE', ftype='hidden', value='testing')
 
-        form2 = self.xmpp['xep_0004'].make_form(ftype='result')
+        form2 = self.xmpp.plugin['xep_0004'].make_form(ftype='result')
         form2.addField(var='FORM_TYPE', ftype='hidden', value='testing_2')
 
         info_ns = 'http://jabber.org/protocol/disco#info'
-        self.xmpp['xep_0030'].add_identity(node='test',
+        self.xmpp.plugin['xep_0030'].add_identity(node='test',
                                            category='client',
                                            itype='bot')
-        self.xmpp['xep_0030'].add_feature(node='test', feature=info_ns)
-        self.xmpp['xep_0128'].set_extended_info(node='test', data=[form1, form2])
+        self.xmpp.plugin['xep_0030'].add_feature(node='test', feature=info_ns)
+        self.xmpp.plugin['xep_0128'].set_extended_info(node='test', data=[form1, form2])
 
         self.recv("""
           <iq type="get" id="test" to="tester@localhost">

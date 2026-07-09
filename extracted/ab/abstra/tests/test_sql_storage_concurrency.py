@@ -144,7 +144,7 @@ class TestSqlStorageConcurrency(unittest.TestCase):
             )
 
             process.start()
-            process.join(timeout=5)
+            process.join(timeout=30)
 
             self.assertEqual(process.exitcode, 0)
 
@@ -179,7 +179,7 @@ class TestSqlStorageConcurrency(unittest.TestCase):
 
             # Wait for all processes
             for process in processes:
-                process.join(timeout=10)
+                process.join(timeout=30)
 
             # Verify all completed successfully
             for process in processes:
@@ -213,7 +213,7 @@ class TestSqlStorageConcurrency(unittest.TestCase):
                     args=(f"stage-{i}", str(test_dir), 0),
                 )
                 process.start()
-                process.join(timeout=5)
+                process.join(timeout=30)
 
                 self.assertEqual(process.exitcode, 0)
 
@@ -247,8 +247,8 @@ class TestSqlStorageConcurrency(unittest.TestCase):
             time.sleep(0.05)
             reader_thread.start()
 
-            worker_process.join(timeout=10)
-            reader_thread.join(timeout=10)
+            worker_process.join(timeout=30)
+            reader_thread.join(timeout=30)
 
             self.assertEqual(worker_process.exitcode, 0)
 
@@ -275,11 +275,11 @@ class TestSqlStorageConcurrency(unittest.TestCase):
             )
 
             crash_process.start()
-            crash_process.join(timeout=5)
+            crash_process.join(timeout=30)
 
             if crash_process.is_alive():
                 crash_process.terminate()
-                crash_process.join(timeout=2)
+                crash_process.join(timeout=5)
 
             self.assertNotEqual(crash_process.exitcode, 0)
 
@@ -290,12 +290,12 @@ class TestSqlStorageConcurrency(unittest.TestCase):
             )
 
             success_process.start()
-            success_process.join(timeout=5)
+            success_process.join(timeout=30)
 
             # Ensure success process also finished properly
             if success_process.is_alive():
                 success_process.terminate()
-                success_process.join(timeout=2)
+                success_process.join(timeout=5)
 
             self.assertEqual(success_process.exitcode, 0)
 

@@ -1,18 +1,21 @@
-
 # Slixmpp: The Slick XMPP Library
 # Copyright (C) 2020 Mathieu Pasquet
 # This file is part of Slixmpp.
 # See the file LICENSE for copying permission.
-from typing import Iterable
+from collections.abc import Iterable
+from typing import ClassVar
+
 from slixmpp.xmlstream import ElementBase
+
 try:
     from emoji import is_emoji
 except ImportError:
-    def is_emoji(*args, **kwargs) -> bool:
+
+    def is_emoji(string: str) -> bool:
         return True
 
 
-NS = 'urn:xmpp:reactions:0'
+NS = "urn:xmpp:reactions:0"
 
 
 class Reactions(ElementBase):
@@ -26,25 +29,24 @@ class Reactions(ElementBase):
           <reaction>🐢</reaction>
         </reactions>
     """
-    name = 'reactions'
-    plugin_attrib = 'reactions'
-    namespace = NS
-    interfaces = {'id', 'values'}
 
-    def get_values(self, *, all_chars=False) -> set[str]:
-        """"Get all reactions as str"""
+    name = "reactions"
+    plugin_attrib = "reactions"
+    namespace = NS
+    interfaces: ClassVar[set[str]] = {"id", "values"}
+
+    def get_values(self, *, all_chars: bool = False) -> set[str]:
+        """ "Get all reactions as str"""
         reactions = set()
         for reaction in self:
-            value = reaction['value']
-            if all_chars:
-                reactions.add(reaction['value'])
-            elif is_emoji(value):
-                reactions.add(reaction['value'])
+            value = reaction["value"]
+            if all_chars or is_emoji(value):
+                reactions.add(reaction["value"])
         return reactions
 
-    def set_values(self, values: Iterable[str], *, all_chars=False):
-        """"Set all reactions as str"""
-        for element in self.xml.findall('reaction'):
+    def set_values(self, values: Iterable[str], *, all_chars: bool = False) -> None:
+        """ "Set all reactions as str"""
+        for element in self.xml.findall("reaction"):
             self.xml.remove(element)
         for reaction_txt in values:
             reaction = Reaction()
@@ -60,14 +62,15 @@ class Reaction(ElementBase):
 
         <reaction>💜</reaction>
     """
-    name = 'reaction'
-    namespace = NS
-    interfaces = {'value'}
 
-    def get_value(self) -> str:
+    name = "reaction"
+    namespace = NS
+    interfaces: ClassVar[set[str]] = {"value"}
+
+    def get_value(self) -> str | None:
         return self.xml.text
 
-    def set_value(self, value: str, *, all_chars=False):
+    def set_value(self, value: str, *, all_chars: bool = False) -> None:
         if not all_chars and not is_emoji(value):
-            raise ValueError("%s is not a valid emoji" % value)
+            raise ValueError(f"{value} is not a valid emoji")
         self.xml.text = value

@@ -265,7 +265,9 @@ class OrganizationsPolicyObjects(object):
             ("fqdn", "fqdn"),
             ("mask", "mask"),
             ("ip", "ip"),
-            ("groupIds", "groupIds"), ("policyObjectId", "policyObjectId"),
+            ("groupIds", "groupIds"),
+            ("organizationId", "organizationId"),
+            ("policyObjectId", "policyObjectId"),
         ]
         # Method 1. Params present in request (Ansible) obj are the same as the current (DNAC) params
         # If any does not have eq params, it requires update

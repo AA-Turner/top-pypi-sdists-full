@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: dcc-mcp-core
-Version: 0.19.15
+Version: 0.19.20
 Classifier: Development Status :: 4 - Beta
 Classifier: Intended Audience :: Developers
 Classifier: License :: OSI Approved :: MIT License
@@ -16,7 +16,7 @@ Classifier: Programming Language :: Python :: 3.14
 Classifier: Programming Language :: Rust
 Classifier: Topic :: Software Development :: Libraries
 Classifier: Topic :: Multimedia :: Graphics :: 3D Modeling
-Requires-Dist: dcc-mcp-server>=0.18.17,<1.0.0 ; python_full_version >= '3.8'
+Requires-Dist: dcc-mcp-server>=0.18.17,<1.0.0
 Requires-Dist: dcc-mcp-core[test] ; extra == 'dev'
 Requires-Dist: ruff>=0.8.0 ; extra == 'dev'
 Requires-Dist: mypy>=1.0 ; extra == 'dev'

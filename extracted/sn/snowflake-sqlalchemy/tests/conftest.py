@@ -5,7 +5,6 @@ from __future__ import annotations
 
 import logging.handlers
 import os
-import sys
 import time
 import uuid
 from logging import getLogger
@@ -13,10 +12,13 @@ from typing import Literal
 
 import pytest
 from sqlalchemy import create_engine
+from sqlalchemy.engine import make_url
+from sqlalchemy.exc import ProgrammingError as SAProgrammingError
 from sqlalchemy.pool import NullPool
 
 import snowflake.connector
 import snowflake.connector.connection
+import snowflake.connector.errors
 from snowflake.connector.compat import IS_WINDOWS
 from snowflake.sqlalchemy import URL, dialect
 from snowflake.sqlalchemy._constants import (
@@ -26,8 +28,12 @@ from snowflake.sqlalchemy._constants import (
     PARAM_INTERNAL_APPLICATION_VERSION,
     SNOWFLAKE_SQLALCHEMY_VERSION,
 )
+from snowflake.sqlalchemy.snowdialect import _URL_QUERY_BLOCKED_KWARGS
 
-from .parameters import CONNECTION_PARAMETERS
+try:
+    from .parameters import CONNECTION_PARAMETERS
+except ImportError:
+    CONNECTION_PARAMETERS = None
 
 CLOUD_PROVIDERS = {"aws", "azure", "gcp"}
 EXTERNAL_SKIP_TAGS = {"internal"}
@@ -90,6 +96,24 @@ DEFAULT_PARAMETERS = {
 }
 
 
+def _connection_parameters_from_env() -> dict:
+    _env_map = {
+        "SNOWFLAKE_ACCOUNT": "account",
+        "SNOWFLAKE_USER": "user",
+        "SNOWFLAKE_PASSWORD": "password",
+        "SNOWFLAKE_DATABASE": "database",
+        "SNOWFLAKE_SCHEMA": "schema",
+        "SNOWFLAKE_HOST": "host",
+        "SNOWFLAKE_PORT": "port",
+        "SNOWFLAKE_PROTOCOL": "protocol",
+        "SNOWFLAKE_WAREHOUSE": "warehouse",
+        "SNOWFLAKE_ROLE": "role",
+    }
+    return {
+        param: os.environ[env] for env, param in _env_map.items() if os.environ.get(env)
+    }
+
+
 @pytest.fixture(scope="session")
 def db_parameters():
     yield get_db_parameters()
@@ -141,6 +165,35 @@ def base_location(external_stage, engine_testaccount):
         connection.exec_driver_sql(remove_base_location)
 
 
+# Snowflake error numbers for features not available on all account tiers.
+_FEATURE_UNAVAILABLE_ERRNOS = {
+    391404,  # Hybrid tables not available to trial accounts
+}
+
+
+def _feature_unavailable_reason(exc: BaseException) -> str | None:
+    """Return a skip reason if exc signals a Snowflake feature not available, else None."""
+    if isinstance(exc, SAProgrammingError) and exc.orig is not None:
+        exc = exc.orig
+    if (
+        isinstance(exc, snowflake.connector.errors.ProgrammingError)
+        and exc.errno in _FEATURE_UNAVAILABLE_ERRNOS
+    ):
+        return f"feature not available on this account: {exc}"
+    return None
+
+
+@pytest.hookimpl(hookwrapper=True)
+def pytest_runtest_makereport(item, call):
+    outcome = yield
+    report = outcome.get_result()
+    if report.failed and call.excinfo is not None:
+        reason = _feature_unavailable_reason(call.excinfo.value)
+        if reason:
+            report.outcome = "skipped"
+            report.longrepr = (item.location[0], item.location[1], f"Skipped: {reason}")
+
+
 def get_db_parameters() -> dict:
     """
     Sets the db connection parameters
@@ -154,11 +207,12 @@ def get_db_parameters() -> dict:
         logger.warning("time.tzset is unavailable on this platform")
 
     ret.update(DEFAULT_PARAMETERS)
-    ret.update(CONNECTION_PARAMETERS)
+    if CONNECTION_PARAMETERS is not None:
+        ret.update(CONNECTION_PARAMETERS)
+    else:
+        ret.update(_connection_parameters_from_env())
 
-    if "account" in ret and ret["account"] == DEFAULT_PARAMETERS["account"]:
-        help()
-        sys.exit(2)
+    assert ret["account"] != DEFAULT_PARAMETERS["account"], "account not configured"
 
     if "host" in ret and ret["host"] == DEFAULT_PARAMETERS["host"]:
         ret["host"] = ret["account"] + ".snowflakecomputing.com"
@@ -189,13 +243,33 @@ def get_db_parameters() -> dict:
     return ret
 
 
-def url_factory(**kwargs) -> URL:
+def _without_blocked_query_params(url):
+    """Return *url* with connector-only parameters removed from the query string.
+
+    The dialect accepts these parameters (e.g. ``protocol``) only via
+    ``connect_args=`` in ``create_engine``, not via the URL query string.  The
+    test connection parameters historically carry them in the URL; this helper
+    keeps the integration tests on the default, strict code path by dropping
+    them from the query.  Values such as ``protocol=https`` simply fall back to
+    the connector defaults, and ``host``/``port`` are unaffected because they
+    live in the URL authority rather than the query.
+
+    Tests that specifically exercise the legacy URL behaviour enable
+    ``SNOWFLAKE_SQLALCHEMY_LEGACY_URL_PARAMS`` themselves and do not use this
+    helper.
+    """
+    url = make_url(url)
+    query = {k: v for k, v in url.query.items() if k not in _URL_QUERY_BLOCKED_KWARGS}
+    return url.set(query=query)
+
+
+def url_factory(**kwargs):
     url_params = get_db_parameters()
     url_params.update(kwargs)
-    return URL(**url_params)
+    return _without_blocked_query_params(URL(**url_params))
 
 
-def get_engine(url: URL, **engine_kwargs):
+def get_engine(url, **engine_kwargs):
     engine_params = {
         "poolclass": NullPool,
         "future": True,
@@ -208,7 +282,7 @@ def get_engine(url: URL, **engine_kwargs):
     connect_args["insecure_mode"] = True
     engine_params["connect_args"] = connect_args
 
-    engine = create_engine(url, **engine_params)
+    engine = create_engine(_without_blocked_query_params(url), **engine_params)
     return engine
 
 

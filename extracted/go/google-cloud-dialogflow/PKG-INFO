@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: google-cloud-dialogflow
-Version: 2.49.0
+Version: 2.50.0
 Summary: Google Cloud Dialogflow API client library
 Home-page: https://github.com/googleapis/google-cloud-python/tree/main/packages/google-cloud-dialogflow
 Author: Google LLC

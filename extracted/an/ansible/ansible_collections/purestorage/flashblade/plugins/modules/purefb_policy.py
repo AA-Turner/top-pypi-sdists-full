@@ -27,7 +27,7 @@ description:
   the first rule will be recovered as long replacement rule is added before
   the snapshot eradication period is exceeded (usuually 24 hours).
 author:
-- Everpure Ansible Team (@sdodsley) <pure-ansible-team@purestorage.com>
+- Pure Storage Ansible Team (@sdodsley) <pure-ansible-team@purestorage.com>
 options:
   state:
     description:
@@ -382,7 +382,7 @@ options:
       - If set to I(locked) then values of the policy attributes are not allowed to change.
       - If set to I(locked) then values of the policy attributes can be changed.
       - Changing from I(unlocked) to I(locked) is allowed, but to change from I(locked) to I(unlocked)
-        will require support from Everpure Technical Services.
+        will require support from Pure Storage Technical Services.
     type: str
     choices: [ locked, unlocked ]
     version_added: '1.19.0'
@@ -598,7 +598,7 @@ try:
         NfsExportPolicy,
         NfsExportPolicyRule,
         Policy,
-        SnapshotPolicyPatch,
+        PolicyPatch,
         PolicyRule,
         SmbSharePolicyRule,
         SmbSharePolicy,
@@ -630,11 +630,7 @@ from ansible_collections.purestorage.flashblade.plugins.module_utils.purefb impo
     purefb_argument_spec,
 )
 from ansible_collections.purestorage.flashblade.plugins.module_utils.common import (
-    _findstr,
-    get_error_message,
-)
-from ansible_collections.purestorage.flashblade.plugins.module_utils.time_utils import (
-    time_to_milliseconds,
+    convert_time_to_millisecs,
 )
 
 NFS_POLICY_API_VERSION = "2.3"
@@ -644,6 +640,24 @@ SMB_ENCRYPT_API_VERSION = "2.11"
 NET_POLICY_API_VERSION = "2.13"
 WORM_POLICY_API_VERSION = "2.15"
 CONTEXT_API_VERSION = "2.17"
+
+
+def _convert_to_millisecs(hour_str: str) -> int:
+    """Convert a 12-hour formatted time string (e.g., '02AM', '12PM') to milliseconds since midnight."""
+    time_part = int(hour_str[:-2])
+    period = hour_str[-2:]
+
+    if period == "AM":
+        return 0 if time_part == 12 else time_part * 3600000
+    else:  # PM
+        return 12 * 3600000 if time_part == 12 else (time_part + 12) * 3600000
+
+
+def _findstr(text, match):
+    for line in text.splitlines():
+        if match in line:
+            found = line
+    return found
 
 
 def _get_local_tz(module, timezone="UTC"):
@@ -758,7 +772,7 @@ def delete_smb_share_policy(module, blade):
                         "Error: {2}".format(
                             module.params["principal"],
                             module.params["name"],
-                            get_error_message(res),
+                            res.errors[0].message,
                         )
                     )
     if policy_delete:
@@ -774,7 +788,7 @@ def delete_smb_share_policy(module, blade):
             if res.status_code != 200:
                 module.fail_json(
                     msg="Failed to delete SMB share policy {0}. Error: {1}".format(
-                        module.params["name"], get_error_message(res)
+                        module.params["name"], res.errors[0].message
                     )
                 )
     module.exit_json(changed=changed)
@@ -802,7 +816,7 @@ def rename_smb_share_policy(module, blade):
                 msg="Failed to rename SMB share policy {0} to {1}. Error: {2}".format(
                     module.params["name"],
                     module.params["rename"],
-                    get_error_message(res),
+                    res.errors[0].message,
                 )
             )
     module.exit_json(changed=changed)
@@ -822,7 +836,7 @@ def create_smb_share_policy(module, blade):
         if res.status_code != 200:
             module.fail_json(
                 msg="Failed to create SMB share policy {0}.Error: {1}".format(
-                    module.params["name"], get_error_message(res)
+                    module.params["name"], res.errors[0].message
                 )
             )
         if not module.params["enabled"]:
@@ -846,7 +860,7 @@ def create_smb_share_policy(module, blade):
                     blade.delete_smb_share_policies(names=[module.params["name"]])
                 module.fail_json(
                     msg="Failed to create SMB share policy {0}.Error: {1}".format(
-                        module.params["name"], get_error_message(res)
+                        module.params["name"], res.errors[0].message
                     )
                 )
         if not module.params["principal"]:
@@ -873,7 +887,7 @@ def create_smb_share_policy(module, blade):
                 module.fail_json(
                     msg="Failed to create rule for policy {0}. Error: {1}".format(
                         module.params["name"],
-                        get_error_message(res),
+                        res.errors[0].message,
                     )
                 )
     module.exit_json(changed=changed)
@@ -896,14 +910,7 @@ def update_smb_share_policy(module, blade):
                 policy_names=[module.params["name"]],
                 filter="principal='" + module.params["principal"] + "'",
             )
-        if current_policy_rule.status_code != 200:
-            module.fail_json(
-                msg="Failed to get SMB export policy rules for {0}. Error: {1}".format(
-                    module.params["name"],
-                    current_policy_rule.errors[0].message,
-                )
-            )
-        elif (
+        if (
             current_policy_rule.status_code == 200
             and current_policy_rule.total_item_count == 0
         ):
@@ -950,7 +957,7 @@ def update_smb_share_policy(module, blade):
                         "in policy {1}. Error: {2}".format(
                             module.params["principal"],
                             module.params["name"],
-                            get_error_message(res),
+                            res.errors[0].message,
                         )
                     )
         else:
@@ -1023,7 +1030,7 @@ def update_smb_share_policy(module, blade):
                                 module.params["name"]
                                 + "."
                                 + str(old_policy_rule.index),
-                                get_error_message(res),
+                                res.errors[0].message,
                             )
                         )
             if (
@@ -1058,7 +1065,7 @@ def update_smb_share_policy(module, blade):
                                 module.params["name"]
                                 + "."
                                 + str(old_policy_rule.index),
-                                get_error_message(res),
+                                res.errors[0].message,
                             )
                         )
     if CONTEXT_API_VERSION in versions:
@@ -1087,7 +1094,7 @@ def update_smb_share_policy(module, blade):
             if res.status_code != 200:
                 module.fail_json(
                     msg="Failed to change state of SMB share policy {0}.Error: {1}".format(
-                        module.params["name"], get_error_message(res)
+                        module.params["name"], res.errors[0].message
                     )
                 )
     module.exit_json(changed=changed)
@@ -1138,23 +1145,23 @@ def delete_smb_client_policy(module, blade):
                                 "Error: {2}".format(
                                     module.params["client"],
                                     module.params["name"],
-                                    get_error_message(res),
+                                    res.errors[0].message,
                                 )
                             )
             else:
                 rules = list(res.items)
-                for cli in rules:
-                    if cli.client == "*":
+                for cli in range(len(rules)):
+                    if rules[cli].client == "*":
                         changed = True
                         if not module.check_mode:
                             if CONTEXT_API_VERSION in versions:
                                 res = blade.delete_smb_client_policies_rules(
-                                    names=[cli.name],
+                                    names=[rules[cli].name],
                                     context_names=[module.params["context"]],
                                 )
                             else:
                                 res = blade.delete_smb_client_policies_rules(
-                                    names=[cli.name]
+                                    names=[rules[cli].name]
                                 )
                             if res.status_code != 200:
                                 module.fail_json(
@@ -1162,7 +1169,7 @@ def delete_smb_client_policy(module, blade):
                                     "Error: {2}".format(
                                         module.params["client"],
                                         module.params["name"],
-                                        get_error_message(res),
+                                        res.errors[0].message,
                                     )
                                 )
     if policy_delete:
@@ -1178,7 +1185,7 @@ def delete_smb_client_policy(module, blade):
             if res.status_code != 200:
                 module.fail_json(
                     msg="Failed to delete SMB client policy {0}. Error: {1}".format(
-                        module.params["name"], get_error_message(res)
+                        module.params["name"], res.errors[0].message
                     )
                 )
     module.exit_json(changed=changed)
@@ -1206,7 +1213,7 @@ def rename_smb_client_policy(module, blade):
                 msg="Failed to rename SMB client policy {0} to {1}. Error: {2}".format(
                     module.params["name"],
                     module.params["rename"],
-                    get_error_message(res),
+                    res.errors[0].message,
                 )
             )
     module.exit_json(changed=changed)
@@ -1226,7 +1233,7 @@ def create_smb_client_policy(module, blade):
         if res.status_code != 200:
             module.fail_json(
                 msg="Failed to create SMB client policy {0}.Error: {1}".format(
-                    module.params["name"], get_error_message(res)
+                    module.params["name"], res.errors[0].message
                 )
             )
         if not module.params["enabled"]:
@@ -1250,7 +1257,7 @@ def create_smb_client_policy(module, blade):
                     blade.delete_smb_client_policies(names=[module.params["name"]])
                 module.fail_json(
                     msg="Failed to create SMB client policy {0}.Error: {1}".format(
-                        module.params["name"], get_error_message(res)
+                        module.params["name"], res.errors[0].message
                     )
                 )
         if not module.params["client"]:
@@ -1284,7 +1291,7 @@ def create_smb_client_policy(module, blade):
                 module.fail_json(
                     msg="Failed to rule for policy {0}. Error: {1}".format(
                         module.params["name"],
-                        get_error_message(res),
+                        res.errors[0].message,
                     )
                 )
     module.exit_json(changed=changed)
@@ -1304,7 +1311,7 @@ def create_network_access_policy(module, blade):
         if res.status_code != 200:
             module.fail_json(
                 msg="Failed to create network access policy {0}.Error: {1}".format(
-                    module.params["name"], get_error_message(res)
+                    module.params["name"], res.errors[0].message
                 )
             )
         if not module.params["enabled"]:
@@ -1328,7 +1335,7 @@ def create_network_access_policy(module, blade):
                     blade.delete_network_access_policies(names=[module.params["name"]])
                 module.fail_json(
                     msg="Failed to create network access policy {0}.Error: {1}".format(
-                        module.params["name"], get_error_message(res)
+                        module.params["name"], res.errors[0].message
                     )
                 )
         if not module.params["client"]:
@@ -1354,7 +1361,7 @@ def create_network_access_policy(module, blade):
                 module.fail_json(
                     msg="Failed to rule for policy {0}. Error: {1}".format(
                         module.params["name"],
-                        get_error_message(res),
+                        res.errors[0].message,
                     )
                 )
     module.exit_json(changed=changed)
@@ -1365,9 +1372,11 @@ def create_worm_data_policy(module, blade):
     changed = True
     versions = list(blade.get_versions().items)
     if not module.check_mode:
-        min_retention = time_to_milliseconds(module.params["min_retention"])
-        max_retention = time_to_milliseconds(module.params["max_retention"])
-        default_retention = time_to_milliseconds(module.params["default_retention"])
+        min_retention = convert_time_to_millisecs(module.params["min_retention"])
+        max_retention = convert_time_to_millisecs(module.params["max_retention"])
+        default_retention = convert_time_to_millisecs(
+            module.params["default_retention"]
+        )
         if CONTEXT_API_VERSION in versions:
             res = blade.post_worm_data_policies(
                 policy=WormDataPolicy(
@@ -1403,7 +1412,7 @@ def create_worm_data_policy(module, blade):
                 blade.delete_worm_data_policies(names=[module.params["name"]])
             module.fail_json(
                 msg="Failed to create WORM data policy {0}.Error: {1}".format(
-                    module.params["name"], get_error_message(res)
+                    module.params["name"], res.errors[0].message
                 )
             )
     module.exit_json(changed=changed)
@@ -1480,7 +1489,7 @@ def update_smb_client_policy(module, blade):
                         "in policy {1}. Error: {2}".format(
                             module.params["client"],
                             module.params["name"],
-                            get_error_message(res),
+                            res.errors[0].message,
                         )
                     )
         else:
@@ -1488,8 +1497,8 @@ def update_smb_client_policy(module, blade):
             cli_count = None
             done = False
             if module.params["client"] == "*":
-                for cli in rules:
-                    if cli.client == "*":
+                for cli in range(len(rules)):
+                    if rules[cli].client == "*":
                         cli_count = cli
                 if not cli_count:
                     if SMB_ENCRYPT_API_VERSION in versions:
@@ -1548,7 +1557,7 @@ def update_smb_client_policy(module, blade):
                                 "client {0} in policy {1}. Error: {2}".format(
                                     module.params["client"],
                                     module.params["name"],
-                                    get_error_message(res),
+                                    res.errors[0].message,
                                 )
                             )
             if not done:
@@ -1627,7 +1636,7 @@ def update_smb_client_policy(module, blade):
                                     module.params["name"]
                                     + "."
                                     + str(old_policy_rule.index),
-                                    get_error_message(res),
+                                    res.errors[0].message,
                                 )
                             )
                 if (
@@ -1668,7 +1677,7 @@ def update_smb_client_policy(module, blade):
                                     module.params["name"]
                                     + "."
                                     + str(old_policy_rule.index),
-                                    get_error_message(res),
+                                    res.errors[0].message,
                                 )
                             )
     if CONTEXT_API_VERSION in versions:
@@ -1698,7 +1707,7 @@ def update_smb_client_policy(module, blade):
             if res.status_code != 200:
                 module.fail_json(
                     msg="Failed to change state of SMB client policy {0}.Error: {1}".format(
-                        module.params["name"], get_error_message(res)
+                        module.params["name"], res.errors[0].message
                     )
                 )
     module.exit_json(changed=changed)
@@ -1749,23 +1758,23 @@ def delete_nfs_policy(module, blade):
                                 "Error: {2}".format(
                                     module.params["client"],
                                     module.params["name"],
-                                    get_error_message(res),
+                                    res.errors[0].message,
                                 )
                             )
             else:
                 rules = list(res.items)
-                for cli in rules:
-                    if cli.client == "*":
+                for cli in range(len(rules)):
+                    if rules[cli].client == "*":
                         changed = True
                         if not module.check_mode:
                             if CONTEXT_API_VERSION in versions:
                                 res = blade.delete_nfs_export_policies_rules(
-                                    names=[cli.name],
+                                    names=[rules[cli].name],
                                     context_names=[module.params["context"]],
                                 )
                             else:
                                 res = blade.delete_nfs_export_policies_rules(
-                                    names=[cli.name]
+                                    names=[rules[cli].name]
                                 )
                             if res.status_code != 200:
                                 module.fail_json(
@@ -1773,7 +1782,7 @@ def delete_nfs_policy(module, blade):
                                     "Error: {2}".format(
                                         module.params["client"],
                                         module.params["name"],
-                                        get_error_message(res),
+                                        res.errors[0].message,
                                     )
                                 )
     if policy_delete:
@@ -1789,7 +1798,7 @@ def delete_nfs_policy(module, blade):
             if res.status_code != 200:
                 module.fail_json(
                     msg="Failed to delete export policy {0}. Error: {1}".format(
-                        module.params["name"], get_error_message(res)
+                        module.params["name"], res.errors[0].message
                     )
                 )
     module.exit_json(changed=changed)
@@ -1812,14 +1821,7 @@ def update_network_access_policy(module, blade):
                 policy_names=[module.params["name"]],
                 filter="client='" + module.params["client"] + "'",
             )
-        if current_policy_rule.status_code != 200:
-            module.fail_json(
-                msg="Failed to get network access policy rules for {0}. Error: {1}".format(
-                    module.params["name"],
-                    current_policy_rule.errors[0].message,
-                )
-            )
-        elif (
+        if (
             current_policy_rule.status_code == 200
             and current_policy_rule.total_item_count == 0
         ):
@@ -1865,7 +1867,7 @@ def update_network_access_policy(module, blade):
                         "in policy {1}. Error: {2}".format(
                             module.params["client"],
                             module.params["name"],
-                            get_error_message(res),
+                            res.errors[0].message,
                         )
                     )
         else:
@@ -1873,8 +1875,8 @@ def update_network_access_policy(module, blade):
             cli_count = None
             done = False
             if module.params["client"] == "*":
-                for cli in rules:
-                    if cli.client == "*":
+                for cli in range(len(rules)):
+                    if rules[cli].client == "*":
                         cli_count = cli
                 if not cli_count:
                     rule = NetworkAccessPolicyRule(
@@ -1925,7 +1927,7 @@ def update_network_access_policy(module, blade):
                                 "client {0} in policy {1}. Error: {2}".format(
                                     module.params["client"],
                                     module.params["name"],
-                                    get_error_message(res),
+                                    res.errors[0].message,
                                 )
                             )
             if not done:
@@ -1985,7 +1987,7 @@ def update_network_access_policy(module, blade):
                                     module.params["name"]
                                     + "."
                                     + str(old_policy_rule.index),
-                                    get_error_message(res),
+                                    res.errors[0].message,
                                 )
                             )
                 if (
@@ -2026,7 +2028,7 @@ def update_network_access_policy(module, blade):
                                     module.params["name"]
                                     + "."
                                     + str(old_policy_rule.index),
-                                    get_error_message(res),
+                                    res.errors[0].message,
                                 )
                             )
     if CONTEXT_API_VERSION in versions:
@@ -2056,7 +2058,7 @@ def update_network_access_policy(module, blade):
             if res.status_code != 200:
                 module.fail_json(
                     msg="Failed to change state of network access policy {0}.Error: {1}".format(
-                        module.params["name"], get_error_message(res)
+                        module.params["name"], res.errors[0].message
                     )
                 )
     module.exit_json(changed=changed)
@@ -2107,23 +2109,23 @@ def delete_network_access_policy(module, blade):
                                 "Error: {2}".format(
                                     module.params["client"],
                                     module.params["name"],
-                                    get_error_message(res),
+                                    res.errors[0].message,
                                 )
                             )
             else:
                 rules = list(res.items)
-                for cli in rules:
-                    if cli.client == "*":
+                for cli in range(len(rules)):
+                    if rules[cli].client == "*":
                         changed = True
                         if not module.check_mode:
                             if CONTEXT_API_VERSION in versions:
                                 res = blade.delete_network_access_policies_rules(
-                                    names=[cli.name],
+                                    names=[rules[cli].name],
                                     context_names=[module.params["context"]],
                                 )
                             else:
                                 res = blade.delete_network_access_policies_rules(
-                                    names=[cli.name]
+                                    names=[rules[cli].name]
                                 )
                             if res.status_code != 200:
                                 module.fail_json(
@@ -2131,7 +2133,7 @@ def delete_network_access_policy(module, blade):
                                     "Error: {2}".format(
                                         module.params["client"],
                                         module.params["name"],
-                                        get_error_message(res),
+                                        res.errors[0].message,
                                     )
                                 )
     if policy_delete:
@@ -2149,7 +2151,7 @@ def delete_network_access_policy(module, blade):
             if res.status_code != 200:
                 module.fail_json(
                     msg="Failed to delete network access policy {0}. Error: {1}".format(
-                        module.params["name"], get_error_message(res)
+                        module.params["name"], res.errors[0].message
                     )
                 )
     module.exit_json(changed=changed)
@@ -2170,7 +2172,7 @@ def delete_worm_data_policy(module, blade):
         if res.status_code != 200:
             module.fail_json(
                 msg="Failed to delete WORM data policy {0}. Error: {1}".format(
-                    module.params["name"], get_error_message(res)
+                    module.params["name"], res.errors[0].message
                 )
             )
     module.exit_json(changed=changed)
@@ -2206,7 +2208,7 @@ def rename_network_access_policy(module, blade):
                 msg="Failed to rename network access policy {0} to {1}. Error: {2}".format(
                     module.params["name"],
                     module.params["rename"],
-                    get_error_message(res),
+                    res.errors[0].message,
                 )
             )
     module.exit_json(changed=changed)
@@ -2234,7 +2236,7 @@ def rename_nfs_policy(module, blade):
                 msg="Failed to rename NFS export policy {0} to {1}. Error: {2}".format(
                     module.params["name"],
                     module.params["rename"],
-                    get_error_message(res),
+                    res.errors[0].message,
                 )
             )
     module.exit_json(changed=changed)
@@ -2278,26 +2280,26 @@ def update_worm_data_policy(module, blade):
         new_policy["retention_lock"] = module.params["retention_lock"]
     if (
         module.params["default_retention"]
-        and time_to_milliseconds(module.params["default_retention"])
+        and convert_time_to_millisecs(module.params["default_retention"])
         != current_policy["default_retention"]
     ):
-        new_policy["default_retention"] = time_to_milliseconds(
+        new_policy["default_retention"] = convert_time_to_millisecs(
             module.params["default_retention"]
         )
     if (
         module.params["max_retention"]
-        and time_to_milliseconds(module.params["max_retention"])
+        and convert_time_to_millisecs(module.params["max_retention"])
         != current_policy["max_retention"]
     ):
-        new_policy["max_retention"] = time_to_milliseconds(
+        new_policy["max_retention"] = convert_time_to_millisecs(
             module.params["max_retention"]
         )
     if (
         module.params["min_retention"]
-        and time_to_milliseconds(module.params["min_retention"])
+        and convert_time_to_millisecs(module.params["min_retention"])
         != current_policy["min_retention"]
     ):
-        new_policy["min_retention"] = time_to_milliseconds(
+        new_policy["min_retention"] = convert_time_to_millisecs(
             module.params["min_retention"]
         )
     if new_policy != current_policy:
@@ -2324,7 +2326,7 @@ def update_worm_data_policy(module, blade):
                 module.fail_json(
                     msg="Failed to update WORM data policy {0}. Error: {1}".format(
                         module.params["name"],
-                        get_error_message(res),
+                        res.errors[0].message,
                     )
                 )
     module.exit_json(changed=changed)
@@ -2347,14 +2349,7 @@ def update_nfs_policy(module, blade):
                 policy_names=[module.params["name"]],
                 filter="client='" + module.params["client"] + "'",
             )
-        if current_policy_rule.status_code != 200:
-            module.fail_json(
-                msg="Failed to get NFS export policy rules for {0}. Error: {1}".format(
-                    module.params["name"],
-                    current_policy_rule.errors[0].message,
-                )
-            )
-        elif (
+        if (
             current_policy_rule.status_code == 200
             and current_policy_rule.total_item_count == 0
         ):
@@ -2406,7 +2401,7 @@ def update_nfs_policy(module, blade):
                         "in export policy {1}. Error: {2}".format(
                             module.params["client"],
                             module.params["name"],
-                            get_error_message(res),
+                            res.errors[0].message,
                         )
                     )
         else:
@@ -2414,8 +2409,8 @@ def update_nfs_policy(module, blade):
             cli_count = None
             done = False
             if module.params["client"] == "*":
-                for cli in rules:
-                    if cli.client == "*":
+                for cli in range(len(rules)):
+                    if rules[cli].client == "*":
                         cli_count = cli
                 if not cli_count:
                     rule = NfsExportPolicyRule(
@@ -2472,7 +2467,7 @@ def update_nfs_policy(module, blade):
                                 "client {0} in export policy {1}. Error: {2}".format(
                                     module.params["client"],
                                     module.params["name"],
-                                    get_error_message(res),
+                                    res.errors[0].message,
                                 )
                             )
             if not done:
@@ -2568,7 +2563,7 @@ def update_nfs_policy(module, blade):
                                     module.params["name"]
                                     + "."
                                     + str(old_policy_rule.index),
-                                    get_error_message(res),
+                                    res.errors[0].message,
                                 )
                             )
                 if (
@@ -2609,7 +2604,7 @@ def update_nfs_policy(module, blade):
                                     module.params["name"]
                                     + "."
                                     + str(old_policy_rule.index),
-                                    get_error_message(res),
+                                    res.errors[0].message,
                                 )
                             )
     if CONTEXT_API_VERSION in versions:
@@ -2639,7 +2634,7 @@ def update_nfs_policy(module, blade):
             if res.status_code != 200:
                 module.fail_json(
                     msg="Failed to change state of nfs export policy {0}.Error: {1}".format(
-                        module.params["name"], get_error_message(res)
+                        module.params["name"], res.errors[0].message
                     )
                 )
     module.exit_json(changed=changed)
@@ -2659,7 +2654,7 @@ def create_nfs_policy(module, blade):
         if res.status_code != 200:
             module.fail_json(
                 msg="Failed to create nfs export policy {0}.Error: {1}".format(
-                    module.params["name"], get_error_message(res)
+                    module.params["name"], res.errors[0].message
                 )
             )
         if not module.params["enabled"]:
@@ -2683,7 +2678,7 @@ def create_nfs_policy(module, blade):
                     blade.delete_nfs_export_policies(names=[module.params["name"]])
                 module.fail_json(
                     msg="Failed to create nfs export policy {0}.Error: {1}".format(
-                        module.params["name"], get_error_message(res)
+                        module.params["name"], res.errors[0].message
                     )
                 )
         if module.params["client"]:
@@ -2713,7 +2708,7 @@ def create_nfs_policy(module, blade):
                 module.fail_json(
                     msg="Failed to rule for policy {0}. Error: {1}".format(
                         module.params["name"],
-                        get_error_message(res),
+                        res.errors[0].message,
                     )
                 )
     module.exit_json(changed=changed)
@@ -2761,7 +2756,7 @@ def delete_os_policy(module, blade):
                 if res.status_code != 200:
                     module.fail_json(
                         msg="Failed to delete users from policy {0}. Error: {1} - {2}".format(
-                            policy_name, res.errors[0].context, get_error_message(res)
+                            policy_name, res.errors[0].context, res.errors[0].message
                         )
                     )
 
@@ -2795,7 +2790,7 @@ def delete_os_policy(module, blade):
                 if res.status_code != 200:
                     module.fail_json(
                         msg="Failed to delete users from policy {0}. Error: {1} - {2}".format(
-                            policy_name, res.errors[0].context, get_error_message(res)
+                            policy_name, res.errors[0].context, res.errors[0].message
                         )
                     )
 
@@ -2826,32 +2821,32 @@ def delete_os_policy(module, blade):
                 if res.status_code != 200:
                     module.fail_json(
                         msg="Failed to delete policy {0}. Error: {1}".format(
-                            policy_name, get_error_message(res)
+                            policy_name, res.errors[0].message
                         )
                     )
         else:
             if module.params["force_delete"]:
                 changed = True
                 if not module.check_mode:
-                    for user in policy_users:
+                    for user in range(len(policy_users)):
                         if CONTEXT_API_VERSION in versions:
                             res = blade.delete_object_store_access_policies_object_store_users(
-                                member_names=[user.member.name],
+                                member_names=[policy_users[user].member.name],
                                 policy_names=[policy_name],
                                 context_names=[module.params["context"]],
                             )
                         else:
                             res = blade.delete_object_store_access_policies_object_store_users(
-                                member_names=[user.member.name],
+                                member_names=[policy_users[user].member.name],
                                 policy_names=[policy_name],
                             )
                         if res.status_code != 200:
                             module.fail_json(
                                 msg="Failed to delete user {0} from policy {1}, "
                                 "Error: {2}".format(
-                                    user.member,
+                                    policy_users[user].member,
                                     policy_name,
-                                    get_error_message(res),
+                                    res.errors[0].message,
                                 )
                             )
                     if CONTEXT_API_VERSION in versions:
@@ -2866,7 +2861,7 @@ def delete_os_policy(module, blade):
                     if res.status_code != 200:
                         module.fail_json(
                             msg="Failed to delete policy {0}. Error: {1}".format(
-                                policy_name, get_error_message(res)
+                                policy_name, res.errors[0].message
                             )
                         )
             else:
@@ -2941,7 +2936,7 @@ def create_os_policy(module, blade):
             if res.status_code != 200:
                 module.fail_json(
                     msg="Failed to create rule {0} to policy {1}. Error: {2}".format(
-                        module.params["rule"], policy_name, get_error_message(res)
+                        module.params["rule"], policy_name, res.errors[0].message
                     )
                 )
         if module.params["user"]:
@@ -2959,7 +2954,7 @@ def create_os_policy(module, blade):
             if res.status_code != 200:
                 module.fail_json(
                     msg="Failed to add users to policy {0}. Error: {1} - {2}".format(
-                        policy_name, res.errors[0].context, get_error_message(res)
+                        policy_name, res.errors[0].context, res.errors[0].message
                     )
                 )
     module.exit_json(changed=changed)
@@ -3012,7 +3007,7 @@ def update_os_policy(module, blade):
                 if res.status_code != 200:
                     module.fail_json(
                         msg="Failed to create rule {0} in policy {1}. Error: {2}".format(
-                            module.params["rule"], policy_name, get_error_message(res)
+                            module.params["rule"], policy_name, res.errors[0].message
                         )
                     )
         else:
@@ -3096,7 +3091,7 @@ def update_os_policy(module, blade):
                             msg="Failed to update rule {0} in policy {1}. Error: {2}".format(
                                 module.params["rule"],
                                 policy_name,
-                                get_error_message(res),
+                                res.errors[0].message,
                             )
                         )
     if module.params["user"]:
@@ -3129,7 +3124,7 @@ def update_os_policy(module, blade):
                 if res.status_code != 200:
                     module.fail_json(
                         msg="Failed to add user {0} to policy {1}. Error: {2}".format(
-                            member_name, policy_name, get_error_message(res)
+                            member_name, policy_name, res.errors[0].message
                         )
                     )
     module.exit_json(changed=changed)
@@ -3205,7 +3200,7 @@ def copy_os_policy_rule(module, blade):
                     module.params["rule"],
                     policy_name,
                     module.params["target"],
-                    get_error_message(res),
+                    res.errors[0].message,
                 )
             )
     module.exit_json(changed=changed)
@@ -3241,27 +3236,27 @@ def delete_snap_policy(module, blade):
             current_rules = list(
                 blade.get_policies(names=[module.params["name"]]).items
             )[0].rules
-        for rule in current_rules:
+        for rule in range(len(current_rules)):
             current_rule = {
-                "at": rule.at,
-                "every": rule.every,
-                "keep_for": rule.keep_for,
-                "time_zone": rule.time_zone,
+                "at": current_rules[rule].at,
+                "every": current_rules[rule].every,
+                "keep_for": current_rules[rule].keep_for,
+                "time_zone": current_rules[rule].time_zone,
             }
             if not module.params["at"]:
-                delete_at = rule.at
+                delete_at = current_rules[rule].at
             else:
-                delete_at = time_to_milliseconds(module.params["at"])
+                delete_at = _convert_to_millisecs(module.params["at"])
             if module.params["keep_for"]:
                 delete_keep_for = module.params["keep_for"]
             else:
-                delete_keep_for = int(rule.keep_for / 1000)
+                delete_keep_for = int(current_rules[rule].keep_for / 1000)
             if module.params["every"]:
                 delete_every = module.params["every"]
             else:
-                delete_every = int(rule.every / 1000)
+                delete_every = int(current_rules[rule].every / 1000)
             if not module.params["timezone"]:
-                delete_tz = rule.time_zone
+                delete_tz = current_rules[rule].time_zone
             else:
                 delete_tz = module.params["timezone"]
             delete_rule = {
@@ -3272,7 +3267,7 @@ def delete_snap_policy(module, blade):
             }
             if current_rule == delete_rule:
                 changed = True
-                attr = SnapshotPolicyPatch(remove_rules=[delete_rule])
+                attr = PolicyPatch(remove_rules=[delete_rule])
                 if not module.check_mode:
                     if CONTEXT_API_VERSION in versions:
                         res = blade.patch_policies(
@@ -3290,7 +3285,7 @@ def delete_snap_policy(module, blade):
                     if res.status_code != 200:
                         module.fail_json(
                             msg="Failed to delete policy rule {0}. Error: {1}".format(
-                                module.params["name"], get_error_message(res)
+                                module.params["name"], res.errors[0].message
                             )
                         )
     else:
@@ -3306,7 +3301,7 @@ def delete_snap_policy(module, blade):
             if res.status_code != 200:
                 module.fail_json(
                     msg="Failed to delete policy {0}. Error: {1}".format(
-                        module.params["name"], get_error_message(res)
+                        module.params["name"], res.errors[0].message
                     )
                 )
     module.exit_json(changed=changed)
@@ -3373,7 +3368,7 @@ def create_snap_policy(module, blade):
                         PolicyRule(
                             keep_for=module.params["keep_for"] * 1000,
                             every=module.params["every"] * 1000,
-                            at=time_to_milliseconds(module.params["at"]),
+                            at=_convert_to_millisecs(module.params["at"]),
                             time_zone=module.params["timezone"],
                         )
                     ],
@@ -3401,7 +3396,7 @@ def create_snap_policy(module, blade):
         if res.status_code != 200:
             module.fail_json(
                 msg="Failed to create snapshot policy {0}. Error: {1}".format(
-                    module.params["name"], get_error_message(res)
+                    module.params["name"], res.errors[0].message
                 )
             )
         if module.params["filesystem"]:
@@ -3434,7 +3429,7 @@ def create_snap_policy(module, blade):
                     module.fail_json(
                         msg="Failed to add filesystem {0} to "
                         "policy {1}. Error: {2}.".format(
-                            filesystem, module.params["name"], get_error_message(res)
+                            filesystem, module.params["name"], res.errors[0].message
                         )
                     )
         if module.params["replica_link"]:
@@ -3472,7 +3467,7 @@ def create_snap_policy(module, blade):
                     module.fail_json(
                         msg="Failed to connect filesystem replicsa link {0} to policy {1}. "
                         "Error: {2}".format(
-                            link, module.params["name"], get_error_message(res)
+                            link, module.params["name"], res.errors[0].message
                         )
                     )
     module.exit_json(changed=changed)
@@ -3516,27 +3511,27 @@ def update_snap_policy(module, blade):
             0
         ].rules
     create_new = False
-    for rule in current_rules:
+    for rule in range(len(current_rules)):
         current_rule = {
-            "at": rule.at,
-            "every": rule.every,
-            "keep_for": rule.keep_for,
-            "time_zone": rule.time_zone,
+            "at": current_rules[rule].at,
+            "every": current_rules[rule].every,
+            "keep_for": current_rules[rule].keep_for,
+            "time_zone": current_rules[rule].time_zone,
         }
         if not module.params["at"]:
-            new_at = rule.at
+            new_at = current_rules[rule].at
         else:
-            new_at = time_to_milliseconds(module.params["at"])
+            new_at = _convert_to_millisecs(module.params["at"])
         if module.params["keep_for"]:
             new_keep_for = module.params["keep_for"]
         else:
-            new_keep_for = int(rule.keep_for / 1000)
+            new_keep_for = int(current_rules[rule].keep_for / 1000)
         if module.params["every"]:
             new_every = module.params["every"]
         else:
-            new_every = int(rule.every / 1000)
+            new_every = int(current_rules[rule].every / 1000)
         if not module.params["timezone"]:
-            new_tz = rule.time_zone
+            new_tz = current_rules[rule].time_zone
         else:
             new_tz = module.params["timezone"]
         new_rule = {
@@ -3591,19 +3586,19 @@ def update_snap_policy(module, blade):
                         msg="every parameter is out of range (300 to 34560000)"
                     )
                 if module.params["at"]:
-                    attr = SnapshotPolicyPatch(
+                    attr = PolicyPatch(
                         enabled=module.params["enabled"],
                         add_rules=[
                             PolicyRule(
                                 keep_for=module.params["keep_for"] * 1000,
                                 every=module.params["every"] * 1000,
-                                at=time_to_milliseconds(module.params["at"]),
+                                at=_convert_to_millisecs(module.params["at"]),
                                 time_zone=module.params["timezone"],
                             )
                         ],
                     )
                 else:
-                    attr = SnapshotPolicyPatch(
+                    attr = PolicyPatch(
                         enabled=module.params["enabled"],
                         add_rules=[
                             PolicyRule(
@@ -3613,7 +3608,7 @@ def update_snap_policy(module, blade):
                         ],
                     )
             else:
-                attr = SnapshotPolicyPatch(enabled=module.params["enabled"])
+                attr = PolicyPatch(enabled=module.params["enabled"])
             if CONTEXT_API_VERSION in versions:
                 res = blade.patch_policies(
                     names=[module.params["name"]],
@@ -3628,7 +3623,7 @@ def update_snap_policy(module, blade):
             if res.status_code != 200:
                 module.fail_json(
                     msg="Failed to update snapshot policy {0}. Error: {1}".format(
-                        module.params["name"], get_error_message(res)
+                        module.params["name"], res.errors[0].message
                     )
                 )
 
@@ -3647,8 +3642,8 @@ def update_snap_policy(module, blade):
                     policy_names=[module.params["name"]]
                 ).items
             )
-        for member in policy_fs_details:
-            current_filesystems.append(member.member.name)
+        for member in range(len(policy_fs_details)):
+            current_filesystems.append(policy_fs_details[member].member.name)
         if module.params["state"] == "present":
             difference_set = [
                 item
@@ -3685,7 +3680,7 @@ def update_snap_policy(module, blade):
                     module.fail_json(
                         msg="Failed to add filesystem {0} to "
                         "policy {1}. Error: {2}.".format(
-                            new_fs, module.params["name"], get_error_message(res)
+                            new_fs, module.params["name"], res.errors[0].message
                         )
                     )
         else:
@@ -3707,7 +3702,7 @@ def update_snap_policy(module, blade):
                         module.fail_json(
                             msg="Failed to remove filesystem {0} from "
                             "policy {1}. Error: {2}.".format(
-                                old_fs, module.params["name"], get_error_message(res)
+                                old_fs, module.params["name"], res.errors[0].message
                             )
                         )
     if module.params["replica_link"]:
@@ -3725,8 +3720,8 @@ def update_snap_policy(module, blade):
                     policy_names=[module.params["name"]]
                 ).items
             )
-        for member in policy_rl_details:
-            current_rls.append(member.member.name)
+        for member in range(len(policy_rl_details)):
+            current_rls.append(policy_rl_details[member].member.name)
         if module.params["state"] == "present":
             difference_set = [
                 item
@@ -3761,7 +3756,7 @@ def update_snap_policy(module, blade):
                     module.fail_json(
                         msg="Failed to add replica link {0} to "
                         "policy {1}. Error: {2}.".format(
-                            new_rl, module.params["name"], get_error_message(res)
+                            new_rl, module.params["name"], res.errors[0].message
                         )
                     )
         else:
@@ -3783,7 +3778,7 @@ def update_snap_policy(module, blade):
                         module.fail_json(
                             msg="Failed to remove replica link {0} from "
                             "policy {1}. Error: {2}.".format(
-                                old_rl, module.params["name"], get_error_message(res)
+                                old_rl, module.params["name"], res.errors[0].message
                             )
                         )
 
@@ -3960,7 +3955,7 @@ def main():
                     msg="User {0} does not exist in account {1}. Error: {2}".format(
                         module.params["user"],
                         module.params["account"],
-                        get_error_message(res),
+                        res.errors[0].message,
                     )
                 )
         if policy and state == "present":

@@ -7,7 +7,7 @@ from ._patch import (
 )
 from ._wrapper import WrapperPostTransform
 
-__version__ = "2026.5.19"
+__version__ = "2026.7.8"
 
 shibuya_version = __version__
 
@@ -18,6 +18,10 @@ THEME_PATH = (ROOT_PATH / "theme" / "shibuya").resolve()
 def _initialize_builder(app: Sphinx) -> None:
     app.add_js_file("shibuya.js")
     app.add_css_file("print.css", media="print")
+    try:
+        app.config.html_permalinks_icon = "#"
+    except AttributeError:
+        pass
     patch_builder_inited(app)
 
 

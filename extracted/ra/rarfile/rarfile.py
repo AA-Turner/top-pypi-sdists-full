@@ -1,6 +1,6 @@
 # rarfile.py
 #
-# Copyright (c) 2005-2024  Marko Kreen <markokr@gmail.com>
+# Copyright (c) 2005-2026  Marko Kreen <markokr@gmail.com>
 #
 # Permission to use, copy, modify, and/or distribute this software for any
 # purpose with or without fee is hereby granted, provided that the above
@@ -92,7 +92,7 @@ class AES_CBC_Decrypt:
             self.decrypt = ciph.decryptor().update
 
 
-__version__ = "4.2"
+__version__ = "4.3"
 
 # export only interesting items
 __all__ = ["get_rar_version", "is_rarfile", "is_rarfile_sfx", "RarInfo", "RarFile", "RarExtFile"]
@@ -209,6 +209,9 @@ RAR_M2 = 0x32   #: Compression level `-m2`.
 RAR_M3 = 0x33   #: Compression level `-m3`.
 RAR_M4 = 0x34   #: Compression level `-m4`.
 RAR_M5 = 0x35   #: Compression level `-m5` - Maximum compression.
+
+RAR_MAX_PASSWORD = 127  #: Max number of utf-16 chars in passwords.
+RAR_MAX_KDF_SHIFT = 24  #: Max power-of-2 for KDF count
 
 #
 # RAR5 constants
@@ -394,6 +397,10 @@ class NoRarEntry(Error):
 
 class PasswordRequired(Error):
     """File requires password"""
+
+
+class BadSymLinkError(Error):
+    """Invalid symbolic link"""
 
 
 class NeedFirstVolume(Error):
@@ -943,6 +950,17 @@ class RarFile:
             path = os.fspath(path)
         dstfn = os.path.join(path, fname)
 
+        # Reject members whose destination escapes `path` once symlinks
+        # already created on disk are resolved.  Without this, a symlink
+        # member can point outside `path` and a later file/dir member
+        # named through it will be written outside the extraction root.
+        real_path = os.path.realpath(path)
+        real_dst = os.path.realpath(dstfn)
+        if real_dst != real_path and not real_dst.startswith(real_path + os.sep):
+            raise BadRarFile(
+                "Refusing to extract entry that escapes destination: %r" % info.filename
+            )
+
         dirname = os.path.dirname(dstfn)
         if dirname and dirname != ".":
             os.makedirs(dirname, exist_ok=True)
@@ -952,7 +970,7 @@ class RarFile:
         if info.is_dir():
             return self._make_dir(info, dstfn, pwd, set_attrs)
         if info.is_symlink():
-            return self._make_symlink(info, dstfn, pwd, set_attrs)
+            return self._make_symlink(info, dstfn, pwd, set_attrs, path)
         return None
 
     def _create_helper(self, name, flags, info):
@@ -974,10 +992,10 @@ class RarFile:
             self._set_attrs(info, dstfn)
         return dstfn
 
-    def _make_symlink(self, info, dstfn, pwd, set_attrs):
+    def _make_symlink(self, info, dstfn, pwd, set_attrs, top):
         target_is_directory = False
         if info.host_os == RAR_OS_UNIX:
-            link_name = self.read(info, pwd)
+            link_name = self.read(info, pwd).decode("utf8", "replace")
             target_is_directory = (info.flags & RAR_FILE_DIRECTORY) == RAR_FILE_DIRECTORY
         elif info.file_redir:
             redir_type, redir_flags, link_name = info.file_redir
@@ -988,6 +1006,18 @@ class RarFile:
         else:
             warnings.warn(f"Unsupported link type - {info.filename}", UnsupportedWarning)
             return None
+
+        # disallow abs paths
+        target = os.path.normpath(link_name)
+        if os.path.isabs(target) or os.path.splitdrive(target)[0]:
+            raise BadSymLinkError('Absolute links not allowed')
+
+        # disallow ../ traversal
+        dest_abs = os.path.realpath(top)
+        target_base = os.path.dirname(dstfn)
+        target_abs = os.path.realpath(os.path.join(target_base, target))
+        if os.path.commonpath([target_abs, dest_abs]) != dest_abs:
+            raise BadSymLinkError('Link to outside not allowed')
 
         os.symlink(link_name, dstfn, target_is_directory=target_is_directory)
         return dstfn
@@ -1827,10 +1857,10 @@ class RAR5Parser(CommonParser):
     def _gen_key(self, kdf_count, salt):
         if self._last_aes256_key[:2] == (kdf_count, salt):
             return self._last_aes256_key[2]
-        if kdf_count > 24:
+        if kdf_count > RAR_MAX_KDF_SHIFT:
             raise BadRarFile("Too large kdf_count")
         pwd = self._get_utf8_password()
-        key = pbkdf2_hmac("sha256", pwd, salt, 1 << kdf_count)
+        key = rar5_s2k(pwd, salt, 1 << kdf_count)
         self._last_aes256_key = (kdf_count, salt, key)
         return key
 
@@ -1995,6 +2025,8 @@ class RAR5Parser(CommonParser):
     def _check_password(self, check_value, kdf_count_shift, salt):
         if len(check_value) != RAR5_PW_CHECK_SIZE + RAR5_PW_SUM_SIZE:
             return
+        if kdf_count_shift > RAR_MAX_KDF_SHIFT:
+            raise BadRarFile("Too large kdf_count")
 
         hdr_check = check_value[:RAR5_PW_CHECK_SIZE]
         hdr_sum = check_value[RAR5_PW_CHECK_SIZE:]
@@ -2004,7 +2036,7 @@ class RAR5Parser(CommonParser):
 
         kdf_count = (1 << kdf_count_shift) + 32
         pwd = self._get_utf8_password()
-        pwd_hash = pbkdf2_hmac("sha256", pwd, salt, kdf_count)
+        pwd_hash = rar5_s2k(pwd, salt, kdf_count)
 
         pwd_check = bytearray(RAR5_PW_CHECK_SIZE)
         len_mask = RAR5_PW_CHECK_SIZE - 1
@@ -2302,6 +2334,8 @@ class RarExtFile(io.RawIOBase):
             n -= len(data)
         data = b"".join(buf)
         if n > 0:
+            if self._returncode:
+                check_returncode(self._returncode, "", tool_setup().get_errmap())
             raise BadRarFile("Failed the read enough data: req=%d got=%d" % (orig, len(data)))
 
         # done?
@@ -3061,12 +3095,23 @@ def is_filelike(obj):
     return True
 
 
+def rar5_s2k(pwd, salt, kdf_count):
+    """String-to-key hash for RAR5.
+    """
+    if not isinstance(pwd, str):
+        pwd = pwd.decode("utf8")
+    wstr = pwd.encode("utf-16le")[:RAR_MAX_PASSWORD*2]
+    ustr = wstr.decode("utf-16le").encode("utf8")
+    return pbkdf2_hmac("sha256", ustr, salt, kdf_count)
+
+
 def rar3_s2k(pwd, salt):
     """String-to-key hash for RAR3.
     """
     if not isinstance(pwd, str):
         pwd = pwd.decode("utf8")
-    seed = bytearray(pwd.encode("utf-16le") + salt)
+    wstr = pwd.encode("utf-16le")[:RAR_MAX_PASSWORD*2]
+    seed = bytearray(wstr + salt)
     h = Rar3Sha1(rarbug=True)
     iv = b""
     for i in range(16):

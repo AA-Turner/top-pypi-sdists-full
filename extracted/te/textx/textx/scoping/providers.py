@@ -89,9 +89,11 @@ class PlainName:
             from textx import get_children, get_model, textx_isinstance
 
             result_lst = get_children(
-                lambda x: hasattr(x, "name")
-                and x.name == obj_ref.obj_name
-                and textx_isinstance(x, obj_ref.cls),
+                lambda x: (
+                    hasattr(x, "name")
+                    and x.name == obj_ref.obj_name
+                    and textx_isinstance(x, obj_ref.cls)
+                ),
                 get_model(obj),
             )
             if len(result_lst) == 1:
@@ -293,7 +295,7 @@ class ImportURI(scoping.ModelLoader):
         ModelLoader.__init__(self)
         self.scope_provider = scope_provider
         if (glob_args is not None) and (search_path is not None):
-            raise Exception("you cannot use globbing together with a " "search path")
+            raise Exception("you cannot use globbing together with a search path")
         self.glob_args = {}
         self.search_path = search_path
         self.importAs = importAs
@@ -716,8 +718,9 @@ class ExtRelativeName:
                 )
             tmp_list = list(
                 filter(
-                    lambda x: textx_isinstance(x, attr.cls)
-                    and x.name.find(name_part) >= 0,
+                    lambda x: (
+                        textx_isinstance(x, attr.cls) and x.name.find(name_part) >= 0
+                    ),
                     tmp_list,
                 )
             )

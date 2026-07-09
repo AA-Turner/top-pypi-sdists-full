@@ -8,8 +8,14 @@ import re
 from typing import Any
 
 from ouroboros.auto.gap_detector import GapDetector
-from ouroboros.auto.ledger import REQUIRED_SECTIONS, LedgerSource, LedgerStatus, SeedDraftLedger
-from ouroboros.core.seed import Seed
+from ouroboros.auto.ledger import (
+    REQUIRED_SECTIONS,
+    DecisionProvenance,
+    LedgerSource,
+    LedgerStatus,
+    SeedDraftLedger,
+)
+from ouroboros.core.seed import AcceptanceCriterionSpec, Seed, ac_text
 
 
 class SeedGrade(StrEnum):
@@ -241,7 +247,8 @@ class GradeGate:
                     "Add observable acceptance criteria.",
                 )
             )
-        for index, criterion in enumerate(seed.acceptance_criteria):
+        for index, criterion_spec in enumerate(seed.acceptance_criteria):
+            criterion = ac_text(criterion_spec)
             if _is_vague(criterion):
                 findings.append(
                     GradeFinding(
@@ -252,14 +259,25 @@ class GradeGate:
                         "Replace with observable behavior or artifact.",
                     )
                 )
-            if not _is_observable(criterion):
+            if not _is_observable(criterion_spec):
                 findings.append(
                     GradeFinding(
-                        "untestable_acceptance_criteria",
-                        "high",
+                        (
+                            "missing_success_contract"
+                            if isinstance(criterion_spec, AcceptanceCriterionSpec)
+                            else "untestable_acceptance_criteria"
+                        ),
+                        (
+                            "medium"
+                            if isinstance(criterion_spec, AcceptanceCriterionSpec)
+                            else "high"
+                        ),
                         f"Acceptance criterion is not clearly observable: {criterion}",
                         f"acceptance_criteria[{index}]",
-                        "Mention command output, file/artifact, API response, or test result.",
+                        (
+                            "Add verify_command or expected_artifacts, or mention command "
+                            "output, file/artifact, API response, or test result."
+                        ),
                     )
                 )
 
@@ -366,6 +384,20 @@ class GradeGate:
                         "Replace high-risk assumptions with blockers or user confirmation.",
                     )
                 )
+
+        # A1 provenance gate (#1485). Every active decision whose origin is
+        # gated — ``model_inferred`` or ``timeout_default`` — must individually
+        # clear a low-ambiguity criterion before the ledger can become an
+        # executable Seed. A failing entry (empty, question-text pollution,
+        # vague, or a deadline placeholder — i.e. the #1485 degraded-seed
+        # signature) produces a MEDIUM ``unverified_provenance`` finding that
+        # feeds the repair loop WITHOUT hard-blocking (mirrors
+        # ``missing_success_contract``): the finding drops grade A→B and is
+        # repairable, but it is never a blocker, so legacy sessions and
+        # already-degraded recovery seeds keep flowing. Grounded origins
+        # (user_confirmed / maintainer_policy / lateral_consensus) are exempt.
+        if ledger is not None:
+            findings.extend(_unverified_provenance_findings(ledger))
 
         untestable_count = sum(1 for finding in findings if "acceptance_criteria" in finding.code)
         scores = {
@@ -476,7 +508,11 @@ def _is_vague(value: str) -> bool:
     return any(re.search(rf"\b{re.escape(term)}\b", lowered) for term in VAGUE_TERMS)
 
 
-def _is_observable(value: str) -> bool:
+def _is_observable(value: str | AcceptanceCriterionSpec) -> bool:
+    if isinstance(value, AcceptanceCriterionSpec):
+        if value.verify_command or value.expected_artifacts:
+            return True
+        value = value.description
     lowered = value.lower()
     if not any(hint in lowered for hint in _OBSERVABLE_HINTS):
         return False
@@ -573,3 +609,68 @@ def _high_risk_assumption_count(ledger: SeedDraftLedger) -> int:
 
 def _score_threshold(finding_count: int, blocker_count: int, *, base: float) -> float:
     return max(0.0, min(1.0, base - 0.08 * finding_count - 0.25 * blocker_count))
+
+
+# Decision origins that must clear the low-ambiguity criterion before the ledger
+# can become an executable Seed (A1 / #1485). Grounded origins (user_confirmed /
+# maintainer_policy / lateral_consensus) are trusted and never gated here.
+_PROVENANCE_GATED: frozenset[DecisionProvenance] = frozenset(
+    {DecisionProvenance.MODEL_INFERRED, DecisionProvenance.TIMEOUT_DEFAULT}
+)
+
+# The #1485 degraded-seed signature: a deadline placeholder leaked into a
+# contract field. Reused verbatim from ``ledger_seed`` semantics without the
+# import cycle.
+_DEADLINE_PLACEHOLDER_MARKER = "unresolved at deadline"
+
+
+def _is_low_ambiguity_decision(value: str) -> bool:
+    """Return True when a gated decision's value is concrete enough to execute.
+
+    This reuses the existing ambiguity machinery (:func:`_is_vague`) rather than
+    inventing a new scorer, and adds the #1485-specific pollution signals:
+    empty values, raw interview question text (``?``), and the deadline
+    placeholder. It is deliberately high-precision — only the degraded-seed
+    signature fails — so clean model-inferred/timeout-defaulted decisions (the
+    overwhelming common case) pass and no existing grade flips.
+    """
+    text = value.strip()
+    if not text:
+        return False
+    if "?" in text:
+        return False
+    if _DEADLINE_PLACEHOLDER_MARKER in text.lower():
+        return False
+    return not _is_vague(text)
+
+
+def _unverified_provenance_findings(ledger: SeedDraftLedger) -> list[GradeFinding]:
+    """Findings for gated ledger decisions that fail the low-ambiguity criterion."""
+    inactive_statuses = {LedgerStatus.WEAK, LedgerStatus.CONFLICTING, LedgerStatus.BLOCKED}
+    findings: list[GradeFinding] = []
+    for section in ledger.sections.values():
+        for entry in section.entries:
+            if entry.status in inactive_statuses:
+                continue
+            if entry.effective_provenance not in _PROVENANCE_GATED:
+                continue
+            if _is_low_ambiguity_decision(entry.value):
+                continue
+            findings.append(
+                GradeFinding(
+                    "unverified_provenance",
+                    "medium",
+                    (
+                        f"{entry.effective_provenance.value} decision is not low-ambiguity "
+                        f"and must be verified before execution: {entry.value[:120]!r}"
+                    ),
+                    f"{section.name}.{entry.key}",
+                    (
+                        "Confirm this decision with the user or replace it with an "
+                        "evidence-backed value; a model-inferred or timeout-defaulted "
+                        "contract field must be concrete (no question text or placeholder) "
+                        "before the seed is executable."
+                    ),
+                )
+            )
+    return findings

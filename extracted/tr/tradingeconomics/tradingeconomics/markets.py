@@ -52,7 +52,7 @@ def checkCategory(linkAPI, category):
     return linkAPI
 
 
-def getMarketsData(marketsField, type=None, output_type=None):
+def getMarketsData(marketsField, type=None, country=None, output_type=None):
     """
     Returns a list of available commodities, currencies, indexes or
     bonds and their latest values.
@@ -65,6 +65,9 @@ def getMarketsData(marketsField, type=None, output_type=None):
 
     type: string
             Works for bonds only (2Y, 5Y, 10Y, 15Y, 20Y, 30Y)
+
+    country: string
+            United States, Germany, France, Italy, Spain, ...
 
     output_type: string.
              'dict'(default), 'df' for data frame,
@@ -90,6 +93,10 @@ def getMarketsData(marketsField, type=None, output_type=None):
 
     if type is not None:
         linkAPI += "?type=" + quote(type, safe="")
+
+    if country is not None:
+        separator = "&" if "?" in linkAPI else "?"
+        linkAPI += separator + "country=" + quote(country, safe="")
 
     return fn.dataRequest(linkAPI, output_type)
 

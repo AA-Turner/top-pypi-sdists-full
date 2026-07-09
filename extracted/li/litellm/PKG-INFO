@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: litellm
-Version: 1.91.0
+Version: 1.91.1
 Summary: Library to easily interface with LLM API providers
 Author: BerriAI
 License-Expression: MIT

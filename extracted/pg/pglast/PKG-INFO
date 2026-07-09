@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pglast
-Version: 7.15
+Version: 8.0
 Summary: PostgreSQL Languages AST and statements prettifier
 Author-email: Lele Gaifax <lele@metapensiero.it>
 License-Expression: GPL-3.0-or-later
@@ -12,7 +12,6 @@ Classifier: Intended Audience :: Developers
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
 Classifier: Programming Language :: Python :: 3 :: Only
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
@@ -35,6 +34,7 @@ Requires-Dist: coverage==7.15.0; extra == "test"
 Requires-Dist: mypy==2.1.0; extra == "test"
 Requires-Dist: pytest-cov==7.1.0; extra == "test"
 Requires-Dist: pytest==9.1.1; extra == "test"
+Requires-Dist: sphinx==9.0.4; extra == "test"
 Requires-Dist: ty==0.0.56; extra == "test"
 
 .. -*- coding: utf-8 -*-

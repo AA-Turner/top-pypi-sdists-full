@@ -161,6 +161,7 @@ def test_phase_set_default_skipped_when_unchanged(tmp_path, monkeypatch):
 
 
 def test_phase_set_default_updates_when_picker_disagrees(tmp_path, monkeypatch):
+    monkeypatch.delenv("SAGE_DEFAULT_MODEL", raising=False)
     monkeypatch.setattr(Path, "home", lambda: tmp_path)
     from sage.config import load_config, save_config, SageConfig
     from sage.core import bootstrap
@@ -196,6 +197,7 @@ def test_phase_prewarm_skipped_for_non_ollama_model(tmp_path, monkeypatch):
 
 
 def test_phase_prewarm_calls_keep_alive(tmp_path, monkeypatch):
+    monkeypatch.delenv("SAGE_DEFAULT_MODEL", raising=False)
     monkeypatch.setattr(Path, "home", lambda: tmp_path)
     from sage.config import save_config, SageConfig
     save_config(SageConfig(default_model="ollama:qwen3-coder-next"))
@@ -207,6 +209,7 @@ def test_phase_prewarm_calls_keep_alive(tmp_path, monkeypatch):
 
 
 def test_phase_prewarm_failure_when_ollama_down(tmp_path, monkeypatch):
+    monkeypatch.delenv("SAGE_DEFAULT_MODEL", raising=False)
     monkeypatch.setattr(Path, "home", lambda: tmp_path)
     from sage.config import save_config, SageConfig
     save_config(SageConfig(default_model="ollama:qwen3-coder-next"))

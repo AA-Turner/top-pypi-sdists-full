@@ -1256,20 +1256,21 @@ class Message(BaseModel):
                 if isinstance(file_obj, dict):
                     file_obj.pop("mimetype", None)
 
-        # Some providers behind OpenAI-compatible APIs expect file payloads as
-        # data URLs even when OpenAI itself accepts raw base64.
-
-        if "file_data_as_data_url" in compatibility_flags:
-            for source_part, serialized_part in zip(
-                self.content_parts, obj.get("content", []), strict=False
-            ):
+        # Video: emit a `video_url` data-URL block. The video-capable providers
+        # (Gemini, and OpenAI-compatible gateways like OpenRouter) accept video
+        # via `video_url`, not the OpenAI `file` block — and GPT-4o doesn't take
+        # video input at all — so `video_url` is the correct wire format. Rewrite
+        # each ContentVideoUrl's serialized `file` part in place.
+        content_list = obj.get("content", [])
+        if isinstance(content_list, list):
+            for source_part, serialized_part in zip(self.content_parts, content_list, strict=False):
                 if not isinstance(source_part, ContentVideoUrl):
                     continue
                 if not isinstance(serialized_part, dict) or serialized_part.get("type") != "file":
                     continue
-                file_obj = serialized_part.get("file")
-                if isinstance(file_obj, dict) and "file_data" in file_obj:
-                    file_obj["file_data"] = source_part.file_data_as_data_url()
+                serialized_part.clear()
+                serialized_part["type"] = "video_url"
+                serialized_part["video_url"] = {"url": source_part.file_data_as_data_url()}
 
         # If enabled, we need to convert our content to a flat
         # string for API compatibility. Groq is an example of an API

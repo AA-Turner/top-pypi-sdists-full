@@ -50,6 +50,13 @@ async def _cancel_manager_tasks(manager: JobManager) -> None:
         await asyncio.gather(*tasks, return_exceptions=True)
 
 
+async def _ok_runner() -> MCPToolResult:
+    return MCPToolResult(
+        content=(MCPContentItem(type=ContentType.TEXT, text="ok"),),
+        is_error=False,
+    )
+
+
 async def _wait_for_job_status(
     manager: JobManager,
     job_id: str,
@@ -246,6 +253,429 @@ class TestJobManager:
             await _cancel_manager_tasks(manager)
             await store.close()
 
+    async def test_runner_failure_terminal_append_persistent_failure_persists_fallback_failed(
+        self, tmp_path
+    ) -> None:
+        store = _build_store(tmp_path)
+        manager = JobManager(store)
+        await store.initialize()
+
+        try:
+            original_append_event = manager._append_event
+            failed_attempts = 0
+
+            async def _fail_terminal_append(
+                event_type: str, job_id: str, data: dict, **kwargs
+            ) -> None:
+                nonlocal failed_attempts
+                # Persistently fail the ORIGINAL failed-event append (initial try
+                # plus the fallback's single retry) so the FAILED fallback with
+                # diagnostic meta is exercised. The fallback's own append carries
+                # terminal_append_failed meta and is allowed through.
+                if event_type == "mcp.job.failed" and not data.get("result_meta", {}).get(
+                    "terminal_append_failed"
+                ):
+                    failed_attempts += 1
+                    raise PersistenceError("synthetic terminal append failure", operation="insert")
+                await original_append_event(event_type, job_id, data, **kwargs)
+
+            manager._append_event = _fail_terminal_append
+
+            async def _runner() -> MCPToolResult:
+                raise RuntimeError("runner boom")
+
+            started = await manager.start_job(
+                job_type="test",
+                initial_message="queued",
+                runner=_runner(),
+            )
+
+            snapshot = await _wait_for_job_status(
+                manager, started.job_id, JobStatus.FAILED, timeout=2.0
+            )
+
+            assert failed_attempts == 2  # initial append + one fallback retry
+            assert snapshot.result_meta["terminal_append_failed"] is True
+            assert snapshot.result_meta["original_event_type"] == "mcp.job.failed"
+            assert snapshot.result_meta["original_status"] == JobStatus.FAILED.value
+            assert "synthetic terminal append failure" in (snapshot.error or "")
+            assert snapshot.status is not JobStatus.RUNNING
+        finally:
+            await _cancel_manager_tasks(manager)
+            await store.close()
+
+    async def test_runner_success_terminal_append_persistent_failure_persists_fallback_failed(
+        self, tmp_path
+    ) -> None:
+        store = _build_store(tmp_path)
+        manager = JobManager(store)
+        await store.initialize()
+
+        try:
+            original_append_event = manager._append_event
+            failed_attempts = 0
+
+            async def _fail_completed_append(
+                event_type: str, job_id: str, data: dict, **kwargs
+            ) -> None:
+                nonlocal failed_attempts
+                if event_type == "mcp.job.completed":
+                    failed_attempts += 1
+                    raise PersistenceError("synthetic completed append failure", operation="insert")
+                await original_append_event(event_type, job_id, data, **kwargs)
+
+            manager._append_event = _fail_completed_append
+
+            async def _runner() -> MCPToolResult:
+                return MCPToolResult(
+                    content=(MCPContentItem(type=ContentType.TEXT, text="runner ok"),),
+                    is_error=False,
+                )
+
+            started = await manager.start_job(
+                job_type="test",
+                initial_message="queued",
+                runner=_runner(),
+            )
+
+            snapshot = await _wait_for_job_status(
+                manager, started.job_id, JobStatus.FAILED, timeout=2.0
+            )
+
+            assert failed_attempts == 2  # initial append + one fallback retry
+            assert snapshot.result_meta["terminal_append_failed"] is True
+            assert snapshot.result_meta["original_event_type"] == "mcp.job.completed"
+            assert snapshot.result_meta["original_status"] == JobStatus.COMPLETED.value
+            assert "synthetic completed append failure" in (snapshot.error or "")
+            assert snapshot.status is not JobStatus.RUNNING
+        finally:
+            await _cancel_manager_tasks(manager)
+            await store.close()
+
+    async def test_run_job_never_strands_running_when_all_terminal_appends_fail(
+        self, tmp_path
+    ) -> None:
+        """Residual #1566 zombie: when EVERY terminal append (the primary
+        completed AND the FAILED fallback) fails, the best-effort helpers
+        swallow the error and ``_run_job`` returns normally with no terminal
+        event and no exception — stranding the job RUNNING forever. The
+        finally-block durability backstop must still persist a terminal state.
+
+        Fails on main (job never leaves RUNNING); passes with the backstop.
+        """
+        store = _build_store(tmp_path)
+        manager = JobManager(store)
+        await store.initialize()
+
+        _terminal_types = {
+            "mcp.job.completed",
+            "mcp.job.failed",
+            "mcp.job.cancelled",
+            "mcp.job.interrupted",
+        }
+
+        try:
+            original_append_event = manager._append_event
+            failed_terminal_appends = 0
+
+            async def _fail_every_terminal_append_except_backstop(
+                event_type: str, job_id: str, data: dict, **kwargs
+            ) -> None:
+                nonlocal failed_terminal_appends
+                result_meta = data.get("result_meta")
+                # The finally-block backstop is the ONLY terminal writer allowed
+                # through — it is distinguished by the ``ensure_reason`` sentinel
+                # that _ensure_terminal_event_best_effort stamps. Everything the
+                # try body attempts (completed + fallback FAILED) fails, exactly
+                # like a store under sustained "database is locked" pressure.
+                is_backstop = isinstance(result_meta, dict) and "ensure_reason" in result_meta
+                if event_type in _terminal_types and not is_backstop:
+                    failed_terminal_appends += 1
+                    raise PersistenceError(
+                        "synthetic sustained terminal append failure", operation="insert"
+                    )
+                await original_append_event(event_type, job_id, data, **kwargs)
+
+            manager._append_event = _fail_every_terminal_append_except_backstop
+
+            async def _runner() -> MCPToolResult:
+                return MCPToolResult(
+                    content=(MCPContentItem(type=ContentType.TEXT, text="runner ok"),),
+                    is_error=False,
+                )
+
+            started = await manager.start_job(
+                job_type="test",
+                initial_message="queued",
+                runner=_runner(),
+            )
+
+            snapshot = await _wait_for_job_status(
+                manager, started.job_id, JobStatus.FAILED, timeout=2.0
+            )
+
+            # The try body burned its primary + fallback terminal appends...
+            assert failed_terminal_appends >= 2
+            # ...and yet the job is terminal, persisted by the finally backstop.
+            assert snapshot.status is JobStatus.FAILED
+            assert snapshot.result_meta.get("ensure_reason")
+            assert snapshot.result_meta.get("terminal_append_failed") is True
+            assert snapshot.message == "Job terminalized by last-resort guard"
+
+            # Durable across a fresh manager (no live tasks): the terminal row
+            # is genuinely persisted, not an in-memory recovery artifact.
+            recovered = JobManager(store)
+            recovered_snapshot = await recovered.get_snapshot(started.job_id)
+            assert recovered_snapshot.status is JobStatus.FAILED
+        finally:
+            await _cancel_manager_tasks(manager)
+            await store.close()
+
+    async def test_hostile_repeated_cancellation_cannot_strand_job_without_terminal_event(
+        self, tmp_path
+    ) -> None:
+        """PR #1576's own CI run refuted the inline-backstop theory: every
+        inline net in ``_run_job`` (the except guards, the ensure helper, an
+        inline finally backstop) awaits while catching only ``Exception``, so a
+        fresh CancelledError delivered at EVERY await point silently defeats
+        them all — the finally pops the tasks and nothing is persisted. The
+        detached release-point backstop must survive that hostile interleaving.
+
+        Fails before the detached backstop (job stranded RUNNING); passes with it.
+        """
+        store = _build_store(tmp_path)
+        manager = JobManager(store)
+        await store.initialize()
+
+        release = asyncio.Event()
+
+        async def _runner() -> MCPToolResult:
+            await release.wait()
+            return MCPToolResult()
+
+        try:
+            started = await manager.start_job(
+                job_type="test",
+                initial_message="queued",
+                runner=_runner(),
+            )
+            await _wait_for_job_status(manager, started.job_id, JobStatus.RUNNING, timeout=2.0)
+
+            task = manager._tasks[started.job_id]
+            # Hostile canceller: deliver a fresh CancelledError at every await
+            # point until the job task dies. Each cancel() re-arms delivery at
+            # the task's next suspension, so no inline except/finally net can
+            # complete an awaited persistence step.
+            while not task.done():
+                task.cancel()
+                await asyncio.sleep(0)
+            assert started.job_id not in manager._tasks
+
+            deadline = asyncio.get_running_loop().time() + 2.0
+            snapshot = await manager.get_snapshot(started.job_id)
+            while not snapshot.is_terminal and asyncio.get_running_loop().time() < deadline:
+                await asyncio.sleep(0.01)
+                snapshot = await manager.get_snapshot(started.job_id)
+
+            assert snapshot.is_terminal, f"job stranded in {snapshot.status}"
+            # Written by the detached backstop with cancel semantics — the
+            # hostile interleaving is a cancellation, not a failure.
+            assert snapshot.status is JobStatus.CANCELLED
+        finally:
+            release.set()
+            await _cancel_manager_tasks(manager)
+            await store.close()
+
+    async def test_stranded_started_job_is_reconciled_by_get_snapshot(self, tmp_path) -> None:
+        """Exact CI signature of the #1566/#1576 zombie: the job task fully
+        released (tasks popped, stream = created+running, nothing raised) —
+        modeled by silently dropping every terminal append while the job task
+        lives, a superset of any silent-loss mechanism. The in-process
+        stranded-job net in get_snapshot must terminalize it on the next poll.
+
+        Fails without the net (RUNNING forever: the linked-execution reconciler
+        has no execution.terminal evidence and the dead-owner reconciler sees a
+        live owner); passes with it.
+        """
+        store = _build_store(tmp_path)
+        manager = JobManager(store)
+        await store.initialize()
+
+        _terminal_types = {
+            "mcp.job.completed",
+            "mcp.job.failed",
+            "mcp.job.cancelled",
+            "mcp.job.interrupted",
+        }
+        dropping = True
+        original_append_event = manager._append_event
+
+        async def _drop_terminal_appends(
+            event_type: str, job_id: str, data: dict, **kwargs
+        ) -> None:
+            if dropping and event_type in _terminal_types:
+                return  # silently lost: no event persisted, no exception raised
+            await original_append_event(event_type, job_id, data, **kwargs)
+
+        manager._append_event = _drop_terminal_appends
+
+        try:
+            started = await manager.start_job(
+                job_type="test",
+                initial_message="queued",
+                runner=_ok_runner(),
+            )
+            job_task = manager._tasks.get(started.job_id)
+            if job_task is not None:
+                await asyncio.wait({job_task}, timeout=2.0)
+            # Let the detached release-point backstop finish too (its appends
+            # are also dropped) so the loss is total, like the CI capture.
+            deadline = asyncio.get_running_loop().time() + 2.0
+            while (
+                getattr(manager, "_backstops", {}) and asyncio.get_running_loop().time() < deadline
+            ):
+                await asyncio.sleep(0)
+
+            # The CI signature: tasks released, no terminal event persisted.
+            assert started.job_id not in manager._tasks
+            assert started.job_id not in manager._runner_tasks
+            events, _ = await store.get_events_after("job", started.job_id, last_row_id=0)
+            assert events
+            assert all(e.type in {"mcp.job.created", "mcp.job.updated"} for e in events)
+
+            dropping = False
+            deadline = asyncio.get_running_loop().time() + 2.0
+            snapshot = await manager.get_snapshot(started.job_id)
+            while not snapshot.is_terminal and asyncio.get_running_loop().time() < deadline:
+                await asyncio.sleep(0.01)
+                snapshot = await manager.get_snapshot(started.job_id)
+
+            assert snapshot.status is JobStatus.INTERRUPTED, f"job stranded in {snapshot.status}"
+            assert snapshot.result_meta.get("interrupted_from_stranded_job_task") is True
+
+            # Durable and idempotent: one terminal event, visible to a fresh manager.
+            recovered = JobManager(store)
+            assert (await recovered.get_snapshot(started.job_id)).status is JobStatus.INTERRUPTED
+            events, _ = await store.get_events_after("job", started.job_id, last_row_id=0)
+            assert sum(1 for e in events if e.type == "mcp.job.interrupted") == 1
+        finally:
+            await _cancel_manager_tasks(manager)
+            await store.close()
+
+    async def test_runner_success_transient_append_failure_recovers_original_completed(
+        self, tmp_path
+    ) -> None:
+        """One transient append failure must NOT downgrade a completed job to FAILED."""
+        store = _build_store(tmp_path)
+        manager = JobManager(store)
+        await store.initialize()
+
+        try:
+            original_append_event = manager._append_event
+            failed_attempts = 0
+
+            async def _fail_first_completed_append(
+                event_type: str, job_id: str, data: dict, **kwargs
+            ) -> None:
+                nonlocal failed_attempts
+                if event_type == "mcp.job.completed" and failed_attempts == 0:
+                    failed_attempts += 1
+                    raise PersistenceError("synthetic completed append failure", operation="insert")
+                await original_append_event(event_type, job_id, data, **kwargs)
+
+            manager._append_event = _fail_first_completed_append
+
+            async def _runner() -> MCPToolResult:
+                return MCPToolResult(
+                    content=(MCPContentItem(type=ContentType.TEXT, text="runner ok"),),
+                    is_error=False,
+                )
+
+            started = await manager.start_job(
+                job_type="test",
+                initial_message="queued",
+                runner=_runner(),
+            )
+
+            snapshot = await _wait_for_job_status(
+                manager, started.job_id, JobStatus.COMPLETED, timeout=2.0
+            )
+
+            assert failed_attempts == 1
+            assert snapshot.status is JobStatus.COMPLETED
+            assert "terminal_append_failed" not in snapshot.result_meta
+        finally:
+            await _cancel_manager_tasks(manager)
+            await store.close()
+
+    async def test_crash_inside_terminalization_still_persists_terminal_state(
+        self, tmp_path
+    ) -> None:
+        """If _run_job's own terminal-writing logic crashes (not the append),
+        the job must still end terminal instead of stranding in RUNNING."""
+        store = _build_store(tmp_path)
+        manager = JobManager(store)
+        await store.initialize()
+
+        try:
+
+            async def _boom_derivation(snapshot: JobSnapshot) -> str | None:
+                raise PersistenceError("synthetic derivation crash", operation="select")
+
+            manager._derive_completed_execution_result = _boom_derivation
+
+            started = await manager.start_job(
+                job_type="test",
+                initial_message="queued",
+                runner=_ok_runner(),
+            )
+
+            snapshot = await _wait_for_job_status(
+                manager, started.job_id, JobStatus.FAILED, timeout=2.0
+            )
+
+            assert snapshot.status is JobStatus.FAILED
+            assert snapshot.result_meta["terminal_append_failed"] is True
+            assert "synthetic derivation crash" in (snapshot.error or "")
+        finally:
+            await _cancel_manager_tasks(manager)
+            await store.close()
+
+    async def test_terminal_fallback_skips_when_job_already_terminal(self, tmp_path) -> None:
+        """The FAILED fallback must not overwrite a terminal event a concurrent writer persisted."""
+        store = _build_store(tmp_path)
+        manager = JobManager(store)
+        await store.initialize()
+
+        try:
+            started = await manager.start_job(
+                job_type="test",
+                initial_message="queued",
+                runner=_ok_runner(),
+            )
+            snapshot = await _wait_for_job_status(
+                manager, started.job_id, JobStatus.COMPLETED, timeout=2.0
+            )
+            assert snapshot.status is JobStatus.COMPLETED
+
+            async def _always_fail_retry() -> None:
+                raise PersistenceError("retry still failing", operation="insert")
+
+            await manager._append_terminal_fallback_event(
+                started.job_id,
+                original_event_type="mcp.job.cancelled",
+                original_data={"status": JobStatus.CANCELLED.value, "message": "x"},
+                append_error=PersistenceError("initial append failed", operation="insert"),
+                retry_append=_always_fail_retry,
+            )
+
+            snapshot = await manager.get_snapshot(started.job_id)
+            assert snapshot.status is JobStatus.COMPLETED
+            assert "terminal_append_failed" not in snapshot.result_meta
+        finally:
+            await _cancel_manager_tasks(manager)
+            await store.close()
+
     async def test_error_result_is_not_masked_by_execution_completion(self, tmp_path) -> None:
         store = _build_store(tmp_path)
         manager = JobManager(store)
@@ -288,6 +718,69 @@ class TestJobManager:
 
             assert snapshot.result_text == "handler failed after execution terminal"
             assert snapshot.result_meta.get("completed_from_execution_terminal") is not True
+        finally:
+            await _cancel_manager_tasks(manager)
+            await store.close()
+
+    async def test_execution_terminal_completion_preserves_success_result_meta(
+        self, tmp_path
+    ) -> None:
+        store = _build_store(tmp_path)
+        manager = JobManager(store)
+        await store.initialize()
+
+        try:
+            cancelled = False
+
+            async def _runner() -> MCPToolResult:
+                nonlocal cancelled
+                await store.append(
+                    BaseEvent(
+                        type="execution.terminal",
+                        aggregate_type="execution",
+                        aggregate_id="exec_chain_meta",
+                        data={"session_id": "orch_chain_meta", "status": "completed"},
+                    )
+                )
+                try:
+                    await asyncio.sleep(1.2)
+                    return MCPToolResult(
+                        content=(MCPContentItem(type=ContentType.TEXT, text="run complete"),),
+                        is_error=False,
+                        meta={
+                            "success": True,
+                            "verification_status": "evaluation_enqueued",
+                            "chained_evaluate_job_id": "job_eval_123",
+                            "evaluation_status": "enqueued",
+                            "next_step": "ouroboros_job_wait job_eval_123",
+                        },
+                    )
+                except asyncio.CancelledError:
+                    cancelled = True
+                    raise
+
+            started = await manager.start_job(
+                job_type="execute_seed",
+                initial_message="queued",
+                runner=_runner(),
+                links=JobLinks(
+                    session_id="orch_chain_meta",
+                    execution_id="exec_chain_meta",
+                    preserve_runner_result=True,
+                ),
+            )
+
+            snapshot = await _wait_for_job_status(
+                manager, started.job_id, JobStatus.COMPLETED, timeout=2.0
+            )
+
+            assert snapshot.result_meta["completed_from_execution_terminal"] is True
+            assert snapshot.result_meta["verification_status"] == "evaluation_enqueued"
+            assert snapshot.result_meta["chained_evaluate_job_id"] == "job_eval_123"
+            assert snapshot.result_meta["evaluation_status"] == "enqueued"
+            assert snapshot.result_meta["next_step"] == "ouroboros_job_wait job_eval_123"
+            assert snapshot.message == "Execution complete; formal evaluation enqueued"
+            assert cancelled is False
         finally:
             await _cancel_manager_tasks(manager)
             await store.close()

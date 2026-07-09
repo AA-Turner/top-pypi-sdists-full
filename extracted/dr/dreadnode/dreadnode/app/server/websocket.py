@@ -664,6 +664,7 @@ async def serve_runtime_event_stream(
     websocket: WebSocket,
     *,
     event_bus: EventBus,
+    consume_ticket: t.Callable[[str], bool] | None = None,
 ) -> None:
     """Serve the runtime-bus event subscription stream (CAP-WCLI-018..020).
 
@@ -678,6 +679,12 @@ async def serve_runtime_event_stream(
         websocket.url.path,
         websocket.headers.get("authorization"),
     )
+    # Browsers cannot set Authorization on a websocket handshake. Match the
+    # interactive transport and allow a single-use ticket for browser clients.
+    if error is not None and consume_ticket is not None:
+        ticket = websocket.query_params.get("ticket")
+        if ticket and consume_ticket(ticket):
+            error = None
     if error is not None:
         logger.warning(
             "Runtime event-stream auth failed | path={} reason={}",

@@ -30,7 +30,7 @@ class XEP_0297(BasePlugin):
         register_stanza_plugin(Forwarded, Presence, iterable=True)
         register_stanza_plugin(Forwarded, Iq, iterable=True)
 
-        register_stanza_plugin(Forwarded, self.xmpp['xep_0203'].stanza.Delay)
+        register_stanza_plugin(Forwarded, self.xmpp.plugin['xep_0203'].stanza.Delay)
 
         self.xmpp.register_handler(
             Callback('Forwarded Stanza',
@@ -38,10 +38,10 @@ class XEP_0297(BasePlugin):
                 self._handle_forwarded))
 
     def session_bind(self, jid):
-        self.xmpp['xep_0030'].add_feature('urn:xmpp:forward:0')
+        self.xmpp.plugin['xep_0030'].add_feature('urn:xmpp:forward:0')
 
     def plugin_end(self):
-        self.xmpp['xep_0030'].del_feature(feature='urn:xmpp:forward:0')
+        self.xmpp.plugin['xep_0030'].del_feature(feature='urn:xmpp:forward:0')
         self.xmpp.remove_handler('Forwarded Stanza')
 
     def forward(self, stanza=None, mto=None, mbody=None, mfrom=None, delay=None):

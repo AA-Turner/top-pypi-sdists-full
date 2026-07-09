@@ -15,7 +15,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 from torch import einsum
 
-from timm.models.layers import DropPath, to_2tuple, trunc_normal_
+from timm.layers import DropPath, to_2tuple, trunc_normal_
 
 from einops import rearrange
 from functools import partial

@@ -37,7 +37,9 @@ import {
 import { resolveLicenseKey, validateLicense, getProLatestVersion } from "./license.js";
 
 const DOWNLOAD_TIMEOUT_MS = 600_000; // 10 minutes
-const UPDATE_CHECK_INTERVAL_MS = 3_600_000; // 1 hour
+// Seconds, matching the Python/.NET `.last_update_check` marker format so the
+// three wrappers share one cache dir without corrupting each other's rate limit.
+const UPDATE_CHECK_INTERVAL_SEC = 3600; // 1 hour
 // Free-tier welcome banner re-show interval (3 days, in seconds). Free users see
 // the Pro upsell again after this gap; Pro users see it only once (see showWelcome).
 // Seconds (not ms) so the shared marker is consistent with the Python/.NET wrappers.
@@ -202,13 +204,13 @@ export function binaryInfo(browserVersion?: string): BinaryInfo {
   // browserVersion (or CLOAKBROWSER_VERSION) pins the reported version so the
   // info matches what a pinned launch actually runs, instead of latest.
   const requested = normalizeRequestedVersion(browserVersion);
-  // Prefer Pro only if a Pro binary actually exists on disk.
+  // Prefer Pro only if a Pro binary actually exists on disk. getEffectiveVersion
+  // returns null for Pro when nothing is cached (it never falls back to free).
   const proVersion = requested ?? getEffectiveVersion(true);
-  const proPath = getBinaryPath(proVersion, true);
-  const isPro = fs.existsSync(proPath) && isExecutable(proPath);
+  const isPro = proBinaryReady(proVersion);
 
   const effective = isPro ? proVersion : (requested ?? getEffectiveVersion(false));
-  const binaryPath = isPro ? proPath : getBinaryPath(effective, false);
+  const binaryPath = isPro ? getBinaryPath(proVersion, true) : getBinaryPath(effective, false);
   return {
     version: effective,
     bundledVersion: CHROMIUM_VERSION,
@@ -235,6 +237,36 @@ export async function checkForUpdate(): Promise<string | null> {
   console.log(`[cloakbrowser] Downloading Chromium ${latest}...`);
   await downloadAndExtract(latest);
   writeVersionMarker(latest);
+  return latest;
+}
+
+/**
+ * Move a Pro install to the server's latest stable. Blocks until complete.
+ * Returns the new version when a newer Pro build is downloaded or an
+ * already-cached newer build is activated, else null (already up to date or the
+ * server could not be reached). Requires a valid Pro license key.
+ */
+export async function checkForProUpdate(licenseKey: string): Promise<string | null> {
+  const latest = await getProLatestVersion();
+  if (!latest) return null;
+
+  const effective = getEffectiveVersion(true);
+  if (effective && !versionNewer(latest, effective) && proBinaryReady(effective)) {
+    // Already on the latest cached Pro build.
+    return null;
+  }
+
+  if (!proBinaryReady(latest)) {
+    console.log(`[cloakbrowser] Downloading Pro Chromium ${latest}...`);
+    await downloadProBinary(latest, licenseKey);
+    if (!fs.existsSync(getBinaryPath(latest, true))) {
+      throw new Error(
+        `Pro download completed but binary not found at: ${getBinaryPath(latest, true)}`
+      );
+    }
+  }
+
+  writeProVersionMarker(latest);
   return latest;
 }
 
@@ -280,7 +312,7 @@ function showWelcome(pro = false): void {
       `  Running free tier (v${freeMajor}). ` +
         `Pro = latest binary (v${PRO_MAJOR}) + newest anti-bot patches.`,
     );
-    console.error("  Stay ahead of detection → https://cloakbrowser.dev");
+    console.error("  Try Pro free for 7 days → https://cloakbrowser.dev");
   }
   console.error("  Star us if CloakBrowser helps your project!");
   console.error();
@@ -652,45 +684,121 @@ async function downloadFile(url: string, dest: string, headers?: Record<string, 
 // Pro binary download
 // ---------------------------------------------------------------------------
 
+/** True when a cached, executable Pro binary exists for `version`. */
+function proBinaryReady(version: string | null): version is string {
+  if (!version) return false;
+  const p = getBinaryPath(version, true);
+  return fs.existsSync(p) && isExecutable(p);
+}
+
+/** Atomically write the latest Pro version marker for this platform. */
+function writeProVersionMarker(version: string): void {
+  const cacheDir = getCacheDir();
+  fs.mkdirSync(cacheDir, { recursive: true });
+  const marker = path.join(cacheDir, `latest_pro_version_${getPlatformTag()}`);
+  const tmp = `${marker}.tmp`;
+  fs.writeFileSync(tmp, version);
+  fs.renameSync(tmp, marker);
+}
+
+// A valid Pro license NEVER falls back to the free binary. If the latest Pro build
+// cannot be resolved or downloaded and no cached Pro binary exists, the error is
+// thrown rather than silently launching the free tier.
 async function ensureProBinary(
   licenseKey: string,
   requestedVersion?: string
 ): Promise<string> {
-  let version: string;
+  // Pinned: launch the exact requested version, no server cross-check, no marker
+  // write (a rollback pin must not stick future unpinned launches).
   if (requestedVersion) {
-    const requestedPath = getBinaryPath(requestedVersion, true);
-    if (fs.existsSync(requestedPath) && isExecutable(requestedPath)) {
+    if (proBinaryReady(requestedVersion)) {
       showWelcome(true);
-      return requestedPath;
+      return getBinaryPath(requestedVersion, true);
     }
-    version = requestedVersion;
-  } else {
-    const effective = getEffectiveVersion(true);
-    const effectivePath = getBinaryPath(effective, true);
-
-    if (fs.existsSync(effectivePath) && isExecutable(effectivePath)) {
-      showWelcome(true);
-      maybeTriggerProUpdateCheck(licenseKey);
-      return effectivePath;
+    console.log(
+      `[cloakbrowser] Downloading Pro Chromium ${requestedVersion} for ${getPlatformTag()}...`
+    );
+    await downloadProBinary(requestedVersion, licenseKey);
+    const p = getBinaryPath(requestedVersion, true);
+    if (!fs.existsSync(p)) {
+      throw new Error(`Pro download completed but binary not found at: ${p}`);
     }
-
-    const latest = await getProLatestVersion();
-    if (!latest) {
-      throw new Error("Could not determine latest Pro version from server");
-    }
-    version = latest;
-  }
-
-  const versionPath = getBinaryPath(version, true);
-  if (fs.existsSync(versionPath) && isExecutable(versionPath)) {
     showWelcome(true);
-    return versionPath;
+    return p;
   }
 
-  console.log(
-    `[cloakbrowser] Downloading Pro Chromium ${version} for ${getPlatformTag()}...`
-  );
-  await downloadProBinary(version, licenseKey);
+  // Unpinned: track the server's latest stable.
+  const effective = getEffectiveVersion(true);
+
+  // Honor CLOAKBROWSER_AUTO_UPDATE=false the way the free path does: frozen AND a
+  // cached Pro build present → keep it, skip the server check. With no cached build
+  // we must still fetch one — a valid Pro license never launches the free binary.
+  // (The `update` CLI ignores this and always acts.)
+  const frozen =
+    (process.env.CLOAKBROWSER_AUTO_UPDATE ?? "").toLowerCase() === "false";
+  if (frozen && proBinaryReady(effective)) {
+    showWelcome(true);
+    return getBinaryPath(effective, true);
+  }
+
+  // getProLatestVersion() is rate-limited to one network call per hour and returns
+  // a cached string in between, so this foreground check stays cheap steady-state.
+  const latest = await getProLatestVersion();
+
+  // Prefer the server's latest when it is newer than — or replaces a missing —
+  // the cached build. Otherwise stay on the cached Pro binary (fast, offline-ok).
+  let version: string | null;
+  if (
+    latest &&
+    (!proBinaryReady(effective) || // also covers effective === null
+      versionNewer(latest, effective))
+  ) {
+    version = latest;
+  } else {
+    version = effective;
+  }
+
+  if (version === null) {
+    // Valid Pro license but nothing resolvable (server unreachable AND no cached
+    // Pro build). Never downgrade to the free binary — fail loudly.
+    throw new Error("Could not determine latest Pro version from server");
+  }
+
+  if (proBinaryReady(version)) {
+    // Advance the marker if this cached build is newer than what the marker names,
+    // so `info` (and a later server-outage launch) reflect the build we actually
+    // launch — never a stale marker.
+    if (version !== effective) {
+      try {
+        writeProVersionMarker(version);
+      } catch {
+        // Non-fatal
+      }
+    }
+    showWelcome(true);
+    return getBinaryPath(version, true);
+  }
+
+  // `version` (the server latest) needs downloading. On failure, fall back to a
+  // cached Pro build if we have one — never the free binary.
+  try {
+    console.log(
+      `[cloakbrowser] Downloading Pro Chromium ${version} for ${getPlatformTag()}...`
+    );
+    await downloadProBinary(version, licenseKey);
+  } catch (err) {
+    // A tampering signal must surface verbatim — never mask it behind the
+    // cached-Pro fallback, which is only for transient download failures.
+    if (err instanceof BinaryVerificationError) throw err;
+    if (proBinaryReady(effective)) {
+      console.log(
+        `[cloakbrowser] Pro update to ${version} failed; launching cached Pro binary ${effective}`
+      );
+      showWelcome(true);
+      return getBinaryPath(effective, true);
+    }
+    throw err;
+  }
 
   const downloadedPath = getBinaryPath(version, true);
   if (!fs.existsSync(downloadedPath)) {
@@ -699,17 +807,11 @@ async function ensureProBinary(
     );
   }
 
-  // Write Pro version marker only for unpinned latest resolution. A rollback
-  // pin must not make future unpinned launches stick to the old build.
-  if (!requestedVersion) {
-    try {
-      const cacheDir = getCacheDir();
-      fs.mkdirSync(cacheDir, { recursive: true });
-      const marker = path.join(cacheDir, `latest_pro_version_${getPlatformTag()}`);
-      fs.writeFileSync(marker, version);
-    } catch {
-      // Non-fatal
-    }
+  // Advance the marker so future unpinned launches use this build.
+  try {
+    writeProVersionMarker(version);
+  } catch {
+    // Non-fatal
   }
 
   showWelcome(true);
@@ -958,7 +1060,8 @@ function shouldCheckForUpdate(): boolean {
   const checkFile = path.join(getCacheDir(), ".last_update_check");
   try {
     const lastCheck = Number(fs.readFileSync(checkFile, "utf-8").trim());
-    if (Date.now() - lastCheck < UPDATE_CHECK_INTERVAL_MS) return false;
+    if (Math.floor(Date.now() / 1000) - lastCheck < UPDATE_CHECK_INTERVAL_SEC)
+      return false;
   } catch {
     /* file doesn't exist or unreadable */
   }
@@ -1040,7 +1143,7 @@ async function checkAndDownloadUpdate(): Promise<void> {
     fs.mkdirSync(cacheDir, { recursive: true });
     fs.writeFileSync(
       path.join(cacheDir, ".last_update_check"),
-      String(Date.now())
+      String(Math.floor(Date.now() / 1000))
     );
 
     const platformVersion = getChromiumVersion();
@@ -1080,35 +1183,3 @@ function maybeTriggerUpdateCheck(): void {
   checkAndDownloadUpdate().catch(() => { });
 }
 
-function maybeTriggerProUpdateCheck(licenseKey: string): void {
-  const checkFile = path.join(getCacheDir(), ".last_pro_update_check");
-  try {
-    if (fs.existsSync(checkFile)) {
-      const lastCheck = parseFloat(fs.readFileSync(checkFile, "utf-8").trim());
-      if (Date.now() - lastCheck * 1000 < UPDATE_CHECK_INTERVAL_MS) return;
-    }
-  } catch {
-    // unreadable — proceed
-  }
-
-  (async () => {
-    try {
-      fs.mkdirSync(path.dirname(checkFile), { recursive: true });
-      fs.writeFileSync(checkFile, String(Date.now() / 1000));
-
-      const latest = await getProLatestVersion();
-      if (!latest) return;
-
-      if (fs.existsSync(getBinaryPath(latest, true))) return;
-
-      console.log(`[cloakbrowser] Newer Pro binary available: ${latest}. Downloading in background...`);
-      await downloadProBinary(latest, licenseKey);
-
-      const marker = path.join(getCacheDir(), `latest_pro_version_${getPlatformTag()}`);
-      fs.writeFileSync(marker, latest);
-      console.log(`[cloakbrowser] Pro background update complete: ${latest} ready. Will use on next launch.`);
-    } catch (err) {
-      // non-fatal
-    }
-  })();
-}

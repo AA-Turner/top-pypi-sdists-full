@@ -24,7 +24,9 @@ from collections.abc import Mapping
 from contextlib import aclosing
 from dataclasses import dataclass, field, replace
 from datetime import UTC, datetime, timedelta
+import inspect
 import math
+from pathlib import Path
 import re
 from typing import TYPE_CHECKING, Any, NamedTuple
 from uuid import uuid4
@@ -36,6 +38,7 @@ from rich.text import Text
 from ouroboros.backends import backend_supports_tool_envelope
 from ouroboros.config import get_llm_model_for_role
 from ouroboros.core.errors import OuroborosError
+from ouroboros.core.seed import ac_text, ac_texts
 from ouroboros.core.seed_contract import SeedContract
 from ouroboros.core.seed_contract_prompt import (
     render_auto_recursion_guard,
@@ -291,6 +294,8 @@ def _strategy_for_seed(seed: Seed, *, fat_harness_mode: bool = False) -> Executi
 def build_system_prompt(
     seed: Seed,
     strategy: ExecutionStrategy | None = None,
+    *,
+    repo_root: str | Path | None = None,
 ) -> str:
     """Build system prompt from seed specification.
 
@@ -298,6 +303,11 @@ def build_system_prompt(
         seed: Seed to extract system prompt from.
         strategy: Execution strategy for prompt customization.
             If None, uses strategy from seed.task_type.
+        repo_root: Working directory for the run. When it (or the seed's first
+            resolvable ``context_references`` path) is an existing repo, a
+            deterministic context pack (stack, verify commands, layout) is
+            appended so workers are not primed blind. Best-effort — a scan
+            failure or a non-project directory simply omits the pack.
 
     Returns:
         System prompt string.
@@ -312,13 +322,89 @@ def build_system_prompt(
     recovery_protocol = get_run_recovery_protocol_prompt()
     seed_contract = render_seed_contract_for_execution(SeedContract.from_seed(seed))
 
-    return f"""{strategy_fragment}
+    prompt = f"""{strategy_fragment}
 
 {seed_contract}
 
 {ac_tracking}
 
 {recovery_protocol}"""
+
+    context_pack_fragment = _context_pack_fragment(seed, repo_root)
+    if context_pack_fragment:
+        prompt = f"{prompt}\n\n{context_pack_fragment}"
+    return prompt
+
+
+def _resolve_context_pack_root(
+    seed: Seed,
+    repo_root: str | Path | None,
+) -> Path | None:
+    """Resolve the contained project directory the context pack may describe.
+
+    Security contract: the pack scans this directory and, for git repos,
+    cache-writes ``.ouroboros/context_pack.json`` under it, so it must never
+    resolve outside the run's own contained project. ``repo_root`` is that
+    project — it was already resolved and containment-checked upstream by
+    ``_resolve_cli_project_dir`` (via ``resolve_seed_project_path``) — so it is
+    the single trust anchor here.
+
+    Seed-encoded ``metadata.project_dir`` / ``context_references`` are
+    untrusted (LLM-generated, or imported via ``ooo publish``). They are only
+    honored when they resolve *inside* ``repo_root`` under the very same
+    ``resolve_seed_project_path`` containment contract the CLI uses — never as
+    a way to redirect the scan (and cache write) at an arbitrary local repo.
+    Any escaping candidate is rejected and we fall back to ``repo_root``
+    itself. Without a trusted ``repo_root`` there is no stable base to contain
+    seed paths against, so the resolver returns ``None`` (no pack) rather than
+    scanning a raw seed path.
+    """
+    if not repo_root:
+        return None
+    base = Path(repo_root)
+    if not base.is_dir():
+        return None
+    base = base.resolve()
+
+    from ouroboros.core.project_paths import resolve_seed_project_path
+
+    resolution = resolve_seed_project_path(seed, stable_base=base)
+    candidate = resolution.path
+    if candidate is not None:
+        # Contained candidate (existing metadata dir, or an existing reference
+        # file/dir inside ``base``). Files collapse to their parent directory.
+        if candidate.is_file():
+            return candidate.parent
+        if candidate.is_dir():
+            return candidate
+    return base
+
+
+def _context_pack_fragment(
+    seed: Seed,
+    repo_root: str | Path | None,
+) -> str:
+    """Render the deterministic context pack fragment, or empty string.
+
+    Root resolution happens before the config lookup so the common
+    no-repo path (unit tests, greenfield seeds) never loads config and
+    never touches the filesystem scanner.
+    """
+    root = _resolve_context_pack_root(seed, repo_root)
+    if root is None:
+        return ""
+
+    from ouroboros.config import get_context_pack_enabled
+
+    if not get_context_pack_enabled():
+        return ""
+
+    from ouroboros.orchestrator.context_pack import build_context_pack, render_context_pack
+
+    pack = build_context_pack(root)
+    if pack is None:
+        return ""
+    return render_context_pack(pack)
 
 
 def build_task_prompt(
@@ -338,7 +424,7 @@ def build_task_prompt(
     if strategy is None:
         strategy = get_strategy(seed.task_type)
 
-    ac_list = "\n".join(f"{i + 1}. {ac}" for i, ac in enumerate(seed.acceptance_criteria))
+    ac_list = "\n".join(f"{i + 1}. {ac}" for i, ac in enumerate(ac_texts(seed.acceptance_criteria)))
     suffix = strategy.get_task_prompt_suffix()
 
     return f"""Execute the following task according to the acceptance criteria:
@@ -501,6 +587,19 @@ class OrchestratorRunner:
         from ouroboros.config import get_agent_reasoning_effort
 
         self._reasoning_effort = get_agent_reasoning_effort()
+        # Verify-by-default execution knobs (PR-V). Read once from config with a
+        # safe fallback so direct/test construction never fails on config IO.
+        try:
+            from ouroboros.config import load_config
+
+            _execution_config = load_config().execution
+            self._run_verify_commands = _execution_config.run_verify_commands
+            self._verify_command_timeout_seconds = _execution_config.verify_command_timeout_seconds
+            self._ac_retry_attempts = _execution_config.ac_retry_attempts
+        except Exception:  # pragma: no cover - defensive config fallback
+            self._run_verify_commands = True
+            self._verify_command_timeout_seconds = 600
+            self._ac_retry_attempts = 2
         self._announced_param_degradations: set[tuple[str, str]] = set()
         # Track active session for external cancellation by execution_id
         self._active_sessions: dict[str, str] = {}  # execution_id -> session_id
@@ -2148,6 +2247,8 @@ class OrchestratorRunner:
             seed_id=seed.metadata.seed_id,
             session_id=session_id,
             seed_goal=seed.goal,
+            runtime_backend=getattr(self._adapter, "runtime_backend", None),
+            llm_backend=getattr(self._adapter, "llm_backend", None),
         )
 
         if session_result.is_err:
@@ -2243,7 +2344,9 @@ class OrchestratorRunner:
             # the profile-backed prompt contract so leaf agents are told to emit
             # schema-valid evidence before the acceptance gate parses it.
             strategy = _strategy_for_seed(seed, fat_harness_mode=self._fat_harness_mode)
-            system_prompt = build_system_prompt(seed, strategy=strategy)
+            system_prompt = build_system_prompt(
+                seed, strategy=strategy, repo_root=self._effective_cwd()
+            )
             task_prompt = build_task_prompt(seed, strategy=strategy)
 
             # Get merged tools (strategy tools + MCP tools if configured)
@@ -2262,7 +2365,7 @@ class OrchestratorRunner:
             from ouroboros.orchestrator.workflow_state import WorkflowStateTracker
 
             state_tracker = WorkflowStateTracker(
-                acceptance_criteria=seed.acceptance_criteria,
+                acceptance_criteria=list(seed.acceptance_criteria),
                 goal=seed.goal,
                 session_id=tracker.session_id,
                 activity_map=strategy.get_activity_map(),
@@ -2837,7 +2940,7 @@ class OrchestratorRunner:
             self._console.print("\n[cyan]Preparing sequential AC execution plan...[/cyan]")
             dependency_graph = DependencyGraph(
                 nodes=tuple(
-                    ACNode(index=i, content=ac, depends_on=tuple(range(i)))
+                    ACNode(index=i, content=ac_text(ac), depends_on=tuple(range(i)))
                     for i, ac in enumerate(seed.acceptance_criteria)
                 ),
                 execution_levels=tuple((i,) for i in range(len(seed.acceptance_criteria))),
@@ -2858,7 +2961,7 @@ class OrchestratorRunner:
                 all_indices = tuple(range(len(seed.acceptance_criteria)))
                 dependency_graph = DependencyGraph(
                     nodes=tuple(
-                        ACNode(index=i, content=ac, depends_on=())
+                        ACNode(index=i, content=ac_text(ac), depends_on=())
                         for i, ac in enumerate(seed.acceptance_criteria)
                     ),
                     execution_levels=(all_indices,) if all_indices else (),
@@ -2920,6 +3023,9 @@ class OrchestratorRunner:
             execution_profile=execution_profile,
             fat_harness_mode=self._fat_harness_mode,
             reasoning_effort=self._reasoning_effort,
+            run_verify_commands=self._run_verify_commands,
+            verify_command_timeout_seconds=self._verify_command_timeout_seconds,
+            ac_retry_attempts=self._ac_retry_attempts,
         )
 
         # Check for cancellation before starting parallel execution
@@ -2931,16 +3037,28 @@ class OrchestratorRunner:
                 start_time=start_time,
             )
 
-        parallel_result = await parallel_executor.execute_parallel(
-            seed=seed,
-            execution_plan=execution_plan,
-            session_id=tracker.session_id,
-            execution_id=exec_id,
-            tools=merged_tools,
-            tool_catalog=tool_catalog.tools,
-            system_prompt=system_prompt,
-            externally_satisfied_acs=externally_satisfied_acs,
-        )
+        try:
+            parallel_result = await parallel_executor.execute_parallel(
+                seed=seed,
+                execution_plan=execution_plan,
+                session_id=tracker.session_id,
+                execution_id=exec_id,
+                tools=merged_tools,
+                tool_catalog=tool_catalog.tools,
+                system_prompt=system_prompt,
+                externally_satisfied_acs=externally_satisfied_acs,
+            )
+        finally:
+            # Release any warm worker-pool sessions the runtime holds (e.g. the
+            # codex-mcp persistent connection pool). The non-parallel path closes
+            # per-turn handles, but the parallel path otherwise leaves the pool to
+            # its idle TTL — a process-leak window after every run. Guard on
+            # ``iscoroutinefunction`` so this is a no-op for runtimes without a
+            # real async ``aclose`` (and so MagicMock test adapters, whose
+            # attribute access auto-creates a non-awaitable child, are skipped).
+            adapter_aclose = getattr(self._adapter, "aclose", None)
+            if inspect.iscoroutinefunction(adapter_aclose):
+                await adapter_aclose()
 
         # Check for cancellation after parallel execution
         if await self._check_cancellation(tracker.session_id):
@@ -3213,7 +3331,7 @@ class OrchestratorRunner:
             )
 
             # Build resume prompt
-            system_prompt = build_system_prompt(seed)
+            system_prompt = build_system_prompt(seed, repo_root=self._effective_cwd())
             resume_prompt = f"""Continue executing the task from where you left off.
 
 {build_task_prompt(seed)}
@@ -3246,7 +3364,7 @@ Note: This is a resumed session. Please continue from where execution was interr
 
             resume_strategy = get_strategy(seed.task_type)
             state_tracker = WorkflowStateTracker(
-                acceptance_criteria=seed.acceptance_criteria,
+                acceptance_criteria=list(seed.acceptance_criteria),
                 goal=seed.goal,
                 session_id=session_id,
                 activity_map=resume_strategy.get_activity_map(),

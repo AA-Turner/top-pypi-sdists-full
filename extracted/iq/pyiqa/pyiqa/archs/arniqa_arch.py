@@ -18,16 +18,13 @@ from torch import nn
 import torch.nn.functional as F
 import torchvision.models
 from typing import Tuple
-import warnings
 from collections import OrderedDict
 
 from .constants import IMAGENET_DEFAULT_MEAN, IMAGENET_DEFAULT_STD
 from pyiqa.utils.registry import ARCH_REGISTRY
 from pyiqa.archs.arch_util import get_url_from_name
 from pyiqa.api_helpers import get_dataset_info
-
-# Avoid warning related to loading a jit model from torch.hub
-warnings.filterwarnings('ignore', category=UserWarning, module='torch.serialization')
+from pyiqa.utils.download_util import load_file_from_url
 
 DATASET_INFO = get_dataset_info()
 DATASET_INFO['clive'] = DATASET_INFO['livec']
@@ -92,11 +89,12 @@ class ARNIQA(nn.Module):
         self.encoder.load_state_dict(cleaned_encoder_state_dict)
         self.encoder.eval()
 
-        self.regressor: nn.Module = torch.hub.load_state_dict_from_url(
-            default_model_urls[self.regressor_dataset],
-            progress=True,
-            map_location='cpu',
-        )  # Load regressor from torch.hub as JIT model
+        regressor_path = load_file_from_url(
+            default_model_urls[self.regressor_dataset], progress=True
+        )
+        self.regressor: nn.Module = torch.jit.load(
+            regressor_path, map_location='cpu'
+        )
         self.regressor.eval()
 
         self.default_mean = torch.Tensor(IMAGENET_DEFAULT_MEAN).view(1, 3, 1, 1)

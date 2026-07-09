@@ -307,10 +307,24 @@ _GENERIC_SKILL_EXECUTION_CAPABILITIES: tuple[SkillExecutionCapability, ...] = (
         name="restate_goal",
         guidance="Restate the goal and require explicit approval before irreversible workflow transitions such as seed generation.",
     ),
+    SkillExecutionCapability(
+        name="orchestrate_subagents",
+        guidance=(
+            "Process each payload in order. Correlate results by the key named "
+            "in `result_correlation_key`. Synthesize after the last payload."
+        ),
+    ),
+)
+_GENERIC_SKILL_EXECUTION_CAPABILITIES_WITHOUT_SUBAGENTS: tuple[SkillExecutionCapability, ...] = (
+    tuple(
+        capability
+        for capability in _GENERIC_SKILL_EXECUTION_CAPABILITIES
+        if capability.name != "orchestrate_subagents"
+    )
 )
 
 _CLAUDE_SKILL_EXECUTION_CAPABILITIES: tuple[SkillExecutionCapability, ...] = (
-    *_GENERIC_SKILL_EXECUTION_CAPABILITIES,
+    *_GENERIC_SKILL_EXECUTION_CAPABILITIES_WITHOUT_SUBAGENTS,
     SkillExecutionCapability(
         name="orchestrate_subagents",
         guidance=(
@@ -329,7 +343,7 @@ _CLAUDE_SKILL_EXECUTION_CAPABILITIES: tuple[SkillExecutionCapability, ...] = (
 )
 
 _OPENCODE_SKILL_EXECUTION_CAPABILITIES: tuple[SkillExecutionCapability, ...] = (
-    *_GENERIC_SKILL_EXECUTION_CAPABILITIES,
+    *_GENERIC_SKILL_EXECUTION_CAPABILITIES_WITHOUT_SUBAGENTS,
     SkillExecutionCapability(
         name="orchestrate_subagents",
         guidance=(
@@ -377,6 +391,27 @@ _CAPABILITIES: tuple[BackendCapability, ...] = (
         host_driven_callable_spawn_tool_name=None,
         prohibited_subagent_spawn_tool_names=("multi_agent_v1.spawn_agent",),
         tool_discovery_mechanism=ToolDiscoveryMechanism.NATIVE_RUNTIME_DISCOVERY,
+    ),
+    # Leader-driven worker runtime over ``codex mcp-server`` (codex/codex-reply).
+    # Same codex binary, runtime-only (not an LLM/interview backend); declares
+    # EXTERNAL_LEADER_DRIVEN at the runtime layer. See orchestrator.codex_mcp_runtime.
+    BackendCapability(
+        name="codex_mcp",
+        aliases=("codex_mcp_server",),
+        supports_runtime=True,
+        cli_name="codex",
+        cli_config_key="codex_cli_path",
+        skill_execution_capabilities=_CODEX_SKILL_EXECUTION_CAPABILITIES,
+    ),
+    # Leader-driven worker runtime over ``claude -p --resume`` (stream-json).
+    # Same claude binary, runtime-only; declares EXTERNAL_LEADER_DRIVEN. Proves
+    # the worker pool is provider-neutral. See orchestrator.claude_worker_runtime.
+    BackendCapability(
+        name="claude_mcp",
+        aliases=("claude_worker",),
+        supports_runtime=True,
+        cli_name="claude",
+        cli_config_key="cli_path",
     ),
     BackendCapability(
         name="copilot",
@@ -445,6 +480,7 @@ _CAPABILITIES: tuple[BackendCapability, ...] = (
         cli_name="goose",
         cli_config_key="goose_cli_path",
         soft_tool_enforcement=True,
+        skill_execution_capabilities=_GENERIC_SKILL_EXECUTION_CAPABILITIES,
     ),
     BackendCapability(
         name="pi",
@@ -467,6 +503,41 @@ _CAPABILITIES: tuple[BackendCapability, ...] = (
         switchable_runtime=True,
         cli_name="gjc",
         cli_config_key="gjc_cli_path",
+        supports_tool_envelope=False,
+        skill_execution_capabilities=_GENERIC_SKILL_EXECUTION_CAPABILITIES,
+    ),
+    BackendCapability(
+        # Antigravity is Google's successor to the Gemini CLI (the ``agy``
+        # binary). Gemini CLI stops serving the Pro/Ultra/free consumer tiers
+        # on 2026-06-18 and migrates those users to Antigravity. Runtime-only:
+        # ``agy -p`` prints a plain-text response (no ``--output-format``), so
+        # it drives the agentic orchestrator runtime but does not back
+        # structured LLM completions or auto-interview answering.
+        name="antigravity",
+        aliases=("agy",),
+        supports_runtime=True,
+        supports_llm=False,
+        supports_interview_driver=False,
+        switchable_runtime=True,
+        cli_name="agy",
+        cli_config_key="antigravity_cli_path",
+        supports_tool_envelope=False,
+        skill_execution_capabilities=_GENERIC_SKILL_EXECUTION_CAPABILITIES,
+    ),
+    BackendCapability(
+        # Grok Build (xAI) — the ``grok`` binary. Runtime-only: ``grok -p
+        # --output-format streaming-json`` drives the agentic orchestrator
+        # runtime. Auth is subscription OAuth (``grok login`` with SuperGrok /
+        # X Premium+) or ``XAI_API_KEY``. Grok owns its own model catalog
+        # (``grok models``), so it is a sentinel-model backend.
+        name="grok",
+        aliases=("grok_cli", "grok_build"),
+        supports_runtime=True,
+        supports_llm=False,
+        supports_interview_driver=False,
+        switchable_runtime=True,
+        cli_name="grok",
+        cli_config_key="grok_cli_path",
         supports_tool_envelope=False,
         skill_execution_capabilities=_GENERIC_SKILL_EXECUTION_CAPABILITIES,
     ),
@@ -591,10 +662,10 @@ def build_runtime_subagent_orchestration_contract(
     determines whether native parallel subagent dispatch can be used or whether
     the declared sequential fallback must be followed.
     """
-    capability = get_backend_capability(name)
+    normalized_name = name.strip().lower()
+    capability = get_backend_capability(normalized_name)
     if capability is None:
-        msg = f"Unsupported backend: {name.strip().lower()}"
-        raise ValueError(msg)
+        capability = BackendCapability(name=normalized_name or "unknown")
 
     sequential_fallback = directive_metadata.get("sequential_fallback", {})
     if not isinstance(sequential_fallback, Mapping):

@@ -4,6 +4,8 @@ from __future__ import annotations
 
 from unittest.mock import MagicMock
 
+import pytest
+from agno.exceptions import ContextWindowExceededError, ModelProviderError
 from agno.media import Audio, Image
 from agno.models.message import Message
 from agno.models.openai import OpenAIChat
@@ -42,46 +44,83 @@ def test_model_route_includes_provider_model_and_base_url() -> None:
     )
 
 
-def test_audio_unsupported_error_records_audio_only() -> None:
-    """Audio unsupported errors should disable only audio for the route."""
+@pytest.mark.parametrize(
+    "error",
+    [
+        # Z.ai code 1214 as it reaches the streamed run-error path: bare message,
+        # no exception object, no status code, no "Error code: 400" marker.
+        "messages[30].content[0].type type error",
+        "Error code: 400 - messages.content.type is invalid, allowed values: ['text']",
+        "audio input is not supported - hint: you may need to provide the mmproj",
+        "Rate limit exceeded",
+        "Error code: 400 - invalid api key provided",
+        ModelProviderError(message="Some brand new provider wording about content", status_code=400),
+    ],
+)
+def test_any_failure_retries_without_media_and_teaches_on_success(error: Exception | str) -> None:
+    """No error wording decides the retry: every failure drops all media once.
+
+    The route capability cache learns the dropped kinds only when the retry
+    actually succeeds, which never happens for failures unrelated to media
+    (auth, rate limits, outages) because their retry fails identically.
+    """
     reset_model_media_capability_cache()
     media = _media_inputs()
     route = _route()
 
-    decision = retry_media_inputs_after_failure(
-        route,
-        RuntimeError("audio input is not supported - hint: you may need to provide the mmproj"),
-        media,
-    )
+    decision = retry_media_inputs_after_failure(route, error, media)
 
     assert decision.should_retry is True
-    assert decision.removed_kinds == frozenset({"audio"})
-    assert decision.media_inputs.audio == ()
-    assert decision.media_inputs.images == media.images
-    assert decision.media_inputs.files == media.files
-    assert decision.media_inputs.videos == media.videos
+    assert decision.removed_kinds == frozenset({"audio", "image", "file", "video"})
+    assert decision.media_inputs == MediaInputs()
+    assert decision.teach_route_on_success == route
+    # Nothing is taught until the without-media retry actually succeeds.
+    assert filter_media_inputs_for_route(route, media).media_inputs == media
 
+    decision.record_retry_success()
+
+    assert unsupported_media_kinds_for_route(route) == frozenset({"audio", "image", "file", "video"})
     filtered = filter_media_inputs_for_route(route, media)
-    assert filtered.removed_kinds == frozenset({"audio"})
-    assert filtered.media_inputs.audio == ()
-    assert filtered.media_inputs.images == media.images
+    assert filtered.removed_kinds == frozenset({"audio", "image", "file", "video"})
+    assert filtered.media_inputs == MediaInputs()
+    reset_model_media_capability_cache()
 
 
-def test_image_remains_enabled_when_only_audio_failed() -> None:
-    """Negative cache should track kinds independently."""
+def test_no_media_present_never_retries() -> None:
+    """Media-shaped errors without any media sent are not retried."""
+    decision = retry_media_inputs_after_failure(_route(), "audio input is not supported", MediaInputs())
+
+    assert decision.should_retry is False
+    assert decision.removed_kinds == frozenset()
+
+
+@pytest.mark.parametrize(
+    "error",
+    [
+        ContextWindowExceededError(message="prompt is too long: 250000 tokens > 200000 maximum"),
+        "Error code: 400 - maximum context length is 128000 tokens",
+        ModelProviderError(message="Request Entity Too Large", status_code=413),
+        # Transient failures can pass on the retry because the blip passed, so
+        # a lucky retry success must not disable media for the route.
+        ModelProviderError(message="upstream connect error", status_code=502),
+        ModelProviderError(message="model overloaded", status_code=503),
+        ModelProviderError(message="Too Many Requests", status_code=429),
+    ],
+)
+def test_size_context_and_transient_failures_retry_but_never_teach(error: Exception | str) -> None:
+    """Oversized requests and transient failures must not teach capability on retry success."""
     reset_model_media_capability_cache()
     media = _media_inputs()
     route = _route()
 
-    retry_media_inputs_after_failure(
-        route,
-        "Error code: 400 - at most 0 audio(s) may be provided",
-        media,
-    )
+    decision = retry_media_inputs_after_failure(route, error, media)
 
-    filtered = filter_media_inputs_for_route(route, media)
-    assert filtered.media_inputs.audio == ()
-    assert filtered.media_inputs.images == media.images
+    assert decision.should_retry is True
+    assert decision.teach_route_on_success is None
+
+    decision.record_retry_success()
+
+    assert unsupported_media_kinds_for_route(route) == frozenset()
 
 
 def test_different_base_url_does_not_inherit_negative_cache() -> None:
@@ -91,165 +130,16 @@ def test_different_base_url_does_not_inherit_negative_cache() -> None:
     first_route = _route(base_url="http://localhost:9292/v1")
     second_route = _route(base_url="http://localhost:9293/v1")
 
-    retry_media_inputs_after_failure(
-        first_route,
-        "audio input is not supported",
-        media,
-    )
+    retry_media_inputs_after_failure(first_route, "audio input is not supported", media).record_retry_success()
 
     filtered = filter_media_inputs_for_route(second_route, media)
     assert filtered.removed_kinds == frozenset()
-    assert filtered.media_inputs.audio == media.audio
-
-
-def test_generic_errors_do_not_update_cache() -> None:
-    """Transient or unrelated failures should not teach media capability."""
-    reset_model_media_capability_cache()
-    media = _media_inputs()
-    route = _route()
-
-    decision = retry_media_inputs_after_failure(route, "Rate limit exceeded", media)
-
-    assert decision.should_retry is False
-    filtered = filter_media_inputs_for_route(route, media)
     assert filtered.media_inputs == media
-
-
-def test_generic_media_error_retries_without_caching() -> None:
-    """Ambiguous media errors should preserve old drop-all retry without teaching cache."""
     reset_model_media_capability_cache()
-    media = _media_inputs()
-    route = _route()
-
-    decision = retry_media_inputs_after_failure(route, "inline media input is not supported", media)
-
-    assert decision.should_retry is True
-    assert decision.removed_kinds == frozenset({"audio", "image", "file", "video"})
-    assert decision.media_inputs == MediaInputs()
-
-    filtered = filter_media_inputs_for_route(route, media)
-    assert filtered.media_inputs == media
-
-
-def test_text_only_content_error_teaches_all_present_kinds() -> None:
-    """Z.ai text-only models reject every non-text part; all present kinds are learned."""
-    reset_model_media_capability_cache()
-    media = _media_inputs()
-    route = _route()
-
-    decision = retry_media_inputs_after_failure(
-        route,
-        "Error code: 400 - messages.content.type is invalid, allowed values: ['text']",
-        media,
-    )
-
-    assert decision.should_retry is True
-    assert decision.removed_kinds == frozenset({"audio", "image", "file", "video"})
-    assert decision.media_inputs == MediaInputs()
-
-    filtered = filter_media_inputs_for_route(route, media)
-    assert filtered.removed_kinds == frozenset({"audio", "image", "file", "video"})
-    assert filtered.media_inputs == MediaInputs()
-    reset_model_media_capability_cache()
-
-
-def test_text_only_content_error_teaches_only_present_kinds() -> None:
-    """Text-only errors must not disable media kinds that were never sent."""
-    reset_model_media_capability_cache()
-    media = MediaInputs(images=(MagicMock(name="image"),))
-    route = _route()
-
-    decision = retry_media_inputs_after_failure(
-        route,
-        "messages.content.type is invalid, allowed values: ['text']",
-        media,
-    )
-
-    assert decision.should_retry is True
-    assert decision.removed_kinds == frozenset({"image"})
-    assert unsupported_media_kinds_for_route(route) == frozenset({"image"})
-    reset_model_media_capability_cache()
-
-
-def test_content_part_type_error_retries_without_caching() -> None:
-    """Z.ai bare content-part type errors drop media for the retry only."""
-    reset_model_media_capability_cache()
-    media = _media_inputs()
-    route = _route()
-
-    decision = retry_media_inputs_after_failure(
-        route,
-        "Error code: 400 - messages[12].content[0].type type error",
-        media,
-    )
-
-    assert decision.should_retry is True
-    assert decision.removed_kinds == frozenset({"audio", "image", "file", "video"})
-    assert decision.media_inputs == MediaInputs()
-
-    filtered = filter_media_inputs_for_route(route, media)
-    assert filtered.media_inputs == media
-
-
-def test_openai_invalid_audio_format_error_retries_without_caching() -> None:
-    """OpenAI audio format validation errors should drop audio for the retry only."""
-    reset_model_media_capability_cache()
-    media = _media_inputs()
-    route = _route()
-    error = (
-        "litellm.BadRequestError: OpenAIException - Invalid value: 'bin'. "
-        "Supported values are: 'wav' and 'mp3'.. Received Model Group=gpt-5.5 "
-        "messages[3].content[1].input_audio.format"
-    )
-
-    decision = retry_media_inputs_after_failure(route, error, media)
-
-    assert decision.should_retry is True
-    assert decision.removed_kinds == frozenset({"audio"})
-    assert decision.media_inputs.audio == ()
-    assert decision.media_inputs.images == media.images
-    assert decision.media_inputs.files == media.files
-    assert decision.media_inputs.videos == media.videos
-
-    filtered = filter_media_inputs_for_route(route, media)
-    assert filtered.media_inputs == media
-
-
-def test_openai_invalid_audio_format_message_without_field_retries_without_caching() -> None:
-    """LiteLLM can omit OpenAI's input_audio.format field from the surfaced message."""
-    reset_model_media_capability_cache()
-    media = _media_inputs()
-    route = _route()
-    error = (
-        "litellm.BadRequestError: OpenAIException - Invalid value: 'bin'. "
-        "Supported values are: 'wav' and 'mp3'.. Received Model Group=gpt-5.5"
-    )
-
-    decision = retry_media_inputs_after_failure(route, error, media)
-
-    assert decision.should_retry is True
-    assert decision.removed_kinds == frozenset({"audio"})
-    assert decision.media_inputs.audio == ()
-    assert decision.media_inputs.images == media.images
-    assert filter_media_inputs_for_route(route, media).media_inputs == media
-
-
-def test_openai_supported_audio_values_without_audio_field_does_not_retry() -> None:
-    """Wav/mp3 validation text alone should not be treated as an audio input failure."""
-    reset_model_media_capability_cache()
-    media = _media_inputs()
-    route = _route()
-    error = "Invalid value: 'bin'. Supported values are: 'wav' and 'mp3'. parameter=output_format"
-
-    decision = retry_media_inputs_after_failure(route, error, media)
-
-    assert decision.should_retry is False
-    assert decision.media_inputs == media
-    assert filter_media_inputs_for_route(route, media).media_inputs == media
 
 
 def test_context_media_kinds_enable_retry_without_current_turn_media() -> None:
-    """Media pinned to history messages should still trigger retry and teach the cache."""
+    """Media pinned to history messages should still trigger the retry and teach on success."""
     reset_model_media_capability_cache()
     route = _route()
 
@@ -262,6 +152,9 @@ def test_context_media_kinds_enable_retry_without_current_turn_media() -> None:
 
     assert decision.should_retry is True
     assert decision.removed_kinds == frozenset({"image"})
+
+    decision.record_retry_success()
+
     assert unsupported_media_kinds_for_route(route) == frozenset({"image"})
     reset_model_media_capability_cache()
 
@@ -275,15 +168,16 @@ def test_unsupported_media_kinds_for_route_defaults_empty() -> None:
 
 def test_cache_can_be_reset() -> None:
     """Tests need explicit access to clear process-local learned state."""
+    reset_model_media_capability_cache()
     media = _media_inputs()
     route = _route()
 
-    retry_media_inputs_after_failure(route, "image input is not supported", media)
-    assert filter_media_inputs_for_route(route, media).media_inputs.images == ()
+    retry_media_inputs_after_failure(route, "image input is not supported", media).record_retry_success()
+    assert filter_media_inputs_for_route(route, media).media_inputs == MediaInputs()
 
     reset_model_media_capability_cache()
 
-    assert filter_media_inputs_for_route(route, media).media_inputs.images == media.images
+    assert filter_media_inputs_for_route(route, media).media_inputs == media
 
 
 def _route(base_url: str = "http://localhost:9292/v1") -> ModelMediaRoute:

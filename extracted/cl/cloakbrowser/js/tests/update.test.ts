@@ -1,4 +1,6 @@
 import { describe, it, expect, vi, afterEach, beforeEach } from "vitest";
+import * as fs from "node:fs";
+import * as path from "node:path";
 import {
   CHROMIUM_VERSION,
   getChromiumVersion,
@@ -325,6 +327,39 @@ describe("effective version", () => {
     try {
       expect(getEffectiveVersion()).toBe(getChromiumVersion());
     } finally {
+      if (orig) process.env.CLOAKBROWSER_CACHE_DIR = orig;
+      else delete process.env.CLOAKBROWSER_CACHE_DIR;
+    }
+  });
+
+  // Ticket 431 Fix 4: a valid Pro license must NEVER fall back to the free binary.
+  it("returns null for Pro when nothing is cached (never the free base)", () => {
+    const orig = process.env.CLOAKBROWSER_CACHE_DIR;
+    process.env.CLOAKBROWSER_CACHE_DIR = `/tmp/cloakbrowser-test-${Date.now()}-pro`;
+    try {
+      expect(getEffectiveVersion(true)).toBeNull();
+      // Free tier still resolves to a concrete version.
+      expect(getEffectiveVersion(false)).toBe(getChromiumVersion());
+    } finally {
+      if (orig) process.env.CLOAKBROWSER_CACHE_DIR = orig;
+      else delete process.env.CLOAKBROWSER_CACHE_DIR;
+    }
+  });
+
+  it("returns null for Pro when the marker's binary is missing", () => {
+    const orig = process.env.CLOAKBROWSER_CACHE_DIR;
+    const dir = `/tmp/cloakbrowser-test-${Date.now()}-promarker`;
+    process.env.CLOAKBROWSER_CACHE_DIR = dir;
+    try {
+      fs.mkdirSync(dir, { recursive: true });
+      fs.writeFileSync(
+        path.join(dir, `latest_pro_version_${getPlatformTag()}`),
+        "148.0.7778.215.5"
+      );
+      // Marker present, but no binary on disk → null, not the free base.
+      expect(getEffectiveVersion(true)).toBeNull();
+    } finally {
+      fs.rmSync(dir, { recursive: true, force: true });
       if (orig) process.env.CLOAKBROWSER_CACHE_DIR = orig;
       else delete process.env.CLOAKBROWSER_CACHE_DIR;
     }

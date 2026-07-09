@@ -70,6 +70,18 @@ class TestCommandGroups:
         assert result.exit_code == 0
         assert "Check Ouroboros system status" in result.output
 
+    def test_interview_alias_registered(self) -> None:
+        """Test that interview is registered as a top-level init alias."""
+        result = runner.invoke(app, ["interview", "--help"])
+        assert result.exit_code == 0
+        assert "Start interactive interview" in result.output
+
+    def test_seed_command_registered(self) -> None:
+        """Test that seed command is registered."""
+        result = runner.invoke(app, ["seed", "--help"])
+        assert result.exit_code == 0
+        assert "Seed" in result.output
+
 
 class TestRunCommands:
     """Tests for run command group."""
@@ -410,6 +422,10 @@ class TestWorkflowIRCommands:
                     "acceptance_criteria:",
                     "  - First criterion",
                     "  - criterion: Second criterion",
+                    "  - description: Structured criterion",
+                    "    verify_command: uv run pytest tests/unit/test_example.py",
+                    "    expected_artifacts:",
+                    "      - artifacts/example.txt",
                     "ontology_schema:",
                     "  name: WorkflowIR",
                     "  description: Workflow IR ontology",
@@ -438,7 +454,7 @@ class TestWorkflowIRCommands:
         assert result.exit_code == 0
         assert '"spec_id": "wfspec_seed_cli_ir"' in result.output
         assert '"ok": true' in result.output
-        assert '"acceptance_criteria_count": 2' in result.output
+        assert '"acceptance_criteria_count": 3' in result.output
 
     def test_workflow_ir_inspect_plain_text_reports_valid_projection(self, tmp_path: Path) -> None:
         seed_file = tmp_path / "seed.yaml"

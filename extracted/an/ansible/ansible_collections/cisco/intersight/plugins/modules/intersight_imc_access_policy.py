@@ -36,7 +36,7 @@ options:
   name:
     description:
       - The name assigned to the IMC Access Policy.
-      - The name must be between 1 and 64 alphanumeric characters, allowing special characters :-_.
+      - The name must be between 1 and 62 alphanumeric characters, allowing special characters :-_.
     type: str
     required: true
   tags:
@@ -64,14 +64,20 @@ options:
   ip_pool:
     description:
       - IP Pool used to assign IP address and other required network settings.
-      - Required when C(state=present).
-      - May be provided as a string pool name in the same organization as the policy.
-      - May also be provided as a dictionary with C(name) and optional C(organization).
-      - Dictionary field C(name) is the name of the IP Pool used to assign IP address and other required network settings.
-      - Dictionary field C(organization) is the name of the Organization that owns the IP Pool.
-      - Dictionary field C(organization) defaults to the value of C(organization) when omitted.
-      - Set dictionary field C(organization) when the IMC Access Policy should consume an IP Pool from a different Organization.
-    type: raw
+    type: dict
+    required: true
+    suboptions:
+      name:
+        description:
+          - Name of the IP Pool used to assign IP address and other required network settings.
+        type: str
+        required: true
+      organization:
+        description:
+          - The name of the Organization that owns the IP Pool.
+          - Defaults to the value of C(organization) when omitted.
+          - Set this when the IMC Access Policy should consume an IP Pool from a different Organization.
+        type: str
 author:
   - David Soper (@dsoper2)
 '''
@@ -85,14 +91,6 @@ EXAMPLES = r'''
     description: IMC access for SJC02 rack D23
     tags:
       - Site: D23
-    vlan_id: 131
-    ip_pool: sjc02-d23-ext-mgmt
-
-- name: Configure IMC Access policy using dictionary form for ip_pool
-  intersight_imc_access_policy:
-    api_private_key: "{{ api_private_key }}"
-    api_key_id: "{{ api_key_id }}"
-    name: sjc02-d23-access
     vlan_id: 131
     ip_pool:
       name: sjc02-d23-ext-mgmt
@@ -149,25 +147,6 @@ from ansible.module_utils.basic import AnsibleModule
 from ansible_collections.cisco.intersight.plugins.module_utils.intersight import IntersightModule, intersight_argument_spec, compare_values
 
 
-def normalize_ip_pool(module, ip_pool, default_organization):
-    if isinstance(ip_pool, str):
-        return {
-            'name': ip_pool,
-            'organization': default_organization,
-        }
-
-    if isinstance(ip_pool, dict):
-        ip_pool_name = ip_pool.get('name')
-        if not ip_pool_name:
-            module.fail_json(msg="ip_pool.name is required when ip_pool is provided as a dictionary")
-        return {
-            'name': ip_pool_name,
-            'organization': ip_pool.get('organization') or default_organization,
-        }
-
-    module.fail_json(msg="ip_pool must be either a string pool name or a dictionary with name and optional organization")
-
-
 def main():
     argument_spec = intersight_argument_spec.copy()
     argument_spec.update(
@@ -178,15 +157,27 @@ def main():
         tags=dict(type='list', elements='dict'),
         out_of_band=dict(type='bool', default=False),
         vlan_id=dict(type='int'),
-        ip_pool=dict(type='raw'),
+        ip_pool=dict(
+            type='dict',
+            required=True,
+            options=dict(
+                name=dict(type='str', required=True),
+                organization=dict(type='str'),
+            ),
+        ),
     )
 
     module = AnsibleModule(
         argument_spec,
+        required_if=[
+            ('out_of_band', False, ['vlan_id']),
+        ],
         supports_check_mode=True,
     )
 
     intersight = IntersightModule(module)
+    ip_pool = module.params['ip_pool']
+    ip_pool_organization = ip_pool.get('organization') or module.params['organization']
 
     organization_moid = intersight.get_moid_by_name(
         resource_path='/organization/Organizations',
@@ -195,58 +186,49 @@ def main():
     if not organization_moid:
         module.fail_json(msg=f"Organization '{module.params['organization']}' not found")
 
+    ip_pool_moid = intersight.get_moid_by_name_and_org(
+        resource_path='/ippool/Pools',
+        resource_name=ip_pool['name'],
+        organization_name=ip_pool_organization,
+    )
+    if not ip_pool_moid:
+        module.fail_json(
+            msg=f"IP pool '{ip_pool['name']}' not found in organization '{ip_pool_organization}'"
+        )
+
     intersight.result['api_response'] = {}
     intersight.result['trace_id'] = ''
     intersight.api_body = {
         'Name': intersight.module.params['name'],
+
         'Organization': {
             'Name': intersight.module.params['organization'],
         },
     }
-
-    ip_pool_moid = None
     if module.params['state'] == 'present':
-        if not module.params.get('ip_pool'):
-            module.fail_json(msg="ip_pool is required when state is 'present'")
-        if not module.params['out_of_band'] and module.params.get('vlan_id') is None:
-            module.fail_json(msg="vlan_id is required when out_of_band is false and state is 'present'")
-
-        ip_pool = normalize_ip_pool(module, module.params['ip_pool'], module.params['organization'])
-        ip_pool_organization = ip_pool['organization']
-
-        ip_pool_moid = intersight.get_moid_by_name_and_org(
-            resource_path='/ippool/Pools',
-            resource_name=ip_pool['name'],
-            organization_name=ip_pool_organization,
-        )
-        if not ip_pool_moid:
-            module.fail_json(
-                msg=f"IP pool '{ip_pool['name']}' not found in organization '{ip_pool_organization}'"
-            )
-
         intersight.set_tags_and_description()
 
-        if intersight.module.params['out_of_band']:
-            intersight.api_body['ConfigurationType'] = {
-                'ObjectType': 'access.ConfigurationType',
-                'ConfigureInband': False,
-                'ConfigureOutOfBand': True,
-            }
-            intersight.api_body['OutOfBandIpPool'] = {
-                'ObjectType': 'ippool.Pool',
-                'Moid': ip_pool_moid,
-            }
-        else:
-            intersight.api_body['InbandVlan'] = intersight.module.params['vlan_id']
-            intersight.api_body['ConfigurationType'] = {
-                'ObjectType': 'access.ConfigurationType',
-                'ConfigureInband': True,
-                'ConfigureOutOfBand': False,
-            }
-            intersight.api_body['InbandIpPool'] = {
-                'ObjectType': 'ippool.Pool',
-                'Moid': ip_pool_moid,
-            }
+    if intersight.module.params['out_of_band']:
+        intersight.api_body['ConfigurationType'] = {
+            'ObjectType': 'access.ConfigurationType',
+            'ConfigureInband': False,
+            'ConfigureOutOfBand': True,
+        }
+        intersight.api_body['OutOfBandIpPool'] = {
+            'ObjectType': 'ippool.Pool',
+            'Moid': ip_pool_moid,
+        }
+    else:
+        intersight.api_body['InbandVlan'] = intersight.module.params['vlan_id']
+        intersight.api_body['ConfigurationType'] = {
+            'ObjectType': 'access.ConfigurationType',
+            'ConfigureInband': True,
+            'ConfigureOutOfBand': False,
+        }
+        intersight.api_body['InbandIpPool'] = {
+            'ObjectType': 'ippool.Pool',
+            'Moid': ip_pool_moid,
+        }
 
     # get the current state of the resource
     filter_str = "Name eq '" + intersight.module.params['name'] + "'"

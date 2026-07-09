@@ -39,7 +39,7 @@ class TransactionServiceApi(SafeBaseAPI):
         EthereumNetwork.GNOSIS_CHIADO_TESTNET: "chi",
         EthereumNetwork.HEMI_NETWORK: "hemi",
         EthereumNetwork.INK: "ink",
-        EthereumNetwork.KATANA_MAINNET: "katana",
+        EthereumNetwork.KATANA: "katana",
         EthereumNetwork.LENS: "lens",
         EthereumNetwork.LINEA: "linea",
         EthereumNetwork.MAINNET: "eth",
@@ -359,7 +359,9 @@ class TransactionServiceApi(SafeBaseAPI):
             "nonce": safe_tx.safe_nonce,
             "contractTransactionHash": to_0x_hex_str(safe_tx.safe_tx_hash),
             "sender": sender,
-            "signature": safe_tx.signatures.hex() if safe_tx.signatures else None,
+            "signature": (
+                to_0x_hex_str(safe_tx.signatures) if safe_tx.signatures else None
+            ),
             "origin": "Safe-CLI",
         }
         response = self._post_request(

@@ -19,10 +19,12 @@ from __future__ import annotations
 
 import asyncio
 import fnmatch
+import hashlib
 import json
 import logging
 import os
 import sys
+import time
 import urllib.request
 from collections import defaultdict, deque
 
@@ -361,6 +363,54 @@ class _Typing:
             self._thread.join(timeout=1.0)
 
 
+# Forwarded media (photos/videos/docs) is downloaded here so the `ingest` tool
+# can process it. Scratch cache — safe to purge; entries older than 2 days are
+# pruned on write. Override with SKC_INGEST_TMP.
+_INGEST_TMP = os.path.expanduser(os.environ.get("SKC_INGEST_TMP", "~/.cache/skchat-ingest"))
+_INGEST_TMP_TTL = 2 * 24 * 3600  # seconds
+
+
+def _extract_media(u: dict):
+    """Return (file_id, kind, ext, caption) for a forwarded photo/video/document,
+    else None. Photos use the largest available size."""
+    msg = u.get("message") or u.get("edited_message") or {}
+    caption = (msg.get("caption") or "").strip()
+    if msg.get("photo"):
+        sizes = [p for p in msg["photo"] if isinstance(p, dict) and p.get("file_id")]
+        if sizes:
+            return sizes[-1]["file_id"], "photo", ".jpg", caption
+    if msg.get("video"):
+        return msg["video"].get("file_id"), "video", ".mp4", caption
+    if msg.get("animation"):
+        return msg["animation"].get("file_id"), "video", ".mp4", caption
+    if msg.get("audio"):
+        return msg["audio"].get("file_id"), "audio", ".mp3", caption
+    if msg.get("document"):
+        d = msg["document"]
+        ext = os.path.splitext(d.get("file_name") or "")[1] or ".bin"
+        return d.get("file_id"), "document", ext, caption
+    return None
+
+
+def _save_ingest_tmp(blob: bytes, ext: str) -> str:
+    """Save downloaded media to the scratch cache (content-hashed → idempotent)
+    and opportunistically prune stale entries. Returns the file path."""
+    os.makedirs(_INGEST_TMP, exist_ok=True)
+    try:
+        now = time.time()
+        for name in os.listdir(_INGEST_TMP):
+            fp = os.path.join(_INGEST_TMP, name)
+            if os.path.isfile(fp) and now - os.path.getmtime(fp) > _INGEST_TMP_TTL:
+                os.remove(fp)
+    except OSError:
+        pass
+    path = os.path.join(_INGEST_TMP, f"fwd-{hashlib.sha256(blob).hexdigest()[:16]}{ext}")
+    if not os.path.exists(path):
+        with open(path, "wb") as f:
+            f.write(blob)
+    return path
+
+
 def _tg_get_file_bytes(token: str, file_id: str) -> bytes | None:
     """Resolve a Telegram file_id to its download URL and fetch the bytes."""
     try:
@@ -501,6 +551,9 @@ _DEFAULT_TOOLS = [
     "web_search",
     # Source ingestion (feed the wiki): YouTube transcript + X/Twitter reader.
     "youtube_fetch", "twitter_fetch",
+    # One-shot ingest (auto-detect url/image/media/text → skmem-pg + realm wiki) +
+    # SearXNG-grounded wiki stub filler.
+    "ingest", "fill_stub",
     # Speak in Lumina's cloned voice (F5-TTS) + deliver as a Telegram voice message.
     "voice_message",
     # Chef's secrets vault (skvault) — unlock with the chat word.
@@ -549,6 +602,9 @@ except Exception:  # pragma: no cover - optional
 _TURN_ALWAYS_ON: tuple[str, ...] = ("memory_search", "memory_recall", "memory_context")
 
 _TURN_GROUPS: tuple[tuple[tuple[str, ...], tuple[str, ...]], ...] = (
+    (("ingest", "file this", "file it", "add to wiki", "add this to", "into the wiki",
+      "fill stub", "fill the stub", "fill in the stub", "transcribe", "realmwiki"),
+     ("ingest", "fill_stub", "youtube_fetch", "twitter_fetch", "wiki_search")),
     (("email", "mail", "gmail", "inbox"), ("gmail_*",)),
     (("calendar", "schedule", "meeting", "event", "appointment", "today",
       "tomorrow", "week", "agenda"), ("calendar_*",)),
@@ -1004,6 +1060,24 @@ async def main() -> None:
                                          len(incoming), incoming[:80])
                             except Exception:
                                 log.exception("STT failed")
+
+                # Inbound forwarded media (photo/video/audio/document): download to
+                # the scratch cache so the `ingest` tool can process the file, then
+                # surface its path (+ any caption) to the model so it can file/lens it.
+                if not incoming or _extract_media(u):
+                    media = _extract_media(u)
+                    if media and media[0]:
+                        file_id, kind, ext, caption = media
+                        blob = _tg_get_file_bytes(TOKEN, file_id)
+                        if blob:
+                            path = _save_ingest_tmp(blob, ext)
+                            lens = " For an image / X-post you can then say 'lens this'." \
+                                if kind in ("photo", "document") else ""
+                            hint = (f"[Forwarded {kind} saved to {path} — to file it into the "
+                                    f"realm wiki, call the `ingest` tool with that exact path.{lens}]")
+                            incoming = f"{caption}\n\n{hint}" if caption else \
+                                f"(Chef forwarded a {kind}, no caption.)\n{hint}"
+                            log.info("forwarded %s saved → %s (caption=%r)", kind, path, caption[:40])
                 if not incoming:
                     continue
 

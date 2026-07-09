@@ -8,9 +8,9 @@ class TestStreamSet(SlixTest):
     def testHandleSoftwareVersionRequest(self):
         self.stream_start(mode='client', plugins=['xep_0030', 'xep_0092'])
 
-        self.xmpp['xep_0092'].name = 'Slixmpp'
-        self.xmpp['xep_0092'].version = 'dev'
-        self.xmpp['xep_0092'].os = 'Linux'
+        self.xmpp.plugin['xep_0092'].name = 'Slixmpp'
+        self.xmpp.plugin['xep_0092'].version = 'dev'
+        self.xmpp.plugin['xep_0092'].os = 'Linux'
 
         self.recv("""
           <iq type="get" id="1">
@@ -38,7 +38,7 @@ class TestStreamSet(SlixTest):
 
         self.stream_start(mode='client', plugins=['xep_0030', 'xep_0092'])
 
-        self.xmpp['xep_0092'].get_version('foo@bar', callback=callback)
+        self.xmpp.plugin['xep_0092'].get_version('foo@bar', callback=callback)
 
         self.send("""
           <iq type="get" id="1" to="foo@bar">

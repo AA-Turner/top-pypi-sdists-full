@@ -161,8 +161,8 @@ class XEP_0323(BasePlugin):
     def post_init(self):
         """ Init complete. Register our features in Service discovery. """
         BasePlugin.post_init(self)
-        self.xmpp['xep_0030'].add_feature(Sensordata.namespace)
-        self.xmpp['xep_0030'].set_items(node=Sensordata.namespace, items=tuple())
+        self.xmpp.plugin['xep_0030'].add_feature(Sensordata.namespace)
+        self.xmpp.plugin['xep_0030'].set_items(node=Sensordata.namespace, items=tuple())
 
     def _new_session(self):
         """ Return a new session ID. """
@@ -170,8 +170,8 @@ class XEP_0323(BasePlugin):
 
     def session_bind(self, jid):
         logging.debug("setting the Disco discovery for %s" % Sensordata.namespace)
-        self.xmpp['xep_0030'].add_feature(Sensordata.namespace)
-        self.xmpp['xep_0030'].set_items(node=Sensordata.namespace, items=tuple())
+        self.xmpp.plugin['xep_0030'].add_feature(Sensordata.namespace)
+        self.xmpp.plugin['xep_0030'].set_items(node=Sensordata.namespace, items=tuple())
 
 
     def plugin_end(self):
@@ -183,7 +183,7 @@ class XEP_0323(BasePlugin):
         self.xmpp.remove_handler('Sensordata Event:Cancel')
         self.xmpp.remove_handler('Sensordata Event:Cancelled')
         self.xmpp.remove_handler('Sensordata Event:Fields')
-        self.xmpp['xep_0030'].del_feature(feature=Sensordata.namespace)
+        self.xmpp.plugin['xep_0030'].del_feature(feature=Sensordata.namespace)
 
 
     # =================================================================

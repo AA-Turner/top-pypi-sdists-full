@@ -45,12 +45,12 @@ class XEP_0065(BasePlugin):
         self.api.register(self._preauthorize_sid, 'preauthorize_sid', default=True)
 
     def session_bind(self, jid):
-        self.xmpp['xep_0030'].add_feature(Socks5.namespace)
+        self.xmpp.plugin['xep_0030'].add_feature(Socks5.namespace)
 
     def plugin_end(self):
         self.xmpp.remove_handler('Socks5 Bytestreams')
         self.xmpp.remove_handler('Socks5 Streamhost Used')
-        self.xmpp['xep_0030'].del_feature(feature=Socks5.namespace)
+        self.xmpp.plugin['xep_0030'].del_feature(feature=Socks5.namespace)
 
     def get_socket(self, sid):
         """Returns the socket associated to the SID."""
@@ -115,12 +115,12 @@ class XEP_0065(BasePlugin):
 
         discovered = set()
 
-        disco_items = await self.xmpp['xep_0030'].get_items(jid, timeout=timeout)
+        disco_items = await self.xmpp.plugin['xep_0030'].get_items(jid, timeout=timeout)
         disco_items = {item[0] for item in disco_items['disco_items']['items']}
 
         disco_info_futures = {}
         for item in disco_items:
-            disco_info_futures[item] = self.xmpp['xep_0030'].get_info(item, timeout=timeout)
+            disco_info_futures[item] = self.xmpp.plugin['xep_0030'].get_info(item, timeout=timeout)
 
         for item in disco_items:
             try:

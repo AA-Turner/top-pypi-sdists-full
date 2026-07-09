@@ -405,12 +405,28 @@ def build_project_principal(
     _snapshot = _snapshot_project(out_dir, log)
 
     try:
-        return _build_project_principal_inner(
+        report = _build_project_principal_inner(
             task=task, out_dir=out_dir, generate=generate, log=log,
             review_threshold=review_threshold, max_review_rounds=max_review_rounds,
             enable_review=enable_review, stuck_threshold=stuck_threshold,
             enable_heal=enable_heal, heal_rounds=heal_rounds,
         )
+        
+        sage_dir = out_dir / ".sage"
+        sage_dir.mkdir(parents=True, exist_ok=True)
+        (sage_dir / "BUILD_REPORT.json").write_text(
+            json.dumps(_clean_ansi(report.as_dict()), indent=2),
+            encoding="utf-8",
+        )
+        return report
+    except BuildIncomplete as exc:
+        sage_dir = out_dir / ".sage"
+        sage_dir.mkdir(parents=True, exist_ok=True)
+        (sage_dir / "BUILD_REPORT.json").write_text(
+            json.dumps(_clean_ansi(exc.report.as_dict()), indent=2),
+            encoding="utf-8",
+        )
+        raise
     except Exception as exc:
         # CRITICAL: do NOT restore the snapshot on connectivity errors mid-build.
         # The old behavior wiped out hours of LLM-generated work whenever the

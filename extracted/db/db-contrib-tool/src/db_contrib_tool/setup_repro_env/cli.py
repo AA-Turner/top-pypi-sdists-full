@@ -149,6 +149,16 @@ def setup_logging(debug: bool = False) -> None:
     help="If specified, the last patch (release-candidate) version will be installed.",
 )
 @click.option(
+    "--prefer-staging/--no-prefer-staging",
+    "prefer_staging",
+    default=True,
+    show_default=True,
+    help="Look in the 'mongodb-mongo-vX.X-staging' Evergreen projects instead of"
+    " 'mongodb-mongo-vX.X' when finding version binaries. Applies to release versions"
+    " and the --installLastLTS/--installLastContinuous aliases. Use --no-prefer-staging"
+    " to look in the non-staging projects.",
+)
+@click.option(
     "-sb",
     "--skipBinaries",
     "skip_binaries",
@@ -257,6 +267,7 @@ def setup_repro_env(
     install_last_lts: bool,
     install_last_continuous: bool,
     install_last_patch: bool,
+    prefer_staging: bool,
     skip_binaries: bool,
     download_symbols: bool,
     download_artifacts: bool,
@@ -342,6 +353,7 @@ def setup_repro_env(
         ),
         ignore_failed_push=(not require_push),
         fallback_to_master=fallback_to_master,
+        prefer_staging=prefer_staging,
         download_options=download_options,
         evg_versions_file=evg_versions_file,
     )

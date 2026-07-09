@@ -5,7 +5,7 @@
 
 # UUID set at creation with opts for XFS is not supported
 - when:
-    - (new_uuid | default(false)) is truthy
+    - new_uuid | default(False)
     - fstype != "xfs"
   block:
 
@@ -30,5 +30,4 @@
 
     - name: "Assert that filesystem UUID is the one set on creation with opt"
       ansible.builtin.assert:
-        that: >-
-          (random_uuid2 | replace('-','')) == ( uuid2.stdout | ansible.builtin.regex_replace('.*\\bUUID="?([^"\\s]+)"?.*', '\\1') | replace('-',''))
+        that: (random_uuid2 | replace('-','')) == ( uuid2.stdout | replace('-',''))

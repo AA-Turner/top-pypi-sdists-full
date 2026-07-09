@@ -22,9 +22,11 @@ They are plain Python functions (no Typer decorators) so they can be
 dispatched to from the unified handlers without CLI-framework coupling.
 """
 
+import functools
 import json
 import logging
 import re
+import sys
 from pathlib import Path
 from typing import TYPE_CHECKING, Callable, Literal, NamedTuple, Optional
 
@@ -36,7 +38,6 @@ from snowflake.cli._plugins.apps.manager import (
     DEFAULT_PERSONAL_WORKSPACE_NAME,
     DEFINITION_FILENAME,
     SnowflakeAppManager,
-    _filter_accessible_remote_defaults,
     _get_entity,
     _poll_until,
     _resolve_deploy_defaults,
@@ -89,6 +90,50 @@ SOURCE_ACCOUNT_PARAM = "account parameter"
 SOURCE_CURRENT_SESSION = "current session"
 SOURCE_DEFAULT = "default"
 SOURCE_MISSING = "missing"
+
+
+def _ensure_utf8_output() -> None:
+    """Force UTF-8 on ``stdout``/``stderr`` so non-ASCII output cannot crash.
+
+    On Windows the default console encoding is a legacy code page (e.g. cp1252),
+    not UTF-8. Snowflake App Runtime commands render dynamic free-text tables —
+    ``events`` prints arbitrary application log text (frequently emoji, box-
+    drawing, or accented characters) and ``setup --dry-run`` prints the plan
+    preview. Writing a character outside the code page makes the table renderer
+    raise an uncaught ``UnicodeEncodeError`` *after* the command already did its
+    real work (logs fetched / plan computed), aborting with a non-zero exit and
+    no useful message.
+
+    Reconfiguring the streams to UTF-8 with ``errors="replace"`` keeps the
+    output printable everywhere. macOS/Linux already default to UTF-8, so this
+    is effectively a no-op there. Streams that cannot be reconfigured (already
+    wrapped or redirected, e.g. a test harness buffer) are left untouched.
+    """
+    for stream in (sys.stdout, sys.stderr):
+        reconfigure = getattr(stream, "reconfigure", None)
+        if reconfigure is None:
+            continue
+        try:
+            reconfigure(encoding="utf-8", errors="replace")
+        except (AttributeError, ValueError):
+            # Non-reconfigurable stream (e.g. already wrapped / redirected).
+            pass
+
+
+def _utf8_output(func: Callable[..., CommandResult]) -> Callable[..., CommandResult]:
+    """Force UTF-8 stdout/stderr before ``func`` produces any output.
+
+    Applied to the Snowflake App Runtime command entry points so their result
+    tables render non-ASCII text without an uncaught ``UnicodeEncodeError`` on
+    Windows. See :func:`_ensure_utf8_output`.
+    """
+
+    @functools.wraps(func)
+    def wrapper(*args, **kwargs) -> CommandResult:
+        _ensure_utf8_output()
+        return func(*args, **kwargs)
+
+    return wrapper
 
 
 _CodeStorageType = Literal["workspace", "stage"]
@@ -184,6 +229,7 @@ def _resolve_code_storage(
     )
 
 
+@_utf8_output
 def snowflake_app_setup(
     app_name: Optional[str],
     dry_run: bool,
@@ -195,198 +241,213 @@ def snowflake_app_setup(
     See the ``snow app setup`` command in
     :mod:`snowflake.cli._plugins.nativeapp.commands` for the CLI surface.
     """
-    resolved_app_name = app_name
-    if resolved_app_name is None:
-        derived_app_name = Path.cwd().name
-        # For implicit names, normalize directory strings into a valid
-        # identifier by mapping common separators to "_" and stripping
-        # all other disallowed characters.
-        resolved_app_name = re.sub(
-            r"[^a-zA-Z0-9_]", "", derived_app_name.replace(" ", "_").replace("-", "_")
-        )
-
-    if not resolved_app_name:
-        raise ClickException(
-            "Could not derive app name from the current directory. "
-            "Please provide --app-name."
-        )
-
-    if not re.fullmatch(r"[a-zA-Z0-9_]+", resolved_app_name):
-        raise ClickException(
-            f"Invalid app name '{resolved_app_name}'. "
-            "Only letters, digits, and underscores are allowed."
-        )
-    # snowflake.yml is a CLI-owned manifest that the ``snow app`` commands read
-    # back with the same encoding policy (see _app_group_callback): an explicit
-    # cli.encoding.file_io setting wins, otherwise UTF-8. Writing it the same
-    # way keeps the round-trip consistent regardless of the host code page, even
-    # when the generated content (e.g. a non-Latin app title) is non-ASCII.
-    encoding = get_file_io_encoding() or "utf-8"
-    project_file = Path.cwd() / DEFINITION_FILENAME
-    if not dry_run and project_file.exists():
-        return MessageResult(
-            f"{DEFINITION_FILENAME} already exists. Skipping initialization."
-        )
-
     ctx = get_cli_context()
-    connection_name = (
-        ctx.connection_context.connection_name or get_default_connection_name()
-    )
-    conn_config = get_connection_dict(connection_name)
-
-    manager = SnowflakeAppManager()
     metrics = ctx.metrics
-    with metrics.span("snowflake_app.setup.resolve_defaults"):
-        params = manager.fetch_snow_apps_parameters()
-        # Drop the account-configured destination database/schema the current
-        # role cannot access so resolution falls back to the personal database.
-        params = _filter_accessible_remote_defaults(manager, params)
 
-    def _resolve(
-        user_input=None,
-        account_param=None,
-        default_value=None,
-        current_session=None,
-    ):
-        """Return (value, source) using a fixed resolution order.
+    def _run() -> CommandResult:
+        with metrics.span("snowflake_app.setup"):
+            resolved_app_name = app_name
+            if resolved_app_name is None:
+                derived_app_name = Path.cwd().name
+                # For implicit names, normalize directory strings into a valid
+                # identifier by mapping common separators to "_" and stripping
+                # all other disallowed characters.
+                resolved_app_name = re.sub(
+                    r"[^a-zA-Z0-9_]",
+                    "",
+                    derived_app_name.replace(" ", "_").replace("-", "_"),
+                )
 
-        Resolution: user_input > account_param > default_value > current_session.
-        """
-        if user_input is not None:
-            return user_input, SOURCE_USER_INPUT
-        if account_param is not None:
-            return account_param, SOURCE_ACCOUNT_PARAM
-        if default_value is not None:
-            return default_value, SOURCE_DEFAULT
-        if current_session is not None:
-            return current_session, SOURCE_CURRENT_SESSION
-        return None, SOURCE_MISSING
+            if not resolved_app_name:
+                raise ClickException(
+                    "Could not derive app name from the current directory. "
+                    "Please provide --app-name."
+                )
 
-    # ── Pre-compute current session values ─────────────────────────────
-    conn = ctx.connection_context
-    # ``conn.warehouse/database/schema`` are only non-None when the user
-    # explicitly passed the corresponding connection-override flag on the
-    # command line (e.g. ``--warehouse MY_WH``).  Values from the
-    # connection config file come through ``conn_config`` instead.
-    cli_wh = getattr(conn, "warehouse", None) or None
-    cli_db = getattr(conn, "database", None) or None
-    cli_schema = getattr(conn, "schema", None) or None
+            if not re.fullmatch(r"[a-zA-Z0-9_]+", resolved_app_name):
+                raise ClickException(
+                    f"Invalid app name '{resolved_app_name}'. "
+                    "Only letters, digits, and underscores are allowed."
+                )
+            # snowflake.yml is a CLI-owned manifest that the ``snow app`` commands read
+            # back with the same encoding policy (see _app_group_callback): an explicit
+            # cli.encoding.file_io setting wins, otherwise UTF-8. Writing it the same
+            # way keeps the round-trip consistent regardless of the host code page, even
+            # when the generated content (e.g. a non-Latin app title) is non-ASCII.
+            encoding = get_file_io_encoding() or "utf-8"
+            project_file = Path.cwd() / DEFINITION_FILENAME
+            if not dry_run and project_file.exists():
+                return MessageResult(
+                    f"{DEFINITION_FILENAME} already exists. Skipping initialization."
+                )
 
-    # A user-supplied database must be paired with an explicit schema: schema
-    # resolution would otherwise fall back to an account parameter or the
-    # personal-database default, silently placing the app in a schema that does
-    # not belong to the requested database.
-    if cli_db and not cli_schema:
-        raise CliError(
-            "--schema is required when --database is specified. "
-            "Provide --schema to select the schema within the requested database."
-        )
+            connection_name = (
+                ctx.connection_context.connection_name or get_default_connection_name()
+            )
+            conn_config = get_connection_dict(connection_name)
 
-    session_wh = conn_config.get("warehouse") or None
-    session_db = conn_config.get("database") or None
-    session_schema = conn_config.get("schema") or None
+            manager = SnowflakeAppManager()
+            with metrics.span("snowflake_app.setup.resolve_defaults"):
+                # ``SYSTEM$GET_APPLICATION_SERVICE_DEFAULTS()`` resolves the
+                # ``DEFAULT_SNOWFLAKE_APPS_*`` parameters and drops any
+                # account-configured destination the current role cannot access
+                # server-side. On accounts where that function is not yet
+                # available, ``fetch_app_service_defaults`` transparently falls
+                # back to the legacy ``SHOW PARAMETERS`` + ``EXPLAIN_PRIVILEGES``
+                # flow, so the resolution below is unaffected either way.
+                params = manager.fetch_app_service_defaults()
 
-    personal_db = manager.get_personal_database()
-    personal_schema = DEFAULT_PERSONAL_SCHEMA if personal_db else None
+            def _resolve(
+                user_input=None,
+                account_param=None,
+                default_value=None,
+                current_session=None,
+            ):
+                """Return (value, source) using a fixed resolution order.
 
-    # ── Resolve each field ────────────────────────────────────────────
-    resolved = {
-        "database": _resolve(
-            user_input=cli_db,
-            account_param=params.get("database"),
-            default_value=personal_db,
-            current_session=session_db,
-        ),
-        # TODO: Support per-app schema (e.g. APPS.APP_<app_id>) instead of
-        # a single shared schema for all apps.
-        "schema": _resolve(
-            user_input=cli_schema,
-            account_param=params.get("schema"),
-            default_value=personal_schema,
-            current_session=session_schema,
-        ),
-        "warehouse": _resolve(
-            user_input=cli_wh,
-            account_param=params.get("query_warehouse"),
-            current_session=session_wh,
-        ),
-        # Compute pools are resolved from the (hidden) ``--compute-pool`` flag
-        # and the ``DEFAULT_SNOWFLAKE_APPS_BUILD_COMPUTE_POOL`` /
-        # ``DEFAULT_SNOWFLAKE_APPS_SERVICE_COMPUTE_POOL`` account parameters.
-        # Both stay omitted from the generated ``snowflake.yml`` when neither
-        # source provides a value, letting the server pick pools at deploy time.
-        "build_compute_pool": _resolve(
-            user_input=compute_pool,
-            account_param=params.get("build_compute_pool"),
-        ),
-        "service_compute_pool": _resolve(
-            user_input=compute_pool,
-            account_param=params.get("service_compute_pool"),
-        ),
-        # TODO: Remove --build-eai argument once the builder service no longer
-        # requires an external access integration.
-        "build_eai": _resolve(
-            user_input=build_eai,
-            account_param=params.get("build_eai"),
-        ),
-    }
+                Resolution: user_input > account_param > default_value > current_session.
+                """
+                if user_input is not None:
+                    return user_input, SOURCE_USER_INPUT
+                if account_param is not None:
+                    return account_param, SOURCE_ACCOUNT_PARAM
+                if default_value is not None:
+                    return default_value, SOURCE_DEFAULT
+                if current_session is not None:
+                    return current_session, SOURCE_CURRENT_SESSION
+                return None, SOURCE_MISSING
 
-    # ── Validate required values ─────────────────────────────────────
-    if not resolved["database"][0]:
-        raise ClickException(
-            "Missing database. Provide --database, set the DEFAULT_SNOWFLAKE_APPS_DESTINATION_DATABASE account parameter, or check your connection."
-        )
-    if not resolved["schema"][0]:
-        raise ClickException(
-            "Missing schema. Provide --schema, set the DEFAULT_SNOWFLAKE_APPS_DESTINATION_SCHEMA account parameter, or check your connection."
-        )
-    if not resolved["warehouse"][0]:
-        raise ClickException(
-            "Missing warehouse. Provide --warehouse, set the DEFAULT_SNOWFLAKE_APPS_QUERY_WAREHOUSE account parameter, or check your connection."
-        )
+            # ── Pre-compute current session values ─────────────────────────────
+            conn = ctx.connection_context
+            # ``conn.warehouse/database/schema`` are only non-None when the user
+            # explicitly passed the corresponding connection-override flag on the
+            # command line (e.g. ``--warehouse MY_WH``).  Values from the
+            # connection config file come through ``conn_config`` instead.
+            cli_wh = getattr(conn, "warehouse", None) or None
+            cli_db = getattr(conn, "database", None) or None
+            cli_schema = getattr(conn, "schema", None) or None
 
-    resolved_values = {k: v[0] for k, v in resolved.items()}
+            # A user-supplied database must be paired with an explicit schema: schema
+            # resolution would otherwise fall back to an account parameter or the
+            # personal-database default, silently placing the app in a schema that does
+            # not belong to the requested database.
+            if cli_db and not cli_schema:
+                raise CliError(
+                    "--schema is required when --database is specified. "
+                    "Provide --schema to select the schema within the requested database."
+                )
 
-    if not dry_run:
-        # Use a workspace whenever the destination is a personal database:
-        # either it was resolved from the built-in personal-DB default tier,
-        # or it arrived via an account parameter / the current session but is
-        # still a ``USER$<user>`` personal database. Personal databases do not
-        # support stages, so emitting ``code_stage`` for one would produce a
-        # ``snowflake.yml`` that always fails at deploy time.
-        use_workspace = resolved["database"][
-            1
-        ] == SOURCE_DEFAULT or is_personal_database(resolved_values["database"])
-        project_file.write_text(
-            _generate_snowflake_yml(
-                resolved_app_name,
-                resolved_values,
-                use_workspace=use_workspace,
-            ),
-            encoding=encoding,
-        )
+            session_wh = conn_config.get("warehouse") or None
+            session_db = conn_config.get("database") or None
+            session_schema = conn_config.get("schema") or None
 
-    is_json = get_cli_context().output_format.is_json
-    if is_json:
-        return ObjectResult({"success": not dry_run, **resolved_values})
+            with metrics.span("snowflake_app.setup.get_personal_database"):
+                personal_db = manager.get_personal_database()
+            personal_schema = DEFAULT_PERSONAL_SCHEMA if personal_db else None
 
-    if dry_run:
-        cli_console.step("Dry run — resolved configuration:")
-    else:
-        cli_console.step(
-            f"Initialized Snowflake App Runtime project in {DEFINITION_FILENAME}."
-        )
-    for key, (value, source) in resolved.items():
-        # Skip optional fields that could not be resolved (e.g. ``build_eai``
-        # when no value was provided and no account parameter is set).
-        # Emitting ``build_eai: None  (missing)`` is noisy and implies the
-        # field is required when it is not.
-        if value is None and source == SOURCE_MISSING:
-            continue
-        cli_console.step(f"  {key}: {value}  ({source})")
-    return EmptyResult()
+            # ── Resolve each field ────────────────────────────────────────────
+            resolved = {
+                "database": _resolve(
+                    user_input=cli_db,
+                    account_param=params.get("database"),
+                    default_value=personal_db,
+                    current_session=session_db,
+                ),
+                # TODO: Support per-app schema (e.g. APPS.APP_<app_id>) instead of
+                # a single shared schema for all apps.
+                "schema": _resolve(
+                    user_input=cli_schema,
+                    account_param=params.get("schema"),
+                    default_value=personal_schema,
+                    current_session=session_schema,
+                ),
+                "warehouse": _resolve(
+                    user_input=cli_wh,
+                    account_param=params.get("query_warehouse"),
+                    current_session=session_wh,
+                ),
+                # Compute pools are intentionally not resolved or written: app
+                # services always run on server-managed compute pools, so
+                # ``snow app setup`` never configures ``build_compute_pool`` /
+                # ``service_compute_pool``. The (hidden) ``--compute-pool`` flag is
+                # accepted for backward compatibility but no longer has any effect.
+                # TODO: Remove --build-eai argument once the builder service no longer
+                # requires an external access integration.
+                "build_eai": _resolve(
+                    user_input=build_eai,
+                    account_param=params.get("build_eai"),
+                ),
+            }
+
+            # ── Validate required values ─────────────────────────────────────
+            if not resolved["database"][0]:
+                raise ClickException(
+                    "Missing database. Provide --database, set the DEFAULT_SNOWFLAKE_APPS_DESTINATION_DATABASE account parameter, or check your connection."
+                )
+            if not resolved["schema"][0]:
+                raise ClickException(
+                    "Missing schema. Provide --schema, set the DEFAULT_SNOWFLAKE_APPS_DESTINATION_SCHEMA account parameter, or check your connection."
+                )
+            if not resolved["warehouse"][0]:
+                raise ClickException(
+                    "Missing warehouse. Provide --warehouse, set the DEFAULT_SNOWFLAKE_APPS_QUERY_WAREHOUSE account parameter, or check your connection."
+                )
+
+            resolved_values = {k: v[0] for k, v in resolved.items()}
+
+            if not dry_run:
+                # Use a workspace whenever the destination is a personal database:
+                # either it was resolved from the built-in personal-DB default tier,
+                # or it arrived via an account parameter / the current session but is
+                # still a ``USER$<user>`` personal database. Personal databases do not
+                # support stages, so emitting ``code_stage`` for one would produce a
+                # ``snowflake.yml`` that always fails at deploy time.
+                use_workspace = resolved["database"][
+                    1
+                ] == SOURCE_DEFAULT or is_personal_database(resolved_values["database"])
+                with metrics.span("snowflake_app.setup.write_manifest"):
+                    project_file.write_text(
+                        _generate_snowflake_yml(
+                            resolved_app_name,
+                            resolved_values,
+                            use_workspace=use_workspace,
+                        ),
+                        encoding=encoding,
+                    )
+
+            is_json = get_cli_context().output_format.is_json
+            if is_json:
+                return ObjectResult({"success": not dry_run, **resolved_values})
+
+            if dry_run:
+                cli_console.step("Dry run — resolved configuration:")
+            else:
+                cli_console.step(
+                    f"Initialized Snowflake App Runtime project in {DEFINITION_FILENAME}."
+                )
+            for key, (value, source) in resolved.items():
+                # Skip optional fields that could not be resolved (e.g. ``build_eai``
+                # when no value was provided and no account parameter is set).
+                # Emitting ``build_eai: None  (missing)`` is noisy and implies the
+                # field is required when it is not.
+                if value is None and source == SOURCE_MISSING:
+                    continue
+                cli_console.step(f"  {key}: {value}  ({source})")
+            return EmptyResult()
+
+    try:
+        return _run()
+    except ClickException as exc:
+        # A dry run is a non-committal preview, so a failed setup should not
+        # break callers that gate on the exit code (e.g. CI). Neutralize the
+        # exit code but re-raise so the error is rendered by the exact same
+        # path as a normal failure.
+        if dry_run:
+            exc.exit_code = 0
+        raise
 
 
+@_utf8_output
 def snowflake_app_bundle(entity_id: Optional[str]) -> CommandResult:
     """Bundle a Snowflake App Runtime by resolving artifacts defined in ``snowflake.yml``."""
     resolved_entity_id = _resolve_entity_id(entity_id)
@@ -396,6 +457,7 @@ def snowflake_app_bundle(entity_id: Optional[str]) -> CommandResult:
     return MessageResult(f"Bundle generated at {project_paths.bundle_root}")
 
 
+@_utf8_output
 def snowflake_app_validate(entity_id: Optional[str]) -> CommandResult:
     """Validate a local Snowflake App Runtime project."""
     resolved_entity_id = _resolve_entity_id(entity_id)
@@ -434,6 +496,7 @@ def snowflake_app_validate(entity_id: Optional[str]) -> CommandResult:
     return MessageResult("Valid Snowflake App Runtime project.")
 
 
+@_utf8_output
 def snowflake_app_open(
     entity_id: Optional[str],
     print_only: bool,
@@ -497,6 +560,7 @@ def snowflake_app_open(
     return MessageResult(url)
 
 
+@_utf8_output
 def snowflake_app_events(
     entity_id: Optional[str],
     last: Optional[int],
@@ -569,6 +633,7 @@ def _log_service_logs(manager: SnowflakeAppManager, service_fqn: FQN) -> None:
         log.info(line)
 
 
+@_utf8_output
 def snowflake_app_deploy(
     entity_id: Optional[str],
     upload_only: bool,
@@ -599,13 +664,6 @@ def snowflake_app_deploy(
     database = fqn.database or conn.database
     schema = fqn.schema or conn.schema
 
-    build_compute_pool = (
-        entity.build_compute_pool.name if entity.build_compute_pool else None
-    )
-    build_eai = entity.build_eai.name if entity.build_eai else None
-    service_compute_pool = (
-        entity.service_compute_pool.name if entity.service_compute_pool else None
-    )
     query_warehouse = entity.query_warehouse
 
     app_title = entity.meta.title if entity.meta else None
@@ -622,6 +680,9 @@ def snowflake_app_deploy(
     service_compute_pool = defaults["service_compute_pool"]
     query_warehouse = defaults["query_warehouse"]
     build_eai = defaults["build_eai"]
+    # ``service_eai`` is optional; when omitted, continue using ``build_eai``
+    # for the deployed application service to preserve existing projects.
+    service_eai = defaults.get("service_eai") or build_eai
 
     # ── Resolve code storage backend ──────────────────────────────────
     # ``code_stage`` and ``code_workspace`` are mutually exclusive (enforced
@@ -666,6 +727,10 @@ def snowflake_app_deploy(
     workspace_source_uri = manager.workspace_subdirectory_uri(storage_fqn, app_name)
 
     metrics = get_cli_context().metrics
+
+    # Tracks whether this invocation created the code stage, so it can be
+    # dropped once the build has consumed it (see the build phase below).
+    stage_created = False
 
     # ── Upload phase ──────────────────────────────────────────────────
 
@@ -731,6 +796,7 @@ def snowflake_app_deploy(
                             cli_console.step(f"Recreating stage @{storage_fqn}")
                             manager.drop_stage_if_exists(storage_fqn)
                             manager.create_stage(storage_fqn, encryption_type)
+                            stage_created = True
                         except ProgrammingError as e:
                             role = manager.current_role()
                             role_clause = f"role '{role}'" if role else "your role"
@@ -830,6 +896,38 @@ def snowflake_app_deploy(
                     on_poll=_make_build_log_streamer(manager, artifact_build_job_fqn),
                 )
 
+            # The stage only holds the uploaded source that the artifact-repo
+            # build consumes; once the build succeeds it is no longer needed.
+            # Drop it only when this invocation created it, so a pre-existing
+            # stage relied on by ``--build-only`` (which skips the upload phase)
+            # is left untouched. This is best-effort cleanup: the build has
+            # already succeeded, so a drop failure only leaves a harmless stage
+            # behind and must not fail the deploy — warn and continue.
+            if stage_created:
+                with metrics.span("snowflake_app.build.drop_stage") as drop_span:
+                    cli_console.step(
+                        f"Dropping stage @{storage_fqn} now that the build is complete"
+                    )
+                    try:
+                        manager.drop_stage_if_exists(storage_fqn)
+                    except Exception as e:
+                        # Record the failure on the span so these otherwise
+                        # silent (warn-and-continue) cleanup errors stay
+                        # observable in telemetry, then swallow it: the build
+                        # already succeeded, so a stray stage must not fail the
+                        # deploy.
+                        log.debug(
+                            "Failed to drop stage %s after build",
+                            storage_fqn.identifier,
+                            exc_info=True,
+                        )
+                        drop_span.finish(error=e)
+                        cli_console.warning(
+                            f"Could not drop stage '{sanitize_for_terminal(storage_fqn.identifier)}' "
+                            f"after the build completed: {e}. The build succeeded; "
+                            "you can remove the stage manually if desired."
+                        )
+
     if build_only:
         return MessageResult("Build completed successfully.")
 
@@ -844,7 +942,7 @@ def snowflake_app_deploy(
         comment_data["appIcon"] = app_icon
     app_comment = json.dumps(comment_data)
 
-    eai_list = [build_eai] if build_eai else None
+    eai_list = [service_eai] if service_eai else None
 
     did_upgrade = False
     with metrics.span("snowflake_app.deploy_service"):
@@ -962,6 +1060,7 @@ def snowflake_app_deploy(
     return MessageResult(f"App ready at {endpoint_url}")
 
 
+@_utf8_output
 def snowflake_app_teardown(
     entity_id: Optional[str],
     force: bool,

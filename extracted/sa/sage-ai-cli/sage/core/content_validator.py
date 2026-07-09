@@ -533,10 +533,12 @@ def _detect_quality_issues(filepath: str, content: str) -> ContentValidationResu
             
     non_empty_lines = [l for l in content.split("\n") if l.strip()]
     if len(non_empty_lines) < 2 and Path(filepath).name != "__init__.py":
-        return ContentValidationResult(
-            ok=False, signal="poor_code_quality",
-            reason="Code file is trivially short. Complete implementation is required."
-        )
+        line = non_empty_lines[0] if non_empty_lines else ""
+        if not line or line.lstrip().startswith(("#", "//", "/*", "<!--", "*")):
+            return ContentValidationResult(
+                ok=False, signal="poor_code_quality",
+                reason="Code file is trivially short. Complete implementation is required."
+            )
         
     return ContentValidationResult(ok=True)
 

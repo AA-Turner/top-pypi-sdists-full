@@ -101,12 +101,12 @@ class XEP_0050(BasePlugin):
     def plugin_end(self):
         self.xmpp.del_event_handler('command', self._handle_command_all)
         self.xmpp.remove_handler('Ad-Hoc Execute')
-        self.xmpp['xep_0030'].del_feature(feature=Command.namespace)
-        self.xmpp['xep_0030'].set_items(node=Command.namespace, items=tuple())
+        self.xmpp.plugin['xep_0030'].del_feature(feature=Command.namespace)
+        self.xmpp.plugin['xep_0030'].set_items(node=Command.namespace, items=tuple())
 
     def session_bind(self, jid):
-        self.xmpp['xep_0030'].add_feature(Command.namespace)
-        self.xmpp['xep_0030'].set_items(node=Command.namespace, items=tuple())
+        self.xmpp.plugin['xep_0030'].add_feature(Command.namespace)
+        self.xmpp.plugin['xep_0030'].set_items(node=Command.namespace, items=tuple())
 
     def set_backend(self, db):
         """
@@ -197,22 +197,22 @@ class XEP_0050(BasePlugin):
         jid = self.__default_jid(jid)
         item_jid = jid.full
 
-        self.xmpp['xep_0030'].add_identity(category='automation',
+        self.xmpp.plugin['xep_0030'].add_identity(category='automation',
                                            itype='command-list',
                                            name='Ad-Hoc commands',
                                            node=Command.namespace,
                                            jid=jid)
-        self.xmpp['xep_0030'].add_item(jid=item_jid,
+        self.xmpp.plugin['xep_0030'].add_item(jid=item_jid,
                                        name=name,
                                        node=Command.namespace,
                                        subnode=node,
                                        ijid=jid)
-        self.xmpp['xep_0030'].add_identity(category='automation',
+        self.xmpp.plugin['xep_0030'].add_identity(category='automation',
                                            itype='command-node',
                                            name=name,
                                            node=node,
                                            jid=jid)
-        self.xmpp['xep_0030'].add_feature(Command.namespace, None, jid)
+        self.xmpp.plugin['xep_0030'].add_feature(Command.namespace, None, jid)
 
         self.xmpp.loop.create_task(
             self.__add_command(item_jid, node, None, (name, handler, timeout_handler, timeout))
@@ -533,7 +533,7 @@ class XEP_0050(BasePlugin):
                          the XEP-0059 plugin, if the plugin is loaded.
                          Otherwise the parameter is ignored.
         """
-        return self.xmpp['xep_0030'].get_items(jid=jid,
+        return self.xmpp.plugin['xep_0030'].get_items(jid=jid,
                                                node=Command.namespace,
                                                **kwargs)
 

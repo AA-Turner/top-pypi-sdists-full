@@ -13,11 +13,12 @@ import copy
 import logging
 import threading
 
-from typing import Any, ClassVar, TYPE_CHECKING
+from typing import Any, ClassVar, Type, TYPE_CHECKING
 
 from slixmpp.api import APIWrapper
+
 if TYPE_CHECKING:
-    from slixmpp.clientxmpp import ClientXMPP, BaseXMPP
+    from slixmpp.clientxmpp import ClientXMPP
     from slixmpp.componentxmpp import ComponentXMPP
 
 log = logging.getLogger(__name__)
@@ -26,7 +27,7 @@ log = logging.getLogger(__name__)
 #: Associate short string names of plugins with implementations. The
 #: plugin names are based on the spec used by the plugin, such as
 #: `'xep_0030'` for a plugin that implements XEP-0030.
-PLUGIN_REGISTRY = {}
+PLUGIN_REGISTRY: dict[str, Type['BasePlugin']] = {}
 
 #: In order to do cascading plugin disabling, reverse dependencies
 #: must be tracked.
@@ -106,7 +107,7 @@ def load_plugin(name, module=None):
 
 
 class PluginManager(object):
-    def __init__(self, xmpp: 'BaseXMPP', config: dict | None = None):
+    def __init__(self, xmpp: ClientXMPP | ComponentXMPP, config: dict | None = None):
         #: We will track all enabled plugins in a set so that we
         #: can enable plugins in batches and pull in dependencies
         #: without problems.
@@ -154,7 +155,7 @@ class PluginManager(object):
                     load_plugin(name)
 
                 plugin_class = PLUGIN_REGISTRY.get(name, None)
-                if not plugin_class:
+                if plugin_class is None:
                     raise PluginNotFound(name)
 
                 if config is None:
@@ -357,4 +358,8 @@ class BasePlugin(object):
         """
         pass
 
-__all__ = ("register_plugin", )
+
+__all__ = (
+    'register_plugin', 'load_plugin',
+    'BasePlugin', 'PluginManager', 'PluginNotFound',
+)

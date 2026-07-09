@@ -138,7 +138,7 @@ def compare_list(list1, list2):
 
 
 def fn_comp_key(k, dict1, dict2):
-    return meraki_compare_equality2(dict1.get(k), dict2.get(k))
+    return meraki_compare_equality(dict1.get(k), dict2.get(k))
 
 
 def meraki_compare_equality(current_value, requested_value):
@@ -146,15 +146,9 @@ def meraki_compare_equality(current_value, requested_value):
     if requested_value is None:
         return True
     if current_value is None:
-        # Treat missing API fields as empty versions of the requested type
-        if isinstance(requested_value, str):
-            return "" == requested_value
-        elif isinstance(requested_value, list):
-            return compare_list([], requested_value)
-        elif isinstance(requested_value, dict):
-            return len(requested_value) == 0
-        else:
+        if requested_value is not None:
             return False
+        return True
     if isinstance(current_value, dict) and isinstance(requested_value, dict):
         all_dict_params = list(current_value.keys()) + \
             list(requested_value.keys())
@@ -174,15 +168,8 @@ def meraki_compare_equality2(current_value, requested_value):
         # print("requested_value is None", True)
         return True
     if current_value is None:
-        # Treat missing API fields as empty versions of the requested type
-        if isinstance(requested_value, str):
-            return "" == requested_value
-        elif isinstance(requested_value, list):
-            return compare_list([], requested_value)
-        elif isinstance(requested_value, dict):
-            return len(requested_value) == 0
-        else:
-            return False
+        # print("current_value", True)
+        return True
     if isinstance(current_value, dict) and isinstance(requested_value, dict):
         all_dict_params = list(current_value.keys()) + \
             list(requested_value.keys())
@@ -190,13 +177,8 @@ def meraki_compare_equality2(current_value, requested_value):
     elif isinstance(current_value, list) and isinstance(requested_value, list):
         return compare_list(current_value, requested_value)
     else:
-        if current_value == requested_value:
-            return True
-        # Tolerate string/int mismatches: Meraki API often returns port numbers
-        # and similar numeric fields as strings even when sent as integers.
-        if not isinstance(current_value, type(requested_value)) or not isinstance(requested_value, type(current_value)):
-            return str(current_value) == str(requested_value)
-        return False
+        # print("current_value == requested_value", current_value == requested_value)
+        return current_value == requested_value
 
 
 def simple_cmp(obj1, obj2):
@@ -282,7 +264,7 @@ class MERAKI(object):
                 suppress_logging=params.get("meraki_suppress_logging"),
                 simulate=params.get("meraki_simulate"),
                 be_geo_id=params.get("meraki_be_geo_id"),
-                caller="MerakiAnsibleCollection/2.24.0 Cisco",
+                caller="MerakiAnsibleCollection/2.23.2 Cisco",
                 use_iterator_for_get_pages=params.get(
                     "meraki_use_iterator_for_get_pages"),
                 inherit_logging_config=params.get(

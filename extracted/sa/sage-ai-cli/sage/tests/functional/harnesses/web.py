@@ -27,20 +27,21 @@ async def _async_execute(request: dict, model: str) -> TestResult:
         
         await page.goto(url)
         
-        await page.evaluate("""() => {
+        await page.evaluate(f"""() => {{
             window.localStorage.setItem('sage-testing', '1');
             window.localStorage.setItem('ai-theme', 'dark');
-            window.localStorage.setItem('sage-cookie-consent', JSON.stringify({ functional: true, analytics: false, version: 1 }));
-            const mockUser = {
+            window.localStorage.setItem('ai-model', '{model}');
+            window.localStorage.setItem('sage-cookie-consent', JSON.stringify({{ functional: true, analytics: false, version: 1 }}));
+            const mockUser = {{
                 uid: 'test-uid', email: 'test@example.com', displayName: 'Test User',
                 emailVerified: true, tier: 'pro', _storedAt: Date.now()
-            };
+            }};
             window.localStorage.setItem('sage_auth_user', JSON.stringify(mockUser));
             window.localStorage.setItem('sage-mock-user', JSON.stringify(mockUser));
-            window.localStorage.setItem('sage_auth_token', JSON.stringify({
+            window.localStorage.setItem('sage_auth_token', JSON.stringify({{
                 idToken: 'test-token', refreshToken: 'test-refresh', expiresAt: Date.now() + 3600 * 1000
-            }));
-        }""")
+            }}));
+        }}""")
         
         await page.reload(wait_until="load")
         
@@ -60,6 +61,39 @@ async def _async_execute(request: dict, model: str) -> TestResult:
         
         await page.wait_for_timeout(7000) # Increased safety buffer for hydration
         
+        # Intercept the /chat endpoint to enforce the requested model regardless of UI state
+        async def intercept_chat(route):
+            try:
+                import json
+                req = route.request
+                print(f"DEBUG: intercepting {req.method} {req.url}")
+                if req.method == "POST" and req.post_data:
+                    data = json.loads(req.post_data)
+                    print(f"DEBUG: original model was {data.get('model')}")
+                    data["model"] = model
+                    print(f"DEBUG: enforcing model {model}")
+                    await route.continue_(post_data=json.dumps(data))
+                else:
+                    print(f"DEBUG: letting request pass unmodified")
+                    await route.continue_()
+            except Exception as e:
+                print(f"DEBUG route interception error: {e}")
+                await route.continue_()
+                
+        await page.route("**/chat", intercept_chat)
+        await page.route("**/api/chat", intercept_chat)
+        
+        try:
+            # Try to select the model via the combobox
+            await page.click(".combobox-trigger", timeout=2000)
+            await page.wait_for_timeout(500) # Wait for dropdown animation
+            # Find the option by partial text (just 'qwen3' or 'qwen3-coder')
+            await page.click("text=qwen3-coder", timeout=2000)
+            await page.wait_for_timeout(500)
+        except Exception as e:
+            print(f"DEBUG: Could not select model {model} in UI: {e}")
+
+        # Try to find the chat input
         try:
             chat_input = None
             for _ in range(3): # Retry visibility check
@@ -88,7 +122,18 @@ async def _async_execute(request: dict, model: str) -> TestResult:
                 raise RuntimeError(f"No visible chat input found after retries. Console: {logs_str}")
 
             await chat_input.fill(prompt)
+            # Some chat UIs use Enter, some need the button. Try both.
             await chat_input.press("Enter")
+            
+            try:
+                # Try to click the send button (often a button inside or next to the chat input form)
+                # Look for a button with a send icon or aria-label="Send" or type="submit"
+                send_button = page.locator("button[type='submit'], button[aria-label='Send message'], button[aria-label='Send'], .send-button")
+                if await send_button.count() > 0:
+                    await send_button.first.click(timeout=1000)
+            except:
+                pass
+            
             
             # Wait for response
             try:
@@ -101,14 +146,26 @@ async def _async_execute(request: dict, model: str) -> TestResult:
                 pass
             
             response_text = await page.inner_text("body")
+            (workspace / "page_content_before_download.html").write_text(await page.content())
             
             download_links = await page.locator("a[download]").all()
             if download_links:
-                async with page.expect_download() as download_info:
-                    await download_links[0].click()
-                download = await download_info.value
-                artifact_path = workspace / download.suggested_filename
-                await download.save_as(artifact_path)
+                href = await download_links[0].get_attribute("href")
+                print(f"DEBUG DOWNLOAD HREF: {href}")
+                if href and href.startswith("http://mock-asset.local"):
+                    import base64
+                    from urllib.parse import urlparse, parse_qs
+                    parsed = urlparse(href)
+                    b64_data = parse_qs(parsed.query).get("data", [""])[0]
+                    filename = await download_links[0].get_attribute("download") or "mock_asset"
+                    artifact_path = workspace / filename
+                    artifact_path.write_bytes(base64.b64decode(b64_data))
+                else:
+                    async with page.expect_download(timeout=15000) as download_info:
+                        await download_links[0].click()
+                    download = await download_info.value
+                    artifact_path = workspace / download.suggested_filename
+                    await download.save_as(artifact_path)
             else:
                 target_ext = request.get("success_criteria", {}).get("extension", ".txt")
                 artifact_path = workspace / f"web_output{target_ext}"

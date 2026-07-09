@@ -48,7 +48,14 @@ def minion_config_overrides(vault_port):
 
 @pytest.fixture
 def testrole():
-    return {"ttl": 3600, "max_ttl": 86400, "allow_any_name": True, "issuer_ref": "testissuer"}
+    return {
+        "ttl": 3600,
+        "max_ttl": 86400,
+        "allow_any_name": True,
+        "allowed_other_sans": ["*"],
+        "allowed_uri_sans": ["*"],
+        "issuer_ref": "testissuer",
+    }
 
 
 @pytest.fixture
@@ -200,7 +207,16 @@ def test_issue_certificate(vault_pki):
         role_name="testrole",
         common_name="test.example.com",
         ttl="2h",
-        alt_names=["DNS:test2.example.com"],
+        alt_names=[
+            "DNS:test2.example.com",
+            "DNS:test3.example.com",
+            "IP:1.2.3.4",
+            "IP:5.6.7.8",
+            "URI:https://foo.bar",
+            "URI:https://bar.baz",
+            "1.2.3.4:some identifier",
+            "2.3.4.5:some other identifier",
+        ],
     )
     assert "certificate" in ret
     certificate = load_cert(ret["certificate"])
@@ -210,9 +226,25 @@ def test_issue_certificate(vault_pki):
     assert certificate.subject.rfc4514_string() == "CN=test.example.com"
     san = certificate.extensions.get_extension_for_class(x509.SubjectAlternativeName)
     dns_sans = san.value.get_values_for_type(x509.DNSName)
+    ip_sans = san.value.get_values_for_type(x509.IPAddress)
+    uri_sans = san.value.get_values_for_type(x509.UniformResourceIdentifier)
+    other_sans = san.value.get_values_for_type(x509.OtherName)
     assert certificate.not_valid_after_utc - run_time > timedelta(hours=1)
+    assert "test3.example.com" in dns_sans
     assert "test2.example.com" in dns_sans
     assert "test.example.com" in dns_sans
+    assert any(str(ip) == "1.2.3.4" for ip in ip_sans)
+    assert any(str(ip) == "5.6.7.8" for ip in ip_sans)
+    assert any(uri == "https://foo.bar" for uri in uri_sans)
+    assert any(uri == "https://bar.baz" for uri in uri_sans)
+    assert any(
+        other.type_id.dotted_string == "1.2.3.4" and other.value == b"\x0c\x0fsome identifier"
+        for other in other_sans
+    )
+    assert any(
+        other.type_id.dotted_string == "2.3.4.5" and other.value == b"\x0c\x15some other identifier"
+        for other in other_sans
+    )
 
 
 @pytest.mark.usefixtures("issuers_setup")
@@ -385,6 +417,11 @@ def test_read_issuer_crl(vault_pki):
 
 
 @pytest.mark.usefixtures("issuers_setup")
+def test_read_issuer_crl_missing_issuer(vault_pki):
+    assert vault_pki.read_issuer_crl("missing_issuer") is None
+
+
+@pytest.mark.usefixtures("issuers_setup")
 @pytest.mark.usefixtures("roles_setup")
 def test_revoke_certificate(vault_pki, private_key):
     ret = vault_pki.sign_certificate(
@@ -432,7 +469,7 @@ def test_set_default_issuer(vault_pki):
 @pytest.mark.usefixtures("generated_root")
 def test_generate_root(vault_pki):
     ret = vault_pki.list_issuers()
-    assert ret == []
+    assert ret == {}
 
     ret = vault_pki.generate_root(
         common_name="generated root",
@@ -451,7 +488,7 @@ def test_generate_root(vault_pki):
 @pytest.mark.usefixtures("generated_root")
 def test_generate_root_exported(vault_pki):
     ret = vault_pki.list_issuers()
-    assert ret == []
+    assert ret == {}
 
     ret = vault_pki.generate_root(
         common_name="generated root",
@@ -496,3 +533,38 @@ def test_read_certificate(vault_pki, private_key):
     ret = vault_pki.read_certificate(serial)
     read_certificate = load_cert(ret)
     assert read_certificate.serial_number == signed_certificate.serial_number
+
+
+@pytest.mark.usefixtures("issuers_setup")
+@pytest.mark.usefixtures("roles_setup")
+def test_read_certificate_full(vault_pki, private_key):
+    ret = vault_pki.sign_certificate(
+        "testrole",
+        common_name="test.example.com",
+        private_key=private_key,
+    )
+    assert "certificate" in ret
+
+    signed_certificate = load_cert(ret["certificate"])
+    serial = dec2hex(signed_certificate.serial_number)
+    ret = vault_pki.read_certificate_full(serial)
+
+    assert "certificate" in ret
+    assert "private_key" not in ret
+    assert "ca_chain" in ret
+
+    ca_chain = ret["ca_chain"]
+    assert isinstance(ca_chain, list)
+    read_certificate, chain = load_cert(f"{ret['certificate']}{''.join(ca_chain)}", load_chain=True)
+    assert read_certificate.serial_number == signed_certificate.serial_number
+    assert chain
+    assert chain[0].subject.rfc4514_string() == "CN=Test Issuer CA"
+
+
+@pytest.mark.usefixtures("issuers_setup")
+@pytest.mark.parametrize("serial", ("ca", "crl", "ca_chain"))
+def test_read_certificate_full_special(serial, vault_pki):
+    ret = vault_pki.read_certificate_full(serial)
+
+    assert "certificate" in ret
+    assert "ca_chain" in ret

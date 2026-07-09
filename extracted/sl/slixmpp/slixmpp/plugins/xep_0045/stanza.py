@@ -8,7 +8,10 @@ from typing import (
     Iterable,
 )
 import logging
+from slixmpp import Presence, Iq, Message
+from slixmpp.plugins.xep_0004 import Form
 from slixmpp.xmlstream import ElementBase, JID
+from slixmpp.xmlstream import register_stanza_plugin
 
 
 log = logging.getLogger(__name__)
@@ -308,3 +311,24 @@ class MUCDestroy(ElementBase):
     namespace = NS_USER
     interfaces = {'reason', 'jid'}
     sub_interfaces = {'reason'}
+
+
+def register_plugins() -> None:
+    """Load MUC support on presence stanzas."""
+    register_stanza_plugin(MUCMessage, MUCUserItem)
+    register_stanza_plugin(MUCPresence, MUCUserItem)
+    register_stanza_plugin(MUCUserItem, MUCActor)
+    register_stanza_plugin(MUCMessage, MUCInvite)
+    register_stanza_plugin(MUCMessage, MUCDecline)
+    register_stanza_plugin(MUCMessage, MUCStatus)
+    register_stanza_plugin(MUCPresence, MUCStatus)
+    register_stanza_plugin(Presence, MUCPresence)
+    register_stanza_plugin(MUCPresence, MUCDestroy)
+    register_stanza_plugin(Presence, MUCJoin)
+    register_stanza_plugin(MUCJoin, MUCHistory)
+    register_stanza_plugin(Message, MUCMessage)
+    register_stanza_plugin(Iq, MUCAdminQuery)
+    register_stanza_plugin(Iq, MUCOwnerQuery)
+    register_stanza_plugin(MUCOwnerQuery, MUCOwnerDestroy)
+    register_stanza_plugin(MUCOwnerQuery, Form)
+    register_stanza_plugin(MUCAdminQuery, MUCAdminItem, iterable=True)

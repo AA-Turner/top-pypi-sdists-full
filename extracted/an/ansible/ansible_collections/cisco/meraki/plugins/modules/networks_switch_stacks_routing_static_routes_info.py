@@ -2,16 +2,15 @@
 # -*- coding: utf-8 -*-
 
 # Copyright (c) 2021, Cisco Systems
-# GNU General Public License v3.0+ (see LICENSE or
-# https://www.gnu.org/licenses/gpl-3.0.txt)
+# GNU General Public License v3.0+ (see LICENSE or https://www.gnu.org/licenses/gpl-3.0.txt)
 
 DOCUMENTATION = r"""
 module: networks_switch_stacks_routing_static_routes_info
-short_description: Information module for networks _switch _stacks _routing _static
-  _routes
+short_description: Information module for networks _switch _stacks _routing _staticroutes
 description:
-  - Get all networks _switch _stacks _routing _static _routes.
-  - Get networks _switch _stacks _routing _static _routes by id.
+  - Information module for Networks Switch Stacks Routing Staticroutes Info.
+  - Get all networks _switch _stacks _routing _staticroutes.
+  - Get networks _switch _stacks _routing _staticroutes by id.
   - List layer 3 static routes for a switch stack.
   - Return a layer 3 static route for a switch stack.
 version_added: '1.0.0'
@@ -24,14 +23,17 @@ options:
     type: dict
   networkId:
     description:
+      - Information module for Networks Switch Stacks Routing Staticroutes Info.
       - NetworkId path parameter. Network ID.
     type: str
   switchStackId:
     description:
+      - Information module for Networks Switch Stacks Routing Staticroutes Info.
       - SwitchStackId path parameter. Switch stack ID.
     type: str
   staticRouteId:
     description:
+      - Information module for Networks Switch Stacks Routing Staticroutes Info.
       - StaticRouteId path parameter. Static route ID.
     type: str
 requirements:
@@ -56,7 +58,7 @@ notes:
 """
 
 EXAMPLES = r"""
-- name: Get all networks _switch _stacks _routing _static _routes
+- name: Get all networks _switch _stacks _routing _staticroutes
   cisco.meraki.networks_switch_stacks_routing_static_routes_info:
     meraki_api_key: "{{ meraki_api_key }}"
     meraki_base_url: "{{ meraki_base_url }}"
@@ -82,7 +84,7 @@ EXAMPLES = r"""
     networkId: string
     switchStackId: string
   register: result
-- name: Get networks _switch _stacks _routing _static _routes by id
+- name: Get networks _switch _stacks _routing _staticroutes by id
   cisco.meraki.networks_switch_stacks_routing_static_routes_info:
     meraki_api_key: "{{ meraki_api_key }}"
     meraki_base_url: "{{ meraki_base_url }}"

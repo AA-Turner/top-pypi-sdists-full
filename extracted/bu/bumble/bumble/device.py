@@ -913,7 +913,8 @@ class PeriodicAdvertisingSync(utils.EventEmitter):
             )
         )
 
-        self.state = self.State.PENDING
+        if self.state == self.State.INIT:
+            self.state = self.State.PENDING
 
     async def terminate(self) -> None:
         if self.state in (self.State.INIT, self.State.CANCELLED, self.State.TERMINATED):
@@ -1574,6 +1575,18 @@ class CigParameters:
         phy_p_to_c: hci.PhyBit = hci.PhyBit.LE_2M
         rtn_c_to_p: int = DEVICE_DEFAULT_ISO_CIS_RTN  # Number of C->P retransmissions
         rtn_p_to_c: int = DEVICE_DEFAULT_ISO_CIS_RTN  # Number of P->C retransmissions
+
+        def __post_init__(self) -> None:
+            # For unidirectional CIS (e.g., Central-to-Peripheral only), the unused direction's
+            # SDU size is 0. If SDU size is 0, the corresponding retransmission count and PHY
+            # must also be set to 0. Otherwise, some controllers will reject the parameters
+            # with error 0x30 (Parameter Out Of Mandatory Range).
+            if self.max_sdu_c_to_p == 0:
+                self.rtn_c_to_p = 0
+                self.phy_c_to_p = hci.PhyBit(0)
+            if self.max_sdu_p_to_c == 0:
+                self.rtn_p_to_c = 0
+                self.phy_p_to_c = hci.PhyBit(0)
 
     cig_id: int
     cis_parameters: list[CisParameters]
@@ -5430,7 +5443,7 @@ class Device(utils.CompositeEventEmitter):
         role: int = hci.CsRole.INITIATOR,
         rtt_type: int = hci.RttType.AA_ONLY,
         cs_sync_phy: int = hci.CsSyncPhy.LE_1M,
-        channel_map: bytes = b'\x54\x55\x55\x54\x55\x55\x55\x55\x55\x15',
+        channel_map: bytes = b'\x54\x55\x55\x54\x55\x55\x55\x55\x55\x05',
         channel_map_repetition: int = 0x01,
         channel_selection_type: int = hci.HCI_LE_CS_Create_Config_Command.ChannelSelectionType.ALGO_3B,
         ch3c_shape: int = hci.HCI_LE_CS_Create_Config_Command.Ch3cShape.HAT,

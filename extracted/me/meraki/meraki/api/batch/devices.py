@@ -24,7 +24,7 @@ class ActionBatchDevices(object):
 
         kwargs.update(locals())
 
-        serial = urllib.parse.quote(serial, safe="")
+        serial = urllib.parse.quote(str(serial), safe="")
         resource = f"/devices/{serial}"
 
         body_params = [
@@ -57,7 +57,7 @@ class ActionBatchDevices(object):
 
         kwargs = locals()
 
-        serial = urllib.parse.quote(serial, safe="")
+        serial = urllib.parse.quote(str(serial), safe="")
         resource = f"/devices/{serial}/cellular/geolocations"
 
         body_params = [
@@ -91,7 +91,7 @@ class ActionBatchDevices(object):
             options = ["5GNSA", "5GSA", "LTE"]
             assert kwargs["type"] in options, f'''"type" cannot be "{kwargs["type"]}", & must be set to one of: {options}'''
 
-        serial = urllib.parse.quote(serial, safe="")
+        serial = urllib.parse.quote(str(serial), safe="")
         resource = f"/devices/{serial}/cellular/uplinks/bands/masks/update"
 
         body_params = [
@@ -119,7 +119,7 @@ class ActionBatchDevices(object):
 
         kwargs.update(locals())
 
-        serial = urllib.parse.quote(serial, safe="")
+        serial = urllib.parse.quote(str(serial), safe="")
         resource = f"/devices/{serial}/liveTools/leds/blink"
 
         body_params = [
@@ -145,7 +145,7 @@ class ActionBatchDevices(object):
 
         kwargs.update(locals())
 
-        serial = urllib.parse.quote(serial, safe="")
+        serial = urllib.parse.quote(str(serial), safe="")
         resource = f"/devices/{serial}/liveTools/ports/status"
 
         body_params = [
@@ -170,7 +170,7 @@ class ActionBatchDevices(object):
 
         kwargs.update(locals())
 
-        serial = urllib.parse.quote(serial, safe="")
+        serial = urllib.parse.quote(str(serial), safe="")
         resource = f"/devices/{serial}/liveTools/power/usage"
 
         body_params = [
@@ -219,7 +219,7 @@ class ActionBatchDevices(object):
             ]
             assert kwargs["type"] in options, f'''"type" cannot be "{kwargs["type"]}", & must be set to one of: {options}'''
 
-        serial = urllib.parse.quote(serial, safe="")
+        serial = urllib.parse.quote(str(serial), safe="")
         resource = f"/devices/{serial}/liveTools/routingTable/lookups"
 
         body_params = [
@@ -248,7 +248,7 @@ class ActionBatchDevices(object):
 
         kwargs.update(locals())
 
-        serial = urllib.parse.quote(serial, safe="")
+        serial = urllib.parse.quote(str(serial), safe="")
         resource = f"/devices/{serial}/liveTools/routingTable/summaries"
 
         body_params = [
@@ -273,7 +273,7 @@ class ActionBatchDevices(object):
 
         kwargs.update(locals())
 
-        serial = urllib.parse.quote(serial, safe="")
+        serial = urllib.parse.quote(str(serial), safe="")
         resource = f"/devices/{serial}/liveTools/throughputTest"
 
         body_params = [
@@ -299,7 +299,7 @@ class ActionBatchDevices(object):
 
         kwargs.update(locals())
 
-        serial = urllib.parse.quote(serial, safe="")
+        serial = urllib.parse.quote(str(serial), safe="")
         resource = f"/devices/{serial}/managementInterface"
 
         body_params = [

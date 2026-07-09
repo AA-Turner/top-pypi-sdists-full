@@ -21,16 +21,16 @@ class XEP_0096(BasePlugin):
     stanza = stanza
 
     def plugin_init(self):
-        register_stanza_plugin(self.xmpp['xep_0095'].stanza.SI, File)
+        register_stanza_plugin(self.xmpp.plugin['xep_0095'].stanza.SI, File)
 
-        self.xmpp['xep_0095'].register_profile(File.namespace, self)
+        self.xmpp.plugin['xep_0095'].register_profile(File.namespace, self)
 
     def session_bind(self, jid):
-        self.xmpp['xep_0030'].add_feature(File.namespace)
+        self.xmpp.plugin['xep_0030'].add_feature(File.namespace)
 
     def plugin_end(self):
-        self.xmpp['xep_0030'].del_feature(feature=File.namespace)
-        self.xmpp['xep_0095'].unregister_profile(File.namespace, self)
+        self.xmpp.plugin['xep_0030'].del_feature(feature=File.namespace)
+        self.xmpp.plugin['xep_0095'].unregister_profile(File.namespace, self)
 
     def request_file_transfer(self, jid, sid=None, name=None, size=None,
                                     desc=None, hash=None, date=None,
@@ -45,7 +45,7 @@ class XEP_0096(BasePlugin):
         if allow_ranged:
             data.enable('range')
 
-        return self.xmpp['xep_0095'].offer(jid,
+        return self.xmpp.plugin['xep_0095'].offer(jid,
                 sid=sid,
                 mime_type=mime_type,
                 profile=File.namespace,

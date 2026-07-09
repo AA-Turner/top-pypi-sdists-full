@@ -1,3 +1,5 @@
+---
+
 - job:
     name: cross-nova-tox-functional
     parent: openstack-tox
@@ -7,6 +9,7 @@
       zuul_work_dir: src/opendev.org/openstack/nova
       tox_envlist: functional
     required-projects:
+      - openstack/placement
       - openstack/nova
       - openstack/oslo.policy
     irrelevant-files: &irrelevant-files
@@ -51,6 +54,7 @@
       - check-requirements
       - lib-forward-testing-python3
       - openstack-python3-jobs
+      - openstack-python3-next-jobs
       - periodic-stable-jobs
       - publish-openstack-docs-pti
       - release-notes-jobs-python3

@@ -21,7 +21,7 @@ class XEP_0071(BasePlugin):
         register_stanza_plugin(Message, XHTML_IM)
 
     def session_bind(self, jid):
-        self.xmpp['xep_0030'].add_feature(feature=XHTML_IM.namespace)
+        self.xmpp.plugin['xep_0030'].add_feature(feature=XHTML_IM.namespace)
 
     def plugin_end(self):
-        self.xmpp['xep_0030'].del_feature(feature=XHTML_IM.namespace)
+        self.xmpp.plugin['xep_0030'].del_feature(feature=XHTML_IM.namespace)

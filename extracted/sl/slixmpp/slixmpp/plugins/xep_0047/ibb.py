@@ -94,10 +94,10 @@ class XEP_0047(BasePlugin):
         self.xmpp.remove_handler('IBB Close')
         self.xmpp.remove_handler('IBB Data')
         self.xmpp.remove_handler('IBB Message Data')
-        self.xmpp['xep_0030'].del_feature(feature='http://jabber.org/protocol/ibb')
+        self.xmpp.plugin['xep_0030'].del_feature(feature='http://jabber.org/protocol/ibb')
 
     def session_bind(self, jid):
-        self.xmpp['xep_0030'].add_feature('http://jabber.org/protocol/ibb')
+        self.xmpp.plugin['xep_0030'].add_feature('http://jabber.org/protocol/ibb')
 
     def _get_stream(self, jid, sid, peer_jid, data):
         return self._streams.get((jid, sid, peer_jid), None)

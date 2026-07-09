@@ -25,11 +25,11 @@ class XEP_0196(BasePlugin):
     stanza = stanza
 
     def plugin_end(self):
-        self.xmpp['xep_0030'].del_feature(feature=UserGaming.namespace)
-        self.xmpp['xep_0163'].remove_interest(UserGaming.namespace)
+        self.xmpp.plugin['xep_0030'].del_feature(feature=UserGaming.namespace)
+        self.xmpp.plugin['xep_0163'].remove_interest(UserGaming.namespace)
 
     def session_bind(self, jid):
-        self.xmpp['xep_0163'].register_pep('user_gaming', UserGaming)
+        self.xmpp.plugin['xep_0163'].register_pep('user_gaming', UserGaming)
 
     def publish_gaming(self, name: str | None = None,
                        level: str | None = None,
@@ -60,7 +60,7 @@ class XEP_0196(BasePlugin):
         gaming['character_profile'] = character_profile
         gaming['server_name'] = server_name
         gaming['server_address'] = server_address
-        return self.xmpp['xep_0163'].publish(
+        return self.xmpp.plugin['xep_0163'].publish(
             gaming,
             node=UserGaming.namespace,
             **pubsubkwargs
@@ -71,7 +71,7 @@ class XEP_0196(BasePlugin):
         Clear existing user gaming information to stop notifications.
         """
         gaming = UserGaming()
-        return self.xmpp['xep_0163'].publish(
+        return self.xmpp.plugin['xep_0163'].publish(
             gaming,
             node=UserGaming.namespace,
             **pubsubkwargs

@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: raindrop-ai
-Version: 0.0.56
+Version: 0.0.57
 Summary: Raindrop AI (Python SDK)
 License: MIT
 Author: Raindrop AI
@@ -77,6 +77,13 @@ events (`track_ai`, `begin`/`finish`, signals, `identify`) ship on each
 instance's own connections with its own headers — fully isolated per
 instance. The module-level API keeps working unchanged; it is simply the
 default, process-wide instance of the same machinery.
+
+- `rd.track_ai_partial(event)` streams an incremental `track_ai` patch (a
+  `PartialTrackAIEvent`) into that instance's own buffers — the per-instance
+  counterpart used by integration wrappers that emit partial events. Its
+  read-only `rd.write_key` property exposes the key backing the instance
+  (e.g. to compare whether two clients are equivalent) without reaching into
+  internals.
 
 ### Tracing with multiple instances
 

@@ -58,7 +58,7 @@ class NetworksWirelessBluetoothSettings(object):
             majorMinorAssignmentMode=params.get("majorMinorAssignmentMode"),
             major=params.get("major"),
             minor=params.get("minor"),
-            networkId=params.get("networkId"),
+            network_id=params.get("networkId"),
         )
 
     def get_all_params(self, name=None, id=None):
@@ -158,7 +158,9 @@ class NetworksWirelessBluetoothSettings(object):
             ("uuid", "uuid"),
             ("majorMinorAssignmentMode", "majorMinorAssignmentMode"),
             ("major", "major"),
-            ("minor", "minor"),]
+            ("minor", "minor"),
+            ("networkId", "networkId"),
+        ]
         # Method 1. Params present in request (Ansible) obj are the same as the current (ISE) params
         # If any does not have eq params, it requires update
         return any(

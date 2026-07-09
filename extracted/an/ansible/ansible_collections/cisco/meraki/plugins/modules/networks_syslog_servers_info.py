@@ -2,14 +2,14 @@
 # -*- coding: utf-8 -*-
 
 # Copyright (c) 2021, Cisco Systems
-# GNU General Public License v3.0+ (see LICENSE or
-# https://www.gnu.org/licenses/gpl-3.0.txt)
+# GNU General Public License v3.0+ (see LICENSE or https://www.gnu.org/licenses/gpl-3.0.txt)
 
 DOCUMENTATION = r"""
 module: networks_syslog_servers_info
-short_description: Information module for networks _syslog _servers
+short_description: Information module for networks _syslogservers
 description:
-  - Get all networks _syslog _servers.
+  - Information module for Networks Syslogservers Info.
+  - Get all networks _syslogservers.
   - List the syslog servers for a network.
 version_added: '1.0.0'
 extends_documentation_fragment:
@@ -21,6 +21,7 @@ options:
     type: dict
   networkId:
     description:
+      - Information module for Networks Syslogservers Info.
       - NetworkId path parameter. Network ID.
     type: str
 requirements:
@@ -38,7 +39,7 @@ notes:
 """
 
 EXAMPLES = r"""
-- name: Get all networks _syslog _servers
+- name: Get all networks _syslogservers
   cisco.meraki.networks_syslog_servers_info:
     meraki_api_key: "{{ meraki_api_key }}"
     meraki_base_url: "{{ meraki_base_url }}"

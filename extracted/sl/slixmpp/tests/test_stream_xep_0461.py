@@ -11,7 +11,7 @@ class TestReply(SlixTest):
         def on_reply(msg):
             start = msg["fallback"]["body"]["start"]
             end = msg["fallback"]["body"]["end"]
-            self.xmpp["xep_0461"].send_reply(
+            self.xmpp.plugin["xep_0461"].send_reply(
                 reply_to=msg.get_from(),
                 reply_id=msg.get_id(),
                 fallback=msg["reply"].strip_fallback_content(),

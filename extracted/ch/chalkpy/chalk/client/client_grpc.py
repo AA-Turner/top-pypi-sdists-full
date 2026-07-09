@@ -158,8 +158,8 @@ from chalk.client.model_image import (
     build_inferred_image,
     chalk_handler_volume_name,
     generate_volume_name,
+    model_artifact_volume_name,
     upload_chalk_handler_artifacts,
-    upload_model_to_volume,
 )
 from chalk.client.models import (
     BulkOnlineQueryResponse,
@@ -3190,6 +3190,7 @@ class ChalkGRPCClient:
         source_config: Optional[SourceConfig] = None,
         dependencies: Optional[List[str]] = None,
         model_image: Optional[Union[str, Any]] = None,
+        skip_volume_upload: bool = False,
     ) -> RegisterModelVersionResponse:
         """Register a model in the Chalk model registry.
 
@@ -3346,6 +3347,30 @@ class ChalkGRPCClient:
             if output_schema is None and inferred_output_schema is not None:
                 output_schema = inferred_output_schema
             try:
+                artifact_basenames = [basename for _, basename in artifact_uploads] if artifact_uploads else []
+                presigned_s3_response: ModelUploadUrlResponse = self._get_model_artifact_presigned(
+                    model_paths=artifact_basenames
+                )
+
+                uploaded_model_files: List[_model_artifact_pb2.ModelFile] = []
+                if artifact_uploads:
+                    model_file_uploader = ModelFileUploader(source_config=None)
+                    file_paths = {basename: local_path for local_path, basename in artifact_uploads}
+                    dir_allowlist = [local_path for local_path, _ in artifact_uploads]
+                    model_files_info, _ = model_file_uploader.upload_files(
+                        file_paths,
+                        model_file_names=artifact_basenames,
+                        presigned_urls=presigned_s3_response.upload_urls,
+                        dir_allowlist=dir_allowlist,
+                    )
+                    uploaded_model_files = [ModelSerializer.fileinfo_to_protobuf(f) for f in model_files_info]
+
+                volume_name: Optional[str] = None
+                if artifact_uploads and not skip_volume_upload:
+                    volume_name = self._try_upload_to_volume(
+                        model_artifact_volume_name(name, presigned_s3_response.model_artifact_id),
+                        artifact_uploads,
+                    )
                 response = self._register_model_with_image(
                     name=name,
                     model_image=image_uri,
@@ -3353,16 +3378,10 @@ class ChalkGRPCClient:
                     output_schema=output_schema,
                     aliases=aliases,
                     metadata=metadata,
+                    model_artifact_id=presigned_s3_response.model_artifact_id,
+                    model_volume=volume_name,
+                    model_files=uploaded_model_files,
                 )
-                # Upload the artifact files to a volume named deterministically
-                # from (model_name, version) so the deploy path can reconstruct
-                # the name without the registry proto carrying a volumes field.
-                if artifact_uploads:
-                    upload_chalk_handler_artifacts(
-                        volume_name=chalk_handler_volume_name(name, response.model_version),
-                        uploads=artifact_uploads,
-                        chalk_client=self,
-                    )
                 return response
             finally:
                 for p in owned_tmp_paths:
@@ -3403,6 +3422,7 @@ class ChalkGRPCClient:
                 dependencies=dependencies,
                 aliases=aliases,
                 model_image=model_image,
+                skip_volume_upload=skip_volume_upload,
             )
 
     def _build_model_image(self, image: Any) -> str:
@@ -3414,6 +3434,30 @@ class ChalkGRPCClient:
 
         return build_image(image, chalk_client=self)
 
+    def _try_upload_to_volume(
+        self,
+        volume_name: str,
+        uploads: List[Tuple[str, str]],
+    ) -> Optional[str]:
+        """Upload artifacts to a volume, returning the volume name on success or None if volumes aren't configured."""
+        try:
+            upload_chalk_handler_artifacts(
+                volume_name=volume_name,
+                uploads=uploads,
+                chalk_client=self,
+            )
+            return volume_name
+        except Exception as e:
+            from chalkcompute import VolumeError  # pyright: ignore[reportMissingImports]
+
+            if isinstance(e, VolumeError):
+                cause = e.__cause__
+                native_code = cause.args[0] if cause and cause.args else ""
+                if native_code in ("failed_precondition", "unavailable"):
+                    chalk_logger.warning(f"Volume upload skipped: volumes not configured ({e})")
+                    return None
+            raise
+
     def _register_model_with_image(
         self,
         name: str,
@@ -3422,6 +3466,9 @@ class ChalkGRPCClient:
         output_schema: Optional[Any],
         aliases: Optional[List[str]],
         metadata: Optional[Mapping[str, Any]],
+        model_artifact_id: Optional[str] = None,
+        model_volume: Optional[str] = None,
+        model_files: Optional[List[_model_artifact_pb2.ModelFile]] = None,
     ) -> RegisterModelVersionResponse:
         """Register a model with a Docker image (no model serialization needed)."""
         if input_schema is None:
@@ -3448,9 +3495,10 @@ class ChalkGRPCClient:
             metadata_converted = ModelSerializer.convert_metadata_to_protobuf(metadata)
 
         try:
-            presigned_s3_response: ModelUploadUrlResponse = self._get_model_artifact_presigned(model_paths=[])
+            if model_artifact_id is None:
+                presigned_s3_response: ModelUploadUrlResponse = self._get_model_artifact_presigned(model_paths=[])
+                model_artifact_id = presigned_s3_response.model_artifact_id
 
-            # Convert schemas using static method (no model serializer context needed)
             input_model_schema = ModelSerializer.convert_schema(input_schema)
             output_model_schema = ModelSerializer.convert_schema(output_schema)
 
@@ -3458,15 +3506,16 @@ class ChalkGRPCClient:
                 lambda x: x.CreateModelVersion(
                     CreateModelVersionRequest(
                         model_name=name,
-                        model_artifact_id=presigned_s3_response.model_artifact_id,
+                        model_artifact_id=model_artifact_id,
                         model_artifact=_model_artifact_pb2.ModelArtifactSpec(
-                            model_files=[],
+                            model_files=model_files or [],
                             additional_files=[],
                             model_signature=_model_artifact_pb2.ModelSignature(
                                 inputs=input_model_schema,
                                 outputs=output_model_schema,
                             ),
                             model_image=model_image,
+                            model_volume=model_volume,
                         ),
                         aliases=aliases,
                         metadata=metadata_converted,
@@ -3503,6 +3552,7 @@ class ChalkGRPCClient:
         dependencies: Optional[List[str]],
         aliases: Optional[List[str]],
         model_image: Optional[str] = None,
+        skip_volume_upload: bool = False,
     ) -> RegisterModelVersionResponse:
         """Register a model for engine deployment (with model serialization)."""
         with ModelSerializer.from_model(model, model_type) as model_serializer:
@@ -3592,6 +3642,14 @@ class ChalkGRPCClient:
                     dir_allowlist,
                 )
 
+                volume_name: Optional[str] = None
+                if not skip_volume_upload:
+                    volume_uploads = [(local_path, filename) for filename, local_path in all_files_to_process.items()]
+                    volume_name = self._try_upload_to_volume(
+                        model_artifact_volume_name(name, presigned_s3_response.model_artifact_id),
+                        volume_uploads,
+                    )
+
                 try:
                     resp: CreateModelVersionResponse = self._stub_refresher.call_model_stub(
                         lambda x: x.CreateModelVersion(
@@ -3617,6 +3675,7 @@ class ChalkGRPCClient:
                                     output_features=output_features,
                                     python_dependencies=dependencies,
                                     model_image=model_image,
+                                    model_volume=volume_name,
                                 ),
                                 aliases=aliases,
                                 metadata=metadata_converted,
@@ -4425,7 +4484,7 @@ class ChalkGRPCClient:
         return create_responses
 
     def _ensure_model_image(
-        self, model_name: str, model_version: int, validate: bool = True, skip_upload_to_volumes: bool = False
+        self, model_name: str, model_version: int, validate: bool = True
     ) -> tuple[int, List[Dict[str, str]]]:
         """If the model version has no model_image, create a new version with an inferred image.
 
@@ -4442,50 +4501,66 @@ class ChalkGRPCClient:
         )
         spec = model_version_resp.model_version.model_artifact.spec
         if spec.HasField("model_image") and spec.model_image:
-            volume_name = chalk_handler_volume_name(model_name, model_version)
-            volume_mounts: List[Dict[str, str]] = []
-
-            if not skip_upload_to_volumes:
+            # New path: model_volume is persisted on the spec at registration time.
+            if spec.HasField("model_volume") and spec.model_volume:
+                volume_name = spec.model_volume
                 from chalkcompute import (  # pyright: ignore[reportMissingImports]
                     ConnectClient,
-                    VolumeError,
                     resolve_referenced_volume_type,
                 )
 
-                try:
-                    vol_type = resolve_referenced_volume_type(ConnectClient(chalk_client=self), volume_name)
-                    volume_mounts = [
-                        {
-                            "name": volume_name,
-                            "mount_path": CHALK_HANDLER_ARTIFACT_PATH,
-                            "type": vol_type,
-                        }
-                    ]
-                except (VolumeError, Exception):
-                    artifact_result = self.download_model_artifact(model_name, model_version)
-                    model_files = artifact_result.downloaded_model_files
-                    if model_files:
-                        try:
-                            model_filename = os.path.basename(model_files[0])
-                            upload_model_to_volume(
-                                volume_name=volume_name,
-                                model_filename=model_filename,
-                                model_file_path=model_files[0],
-                                chalk_client=self,
-                            )
-                            volume_mounts = [
-                                {
-                                    "name": volume_name,
-                                    "mount_path": CHALK_HANDLER_ARTIFACT_PATH,
-                                    "type": "versioned_chalkfs",
-                                }
-                            ]
-                        finally:
-                            import shutil
+                vol_type = resolve_referenced_volume_type(ConnectClient(chalk_client=self), volume_name)
+                volume_mounts: List[Dict[str, str]] = [
+                    {
+                        "name": volume_name,
+                        "mount_path": CHALK_HANDLER_ARTIFACT_PATH,
+                        "type": vol_type,
+                    }
+                ]
+                return model_version, volume_mounts
 
-                            download_dir = os.path.dirname(model_files[0])
-                            if download_dir and os.path.exists(download_dir):
-                                shutil.rmtree(download_dir)
+            # Legacy path: model_volume not set, derive volume name from (name, version).
+            volume_name = chalk_handler_volume_name(model_name, model_version)
+            from chalkcompute import (  # pyright: ignore[reportMissingImports]
+                ConnectClient,
+                VolumeError,
+                resolve_referenced_volume_type,
+            )
+
+            try:
+                vol_type = resolve_referenced_volume_type(ConnectClient(chalk_client=self), volume_name)
+                volume_mounts = [
+                    {
+                        "name": volume_name,
+                        "mount_path": CHALK_HANDLER_ARTIFACT_PATH,
+                        "type": vol_type,
+                    }
+                ]
+            except (VolumeError, Exception):
+                artifact_result = self.download_model_artifact(model_name, model_version)
+                model_files = artifact_result.downloaded_model_files
+                if model_files:
+                    try:
+                        upload_chalk_handler_artifacts(
+                            volume_name=volume_name,
+                            uploads=[(model_files[0], os.path.basename(model_files[0]))],
+                            chalk_client=self,
+                        )
+                        volume_mounts = [
+                            {
+                                "name": volume_name,
+                                "mount_path": CHALK_HANDLER_ARTIFACT_PATH,
+                                "type": "versioned_chalkfs",
+                            }
+                        ]
+                    finally:
+                        import shutil
+
+                        download_dir = os.path.dirname(model_files[0])
+                        if download_dir and os.path.exists(download_dir):
+                            shutil.rmtree(download_dir)
+                else:
+                    volume_mounts = []
             return model_version, volume_mounts
 
         artifact_result = self.download_model_artifact(model_name, model_version)
@@ -4511,6 +4586,7 @@ class ChalkGRPCClient:
             new_spec = _model_artifact_pb2.ModelArtifactSpec()
             new_spec.CopyFrom(spec)
             new_spec.model_image = image_uri
+            new_spec.model_volume = vol_name
 
             resp: CreateModelVersionResponse = self._stub_refresher.call_model_stub(
                 lambda x: x.CreateModelVersion(
@@ -4533,10 +4609,9 @@ class ChalkGRPCClient:
                 )
             )
 
-            upload_model_to_volume(
+            upload_chalk_handler_artifacts(
                 volume_name=vol_name,
-                model_filename=model_filename,
-                model_file_path=model_files[0],
+                uploads=[(model_files[0], model_filename)],
                 chalk_client=self,
             )
         finally:
@@ -4546,7 +4621,7 @@ class ChalkGRPCClient:
             if download_dir and os.path.exists(download_dir):
                 shutil.rmtree(download_dir)
 
-        volume_mounts = [{"name": vol_name, "mount_path": f"/volumes/{vol_name}", "type": "chalkfs"}]
+        volume_mounts = [{"name": vol_name, "mount_path": f"/volumes/{vol_name}", "type": "versioned_chalkfs"}]
         return new_version, volume_mounts
 
     def deploy_model_version_to_scaling_group(
@@ -4563,7 +4638,6 @@ class ChalkGRPCClient:
         env_vars: Optional[Dict[str, str]] = None,
         target_cpu_utilization_percentage: Optional[int] = None,
         validate: bool = True,
-        skip_upload_to_volumes: bool = False,
         secrets: Optional[List[Any]] = None,
     ) -> dict[str, Any]:
         """Deploy a registered model version as a scaling group.
@@ -4571,9 +4645,7 @@ class ChalkGRPCClient:
         Uses the authenticated gRPC channel with a raw unary call since
         Python scaling group proto stubs are not yet generated.
         """
-        model_version, inferred_volumes = self._ensure_model_image(
-            model_name, model_version, validate=validate, skip_upload_to_volumes=skip_upload_to_volumes
-        )
+        model_version, inferred_volumes = self._ensure_model_image(model_name, model_version, validate=validate)
 
         if inferred_volumes:
             if handler is None:

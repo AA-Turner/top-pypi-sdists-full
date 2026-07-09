@@ -27,11 +27,11 @@ class XEP_0080(BasePlugin):
     stanza = stanza
 
     def plugin_end(self):
-        self.xmpp['xep_0163'].remove_interest(Geoloc.namespace)
-        self.xmpp['xep_0030'].del_feature(feature=Geoloc.namespace)
+        self.xmpp.plugin['xep_0163'].remove_interest(Geoloc.namespace)
+        self.xmpp.plugin['xep_0030'].del_feature(feature=Geoloc.namespace)
 
     def session_bind(self, jid: JID):
-        self.xmpp['xep_0163'].register_pep('user_location', Geoloc)
+        self.xmpp.plugin['xep_0163'].register_pep('user_location', Geoloc)
 
     def publish_location(self, **kwargs) -> Future:
         """
@@ -83,7 +83,7 @@ class XEP_0080(BasePlugin):
         geoloc = Geoloc()
         geoloc.values = kwargs
 
-        return self.xmpp['xep_0163'].publish(
+        return self.xmpp.plugin['xep_0163'].publish(
             geoloc,
             options=options,
             ifrom=ifrom,
@@ -98,7 +98,7 @@ class XEP_0080(BasePlugin):
         Clear existing user location information to stop notifications.
         """
         geoloc = Geoloc()
-        return self.xmpp['xep_0163'].publish(
+        return self.xmpp.plugin['xep_0163'].publish(
             geoloc,
             ifrom=ifrom,
             callback=callback,

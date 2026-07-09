@@ -39,7 +39,7 @@ class TestStreamDirectInvite(SlixTest):
                           plugins=['xep_0030',
                                    'xep_0249'])
 
-        self.xmpp['xep_0249'].send_invitation('user@example.com',
+        self.xmpp.plugin['xep_0249'].send_invitation('user@example.com',
                                               'sleek@conference.jabber.org',
                                               reason='Need to test Slixmpp')
 

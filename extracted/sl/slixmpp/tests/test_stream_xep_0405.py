@@ -11,7 +11,7 @@ class TestMIXPAM(SlixTest):
     def testGetRosterEmpty(self):
         """Test requesting an empty annotated roster"""
 
-        fut = self.xmpp.wrap(self.xmpp['xep_0405'].get_mix_roster())
+        fut = self.xmpp.wrap(self.xmpp.plugin['xep_0405'].get_mix_roster())
 
         self.wait_()
         self.send("""
@@ -32,7 +32,7 @@ class TestMIXPAM(SlixTest):
     def testGetRoster(self):
         """Test requesting an annotated roster"""
 
-        fut = self.xmpp.wrap(self.xmpp['xep_0405'].get_mix_roster())
+        fut = self.xmpp.wrap(self.xmpp.plugin['xep_0405'].get_mix_roster())
 
         self.wait_()
         self.send("""
@@ -71,7 +71,7 @@ class TestMIXPAM(SlixTest):
     def testClientJoin(self):
         """Test a client join"""
 
-        fut = self.xmpp.wrap(self.xmpp['xep_0405'].join_channel(
+        fut = self.xmpp.wrap(self.xmpp.plugin['xep_0405'].join_channel(
             JID('coven@mix.shakespeare.example'),
             'toto',
         ))
@@ -109,7 +109,7 @@ class TestMIXPAM(SlixTest):
     def testClientJoinNotAllNodes(self):
         """Test a client join where one of the nodes is rejected"""
 
-        fut = self.xmpp.wrap(self.xmpp['xep_0405'].join_channel(
+        fut = self.xmpp.wrap(self.xmpp.plugin['xep_0405'].join_channel(
             JID('coven@mix.shakespeare.example'),
             'toto',
         ))
@@ -146,7 +146,7 @@ class TestMIXPAM(SlixTest):
     def testClientLeave(self):
         """Test a client leave"""
 
-        fut = self.xmpp.wrap(self.xmpp['xep_0405'].leave_channel(
+        fut = self.xmpp.wrap(self.xmpp.plugin['xep_0405'].leave_channel(
             JID('coven@mix.shakespeare.example'),
         ))
         self.send("""

@@ -511,6 +511,52 @@ def _compatibility_flags_for_model(model: str) -> set[CompatibilityFlag]:
     return set()
 
 
+def _anthropic_adaptive_thinking_params(
+    model: str,
+    reasoning_effort: str,
+) -> dict[str, t.Any] | None:
+    """Translate ``reasoning_effort`` into explicit adaptive-thinking params for
+    current-generation (Claude 4.6+) Anthropic models.
+
+    LiteLLM maps ``reasoning_effort`` to ``thinking={"type": "adaptive"}`` but never
+    sets ``display``, so these models fall back to their server-side default of
+    ``display="omitted"`` and return signed-but-empty thinking blocks — zero readable
+    reasoning reaches the client (ENG-7388). We send ``display="summarized"``
+    explicitly (the only readable mode these models expose) plus
+    ``output_config.effort``, and the caller drops ``reasoning_effort`` so LiteLLM's
+    mapping — which overwrites ``thinking`` — can't clobber ``display`` again.
+
+    Returns the params to merge, or ``None`` when the model isn't an adaptive-thinking
+    Anthropic model (leave ``reasoning_effort`` untouched — no behavior change).
+    """
+    if infer_provider(model) != "anthropic":
+        return None
+
+    # Strip our proxy prefix so LiteLLM's model-name detection matches (it keys off
+    # "claude-opus-4-8" etc. and does not recognize the "dn/" route prefix).
+    lookup = model.removeprefix("dn/")
+
+    try:
+        from litellm.llms.anthropic.chat.transformation import (
+            REASONING_EFFORT_TO_OUTPUT_CONFIG_EFFORT,
+            AnthropicConfig,
+        )
+
+        if not AnthropicConfig._is_adaptive_thinking_model(lookup):
+            return None
+        effort = REASONING_EFFORT_TO_OUTPUT_CONFIG_EFFORT.get(reasoning_effort)
+    except Exception:
+        return None
+
+    if effort is None:
+        return None
+
+    return {
+        "thinking": {"type": "adaptive", "display": "summarized"},
+        "output_config": {"effort": effort},
+    }
+
+
 class LiteLLMGenerator(Generator):
     """
     Generator backed by the LiteLLM library.
@@ -872,6 +918,26 @@ class LiteLLMGenerator(Generator):
                 ),
             )
 
+        # Generated/output images (image-out models like gemini-*-image, gpt-*-image).
+        # litellm surfaces them on `message.images` as OpenAI image_url blocks
+        # (data: URLs). Without this the image output is silently dropped, so a
+        # media-out red-teaming response only ever shows the accompanying text.
+        images = getattr(choice.message, "images", None)
+        if images:
+            for img in images:
+                image_url = (
+                    img.get("image_url")
+                    if isinstance(img, dict)
+                    else getattr(img, "image_url", None)
+                )
+                url = (
+                    image_url.get("url")
+                    if isinstance(image_url, dict)
+                    else getattr(image_url, "url", None)
+                )
+                if isinstance(url, str) and url:
+                    message.content_parts.append(ContentImageUrl.from_url(url))
+
         return GeneratedMessage(
             message=message,
             stop_reason=choice.finish_reason or "unknown",
@@ -918,10 +984,22 @@ class LiteLLMGenerator(Generator):
 
             merged = self.params.merge_with(params).to_dict()
 
-            # When reasoning_effort is set for Anthropic models, litellm enables
-            # extended thinking with a budget_tokens that may exceed max_tokens.
-            # Ensure max_tokens is large enough to accommodate the thinking budget.
-            if "reasoning_effort" in merged and (
+            # Current-gen Claude models default thinking display to "omitted" and
+            # return empty reasoning unless we ask for "summarized" explicitly, which
+            # litellm's reasoning_effort mapping never does (ENG-7388). Convert to the
+            # explicit thinking + output_config shape and drop reasoning_effort so the
+            # mapping can't overwrite our display setting.
+            reasoning_effort = merged.get("reasoning_effort")
+            if isinstance(reasoning_effort, str):
+                thinking_params = _anthropic_adaptive_thinking_params(self.model, reasoning_effort)
+                if thinking_params is not None:
+                    merged.pop("reasoning_effort", None)
+                    merged.update(thinking_params)
+
+            # When thinking is enabled for Anthropic models, litellm enables extended
+            # thinking with a budget_tokens that may exceed max_tokens. Ensure
+            # max_tokens is large enough to accommodate the thinking budget.
+            if ("reasoning_effort" in merged or "thinking" in merged) and (
                 merged.get("max_tokens") is None or merged.get("max_tokens", 0) < 16000
             ):
                 merged["max_tokens"] = 16000

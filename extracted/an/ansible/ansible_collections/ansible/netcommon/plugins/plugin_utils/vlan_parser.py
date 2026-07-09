@@ -35,9 +35,6 @@ def vlan_parser(data, first_line_len=48, other_line_len=44):
     # Sort and remove duplicates
     sorted_list = sorted(set(data))
 
-    if not sorted_list:
-        return []
-
     if sorted_list[0] < 1 or sorted_list[-1] > 4094:
         _raise_error("Valid VLAN range is 1-4094")
 

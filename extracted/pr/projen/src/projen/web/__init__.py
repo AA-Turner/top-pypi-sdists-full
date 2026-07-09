@@ -13,7 +13,7 @@ import jsii
 import publication
 import typing_extensions
 
-from jsii._type_checking import check_type
+from jsii._type_checking import cached_type_hints, check_type
 
 
 from .._jsii import *
@@ -70,7 +70,7 @@ class NextComponent(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__98a1ca7e4faee5476adb655f0dda9ac7b4e38665000e38b877509edcc1c7a197)
+            type_hints = cached_type_hints(_typecheckingstub__98a1ca7e4faee5476adb655f0dda9ac7b4e38665000e38b877509edcc1c7a197)
             check_type(argname="argument project", value=project, expected_type=type_hints["project"])
         options = NextComponentOptions(tailwind=tailwind, typescript=typescript)
 
@@ -96,7 +96,7 @@ class NextComponentOptions:
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__37989d0d2b531759e8d26fe9b3ad0514198f129f34985999593c1d03c4b2e1cf)
+            type_hints = cached_type_hints(_typecheckingstub__37989d0d2b531759e8d26fe9b3ad0514198f129f34985999593c1d03c4b2e1cf)
             check_type(argname="argument tailwind", value=tailwind, expected_type=type_hints["tailwind"])
             check_type(argname="argument typescript", value=typescript, expected_type=type_hints["typescript"])
         self._values: typing.Dict[builtins.str, typing.Any] = {}
@@ -159,7 +159,7 @@ class NextJsCommonProjectOptions:
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__11ca85b94aec64de9a84a696502367273e5cc47f4f04de3841b772ff4aa537ca)
+            type_hints = cached_type_hints(_typecheckingstub__11ca85b94aec64de9a84a696502367273e5cc47f4f04de3841b772ff4aa537ca)
             check_type(argname="argument assetsdir", value=assetsdir, expected_type=type_hints["assetsdir"])
             check_type(argname="argument tailwind", value=tailwind, expected_type=type_hints["tailwind"])
         self._values: typing.Dict[builtins.str, typing.Any] = {}
@@ -1130,7 +1130,7 @@ class NextJsProjectOptions(
         if isinstance(workflow_git_identity, dict):
             workflow_git_identity = _github_c49f935d.GitIdentity(**workflow_git_identity)
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__2068b6deaa762f0141179f4dddaab2fd95c220b31368afa8e4275bc0c6c29736)
+            type_hints = cached_type_hints(_typecheckingstub__2068b6deaa762f0141179f4dddaab2fd95c220b31368afa8e4275bc0c6c29736)
             check_type(argname="argument assetsdir", value=assetsdir, expected_type=type_hints["assetsdir"])
             check_type(argname="argument tailwind", value=tailwind, expected_type=type_hints["tailwind"])
             check_type(argname="argument name", value=name, expected_type=type_hints["name"])
@@ -4274,7 +4274,7 @@ class NextJsTypeScriptProjectOptions(
         if isinstance(ts_jest_options, dict):
             ts_jest_options = _typescript_7a66cf84.TsJestOptions(**ts_jest_options)
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__1625ee9ed48b5cb80b54d37b499e6e97e54a05364b23a4e4ec57f4bf3f9be55f)
+            type_hints = cached_type_hints(_typecheckingstub__1625ee9ed48b5cb80b54d37b499e6e97e54a05364b23a4e4ec57f4bf3f9be55f)
             check_type(argname="argument assetsdir", value=assetsdir, expected_type=type_hints["assetsdir"])
             check_type(argname="argument tailwind", value=tailwind, expected_type=type_hints["tailwind"])
             check_type(argname="argument name", value=name, expected_type=type_hints["name"])
@@ -6659,7 +6659,7 @@ class PostCss(metaclass=jsii.JSIIMeta, jsii_type="projen.web.PostCss"):
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__752c44b0de55a970e38fc2cb17c404afdaec5c73ad5ec508896294719f7100c2)
+            type_hints = cached_type_hints(_typecheckingstub__752c44b0de55a970e38fc2cb17c404afdaec5c73ad5ec508896294719f7100c2)
             check_type(argname="argument project", value=project, expected_type=type_hints["project"])
         options = PostCssOptions(
             file_name=file_name, tailwind=tailwind, tailwind_options=tailwind_options
@@ -6719,7 +6719,7 @@ class PostCssOptions:
         if isinstance(tailwind_options, dict):
             tailwind_options = TailwindConfigOptions(**tailwind_options)
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__e03796ae9fae72764e1f49df637cf7f8e5ec8a1b33d3b53c5ea92253079ee95c)
+            type_hints = cached_type_hints(_typecheckingstub__e03796ae9fae72764e1f49df637cf7f8e5ec8a1b33d3b53c5ea92253079ee95c)
             check_type(argname="argument file_name", value=file_name, expected_type=type_hints["file_name"])
             check_type(argname="argument tailwind", value=tailwind, expected_type=type_hints["tailwind"])
             check_type(argname="argument tailwind_options", value=tailwind_options, expected_type=type_hints["tailwind_options"])
@@ -6797,7 +6797,7 @@ class ReactComponent(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__492717feb4c1d3c7b6b1d21c83adcd8fd63fb9126bd7a0c456fe8ce6e5735e6f)
+            type_hints = cached_type_hints(_typecheckingstub__492717feb4c1d3c7b6b1d21c83adcd8fd63fb9126bd7a0c456fe8ce6e5735e6f)
             check_type(argname="argument project", value=project, expected_type=type_hints["project"])
         options = ReactComponentOptions(typescript=typescript, rewire=rewire)
 
@@ -7253,7 +7253,7 @@ class ReactRewireOptions:
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__2f5eda5b0d2c35d39ea3591040187e0f614e806819ff91add68cbaa16ed34534)
+            type_hints = cached_type_hints(_typecheckingstub__2f5eda5b0d2c35d39ea3591040187e0f614e806819ff91add68cbaa16ed34534)
             check_type(argname="argument rewire", value=rewire, expected_type=type_hints["rewire"])
         self._values: typing.Dict[builtins.str, typing.Any] = {}
         if rewire is not None:
@@ -8316,7 +8316,7 @@ class ReactTypeScriptProjectOptions(
         if isinstance(ts_jest_options, dict):
             ts_jest_options = _typescript_7a66cf84.TsJestOptions(**ts_jest_options)
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__6fe6b356cc73a5676618b27e8c5049b874449164943781f93c243772eba49f0e)
+            type_hints = cached_type_hints(_typecheckingstub__6fe6b356cc73a5676618b27e8c5049b874449164943781f93c243772eba49f0e)
             check_type(argname="argument name", value=name, expected_type=type_hints["name"])
             check_type(argname="argument commit_generated", value=commit_generated, expected_type=type_hints["commit_generated"])
             check_type(argname="argument git_ignore_options", value=git_ignore_options, expected_type=type_hints["git_ignore_options"])
@@ -10706,7 +10706,7 @@ class TailwindConfig(metaclass=jsii.JSIIMeta, jsii_type="projen.web.TailwindConf
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__e9bff97c804c6a4a5190e0882ce845049603f49e9d18d05da6cc300a321e460b)
+            type_hints = cached_type_hints(_typecheckingstub__e9bff97c804c6a4a5190e0882ce845049603f49e9d18d05da6cc300a321e460b)
             check_type(argname="argument project", value=project, expected_type=type_hints["project"])
         options = TailwindConfigOptions(file_name=file_name)
 
@@ -10742,7 +10742,7 @@ class TailwindConfigOptions:
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__f191a4b0da5946eb0d9efd90bf0cdc6fb93e9b5b8f038850a007da8476fd9d92)
+            type_hints = cached_type_hints(_typecheckingstub__f191a4b0da5946eb0d9efd90bf0cdc6fb93e9b5b8f038850a007da8476fd9d92)
             check_type(argname="argument file_name", value=file_name, expected_type=type_hints["file_name"])
         self._values: typing.Dict[builtins.str, typing.Any] = {}
         if file_name is not None:
@@ -10789,7 +10789,7 @@ class ReactComponentOptions(ReactRewireOptions):
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__5d4b75794f8932f14b24dba88c5a20e285623929e3d6e55641750c6f7e9794d5)
+            type_hints = cached_type_hints(_typecheckingstub__5d4b75794f8932f14b24dba88c5a20e285623929e3d6e55641750c6f7e9794d5)
             check_type(argname="argument rewire", value=rewire, expected_type=type_hints["rewire"])
             check_type(argname="argument typescript", value=typescript, expected_type=type_hints["typescript"])
         self._values: typing.Dict[builtins.str, typing.Any] = {}
@@ -11319,7 +11319,7 @@ class ReactProjectOptions(_javascript_eb5dbe11.NodeProjectOptions, ReactRewireOp
         if isinstance(workflow_git_identity, dict):
             workflow_git_identity = _github_c49f935d.GitIdentity(**workflow_git_identity)
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__3fe2ab54a9ff384e98c4a85a960cf579b3a335a93d5b485eb74555345e755bb6)
+            type_hints = cached_type_hints(_typecheckingstub__3fe2ab54a9ff384e98c4a85a960cf579b3a335a93d5b485eb74555345e755bb6)
             check_type(argname="argument name", value=name, expected_type=type_hints["name"])
             check_type(argname="argument commit_generated", value=commit_generated, expected_type=type_hints["commit_generated"])
             check_type(argname="argument git_ignore_options", value=git_ignore_options, expected_type=type_hints["git_ignore_options"])

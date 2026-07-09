@@ -13,13 +13,14 @@ import capstone
 import networkx
 
 from angr import ailment
-from angr.ailment import AILBlockRewriter, Block, Statement
+from angr.ailment import AILBlockRewriter, Assignment, Block, Statement
 from angr.ailment.block_walker import AILBlockViewer
 from angr.ailment.expression import Array, FunctionLikeMacro, Let, RustEnum, Struct, VirtualVariable
 from angr.analyses.analysis import Analysis, register_analysis
 from angr.analyses.cfg.cfg_base import CFGBase
 from angr.analyses.decompiler.callsite_maker import CallSiteMaker
 from angr.analyses.s_liveness import SLivenessAnalysis
+from angr.analyses.s_reaching_definitions import SReachingDefinitionsAnalysis
 from angr.analyses.stack_pointer_tracker import OffsetVal, Register
 from angr.analyses.typehoon import Typehoon
 from angr.analyses.typehoon.simple_solver import SimpleSolver
@@ -83,6 +84,7 @@ from .return_maker import ReturnMaker
 from .semantic_naming import SemanticNamingOrchestrator
 from .ssailification.ssailification import Ssailification
 from .stack_item import StackItem, StackItemType
+from .stackarg_offset_manager import StackArgOffsetManager
 from .variable_map import VariableMap
 
 if TYPE_CHECKING:
@@ -153,6 +155,12 @@ class ComboRegReferenceWalker(AILBlockRewriter):
         self.project = project
         self._ail_manager = ail_manager
         self.varid_to_combo_reg = {}
+
+    def _handle_Assignment(self, stmt_idx: int, stmt: Assignment, block: Block | None) -> Statement:
+        if is_phi_assignment(stmt):
+            # phi operands must stay virtual variables
+            return stmt
+        return super()._handle_Assignment(stmt_idx, stmt, block)
 
     def _handle_VirtualVariable(
         self, expr_idx: int, expr: VirtualVariable, stmt_idx: int, stmt: Statement | None, block: Block | None
@@ -290,7 +298,7 @@ class Clinic(Analysis):
         self._type_constraint_set_degradation_threshold = type_constraint_set_degradation_threshold
         self.vvar_id_start = vvar_id_start
         self.vvar_to_vvar: dict[int, int] | None = None
-        self._stackarg_offsets: set[tuple[int, int]] | None = None
+        self._stackarg_offset_manager: StackArgOffsetManager = StackArgOffsetManager(self.project.arch.bits)
         self._removed_vvar_ids = None
         # during SSA conversion, we create secondary stack variables because they overlap and are larger than the
         # actual stack variables. these secondary stack variables can be safely eliminated if not used by anything.
@@ -684,6 +692,32 @@ class Clinic(Analysis):
             walker.walk(block)
         return ail_graph
 
+    def _rewrite_combo_reg_param_references(self, ail_graph):
+        """
+        Rewrite reads of the constituent registers of combo-register arguments into loads from the arguments.
+
+        Combo-register arguments have no defining statement in the graph, so unlike combo registers defined inside
+        the graph (handled by _fix_combo_reg_references after variable recovery), the walker must be seeded with
+        their constituent register vvars. This runs before variable recovery so that the rewritten references get
+        linked to the recovered argument variables.
+        """
+
+        combo_arg_vvars = [
+            arg_vvar
+            for arg_vvar, _ in self.arg_vvars.values()
+            if arg_vvar.parameter_category == ailment.Expr.VirtualVariableCategory.COMBO_REGISTER
+        ]
+        if not combo_arg_vvars:
+            return ail_graph
+
+        walker = ComboRegReferenceWalker(self.project, self._ail_manager)
+        for arg_vvar in combo_arg_vvars:
+            for reg_vvar in arg_vvar.reg_vvars:
+                walker.varid_to_combo_reg[reg_vvar.varid] = arg_vvar
+        for block in GraphUtils.quasi_topological_sort_nodes(ail_graph):
+            walker.walk(block)
+        return ail_graph
+
     def _decompilation_simplifications(self, ail_graph):
         self.arg_vvars = self._init_arg_vvars if self._init_arg_vvars is not None else {}
         self.func_args = {arg_vvar for arg_vvar, _ in self.arg_vvars.values()}
@@ -801,13 +835,10 @@ class Clinic(Analysis):
 
         # Make call-sites again so we may identify variadic function arguments
         self._update_progress(50.0, text="Making callsites")
-        _, _stackarg_offsets, _removed_vvar_ids = self._make_callsites(
+        _, _stackarg_offset_manager, _removed_vvar_ids = self._make_callsites(
             self._ail_graph, self.func_args, stack_pointer_tracker=self._spt, preserve_vvar_ids=self._preserve_vvar_ids
         )
-        if self._stackarg_offsets is not None:
-            self._stackarg_offsets |= _stackarg_offsets
-        else:
-            self._stackarg_offsets = _stackarg_offsets
+        self._stackarg_offset_manager.merge(_stackarg_offset_manager)
         if self._removed_vvar_ids is not None:
             self._removed_vvar_ids |= _removed_vvar_ids
         else:
@@ -844,7 +875,7 @@ class Clinic(Analysis):
         # Make call-sites
         self._update_progress(50.0, text="Making callsites")
         # do not provide func_args here since we haven't done any ssa yet
-        _, self._stackarg_offsets, self._removed_vvar_ids = self._make_callsites(
+        _, self._stackarg_offset_manager, self._removed_vvar_ids = self._make_callsites(
             self._ail_graph, stack_pointer_tracker=self._spt, preserve_vvar_ids=self._preserve_vvar_ids
         )
 
@@ -853,6 +884,10 @@ class Clinic(Analysis):
         self._ail_graph = self._rewrite_rust_probestack_call(self._ail_graph)
         # Windows-specific
         self._ail_graph = self._rewrite_windows_chkstk_call(self._ail_graph)
+
+        self._update_progress(52.0, text="Updating function call stack argument vvars")
+        rd = self._compute_reaching_definitions(func_args=self.func_args)
+        self._stackarg_offset_manager.update_stackoff_vvars(rd)
 
         # Run simplification passes
         self._update_progress(53.0, text="Running simplifications 2.5")
@@ -865,7 +900,7 @@ class Clinic(Analysis):
         self._simplify_function(
             self._ail_graph,
             remove_dead_memdefs=self._remove_dead_memdefs,
-            stack_arg_offsets=self._stackarg_offsets,
+            stackarg_offset_manager=self._stackarg_offset_manager,
             unify_variables=True,
             narrow_expressions=True,
             fold_callexprs_into_conditions=self._fold_callexprs_into_conditions,
@@ -888,7 +923,7 @@ class Clinic(Analysis):
         self._simplify_function(
             self._ail_graph,
             remove_dead_memdefs=self._remove_dead_memdefs,
-            stack_arg_offsets=self._stackarg_offsets,
+            stackarg_offset_manager=self._stackarg_offset_manager,
             unify_variables=True,
             narrow_expressions=True,
             fold_callexprs_into_conditions=self._fold_callexprs_into_conditions,
@@ -901,7 +936,7 @@ class Clinic(Analysis):
         self._simplify_function(
             self._ail_graph,
             remove_dead_memdefs=self._remove_dead_memdefs,
-            stack_arg_offsets=self._stackarg_offsets,
+            stackarg_offset_manager=self._stackarg_offset_manager,
             unify_variables=True,
             narrow_expressions=True,
             fold_callexprs_into_conditions=self._fold_callexprs_into_conditions,
@@ -937,6 +972,8 @@ class Clinic(Analysis):
 
     def _stage_recover_variables(self) -> None:
         assert self.arg_list is not None and self.arg_vvars is not None and self.vvar_to_vvar is not None
+
+        self._ail_graph = self._rewrite_combo_reg_param_references(self._ail_graph)
 
         # Recover variables on AIL blocks
         self._update_progress(80.0, text="Recovering variables")
@@ -1164,8 +1201,16 @@ class Clinic(Analysis):
                 continue
             attempted_funcs.add(target_func.addr)
 
+            # A call to a jmp_rax thunk (e.g. the Windows Control-Flow-Guard __guard_dispatch_icall dispatcher) is
+            # really an indirect call through rax; _rewrite_jump_rax_calls rewrites it as such.
+            is_indirect_call_thunk = target_func.info.get("jmp_rax", False) is True
+
             # case 0: the calling convention and prototype are available
-            if target_func.calling_convention is not None and target_func.prototype is not None:
+            if (
+                not is_indirect_call_thunk
+                and target_func.calling_convention is not None
+                and target_func.prototype is not None
+            ):
                 continue
 
             call_sites = []
@@ -1394,25 +1439,6 @@ class Clinic(Analysis):
         return converted
 
     def _convert_vex(self, block):
-        if block.vex.jumpkind not in {"Ijk_Call", "Ijk_Boring", "Ijk_Ret"} and not block.vex.jumpkind.startswith(
-            "Ijk_Sys"
-        ):
-            # we don't support lifting this block. use a dummy block instead
-            dirty_expr = ailment.Expr.DirtyExpression(
-                self._ail_manager.next_atom,
-                f"Unsupported jumpkind {block.vex.jumpkind} at address {block.addr}",
-                [],
-                bits=0,
-            )
-            statements: list[ailment.Statement] = [
-                ailment.Stmt.DirtyStatement(
-                    self._ail_manager.next_atom(),
-                    dirty_expr,
-                    ins_addr=block.addr,
-                )
-            ]
-            return ailment.Block(block.addr, block.size, statements=statements)
-
         return ailment.IRSBConverter.convert(block.vex, self._ail_manager)
 
     @timethis
@@ -1760,7 +1786,7 @@ class Clinic(Analysis):
         self,
         ail_graph,
         remove_dead_memdefs=False,
-        stack_arg_offsets=None,
+        stackarg_offset_manager: StackArgOffsetManager | None = None,
         unify_variables=False,
         max_iterations: int = 8,
         narrow_expressions=False,
@@ -1782,7 +1808,7 @@ class Clinic(Analysis):
                 ail_graph,
                 remove_dead_memdefs=remove_dead_memdefs,
                 unify_variables=unify_variables,
-                stack_arg_offsets=stack_arg_offsets,
+                stackarg_offset_manager=stackarg_offset_manager,
                 # only narrow once
                 narrow_expressions=narrow_expressions and idx == 0,
                 only_consts=only_consts,
@@ -1802,7 +1828,7 @@ class Clinic(Analysis):
         self,
         ail_graph,
         remove_dead_memdefs=False,
-        stack_arg_offsets=None,
+        stackarg_offset_manager: StackArgOffsetManager | None = None,
         unify_variables=False,
         narrow_expressions=False,
         only_consts=False,
@@ -1827,7 +1853,7 @@ class Clinic(Analysis):
             func_graph=ail_graph,
             remove_dead_memdefs=remove_dead_memdefs,
             unify_variables=unify_variables,
-            stack_arg_offsets=stack_arg_offsets,
+            stackarg_offset_manager=stackarg_offset_manager,
             ail_manager=self._ail_manager,
             gp=self.function.info.get("gp", None) if self.project.arch.name in {"MIPS32", "MIPS64"} else None,
             narrow_expressions=narrow_expressions,
@@ -1952,27 +1978,11 @@ class Clinic(Analysis):
                 self.vvar_id_start += 1
                 arg_vvars[arg_vvar.varid] = arg_vvar, arg
             elif isinstance(arg, SimComboRegisterVariable):
-                arg_vvar = ailment.Expr.VirtualVariable(
-                    self._ail_manager.next_atom(),
-                    self.vvar_id_start,
-                    arg.bits,
-                    ailment.Expr.VirtualVariableCategory.PARAMETER,
-                    oident=(ailment.Expr.VirtualVariableCategory.COMBO_REGISTER, arg.reg_offsets),
-                    ins_addr=self.function.addr,
-                    vex_block_addr=self.function.addr,
-                    reg_vvars=[],
-                )
-                self.vvar_id_start += 1
-                arg_vvars[arg_vvar.varid] = arg_vvar, arg
-
-        for arg_vvar in arg_vvars:
-            if (
-                isinstance(arg_vvar, VirtualVariable)
-                and arg_vvar.parameter_category == ailment.Expr.VirtualVariableCategory.COMBO_REGISTER
-            ):
+                # create one full-width register vvar for each constituent register; the function body reads the
+                # constituent registers, and these vvars are what those reads resolve to during ssailification
                 reg_vvars = []
-                for reg_offset in arg_vvar.reg_offsets:
-                    arg_vvar = ailment.Expr.VirtualVariable(
+                for reg_offset in arg.reg_offsets:
+                    reg_vvar = ailment.Expr.VirtualVariable(
                         self._ail_manager.next_atom(),
                         self.vvar_id_start,
                         self.project.arch.bits,
@@ -1981,9 +1991,21 @@ class Clinic(Analysis):
                         ins_addr=self.function.addr,
                         vex_block_addr=self.function.addr,
                     )
-                    reg_vvars.append(arg_vvar)
+                    reg_vvars.append(reg_vvar)
                     self.vvar_id_start += 1
-                arg_vvar.tags["reg_vvars"] = reg_vvars  # pyright: ignore[reportGeneralTypeIssues]
+                arg_vvar = ailment.Expr.VirtualVariable(
+                    self._ail_manager.next_atom(),
+                    self.vvar_id_start,
+                    arg.bits,
+                    ailment.Expr.VirtualVariableCategory.PARAMETER,
+                    oident=(ailment.Expr.VirtualVariableCategory.COMBO_REGISTER, arg.reg_offsets),
+                    ins_addr=self.function.addr,
+                    vex_block_addr=self.function.addr,
+                    reg_vvars=reg_vvars,
+                )
+                self.vvar_id_start += 1
+                arg_vvars[arg_vvar.varid] = arg_vvar, arg
+
         return arg_vvars
 
     @timethis
@@ -2111,7 +2133,7 @@ class Clinic(Analysis):
                         )
                     elif isinstance(arg, SimStructArg):
                         locs = self._expand_argloc(arg)
-                        if all(isinstance(loc, SimRegArg) for loc in locs):
+                        if locs and all(isinstance(loc, SimRegArg) for loc in locs):
                             reg_offsets = []
                             reg_names = []
                             for loc in locs:
@@ -2122,15 +2144,23 @@ class Clinic(Analysis):
                                 tuple(reg_offsets),
                                 arg.size,
                                 ident=f"arg_{idx}",
-                                name=arg_names[idx],
+                                name=arg_names[idx] if idx < len(arg_names) and arg_names[idx] else f"a{idx}",
                                 region=self.function.addr,
                             )
                         else:
+                            if not locs:
+                                l.warning(
+                                    "Argument %d of function %r is a struct argument without any known "
+                                    "location; the struct is likely empty or unknown during decompilation. "
+                                    "Treating it as an opaque variable.",
+                                    idx,
+                                    self.function,
+                                )
                             argvar = SimVariable(
                                 ident=f"arg_{idx}",
-                                name=arg_names[idx],
+                                name=arg_names[idx] if idx < len(arg_names) and arg_names[idx] else f"a{idx}",
                                 region=self.function.addr,
-                                size=arg.size,
+                                size=arg.size or self.project.arch.bytes,
                             )
                     else:
                         argvar = SimVariable(
@@ -2156,22 +2186,13 @@ class Clinic(Analysis):
         """
 
         # Computing reaching definitions
-        if func_args is not None:
-            rd = self.project.analyses.SReachingDefinitions(
-                subject=self.function,
-                func_graph=ail_graph,
-                func_args=func_args,
-                fail_fast=self._fail_fast,
-                use_callee_saved_regs_at_return=not self._register_save_areas_removed,
-            )
-        else:
-            rd = None
+        rd = self._compute_reaching_definitions(func_args=func_args) if func_args is not None else None
 
-        stack_arg_offsets = set()
+        stackarg_offset_manager = StackArgOffsetManager(self.project.arch.bits)
         removed_vvar_ids = set()
 
         def _handler(block):
-            nonlocal stack_arg_offsets, removed_vvar_ids
+            nonlocal stackarg_offset_manager, removed_vvar_ids
             csm = self.project.analyses[CallSiteMaker].prep(
                 fail_fast=self._fail_fast,
             )(
@@ -2180,8 +2201,7 @@ class Clinic(Analysis):
                 stack_pointer_tracker=stack_pointer_tracker,
                 ail_manager=self._ail_manager,
             )
-            if csm.stack_arg_offsets is not None:
-                stack_arg_offsets |= csm.stack_arg_offsets
+            stackarg_offset_manager.merge(csm.stackarg_offset_manager)
             if csm.removed_vvar_ids:
                 removed_vvar_ids |= csm.removed_vvar_ids
             if csm.result_block and csm.result_block != block:
@@ -2202,7 +2222,7 @@ class Clinic(Analysis):
         if not self._inlining_parents:
             AILGraphWalker(ail_graph, _handler, replace_nodes=True).walk()
 
-        return ail_graph, stack_arg_offsets, removed_vvar_ids
+        return ail_graph, stackarg_offset_manager, removed_vvar_ids
 
     @timethis
     def _make_returns(self, ail_graph: networkx.DiGraph) -> networkx.DiGraph:
@@ -2406,6 +2426,15 @@ class Clinic(Analysis):
         # Link variables and struct member information to every statement and expression
         for block in ail_graph.nodes():
             self._link_variables_on_block(block, tmp_kb)
+
+        # combo-register argument vvars only appear inside Reference expressions (created by
+        # _rewrite_combo_reg_param_references), which variable recovery does not track, so no accesses were recorded
+        # for them; link them to their argument variables directly. the variable map is keyed by expression idx and
+        # every occurrence in the graph is the same expression object, so one call covers all of them.
+        if arg_vvars is not None:
+            for vvar, var in arg_vvars.values():
+                if vvar.parameter_category == ailment.Expr.VirtualVariableCategory.COMBO_REGISTER:
+                    self._set_expr_variable(vvar, var, 0)
 
         if self._cache is not None:
             self._cache.variable_map = self.variable_map
@@ -4048,6 +4077,20 @@ class Clinic(Analysis):
                 ).with_arch(self.project.arch)
                 func.prototype = new_type
                 func.prototype_source = PrototypeSource.CALLSITE_DECOMPILER
+
+    def _compute_reaching_definitions(self, func_args=None) -> SRDAModel:
+        # Computing reaching definitions
+        # TODO: Refactor this into a method of the upcoming AILFunctionGraph class.
+        return (
+            self.project.analyses[SReachingDefinitionsAnalysis]
+            .prep(fail_fast=self._fail_fast)(
+                subject=self.function,
+                func_graph=self._ail_graph,
+                func_args=func_args if func_args is not None else self.func_args,
+                use_callee_saved_regs_at_return=not self._register_save_areas_removed,
+            )
+            .model
+        )
 
 
 register_analysis(Clinic, "Clinic")

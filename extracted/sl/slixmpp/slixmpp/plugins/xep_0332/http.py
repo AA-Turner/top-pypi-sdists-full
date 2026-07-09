@@ -74,20 +74,20 @@ class XEP_0332(BasePlugin):
     def plugin_end(self):
         self.xmpp.remove_handler('HTTP Request')
         self.xmpp.remove_handler('HTTP Response')
-        self.xmpp['xep_0030'].del_feature('urn:xmpp:http')
+        self.xmpp.plugin['xep_0030'].del_feature('urn:xmpp:http')
         for header in self.supported_headers:
-            self.xmpp['xep_0030'].del_feature(
+            self.xmpp.plugin['xep_0030'].del_feature(
                 feature='%s#%s' % (Headers.namespace, header)
             )
 
     def session_bind(self, jid):
-        self.xmpp['xep_0030'].add_feature('urn:xmpp:http')
+        self.xmpp.plugin['xep_0030'].add_feature('urn:xmpp:http')
         for header in self.supported_headers:
-            self.xmpp['xep_0030'].add_feature(
+            self.xmpp.plugin['xep_0030'].add_feature(
                 '%s#%s' % (Headers.namespace, header)
             )
             # TODO: Do we need to add the supported headers to xep_0131?
-            # self.xmpp['xep_0131'].supported_headers.add(header)
+            # self.xmpp.plugin['xep_0131'].supported_headers.add(header)
 
     def _handle_request(self, iq):
         self.xmpp.event('http_request', iq)

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: meraki
-Version: 3.3.0
+Version: 4.3.0
 Summary: Cisco Meraki Dashboard API library
 Project-URL: Homepage, https://github.com/meraki/dashboard-api-python
 Project-URL: Repository, https://github.com/meraki/dashboard-api-python
@@ -11,8 +11,7 @@ Keywords: cisco,dashboard,meraki
 Classifier: License :: OSI Approved :: MIT License
 Classifier: Programming Language :: Python :: 3
 Requires-Python: >=3.11
-Requires-Dist: aiohttp<4,>=3.13.5
-Requires-Dist: requests<3,>=2.33.1
+Requires-Dist: httpx<1,>=0.28
 Description-Content-Type: text/markdown
 
 # Meraki Dashboard API Python Library
@@ -223,10 +222,6 @@ Unless you are an ecosystem partner, this identifier is optional.
 1. If you are an ecosystem partner and you have questions about this requirement, please reach out to your ecosystem
    rep.
 2. If you have any questions about the formatting, please ask your question by opening an issue in this repo.
-
-## Releasing
-
-See [docs/releasing.md](docs/releasing.md) for versioning rules and the automated release process.
 
 ## Development
 

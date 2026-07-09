@@ -7,7 +7,8 @@ name = "pyiqa"
 description = "PyTorch Toolbox for Image Quality Assessment"
 readme = "README.md"
 requires-python = ">=3.6"
-license = { text = "Apache Software License" }
+license = "PolyForm-Noncommercial-1.0.0"
+license-files = ["LICENSE", "LICENSE-S-Lab"]
 authors = [
     { name = "Chaofeng Chen", email = "chaofenghust@gmail.com" },
 ]
@@ -15,7 +16,6 @@ keywords = ["image quality assessment", "pytorch"]
 classifiers = [
     "Development Status :: 3 - Alpha",
     "Intended Audience :: Science/Research",
-    "License :: OSI Approved :: Apache Software License",
     "Operating System :: OS Independent",
     "Programming Language :: Python :: 3.6",
     "Programming Language :: Python :: 3.7",
@@ -85,3 +85,14 @@ based_on_style = "pep8"
 column_limit = 120
 blank_line_before_nested_class_or_def = true
 split_before_expression_after_opening_paren = true
+
+[tool.pytest.ini_options]
+markers = [
+    "calibration: tests that compare metric outputs against official calibration references",
+]
+filterwarnings = [
+    "ignore:builtin type SwigPyPacked has no __module__ attribute:DeprecationWarning",
+    "ignore:builtin type SwigPyObject has no __module__ attribute:DeprecationWarning",
+    "ignore:builtin type swigvarlink has no __module__ attribute:DeprecationWarning",
+    "ignore:Deprecated call to `pkg_resources\\.declare_namespace\\('sphinxcontrib'\\)`\\.:DeprecationWarning",
+]

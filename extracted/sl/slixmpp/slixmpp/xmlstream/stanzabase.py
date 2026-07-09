@@ -21,6 +21,7 @@ from typing import (
 from weakref import ReferenceType
 from xml.etree import ElementTree as ET
 
+from slixmpp.jid import InvalidJID
 from slixmpp.types import JidStr
 from slixmpp.xmlstream import JID
 from slixmpp.xmlstream.tostring import tostring
@@ -619,10 +620,14 @@ class ElementBase(object):
         values = {}
         values['lang'] = self['lang']
         for interface in self.interfaces:
-            if isinstance(self[interface], JID):
-                values[interface] = self[interface].jid
-            else:
+            try:
                 values[interface] = self[interface]
+            except InvalidJID:
+                # this is a workaround when to/from is considered invalid by our JID class
+                values[interface] = self._get_attr(
+                    interface,
+                    "Invalid JID and unguessable attribute name",
+                )
             if interface in self.lang_interfaces:
                 values['%s|*' % interface] = self['%s|*' % interface]
         for plugin, stanza in self.plugins.items():
@@ -1602,15 +1607,18 @@ class StanzaBase(ElementBase):
                            removed. Defaults to ``True``.
         """
         new_stanza = copy.copy(self)
-        # if it's a component, use from
-        if self.stream and hasattr(self.stream, "is_component") and \
-                getattr(self.stream, 'is_component'):
-            new_stanza['from'], new_stanza['to'] = self['to'], self['from']
-        else:
-            new_stanza['to'] = self['from']
-            del new_stanza['from']
         if clear:
             new_stanza.clear()
+        # if it's a component, use from
+        if (
+            self.stream
+            and getattr(self.stream, "is_component", False)
+        ):
+            new_stanza["from"], new_stanza["to"] = self._get_attr("to"), self._get_attr("from")
+        else:
+            new_stanza["to"] = self._get_attr("from")
+            del new_stanza["from"]
+
         return new_stanza
 
     def error(self) -> StanzaBase:

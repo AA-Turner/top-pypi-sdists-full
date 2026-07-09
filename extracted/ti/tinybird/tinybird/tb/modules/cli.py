@@ -1153,7 +1153,8 @@ def create_ctx_client(
     if show_warnings and command:
         click.echo(FeedbackManager.gray(message="Running against Tinybird Local"))
     local_branch = None
-    if not test:
+    explicit_token_passed = bool(config.get("token_passed"))
+    if not test and not explicit_token_passed:
         git_branch = get_current_git_branch()
         if git_branch and not is_main_git_branch(git_branch):
             local_branch = get_tinybird_branch_name_from_git_branch(git_branch)

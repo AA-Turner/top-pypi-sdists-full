@@ -77,6 +77,15 @@ _COPILOT_LLM_BACKENDS = frozenset({"copilot", "copilot_cli"})
 _HERMES_LLM_BACKENDS = frozenset({"hermes", "hermes_cli"})
 _PI_LLM_BACKENDS = frozenset({"pi", "pi_cli"})
 _GJC_LLM_BACKENDS = frozenset({"gjc", "gjc_cli"})
+# Antigravity (`agy`) is runtime-only and Claude-incapable: it runs its own
+# Gemini/Claude models, so generic Claude default ids map to the CLI's own
+# configured default (the "default" sentinel), exactly like the other
+# non-Claude CLI backends above.
+_ANTIGRAVITY_LLM_BACKENDS = frozenset({"antigravity", "agy"})
+# Grok Build (`grok`) is runtime-only and Claude-incapable: it runs xAI's own
+# Grok models, so generic Claude default ids map to the CLI's own configured
+# default (the "default" sentinel).
+_GROK_LLM_BACKENDS = frozenset({"grok", "grok_cli", "grok_build"})
 _OPENCODE_BACKENDS = frozenset({"opencode", "opencode_cli"})
 _CODEX_DEFAULT_MODEL = "default"
 _KIRO_DEFAULT_MODEL = "default"
@@ -84,6 +93,8 @@ _COPILOT_DEFAULT_MODEL = "default"
 _HERMES_DEFAULT_MODEL = "default"
 _PI_DEFAULT_MODEL = "default"
 _GJC_DEFAULT_MODEL = "default"
+_ANTIGRAVITY_DEFAULT_MODEL = "default"
+_GROK_DEFAULT_MODEL = "default"
 _PLACEHOLDER_API_KEY_PREFIX = "YOUR_"
 _PLACEHOLDER_API_KEY_SUFFIX = "_API_KEY"
 _DEFAULT_MAX_PARALLEL_WORKERS = 3
@@ -169,6 +180,8 @@ _UNTRUSTED_ENV_DENYLIST = frozenset(
         "OUROBOROS_GEMINI_CLI_PATH",
         "OUROBOROS_PI_CLI_PATH",
         "OUROBOROS_GJC_CLI_PATH",
+        "OUROBOROS_ANTIGRAVITY_CLI_PATH",
+        "OUROBOROS_GROK_CLI_PATH",
         "OUROBOROS_OUROCODE_CLI_PATH",
         # Bare provider aliases (no OUROBOROS_ prefix) that adapters also
         # honor and then execute. Any new such alias MUST be added here:
@@ -733,6 +746,88 @@ def get_runtime() -> str:
     return get_agent_runtime_backend()
 
 
+def get_context_pack_enabled() -> bool:
+    """Whether run worker prompts get a deterministic repo context pack.
+
+    Priority:
+        1. ``OUROBOROS_CONTEXT_PACK`` environment variable (1|true|on|yes /
+           0|false|off|no)
+        2. config.yaml ``execution.context_pack``
+        3. True (default on — a best-effort, deterministic priming block)
+    """
+    env = os.environ.get("OUROBOROS_CONTEXT_PACK", "").strip().lower()
+    if env in ("1", "true", "on", "yes"):
+        return True
+    if env in ("0", "false", "off", "no"):
+        return False
+    try:
+        return load_config().execution.context_pack
+    except ConfigError:
+        return True
+
+
+def get_native_session_index_enabled() -> bool:
+    """Whether to register worker sessions in the host tool's native session list.
+
+    OFF by default: the web dashboard is the primary, non-flooding worker view
+    (it groups every worker under one run). Opt in with
+    ``OUROBOROS_NATIVE_SESSION_INDEX=1|true|on|yes`` to ALSO dump each worker into
+    the Codex app's conversation list (one ``ooo:`` entry per worker) so you can
+    open it natively — at the cost of a busier app list.
+    """
+    return os.environ.get("OUROBOROS_NATIVE_SESSION_INDEX", "").strip().lower() in (
+        "1",
+        "true",
+        "on",
+        "yes",
+    )
+
+
+def _env_flag(name: str) -> bool | None:
+    """Parse a boolean env override; None when unset so config can decide."""
+    raw = os.environ.get(name, "").strip().lower()
+    if raw in ("1", "true", "on", "yes"):
+        return True
+    if raw in ("0", "false", "off", "no"):
+        return False
+    return None
+
+
+def get_cross_harness_redispatch_enabled() -> bool:
+    """Whether a terminally failing AC may redispatch onto an alternative harness.
+
+    Priority:
+        1. OUROBOROS_CROSS_HARNESS_REDISPATCH environment variable
+        2. config.yaml execution.cross_harness_redispatch
+        3. True (default: meta-harness recovery is on, but a no-op unless a
+           second runtime backend is actually installed)
+    """
+    env = _env_flag("OUROBOROS_CROSS_HARNESS_REDISPATCH")
+    if env is not None:
+        return env
+    try:
+        return load_config().execution.cross_harness_redispatch
+    except ConfigError:
+        return True
+
+
+def get_n_version_tournament_enabled() -> bool:
+    """Whether an alt-harness-exhausted AC may fan out to an N-version tournament.
+
+    Priority:
+        1. OUROBOROS_N_VERSION_TOURNAMENT environment variable
+        2. config.yaml execution.n_version_tournament
+        3. False (default: opt-in only)
+    """
+    env = _env_flag("OUROBOROS_N_VERSION_TOURNAMENT")
+    if env is not None:
+        return env
+    try:
+        return load_config().execution.n_version_tournament
+    except ConfigError:
+        return False
+
+
 def _uses_opencode_backend(backend: str | None) -> bool:
     """Return True when a backend name resolves to an OpenCode runtime."""
     return (backend or "").strip().lower() in _OPENCODE_BACKENDS
@@ -1002,6 +1097,14 @@ def get_max_parallel_workers() -> int:
         orchestrator_config["max_parallel_workers"],
         config_key="orchestrator.max_parallel_workers",
     )
+
+
+def get_auto_evaluate_enabled() -> bool:
+    """Return whether successful execute_seed runs should enqueue formal evaluation."""
+    try:
+        return load_config().execution.auto_evaluate
+    except ConfigError:
+        return True
 
 
 def get_runtime_profile() -> str | None:
@@ -1364,6 +1467,76 @@ def get_gemini_cli_path() -> str | None:
     return None
 
 
+def get_antigravity_cli_path() -> str | None:
+    """Get the Antigravity CLI path (``agy``) from environment or config.
+
+    Priority:
+        1. OUROBOROS_ANTIGRAVITY_CLI_PATH environment variable
+        2. config.yaml orchestrator.antigravity_cli_path
+        3. None (resolve from PATH at runtime)
+
+    Stale env var / config values that don't point to an executable are
+    treated as missing so callers fall back to PATH discovery instead of
+    persisting an unusable path. Mirrors the strictness of `shutil.which`
+    used for the other runtime backends in the setup detection path.
+
+    Returns:
+        Path to the Antigravity CLI binary or None.
+    """
+    env_path = os.environ.get("OUROBOROS_ANTIGRAVITY_CLI_PATH", "").strip()
+    if env_path:
+        resolved = str(Path(env_path).expanduser())
+        if shutil.which(resolved):
+            return resolved
+
+    try:
+        config = load_config()
+        antigravity_path = getattr(config.orchestrator, "antigravity_cli_path", None)
+        if antigravity_path:
+            resolved = str(Path(antigravity_path).expanduser())
+            if shutil.which(resolved):
+                return resolved
+    except ConfigError:
+        pass
+
+    return None
+
+
+def get_grok_cli_path() -> str | None:
+    """Get the Grok Build CLI path (``grok``) from environment or config.
+
+    Priority:
+        1. OUROBOROS_GROK_CLI_PATH environment variable
+        2. config.yaml orchestrator.grok_cli_path
+        3. None (resolve from PATH at runtime)
+
+    Stale env var / config values that don't point to an executable are
+    treated as missing so callers fall back to PATH discovery instead of
+    persisting an unusable path. Mirrors the strictness of `shutil.which`
+    used for the other runtime backends in the setup detection path.
+
+    Returns:
+        Path to the Grok Build CLI binary or None.
+    """
+    env_path = os.environ.get("OUROBOROS_GROK_CLI_PATH", "").strip()
+    if env_path:
+        resolved = str(Path(env_path).expanduser())
+        if shutil.which(resolved):
+            return resolved
+
+    try:
+        config = load_config()
+        grok_path = getattr(config.orchestrator, "grok_cli_path", None)
+        if grok_path:
+            resolved = str(Path(grok_path).expanduser())
+            if shutil.which(resolved):
+                return resolved
+    except ConfigError:
+        pass
+
+    return None
+
+
 def get_llm_backend() -> str:
     """Get default LLM backend from environment variable or config.
 
@@ -1469,7 +1642,7 @@ def get_llm_backend_for_stage(
     parsed_stage = stage if isinstance(stage, Stage) else parse_stage(stage)
     try:
         config = load_config()
-        return resolve_runtime_for_stage(
+        resolved = resolve_runtime_for_stage(
             parsed_stage,
             stages=_runtime_profile_stage_map(config),
             default=_runtime_profile_default(config),
@@ -1479,6 +1652,40 @@ def get_llm_backend_for_stage(
         # Config unreadable: still honor an env-level LLM override and the
         # caller's default agent before the documented get_llm_backend() default.
         return _explicit_llm_backend_override() or fallback_runtime_backend or get_llm_backend()
+
+    return _guard_llm_completion_backend(resolved)
+
+
+def _backend_supports_llm(name: str | None) -> bool:
+    """Whether a backend can serve LLM completions (vs. being runtime-only).
+
+    Runtime-only backends (e.g. ``antigravity``, ``grok``) declare
+    ``supports_llm=False`` in the capability registry: they drive the agentic
+    orchestrator runtime but have no LLM-completion adapter.
+    """
+    if not name:
+        return False
+    capability = get_backend_capability(name)
+    return capability is not None and capability.supports_llm
+
+
+def _guard_llm_completion_backend(resolved: str) -> str:
+    """Ensure a resolved internal-LLM backend can actually serve completions.
+
+    Per-stage routing may point a stage at a *runtime-only* backend
+    (``supports_llm=False`` — e.g. ``antigravity``/``grok``) for agentic
+    execution; using it for an internal LLM call would crash provider
+    construction. The agentic runtime still uses the runtime-only backend (via
+    ``resolve_runtime_for_stage``); only the LLM-completion call falls back to a
+    completion backend — the explicit ``llm.backend`` override when valid, else
+    the documented ``llm.backend`` default.
+    """
+    if _backend_supports_llm(resolved):
+        return resolved
+    override = _explicit_llm_backend_override()
+    if override and _backend_supports_llm(override):
+        return override
+    return get_llm_backend()
 
 
 def get_llm_backend_for_role(
@@ -1492,13 +1699,22 @@ def get_llm_backend_for_role(
     Same precedence as :func:`get_llm_backend_for_stage`: per-stage routing wins,
     then the explicit legacy ``llm.backend`` / ``OUROBOROS_LLM_BACKEND`` override,
     then the default agent runtime.
+
+    Capability guard: an LLM-completion role must resolve to a completion-capable
+    backend. Per-stage routing may point a stage at a *runtime-only* backend
+    (``supports_llm=False`` — e.g. ``antigravity``/``grok``) for agentic
+    execution; such a backend would crash provider construction if used for an
+    internal LLM call. In that case the agentic runtime still uses the
+    runtime-only backend, but the LLM call falls back to a completion backend
+    (the explicit ``llm.backend`` override when valid, else the documented
+    ``llm.backend`` default).
     """
     if explicit_backend:
         return explicit_backend
 
     try:
         config = load_config()
-        return resolve_runtime_for_llm_role(
+        resolved = resolve_runtime_for_llm_role(
             role,
             stages=_runtime_profile_stage_map(config),
             default=_runtime_profile_default(config),
@@ -1508,6 +1724,8 @@ def get_llm_backend_for_role(
         # Config unreadable: still honor an env-level LLM override and the
         # caller's default agent before the documented get_llm_backend() default.
         return _explicit_llm_backend_override() or fallback_runtime_backend or get_llm_backend()
+
+    return _guard_llm_completion_backend(resolved)
 
 
 # Legacy per-role model fields kept for backward compatibility. The stage
@@ -1673,6 +1891,10 @@ def _default_model_for_backend(
         return _PI_DEFAULT_MODEL
     if resolved in _GJC_LLM_BACKENDS:
         return _GJC_DEFAULT_MODEL
+    if resolved in _ANTIGRAVITY_LLM_BACKENDS:
+        return _ANTIGRAVITY_DEFAULT_MODEL
+    if resolved in _GROK_LLM_BACKENDS:
+        return _GROK_DEFAULT_MODEL
     return default_model
 
 
@@ -1719,6 +1941,10 @@ def _normalize_configured_model_for_backend(
         return _PI_DEFAULT_MODEL
     if resolved in _GJC_LLM_BACKENDS and is_shipped_default:
         return _GJC_DEFAULT_MODEL
+    if resolved in _ANTIGRAVITY_LLM_BACKENDS and is_shipped_default:
+        return _ANTIGRAVITY_DEFAULT_MODEL
+    if resolved in _GROK_LLM_BACKENDS and is_shipped_default:
+        return _GROK_DEFAULT_MODEL
 
     return candidate
 

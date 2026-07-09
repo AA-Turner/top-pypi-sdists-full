@@ -24,7 +24,10 @@ from typing import Any
 
 # Hoisted (no cycle: qa -> render/page/core is the correct layer direction; #1438).
 from dazzle._version import get_version
-from dazzle.core.ir import AggregateRef, PeekMode, state_machine, workspaces
+from dazzle.core import ir
+from dazzle.core.ir import AggregateRef, PeekMode, workspaces
+from dazzle.core.ir.rhythm import PhaseKind
+from dazzle.core.ir.surfaces import SurfaceMode
 from dazzle.page import app_paths
 from dazzle.page.runtime.action_prominence_resolver import (
     resolve_action_prominence,
@@ -37,11 +40,13 @@ from dazzle.page.runtime.column_economy_resolver import (
 )
 from dazzle.page.runtime.comparison_resolver import resolve_comparison
 from dazzle.page.runtime.form_engagement_resolver import annotate_form_fields_by_usage
+from dazzle.page.runtime.landing_resolver import check_landing_drift, infer_landing_route
 from dazzle.page.runtime.peek_resolver import resolve_peek_mode
 from dazzle.render import filters
-from dazzle.render.context import ColumnContext
+from dazzle.render.context import ColumnContext, TransitionContext
 from dazzle.render.fragment.region._dispatcher import WorkspaceRegionAdapter
 from dazzle.render.fragment.renderer._data_row import _render_cell_display, drill_row_attrs
+from dazzle.render.fragment.state_affordance import gated_row_transitions
 
 # ── Ladder ───────────────────────────────────────────────────────────────
 LEVEL_NAMES = {
@@ -232,6 +237,61 @@ def _probe_1d() -> ProbeResult:
     )
 
 
+def _probe_2a() -> ProbeResult:
+    """Answer-first landing is inferred from a persona's rhythm when
+    default_workspace is unset, declaration stays authoritative, and
+    declared-vs-rhythm drift is detectable (level 4, #1558). Exercised against
+    synthetic in-memory IR — the route-precedence integration lives in
+    tests/unit/test_landing_resolver.py."""
+    ws = [ir.WorkspaceSpec(name="queue"), ir.WorkspaceSpec(name="reports")]
+    rhythm = ir.RhythmSpec(
+        name="agent_daily",
+        persona="agent",
+        phases=[
+            ir.PhaseSpec(
+                name="active",
+                kind=PhaseKind.ACTIVE,
+                scenes=[ir.SceneSpec(name="review", surface="queue")],
+            )
+        ],
+    )
+    # (a) infer a workspace landing when default_workspace is unset
+    p_unset = ir.PersonaSpec(id="agent", label="Agent")
+    infers = infer_landing_route(p_unset, [rhythm], ws, []) == "/app/workspaces/queue"
+    # (a2) a rhythm scene naming a LIST surface resolves to its registered route
+    surf = ir.SurfaceSpec(name="ticket_list", mode=SurfaceMode.LIST, entity_ref="Ticket")
+    r_surface = ir.RhythmSpec(
+        name="agent_surface",
+        persona="agent",
+        phases=[
+            ir.PhaseSpec(
+                name="active",
+                kind=PhaseKind.ACTIVE,
+                scenes=[ir.SceneSpec(name="browse", surface="ticket_list")],
+            )
+        ],
+    )
+    infers_surface = infer_landing_route(p_unset, [r_surface], ws, [surf]) == app_paths.list_path(
+        "/app", app_paths.entity_slug("Ticket")
+    )
+    # (b) declaration is distinguished from the rhythm (drift fires on conflict)
+    p_conflict = ir.PersonaSpec(id="agent", label="Agent", default_workspace="reports")
+    drift_fires = check_landing_drift(p_conflict, [rhythm], ws, []) is not None
+    # (c) coherent declaration is silent
+    p_ok = ir.PersonaSpec(id="agent", label="Agent", default_workspace="queue")
+    drift_silent = check_landing_drift(p_ok, [rhythm], ws, []) is None
+    # cold-start: no rhythm -> no inference (fall through unchanged)
+    cold_start_safe = infer_landing_route(p_unset, [], ws, []) is None
+    ok = infers and infers_surface and drift_fires and drift_silent and cold_start_safe
+    return ProbeResult(
+        ok=ok,
+        note=(
+            f"infer={infers} infer_surface={infers_surface} drift_fires={drift_fires} "
+            f"drift_silent={drift_silent} cold_start_safe={cold_start_safe}"
+        ),
+    )
+
+
 def _probe_2b() -> ProbeResult:
     """List->detail drill is the default AND perceived-instant (level 4, #1491):
     a clickable row carries `hx-preload="mouseover"`, so the vendored htmx-4
@@ -341,9 +401,39 @@ def _probe_3b() -> ProbeResult:
 
 
 def _probe_3c() -> ProbeResult:
-    """State-gated affordance via the state machine (transitions)."""
-    has_sm = hasattr(state_machine, "StateMachineSpec")
-    return ProbeResult(has_sm, "state-machine transitions gate actions by entity state")
+    """State-gated affordances: only transitions valid from a record's current
+    state are offered (detail view + list rows) via the shared
+    `gated_row_transitions` gate — from_state == current or the '*' wildcard
+    (level 4, #1558)."""
+    ts = [
+        TransitionContext(from_state="open", to_state="in_progress", label="Start"),
+        TransitionContext(from_state="in_progress", to_state="resolved", label="Resolve"),
+        TransitionContext(from_state="*", to_state="open", label="Reopen"),
+    ]
+    from_open = [t.to_state for t in gated_row_transitions(ts, "open")]
+    from_resolved = [t.to_state for t in gated_row_transitions(ts, "resolved")]
+    # From open: in_progress is offered; resolved is NOT (can't skip a state).
+    open_ok = "in_progress" in from_open and "resolved" not in from_open
+    # From resolved: only the '*' wildcard reopen applies; resolved-self is absent.
+    resolved_reopen = "open" in from_resolved and "resolved" not in from_resolved
+    empty_ok = gated_row_transitions(ts, "") == []
+    # Negative-space rules: an explicit edge + a '*' wildcard to the same target
+    # render as ONE button (no dup); a transition into the current state is not
+    # offered (no self-loop). (The #1558 review class.)
+    dup = [
+        TransitionContext(from_state="critical", to_state="offline", label="Off"),
+        TransitionContext(from_state="*", to_state="offline", label="Off"),
+    ]
+    no_dup = [t.to_state for t in gated_row_transitions(dup, "critical")] == ["offline"]
+    no_self_loop = gated_row_transitions(dup, "offline") == []
+    ok = open_ok and resolved_reopen and empty_ok and no_dup and no_self_loop
+    return ProbeResult(
+        ok=ok,
+        note=(
+            f"from_open={from_open} from_resolved={from_resolved} "
+            f"empty={empty_ok} no_dup={no_dup} no_self_loop={no_self_loop}"
+        ),
+    )
 
 
 def _probe_3d() -> ProbeResult:
@@ -411,10 +501,18 @@ CRITERIA: list[Criterion] = [
         "2a",
         "progressive_disclosure",
         "answer-first landing",
-        3,
-        "workspaces + default_workspace are answer-first by design (regions, not raw CRUD)",
+        4,
+        "#1558 L3 + rhythm inference L4 — the answer-first landing is inferred from a "
+        "persona's rhythm (first active-phase scene) when default_workspace is unset, via "
+        "`infer_landing_route` consulted in BOTH redirect resolvers: `_resolve_persona_route` "
+        "(step 2.5) and `resolve_persona_workspace_route` (step 1.5, the in-app /app root). "
+        "The scene target resolves to a workspace root route OR a list-mode surface's route "
+        "keyed by the surface's entity through the app_paths SSOT (so it matches registration, "
+        "never a dead link). An explicit default_workspace stays authoritative and cold-start "
+        "(no rhythm) is byte-identical; declared-vs-rhythm drift surfaces as an advisory line "
+        "in `dazzle rhythm fidelity`.",
         "medium",
-        None,
+        _probe_2a,
     ),
     Criterion(
         "2b",
@@ -466,8 +564,13 @@ CRITERIA: list[Criterion] = [
         "3c",
         "negative_space",
         "state-gated affordance",
-        3,
-        "state-machine transitions offer only the actions the current state allows (inferred from the state graph)",
+        4,
+        "#1558 L3 + current-state gating L4 — state-machine transition affordances are "
+        "filtered to those valid FROM the record's current state (from_state == current or "
+        "'*', via the shared `gated_row_transitions`) on BOTH the detail view (request-time "
+        "filter in page_routes) and regular list rows (per-row, in the row actions cell). "
+        "The compile build preserves `from_state` on TransitionContext; guards remain "
+        "enforced by HTTP validation on click; no state machine = byte-identical.",
         "low",
         _probe_3c,
     ),

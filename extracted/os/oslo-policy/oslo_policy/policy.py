@@ -224,14 +224,13 @@ from collections.abc import Callable, MutableMapping, Sequence
 import copy
 import logging
 import os
-from typing import Any, TypeAlias, TypedDict, cast
+from typing import Any, Self, TypeAlias, TypedDict
 import warnings
 
 from oslo_config import cfg
 from oslo_context import context
 from oslo_serialization import jsonutils
 from oslo_utils import strutils
-from typing_extensions import Self
 import yaml
 
 from oslo_policy import _cache_handler
@@ -966,12 +965,11 @@ class Enforcer:
         :returns: The policy path
         :raises: ConfigFilesNotFoundError if the file/path couldn't be located.
         """
-        policy_path = cast(str | None, self.conf.find_file(path))
-
+        policy_path = self.conf.find_file(path)
         if policy_path:
             return policy_path
 
-        raise cfg.ConfigFilesNotFoundError((path,))
+        raise cfg.ConfigFilesNotFoundError([path])
 
     def enforce(
         self,
@@ -1124,7 +1122,8 @@ class Enforcer:
         self,
         creds: MutableMapping[str, Any],
         rule: '_checks.BaseCheck | RuleDefault',
-        do_raise: bool = True,
+        *,
+        do_raise: bool,
     ) -> bool:
         if not rule.scope_types:
             return True
@@ -1142,22 +1141,9 @@ class Enforcer:
 
         result = True
         if rule.scope_types and token_scope not in rule.scope_types:
-            if self.conf.oslo_policy.enforce_scope:
-                if do_raise:
-                    raise InvalidScope(rule, rule.scope_types, token_scope)
-                else:
-                    result = False
-            # If we don't raise an exception we should at least
-            # inform operators about policies that are being used
-            # with improper scopes.
-            msg = (
-                f'Policy {rule} failed scope check. The token '
-                f'used to make the request was {token_scope} '
-                f'scoped but the policy requires {rule.scope_types} '
-                f'scope. This behavior may change in the future '
-                f'where using the intended scope is required'
-            )
-            warnings.warn(msg)
+            if do_raise:
+                raise InvalidScope(rule, rule.scope_types, token_scope)
+            result = False
         return result
 
     def _map_context_attributes_into_creds(

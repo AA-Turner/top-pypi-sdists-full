@@ -3,7 +3,7 @@
 # :Created:   mer 02 ago 2017 15:11:02 CEST
 # :Author:    Lele Gaifax <lele@metapensiero.it>
 # :License:   GNU General Public License version 3 or later
-# :Copyright: © 2017, 2018, 2019, 2021, 2022, 2024, 2025 Lele Gaifax
+# :Copyright: © 2017, 2018, 2019, 2021, 2022, 2024, 2025, 2026 Lele Gaifax
 #
 
 from collections import namedtuple
@@ -19,7 +19,7 @@ except ModuleNotFoundError:  # pragma: no cover
 
 
 # This is injected automatically at release time
-__version__ = 'v7.15'
+__version__ = 'v8.0'
 "Package's version."
 
 __author__ = 'Lele Gaifax <lele@metapensiero.it>'
@@ -114,6 +114,7 @@ def parse_plpgsql(statement: str) -> list[dict[str, Any]]:
                                                 'pct_type': False,
                                                 'setof': False,
                                                 'typemod': -1},
+                                    'location': ...,
                                     'mode': {'#': 'FunctionParameterMode',
                                              'name': 'FUNC_PARAM_DEFAULT',
                                              'value': 'd'},
@@ -128,6 +129,7 @@ def parse_plpgsql(statement: str) -> list[dict[str, Any]]:
                                                 'pct_type': False,
                                                 'setof': False,
                                                 'typemod': -1},
+                                    'location': ...,
                                     'mode': {'#': 'FunctionParameterMode',
                                              'name': 'FUNC_PARAM_DEFAULT',
                                              'value': 'd'},

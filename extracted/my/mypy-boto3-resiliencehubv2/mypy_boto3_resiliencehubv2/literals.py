@@ -27,6 +27,7 @@ __all__ = (
     "ActorTypeType",
     "AssertionSourceType",
     "AssessmentErrorCodeType",
+    "AssessmentSortFieldType",
     "AssessmentStatusType",
     "AssessmentStepType",
     "CostCurrencyType",
@@ -74,6 +75,7 @@ __all__ = (
     "ServiceFunctionSourceType",
     "ServiceName",
     "ServiceResourceDiscoveryCompletedWaiterName",
+    "SortOrderType",
     "SystemEventTypeType",
     "TopologyTypeType",
     "WaiterName",
@@ -90,9 +92,18 @@ AssessmentErrorCodeType = Literal[
     "INTERNAL_ERROR",
     "INVALID_PERMISSIONS",
 ]
+AssessmentSortFieldType = Literal["STARTED_AT"]
 AssessmentStatusType = Literal["FAILED", "IN_PROGRESS", "NOT_STARTED", "PENDING", "SUCCESS"]
 AssessmentStepType = Literal[
-    "RESILIENCE_ASSESSMENT", "SERVICE_FUNCTION_GENERATION", "TOPOLOGY_ENHANCEMENT"
+    "DESIGN_ANALYSIS",
+    "FAILURE_MODE_FINDINGS_CONSOLIDATION",
+    "FAILURE_MODE_FINDINGS_ENRICHMENT",
+    "INPUT_VALIDATION",
+    "POLICY_VALIDATION",
+    "RESILIENCE_ASSESSMENT",
+    "SERVICE_FUNCTION_GENERATION",
+    "TOPOLOGY_ENHANCEMENT",
+    "TOPOLOGY_GENERATION",
 ]
 CostCurrencyType = Literal["USD"]
 DependencyCriticalityType = Literal["HARD", "SOFT", "UNKNOWN"]
@@ -181,6 +192,7 @@ ServiceEventTypeType = Literal[
 ServiceFunctionCriticalityType = Literal["PRIMARY", "SUPPLEMENTAL"]
 ServiceFunctionSourceType = Literal["AI_GENERATED", "USER"]
 ServiceResourceDiscoveryCompletedWaiterName = Literal["service_resource_discovery_completed"]
+SortOrderType = Literal["ASC", "DESC"]
 SystemEventTypeType = Literal[
     "SYSTEM_CREATED",
     "SYSTEM_DELETED",
@@ -387,8 +399,6 @@ ServiceName = Literal[
     "iot-jobs-data",
     "iot-managed-integrations",
     "iotdeviceadvisor",
-    "iotevents",
-    "iotevents-data",
     "iotfleetwise",
     "iotsecuretunneling",
     "iotsitewise",
@@ -415,6 +425,8 @@ ServiceName = Literal[
     "kms",
     "lakeformation",
     "lambda",
+    "lambda-core",
+    "lambda-microvms",
     "launch-wizard",
     "lex-models",
     "lex-runtime",
@@ -482,10 +494,10 @@ ServiceName = Literal[
     "organizations",
     "osis",
     "outposts",
-    "panorama",
     "partnercentral-account",
     "partnercentral-benefits",
     "partnercentral-channel",
+    "partnercentral-revenue-measurement",
     "partnercentral-selling",
     "payment-cryptography",
     "payment-cryptography-data",
@@ -546,6 +558,7 @@ ServiceName = Literal[
     "sagemaker-geospatial",
     "sagemaker-metrics",
     "sagemaker-runtime",
+    "sagemakerjobruntime",
     "savingsplans",
     "scheduler",
     "schemas",
@@ -567,7 +580,6 @@ ServiceName = Literal[
     "signer-data",
     "signin",
     "simpledbv2",
-    "simspaceweaver",
     "snow-device-management",
     "snowball",
     "sns",
@@ -588,6 +600,7 @@ ServiceName = Literal[
     "supplychain",
     "support",
     "support-app",
+    "supportauthz",
     "sustainability",
     "swf",
     "synthetics",

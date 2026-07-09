@@ -12,10 +12,14 @@ import socket
 import subprocess
 from typing import Any
 
+import structlog
+
 from ouroboros.config.loader import load_config
 from ouroboros.config.models import OrchestratorConfig
 from ouroboros.core.errors import ConfigError, OuroborosError
 from ouroboros.core.file_lock import file_lock
+
+log = structlog.get_logger()
 
 
 class WorktreeError(OuroborosError):
@@ -107,6 +111,11 @@ def _worktrees_enabled() -> bool:
     return getattr(config, "use_worktrees", True)
 
 
+def _worktree_cleanup_policy() -> str:
+    config = _orchestrator_config()
+    return getattr(config, "worktree_cleanup", "keep")
+
+
 def _run_git_process(args: list[str], cwd: Path) -> subprocess.CompletedProcess[str]:
     try:
         return subprocess.run(
@@ -186,6 +195,25 @@ def _ensure_clean_checkout(repo_root: Path) -> None:
 
 def _checkout_is_dirty(repo_root: Path) -> bool:
     return bool(_run_git(["status", "--porcelain"], repo_root))
+
+
+def _branch_is_merged(repo_root: Path, branch: str) -> bool:
+    if not _branch_exists(repo_root, branch):
+        return True
+
+    result = _run_git_process(["merge-base", "--is-ancestor", branch, "HEAD"], repo_root)
+    if result.returncode == 0:
+        return True
+    if result.returncode == 1:
+        return False
+    raise WorktreeError(
+        "Git command failed: merge-base --is-ancestor",
+        details={
+            "branch": branch,
+            "stdout": result.stdout.strip(),
+            "stderr": result.stderr.strip(),
+        },
+    )
 
 
 def _list_worktrees(repo_root: Path) -> dict[str, dict[str, str]]:
@@ -395,6 +423,137 @@ def release_lock(lock_path: str) -> None:
             return
         if payload.get("pid") == os.getpid() and payload.get("host") == socket.gethostname():
             path.unlink(missing_ok=True)
+
+
+def cleanup_task_workspace(
+    workspace: TaskWorkspace,
+    *,
+    policy: str | None = None,
+    dry_run: bool = False,
+) -> bool:
+    """Remove a managed task worktree according to the configured cleanup policy.
+
+    With ``dry_run=True`` all safety checks run but nothing is mutated; the
+    return value still reports whether the workspace would be removed.
+    """
+    selected_policy = policy or _worktree_cleanup_policy()
+    if selected_policy == "keep":
+        return False
+    if selected_policy not in {"remove", "prune-merged"}:
+        raise WorktreeError(
+            "Invalid task worktree cleanup policy",
+            details={"policy": selected_policy},
+        )
+
+    repo_root = Path(workspace.repo_root)
+    worktree_path = Path(workspace.worktree_path)
+    require_merged = selected_policy == "prune-merged"
+
+    if not worktree_path.exists():
+        if not dry_run:
+            # Drop any stale registration left in .git/worktrees when the
+            # directory was deleted externally; also required before a safe
+            # branch delete (git refuses to delete a branch a registered
+            # worktree still claims).
+            _run_git_process(["worktree", "prune"], repo_root)
+        if _branch_exists(repo_root, workspace.branch) and _branch_is_merged(
+            repo_root, workspace.branch
+        ):
+            if not dry_run:
+                _run_git(["branch", "-d", workspace.branch], repo_root)
+        return True
+
+    if _checkout_is_dirty(worktree_path):
+        return False
+    if require_merged and not _branch_is_merged(repo_root, workspace.branch):
+        return False
+
+    if dry_run:
+        return True
+
+    _run_git(["worktree", "remove", str(worktree_path)], repo_root)
+
+    if _branch_exists(repo_root, workspace.branch) and _branch_is_merged(
+        repo_root, workspace.branch
+    ):
+        _run_git(["branch", "-d", workspace.branch], repo_root)
+    return True
+
+
+def release_task_workspace(workspace: TaskWorkspace | None) -> None:
+    """Release a task workspace lock and best-effort configured cleanup."""
+    if workspace is None:
+        return
+    try:
+        cleanup_task_workspace(workspace)
+    except WorktreeError as exc:
+        log.warning(
+            "worktree.cleanup_failed",
+            durable_id=workspace.durable_id,
+            worktree_path=workspace.worktree_path,
+            branch=workspace.branch,
+            error=str(exc),
+        )
+    finally:
+        release_lock(workspace.lock_path)
+
+
+def managed_worktree_root() -> Path:
+    """Return the configured root directory for managed task worktrees."""
+    return _worktree_root()
+
+
+def lock_file_is_stale(lock_path: str | Path) -> bool:
+    """Return True when a task lock file is stale, corrupt, or unreadable."""
+    path = Path(lock_path)
+    try:
+        payload = json.loads(path.read_text())
+    except (OSError, json.JSONDecodeError):
+        return True
+    if not isinstance(payload, dict) or not payload:
+        return True
+    return _is_lock_stale(payload)
+
+
+def discover_managed_workspaces(root: Path | None = None) -> list[TaskWorkspace]:
+    """Enumerate managed task worktrees left on disk under the worktree root.
+
+    Reconstructs a ``TaskWorkspace`` for every ``<repo>/<durable_id>``
+    directory that still resolves to a git repository. Directories whose
+    parent repository has been deleted are skipped.
+    """
+    base = root if root is not None else _worktree_root()
+    workspaces: list[TaskWorkspace] = []
+    if not base.is_dir():
+        return workspaces
+    for repo_dir in sorted(base.iterdir()):
+        if not repo_dir.is_dir() or repo_dir.name == ".locks":
+            continue
+        for worktree_path in sorted(repo_dir.iterdir()):
+            if not worktree_path.is_dir():
+                continue
+            durable_id = worktree_path.name
+            try:
+                repo_root = _resolve_common_repo_root(worktree_path)
+                branch = _managed_branch_name(repo_root, durable_id)
+            except WorktreeError:
+                continue
+            if repo_root == worktree_path.resolve():
+                # Not a linked worktree (e.g. a stray standalone repo).
+                continue
+            workspaces.append(
+                TaskWorkspace(
+                    durable_id=durable_id,
+                    repo_root=str(repo_root),
+                    repo_name=repo_dir.name,
+                    original_cwd=str(repo_root),
+                    effective_cwd=str(worktree_path),
+                    worktree_path=str(worktree_path),
+                    branch=branch,
+                    lock_path=str(base / ".locks" / repo_dir.name / f"{durable_id}.json"),
+                )
+            )
+    return workspaces
 
 
 def prepare_task_workspace(

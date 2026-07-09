@@ -2,14 +2,14 @@
 # -*- coding: utf-8 -*-
 
 # Copyright (c) 2021, Cisco Systems
-# GNU General Public License v3.0+ (see LICENSE or
-# https://www.gnu.org/licenses/gpl-3.0.txt)
+# GNU General Public License v3.0+ (see LICENSE or https://www.gnu.org/licenses/gpl-3.0.txt)
 
 DOCUMENTATION = r"""
 module: networks_events_event_types_info
-short_description: Information module for networks _events _event _types
+short_description: Information module for networks _events _eventtypes
 description:
-  - Get all networks _events _event _types.
+  - Information module for Networks Events Eventtypes Info.
+  - Get all networks _events _eventtypes.
   - List the event type to human-readable description.
 version_added: '1.0.0'
 extends_documentation_fragment:
@@ -21,6 +21,7 @@ options:
     type: dict
   networkId:
     description:
+      - Information module for Networks Events Eventtypes Info.
       - NetworkId path parameter. Network ID.
     type: str
 requirements:
@@ -38,7 +39,7 @@ notes:
 """
 
 EXAMPLES = r"""
-- name: Get all networks _events _event _types
+- name: Get all networks _events _eventtypes
   cisco.meraki.networks_events_event_types_info:
     meraki_api_key: "{{ meraki_api_key }}"
     meraki_base_url: "{{ meraki_base_url }}"

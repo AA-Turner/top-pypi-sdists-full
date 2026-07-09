@@ -16,7 +16,7 @@ class ConvertTask(ASICTask, Task):
     def __init__(self):
         super().__init__()
 
-        self.add_parameter("memorychannels", "int", "Number of memory channels available",
+        self.add_parameter("memorychannels", "int<1..>", "Number of memory channels available",
                            defvalue=1)
 
     def set_bambu_memorychannels(self, channels: int,
@@ -63,6 +63,9 @@ class ConvertTask(ASICTask, Task):
         if self.project.get("option", "alias"):
             self.add_required_key("option", "alias")
 
+        # memorychannels is read unconditionally in runtime_options (has a defvalue)
+        self.add_required_key("var", "memorychannels")
+
         # Mark required
         for lib, fileset in self.project.get_filesets():
             if lib.has_idir(fileset):
@@ -73,6 +76,9 @@ class ConvertTask(ASICTask, Task):
                 self.add_required_key(lib, "fileset", fileset, "file", "c")
             elif lib.has_file(fileset=fileset, filetype="llvm"):
                 self.add_required_key(lib, "fileset", fileset, "file", "llvm")
+            # sdc files are read by get_clock() in runtime_options for clock extraction
+            if lib.has_file(fileset=fileset, filetype="sdc"):
+                self.add_required_key(lib, "fileset", fileset, "file", "sdc")
 
     def runtime_options(self):
         options = super().runtime_options()

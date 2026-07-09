@@ -26,11 +26,11 @@ class XEP_0152(BasePlugin):
     stanza = stanza
 
     def plugin_end(self):
-        self.xmpp['xep_0030'].del_feature(feature=Reachability.namespace)
-        self.xmpp['xep_0163'].remove_interest(Reachability.namespace)
+        self.xmpp.plugin['xep_0030'].del_feature(feature=Reachability.namespace)
+        self.xmpp.plugin['xep_0163'].remove_interest(Reachability.namespace)
 
     def session_bind(self, jid):
-        self.xmpp['xep_0163'].register_pep('reachability', Reachability)
+        self.xmpp.plugin['xep_0163'].register_pep('reachability', Reachability)
 
     def publish_reachability(self, addresses: list[dict[str, str]],
                              **pubsubkwargs) -> Future:
@@ -51,7 +51,7 @@ class XEP_0152(BasePlugin):
             for key, val in address.items():
                 addr[key] = val
             reach.append(addr)
-        return self.xmpp['xep_0163'].publish(
+        return self.xmpp.plugin['xep_0163'].publish(
             reach,
             node=Reachability.namespace,
             **pubsubkwargs
@@ -62,7 +62,7 @@ class XEP_0152(BasePlugin):
         Clear existing user activity information to stop notifications.
         """
         reach = Reachability()
-        return self.xmpp['xep_0163'].publish(
+        return self.xmpp.plugin['xep_0163'].publish(
             reach,
             node=Reachability.namespace,
             **pubsubkwargs

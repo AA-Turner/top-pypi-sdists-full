@@ -7,6 +7,7 @@ from fivetran_connector_sdk.constants import (
     JAVA_LONG_MAX_VALUE, TABLES, UPDATE_TYPE, DELETE_TYPE,
     UPSERT_TYPE, TRUNCATE_TYPE, UNSPECIFIED_COLUMNS_TYPE, TABLES_COLUMNS_TYPES
 )
+from fivetran_connector_sdk.helpers import _validate_table_name
 from fivetran_connector_sdk.protos import connector_sdk_pb2, common_pb2
 from fivetran_connector_sdk.operation_stream import _OperationStream
 
@@ -25,6 +26,7 @@ class Operations:
         Returns:
             list[connector_sdk_pb2.UpdateResponse]: A list of update responses.
         """
+        _validate_table_name(table)
         columns = _get_columns(table)
         mapped_data = _map_data_to_columns(data, columns)
         record = connector_sdk_pb2.Record(
@@ -47,6 +49,7 @@ class Operations:
         Returns:
             connector_sdk_pb2.UpdateResponse: The update response.
         """
+        _validate_table_name(table)
         columns = _get_columns(table)
         mapped_data = _map_data_to_columns(modified, columns)
         record = connector_sdk_pb2.Record(
@@ -72,6 +75,7 @@ class Operations:
         Returns:
             None
         """
+        _validate_table_name(table)
         record = connector_sdk_pb2.Record(
             schema_name=None,
             table_name=table,
@@ -91,6 +95,7 @@ class Operations:
         Returns:
             connector_sdk_pb2.UpdateResponse: The delete response.
         """
+        _validate_table_name(table)
         columns = _get_columns(table)
         mapped_data = _map_data_to_columns(keys, columns)
         record = connector_sdk_pb2.Record(

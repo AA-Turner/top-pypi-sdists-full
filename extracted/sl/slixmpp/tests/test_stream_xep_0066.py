@@ -11,7 +11,7 @@ class TestOOB(SlixTest):
 
         url = 'http://github.com/fritzy/Slixmpp/blob/master/README'
 
-        self.xmpp['xep_0066'].send_oob('user@example.com', url,
+        self.xmpp.plugin['xep_0066'].send_oob('user@example.com', url,
                                        desc='Slixmpp README')
 
         self.send("""

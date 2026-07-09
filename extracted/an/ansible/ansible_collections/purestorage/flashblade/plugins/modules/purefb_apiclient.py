@@ -22,7 +22,7 @@ short_description: Manage FlashBlade API Clients
 description:
 - Enable or disable FlashBlade API Clients
 author:
-- Everpure Ansible Team (@sdodsley) <pure-ansible-team@purestorage.com>
+- Pure Storage Ansible Team (@sdodsley) <pure-ansible-team@purestorage.com>
 options:
   name:
     description:
@@ -101,20 +101,17 @@ EXAMPLES = r"""
 RETURN = r"""
 """
 
-HAS_PYPURECLIENT = True
+HAS_PURESTORAGE = True
 try:
     from pypureclient.flashblade import ApiClient, ApiClientsPost, ReferenceWritable
 except ImportError:
-    HAS_PYPURECLIENT = False
+    HAS_PURESTORAGE = False
 
 import re
 from ansible.module_utils.basic import AnsibleModule
 from ansible_collections.purestorage.flashblade.plugins.module_utils.purefb import (
     get_system,
     purefb_argument_spec,
-)
-from ansible_collections.purestorage.flashblade.plugins.module_utils.common import (
-    get_error_message,
 )
 
 
@@ -170,7 +167,7 @@ def create_client(module, blade):
         if res.status_code != 200:
             module.fail_json(
                 msg="Failed to create API Client {0}. Error message: {1}".format(
-                    module.params["name"], get_error_message(res)
+                    module.params["name"], res.errors[0].message
                 )
             )
         if module.params["enabled"]:
@@ -219,7 +216,7 @@ def main():
                 module.params["name"]
             )
         )
-    if not HAS_PYPURECLIENT:
+    if not HAS_PURESTORAGE:
         module.fail_json(msg="py-pure-client sdk is required for this module")
 
     blade = get_system(module)

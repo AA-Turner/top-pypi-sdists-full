@@ -18,12 +18,12 @@ DOCUMENTATION = r"""
 ---
 module: purefb_smtp
 version_added: '1.0.0'
-short_description: Configure SMTP for Everpure FlashBlade
+short_description: Configure SMTP for Pure Storage FlashBlade
 description:
-- Configure SMTP for a Everpure FlashBlade.
+- Configure SMTP for a Pure Storage FlashBlade.
 - Whilst there can be no relay host, a sender domain must be configured.
 author:
-- Everpure Ansible Team (@sdodsley) <pure-ansible-team@purestorage.com>
+- Pure Storage Ansible Team (@sdodsley) <pure-ansible-team@purestorage.com>
 options:
   host:
     description:
@@ -69,9 +69,7 @@ from ansible_collections.purestorage.flashblade.plugins.module_utils.purefb impo
     get_system,
     purefb_argument_spec,
 )
-from ansible_collections.purestorage.flashblade.plugins.module_utils.common import (
-    get_error_message,
-)
+
 
 SMTP_ENCRYPT_API_VERSION = "2.15"
 
@@ -109,7 +107,7 @@ def set_smtp(module, blade):
         if res.status_code != 200:
             module.fail_json(
                 msg="Failed to set SMTP configuration. Error: {0}".format(
-                    get_error_message(res)
+                    res.errors[0].message
                 )
             )
     module.exit_json(changed=changed)

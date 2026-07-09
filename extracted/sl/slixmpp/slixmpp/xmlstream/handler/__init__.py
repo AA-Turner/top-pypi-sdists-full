@@ -10,4 +10,7 @@ from slixmpp.xmlstream.handler.waiter import Waiter
 from slixmpp.xmlstream.handler.xmlcallback import XMLCallback
 from slixmpp.xmlstream.handler.xmlwaiter import XMLWaiter
 
-__all__ = ['Callback', 'CoroutineCallback', 'Waiter', 'XMLCallback', 'XMLWaiter']
+__all__ = [
+    'Callback', 'CoroutineCallback', 'Waiter',
+    'XMLCallback', 'XMLWaiter', 'Collector',
+]

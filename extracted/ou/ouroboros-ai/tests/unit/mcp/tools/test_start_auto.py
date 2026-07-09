@@ -31,6 +31,7 @@ from ouroboros.auto.state import (
 from ouroboros.core.types import Result
 from ouroboros.mcp.job_manager import JobManager, JobStatus
 from ouroboros.mcp.tools.auto_handler import (
+    _START_AUTO_PENDING_LEASE_SECONDS,
     AutoHandler,
     StartAutoHandler,
     _reconcile_execution_job_snapshot,
@@ -1903,7 +1904,7 @@ class TestBackgroundJobPath:
         fake_inner_auto.handle.assert_not_called()
 
     @pytest.mark.asyncio
-    async def test_plugin_dispatch_lease_uses_pipeline_timeout(
+    async def test_plugin_dispatch_lease_uses_short_handoff_timeout(
         self, event_store, tmp_path, fake_inner_auto
     ) -> None:
         store = AutoStore(tmp_path)
@@ -1929,7 +1930,139 @@ class TestBackgroundJobPath:
             lease["updated_at"]
         )
         assert lease["mode"] == "plugin_dispatched"
-        assert lease_window >= timedelta(seconds=890)
+        assert lease_window <= timedelta(seconds=_START_AUTO_PENDING_LEASE_SECONDS + 1)
+
+    @pytest.mark.asyncio
+    async def test_plugin_child_claim_refreshes_lease_while_auto_is_running(
+        self, event_store, tmp_path, fake_inner_auto, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        from ouroboros.mcp.tools import auto_handler as auto_module
+
+        store = AutoStore(tmp_path)
+        state = AutoPipelineState(goal="build a CLI", cwd=str(tmp_path))
+        state.pipeline_timeout_seconds = 900
+        state.runtime_backend = "opencode"
+        state.opencode_mode = "plugin"
+        store.save(state)
+        lease_path = store.path_for(state.auto_session_id).with_suffix(".start_auto_lease.json")
+        started = asyncio.Event()
+        release = asyncio.Event()
+        now = datetime.now(UTC)
+        lease_path.write_text(
+            json.dumps(
+                {
+                    "token": "lease_active",
+                    "mode": "plugin_dispatched",
+                    "created_at": now.isoformat(),
+                    "updated_at": now.isoformat(),
+                    "expires_at": (
+                        now + timedelta(seconds=_START_AUTO_PENDING_LEASE_SECONDS)
+                    ).isoformat(),
+                    "owner_pid": 99999999,
+                    "owner_start_time": None,
+                }
+            ),
+            encoding="utf-8",
+        )
+
+        class StubAutoHandler(AutoHandler):
+            async def _run(self, arguments):
+                started.set()
+                await release.wait()
+                return AutoPipelineResult(
+                    status="running",
+                    auto_session_id=state.auto_session_id,
+                    phase="interview",
+                    pending_question="Which runtime?",
+                )
+
+        class LaterDateTime(datetime):
+            @classmethod
+            def now(cls, tz=None):
+                value = now + timedelta(seconds=_START_AUTO_PENDING_LEASE_SECONDS + 1)
+                return value if tz is not None else value.replace(tzinfo=None)
+
+        child = asyncio.create_task(
+            StubAutoHandler(store=store).handle(
+                {"resume": state.auto_session_id, "_start_auto_lease_token": "lease_active"}
+            )
+        )
+        try:
+            await asyncio.wait_for(started.wait(), timeout=2.0)
+            lease = json.loads(lease_path.read_text(encoding="utf-8"))
+            lease_window = datetime.fromisoformat(lease["expires_at"]) - datetime.fromisoformat(
+                lease["updated_at"]
+            )
+            assert lease["mode"] == "plugin_claimed"
+            assert lease["owner_pid"] == os.getpid()
+            assert lease_window > timedelta(seconds=_START_AUTO_PENDING_LEASE_SECONDS)
+
+            monkeypatch.setattr(auto_module, "datetime", LaterDateTime)
+            job_manager = MagicMock()
+            job_manager.allocate_job_id = AsyncMock(return_value="job_alloc")
+            job_manager.find_active_job_by_session = AsyncMock(return_value=None)
+            job_manager.start_job = AsyncMock()
+            h = StartAutoHandler(
+                event_store=event_store,
+                job_manager=job_manager,
+                store=store,
+                agent_runtime_backend="opencode",
+                opencode_mode="plugin",
+            )
+            h._inner_auto = fake_inner_auto
+
+            result = await h.handle({"resume": state.auto_session_id})
+
+            assert result.is_err
+            assert "active plugin dispatch" in result.error.message
+            job_manager.start_job.assert_not_called()
+            fake_inner_auto.handle.assert_not_called()
+        finally:
+            release.set()
+            await child
+
+    @pytest.mark.asyncio
+    async def test_plugin_subagent_arguments_claim_and_release_parent_handoff(
+        self, event_store, tmp_path, fake_inner_auto
+    ) -> None:
+        store = AutoStore(tmp_path)
+        starter = StartAutoHandler(
+            event_store=event_store,
+            job_manager=MagicMock(),
+            store=store,
+            agent_runtime_backend="opencode",
+            opencode_mode="plugin",
+        )
+        starter._inner_auto = fake_inner_auto
+
+        dispatched = await starter.handle({"goal": "build a CLI", "pipeline_timeout_seconds": 900})
+
+        assert dispatched.is_ok
+        subagent = dispatched.value.meta["_subagent"]
+        child_arguments = subagent["context"]["arguments"]
+        auto_session_id = dispatched.value.meta["auto_session_id"]
+        lease_path = store.path_for(auto_session_id).with_suffix(".start_auto_lease.json")
+
+        class StubAutoHandler(AutoHandler):
+            async def _run(self, arguments):
+                lease = json.loads(lease_path.read_text(encoding="utf-8"))
+                lease_window = datetime.fromisoformat(lease["expires_at"]) - datetime.fromisoformat(
+                    lease["updated_at"]
+                )
+                assert lease["mode"] == "plugin_claimed"
+                assert lease["owner_pid"] == os.getpid()
+                assert lease_window > timedelta(seconds=_START_AUTO_PENDING_LEASE_SECONDS)
+                return AutoPipelineResult(
+                    status="running",
+                    auto_session_id=auto_session_id,
+                    phase="interview",
+                    pending_question="Which runtime?",
+                )
+
+        claimed = await StubAutoHandler(store=store).handle(child_arguments)
+
+        assert claimed.is_ok
+        assert not lease_path.exists()
 
 
 class TestAutoHandlerLeaseRelease:
@@ -1999,6 +2132,80 @@ class TestAutoHandlerLeaseRelease:
         assert (
             not store.path_for(state.auto_session_id).with_suffix(".start_auto_lease.json").exists()
         )
+
+    @pytest.mark.asyncio
+    async def test_start_auto_token_can_only_claim_plugin_handoff_once(self, tmp_path) -> None:
+        store = AutoStore(tmp_path)
+        state = AutoPipelineState(goal="build a CLI", cwd=str(tmp_path))
+        store.save(state)
+        lease_path = store.path_for(state.auto_session_id).with_suffix(".start_auto_lease.json")
+        lease_path.write_text(
+            json.dumps(
+                {
+                    "token": "lease_active",
+                    "mode": "plugin_claimed",
+                    "created_at": datetime.now(UTC).isoformat(),
+                    "updated_at": datetime.now(UTC).isoformat(),
+                    "expires_at": (datetime.now(UTC) + timedelta(hours=1)).isoformat(),
+                }
+            ),
+            encoding="utf-8",
+        )
+
+        class StubAutoHandler(AutoHandler):
+            async def _run(self, arguments):
+                raise AssertionError("_run must not run for an already-claimed token")
+
+        result = await StubAutoHandler(store=store).handle(
+            {"resume": state.auto_session_id, "_start_auto_lease_token": "lease_active"}
+        )
+
+        assert result.is_err
+        assert "not claimable" in result.error.message
+        assert json.loads(lease_path.read_text(encoding="utf-8"))["mode"] == "plugin_claimed"
+
+    @pytest.mark.asyncio
+    async def test_start_auto_job_token_claim_promotes_pending_to_job_mode(self, tmp_path) -> None:
+        store = AutoStore(tmp_path)
+        state = AutoPipelineState(goal="build a CLI", cwd=str(tmp_path))
+        state.pipeline_timeout_seconds = 900
+        store.save(state)
+        lease_path = store.path_for(state.auto_session_id).with_suffix(".start_auto_lease.json")
+        lease_path.write_text(
+            json.dumps(
+                {
+                    "token": "lease_active",
+                    "mode": "job_pending",
+                    "job_id": "job_active",
+                    "created_at": datetime.now(UTC).isoformat(),
+                    "updated_at": datetime.now(UTC).isoformat(),
+                    "owner_pid": 99999999,
+                    "owner_start_time": None,
+                }
+            ),
+            encoding="utf-8",
+        )
+
+        class StubAutoHandler(AutoHandler):
+            async def _run(self, arguments):
+                lease = json.loads(lease_path.read_text(encoding="utf-8"))
+                assert lease["mode"] == "job"
+                assert lease["job_id"] == "job_active"
+                assert lease["owner_pid"] == os.getpid()
+                assert "expires_at" not in lease
+                return AutoPipelineResult(
+                    status="running",
+                    auto_session_id=state.auto_session_id,
+                    phase="interview",
+                    pending_question="Which runtime?",
+                )
+
+        result = await StubAutoHandler(store=store).handle(
+            {"resume": state.auto_session_id, "_start_auto_lease_token": "lease_active"}
+        )
+
+        assert result.is_ok
+        assert not lease_path.exists()
 
     @pytest.mark.asyncio
     async def test_direct_auto_resume_without_token_respects_start_auto_lease(

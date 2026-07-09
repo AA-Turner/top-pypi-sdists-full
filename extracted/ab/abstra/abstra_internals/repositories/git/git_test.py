@@ -580,6 +580,27 @@ class NativeGitRepositoryTest(unittest.TestCase):
         self.assertGreater(large_files[0].size_bytes, 5 * 1024 * 1024)
         self.assertIn("MB", large_files[0].size_human)
 
+    def test_get_large_files_detects_large_file_in_untracked_directory(self):
+        """Files inside a brand-new directory must not evade the size check
+        (porcelain collapses untracked dirs to a single 'dir/' entry)"""
+        self.repo.init_repository()
+        self.create_file_with_size("new_dir/nested/large_file.pdf", 6 * 1024 * 1024)
+
+        large_files = self.repo.get_large_files()
+
+        self.assertEqual(len(large_files), 1)
+        self.assertEqual(large_files[0].path, "new_dir/nested/large_file.pdf")
+
+    def test_get_changed_files_preserves_spaces_in_paths(self):
+        """Porcelain paths are parsed by fixed-width slice; spaces in names
+        (which git C-quotes) must round-trip exactly"""
+        self.repo.init_repository()
+        self.create_file_with_size("new dir/file with space.txt", 10)
+
+        changed = self.repo.get_changed_files(untracked_all=True)
+
+        self.assertIn("new dir/file with space.txt", changed)
+
     def test_get_large_files_ignores_small_files(self):
         """Test that small files are not flagged as large"""
         self.repo.init_repository()

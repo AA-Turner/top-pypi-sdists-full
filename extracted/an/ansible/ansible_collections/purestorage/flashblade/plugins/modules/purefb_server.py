@@ -22,7 +22,7 @@ short_description: Manage FlashBlade servers
 description:
 - Add, update or delete FlashBlade servers
 author:
-- Everpure Ansible Team (@sdodsley) <pure-ansible-team@purestorage.com>
+- Pure Storage Ansible Team (@sdodsley) <pure-ansible-team@purestorage.com>
 options:
   name:
     description:
@@ -79,9 +79,6 @@ from ansible_collections.purestorage.flashblade.plugins.module_utils.purefb impo
     get_system,
     purefb_argument_spec,
 )
-from ansible_collections.purestorage.flashblade.plugins.module_utils.common import (
-    get_error_message,
-)
 
 MIN_REQUIRED_API_VERSION = "2.16"
 
@@ -97,7 +94,7 @@ def delete_server(module, blade):
             module.fail_json(
                 msg="Failed to delete server {0}. Error: {1}".format(
                     module.params["name"],
-                    get_error_message(res),
+                    res.errors[0].message,
                 )
             )
     module.exit_json(changed=changed)
@@ -110,7 +107,7 @@ def update_server(module, blade):
     if module.params["dns"] is not None:
         dns_list = server_info.dns
         current_dns = []
-        for dns in dns_list:
+        for dns in range(len(dns_list)):
             current_dns.append(getattr(server_info.dns[dns], "name", None))
         if set(module.params["dns"]) != set(current_dns):
             changed = True
@@ -122,14 +119,14 @@ def update_server(module, blade):
                 module.fail_json(
                     msg="Failed to update DNS config for server {0}. Error: {1}".format(
                         module.params["name"],
-                        get_error_message(res),
+                        res.errors[0].message,
                     )
                 )
     if module.params["directory_service"] is not None:
         ds_list = server_info.directory_services
         current_ds = []
-        for ds in ds_list:
-            current_ds.append(getattr(ds, "name", None))
+        for ds in range(len(ds_list)):
+            current_ds.append(getattr(server_info.directory_services[ds], "name", None))
         if set(module.params["directory_service"]) != set(current_ds):
             changed = True
             res = blade.patch_servers(
@@ -140,7 +137,7 @@ def update_server(module, blade):
                 module.fail_json(
                     msg="Failed to update directory services for server {0}. Error: {1}".format(
                         module.params["name"],
-                        get_error_message(res),
+                        res.errors[0].message,
                     )
                 )
     module.exit_json(changed=changed)
@@ -153,11 +150,13 @@ def add_server(module, blade):
     final_dserv = []
     if not module.check_mode:
         if module.params["dns"]:
-            for dns in module.params["dns"]:
-                final_dns.append(Reference(name=dns))
+            for dns in range(len(module.params["dns"])):
+                final_dns.append(Reference(name=module.params["dns"][dns]))
         if module.params["directory_service"]:
-            for dserv in module.params["directory_service"]:
-                final_dserv.append(Reference(name=dserv))
+            for dserv in range(len(module.params["directory_service"])):
+                final_dserv.append(
+                    Reference(name=module.params["directory_service"][dserv])
+                )
         if final_dns and final_dserv:
             server = ServerPost(directory_services=final_dserv, dns=final_dns)
         elif not final_dns and final_dserv:
@@ -175,7 +174,7 @@ def add_server(module, blade):
             module.fail_json(
                 msg="Failed to add server {0}. Error: {1}".format(
                     module.params["name"],
-                    get_error_message(res),
+                    res.errors[0].message,
                 )
             )
     module.exit_json(changed=changed)

@@ -14,8 +14,8 @@ class ActionBatchSm(object):
         - userAccessDeviceId (string): User access device ID
         """
 
-        networkId = urllib.parse.quote(networkId, safe="")
-        userAccessDeviceId = urllib.parse.quote(userAccessDeviceId, safe="")
+        networkId = urllib.parse.quote(str(networkId), safe="")
+        userAccessDeviceId = urllib.parse.quote(str(userAccessDeviceId), safe="")
         resource = f"/networks/{networkId}/sm/userAccessDevices/{userAccessDeviceId}"
 
         action = {
@@ -41,7 +41,7 @@ class ActionBatchSm(object):
             options = ["all_tags", "some", "without_all_tags", "without_some"]
             assert kwargs["scope"] in options, f'''"scope" cannot be "{kwargs["scope"]}", & must be set to one of: {options}'''
 
-        organizationId = urllib.parse.quote(organizationId, safe="")
+        organizationId = urllib.parse.quote(str(organizationId), safe="")
         resource = f"/organizations/{organizationId}/sm/admins/roles"
 
         body_params = [
@@ -75,8 +75,8 @@ class ActionBatchSm(object):
             options = ["all_tags", "some", "without_all_tags", "without_some"]
             assert kwargs["scope"] in options, f'''"scope" cannot be "{kwargs["scope"]}", & must be set to one of: {options}'''
 
-        organizationId = urllib.parse.quote(organizationId, safe="")
-        roleId = urllib.parse.quote(roleId, safe="")
+        organizationId = urllib.parse.quote(str(organizationId), safe="")
+        roleId = urllib.parse.quote(str(roleId), safe="")
         resource = f"/organizations/{organizationId}/sm/admins/roles/{roleId}"
 
         body_params = [
@@ -101,8 +101,8 @@ class ActionBatchSm(object):
         - roleId (string): Role ID
         """
 
-        organizationId = urllib.parse.quote(organizationId, safe="")
-        roleId = urllib.parse.quote(roleId, safe="")
+        organizationId = urllib.parse.quote(str(organizationId), safe="")
+        roleId = urllib.parse.quote(str(roleId), safe="")
         resource = f"/organizations/{organizationId}/sm/admins/roles/{roleId}"
 
         action = {
@@ -122,7 +122,7 @@ class ActionBatchSm(object):
 
         kwargs = locals()
 
-        organizationId = urllib.parse.quote(organizationId, safe="")
+        organizationId = urllib.parse.quote(str(organizationId), safe="")
         resource = f"/organizations/{organizationId}/sm/sentry/policies/assignments"
 
         body_params = [

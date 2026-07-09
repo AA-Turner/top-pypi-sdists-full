@@ -1587,7 +1587,12 @@ class TestConfigMapEndpoints:
                 response = client.get("/workflows/v1/configmap/saphana")
             assert response.status_code == 404
             assert response.json()["detail"] == "ConfigMap 'saphana' not found"
-            mock_logger.warning.assert_called_once_with(
+            # assert_any_call, not assert_called_once_with: the no-default
+            # -entrypoint fallback earlier in the handler also logs a
+            # warning (with exc_info) when the app has no default
+            # entrypoint — this test only cares that the configmap-specific
+            # warning below was among them, not that it's the only one.
+            mock_logger.warning.assert_any_call(
                 "ConfigMap not found: requested=%s available=%s",
                 "saphana",
                 ["sap-hana"],
@@ -5152,7 +5157,7 @@ class TestComputeManifestHook:
         self, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
     ) -> None:
         """An ``async def compute_manifest`` is awaited directly (not run via
-        asyncio.to_thread, which would hand back an un-awaited coroutine)."""
+        ``run_in_thread``, which would hand back an un-awaited coroutine)."""
         from application_sdk.handler import service as svc_module
 
         contract_dir = tmp_path / "generated"
@@ -5229,7 +5234,7 @@ class TestComputeManifestHook:
     ) -> None:
         """The hook is async-only: a *sync* ``def compute_manifest`` is not
         discovered and the route serves the static manifest unchanged (rather
-        than running it via asyncio.to_thread)."""
+        than running it via ``run_in_thread``)."""
         from application_sdk.handler import service as svc_module
 
         contract_dir = tmp_path / "generated"

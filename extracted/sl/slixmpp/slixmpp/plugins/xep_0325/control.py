@@ -135,8 +135,8 @@ class XEP_0325(BasePlugin):
     def post_init(self):
         """ Init complete. Register our features in Service discovery. """
         BasePlugin.post_init(self)
-        self.xmpp['xep_0030'].add_feature(Control.namespace)
-        self.xmpp['xep_0030'].set_items(node=Control.namespace, items=tuple())
+        self.xmpp.plugin['xep_0030'].add_feature(Control.namespace)
+        self.xmpp.plugin['xep_0030'].set_items(node=Control.namespace, items=tuple())
 
     def _new_session(self):
         """ Return a new session ID. """
@@ -149,8 +149,8 @@ class XEP_0325(BasePlugin):
         self.xmpp.remove_handler('Control Event:SetReq')
         self.xmpp.remove_handler('Control Event:SetResponse')
         self.xmpp.remove_handler('Control Event:SetResponseError')
-        self.xmpp['xep_0030'].del_feature(feature=Control.namespace)
-        self.xmpp['xep_0030'].set_items(node=Control.namespace, items=tuple())
+        self.xmpp.plugin['xep_0030'].del_feature(feature=Control.namespace)
+        self.xmpp.plugin['xep_0030'].set_items(node=Control.namespace, items=tuple())
 
 
     # =================================================================

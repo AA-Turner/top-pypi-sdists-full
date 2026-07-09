@@ -4,7 +4,7 @@
 
 from .base import Record
 from .chunked import _ChunkedValue, _ChunkedValuesMixin
-from .validator import RecordValidator
+from .validator import RecordValidator, ValidationReason
 
 
 class SpfRecordTypeValidator(RecordValidator):
@@ -12,9 +12,12 @@ class SpfRecordTypeValidator(RecordValidator):
     Validates that the deprecated SPF record type is not used.
     '''
 
-    def validate(self, record_cls, name, fqdn, data):
+    def validate(self, record_cls, name, fqdn, data, disabled=None):
         return [
-            'The SPF record type is DEPRECATED in favor of TXT values and will become an ValidationError in 2.0'
+            ValidationReason(
+                'The SPF record type is DEPRECATED in favor of TXT values and will become an ValidationError in 2.0',
+                validator_id=self.id,
+            )
         ]
 
 

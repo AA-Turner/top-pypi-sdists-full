@@ -30,7 +30,7 @@ class TestJabberSearch(SlixTest):
         )
 
     def testSendSearch(self):
-        iq = self.xmpp["xep_0055"].make_search_iq(
+        iq = self.xmpp.plugin["xep_0055"].make_search_iq(
             ifrom="juliet@capulet.com/balcony", ito="characters.shakespeare.lit"
         )
         iq["search"]["form"].add_field(var="x-gender", value="male")

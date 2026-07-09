@@ -130,6 +130,10 @@ class AssemblyLoadContext(System.Object):
     def load_unmanaged_dll_from_path(self, unmanaged_dll_path: str) -> System.IntPtr:
         ...
 
+    @staticmethod
+    def set_assembly_location_override(location_override: typing.Callable[[System.Reflection.Assembly, str], str]) -> None:
+        ...
+
     def set_profile_optimization_root(self, directory_path: str) -> None:
         ...
 

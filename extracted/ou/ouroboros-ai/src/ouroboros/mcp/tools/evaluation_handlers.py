@@ -6,6 +6,7 @@ Contains handlers for drift measurement, evaluation, and lateral thinking tools:
 - LateralThinkHandler: Generates alternative thinking approaches via personas.
 """
 
+import asyncio
 import base64
 from dataclasses import dataclass, field
 import json
@@ -16,10 +17,11 @@ from pydantic import ValidationError as PydanticValidationError
 import structlog
 import yaml
 
+from ouroboros.backends import build_runtime_subagent_orchestration_contract
 from ouroboros.config import get_llm_backend_for_role, get_llm_model_for_role
 from ouroboros.core.errors import ValidationError
 from ouroboros.core.project_paths import resolve_path_against_base, resolve_seed_project_path
-from ouroboros.core.seed import Seed
+from ouroboros.core.seed import AcceptanceCriterionSpec, Seed, ac_text
 from ouroboros.core.types import Result
 from ouroboros.mcp.errors import MCPServerError, MCPToolError
 from ouroboros.mcp.job_manager import JobLinks, JobManager
@@ -28,9 +30,11 @@ from ouroboros.mcp.tools.bridge_mixin import BridgeAwareMixin
 from ouroboros.mcp.tools.subagent import (
     DELEGATED_TO_PLUGIN,
     DELEGATED_TO_SUBAGENT,
+    FanoutRegistry,
     build_evaluate_subagent,
     dispatch_plugin_terminal,
     should_dispatch_via_plugin,
+    submit_fanout_results,
 )
 from ouroboros.mcp.types import (
     ContentType,
@@ -55,6 +59,38 @@ from ouroboros.persistence.event_store import EventStore
 from ouroboros.providers import create_llm_adapter
 
 log = structlog.get_logger(__name__)
+
+
+def _seed_acceptance_criteria(seed: Seed) -> tuple[str, ...]:
+    return tuple(
+        stripped
+        for criterion in seed.acceptance_criteria
+        if (stripped := ac_text(criterion).strip())
+    )
+
+
+def _seed_ac_spec_map(seed: Seed | None) -> dict[str, AcceptanceCriterionSpec]:
+    """Map each AC description to its structured spec (PR-H).
+
+    Since PR-F, ``Seed.acceptance_criteria`` holds ``AcceptanceCriterionSpec``
+    objects.  Evaluation flows AC text (descriptions) around as bare strings,
+    so we key specs by their trimmed ``description`` to reattach the declared
+    success contract when building each ``EvaluationContext``.  Only specs
+    that actually carry a contract are included — bare-description ACs map to
+    nothing and the evaluator judges the AC text alone (today's behavior).
+    """
+    if seed is None:
+        return {}
+    spec_map: dict[str, AcceptanceCriterionSpec] = {}
+    for criterion in seed.acceptance_criteria:
+        if not isinstance(criterion, AcceptanceCriterionSpec):
+            continue
+        if not criterion.has_success_contract:
+            continue
+        key = criterion.description.strip()
+        if key:
+            spec_map.setdefault(key, criterion)
+    return spec_map
 
 
 async def _default_brownfield_project_dir() -> Path | None:
@@ -129,6 +165,34 @@ async def _resolve_evaluate_working_dir(
         return seed_dir
 
     return stable_base
+
+
+async def _resolve_executor_backend(store: EventStore | None, session_id: str) -> str | None:
+    """Best-effort: which runtime backend executed this session (PR-X X2).
+
+    Read from the ``execution.session.completed`` / ``.started`` lifecycle events,
+    whose payload carries ``runtime_backend`` per node. Lets formal evaluation
+    keep the executor's own vendor out of the reviewer jury. Any failure returns
+    ``None`` — evaluation then behaves exactly as before.
+    """
+    if store is None or not session_id:
+        return None
+    try:
+        for event_type in (
+            "execution.session.completed",
+            "execution.session.started",
+        ):
+            events = await store.query_session_related_events(
+                session_id, event_type=event_type, limit=50
+            )
+            for event in events:
+                data = event.data if isinstance(event.data, dict) else {}
+                backend = data.get("runtime_backend")
+                if isinstance(backend, str) and backend.strip():
+                    return backend.strip()
+    except Exception:
+        return None
+    return None
 
 
 def _evaluation_allowed_tools(runtime_backend: str | None) -> list[str]:
@@ -490,14 +554,6 @@ class EvaluateHandler:
         if not acceptance_criteria and acceptance_criterion and str(acceptance_criterion).strip():
             acceptance_criteria = (str(acceptance_criterion).strip(),)
 
-        log.info(
-            "mcp.tool.evaluate",
-            session_id=session_id,
-            has_seed=seed_content is not None,
-            multi_ac_count=len(acceptance_criteria),
-            trigger_consensus=trigger_consensus,
-        )
-
         # Parse seed before dispatch so working_dir fallback is available for
         # both plugin/subagent and in-process evaluation paths.
         goal = ""
@@ -512,19 +568,38 @@ class EvaluateHandler:
                 goal = seed.goal
                 constraints = tuple(seed.constraints)
                 seed_id = seed.metadata.seed_id
+                if not acceptance_criteria:
+                    acceptance_criteria = _seed_acceptance_criteria(seed)
             except (yaml.YAMLError, ValidationError, PydanticValidationError) as e:
+                # Seed failed to parse — leave seed as None; spec map stays empty.
                 log.warning("mcp.tool.evaluate.seed_parse_warning", error=str(e))
                 # Continue without seed data - not fatal
+
+        log.info(
+            "mcp.tool.evaluate",
+            session_id=session_id,
+            has_seed=seed_content is not None,
+            multi_ac_count=len(acceptance_criteria),
+            trigger_consensus=trigger_consensus,
+        )
 
         working_dir = await _resolve_evaluate_working_dir(arguments.get("working_dir"), seed)
 
         # --- Subagent dispatch: gate on runtime + opencode_mode ---
+        if len(acceptance_criteria) > 1:
+            ac_for_payload: str | None = "\n".join(
+                f"{i + 1}. {ac}" for i, ac in enumerate(acceptance_criteria)
+            )
+        elif acceptance_criteria:
+            ac_for_payload = acceptance_criteria[0]
+        else:
+            ac_for_payload = None
         payload = build_evaluate_subagent(
             session_id=session_id,
             artifact=artifact,
             artifact_type=artifact_type,
             seed_content=seed_content,
-            acceptance_criterion=acceptance_criterion,
+            acceptance_criterion=ac_for_payload,
             working_dir=str(working_dir),
             trigger_consensus=trigger_consensus,
         )
@@ -565,6 +640,11 @@ class EvaluateHandler:
                 except Exception:
                     pass  # Best-effort enrichment
 
+            # PR-X X2: resolve which runtime backend executed this session so
+            # consensus can keep that vendor out of the reviewer jury. Best-effort
+            # — None leaves today's behavior untouched.
+            executor_backend = await _resolve_executor_backend(store, session_id)
+
             # Derive current_ac from the unified acceptance_criteria tuple.
             # The tuple already incorporates both the plural and singular params,
             # so we only need to index or fall back to a default.
@@ -573,6 +653,11 @@ class EvaluateHandler:
                 if acceptance_criteria
                 else "Verify execution output meets requirements"
             )
+
+            # Reattach declared success contracts (PR-H): map AC text back to
+            # its structured spec so Stage 2 grades against verify_command /
+            # expected_artifacts / output_assertion, not the bare wording.
+            ac_spec_map = _seed_ac_spec_map(seed)
 
             # Evaluation reads multiple spec files (one Read call per AC).
             # Use a dedicated adapter with a higher turn budget — the shared
@@ -665,18 +750,22 @@ class EvaluateHandler:
                     artifact_bundle=artifact_bundle,
                     pipeline=pipeline,
                     working_dir=working_dir,
+                    executor_backend=executor_backend,
+                    ac_spec_map=ac_spec_map,
                 )
 
             context = EvaluationContext(
                 execution_id=session_id,
                 seed_id=seed_id,
                 current_ac=current_ac,
+                current_ac_spec=ac_spec_map.get(current_ac),
                 artifact=artifact,
                 artifact_type=artifact_type,
                 goal=goal,
                 constraints=constraints,
                 trigger_consensus=trigger_consensus,
                 artifact_bundle=artifact_bundle,
+                executor_backend=executor_backend,
             )
             result = await pipeline.evaluate(context)
 
@@ -727,6 +816,9 @@ class EvaluateHandler:
                 "stage3_approved": eval_result.stage3_result.approved
                 if eval_result.stage3_result
                 else None,
+                "stage3_reviewer_independence": eval_result.stage3_result.reviewer_independence
+                if eval_result.stage3_result
+                else None,
                 "code_changes_detected": code_changes,
             }
 
@@ -773,6 +865,8 @@ class EvaluateHandler:
         artifact_bundle: object | None,
         pipeline: object,  # EvaluationPipeline — typed as object to avoid import cycle
         working_dir: Path,
+        executor_backend: str | None = None,
+        ac_spec_map: dict[str, AcceptanceCriterionSpec] | None = None,
     ) -> Result[MCPToolResult, MCPServerError]:
         """Evaluate each AC individually and return an aggregated checklist (#366).
 
@@ -797,6 +891,8 @@ class EvaluateHandler:
             format_checklist,
         )
 
+        spec_map = ac_spec_map or {}
+
         log.info(
             "mcp.tool.evaluate.multi_ac_started",
             session_id=session_id,
@@ -808,12 +904,14 @@ class EvaluateHandler:
             execution_id=session_id,
             seed_id=seed_id,
             current_ac=acceptance_criteria[0],
+            current_ac_spec=spec_map.get(acceptance_criteria[0]),
             artifact=artifact,
             artifact_type=artifact_type,
             goal=goal,
             constraints=constraints,
             trigger_consensus=trigger_consensus,
             artifact_bundle=artifact_bundle,
+            executor_backend=executor_backend,
         )
         first_result = await pipeline.evaluate(first_context)  # type: ignore[attr-defined]
         if first_result.is_err:
@@ -835,12 +933,14 @@ class EvaluateHandler:
                 execution_id=session_id,
                 seed_id=seed_id,
                 current_ac=ac_text,
+                current_ac_spec=spec_map.get(ac_text),
                 artifact=artifact,
                 artifact_type=artifact_type,
                 goal=goal,
                 constraints=constraints,
                 trigger_consensus=trigger_consensus,
                 artifact_bundle=artifact_bundle,
+                executor_backend=executor_backend,
             )
             return await pipeline.evaluate(  # type: ignore[attr-defined]
                 context,
@@ -1050,6 +1150,9 @@ class EvaluateHandler:
                     f"Approving: {s3.approving_votes}",
                 ]
             )
+            reviewer_independence = getattr(s3, "reviewer_independence", None)
+            if reviewer_independence:
+                lines.append(f"Reviewer Independence: {reviewer_independence}")
             for vote in s3.votes:
                 decision = "APPROVE" if vote.approved else "REJECT"
                 lines.append(f"  [{decision}] {vote.model} (confidence: {vote.confidence:.2f})")
@@ -1220,7 +1323,7 @@ class ChecklistVerifyHandler:
             )
 
         acceptance_criteria = tuple(
-            text.strip() for text in seed.acceptance_criteria if text and text.strip()
+            text for criterion in seed.acceptance_criteria if (text := ac_text(criterion).strip())
         )
         if not acceptance_criteria:
             return Result.err(
@@ -1307,7 +1410,8 @@ class LateralThinkHandler(BridgeAwareMixin):
       ``dispatch_mode=host_driven`` / ``host_action=spawn_subagents`` so the
       host fans out via its native primitive.
     - ``SEQUENTIAL`` (subprocess / runtimes without a parallel primitive): fall
-      back to a plain inline multi-persona ``inline_fallback`` text response.
+      back to a plain inline multi-persona ``sequential`` text response
+      (`inline_fallback` is preserved as a legacy alias in metadata).
 
     Attributes:
         agent_runtime_backend: Configured runtime (e.g. ``"opencode"``).
@@ -1318,6 +1422,7 @@ class LateralThinkHandler(BridgeAwareMixin):
 
     agent_runtime_backend: str | None = field(default=None, repr=False)
     opencode_mode: str | None = field(default=None, repr=False)
+    fanout_registry: FanoutRegistry | None = field(default=None, repr=False)
 
     @property
     def definition(self) -> MCPToolDefinition:
@@ -1464,7 +1569,10 @@ class LateralThinkHandler(BridgeAwareMixin):
                 SubagentDispatchMode,
                 build_lateral_multi_subagent,
                 build_multi_subagent_result,
+                lateral_persona_panel_metadata_from_capability_definitions,
+                register_lateral_persona_fanout,
                 resolve_subagent_dispatch,
+                stamp_fanout_meta,
             )
 
             if explicit_list:
@@ -1539,7 +1647,7 @@ class LateralThinkHandler(BridgeAwareMixin):
                     },
                 )
 
-            # --- Inline fallback: concatenate persona prompts ---
+            # --- Inline/sequential fallback: concatenate persona prompts ---
             thinker = LateralThinker()
             sections: list[str] = []
             for p_str in personas_list:
@@ -1586,25 +1694,44 @@ class LateralThinkHandler(BridgeAwareMixin):
             #   2. Base64 has no significant whitespace, so line wrapping
             #      and trimming can't corrupt the encoded body.
             # HOST_DRIVEN runtimes (e.g. Codex) have no passive bridge but can
-            # spawn subagents themselves. Stamp the response with an explicit
-            # ``dispatch_mode=host_driven`` / ``host_action=spawn_subagents``
-            # signal — in structured ``meta`` (primary) and a visible banner
-            # (so meta-dropping transports still get a deterministic cue) — so
-            # the host's capability guide fans out instead of reading inline.
-            # SEQUENTIAL runtimes keep the byte-identical ``inline_fallback``
-            # output they emitted before.
+            # spawn subagents themselves. SEQUENTIAL runtimes now get the same
+            # machine-readable contract vocabulary, while preserving
+            # ``inline_fallback`` as a legacy alias for older skill prose.
             host_driven = dispatch is SubagentDispatchMode.HOST_DRIVEN
-            dispatch_mode_value = "host_driven" if host_driven else "inline_fallback"
             payload_dicts = [p.to_dict() for p in payloads]
+            panel_metadata = lateral_persona_panel_metadata_from_capability_definitions()
+            contract_backend = self.agent_runtime_backend
+            if not contract_backend:
+                contract_backend = "codex" if host_driven else "gemini"
+            contract = build_runtime_subagent_orchestration_contract(
+                contract_backend,
+                directive_metadata=panel_metadata,
+                opencode_mode=self.opencode_mode,
+            )
             dispatch_record: dict[str, Any] = {
-                "dispatch_mode": dispatch_mode_value,
                 "persona_count": len(sections),
                 "payloads": payload_dicts,
+                "subagent_orchestration_instruction": contract.runtime_instruction_handling,
             }
-            if host_driven:
-                dispatch_record["host_action"] = "spawn_subagents"
-                # Lateral payloads are keyed by persona (always set, one per lane).
-                dispatch_record["result_correlation_key"] = "context.persona"
+            # Stamp the PR-C-standardized 3-mode contract (dispatch_mode /
+            # host_action / result_correlation_key) via the shared helper. Only
+            # HOST_DRIVEN and SEQUENTIAL reach here (PLUGIN_PASSIVE returned the
+            # ``_subagents`` envelope above), so a cue is always stamped.
+            stamp_fanout_meta(
+                dispatch_record,
+                prefix="",
+                dispatch_mode=dispatch,
+                payloads=payloads,
+                correlation_key="context.persona",
+            )
+            if not host_driven:
+                dispatch_record["legacy_dispatch_mode"] = "inline_fallback"
+            if self.fanout_registry is not None:
+                dispatch_record["fanout_id"] = register_lateral_persona_fanout(
+                    self.fanout_registry,
+                    session_id=str(arguments.get("session_id") or ""),
+                    payloads=payloads,
+                )
             dispatch_blob = json.dumps(dispatch_record)
             dispatch_b64 = base64.b64encode(dispatch_blob.encode("utf-8")).decode("ascii")
             host_banner = (
@@ -1783,6 +1910,128 @@ class LateralThinkHandler(BridgeAwareMixin):
 
 
 @dataclass
+class SubmitFanoutResultsHandler:
+    """Handler for the ``ouroboros_submit_fanout_results`` re-entry tool.
+
+    After a host fans out a set of advisory/persona/investigation subagents
+    (declared by :func:`stamp_fanout_meta` with a stamped ``fanout_id``), it
+    submits the correlated child outputs back through this tool. The server
+    validates the expected keys against the persisted fan-out record and, when
+    complete, routes to the revived synthesizer for the record's kind, returning
+    the correlated synthesis for the host to continue with. Sequential hosts
+    submit after processing payloads one-by-one — same tool, same contract.
+    """
+
+    fanout_registry: FanoutRegistry | None = field(default=None, repr=False)
+
+    def __post_init__(self) -> None:
+        self._registry = self.fanout_registry or FanoutRegistry()
+
+    @property
+    def definition(self) -> MCPToolDefinition:
+        """Return the tool definition."""
+        return MCPToolDefinition(
+            name="ouroboros_submit_fanout_results",
+            description=(
+                "Submit correlated results from a subagent fan-out back to "
+                "Ouroboros. After spawning the advisory/persona/investigation "
+                "subagents declared by a prior tool's `meta` (which stamped a "
+                "`fanout_id` and a `result_correlation_key`), call this tool with "
+                "one {key, content} per child output — `key` is the value of the "
+                "correlation field for that child. A complete set returns the "
+                "synthesis to continue with; a partial set returns "
+                "`status=partial` with the missing keys so you can resubmit."
+            ),
+            parameters=(
+                MCPToolParameter(
+                    name="session_id",
+                    type=ToolInputType.STRING,
+                    description="Interview/lateral session id the fan-out belongs to.",
+                    required=False,
+                ),
+                MCPToolParameter(
+                    name="fanout_id",
+                    type=ToolInputType.STRING,
+                    description="The fanout_id stamped into the originating tool's meta.",
+                    required=True,
+                ),
+                MCPToolParameter(
+                    name="correlation_key",
+                    type=ToolInputType.STRING,
+                    description=(
+                        "The result_correlation_key from the originating meta "
+                        "(e.g. 'context.persona' or 'code_facts')."
+                    ),
+                    required=False,
+                ),
+                MCPToolParameter(
+                    name="results",
+                    type=ToolInputType.ARRAY,
+                    description=(
+                        "Correlated child outputs: a list of objects each with a "
+                        "'key' (the correlation value) and a 'content' (the child "
+                        "result, object or text)."
+                    ),
+                    required=True,
+                ),
+            ),
+        )
+
+    async def handle(
+        self,
+        arguments: dict[str, Any],
+    ) -> Result[MCPToolResult, MCPServerError]:
+        """Validate the submitted fan-out results and route them to synthesis."""
+        fanout_id = str(arguments.get("fanout_id") or "").strip()
+        if not fanout_id:
+            return Result.err(
+                MCPToolError(
+                    "fanout_id is required",
+                    tool_name="ouroboros_submit_fanout_results",
+                )
+            )
+
+        raw_results = arguments.get("results")
+        if not isinstance(raw_results, (list, tuple)):
+            return Result.err(
+                MCPToolError(
+                    "results must be a list of {key, content} objects",
+                    tool_name="ouroboros_submit_fanout_results",
+                )
+            )
+        results = [item for item in raw_results if isinstance(item, dict)]
+
+        outcome = submit_fanout_results(
+            self._registry,
+            session_id=str(arguments.get("session_id") or ""),
+            correlation_key=str(arguments.get("correlation_key") or ""),
+            results=results,
+            fanout_id=fanout_id,
+        )
+
+        if outcome.get("status") == "unknown_fanout_id":
+            return Result.err(
+                MCPToolError(
+                    str(outcome.get("error") or "unknown fanout_id"),
+                    tool_name="ouroboros_submit_fanout_results",
+                )
+            )
+
+        return Result.ok(
+            MCPToolResult(
+                content=(
+                    MCPContentItem(
+                        type=ContentType.TEXT,
+                        text=json.dumps(outcome, ensure_ascii=False, sort_keys=True),
+                    ),
+                ),
+                is_error=False,
+                meta=outcome,
+            )
+        )
+
+
+@dataclass
 class StartEvaluateHandler:
     """Start an evaluation asynchronously and return a job ID immediately.
 
@@ -1806,6 +2055,7 @@ class StartEvaluateHandler:
     llm_backend: str | None = field(default=None, repr=False)
     agent_runtime_backend: str | None = field(default=None, repr=False)
     opencode_mode: str | None = field(default=None, repr=False)
+    deadline_seconds: float = 1800.0
 
     def __post_init__(self) -> None:
         self._event_store = self.event_store or EventStore()
@@ -1882,6 +2132,17 @@ class StartEvaluateHandler:
             if not acceptance_criteria and ac_singular_raw and str(ac_singular_raw).strip():
                 acceptance_criteria = (str(ac_singular_raw).strip(),)
 
+            seed: Seed | None = None
+            seed_content = arguments.get("seed_content")
+            if seed_content:
+                try:
+                    seed_dict = yaml.safe_load(seed_content)
+                    seed = Seed.from_dict(seed_dict)
+                    if not acceptance_criteria:
+                        acceptance_criteria = _seed_acceptance_criteria(seed)
+                except (yaml.YAMLError, ValidationError, PydanticValidationError) as e:
+                    log.warning("mcp.tool.start_evaluate.seed_parse_warning", error=str(e))
+
             if len(acceptance_criteria) > 1:
                 ac_for_payload: str | None = "\n".join(
                     f"{i + 1}. {ac}" for i, ac in enumerate(acceptance_criteria)
@@ -1890,15 +2151,6 @@ class StartEvaluateHandler:
                 ac_for_payload = acceptance_criteria[0]
             else:
                 ac_for_payload = None
-
-            seed: Seed | None = None
-            seed_content = arguments.get("seed_content")
-            if seed_content:
-                try:
-                    seed_dict = yaml.safe_load(seed_content)
-                    seed = Seed.from_dict(seed_dict)
-                except (yaml.YAMLError, ValidationError, PydanticValidationError) as e:
-                    log.warning("mcp.tool.start_evaluate.seed_parse_warning", error=str(e))
 
             working_dir = await _resolve_evaluate_working_dir(
                 arguments.get("working_dir"),
@@ -1938,7 +2190,34 @@ class StartEvaluateHandler:
         # ``JobManager.cancel_job`` was never observable by the evaluate
         # agent process — a restart-visible cancel was silently dropped.
         async def _runner(_handle) -> MCPToolResult:
-            result = await self._evaluate_handler.handle(arguments)
+            try:
+                if self.deadline_seconds > 0:
+                    result = await asyncio.wait_for(
+                        self._evaluate_handler.handle(arguments),
+                        timeout=self.deadline_seconds,
+                    )
+                else:
+                    result = await self._evaluate_handler.handle(arguments)
+            except TimeoutError:
+                retry_step = f"ooo evaluate {session_id}"
+                return MCPToolResult(
+                    content=(
+                        MCPContentItem(
+                            type=ContentType.TEXT,
+                            text=(
+                                "Evaluation timed out before the formal verdict completed.\n"
+                                f"Retry: {retry_step}"
+                            ),
+                        ),
+                    ),
+                    is_error=True,
+                    meta={
+                        "session_id": session_id,
+                        "status": "timed_out",
+                        "evaluation_status": "timed_out",
+                        "next_step": retry_step,
+                    },
+                )
             if result.is_err:
                 raise RuntimeError(str(result.error))
             return result.value

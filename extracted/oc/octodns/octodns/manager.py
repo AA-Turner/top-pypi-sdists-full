@@ -382,8 +382,7 @@ class Manager(object):
         enabled = validators_config.get('enabled', ('legacy',))
         if isinstance(enabled, str):
             raise ManagerException(
-                'manager.validators.enabled must be a list of set names, not a string; '
-                f'use [{enabled!r}] to enable a single set'
+                f'manager.validators.enabled must be a list of set names, not a string; use [{enabled!r}] to enable a single set'
             )
         self.log.info('_configure_validators: enabling sets %s', list(enabled))
         Record.enable_validators(enabled)
@@ -396,14 +395,11 @@ class Manager(object):
         has_old = 'validators' in validators_config
         if has_new and has_old:
             raise ManagerException(
-                'manager.validators.record.validators and '
-                'manager.validators.validators cannot both be set; '
-                'remove manager.validators.validators (deprecated)'
+                'manager.validators.record.validators and manager.validators.validators cannot both be set; remove manager.validators.validators (deprecated)'
             )
         if has_old:
             deprecated(
-                'manager.validators.validators is deprecated, use '
-                'manager.validators.record.validators instead. Will be removed in 2.0',
+                'manager.validators.validators is deprecated, use manager.validators.record.validators instead. Will be removed in 2.0',
                 stacklevel=4,
             )
         add_config = record_config.get(
@@ -441,8 +437,7 @@ class Manager(object):
             )
         if has_old_dis:
             deprecated(
-                'manager.validators.disable_validators is deprecated, use '
-                'manager.validators.record.disable_validators instead. Will be removed in 2.0',
+                'manager.validators.disable_validators is deprecated, use manager.validators.record.disable_validators instead. Will be removed in 2.0',
                 stacklevel=4,
             )
         disable_config = record_config.get(
@@ -460,8 +455,7 @@ class Manager(object):
                     raise ManagerException(str(e)) from e
                 if removed == 0:
                     self.log.warning(
-                        '_configure_validators: no validator with id "%s" '
-                        'registered for "%s"',
+                        '_configure_validators: no validator with id "%s" registered for "%s"',
                         validator_id,
                         record_type,
                     )
@@ -1080,9 +1074,7 @@ class Manager(object):
                 desired_config = desired[zone_source]
             except KeyError:
                 raise ManagerException(
-                    f'Zone {idna_decode(zone_name)} cannot be synced '
-                    f'without zone {zone_source} sinced '
-                    'it is aliased'
+                    f'Zone {idna_decode(zone_name)} cannot be synced without zone {zone_source} sinced it is aliased'
                 )
             futures.append(
                 self._executor.submit(
@@ -1201,8 +1193,7 @@ class Manager(object):
         Dump zone data from the specified source
         '''
         self.log.info(
-            'dump: zone=%s, output_dir=%s, output_provider=%s, '
-            'lenient=%s, split=%s, sources=%s',
+            'dump: zone=%s, output_dir=%s, output_provider=%s, lenient=%s, split=%s, sources=%s',
             zone,
             output_dir,
             output_provider,
@@ -1228,10 +1219,7 @@ class Manager(object):
             # that we can tell it where the user has requested the dumped files
             # to reside.
             if not hasattr(target, 'directory'):
-                msg = (
-                    f'output_provider={output_provider}, does not support '
-                    'directory property'
-                )
+                msg = f'output_provider={output_provider}, does not support directory property'
                 raise ManagerException(msg)
             if target.directory != output_dir:
                 # If the requested target doesn't match what's configured in
@@ -1240,10 +1228,7 @@ class Manager(object):
                 # unchanged and potentially be used as a source, e.g. copying
                 # from one yaml to another
                 if not hasattr(target, 'copy'):
-                    msg = (
-                        f'output_provider={output_provider}, does not '
-                        'support copy method'
-                    )
+                    msg = f'output_provider={output_provider}, does not support copy method'
                     raise ManagerException(msg)
                 target = target.copy()
                 self.log.info(
@@ -1325,17 +1310,13 @@ class Manager(object):
                 if source_zone not in self.config['zones']:
                     self.log.exception('Invalid alias zone')
                     raise ManagerException(
-                        f'Invalid alias zone {decoded_zone_name}: '
-                        f'source zone {source_zone} does '
-                        'not exist'
+                        f'Invalid alias zone {decoded_zone_name}: source zone {source_zone} does not exist'
                     )
 
                 if 'alias' in self.config['zones'][source_zone]:
                     self.log.exception('Invalid alias zone')
                     raise ManagerException(
-                        f'Invalid alias zone {decoded_zone_name}: '
-                        'source zone {source_zone} is an '
-                        'alias zone'
+                        f'Invalid alias zone {decoded_zone_name}: source zone {source_zone} is an alias zone'
                     )
 
                 # this is just here to satisfy coverage, see
@@ -1363,12 +1344,12 @@ class Manager(object):
                     f'Zone {decoded_zone_name}, unknown source: ' + source
                 )
 
-            lenient = lenient or config.get('lenient', False)
+            zone_lenient = lenient or config.get('lenient', False)
             for source in sources:
                 if isinstance(source, YamlProvider):
-                    source.populate(zone, lenient=lenient)
+                    source.populate(zone, lenient=zone_lenient)
 
-            zone.validate(lenient=lenient)
+            zone.validate(lenient=zone_lenient)
 
             # check that processors are in order if any are specified
             processors = config.get('processors') or []
@@ -1378,8 +1359,7 @@ class Manager(object):
                     collected.append(self.processors[processor])
             except KeyError:
                 raise ManagerException(
-                    f'Zone {decoded_zone_name}, unknown '
-                    f'processor: {processor}'
+                    f'Zone {decoded_zone_name}, unknown processor: {processor}'
                 )
 
     def get_zone(self, zone_name):
@@ -1395,6 +1375,12 @@ class Manager(object):
             delete_pcent_threshold = zone.get("delete_pcent_threshold", None)
             ignore_subzone_adds = zone.get("ignore_subzone_adds", False)
             context = getattr(zone, 'context', None)
+            # Per-zone validator config (e.g. `disable_validators`, additive
+            # to the global `manager.validators` config) is interpreted by
+            # Zone itself, which raises ZoneException for invalid entries
+            # (e.g. attempting to disable a bridge validator).
+            validators = zone.get('validators')
+
             return Zone(
                 idna_encode(zone_name),
                 sub_zones,
@@ -1402,6 +1388,7 @@ class Manager(object):
                 delete_pcent_threshold,
                 ignore_subzone_adds=ignore_subzone_adds,
                 context=context,
+                validators=validators,
             )
 
         raise ManagerException(f'Unknown zone name {idna_decode(zone_name)}')

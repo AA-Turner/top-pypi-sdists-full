@@ -184,7 +184,7 @@ class VSPHtiSnapshotReconciler:
 
         else:
             raise ValueError(
-                VSPSnapShotValidateMsg.INVALID_OPERATION_TYPE.value.format(
+                VSPVcloneValidateMsg.INVALID_OPERATION_TYPE.value.format(
                     spec.operation_type
                 )
             )
@@ -243,7 +243,6 @@ class VSPHtiSnapshotReconciler:
                     mirror_unit_id=spec.mirror_unit_id,
                     enable_quick_mode=spec.enable_quick_mode,
                     retention_period=spec.retention_period,
-                    wait_for_final_state=spec.wait_for_final_state,
                 )
             else:  # Create then split
                 resp_data = self.provisioner.auto_split_snapshot(spec=spec)
@@ -252,7 +251,6 @@ class VSPHtiSnapshotReconciler:
                 pvol=spec.pvol,
                 mirror_unit_id=spec.mirror_unit_id,
                 enable_quick_mode=spec.enable_quick_mode,
-                wait_for_final_state=spec.wait_for_final_state,
             )
         elif state == StateValue.DEFRAGMENT:
             resp_data = self.provisioner.delete_garbage_data_snapshot_tree(
@@ -273,7 +271,6 @@ class VSPHtiSnapshotReconciler:
                 mirror_unit_id=spec.mirror_unit_id,
                 enable_quick_mode=spec.enable_quick_mode,
                 auto_split=spec.auto_split,
-                wait_for_final_state=spec.wait_for_final_state,
             )
 
         if isinstance(resp_data, str):
@@ -462,7 +459,7 @@ class SnapshotCommonPropertiesExtractor:
             "svolNvmSubsystemName": str,
             "pvolHostGroups": list,
             "svolHostGroups": list,
-            "retentionPeriod": int,
+            "retentionPeriodInHours": int,
             "progressRate": int,
             "concordanceRate": int,
             "pvolProcessingStatus": str,

@@ -1,4 +1,3 @@
-
 # Slixmpp: The Slick XMPP Library
 # Copyright (C) 2011  Nathanael C. Fritz
 # This file is part of Slixmpp.
@@ -10,3 +9,5 @@ from slixmpp.features.feature_session.stanza import Session
 
 
 register_plugin(FeatureSession)
+
+__all__ = ['FeatureSession', 'Session']

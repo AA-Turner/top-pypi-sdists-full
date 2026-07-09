@@ -26,7 +26,7 @@ class TestPermissions(SlixTest):
 
     def testGrantedPrivileges(self):
         results = {"event": False}
-        x = self.xmpp["xep_0356"]
+        x = self.xmpp.plugin["xep_0356"]
         self.xmpp.add_event_handler(
             "privileges_advertised", lambda msg: results.__setitem__("event", True)
         )
@@ -66,7 +66,7 @@ class TestPermissions(SlixTest):
         self.assertTrue(results["event"])
 
     def testGetRosterIq(self):
-        iq = self.xmpp["xep_0356"]._make_get_roster("juliet@example.com")
+        iq = self.xmpp.plugin["xep_0356"]._make_get_roster("juliet@example.com")
         xmlstring = """
         <iq xmlns="jabber:component:accept"
             id='1'
@@ -92,7 +92,7 @@ class TestPermissions(SlixTest):
                 "groups": ["group3"],
             },
         }
-        iq = self.xmpp["xep_0356"]._make_set_roster(jid, items)
+        iq = self.xmpp.plugin["xep_0356"]._make_set_roster(jid, items)
         xmlstring = f"""
         <iq xmlns="jabber:component:accept"
             id='1'
@@ -129,7 +129,7 @@ class TestPermissions(SlixTest):
         msg["to"] = "romeo@montague.lit"
         msg["body"] = "I do not hate you"
 
-        priv_msg = self.xmpp["xep_0356"]._make_privileged_message(msg)
+        priv_msg = self.xmpp.plugin["xep_0356"]._make_privileged_message(msg)
         self.check(priv_msg, xmlstring, use_values=False)
 
     def testDetectServer(self):
@@ -138,15 +138,15 @@ class TestPermissions(SlixTest):
         msg["to"] = "romeo@montague.lit"
         msg["body"] = "I do not hate you"
 
-        priv_msg = self.xmpp["xep_0356"]._make_privileged_message(msg)
+        priv_msg = self.xmpp.plugin["xep_0356"]._make_privileged_message(msg)
         assert priv_msg.get_to() == "something"
         assert priv_msg.get_from() == "pubsub.capulet.lit"
 
     def testIqOnBehalf(self):
         iq = self.xmpp.make_iq_get(ito="somemuc@conf", ifrom="juliet@xxx")
         iq["mucadmin_query"]["item"]["affiliation"] = "member"
-        self.xmpp["xep_0356"].granted_privileges["xxx"].iq["http://jabber.org/protocol/muc#admin"] = permissions.IqPermission.BOTH
-        r = self.xmpp.loop.create_task(self.xmpp["xep_0356"].send_privileged_iq(iq, iq_id="0"))
+        self.xmpp.plugin["xep_0356"].granted_privileges["xxx"].iq["http://jabber.org/protocol/muc#admin"] = permissions.IqPermission.BOTH
+        r = self.xmpp.loop.create_task(self.xmpp.plugin["xep_0356"].send_privileged_iq(iq, iq_id="0"))
         self.send(
             """
             <iq from="pubsub.capulet.lit"
@@ -227,12 +227,12 @@ class TestPermissions(SlixTest):
         }
 
     def testIqError(self):
-        self.xmpp["xep_0356"].granted_privileges["xxx"].iq["http://jabber.org/protocol/muc#admin"] = permissions.IqPermission.BOTH
+        self.xmpp.plugin["xep_0356"].granted_privileges["xxx"].iq["http://jabber.org/protocol/muc#admin"] = permissions.IqPermission.BOTH
         iq = Iq()
         iq.set_from("juliet@xxx")
         iq.set_to("somemuc@conf")
         iq.set_type("get")
-        task = self.xmpp.loop.create_task(self.xmpp["xep_0356"].send_privileged_iq(iq, iq_id="666"))
+        task = self.xmpp.loop.create_task(self.xmpp.plugin["xep_0356"].send_privileged_iq(iq, iq_id="666"))
         self.send(
             """
             <iq xmlns="jabber:component:accept" id="666" to="juliet@xxx" from="pubsub.capulet.lit" type="get">
@@ -259,12 +259,12 @@ class TestPermissions(SlixTest):
         assert error.condition == "conflict"
 
     def testIqErrorNoNested(self):
-        self.xmpp["xep_0356"].granted_privileges["xxx"].iq["http://jabber.org/protocol/muc#admin"] = permissions.IqPermission.BOTH
+        self.xmpp.plugin["xep_0356"].granted_privileges["xxx"].iq["http://jabber.org/protocol/muc#admin"] = permissions.IqPermission.BOTH
         iq = Iq()
         iq.set_from("juliet@xxx")
         iq.set_to("somemuc@conf")
         iq.set_type("get")
-        task = self.xmpp.loop.create_task(self.xmpp["xep_0356"].send_privileged_iq(iq, iq_id="666"))
+        task = self.xmpp.loop.create_task(self.xmpp.plugin["xep_0356"].send_privileged_iq(iq, iq_id="666"))
         self.send(
             """
             <iq xmlns="jabber:component:accept" id="666" to="juliet@xxx" from="pubsub.capulet.lit" type="get">

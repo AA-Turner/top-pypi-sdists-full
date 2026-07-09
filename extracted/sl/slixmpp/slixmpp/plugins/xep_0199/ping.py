@@ -80,7 +80,7 @@ class XEP_0199(BasePlugin):
                                         self.disable_keepalive)
 
     def plugin_end(self):
-        self.xmpp['xep_0030'].del_feature(feature=Ping.namespace)
+        self.xmpp.plugin['xep_0030'].del_feature(feature=Ping.namespace)
         self.xmpp.remove_handler('Ping')
         if self.keepalive:
             self.xmpp.del_event_handler('session_start',
@@ -91,7 +91,7 @@ class XEP_0199(BasePlugin):
                                         self.disable_keepalive)
 
     def session_bind(self, jid):
-        self.xmpp['xep_0030'].add_feature(Ping.namespace)
+        self.xmpp.plugin['xep_0030'].add_feature(Ping.namespace)
 
     def _clear_pending_futures(self):
         """Cancel all pending ping futures"""

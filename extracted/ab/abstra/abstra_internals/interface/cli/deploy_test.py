@@ -8,7 +8,12 @@ from unittest.mock import MagicMock, patch
 
 import requests
 
-from abstra_internals.interface.cli.deploy import _generate_zip_file, _upload_file
+from abstra_internals.interface.cli.deploy import (
+    MissingCredentialsError,
+    _generate_zip_file,
+    _upload_file,
+    deploy_without_git,
+)
 from abstra_internals.services.fs import FileSystemService
 from abstra_internals.settings import Settings
 
@@ -132,3 +137,21 @@ class TestUploadFile(TestCase):
         ):
             _upload_file(url="https://s3/upload", file_path=self.file_path)
         self.assertEqual(put.call_count, 2)
+
+
+class TestDeployWithoutGitCredentials(TestCase):
+    def test_raises_and_does_not_build_when_no_credentials(self):
+        # resolve_headers returns None when the user isn't logged in. The deploy
+        # must fail loudly (so the editor route returns 400) instead of returning
+        # silently and reporting success.
+        with (
+            patch(
+                "abstra_internals.interface.cli.deploy.resolve_headers",
+                return_value=None,
+            ),
+            patch("abstra_internals.interface.cli.deploy.create_build") as create_build,
+        ):
+            with self.assertRaises(MissingCredentialsError):
+                deploy_without_git(show_start_message=False)
+        # It must not proceed to create a build with no credentials.
+        create_build.assert_not_called()

@@ -22,7 +22,7 @@ class ActionBatchSensor(object):
                 f'''"operation" cannot be "{kwargs["operation"]}", & must be set to one of: {options}'''
             )
 
-        serial = urllib.parse.quote(serial, safe="")
+        serial = urllib.parse.quote(str(serial), safe="")
         resource = f"/devices/{serial}/sensor/commands"
 
         body_params = [
@@ -47,7 +47,7 @@ class ActionBatchSensor(object):
 
         kwargs.update(locals())
 
-        serial = urllib.parse.quote(serial, safe="")
+        serial = urllib.parse.quote(str(serial), safe="")
         resource = f"/devices/{serial}/sensor/relationships"
 
         body_params = [
@@ -78,7 +78,7 @@ class ActionBatchSensor(object):
 
         kwargs.update(locals())
 
-        networkId = urllib.parse.quote(networkId, safe="")
+        networkId = urllib.parse.quote(str(networkId), safe="")
         resource = f"/networks/{networkId}/sensor/alerts/profiles"
 
         body_params = [
@@ -116,8 +116,8 @@ class ActionBatchSensor(object):
 
         kwargs.update(locals())
 
-        networkId = urllib.parse.quote(networkId, safe="")
-        id = urllib.parse.quote(id, safe="")
+        networkId = urllib.parse.quote(str(networkId), safe="")
+        id = urllib.parse.quote(str(id), safe="")
         resource = f"/networks/{networkId}/sensor/alerts/profiles/{id}"
 
         body_params = [
@@ -146,8 +146,8 @@ class ActionBatchSensor(object):
         - id (string): ID
         """
 
-        networkId = urllib.parse.quote(networkId, safe="")
-        id = urllib.parse.quote(id, safe="")
+        networkId = urllib.parse.quote(str(networkId), safe="")
+        id = urllib.parse.quote(str(id), safe="")
         resource = f"/networks/{networkId}/sensor/alerts/profiles/{id}"
 
         action = {
@@ -168,8 +168,8 @@ class ActionBatchSensor(object):
 
         kwargs = locals()
 
-        networkId = urllib.parse.quote(networkId, safe="")
-        mqttBrokerId = urllib.parse.quote(mqttBrokerId, safe="")
+        networkId = urllib.parse.quote(str(networkId), safe="")
+        mqttBrokerId = urllib.parse.quote(str(mqttBrokerId), safe="")
         resource = f"/networks/{networkId}/sensor/mqttBrokers/{mqttBrokerId}"
 
         body_params = [

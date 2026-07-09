@@ -16,7 +16,7 @@ class Signed(ElementBase):
     def set_signed(self, value):
         parent = self.parent()
         xmpp = parent.stream
-        data = xmpp['xep_0027'].sign(value, parent['from'])
+        data = xmpp.plugin['xep_0027'].sign(value, parent['from'])
         if data:
             self.xml.text = data
         else:
@@ -36,7 +36,7 @@ class Encrypted(ElementBase):
     def set_encrypted(self, value):
         parent = self.parent()
         xmpp = parent.stream
-        data = xmpp['xep_0027'].encrypt(value, parent['to'])
+        data = xmpp.plugin['xep_0027'].encrypt(value, parent['to'])
         if data:
             self.xml.text = data
         else:
@@ -46,5 +46,5 @@ class Encrypted(ElementBase):
         parent = self.parent()
         xmpp = parent.stream
         if self.xml.text:
-            return xmpp['xep_0027'].decrypt(self.xml.text, parent['to'])
+            return xmpp.plugin['xep_0027'].decrypt(self.xml.text, parent['to'])
         return None

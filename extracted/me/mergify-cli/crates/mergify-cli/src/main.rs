@@ -499,6 +499,7 @@ struct CiScopesSendOpts {
     scopes_json: Option<PathBuf>,
     scopes_file: Option<PathBuf>,
     file_deprecated: Option<PathBuf>,
+    all_scopes: bool,
 }
 
 struct CiJunitProcessOpts {
@@ -912,6 +913,7 @@ fn dispatch_from_parsed(parsed: CliRoot) -> Dispatch {
                     scopes_json,
                     scopes_file,
                     file_deprecated,
+                    all,
                 }),
         }) => Dispatch::Native(NativeCommand::CiScopesSend(CiScopesSendOpts {
             repository,
@@ -922,6 +924,7 @@ fn dispatch_from_parsed(parsed: CliRoot) -> Dispatch {
             scopes_json,
             scopes_file,
             file_deprecated,
+            all_scopes: all,
         })),
         Subcommands::Ci(CiArgs {
             command: CiSubcommand::GitRefs(GitRefsCliArgs { format }),
@@ -1481,6 +1484,7 @@ fn run_native(cmd: NativeCommand) -> ExitCode {
                     scopes_json: opts.scopes_json.as_deref(),
                     scopes_file: opts.scopes_file.as_deref(),
                     deprecated_file: opts.file_deprecated.as_deref(),
+                    all_scopes: opts.all_scopes,
                 },
                 &mut output,
             )
@@ -2066,7 +2070,12 @@ fn run_native(cmd: NativeCommand) -> ExitCode {
 
                 match outcome {
                     mergify_stack::commands::checkout::Outcome::NoStackedPrs => {
+                        // An empty result is a not-found state, not a
+                        // success — exit 3 so scripts can tell "checked
+                        // out" from "nothing to check out" (matches
+                        // `stack open`'s empty-stack handling).
                         println!("No stacked pull requests found");
+                        Ok(mergify_core::ExitCode::StackNotFound)
                     }
                     mergify_stack::commands::checkout::Outcome::CheckedOut {
                         chain,
@@ -2089,9 +2098,9 @@ fn run_native(cmd: NativeCommand) -> ExitCode {
                                 "Checked out '{local_branch}' tracking {upstream}",
                             );
                         }
+                        Ok(mergify_core::ExitCode::Success)
                     }
                 }
-                Ok(mergify_core::ExitCode::Success)
             }
             NativeCommand::StackSync(opts) => {
                 let token = mergify_core::auth::resolve_token(opts.token.as_deref())?;
@@ -2309,6 +2318,17 @@ fn run_native(cmd: NativeCommand) -> ExitCode {
                     opts.branch_prefix.clone(),
                 )
                 .await?;
+                // Picker only when a human is on both ends: stdin
+                // feeds the keystrokes, stderr is where dialoguer
+                // draws the list. stdout stays checked too so piped
+                // output (e.g. `| cat`) keeps the silent
+                // open-the-leaf default the Rust port shipped with.
+                let interactive = std::io::stdin().is_terminal()
+                    && std::io::stdout().is_terminal()
+                    && std::io::stderr().is_terminal();
+                let picker: mergify_stack::commands::open::Selector<'_> = &|labels, default| {
+                    mergify_tui::fuzzy_select("Select a PR to open", labels, default)
+                };
                 let outcome = mergify_stack::commands::open::run(
                     &mergify_stack::commands::open::Options {
                         repo_dir: None,
@@ -2319,6 +2339,7 @@ fn run_native(cmd: NativeCommand) -> ExitCode {
                         branch_prefix: &ctx.branch_prefix,
                         trunk: (&ctx.trunk.0, &ctx.trunk.1),
                         commit: opts.commit.as_deref(),
+                        selector: interactive.then_some(picker),
                     },
                 )
                 .await?;
@@ -2337,6 +2358,13 @@ fn run_native(cmd: NativeCommand) -> ExitCode {
                         // can detect the empty stack via `$?`.
                         println!("No commits in stack");
                         Ok(mergify_core::ExitCode::StackNotFound)
+                    }
+                    mergify_stack::commands::open::Outcome::Cancelled => {
+                        // Esc in the picker: the user chose nothing —
+                        // success, not failure (scripts rely on `$?`).
+                        // Ctrl-C exits 130 in the picker's SIGINT
+                        // handler and normally never reaches here.
+                        Ok(mergify_core::ExitCode::Success)
                     }
                 }
             }
@@ -2572,10 +2600,11 @@ fn run_native(cmd: NativeCommand) -> ExitCode {
 /// Most commands talk to the Mergify API and need a token. Set
 /// `MERGIFY_TOKEN` (or `GITHUB_TOKEN`) to apply it to every command,
 /// or pass `--token` to an individual command — there is no global
-/// `--token` on `mergify` itself. Run `mergify <command> --help` for
-/// detailed help and options on any command.
+/// `--token` on `mergify` itself. Run `mergify <command> --help` (or
+/// the git-style `mergify help <command>`) for detailed help and
+/// options on any command.
 #[derive(Parser)]
-#[command(name = "mergify", disable_help_subcommand = true, version = VERSION)]
+#[command(name = "mergify", version = VERSION)]
 struct CliRoot {
     /// Increase log verbosity: -v info, -vv debug, -vvv trace. Logs
     /// go to stderr so stdout stays clean for piping. `RUST_LOG`
@@ -2727,9 +2756,9 @@ enum StackSubcommand {
     Reword(StackRewordCli),
     /// Reorder the stack's commits.
     ///
-    /// Rebase the stack into the commit order you list. Commits you don't
-    /// mention keep their relative order. Each accepts a SHA prefix or a
-    /// Change-Id prefix. Use `--dry-run` to preview.
+    /// Rebase the stack into the order you list. List every commit in the
+    /// stack — all of them must appear, in the new order. Each accepts a
+    /// SHA prefix or a Change-Id prefix. Use `--dry-run` to preview.
     Reorder(StackReorderCli),
     /// Move a commit within the stack.
     ///
@@ -2984,7 +3013,8 @@ impl From<StackRewordCli> for StackRewordOpts {
 
 #[derive(clap::Args)]
 struct StackReorderCli {
-    /// Commits in the order you want them rebased into.
+    /// Every commit in the stack, in the order you want them rebased
+    /// into. All stack commits must be listed.
     #[arg(required = true)]
     commits: Vec<String>,
 
@@ -3311,7 +3341,9 @@ impl From<StackListCli> for StackListOpts {
 #[derive(clap::Args)]
 struct StackOpenCli {
     /// Commit whose pull request to open. Accepts a SHA prefix or a
-    /// Change-Id prefix; defaults to HEAD.
+    /// Change-Id prefix. When omitted: on a terminal, pick
+    /// interactively from the stack (type to fuzzy-filter, HEAD
+    /// preselected); otherwise defaults to HEAD.
     commit: Option<String>,
 
     /// Author of the stack. Defaults to the token's user.
@@ -3734,9 +3766,11 @@ struct ScopesSendCliArgs {
     #[arg(long, short = 'r')]
     repository: Option<String>,
 
-    /// Pull request number. Falls back to ``GITHUB_EVENT_PATH``
-    /// (reads ``.pull_request.number``). When neither is available
-    /// the command prints a skip message and exits 0.
+    /// Pull request number. When omitted, it's detected from the CI
+    /// environment: under GitHub Actions from the event payload
+    /// (``.pull_request.number`` in ``GITHUB_EVENT_PATH``), under
+    /// Buildkite from ``BUILDKITE_PULL_REQUEST``. When none can be
+    /// detected the command prints a skip message and exits 0.
     #[arg(long = "pull-request", short = 'p')]
     pull_request: Option<u64>,
 
@@ -3766,6 +3800,13 @@ struct ScopesSendCliArgs {
     /// Deprecated alias for ``--scopes-json``.
     #[arg(long = "file", short = 'f', hide = true)]
     file_deprecated: Option<PathBuf>,
+
+    /// Declare that the pull request impacts every scope. The merge
+    /// queue then treats it as a barrier: it is never batched or run
+    /// in parallel with other pull requests. The concrete scopes are
+    /// still sent alongside the flag.
+    #[arg(long = "all")]
+    all: bool,
 }
 
 #[derive(clap::Args)]
@@ -4624,5 +4665,27 @@ mod tests {
                 )),
             "the replacement subgroup must parse (help-display Err counts as parsed)",
         );
+    }
+
+    #[test]
+    fn git_style_help_subcommand_is_supported() {
+        // `mergify help` and `mergify help <cmd>` must be recognized
+        // (clap surfaces help as a DisplayHelp "error"), not rejected
+        // as an unknown subcommand the way they were while
+        // `disable_help_subcommand` was set.
+        for argv in [
+            &["mergify", "help"][..],
+            &["mergify", "help", "queue"],
+            &["mergify", "help", "stack", "push"],
+        ] {
+            // `CliRoot` isn't `Debug`, so drop the Ok value with
+            // `.err()` before inspecting the error kind.
+            let kind = CliRoot::try_parse_from(argv).err().map(|e| e.kind());
+            assert_eq!(
+                kind,
+                Some(clap::error::ErrorKind::DisplayHelp),
+                "{argv:?} should display help, got {kind:?}",
+            );
+        }
     }
 }

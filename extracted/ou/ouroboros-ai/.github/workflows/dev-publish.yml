@@ -1,4 +1,4 @@
-name: Dev Publish
+name: Dev Build
 
 on:
   push:
@@ -10,12 +10,12 @@ on:
 
 jobs:
   dev-publish:
-    name: Publish Dev Build to PyPI
+    name: Build Dev Artifact
     runs-on: ubuntu-latest
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v6.0.3
+        uses: actions/checkout@v7.0.0
         with:
           fetch-depth: 0
 
@@ -37,7 +37,7 @@ jobs:
 
       - name: Set up Python
         if: steps.check.outputs.skip == 'false'
-        uses: actions/setup-python@v6
+        uses: actions/setup-python@v6.3.0
         with:
           python-version: "3.14"
 
@@ -83,11 +83,28 @@ jobs:
           print('opencode plugin assets present:', required)
           "
 
-      - name: Publish to PyPI
+      # Dev builds are CI artifacts, NOT PyPI releases. Publishing every main
+      # push to PyPI re-shipped the sdist on each commit and drove the
+      # ouroboros-ai project past its 10GB storage cap (publishes started
+      # 400ing). Artifacts auto-expire, cost no project storage, and are
+      # downloadable per-run from the Actions tab. Real releases still go to
+      # PyPI via release.yml on a v* tag.
+      - name: Upload dev build artifact
         if: steps.check.outputs.skip == 'false'
-        env:
-          UV_PUBLISH_TOKEN: ${{ secrets.PYPI_API_TOKEN }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: ouroboros-ai-${{ steps.build.outputs.version }}
+          path: dist/*
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Summarize dev build
+        if: steps.check.outputs.skip == 'false'
         run: |
-          uv publish --check-url https://pypi.org/simple/ dist/*
-          echo "::notice::✅ Published ouroboros-ai==${{ steps.build.outputs.version }} to PyPI"
-          echo "::notice::Install: pip install ouroboros-ai==${{ steps.build.outputs.version }}"
+          echo "::notice::📦 Dev build ${{ steps.build.outputs.version }} available as an Actions artifact (Actions tab → this run → Artifacts)"
+          echo "### 📦 Dev build \`${{ steps.build.outputs.version }}\`" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "Download the wheel/sdist from the **Artifacts** section of this run, then:" >> "$GITHUB_STEP_SUMMARY"
+          echo '```bash' >> "$GITHUB_STEP_SUMMARY"
+          echo "pip install ./ouroboros_ai-${{ steps.build.outputs.version }}-py3-none-any.whl" >> "$GITHUB_STEP_SUMMARY"
+          echo '```' >> "$GITHUB_STEP_SUMMARY"

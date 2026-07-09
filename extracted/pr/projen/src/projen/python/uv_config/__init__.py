@@ -11,7 +11,7 @@ import jsii
 import publication
 import typing_extensions
 
-from jsii._type_checking import check_type
+from jsii._type_checking import cached_type_hints, check_type
 
 
 from ..._jsii import *
@@ -161,7 +161,7 @@ class BuildBackendSettings:
         if isinstance(data, dict):
             data = WheelDataIncludes(**data)
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__e8edb4b678376787a735855010994c917f5562ec1c18ac7700c5f21373aa27eb)
+            type_hints = cached_type_hints(_typecheckingstub__e8edb4b678376787a735855010994c917f5562ec1c18ac7700c5f21373aa27eb)
             check_type(argname="argument data", value=data, expected_type=type_hints["data"])
             check_type(argname="argument default_excludes", value=default_excludes, expected_type=type_hints["default_excludes"])
             check_type(argname="argument module_name", value=module_name, expected_type=type_hints["module_name"])
@@ -381,7 +381,7 @@ class DependencyGroupSettings:
         :schema: DependencyGroupSettings
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__bd491f584ee7212fb2c3697548f60d044362ecd866f97a41a269a2f581e15d60)
+            type_hints = cached_type_hints(_typecheckingstub__bd491f584ee7212fb2c3697548f60d044362ecd866f97a41a269a2f581e15d60)
             check_type(argname="argument requires_python", value=requires_python, expected_type=type_hints["requires_python"])
         self._values: typing.Dict[builtins.str, typing.Any] = {}
         if requires_python is not None:
@@ -480,7 +480,7 @@ class Index:
         if isinstance(cache_control, dict):
             cache_control = IndexCacheControl(**cache_control)
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__075e56d66f36a514ad1fafdc5b03260161a84fb1d2c5ce8069204ee4b239111d)
+            type_hints = cached_type_hints(_typecheckingstub__075e56d66f36a514ad1fafdc5b03260161a84fb1d2c5ce8069204ee4b239111d)
             check_type(argname="argument url", value=url, expected_type=type_hints["url"])
             check_type(argname="argument authenticate", value=authenticate, expected_type=type_hints["authenticate"])
             check_type(argname="argument cache_control", value=cache_control, expected_type=type_hints["cache_control"])
@@ -700,7 +700,7 @@ class IndexCacheControl:
         :schema: IndexCacheControl
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__dadc80a7c1e7527e1cc3946322c9b1d4206a4fd507f1046ab1298219615cd172)
+            type_hints = cached_type_hints(_typecheckingstub__dadc80a7c1e7527e1cc3946322c9b1d4206a4fd507f1046ab1298219615cd172)
             check_type(argname="argument api", value=api, expected_type=type_hints["api"])
             check_type(argname="argument files", value=files, expected_type=type_hints["files"])
         self._values: typing.Dict[builtins.str, typing.Any] = {}
@@ -897,7 +897,7 @@ class PipGroupName:
         :schema: PipGroupName
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__61408a230f83617e8924d0c29339bd155df27bf401eeae828f9b19222e91953d)
+            type_hints = cached_type_hints(_typecheckingstub__61408a230f83617e8924d0c29339bd155df27bf401eeae828f9b19222e91953d)
             check_type(argname="argument name", value=name, expected_type=type_hints["name"])
             check_type(argname="argument path", value=path, expected_type=type_hints["path"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -1138,7 +1138,7 @@ class PipOptions:
         :schema: PipOptions
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__945d6160c5542e9b39ed19c707a1b0e7ee5ea909cc55041a32f162098f3853e7)
+            type_hints = cached_type_hints(_typecheckingstub__945d6160c5542e9b39ed19c707a1b0e7ee5ea909cc55041a32f162098f3853e7)
             check_type(argname="argument all_extras", value=all_extras, expected_type=type_hints["all_extras"])
             check_type(argname="argument allow_empty_requirements", value=allow_empty_requirements, expected_type=type_hints["allow_empty_requirements"])
             check_type(argname="argument annotation_style", value=annotation_style, expected_type=type_hints["annotation_style"])
@@ -2323,7 +2323,7 @@ class SchemaConflictItem:
         :schema: SchemaConflictItem
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__5b46b2b7c2469ab6410378ad3f31dbc8765e96c46f61c3c1491291cc61b80c51)
+            type_hints = cached_type_hints(_typecheckingstub__5b46b2b7c2469ab6410378ad3f31dbc8765e96c46f61c3c1491291cc61b80c51)
             check_type(argname="argument extra", value=extra, expected_type=type_hints["extra"])
             check_type(argname="argument group", value=group, expected_type=type_hints["group"])
             check_type(argname="argument package", value=package, expected_type=type_hints["package"])
@@ -2407,7 +2407,7 @@ class StaticMetadata:
         :schema: StaticMetadata
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__95950a1bc1c16c14e86122ea689404f253b5e734ee94d174a1c7d2cb8d2e1b13)
+            type_hints = cached_type_hints(_typecheckingstub__95950a1bc1c16c14e86122ea689404f253b5e734ee94d174a1c7d2cb8d2e1b13)
             check_type(argname="argument name", value=name, expected_type=type_hints["name"])
             check_type(argname="argument provides_extra", value=provides_extra, expected_type=type_hints["provides_extra"])
             check_type(argname="argument requires_dist", value=requires_dist, expected_type=type_hints["requires_dist"])
@@ -2839,7 +2839,7 @@ class ToolUvWorkspace:
         :schema: ToolUvWorkspace
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__104c3e675eb0f61a5c9f7a762fb9754ae023eb9e0db4e9434a1631ad9e3119bb)
+            type_hints = cached_type_hints(_typecheckingstub__104c3e675eb0f61a5c9f7a762fb9754ae023eb9e0db4e9434a1631ad9e3119bb)
             check_type(argname="argument exclude", value=exclude, expected_type=type_hints["exclude"])
             check_type(argname="argument members", value=members, expected_type=type_hints["members"])
         self._values: typing.Dict[builtins.str, typing.Any] = {}
@@ -3377,7 +3377,7 @@ class UvConfiguration:
         if isinstance(workspace, dict):
             workspace = ToolUvWorkspace(**workspace)
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__dc04a41ac6b3f4657c0dca1f873f83584612a895d87f8c6a6b420bd4d56e6612)
+            type_hints = cached_type_hints(_typecheckingstub__dc04a41ac6b3f4657c0dca1f873f83584612a895d87f8c6a6b420bd4d56e6612)
             check_type(argname="argument add_bounds", value=add_bounds, expected_type=type_hints["add_bounds"])
             check_type(argname="argument allow_insecure_host", value=allow_insecure_host, expected_type=type_hints["allow_insecure_host"])
             check_type(argname="argument build_backend", value=build_backend, expected_type=type_hints["build_backend"])
@@ -4572,7 +4572,7 @@ class WheelDataIncludes:
         :schema: WheelDataIncludes
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__0be987521727f135b7dbd7d35da55b57aed2eaf5c64a6c79a5c0e3283d6277aa)
+            type_hints = cached_type_hints(_typecheckingstub__0be987521727f135b7dbd7d35da55b57aed2eaf5c64a6c79a5c0e3283d6277aa)
             check_type(argname="argument data", value=data, expected_type=type_hints["data"])
             check_type(argname="argument headers", value=headers, expected_type=type_hints["headers"])
             check_type(argname="argument platlib", value=platlib, expected_type=type_hints["platlib"])

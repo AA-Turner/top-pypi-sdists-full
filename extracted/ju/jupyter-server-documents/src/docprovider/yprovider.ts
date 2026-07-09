@@ -4,6 +4,7 @@
 |----------------------------------------------------------------------------*/
 
 import { IDocumentProvider } from '@jupyter/collaborative-drive';
+import { IForkProvider } from '@jupyter/docprovider';
 import { showErrorMessage, Dialog } from '@jupyterlab/apputils';
 import { User } from '@jupyterlab/services';
 import { TranslationBundle } from '@jupyterlab/translation';
@@ -34,7 +35,7 @@ import { Widget } from '@lumino/widgets';
  *
  */
 
-export class WebSocketProvider implements IDocumentProvider {
+export class WebSocketProvider implements IDocumentProvider, IForkProvider {
   /**
    * Maximum number of reconnect attempts before showing the retry dialog.
    */
@@ -158,6 +159,19 @@ export class WebSocketProvider implements IDocumentProvider {
     this._connect();
   }
 
+  async connectToForkDoc(
+    _forkRoomId: string,
+    _sessionId: string
+  ): Promise<void> {
+    throw new Error(
+      'NotImplementedError: Jupyter Server Documents does not yet support document forks.'
+    );
+  }
+
+  async save(): Promise<void> {
+    // No-op: saving is handled server-side.
+  }
+
   /**
    * Gets the file ID for this path. This should only be called once when the
    * provider connects for the first time, because any future in-band moves may
@@ -196,10 +210,12 @@ export class WebSocketProvider implements IDocumentProvider {
       return;
     }
 
-    // Otherwise, initialize the `YWebsocketProvider` to connect
+    const roomName = `${this._format}:${this._contentType}:${this._fileId}`;
+
+    // Initialize the `YWebsocketProvider` to connect
     this._yWebsocketProvider = new YWebsocketProvider(
       this._serverUrl,
-      `${this._format}:${this._contentType}:${this._fileId}`,
+      roomName,
       this._sharedModel.ydoc,
       {
         disableBc: true,
@@ -478,6 +494,12 @@ export class WebSocketProvider implements IDocumentProvider {
     if (isSynced) {
       if (this._yWebsocketProvider) {
         this._yWebsocketProvider.off('sync', this._onSync);
+      }
+      // Store document_id AFTER sync so it doesn't create a pre-sync Y.js
+      // operation that causes a divergent-history false-positive on the server.
+      const roomName = this._yWebsocketProvider?.roomname;
+      if (roomName) {
+        this._sharedModel.setState('document_id', roomName);
       }
       this._ready.resolve();
     }

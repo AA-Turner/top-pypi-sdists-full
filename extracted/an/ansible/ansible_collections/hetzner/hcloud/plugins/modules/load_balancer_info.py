@@ -209,11 +209,6 @@ hcloud_load_balancer_info:
                             returned: always
                             type: bool
                             sample: false
-                        timeout_idle:
-                            description: Idle timeout in seconds for HTTP connections.
-                            returned: always
-                            type: int
-                            sample: 50
                 health_check:
                     description: Configuration for health checks
                     returned: always
@@ -326,7 +321,6 @@ class AnsibleHCloudLoadBalancerInfo(AnsibleHCloud):
                 "cookie_lifetime": service.http.cookie_lifetime,
                 "redirect_http": service.http.redirect_http,
                 "sticky_sessions": service.http.sticky_sessions,
-                "timeout_idle": service.http.timeout_idle,
                 "certificates": [certificate.name for certificate in service.http.certificates],
             }
         health_check = {

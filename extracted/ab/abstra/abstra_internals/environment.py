@@ -74,6 +74,13 @@ FILES_FOLDER = os.getenv("ABSTRA_FILES_FOLDER")
 WORKER_FILES_FOLDER = os.getenv("ABSTRA_WORKER_FILES_FOLDER", "/files")
 DISABLED_STAGES_FOLDER = os.getenv("ABSTRA_DISABLED_STAGES_FOLDER")
 
+# CLAMAV DOWNLOAD SCANNING
+CLAMAV_SCAN_ENABLED = (
+    os.getenv("ABSTRA_CLAMAV_SCAN_ENABLED", "false").strip().lower() == "true"
+)
+CLAMD_HOST = os.getenv("ABSTRA_CLAMD_HOST", "clamd.security.svc.cluster.local")
+CLAMD_PORT = int(os.getenv("ABSTRA_CLAMD_PORT", "3310"))
+
 # WEBEDITOR
 WAITING_ROOM_URL = os.getenv("ABSTRA_WAITING_ROOM_URL") or ""
 

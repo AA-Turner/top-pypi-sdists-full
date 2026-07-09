@@ -5,13 +5,19 @@ from __future__ import annotations
 import asyncio
 from dataclasses import replace
 from datetime import UTC, datetime
+import os
 from types import SimpleNamespace
 from typing import Any
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from ouroboros.core.seed import OntologySchema, Seed, SeedMetadata
+from ouroboros.core.seed import (
+    AcceptanceCriterionSpec,
+    OntologySchema,
+    Seed,
+    SeedMetadata,
+)
 from ouroboros.events.base import BaseEvent
 from ouroboros.mcp.types import MCPToolDefinition
 from ouroboros.orchestrator.adapter import (
@@ -23,6 +29,7 @@ from ouroboros.orchestrator.adapter import (
 )
 from ouroboros.orchestrator.coordinator import CoordinatorReview, FileConflict
 from ouroboros.orchestrator.dependency_analyzer import ACNode, DependencyGraph
+from ouroboros.orchestrator.evidence.claims import _runtime_messages_support_file_claim
 from ouroboros.orchestrator.evidence_schema import EvidenceRecord, ValidationResult
 from ouroboros.orchestrator.execution_runtime_scope import ExecutionNodeIdentity
 from ouroboros.orchestrator.level_context import ACContextSummary, LevelContext
@@ -1401,6 +1408,531 @@ def test_atomic_verifier_classifies_dependent_masked_test_evidence_as_form_misma
         in (verdict.reasons[0])
     )
     assert "tests_passed: com.example.app.unit.SomeNewTest" in verdict.reasons[0]
+
+
+def _greeting_repro_messages(edit_path: str) -> tuple[AgentMessage, ...]:
+    """Build the maintainer's live codex transcript for the greeting seed.
+
+    The Edit event records an absolute disposable-repo path while the Bash test
+    command is wrapped in ``/bin/zsh -lc "..."`` with the inner ``python3 -c``
+    payload requoted, matching the exact shapes that broke fat-harness matching.
+    """
+    wrapped_command = (
+        '/bin/zsh -lc "python3 -c \\"from hello import greet; '
+        "assert greet('World') == 'Hello, World!'; print('OK')\\\"\""
+    )
+    return (
+        AgentMessage(
+            type="tool",
+            content="Edit hello.py",
+            tool_name="Edit",
+            data={"tool_input": {"file_path": edit_path}},
+        ),
+        AgentMessage(
+            type="tool",
+            content="run verification",
+            tool_name="Bash",
+            data={"tool_input": {"command": wrapped_command}},
+        ),
+        AgentMessage(
+            type="tool_result",
+            content="OK",
+            tool_name=None,
+            data={"subtype": "tool_result", "output": "OK", "exit_code": 0},
+        ),
+        AgentMessage(type="result", content="done", data={}),
+    )
+
+
+_GREETING_AC = "hello.py defines greet(name) returning the string Hello, <name>"
+_GREETING_INNER_COMMAND = (
+    "python3 -c \"from hello import greet; assert greet('World') == 'Hello, World!'; print('OK')\""
+)
+
+
+def test_atomic_verifier_accepts_relative_claim_against_absolute_transcript_without_cwd() -> None:
+    """Release blocker (files_touched half): relative claim matches wrapped absolute transcript.
+
+    The worker claims ``files_touched: hello.py`` while the transcript Edit event
+    records ``/private/tmp/.../hello.py`` and no workspace cwd was threaded
+    (``task_cwd`` None). ``commands_run`` is a shell-wrapped inline command. On a
+    contract-carrying AC (``has_success_contract=True``) ``tests_passed`` is
+    delegated to the orchestrator verify-gate, so only files_touched +
+    commands_run are gated here — both must back cleanly.
+    """
+    executor = ParallelACExecutor(
+        adapter=MagicMock(working_directory=None),
+        event_store=AsyncMock(),
+        console=MagicMock(),
+        enable_decomposition=False,
+        execution_profile=load_profile("code"),
+        fat_harness_mode=True,
+        task_cwd=None,
+    )
+
+    verdict = executor._verify_atomic_evidence_against_runtime_messages(
+        messages=_greeting_repro_messages("/private/tmp/ooo-repro-blos/hello.py"),
+        typed_evidence=EvidenceRecord(
+            data={
+                "files_touched": ["hello.py"],
+                "commands_run": [_GREETING_INNER_COMMAND],
+            }
+        ),
+        ac_content=_GREETING_AC,
+        has_success_contract=True,
+        verify_gate_active=True,
+    )
+
+    assert verdict.passed is True, verdict.reasons
+    assert verdict.failure_class is None
+
+
+def test_atomic_verifier_accepts_symlinked_cwd_against_resolved_transcript_path(
+    tmp_path,
+) -> None:
+    """The resolve tier matches a symlinked run cwd against a resolved transcript path.
+
+    Portable stand-in for the macOS ``/tmp`` -> ``/private/tmp`` layout: create a
+    real symlink inside ``tmp_path``, run with ``task_cwd`` set to the symlinked
+    directory, and have the transcript record the Edit under the resolved real
+    directory. ``Path.resolve`` on both sides must treat them as the same file.
+    """
+    real_dir = tmp_path / "real_workspace"
+    real_dir.mkdir()
+    (real_dir / "hello.py").write_text("def greet(name):\n    return f'Hello, {name}!'\n")
+    link_dir = tmp_path / "linked_workspace"
+    try:
+        os.symlink(real_dir, link_dir, target_is_directory=True)
+    except (OSError, NotImplementedError):  # pragma: no cover - unprivileged/Windows
+        pytest.skip("symlink creation not permitted in this environment")
+
+    assert link_dir.resolve() == real_dir.resolve()
+    assert str(link_dir) != str(real_dir)
+
+    executor = ParallelACExecutor(
+        adapter=MagicMock(working_directory=str(link_dir)),
+        event_store=AsyncMock(),
+        console=MagicMock(),
+        enable_decomposition=False,
+        execution_profile=load_profile("code"),
+        fat_harness_mode=True,
+        # Run cwd is the symlink; the transcript path below is under the real dir.
+        task_cwd=str(link_dir),
+    )
+    verdict = executor._verify_atomic_evidence_against_runtime_messages(
+        messages=_greeting_repro_messages(str(real_dir / "hello.py")),
+        typed_evidence=EvidenceRecord(
+            data={
+                "files_touched": ["hello.py"],
+                "commands_run": [_GREETING_INNER_COMMAND],
+            }
+        ),
+        ac_content=_GREETING_AC,
+        has_success_contract=True,
+        verify_gate_active=True,
+    )
+    assert verdict.passed is True, verdict.reasons
+
+
+def test_atomic_verifier_rejects_fabricated_greeting_claims_without_transcript() -> None:
+    """A near-miss filename and a near-miss command payload still fail (no real event)."""
+    executor = ParallelACExecutor(
+        adapter=MagicMock(working_directory=None),
+        event_store=AsyncMock(),
+        console=MagicMock(),
+        enable_decomposition=False,
+        execution_profile=load_profile("code"),
+        fat_harness_mode=True,
+        task_cwd=None,
+    )
+
+    verdict = executor._verify_atomic_evidence_against_runtime_messages(
+        messages=_greeting_repro_messages("/private/tmp/ooo-repro-blos/hello.py"),
+        typed_evidence=EvidenceRecord(
+            data={
+                # Different filename than the transcript Edit event.
+                "files_touched": ["goodbye.py"],
+                # Different command payload than the transcript Bash event.
+                "commands_run": ["python3 -c \"from hello import greet; print(greet('x'))\""],
+                "tests_passed": [
+                    "python3 -c \"from hello import greet; assert greet('World') == 'WRONG'\""
+                ],
+            }
+        ),
+        ac_content=_GREETING_AC,
+    )
+
+    assert verdict.passed is False
+    assert verdict.failure_class == "FABRICATION_SUSPECTED"
+    assert "files_touched: goodbye.py" in verdict.reasons[0]
+
+
+def _file_scope_executor(task_cwd: str | None) -> ParallelACExecutor:
+    return ParallelACExecutor(
+        adapter=MagicMock(working_directory=task_cwd),
+        event_store=AsyncMock(),
+        console=MagicMock(),
+        enable_decomposition=False,
+        execution_profile=load_profile("code"),
+        fat_harness_mode=True,
+        task_cwd=task_cwd,
+    )
+
+
+def test_files_touched_rejects_absolute_outside_workspace_claim_with_touch(tmp_path) -> None:
+    """Scope guard: an outside-workspace absolute claim cannot be backed by ``touch``.
+
+    The bot's repro: ``task_cwd`` is a subdir, ``files_touched`` names a sibling
+    file outside it, and a ``touch <outside>`` command + exit 0 must NOT satisfy
+    the claim. ``files_touched`` is contractually workspace-scoped.
+    """
+    workspace = tmp_path / "work"
+    workspace.mkdir()
+    (workspace / "hello.py").write_text("x = 1\n")
+    outside = tmp_path / "outside.py"
+    executor = _file_scope_executor(str(workspace))
+
+    verdict = executor._verify_atomic_evidence_against_runtime_messages(
+        messages=(
+            AgentMessage(
+                type="tool",
+                content="touch outside",
+                tool_name="Bash",
+                data={"tool_input": {"command": f"touch {outside}"}, "exit_code": 0},
+            ),
+            AgentMessage(
+                type="tool",
+                content="pytest",
+                tool_name="Bash",
+                data={"tool_input": {"command": "pytest"}, "exit_code": 0, "output": "1 passed"},
+            ),
+            AgentMessage(type="result", content="done", data={}),
+        ),
+        typed_evidence=EvidenceRecord(
+            data={
+                "files_touched": [str(outside)],
+                "commands_run": [f"touch {outside}", "pytest"],
+                "tests_passed": ["pytest"],
+            }
+        ),
+        ac_content="Implement the module.",
+    )
+
+    assert verdict.passed is False
+    assert "files_touched: " in verdict.reasons[0]
+
+
+def test_files_touched_rejects_parent_traversal_claim_escaping_cwd(tmp_path) -> None:
+    """Scope guard: a ``../`` claim escaping the workspace is rejected."""
+    workspace = tmp_path / "work"
+    workspace.mkdir()
+    executor = _file_scope_executor(str(workspace))
+
+    verdict = executor._verify_atomic_evidence_against_runtime_messages(
+        messages=(
+            AgentMessage(
+                type="tool",
+                content="touch escape",
+                tool_name="Bash",
+                data={"tool_input": {"command": "touch ../outside.py"}, "exit_code": 0},
+            ),
+            AgentMessage(type="result", content="done", data={}),
+        ),
+        typed_evidence=EvidenceRecord(
+            data={
+                "files_touched": ["../outside.py"],
+                "commands_run": ["touch ../outside.py"],
+                "tests_passed": ["pytest"],
+            }
+        ),
+        ac_content="Implement the module.",
+    )
+
+    assert verdict.passed is False
+    assert "files_touched: ../outside.py" in verdict.reasons[0]
+
+
+def test_files_touched_accepts_in_workspace_relative_vs_absolute_edit(tmp_path) -> None:
+    """In-workspace relative claim matches an absolute Edit path (form mismatch)."""
+    workspace = tmp_path / "work"
+    workspace.mkdir()
+    (workspace / "hello.py").write_text("def greet(name):\n    return f'Hello, {name}!'\n")
+    edit = AgentMessage(
+        type="tool",
+        content="edit",
+        tool_name="Edit",
+        data={"tool_input": {"file_path": str(workspace / "hello.py")}},
+    )
+
+    assert _runtime_messages_support_file_claim("hello.py", (edit,), task_cwd=str(workspace))
+
+
+def test_files_touched_task_cwd_none_rejects_touch_command_text() -> None:
+    """Workspace unknown: only structured Edit/Write proves files, not ``touch`` text."""
+    touch = AgentMessage(
+        type="tool",
+        content="touch outside",
+        tool_name="Bash",
+        data={"tool_input": {"command": "touch /tmp/evil/outside.py"}, "exit_code": 0},
+    )
+    # Command-text mutation is not trusted when the workspace is unknown.
+    assert not _runtime_messages_support_file_claim("outside.py", (touch,), task_cwd=None)
+    # But a structured Edit/Write event under an unknown-cwd absolute path IS
+    # matched by basename+parent suffix (the original live-fix shape).
+    edit = AgentMessage(
+        type="tool",
+        content="edit",
+        tool_name="Edit",
+        data={"tool_input": {"file_path": "/private/tmp/ooo-run/hello.py"}},
+    )
+    assert _runtime_messages_support_file_claim("hello.py", (edit,), task_cwd=None)
+    assert not _runtime_messages_support_file_claim("goodbye.py", (edit,), task_cwd=None)
+
+
+def test_effective_schema_drops_tests_passed_for_contract_ac() -> None:
+    """A declared verify_command drops tests_passed from the required evidence set."""
+    profile = load_profile("code")
+    assert "tests_passed" in profile.evidence_schema.required
+
+    legacy = _effective_evidence_schema_for_ac(profile, "Implement the module.")
+    assert "tests_passed" in legacy.required
+
+    contract = _effective_evidence_schema_for_ac(
+        profile,
+        "Implement the module.",
+        has_success_contract=True,
+        verify_gate_active=True,
+    )
+    assert "tests_passed" not in contract.required
+    # Without declared expected_artifacts, there is no filesystem oracle for
+    # files_touched, so it stays transcript-gated.
+    assert "files_touched" in contract.required
+    assert "commands_run" in contract.required
+
+    artifact_contract = _effective_evidence_schema_for_ac(
+        profile,
+        "Implement the module.",
+        has_success_contract=True,
+        has_expected_artifacts=True,
+        verify_gate_active=True,
+    )
+    assert artifact_contract.required == ("commands_run",)
+
+
+def test_legacy_ac_keeps_files_touched_required_even_with_expected_artifacts_flag() -> None:
+    """Expected artifacts only delegate files_touched when a verify command is present."""
+    profile = load_profile("code")
+
+    schema = _effective_evidence_schema_for_ac(
+        profile,
+        "Implement the module.",
+        has_success_contract=False,
+        has_expected_artifacts=True,
+    )
+
+    assert "files_touched" in schema.required
+    assert "tests_passed" in schema.required
+
+
+def test_contract_ac_retains_evidence_when_verify_gate_inactive() -> None:
+    """With the verify gate disabled there is no oracle to delegate to.
+
+    ``_apply_verify_gate`` returns early when ``run_verify_commands`` is False, so
+    dropping ``tests_passed`` / ``files_touched`` would leave a contract AC with an
+    unbacked, self-reported artifact and no check. The fail-safe default retains
+    the transcript-backed evidence.
+    """
+    profile = load_profile("code")
+
+    schema = _effective_evidence_schema_for_ac(
+        profile,
+        "Implement the module.",
+        has_success_contract=True,
+        has_expected_artifacts=True,
+        verify_gate_active=False,
+    )
+
+    assert "files_touched" in schema.required
+    assert "tests_passed" in schema.required
+    assert "commands_run" in schema.required
+
+
+def test_contract_ac_drops_delegated_fields_only_when_verify_gate_active() -> None:
+    """The delegation drop fires only once the verify gate is confirmed active."""
+    profile = load_profile("code")
+
+    schema = _effective_evidence_schema_for_ac(
+        profile,
+        "Implement the module.",
+        has_success_contract=True,
+        has_expected_artifacts=True,
+        verify_gate_active=True,
+    )
+
+    assert schema.required == ("commands_run",)
+
+
+def test_contract_ac_verifier_delegates_tests_passed() -> None:
+    """Contract AC: the transcript verifier does not gate tests_passed at all.
+
+    Only files_touched + commands_run are checked; the tests_passed check is
+    delegated to the orchestrator verify-gate. Evidence with no tests_passed field
+    still passes the transcript verifier, so worker sample-input variance in the
+    verification command is irrelevant here.
+    """
+    executor = _file_scope_executor("/private/tmp/ooo-repro-blos")
+    verdict = executor._verify_atomic_evidence_against_runtime_messages(
+        messages=_greeting_repro_messages("/private/tmp/ooo-repro-blos/hello.py"),
+        typed_evidence=EvidenceRecord(
+            data={
+                "files_touched": ["hello.py"],
+                "commands_run": [_GREETING_INNER_COMMAND],
+            }
+        ),
+        ac_content=_GREETING_AC,
+        has_success_contract=True,
+        verify_gate_active=True,
+    )
+    assert verdict.passed is True, verdict.reasons
+
+
+def test_contract_ac_with_expected_artifacts_verifier_delegates_files_touched() -> None:
+    """Contract AC artifacts are verified by the filesystem gate, not transcript claims."""
+    executor = _file_scope_executor("/private/tmp/ooo-repro-blos")
+    verdict = executor._verify_atomic_evidence_against_runtime_messages(
+        messages=_greeting_repro_messages("/private/tmp/ooo-repro-blos/hello.py"),
+        typed_evidence=EvidenceRecord(
+            data={
+                "files_touched": ["not-backed-by-transcript.py"],
+                "commands_run": [_GREETING_INNER_COMMAND],
+            }
+        ),
+        ac_content=_GREETING_AC,
+        has_success_contract=True,
+        has_expected_artifacts=True,
+        verify_gate_active=True,
+    )
+
+    assert verdict.passed is True, verdict.reasons
+
+
+def test_legacy_ac_verifier_keeps_strict_formal_runner_tests_passed() -> None:
+    """Legacy AC (no verify_command): tests_passed keeps strict formal-runner semantics."""
+    executor = _file_scope_executor("/private/tmp/ooo-repro-blos")
+
+    # Inline python3 -c is not a formal test runner -> tests_passed unsupported.
+    rejected = executor._verify_atomic_evidence_against_runtime_messages(
+        messages=_greeting_repro_messages("/private/tmp/ooo-repro-blos/hello.py"),
+        typed_evidence=EvidenceRecord(
+            data={
+                "files_touched": ["hello.py"],
+                "commands_run": [_GREETING_INNER_COMMAND],
+                "tests_passed": [_GREETING_INNER_COMMAND],
+            }
+        ),
+        ac_content=_GREETING_AC,
+        has_success_contract=False,
+    )
+    assert rejected.passed is False
+    assert "tests_passed:" in rejected.reasons[0]
+
+    # A real pytest run with success output backs tests_passed for a legacy AC.
+    messages = (
+        AgentMessage(
+            type="tool",
+            content="edit",
+            tool_name="Edit",
+            data={"tool_input": {"file_path": "/private/tmp/ooo-repro-blos/src/mod.py"}},
+        ),
+        AgentMessage(
+            type="tool",
+            content="pytest",
+            tool_name="Bash",
+            data={
+                "tool_input": {"command": "pytest tests/test_mod.py"},
+                "exit_code": 0,
+                "output": "1 passed in 0.01s",
+            },
+        ),
+        AgentMessage(type="result", content="done", data={}),
+    )
+    accepted = executor._verify_atomic_evidence_against_runtime_messages(
+        messages=messages,
+        typed_evidence=EvidenceRecord(
+            data={
+                "files_touched": ["src/mod.py"],
+                "commands_run": ["pytest tests/test_mod.py"],
+                "tests_passed": ["pytest tests/test_mod.py"],
+            }
+        ),
+        ac_content="Implement src/mod.py and run pytest.",
+        has_success_contract=False,
+    )
+    assert accepted.passed is True, accepted.reasons
+
+
+@pytest.mark.asyncio
+async def test_verify_gate_flips_contract_ac_to_failed_when_declared_command_fails(
+    tmp_path,
+) -> None:
+    """Delegation is ENFORCED: a broken contract AC fails via the orchestrator gate.
+
+    A successful AC result whose declared verify_command exits non-zero is flipped
+    to FAILED by ``_apply_verify_gate`` — the orchestrator runs the real command,
+    so a fabricated tests_passed claim cannot pass a broken implementation.
+    """
+    executor = _file_scope_executor(str(tmp_path))
+    passing_result = ACExecutionResult(
+        ac_index=0,
+        ac_content="greet works",
+        success=True,
+        outcome=ACExecutionOutcome.SUCCEEDED,
+    )
+
+    failing_seed = Seed(
+        goal="greeting",
+        constraints=(),
+        acceptance_criteria=(
+            AcceptanceCriterionSpec(
+                description="greet works",
+                verify_command='python3 -c "import sys; sys.exit(1)"',
+            ),
+        ),
+        ontology_schema=OntologySchema(name="Greeting", description="d"),
+        metadata=SeedMetadata(ambiguity_score=0.1),
+    )
+    gated = await executor._apply_verify_gate(
+        seed=failing_seed,
+        ac_index=0,
+        result=passing_result,
+        session_id="s",
+        execution_id="e",
+    )
+    assert gated.success is False
+    assert gated.outcome == ACExecutionOutcome.FAILED
+    assert "Verify gate failed" in (gated.error or "")
+
+    passing_seed = Seed(
+        goal="greeting",
+        constraints=(),
+        acceptance_criteria=(
+            AcceptanceCriterionSpec(
+                description="greet works",
+                verify_command="python3 -c \"print('OK')\"",
+                output_assertion="OK",
+            ),
+        ),
+        ontology_schema=OntologySchema(name="Greeting", description="d"),
+        metadata=SeedMetadata(ambiguity_score=0.1),
+    )
+    kept = await executor._apply_verify_gate(
+        seed=passing_seed,
+        ac_index=0,
+        result=passing_result,
+        session_id="s",
+        execution_id="e",
+    )
+    assert kept.success is True
 
 
 @pytest.mark.parametrize(
@@ -3940,6 +4472,153 @@ class TestParallelACExecutor:
             "tests_passed",
         ]
         assert evidence_event.data["verifier_ran"] is False
+
+    @pytest.mark.asyncio
+    async def test_contract_ac_with_artifacts_accepts_unbacked_files_touched_claim(
+        self,
+        tmp_path,
+    ) -> None:
+        """A contract AC delegates artifact proof to the verify gate filesystem oracle."""
+        command = "python -c \"print('OK')\""
+        command_json = command.replace("\\", "\\\\").replace('"', '\\"')
+        (tmp_path / "hello.py").write_text(
+            "def greet(name):\n    return f'Hello, {name}'\n",
+            encoding="utf-8",
+        )
+        event_store, appended_events = _make_replaying_event_store()
+        runtime = _FinalMessageRuntime(
+            "Done.\n"
+            "```json\n"
+            "{"
+            '"files_touched":["not-backed-by-transcript.py"],'
+            f'"commands_run":["{command_json}"]'
+            "}\n"
+            "```",
+            native_session_id="codex-session-contract-artifact-delegation",
+            support_messages=(
+                AgentMessage(
+                    type="assistant",
+                    content=f"Calling tool: Bash: {command}",
+                    tool_name="Bash",
+                    data={"tool_input": {"command": command}},
+                ),
+            ),
+            cwd=str(tmp_path),
+        )
+        executor = ParallelACExecutor(
+            adapter=runtime,
+            event_store=event_store,
+            console=MagicMock(),
+            enable_decomposition=False,
+            execution_profile=load_profile("code"),
+            fat_harness_mode=True,
+            task_cwd=str(tmp_path),
+        )
+
+        result = await executor._execute_atomic_ac(
+            ac_index=0,
+            ac_content=_GREETING_AC,
+            session_id="orch_123",
+            tools=["Read", "Edit", "Bash"],
+            tool_catalog=(MCPToolDefinition(name="Read", description="Read a file."),),
+            system_prompt="system",
+            seed_goal="Ship the feature",
+            depth=0,
+            start_time=datetime.now(UTC),
+            ac_spec=AcceptanceCriterionSpec(
+                description=_GREETING_AC,
+                verify_command=command,
+                expected_artifacts=("hello.py",),
+            ),
+        )
+
+        assert result.success is True
+        assert result.error is None
+        assert result.typed_evidence is not None
+        assert result.typed_evidence.data == {"commands_run": [command]}
+        assert runtime.last_prompt is not None
+        assert "directly (commands_run)" in runtime.last_prompt
+        assert "ensure they exist in the workspace" in runtime.last_prompt
+        evidence_event = next(
+            event
+            for event in appended_events
+            if event.type == "execution.ac.typed_evidence.observed"
+        )
+        assert evidence_event.data["required_fields"] == ["commands_run"]
+        assert evidence_event.data["typed_evidence_valid"] is True
+        assert evidence_event.data["verifier_passed"] is True
+        assert evidence_event.data["ignored_out_of_scope_evidence_fields"] == ["files_touched"]
+
+    @pytest.mark.asyncio
+    async def test_contract_ac_missing_artifact_rejected_when_verify_gate_disabled(
+        self,
+        tmp_path,
+    ) -> None:
+        """Reproduced blocker: with the verify gate off, delegation must not fire.
+
+        ``run_verify_commands=False`` makes ``_apply_verify_gate`` return early, so
+        the filesystem oracle never checks ``expected_artifacts``. If the schema
+        still dropped ``files_touched``/``tests_passed``, a contract AC could
+        complete with only ``commands_run`` evidence and no artifact on disk. The
+        verify-gate-active guard keeps those fields required (transcript-backed),
+        so the worker's self-reported evidence fails and the AC is not accepted.
+        """
+        command = "python -c \"print('OK')\""
+        command_json = command.replace("\\", "\\\\").replace('"', '\\"')
+        # Deliberately do NOT write hello.py: the artifact is missing on disk.
+        event_store, appended_events = _make_replaying_event_store()
+        runtime = _FinalMessageRuntime(
+            f'Done.\n```json\n{{"commands_run":["{command_json}"]}}\n```',
+            native_session_id="codex-session-verify-gate-off-missing-artifact",
+            support_messages=(
+                AgentMessage(
+                    type="assistant",
+                    content=f"Calling tool: Bash: {command}",
+                    tool_name="Bash",
+                    data={"tool_input": {"command": command}},
+                ),
+            ),
+            cwd=str(tmp_path),
+        )
+        executor = ParallelACExecutor(
+            adapter=runtime,
+            event_store=event_store,
+            console=MagicMock(),
+            enable_decomposition=False,
+            execution_profile=load_profile("code"),
+            fat_harness_mode=True,
+            run_verify_commands=False,
+            task_cwd=str(tmp_path),
+        )
+
+        result = await executor._execute_atomic_ac(
+            ac_index=0,
+            ac_content=_GREETING_AC,
+            session_id="orch_123",
+            tools=["Read", "Edit", "Bash"],
+            tool_catalog=(MCPToolDefinition(name="Read", description="Read a file."),),
+            system_prompt="system",
+            seed_goal="Ship the feature",
+            depth=0,
+            start_time=datetime.now(UTC),
+            ac_spec=AcceptanceCriterionSpec(
+                description=_GREETING_AC,
+                verify_command=command,
+                expected_artifacts=("hello.py",),
+            ),
+        )
+
+        assert result.success is False
+        assert result.error is not None
+        evidence_event = next(
+            event
+            for event in appended_events
+            if event.type == "execution.ac.typed_evidence.observed"
+        )
+        # files_touched/tests_passed remain required because the gate is off.
+        assert "files_touched" in evidence_event.data["required_fields"]
+        assert "tests_passed" in evidence_event.data["required_fields"]
+        assert evidence_event.data["typed_evidence_valid"] is False
 
     @pytest.mark.asyncio
     async def test_fat_harness_mode_rejects_missing_typed_evidence(self) -> None:
@@ -7520,6 +8199,10 @@ class TestParallelACExecutor:
             event_store=event_store,
             console=MagicMock(),
             enable_decomposition=False,
+            # Isolate the stall→failure conversion: cross-harness redispatch is a
+            # separate recovery path (default on) that would otherwise intercept
+            # the abandoned stall and surface an alternate backend's own failure.
+            cross_harness_redispatch=False,
         )
 
         async def always_stall(**kwargs: Any) -> ACExecutionResult:
@@ -7567,6 +8250,149 @@ class TestParallelACExecutor:
             "abandon",
         ]
         assert all(event.data["max_attempts"] == MAX_STALL_RETRIES + 1 for event in stall_events)
+
+    @pytest.mark.asyncio
+    async def test_alt_harness_defers_until_same_runtime_retry_budget_spent(self) -> None:
+        """Cross-harness redispatch must not fire until same-runtime retries are spent.
+
+        Regression for the ordering blocker: with ``ac_retry_attempts > 0`` the
+        batch retry loop owns the same-runtime recovery budget. Each worker's
+        alt-harness hook is gated on ``same_runtime_budget_exhausted``, which the
+        batch layer sets ``True`` only on the AC's final attempt. So across the
+        initial dispatch plus each configured retry, the flag stays ``False``
+        until the last attempt — the alternate harness never pre-empts the
+        configured same-runtime retries.
+        """
+        seed = _make_seed("AC 0 flow")
+        executor = ParallelACExecutor(
+            adapter=MagicMock(),
+            event_store=AsyncMock(),
+            console=MagicMock(),
+            enable_decomposition=False,
+            ac_retry_attempts=2,
+            cross_harness_redispatch=True,
+        )
+
+        exhausted_flags: list[bool] = []
+
+        async def fake_batch(**kwargs: Any) -> list[ACExecutionResult]:
+            exhausted_flags.append(bool(kwargs["same_runtime_budget_exhausted"]))
+            return [
+                ACExecutionResult(
+                    ac_index=idx,
+                    ac_content=seed.acceptance_criteria[idx],
+                    success=False,
+                    error="non-stall failure",
+                    outcome=ACExecutionOutcome.FAILED,
+                )
+                for idx in kwargs["batch_indices"]
+            ]
+
+        executor._execute_ac_batch = fake_batch  # type: ignore[method-assign]
+
+        results = await executor._run_batch_with_verify_and_retry(
+            seed=seed,
+            batch_executable=[0],
+            session_id="sess",
+            execution_id="exec",
+            tools=["Read"],
+            tool_catalog=None,
+            system_prompt="system",
+            level_contexts=[],
+            ac_retry_attempts={0: 0},
+            execution_counters=None,
+        )
+
+        # Initial dispatch + 2 configured retries = 3 batch calls. The
+        # same-runtime budget is only 'exhausted' (so alt-harness may run) on
+        # the final attempt.
+        assert exhausted_flags == [False, False, True]
+        assert isinstance(results[0], ACExecutionResult)
+        assert results[0].success is False
+
+    @pytest.mark.asyncio
+    async def test_alt_harness_opens_on_retry_early_stop(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Repeated-failure-class early-stop must still reach cross-harness recovery.
+
+        Regression for the narrowed ordering blocker: with ``ac_retry_attempts=2``
+        and the SAME alt-harness-eligible class (FABRICATION_SUSPECTED) on the
+        initial attempt and retry 1, the retry loop early-stops before the counter
+        cap. The same-runtime path has given up, so its budget is spent — the
+        alt-harness hook must open on that early-stopped attempt instead of never
+        firing, and the failed alternate must be surfaced as authoritative.
+        """
+        from ouroboros.orchestrator import cross_harness_redispatch as chr
+
+        seed = _make_seed("AC 0 flow")
+        executor = ParallelACExecutor(
+            adapter=MagicMock(),
+            event_store=AsyncMock(),
+            console=MagicMock(),
+            enable_decomposition=False,
+            ac_retry_attempts=2,
+            cross_harness_redispatch=True,
+        )
+        executor._adapter.runtime_backend = "claude"
+        monkeypatch.setattr(chr, "pick_alternative_runtime", lambda *_a, **_k: "codex")
+
+        fab_verdict = VerifierVerdict(
+            passed=False,
+            reasons=("claimed a file that does not exist",),
+            failure_class="FABRICATION_SUSPECTED",
+        )
+
+        async def fake_batch(**kwargs: Any) -> list[ACExecutionResult]:
+            return [
+                ACExecutionResult(
+                    ac_index=idx,
+                    ac_content=seed.acceptance_criteria[idx],
+                    success=False,
+                    error="fabricated claim",
+                    outcome=ACExecutionOutcome.FAILED,
+                    atomic_verifier_verdict=fab_verdict,
+                )
+                for idx in kwargs["batch_indices"]
+            ]
+
+        executor._execute_ac_batch = fake_batch  # type: ignore[method-assign]
+
+        alt_backends: list[str] = []
+
+        async def fake_run_single(backend: str, **kwargs: Any) -> ACExecutionResult:
+            alt_backends.append(backend)
+            return ACExecutionResult(
+                ac_index=0,
+                ac_content="AC 0 flow",
+                success=False,
+                error="codex also failed verification",
+                session_id="alt-sess",
+            )
+
+        executor._run_single_ac_on_backend = fake_run_single  # type: ignore[method-assign]
+
+        results = await executor._run_batch_with_verify_and_retry(
+            seed=seed,
+            batch_executable=[0],
+            session_id="sess",
+            execution_id="exec",
+            tools=["Read"],
+            tool_catalog=None,
+            system_prompt="system",
+            level_contexts=[],
+            ac_retry_attempts={0: 0},
+            execution_counters=None,
+        )
+
+        # Early-stop fired after retry 1 (initial FAB + retry-1 FAB), before the
+        # counter cap — yet the alternate harness was still consulted exactly once.
+        assert alt_backends == ["codex"]
+        # The failed alternate is surfaced as the authoritative result.
+        assert isinstance(results[0], ACExecutionResult)
+        assert results[0].success is False
+        assert "alt-harness" in (results[0].error or "")
+        assert "codex" in (results[0].error or "")
 
     @pytest.mark.asyncio
     async def test_runtime_handle_cache_isolated_between_acceptance_criteria(self) -> None:

@@ -13,7 +13,7 @@ with open("requirements.txt") as r:
 
 setuptools.setup(
     name="ydb",
-    version="3.29.7",  # AUTOVERSION
+    version="3.30.0",  # AUTOVERSION
     description="YDB Python SDK",
     author="Yandex LLC",
     author_email="ydb@yandex-team.ru",
@@ -25,16 +25,14 @@ setuptools.setup(
     packages=setuptools.find_packages("."),
     classifiers=[
         "Programming Language :: Python :: 3",
-        "Programming Language :: Python :: 3.8",
-        "Programming Language :: Python :: 3.9",
         "Programming Language :: Python :: 3.10",
         "Programming Language :: Python :: 3.11",
         "Programming Language :: Python :: 3.12",
         "Programming Language :: Python :: 3.13",
         "Programming Language :: Python :: 3 :: Only",
     ],
+    python_requires=">=3.10",
     install_requires=requirements,  # requirements.txt
-    options={"bdist_wheel": {"universal": True}},
     extras_require={
         "yc": ["yandexcloud", ],
         "opentelemetry": ["opentelemetry-api>=1.0.0"],

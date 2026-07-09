@@ -35,7 +35,6 @@ class StateValue:
 
     QUERY = "query"
     PRESENT = "present"
-    FORCED_PRESENT = "forced_present"
     ABSENT = "absent"
     ADDED = "added"
     REMOVED = "removed"

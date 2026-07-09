@@ -199,12 +199,16 @@ def check_platform_available() -> None:
         )
 
 
-def get_effective_version(pro: bool = False) -> str:
+def get_effective_version(pro: bool = False) -> str | None:
     """Return the best available version: auto-updated if available, else platform default.
 
     Reads a platform-scoped marker file from the cache directory.
     Returns the platform's hardcoded version if no update has been downloaded.
-    When pro=True, reads from the Pro-specific marker files.
+
+    When ``pro=True``, reads from the Pro-specific marker and returns ``None`` when
+    no cached Pro binary matches it. A valid Pro license must NEVER fall back to the
+    free binary, so there is deliberately no free-version fallback here — callers
+    treat ``None`` as "resolve the latest Pro version from the server" instead.
     """
     base = get_chromium_version()
     cache = get_cache_dir()
@@ -216,11 +220,13 @@ def get_effective_version(pro: bool = False) -> str:
                 version = marker.read_text().strip()
                 if version:
                     binary = get_binary_path(version, pro=True)
-                    if binary.exists():
+                    # Match launch's _pro_binary_ready (exists AND executable) so
+                    # `info` never reports a build that launch would reject.
+                    if binary.exists() and os.access(binary, os.X_OK):
                         return version
             except (ValueError, OSError):
                 pass
-        return base
+        return None
 
     # Free tier: try platform-scoped marker first, fall back to legacy marker
     for name in (f"latest_version_{get_platform_tag()}", "latest_version"):

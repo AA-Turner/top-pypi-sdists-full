@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: saspy
-Version: 5.108.2
+Version: 5.108.3
 Summary: A Python interface to SAS
 Home-page: https://github.com/sassoftware/saspy
 Author: Tom Weber, Don McGee, Phil Carmon

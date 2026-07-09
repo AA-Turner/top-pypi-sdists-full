@@ -69,7 +69,7 @@ class XEP_0153(BasePlugin):
         async def get_and_set_avatar():
             timeout = iqkwargs.get('timeout', None)
             try:
-                result = await self.xmpp['xep_0054'].get_vcard(
+                result = await self.xmpp.plugin['xep_0054'].get_vcard(
                     jid,
                     cached=False,
                     timeout=timeout
@@ -81,7 +81,7 @@ class XEP_0153(BasePlugin):
             vcard['PHOTO']['BINVAL'] = avatar
 
             try:
-                result = await self.xmpp['xep_0054'].publish_vcard(
+                result = await self.xmpp.plugin['xep_0054'].publish_vcard(
                     jid=jid,
                     vcard=vcard,
                     **iqkwargs
@@ -95,7 +95,7 @@ class XEP_0153(BasePlugin):
 
     async def _start(self, event):
         try:
-            vcard = await self.xmpp['xep_0054'].get_vcard(self.xmpp.boundjid.bare)
+            vcard = await self.xmpp.plugin['xep_0054'].get_vcard(self.xmpp.boundjid.bare)
             data = vcard['vcard_temp']['PHOTO']['BINVAL']
             if not data:
                 new_hash = ''
@@ -146,7 +146,7 @@ class XEP_0153(BasePlugin):
             self.xmpp.roster[jid].send_last_presence()
 
         try:
-            iq = await self.xmpp['xep_0054'].get_vcard(jid=jid.bare, ifrom=ifrom)
+            iq = await self.xmpp.plugin['xep_0054'].get_vcard(jid=jid.bare, ifrom=ifrom)
         except (IqError, IqTimeout):
             log.debug('Could not retrieve vCard for %s', jid)
             return

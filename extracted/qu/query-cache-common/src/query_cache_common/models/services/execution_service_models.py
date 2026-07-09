@@ -47,6 +47,7 @@ class SQLExecution(BaseSerDeModel):
     query_dependencies: t.List[shared_models.QueryDependency] = field(default_factory=list)
     semantic_extras: t.Dict[str, str] = field(default_factory=dict)
     labels: t.Dict[str, str] = field(default_factory=dict)
+    dbt_node_state: t.Optional[shared_models.DbtNodeState] = None
 
     @classmethod
     def from_submit_sql_request(
@@ -62,6 +63,7 @@ class SQLExecution(BaseSerDeModel):
             query_dependencies=req.query_dependencies,
             semantic_extras=req.semantic_extras,
             labels=req.labels,
+            dbt_node_state=req.dbt_node_state,
         )
 
 

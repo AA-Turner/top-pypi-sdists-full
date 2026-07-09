@@ -119,15 +119,16 @@ def discover_tools(
             network_policy=config.execution.network_policy,
         ))
 
+    # NOTE: spawn_task is NOT registered here. It needs the approval gate and
+    # credential manager to run its background worker's tool calls safely, and
+    # those are only available later — so it is constructed in
+    # AgentLoop._setup_delegation alongside delegate_task.
     if provider:
-        from echo_agent.agent.tools.delegate import SpawnTool
-        tools.append(SpawnTool(provider=provider, bus=bus))
-
         from echo_agent.agent.tools.vision import VisionTool
         tools.append(VisionTool(provider=provider, workspace=ws))
 
     _try_register_image_gen(tools, config, provider)
-    _try_register_tts(tools, config, ws, provider)
+    _try_register_tts(tools, config, ws, provider, publish_fn=bus.publish_outbound)
 
     if session_manager:
         from echo_agent.agent.tools.session_search import SessionSearchTool
@@ -241,7 +242,7 @@ def _try_register_image_gen(tools: list[Tool], config: Config, provider: LLMProv
     tools.append(ImageGenTool(api_key=api_key, api_base=api_base, model=model))
 
 
-def _try_register_tts(tools: list[Tool], config: Config, ws: str, provider: LLMProvider | None = None) -> None:
+def _try_register_tts(tools: list[Tool], config: Config, ws: str, provider: LLMProvider | None = None, publish_fn=None) -> None:
     from echo_agent.agent.tools.tts import TTSTool
     tts_cfg = getattr(config.tools, "tts", None)
     openai_key = getattr(tts_cfg, "openai_api_key", "") if tts_cfg else ""
@@ -270,4 +271,5 @@ def _try_register_tts(tools: list[Tool], config: Config, ws: str, provider: LLMP
         tts_model=tts_model,
         default_backend=default_backend,
         default_voice=default_voice,
+        publish_fn=publish_fn,
     ))

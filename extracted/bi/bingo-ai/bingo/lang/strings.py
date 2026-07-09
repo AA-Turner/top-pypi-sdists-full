@@ -101,7 +101,6 @@ _STRINGS = {
 /model                   AI 모델 추가/변경
 /skill <키워드>          스킬 지식베이스 검색
 /kb                      로컬 지식베이스  /kb [list|search <kw>|show <name>|reload]
-/cve [sync|search|status] 🛡️ CVE/Exploit KB  /cve sync 로 trickest+exploitarium 동기화
 /history                 대화 기록 보기
 /export                  대화를 .md 파일로 저장
 /config                  현재 설정 보기
@@ -130,7 +129,6 @@ _STRINGS = {
 /model                   添加/切换 AI 模型
 /skill <关键词>          搜索技能知识库
 /kb                      本地知识库  /kb [list|search <kw>|show <name>|reload]
-/cve [sync|search|status] 🛡️ CVE/Exploit知识库  /cve sync 同步trickest+exploitarium
 /history                 查看对话历史
 /export                  导出对话为 .md 文件
 /config                  查看当前配置
@@ -159,7 +157,6 @@ _STRINGS = {
 /model                   Add or switch AI model
 /skill <keyword>         Search skill knowledge base
 /kb                      Local knowledge base  /kb [list|search <kw>|show <name>|reload]
-/cve [sync|search|status] 🛡️ CVE/Exploit KB  /cve sync to fetch trickest+exploitarium
 /history                 View chat history
 /export                  Export chat as .md file
 /config                  View current settings
@@ -749,43 +746,6 @@ _SLASH_DESC = {
     "/kb":          {"ko": "로컬 지식베이스  /kb [list|search <kw>|show <name>|reload]",
                      "zh": "本地知识库  /kb [list|search <kw>|show <name>|reload]",
                      "en": "Local knowledge base  /kb [list|search <kw>|show <name>|reload]"},
-    "/cve":         {"ko": "CVE/Exploit KB  /cve [sync|status|search <kw>|CVE-ID]",
-                     "zh": "CVE/Exploit知识库  /cve [sync|status|search <kw>|CVE-ID]",
-                     "en": "CVE/Exploit KB  /cve [sync|status|search <kw>|CVE-ID]"},
-    # ── CVE sync 상태 메시지 ─────────────────────────────────────────
-    "cve_sync_start": {"ko": "🔄 CVE KB 동기화 시작... (최초 실행 시 수 분 소요)",
-                       "zh": "🔄 CVE KB 同步中... (首次运行可能需要数分钟)",
-                       "en": "🔄 Syncing CVE KB... (first run may take a few minutes)"},
-    "cve_sync_done":  {"ko": "✅ CVE KB 동기화 완료 ({n}개 문서)",
-                       "zh": "✅ CVE KB 同步完成 ({n} 篇文档)",
-                       "en": "✅ CVE KB sync complete ({n} docs)"},
-    "cve_not_synced": {"ko": "💡 /cve sync 실행 후 사용 가능합니다",
-                       "zh": "💡 请先执行 /cve sync",
-                       "en": "💡 Run /cve sync first"},
-    "cve_search_empty":  {"ko": "사용법: /cve search <키워드|CVE-ID>",
-                          "zh": "用法: /cve search <关键词|CVE-ID>",
-                          "en": "Usage: /cve search <keyword|CVE-ID>"},
-    "cve_no_results":    {"ko": "'{query}' 결과 없음. /cve sync 먼저 실행하세요",
-                          "zh": "'{query}' 无结果。请先执行 /cve sync",
-                          "en": "No results for '{query}'. Run /cve sync first"},
-    "cve_not_found":     {"ko": "{cve_id} 없음. /cve sync 후 재시도하세요",
-                          "zh": "{cve_id} 未找到。请执行 /cve sync 后重试",
-                          "en": "{cve_id} not found. Run /cve sync and retry"},
-    "cve_usage":         {"ko": ("사용법: /cve [sync|status|search <키워드>|<CVE-ID>]\n"
-                                 "  /cve sync          — trickest/cve + exploitarium 동기화\n"
-                                 "  /cve status        — 동기화 상태 확인\n"
-                                 "  /cve search <kw>   — CVE/PoC 검색\n"
-                                 "  /cve CVE-2024-0001 — 특정 CVE 조회"),
-                          "zh": ("用法: /cve [sync|status|search <关键词>|<CVE-ID>]\n"
-                                 "  /cve sync          — 同步 trickest/cve + exploitarium\n"
-                                 "  /cve status        — 查看同步状态\n"
-                                 "  /cve search <kw>   — 搜索 CVE/PoC\n"
-                                 "  /cve CVE-2024-0001 — 查询特定CVE"),
-                          "en": ("Usage: /cve [sync|status|search <kw>|<CVE-ID>]\n"
-                                 "  /cve sync          — sync trickest/cve + exploitarium\n"
-                                 "  /cve status        — check sync status\n"
-                                 "  /cve search <kw>   — search CVE/PoC\n"
-                                 "  /cve CVE-2024-0001 — lookup specific CVE")},
     "/batch":       {"ko": "배치 멀티타겟  /batch [list|add <url>|run|status|clear]",
                      "zh": "批量多目标  /batch [list|add <url>|run|status|clear]",
                      "en": "Batch multi-target  /batch [list|add <url>|run|status|clear]"},
@@ -805,39 +765,6 @@ _SLASH_DESC = {
 
 # ── v3.6.0: CVE/KB 메시지 (_STRINGS 에 추가 — get_strings() 반환 대상) ──────
 _STRINGS.update({
-    "cve_sync_start":   {"ko": "🔄 CVE KB 동기화 시작... (최초 실행 시 수 분 소요)",
-                         "zh": "🔄 CVE KB 同步中... (首次运行可能需要数分钟)",
-                         "en": "🔄 Syncing CVE KB... (first run may take a few minutes)"},
-    "cve_sync_done":    {"ko": "✅ CVE KB 동기화 완료 ({n}개 문서)",
-                         "zh": "✅ CVE KB 同步完成 ({n} 篇文档)",
-                         "en": "✅ CVE KB sync complete ({n} docs)"},
-    "cve_not_synced":   {"ko": "💡 /cve sync 실행 후 사용 가능합니다",
-                         "zh": "💡 请先执行 /cve sync",
-                         "en": "💡 Run /cve sync first"},
-    "cve_search_empty": {"ko": "사용법: /cve search <키워드|CVE-ID>",
-                         "zh": "用法: /cve search <关键词|CVE-ID>",
-                         "en": "Usage: /cve search <keyword|CVE-ID>"},
-    "cve_no_results":   {"ko": "'{query}' 결과 없음. /cve sync 먼저 실행하세요",
-                         "zh": "'{query}' 无结果。请先执行 /cve sync",
-                         "en": "No results for '{query}'. Run /cve sync first"},
-    "cve_not_found":    {"ko": "{cve_id} 없음. /cve sync 후 재시도하세요",
-                         "zh": "{cve_id} 未找到。请执行 /cve sync 后重试",
-                         "en": "{cve_id} not found. Run /cve sync and retry"},
-    "cve_usage":        {"ko": ("사용법: /cve [sync|status|search <키워드>|<CVE-ID>]\n"
-                                "  /cve sync          — trickest/cve + exploitarium 동기화\n"
-                                "  /cve status        — 동기화 상태 확인\n"
-                                "  /cve search <kw>   — CVE/PoC 검색\n"
-                                "  /cve CVE-2024-0001 — 특정 CVE 조회"),
-                         "zh": ("用法: /cve [sync|status|search <关键词>|<CVE-ID>]\n"
-                                "  /cve sync          — 同步 trickest/cve + exploitarium\n"
-                                "  /cve status        — 查看同步状态\n"
-                                "  /cve search <kw>   — 搜索 CVE/PoC\n"
-                                "  /cve CVE-2024-0001 — 查询特定CVE"),
-                         "en": ("Usage: /cve [sync|status|search <kw>|<CVE-ID>]\n"
-                                "  /cve sync          — sync trickest/cve + exploitarium\n"
-                                "  /cve status        — check sync status\n"
-                                "  /cve search <kw>   — search CVE/PoC\n"
-                                "  /cve CVE-2024-0001 — lookup specific CVE")},
 })
 
 # ── 스킬 시스템 / WAF / 자동 분석 추가 문자열 ──────────────────────────────
@@ -4255,39 +4182,6 @@ _STRINGS.update({
         "en": "📊 Rendering audit results...",
     },
 
-    # ── v3.2.87: MVVS — Multi-Vector Verification System i18n 키 ──────────
-    "mvvs_triggered": {
-        "ko": "🔍 MVVS — 2차 검증 자동 실행 중...",
-        "zh": "🔍 MVVS — 自动执行二次验证...",
-        "en": "🔍 MVVS — Auto-triggering secondary verification...",
-    },
-    "mvvs_confirmed": {
-        "ko": "✅ [CONFIRMED] — 실행결과 기반 취약점 확인됨",
-        "zh": "✅ [CONFIRMED] — 基于执行结果，漏洞确认",
-        "en": "✅ [CONFIRMED] — Confirmed from actual execution output",
-    },
-    "mvvs_false_positive": {
-        "ko": "❌ [FALSE POSITIVE] — 실행결과 기반 오탐 확인됨",
-        "zh": "❌ [FALSE POSITIVE] — 基于执行结果，误报确认",
-        "en": "❌ [FALSE POSITIVE] — Confirmed false positive from execution output",
-    },
-    # v4.5.0: 실행 후 followup_response에서 감지된 CONFIRMED/FALSE POSITIVE
-    "mvvs_confirmed_exec": {
-        "ko": "✅ [CONFIRMED] — 실행결과 기반 취약점 확인됨",
-        "zh": "✅ [CONFIRMED] — 基于执行结果，漏洞确认",
-        "en": "✅ [CONFIRMED] — Confirmed from actual execution output",
-    },
-    "mvvs_false_positive_exec": {
-        "ko": "❌ [FALSE POSITIVE] — 실행결과 기반 오탐 확인됨",
-        "zh": "❌ [FALSE POSITIVE] — 基于执行结果，误报确认",
-        "en": "❌ [FALSE POSITIVE] — Confirmed false positive from execution output",
-    },
-    # v4.5.0: 실행 전 LLM 예측에 의한 사전 판정 억제 로그
-    "mvvs_tag_suppressed_pre_exec": {
-        "ko": "⏳ 실행 전 판정 억제 — 코드 실행 후 실제 결과로 판단",
-        "zh": "⏳ 执行前判定抑制 — 等待代码执行结果再判断",
-        "en": "⏳ Pre-exec tag suppressed — judgment after actual code execution",
-    },
     # v4.6.0: Rate limit 오탐 억제 메시지
     "rate_limit_fp_suppressed": {
         "ko": "⚡ 'rate limit' 텍스트 감지됐지만 실제 차단 없음 (오탐 억제됨)",
@@ -4349,31 +4243,6 @@ _STRINGS.update({
             "  5) Recursive functions MUST have base case: if n<=0: return\n"
             "Rewrite the code."
         ),
-    },
-    "mvvs_suspected": {
-        "ko": "⚠️  [SUSPECTED] — 단일 신호 감지, 검증 필요",
-        "zh": "⚠️  [SUSPECTED] — 单一信号检测，需要验证",
-        "en": "⚠️  [SUSPECTED] — Single signal detected, needs verification",
-    },
-    "mvvs_likely": {
-        "ko": "🟡 [LIKELY] — 부분 검증 완료, 추가 확인 권장",
-        "zh": "🟡 [LIKELY] — 部分验证完成，建议进一步确认",
-        "en": "🟡 [LIKELY] — Partially verified, further confirmation recommended",
-    },
-    "mvvs_signal_found": {
-        "ko": "⚡ 취약점 신호 감지됨 — 자동 재검증 시작",
-        "zh": "⚡ 检测到漏洞信号 — 开始自动重新验证",
-        "en": "⚡ Vulnerability signal detected — starting auto re-verification",
-    },
-    "mvvs_no_signal": {
-        "ko": "✓ 취약점 신호 없음 — 계속 진행",
-        "zh": "✓ 未检测到漏洞信号 — 继续",
-        "en": "✓ No vulnerability signal — continuing",
-    },
-    "mvvs_max_retry": {
-        "ko": "ℹ️  MVVS 최대 재시도 도달 — 다음 단계로 진행",
-        "zh": "ℹ️  MVVS 已达最大重试次数 — 进入下一步",
-        "en": "ℹ️  MVVS max retry reached — proceeding to next step",
     },
     # ── v3.2.88: /load 세션 복원 ──────────────────────────────────────
     # 고객 피드백: "哥，不可以直接喂会话吗" — 세션 파일 직접 입력 → 이어가기
@@ -6734,11 +6603,6 @@ _STRINGS.update({
         "zh": "🚨 FP-ZERO 回归测试失败 — 发布前必须修复误判",
         "en": "🚨 FP-ZERO regression suite FAILED — must fix false positives before release",
     },
-    "fp_new_pattern_warning": {
-        "ko": "⚠️  MVVS 패턴 추가 시 tests/test_mvvs_false_positive.py에 FP/TP 케이스 반드시 추가",
-        "zh": "⚠️  添加MVVS模式时必须在tests/test_mvvs_false_positive.py中添加FP/TP用例",
-        "en": "⚠️  When adding MVVS patterns, always add FP/TP cases to tests/test_mvvs_false_positive.py",
-    },
     # BINGO_SIGNAL 구조화 보고 시스템 관련 메시지 (v5.0.7)
     "bingo_signal_detected": {
         "ko": "🎯 BINGO_SIGNAL 구조화 신호 탐지됨 — 증거 검증 완료",
@@ -6998,6 +6862,253 @@ _STRINGS.update({
         "ko": "  ⋯ [HTTP 헤더 출력 억제됨 — 전체 내용은 AI에게 전달됨]",
         "zh": "  ⋯ [HTTP头部输出已抑制 — 完整内容已发送至AI]",
         "en": "  ⋯ [HTTP headers suppressed — full data sent to AI]",
+    },
+    # v6.2.14: bash 블록 내 독립 Python 구문 제거 경고
+    "bash_cleanup_py_removed": {
+        "ko": "⚠ [BASH CLEANUP] 독립 Python 구문 제거",
+        "zh": "⚠ [BASH CLEANUP] 移除独立Python语句",
+        "en": "⚠ [BASH CLEANUP] Standalone Python statement removed",
+    },
+    # v6.2.21: 한국어 전용 하드코딩 메시지 → 다국어 키 변환
+    "waf_spa_catch_all": {
+        "ko": "⚠ SPA catch-all 라우터 감지 — 경로 탐색 무의미",
+        "zh": "⚠ 检测到 SPA catch-all 路由 — 路径枚举无效",
+        "en": "⚠ SPA catch-all router detected — path enumeration futile",
+    },
+    "waf_custom_detected": {
+        "ko": "⚠ 커스텀 WAF 감지 (HTTP {codes})",
+        "zh": "⚠ 检测到自定义 WAF (HTTP {codes})",
+        "en": "⚠ Custom WAF detected (HTTP {codes})",
+    },
+    "waf_captcha_bypass_detected": {
+        "ko": "⚠ CAPTCHA 우회 가능 감지! (파일명=정답)",
+        "zh": "⚠ 检测到可绕过 CAPTCHA！(文件名=答案)",
+        "en": "⚠ Bypassable CAPTCHA detected! (filename=answer)",
+    },
+    "waf_payload_block_hint": {
+        "ko": "⚡ WAF 페이로드 차단 감지 (IP 차단 아님) → 페이로드 변형 후 재시도",
+        "zh": "⚡ 检测到 WAF 载荷封锁（非 IP 封锁）→ 变形载荷后重试",
+        "en": "⚡ WAF payload block detected (NOT IP ban) → retry with modified payload",
+    },
+    "whitebox_endpoints_count": {
+        "ko": "엔드포인트 {n_ep}개 | 파라미터 {n_par}개",
+        "zh": "端点 {n_ep} 个 | 参数 {n_par} 个",
+        "en": "{n_ep} endpoints | {n_par} parameters",
+    },
+    "whitebox_ctx_active": {
+        "ko": "화이트박스 컨텍스트 주입 활성화",
+        "zh": "白盒上下文注入已激活",
+        "en": "Whitebox context injection active",
+    },
+    "agent_priority_usage": {
+        "ko": "사용법: /agent priority sqli,xss,ssrf",
+        "zh": "用法: /agent priority sqli,xss,ssrf",
+        "en": "Usage: /agent priority sqli,xss,ssrf",
+    },
+    "agent_priority_set": {
+        "ko": "에이전트 우선순위 설정: ",
+        "zh": "代理优先级已设置: ",
+        "en": "Agent priority set: ",
+    },
+    "session_cookie_injected": {
+        "ko": "이후 모든 AI 요청에 세션 쿠키가 자동으로 주입됩니다.",
+        "zh": "此后所有 AI 请求将自动注入 Session Cookie。",
+        "en": "Session cookies will be auto-injected into all AI requests.",
+    },
+    "cred_saved_label": {
+        "ko": "저장된 자격증명:",
+        "zh": "已保存的凭据:",
+        "en": "Saved credentials:",
+    },
+    "cred_saved_ok": {
+        "ko": "✅ 자격증명 저장 완료",
+        "zh": "✅ 凭据已保存",
+        "en": "✅ Credentials saved",
+    },
+    "cred_auto_use": {
+        "ko": "이후 AI 요청에서 이 자격증명을 자동으로 사용합니다.",
+        "zh": "此后 AI 请求中将自动使用该凭据。",
+        "en": "These credentials will be auto-used in AI requests.",
+    },
+    "session_clear_hint": {
+        "ko": "세션 초기화: /session clear",
+        "zh": "清除会话: /session clear",
+        "en": "Reset session: /session clear",
+    },
+    "session_no_active": {
+        "ko": "활성 세션 없음. /login 또는 /cred 로 세션을 설정하세요.",
+        "zh": "无活动会话。使用 /login 或 /cred 设置会话。",
+        "en": "No active session. Use /login or /cred to set a session.",
+    },
+    "session_active_label": {
+        "ko": "🔐 활성 세션",
+        "zh": "🔐 活动会话",
+        "en": "🔐 Active Session",
+    },
+    "session_login_url_label": {
+        "ko": "  로그인 URL : ",
+        "zh": "  登录 URL   : ",
+        "en": "  Login URL  : ",
+    },
+    "session_evidence_label": {
+        "ko": "  증거수준   : ",
+        "zh": "  证据级别   : ",
+        "en": "  Evidence   : ",
+    },
+    "session_cookie_label": {
+        "ko": "  쿠키       : ",
+        "zh": "  Cookie     : ",
+        "en": "  Cookies    : ",
+    },
+    "cred_auto_login": {
+        "ko": "🔍 자격증명 감지 → /login 자동 실행",
+        "zh": "🔍 检测到凭据 → 自动执行 /login",
+        "en": "🔍 Credentials detected → auto-running /login",
+    },
+    "cred_auto_save": {
+        "ko": "🔍 자격증명 감지 → /cred 저장 (URL 미감지)",
+        "zh": "🔍 检测到凭据 → 保存至 /cred（未检测到 URL）",
+        "en": "🔍 Credentials detected → saved to /cred (URL not detected)",
+    },
+    "lab_progress_title": {
+        "ko": "📊 웹 실습 진행상황",
+        "zh": "📊 Web 实验进度",
+        "en": "📊 Web Lab Progress",
+    },
+    "recon_subdomains_label": {
+        "ko": "📌 서브도메인 ({n}개):",
+        "zh": "📌 子域名 ({n} 个):",
+        "en": "📌 Subdomains ({n}):",
+    },
+    "recon_subdomains_more": {
+        "ko": "  ... 외 {n}개",
+        "zh": "  ... 及其他 {n} 个",
+        "en": "  ... and {n} more",
+    },
+    "recon_emails_label": {
+        "ko": "📧 이메일 ({n}개):",
+        "zh": "📧 电子邮件 ({n} 个):",
+        "en": "📧 Emails ({n}):",
+    },
+    "recon_shodan_label": {
+        "ko": "🌐 Shodan 결과 ({n}개):",
+        "zh": "🌐 Shodan 结果 ({n} 个):",
+        "en": "🌐 Shodan results ({n}):",
+    },
+    "recon_asset_db_step": {
+        "ko": "  Step 3/3  자산 DB 생성 및 우선순위 분류...",
+        "zh": "  Step 3/3  构建资产 DB 并分类优先级...",
+        "en": "  Step 3/3  Building asset DB and priority classification...",
+    },
+    "recon_no_endpoints": {
+        "ko": "(엔드포인트 없음)",
+        "zh": "(无端点)",
+        "en": "(no endpoints)",
+    },
+    "recon_saved": {
+        "ko": "💾 저장 완료: {path}",
+        "zh": "💾 已保存: {path}",
+        "en": "💾 Saved: {path}",
+    },
+    "session_cleared": {
+        "ko": "세션 초기화 완료.",
+        "zh": "会话已清除。",
+        "en": "Session cleared.",
+    },
+    "ctf_failed_list": {
+        "ko": "실패 항목 목록:",
+        "zh": "失败项目列表:",
+        "en": "Failed challenges:",
+    },
+    "ctf_load_error": {
+        "ko": "❌ ctf_lab_engine 로드 실패 — bingo/tools/ctf_lab_engine.py 확인",
+        "zh": "❌ ctf_lab_engine 加载失败 — 检查 bingo/tools/ctf_lab_engine.py",
+        "en": "❌ ctf_lab_engine load failed — check bingo/tools/ctf_lab_engine.py",
+    },
+    "ctf_check_error": {
+        "ko": "❌ 웹 실습 점검 오류: {e}",
+        "zh": "❌ CTF 实验检查错误: {e}",
+        "en": "❌ CTF lab check error: {e}",
+    },
+    "tool_install_warn": {
+        "ko": "툴 설치 경고: {e}",
+        "zh": "工具安装警告: {e}",
+        "en": "Tool install warning: {e}",
+    },
+    "nuclei_results_label": {
+        "ko": "🧬 Nuclei 결과:",
+        "zh": "🧬 Nuclei 结果:",
+        "en": "🧬 Nuclei results:",
+    },
+    "scan_usage": {
+        "ko": "사용법: /scan <url>  예) /scan https://target.com",
+        "zh": "用法: /scan <url>  示例: /scan https://target.com",
+        "en": "Usage: /scan <url>  e.g. /scan https://target.com",
+    },
+    "mscan_usage": {
+        "ko": "사용법: /mscan <url>  예) /mscan https://target.com",
+        "zh": "用法: /mscan <url>  示例: /mscan https://target.com",
+        "en": "Usage: /mscan <url>  e.g. /mscan https://target.com",
+    },
+    "webshell_usage": {
+        "ko": "사용법: /webshell <url>  예) /webshell https://target.com",
+        "zh": "用法: /webshell <url>  示例: /webshell https://target.com",
+        "en": "Usage: /webshell <url>  e.g. /webshell https://target.com",
+    },
+    "recon_usage": {
+        "ko": "사용법: /recon {sub} <도메인/타겟>",
+        "zh": "用法: /recon {sub} <域名/目标>",
+        "en": "Usage: /recon {sub} <domain/target>",
+    },
+    "cve_removed": {
+        "ko": "⚠️  /cve 명령이 제거되었습니다. CVE DB가 삭제되었습니다.",
+        "zh": "⚠️  /cve 命令已移除。CVE 数据库已删除。",
+        "en": "⚠️  /cve command has been removed. CVE DB was deleted.",
+    },
+    "recon_passive_done": {
+        "ko": "✅ Passive 수집 완료 — 서브도메인 {sd} / 이메일 {em} / Shodan {sh}",
+        "zh": "✅ 被动侦察完成 — 子域名: {sd} / 邮箱: {em} / Shodan: {sh}",
+        "en": "✅ Passive recon done — Subdomains: {sd} / Emails: {em} / Shodan: {sh}",
+    },
+    "recon_active_start": {
+        "ko": "🗺 Active Recon 시작: {target}",
+        "zh": "🗺 主动侦察开始: {target}",
+        "en": "🗺 Active Recon: {target}",
+    },
+    "recon_live_hosts_label": {
+        "ko": "🟢 Live Hosts ({n}개):",
+        "zh": "🟢 存活主机 ({n} 个):",
+        "en": "🟢 Live Hosts ({n}):",
+    },
+    "recon_open_ports_label": {
+        "ko": "🔓 열린 포트 (총 {n}개):",
+        "zh": "🔓 开放端口 (共 {n} 个):",
+        "en": "🔓 Open Ports ({n} total):",
+    },
+    "recon_js_endpoints_label": {
+        "ko": "📜 JS Endpoints ({n}개):",
+        "zh": "📜 JS 端点 ({n} 个):",
+        "en": "📜 JS Endpoints ({n}):",
+    },
+    "recon_active_done": {
+        "ko": "✅ Active 수집 완료 — Live {live} / 포트 {ports} / JS Endpoints {js}",
+        "zh": "✅ 主动侦察完成 — 存活: {live} / 端口: {ports} / JS 端点: {js}",
+        "en": "✅ Active recon done — Live: {live} / Ports: {ports} / JS Endpoints: {js}",
+    },
+    "recon_step1": {
+        "ko": "  Step 1/3  Passive 수집 중...",
+        "zh": "  Step 1/3  被动信息收集中...",
+        "en": "  Step 1/3  Passive collection in progress...",
+    },
+    "waf_detect_msg": {
+        "ko": "{target} 사이트의 WAF와 보안 장치를 탐지해줘. Python httpx로 직접 헤더, 응답 패턴 분석해서 식별해.",
+        "zh": "检测 {target} 站点的 WAF 和安全设备。使用 Python httpx 直接分析响应头和响应模式来识别。",
+        "en": "Detect WAF and security devices on {target}. Use Python httpx to directly analyze headers and response patterns to identify them.",
+    },
+    "webshell_msg": {
+        "ko": "타겟: {target}\n웹쉘 업로드를 시도해줘. Gnuboard5 취약점 및 범용 GIF polyglot webshell 기법을 포함하여 업로드 가능한 경로 탐색부터 실행 확인까지 전 과정을 수행해.",
+        "zh": "目标: {target}\n尝试上传 Webshell。包含 Gnuboard5 漏洞及通用 GIF polyglot webshell 技术，执行从查找可上传路径到确认执行的全过程。",
+        "en": "Target: {target}\nAttempt webshell upload. Include Gnuboard5 vulnerabilities and GIF polyglot webshell techniques. Perform the full process from finding uploadable paths to confirming execution.",
     },
 })
 

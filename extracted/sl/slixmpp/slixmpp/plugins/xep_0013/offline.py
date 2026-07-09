@@ -35,13 +35,13 @@ class XEP_0013(BasePlugin):
         register_stanza_plugin(Message, stanza.Offline)
 
     def get_count(self, **kwargs):
-        return self.xmpp['xep_0030'].get_info(
+        return self.xmpp.plugin['xep_0030'].get_info(
                 node='http://jabber.org/protocol/offline',
                 local=False,
                 **kwargs)
 
     def get_headers(self, **kwargs):
-        return self.xmpp['xep_0030'].get_items(
+        return self.xmpp.plugin['xep_0030'].get_items(
                 node='http://jabber.org/protocol/offline',
                 local=False,
                 **kwargs)

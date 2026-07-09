@@ -35,10 +35,10 @@ class XEP_0004(BasePlugin):
 
     def plugin_end(self):
         self.xmpp.remove_handler('Data Form')
-        self.xmpp['xep_0030'].del_feature(feature='jabber:x:data')
+        self.xmpp.plugin['xep_0030'].del_feature(feature='jabber:x:data')
 
     def session_bind(self, jid):
-        self.xmpp['xep_0030'].add_feature('jabber:x:data')
+        self.xmpp.plugin['xep_0030'].add_feature('jabber:x:data')
 
     def make_form(self, ftype='form', title='', instructions=''):
         f = Form()

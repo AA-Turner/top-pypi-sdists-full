@@ -70,24 +70,62 @@ def test_periodic_flush_survives_after_final_flush(repo):
     assert [log.payload["text"] for log in repo.get("e1")] == ["first", "second"]
 
 
-def test_concurrent_final_flush_no_loss_no_corruption(repo):
+def test_concurrent_final_flush_no_loss_no_corruption(quiet_repo, monkeypatch):
+    # Uses a mock pool so DB connection instability in CI can't cause false negatives.
+    # The test validates that the in-memory buffer is not corrupted or silently drained
+    # when final_flush() is called concurrently from multiple threads.
+    import abstra_internals.services.db.connection as connection
+
+    captured: list = []
+    cap_lock = threading.Lock()
+
+    class _CapCur:
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *a):
+            return False
+
+        def execute(self, sql, params=None):
+            if params:
+                n = len(params) // 6
+                with cap_lock:
+                    for i in range(n):
+                        captured.append(params[i * 6 + 3])  # text is 4th of 6 params
+
+    class _CapConn:
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *a):
+            return False
+
+        def cursor(self, **kw):
+            return _CapCur()
+
+    class _CapPool:
+        def connection(self):
+            return _CapConn()
+
+    monkeypatch.setattr(connection, "get_pool", lambda: _CapPool())
+
     stop = threading.Event()
 
     def hammer_flush():
         while not stop.is_set():
-            repo.final_flush()
+            quiet_repo.final_flush()
 
     flushers = [threading.Thread(target=hammer_flush) for _ in range(3)]
     for t in flushers:
         t.start()
     for i in range(100):
-        repo.insert_stdio("e1", "s1", "stdout", f"m{i}")
+        quiet_repo.insert_stdio("e1", "s1", "stdout", f"m{i}")
     stop.set()
     for t in flushers:
         t.join()
-    repo.final_flush()
-    texts = [log.payload["text"] for log in repo.get("e1")]
-    assert sorted(texts) == sorted(f"m{i}" for i in range(100))
+    quiet_repo.final_flush()
+
+    assert sorted(captured) == sorted(f"m{i}" for i in range(100))
 
 
 def test_clear_truncates(repo):

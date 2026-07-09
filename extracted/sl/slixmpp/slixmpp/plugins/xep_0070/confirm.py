@@ -45,10 +45,10 @@ class XEP_0070(BasePlugin):
 
     def plugin_end(self):
         self.xmpp.remove_handler('Confirm')
-        self.xmpp['xep_0030'].del_feature(feature='http://jabber.org/protocol/http-auth')
+        self.xmpp.plugin['xep_0030'].del_feature(feature='http://jabber.org/protocol/http-auth')
 
     def session_bind(self, jid):
-        self.xmpp['xep_0030'].add_feature('http://jabber.org/protocol/http-auth')
+        self.xmpp.plugin['xep_0030'].add_feature('http://jabber.org/protocol/http-auth')
 
     def ask_confirm(self, jid, id, url, method, *, ifrom=None, message=None):
         jid = JID(jid)

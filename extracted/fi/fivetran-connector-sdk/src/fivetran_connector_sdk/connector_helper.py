@@ -23,6 +23,7 @@ from fivetran_connector_sdk.helpers import (
     print_library_log, get_input_from_cli,
     validate_and_load_state,
     validate_and_load_configuration,
+    _validate_table_name,
 )
 from fivetran_connector_sdk.constants import (
     OS_MAP,
@@ -40,7 +41,7 @@ from fivetran_connector_sdk.constants import (
     PYPROJECT_SKIP_VALIDATION_MESSAGE,
     CONFIGURATION_JSON,
     PYPI_PACKAGE_DETAILS_URL,
-    ONE_DAY_IN_SEC,
+    SIX_HOUR_IN_SEC,
     MAX_RETRIES,
     VIRTUAL_ENV_CONFIG,
     ROOT_FILENAME,
@@ -60,6 +61,16 @@ from fivetran_connector_sdk.constants import (
     REDACTED_VALUE,
     RECOMMEND_STABLE_VERSION_MESSAGE,
 )
+
+SETUP_TESTS_RUNNING_MESSAGE = (
+    "Running setup tests can take up to a few minutes; "
+    "custom tests may take longer depending on your code and external APIs."
+)
+
+
+def log_setup_tests_running() -> None:
+    print_library_log(SETUP_TESTS_RUNNING_MESSAGE, log_icon=Logging.LogIcon.STEP)
+
 
 def _get_rss_bytes() -> int:
     # Returns the current RSS (Resident Set Size) of this process in bytes.
@@ -324,37 +335,41 @@ def get_configuration(args, retrying = 0):
 
 def check_newer_version(version: str):
     """Periodically checks for a newer version of the SDK and notifies the user if one is available."""
-    tester_root_dir = tester_root_dir_helper()
-    last_check_file_path = os.path.join(tester_root_dir, LAST_VERSION_CHECK_FILE)
-    if not os.path.isdir(tester_root_dir):
-        os.makedirs(tester_root_dir, exist_ok=True)
+    try:
+        tester_root_dir = tester_root_dir_helper()
+        last_check_file_path = os.path.join(tester_root_dir, LAST_VERSION_CHECK_FILE)
+        if not os.path.isdir(tester_root_dir):
+            os.makedirs(tester_root_dir, exist_ok=True)
 
-    if os.path.isfile(last_check_file_path):
-        # Is it time to check again?
-        with open(last_check_file_path, 'r', encoding=UTF_8) as f_in:
-            timestamp = int(f_in.read())
-            if (int(time.time()) - timestamp) < ONE_DAY_IN_SEC:
-                return
+        if os.path.isfile(last_check_file_path):
+            # Is it time to check again?
+            with open(last_check_file_path, 'r', encoding=UTF_8) as f_in:
+                timestamp = int(f_in.read())
+                if (int(time.time()) - timestamp) < SIX_HOUR_IN_SEC:
+                    return
 
-    for index in range(MAX_RETRIES):
-        try:
-            # check version and save current time
-            response = rq.get(PYPI_PACKAGE_DETAILS_URL)
-            response.raise_for_status()
-            data = json.loads(response.text)
-            latest_version = data["info"]["version"]
-            if version < latest_version:
-                print_library_log(f"fivetran-connector-sdk {latest_version} is available. (a newer release exists)", log_icon=Logging.LogIcon.LIGHTNING)
-                print_library_log("run 'pip install --upgrade fivetran-connector-sdk' to update", log_icon=Logging.LogIcon.LIGHTNING)
+        for index in range(MAX_RETRIES):
+            try:
+                # check version and save current time
+                response = rq.get(PYPI_PACKAGE_DETAILS_URL, timeout=10)
+                response.raise_for_status()
+                data = json.loads(response.text)
+                latest_version = data["info"]["version"]
+                if tuple(int(x) for x in version.split('.')) < tuple(int(x) for x in latest_version.split('.')):
+                    print_library_log(f"fivetran-connector-sdk {latest_version} is available. (a newer release exists)", log_icon=Logging.LogIcon.LIGHTNING, level=Logging.Level.WARNING)
+                    print_library_log("run 'pip install --upgrade fivetran-connector-sdk' to update", log_icon=Logging.LogIcon.LIGHTNING, level=Logging.Level.WARNING)
 
-            with open(last_check_file_path, 'w', encoding=UTF_8) as f_out:
-                f_out.write(f"{int(time.time())}")
-            break
-        except Exception:
-            retry_after = 2 ** index
-            print_library_log("unable to check for a newer version of `fivetran-connector-sdk`", Logging.Level.WARNING)
-            print_library_log(f"retrying after {retry_after} seconds", Logging.Level.WARNING)
-            time.sleep(retry_after)
+                with open(last_check_file_path, 'w', encoding=UTF_8) as f_out:
+                    f_out.write(f"{int(time.time())}")
+                break
+            except Exception:
+                retry_after = 2 ** index
+                print_library_log("unable to check for a newer version of `fivetran-connector-sdk`", Logging.Level.WARNING)
+                print_library_log(f"retrying after {retry_after} seconds", Logging.Level.WARNING)
+                time.sleep(retry_after)
+    except Exception:
+        # version check is advisory; never abort commands due to unexpected error
+        pass
 
 
 def tester_root_dir_helper() -> str:
@@ -383,7 +398,7 @@ def _deploy_config_flow(args, env_configuration, retrying):
 
 def _warn_exit_usage(filename, line_no, func):
     print_library_log(
-        f"avoid using {func} to exit from python code\n      this may cause the connector to hang\n      raise an error instead at: {filename}:{line_no}\n      reference: https://fivetran.com/docs/connector-sdk/technical-reference/connector-sdk-code/connector-sdk-logs#exceptionhandling",
+        f"avoid using {func} to exit from python code\n      this may cause the connector to hang\n      raise an error instead at: {filename}:{line_no}\n      reference: https://fivetran.com/docs/connector-sdk/technical-reference/connector-sdk-logs#exceptionhandling",
         Logging.Level.WARNING
     )
 
@@ -465,7 +480,7 @@ def is_port_in_use(port: int):
 
 
 def get_available_port():
-    for port in range(50051, 50061):
+    for port in range(50049, 50061):
         if not is_port_in_use(port):
             return port
     return None
@@ -947,6 +962,7 @@ def update_connection(id: str, name: str, group: str, config: dict, package_id: 
     if hd_agent_id:
         json_payload["hybrid_deployment_agent_id"] = hd_agent_id
 
+    log_setup_tests_running()
     response = rq.patch(f"{constants.PRODUCTION_BASE_URL}/v1/connectors/{id}",
                         headers={
                             "Authorization": f"Basic {deploy_key}",
@@ -1031,6 +1047,7 @@ def create_connection(deploy_key: str, group_id: str, config: dict, hd_agent_id:
     """
     print_library_log("creating connection", log_icon=Logging.LogIcon.STEP)
     config["package_id"] = package_id
+    log_setup_tests_running()
     response = rq.post(f"{constants.PRODUCTION_BASE_URL}/v1/connectors",
                        headers={
                            "Authorization": f"Basic {deploy_key}",
@@ -1731,6 +1748,8 @@ def process_tables(response, table_list):
             raise ValueError("Entry missing table name: " + entry)
 
         table_name = entry['table']
+
+        _validate_table_name(table_name)
 
         if table_name in table_list:
             raise ValueError("Table already defined: " + table_name)

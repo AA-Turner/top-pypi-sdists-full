@@ -37,6 +37,10 @@ class AIRepository(ABC):
         raise NotImplementedError()
 
     @abstractmethod
+    def extract_text(self, file_content: bytes, mime_type: str):
+        raise NotImplementedError()
+
+    @abstractmethod
     def get_ai_messages(
         self,
         req: CloudApiCliAiV2StreamRequest,
@@ -150,6 +154,28 @@ class ProductionAIRepository(AIRepository):
             # parse-document failures, cloud-api returns a JSON {"error": "..."}
             # describing the actual issue (e.g. "Invalid date format: ..."),
             # which is actionable. Surface it in the exception message.
+            try:
+                body = response.json()
+                detail = body.get("error") if isinstance(body, dict) else None
+            except ValueError:
+                detail = None
+            if not detail:
+                detail = response.text or response.reason
+            raise requests.HTTPError(
+                f"{response.status_code} {response.reason}: {detail}",
+                response=response,
+            )
+
+        return response.json()
+
+    def extract_text(self, file_content: bytes, mime_type: str):
+        response = self.client.post(
+            endpoint="/ai-v2/extract-text",
+            headers={"Content-Type": mime_type},
+            data=file_content,
+        )
+
+        if not response.ok:
             try:
                 body = response.json()
                 detail = body.get("error") if isinstance(body, dict) else None
@@ -319,6 +345,21 @@ class LocalAIRepository(AIRepository):
             raise Exception("You must be logged in to use AI")
         response = self.client.post(
             f"/ai-v2/parse-document/{model}",
+            headers={**headers, "Content-Type": mime_type},
+            data=file_content,
+        )
+
+        try:
+            return response.json()
+        except json.JSONDecodeError:
+            raise Exception(f"Error parsing JSON: {response.text}")
+
+    def extract_text(self, file_content: bytes, mime_type: str):
+        headers = resolve_headers()
+        if headers is None:
+            raise Exception("You must be logged in to use AI")
+        response = self.client.post(
+            "/ai-v2/extract-text",
             headers={**headers, "Content-Type": mime_type},
             data=file_content,
         )

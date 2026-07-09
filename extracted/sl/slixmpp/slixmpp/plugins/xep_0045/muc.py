@@ -15,11 +15,9 @@ from typing import (
 from slixmpp import (
     Presence,
     Message,
-    Iq,
     JID,
 )
 from slixmpp.plugins import BasePlugin
-from slixmpp.xmlstream import register_stanza_plugin
 from slixmpp.xmlstream.handler.callback import Callback
 from slixmpp.xmlstream.matcher.stanzapath import StanzaPath
 from slixmpp.xmlstream.matcher.xmlmask import MatchXMLMask
@@ -28,20 +26,8 @@ from slixmpp.exceptions import PresenceError
 from slixmpp.plugins.xep_0004 import Form
 from slixmpp.plugins.xep_0045 import stanza
 from slixmpp.plugins.xep_0045.stanza import (
-    MUCInvite,
-    MUCDecline,
-    MUCDestroy,
-    MUCPresence,
-    MUCJoin,
-    MUCMessage,
-    MUCAdminQuery,
     MUCAdminItem,
-    MUCHistory,
     MUCOwnerQuery,
-    MUCOwnerDestroy,
-    MUCStatus,
-    MUCActor,
-    MUCUserItem,
 )
 from slixmpp.types import (
     JidStr,
@@ -107,24 +93,8 @@ class XEP_0045(BasePlugin):
     def plugin_init(self):
         self.rooms = defaultdict(lambda: defaultdict())
         self.our_nicks = defaultdict(lambda: defaultdict())
-        # load MUC support in presence stanzas
-        register_stanza_plugin(MUCMessage, MUCUserItem)
-        register_stanza_plugin(MUCPresence, MUCUserItem)
-        register_stanza_plugin(MUCUserItem, MUCActor)
-        register_stanza_plugin(MUCMessage, MUCInvite)
-        register_stanza_plugin(MUCMessage, MUCDecline)
-        register_stanza_plugin(MUCMessage, MUCStatus)
-        register_stanza_plugin(MUCPresence, MUCStatus)
-        register_stanza_plugin(Presence, MUCPresence)
-        register_stanza_plugin(MUCPresence, MUCDestroy)
-        register_stanza_plugin(Presence, MUCJoin)
-        register_stanza_plugin(MUCJoin, MUCHistory)
-        register_stanza_plugin(Message, MUCMessage)
-        register_stanza_plugin(Iq, MUCAdminQuery)
-        register_stanza_plugin(Iq, MUCOwnerQuery)
-        register_stanza_plugin(MUCOwnerQuery, MUCOwnerDestroy)
-        register_stanza_plugin(MUCOwnerQuery, Form)
-        register_stanza_plugin(MUCAdminQuery, MUCAdminItem, iterable=True)
+
+        stanza.register_plugins()
 
         # Register handlers
         self.xmpp.register_handler(

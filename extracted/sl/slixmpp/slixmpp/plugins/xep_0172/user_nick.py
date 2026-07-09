@@ -32,11 +32,11 @@ class XEP_0172(BasePlugin):
         register_stanza_plugin(Presence, UserNick)
 
     def plugin_end(self):
-        self.xmpp['xep_0030'].del_feature(feature=UserNick.namespace)
-        self.xmpp['xep_0163'].remove_interest(UserNick.namespace)
+        self.xmpp.plugin['xep_0030'].del_feature(feature=UserNick.namespace)
+        self.xmpp.plugin['xep_0163'].remove_interest(UserNick.namespace)
 
     def session_bind(self, jid):
-        self.xmpp['xep_0163'].register_pep('user_nick', UserNick)
+        self.xmpp.plugin['xep_0163'].register_pep('user_nick', UserNick)
 
     def publish_nick(self, nick: str | None = None, **pubsubkwargs) -> Future:
         """
@@ -46,7 +46,7 @@ class XEP_0172(BasePlugin):
         """
         nickname = UserNick()
         nickname['nick'] = nick
-        return self.xmpp['xep_0163'].publish(
+        return self.xmpp.plugin['xep_0163'].publish(
             nickname,
             node=UserNick.namespace,
             **pubsubkwargs
@@ -57,7 +57,7 @@ class XEP_0172(BasePlugin):
         Clear existing user nick information to stop notifications.
         """
         nick = UserNick()
-        return self.xmpp['xep_0163'].publish(
+        return self.xmpp.plugin['xep_0163'].publish(
             nick,
             node=UserNick.namespace,
             **pubsubkwargs

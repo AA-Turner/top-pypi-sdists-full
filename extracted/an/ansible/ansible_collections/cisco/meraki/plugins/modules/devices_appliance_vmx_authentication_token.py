@@ -2,15 +2,13 @@
 # -*- coding: utf-8 -*-
 
 # Copyright (c) 2021, Cisco Systems
-# GNU General Public License v3.0+ (see LICENSE or
-# https://www.gnu.org/licenses/gpl-3.0.txt)
+# GNU General Public License v3.0+ (see LICENSE or https://www.gnu.org/licenses/gpl-3.0.txt)
 
 DOCUMENTATION = r"""
 module: devices_appliance_vmx_authentication_token
-short_description: Resource module for devices _appliance _vmx _authentication _token
+short_description: Resource module for devices _appliance _vmx _authenticationtoken
 description:
-  - Manage operation create of the resource devices _appliance _vmx _authentication
-    _token.
+  - Manage operation create of the resource devices _appliance _vmx _authenticationtoken.
   - Generate a new vMX authentication token.
 version_added: '1.0.0'
 extends_documentation_fragment:

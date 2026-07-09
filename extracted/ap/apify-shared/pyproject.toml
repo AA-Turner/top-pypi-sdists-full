@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "apify_shared"
-version = "2.2.0"
+version = "2.2.1"
 description = "Tools and constants shared across Apify projects."
 authors = [{ name = "Apify Technologies s.r.o.", email = "support@apify.com" }]
 license = { file = "LICENSE" }
@@ -43,16 +43,27 @@ dependencies = []
 
 [dependency-groups]
 dev = [
-    "dycw-pytest-only~=2.1.0",
-    "pre-commit~=4.3.0",
-    "pytest-asyncio~=1.1.0",
-    "pytest-cov~=6.2.0",
-    "pytest-timeout~=2.4.0",
-    "pytest-xdist~=3.8.0",
-    "pytest~=8.4.0",
-    "ruff~=0.12.0",
+    "dycw-pytest-only<3.0.0",
+    "poethepoet<1.0.0",
+    "pre-commit<5.0.0",
+    "pytest-asyncio<2.0.0",
+    "pytest-cov<8.0.0",
+    "pytest-timeout<3.0.0",
+    "pytest-xdist<4.0.0",
+    "pytest<10.0.0",
+    "ruff~=0.14.0",
     "setuptools", # setuptools are used by pytest, but not explicitly required
     "ty~=0.0.0",
+]
+
+[tool.hatch.build.targets.sdist]
+only-include = [
+    "src/apify_shared",
+    "CHANGELOG.md",
+    "CONTRIBUTING.md",
+    "LICENSE",
+    "README.md",
+    "pyproject.toml",
 ]
 
 [tool.ruff]
@@ -94,13 +105,31 @@ docstring-quotes = "double"
 inline-quotes = "single"
 
 [tool.pytest.ini_options]
-addopts = "-ra"
+addopts = "-r a --verbose"
 asyncio_default_fixture_loop_scope = "function"
 asyncio_mode = "auto"
-timeout = 300
+timeout = 1800
 
 [tool.ty.environment]
 python-version = "3.10"
 
 [tool.ty.src]
 include = ["src", "tests", "scripts", "docs", "website"]
+
+# Run tasks with: uv run poe <task>
+[tool.poe.tasks]
+clean = "rm -rf .coverage .pytest_cache .ruff_cache .ty_cache build dist htmlcov"
+install-sync = "uv sync --all-extras"
+install-dev = "uv sync --all-extras"
+build = "uv build"
+publish-to-pypi = "uv publish --token ${APIFY_PYPI_TOKEN_CRAWLEE}"
+type-check = "uv run ty check"
+unit-tests = "uv run pytest --numprocesses=${TESTS_CONCURRENCY:-auto} --cov=src/apify_shared tests/unit"
+unit-tests-cov = "uv run pytest --numprocesses=${TESTS_CONCURRENCY:-auto} --cov=src/apify_shared --cov-report=html tests/unit"
+check-code = ["lint", "type-check", "unit-tests"]
+
+[tool.poe.tasks.lint]
+shell = "uv run ruff format --check && uv run ruff check"
+
+[tool.poe.tasks.format]
+shell = "uv run ruff check --fix && uv run ruff format"

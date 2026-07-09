@@ -1,4 +1,5 @@
 import datetime
+import logging
 from typing import Any, Dict, List, Optional, cast
 
 from packaging.version import Version
@@ -61,13 +62,16 @@ class SandboxApi(SandboxBase):
         **opts: Unpack[ApiParams],
     ) -> SandboxPaginator:
         """
-        List all running sandboxes.
+        List sandboxes.
 
-        :param query: Filter the list of sandboxes by metadata or state, e.g. `SandboxListQuery(metadata={"key": "value"})` or `SandboxListQuery(state=[SandboxState.RUNNING])`
+        By default (no `query.state` set), returns sandboxes in both `running`
+        and `paused` states. To filter by state, pass `query=SandboxQuery(state=[...])`.
+
+        :param query: Filter the list of sandboxes by metadata or state, e.g. `SandboxQuery(metadata={"key": "value"})` or `SandboxQuery(state=[SandboxState.RUNNING])`
         :param limit: Maximum number of sandboxes to return per page
         :param next_token: Token for pagination
 
-        :return: List of running sandboxes
+        :return: A `SandboxPaginator` that yields pages of sandboxes (running and paused by default). Iterate pages via `paginator.next_items()` while `paginator.has_next` is True.
         """
         return SandboxPaginator(
             query=query,
@@ -197,9 +201,10 @@ class SandboxApi(SandboxBase):
         network: Optional[SandboxNetworkOpts] = None,
         lifecycle: Optional[SandboxLifecycle] = None,
         volume_mounts: Optional[List[SandboxVolumeMountAPI]] = None,
+        logger: Optional[logging.Logger] = None,
         **opts: Unpack[ApiParams],
     ) -> SandboxCreateResponse:
-        config = ConnectionConfig(**opts)
+        config = ConnectionConfig(logger=logger, **opts)
 
         # on_timeout accepts a bare action or {"action", "keep_memory"}; normalize.
         # Only the object form carries keep_memory; anything else (a bare action
@@ -352,11 +357,12 @@ class SandboxApi(SandboxBase):
         cls,
         sandbox_id: str,
         timeout: Optional[int] = None,
+        logger: Optional[logging.Logger] = None,
         **opts: Unpack[ApiParams],
     ) -> SandboxCreateResponse:
         timeout = timeout or SandboxBase.default_sandbox_timeout
 
-        config = ConnectionConfig(**opts)
+        config = ConnectionConfig(logger=logger, **opts)
 
         api_client = get_api_client(config)
         res = post_sandboxes_sandbox_id_connect.sync_detailed(

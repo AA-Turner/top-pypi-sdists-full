@@ -5,9 +5,12 @@
 import asyncio
 import atexit
 import contextlib
+import difflib
+import os
 import unittest
-from collections.abc import Awaitable, Iterable
+from collections.abc import Awaitable, Iterable, Iterator
 from typing import Literal, TypeVar
+from xml.etree.ElementTree import Element
 from xml.parsers.expat import ExpatError
 
 from slixmpp import JID, ClientXMPP, ComponentXMPP
@@ -25,7 +28,7 @@ from slixmpp.xmlstream.matcher import (
     StanzaPath,
 )
 from slixmpp.xmlstream.stanzabase import register_stanza_plugin
-from slixmpp.xmlstream.tostring import highlight, tostring
+from slixmpp.xmlstream.tostring import highlight, tostring, tostring_fmt
 
 TestMethod = Literal["exact", "mask", "id", "xpath", "stanzapath"]
 T = TypeVar("T")
@@ -311,22 +314,29 @@ class SlixTest(unittest.TestCase):
                 values = stanza2.values
                 stanza3 = stanza_class()
                 stanza3.values = values
-
-                debug = "Three methods for creating stanzas do not match.\n"
-                debug += f"Given XML:\n{highlight(tostring(xml))}\n"
-                debug += f"Given stanza:\n{highlight(tostring(stanza.xml))}\n"
-                debug += f"Generated stanza:\n{highlight(tostring(stanza2.xml))}\n"
-                debug += (
-                    f"Second generated stanza:\n{highlight(tostring(stanza3.xml))}\n"
-                )
                 result = self.compare(xml, stanza.xml, stanza2.xml, stanza3.xml)
             else:
-                debug = "Two methods for creating stanzas do not match.\n"
-                debug += f"Given XML:\n{highlight(tostring(xml))}\n"
-                debug += f"Given stanza:\n{highlight(tostring(stanza.xml))}\n"
-                debug += f"Generated stanza:\n{highlight(tostring(stanza2.xml))}\n"
                 result = self.compare(xml, stanza.xml, stanza2.xml)
             stanza_class.namespace = old_ns
+
+            if result:
+                debug = ""
+            else:
+                debug = f"{'three' if use_values else 'two'} methods for creating stanzas do not match.\n"
+                debug += f"Given XML:\n{highlight(tostring_fmt(xml))}\n"
+                debug += f"Given stanza:\n{highlight(tostring_fmt(stanza.xml))}\n"
+                diff1 = "\n".join(diff(xml, stanza.xml))
+                if diff1:
+                    debug += f"diff:\n{diff1}\n"
+                debug += f"Generated stanza:\n{highlight(tostring_fmt(stanza2.xml))}\n"
+                diff2 = "\n".join(diff(xml, stanza2.xml))
+                if diff2:
+                    debug += f"diff:\n{diff2}\n"
+                if use_values:
+                    debug += f"Second generated stanza:\n{highlight(tostring_fmt(stanza3.xml))}\n"
+                    diff3 = "\n".join(diff(xml, stanza3.xml))
+                    if diff3:
+                        debug += f"diff:\n{diff3}\n"
 
             self.assertTrue(result, debug)
 
@@ -684,7 +694,7 @@ class SlixTest(unittest.TestCase):
 
     def send(
         self,
-        data: str,
+        data: str | None,
         defaults: list[str] | None = None,
         use_values: bool = True,
         timeout: float = 0.5,
@@ -861,3 +871,30 @@ def cleanup() -> None:
     with contextlib.suppress(BaseException):
         loop = asyncio.get_event_loop()
         loop.close()
+
+
+def diff(xml1: Element, xml2: Element) -> Iterator[str]:
+    yield from colored_diff(
+        difflib.unified_diff(
+            tostring_fmt(xml1).splitlines(), tostring_fmt(xml2).splitlines()
+        )
+    )
+
+
+def colored_diff(diff_lines: Iterable[str]) -> Iterator[str]:
+    if os.getenv("SLIXTEST_MONOCHROME") in ("0", "false"):
+        yield from diff_lines
+    for line in diff_lines:
+        if line.startswith("+++") or line.startswith("---") or line.startswith("@@"):
+            continue
+        if line.startswith("+"):
+            yield f"{GREEN}{line}{RESET}"
+        elif line.startswith("-"):
+            yield f"{RED}{line}{RESET}"
+        else:
+            yield line
+
+
+RED = "\033[91m"
+GREEN = "\033[92m"
+RESET = "\033[0m"

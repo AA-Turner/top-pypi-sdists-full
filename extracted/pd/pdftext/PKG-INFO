@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pdftext
-Version: 0.7.0
+Version: 0.7.1
 Summary: Extract structured text from pdfs quickly
 License: Apache-2.0
 License-File: LICENSE
@@ -19,7 +19,7 @@ Requires-Dist: click (>=8.1.8,<9.0.0)
 Requires-Dist: numpy (>=1.24)
 Requires-Dist: pydantic (>=2.7.1,<3.0.0)
 Requires-Dist: pydantic-settings (>=2.2.1,<3.0.0)
-Requires-Dist: pypdfium2 (==5.9.0)
+Requires-Dist: pypdfium2 (==5.10.1)
 Project-URL: Repository, https://github.com/VikParuchuri/pdftext
 Description-Content-Type: text/markdown
 

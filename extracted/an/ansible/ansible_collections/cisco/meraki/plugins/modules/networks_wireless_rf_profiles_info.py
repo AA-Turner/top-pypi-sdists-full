@@ -2,15 +2,15 @@
 # -*- coding: utf-8 -*-
 
 # Copyright (c) 2021, Cisco Systems
-# GNU General Public License v3.0+ (see LICENSE or
-# https://www.gnu.org/licenses/gpl-3.0.txt)
+# GNU General Public License v3.0+ (see LICENSE or https://www.gnu.org/licenses/gpl-3.0.txt)
 
 DOCUMENTATION = r"""
 module: networks_wireless_rf_profiles_info
-short_description: Information module for networks _wireless _rf _profiles
+short_description: Information module for networks _wireless _rfprofiles
 description:
-  - Get all networks _wireless _rf _profiles.
-  - Get networks _wireless _rf _profiles by id.
+  - Information module for Networks Wireless Rfprofiles Info.
+  - Get all networks _wireless _rfprofiles.
+  - Get networks _wireless _rfprofiles by id.
   - List RF profiles for this network.
   - Return a RF profile.
 version_added: '1.0.0'
@@ -23,10 +23,12 @@ options:
     type: dict
   networkId:
     description:
+      - Information module for Networks Wireless Rfprofiles Info.
       - NetworkId path parameter. Network ID.
     type: str
   includeTemplateProfiles:
     description:
+      - Information module for Networks Wireless Rfprofiles Info.
       - >
         IncludeTemplateProfiles query parameter. If the network is bound to a template,
         this parameter controls whether or not the non-basic RF profiles defined on
@@ -35,6 +37,7 @@ options:
     type: bool
   rfProfileId:
     description:
+      - Information module for Networks Wireless Rfprofiles Info.
       - RfProfileId path parameter. Rf profile ID.
     type: str
 requirements:
@@ -57,7 +60,7 @@ notes:
 """
 
 EXAMPLES = r"""
-- name: Get all networks _wireless _rf _profiles
+- name: Get all networks _wireless _rfprofiles
   cisco.meraki.networks_wireless_rf_profiles_info:
     meraki_api_key: "{{ meraki_api_key }}"
     meraki_base_url: "{{ meraki_base_url }}"
@@ -83,7 +86,7 @@ EXAMPLES = r"""
     includeTemplateProfiles: true
     networkId: string
   register: result
-- name: Get networks _wireless _rf _profiles by id
+- name: Get networks _wireless _rfprofiles by id
   cisco.meraki.networks_wireless_rf_profiles_info:
     meraki_api_key: "{{ meraki_api_key }}"
     meraki_base_url: "{{ meraki_base_url }}"

@@ -24,6 +24,7 @@ from mindroom.responder_availability import (
     live_responder_entity_names,
     materializable_agent_names_for_orchestrator,
 )
+from mindroom.session_ids import create_session_id, parse_session_id
 from mindroom.thread_summary import (
     THREAD_SUMMARY_MAX_LENGTH,
     normalize_thread_summary_text,
@@ -31,7 +32,6 @@ from mindroom.thread_summary import (
     update_last_summary_count,
 )
 from mindroom.thread_tags import ThreadTagsError, normalize_tag_name, set_thread_tag
-from mindroom.thread_utils import create_session_id, parse_session_id
 from mindroom.tool_system.runtime_context import ToolRuntimeContext, get_tool_runtime_context
 
 if TYPE_CHECKING:
@@ -382,7 +382,7 @@ async def _send_matrix_text(
     )
     if original_sender:
         content[ORIGINAL_SENDER_KEY] = original_sender
-    delivered = await send_message_result(context.client, room_id, content, config=context.config)
+    delivered = await send_message_result(context.client, room_id, content)
     if delivered is not None:
         context.conversation_cache.notify_outbound_message(room_id, delivered.event_id, delivered.content_sent)
     if delivered is not None:
@@ -421,7 +421,6 @@ async def _spawn_followup_warnings(
             summary_message_count,
             "manual",
             context.conversation_cache,
-            config=context.config,
         )
     except Exception as exc:
         warnings.append(f"Failed to set thread summary: {exc}")

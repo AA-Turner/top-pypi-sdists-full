@@ -25,7 +25,7 @@ class OpenROADSTAParameter(OpenROADTask):
                            "timing derating factor to use for hold corners", defvalue=0.0)
         self.add_parameter("sta_late_timing_derate", "float",
                            "timing derating factor to use for setup corners", defvalue=0.0)
-        self.add_parameter("sta_top_n_paths", "int",
+        self.add_parameter("sta_top_n_paths", "int<1..>",
                            "number of paths to report timing for", defvalue=10)
         self.add_parameter("sta_define_path_groups", "bool",
                            "if true will generate path groups for timing reporting", defvalue=True)
@@ -277,7 +277,7 @@ class OpenROADGPLParameter(OpenROADTask):
         self.add_parameter("gpl_enable_skip_initial_place", "bool",
                            "true/false, when enabled a global placement skips the initial "
                            "placement, before the main global placement pass.", defvalue=False)
-        self.add_parameter("gpl_uniform_placement_adjustment", "float",
+        self.add_parameter("gpl_uniform_placement_adjustment", "float<0..0.99>",
                            "percent of remaining area density to apply above uniform density "
                            "(0.00 - 0.99)", defvalue=0.0)
         self.add_parameter("gpl_timing_driven", "bool",
@@ -287,9 +287,9 @@ class OpenROADGPLParameter(OpenROADTask):
                            "true/false, when true global placement will consider the routability "
                            "of the design", defvalue=True)
 
-        self.add_parameter("place_density", "float",
+        self.add_parameter("place_density", "float<0.0..1.0>",
                            "global placement density (0.0 - 1.0)")
-        self.add_parameter("pad_global_place", "int",
+        self.add_parameter("pad_global_place", "int<0..>",
                            "global placement cell padding in number of sites", defvalue=0)
 
     def set_openroad_gplskipio(self, enable: bool,
@@ -397,10 +397,10 @@ class OpenROADRSZDRVParameter(OpenROADTask):
     def __init__(self):
         super().__init__()
 
-        self.add_parameter("rsz_cap_margin", "float",
+        self.add_parameter("rsz_cap_margin", "float<0.0..100.0>",
                            "specifies the amount of margin to apply to max capacitance repairs in "
                            "percent (0 - 100)", defvalue=0.0)
-        self.add_parameter("rsz_slew_margin", "float",
+        self.add_parameter("rsz_slew_margin", "float<0.0..100.0>",
                            "specifies the amount of margin to apply to max slew repairs in percent "
                            "(0 - 100)", defvalue=0.0)
 
@@ -453,10 +453,10 @@ class OpenROADRSZTimingParameter(OpenROADTask):
                            "true/false, skip pin swap optimization", defvalue=True)
         self.add_parameter("rsz_skip_gate_cloning", "bool",
                            "true/false, skip gate cloning optimization", defvalue=True)
-        self.add_parameter("rsz_repair_tns", "float",
+        self.add_parameter("rsz_repair_tns", "float<0.0..100.0>",
                            "percentage of violating nets to attempt to repair (0 - 100)",
                            defvalue=100)
-        self.add_parameter("rsz_recover_power", "float",
+        self.add_parameter("rsz_recover_power", "float<0.0..100.0>",
                            "percentage of paths to attempt to recover power (0 - 100)",
                            defvalue=100)
 
@@ -550,9 +550,9 @@ class OpenROADDPLParameter(OpenROADTask):
     def __init__(self):
         super().__init__()
 
-        self.add_parameter("pad_detail_place", "int",
+        self.add_parameter("pad_detail_place", "int<0..>",
                            "detailed placement cell padding in number of sites", defvalue=0)
-        self.add_parameter("dpl_max_displacement", "(float,float)",
+        self.add_parameter("dpl_max_displacement", "(float<0.0..>,float<0.0..>)",
                            "maximum cell movement in detailed placement in microns, 0 will result "
                            "in the tool default maximum displacement", defvalue=(0, 0))
 
@@ -627,7 +627,7 @@ class OpenROADDPOParameter(OpenROADTask):
         self.add_parameter("dpo_enable", "bool",
                            "true/false, when true the detailed placement optimization will be "
                            "performed", defvalue=True)
-        self.add_parameter("dpo_max_displacement", "(float,float)",
+        self.add_parameter("dpo_max_displacement", "(float<0.0..>,float<0.0..>)",
                            "maximum cell movement in detailed placement optimization in microns, "
                            "0 will result in the tool default maximum displacement", unit="um",
                            defvalue=(5, 5))
@@ -671,13 +671,13 @@ class OpenROADCTSParameter(OpenROADTask):
     def __init__(self):
         super().__init__()
 
-        self.add_parameter("cts_distance_between_buffers", "float",
+        self.add_parameter("cts_distance_between_buffers", "float<0.0..>",
                            "maximum distance between buffers during clock tree synthesis in "
                            "microns", defvalue=100, unit="um")
-        self.add_parameter("cts_cluster_diameter", "float",
+        self.add_parameter("cts_cluster_diameter", "float<0.0..>",
                            "clustering distance to use during clock tree synthesis in microns",
                            defvalue=100, unit="um")
-        self.add_parameter("cts_cluster_size", "int",
+        self.add_parameter("cts_cluster_size", "int<1..>",
                            "number of instances in a cluster to use during clock tree synthesis",
                            defvalue=30)
         self.add_parameter("cts_balance_levels", "bool",
@@ -763,7 +763,7 @@ class OpenROADGRTGeneralParameter(OpenROADTask):
     def __init__(self):
         super().__init__()
 
-        self.add_parameter("grt_macro_extension", "int",
+        self.add_parameter("grt_macro_extension", "int<0..>",
                            "macro extension distance in number of gcells, this can be useful when "
                            "the detailed router needs additional space to avoid DRCs", defvalue=0)
         self.add_parameter("grt_signal_min_layer", "str",
@@ -868,7 +868,7 @@ class OpenROADGRTParameter(OpenROADGRTGeneralParameter):
         self.add_parameter("grt_allow_congestion", "bool",
                            "true/false, when true allow global routing to finish with congestion",
                            defvalue=False)
-        self.add_parameter("grt_overflow_iter", "int",
+        self.add_parameter("grt_overflow_iter", "int<1..>",
                            "maximum number of iterations to use in global routing when attempting "
                            "to solve overflow", defvalue=100)
 
@@ -910,10 +910,11 @@ class OpenROADANTParameter(OpenROADTask):
     def __init__(self):
         super().__init__()
 
-        self.add_parameter("ant_iterations", "int",
+        self.add_parameter("ant_iterations", "int<1..>",
                            "maximum number of repair iterations to use during antenna repairs",
                            defvalue=3)
-        self.add_parameter("ant_margin", "float", "adds a margin to the antenna ratios (0 - 100)",
+        self.add_parameter("ant_margin", "float<0.0..100.0>",
+                           "adds a margin to the antenna ratios (0 - 100)",
                            defvalue=0)
 
     def set_openroad_antiterations(self, iterations: int,
@@ -1053,9 +1054,9 @@ class OpenROADDRTParameter(_OpenROADDRTCommonParameter):
         self.add_parameter("drt_repair_pdn_vias", "str",
                            "layer to repair PDN vias on")
 
-        self.add_parameter("drt_report_interval", "int",
+        self.add_parameter("drt_report_interval", "int<1..64>",
                            "reporting interval in steps for generating a DRC report.", defvalue=5)
-        self.add_parameter("drt_end_iteration", "int",
+        self.add_parameter("drt_end_iteration", "int<1..64>",
                            "end iteration for detailed routing")
 
     def set_openroad_drtdisableviagen(self, disable: bool,
@@ -1215,12 +1216,14 @@ class APRTask(OpenROADTask):
         self.add_parameter("ord_enable_images", "bool",
                            "true/false, enable generating images of the design at the end "
                            "of the task", defvalue=True)
-        self.add_parameter("ord_heatmap_bins", "(int,int)",
+        self.add_parameter("ord_heatmap_bins", "(int<1..>,int<1..>)",
                            "number of (X, Y) bins to use for heatmap image generation",
                            defvalue=(16, 16))
 
         self.add_parameter("rsz_parasitics", "file",
                            "file used to specify the parasitics for estimation", copy=False)
+        self.add_parameter("rsz_default_pex_corner", "str",
+                           "default corner to use for parasitic extraction")
         self.add_parameter("power_corner", "str",
                            "corner to use for power analysis")
 
@@ -1389,6 +1392,12 @@ class APRTask(OpenROADTask):
 
         # Set power corner
         self.set("var", "power_corner", self._get_constraint_by_check("power"), clobber=False)
+        pexmap = self._get_pex_mapping()
+        if None in pexmap:
+            self.set("var", "rsz_default_pex_corner", pexmap[None], clobber=False)
+            self.add_required_key("var", "rsz_default_pex_corner")
+        if self.pdk.get("tool", "openroad", "rclayer"):
+            self.add_required_key(self.pdk, "tool", "openroad", "rclayer")
 
         if self.get("var", "reports"):
             self.add_required_key("var", "reports")
@@ -1435,7 +1444,8 @@ class APRTask(OpenROADTask):
 
     def pre_process(self):
         super().pre_process()
-        self._build_pex_estimation_file()
+        if not self.pdk.get("tool", "openroad", "rclayer"):
+            self._build_pex_estimation_file()
 
     def __import_globalconnect_filesets(self):
         for lib in self.project.get("asic", "asiclib"):
@@ -1562,6 +1572,10 @@ class APRTask(OpenROADTask):
             if pexcorner:
                 corners[constraint] = pexcorner
 
+        default_corner = self._get_constraint_by_check("setup")
+        if default_corner in corners:
+            corners[None] = corners[default_corner]
+
         return corners
 
     def _get_constraint_by_check(self, check: str) -> str:
@@ -1579,10 +1593,6 @@ class APRTask(OpenROADTask):
 
     def _build_pex_estimation_file(self):
         corners = self._get_pex_mapping()
-
-        default_corner = self._get_constraint_by_check("setup")
-        if default_corner in corners:
-            corners[None] = corners[default_corner]
 
         path = os.path.join(self.nodeworkdir, "inputs", "sc_parasitics.tcl")
         self.set("var", "rsz_parasitics", path)

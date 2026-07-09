@@ -18,6 +18,7 @@ intersphinx_mapping = {
     'numpy': ('https://numpy.org/doc/stable/', None),
     'pandas': ('https://pandas.pydata.org/docs/', None),
     'polars': ('https://docs.pola.rs/api/python/stable/', None),
+    'pydantic': ('https://docs.pydantic.dev/latest/', None),
 }
 
 # General
@@ -47,12 +48,15 @@ nitpick_ignore = [
     ('py:class', '~P'),  # param spec
     ('py:class', 'constantly._constants.NamedConstant'),  # twisted logging constants
     ('py:class', 'django.db.models.base.Model'),  # not documented upstream
+    ('py:class', 'functools.partial'),  # rendered from a partial_type annotation, no class target
     ('py:class', 'polars.DataFrame'),  # polars inventory has no top-level class entry
     ('py:class', 'polars.dataframe.frame.DataFrame'),  # same
     ('py:class', 'module'),  # ModuleType not documented.
     ('py:class', 'tempfile.TemporaryFile'),  # not documented as a class so type annotation broken
     ('py:class', 'testfixtures.comparison.S'),  # type var
     ('py:class', 'testfixtures.comparison.S_'),  # type var
+    ('py:class', 'testfixtures.comparison.M'),  # type var
+    ('py:class', 'testfixtures.comparison.M_'),  # type var
     ('py:class', 'testfixtures.comparison.T'),  # type var
     ('py:class', 'testfixtures.datetime.MockedCurrent'),  # internal class that shouldn't be doc'ed
     ('py:class', 'testfixtures.command.RunT'),  # type var

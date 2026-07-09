@@ -14,6 +14,7 @@ fi
 sudo apt-get update
 
 sudo apt-get install -y git curl
+sudo apt-get install -y make pandoc groff bsdmainutils
 
 mkdir -p deps
 cd deps
@@ -37,6 +38,6 @@ else
     install_loc="$HOME/.local"
 fi
 
-bazelisk run :install --config=release --//:platform=gui -- "$install_loc"
+bazelisk run :install --config=release --//:platform=gui --jobs=${NPROC:-$(nproc)} -- "$install_loc"
 
 cd -

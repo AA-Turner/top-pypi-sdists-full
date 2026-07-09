@@ -50,7 +50,7 @@ class XEP_0060(BasePlugin):
                     StanzaPath('message/pubsub_event/subscription'),
                     self._handle_event_subscription))
 
-        self.xmpp['xep_0131'].supported_headers.add('SubID')
+        self.xmpp.plugin['xep_0131'].supported_headers.add('SubID')
 
     def plugin_end(self):
         self.xmpp.remove_handler('Pubsub Event: Items')
@@ -412,7 +412,7 @@ class XEP_0060(BasePlugin):
         """
         Discover the nodes provided by a Pubsub service, using disco.
         """
-        return self.xmpp['xep_0030'].get_items(*args, **kwargs)
+        return self.xmpp.plugin['xep_0030'].get_items(*args, **kwargs)
 
     def get_item(self, jid, node, item_id, ifrom=None,
                  callback=None, timeout=None):
@@ -448,7 +448,7 @@ class XEP_0060(BasePlugin):
                 iq['pubsub']['items'].append(item)
 
         if iterator:
-            return self.xmpp['xep_0059'].iterate(iq, 'pubsub')
+            return self.xmpp.plugin['xep_0059'].iterate(iq, 'pubsub')
         else:
             return iq.send(callback=callback, timeout=timeout)
 
@@ -457,7 +457,7 @@ class XEP_0060(BasePlugin):
         """
         Retrieve the ItemIDs hosted by a given node, using disco.
         """
-        return self.xmpp['xep_0030'].get_items(jid, node, ifrom=ifrom,
+        return self.xmpp.plugin['xep_0030'].get_items(jid, node, ifrom=ifrom,
                                                callback=callback, timeout=timeout,
                                                iterator=iterator)
 

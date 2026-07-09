@@ -76,7 +76,7 @@ class ActionModule(ActionBase):
             filterExpression=params.get("filterExpression"),
             name=params.get("name"),
             advanced=params.get("advanced"),
-            organizationId=params.get("organizationId"),
+            organization_id=params.get("organizationId"),
         )
         return new_object
 

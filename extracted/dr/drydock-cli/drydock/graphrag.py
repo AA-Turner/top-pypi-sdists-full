@@ -101,9 +101,20 @@ def _chunk_text(text: str, max_chars: int = 1200) -> list[str]:
     return chunks
 
 
+def _unquote(p: str) -> str:
+    """Strip surrounding quotes a user wrapped a path in — common on Windows:
+    `/graphrag build "C:\\Users\\me\\Documents"`. Without this the quote chars
+    become part of the path, isabs() is False, it's joined under cwd, and nothing
+    is found ("No text found. Nothing was indexed.")."""
+    p = p.strip()
+    if len(p) >= 2 and p[0] == p[-1] and p[0] in "\"'":
+        p = p[1:-1]
+    return p
+
+
 def _iter_text_files(paths: list[str]):
     for p in paths:
-        path = Path(p)
+        path = Path(_unquote(p))
         if path.is_file():
             yield path
         elif path.is_dir():
@@ -120,27 +131,31 @@ def _ingest_files(paths, cwd, chunks, entity_chunks, edges, skip_sources):
     """Chunk + extract + graph every text file under paths into the (mutable)
     accumulators, skipping any source already present. Returns files added."""
     added = 0
+    cleaned = [_unquote(p) for p in paths]
     for fp in _iter_text_files([str(Path(cwd) / p) if not os.path.isabs(p) else p
-                                for p in paths]):
-        rel = os.path.relpath(str(fp), cwd)
-        if rel in skip_sources:
-            continue
-        if fp.suffix.lower() in extract.EXTRACTABLE_EXT:
-            text = extract.extract_document(fp)  # PDF/Word → text (or None)
-            if not text:
-                continue  # unreadable / no PDF backend — skip cleanly
-        else:
-            try:
-                text = fp.read_text("utf-8", "ignore")
-            except OSError:
+                                for p in cleaned]):
+        # Per-file isolation: ONE unreadable/odd file (a locked Word doc, a weird
+        # encoding, a PDF backend quirk) must never crash a whole-folder build —
+        # skip it and keep indexing the rest.
+        try:
+            rel = os.path.relpath(str(fp), cwd)
+            if rel in skip_sources:
                 continue
-        if not text.strip():
+            if fp.suffix.lower() in extract.EXTRACTABLE_EXT:
+                text = extract.extract_document(fp)  # PDF/Word → text (or None)
+            else:
+                text = fp.read_text("utf-8", "ignore")
+            if not text or not text.strip():
+                continue  # unreadable / empty — skip cleanly
+            # Build this file's chunks locally; commit only if it ALL succeeds so a
+            # mid-file failure leaves no partial state and isn't miscounted.
+            local = [(body, extract_entities(body)) for body in _chunk_text(text)]
+        except Exception:  # noqa: BLE001 — isolate a bad file, never abort the build
             continue
         added += 1
         skip_sources.add(rel)  # don't double-ingest the same file in one call
-        for body in _chunk_text(text):
+        for body, ents in local:
             cid = len(chunks)
-            ents = extract_entities(body)
             chunks.append({"id": cid, "source": rel, "text": body, "entities": ents})
             for e in ents:
                 entity_chunks[e].add(cid)

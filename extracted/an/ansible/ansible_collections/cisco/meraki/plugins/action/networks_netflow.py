@@ -56,7 +56,7 @@ class NetworksNetflow(object):
             collectorPort=params.get("collectorPort"),
             etaEnabled=params.get("etaEnabled"),
             etaDstPort=params.get("etaDstPort"),
-            networkId=params.get("networkId"),
+            network_id=params.get("networkId"),
         )
 
     def get_all_params(self, name=None, id=None):
@@ -150,7 +150,9 @@ class NetworksNetflow(object):
             ("collectorIp", "collectorIp"),
             ("collectorPort", "collectorPort"),
             ("etaEnabled", "etaEnabled"),
-            ("etaDstPort", "etaDstPort"),]
+            ("etaDstPort", "etaDstPort"),
+            ("networkId", "networkId"),
+        ]
         # Method 1. Params present in request (Ansible) obj are the same as the current (ISE) params
         # If any does not have eq params, it requires update
         return any(

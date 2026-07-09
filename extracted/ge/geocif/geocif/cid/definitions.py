@@ -11,8 +11,12 @@ dict_indices = {
     "TXn": ["Cold", "Minimum daily maximum temperature"],
     "TNn": ["Cold", "Minimum daily minimum temperature"],
     "CDD": ["Drought", "Maximum consecutive dry days (Precip < 1mm)"],
-    "SPI3": ["Drought", "Standardized Precipitation Index (3 month scale)"],
-    "SPI6": ["Drought", "Standardized Precipitation Index (6 month scale)"],
+    # SPI3/SPI6 temporarily disabled while we test detrended-target training
+    # independently. Re-enable + rebuild once we know whether trend-anchoring
+    # was the primary failure mode for 2016 DF (over-forecast) — if yes, SPI
+    # is likely redundant; if no, come back with cached-icclim rebuild.
+    # "SPI3": ["Drought", "Standardized Precipitation Index (3 month scale)"],
+    # "SPI6": ["Drought", "Standardized Precipitation Index (6 month scale)"],
     "SU": ["Heat", "Number of Summer Days (Tmax > 25C)"],
     "TR": ["Heat", "Number of Tropical Nights (Tmin > 20C)"],
     "WSDI": ["Heat", "Warm-spell duration index"],
@@ -192,3 +196,35 @@ S2S_MAR_FEATURES = {
 # because compute_eo_indices iterates those and expects "LEAD" in the name.
 dict_fldas_engineered = {**FLDAS_AGG_FEATURES, **FLDAS_REV_FEATURES, **FLDAS_MAR_FEATURES}
 dict_s2s_engineered = {**S2S_AGG_FEATURES, **S2S_REV_FEATURES, **S2S_MAR_FEATURES}
+
+# ENSO teleconnection scalars: one value per harvest year, broadcast to every
+# region (no geospatial join). Two indices, five prev-year + four curr-year
+# windows each. Bracket a Southern-Hemisphere summer safra: prev-year covers
+# pre-planting through El-Nino onset; curr-year covers early growth through
+# grain fill. Sourced from CPC (ONI) and PSL (MEI v2) via geocif.cid.enso.
+# Both indices have ~1-month operational lag, so they're usable for the
+# 2026 forecast (see enso.py docstring for URL sources and update cadence).
+ENSO_PREV_ONI = ["JJA", "ASO", "SON", "OND", "NDJ"]
+ENSO_CURR_ONI = ["DJF", "JFM", "FMA", "MAM"]
+ENSO_PREV_MEI = ["JJ", "AS", "SO", "ON", "ND"]
+ENSO_CURR_MEI = ["DJ", "JF", "FM", "MA"]
+
+dict_enso = {}
+enso_col_map = {}  # index_name → raw column name added by enso.get_enso_frame
+
+for _s in ENSO_PREV_ONI:
+    _k = f"ONI_prev_{_s}"
+    dict_enso[_k] = ["ENSO", f"Oceanic Nino Index, {_s} of preceding year"]
+    enso_col_map[_k] = _k
+for _s in ENSO_CURR_ONI:
+    _k = f"ONI_curr_{_s}"
+    dict_enso[_k] = ["ENSO", f"Oceanic Nino Index, {_s} of harvest year"]
+    enso_col_map[_k] = _k
+for _s in ENSO_PREV_MEI:
+    _k = f"MEI_prev_{_s}"
+    dict_enso[_k] = ["ENSO", f"Multivariate ENSO Index v2, {_s} of preceding year"]
+    enso_col_map[_k] = _k
+for _s in ENSO_CURR_MEI:
+    _k = f"MEI_curr_{_s}"
+    dict_enso[_k] = ["ENSO", f"Multivariate ENSO Index v2, {_s} of harvest year"]
+    enso_col_map[_k] = _k

@@ -40,6 +40,7 @@ from ouroboros.auto.lateral_routing import select_persona_for_qa_failure
 from ouroboros.auto.ledger import AssumptionRecord, SeedDraftLedger
 from ouroboros.auto.ledger_seed import (
     PARTIAL_SEED_GENERATION_MODE,
+    brownfield_context_from_cwd,
     partial_seed_from_evidence,
     synthesize_seed_from_ledger,
 )
@@ -65,6 +66,7 @@ from ouroboros.auto.state import (
     utc_now_iso,
 )
 from ouroboros.auto.task_class_application import apply_default_ac_template
+from ouroboros.auto.trace_export import best_effort_export_trace
 from ouroboros.core.seed import Seed
 from ouroboros.orchestrator.runtime_evidence import RuntimeEvidence
 from ouroboros.resilience.lateral import ThinkingPersona
@@ -476,8 +478,43 @@ class AutoPipeline:
     # of the ``probe_runner`` callback so multiple ``_result()`` returns
     # within a single run share the same evidence tuple.
     _last_probe_evidence: tuple[RuntimeEvidence, ...] = field(default=(), init=False, repr=False)
+    # A2 / run-metaharness trace artifact. ``run()`` recurses (resume paths do
+    # ``return await self.run(state)``); the depth counter fires the finalize
+    # trace export exactly once, at the outermost terminal return.
+    # ``_active_ledger`` is the live ledger the deepest ``_run_pipeline`` frame
+    # actually mutated, so the export projects the freshest decisions/history.
+    _run_depth: int = field(default=0, init=False, repr=False)
+    _active_ledger: SeedDraftLedger | None = field(default=None, init=False, repr=False)
 
     async def run(self, state: AutoPipelineState) -> AutoPipelineResult:
+        """Run the pipeline and, once at the outermost terminal, export a trace.
+
+        Thin re-entrancy-aware wrapper around :meth:`_run_pipeline`. The auto
+        pipeline recurses through ``run`` on resume boundaries; the depth
+        counter ensures the best-effort A2 interview-trace projection runs a
+        single time at the outermost frame when the session is terminal. The
+        export never raises into the run (see
+        :func:`ouroboros.auto.trace_export.best_effort_export_trace`).
+        """
+        self._run_depth += 1
+        try:
+            result = await self._run_pipeline(state)
+        finally:
+            self._run_depth -= 1
+        if self._run_depth == 0 and state.is_terminal():
+            await best_effort_export_trace(
+                state,
+                self._active_ledger
+                or (
+                    SeedDraftLedger.from_dict(state.ledger)
+                    if state.ledger
+                    else SeedDraftLedger.from_goal(state.goal)
+                ),
+                event_store=getattr(self.interview_driver, "event_store", None),
+            )
+        return result
+
+    async def _run_pipeline(self, state: AutoPipelineState) -> AutoPipelineResult:
         """Run a bounded auto pipeline using injected side-effecting dependencies."""
         self._last_emitted_phase = None
         self._last_emitted_grade = None
@@ -496,6 +533,9 @@ class AutoPipeline:
             if state.ledger
             else SeedDraftLedger.from_goal(state.goal)
         )
+        # A2 trace export: expose the live ledger to the outermost ``run()``
+        # wrapper so the finalize projection uses the freshest decisions.
+        self._active_ledger = ledger
         # L2-2 / #1172: wall-clock watchdog check.
         # Runs once per ``run()`` entry — both fresh sessions whose
         # ``created_at`` is too long ago (resume after budget elapsed)
@@ -642,6 +682,40 @@ class AutoPipeline:
             self._save(state)
 
         review: SeedReview | None = None
+        interview_result = await self._run_interview_phase(state, ledger)
+        if interview_result is not None:
+            return interview_result
+
+        seed_result = await self._run_seed_phase(
+            state,
+            ledger,
+            resume_tool_name=resume_tool_name,
+        )
+        if isinstance(seed_result, AutoPipelineResult):
+            return seed_result
+        seed = seed_result
+
+        terminal_resume_result = await self._run_terminal_resume_phase(
+            state,
+            ledger,
+            seed,
+            review=review,
+        )
+        if terminal_resume_result is not None:
+            return terminal_resume_result
+
+        review_result = await self._run_review_phase(state, ledger, seed, review=review)
+        if isinstance(review_result, AutoPipelineResult):
+            return review_result
+        seed, review = review_result
+
+        return await self._run_execution_phase(state, ledger, seed, review=review)
+
+    async def _run_interview_phase(
+        self,
+        state: AutoPipelineState,
+        ledger: SeedDraftLedger,
+    ) -> AutoPipelineResult | None:
         # Q00/ouroboros#782 review-12 BLOCKING #1: same exception as the
         # early-return above — let RALPH_HANDOFF resume reach
         # ``_resume_ralph_handoff`` so an already-terminal Ralph job can be
@@ -787,6 +861,15 @@ class AutoPipeline:
             self._save(state)
             return self._result(state, ledger, blocker=state.last_error)
 
+        return None
+
+    async def _run_seed_phase(
+        self,
+        state: AutoPipelineState,
+        ledger: SeedDraftLedger,
+        *,
+        resume_tool_name: str | None,
+    ) -> AutoPipelineResult | Seed:
         # Q00/ouroboros#782 review-12 BLOCKING #1: same exception — let
         # ``RALPH_HANDOFF`` resume reach ``_resume_ralph_handoff`` so the
         # poller can reconcile an already-terminal Ralph job.
@@ -813,7 +896,9 @@ class AutoPipeline:
                     and ledger.is_seed_ready()
                 ):
                     seed = synthesize_seed_from_ledger(
-                        ledger, interview_id=state.interview_session_id
+                        ledger,
+                        interview_id=state.interview_session_id,
+                        brownfield_context=brownfield_context_from_cwd(state.cwd),
                     )
                     seed = self._record_generated_seed(state, ledger, seed)
                     state.mark_progress(
@@ -835,7 +920,10 @@ class AutoPipeline:
                         )
                         self._save(state)
                         return self._result(state, ledger, blocker=state.last_error)
-                    seed = synthesize_seed_from_ledger(ledger)
+                    seed = synthesize_seed_from_ledger(
+                        ledger,
+                        brownfield_context=brownfield_context_from_cwd(state.cwd),
+                    )
                     seed = self._record_generated_seed(state, ledger, seed)
                     state.mark_progress(
                         "Seed generated from completed ledger", tool_name="ledger_seed_generator"
@@ -887,7 +975,9 @@ class AutoPipeline:
                         return self._result(state, ledger, blocker=state.last_error)
                     if ledger.is_seed_ready():
                         seed = synthesize_seed_from_ledger(
-                            ledger, interview_id=state.interview_session_id
+                            ledger,
+                            interview_id=state.interview_session_id,
+                            brownfield_context=brownfield_context_from_cwd(state.cwd),
                         )
                         seed = self._record_generated_seed(state, ledger, seed)
                         state.mark_progress(
@@ -911,7 +1001,9 @@ class AutoPipeline:
                 except Exception as exc:
                     if ledger.is_seed_ready() and _is_authoring_backend_unavailable(exc):
                         seed = synthesize_seed_from_ledger(
-                            ledger, interview_id=state.interview_session_id
+                            ledger,
+                            interview_id=state.interview_session_id,
+                            brownfield_context=brownfield_context_from_cwd(state.cwd),
                         )
                         seed = self._record_generated_seed(state, ledger, seed)
                         state.mark_progress(
@@ -971,6 +1063,16 @@ class AutoPipeline:
             self._save(state)
             return self._result(state, ledger, blocker=state.last_error)
 
+        return seed
+
+    async def _run_terminal_resume_phase(
+        self,
+        state: AutoPipelineState,
+        ledger: SeedDraftLedger,
+        seed: Seed,
+        *,
+        review: SeedReview | None,
+    ) -> AutoPipelineResult | None:
         if state.phase == AutoPhase.RALPH_HANDOFF:
             if (
                 state.run_handoff_status == "ralph_retry_after_blocker"
@@ -1050,6 +1152,16 @@ class AutoPipeline:
                 run_subagent=None,
             )
 
+        return None
+
+    async def _run_review_phase(
+        self,
+        state: AutoPipelineState,
+        ledger: SeedDraftLedger,
+        seed: Seed,
+        *,
+        review: SeedReview | None,
+    ) -> AutoPipelineResult | tuple[Seed, SeedReview | None]:
         if self._enforce_deadline(state):
             return self._result(state, ledger, blocker=state.last_error)
         if state.phase == AutoPhase.REVIEW:
@@ -1177,6 +1289,16 @@ class AutoPipeline:
                 self._save(state)
                 return self._result(state, ledger, review=review)
 
+        return seed, review
+
+    async def _run_execution_phase(
+        self,
+        state: AutoPipelineState,
+        ledger: SeedDraftLedger,
+        seed: Seed,
+        *,
+        review: SeedReview | None,
+    ) -> AutoPipelineResult:
         if self._enforce_deadline(state):
             return self._result(state, ledger, review=review, blocker=state.last_error)
         if state.phase == AutoPhase.RUN:
@@ -1375,6 +1497,33 @@ class AutoPipeline:
                     return await self._handoff_to_ralph(
                         state, ledger, seed, review, run_subagent=None
                     )
+                # Non-complete-product RUN resume with a persisted run handle.
+                # A persisted handle proves the execute job was *dispatched*,
+                # not that it reached terminal success (Q00/ouroboros#1590):
+                # the owning process may have exited (deadline/Ctrl-C/kill)
+                # leaving the job cancelled, or the run may have paused
+                # (usage-limit) or failed. Reconcile the owned job's terminal
+                # state before declaring COMPLETE so ``--resume`` cannot return
+                # a stale product-complete for an incomplete run. When no poll
+                # channel is available (plain-function run starter, pruned job,
+                # etc.) fall back to the historical "trust the handle" behavior
+                # so genuinely-complete sessions and legacy handles are
+                # unaffected.
+                run_verdict = (
+                    await _wait_owned_run_job_terminal(
+                        self.run_starter,
+                        state.job_id,
+                        timeout_seconds=self._deadline_capped_timeout(
+                            state, state.phase_timeout_seconds(AutoPhase.RUN)
+                        ),
+                    )
+                    if state.job_id
+                    else None
+                )
+                blocked = self._block_resume_if_run_not_successful(state, run_verdict)
+                if blocked is not None:
+                    self._save(state)
+                    return self._result(state, ledger, review=review, blocker=state.last_error)
                 state.transition(
                     AutoPhase.COMPLETE, "execution already started; using persisted run handle"
                 )
@@ -1729,6 +1878,49 @@ class AutoPipeline:
         self._save(state)
         return self._result(state, ledger, blocker=state.last_error)
 
+    def _block_resume_if_run_not_successful(
+        self, state: AutoPipelineState, run_verdict: dict[str, Any] | None
+    ) -> bool | None:
+        """Block a non-complete-product RUN resume unless the owned job succeeded.
+
+        ``run_verdict`` is the owned execute job's terminal ``result_meta``
+        (from :func:`_wait_owned_run_job_terminal`), or ``None`` when no poll
+        channel was available. Returns ``True`` when the state was marked
+        BLOCKED (the run did not reach terminal success), or ``None`` to let the
+        caller proceed to COMPLETE.
+
+        Conservative on ambiguity: ``None`` verdict (unpollable / pruned /
+        plain-function starter) or a non-terminal ``running``/``queued`` status
+        preserves the historical "trust the persisted handle" behavior, so
+        genuinely-complete and legacy sessions are unaffected. Only an
+        *observed* non-success terminal (paused / failed / cancelled /
+        interrupted / unknown) blocks — resumably, via ``run_starter`` — so a
+        later ``--resume`` re-reconciles instead of returning stale COMPLETE.
+        """
+        if run_verdict is None:
+            return None
+        status = _optional_str(run_verdict.get("status"))
+        success = run_verdict.get("success")
+        if success is True or status == "completed":
+            return None
+        if status in {"running", "queued", "cancel_requested"}:
+            # Still in flight elsewhere — cannot prove failure; do not cancel or
+            # block a run another owner may still complete.
+            return None
+        if status == "paused":
+            state.mark_blocked(
+                "resumed run execution paused before completion; resume the "
+                "paused run before continuing",
+                tool_name="run_starter",
+            )
+            return True
+        detail = status or "unknown"
+        state.mark_blocked(
+            f"resumed run execution did not reach terminal success: {detail}",
+            tool_name="run_starter",
+        )
+        return True
+
     def _deadline_capped_timeout(self, state: AutoPipelineState, phase_timeout: float) -> float:
         """Return ``phase_timeout`` capped by the remaining pipeline deadline.
 
@@ -1952,6 +2144,7 @@ class AutoPipeline:
                 ledger,
                 interview_id=state.interview_session_id,
                 recovery_reason="interview_phase_deadline",
+                brownfield_context=brownfield_context_from_cwd(state.cwd),
             )
             progress_message = (
                 "Interview phase deadline fired; closed via complete-ledger Seed synthesis "
@@ -4598,7 +4791,11 @@ def _seed_with_recovery_constraint(seed: Seed, plan: AutoRecoveryPlan) -> Seed:
     reframing context while preserving the user-approved ACs that EVALUATE
     will grade after redispatch.
     """
-    instruction = plan.instruction.strip()
+    instruction = _clean_seed_qa_repair_text(plan.instruction.strip(), limit=420)
+    if not instruction:
+        instruction = (
+            "Do not copy recovery persona prompts or failed-run transcripts into Seed constraints."
+        )
     constraint = (
         "[auto recovery] Previous QA failed. Use this lateral recovery "
         "instruction to change implementation/verification approach without "
@@ -4670,6 +4867,7 @@ def _is_seed_qa_diagnostic_constraint(constraint: str) -> bool:
     return (
         lowered.startswith("[seed qa repair attempt")
         or lowered.startswith("[seed qa lateral repair attempt")
+        or lowered.startswith("adopt this concrete implementation decision before execution:")
         or "# lateral thinking:" in lowered
         or "qa differences:" in lowered
         or "qa suggestions:" in lowered
@@ -4691,13 +4889,20 @@ def _normalized_seed_qa_lateral_feedback(lateral_result: LateralResult) -> tuple
     """
     summary = _clean_seed_qa_repair_text(lateral_result.approach_summary or "", limit=320)
     decision = _clean_seed_qa_repair_text(lateral_result.text, limit=1600)
+    persona_prefix = (lateral_result.persona or "").casefold()
     repairs: list[str] = []
-    if summary:
+    if (
+        summary
+        and not _is_seed_qa_recovery_transcript(summary)
+        and not (persona_prefix and summary.casefold().startswith(f"{persona_prefix}:"))
+    ):
         repairs.append(f"Use this bounded implementation approach to resolve Seed QA: {summary}")
-    if decision:
-        repairs.append(f"Adopt this concrete implementation decision before execution: {decision}")
+    if _is_clean_seed_qa_lateral_decision(decision, raw_text=lateral_result.text):
+        repairs.append(f"Use this bounded implementation approach to resolve Seed QA: {decision}")
     if not repairs:
-        repairs.append("Resolve Seed QA feedback before execution without adding diagnostic prose.")
+        repairs.append(
+            "Resolve Seed QA feedback before execution without copying recovery persona prompts, failed-run transcripts, or diagnostic prose."
+        )
     return tuple(dict.fromkeys(repairs))
 
 
@@ -4709,6 +4914,11 @@ def _clean_seed_qa_repair_text(text: str, *, limit: int) -> str:
         line = raw_line.strip()
         lowered = line.casefold()
         if not line:
+            continue
+        if _starts_seed_qa_recovery_context_block(line):
+            break
+        if _is_seed_qa_recovery_transcript_line(line):
+            skipping_diagnostic_block = True
             continue
         if lowered.startswith("# lateral thinking:"):
             continue
@@ -4723,6 +4933,54 @@ def _clean_seed_qa_repair_text(text: str, *, limit: int) -> str:
     cleaned = " ".join(cleaned_lines)
     cleaned = cleaned.replace("# Lateral Thinking:", "").replace("# lateral thinking:", "")
     return cleaned[:limit].strip()
+
+
+def _is_clean_seed_qa_lateral_decision(decision: str, *, raw_text: str) -> bool:
+    if not decision or _is_seed_qa_recovery_transcript(decision):
+        return False
+    if decision.casefold().startswith("decision:"):
+        return True
+    if _is_seed_qa_recovery_transcript(raw_text) or _starts_seed_qa_recovery_context_block(
+        raw_text.strip()
+    ):
+        return False
+    lowered = raw_text.casefold()
+    if (
+        "# lateral thinking:" in lowered
+        or "qa differences:" in lowered
+        or "qa suggestions:" in lowered
+    ):
+        return False
+    return len(decision) <= 420
+
+
+def _is_seed_qa_recovery_transcript(text: str) -> bool:
+    return any(_is_seed_qa_recovery_transcript_line(line) for line in text.splitlines())
+
+
+def _is_seed_qa_recovery_transcript_line(text: str) -> bool:
+    lowered = text.casefold()
+    return any(
+        marker in lowered
+        for marker in (
+            "## persona:",
+            "# persona:",
+            "persona:",
+            "current approach (not working)",
+            "most recent run artifact",
+            "problem context",
+            "concrete constraints for the generated ouroboros seed",
+            "evaluate failed",
+            "failed-run transcript",
+            "repair transcript",
+            "diagnostic recovery text",
+        )
+    )
+
+
+def _starts_seed_qa_recovery_context_block(text: str) -> bool:
+    lowered = text.casefold()
+    return lowered.startswith("## problem context") or lowered.startswith("# problem context")
 
 
 def _normalized_seed_qa_feedback(qa_result: EvaluateResult) -> tuple[str, ...]:
@@ -4741,7 +4999,10 @@ def _normalized_seed_qa_feedback(qa_result: EvaluateResult) -> tuple[str, ...]:
     if "ambiguity_score" in lowered:
         repairs.append("Seed metadata must satisfy the readiness gate: ambiguity_score <= 0.20.")
     if "non_goals" in lowered or "non-goals" in lowered or "runtime_context" in lowered:
-        repairs.append("Preserve ledger non-goals and runtime context in executable Seed surfaces.")
+        repairs.append(
+            "Preserve ledger non-goals and runtime context in executable Seed surfaces; "
+            "use constraints prefixed with `Non-goal:` and explicit runtime constraints or ontology fields."
+        )
     if "polluted" in lowered or "diagnostic" in lowered or "lateral repair" in lowered:
         repairs.append(
             "Constraints must contain only actionable product/runtime constraints; omit QA or lateral diagnostic prose."

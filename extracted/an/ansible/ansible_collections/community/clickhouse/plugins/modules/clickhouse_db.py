@@ -17,21 +17,16 @@ description:
   - Creates or removes a ClickHouse database using the
     L(clickhouse-driver,https://clickhouse-driver.readthedocs.io/en/latest) Client interface.
 
-version_added: '0.3.0'
-
 attributes:
   check_mode:
     description: Supports check_mode.
     support: full
-  idempotent:
-    support: partial
-    description:
-      - Obviously O(state=rename) will fail at second run.
+
+version_added: '0.3.0'
 
 author:
   - Andrew Klychkov (@Andersson007)
   - Aleksandr Vagachev (@aleksvagachev)
-  - Rafal Kozlowski (@rkozlo)
 
 extends_documentation_fragment:
   - community.clickhouse.client_inst_opts
@@ -68,8 +63,7 @@ options:
     version_added: '0.4.0'
   comment:
     description:
-      - Database comment.
-      - Since C(2.2.0) can change comments in existing databases (requires server 25.8 or later).
+      - Database comment. Once set, cannot be changed.
     type: str
     version_added: '0.4.0'
 '''
@@ -137,22 +131,22 @@ executed_statements = []
 
 
 class ClickHouseDB():
-    def __init__(self, module, client, name, cluster, comment):
+    def __init__(self, module, client, name, cluster):
         self.module = module
         self.client = client
         self.name = name
         self.cluster = cluster
+        self.srv_version = get_server_version(self.module, self.client)
         # Set default values, then update
         self.exists = False
         self.engine = None
-        self.comment = comment
+        self.comment = None
         self.__populate_info()
 
     def __populate_info(self):
         # TODO: If anyone can determine the version when the comment feature
         # was added to database more precisely, you're welcome to adjust it here
-        server_version = get_server_version(self.module, self.client)
-        if server_version['year'] >= 22:
+        if self.srv_version['year'] >= 22:
             # The comment is not supported in all versions
             query = ("SELECT engine, comment "
                      "FROM system.databases "
@@ -169,7 +163,7 @@ class ClickHouseDB():
             # If exists
             self.exists = True
             self.engine = result[0][0]
-            if server_version['year'] >= 22:
+            if self.srv_version['year'] >= 22:
                 self.comment = result[0][1]
 
     def create(self, engine, comment):
@@ -203,32 +197,13 @@ class ClickHouseDB():
                    "change it. The recreation of the database is required "
                    "in order to change it." % (engine, self.engine))
             self.module.warn(msg)
-        server_version = get_server_version(self.module, self.client)
-        # At this moment ALTER DATABASE supports only MODIFY COMMENT.
-        # When it will support more options probably better
-        # will be moving query builder above and here only link comment.
+
         if comment and comment != self.comment:
-            if server_version['year'] < 22:
-                msg = ('The module supports the comment feature for ClickHouse '
-                       'versions equal to or higher than 22.*. Ignored.')
-                self.module.warn(msg)
-            elif (server_version['year'] == 25 and server_version['feature'] >= 8) or server_version['year'] >= 26:
-                query = "ALTER DATABASE %s" % self.name
-                if self.cluster:
-                    query += " ON CLUSTER %s" % self.cluster
-                query += " MODIFY COMMENT '%s'" % comment
-
-                executed_statements.append(query)
-
-                if not self.module.check_mode:
-                    execute_query(self.module, self.client, query)
-
-                return True
-            else:
-                self.module.warn(
-                    f"Server version {server_version['year']}.{server_version['feature']} "
-                    f"does not support MODIFY COMMENT. Required: 25.8 or higher"
-                )
+            msg = ("The provided comment '%s' is different from "
+                   "the current one '%s'. It is NOT possible to "
+                   "change it. The recreation of the database is required "
+                   "in order to change it." % (comment, self.comment))
+            self.module.warn(msg)
 
         return False
 
@@ -300,7 +275,13 @@ def main():
 
     # Do the job
     changed = False
-    database = ClickHouseDB(module, client, name, cluster, comment)
+    database = ClickHouseDB(module, client, name, cluster)
+
+    if comment and database.srv_version['year'] < 22:
+        msg = ('The module supports the comment feature for ClickHouse '
+               'versions equal to or higher than 22.*. Ignored.')
+        module.warn(msg)
+        comment = None
 
     if state == 'present':
         if not database.exists:
@@ -312,7 +293,7 @@ def main():
         if database.exists:
             changed = database.rename(target)
         else:
-            target_db = ClickHouseDB(module, client, target, cluster, comment)
+            target_db = ClickHouseDB(module, client, target, cluster)
             if target_db.exists:
                 changed = False
                 msg = "There is nothing to rename"

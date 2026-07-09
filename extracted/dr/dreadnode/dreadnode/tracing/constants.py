@@ -165,6 +165,12 @@ AIRT_ATTRIBUTE_PERTURBATION_BUDGET = f"{AIRT_NAMESPACE}.perturbation_budget"
 AIRT_ATTRIBUTE_CANDIDATE_PARTS = f"{AIRT_NAMESPACE}.candidate_parts"
 AIRT_ATTRIBUTE_RESPONSE_PARTS = f"{AIRT_NAMESPACE}.response_parts"
 
+# Per-modality scores for a multimodal response, JSON-serialized {modality: score}.
+# When a target emits more than one output modality (e.g. text + generated image),
+# each is scored by its own scorer and the trial's objective score is the MAX
+# (worst-case: any modality bypassing safety = a successful jailbreak).
+AIRT_ATTRIBUTE_MODALITY_SCORES = f"{AIRT_NAMESPACE}.modality_scores"
+
 # === Event Names ===
 EVENT_NAME_OBJECT = f"{SPAN_NAMESPACE}.object"
 EVENT_NAME_OBJECT_INPUT = f"{SPAN_NAMESPACE}.object.input"

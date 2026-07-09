@@ -8,7 +8,6 @@ from collections.abc import AsyncIterator, Mapping
 import contextlib
 from dataclasses import replace
 from datetime import UTC, datetime
-import json
 import os
 from pathlib import Path
 import re
@@ -38,11 +37,13 @@ from ouroboros.orchestrator.adapter import (
     RuntimeCapabilities,
     RuntimeHandle,
     SkillDispatchHandler,
+    SubagentOrchestration,
     TaskResult,
 )
 from ouroboros.providers.base import CompletionConfig
 from ouroboros.providers.codex_cli_stream import (
     iter_runtime_stream_lines,
+    parse_json_event,
     terminate_runtime_process,
 )
 from ouroboros.providers.profiles import resolve_completion_profile
@@ -180,6 +181,12 @@ class CodexCliRuntime:
             # level outside this set is silently dropped, so declare the vocabulary
             # to keep enforced/advised classification truthful.
             enforceable_reasoning_efforts=_CODEX_REASONING_EFFORT_LEVELS,
+            # Codex can self-parallelize inside a session, but ``codex mcp-server``
+            # exposes only ``codex`` / ``codex-reply`` — its native multi-agent
+            # team tools are not reachable by an external driver. So ouroboros can
+            # reuse/continue a Codex thread but cannot orchestrate Codex children;
+            # sub-agent fan-out stays in-process. See SubagentOrchestration.
+            subagent_orchestration=SubagentOrchestration.INTERNAL,
         )
 
     @property
@@ -340,18 +347,34 @@ class CodexCliRuntime:
         system_prompt: str | None,
         tools: list[str] | None,
     ) -> str:
-        """Compose a single prompt for Codex CLI exec mode."""
+        """Compose a single prompt for Codex CLI exec mode.
+
+        System instructions and tooling guidance are wrapped in explicit
+        authority delimiters rather than ``## markdown headings``. Codex/GPT
+        models tend to read a ``## System Instructions`` heading as ordinary
+        document content; a fenced ``<system-directive>`` block with a one-line
+        binding preamble makes the governing intent unambiguous. The task text
+        itself is left untouched and unwrapped, so a bare prompt (no system
+        instructions, no tools) is returned exactly as before.
+        """
         parts: list[str] = []
 
         if system_prompt:
-            parts.append(f"## System Instructions\n{system_prompt}")
+            parts.append(
+                "<system-directive>\n"
+                "These are binding instructions that govern this task. "
+                "Treat them as rules, not as reference material.\n\n"
+                f"{system_prompt}\n"
+                "</system-directive>"
+            )
 
         if tools:
             tool_list = "\n".join(f"- {tool}" for tool in tools)
             parts.append(
-                "## Tooling Guidance\n"
+                "<tooling-guidance>\n"
                 "Prefer to solve the task using the following tool set when possible:\n"
-                f"{tool_list}"
+                f"{tool_list}\n"
+                "</tooling-guidance>"
             )
 
         parts.append(prompt)
@@ -1184,12 +1207,7 @@ class CodexCliRuntime:
 
     def _parse_json_event(self, line: str) -> dict[str, Any] | None:
         """Parse a JSONL event line, returning None for non-JSON output."""
-        try:
-            event = json.loads(line)
-        except json.JSONDecodeError:
-            return None
-
-        return event if isinstance(event, dict) else None
+        return parse_json_event(line)
 
     def _extract_event_session_id(self, event: Mapping[str, Any]) -> str | None:
         """Extract a backend-native session identifier from a runtime event."""

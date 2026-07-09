@@ -8,6 +8,7 @@ from sphinx.application import Sphinx
 from sphinx.builders.html import StandaloneHTMLBuilder
 from sphinx.builders.dirhtml import DirectoryHTMLBuilder
 from ._pygments import ShibuyaPygmentsBridge
+from ._social_links import patch_social_context
 
 
 def patch_builder_inited(app: Sphinx):
@@ -43,6 +44,7 @@ def patch_html_page_context(
     if not isinstance(app.builder, StandaloneHTMLBuilder):
         return
 
+    patch_social_context(context)
     _fix_context_pageurl(app, context)
     _fix_context_toc(context)
 

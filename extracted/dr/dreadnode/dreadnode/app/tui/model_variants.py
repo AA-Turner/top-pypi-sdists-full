@@ -40,10 +40,36 @@ _GOOGLE_VARIANTS: dict[str, dict[str, t.Any]] = {
     "max": {"thinking_config": {"include_thoughts": True, "thinking_budget": 24576}},
 }
 
+# OpenAI-compatible reasoning models routed through the dn/ proxy, controlled by
+# reasoning_effort. Following the cross-harness consensus (ENG-7388 research), a
+# reasoning-capable model gets the effort toggle whether or not it surfaces
+# readable chain-of-thought: glm/kimi/qwen/nemotron surface readable
+# reasoning_content (and grow it with effort — verified live 2026-07-07), while
+# deepseek/grok reason with a hidden CoT (same as gpt-5.x). The effort control is
+# still meaningful for the hidden ones; if no text comes back, nothing renders.
+# "max" is omitted — only low/medium/high were validated, and these backends may
+# reject an out-of-range effort rather than drop it.
+_REASONING_EFFORT_VARIANTS: dict[str, dict[str, t.Any]] = {
+    "low": {"reasoning_effort": "low"},
+    "medium": {"reasoning_effort": "medium"},
+    "high": {"reasoning_effort": "high"},
+}
+
 _PROVIDER_VARIANTS: dict[str, dict[str, dict[str, t.Any]]] = {
     "anthropic": _ANTHROPIC_VARIANTS,
     "openai": _OPENAI_VARIANTS,
     "google": _GOOGLE_VARIANTS,
+    "zhipuai": _REASONING_EFFORT_VARIANTS,
+    "moonshot": _REASONING_EFFORT_VARIANTS,
+    "qwen": _REASONING_EFFORT_VARIANTS,
+    "nvidia": _REASONING_EFFORT_VARIANTS,
+    "deepseek": _REASONING_EFFORT_VARIANTS,
+    "xai": _REASONING_EFFORT_VARIANTS,
+    # NOTE: openrouter deliberately stays toggle-free. Every openrouter model we
+    # deploy today (z-ai/glm, moonshotai/kimi, qwen) is a reasoning emitter, so
+    # adding _REASONING_EFFORT_VARIANTS here would be consistent — but openrouter is
+    # a meta-provider and the existing (tested) design keeps it optimistic-only.
+    # Left as a deliberate open decision rather than silently flipped.
 }
 
 # ---------------------------------------------------------------------------
@@ -83,6 +109,12 @@ _PROVIDER_DEFAULT_EFFORT: dict[str, str] = {
     "anthropic": "medium",
     "openai": "medium",
     "google": "high",
+    "zhipuai": "medium",
+    "moonshot": "medium",
+    "qwen": "medium",
+    "nvidia": "medium",
+    "deepseek": "medium",
+    "xai": "medium",
 }
 
 

@@ -1171,6 +1171,10 @@ def build_args(
 # Microsoft-proprietary fonts that signal a real Windows install (absent from
 # ttf-mscorefonts-installer). Keep in sync with issue #395 and
 # docs/chrome40-fpjs-font-minimum-set-investigation.md.
+# Windows OS fonts — ship with Windows itself, so their absence on a
+# Windows-spoofing Linux host degrades results. The two monospace fonts
+# (Consolas + Courier New) are part of the recommended set so the generic
+# `monospace` family resolves to a Windows font. See issue #395.
 _WINDOWS_FONT_TELLS = (
     "Segoe UI",
     "Segoe UI Light",
@@ -1178,17 +1182,36 @@ _WINDOWS_FONT_TELLS = (
     "Marlett",
     "MS UI Gothic",
     "Franklin Gothic",
+    "Consolas",
+    "Courier New",
+)
+
+# MS Office supplemental fonts, installed as one atomic block by every Office
+# install. Roughly half of real Windows machines have this pack and half do
+# not, so its absence is a perfectly normal Windows setup, NOT a problem —
+# reported as an informational signal only, never a warning.
+_OFFICE_FONT_TELLS = (
+    "MT Extra",
+    "Century",
+    "Century Gothic",
+    "MS Reference Specialty",
+    "Wingdings 2",
+    "Wingdings 3",
+    "Book Antiqua",
+    "Bookshelf Symbol 7",
+    "Monotype Corsiva",
+    "Bookman Old Style",
 )
 
 _font_warning_checked = False
 
 
-def _windows_fonts_present() -> bool | None:
-    """Probe for Windows fonts via fc-list.
+def _count_fonts_present(tells: tuple[str, ...]) -> int | None:
+    """Count how many tell-tale fonts are installed, via fc-list.
 
-    Tri-state: True if any tell-tale font is installed, False if none found,
-    None if it can't be determined (fc-list missing or errored). Callers must
-    NOT warn on None — only an explicit False means "no Windows fonts".
+    Returns the number present (0..len(tells)), or None if it can't be
+    determined (fc-list missing or errored). Callers must NOT treat None as
+    zero — None means "unknown", 0 means "genuinely none installed".
     """
     import subprocess
     try:
@@ -1200,11 +1223,21 @@ def _windows_fonts_present() -> bool | None:
     if result.returncode != 0:
         return None
     listing = result.stdout.lower()
-    return any(font.lower() in listing for font in _WINDOWS_FONT_TELLS)
+    return sum(1 for font in tells if font.lower() in listing)
+
+
+def _windows_fonts_present() -> bool | None:
+    """True if ALL Windows OS fonts are installed, False if any are missing,
+    None if unknown. Strict: a partial set is treated as incomplete, since the
+    font install is atomic and a missing font degrades the Windows persona.
+    """
+    n = _count_fonts_present(_WINDOWS_FONT_TELLS)
+    return None if n is None else n == len(_WINDOWS_FONT_TELLS)
 
 
 def _maybe_warn_windows_fonts(chrome_args: list[str]) -> None:
-    """Warn once when spoofing Windows on a Linux host with no Windows fonts.
+    """Warn once when spoofing Windows on a Linux host without the full Windows
+    font set.
 
     Best-effort and silent on error — never raises. Gated by an in-process flag
     plus a cache-dir marker so it fires at most once per environment. Suppress
@@ -1234,13 +1267,13 @@ def _maybe_warn_windows_fonts(chrome_args: list[str]) -> None:
             return
         present = _windows_fonts_present()
         if present is None or present is True:
-            return  # fonts present, or can't determine — don't warn
+            return  # full set present, or can't determine — don't warn
         # Write straight to stderr (like the welcome banner and the JS/.NET
         # wrappers) so an app's logging config can't silence it.
         sys.stderr.write(
-            "[cloakbrowser] No Windows fonts found — installing them is strongly "
-            "advised for best results when spoofing Windows on Linux. "
-            "https://github.com/CloakHQ/cloakbrowser#font-setup-on-linux "
+            "[cloakbrowser] Incomplete Windows font set — installing the full "
+            "set is strongly advised for best results when spoofing Windows on "
+            "Linux. https://github.com/CloakHQ/cloakbrowser#font-setup-on-linux "
             "(silence: CLOAKBROWSER_SUPPRESS_FONT_WARNING=1)\n"
         )
         try:

@@ -1,30 +1,32 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: azure-mgmt-databricks
-Version: 2.0.0
-Summary: Microsoft Azure Data Bricks Management Client Library for Python
-Home-page: https://github.com/Azure/azure-sdk-for-python
-Author: Microsoft Corporation
-Author-email: azpysdkhelp@microsoft.com
-License: MIT License
+Version: 3.0.0
+Summary: Microsoft Azure Databricks Management Client Library for Python
+Author-email: Microsoft Corporation <azpysdkhelp@microsoft.com>
+License-Expression: MIT
+Project-URL: repository, https://github.com/Azure/azure-sdk-for-python
 Keywords: azure,azure sdk
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3 :: Only
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.7
-Classifier: Programming Language :: Python :: 3.8
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
-Classifier: License :: OSI Approved :: MIT License
-Requires-Python: >=3.7
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
+Requires-Python: >=3.10
 Description-Content-Type: text/markdown
 License-File: LICENSE
+Requires-Dist: isodate>=0.6.1
+Requires-Dist: azure-mgmt-core>=1.6.0
+Requires-Dist: typing-extensions>=4.6.0
+Dynamic: license-file
 
 # Microsoft Azure SDK for Python
 
 This is the Microsoft Azure Data Bricks Management Client Library.
-This package has been tested with Python 3.7+.
+This package has been tested with Python 3.10+.
 For a more complete view of Azure libraries, see the [azure sdk python release](https://aka.ms/azsdk/python/all).
 
 ## _Disclaimer_
@@ -35,7 +37,7 @@ _Azure SDK Python packages support for Python 2.7 has ended 01 January 2022. For
 
 ### Prerequisites
 
-- Python 3.7+ is required to use this package.
+- Python 3.10+ is required to use this package.
 - [Azure subscription](https://azure.microsoft.com/free/)
 
 ### Install the package
@@ -47,7 +49,7 @@ pip install azure-identity
 
 ### Authentication
 
-By default, [Azure Active Directory](https://aka.ms/awps/aad) token authentication depends on correct configure of following environment variables.
+By default, [Microsoft Entra](https://learn.microsoft.com/entra/fundamentals/what-is-entra) token authentication depends on correct configuration of the following environment variables.
 
 - `AZURE_CLIENT_ID` for Azure client ID.
 - `AZURE_TENANT_ID` for Azure tenant ID.
@@ -83,11 +85,84 @@ If you encounter any bugs or have suggestions, please file an issue in the
 [Issues](https://github.com/Azure/azure-sdk-for-python/issues)
 section of the project. 
 
-
-![Impressions](https://azure-sdk-impressions.azurewebsites.net/api/impressions/azure-sdk-for-python%2Fazure-mgmt-databricks%2FREADME.png)
-
-
 # Release History
+
+## 3.0.0 (2026-07-08)
+
+### Features Added
+
+  - Client `AzureDatabricksManagementClient` added parameter `cloud_setting` in method `__init__`
+  - Client `AzureDatabricksManagementClient` added method `send_request`
+  - Model `AccessConnectorProperties` added property `refered_by`
+  - Model `GroupIdInformation` added property `system_data`
+  - Model `PrivateEndpointConnection` added property `system_data`
+  - Model `Resource` added property `system_data`
+  - Model `TrackedResource` added property `system_data`
+  - Model `VirtualNetworkPeering` added property `system_data`
+  - Added model `AutomaticClusterUpdateDefinition`
+  - Added enum `AutomaticClusterUpdateValue`
+  - Added model `ComplianceSecurityProfileDefinition`
+  - Added enum `ComplianceSecurityProfileValue`
+  - Added enum `ComputeMode`
+  - Added model `DefaultCatalogProperties`
+  - Added enum `DefaultStorageFirewall`
+  - Added model `EnhancedSecurityComplianceDefinition`
+  - Added model `EnhancedSecurityMonitoringDefinition`
+  - Added enum `EnhancedSecurityMonitoringValue`
+  - Added enum `IdentityType`
+  - Added enum `InitialType`
+  - Added model `ProxyResource`
+  - Added model `WorkspaceNoPublicIPBooleanParameter`
+  - Added model `WorkspacePropertiesAccessConnector`
+  - Operation group `WorkspacesOperations` added parameter `force_deletion` in method `begin_delete`
+
+### Breaking Changes
+
+  - This version introduces new hybrid models which have dual dictionary and model nature. Please follow https://aka.ms/azsdk/python/migrate/hybrid-models for migration.
+  - Model `VirtualNetworkPeering` moved instance variable `allow_virtual_network_access`, `allow_forwarded_traffic`, `allow_gateway_transit`, `use_remote_gateways`, `databricks_virtual_network`, `databricks_address_space`, `remote_virtual_network`, `remote_address_space`, `peering_state` and `provisioning_state` under property `properties` whose type is `VirtualNetworkPeeringPropertiesFormat`
+  - Model `Workspace` moved instance variable `managed_resource_group_id`, `parameters`, `provisioning_state`, `ui_definition_uri`, `authorizations`, `created_by`, `updated_by`, `created_date_time`, `workspace_id`, `workspace_url`, `storage_account_identity`, `managed_disk_identity`, `disk_encryption_set_id`, `encryption`, `private_endpoint_connections`, `public_network_access` and `required_nsg_rules` under property `properties` whose type is `WorkspaceProperties`
+
+### Other Changes
+
+  - Deleted model `AccessConnectorListResult`/`OperationListResult`/`PrivateEndpointConnectionsList`/`PrivateLinkResourcesList`/`VirtualNetworkPeeringList`/`WorkspaceListResult` which actually were not used by SDK users
+
+## 3.0.0b1 (2026-05-27)
+
+### Features Added
+
+  - Client `AzureDatabricksManagementClient` added parameter `cloud_setting` in method `__init__`
+  - Client `AzureDatabricksManagementClient` added method `send_request`
+  - Model `AccessConnectorProperties` added property `refered_by`
+  - Model `GroupIdInformation` added property `system_data`
+  - Model `PrivateEndpointConnection` added property `system_data`
+  - Model `Resource` added property `system_data`
+  - Model `TrackedResource` added property `system_data`
+  - Model `VirtualNetworkPeering` added property `system_data`
+  - Added model `AutomaticClusterUpdateDefinition`
+  - Added enum `AutomaticClusterUpdateValue`
+  - Added model `ComplianceSecurityProfileDefinition`
+  - Added enum `ComplianceSecurityProfileValue`
+  - Added enum `ComputeMode`
+  - Added model `DefaultCatalogProperties`
+  - Added enum `DefaultStorageFirewall`
+  - Added model `EnhancedSecurityComplianceDefinition`
+  - Added model `EnhancedSecurityMonitoringDefinition`
+  - Added enum `EnhancedSecurityMonitoringValue`
+  - Added enum `IdentityType`
+  - Added enum `InitialType`
+  - Added model `ProxyResource`
+  - Added model `WorkspaceNoPublicIPBooleanParameter`
+  - Added model `WorkspacePropertiesAccessConnector`
+  - Operation group `WorkspacesOperations` added parameter `force_deletion` in method `begin_delete`
+
+### Breaking Changes
+
+  - This version introduces new hybrid models which have dual dictionary and model nature. Please follow https://aka.ms/azsdk/python/migrate/hybrid-models for migration.
+  - Model `VirtualNetworkPeering` moved instance variable `allow_virtual_network_access`, `allow_forwarded_traffic`, `allow_gateway_transit`, `use_remote_gateways`, `databricks_virtual_network`, `databricks_address_space`, `remote_virtual_network`, `remote_address_space`, `peering_state` and `provisioning_state` under property `properties` whose type is `VirtualNetworkPeeringPropertiesFormat`
+
+### Other Changes
+
+  - Deleted model `PrivateEndpointConnectionsList`/`PrivateLinkResourcesList`/`VirtualNetworkPeeringList` which actually were not used by SDK users
 
 ## 2.0.0 (2023-06-29)
 

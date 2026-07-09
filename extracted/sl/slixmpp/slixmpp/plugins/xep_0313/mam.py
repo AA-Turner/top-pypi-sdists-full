@@ -47,10 +47,10 @@ class XEP_0313(BasePlugin):
         register_stanza_plugin(Iq, stanza.Fin)
         register_stanza_plugin(
             stanza.Result,
-            self.xmpp['xep_0297'].stanza.Forwarded
+            self.xmpp.plugin['xep_0297'].stanza.Forwarded
         )
-        register_stanza_plugin(stanza.MAM, self.xmpp['xep_0059'].stanza.Set)
-        register_stanza_plugin(stanza.Fin, self.xmpp['xep_0059'].stanza.Set)
+        register_stanza_plugin(stanza.MAM, self.xmpp.plugin['xep_0059'].stanza.Set)
+        register_stanza_plugin(stanza.Fin, self.xmpp.plugin['xep_0059'].stanza.Set)
         register_stanza_plugin(Iq, stanza.Metadata)
         register_stanza_plugin(stanza.Metadata, stanza.Start)
         register_stanza_plugin(stanza.Metadata, stanza.End)
@@ -112,7 +112,7 @@ class XEP_0313(BasePlugin):
                 result['mam_fin']['results'] = results
 
         if iterator:
-            return self.xmpp['xep_0059'].iterate(
+            return self.xmpp.plugin['xep_0059'].iterate(
                 iq, 'mam', 'results', amount=amount,
                 reverse=reverse, recv_interface='mam_fin',
                 pre_cb=pre_cb, post_cb=post_cb
@@ -187,7 +187,7 @@ class XEP_0313(BasePlugin):
                 result['mam']['results'] = results
                 result['mam_fin']['results'] = results
 
-        iterator = self.xmpp['xep_0059'].iterate(
+        iterator = self.xmpp.plugin['xep_0059'].iterate(
             iq, 'mam', 'results', amount=amount,
             reverse=reverse, recv_interface='mam_fin',
             pre_cb=pre_cb, post_cb=post_cb
@@ -259,7 +259,7 @@ class XEP_0313(BasePlugin):
         """
         if jid is None:
             jid = self.xmpp.boundjid.bare
-        return await self.xmpp['xep_0030'].get_items(
+        return await self.xmpp.plugin['xep_0030'].get_items(
             jid=jid,
             node='urn:xmpp:mam#configure',
             **discokwargs

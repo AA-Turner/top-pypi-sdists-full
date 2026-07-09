@@ -19,11 +19,11 @@ __all__ = ['defaults', 'null', 'num_methods', 'rnum_methods', 'inum_methods', 'a
            'last', 'only', 'nested_attr', 'nested_setdefault', 'nested_callable', 'nested_idx', 'set_nested_idx',
            'val2idx', 'uniqueify', 'loop_first_last', 'loop_first', 'loop_last', 'first_match', 'last_match', 'joins',
            'fastuple', 'bind', 'mapt', 'map_ex', 'compose', 'maps', 'partialler', 'instantiate', 'using_attr', 'negate',
-           'spread', 'dspread', 'copy_func', 'patch_to', 'patch', 'extend_enum', 'compile_re', 'ImportEnum', 'StrEnum',
-           'str_enum', 'ValEnum', 'Stateful', 'NotStr', 'PrettyString', 'even_mults', 'num_cpus', 'add_props',
-           'str2bool', 'str2int', 'str2float', 'str2list', 'str2date', 'to_bool', 'to_int', 'to_float', 'to_list',
-           'to_date', 'typed', 'exec_new', 'exec_import', 'sig_with_params', 'fdelegates', 'lt', 'gt', 'le', 'ge', 'eq',
-           'ne', 'add', 'sub', 'mul', 'truediv', 'is_', 'is_not', 'mod']
+           'fail_clean', 'dstar', 'copy_func', 'patch_to', 'patch', 'extend_enum', 'compile_re', 'ImportEnum',
+           'StrEnum', 'str_enum', 'ValEnum', 'Stateful', 'NotStr', 'PrettyString', 'even_mults', 'num_cpus',
+           'add_props', 'str2bool', 'str2int', 'str2float', 'str2list', 'str2date', 'to_bool', 'to_int', 'to_float',
+           'to_list', 'to_date', 'typed', 'exec_new', 'exec_import', 'sig_with_params', 'fdelegates', 'lt', 'gt', 'le',
+           'ge', 'eq', 'ne', 'add', 'sub', 'mul', 'truediv', 'is_', 'is_not', 'mod']
 
 # %% ../nbs/01_basics.ipynb #0e91ed82
 from .imports import *
@@ -955,15 +955,14 @@ class bind:
     "Same as `partial`, except you can use `arg0` `arg1` etc param placeholders"
     def __init__(self, func, *pargs, **pkwargs):
         self.func,self.pargs,self.pkwargs = func,pargs,pkwargs
-        self.maxi = max((x.i for x in pargs if isinstance(x, _Arg)), default=-1)
+        self.maxi = max((x.i for x in (*pargs,*pkwargs.values()) if isinstance(x, _Arg)), default=-1)
 
     def __call__(self, *args, **kwargs):
-        args = list(args)
         kwargs = {**self.pkwargs,**kwargs}
-        for k,v in kwargs.items():
-            if isinstance(v,_Arg): kwargs[k] = args.pop(v.i)
-        fargs = [args[x.i] if isinstance(x, _Arg) else x for x in self.pargs] + args[self.maxi+1:]
+        kwargs = {k:(args[v.i] if isinstance(v,_Arg) else v) for k,v in kwargs.items()}
+        fargs = [args[x.i] if isinstance(x, _Arg) else x for x in self.pargs] + list(args[self.maxi+1:])
         return self.func(*fargs, **kwargs)
+
 
 # %% ../nbs/01_basics.ipynb #84779a02
 def mapt(func, *iterables):
@@ -1029,59 +1028,80 @@ def negate(f):
     _neg.__doc__ = f'Returns `not {f.__name__}(...)`\n\nOriginal: {f.__doc__}'
     return _neg
 
-# %% ../nbs/01_basics.ipynb #348730f4
-def spread(f):
-    "Wrap `f` to accept a single iterable and spread it as positional args"
-    @wraps(f, assigned=('__module__', '__name__', '__qualname__', '__doc__'))
-    def _f(args, **kw): return f(*args, **kw)
-    return _f
+# %% ../nbs/01_basics.ipynb #24c5ee83
+def fail_clean(*excs):
+    "Re-raise `excs` (default: `Exception`) without internal traceback frames"
+    if excs and not (isinstance(excs[0],type) and issubclass(excs[0],BaseException)):
+        return fail_clean()(excs[0])
+    excs = excs or (Exception,)
+    def _deco(f):
+        @wraps(f)
+        def _f(*args, **kwargs):
+            try: return f(*args, **kwargs)
+            except excs as e: raise e.with_traceback(None) from None
+        return _f
+    return _deco
 
 # %% ../nbs/01_basics.ipynb #87a3ff7a
-def dspread(f):
-    "Wrap `f` to accept a single dict and spread it as keyword args"
+def dstar(f):
+    "Wrap `f` to accept a single dict, unpacking it as keyword args"
     @wraps(f, assigned=('__module__', '__name__', '__qualname__', '__doc__'))
     def _f(kwargs, **kw): return f(**(kwargs|kw))
     return _f
 
 # %% ../nbs/01_basics.ipynb #e81f5009
 class _Self:
-    "An alternative to `lambda` for calling methods on passed object."
-    def __init__(self): self.nms,self.args,self.kwargs,self.ready = [],[],[],True
-    def __repr__(self): return f'self: {self.nms}({self.args}, {self.kwargs})'
+    "A chain of attribute accesses, calls, and indexing, ready to run on an object; created via `Self`"
+    def __init__(self, steps=()): self.__dict__['steps'] = steps
+    def _pending(self): return bool(self.steps) and self.steps[-1][1] is None
 
-    def __call__(self, *args, **kwargs):
-        if self.ready:
-            x = args[0]
-            for n,a,k in zip(self.nms,self.args,self.kwargs):
-                x = getattr(x,n)
-                if callable(x) and a is not None: x = x(*a, **k)
-            return x
-        else:
-            self.args.append(args)
-            self.kwargs.append(kwargs)
-            self.ready = True
-            return self
+    def __repr__(self):
+        res = '~Self'
+        for nm,a,k in self.steps:
+            if nm=='__getitem__': res += f'[{", ".join(map(repr,a))}]'
+            elif a is None: res += f'.{nm}'
+            else:
+                args = ', '.join([*map(repr,a), *(f'{p}={v!r}' for p,v in k.items())])
+                res += f'({args})' if nm=='__call__' else f'.{nm}({args})'
+        return res
 
     def __getattr__(self,k):
-        if not self.ready:
-            self.args.append(None)
-            self.kwargs.append(None)
-        self.nms.append(k)
-        self.ready = False
-        return self
+        if k.startswith('__') and k.endswith('__'): raise AttributeError(k)
+        return _Self((*self.steps, (k,None,None)))
 
-    def _call(self, *args, **kwargs):
-        self.args,self.kwargs,self.nms = [args],[kwargs],['__call__']
-        self.ready = True
-        return self
+    def __getitem__(self,i): return _Self((*self.steps, ('__getitem__',(i,),{})))
+
+    def __call__(self, *args, **kwargs):
+        if self._pending(): return _Self((*self.steps[:-1], (self.steps[-1][0],args,kwargs)))
+        if not args: raise TypeError('`Self` pipelines must be applied to an object; write `~Self...` to get a plain function')
+        return (~self)(args[0])
+
+    def __invert__(self):
+        steps = self.steps
+        def _f(x):
+            for nm,a,k in steps:
+                x = getattr(x,nm)
+                if a is not None: x = x(*a,**k)
+            return x
+        return _f
+
+    def __bool__(self):
+        if self._pending(): raise TypeError(f'unfinished `Self` pipeline {self!r}; write it with a leading `~` to get a plain function')
+        return True
+
 
 # %% ../nbs/01_basics.ipynb #ea337203
 class _SelfCls:
-    def __getattr__(self,k): return getattr(_Self(),k)
-    def __getitem__(self,i): return self.__getattr__('__getitem__')(i)
-    def __call__(self,*args,**kwargs): return self.__getattr__('_call')(*args,**kwargs)
+    "Start a `Self` pipeline: attribute access, call, or indexing on `Self` begins a chain"
+    def __getattr__(self,k):
+        if k.startswith('__') and k.endswith('__'): raise AttributeError(k)
+        return _Self(((k,None,None),))
+    def __getitem__(self,i): return _Self((('__getitem__',(i,),{}),))
+    def __call__(self,*args,**kwargs): return _Self((('__call__',args,kwargs),))
+    def __invert__(self): return ~_Self()
 
 Self = _SelfCls()
+
 
 # %% ../nbs/01_basics.ipynb #d0f8064a
 _all_ = ['Self']

@@ -176,26 +176,38 @@ export function getFallbackDownloadUrl(version?: string): string {
   return `${GITHUB_DOWNLOAD_BASE_URL}/chromium-v${v}/${getArchiveName()}`;
 }
 
-export function getEffectiveVersion(pro = false): string {
+export function getEffectiveVersion(pro?: false): string;
+export function getEffectiveVersion(pro: boolean): string | null;
+export function getEffectiveVersion(pro = false): string | null {
   const base = getChromiumVersion();
   const cacheDir = getCacheDir();
 
   if (pro) {
+    // A valid Pro license must NEVER fall back to the free binary, so there is
+    // deliberately no free-version fallback here — return null when no cached Pro
+    // binary matches the marker; callers resolve the latest Pro version instead.
     const marker = path.join(cacheDir, `latest_pro_version_${getPlatformTag()}`);
     try {
       if (fs.existsSync(marker)) {
         const version = fs.readFileSync(marker, "utf-8").trim();
         if (version) {
           const binary = getBinaryPath(version, true);
+          // Match launch's proBinaryReady (exists AND executable) so `info` never
+          // reports a build that launch would reject.
           if (fs.existsSync(binary)) {
-            return version;
+            try {
+              fs.accessSync(binary, fs.constants.X_OK);
+              return version;
+            } catch {
+              // Present but not executable → not launch-ready.
+            }
           }
         }
       }
     } catch {
       // Marker unreadable
     }
-    return base;
+    return null;
   }
 
   // Free tier: try platform-scoped marker first, fall back to legacy marker for upgrades from <0.3.0
@@ -269,7 +281,7 @@ export function binarySupportsHeadlessNoViewport(
   } catch {
     declared = undefined;
   }
-  let version: string;
+  let version: string | null;
   if (declared) {
     version = declared;
   } else if (getLocalBinaryOverride()) {
@@ -280,6 +292,8 @@ export function binarySupportsHeadlessNoViewport(
     const pro = Boolean(resolveLicenseKey(licenseKey));
     version = getEffectiveVersion(pro);
   }
+  // No cached Pro build resolvable (getEffectiveVersion returned null) → fail safe.
+  if (version === null) return false;
   try {
     // Fail safe (feature OFF) on a malformed version — parseVersion yields NaN
     // instead of throwing, so guard explicitly (Python/.NET throw + fail OFF).

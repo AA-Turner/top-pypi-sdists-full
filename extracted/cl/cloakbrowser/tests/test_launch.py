@@ -28,8 +28,14 @@ def test_removed_backend_kwarg_raises(env, monkeypatch):
         launch_persistent_context("/tmp/cloakbrowser-test-profile", backend="patchright")
 
 
-def test_binary_info():
-    """binary_info() returns expected structure."""
+def test_binary_info(tmp_path, monkeypatch):
+    """binary_info() returns expected structure.
+
+    Isolate the cache dir: with no cached Pro binary present, binary_info reports
+    the free base version. (Without isolation this reads the developer's real
+    ~/.cloakbrowser, which may hold a cached Pro build and flip the version.)
+    """
+    monkeypatch.setenv("CLOAKBROWSER_CACHE_DIR", str(tmp_path))
     info = binary_info()
     assert "version" in info
     assert "platform" in info

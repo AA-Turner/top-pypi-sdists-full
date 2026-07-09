@@ -2,15 +2,15 @@
 # -*- coding: utf-8 -*-
 
 # Copyright (c) 2021, Cisco Systems
-# GNU General Public License v3.0+ (see LICENSE or
-# https://www.gnu.org/licenses/gpl-3.0.txt)
+# GNU General Public License v3.0+ (see LICENSE or https://www.gnu.org/licenses/gpl-3.0.txt)
 
 DOCUMENTATION = r"""
 module: organizations_policy_objects_info
-short_description: Information module for organizations _policy _objects
+short_description: Information module for organizations _policyobjects
 description:
-  - Get all organizations _policy _objects.
-  - Get organizations _policy _objects by id.
+  - Information module for Organizations Policyobjects Info.
+  - Get all organizations _policyobjects.
+  - Get organizations _policyobjects by id.
   - Lists Policy Objects belonging to the organization.
   - Shows details of a Policy Object.
 version_added: '1.0.0'
@@ -24,15 +24,18 @@ options:
     type: dict
   organizationId:
     description:
+      - Information module for Organizations Policyobjects Info.
       - OrganizationId path parameter. Organization ID.
     type: str
   perPage:
     description:
+      - Information module for Organizations Policyobjects Info.
       - PerPage query parameter. The number of entries per page returned. Acceptable
         range is 10 - 5000. Default is 5000.
     type: int
   startingAfter:
     description:
+      - Information module for Organizations Policyobjects Info.
       - >
         StartingAfter query parameter. A token used by the server to indicate the
         start of the page. Often this is a timestamp or an ID but it is not limited
@@ -42,6 +45,7 @@ options:
     type: str
   endingBefore:
     description:
+      - Information module for Organizations Policyobjects Info.
       - >
         EndingBefore query parameter. A token used by the server to indicate the end
         of the page. Often this is a timestamp or an ID but it is not limited to those.
@@ -51,6 +55,7 @@ options:
     type: str
   policyObjectId:
     description:
+      - Information module for Organizations Policyobjects Info.
       - PolicyObjectId path parameter. Policy object ID.
     type: str
 requirements:
@@ -73,7 +78,7 @@ notes:
 """
 
 EXAMPLES = r"""
-- name: Get all organizations _policy _objects
+- name: Get all organizations _policyobjects
   cisco.meraki.organizations_policy_objects_info:
     meraki_api_key: "{{ meraki_api_key }}"
     meraki_base_url: "{{ meraki_base_url }}"
@@ -103,7 +108,7 @@ EXAMPLES = r"""
     total_pages: -1
     direction: next
   register: result
-- name: Get organizations _policy _objects by id
+- name: Get organizations _policyobjects by id
   cisco.meraki.organizations_policy_objects_info:
     meraki_api_key: "{{ meraki_api_key }}"
     meraki_base_url: "{{ meraki_base_url }}"

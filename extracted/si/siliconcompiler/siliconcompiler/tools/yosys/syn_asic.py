@@ -46,6 +46,17 @@ class _ASICTask(ASICTask, YosysTask):
                     for fileset in lib_obj.get("asic", "libcornerfileset", corner, delaymodel):
                         self.add_required_key(lib_obj, "fileset", fileset, "file", "liberty")
 
+            # blackbox verilog netlists are read per-asiclib by the synth/lec scripts
+            # (only when the library defines the yosys blackbox_fileset parameter)
+            if not lib_obj.valid("tool", "yosys", "blackbox_fileset"):
+                continue
+            bb_filesets = lib_obj.get("tool", "yosys", "blackbox_fileset")
+            if bb_filesets:
+                self.add_required_key(lib_obj, "tool", "yosys", "blackbox_fileset")
+                for bb_fileset in bb_filesets:
+                    if lib_obj.has_file(fileset=bb_fileset, filetype="verilog"):
+                        self.add_required_key(lib_obj, "fileset", bb_fileset, "file", "verilog")
+
     def _determine_synthesis_corner(self):
         if self.get("var", "synthesis_corner"):
             return
@@ -267,7 +278,7 @@ class ASICSynthesis(_ASICTask, YosysTask):
             True)
         self.add_parameter(
             "hier_threshold",
-            "int",
+            "int<1..>",
             "Instance limit for the number of cells in a module to preserve.",
             1000)
         self.add_parameter(
@@ -292,18 +303,18 @@ class ASICSynthesis(_ASICTask, YosysTask):
             copy=False)
         self.add_parameter(
             "abc_clock_period",
-            "float",
+            "float<0.0..>",
             "Clock period to use for synthesis in ps, if more than one clock is specified, the "
             "smallest period is used.",
             unit="ps")
         self.add_parameter(
             "abc_constraint_load",
-            "float",
+            "float<0.0..>",
             "Capacitive load for the abc techmapping in fF, if not specified it will not be used.",
             unit="fF")
         self.add_parameter(
             "abc_clock_derating",
-            "float",
+            "float<0.0..>",
             "Derating to apply to the clock period for abc synthesis",
             defvalue=0
         )
@@ -316,7 +327,7 @@ class ASICSynthesis(_ASICTask, YosysTask):
             False)
         self.add_parameter(
             "min_clockgate_fanout",
-            "int",
+            "int<1..>",
             "Minimum clockgate fanout.",
             8)
 
@@ -736,8 +747,9 @@ class ASICSynthesis(_ASICTask, YosysTask):
 
         if self.get("var", "preserve_modules"):
             self.add_required_key("var", "preserve_modules")
-        if self.get("var", "blackbox_modules"):
-            self.add_required_key("var", "blackbox_modules")
+        # NOTE: blackbox_modules is intentionally not required — it is read nowhere (only the
+        # parallel preserve_modules is consumed by sc_synth_asic.tcl). Parameter kept for API
+        # compatibility but currently inert.
 
         self.add_required_key("var", "use_slang")
         self.add_required_key("var", "add_buffers")

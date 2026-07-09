@@ -13,7 +13,7 @@ import jsii
 import publication
 import typing_extensions
 
-from jsii._type_checking import check_type
+from jsii._type_checking import cached_type_hints, check_type
 
 
 from .._jsii import *
@@ -223,7 +223,7 @@ class JavaProject(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c3cde13045b969d2a5e4bfbf540cdcead81b701c879b4079ebdf703d31d185aa)
+            type_hints = cached_type_hints(_typecheckingstub__c3cde13045b969d2a5e4bfbf540cdcead81b701c879b4079ebdf703d31d185aa)
             check_type(argname="argument spec", value=spec, expected_type=type_hints["spec"])
         return typing.cast(None, jsii.invoke(self, "addDependency", [spec]))
 
@@ -248,7 +248,7 @@ class JavaProject(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__2d82566ec5da4a4ff8c5ec4f7442835fb01d67e916c8cdb64dc6ed08d10a361c)
+            type_hints = cached_type_hints(_typecheckingstub__2d82566ec5da4a4ff8c5ec4f7442835fb01d67e916c8cdb64dc6ed08d10a361c)
             check_type(argname="argument spec", value=spec, expected_type=type_hints["spec"])
         options = PluginOptions(
             configuration=configuration,
@@ -267,7 +267,7 @@ class JavaProject(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__702d880972766245e6e0ce9d4332f75632d1c9f56321a84f3b10f119ec91dcd0)
+            type_hints = cached_type_hints(_typecheckingstub__702d880972766245e6e0ce9d4332f75632d1c9f56321a84f3b10f119ec91dcd0)
             check_type(argname="argument spec", value=spec, expected_type=type_hints["spec"])
         return typing.cast(None, jsii.invoke(self, "addTestDependency", [spec]))
 
@@ -353,7 +353,7 @@ class Junit(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__877c5aed063e2ddca6cbb37631bb31564c14fc1f304629ab7adcc662faa0b0da)
+            type_hints = cached_type_hints(_typecheckingstub__877c5aed063e2ddca6cbb37631bb31564c14fc1f304629ab7adcc662faa0b0da)
             check_type(argname="argument project", value=project, expected_type=type_hints["project"])
         options = JunitOptions(
             pom=pom, sample_java_package=sample_java_package, version=version
@@ -388,7 +388,7 @@ class JunitOptions:
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__db441a323339ae146e69254287868e3704cd5ee3edbcc272138a4e660f9e4c72)
+            type_hints = cached_type_hints(_typecheckingstub__db441a323339ae146e69254287868e3704cd5ee3edbcc272138a4e660f9e4c72)
             check_type(argname="argument pom", value=pom, expected_type=type_hints["pom"])
             check_type(argname="argument sample_java_package", value=sample_java_package, expected_type=type_hints["sample_java_package"])
             check_type(argname="argument version", value=version, expected_type=type_hints["version"])
@@ -471,7 +471,7 @@ class MavenCompile(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__0f143440a0c274a37fff9c951ad85be29c31b978c6c6d89ee2cbe127b8249b88)
+            type_hints = cached_type_hints(_typecheckingstub__0f143440a0c274a37fff9c951ad85be29c31b978c6c6d89ee2cbe127b8249b88)
             check_type(argname="argument project", value=project, expected_type=type_hints["project"])
             check_type(argname="argument pom", value=pom, expected_type=type_hints["pom"])
         options = MavenCompileOptions(source=source, target=target)
@@ -499,7 +499,7 @@ class MavenCompileOptions:
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__2abc628703576e622a20aab761493d186a662ac606df5bccb664dfe4f41a9240)
+            type_hints = cached_type_hints(_typecheckingstub__2abc628703576e622a20aab761493d186a662ac606df5bccb664dfe4f41a9240)
             check_type(argname="argument source", value=source, expected_type=type_hints["source"])
             check_type(argname="argument target", value=target, expected_type=type_hints["target"])
         self._values: typing.Dict[builtins.str, typing.Any] = {}
@@ -573,7 +573,7 @@ class MavenPackaging(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__cd7f0f4d617b106a57e5b073cf5f51ca4195a66d251926fe0b5b0fa27b2b7612)
+            type_hints = cached_type_hints(_typecheckingstub__cd7f0f4d617b106a57e5b073cf5f51ca4195a66d251926fe0b5b0fa27b2b7612)
             check_type(argname="argument project", value=project, expected_type=type_hints["project"])
             check_type(argname="argument pom", value=pom, expected_type=type_hints["pom"])
         options = MavenPackagingOptions(
@@ -624,7 +624,7 @@ class MavenPackagingOptions:
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c69d38d3cd60ee77b03f102371324cf8c453ac910fe11ed85622f44a7358057a)
+            type_hints = cached_type_hints(_typecheckingstub__c69d38d3cd60ee77b03f102371324cf8c453ac910fe11ed85622f44a7358057a)
             check_type(argname="argument distdir", value=distdir, expected_type=type_hints["distdir"])
             check_type(argname="argument javadocs", value=javadocs, expected_type=type_hints["javadocs"])
             check_type(argname="argument javadocs_exclude", value=javadocs_exclude, expected_type=type_hints["javadocs_exclude"])
@@ -735,7 +735,7 @@ class MavenRepository:
         if isinstance(snapshots, dict):
             snapshots = MavenRepositoryPolicy(**snapshots)
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__12e8ee88cd330385feef214bd08b3bc44314dc15ddbcd48e4f74c198bda84bde)
+            type_hints = cached_type_hints(_typecheckingstub__12e8ee88cd330385feef214bd08b3bc44314dc15ddbcd48e4f74c198bda84bde)
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
             check_type(argname="argument url", value=url, expected_type=type_hints["url"])
             check_type(argname="argument layout", value=layout, expected_type=type_hints["layout"])
@@ -850,7 +850,7 @@ class MavenRepositoryPolicy:
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__041e104cddeb68a13d0b79cfdce8653000ee58d2c7cef3088a2c8717d7f02ebf)
+            type_hints = cached_type_hints(_typecheckingstub__041e104cddeb68a13d0b79cfdce8653000ee58d2c7cef3088a2c8717d7f02ebf)
             check_type(argname="argument checksum_policy", value=checksum_policy, expected_type=type_hints["checksum_policy"])
             check_type(argname="argument enabled", value=enabled, expected_type=type_hints["enabled"])
             check_type(argname="argument update_policy", value=update_policy, expected_type=type_hints["update_policy"])
@@ -927,7 +927,7 @@ class MavenSample(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__4190861db7ca6169340394602246875f9668e86624764e5e7279d01f6c2a3017)
+            type_hints = cached_type_hints(_typecheckingstub__4190861db7ca6169340394602246875f9668e86624764e5e7279d01f6c2a3017)
             check_type(argname="argument project", value=project, expected_type=type_hints["project"])
         options = MavenSampleOptions(package=package)
 
@@ -947,7 +947,7 @@ class MavenSampleOptions:
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__6be9d5c5edaace101d0e427b56fb2e89f3b2e6ac01bd59e3cb1d0743d9293524)
+            type_hints = cached_type_hints(_typecheckingstub__6be9d5c5edaace101d0e427b56fb2e89f3b2e6ac01bd59e3cb1d0743d9293524)
             check_type(argname="argument package", value=package, expected_type=type_hints["package"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "package": package,
@@ -1003,7 +1003,7 @@ class ParentPom:
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__1f47e5dc92031bfaa3a639437d282aedc130d8a3857314c5a71a2ca063798f40)
+            type_hints = cached_type_hints(_typecheckingstub__1f47e5dc92031bfaa3a639437d282aedc130d8a3857314c5a71a2ca063798f40)
             check_type(argname="argument artifact_id", value=artifact_id, expected_type=type_hints["artifact_id"])
             check_type(argname="argument group_id", value=group_id, expected_type=type_hints["group_id"])
             check_type(argname="argument relative_path", value=relative_path, expected_type=type_hints["relative_path"])
@@ -1095,7 +1095,7 @@ class PluginExecution:
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__b8b1bc2eb1ab79c9e54c8b62fd341a87dd82eec6a2b2ec76a5fdb6f1c51d5444)
+            type_hints = cached_type_hints(_typecheckingstub__b8b1bc2eb1ab79c9e54c8b62fd341a87dd82eec6a2b2ec76a5fdb6f1c51d5444)
             check_type(argname="argument goals", value=goals, expected_type=type_hints["goals"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
             check_type(argname="argument configuration", value=configuration, expected_type=type_hints["configuration"])
@@ -1189,7 +1189,7 @@ class PluginOptions:
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__cf453a5ea3da08b956d0eb1127063e74802cd6e62720cf0f2c1841875bb9f17e)
+            type_hints = cached_type_hints(_typecheckingstub__cf453a5ea3da08b956d0eb1127063e74802cd6e62720cf0f2c1841875bb9f17e)
             check_type(argname="argument configuration", value=configuration, expected_type=type_hints["configuration"])
             check_type(argname="argument dependencies", value=dependencies, expected_type=type_hints["dependencies"])
             check_type(argname="argument executions", value=executions, expected_type=type_hints["executions"])
@@ -1289,7 +1289,7 @@ class Pom(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__e3638a11786e70b5de428bf2064d32761537778501eb3cb189b4457c78aee9d8)
+            type_hints = cached_type_hints(_typecheckingstub__e3638a11786e70b5de428bf2064d32761537778501eb3cb189b4457c78aee9d8)
             check_type(argname="argument project", value=project, expected_type=type_hints["project"])
         options = PomOptions(
             artifact_id=artifact_id,
@@ -1312,7 +1312,7 @@ class Pom(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__babe0c916a881bd5ee39c89fc4aea86a422e404dde7e5bf3a13a1a7430b81baa)
+            type_hints = cached_type_hints(_typecheckingstub__babe0c916a881bd5ee39c89fc4aea86a422e404dde7e5bf3a13a1a7430b81baa)
             check_type(argname="argument spec", value=spec, expected_type=type_hints["spec"])
         return typing.cast(None, jsii.invoke(self, "addDependency", [spec]))
 
@@ -1337,7 +1337,7 @@ class Pom(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__d1fb4eb690c78d4a220dcb39656037de03d1bc879d6904d08835eb6a2d41de93)
+            type_hints = cached_type_hints(_typecheckingstub__d1fb4eb690c78d4a220dcb39656037de03d1bc879d6904d08835eb6a2d41de93)
             check_type(argname="argument spec", value=spec, expected_type=type_hints["spec"])
         options = PluginOptions(
             configuration=configuration,
@@ -1389,7 +1389,7 @@ class Pom(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__88917f0eb8cf7f4c02c3fa27ba8f3feaf465d762b92e9d01d91c5ff48859a3c6)
+            type_hints = cached_type_hints(_typecheckingstub__88917f0eb8cf7f4c02c3fa27ba8f3feaf465d762b92e9d01d91c5ff48859a3c6)
             check_type(argname="argument key", value=key, expected_type=type_hints["key"])
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         return typing.cast(None, jsii.invoke(self, "addProperty", [key, value]))
@@ -1436,7 +1436,7 @@ class Pom(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__fc1671b0ccd8a1185ca40d182b3df573ab75cd69e4085d2a310a227960249ddd)
+            type_hints = cached_type_hints(_typecheckingstub__fc1671b0ccd8a1185ca40d182b3df573ab75cd69e4085d2a310a227960249ddd)
             check_type(argname="argument spec", value=spec, expected_type=type_hints["spec"])
         return typing.cast(None, jsii.invoke(self, "addTestDependency", [spec]))
 
@@ -1553,7 +1553,7 @@ class PomOptions:
         if isinstance(parent_pom, dict):
             parent_pom = ParentPom(**parent_pom)
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__468190ed1f2feac4431fa6e9f5cc22eb8dbb01cd1c5d3bdfdac29f07c4370851)
+            type_hints = cached_type_hints(_typecheckingstub__468190ed1f2feac4431fa6e9f5cc22eb8dbb01cd1c5d3bdfdac29f07c4370851)
             check_type(argname="argument artifact_id", value=artifact_id, expected_type=type_hints["artifact_id"])
             check_type(argname="argument group_id", value=group_id, expected_type=type_hints["group_id"])
             check_type(argname="argument version", value=version, expected_type=type_hints["version"])
@@ -1744,7 +1744,7 @@ class Projenrc(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__6120ff9474a63c873f006408943a5ac6d72a57ca356c129fa21e41f897bb072d)
+            type_hints = cached_type_hints(_typecheckingstub__6120ff9474a63c873f006408943a5ac6d72a57ca356c129fa21e41f897bb072d)
             check_type(argname="argument project", value=project, expected_type=type_hints["project"])
             check_type(argname="argument pom", value=pom, expected_type=type_hints["pom"])
         options = ProjenrcOptions(
@@ -1798,7 +1798,7 @@ class ProjenrcOptions:
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__6ae2ae91be40e1fe4218504ad4a0a84a64d14b1c1274575f956490848ab10770)
+            type_hints = cached_type_hints(_typecheckingstub__6ae2ae91be40e1fe4218504ad4a0a84a64d14b1c1274575f956490848ab10770)
             check_type(argname="argument class_name", value=class_name, expected_type=type_hints["class_name"])
             check_type(argname="argument projen_version", value=projen_version, expected_type=type_hints["projen_version"])
             check_type(argname="argument test_scope", value=test_scope, expected_type=type_hints["test_scope"])
@@ -1884,7 +1884,7 @@ class UpdatePolicy(metaclass=jsii.JSIIMeta, jsii_type="projen.java.UpdatePolicy"
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__0bf8e37b8aa70ecfb764a100f3a50eabbce221f62cf2cc199c929b8132fe42cc)
+            type_hints = cached_type_hints(_typecheckingstub__0bf8e37b8aa70ecfb764a100f3a50eabbce221f62cf2cc199c929b8132fe42cc)
             check_type(argname="argument minutes", value=minutes, expected_type=type_hints["minutes"])
         return typing.cast(builtins.str, jsii.sinvoke(cls, "interval", [minutes]))
 
@@ -2086,7 +2086,7 @@ class JavaProjectCommonOptions(_github_c49f935d.GitHubProjectOptions, PomOptions
         if isinstance(projenrc_java_options, dict):
             projenrc_java_options = ProjenrcOptions(**projenrc_java_options)
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__95d1347bcc9244ea45fe2d94ee57536743a6579b8c3cbeefd1a9832f2acb54b0)
+            type_hints = cached_type_hints(_typecheckingstub__95d1347bcc9244ea45fe2d94ee57536743a6579b8c3cbeefd1a9832f2acb54b0)
             check_type(argname="argument name", value=name, expected_type=type_hints["name"])
             check_type(argname="argument commit_generated", value=commit_generated, expected_type=type_hints["commit_generated"])
             check_type(argname="argument git_ignore_options", value=git_ignore_options, expected_type=type_hints["git_ignore_options"])
@@ -2959,7 +2959,7 @@ class JavaProjectOptions(JavaProjectCommonOptions):
         if isinstance(projenrc_java_options, dict):
             projenrc_java_options = ProjenrcOptions(**projenrc_java_options)
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__9bd204911b78eb490a0ff7d3863868024abfc54a7f5ababba6fe97db2f176861)
+            type_hints = cached_type_hints(_typecheckingstub__9bd204911b78eb490a0ff7d3863868024abfc54a7f5ababba6fe97db2f176861)
             check_type(argname="argument name", value=name, expected_type=type_hints["name"])
             check_type(argname="argument commit_generated", value=commit_generated, expected_type=type_hints["commit_generated"])
             check_type(argname="argument git_ignore_options", value=git_ignore_options, expected_type=type_hints["git_ignore_options"])

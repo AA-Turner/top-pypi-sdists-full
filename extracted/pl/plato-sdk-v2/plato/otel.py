@@ -775,6 +775,75 @@ def aggregate_step_costs(
 
 
 @contextmanager
+def world_agent_execution(
+    tracer: Tracer,
+    name: str,
+    version: str | None = None,
+    model: str | None = None,
+    phase: str = "journey_gen",
+) -> Iterator[Span]:
+    """Wrap a world-side LLM job (e.g. one-shot journey generation) as a single
+    named agent-execution span so Chronos's session analysis renders it as its
+    own row instead of an orphaned, unnamed execution.
+
+    Unlike :func:`aggregate_step_costs` (which emits per-model ``atif.cost.*``
+    *child* spans), this installs a **fresh** cost accumulator that diverts
+    ``record_step_cost`` away from any enclosing (e.g. ``webclone``) accumulator,
+    then rolls the per-model totals **directly onto the wrapper span** as
+    ``atif.agent.{cost_usd,prompt_tokens,completion_tokens,reasoning_tokens,
+    cache_read_tokens,cache_write_tokens}``. Emitting no cost-child spans is what
+    makes this dup-proof under ``analysis.py`` (Strategy 2 + ``_build_execution``
+    read cost off the root span itself) — see the A0 test in
+    ``tests/unit/chronos/test_chronos_analysis.py``.
+
+    The child ``atif.step.*`` spans emitted by the wrapped LLM client parent
+    under this span and their ``record_step_cost`` calls flow into the diverted
+    accumulator, so no change is needed at the call site's LLM plumbing.
+    """
+    accumulator = _CostAccumulator()
+    with tracer.start_as_current_span(name) as span:
+        span.set_attribute("atif.kind", "agent")
+        span.set_attribute("atif.agent.name", name)
+        span.set_attribute("plato.phase", phase)
+        if version is not None:
+            span.set_attribute("atif.agent.version", version)
+        if model is not None:
+            span.set_attribute("atif.agent.model_name", model)
+        token = _current_cost_accumulator.set(accumulator)
+        try:
+            yield span
+        finally:
+            _current_cost_accumulator.reset(token)
+            # Sum across models (journey-gen is single-model) and stamp totals
+            # directly onto this span — no child cost spans.
+            cost_usd = 0.0
+            prompt_tokens = 0
+            completion_tokens = 0
+            reasoning_tokens = 0
+            cache_read_tokens = 0
+            cache_write_tokens = 0
+            for bucket in accumulator.by_model.values():
+                cost_usd += bucket.cost_usd
+                prompt_tokens += bucket.prompt_tokens
+                completion_tokens += bucket.completion_tokens
+                reasoning_tokens += bucket.reasoning_tokens
+                cache_read_tokens += bucket.cache_read_tokens
+                cache_write_tokens += bucket.cache_write_tokens
+            if cost_usd > 0:
+                span.set_attribute("atif.agent.cost_usd", cost_usd)
+            if prompt_tokens > 0:
+                span.set_attribute("atif.agent.prompt_tokens", prompt_tokens)
+            if completion_tokens > 0:
+                span.set_attribute("atif.agent.completion_tokens", completion_tokens)
+            if reasoning_tokens > 0:
+                span.set_attribute("atif.agent.reasoning_tokens", reasoning_tokens)
+            if cache_read_tokens > 0:
+                span.set_attribute("atif.agent.cache_read_tokens", cache_read_tokens)
+            if cache_write_tokens > 0:
+                span.set_attribute("atif.agent.cache_write_tokens", cache_write_tokens)
+
+
+@contextmanager
 def session_span(
     tracer: Tracer,
     agent_name: str,

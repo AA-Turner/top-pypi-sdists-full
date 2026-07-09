@@ -20,7 +20,7 @@ class ActionBatchAppliance(object):
 
         kwargs.update(locals())
 
-        serial = urllib.parse.quote(serial, safe="")
+        serial = urllib.parse.quote(str(serial), safe="")
         resource = f"/devices/{serial}/appliance/interfaces/ports/update"
 
         body_params = [
@@ -51,7 +51,7 @@ class ActionBatchAppliance(object):
 
         kwargs.update(locals())
 
-        serial = urllib.parse.quote(serial, safe="")
+        serial = urllib.parse.quote(str(serial), safe="")
         resource = f"/devices/{serial}/appliance/radio/settings"
 
         body_params = [
@@ -78,7 +78,7 @@ class ActionBatchAppliance(object):
 
         kwargs = locals()
 
-        serial = urllib.parse.quote(serial, safe="")
+        serial = urllib.parse.quote(str(serial), safe="")
         resource = f"/devices/{serial}/appliance/uplinks/settings"
 
         body_params = [
@@ -100,7 +100,7 @@ class ActionBatchAppliance(object):
         - serial (string): Serial
         """
 
-        serial = urllib.parse.quote(serial, safe="")
+        serial = urllib.parse.quote(str(serial), safe="")
         resource = f"/devices/{serial}/appliance/vmx/authenticationToken"
 
         action = {
@@ -120,7 +120,7 @@ class ActionBatchAppliance(object):
 
         kwargs.update(locals())
 
-        networkId = urllib.parse.quote(networkId, safe="")
+        networkId = urllib.parse.quote(str(networkId), safe="")
         resource = f"/networks/{networkId}/appliance/connectivityMonitoringDestinations"
 
         body_params = [
@@ -152,7 +152,7 @@ class ActionBatchAppliance(object):
             options = ["active-active", "active-passive", "disabled"]
             assert kwargs["mode"] in options, f'''"mode" cannot be "{kwargs["mode"]}", & must be set to one of: {options}'''
 
-        networkId = urllib.parse.quote(networkId, safe="")
+        networkId = urllib.parse.quote(str(networkId), safe="")
         resource = f"/networks/{networkId}/appliance/devices/redundancy"
 
         body_params = [
@@ -177,7 +177,7 @@ class ActionBatchAppliance(object):
         - networkId (string): Network ID
         """
 
-        networkId = urllib.parse.quote(networkId, safe="")
+        networkId = urllib.parse.quote(str(networkId), safe="")
         resource = f"/networks/{networkId}/appliance/devices/redundancy/swap"
 
         action = {
@@ -197,7 +197,7 @@ class ActionBatchAppliance(object):
 
         kwargs.update(locals())
 
-        networkId = urllib.parse.quote(networkId, safe="")
+        networkId = urllib.parse.quote(str(networkId), safe="")
         resource = f"/networks/{networkId}/appliance/firewall/l7FirewallRules"
 
         body_params = [
@@ -222,7 +222,7 @@ class ActionBatchAppliance(object):
 
         kwargs = locals()
 
-        networkId = urllib.parse.quote(networkId, safe="")
+        networkId = urllib.parse.quote(str(networkId), safe="")
         resource = f"/networks/{networkId}/appliance/firewall/multicastForwarding"
 
         body_params = [
@@ -248,7 +248,7 @@ class ActionBatchAppliance(object):
 
         kwargs.update(locals())
 
-        networkId = urllib.parse.quote(networkId, safe="")
+        networkId = urllib.parse.quote(str(networkId), safe="")
         resource = f"/networks/{networkId}/appliance/interfaces/l3"
 
         body_params = [
@@ -276,8 +276,8 @@ class ActionBatchAppliance(object):
 
         kwargs.update(locals())
 
-        networkId = urllib.parse.quote(networkId, safe="")
-        interfaceId = urllib.parse.quote(interfaceId, safe="")
+        networkId = urllib.parse.quote(str(networkId), safe="")
+        interfaceId = urllib.parse.quote(str(interfaceId), safe="")
         resource = f"/networks/{networkId}/appliance/interfaces/l3/{interfaceId}"
 
         body_params = [
@@ -301,8 +301,8 @@ class ActionBatchAppliance(object):
         - interfaceId (string): Interface ID
         """
 
-        networkId = urllib.parse.quote(networkId, safe="")
-        interfaceId = urllib.parse.quote(interfaceId, safe="")
+        networkId = urllib.parse.quote(str(networkId), safe="")
+        interfaceId = urllib.parse.quote(str(interfaceId), safe="")
         resource = f"/networks/{networkId}/appliance/interfaces/l3/{interfaceId}"
 
         action = {
@@ -329,8 +329,8 @@ class ActionBatchAppliance(object):
 
         kwargs.update(locals())
 
-        networkId = urllib.parse.quote(networkId, safe="")
-        portId = urllib.parse.quote(portId, safe="")
+        networkId = urllib.parse.quote(str(networkId), safe="")
+        portId = urllib.parse.quote(str(portId), safe="")
         resource = f"/networks/{networkId}/appliance/ports/{portId}"
 
         body_params = [
@@ -363,7 +363,7 @@ class ActionBatchAppliance(object):
 
         kwargs.update(locals())
 
-        networkId = urllib.parse.quote(networkId, safe="")
+        networkId = urllib.parse.quote(str(networkId), safe="")
         resource = f"/networks/{networkId}/appliance/prefixes/delegated/statics"
 
         body_params = [
@@ -393,8 +393,8 @@ class ActionBatchAppliance(object):
 
         kwargs.update(locals())
 
-        networkId = urllib.parse.quote(networkId, safe="")
-        staticDelegatedPrefixId = urllib.parse.quote(staticDelegatedPrefixId, safe="")
+        networkId = urllib.parse.quote(str(networkId), safe="")
+        staticDelegatedPrefixId = urllib.parse.quote(str(staticDelegatedPrefixId), safe="")
         resource = f"/networks/{networkId}/appliance/prefixes/delegated/statics/{staticDelegatedPrefixId}"
 
         body_params = [
@@ -419,8 +419,8 @@ class ActionBatchAppliance(object):
         - staticDelegatedPrefixId (string): Static delegated prefix ID
         """
 
-        networkId = urllib.parse.quote(networkId, safe="")
-        staticDelegatedPrefixId = urllib.parse.quote(staticDelegatedPrefixId, safe="")
+        networkId = urllib.parse.quote(str(networkId), safe="")
+        staticDelegatedPrefixId = urllib.parse.quote(str(staticDelegatedPrefixId), safe="")
         resource = f"/networks/{networkId}/appliance/prefixes/delegated/statics/{staticDelegatedPrefixId}"
 
         action = {
@@ -443,7 +443,7 @@ class ActionBatchAppliance(object):
 
         kwargs.update(locals())
 
-        networkId = urllib.parse.quote(networkId, safe="")
+        networkId = urllib.parse.quote(str(networkId), safe="")
         resource = f"/networks/{networkId}/appliance/rfProfiles"
 
         body_params = [
@@ -475,8 +475,8 @@ class ActionBatchAppliance(object):
 
         kwargs.update(locals())
 
-        networkId = urllib.parse.quote(networkId, safe="")
-        rfProfileId = urllib.parse.quote(rfProfileId, safe="")
+        networkId = urllib.parse.quote(str(networkId), safe="")
+        rfProfileId = urllib.parse.quote(str(rfProfileId), safe="")
         resource = f"/networks/{networkId}/appliance/rfProfiles/{rfProfileId}"
 
         body_params = [
@@ -502,8 +502,8 @@ class ActionBatchAppliance(object):
         - rfProfileId (string): Rf profile ID
         """
 
-        networkId = urllib.parse.quote(networkId, safe="")
-        rfProfileId = urllib.parse.quote(rfProfileId, safe="")
+        networkId = urllib.parse.quote(str(networkId), safe="")
+        rfProfileId = urllib.parse.quote(str(rfProfileId), safe="")
         resource = f"/networks/{networkId}/appliance/rfProfiles/{rfProfileId}"
 
         action = {
@@ -523,7 +523,7 @@ class ActionBatchAppliance(object):
 
         kwargs.update(locals())
 
-        networkId = urllib.parse.quote(networkId, safe="")
+        networkId = urllib.parse.quote(str(networkId), safe="")
         resource = f"/networks/{networkId}/appliance/sdwan/internetPolicies"
 
         body_params = [
@@ -561,7 +561,7 @@ class ActionBatchAppliance(object):
                 f'''"deploymentMode" cannot be "{kwargs["deploymentMode"]}", & must be set to one of: {options}'''
             )
 
-        networkId = urllib.parse.quote(networkId, safe="")
+        networkId = urllib.parse.quote(str(networkId), safe="")
         resource = f"/networks/{networkId}/appliance/settings"
 
         body_params = [
@@ -591,7 +591,7 @@ class ActionBatchAppliance(object):
 
         kwargs.update(locals())
 
-        networkId = urllib.parse.quote(networkId, safe="")
+        networkId = urllib.parse.quote(str(networkId), safe="")
         resource = f"/networks/{networkId}/appliance/singleLan"
 
         body_params = [
@@ -646,8 +646,8 @@ class ActionBatchAppliance(object):
                 f'''"wpaEncryptionMode" cannot be "{kwargs["wpaEncryptionMode"]}", & must be set to one of: {options}'''
             )
 
-        networkId = urllib.parse.quote(networkId, safe="")
-        number = urllib.parse.quote(number, safe="")
+        networkId = urllib.parse.quote(str(networkId), safe="")
+        number = urllib.parse.quote(str(number), safe="")
         resource = f"/networks/{networkId}/appliance/ssids/{number}"
 
         body_params = [
@@ -685,7 +685,7 @@ class ActionBatchAppliance(object):
 
         kwargs.update(locals())
 
-        networkId = urllib.parse.quote(networkId, safe="")
+        networkId = urllib.parse.quote(str(networkId), safe="")
         resource = f"/networks/{networkId}/appliance/trafficShaping/customPerformanceClasses"
 
         body_params = [
@@ -719,8 +719,8 @@ class ActionBatchAppliance(object):
 
         kwargs.update(locals())
 
-        networkId = urllib.parse.quote(networkId, safe="")
-        customPerformanceClassId = urllib.parse.quote(customPerformanceClassId, safe="")
+        networkId = urllib.parse.quote(str(networkId), safe="")
+        customPerformanceClassId = urllib.parse.quote(str(customPerformanceClassId), safe="")
         resource = f"/networks/{networkId}/appliance/trafficShaping/customPerformanceClasses/{customPerformanceClassId}"
 
         body_params = [
@@ -746,8 +746,8 @@ class ActionBatchAppliance(object):
         - customPerformanceClassId (string): Custom performance class ID
         """
 
-        networkId = urllib.parse.quote(networkId, safe="")
-        customPerformanceClassId = urllib.parse.quote(customPerformanceClassId, safe="")
+        networkId = urllib.parse.quote(str(networkId), safe="")
+        customPerformanceClassId = urllib.parse.quote(str(customPerformanceClassId), safe="")
         resource = f"/networks/{networkId}/appliance/trafficShaping/customPerformanceClasses/{customPerformanceClassId}"
 
         action = {
@@ -771,7 +771,7 @@ class ActionBatchAppliance(object):
 
         kwargs.update(locals())
 
-        networkId = urllib.parse.quote(networkId, safe="")
+        networkId = urllib.parse.quote(str(networkId), safe="")
         resource = f"/networks/{networkId}/appliance/trafficShaping/rules"
 
         body_params = [
@@ -797,7 +797,7 @@ class ActionBatchAppliance(object):
 
         kwargs.update(locals())
 
-        networkId = urllib.parse.quote(networkId, safe="")
+        networkId = urllib.parse.quote(str(networkId), safe="")
         resource = f"/networks/{networkId}/appliance/trafficShaping/uplinkBandwidth"
 
         body_params = [
@@ -827,7 +827,7 @@ class ActionBatchAppliance(object):
 
         kwargs.update(locals())
 
-        networkId = urllib.parse.quote(networkId, safe="")
+        networkId = urllib.parse.quote(str(networkId), safe="")
         resource = f"/networks/{networkId}/appliance/trafficShaping/uplinkSelection"
 
         body_params = [
@@ -858,7 +858,7 @@ class ActionBatchAppliance(object):
 
         kwargs.update(locals())
 
-        networkId = urllib.parse.quote(networkId, safe="")
+        networkId = urllib.parse.quote(str(networkId), safe="")
         resource = f"/networks/{networkId}/appliance/trafficShaping/vpnExclusions"
 
         body_params = [
@@ -884,7 +884,7 @@ class ActionBatchAppliance(object):
 
         kwargs = locals()
 
-        networkId = urllib.parse.quote(networkId, safe="")
+        networkId = urllib.parse.quote(str(networkId), safe="")
         resource = f"/networks/{networkId}/appliance/umbrella/account/connect"
 
         body_params = [
@@ -906,7 +906,7 @@ class ActionBatchAppliance(object):
         - networkId (string): Network ID
         """
 
-        networkId = urllib.parse.quote(networkId, safe="")
+        networkId = urllib.parse.quote(str(networkId), safe="")
         resource = f"/networks/{networkId}/appliance/umbrella/account/disconnect"
 
         action = {
@@ -926,7 +926,7 @@ class ActionBatchAppliance(object):
 
         kwargs = locals()
 
-        networkId = urllib.parse.quote(networkId, safe="")
+        networkId = urllib.parse.quote(str(networkId), safe="")
         resource = f"/networks/{networkId}/appliance/umbrella/domains/exclusions"
 
         body_params = [
@@ -951,7 +951,7 @@ class ActionBatchAppliance(object):
 
         kwargs = locals()
 
-        networkId = urllib.parse.quote(networkId, safe="")
+        networkId = urllib.parse.quote(str(networkId), safe="")
         resource = f"/networks/{networkId}/appliance/umbrella/policies/add"
 
         body_params = [
@@ -976,7 +976,7 @@ class ActionBatchAppliance(object):
 
         kwargs = locals()
 
-        networkId = urllib.parse.quote(networkId, safe="")
+        networkId = urllib.parse.quote(str(networkId), safe="")
         resource = f"/networks/{networkId}/appliance/umbrella/policies/remove"
 
         body_params = [
@@ -1001,7 +1001,7 @@ class ActionBatchAppliance(object):
 
         kwargs = locals()
 
-        networkId = urllib.parse.quote(networkId, safe="")
+        networkId = urllib.parse.quote(str(networkId), safe="")
         resource = f"/networks/{networkId}/appliance/umbrella/protection"
 
         body_params = [
@@ -1026,7 +1026,7 @@ class ActionBatchAppliance(object):
 
         kwargs = locals()
 
-        networkId = urllib.parse.quote(networkId, safe="")
+        networkId = urllib.parse.quote(str(networkId), safe="")
         resource = f"/networks/{networkId}/appliance/uplinks/nat"
 
         body_params = [
@@ -1086,7 +1086,7 @@ class ActionBatchAppliance(object):
                 f'''"dhcpLeaseTime" cannot be "{kwargs["dhcpLeaseTime"]}", & must be set to one of: {options}'''
             )
 
-        networkId = urllib.parse.quote(networkId, safe="")
+        networkId = urllib.parse.quote(str(networkId), safe="")
         resource = f"/networks/{networkId}/appliance/vlans"
 
         body_params = [
@@ -1130,7 +1130,7 @@ class ActionBatchAppliance(object):
 
         kwargs.update(locals())
 
-        networkId = urllib.parse.quote(networkId, safe="")
+        networkId = urllib.parse.quote(str(networkId), safe="")
         resource = f"/networks/{networkId}/appliance/vlans/settings"
 
         body_params = [
@@ -1194,8 +1194,8 @@ class ActionBatchAppliance(object):
                 f'''"templateVlanType" cannot be "{kwargs["templateVlanType"]}", & must be set to one of: {options}'''
             )
 
-        networkId = urllib.parse.quote(networkId, safe="")
-        vlanId = urllib.parse.quote(vlanId, safe="")
+        networkId = urllib.parse.quote(str(networkId), safe="")
+        vlanId = urllib.parse.quote(str(vlanId), safe="")
         resource = f"/networks/{networkId}/appliance/vlans/{vlanId}"
 
         body_params = [
@@ -1240,8 +1240,8 @@ class ActionBatchAppliance(object):
         - vlanId (string): Vlan ID
         """
 
-        networkId = urllib.parse.quote(networkId, safe="")
-        vlanId = urllib.parse.quote(vlanId, safe="")
+        networkId = urllib.parse.quote(str(networkId), safe="")
+        vlanId = urllib.parse.quote(str(vlanId), safe="")
         resource = f"/networks/{networkId}/appliance/vlans/{vlanId}"
 
         action = {
@@ -1265,7 +1265,7 @@ class ActionBatchAppliance(object):
 
         kwargs.update(locals())
 
-        networkId = urllib.parse.quote(networkId, safe="")
+        networkId = urllib.parse.quote(str(networkId), safe="")
         resource = f"/networks/{networkId}/appliance/vpn/bgp"
 
         body_params = [
@@ -1303,7 +1303,7 @@ class ActionBatchAppliance(object):
             options = ["hub", "none", "spoke"]
             assert kwargs["mode"] in options, f'''"mode" cannot be "{kwargs["mode"]}", & must be set to one of: {options}'''
 
-        networkId = urllib.parse.quote(networkId, safe="")
+        networkId = urllib.parse.quote(str(networkId), safe="")
         resource = f"/networks/{networkId}/appliance/vpn/siteToSiteVpn"
 
         body_params = [
@@ -1337,7 +1337,7 @@ class ActionBatchAppliance(object):
 
         kwargs.update(locals())
 
-        networkId = urllib.parse.quote(networkId, safe="")
+        networkId = urllib.parse.quote(str(networkId), safe="")
         resource = f"/networks/{networkId}/appliance/warmSpare"
 
         body_params = [
@@ -1363,7 +1363,7 @@ class ActionBatchAppliance(object):
         - networkId (string): Network ID
         """
 
-        networkId = urllib.parse.quote(networkId, safe="")
+        networkId = urllib.parse.quote(str(networkId), safe="")
         resource = f"/networks/{networkId}/appliance/warmSpare/swap"
 
         action = {
@@ -1383,7 +1383,7 @@ class ActionBatchAppliance(object):
 
         kwargs = locals()
 
-        organizationId = urllib.parse.quote(organizationId, safe="")
+        organizationId = urllib.parse.quote(str(organizationId), safe="")
         resource = f"/organizations/{organizationId}/appliance/dns/local/profiles"
 
         body_params = [
@@ -1408,7 +1408,7 @@ class ActionBatchAppliance(object):
 
         kwargs = locals()
 
-        organizationId = urllib.parse.quote(organizationId, safe="")
+        organizationId = urllib.parse.quote(str(organizationId), safe="")
         resource = f"/organizations/{organizationId}/appliance/dns/local/profiles/assignments/bulkCreate"
 
         body_params = [
@@ -1433,7 +1433,7 @@ class ActionBatchAppliance(object):
 
         kwargs = locals()
 
-        organizationId = urllib.parse.quote(organizationId, safe="")
+        organizationId = urllib.parse.quote(str(organizationId), safe="")
         resource = f"/organizations/{organizationId}/appliance/dns/local/profiles/assignments/bulkDelete"
 
         body_params = [
@@ -1459,8 +1459,8 @@ class ActionBatchAppliance(object):
 
         kwargs = locals()
 
-        organizationId = urllib.parse.quote(organizationId, safe="")
-        profileId = urllib.parse.quote(profileId, safe="")
+        organizationId = urllib.parse.quote(str(organizationId), safe="")
+        profileId = urllib.parse.quote(str(profileId), safe="")
         resource = f"/organizations/{organizationId}/appliance/dns/local/profiles/{profileId}"
 
         body_params = [
@@ -1483,8 +1483,8 @@ class ActionBatchAppliance(object):
         - profileId (string): Profile ID
         """
 
-        organizationId = urllib.parse.quote(organizationId, safe="")
-        profileId = urllib.parse.quote(profileId, safe="")
+        organizationId = urllib.parse.quote(str(organizationId), safe="")
+        profileId = urllib.parse.quote(str(profileId), safe="")
         resource = f"/organizations/{organizationId}/appliance/dns/local/profiles/{profileId}"
 
         action = {
@@ -1508,7 +1508,7 @@ class ActionBatchAppliance(object):
 
         kwargs = locals()
 
-        organizationId = urllib.parse.quote(organizationId, safe="")
+        organizationId = urllib.parse.quote(str(organizationId), safe="")
         resource = f"/organizations/{organizationId}/appliance/dns/local/records"
 
         body_params = [
@@ -1538,8 +1538,8 @@ class ActionBatchAppliance(object):
 
         kwargs.update(locals())
 
-        organizationId = urllib.parse.quote(organizationId, safe="")
-        recordId = urllib.parse.quote(recordId, safe="")
+        organizationId = urllib.parse.quote(str(organizationId), safe="")
+        recordId = urllib.parse.quote(str(recordId), safe="")
         resource = f"/organizations/{organizationId}/appliance/dns/local/records/{recordId}"
 
         body_params = [
@@ -1564,8 +1564,8 @@ class ActionBatchAppliance(object):
         - recordId (string): Record ID
         """
 
-        organizationId = urllib.parse.quote(organizationId, safe="")
-        recordId = urllib.parse.quote(recordId, safe="")
+        organizationId = urllib.parse.quote(str(organizationId), safe="")
+        recordId = urllib.parse.quote(str(recordId), safe="")
         resource = f"/organizations/{organizationId}/appliance/dns/local/records/{recordId}"
 
         action = {
@@ -1589,7 +1589,7 @@ class ActionBatchAppliance(object):
 
         kwargs = locals()
 
-        organizationId = urllib.parse.quote(organizationId, safe="")
+        organizationId = urllib.parse.quote(str(organizationId), safe="")
         resource = f"/organizations/{organizationId}/appliance/dns/split/profiles"
 
         body_params = [
@@ -1616,7 +1616,7 @@ class ActionBatchAppliance(object):
 
         kwargs = locals()
 
-        organizationId = urllib.parse.quote(organizationId, safe="")
+        organizationId = urllib.parse.quote(str(organizationId), safe="")
         resource = f"/organizations/{organizationId}/appliance/dns/split/profiles/assignments/bulkCreate"
 
         body_params = [
@@ -1641,7 +1641,7 @@ class ActionBatchAppliance(object):
 
         kwargs = locals()
 
-        organizationId = urllib.parse.quote(organizationId, safe="")
+        organizationId = urllib.parse.quote(str(organizationId), safe="")
         resource = f"/organizations/{organizationId}/appliance/dns/split/profiles/assignments/bulkDelete"
 
         body_params = [
@@ -1669,8 +1669,8 @@ class ActionBatchAppliance(object):
 
         kwargs.update(locals())
 
-        organizationId = urllib.parse.quote(organizationId, safe="")
-        profileId = urllib.parse.quote(profileId, safe="")
+        organizationId = urllib.parse.quote(str(organizationId), safe="")
+        profileId = urllib.parse.quote(str(profileId), safe="")
         resource = f"/organizations/{organizationId}/appliance/dns/split/profiles/{profileId}"
 
         body_params = [
@@ -1695,8 +1695,8 @@ class ActionBatchAppliance(object):
         - profileId (string): Profile ID
         """
 
-        organizationId = urllib.parse.quote(organizationId, safe="")
-        profileId = urllib.parse.quote(profileId, safe="")
+        organizationId = urllib.parse.quote(str(organizationId), safe="")
+        profileId = urllib.parse.quote(str(profileId), safe="")
         resource = f"/organizations/{organizationId}/appliance/dns/split/profiles/{profileId}"
 
         action = {
@@ -1716,7 +1716,7 @@ class ActionBatchAppliance(object):
 
         kwargs = locals()
 
-        organizationId = urllib.parse.quote(organizationId, safe="")
+        organizationId = urllib.parse.quote(str(organizationId), safe="")
         resource = f"/organizations/{organizationId}/appliance/routing/vrfs/settings"
 
         body_params = [
@@ -1741,7 +1741,7 @@ class ActionBatchAppliance(object):
 
         kwargs.update(locals())
 
-        organizationId = urllib.parse.quote(organizationId, safe="")
+        organizationId = urllib.parse.quote(str(organizationId), safe="")
         resource = f"/organizations/{organizationId}/appliance/vpn/siteToSite/ipsec/peers/slas"
 
         body_params = [
@@ -1769,7 +1769,7 @@ class ActionBatchAppliance(object):
 
         kwargs = locals()
 
-        organizationId = urllib.parse.quote(organizationId, safe="")
+        organizationId = urllib.parse.quote(str(organizationId), safe="")
         resource = f"/organizations/{organizationId}/appliance/vpn/thirdPartyVPNPeers"
 
         body_params = [
@@ -1797,7 +1797,7 @@ class ActionBatchAppliance(object):
 
         kwargs = locals()
 
-        organizationId = urllib.parse.quote(organizationId, safe="")
+        organizationId = urllib.parse.quote(str(organizationId), safe="")
         resource = f"/organizations/{organizationId}/policies/global/group/policies/appliance/vlans/assign"
 
         body_params = [
@@ -1826,7 +1826,7 @@ class ActionBatchAppliance(object):
 
         kwargs = locals()
 
-        organizationId = urllib.parse.quote(organizationId, safe="")
+        organizationId = urllib.parse.quote(str(organizationId), safe="")
         resource = f"/organizations/{organizationId}/policies/global/group/policies/appliance/vlans/remove"
 
         body_params = [

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: openviking
-Version: 0.4.7
+Version: 0.4.8
 Summary: An Agent-native context database
 Author-email: ByteDance <noreply@bytedance.com>
 License-Expression: AGPL-3.0
@@ -26,8 +26,8 @@ Requires-Dist: typing-extensions>=4.5.0
 Requires-Dist: pyyaml>=6.0
 Requires-Dist: httpx>=0.25.0
 Requires-Dist: pdfplumber>=0.10.0
-Requires-Dist: readabilipy>=0.2.0
-Requires-Dist: markdownify>=0.11.0
+Requires-Dist: scrapy>=2.11.0
+Requires-Dist: trafilatura>=1.12.0
 Requires-Dist: feedparser>=6.0.0
 Requires-Dist: defusedxml>=0.7.1
 Requires-Dist: openai>=1.0.0
@@ -135,28 +135,17 @@ Requires-Dist: tavily-python>=0.5.0; extra == "bot"
 Requires-Dist: gradio>=6.6.0; extra == "bot"
 Requires-Dist: py-machineid>=1.0.0; extra == "bot"
 Requires-Dist: mcp>=1.0.0; extra == "bot"
-Provides-Extra: bot-langfuse
-Requires-Dist: langfuse>=3.0.0; extra == "bot-langfuse"
-Provides-Extra: bot-telegram
-Requires-Dist: python-telegram-bot[socks]>=21.0; extra == "bot-telegram"
-Provides-Extra: bot-feishu
-Requires-Dist: lark-oapi>=1.0.0; extra == "bot-feishu"
-Provides-Extra: bot-dingtalk
-Requires-Dist: dingtalk-stream>=0.4.0; extra == "bot-dingtalk"
-Provides-Extra: bot-slack
-Requires-Dist: slack-sdk>=3.26.0; extra == "bot-slack"
-Provides-Extra: bot-qq
-Requires-Dist: qq-botpy>=1.0.0; extra == "bot-qq"
-Provides-Extra: bot-sandbox
-Requires-Dist: opensandbox>=0.1.0; extra == "bot-sandbox"
-Requires-Dist: opensandbox-server>=0.1.0; extra == "bot-sandbox"
-Requires-Dist: agent-sandbox>=0.0.23; extra == "bot-sandbox"
-Provides-Extra: bot-fuse
-Requires-Dist: fusepy>=3.0.1; extra == "bot-fuse"
-Provides-Extra: bot-opencode
-Requires-Dist: opencode-ai>=0.1.0a0; extra == "bot-opencode"
-Provides-Extra: bot-full
-Requires-Dist: openviking[bot,bot-dingtalk,bot-feishu,bot-fuse,bot-langfuse,bot-opencode,bot-qq,bot-sandbox,bot-slack,bot-telegram]; extra == "bot-full"
+Requires-Dist: langfuse>=3.0.0; extra == "bot"
+Requires-Dist: python-telegram-bot[socks]>=21.0; extra == "bot"
+Requires-Dist: lark-oapi>=1.0.0; extra == "bot"
+Requires-Dist: dingtalk-stream>=0.4.0; extra == "bot"
+Requires-Dist: slack-sdk>=3.26.0; extra == "bot"
+Requires-Dist: qq-botpy>=1.0.0; extra == "bot"
+Requires-Dist: opensandbox>=0.1.0; extra == "bot"
+Requires-Dist: opensandbox-server>=0.1.0; extra == "bot"
+Requires-Dist: agent-sandbox>=0.0.23; extra == "bot"
+Requires-Dist: fusepy>=3.0.1; extra == "bot"
+Requires-Dist: opencode-ai>=0.1.0a0; extra == "bot"
 Provides-Extra: benchmark
 Requires-Dist: langchain>=1.0.0; extra == "benchmark"
 Requires-Dist: langchain-core>=1.0.0; extra == "benchmark"
@@ -237,6 +226,23 @@ With OpenViking, developers can build an Agent's brain just like managing local 
 
 > 💡 **Want to see it in action first?** Try [OpenViking Studio](https://openviking.ai/studio) — a live hosted instance with a context playground, semantic search, and a multi-agent hub. No installation required.
 
+### OpenViking Helper for macOS (Beta)
+
+**OpenViking Helper** is a macOS desktop app for OpenViking users. It brings local agent setup, session traces, memories, and skills into a visual console, making it easier to verify setup and sync local context into OpenViking.
+
+Highlights:
+
+- **Visual local Agent setup**: Detect OpenViking CLI, Claude Code, Codex, Cursor, Trae, and OpenCode, then configure supported plugin, MCP, Hook, and CLI integrations.
+- **Session trace inspection**: Parse Claude Code, Codex, and Trae sessions to show OpenViking recall, prompt injection, MCP calls, capture, and commit events.
+- **Local memory and skill management**: View local memory / rule files and `SKILL.md` skills, then sync them to OpenViking.
+
+> OpenViking Helper is currently in beta and supports macOS only.
+
+Download:
+
+- [macOS Apple Silicon (arm64)](https://lf3-cdn-tos.bytegoofy.com/obj/tron-demo/7654844610543360265/418715779/0.0.18/darwin-arm64/openviking-helper-0.0.18-arm64.dmg)
+- [macOS Intel (x64)](https://lf3-cdn-tos.bytegoofy.com/obj/tron-demo/7654844610543360265/418715779/0.0.18/darwin-x64/openviking-helper-0.0.18-x64.dmg)
+
 ### Local Deployment
 
 #### Prerequisites
@@ -299,7 +305,7 @@ Volcengine supports both model names and endpoint IDs. Using model names is reco
 {
   "vlm": {
     "provider": "volcengine",
-    "model": "doubao-seed-2-0-pro-260215",
+    "model": "doubao-seed-2-0-lite-260428",
     "api_key": "your-api-key",
     "api_base": "https://ark.cn-beijing.volces.com/api/v3"
   }
@@ -511,13 +517,17 @@ If you prefer manual configuration, create `~/.openviking/ov.conf`, remove the c
     "api_base" : "<api-endpoint>",     // API endpoint address
     "api_key"  : "<your-api-key>",     // Model service API Key (optional for openai-codex)
     "provider" : "<provider-type>",    // Provider type (volcengine, openai, openai-codex, kimi, glm, etc.)
-    "model"    : "<model-name>",       // VLM model name (e.g., doubao-seed-2-0-pro-260215 or gpt-4-vision-preview)
+    "model"    : "<model-name>",       // VLM model name (e.g., doubao-seed-2-0-lite-260428 or gpt-4-vision-preview)
     "max_concurrent": 64              // Max concurrent LLM calls for semantic processing (default: 64)
   }
 }
 ```
 
 > **Note**: For embedding models, supported providers are `volcengine` (Doubao), `openai`, `azure`, `jina`, `ollama`, `voyage`, `dashscope`, `minimax`, `cohere`, `vikingdb`, `gemini` (requires `pip install "google-genai>=1.0.0"`), `litellm`, and `local`. For VLM models, common providers include `volcengine`, `openai`, `openai-codex`, `kimi`, and `glm`.
+
+> **Memory config**: OpenViking always uses the v3 memory extraction pipeline. The legacy `memory.version` setting is deprecated and ignored; existing configs that set it still load without changing behavior.
+
+> **Memory schema scope**: Memory schema YAML defaults to `stage: "user"` and `peer_enabled: true`. Use `stage: "agent"` for execution-derived schemas such as trajectories/experiences, and set `peer_enabled: false` when a schema must stay in the current user's memory directory instead of peer directories.
 
 ##### Server Configuration Examples
 
@@ -549,7 +559,7 @@ If you prefer manual configuration, create `~/.openviking/ov.conf`, remove the c
     "api_base" : "https://ark.cn-beijing.volces.com/api/v3",
     "api_key"  : "your-volcengine-api-key",
     "provider" : "volcengine",
-    "model"    : "doubao-seed-2-0-pro-260215",
+    "model"    : "doubao-seed-2-0-lite-260428",
     "max_concurrent": 64
   }
 }

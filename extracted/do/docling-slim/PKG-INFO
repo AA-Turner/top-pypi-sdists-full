@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: docling-slim
-Version: 2.110.0
+Version: 2.111.0
 Summary: Modular version of the Docling package: SDK and CLI for parsing PDF, DOCX, HTML, and more, to a unified document representation for powering downstream workflows such as gen AI applications.
 Project-URL: homepage, https://github.com/docling-project/docling
 Project-URL: repository, https://github.com/docling-project/docling
@@ -63,7 +63,7 @@ Requires-Dist: playwright>=1.58.0; extra == 'all'
 Requires-Dist: polyfactory>=2.22.2; extra == 'all'
 Requires-Dist: pylatexenc<3.0,>=2.10; extra == 'all'
 Requires-Dist: pypdfium2!=4.30.1,<6.0.0,>=4.30.0; extra == 'all'
-Requires-Dist: python-docx<2.0.0,>=1.1.2; extra == 'all'
+Requires-Dist: python-docx<2.0.0,>=1.2.0; extra == 'all'
 Requires-Dist: python-dotenv~=1.0; extra == 'all'
 Requires-Dist: python-pptx<2.0.0,>=1.0.2; extra == 'all'
 Requires-Dist: qwen-vl-utils>=0.0.11; extra == 'all'
@@ -119,14 +119,12 @@ Requires-Dist: numba>=0.63.0; extra == 'format-audio'
 Requires-Dist: openai-whisper>=20250625; extra == 'format-audio'
 Requires-Dist: whisper-s2t-reborn<2,>=1.6.3; (sys_platform != 'darwin' or platform_machine != 'arm64') and extra == 'format-audio'
 Provides-Extra: format-docx
-Requires-Dist: python-docx<2.0.0,>=1.1.2; extra == 'format-docx'
+Requires-Dist: python-docx<2.0.0,>=1.2.0; extra == 'format-docx'
 Provides-Extra: format-email
 Requires-Dist: beautifulsoup4<5.0.0,>=4.12.3; extra == 'format-email'
-Requires-Dist: lxml<7.0.0,>=4.0.0; extra == 'format-email'
 Requires-Dist: mail-parser<5.0.0,>=4.1.4; extra == 'format-email'
 Provides-Extra: format-html
 Requires-Dist: beautifulsoup4<5.0.0,>=4.12.3; extra == 'format-html'
-Requires-Dist: lxml<7.0.0,>=4.0.0; extra == 'format-html'
 Provides-Extra: format-html-render
 Requires-Dist: playwright>=1.58.0; extra == 'format-html-render'
 Provides-Extra: format-latex
@@ -135,7 +133,7 @@ Provides-Extra: format-markdown
 Requires-Dist: marko<3.0.0,>=2.1.2; extra == 'format-markdown'
 Provides-Extra: format-office
 Requires-Dist: openpyxl<4.0.0,>=3.1.5; extra == 'format-office'
-Requires-Dist: python-docx<2.0.0,>=1.1.2; extra == 'format-office'
+Requires-Dist: python-docx<2.0.0,>=1.2.0; extra == 'format-office'
 Requires-Dist: python-pptx<2.0.0,>=1.0.2; extra == 'format-office'
 Provides-Extra: format-opendocument
 Requires-Dist: odfdo<4.0.0,>=3.22.0; extra == 'format-opendocument'
@@ -151,10 +149,15 @@ Provides-Extra: format-pptx
 Requires-Dist: python-pptx<2.0.0,>=1.0.2; extra == 'format-pptx'
 Provides-Extra: format-web
 Requires-Dist: beautifulsoup4<5.0.0,>=4.12.3; extra == 'format-web'
-Requires-Dist: lxml<7.0.0,>=4.0.0; extra == 'format-web'
 Requires-Dist: marko<3.0.0,>=2.1.2; extra == 'format-web'
 Provides-Extra: format-xlsx
 Requires-Dist: openpyxl<4.0.0,>=3.1.5; extra == 'format-xlsx'
+Provides-Extra: format-xml-jats
+Requires-Dist: beautifulsoup4<5.0.0,>=4.12.3; extra == 'format-xml-jats'
+Requires-Dist: lxml<7.0.0,>=4.0.0; extra == 'format-xml-jats'
+Provides-Extra: format-xml-uspto
+Requires-Dist: beautifulsoup4<5.0.0,>=4.12.3; extra == 'format-xml-uspto'
+Requires-Dist: defusedxml<0.8.0,>=0.7.1; extra == 'format-xml-uspto'
 Provides-Extra: format-xml-xbrl
 Requires-Dist: arelle-release<3.0.0,>=2.38.17; extra == 'format-xml-xbrl'
 Provides-Extra: models-local
@@ -191,7 +194,6 @@ Requires-Dist: docling-ibm-models<4,>=3.13.0; extra == 'standard'
 Requires-Dist: docling-parse<8.0.0,>=7.0.0; extra == 'standard'
 Requires-Dist: httpx<1.0.0,>=0.28; extra == 'standard'
 Requires-Dist: huggingface-hub<2,>=0.23; extra == 'standard'
-Requires-Dist: lxml<7.0.0,>=4.0.0; extra == 'standard'
 Requires-Dist: mail-parser<5.0.0,>=4.1.4; extra == 'standard'
 Requires-Dist: marko<3.0.0,>=2.1.2; extra == 'standard'
 Requires-Dist: numpy<3.0.0,>=1.24.0; extra == 'standard'
@@ -200,7 +202,7 @@ Requires-Dist: pillow<13.0.0,>=10.0.0; extra == 'standard'
 Requires-Dist: polyfactory>=2.22.2; extra == 'standard'
 Requires-Dist: pylatexenc<3.0,>=2.10; extra == 'standard'
 Requires-Dist: pypdfium2!=4.30.1,<6.0.0,>=4.30.0; extra == 'standard'
-Requires-Dist: python-docx<2.0.0,>=1.1.2; extra == 'standard'
+Requires-Dist: python-docx<2.0.0,>=1.2.0; extra == 'standard'
 Requires-Dist: python-dotenv~=1.0; extra == 'standard'
 Requires-Dist: python-pptx<2.0.0,>=1.0.2; extra == 'standard'
 Requires-Dist: rapidocr<4.0.0,>=3.9.1; extra == 'standard'

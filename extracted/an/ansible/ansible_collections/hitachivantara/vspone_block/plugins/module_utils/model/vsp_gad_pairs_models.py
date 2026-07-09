@@ -113,7 +113,6 @@ class BaseGadPairSpec:
     should_delete_svol: Optional[bool] = False
     provisioned_secondary_volume_id: Optional[int] = None
     comments: Optional[str] = None
-    force_create: Optional[bool] = None
 
     def _init_common_fields(self):
         """Initialize common fields shared by child classes."""
@@ -181,7 +180,7 @@ class VspBatchGadPairSpec(BaseGadPairSpec):
     end_primary_volume_id: Optional[int] = None
     primary_volume_base_name: Optional[str] = None
     primary_volume_base_name_start_number: Optional[int] = None
-    primary_pool_id: Optional[int] = None
+    primary_pool_id: Optional[str] = None
     volume_size: Optional[str] = None
     capacity_saving: Optional[str] = None
     copy_pair_base_name: Optional[str] = None

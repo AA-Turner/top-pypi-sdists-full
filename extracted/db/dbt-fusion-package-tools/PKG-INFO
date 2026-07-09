@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: dbt-fusion-package-tools
-Version: 0.21.1
+Version: 0.21.3
 Summary: Add your description here
 Requires-Python: <3.14,>=3.10
 Requires-Dist: click<9.0,>=8.2.0

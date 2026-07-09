@@ -1,15 +1,18 @@
 import logging
 import uuid
 from collections import defaultdict
+from collections.abc import Callable
+from typing import ClassVar
 from xml.etree import ElementTree as ET
 
 from slixmpp import JID, Iq, Message
+from slixmpp.exceptions import IqError
 from slixmpp.plugins.base import BasePlugin
+from slixmpp.types import JidStr
 from slixmpp.xmlstream import StanzaBase
 from slixmpp.xmlstream.handler import Callback
 from slixmpp.xmlstream.matcher import StanzaPath
 
-from slixmpp.exceptions import IqError
 from . import stanza
 from .permissions import IqPermission, MessagePermission, Permissions, RosterAccess
 
@@ -25,10 +28,12 @@ class PrivilegedIqError(IqError):
         """
         Return the IQError generated from the inner IQ stanza, if present.
         """
-        if "privilege" in self.iq:
-            if "forwarded" in self.iq["privilege"]:
-                if "iq" in self.iq["privilege"]["forwarded"]:
-                    return IqError(self.iq["privilege"]["forwarded"]["iq"])
+        if (
+            "privilege" in self.iq
+            and "forwarded" in self.iq["privilege"]
+            and "iq" in self.iq["privilege"]["forwarded"]
+        ):
+            return IqError(self.iq["privilege"]["forwarded"]["iq"])
         return None
 
 
@@ -45,12 +50,14 @@ class XEP_0356(BasePlugin):
 
     name = "xep_0356"
     description = "XEP-0356: Privileged Entity"
-    dependencies = {"xep_0297"}
+    dependencies: ClassVar[set[str]] = {"xep_0297"}
     stanza = stanza
 
-    granted_privileges = defaultdict(Permissions)
+    granted_privileges: ClassVar[defaultdict[JidStr, Permissions]] = defaultdict(
+        Permissions
+    )
 
-    def plugin_init(self):
+    def plugin_init(self) -> None:
         if not self.xmpp.is_component:
             log.error("XEP 0356 is only available for components")
             return
@@ -65,10 +72,10 @@ class XEP_0356(BasePlugin):
             )
         )
 
-    def plugin_end(self):
+    def plugin_end(self) -> None:
         self.xmpp.remove_handler("Privileges")
 
-    def _handle_privilege(self, msg: StanzaBase):
+    def _handle_privilege(self, msg: StanzaBase) -> None:
         """
         Called when the XMPP server advertise the component's privileges.
 
@@ -88,7 +95,7 @@ class XEP_0356(BasePlugin):
         log.debug(f"Privileges: {self.granted_privileges}")
         self.xmpp.event("privileges_advertised")
 
-    def send_privileged_message(self, msg: Message):
+    def send_privileged_message(self, msg: Message) -> None:
         if (
             self.granted_privileges[msg.get_from().domain].message
             != MessagePermission.OUTGOING
@@ -99,35 +106,35 @@ class XEP_0356(BasePlugin):
         else:
             self._make_privileged_message(msg).send()
 
-    def _make_privileged_message(self, msg: Message):
+    def _make_privileged_message(self, msg: Message) -> Message:
         server = msg.get_from().domain
         wrapped = self.xmpp.make_message(mto=server, mfrom=self.xmpp.boundjid.bare)
         wrapped["privilege"]["forwarded"].append(msg)
         return wrapped
 
-    def _make_get_roster(self, jid: JID | str, **iq_kwargs):
+    def _make_get_roster(self, jid: JID | str) -> Iq:
         return self.xmpp.make_iq_get(
             queryxmlns="jabber:iq:roster",
             ifrom=self.xmpp.boundjid.bare,
             ito=jid,
-            **iq_kwargs,
         )
 
     def _make_set_roster(
         self,
         jid: JID | str,
         roster_items: dict,
-        **iq_kwargs,
-    ):
-        iq = self.xmpp.make_iq_set(
-            ifrom=self.xmpp.boundjid.bare,
-            ito=jid,
-            **iq_kwargs,
-        )
+    ) -> Iq:
+        iq = self.xmpp.make_iq_set(ifrom=self.xmpp.boundjid.bare, ito=jid)
         iq["roster"]["items"] = roster_items
         return iq
 
-    async def get_roster(self, jid: JID | str, **send_kwargs) -> Iq:
+    async def get_roster(
+        self,
+        jid: JID | str,
+        *,
+        callback: Callable | None = None,
+        timeout: float | None = None,
+    ) -> Iq:
         """
         Return the roster of user on the server the component has privileged access to.
 
@@ -145,10 +152,17 @@ class XEP_0356(BasePlugin):
                 "The server did not grant us privileges to get rosters"
             )
         else:
-            return await self._make_get_roster(jid).send(**send_kwargs)
+            return await self._make_get_roster(jid).send(
+                callback=callback, timeout=timeout
+            )
 
     async def set_roster(
-        self, jid: JID | str, roster_items: dict, **send_kwargs
+        self,
+        jid: JID | str,
+        roster_items: dict,
+        *,
+        callback: Callable | None = None,
+        timeout: float | None = None,
     ) -> Iq:
         """
         Return the roster of user on the server the component has privileged access to.
@@ -187,11 +201,13 @@ class XEP_0356(BasePlugin):
                 "The server did not grant us privileges to set rosters"
             )
         else:
-            return await self._make_set_roster(jid, roster_items).send(**send_kwargs)
+            return await self._make_set_roster(jid, roster_items).send(
+                callback=callback, timeout=timeout
+            )
 
     async def send_privileged_iq(
         self, encapsulated_iq: Iq, iq_id: str | None = None
-    ):
+    ) -> Iq:
         """
         Send an IQ on behalf of a user
 

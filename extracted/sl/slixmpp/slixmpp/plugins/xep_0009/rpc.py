@@ -39,8 +39,8 @@ class XEP_0009(BasePlugin):
         )
         #self.activeCalls = []
 
-        self.xmpp['xep_0030'].add_feature('jabber:iq:rpc')
-        self.xmpp['xep_0030'].add_identity('automation','rpc')
+        self.xmpp.plugin['xep_0030'].add_feature('jabber:iq:rpc')
+        self.xmpp.plugin['xep_0030'].add_identity('automation','rpc')
 
     def make_iq_method_call(self, pto, pmethod, params):
         iq = self.xmpp.make_iq_set()

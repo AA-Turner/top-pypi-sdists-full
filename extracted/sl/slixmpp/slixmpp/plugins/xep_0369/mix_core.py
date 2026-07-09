@@ -88,12 +88,12 @@ class XEP_0369(BasePlugin):
         :returns: a dict containing the last modified time and form contents
                   (Name, Description, Contact per the spec, YMMV)
         """
-        info = await self.xmpp['xep_0060'].get_items(channel, 'urn:xmpp:mix:nodes:info')
+        info = await self.xmpp.plugin['xep_0060'].get_items(channel, 'urn:xmpp:mix:nodes:info')
         for item in info['pubsub']['items']:
             time = item['id']
             fields = item['form'].get_values()
             del fields['FORM_TYPE']
-            fields['modified'] = self.xmpp['xep_0082'].parse(time)
+            fields['modified'] = self.xmpp.plugin['xep_0082'].parse(time)
             contact = fields.get('Contact')
             if contact:
                 if isinstance(contact, str):
@@ -198,7 +198,7 @@ class XEP_0369(BasePlugin):
         :param JID service: MIX service jid
         :rtype: bool
         """
-        results_stanza = await self.xmpp['xep_0030'].get_info(service.server)
+        results_stanza = await self.xmpp.plugin['xep_0030'].get_info(service.server)
         features = results_stanza['disco_info']['features']
         return 'urn:xmpp:mix:core:1#create-channel' in features
 
@@ -239,7 +239,7 @@ class XEP_0369(BasePlugin):
         :param JID channel: The MIX channel
         :returns: List of nodes available
         """
-        result = await self.xmpp['xep_0030'].get_items(
+        result = await self.xmpp.plugin['xep_0030'].get_items(
             channel,
             node='mix',
             ifrom=ifrom,
@@ -258,7 +258,7 @@ class XEP_0369(BasePlugin):
 
         :returns: A list of tuples containing the participant id, nick, and jid (if available)
         """
-        info = await self.xmpp['xep_0060'].get_items(
+        info = await self.xmpp.plugin['xep_0060'].get_items(
             channel,
             'urn:xmpp:mix:nodes:participants',
             ifrom=ifrom,
@@ -282,7 +282,7 @@ class XEP_0369(BasePlugin):
         :param JID service: MIX service JID
         :returns: A list of channels with their JID and name
         """
-        results_stanza = await self.xmpp['xep_0030'].get_items(
+        results_stanza = await self.xmpp.plugin['xep_0030'].get_items(
             service.server,
             ifrom=ifrom,
             **discokwargs,

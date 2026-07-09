@@ -83,21 +83,6 @@ options:
     - Append the base domain of the cluster to host names constructed from SSH C(Services) of type C(NodePort).
     type: bool
     default: False
-  default_win_ansible_connection:
-    description:
-    - Set the default value of C(ansible_connection) when a Windows virtual machines is detected.
-    - Common values include V(winrm), V(ansible.builtin.winrm), V(psrp), V(ansible.builtin.psrp), V(ssh), and V(ansible.builtin.ssh).
-    - When set to V(ssh) or V(ansible.builtin.ssh), the service port lookup uses SSH port (22) instead of WinRM/PSRP ports (5986/5985).
-    type: str
-    choices:
-    - winrm
-    - ansible.builtin.winrm
-    - psrp
-    - ansible.builtin.psrp
-    - ssh
-    - ansible.builtin.ssh
-    default: "winrm"
-    version_added: 2.3.0
   api_version:
     description:
     - Specify the used KubeVirt API version.
@@ -198,8 +183,8 @@ TYPE_LOADBALANCER = "LoadBalancer"
 TYPE_NODEPORT = "NodePort"
 ID_MSWINDOWS = "mswindows"
 SERVICE_TARGET_PORT_SSH = 22
-SERVICE_TARGET_PORT_WIN_MGMT_HTTP = 5985
-SERVICE_TARGET_PORT_WIN_MGMT_HTTPS = 5986
+SERVICE_TARGET_PORT_WINRM_HTTP = 5985
+SERVICE_TARGET_PORT_WINRM_HTTPS = 5986
 
 
 class KubeVirtInventoryException(Exception):
@@ -223,7 +208,6 @@ class InventoryOptions:
     create_groups: Optional[bool] = None
     base_domain: Optional[str] = None
     append_base_domain: Optional[bool] = None
-    default_win_ansible_connection: Optional[str] = None
     host_format: Optional[str] = None
     namespaces: Optional[List[str]] = None
     name: Optional[str] = None
@@ -278,11 +262,6 @@ class InventoryOptions:
             self.append_base_domain
             if self.append_base_domain is not None
             else config_data.get("append_base_domain", False)
-        )
-        self.default_win_ansible_connection = (
-            self.default_win_ansible_connection
-            if self.default_win_ansible_connection is not None
-            else config_data.get("default_win_ansible_connection", "winrm")
         )
         self.host_format = (
             self.host_format
@@ -678,8 +657,8 @@ class InventoryModule(BaseInventoryPlugin, Constructable, Cacheable):
                 or ports[0].get("targetPort")
                 not in [
                     SERVICE_TARGET_PORT_SSH,
-                    SERVICE_TARGET_PORT_WIN_MGMT_HTTP,
-                    SERVICE_TARGET_PORT_WIN_MGMT_HTTPS,
+                    SERVICE_TARGET_PORT_WINRM_HTTP,
+                    SERVICE_TARGET_PORT_WINRM_HTTPS,
                 ]
             ):
                 continue
@@ -811,36 +790,23 @@ class InventoryModule(BaseInventoryPlugin, Constructable, Cacheable):
         )
 
         # Set up the connection
-        ansible_connection = (
-            self.inventory.get_host(hostname).get_vars().get("ansible_connection")
-        )
-        if ansible_connection is None and self._is_windows(
+        service = None
+        if self._is_windows(
             vmi["status"].get("guestOSInfo", {}),
             vmi["metadata"].get("annotations", {}),
         ):
-            ansible_connection = opts.default_win_ansible_connection
-            self.inventory.set_variable(
-                hostname, "ansible_connection", ansible_connection
-            )
-
-        service = None
-        if ansible_connection in (None, "ssh", "ansible.builtin.ssh"):
+            self.inventory.set_variable(hostname, "ansible_connection", "winrm")
             service = self._find_service_with_target_port(
-                _services, SERVICE_TARGET_PORT_SSH
-            )
-        elif ansible_connection in (
-            "winrm",
-            "ansible.builtin.winrm",
-            "psrp",
-            "ansible.builtin.psrp",
-        ):
-            service = self._find_service_with_target_port(
-                _services, SERVICE_TARGET_PORT_WIN_MGMT_HTTPS
+                _services, SERVICE_TARGET_PORT_WINRM_HTTPS
             )
             if service is None:
                 service = self._find_service_with_target_port(
-                    _services, SERVICE_TARGET_PORT_WIN_MGMT_HTTP
+                    _services, SERVICE_TARGET_PORT_WINRM_HTTP
                 )
+        else:
+            service = self._find_service_with_target_port(
+                _services, SERVICE_TARGET_PORT_SSH
+            )
 
         self._set_ansible_host_and_port(
             vmi,
@@ -954,7 +920,7 @@ class InventoryModule(BaseInventoryPlugin, Constructable, Cacheable):
             trust_compose_groups(self.get_option("compose")),
             hostvars,
             hostname,
-            strict=strict,
+            strict=True,
         )
         self._add_host_to_composed_groups(
             trust_compose_groups(self.get_option("groups")),

@@ -12,7 +12,6 @@ from typing import TYPE_CHECKING, Protocol, runtime_checkable
 
 import nio
 from agno.agent import Agent
-from agno.models.vertexai.claude import Claude as VertexAIClaude
 from pydantic import BaseModel, Field
 
 from mindroom import model_loading
@@ -21,6 +20,7 @@ from mindroom.entity_resolution import resolve_room_scoped_model_override
 from mindroom.logging_config import get_logger
 from mindroom.matrix.client_delivery import send_message_result
 from mindroom.matrix.message_builder import build_message_content
+from mindroom.model_instance_checks import isinstance_of_loaded
 from mindroom.timing import timed
 
 if TYPE_CHECKING:
@@ -32,6 +32,7 @@ if TYPE_CHECKING:
     from mindroom.matrix.conversation_cache import ConversationCacheProtocol
 
 logger = get_logger(__name__)
+_VERTEXAI_CLAUDE_CLASS = ("agno.models.vertexai.claude", "Claude")
 THREAD_SUMMARY_MAX_LENGTH = 300
 _MARKDOWN_LINK_RE = re.compile(r"!\[([^\]]*)\]\([^)]+\)|\[([^\]]+)\]\([^)]+\)")
 _MARKDOWN_CODE_BLOCK_RE = re.compile(r"```(?:[^\n`]*)\n?(.*?)```", re.DOTALL)
@@ -86,12 +87,12 @@ def _configure_summary_model_temperature(
     model_name: str,
 ) -> None:
     """Prepare the summary model's temperature setting for one request."""
-    if isinstance(model, VertexAIClaude):
-        # Vertex Claude's rawPredict helper rejects a temperature field entirely.
-        model.temperature = None
-        return
     if isinstance(model, _SupportsTemperature):
-        model.temperature = summary_temperature
+        if isinstance_of_loaded(model, _VERTEXAI_CLAUDE_CLASS):
+            # Vertex Claude's rawPredict helper rejects a temperature field entirely.
+            model.temperature = None
+        else:
+            model.temperature = summary_temperature
         return
     if summary_temperature is None:
         return
@@ -363,8 +364,6 @@ async def send_thread_summary_event(
     message_count: int,
     model_name: str,
     conversation_cache: ConversationCacheProtocol,
-    *,
-    config: Config,
 ) -> str | None:
     """Send a thread summary as a standard Matrix notice event."""
     normalized_summary = normalize_thread_summary_text(summary)
@@ -411,7 +410,7 @@ async def send_thread_summary_event(
             },
         },
     )
-    delivered = await send_message_result(client, room_id, content, config=config)
+    delivered = await send_message_result(client, room_id, content)
     if delivered is not None:
         conversation_cache.notify_outbound_message(
             room_id,
@@ -435,7 +434,6 @@ async def set_manual_thread_summary(
     thread_id: str,
     summary: str,
     *,
-    config: Config,
     conversation_cache: ConversationCacheProtocol,
 ) -> _ThreadSummaryWriteResult:
     """Write one validated manual summary for a canonical thread root."""
@@ -472,7 +470,6 @@ async def set_manual_thread_summary(
                 message_count,
                 "manual",
                 conversation_cache,
-                config=config,
             )
         except Exception as exc:
             msg = "Failed to send thread summary event."
@@ -561,5 +558,4 @@ async def maybe_generate_thread_summary(
             message_count,
             model_name,
             conversation_cache,
-            config=config,
         )

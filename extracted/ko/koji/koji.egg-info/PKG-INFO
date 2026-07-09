@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: koji
-Version: 1.36.0
+Version: 1.36.1
 Summary: Koji is a system for building and tracking RPMS. The base package contains shared libraries and the command-line interface.
 Home-page: http://pagure.io/koji/
 Author: Koji developers

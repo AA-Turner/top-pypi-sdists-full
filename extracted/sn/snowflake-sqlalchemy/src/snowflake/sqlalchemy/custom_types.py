@@ -2,6 +2,7 @@
 # Copyright (c) 2012-2023 Snowflake Computing Inc. All rights reserved.
 #
 import decimal
+import keyword
 import warnings
 from typing import Optional, Tuple, Union
 
@@ -146,13 +147,19 @@ class OBJECT(StructuredType):
         super().__init__()
 
     def __repr__(self):
-        quote_char = "'"
-        return "OBJECT(%s)" % ", ".join(
-            [
-                f"{repr(key).strip(quote_char)}={repr(value)}"
-                for key, value in self.items_types.items()
-            ]
-        )
+        dq = '"'
+        parts = []
+        for key, value in self.items_types.items():
+            bare = key.strip(dq)
+            if bare.isidentifier() and not keyword.iskeyword(bare):
+                parts.append(f"{bare}={repr(value)}")
+            else:
+                # Field names that are not valid Python identifiers (e.g. a
+                # quoted identifier containing a space) cannot be keyword
+                # arguments; render them as a dict entry so the representation
+                # stays valid Python and round-trips through Alembic autogenerate.
+                parts.append(f"**{{{bare!r}: {repr(value)}}}")
+        return "OBJECT(%s)" % ", ".join(parts)
 
 
 class ARRAY(StructuredType):

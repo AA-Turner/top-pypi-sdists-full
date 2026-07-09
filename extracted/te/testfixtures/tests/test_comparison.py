@@ -2,7 +2,16 @@ import sys
 from unittest import TestCase
 from uuid import UUID, uuid4
 
-from testfixtures import Comparison as C, TempDirectory, diff, Comparison, compare, like
+from testfixtures import (
+    Comparison as C,
+    TempDirectory,
+    diff,
+    Comparison,
+    MappingComparison,
+    SequenceComparison,
+    compare,
+    like,
+)
 from tests.sample1 import SampleClassA, a_function
 
 
@@ -43,6 +52,18 @@ class FussyDefineComparison:
 
     def __ne__(self, other):
         return not self == other  # pragma: no cover
+
+
+class Broken:
+    # An object whose __repr__ raises on demand.
+    marker = '<unrepresentable tests.test_comparison.Broken: ValueError: boom!>'
+
+    def __init__(self, label='broken', exc=None):
+        self.label = label
+        self._exc = ValueError('boom!') if exc is None else exc
+
+    def __repr__(self):
+        raise self._exc
 
 
 def compare_repr(obj, expected):
@@ -440,10 +461,12 @@ class TestC(TestCase):
         compare_repr(
             c,
             "\n"
-            "<C:tests.test_comparison.SomeClass(failed)>\n"
+            "<C:tests.test_comparison.TestC.run_property_not_equal_test"
+            ".<locals>.SomeClass(failed)>\n"
             "attributes differ:\n"
             "'prop': 2 (Comparison) != 1 (actual)\n"
-            "</C:tests.test_comparison.SomeClass>")
+            "</C:tests.test_comparison.TestC.run_property_not_equal_test"
+            ".<locals>.SomeClass>")
 
     def test_property_not_equal(self):
         self.run_property_not_equal_test(partial=False)
@@ -478,11 +501,13 @@ class TestC(TestCase):
         compare_repr(
             c,
             "\n"
-            "<C:tests.test_comparison.SomeClass(failed)>\n"
+            "<C:tests.test_comparison.TestC.run_method_not_equal_test"
+            ".<locals>.SomeClass(failed)>\n"
             "attributes differ:\n"
             "'method': <built-in function max> (Comparison)"
             " != <built-in function min> (actual)\n"
-            "</C:tests.test_comparison.SomeClass>"
+            "</C:tests.test_comparison.TestC.run_method_not_equal_test"
+            ".<locals>.SomeClass>"
         )
 
     def test_method_not_equal(self):
@@ -629,10 +654,12 @@ class TestC(TestCase):
         c == Annoying()
         compare_repr(
             c,
-            '\n<C:tests.test_comparison.Annoying(failed)>\n'
+            '\n<C:tests.test_comparison.TestC.test_compared_object_defines_eq'
+            '.<locals>.Annoying(failed)>\n'
             'attributes differ:\n'
             "'eq_called': 1 (Comparison) != 0 (actual)\n"
-            '</C:tests.test_comparison.Annoying>'
+            '</C:tests.test_comparison.TestC.test_compared_object_defines_eq'
+            '.<locals>.Annoying>'
         )
 
     def test_importerror(self):
@@ -661,9 +688,10 @@ class TestC(TestCase):
         class NoName:
             pass
         NoName.__name__ = ''
+        NoName.__qualname__ = ''
         NoName.__module__ = ''
         c = C(NoName)
-        self.assertEqual(repr(c), "<C:<class '.TestC.test_no_name.<locals>.NoName'>>")
+        self.assertEqual(repr(c), "<C:<class '.'>>")
 
     def test_missing_expected_attribute_not_partial(self):
 
@@ -706,3 +734,39 @@ class TestC(TestCase):
         c = Comparison(UUID)
         uuid = uuid4()
         compare(expected={'1': c, '2': c}, actual={'1': uuid, '2': uuid})
+
+
+class TestSafeRendering:
+
+    def test_comparison_body_broken_attribute_value(self):
+        # Comparison.body is hit when repr() is called on a fresh Comparison
+        # whose comparison hasn't run yet (self.failed empty).
+        class Holder:
+            pass
+
+        compare(
+            repr(C(Holder, attr=Broken())),
+            expected=(
+                '<C:tests.test_comparison.TestSafeRendering'
+                '.test_comparison_body_broken_attribute_value.<locals>.Holder>'
+                f'attr: {Broken.marker}</>'
+            ),
+        )
+
+    def test_mapping_comparison_body_broken_value(self):
+        compare(
+            repr(MappingComparison(k=Broken())),
+            expected=(
+                '<MappingComparison(ordered=False, partial=False)>'
+                f"'k': {Broken.marker}</>"
+            ),
+        )
+
+    def test_sequence_comparison_body_broken_value(self):
+        compare(
+            repr(SequenceComparison(Broken())),
+            expected=(
+                '<SequenceComparison(ordered=True, partial=False)>'
+                f'{Broken.marker},</>'
+            ),
+        )

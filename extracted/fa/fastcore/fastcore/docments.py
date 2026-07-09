@@ -6,8 +6,8 @@ Docs: https://fastcore.fast.ai/docments.html.md"""
 
 # %% auto #0
 __all__ = ['empty', 'docstring', 'parse_docstring', 'isdataclass', 'get_dataclass_source', 'get_source', 'get_name', 'qual_name',
-           'docments', 'sig_source', 'extract_docstrings', 'DocmentTbl', 'DocmentList', 'DocmentText', 'sig2str',
-           'can_render', 'ShowDocRenderer', 'MarkdownRenderer']
+           'ann_parts', 'docments', 'sig_source', 'extract_docstrings', 'DocmentTbl', 'DocmentList', 'DocmentText',
+           'sig2str', 'can_render', 'ShowDocRenderer', 'MarkdownRenderer']
 
 # %% ../nbs/04_docments.ipynb #4c662acc
 import re,ast,inspect
@@ -56,7 +56,7 @@ def get_source(s):
 
 # %% ../nbs/04_docments.ipynb #91c0d15f
 def _parses(s):
-    "Parse Python code in string, function object or dataclass `s`"
+    "Parse source of function, method, or dataclass `s`"
     return parse(dedent(get_source(s) or ''))
 
 def _tokens(s):
@@ -107,9 +107,8 @@ def _get_full(p, docs, eval_str=False):
     anno = p.annotation
     if anno==empty:
         if p.default!=empty: anno = type(p.default)
-        elif p.kind in (Parameter.VAR_POSITIONAL, Parameter.VAR_KEYWORD): anno = p.kind
         elif eval_str: anno = None
-    return AttrDict(docment=docs.get(p.name), anno=anno, default=p.default)
+    return AttrDict(docment=docs.get(p.name), anno=anno, default=p.default, kind=p.kind)
 
 # %% ../nbs/04_docments.ipynb #1b4d817c
 def _merge_doc(dm, npdoc):
@@ -154,6 +153,14 @@ def qual_name(obj):
     if ismethod(obj):       return f"{get_name(obj.__self__)}.{get_name(fn)}"
     return get_name(obj)
 
+# %% ../nbs/04_docments.ipynb #2e865627
+def ann_parts(anno):
+    "The underlying type and metadata tuple of an `Annotated`, else `(anno, ())`"
+    if typing.get_origin(anno) is not typing.Annotated: return anno, ()
+    args = typing.get_args(anno)
+    t = None if args[0] is type(None) else args[0]
+    return t, args[1:]
+
 # %% ../nbs/04_docments.ipynb #9b62ab20
 def docments(s, full=False, eval_str=False, returns=True, args_kwargs=False):
     "Get docments for `s`"
@@ -173,6 +180,12 @@ def docments(s, full=False, eval_str=False, returns=True, args_kwargs=False):
     if returns:
         if full: res['return'] = AttrDict(docment=docs.get('return'), anno=sig.return_annotation, default=empty)
         else: res['return'] = docs.get('return')
+    for k,p in sig.parameters.items():
+        if (res[k].docment if full else res[k]) is None:
+            am = first(o for o in ann_parts(p.annotation)[1] if isinstance(o,str))
+            if am is None: continue
+            if full: res[k].docment = am
+            else: res[k] = am
     return AttrDict(_merge_docs(res, nps))
 
 # %% ../nbs/04_docments.ipynb #40cdbeb2
@@ -357,8 +370,9 @@ class DocmentText(_DocmentBase):
         self.maxline,self.docstring = maxline,docstring
 
     def _fmt_param(self, nm, p):
-        anno,default = p.get('anno',empty), p.get('default',empty)
-        return nm + (f':{_maybe_nm(anno)}' if anno != empty else '') + (f'={_fmt_default(default)}' if default != empty else '')
+        anno,default,kind = p.get('anno',empty), p.get('default',empty), p.get('kind')
+        pre = '*' if kind==Parameter.VAR_POSITIONAL else '**' if kind==Parameter.VAR_KEYWORD else ''
+        return pre + nm + (f':{_maybe_nm(anno)}' if anno != empty else '') + (f'={_fmt_default(default)}' if default != empty else '')
     
     @property
     def _ret_str(self):

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: schemathesis
-Version: 4.22.3
+Version: 4.22.4
 Summary: Adaptive API testing for OpenAPI and GraphQL
 Project-URL: Documentation, https://schemathesis.readthedocs.io/en/stable/
 Project-URL: Changelog, https://github.com/schemathesis/schemathesis/blob/master/CHANGELOG.md
@@ -34,7 +34,7 @@ Requires-Dist: harfile<1.0,>=0.5.0
 Requires-Dist: hypothesis-graphql<1,>=0.13.0
 Requires-Dist: hypothesis-jsonschema<0.24,>=0.23.1
 Requires-Dist: hypothesis<7,>=6.108.0
-Requires-Dist: jsonschema-rs>=0.46.7
+Requires-Dist: jsonschema-rs>=0.47.0
 Requires-Dist: pyrate-limiter<5.0,>=4.0
 Requires-Dist: pytest<10,>=9
 Requires-Dist: pyyaml<7.0,>=5.1
@@ -73,7 +73,7 @@ Requires-Dist: pytest-trio<1.0,>=0.8; extra == 'dev'
 Requires-Dist: pytest-xdist<4.0,>=3; extra == 'dev'
 Requires-Dist: seaborn>=0.13; extra == 'dev'
 Requires-Dist: strawberry-graphql[fastapi]>=0.109.0; extra == 'dev'
-Requires-Dist: syrupy<6.0,>=4; extra == 'dev'
+Requires-Dist: syrupy<6.0,>=5.5.1; extra == 'dev'
 Requires-Dist: tomli-w>=1.2.0; extra == 'dev'
 Requires-Dist: tracecov>=0.21; extra == 'dev'
 Requires-Dist: trustme<2.0,>=0.9.0; extra == 'dev'
@@ -100,7 +100,7 @@ Requires-Dist: pytest-mock<4.0,>=3.7.0; extra == 'tests'
 Requires-Dist: pytest-trio<1.0,>=0.8; extra == 'tests'
 Requires-Dist: pytest-xdist<4.0,>=3; extra == 'tests'
 Requires-Dist: strawberry-graphql[fastapi]>=0.109.0; extra == 'tests'
-Requires-Dist: syrupy<6.0,>=4; extra == 'tests'
+Requires-Dist: syrupy<6.0,>=5.5.1; extra == 'tests'
 Requires-Dist: tomli-w>=1.2.0; extra == 'tests'
 Requires-Dist: trustme<2.0,>=0.9.0; extra == 'tests'
 Requires-Dist: uvicorn<1.0,>=0.20; extra == 'tests'

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: supervisely
-Version: 6.74.10
+Version: 6.74.11
 Summary: Supervisely Python SDK.
 Home-page: https://github.com/supervisely/supervisely
 Author: Supervisely
@@ -53,6 +53,7 @@ Requires-Dist: websockets<=13.1,>=10.3
 Requires-Dist: jinja2<4.0.0,>=3.1.6
 Requires-Dist: psutil<=7.2.0,>=5.9.0
 Requires-Dist: jsonpatch<2.0,>=1.32
+Requires-Dist: patchdiff<1.0.0,>=0.3.12; python_version >= "3.9"
 Requires-Dist: MarkupSafe<3.0.0,>=2.1.1
 Requires-Dist: arel<1.0.0,>=0.2.0; python_version < "3.10"
 Requires-Dist: tqdm<5.0.0,>=4.66.3
@@ -97,6 +98,7 @@ Requires-Dist: websockets<=13.1,>=10.3; extra == "apps"
 Requires-Dist: jinja2<4.0.0,>=3.1.6; extra == "apps"
 Requires-Dist: psutil<6.0.0,>=5.9.0; extra == "apps"
 Requires-Dist: jsonpatch<2.0,>=1.32; extra == "apps"
+Requires-Dist: patchdiff<1.0.0,>=0.3.12; python_version >= "3.9" and extra == "apps"
 Requires-Dist: MarkupSafe<3.0.0,>=2.1.1; extra == "apps"
 Requires-Dist: arel<1.0.0,>=0.2.0; python_version < "3.10" and extra == "apps"
 Requires-Dist: tqdm<5.0.0,>=4.66.3; extra == "apps"

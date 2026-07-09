@@ -13,11 +13,10 @@ import torch
 import torch.nn as nn
 
 from .constants import OPENAI_CLIP_MEAN, OPENAI_CLIP_STD
+from .clip_imports import clip
 
 from pyiqa.utils.registry import ARCH_REGISTRY
 from pyiqa.archs.arch_util import load_file_from_url, load_pretrained_network
-
-import clip
 from .clip_model import load
 from pyiqa.archs.arch_util import get_url_from_name
 

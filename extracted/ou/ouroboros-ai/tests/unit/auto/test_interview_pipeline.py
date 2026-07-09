@@ -25,6 +25,7 @@ from ouroboros.core.seed import (
     OntologySchema,
     Seed,
     SeedMetadata,
+    ac_text,
 )
 
 # The unsafe-context matcher / safe-default blocking machinery exercised here
@@ -1266,7 +1267,7 @@ def test_seed_repairer_rewrites_each_acceptance_criterion_once() -> None:
     result = SeedRepairer().repair_once(seed, review, ledger=ledger)
 
     assert result.changed
-    repaired_acceptance = result.seed.acceptance_criteria[0]
+    repaired_acceptance = ac_text(result.seed.acceptance_criteria[0])
     assert repaired_acceptance.count("original requirement for") == 1
     assert "The CLI" in repaired_acceptance
     assert "original requirement for A command/API check" not in repaired_acceptance
@@ -2511,6 +2512,236 @@ async def test_pipeline_resumes_run_with_persisted_handle_without_restarting(tmp
 
     assert result.status == "complete"
     assert result.job_id == "job_existing"
+
+
+def _run_state_with_handle(tmp_path, job_id: str) -> AutoPipelineState:
+    state = AutoPipelineState(goal="Build a CLI", cwd=str(tmp_path))
+    ledger = SeedDraftLedger.from_goal(state.goal)
+    _fill_ready(ledger)
+    state.ledger = ledger.to_dict()
+    state.seed_artifact = _seed().to_dict()
+    state.last_grade = "A"
+    state.job_id = job_id
+    state.transition(AutoPhase.INTERVIEW, "interview")
+    state.transition(AutoPhase.SEED_GENERATION, "seed")
+    state.transition(AutoPhase.REVIEW, "review")
+    state.transition(AutoPhase.RUN, "run")
+    return state
+
+
+def _run_starter_over_manager(manager):  # noqa: ANN001, ANN202
+    """A run starter whose ``handler._job_manager`` exposes get_snapshot.
+
+    Matches the shape ``_wait_owned_run_job_terminal`` reads on the production
+    ``HandlerRunStarter`` (``adapter.handler._job_manager.get_snapshot``). The
+    persisted-handle RUN resume path reconciles the owned job and never invokes
+    the starter, so it does not need to be callable.
+    """
+    from types import SimpleNamespace
+
+    return SimpleNamespace(handler=SimpleNamespace(_job_manager=manager))
+
+
+@pytest.mark.asyncio
+async def test_run_resume_reconciles_owned_paused_job_to_blocked(tmp_path) -> None:
+    """Default RUN resume must not report COMPLETE when the owned job paused.
+
+    Q00/ouroboros#1590: a persisted run handle proves dispatch, not terminal
+    success. When the owned execute job finished paused, ``--resume`` must
+    reconcile the owned job and block (resumably) instead of returning a stale
+    product-complete off the handle alone.
+    """
+    from ouroboros.auto.interview_driver import FunctionInterviewBackend
+    from ouroboros.mcp.job_manager import JobManager
+    from ouroboros.mcp.types import ContentType, MCPContentItem, MCPToolResult
+    from ouroboros.persistence.event_store import EventStore
+
+    jobs = EventStore(f"sqlite+aiosqlite:///{tmp_path / 'jobs.db'}")
+    manager = JobManager(jobs)
+    try:
+
+        async def _paused_runner() -> MCPToolResult:
+            return MCPToolResult(
+                content=(MCPContentItem(type=ContentType.TEXT, text="PAUSED"),),
+                is_error=False,
+                meta={"status": "paused", "success": None},
+            )
+
+        started = await manager.start_job(
+            job_type="execute", initial_message="queued", runner=_paused_runner()
+        )
+
+        async def _unused(*_a, **_k):  # noqa: ANN002, ANN003, ANN202
+            raise AssertionError("run resume should not restart interview/seed")
+
+        state = _run_state_with_handle(tmp_path, started.job_id)
+        driver = AutoInterviewDriver(
+            FunctionInterviewBackend(_unused, _unused), store=AutoStore(tmp_path)
+        )
+        pipeline = AutoPipeline(
+            driver,
+            _unused,
+            run_starter=_run_starter_over_manager(manager),
+            store=AutoStore(tmp_path),
+        )
+
+        result = await pipeline.run(state)
+
+        assert result.status != "complete"
+        assert result.status == "blocked"
+        assert "paused" in (result.blocker or "")
+        assert state.phase is AutoPhase.BLOCKED
+    finally:
+        tasks = [
+            *manager._tasks.values(),  # noqa: SLF001
+            *manager._runner_tasks.values(),  # noqa: SLF001
+            *manager._monitors.values(),  # noqa: SLF001
+        ]
+        for task in tasks:
+            if not task.done():
+                task.cancel()
+        if tasks:
+            await asyncio.gather(*tasks, return_exceptions=True)
+        await jobs.close()
+
+
+@pytest.mark.asyncio
+async def test_run_resume_completes_when_owned_job_succeeded(tmp_path) -> None:
+    """Default RUN resume still completes when the owned job reached success."""
+    from ouroboros.auto.interview_driver import FunctionInterviewBackend
+    from ouroboros.mcp.job_manager import JobManager
+    from ouroboros.mcp.types import ContentType, MCPContentItem, MCPToolResult
+    from ouroboros.persistence.event_store import EventStore
+
+    jobs = EventStore(f"sqlite+aiosqlite:///{tmp_path / 'jobs.db'}")
+    manager = JobManager(jobs)
+    try:
+
+        async def _ok_runner() -> MCPToolResult:
+            return MCPToolResult(
+                content=(MCPContentItem(type=ContentType.TEXT, text="done"),),
+                is_error=False,
+                meta={"status": "completed", "success": True},
+            )
+
+        started = await manager.start_job(
+            job_type="execute", initial_message="queued", runner=_ok_runner()
+        )
+
+        async def _unused(*_a, **_k):  # noqa: ANN002, ANN003, ANN202
+            raise AssertionError("run resume should not restart interview/seed")
+
+        state = _run_state_with_handle(tmp_path, started.job_id)
+        driver = AutoInterviewDriver(
+            FunctionInterviewBackend(_unused, _unused), store=AutoStore(tmp_path)
+        )
+        pipeline = AutoPipeline(
+            driver,
+            _unused,
+            run_starter=_run_starter_over_manager(manager),
+            store=AutoStore(tmp_path),
+        )
+
+        result = await pipeline.run(state)
+
+        assert result.status == "complete"
+        assert state.phase is AutoPhase.COMPLETE
+    finally:
+        tasks = [
+            *manager._tasks.values(),  # noqa: SLF001
+            *manager._runner_tasks.values(),  # noqa: SLF001
+            *manager._monitors.values(),  # noqa: SLF001
+        ]
+        for task in tasks:
+            if not task.done():
+                task.cancel()
+        if tasks:
+            await asyncio.gather(*tasks, return_exceptions=True)
+        await jobs.close()
+
+
+@pytest.mark.asyncio
+async def test_run_resume_after_deadline_reopen_is_not_deadlined_out(tmp_path) -> None:
+    """A deadline-cancelled reopen-to-RUN must resume cleanly, not dead-end.
+
+    Q00/ouroboros#1590: the reopen clears the expired absolute deadline so
+    ``from_dict`` re-arms a fresh budget on load. Without it, ``--resume`` hits
+    the deadline gate (pipeline.run) and returns ``pipeline_timeout`` before the
+    RUN reconciliation ever runs — a dead-end resume promise. Here the reopened
+    state, saved and loaded through the store (as ``--resume`` does), resumes
+    into the owned-job reconciliation (paused → blocked) instead.
+    """
+    import time as time_module
+
+    from ouroboros.auto.interview_driver import FunctionInterviewBackend
+    from ouroboros.mcp.job_manager import JobManager
+    from ouroboros.mcp.types import ContentType, MCPContentItem, MCPToolResult
+    from ouroboros.persistence.event_store import EventStore
+
+    jobs = EventStore(f"sqlite+aiosqlite:///{tmp_path / 'jobs.db'}")
+    manager = JobManager(jobs)
+    store = AutoStore(tmp_path)
+    try:
+
+        async def _paused_runner() -> MCPToolResult:
+            return MCPToolResult(
+                content=(MCPContentItem(type=ContentType.TEXT, text="PAUSED"),),
+                is_error=False,
+                meta={"status": "paused", "success": None},
+            )
+
+        started = await manager.start_job(
+            job_type="execute", initial_message="queued", runner=_paused_runner()
+        )
+
+        # Build the durable state exactly as the CLI leaves it after a
+        # deadline-cancelled wait: a COMPLETE handoff with an already-expired
+        # absolute deadline, then reopened to RUN (which clears the deadline).
+        state = _run_state_with_handle(tmp_path, started.job_id)
+        state.transition(AutoPhase.COMPLETE, "execution started for grade A Seed")
+        state.deadline_at = time_module.monotonic() - 100.0
+        state.deadline_at_epoch = time_module.time() - 100.0
+        assert state.is_deadline_expired()
+        assert state.reopen_completed_run_handoff_to_run("run cancelled by deadline")
+        assert state.deadline_at is None
+        store.save(state)
+
+        # Load fresh (as --resume): from_dict re-arms a fresh, non-expired budget.
+        loaded = store.load(state.auto_session_id)
+        assert loaded.phase is AutoPhase.RUN
+        assert loaded.deadline_at is not None and not loaded.is_deadline_expired()
+
+        async def _unused(*_a, **_k):  # noqa: ANN002, ANN003, ANN202
+            raise AssertionError("run resume should not restart interview/seed")
+
+        driver = AutoInterviewDriver(
+            FunctionInterviewBackend(_unused, _unused), store=AutoStore(tmp_path)
+        )
+        pipeline = AutoPipeline(
+            driver,
+            _unused,
+            run_starter=_run_starter_over_manager(manager),
+            store=AutoStore(tmp_path),
+        )
+
+        result = await pipeline.run(loaded)
+
+        # NOT the deadline dead-end — it reached the RUN reconciliation.
+        assert "pipeline_timeout" not in (result.blocker or "")
+        assert result.status == "blocked"
+        assert "paused" in (result.blocker or "")
+    finally:
+        tasks = [
+            *manager._tasks.values(),  # noqa: SLF001
+            *manager._runner_tasks.values(),  # noqa: SLF001
+            *manager._monitors.values(),  # noqa: SLF001
+        ]
+        for task in tasks:
+            if not task.done():
+                task.cancel()
+        if tasks:
+            await asyncio.gather(*tasks, return_exceptions=True)
+        await jobs.close()
 
 
 @pytest.mark.asyncio
@@ -5635,7 +5866,7 @@ async def test_pipeline_normalizes_persisted_seed_artifact_on_resume(tmp_path) -
 
     assert result.status == "complete"
     resumed_seed = Seed.from_dict(state.seed_artifact)
-    criteria_text = "\n".join(resumed_seed.acceptance_criteria)
+    criteria_text = "\n".join(ac_text(item) for item in resumed_seed.acceptance_criteria)
     assert "Final report includes auto session id" not in criteria_text
     assert "CLI exits 2 on invalid flags" in criteria_text
 

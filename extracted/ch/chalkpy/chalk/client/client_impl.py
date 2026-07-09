@@ -6248,6 +6248,7 @@ https://docs.chalk.ai/cli/apply
         source_config: Optional[SourceConfig] = None,
         dependencies: Optional[List[str]] = None,
         model_image: Optional[str] = None,
+        skip_volume_upload: bool = False,
         environment: Optional[EnvironmentId] = None,
     ) -> RegisterModelVersionResponse:
         return self._get_grpc_client(environment=environment).register_model_version(
@@ -6267,6 +6268,7 @@ https://docs.chalk.ai/cli/apply
             source_config=source_config,
             dependencies=dependencies,
             model_image=model_image,
+            skip_volume_upload=skip_volume_upload,
         )
 
     def delete_model_namespace(
@@ -6293,7 +6295,6 @@ https://docs.chalk.ai/cli/apply
         resources: Optional["ScalingGroupResourceRequest"] = None,
         handler: Optional[str] = None,
         env_vars: Optional[Dict[str, str]] = None,
-        skip_upload_to_volumes: bool = False,
         secrets: Optional[List[Any]] = None,
         environment: Optional[EnvironmentId] = None,
     ) -> dict[str, Any]:
@@ -6315,9 +6316,6 @@ https://docs.chalk.ai/cli/apply
             Dotted path to handler function (default: "model.handler").
         env_vars
             Extra environment variables to inject into the container.
-        skip_upload_to_volumes
-            When True, skip uploading model artifacts to a chalkfs volume.
-            Defaults to False.
         secrets
             List of Secret Registry secrets to be injected into the Scaling Group.
         environment
@@ -6338,7 +6336,6 @@ https://docs.chalk.ai/cli/apply
             gpu=_resources.gpu,
             handler=handler,
             env_vars=env_vars,
-            skip_upload_to_volumes=skip_upload_to_volumes,
             secrets=secrets,
         )
 

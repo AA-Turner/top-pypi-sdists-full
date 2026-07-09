@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: guarddog
-Version: 3.0.2
+Version: 3.1.0
 Summary: GuardDog is a CLI tool for identifying malicious open source packages
 License: Apache-2.0
 License-File: LICENSE
@@ -15,11 +15,11 @@ Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
-Requires-Dist: boto3 (>=1.34,<2.0)
+Requires-Dist: boto3 (>=1.43,<2.0)
 Requires-Dist: click (>=8.4.1,<9.0.0)
 Requires-Dist: configparser (>=5.3,<8.0)
-Requires-Dist: disposable-email-domains (>=0.0.103,<0.0.170)
-Requires-Dist: nono-py (>=0.10.1)
+Requires-Dist: disposable-email-domains (>=0.0.214,<0.0.215)
+Requires-Dist: nono-py (>=0.11.0)
 Requires-Dist: packaging (>=21.0)
 Requires-Dist: prettytable (>=3.17.0,<4.0.0)
 Requires-Dist: pygit2 (>=1.11,<1.19)
@@ -30,7 +30,7 @@ Requires-Dist: requests (>=2.34.0,<3.0.0)
 Requires-Dist: semantic-version (>=2.10.0,<3.0.0)
 Requires-Dist: tarsafe (>=0.0.5,<0.0.6)
 Requires-Dist: termcolor (>=3.3.0,<4.0.0)
-Requires-Dist: typing-extensions (>=4.15.0,<5.0.0)
+Requires-Dist: typing-extensions (>=4.16.0,<5.0.0)
 Requires-Dist: urllib3 (>=2.7.0,<3.0.0)
 Requires-Dist: yara-python (>=4.5.4,<5.0.0)
 Project-URL: Repository, https://github.com/DataDog/guarddog
@@ -328,6 +328,12 @@ GuardDog's behavior can be customized using environment variables:
 | `GUARDDOG_VERIFY_EXHAUSTIVE_DEPENDENCIES` | Analyze all possible versions of dependencies (`true`/`false`) | `false` |
 | `GUARDDOG_TOP_PACKAGES_CACHE_LOCATION` | Location of the top packages cache directory | `guarddog/analyzer/metadata/resources` |
 | `GUARDDOG_YARA_EXT_EXCLUDE` | Comma-separated list of file extensions to exclude from YARA scanning | `ini,md,rst,txt,lock,json,yaml,yml,toml,xml,html,csv,sql,pdf,doc,docx,ppt,pptx,xls,xlsx,odt,changelog,readme,makefile,dockerfile,pkg-info,d.ts` |
+
+#### Metadata Rule Configuration
+
+| Environment Variable | Description | Default Value |
+|---------------------|-------------|---------------|
+| `GUARDDOG_NEW_DEPENDENCY_RISK_THRESHOLD` | Minimum risk score for a newly introduced dependency to flag the parent package in the `risky_new_dependency` rule | `5.0` |
 
 #### Archive Extraction Security Limits
 

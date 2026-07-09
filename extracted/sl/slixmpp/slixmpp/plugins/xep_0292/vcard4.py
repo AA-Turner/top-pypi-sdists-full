@@ -28,24 +28,24 @@ class XEP_0292(BasePlugin):
     xmpp: ComponentXMPP
 
     name = "xep_0292"
-    description = "vCard4 Over XMPP"
+    description = "XEP-0292: vCard4 Over XMPP"
     dependencies = {"xep_0163", "xep_0060", "xep_0030"}
     stanza = stanza
 
     def plugin_init(self):
-        pubsub_stanza = self.xmpp["xep_0060"].stanza
+        pubsub_stanza = self.xmpp.plugin["xep_0060"].stanza
 
         register_stanza_plugin(pubsub_stanza.Item, stanza.VCard4)
         register_stanza_plugin(pubsub_stanza.EventItem, stanza.VCard4)
 
-        self.xmpp['xep_0060'].map_node_event(stanza.NS, 'vcard4')
+        self.xmpp.plugin['xep_0060'].map_node_event(stanza.NS, 'vcard4')
 
     def plugin_end(self):
-        self.xmpp['xep_0030'].del_feature(feature=stanza.NS)
-        self.xmpp['xep_0163'].remove_interest(stanza.NS)
+        self.xmpp.plugin['xep_0030'].del_feature(feature=stanza.NS)
+        self.xmpp.plugin['xep_0163'].remove_interest(stanza.NS)
 
     def session_bind(self, jid):
-        self.xmpp['xep_0163'].register_pep('vcard4', stanza.VCard4)
+        self.xmpp.plugin['xep_0163'].register_pep('vcard4', stanza.VCard4)
 
     def publish_vcard(
         self,
@@ -96,13 +96,13 @@ class XEP_0292(BasePlugin):
         elif country:
             vcard.add_address(country, locality)
 
-        return self.xmpp["xep_0163"].publish(vcard, id="current", **pubsubkwargs)
+        return self.xmpp.plugin["xep_0163"].publish(vcard, id="current", **pubsubkwargs)
 
     def retrieve_vcard(self, jid: JID, **pubsubkwargs):
         """
         Retrieve a vcard using PEP
         """
-        return self.xmpp["xep_0060"].get_item(
+        return self.xmpp.plugin["xep_0060"].get_item(
             jid, stanza.VCard4.namespace, "current", **pubsubkwargs
         )
 

@@ -11,7 +11,7 @@ import jsii
 import publication
 import typing_extensions
 
-from jsii._type_checking import check_type
+from jsii._type_checking import cached_type_hints, check_type
 
 
 from ..._jsii import *
@@ -45,7 +45,7 @@ class Actions:
         if isinstance(source, dict):
             source = Source(**source)
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__6366c915d5edbe08a6c33dee8fe8422a0286f131b30d1697e72b9e5e37127dcc)
+            type_hints = cached_type_hints(_typecheckingstub__6366c915d5edbe08a6c33dee8fe8422a0286f131b30d1697e72b9e5e37127dcc)
             check_type(argname="argument preset", value=preset, expected_type=type_hints["preset"])
             check_type(argname="argument recommended", value=recommended, expected_type=type_hints["recommended"])
             check_type(argname="argument source", value=source, expected_type=type_hints["source"])
@@ -143,7 +143,7 @@ class AssistConfiguration:
         if isinstance(actions, dict):
             actions = Actions(**actions)
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__653e8f7779876f355ba04bd69945d4c60ef342663eb94ddff052064ccd3fe707)
+            type_hints = cached_type_hints(_typecheckingstub__653e8f7779876f355ba04bd69945d4c60ef342663eb94ddff052064ccd3fe707)
             check_type(argname="argument actions", value=actions, expected_type=type_hints["actions"])
             check_type(argname="argument enabled", value=enabled, expected_type=type_hints["enabled"])
             check_type(argname="argument includes", value=includes, expected_type=type_hints["includes"])
@@ -307,7 +307,7 @@ class BiomeConfiguration:
         if isinstance(vcs, dict):
             vcs = VcsConfiguration(**vcs)
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__5d80cddd85ec22ae5e9ee130a7150db72ca1333e6e292553494d0e61d7b92e10)
+            type_hints = cached_type_hints(_typecheckingstub__5d80cddd85ec22ae5e9ee130a7150db72ca1333e6e292553494d0e61d7b92e10)
             check_type(argname="argument assist", value=assist, expected_type=type_hints["assist"])
             check_type(argname="argument css", value=css, expected_type=type_hints["css"])
             check_type(argname="argument extends", value=extends, expected_type=type_hints["extends"])
@@ -547,7 +547,7 @@ class CssAssistConfiguration:
         :schema: CssAssistConfiguration
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__2d79ee25821f244538ee0bcf57d1ff302007d2643512718410c33310d05b8dc4)
+            type_hints = cached_type_hints(_typecheckingstub__2d79ee25821f244538ee0bcf57d1ff302007d2643512718410c33310d05b8dc4)
             check_type(argname="argument enabled", value=enabled, expected_type=type_hints["enabled"])
         self._values: typing.Dict[builtins.str, typing.Any] = {}
         if enabled is not None:
@@ -616,7 +616,7 @@ class CssConfiguration:
         if isinstance(parser, dict):
             parser = CssParserConfiguration(**parser)
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__546cd91eebef3c3c3a2ec7242b79be8e1e49bbd4e237eea9e2543e548c089bea)
+            type_hints = cached_type_hints(_typecheckingstub__546cd91eebef3c3c3a2ec7242b79be8e1e49bbd4e237eea9e2543e548c089bea)
             check_type(argname="argument assist", value=assist, expected_type=type_hints["assist"])
             check_type(argname="argument formatter", value=formatter, expected_type=type_hints["formatter"])
             check_type(argname="argument globals", value=globals, expected_type=type_hints["globals"])
@@ -738,7 +738,7 @@ class CssFormatterConfiguration:
         :schema: CssFormatterConfiguration
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__e1fb0cc7e8e9a8ff6796060277e93271c00edf3f8878cd107fe3a211c7aa58ca)
+            type_hints = cached_type_hints(_typecheckingstub__e1fb0cc7e8e9a8ff6796060277e93271c00edf3f8878cd107fe3a211c7aa58ca)
             check_type(argname="argument delimiter_spacing", value=delimiter_spacing, expected_type=type_hints["delimiter_spacing"])
             check_type(argname="argument enabled", value=enabled, expected_type=type_hints["enabled"])
             check_type(argname="argument indent_style", value=indent_style, expected_type=type_hints["indent_style"])
@@ -904,7 +904,7 @@ class CssLinterConfiguration:
         :schema: CssLinterConfiguration
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__66bcb81b30852efd84c1040b1c15bea9669396c926d4f016dc8c65523fc5d8c0)
+            type_hints = cached_type_hints(_typecheckingstub__66bcb81b30852efd84c1040b1c15bea9669396c926d4f016dc8c65523fc5d8c0)
             check_type(argname="argument enabled", value=enabled, expected_type=type_hints["enabled"])
         self._values: typing.Dict[builtins.str, typing.Any] = {}
         if enabled is not None:
@@ -959,7 +959,7 @@ class CssParserConfiguration:
         :schema: CssParserConfiguration
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__8529582f37794a4d2a6c31671f27c3add8085e862adbf314c4f633b00295f518)
+            type_hints = cached_type_hints(_typecheckingstub__8529582f37794a4d2a6c31671f27c3add8085e862adbf314c4f633b00295f518)
             check_type(argname="argument allow_wrong_line_comments", value=allow_wrong_line_comments, expected_type=type_hints["allow_wrong_line_comments"])
             check_type(argname="argument css_modules", value=css_modules, expected_type=type_hints["css_modules"])
             check_type(argname="argument tailwind_directives", value=tailwind_directives, expected_type=type_hints["tailwind_directives"])
@@ -1077,7 +1077,7 @@ class FilesConfiguration:
         :schema: FilesConfiguration
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__f06e077779a89de8924deeb042aada1ebd486faca5b2fad3aabff17e1eaaa2e4)
+            type_hints = cached_type_hints(_typecheckingstub__f06e077779a89de8924deeb042aada1ebd486faca5b2fad3aabff17e1eaaa2e4)
             check_type(argname="argument experimental_scanner_ignores", value=experimental_scanner_ignores, expected_type=type_hints["experimental_scanner_ignores"])
             check_type(argname="argument ignore_unknown", value=ignore_unknown, expected_type=type_hints["ignore_unknown"])
             check_type(argname="argument includes", value=includes, expected_type=type_hints["includes"])
@@ -1217,7 +1217,7 @@ class FormatterConfiguration:
         :schema: FormatterConfiguration
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__d250053b03cd738e71599a16d0b903766c0befb7557dadc7ffee799234532c78)
+            type_hints = cached_type_hints(_typecheckingstub__d250053b03cd738e71599a16d0b903766c0befb7557dadc7ffee799234532c78)
             check_type(argname="argument attribute_position", value=attribute_position, expected_type=type_hints["attribute_position"])
             check_type(argname="argument bracket_same_line", value=bracket_same_line, expected_type=type_hints["bracket_same_line"])
             check_type(argname="argument bracket_spacing", value=bracket_spacing, expected_type=type_hints["bracket_spacing"])
@@ -1471,7 +1471,7 @@ class GraphqlAssistConfiguration:
         :schema: GraphqlAssistConfiguration
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__0dbfc7c635234e8ca5c531a8c27d60cc9eb836491490660da8418fad825b69a2)
+            type_hints = cached_type_hints(_typecheckingstub__0dbfc7c635234e8ca5c531a8c27d60cc9eb836491490660da8418fad825b69a2)
             check_type(argname="argument enabled", value=enabled, expected_type=type_hints["enabled"])
         self._values: typing.Dict[builtins.str, typing.Any] = {}
         if enabled is not None:
@@ -1528,7 +1528,7 @@ class GraphqlConfiguration:
         if isinstance(linter, dict):
             linter = GraphqlLinterConfiguration(**linter)
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__2155336ae80236225feccaa799a660386650fec7a49468bef45ab34ed6677842)
+            type_hints = cached_type_hints(_typecheckingstub__2155336ae80236225feccaa799a660386650fec7a49468bef45ab34ed6677842)
             check_type(argname="argument assist", value=assist, expected_type=type_hints["assist"])
             check_type(argname="argument formatter", value=formatter, expected_type=type_hints["formatter"])
             check_type(argname="argument linter", value=linter, expected_type=type_hints["linter"])
@@ -1623,7 +1623,7 @@ class GraphqlFormatterConfiguration:
         :schema: GraphqlFormatterConfiguration
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__dc9ad6152bf4d6cec4d40f5bfd9a8d0247f6c53cda4876e24cc83741fac1ae9f)
+            type_hints = cached_type_hints(_typecheckingstub__dc9ad6152bf4d6cec4d40f5bfd9a8d0247f6c53cda4876e24cc83741fac1ae9f)
             check_type(argname="argument bracket_spacing", value=bracket_spacing, expected_type=type_hints["bracket_spacing"])
             check_type(argname="argument enabled", value=enabled, expected_type=type_hints["enabled"])
             check_type(argname="argument indent_style", value=indent_style, expected_type=type_hints["indent_style"])
@@ -1787,7 +1787,7 @@ class GraphqlLinterConfiguration:
         :schema: GraphqlLinterConfiguration
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__0d2f81257796562c5e318e2c7b1278da3b88a7b868379f34ecb8d427734ba141)
+            type_hints = cached_type_hints(_typecheckingstub__0d2f81257796562c5e318e2c7b1278da3b88a7b868379f34ecb8d427734ba141)
             check_type(argname="argument enabled", value=enabled, expected_type=type_hints["enabled"])
         self._values: typing.Dict[builtins.str, typing.Any] = {}
         if enabled is not None:
@@ -1829,7 +1829,7 @@ class GritAssistConfiguration:
         :schema: GritAssistConfiguration
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__59f4559ad93f10b7671f2d81b54798d511d54078f14b37594d40617170bd4645)
+            type_hints = cached_type_hints(_typecheckingstub__59f4559ad93f10b7671f2d81b54798d511d54078f14b37594d40617170bd4645)
             check_type(argname="argument enabled", value=enabled, expected_type=type_hints["enabled"])
         self._values: typing.Dict[builtins.str, typing.Any] = {}
         if enabled is not None:
@@ -1886,7 +1886,7 @@ class GritConfiguration:
         if isinstance(linter, dict):
             linter = GritLinterConfiguration(**linter)
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__6767810d80e7477e7c2f6a26f7c7f238a608f28412191ad4e6ab8504edd02a88)
+            type_hints = cached_type_hints(_typecheckingstub__6767810d80e7477e7c2f6a26f7c7f238a608f28412191ad4e6ab8504edd02a88)
             check_type(argname="argument assist", value=assist, expected_type=type_hints["assist"])
             check_type(argname="argument formatter", value=formatter, expected_type=type_hints["formatter"])
             check_type(argname="argument linter", value=linter, expected_type=type_hints["linter"])
@@ -1975,7 +1975,7 @@ class GritFormatterConfiguration:
         :schema: GritFormatterConfiguration
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__7eb20c598594405c2626c0973407324d66863625354188a196be6d25686d44e8)
+            type_hints = cached_type_hints(_typecheckingstub__7eb20c598594405c2626c0973407324d66863625354188a196be6d25686d44e8)
             check_type(argname="argument enabled", value=enabled, expected_type=type_hints["enabled"])
             check_type(argname="argument indent_style", value=indent_style, expected_type=type_hints["indent_style"])
             check_type(argname="argument indent_width", value=indent_width, expected_type=type_hints["indent_width"])
@@ -2102,7 +2102,7 @@ class GritLinterConfiguration:
         :schema: GritLinterConfiguration
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__4f328d623f0baa93f52695005ba45f28881c95ae610fde354116a44bc8b01c30)
+            type_hints = cached_type_hints(_typecheckingstub__4f328d623f0baa93f52695005ba45f28881c95ae610fde354116a44bc8b01c30)
             check_type(argname="argument enabled", value=enabled, expected_type=type_hints["enabled"])
         self._values: typing.Dict[builtins.str, typing.Any] = {}
         if enabled is not None:
@@ -2145,7 +2145,7 @@ class HtmlAssistConfiguration:
         :schema: HtmlAssistConfiguration
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__4f12d37d14edd5b34740aa842931963f60cd55f179c839350e2c9eb8d0ce519a)
+            type_hints = cached_type_hints(_typecheckingstub__4f12d37d14edd5b34740aa842931963f60cd55f179c839350e2c9eb8d0ce519a)
             check_type(argname="argument enabled", value=enabled, expected_type=type_hints["enabled"])
         self._values: typing.Dict[builtins.str, typing.Any] = {}
         if enabled is not None:
@@ -2214,7 +2214,7 @@ class HtmlConfiguration:
         if isinstance(parser, dict):
             parser = HtmlParserConfiguration(**parser)
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__048266f3b4e4769e6485570d4954197f51204fc6e607e2ffe5267f80089b5ded)
+            type_hints = cached_type_hints(_typecheckingstub__048266f3b4e4769e6485570d4954197f51204fc6e607e2ffe5267f80089b5ded)
             check_type(argname="argument assist", value=assist, expected_type=type_hints["assist"])
             check_type(argname="argument experimental_full_support_enabled", value=experimental_full_support_enabled, expected_type=type_hints["experimental_full_support_enabled"])
             check_type(argname="argument formatter", value=formatter, expected_type=type_hints["formatter"])
@@ -2344,7 +2344,7 @@ class HtmlFormatterConfiguration:
         :schema: HtmlFormatterConfiguration
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__bcbf243ebdc0f288a10a4e6b68dc5a1ff88f4d8abe5566f57f212bf101440a69)
+            type_hints = cached_type_hints(_typecheckingstub__bcbf243ebdc0f288a10a4e6b68dc5a1ff88f4d8abe5566f57f212bf101440a69)
             check_type(argname="argument attribute_position", value=attribute_position, expected_type=type_hints["attribute_position"])
             check_type(argname="argument bracket_same_line", value=bracket_same_line, expected_type=type_hints["bracket_same_line"])
             check_type(argname="argument enabled", value=enabled, expected_type=type_hints["enabled"])
@@ -2559,7 +2559,7 @@ class HtmlLinterConfiguration:
         :schema: HtmlLinterConfiguration
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__271da6fb8e26ef7e9c2ec0ea9fc3487d2975824399c15a87994edbcfcdd37131)
+            type_hints = cached_type_hints(_typecheckingstub__271da6fb8e26ef7e9c2ec0ea9fc3487d2975824399c15a87994edbcfcdd37131)
             check_type(argname="argument enabled", value=enabled, expected_type=type_hints["enabled"])
         self._values: typing.Dict[builtins.str, typing.Any] = {}
         if enabled is not None:
@@ -2608,7 +2608,7 @@ class HtmlParserConfiguration:
         :schema: HtmlParserConfiguration
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__1b3cfca5c3ad8f608b86ade05d476530f16da0ba23410a7613236950da38ff37)
+            type_hints = cached_type_hints(_typecheckingstub__1b3cfca5c3ad8f608b86ade05d476530f16da0ba23410a7613236950da38ff37)
             check_type(argname="argument interpolation", value=interpolation, expected_type=type_hints["interpolation"])
             check_type(argname="argument vue", value=vue, expected_type=type_hints["vue"])
         self._values: typing.Dict[builtins.str, typing.Any] = {}
@@ -2687,7 +2687,7 @@ class JsAssistConfiguration:
         :schema: JsAssistConfiguration
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a425594ed8c46868c14fe924e8346d0d10c110ecabdc7f0d160d30bb06cf91ea)
+            type_hints = cached_type_hints(_typecheckingstub__a425594ed8c46868c14fe924e8346d0d10c110ecabdc7f0d160d30bb06cf91ea)
             check_type(argname="argument enabled", value=enabled, expected_type=type_hints["enabled"])
         self._values: typing.Dict[builtins.str, typing.Any] = {}
         if enabled is not None:
@@ -2767,7 +2767,7 @@ class JsConfiguration:
         if isinstance(resolver, dict):
             resolver = JsResolverConfiguration(**resolver)
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__57972f7094bf127a9fb1918efc38b7f9fd8b7e2a28387b1d59645ced7024c16b)
+            type_hints = cached_type_hints(_typecheckingstub__57972f7094bf127a9fb1918efc38b7f9fd8b7e2a28387b1d59645ced7024c16b)
             check_type(argname="argument assist", value=assist, expected_type=type_hints["assist"])
             check_type(argname="argument experimental_embedded_snippets_enabled", value=experimental_embedded_snippets_enabled, expected_type=type_hints["experimental_embedded_snippets_enabled"])
             check_type(argname="argument formatter", value=formatter, expected_type=type_hints["formatter"])
@@ -2960,7 +2960,7 @@ class JsFormatterConfiguration:
         :schema: JsFormatterConfiguration
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__83d4960ad9dc84017b237fabc105d7837e8a3ec56d19b1de7e01183651d05de1)
+            type_hints = cached_type_hints(_typecheckingstub__83d4960ad9dc84017b237fabc105d7837e8a3ec56d19b1de7e01183651d05de1)
             check_type(argname="argument arrow_parentheses", value=arrow_parentheses, expected_type=type_hints["arrow_parentheses"])
             check_type(argname="argument attribute_position", value=attribute_position, expected_type=type_hints["attribute_position"])
             check_type(argname="argument bracket_same_line", value=bracket_same_line, expected_type=type_hints["bracket_same_line"])
@@ -3301,7 +3301,7 @@ class JsLinterConfiguration:
         :schema: JsLinterConfiguration
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__f73a12c3631a151ee57c8ecf68020468207f1fa3a6b5c91890a93814a4119533)
+            type_hints = cached_type_hints(_typecheckingstub__f73a12c3631a151ee57c8ecf68020468207f1fa3a6b5c91890a93814a4119533)
             check_type(argname="argument enabled", value=enabled, expected_type=type_hints["enabled"])
         self._values: typing.Dict[builtins.str, typing.Any] = {}
         if enabled is not None:
@@ -3356,7 +3356,7 @@ class JsParserConfiguration:
         :schema: JsParserConfiguration
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c08c2e4162829556526f51e35e2cd7194c2c8bab38e0d01775d808ad7d573450)
+            type_hints = cached_type_hints(_typecheckingstub__c08c2e4162829556526f51e35e2cd7194c2c8bab38e0d01775d808ad7d573450)
             check_type(argname="argument grit_metavariables", value=grit_metavariables, expected_type=type_hints["grit_metavariables"])
             check_type(argname="argument jsx_everywhere", value=jsx_everywhere, expected_type=type_hints["jsx_everywhere"])
             check_type(argname="argument unsafe_parameter_decorators_enabled", value=unsafe_parameter_decorators_enabled, expected_type=type_hints["unsafe_parameter_decorators_enabled"])
@@ -3439,7 +3439,7 @@ class JsResolverConfiguration:
         :schema: JsResolverConfiguration
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__1e0ae3402dedb6e0fd3dbd8c7871dc3e24d95f19bd630a3675b446eeff16b76d)
+            type_hints = cached_type_hints(_typecheckingstub__1e0ae3402dedb6e0fd3dbd8c7871dc3e24d95f19bd630a3675b446eeff16b76d)
             check_type(argname="argument experimental_pnpm_catalogs", value=experimental_pnpm_catalogs, expected_type=type_hints["experimental_pnpm_catalogs"])
         self._values: typing.Dict[builtins.str, typing.Any] = {}
         if experimental_pnpm_catalogs is not None:
@@ -3533,7 +3533,7 @@ class JsonAssistConfiguration:
         :schema: JsonAssistConfiguration
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__f1fb6aa8858788da93c40533dca490e5cba8b040cbde40fcc78bbd02d8efd181)
+            type_hints = cached_type_hints(_typecheckingstub__f1fb6aa8858788da93c40533dca490e5cba8b040cbde40fcc78bbd02d8efd181)
             check_type(argname="argument enabled", value=enabled, expected_type=type_hints["enabled"])
         self._values: typing.Dict[builtins.str, typing.Any] = {}
         if enabled is not None:
@@ -3599,7 +3599,7 @@ class JsonConfiguration:
         if isinstance(parser, dict):
             parser = JsonParserConfiguration(**parser)
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__67ca83a8b26135c2a9bc9fcca08d39f860187439c18546ca3bb66035d3ec1146)
+            type_hints = cached_type_hints(_typecheckingstub__67ca83a8b26135c2a9bc9fcca08d39f860187439c18546ca3bb66035d3ec1146)
             check_type(argname="argument assist", value=assist, expected_type=type_hints["assist"])
             check_type(argname="argument formatter", value=formatter, expected_type=type_hints["formatter"])
             check_type(argname="argument linter", value=linter, expected_type=type_hints["linter"])
@@ -3713,7 +3713,7 @@ class JsonFormatterConfiguration:
         :schema: JsonFormatterConfiguration
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__4a0473ff26e9f0e1a38d7055c4e466dc2b2b92f24abfce11672601c5a1f6f4a2)
+            type_hints = cached_type_hints(_typecheckingstub__4a0473ff26e9f0e1a38d7055c4e466dc2b2b92f24abfce11672601c5a1f6f4a2)
             check_type(argname="argument bracket_spacing", value=bracket_spacing, expected_type=type_hints["bracket_spacing"])
             check_type(argname="argument delimiter_spacing", value=delimiter_spacing, expected_type=type_hints["delimiter_spacing"])
             check_type(argname="argument enabled", value=enabled, expected_type=type_hints["enabled"])
@@ -3917,7 +3917,7 @@ class JsonLinterConfiguration:
         :schema: JsonLinterConfiguration
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__850ce6cbde62685594cc979eca53b2938f923a2a6a9d3168729c891046c7be59)
+            type_hints = cached_type_hints(_typecheckingstub__850ce6cbde62685594cc979eca53b2938f923a2a6a9d3168729c891046c7be59)
             check_type(argname="argument enabled", value=enabled, expected_type=type_hints["enabled"])
         self._values: typing.Dict[builtins.str, typing.Any] = {}
         if enabled is not None:
@@ -3969,7 +3969,7 @@ class JsonParserConfiguration:
         :schema: JsonParserConfiguration
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__0ced0fa0672bed168a8348653ba985dd1a20d26c25f814d1492bdc2bb5b05233)
+            type_hints = cached_type_hints(_typecheckingstub__0ced0fa0672bed168a8348653ba985dd1a20d26c25f814d1492bdc2bb5b05233)
             check_type(argname="argument allow_comments", value=allow_comments, expected_type=type_hints["allow_comments"])
             check_type(argname="argument allow_trailing_commas", value=allow_trailing_commas, expected_type=type_hints["allow_trailing_commas"])
         self._values: typing.Dict[builtins.str, typing.Any] = {}
@@ -4120,7 +4120,7 @@ class LinterConfiguration:
         if isinstance(rules, dict):
             rules = Rules(**rules)
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__65dab822a12255f6f845b9299f073f8d1333a90456c41e244f29210e8ad1de68)
+            type_hints = cached_type_hints(_typecheckingstub__65dab822a12255f6f845b9299f073f8d1333a90456c41e244f29210e8ad1de68)
             check_type(argname="argument domains", value=domains, expected_type=type_hints["domains"])
             check_type(argname="argument enabled", value=enabled, expected_type=type_hints["enabled"])
             check_type(argname="argument includes", value=includes, expected_type=type_hints["includes"])
@@ -4235,7 +4235,7 @@ class OverrideAssistConfiguration:
         if isinstance(actions, dict):
             actions = Actions(**actions)
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__56dc91405fb970d58320a5a0025d8bde646c1421e2210fdd1d1f303623e06ef1)
+            type_hints = cached_type_hints(_typecheckingstub__56dc91405fb970d58320a5a0025d8bde646c1421e2210fdd1d1f303623e06ef1)
             check_type(argname="argument actions", value=actions, expected_type=type_hints["actions"])
             check_type(argname="argument enabled", value=enabled, expected_type=type_hints["enabled"])
         self._values: typing.Dict[builtins.str, typing.Any] = {}
@@ -4292,7 +4292,7 @@ class OverrideFilesConfiguration:
         :schema: OverrideFilesConfiguration
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__26fa6398c015df15db0e8378e7692ad89fd6e1addf1ee19d970d8cd2eb5e64f3)
+            type_hints = cached_type_hints(_typecheckingstub__26fa6398c015df15db0e8378e7692ad89fd6e1addf1ee19d970d8cd2eb5e64f3)
             check_type(argname="argument max_size", value=max_size, expected_type=type_hints["max_size"])
         self._values: typing.Dict[builtins.str, typing.Any] = {}
         if max_size is not None:
@@ -4379,7 +4379,7 @@ class OverrideFormatterConfiguration:
         :schema: OverrideFormatterConfiguration
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__3602eb22e2d33d64a65f4ebb15f534391f93d1e72546965c7be88c0c1e391655)
+            type_hints = cached_type_hints(_typecheckingstub__3602eb22e2d33d64a65f4ebb15f534391f93d1e72546965c7be88c0c1e391655)
             check_type(argname="argument attribute_position", value=attribute_position, expected_type=type_hints["attribute_position"])
             check_type(argname="argument bracket_same_line", value=bracket_same_line, expected_type=type_hints["bracket_same_line"])
             check_type(argname="argument bracket_spacing", value=bracket_spacing, expected_type=type_hints["bracket_spacing"])
@@ -4633,7 +4633,7 @@ class OverrideLinterConfiguration:
         if isinstance(rules, dict):
             rules = Rules(**rules)
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__4b923acd3721838353ddf97d9a992327d3607a622afc36e911bc3eb842adb709)
+            type_hints = cached_type_hints(_typecheckingstub__4b923acd3721838353ddf97d9a992327d3607a622afc36e911bc3eb842adb709)
             check_type(argname="argument domains", value=domains, expected_type=type_hints["domains"])
             check_type(argname="argument enabled", value=enabled, expected_type=type_hints["enabled"])
             check_type(argname="argument rules", value=rules, expected_type=type_hints["rules"])
@@ -4764,7 +4764,7 @@ class OverridePattern:
         if isinstance(linter, dict):
             linter = OverrideLinterConfiguration(**linter)
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__15d4ec259e2481f14109da78900e918d2d10bde9b57b737b5c0ac7d4d415d889)
+            type_hints = cached_type_hints(_typecheckingstub__15d4ec259e2481f14109da78900e918d2d10bde9b57b737b5c0ac7d4d415d889)
             check_type(argname="argument assist", value=assist, expected_type=type_hints["assist"])
             check_type(argname="argument css", value=css, expected_type=type_hints["css"])
             check_type(argname="argument files", value=files, expected_type=type_hints["files"])
@@ -5072,7 +5072,7 @@ class Rules:
         :schema: Rules
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__d509a5cc6f981426e8c0771a7bcfe4b66092b008a57a49a58a2d172ec95c48bd)
+            type_hints = cached_type_hints(_typecheckingstub__d509a5cc6f981426e8c0771a7bcfe4b66092b008a57a49a58a2d172ec95c48bd)
             check_type(argname="argument a11_y", value=a11_y, expected_type=type_hints["a11_y"])
             check_type(argname="argument complexity", value=complexity, expected_type=type_hints["complexity"])
             check_type(argname="argument correctness", value=correctness, expected_type=type_hints["correctness"])
@@ -5304,7 +5304,7 @@ class Source:
         :schema: Source
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__f128bc69ea32431a28e9aae09b49905087cb9f2c49176cf906cbd06f3c7237b7)
+            type_hints = cached_type_hints(_typecheckingstub__f128bc69ea32431a28e9aae09b49905087cb9f2c49176cf906cbd06f3c7237b7)
             check_type(argname="argument no_duplicate_classes", value=no_duplicate_classes, expected_type=type_hints["no_duplicate_classes"])
             check_type(argname="argument organize_imports", value=organize_imports, expected_type=type_hints["organize_imports"])
             check_type(argname="argument preset", value=preset, expected_type=type_hints["preset"])
@@ -5541,7 +5541,7 @@ class VcsConfiguration:
         :schema: VcsConfiguration
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__d0ca0d2f64e42e40c29e089e5200324b97670a6ebbf0f39b444b15a42a7150b7)
+            type_hints = cached_type_hints(_typecheckingstub__d0ca0d2f64e42e40c29e089e5200324b97670a6ebbf0f39b444b15a42a7150b7)
             check_type(argname="argument client_kind", value=client_kind, expected_type=type_hints["client_kind"])
             check_type(argname="argument default_branch", value=default_branch, expected_type=type_hints["default_branch"])
             check_type(argname="argument enabled", value=enabled, expected_type=type_hints["enabled"])

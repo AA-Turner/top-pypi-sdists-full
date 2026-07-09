@@ -65,7 +65,7 @@ class ActionModule(ActionBase):
 
     def get_object(self, params):
         new_object = dict(
-            organizationId=params.get("organizationId"),
+            organization_id=params.get("organizationId"),
             capture_id=params.get("captureId"),
         )
         return new_object

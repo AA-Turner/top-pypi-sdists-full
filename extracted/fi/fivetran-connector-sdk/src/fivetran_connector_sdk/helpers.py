@@ -4,6 +4,7 @@ import stat
 import shutil
 import sys
 import json
+import traceback
 import importlib.util
 from datetime import datetime
 from prompt_toolkit import prompt
@@ -24,6 +25,13 @@ from fivetran_connector_sdk.constants import (
     UTF_8,
     FIFO_READ_TIMEOUT_SECONDS
 )
+
+
+def _validate_table_name(table: str) -> None:
+    if not isinstance(table, str):
+        raise TypeError(f"Table name must be a string, got {type(table).__name__}")
+    if not table.strip():
+        raise ValueError("Table name must be a non-empty string")
 
 
 def is_regular_file_or_fifo(filepath):
@@ -185,6 +193,17 @@ def find_connector_object(project_path):
                 obj_attr = getattr(module, obj)
                 if '<fivetran_connector_sdk.Connector object at' in str(obj_attr):
                     return obj_attr
+    except TypeError as e:
+        tb = traceback.extract_tb(e.__traceback__)
+        last_frame = tb[-1] if tb else None
+        location = f"      at {last_frame.filename}, line {last_frame.lineno}\n" if last_frame else ""
+        print_library_log(
+            f"error in connector.py:\n"
+            f"      {e}\n"
+            f"{location}"
+            f"      reference: https://fivetran.com/docs/connectors/connector-sdk/technical-reference#technicaldetailsrequiredobjectconnector",
+            Logging.Level.SEVERE)
+        return None
     except FileNotFoundError:
         print_library_log(
             f"connector.py not found in {project_path}\n      this file is required to start a sync\n      reference: https://fivetran.com/docs/connectors/connector-sdk/technical-reference#technicaldetailsrequiredobjectconnector",

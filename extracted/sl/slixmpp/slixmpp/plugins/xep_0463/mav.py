@@ -10,13 +10,13 @@ from . import stanza
 
 class XEP_0463(BasePlugin):
     """
-    XEP-0463: MUC Affilition Versioning
+    XEP-0463: MUC Affiliation Versioning
 
     This plugin does only one thing: it registers the stanza plugins.
     """
 
     name = "xep_0463"
-    description = "XEP-0463: MUC Affilition Versioning"
+    description = "XEP-0463: MUC Affiliation Versioning"
     dependencies = {"xep_0045"}
     stanza = stanza
 

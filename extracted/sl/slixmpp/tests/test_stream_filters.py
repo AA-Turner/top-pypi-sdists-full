@@ -1,6 +1,7 @@
-
 from slixmpp import Message
 import unittest
+import base64
+from xml.etree import ElementTree as ET
 from slixmpp.test import SlixTest
 
 
@@ -76,6 +77,34 @@ class TestFilters(SlixTest):
           </message>
         """)
 
+    def test_out_sce(self):
+        def out(stanza):
+            if isinstance(stanza, Message):
+                stanza['body'] += ' fixed'
+            return stanza
+
+        def out_sce(stanza):
+            if isinstance(stanza, Message):
+                secure = base64.b32encode(stanza['body'].encode()).decode()
+                stanza.append(ET.fromstring('<secret>%s</secret>' % secure))
+                del stanza['body']
+            return stanza
+
+        self.xmpp.add_filter('out_sce', out_sce)
+        # make sure "out" filters still apply before sce
+        self.xmpp.add_filter('out', out)
+
+        m1 = self.Message()
+        m1['body'] = 'Test 1'
+        m1.send()
+        # Check that the body was properly generated
+        # base32 here is 'Test 1 fixed'
+        # use_values is False because it is an ad-hoc element
+        self.send("""
+            <message>
+                <secret>KRSXG5BAGEQGM2LYMVSA====</secret>
+            </message>
+        """, use_values=False)
 
 
 suite = unittest.TestLoader().loadTestsFromTestCase(TestFilters)

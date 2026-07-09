@@ -1,6 +1,8 @@
+from typing import ClassVar, cast
+
+from slixmpp.plugins.xep_0428.stanza import Fallback
 from slixmpp.stanza import Message
 from slixmpp.xmlstream import ElementBase, register_stanza_plugin
-from slixmpp.plugins.xep_0428.stanza import Fallback
 
 NS = "urn:xmpp:reply:0"
 
@@ -9,9 +11,9 @@ class Reply(ElementBase):
     namespace = NS
     name = "reply"
     plugin_attrib = "reply"
-    interfaces = {"id", "to"}
+    interfaces: ClassVar[set[str]] = {"id", "to"}
 
-    def add_quoted_fallback(self, fallback: str, nickname: str | None = None):
+    def add_quoted_fallback(self, fallback: str, nickname: str | None = None) -> None:
         r"""
         Add plain text fallback for clients not implementing XEP-0461.
 
@@ -24,7 +26,7 @@ class Reply(ElementBase):
         :param fallback: Body of the quoted message.
         :param nickname: Optional, nickname of the quoted participant.
         """
-        msg = self.parent()
+        msg = cast(Message, self.parent())  # type:ignore[misc]  # ty:ignore[call-non-callable]
         quoted = "\n".join("> " + x.strip() for x in fallback.split("\n")) + "\n"
         if nickname:
             quoted = "> " + nickname + ":\n" + quoted
@@ -39,7 +41,7 @@ class Reply(ElementBase):
         """
         Get the string containing the fallback body from the parent.
         """
-        msg = self.parent()
+        msg = cast(Message, self.parent())  # type:ignore[misc]  # ty:ignore[call-non-callable]
         for fallback in msg["fallbacks"]:
             if fallback["for"] == NS:
                 break
@@ -57,7 +59,7 @@ class Reply(ElementBase):
         """
         Remove the fallback contents from the parent body.
         """
-        msg = self.parent()
+        msg = cast(Message, self.parent())  # type:ignore[misc]  # ty:ignore[call-non-callable]
         for fallback in msg["fallbacks"]:
             if fallback["for"] == NS:
                 break
@@ -74,5 +76,5 @@ class Reply(ElementBase):
             return body
 
 
-def register_plugins():
+def register_plugins() -> None:
     register_stanza_plugin(Message, Reply)

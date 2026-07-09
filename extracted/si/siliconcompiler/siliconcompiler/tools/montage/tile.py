@@ -1,9 +1,12 @@
-from typing import Optional, Union
+import re
 
-from siliconcompiler import Task, TaskSkip
+from typing import Optional, Tuple, Union
+
+from siliconcompiler import TaskSkip
+from siliconcompiler.tools.montage import ImageMagickTask
 
 
-class TileTask(Task):
+class TileTask(ImageMagickTask):
     '''
     Tiles input images into a single output image.
     '''
@@ -11,8 +14,9 @@ class TileTask(Task):
     def __init__(self):
         super().__init__()
 
-        self.add_parameter("bins", "(int,int)", "Number of bins along the (x, y)-axis",
-                           defvalue=(2, 2))
+        self.add_parameter("bins", "(int<1..>,int<1..>)",
+                           "Number of bins along the (x, y)-axis. If left unset, the grid size is "
+                           "auto-detected from the incoming tile images.")
 
     def set_montage_bins(self, xbins: int, ybins: int,
                          step: Optional[str] = None, index: Optional[Union[str, int]] = None):
@@ -27,39 +31,56 @@ class TileTask(Task):
         """
         self.set("var", "bins", (xbins, ybins), step=step, index=index)
 
-    def tool(self):
-        return "montage"
+    def _detect_montage_bins(self) -> Optional[Tuple[int, int]]:
+        """
+        Determine the tiling grid size from the incoming tile images, whose
+        names follow the ``<topmodule>_X<x>_Y<y>.png`` convention.
+
+        Returns:
+            Optional[Tuple[int, int]]: ``(xbins, ybins)`` if tile images are
+            found among the input files, otherwise ``None``.
+        """
+        pattern = re.compile(rf"^{re.escape(self.design_topmodule)}_X(\d+)_Y(\d+)\.png$")
+
+        xvals = set()
+        yvals = set()
+        for file in self.get_files_from_input_nodes():
+            match = pattern.match(file)
+            if match:
+                xvals.add(int(match.group(1)))
+                yvals.add(int(match.group(2)))
+
+        if not xvals or not yvals:
+            return None
+
+        return (max(xvals) + 1, max(yvals) + 1)
 
     def task(self):
         return "tile"
 
-    def parse_version(self, stdout):
-        first_line = stdout.splitlines()[0]
-        return first_line.split(' ')[2]
-
     def setup(self):
-        super().setup()
-
         self.set_exe("montage", vswitch="-version")
-        self.add_version(">=6.9.0")
 
-        xbins, ybins = self.get("var", "bins")
+        super().setup()
 
         if f"{self.design_topmodule}.png" in self.get_files_from_input_nodes():
             raise TaskSkip("Input provides a single image; skipping tiling.")
 
+        self.add_required_key("var", "bins")
+        # Auto-detect the grid size from the incoming files when the user has
+        # not explicitly set it.
+        if self.get("var", "bins") is None:
+            bins = self._detect_montage_bins()
+            if bins is None:
+                return
+            self.set_montage_bins(*bins)
+
+        xbins, ybins = self.get("var", "bins")
         for x in range(xbins):
             for y in range(ybins):
                 self.add_input_file(f'{self.design_topmodule}_X{x}_Y{y}.png')
 
         self.add_output_file(ext="png")
-
-        self.add_commandline_option(['-limit', 'memory', '8GiB'])
-        self.add_commandline_option(['-limit', 'map', '8GiB'])
-        self.add_commandline_option(['-limit', 'disk', '8GiB'])
-        self.add_commandline_option(['-limit', 'width', '32KP'])
-        self.add_commandline_option(['-limit', 'height', '32KP'])
-        self.add_commandline_option(['-limit', 'area', '1GP'])
 
     def runtime_options(self):
         options = super().runtime_options()

@@ -1,4 +1,3 @@
-
 # Slixmpp: The Slick XMPP Library
 # Copyright (C) 2011  Nathanael C. Fritz
 # This file is part of Slixmpp.
@@ -10,3 +9,5 @@ from slixmpp.features.feature_bind.stanza import Bind
 
 
 register_plugin(FeatureBind)
+
+__all__ = ['FeatureBind', 'Bind']

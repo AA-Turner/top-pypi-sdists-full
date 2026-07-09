@@ -22,12 +22,19 @@ from pyiqa.utils.registry import ARCH_REGISTRY
 from pyiqa.archs.arch_util import load_pretrained_network
 from pyiqa.archs.arch_util import get_url_from_name
 
+try:
+    from torchvision.models import ResNet34_Weights
+except ImportError:
+    ResNet34_Weights = None
+
 default_model_urls = {
     'mix': get_url_from_name('UNIQUE.pt'),
 }
 
 
 class Normalize(nn.Module):
+    """Channel-wise normalization module."""
+
     def __init__(self, mean, std):
         super(Normalize, self).__init__()
         self.mean = torch.Tensor(mean)
@@ -40,6 +47,8 @@ class Normalize(nn.Module):
 
 
 class BCNN(nn.Module):
+    """Bilinear CNN pooling block used in UNIQUE."""
+
     def __init__(self, thresh=1e-8, is_vec=True, input_dim=512):
         super(BCNN, self).__init__()
         self.thresh = thresh
@@ -71,17 +80,22 @@ class BCNN(nn.Module):
 
 @ARCH_REGISTRY.register()
 class UNIQUE(nn.Module):
-    """Full UNIQUE network.
-    Args:
-        - default_mean (list): Default mean value.
-        - default_std (list): Default std value.
+    """UNIQUE no-reference image quality model.
 
+    Args:
+        No runtime arguments. The model loads the default pretrained
+        ``'mix'`` checkpoint.
     """
 
     def __init__(self):
         super(UNIQUE, self).__init__()
 
-        self.backbone = torchvision.models.resnet34(pretrained=True)
+        if ResNet34_Weights is not None:
+            self.backbone = torchvision.models.resnet34(
+                weights=ResNet34_Weights.IMAGENET1K_V1
+            )
+        else:
+            self.backbone = torchvision.models.resnet34(pretrained=True)
         outdim = 2
         self.representation = BCNN()
         self.fc = nn.Linear(512 * 512, outdim)
@@ -93,13 +107,13 @@ class UNIQUE(nn.Module):
         load_pretrained_network(self, pretrained_model_path, True)
 
     def forward(self, x):
-        r"""Compute IQA using UNIQUE model.
+        r"""Predict quality score using UNIQUE.
 
         Args:
-            X: An input tensor with (N, C, H, W) shape. RGB channel order for colour images.
+            x (torch.Tensor): Input tensor with shape ``(N, 3, H, W)``.
 
         Returns:
-            Value of UNIQUE model.
+            torch.Tensor: Predicted mean quality score with shape ``(N,)``.
 
         """
         x = self.preprocess(x)

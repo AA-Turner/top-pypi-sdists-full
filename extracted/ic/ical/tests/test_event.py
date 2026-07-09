@@ -10,9 +10,13 @@ import zoneinfo
 import pytest
 from pydantic import ValidationError
 
+from ical.calendar import Calendar
+from ical.calendar_stream import IcsCalendarStream
 from ical.event import Event
 from ical.exceptions import CalendarParseError
 from ical.types.recur import Recur
+from ical.types import Period, Uri, Image, Conference
+from pathlib import Path
 
 SUMMARY = "test summary"
 LOS_ANGELES = zoneinfo.ZoneInfo("America/Los_Angeles")
@@ -303,7 +307,71 @@ def test_date_intersects(
     range2: tuple[date, date],
     expected: bool,
 ) -> None:
-    """Test event intersection."""
+    """Test event intersection with date-type start/end values."""
+    event1 = Event(summary=SUMMARY, start=range1[0], end=range1[1])
+    event2 = Event(summary=SUMMARY, start=range2[0], end=range2[1])
+    assert event1.intersects(event2) == expected
+
+
+@pytest.mark.parametrize(
+    "range1,range2,expected",
+    [
+        # Overlapping datetime events (UTC)
+        (
+            (
+                datetime(2022, 8, 1, 9, 0, tzinfo=timezone.utc),
+                datetime(2022, 8, 1, 10, 0, tzinfo=timezone.utc),
+            ),
+            (
+                datetime(2022, 8, 1, 9, 30, tzinfo=timezone.utc),
+                datetime(2022, 8, 1, 11, 0, tzinfo=timezone.utc),
+            ),
+            True,
+        ),
+        # Non-overlapping datetime events (UTC)
+        (
+            (
+                datetime(2022, 8, 1, 9, 0, tzinfo=timezone.utc),
+                datetime(2022, 8, 1, 10, 0, tzinfo=timezone.utc),
+            ),
+            (
+                datetime(2022, 8, 1, 11, 0, tzinfo=timezone.utc),
+                datetime(2022, 8, 1, 12, 0, tzinfo=timezone.utc),
+            ),
+            False,
+        ),
+        # Exact boundary — adjacent events do NOT intersect (half-open intervals)
+        (
+            (
+                datetime(2022, 8, 1, 9, 0, tzinfo=timezone.utc),
+                datetime(2022, 8, 1, 10, 0, tzinfo=timezone.utc),
+            ),
+            (
+                datetime(2022, 8, 1, 10, 0, tzinfo=timezone.utc),
+                datetime(2022, 8, 1, 11, 0, tzinfo=timezone.utc),
+            ),
+            False,
+        ),
+        # Cross-timezone: same instant, different tzinfo — should intersect
+        (
+            (
+                datetime(2022, 8, 1, 9, 0, tzinfo=timezone.utc),
+                datetime(2022, 8, 1, 10, 0, tzinfo=timezone.utc),
+            ),
+            (
+                datetime(2022, 8, 1, 2, 0, tzinfo=timezone(timedelta(hours=-7))),
+                datetime(2022, 8, 1, 3, 30, tzinfo=timezone(timedelta(hours=-7))),
+            ),
+            True,
+        ),
+    ],
+)
+def test_datetime_intersects(
+    range1: tuple[datetime, datetime],
+    range2: tuple[datetime, datetime],
+    expected: bool,
+) -> None:
+    """Test event intersection with datetime-type (aware) start/end values."""
     event1 = Event(summary=SUMMARY, start=range1[0], end=range1[1])
     event2 = Event(summary=SUMMARY, start=range2[0], end=range2[1])
     assert event1.intersects(event2) == expected
@@ -463,3 +531,123 @@ def test_validate_rrule_required_fields(params: dict[str, Any]) -> None:
     )
     with pytest.raises(CalendarParseError):
         event.as_rrule()
+
+
+def test_multiple_request_status() -> None:
+    """Test parsing an event with multiple REQUEST-STATUS properties."""
+    from ical.calendar_stream import CalendarStream
+
+    ics = """BEGIN:VCALENDAR
+PRODID:-//example//1.2.3
+VERSION:2.0
+BEGIN:VEVENT
+UID:event-id
+DTSTAMP:20220916T060000
+DTSTART:20220916T060000
+REQUEST-STATUS:2.0;Success
+REQUEST-STATUS:3.1;Invalid property value;DTSTART:96-Apr-01
+END:VEVENT
+END:VCALENDAR"""
+
+    calendar = CalendarStream.from_ics(ics)
+    assert len(calendar.calendars) == 1
+    assert len(calendar.calendars[0].events) == 1
+    event = calendar.calendars[0].events[0]
+    assert len(event.request_status) == 2
+    assert event.request_status[0].statcode == 2.0
+    assert event.request_status[0].statdesc == "Success"
+    assert event.request_status[1].statcode == 3.1
+    assert event.request_status[1].statdesc == "Invalid property value"
+    assert event.request_status[1].exdata == "DTSTART:96-Apr-01"
+
+    # Verify serialization
+    out_ics = calendar.ics()
+    assert "REQUEST-STATUS:2.0;Success" in out_ics
+    assert "REQUEST-STATUS:3.1;Invalid property value;DTSTART:96-Apr-01" in out_ics
+
+
+def test_event_recurrence_expansion_period() -> None:
+    """Test that event recurrence expansion uses the period's duration."""
+    event = Event(
+        summary="Test Event",
+        dtstart=datetime(2022, 8, 7, 9, 0, 0),
+        dtend=datetime(2022, 8, 7, 10, 0, 0),  # 1 hour default duration
+        rdate=[
+            # This instance should override duration to 2 hours
+            Period(
+                start=datetime(2022, 8, 8, 10, 0, 0),
+                end=datetime(2022, 8, 8, 12, 0, 0),
+            ),
+            # This instance should override duration to 3 hours
+            Period(
+                start=datetime(2022, 8, 9, 10, 0, 0),
+                duration=timedelta(hours=3),
+            ),
+            # Also support standard datetime RDATE (should use default 1 hour duration)
+            datetime(2022, 8, 10, 10, 0, 0),
+        ],
+    )
+
+    # Expand recurrence using timeline (does not include dtstart as there is no rrule)
+    calendar = Calendar(vevent=[event])
+    timeline = calendar.timeline
+    events = list(timeline)
+
+    assert len(events) == 3
+
+    # 1. Period instance with explicit end (2 hours)
+    assert events[0].dtstart == datetime(2022, 8, 8, 10, 0, 0)
+    assert events[0].dtend == datetime(2022, 8, 8, 12, 0, 0)
+
+    # 2. Period instance with duration (3 hours)
+    assert events[1].dtstart == datetime(2022, 8, 9, 10, 0, 0)
+    assert events[1].dtend == datetime(2022, 8, 9, 13, 0, 0)
+
+    # 3. Standard datetime instance (uses default 1 hour)
+    assert events[2].dtstart == datetime(2022, 8, 10, 10, 0, 0)
+    assert events[2].dtend == datetime(2022, 8, 10, 11, 0, 0)
+
+
+def test_rfc7986_event_properties() -> None:
+    """Test parsing and serialization of event-level RFC 7986 properties."""
+    ics_path = (
+        Path(__file__).parent / "parsing/testdata/valid/params_rfc7986_component.ics"
+    )
+
+    calendar = IcsCalendarStream.calendar_from_ics(ics_path.read_text())
+
+    assert len(calendar.events) == 1
+    event = calendar.events[0]
+    assert event.color == "blue"
+
+    assert len(event.image) == 2
+    assert event.image[0].uri == Uri("http://example.com/event.jpg")
+    assert event.image[0].display == "THUMBNAIL"
+    assert event.image[0].format_type == "image/jpeg"
+    assert event.image[1].uri == Uri("http://example.com/custom.jpg")
+    assert event.image[1].display == "x-custom-display"
+
+    assert len(event.conference) == 2
+    assert event.conference[0].uri == Uri("https://zoom.us/j/123456")
+    assert event.conference[0].feature == ["AUDIO", "VIDEO"]
+    assert event.conference[0].label == "Zoom Meeting"
+    assert event.conference[1].uri == Uri("https://custom-conf.com")
+    assert event.conference[1].feature == ["x-custom-feature"]
+
+    # Verify serialization
+    output_ics = IcsCalendarStream.calendar_to_ics(calendar)
+    assert "COLOR:blue" in output_ics
+    assert (
+        "IMAGE;DISPLAY=THUMBNAIL;FMTTYPE=image/jpeg:http://example.com/event.jpg"
+        in output_ics
+        or "IMAGE;FMTTYPE=image/jpeg;DISPLAY=THUMBNAIL:http://example.com/event.jpg"
+        in output_ics
+    )
+    assert "IMAGE;DISPLAY=x-custom-display:http://example.com/custom.jpg" in output_ics
+    assert (
+        "CONFERENCE;FEATURE=AUDIO,VIDEO;LABEL=Zoom Meeting:https://zoom.us/j/123456"
+        in output_ics
+        or "CONFERENCE;LABEL=Zoom Meeting;FEATURE=AUDIO,VIDEO:https://zoom.us/j/123456"
+        in output_ics
+    )
+    assert "CONFERENCE;FEATURE=x-custom-feature:https://custom-conf.com" in output_ics

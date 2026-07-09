@@ -13,7 +13,7 @@ import jsii
 import publication
 import typing_extensions
 
-from jsii._type_checking import check_type
+from jsii._type_checking import cached_type_hints, check_type
 
 
 from .._jsii import *
@@ -1163,7 +1163,7 @@ class ConstructLibraryCdktfOptions(_cdk_bb21cefa.ConstructLibraryOptions):
         if isinstance(catalog, dict):
             catalog = _cdk_bb21cefa.Catalog(**catalog)
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__bbf02af18148d47e66a6d0672a809602f782953da7a849545a808c276a58ff4d)
+            type_hints = cached_type_hints(_typecheckingstub__bbf02af18148d47e66a6d0672a809602f782953da7a849545a808c276a58ff4d)
             check_type(argname="argument name", value=name, expected_type=type_hints["name"])
             check_type(argname="argument commit_generated", value=commit_generated, expected_type=type_hints["commit_generated"])
             check_type(argname="argument git_ignore_options", value=git_ignore_options, expected_type=type_hints["git_ignore_options"])

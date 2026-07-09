@@ -20,9 +20,9 @@ options:
 """
 
 EXAMPLES = r"""
-- name: Sort a list of strings by version
+- name: Convert list of tuples into dictionary
   ansible.builtin.set_fact:
-    sorted_list: "{{ ['2.1', '2.10', '2.9'] | community.general.version_sort }}"
+    dictionary: "{{ ['2.1', '2.10', '2.9'] | community.general.version_sort }}"
     # Result is ['2.1', '2.9', '2.10']
 """
 

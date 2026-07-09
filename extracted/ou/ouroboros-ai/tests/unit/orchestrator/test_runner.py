@@ -19,6 +19,7 @@ from ouroboros.core.seed import (
     OntologySchema,
     Seed,
     SeedMetadata,
+    ac_texts,
 )
 from ouroboros.core.types import Result
 from ouroboros.core.worktree import TaskWorkspace
@@ -127,7 +128,7 @@ class TestBuildSystemPrompt:
         task_prompt = build_task_prompt(sample_seed)
 
         assert "## Acceptance Criteria" not in system_prompt
-        for criterion in sample_seed.acceptance_criteria:
+        for criterion in ac_texts(sample_seed.acceptance_criteria):
             assert criterion not in system_prompt
             assert criterion in task_prompt
 
@@ -575,6 +576,9 @@ class TestOrchestratorRunner:
             seed_id=sample_seed.metadata.seed_id,
             session_id="orch_prepared",
             seed_goal=sample_seed.goal,
+            # Backend is forwarded so the live dashboard can provider-tag the run.
+            runtime_backend=runner._adapter.runtime_backend,
+            llm_backend=runner._adapter.llm_backend,
         )
 
     @pytest.mark.asyncio

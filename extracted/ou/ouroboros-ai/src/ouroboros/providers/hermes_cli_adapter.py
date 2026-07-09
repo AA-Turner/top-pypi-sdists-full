@@ -12,6 +12,7 @@ import structlog
 
 from ouroboros.config import get_hermes_cli_path
 from ouroboros.core.errors import ProviderError
+from ouroboros.core.retry import is_transient_error
 from ouroboros.core.security import MAX_LLM_RESPONSE_LENGTH, InputValidator
 from ouroboros.core.types import Result
 from ouroboros.orchestrator.hermes_runtime import _parse_quiet_output
@@ -24,7 +25,7 @@ from ouroboros.providers.base import (
 )
 from ouroboros.providers.codex_cli_stream import terminate_process
 from ouroboros.providers.profiles import resolve_completion_profile_result
-from ouroboros.runtime.child_env import build_child_env
+from ouroboros.runtime.child_env import DEFAULT_OUROBOROS_STRIP_KEYS, build_child_env
 
 log = structlog.get_logger()
 
@@ -34,7 +35,7 @@ _SAFE_MODEL_NAME_PATTERN = re.compile(r"^[A-Za-z0-9_./:@-]+$")
 # Child-env strip set for Hermes.  Hermes does NOT strip CLAUDECODE (unlike
 # codex/copilot/kiro) — preserve that divergence; only the Ouroboros markers
 # are removed.
-_CHILD_ENV_STRIP_KEYS = ("OUROBOROS_AGENT_RUNTIME", "OUROBOROS_LLM_BACKEND")
+_CHILD_ENV_STRIP_KEYS = DEFAULT_OUROBOROS_STRIP_KEYS
 
 
 class HermesCliLLMAdapter:
@@ -116,8 +117,14 @@ class HermesCliLLMAdapter:
                 return result
 
             last_error = result.error
-            if attempt < self._max_retries - 1:
-                await asyncio.sleep(2**attempt)
+            # Retry only transient failures (429/529/overloaded/connection/
+            # timeout), reusing the shared providers/retry transient core the
+            # other CLI adapters classify against. A non-transient error (auth,
+            # not-found, empty response, non-transient exit) is terminal and is
+            # returned immediately instead of burning the retry budget.
+            if not is_transient_error(result.error.message) or attempt >= self._max_retries - 1:
+                return result
+            await asyncio.sleep(2**attempt)
 
         return Result.err(last_error or ProviderError(message="Max retries exceeded"))
 
@@ -168,6 +175,12 @@ class HermesCliLLMAdapter:
                     details={"timeout_seconds": self._timeout},
                 )
             )
+        except asyncio.CancelledError:
+            await terminate_process(
+                process,
+                shutdown_timeout=self._process_shutdown_timeout_seconds,
+            )
+            raise
 
         stdout_text = self._decode(stdout)
         stderr_text = self._decode(stderr)

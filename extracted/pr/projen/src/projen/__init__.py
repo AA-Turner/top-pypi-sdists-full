@@ -324,7 +324,7 @@ import jsii
 import publication
 import typing_extensions
 
-from jsii._type_checking import check_type
+from jsii._type_checking import cached_type_hints, check_type
 
 
 from ._jsii import *
@@ -415,7 +415,7 @@ class AiInstructionsOptions:
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__5bf7714efdf83cf2031e4ef3aa1d0cb9511cb921777751c76a0f501c0c56e247)
+            type_hints = cached_type_hints(_typecheckingstub__5bf7714efdf83cf2031e4ef3aa1d0cb9511cb921777751c76a0f501c0c56e247)
             check_type(argname="argument agents", value=agents, expected_type=type_hints["agents"])
             check_type(argname="argument agent_specific_instructions", value=agent_specific_instructions, expected_type=type_hints["agent_specific_instructions"])
             check_type(argname="argument include_default_instructions", value=include_default_instructions, expected_type=type_hints["include_default_instructions"])
@@ -526,7 +526,7 @@ class Component(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__e4ee40327ed6d04e3e377e300d915d402c50029248a86452fd19fd6372386d4b)
+            type_hints = cached_type_hints(_typecheckingstub__e4ee40327ed6d04e3e377e300d915d402c50029248a86452fd19fd6372386d4b)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         jsii.create(self.__class__, self, [scope, id])
@@ -541,7 +541,7 @@ class Component(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__0b9d0d027ed125bac76e8d566bfb14795a15c1055686082988040386c4bedd34)
+            type_hints = cached_type_hints(_typecheckingstub__0b9d0d027ed125bac76e8d566bfb14795a15c1055686082988040386c4bedd34)
             check_type(argname="argument x", value=x, expected_type=type_hints["x"])
         return typing.cast(builtins.bool, jsii.sinvoke(cls, "isComponent", [x]))
 
@@ -614,7 +614,7 @@ class CreateProjectOptions:
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__36b756505fc1a7b685751d86fb21738eff63b2be7bdec39ba7000083473d5336)
+            type_hints = cached_type_hints(_typecheckingstub__36b756505fc1a7b685751d86fb21738eff63b2be7bdec39ba7000083473d5336)
             check_type(argname="argument dir", value=dir, expected_type=type_hints["dir"])
             check_type(argname="argument project_fqn", value=project_fqn, expected_type=type_hints["project_fqn"])
             check_type(argname="argument project_options", value=project_options, expected_type=type_hints["project_options"])
@@ -740,7 +740,7 @@ class Dependencies(Component, metaclass=jsii.JSIIMeta, jsii_type="projen.Depende
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a21c75206d44a727988f2f61c5957c08fb9e7b6843dfc8d7e89642b17409e04b)
+            type_hints = cached_type_hints(_typecheckingstub__a21c75206d44a727988f2f61c5957c08fb9e7b6843dfc8d7e89642b17409e04b)
             check_type(argname="argument project", value=project, expected_type=type_hints["project"])
         jsii.create(self.__class__, self, [project])
 
@@ -757,7 +757,7 @@ class Dependencies(Component, metaclass=jsii.JSIIMeta, jsii_type="projen.Depende
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c8cbb5fe28335a2b7b5cb79b4fcdeca39e6f339dea939a6ad73b6a47b495bd1c)
+            type_hints = cached_type_hints(_typecheckingstub__c8cbb5fe28335a2b7b5cb79b4fcdeca39e6f339dea939a6ad73b6a47b495bd1c)
             check_type(argname="argument spec", value=spec, expected_type=type_hints["spec"])
         return typing.cast("DependencyCoordinates", jsii.sinvoke(cls, "parseDependency", [spec]))
 
@@ -777,7 +777,7 @@ class Dependencies(Component, metaclass=jsii.JSIIMeta, jsii_type="projen.Depende
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__9ee54ffac07e98cfaef250245a5920a70ff038b7635db44aaefe1c9ef634e49a)
+            type_hints = cached_type_hints(_typecheckingstub__9ee54ffac07e98cfaef250245a5920a70ff038b7635db44aaefe1c9ef634e49a)
             check_type(argname="argument spec", value=spec, expected_type=type_hints["spec"])
             check_type(argname="argument type", value=type, expected_type=type_hints["type"])
             check_type(argname="argument metadata", value=metadata, expected_type=type_hints["metadata"])
@@ -802,7 +802,7 @@ class Dependencies(Component, metaclass=jsii.JSIIMeta, jsii_type="projen.Depende
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__3683be12709967dd63dafbe536558d7717d255f3a86dfad1e17c19c9d9185beb)
+            type_hints = cached_type_hints(_typecheckingstub__3683be12709967dd63dafbe536558d7717d255f3a86dfad1e17c19c9d9185beb)
             check_type(argname="argument name", value=name, expected_type=type_hints["name"])
             check_type(argname="argument type", value=type, expected_type=type_hints["type"])
         return typing.cast("Dependency", jsii.invoke(self, "getDependency", [name, type]))
@@ -828,7 +828,7 @@ class Dependencies(Component, metaclass=jsii.JSIIMeta, jsii_type="projen.Depende
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__628e50591481575ad249671e7cf61edd1bb37d5aeab5e143a0783051e3167dcc)
+            type_hints = cached_type_hints(_typecheckingstub__628e50591481575ad249671e7cf61edd1bb37d5aeab5e143a0783051e3167dcc)
             check_type(argname="argument name", value=name, expected_type=type_hints["name"])
             check_type(argname="argument type", value=type, expected_type=type_hints["type"])
             check_type(argname="argument expected_range", value=expected_range, expected_type=type_hints["expected_range"])
@@ -848,7 +848,7 @@ class Dependencies(Component, metaclass=jsii.JSIIMeta, jsii_type="projen.Depende
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__4260bbdc4d6b4d5249dbb539f6f4fe1f865c069d0179abe451af2807f194bf7d)
+            type_hints = cached_type_hints(_typecheckingstub__4260bbdc4d6b4d5249dbb539f6f4fe1f865c069d0179abe451af2807f194bf7d)
             check_type(argname="argument name", value=name, expected_type=type_hints["name"])
             check_type(argname="argument type", value=type, expected_type=type_hints["type"])
         return typing.cast(None, jsii.invoke(self, "removeDependency", [name, type]))
@@ -906,7 +906,7 @@ class Dependencies(Component, metaclass=jsii.JSIIMeta, jsii_type="projen.Depende
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__0705dd461300a1275ac19f07b173cb3d54d5b40432a75919fe838b828c94f95d)
+            type_hints = cached_type_hints(_typecheckingstub__0705dd461300a1275ac19f07b173cb3d54d5b40432a75919fe838b828c94f95d)
             check_type(argname="argument name", value=name, expected_type=type_hints["name"])
             check_type(argname="argument type", value=type, expected_type=type_hints["type"])
         return typing.cast(typing.Optional["Dependency"], jsii.invoke(self, "tryGetDependency", [name, type]))
@@ -952,7 +952,7 @@ class DependencyCoordinates:
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c64ddd02bc83dba01b190c70805fc134d208559c5dbe1186f34a86af68e73c9b)
+            type_hints = cached_type_hints(_typecheckingstub__c64ddd02bc83dba01b190c70805fc134d208559c5dbe1186f34a86af68e73c9b)
             check_type(argname="argument name", value=name, expected_type=type_hints["name"])
             check_type(argname="argument version", value=version, expected_type=type_hints["version"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -1030,7 +1030,7 @@ class DependencyRequest:
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a412aa449199c9761c797d7f9812ae1089a1c280d3c13b1f2ca0c153eafa2b88)
+            type_hints = cached_type_hints(_typecheckingstub__a412aa449199c9761c797d7f9812ae1089a1c280d3c13b1f2ca0c153eafa2b88)
             check_type(argname="argument name", value=name, expected_type=type_hints["name"])
             check_type(argname="argument metadata", value=metadata, expected_type=type_hints["metadata"])
             check_type(argname="argument type", value=type, expected_type=type_hints["type"])
@@ -1173,7 +1173,7 @@ class DepsManifest:
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a77631e913a8f4e12310c9799410432f0abdd84b99d70b5d3f09a352ce9cec92)
+            type_hints = cached_type_hints(_typecheckingstub__a77631e913a8f4e12310c9799410432f0abdd84b99d70b5d3f09a352ce9cec92)
             check_type(argname="argument dependencies", value=dependencies, expected_type=type_hints["dependencies"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "dependencies": dependencies,
@@ -1224,7 +1224,7 @@ class DevEnvironmentDockerImage(
             '.gitpod.Docker'
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__7bb1f5fb6ea97ef53502fa2942dba716f3c8ed084859934f3db1146f80586fc7)
+            type_hints = cached_type_hints(_typecheckingstub__7bb1f5fb6ea97ef53502fa2942dba716f3c8ed084859934f3db1146f80586fc7)
             check_type(argname="argument docker_file", value=docker_file, expected_type=type_hints["docker_file"])
         return typing.cast("DevEnvironmentDockerImage", jsii.sinvoke(cls, "fromFile", [docker_file]))
 
@@ -1242,7 +1242,7 @@ class DevEnvironmentDockerImage(
             'ubuntu:latest'
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__e2f197cc85d2f9d6a23d36b30e6b45f48a7c8cdd6998dc4351ad40c3e98ed433)
+            type_hints = cached_type_hints(_typecheckingstub__e2f197cc85d2f9d6a23d36b30e6b45f48a7c8cdd6998dc4351ad40c3e98ed433)
             check_type(argname="argument image", value=image, expected_type=type_hints["image"])
         return typing.cast("DevEnvironmentDockerImage", jsii.sinvoke(cls, "fromImage", [image]))
 
@@ -1294,7 +1294,7 @@ class DevEnvironmentOptions:
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__11f9fbb0608ff35697f2bca0295d53e3ffdf0cc4e15602b3a9e57732048e372a)
+            type_hints = cached_type_hints(_typecheckingstub__11f9fbb0608ff35697f2bca0295d53e3ffdf0cc4e15602b3a9e57732048e372a)
             check_type(argname="argument docker_image", value=docker_image, expected_type=type_hints["docker_image"])
             check_type(argname="argument ports", value=ports, expected_type=type_hints["ports"])
             check_type(argname="argument tasks", value=tasks, expected_type=type_hints["tasks"])
@@ -1384,7 +1384,7 @@ class DockerCompose(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__befd8e58ddccbbc1a83afe6a4e464b7951ad377df97c7553777909a18eefec9a)
+            type_hints = cached_type_hints(_typecheckingstub__befd8e58ddccbbc1a83afe6a4e464b7951ad377df97c7553777909a18eefec9a)
             check_type(argname="argument project", value=project, expected_type=type_hints["project"])
         props = DockerComposeProps(
             name_suffix=name_suffix, schema_version=schema_version, services=services
@@ -1407,7 +1407,7 @@ class DockerCompose(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__fbde193e2934374214d86400f997cf06d47a8585dd93f52c3a476e5897c5f717)
+            type_hints = cached_type_hints(_typecheckingstub__fbde193e2934374214d86400f997cf06d47a8585dd93f52c3a476e5897c5f717)
             check_type(argname="argument source_path", value=source_path, expected_type=type_hints["source_path"])
             check_type(argname="argument target_path", value=target_path, expected_type=type_hints["target_path"])
         return typing.cast("IDockerComposeVolumeBinding", jsii.sinvoke(cls, "bindVolume", [source_path, target_path]))
@@ -1440,7 +1440,7 @@ class DockerCompose(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__aeaaa9c2706df5a20eae30c6213caaeaedacf3a08430db4d0fd38a0b299c47b6)
+            type_hints = cached_type_hints(_typecheckingstub__aeaaa9c2706df5a20eae30c6213caaeaedacf3a08430db4d0fd38a0b299c47b6)
             check_type(argname="argument volume_name", value=volume_name, expected_type=type_hints["volume_name"])
             check_type(argname="argument target_path", value=target_path, expected_type=type_hints["target_path"])
         options = DockerComposeVolumeConfig(
@@ -1487,7 +1487,7 @@ class DockerCompose(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__5e4d54561cac4572c9face67ceab438aae8d3bbe82eee002cc02eab5cc06adc6)
+            type_hints = cached_type_hints(_typecheckingstub__5e4d54561cac4572c9face67ceab438aae8d3bbe82eee002cc02eab5cc06adc6)
             check_type(argname="argument network_name", value=network_name, expected_type=type_hints["network_name"])
         options = DockerComposeNetworkConfig(
             attachable=attachable,
@@ -1522,7 +1522,7 @@ class DockerCompose(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__f28e8b1e411352eae906d43069127630bff58f30fb830fe48f618d5e1bb92561)
+            type_hints = cached_type_hints(_typecheckingstub__f28e8b1e411352eae906d43069127630bff58f30fb830fe48f618d5e1bb92561)
             check_type(argname="argument published_port", value=published_port, expected_type=type_hints["published_port"])
             check_type(argname="argument target_port", value=target_port, expected_type=type_hints["target_port"])
         options = DockerComposePortMappingOptions(protocol=protocol)
@@ -1539,7 +1539,7 @@ class DockerCompose(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__1b78d50eb49bb7a7dd6f729eb60da0db3c69b31e910843128de46ce542356481)
+            type_hints = cached_type_hints(_typecheckingstub__1b78d50eb49bb7a7dd6f729eb60da0db3c69b31e910843128de46ce542356481)
             check_type(argname="argument service_name", value=service_name, expected_type=type_hints["service_name"])
         return typing.cast("IDockerComposeServiceName", jsii.sinvoke(cls, "serviceName", [service_name]))
 
@@ -1580,7 +1580,7 @@ class DockerCompose(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a03cd3d199bdbdda7ab3d37e736cec1900b73411477c6a08c6efe431a50bc9b7)
+            type_hints = cached_type_hints(_typecheckingstub__a03cd3d199bdbdda7ab3d37e736cec1900b73411477c6a08c6efe431a50bc9b7)
             check_type(argname="argument service_name", value=service_name, expected_type=type_hints["service_name"])
         description = DockerComposeServiceDescription(
             command=command,
@@ -1631,7 +1631,7 @@ class DockerComposeBuild:
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__3ec1d86693bd77b64c91103900c6f20c2fda50c12b5d159089260e80ecd89534)
+            type_hints = cached_type_hints(_typecheckingstub__3ec1d86693bd77b64c91103900c6f20c2fda50c12b5d159089260e80ecd89534)
             check_type(argname="argument context", value=context, expected_type=type_hints["context"])
             check_type(argname="argument args", value=args, expected_type=type_hints["args"])
             check_type(argname="argument dockerfile", value=dockerfile, expected_type=type_hints["dockerfile"])
@@ -1736,7 +1736,7 @@ class DockerComposeNetworkConfig:
         if isinstance(ipam, dict):
             ipam = DockerComposeNetworkIpamConfig(**ipam)
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__6cbd18688d70c5aa20cd294c874f9ad54a013d605cfa3b06afe6935c7b8a0d1e)
+            type_hints = cached_type_hints(_typecheckingstub__6cbd18688d70c5aa20cd294c874f9ad54a013d605cfa3b06afe6935c7b8a0d1e)
             check_type(argname="argument attachable", value=attachable, expected_type=type_hints["attachable"])
             check_type(argname="argument bridge", value=bridge, expected_type=type_hints["bridge"])
             check_type(argname="argument driver", value=driver, expected_type=type_hints["driver"])
@@ -1913,7 +1913,7 @@ class DockerComposeNetworkIpamConfig:
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__62a79d28871602ad2e3a12572c9bdbe88a19a0cd4514aeea2aa5b801edfcc357)
+            type_hints = cached_type_hints(_typecheckingstub__62a79d28871602ad2e3a12572c9bdbe88a19a0cd4514aeea2aa5b801edfcc357)
             check_type(argname="argument config", value=config, expected_type=type_hints["config"])
             check_type(argname="argument driver", value=driver, expected_type=type_hints["driver"])
         self._values: typing.Dict[builtins.str, typing.Any] = {}
@@ -1972,7 +1972,7 @@ class DockerComposeNetworkIpamSubnetConfig:
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__3fbcd82d9063449e5df6ae96f9d244e4622a690f9aef8c482271440a89d10c2e)
+            type_hints = cached_type_hints(_typecheckingstub__3fbcd82d9063449e5df6ae96f9d244e4622a690f9aef8c482271440a89d10c2e)
             check_type(argname="argument subnet", value=subnet, expected_type=type_hints["subnet"])
         self._values: typing.Dict[builtins.str, typing.Any] = {}
         if subnet is not None:
@@ -2019,7 +2019,7 @@ class DockerComposePortMappingOptions:
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ecb9ce9a73b268348669bdc9854f34f198e98370c491dd80459bbcb5e10e1a9f)
+            type_hints = cached_type_hints(_typecheckingstub__ecb9ce9a73b268348669bdc9854f34f198e98370c491dd80459bbcb5e10e1a9f)
             check_type(argname="argument protocol", value=protocol, expected_type=type_hints["protocol"])
         self._values: typing.Dict[builtins.str, typing.Any] = {}
         if protocol is not None:
@@ -2074,7 +2074,7 @@ class DockerComposeProps:
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__04b3a9f497a8a34deecb2bf90e8650e81e98e0a4a6480a090f371e2d60385583)
+            type_hints = cached_type_hints(_typecheckingstub__04b3a9f497a8a34deecb2bf90e8650e81e98e0a4a6480a090f371e2d60385583)
             check_type(argname="argument name_suffix", value=name_suffix, expected_type=type_hints["name_suffix"])
             check_type(argname="argument schema_version", value=schema_version, expected_type=type_hints["schema_version"])
             check_type(argname="argument services", value=services, expected_type=type_hints["services"])
@@ -2214,7 +2214,7 @@ class DockerComposeServiceDescription:
         if isinstance(image_build, dict):
             image_build = DockerComposeBuild(**image_build)
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__7374d6018aac8e9a9098b7b003039b5286a79bcf032fc0db6de3b0c56f496889)
+            type_hints = cached_type_hints(_typecheckingstub__7374d6018aac8e9a9098b7b003039b5286a79bcf032fc0db6de3b0c56f496889)
             check_type(argname="argument command", value=command, expected_type=type_hints["command"])
             check_type(argname="argument depends_on", value=depends_on, expected_type=type_hints["depends_on"])
             check_type(argname="argument entrypoint", value=entrypoint, expected_type=type_hints["entrypoint"])
@@ -2428,7 +2428,7 @@ class DockerComposeServicePort:
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__79390f2bae006141612e4d3816151bd8cf6a9d2bb9d761dce7fbd344d4235193)
+            type_hints = cached_type_hints(_typecheckingstub__79390f2bae006141612e4d3816151bd8cf6a9d2bb9d761dce7fbd344d4235193)
             check_type(argname="argument mode", value=mode, expected_type=type_hints["mode"])
             check_type(argname="argument protocol", value=protocol, expected_type=type_hints["protocol"])
             check_type(argname="argument published", value=published, expected_type=type_hints["published"])
@@ -2521,7 +2521,7 @@ class DockerComposeVolumeConfig:
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__47648decff569ea19a9be75dee07ad2312da74920b6079ae0b293fedfcad0db3)
+            type_hints = cached_type_hints(_typecheckingstub__47648decff569ea19a9be75dee07ad2312da74920b6079ae0b293fedfcad0db3)
             check_type(argname="argument driver", value=driver, expected_type=type_hints["driver"])
             check_type(argname="argument driver_opts", value=driver_opts, expected_type=type_hints["driver_opts"])
             check_type(argname="argument external", value=external, expected_type=type_hints["external"])
@@ -2614,7 +2614,7 @@ class DockerComposeVolumeMount:
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__2a24a69b1370bfa662e08b21b5f9c5f6da2f1526d8bd7b111c9f8ada371108f2)
+            type_hints = cached_type_hints(_typecheckingstub__2a24a69b1370bfa662e08b21b5f9c5f6da2f1526d8bd7b111c9f8ada371108f2)
             check_type(argname="argument source", value=source, expected_type=type_hints["source"])
             check_type(argname="argument target", value=target, expected_type=type_hints["target"])
             check_type(argname="argument type", value=type, expected_type=type_hints["type"])
@@ -2727,7 +2727,7 @@ class FileBase(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__2cecf514142ea351ec43b0f632ba832e665a18f91b6e46531fd8bb688b82c1b0)
+            type_hints = cached_type_hints(_typecheckingstub__2cecf514142ea351ec43b0f632ba832e665a18f91b6e46531fd8bb688b82c1b0)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument file_path", value=file_path, expected_type=type_hints["file_path"])
         options = FileBaseOptions(
@@ -2766,7 +2766,7 @@ class FileBase(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__cb56dcd627047f022c69b2211a8243078cbfefa166a74a240019ac4da14c201e)
+            type_hints = cached_type_hints(_typecheckingstub__cb56dcd627047f022c69b2211a8243078cbfefa166a74a240019ac4da14c201e)
             check_type(argname="argument colorize", value=colorize, expected_type=type_hints["colorize"])
             check_type(argname="argument context_lines", value=context_lines, expected_type=type_hints["context_lines"])
         return typing.cast(typing.Optional[typing.List[builtins.str]], jsii.invoke(self, "diff", [colorize, context_lines]))
@@ -2858,7 +2858,7 @@ class FileBase(
     @executable.setter
     def executable(self, value: builtins.bool) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__3fed3e4c76496e254ef32ce4556e7e1b3b0cef6929de044486dda20248a06c4d)
+            type_hints = cached_type_hints(_typecheckingstub__3fed3e4c76496e254ef32ce4556e7e1b3b0cef6929de044486dda20248a06c4d)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "executable", value) # pyright: ignore[reportArgumentType]
 
@@ -2874,7 +2874,7 @@ class FileBase(
     @readonly.setter
     def readonly(self, value: builtins.bool) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c20fcd33148f053d9de2f2152439cc9f0687a0e328bf05cb8b38721095832ea5)
+            type_hints = cached_type_hints(_typecheckingstub__c20fcd33148f053d9de2f2152439cc9f0687a0e328bf05cb8b38721095832ea5)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "readonly", value) # pyright: ignore[reportArgumentType]
 
@@ -2894,7 +2894,7 @@ class _FileBaseProxy(FileBase):
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__1c33cd4fb527e2ef4af066a0254c78d4dd70bed7a8e8cab1f8ec80fb2981c8db)
+            type_hints = cached_type_hints(_typecheckingstub__1c33cd4fb527e2ef4af066a0254c78d4dd70bed7a8e8cab1f8ec80fb2981c8db)
             check_type(argname="argument resolver", value=resolver, expected_type=type_hints["resolver"])
         return typing.cast(typing.Optional[builtins.str], jsii.invoke(self, "synthesizeContent", [resolver]))
 
@@ -2933,7 +2933,7 @@ class FileBaseOptions:
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__177d8a347651b29224d730dd6e1bbec48e6dd46e5dcfd4d25e3798e6761d4c63)
+            type_hints = cached_type_hints(_typecheckingstub__177d8a347651b29224d730dd6e1bbec48e6dd46e5dcfd4d25e3798e6761d4c63)
             check_type(argname="argument committed", value=committed, expected_type=type_hints["committed"])
             check_type(argname="argument edit_gitignore", value=edit_gitignore, expected_type=type_hints["edit_gitignore"])
             check_type(argname="argument executable", value=executable, expected_type=type_hints["executable"])
@@ -3088,7 +3088,7 @@ class FutureComponent(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ad86f32c7267bd76592c55bd9533b001f9fac5fbe8a04e9f32da369e26132ea3)
+            type_hints = cached_type_hints(_typecheckingstub__ad86f32c7267bd76592c55bd9533b001f9fac5fbe8a04e9f32da369e26132ea3)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         return typing.cast("FutureComponent", jsii.invoke(self, "attach", [scope, id]))
@@ -3123,7 +3123,7 @@ class FutureComponent(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a51219ab42c3d7f48bc3572df60c0fbefb5d72c524987b0e6b86edf2f3000538)
+            type_hints = cached_type_hints(_typecheckingstub__a51219ab42c3d7f48bc3572df60c0fbefb5d72c524987b0e6b86edf2f3000538)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         return typing.cast("FutureComponent", jsii.invoke(self, "tryAttach", [scope, id]))
@@ -3172,7 +3172,7 @@ class GitAttributesFile(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a914753a9db7cc6bfa6a166cf7ee02794375210a09b1d8e2c62496abf14b4d21)
+            type_hints = cached_type_hints(_typecheckingstub__a914753a9db7cc6bfa6a166cf7ee02794375210a09b1d8e2c62496abf14b4d21)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
         options = GitAttributesFileOptions(end_of_line=end_of_line)
 
@@ -3188,7 +3188,7 @@ class GitAttributesFile(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__8cc1d5969ab32878c5548a9a17af7e781548f696676f62cee57518e7f5bf0a66)
+            type_hints = cached_type_hints(_typecheckingstub__8cc1d5969ab32878c5548a9a17af7e781548f696676f62cee57518e7f5bf0a66)
             check_type(argname="argument glob", value=glob, expected_type=type_hints["glob"])
             check_type(argname="argument attributes", value=attributes, expected_type=typing.Tuple[type_hints["attributes"], ...]) # pyright: ignore [reportGeneralTypeIssues]
         return typing.cast(None, jsii.invoke(self, "addAttributes", [glob, *attributes]))
@@ -3202,7 +3202,7 @@ class GitAttributesFile(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ed3c05c2bc87434261501604cb4ca8386e08b16567b40f693170ab90f635b1a7)
+            type_hints = cached_type_hints(_typecheckingstub__ed3c05c2bc87434261501604cb4ca8386e08b16567b40f693170ab90f635b1a7)
             check_type(argname="argument glob", value=glob, expected_type=type_hints["glob"])
         return typing.cast(None, jsii.invoke(self, "addLfsPattern", [glob]))
 
@@ -3226,7 +3226,7 @@ class GitAttributesFile(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__573b65747d3cd070f990730baa2e2b06016818d32122c7fbc2696b8513582a7d)
+            type_hints = cached_type_hints(_typecheckingstub__573b65747d3cd070f990730baa2e2b06016818d32122c7fbc2696b8513582a7d)
             check_type(argname="argument glob", value=glob, expected_type=type_hints["glob"])
             check_type(argname="argument attributes", value=attributes, expected_type=typing.Tuple[type_hints["attributes"], ...]) # pyright: ignore [reportGeneralTypeIssues]
         return typing.cast(None, jsii.invoke(self, "removeAttributes", [glob, *attributes]))
@@ -3240,7 +3240,7 @@ class GitAttributesFile(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__4d57ceb4d14bb3b3eac67478ac542d99ca5c6994286fdea034dacdf4b64fd14b)
+            type_hints = cached_type_hints(_typecheckingstub__4d57ceb4d14bb3b3eac67478ac542d99ca5c6994286fdea034dacdf4b64fd14b)
             check_type(argname="argument _", value=_, expected_type=type_hints["_"])
         return typing.cast(typing.Optional[builtins.str], jsii.invoke(self, "synthesizeContent", [_]))
 
@@ -3277,7 +3277,7 @@ class GitAttributesFileOptions:
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__82a54cc3274f754056a1301deb3e7902a7a31057da6ade20b64dae8487831db5)
+            type_hints = cached_type_hints(_typecheckingstub__82a54cc3274f754056a1301deb3e7902a7a31057da6ade20b64dae8487831db5)
             check_type(argname="argument end_of_line", value=end_of_line, expected_type=type_hints["end_of_line"])
         self._values: typing.Dict[builtins.str, typing.Any] = {}
         if end_of_line is not None:
@@ -3328,7 +3328,7 @@ class GitOptions:
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ee7f1b3b819a95ebdb112752cdc122d5362da95c419decd69ec24018f344bace)
+            type_hints = cached_type_hints(_typecheckingstub__ee7f1b3b819a95ebdb112752cdc122d5362da95c419decd69ec24018f344bace)
             check_type(argname="argument end_of_line", value=end_of_line, expected_type=type_hints["end_of_line"])
             check_type(argname="argument lfs_patterns", value=lfs_patterns, expected_type=type_hints["lfs_patterns"])
         self._values: typing.Dict[builtins.str, typing.Any] = {}
@@ -3515,7 +3515,7 @@ class GitpodOptions(DevEnvironmentOptions):
         if isinstance(prebuilds, dict):
             prebuilds = GitpodPrebuilds(**prebuilds)
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__2b1a97c01ec9e70bdd9c3e5a8cfa72f551b923d5d9aded0885f9210b87e09f4b)
+            type_hints = cached_type_hints(_typecheckingstub__2b1a97c01ec9e70bdd9c3e5a8cfa72f551b923d5d9aded0885f9210b87e09f4b)
             check_type(argname="argument docker_image", value=docker_image, expected_type=type_hints["docker_image"])
             check_type(argname="argument ports", value=ports, expected_type=type_hints["ports"])
             check_type(argname="argument tasks", value=tasks, expected_type=type_hints["tasks"])
@@ -3614,7 +3614,7 @@ class GitpodPort:
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__540294b664aee1f54c7bdb211f5b8781649ae01dfd5e50f7003f34c0689caed2)
+            type_hints = cached_type_hints(_typecheckingstub__540294b664aee1f54c7bdb211f5b8781649ae01dfd5e50f7003f34c0689caed2)
             check_type(argname="argument on_open", value=on_open, expected_type=type_hints["on_open"])
             check_type(argname="argument port", value=port, expected_type=type_hints["port"])
             check_type(argname="argument visibility", value=visibility, expected_type=type_hints["visibility"])
@@ -3736,7 +3736,7 @@ class GitpodPrebuilds:
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__bfddb6f340c3ec20dde7739d66b44371874cbaaec9fdcfe18d77679879dcd633)
+            type_hints = cached_type_hints(_typecheckingstub__bfddb6f340c3ec20dde7739d66b44371874cbaaec9fdcfe18d77679879dcd633)
             check_type(argname="argument add_badge", value=add_badge, expected_type=type_hints["add_badge"])
             check_type(argname="argument add_check", value=add_check, expected_type=type_hints["add_check"])
             check_type(argname="argument add_comment", value=add_comment, expected_type=type_hints["add_comment"])
@@ -3907,7 +3907,7 @@ class GitpodTask:
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__e3d426769565bcc27ed394b810bb714ce1978791cfb7442339934c10d450d2ea)
+            type_hints = cached_type_hints(_typecheckingstub__e3d426769565bcc27ed394b810bb714ce1978791cfb7442339934c10d450d2ea)
             check_type(argname="argument command", value=command, expected_type=type_hints["command"])
             check_type(argname="argument before", value=before, expected_type=type_hints["before"])
             check_type(argname="argument init", value=init, expected_type=type_hints["init"])
@@ -4040,7 +4040,7 @@ class GroupRunnerOptions:
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a3547c7b706a8285f987ddb1847fd162ec961a77abbdd5059da647f1ac25f470)
+            type_hints = cached_type_hints(_typecheckingstub__a3547c7b706a8285f987ddb1847fd162ec961a77abbdd5059da647f1ac25f470)
             check_type(argname="argument group", value=group, expected_type=type_hints["group"])
             check_type(argname="argument labels", value=labels, expected_type=type_hints["labels"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -4115,7 +4115,7 @@ class _ICompareStringProxy:
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__63d4f6e150362668f5e26d2f58f8b0a32cff82cf2eb8cb736d2c4333d0b01d09)
+            type_hints = cached_type_hints(_typecheckingstub__63d4f6e150362668f5e26d2f58f8b0a32cff82cf2eb8cb736d2c4333d0b01d09)
             check_type(argname="argument a", value=a, expected_type=type_hints["a"])
             check_type(argname="argument b", value=b, expected_type=type_hints["b"])
         return typing.cast(jsii.Number, jsii.invoke(self, "compare", [a, b]))
@@ -4189,7 +4189,7 @@ class _IDevEnvironmentProxy:
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c2360e8cae8e57d0e5268d03b1ee0bcf2a5d56c20a3ca26e5369ddc34c43f0ff)
+            type_hints = cached_type_hints(_typecheckingstub__c2360e8cae8e57d0e5268d03b1ee0bcf2a5d56c20a3ca26e5369ddc34c43f0ff)
             check_type(argname="argument image", value=image, expected_type=type_hints["image"])
         return typing.cast(None, jsii.invoke(self, "addDockerImage", [image]))
 
@@ -4202,7 +4202,7 @@ class _IDevEnvironmentProxy:
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__045b7fd6b76288f0b95afa207abe899f8baf55cb8bbf6f5d5306b834adb6244e)
+            type_hints = cached_type_hints(_typecheckingstub__045b7fd6b76288f0b95afa207abe899f8baf55cb8bbf6f5d5306b834adb6244e)
             check_type(argname="argument ports", value=ports, expected_type=typing.Tuple[type_hints["ports"], ...]) # pyright: ignore [reportGeneralTypeIssues]
         return typing.cast(None, jsii.invoke(self, "addPorts", [*ports]))
 
@@ -4215,7 +4215,7 @@ class _IDevEnvironmentProxy:
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__0813a7f75b96f7af7cfae60ea14d64e5cb791fa66c8518a184cb1c4ff60850d6)
+            type_hints = cached_type_hints(_typecheckingstub__0813a7f75b96f7af7cfae60ea14d64e5cb791fa66c8518a184cb1c4ff60850d6)
             check_type(argname="argument tasks", value=tasks, expected_type=typing.Tuple[type_hints["tasks"], ...]) # pyright: ignore [reportGeneralTypeIssues]
         return typing.cast(None, jsii.invoke(self, "addTasks", [*tasks]))
 
@@ -4228,7 +4228,7 @@ class _IDevEnvironmentProxy:
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__782f22994379ab8e59a7f43c2c152f03c7007b57a33bc0e64d609ae60dcc3e6b)
+            type_hints = cached_type_hints(_typecheckingstub__782f22994379ab8e59a7f43c2c152f03c7007b57a33bc0e64d609ae60dcc3e6b)
             check_type(argname="argument extensions", value=extensions, expected_type=typing.Tuple[type_hints["extensions"], ...]) # pyright: ignore [reportGeneralTypeIssues]
         return typing.cast(None, jsii.invoke(self, "addVscodeExtensions", [*extensions]))
 
@@ -4275,7 +4275,7 @@ class _IDockerComposeNetworkBindingProxy:
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__dacadabdf1607bf647ddf49c98b96c3cf16b7b3d040c9b172601097c88063780)
+            type_hints = cached_type_hints(_typecheckingstub__dacadabdf1607bf647ddf49c98b96c3cf16b7b3d040c9b172601097c88063780)
             check_type(argname="argument network_config", value=network_config, expected_type=type_hints["network_config"])
         return typing.cast(builtins.str, jsii.invoke(self, "bind", [network_config]))
 
@@ -4366,7 +4366,7 @@ class _IDockerComposeNetworkConfigProxy:
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__31f2d0ced589fcb3b848c0452b8213c14d612654118bc3fabd4a9aacb71c2104)
+            type_hints = cached_type_hints(_typecheckingstub__31f2d0ced589fcb3b848c0452b8213c14d612654118bc3fabd4a9aacb71c2104)
             check_type(argname="argument network_name", value=network_name, expected_type=type_hints["network_name"])
         configuration = DockerComposeNetworkConfig(
             attachable=attachable,
@@ -4470,7 +4470,7 @@ class _IDockerComposeVolumeBindingProxy:
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__f8af3d4004c43777e3011a6152f90de4dca16d54781e5922335decd658cd9f63)
+            type_hints = cached_type_hints(_typecheckingstub__f8af3d4004c43777e3011a6152f90de4dca16d54781e5922335decd658cd9f63)
             check_type(argname="argument volume_config", value=volume_config, expected_type=type_hints["volume_config"])
         return typing.cast("DockerComposeVolumeMount", jsii.invoke(self, "bind", [volume_config]))
 
@@ -4537,7 +4537,7 @@ class _IDockerComposeVolumeConfigProxy:
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__8e90cd0baeb3ebbbc34ba2bb279b321337ba3f5a9a97871b5285980fa5ff8f8a)
+            type_hints = cached_type_hints(_typecheckingstub__8e90cd0baeb3ebbbc34ba2bb279b321337ba3f5a9a97871b5285980fa5ff8f8a)
             check_type(argname="argument volume_name", value=volume_name, expected_type=type_hints["volume_name"])
         configuration = DockerComposeVolumeConfig(
             driver=driver, driver_opts=driver_opts, external=external, name=name
@@ -4636,7 +4636,7 @@ class _IResolverProxy:
         :package: options Resolve options
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__02fe3f80ba2709a778dd1c7b2c05be66e2342a0284f2ddb2216485cc3fe83203)
+            type_hints = cached_type_hints(_typecheckingstub__02fe3f80ba2709a778dd1c7b2c05be66e2342a0284f2ddb2216485cc3fe83203)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         options = ResolveOptions(args=args, omit_empty=omit_empty)
 
@@ -4681,7 +4681,7 @@ class _IScriptRunnerProxy:
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__29ed02685a86ec4c0aecdbab09e52ebfd91b464740a3baccfe64a9bcbfcdd2e6)
+            type_hints = cached_type_hints(_typecheckingstub__29ed02685a86ec4c0aecdbab09e52ebfd91b464740a3baccfe64a9bcbfcdd2e6)
             check_type(argname="argument entrypoint", value=entrypoint, expected_type=type_hints["entrypoint"])
         return typing.cast("RunScriptConfig", jsii.invoke(self, "configFor", [entrypoint]))
 
@@ -4713,7 +4713,7 @@ class IgnoreFile(FileBase, metaclass=jsii.JSIIMeta, jsii_type="projen.IgnoreFile
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__b7b3d1a5dbba38c978da9c5c4f4aab9b9f4b93375021ee84f57a823093ef8c94)
+            type_hints = cached_type_hints(_typecheckingstub__b7b3d1a5dbba38c978da9c5c4f4aab9b9f4b93375021ee84f57a823093ef8c94)
             check_type(argname="argument project", value=project, expected_type=type_hints["project"])
             check_type(argname="argument file_path", value=file_path, expected_type=type_hints["file_path"])
         options = IgnoreFileOptions(
@@ -4740,7 +4740,7 @@ class IgnoreFile(FileBase, metaclass=jsii.JSIIMeta, jsii_type="projen.IgnoreFile
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__19b1c017f8ecb0e1f37e2212d87d1a1f29ebc301dd9acca79bee88038d4ef761)
+            type_hints = cached_type_hints(_typecheckingstub__19b1c017f8ecb0e1f37e2212d87d1a1f29ebc301dd9acca79bee88038d4ef761)
             check_type(argname="argument patterns", value=patterns, expected_type=typing.Tuple[type_hints["patterns"], ...]) # pyright: ignore [reportGeneralTypeIssues]
         return typing.cast(None, jsii.invoke(self, "addPatterns", [*patterns]))
 
@@ -4753,7 +4753,7 @@ class IgnoreFile(FileBase, metaclass=jsii.JSIIMeta, jsii_type="projen.IgnoreFile
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__8b410ec26b2ad71a13a61473568b66bc67bf1526bb5a2c5808dec083cbf6176b)
+            type_hints = cached_type_hints(_typecheckingstub__8b410ec26b2ad71a13a61473568b66bc67bf1526bb5a2c5808dec083cbf6176b)
             check_type(argname="argument patterns", value=patterns, expected_type=typing.Tuple[type_hints["patterns"], ...]) # pyright: ignore [reportGeneralTypeIssues]
         return typing.cast(None, jsii.invoke(self, "exclude", [*patterns]))
 
@@ -4766,7 +4766,7 @@ class IgnoreFile(FileBase, metaclass=jsii.JSIIMeta, jsii_type="projen.IgnoreFile
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__46f4e7958134162324e6e69409537fa18465875eba5b7deb29f1d004349e6e62)
+            type_hints = cached_type_hints(_typecheckingstub__46f4e7958134162324e6e69409537fa18465875eba5b7deb29f1d004349e6e62)
             check_type(argname="argument patterns", value=patterns, expected_type=typing.Tuple[type_hints["patterns"], ...]) # pyright: ignore [reportGeneralTypeIssues]
         return typing.cast(None, jsii.invoke(self, "include", [*patterns]))
 
@@ -4781,7 +4781,7 @@ class IgnoreFile(FileBase, metaclass=jsii.JSIIMeta, jsii_type="projen.IgnoreFile
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c51b5c0b61cdaa2626f46d818be442ab87c3c27477531c08d9cf19b782c8dce1)
+            type_hints = cached_type_hints(_typecheckingstub__c51b5c0b61cdaa2626f46d818be442ab87c3c27477531c08d9cf19b782c8dce1)
             check_type(argname="argument patterns", value=patterns, expected_type=typing.Tuple[type_hints["patterns"], ...]) # pyright: ignore [reportGeneralTypeIssues]
         return typing.cast(None, jsii.invoke(self, "removePatterns", [*patterns]))
 
@@ -4797,7 +4797,7 @@ class IgnoreFile(FileBase, metaclass=jsii.JSIIMeta, jsii_type="projen.IgnoreFile
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__853a0f02c9c0f2c598ef8ff7dc57847ef984a42d6d8420b86e11870eb0c92e2d)
+            type_hints = cached_type_hints(_typecheckingstub__853a0f02c9c0f2c598ef8ff7dc57847ef984a42d6d8420b86e11870eb0c92e2d)
             check_type(argname="argument resolver", value=resolver, expected_type=type_hints["resolver"])
         return typing.cast(typing.Optional[builtins.str], jsii.invoke(self, "synthesizeContent", [resolver]))
 
@@ -4843,7 +4843,7 @@ class IgnoreFileOptions:
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__7852fd5d8f0daa6070394e45fe4fcb7845e6838dc40a3e3475c057712f4209b9)
+            type_hints = cached_type_hints(_typecheckingstub__7852fd5d8f0daa6070394e45fe4fcb7845e6838dc40a3e3475c057712f4209b9)
             check_type(argname="argument filter_comment_lines", value=filter_comment_lines, expected_type=type_hints["filter_comment_lines"])
             check_type(argname="argument filter_empty_lines", value=filter_empty_lines, expected_type=type_hints["filter_empty_lines"])
             check_type(argname="argument ignore_patterns", value=ignore_patterns, expected_type=type_hints["ignore_patterns"])
@@ -4933,7 +4933,7 @@ class InitProject:
         if isinstance(type, dict):
             type = ProjectType(**type)
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__68e857a70558d977f23eac6a7f43184bde159ec35b45b301dd96f1d6b8649cee)
+            type_hints = cached_type_hints(_typecheckingstub__68e857a70558d977f23eac6a7f43184bde159ec35b45b301dd96f1d6b8649cee)
             check_type(argname="argument args", value=args, expected_type=type_hints["args"])
             check_type(argname="argument comments", value=comments, expected_type=type_hints["comments"])
             check_type(argname="argument fqn", value=fqn, expected_type=type_hints["fqn"])
@@ -5065,7 +5065,7 @@ class JsonPatch(metaclass=jsii.JSIIMeta, jsii_type="projen.JsonPatch"):
             JsonPatch.add('/biscuits/1', { "name": "Ginger Nut" })
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__2b26148dd49d145c4677c52d5151e359846fa4531669d51a3bda7fc9690796f4)
+            type_hints = cached_type_hints(_typecheckingstub__2b26148dd49d145c4677c52d5151e359846fa4531669d51a3bda7fc9690796f4)
             check_type(argname="argument path", value=path, expected_type=type_hints["path"])
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         return typing.cast("JsonPatch", jsii.sinvoke(cls, "add", [path, value]))
@@ -5083,7 +5083,7 @@ class JsonPatch(metaclass=jsii.JSIIMeta, jsii_type="projen.JsonPatch"):
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__687d6c08b41e458d121dbe119e3027eab184190021ccd1e7214fe36dc5ec3d0e)
+            type_hints = cached_type_hints(_typecheckingstub__687d6c08b41e458d121dbe119e3027eab184190021ccd1e7214fe36dc5ec3d0e)
             check_type(argname="argument document", value=document, expected_type=type_hints["document"])
             check_type(argname="argument ops", value=ops, expected_type=typing.Tuple[type_hints["ops"], ...]) # pyright: ignore [reportGeneralTypeIssues]
         return typing.cast(typing.Any, jsii.sinvoke(cls, "apply", [document, *ops]))
@@ -5106,7 +5106,7 @@ class JsonPatch(metaclass=jsii.JSIIMeta, jsii_type="projen.JsonPatch"):
             JsonPatch.copy('/biscuits/0', '/best_biscuit')
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__e382fed98c69b93f0f597e0b66813e26de9d104dbe3bbe734ef8b43fc6f6ef8e)
+            type_hints = cached_type_hints(_typecheckingstub__e382fed98c69b93f0f597e0b66813e26de9d104dbe3bbe734ef8b43fc6f6ef8e)
             check_type(argname="argument from_", value=from_, expected_type=type_hints["from_"])
             check_type(argname="argument path", value=path, expected_type=type_hints["path"])
         return typing.cast("JsonPatch", jsii.sinvoke(cls, "copy", [from_, path]))
@@ -5123,7 +5123,7 @@ class JsonPatch(metaclass=jsii.JSIIMeta, jsii_type="projen.JsonPatch"):
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__4681b9d716a24a6f5756f57d016e6a0933b4e756c34f3c611bb58e46658c08a1)
+            type_hints = cached_type_hints(_typecheckingstub__4681b9d716a24a6f5756f57d016e6a0933b4e756c34f3c611bb58e46658c08a1)
             check_type(argname="argument path", value=path, expected_type=type_hints["path"])
         return typing.cast(builtins.str, jsii.sinvoke(cls, "escapePath", [path]))
 
@@ -5144,7 +5144,7 @@ class JsonPatch(metaclass=jsii.JSIIMeta, jsii_type="projen.JsonPatch"):
             JsonPatch.move('/biscuits', '/cookies')
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__0a2e9da81715d26de45b5095bc71cb7c0b40808d8ac54980865598b8d6ba1f7b)
+            type_hints = cached_type_hints(_typecheckingstub__0a2e9da81715d26de45b5095bc71cb7c0b40808d8ac54980865598b8d6ba1f7b)
             check_type(argname="argument from_", value=from_, expected_type=type_hints["from_"])
             check_type(argname="argument path", value=path, expected_type=type_hints["path"])
         return typing.cast("JsonPatch", jsii.sinvoke(cls, "move", [from_, path]))
@@ -5163,7 +5163,7 @@ class JsonPatch(metaclass=jsii.JSIIMeta, jsii_type="projen.JsonPatch"):
             JsonPatch.remove('/biscuits/0')
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ab38d0d4724594f77c44941ab64081b36f9403cc791b13fff2eb1e1e4fe51d1d)
+            type_hints = cached_type_hints(_typecheckingstub__ab38d0d4724594f77c44941ab64081b36f9403cc791b13fff2eb1e1e4fe51d1d)
             check_type(argname="argument path", value=path, expected_type=type_hints["path"])
         return typing.cast("JsonPatch", jsii.sinvoke(cls, "remove", [path]))
 
@@ -5184,7 +5184,7 @@ class JsonPatch(metaclass=jsii.JSIIMeta, jsii_type="projen.JsonPatch"):
             JsonPatch.replace('/biscuits/0/name', 'Chocolate Digestive')
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__224b5820566457e2e1a5dc60523684f65c081c466561e141aa7a29c5d5058e75)
+            type_hints = cached_type_hints(_typecheckingstub__224b5820566457e2e1a5dc60523684f65c081c466561e141aa7a29c5d5058e75)
             check_type(argname="argument path", value=path, expected_type=type_hints["path"])
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         return typing.cast("JsonPatch", jsii.sinvoke(cls, "replace", [path, value]))
@@ -5213,7 +5213,7 @@ class JsonPatch(metaclass=jsii.JSIIMeta, jsii_type="projen.JsonPatch"):
             JsonPatch.test('/best_biscuit/name', 'Choco Leibniz')
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c71ec8f8f1e51ef857d2c433c05eee7cbf90512a0f5cc61e4a5e15606593e0a0)
+            type_hints = cached_type_hints(_typecheckingstub__c71ec8f8f1e51ef857d2c433c05eee7cbf90512a0f5cc61e4a5e15606593e0a0)
             check_type(argname="argument path", value=path, expected_type=type_hints["path"])
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
             check_type(argname="argument failure_behavior", value=failure_behavior, expected_type=type_hints["failure_behavior"])
@@ -5242,7 +5242,7 @@ class License(FileBase, metaclass=jsii.JSIIMeta, jsii_type="projen.License"):
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c9eddbcb68700e35e97b98e5d8b6b5711cc6e2ed4f4f8504c3a3b32c09e21bc0)
+            type_hints = cached_type_hints(_typecheckingstub__c9eddbcb68700e35e97b98e5d8b6b5711cc6e2ed4f4f8504c3a3b32c09e21bc0)
             check_type(argname="argument project", value=project, expected_type=type_hints["project"])
         options = LicenseOptions(
             spdx=spdx,
@@ -5261,7 +5261,7 @@ class License(FileBase, metaclass=jsii.JSIIMeta, jsii_type="projen.License"):
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__dfcc75bff8f37fa269835ada3b509dcfbadf621e3ed126a97c08a57ca6956a26)
+            type_hints = cached_type_hints(_typecheckingstub__dfcc75bff8f37fa269835ada3b509dcfbadf621e3ed126a97c08a57ca6956a26)
             check_type(argname="argument _", value=_, expected_type=type_hints["_"])
         return typing.cast(typing.Optional[builtins.str], jsii.invoke(self, "synthesizeContent", [_]))
 
@@ -5291,7 +5291,7 @@ class LicenseOptions:
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c95797870e2d83245ce98c839bcaed08b3f74660f792b7401f353e9a8a2cc2e5)
+            type_hints = cached_type_hints(_typecheckingstub__c95797870e2d83245ce98c839bcaed08b3f74660f792b7401f353e9a8a2cc2e5)
             check_type(argname="argument spdx", value=spdx, expected_type=type_hints["spdx"])
             check_type(argname="argument copyright_owner", value=copyright_owner, expected_type=type_hints["copyright_owner"])
             check_type(argname="argument copyright_period", value=copyright_period, expected_type=type_hints["copyright_period"])
@@ -5406,7 +5406,7 @@ class Logger(Component, metaclass=jsii.JSIIMeta, jsii_type="projen.Logger"):
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__033691822a7f7c14e8198bce92b0c93718acf9caa771f8fb20be2afdca76198e)
+            type_hints = cached_type_hints(_typecheckingstub__033691822a7f7c14e8198bce92b0c93718acf9caa771f8fb20be2afdca76198e)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
         options = LoggerOptions(level=level, use_prefix=use_prefix)
 
@@ -5421,7 +5421,7 @@ class Logger(Component, metaclass=jsii.JSIIMeta, jsii_type="projen.Logger"):
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__7c9ac41cbd780d7354df3485a4d09a580048a756adf7658209e132d613e93955)
+            type_hints = cached_type_hints(_typecheckingstub__7c9ac41cbd780d7354df3485a4d09a580048a756adf7658209e132d613e93955)
             check_type(argname="argument text", value=text, expected_type=typing.Tuple[type_hints["text"], ...]) # pyright: ignore [reportGeneralTypeIssues]
         return typing.cast(None, jsii.invoke(self, "debug", [*text]))
 
@@ -5434,7 +5434,7 @@ class Logger(Component, metaclass=jsii.JSIIMeta, jsii_type="projen.Logger"):
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__3ab04da100771530f2dcbe37016ca4fd167dcccd81efef96fa9247ea2fc074aa)
+            type_hints = cached_type_hints(_typecheckingstub__3ab04da100771530f2dcbe37016ca4fd167dcccd81efef96fa9247ea2fc074aa)
             check_type(argname="argument text", value=text, expected_type=typing.Tuple[type_hints["text"], ...]) # pyright: ignore [reportGeneralTypeIssues]
         return typing.cast(None, jsii.invoke(self, "error", [*text]))
 
@@ -5447,7 +5447,7 @@ class Logger(Component, metaclass=jsii.JSIIMeta, jsii_type="projen.Logger"):
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ee83fd3f4ec98a5796ffacb4d4a25bc4de1ab8f597892f06001ac8bc9005dbf5)
+            type_hints = cached_type_hints(_typecheckingstub__ee83fd3f4ec98a5796ffacb4d4a25bc4de1ab8f597892f06001ac8bc9005dbf5)
             check_type(argname="argument text", value=text, expected_type=typing.Tuple[type_hints["text"], ...]) # pyright: ignore [reportGeneralTypeIssues]
         return typing.cast(None, jsii.invoke(self, "info", [*text]))
 
@@ -5464,7 +5464,7 @@ class Logger(Component, metaclass=jsii.JSIIMeta, jsii_type="projen.Logger"):
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__b3de9de18851453b814b6d4aa139849633e68925ada8b935856e8d2779645c4e)
+            type_hints = cached_type_hints(_typecheckingstub__b3de9de18851453b814b6d4aa139849633e68925ada8b935856e8d2779645c4e)
             check_type(argname="argument level", value=level, expected_type=type_hints["level"])
             check_type(argname="argument text", value=text, expected_type=typing.Tuple[type_hints["text"], ...]) # pyright: ignore [reportGeneralTypeIssues]
         return typing.cast(None, jsii.invoke(self, "log", [level, *text]))
@@ -5478,7 +5478,7 @@ class Logger(Component, metaclass=jsii.JSIIMeta, jsii_type="projen.Logger"):
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__06099b369c462f751aad45c6281b342f061e97a9c63b50dde917bbe345b00f86)
+            type_hints = cached_type_hints(_typecheckingstub__06099b369c462f751aad45c6281b342f061e97a9c63b50dde917bbe345b00f86)
             check_type(argname="argument text", value=text, expected_type=typing.Tuple[type_hints["text"], ...]) # pyright: ignore [reportGeneralTypeIssues]
         return typing.cast(None, jsii.invoke(self, "verbose", [*text]))
 
@@ -5491,7 +5491,7 @@ class Logger(Component, metaclass=jsii.JSIIMeta, jsii_type="projen.Logger"):
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__833d0f154731bea17dd1954f73c4261d00a48c89b4d8310e383a5320fc447d33)
+            type_hints = cached_type_hints(_typecheckingstub__833d0f154731bea17dd1954f73c4261d00a48c89b4d8310e383a5320fc447d33)
             check_type(argname="argument text", value=text, expected_type=typing.Tuple[type_hints["text"], ...]) # pyright: ignore [reportGeneralTypeIssues]
         return typing.cast(None, jsii.invoke(self, "warn", [*text]))
 
@@ -5516,7 +5516,7 @@ class LoggerOptions:
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c7e039718de6580cbf9df271987ee9856640dfc3fbfffb9a8dd894f3c3836384)
+            type_hints = cached_type_hints(_typecheckingstub__c7e039718de6580cbf9df271987ee9856640dfc3fbfffb9a8dd894f3c3836384)
             check_type(argname="argument level", value=level, expected_type=type_hints["level"])
             check_type(argname="argument use_prefix", value=use_prefix, expected_type=type_hints["use_prefix"])
         self._values: typing.Dict[builtins.str, typing.Any] = {}
@@ -5595,7 +5595,7 @@ class Makefile(FileBase, metaclass=jsii.JSIIMeta, jsii_type="projen.Makefile"):
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__b9d8810f927b1ecfbe0b204b373edfe8063aa41c3cc9b476e41d4c74edbf6640)
+            type_hints = cached_type_hints(_typecheckingstub__b9d8810f927b1ecfbe0b204b373edfe8063aa41c3cc9b476e41d4c74edbf6640)
             check_type(argname="argument project", value=project, expected_type=type_hints["project"])
             check_type(argname="argument file_path", value=file_path, expected_type=type_hints["file_path"])
         options = MakefileOptions(
@@ -5619,7 +5619,7 @@ class Makefile(FileBase, metaclass=jsii.JSIIMeta, jsii_type="projen.Makefile"):
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__af0f2a9f8d0fba8ba4b866f8fae25c27378c12bac9210a7561d3bbc58209e5d0)
+            type_hints = cached_type_hints(_typecheckingstub__af0f2a9f8d0fba8ba4b866f8fae25c27378c12bac9210a7561d3bbc58209e5d0)
             check_type(argname="argument target", value=target, expected_type=type_hints["target"])
         return typing.cast("Makefile", jsii.invoke(self, "addAll", [target]))
 
@@ -5632,7 +5632,7 @@ class Makefile(FileBase, metaclass=jsii.JSIIMeta, jsii_type="projen.Makefile"):
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__7e8dca5ea305db0fd9fce16ffe45b1955f7f315de1bc4856adeb92af8ece2de1)
+            type_hints = cached_type_hints(_typecheckingstub__7e8dca5ea305db0fd9fce16ffe45b1955f7f315de1bc4856adeb92af8ece2de1)
             check_type(argname="argument targets", value=targets, expected_type=typing.Tuple[type_hints["targets"], ...]) # pyright: ignore [reportGeneralTypeIssues]
         return typing.cast("Makefile", jsii.invoke(self, "addAlls", [*targets]))
 
@@ -5669,7 +5669,7 @@ class Makefile(FileBase, metaclass=jsii.JSIIMeta, jsii_type="projen.Makefile"):
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__697970c0228a6b747ebd5cf926e4e80e4ec842ca9a26b1dda7d6487e1d098c16)
+            type_hints = cached_type_hints(_typecheckingstub__697970c0228a6b747ebd5cf926e4e80e4ec842ca9a26b1dda7d6487e1d098c16)
             check_type(argname="argument rules", value=rules, expected_type=typing.Tuple[type_hints["rules"], ...]) # pyright: ignore [reportGeneralTypeIssues]
         return typing.cast("Makefile", jsii.invoke(self, "addRules", [*rules]))
 
@@ -5685,7 +5685,7 @@ class Makefile(FileBase, metaclass=jsii.JSIIMeta, jsii_type="projen.Makefile"):
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__12a3bfee1f24f1bc5e90733d58ecdf92315f7010947140287a5ec79b8a890121)
+            type_hints = cached_type_hints(_typecheckingstub__12a3bfee1f24f1bc5e90733d58ecdf92315f7010947140287a5ec79b8a890121)
             check_type(argname="argument resolver", value=resolver, expected_type=type_hints["resolver"])
         return typing.cast(typing.Optional[builtins.str], jsii.invoke(self, "synthesizeContent", [resolver]))
 
@@ -5737,7 +5737,7 @@ class MakefileOptions(FileBaseOptions):
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__e2336c6183b3596358b6ceeacc7aa7df515fe983a38b754407952b9b0e0d1985)
+            type_hints = cached_type_hints(_typecheckingstub__e2336c6183b3596358b6ceeacc7aa7df515fe983a38b754407952b9b0e0d1985)
             check_type(argname="argument committed", value=committed, expected_type=type_hints["committed"])
             check_type(argname="argument edit_gitignore", value=edit_gitignore, expected_type=type_hints["edit_gitignore"])
             check_type(argname="argument executable", value=executable, expected_type=type_hints["executable"])
@@ -5891,7 +5891,7 @@ class ObjectFile(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__0cc9aaaac91e385d130a0db14291a598781f43147b9af4a5fdc21398a4bb12e9)
+            type_hints = cached_type_hints(_typecheckingstub__0cc9aaaac91e385d130a0db14291a598781f43147b9af4a5fdc21398a4bb12e9)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument file_path", value=file_path, expected_type=type_hints["file_path"])
         options = ObjectFileOptions(
@@ -5915,7 +5915,7 @@ class ObjectFile(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a738f516b6642d1f5778bc860131390ad6f6d356c899ebcf8aee547c7d46a0e7)
+            type_hints = cached_type_hints(_typecheckingstub__a738f516b6642d1f5778bc860131390ad6f6d356c899ebcf8aee547c7d46a0e7)
             check_type(argname="argument path", value=path, expected_type=type_hints["path"])
         return typing.cast(None, jsii.invoke(self, "addDeletionOverride", [path]))
 
@@ -5954,7 +5954,7 @@ class ObjectFile(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__d0f433242148406c79a8d4d5b0d92a5860a905eff4ee62e43d6ba3e0ee996c9d)
+            type_hints = cached_type_hints(_typecheckingstub__d0f433242148406c79a8d4d5b0d92a5860a905eff4ee62e43d6ba3e0ee996c9d)
             check_type(argname="argument path", value=path, expected_type=type_hints["path"])
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         return typing.cast(None, jsii.invoke(self, "addOverride", [path, value]))
@@ -5999,7 +5999,7 @@ class ObjectFile(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__b59ab4508f11d1d06be04b3c05be32b4576eb8931fd493503e6f753de128a278)
+            type_hints = cached_type_hints(_typecheckingstub__b59ab4508f11d1d06be04b3c05be32b4576eb8931fd493503e6f753de128a278)
             check_type(argname="argument path", value=path, expected_type=type_hints["path"])
             check_type(argname="argument values", value=values, expected_type=typing.Tuple[type_hints["values"], ...]) # pyright: ignore [reportGeneralTypeIssues]
         return typing.cast(None, jsii.invoke(self, "addToArray", [path, *values]))
@@ -6036,7 +6036,7 @@ class ObjectFile(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__396760b16d710d570e49cc49d49b73651a49b2122c9872e6b542d85ad67ed154)
+            type_hints = cached_type_hints(_typecheckingstub__396760b16d710d570e49cc49d49b73651a49b2122c9872e6b542d85ad67ed154)
             check_type(argname="argument patches", value=patches, expected_type=typing.Tuple[type_hints["patches"], ...]) # pyright: ignore [reportGeneralTypeIssues]
         return typing.cast(None, jsii.invoke(self, "patch", [*patches]))
 
@@ -6052,7 +6052,7 @@ class ObjectFile(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__1daaba9b52cca530d5e7cb415223e62e8a1067329bc5c65b3a22bf46b5cacff1)
+            type_hints = cached_type_hints(_typecheckingstub__1daaba9b52cca530d5e7cb415223e62e8a1067329bc5c65b3a22bf46b5cacff1)
             check_type(argname="argument resolver", value=resolver, expected_type=type_hints["resolver"])
         return typing.cast(typing.Optional[builtins.str], jsii.invoke(self, "synthesizeContent", [resolver]))
 
@@ -6114,7 +6114,7 @@ class ObjectFileOptions(FileBaseOptions):
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__bc32648d019ed604ffeabb7df77055facd2d33215e7a019d7e057c323b9ea5ac)
+            type_hints = cached_type_hints(_typecheckingstub__bc32648d019ed604ffeabb7df77055facd2d33215e7a019d7e057c323b9ea5ac)
             check_type(argname="argument committed", value=committed, expected_type=type_hints["committed"])
             check_type(argname="argument edit_gitignore", value=edit_gitignore, expected_type=type_hints["edit_gitignore"])
             check_type(argname="argument executable", value=executable, expected_type=type_hints["executable"])
@@ -6310,7 +6310,7 @@ class Project(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__909c95926ec40519379f82a71f83357fca295fd1b4313bec2292dc36d9989698)
+            type_hints = cached_type_hints(_typecheckingstub__909c95926ec40519379f82a71f83357fca295fd1b4313bec2292dc36d9989698)
             check_type(argname="argument x", value=x, expected_type=type_hints["x"])
         return typing.cast(builtins.bool, jsii.sinvoke(cls, "isProject", [x]))
 
@@ -6327,7 +6327,7 @@ class Project(
         :throws: when no project is found in the path to the root
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__614179565fafc11a127479175cc34fe37ef37f3036c908e160bff2998ea1c8ff)
+            type_hints = cached_type_hints(_typecheckingstub__614179565fafc11a127479175cc34fe37ef37f3036c908e160bff2998ea1c8ff)
             check_type(argname="argument construct", value=construct, expected_type=type_hints["construct"])
         return typing.cast("Project", jsii.sinvoke(cls, "of", [construct]))
 
@@ -6343,7 +6343,7 @@ class Project(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__eb13bbeedf9b4ee7a607b6c974cc57d794730f428181b955df2f6f2fd8da018b)
+            type_hints = cached_type_hints(_typecheckingstub__eb13bbeedf9b4ee7a607b6c974cc57d794730f428181b955df2f6f2fd8da018b)
             check_type(argname="argument globs", value=globs, expected_type=typing.Tuple[type_hints["globs"], ...]) # pyright: ignore [reportGeneralTypeIssues]
         return typing.cast(None, jsii.invoke(self, "addExcludeFromCleanup", [*globs]))
 
@@ -6356,7 +6356,7 @@ class Project(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__57b195c9c927b524e6c6857987ca398e126176bec5cf796748b7c79133e223e9)
+            type_hints = cached_type_hints(_typecheckingstub__57b195c9c927b524e6c6857987ca398e126176bec5cf796748b7c79133e223e9)
             check_type(argname="argument pattern", value=pattern, expected_type=type_hints["pattern"])
         return typing.cast(None, jsii.invoke(self, "addGitIgnore", [pattern]))
 
@@ -6372,7 +6372,7 @@ class Project(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c52ded1bd91d1adb42d00140d53c0ea2dfad1f2fc05a340f71711dd214c97dbe)
+            type_hints = cached_type_hints(_typecheckingstub__c52ded1bd91d1adb42d00140d53c0ea2dfad1f2fc05a340f71711dd214c97dbe)
             check_type(argname="argument _pattern", value=_pattern, expected_type=type_hints["_pattern"])
         return typing.cast(None, jsii.invoke(self, "addPackageIgnore", [_pattern]))
 
@@ -6414,7 +6414,7 @@ class Project(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__deb7240461e3476c5778bf65eccdf771a733a6c994c9ab1093bf5302284f6e8d)
+            type_hints = cached_type_hints(_typecheckingstub__deb7240461e3476c5778bf65eccdf771a733a6c994c9ab1093bf5302284f6e8d)
             check_type(argname="argument name", value=name, expected_type=type_hints["name"])
         props = TaskOptions(
             args=args,
@@ -6445,7 +6445,7 @@ class Project(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__2a3f8f3de4a0f7089b9f05f29e319867a4481d3441eff34d4e9f3eab0130ec70)
+            type_hints = cached_type_hints(_typecheckingstub__2a3f8f3de4a0f7089b9f05f29e319867a4481d3441eff34d4e9f3eab0130ec70)
             check_type(argname="argument _glob", value=_glob, expected_type=type_hints["_glob"])
         return typing.cast(None, jsii.invoke(self, "annotateGenerated", [_glob]))
 
@@ -6478,7 +6478,7 @@ class Project(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__05d6e45e06d8088c7b6e78bb1612a5aa930413dbce990831664c1852b4b50625)
+            type_hints = cached_type_hints(_typecheckingstub__05d6e45e06d8088c7b6e78bb1612a5aa930413dbce990831664c1852b4b50625)
             check_type(argname="argument name", value=name, expected_type=type_hints["name"])
         return typing.cast(typing.Optional["Task"], jsii.invoke(self, "removeTask", [name]))
 
@@ -6493,7 +6493,7 @@ class Project(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__f76ed37c3dc6ee85f67899def229da9e34be0fa72867bb3effa9eb30602a6a72)
+            type_hints = cached_type_hints(_typecheckingstub__f76ed37c3dc6ee85f67899def229da9e34be0fa72867bb3effa9eb30602a6a72)
             check_type(argname="argument task", value=task, expected_type=type_hints["task"])
         return typing.cast(builtins.str, jsii.invoke(self, "runTaskCommand", [task]))
 
@@ -6523,7 +6523,7 @@ class Project(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__f70766139ef881860aaf10aeef6ebdb1465d98e99bad4472ae17e63f34c7fd4f)
+            type_hints = cached_type_hints(_typecheckingstub__f70766139ef881860aaf10aeef6ebdb1465d98e99bad4472ae17e63f34c7fd4f)
             check_type(argname="argument file_path", value=file_path, expected_type=type_hints["file_path"])
         return typing.cast(typing.Optional["FileBase"], jsii.invoke(self, "tryFindFile", [file_path]))
 
@@ -6539,7 +6539,7 @@ class Project(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__fbb95b1525dde337216151338c677538f9fef8920e8ec9c6f33444b7f936f545)
+            type_hints = cached_type_hints(_typecheckingstub__fbb95b1525dde337216151338c677538f9fef8920e8ec9c6f33444b7f936f545)
             check_type(argname="argument file_path", value=file_path, expected_type=type_hints["file_path"])
         return typing.cast(typing.Optional["ObjectFile"], jsii.invoke(self, "tryFindObjectFile", [file_path]))
 
@@ -6557,7 +6557,7 @@ class Project(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__16d37a5c5825b9b3d7ff7498ac7929ccb4efdb7a4d051b9f355807df9f244105)
+            type_hints = cached_type_hints(_typecheckingstub__16d37a5c5825b9b3d7ff7498ac7929ccb4efdb7a4d051b9f355807df9f244105)
             check_type(argname="argument file_path", value=file_path, expected_type=type_hints["file_path"])
         return typing.cast(typing.Optional["FileBase"], jsii.invoke(self, "tryRemoveFile", [file_path]))
 
@@ -6815,7 +6815,7 @@ class ProjectBuild(Component, metaclass=jsii.JSIIMeta, jsii_type="projen.Project
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__3bda3bf4e486437808f86825b7c514ecdc1487047c8a912a8ec695f6c7994008)
+            type_hints = cached_type_hints(_typecheckingstub__3bda3bf4e486437808f86825b7c514ecdc1487047c8a912a8ec695f6c7994008)
             check_type(argname="argument project", value=project, expected_type=type_hints["project"])
         jsii.create(self.__class__, self, [project])
 
@@ -6919,7 +6919,7 @@ class ProjectOption:
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__20624ca0374bd369906662881cd555d2551bd9812a2eb58c5fc317146efd2861)
+            type_hints = cached_type_hints(_typecheckingstub__20624ca0374bd369906662881cd555d2551bd9812a2eb58c5fc317146efd2861)
             check_type(argname="argument name", value=name, expected_type=type_hints["name"])
             check_type(argname="argument type", value=type, expected_type=type_hints["type"])
             check_type(argname="argument default", value=default, expected_type=type_hints["default"])
@@ -7100,7 +7100,7 @@ class ProjectOptions:
         if isinstance(renovatebot_options, dict):
             renovatebot_options = RenovatebotOptions(**renovatebot_options)
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__bef7d6448b98c56283c32249b27775d5b609a52bab9bec1934494e170ed4b829)
+            type_hints = cached_type_hints(_typecheckingstub__bef7d6448b98c56283c32249b27775d5b609a52bab9bec1934494e170ed4b829)
             check_type(argname="argument name", value=name, expected_type=type_hints["name"])
             check_type(argname="argument commit_generated", value=commit_generated, expected_type=type_hints["commit_generated"])
             check_type(argname="argument git_ignore_options", value=git_ignore_options, expected_type=type_hints["git_ignore_options"])
@@ -7320,7 +7320,7 @@ class ProjectTree(Component, metaclass=jsii.JSIIMeta, jsii_type="projen.ProjectT
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a5d641368026b1d886dc04897d3f5cd3c6f816493615fd3c987eaf69bd626aa1)
+            type_hints = cached_type_hints(_typecheckingstub__a5d641368026b1d886dc04897d3f5cd3c6f816493615fd3c987eaf69bd626aa1)
             check_type(argname="argument project", value=project, expected_type=type_hints["project"])
         jsii.create(self.__class__, self, [project])
 
@@ -7335,7 +7335,7 @@ class ProjectTree(Component, metaclass=jsii.JSIIMeta, jsii_type="projen.ProjectT
     @file.setter
     def file(self, value: "JsonFile") -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__dd1d331084783b1e11404a33c550a54f472b9e2d656ca02bdc7287828f96e2fb)
+            type_hints = cached_type_hints(_typecheckingstub__dd1d331084783b1e11404a33c550a54f472b9e2d656ca02bdc7287828f96e2fb)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "file", value) # pyright: ignore[reportArgumentType]
 
@@ -7377,7 +7377,7 @@ class ProjectType:
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__afc882431308538ccac3d804bf666b94cd63138423d6d13d1a56e210d3421fdd)
+            type_hints = cached_type_hints(_typecheckingstub__afc882431308538ccac3d804bf666b94cd63138423d6d13d1a56e210d3421fdd)
             check_type(argname="argument docsurl", value=docsurl, expected_type=type_hints["docsurl"])
             check_type(argname="argument fqn", value=fqn, expected_type=type_hints["fqn"])
             check_type(argname="argument module_name", value=module_name, expected_type=type_hints["module_name"])
@@ -7544,7 +7544,7 @@ class ProjenrcFile(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__eceaec699c352362ccbd6e243d30a2e6cb72fca16183fc6917e8140a42c29f57)
+            type_hints = cached_type_hints(_typecheckingstub__eceaec699c352362ccbd6e243d30a2e6cb72fca16183fc6917e8140a42c29f57)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
         jsii.create(self.__class__, self, [scope, id])
@@ -7561,7 +7561,7 @@ class ProjenrcFile(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__b6b101e9a16bb1d0770a9bdccfb59eaa94698a351261b5ec4e3d5265acaba298)
+            type_hints = cached_type_hints(_typecheckingstub__b6b101e9a16bb1d0770a9bdccfb59eaa94698a351261b5ec4e3d5265acaba298)
             check_type(argname="argument project", value=project, expected_type=type_hints["project"])
         return typing.cast(typing.Optional["ProjenrcFile"], jsii.sinvoke(cls, "of", [project]))
 
@@ -7621,7 +7621,7 @@ class ProjenrcJson(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__0f15d342ae05206d72b7818258b15e3fe0c8d8a752a91c55d215d8b0483dc139)
+            type_hints = cached_type_hints(_typecheckingstub__0f15d342ae05206d72b7818258b15e3fe0c8d8a752a91c55d215d8b0483dc139)
             check_type(argname="argument project", value=project, expected_type=type_hints["project"])
         options = ProjenrcJsonOptions(filename=filename)
 
@@ -7650,7 +7650,7 @@ class ProjenrcJsonOptions:
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__77a99955e971461d6a1a22bde13c0353d22c81866a29b67be950a0e26b50c76d)
+            type_hints = cached_type_hints(_typecheckingstub__77a99955e971461d6a1a22bde13c0353d22c81866a29b67be950a0e26b50c76d)
             check_type(argname="argument filename", value=filename, expected_type=type_hints["filename"])
         self._values: typing.Dict[builtins.str, typing.Any] = {}
         if filename is not None:
@@ -7704,7 +7704,7 @@ class ReleasableCommits(metaclass=jsii.JSIIMeta, jsii_type="projen.ReleasableCom
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__e1cb2a20764c493021a975dc66d097be2a86987ccece8a4e9aeb51464a695829)
+            type_hints = cached_type_hints(_typecheckingstub__e1cb2a20764c493021a975dc66d097be2a86987ccece8a4e9aeb51464a695829)
             check_type(argname="argument path", value=path, expected_type=type_hints["path"])
         return typing.cast("ReleasableCommits", jsii.sinvoke(cls, "everyCommit", [path]))
 
@@ -7726,7 +7726,7 @@ class ReleasableCommits(metaclass=jsii.JSIIMeta, jsii_type="projen.ReleasableCom
             "git log --oneline $LATEST_TAG..HEAD -- ."
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ae99067556dc4317fa46683f512786bc803178cc26b794688b734aad677d6ad5)
+            type_hints = cached_type_hints(_typecheckingstub__ae99067556dc4317fa46683f512786bc803178cc26b794688b734aad677d6ad5)
             check_type(argname="argument cmd", value=cmd, expected_type=type_hints["cmd"])
         return typing.cast("ReleasableCommits", jsii.sinvoke(cls, "exec", [cmd]))
 
@@ -7745,7 +7745,7 @@ class ReleasableCommits(metaclass=jsii.JSIIMeta, jsii_type="projen.ReleasableCom
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__6ed5698324356b7a6f65c5e830a0b241b450786bb6c44a17c68cd21fff2ec2ec)
+            type_hints = cached_type_hints(_typecheckingstub__6ed5698324356b7a6f65c5e830a0b241b450786bb6c44a17c68cd21fff2ec2ec)
             check_type(argname="argument path", value=path, expected_type=type_hints["path"])
         return typing.cast("ReleasableCommits", jsii.sinvoke(cls, "featuresAndFixes", [path]))
 
@@ -7767,7 +7767,7 @@ class ReleasableCommits(metaclass=jsii.JSIIMeta, jsii_type="projen.ReleasableCom
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a4efcc2d3340114e5856cdafe45dc717452519355cde39b8c2e63eab5217db1a)
+            type_hints = cached_type_hints(_typecheckingstub__a4efcc2d3340114e5856cdafe45dc717452519355cde39b8c2e63eab5217db1a)
             check_type(argname="argument types", value=types, expected_type=type_hints["types"])
             check_type(argname="argument path", value=path, expected_type=type_hints["path"])
         return typing.cast("ReleasableCommits", jsii.sinvoke(cls, "ofType", [types, path]))
@@ -7783,7 +7783,7 @@ class ReleasableCommits(metaclass=jsii.JSIIMeta, jsii_type="projen.ReleasableCom
     @cmd.setter
     def cmd(self, value: builtins.str) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__e1c46f6c8bc57788436baf6da521f9e5812106db6aa16bda9534549c8cbb078d)
+            type_hints = cached_type_hints(_typecheckingstub__e1c46f6c8bc57788436baf6da521f9e5812106db6aa16bda9534549c8cbb078d)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "cmd", value) # pyright: ignore[reportArgumentType]
 
@@ -7823,7 +7823,7 @@ class Renovatebot(Component, metaclass=jsii.JSIIMeta, jsii_type="projen.Renovate
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__096e7567a3344884436d387a9f887ed96b3691c6d8ad217be945ed3e697ca2cf)
+            type_hints = cached_type_hints(_typecheckingstub__096e7567a3344884436d387a9f887ed96b3691c6d8ad217be945ed3e697ca2cf)
             check_type(argname="argument project", value=project, expected_type=type_hints["project"])
         options = RenovatebotOptions(
             ignore=ignore,
@@ -7909,7 +7909,7 @@ class RenovatebotOptions:
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__567099b4941210c2f0eb5a6df45f4f8e145db210a75dd2f52fb480378619c263)
+            type_hints = cached_type_hints(_typecheckingstub__567099b4941210c2f0eb5a6df45f4f8e145db210a75dd2f52fb480378619c263)
             check_type(argname="argument ignore", value=ignore, expected_type=type_hints["ignore"])
             check_type(argname="argument ignore_projen", value=ignore_projen, expected_type=type_hints["ignore_projen"])
             check_type(argname="argument labels", value=labels, expected_type=type_hints["labels"])
@@ -8114,7 +8114,7 @@ class ResolveOptions:
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__5d4b97f8ab65df023c8b871bd346713f10c0be9a3c56164ff8daff235b29f110)
+            type_hints = cached_type_hints(_typecheckingstub__5d4b97f8ab65df023c8b871bd346713f10c0be9a3c56164ff8daff235b29f110)
             check_type(argname="argument args", value=args, expected_type=type_hints["args"])
             check_type(argname="argument omit_empty", value=omit_empty, expected_type=type_hints["omit_empty"])
         self._values: typing.Dict[builtins.str, typing.Any] = {}
@@ -8186,7 +8186,7 @@ class Rule:
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__960ffc3506d59d9b0342960ce1ae8b57e2e9b37cb7952b5c51fec42ee1db4e8d)
+            type_hints = cached_type_hints(_typecheckingstub__960ffc3506d59d9b0342960ce1ae8b57e2e9b37cb7952b5c51fec42ee1db4e8d)
             check_type(argname="argument targets", value=targets, expected_type=type_hints["targets"])
             check_type(argname="argument phony", value=phony, expected_type=type_hints["phony"])
             check_type(argname="argument prerequisites", value=prerequisites, expected_type=type_hints["prerequisites"])
@@ -8278,7 +8278,7 @@ class RunScriptConfig:
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__00200b24e5134222dec4d5e4a4647b1f7a52574d84741c2ec1039ec7d4d418b1)
+            type_hints = cached_type_hints(_typecheckingstub__00200b24e5134222dec4d5e4a4647b1f7a52574d84741c2ec1039ec7d4d418b1)
             check_type(argname="argument dependencies", value=dependencies, expected_type=type_hints["dependencies"])
             check_type(argname="argument steps", value=steps, expected_type=type_hints["steps"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -8344,7 +8344,7 @@ class SampleDir(Component, metaclass=jsii.JSIIMeta, jsii_type="projen.SampleDir"
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__b8efbed63e76d887e28111eeef32b09ef5633f3c345fcb30e0eb79de9bd55ffb)
+            type_hints = cached_type_hints(_typecheckingstub__b8efbed63e76d887e28111eeef32b09ef5633f3c345fcb30e0eb79de9bd55ffb)
             check_type(argname="argument project", value=project, expected_type=type_hints["project"])
             check_type(argname="argument dir", value=dir, expected_type=type_hints["dir"])
         options = SampleDirOptions(files=files, source_dir=source_dir)
@@ -8380,7 +8380,7 @@ class SampleDirOptions:
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__2420e1173ef03c68a422bbb8b53d09247201a8bd5ac9f6c245970ba305bf520d)
+            type_hints = cached_type_hints(_typecheckingstub__2420e1173ef03c68a422bbb8b53d09247201a8bd5ac9f6c245970ba305bf520d)
             check_type(argname="argument files", value=files, expected_type=type_hints["files"])
             check_type(argname="argument source_dir", value=source_dir, expected_type=type_hints["source_dir"])
         self._values: typing.Dict[builtins.str, typing.Any] = {}
@@ -8455,7 +8455,7 @@ class SampleFile(Component, metaclass=jsii.JSIIMeta, jsii_type="projen.SampleFil
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a38a2fea275113276771eaf46e063f6071707e4fb2f0de49701eed613022f428)
+            type_hints = cached_type_hints(_typecheckingstub__a38a2fea275113276771eaf46e063f6071707e4fb2f0de49701eed613022f428)
             check_type(argname="argument project", value=project, expected_type=type_hints["project"])
             check_type(argname="argument file_path", value=file_path, expected_type=type_hints["file_path"])
         options = SampleFileOptions(contents=contents, source_path=source_path)
@@ -8491,7 +8491,7 @@ class SampleFileOptions:
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__5983842fe223283a82b203e95c2a76bc065a8b8aa52dea3a7881cc3cdd6d6b77)
+            type_hints = cached_type_hints(_typecheckingstub__5983842fe223283a82b203e95c2a76bc065a8b8aa52dea3a7881cc3cdd6d6b77)
             check_type(argname="argument contents", value=contents, expected_type=type_hints["contents"])
             check_type(argname="argument source_path", value=source_path, expected_type=type_hints["source_path"])
         self._values: typing.Dict[builtins.str, typing.Any] = {}
@@ -8561,7 +8561,7 @@ class SampleReadme(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__d5b9334bb06e21e4e396e8da950bd8d70131a947f97c3cdf330b355dd060b814)
+            type_hints = cached_type_hints(_typecheckingstub__d5b9334bb06e21e4e396e8da950bd8d70131a947f97c3cdf330b355dd060b814)
             check_type(argname="argument project", value=project, expected_type=type_hints["project"])
         props = SampleReadmeProps(contents=contents, filename=filename)
 
@@ -8588,7 +8588,7 @@ class SampleReadmeProps:
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__77957e29d490dd06dbcef8d6f6f12b818295fcdd57ba6e23c2f47a789f6bd686)
+            type_hints = cached_type_hints(_typecheckingstub__77957e29d490dd06dbcef8d6f6f12b818295fcdd57ba6e23c2f47a789f6bd686)
             check_type(argname="argument contents", value=contents, expected_type=type_hints["contents"])
             check_type(argname="argument filename", value=filename, expected_type=type_hints["filename"])
         self._values: typing.Dict[builtins.str, typing.Any] = {}
@@ -8664,7 +8664,7 @@ class ScriptRunner(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__939fee1373e62abd235529796534cc847037961c79d7fb5ffa308bdc9ed7c6be)
+            type_hints = cached_type_hints(_typecheckingstub__939fee1373e62abd235529796534cc847037961c79d7fb5ffa308bdc9ed7c6be)
             check_type(argname="argument entrypoint", value=entrypoint, expected_type=type_hints["entrypoint"])
         return typing.cast("RunScriptConfig", jsii.invoke(self, "configFor", [entrypoint]))
 
@@ -8683,7 +8683,7 @@ class SnapshotOptions:
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__4033d52c0dc0e7955fb3f2d24e186e7b85bc74bcaf036fc11fbd959c943d9dba)
+            type_hints = cached_type_hints(_typecheckingstub__4033d52c0dc0e7955fb3f2d24e186e7b85bc74bcaf036fc11fbd959c943d9dba)
             check_type(argname="argument parse_json", value=parse_json, expected_type=type_hints["parse_json"])
         self._values: typing.Dict[builtins.str, typing.Any] = {}
         if parse_json is not None:
@@ -8737,7 +8737,7 @@ class SourceCode(Component, metaclass=jsii.JSIIMeta, jsii_type="projen.SourceCod
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__df8be88cd766883f8907162beaca5942a5ced596ef64437b757913e47b609893)
+            type_hints = cached_type_hints(_typecheckingstub__df8be88cd766883f8907162beaca5942a5ced596ef64437b757913e47b609893)
             check_type(argname="argument project", value=project, expected_type=type_hints["project"])
             check_type(argname="argument file_path", value=file_path, expected_type=type_hints["file_path"])
         options = SourceCodeOptions(
@@ -8755,7 +8755,7 @@ class SourceCode(Component, metaclass=jsii.JSIIMeta, jsii_type="projen.SourceCod
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__34003984aac9d3e3b9389175974e6c6b74f7d3d41d56ac43f84a68412f1cccaa)
+            type_hints = cached_type_hints(_typecheckingstub__34003984aac9d3e3b9389175974e6c6b74f7d3d41d56ac43f84a68412f1cccaa)
             check_type(argname="argument code", value=code, expected_type=type_hints["code"])
         return typing.cast(None, jsii.invoke(self, "close", [code]))
 
@@ -8768,7 +8768,7 @@ class SourceCode(Component, metaclass=jsii.JSIIMeta, jsii_type="projen.SourceCod
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__8562757d443bf862879e9dc7708fb5fa5d0f9c2d6ad2598ee2c3edeb96e7f616)
+            type_hints = cached_type_hints(_typecheckingstub__8562757d443bf862879e9dc7708fb5fa5d0f9c2d6ad2598ee2c3edeb96e7f616)
             check_type(argname="argument code", value=code, expected_type=type_hints["code"])
         return typing.cast(None, jsii.invoke(self, "line", [code]))
 
@@ -8781,7 +8781,7 @@ class SourceCode(Component, metaclass=jsii.JSIIMeta, jsii_type="projen.SourceCod
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__b1bc8a0529aa4ca39c77add345ebadba429d8974597a851741ec0cd4046f1a20)
+            type_hints = cached_type_hints(_typecheckingstub__b1bc8a0529aa4ca39c77add345ebadba429d8974597a851741ec0cd4046f1a20)
             check_type(argname="argument code", value=code, expected_type=type_hints["code"])
         return typing.cast(None, jsii.invoke(self, "open", [code]))
 
@@ -8828,7 +8828,7 @@ class SourceCodeOptions:
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__96c604ba47f53eeef393d736d7b829dae144b7a43fad8affb927e7859a46ac29)
+            type_hints = cached_type_hints(_typecheckingstub__96c604ba47f53eeef393d736d7b829dae144b7a43fad8affb927e7859a46ac29)
             check_type(argname="argument executable", value=executable, expected_type=type_hints["executable"])
             check_type(argname="argument indent", value=indent, expected_type=type_hints["indent"])
             check_type(argname="argument readonly", value=readonly, expected_type=type_hints["readonly"])
@@ -8927,7 +8927,7 @@ class Task(metaclass=jsii.JSIIMeta, jsii_type="projen.Task"):
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__679ed15034b92ce65671fe4889a8e0476b00d6023000c4f1035f69d18ac8760c)
+            type_hints = cached_type_hints(_typecheckingstub__679ed15034b92ce65671fe4889a8e0476b00d6023000c4f1035f69d18ac8760c)
             check_type(argname="argument name", value=name, expected_type=type_hints["name"])
         props = TaskOptions(
             args=args,
@@ -8957,7 +8957,7 @@ class Task(metaclass=jsii.JSIIMeta, jsii_type="projen.Task"):
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__248e4e99078602a3b8e376c73fa93425e082239549a245989641e2097a64972a)
+            type_hints = cached_type_hints(_typecheckingstub__248e4e99078602a3b8e376c73fa93425e082239549a245989641e2097a64972a)
             check_type(argname="argument condition", value=condition, expected_type=typing.Tuple[type_hints["condition"], ...]) # pyright: ignore [reportGeneralTypeIssues]
         return typing.cast(None, jsii.invoke(self, "addCondition", [*condition]))
 
@@ -8973,7 +8973,7 @@ class Task(metaclass=jsii.JSIIMeta, jsii_type="projen.Task"):
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__47c5d60780a8a42ac2a893e5679cd390fa2c0a227fae9400bc2daf7fa90cd33d)
+            type_hints = cached_type_hints(_typecheckingstub__47c5d60780a8a42ac2a893e5679cd390fa2c0a227fae9400bc2daf7fa90cd33d)
             check_type(argname="argument steps", value=steps, expected_type=typing.Tuple[type_hints["steps"], ...]) # pyright: ignore [reportGeneralTypeIssues]
         return typing.cast(None, jsii.invoke(self, "addSteps", [*steps]))
 
@@ -8991,7 +8991,7 @@ class Task(metaclass=jsii.JSIIMeta, jsii_type="projen.Task"):
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__de9dd10fb1b2c8242826790d7b14e14f641c34ec35695d12b425f283a93b972f)
+            type_hints = cached_type_hints(_typecheckingstub__de9dd10fb1b2c8242826790d7b14e14f641c34ec35695d12b425f283a93b972f)
             check_type(argname="argument name", value=name, expected_type=type_hints["name"])
         return typing.cast(None, jsii.invoke(self, "builtin", [name]))
 
@@ -9005,7 +9005,7 @@ class Task(metaclass=jsii.JSIIMeta, jsii_type="projen.Task"):
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__d1e0e7093de18a072e3935f8026bebc9b7916011f0d592178810d5f53451f027)
+            type_hints = cached_type_hints(_typecheckingstub__d1e0e7093de18a072e3935f8026bebc9b7916011f0d592178810d5f53451f027)
             check_type(argname="argument name", value=name, expected_type=type_hints["name"])
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         return typing.cast(None, jsii.invoke(self, "env", [name, value]))
@@ -9037,7 +9037,7 @@ class Task(metaclass=jsii.JSIIMeta, jsii_type="projen.Task"):
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__866645d9e72b430281a892f9aec648a8a4d11dfd83393ea8d1cf161c619f40ce)
+            type_hints = cached_type_hints(_typecheckingstub__866645d9e72b430281a892f9aec648a8a4d11dfd83393ea8d1cf161c619f40ce)
             check_type(argname="argument command", value=command, expected_type=type_hints["command"])
         options = TaskStepOptions(
             args=args,
@@ -9087,7 +9087,7 @@ class Task(metaclass=jsii.JSIIMeta, jsii_type="projen.Task"):
             task.execArgs(["echo", "hello world"]);
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__fe30f7880fa3e47be647ce494f9e089f1e51d8eb30c924a902fbd8db38a56a05)
+            type_hints = cached_type_hints(_typecheckingstub__fe30f7880fa3e47be647ce494f9e089f1e51d8eb30c924a902fbd8db38a56a05)
             check_type(argname="argument command", value=command, expected_type=type_hints["command"])
         options = TaskStepOptions(
             args=args,
@@ -9111,7 +9111,7 @@ class Task(metaclass=jsii.JSIIMeta, jsii_type="projen.Task"):
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__f45a21d1f9e615dd1b225d6cafbe381a43b42811d1d21efd5a3f6630613e94af)
+            type_hints = cached_type_hints(_typecheckingstub__f45a21d1f9e615dd1b225d6cafbe381a43b42811d1d21efd5a3f6630613e94af)
             check_type(argname="argument index", value=index, expected_type=type_hints["index"])
             check_type(argname="argument steps", value=steps, expected_type=typing.Tuple[type_hints["steps"], ...]) # pyright: ignore [reportGeneralTypeIssues]
         return typing.cast(None, jsii.invoke(self, "insertStep", [index, *steps]))
@@ -9151,7 +9151,7 @@ class Task(metaclass=jsii.JSIIMeta, jsii_type="projen.Task"):
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__6303cc71c3e6fb4aba7cadb07d20f36a327564e7e91f7baf72d0bb511b02f9d8)
+            type_hints = cached_type_hints(_typecheckingstub__6303cc71c3e6fb4aba7cadb07d20f36a327564e7e91f7baf72d0bb511b02f9d8)
             check_type(argname="argument command", value=command, expected_type=type_hints["command"])
         options = TaskStepOptions(
             args=args,
@@ -9192,7 +9192,7 @@ class Task(metaclass=jsii.JSIIMeta, jsii_type="projen.Task"):
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__83e687ef928f97e72aa2e81b8d6d9eb6d68cfdfb3063bfbd3f8c9e4ea8177cf5)
+            type_hints = cached_type_hints(_typecheckingstub__83e687ef928f97e72aa2e81b8d6d9eb6d68cfdfb3063bfbd3f8c9e4ea8177cf5)
             check_type(argname="argument message", value=message, expected_type=type_hints["message"])
         options = TaskStepOptions(
             args=args,
@@ -9233,7 +9233,7 @@ class Task(metaclass=jsii.JSIIMeta, jsii_type="projen.Task"):
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__80be0ec2af5c5b034b9ad26a372663b2dede8547b402f7501bd174f174db2d3a)
+            type_hints = cached_type_hints(_typecheckingstub__80be0ec2af5c5b034b9ad26a372663b2dede8547b402f7501bd174f174db2d3a)
             check_type(argname="argument subtask", value=subtask, expected_type=type_hints["subtask"])
         options = TaskStepOptions(
             args=args,
@@ -9256,7 +9256,7 @@ class Task(metaclass=jsii.JSIIMeta, jsii_type="projen.Task"):
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__2dbdd5fed2c667efe70f380a9ae60195cec494439a2aef8fbd7a7bc1a5c3d33b)
+            type_hints = cached_type_hints(_typecheckingstub__2dbdd5fed2c667efe70f380a9ae60195cec494439a2aef8fbd7a7bc1a5c3d33b)
             check_type(argname="argument steps", value=steps, expected_type=typing.Tuple[type_hints["steps"], ...]) # pyright: ignore [reportGeneralTypeIssues]
         return typing.cast(None, jsii.invoke(self, "prependSteps", [*steps]))
 
@@ -9268,7 +9268,7 @@ class Task(metaclass=jsii.JSIIMeta, jsii_type="projen.Task"):
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c493ae53dba9513da0ecb434448ff6e7d3050c90456d373f1135a865eedb69c3)
+            type_hints = cached_type_hints(_typecheckingstub__c493ae53dba9513da0ecb434448ff6e7d3050c90456d373f1135a865eedb69c3)
             check_type(argname="argument index", value=index, expected_type=type_hints["index"])
         return typing.cast(None, jsii.invoke(self, "removeStep", [index]))
 
@@ -9299,7 +9299,7 @@ class Task(metaclass=jsii.JSIIMeta, jsii_type="projen.Task"):
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__bec2ab04da022f328e54a5747cb659465473a80e61ea4b23af06f41a51eaf8a8)
+            type_hints = cached_type_hints(_typecheckingstub__bec2ab04da022f328e54a5747cb659465473a80e61ea4b23af06f41a51eaf8a8)
             check_type(argname="argument command", value=command, expected_type=type_hints["command"])
         options = TaskStepOptions(
             args=args,
@@ -9340,7 +9340,7 @@ class Task(metaclass=jsii.JSIIMeta, jsii_type="projen.Task"):
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__7da16e7abde21673795e791b1dc02e7b9c04503d828a84a24ad2e0950514f3d1)
+            type_hints = cached_type_hints(_typecheckingstub__7da16e7abde21673795e791b1dc02e7b9c04503d828a84a24ad2e0950514f3d1)
             check_type(argname="argument message", value=message, expected_type=type_hints["message"])
         options = TaskStepOptions(
             args=args,
@@ -9381,7 +9381,7 @@ class Task(metaclass=jsii.JSIIMeta, jsii_type="projen.Task"):
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__30afd72afdc7d9e0229d01ea2f502a330dca643bfa30b79876a78ec24110ee41)
+            type_hints = cached_type_hints(_typecheckingstub__30afd72afdc7d9e0229d01ea2f502a330dca643bfa30b79876a78ec24110ee41)
             check_type(argname="argument subtask", value=subtask, expected_type=type_hints["subtask"])
         options = TaskStepOptions(
             args=args,
@@ -9431,7 +9431,7 @@ class Task(metaclass=jsii.JSIIMeta, jsii_type="projen.Task"):
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__3e6471d9b24a42d1138efa839e893cd7685a703235152ad4f0c3aae00e2e12f8)
+            type_hints = cached_type_hints(_typecheckingstub__3e6471d9b24a42d1138efa839e893cd7685a703235152ad4f0c3aae00e2e12f8)
             check_type(argname="argument index", value=index, expected_type=type_hints["index"])
         step = TaskStep(
             args=args,
@@ -9503,7 +9503,7 @@ class Task(metaclass=jsii.JSIIMeta, jsii_type="projen.Task"):
     @cwd.setter
     def cwd(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__063f23ecf0aa952acdfe114ecbbc1ac116753acf58aa564cd47b3ea5fbd99ad8)
+            type_hints = cached_type_hints(_typecheckingstub__063f23ecf0aa952acdfe114ecbbc1ac116753acf58aa564cd47b3ea5fbd99ad8)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "cwd", value) # pyright: ignore[reportArgumentType]
 
@@ -9521,7 +9521,7 @@ class Task(metaclass=jsii.JSIIMeta, jsii_type="projen.Task"):
     @description.setter
     def description(self, value: typing.Optional[builtins.str]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__740ba1ef0d399dc76efb91309b9d1c8426213faa31da03d8c0abbc94a3d02e03)
+            type_hints = cached_type_hints(_typecheckingstub__740ba1ef0d399dc76efb91309b9d1c8426213faa31da03d8c0abbc94a3d02e03)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "description", value) # pyright: ignore[reportArgumentType]
 
@@ -9540,7 +9540,7 @@ class Task(metaclass=jsii.JSIIMeta, jsii_type="projen.Task"):
     @shell.setter
     def shell(self, value: typing.Optional["TaskShell"]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__989e797f6c50ea163019b02541994a1659760c08e6be54acbccddea75ddbce6b)
+            type_hints = cached_type_hints(_typecheckingstub__989e797f6c50ea163019b02541994a1659760c08e6be54acbccddea75ddbce6b)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "shell", value) # pyright: ignore[reportArgumentType]
 
@@ -9579,7 +9579,7 @@ class TaskCommonOptions:
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__0a7844bf7d22e8f640ebcc5ba4353115b05d556a850bb6d7fdde5513cba44120)
+            type_hints = cached_type_hints(_typecheckingstub__0a7844bf7d22e8f640ebcc5ba4353115b05d556a850bb6d7fdde5513cba44120)
             check_type(argname="argument condition", value=condition, expected_type=type_hints["condition"])
             check_type(argname="argument cwd", value=cwd, expected_type=type_hints["cwd"])
             check_type(argname="argument description", value=description, expected_type=type_hints["description"])
@@ -9731,7 +9731,7 @@ class TaskOptions(TaskCommonOptions):
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__4b67d140d8d3bc0d4265c1dc732e2e99b3a05600097a65f0baa8803715ced0be)
+            type_hints = cached_type_hints(_typecheckingstub__4b67d140d8d3bc0d4265c1dc732e2e99b3a05600097a65f0baa8803715ced0be)
             check_type(argname="argument condition", value=condition, expected_type=type_hints["condition"])
             check_type(argname="argument cwd", value=cwd, expected_type=type_hints["cwd"])
             check_type(argname="argument description", value=description, expected_type=type_hints["description"])
@@ -9960,7 +9960,7 @@ class TaskShell(metaclass=jsii.JSIIMeta, jsii_type="projen.TaskShell"):
             TaskShell.command(["npx", "-c"]);
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__3f467655030d516915da76372fa1a02fbe7883f0b1f4fe67bd8c53bd06ce8b06)
+            type_hints = cached_type_hints(_typecheckingstub__3f467655030d516915da76372fa1a02fbe7883f0b1f4fe67bd8c53bd06ce8b06)
             check_type(argname="argument command", value=command, expected_type=type_hints["command"])
         return typing.cast("TaskShell", jsii.sinvoke(cls, "command", [command]))
 
@@ -10043,7 +10043,7 @@ class TaskSpec:
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__284f616dbd3bd02d58106f246e9393ed2115e81d7707ebd8741034d2e9d7faa8)
+            type_hints = cached_type_hints(_typecheckingstub__284f616dbd3bd02d58106f246e9393ed2115e81d7707ebd8741034d2e9d7faa8)
             check_type(argname="argument name", value=name, expected_type=type_hints["name"])
             check_type(argname="argument condition", value=condition, expected_type=type_hints["condition"])
             check_type(argname="argument cwd", value=cwd, expected_type=type_hints["cwd"])
@@ -10233,7 +10233,7 @@ class TaskStep:
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__6e32d65dbc737f8fd131c5593ecf206bcf2a76757ddb7c5f42945d73058aaae1)
+            type_hints = cached_type_hints(_typecheckingstub__6e32d65dbc737f8fd131c5593ecf206bcf2a76757ddb7c5f42945d73058aaae1)
             check_type(argname="argument args", value=args, expected_type=type_hints["args"])
             check_type(argname="argument builtin", value=builtin, expected_type=type_hints["builtin"])
             check_type(argname="argument condition", value=condition, expected_type=type_hints["condition"])
@@ -10487,7 +10487,7 @@ class TaskStepOptions:
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__2eac93e499bd717527ab62b174c5bd1e157bf4043f5d771b6a289f39177d124a)
+            type_hints = cached_type_hints(_typecheckingstub__2eac93e499bd717527ab62b174c5bd1e157bf4043f5d771b6a289f39177d124a)
             check_type(argname="argument args", value=args, expected_type=type_hints["args"])
             check_type(argname="argument condition", value=condition, expected_type=type_hints["condition"])
             check_type(argname="argument cwd", value=cwd, expected_type=type_hints["cwd"])
@@ -10655,7 +10655,7 @@ class Tasks(Component, metaclass=jsii.JSIIMeta, jsii_type="projen.Tasks"):
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__495af8e4e99205093378c79e03b3c0d9920dc74f1087a97c18e344446ffd90f7)
+            type_hints = cached_type_hints(_typecheckingstub__495af8e4e99205093378c79e03b3c0d9920dc74f1087a97c18e344446ffd90f7)
             check_type(argname="argument project", value=project, expected_type=type_hints["project"])
         jsii.create(self.__class__, self, [project])
 
@@ -10669,7 +10669,7 @@ class Tasks(Component, metaclass=jsii.JSIIMeta, jsii_type="projen.Tasks"):
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__94c3e6aae839d7e262f9c707d296976e912fe4d334cc2f3ac081cdbc6f15db60)
+            type_hints = cached_type_hints(_typecheckingstub__94c3e6aae839d7e262f9c707d296976e912fe4d334cc2f3ac081cdbc6f15db60)
             check_type(argname="argument name", value=name, expected_type=type_hints["name"])
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         return typing.cast(None, jsii.invoke(self, "addEnvironment", [name, value]))
@@ -10709,7 +10709,7 @@ class Tasks(Component, metaclass=jsii.JSIIMeta, jsii_type="projen.Tasks"):
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__836b8399b5241179b18880b35ae533996a76c85a9b01d5c5c846aaef0e3a8d88)
+            type_hints = cached_type_hints(_typecheckingstub__836b8399b5241179b18880b35ae533996a76c85a9b01d5c5c846aaef0e3a8d88)
             check_type(argname="argument name", value=name, expected_type=type_hints["name"])
         options = TaskOptions(
             args=args,
@@ -10738,7 +10738,7 @@ class Tasks(Component, metaclass=jsii.JSIIMeta, jsii_type="projen.Tasks"):
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__6c96f29b4423e28b4b65e683fc7e07a1024953e3610bb284fa1a0a90b8c77c07)
+            type_hints = cached_type_hints(_typecheckingstub__6c96f29b4423e28b4b65e683fc7e07a1024953e3610bb284fa1a0a90b8c77c07)
             check_type(argname="argument name", value=name, expected_type=type_hints["name"])
         return typing.cast(typing.Optional["Task"], jsii.invoke(self, "removeTask", [name]))
 
@@ -10750,7 +10750,7 @@ class Tasks(Component, metaclass=jsii.JSIIMeta, jsii_type="projen.Tasks"):
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__6d89f9c18e161fdaa91f44df1e97af40e8a9831ed109d587ae4b187346cab346)
+            type_hints = cached_type_hints(_typecheckingstub__6d89f9c18e161fdaa91f44df1e97af40e8a9831ed109d587ae4b187346cab346)
             check_type(argname="argument resolver", value=resolver, expected_type=type_hints["resolver"])
         return typing.cast("TasksManifest", jsii.invoke(self, "resolveTasksManifest", [resolver]))
 
@@ -10768,7 +10768,7 @@ class Tasks(Component, metaclass=jsii.JSIIMeta, jsii_type="projen.Tasks"):
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c2811987738cd1e99bc7d61b8ab251e6bc7250e6d9044541d04c5c93d8822aef)
+            type_hints = cached_type_hints(_typecheckingstub__c2811987738cd1e99bc7d61b8ab251e6bc7250e6d9044541d04c5c93d8822aef)
             check_type(argname="argument name", value=name, expected_type=type_hints["name"])
             check_type(argname="argument args", value=args, expected_type=type_hints["args"])
         return typing.cast(None, jsii.invoke(self, "runTask", [name, args]))
@@ -10792,7 +10792,7 @@ class Tasks(Component, metaclass=jsii.JSIIMeta, jsii_type="projen.Tasks"):
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__3316a1d8c737096e24c835f4cd8318c12ed26e59edc6a48fa5de090d545d802e)
+            type_hints = cached_type_hints(_typecheckingstub__3316a1d8c737096e24c835f4cd8318c12ed26e59edc6a48fa5de090d545d802e)
             check_type(argname="argument name", value=name, expected_type=type_hints["name"])
         return typing.cast(typing.Optional["Task"], jsii.invoke(self, "tryFind", [name]))
 
@@ -10831,7 +10831,7 @@ class Tasks(Component, metaclass=jsii.JSIIMeta, jsii_type="projen.Tasks"):
     @shell.setter
     def shell(self, value: typing.Optional["TaskShell"]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__bb1be427ed62c07a9cac1abc0a8dd9f278b145f5630674d9b9db2dc55e5d651f)
+            type_hints = cached_type_hints(_typecheckingstub__bb1be427ed62c07a9cac1abc0a8dd9f278b145f5630674d9b9db2dc55e5d651f)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "shell", value) # pyright: ignore[reportArgumentType]
 
@@ -10865,7 +10865,7 @@ class TasksManifest:
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__0400d76981616b89be8abb0d5287b8580aa0798ae9b6433bfc19c9e589d6b1a5)
+            type_hints = cached_type_hints(_typecheckingstub__0400d76981616b89be8abb0d5287b8580aa0798ae9b6433bfc19c9e589d6b1a5)
             check_type(argname="argument env", value=env, expected_type=type_hints["env"])
             check_type(argname="argument manifest_version", value=manifest_version, expected_type=type_hints["manifest_version"])
             check_type(argname="argument shell", value=shell, expected_type=type_hints["shell"])
@@ -10982,7 +10982,7 @@ class Testing(metaclass=jsii.JSIIMeta, jsii_type="projen.Testing"):
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__184d7a8774ff332a32a14ae9703ca863b4f123b736abf438d6c5131c636fbeb1)
+            type_hints = cached_type_hints(_typecheckingstub__184d7a8774ff332a32a14ae9703ca863b4f123b736abf438d6c5131c636fbeb1)
             check_type(argname="argument project", value=project, expected_type=type_hints["project"])
         options = SnapshotOptions(parse_json=parse_json)
 
@@ -11021,7 +11021,7 @@ class TextFile(FileBase, metaclass=jsii.JSIIMeta, jsii_type="projen.TextFile"):
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__9476d9e99301eafe205e231c4756ac047dd331e4755928e2ec0362aea31d1e68)
+            type_hints = cached_type_hints(_typecheckingstub__9476d9e99301eafe205e231c4756ac047dd331e4755928e2ec0362aea31d1e68)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument file_path", value=file_path, expected_type=type_hints["file_path"])
         options = TextFileOptions(
@@ -11044,7 +11044,7 @@ class TextFile(FileBase, metaclass=jsii.JSIIMeta, jsii_type="projen.TextFile"):
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__2345f360405dc3baf9ce7fd3079f23bf8acae86b5a5e39993ac4de26eebbae03)
+            type_hints = cached_type_hints(_typecheckingstub__2345f360405dc3baf9ce7fd3079f23bf8acae86b5a5e39993ac4de26eebbae03)
             check_type(argname="argument line", value=line, expected_type=type_hints["line"])
         return typing.cast(None, jsii.invoke(self, "addLine", [line]))
 
@@ -11057,7 +11057,7 @@ class TextFile(FileBase, metaclass=jsii.JSIIMeta, jsii_type="projen.TextFile"):
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__433f7685b1ee13eacf88a0112f3c5ac027adfdd4a486841078298f619674abc8)
+            type_hints = cached_type_hints(_typecheckingstub__433f7685b1ee13eacf88a0112f3c5ac027adfdd4a486841078298f619674abc8)
             check_type(argname="argument _", value=_, expected_type=type_hints["_"])
         return typing.cast(typing.Optional[builtins.str], jsii.invoke(self, "synthesizeContent", [_]))
 
@@ -11097,7 +11097,7 @@ class TextFileOptions(FileBaseOptions):
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ba0f4dd58b9e223b379bf709c046d112cede147b9481878f22a671a9d7f79bfc)
+            type_hints = cached_type_hints(_typecheckingstub__ba0f4dd58b9e223b379bf709c046d112cede147b9481878f22a671a9d7f79bfc)
             check_type(argname="argument committed", value=committed, expected_type=type_hints["committed"])
             check_type(argname="argument edit_gitignore", value=edit_gitignore, expected_type=type_hints["edit_gitignore"])
             check_type(argname="argument executable", value=executable, expected_type=type_hints["executable"])
@@ -11235,7 +11235,7 @@ class TomlFile(ObjectFile, metaclass=jsii.JSIIMeta, jsii_type="projen.TomlFile")
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__de7c08620aabeb578ce8c0c54b1073a9df1f34c7815d8ae6fdebff7eb411c3d8)
+            type_hints = cached_type_hints(_typecheckingstub__de7c08620aabeb578ce8c0c54b1073a9df1f34c7815d8ae6fdebff7eb411c3d8)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument file_path", value=file_path, expected_type=type_hints["file_path"])
         options = TomlFileOptions(
@@ -11262,7 +11262,7 @@ class TomlFile(ObjectFile, metaclass=jsii.JSIIMeta, jsii_type="projen.TomlFile")
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__47ab5968ef36d3ff7f038abd17ae6a5bb7c16e94ed9dbcf023bba58b047f2f38)
+            type_hints = cached_type_hints(_typecheckingstub__47ab5968ef36d3ff7f038abd17ae6a5bb7c16e94ed9dbcf023bba58b047f2f38)
             check_type(argname="argument resolver", value=resolver, expected_type=type_hints["resolver"])
         return typing.cast(typing.Optional[builtins.str], jsii.invoke(self, "synthesizeContent", [resolver]))
 
@@ -11305,7 +11305,7 @@ class TomlFileOptions(ObjectFileOptions):
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__eab22f277a63768ddf4f6605743ad2816e10bd46ac73de98867b0f280f8eca01)
+            type_hints = cached_type_hints(_typecheckingstub__eab22f277a63768ddf4f6605743ad2816e10bd46ac73de98867b0f280f8eca01)
             check_type(argname="argument committed", value=committed, expected_type=type_hints["committed"])
             check_type(argname="argument edit_gitignore", value=edit_gitignore, expected_type=type_hints["edit_gitignore"])
             check_type(argname="argument executable", value=executable, expected_type=type_hints["executable"])
@@ -11459,7 +11459,7 @@ class Version(Component, metaclass=jsii.JSIIMeta, jsii_type="projen.Version"):
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__9cf64d1b29258435f8a7749178e947fcedd27d55f323782081a21714be909595)
+            type_hints = cached_type_hints(_typecheckingstub__9cf64d1b29258435f8a7749178e947fcedd27d55f323782081a21714be909595)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
         options = VersionOptions(
             artifacts_directory=artifacts_directory,
@@ -11596,7 +11596,7 @@ class VersionBranchOptions:
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__62987907aa24cc1b84e9b6e9b755bd286708fa4a219baa7b979fb3ea61401603)
+            type_hints = cached_type_hints(_typecheckingstub__62987907aa24cc1b84e9b6e9b755bd286708fa4a219baa7b979fb3ea61401603)
             check_type(argname="argument major_version", value=major_version, expected_type=type_hints["major_version"])
             check_type(argname="argument min_major_version", value=min_major_version, expected_type=type_hints["min_major_version"])
             check_type(argname="argument minor_version", value=minor_version, expected_type=type_hints["minor_version"])
@@ -11718,7 +11718,7 @@ class VersionOptions:
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__fb94d39bdc04d188bb2447acba8747de3d6ec275231c8a512d647916d69a54f5)
+            type_hints = cached_type_hints(_typecheckingstub__fb94d39bdc04d188bb2447acba8747de3d6ec275231c8a512d647916d69a54f5)
             check_type(argname="argument artifacts_directory", value=artifacts_directory, expected_type=type_hints["artifacts_directory"])
             check_type(argname="argument version_input_file", value=version_input_file, expected_type=type_hints["version_input_file"])
             check_type(argname="argument bump_package", value=bump_package, expected_type=type_hints["bump_package"])
@@ -11884,7 +11884,7 @@ class XmlFile(ObjectFile, metaclass=jsii.JSIIMeta, jsii_type="projen.XmlFile"):
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__6b5b690e903db052918d05a559c63588dd937691c1a431dfac231627b8e528e8)
+            type_hints = cached_type_hints(_typecheckingstub__6b5b690e903db052918d05a559c63588dd937691c1a431dfac231627b8e528e8)
             check_type(argname="argument project", value=project, expected_type=type_hints["project"])
             check_type(argname="argument file_path", value=file_path, expected_type=type_hints["file_path"])
         options = XmlFileOptions(
@@ -11911,7 +11911,7 @@ class XmlFile(ObjectFile, metaclass=jsii.JSIIMeta, jsii_type="projen.XmlFile"):
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__2692cc4c7fb6801f048a0fa351a11b924d2fc1bc8cbe476af5597cd65143cbd6)
+            type_hints = cached_type_hints(_typecheckingstub__2692cc4c7fb6801f048a0fa351a11b924d2fc1bc8cbe476af5597cd65143cbd6)
             check_type(argname="argument resolver", value=resolver, expected_type=type_hints["resolver"])
         return typing.cast(typing.Optional[builtins.str], jsii.invoke(self, "synthesizeContent", [resolver]))
 
@@ -11954,7 +11954,7 @@ class XmlFileOptions(ObjectFileOptions):
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ca47b496952cf7e3231ef829693ea86ffea84f642882cd1bff5b5dedd4c31175)
+            type_hints = cached_type_hints(_typecheckingstub__ca47b496952cf7e3231ef829693ea86ffea84f642882cd1bff5b5dedd4c31175)
             check_type(argname="argument committed", value=committed, expected_type=type_hints["committed"])
             check_type(argname="argument edit_gitignore", value=edit_gitignore, expected_type=type_hints["edit_gitignore"])
             check_type(argname="argument executable", value=executable, expected_type=type_hints["executable"])
@@ -12113,7 +12113,7 @@ class YamlFile(ObjectFile, metaclass=jsii.JSIIMeta, jsii_type="projen.YamlFile")
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__af86e1db34b2981edd2efebaba099732281c104959fb2bbb34db7c78208f5e26)
+            type_hints = cached_type_hints(_typecheckingstub__af86e1db34b2981edd2efebaba099732281c104959fb2bbb34db7c78208f5e26)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument file_path", value=file_path, expected_type=type_hints["file_path"])
         options = YamlFileOptions(
@@ -12141,7 +12141,7 @@ class YamlFile(ObjectFile, metaclass=jsii.JSIIMeta, jsii_type="projen.YamlFile")
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ed453f41109a767cb068d726b9448c3545059d1161f0785da668afdd21e36069)
+            type_hints = cached_type_hints(_typecheckingstub__ed453f41109a767cb068d726b9448c3545059d1161f0785da668afdd21e36069)
             check_type(argname="argument resolver", value=resolver, expected_type=type_hints["resolver"])
         return typing.cast(typing.Optional[builtins.str], jsii.invoke(self, "synthesizeContent", [resolver]))
 
@@ -12157,7 +12157,7 @@ class YamlFile(ObjectFile, metaclass=jsii.JSIIMeta, jsii_type="projen.YamlFile")
     @line_width.setter
     def line_width(self, value: jsii.Number) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__e48f409d84ffd5e2a23ba998b62ea6bdf1343878ddf6bbdba39669e9e45b8464)
+            type_hints = cached_type_hints(_typecheckingstub__e48f409d84ffd5e2a23ba998b62ea6bdf1343878ddf6bbdba39669e9e45b8464)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "lineWidth", value) # pyright: ignore[reportArgumentType]
 
@@ -12203,7 +12203,7 @@ class YamlFileOptions(ObjectFileOptions):
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ca9e5a70f67f8e3db454227249c58dd5464be1446a55fcf3be780621fded1638)
+            type_hints = cached_type_hints(_typecheckingstub__ca9e5a70f67f8e3db454227249c58dd5464be1446a55fcf3be780621fded1638)
             check_type(argname="argument committed", value=committed, expected_type=type_hints["committed"])
             check_type(argname="argument edit_gitignore", value=edit_gitignore, expected_type=type_hints["edit_gitignore"])
             check_type(argname="argument executable", value=executable, expected_type=type_hints["executable"])
@@ -12396,7 +12396,7 @@ class AiInstructions(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__6ade3e0209730c28511c6c65af7db0ef1d8f6d736618b1a95064af6bf4e829b8)
+            type_hints = cached_type_hints(_typecheckingstub__6ade3e0209730c28511c6c65af7db0ef1d8f6d736618b1a95064af6bf4e829b8)
             check_type(argname="argument project", value=project, expected_type=type_hints["project"])
         options = AiInstructionsOptions(
             agents=agents,
@@ -12417,7 +12417,7 @@ class AiInstructions(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__9b3a19a4e1f7d40bf00205a6394247af85d2428c672a0ecb7904470daaabda2f)
+            type_hints = cached_type_hints(_typecheckingstub__9b3a19a4e1f7d40bf00205a6394247af85d2428c672a0ecb7904470daaabda2f)
             check_type(argname="argument project", value=project, expected_type=type_hints["project"])
         return typing.cast(builtins.str, jsii.sinvoke(cls, "bestPractices", [project]))
 
@@ -12431,7 +12431,7 @@ class AiInstructions(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__065453e2727d00b362bd1cf1f58d194d6c355b2a9c2f575e92c43eb627f6eb89)
+            type_hints = cached_type_hints(_typecheckingstub__065453e2727d00b362bd1cf1f58d194d6c355b2a9c2f575e92c43eb627f6eb89)
             check_type(argname="argument project", value=project, expected_type=type_hints["project"])
         return typing.cast(builtins.str, jsii.sinvoke(cls, "projen", [project]))
 
@@ -12455,7 +12455,7 @@ class AiInstructions(
             aiInstructions.addAgentSpecificInstructions(AiAgent.GITHUB_COPILOT, "Use descriptive commit messages.");
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__9ff14bf0a463b0f887b122f5949af2eedda259c6426a05e006686653e81b8fc8)
+            type_hints = cached_type_hints(_typecheckingstub__9ff14bf0a463b0f887b122f5949af2eedda259c6426a05e006686653e81b8fc8)
             check_type(argname="argument agent", value=agent, expected_type=type_hints["agent"])
             check_type(argname="argument instructions", value=instructions, expected_type=typing.Tuple[type_hints["instructions"], ...]) # pyright: ignore [reportGeneralTypeIssues]
         return typing.cast(None, jsii.invoke(self, "addAgentSpecificInstructions", [agent, *instructions]))
@@ -12474,7 +12474,7 @@ class AiInstructions(
             aiInstructions.addInstructions("Prefer functional programming.", "Avoid mutations.");
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__da44882109eef43fd7d698b3f301b9241d695eb97a717ffa73265862f39698ba)
+            type_hints = cached_type_hints(_typecheckingstub__da44882109eef43fd7d698b3f301b9241d695eb97a717ffa73265862f39698ba)
             check_type(argname="argument instructions", value=instructions, expected_type=typing.Tuple[type_hints["instructions"], ...]) # pyright: ignore [reportGeneralTypeIssues]
         return typing.cast(None, jsii.invoke(self, "addInstructions", [*instructions]))
 
@@ -12511,7 +12511,7 @@ class AiInstructionsFile(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__4b11da88a3895fa642ead3d82823bc49f77ad84be5d7816af5a52334434c5c79)
+            type_hints = cached_type_hints(_typecheckingstub__4b11da88a3895fa642ead3d82823bc49f77ad84be5d7816af5a52334434c5c79)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument file_path", value=file_path, expected_type=type_hints["file_path"])
         options = FileBaseOptions(
@@ -12533,7 +12533,7 @@ class AiInstructionsFile(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__da3f715a19bd0c18e2cc2d3bda06afae637174acbe15ef75ef39bb7c26f0ff90)
+            type_hints = cached_type_hints(_typecheckingstub__da3f715a19bd0c18e2cc2d3bda06afae637174acbe15ef75ef39bb7c26f0ff90)
             check_type(argname="argument instructions", value=instructions, expected_type=typing.Tuple[type_hints["instructions"], ...]) # pyright: ignore [reportGeneralTypeIssues]
         return typing.cast(None, jsii.invoke(self, "addInstructions", [*instructions]))
 
@@ -12549,7 +12549,7 @@ class AiInstructionsFile(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__af1c3edb2730dd42712c19d9f2ebd48921303c4efd980f8910326afc111d82cc)
+            type_hints = cached_type_hints(_typecheckingstub__af1c3edb2730dd42712c19d9f2ebd48921303c4efd980f8910326afc111d82cc)
             check_type(argname="argument resolver", value=resolver, expected_type=type_hints["resolver"])
         return typing.cast(typing.Optional[builtins.str], jsii.invoke(self, "synthesizeContent", [resolver]))
 
@@ -12583,7 +12583,7 @@ class Dependency(DependencyCoordinates):
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__d3a39137d5e4f9c51c84e6a659a0e0d16c23ba1927ed8fe7f3f96ecd5d0110dc)
+            type_hints = cached_type_hints(_typecheckingstub__d3a39137d5e4f9c51c84e6a659a0e0d16c23ba1927ed8fe7f3f96ecd5d0110dc)
             check_type(argname="argument name", value=name, expected_type=type_hints["name"])
             check_type(argname="argument version", value=version, expected_type=type_hints["version"])
             check_type(argname="argument type", value=type, expected_type=type_hints["type"])
@@ -12699,7 +12699,7 @@ class DockerComposeService(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__30adb261bc3a7558152dddf9acb47c2b326de589312d32dcb84afc10909eaa49)
+            type_hints = cached_type_hints(_typecheckingstub__30adb261bc3a7558152dddf9acb47c2b326de589312d32dcb84afc10909eaa49)
             check_type(argname="argument service_name", value=service_name, expected_type=type_hints["service_name"])
         service_description = DockerComposeServiceDescription(
             command=command,
@@ -12727,7 +12727,7 @@ class DockerComposeService(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__93ff43023f997f5472eb87eb69dd00d7be9ea937c60e0ee2901649769a7058d2)
+            type_hints = cached_type_hints(_typecheckingstub__93ff43023f997f5472eb87eb69dd00d7be9ea937c60e0ee2901649769a7058d2)
             check_type(argname="argument service_name", value=service_name, expected_type=type_hints["service_name"])
         return typing.cast(None, jsii.invoke(self, "addDependsOn", [service_name]))
 
@@ -12741,7 +12741,7 @@ class DockerComposeService(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__f20e959d624b3b1127206bf0505435f464e2dd4b499a9de78ae5b62f3768de8b)
+            type_hints = cached_type_hints(_typecheckingstub__f20e959d624b3b1127206bf0505435f464e2dd4b499a9de78ae5b62f3768de8b)
             check_type(argname="argument name", value=name, expected_type=type_hints["name"])
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         return typing.cast(None, jsii.invoke(self, "addEnvironment", [name, value]))
@@ -12756,7 +12756,7 @@ class DockerComposeService(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c66ccd81821843eafa497e58cc72c82e90c73c8303d8b59878daf25c4e8e1b6f)
+            type_hints = cached_type_hints(_typecheckingstub__c66ccd81821843eafa497e58cc72c82e90c73c8303d8b59878daf25c4e8e1b6f)
             check_type(argname="argument name", value=name, expected_type=type_hints["name"])
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         return typing.cast(None, jsii.invoke(self, "addLabel", [name, value]))
@@ -12770,7 +12770,7 @@ class DockerComposeService(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__d86c0a8aae5342390c599726fd2da4ac1905227de386cc7023bd3614ed2f628b)
+            type_hints = cached_type_hints(_typecheckingstub__d86c0a8aae5342390c599726fd2da4ac1905227de386cc7023bd3614ed2f628b)
             check_type(argname="argument network", value=network, expected_type=type_hints["network"])
         return typing.cast(None, jsii.invoke(self, "addNetwork", [network]))
 
@@ -12791,7 +12791,7 @@ class DockerComposeService(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__28bd4f8327dce6303d35aa47ba8a52745ed9e16a768727fac813952ae557cdaf)
+            type_hints = cached_type_hints(_typecheckingstub__28bd4f8327dce6303d35aa47ba8a52745ed9e16a768727fac813952ae557cdaf)
             check_type(argname="argument published_port", value=published_port, expected_type=type_hints["published_port"])
             check_type(argname="argument target_port", value=target_port, expected_type=type_hints["target_port"])
         options = DockerComposePortMappingOptions(protocol=protocol)
@@ -12807,7 +12807,7 @@ class DockerComposeService(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c149f3c3feafe7a16b339d4f946067d127836eda10279b26447013ec075193ed)
+            type_hints = cached_type_hints(_typecheckingstub__c149f3c3feafe7a16b339d4f946067d127836eda10279b26447013ec075193ed)
             check_type(argname="argument volume", value=volume, expected_type=type_hints["volume"])
         return typing.cast(None, jsii.invoke(self, "addVolume", [volume]))
 
@@ -12957,7 +12957,7 @@ class Gitpod(Component, metaclass=jsii.JSIIMeta, jsii_type="projen.Gitpod"):
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__21675c9752472f446f36533458bc020deb11343e29b63f990c190823733a1404)
+            type_hints = cached_type_hints(_typecheckingstub__21675c9752472f446f36533458bc020deb11343e29b63f990c190823733a1404)
             check_type(argname="argument project", value=project, expected_type=type_hints["project"])
         options = GitpodOptions(
             prebuilds=prebuilds,
@@ -13017,7 +13017,7 @@ class Gitpod(Component, metaclass=jsii.JSIIMeta, jsii_type="projen.Gitpod"):
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__0520b94b222da42f222b062a87e711f81a8d888cb18100e42bc65273217eece2)
+            type_hints = cached_type_hints(_typecheckingstub__0520b94b222da42f222b062a87e711f81a8d888cb18100e42bc65273217eece2)
             check_type(argname="argument image", value=image, expected_type=type_hints["image"])
         return typing.cast(None, jsii.invoke(self, "addDockerImage", [image]))
 
@@ -13030,7 +13030,7 @@ class Gitpod(Component, metaclass=jsii.JSIIMeta, jsii_type="projen.Gitpod"):
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__aadcfbc0f5796128a0688c1a9c0ab6d4e709eae13487757a6c9e31ec724e6c9a)
+            type_hints = cached_type_hints(_typecheckingstub__aadcfbc0f5796128a0688c1a9c0ab6d4e709eae13487757a6c9e31ec724e6c9a)
             check_type(argname="argument ports", value=ports, expected_type=typing.Tuple[type_hints["ports"], ...]) # pyright: ignore [reportGeneralTypeIssues]
         return typing.cast(None, jsii.invoke(self, "addPorts", [*ports]))
 
@@ -13085,7 +13085,7 @@ class Gitpod(Component, metaclass=jsii.JSIIMeta, jsii_type="projen.Gitpod"):
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__13cdc6c6ab91811936f49718caa7fd070f6c4abe6f48169d00efc3c1b6ff40ff)
+            type_hints = cached_type_hints(_typecheckingstub__13cdc6c6ab91811936f49718caa7fd070f6c4abe6f48169d00efc3c1b6ff40ff)
             check_type(argname="argument tasks", value=tasks, expected_type=typing.Tuple[type_hints["tasks"], ...]) # pyright: ignore [reportGeneralTypeIssues]
         return typing.cast(None, jsii.invoke(self, "addTasks", [*tasks]))
 
@@ -13105,7 +13105,7 @@ class Gitpod(Component, metaclass=jsii.JSIIMeta, jsii_type="projen.Gitpod"):
             'scala-lang.scala@0.3.9:O5XmjwY5Gz+0oDZAmqneJw=='
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__665d383deec6069f2a514e6afdacc5d1a4416876d520c11c3318ca4c85f91cfb)
+            type_hints = cached_type_hints(_typecheckingstub__665d383deec6069f2a514e6afdacc5d1a4416876d520c11c3318ca4c85f91cfb)
             check_type(argname="argument extensions", value=extensions, expected_type=typing.Tuple[type_hints["extensions"], ...]) # pyright: ignore [reportGeneralTypeIssues]
         return typing.cast(None, jsii.invoke(self, "addVscodeExtensions", [*extensions]))
 
@@ -13152,7 +13152,7 @@ class IniFile(ObjectFile, metaclass=jsii.JSIIMeta, jsii_type="projen.IniFile"):
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__3cbd31798d0e0c9e35dbbc5085bcb67cd656717ccca79896838efc097963c5ea)
+            type_hints = cached_type_hints(_typecheckingstub__3cbd31798d0e0c9e35dbbc5085bcb67cd656717ccca79896838efc097963c5ea)
             check_type(argname="argument project", value=project, expected_type=type_hints["project"])
             check_type(argname="argument file_path", value=file_path, expected_type=type_hints["file_path"])
         options = IniFileOptions(
@@ -13179,7 +13179,7 @@ class IniFile(ObjectFile, metaclass=jsii.JSIIMeta, jsii_type="projen.IniFile"):
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__e9199eb11888c254ab59f6b5e5411b6921139de20f66c995fc90a33542e20693)
+            type_hints = cached_type_hints(_typecheckingstub__e9199eb11888c254ab59f6b5e5411b6921139de20f66c995fc90a33542e20693)
             check_type(argname="argument resolver", value=resolver, expected_type=type_hints["resolver"])
         return typing.cast(typing.Optional[builtins.str], jsii.invoke(self, "synthesizeContent", [resolver]))
 
@@ -13222,7 +13222,7 @@ class IniFileOptions(ObjectFileOptions):
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__6c292bd0cc5c248be03f2bad019458df0920a1b2f21b8d18cfb340489994ca61)
+            type_hints = cached_type_hints(_typecheckingstub__6c292bd0cc5c248be03f2bad019458df0920a1b2f21b8d18cfb340489994ca61)
             check_type(argname="argument committed", value=committed, expected_type=type_hints["committed"])
             check_type(argname="argument edit_gitignore", value=edit_gitignore, expected_type=type_hints["edit_gitignore"])
             check_type(argname="argument executable", value=executable, expected_type=type_hints["executable"])
@@ -13383,7 +13383,7 @@ class JsonFile(ObjectFile, metaclass=jsii.JSIIMeta, jsii_type="projen.JsonFile")
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__70b2200943f9f1c3d7452e66283d201e06e67715a6a56548aa31d93f9dc511ed)
+            type_hints = cached_type_hints(_typecheckingstub__70b2200943f9f1c3d7452e66283d201e06e67715a6a56548aa31d93f9dc511ed)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
             check_type(argname="argument file_path", value=file_path, expected_type=type_hints["file_path"])
         options = JsonFileOptions(
@@ -13412,7 +13412,7 @@ class JsonFile(ObjectFile, metaclass=jsii.JSIIMeta, jsii_type="projen.JsonFile")
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__75ec13937bd2fb6b7d1a296b25576844e3d9ad24f7864fc43e5f8777adcb73c5)
+            type_hints = cached_type_hints(_typecheckingstub__75ec13937bd2fb6b7d1a296b25576844e3d9ad24f7864fc43e5f8777adcb73c5)
             check_type(argname="argument resolver", value=resolver, expected_type=type_hints["resolver"])
         return typing.cast(typing.Optional[builtins.str], jsii.invoke(self, "synthesizeContent", [resolver]))
 
@@ -13470,7 +13470,7 @@ class JsonFileOptions(ObjectFileOptions):
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__13520dccfc7567565533a60eb68d854a29a519fa88a2a00e2abe76dd2578046e)
+            type_hints = cached_type_hints(_typecheckingstub__13520dccfc7567565533a60eb68d854a29a519fa88a2a00e2abe76dd2578046e)
             check_type(argname="argument committed", value=committed, expected_type=type_hints["committed"])
             check_type(argname="argument edit_gitignore", value=edit_gitignore, expected_type=type_hints["edit_gitignore"])
             check_type(argname="argument executable", value=executable, expected_type=type_hints["executable"])

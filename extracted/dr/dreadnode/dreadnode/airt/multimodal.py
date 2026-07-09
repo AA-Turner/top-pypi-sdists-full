@@ -6,12 +6,14 @@ Probes multimodal models (vision, audio) with transformed inputs.
 
 from __future__ import annotations
 
+import contextlib
 import typing as t
 
 from dreadnode.core.transforms import Transform
 from dreadnode.generators.message import (
     ContentAudioInput,
     ContentImageUrl,
+    ContentText,
     ContentVideoUrl,
     Message,
 )
@@ -206,11 +208,122 @@ def _log_multimodal_parts(
         logger.debug("Failed to log multimodal message parts", exc_info=True)
 
 
+def _extract_response_modalities(response: t.Any) -> dict[str, t.Any]:
+    """Decode a target response into per-modality scorable values.
+
+    Returns a dict keyed by modality (``"text"``/``"image"``/``"audio"``/``"video"``).
+    Text is a single concatenated string; media modalities are decoded into native
+    SDK media objects (``Image``/``Audio``/``Video``) so a modality-specific scorer
+    receives the type it expects. A str response yields ``{"text": <str>}`` — the
+    exact value the single-scorer path scored before, keeping text-out behaviour
+    (and every other attack that never emits media) unchanged.
+    """
+    from dreadnode.core.types import Audio, Image, Video
+
+    out: dict[str, t.Any] = {}
+    texts: list[str] = []
+
+    def _walk(value: t.Any) -> None:
+        if value is None:
+            return
+        if isinstance(value, str):
+            if value:
+                texts.append(value)
+        elif isinstance(value, ContentText):
+            if value.text:
+                texts.append(value.text)
+        elif isinstance(value, ContentImageUrl):
+            with contextlib.suppress(Exception):
+                out["image"] = Image(value.to_bytes())
+        elif isinstance(value, ContentAudioInput):
+            fmt = getattr(value.input_audio, "format", "wav") or "wav"
+            with contextlib.suppress(Exception):
+                out["audio"] = Audio(value.to_bytes(), format=fmt)
+        elif isinstance(value, ContentVideoUrl):
+            with contextlib.suppress(Exception):
+                import base64
+
+                data = base64.b64decode(value.file.file_data.split(",", 1)[-1])
+                ext = (value.file.mimetype or "video/mp4").split("/")[-1]
+                out["video"] = Video(data, format=ext)
+        elif isinstance(value, Image):
+            out["image"] = value
+        elif isinstance(value, Audio):
+            out["audio"] = value
+        elif isinstance(value, Video):
+            out["video"] = value
+        elif isinstance(value, (list, tuple)):
+            for item in value:
+                _walk(item)
+        elif isinstance(value, dict):
+            for key in ("content", "content_parts", "parts", "text"):
+                if key in value:
+                    _walk(value[key])
+                    break
+        else:
+            content = getattr(value, "content_parts", None) or getattr(value, "content", None)
+            if content is not None and not isinstance(content, str):
+                _walk(content)
+
+    _walk(response)
+    if texts:
+        out["text"] = "\n".join(texts)
+    return out
+
+
+async def _score_multimodal_response(
+    response: t.Any,
+    *,
+    text_scorer: Scorer[t.Any],
+    response_scorers: dict[str, Scorer[t.Any]] | None,
+) -> tuple[float, dict[str, float], str | None]:
+    """Score each response modality and aggregate the trial score by MAX.
+
+    Red-teaming aggregation is worst-case: if *any* output modality bypasses
+    safety, the attack succeeded, so the objective score is the maximum across
+    modalities. Per-modality scores are returned for display, and the winning
+    (max) modality's rationale is surfaced as the judge reasoning.
+
+    Backward compatible: with no ``response_scorers`` and a plain text (str)
+    response, this scores exactly the same string with ``text_scorer`` as the
+    prior single-``scorer.score(response)`` path did — text-out attacks and
+    non-multimodal attacks are unaffected. Media modalities with no configured
+    scorer are simply skipped (they can't be judged without a media scorer).
+    """
+    scorers: dict[str, Scorer[t.Any]] = dict(response_scorers or {})
+    scorers.setdefault("text", text_scorer)
+
+    modalities = _extract_response_modalities(response)
+    per_modality: dict[str, float] = {}
+    reasons: dict[str, str] = {}
+    for modality, value in modalities.items():
+        scorer = scorers.get(modality)
+        if scorer is None:
+            continue
+        metric = await scorer.score(value)
+        per_modality[modality] = float(metric.value)
+        reason = (getattr(metric, "attributes", None) or {}).get("reason")
+        if reason:
+            reasons[modality] = str(reason)
+
+    if not per_modality:
+        # Nothing decoded (or no applicable scorer) — score the raw response so a
+        # degenerate/unknown output shape still yields a metric.
+        metric = await text_scorer.score(response)
+        reason = (getattr(metric, "attributes", None) or {}).get("reason")
+        value = float(metric.value)
+        return value, {"text": value}, (str(reason) if reason else None)
+
+    winning = max(per_modality, key=per_modality.__getitem__)
+    return per_modality[winning], per_modality, reasons.get(winning)
+
+
 def multimodal_attack(
     goal: str,
     target: Task[..., str],
     scorer: Scorer[str],
     *,
+    response_scorers: dict[str, Scorer[t.Any]] | None = None,
     image: Image | None = None,
     audio: Audio | None = None,
     video: Video | None = None,
@@ -235,7 +348,17 @@ def multimodal_attack(
     Args:
         goal: The text prompt to send to the model (consistent with goat_attack/tap_attack API).
         target: Task that takes a Message and returns a string response.
-        scorer: Scorer to evaluate target responses (e.g., jailbreak success).
+        scorer: Scorer to evaluate the target's *text* response (e.g., jailbreak
+            success). Also used as the default text scorer for multimodal output.
+        response_scorers: Optional per-modality scorers for multimodal *output*,
+            keyed by ``"text"``/``"image"``/``"audio"``/``"video"``. When a target
+            emits more than one modality (e.g. text + a generated image), each part
+            is scored by its modality's scorer and the trial's objective score is
+            the MAX across them — worst-case aggregation, since any single modality
+            bypassing safety counts as a successful jailbreak. Per-modality scores
+            are recorded on the trial span for display. Media modalities without a
+            configured scorer are skipped. Omit this for text-out targets — behaviour
+            is then identical to scoring the text response with ``scorer``.
         image: Optional image to include.
         audio: Optional audio to include.
         video: Optional video to include.
@@ -298,12 +421,70 @@ def multimodal_attack(
             applied,
         ) = await _apply_transforms(goal, image, audio, video, fitted_transforms)
 
-        # Build message and call target
+        # Build message
         message = _build_message(
             transformed_goal, transformed_image, transformed_audio, transformed_video
         )
-        span = await target.run(message)
-        response = span.output
+
+        # Record the candidate ("attacker prompt") + trace Input as the transformed
+        # goal *text* BEFORE calling the target. If the target then fails (e.g. a
+        # provider error, so the response is empty), the finding still shows the
+        # real prompt instead of the sampler's {"iteration": N} search state.
+        # The Study logs `str(sample.input)` as `transformed_prompt`, so a dict
+        # input would render as `{'iteration': 0, 'image': Image(...)}`; the
+        # transformed media is carried losslessly in the message parts, so the
+        # text is all we log here.
+        trial = current_trial.get()
+        if trial is not None:
+            trial.candidate = transformed_goal
+            # The trial span's "candidate" input was logged at TrialStart with the
+            # sampler's raw search state; replace it with the goal text.
+            from dreadnode.tracing.span import current_task_span as _cts
+
+            _trial_span = _cts.get()
+            if _trial_span is not None:
+                with contextlib.suppress(Exception):
+                    _trial_span._inputs = [
+                        r for r in _trial_span._inputs if getattr(r, "name", None) != "candidate"
+                    ]
+                    _trial_span.log_input("candidate", transformed_goal)
+
+        # Call the target. If it errors (auth failure, unreachable model, rate limit,
+        # ...), record the error text as the response so the finding shows *why* it
+        # failed instead of an opaque "(no response)", then re-raise so the trial is
+        # still classified as an error (not a refusal).
+        try:
+            span = await target.run(message)
+            response = span.output
+        except Exception as target_exc:
+            error_text = f"[target error] {type(target_exc).__name__}: {str(target_exc)[:500]}"
+            with contextlib.suppress(Exception):
+                _log_multimodal_parts(
+                    original_goal=goal,
+                    transformed_goal=transformed_goal,
+                    original_image=image,
+                    transformed_image=transformed_image,
+                    original_audio=audio,
+                    transformed_audio=transformed_audio,
+                    original_video=video,
+                    transformed_video=transformed_video,
+                    applied_transforms=applied,
+                    response=error_text,
+                )
+            if trial is not None:
+                with contextlib.suppress(Exception):
+                    trial.evaluation_result = EvalResult(
+                        samples=[Sample(input=transformed_goal, output=error_text, index=iteration)]
+                    )
+            from dreadnode.tracing.span import current_task_span as _err_span_ctx
+
+            _err_span = _err_span_ctx.get()
+            if _err_span is not None:
+                from dreadnode.tracing.constants import AIRT_ATTRIBUTE_JUDGE_REASONING
+
+                with contextlib.suppress(Exception):
+                    _err_span.set_attribute(AIRT_ATTRIBUTE_JUDGE_REASONING, error_text)
+            raise
 
         # Persist the multimodal message parts (input + output) as content-addressed
         # artifacts on the trial span, so findings can render each part in the UI.
@@ -320,18 +501,7 @@ def multimodal_attack(
             response=response,
         )
 
-        # Store sample in trial for tracking (include multimodal content for display)
-        trial = current_trial.get()
         if trial is not None:
-            # The candidate ("attacker prompt") AND the transformed prompt are the
-            # transformed goal *text* — not the sampler's {"iteration": n} params
-            # or a dict carrying the raw Image object. The Study logs
-            # `str(sample.input)` as `transformed_prompt`, so a dict input would
-            # render as `{'iteration': 0, 'image': Image(256x768x3 ...)}` in the
-            # UI. The transformed media is carried losslessly in the message
-            # parts (see `_log_multimodal_parts`), so the text is all we log here.
-            trial.candidate = transformed_goal
-
             sample = Sample(
                 input=transformed_goal,
                 output=response,
@@ -339,9 +509,35 @@ def multimodal_attack(
             )
             trial.evaluation_result = EvalResult(samples=[sample])
 
-        # Score the response
-        score_result = await scorer.score(response)
-        return {OBJECTIVE_SCORE_KEY: score_result.value}
+        # Score the response. For multimodal *output* (e.g. text + a generated
+        # image), each modality is scored by its own scorer and the objective is
+        # the MAX — any modality bypassing safety = a successful jailbreak. For a
+        # plain text response this reduces to scoring the text with `scorer`, so
+        # text-out attacks are unaffected. The winning modality's rationale is
+        # persisted so findings show *why* it scored ("Judge Reasoning"); the
+        # per-modality breakdown is recorded for display.
+        agg_score, modality_scores, reason = await _score_multimodal_response(
+            response, text_scorer=scorer, response_scorers=response_scorers
+        )
+        from dreadnode.tracing.span import current_task_span
+
+        trial_span = current_task_span.get()
+        if trial_span is not None:
+            if reason:
+                from dreadnode.tracing.constants import AIRT_ATTRIBUTE_JUDGE_REASONING
+
+                with contextlib.suppress(Exception):
+                    trial_span.set_attribute(AIRT_ATTRIBUTE_JUDGE_REASONING, str(reason))
+            if len(modality_scores) > 1:
+                import json
+
+                from dreadnode.tracing.constants import AIRT_ATTRIBUTE_MODALITY_SCORES
+
+                with contextlib.suppress(Exception):
+                    trial_span.set_attribute(
+                        AIRT_ATTRIBUTE_MODALITY_SCORES, json.dumps(modality_scores)
+                    )
+        return {OBJECTIVE_SCORE_KEY: agg_score}
 
     attack: Study[dict[str, t.Any]] = Study(
         name=name,

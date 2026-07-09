@@ -8,9 +8,9 @@ from sage.cli_core import _execute_task_prompt, _get_current_classification
 class TestBackToBackBehavior:
     """Tests the back-to-back scenario: analysis followed by implementation."""
 
-    @patch("sage.main._send_to_model")
-    @patch("sage.main._send_single_turn_to_model")
-    @patch("sage.main.IntelligentExecutionEngine.create_plan")
+    @patch("sage.core.repl_agent.SAGEAgent.send_to_model")
+    @patch("sage.core.repl_agent.SAGEAgent.send_single_turn_to_model")
+    @patch("sage.core.procedural_workflow.IntelligentExecutionEngine.create_plan")
     def test_analysis_then_tdd_implementation(
         self, mock_create_plan, mock_send_single, mock_send_to_model, tmp_path
     ):
@@ -40,11 +40,11 @@ class TestBackToBackBehavior:
         mock_plan.goal = "Analyze"
         mock_plan.tasks = []
         mock_create_plan.return_value = mock_plan
+        mock_send_single.return_value = "Done"
 
         written, ok = _execute_task_prompt(
             "Analyze this codebase and tell me what needs to be fixed and improved.",
-            save_history=False,
-            sender=mock_send_to_model
+            save_history=False
         )
 
         # Assertions for Task 1
@@ -59,8 +59,8 @@ class TestBackToBackBehavior:
         mock_send_to_model.side_effect = [
             "PLAN: 1. Analyze. 2. Write tests. 3. Fix code.", # Phase 1: Planning
             "READ: app.py\nI've analyzed the code.",          # Phase 2: Analysis
-            "I will write the tests first. FILE: tests/test_app.py\n```python\nfrom app import hello\ndef test_hello(): assert hello() == 'hi'\n```", # Phase 3: Testing
-            "Now implementing the fix. FILE: app.py\n```python\ndef hello(): return 'hi'\n```", # Phase 4: Implementation
+            "I will write the tests first.\nFILE: tests/test_app.py\n```python\nfrom app import hello\ndef test_hello(): assert hello() == 'hi'\n```", # Phase 3: Testing
+            "Now implementing the fix.\nFILE: app.py\n```python\ndef hello(): return 'hi'\n```", # Phase 4: Implementation
             "Implementation complete."               # Fallback/Follow-up
         ]
 
@@ -72,8 +72,7 @@ class TestBackToBackBehavior:
 
             written, ok = _execute_task_prompt(
                 "Implement all the fixes using TDD",
-                save_history=False,
-                sender=mock_send_to_model
+                save_history=False
             )
 
         # Assertions for Task 2
@@ -81,8 +80,8 @@ class TestBackToBackBehavior:
         assert (tmp_path / "app.py").read_text() == "def hello(): return 'hi'\n"
         assert (tmp_path / "tests/test_app.py").exists()
 
-    @patch("sage.main._send_to_model")
-    @patch("sage.main._send_single_turn_to_model")
+    @patch("sage.core.repl_agent.SAGEAgent.send_to_model")
+    @patch("sage.core.repl_agent.SAGEAgent.send_single_turn_to_model")
     def test_dynamic_plan_generation(
         self, mock_send_single, mock_send_to_model, tmp_path
     ):
@@ -101,7 +100,7 @@ class TestBackToBackBehavior:
 
         with patch("sage.main.renderer.phase") as mock_phase, \
              patch("sage.main.renderer.info") as mock_info:
-            _execute_task_prompt("Add a new feature", save_history=False, sender=mock_send_to_model)
+            _execute_task_prompt("Add a new feature", save_history=False)
             
             # Verify create_plan was called and result was used
             # We can check if "Decided plan" info was printed

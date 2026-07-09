@@ -4542,6 +4542,8 @@ class Deduplication:
     within: Duration
     """How long to retain seen keys. Accepts Chalk duration strings like '24h', '7d', or a timedelta."""
 
+    deduplication_stage: Literal["parsed_message", "output_features"] = "output_features"
+
 
 @dataclass(kw_only=True)
 class Sink:

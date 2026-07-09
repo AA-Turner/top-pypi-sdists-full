@@ -167,7 +167,7 @@ if t.TYPE_CHECKING:
     from dreadnode.scorers.harm import detect_harm_with_openai
     from dreadnode.scorers.image import image_distance
     from dreadnode.scorers.json import json_path
-    from dreadnode.scorers.judge import llm_judge
+    from dreadnode.scorers.judge import llm_judge, multimodal_judge
     from dreadnode.scorers.similarity import (
         bleu,
         similarity,
@@ -250,6 +250,7 @@ __all__ = [
     "merge_backdoor_detected",
     "mode_confusion_detected",
     "multi_judge_consensus",
+    "multimodal_judge",
     "normalize",
     "not_",
     "or_",
@@ -323,6 +324,7 @@ __all__ = [
 __lazy_submodules__: list[str] = []
 __lazy_components__: dict[str, str] = {
     "llm_judge": "dreadnode.scorers.judge",
+    "multimodal_judge": "dreadnode.scorers.judge",
     "detect_harm_with_openai": "dreadnode.scorers.harm",
     "contains_crucible_flag": "dreadnode.scorers.crucible",
     "similarity": "dreadnode.scorers.similarity",

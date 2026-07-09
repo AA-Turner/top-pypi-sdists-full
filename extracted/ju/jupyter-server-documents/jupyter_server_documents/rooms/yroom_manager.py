@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from .yroom import YRoom
+from .ynotebook_room import YNotebookRoom
 from .gc_debug_logger import GcDebugLogger
 from typing import TYPE_CHECKING
 import asyncio
@@ -168,7 +169,11 @@ class YRoomManager(LoggingConfigurable):
             raise Exception(f"Room already exists: '{room_id}'.")
 
         self.log.info(f"Initializing room '{room_id}'.")
-        YRoomClass = self.yroom_class
+        # Use YNotebookRoom for notebook rooms so kernel methods are available
+        # and consumers can isinstance-check before calling connect_kernel() etc.
+        YRoomClass: type[YRoom] = (
+            YNotebookRoom if room_id.startswith("json:notebook:") else self.yroom_class
+        )
         yroom = YRoomClass(
             parent=self,
             room_id=room_id,
@@ -178,18 +183,6 @@ class YRoomManager(LoggingConfigurable):
         self._freeing_rooms.discard(room_id)
         return yroom
     
-
-    def add_room(self, room: YRoom) -> None:
-        """
-        Re-adds a stopped room to the manager. Called by `YRoom.restart()`
-        when a reference to a stopped room held by a consumer is accessed again.
-        """
-        if room.room_id in self._rooms_by_id:
-            return
-        self.log.info(f"Re-adding room '{room.room_id}'.")
-        self._rooms_by_id[room.room_id] = room
-        self._freeing_rooms.discard(room.room_id)
-
 
     def has_room(self, room_id: str) -> bool:
         """

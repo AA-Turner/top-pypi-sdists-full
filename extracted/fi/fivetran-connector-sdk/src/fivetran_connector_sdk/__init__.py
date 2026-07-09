@@ -48,7 +48,7 @@ from fivetran_connector_sdk.connector_helper import (
 
 # Version format: <major_version>.<minor_version>.<patch_version>
 # (where Major Version = 2, Minor Version is incremental MM from Aug 25 onwards, Patch Version is incremental within a month)
-__version__ = "2.9.2"
+__version__ = "2.10.1"
 MAX_MESSAGE_LENGTH = 128 * 1024 * 1024 # 128MB
 
 __all__ = [cls.__name__ for cls in [Logging, Operations]]
@@ -125,6 +125,7 @@ class Connector(connector_sdk_pb2_grpc.SourceConnectorServicer):
         print_library_log(deploy_cmd)
 
         constants.EXECUTED_VIA_CLI = True
+        check_newer_version(__version__)
         check_dict(configuration, True)
 
         secrets_list = []
@@ -198,7 +199,7 @@ class Connector(connector_sdk_pb2_grpc.SourceConnectorServicer):
 
     # Call this method to run the connector in production
     def run(self,
-            port: int = 50051,
+            port: int = 50049,
             configuration: dict = None,
             state: dict = None,
             log_level: Logging.Level = Logging.Level.INFO) -> grpc.Server:
@@ -333,7 +334,7 @@ class Connector(connector_sdk_pb2_grpc.SourceConnectorServicer):
         exit_check(project_path)
 
         if available_port is None:
-            raise RuntimeError("failed to allocate port error: no available port in range 50051-50061")
+            raise RuntimeError("failed to allocate port error: no available port in range 50049-50060")
 
         server = self.run(available_port, configuration, state, log_level=log_level)
 
@@ -512,6 +513,7 @@ def main():
         reset_local_file_directory(args)
         sys.exit(0)
     elif args.command.lower() == "init":
+        check_newer_version(__version__)
         init(args.project_path, args.template, args.non_interactive)
     elif args.command.lower() == "help":
         parser.print_help()

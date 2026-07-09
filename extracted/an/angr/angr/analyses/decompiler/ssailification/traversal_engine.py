@@ -22,7 +22,7 @@ from angr.ailment.expression import (
     VirtualVariable,
 )
 from angr.ailment.statement import CAS, ConditionalJump, SideEffectStatement, Store
-from angr.calling_conventions import default_cc
+from angr.calling_conventions import call_clobbered_regs, default_cc
 from angr.code_location import AILCodeLocation
 from angr.engines.light import SimEngineLightAIL
 from angr.knowledge_plugins.functions.function import Function
@@ -584,7 +584,7 @@ class SimEngineSSATraversal(SimEngineLightAIL[TraversalState, Value, None, None]
             assert cc is not None
             cc = cc(self.arch)
 
-        for reg_name in cc.CALLER_SAVED_REGS:
+        for reg_name in call_clobbered_regs(cc, target, self.arch):
             reg_offset, _ = self.arch.registers[reg_name]
             base_off, base_size = get_reg_offset_base_and_size(reg_offset, self.arch)
             self.state.live_registers.pop(base_off, None)
@@ -827,6 +827,7 @@ class SimEngineSSATraversal(SimEngineLightAIL[TraversalState, Value, None, None]
     _handle_binop_MinV = _unreachable
     _handle_binop_MaxV = _unreachable
     _handle_binop_QAddV = _unreachable
+    _handle_binop_QSubV = _unreachable
     _handle_binop_QNarrowBinV = _unreachable
     _handle_binop_PermV = _unreachable
     _handle_binop_Set = _unreachable

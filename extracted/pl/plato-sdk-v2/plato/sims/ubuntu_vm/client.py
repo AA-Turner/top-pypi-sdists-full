@@ -16,6 +16,8 @@ from urllib.parse import urlparse
 
 import httpx
 
+from plato.v2.env_utils import is_proctor_env
+
 from .api.bash.bash import asyncio as _bash_async
 from .api.bash.bash import sync as _bash_sync
 from .api.computer.computer import asyncio as _computer_async
@@ -727,6 +729,9 @@ class Client:
                 if getattr(env, "job_id", None) == my_job_id:
                     logger.info("Skipping login for %s (desktop env)", env.alias)
                     continue
+                if is_proctor_env(env):
+                    logger.info("Skipping login for %s (proctor service)", env.alias)
+                    continue
 
                 page = first_page if login_count == 0 else default_context.new_page()
                 login_count += 1
@@ -1302,6 +1307,9 @@ class AsyncClient:
                     continue
                 if getattr(env, "job_id", None) == my_job_id:
                     logger.info("Skipping login for %s (desktop env)", env.alias)
+                    continue
+                if is_proctor_env(env):
+                    logger.info("Skipping login for %s (proctor service)", env.alias)
                     continue
 
                 page = first_page if login_count == 0 else await default_context.new_page()

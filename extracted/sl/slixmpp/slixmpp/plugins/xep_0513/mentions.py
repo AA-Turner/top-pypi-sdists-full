@@ -17,7 +17,7 @@ class XEP_0513(BasePlugin):
     """
 
     name = "xep_0513"
-    description = "Explicit Mentions"
+    description = "XEP-0513: Explicit Mentions"
     dependencies = set()
     stanza = stanza
 

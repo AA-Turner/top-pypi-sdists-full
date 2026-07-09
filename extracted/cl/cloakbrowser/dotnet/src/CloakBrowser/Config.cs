@@ -243,29 +243,32 @@ public static class Config
     /// <summary>
     /// Return the best available version: auto-updated if available, else platform default.
     /// Reads a platform-scoped marker file from the cache directory.
-    /// When <paramref name="pro"/> is true, reads from the Pro-specific marker files.
+    /// When <paramref name="pro"/> is true, reads from the Pro-specific marker and returns
+    /// <c>null</c> when no cached Pro binary matches it. A valid Pro license must NEVER fall
+    /// back to the free binary, so there is deliberately no free-version fallback for Pro —
+    /// callers treat <c>null</c> as "resolve the latest Pro version from the server".
     /// </summary>
-    public static string GetEffectiveVersion(bool pro = false)
+    public static string? GetEffectiveVersion(bool pro = false)
     {
         var baseVersion = GetChromiumVersion();
         var cache = GetCacheDir();
 
         if (pro)
         {
-            // Pro marker is authoritative for the Pro tier - no VersionNewer guard
-            // (Pro versions are independent of the bundled free version, e.g. 148 vs 146).
             var proMarker = Path.Combine(cache, $"latest_pro_version_{GetPlatformTag()}");
             if (File.Exists(proMarker))
             {
                 try
                 {
                     var version = File.ReadAllText(proMarker).Trim();
-                    if (!string.IsNullOrEmpty(version) && File.Exists(GetBinaryPath(version, pro: true)))
+                    // Match launch's ProBinaryReady (exists AND executable) so `info`
+                    // never reports a build that launch would reject.
+                    if (!string.IsNullOrEmpty(version) && IsExecutableFile(GetBinaryPath(version, pro: true)))
                         return version;
                 }
                 catch (Exception ex) when (ex is FormatException or IOException) { }
             }
-            return baseVersion;
+            return null;
         }
 
         foreach (var name in new[] { $"latest_version_{GetPlatformTag()}", "latest_version" })
@@ -287,6 +290,15 @@ public static class Config
             }
         }
         return baseVersion;
+    }
+
+    /// <summary>True when a binary exists and is executable. Canonical check shared with Download.</summary>
+    internal static bool IsExecutableFile(string path)
+    {
+        if (!File.Exists(path)) return false;
+        if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows)) return true;
+        var mode = File.GetUnixFileMode(path);
+        return (mode & (UnixFileMode.UserExecute | UnixFileMode.GroupExecute | UnixFileMode.OtherExecute)) != 0;
     }
 
     /// <summary>Parse "145.0.7718.0" into (145, 0, 7718, 0) for comparison.</summary>
@@ -403,7 +415,7 @@ public static class Config
         {
             declared = null;
         }
-        string version;
+        string? version;
         if (!string.IsNullOrEmpty(declared))
         {
             version = declared!;
@@ -417,6 +429,8 @@ public static class Config
             bool pro = !string.IsNullOrEmpty(License.ResolveLicenseKey(licenseKey));
             version = GetEffectiveVersion(pro);
         }
+        // No cached Pro build resolvable (GetEffectiveVersion returned null) → fail safe.
+        if (version == null) return false;
         try
         {
             return !VersionNewer(HeadlessNoViewportMinVersion, version);

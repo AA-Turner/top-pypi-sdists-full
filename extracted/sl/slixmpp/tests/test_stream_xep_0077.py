@@ -28,7 +28,7 @@ class TestRegistration(SlixTest):
             f"""
             <iq type='result' id='reg1' from='shakespeare.lit' to='bill@server/resource'>
                 <query xmlns='jabber:iq:register'>
-                    <instructions>{self.xmpp["xep_0077"].form_instructions}</instructions>
+                    <instructions>{self.xmpp.plugin["xep_0077"].form_instructions}</instructions>
                     <username/>
                     <password/>
                 </query>
@@ -49,7 +49,7 @@ class TestRegistration(SlixTest):
             """
         )
         self.send("<iq type='result' id='reg2' from='shakespeare.lit' to='bill@server/resource'/>")
-        user_store = self.xmpp["xep_0077"]._user_store
+        user_store = self.xmpp.plugin["xep_0077"]._user_store
         self.assertEqual(user_store["bill@server"]["username"], "bill")
         self.assertEqual(user_store["bill@server"]["password"], "Calliope")
 
@@ -64,7 +64,7 @@ class TestRegistration(SlixTest):
             f"""
             <iq type='result' id='reg1' to="bill@server/resource" from='shakespeare.lit'>
                 <query xmlns='jabber:iq:register'>
-                    <instructions>{self.xmpp["xep_0077"].form_instructions}</instructions>
+                    <instructions>{self.xmpp.plugin["xep_0077"].form_instructions}</instructions>
                     <username>bill</username>
                     <password>Calliope</password>
                     <registered />
@@ -88,7 +88,7 @@ class TestRegistration(SlixTest):
         self.send("<iq type='result' id='reg2' from='shakespeare.lit' to='bill@shakespeare.lit/globe'/>")
         pseudo_iq = self.xmpp.Iq()
         pseudo_iq["from"] = "bill@shakespeare.lit/globe"
-        fut = self.xmpp.wrap(self.xmpp["xep_0077"].api["user_get"](None, None, None, pseudo_iq))
+        fut = self.xmpp.wrap(self.xmpp.plugin["xep_0077"].api["user_get"](None, None, None, pseudo_iq))
         self.run_coro(fut)
         user = fut.result()
         self.assertEqual(user["username"], "bill")
@@ -103,7 +103,7 @@ class TestRegistration(SlixTest):
             """
         )
         self.send("<iq type='result' to='bill@shakespeare.lit/globe' id='unreg1'/>")
-        user_store = self.xmpp["xep_0077"]._user_store
+        user_store = self.xmpp.plugin["xep_0077"]._user_store
         self.assertIs(user_store.get("bill@shakespeare.lit"), None)
 
 

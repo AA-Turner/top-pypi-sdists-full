@@ -60,12 +60,12 @@ class TestCaps(SlixTest):
         )
         self.send(None)
         self.assertTrue(
-            self.xmpp["xep_0030"].supports(
+            self.xmpp.plugin["xep_0030"].supports(
                 "romeo@montague.lit/orchard", "http://jabber.org/protocol/caps"
             )
         )
         self.assertTrue(
-            self.xmpp["xep_0030"].supports(
+            self.xmpp.plugin["xep_0030"].supports(
                 "i-dont-know-much-shakespeare@montague.lit/orchard",
                 "http://jabber.org/protocol/caps",
             )

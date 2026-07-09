@@ -144,6 +144,10 @@ class CodebaseEventController:
             event=event,
             content=content,
         )
+        cls.broadcast_raw(message.to_dict())
+
+    @classmethod
+    def broadcast_raw(cls, message: dict) -> None:
         with cls._lock:
             listeners = list(cls.listeners)
 
@@ -151,7 +155,7 @@ class CodebaseEventController:
         for listener in listeners:
             try:
                 with cls._lock:
-                    listener.send(json.dumps(message.to_dict()))
+                    listener.send(json.dumps(message))
             except Exception:
                 failed.append(listener)
 

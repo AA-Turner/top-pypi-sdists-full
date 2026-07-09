@@ -23,7 +23,7 @@ class XEP_0020(BasePlugin):
     stanza = stanza
 
     def plugin_init(self):
-        self.xmpp['xep_0030'].add_feature(FeatureNegotiation.namespace)
+        self.xmpp.plugin['xep_0030'].add_feature(FeatureNegotiation.namespace)
 
         register_stanza_plugin(FeatureNegotiation, Form)
 

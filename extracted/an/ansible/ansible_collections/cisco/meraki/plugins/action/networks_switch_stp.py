@@ -50,7 +50,7 @@ class NetworksSwitchStp(object):
         self.new_object = dict(
             rstpEnabled=params.get("rstpEnabled"),
             stpBridgePriority=params.get("stpBridgePriority"),
-            networkId=params.get("networkId"),
+            network_id=params.get("networkId"),
         )
 
     def get_all_params(self, name=None, id=None):
@@ -130,7 +130,9 @@ class NetworksSwitchStp(object):
 
         obj_params = [
             ("rstpEnabled", "rstpEnabled"),
-            ("stpBridgePriority", "stpBridgePriority"),]
+            ("stpBridgePriority", "stpBridgePriority"),
+            ("networkId", "networkId"),
+        ]
         # Method 1. Params present in request (Ansible) obj are the same as the current (ISE) params
         # If any does not have eq params, it requires update
         return any(

@@ -57,12 +57,13 @@ dynamic = [
 ]
 dependencies = [
   "importlib-metadata; python_version<'3.8'",
+  "typing-extensions; python_version<'3.8'",
 ]
 optional-dependencies.develop = [
   "poethepoet<1",
   "pyproject-fmt<3",
   "ruff<0.16",
-  "ty==0.0.26; python_version>='3.8'",
+  "ty==0.0.55; python_version>='3.8'",
   "validate-pyproject<1",
 ]
 optional-dependencies.release = [
@@ -71,7 +72,7 @@ optional-dependencies.release = [
 ]
 optional-dependencies.test = [
   "pretend<2",
-  "pytest<9",
+  "pytest<10",
   "pytest-cov<8",
 ]
 urls.repository = "https://github.com/pyveci/verlib2"
@@ -109,19 +110,24 @@ lint.select = [
   "YTT",
 ]
 lint.ignore = [ "RET505" ]
-lint.per-file-ignores."tests/*" = [ "S101" ]  # Use of `assert` detected
+lint.per-file-ignores."tests/*" = [
+  # Use of `assert` detected
+  "S101",
+  # `pickle` and modules that wrap it can be unsafe when used to deserialize untrusted data, possible security issue
+  "S301",
+]
 
 [tool.pytest]
 ini_options.minversion = "2.0"
+ini_options.testpaths = [ "tests" ]
 ini_options.addopts = """
   -rfEX -p pytester --strict-markers --verbosity=3
   --cov --cov-report=term-missing --cov-report=xml
   """
+ini_options.markers = []
+ini_options.xfail_strict = true
 ini_options.log_level = "DEBUG"
 ini_options.log_cli_level = "DEBUG"
-ini_options.testpaths = [ "tests" ]
-ini_options.xfail_strict = true
-ini_options.markers = []
 
 [tool.coverage]
 run.branch = true
@@ -164,7 +170,7 @@ tasks.release = [
 
 [tool.versioningit]
 vcs.method = "git-archive"
-vcs.default-tag = "v0.0.0"
+vcs.default-tag = "v0.0"
 vcs.describe-subst = "$Format:%(describe:tags,match=v*)$"
 # Emit PyPI-compatible "dirty" version strings. `+` characters are unsuitable, because
 # they would designate local version identifiers, which do not upload to PyPI.

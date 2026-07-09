@@ -16,7 +16,7 @@ class TestStreamPubsub(SlixTest):
 
     def testCreateInstantNode(self):
         """Test creating an instant node"""
-        self.xmpp['xep_0060'].create_node('pubsub.example.com', None)
+        self.xmpp.plugin['xep_0060'].create_node('pubsub.example.com', None)
 
         self.send("""
           <iq type="set" id="1" to="pubsub.example.com">
@@ -37,7 +37,7 @@ class TestStreamPubsub(SlixTest):
 
     def testCreateNodeNoConfig(self):
         """Test creating a node without a config"""
-        self.xmpp['xep_0060'].create_node(
+        self.xmpp.plugin['xep_0060'].create_node(
             'pubsub.example.com',
             'princely_musings')
         self.send("""
@@ -50,11 +50,11 @@ class TestStreamPubsub(SlixTest):
 
     def testCreateNodeConfig(self):
         """Test creating a node with a config"""
-        form = self.xmpp['xep_0004'].stanza.Form()
+        form = self.xmpp.plugin['xep_0004'].stanza.Form()
         form['type'] = 'submit'
         form.add_field(var='pubsub#access_model', value='whitelist')
 
-        self.xmpp['xep_0060'].create_node(
+        self.xmpp.plugin['xep_0060'].create_node(
                 'pubsub.example.com',
                 'princely_musings',
                 config=form)
@@ -79,7 +79,7 @@ class TestStreamPubsub(SlixTest):
 
     def testDeleteNode(self):
         """Test deleting a node"""
-        self.xmpp['xep_0060'].delete_node(
+        self.xmpp.plugin['xep_0060'].delete_node(
             'pubsub.example.com',
             'some_node')
         self.send("""
@@ -95,7 +95,7 @@ class TestStreamPubsub(SlixTest):
         Test subscribing to a node: Case 1:
         No subscribee, default 'from' JID, bare JID
         """
-        self.xmpp['xep_0060'].subscribe(
+        self.xmpp.plugin['xep_0060'].subscribe(
             'pubsub.example.com',
             'somenode')
         self.send("""
@@ -111,7 +111,7 @@ class TestStreamPubsub(SlixTest):
         Test subscribing to a node: Case 2:
         No subscribee, given 'from' JID, bare JID
         """
-        self.xmpp['xep_0060'].subscribe(
+        self.xmpp.plugin['xep_0060'].subscribe(
             'pubsub.example.com',
             'somenode',
             ifrom='foo@comp.example.com/bar')
@@ -129,7 +129,7 @@ class TestStreamPubsub(SlixTest):
         Test subscribing to a node: Case 3:
         No subscribee, given 'from' JID, full JID
         """
-        self.xmpp['xep_0060'].subscribe(
+        self.xmpp.plugin['xep_0060'].subscribe(
             'pubsub.example.com',
             'somenode',
             ifrom='foo@comp.example.com/bar',
@@ -151,7 +151,7 @@ class TestStreamPubsub(SlixTest):
         self.stream_close()
         self.stream_start(jid='tester@localhost/full')
 
-        self.xmpp['xep_0060'].subscribe(
+        self.xmpp.plugin['xep_0060'].subscribe(
             'pubsub.example.com',
             'somenode',
             bare=False)
@@ -169,7 +169,7 @@ class TestStreamPubsub(SlixTest):
         Test subscribing to a node: Case 5:
         Subscribee given
         """
-        self.xmpp['xep_0060'].subscribe(
+        self.xmpp.plugin['xep_0060'].subscribe(
             'pubsub.example.com',
             'somenode',
             subscribee='user@example.com/foo',
@@ -185,7 +185,7 @@ class TestStreamPubsub(SlixTest):
 
     def testSubscribeWithOptions(self):
         """Test subscribing to a node, with options."""
-        opts = self.xmpp['xep_0004'].make_form()
+        opts = self.xmpp.plugin['xep_0004'].make_form()
         opts.add_field(
                 var='FORM_TYPE',
                 value='http://jabber.org/protocol/pubsub#subscribe_options',
@@ -196,7 +196,7 @@ class TestStreamPubsub(SlixTest):
                 ftype='boolean')
         opts['type'] = 'submit'
 
-        self.xmpp['xep_0060'].subscribe(
+        self.xmpp.plugin['xep_0060'].subscribe(
             'pubsub.example.com',
             'somenode',
             options=opts)
@@ -223,7 +223,7 @@ class TestStreamPubsub(SlixTest):
         Test unsubscribing from a node: Case 1:
         No subscribee, default 'from' JID, bare JID
         """
-        self.xmpp['xep_0060'].unsubscribe(
+        self.xmpp.plugin['xep_0060'].unsubscribe(
             'pubsub.example.com',
             'somenode')
         self.send("""
@@ -239,7 +239,7 @@ class TestStreamPubsub(SlixTest):
         Test unsubscribing from a node: Case 2:
         No subscribee, given 'from' JID, bare JID
         """
-        self.xmpp['xep_0060'].unsubscribe(
+        self.xmpp.plugin['xep_0060'].unsubscribe(
             'pubsub.example.com',
             'somenode',
             ifrom='foo@comp.example.com/bar')
@@ -257,7 +257,7 @@ class TestStreamPubsub(SlixTest):
         Test unsubscribing from a node: Case 3:
         No subscribee, given 'from' JID, full JID
         """
-        self.xmpp['xep_0060'].unsubscribe(
+        self.xmpp.plugin['xep_0060'].unsubscribe(
             'pubsub.example.com',
             'somenode',
             ifrom='foo@comp.example.com/bar',
@@ -279,7 +279,7 @@ class TestStreamPubsub(SlixTest):
         self.stream_close()
         self.stream_start(jid='tester@localhost/full')
 
-        self.xmpp['xep_0060'].unsubscribe(
+        self.xmpp.plugin['xep_0060'].unsubscribe(
             'pubsub.example.com',
             'somenode',
             bare=False)
@@ -297,7 +297,7 @@ class TestStreamPubsub(SlixTest):
         Test unsubscribing from a node: Case 5:
         Subscribee given
         """
-        self.xmpp['xep_0060'].unsubscribe(
+        self.xmpp.plugin['xep_0060'].unsubscribe(
             'pubsub.example.com',
             'somenode',
             subscribee='user@example.com/foo',
@@ -313,7 +313,7 @@ class TestStreamPubsub(SlixTest):
 
     def testGetDefaultNodeConfig(self):
         """Test retrieving the default node config for a pubsub service."""
-        self.xmpp['xep_0060'].get_node_config(
+        self.xmpp.plugin['xep_0060'].get_node_config(
                 'pubsub.example.com')
         self.send("""
           <iq type="get" id="1" to="pubsub.example.com">
@@ -325,7 +325,7 @@ class TestStreamPubsub(SlixTest):
 
     def testGetNodeConfig(self):
         """Test getting the config for a given node."""
-        self.xmpp['xep_0060'].get_node_config(
+        self.xmpp.plugin['xep_0060'].get_node_config(
             'pubsub.example.com',
             'somenode')
         self.send("""
@@ -338,14 +338,14 @@ class TestStreamPubsub(SlixTest):
 
     def testSetNodeConfig(self):
         """Test setting the configuration for a node."""
-        form = self.xmpp['xep_0004'].make_form()
+        form = self.xmpp.plugin['xep_0004'].make_form()
         form.add_field(var='FORM_TYPE', ftype='hidden',
                        value='http://jabber.org/protocol/pubsub#node_config')
         form.add_field(var='pubsub#title', ftype='text-single',
                        value='This is awesome!')
         form['type'] = 'submit'
 
-        self.xmpp['xep_0060'].set_node_config(
+        self.xmpp.plugin['xep_0060'].set_node_config(
             'pubsub.example.com',
             'somenode',
             form)
@@ -368,7 +368,7 @@ class TestStreamPubsub(SlixTest):
 
     def testPublishNoItems(self):
         """Test publishing no items (in order to generate events)"""
-        self.xmpp['xep_0060'].publish(
+        self.xmpp.plugin['xep_0060'].publish(
             'pubsub.example.com',
             'somenode')
         self.send("""
@@ -384,9 +384,9 @@ class TestStreamPubsub(SlixTest):
         payload = AtomEntry()
         payload['title'] = 'Test'
 
-        register_stanza_plugin(self.xmpp['xep_0060'].stanza.Item, AtomEntry)
+        register_stanza_plugin(self.xmpp.plugin['xep_0060'].stanza.Item, AtomEntry)
 
-        self.xmpp['xep_0060'].publish(
+        self.xmpp.plugin['xep_0060'].publish(
             'pubsub.example.com',
             'somenode',
             id='id42',
@@ -410,16 +410,16 @@ class TestStreamPubsub(SlixTest):
         payload = AtomEntry()
         payload['title'] = 'Test'
 
-        register_stanza_plugin(self.xmpp['xep_0060'].stanza.Item, AtomEntry)
+        register_stanza_plugin(self.xmpp.plugin['xep_0060'].stanza.Item, AtomEntry)
 
-        options = self.xmpp['xep_0004'].make_form()
+        options = self.xmpp.plugin['xep_0004'].make_form()
         options.add_field(var='FORM_TYPE', ftype='hidden',
               value='http://jabber.org/protocol/pubsub#publish-options')
         options.add_field(var='pubsub#access_model', ftype='text-single',
               value='presence')
         options['type'] = 'submit'
 
-        self.xmpp['xep_0060'].publish(
+        self.xmpp.plugin['xep_0060'].publish(
             'pubsub.example.com',
             'somenode',
             id='ID42',
@@ -451,7 +451,7 @@ class TestStreamPubsub(SlixTest):
 
     def testRetract(self):
         """Test deleting an item."""
-        self.xmpp['xep_0060'].retract(
+        self.xmpp.plugin['xep_0060'].retract(
             'pubsub.example.com',
             'somenode',
             'ID1',
@@ -468,7 +468,7 @@ class TestStreamPubsub(SlixTest):
 
     def testRetract(self):
         """Test deleting an item."""
-        self.xmpp['xep_0060'].retract(
+        self.xmpp.plugin['xep_0060'].retract(
             'pubsub.example.com',
             'somenode',
             'ID1')
@@ -484,7 +484,7 @@ class TestStreamPubsub(SlixTest):
 
     def testPurge(self):
         """Test removing all items from a node."""
-        self.xmpp['xep_0060'].purge(
+        self.xmpp.plugin['xep_0060'].purge(
                 'pubsub.example.com',
                 'somenode')
         self.send("""
@@ -497,7 +497,7 @@ class TestStreamPubsub(SlixTest):
 
     def testGetItem(self):
         """Test retrieving a single item."""
-        self.xmpp['xep_0060'].get_item(
+        self.xmpp.plugin['xep_0060'].get_item(
             'pubsub.example.com',
             'somenode',
             'id42')
@@ -513,7 +513,7 @@ class TestStreamPubsub(SlixTest):
 
     def testGetLatestItems(self):
         """Test retrieving the most recent N items."""
-        self.xmpp['xep_0060'].get_items(
+        self.xmpp.plugin['xep_0060'].get_items(
             'pubsub.example.com',
             'somenode',
             max_items=3)
@@ -527,7 +527,7 @@ class TestStreamPubsub(SlixTest):
 
     def testGetAllItems(self):
         """Test retrieving all items."""
-        self.xmpp['xep_0060'].get_items(
+        self.xmpp.plugin['xep_0060'].get_items(
             'pubsub.example.com',
             'somenode')
         self.send("""
@@ -540,7 +540,7 @@ class TestStreamPubsub(SlixTest):
 
     def testGetSpecificItems(self):
         """Test retrieving a specific set of items."""
-        self.xmpp['xep_0060'].get_items(
+        self.xmpp.plugin['xep_0060'].get_items(
             'pubsub.example.com',
             'somenode',
             item_ids=['A', 'B', 'C'])
@@ -558,7 +558,7 @@ class TestStreamPubsub(SlixTest):
 
     def testGetSubscriptionGlobalDefaultOptions(self):
         """Test getting the subscription options for a node/JID."""
-        self.xmpp['xep_0060'].get_subscription_options(
+        self.xmpp.plugin['xep_0060'].get_subscription_options(
             'pubsub.example.com')
         self.send("""
           <iq type="get" id="1" to="pubsub.example.com">
@@ -570,7 +570,7 @@ class TestStreamPubsub(SlixTest):
 
     def testGetSubscriptionNodeDefaultOptions(self):
         """Test getting the subscription options for a node/JID."""
-        self.xmpp['xep_0060'].get_subscription_options(
+        self.xmpp.plugin['xep_0060'].get_subscription_options(
             'pubsub.example.com',
             node='somenode')
         self.send("""
@@ -583,7 +583,7 @@ class TestStreamPubsub(SlixTest):
 
     def testGetSubscriptionOptions(self):
         """Test getting the subscription options for a node/JID."""
-        self.xmpp['xep_0060'].get_subscription_options(
+        self.xmpp.plugin['xep_0060'].get_subscription_options(
             'pubsub.example.com',
             'somenode',
             'tester@localhost')
@@ -597,7 +597,7 @@ class TestStreamPubsub(SlixTest):
 
     def testSetSubscriptionOptions(self):
         """Test setting the subscription options for a node/JID."""
-        opts = self.xmpp['xep_0004'].make_form()
+        opts = self.xmpp.plugin['xep_0004'].make_form()
         opts.add_field(
                 var='FORM_TYPE',
                 value='http://jabber.org/protocol/pubsub#subscribe_options',
@@ -608,7 +608,7 @@ class TestStreamPubsub(SlixTest):
                 ftype='boolean')
         opts['type'] = 'submit'
 
-        self.xmpp['xep_0060'].set_subscription_options(
+        self.xmpp.plugin['xep_0060'].set_subscription_options(
             'pubsub.example.com',
             'somenode',
             'tester@localhost',
@@ -632,7 +632,7 @@ class TestStreamPubsub(SlixTest):
 
     def testGetNodeSubscriptions(self):
         """Test retrieving all subscriptions for a node."""
-        self.xmpp['xep_0060'].get_node_subscriptions(
+        self.xmpp.plugin['xep_0060'].get_node_subscriptions(
             'pubsub.example.com',
             'somenode')
         self.send("""
@@ -645,7 +645,7 @@ class TestStreamPubsub(SlixTest):
 
     def testGetSubscriptions(self):
         """Test retrieving a users's subscriptions."""
-        self.xmpp['xep_0060'].get_subscriptions(
+        self.xmpp.plugin['xep_0060'].get_subscriptions(
             'pubsub.example.com')
         self.send("""
           <iq type="get" id="1" to="pubsub.example.com">
@@ -657,7 +657,7 @@ class TestStreamPubsub(SlixTest):
 
     def testGetSubscriptionsForNode(self):
         """Test retrieving a users's subscriptions for a given node."""
-        self.xmpp['xep_0060'].get_subscriptions(
+        self.xmpp.plugin['xep_0060'].get_subscriptions(
             'pubsub.example.com',
             node='somenode')
         self.send("""
@@ -670,7 +670,7 @@ class TestStreamPubsub(SlixTest):
 
     def testGetAffiliations(self):
         """Test retrieving a users's affiliations."""
-        self.xmpp['xep_0060'].get_affiliations(
+        self.xmpp.plugin['xep_0060'].get_affiliations(
             'pubsub.example.com')
         self.send("""
           <iq type="get" id="1" to="pubsub.example.com">
@@ -682,7 +682,7 @@ class TestStreamPubsub(SlixTest):
 
     def testGetAffiliatinssForNode(self):
         """Test retrieving a users's affiliations for a given node."""
-        self.xmpp['xep_0060'].get_affiliations(
+        self.xmpp.plugin['xep_0060'].get_affiliations(
             'pubsub.example.com',
             node='somenode')
         self.send("""
@@ -695,7 +695,7 @@ class TestStreamPubsub(SlixTest):
 
     def testGetNodeAffiliations(self):
         """Test getting the affiliations for a node."""
-        self.xmpp['xep_0060'].get_node_affiliations(
+        self.xmpp.plugin['xep_0060'].get_node_affiliations(
             'pubsub.example.com',
             'somenode')
         self.send("""
@@ -708,7 +708,7 @@ class TestStreamPubsub(SlixTest):
 
     def testModifySubscriptions(self):
         """Test owner modifying node subscriptions."""
-        self.xmpp['xep_0060'].modify_subscriptions(
+        self.xmpp.plugin['xep_0060'].modify_subscriptions(
             'pubsub.example.com',
             'somenode',
             subscriptions=[('user@example.com', 'subscribed'),
@@ -726,7 +726,7 @@ class TestStreamPubsub(SlixTest):
 
     def testModifyAffiliations(self):
         """Test owner modifying node affiliations."""
-        self.xmpp['xep_0060'].modify_affiliations(
+        self.xmpp.plugin['xep_0060'].modify_affiliations(
             'pubsub.example.com',
             'somenode',
             affiliations=[('user@example.com', 'publisher'),

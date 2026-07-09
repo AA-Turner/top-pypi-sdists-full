@@ -149,6 +149,7 @@ ErrorType = Literal[
     'expired-conference-token',
     'failed-to-charge-user',
     'final-invoice-negative',
+    'full-permission-actor-blocked-for-admin',
     'full-permission-actor-not-approved',
     'github-branch-empty',
     'github-issue-already-exists',
@@ -454,6 +455,7 @@ RunOrigin = Literal[
     'CLI',
     'CI',
     'STANDBY',
+    'MCP',
 ]
 
 

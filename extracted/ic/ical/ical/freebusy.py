@@ -23,6 +23,8 @@ from .util import (
 
 _LOGGER = logging.getLogger(__name__)
 
+__all__ = ["FreeBusy"]
+
 
 class FreeBusy(ComponentModel):
     """A single free/busy entry on a calendar."""
@@ -65,9 +67,9 @@ class FreeBusy(ComponentModel):
     organizer: Optional[CalAddress] = None
     """The calendar user who requested free/busy information."""
 
-    request_status: Optional[RequestStatus] = Field(
-        default=None,
+    request_status: list[RequestStatus] = Field(
         alias="request-status",
+        default_factory=list,
     )
     """Return code for the scheduling request."""
 

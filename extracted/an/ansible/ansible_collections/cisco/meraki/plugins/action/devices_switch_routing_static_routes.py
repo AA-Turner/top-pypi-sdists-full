@@ -242,7 +242,9 @@ class DevicesSwitchRoutingStaticRoutes(object):
             ("nextHopIp", "nextHopIp"),
             ("advertiseViaOspfEnabled", "advertiseViaOspfEnabled"),
             ("preferOverOspfRoutesEnabled", "preferOverOspfRoutesEnabled"),
-            ("vrf", "vrf"), ("staticRouteId", "staticRouteId"),
+            ("vrf", "vrf"),
+            ("serial", "serial"),
+            ("staticRouteId", "staticRouteId"),
             ("managementNextHop", "managementNextHop"),
         ]
         # Method 1. Params present in request (Ansible) obj are the same as the current (DNAC) params

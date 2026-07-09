@@ -92,5 +92,47 @@ class TestProductionAIRepositoryParseDocument(unittest.TestCase):
         self.assertIn("something else", str(ctx.exception))
 
 
+class TestProductionAIRepositoryExtractText(unittest.TestCase):
+    def setUp(self):
+        self.mock_client = MagicMock()
+        self.repo = ProductionAIRepository(client=self.mock_client)
+
+    def test_returns_ocr_payload_on_success(self):
+        self.mock_client.post.return_value = _make_response({"text": "hello world"})
+
+        result = self.repo.extract_text(b"<pdf>", "application/pdf")
+
+        self.assertEqual(result, {"text": "hello world"})
+
+    def test_includes_cloud_api_error_message_on_http_error(self):
+        self.mock_client.post.return_value = _make_response(
+            {"error": "Failed to extract text from document: upstream unavailable"},
+            status_code=502,
+        )
+
+        with self.assertRaises(requests.HTTPError) as ctx:
+            self.repo.extract_text(b"<pdf>", "application/pdf")
+
+        self.assertIn(
+            "Failed to extract text from document: upstream unavailable",
+            str(ctx.exception),
+        )
+        self.assertIn("502", str(ctx.exception))
+        self.assertIsNotNone(ctx.exception.response)
+
+    def test_falls_back_to_response_text_when_body_is_not_json(self):
+        self.mock_client.post.return_value = _make_response(
+            "<html>Bad Gateway</html>",
+            status_code=502,
+            content_type="text/html",
+        )
+
+        with self.assertRaises(requests.HTTPError) as ctx:
+            self.repo.extract_text(b"<pdf>", "application/pdf")
+
+        self.assertIn("502", str(ctx.exception))
+        self.assertIn("Bad Gateway", str(ctx.exception))
+
+
 if __name__ == "__main__":
     unittest.main()

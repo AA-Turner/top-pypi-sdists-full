@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: crawlee
-Version: 1.8.0
+Version: 1.8.1
 Summary: Crawlee for Python
 Project-URL: Apify Homepage, https://apify.com
 Project-URL: Changelog, https://crawlee.dev/python/docs/changelog
@@ -236,13 +236,16 @@ Requires-Dist: psutil>=6.0.0
 Requires-Dist: pydantic-settings>=2.12.0
 Requires-Dist: pydantic>=2.11.0
 Requires-Dist: pyee>=9.0.0
-Requires-Dist: tldextract>=5.1.0
+Requires-Dist: tldextract>=5.3.0
 Requires-Dist: typing-extensions>=4.10.0
 Requires-Dist: yarl>=1.18.0
 Provides-Extra: adaptive-crawler
 Requires-Dist: apify-fingerprint-datapoints>=0.0.3; extra == 'adaptive-crawler'
+Requires-Dist: beautifulsoup4[lxml]>=4.12.0; extra == 'adaptive-crawler'
 Requires-Dist: browserforge>=1.2.4; extra == 'adaptive-crawler'
+Requires-Dist: html5lib>=1.0; extra == 'adaptive-crawler'
 Requires-Dist: jaro-winkler>=2.0.3; extra == 'adaptive-crawler'
+Requires-Dist: parsel>=1.10.0; extra == 'adaptive-crawler'
 Requires-Dist: playwright>=1.27.0; extra == 'adaptive-crawler'
 Requires-Dist: scikit-learn>=1.6.0; extra == 'adaptive-crawler'
 Provides-Extra: all

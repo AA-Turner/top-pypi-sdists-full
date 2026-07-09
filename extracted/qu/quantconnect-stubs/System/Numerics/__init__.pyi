@@ -18,9 +18,9 @@ System_Numerics_Decimal64 = typing.Any
 System_Numerics_Matrix3x2 = typing.Any
 System_Numerics_Quaternion = typing.Any
 System_Numerics_Vector2 = typing.Any
-System_Numerics_Matrix4x4 = typing.Any
 System_Numerics_Decimal32 = typing.Any
 System_Numerics_BFloat16 = typing.Any
+System_Numerics_Matrix4x4 = typing.Any
 System_Numerics_Plane = typing.Any
 System_Numerics_Decimal128 = typing.Any
 
@@ -3489,6 +3489,21 @@ class Decimal64(System.IComparable[System_Numerics_Decimal64], System.IEquatable
     def try_parse(s: str, style: System.Globalization.NumberStyles, provider: System.IFormatProvider, result: typing.Optional[System.Numerics.Decimal64]) -> typing.Tuple[bool, System.Numerics.Decimal64]:
         ...
 
+    @staticmethod
+    @overload
+    def try_parse(s: str, style: System.Globalization.NumberStyles, provider: System.IFormatProvider, result: typing.Optional[System.Numerics.Decimal64], chars_consumed: typing.Optional[int]) -> typing.Tuple[bool, System.Numerics.Decimal64, int]:
+        ...
+
+    @staticmethod
+    @overload
+    def try_parse(s: System.ReadOnlySpan[str], style: System.Globalization.NumberStyles, provider: System.IFormatProvider, result: typing.Optional[System.Numerics.Decimal64], chars_consumed: typing.Optional[int]) -> typing.Tuple[bool, System.Numerics.Decimal64, int]:
+        ...
+
+    @staticmethod
+    @overload
+    def try_parse(utf_8_text: System.ReadOnlySpan[int], style: System.Globalization.NumberStyles, provider: System.IFormatProvider, result: typing.Optional[System.Numerics.Decimal64], bytes_consumed: typing.Optional[int]) -> typing.Tuple[bool, System.Numerics.Decimal64, int]:
+        ...
+
 
 class IIncrementOperators(typing.Generic[System_Numerics_IIncrementOperators_TSelf], metaclass=abc.ABCMeta):
     """This class has no documentation."""
@@ -3951,6 +3966,21 @@ class Decimal32(System.IComparable[System_Numerics_Decimal32], System.IEquatable
     @staticmethod
     @overload
     def try_parse(s: str, style: System.Globalization.NumberStyles, provider: System.IFormatProvider, result: typing.Optional[System.Numerics.Decimal32]) -> typing.Tuple[bool, System.Numerics.Decimal32]:
+        ...
+
+    @staticmethod
+    @overload
+    def try_parse(s: str, style: System.Globalization.NumberStyles, provider: System.IFormatProvider, result: typing.Optional[System.Numerics.Decimal32], chars_consumed: typing.Optional[int]) -> typing.Tuple[bool, System.Numerics.Decimal32, int]:
+        ...
+
+    @staticmethod
+    @overload
+    def try_parse(s: System.ReadOnlySpan[str], style: System.Globalization.NumberStyles, provider: System.IFormatProvider, result: typing.Optional[System.Numerics.Decimal32], chars_consumed: typing.Optional[int]) -> typing.Tuple[bool, System.Numerics.Decimal32, int]:
+        ...
+
+    @staticmethod
+    @overload
+    def try_parse(utf_8_text: System.ReadOnlySpan[int], style: System.Globalization.NumberStyles, provider: System.IFormatProvider, result: typing.Optional[System.Numerics.Decimal32], bytes_consumed: typing.Optional[int]) -> typing.Tuple[bool, System.Numerics.Decimal32, int]:
         ...
 
 
@@ -4736,6 +4766,21 @@ class BFloat16(System.IComparable[System_Numerics_BFloat16], System.ISpanFormatt
 
     @staticmethod
     @overload
+    def try_parse(s: str, style: System.Globalization.NumberStyles, provider: System.IFormatProvider, result: typing.Optional[System.Numerics.BFloat16], chars_consumed: typing.Optional[int]) -> typing.Tuple[bool, System.Numerics.BFloat16, int]:
+        ...
+
+    @staticmethod
+    @overload
+    def try_parse(s: System.ReadOnlySpan[str], style: System.Globalization.NumberStyles, provider: System.IFormatProvider, result: typing.Optional[System.Numerics.BFloat16], chars_consumed: typing.Optional[int]) -> typing.Tuple[bool, System.Numerics.BFloat16, int]:
+        ...
+
+    @staticmethod
+    @overload
+    def try_parse(utf_8_text: System.ReadOnlySpan[int], style: System.Globalization.NumberStyles, provider: System.IFormatProvider, result: typing.Optional[System.Numerics.BFloat16], bytes_consumed: typing.Optional[int]) -> typing.Tuple[bool, System.Numerics.BFloat16, int]:
+        ...
+
+    @staticmethod
+    @overload
     def try_parse(s: str, provider: System.IFormatProvider, result: typing.Optional[System.Numerics.BFloat16]) -> typing.Tuple[bool, System.Numerics.BFloat16]:
         ...
 
@@ -5151,6 +5196,21 @@ class Decimal128(System.IComparable[System_Numerics_Decimal128], System.IEquatab
     @staticmethod
     @overload
     def try_parse(s: str, style: System.Globalization.NumberStyles, provider: System.IFormatProvider, result: typing.Optional[System.Numerics.Decimal128]) -> typing.Tuple[bool, System.Numerics.Decimal128]:
+        ...
+
+    @staticmethod
+    @overload
+    def try_parse(s: str, style: System.Globalization.NumberStyles, provider: System.IFormatProvider, result: typing.Optional[System.Numerics.Decimal128], chars_consumed: typing.Optional[int]) -> typing.Tuple[bool, System.Numerics.Decimal128, int]:
+        ...
+
+    @staticmethod
+    @overload
+    def try_parse(s: System.ReadOnlySpan[str], style: System.Globalization.NumberStyles, provider: System.IFormatProvider, result: typing.Optional[System.Numerics.Decimal128], chars_consumed: typing.Optional[int]) -> typing.Tuple[bool, System.Numerics.Decimal128, int]:
+        ...
+
+    @staticmethod
+    @overload
+    def try_parse(utf_8_text: System.ReadOnlySpan[int], style: System.Globalization.NumberStyles, provider: System.IFormatProvider, result: typing.Optional[System.Numerics.Decimal128], bytes_consumed: typing.Optional[int]) -> typing.Tuple[bool, System.Numerics.Decimal128, int]:
         ...
 
 

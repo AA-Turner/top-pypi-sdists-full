@@ -13,6 +13,7 @@ from abstra_internals.contracts_generated import (
     CloudApiCliAiV2QueuePostRequest,
     CloudApiCliAiV2QueueRemoveRequest,
     CloudApiCliAiV2StreamRequest,
+    CommonAiStreamRetryFlagValue,
 )
 from abstra_internals.controllers.main import MainController
 from abstra_internals.credentials import resolve_headers
@@ -23,7 +24,10 @@ from abstra_internals.utils.packages import get_local_package_version
 from abstra_internals.utils.paths import get_relative_path
 from abstra_internals.utils.string import sanitize_filename
 
-RETRY_FLAG = "abstra__trigger__retry"
+# Wire-protocol marker shared with cloud-api and the desktop (single source of
+# truth: contracts/schemas/common/ai/stream/retry-flag.json). Injected into the
+# stream when the cloud-api request fails so the desktop retries the turn.
+RETRY_FLAG = CommonAiStreamRetryFlagValue
 
 
 class InvalidUploadPathError(ValueError):

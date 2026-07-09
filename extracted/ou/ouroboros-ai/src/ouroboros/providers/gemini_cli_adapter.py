@@ -38,6 +38,7 @@ from typing import Any
 import structlog
 
 from ouroboros.core.errors import ProviderError
+from ouroboros.core.retry import BASE_TRANSIENT_PATTERNS, is_transient_error
 from ouroboros.core.security import MAX_LLM_RESPONSE_LENGTH, InputValidator
 from ouroboros.core.types import Result
 from ouroboros.providers.base import (
@@ -49,20 +50,19 @@ from ouroboros.providers.base import (
 )
 from ouroboros.providers.codex_cli_stream import iter_stream_lines, terminate_process
 from ouroboros.providers.profiles import resolve_completion_profile_result
-from ouroboros.runtime.child_env import build_child_env
+from ouroboros.runtime.child_env import DEFAULT_OUROBOROS_STRIP_KEYS, build_child_env
 
 log = structlog.get_logger()
 
 _SAFE_MODEL_NAME_PATTERN = re.compile(r"^[A-Za-z0-9_./:@-]+$")
 
-_RETRYABLE_ERROR_PATTERNS = (
-    "rate limit",
-    "temporarily unavailable",
-    "timeout",
-    "overloaded",
-    "try again",
+_GEMINI_RETRYABLE_EXTRA_PATTERNS = (
     "quota",
     "resource exhausted",
+)
+_RETRYABLE_ERROR_PATTERNS = (
+    *BASE_TRANSIENT_PATTERNS,
+    *_GEMINI_RETRYABLE_EXTRA_PATTERNS,
 )
 
 # Gemini CLI exit codes
@@ -82,7 +82,7 @@ _MAX_OUROBOROS_DEPTH = 5
 # Child-env strip set for Gemini.  Gemini does NOT strip CLAUDECODE (unlike
 # codex/copilot/kiro) — preserve that divergence; only the Ouroboros markers
 # are removed.
-_CHILD_ENV_STRIP_KEYS = ("OUROBOROS_AGENT_RUNTIME", "OUROBOROS_LLM_BACKEND")
+_CHILD_ENV_STRIP_KEYS = DEFAULT_OUROBOROS_STRIP_KEYS
 
 
 class GeminiCLIAdapter:
@@ -301,6 +301,12 @@ class GeminiCLIAdapter:
                     details={"timeout_seconds": self._timeout},
                 )
             )
+        except asyncio.CancelledError:
+            await terminate_process(
+                process,
+                shutdown_timeout=self._process_shutdown_timeout_seconds,
+            )
+            raise
 
     async def _collect_response(
         self,
@@ -667,8 +673,10 @@ class GeminiCLIAdapter:
         Returns:
             Whether the error is worth retrying.
         """
-        lower = error_msg.lower()
-        return any(pattern in lower for pattern in _RETRYABLE_ERROR_PATTERNS)
+        return is_transient_error(
+            error_msg,
+            extra_patterns=_GEMINI_RETRYABLE_EXTRA_PATTERNS,
+        )
 
     @staticmethod
     def _format_tool_detail(tool_name: str, tool_input: dict[str, Any]) -> str:

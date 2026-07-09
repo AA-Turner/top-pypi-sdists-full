@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: kaggle-environments
-Version: 1.31.1
+Version: 1.32.0
 Summary: Kaggle Environments
 Author-email: Kaggle <support@kaggle.com>
 Requires-Python: >=3.11

@@ -4816,6 +4816,7 @@ components:
         saves: { type: integer, example: 0, description: 'Number of saves/bookmarks (Instagram, Pinterest)' }
         clicks: { type: integer, example: 0 }
         views: { type: integer, example: 0 }
+        follows: { type: integer, example: 0, description: 'Instagram feed posts and stories only: organic accounts that started following from this post. 0 for reels and other platforms.' }
         igReelsAvgWatchTime: { type: integer, example: 0, description: 'Instagram Reels only: average watch time per play, in milliseconds. 0 for non-Reels media and other platforms.' }
         igReelsVideoViewTotalTime: { type: integer, example: 0, description: 'Instagram Reels only: total watch time including replays, in milliseconds. 0 for non-Reels media and other platforms.' }
         engagementRate: { type: number, example: 0 }
@@ -7341,7 +7342,7 @@ paths:
           description: Page number (default 1)
         - name: sortBy
           in: query
-          schema: { type: string, enum: [date, engagement, impressions, reach, likes, comments, shares, saves, clicks, views], default: date }
+          schema: { type: string, enum: [date, engagement, impressions, reach, likes, comments, shares, saves, clicks, views, follows], default: date }
           description: Sort by date, engagement, or a specific metric
         - name: order
           in: query
@@ -19643,7 +19644,7 @@ paths:
 
         X API tier requirement: DM write endpoints require X API Pro tier ($5,000/month) or Enterprise access. This applies to BYOK (Bring Your Own Key) users who provide their own X API credentials.
 
-        Rate limits: 200 requests per 15 minutes, 1,000 per 24 hours per user, 15,000 per 24 hours per app (shared across all DM endpoints).
+        Rate limits (X/Twitter only): X's DM API enforces 200 requests per 15 minutes, 1,000 per 24 hours per connected X account, and 15,000 per 24 hours per X developer app (shared across all DM endpoints). These limits do NOT apply to other platforms. WhatsApp sends are governed by Meta's per-number messaging tiers (unique business-initiated conversations per 24 hours) and per-number throughput instead.
       tags: [Messages]
       security: [{ bearerAuth: [] }]
       requestBody:
@@ -31117,6 +31118,11 @@ paths:
                           items: { type: object }
         '202':
           description: "Part of the requested date range predates the ingested history; a background backfill job has been queued. The body has the same shape as the 200 response, carries the currently-available data, and includes `backfillPending: true`. A `Retry-After` header carries the recommended poll interval in seconds. Allow the job a short time to run (typically 1-3 minutes) and submit the request again; once ingestion completes the same request returns 200 with the full range."
+        '400':
+          description: "Invalid parameter (e.g. an unknown `breakdowns` dimension). The message lists the offending value(s) and the supported set."
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
         '401': { $ref: '#/components/responses/Unauthorized' }
         '403':
           description: Ads access required. Legacy plans need the Ads add-on; included by default on usage-based plans.
@@ -31182,6 +31188,11 @@ paths:
                           items: { type: object }
         '202':
           description: "Part of the requested date range predates the ingested history; a background backfill job has been queued. The body has the same shape as the 200 response, carries the currently-available data, and includes `backfillPending: true`. A `Retry-After` header carries the recommended poll interval in seconds. Allow the job a short time to run (typically 1-3 minutes) and submit the request again; once ingestion completes the same request returns 200 with the full range."
+        '400':
+          description: "Invalid parameter (e.g. an unknown `breakdowns` dimension). The message lists the offending value(s) and the supported set."
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/ErrorResponse' }
         '401': { $ref: '#/components/responses/Unauthorized' }
         '403':
           description: Ads access required. Legacy plans need the Ads add-on; included by default on usage-based plans.
@@ -32731,6 +32742,7 @@ paths:
                       type: object
                       properties:
                         id: { type: [string, "null"] }
+                        accountId: { type: string, description: "Social account the audience was created against. Returned for saved_targeting items." }
                         platformAudienceId: { type: string }
                         name: { type: string }
                         description: { type: string }
@@ -32834,11 +32846,55 @@ paths:
         '403':
           description: Ads access required. Legacy plans need the Ads add-on; included by default on usage-based plans.
         '404': { $ref: '#/components/responses/NotFound' }
+    put:
+      operationId: updateAdAudience
+      tags: [Ad Audiences]
+      summary: Update saved targeting audience
+      description: |
+        Update a `saved_targeting` audience's name, description, or spec. Only `saved_targeting` audiences are
+        updatable (they exist only on Zernio); uploaded/derived audiences return 422, delete and recreate those
+        instead. `spec` replaces the stored spec wholesale (no merge). Ads already created from this audience are
+        unaffected, they snapshot the targeting at creation.
+      security:
+        - bearerAuth: []
+      parameters:
+        - { name: audienceId, in: path, required: true, schema: { type: string } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              description: At least one field is required.
+              properties:
+                name: { type: string, maxLength: 255 }
+                description: { type: string }
+                spec:
+                  allOf: [{ $ref: '#/components/schemas/TargetingSpec' }]
+                  description: Full replacement for the stored targeting spec.
+      responses:
+        '200':
+          description: Audience updated
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  audience: { type: object }
+                  message: { type: string }
+        '400':
+          description: Invalid body (no fields provided or malformed spec)
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403':
+          description: Ads access required. Legacy plans need the Ads add-on; included by default on usage-based plans.
+        '404': { $ref: '#/components/responses/NotFound' }
+        '422':
+          description: The audience is not saved_targeting (uploaded/derived audiences are managed on the platform)
     delete:
       operationId: deleteAdAudience
       tags: [Ad Audiences]
       summary: Delete custom audience
-      description: Deletes the audience from both Meta and the local database.
+      description: Deletes the audience from both the platform and the local database. `saved_targeting` audiences exist only on Zernio, so only the local record is removed.
       security:
         - bearerAuth: []
       parameters:

@@ -17,7 +17,7 @@ from slixmpp.stanza import StreamFeatures, Iq
 from slixmpp.basexmpp import BaseXMPP
 from slixmpp.exceptions import XMPPError
 from slixmpp.roster.single import RosterNode
-from slixmpp.types import JidStr
+from slixmpp.types import JidStr, Literal
 from slixmpp.xmlstream import XMLStream
 from slixmpp.xmlstream.stanzabase import StanzaBase
 from slixmpp.xmlstream.matcher import StanzaPath, MatchXPath
@@ -55,6 +55,7 @@ class ClientXMPP(BaseXMPP):
     """
 
     client_roster: RosterNode
+    is_component: Literal[False]
 
     def __init__(self, jid: JidStr, password: str, plugin_config=None,
                  plugin_whitelist=None, escape_quotes=True, sasl_mech=None,
@@ -140,7 +141,7 @@ class ClientXMPP(BaseXMPP):
         self.limits = Limits()
 
         if sasl_mech:
-            self['feature_mechanisms'].use_mech = sasl_mech
+            self.plugin['feature_mechanisms'].use_mech = sasl_mech
 
     @property
     def password(self) -> str:

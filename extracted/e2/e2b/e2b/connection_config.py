@@ -1,3 +1,4 @@
+import logging
 import os
 
 from typing import cast, Optional, Dict, TypedDict
@@ -30,9 +31,6 @@ class ApiParams(TypedDict, total=False):
     api_headers: Optional[Dict[str, str]]
     """Additional headers to send with E2B API requests."""
 
-    integration: Optional[str]
-    """Integration wrapping the E2B SDK, appended to the User-Agent."""
-
     api_key: Optional[str]
     """E2B API Key to use for authentication, defaults to `E2B_API_KEY` environment variable."""
 
@@ -56,6 +54,18 @@ class ApiParams(TypedDict, total=False):
 
     sandbox_url: Optional[str]
     """URL to connect to sandbox, defaults to `E2B_SANDBOX_URL` environment variable."""
+
+
+class ApiParamsWithLogger(ApiParams, total=False):
+    """:class:`ApiParams` plus the construction-time ``logger``.
+
+    Internal type returned by :meth:`ConnectionConfig.get_api_params` so that the
+    logger a sandbox was created/connected with keeps propagating to the
+    throwaway ``ConnectionConfig`` that instance control-plane methods rebuild.
+    Unlike :class:`ApiParams`, ``logger`` is not a public per-request option.
+    """
+
+    logger: Optional[logging.Logger]
 
 
 class ConnectionConfig:
@@ -119,7 +129,9 @@ class ConnectionConfig:
         integration: Optional[str] = None,
         extra_sandbox_headers: Optional[Dict[str, str]] = None,
         proxy: Optional[ProxyTypes] = None,
+        logger: Optional[logging.Logger] = None,
     ):
+        self.logger = logger
         self.domain = domain or ConnectionConfig._domain()
         self.debug = debug if debug is not None else ConnectionConfig._debug()
         self.api_key = api_key or ConnectionConfig._api_key()
@@ -133,9 +145,10 @@ class ConnectionConfig:
         self.access_token = access_token or ConnectionConfig._access_token()
         self.integration = integration
         self.headers = {**(headers or {}), **(api_headers or {})}
-        self.headers["User-Agent"] = self._build_user_agent(
-            self.integration,
-        )
+        if self.integration is not None or "User-Agent" not in self.headers:
+            self.headers["User-Agent"] = self._build_user_agent(
+                self.integration,
+            )
         self.__extra_sandbox_headers = extra_sandbox_headers or {}
 
         self.proxy = proxy
@@ -225,7 +238,6 @@ class ConnectionConfig:
         """
         headers = opts.get("headers")
         api_headers = opts.get("api_headers")
-        integration = opts.get("integration", self.integration)
         request_timeout = opts.get("request_timeout")
         api_key = opts.get("api_key")
         validate_api_key = opts.get("validate_api_key")
@@ -240,13 +252,19 @@ class ConnectionConfig:
             req_headers.update(headers)
         if api_headers is not None:
             req_headers.update(api_headers)
-        if integration is not None:
+        if self.integration is not None:
             req_headers["User-Agent"] = self._build_user_agent(
-                integration,
+                self.integration,
             )
 
+        # `logger` is a construction-time option rather than a per-request
+        # ApiParams field, but it must propagate to the throwaway
+        # ConnectionConfig that instance control-plane methods (kill, pause,
+        # set_timeout, get_info, connect, ...) rebuild from these params, so
+        # those requests keep logging with the logger the sandbox was created
+        # or connected with.
         return dict(
-            ApiParams(
+            ApiParamsWithLogger(
                 api_key=api_key if api_key is not None else self.api_key,
                 validate_api_key=(
                     validate_api_key
@@ -258,13 +276,13 @@ class ConnectionConfig:
                 debug=debug if debug is not None else self.debug,
                 request_timeout=self.get_request_timeout(request_timeout),
                 headers=req_headers,
-                integration=integration,
                 proxy=proxy if proxy is not None else self.proxy,
                 sandbox_url=(
                     sandbox_url
                     if sandbox_url is not None
                     else cast(Optional[str], self._sandbox_url)
                 ),
+                logger=self.logger,
             )
         )
 

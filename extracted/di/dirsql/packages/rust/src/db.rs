@@ -37,6 +37,13 @@ const INTERNAL_TABLE_PREFIX: &str = "_dirsql_";
 const INTERNAL_TABLE_DENIED_MSG: &str = "not authorized: dirsql's internal bookkeeping tables (the `_dirsql_*` namespace) \
      are not readable through query()";
 
+/// The message carried by [`DbError::Unauthorized`] when `query()` rejects an
+/// `ATTACH`/`DETACH`. SQLite classifies both as read-only, so the `readonly()`
+/// gate lets them through; they are effectful (ATTACH creates/opens an
+/// arbitrary database file) and denied at prepare time instead.
+const ATTACH_DENIED_MSG: &str = "not authorized: query() does not permit ATTACH or DETACH; \
+     attaching external databases is disabled on this surface";
+
 fn is_internal_table(name: &str) -> bool {
     name.starts_with(INTERNAL_TABLE_PREFIX)
 }
@@ -273,14 +280,14 @@ impl Db {
         // `_dirsql_internal_rows`, keyed on the row's rowid. A column-less row
         // (SQLite requires ≥1 declared column, so this is only reachable
         // defensively) uses `DEFAULT VALUES`.
-        let columns: Vec<String> = row.keys().cloned().collect();
+        let columns: Vec<String> = row.keys().map(|c| format!("\"{c}\"")).collect();
         let sql = if columns.is_empty() {
-            format!("INSERT INTO {} DEFAULT VALUES", table)
+            format!("INSERT INTO \"{table}\" DEFAULT VALUES")
         } else {
             let placeholders: Vec<String> =
                 (1..=columns.len()).map(|i| format!("?{}", i)).collect();
             format!(
-                "INSERT INTO {} ({}) VALUES ({})",
+                "INSERT INTO \"{}\" ({}) VALUES ({})",
                 table,
                 columns.join(", "),
                 placeholders.join(", "),
@@ -402,16 +409,33 @@ impl Db {
     /// through `query()`, are unaffected.
     pub fn query(&self, sql: &str) -> Result<Vec<HashMap<String, Value>>> {
         use rusqlite::hooks::{AuthAction, AuthContext, Authorization};
+        use std::sync::{Arc, Mutex};
 
+        // The authorizer runs at prepare time and may deny for two distinct
+        // reasons; it records which one here so the caught error can carry the
+        // matching message (the closure must be `'static`, so it owns a clone).
+        let denial: Arc<Mutex<Option<&'static str>>> = Arc::new(Mutex::new(None));
+        let denial_cb = Arc::clone(&denial);
         self.conn
-            .authorizer(Some(|ctx: AuthContext<'_>| match ctx.action {
+            .authorizer(Some(move |ctx: AuthContext<'_>| match ctx.action {
                 AuthAction::Read { table_name, .. } if is_internal_table(table_name) => {
+                    *denial_cb.lock().unwrap() = Some(INTERNAL_TABLE_DENIED_MSG);
                     Authorization::Deny
                 }
                 AuthAction::Pragma {
                     pragma_value: Some(value),
                     ..
-                } if is_internal_table(value) => Authorization::Deny,
+                } if is_internal_table(value) => {
+                    *denial_cb.lock().unwrap() = Some(INTERNAL_TABLE_DENIED_MSG);
+                    Authorization::Deny
+                }
+                // ATTACH/DETACH are the only effectful actions SQLite classifies
+                // as read-only, so the `readonly()` gate below can't catch them;
+                // deny here before the file is ever created or opened.
+                AuthAction::Attach { .. } | AuthAction::Detach { .. } => {
+                    *denial_cb.lock().unwrap() = Some(ATTACH_DENIED_MSG);
+                    Authorization::Deny
+                }
                 _ => Authorization::Allow,
             }));
         let prepared = self.conn.prepare(sql);
@@ -426,7 +450,8 @@ impl Db {
                 if e.sqlite_error_code()
                     == Some(rusqlite::ErrorCode::AuthorizationForStatementDenied) =>
             {
-                return Err(DbError::Unauthorized(INTERNAL_TABLE_DENIED_MSG.to_string()));
+                let msg = denial.lock().unwrap().unwrap_or(INTERNAL_TABLE_DENIED_MSG);
+                return Err(DbError::Unauthorized(msg.to_string()));
             }
             Err(e) => return Err(DbError::Sqlite(e)),
         };
@@ -501,19 +526,64 @@ impl rusqlite::types::ToSql for Value {
 /// dirsql constrains table names to safe unquoted identifiers via
 /// [`validate_identifier`], so the handful of forms above are the only ones
 /// that can actually resolve to a usable table.
-pub fn parse_table_name(ddl: &str) -> Option<String> {
-    let upper = ddl.to_uppercase();
-    let idx = upper.find("CREATE TABLE")?;
-    let mut rest = ddl[idx + "CREATE TABLE".len()..].trim_start();
+/// Strip leading whitespace and SQL comments (`-- ...` to end-of-line and
+/// `/* ... */` blocks, repeated) from `s`. An unterminated block comment
+/// consumes the rest of the input. Every returned slice starts on a char
+/// boundary, so callers can index it safely.
+fn skip_ws_comments(s: &str) -> &str {
+    let mut s = s;
+    loop {
+        let trimmed = s.trim_start();
+        if let Some(after) = trimmed.strip_prefix("--") {
+            match after.find('\n') {
+                Some(i) => s = &after[i + 1..],
+                None => return "",
+            }
+        } else if let Some(after) = trimmed.strip_prefix("/*") {
+            match after.find("*/") {
+                Some(i) => s = &after[i + 2..],
+                None => return "",
+            }
+        } else {
+            return trimmed;
+        }
+    }
+}
 
-    // Skip optional "IF NOT EXISTS". `.get()` avoids slicing on a non-char
-    // boundary when the name itself begins with a multi-byte character.
-    const IF_NOT_EXISTS: &str = "IF NOT EXISTS";
-    if rest
-        .get(..IF_NOT_EXISTS.len())
-        .is_some_and(|p| p.eq_ignore_ascii_case(IF_NOT_EXISTS))
-    {
-        rest = rest[IF_NOT_EXISTS.len()..].trim_start();
+/// If `s` begins with the ASCII keyword `kw` (case-insensitive) followed by a
+/// non-identifier boundary, return the remainder after it; otherwise `None`.
+/// The boundary check keeps a longer identifier (`TABLES`, `iffy`) from
+/// matching a keyword prefix.
+fn strip_keyword_ci<'a>(s: &'a str, kw: &str) -> Option<&'a str> {
+    let bytes = s.as_bytes();
+    if bytes.len() < kw.len() || !bytes[..kw.len()].eq_ignore_ascii_case(kw.as_bytes()) {
+        return None;
+    }
+    let rest = &s[kw.len()..];
+    match rest.chars().next() {
+        Some(c) if c.is_alphanumeric() || c == '_' => None,
+        _ => Some(rest),
+    }
+}
+
+pub fn parse_table_name(ddl: &str) -> Option<String> {
+    // Match `CREATE TABLE` only as the *statement head*: skip leading
+    // whitespace and line/block comments and scan the original `ddl` by byte
+    // offset (never a `to_uppercase()` copy, whose length can differ from the
+    // source and mis-slice on Unicode). A `-- CREATE TABLE ...` comment must
+    // not hijack the name.
+    let rest = skip_ws_comments(ddl);
+    let rest = strip_keyword_ci(rest, "CREATE")?;
+    let rest = strip_keyword_ci(skip_ws_comments(rest), "TABLE")?;
+    let mut rest = skip_ws_comments(rest);
+
+    // Skip optional "IF NOT EXISTS". The keyword boundary check in
+    // `strip_keyword_ci` keeps a table literally named e.g. `iffy` from being
+    // mistaken for `IF`.
+    if let Some(after_if) = strip_keyword_ci(rest, "IF") {
+        let after_not = strip_keyword_ci(skip_ws_comments(after_if), "NOT")?;
+        let after_exists = strip_keyword_ci(skip_ws_comments(after_not), "EXISTS")?;
+        rest = skip_ws_comments(after_exists);
     }
 
     // `schema.table`: keep the last dot-separated segment. Each segment may
@@ -852,6 +922,59 @@ mod tests {
     }
 
     #[test]
+    fn parse_table_name_ignores_leading_line_comment() {
+        assert_eq!(
+            parse_table_name("-- create table old\nCREATE TABLE t (x TEXT)"),
+            Some("t".to_string())
+        );
+    }
+
+    #[test]
+    fn parse_table_name_ignores_leading_block_comment() {
+        assert_eq!(
+            parse_table_name("/* CREATE TABLE old */ CREATE TABLE t (x TEXT)"),
+            Some("t".to_string())
+        );
+    }
+
+    #[test]
+    fn parse_table_name_unterminated_comment_is_none() {
+        // Unterminated `--` and `/* */` comments consume the rest of the input,
+        // leaving no statement head.
+        assert_eq!(parse_table_name("-- no newline, no statement"), None);
+        assert_eq!(parse_table_name("/* unterminated CREATE TABLE t"), None);
+    }
+
+    #[test]
+    fn parse_table_name_rejects_keyword_prefix() {
+        // `CREATE TABLES` must not match the `TABLE` keyword prefix.
+        assert_eq!(parse_table_name("CREATE TABLES foo (id TEXT)"), None);
+    }
+
+    #[test]
+    fn parse_table_name_if_prefixed_name_is_not_if_not_exists() {
+        // A table whose name merely starts with `if` is not `IF NOT EXISTS`.
+        assert_eq!(
+            parse_table_name("CREATE TABLE ifx (id TEXT)"),
+            Some("ifx".to_string())
+        );
+    }
+
+    #[test]
+    fn parse_table_name_unicode_in_comment_does_not_panic() {
+        // A case-length-changing char (`ﬁ`) in a comment must neither hijack
+        // the name nor panic on a byte-index slice.
+        assert_eq!(
+            parse_table_name("-- ﬁ\nCREATE TABLE t (x TEXT)"),
+            Some("t".to_string())
+        );
+        assert_eq!(
+            parse_table_name("/* ﬁﬁﬁ */ CREATE TABLE t (x TEXT)"),
+            Some("t".to_string())
+        );
+    }
+
+    #[test]
     fn get_table_columns_returns_user_columns_only() {
         let db = Db::new().unwrap();
         db.create_table("CREATE TABLE t (name TEXT, count INTEGER)")
@@ -1058,6 +1181,44 @@ mod tests {
     }
 
     #[test]
+    fn query_denies_attach() {
+        let db = Db::new().unwrap();
+        let err = db
+            .query("ATTACH 'file:should-not-open?mode=ro' AS ext")
+            .unwrap_err();
+        assert!(matches!(err, DbError::Unauthorized(_)), "got: {err}");
+        let msg = err.to_string();
+        assert!(msg.contains("not authorized"), "got: {msg}");
+        assert!(msg.contains("ATTACH"), "got: {msg}");
+    }
+
+    #[test]
+    fn query_denies_detach() {
+        let db = Db::new().unwrap();
+        let err = db.query("DETACH ext").unwrap_err();
+        assert!(matches!(err, DbError::Unauthorized(_)), "got: {err}");
+        assert!(err.to_string().contains("not authorized"), "got: {err}");
+    }
+
+    #[test]
+    fn attach_denied_message_mentions_attach_and_detach() {
+        assert!(ATTACH_DENIED_MSG.contains("not authorized"));
+        assert!(ATTACH_DENIED_MSG.contains("ATTACH"));
+        assert!(ATTACH_DENIED_MSG.contains("DETACH"));
+    }
+
+    #[test]
+    fn query_still_allows_select_after_attach_denial() {
+        // The authorizer is cleared after each query, so a denied ATTACH must
+        // not poison the next normal read.
+        let db = Db::new().unwrap();
+        db.create_table("CREATE TABLE t (id TEXT)").unwrap();
+        let _ = db.query("ATTACH 'x.db' AS ext").unwrap_err();
+        let rows = db.query("SELECT * FROM t").unwrap();
+        assert_eq!(rows.len(), 0);
+    }
+
+    #[test]
     fn query_invalid_sql_returns_error() {
         let db = Db::new().unwrap();
         let result = db.query("SELECT FROM nonexistent");
@@ -1258,6 +1419,22 @@ mod tests {
         let row = HashMap::from([("id); DROP TABLE t; --".into(), Value::Text("x".into()))]);
         let err = db.insert_row("t", &row, "f.json", 0).unwrap_err();
         assert!(matches!(err, DbError::InvalidIdentifier(_)), "got: {err:?}");
+    }
+
+    #[test]
+    fn insert_row_round_trips_reserved_word_column() {
+        let db = Db::new().unwrap();
+        db.create_table("CREATE TABLE t (path TEXT, \"order\" INTEGER)")
+            .unwrap();
+        let row = HashMap::from([
+            ("path".into(), Value::Text("a".into())),
+            ("order".into(), Value::Integer(7)),
+        ]);
+        db.insert_row("t", &row, "f.json", 0).unwrap();
+
+        let rows = db.get_rows_by_file("t", "f.json").unwrap();
+        assert_eq!(rows.len(), 1);
+        assert_eq!(rows[0]["order"], Value::Integer(7));
     }
 
     #[test]

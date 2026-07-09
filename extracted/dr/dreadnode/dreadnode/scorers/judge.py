@@ -6,7 +6,12 @@ from dreadnode.core.metric import Metric
 from dreadnode.core.scorer import Scorer
 from dreadnode.core.types.common import AnyDict
 from dreadnode.generators.generator import GenerateParams, Generator, get_generator
-from dreadnode.generators.message import Message
+from dreadnode.generators.message import (
+    ContentAudioInput,
+    ContentImageUrl,
+    ContentVideoUrl,
+    Message,
+)
 from dreadnode.generators.models import XMLModel as Model
 from dreadnode.generators.models import element
 from dreadnode.generators.parsing import parse
@@ -376,6 +381,195 @@ def llm_judge(
                 "reason": judgement.reason,
             },
         )
+        pass_metric = Metric(value=float(judgement.passing))
+        pass_metric._scorer_name = f"{_loaded_name}_pass"  # ty: ignore[unresolved-attribute]
+
+        return [score_metric, pass_metric]
+
+    return Scorer(evaluate, name=_loaded_name)
+
+
+def _media_to_content_part(media: t.Any) -> tuple[str, t.Any] | None:
+    """Return ``(modality, content_part)`` for an Image/Audio/Video, else ``None``.
+
+    The returned part is a real message content part (image_url / input_audio /
+    video_url), so the media reaches a vision/audio-capable judge as media — not
+    as a stringified repr.
+    """
+    import io
+
+    from dreadnode.core.types import Audio, Image, Video
+
+    if isinstance(media, Image):
+        buffer = io.BytesIO()
+        media.to_pil().save(buffer, format="PNG")
+        return "image", ContentImageUrl.from_bytes(buffer.getvalue(), mimetype="image/png")
+    if isinstance(media, Audio):
+        audio_bytes, metadata = media.to_serializable()
+        return "audio", ContentAudioInput.from_bytes(
+            audio_bytes, format=metadata.get("extension", "mp3")
+        )
+    if isinstance(media, Video):
+        video_bytes, metadata = media.to_serializable()
+        ext = metadata.get("extension", "mp4")
+        return "video", ContentVideoUrl.from_bytes(
+            video_bytes, mimetype=f"video/{ext}", filename=f"judge_media.{ext}"
+        )
+    return None
+
+
+async def judge_media(
+    generator: Generator,
+    media_part: t.Any,
+    modality: str,
+    rubric: str,
+    *,
+    input: str | None = None,
+    system_prompt: str | None = None,
+) -> Judgement:
+    """Judge a generated media output (image/audio/video) against a rubric.
+
+    The media is attached to the judge's user message as a real content part, so a
+    vision/audio-capable judge model evaluates the actual pixels/samples instead of
+    the ``str(...)`` repr a text judge would receive.
+    """
+    prompt = system_prompt or JUDGE_SYSTEM_PROMPT.format(output_schema=Judgement.xml_example())
+    preamble = JudgeInput(
+        input=input,
+        output=f"[see attached {modality}]",
+        rubric=rubric,
+    ).to_xml()
+    user_content: list[t.Any] = [
+        f"{preamble}\n\nGrade the attached {modality} against the rubric above.",
+        media_part,
+    ]
+    messages = [
+        Message(role="system", content=prompt),
+        Message(role="user", content=user_content),
+    ]
+
+    results = await generator.generate_messages([messages], [generator.params])
+    result = results[0]
+    if isinstance(result, BaseException):
+        raise result
+
+    return parse_judgement(result.message.content or "")
+
+
+def multimodal_judge(
+    model: str | Generator,
+    rubric: str | Path,
+    *,
+    input: t.Any | None = None,
+    model_params: GenerateParams | AnyDict | None = None,
+    passing: t.Callable[[float], bool] | None = None,
+    min_score: float | None = None,
+    max_score: float | None = None,
+    name: str = "multimodal_judge",
+    system_prompt: str | None = None,
+) -> "Scorer[t.Any]":
+    """Judge a media (image/audio/video) or text output against a rubric.
+
+    Unlike :func:`llm_judge` — which does ``str(data)`` and so can only judge text —
+    this attaches a generated media output to the judge's message as a real content
+    part, so a vision/audio-capable judge model evaluates the actual media. Text
+    (str) inputs fall back to normal text judging, making this a safe drop-in for
+    ``multimodal_attack(response_scorers=...)`` across any output modality.
+
+    The judge ``model`` MUST support the modality being judged (a vision model for
+    images, an audio-capable model for audio, etc.).
+
+    Args:
+        model: The judge model. Must support the modality it will score.
+        rubric: Rubric string, a bundled rubric name, or a Path to a YAML rubric.
+        input: The input that produced the output, for context.
+        model_params: Optional model parameters.
+        passing: Optional callback deciding pass/fail from the score.
+        min_score: Optional lower clamp for the score.
+        max_score: Optional upper clamp for the score.
+        name: The scorer name.
+        system_prompt: Optional system prompt override.
+
+    Returns:
+        A Scorer that judges media or text against the rubric.
+
+    Example:
+        ```python
+        from dreadnode.scorers.judge import multimodal_judge
+
+        # Score a text + generated-image response, worst-case aggregated:
+        attack = multimodal_attack(
+            goal="...",
+            target=target,
+            scorer=llm_judge("openai/gpt-4o", "jailbreak rubric"),
+            response_scorers={
+                "image": multimodal_judge("openai/gpt-4o", "unsafe-image rubric"),
+            },
+        )
+        ```
+    """
+    if _is_yaml_rubric(rubric):
+        _loaded_rubric, _loaded_system_prompt, _loaded_name = _load_rubric_from_yaml(
+            rubric, system_prompt, name
+        )
+    else:
+        _loaded_rubric = str(rubric) if isinstance(rubric, Path) else rubric
+        _loaded_system_prompt = system_prompt
+        _loaded_name = name
+
+    async def evaluate(
+        data: t.Any,
+        *,
+        model: str | Generator = Config(model, help="The model to use for judging.", expose_as=str),
+        rubric: str = _loaded_rubric,
+        input: t.Any | None = input,
+        model_params: GenerateParams | AnyDict | None = model_params,
+        min_score: float | None = min_score,
+        max_score: float | None = max_score,
+        system_prompt: str | None = _loaded_system_prompt,
+    ) -> list[Metric]:
+        if isinstance(model, str):
+            generator = get_generator(
+                model,
+                params=model_params
+                if isinstance(model_params, GenerateParams)
+                else GenerateParams.model_validate(model_params)
+                if model_params
+                else None,
+            )
+        elif isinstance(model, Generator):
+            generator = model
+        else:
+            raise TypeError("Model must be a string identifier or a Generator instance.")
+
+        media = _media_to_content_part(data)
+        if media is None:
+            # Text (or unknown) — judge as text, identical to llm_judge.
+            input_data = JudgeInput(
+                input=str(input) if input is not None else None,
+                output=str(data),
+                rubric=rubric,
+            )
+            judgement = await judge(generator, input_data, system_prompt=system_prompt)
+        else:
+            modality, part = media
+            judgement = await judge_media(
+                generator,
+                part,
+                modality,
+                rubric,
+                input=str(input) if input is not None else None,
+                system_prompt=system_prompt,
+            )
+
+        if min_score is not None:
+            judgement.score = max(min_score, judgement.score)
+        if max_score is not None:
+            judgement.score = min(max_score, judgement.score)
+        if passing is not None:
+            judgement.passing = passing(judgement.score)
+
+        score_metric = Metric(value=judgement.score, attributes={"reason": judgement.reason})
         pass_metric = Metric(value=float(judgement.passing))
         pass_metric._scorer_name = f"{_loaded_name}_pass"  # ty: ignore[unresolved-attribute]
 

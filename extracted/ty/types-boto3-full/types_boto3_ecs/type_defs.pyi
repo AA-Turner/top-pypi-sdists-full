@@ -449,6 +449,7 @@ __all__ = (
     "RollbackTypeDef",
     "RunTaskRequestTypeDef",
     "RunTaskResponseTypeDef",
+    "RuntimePlatformOverrideTypeDef",
     "RuntimePlatformTypeDef",
     "S3FilesVolumeConfigurationTypeDef",
     "ScaleTypeDef",
@@ -477,6 +478,7 @@ __all__ = (
     "ServiceManagedEBSVolumeConfigurationUnionTypeDef",
     "ServiceRegistryTypeDef",
     "ServiceRevisionLoadBalancerTypeDef",
+    "ServiceRevisionOverridesTypeDef",
     "ServiceRevisionSummaryTypeDef",
     "ServiceRevisionTypeDef",
     "ServiceTypeDef",
@@ -1488,6 +1490,9 @@ class RollbackTypeDef(TypedDict):
     startedAt: NotRequired[datetime]
     serviceRevisionArn: NotRequired[str]
 
+class RuntimePlatformOverrideTypeDef(TypedDict):
+    cpuArchitecture: NotRequired[str]
+
 class S3FilesVolumeConfigurationTypeDef(TypedDict):
     fileSystemArn: str
     rootDirectory: NotRequired[str]
@@ -2237,6 +2242,9 @@ class ResolvedConfigurationTypeDef(TypedDict):
     loadBalancers: NotRequired[list[ServiceRevisionLoadBalancerTypeDef]]
 
 ResourceUnionTypeDef = Union[ResourceTypeDef, ResourceOutputTypeDef]
+
+class ServiceRevisionOverridesTypeDef(TypedDict):
+    runtimePlatform: NotRequired[RuntimePlatformOverrideTypeDef]
 
 class ServiceConnectTestTrafficHeaderRulesTypeDef(TypedDict):
     name: str
@@ -3311,6 +3319,7 @@ class ServiceRevisionTypeDef(TypedDict):
     vpcLatticeConfigurations: NotRequired[list[VpcLatticeConfigurationTypeDef]]
     resolvedConfiguration: NotRequired[ResolvedConfigurationTypeDef]
     ecsManagedResources: NotRequired[ECSManagedResourcesTypeDef]
+    overrides: NotRequired[ServiceRevisionOverridesTypeDef]
     monitoring: NotRequired[MonitoringConfigurationOutputTypeDef]
 
 ServiceConnectConfigurationUnionTypeDef = Union[

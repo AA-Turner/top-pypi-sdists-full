@@ -70,7 +70,7 @@ class XEP_0077(BasePlugin):
         register_stanza_plugin(Iq, Register)
 
         if self.xmpp.is_component:
-            self.xmpp["xep_0030"].add_feature("jabber:iq:register")
+            self.xmpp.plugin["xep_0030"].add_feature("jabber:iq:register")
             self.xmpp.register_handler(
                 CoroutineCallback(
                     "registration",
@@ -91,8 +91,8 @@ class XEP_0077(BasePlugin):
                 order=self.order,
             )
 
-        register_stanza_plugin(Register, self.xmpp['xep_0004'].stanza.Form)
-        register_stanza_plugin(Register, self.xmpp['xep_0066'].stanza.OOB)
+        register_stanza_plugin(Register, self.xmpp.plugin['xep_0004'].stanza.Form)
+        register_stanza_plugin(Register, self.xmpp.plugin['xep_0066'].stanza.OOB)
 
         self.xmpp.add_event_handler('connected', self._force_registration)
 

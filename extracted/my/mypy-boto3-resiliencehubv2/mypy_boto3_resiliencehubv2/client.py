@@ -606,7 +606,7 @@ class ResilienceHubV2Client(BaseClient):
         self, **kwargs: Unpack[StartFailureModeAssessmentRequestTypeDef]
     ) -> StartFailureModeAssessmentResponseTypeDef:
         """
-        Start a failure mode assessment.
+        Starts a failure mode assessment.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/resiliencehubv2/client/start_failure_mode_assessment.html)
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_resiliencehubv2/client/#start_failure_mode_assessment)

@@ -18,13 +18,13 @@ DOCUMENTATION = r"""
 ---
 module: purefb_alert
 version_added: '1.0.0'
-short_description: Configure Everpure FlashBlade alert email settings
+short_description: Configure Pure Storage FlashBlade alert email settings
 description:
-- Configure alert email configuration for Everpure FlashArrays.
+- Configure alert email configuration for Pure Storage FlashArrays.
 - Add or delete an individual syslog server to the existing
   list of serves.
 author:
-- Everpure Ansible Team (@sdodsley) <pure-ansible-team@purestorage.com>
+- Pure Storage Ansible Team (@sdodsley) <pure-ansible-team@purestorage.com>
 options:
   state:
     type: str
@@ -86,9 +86,6 @@ from ansible_collections.purestorage.flashblade.plugins.module_utils.purefb impo
     get_system,
     purefb_argument_spec,
 )
-from ansible_collections.purestorage.flashblade.plugins.module_utils.common import (
-    get_error_message,
-)
 
 
 def create_alert(module, blade):
@@ -104,7 +101,7 @@ def create_alert(module, blade):
         if res.status_code != 200:
             module.fail_json(
                 msg="Failed to create alert email {0}. Error: {1}".format(
-                    module.params["address"], get_error_message(res)
+                    module.params["address"], res.errors[0].message
                 )
             )
         if not module.params["enabled"]:
@@ -115,7 +112,7 @@ def create_alert(module, blade):
             if res.status_code != 200:
                 module.fail_json(
                     msg="Failed to disable during create alert email {0}. Error: {1}".format(
-                        module.params["address"], get_error_message(res)
+                        module.params["address"], res.errors[0].message
                     )
                 )
     module.exit_json(changed=changed)
@@ -130,7 +127,7 @@ def update_alert(module, blade):
     else:
         module.fail_json(
             msg="Failed to get information for alert email {0}. Error: {1}".format(
-                module.params["address"], get_error_message(res)
+                module.params["address"], res.errors[0].message
             )
         )
     current_state = {
@@ -160,7 +157,7 @@ def update_alert(module, blade):
             if res.status_code != 200:
                 module.fail_json(
                     msg="Failed to update alert email {0}: Error: {1}".format(
-                        module.params["address"], get_error_message(res)
+                        module.params["address"], res.errors[0].message
                     )
                 )
     else:
@@ -176,7 +173,7 @@ def delete_alert(module, blade):
         if res.status_code != 200:
             module.fail_json(
                 msg="Failed to delete alert email {0}. Error: {1}".format(
-                    module.params["address"], get_error_message(res)
+                    module.params["address"], res.errors[0].message
                 )
             )
 
@@ -189,26 +186,26 @@ def test_alert(module, blade):
     response = list(
         blade.get_alert_watchers_test(names=[module.params["address"]]).items
     )
-    for component in response:
-        if component.enabled:
+    for component in range(len(response)):
+        if response[component].enabled:
             enabled = "true"
         else:
             enabled = "false"
-        if component.success:
+        if response[component].success:
             success = "true"
         else:
             success = "false"
         test_response.append(
             {
-                "component_address": component.component_address,
-                "component_name": component.component_name,
-                "description": component.description,
-                "destination": component.destination,
+                "component_address": response[component].component_address,
+                "component_name": response[component].component_name,
+                "description": response[component].description,
+                "destination": response[component].destination,
                 "enabled": enabled,
-                "result_details": getattr(component, "result_details", ""),
+                "result_details": getattr(response[component], "result_details", ""),
                 "success": success,
-                "test_type": component.test_type,
-                "resource_name": component.resource.name,
+                "test_type": response[component].test_type,
+                "resource_name": response[component].resource.name,
             }
         )
     module.exit_json(changed=False, test_response=test_response)
@@ -245,12 +242,12 @@ def main():
     if res.status_code != 200:
         module.fail_json(
             msg="Failed to get exisitng email list. Error: {0}".format(
-                get_error_message(res)
+                res.errors[0].message
             )
         )
     emails = list(res.items)
-    for email in emails:
-        if email.name == module.params["address"]:
+    for email in range(len(emails)):
+        if emails[email].name == module.params["address"]:
             exists = True
             break
     if module.params["state"] == "present" and not exists:

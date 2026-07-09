@@ -2,7 +2,6 @@
 
 from abc import abstractmethod
 from collections.abc import Iterable
-from typing import Any
 
 from pyrig.core.strings import read_text_utf8, write_text_utf8
 from pyrig.rig.configs.base.config_file import ListConfigFile
@@ -25,24 +24,9 @@ class StringConfigFile(ListConfigFile):
             exact line equality.
         """
 
-    def should_override_content(self) -> bool:
-        """Return whether existing file content should be discarded.
-
-        Defaults to `False`. Override in subclasses that must replace the
-        file's content instead of preserving it.
-
-        Returns:
-            `True` if existing content should be discarded; `False` otherwise.
-        """
-        return False
-
     def _configs(self) -> list[str]:
         """Return the required lines."""
         return self.lines()
-
-    def _load(self) -> list[str]:
-        """Read the file as UTF-8 text and split it into lines."""
-        return self.split_lines(read_text_utf8(self.path()))
 
     def _dump(self, configs: list[str]) -> None:
         """Join the lines and write them to the file as UTF-8 text.
@@ -52,20 +36,9 @@ class StringConfigFile(ListConfigFile):
         """
         write_text_utf8(self.path(), self.join_lines(configs))
 
-    def merge_configs(self) -> list[Any]:
-        """Merge required lines with existing file content.
-
-        Places the required lines first, followed by the current file content.
-        If `should_override_content()` returns `True`, the existing content
-        is discarded and only the required lines are returned.
-
-        Returns:
-            The lines for the updated file, with required content first.
-        """
-        expected_lines = self.configs()
-        if self.should_override_content():
-            return expected_lines
-        return [*expected_lines, *self.load()]
+    def _load(self) -> list[str]:
+        """Read the file as UTF-8 text and split it into lines."""
+        return self.split_lines(read_text_utf8(self.path()))
 
     def is_correct(self) -> bool:
         """Check whether the file already contains all required content.

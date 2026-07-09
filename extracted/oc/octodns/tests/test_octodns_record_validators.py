@@ -9,6 +9,7 @@ from octodns.record import (
     AliasRecord,
     ARecord,
     CnameRecord,
+    MxRecord,
     Record,
     RecordException,
 )
@@ -25,6 +26,7 @@ from octodns.record.srv import SrvNameValidator, SrvRecord
 from octodns.record.uri import UriNameValidator, UriRecord
 from octodns.record.validator import (
     RecordValidator,
+    ValidationReason,
     ValidatorRegistry,
     ValueValidator,
 )
@@ -436,6 +438,49 @@ class TestValidatorRegistry(TestCase):
             [], reg.process_record(ARecord, 'ok', 'ok.unit.tests.', {'ttl': 30})
         )
 
+    def test_process_record_stamps_missing_validator_id(self):
+        # A validator that constructs its own `ValidationReason` but leaves
+        # `validator_id` unset should have it stamped by the registry with
+        # the validator's own id, without re-wrapping the object or firing
+        # the "returning str reasons" deprecation.
+        class ForbidBadPrefixReason(RecordValidator):
+            def __init__(self, prefix):
+                super().__init__(id='test-forbid-bad-prefix-reason')
+                self.prefix = prefix
+
+            def validate(self, record_cls, name, fqdn, data):
+                if name.startswith(self.prefix):
+                    with warnings.catch_warnings():
+                        # constructing without validator_id emits its own
+                        # deprecation; not what we're testing here
+                        warnings.simplefilter('ignore', DeprecationWarning)
+                        reason = ValidationReason(
+                            f'name starts with "{self.prefix}"'
+                        )
+                    return [reason]
+                return []
+
+        reg = ValidatorRegistry()
+        reg.register(ForbidBadPrefixReason('bad-'), types=['A'])
+        reg.enable('test-forbid-bad-prefix-reason', types=['A'])
+        with warnings.catch_warnings(record=True) as caught:
+            warnings.simplefilter('always')
+            reasons = reg.process_record(
+                ARecord, 'bad-name', 'bad-name.unit.tests.', {'ttl': 30}
+            )
+        self.assertEqual(1, len(reasons))
+        self.assertEqual('name starts with "bad-"', reasons[0])
+        self.assertEqual(
+            'test-forbid-bad-prefix-reason', reasons[0].validator_id
+        )
+        matched = [
+            w
+            for w in caught
+            if issubclass(w.category, DeprecationWarning)
+            and 'returning `str` reasons' in str(w.message)
+        ]
+        self.assertFalse(matched)
+
     def test_process_record_lazy_init(self):
         reg = ValidatorRegistry()
         reg.register(NameValidator('name', sets={'legacy'}))
@@ -498,6 +543,139 @@ class TestValidatorRegistry(TestCase):
             for w in caught
             if issubclass(w.category, DeprecationWarning)
             and 'LegacyValueType.validate' in str(w.message)
+        ]
+        self.assertTrue(matched)
+
+    def test_process_record_disabled_skips_by_id(self):
+        class Forbidden(RecordValidator):
+            def validate(self, record_cls, name, fqdn, data, disabled=None):
+                return ['forbidden']
+
+        reg = ValidatorRegistry()
+        reg.register(Forbidden('test-disableable'), types=['MX'])
+        reg.enable('test-disableable', types=['MX'])
+
+        # Not disabled: reason fires.
+        self.assertEqual(
+            ['forbidden'],
+            reg.process_record(MxRecord, 'foo', 'foo.unit.tests.', {}),
+        )
+        # Disabled for this type: skipped.
+        self.assertEqual(
+            [],
+            reg.process_record(
+                MxRecord,
+                'foo',
+                'foo.unit.tests.',
+                {},
+                disabled={'MX': {'test-disableable'}},
+            ),
+        )
+        # Disabled for a different type: still fires.
+        self.assertEqual(
+            ['forbidden'],
+            reg.process_record(
+                MxRecord,
+                'foo',
+                'foo.unit.tests.',
+                {},
+                disabled={'A': {'test-disableable'}},
+            ),
+        )
+
+    def test_process_record_disabled_never_skips_bridge(self):
+        class Bridge(RecordValidator):
+            def __init__(self):
+                super().__init__(id='_test-bridge')
+
+            def validate(self, record_cls, name, fqdn, data, disabled=None):
+                return ['bridge reason']
+
+        reg = ValidatorRegistry()
+        reg.register(Bridge(), types=['MX'])
+        reg.enable('_test-bridge', types=['MX'])
+        # Even explicitly listed, bridge (underscore) ids are never skipped.
+        self.assertEqual(
+            ['bridge reason'],
+            reg.process_record(
+                MxRecord,
+                'foo',
+                'foo.unit.tests.',
+                {},
+                disabled={'MX': {'_test-bridge'}},
+            ),
+        )
+
+    def test_process_record_reraises_unrelated_typeerror(self):
+        class Buggy(RecordValidator):
+            def validate(self, record_cls, name, fqdn, data, disabled=None):
+                # Deliberately trigger a TypeError unrelated to the
+                # `disabled` param so process_record must re-raise it
+                # rather than treat it as an old-signature validator.
+                return 'not-a-list' + 5
+
+        reg = ValidatorRegistry()
+        reg.register(Buggy('test-buggy'), types=['MX'])
+        reg.enable('test-buggy', types=['MX'])
+        with self.assertRaises(TypeError):
+            reg.process_record(MxRecord, 'foo', 'foo.unit.tests.', {})
+
+    def test_process_values_disabled_skips_by_id(self):
+        class ForbidWord(ValueValidator):
+            def validate(self, value_cls, data, _type):
+                return ['forbidden value']
+
+        reg = ValidatorRegistry()
+        reg.register(ForbidWord('test-disableable-value'), types=['TXT'])
+        reg.enable('test-disableable-value', types=['TXT'])
+
+        self.assertEqual(
+            ['forbidden value'], reg.process_values(str, ['x'], 'TXT')
+        )
+        self.assertEqual(
+            [],
+            reg.process_values(
+                str, ['x'], 'TXT', disabled={'TXT': {'test-disableable-value'}}
+            ),
+        )
+
+    def test_process_values_disabled_never_skips_bridge(self):
+        class Bridge(ValueValidator):
+            def __init__(self):
+                super().__init__(id='_test-bridge-value')
+
+            def validate(self, value_cls, data, _type):
+                return ['bridge value reason']
+
+        reg = ValidatorRegistry()
+        reg.register(Bridge(), types=['TXT'])
+        reg.enable('_test-bridge-value', types=['TXT'])
+        self.assertEqual(
+            ['bridge value reason'],
+            reg.process_values(
+                str, ['x'], 'TXT', disabled={'TXT': {'_test-bridge-value'}}
+            ),
+        )
+
+    def test_process_record_legacy_validator_deprecation(self):
+        # A validator that predates the `disabled` param still works, via
+        # the TypeError-detection fallback, but emits a deprecation warning.
+        class Legacy(RecordValidator):
+            def validate(self, record_cls, name, fqdn, data):
+                return ['legacy reason']
+
+        reg = ValidatorRegistry()
+        reg.register(Legacy('test-legacy'), types=['MX'])
+        reg.enable('test-legacy', types=['MX'])
+        with warnings.catch_warnings(record=True) as caught:
+            warnings.simplefilter('always')
+            reasons = reg.process_record(MxRecord, 'foo', 'foo.unit.tests.', {})
+        self.assertEqual(['legacy reason'], reasons)
+        matched = [
+            w
+            for w in caught
+            if issubclass(w.category, DeprecationWarning)
+            and 'Legacy' in str(w.message)
         ]
         self.assertTrue(matched)
 

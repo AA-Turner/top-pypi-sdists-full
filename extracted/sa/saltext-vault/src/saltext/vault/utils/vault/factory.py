@@ -231,7 +231,7 @@ def clear_cache(opts, context, ckey=None, connection=True, session=False, force_
 
     # In case the cache driver was overridden for the Vault integration
     local_opts = copy.copy(opts)
-    opts["cache"] = "localfs"
+    local_opts["cache"] = "localfs"
     cache = salt.cache.factory(local_opts)
     return cache.flush(cbank, ckey)
 
@@ -1052,7 +1052,7 @@ def parse_config(config, validate=True, opts=None, require_token=True):
         if merged["auth"]["method"] == "approle":
             if "role_id" not in merged["auth"]:
                 raise AssertionError("auth:role_id is required for approle auth")
-        elif merged["auth"]["method"] == "token":
+        elif merged["auth"]["method"] in ("token", "wrapped_token"):
             if require_token and "token" not in merged["auth"]:
                 raise AssertionError("auth:token is required for token auth")
         else:

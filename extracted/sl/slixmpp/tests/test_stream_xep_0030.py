@@ -67,7 +67,7 @@ class TestStreamDisco(SlixTest):
                           plugins=['xep_0030'])
 
 
-        self.xmpp['xep_0030'].static.add_node(node='testing')
+        self.xmpp.plugin['xep_0030'].static.add_node(node='testing')
 
         self.recv("""
           <iq to="tester@localhost/resource" type="get" id="test">
@@ -93,7 +93,7 @@ class TestStreamDisco(SlixTest):
                           plugins=['xep_0030'])
 
 
-        self.xmpp['xep_0030'].static.add_node(node='testing')
+        self.xmpp.plugin['xep_0030'].static.add_node(node='testing')
 
         self.recv("""
           <iq to="tester@localhost/resource" type="get" id="test">
@@ -118,12 +118,12 @@ class TestStreamDisco(SlixTest):
                           plugins=['xep_0030'])
 
         def dynamic_jid(jid, node, ifrom, iq):
-            result = self.xmpp['xep_0030'].stanza.DiscoInfo()
+            result = self.xmpp.plugin['xep_0030'].stanza.DiscoInfo()
             result['node'] = node
             result.add_identity('client', 'console', name='Dynamic Info')
             return result
 
-        self.xmpp['xep_0030'].set_node_handler('get_info',
+        self.xmpp.plugin['xep_0030'].set_node_handler('get_info',
                                                jid='tester@localhost',
                                                handler=dynamic_jid)
 
@@ -154,12 +154,12 @@ class TestStreamDisco(SlixTest):
                           plugins=['xep_0030'])
 
         def dynamic_global(jid, node, ifrom, iq):
-            result = self.xmpp['xep_0030'].stanza.DiscoInfo()
+            result = self.xmpp.plugin['xep_0030'].stanza.DiscoInfo()
             result['node'] = node
             result.add_identity('component', 'generic', name='Dynamic Info')
             return result
 
-        self.xmpp['xep_0030'].set_node_handler('get_info',
+        self.xmpp.plugin['xep_0030'].set_node_handler('get_info',
                                                handler=dynamic_global)
 
         self.recv("""
@@ -190,20 +190,20 @@ class TestStreamDisco(SlixTest):
                           plugins=['xep_0030'])
 
         def dynamic_jid(jid, node, ifrom, iq):
-            result = self.xmpp['xep_0030'].stanza.DiscoInfo()
+            result = self.xmpp.plugin['xep_0030'].stanza.DiscoInfo()
             result['node'] = node
             result.add_identity('client', 'console', name='Dynamic Info')
             return result
 
-        self.xmpp['xep_0030'].set_node_handler('get_info',
+        self.xmpp.plugin['xep_0030'].set_node_handler('get_info',
                                                jid='tester@localhost',
                                                handler=dynamic_jid)
 
 
-        self.xmpp['xep_0030'].restore_defaults(jid='tester@localhost',
+        self.xmpp.plugin['xep_0030'].restore_defaults(jid='tester@localhost',
                                                node='testing')
 
-        self.xmpp['xep_0030'].add_identity(jid='tester@localhost',
+        self.xmpp.plugin['xep_0030'].add_identity(jid='tester@localhost',
                                            node='testing',
                                            category='automation',
                                            itype='command-list')
@@ -232,18 +232,18 @@ class TestStreamDisco(SlixTest):
                           plugins=['xep_0030'])
 
         def dynamic_global(jid, node, ifrom, iq):
-            result = self.xmpp['xep_0030'].stanza.DiscoInfo()
+            result = self.xmpp.plugin['xep_0030'].stanza.DiscoInfo()
             result['node'] = node
             result.add_identity('component', 'generic', name='Dynamic Info')
             return result
 
-        self.xmpp['xep_0030'].set_node_handler('get_info',
+        self.xmpp.plugin['xep_0030'].set_node_handler('get_info',
                                                handler=dynamic_global)
 
-        self.xmpp['xep_0030'].restore_defaults(jid='user@tester.localhost',
+        self.xmpp.plugin['xep_0030'].restore_defaults(jid='user@tester.localhost',
                                                node='testing')
 
-        self.xmpp['xep_0030'].add_feature(jid='user@tester.localhost',
+        self.xmpp.plugin['xep_0030'].add_feature(jid='user@tester.localhost',
                                           node='testing',
                                           feature='urn:xmpp:ping')
 
@@ -284,7 +284,7 @@ class TestStreamDisco(SlixTest):
         self.xmpp.add_event_handler('disco_info', handle_disco_info)
 
 
-        self.xmpp.wrap(self.xmpp['xep_0030'].get_info('user@localhost', 'foo'))
+        self.xmpp.wrap(self.xmpp.plugin['xep_0030'].get_info('user@localhost', 'foo'))
         self.wait_()
 
         self.send("""
@@ -315,12 +315,12 @@ class TestStreamDisco(SlixTest):
                           plugins=['xep_0030'])
 
         def dynamic_jid(jid, node, ifrom, iq):
-            result = self.xmpp['xep_0030'].stanza.DiscoItems()
+            result = self.xmpp.plugin['xep_0030'].stanza.DiscoItems()
             result['node'] = node
             result.add_item('tester@localhost', node='foo', name='JID')
             return result
 
-        self.xmpp['xep_0030'].set_node_handler('get_items',
+        self.xmpp.plugin['xep_0030'].set_node_handler('get_items',
                                                jid='tester@localhost',
                                                handler=dynamic_jid)
 
@@ -349,12 +349,12 @@ class TestStreamDisco(SlixTest):
                           plugins=['xep_0030'])
 
         def dynamic_global(jid, node, ifrom, iq):
-            result = self.xmpp['xep_0030'].stanza.DiscoItems()
+            result = self.xmpp.plugin['xep_0030'].stanza.DiscoItems()
             result['node'] = node
             result.add_item('tester@localhost', node='foo', name='Global')
             return result
 
-        self.xmpp['xep_0030'].set_node_handler('get_items',
+        self.xmpp.plugin['xep_0030'].set_node_handler('get_items',
                                                handler=dynamic_global)
 
         self.recv("""
@@ -383,20 +383,20 @@ class TestStreamDisco(SlixTest):
                           plugins=['xep_0030'])
 
         def dynamic_jid(jid, node, ifrom, iq):
-            result = self.xmpp['xep_0030'].stanza.DiscoItems()
+            result = self.xmpp.plugin['xep_0030'].stanza.DiscoItems()
             result['node'] = node
             result.add_item('tester@localhost', node='foo', name='Global')
             return result
 
-        self.xmpp['xep_0030'].set_node_handler('get_items',
+        self.xmpp.plugin['xep_0030'].set_node_handler('get_items',
                                                jid='tester@localhost',
                                                handler=dynamic_jid)
 
 
-        self.xmpp['xep_0030'].restore_defaults(jid='tester@localhost',
+        self.xmpp.plugin['xep_0030'].restore_defaults(jid='tester@localhost',
                                                node='testing')
 
-        self.xmpp['xep_0030'].add_item(ijid='tester@localhost',
+        self.xmpp.plugin['xep_0030'].add_item(ijid='tester@localhost',
                                        node='testing',
                                        jid='tester@localhost',
                                        subnode='foo',
@@ -425,18 +425,18 @@ class TestStreamDisco(SlixTest):
                           plugins=['xep_0030'])
 
         def dynamic_global(jid, node, ifrom, iq):
-            result = self.xmpp['xep_0030'].stanza.DiscoItems()
+            result = self.xmpp.plugin['xep_0030'].stanza.DiscoItems()
             result['node'] = node
             result.add_item('tester.localhost', node='foo', name='Global')
             return result
 
-        self.xmpp['xep_0030'].set_node_handler('get_items',
+        self.xmpp.plugin['xep_0030'].set_node_handler('get_items',
                                                handler=dynamic_global)
 
-        self.xmpp['xep_0030'].restore_defaults(jid='user@tester.localhost',
+        self.xmpp.plugin['xep_0030'].restore_defaults(jid='user@tester.localhost',
                                                node='testing')
 
-        self.xmpp['xep_0030'].add_item(ijid='user@tester.localhost',
+        self.xmpp.plugin['xep_0030'].add_item(ijid='user@tester.localhost',
                                        node='testing',
                                        jid='user@tester.localhost',
                                        subnode='foo',
@@ -480,7 +480,7 @@ class TestStreamDisco(SlixTest):
 
         self.xmpp.add_event_handler('disco_items', handle_disco_items)
 
-        self.xmpp.wrap(self.xmpp['xep_0030'].get_items('user@localhost', 'foo'))
+        self.xmpp.wrap(self.xmpp.plugin['xep_0030'].get_items('user@localhost', 'foo'))
         self.wait_()
 
         self.send("""
@@ -516,7 +516,7 @@ class TestStreamDisco(SlixTest):
                           plugins=['xep_0030', 'xep_0059'])
 
         async def run_test():
-            iterator = await self.xmpp['xep_0030'].get_items(
+            iterator = await self.xmpp.plugin['xep_0030'].get_items(
                 jid='foo@localhost',
                 node='bar',
                 iterator=True

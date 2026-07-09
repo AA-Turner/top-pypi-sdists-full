@@ -13,7 +13,7 @@ import jsii
 import publication
 import typing_extensions
 
-from jsii._type_checking import check_type
+from jsii._type_checking import cached_type_hints, check_type
 
 
 from ..._jsii import *
@@ -231,7 +231,7 @@ class AppPermissions:
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__6e0085e134a87f8de8cb54bc56e329333881c3520710c833f5ed76097c8d1299)
+            type_hints = cached_type_hints(_typecheckingstub__6e0085e134a87f8de8cb54bc56e329333881c3520710c833f5ed76097c8d1299)
             check_type(argname="argument actions", value=actions, expected_type=type_hints["actions"])
             check_type(argname="argument administration", value=administration, expected_type=type_hints["administration"])
             check_type(argname="argument attestations", value=attestations, expected_type=type_hints["attestations"])
@@ -805,7 +805,7 @@ class BranchProtectionRuleOptions:
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__0c11d1dd0003925c76d3c0071c26d26436e2dec53d9ad08c4e3abe2db2c75e91)
+            type_hints = cached_type_hints(_typecheckingstub__0c11d1dd0003925c76d3c0071c26d26436e2dec53d9ad08c4e3abe2db2c75e91)
             check_type(argname="argument types", value=types, expected_type=type_hints["types"])
         self._values: typing.Dict[builtins.str, typing.Any] = {}
         if types is not None:
@@ -851,7 +851,7 @@ class CheckRunOptions:
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__4347e11acd26f11508a618d0b238a95d67a7f80349876130ff38e9061f584370)
+            type_hints = cached_type_hints(_typecheckingstub__4347e11acd26f11508a618d0b238a95d67a7f80349876130ff38e9061f584370)
             check_type(argname="argument types", value=types, expected_type=type_hints["types"])
         self._values: typing.Dict[builtins.str, typing.Any] = {}
         if types is not None:
@@ -897,7 +897,7 @@ class CheckSuiteOptions:
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__15b40134ecf1ce3d1252c6d518b83fbd48bccf3592878c8a25a5e61380cc82b3)
+            type_hints = cached_type_hints(_typecheckingstub__15b40134ecf1ce3d1252c6d518b83fbd48bccf3592878c8a25a5e61380cc82b3)
             check_type(argname="argument types", value=types, expected_type=type_hints["types"])
         self._values: typing.Dict[builtins.str, typing.Any] = {}
         if types is not None:
@@ -963,7 +963,7 @@ class CommonJobDefinition:
         if isinstance(strategy, dict):
             strategy = JobStrategy(**strategy)
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ca2014a638b9f0a055f9914f90ac8de197a8741af9ed5179f476f1c565146134)
+            type_hints = cached_type_hints(_typecheckingstub__ca2014a638b9f0a055f9914f90ac8de197a8741af9ed5179f476f1c565146134)
             check_type(argname="argument permissions", value=permissions, expected_type=type_hints["permissions"])
             check_type(argname="argument concurrency", value=concurrency, expected_type=type_hints["concurrency"])
             check_type(argname="argument if_", value=if_, expected_type=type_hints["if_"])
@@ -1087,7 +1087,7 @@ class ContainerCredentials:
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__3c068cd566cf3598395667d999333ef7561bfd204ce91a842b6f660134873bf5)
+            type_hints = cached_type_hints(_typecheckingstub__3c068cd566cf3598395667d999333ef7561bfd204ce91a842b6f660134873bf5)
             check_type(argname="argument password", value=password, expected_type=type_hints["password"])
             check_type(argname="argument username", value=username, expected_type=type_hints["username"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -1164,7 +1164,7 @@ class ContainerOptions:
         if isinstance(credentials, dict):
             credentials = ContainerCredentials(**credentials)
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__3745b83f4463c4fc52b9717275f5271dfc3bca86f6f6742576a53ec8359dbb05)
+            type_hints = cached_type_hints(_typecheckingstub__3745b83f4463c4fc52b9717275f5271dfc3bca86f6f6742576a53ec8359dbb05)
             check_type(argname="argument image", value=image, expected_type=type_hints["image"])
             check_type(argname="argument credentials", value=credentials, expected_type=type_hints["credentials"])
             check_type(argname="argument env", value=env, expected_type=type_hints["env"])
@@ -1306,7 +1306,7 @@ class CronScheduleOptions:
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__b942d3c2ff8727f2ff55175941fa65b503b9b9b5509291efe52190850c93afaa)
+            type_hints = cached_type_hints(_typecheckingstub__b942d3c2ff8727f2ff55175941fa65b503b9b9b5509291efe52190850c93afaa)
             check_type(argname="argument cron", value=cron, expected_type=type_hints["cron"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "cron": cron,
@@ -1427,7 +1427,7 @@ class DiscussionCommentOptions:
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__af138b824decbcd8cf918b7d2032093418049a345b01ed01f88accfcee395b5a)
+            type_hints = cached_type_hints(_typecheckingstub__af138b824decbcd8cf918b7d2032093418049a345b01ed01f88accfcee395b5a)
             check_type(argname="argument types", value=types, expected_type=type_hints["types"])
         self._values: typing.Dict[builtins.str, typing.Any] = {}
         if types is not None:
@@ -1473,7 +1473,7 @@ class DiscussionOptions:
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__d97467ebe6e40905d2acd015311e4fbde640f5ab410b74b1de055967ddf4e771)
+            type_hints = cached_type_hints(_typecheckingstub__d97467ebe6e40905d2acd015311e4fbde640f5ab410b74b1de055967ddf4e771)
             check_type(argname="argument types", value=types, expected_type=type_hints["types"])
         self._values: typing.Dict[builtins.str, typing.Any] = {}
         if types is not None:
@@ -1569,7 +1569,7 @@ class IssueCommentOptions:
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__217e744007dbc2c9e22b6c0ad4aa07d2a4711631c6fc1de1414dea628db3841b)
+            type_hints = cached_type_hints(_typecheckingstub__217e744007dbc2c9e22b6c0ad4aa07d2a4711631c6fc1de1414dea628db3841b)
             check_type(argname="argument types", value=types, expected_type=type_hints["types"])
         self._values: typing.Dict[builtins.str, typing.Any] = {}
         if types is not None:
@@ -1615,7 +1615,7 @@ class IssuesOptions:
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__86720be0c98429300bca3b757935fb0a6d341673f54d031b808b1f9d1b3512e3)
+            type_hints = cached_type_hints(_typecheckingstub__86720be0c98429300bca3b757935fb0a6d341673f54d031b808b1f9d1b3512e3)
             check_type(argname="argument types", value=types, expected_type=type_hints["types"])
         self._values: typing.Dict[builtins.str, typing.Any] = {}
         if types is not None:
@@ -1726,7 +1726,7 @@ class Job(CommonJobDefinition):
         if isinstance(tools, dict):
             tools = Tools(**tools)
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__6b405f548924ed15a8a6902fcc20e3f048e3450d8a016b7904ed920f64aab582)
+            type_hints = cached_type_hints(_typecheckingstub__6b405f548924ed15a8a6902fcc20e3f048e3450d8a016b7904ed920f64aab582)
             check_type(argname="argument permissions", value=permissions, expected_type=type_hints["permissions"])
             check_type(argname="argument concurrency", value=concurrency, expected_type=type_hints["concurrency"])
             check_type(argname="argument if_", value=if_, expected_type=type_hints["if_"])
@@ -2077,7 +2077,7 @@ class JobCallingReusableWorkflow(CommonJobDefinition):
         if isinstance(strategy, dict):
             strategy = JobStrategy(**strategy)
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__0a9905a897c84934e8ed2bde6e0bd6fdd798275b2a8b89a503c19dba40649562)
+            type_hints = cached_type_hints(_typecheckingstub__0a9905a897c84934e8ed2bde6e0bd6fdd798275b2a8b89a503c19dba40649562)
             check_type(argname="argument permissions", value=permissions, expected_type=type_hints["permissions"])
             check_type(argname="argument concurrency", value=concurrency, expected_type=type_hints["concurrency"])
             check_type(argname="argument if_", value=if_, expected_type=type_hints["if_"])
@@ -2250,7 +2250,7 @@ class JobDefaults:
         if isinstance(run, dict):
             run = RunSettings(**run)
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__4afc181ec4ce3844469de535090d57cb39b9f47cf28d0bdc1e7a95bf29c34199)
+            type_hints = cached_type_hints(_typecheckingstub__4afc181ec4ce3844469de535090d57cb39b9f47cf28d0bdc1e7a95bf29c34199)
             check_type(argname="argument run", value=run, expected_type=type_hints["run"])
         self._values: typing.Dict[builtins.str, typing.Any] = {}
         if run is not None:
@@ -2299,7 +2299,7 @@ class JobMatrix:
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__27c1bb692367ba40c0c0307ec4a86916287ff1f39e99b1eeab7f30bb7886bbda)
+            type_hints = cached_type_hints(_typecheckingstub__27c1bb692367ba40c0c0307ec4a86916287ff1f39e99b1eeab7f30bb7886bbda)
             check_type(argname="argument domain", value=domain, expected_type=type_hints["domain"])
             check_type(argname="argument exclude", value=exclude, expected_type=type_hints["exclude"])
             check_type(argname="argument include", value=include, expected_type=type_hints["include"])
@@ -2459,7 +2459,7 @@ class JobPermissions:
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__5f9b6a3fbdc58e402a1aaac55747b5faedde783c61dcd4c97c759406d925e9a5)
+            type_hints = cached_type_hints(_typecheckingstub__5f9b6a3fbdc58e402a1aaac55747b5faedde783c61dcd4c97c759406d925e9a5)
             check_type(argname="argument actions", value=actions, expected_type=type_hints["actions"])
             check_type(argname="argument attestations", value=attestations, expected_type=type_hints["attestations"])
             check_type(argname="argument checks", value=checks, expected_type=type_hints["checks"])
@@ -2643,7 +2643,7 @@ class JobStepOutput:
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__b54660692cd1951dfa8376b33c95c26d58e87bbafc6ed590fb6fe9216ce01ba7)
+            type_hints = cached_type_hints(_typecheckingstub__b54660692cd1951dfa8376b33c95c26d58e87bbafc6ed590fb6fe9216ce01ba7)
             check_type(argname="argument output_name", value=output_name, expected_type=type_hints["output_name"])
             check_type(argname="argument step_id", value=step_id, expected_type=type_hints["step_id"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -2714,7 +2714,7 @@ class JobStrategy:
         if isinstance(matrix, dict):
             matrix = JobMatrix(**matrix)
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__134570ab28cf6023a626f13de20038e5ad2ad2ee907973354ce8dd6e36636499)
+            type_hints = cached_type_hints(_typecheckingstub__134570ab28cf6023a626f13de20038e5ad2ad2ee907973354ce8dd6e36636499)
             check_type(argname="argument fail_fast", value=fail_fast, expected_type=type_hints["fail_fast"])
             check_type(argname="argument matrix", value=matrix, expected_type=type_hints["matrix"])
             check_type(argname="argument max_parallel", value=max_parallel, expected_type=type_hints["max_parallel"])
@@ -2799,7 +2799,7 @@ class LabelOptions:
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__50bb7bfbc56deada571dfd117b208118a0999144362cd066f2fa72083f2dbde6)
+            type_hints = cached_type_hints(_typecheckingstub__50bb7bfbc56deada571dfd117b208118a0999144362cd066f2fa72083f2dbde6)
             check_type(argname="argument types", value=types, expected_type=type_hints["types"])
         self._values: typing.Dict[builtins.str, typing.Any] = {}
         if types is not None:
@@ -2845,7 +2845,7 @@ class MergeGroupOptions:
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__f1bf8c4c650a790f23377cc4e527f5235804e0ede24bec6d08006307448d1da2)
+            type_hints = cached_type_hints(_typecheckingstub__f1bf8c4c650a790f23377cc4e527f5235804e0ede24bec6d08006307448d1da2)
             check_type(argname="argument branches", value=branches, expected_type=type_hints["branches"])
         self._values: typing.Dict[builtins.str, typing.Any] = {}
         if branches is not None:
@@ -2893,7 +2893,7 @@ class MilestoneOptions:
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a82a3af3c1c9a05cdcbb3e82973ff2c7209b0845f46e0f375d7b1b923b61c594)
+            type_hints = cached_type_hints(_typecheckingstub__a82a3af3c1c9a05cdcbb3e82973ff2c7209b0845f46e0f375d7b1b923b61c594)
             check_type(argname="argument types", value=types, expected_type=type_hints["types"])
         self._values: typing.Dict[builtins.str, typing.Any] = {}
         if types is not None:
@@ -2964,7 +2964,7 @@ class ProjectCardOptions:
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c8cd16cd68d37babc3afecf26110f73a792b6caee362abfc413ead1fec8f686f)
+            type_hints = cached_type_hints(_typecheckingstub__c8cd16cd68d37babc3afecf26110f73a792b6caee362abfc413ead1fec8f686f)
             check_type(argname="argument types", value=types, expected_type=type_hints["types"])
         self._values: typing.Dict[builtins.str, typing.Any] = {}
         if types is not None:
@@ -3010,7 +3010,7 @@ class ProjectColumnOptions:
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__16dee1fa11035cd0fd9d7774dd224981d0fd92e7c44649b8af742e00f8c80f5d)
+            type_hints = cached_type_hints(_typecheckingstub__16dee1fa11035cd0fd9d7774dd224981d0fd92e7c44649b8af742e00f8c80f5d)
             check_type(argname="argument types", value=types, expected_type=type_hints["types"])
         self._values: typing.Dict[builtins.str, typing.Any] = {}
         if types is not None:
@@ -3056,7 +3056,7 @@ class ProjectOptions:
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a9a3bdc315041b645bf04461deaf270cc61bdfc779c62610457121f16d55f943)
+            type_hints = cached_type_hints(_typecheckingstub__a9a3bdc315041b645bf04461deaf270cc61bdfc779c62610457121f16d55f943)
             check_type(argname="argument types", value=types, expected_type=type_hints["types"])
         self._values: typing.Dict[builtins.str, typing.Any] = {}
         if types is not None:
@@ -3127,7 +3127,7 @@ class PullRequestReviewCommentOptions:
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__924a9205551b733fad7955355cf317e09d79435bc464c13625ab82a4083b4eeb)
+            type_hints = cached_type_hints(_typecheckingstub__924a9205551b733fad7955355cf317e09d79435bc464c13625ab82a4083b4eeb)
             check_type(argname="argument types", value=types, expected_type=type_hints["types"])
         self._values: typing.Dict[builtins.str, typing.Any] = {}
         if types is not None:
@@ -3173,7 +3173,7 @@ class PullRequestReviewOptions:
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__cfa7e340b849b51a5bbea8528f24bc797b353586438c6d939f514b86f547b2c9)
+            type_hints = cached_type_hints(_typecheckingstub__cfa7e340b849b51a5bbea8528f24bc797b353586438c6d939f514b86f547b2c9)
             check_type(argname="argument types", value=types, expected_type=type_hints["types"])
         self._values: typing.Dict[builtins.str, typing.Any] = {}
         if types is not None:
@@ -3223,7 +3223,7 @@ class PushOptions:
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__3c1b5ef2dd2ebfefd88be7a903d4676960437a284d29f5ac056b2cdde3f62932)
+            type_hints = cached_type_hints(_typecheckingstub__3c1b5ef2dd2ebfefd88be7a903d4676960437a284d29f5ac056b2cdde3f62932)
             check_type(argname="argument branches", value=branches, expected_type=type_hints["branches"])
             check_type(argname="argument paths", value=paths, expected_type=type_hints["paths"])
             check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
@@ -3308,7 +3308,7 @@ class RegistryPackageOptions:
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__d555b19711887db4995273ee0e8c73ea2c0546a60c3796166a1f4419dd61e73c)
+            type_hints = cached_type_hints(_typecheckingstub__d555b19711887db4995273ee0e8c73ea2c0546a60c3796166a1f4419dd61e73c)
             check_type(argname="argument types", value=types, expected_type=type_hints["types"])
         self._values: typing.Dict[builtins.str, typing.Any] = {}
         if types is not None:
@@ -3354,7 +3354,7 @@ class ReleaseOptions:
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__119a914e5bfb3cdea007b3544b187a2e3b2ab765b6fe743053491bc2496fede7)
+            type_hints = cached_type_hints(_typecheckingstub__119a914e5bfb3cdea007b3544b187a2e3b2ab765b6fe743053491bc2496fede7)
             check_type(argname="argument types", value=types, expected_type=type_hints["types"])
         self._values: typing.Dict[builtins.str, typing.Any] = {}
         if types is not None:
@@ -3400,7 +3400,7 @@ class RepositoryDispatchOptions:
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__acf1842c4c0435b3b65c1c33f941a09c9bd78ebb950136703bc50a6a6ee27adf)
+            type_hints = cached_type_hints(_typecheckingstub__acf1842c4c0435b3b65c1c33f941a09c9bd78ebb950136703bc50a6a6ee27adf)
             check_type(argname="argument types", value=types, expected_type=type_hints["types"])
         self._values: typing.Dict[builtins.str, typing.Any] = {}
         if types is not None:
@@ -3448,7 +3448,7 @@ class RunSettings:
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__613ab93b76c86dd88502480397a66c39b983fc805b068e953f6ad756edee792e)
+            type_hints = cached_type_hints(_typecheckingstub__613ab93b76c86dd88502480397a66c39b983fc805b068e953f6ad756edee792e)
             check_type(argname="argument shell", value=shell, expected_type=type_hints["shell"])
             check_type(argname="argument working_directory", value=working_directory, expected_type=type_hints["working_directory"])
         self._values: typing.Dict[builtins.str, typing.Any] = {}
@@ -3555,7 +3555,7 @@ class StepConfiguration:
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__044349b8d18055b991a5680dc1d218dc2901bc2369d30fa23e79229d8bde3b73)
+            type_hints = cached_type_hints(_typecheckingstub__044349b8d18055b991a5680dc1d218dc2901bc2369d30fa23e79229d8bde3b73)
             check_type(argname="argument env", value=env, expected_type=type_hints["env"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
             check_type(argname="argument if_", value=if_, expected_type=type_hints["if_"])
@@ -3675,7 +3675,7 @@ class ToolRequirement:
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a49e39102f958d999716dd94aae1647a49fe1d2fd3d73add88292e5067592c14)
+            type_hints = cached_type_hints(_typecheckingstub__a49e39102f958d999716dd94aae1647a49fe1d2fd3d73add88292e5067592c14)
             check_type(argname="argument version", value=version, expected_type=type_hints["version"])
             check_type(argname="argument cache", value=cache, expected_type=type_hints["cache"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -3758,7 +3758,7 @@ class Tools:
         if isinstance(python, dict):
             python = PythonToolRequirement(**python)
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__4dab9f9edea4d6d3c0897aa6348f12a4359741f0e29873be48495120ea2a4b12)
+            type_hints = cached_type_hints(_typecheckingstub__4dab9f9edea4d6d3c0897aa6348f12a4359741f0e29873be48495120ea2a4b12)
             check_type(argname="argument dotnet", value=dotnet, expected_type=type_hints["dotnet"])
             check_type(argname="argument go", value=go, expected_type=type_hints["go"])
             check_type(argname="argument java", value=java, expected_type=type_hints["java"])
@@ -4034,7 +4034,7 @@ class Triggers:
         if isinstance(workflow_run, dict):
             workflow_run = WorkflowRunOptions(**workflow_run)
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__252f759e84d601d9474266ff1dc7b2c70bc4a30664c418991e9d2b002e43b9d3)
+            type_hints = cached_type_hints(_typecheckingstub__252f759e84d601d9474266ff1dc7b2c70bc4a30664c418991e9d2b002e43b9d3)
             check_type(argname="argument branch_protection_rule", value=branch_protection_rule, expected_type=type_hints["branch_protection_rule"])
             check_type(argname="argument check_run", value=check_run, expected_type=type_hints["check_run"])
             check_type(argname="argument check_suite", value=check_suite, expected_type=type_hints["check_suite"])
@@ -4530,7 +4530,7 @@ class WatchOptions:
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__5b802e2c64940a026e155d7eed07be19bc7ff95ded67b900f0ebb5c8ebaf2e0a)
+            type_hints = cached_type_hints(_typecheckingstub__5b802e2c64940a026e155d7eed07be19bc7ff95ded67b900f0ebb5c8ebaf2e0a)
             check_type(argname="argument types", value=types, expected_type=type_hints["types"])
         self._values: typing.Dict[builtins.str, typing.Any] = {}
         if types is not None:
@@ -4615,7 +4615,7 @@ class WorkflowDispatchInput:
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a95de5e460993bc70b63421d08851ac8e507749f482e0c5edc3f7ed60924b8b3)
+            type_hints = cached_type_hints(_typecheckingstub__a95de5e460993bc70b63421d08851ac8e507749f482e0c5edc3f7ed60924b8b3)
             check_type(argname="argument description", value=description, expected_type=type_hints["description"])
             check_type(argname="argument default", value=default, expected_type=type_hints["default"])
             check_type(argname="argument options", value=options, expected_type=type_hints["options"])
@@ -4717,7 +4717,7 @@ class WorkflowDispatchOptions:
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__1854d364ee5a58da38224f0d29cdc8b9c8fb024625b20e677e0087b97d8f49e3)
+            type_hints = cached_type_hints(_typecheckingstub__1854d364ee5a58da38224f0d29cdc8b9c8fb024625b20e677e0087b97d8f49e3)
             check_type(argname="argument inputs", value=inputs, expected_type=type_hints["inputs"])
         self._values: typing.Dict[builtins.str, typing.Any] = {}
         if inputs is not None:
@@ -4768,7 +4768,7 @@ class WorkflowRunOptions:
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__585f016972d6eec9e010fe83a5c43507031992141443c1f2e89e954a93653cb7)
+            type_hints = cached_type_hints(_typecheckingstub__585f016972d6eec9e010fe83a5c43507031992141443c1f2e89e954a93653cb7)
             check_type(argname="argument branches", value=branches, expected_type=type_hints["branches"])
             check_type(argname="argument types", value=types, expected_type=type_hints["types"])
             check_type(argname="argument workflows", value=workflows, expected_type=type_hints["workflows"])
@@ -4851,7 +4851,7 @@ class JavaToolRequirement(ToolRequirement):
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__e6d1b24222632c32e919d43b3532b81da19da81e20e80bcc2d7e28ecdc96eb5e)
+            type_hints = cached_type_hints(_typecheckingstub__e6d1b24222632c32e919d43b3532b81da19da81e20e80bcc2d7e28ecdc96eb5e)
             check_type(argname="argument version", value=version, expected_type=type_hints["version"])
             check_type(argname="argument cache", value=cache, expected_type=type_hints["cache"])
             check_type(argname="argument distribution", value=distribution, expected_type=type_hints["distribution"])
@@ -4928,8 +4928,13 @@ class JavaToolRequirement(ToolRequirement):
         "name": "name",
         "shell": "shell",
         "working_directory": "workingDirectory",
+        "background": "background",
+        "cancel": "cancel",
         "continue_on_error": "continueOnError",
+        "parallel": "parallel",
         "timeout_minutes": "timeoutMinutes",
+        "wait": "wait",
+        "wait_all": "waitAll",
     },
 )
 class JobStepConfiguration(StepConfiguration):
@@ -4942,8 +4947,13 @@ class JobStepConfiguration(StepConfiguration):
         name: typing.Optional[builtins.str] = None,
         shell: typing.Optional[builtins.str] = None,
         working_directory: typing.Optional[builtins.str] = None,
+        background: typing.Optional[builtins.bool] = None,
+        cancel: typing.Optional[builtins.str] = None,
         continue_on_error: typing.Optional[builtins.bool] = None,
+        parallel: typing.Optional[typing.Sequence[typing.Union["JobStep", typing.Dict[builtins.str, typing.Any]]]] = None,
         timeout_minutes: typing.Optional[jsii.Number] = None,
+        wait: typing.Optional[typing.Sequence[builtins.str]] = None,
+        wait_all: typing.Optional[builtins.bool] = None,
     ) -> None:
         '''(experimental) These settings are unique to a JobStep from the fields contained within the metadata action.yaml file present in when creating a new GitHub Action. These fields are not present in action.yml, but are in JobStep, which are using when creating workflows.
 
@@ -4953,21 +4963,31 @@ class JobStepConfiguration(StepConfiguration):
         :param name: (experimental) A name for your step to display on GitHub.
         :param shell: (experimental) Overrides the default shell settings in the runner's operating system and the job's default. Refer to GitHub documentation for allowed values.
         :param working_directory: (experimental) Specifies a working directory for a step. Overrides a job's working directory.
+        :param background: (experimental) Runs a step asynchronously so the job continues to the next step without waiting for it to finish. Use for long-running processes, such as databases, servers, or monitoring tasks, that need to run alongside other steps. Synchronize with background steps later using ``wait`` or ``waitAll``, or stop them with ``cancel``. Give the step an ``id`` so it can be referenced. A maximum of 10 background steps can run concurrently in a single job; additional background steps are queued until a slot is free.
+        :param cancel: (experimental) Gracefully terminates a running background step, referenced by its ``id``. The runner sends the step's process a termination signal (SIGTERM) so it can clean up, and forcibly stops it (SIGKILL) if it does not exit within a short grace period.
         :param continue_on_error: (experimental) Prevents a job from failing when a step fails. Set to true to allow a job to pass when this step fails.
+        :param parallel: (experimental) Runs a group of steps concurrently, then waits for all of them to finish before continuing. This is shorthand for declaring each step with ``background: true`` followed by a ``wait`` step. Use this when you have a self-contained group of independent steps that can all run at the same time and don't need to be referenced individually. Use ``background`` instead when you need finer control, such as starting a long-running process that stays up while later steps run. Each step in the group is subject to the same 10-step concurrency limit as other background steps. Cannot be used inside a composite action.
         :param timeout_minutes: (experimental) The maximum number of minutes to run the step before killing the process.
+        :param wait: (experimental) Pauses the job until one or more background steps complete. Provide the ``id``s of the background steps to wait for. This step performs no work itself; it only blocks until the referenced background steps finish. If a referenced background step failed, the ``wait`` step fails too.
+        :param wait_all: (experimental) Pauses the job until all active background steps complete. Fails if any of the background steps it waits on failed, unless ``continueOnError`` is set on this step.
 
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__015947eea91a5bd0b89e515aeca63fc47bd80c9c63472b7c37f32a247b878ba9)
+            type_hints = cached_type_hints(_typecheckingstub__015947eea91a5bd0b89e515aeca63fc47bd80c9c63472b7c37f32a247b878ba9)
             check_type(argname="argument env", value=env, expected_type=type_hints["env"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
             check_type(argname="argument if_", value=if_, expected_type=type_hints["if_"])
             check_type(argname="argument name", value=name, expected_type=type_hints["name"])
             check_type(argname="argument shell", value=shell, expected_type=type_hints["shell"])
             check_type(argname="argument working_directory", value=working_directory, expected_type=type_hints["working_directory"])
+            check_type(argname="argument background", value=background, expected_type=type_hints["background"])
+            check_type(argname="argument cancel", value=cancel, expected_type=type_hints["cancel"])
             check_type(argname="argument continue_on_error", value=continue_on_error, expected_type=type_hints["continue_on_error"])
+            check_type(argname="argument parallel", value=parallel, expected_type=type_hints["parallel"])
             check_type(argname="argument timeout_minutes", value=timeout_minutes, expected_type=type_hints["timeout_minutes"])
+            check_type(argname="argument wait", value=wait, expected_type=type_hints["wait"])
+            check_type(argname="argument wait_all", value=wait_all, expected_type=type_hints["wait_all"])
         self._values: typing.Dict[builtins.str, typing.Any] = {}
         if env is not None:
             self._values["env"] = env
@@ -4981,10 +5001,20 @@ class JobStepConfiguration(StepConfiguration):
             self._values["shell"] = shell
         if working_directory is not None:
             self._values["working_directory"] = working_directory
+        if background is not None:
+            self._values["background"] = background
+        if cancel is not None:
+            self._values["cancel"] = cancel
         if continue_on_error is not None:
             self._values["continue_on_error"] = continue_on_error
+        if parallel is not None:
+            self._values["parallel"] = parallel
         if timeout_minutes is not None:
             self._values["timeout_minutes"] = timeout_minutes
+        if wait is not None:
+            self._values["wait"] = wait
+        if wait_all is not None:
+            self._values["wait_all"] = wait_all
 
     @builtins.property
     def env(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
@@ -5054,6 +5084,40 @@ class JobStepConfiguration(StepConfiguration):
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
+    def background(self) -> typing.Optional[builtins.bool]:
+        '''(experimental) Runs a step asynchronously so the job continues to the next step without waiting for it to finish.
+
+        Use for long-running processes, such as
+        databases, servers, or monitoring tasks, that need to run alongside other
+        steps.
+
+        Synchronize with background steps later using ``wait`` or ``waitAll``, or
+        stop them with ``cancel``. Give the step an ``id`` so it can be referenced.
+
+        A maximum of 10 background steps can run concurrently in a single job;
+        additional background steps are queued until a slot is free.
+
+        :see: https://docs.github.com/en/actions/writing-workflows/workflow-syntax-for-github-actions#jobsjob_idstepsbackground
+        :stability: experimental
+        '''
+        result = self._values.get("background")
+        return typing.cast(typing.Optional[builtins.bool], result)
+
+    @builtins.property
+    def cancel(self) -> typing.Optional[builtins.str]:
+        '''(experimental) Gracefully terminates a running background step, referenced by its ``id``.
+
+        The runner sends the step's process a termination signal (SIGTERM) so it
+        can clean up, and forcibly stops it (SIGKILL) if it does not exit within
+        a short grace period.
+
+        :see: https://docs.github.com/en/actions/writing-workflows/workflow-syntax-for-github-actions#jobsjob_idstepscancel
+        :stability: experimental
+        '''
+        result = self._values.get("cancel")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
     def continue_on_error(self) -> typing.Optional[builtins.bool]:
         '''(experimental) Prevents a job from failing when a step fails.
 
@@ -5066,6 +5130,27 @@ class JobStepConfiguration(StepConfiguration):
         return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
+    def parallel(self) -> typing.Optional[typing.List["JobStep"]]:
+        '''(experimental) Runs a group of steps concurrently, then waits for all of them to finish before continuing.
+
+        This is shorthand for declaring each step with
+        ``background: true`` followed by a ``wait`` step.
+
+        Use this when you have a self-contained group of independent steps that
+        can all run at the same time and don't need to be referenced
+        individually. Use ``background`` instead when you need finer control, such
+        as starting a long-running process that stays up while later steps run.
+
+        Each step in the group is subject to the same 10-step concurrency limit
+        as other background steps. Cannot be used inside a composite action.
+
+        :see: https://docs.github.com/en/actions/writing-workflows/workflow-syntax-for-github-actions#jobsjob_idstepsparallel
+        :stability: experimental
+        '''
+        result = self._values.get("parallel")
+        return typing.cast(typing.Optional[typing.List["JobStep"]], result)
+
+    @builtins.property
     def timeout_minutes(self) -> typing.Optional[jsii.Number]:
         '''(experimental) The maximum number of minutes to run the step before killing the process.
 
@@ -5073,6 +5158,34 @@ class JobStepConfiguration(StepConfiguration):
         '''
         result = self._values.get("timeout_minutes")
         return typing.cast(typing.Optional[jsii.Number], result)
+
+    @builtins.property
+    def wait(self) -> typing.Optional[typing.List[builtins.str]]:
+        '''(experimental) Pauses the job until one or more background steps complete. Provide the ``id``s of the background steps to wait for.
+
+        This step performs no work itself; it only blocks until the referenced
+        background steps finish. If a referenced background step failed, the
+        ``wait`` step fails too.
+
+        :see: https://docs.github.com/en/actions/writing-workflows/workflow-syntax-for-github-actions#jobsjob_idstepswait
+        :stability: experimental
+        '''
+        result = self._values.get("wait")
+        return typing.cast(typing.Optional[typing.List[builtins.str]], result)
+
+    @builtins.property
+    def wait_all(self) -> typing.Optional[builtins.bool]:
+        '''(experimental) Pauses the job until all active background steps complete.
+
+        Fails if any
+        of the background steps it waits on failed, unless ``continueOnError`` is
+        set on this step.
+
+        :see: https://docs.github.com/en/actions/writing-workflows/workflow-syntax-for-github-actions#jobsjob_idstepswait-all
+        :stability: experimental
+        '''
+        result = self._values.get("wait_all")
+        return typing.cast(typing.Optional[builtins.bool], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -5115,7 +5228,7 @@ class PullRequestOptions(PushOptions):
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__06f89a958393ccc6e519bb6f35efb7b5890d5f02f862fb898a55f18fadb17bd8)
+            type_hints = cached_type_hints(_typecheckingstub__06f89a958393ccc6e519bb6f35efb7b5890d5f02f862fb898a55f18fadb17bd8)
             check_type(argname="argument branches", value=branches, expected_type=type_hints["branches"])
             check_type(argname="argument paths", value=paths, expected_type=type_hints["paths"])
             check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
@@ -5224,7 +5337,7 @@ class PullRequestTargetOptions(PushOptions):
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__0ca7cc715b84ec3cf61f2ce2a905a0d5ec7555e282d1ce9b79e5c3773fe5c25a)
+            type_hints = cached_type_hints(_typecheckingstub__0ca7cc715b84ec3cf61f2ce2a905a0d5ec7555e282d1ce9b79e5c3773fe5c25a)
             check_type(argname="argument branches", value=branches, expected_type=type_hints["branches"])
             check_type(argname="argument paths", value=paths, expected_type=type_hints["paths"])
             check_type(argname="argument tags", value=tags, expected_type=type_hints["tags"])
@@ -5330,7 +5443,7 @@ class PythonToolRequirement(ToolRequirement):
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__371c40578cd882c4a0809a79b191d24aafe280284525738329838e501a68b395)
+            type_hints = cached_type_hints(_typecheckingstub__371c40578cd882c4a0809a79b191d24aafe280284525738329838e501a68b395)
             check_type(argname="argument version", value=version, expected_type=type_hints["version"])
             check_type(argname="argument cache", value=cache, expected_type=type_hints["cache"])
             check_type(argname="argument package_manager", value=package_manager, expected_type=type_hints["package_manager"])
@@ -5433,7 +5546,7 @@ class Step(StepConfiguration):
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__91711bdec7a542de93f053fdd93de2213c56069702113a10e2c71564ce543ff2)
+            type_hints = cached_type_hints(_typecheckingstub__91711bdec7a542de93f053fdd93de2213c56069702113a10e2c71564ce543ff2)
             check_type(argname="argument env", value=env, expected_type=type_hints["env"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
             check_type(argname="argument if_", value=if_, expected_type=type_hints["if_"])
@@ -5595,8 +5708,13 @@ class Step(StepConfiguration):
         "run": "run",
         "uses": "uses",
         "with_": "with",
+        "background": "background",
+        "cancel": "cancel",
         "continue_on_error": "continueOnError",
+        "parallel": "parallel",
         "timeout_minutes": "timeoutMinutes",
+        "wait": "wait",
+        "wait_all": "waitAll",
     },
 )
 class JobStep(Step, JobStepConfiguration):
@@ -5612,8 +5730,13 @@ class JobStep(Step, JobStepConfiguration):
         run: typing.Optional[builtins.str] = None,
         uses: typing.Optional[builtins.str] = None,
         with_: typing.Optional[typing.Mapping[builtins.str, typing.Any]] = None,
+        background: typing.Optional[builtins.bool] = None,
+        cancel: typing.Optional[builtins.str] = None,
         continue_on_error: typing.Optional[builtins.bool] = None,
+        parallel: typing.Optional[typing.Sequence[typing.Union["JobStep", typing.Dict[builtins.str, typing.Any]]]] = None,
         timeout_minutes: typing.Optional[jsii.Number] = None,
+        wait: typing.Optional[typing.Sequence[builtins.str]] = None,
+        wait_all: typing.Optional[builtins.bool] = None,
     ) -> None:
         '''(experimental) JobSteps run as part of a GitHub Workflow Job.
 
@@ -5626,14 +5749,19 @@ class JobStep(Step, JobStepConfiguration):
         :param run: (experimental) Runs command-line programs using the operating system's shell. If you do not provide a name, the step name will default to the text specified in the run command.
         :param uses: (experimental) Selects an action to run as part of a step in your job. An action is a reusable unit of code. You can use an action defined in the same repository as the workflow, a public repository, or in a published Docker container image.
         :param with_: (experimental) A map of the input parameters defined by the action. Each input parameter is a key/value pair. Input parameters are set as environment variables. The variable is prefixed with INPUT_ and converted to upper case.
+        :param background: (experimental) Runs a step asynchronously so the job continues to the next step without waiting for it to finish. Use for long-running processes, such as databases, servers, or monitoring tasks, that need to run alongside other steps. Synchronize with background steps later using ``wait`` or ``waitAll``, or stop them with ``cancel``. Give the step an ``id`` so it can be referenced. A maximum of 10 background steps can run concurrently in a single job; additional background steps are queued until a slot is free.
+        :param cancel: (experimental) Gracefully terminates a running background step, referenced by its ``id``. The runner sends the step's process a termination signal (SIGTERM) so it can clean up, and forcibly stops it (SIGKILL) if it does not exit within a short grace period.
         :param continue_on_error: (experimental) Prevents a job from failing when a step fails. Set to true to allow a job to pass when this step fails.
+        :param parallel: (experimental) Runs a group of steps concurrently, then waits for all of them to finish before continuing. This is shorthand for declaring each step with ``background: true`` followed by a ``wait`` step. Use this when you have a self-contained group of independent steps that can all run at the same time and don't need to be referenced individually. Use ``background`` instead when you need finer control, such as starting a long-running process that stays up while later steps run. Each step in the group is subject to the same 10-step concurrency limit as other background steps. Cannot be used inside a composite action.
         :param timeout_minutes: (experimental) The maximum number of minutes to run the step before killing the process.
+        :param wait: (experimental) Pauses the job until one or more background steps complete. Provide the ``id``s of the background steps to wait for. This step performs no work itself; it only blocks until the referenced background steps finish. If a referenced background step failed, the ``wait`` step fails too.
+        :param wait_all: (experimental) Pauses the job until all active background steps complete. Fails if any of the background steps it waits on failed, unless ``continueOnError`` is set on this step.
 
         :see: https://docs.github.com/en/actions/using-workflows/workflow-syntax-for-github-actions#jobsjob_idsteps
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__0df3f4a2690eb7ddc82908948a9807cfdc9923a4466ac38225eda950e85a59ff)
+            type_hints = cached_type_hints(_typecheckingstub__0df3f4a2690eb7ddc82908948a9807cfdc9923a4466ac38225eda950e85a59ff)
             check_type(argname="argument env", value=env, expected_type=type_hints["env"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
             check_type(argname="argument if_", value=if_, expected_type=type_hints["if_"])
@@ -5643,8 +5771,13 @@ class JobStep(Step, JobStepConfiguration):
             check_type(argname="argument run", value=run, expected_type=type_hints["run"])
             check_type(argname="argument uses", value=uses, expected_type=type_hints["uses"])
             check_type(argname="argument with_", value=with_, expected_type=type_hints["with_"])
+            check_type(argname="argument background", value=background, expected_type=type_hints["background"])
+            check_type(argname="argument cancel", value=cancel, expected_type=type_hints["cancel"])
             check_type(argname="argument continue_on_error", value=continue_on_error, expected_type=type_hints["continue_on_error"])
+            check_type(argname="argument parallel", value=parallel, expected_type=type_hints["parallel"])
             check_type(argname="argument timeout_minutes", value=timeout_minutes, expected_type=type_hints["timeout_minutes"])
+            check_type(argname="argument wait", value=wait, expected_type=type_hints["wait"])
+            check_type(argname="argument wait_all", value=wait_all, expected_type=type_hints["wait_all"])
         self._values: typing.Dict[builtins.str, typing.Any] = {}
         if env is not None:
             self._values["env"] = env
@@ -5664,10 +5797,20 @@ class JobStep(Step, JobStepConfiguration):
             self._values["uses"] = uses
         if with_ is not None:
             self._values["with_"] = with_
+        if background is not None:
+            self._values["background"] = background
+        if cancel is not None:
+            self._values["cancel"] = cancel
         if continue_on_error is not None:
             self._values["continue_on_error"] = continue_on_error
+        if parallel is not None:
+            self._values["parallel"] = parallel
         if timeout_minutes is not None:
             self._values["timeout_minutes"] = timeout_minutes
+        if wait is not None:
+            self._values["wait"] = wait
+        if wait_all is not None:
+            self._values["wait_all"] = wait_all
 
     @builtins.property
     def env(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
@@ -5777,6 +5920,40 @@ class JobStep(Step, JobStepConfiguration):
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, typing.Any]], result)
 
     @builtins.property
+    def background(self) -> typing.Optional[builtins.bool]:
+        '''(experimental) Runs a step asynchronously so the job continues to the next step without waiting for it to finish.
+
+        Use for long-running processes, such as
+        databases, servers, or monitoring tasks, that need to run alongside other
+        steps.
+
+        Synchronize with background steps later using ``wait`` or ``waitAll``, or
+        stop them with ``cancel``. Give the step an ``id`` so it can be referenced.
+
+        A maximum of 10 background steps can run concurrently in a single job;
+        additional background steps are queued until a slot is free.
+
+        :see: https://docs.github.com/en/actions/writing-workflows/workflow-syntax-for-github-actions#jobsjob_idstepsbackground
+        :stability: experimental
+        '''
+        result = self._values.get("background")
+        return typing.cast(typing.Optional[builtins.bool], result)
+
+    @builtins.property
+    def cancel(self) -> typing.Optional[builtins.str]:
+        '''(experimental) Gracefully terminates a running background step, referenced by its ``id``.
+
+        The runner sends the step's process a termination signal (SIGTERM) so it
+        can clean up, and forcibly stops it (SIGKILL) if it does not exit within
+        a short grace period.
+
+        :see: https://docs.github.com/en/actions/writing-workflows/workflow-syntax-for-github-actions#jobsjob_idstepscancel
+        :stability: experimental
+        '''
+        result = self._values.get("cancel")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
     def continue_on_error(self) -> typing.Optional[builtins.bool]:
         '''(experimental) Prevents a job from failing when a step fails.
 
@@ -5789,6 +5966,27 @@ class JobStep(Step, JobStepConfiguration):
         return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
+    def parallel(self) -> typing.Optional[typing.List["JobStep"]]:
+        '''(experimental) Runs a group of steps concurrently, then waits for all of them to finish before continuing.
+
+        This is shorthand for declaring each step with
+        ``background: true`` followed by a ``wait`` step.
+
+        Use this when you have a self-contained group of independent steps that
+        can all run at the same time and don't need to be referenced
+        individually. Use ``background`` instead when you need finer control, such
+        as starting a long-running process that stays up while later steps run.
+
+        Each step in the group is subject to the same 10-step concurrency limit
+        as other background steps. Cannot be used inside a composite action.
+
+        :see: https://docs.github.com/en/actions/writing-workflows/workflow-syntax-for-github-actions#jobsjob_idstepsparallel
+        :stability: experimental
+        '''
+        result = self._values.get("parallel")
+        return typing.cast(typing.Optional[typing.List["JobStep"]], result)
+
+    @builtins.property
     def timeout_minutes(self) -> typing.Optional[jsii.Number]:
         '''(experimental) The maximum number of minutes to run the step before killing the process.
 
@@ -5796,6 +5994,34 @@ class JobStep(Step, JobStepConfiguration):
         '''
         result = self._values.get("timeout_minutes")
         return typing.cast(typing.Optional[jsii.Number], result)
+
+    @builtins.property
+    def wait(self) -> typing.Optional[typing.List[builtins.str]]:
+        '''(experimental) Pauses the job until one or more background steps complete. Provide the ``id``s of the background steps to wait for.
+
+        This step performs no work itself; it only blocks until the referenced
+        background steps finish. If a referenced background step failed, the
+        ``wait`` step fails too.
+
+        :see: https://docs.github.com/en/actions/writing-workflows/workflow-syntax-for-github-actions#jobsjob_idstepswait
+        :stability: experimental
+        '''
+        result = self._values.get("wait")
+        return typing.cast(typing.Optional[typing.List[builtins.str]], result)
+
+    @builtins.property
+    def wait_all(self) -> typing.Optional[builtins.bool]:
+        '''(experimental) Pauses the job until all active background steps complete.
+
+        Fails if any
+        of the background steps it waits on failed, unless ``continueOnError`` is
+        set on this step.
+
+        :see: https://docs.github.com/en/actions/writing-workflows/workflow-syntax-for-github-actions#jobsjob_idstepswait-all
+        :stability: experimental
+        '''
+        result = self._values.get("wait_all")
+        return typing.cast(typing.Optional[builtins.bool], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -6326,8 +6552,13 @@ def _typecheckingstub__015947eea91a5bd0b89e515aeca63fc47bd80c9c63472b7c37f32a247
     name: typing.Optional[builtins.str] = None,
     shell: typing.Optional[builtins.str] = None,
     working_directory: typing.Optional[builtins.str] = None,
+    background: typing.Optional[builtins.bool] = None,
+    cancel: typing.Optional[builtins.str] = None,
     continue_on_error: typing.Optional[builtins.bool] = None,
+    parallel: typing.Optional[typing.Sequence[typing.Union[JobStep, typing.Dict[builtins.str, typing.Any]]]] = None,
     timeout_minutes: typing.Optional[jsii.Number] = None,
+    wait: typing.Optional[typing.Sequence[builtins.str]] = None,
+    wait_all: typing.Optional[builtins.bool] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -6387,8 +6618,13 @@ def _typecheckingstub__0df3f4a2690eb7ddc82908948a9807cfdc9923a4466ac38225eda950e
     run: typing.Optional[builtins.str] = None,
     uses: typing.Optional[builtins.str] = None,
     with_: typing.Optional[typing.Mapping[builtins.str, typing.Any]] = None,
+    background: typing.Optional[builtins.bool] = None,
+    cancel: typing.Optional[builtins.str] = None,
     continue_on_error: typing.Optional[builtins.bool] = None,
+    parallel: typing.Optional[typing.Sequence[typing.Union[JobStep, typing.Dict[builtins.str, typing.Any]]]] = None,
     timeout_minutes: typing.Optional[jsii.Number] = None,
+    wait: typing.Optional[typing.Sequence[builtins.str]] = None,
+    wait_all: typing.Optional[builtins.bool] = None,
 ) -> None:
     """Type checking stubs"""
     pass

@@ -41,7 +41,7 @@ class XEP_0128(BasePlugin):
 
         register_stanza_plugin(DiscoInfo, Form, iterable=True)
 
-        self.disco = self.xmpp['xep_0030']
+        self.disco = self.xmpp.plugin['xep_0030']
         self.static = StaticExtendedDisco(self.disco.static)
 
         self.disco.set_extended_info = self.set_extended_info

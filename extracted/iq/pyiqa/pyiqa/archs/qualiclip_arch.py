@@ -14,8 +14,7 @@ Reference:
 
 import torch
 import torch.nn as nn
-import clip
-from clip.simple_tokenizer import SimpleTokenizer
+from .clip_imports import clip, SimpleTokenizer
 
 from pyiqa.utils.registry import ARCH_REGISTRY
 from pyiqa.archs.arch_util import (

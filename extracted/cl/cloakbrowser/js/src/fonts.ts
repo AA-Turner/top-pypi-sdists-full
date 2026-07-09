@@ -13,28 +13,48 @@ import os from "node:os";
 import path from "node:path";
 import { getCacheDir } from "./config.js";
 
-// Microsoft-proprietary fonts that signal a real Windows install (absent from
-// ttf-mscorefonts-installer). Keep in sync with issue #395 and
-// docs/chrome40-fpjs-font-minimum-set-investigation.md.
-const WINDOWS_FONT_TELLS = [
+// Windows OS fonts — ship with Windows itself, so their absence on a
+// Windows-spoofing Linux host degrades results. The two monospace fonts
+// (Consolas + Courier New) are part of the recommended set so the generic
+// `monospace` family resolves to a Windows font. See issue #395.
+export const WINDOWS_FONT_TELLS = [
   "Segoe UI",
   "Segoe UI Light",
   "Calibri",
   "Marlett",
   "MS UI Gothic",
   "Franklin Gothic",
+  "Consolas",
+  "Courier New",
+];
+
+// MS Office supplemental fonts, installed as one atomic block by every Office
+// install. Roughly half of real Windows machines have this pack and half do
+// not, so its absence is a perfectly normal Windows setup, NOT a problem —
+// reported as an informational signal only, never a warning.
+export const OFFICE_FONT_TELLS = [
+  "MT Extra",
+  "Century",
+  "Century Gothic",
+  "MS Reference Specialty",
+  "Wingdings 2",
+  "Wingdings 3",
+  "Book Antiqua",
+  "Bookshelf Symbol 7",
+  "Monotype Corsiva",
+  "Bookman Old Style",
 ];
 
 let fontWarningChecked = false;
 
 /**
- * Probe for Windows fonts via fc-list.
+ * Count how many tell-tale fonts are installed, via fc-list.
  *
- * Tri-state: true if any tell-tale font is installed, false if none found,
- * null if it can't be determined (fc-list missing or errored). Callers must
- * NOT warn on null — only an explicit false means "no Windows fonts".
+ * Returns the number present (0..tells.length), or null if it can't be
+ * determined (fc-list missing or errored). Callers must NOT treat null as
+ * zero — null means "unknown", 0 means "genuinely none installed".
  */
-export function windowsFontsPresent(): boolean | null {
+export function countFontsPresent(tells: string[]): number | null {
   let listing: string;
   try {
     // maxBuffer 16 MB: a host with a large font set can produce an fc-list
@@ -44,11 +64,22 @@ export function windowsFontsPresent(): boolean | null {
   } catch {
     return null;
   }
-  return WINDOWS_FONT_TELLS.some((f) => listing.includes(f.toLowerCase()));
+  return tells.filter((f) => listing.includes(f.toLowerCase())).length;
 }
 
 /**
- * Warn once when spoofing Windows on a Linux host with no Windows fonts.
+ * True if ALL Windows OS fonts are installed, false if any are missing, null
+ * if unknown. Strict: a partial set is treated as incomplete, since the font
+ * install is atomic and a missing font degrades the Windows persona.
+ */
+export function windowsFontsPresent(): boolean | null {
+  const n = countFontsPresent(WINDOWS_FONT_TELLS);
+  return n === null ? null : n === WINDOWS_FONT_TELLS.length;
+}
+
+/**
+ * Warn once when spoofing Windows on a Linux host without the full Windows
+ * font set.
  *
  * Best-effort and silent on error — never throws. Gated by an in-process flag
  * plus a cache-dir marker so it fires at most once per environment. Suppress
@@ -73,10 +104,10 @@ export function maybeWarnWindowsFonts(chromeArgs: string[]): void {
     const marker = path.join(getCacheDir(), ".font_warning_shown");
     if (fs.existsSync(marker)) return;
     const present = windowsFontsPresent();
-    if (present === null || present === true) return; // present or undeterminable
+    if (present === null || present === true) return; // full set present or undeterminable
     console.warn(
-      "[cloakbrowser] No Windows fonts found — installing them is strongly " +
-        "advised for best results when spoofing Windows on Linux. " +
+      "[cloakbrowser] Incomplete Windows font set — installing the full set " +
+        "is strongly advised for best results when spoofing Windows on Linux. " +
         "https://github.com/CloakHQ/cloakbrowser#font-setup-on-linux " +
         "(silence: CLOAKBROWSER_SUPPRESS_FONT_WARNING=1)",
     );

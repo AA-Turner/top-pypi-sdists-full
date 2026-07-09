@@ -20,7 +20,16 @@ from dataclasses import dataclass, field
 from enum import StrEnum
 from typing import Any
 
+from ouroboros.core.seed import AcceptanceCriterionSpec
 from ouroboros.events.base import BaseEvent
+
+# Above this reward-hacking risk the final gate vetoes an otherwise-passing
+# artifact.  It is deliberately high (0.7): it only vetoes *high-confidence*
+# gaming signals so a nervous evaluator's mild suspicion never blocks a
+# genuine pass.  Defined here (not in pipeline.py) so the gate and the
+# ``EvaluationResult.failure_reason`` surface share one source of truth
+# without a models<->pipeline import cycle.  pipeline.py imports this.
+REWARD_HACKING_VETO_THRESHOLD = 0.7
 
 
 class VoterRole(StrEnum):
@@ -189,6 +198,10 @@ class ConsensusResult:
     majority_ratio: float
     disagreements: tuple[str, ...] = ()
     is_single_model: bool = False
+    # PR-X X2: honest label of executor/reviewer independence
+    # ("independent" | "same_vendor" | "unavailable" | "unverified" |
+    # None when not resolved). See evaluation.reviewer_independence.
+    reviewer_independence: str | None = None
 
     @property
     def approving_votes(self) -> int:
@@ -307,6 +320,11 @@ class EvaluationContext:
         execution_id: Unique identifier for the execution
         seed_id: Identifier of the seed being evaluated against
         current_ac: The acceptance criterion being evaluated
+        current_ac_spec: Structured success contract for ``current_ac`` when
+            the seed declared one (verify_command / expected_artifacts /
+            output_assertion).  ``None`` for bare-string ACs — the evaluator
+            then falls back to judging ``current_ac`` text alone (today's
+            behavior).
         artifact: The output artifact to evaluate
         artifact_type: Type of artifact (code, document, etc.)
         goal: Original goal from seed
@@ -318,11 +336,16 @@ class EvaluationContext:
     seed_id: str
     current_ac: str
     artifact: str
+    current_ac_spec: AcceptanceCriterionSpec | None = None
     artifact_type: str = "code"
     goal: str = ""
     constraints: tuple[str, ...] = ()
     artifact_bundle: ArtifactBundle | None = None
     trigger_consensus: bool = False
+    # PR-X X2: the runtime backend that produced ``artifact``, when known. Lets
+    # consensus keep the executor's own vendor out of the reviewer jury. ``None``
+    # (the default) means "unknown" — today's behavior, no independence binding.
+    executor_backend: str | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -378,4 +401,14 @@ class EvaluationResult:
             )
         if self.stage2_result and not self.stage2_result.ac_compliance:
             return f"Stage 2 failed: AC non-compliance (score={self.stage2_result.score:.2f})"
+        if (
+            self.stage2_result
+            and self.stage2_result.reward_hacking_risk >= REWARD_HACKING_VETO_THRESHOLD
+        ):
+            return (
+                "Stage 2 veto: reward-hacking risk "
+                f"{self.stage2_result.reward_hacking_risk:.2f} >= "
+                f"{REWARD_HACKING_VETO_THRESHOLD:.2f} — artifact appears optimized to game the "
+                "evaluator rather than solve the real task"
+            )
         return "Unknown failure"

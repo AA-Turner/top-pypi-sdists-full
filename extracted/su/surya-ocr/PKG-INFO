@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: surya-ocr
-Version: 0.20.0
+Version: 0.21.1
 Summary: OCR, layout, reading order, and table recognition in 90+ languages.
 Project-URL: Repository, https://github.com/datalab-to/surya
 Author-email: Vik Paruchuri <vik@datalab.to>
@@ -12,18 +12,19 @@ Requires-Dist: beautifulsoup4<5,>=4.12.0
 Requires-Dist: click<9,>=8.1.8
 Requires-Dist: filelock<4,>=3.16.0
 Requires-Dist: filetype<2,>=1.2.0
-Requires-Dist: httpx<0.28,>=0.27.0
-Requires-Dist: huggingface-hub<1,>=0.26.0
-Requires-Dist: openai<2,>=1.55.0
+Requires-Dist: httpx<1,>=0.27.0
+Requires-Dist: huggingface-hub<2,>=1.5.0
+Requires-Dist: openai<3,>=1.55.0
 Requires-Dist: opencv-python-headless==4.11.0.86
 Requires-Dist: pillow<11,>=10.2.0
 Requires-Dist: platformdirs<5,>=4.3.6
 Requires-Dist: pydantic-settings<3,>=2.1.0
 Requires-Dist: pydantic<3,>=2.5.3
-Requires-Dist: pypdfium2==4.30.0
+Requires-Dist: pypdfium2==5.9.0
 Requires-Dist: python-dotenv<2,>=1.0.0
 Requires-Dist: torch<3,>=2.7.0
-Requires-Dist: transformers>=4.56.1
+Requires-Dist: torchvision<1,>=0.20.0
+Requires-Dist: transformers>=5.12.1
 Description-Content-Type: text/markdown
 
 <p align="center">
@@ -417,7 +418,7 @@ Pareto-optimal on the size-vs-score frontier, and best in class under 3B params.
 | Model                       | Params    | Score    |
 |-----------------------------|----------:|---------:|
 | Infinity-Parser2-Pro        |     35.1B |     87.6 |
-| Chandra OCR 2 (Datalab)     |      5.3B |     85.9 |
+| Chandra OCR 2 (Datalab)     |      4.0B |     85.9 |
 | dots.mocr                   |      3.0B |     83.9 |
 | **Surya OCR 2** (Datalab)   | **0.65B** | **83.3** |
 | LightOnOCR 2-1B \*          |      1.0B |     83.2 |

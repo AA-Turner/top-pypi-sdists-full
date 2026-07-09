@@ -14,7 +14,15 @@ import pytest
 import cloakbrowser.browser as browser
 
 WIN_ARGS = ["--fingerprint-platform=windows", "--no-sandbox"]
-MSG = "No Windows fonts found"
+MSG = "Incomplete Windows font set"
+
+# fc-list output containing all 8 Windows tell fonts (the complete set).
+ALL_WIN_FONTS = (
+    "Segoe UI:style=Regular\nSegoe UI Light:style=Light\nCalibri:style=Regular\n"
+    "Marlett:style=Regular\nMS UI Gothic:style=Regular\n"
+    "Franklin Gothic Medium:style=Regular\nConsolas:style=Regular\n"
+    "Courier New:style=Regular"
+)
 
 
 @pytest.fixture(autouse=True)
@@ -110,7 +118,18 @@ def test_no_warn_no_crash_when_fc_list_absent(tmp_path, capsys):
     assert not (tmp_path / ".font_warning_shown").exists()
 
 
-def test_no_warn_when_fonts_present(tmp_path, capsys):
+def test_no_warn_when_full_set_present(tmp_path, capsys):
+    with (
+        patch("platform.system", return_value="Linux"),
+        patch("subprocess.run", side_effect=_fc_list(0, ALL_WIN_FONTS)),
+        patch("cloakbrowser.config.get_cache_dir", return_value=tmp_path),
+    ):
+        browser._maybe_warn_windows_fonts(WIN_ARGS)
+    assert MSG not in capsys.readouterr().err
+
+
+def test_warns_on_partial_set(tmp_path, capsys):
+    # Only 1 of the 8 tells present — strict check treats this as incomplete.
     listing = "/usr/share/fonts/segoeui.ttf: Segoe UI:style=Regular"
     with (
         patch("platform.system", return_value="Linux"),
@@ -118,4 +137,4 @@ def test_no_warn_when_fonts_present(tmp_path, capsys):
         patch("cloakbrowser.config.get_cache_dir", return_value=tmp_path),
     ):
         browser._maybe_warn_windows_fonts(WIN_ARGS)
-    assert MSG not in capsys.readouterr().err
+    assert MSG in capsys.readouterr().err

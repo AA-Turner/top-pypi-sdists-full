@@ -1,16 +1,15 @@
 Metadata-Version: 2.4
 Name: pyiqa
-Version: 0.1.15.post2
+Version: 0.1.16
 Summary: PyTorch Toolbox for Image Quality Assessment
 Author-email: Chaofeng Chen <chaofenghust@gmail.com>
-License: Apache Software License
+License-Expression: PolyForm-Noncommercial-1.0.0
 Project-URL: Homepage, https://github.com/chaofengc/IQA-PyTorch
 Project-URL: Repository, https://github.com/chaofengc/IQA-PyTorch
 Project-URL: Issues, https://github.com/chaofengc/IQA-PyTorch/issues
 Keywords: image quality assessment,pytorch
 Classifier: Development Status :: 3 - Alpha
 Classifier: Intended Audience :: Science/Research
-Classifier: License :: OSI Approved :: Apache Software License
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python :: 3.6
 Classifier: Programming Language :: Python :: 3.7
@@ -28,7 +27,6 @@ Requires-Dist: bitsandbytes; sys_platform != "darwin"
 Requires-Dist: einops
 Requires-Dist: facexlib
 Requires-Dist: future
-Requires-Dist: lmdb
 Requires-Dist: numpy
 Requires-Dist: openai-clip
 Requires-Dist: opencv-python-headless
@@ -47,21 +45,26 @@ Requires-Dist: timm>=0.8
 Requires-Dist: torch>=1.13
 Requires-Dist: torchvision>=0.13
 Requires-Dist: tqdm
-Requires-Dist: transformers>=4.36.1
+Requires-Dist: transformers>=5.0
 Requires-Dist: yapf
 Dynamic: license-file
 
-# <img align="left" width="100" height="100" src="docs/pyiqa_logo.jpg"> PyTorch Toolbox for Image Quality Assessment
+<div align="center">
 
-An IQA toolbox with pure python and pytorch. Please refer to [Awesome-Image-Quality-Assessment](https://github.com/chaofengc/Awesome-Image-Quality-Assessment) for a comprehensive survey of IQA methods and download links for IQA datasets.
+<img width="60%" src="docs/pyiqa_logo2.png">
 
-<a href="https://colab.research.google.com/drive/14J3KoyrjJ6R531DsdOy5Bza5xfeMODi6?usp=sharing"><img src="https://colab.research.google.com/assets/colab-badge.svg" alt="google colab logo"></a> 
+#### **An Image Quality Assessment (IQA) toolbox with pure python and pytorch.**
+🚀 Install with `pip install pyiqa`
+
+<a href="https://colab.research.google.com/drive/14J3KoyrjJ6R531DsdOy5Bza5xfeMODi6?usp=sharing"><img src="https://colab.research.google.com/assets/colab-badge.svg" alt="google colab logo"></a>
 [![PyPI](https://img.shields.io/pypi/v/pyiqa)](https://pypi.org/project/pyiqa/)
 [![Downloads](https://static.pepy.tech/badge/pyiqa)](https://pepy.tech/project/pyiqa)
 [![Documentation Status](https://readthedocs.org/projects/iqa-pytorch/badge/?version=latest)](https://iqa-pytorch.readthedocs.io/en/latest/?badge=latest)
 [![Awesome](https://cdn.rawgit.com/sindresorhus/awesome/d7305f38d29fed78fa85652e3a63e154dd8e8829/media/badge.svg)](https://github.com/chaofengc/Awesome-Image-Quality-Assessment)
 [![Citation](https://img.shields.io/badge/Citation-bibtex-green)](https://github.com/chaofengc/IQA-PyTorch/blob/main/README.md#bookmark_tabs-citation)
 [![Zhihu](https://img.shields.io/badge/zhihu-white?logo=zhihu)](https://www.zhihu.com/column/c_1565424954811846656)
+
+</div>
 
 <!-- [![visitors](https://hits.seeyoufarm.com/api/count/incr/badge.svg?url=https%3A%2F%2Fgithub.com%2Fchaofengc%2FIQA-PyTorch&count_bg=%2379C83D&title_bg=%23555555&icon=&icon_color=%23E7E7E7&title=visitors&edge_flat=false)](https://hits.seeyoufarm.com) -->
 
@@ -85,6 +88,8 @@ This is a comprehensive image quality assessment (IQA) toolbox built with **pure
 ---
 
 ### :triangular_flag_on_post: Updates/Changelog
+- 🆕**Jun, 2026**. Add `qrealign` (Q-ReAlign), a modern Q-Align visual scorer on a Qwen3.5-VL backbone, with three sizes `qrealign-mini` (0.8B) / `qrealign-lite` (4B) / `qrealign-pro` (9B). Requires `transformers>=5.0`. See [Q-ReAlign](https://github.com/Q-Future/Q-ReAlign).
+- 🆕**May, 2026**. Add `fgresq` metric from [FGResQ](https://github.com/sxfly99/FGResQ). Thanks to their great work 🤗, and see the [paper](https://arxiv.org/abs/2508.14475) for details.
 - 👉**Dec, 2025**.Add FR-IQA method `dmm` proposed in [paper](https://ieeexplore.ieee.org/abstract/document/10886996), with SVD-based debiased mapping to mitigate perception bias. Thanks to [baoliang](https://github.com/Baoliang93) for their great work 🤗, refer to DMM for more details.
 - ✨**Dec, 2025**. Add `maclip` metric proposed in [MACLIP](https://github.com/zhix000/MA-CLIP), introducing magnitude in IQA. Thanks to [zhicheng](https://github.com/zhix000) for their contribution 🤗, and please refer to their official papers for more details! 
 - 🎉**Sep, 2025**. Add `afine` metric proposed in [AFINE](https://github.com/ChrisDud0257/AFINE). Thanks to [Du CHEN](https://github.com/ChrisDud0257) for their great work 🤗, and please refer to their official papers for more details! 
@@ -287,7 +292,7 @@ Basically, we use the largest existing datasets for training, and cross dataset 
 | Metric Type   | Reproduced Models |
 | ------------- | ----------------------------- |
 | FR            | `wadiqam_fr`  |
-| NR            | `cnniqa`, `dbcnn`, `hyperiqa`,  `wadiqam_nr` |
+| NR            | `cnniqa`, `dbcnn`, `hyperiqa`, `metaiqa`, `wadiqam_nr` |
 | Aesthetic IQA | `nima`, `nima-vgg16-ava`      |
 
 >[!NOTE]
@@ -333,15 +338,57 @@ Example for distributed training
 torchrun --nproc_per_node=2 --master_port=4321 pyiqa/train.py -opt options/train/CLIPIQA/train_CLIPIQA_koniq10k.yml --launcher pytorch
 ```
 
+## :electric_plug: Plugin Authoring (Experimental)
+
+You can add custom datasets/architectures/models/losses/metrics from an external package via Python entry points.
+
+### 1) Add entry points in your plugin `pyproject.toml`
+
+```toml
+[project]
+name = "my-pyiqa-plugin"
+version = "0.1.0"
+dependencies = ["pyiqa>=0.1"]
+
+[project.entry-points."pyiqa.models"]
+my_models = "my_pyiqa_plugin.register:register_models"
+
+[project.entry-points."pyiqa.archs"]
+my_archs = "my_pyiqa_plugin.register:register_archs"
+
+[project.entry-points."pyiqa.datasets"]
+my_datasets = "my_pyiqa_plugin.register:register_datasets"
+
+[project.entry-points."pyiqa.losses"]
+my_losses = "my_pyiqa_plugin.register:register_losses"
+
+[project.entry-points."pyiqa.metrics"]
+my_metrics = "my_pyiqa_plugin.register:register_metrics"
+```
+
+### 2) Minimal registration function
+
+```python
+# my_pyiqa_plugin/register.py
+from pyiqa.utils.registry import MODEL_REGISTRY
+
+
+def register_models():
+  from .my_model import MyModel
+
+  # Registers with key "MyModel" by default.
+  MODEL_REGISTRY.register(MyModel)
+```
+
+After installing your plugin package, PyIQA will discover and load these entry points lazily when a registry is queried.
+
 ## :beers: Contribution
 
 Any contributions to this repository are greatly appreciated. Please follow the [contribution instructions](docs/Instruction.md) for contribution guidance.
 
 ## :scroll: License
 
-This work is licensed under a [NTU S-Lab License](https://github.com/chaofengc/IQA-PyTorch/blob/main/LICENSE_NTU-S-Lab) and <a rel="license" href="http://creativecommons.org/licenses/by-nc-sa/4.0/">Creative Commons Attribution-NonCommercial-ShareAlike 4.0 International License</a>.
-
-<a rel="license" href="http://creativecommons.org/licenses/by-nc-sa/4.0/"><img alt="Creative Commons License" style="border-width:0" src="https://i.creativecommons.org/l/by-nc-sa/4.0/88x31.png" /></a>
+This work is licensed under the [PolyForm Noncommercial License 1.0.0](https://polyformproject.org/licenses/noncommercial/1.0.0/) (see [LICENSE](LICENSE)) and the [NTU S-Lab License](https://github.com/chaofengc/IQA-PyTorch/blob/main/LICENSE-S-Lab) for applicable components.
 
 ## :bookmark_tabs: Citation
 
@@ -383,7 +430,7 @@ Please also consider to cite our works on image quality assessment if it is usef
 
 The code architecture is borrowed from [BasicSR](https://github.com/xinntao/BasicSR). Several implementations are taken from: [IQA-optimization](https://github.com/dingkeyan93/IQA-optimization), [Image-Quality-Assessment-Toolbox](https://github.com/RyanXingQL/Image-Quality-Assessment-Toolbox), [piq](https://github.com/photosynthesis-team/piq), [piqa](https://github.com/francois-rozet/piqa), [clean-fid](https://github.com/GaParmar/clean-fid)
 
-We also thanks the following public repositories: [MUSIQ](https://github.com/google-research/google-research/tree/master/musiq), [DBCNN](https://github.com/zwx8981/DBCNN-PyTorch), [NIMA](https://github.com/kentsyx/Neural-IMage-Assessment), [HyperIQA](https://github.com/SSL92/hyperIQA), [CNNIQA](https://github.com/lidq92/CNNIQA), [WaDIQaM](https://github.com/lidq92/WaDIQaM), [PieAPP](https://github.com/prashnani/PerceptualImageError), [paq2piq](https://github.com/baidut/paq2piq), [MANIQA](https://github.com/IIGROUP/MANIQA) 
+We also thanks the following public repositories: [MUSIQ](https://github.com/google-research/google-research/tree/master/musiq), [DBCNN](https://github.com/zwx8981/DBCNN-PyTorch), [NIMA](https://github.com/kentsyx/Neural-IMage-Assessment), [HyperIQA](https://github.com/SSL92/hyperIQA), [CNNIQA](https://github.com/lidq92/CNNIQA), [WaDIQaM](https://github.com/lidq92/WaDIQaM), [PieAPP](https://github.com/prashnani/PerceptualImageError), [paq2piq](https://github.com/baidut/paq2piq), [MANIQA](https://github.com/IIGROUP/MANIQA) , [MetaIQA](https://github.com/zhuhancheng/MetaIQA)
 
 ## :e-mail: Contact
 

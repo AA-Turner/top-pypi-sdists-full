@@ -366,6 +366,15 @@ def update_feature_names(df, method):
         if parts[0] == "AEF" and len(parts) >= 2:
             cid = "_".join(parts[:2])  # AEF_1, AEF_2, ...
             stage_parts = parts[2:]
+        # ENSO CIDs are 3 tokens: ONI/MEI + prev/curr + 3-mo season code
+        # (JJA, ASO, ... for ONI; DJ, JF, ... for MEI). Without this
+        # branch the generic 2-token fallback at the bottom truncates
+        # the CID to "ONI_prev" and every window variant collapses to
+        # one column at rename time -- bug seen 2026-07-08 in Brazil
+        # maize run where all 18 ENSO features reduced to 4 duplicates.
+        elif parts[0] in ("ONI", "MEI") and len(parts) >= 3 and parts[1] in ("prev", "curr"):
+            cid = "_".join(parts[:3])  # ONI_prev_JJA, MEI_curr_DJ, ...
+            stage_parts = parts[3:]
         elif parts[0] in ("AVG", "SUM", "REV", "MAR") and len(parts) >= 2 and parts[1] in ("FLDAS", "S2S"):
             # Engineered features: AVG_FLDAS_SoilMoist_PS_9
             # Find PS/IS marker to split CID name from stage

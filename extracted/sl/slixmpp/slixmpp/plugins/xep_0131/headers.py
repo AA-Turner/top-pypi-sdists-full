@@ -25,14 +25,14 @@ class XEP_0131(BasePlugin):
         register_stanza_plugin(Presence, Headers)
 
     def plugin_end(self):
-        self.xmpp['xep_0030'].del_feature(feature=Headers.namespace)
+        self.xmpp.plugin['xep_0030'].del_feature(feature=Headers.namespace)
         for header in self.supported_headers:
-            self.xmpp['xep_0030'].del_feature(
+            self.xmpp.plugin['xep_0030'].del_feature(
                     feature='%s#%s' % (Headers.namespace, header))
 
     def session_bind(self, jid):
-        self.xmpp['xep_0030'].add_feature(Headers.namespace)
+        self.xmpp.plugin['xep_0030'].add_feature(Headers.namespace)
         for header in self.supported_headers:
-            self.xmpp['xep_0030'].add_feature('%s#%s' % (
+            self.xmpp.plugin['xep_0030'].add_feature('%s#%s' % (
                 Headers.namespace,
                 header))

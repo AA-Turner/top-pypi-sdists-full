@@ -24,7 +24,7 @@ class TestSIMS(SlixTest):
 
             f.seek(0)
             h = b64encode(sha256(f.read()).digest()).decode()
-            sims = self.xmpp["xep_0385"].get_sims(
+            sims = self.xmpp.plugin["xep_0385"].get_sims(
                 Path(f.name),
                 ["https://xxx.com"],
                 media_type="MEDIA",

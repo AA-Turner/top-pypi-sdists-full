@@ -11,7 +11,7 @@ class RouteTask(VPRTask):
     def __init__(self):
         super().__init__()
 
-        self.add_parameter("max_router_iterations", "int",
+        self.add_parameter("max_router_iterations", "int<1..>",
                            "set maximum number of routing iterations", defvalue=50)
         self.add_parameter("gen_post_implementation_netlist", "bool",
                            "set to true to have VPR generate a post-implementation netlist",
@@ -82,6 +82,7 @@ class RouteTask(VPRTask):
         self.add_required_key("var", "max_router_iterations")
         self.add_required_key("var", "gen_post_implementation_netlist")
         self.add_required_key("var", "timing_corner")
+        self.add_required_key("var", "enable_images")
 
         self.set("var", "gen_post_implementation_netlist",
                  self.get("var", "enable_timing_analysis"))

@@ -1493,7 +1493,11 @@ class SessionsManager:
             # ``ToolEnd`` for fast tools, leaving the user with only the
             # finished state (the in-progress view never rendered).
             run = self._tool_run_for_wire_tool_call(next_state, wire_event.data.tool_call)
-            if run is not None and is_active_session:
+            # ``think()`` is reasoning, not a tool call — it renders on the
+            # reasoning surface at ToolEnd (ENG-6108), so skip the in-progress
+            # ToolCall row here (think is instantaneous, so no in-progress state
+            # is lost).
+            if run is not None and run.tool_name != "think" and is_active_session:
                 widget = ToolCall(
                     name=_format_tool_label(run.tool_name, run.tool_args),
                     classes="entry tool-entry",
@@ -1518,6 +1522,32 @@ class SessionsManager:
                 logger.warning("Tool reported error | tool={} | error={}", tool_name, tool_error)
             if not is_active_session:
                 self.mark_session_unread(session_id)
+            # ``think()`` renders on the unified reasoning surface, not as a tool
+            # row (ENG-6108). Store + mount it as a thinking message via the same
+            # seam native reasoning uses, so live and replay match and the old
+            # 60-char-label / ``↳ null`` rendering is gone. A think that reported
+            # an error (shouldn't happen — the tool only logs) falls through to
+            # the normal tool path so the failure stays visible.
+            if tool_name == "think" and not tool_error:
+                thought = tool_args.get("thought")
+                thought_text = thought if isinstance(thought, str) else ""
+                # Reasoning shares the native-reasoning surface, so it must also
+                # honor ``/thinking hide`` — mirror the ``show_thinking()`` gate
+                # the ``GenerationContent`` reasoning path applies (see above),
+                # or hide would suppress native reasoning while leaving every
+                # think() block visible on the same surface (ENG-6108).
+                if thought_text.strip() and self._context.show_thinking():
+                    self._ui.append_transcript(
+                        Message(
+                            role="assistant",
+                            content=thought_text,
+                            metadata={"thinking": True},
+                        ),
+                        session_id,
+                    )
+                if is_active_session:
+                    self.sync_progress_indicator(next_state)
+                return
             report_url: str | None = None
             expanded_body: str | None = None
             expanded_body_format: str | None = None

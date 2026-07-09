@@ -18,10 +18,24 @@ from __future__ import annotations
 
 from datetime import UTC, datetime
 import math
+import re
 from typing import Any
 from uuid import uuid4
 
-from pydantic import BaseModel, Field, field_validator, model_validator
+from pydantic import (
+    BaseModel,
+    Field,
+    field_serializer,
+    field_validator,
+    model_serializer,
+    model_validator,
+)
+from pydantic_core.core_schema import SerializerFunctionWrapHandler
+
+_OUTPUT_ASSERTION_CONDITION_RE = re.compile(
+    r"^(?:exit\s*(?:code|status)?\s*0|returns?\s*0|success|succeeds|passed|passes|ok exit|no errors?)$",
+    re.IGNORECASE,
+)
 
 
 class ExitCondition(BaseModel, frozen=True):
@@ -166,6 +180,12 @@ class SeedMetadata(BaseModel, frozen=True):
         recovery_reason: Free-form description of why the degraded path was
             taken (e.g. ``"interview_phase_deadline"``). ``None`` for normal
             seeds.
+        decision_provenance: Histogram of how the ledger decisions behind this
+            Seed were reached, keyed by decision-origin class (``user_confirmed``
+            / ``model_inferred`` / ``timeout_default`` / ``lateral_consensus`` /
+            ``maintainer_policy``) → count (A1 / #1485). Empty for Seeds not
+            synthesized from an auto ledger. Additive and greppable so later
+            phases can audit how many gated decisions a seed rests on.
     """
 
     seed_id: str = Field(default_factory=lambda: f"seed_{uuid4().hex[:12]}")
@@ -178,6 +198,107 @@ class SeedMetadata(BaseModel, frozen=True):
     degraded: bool = Field(default=False)
     unresolved_slots: tuple[str, ...] = Field(default_factory=tuple)
     recovery_reason: str | None = Field(default=None)
+    decision_provenance: dict[str, int] = Field(default_factory=dict)
+
+    @model_serializer(mode="wrap")
+    def _serialize(self, handler: SerializerFunctionWrapHandler) -> dict[str, Any]:
+        """Serialize additively: omit ``decision_provenance`` when empty.
+
+        Keeps legacy Seed JSON byte-identical after a round-trip (the histogram
+        is only present for ledger-synthesized seeds) while still emitting it
+        whenever an auto ledger populated it.
+        """
+        data = handler(self)
+        if not self.decision_provenance:
+            data.pop("decision_provenance", None)
+        return data
+
+
+class AcceptanceCriterionSpec(BaseModel, frozen=True):
+    """Structured success contract for one acceptance criterion."""
+
+    description: str
+    verify_command: str | None = Field(default=None)
+    expected_artifacts: tuple[str, ...] = Field(default_factory=tuple)
+    output_assertion: str | None = Field(default=None)
+
+    @field_validator("description", mode="before")
+    @classmethod
+    def _strip_description(cls, value: Any) -> Any:
+        if isinstance(value, str):
+            return value.strip()
+        return value
+
+    @field_validator("verify_command", mode="before")
+    @classmethod
+    def _strip_optional_text(cls, value: Any) -> Any:
+        if isinstance(value, str):
+            stripped = value.strip()
+            if not stripped or stripped.upper() == "NONE":
+                return None
+            return stripped
+        return value
+
+    @field_validator("output_assertion", mode="before")
+    @classmethod
+    def _normalize_output_assertion(cls, value: Any) -> Any:
+        if isinstance(value, str):
+            stripped = value.strip()
+            if not stripped or stripped.upper() == "NONE":
+                return None
+            if _OUTPUT_ASSERTION_CONDITION_RE.fullmatch(stripped):
+                return None
+            return stripped
+        return value
+
+    @field_validator("expected_artifacts", mode="before")
+    @classmethod
+    def _coerce_expected_artifacts(cls, value: Any) -> Any:
+        if value is None:
+            return ()
+        if isinstance(value, str):
+            if not value.strip() or value.strip().upper() == "NONE":
+                return ()
+            return tuple(item.strip() for item in value.split(",") if item.strip())
+        if isinstance(value, list | tuple | set):
+            return tuple(str(item).strip() for item in value if str(item).strip())
+        return value
+
+    @property
+    def has_success_contract(self) -> bool:
+        """Return True when explicit evidence fields are populated."""
+        return bool(self.verify_command or self.expected_artifacts or self.output_assertion)
+
+    def to_seed_value(self) -> str | dict[str, Any]:
+        """Return the stable persisted representation for this AC."""
+        if not self.has_success_contract:
+            return self.description
+        data: dict[str, Any] = {"description": self.description}
+        if self.verify_command:
+            data["verify_command"] = self.verify_command
+        if self.expected_artifacts:
+            data["expected_artifacts"] = list(self.expected_artifacts)
+        if self.output_assertion:
+            data["output_assertion"] = self.output_assertion
+        return data
+
+    def __str__(self) -> str:
+        return self.description
+
+
+AcceptanceCriterionInput = str | AcceptanceCriterionSpec
+
+
+def ac_text(criterion: AcceptanceCriterionInput) -> str:
+    """Return the human-readable description for an acceptance criterion."""
+    if isinstance(criterion, AcceptanceCriterionSpec):
+        return criterion.description
+    return str(criterion)
+
+
+def ac_texts(criteria: Any) -> tuple[str, ...]:
+    """Return AC descriptions while tolerating legacy string iterables."""
+    return tuple(ac_text(criterion) for criterion in criteria)
 
 
 class Seed(BaseModel, frozen=True):
@@ -253,7 +374,7 @@ class Seed(BaseModel, frozen=True):
         default_factory=tuple,
         description="Hard constraints that must be satisfied",
     )
-    acceptance_criteria: tuple[str, ...] = Field(
+    acceptance_criteria: tuple[AcceptanceCriterionSpec, ...] = Field(
         default_factory=tuple,
         description="Specific criteria for success evaluation",
     )
@@ -317,6 +438,42 @@ class Seed(BaseModel, frozen=True):
                 for index, item in enumerate(value, start=1)
             )
         return value
+
+    @field_validator("acceptance_criteria", mode="before")
+    @classmethod
+    def _coerce_acceptance_criteria(cls, value: Any) -> Any:
+        """Accept legacy string ACs and structured AC contracts."""
+        if value is None:
+            return ()
+        if isinstance(value, list | tuple):
+            normalized: list[Any] = []
+            for item in value:
+                if isinstance(item, str):
+                    normalized.append({"description": item})
+                    continue
+                if isinstance(item, dict) and "description" not in item:
+                    if isinstance(item.get("criterion"), str):
+                        normalized.append({**item, "description": item["criterion"]})
+                        continue
+                    if isinstance(item.get("content"), str):
+                        normalized.append({**item, "description": item["content"]})
+                        continue
+                normalized.append(item)
+            return tuple(normalized)
+        return value
+
+    @field_serializer("acceptance_criteria")
+    def _serialize_acceptance_criteria(
+        self,
+        value: tuple[AcceptanceCriterionInput, ...],
+    ) -> tuple[str | dict[str, Any], ...]:
+        """Persist description-only ACs in the legacy bare-string form."""
+        return tuple(
+            criterion.to_seed_value()
+            if isinstance(criterion, AcceptanceCriterionSpec)
+            else ac_text(criterion)
+            for criterion in value
+        )
 
     @model_validator(mode="after")
     def _validate_plugin_extra_fields(self) -> Seed:
@@ -384,6 +541,12 @@ def _thaw_seed_extra_value(value: Any) -> Any:
 
 
 class _FrozenDict(dict[str, Any]):
+    def __copy__(self) -> _FrozenDict:
+        return self
+
+    def __deepcopy__(self, _memo: dict[int, Any]) -> _FrozenDict:
+        return self
+
     def _readonly(self, *_args: Any, **_kwargs: Any) -> None:
         raise TypeError("Seed extra fields are immutable")
 

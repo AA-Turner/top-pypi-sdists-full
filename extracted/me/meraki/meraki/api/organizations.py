@@ -7546,7 +7546,7 @@ class Organizations(object):
 
         return self._session.get_pages(metadata, resource, params, total_pages, direction)
 
-    def attachOrganizationSaseSites(self, organizationId: str, **kwargs):
+    def attachOrganizationSaseSites(self, organizationId: str, items: list, **kwargs):
         """
         **Attach sites in this organization to Secure Access**
         https://developer.cisco.com/meraki/api-v1/#!attach-organization-sase-sites
@@ -7555,7 +7555,7 @@ class Organizations(object):
         - items (array): List of Meraki SD-WAN sites with the associated regions to be attached.
         """
 
-        kwargs.update(locals())
+        kwargs = locals()
 
         metadata = {
             "tags": ["organizations", "configure", "sase", "sites"],

@@ -13,7 +13,7 @@ import jsii
 import publication
 import typing_extensions
 
-from jsii._type_checking import check_type
+from jsii._type_checking import cached_type_hints, check_type
 
 
 from .._jsii import *
@@ -77,7 +77,7 @@ class AutoDiscover(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__9e5b1d188bd3c7d9e842b0f2b6c892b26f1b87bb50d07ef0f29a588e19d51716)
+            type_hints = cached_type_hints(_typecheckingstub__9e5b1d188bd3c7d9e842b0f2b6c892b26f1b87bb50d07ef0f29a588e19d51716)
             check_type(argname="argument project", value=project, expected_type=type_hints["project"])
         options = AutoDiscoverOptions(
             integration_test_auto_discover=integration_test_auto_discover,
@@ -133,7 +133,7 @@ class Cdk8sDeps(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__06fc9417b7efd2a37fc45791a6b734cf7e4403bbc2f51f48fcabb9c51488b0d9)
+            type_hints = cached_type_hints(_typecheckingstub__06fc9417b7efd2a37fc45791a6b734cf7e4403bbc2f51f48fcabb9c51488b0d9)
             check_type(argname="argument project", value=project, expected_type=type_hints["project"])
         options = Cdk8sDepsOptions(
             cdk8s_cli_dependency=cdk8s_cli_dependency,
@@ -249,7 +249,7 @@ class Cdk8sDepsCommonOptions:
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c0f80121b4c6f6c25de5f81d5b6bac91aed52768fe554d2b14c76fc41f28e8af)
+            type_hints = cached_type_hints(_typecheckingstub__c0f80121b4c6f6c25de5f81d5b6bac91aed52768fe554d2b14c76fc41f28e8af)
             check_type(argname="argument cdk8s_version", value=cdk8s_version, expected_type=type_hints["cdk8s_version"])
             check_type(argname="argument cdk8s_cli_version", value=cdk8s_cli_version, expected_type=type_hints["cdk8s_cli_version"])
             check_type(argname="argument cdk8s_cli_version_pinning", value=cdk8s_cli_version_pinning, expected_type=type_hints["cdk8s_cli_version_pinning"])
@@ -469,7 +469,7 @@ class Cdk8sDepsOptions(Cdk8sDepsCommonOptions):
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__17b8cb0fa1fee1bad23e0abaee210ff2a929bab13b3554a37087f5e7c20f35df)
+            type_hints = cached_type_hints(_typecheckingstub__17b8cb0fa1fee1bad23e0abaee210ff2a929bab13b3554a37087f5e7c20f35df)
             check_type(argname="argument cdk8s_version", value=cdk8s_version, expected_type=type_hints["cdk8s_version"])
             check_type(argname="argument cdk8s_cli_version", value=cdk8s_cli_version, expected_type=type_hints["cdk8s_cli_version"])
             check_type(argname="argument cdk8s_cli_version_pinning", value=cdk8s_cli_version_pinning, expected_type=type_hints["cdk8s_cli_version_pinning"])
@@ -709,7 +709,7 @@ class Cdk8sDepsPy(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__fac421fbde0ecf7b37857e7c739f93bb74610f77520431dccc77401c6c71f543)
+            type_hints = cached_type_hints(_typecheckingstub__fac421fbde0ecf7b37857e7c739f93bb74610f77520431dccc77401c6c71f543)
             check_type(argname="argument project", value=project, expected_type=type_hints["project"])
         options = Cdk8sDepsOptions(
             cdk8s_cli_dependency=cdk8s_cli_dependency,
@@ -765,7 +765,7 @@ class Cdk8sPackageNames:
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__0284bab77848b6ca6c46dc742132dfd3213cc18cd9ddea3678c37e65d41b95b1)
+            type_hints = cached_type_hints(_typecheckingstub__0284bab77848b6ca6c46dc742132dfd3213cc18cd9ddea3678c37e65d41b95b1)
             check_type(argname="argument cdk8s", value=cdk8s, expected_type=type_hints["cdk8s"])
             check_type(argname="argument cdk8s_plus", value=cdk8s_plus, expected_type=type_hints["cdk8s_plus"])
             check_type(argname="argument constructs", value=constructs, expected_type=type_hints["constructs"])
@@ -1344,7 +1344,7 @@ class Cdk8sPythonOptions(_python_971b7d9f.PythonProjectOptions, Cdk8sDepsCommonO
         if isinstance(venv_options, dict):
             venv_options = _python_971b7d9f.VenvOptions(**venv_options)
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__331399ffb98e7173ebfaf58cb4fb356507f6d5279e417cfcd418054d7957ec6f)
+            type_hints = cached_type_hints(_typecheckingstub__331399ffb98e7173ebfaf58cb4fb356507f6d5279e417cfcd418054d7957ec6f)
             check_type(argname="argument name", value=name, expected_type=type_hints["name"])
             check_type(argname="argument commit_generated", value=commit_generated, expected_type=type_hints["commit_generated"])
             check_type(argname="argument git_ignore_options", value=git_ignore_options, expected_type=type_hints["git_ignore_options"])
@@ -3511,7 +3511,7 @@ class Cdk8sTypeScriptAppOptions(
         if isinstance(ts_jest_options, dict):
             ts_jest_options = _typescript_7a66cf84.TsJestOptions(**ts_jest_options)
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__38d5838b3dba3e0494a1842bc0bf0513fd0a9baecf03b52c6bb2ef53e706dd74)
+            type_hints = cached_type_hints(_typecheckingstub__38d5838b3dba3e0494a1842bc0bf0513fd0a9baecf03b52c6bb2ef53e706dd74)
             check_type(argname="argument name", value=name, expected_type=type_hints["name"])
             check_type(argname="argument commit_generated", value=commit_generated, expected_type=type_hints["commit_generated"])
             check_type(argname="argument git_ignore_options", value=git_ignore_options, expected_type=type_hints["git_ignore_options"])
@@ -7208,7 +7208,7 @@ class ConstructLibraryCdk8sOptions(_cdk_bb21cefa.ConstructLibraryOptions):
         if isinstance(catalog, dict):
             catalog = _cdk_bb21cefa.Catalog(**catalog)
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__af97c045aa0635813d6575f726d794c22aabe3eb1e51bf1ae61d8f28beb3a80d)
+            type_hints = cached_type_hints(_typecheckingstub__af97c045aa0635813d6575f726d794c22aabe3eb1e51bf1ae61d8f28beb3a80d)
             check_type(argname="argument name", value=name, expected_type=type_hints["name"])
             check_type(argname="argument commit_generated", value=commit_generated, expected_type=type_hints["commit_generated"])
             check_type(argname="argument git_ignore_options", value=git_ignore_options, expected_type=type_hints["git_ignore_options"])
@@ -9913,7 +9913,7 @@ class IntegrationTest(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__bca9aa1740e1ec926a295073608c9b507263cd86c96f799d67364c413634f35e)
+            type_hints = cached_type_hints(_typecheckingstub__bca9aa1740e1ec926a295073608c9b507263cd86c96f799d67364c413634f35e)
             check_type(argname="argument project", value=project, expected_type=type_hints["project"])
         options = IntegrationTestOptions(
             entrypoint=entrypoint, tsconfig_path=tsconfig_path, name=name
@@ -9947,7 +9947,7 @@ class IntegrationTestAutoDiscover(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__8af4ebce63af9d5b89471f1a70f62d3861e8cad453c6a607acc37b62a440ed38)
+            type_hints = cached_type_hints(_typecheckingstub__8af4ebce63af9d5b89471f1a70f62d3861e8cad453c6a607acc37b62a440ed38)
             check_type(argname="argument project", value=project, expected_type=type_hints["project"])
         options = IntegrationTestAutoDiscoverOptions(
             tsconfig_path=tsconfig_path, testdir=testdir
@@ -9972,7 +9972,7 @@ class IntegrationTestAutoDiscoverOptions(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__12bb782d0f590312a872f2dffa9a8a2bec702c6021fe905b73e704a35f82c17b)
+            type_hints = cached_type_hints(_typecheckingstub__12bb782d0f590312a872f2dffa9a8a2bec702c6021fe905b73e704a35f82c17b)
             check_type(argname="argument testdir", value=testdir, expected_type=type_hints["testdir"])
             check_type(argname="argument tsconfig_path", value=tsconfig_path, expected_type=type_hints["tsconfig_path"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -10038,7 +10038,7 @@ class IntegrationTestOptions(_cdk_bb21cefa.IntegrationTestBaseOptions):
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__d68ac3f98dd71c1106b4afaa7f311b762f15657a5b620501561f29c6b6040751)
+            type_hints = cached_type_hints(_typecheckingstub__d68ac3f98dd71c1106b4afaa7f311b762f15657a5b620501561f29c6b6040751)
             check_type(argname="argument entrypoint", value=entrypoint, expected_type=type_hints["entrypoint"])
             check_type(argname="argument tsconfig_path", value=tsconfig_path, expected_type=type_hints["tsconfig_path"])
             check_type(argname="argument name", value=name, expected_type=type_hints["name"])
@@ -10124,7 +10124,7 @@ class AutoDiscoverOptions(IntegrationTestAutoDiscoverOptions):
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__3729addc95a5404f1bfd5f7e8db5884d60df80bd04e2834280ef20921420bef3)
+            type_hints = cached_type_hints(_typecheckingstub__3729addc95a5404f1bfd5f7e8db5884d60df80bd04e2834280ef20921420bef3)
             check_type(argname="argument testdir", value=testdir, expected_type=type_hints["testdir"])
             check_type(argname="argument tsconfig_path", value=tsconfig_path, expected_type=type_hints["tsconfig_path"])
             check_type(argname="argument integration_test_auto_discover", value=integration_test_auto_discover, expected_type=type_hints["integration_test_auto_discover"])

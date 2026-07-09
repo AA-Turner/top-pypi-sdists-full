@@ -275,6 +275,40 @@ def install_signal_handler(shutdown: asyncio.Event) -> None:
             pass
 
 
+def _is_supervised() -> bool:
+    """Best-effort: is this process managed by a supervisor that respawns it?
+
+    systemd sets INVOCATION_ID; our launchd/systemd unit templates set
+    _ECHO_AGENT_SUPERVISED=1. If neither is present we assume a foreground run,
+    where a self-exit would leave the service dead — so the watchdog degrades to
+    warn-only rather than exiting.
+    """
+    import os
+    return bool(os.environ.get("INVOCATION_ID") or os.environ.get("_ECHO_AGENT_SUPERVISED"))
+
+
+def build_loop_watchdog(ctx: "BootstrapResult") -> "Any | None":
+    """Construct a LoopWatchdog from config, or None when disabled."""
+    obs = ctx.config.observability
+    if not getattr(obs, "loop_watchdog_enabled", True):
+        return None
+    from echo_agent.observability.loop_watchdog import LoopWatchdog
+    from echo_agent.observability.restart_guard import RestartGuard
+
+    guard = RestartGuard(
+        ctx.workspace / "data" / "watchdog_restarts.json",
+        max_restarts=obs.loop_watchdog_max_restarts_per_hour,
+    )
+    return LoopWatchdog(
+        warn_seconds=obs.loop_watchdog_warn_seconds,
+        kill_seconds=obs.loop_watchdog_kill_seconds,
+        check_interval_seconds=obs.loop_watchdog_check_interval_seconds,
+        restart_guard=guard,
+        supervised=_is_supervised(),
+        dump_path=ctx.workspace / ctx.config.storage.logs_dir / "loop_freeze.log",
+    )
+
+
 class AppRuntime:
     """Owns the ordered start/stop lifecycle of all optional components.
 
@@ -370,13 +404,18 @@ async def run(config_path: str | None = None, workspace: str | None = None) -> N
 
     install_signal_handler(shutdown)
     runtime = AppRuntime(ctx, shutdown_event=shutdown)
+    watchdog = build_loop_watchdog(ctx)
     try:
         if not await runtime.start():
             return
+        if watchdog is not None:
+            watchdog.start()
         logger.info("Echo Agent ready — channels: {}", ctx.channels.active_channels)
         await shutdown.wait()
         logger.info("Shutting down...")
     finally:
+        if watchdog is not None:
+            await watchdog.stop()
         await runtime.stop()
     logger.info("Echo Agent stopped")
 
@@ -406,14 +445,46 @@ def _gateway_profile_override(config_path: str | None) -> dict[str, Any]:
     filtering see ``public_gateway`` — otherwise high-risk tools (exec,
     write_file, patch, workflow, ...) would already be registered and would
     remain callable, since native tools have no per-call profile gate."""
-    from echo_agent.config.loader import profile_explicitly_set
+    from echo_agent.config.loader import (
+        _load_yaml_file,
+        profile_explicitly_set,
+        resolve_config_file,
+    )
 
     if profile_explicitly_set(config_path):
         return {}
-    logger.warning(
-        "Gateway 入口未显式配置 security.profile，已默认切到 public_gateway 收紧档；"
-        "如需放开请在配置中显式设置 security.profile"
-    )
+
+    # If the user asked for a broad tool profile (full/coding) but left
+    # security.profile implicit, the public_gateway downgrade will silently strip
+    # exec/write_file/execute_code/patch — the tools that profile was meant to
+    # grant. Surface that conflict loudly rather than as a soft "已收紧" note, and
+    # point at the exact fix. (This is the failure that made a document-generation
+    # task come back empty with no clue why.)
+    tools_profile = ""
+    try:
+        path = resolve_config_file(config_path)
+        user_yaml = _load_yaml_file(path if path and path.exists() else None)
+        tools_section = user_yaml.get("tools")
+        if isinstance(tools_section, dict):
+            tools_profile = str(tools_section.get("profile") or "")
+    except Exception as e:  # best-effort: never let the warning path break boot
+        logger.debug("Could not read tools.profile for gateway conflict check: {}", e)
+
+    if tools_profile in ("full", "coding"):
+        logger.warning(
+            "配置冲突：tools.profile={} 想启用全部/编码类工具，但 Gateway 入口未显式配置 "
+            "security.profile，已默认切到 public_gateway 收紧档，会关闭 "
+            "exec/execute_code/write_file/edit_file/patch/process 等高危工具——"
+            "full/coding 的相应能力将失效。如需恢复：在配置中显式设置 "
+            "security.profile: personal_cli（私人自用，全工具生效），或保留 "
+            "public_gateway 并在 tools.also_allow 里按名单单独放行所需工具。",
+            tools_profile,
+        )
+    else:
+        logger.warning(
+            "Gateway 入口未显式配置 security.profile，已默认切到 public_gateway 收紧档；"
+            "如需放开请在配置中显式设置 security.profile"
+        )
     return {"security": {"profile": "public_gateway"}}
 
 
@@ -497,11 +568,16 @@ async def run_gateway(
 
     install_signal_handler(shutdown)
     runtime = AppRuntime(ctx, shutdown_event=shutdown)
+    watchdog = build_loop_watchdog(ctx)
 
     try:
         if not await runtime.start():
             return
+        if watchdog is not None:
+            watchdog.start()
         logger.info("Gateway listening on {}:{}", ctx.config.gateway.host, ctx.config.gateway.port)
         await shutdown.wait()
     finally:
+        if watchdog is not None:
+            await watchdog.stop()
         await runtime.stop()

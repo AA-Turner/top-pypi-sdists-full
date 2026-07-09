@@ -56,11 +56,12 @@ from dazzle.page.runtime.form_engagement_resolver import annotate_form_fields_by
 from dazzle.rbac.matrix import generate_access_matrix
 from dazzle.render.access_evaluator import evaluate_permission
 from dazzle.render.access_messages import _forbidden_detail
-from dazzle.render.context import CustomRenderCtx
+from dazzle.render.context import CustomRenderCtx, TransitionContext
 from dazzle.render.dispatch import dispatch_render
 from dazzle.render.display_names import _inject_display_names
 from dazzle.render.fragment.errors import FragmentError
 from dazzle.render.fragment.form_field import field_context_to_dict
+from dazzle.render.fragment.state_affordance import gated_row_transitions
 
 logger = logging.getLogger(__name__)
 
@@ -1298,6 +1299,15 @@ async def _list_entity_in_process(
     return encoded if isinstance(encoded, dict) else _empty
 
 
+def gate_detail_transitions(
+    transitions: list[TransitionContext], record: dict[str, Any], status_field: str
+) -> list[TransitionContext]:
+    """#1558 3c: keep only transition affordances valid from the record's current
+    state (``status_field`` value). Empty/absent state → no affordances."""
+    current = str(record.get(status_field, "") or "")
+    return gated_row_transitions(transitions, current)
+
+
 async def _handle_detail(prc: _PageRequestContext) -> None:
     """Fetch and prepare detail page data for the per-request context."""
     req_detail = prc.ctx.detail.model_copy(deep=True)
@@ -1327,6 +1337,13 @@ async def _handle_detail(prc: _PageRequestContext) -> None:
         for _field in req_detail.fields:
             if _field.when_expr:
                 _field.visible = evaluate_when_expr(_field.when_expr, req_detail.item)
+
+    # #1558 3c: gate transition affordances to those valid from the record's
+    # current state — a resolved record must not offer an in_progress button.
+    if req_detail.item and "error" not in req_detail.item:
+        req_detail.transitions = gate_detail_transitions(
+            req_detail.transitions, req_detail.item, req_detail.status_field
+        )
 
     # Evaluate role-based visible conditions (#487)
     if prc.ctx.user_roles is not None:
@@ -3176,20 +3193,22 @@ def create_page_routes(
                 resolve_persona_workspace_route,
             )
 
-            # Build persona -> workspace route mapping for EVERY persona
-            # using the workspace-only resolver. It always returns a
-            # /app/workspaces/<name> route when the app has at least one
-            # workspace, so every declared persona gets a deterministic
-            # target. We deliberately use the workspace-only variant
-            # rather than compute_persona_default_routes: the latter
-            # honours persona.default_route (e.g. "/admin") which may be
-            # DSL-declared but not actually registered as a FastAPI
-            # route — hitting /app as admin would then redirect to a
-            # 404. The workspace-only resolver stays inside the
-            # guaranteed-registered /app/workspaces/<name> namespace.
+            # Build persona -> route mapping for EVERY persona using the
+            # variant that skips persona.default_route. It returns a
+            # registered /app/... route (a /app/workspaces/<name> workspace
+            # route, or via #1558 a list-mode surface's route keyed by the
+            # surface's entity through the app_paths SSOT — still registered,
+            # never a dead link), so every declared persona gets a
+            # deterministic target. We deliberately avoid
+            # compute_persona_default_routes here: the latter honours
+            # persona.default_route (e.g. "/admin") which may be DSL-declared
+            # but not actually registered as a FastAPI route — hitting /app
+            # as admin would then redirect to a 404.
             _persona_ws_routes: dict[str, str] = {}
             for _persona in appspec.personas:
-                _route = resolve_persona_workspace_route(_persona, list(workspaces))
+                _route = resolve_persona_workspace_route(
+                    _persona, list(workspaces), appspec.rhythms, appspec.surfaces
+                )
                 if _route:
                     _persona_ws_routes[_persona.id] = _route
 

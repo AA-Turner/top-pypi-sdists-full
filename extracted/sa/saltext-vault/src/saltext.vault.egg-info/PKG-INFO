@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: saltext.vault
-Version: 1.6.0
+Version: 1.7.0
 Summary: Salt Extension for interacting with Vault (or OpenBao)
 Author-email: Salt Core Team <saltproject@vmware.com>
 License: Apache Software License
@@ -15,6 +15,10 @@ Classifier: Programming Language :: Cython
 Classifier: Programming Language :: Python :: 3
 Classifier: Programming Language :: Python :: 3 :: Only
 Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Development Status :: 4 - Beta
 Classifier: Intended Audience :: Developers
 Classifier: License :: OSI Approved :: Apache Software License
@@ -23,16 +27,16 @@ Description-Content-Type: text/markdown
 License-File: LICENSE
 License-File: NOTICE
 Requires-Dist: salt>=3006
-Requires-Dist: cryptography>=36
+Requires-Dist: cryptography>=42
 Provides-Extra: changelog
 Requires-Dist: towncrier==25.8.0; extra == "changelog"
 Provides-Extra: dev
 Requires-Dist: nox[uv]!=2025.05.01,>=2024.3; extra == "dev"
 Requires-Dist: pre-commit>=2.21.0; extra == "dev"
 Provides-Extra: dev-extra
-Requires-Dist: black==26.3.1; extra == "dev-extra"
+Requires-Dist: black==26.5.1; extra == "dev-extra"
 Requires-Dist: isort==8.0.1; extra == "dev-extra"
-Requires-Dist: coverage==7.13.4; extra == "dev-extra"
+Requires-Dist: coverage==7.14.3; extra == "dev-extra"
 Provides-Extra: docs
 Requires-Dist: sphinx; extra == "docs"
 Requires-Dist: sphinx-prompt; extra == "docs"

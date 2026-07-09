@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using System.Diagnostics.CodeAnalysis;
 using System.Formats.Tar;
 using System.IO.Compression;
 using System.Net.Http;
@@ -131,7 +132,7 @@ public static class Download
             var freeMajor = Config.GetChromiumVersion().Split('.')[0];
             sb.Append($"  Running free tier (v{freeMajor}). " +
                       $"Pro = latest binary (v{ProMajor}) + newest anti-bot patches.\n");
-            sb.Append("  Stay ahead of detection -> https://cloakbrowser.dev\n");
+            sb.Append("  Try Pro free for 7 days -> https://cloakbrowser.dev\n");
         }
         sb.Append("  Star us if CloakBrowser helps your project!\n");
         sb.Append('\n');
@@ -249,7 +250,8 @@ public static class Download
         }
 
         // Check for auto-updated version first, then fall back to hardcoded.
-        var effective = Config.GetEffectiveVersion();
+        // Free tier never returns null (bundled base is the floor).
+        var effective = Config.GetEffectiveVersion()!;
         var binaryPath = Config.GetBinaryPath(effective);
 
         if (File.Exists(binaryPath) && IsExecutable(binaryPath))
@@ -367,40 +369,91 @@ public static class Download
             return pinnedPath;
         }
 
+        // Unpinned: track the server's latest stable.
         var effective = Config.GetEffectiveVersion(pro: true);
-        var binaryPath = Config.GetBinaryPath(effective, pro: true);
 
-        if (File.Exists(binaryPath) && IsExecutable(binaryPath))
+        // Honor CLOAKBROWSER_AUTO_UPDATE=false the way the free path does: frozen AND a
+        // cached Pro build present → keep it, skip the server check. With no cached build
+        // we must still fetch one — a valid Pro license never launches the free binary.
+        // (The `update` CLI ignores this and always acts.)
+        var frozen = string.Equals(
+            Environment.GetEnvironmentVariable("CLOAKBROWSER_AUTO_UPDATE"), "false",
+            StringComparison.OrdinalIgnoreCase);
+        if (frozen && ProBinaryReady(effective))
         {
-            CloakLog.Debug("Pro binary found in cache: {0} (version {1})", binaryPath, effective);
             ShowWelcome(pro: true);
-            MaybeTriggerProUpdateCheck(licenseKey);
-            return binaryPath;
+            return Config.GetBinaryPath(effective, pro: true);
         }
 
-        var version = License.GetProLatestVersion();
-        if (string.IsNullOrEmpty(version))
+        // GetProLatestVersion() is rate-limited to one network call per hour and returns a
+        // cached string in between, so this foreground check stays cheap steady-state.
+        var latest = License.GetProLatestVersion();
+
+        // Prefer the server's latest when it is newer than — or replaces a missing — the
+        // cached build. Otherwise stay on the cached Pro binary (fast, offline-ok).
+        string? version;
+        if (!string.IsNullOrEmpty(latest) &&
+            (!ProBinaryReady(effective) || Config.VersionNewer(latest, effective!))) // !ProBinaryReady covers effective == null
+        {
+            version = latest;
+        }
+        else
+        {
+            version = effective;
+        }
+
+        if (version == null)
+        {
+            // Valid Pro license but nothing resolvable (server unreachable AND no cached
+            // Pro build). Never downgrade to the free binary — fail loudly.
             throw new InvalidOperationException("Could not determine latest Pro version from server");
-
-        binaryPath = Config.GetBinaryPath(version, pro: true);
-        if (File.Exists(binaryPath) && IsExecutable(binaryPath))
-        {
-            CloakLog.Debug("Pro binary found in cache: {0} (version {1})", binaryPath, version);
-            ShowWelcome(pro: true);
-            return binaryPath;
         }
 
-        CloakLog.Info("Downloading Pro Chromium {0} for {1}...", version, Config.GetPlatformTag());
-        await DownloadProBinaryAsync(version, licenseKey, ct).ConfigureAwait(false);
+        var readyPath = Config.GetBinaryPath(version, pro: true);
+        if (File.Exists(readyPath) && IsExecutable(readyPath))
+        {
+            // Advance the marker if this cached build is newer than what the marker names,
+            // so `info` (and a later server-outage launch) reflect the build we actually
+            // launch — never a stale marker.
+            if (version != effective)
+                WriteProVersionMarker(version);
+            CloakLog.Debug("Pro binary found in cache: {0} (version {1})", readyPath, version);
+            ShowWelcome(pro: true);
+            return readyPath;
+        }
 
-        binaryPath = Config.GetBinaryPath(version, pro: true);
-        if (!File.Exists(binaryPath))
+        // `version` (the server latest) needs downloading. On failure, fall back to a
+        // cached Pro build if we have one — never the free binary.
+        try
+        {
+            CloakLog.Info("Downloading Pro Chromium {0} for {1}...", version, Config.GetPlatformTag());
+            await DownloadProBinaryAsync(version, licenseKey, ct).ConfigureAwait(false);
+        }
+        catch (BinaryVerificationError)
+        {
+            // A tampering signal must surface verbatim — never mask it behind the
+            // cached-Pro fallback, which is only for transient download failures.
+            throw;
+        }
+        catch (Exception)
+        {
+            if (ProBinaryReady(effective))
+            {
+                CloakLog.Warning("Pro update to {0} failed; launching cached Pro binary {1}", version, effective);
+                ShowWelcome(pro: true);
+                return Config.GetBinaryPath(effective, pro: true);
+            }
+            throw;
+        }
+
+        var downloadedPath = Config.GetBinaryPath(version, pro: true);
+        if (!File.Exists(downloadedPath))
             throw new InvalidOperationException(
-                $"Pro download completed but binary not found at: {binaryPath}");
+                $"Pro download completed but binary not found at: {downloadedPath}");
 
         WriteProVersionMarker(version);
         ShowWelcome(pro: true);
-        return binaryPath;
+        return downloadedPath;
     }
 
     /// <summary>
@@ -973,13 +1026,15 @@ public static class Download
         }
     }
 
-    private static bool IsExecutable(string path)
+    /// <summary>True when a cached, executable Pro binary exists for <paramref name="version"/>.</summary>
+    private static bool ProBinaryReady([NotNullWhen(true)] string? version)
     {
-        if (!File.Exists(path)) return false;
-        if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows)) return true;
-        var mode = File.GetUnixFileMode(path);
-        return (mode & (UnixFileMode.UserExecute | UnixFileMode.GroupExecute | UnixFileMode.OtherExecute)) != 0;
+        if (string.IsNullOrEmpty(version)) return false;
+        var p = Config.GetBinaryPath(version, pro: true);
+        return File.Exists(p) && IsExecutable(p);
     }
+
+    private static bool IsExecutable(string path) => Config.IsExecutableFile(path);
 
     private static void MakeExecutable(string path)
     {
@@ -1033,21 +1088,22 @@ public static class Download
         // browserVersion (or CLOAKBROWSER_VERSION) pins the reported version so the
         // info matches what a pinned launch actually runs, instead of latest.
         var requested = Config.NormalizeRequestedVersion(browserVersion);
-        // Prefer Pro only if a Pro binary actually exists on disk.
+        // Prefer Pro only if a Pro binary actually exists on disk. GetEffectiveVersion
+        // returns null for Pro when nothing is cached (it never falls back to free).
         var proVersion = requested ?? Config.GetEffectiveVersion(pro: true);
-        var proPath = Config.GetBinaryPath(proVersion, pro: true);
-        var pro = File.Exists(proPath) && IsExecutable(proPath);
+        var pro = ProBinaryReady(proVersion);
 
         string effective;
         string binaryPath;
         if (pro)
         {
-            effective = proVersion;
-            binaryPath = proPath;
+            // pro == true implies proVersion is non-null (ProBinaryReady).
+            effective = proVersion!;
+            binaryPath = Config.GetBinaryPath(proVersion!, pro: true);
         }
         else
         {
-            effective = requested ?? Config.GetEffectiveVersion();
+            effective = requested ?? Config.GetEffectiveVersion()!;
             binaryPath = Config.GetBinaryPath(effective);
         }
 
@@ -1091,6 +1147,41 @@ public static class Download
 
     /// <summary>Synchronous convenience wrapper around <see cref="CheckForUpdateAsync"/>.</summary>
     public static string? CheckForUpdate() => CheckForUpdateAsync().GetAwaiter().GetResult();
+
+    /// <summary>
+    /// Move a Pro install to the server's latest stable. Blocks until complete. Returns the
+    /// new version when a newer Pro build is downloaded or an already-cached newer build is
+    /// activated, else null (already up to date or the server could not be reached).
+    /// Requires a valid Pro license key.
+    /// </summary>
+    public static async Task<string?> CheckForProUpdateAsync(string licenseKey, CancellationToken ct = default)
+    {
+        var latest = License.GetProLatestVersion();
+        if (string.IsNullOrEmpty(latest)) return null;
+
+        var effective = Config.GetEffectiveVersion(pro: true);
+        if (effective != null && !Config.VersionNewer(latest, effective) && ProBinaryReady(effective))
+        {
+            // Already on the latest cached Pro build.
+            return null;
+        }
+
+        if (!ProBinaryReady(latest))
+        {
+            CloakLog.Info("Downloading Pro Chromium {0}...", latest);
+            await DownloadProBinaryAsync(latest, licenseKey, ct).ConfigureAwait(false);
+            var p = Config.GetBinaryPath(latest, pro: true);
+            if (!File.Exists(p))
+                throw new InvalidOperationException($"Pro download completed but binary not found at: {p}");
+        }
+
+        WriteProVersionMarker(latest);
+        return latest;
+    }
+
+    /// <summary>Synchronous convenience wrapper around <see cref="CheckForProUpdateAsync"/>.</summary>
+    public static string? CheckForProUpdate(string licenseKey) =>
+        CheckForProUpdateAsync(licenseKey).GetAwaiter().GetResult();
 
     private static bool ShouldCheckForUpdate()
     {
@@ -1267,46 +1358,5 @@ public static class Download
         // Binary update: rate-limited to once per hour.
         if (!ShouldCheckForUpdate()) return;
         _ = Task.Run(CheckAndDownloadUpdateAsync);
-    }
-
-    /// <summary>Fire-and-forget Pro binary update check in a background task (rate-limited to once/hour).</summary>
-    private static void MaybeTriggerProUpdateCheck(string licenseKey)
-    {
-        var checkFile = Path.Combine(Config.GetCacheDir(), ".last_pro_update_check");
-        if (File.Exists(checkFile))
-        {
-            try
-            {
-                var lastCheck = double.Parse(File.ReadAllText(checkFile).Trim(),
-                    System.Globalization.CultureInfo.InvariantCulture);
-                var now = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds() / 1000.0;
-                if (now - lastCheck < UpdateCheckInterval)
-                    return;
-            }
-            catch (Exception ex) when (ex is FormatException or IOException) { }
-        }
-
-        _ = Task.Run(async () =>
-        {
-            try
-            {
-                Directory.CreateDirectory(Path.GetDirectoryName(checkFile)!);
-                var now = DateTimeOffset.UtcNow.ToUnixTimeMilliseconds() / 1000.0;
-                File.WriteAllText(checkFile, now.ToString(System.Globalization.CultureInfo.InvariantCulture));
-
-                var latest = License.GetProLatestVersion();
-                if (string.IsNullOrEmpty(latest)) return;
-                if (File.Exists(Config.GetBinaryPath(latest, pro: true))) return;
-
-                CloakLog.Info("Newer Pro binary available: {0}. Downloading in background...", latest);
-                await DownloadProBinaryAsync(latest, licenseKey, CancellationToken.None).ConfigureAwait(false);
-                WriteProVersionMarker(latest);
-                CloakLog.Info("Pro background update complete: {0} ready. Will use on next launch.", latest);
-            }
-            catch (Exception)
-            {
-                CloakLog.Debug("Pro background update failed");
-            }
-        });
     }
 }

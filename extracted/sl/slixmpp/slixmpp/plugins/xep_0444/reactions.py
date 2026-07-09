@@ -39,11 +39,11 @@ class XEP_0444(BasePlugin):
         register_stanza_plugin(stanza.Reactions, stanza.Reaction, iterable=True)
 
     def session_bind(self, event):
-        self.xmpp['xep_0030'].add_feature(stanza.NS)
+        self.xmpp.plugin['xep_0030'].add_feature(stanza.NS)
 
     def plugin_end(self):
         self.xmpp.remove_handler('Reaction received')
-        self.xmpp['xep_0030'].del_feature(feature=stanza.NS)
+        self.xmpp.plugin['xep_0030'].del_feature(feature=stanza.NS)
 
     def _handle_reactions(self, message: Message):
         self.xmpp.event('reactions', message)

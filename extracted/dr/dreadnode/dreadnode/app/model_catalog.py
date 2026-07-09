@@ -11,7 +11,28 @@ from __future__ import annotations
 # Provider inference
 # ---------------------------------------------------------------------------
 
-_KNOWN_PROVIDERS = {"anthropic", "openai", "google", "groq", "openrouter"}
+# Reasoning-capable provider families beyond the original three. Following the
+# consensus across other harnesses (goose, pi, opencode, hermes, aider — ENG-7388
+# research): a model gets a reasoning/effort toggle if it's reasoning-CAPABLE,
+# regardless of whether it surfaces readable chain-of-thought. Whether text
+# actually shows is emergent — the SDK captures reasoning_content/thinking_blocks
+# when present (litellm_.py) and nothing renders when the provider hides its CoT
+# (openai, xai/grok, deepseek). This mirrors gpt-5.x, which already gets a toggle
+# despite hiding its CoT. Genuinely non-reasoning families (llama, mistral) stay
+# unmapped so no misleading toggle appears.
+_KNOWN_PROVIDERS = {
+    "anthropic",
+    "openai",
+    "google",
+    "groq",
+    "openrouter",
+    "zhipuai",  # glm — surfaces readable reasoning_content
+    "moonshot",  # kimi — surfaces readable reasoning_content
+    "qwen",  # surfaces readable reasoning_content
+    "nvidia",  # nemotron — surfaces readable reasoning_content
+    "deepseek",  # reasoning-capable; CoT hidden through the proxy
+    "xai",  # grok — reasoning-capable; CoT hidden through the proxy
+}
 
 _BARE_MODEL_PROVIDERS: list[tuple[str, str]] = [
     ("claude-", "anthropic"),
@@ -20,6 +41,12 @@ _BARE_MODEL_PROVIDERS: list[tuple[str, str]] = [
     ("o1-", "openai"),
     ("o3-", "openai"),
     ("o4-", "openai"),
+    ("glm-", "zhipuai"),
+    ("kimi-", "moonshot"),
+    ("qwen", "qwen"),
+    ("nemotron-", "nvidia"),
+    ("deepseek-", "deepseek"),
+    ("grok-", "xai"),
 ]
 
 _DN_PREFIX_PROVIDERS: list[tuple[str, str]] = [
@@ -30,6 +57,12 @@ _DN_PREFIX_PROVIDERS: list[tuple[str, str]] = [
     ("dn/o3-", "openai"),
     ("dn/o4-", "openai"),
     ("dn/openrouter/", "openrouter"),
+    ("dn/glm-", "zhipuai"),
+    ("dn/kimi-", "moonshot"),
+    ("dn/qwen", "qwen"),
+    ("dn/nemotron-", "nvidia"),
+    ("dn/deepseek-", "deepseek"),
+    ("dn/grok-", "xai"),
 ]
 
 

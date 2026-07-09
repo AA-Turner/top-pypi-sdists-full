@@ -2,6 +2,7 @@ import logging
 import os
 import typing
 
+from codecov_cli import __version__ as codecov_cli_version
 from codecov_cli.helpers.config import CODECOV_INGEST_URL
 from codecov_cli.helpers.encoder import encode_slug
 from codecov_cli.helpers.request import (
@@ -9,9 +10,9 @@ from codecov_cli.helpers.request import (
     log_warnings_and_errors_if_any,
     send_post_request,
 )
+from codecov_cli.helpers.upload_url_validation import validate_upload_service
 
 logger = logging.getLogger("codecovcli")
-
 
 def create_commit_logic(
     commit_sha: str,
@@ -75,10 +76,13 @@ def send_commit_data(
         "commitid": commit_sha,
         "parent_commit_id": parent_sha,
         "pullid": pr,
+        "version": codecov_cli_version,
     }
 
     upload_url = enterprise_url or CODECOV_INGEST_URL
-    url = f"{upload_url}/upload/{service}/{slug}/commits"
+    service_part = (service or "").strip()
+    validate_upload_service(service_part)
+    url = f"{upload_url}/upload/{service_part}/{slug}/commits"
     return send_post_request(
         url=url,
         data=data,

@@ -2,14 +2,14 @@
 # -*- coding: utf-8 -*-
 
 # Copyright (c) 2021, Cisco Systems
-# GNU General Public License v3.0+ (see LICENSE or
-# https://www.gnu.org/licenses/gpl-3.0.txt)
+# GNU General Public License v3.0+ (see LICENSE or https://www.gnu.org/licenses/gpl-3.0.txt)
 
 DOCUMENTATION = r"""
 module: organizations_wireless_clients_overview_by_device_info
 short_description: Information module for organizations _wireless _clients _overview
   _by _device
 description:
+  - Information module for Organizations Wireless Clients Overview By Device Info.
   - Get all organizations _wireless _clients _overview _by _device.
   - List access point client count at the moment in an organization.
 version_added: '1.0.0'
@@ -23,10 +23,12 @@ options:
     type: dict
   organizationId:
     description:
+      - Information module for Organizations Wireless Clients Overview By Device Info.
       - OrganizationId path parameter. Organization ID.
     type: str
   networkIds:
     description:
+      - Information module for Organizations Wireless Clients Overview By Device Info.
       - >
         NetworkIds query parameter. Optional parameter to filter access points client
         counts by network ID. This filter uses multiple exact matches.
@@ -34,6 +36,7 @@ options:
     type: list
   serials:
     description:
+      - Information module for Organizations Wireless Clients Overview By Device Info.
       - >
         Serials query parameter. Optional parameter to filter access points client
         counts by its serial numbers. This filter uses multiple exact matches.
@@ -41,6 +44,7 @@ options:
     type: list
   campusGatewayClusterIds:
     description:
+      - Information module for Organizations Wireless Clients Overview By Device Info.
       - >
         CampusGatewayClusterIds query parameter. Optional parameter to filter access
         points client counts by MCG cluster IDs. This filter uses multiple exact matches.
@@ -48,11 +52,13 @@ options:
     type: list
   perPage:
     description:
+      - Information module for Organizations Wireless Clients Overview By Device Info.
       - PerPage query parameter. The number of entries per page returned. Acceptable
         range is 3 - 1000. Default is 1000.
     type: int
   startingAfter:
     description:
+      - Information module for Organizations Wireless Clients Overview By Device Info.
       - >
         StartingAfter query parameter. A token used by the server to indicate the
         start of the page. Often this is a timestamp or an ID but it is not limited
@@ -62,6 +68,7 @@ options:
     type: str
   endingBefore:
     description:
+      - Information module for Organizations Wireless Clients Overview By Device Info.
       - >
         EndingBefore query parameter. A token used by the server to indicate the end
         of the page. Often this is a timestamp or an ID but it is not limited to those.

@@ -101,6 +101,12 @@ from dreadnode.airt.salami_slicing import salami_slicing_attack
 from dreadnode.airt.self_persuasion import self_persuasion_attack
 from dreadnode.airt.siren import siren_attack
 from dreadnode.airt.tap import tap_attack
+from dreadnode.airt.targets import (
+    TargetAuth,
+    TargetSpec,
+    build_target,
+    nova_sonic_target,
+)
 from dreadnode.airt.templatefuzz import templatefuzz_attack
 from dreadnode.airt.tmap_trajectory import tmap_trajectory_attack
 from dreadnode.airt.trojail import trojail_attack
@@ -108,6 +114,8 @@ from dreadnode.airt.watermark_removal import watermark_removal_attack
 
 __all__ = [
     "Assessment",
+    "TargetAuth",
+    "TargetSpec",
     "adversarial_reasoning_attack",
     "advpromptier_attack",
     "alignment_faking_attack",
@@ -117,6 +125,7 @@ __all__ = [
     "autodan_turbo_attack",
     "autoredteamer_attack",
     "beast_attack",
+    "build_target",
     "cot_jailbreak_attack",
     "crescendo_attack",
     "deep_inception_attack",
@@ -136,6 +145,7 @@ __all__ = [
     "multimodal_attack",
     "nes_attack",
     "nexus_attack",
+    "nova_sonic_target",
     "pair_attack",
     "persona_hijack_attack",
     "prompt_attack",

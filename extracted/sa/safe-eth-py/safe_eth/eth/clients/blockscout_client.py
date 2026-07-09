@@ -100,7 +100,7 @@ class BlockscoutClient:
         EthereumNetwork.ZORA: "https://explorer.zora.energy/api/v2/",
         EthereumNetwork.ZORA_SEPOLIA_TESTNET: "https://sepolia.explorer.zora.energy/api/v2/",
         EthereumNetwork.EVM_ON_FLOW: "https://evm.flowscan.io/api/v2/",
-        EthereumNetwork.EVM_ON_FLOW_TESTNET: "https://evm-testnet.flowscan.io/api/v2/",
+        EthereumNetwork.FLOW_EVM_TESTNET: "https://evm-testnet.flowscan.io/api/v2/",
         EthereumNetwork.BIRDLAYER: "https://scan.birdlayer.xyz/api/v2/",
         EthereumNetwork.TAC_TURIN: "https://turin.explorer.tac.build/api/v2/",
         EthereumNetwork.ALEPH_ZERO: "https://evm-explorer-testnet.alephzero.org/api/v2/",
@@ -147,7 +147,10 @@ class BlockscoutClient:
         EthereumNetwork.DOGEOS_CHIKYŪ_TESTNET: "https://blockscout.testnet.dogeos.com/api/v2/",
         EthereumNetwork.ALPEN_TESTNET_II: "https://explorer.testnet.alpenlabs.io/api/v2/",
         EthereumNetwork.TAIKO_HOODI: "https://blockscoutapi.hoodi.taiko.xyz/api/v2/",
-        EthereumNetwork.ADI_CHAIN: "https://explorer-bls.adifoundation.ai/api/v2",
+        EthereumNetwork.ADI_CHAIN: "https://explorer-bls.adifoundation.ai/api/v2/",
+        EthereumNetwork.LITVM_LITEFORGE_TESTNET: "https://liteforge.explorer.caldera.xyz/api/v2/",
+        EthereumNetwork.MIZUHIKI_TESTNET_AWAJI: "https://awaji.blockscout.com/api/v2/",
+        EthereumNetwork.MOCA_CHAIN_TESTNET: "https://testnet-scan.mocachain.org/api/v2/",
     }
 
     def __init__(

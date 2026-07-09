@@ -171,7 +171,7 @@ class XEP_0454(BasePlugin):
 
         kwargs['content_type'] = content_type
 
-        url = await self.xmpp['xep_0363'].upload_file(**kwargs)
+        url = await self.xmpp.plugin['xep_0363'].upload_file(**kwargs)
         return self.format_url(url, fragment)
 
 

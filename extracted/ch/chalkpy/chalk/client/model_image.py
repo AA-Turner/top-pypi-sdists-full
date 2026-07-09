@@ -350,27 +350,35 @@ def upload_model_to_volume(
     chalk_client: Any = None,
 ) -> None:
     """Upload a model file to a versioned chalkfs volume."""
-    try:
-        from chalkcompute import ConnectClient, VersionedVolumeClient  # pyright: ignore[reportMissingImports]
-    except ImportError:
-        raise ImportError("Please install `chalkcompute` to enable model image builds.")
-
-    vol_client = VersionedVolumeClient.from_connect(ConnectClient(chalk_client=chalk_client))
-    if vol_client.exists(volume_name):
-        vol = vol_client.from_name(volume_name)
-    else:
-        vol = vol_client.create(volume_name)
+    vol = _get_or_create_versioned_volume(volume_name, chalk_client=chalk_client)
     vol.put_file_from_path(model_filename, model_file_path)
 
 
-def chalk_handler_volume_name(model_name: str, model_version: int) -> str:
-    """Deterministic name for the handler-artifact volume.
+def _get_or_create_versioned_volume(volume_name: str, chalk_client: Any = None):
+    """Return a VersionedVolumeClient volume, creating it if it doesn't exist."""
+    from chalkcompute import ConnectClient, VersionedVolumeClient  # pyright: ignore[reportMissingImports]
 
-    Image-only `register_model_version(model_image=...)` flows that ship a
-    pre-built image have nowhere to record an arbitrary user-chosen volume
-    name in the registry proto. Instead, we derive the name from
-    ``(model_name, model_version)`` so registration-time uploads and
-    deploy-time mounts can agree without persisting state.
+    vol_client = VersionedVolumeClient.from_connect(ConnectClient(chalk_client=chalk_client))
+    if vol_client.exists(volume_name):
+        return vol_client.from_name(volume_name)
+    return vol_client.create(volume_name)
+
+
+def model_artifact_volume_name(model_name: str, model_artifact_id: str) -> str:
+    """Volume name for model artifacts, derived from the artifact id.
+
+    The name is recorded in ``ModelArtifactSpec.model_volume`` at
+    registration time so the deploy path can read it back directly.
+    """
+    return f"chalk-model-{model_name}-{model_artifact_id}"
+
+
+def chalk_handler_volume_name(model_name: str, model_version: int) -> str:
+    """Legacy deterministic name for handler-artifact volumes.
+
+    Kept for backwards compatibility with model versions registered before
+    ``model_volume`` was persisted on the artifact spec. New registrations
+    use :func:`model_artifact_volume_name` instead.
     """
     return f"chalk-handler-{model_name}-v{model_version}"
 
@@ -701,21 +709,7 @@ def _collect_chalk_handler_artifacts(
 ) -> Tuple[List[Tuple[str, str]], Optional[str], List[str], Optional[ModelType], Optional[Any], Optional[Any]]:
     """Collect the artifact files that need to land on the runtime volume.
 
-    Returns ``(uploads, serialized_name, owned_tmp_paths, resolved_model_type, inferred_input_schema, inferred_output_schema)``:
-      * ``uploads``: list of ``(local_path, container_basename)`` pairs.
-      * ``serialized_name``: basename of the serialized model file, or ``None``
-        if the handler didn't carry a model object.
-      * ``owned_tmp_paths``: local paths the caller must clean up (the
-        serializer's tempfile).
-      * ``resolved_model_type``: the ``ModelType`` ``ModelSerializer`` resolved
-        — either the explicit ``model_type=`` arg or one inferred from the
-        Python object via ``ModelAttributeExtractor.infer_model_type``.
-        ``None`` if no model object was passed.
-      * ``inferred_input_schema`` / ``inferred_output_schema``: schemas
-        introspected from the wrapped Python model via
-        ``ModelSerializer.infer_input_output_schemas``. Either or both may be
-        ``None`` if no model was passed or the framework has no schema
-        introspector (e.g. ONNX, LightGBM, TensorFlow).
+    Returns ``(uploads, serialized_name, owned_tmp_paths, resolved_model_type, inferred_input_schema, inferred_output_schema)``.
     """
     uploads: List[Tuple[str, str]] = []
     owned_tmp: List[str] = []
@@ -764,11 +758,10 @@ def upload_chalk_handler_artifacts(volume_name: str, uploads: List[Tuple[str, st
     after the volume is mounted.
     """
     try:
-        from chalkcompute import ConnectClient, VolumeClient  # pyright: ignore[reportMissingImports]
+        vol = _get_or_create_versioned_volume(volume_name, chalk_client=chalk_client)
     except ImportError:
-        raise ImportError("Please install `chalkcompute` to upload @model_handler artifacts.")
+        raise ImportError("Please install `chalkcompute` to upload model artifacts.")
 
-    vol = VolumeClient.from_connect(ConnectClient(chalk_client=chalk_client)).create(volume_name)
     for local_path, basename in uploads:
         vol.put_file_from_path(basename, local_path)
 
@@ -814,22 +807,7 @@ def build_chalk_model_handler_image(
 ) -> Tuple[str, List[Tuple[str, str]], Optional[str], List[str], Optional[Any], Optional[Any]]:
     """Build a deployable image for a `@model_handler` instance.
 
-    Returns ``(image_uri, artifact_uploads, serialized_model_filename, owned_tmp_paths, inferred_input_schema, inferred_output_schema)``:
-      * ``image_uri`` — image with the shim + user class source baked in.
-      * ``artifact_uploads`` — list of ``(local_path, container_basename)``
-        pairs the caller must upload to the chalk-handler volume **after**
-        registering the model version (so the version-derived volume name is
-        known).
-      * ``serialized_model_filename`` — basename chosen by the model serializer
-        for ``handler_instance.model``, or ``None``.
-      * ``owned_tmp_paths`` — temp files the caller must ``os.unlink`` after
-        the artifacts have been uploaded. Includes the serialized model file,
-        which can be GB-sized.
-      * ``inferred_input_schema`` / ``inferred_output_schema`` — schemas
-        introspected from the wrapped Python model, for the caller to use as
-        a fallback when the user did not pass schemas explicitly. Either or
-        both may be ``None`` if introspection isn't supported for the
-        framework or no model was provided.
+    Returns ``(image_uri, artifact_uploads, serialized_model_filename, owned_tmp_paths, inferred_input_schema, inferred_output_schema)``.
     """
     try:
         from chalkcompute import Image, build_image  # pyright: ignore[reportMissingImports]

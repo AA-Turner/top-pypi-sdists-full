@@ -49,6 +49,23 @@ def _invalidate_command_index():
             pass
 
 
+def _ensure_egg_info(path):
+    # editable_mode=compat + --no-build-isolation results in a PEP 660 editable install:
+    # the .dist-info goes to site-packages and no .egg-info is left in the source tree.
+    # azdev finds dev extensions by globbing *.egg-info under the repo, so without it the
+    # extension is invisible even though pip succeeded. Regenerate it with the env's setuptools.
+    if find_files(path, '*.egg-info'):
+        return
+    result = py_cmd(
+        'setup.py egg_info',
+        "Generating metadata for '{}'...".format(path),
+        is_module=False,
+        cwd=path,
+    )
+    if result.error:
+        raise result.error  # pylint: disable=raising-bad-type
+
+
 def add_extension(extensions):
 
     ext_paths = get_ext_repo_paths()
@@ -78,6 +95,7 @@ def add_extension(extensions):
         )
         if result.error:
             raise result.error  # pylint: disable=raising-bad-type
+        _ensure_egg_info(path)
 
     _invalidate_command_index()
 
@@ -336,6 +354,13 @@ def build_extensions(extensions, dist_dir='dist'):
         command = 'setup.py bdist_wheel -b bdist -d {}'.format(dist_dir)
         result = py_cmd(command, "Building extension '{}'...".format(path), is_module=False)
         if result.error:
+            # py_cmd captures the build output; surface it so the real setup.py failure is visible
+            # instead of only the opaque CalledProcessError.
+            build_output = result.output
+            if isinstance(build_output, (bytes, bytearray)):
+                build_output = build_output.decode('utf-8', 'ignore')
+            if build_output:
+                logger.error(build_output)
             raise result.error  # pylint: disable=raising-bad-type
     os.chdir(original_cwd)
 

@@ -1,7 +1,7 @@
 import os
 from fivetran_connector_sdk.protos import common_pb2
 
-TESTER_VERSION = "2.26.0604.001"
+TESTER_VERSION = "2.26.0706.002"
 
 WIN_OS = "windows"
 ARM_64 = "arm64"
@@ -46,7 +46,7 @@ PYPROJECT_SKIP_VALIDATION_MESSAGE = "using pyproject.toml; skipping dependency v
 RECOMMEND_STABLE_VERSION_MESSAGE = "We recommend using the current stable version for the following libraries:"
 CONFIGURATION_JSON = "configuration.json"
 PYPI_PACKAGE_DETAILS_URL = "https://pypi.org/pypi/fivetran_connector_sdk/json"
-ONE_DAY_IN_SEC = 24 * 60 * 60
+SIX_HOUR_IN_SEC = 6 * 60 * 60
 MEMORY_LIMIT_BYTES = 4 * 1024 ** 3  # 4 GB memory limit to simulate production memory constraints during local debug
 CHECKPOINT_OP_TIMEOUT_IN_SEC = 120 # seconds
 FIFO_READ_TIMEOUT_SECONDS = 30 # seconds - timeout for reading from FIFOs (named pipes)
@@ -96,7 +96,8 @@ CONNECTORS_GITHUB_REPO = "fivetran/community_connectors"
 CONNECTORS_TEMPLATE_PREFIX = "connectors/"
 TOOLS_GITHUB_REPO = "fivetran/connector_sdk_tools"
 TOOLS_GITHUB_REPO_URL = f"https://github.com/{TOOLS_GITHUB_REPO}"
-TOOLS_PLUGIN_NAME = "fivetran-connector-sdk@fivetran-connector-sdk-ai"
+TOOLS_PLUGIN_ID = "fivetran-connector-sdk-ai"
+TOOLS_PLUGIN_NAME = f"fivetran-connector-sdk@{TOOLS_PLUGIN_ID}"
 AGENT_PLUGINS = {
     "claude": {
         "display_name": "Claude Code",
@@ -104,6 +105,9 @@ AGENT_PLUGINS = {
         "install_commands": [
             ["claude", "plugin", "marketplace", "add", TOOLS_GITHUB_REPO],
             ["claude", "plugin", "install", TOOLS_PLUGIN_NAME],
+        ],
+        "update_commands": [
+            ["claude", "plugin", "update", TOOLS_PLUGIN_NAME],
         ],
     },
     "codex": {
@@ -114,6 +118,9 @@ AGENT_PLUGINS = {
             ["codex", "plugin", "marketplace", "add", TOOLS_GITHUB_REPO],
             ["codex", "plugin", "add", TOOLS_PLUGIN_NAME],
         ],
+        "update_commands": [
+            ["codex", "plugin", "marketplace", "upgrade", TOOLS_PLUGIN_ID],
+        ],
     },
     "gemini": {
         "display_name": "Gemini CLI",
@@ -123,11 +130,14 @@ AGENT_PLUGINS = {
         ],
     },
     "copilot": {
-        "display_name": "Github Copilot CLI",
+        "display_name": "GitHub Copilot CLI",
         "cli_command": "copilot",
         "install_commands": [
             ["copilot", "plugin", "marketplace", "add", TOOLS_GITHUB_REPO],
             ["copilot", "plugin", "install", TOOLS_PLUGIN_NAME],
+        ],
+        "update_commands": [
+            ["copilot", "plugin", "update", TOOLS_PLUGIN_NAME],
         ],
     },
 }

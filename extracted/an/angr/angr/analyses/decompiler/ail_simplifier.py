@@ -67,6 +67,7 @@ from .ccall_rewriters import CCALL_REWRITERS
 from .counters.expression_counters import SingleExpressionCounter
 from .dirty_rewriters import DIRTY_REWRITERS
 from .expression_narrower import EffectiveSizeExtractor, ExpressionNarrower, ExprNarrowingInfo
+from .stackarg_offset_manager import StackArgOffsetManager
 
 if TYPE_CHECKING:
     from angr.ailment.manager import Manager
@@ -170,7 +171,7 @@ class AILSimplifier(Analysis):
         func_graph: networkx.DiGraph[Block],
         ail_manager: Manager,
         remove_dead_memdefs=False,
-        stack_arg_offsets: set[tuple[int, int]] | None = None,
+        stackarg_offset_manager: StackArgOffsetManager | None = None,
         unify_variables=False,
         gp: int | None = None,
         narrow_expressions=False,
@@ -191,7 +192,7 @@ class AILSimplifier(Analysis):
         self._propagator: SPropagatorAnalysis | None = None
 
         self._remove_dead_memdefs = remove_dead_memdefs
-        self._stack_arg_offsets = stack_arg_offsets
+        self._stackarg_offset_manager = stackarg_offset_manager
         self._unify_vars = unify_variables
         self._ail_manager = ail_manager
         self._gp = gp
@@ -366,7 +367,9 @@ class AILSimplifier(Analysis):
             func_args=func_args,
             # gp=self._gp,
             only_consts=self._only_consts,
-            stack_arg_offsets={x for _, x in self._stack_arg_offsets} if self._stack_arg_offsets is not None else None,
+            stack_arg_offsets=self._stackarg_offset_manager.get_stackarg_offsets()
+            if self._stackarg_offset_manager is not None
+            else None,
             ail_manager=self._ail_manager,
         )
         self._propagator = prop
@@ -452,6 +455,10 @@ class AILSimplifier(Analysis):
         # compute effective sizes for each vvar
         effective_sizes = self._compute_effective_sizes(rd, sorted_defs, addr_and_idx_to_block)
 
+        # per-statement EffectiveSizeExtractor cache; the blocks do not change while we collect narrowing candidates,
+        # so one walk per statement serves the queries of all definitions
+        extractor_cache: dict[AILCodeLocation, EffectiveSizeExtractor] = {}
+
         narrowing_candidates: dict[int, tuple[Definition, ExprNarrowingInfo]] = {}
         for def_ in sorted_defs:
             if isinstance(def_.atom, atoms.VirtualVariable) and (def_.atom.was_reg or def_.atom.was_parameter):
@@ -467,7 +474,7 @@ class AILSimplifier(Analysis):
                 if skip_def:
                     continue
 
-                narrow = self._narrowing_needed(def_, rd, addr_and_idx_to_block, effective_sizes)
+                narrow = self._narrowing_needed(def_, rd, addr_and_idx_to_block, effective_sizes, extractor_cache)
                 if narrow.narrowable:
                     # we cannot narrow it immediately because any definition that is used by phi variables must be
                     # narrowed together with all other definitions that can reach the phi variables.
@@ -687,6 +694,7 @@ class AILSimplifier(Analysis):
         rd: SRDAModel,
         addr_and_idx_to_block: dict[Address, Block],
         effective_sizes: dict[int, int],
+        extractor_cache: dict[AILCodeLocation, EffectiveSizeExtractor] | None = None,
     ) -> ExprNarrowingInfo:
         def_size = def_.size
         # find its uses
@@ -732,7 +740,7 @@ class AILSimplifier(Analysis):
             if is_expr_used_as_reg_base_value(stmt, expr, rd):
                 continue
 
-            expr_size, use_type = self._extract_expression_effective_size(stmt, expr)
+            expr_size, use_type = self._extract_expression_effective_size(stmt, expr, loc, extractor_cache)
             if expr_size is None:
                 if use_type == "insert-base":
                     # don't care
@@ -838,25 +846,37 @@ class AILSimplifier(Analysis):
                     result.append((atom, loc, expr))
         return result, phi_vars
 
-    def _extract_expression_effective_size(self, statement, expr) -> tuple[int | None, str | None]:
+    def _extract_expression_effective_size(
+        self,
+        statement,
+        expr,
+        loc: AILCodeLocation | None = None,
+        extractor_cache: dict[AILCodeLocation, EffectiveSizeExtractor] | None = None,
+    ) -> tuple[int | None, str | None]:
         """
         Determine the effective size of an expression when it's used.
         """
 
-        walker = EffectiveSizeExtractor(expr)
-        walker.walk_statement(statement)
+        if not isinstance(expr, VirtualVariable):
+            return None, None
 
-        effective_bit_ranges = set()
-        for expr_, (lo_bits, hi_bits) in walker.expr_to_effective_bits.items():
-            if expr.likes(expr_):
-                effective_bit_ranges.add((lo_bits, hi_bits))
+        walker = None
+        if extractor_cache is not None and loc is not None:
+            walker = extractor_cache.get(loc)
+        if walker is None:
+            walker = EffectiveSizeExtractor()
+            walker.walk_statement(statement)
+            if extractor_cache is not None and loc is not None:
+                extractor_cache[loc] = walker
 
-        if effective_bit_ranges:
-            highest_bit = max(hi_bits for _, hi_bits in effective_bit_ranges)
+        effective_bits_by_occurrence = walker.vvar_effective_bits.get(expr.varid)
+        if effective_bits_by_occurrence:
+            highest_bit = max(hi_bits for _, hi_bits in effective_bits_by_occurrence.values())
             return highest_bit // self.project.arch.byte_width, "expr"
-        if walker.expr_used_as_call_arg_effective_bits is not None:
-            return walker.expr_used_as_call_arg_effective_bits[1] // self.project.arch.byte_width, "call-arg"
-        if walker.expr_used_as_insert_base:
+        call_arg_bits = walker.vvar_call_arg_effective_bits.get(expr.varid)
+        if call_arg_bits is not None:
+            return call_arg_bits[1] // self.project.arch.byte_width, "call-arg"
+        if expr.varid in walker.vvars_used_as_insert_base:
             return None, "insert-base"
 
         return None, None
@@ -889,11 +909,9 @@ class AILSimplifier(Analysis):
         self, replacements: dict[tuple[int, int | None], dict[AILCodeLocation, dict[Expression, Expression]]]
     ) -> bool:
         blocks_by_addr_and_idx = {(node.addr, node.idx): node for node in self.func_graph.nodes()}
-
-        if self._stack_arg_offsets:
-            insn_addrs_using_stack_args = {ins_addr for ins_addr, _ in self._stack_arg_offsets}
-        else:
-            insn_addrs_using_stack_args = None
+        insn_addrs_using_stack_args = (
+            self._stackarg_offset_manager.get_stackarg_insaddrs() if self._stackarg_offset_manager is not None else None
+        )
 
         replaced = False
         for (block_addr, block_idx), reps in replacements.items():
@@ -1886,7 +1904,6 @@ class AILSimplifier(Analysis):
         if self._reaching_definitions.canonical_form() != reference.canonical_form():
             raise AssertionError("Incremental SRDA update diverged from a full rebuild")
 
-    @timethis
     def _remove_dead_assignments(self) -> tuple[bool, set[tuple[int, int | None]]]:
         # keeping tracking of statements to remove and statements (as well as dead vvars) to keep allows us to handle
         # cases where a statement defines more than one atom, e.g., a call statement that defines both the return
@@ -1900,12 +1917,7 @@ class AILSimplifier(Analysis):
         }
 
         # Find all statements that should be removed
-        mask = (1 << self.project.arch.bits) - 1
-
         rd = self._compute_reaching_definitions()
-        stackarg_offsets = (
-            {(tpl[1] & mask) for tpl in self._stack_arg_offsets} if self._stack_arg_offsets is not None else None
-        )
         retpoints: set[Address] = {
             (node.addr, node.idx)
             for node in self.func_graph
@@ -1946,10 +1958,10 @@ class AILSimplifier(Analysis):
                                 # note that this is a hack! we should rely on more reliable stack variable
                                 # eliminatability detection.
                                 pass
-                            elif stackarg_offsets is not None:
-                                # we always remove definitions for stack arguments
-                                assert vvar.stack_offset is not None
-                                if (vvar.stack_offset & mask) not in stackarg_offsets:
+                            elif self._stackarg_offset_manager is not None:
+                                if not self._stackarg_offset_manager.is_stackarg_vvar(vvar.varid):
+                                    # this stack variable is not a stack argument for any of the call sites that consume
+                                    # this offset. it is not eliminatable.
                                     continue
                             else:
                                 continue
@@ -2162,10 +2174,14 @@ class AILSimplifier(Analysis):
         dirty_vvar_ids = set()
         for bb in self.func_graph:
             for stmt in bb.statements:
+                # reg/tmp = ccall(...)
+                # we see tmps when it's used in a cycle;
+                # see binary ddc2b4cbf6ac841524375cdf82b93b9948f8ea09bbf6e8bf3410e6bc410a9d95 function 0x18001722c
+                # block 0x18001724c
                 if (
                     isinstance(stmt, Assignment)
                     and isinstance(stmt.dst, VirtualVariable)
-                    and stmt.dst.was_reg
+                    and (stmt.dst.was_reg or stmt.dst.was_tmp)
                     and isinstance(stmt.src, (DirtyExpression, VEXCCallExpression))
                 ):
                     dirty_vvar_ids.add(stmt.dst.varid)

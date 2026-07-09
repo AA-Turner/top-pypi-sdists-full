@@ -2,14 +2,13 @@
 # -*- coding: utf-8 -*-
 
 # Copyright (c) 2021, Cisco Systems
-# GNU General Public License v3.0+ (see LICENSE or
-# https://www.gnu.org/licenses/gpl-3.0.txt)
+# GNU General Public License v3.0+ (see LICENSE or https://www.gnu.org/licenses/gpl-3.0.txt)
 
 DOCUMENTATION = r"""
 module: networks_sm_devices_install_apps
-short_description: Resource module for networks _sm _devices _install _apps
+short_description: Resource module for networks _sm _devices _installapps
 description:
-  - Manage operation create of the resource networks _sm _devices _install _apps.
+  - Manage operation create of the resource networks _sm _devices _installapps.
   - Install applications on a device.
 version_added: '1.0.0'
 extends_documentation_fragment:

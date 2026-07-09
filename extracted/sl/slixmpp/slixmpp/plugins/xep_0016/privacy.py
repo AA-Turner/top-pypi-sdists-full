@@ -24,10 +24,10 @@ class XEP_0016(BasePlugin):
         register_stanza_plugin(Iq, Privacy)
 
     def plugin_end(self):
-        self.xmpp['xep_0030'].del_feature(feature=Privacy.namespace)
+        self.xmpp.plugin['xep_0030'].del_feature(feature=Privacy.namespace)
 
     def session_bind(self, jid):
-        self.xmpp['xep_0030'].add_feature(Privacy.namespace)
+        self.xmpp.plugin['xep_0030'].add_feature(Privacy.namespace)
 
     def get_privacy_lists(self, timeout: int | None = None,
                           callback: Callable | None = None) -> Future:

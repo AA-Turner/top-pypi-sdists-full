@@ -1,6 +1,6 @@
 Metadata-Version: 2.3
 Name: owlrl
-Version: 7.6.1
+Version: 7.6.2
 Summary: A simple implementation of the OWL2 RL Profile, as well as a basic RDFS inference, on top of RDFLib. Based mechanical forward chaining.
 License: W3C-20150513
 Author: Nicholas Car
@@ -112,6 +112,7 @@ To view the changelog for this software package, see [CHANGELOG.rst](CHANGELOG.r
 - actually push it to PyPI
 
 ```sh
+pytest
 rm -vf dist/*
 poetry build
 bsdtar -xvf dist/owlrl-*.whl -O '*/METADATA' | view -

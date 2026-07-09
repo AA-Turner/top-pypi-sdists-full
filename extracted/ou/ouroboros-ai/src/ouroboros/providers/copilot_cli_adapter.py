@@ -21,7 +21,7 @@ subprocess teardown. Differences from Codex:
 from __future__ import annotations
 
 import asyncio
-from collections.abc import AsyncIterator, Callable
+from collections.abc import Callable
 import contextlib
 import json
 import os
@@ -45,6 +45,7 @@ from ouroboros.copilot_permissions import (
     resolve_copilot_permission_mode,
 )
 from ouroboros.core.errors import ProviderError
+from ouroboros.core.retry import BASE_TRANSIENT_PATTERNS, is_transient_error
 from ouroboros.core.security import MAX_LLM_RESPONSE_LENGTH, InputValidator
 from ouroboros.core.types import Result
 from ouroboros.providers.base import (
@@ -54,26 +55,20 @@ from ouroboros.providers.base import (
     MessageRole,
     UsageInfo,
 )
-from ouroboros.providers.codex_cli_stream import (
-    collect_stream_lines,
-    iter_stream_lines,
-    terminate_process,
-)
+from ouroboros.providers.codex_cli_stream import RuntimeStreamMixin
 from ouroboros.providers.profiles import resolve_completion_profile_result
 
 log = structlog.get_logger()
 
 _SAFE_MODEL_NAME_PATTERN = re.compile(r"^[A-Za-z0-9_./:@-]+$")
 
-_RETRYABLE_ERROR_PATTERNS = (
-    "rate limit",
-    "temporarily unavailable",
-    "timeout",
-    "overloaded",
-    "try again",
-    "connection reset",
+_COPILOT_RETRYABLE_EXTRA_PATTERNS = (
     "quota exceeded",
     "github api error",
+)
+_RETRYABLE_ERROR_PATTERNS = (
+    *BASE_TRANSIENT_PATTERNS,
+    *_COPILOT_RETRYABLE_EXTRA_PATTERNS,
 )
 
 _AUTH_ERROR_PATTERNS = (
@@ -139,7 +134,7 @@ _JSON_SCHEMA_DIRECTIVE_TEMPLATE = (
 )
 
 
-class CopilotCliLLMAdapter:
+class CopilotCliLLMAdapter(RuntimeStreamMixin):
     """LLM adapter backed by local GitHub Copilot CLI execution."""
 
     _provider_name = "copilot_cli"
@@ -568,29 +563,6 @@ class CopilotCliLLMAdapter:
             content_lines.append(line)
         return "\n".join(content_lines or raw_json_content_lines)
 
-    # ------------------------------------------------------ stream/process io
-
-    async def _iter_stream_lines(
-        self,
-        stream: asyncio.StreamReader | None,
-        *,
-        chunk_size: int = 16384,
-    ) -> AsyncIterator[str]:
-        async for line in iter_stream_lines(stream, chunk_size=chunk_size, provider="copilot_cli"):
-            yield line
-
-    async def _collect_stream_lines(
-        self,
-        stream: asyncio.StreamReader | None,
-    ) -> list[str]:
-        return await collect_stream_lines(stream, provider="copilot_cli")
-
-    async def _terminate_process(self, process: Any) -> None:
-        await terminate_process(
-            process,
-            shutdown_timeout=self._process_shutdown_timeout_seconds,
-        )
-
     @staticmethod
     def _truncate_if_oversized(content: str, model: str) -> str:
         is_valid, _ = InputValidator.validate_llm_response(content)
@@ -605,8 +577,10 @@ class CopilotCliLLMAdapter:
         return content
 
     def _is_retryable_error(self, message: str) -> bool:
-        lowered = message.lower()
-        return any(pattern in lowered for pattern in _RETRYABLE_ERROR_PATTERNS)
+        return is_transient_error(
+            message,
+            extra_patterns=_COPILOT_RETRYABLE_EXTRA_PATTERNS,
+        )
 
     @staticmethod
     def _looks_like_auth_error(text: str) -> bool:

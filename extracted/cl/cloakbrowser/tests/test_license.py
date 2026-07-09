@@ -344,6 +344,7 @@ class TestConfigPro:
             bp = get_binary_path("147.0.5555.1", pro=True)
             bp.parent.mkdir(parents=True, exist_ok=True)
             bp.write_text("fake")
+            bp.chmod(0o755)  # get_effective_version(pro) requires an executable binary
 
             version = get_effective_version(pro=True)
 

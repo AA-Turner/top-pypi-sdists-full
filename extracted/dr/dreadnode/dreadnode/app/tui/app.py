@@ -3643,16 +3643,17 @@ class DreadnodeTextualApp(App[None]):
             "expanded" if self.output_mode == "compact" else "compact"
         )
         self.output_mode = new_mode
-        from dreadnode.app.tui.widgets.conversation import CompactionSummary, ThinkingBlock
+        from dreadnode.app.tui.widgets.conversation import CompactionSummary
         from dreadnode.app.tui.widgets.tool import ToolCall as ToolCallWidget
 
+        # ^O controls tool-output verbosity only. Reasoning (ThinkingBlock) is a
+        # separate concern shown inline regardless of this toggle (ENG-6108), so
+        # it is intentionally not touched here.
         try:
             conv = self.query_one("#conversation", ConversationView)
             for tc in conv.query(ToolCallWidget):
                 tc.refresh(layout=True)
             expanded = new_mode == "expanded"
-            for tb in conv.query(ThinkingBlock):
-                tb.display = expanded
             for cs in conv.query(CompactionSummary):
                 cs.display = expanded
         except Exception:

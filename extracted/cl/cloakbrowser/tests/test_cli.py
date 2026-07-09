@@ -57,14 +57,35 @@ def test_keyless_reports_free_binary(capsys):
 
 
 def test_valid_key_reports_pro_binary(capsys):
-    """A server-validated key -> the binary section reflects the PRO binary."""
+    """A server-validated key -> the binary section reflects the PRO binary.
+
+    ``latest_version`` reports the server's latest (mocked); ``version`` is the
+    build that will actually launch (a cached Pro build if present, otherwise the
+    latest it will fetch). The two are surfaced separately so they can't diverge.
+    """
     valid = LicenseInfo(valid=True, plan="business", expires=None)
+    # quick=False: the server latest lookup is skipped under --quick (network-free),
+    # so exercise the full path to see latest_version populated.
     with patch("cloakbrowser.license.get_pro_latest_version", return_value="148.0.0.0"):
-        _run(Namespace(quick=True, json=True), key="cb_test", license_info=valid)
+        _run(Namespace(quick=False, json=True), key="cb_test", license_info=valid)
     data = json.loads(capsys.readouterr().out)
     assert data["binary"]["tier"] == "pro"
-    assert data["binary"]["version"] == "148.0.0.0"
+    assert data["binary"]["latest_version"] == "148.0.0.0"
+    # A Pro user always resolves to a Pro version (cached-or-latest), never the free base.
+    assert data["binary"]["version"]
     assert data["license"]["tier"] == "business"
+
+
+def test_quick_skips_pro_latest_lookup(capsys):
+    """--quick keeps `info` network-free: no server latest-version lookup for Pro."""
+    valid = LicenseInfo(valid=True, plan="business", expires=None)
+    with patch(
+        "cloakbrowser.license.get_pro_latest_version", return_value="148.0.0.0"
+    ) as mock_latest:
+        _run(Namespace(quick=True, json=True), key="cb_test", license_info=valid)
+    data = json.loads(capsys.readouterr().out)
+    mock_latest.assert_not_called()
+    assert data["binary"]["latest_version"] is None
 
 
 def test_invalid_key_falls_back_to_free(capsys):
@@ -90,7 +111,7 @@ def test_free_license_shows_upgrade_hint(capsys):
     _run(Namespace(quick=True, json=False))
     out = capsys.readouterr().out
     assert "License:   Free" in out
-    assert "Add a license key" in out
+    assert "free for 7 days" in out
 
 
 # ---------------------------------------------------------------------------

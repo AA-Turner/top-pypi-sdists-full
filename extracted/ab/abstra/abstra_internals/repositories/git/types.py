@@ -187,8 +187,12 @@ class GitRepositoryInterface(ABC):
         pass
 
     @abstractmethod
-    def get_changed_files(self) -> List[str]:
-        """Get list of changed files"""
+    def get_changed_files(self, untracked_all: bool = False) -> List[str]:
+        """Get list of changed files.
+
+        untracked_all: list files inside untracked directories individually
+        (git status -uall) instead of a single collapsed "dir/" entry.
+        """
         pass
 
     @abstractmethod

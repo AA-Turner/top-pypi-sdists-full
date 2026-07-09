@@ -878,6 +878,7 @@ def _execute_task_prompt(
         _renderer = Renderer()
         engine = ConversationEngine(system_prompt=build_agent_system_prompt(cwd, is_local=False))
         # This is a minimal fallback; real instantiation happens in run()
+        from sage.config import load_config
         _global_agent = SAGEAgent(
             cwd=cwd,
             renderer=_renderer,
@@ -889,6 +890,7 @@ def _execute_task_prompt(
             model_locked=False,
             is_local=False,
             context_manager=context_persistence_mgr,
+            cfg=load_config(),
         )
 
     return _global_agent.execute_task_prompt(

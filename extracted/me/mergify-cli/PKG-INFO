@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: mergify_cli
-Version: 2026.6.25.1
+Version: 2026.7.8.1
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Intended Audience :: Developers
 Classifier: License :: OSI Approved :: Apache Software License
@@ -208,8 +208,7 @@ npx skills add Mergifyio/mergify-cli
 Install as a Claude Code plugin:
 
 ```shell
-/plugin marketplace add Mergifyio/mergify-cli
-/plugin install mergify
+/plugin install mergify@claude-plugins-official
 ```
 
 ## Documentation

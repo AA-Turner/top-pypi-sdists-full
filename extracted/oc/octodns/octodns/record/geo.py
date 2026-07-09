@@ -10,14 +10,14 @@ from ..equality import EqualityTupleMixin
 from .base import ValuesMixin, _process_value_validators
 from .change import Update
 from .geo_data import geo_data
-from .validator import RecordValidator
+from .validator import RecordValidator, ValidationReason
 
 
 class GeoCodes(object):
     log = getLogger('GeoCodes')
 
     @classmethod
-    def validate(cls, code, prefix):
+    def validate(cls, code, prefix, validator_id=None):
         '''
         Validates an octoDNS geo code making sure that it is a valid and
         corresponding:
@@ -31,16 +31,36 @@ class GeoCodes(object):
         pieces = code.split('-')
         n = len(pieces)
         if n > 3:
-            reasons.append(f'{prefix}invalid geo code "{code}"')
+            reasons.append(
+                ValidationReason(
+                    f'{prefix}invalid geo code "{code}"',
+                    validator_id=validator_id,
+                )
+            )
         elif n > 0 and pieces[0] not in geo_data:
-            reasons.append(f'{prefix}unknown continent code "{code}"')
+            reasons.append(
+                ValidationReason(
+                    f'{prefix}unknown continent code "{code}"',
+                    validator_id=validator_id,
+                )
+            )
         elif n > 1 and pieces[1] not in geo_data[pieces[0]]:
-            reasons.append(f'{prefix}unknown country code "{code}"')
+            reasons.append(
+                ValidationReason(
+                    f'{prefix}unknown country code "{code}"',
+                    validator_id=validator_id,
+                )
+            )
         elif (
             n > 2
             and pieces[2] not in geo_data[pieces[0]][pieces[1]]['provinces']
         ):
-            reasons.append(f'{prefix}unknown province code "{code}"')
+            reasons.append(
+                ValidationReason(
+                    f'{prefix}unknown province code "{code}"',
+                    validator_id=validator_id,
+                )
+            )
 
         return reasons
 
@@ -90,16 +110,19 @@ class GeoCodes(object):
 
 class GeoValue(EqualityTupleMixin):
     geo_re = re.compile(
-        r'^(?P<continent_code>\w\w)(-(?P<country_code>\w\w)'
-        r'(-(?P<subdivision_code>\w\w))?)?$'
+        r'^(?P<continent_code>\w\w)(-(?P<country_code>\w\w)(-(?P<subdivision_code>\w\w))?)?$'
     )
 
     @classmethod
-    def _validate_geo(cls, code):
+    def _validate_geo(cls, code, validator_id=None):
         reasons = []
         match = cls.geo_re.match(code)
         if not match:
-            reasons.append(f'invalid geo "{code}"')
+            reasons.append(
+                ValidationReason(
+                    f'invalid geo "{code}"', validator_id=validator_id
+                )
+            )
         return reasons
 
     def __init__(self, geo, values):
@@ -126,10 +149,7 @@ class GeoValue(EqualityTupleMixin):
         )
 
     def __repr__(self):
-        return (
-            f"'Geo {self.continent_code} {self.country_code} "
-            "{self.subdivision_code} {self.values}'"
-        )
+        return f"'Geo {self.continent_code} {self.country_code} {self.subdivision_code} {self.values}'"
 
 
 class GeoValidator(RecordValidator):
@@ -139,7 +159,7 @@ class GeoValidator(RecordValidator):
     passes the record's value-type validation.
     '''
 
-    def validate(self, record_cls, name, fqdn, data):
+    def validate(self, record_cls, name, fqdn, data, disabled=None):
         reasons = []
         try:
             geo = dict(data['geo'])
@@ -148,10 +168,15 @@ class GeoValidator(RecordValidator):
                 stacklevel=99,
             )
             for code, values in geo.items():
-                reasons.extend(GeoValue._validate_geo(code))
+                reasons.extend(
+                    GeoValue._validate_geo(code, validator_id=self.id)
+                )
                 reasons.extend(
                     _process_value_validators(
-                        record_cls._value_type, values, record_cls._type
+                        record_cls._value_type,
+                        values,
+                        record_cls._type,
+                        disabled=disabled,
                     )
                 )
         except KeyError:
@@ -212,8 +237,5 @@ class _GeoMixin(ValuesMixin):
     def __repr__(self):
         if self.geo:
             klass = self.__class__.__name__
-            return (
-                f'<{klass} {self._type} {self.ttl}, {self.decoded_fqdn}, '
-                f'{self.values}, {self.geo}>'
-            )
+            return f'<{klass} {self._type} {self.ttl}, {self.decoded_fqdn}, {self.values}, {self.geo}>'
         return super().__repr__()

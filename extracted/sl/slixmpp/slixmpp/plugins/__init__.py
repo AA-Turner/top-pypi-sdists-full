@@ -6,7 +6,7 @@ from slixmpp.plugins.base import PluginManager, PluginNotFound, BasePlugin
 from slixmpp.plugins.base import register_plugin, load_plugin
 
 
-PLUGINS = [
+__all__ = [
     # XEPS
     'xep_0004',  # Data Forms
     'xep_0009',  # Jabber-RPC
@@ -134,12 +134,16 @@ PLUGINS = [
     'xep_0511',  # Link Metadata
     'xep_0513',  # Explicit Mentions
     # Meant to be imported by plugins
-]
 
-__all__ = PLUGINS + [
+    # Below are other names exported through this module.
     'PluginManager',
     'PluginNotFound',
     'BasePlugin',
     'register_plugin',
     'load_plugin',
 ]
+
+# type checkers try to avoid evaluating code, so if we do not wantn to
+# maintain two plugin lists, we need to do some manipulation here to remove
+# the non-plugins.
+PLUGINS = [item for item in __all__ if item.startswith('xep_')]

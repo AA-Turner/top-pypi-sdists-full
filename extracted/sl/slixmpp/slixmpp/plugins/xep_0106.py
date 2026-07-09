@@ -14,10 +14,10 @@ class XEP_0106(BasePlugin):
     dependencies = {'xep_0030'}
 
     def session_bind(self, jid):
-        self.xmpp['xep_0030'].add_feature(feature='jid\\20escaping')
+        self.xmpp.plugin['xep_0030'].add_feature(feature='jid\\20escaping')
 
     def plugin_end(self):
-        self.xmpp['xep_0030'].del_feature(feature='jid\\20escaping')
+        self.xmpp.plugin['xep_0030'].del_feature(feature='jid\\20escaping')
 
 
 register_plugin(XEP_0106)

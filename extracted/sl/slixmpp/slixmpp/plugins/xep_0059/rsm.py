@@ -168,14 +168,14 @@ class XEP_0059(BasePlugin):
         """
         Start the XEP-0059 plugin.
         """
-        register_stanza_plugin(self.xmpp['xep_0030'].stanza.DiscoItems,
+        register_stanza_plugin(self.xmpp.plugin['xep_0030'].stanza.DiscoItems,
                                self.stanza.Set)
 
     def plugin_end(self):
-        self.xmpp['xep_0030'].del_feature(feature=Set.namespace)
+        self.xmpp.plugin['xep_0030'].del_feature(feature=Set.namespace)
 
     def session_bind(self, jid):
-        self.xmpp['xep_0030'].add_feature(Set.namespace)
+        self.xmpp.plugin['xep_0030'].add_feature(Set.namespace)
 
     def iterate(self, stanza: Iq, interface: str, results: str = 'substanzas',
                 amount: int = 10, reverse: bool = False,

@@ -85,6 +85,12 @@ def install_agent_plugin(agent_key: str) -> bool:
             )
             return False
     print_library_log(f"{config['display_name']} plugin installed", log_icon=Logging.LogIcon.SUCCESS)
+    update_commands = config.get("update_commands", [])
+    for cmd in update_commands:
+        print_library_log(
+            f"to update the {config['display_name']} plugin, run: {' '.join(cmd)}",
+            log_icon=Logging.LogIcon.STEP,
+        )
     return True
 
 
@@ -145,7 +151,7 @@ def setup_ai_agent():
         + f"\n{skip_num}. Skip — I'll install manually"
     )
 
-    choice = input(f"{menu}\n\nPlease enter the number of your choice: ").strip()
+    choice = input(f"{menu}\n\nPlease enter your selection: ").strip()
     try:
         choice_num = int(choice)
         if not (1 <= choice_num <= skip_num):

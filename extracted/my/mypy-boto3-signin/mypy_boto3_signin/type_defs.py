@@ -30,12 +30,16 @@ __all__ = (
     "CreateOAuth2TokenRequestTypeDef",
     "CreateOAuth2TokenResponseBodyTypeDef",
     "CreateOAuth2TokenResponseTypeDef",
+    "CreateOAuth2TokenWithIAMRequestTypeDef",
+    "CreateOAuth2TokenWithIAMResponseTypeDef",
     "DeleteConsoleAuthorizationConfigurationInputTypeDef",
     "DeleteConsoleAuthorizationConfigurationOutputTypeDef",
     "DeleteResourcePermissionStatementInputTypeDef",
     "GetConsoleAuthorizationConfigurationInputTypeDef",
     "GetConsoleAuthorizationConfigurationOutputTypeDef",
     "GetResourcePolicyOutputTypeDef",
+    "IntrospectOAuth2TokenWithIAMRequestTypeDef",
+    "IntrospectOAuth2TokenWithIAMResponseTypeDef",
     "ListResourcePermissionStatementsInputPaginateTypeDef",
     "ListResourcePermissionStatementsInputTypeDef",
     "ListResourcePermissionStatementsOutputTypeDef",
@@ -47,6 +51,7 @@ __all__ = (
     "PutResourcePermissionStatementInputTypeDef",
     "PutResourcePermissionStatementOutputTypeDef",
     "ResponseMetadataTypeDef",
+    "RevokeOAuth2TokenWithIAMRequestTypeDef",
     "SigninResourceBasedPolicyTypeDef",
 )
 
@@ -74,6 +79,11 @@ class ResponseMetadataTypeDef(TypedDict):
     HostId: NotRequired[str]
 
 
+class CreateOAuth2TokenWithIAMRequestTypeDef(TypedDict):
+    grantType: str
+    resource: str
+
+
 class DeleteConsoleAuthorizationConfigurationInputTypeDef(TypedDict):
     targetId: NotRequired[str]
 
@@ -85,6 +95,11 @@ class DeleteResourcePermissionStatementInputTypeDef(TypedDict):
 
 class GetConsoleAuthorizationConfigurationInputTypeDef(TypedDict):
     targetId: NotRequired[str]
+
+
+class IntrospectOAuth2TokenWithIAMRequestTypeDef(TypedDict):
+    token: str
+    tokenTypeHint: NotRequired[str]
 
 
 class PaginatorConfigTypeDef(TypedDict):
@@ -126,6 +141,10 @@ class PutResourcePermissionStatementInputTypeDef(TypedDict):
     clientToken: NotRequired[str]
 
 
+class RevokeOAuth2TokenWithIAMRequestTypeDef(TypedDict):
+    token: str
+
+
 class CreateOAuth2TokenResponseBodyTypeDef(TypedDict):
     accessToken: AccessTokenTypeDef
     tokenType: str
@@ -136,6 +155,13 @@ class CreateOAuth2TokenResponseBodyTypeDef(TypedDict):
 
 class CreateOAuth2TokenRequestTypeDef(TypedDict):
     tokenInput: CreateOAuth2TokenRequestBodyTypeDef
+
+
+class CreateOAuth2TokenWithIAMResponseTypeDef(TypedDict):
+    accessToken: str
+    tokenType: str
+    expiresIn: int
+    ResponseMetadata: ResponseMetadataTypeDef
 
 
 class DeleteConsoleAuthorizationConfigurationOutputTypeDef(TypedDict):
@@ -149,6 +175,24 @@ class GetConsoleAuthorizationConfigurationOutputTypeDef(TypedDict):
     targetId: str
     scope: str
     consoleAuthorizationEnabled: bool
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+class IntrospectOAuth2TokenWithIAMResponseTypeDef(TypedDict):
+    active: bool
+    clientId: str
+    userId: str
+    tokenType: str
+    exp: int
+    iat: int
+    nbf: int
+    sub: str
+    aud: str
+    iss: str
+    jti: str
+    accountId: str
+    signinSession: str
+    resource: str
     ResponseMetadata: ResponseMetadataTypeDef
 
 

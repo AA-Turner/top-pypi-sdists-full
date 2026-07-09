@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: echo-agent
-Version: 0.3.2
+Version: 0.3.3
 Summary: A self-hosted, long-running AI agent runtime with memory, skills, plugins, and multi-channel integrations
 Project-URL: Homepage, https://github.com/fuyuxiang/echo-agent
 Project-URL: Repository, https://github.com/fuyuxiang/echo-agent
@@ -43,6 +43,7 @@ Requires-Dist: cryptography>=41.0; extra == 'all'
 Requires-Dist: faiss-cpu>=1.7; extra == 'all'
 Requires-Dist: fal-client>=0.5; extra == 'all'
 Requires-Dist: google-generativeai>=0.8; extra == 'all'
+Requires-Dist: httpx[socks]>=0.23; extra == 'all'
 Requires-Dist: openai>=1.30; extra == 'all'
 Requires-Dist: openpyxl>=3.1; extra == 'all'
 Requires-Dist: playwright>=1.40; extra == 'all'
@@ -56,12 +57,15 @@ Provides-Extra: allproviders
 Requires-Dist: anthropic>=0.40; extra == 'allproviders'
 Requires-Dist: boto3>=1.34; extra == 'allproviders'
 Requires-Dist: google-generativeai>=0.8; extra == 'allproviders'
+Requires-Dist: httpx[socks]>=0.23; extra == 'allproviders'
 Requires-Dist: openai>=1.30; extra == 'allproviders'
 Provides-Extra: anthropic
 Requires-Dist: anthropic>=0.40; extra == 'anthropic'
+Requires-Dist: httpx[socks]>=0.23; extra == 'anthropic'
 Provides-Extra: bedrock
 Requires-Dist: anthropic>=0.40; extra == 'bedrock'
 Requires-Dist: boto3>=1.34; extra == 'bedrock'
+Requires-Dist: httpx[socks]>=0.23; extra == 'bedrock'
 Provides-Extra: browser
 Requires-Dist: playwright>=1.40; extra == 'browser'
 Provides-Extra: container
@@ -81,6 +85,7 @@ Requires-Dist: fal-client>=0.5; extra == 'fal'
 Provides-Extra: gemini
 Requires-Dist: google-generativeai>=0.8; extra == 'gemini'
 Provides-Extra: openai
+Requires-Dist: httpx[socks]>=0.23; extra == 'openai'
 Requires-Dist: openai>=1.30; extra == 'openai'
 Provides-Extra: otel
 Requires-Dist: opentelemetry-api>=1.20; extra == 'otel'

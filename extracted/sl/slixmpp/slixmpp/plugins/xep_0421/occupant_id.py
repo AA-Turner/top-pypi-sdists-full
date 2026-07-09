@@ -33,5 +33,5 @@ class XEP_0421(BasePlugin):
         :param jid: JID of the remote entity.
         :returns: ``True`` if the server supports occupant-id.
         """
-        info = await self.xmpp['xep_0030'].get_info(jid, **discokwargs)
+        info = await self.xmpp.plugin['xep_0030'].get_info(jid, **discokwargs)
         return self.namespace in info.get_features()

@@ -38,6 +38,7 @@ import datetime
 import enum
 import logging
 import re
+import zoneinfo
 from dataclasses import dataclass
 from typing import Annotated, Any, Literal, Optional, Union
 
@@ -49,6 +50,7 @@ from pydantic import (
     Field,
     GetCoreSchemaHandler,
     field_serializer,
+    field_validator,
 )
 from pydantic_core import CoreSchema, core_schema
 
@@ -93,6 +95,15 @@ class WeekdayValue:
     month, or -1 represents the last Monday of the month.
     """
 
+    def __post_init__(self) -> None:
+        """Validate properties."""
+        if self.occurrence is not None and (
+            self.occurrence < -53 or self.occurrence > 53 or self.occurrence == 0
+        ):
+            raise ValueError(
+                f"Weekday occurrence must be between -53 and 53 (excluding 0): {self.occurrence}"
+            )
+
     def __str__(self) -> str:
         """Return the WeekdayValue as an encoded string."""
         return f"{self.occurrence or ''}{self.weekday}"
@@ -106,9 +117,7 @@ class WeekdayValue:
 
 
 class Frequency(str, enum.Enum):
-    """Type of recurrence rule.
-    Frequencies SECONDLY, MINUTELY, HOURLY, YEARLY are not supported.
-    """
+    """Type of recurrence rule."""
 
     DAILY = "DAILY"
     """Repeating events based on an interval of a day or more."""
@@ -121,6 +130,15 @@ class Frequency(str, enum.Enum):
 
     YEARLY = "YEARLY"
     """Repeating events based on an interval of a year or more."""
+
+    HOURLY = "HOURLY"
+    """Repeating events based on an interval of an hour or more."""
+
+    MINUTELY = "MINUTELY"
+    """Repeating events based on an interval of a minute or more."""
+
+    SECONDLY = "SECONDLY"
+    """Repeating events based on an interval of a second or more."""
 
 
 class Range(str, enum.Enum):
@@ -146,11 +164,47 @@ class RecurrenceId(str):
 
     The full range of a recurrence set is referenced by the "UID". The
     recurrence id can reference a specific instance within the set.
+
+    The string value of a RecurrenceId is always the plain date/datetime string
+    (e.g. ``"20250511T020000"``), keeping full backwards compatibility with code
+    that compares or serialises the value as a plain string.  Additional RFC 5545
+    property parameters are exposed through the :attr:`tzinfo` and :attr:`range`
+    attributes.
     """
+
+    tzinfo: datetime.tzinfo | None
+    """Timezone parsed from the TZID property parameter, or None."""
+
+    range: Range
+    """Effective range parsed from the RANGE property parameter."""
+
+    def __new__(
+        cls,
+        value: str,
+        tzinfo: datetime.tzinfo | None = None,
+        range: Range = Range.NONE,
+    ) -> "RecurrenceId":
+        """Create a new RecurrenceId, optionally attaching TZID/RANGE metadata."""
+        obj = super().__new__(cls, value)
+        obj.tzinfo = tzinfo
+        obj.range = range
+        return obj
 
     @classmethod
     def to_value(cls, recurrence_id: str) -> datetime.datetime | datetime.date:
-        """Convert a string RecurrenceId into a date or time value."""
+        """Convert a string RecurrenceId into a date or time value.
+
+        Accepts three formats:
+
+        - Plain date: '20250511'
+        - Plain datetime (naive or UTC): '20250511T020000' or '20250511T020000Z'
+        - Inline TZID parameter: 'TZID=America/New_York:20250511T020000'
+        """
+        # Handle the inline "TZID=tz:DATETIME" format by re-parsing via ParsedProperty
+        if "=" in recurrence_id.split(":")[0]:
+            prop = ParsedProperty.from_ics(f"RECURRENCE-ID;{recurrence_id}")
+            return DateTimeEncoder.__parse_property_value__(prop)
+
         errors = []
         try:
             date_value = DateEncoder.__parse_property_value__(
@@ -173,27 +227,58 @@ class RecurrenceId(str):
         raise ValueError(f"Unable to parse date/time value: {errors}")
 
     @classmethod
-    def __parse_property_value__(cls, value: Any) -> RecurrenceId:
-        """Parse a calendar user address."""
-        if isinstance(value, ParsedProperty):
-            value = cls._parse_value(value.value)
-        if isinstance(value, str):
-            value = cls._parse_value(value)
-        if isinstance(value, datetime.datetime):
-            value = DateTimeEncoder.__encode_property_json__(value)
-        elif isinstance(value, datetime.date):
-            value = DateEncoder.__encode_property_json__(value)
-        else:
-            value = str(value)
-        return RecurrenceId(value)
+    def __parse_property_value__(cls, value: Any) -> "RecurrenceId":
+        """Parse a recurrence-id property value, preserving TZID and RANGE params."""
+        # When Pydantic's before-validator runs after ComponentModel._parse_component
+        # has already invoked this method directly (via DATA_TYPE.parse_field), the
+        # value will already be a fully-populated RecurrenceId.  Pass it through
+        # unchanged so that tzinfo/range metadata is not lost.
+        if isinstance(value, RecurrenceId):
+            return value
 
-    @classmethod
-    def _parse_value(cls, value: str) -> datetime.datetime | datetime.date | str:
-        try:
-            return cls.to_value(value)
-        except ValueError:
-            pass
-        return str(value)
+        # Handle datetime/date objects directly (e.g. from recur_adapter._recurrence_id_for).
+        # Convert to the canonical ICS string first; datetime must be checked before date
+        # since datetime is a subclass of date.
+        if isinstance(value, datetime.datetime):
+            encoded = DateTimeEncoder.__encode_property_json__(value)
+            raw_str = (
+                encoded.get("VALUE", value.strftime("%Y%m%dT%H%M%S"))
+                if isinstance(encoded, dict)
+                else encoded
+            )
+        elif isinstance(value, datetime.date):
+            raw_str = DateEncoder.__encode_property_json__(value)
+        elif isinstance(value, ParsedProperty):
+            raw_str = value.value
+        else:
+            raw_str = str(value)
+
+        tzinfo: datetime.tzinfo | None = None
+        range_val: Range = Range.NONE
+
+        if isinstance(value, ParsedProperty):
+            # Extract TZID and RANGE from property parameters before discarding them.
+            for param in value.params or []:
+                if param.name.upper() == "TZID" and param.values:
+                    raw_tz = param.values[0]
+                    if isinstance(raw_tz, datetime.tzinfo):
+                        tzinfo = raw_tz
+                    else:
+                        try:
+                            tzinfo = zoneinfo.ZoneInfo(str(raw_tz))
+                        except (zoneinfo.ZoneInfoNotFoundError, ValueError):
+                            _LOGGER.warning(
+                                "RecurrenceId: unrecognised TZID '%s', ignoring", raw_tz
+                            )
+                elif param.name.upper() == "RANGE" and param.values:
+                    if any(str(v).upper() == "THISANDFUTURE" for v in param.values):
+                        range_val = Range.THIS_AND_FUTURE
+
+        # The string value is always the plain ICS datetime without TZID
+        # (e.g. "20250511T020000") for backward compatibility.  The timezone
+        # is accessible via the .tzinfo attribute.  Unparsable values are
+        # stored as-is.
+        return RecurrenceId(raw_str, tzinfo=tzinfo, range=range_val)
 
     @classmethod
     def __get_pydantic_core_schema__(
@@ -204,7 +289,10 @@ class RecurrenceId(str):
         )
 
 
-RRULE_FREQ: dict[Frequency, Literal[0, 1, 2, 3]] = {
+RRULE_FREQ: dict[Frequency, Literal[0, 1, 2, 3, 4, 5, 6]] = {
+    Frequency.SECONDLY: rrule.SECONDLY,
+    Frequency.MINUTELY: rrule.MINUTELY,
+    Frequency.HOURLY: rrule.HOURLY,
     Frequency.DAILY: rrule.DAILY,
     Frequency.WEEKLY: rrule.WEEKLY,
     Frequency.MONTHLY: rrule.MONTHLY,
@@ -268,6 +356,66 @@ class Recur(BaseModel):
     wkst: Optional[Weekday] = None
     """The day on which the workweek starts."""
 
+    @field_validator("interval")
+    @classmethod
+    def validate_interval(cls, value: int) -> int:
+        """Validate interval is positive."""
+        if value < 1:
+            raise ValueError(f"Interval must be a positive integer: {value}")
+        return value
+
+    @field_validator("count")
+    @classmethod
+    def validate_count(cls, value: Optional[int]) -> Optional[int]:
+        """Validate count is positive."""
+        if value is not None and value < 1:
+            raise ValueError(f"Count must be a positive integer: {value}")
+        return value
+
+    @field_validator("by_month")
+    @classmethod
+    def validate_by_month(cls, values: list[int]) -> list[int]:
+        """Validate bymonth is between 1 and 12."""
+        for val in values:
+            if val < 1 or val > 12:
+                raise ValueError(f"Month must be between 1 and 12: {val}")
+        return values
+
+    @field_validator("by_month_day")
+    @classmethod
+    def validate_by_month_day(cls, values: list[int]) -> list[int]:
+        """Validate bymonthday is between -31 and 31 (excluding 0)."""
+        for val in values:
+            if val < -31 or val > 31 or val == 0:
+                raise ValueError(
+                    f"Month day must be between -31 and 31 (excluding 0): {val}"
+                )
+        return values
+
+    @field_validator("by_setpos")
+    @classmethod
+    def validate_by_setpos(cls, values: list[int]) -> list[int]:
+        """Validate bysetpos is between -366 and 366 (excluding 0)."""
+        for val in values:
+            if val < -366 or val > 366 or val == 0:
+                raise ValueError(
+                    f"Setpos must be between -366 and 366 (excluding 0): {val}"
+                )
+        return values
+
+    @field_validator("by_weekday")
+    @classmethod
+    def validate_by_weekday(cls, values: list[WeekdayValue]) -> list[WeekdayValue]:
+        """Validate byday occurrence is between -53 and 53 (excluding 0)."""
+        for val in values:
+            if val.occurrence is not None and (
+                val.occurrence < -53 or val.occurrence > 53 or val.occurrence == 0
+            ):
+                raise ValueError(
+                    f"Weekday occurrence must be between -53 and 53 (excluding 0): {val.occurrence}"
+                )
+        return values
+
     def as_rrule(self, dtstart: datetime.datetime | datetime.date) -> rrule.rrule:
         """Create a dateutil rrule for the specified event."""
         if (freq := RRULE_FREQ.get(self.freq)) is None:
@@ -306,7 +454,9 @@ class Recur(BaseModel):
         """Create a Recur object from an RRULE string."""
         return Recur.model_validate(cls.__parse_property_value__(rrule_str))
 
-    model_config = ConfigDict(validate_assignment=True, populate_by_name=True)
+    model_config = ConfigDict(
+        validate_assignment=True, populate_by_name=True, extra="allow"
+    )
     serialize_fields = field_serializer("*")(serialize_field)  # type: ignore[pydantic-field]
 
     @classmethod

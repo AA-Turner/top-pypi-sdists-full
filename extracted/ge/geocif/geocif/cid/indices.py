@@ -319,6 +319,36 @@ _INDEX_MIN_DAYS = {
 }
 
 
+def _reindex_daily_continuous(df: pd.DataFrame) -> pd.DataFrame:
+    """Fill missing daily dates (per lat/lon) with NaN precip so icclim SPI
+    can infer a uniform timestep. The season-1 merged CSVs drop out-of-season
+    days, giving ~1-month yearly gaps that icclim.SPI rejects with "source
+    timestep can't be inferred from the data". Reindexing to a continuous
+    daily calendar with NaN-fill preserves the original in-season signal
+    while satisfying icclim's uniform-frequency requirement.
+    """
+    if df.empty or "time" not in df.columns:
+        return df
+    df = df.copy()
+    df["time"] = pd.to_datetime(df["time"])
+
+    def _fill_one_cell(sub: pd.DataFrame) -> pd.DataFrame:
+        sub = sub.drop_duplicates(subset=["time"]).sort_values("time")
+        full_dates = pd.date_range(sub["time"].min(), sub["time"].max(), freq="D")
+        sub = sub.set_index("time").reindex(full_dates)
+        # Restore constant columns that reindex NaN-ed (lat, lon)
+        for col in ("lat", "lon", "adm0_name", "adm1_name"):
+            if col in sub.columns:
+                sub[col] = sub[col].bfill().ffill()
+        sub.index.name = "time"
+        return sub.reset_index()
+
+    if {"lat", "lon"}.issubset(df.columns):
+        parts = [_fill_one_cell(g) for _, g in df.groupby(["lat", "lon"], dropna=False)]
+        return pd.concat(parts, ignore_index=True)
+    return _fill_one_cell(df)
+
+
 def compute_indices(
     df_time_period: pd.DataFrame,
     df_base_period: pd.DataFrame,
@@ -361,6 +391,16 @@ def compute_indices(
         if n_days < min_days:
             return None
 
+    # icclim SPI needs a uniform daily timestep to compute its missing-values
+    # mask. The season-1 merged CSV drops non-growing-season days, leaving
+    # ~1-month gaps per year. Reindex df_base_period (which for SPI is the
+    # full multi-year df_group per process_group) to a continuous daily
+    # calendar, filling missing days' pr with NaN. Non-SPI indices skip
+    # this — their season/stage-restricted flow doesn't need continuous
+    # time and the reindex would add spurious NaN rows to their windows.
+    if index_name in _ICCLIM_BYPASS_CACHE:
+        df_base_period = _reindex_daily_continuous(df_base_period)
+
     dx, vals_ix = df_to_xarray(df_base_period)
     start_br, end_br, start_tr, end_tr = get_icclim_dates(vals_ix, df_time_period.set_index(["lat", "lon", "time"]))
 
@@ -386,8 +426,29 @@ def compute_indices(
     # SPI rejects slice_mode entirely and returns monthly output. Every other
     # index gets the ("season", ...) tuple so cross-year harvest windows
     # aggregate into one row per harvest year natively.
+    orig_start_tr, orig_end_tr = start_tr, end_tr
     if index_name not in _ICCLIM_BYPASS_CACHE:
         kwargs["slice_mode"] = ("season", (season_start, season_end))
+    else:
+        # icclim SPI fits a gamma distribution over the full time_range
+        # window and only produces valid values when it has enough data
+        # points (empirically >=~2 years). A stage-restricted time_range
+        # (Feb-Apr = 3 months) produces all-NaN even with a valid
+        # base_period_time_range — the fit collapses on the narrow slice.
+        # icclim also rejects slice_mode=... entirely for SPI3/SPI6, so we
+        # can't ask it for monthly aggregation directly.
+        #
+        # Fix: hand icclim the FULL in_files time span as time_range so its
+        # internal fit has plenty of data. Then trim the returned monthly
+        # SPI series back to the original stage window (Python-side .sel)
+        # before returning. process_row aggregates those monthly values to
+        # the stage-level mean.
+        idx0 = vals_ix.index[0][2]
+        idx_last = vals_ix.index[-1][2]
+        kwargs["time_range"] = [
+            pd.Timestamp(idx0).strftime("%Y-%m-%d"),
+            pd.Timestamp(idx_last).strftime("%Y-%m-%d"),
+        ]
 
     try:
         ds = icclim.index(**kwargs)
@@ -395,6 +456,18 @@ def compute_indices(
         logger.error(
             f"Error computing {index_name} for {start_tr} to {end_tr}: {e}"
         )
+        return None
+
+    # Trim the internal extension so only the target stage window's monthly
+    # SPI values reach process_row. process_row then aggregates these to a
+    # single stage-level CID (mean).
+    if index_name in _ICCLIM_BYPASS_CACHE and ds is not None:
+        try:
+            ds = ds.sel(time=slice(str(orig_start_tr), str(orig_end_tr)))
+        except (KeyError, ValueError) as e:
+            logger.warning(
+                f"Could not trim {index_name} output to {orig_start_tr}..{orig_end_tr}: {e}"
+            )
 
     return ds
 
@@ -587,6 +660,32 @@ class CIDs:
             "monthly", "monthly_r"
         ]:
             df = self.add_season_information(df)
+
+        # ENSO teleconnection scalars: one value per calendar year, broadcast
+        # to every row of that year (all regions, all DOYs). Network fetch is
+        # cached under self.dir_base / "enso" with 7-day TTL, so the same
+        # request across (file, harvest_year, region) tasks in one run hits
+        # local disk. Fetch failure (no network on cluster) is non-fatal:
+        # ENSO columns simply won't appear and compute_eo_indices will skip
+        # the ENSO branch.
+        try:
+            from . import enso
+            enso_years = df["Season"].dropna().astype(int).unique() \
+                if "Season" in df.columns else df["year"].dropna().astype(int).unique()
+            enso_frame = enso.get_enso_frame(
+                dir_cache=self.dir_base / "enso",
+                years=sorted(int(y) for y in enso_years),
+            )
+            # Join on calendar year, not Season, so pre-season rows get the
+            # correct prev-year values (harvest year Y always uses Y-1 for
+            # ONI_prev_* regardless of which DOY row we're on).
+            key_col = "Season" if "Season" in df.columns else "year"
+            df = df.merge(
+                enso_frame.reset_index().rename(columns={"year": key_col}),
+                on=key_col, how="left",
+            )
+        except Exception as e:
+            logger.warning(f"ENSO ingestion skipped: {type(e).__name__}: {e}")
 
         return df
 
@@ -1251,6 +1350,8 @@ class CIDs:
                 eo_vars.append("FLDAS")
             if any(c.startswith("s2s_") for c in df_group.columns):
                 eo_vars.append("S2S")
+            if any(c.startswith(("ONI_", "MEI_")) for c in df_group.columns):
+                eo_vars.append("ENSO")
             for eo_var in eo_vars:
                 df_eo = self.compute_eo_indices(
                     df_time_period,
@@ -1309,14 +1410,20 @@ class CIDs:
         # Rolling-window indices (SPI3/SPI6) emit one row per month within the
         # requested time_range. For a multi-month stage window that's multiple
         # rows — the iloc[[0]] below would silently keep only the first month
-        # and drop the rest. Aggregate to the mean over the stage's monthly
-        # values first so the downstream one-row-per-index contract holds and
-        # the CID summarises overall rolling-deficit severity in the window.
-        # (Mean chosen over MIN so a single anomalous month doesn't dominate;
-        # feature selection can still pick this up as strongly negative when
-        # every month in the window was dry.)
+        # and drop the rest. Aggregate to a single stage-level value.
+        #
+        # MIN (most negative SPI = worst drought month) chosen over MEAN
+        # because empirically the MEAN aggregation dilutes the drought signal:
+        # in Brazil 2016 DF the strongest SPI6 values were in specific months
+        # of the growing window (-2.7 in Mar) while others were milder (-1.4
+        # in Jan) — the mean (~-1.5) is a weaker signal than the min (-2.7).
+        # Feature-selection also biases toward features with sharp per-year
+        # extremes, so MIN gives gOMP a stronger discriminator to pick up.
+        # Yield_outlook SPI-mean run (0.4.829): tabpfn on all-years maize
+        # 16.44 → 17.08 MAPE, cubist 16.82 → 17.65 — both regressions vs
+        # pre-SPI. Switching to MIN.
         if index_name in _ICCLIM_BYPASS_CACHE and len(df) > 1 and index_name in df.columns:
-            agg_val = df[index_name].mean(skipna=True)
+            agg_val = df[index_name].min(skipna=True)
             df = df.iloc[[0]].copy()
             df[index_name] = agg_val
 
@@ -1391,11 +1498,24 @@ class CIDs:
             dict_eo = di.dict_fldas
         elif var == "S2S":
             dict_eo = di.dict_s2s
+        elif var == "ENSO":
+            dict_eo = di.dict_enso
         else:
             return pd.DataFrame()  # unknown var
 
         # Each dict is: "NDVI_MEAN" -> ("EO", "NDVI mean over period"), etc.
         for iname, (itype, idesc) in dict_eo.items():
+            # ENSO features are static per (region, harvest year) -- the
+            # scalar value is identical across every stage window. Emit
+            # each ENSO CID exactly once per (region, year) so the wide-
+            # format pivot produces one column per CID instead of one per
+            # (CID, stage-window) tuple, all carrying the same value.
+            # Reuses the FLDAS dedup set with an "__enso__" sentinel.
+            if var == "ENSO" and emitted_fldas_inits is not None:
+                enso_key = ("__enso__", iname)
+                if enso_key in emitted_fldas_inits:
+                    continue
+                emitted_fldas_inits.add(enso_key)
             # Map index name to actual column in df_time_period
             if iname.startswith("AEF_"):
                 col_name = iname.lower()  # AEF_1 → aef_1
@@ -1403,6 +1523,10 @@ class CIDs:
                 col_name = di.fldas_col_map[iname]
             elif iname in di.s2s_col_map:
                 col_name = di.s2s_col_map[iname]
+            elif iname in di.enso_col_map:
+                # ENSO columns are pre-joined by year in preprocess_input_df.
+                # Name matches raw column exactly (ONI_prev_JJA etc.).
+                col_name = di.enso_col_map[iname]
             elif "NDVI" in iname.upper():
                 col_name = "ndvi"
             elif "ESI4WK" in iname.upper():
@@ -1543,6 +1667,10 @@ class CIDs:
             # AEF bands are static per region (no temporal variation),
             # so default to MEAN which returns the constant value.
             if aggregator is None and iname.startswith("AEF_"):
+                aggregator = "MEAN"
+            # ENSO scalars are constant across every row of a harvest year;
+            # MEAN of the constant returns the scalar cleanly.
+            if aggregator is None and (iname.startswith("ONI_") or iname.startswith("MEI_")):
                 aggregator = "MEAN"
 
             if aggregator:

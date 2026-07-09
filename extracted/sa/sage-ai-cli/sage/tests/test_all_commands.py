@@ -30,8 +30,8 @@ _runner = CliRunner()
 # ── Command inventories ────────────────────────────────────────────
 
 _TOP_LEVEL = (
-    "run", "chat", "ask",
-    "list", "models", "install", "update",
+    "run", "ask",
+    "models", "install", "update",
     "sync", "sync-catalog", "pull",
     "train-all", "train", "use", "rm",
     "login", "logout", "whoami", "fix-llama-cpp",
@@ -204,7 +204,7 @@ def test_ext_bootstrap_runs_with_all_no_flags(tmp_path, monkeypatch):
     assert result.exit_code == 0
 
 
-# ── Slash command branch presence (static check on main.py) ───────
+# ── Slash command branch presence (static check on repl.py) ───────
 
 _SLASH_COMMANDS = (
     "/exit", "/quit", "/q",
@@ -219,9 +219,9 @@ _SLASH_COMMANDS = (
 
 def test_every_slash_command_has_dispatcher_branch():
     """Each slash command listed in chat must have a `command == "/X"`
-    branch in main.py's dispatcher. This is a regression guard against
+    branch in repl.py or cli_core.py's dispatcher. This is a regression guard against
     handlers being silently deleted."""
-    src = Path("sage/main.py").read_text("utf-8", errors="replace")
+    src = Path("sage/core/repl.py").read_text("utf-8", errors="replace") + Path("sage/cli_core.py").read_text("utf-8", errors="replace")
     failures = []
     for slash in _SLASH_COMMANDS:
         if f'"{slash}"' not in src and f"'{slash}'" not in src:

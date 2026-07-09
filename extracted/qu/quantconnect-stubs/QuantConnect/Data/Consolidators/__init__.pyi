@@ -8,6 +8,7 @@ import QuantConnect
 import QuantConnect.Data
 import QuantConnect.Data.Consolidators
 import QuantConnect.Data.Market
+import QuantConnect.Indicators
 import QuantConnect.Python
 import QuantConnect.Securities
 import System
@@ -1063,6 +1064,170 @@ class ClassicRangeConsolidator(QuantConnect.Data.Consolidators.RangeConsolidator
         ...
 
 
+class IDataConsolidator(System.IDisposable, metaclass=abc.ABCMeta):
+    """
+    Represents a type capable of taking BaseData updates and firing events containing new
+    'consolidated' data. These types can be used to produce larger bars, or even be used to
+    transform the data before being sent to another component. The most common usage of these
+    types is with indicators.
+    """
+
+    @property
+    @abc.abstractmethod
+    def consolidated(self) -> QuantConnect.Data.IBaseData:
+        """
+        Gets the most recently consolidated piece of data. This will be null if this consolidator
+        has not produced any data yet.
+        """
+        ...
+
+    @property
+    @abc.abstractmethod
+    def working_data(self) -> QuantConnect.Data.IBaseData:
+        """Gets a clone of the data being currently consolidated"""
+        ...
+
+    @property
+    @abc.abstractmethod
+    def input_type(self) -> typing.Type:
+        """Gets the type consumed by this consolidator"""
+        ...
+
+    @property
+    @abc.abstractmethod
+    def output_type(self) -> typing.Type:
+        """Gets the type produced by this consolidator"""
+        ...
+
+    @property
+    @abc.abstractmethod
+    def data_consolidated(self) -> _EventContainer[typing.Callable[[System.Object, QuantConnect.Data.IBaseData], typing.Any], typing.Any]:
+        """Event handler that fires when a new piece of data is produced"""
+        ...
+
+    @data_consolidated.setter
+    def data_consolidated(self, value: _EventContainer[typing.Callable[[System.Object, QuantConnect.Data.IBaseData], typing.Any], typing.Any]) -> None:
+        ...
+
+    def reset(self) -> None:
+        """Resets the consolidator"""
+        ...
+
+    def scan(self, current_local_time: typing.Union[datetime.datetime, datetime.date]) -> None:
+        """
+        Scans this consolidator to see if it should emit a bar due to time passing
+        
+        :param current_local_time: The current time in the local time zone (same as BaseData.time)
+        """
+        ...
+
+    def update(self, data: QuantConnect.Data.IBaseData) -> None:
+        """
+        Updates this consolidator with the specified data
+        
+        :param data: The new data for the consolidator
+        """
+        ...
+
+
+class ConsolidatorBase(QuantConnect.Indicators.WindowBase[QuantConnect.Data.IBaseData], QuantConnect.Data.Consolidators.IDataConsolidator, metaclass=abc.ABCMeta):
+    """
+    Provides a base implementation for consolidators, including a built-in rolling window
+    that stores the history of consolidated bars.
+    """
+
+    @property
+    def consolidated(self) -> QuantConnect.Data.IBaseData:
+        """
+        Gets the most recently consolidated piece of data. This will be null if this consolidator
+        has not produced any data yet.
+        """
+        ...
+
+    @consolidated.setter
+    def consolidated(self, value: QuantConnect.Data.IBaseData) -> None:
+        ...
+
+    @property
+    @abc.abstractmethod
+    def working_data(self) -> QuantConnect.Data.IBaseData:
+        """Gets a clone of the data being currently consolidated"""
+        ...
+
+    @property
+    @abc.abstractmethod
+    def input_type(self) -> typing.Type:
+        """Gets the type consumed by this consolidator"""
+        ...
+
+    @property
+    @abc.abstractmethod
+    def output_type(self) -> typing.Type:
+        """Gets the type produced by this consolidator"""
+        ...
+
+    @property
+    def data_consolidated(self) -> _EventContainer[typing.Callable[[System.Object, QuantConnect.Data.IBaseData], typing.Any], typing.Any]:
+        """
+        Event handler that fires when a new piece of data is produced. This is the single subscription
+        point, shared by the IDataConsolidator interface and by derived consolidators whose
+        output is a base data bar, so subscribing and unsubscribing always target the same handler list.
+        """
+        ...
+
+    @data_consolidated.setter
+    def data_consolidated(self, value: _EventContainer[typing.Callable[[System.Object, QuantConnect.Data.IBaseData], typing.Any], typing.Any]) -> None:
+        ...
+
+    def dispose(self) -> None:
+        """Performs application-defined tasks associated with freeing, releasing, or resetting unmanaged resources."""
+        ...
+
+    def fire_data_consolidated(self, consolidated: QuantConnect.Data.IBaseData) -> None:
+        """
+        Raises the strongly typed DataConsolidated event exposed by derived consolidators that produce a
+        more specific bar type. Invoked after the rolling window is populated and before the shared event
+        so every handler sees the same window. Consolidators whose output is a base data bar do not need
+        to override this, the shared data_consolidated event already carries their bar.
+        
+        
+        This Class is protected.
+        
+        :param consolidated: The newly consolidated data
+        """
+        ...
+
+    def on_data_consolidated(self, consolidated: QuantConnect.Data.IBaseData) -> None:
+        """
+        Event invocator for the DataConsolidated event. Populates the rolling window, raises the
+        strongly typed and interface events, and finally updates the consolidated property.
+        
+        
+        This Class is protected.
+        """
+        ...
+
+    def reset(self) -> None:
+        """Resets this consolidator, clearing consolidated data and the rolling window."""
+        ...
+
+    def scan(self, current_local_time: typing.Union[datetime.datetime, datetime.date]) -> None:
+        """
+        Scans this consolidator to see if it should emit a bar due to time passing
+        
+        :param current_local_time: The current time in the local time zone (same as BaseData.time)
+        """
+        ...
+
+    def update(self, data: QuantConnect.Data.IBaseData) -> None:
+        """
+        Updates this consolidator with the specified data
+        
+        :param data: The new data for the consolidator
+        """
+        ...
+
+
 class IdentityDataConsolidator(typing.Generic[QuantConnect_Data_Consolidators_IdentityDataConsolidator_T], QuantConnect.Data.Consolidators.DataConsolidator[QuantConnect_Data_Consolidators_IdentityDataConsolidator_T]):
     """
     Represents the simplest DataConsolidator implementation, one that is defined
@@ -1175,73 +1340,7 @@ class TradeBarConsolidatorBase(typing.Generic[QuantConnect_Data_Consolidators_Tr
         ...
 
 
-class IDataConsolidator(System.IDisposable, metaclass=abc.ABCMeta):
-    """
-    Represents a type capable of taking BaseData updates and firing events containing new
-    'consolidated' data. These types can be used to produce larger bars, or even be used to
-    transform the data before being sent to another component. The most common usage of these
-    types is with indicators.
-    """
-
-    @property
-    @abc.abstractmethod
-    def consolidated(self) -> QuantConnect.Data.IBaseData:
-        """
-        Gets the most recently consolidated piece of data. This will be null if this consolidator
-        has not produced any data yet.
-        """
-        ...
-
-    @property
-    @abc.abstractmethod
-    def working_data(self) -> QuantConnect.Data.IBaseData:
-        """Gets a clone of the data being currently consolidated"""
-        ...
-
-    @property
-    @abc.abstractmethod
-    def input_type(self) -> typing.Type:
-        """Gets the type consumed by this consolidator"""
-        ...
-
-    @property
-    @abc.abstractmethod
-    def output_type(self) -> typing.Type:
-        """Gets the type produced by this consolidator"""
-        ...
-
-    @property
-    @abc.abstractmethod
-    def data_consolidated(self) -> _EventContainer[typing.Callable[[System.Object, QuantConnect.Data.IBaseData], typing.Any], typing.Any]:
-        """Event handler that fires when a new piece of data is produced"""
-        ...
-
-    @data_consolidated.setter
-    def data_consolidated(self, value: _EventContainer[typing.Callable[[System.Object, QuantConnect.Data.IBaseData], typing.Any], typing.Any]) -> None:
-        ...
-
-    def reset(self) -> None:
-        """Resets the consolidator"""
-        ...
-
-    def scan(self, current_local_time: typing.Union[datetime.datetime, datetime.date]) -> None:
-        """
-        Scans this consolidator to see if it should emit a bar due to time passing
-        
-        :param current_local_time: The current time in the local time zone (same as BaseData.time)
-        """
-        ...
-
-    def update(self, data: QuantConnect.Data.IBaseData) -> None:
-        """
-        Updates this consolidator with the specified data
-        
-        :param data: The new data for the consolidator
-        """
-        ...
-
-
-class MarketHourAwareConsolidator(System.Object, QuantConnect.Data.Consolidators.IDataConsolidator):
+class MarketHourAwareConsolidator(QuantConnect.Data.Consolidators.ConsolidatorBase):
     """Consolidator for open markets bar only, extended hours bar are not consolidated."""
 
     @property
@@ -1293,14 +1392,6 @@ class MarketHourAwareConsolidator(System.Object, QuantConnect.Data.Consolidators
         ...
 
     @property
-    def consolidated(self) -> QuantConnect.Data.IBaseData:
-        """
-        Gets the most recently consolidated piece of data. This will be null if this consolidator
-        has not produced any data yet.
-        """
-        ...
-
-    @property
     def input_type(self) -> typing.Type:
         """Gets the type consumed by this consolidator"""
         ...
@@ -1313,15 +1404,6 @@ class MarketHourAwareConsolidator(System.Object, QuantConnect.Data.Consolidators
     @property
     def output_type(self) -> typing.Type:
         """Gets the type produced by this consolidator"""
-        ...
-
-    @property
-    def data_consolidated(self) -> _EventContainer[typing.Callable[[System.Object, QuantConnect.Data.IBaseData], typing.Any], typing.Any]:
-        """Event handler that fires when a new piece of data is produced"""
-        ...
-
-    @data_consolidated.setter
-    def data_consolidated(self, value: _EventContainer[typing.Callable[[System.Object, QuantConnect.Data.IBaseData], typing.Any], typing.Any]) -> None:
         ...
 
     @overload
@@ -1385,7 +1467,8 @@ class MarketHourAwareConsolidator(System.Object, QuantConnect.Data.Consolidators
 
     def forward_consolidated_bar(self, sender: typing.Any, consolidated: QuantConnect.Data.IBaseData) -> None:
         """
-        Will forward the underlying consolidated bar to consumers on this object
+        Will forward the underlying consolidated bar to consumers on this object.
+        This wrapper keeps its own rolling window in addition to the inner consolidator's window.
         
         
         This Class is protected.
@@ -1441,32 +1524,11 @@ class MarketHourAwareConsolidator(System.Object, QuantConnect.Data.Consolidators
         ...
 
 
-class DataConsolidator(typing.Generic[QuantConnect_Data_Consolidators_DataConsolidator_TInput], System.Object, QuantConnect.Data.Consolidators.IDataConsolidator, metaclass=abc.ABCMeta):
+class DataConsolidator(typing.Generic[QuantConnect_Data_Consolidators_DataConsolidator_TInput], QuantConnect.Data.Consolidators.ConsolidatorBase, metaclass=abc.ABCMeta):
     """
     Represents a type that consumes BaseData instances and fires an event with consolidated
     and/or aggregated data.
     """
-
-    @property
-    def data_consolidated(self) -> _EventContainer[typing.Callable[[System.Object, QuantConnect.Data.IBaseData], typing.Any], typing.Any]:
-        """Event handler that fires when a new piece of data is produced"""
-        ...
-
-    @data_consolidated.setter
-    def data_consolidated(self, value: _EventContainer[typing.Callable[[System.Object, QuantConnect.Data.IBaseData], typing.Any], typing.Any]) -> None:
-        ...
-
-    @property
-    def consolidated(self) -> QuantConnect.Data.IBaseData:
-        """
-        Gets the most recently consolidated piece of data. This will be null if this consolidator
-        has not produced any data yet.
-        """
-        ...
-
-    @consolidated.setter
-    def consolidated(self, value: QuantConnect.Data.IBaseData) -> None:
-        ...
 
     @property
     @abc.abstractmethod
@@ -1483,26 +1545,6 @@ class DataConsolidator(typing.Generic[QuantConnect_Data_Consolidators_DataConsol
     @abc.abstractmethod
     def output_type(self) -> typing.Type:
         """Gets the type produced by this consolidator"""
-        ...
-
-    def dispose(self) -> None:
-        """Performs application-defined tasks associated with freeing, releasing, or resetting unmanaged resources."""
-        ...
-
-    def on_data_consolidated(self, consolidated: QuantConnect.Data.IBaseData) -> None:
-        """
-        Event invocator for the DataConsolidated event. This should be invoked
-        by derived classes when they have consolidated a new piece of data.
-        
-        
-        This Class is protected.
-        
-        :param consolidated: The newly consolidated data
-        """
-        ...
-
-    def reset(self) -> None:
-        """Resets the consolidator"""
         ...
 
     def scan(self, current_local_time: typing.Union[datetime.datetime, datetime.date]) -> None:
@@ -1626,7 +1668,7 @@ class VolumeRenkoConsolidator(QuantConnect.Data.Consolidators.DataConsolidator[Q
         ...
 
 
-class SequentialConsolidator(System.Object, QuantConnect.Data.Consolidators.IDataConsolidator):
+class SequentialConsolidator(QuantConnect.Data.Consolidators.ConsolidatorBase):
     """
     This consolidator wires up the events on its First and Second consolidators
     such that data flows from the First to Second consolidator. It's output comes
@@ -1647,16 +1689,6 @@ class SequentialConsolidator(System.Object, QuantConnect.Data.Consolidators.IDat
         ...
 
     @property
-    def consolidated(self) -> QuantConnect.Data.IBaseData:
-        """
-        Gets the most recently consolidated piece of data. This will be null if this consolidator
-        has not produced any data yet.
-        
-        For a SequentialConsolidator, this is the output from the 'Second' consolidator.
-        """
-        ...
-
-    @property
     def working_data(self) -> QuantConnect.Data.IBaseData:
         """Gets a clone of the data being currently consolidated"""
         ...
@@ -1671,15 +1703,6 @@ class SequentialConsolidator(System.Object, QuantConnect.Data.Consolidators.IDat
         """Gets the type produced by this consolidator"""
         ...
 
-    @property
-    def data_consolidated(self) -> _EventContainer[typing.Callable[[System.Object, QuantConnect.Data.IBaseData], typing.Any], typing.Any]:
-        """Event handler that fires when a new piece of data is produced"""
-        ...
-
-    @data_consolidated.setter
-    def data_consolidated(self, value: _EventContainer[typing.Callable[[System.Object, QuantConnect.Data.IBaseData], typing.Any], typing.Any]) -> None:
-        ...
-
     def __init__(self, first: typing.Union[QuantConnect.Data.Consolidators.IDataConsolidator, QuantConnect.Python.PythonConsolidator, datetime.timedelta], second: typing.Union[QuantConnect.Data.Consolidators.IDataConsolidator, QuantConnect.Python.PythonConsolidator, datetime.timedelta]) -> None:
         """
         Creates a new consolidator that will pump date through the first, and then the output
@@ -1692,18 +1715,6 @@ class SequentialConsolidator(System.Object, QuantConnect.Data.Consolidators.IDat
 
     def dispose(self) -> None:
         """Performs application-defined tasks associated with freeing, releasing, or resetting unmanaged resources."""
-        ...
-
-    def on_data_consolidated(self, consolidated: QuantConnect.Data.IBaseData) -> None:
-        """
-        Event invocator for the DataConsolidated event. This should be invoked
-        by derived classes when they have consolidated a new piece of data.
-        
-        
-        This Class is protected.
-        
-        :param consolidated: The newly consolidated data
-        """
         ...
 
     def reset(self) -> None:
@@ -1940,16 +1951,8 @@ class RenkoConsolidator(typing.Generic[QuantConnect_Data_Consolidators_RenkoCons
         ...
 
     @property
-    def consolidated(self) -> QuantConnect.Data.IBaseData:
-        """
-        Gets the most recently consolidated piece of data. This will be null if this consolidator
-        has not produced any data yet.
-        """
-        ...
-
-    @property
     def data_consolidated(self) -> _EventContainer[typing.Callable[[System.Object, QuantConnect.Data.Market.RenkoBar], typing.Any], typing.Any]:
-        """Event handler that fires when a new piece of data is produced"""
+        """Typed event handler that fires when a new piece of data is produced"""
         ...
 
     @data_consolidated.setter
@@ -1968,6 +1971,17 @@ class RenkoConsolidator(typing.Generic[QuantConnect_Data_Consolidators_RenkoCons
         """Performs application-defined tasks associated with freeing, releasing, or resetting unmanaged resources."""
         ...
 
+    def fire_data_consolidated(self, consolidated: QuantConnect.Data.IBaseData) -> None:
+        """
+        Raises the strongly typed DataConsolidated event
+        
+        
+        This Class is protected.
+        
+        :param consolidated: The newly consolidated data
+        """
+        ...
+
     @staticmethod
     def get_closest_multiple(price: float, bar_size: float) -> float:
         """
@@ -1976,18 +1990,6 @@ class RenkoConsolidator(typing.Generic[QuantConnect_Data_Consolidators_RenkoCons
         :param price: Price to be rounded to the closest BarSize-Multiple
         :param bar_size: The size of the Renko bar
         :returns: The closest BarSize-Multiple to the price.
-        """
-        ...
-
-    def on_data_consolidated(self, consolidated: QuantConnect.Data.Market.RenkoBar) -> None:
-        """
-        Event invocator for the DataConsolidated event. This should be invoked
-        by derived classes when they have consolidated a new piece of data.
-        
-        
-        This Class is protected.
-        
-        :param consolidated: The newly consolidated data
         """
         ...
 
@@ -2039,7 +2041,7 @@ class WickedRenkoConsolidator(typing.Generic[QuantConnect_Data_Consolidators_Wic
         ...
 
 
-class BaseTimelessConsolidator(typing.Generic[QuantConnect_Data_Consolidators_BaseTimelessConsolidator_T], System.Object, QuantConnect.Data.Consolidators.IDataConsolidator, metaclass=abc.ABCMeta):
+class BaseTimelessConsolidator(typing.Generic[QuantConnect_Data_Consolidators_BaseTimelessConsolidator_T], QuantConnect.Data.Consolidators.ConsolidatorBase, metaclass=abc.ABCMeta):
     """
     Represents a timeless consolidator which depends on the given values. This consolidator
     is meant to consolidate data into bars that do not depend on time, e.g., RangeBar's.
@@ -2075,20 +2077,6 @@ class BaseTimelessConsolidator(typing.Generic[QuantConnect_Data_Consolidators_Ba
         ...
 
     @property
-    def data_consolidated_handler(self) -> typing.Callable[[System.Object, QuantConnect.Data.IBaseData], typing.Any]:
-        """
-        Event handler type for the IDataConsolidator.DataConsolidated event
-        
-        
-        This Property is protected.
-        """
-        ...
-
-    @data_consolidated_handler.setter
-    def data_consolidated_handler(self, value: typing.Callable[[System.Object, QuantConnect.Data.IBaseData], typing.Any]) -> None:
-        ...
-
-    @property
     def current_bar(self) -> QuantConnect_Data_Consolidators_BaseTimelessConsolidator_T:
         """
         Bar being created
@@ -2100,18 +2088,6 @@ class BaseTimelessConsolidator(typing.Generic[QuantConnect_Data_Consolidators_Ba
 
     @current_bar.setter
     def current_bar(self, value: QuantConnect_Data_Consolidators_BaseTimelessConsolidator_T) -> None:
-        ...
-
-    @property
-    def consolidated(self) -> QuantConnect.Data.IBaseData:
-        """
-        Gets the most recently consolidated piece of data. This will be null if this consolidator
-        has not produced any data yet.
-        """
-        ...
-
-    @consolidated.setter
-    def consolidated(self, value: QuantConnect.Data.IBaseData) -> None:
         ...
 
     @property
@@ -2132,7 +2108,7 @@ class BaseTimelessConsolidator(typing.Generic[QuantConnect_Data_Consolidators_Ba
 
     @property
     def data_consolidated(self) -> _EventContainer[typing.Callable[[System.Object, QuantConnect_Data_Consolidators_BaseTimelessConsolidator_T], typing.Any], typing.Any]:
-        """Event handler that fires when a new piece of data is produced"""
+        """Typed event handler that fires when a new piece of data is produced"""
         ...
 
     @data_consolidated.setter
@@ -2186,10 +2162,9 @@ class BaseTimelessConsolidator(typing.Generic[QuantConnect_Data_Consolidators_Ba
         """Performs application-defined tasks associated with freeing, releasing, or resetting unmanaged resources."""
         ...
 
-    def on_data_consolidated(self, consolidated: QuantConnect_Data_Consolidators_BaseTimelessConsolidator_T) -> None:
+    def fire_data_consolidated(self, consolidated: QuantConnect.Data.IBaseData) -> None:
         """
-        Event invocator for the DataConsolidated event. This should be invoked
-        by derived classes when they have consolidated a new piece of data.
+        Raises the strongly typed DataConsolidated event
         
         
         This Class is protected.

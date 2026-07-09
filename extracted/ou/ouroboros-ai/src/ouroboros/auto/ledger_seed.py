@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from pathlib import Path
 import re
 from typing import Any
 from uuid import uuid4
@@ -9,6 +10,8 @@ from uuid import uuid4
 from ouroboros.auto.grading import deterministic_floor
 from ouroboros.auto.ledger import LedgerStatus, SeedDraftLedger
 from ouroboros.core.seed import (
+    BrownfieldContext,
+    ContextReference,
     EvaluationPrinciple,
     ExitCondition,
     OntologyField,
@@ -64,11 +67,38 @@ _PARTIAL_DEFAULT_FAILURE_MODES = (
 _PARTIAL_PLACEHOLDER_FIELD = "(unresolved at deadline; see unresolved_slots)"
 
 
+def brownfield_context_from_cwd(cwd: str | Path | None) -> BrownfieldContext:
+    """Detect brownfield state deterministically from a working directory.
+
+    ``ooo auto`` has no interview-driven brownfield extraction, so a synthesized
+    Seed would otherwise always default to greenfield even when it runs against
+    an existing repository. This mirrors the interview's :func:`detect_brownfield`
+    check and, when it fires, records the cwd as a primary context reference so
+    the run resolves against the real project directory. Best-effort: any failure
+    yields the greenfield default.
+    """
+    if not cwd:
+        return BrownfieldContext()
+    try:
+        from ouroboros.bigbang.explore import detect_brownfield
+
+        root = Path(cwd).expanduser()
+        if not root.is_dir() or not detect_brownfield(root):
+            return BrownfieldContext()
+        return BrownfieldContext(
+            project_type="brownfield",
+            context_references=(ContextReference(path=str(root), role="primary", summary=""),),
+        )
+    except Exception:
+        return BrownfieldContext()
+
+
 def synthesize_seed_from_ledger(
     ledger: SeedDraftLedger,
     *,
     interview_id: str | None = None,
     recovery_reason: str | None = None,
+    brownfield_context: BrownfieldContext | None = None,
 ) -> Seed:
     """Build a valid Seed directly from a complete auto ledger.
 
@@ -88,6 +118,10 @@ def synthesize_seed_from_ledger(
             :data:`DEADLINE_LEDGER_SEED_GENERATION_MODE` so the grade/run gates
             route it to the typed partial-product terminal instead of auto-RUN.
             ``None`` (default) yields the legacy fully-runnable ``"normal"`` Seed.
+        brownfield_context: Deterministic brownfield context detected from the
+            auto session's cwd (see :func:`brownfield_context_from_cwd`). ``None``
+            keeps the greenfield default so the ledger path is unchanged when the
+            session targets a fresh directory.
     """
     if not ledger.is_seed_ready():
         msg = f"cannot synthesize Seed from incomplete ledger: {', '.join(ledger.open_gaps())}"
@@ -105,6 +139,7 @@ def synthesize_seed_from_ledger(
 
     return Seed(
         goal=goal,
+        brownfield_context=brownfield_context or BrownfieldContext(),
         constraints=constraints,
         acceptance_criteria=acceptance_criteria,
         ontology_schema=OntologySchema(
@@ -179,6 +214,7 @@ def _synthesized_metadata_kwargs(
         "seed_id": f"seed_{uuid4().hex[:12]}",
         "ambiguity_score": max(0.05, deterministic_floor(ledger)),
         "interview_id": interview_id,
+        "decision_provenance": ledger.provenance_histogram(),
     }
     if recovery_reason is not None:
         kwargs["generation_mode"] = DEADLINE_LEDGER_SEED_GENERATION_MODE
@@ -366,6 +402,7 @@ def partial_seed_from_evidence(
             degraded=degraded,
             unresolved_slots=unresolved_slots,
             recovery_reason=reason,
+            decision_provenance=ledger.provenance_histogram(),
         ),
     )
 

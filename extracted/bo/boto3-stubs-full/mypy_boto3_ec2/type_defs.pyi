@@ -18980,6 +18980,7 @@ class CreateReplaceRootVolumeTaskRequestTypeDef(TypedDict):
     ImageId: NotRequired[str]
     DeleteReplacedRootVolume: NotRequired[bool]
     VolumeInitializationRate: NotRequired[int]
+    VolumeId: NotRequired[str]
 
 class CreateRestoreImageTaskRequestTypeDef(TypedDict):
     Bucket: str

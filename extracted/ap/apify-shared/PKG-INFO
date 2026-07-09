@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: apify_shared
-Version: 2.2.0
+Version: 2.2.1
 Summary: Tools and constants shared across Apify projects.
 Project-URL: Apify Homepage, https://apify.com
 Project-URL: Changelog, https://github.com/apify/apify-shared-python/blob/master/CHANGELOG.md

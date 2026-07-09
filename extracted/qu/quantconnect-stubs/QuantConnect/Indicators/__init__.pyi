@@ -29,6 +29,7 @@ QuantConnect_Indicators_DualSymbolIndicator_TInput = typing.TypeVar("QuantConnec
 QuantConnect_Indicators_WindowIndicator_T = typing.TypeVar("QuantConnect_Indicators_WindowIndicator_T")
 QuantConnect_Indicators_RollingWindow_T = typing.TypeVar("QuantConnect_Indicators_RollingWindow_T")
 QuantConnect_Indicators_IReadOnlyWindow_T = typing.TypeVar("QuantConnect_Indicators_IReadOnlyWindow_T")
+QuantConnect_Indicators_WindowBase_T = typing.TypeVar("QuantConnect_Indicators_WindowBase_T")
 QuantConnect_Indicators_IIndicator_T = typing.TypeVar("QuantConnect_Indicators_IIndicator_T")
 QuantConnect_Indicators__EventContainer_Callable = typing.TypeVar("QuantConnect_Indicators__EventContainer_Callable")
 QuantConnect_Indicators__EventContainer_ReturnType = typing.TypeVar("QuantConnect_Indicators__EventContainer_ReturnType")
@@ -232,9 +233,6 @@ class Indicator(QuantConnect.Indicators.IndicatorBase[QuantConnect.Indicators.In
     Represents a type capable of ingesting a piece of data and producing a new piece of data.
     Indicators can be used to filter and transform data into a new, more informative form.
     """
-
-    DEFAULT_WINDOW_SIZE: int
-    """The default size of the history window for the indicator"""
 
     def __init__(self, name: str) -> None:
         """
@@ -5994,24 +5992,12 @@ class MidPoint(QuantConnect.Indicators.IndicatorBase[QuantConnect.Indicators.Ind
         ...
 
 
-class IndicatorBase(typing.Generic[QuantConnect_Indicators_IndicatorBase_T], QuantConnect_Indicators_IndicatorBase, typing.Iterable[QuantConnect.Indicators.IndicatorDataPoint], metaclass=abc.ABCMeta):
+class IndicatorBase(typing.Generic[QuantConnect_Indicators_IndicatorBase_T], QuantConnect_Indicators_IndicatorBase, metaclass=abc.ABCMeta):
     """Provides a base type for all indicators"""
 
     @property
     def consolidators(self) -> System.Collections.Generic.ISet[QuantConnect.Data.Consolidators.IDataConsolidator]:
         """The data consolidators associated with this indicator if any"""
-        ...
-
-    @property
-    def current(self) -> QuantConnect.Indicators.IndicatorDataPoint:
-        """
-        Gets the current state of this indicator. If the state has not been updated
-        then the time on the value will equal DateTime.MinValue.
-        """
-        ...
-
-    @current.setter
-    def current(self, value: QuantConnect.Indicators.IndicatorDataPoint) -> None:
         ...
 
     @property
@@ -6051,11 +6037,6 @@ class IndicatorBase(typing.Generic[QuantConnect_Indicators_IndicatorBase_T], Qua
     def updated(self, value: _EventContainer[typing.Callable[[System.Object, QuantConnect.Indicators.IndicatorDataPoint], typing.Any], typing.Any]) -> None:
         ...
 
-    @property
-    def window(self) -> QuantConnect.Indicators.RollingWindow[QuantConnect.Indicators.IndicatorDataPoint]:
-        """A rolling window keeping a history of the indicator values of a given period"""
-        ...
-
     @overload
     def __eq__(self, right: float) -> bool:
         """Determines if the indicator's current value is equal to the specified value"""
@@ -6134,17 +6115,6 @@ class IndicatorBase(typing.Generic[QuantConnect_Indicators_IndicatorBase_T], Qua
     @overload
     def __ge__(self, right: QuantConnect.Indicators.IndicatorBase) -> bool:
         """Determines if the specified value is greater than or equal to the indicator's current value"""
-        ...
-
-    def __getitem__(self, i: int) -> QuantConnect.Indicators.IndicatorDataPoint:
-        """
-        Indexes the history windows, where index 0 is the most recent indicator value.
-        If index is greater or equal than the current count, it returns null.
-        If the index is greater or equal than the window size, it returns null and resizes the windows to i + 1.
-        
-        :param i: The index
-        :returns: the ith most recent indicator value.
-        """
         ...
 
     @overload
@@ -6207,9 +6177,6 @@ class IndicatorBase(typing.Generic[QuantConnect_Indicators_IndicatorBase_T], Qua
         
         :param name: The name of this indicator
         """
-        ...
-
-    def __iter__(self) -> typing.Iterator[QuantConnect.Indicators.IndicatorDataPoint]:
         ...
 
     @overload
@@ -6370,14 +6337,6 @@ class IndicatorBase(typing.Generic[QuantConnect_Indicators_IndicatorBase_T], Qua
         
         :param obj: The object to compare with the current object.
         :returns: true if the specified object  is equal to the current object; otherwise, false.
-        """
-        ...
-
-    def get_enumerator(self) -> System.Collections.Generic.IEnumerator[QuantConnect.Indicators.IndicatorDataPoint]:
-        """
-        Returns an enumerator that iterates through the history window.
-        
-        :returns: A System.Collections.Generic.IEnumerator`1 that can be used to iterate through the history window.
         """
         ...
 
@@ -12177,6 +12136,83 @@ class IReadOnlyWindow(typing.Generic[QuantConnect_Indicators_IReadOnlyWindow_T],
         ...
 
     def __len__(self) -> int:
+        ...
+
+
+class WindowBase(typing.Generic[QuantConnect_Indicators_WindowBase_T], System.Object, typing.Iterable[QuantConnect_Indicators_WindowBase_T], metaclass=abc.ABCMeta):
+    """
+    Provides a base class for types that maintain a rolling window history of values.
+    This is the single source of truth for window logic shared between indicators and consolidators.
+    """
+
+    DEFAULT_WINDOW_SIZE: int
+    """The default number of values to keep in the rolling window history"""
+
+    @property
+    def window(self) -> QuantConnect.Indicators.RollingWindow[QuantConnect_Indicators_WindowBase_T]:
+        """
+        A rolling window keeping a history of values. The most recent value is at index 0.
+        Uses lazy initialization to support Python subclasses that do not call base constructors.
+        """
+        ...
+
+    @property
+    def current(self) -> QuantConnect_Indicators_WindowBase_T:
+        """Gets the most recent value. The protected setter adds the value to the rolling window."""
+        ...
+
+    @current.setter
+    def current(self, value: QuantConnect_Indicators_WindowBase_T) -> None:
+        ...
+
+    @property
+    def previous(self) -> QuantConnect_Indicators_WindowBase_T:
+        """Gets the previous value, or default if fewer than two values have been produced."""
+        ...
+
+    def __getitem__(self, i: int) -> QuantConnect_Indicators_WindowBase_T:
+        """
+        Indexes the history window, where index 0 is the most recent value.
+        
+        :param i: The index
+        :returns: The ith most recent value.
+        """
+        ...
+
+    @overload
+    def __init__(self) -> None:
+        """
+        Initializes a new instance of the WindowBase{T} class.
+        
+        
+        This Class is protected.
+        """
+        ...
+
+    @overload
+    def __init__(self, window_size: int) -> None:
+        """
+        Initializes the rolling window with the given size.
+        
+        
+        This Class is protected.
+        """
+        ...
+
+    def __iter__(self) -> typing.Iterator[QuantConnect_Indicators_WindowBase_T]:
+        ...
+
+    def get_enumerator(self) -> System.Collections.Generic.IEnumerator[QuantConnect_Indicators_WindowBase_T]:
+        """Returns an enumerator that iterates through the history window."""
+        ...
+
+    def reset_window(self) -> None:
+        """
+        Resets the rolling window, clearing all stored values.
+        
+        
+        This Class is protected.
+        """
         ...
 
 

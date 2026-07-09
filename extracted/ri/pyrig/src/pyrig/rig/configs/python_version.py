@@ -13,14 +13,13 @@ from pyrig.rig.configs.pyproject import PyprojectConfigFile
 class PythonVersionConfigFile(StringConfigFile):
     """Management of the `.python-version` file at the project root.
 
-    Writes the minimum supported Python version derived from the
-    `requires-python` constraint in `pyproject.toml`, replacing any existing
-    file content so the file always contains exactly one version string.
+    Ensures the minimum supported Python version, derived from the
+    `requires-python` constraint in `pyproject.toml`, is present in the file.
     """
 
-    def stem(self) -> str:
-        """Return `.python-version` as the filename stem."""
-        return ".python-version"
+    def extension(self) -> str:
+        """Return an empty string; `.python-version` has no file extension."""
+        return ""
 
     def extension_separator(self) -> str:
         """Return an empty string, overriding the default `.` separator.
@@ -34,14 +33,6 @@ class PythonVersionConfigFile(StringConfigFile):
         """
         return ""
 
-    def extension(self) -> str:
-        """Return an empty string; `.python-version` has no file extension."""
-        return ""
-
-    def parent_path(self) -> Path:
-        """Return the project root as the parent directory."""
-        return Path()
-
     def lines(self) -> list[str]:
         """Return the file content as a list of lines.
 
@@ -52,10 +43,10 @@ class PythonVersionConfigFile(StringConfigFile):
         """
         return [str(PyprojectConfigFile.I.first_supported_python_version()), ""]
 
-    def should_override_content(self) -> bool:
-        """Return `True` to replace the entire file content on every update.
+    def parent_path(self) -> Path:
+        """Return the project root as the parent directory."""
+        return Path()
 
-        Returns:
-            Always `True`.
-        """
-        return True
+    def stem(self) -> str:
+        """Return `.python-version` as the filename stem."""
+        return ".python-version"

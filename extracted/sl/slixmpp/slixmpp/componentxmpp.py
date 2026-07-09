@@ -6,6 +6,7 @@
 # Part of Slixmpp: The Slick XMPP Library
 # :copyright: (c) 2011 Nathanael C. Fritz
 # :license: MIT, see LICENSE for more details
+from slixmpp.types import Literal
 import logging
 import hashlib
 
@@ -48,6 +49,8 @@ class ComponentXMPP(BaseXMPP):
         in the same interpreter. This is ``False`` by default for backwards
         compatibility.
     """
+
+    is_component: Literal[True]
 
     def __init__(self, jid, secret,
                  host=None, port=None, plugin_config=None,

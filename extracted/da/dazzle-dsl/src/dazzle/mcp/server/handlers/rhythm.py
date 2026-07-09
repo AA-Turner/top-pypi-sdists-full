@@ -197,6 +197,8 @@ def rhythm_evaluate_impl(
     surface_scenes: dict[str, list[dict[str, str | None]]] = {}
     for phase in rhythm.phases:
         for scene in phase.scenes:
+            if scene.surface is None:
+                continue
             surface_scenes.setdefault(scene.surface, []).append(
                 {"scene": scene.name, "phase": phase.name, "expects": scene.expects}
             )
@@ -343,6 +345,8 @@ def coverage_rhythms_handler(project_root: Path, args: dict[str, Any]) -> str:
             if phase.kind and phase.kind.value == "ambient":
                 personas_with_ambient.add(r.persona)
             for scene in phase.scenes:
+                if scene.surface is None:
+                    continue
                 persona_targets[r.persona].add(scene.surface)
                 if scene.surface in all_workspace_names:
                     workspaces_exercised.add(scene.surface)
@@ -575,7 +579,7 @@ def rhythm_fidelity_impl(project_root: Path, name: str) -> dict[str, Any]:
 
     for phase in rhythm.phases:
         for scene in phase.scenes:
-            surface = surface_map.get(scene.surface)
+            surface = surface_map.get(scene.surface) if scene.surface is not None else None
             scene_result: dict[str, Any] = {
                 "scene": scene.name,
                 "phase": phase.name,
@@ -603,26 +607,27 @@ def rhythm_fidelity_impl(project_root: Path, name: str) -> dict[str, Any]:
             # Collect surface action names
             surface_action_names = {a.name.lower() for a in surface.actions}
 
+            # Structural gaps flip `served`; an expects/field mismatch is a soft
+            # advisory only. #1559: `expects` is free-form semantic intent,
+            # deliberately NOT a field-name echo — so it must not gate whether a
+            # surface *structurally* serves the scene. "Served" means the surface
+            # targets the scene's entity and supports its action(s); whether the
+            # prose happens to echo field names is informational.
             gaps: list[str] = []
+            advisories: list[str] = []
 
-            # Check field coverage against expects
-            if scene.expects:
-                expects_keywords = _extract_keywords(scene.expects)
-                field_keywords = set()
-                for fn in field_names:
-                    field_keywords.update(_extract_keywords(fn))
+            # Entity alignment (structural) — only when both sides are known.
+            if (
+                scene.entity
+                and surface.entity_ref
+                and scene.entity.lower() != surface.entity_ref.lower()
+            ):
+                gaps.append(
+                    f"scene entity '{scene.entity}' does not match surface entity "
+                    f"'{surface.entity_ref}'"
+                )
 
-                overlap = expects_keywords & field_keywords
-                if expects_keywords and not overlap:
-                    gaps.append(
-                        f"expects '{scene.expects}' but surface has no matching fields "
-                        f"(surface fields: {sorted(field_names) if field_names else 'none'})"
-                    )
-
-                scene_result["expects"] = scene.expects
-                scene_result["expects_keyword_overlap"] = sorted(overlap)
-
-            # Check action support (fuzzy matching for standard vocabulary)
+            # Action support (structural) — fuzzy match against standard vocabulary.
             if scene.actions:
                 for action_verb in scene.actions:
                     if not _action_matches(
@@ -633,8 +638,26 @@ def rhythm_fidelity_impl(project_root: Path, name: str) -> dict[str, Any]:
                             f"({sorted(surface_action_names)})"
                         )
 
+            # Expects <-> field overlap (advisory) — an informational nudge that
+            # the surface may not visibly show what the scene's outcome describes.
+            if scene.expects:
+                expects_keywords = _extract_keywords(scene.expects)
+                field_keywords: set[str] = set()
+                for fn in field_names:
+                    field_keywords.update(_extract_keywords(fn))
+                overlap = expects_keywords & field_keywords
+                scene_result["expects"] = scene.expects
+                scene_result["expects_keyword_overlap"] = sorted(overlap)
+                if expects_keywords and not overlap:
+                    advisories.append(
+                        f"expects '{scene.expects}' shares no keyword with surface fields "
+                        f"{sorted(field_names) if field_names else 'none'} "
+                        f"(advisory only — expects is free-form intent, not a field echo)"
+                    )
+
             scene_result["field_count"] = len(field_names)
             scene_result["gaps"] = gaps
+            scene_result["advisories"] = advisories
             scene_result["served"] = len(gaps) == 0
 
             if scene_result["served"]:
@@ -654,6 +677,7 @@ def rhythm_fidelity_impl(project_root: Path, name: str) -> dict[str, Any]:
 
     total_scenes = len(scene_results)
     fidelity_score = round(scenes_served / total_scenes, 2) if total_scenes else 1.0
+    scenes_with_advisories = sum(1 for r in scene_results if r.get("advisories"))
 
     return {
         "rhythm": name,
@@ -662,6 +686,7 @@ def rhythm_fidelity_impl(project_root: Path, name: str) -> dict[str, Any]:
         "scenes_served": scenes_served,
         "scenes_proxied": len(proxy_scenes),
         "proxy_scenes": proxy_scenes,
+        "scenes_with_advisories": scenes_with_advisories,
         "details": scene_results,
     }
 
@@ -760,7 +785,7 @@ def rhythm_gaps_impl(project_root: Path) -> dict[str, Any]:
                     "scene": None,
                     "phase": None,
                     "rhythm": "",
-                    "persona": getattr(story, "actor", ""),
+                    "persona": story.persona,
                     "story_ref": story_id,
                     "surface_ref": None,
                     "description": f"Story '{story_id}' is not referenced by any scene",
@@ -785,7 +810,7 @@ def rhythm_gaps_impl(project_root: Path) -> dict[str, Any]:
             )
 
     # Unscored personas
-    personas_with_stories = {s.actor for s in app_spec.stories}
+    personas_with_stories = {s.persona for s in app_spec.stories}
     for pid in sorted(personas_with_stories - personas_with_rhythms):
         gaps.append(
             {

@@ -13,9 +13,20 @@
 # limitations under the License.
 
 from textwrap import dedent
-from typing import Dict, Optional
+from typing import Dict, Optional, cast
 
 from snowflake.cli._plugins.apps.manager import DEFAULT_PERSONAL_WORKSPACE_NAME
+
+
+def _yaml_str(v: str) -> str:
+    # YAML treats bare double quotes as string delimiters and strips them on
+    # round-trip, turning '"lower_db"' into 'lower_db' (then uppercased by
+    # Snowflake).  Wrapping in YAML single quotes preserves embedded double
+    # quotes as literal data.  Single quotes inside the value are escaped by
+    # doubling them, per the YAML 1.1 single-quoted scalar spec.
+    if '"' in v:
+        return "'" + v.replace("'", "''") + "'"
+    return v
 
 
 def _generate_snowflake_yml(
@@ -28,11 +39,16 @@ def _generate_snowflake_yml(
 
     Required keys: ``database``, ``schema``, ``warehouse``.
 
-    Optional keys: ``build_compute_pool``, ``service_compute_pool``,
-    ``build_eai``.  When omitted or ``None`` the corresponding block is left
-    out of the generated YAML, letting the server allocate compute pools at
-    deploy time.  ``build_eai`` is omitted when no external access
-    integration is required by the builder service.
+    Optional keys: ``build_eai``. When omitted or ``None`` the corresponding
+    block is left out of the generated YAML. ``build_eai`` is omitted when no
+    external access integration is required by the builder service. The setup
+    flow does not emit ``service_eai``; deploy continues to use ``build_eai``
+    for the application service unless a project adds ``service_eai`` manually.
+
+    Compute pools are never written: app services always run on
+    server-managed compute pools, so ``snow app setup`` does not configure
+    ``build_compute_pool`` / ``service_compute_pool``. Existing projects that
+    set those fields by hand continue to work at deploy time.
 
     The artifact repository is omitted from the generated YAML; the CLI
     will default to ``<app-id>_REPO`` at deploy time.
@@ -48,11 +64,9 @@ def _generate_snowflake_yml(
     resolved against the app's database and schema at deploy time.
     """
 
-    database = resolved["database"]
-    schema = resolved["schema"]
-    warehouse = resolved["warehouse"]
-    build_compute_pool = resolved.get("build_compute_pool")
-    service_compute_pool = resolved.get("service_compute_pool")
+    database = cast(str, resolved["database"])
+    schema = cast(str, resolved["schema"])
+    warehouse = cast(str, resolved["warehouse"])
     build_eai = resolved.get("build_eai")
 
     if use_workspace:
@@ -62,25 +76,13 @@ def _generate_snowflake_yml(
         # database/schema.
         code_storage_block = (
             f"\n            code_workspace: "
-            f"{database}.{schema}.{DEFAULT_PERSONAL_WORKSPACE_NAME}\n"
+            f"{_yaml_str(f'{database}.{schema}.{DEFAULT_PERSONAL_WORKSPACE_NAME}')}\n"
         )
     else:
         code_storage_block = f"\n            code_stage: {app_id.upper()}_CODE\n"
 
-    build_compute_pool_block = (
-        f"\n            build_compute_pool:\n              name: {build_compute_pool}"
-        if build_compute_pool
-        else ""
-    )
-
-    service_compute_pool_block = (
-        f"\n            service_compute_pool:\n              name: {service_compute_pool}"
-        if service_compute_pool
-        else ""
-    )
-
     build_eai_block = (
-        f"\n            build_eai:\n              name: {build_eai}"
+        f"\n            build_eai:\n              name: {_yaml_str(build_eai)}"
         if build_eai
         else ""
     )
@@ -94,8 +96,8 @@ def _generate_snowflake_yml(
             type: snowflake-app
             identifier:
               name: {app_id.upper()}
-              database: {database}
-              schema: {schema}
+              database: {_yaml_str(database)}
+              schema: {_yaml_str(schema)}
             artifacts:
               - src: ./*
                 dest: ./
@@ -108,9 +110,7 @@ def _generate_snowflake_yml(
                   - .git
                   - snowflake.log
 
-            query_warehouse: {warehouse}"""
-        + build_compute_pool_block
-        + service_compute_pool_block
+            query_warehouse: {_yaml_str(warehouse)}"""
         + build_eai_block
         + code_storage_block
     )

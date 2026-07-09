@@ -14,7 +14,7 @@ import jsii
 import publication
 import typing_extensions
 
-from jsii._type_checking import check_type
+from jsii._type_checking import cached_type_hints, check_type
 
 
 from .._jsii import *
@@ -74,7 +74,7 @@ class BuildSystem:
         :schema: BuildSystem
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__e9da99c32d038945aadcf71f5eefe5c42c4d7218b8a2d3e62f288c5a8081f35f)
+            type_hints = cached_type_hints(_typecheckingstub__e9da99c32d038945aadcf71f5eefe5c42c4d7218b8a2d3e62f288c5a8081f35f)
             check_type(argname="argument requires", value=requires, expected_type=type_hints["requires"])
             check_type(argname="argument backend_path", value=backend_path, expected_type=type_hints["backend_path"])
             check_type(argname="argument build_backend", value=build_backend, expected_type=type_hints["build_backend"])
@@ -236,7 +236,7 @@ class _IPythonDepsProxy:
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__19b787f4d5b675eaec41431c3ba2e6ceb259e8bb95072e76cd0d5e8c357712bf)
+            type_hints = cached_type_hints(_typecheckingstub__19b787f4d5b675eaec41431c3ba2e6ceb259e8bb95072e76cd0d5e8c357712bf)
             check_type(argname="argument spec", value=spec, expected_type=type_hints["spec"])
         return typing.cast(None, jsii.invoke(self, "addDependency", [spec]))
 
@@ -249,7 +249,7 @@ class _IPythonDepsProxy:
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__18f78139d5d8654e761211f750e1484c6d50446550d577751bc8cc05fe876b6f)
+            type_hints = cached_type_hints(_typecheckingstub__18f78139d5d8654e761211f750e1484c6d50446550d577751bc8cc05fe876b6f)
             check_type(argname="argument spec", value=spec, expected_type=type_hints["spec"])
         return typing.cast(None, jsii.invoke(self, "addDevDependency", [spec]))
 
@@ -353,7 +353,7 @@ class Pip(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__55771f94c59d078712217b1e5458179674981bf7ae2fbbec3e2aea1eb4fbde8d)
+            type_hints = cached_type_hints(_typecheckingstub__55771f94c59d078712217b1e5458179674981bf7ae2fbbec3e2aea1eb4fbde8d)
             check_type(argname="argument project", value=project, expected_type=type_hints["project"])
         _options = PipOptions()
 
@@ -368,7 +368,7 @@ class Pip(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__bc6bd8ccd0987502c4ce2dbbc538871186f9c4b430cb31d9a8e6a87a6475d57b)
+            type_hints = cached_type_hints(_typecheckingstub__bc6bd8ccd0987502c4ce2dbbc538871186f9c4b430cb31d9a8e6a87a6475d57b)
             check_type(argname="argument spec", value=spec, expected_type=type_hints["spec"])
         return typing.cast(None, jsii.invoke(self, "addDependency", [spec]))
 
@@ -381,7 +381,7 @@ class Pip(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__07f54078c02a927b611cbaccc8f11852eba16fed33a71f89e09ad72055af3df4)
+            type_hints = cached_type_hints(_typecheckingstub__07f54078c02a927b611cbaccc8f11852eba16fed33a71f89e09ad72055af3df4)
             check_type(argname="argument spec", value=spec, expected_type=type_hints["spec"])
         return typing.cast(None, jsii.invoke(self, "addDevDependency", [spec]))
 
@@ -474,7 +474,7 @@ class Poetry(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__5f89c074241aa542e5f366ea84bd8e5e2e9da8150d15e44f4ae6c715237a7ab5)
+            type_hints = cached_type_hints(_typecheckingstub__5f89c074241aa542e5f366ea84bd8e5e2e9da8150d15e44f4ae6c715237a7ab5)
             check_type(argname="argument project", value=project, expected_type=type_hints["project"])
         options = PoetryOptions(
             author_email=author_email,
@@ -502,7 +502,7 @@ class Poetry(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__519c3a7d5408063bf51b1d01b18115062cc8b54023e15ff405560adbee68be02)
+            type_hints = cached_type_hints(_typecheckingstub__519c3a7d5408063bf51b1d01b18115062cc8b54023e15ff405560adbee68be02)
             check_type(argname="argument spec", value=spec, expected_type=type_hints["spec"])
         return typing.cast(None, jsii.invoke(self, "addDependency", [spec]))
 
@@ -515,7 +515,7 @@ class Poetry(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__5eed5b0b32c136cc537ac5c8208e73e035698914697eda882cc3e72204b55267)
+            type_hints = cached_type_hints(_typecheckingstub__5eed5b0b32c136cc537ac5c8208e73e035698914697eda882cc3e72204b55267)
             check_type(argname="argument spec", value=spec, expected_type=type_hints["spec"])
         return typing.cast(None, jsii.invoke(self, "addDevDependency", [spec]))
 
@@ -640,7 +640,7 @@ class PoetryPyproject(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__3a59b8e6934c492000192079edad9aaf1327a40b3bdba4192b78814ddbbfa98a)
+            type_hints = cached_type_hints(_typecheckingstub__3a59b8e6934c492000192079edad9aaf1327a40b3bdba4192b78814ddbbfa98a)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
         options = PoetryPyprojectOptions(
             dependencies=dependencies,
@@ -760,7 +760,7 @@ class PoetryPyprojectOptionsWithoutDeps:
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__eb1217212a32e72c78081b42cb386e25f582240ca4f8a652cbb237b3ce367fb7)
+            type_hints = cached_type_hints(_typecheckingstub__eb1217212a32e72c78081b42cb386e25f582240ca4f8a652cbb237b3ce367fb7)
             check_type(argname="argument authors", value=authors, expected_type=type_hints["authors"])
             check_type(argname="argument classifiers", value=classifiers, expected_type=type_hints["classifiers"])
             check_type(argname="argument description", value=description, expected_type=type_hints["description"])
@@ -1072,7 +1072,7 @@ class ProjectAuthor:
         :schema: projectAuthor
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c75ee0fa1f03d64ef2f4f70177834504f849664100250bdf991680eba3b01d4e)
+            type_hints = cached_type_hints(_typecheckingstub__c75ee0fa1f03d64ef2f4f70177834504f849664100250bdf991680eba3b01d4e)
             check_type(argname="argument email", value=email, expected_type=type_hints["email"])
             check_type(argname="argument name", value=name, expected_type=type_hints["name"])
         self._values: typing.Dict[builtins.str, typing.Any] = {}
@@ -1141,7 +1141,7 @@ class Projenrc(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__dd796c2ffac4ce790fd379f22162cb352a7e6e5fcca10c21249e16c756967555)
+            type_hints = cached_type_hints(_typecheckingstub__dd796c2ffac4ce790fd379f22162cb352a7e6e5fcca10c21249e16c756967555)
             check_type(argname="argument project", value=project, expected_type=type_hints["project"])
         options = ProjenrcOptions(
             filename=filename, projen_version=projen_version, python_exec=python_exec
@@ -1194,7 +1194,7 @@ class ProjenrcOptions:
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__7b016d0638a2d569458bc60c6c0631e67606ffba250b97da0a8bb994346743eb)
+            type_hints = cached_type_hints(_typecheckingstub__7b016d0638a2d569458bc60c6c0631e67606ffba250b97da0a8bb994346743eb)
             check_type(argname="argument filename", value=filename, expected_type=type_hints["filename"])
             check_type(argname="argument projen_version", value=projen_version, expected_type=type_hints["projen_version"])
             check_type(argname="argument python_exec", value=python_exec, expected_type=type_hints["python_exec"])
@@ -1288,7 +1288,7 @@ class PyprojectToml:
         if isinstance(tool, dict):
             tool = PyprojectTomlTool(**tool)
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__e1fc10fe84bb8f10fcd95137adbc465ef44fa0a114d64da3b25bdc76d9324fe3)
+            type_hints = cached_type_hints(_typecheckingstub__e1fc10fe84bb8f10fcd95137adbc465ef44fa0a114d64da3b25bdc76d9324fe3)
             check_type(argname="argument build_system", value=build_system, expected_type=type_hints["build_system"])
             check_type(argname="argument dependency_groups", value=dependency_groups, expected_type=type_hints["dependency_groups"])
             check_type(argname="argument project", value=project, expected_type=type_hints["project"])
@@ -1378,7 +1378,7 @@ class PyprojectTomlDependencyGroups:
         :schema: PyprojectTomlDependencyGroups
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__3172b8764f200359be57f771adc03f41306604c3a8551c94b129802a9f212c87)
+            type_hints = cached_type_hints(_typecheckingstub__3172b8764f200359be57f771adc03f41306604c3a8551c94b129802a9f212c87)
             check_type(argname="argument dev", value=dev, expected_type=type_hints["dev"])
         self._values: typing.Dict[builtins.str, typing.Any] = {}
         if dev is not None:
@@ -1435,7 +1435,7 @@ class PyprojectTomlFile(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__d9e7cb471169a85cb7809c67deb7b7e20dde1ce20a6a49f8357e0726c13b0040)
+            type_hints = cached_type_hints(_typecheckingstub__d9e7cb471169a85cb7809c67deb7b7e20dde1ce20a6a49f8357e0726c13b0040)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
         config = PyprojectToml(
             build_system=build_system,
@@ -1458,7 +1458,7 @@ class PyprojectTomlFile(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__8c653bb340110f30f664421242162e21f98489f495f8991c5180052f98429065)
+            type_hints = cached_type_hints(_typecheckingstub__8c653bb340110f30f664421242162e21f98489f495f8991c5180052f98429065)
             check_type(argname="argument resolver", value=resolver, expected_type=type_hints["resolver"])
         return typing.cast(typing.Optional[builtins.str], jsii.invoke(self, "synthesizeContent", [resolver]))
 
@@ -1544,7 +1544,7 @@ class PyprojectTomlProject:
         :schema: PyprojectTomlProject
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__b8e342a1a2af5016dbe0f8461f2a5c512da049f10c5dfb936ea942878407c985)
+            type_hints = cached_type_hints(_typecheckingstub__b8e342a1a2af5016dbe0f8461f2a5c512da049f10c5dfb936ea942878407c985)
             check_type(argname="argument name", value=name, expected_type=type_hints["name"])
             check_type(argname="argument authors", value=authors, expected_type=type_hints["authors"])
             check_type(argname="argument classifiers", value=classifiers, expected_type=type_hints["classifiers"])
@@ -2022,7 +2022,7 @@ class PyprojectTomlTool:
         :schema: PyprojectTomlTool
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__bc2ba765e25294b713eef60bd54f79fe7e8b12bdfb44298beec4d108cc84cf15)
+            type_hints = cached_type_hints(_typecheckingstub__bc2ba765e25294b713eef60bd54f79fe7e8b12bdfb44298beec4d108cc84cf15)
             check_type(argname="argument black", value=black, expected_type=type_hints["black"])
             check_type(argname="argument cibuildwheel", value=cibuildwheel, expected_type=type_hints["cibuildwheel"])
             check_type(argname="argument hatch", value=hatch, expected_type=type_hints["hatch"])
@@ -2325,7 +2325,7 @@ class Pytest(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ce0d8c554f8b4609921caa32636cdf3f53ff29d779d94c8c46d6322903608390)
+            type_hints = cached_type_hints(_typecheckingstub__ce0d8c554f8b4609921caa32636cdf3f53ff29d779d94c8c46d6322903608390)
             check_type(argname="argument project", value=project, expected_type=type_hints["project"])
         options = PytestOptions(
             max_failures=max_failures, test_match=test_match, version=version
@@ -2367,7 +2367,7 @@ class PytestOptions:
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__4be1ab17806d0a3326c1d1b9ba1180daed1458dcbff7d77f34e7381dd37165f7)
+            type_hints = cached_type_hints(_typecheckingstub__4be1ab17806d0a3326c1d1b9ba1180daed1458dcbff7d77f34e7381dd37165f7)
             check_type(argname="argument max_failures", value=max_failures, expected_type=type_hints["max_failures"])
             check_type(argname="argument test_match", value=test_match, expected_type=type_hints["test_match"])
             check_type(argname="argument version", value=version, expected_type=type_hints["version"])
@@ -2458,7 +2458,7 @@ class PytestSample(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__4f906cb8312da613b5dac7c5b6dd5f8891604f7db731a9229768f798e6394360)
+            type_hints = cached_type_hints(_typecheckingstub__4f906cb8312da613b5dac7c5b6dd5f8891604f7db731a9229768f798e6394360)
             check_type(argname="argument project", value=project, expected_type=type_hints["project"])
         options = PytestSampleOptions(module_name=module_name, testdir=testdir)
 
@@ -2480,7 +2480,7 @@ class PytestSampleOptions:
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__9b5cfbd23e5eff6fb71d7178234cc3a49b80cef2a1ed3e2ea3f3f214250a2735)
+            type_hints = cached_type_hints(_typecheckingstub__9b5cfbd23e5eff6fb71d7178234cc3a49b80cef2a1ed3e2ea3f3f214250a2735)
             check_type(argname="argument module_name", value=module_name, expected_type=type_hints["module_name"])
             check_type(argname="argument testdir", value=testdir, expected_type=type_hints["testdir"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -2533,7 +2533,7 @@ class PythonExecutableOptions:
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__2e52d39265c79dce55d02ecbca3fd41f5ed02feea62ba37e574f0706e33d0fa1)
+            type_hints = cached_type_hints(_typecheckingstub__2e52d39265c79dce55d02ecbca3fd41f5ed02feea62ba37e574f0706e33d0fa1)
             check_type(argname="argument python_exec", value=python_exec, expected_type=type_hints["python_exec"])
         self._values: typing.Dict[builtins.str, typing.Any] = {}
         if python_exec is not None:
@@ -2615,7 +2615,7 @@ class PythonPackagingOptions:
         if isinstance(uv_options, dict):
             uv_options = UvOptions(**uv_options)
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__8103f3b830f25b7a5e774ec261700198b120623a2bd5b4934a1fd82d8b48fb8a)
+            type_hints = cached_type_hints(_typecheckingstub__8103f3b830f25b7a5e774ec261700198b120623a2bd5b4934a1fd82d8b48fb8a)
             check_type(argname="argument author_email", value=author_email, expected_type=type_hints["author_email"])
             check_type(argname="argument author_name", value=author_name, expected_type=type_hints["author_name"])
             check_type(argname="argument version", value=version, expected_type=type_hints["version"])
@@ -2976,7 +2976,7 @@ class PythonProject(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__7a5ee2a55fcd2f05c58ed239d24778a97a2b596e77b30827e01f8317271c640f)
+            type_hints = cached_type_hints(_typecheckingstub__7a5ee2a55fcd2f05c58ed239d24778a97a2b596e77b30827e01f8317271c640f)
             check_type(argname="argument spec", value=spec, expected_type=type_hints["spec"])
         return typing.cast(None, jsii.invoke(self, "addDependency", [spec]))
 
@@ -2989,7 +2989,7 @@ class PythonProject(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__f9bf6346493f3e97c3520eabbc98ddadd2df44eb356611961df9963df24f53dd)
+            type_hints = cached_type_hints(_typecheckingstub__f9bf6346493f3e97c3520eabbc98ddadd2df44eb356611961df9963df24f53dd)
             check_type(argname="argument spec", value=spec, expected_type=type_hints["spec"])
         return typing.cast(None, jsii.invoke(self, "addDevDependency", [spec]))
 
@@ -3073,7 +3073,7 @@ class PythonProject(
     @pytest.setter
     def pytest(self, value: typing.Optional["Pytest"]) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__cabdb593e4357c0da03ac92882cb152b8d7fd4429738682c7081bc2132bad82b)
+            type_hints = cached_type_hints(_typecheckingstub__cabdb593e4357c0da03ac92882cb152b8d7fd4429738682c7081bc2132bad82b)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "pytest", value) # pyright: ignore[reportArgumentType]
 
@@ -3308,7 +3308,7 @@ class PythonProjectOptions(
         if isinstance(venv_options, dict):
             venv_options = VenvOptions(**venv_options)
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__b659222a1357930d78c896c62a88d02f0761b15a41c74e5e00700ccfe61b8712)
+            type_hints = cached_type_hints(_typecheckingstub__b659222a1357930d78c896c62a88d02f0761b15a41c74e5e00700ccfe61b8712)
             check_type(argname="argument name", value=name, expected_type=type_hints["name"])
             check_type(argname="argument commit_generated", value=commit_generated, expected_type=type_hints["commit_generated"])
             check_type(argname="argument git_ignore_options", value=git_ignore_options, expected_type=type_hints["git_ignore_options"])
@@ -4201,7 +4201,7 @@ class PythonSample(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c3bcdd275f2ce46000aaf25f2a3e647162493fad064bba3c202171993eac3113)
+            type_hints = cached_type_hints(_typecheckingstub__c3bcdd275f2ce46000aaf25f2a3e647162493fad064bba3c202171993eac3113)
             check_type(argname="argument project", value=project, expected_type=type_hints["project"])
         options = PythonSampleOptions(dir=dir)
 
@@ -4222,7 +4222,7 @@ class PythonSampleOptions:
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__56dd4236187397714b5033201402e20292f5d94e1adb1da8f9b8b1498d0219d3)
+            type_hints = cached_type_hints(_typecheckingstub__56dd4236187397714b5033201402e20292f5d94e1adb1da8f9b8b1498d0219d3)
             check_type(argname="argument dir", value=dir, expected_type=type_hints["dir"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "dir": dir,
@@ -4276,7 +4276,7 @@ class RequirementsFile(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__067090383052aa74d2668f8a92939d92a387c3f7500e777be0f1ee0c120c65cf)
+            type_hints = cached_type_hints(_typecheckingstub__067090383052aa74d2668f8a92939d92a387c3f7500e777be0f1ee0c120c65cf)
             check_type(argname="argument project", value=project, expected_type=type_hints["project"])
             check_type(argname="argument file_path", value=file_path, expected_type=type_hints["file_path"])
         options = RequirementsFileOptions(package_provider=package_provider)
@@ -4294,7 +4294,7 @@ class RequirementsFile(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a128026dd4d42385bb9003347f88e458bd169cd8d7f7bc55661e6aa6718d0f54)
+            type_hints = cached_type_hints(_typecheckingstub__a128026dd4d42385bb9003347f88e458bd169cd8d7f7bc55661e6aa6718d0f54)
             check_type(argname="argument packages", value=packages, expected_type=typing.Tuple[type_hints["packages"], ...]) # pyright: ignore [reportGeneralTypeIssues]
         return typing.cast(None, jsii.invoke(self, "addPackages", [*packages]))
 
@@ -4310,7 +4310,7 @@ class RequirementsFile(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__0c7dd615518f2d339b32c81b441685913dc14e59488172225a49caf6f6272803)
+            type_hints = cached_type_hints(_typecheckingstub__0c7dd615518f2d339b32c81b441685913dc14e59488172225a49caf6f6272803)
             check_type(argname="argument resolver", value=resolver, expected_type=type_hints["resolver"])
         return typing.cast(typing.Optional[builtins.str], jsii.invoke(self, "synthesizeContent", [resolver]))
 
@@ -4332,7 +4332,7 @@ class RequirementsFileOptions:
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__58e6bc9ea3bbd35a2cd3a406c70d46e549de59b62bb9dae45ddc293d4519b88e)
+            type_hints = cached_type_hints(_typecheckingstub__58e6bc9ea3bbd35a2cd3a406c70d46e549de59b62bb9dae45ddc293d4519b88e)
             check_type(argname="argument package_provider", value=package_provider, expected_type=type_hints["package_provider"])
         self._values: typing.Dict[builtins.str, typing.Any] = {}
         if package_provider is not None:
@@ -4400,7 +4400,7 @@ class SetupPy(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__e959984ddf11978e5e74218bdca4f1d228232167175b58a9366486a216409fcc)
+            type_hints = cached_type_hints(_typecheckingstub__e959984ddf11978e5e74218bdca4f1d228232167175b58a9366486a216409fcc)
             check_type(argname="argument project", value=project, expected_type=type_hints["project"])
         options = SetupPyOptions(
             additional_options=additional_options,
@@ -4429,7 +4429,7 @@ class SetupPy(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__03f6f2e53b0cab029d8119404377455c0d5f7009dcb023ec2a61c9971a63dd66)
+            type_hints = cached_type_hints(_typecheckingstub__03f6f2e53b0cab029d8119404377455c0d5f7009dcb023ec2a61c9971a63dd66)
             check_type(argname="argument resolver", value=resolver, expected_type=type_hints["resolver"])
         return typing.cast(typing.Optional[builtins.str], jsii.invoke(self, "synthesizeContent", [resolver]))
 
@@ -4482,7 +4482,7 @@ class SetupPyOptions:
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__700c5016a6ce3777c3e559d9aafbc5c5f727d957945e00ab0719c6759fe4b9a8)
+            type_hints = cached_type_hints(_typecheckingstub__700c5016a6ce3777c3e559d9aafbc5c5f727d957945e00ab0719c6759fe4b9a8)
             check_type(argname="argument additional_options", value=additional_options, expected_type=type_hints["additional_options"])
             check_type(argname="argument author_email", value=author_email, expected_type=type_hints["author_email"])
             check_type(argname="argument author_name", value=author_name, expected_type=type_hints["author_name"])
@@ -4666,7 +4666,7 @@ class Setuptools(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__990ed4ecaa4edf7848fc5144b71682e590ee9d8b8da5b2facfae58711091a20d)
+            type_hints = cached_type_hints(_typecheckingstub__990ed4ecaa4edf7848fc5144b71682e590ee9d8b8da5b2facfae58711091a20d)
             check_type(argname="argument project", value=project, expected_type=type_hints["project"])
         options = SetuptoolsOptions(
             author_email=author_email,
@@ -4760,7 +4760,7 @@ class SetuptoolsOptions(PythonPackagingOptions, PythonExecutableOptions):
         if isinstance(uv_options, dict):
             uv_options = UvOptions(**uv_options)
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__efb76fcc4729646986081d64b0050704d856d4acab1092db7f22a97d767ca944)
+            type_hints = cached_type_hints(_typecheckingstub__efb76fcc4729646986081d64b0050704d856d4acab1092db7f22a97d767ca944)
             check_type(argname="argument author_email", value=author_email, expected_type=type_hints["author_email"])
             check_type(argname="argument author_name", value=author_name, expected_type=type_hints["author_name"])
             check_type(argname="argument version", value=version, expected_type=type_hints["version"])
@@ -4961,7 +4961,7 @@ class Uv(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c6af3eeebf702d4696ff95e3dd9f7765abd1bead0231202b6c3d96e210ebae53)
+            type_hints = cached_type_hints(_typecheckingstub__c6af3eeebf702d4696ff95e3dd9f7765abd1bead0231202b6c3d96e210ebae53)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
         options = UvOptions(
             build_system=build_system, project=project, uv=uv, python_exec=python_exec
@@ -4978,7 +4978,7 @@ class Uv(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__cfefccda3fbe1ff1c577b203b8a3bbfc01f7f1d4af0e6ac2d49593339709bd0c)
+            type_hints = cached_type_hints(_typecheckingstub__cfefccda3fbe1ff1c577b203b8a3bbfc01f7f1d4af0e6ac2d49593339709bd0c)
             check_type(argname="argument spec", value=spec, expected_type=type_hints["spec"])
         return typing.cast(None, jsii.invoke(self, "addDependency", [spec]))
 
@@ -4991,7 +4991,7 @@ class Uv(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__476e06a93af3d873cd3d5aa2eb681ec297066fbb9e27bac268fb38df7b1fe327)
+            type_hints = cached_type_hints(_typecheckingstub__476e06a93af3d873cd3d5aa2eb681ec297066fbb9e27bac268fb38df7b1fe327)
             check_type(argname="argument spec", value=spec, expected_type=type_hints["spec"])
         return typing.cast(None, jsii.invoke(self, "addDevDependency", [spec]))
 
@@ -5090,7 +5090,7 @@ class UvOptions(PythonExecutableOptions):
         if isinstance(uv, dict):
             uv = _uv_config_6a231145.UvConfiguration(**uv)
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__7160d30dca474dc5d88b1ee88cb680c95003b72e43b0c36e6476ea71df3e39bc)
+            type_hints = cached_type_hints(_typecheckingstub__7160d30dca474dc5d88b1ee88cb680c95003b72e43b0c36e6476ea71df3e39bc)
             check_type(argname="argument python_exec", value=python_exec, expected_type=type_hints["python_exec"])
             check_type(argname="argument build_system", value=build_system, expected_type=type_hints["build_system"])
             check_type(argname="argument project", value=project, expected_type=type_hints["project"])
@@ -5183,7 +5183,7 @@ class Venv(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__b6ca42e19c95fdbb85e49328df4ac0dad237aa7b6f072c08d159cd38acff3b7e)
+            type_hints = cached_type_hints(_typecheckingstub__b6ca42e19c95fdbb85e49328df4ac0dad237aa7b6f072c08d159cd38acff3b7e)
             check_type(argname="argument project", value=project, expected_type=type_hints["project"])
         options = VenvOptions(envdir=envdir, python_exec=python_exec)
 
@@ -5218,7 +5218,7 @@ class VenvOptions:
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__218deeb17b656c9665618fe6dfdb5879bef84a744475d201b9d2535331bbbb8c)
+            type_hints = cached_type_hints(_typecheckingstub__218deeb17b656c9665618fe6dfdb5879bef84a744475d201b9d2535331bbbb8c)
             check_type(argname="argument envdir", value=envdir, expected_type=type_hints["envdir"])
             check_type(argname="argument python_exec", value=python_exec, expected_type=type_hints["python_exec"])
         self._values: typing.Dict[builtins.str, typing.Any] = {}
@@ -5317,7 +5317,7 @@ class PoetryOptions(PythonPackagingOptions, PythonExecutableOptions):
         if isinstance(uv_options, dict):
             uv_options = UvOptions(**uv_options)
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ffb2a68f24fc1fda645188af9796f00c5dd2cfddf0c67e4d824be027c0c1f1a8)
+            type_hints = cached_type_hints(_typecheckingstub__ffb2a68f24fc1fda645188af9796f00c5dd2cfddf0c67e4d824be027c0c1f1a8)
             check_type(argname="argument author_email", value=author_email, expected_type=type_hints["author_email"])
             check_type(argname="argument author_name", value=author_name, expected_type=type_hints["author_name"])
             check_type(argname="argument version", value=version, expected_type=type_hints["version"])
@@ -5575,7 +5575,7 @@ class PoetryPyprojectOptions(PoetryPyprojectOptionsWithoutDeps):
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__58d69e7441cb3bc0f904d3072147d8851b799f65424aafad7c14abead9db6f22)
+            type_hints = cached_type_hints(_typecheckingstub__58d69e7441cb3bc0f904d3072147d8851b799f65424aafad7c14abead9db6f22)
             check_type(argname="argument authors", value=authors, expected_type=type_hints["authors"])
             check_type(argname="argument classifiers", value=classifiers, expected_type=type_hints["classifiers"])
             check_type(argname="argument description", value=description, expected_type=type_hints["description"])

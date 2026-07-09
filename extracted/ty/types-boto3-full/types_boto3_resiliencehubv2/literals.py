@@ -27,6 +27,7 @@ __all__ = (
     "ActorTypeType",
     "AssertionSourceType",
     "AssessmentErrorCodeType",
+    "AssessmentSortFieldType",
     "AssessmentStatusType",
     "AssessmentStepType",
     "CostCurrencyType",
@@ -74,6 +75,7 @@ __all__ = (
     "ServiceFunctionSourceType",
     "ServiceName",
     "ServiceResourceDiscoveryCompletedWaiterName",
+    "SortOrderType",
     "SystemEventTypeType",
     "TopologyTypeType",
     "WaiterName",
@@ -90,9 +92,18 @@ AssessmentErrorCodeType = Literal[
     "INTERNAL_ERROR",
     "INVALID_PERMISSIONS",
 ]
+AssessmentSortFieldType = Literal["STARTED_AT"]
 AssessmentStatusType = Literal["FAILED", "IN_PROGRESS", "NOT_STARTED", "PENDING", "SUCCESS"]
 AssessmentStepType = Literal[
-    "RESILIENCE_ASSESSMENT", "SERVICE_FUNCTION_GENERATION", "TOPOLOGY_ENHANCEMENT"
+    "DESIGN_ANALYSIS",
+    "FAILURE_MODE_FINDINGS_CONSOLIDATION",
+    "FAILURE_MODE_FINDINGS_ENRICHMENT",
+    "INPUT_VALIDATION",
+    "POLICY_VALIDATION",
+    "RESILIENCE_ASSESSMENT",
+    "SERVICE_FUNCTION_GENERATION",
+    "TOPOLOGY_ENHANCEMENT",
+    "TOPOLOGY_GENERATION",
 ]
 CostCurrencyType = Literal["USD"]
 DependencyCriticalityType = Literal["HARD", "SOFT", "UNKNOWN"]
@@ -181,6 +192,7 @@ ServiceEventTypeType = Literal[
 ServiceFunctionCriticalityType = Literal["PRIMARY", "SUPPLEMENTAL"]
 ServiceFunctionSourceType = Literal["AI_GENERATED", "USER"]
 ServiceResourceDiscoveryCompletedWaiterName = Literal["service_resource_discovery_completed"]
+SortOrderType = Literal["ASC", "DESC"]
 SystemEventTypeType = Literal[
     "SYSTEM_CREATED",
     "SYSTEM_DELETED",

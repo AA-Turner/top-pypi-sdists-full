@@ -7,6 +7,7 @@ from ..util import strip_end
 from ._list import render_list, render_list_item
 
 fenced_re = re.compile(r"^[`~]+", re.M)
+_backtick_run_re = re.compile(r"`+")
 
 #: leading markers that would be parsed as a new block (list, heading, block
 #: quote) if they appear unescaped at the start of a line.
@@ -31,7 +32,7 @@ class MarkdownRenderer(BaseRenderer):
             text = "[" + attrs["label"] + "]: " + attrs["url"]
             title = attrs.get("title")
             if title:
-                text += ' "' + title + '"'
+                text += ' "' + _escape_title(title) + '"'
             yield text
 
     def render_children(self, token: Dict[str, Any], state: BlockState) -> str:
@@ -39,9 +40,18 @@ class MarkdownRenderer(BaseRenderer):
         return self.render_tokens(children, state)
 
     def text(self, token: Dict[str, Any], state: BlockState) -> str:
+        raw = cast(str, token["raw"])
+        # a text token that is made up entirely of "*"/"_" is a literal
+        # emphasis delimiter -- either an escaped marker from the source
+        # (``\*``) or an unmatched leftover -- so every character must stay
+        # escaped, or it would re-parse as emphasis on the round-trip. Prose
+        # punctuation such as ``2 * 3`` or ``snake_case`` arrives mixed with
+        # other characters and is left untouched.
+        if raw and all(c in "*_" for c in raw):
+            return "".join("\\" + c for c in raw)
         # a backtick always opens a code span, so it must stay escaped to
         # survive a re-parse as literal text.
-        return cast(str, token["raw"]).replace("`", "\\`")
+        return raw.replace("`", "\\`")
 
     def emphasis(self, token: Dict[str, Any], state: BlockState) -> str:
         return "*" + self.render_children(token, state) + "*"
@@ -70,14 +80,23 @@ class MarkdownRenderer(BaseRenderer):
         else:
             out += url
         if title:
-            out += ' "' + title + '"'
+            out += ' "' + _escape_title(title) + '"'
         return out + ")"
 
     def image(self, token: Dict[str, Any], state: BlockState) -> str:
         return "!" + self.link(token, state)
 
     def codespan(self, token: Dict[str, Any], state: BlockState) -> str:
-        return "`" + cast(str, token["raw"]) + "`"
+        code = cast(str, token["raw"])
+        # The delimiter must be a run of backticks longer than any backtick run
+        # inside the content, otherwise the content would close the span early.
+        longest = max((len(run) for run in _backtick_run_re.findall(code)), default=0)
+        fence = "`" * (longest + 1)
+        # A space on each side keeps the delimiter from merging with a leading or
+        # trailing backtick; the parser strips this padding back off.
+        if code.startswith("`") or code.endswith("`"):
+            return fence + " " + code + " " + fence
+        return fence + code + fence
 
     def linebreak(self, token: Dict[str, Any], state: BlockState) -> str:
         return "  \n"
@@ -121,8 +140,11 @@ class MarkdownRenderer(BaseRenderer):
         return marker2 + info + "\n" + code + marker2 + "\n\n"
 
     def block_quote(self, token: Dict[str, Any], state: BlockState) -> str:
-        text = indent(self.render_children(token, state), "> ", lambda _: True)
-        text = text.rstrip("> \n")
+        # strip the children's trailing blank lines first so the quote marker is
+        # not added to a dangling empty line; stripping it back off afterwards
+        # would also eat a ">" that ends the content (an autolink or HTML tag).
+        text = self.render_children(token, state).rstrip("\n")
+        text = indent(text, "> ", lambda _: True)
         return text + "\n\n"
 
     def block_html(self, token: Dict[str, Any], state: BlockState) -> str:
@@ -176,6 +198,13 @@ class MarkdownRenderer(BaseRenderer):
 
     def table_cell(self, token: Dict[str, Any], state: BlockState) -> str:
         return _render_table_cell(self, token, state)
+
+
+def _escape_title(title: str) -> str:
+    """Escape a link/image title for emission inside double quotes. The closing
+    quote would otherwise end the title early on a re-parse; a backslash is
+    escaped first so it can't combine with the following character."""
+    return title.replace("\\", "\\\\").replace('"', '\\"')
 
 
 def _escape_block_prefix(text: str) -> str:

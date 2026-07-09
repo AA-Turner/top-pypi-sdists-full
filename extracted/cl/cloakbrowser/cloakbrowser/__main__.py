@@ -18,7 +18,7 @@ import platform
 import subprocess
 import sys
 
-UPGRADE_HINT = "→ Add a license key for the latest Pro binary: https://cloakbrowser.dev"
+UPGRADE_HINT = "→ Try the latest Pro binary (Chromium 148) free for 7 days: https://cloakbrowser.dev"
 
 
 def _setup_logging() -> None:
@@ -109,7 +109,7 @@ def _resolve_license() -> tuple[dict, bool]:
     return {"tier": "invalid", "valid": False}, False
 
 
-def _effective_binary(entitled_pro: bool) -> dict:
+def _effective_binary(entitled_pro: bool, quick: bool = False) -> dict:
     """Describe the binary ensure_binary would actually launch (no download).
 
     Mirrors ensure_binary's resolution (override > version pin > license tier).
@@ -130,6 +130,8 @@ def _effective_binary(entitled_pro: bool) -> dict:
     if override:
         return {
             "version": None,
+            "latest_version": None,
+            "pinned": False,
             "tier": "override",
             "bundled_version": CHROMIUM_VERSION,
             "path": override,
@@ -139,25 +141,37 @@ def _effective_binary(entitled_pro: bool) -> dict:
         }
 
     requested = normalize_requested_version(None)
+
+    # For a Pro license, surface the server's latest separately from the version
+    # that will actually launch, so `info` can never silently diverge from launch
+    # (the divergence a customer hit: info showed latest, launch ran a stale cache).
+    # --quick keeps `info` fully network-free (skip the server latest lookup).
+    latest_version = None
+    if entitled_pro and not quick:
+        from .license import get_pro_latest_version
+
+        latest_version = get_pro_latest_version()
+
     if requested:
         version = requested
     elif entitled_pro:
-        # Mirror ensure_binary: a Pro launch resolves the latest Pro version over
-        # the network. Without this, a fresh Pro user (no cached marker) would see
-        # the free base version paired with the -pro path, which never ships.
-        from .license import get_pro_latest_version
-
-        version = get_pro_latest_version() or get_effective_version(pro=True)
+        # "Will launch now" is the cached Pro build; if none is cached, the next
+        # launch downloads latest_version. get_effective_version(pro=True) returns
+        # None (never the free base) when nothing is cached.
+        version = get_effective_version(pro=True) or latest_version
     else:
         version = get_effective_version()
-    path = get_binary_path(version, pro=entitled_pro)
+
+    path = get_binary_path(version, pro=entitled_pro) if version else None
     return {
         "version": version,
+        "latest_version": latest_version,
+        "pinned": bool(requested),
         "tier": "pro" if entitled_pro else "free",
         "bundled_version": CHROMIUM_VERSION,
-        "path": str(path),
-        "installed": path.exists(),
-        "cache_dir": str(get_binary_dir(version, pro=entitled_pro)),
+        "path": str(path) if path else None,
+        "installed": bool(path) and path.exists(),
+        "cache_dir": str(get_binary_dir(version, pro=entitled_pro)) if version else None,
         "override": None,
     }
 
@@ -185,7 +199,7 @@ def _collect_diagnostics(quick: bool) -> dict:
         diag["environment"]["platform_tag"] = f"unavailable ({exc})"
 
     try:
-        diag["binary"] = _effective_binary(entitled_pro)
+        diag["binary"] = _effective_binary(entitled_pro, quick=quick)
     except Exception as exc:  # platform unsupported, etc.
         diag["binary"] = {"error": str(exc)}
 
@@ -205,11 +219,19 @@ def _collect_diagnostics(quick: bool) -> dict:
     # Windows-font probe — only meaningful on a Linux host spoofing Windows.
     # Omitted entirely off Linux, where it carries no signal.
     if platform.system() == "Linux":
-        from .browser import _windows_fonts_present
+        from .browser import (
+            _OFFICE_FONT_TELLS,
+            _WINDOWS_FONT_TELLS,
+            _count_fonts_present,
+        )
 
-        present = _windows_fonts_present()
+        # Strict count, not "any one present" — real font installs are atomic
+        # (you have the whole pack or none), so report how complete the set is.
+        win_n = _count_fonts_present(_WINDOWS_FONT_TELLS)
+        office_n = _count_fonts_present(_OFFICE_FONT_TELLS)
         diag["fonts"] = {
-            "windows_fonts": {True: "ok", False: "missing", None: "unknown"}[present]
+            "windows": None if win_n is None else [win_n, len(_WINDOWS_FONT_TELLS)],
+            "office": None if office_n is None else [office_n, len(_OFFICE_FONT_TELLS)],
         }
 
     diag["license"] = license_info
@@ -249,7 +271,28 @@ def _print_diagnostics(diag: dict) -> None:
         if binary["tier"] == "override":
             print("Version:   set via CLOAKBROWSER_BINARY_PATH (see Launch line)")
         else:
-            print(f"Version:   {binary['version']} ({binary['tier']})")
+            latest = binary.get("latest_version")
+            if latest:
+                # Pro: show what launches now AND the server's latest, so the two
+                # can never silently diverge.
+                print(f"Version:   {binary['version']} ({binary['tier']}) — will launch")
+                if latest == binary["version"]:
+                    print(f"Latest:    {latest} (up to date)")
+                elif binary.get("pinned"):
+                    print(
+                        f"Latest:    {latest} (available — pinned; unset "
+                        "CLOAKBROWSER_VERSION to upgrade)"
+                    )
+                else:
+                    print(f"Latest:    {latest} (available — next launch upgrades)")
+            elif binary["version"] is None:
+                # Pro with no cached build and no server answer (e.g. offline).
+                print(
+                    f"Version:   not downloaded yet ({binary['tier']}) "
+                    "— next launch downloads the latest"
+                )
+            else:
+                print(f"Version:   {binary['version']} ({binary['tier']})")
         print(f"Binary:    {binary['path']}")
         print(f"Installed: {binary['installed']}")
         if binary.get("cache_dir"):
@@ -270,10 +313,22 @@ def _print_diagnostics(diag: dict) -> None:
             print("           → install the missing system libraries (e.g. apt-get install)")
 
     if "fonts" in diag:
-        fonts = diag["fonts"]["windows_fonts"]
-        print(f"Win fonts: {fonts}")
-        if fonts == "missing":
-            print("           → spoofing Windows on Linux without Windows fonts; install msttcorefonts")
+        win = diag["fonts"]["windows"]
+        if win is None:
+            print("Win fonts: unknown (fc-list unavailable)")
+        else:
+            n, total = win
+            verdict = "ok" if n == total else "missing" if n == 0 else "partial"
+            print(f"Win fonts: {verdict} ({n}/{total})")
+            if n < total:
+                print("           → incomplete Windows font set; copy real Windows fonts (Segoe UI, Calibri, Consolas)")
+        office = diag["fonts"].get("office")
+        if office is not None:
+            n, total = office
+            # Office is informational only — no Office pack is a normal Windows
+            # persona (~53% of real machines have none), so no install nudge.
+            verdict = "ok" if n == total else "absent" if n == 0 else "partial"
+            print(f"Office fonts: {verdict} ({n}/{total})")
 
     lic = diag["license"]
     tier = lic["tier"]
@@ -305,13 +360,24 @@ def cmd_info(args: argparse.Namespace) -> None:
 
 
 def cmd_update(args: argparse.Namespace) -> None:
-    from .download import check_for_update
+    from .download import check_for_pro_update, check_for_update
 
     logger = logging.getLogger("cloakbrowser")
     logger.info("Checking for updates...")
-    new_version = check_for_update()
+
+    # A valid Pro license updates the Pro binary; everyone else updates free.
+    _, entitled_pro = _resolve_license()
+    if entitled_pro:
+        from .license import resolve_license_key
+
+        new_version = check_for_pro_update(resolve_license_key(None))
+        label = "Pro Chromium"
+    else:
+        new_version = check_for_update()
+        label = "Chromium"
+
     if new_version:
-        print(f"Updated to Chromium {new_version}")
+        print(f"Updated to {label} {new_version}")
     else:
         print("Already up to date.")
 

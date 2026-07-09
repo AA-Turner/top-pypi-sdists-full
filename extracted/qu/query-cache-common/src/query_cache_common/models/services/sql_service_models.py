@@ -47,6 +47,7 @@ class SubmitEnrichedSQLRequest(BaseSerDeModel):
     clone_table_properties: t.Optional[TableProperties] = None
     stale_upstream_policy: shared_models.StaleUpstreamPolicy = shared_models.StaleUpstreamPolicy.ANY
     clone_chain_depth_limit: t.Optional[int] = None
+    dbt_node_state: t.Optional[shared_models.DbtNodeState] = None
 
 
 @proto_dataclass(sql_service_pb2.QueryHashMatchMetadataInfo)

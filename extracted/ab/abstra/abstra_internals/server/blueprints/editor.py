@@ -1,6 +1,7 @@
 import flask
 
 from abstra_internals.cloud_api import save_editor_auth_token_to_file
+from abstra_internals.controllers.file_locks import FileLockedException
 from abstra_internals.controllers.main import MainController
 from abstra_internals.environment import PROJECT_ID
 from abstra_internals.logger import AbstraLogger
@@ -15,6 +16,7 @@ from abstra_internals.server.routes import deploy as deploy_router
 from abstra_internals.server.routes import env_vars as envvars_router
 from abstra_internals.server.routes import executions as executions_router
 from abstra_internals.server.routes import file_history as file_history_router
+from abstra_internals.server.routes import file_locks as file_locks_router
 from abstra_internals.server.routes import forms as forms_router
 from abstra_internals.server.routes import git as git_router
 from abstra_internals.server.routes import hooks as hooks_router
@@ -44,6 +46,12 @@ from abstra_internals.usage import editor_usage
 def _get_api_bp(controller: MainController):
     bp = flask.Blueprint("editor_api", __name__)
 
+    @bp.errorhandler(FileLockedException)
+    def _handle_file_locked(e: FileLockedException):
+        return flask.make_response(
+            {"error": "file_locked", "holder": e.holder.to_dict()}, 423
+        )
+
     mcp_bp = mcp_router.get_editor_bp(controller)
     bp.register_blueprint(mcp_bp, url_prefix="/mcp")
 
@@ -61,6 +69,9 @@ def _get_api_bp(controller: MainController):
 
     files_bp = codebase_router.get_editor_bp(controller.repositories)
     bp.register_blueprint(files_bp, url_prefix="/codebase")
+
+    locks_bp = file_locks_router.get_editor_bp(controller.repositories)
+    bp.register_blueprint(locks_bp, url_prefix="/locks")
 
     jobs_bp = jobs_router.get_editor_bp(controller)
     bp.register_blueprint(jobs_bp, url_prefix="/jobs")

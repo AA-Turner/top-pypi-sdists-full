@@ -14,7 +14,7 @@ import jsii
 import publication
 import typing_extensions
 
-from jsii._type_checking import check_type
+from jsii._type_checking import cached_type_hints, check_type
 
 
 from .._jsii import *
@@ -93,7 +93,7 @@ class AuditOptions:
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__fa4156d4e0a4a5a2efe965ea98ba35b587dcbfe01e1b4d659a959bcf54294ed2)
+            type_hints = cached_type_hints(_typecheckingstub__fa4156d4e0a4a5a2efe965ea98ba35b587dcbfe01e1b4d659a959bcf54294ed2)
             check_type(argname="argument level", value=level, expected_type=type_hints["level"])
             check_type(argname="argument prod_only", value=prod_only, expected_type=type_hints["prod_only"])
             check_type(argname="argument run_on", value=run_on, expected_type=type_hints["run_on"])
@@ -211,7 +211,7 @@ class Biome(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__9f2264088409136f62af7e2ac4488206c06c3b9a69056be8b9ead20ab895f1bc)
+            type_hints = cached_type_hints(_typecheckingstub__9f2264088409136f62af7e2ac4488206c06c3b9a69056be8b9ead20ab895f1bc)
             check_type(argname="argument project", value=project, expected_type=type_hints["project"])
         options = BiomeOptions(
             assist=assist,
@@ -234,7 +234,7 @@ class Biome(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__02197aa3a69f17c43ff359679227be724559aba6ef0881da4e04e9a0bf66d078)
+            type_hints = cached_type_hints(_typecheckingstub__02197aa3a69f17c43ff359679227be724559aba6ef0881da4e04e9a0bf66d078)
             check_type(argname="argument project", value=project, expected_type=type_hints["project"])
         return typing.cast(typing.Optional["Biome"], jsii.sinvoke(cls, "of", [project]))
 
@@ -250,7 +250,7 @@ class Biome(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__5609a4432d207b19ee177e477fdf5e275031b8ec1346b00ac4bbfdf93f688757)
+            type_hints = cached_type_hints(_typecheckingstub__5609a4432d207b19ee177e477fdf5e275031b8ec1346b00ac4bbfdf93f688757)
             check_type(argname="argument pattern", value=pattern, expected_type=type_hints["pattern"])
         return typing.cast(None, jsii.invoke(self, "addFilePattern", [pattern]))
 
@@ -422,7 +422,7 @@ class BiomeOptions:
         if isinstance(biome_config, dict):
             biome_config = _biome_config_8d74827f.BiomeConfiguration(**biome_config)
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__b53a2988afa9afc23bda2fe96e2de8ffaff18ab919e00b69a6c8d3d229f3dcc1)
+            type_hints = cached_type_hints(_typecheckingstub__b53a2988afa9afc23bda2fe96e2de8ffaff18ab919e00b69a6c8d3d229f3dcc1)
             check_type(argname="argument assist", value=assist, expected_type=type_hints["assist"])
             check_type(argname="argument biome_config", value=biome_config, expected_type=type_hints["biome_config"])
             check_type(argname="argument formatter", value=formatter, expected_type=type_hints["formatter"])
@@ -593,7 +593,7 @@ class BuildWorkflowOptions(_build_c2d06a81.BuildWorkflowCommonOptions):
         if isinstance(runs_on_group, dict):
             runs_on_group = _projen_04054675.GroupRunnerOptions(**runs_on_group)
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__12c3595783c38c358dfa0cc66282771c2ed2020f0770e8379920bb5731b72372)
+            type_hints = cached_type_hints(_typecheckingstub__12c3595783c38c358dfa0cc66282771c2ed2020f0770e8379920bb5731b72372)
             check_type(argname="argument env", value=env, expected_type=type_hints["env"])
             check_type(argname="argument name", value=name, expected_type=type_hints["name"])
             check_type(argname="argument permissions", value=permissions, expected_type=type_hints["permissions"])
@@ -776,7 +776,7 @@ class Bundle:
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__61e51544f8a1488a41b14a0ee08df5b86eb83b8852c5ea8c95747007b7c012de)
+            type_hints = cached_type_hints(_typecheckingstub__61e51544f8a1488a41b14a0ee08df5b86eb83b8852c5ea8c95747007b7c012de)
             check_type(argname="argument bundle_task", value=bundle_task, expected_type=type_hints["bundle_task"])
             check_type(argname="argument outdir", value=outdir, expected_type=type_hints["outdir"])
             check_type(argname="argument outfile", value=outfile, expected_type=type_hints["outfile"])
@@ -911,7 +911,7 @@ class Bundler(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__b39a2a4441a612906ad5a7b87f1a6c53ed88fb86f4e31bd1a7283a06a2e9ebf7)
+            type_hints = cached_type_hints(_typecheckingstub__b39a2a4441a612906ad5a7b87f1a6c53ed88fb86f4e31bd1a7283a06a2e9ebf7)
             check_type(argname="argument project", value=project, expected_type=type_hints["project"])
         options = BundlerOptions(
             assets_dir=assets_dir,
@@ -934,7 +934,7 @@ class Bundler(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__7bef383122352b305e57b5282e27bdaa8a9889f1dd224d03d28a1c2cc73120b0)
+            type_hints = cached_type_hints(_typecheckingstub__7bef383122352b305e57b5282e27bdaa8a9889f1dd224d03d28a1c2cc73120b0)
             check_type(argname="argument project", value=project, expected_type=type_hints["project"])
         return typing.cast(typing.Optional["Bundler"], jsii.sinvoke(cls, "of", [project]))
 
@@ -997,7 +997,7 @@ class Bundler(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__5b3fe067eb8c7b6b184c855eea4d40743f016f5de6e522e14523a7e7695ad811)
+            type_hints = cached_type_hints(_typecheckingstub__5b3fe067eb8c7b6b184c855eea4d40743f016f5de6e522e14523a7e7695ad811)
             check_type(argname="argument entrypoint", value=entrypoint, expected_type=type_hints["entrypoint"])
         options = AddBundleOptions(
             platform=platform,
@@ -1087,7 +1087,7 @@ class BundlerOptions:
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__10a14ca8f2b867bbbf0d45b5661abe92e6975540f78ea16f7ed21f5f213c4913)
+            type_hints = cached_type_hints(_typecheckingstub__10a14ca8f2b867bbbf0d45b5661abe92e6975540f78ea16f7ed21f5f213c4913)
             check_type(argname="argument assets_dir", value=assets_dir, expected_type=type_hints["assets_dir"])
             check_type(argname="argument esbuild_version", value=esbuild_version, expected_type=type_hints["esbuild_version"])
             check_type(argname="argument loaders", value=loaders, expected_type=type_hints["loaders"])
@@ -1188,7 +1188,7 @@ class BundlingOptions:
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__3e252fd4be8ae854f73a85420360ed4acf437d507d78f6a911faa76a8abd5be7)
+            type_hints = cached_type_hints(_typecheckingstub__3e252fd4be8ae854f73a85420360ed4acf437d507d78f6a911faa76a8abd5be7)
             check_type(argname="argument externals", value=externals, expected_type=type_hints["externals"])
             check_type(argname="argument sourcemap", value=sourcemap, expected_type=type_hints["sourcemap"])
             check_type(argname="argument watch_task", value=watch_task, expected_type=type_hints["watch_task"])
@@ -1335,7 +1335,7 @@ class CodeArtifactOptions:
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__002c9939ff1c7990e7c7029095bb5f21d1cc7e5576d9a2db081cbf690aec60f8)
+            type_hints = cached_type_hints(_typecheckingstub__002c9939ff1c7990e7c7029095bb5f21d1cc7e5576d9a2db081cbf690aec60f8)
             check_type(argname="argument access_key_id_secret", value=access_key_id_secret, expected_type=type_hints["access_key_id_secret"])
             check_type(argname="argument auth_provider", value=auth_provider, expected_type=type_hints["auth_provider"])
             check_type(argname="argument role_to_assume", value=role_to_assume, expected_type=type_hints["role_to_assume"])
@@ -1450,7 +1450,7 @@ class CoverageThreshold:
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__f9f20f577fcce2d29c8caf0cf8580b22e6e9616455ddbbdda0e6f84e331b0660)
+            type_hints = cached_type_hints(_typecheckingstub__f9f20f577fcce2d29c8caf0cf8580b22e6e9616455ddbbdda0e6f84e331b0660)
             check_type(argname="argument branches", value=branches, expected_type=type_hints["branches"])
             check_type(argname="argument functions", value=functions, expected_type=type_hints["functions"])
             check_type(argname="argument lines", value=lines, expected_type=type_hints["lines"])
@@ -1531,7 +1531,7 @@ class DevEngineDependency:
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__25f6f3c8d2e6cfe7d1c9e9671a2570984f5baf0174d5bb29c546028ca8294076)
+            type_hints = cached_type_hints(_typecheckingstub__25f6f3c8d2e6cfe7d1c9e9671a2570984f5baf0174d5bb29c546028ca8294076)
             check_type(argname="argument name", value=name, expected_type=type_hints["name"])
             check_type(argname="argument on_fail", value=on_fail, expected_type=type_hints["on_fail"])
             check_type(argname="argument version", value=version, expected_type=type_hints["version"])
@@ -1620,7 +1620,7 @@ class DevEngines:
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__e900e98f2ff28ed770100a22dc197ea921e311c4f8a477e739b8a7e3a1bab09f)
+            type_hints = cached_type_hints(_typecheckingstub__e900e98f2ff28ed770100a22dc197ea921e311c4f8a477e739b8a7e3a1bab09f)
             check_type(argname="argument cpu", value=cpu, expected_type=type_hints["cpu"])
             check_type(argname="argument libc", value=libc, expected_type=type_hints["libc"])
             check_type(argname="argument os", value=os, expected_type=type_hints["os"])
@@ -1798,7 +1798,7 @@ class Eslint(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__41d20792db723180b2558eb351d1b15e6cc51985fdc95dd8481c5fae78aa6963)
+            type_hints = cached_type_hints(_typecheckingstub__41d20792db723180b2558eb351d1b15e6cc51985fdc95dd8481c5fae78aa6963)
             check_type(argname="argument project", value=project, expected_type=type_hints["project"])
         options = EslintOptions(
             dirs=dirs,
@@ -1828,7 +1828,7 @@ class Eslint(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__9e06eae7f2f48a5d785ab71742d0b102d7eb8b056db43d7828d871b53a8004a5)
+            type_hints = cached_type_hints(_typecheckingstub__9e06eae7f2f48a5d785ab71742d0b102d7eb8b056db43d7828d871b53a8004a5)
             check_type(argname="argument project", value=project, expected_type=type_hints["project"])
         return typing.cast(typing.Optional["Eslint"], jsii.sinvoke(cls, "of", [project]))
 
@@ -1841,7 +1841,7 @@ class Eslint(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__f93136ac5c9172a02dce49add560ad232b311f1482a6693dca9b52cb68af2ca4)
+            type_hints = cached_type_hints(_typecheckingstub__f93136ac5c9172a02dce49add560ad232b311f1482a6693dca9b52cb68af2ca4)
             check_type(argname="argument extend_list", value=extend_list, expected_type=typing.Tuple[type_hints["extend_list"], ...]) # pyright: ignore [reportGeneralTypeIssues]
         return typing.cast(None, jsii.invoke(self, "addExtends", [*extend_list]))
 
@@ -1854,7 +1854,7 @@ class Eslint(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__d763feccbd0bc84b224afc2b98acef5e87f938260e31532e536772fb599fbc88)
+            type_hints = cached_type_hints(_typecheckingstub__d763feccbd0bc84b224afc2b98acef5e87f938260e31532e536772fb599fbc88)
             check_type(argname="argument pattern", value=pattern, expected_type=type_hints["pattern"])
         return typing.cast(None, jsii.invoke(self, "addIgnorePattern", [pattern]))
 
@@ -1867,7 +1867,7 @@ class Eslint(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c3c302914aeeb5275b37b60ab64fa0cc6a10a65a08a8f7d8b2aba9aebcc4f75f)
+            type_hints = cached_type_hints(_typecheckingstub__c3c302914aeeb5275b37b60ab64fa0cc6a10a65a08a8f7d8b2aba9aebcc4f75f)
             check_type(argname="argument pattern", value=pattern, expected_type=type_hints["pattern"])
         return typing.cast(None, jsii.invoke(self, "addLintPattern", [pattern]))
 
@@ -1913,7 +1913,7 @@ class Eslint(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__f336402a11e766eb80cbfa5e80fea16b3ef9d7b18f0aa3a2a7b17e24647aa6c9)
+            type_hints = cached_type_hints(_typecheckingstub__f336402a11e766eb80cbfa5e80fea16b3ef9d7b18f0aa3a2a7b17e24647aa6c9)
             check_type(argname="argument plugins", value=plugins, expected_type=typing.Tuple[type_hints["plugins"], ...]) # pyright: ignore [reportGeneralTypeIssues]
         return typing.cast(None, jsii.invoke(self, "addPlugins", [*plugins]))
 
@@ -1926,7 +1926,7 @@ class Eslint(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__68ea4c9051e61eb8d25919e5b5cb6ba7ef44e9a5d642dec514714c13c4b9141c)
+            type_hints = cached_type_hints(_typecheckingstub__68ea4c9051e61eb8d25919e5b5cb6ba7ef44e9a5d642dec514714c13c4b9141c)
             check_type(argname="argument rules", value=rules, expected_type=type_hints["rules"])
         return typing.cast(None, jsii.invoke(self, "addRules", [rules]))
 
@@ -1944,7 +1944,7 @@ class Eslint(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__12a501e560c7dafdeed400a9193c041d7b2008764dd002a627e92ea09ca5ec92)
+            type_hints = cached_type_hints(_typecheckingstub__12a501e560c7dafdeed400a9193c041d7b2008764dd002a627e92ea09ca5ec92)
             check_type(argname="argument patterns", value=patterns, expected_type=typing.Tuple[type_hints["patterns"], ...]) # pyright: ignore [reportGeneralTypeIssues]
         return typing.cast(None, jsii.invoke(self, "allowDefaultProjectFiles", [*patterns]))
 
@@ -1957,7 +1957,7 @@ class Eslint(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__45c512f160dd2d4145e1c0d43de9571ffe4d89e10b34c7d9a7b9fbba3f85ca56)
+            type_hints = cached_type_hints(_typecheckingstub__45c512f160dd2d4145e1c0d43de9571ffe4d89e10b34c7d9a7b9fbba3f85ca56)
             check_type(argname="argument pattern", value=pattern, expected_type=type_hints["pattern"])
         return typing.cast(None, jsii.invoke(self, "allowDevDeps", [pattern]))
 
@@ -2044,7 +2044,7 @@ class EslintCommandOptions:
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ab5437a5e5c0bee91b2bed562cbb0dc9e80e748c8ca3251df4c2eb91ea3a4160)
+            type_hints = cached_type_hints(_typecheckingstub__ab5437a5e5c0bee91b2bed562cbb0dc9e80e748c8ca3251df4c2eb91ea3a4160)
             check_type(argname="argument extra_args", value=extra_args, expected_type=type_hints["extra_args"])
             check_type(argname="argument fix", value=fix, expected_type=type_hints["fix"])
         self._values: typing.Dict[builtins.str, typing.Any] = {}
@@ -2142,7 +2142,7 @@ class EslintOptions:
         if isinstance(command_options, dict):
             command_options = EslintCommandOptions(**command_options)
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__26892c968b7bf4d64dd2597bbdabf1f1e9ced92002225a4eedfae6cbe3c22894)
+            type_hints = cached_type_hints(_typecheckingstub__26892c968b7bf4d64dd2597bbdabf1f1e9ced92002225a4eedfae6cbe3c22894)
             check_type(argname="argument dirs", value=dirs, expected_type=type_hints["dirs"])
             check_type(argname="argument alias_extensions", value=alias_extensions, expected_type=type_hints["alias_extensions"])
             check_type(argname="argument alias_map", value=alias_map, expected_type=type_hints["alias_map"])
@@ -2386,7 +2386,7 @@ class EslintOverride:
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__31a0dd46abf45fc4e6701aa5424796361affd0e9c44ed0f9005dd4fe08f3a136)
+            type_hints = cached_type_hints(_typecheckingstub__31a0dd46abf45fc4e6701aa5424796361affd0e9c44ed0f9005dd4fe08f3a136)
             check_type(argname="argument files", value=files, expected_type=type_hints["files"])
             check_type(argname="argument excluded_files", value=excluded_files, expected_type=type_hints["excluded_files"])
             check_type(argname="argument extends", value=extends, expected_type=type_hints["extends"])
@@ -2512,7 +2512,7 @@ class FakeTimers:
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__aaf734f24ae0330cb97b53e1adbd8f9780e04b5ea6c050e1c917e21eb91baaea)
+            type_hints = cached_type_hints(_typecheckingstub__aaf734f24ae0330cb97b53e1adbd8f9780e04b5ea6c050e1c917e21eb91baaea)
             check_type(argname="argument advance_timers", value=advance_timers, expected_type=type_hints["advance_timers"])
             check_type(argname="argument do_not_fake", value=do_not_fake, expected_type=type_hints["do_not_fake"])
             check_type(argname="argument enable_globally", value=enable_globally, expected_type=type_hints["enable_globally"])
@@ -2669,7 +2669,7 @@ class HasteConfig:
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__1d0f97663aee053bcca0e3b33c8be45ef5c6271b8e0c683a67d717aa914e2a89)
+            type_hints = cached_type_hints(_typecheckingstub__1d0f97663aee053bcca0e3b33c8be45ef5c6271b8e0c683a67d717aa914e2a89)
             check_type(argname="argument compute_sha1", value=compute_sha1, expected_type=type_hints["compute_sha1"])
             check_type(argname="argument default_platform", value=default_platform, expected_type=type_hints["default_platform"])
             check_type(argname="argument haste_impl_module_path", value=haste_impl_module_path, expected_type=type_hints["haste_impl_module_path"])
@@ -2785,7 +2785,7 @@ class InstallTrigger:
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__179bd2bfcbc666e12244fe4363b6de53963491ba8b206152f877e3cd316e3318)
+            type_hints = cached_type_hints(_typecheckingstub__179bd2bfcbc666e12244fe4363b6de53963491ba8b206152f877e3cd316e3318)
             check_type(argname="argument reason", value=reason, expected_type=type_hints["reason"])
             check_type(argname="argument diff", value=diff, expected_type=type_hints["diff"])
             check_type(argname="argument resolutions", value=resolutions, expected_type=type_hints["resolutions"])
@@ -2882,7 +2882,7 @@ class Jest(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__7f22158e02967239263c228b0eadfa82f5edd4d7b172b8506a5b32bc46ab7738)
+            type_hints = cached_type_hints(_typecheckingstub__7f22158e02967239263c228b0eadfa82f5edd4d7b172b8506a5b32bc46ab7738)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
         options = JestOptions(
             config_file_path=config_file_path,
@@ -2908,7 +2908,7 @@ class Jest(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__f3f7fcc78583eceb598afdcb95edc0f1b1e50996f7069e12c4379c4826f26209)
+            type_hints = cached_type_hints(_typecheckingstub__f3f7fcc78583eceb598afdcb95edc0f1b1e50996f7069e12c4379c4826f26209)
             check_type(argname="argument project", value=project, expected_type=type_hints["project"])
         return typing.cast(typing.Optional["Jest"], jsii.sinvoke(cls, "of", [project]))
 
@@ -2920,7 +2920,7 @@ class Jest(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__3e87fe808869e615e76d29eee7ca1d2238a1385943c81f0a2e892460ceedb5ed)
+            type_hints = cached_type_hints(_typecheckingstub__3e87fe808869e615e76d29eee7ca1d2238a1385943c81f0a2e892460ceedb5ed)
             check_type(argname="argument pattern", value=pattern, expected_type=type_hints["pattern"])
         return typing.cast(None, jsii.invoke(self, "addIgnorePattern", [pattern]))
 
@@ -2938,7 +2938,7 @@ class Jest(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__3ea7ae603f3c4b21a782656d0994c4698c9b813b6fad0c15e9219ce8c274272a)
+            type_hints = cached_type_hints(_typecheckingstub__3ea7ae603f3c4b21a782656d0994c4698c9b813b6fad0c15e9219ce8c274272a)
             check_type(argname="argument module_name_mapper_additions", value=module_name_mapper_additions, expected_type=type_hints["module_name_mapper_additions"])
         return typing.cast(None, jsii.invoke(self, "addModuleNameMappers", [module_name_mapper_additions]))
 
@@ -2951,7 +2951,7 @@ class Jest(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c8811f3e6f14fcd0933758c27c066673357b33b1457ebdb12f2c26ecd0a0cb17)
+            type_hints = cached_type_hints(_typecheckingstub__c8811f3e6f14fcd0933758c27c066673357b33b1457ebdb12f2c26ecd0a0cb17)
             check_type(argname="argument module_paths", value=module_paths, expected_type=typing.Tuple[type_hints["module_paths"], ...]) # pyright: ignore [reportGeneralTypeIssues]
         return typing.cast(None, jsii.invoke(self, "addModulePaths", [*module_paths]))
 
@@ -2963,7 +2963,7 @@ class Jest(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__3c4c1ef11a85bcfb37b6e70871ed29cf5fa4c0462b66dc45e117870bbc694112)
+            type_hints = cached_type_hints(_typecheckingstub__3c4c1ef11a85bcfb37b6e70871ed29cf5fa4c0462b66dc45e117870bbc694112)
             check_type(argname="argument reporter", value=reporter, expected_type=type_hints["reporter"])
         return typing.cast(None, jsii.invoke(self, "addReporter", [reporter]))
 
@@ -2976,7 +2976,7 @@ class Jest(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__2ded836566bc5d4a2425ee4aa38b0b332c448c1ebfe04ac5fd8d05e6a7992796)
+            type_hints = cached_type_hints(_typecheckingstub__2ded836566bc5d4a2425ee4aa38b0b332c448c1ebfe04ac5fd8d05e6a7992796)
             check_type(argname="argument roots", value=roots, expected_type=typing.Tuple[type_hints["roots"], ...]) # pyright: ignore [reportGeneralTypeIssues]
         return typing.cast(None, jsii.invoke(self, "addRoots", [*roots]))
 
@@ -2989,7 +2989,7 @@ class Jest(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__5ac5cebbfb17927ec2e8823a44f46135f97967d425da95c8fb3e9178d5692325)
+            type_hints = cached_type_hints(_typecheckingstub__5ac5cebbfb17927ec2e8823a44f46135f97967d425da95c8fb3e9178d5692325)
             check_type(argname="argument file", value=file, expected_type=type_hints["file"])
         return typing.cast(None, jsii.invoke(self, "addSetupFile", [file]))
 
@@ -3002,7 +3002,7 @@ class Jest(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__38e0d94b263ceb92e7dbb69cd4c07c5974658fb7c8657d66df3942b0de62fdd0)
+            type_hints = cached_type_hints(_typecheckingstub__38e0d94b263ceb92e7dbb69cd4c07c5974658fb7c8657d66df3942b0de62fdd0)
             check_type(argname="argument file", value=file, expected_type=type_hints["file"])
         return typing.cast(None, jsii.invoke(self, "addSetupFileAfterEnv", [file]))
 
@@ -3014,7 +3014,7 @@ class Jest(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__e90cd9fa168c9e74d2ff0170f7a1eab10a2368f21ff1133964d018b8019d7268)
+            type_hints = cached_type_hints(_typecheckingstub__e90cd9fa168c9e74d2ff0170f7a1eab10a2368f21ff1133964d018b8019d7268)
             check_type(argname="argument file", value=file, expected_type=type_hints["file"])
         return typing.cast(None, jsii.invoke(self, "addSnapshotResolver", [file]))
 
@@ -3027,7 +3027,7 @@ class Jest(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__79885cc12d31e7c903be82393a87b275c69824c1f59cae5ba5c8d4f5de5982e4)
+            type_hints = cached_type_hints(_typecheckingstub__79885cc12d31e7c903be82393a87b275c69824c1f59cae5ba5c8d4f5de5982e4)
             check_type(argname="argument pattern", value=pattern, expected_type=type_hints["pattern"])
         return typing.cast(None, jsii.invoke(self, "addTestMatch", [pattern]))
 
@@ -3040,7 +3040,7 @@ class Jest(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__340f8ef9eed036d2e1af02ee13866e070b25e032c7262d1181adf28bbee99b5a)
+            type_hints = cached_type_hints(_typecheckingstub__340f8ef9eed036d2e1af02ee13866e070b25e032c7262d1181adf28bbee99b5a)
             check_type(argname="argument pattern", value=pattern, expected_type=type_hints["pattern"])
         return typing.cast(None, jsii.invoke(self, "addWatchIgnorePattern", [pattern]))
 
@@ -3059,7 +3059,7 @@ class Jest(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__0681a729d70e1f1999defc63f8a0f12400f6e0b609f4fb8dbf7f858c435cd9b1)
+            type_hints = cached_type_hints(_typecheckingstub__0681a729d70e1f1999defc63f8a0f12400f6e0b609f4fb8dbf7f858c435cd9b1)
             check_type(argname="argument dirs", value=dirs, expected_type=type_hints["dirs"])
         options = JestDiscoverTestMatchPatternsForDirsOptions(
             file_extension_pattern=file_extension_pattern
@@ -3363,7 +3363,7 @@ class JestConfigOptions:
         if isinstance(snapshot_format, dict):
             snapshot_format = SnapshotFormatOptions(**snapshot_format)
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__38439e86b40e7bc302e4faa48880e15ba8a10e5a2769a5b73cbf33a01a318752)
+            type_hints = cached_type_hints(_typecheckingstub__38439e86b40e7bc302e4faa48880e15ba8a10e5a2769a5b73cbf33a01a318752)
             check_type(argname="argument additional_options", value=additional_options, expected_type=type_hints["additional_options"])
             check_type(argname="argument automock", value=automock, expected_type=type_hints["automock"])
             check_type(argname="argument bail", value=bail, expected_type=type_hints["bail"])
@@ -4652,7 +4652,7 @@ class JestDiscoverTestMatchPatternsForDirsOptions:
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__987ab5c64454683ddeb28bad78f44cdd78a2099af6a0e44ff92f50bc40f8e486)
+            type_hints = cached_type_hints(_typecheckingstub__987ab5c64454683ddeb28bad78f44cdd78a2099af6a0e44ff92f50bc40f8e486)
             check_type(argname="argument file_extension_pattern", value=file_extension_pattern, expected_type=type_hints["file_extension_pattern"])
         self._values: typing.Dict[builtins.str, typing.Any] = {}
         if file_extension_pattern is not None:
@@ -4726,7 +4726,7 @@ class JestOptions:
         if isinstance(jest_config, dict):
             jest_config = JestConfigOptions(**jest_config)
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__6fea73c8bcc51e881c3829384cb90956e3310a1a08296d32da54fc51bd1b0872)
+            type_hints = cached_type_hints(_typecheckingstub__6fea73c8bcc51e881c3829384cb90956e3310a1a08296d32da54fc51bd1b0872)
             check_type(argname="argument config_file_path", value=config_file_path, expected_type=type_hints["config_file_path"])
             check_type(argname="argument coverage_text", value=coverage_text, expected_type=type_hints["coverage_text"])
             check_type(argname="argument extra_cli_options", value=extra_cli_options, expected_type=type_hints["extra_cli_options"])
@@ -4890,7 +4890,7 @@ class JestReporter(metaclass=jsii.JSIIMeta, jsii_type="projen.javascript.JestRep
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__1adfce4c8efbbf8de3e660eb3dc3c2d165cf8436faf2119d2f15900dda8e814a)
+            type_hints = cached_type_hints(_typecheckingstub__1adfce4c8efbbf8de3e660eb3dc3c2d165cf8436faf2119d2f15900dda8e814a)
             check_type(argname="argument name", value=name, expected_type=type_hints["name"])
             check_type(argname="argument options", value=options, expected_type=type_hints["options"])
         jsii.create(self.__class__, self, [name, options])
@@ -4927,7 +4927,7 @@ class LicenseChecker(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__633884d979ff043b0cb4d3b3ca5a5034b5ff1ca8ca2b0a15eddacdee52ab308f)
+            type_hints = cached_type_hints(_typecheckingstub__633884d979ff043b0cb4d3b3ca5a5034b5ff1ca8ca2b0a15eddacdee52ab308f)
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
         options = LicenseCheckerOptions(
             allow=allow,
@@ -4980,7 +4980,7 @@ class LicenseCheckerOptions:
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__5ecb3eb2c80d8dc313b42f1298a6228d79b42581771da7a571d2d56deaff2d38)
+            type_hints = cached_type_hints(_typecheckingstub__5ecb3eb2c80d8dc313b42f1298a6228d79b42581771da7a571d2d56deaff2d38)
             check_type(argname="argument allow", value=allow, expected_type=type_hints["allow"])
             check_type(argname="argument deny", value=deny, expected_type=type_hints["deny"])
             check_type(argname="argument development", value=development, expected_type=type_hints["development"])
@@ -5172,7 +5172,7 @@ class NodePackage(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__d10cd20471c8ed8e2de153476379f00bfa1b587c92e8982006812a0e3e9c846b)
+            type_hints = cached_type_hints(_typecheckingstub__d10cd20471c8ed8e2de153476379f00bfa1b587c92e8982006812a0e3e9c846b)
             check_type(argname="argument project", value=project, expected_type=type_hints["project"])
         options = NodePackageOptions(
             add_package_manager_to_dev_engines=add_package_manager_to_dev_engines,
@@ -5231,7 +5231,7 @@ class NodePackage(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ed59ebc5bed88895c144548cfa5a6449f2ddb633539f6c812584b57eb0cd9429)
+            type_hints = cached_type_hints(_typecheckingstub__ed59ebc5bed88895c144548cfa5a6449f2ddb633539f6c812584b57eb0cd9429)
             check_type(argname="argument project", value=project, expected_type=type_hints["project"])
         return typing.cast(typing.Optional["NodePackage"], jsii.sinvoke(cls, "of", [project]))
 
@@ -5243,7 +5243,7 @@ class NodePackage(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__13e4b0ad9e59ff790a5783923af9f1d0af9bff2ab30e03185a659093189f08f3)
+            type_hints = cached_type_hints(_typecheckingstub__13e4b0ad9e59ff790a5783923af9f1d0af9bff2ab30e03185a659093189f08f3)
             check_type(argname="argument bins", value=bins, expected_type=type_hints["bins"])
         return typing.cast(None, jsii.invoke(self, "addBin", [bins]))
 
@@ -5259,7 +5259,7 @@ class NodePackage(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__6f25a81261c7551ce7372a9e98c98143fde0ccda688f4a7f1b1d64783c6fa198)
+            type_hints = cached_type_hints(_typecheckingstub__6f25a81261c7551ce7372a9e98c98143fde0ccda688f4a7f1b1d64783c6fa198)
             check_type(argname="argument deps", value=deps, expected_type=typing.Tuple[type_hints["deps"], ...]) # pyright: ignore [reportGeneralTypeIssues]
         return typing.cast(None, jsii.invoke(self, "addBundledDeps", [*deps]))
 
@@ -5272,7 +5272,7 @@ class NodePackage(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c66a164e21aa660923f1f9ca9a679f353501f43d2c6de87372bb0dadcc74e863)
+            type_hints = cached_type_hints(_typecheckingstub__c66a164e21aa660923f1f9ca9a679f353501f43d2c6de87372bb0dadcc74e863)
             check_type(argname="argument deps", value=deps, expected_type=typing.Tuple[type_hints["deps"], ...]) # pyright: ignore [reportGeneralTypeIssues]
         return typing.cast(None, jsii.invoke(self, "addDeps", [*deps]))
 
@@ -5285,7 +5285,7 @@ class NodePackage(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__80cd6a4a71ddbf3dcbb4c76baab6b84aa13c5bb5b4e36d4e51cb18378a0d733d)
+            type_hints = cached_type_hints(_typecheckingstub__80cd6a4a71ddbf3dcbb4c76baab6b84aa13c5bb5b4e36d4e51cb18378a0d733d)
             check_type(argname="argument deps", value=deps, expected_type=typing.Tuple[type_hints["deps"], ...]) # pyright: ignore [reportGeneralTypeIssues]
         return typing.cast(None, jsii.invoke(self, "addDevDeps", [*deps]))
 
@@ -5299,7 +5299,7 @@ class NodePackage(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__944e49e6183bbfb83f5284a94826a5dc27eb1d8daf9f1c782135dc5893acfcae)
+            type_hints = cached_type_hints(_typecheckingstub__944e49e6183bbfb83f5284a94826a5dc27eb1d8daf9f1c782135dc5893acfcae)
             check_type(argname="argument engine", value=engine, expected_type=type_hints["engine"])
             check_type(argname="argument version", value=version, expected_type=type_hints["version"])
         return typing.cast(None, jsii.invoke(self, "addEngine", [engine, version]))
@@ -5315,7 +5315,7 @@ class NodePackage(
         :escape: true
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__85137a3059fcbe1e4bfe64a7b2d097445ae0743f4ff0ecde43a1c4cefbeafa7a)
+            type_hints = cached_type_hints(_typecheckingstub__85137a3059fcbe1e4bfe64a7b2d097445ae0743f4ff0ecde43a1c4cefbeafa7a)
             check_type(argname="argument name", value=name, expected_type=type_hints["name"])
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         return typing.cast(None, jsii.invoke(self, "addField", [name, value]))
@@ -5329,7 +5329,7 @@ class NodePackage(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__1a4904c7ed7ae8a2b9f8ade987155393a1f966700d60dc9e833e6615cc57118b)
+            type_hints = cached_type_hints(_typecheckingstub__1a4904c7ed7ae8a2b9f8ade987155393a1f966700d60dc9e833e6615cc57118b)
             check_type(argname="argument keywords", value=keywords, expected_type=typing.Tuple[type_hints["keywords"], ...]) # pyright: ignore [reportGeneralTypeIssues]
         return typing.cast(None, jsii.invoke(self, "addKeywords", [*keywords]))
 
@@ -5342,7 +5342,7 @@ class NodePackage(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__0bc2a812647b8c3d299d563a0f6381c44edd2be02fb67a3dcd27d127bb238ba5)
+            type_hints = cached_type_hints(_typecheckingstub__0bc2a812647b8c3d299d563a0f6381c44edd2be02fb67a3dcd27d127bb238ba5)
             check_type(argname="argument resolutions", value=resolutions, expected_type=typing.Tuple[type_hints["resolutions"], ...]) # pyright: ignore [reportGeneralTypeIssues]
         return typing.cast(None, jsii.invoke(self, "addPackageResolutions", [*resolutions]))
 
@@ -5359,7 +5359,7 @@ class NodePackage(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__665c114cee41c00dba6a88193e09aacf3c44c03eeb33f5248f4a0715ee25f803)
+            type_hints = cached_type_hints(_typecheckingstub__665c114cee41c00dba6a88193e09aacf3c44c03eeb33f5248f4a0715ee25f803)
             check_type(argname="argument deps", value=deps, expected_type=typing.Tuple[type_hints["deps"], ...]) # pyright: ignore [reportGeneralTypeIssues]
         return typing.cast(None, jsii.invoke(self, "addPeerDeps", [*deps]))
 
@@ -5372,7 +5372,7 @@ class NodePackage(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__6d456bed502e180a081411555ef7dae9f59ac8b07e536f2a144d134c8593a095)
+            type_hints = cached_type_hints(_typecheckingstub__6d456bed502e180a081411555ef7dae9f59ac8b07e536f2a144d134c8593a095)
             check_type(argname="argument version", value=version, expected_type=type_hints["version"])
         return typing.cast(None, jsii.invoke(self, "addVersion", [version]))
 
@@ -5418,7 +5418,7 @@ class NodePackage(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__cfa2462931cf54e94ef49bfaf6682ca11a2539f8cdd625d39c838f78b350e770)
+            type_hints = cached_type_hints(_typecheckingstub__cfa2462931cf54e94ef49bfaf6682ca11a2539f8cdd625d39c838f78b350e770)
             check_type(argname="argument name", value=name, expected_type=type_hints["name"])
         return typing.cast(None, jsii.invoke(self, "removeScript", [name]))
 
@@ -5432,7 +5432,7 @@ class NodePackage(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__a17ecc6ba7925a0e02706203a5f4f1888b6b3708f11e2bc0aab1ce1b5343b5ea)
+            type_hints = cached_type_hints(_typecheckingstub__a17ecc6ba7925a0e02706203a5f4f1888b6b3708f11e2bc0aab1ce1b5343b5ea)
             check_type(argname="argument name", value=name, expected_type=type_hints["name"])
             check_type(argname="argument command", value=command, expected_type=type_hints["command"])
         return typing.cast(None, jsii.invoke(self, "setScript", [name, command]))
@@ -5463,7 +5463,7 @@ class NodePackage(
         through node's internal resolution reading the version from there.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__29de3cb9e10a8965e109e3d914eff0debf87b70a39d82f150168063dd734ac03)
+            type_hints = cached_type_hints(_typecheckingstub__29de3cb9e10a8965e109e3d914eff0debf87b70a39d82f150168063dd734ac03)
             check_type(argname="argument dependency_name", value=dependency_name, expected_type=type_hints["dependency_name"])
         return typing.cast(typing.Optional[builtins.str], jsii.invoke(self, "tryResolveDependencyVersion", [dependency_name]))
 
@@ -5906,7 +5906,7 @@ class NodePackageOptions:
         if isinstance(yarn_berry_options, dict):
             yarn_berry_options = YarnBerryOptions(**yarn_berry_options)
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__32555a77b63910142de45100c4a6d74880ddece00a3cbae9c278034675668ea0)
+            type_hints = cached_type_hints(_typecheckingstub__32555a77b63910142de45100c4a6d74880ddece00a3cbae9c278034675668ea0)
             check_type(argname="argument add_package_manager_to_dev_engines", value=add_package_manager_to_dev_engines, expected_type=type_hints["add_package_manager_to_dev_engines"])
             check_type(argname="argument allow_library_dependencies", value=allow_library_dependencies, expected_type=type_hints["allow_library_dependencies"])
             check_type(argname="argument author_email", value=author_email, expected_type=type_hints["author_email"])
@@ -6984,7 +6984,7 @@ class NodeProject(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__fd0850dc1bf763fca52fa1a885d8979a0b159e53cb34c36ec7df070d31707319)
+            type_hints = cached_type_hints(_typecheckingstub__fd0850dc1bf763fca52fa1a885d8979a0b159e53cb34c36ec7df070d31707319)
             check_type(argname="argument bins", value=bins, expected_type=type_hints["bins"])
         return typing.cast(None, jsii.invoke(self, "addBins", [bins]))
 
@@ -7000,7 +7000,7 @@ class NodeProject(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__2b1ff4594cefe0f3ab31e92f5ac8583fbe3df4f5ba62df16850e03b36a3c4161)
+            type_hints = cached_type_hints(_typecheckingstub__2b1ff4594cefe0f3ab31e92f5ac8583fbe3df4f5ba62df16850e03b36a3c4161)
             check_type(argname="argument deps", value=deps, expected_type=typing.Tuple[type_hints["deps"], ...]) # pyright: ignore [reportGeneralTypeIssues]
         return typing.cast(None, jsii.invoke(self, "addBundledDeps", [*deps]))
 
@@ -7013,7 +7013,7 @@ class NodeProject(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__8b576514c0c963fa1e2e9fd3f1e8c1815cf1421fec5e99d2ac2eef18555fb9f9)
+            type_hints = cached_type_hints(_typecheckingstub__8b576514c0c963fa1e2e9fd3f1e8c1815cf1421fec5e99d2ac2eef18555fb9f9)
             check_type(argname="argument deps", value=deps, expected_type=typing.Tuple[type_hints["deps"], ...]) # pyright: ignore [reportGeneralTypeIssues]
         return typing.cast(None, jsii.invoke(self, "addDeps", [*deps]))
 
@@ -7026,7 +7026,7 @@ class NodeProject(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__69c2f5af66b63e317689cb319c22794a60ef4c8c60f02bab83df451259bfd266)
+            type_hints = cached_type_hints(_typecheckingstub__69c2f5af66b63e317689cb319c22794a60ef4c8c60f02bab83df451259bfd266)
             check_type(argname="argument deps", value=deps, expected_type=typing.Tuple[type_hints["deps"], ...]) # pyright: ignore [reportGeneralTypeIssues]
         return typing.cast(None, jsii.invoke(self, "addDevDeps", [*deps]))
 
@@ -7039,7 +7039,7 @@ class NodeProject(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__aefed21bd0a280406323e1e4bb1ad79ba060becec09ea745a15f9de0ff27c701)
+            type_hints = cached_type_hints(_typecheckingstub__aefed21bd0a280406323e1e4bb1ad79ba060becec09ea745a15f9de0ff27c701)
             check_type(argname="argument fields", value=fields, expected_type=type_hints["fields"])
         return typing.cast(None, jsii.invoke(self, "addFields", [fields]))
 
@@ -7052,7 +7052,7 @@ class NodeProject(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__bae4903fb76e287886deb4a0fc6eda837b193a8386de55770a9b5ff3203549b2)
+            type_hints = cached_type_hints(_typecheckingstub__bae4903fb76e287886deb4a0fc6eda837b193a8386de55770a9b5ff3203549b2)
             check_type(argname="argument keywords", value=keywords, expected_type=typing.Tuple[type_hints["keywords"], ...]) # pyright: ignore [reportGeneralTypeIssues]
         return typing.cast(None, jsii.invoke(self, "addKeywords", [*keywords]))
 
@@ -7066,7 +7066,7 @@ class NodeProject(
         :remarks: If you are having trouble getting an ignore to populate, try using your construct or component's preSynthesize method to properly delay calling this method.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__75374e653c3f5969c1d17e74843bf9de7c8b57c83155a5d8f2054617e584c587)
+            type_hints = cached_type_hints(_typecheckingstub__75374e653c3f5969c1d17e74843bf9de7c8b57c83155a5d8f2054617e584c587)
             check_type(argname="argument pattern", value=pattern, expected_type=type_hints["pattern"])
         return typing.cast(None, jsii.invoke(self, "addPackageIgnore", [pattern]))
 
@@ -7083,7 +7083,7 @@ class NodeProject(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ed50dcce11d164846dc05e1944054760e40bc33bcad4ed78ac8fc35bee9ca41b)
+            type_hints = cached_type_hints(_typecheckingstub__ed50dcce11d164846dc05e1944054760e40bc33bcad4ed78ac8fc35bee9ca41b)
             check_type(argname="argument deps", value=deps, expected_type=typing.Tuple[type_hints["deps"], ...]) # pyright: ignore [reportGeneralTypeIssues]
         return typing.cast(None, jsii.invoke(self, "addPeerDeps", [*deps]))
 
@@ -7096,7 +7096,7 @@ class NodeProject(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__e67b7bc6c222da42e565aff91a82f7ebf8f7da5dfb913473bab13597487a1322)
+            type_hints = cached_type_hints(_typecheckingstub__e67b7bc6c222da42e565aff91a82f7ebf8f7da5dfb913473bab13597487a1322)
             check_type(argname="argument scripts", value=scripts, expected_type=type_hints["scripts"])
         return typing.cast(None, jsii.invoke(self, "addScripts", [scripts]))
 
@@ -7109,7 +7109,7 @@ class NodeProject(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__224de74cc912dc2ec9fe8eebc20f7a52b63c2e04ee88bb72ef9f775a2d8b33ab)
+            type_hints = cached_type_hints(_typecheckingstub__224de74cc912dc2ec9fe8eebc20f7a52b63c2e04ee88bb72ef9f775a2d8b33ab)
             check_type(argname="argument name", value=name, expected_type=type_hints["name"])
         return typing.cast(None, jsii.invoke(self, "removeScript", [name]))
 
@@ -7147,7 +7147,7 @@ class NodeProject(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__e0dba0b4edb6058c71da788f75e31bbfa6a73ef88319ba1c5fbe6f3606470049)
+            type_hints = cached_type_hints(_typecheckingstub__e0dba0b4edb6058c71da788f75e31bbfa6a73ef88319ba1c5fbe6f3606470049)
             check_type(argname="argument task", value=task, expected_type=type_hints["task"])
         return typing.cast(builtins.str, jsii.invoke(self, "runTaskCommand", [task]))
 
@@ -7161,7 +7161,7 @@ class NodeProject(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__9a4eb807c608f50b2ade2ec2fbbb9f5443b474a504acfa34e6cf39edb04ad208)
+            type_hints = cached_type_hints(_typecheckingstub__9a4eb807c608f50b2ade2ec2fbbb9f5443b474a504acfa34e6cf39edb04ad208)
             check_type(argname="argument name", value=name, expected_type=type_hints["name"])
             check_type(argname="argument command", value=command, expected_type=type_hints["command"])
         return typing.cast(None, jsii.invoke(self, "setScript", [name, command]))
@@ -7816,7 +7816,7 @@ class NodeProjectOptions(
         if isinstance(workflow_git_identity, dict):
             workflow_git_identity = _github_c49f935d.GitIdentity(**workflow_git_identity)
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__05c2eb8aa04095bbe6af788737363089516ccd341e3a6624f153e8ff7eeaee29)
+            type_hints = cached_type_hints(_typecheckingstub__05c2eb8aa04095bbe6af788737363089516ccd341e3a6624f153e8ff7eeaee29)
             check_type(argname="argument name", value=name, expected_type=type_hints["name"])
             check_type(argname="argument commit_generated", value=commit_generated, expected_type=type_hints["commit_generated"])
             check_type(argname="argument git_ignore_options", value=git_ignore_options, expected_type=type_hints["git_ignore_options"])
@@ -9888,7 +9888,7 @@ class NpmConfig(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__83b746251f1b75ba953324566d41e0b8f83e1f3c11b8bdc5916f09fd559914d7)
+            type_hints = cached_type_hints(_typecheckingstub__83b746251f1b75ba953324566d41e0b8f83e1f3c11b8bdc5916f09fd559914d7)
             check_type(argname="argument project", value=project, expected_type=type_hints["project"])
         options = NpmConfigOptions(omit_empty=omit_empty, registry=registry)
 
@@ -9904,7 +9904,7 @@ class NpmConfig(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__3ffe4a0f2f0471b68c6ec185cbf4f5c192b37a79c19e45ac41370d2378eff782)
+            type_hints = cached_type_hints(_typecheckingstub__3ffe4a0f2f0471b68c6ec185cbf4f5c192b37a79c19e45ac41370d2378eff782)
             check_type(argname="argument name", value=name, expected_type=type_hints["name"])
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         return typing.cast(None, jsii.invoke(self, "addConfig", [name, value]))
@@ -9923,7 +9923,7 @@ class NpmConfig(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__921c1baed18b2592b0599b66374de0e67495b5712f0889a23b2f5fd572fa7378)
+            type_hints = cached_type_hints(_typecheckingstub__921c1baed18b2592b0599b66374de0e67495b5712f0889a23b2f5fd572fa7378)
             check_type(argname="argument url", value=url, expected_type=type_hints["url"])
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
         return typing.cast(None, jsii.invoke(self, "addRegistry", [url, scope]))
@@ -9949,7 +9949,7 @@ class NpmConfigOptions:
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__572f231bc39b987387ccaf3d47dab1ff17bcba6b190a9675a89313a364b340f6)
+            type_hints = cached_type_hints(_typecheckingstub__572f231bc39b987387ccaf3d47dab1ff17bcba6b190a9675a89313a364b340f6)
             check_type(argname="argument omit_empty", value=omit_empty, expected_type=type_hints["omit_empty"])
             check_type(argname="argument registry", value=registry, expected_type=type_hints["registry"])
         self._values: typing.Dict[builtins.str, typing.Any] = {}
@@ -10011,7 +10011,7 @@ class PeerDependencyOptions:
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__cc70f793ab1a81781f2ffafe90b1661555f4fb8d4aeb489bcb926e034f01a743)
+            type_hints = cached_type_hints(_typecheckingstub__cc70f793ab1a81781f2ffafe90b1661555f4fb8d4aeb489bcb926e034f01a743)
             check_type(argname="argument pinned_dev_dependency", value=pinned_dev_dependency, expected_type=type_hints["pinned_dev_dependency"])
         self._values: typing.Dict[builtins.str, typing.Any] = {}
         if pinned_dev_dependency is not None:
@@ -10071,7 +10071,7 @@ class Prettier(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__fc54704eb480a73e451f86bffd16f1d9313443e3d2f9b556889330fd0715ad95)
+            type_hints = cached_type_hints(_typecheckingstub__fc54704eb480a73e451f86bffd16f1d9313443e3d2f9b556889330fd0715ad95)
             check_type(argname="argument project", value=project, expected_type=type_hints["project"])
         options = PrettierOptions(
             ignore_file=ignore_file,
@@ -10092,7 +10092,7 @@ class Prettier(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__f1fd367ba7a3d51b9e260e79983f7d6fb9647a9bad81693c033d3218ba83e83f)
+            type_hints = cached_type_hints(_typecheckingstub__f1fd367ba7a3d51b9e260e79983f7d6fb9647a9bad81693c033d3218ba83e83f)
             check_type(argname="argument project", value=project, expected_type=type_hints["project"])
         return typing.cast(typing.Optional["Prettier"], jsii.sinvoke(cls, "of", [project]))
 
@@ -10105,7 +10105,7 @@ class Prettier(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__564118067a14c8c300f791c1ea85edc55544d5c6098386e20c2b6bc3e7b10df4)
+            type_hints = cached_type_hints(_typecheckingstub__564118067a14c8c300f791c1ea85edc55544d5c6098386e20c2b6bc3e7b10df4)
             check_type(argname="argument pattern", value=pattern, expected_type=type_hints["pattern"])
         return typing.cast(None, jsii.invoke(self, "addIgnorePattern", [pattern]))
 
@@ -10204,7 +10204,7 @@ class PrettierOptions:
         if isinstance(settings, dict):
             settings = PrettierSettings(**settings)
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__83f36238b807da08b92be98c6d4956285442f99303983562db38dda7f23c13ae)
+            type_hints = cached_type_hints(_typecheckingstub__83f36238b807da08b92be98c6d4956285442f99303983562db38dda7f23c13ae)
             check_type(argname="argument ignore_file", value=ignore_file, expected_type=type_hints["ignore_file"])
             check_type(argname="argument ignore_file_options", value=ignore_file_options, expected_type=type_hints["ignore_file_options"])
             check_type(argname="argument overrides", value=overrides, expected_type=type_hints["overrides"])
@@ -10317,7 +10317,7 @@ class PrettierOverride:
         if isinstance(options, dict):
             options = PrettierSettings(**options)
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__0bbdf8c18a86fcbd11c29b6e1ec1c6cb7b1e3a7ae688bedb8e25c15099f3e25e)
+            type_hints = cached_type_hints(_typecheckingstub__0bbdf8c18a86fcbd11c29b6e1ec1c6cb7b1e3a7ae688bedb8e25c15099f3e25e)
             check_type(argname="argument files", value=files, expected_type=type_hints["files"])
             check_type(argname="argument options", value=options, expected_type=type_hints["options"])
             check_type(argname="argument exclude_files", value=exclude_files, expected_type=type_hints["exclude_files"])
@@ -10464,7 +10464,7 @@ class PrettierSettings:
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__887661cb2874a1d4a18112ca0d8607d9340a20c3becbf5d16df966a4dfda6434)
+            type_hints = cached_type_hints(_typecheckingstub__887661cb2874a1d4a18112ca0d8607d9340a20c3becbf5d16df966a4dfda6434)
             check_type(argname="argument arrow_parens", value=arrow_parens, expected_type=type_hints["arrow_parens"])
             check_type(argname="argument bracket_same_line", value=bracket_same_line, expected_type=type_hints["bracket_same_line"])
             check_type(argname="argument bracket_spacing", value=bracket_spacing, expected_type=type_hints["bracket_spacing"])
@@ -10877,7 +10877,7 @@ class Projenrc(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__1aaddb790f6b7d088afb273f85e8c279374e3017865fb4c91b0780864fb6e306)
+            type_hints = cached_type_hints(_typecheckingstub__1aaddb790f6b7d088afb273f85e8c279374e3017865fb4c91b0780864fb6e306)
             check_type(argname="argument project", value=project, expected_type=type_hints["project"])
         options = ProjenrcOptions(filename=filename)
 
@@ -10914,7 +10914,7 @@ class ProjenrcOptions:
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__98c3b878e5a2d5b01df88ea94af1a0f3f101f4340d3dba514d5e748ef2f199f6)
+            type_hints = cached_type_hints(_typecheckingstub__98c3b878e5a2d5b01df88ea94af1a0f3f101f4340d3dba514d5e748ef2f199f6)
             check_type(argname="argument filename", value=filename, expected_type=type_hints["filename"])
         self._values: typing.Dict[builtins.str, typing.Any] = {}
         if filename is not None:
@@ -11014,7 +11014,7 @@ class RenderWorkflowSetupOptions:
         if isinstance(install_step_configuration, dict):
             install_step_configuration = _workflows_2b7f1587.JobStepConfiguration(**install_step_configuration)
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__f7894334d4e6bef30e70628d87bf6b8f27ab4cf85a14e93ed26d04abcba1356d)
+            type_hints = cached_type_hints(_typecheckingstub__f7894334d4e6bef30e70628d87bf6b8f27ab4cf85a14e93ed26d04abcba1356d)
             check_type(argname="argument install_step_configuration", value=install_step_configuration, expected_type=type_hints["install_step_configuration"])
             check_type(argname="argument mutable", value=mutable, expected_type=type_hints["mutable"])
         self._values: typing.Dict[builtins.str, typing.Any] = {}
@@ -11132,7 +11132,7 @@ class ScopedPackagesOptions:
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__01c6e79d2b5de89d5ea21ca58635c0e3f3ed941e2f5533f9365aca8c6bac689e)
+            type_hints = cached_type_hints(_typecheckingstub__01c6e79d2b5de89d5ea21ca58635c0e3f3ed941e2f5533f9365aca8c6bac689e)
             check_type(argname="argument registry_url", value=registry_url, expected_type=type_hints["registry_url"])
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
@@ -11227,7 +11227,7 @@ class SnapshotFormatOptions:
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__e2534d7f856b23384ec4c0b442bd275f5ae912d9b64ea0c256761097ac209358)
+            type_hints = cached_type_hints(_typecheckingstub__e2534d7f856b23384ec4c0b442bd275f5ae912d9b64ea0c256761097ac209358)
             check_type(argname="argument call_to_json", value=call_to_json, expected_type=type_hints["call_to_json"])
             check_type(argname="argument escape_regex", value=escape_regex, expected_type=type_hints["escape_regex"])
             check_type(argname="argument escape_string", value=escape_string, expected_type=type_hints["escape_string"])
@@ -11448,7 +11448,7 @@ class Transform(metaclass=jsii.JSIIMeta, jsii_type="projen.javascript.Transform"
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__b434df824fd38c8bd7ed7eb8a8cf4f2f0559fd4c13a28bd06bd0f481c6389984)
+            type_hints = cached_type_hints(_typecheckingstub__b434df824fd38c8bd7ed7eb8a8cf4f2f0559fd4c13a28bd06bd0f481c6389984)
             check_type(argname="argument name", value=name, expected_type=type_hints["name"])
             check_type(argname="argument options", value=options, expected_type=type_hints["options"])
         jsii.create(self.__class__, self, [name, options])
@@ -11656,7 +11656,7 @@ class TypeScriptCompilerOptions:
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c3368fe3a3107764de1a64c16f7fe4c15d510477a888b2a74df2afb14b632c7e)
+            type_hints = cached_type_hints(_typecheckingstub__c3368fe3a3107764de1a64c16f7fe4c15d510477a888b2a74df2afb14b632c7e)
             check_type(argname="argument allow_arbitrary_extensions", value=allow_arbitrary_extensions, expected_type=type_hints["allow_arbitrary_extensions"])
             check_type(argname="argument allow_importing_ts_extensions", value=allow_importing_ts_extensions, expected_type=type_hints["allow_importing_ts_extensions"])
             check_type(argname="argument allow_js", value=allow_js, expected_type=type_hints["allow_js"])
@@ -12786,7 +12786,7 @@ class TypescriptConfig(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__bdd8e9cd126102b8184e52538d49523cef64724ec6ad410a5e2d5169e1ef0fe0)
+            type_hints = cached_type_hints(_typecheckingstub__bdd8e9cd126102b8184e52538d49523cef64724ec6ad410a5e2d5169e1ef0fe0)
             check_type(argname="argument project", value=project, expected_type=type_hints["project"])
         options = TypescriptConfigOptions(
             compiler_options=compiler_options,
@@ -12808,7 +12808,7 @@ class TypescriptConfig(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__22043cd196520a238283f3d057c0a0a29f8679bf2501608e058f551552b3a6c5)
+            type_hints = cached_type_hints(_typecheckingstub__22043cd196520a238283f3d057c0a0a29f8679bf2501608e058f551552b3a6c5)
             check_type(argname="argument pattern", value=pattern, expected_type=type_hints["pattern"])
         return typing.cast(None, jsii.invoke(self, "addExclude", [pattern]))
 
@@ -12822,7 +12822,7 @@ class TypescriptConfig(
         :remarks: TypeScript 5.0+ is required to extend from more than one base ``TypescriptConfig``.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__e19373d5818f12b8d7ae04b7e689d8a06b0470d6eb5c5886f5a9255a0221fd9f)
+            type_hints = cached_type_hints(_typecheckingstub__e19373d5818f12b8d7ae04b7e689d8a06b0470d6eb5c5886f5a9255a0221fd9f)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         return typing.cast(None, jsii.invoke(self, "addExtends", [value]))
 
@@ -12836,7 +12836,7 @@ class TypescriptConfig(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ecc6431d5d9f322d469f99e5739da10bb780beb09da03305a82dac281906fc5b)
+            type_hints = cached_type_hints(_typecheckingstub__ecc6431d5d9f322d469f99e5739da10bb780beb09da03305a82dac281906fc5b)
             check_type(argname="argument pattern", value=pattern, expected_type=type_hints["pattern"])
         return typing.cast(None, jsii.invoke(self, "addInclude", [pattern]))
 
@@ -12858,7 +12858,7 @@ class TypescriptConfig(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__9f78586828830a46219bc19d7af8c53b4b5a1cc2bc1a03491930c9271790f10a)
+            type_hints = cached_type_hints(_typecheckingstub__9f78586828830a46219bc19d7af8c53b4b5a1cc2bc1a03491930c9271790f10a)
             check_type(argname="argument pattern", value=pattern, expected_type=type_hints["pattern"])
         return typing.cast(None, jsii.invoke(self, "removeExclude", [pattern]))
 
@@ -12872,7 +12872,7 @@ class TypescriptConfig(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__85556ff93e412b3ea5e894bc7d7669275e51dfae8c077378748d8053a46e4946)
+            type_hints = cached_type_hints(_typecheckingstub__85556ff93e412b3ea5e894bc7d7669275e51dfae8c077378748d8053a46e4946)
             check_type(argname="argument pattern", value=pattern, expected_type=type_hints["pattern"])
         return typing.cast(None, jsii.invoke(self, "removeInclude", [pattern]))
 
@@ -12890,7 +12890,7 @@ class TypescriptConfig(
         This is to preserve manually specified relative paths as well as npm import paths.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__c4b076d47872be6e9462b52280fba0e6d5509d09e6f0c405542d8edb8b704f3d)
+            type_hints = cached_type_hints(_typecheckingstub__c4b076d47872be6e9462b52280fba0e6d5509d09e6f0c405542d8edb8b704f3d)
             check_type(argname="argument config_path", value=config_path, expected_type=type_hints["config_path"])
         return typing.cast(builtins.str, jsii.invoke(self, "resolveExtendsPath", [config_path]))
 
@@ -12967,7 +12967,7 @@ class TypescriptConfigExtends(
         :remarks: TypeScript 5.0+ is required to specify more than one value in ``paths``.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__b13693458818b040e6f9da122d60b4f324f8ab7721d6eb1c08300c101500f0aa)
+            type_hints = cached_type_hints(_typecheckingstub__b13693458818b040e6f9da122d60b4f324f8ab7721d6eb1c08300c101500f0aa)
             check_type(argname="argument paths", value=paths, expected_type=type_hints["paths"])
         return typing.cast("TypescriptConfigExtends", jsii.sinvoke(cls, "fromPaths", [paths]))
 
@@ -12985,7 +12985,7 @@ class TypescriptConfigExtends(
         :remarks: TypeScript 5.0+ is required to specify more than on value in ``configs``.
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__4bb44c1fe8356fe5ed46d657b7a5c3f2198926eaf1f5780cf30a365a3e170a5e)
+            type_hints = cached_type_hints(_typecheckingstub__4bb44c1fe8356fe5ed46d657b7a5c3f2198926eaf1f5780cf30a365a3e170a5e)
             check_type(argname="argument configs", value=configs, expected_type=type_hints["configs"])
         return typing.cast("TypescriptConfigExtends", jsii.sinvoke(cls, "fromTypescriptConfigs", [configs]))
 
@@ -13030,7 +13030,7 @@ class TypescriptConfigOptions:
         if isinstance(compiler_options, dict):
             compiler_options = TypeScriptCompilerOptions(**compiler_options)
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__f928658806d66c2cd4f3977b17ae3d10092cf4b9afb10e736c01729b7451dbb9)
+            type_hints = cached_type_hints(_typecheckingstub__f928658806d66c2cd4f3977b17ae3d10092cf4b9afb10e736c01729b7451dbb9)
             check_type(argname="argument compiler_options", value=compiler_options, expected_type=type_hints["compiler_options"])
             check_type(argname="argument exclude", value=exclude, expected_type=type_hints["exclude"])
             check_type(argname="argument extends", value=extends, expected_type=type_hints["extends"])
@@ -13177,7 +13177,7 @@ class UpgradeDependencies(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__497e18a2c8dc3200cff8b21dfad7c418d29517aa6d67e2a2555ee78fa63ff385)
+            type_hints = cached_type_hints(_typecheckingstub__497e18a2c8dc3200cff8b21dfad7c418d29517aa6d67e2a2555ee78fa63ff385)
             check_type(argname="argument project", value=project, expected_type=type_hints["project"])
         options = UpgradeDependenciesOptions(
             cooldown=cooldown,
@@ -13206,7 +13206,7 @@ class UpgradeDependencies(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__ff92c41406c3198455d1dfec862b6c0109c8239ff2a3eed09afaaaf67774467b)
+            type_hints = cached_type_hints(_typecheckingstub__ff92c41406c3198455d1dfec862b6c0109c8239ff2a3eed09afaaaf67774467b)
             check_type(argname="argument steps", value=steps, expected_type=typing.Tuple[type_hints["steps"], ...]) # pyright: ignore [reportGeneralTypeIssues]
         return typing.cast(None, jsii.invoke(self, "addPostBuildSteps", [*steps]))
 
@@ -13264,7 +13264,7 @@ class UpgradeDependencies(
         value: typing.Optional["_workflows_2b7f1587.ContainerOptions"],
     ) -> None:
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__66ba20de6f144f37e582e192e3ed592a6be0e8bc3d10e3b730af62082afa0010)
+            type_hints = cached_type_hints(_typecheckingstub__66ba20de6f144f37e582e192e3ed592a6be0e8bc3d10e3b730af62082afa0010)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "containerOptions", value) # pyright: ignore[reportArgumentType]
 
@@ -13327,7 +13327,7 @@ class UpgradeDependenciesOptions:
         if isinstance(workflow_options, dict):
             workflow_options = UpgradeDependenciesWorkflowOptions(**workflow_options)
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__0f7b896c11469470869bc4bfc86c9bb13fd308223e316ba71124c00b5709af1e)
+            type_hints = cached_type_hints(_typecheckingstub__0f7b896c11469470869bc4bfc86c9bb13fd308223e316ba71124c00b5709af1e)
             check_type(argname="argument cooldown", value=cooldown, expected_type=type_hints["cooldown"])
             check_type(argname="argument exclude", value=exclude, expected_type=type_hints["exclude"])
             check_type(argname="argument include", value=include, expected_type=type_hints["include"])
@@ -13570,7 +13570,7 @@ class UpgradeDependenciesSchedule(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__0616cac83033da3960c6645511af30fae841bea5f2cf5229410d6113065c8dd2)
+            type_hints = cached_type_hints(_typecheckingstub__0616cac83033da3960c6645511af30fae841bea5f2cf5229410d6113065c8dd2)
             check_type(argname="argument cron", value=cron, expected_type=type_hints["cron"])
         return typing.cast("UpgradeDependenciesSchedule", jsii.sinvoke(cls, "expressions", [cron]))
 
@@ -13686,7 +13686,7 @@ class UpgradeDependenciesWorkflowOptions:
         if isinstance(runs_on_group, dict):
             runs_on_group = _projen_04054675.GroupRunnerOptions(**runs_on_group)
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__59fa39c2475322c21b2f7d03f2f2ada171b7e546b1d88beb8a75baa8238b629e)
+            type_hints = cached_type_hints(_typecheckingstub__59fa39c2475322c21b2f7d03f2f2ada171b7e546b1d88beb8a75baa8238b629e)
             check_type(argname="argument assignees", value=assignees, expected_type=type_hints["assignees"])
             check_type(argname="argument branches", value=branches, expected_type=type_hints["branches"])
             check_type(argname="argument container", value=container, expected_type=type_hints["container"])
@@ -13878,7 +13878,7 @@ class WatchPlugin(metaclass=jsii.JSIIMeta, jsii_type="projen.javascript.WatchPlu
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__82731b5aeb15fc642017d0dee706d4e02c814dbcf91efe82eb0ac07b490a354a)
+            type_hints = cached_type_hints(_typecheckingstub__82731b5aeb15fc642017d0dee706d4e02c814dbcf91efe82eb0ac07b490a354a)
             check_type(argname="argument name", value=name, expected_type=type_hints["name"])
             check_type(argname="argument options", value=options, expected_type=type_hints["options"])
         jsii.create(self.__class__, self, [name, options])
@@ -13912,7 +13912,7 @@ class YarnBerryOptions:
         if isinstance(yarn_rc_options, dict):
             yarn_rc_options = YarnrcOptions(**yarn_rc_options)
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__71aeb6ec81365a5f86ee553e270b496f20a98399dddc3ea7198011c36cc5a2a4)
+            type_hints = cached_type_hints(_typecheckingstub__71aeb6ec81365a5f86ee553e270b496f20a98399dddc3ea7198011c36cc5a2a4)
             check_type(argname="argument version", value=version, expected_type=type_hints["version"])
             check_type(argname="argument yarn_rc_options", value=yarn_rc_options, expected_type=type_hints["yarn_rc_options"])
             check_type(argname="argument zero_installs", value=zero_installs, expected_type=type_hints["zero_installs"])
@@ -14067,7 +14067,7 @@ class YarnLogFilter:
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__abb7099331319918bbaec723c4a498aea8baf412ea3f195b3a83dfbee23d24c9)
+            type_hints = cached_type_hints(_typecheckingstub__abb7099331319918bbaec723c4a498aea8baf412ea3f195b3a83dfbee23d24c9)
             check_type(argname="argument code", value=code, expected_type=type_hints["code"])
             check_type(argname="argument level", value=level, expected_type=type_hints["level"])
             check_type(argname="argument pattern", value=pattern, expected_type=type_hints["pattern"])
@@ -14186,7 +14186,7 @@ class YarnNetworkSetting:
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__3c1b2fbcdc0866622114f6a99950c878e71074738b9644f167e0ac34219a62eb)
+            type_hints = cached_type_hints(_typecheckingstub__3c1b2fbcdc0866622114f6a99950c878e71074738b9644f167e0ac34219a62eb)
             check_type(argname="argument enable_network", value=enable_network, expected_type=type_hints["enable_network"])
             check_type(argname="argument http_proxy", value=http_proxy, expected_type=type_hints["http_proxy"])
             check_type(argname="argument https_ca_file_path", value=https_ca_file_path, expected_type=type_hints["https_ca_file_path"])
@@ -14373,7 +14373,7 @@ class YarnNpmRegistry:
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__515e1c2fd3b8dfb6d18fdb568212aa203333b6867ae732cb8101193d4dcd9406)
+            type_hints = cached_type_hints(_typecheckingstub__515e1c2fd3b8dfb6d18fdb568212aa203333b6867ae732cb8101193d4dcd9406)
             check_type(argname="argument npm_always_auth", value=npm_always_auth, expected_type=type_hints["npm_always_auth"])
             check_type(argname="argument npm_auth_ident", value=npm_auth_ident, expected_type=type_hints["npm_auth_ident"])
             check_type(argname="argument npm_auth_token", value=npm_auth_token, expected_type=type_hints["npm_auth_token"])
@@ -14453,7 +14453,7 @@ class YarnNpmScope:
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__cba2517aac70420390e9b25e043ccda8a3a2e47b72929cc335d335da3fbe2282)
+            type_hints = cached_type_hints(_typecheckingstub__cba2517aac70420390e9b25e043ccda8a3a2e47b72929cc335d335da3fbe2282)
             check_type(argname="argument npm_always_auth", value=npm_always_auth, expected_type=type_hints["npm_always_auth"])
             check_type(argname="argument npm_auth_ident", value=npm_auth_ident, expected_type=type_hints["npm_auth_ident"])
             check_type(argname="argument npm_auth_token", value=npm_auth_token, expected_type=type_hints["npm_auth_token"])
@@ -14549,7 +14549,7 @@ class YarnPackageExtension:
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__dbfe125b621e439be36ff0e1bfd9d8888a0d8fb1569f834254637307662e4d23)
+            type_hints = cached_type_hints(_typecheckingstub__dbfe125b621e439be36ff0e1bfd9d8888a0d8fb1569f834254637307662e4d23)
             check_type(argname="argument dependencies", value=dependencies, expected_type=type_hints["dependencies"])
             check_type(argname="argument peer_dependencies", value=peer_dependencies, expected_type=type_hints["peer_dependencies"])
             check_type(argname="argument peer_dependencies_meta", value=peer_dependencies_meta, expected_type=type_hints["peer_dependencies_meta"])
@@ -14617,7 +14617,7 @@ class YarnPeerDependencyMeta:
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__9db0f4941a4df97316da0effd322aea5ce43a742dfe18b80eb5f6c94d14a6393)
+            type_hints = cached_type_hints(_typecheckingstub__9db0f4941a4df97316da0effd322aea5ce43a742dfe18b80eb5f6c94d14a6393)
             check_type(argname="argument optional", value=optional, expected_type=type_hints["optional"])
         self._values: typing.Dict[builtins.str, typing.Any] = {}
         if optional is not None:
@@ -14732,7 +14732,7 @@ class YarnSupportedArchitectures:
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__9602b94dde7b19c12fda87da7ba816314ccf15910d8899b1a960aa8b78ad62c6)
+            type_hints = cached_type_hints(_typecheckingstub__9602b94dde7b19c12fda87da7ba816314ccf15910d8899b1a960aa8b78ad62c6)
             check_type(argname="argument cpu", value=cpu, expected_type=type_hints["cpu"])
             check_type(argname="argument libc", value=libc, expected_type=type_hints["libc"])
             check_type(argname="argument os", value=os, expected_type=type_hints["os"])
@@ -15009,7 +15009,7 @@ class Yarnrc(
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__b92a48df0fb86c0bb0ca2fc52f77733ece6a12ab360c8248f866d7bc1270b9b0)
+            type_hints = cached_type_hints(_typecheckingstub__b92a48df0fb86c0bb0ca2fc52f77733ece6a12ab360c8248f866d7bc1270b9b0)
             check_type(argname="argument project", value=project, expected_type=type_hints["project"])
         options = YarnrcOptions(
             cache_folder=cache_folder,
@@ -15388,7 +15388,7 @@ class YarnrcOptions:
         if isinstance(supported_architectures, dict):
             supported_architectures = YarnSupportedArchitectures(**supported_architectures)
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__9ba41709eede66f73795f63493ccbdc1c1f0a5864300b00ac0050c78cb06aae8)
+            type_hints = cached_type_hints(_typecheckingstub__9ba41709eede66f73795f63493ccbdc1c1f0a5864300b00ac0050c78cb06aae8)
             check_type(argname="argument cache_folder", value=cache_folder, expected_type=type_hints["cache_folder"])
             check_type(argname="argument cache_migration_mode", value=cache_migration_mode, expected_type=type_hints["cache_migration_mode"])
             check_type(argname="argument changeset_base_refs", value=changeset_base_refs, expected_type=type_hints["changeset_base_refs"])
@@ -16557,7 +16557,7 @@ class AddBundleOptions(BundlingOptions):
         :stability: experimental
         '''
         if __debug__:
-            type_hints = typing.get_type_hints(_typecheckingstub__fda879bb1fe52a68839c7634ab5ab9f2cedf7154361c8a0487248d72bab68e62)
+            type_hints = cached_type_hints(_typecheckingstub__fda879bb1fe52a68839c7634ab5ab9f2cedf7154361c8a0487248d72bab68e62)
             check_type(argname="argument externals", value=externals, expected_type=type_hints["externals"])
             check_type(argname="argument sourcemap", value=sourcemap, expected_type=type_hints["sourcemap"])
             check_type(argname="argument watch_task", value=watch_task, expected_type=type_hints["watch_task"])

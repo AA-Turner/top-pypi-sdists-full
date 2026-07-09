@@ -358,23 +358,36 @@ public static class CloakLauncher
     // environment. See docs/chrome40-fpjs-font-minimum-set-investigation.md.
     // -----------------------------------------------------------------------
 
-    // Microsoft-proprietary fonts that signal a real Windows install (absent from
-    // ttf-mscorefonts-installer). Keep in sync with issue #395 and
-    // docs/chrome40-fpjs-font-minimum-set-investigation.md.
-    private static readonly string[] WindowsFontTells =
+    // Windows OS fonts — ship with Windows itself, so their absence on a
+    // Windows-spoofing Linux host degrades results. The two monospace fonts
+    // (Consolas + Courier New) are part of the recommended set so the generic
+    // `monospace` family resolves to a Windows font. See issue #395.
+    internal static readonly string[] WindowsFontTells =
     {
-        "Segoe UI", "Segoe UI Light", "Calibri", "Marlett", "MS UI Gothic", "Franklin Gothic",
+        "Segoe UI", "Segoe UI Light", "Calibri", "Marlett", "MS UI Gothic",
+        "Franklin Gothic", "Consolas", "Courier New",
+    };
+
+    // MS Office supplemental fonts, installed as one atomic block by every Office
+    // install. Roughly half of real Windows machines have this pack and half do
+    // not, so its absence is a perfectly normal Windows setup, NOT a problem —
+    // reported as an informational signal only, never a warning.
+    internal static readonly string[] OfficeFontTells =
+    {
+        "MT Extra", "Century", "Century Gothic", "MS Reference Specialty",
+        "Wingdings 2", "Wingdings 3", "Book Antiqua", "Bookshelf Symbol 7",
+        "Monotype Corsiva", "Bookman Old Style",
     };
 
     internal static bool _fontWarningChecked;
 
     /// <summary>
-    /// Probe for Windows fonts via fc-list. Tri-state: true if any tell-tale font
-    /// is installed, false if none found, null if it can't be determined (fc-list
-    /// missing or errored). Callers must NOT warn on null — only an explicit false
-    /// means "no Windows fonts".
+    /// Count how many tell-tale fonts are installed, via fc-list. Returns the
+    /// number present (0..tells.Length), or null if it can't be determined
+    /// (fc-list missing or errored). Callers must NOT treat null as zero — null
+    /// means "unknown", 0 means "genuinely none installed".
     /// </summary>
-    internal static bool? WindowsFontsPresent()
+    internal static int? CountFontsPresent(string[] tells)
     {
         string output;
         try
@@ -411,14 +424,25 @@ public static class CloakLauncher
             return null;
         }
         var listing = output.ToLowerInvariant();
-        return WindowsFontTells.Any(f => listing.Contains(f.ToLowerInvariant()));
+        return tells.Count(f => listing.Contains(f.ToLowerInvariant()));
     }
 
     /// <summary>
-    /// Warn once when spoofing Windows on a Linux host with no Windows fonts.
-    /// Best-effort and silent on error — never throws. Gated by an in-process flag
-    /// plus a cache-dir marker so it fires at most once per environment. Suppress
-    /// entirely with CLOAKBROWSER_SUPPRESS_FONT_WARNING.
+    /// True if ALL Windows OS fonts are installed, false if any are missing, null
+    /// if unknown. Strict: a partial set is treated as incomplete, since the font
+    /// install is atomic and a missing font degrades the Windows persona.
+    /// </summary>
+    internal static bool? WindowsFontsPresent()
+    {
+        var n = CountFontsPresent(WindowsFontTells);
+        return n is null ? null : n == WindowsFontTells.Length;
+    }
+
+    /// <summary>
+    /// Warn once when spoofing Windows on a Linux host without the full Windows
+    /// font set. Best-effort and silent on error — never throws. Gated by an
+    /// in-process flag plus a cache-dir marker so it fires at most once per
+    /// environment. Suppress entirely with CLOAKBROWSER_SUPPRESS_FONT_WARNING.
     /// </summary>
     internal static void MaybeWarnWindowsFonts(IReadOnlyList<string> chromeArgs)
     {
@@ -441,11 +465,11 @@ public static class CloakLauncher
             var marker = Path.Combine(Config.GetCacheDir(), ".font_warning_shown");
             if (File.Exists(marker)) return;
             var present = WindowsFontsPresent();
-            if (present != false) return; // true (present) or null (undeterminable)
+            if (present != false) return; // true (full set) or null (undeterminable)
             CloakLog.Warning(
-                "[cloakbrowser] No Windows fonts found — installing them is strongly " +
-                "advised for best results when spoofing Windows on Linux. " +
-                "https://github.com/CloakHQ/cloakbrowser#font-setup-on-linux " +
+                "[cloakbrowser] Incomplete Windows font set — installing the full " +
+                "set is strongly advised for best results when spoofing Windows on " +
+                "Linux. https://github.com/CloakHQ/cloakbrowser#font-setup-on-linux " +
                 "(silence: CLOAKBROWSER_SUPPRESS_FONT_WARNING=1)");
             try
             {

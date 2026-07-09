@@ -2890,6 +2890,7 @@ class ChalkClient:
         source_config: Optional[SourceConfig] = None,
         dependencies: Optional[List[str]] = None,
         model_image: Optional[str] = None,
+        skip_volume_upload: bool = False,
     ) -> RegisterModelVersionResponse:
         """Register a model in the Chalk model registry.
 
@@ -2938,6 +2939,9 @@ class ChalkClient:
         dependencies
             List of package dependencies needed to run this model.
             e.g. `["torch==2.7.1", "numpy==1.26.4"]`.
+        skip_volume_upload
+            If ``True``, skip uploading model artifacts to a volume during
+            registration. Defaults to ``False``.
 
         Returns
         -------
@@ -3057,7 +3061,6 @@ class ChalkClient:
         resources: Optional["ScalingGroupResourceRequest"] = None,
         handler: Optional[str] = None,
         env_vars: Optional[Dict[str, str]] = None,
-        skip_upload_to_volumes: bool = False,
         secrets: Optional[List[Any]] = None,
     ) -> dict[str, Any]:
         """Deploy a registered model version as a scaling group.
@@ -3078,9 +3081,6 @@ class ChalkClient:
             Dotted path to handler function (default: "model.handler").
         env_vars
             Extra environment variables to inject into the container.
-        skip_upload_to_volumes
-            When True, skip uploading model artifacts to a chalkfs volume.
-            Defaults to False.
         secrets
             List of Secret Registry secrets to be injected into the Scaling Group
 

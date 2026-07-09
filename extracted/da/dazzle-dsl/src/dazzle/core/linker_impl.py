@@ -1304,27 +1304,29 @@ def validate_references(symbols: SymbolTable) -> list[str]:
 
     # v0.22.0: Validate story references
     for story_id, story in symbols.stories.items():
-        # Check actor reference (should be a valid persona id or label)
-        # Note: actor can be a persona id or label - we validate against personas
-        if story.actor and symbols.personas:
+        # Check persona reference (should be a valid persona id or label)
+        # Note: persona can be a persona id or label - we validate against personas
+        if story.persona and symbols.personas:
             # Only validate if personas are defined
-            if story.actor not in symbols.personas:
+            if story.persona not in symbols.personas:
                 # Check if it could be a label in any persona
                 found_label = False
                 for persona in symbols.personas.values():
-                    if story.actor == persona.label:
+                    if story.persona == persona.label:
                         found_label = True
                         break
                 if not found_label:
                     errors.append(
-                        f"Story '{story_id}' actor '{story.actor}' is not a defined persona "
+                        f"Story '{story_id}' persona '{story.persona}' is not a defined persona "
                         f"id or label. Available personas: {list(symbols.personas.keys())}"
                     )
 
-        # Check scope references (should be valid entities)
-        for entity_name in story.scope:
+        # Check entities references (should be valid entities)
+        for entity_name in story.entities:
             if entity_name not in symbols.entities:
-                errors.append(f"Story '{story_id}' scope references unknown entity '{entity_name}'")
+                errors.append(
+                    f"Story '{story_id}' entities references unknown entity '{entity_name}'"
+                )
 
     # v0.21.0: Validate LLM intent references
     for intent_name, llm_intent in symbols.llm_intents.items():
@@ -1374,6 +1376,19 @@ def validate_references(symbols: SymbolTable) -> list[str]:
                     "default_model: in llm_config."
                 )
 
+    # Derive omitted scene bindings from cited stories (#1559 slice 3) BEFORE
+    # validation, so the checks below see the effective (resolved) surface and
+    # entity. Explicit values are untouched; ambiguous/underivable surfaces
+    # surface as loud errors here.
+    from .rhythm_binding import resolve_rhythm
+
+    for _rname in list(symbols.rhythms.keys()):
+        _resolved, _derive_errors = resolve_rhythm(
+            symbols.rhythms[_rname], symbols.surfaces, symbols.stories
+        )
+        symbols.rhythms[_rname] = _resolved
+        errors.extend(_derive_errors)
+
     # Validate rhythm references (v0.39.0)
     for rhythm_name, rhythm in symbols.rhythms.items():
         # Persona must exist
@@ -1388,8 +1403,13 @@ def validate_references(symbols: SymbolTable) -> list[str]:
                     errors.append(f"Rhythm '{rhythm_name}' has duplicate scene name '{scene.name}'")
                 seen_scenes.add(scene.name)
 
+                # scene.surface is None only when derivation failed — the
+                # resolver already reported a specific error, so skip the
+                # generic surface check to avoid a confusing "unknown surface
+                # 'None'" pile-on.
                 if (
-                    scene.surface not in symbols.surfaces
+                    scene.surface is not None
+                    and scene.surface not in symbols.surfaces
                     and scene.surface not in symbols.workspaces
                 ):
                     errors.append(

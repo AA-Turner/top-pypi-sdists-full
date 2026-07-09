@@ -888,6 +888,21 @@ class Int16(System.IComparable[int], System.IConvertible, System.ISpanFormattabl
 
     @staticmethod
     @overload
+    def try_parse(s: str, style: System.Globalization.NumberStyles, provider: System.IFormatProvider, result: typing.Optional[int], chars_consumed: typing.Optional[int]) -> typing.Tuple[bool, int, int]:
+        ...
+
+    @staticmethod
+    @overload
+    def try_parse(s: System.ReadOnlySpan[str], style: System.Globalization.NumberStyles, provider: System.IFormatProvider, result: typing.Optional[int], chars_consumed: typing.Optional[int]) -> typing.Tuple[bool, int, int]:
+        ...
+
+    @staticmethod
+    @overload
+    def try_parse(utf_8_text: System.ReadOnlySpan[int], style: System.Globalization.NumberStyles, provider: System.IFormatProvider, result: typing.Optional[int], bytes_consumed: typing.Optional[int]) -> typing.Tuple[bool, int, int]:
+        ...
+
+    @staticmethod
+    @overload
     def try_parse(s: str, provider: System.IFormatProvider, result: typing.Optional[int]) -> typing.Tuple[bool, int]:
         ...
 
@@ -3913,6 +3928,21 @@ class Half(System.IComparable[System_Half], System.ISpanFormattable, System.IEqu
     @staticmethod
     @overload
     def try_parse(s: System.ReadOnlySpan[str], style: System.Globalization.NumberStyles, provider: System.IFormatProvider, result: typing.Optional[System.Half]) -> typing.Tuple[bool, System.Half]:
+        ...
+
+    @staticmethod
+    @overload
+    def try_parse(s: str, style: System.Globalization.NumberStyles, provider: System.IFormatProvider, result: typing.Optional[System.Half], chars_consumed: typing.Optional[int]) -> typing.Tuple[bool, System.Half, int]:
+        ...
+
+    @staticmethod
+    @overload
+    def try_parse(s: System.ReadOnlySpan[str], style: System.Globalization.NumberStyles, provider: System.IFormatProvider, result: typing.Optional[System.Half], chars_consumed: typing.Optional[int]) -> typing.Tuple[bool, System.Half, int]:
+        ...
+
+    @staticmethod
+    @overload
+    def try_parse(utf_8_text: System.ReadOnlySpan[int], style: System.Globalization.NumberStyles, provider: System.IFormatProvider, result: typing.Optional[System.Half], bytes_consumed: typing.Optional[int]) -> typing.Tuple[bool, System.Half, int]:
         ...
 
     @staticmethod
@@ -7973,6 +8003,21 @@ class IntPtr(System.IEquatable[System_IntPtr], System.IComparable[System_IntPtr]
 
     @staticmethod
     @overload
+    def try_parse(s: str, style: System.Globalization.NumberStyles, provider: System.IFormatProvider, result: typing.Optional[System.IntPtr], chars_consumed: typing.Optional[int]) -> typing.Tuple[bool, System.IntPtr, int]:
+        ...
+
+    @staticmethod
+    @overload
+    def try_parse(s: System.ReadOnlySpan[str], style: System.Globalization.NumberStyles, provider: System.IFormatProvider, result: typing.Optional[System.IntPtr], chars_consumed: typing.Optional[int]) -> typing.Tuple[bool, System.IntPtr, int]:
+        ...
+
+    @staticmethod
+    @overload
+    def try_parse(utf_8_text: System.ReadOnlySpan[int], style: System.Globalization.NumberStyles, provider: System.IFormatProvider, result: typing.Optional[System.IntPtr], bytes_consumed: typing.Optional[int]) -> typing.Tuple[bool, System.IntPtr, int]:
+        ...
+
+    @staticmethod
+    @overload
     def try_parse(utf_8_text: System.ReadOnlySpan[int], style: System.Globalization.NumberStyles, provider: System.IFormatProvider, result: typing.Optional[System.IntPtr]) -> typing.Tuple[bool, System.IntPtr]:
         ...
 
@@ -8299,6 +8344,21 @@ class UIntPtr(System.IEquatable[System_UIntPtr], System.IComparable[System_UIntP
     @staticmethod
     @overload
     def try_parse(s: System.ReadOnlySpan[str], style: System.Globalization.NumberStyles, provider: System.IFormatProvider, result: typing.Optional[System.UIntPtr]) -> typing.Tuple[bool, System.UIntPtr]:
+        ...
+
+    @staticmethod
+    @overload
+    def try_parse(s: str, style: System.Globalization.NumberStyles, provider: System.IFormatProvider, result: typing.Optional[System.UIntPtr], chars_consumed: typing.Optional[int]) -> typing.Tuple[bool, System.UIntPtr, int]:
+        ...
+
+    @staticmethod
+    @overload
+    def try_parse(s: System.ReadOnlySpan[str], style: System.Globalization.NumberStyles, provider: System.IFormatProvider, result: typing.Optional[System.UIntPtr], chars_consumed: typing.Optional[int]) -> typing.Tuple[bool, System.UIntPtr, int]:
+        ...
+
+    @staticmethod
+    @overload
+    def try_parse(utf_8_text: System.ReadOnlySpan[int], style: System.Globalization.NumberStyles, provider: System.IFormatProvider, result: typing.Optional[System.UIntPtr], bytes_consumed: typing.Optional[int]) -> typing.Tuple[bool, System.UIntPtr, int]:
         ...
 
     @staticmethod
@@ -8897,6 +8957,21 @@ class UInt32(System.IComparable[int], System.IConvertible, System.ISpanFormattab
     @staticmethod
     @overload
     def try_parse(s: System.ReadOnlySpan[str], style: System.Globalization.NumberStyles, provider: System.IFormatProvider, result: typing.Optional[int]) -> typing.Tuple[bool, int]:
+        ...
+
+    @staticmethod
+    @overload
+    def try_parse(s: str, style: System.Globalization.NumberStyles, provider: System.IFormatProvider, result: typing.Optional[int], chars_consumed: typing.Optional[int]) -> typing.Tuple[bool, int, int]:
+        ...
+
+    @staticmethod
+    @overload
+    def try_parse(s: System.ReadOnlySpan[str], style: System.Globalization.NumberStyles, provider: System.IFormatProvider, result: typing.Optional[int], chars_consumed: typing.Optional[int]) -> typing.Tuple[bool, int, int]:
+        ...
+
+    @staticmethod
+    @overload
+    def try_parse(utf_8_text: System.ReadOnlySpan[int], style: System.Globalization.NumberStyles, provider: System.IFormatProvider, result: typing.Optional[int], bytes_consumed: typing.Optional[int]) -> typing.Tuple[bool, int, int]:
         ...
 
     @staticmethod
@@ -10255,6 +10330,21 @@ class UInt128(System.Numerics.IUnsignedNumber[System_UInt128], System.IUtf8SpanF
 
     @staticmethod
     @overload
+    def try_parse(s: str, style: System.Globalization.NumberStyles, provider: System.IFormatProvider, result: typing.Optional[System.UInt128], chars_consumed: typing.Optional[int]) -> typing.Tuple[bool, System.UInt128, int]:
+        ...
+
+    @staticmethod
+    @overload
+    def try_parse(s: System.ReadOnlySpan[str], style: System.Globalization.NumberStyles, provider: System.IFormatProvider, result: typing.Optional[System.UInt128], chars_consumed: typing.Optional[int]) -> typing.Tuple[bool, System.UInt128, int]:
+        ...
+
+    @staticmethod
+    @overload
+    def try_parse(utf_8_text: System.ReadOnlySpan[int], style: System.Globalization.NumberStyles, provider: System.IFormatProvider, result: typing.Optional[System.UInt128], bytes_consumed: typing.Optional[int]) -> typing.Tuple[bool, System.UInt128, int]:
+        ...
+
+    @staticmethod
+    @overload
     def try_parse(s: str, provider: System.IFormatProvider, result: typing.Optional[System.UInt128]) -> typing.Tuple[bool, System.UInt128]:
         ...
 
@@ -10492,6 +10582,21 @@ class UInt64(System.IComparable[int], System.IConvertible, System.ISpanFormattab
     @staticmethod
     @overload
     def try_parse(s: System.ReadOnlySpan[str], style: System.Globalization.NumberStyles, provider: System.IFormatProvider, result: typing.Optional[int]) -> typing.Tuple[bool, int]:
+        ...
+
+    @staticmethod
+    @overload
+    def try_parse(s: str, style: System.Globalization.NumberStyles, provider: System.IFormatProvider, result: typing.Optional[int], chars_consumed: typing.Optional[int]) -> typing.Tuple[bool, int, int]:
+        ...
+
+    @staticmethod
+    @overload
+    def try_parse(s: System.ReadOnlySpan[str], style: System.Globalization.NumberStyles, provider: System.IFormatProvider, result: typing.Optional[int], chars_consumed: typing.Optional[int]) -> typing.Tuple[bool, int, int]:
+        ...
+
+    @staticmethod
+    @overload
+    def try_parse(utf_8_text: System.ReadOnlySpan[int], style: System.Globalization.NumberStyles, provider: System.IFormatProvider, result: typing.Optional[int], bytes_consumed: typing.Optional[int]) -> typing.Tuple[bool, int, int]:
         ...
 
     @staticmethod
@@ -11763,6 +11868,21 @@ class Int32(System.IComparable[int], System.IConvertible, System.ISpanFormattabl
     @staticmethod
     @overload
     def try_parse(s: System.ReadOnlySpan[str], style: System.Globalization.NumberStyles, provider: System.IFormatProvider, result: typing.Optional[int]) -> typing.Tuple[bool, int]:
+        ...
+
+    @staticmethod
+    @overload
+    def try_parse(s: str, style: System.Globalization.NumberStyles, provider: System.IFormatProvider, result: typing.Optional[int], chars_consumed: typing.Optional[int]) -> typing.Tuple[bool, int, int]:
+        ...
+
+    @staticmethod
+    @overload
+    def try_parse(s: System.ReadOnlySpan[str], style: System.Globalization.NumberStyles, provider: System.IFormatProvider, result: typing.Optional[int], chars_consumed: typing.Optional[int]) -> typing.Tuple[bool, int, int]:
+        ...
+
+    @staticmethod
+    @overload
+    def try_parse(utf_8_text: System.ReadOnlySpan[int], style: System.Globalization.NumberStyles, provider: System.IFormatProvider, result: typing.Optional[int], bytes_consumed: typing.Optional[int]) -> typing.Tuple[bool, int, int]:
         ...
 
     @staticmethod
@@ -13396,6 +13516,21 @@ class Single(System.IComparable[float], System.IConvertible, System.ISpanFormatt
 
     @staticmethod
     @overload
+    def try_parse(s: str, style: System.Globalization.NumberStyles, provider: System.IFormatProvider, result: typing.Optional[float], chars_consumed: typing.Optional[int]) -> typing.Tuple[bool, float, int]:
+        ...
+
+    @staticmethod
+    @overload
+    def try_parse(s: System.ReadOnlySpan[str], style: System.Globalization.NumberStyles, provider: System.IFormatProvider, result: typing.Optional[float], chars_consumed: typing.Optional[int]) -> typing.Tuple[bool, float, int]:
+        ...
+
+    @staticmethod
+    @overload
+    def try_parse(utf_8_text: System.ReadOnlySpan[int], style: System.Globalization.NumberStyles, provider: System.IFormatProvider, result: typing.Optional[float], bytes_consumed: typing.Optional[int]) -> typing.Tuple[bool, float, int]:
+        ...
+
+    @staticmethod
+    @overload
     def try_parse(s: str, provider: System.IFormatProvider, result: typing.Optional[float]) -> typing.Tuple[bool, float]:
         ...
 
@@ -14811,6 +14946,21 @@ class Int128(System.Numerics.ISignedNumber[System_Int128], System.IUtf8SpanForma
     @staticmethod
     @overload
     def try_parse(s: System.ReadOnlySpan[str], style: System.Globalization.NumberStyles, provider: System.IFormatProvider, result: typing.Optional[System.Int128]) -> typing.Tuple[bool, System.Int128]:
+        ...
+
+    @staticmethod
+    @overload
+    def try_parse(s: str, style: System.Globalization.NumberStyles, provider: System.IFormatProvider, result: typing.Optional[System.Int128], chars_consumed: typing.Optional[int]) -> typing.Tuple[bool, System.Int128, int]:
+        ...
+
+    @staticmethod
+    @overload
+    def try_parse(s: System.ReadOnlySpan[str], style: System.Globalization.NumberStyles, provider: System.IFormatProvider, result: typing.Optional[System.Int128], chars_consumed: typing.Optional[int]) -> typing.Tuple[bool, System.Int128, int]:
+        ...
+
+    @staticmethod
+    @overload
+    def try_parse(utf_8_text: System.ReadOnlySpan[int], style: System.Globalization.NumberStyles, provider: System.IFormatProvider, result: typing.Optional[System.Int128], bytes_consumed: typing.Optional[int]) -> typing.Tuple[bool, System.Int128, int]:
         ...
 
     @staticmethod
@@ -16487,6 +16637,21 @@ class Decimal(System.ISpanFormattable, System.IComparable[float], System.IConver
     @staticmethod
     @overload
     def try_parse(s: System.ReadOnlySpan[str], style: System.Globalization.NumberStyles, provider: System.IFormatProvider, result: typing.Optional[float]) -> typing.Tuple[bool, float]:
+        ...
+
+    @staticmethod
+    @overload
+    def try_parse(s: str, style: System.Globalization.NumberStyles, provider: System.IFormatProvider, result: typing.Optional[float], chars_consumed: typing.Optional[int]) -> typing.Tuple[bool, float, int]:
+        ...
+
+    @staticmethod
+    @overload
+    def try_parse(s: System.ReadOnlySpan[str], style: System.Globalization.NumberStyles, provider: System.IFormatProvider, result: typing.Optional[float], chars_consumed: typing.Optional[int]) -> typing.Tuple[bool, float, int]:
+        ...
+
+    @staticmethod
+    @overload
+    def try_parse(utf_8_text: System.ReadOnlySpan[int], style: System.Globalization.NumberStyles, provider: System.IFormatProvider, result: typing.Optional[float], bytes_consumed: typing.Optional[int]) -> typing.Tuple[bool, float, int]:
         ...
 
     @staticmethod
@@ -18605,6 +18770,21 @@ class SByte(System.IComparable[int], System.IConvertible, System.ISpanFormattabl
 
     @staticmethod
     @overload
+    def try_parse(s: str, style: System.Globalization.NumberStyles, provider: System.IFormatProvider, result: typing.Optional[int], chars_consumed: typing.Optional[int]) -> typing.Tuple[bool, int, int]:
+        ...
+
+    @staticmethod
+    @overload
+    def try_parse(s: System.ReadOnlySpan[str], style: System.Globalization.NumberStyles, provider: System.IFormatProvider, result: typing.Optional[int], chars_consumed: typing.Optional[int]) -> typing.Tuple[bool, int, int]:
+        ...
+
+    @staticmethod
+    @overload
+    def try_parse(utf_8_text: System.ReadOnlySpan[int], style: System.Globalization.NumberStyles, provider: System.IFormatProvider, result: typing.Optional[int], bytes_consumed: typing.Optional[int]) -> typing.Tuple[bool, int, int]:
+        ...
+
+    @staticmethod
+    @overload
     def try_parse(s: str, provider: System.IFormatProvider, result: typing.Optional[int]) -> typing.Tuple[bool, int]:
         ...
 
@@ -19551,6 +19731,21 @@ class Double(System.IComparable[float], System.IConvertible, System.ISpanFormatt
 
     @staticmethod
     @overload
+    def try_parse(s: str, style: System.Globalization.NumberStyles, provider: System.IFormatProvider, result: typing.Optional[float], chars_consumed: typing.Optional[int]) -> typing.Tuple[bool, float, int]:
+        ...
+
+    @staticmethod
+    @overload
+    def try_parse(s: System.ReadOnlySpan[str], style: System.Globalization.NumberStyles, provider: System.IFormatProvider, result: typing.Optional[float], chars_consumed: typing.Optional[int]) -> typing.Tuple[bool, float, int]:
+        ...
+
+    @staticmethod
+    @overload
+    def try_parse(utf_8_text: System.ReadOnlySpan[int], style: System.Globalization.NumberStyles, provider: System.IFormatProvider, result: typing.Optional[float], bytes_consumed: typing.Optional[int]) -> typing.Tuple[bool, float, int]:
+        ...
+
+    @staticmethod
+    @overload
     def try_parse(s: str, provider: System.IFormatProvider, result: typing.Optional[float]) -> typing.Tuple[bool, float]:
         ...
 
@@ -20004,6 +20199,21 @@ class Int64(System.IComparable[int], System.IConvertible, System.ISpanFormattabl
     @staticmethod
     @overload
     def try_parse(s: System.ReadOnlySpan[str], style: System.Globalization.NumberStyles, provider: System.IFormatProvider, result: typing.Optional[int]) -> typing.Tuple[bool, int]:
+        ...
+
+    @staticmethod
+    @overload
+    def try_parse(s: str, style: System.Globalization.NumberStyles, provider: System.IFormatProvider, result: typing.Optional[int], chars_consumed: typing.Optional[int]) -> typing.Tuple[bool, int, int]:
+        ...
+
+    @staticmethod
+    @overload
+    def try_parse(s: System.ReadOnlySpan[str], style: System.Globalization.NumberStyles, provider: System.IFormatProvider, result: typing.Optional[int], chars_consumed: typing.Optional[int]) -> typing.Tuple[bool, int, int]:
+        ...
+
+    @staticmethod
+    @overload
+    def try_parse(utf_8_text: System.ReadOnlySpan[int], style: System.Globalization.NumberStyles, provider: System.IFormatProvider, result: typing.Optional[int], bytes_consumed: typing.Optional[int]) -> typing.Tuple[bool, int, int]:
         ...
 
     @staticmethod
@@ -20757,6 +20967,21 @@ class Byte(System.IComparable[int], System.IConvertible, System.ISpanFormattable
 
     @staticmethod
     @overload
+    def try_parse(s: str, style: System.Globalization.NumberStyles, provider: System.IFormatProvider, result: typing.Optional[int], chars_consumed: typing.Optional[int]) -> typing.Tuple[bool, int, int]:
+        ...
+
+    @staticmethod
+    @overload
+    def try_parse(s: System.ReadOnlySpan[str], style: System.Globalization.NumberStyles, provider: System.IFormatProvider, result: typing.Optional[int], chars_consumed: typing.Optional[int]) -> typing.Tuple[bool, int, int]:
+        ...
+
+    @staticmethod
+    @overload
+    def try_parse(utf_8_text: System.ReadOnlySpan[int], style: System.Globalization.NumberStyles, provider: System.IFormatProvider, result: typing.Optional[int], bytes_consumed: typing.Optional[int]) -> typing.Tuple[bool, int, int]:
+        ...
+
+    @staticmethod
+    @overload
     def try_parse(s: str, provider: System.IFormatProvider, result: typing.Optional[int]) -> typing.Tuple[bool, int]:
         ...
 
@@ -21193,6 +21418,21 @@ class UInt16(System.IComparable[int], System.IConvertible, System.ISpanFormattab
     @staticmethod
     @overload
     def try_parse(s: System.ReadOnlySpan[str], style: System.Globalization.NumberStyles, provider: System.IFormatProvider, result: typing.Optional[int]) -> typing.Tuple[bool, int]:
+        ...
+
+    @staticmethod
+    @overload
+    def try_parse(s: str, style: System.Globalization.NumberStyles, provider: System.IFormatProvider, result: typing.Optional[int], chars_consumed: typing.Optional[int]) -> typing.Tuple[bool, int, int]:
+        ...
+
+    @staticmethod
+    @overload
+    def try_parse(s: System.ReadOnlySpan[str], style: System.Globalization.NumberStyles, provider: System.IFormatProvider, result: typing.Optional[int], chars_consumed: typing.Optional[int]) -> typing.Tuple[bool, int, int]:
+        ...
+
+    @staticmethod
+    @overload
+    def try_parse(utf_8_text: System.ReadOnlySpan[int], style: System.Globalization.NumberStyles, provider: System.IFormatProvider, result: typing.Optional[int], bytes_consumed: typing.Optional[int]) -> typing.Tuple[bool, int, int]:
         ...
 
     @staticmethod

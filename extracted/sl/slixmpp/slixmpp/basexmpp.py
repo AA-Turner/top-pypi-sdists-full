@@ -38,9 +38,6 @@ from slixmpp.xmlstream.stanzabase import (
 from slixmpp.plugins import PluginManager, load_plugin, BasePlugin
 
 
-log = logging.getLogger(__name__)
-
-
 from slixmpp.types import (
     PresenceTypes,
     MessageTypes,
@@ -49,9 +46,25 @@ from slixmpp.types import (
     OptJidStr,
 )
 
+try:
+    from warnings import deprecated
+except ImportError:
+    # We type-ignore here because the classes are different since they are
+    # defined in different places.
+    from slixmpp.thirdparty.deprecated import deprecated  # type: ignore
+
+
 if TYPE_CHECKING:
     # Circular imports
     from slixmpp.pluginsdict import PluginsDict
+
+
+log = logging.getLogger(__name__)
+
+PLUGIN_ACCESS_MSG = (
+    "Accessing plugins through the XMPP object is deprecated and will be "
+    "removed in a future release. Access them through .plugin instead."
+)
 
 
 class BaseXMPP(XMLStream):
@@ -280,6 +293,7 @@ class BaseXMPP(XMLStream):
             else:
                 raise NameError("Plugin %s not in plugins.PLUGINS." % plugin)
 
+    @deprecated(PLUGIN_ACCESS_MSG)
     def __getitem__(self, key):
         """Return a plugin given its name, if it has been registered."""
         if key in self.plugin:

@@ -1,6 +1,6 @@
 [project]
 name = "datacontract-cli"
-version = "1.0.9"
+version = "1.0.10"
 description = "The datacontract CLI is an open source command-line tool for working with Data Contracts. It uses data contract YAML files to lint the data contract, connect to data sources and execute schema and quality tests, detect breaking changes, and export to different formats. The tool is written in Python. It can be used as a standalone CLI tool, in a CI/CD pipeline, or directly as a Python library."
 license = "MIT"
 readme = "README.md"
@@ -19,6 +19,7 @@ dependencies = [
   "click>=8.1.0,<9.0.0",
   "pydantic>=2.8.2,<2.14.0",
   "pyyaml~=6.0.1",
+  "ruamel.yaml>=0.17,<0.19",
   "requests>=2.31,<2.35",
   "truststore>=0.10,<1.0",
   "fastjsonschema>=2.19.1,<2.22.0",
@@ -58,7 +59,7 @@ excel = [
 databricks = [
   "ibis-framework[databricks,pyspark]>=10.0.0,<13.0.0",
   "databricks-sql-connector>=3.7.0,<4.4.0",
-  "databricks-sdk<0.119.0",
+  "databricks-sdk<0.121.0",
   # Not capped to Spark 3.5.x like older builds were: the databricks path uses a
   # caller-provided Spark session (or the databricks SQL connector) and never
   # loads the Kafka/Avro connector jars, so it isn't tied to a Scala/Spark line.
@@ -119,7 +120,7 @@ gcs = [
 azure = [
   "datacontract-cli[duckdb]",
   "duckdb-extension-azure>=1.5.0,<1.6.0",
-  "azure-identity>=1.17.1,<1.18",
+  "azure-identity>=1.17.1,<1.26",
   "azure-storage-blob>=12.24,<12.31",
 ]
 
@@ -169,8 +170,8 @@ rdf = [
 ]
 
 api = [
-  "fastapi>=0.115.0,<0.139.0",
-  "uvicorn>=0.44.0,<0.50.0",
+  "fastapi>=0.115.0,<0.140.0",
+  "uvicorn>=0.44.0,<0.51.0",
 ]
 
 protobuf = [
@@ -199,9 +200,9 @@ dev = [
   # psycopg v3 and DuckDB's mysql extension respectively).
   "psycopg2-binary>=2.9,<3.0",
   "mysql-connector-python>=8.0.30,<9.7.0",
-  "ruff==0.15.18",
+  "ruff==0.15.20",
   "testcontainers[minio,postgres,kafka,mssql,mysql]==4.14.2",
-  "trino==0.337.0",
+  "trino==0.338.0",
 ]
 
 [project.urls]

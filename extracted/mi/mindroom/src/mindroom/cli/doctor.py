@@ -34,7 +34,7 @@ if TYPE_CHECKING:
 from mindroom.config.main import CONFIG_LOAD_USER_ERROR_TYPES, Config, iter_config_validation_messages
 
 
-def doctor() -> None:
+def doctor(config_path: Path | None = None, storage_path: Path | None = None) -> None:
     """Check your environment for common issues.
 
     Runs connectivity, configuration, and credential checks in a single pass
@@ -46,8 +46,9 @@ def doctor() -> None:
     failed = 0
     warnings = 0
 
-    runtime_paths = activate_cli_runtime()
+    runtime_paths = activate_cli_runtime(path=config_path, storage_path=storage_path)
     config_path = runtime_paths.config_path
+    console.print(f"[dim]Config directory: {runtime_paths.config_dir}[/dim]")
 
     # 1. Config file exists
     p, f, w = _run_doctor_step("Checking config file...", lambda: _check_config_exists(config_path))
@@ -56,7 +57,7 @@ def doctor() -> None:
     warnings += w
 
     # 2+. Config validity + provider API key validation (skip if file missing)
-    if config_path.exists():
+    if config_path.is_file():
         config, p, f, w = _run_doctor_step(
             "Validating configuration...",
             lambda: _check_config_valid(runtime_paths),
@@ -97,11 +98,49 @@ def doctor() -> None:
     failed += f
     warnings += w
 
+    # 7. Matrix encryption stores match persisted device identities
+    p, f, w = _run_doctor_step("Checking encryption stores...", lambda: _check_e2ee_stores(runtime_paths))
+    passed += p
+    failed += f
+    warnings += w
+
     # Summary
     console.print(f"\n{passed} passed, {failed} failed, {warnings} warning{'s' if warnings != 1 else ''}")
 
     if failed > 0:
         raise typer.Exit(1)
+
+
+def _check_e2ee_stores(runtime_paths: RuntimePaths) -> tuple[int, int, int]:
+    """Check persisted Matrix devices have their encryption stores on disk."""
+    from mindroom.matrix.client_session import olm_store_exists  # noqa: PLC0415
+    from mindroom.matrix.state import MatrixState  # noqa: PLC0415
+
+    state = MatrixState.load(runtime_paths=runtime_paths)
+    accounts_with_devices = [
+        (key, account) for key, account in state.accounts.items() if account.device_id and account.domain
+    ]
+    if not accounts_with_devices:
+        console.print("[green]✓[/green] Encryption stores: no persisted Matrix devices yet")
+        return 1, 0, 0
+
+    missing = [
+        (key, account)
+        for key, account in accounts_with_devices
+        if not olm_store_exists(f"@{account.username}:{account.domain}", account.device_id or "", runtime_paths)
+    ]
+    if not missing:
+        count = len(accounts_with_devices)
+        console.print(f"[green]✓[/green] Encryption stores: {count} device store{'s' if count != 1 else ''} present")
+        return 1, 0, 0
+
+    for key, account in missing:
+        console.print(
+            f"[yellow]⚠[/yellow] Encryption store missing for {key} "
+            f"(@{account.username}:{account.domain}, device {account.device_id}); "
+            "MindRoom will log in as a fresh device on next start and old encrypted messages stay unreadable",
+        )
+    return 0, 0, len(missing)
 
 
 def _run_doctor_step[T](message: str, check: Callable[[], T]) -> T:
@@ -112,9 +151,12 @@ def _run_doctor_step[T](message: str, check: Callable[[], T]) -> T:
 
 def _check_config_exists(config_path: Path) -> tuple[int, int, int]:
     """Check config file exists. Returns (passed, failed, warnings)."""
-    if config_path.exists():
+    if config_path.is_file():
         console.print(f"[green]✓[/green] Config file: {config_path}")
         return 1, 0, 0
+    if config_path.exists():
+        console.print(f"[red]✗[/red] Config path is not a file: {config_path}")
+        return 0, 1, 0
     console.print(f"[red]✗[/red] Config file not found: {config_path}")
     return 0, 1, 0
 

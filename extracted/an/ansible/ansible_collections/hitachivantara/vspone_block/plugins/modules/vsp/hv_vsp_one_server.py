@@ -541,11 +541,6 @@ server:
       type: str
       returned: always
       sample: "WebServer414"
-    nick_name:
-      description: Deprecated. Use C(nickname) instead.
-      type: str
-      returned: always
-      sample: "WebServer414"
     number_of_paths:
       description: Number of paths configured for the server
       type: int

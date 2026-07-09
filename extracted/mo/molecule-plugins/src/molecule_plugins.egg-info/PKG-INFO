@@ -1,10 +1,10 @@
 Metadata-Version: 2.4
 Name: molecule-plugins
-Version: 25.8.12
+Version: 26.7.8
 Summary: Molecule Plugins
 Author-email: Sorin Sbarnea <sorin.sbarnea@gmail.com>
 Maintainer-email: Sorin Sbarnea <sorin.sbarnea@gmail.com>
-License: MIT
+License-Expression: MIT
 Project-URL: homepage, https://github.com/ansible-community/molecule-plugins
 Project-URL: documentation, https://molecule.readthedocs.io/
 Project-URL: repository, https://github.com/ansible-community/molecule-plugins
@@ -15,13 +15,13 @@ Classifier: Environment :: Console
 Classifier: Intended Audience :: Developers
 Classifier: Intended Audience :: Information Technology
 Classifier: Intended Audience :: System Administrators
-Classifier: License :: OSI Approved :: MIT License
 Classifier: Operating System :: MacOS
 Classifier: Operating System :: POSIX
 Classifier: Programming Language :: Python :: 3
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3 :: Only
 Classifier: Programming Language :: Python
 Classifier: Topic :: System :: Systems Administration
@@ -32,9 +32,6 @@ Requires-Python: >=3.10
 Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: molecule>=25.1.0
-Provides-Extra: test
-Requires-Dist: pytest-helpers-namespace>=2019.1.8; extra == "test"
-Requires-Dist: molecule[test]>=25.1.0; extra == "test"
 Provides-Extra: azure
 Provides-Extra: docker
 Requires-Dist: selinux; sys_platform == "linux2" and extra == "docker"

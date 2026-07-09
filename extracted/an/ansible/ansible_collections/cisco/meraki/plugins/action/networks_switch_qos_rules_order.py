@@ -256,7 +256,9 @@ class NetworksSwitchQosRulesOrder(object):
             ("srcPortRange", "srcPortRange"),
             ("dstPort", "dstPort"),
             ("dstPortRange", "dstPortRange"),
-            ("dscp", "dscp"), ("qosRuleId", "qosRuleId"),
+            ("dscp", "dscp"),
+            ("networkId", "networkId"),
+            ("qosRuleId", "qosRuleId"),
         ]
         # Method 1. Params present in request (Ansible) obj are the same as the current (DNAC) params
         # If any does not have eq params, it requires update

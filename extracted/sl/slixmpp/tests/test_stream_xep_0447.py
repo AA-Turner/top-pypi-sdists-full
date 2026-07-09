@@ -28,7 +28,7 @@ class TestStatelessFileSharing(SlixTest):
             h = b64encode(sha256(f.read()).digest()).decode()
 
             for disposition in None, "inline", "attachment":
-                sfs = self.xmpp["xep_0447"].get_sfs(
+                sfs = self.xmpp.plugin["xep_0447"].get_sfs(
                     Path(f.name),
                     ["https://xxx.com"],
                     media_type="MEDIA",

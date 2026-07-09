@@ -54,7 +54,7 @@ class XEP_0100(BasePlugin):
             log.error("Only components can be gateways, aborting plugin load")
             return
 
-        self.xmpp["xep_0030"].add_identity(
+        self.xmpp.plugin["xep_0030"].add_identity(
             name=self.component_name, category="gateway", itype=self.type
         )
 
@@ -94,7 +94,7 @@ class XEP_0100(BasePlugin):
         )
 
     async def get_user(self, stanza):
-        return await self.xmpp["xep_0077"].api["user_get"](None, None, None, stanza)
+        return await self.xmpp.plugin["xep_0077"].api["user_get"](None, None, None, stanza)
 
     def send_presence(self, pto, ptype=None, pstatus=None, pfrom=None):
         self.xmpp.send_presence(

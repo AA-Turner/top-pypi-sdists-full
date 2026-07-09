@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: rarfile
-Version: 4.2
+Version: 4.3
 Summary: RAR archive reader for Python
 Home-page: https://github.com/markokr/rarfile
 Author: Marko Kreen
@@ -14,7 +14,7 @@ Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python :: 3
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
 Classifier: Topic :: System :: Archiving :: Compression
-Requires-Python: >=3.6
+Requires-Python: >=3.10
 License-File: LICENSE
 
 rarfile - RAR archive reader for Python

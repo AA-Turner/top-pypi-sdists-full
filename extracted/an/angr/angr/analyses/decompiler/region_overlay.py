@@ -536,11 +536,12 @@ class RegionOverlay:
 
         if not full:
             return
-        # n is a successor node
+        # n is a successor node, or a view-only node that only extra edges (absorb_successor_into) keep in the
+        # view: such a node may have lost all of its crossing edges to later structuring, dropping it from
+        # successor_nodes() while extra edges still reference it -- its extra-edge adjacency must survive, or the
+        # view's adjacency goes asymmetric (an edge visible from its source with no matching in-edge at its target)
         succs = self.successor_nodes()
-        if n not in succs:
-            return
-        if self._in_loop:
+        if n in succs and self._in_loop:
             under_n = self._underlying(n)
             for u in under_n:
                 if u not in graph:
@@ -589,31 +590,32 @@ class RegionOverlay:
 
         if not full:
             return
-        # n is a successor node
+        # n is a successor node, or a view-only node that only extra edges (absorb_successor_into) keep in the
+        # view; see _iter_view_out_edges -- the extra-edge scan below must run for both kinds, or an extra edge
+        # would be visible from its source but missing from its target's in-edges
         succs = self.successor_nodes()
-        if n not in succs:
-            return
-        hidden_head = self._hidden_context_head_under()
-        in_loop = self._in_loop
-        under_n = self._underlying(n)
-        for u in under_n:
-            if u not in graph:
-                continue
-            for p, data in graph.pred[u].items():
-                if p in under:
-                    # a member's crossing edge into this successor
-                    if (p, u) in self._hidden or u in hidden_head:
-                        continue
-                    rep_p = self._representative_in(p)
-                    if rep_p is not None and rep_p not in seen:
-                        seen.add(rep_p)
-                        yield rep_p, data
-                elif in_loop and p not in under_n:
-                    # a successor-to-successor edge
-                    rep_p = self._representative_outside(p)
-                    if rep_p is not None and rep_p is not n and rep_p in succs and rep_p not in seen:
-                        seen.add(rep_p)
-                        yield rep_p, data
+        if n in succs:
+            hidden_head = self._hidden_context_head_under()
+            in_loop = self._in_loop
+            under_n = self._underlying(n)
+            for u in under_n:
+                if u not in graph:
+                    continue
+                for p, data in graph.pred[u].items():
+                    if p in under:
+                        # a member's crossing edge into this successor
+                        if (p, u) in self._hidden or u in hidden_head:
+                            continue
+                        rep_p = self._representative_in(p)
+                        if rep_p is not None and rep_p not in seen:
+                            seen.add(rep_p)
+                            yield rep_p, data
+                    elif in_loop and p not in under_n:
+                        # a successor-to-successor edge
+                        rep_p = self._representative_outside(p)
+                        if rep_p is not None and rep_p is not n and rep_p in succs and rep_p not in seen:
+                            seen.add(rep_p)
+                            yield rep_p, data
         for u, v in self._extra_full_edges:
             if v is n and u not in seen:
                 seen.add(u)
@@ -820,6 +822,15 @@ class RegionOverlay:
         """
         for u, v in self.underlying_edge_pairs(src, dst):
             self._mgr.graph_remove_edge(u, v)
+        # the edge may (also) exist as a view-only extra edge introduced by absorb_successor_into(); such edges
+        # have no shared-graph counterpart, so drop them here or the edge would survive its own virtualization
+        # (last-resort refinement would then pick it again forever)
+        extra = [(u, v) for u, v in self._extra_full_edges if u is src and v is dst]
+        if extra:
+            self._extra_full_edges.difference_update(extra)
+            self._mgr._record(lambda: self._extra_full_edges.update(extra))
+            self._mgr._touch(src)
+            self._mgr._touch(dst)
         self._invalidate()
 
     def mark_edge(self, src, dst, **attrs) -> None:
@@ -1276,7 +1287,7 @@ class _OverlayAdjInner(Mapping):
 class _OverlayAdjAtlas(Mapping):
     """Outer adjacency mapping of a RegionOverlayGraph: view node -> _OverlayAdjInner."""
 
-    __slots__ = ("_cache", "_epoch", "_pred", "_rog")
+    __slots__ = ("_cache", "_epoch", "_pred", "_rog", "_succ_cache", "_succ_version")
 
     def __init__(self, rog: RegionOverlayGraph, pred: bool):
         self._rog = rog
@@ -1287,6 +1298,13 @@ class _OverlayAdjAtlas(Mapping):
         # (bumped by lifecycle ops / rollback) and forces a full clear when it changes.
         self._cache: dict[Any, tuple[int, _OverlayAdjInner]] = {}
         self._epoch: int | None = None
+        # successor-node adjacency cache: a successor's view adjacency depends on the whole region's successor
+        # set and view state, not just on that node, so it cannot be keyed by the node's own version. Key the
+        # whole cache by the manager's global version instead (bumped by every mutation and view-state change,
+        # the same invariant _node_set relies on): reads between two mutations -- dominator fixpoints, SAILR's
+        # per-edge in_degree queries -- hit the cache, and any mutation drops it wholesale.
+        self._succ_cache: dict[Any, _OverlayAdjInner] = {}
+        self._succ_version: int | None = None
 
     def __len__(self):
         return len(self._rog._node_set())
@@ -1304,12 +1322,27 @@ class _OverlayAdjAtlas(Mapping):
         if n not in self._rog._node_set():
             raise KeyError(n)
         overlay = self._rog.overlay
-        # Only member nodes are cached: their view-adjacency is a function of graph.adj[n] (plus this overlay's
-        # own visibility state), all of which bump n's node version when they change, so the cached order and
-        # keyset stay correct. A successor node's adjacency instead depends on the whole region's successor set
-        # (which can change without touching that node), so it is always rebuilt fresh. Members are the hot path.
+        # Member nodes are cached per node version: their view-adjacency is a function of graph.adj[n] (plus
+        # this overlay's own visibility state), all of which bump n's node version when they change, so the
+        # cached order and keyset stay correct. Non-member (successor) nodes are cached in _succ_cache, keyed
+        # by the manager's global version (see __init__).
         if n not in overlay.members:
-            return _OverlayAdjInner(self._rog, n, self._pred)
+            mgr = overlay.manager
+            if self._succ_version != mgr.version:
+                self._succ_cache.clear()
+                self._succ_version = mgr.version
+            succ_inner = self._succ_cache.get(n)
+            if succ_inner is None:
+                succ_inner = _OverlayAdjInner(self._rog, n, self._pred)
+                self._succ_cache[n] = succ_inner
+            elif _PARANOID_ADJ_CHECK:
+                fresh = _OverlayAdjInner(self._rog, n, self._pred)
+                # order-sensitive: Phoenix structuring depends on neighbor iteration order, not just the set
+                assert list(fresh._d.items()) == list(succ_inner._d.items()), (
+                    f"stale adjacency for successor node {n!r} (pred={self._pred}) in overlay {overlay!r}: "
+                    f"a mutation changed its neighbors (or their order) without bumping the manager version"
+                )
+            return succ_inner
         mgr = overlay.manager
         if self._epoch != mgr._adj_epoch:
             self._cache.clear()

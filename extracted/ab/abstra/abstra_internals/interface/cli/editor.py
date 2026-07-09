@@ -384,6 +384,13 @@ def editor(headless: bool, verbose: bool = False, debug_mode: bool = False):
         )
         watcher.start()
 
+    if is_web_editor:
+        from abstra_internals.controllers.file_locks import (
+            start_sweeper as start_lock_sweeper,
+        )
+
+        start_lock_sweeper()
+
     RequirementsChangeNotifier.register(
         CodebaseEventController.notify_requirements_changed
     )

@@ -322,28 +322,22 @@ class AiSDKController:
         response = self.ai_client.solve_captcha(body=body)
         return str(response.get("text", ""))
 
-    def parse_document(self, document_path: pathlib.Path | str, model: str) -> dict:
-        if isinstance(document_path, str):
-            document_path = pathlib.Path(document_path)
-
-        if document_path.suffix.lower() == ".pdf":
-            mime_type = "application/pdf"
-        elif document_path.suffix.lower() in [".jpeg", ".jpg"]:
-            mime_type = "image/jpeg"
-        elif document_path.suffix.lower() == ".png":
-            mime_type = "image/png"
-        else:
-            raise ValueError(
-                f"Unsupported file type: {document_path.suffix}. Supported types are: .pdf, .jpeg, .jpg, .png"
-            )
-
-        file_bytes = document_path.read_bytes()
-        response = self.ai_client.parse_document(
-            model=model,
-            file_content=file_bytes,
-            mime_type=mime_type,
+    @staticmethod
+    def _mime_type_for(document_path: pathlib.Path) -> str:
+        suffix = document_path.suffix.lower()
+        if suffix == ".pdf":
+            return "application/pdf"
+        if suffix in (".jpeg", ".jpg"):
+            return "image/jpeg"
+        if suffix == ".png":
+            return "image/png"
+        raise ValueError(
+            f"Unsupported file type: {document_path.suffix}. "
+            "Supported types are: .pdf, .jpeg, .jpg, .png"
         )
 
+    @staticmethod
+    def _raise_if_error(response: object) -> None:
         if isinstance(response, dict) and response.get("error"):
             err = response["error"]
             try:
@@ -355,4 +349,29 @@ class AiSDKController:
                 msg = str(err)
             raise Exception(msg)
 
+    def parse_document(self, document_path: pathlib.Path | str, model: str) -> dict:
+        if isinstance(document_path, str):
+            document_path = pathlib.Path(document_path)
+
+        mime_type = self._mime_type_for(document_path)
+        response = self.ai_client.parse_document(
+            model=model,
+            file_content=document_path.read_bytes(),
+            mime_type=mime_type,
+        )
+
+        self._raise_if_error(response)
         return response
+
+    def extract_text(self, document_path: pathlib.Path | str) -> str:
+        if isinstance(document_path, str):
+            document_path = pathlib.Path(document_path)
+
+        mime_type = self._mime_type_for(document_path)
+        response = self.ai_client.extract_text(
+            file_content=document_path.read_bytes(),
+            mime_type=mime_type,
+        )
+
+        self._raise_if_error(response)
+        return response["text"]

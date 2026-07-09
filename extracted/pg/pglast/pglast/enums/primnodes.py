@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-# :Project:   pglast — DO NOT EDIT: automatically extracted from primnodes.h @ 17-6.2.2-0-g7be1aed
+# :Project:   pglast — DO NOT EDIT: automatically extracted from primnodes.h @ 18-latest-0-g6ced8d4
 # :Author:    Lele Gaifax <lele@metapensiero.it>
 # :License:   GNU General Public License version 3 or later
 # :Copyright: © 2017-2026 Lele Gaifax
@@ -10,7 +10,7 @@ from enum import Enum, IntEnum, IntFlag, auto
 try:
     from enum import StrEnum
 except ImportError:  # pragma: no cover
-    # Python < 3.10
+    # Python < 3.11
     class StrEnum(str, Enum):
         pass
 
@@ -136,15 +136,6 @@ class ParamKind(IntEnum):
     PARAM_MULTIEXPR = auto()
 
 
-class RowCompareType(IntEnum):
-    ROWCOMPARE_LT = 1
-    ROWCOMPARE_LE = 2
-    ROWCOMPARE_EQ = 3
-    ROWCOMPARE_GE = 4
-    ROWCOMPARE_GT = 5
-    ROWCOMPARE_NE = 6
-
-
 class SQLValueFunctionOp(IntEnum):
     SVFOP_CURRENT_DATE = 0
     SVFOP_CURRENT_TIME = auto()
@@ -177,6 +168,12 @@ class SubLinkType(IntEnum):
 class TableFuncType(IntEnum):
     TFT_XMLTABLE = 0
     TFT_JSON_TABLE = auto()
+
+
+class VarReturningType(IntEnum):
+    VAR_RETURNING_DEFAULT = 0
+    VAR_RETURNING_OLD = auto()
+    VAR_RETURNING_NEW = auto()
 
 
 class XmlExprOp(IntEnum):

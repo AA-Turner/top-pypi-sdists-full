@@ -1,6 +1,6 @@
 [project]
 name = "textX"
-version = "4.3.0"
+version = "4.4.0"
 description = "Meta-language for DSL implementation inspired by Xtext"
 authors = [
     {name = "Igor R. Dejanović", email = "igor.dejanovic@gmail.com"},
@@ -46,7 +46,7 @@ Changelog = "https://github.com/textX/textX/blob/master/CHANGELOG.md"
 
 [build-system]
 build-backend = "flit_core.buildapi"
-requires = ["flit_core >=3.8.0,<4"]
+requires = ["flit_core >=3.8.0,<5"]
 
 [tool.flit.module]
 name = "textx"

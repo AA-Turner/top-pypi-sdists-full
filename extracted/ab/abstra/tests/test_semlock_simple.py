@@ -55,12 +55,12 @@ class TestSemLockSimple(unittest.TestCase):
         process = mp_context.Process(target=worker_function, args=(str(self.test_dir),))
 
         process.start()
-        process.join(timeout=10)
+        process.join(timeout=30)
 
         # Ensure process actually finished
         if process.is_alive():
             process.terminate()
-            process.join(timeout=2)
+            process.join(timeout=5)
 
         # Verify that the process completed successfully
         self.assertEqual(

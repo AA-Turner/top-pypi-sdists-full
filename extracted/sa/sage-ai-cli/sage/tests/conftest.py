@@ -120,6 +120,7 @@ def real_backend_server():
         port = s.getsockname()[1]
     
     os.environ["SAGE_API_BASE"] = f"http://127.0.0.1:{port}"
+    os.environ["SAGE_WEB_URL"] = f"http://127.0.0.1:{port}"
     os.environ["SAGE_TESTING"] = "1"
     os.environ["SAGE_DEFAULT_MODEL"] = "cloud:qwen3-coder"
     

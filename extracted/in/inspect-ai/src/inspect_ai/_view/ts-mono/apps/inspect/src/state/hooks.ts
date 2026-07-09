@@ -292,6 +292,30 @@ export const useSampleDescriptor = () => {
   }, [evalDescriptor, sampleSummaries, selectedScores]);
 };
 
+// Sort key: sample id ascending (numeric when both numeric, else
+// lexicographic), then epoch ascending. Extracted so the already-sorted
+// pre-check shares the exact comparison the sort uses.
+export const compareSamples = (a: SampleSummary, b: SampleSummary): number => {
+  let idCompare: number;
+  if (typeof a.id === "number" && typeof b.id === "number") {
+    idCompare = a.id - b.id;
+  } else {
+    idCompare = String(a.id).localeCompare(String(b.id));
+  }
+  if (idCompare !== 0) {
+    return idCompare;
+  }
+  return a.epoch - b.epoch;
+};
+
+// Server summaries usually arrive already sorted; this lets useFilteredSamples
+// skip an O(n log n) clone + sort on every filter/store change.
+export const samplesAreSorted = (samples: SampleSummary[]): boolean =>
+  samples.every((curr, i) => {
+    const prev = samples[i - 1];
+    return prev === undefined || compareSamples(prev, curr) <= 0;
+  });
+
 // Provides the list of filtered and sorted samples
 export const useFilteredSamples = () => {
   const samplesDescriptor = useSampleDescriptor();
@@ -318,21 +342,12 @@ export const useFilteredSamples = () => {
     const filtered =
       error === undefined || !allErrors ? result : sampleSummaries;
 
-    // Sort samples by sample ID (asc) then epoch (asc)
-    const sorted = [...filtered].sort((a, b) => {
-      // Compare by ID first
-      let idCompare: number;
-      if (typeof a.id === "number" && typeof b.id === "number") {
-        idCompare = a.id - b.id;
-      } else {
-        idCompare = String(a.id).localeCompare(String(b.id));
-      }
-      if (idCompare !== 0) return idCompare;
-      // Then by epoch
-      return a.epoch - b.epoch;
-    });
+    // Skip the clone + sort when the list is already ordered (the common case).
+    if (filtered.length < 2 || samplesAreSorted(filtered)) {
+      return filtered;
+    }
 
-    return sorted;
+    return [...filtered].sort(compareSamples);
   }, [
     samplesDescriptor,
     sampleSummaries,
@@ -374,6 +389,7 @@ export const useSampleData = () => {
   const runningEvents = useStore(
     (state) => state.sample.runningEvents
   ) as Events;
+  const backfilling = useStore((state) => state.sample.backfilling);
   const downloadProgress = useStore((state) => state.sample.downloadProgress);
   return useMemo(() => {
     return {
@@ -384,6 +400,7 @@ export const useSampleData = () => {
       getSelectedSample,
       eventsCleared,
       running: runningEvents,
+      backfilling,
       downloadProgress,
     };
   }, [
@@ -394,6 +411,7 @@ export const useSampleData = () => {
     sampleNeedsReload,
     eventsCleared,
     runningEvents,
+    backfilling,
     downloadProgress,
   ]);
 };
@@ -519,6 +537,7 @@ export const useSetSelectedLogIndex = () => {
       clearSelectedLogDetails();
 
       const logHandle = allLogFiles[index];
+      // @ts-expect-error pre-existing noUncheckedIndexedAccess violation (TODO: narrow when touched)
       setSelectedLogFile(logHandle.name);
     },
     [
@@ -720,6 +739,7 @@ export const computeLogsWithRetried = (
         const parent = slash >= 0 ? log.name.substring(0, slash) : "";
         const key = `${parent}|${taskId}`;
         if (!(key in acc)) acc[key] = [];
+        // @ts-expect-error pre-existing noUncheckedIndexedAccess violation (TODO: narrow when touched)
         acc[key].push(log);
       }
       return acc;
@@ -738,8 +758,10 @@ export const computeLogsWithRetried = (
       if (aActive !== bActive) return aActive ? -1 : 1;
       return b.name.localeCompare(a.name);
     });
+    // @ts-expect-error pre-existing noUncheckedIndexedAccess violation (TODO: narrow when touched)
     const { name } = items[0];
-    bestByName[name] = { ...items[0], retried: false };
+    // @ts-expect-error pre-existing noUncheckedIndexedAccess violation (TODO: narrow when touched)
+    bestByName[name] = { ...items[0], retried: false }; // eslint-disable-line @typescript-eslint/no-unsafe-member-access -- TODO: pre-existing noUncheckedIndexedAccess fallout
   }
 
   // Rebuild logs maintaining order, marking duplicates as skippable

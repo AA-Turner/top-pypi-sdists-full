@@ -46,13 +46,13 @@ class XEP_0184(BasePlugin):
                     self._handle_receipt_request))
 
     def plugin_end(self):
-        self.xmpp['xep_0030'].del_feature('urn:xmpp:receipts')
+        self.xmpp.plugin['xep_0030'].del_feature('urn:xmpp:receipts')
         self.xmpp.del_filter('out', self._filter_add_receipt_request)
         self.xmpp.remove_handler('Message Receipt')
         self.xmpp.remove_handler('Message Receipt Request')
 
     def session_bind(self, jid):
-        self.xmpp['xep_0030'].add_feature('urn:xmpp:receipts')
+        self.xmpp.plugin['xep_0030'].add_feature('urn:xmpp:receipts')
 
     def ack(self, msg):
         """
@@ -116,7 +116,7 @@ class XEP_0184(BasePlugin):
             return stanza
 
         if stanza['to'].resource:
-            if not self.xmpp['xep_0030'].supports(stanza['to'],
+            if not self.xmpp.plugin['xep_0030'].supports(stanza['to'],
                     feature='urn:xmpp:receipts',
                     cached=True):
                 return stanza

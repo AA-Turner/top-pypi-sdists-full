@@ -230,11 +230,11 @@ class YRoomFileAPI(LoggingConfigurable):
         return self.parent.contents_manager
 
     @property
-    def outputs_manager(self) -> OutputsManager:
+    def outputs_manager(self) -> OutputsManager | None:
         """Get the OutputsManager from the parent.
 
         Returns:
-            The OutputsManager instance for handling notebook outputs.
+            The OutputsManager instance for handling notebook outputs, or None if disabled.
         """
         return self.parent.outputs_manager
 
@@ -333,7 +333,7 @@ class YRoomFileAPI(LoggingConfigurable):
         # We need to save this so we can use it during save.
         self._is_writable = file_data.get('writable', True)
 
-        if self.file_type == "notebook":
+        if self.file_type == "notebook" and self.outputs_manager is not None:
             file_data = self.outputs_manager.process_loaded_notebook(file_id=self.file_id, file_data=file_data)
 
         # Replace CRLF line terminators with LF line terminators
@@ -620,7 +620,7 @@ class YRoomFileAPI(LoggingConfigurable):
             # being awaited.
             self._save_scheduled = False
 
-            if self.file_type == "notebook":
+            if self.file_type == "notebook" and self.outputs_manager is not None:
                 content = self.outputs_manager.process_saving_notebook(content, self.file_id)
 
             # Save the YDoc via the ContentsManager
@@ -689,34 +689,6 @@ class YRoomFileAPI(LoggingConfigurable):
             True if stop() has been called, False otherwise.
         """
         return self._stopped
-
-    def restart(self) -> None:
-        """Restart the FileAPI by resetting internal state.
-
-        This method stops the FileAPI if running, then clears all state
-        including content loading status, save scheduling, file metadata,
-        and adaptive timing. After calling this, consumers must call
-        load_content_into() again to resume normal operation.
-
-        Note:
-            Any pending saves are discarded when restarting.
-        """
-        # Stop if not stopped already
-        if not self.stopped:
-            self.stop()
-
-        # Reset instance attributes
-        self._stopped = False
-        self._content_load_event = asyncio.Event()
-        self._content_loading = False
-        self._save_scheduled = False
-        self._last_modified = None
-        self._last_path = None
-
-        # Reset adaptive timing attributes
-        self._adaptive_poll_interval = self.min_poll_interval
-
-        self.log.info(f"Restarted FileAPI for room '{self.room_id}'.")
 
 
 

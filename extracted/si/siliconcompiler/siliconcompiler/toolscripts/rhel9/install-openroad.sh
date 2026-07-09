@@ -12,6 +12,7 @@ else
 fi
 
 sudo yum install -y git curl --skip-broken
+sudo yum install -y make pandoc groff util-linux --skip-broken
 
 mkdir -p deps
 cd deps
@@ -35,6 +36,6 @@ else
     install_loc="$HOME/.local"
 fi
 
-bazelisk run :install --config=release --//:platform=gui -- "$install_loc"
+bazelisk run :install --config=release --//:platform=gui --jobs=${NPROC:-$(nproc)} -- "$install_loc"
 
 cd -

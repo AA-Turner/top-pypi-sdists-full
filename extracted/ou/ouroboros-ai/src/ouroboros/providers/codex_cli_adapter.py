@@ -8,7 +8,7 @@ without requiring an API key.
 from __future__ import annotations
 
 import asyncio
-from collections.abc import AsyncIterator, Callable
+from collections.abc import Awaitable, Callable
 import contextlib
 import json
 import os
@@ -32,6 +32,7 @@ from ouroboros.codex_permissions import (
 )
 from ouroboros.config import get_codex_cli_path
 from ouroboros.core.errors import ProviderError
+from ouroboros.core.retry import BASE_TRANSIENT_PATTERNS, is_transient_error
 from ouroboros.core.security import MAX_LLM_RESPONSE_LENGTH, InputValidator
 from ouroboros.core.types import Result
 from ouroboros.providers.base import (
@@ -41,11 +42,7 @@ from ouroboros.providers.base import (
     MessageRole,
     UsageInfo,
 )
-from ouroboros.providers.codex_cli_stream import (
-    collect_stream_lines,
-    iter_stream_lines,
-    terminate_process,
-)
+from ouroboros.providers.codex_cli_stream import RuntimeStreamMixin, collect_stream_lines
 from ouroboros.providers.profiles import resolve_completion_profile_result
 
 log = structlog.get_logger()
@@ -53,14 +50,11 @@ log = structlog.get_logger()
 _SAFE_MODEL_NAME_PATTERN = re.compile(r"^[A-Za-z0-9_./:@-]+$")
 
 
-_RETRYABLE_ERROR_PATTERNS = (
-    "rate limit",
-    "temporarily unavailable",
-    "timeout",
-    "overloaded",
-    "try again",
-    "connection reset",
-)
+# Codex shares the canonical transient core verbatim — its previous local copy
+# (rate/temporarily/timeout/overloaded/try-again/connection) was a strict subset,
+# so adopting the shared tuple only *adds* the missing common signals
+# (concurrency, 429, 5xx, bare "connection") without dropping any prior match.
+_RETRYABLE_ERROR_PATTERNS = BASE_TRANSIENT_PATTERNS
 
 _CODEX_AUTH_FAILURE_PATTERNS = (
     "missing bearer or basic authentication",
@@ -86,7 +80,7 @@ _CODEX_PROVIDER_MARKERS = (
 _OPENAI_RESPONSES_ENDPOINT = "api.openai.com/v1/responses"
 
 
-class CodexCliLLMAdapter:
+class CodexCliLLMAdapter(RuntimeStreamMixin):
     """LLM adapter backed by local Codex CLI execution.
 
     Streaming progress callback contract (``on_message``):
@@ -117,6 +111,12 @@ class CodexCliLLMAdapter:
     _max_ouroboros_depth = DEFAULT_MAX_OUROBOROS_DEPTH
     _child_session_env_keys = DEFAULT_CODEX_CHILD_SESSION_ENV_KEYS
     _completion_profile_backend = "codex"
+
+    def _stream_provider_name(self) -> str:
+        return "codex_cli"
+
+    def _stream_line_collector(self) -> Callable[..., Awaitable[list[str]]]:
+        return collect_stream_lines
 
     def __init__(
         self,
@@ -743,30 +743,6 @@ class CodexCliLLMAdapter:
             tool_info = self._format_tool_info("WebSearch", {"query": query})
             self._on_message("tool_started" if event_type == "item.started" else "tool", tool_info)
 
-    async def _iter_stream_lines(
-        self,
-        stream: asyncio.StreamReader | None,
-        *,
-        chunk_size: int = 16384,
-    ) -> AsyncIterator[str]:
-        """Yield decoded lines without relying on StreamReader.readline()."""
-        async for line in iter_stream_lines(stream, chunk_size=chunk_size):
-            yield line
-
-    async def _collect_stream_lines(
-        self,
-        stream: asyncio.StreamReader | None,
-    ) -> list[str]:
-        """Drain a subprocess stream without blocking stdout event parsing."""
-        return await collect_stream_lines(stream)
-
-    async def _terminate_process(self, process: Any) -> None:
-        """Best-effort subprocess shutdown used for timeouts and cancellation."""
-        await terminate_process(
-            process,
-            shutdown_timeout=self._process_shutdown_timeout_seconds,
-        )
-
     def _prompt_stdin_bytes(self, prompt: str) -> bytes | None:
         """Return bytes to write to process stdin for the prompt, if any."""
         return prompt.encode("utf-8")
@@ -803,8 +779,7 @@ class CodexCliLLMAdapter:
 
     def _is_retryable_error(self, message: str) -> bool:
         """Check whether an error looks transient."""
-        lowered = message.lower()
-        return any(pattern in lowered for pattern in _RETRYABLE_ERROR_PATTERNS)
+        return is_transient_error(message)
 
     async def _collect_legacy_process_output(
         self,

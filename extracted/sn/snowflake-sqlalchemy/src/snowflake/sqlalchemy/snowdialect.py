@@ -2,10 +2,9 @@
 # Copyright (c) 2012-2023 Snowflake Computing Inc. All rights reserved.
 #
 import decimal
-import operator
+import logging
 from collections import defaultdict
 from enum import Enum
-from functools import reduce
 from logging import getLogger
 from time import time as time_in_seconds
 from typing import Any, Collection, NamedTuple, Optional, cast
@@ -30,7 +29,7 @@ from snowflake.sqlalchemy.compat import IS_VERSION_20, returns_unicode
 from snowflake.sqlalchemy.name_utils import _NameUtils
 from snowflake.sqlalchemy.structured_type_info_manager import _StructuredTypeInfoManager
 
-from ._constants import DIALECT_NAME
+from ._constants import DIALECT_NAME, SNOWFLAKE_SQLALCHEMY_LEGACY_URL_PARAMS
 from .base import (
     SnowflakeCompiler,
     SnowflakeDDLCompiler,
@@ -52,7 +51,11 @@ from .parser.custom_type_parser import _CUSTOM_DECIMAL  # noqa
 from .parser.custom_type_parser import ischema_names, parse_index_columns, parse_type
 from .sql.custom_schema.custom_table_prefix import CustomTablePrefix
 from .util import (
+    _URL_QUERY_BLOCKED_KWARGS,
+    _legacy_url_params_enabled,
+    _reject_or_warn,
     _update_connection_application_name,
+    escape_string_literal_interior,
     parse_url_boolean,
     parse_url_integer,
 )
@@ -81,6 +84,44 @@ class SnowflakeIsolationLevel(Enum):
 class _KeyedColumn(NamedTuple):
     key_sequence: int
     column_name: str
+
+
+class _RedactionHandler(logging.Handler):
+    """Handler whose sole purpose is to run attached filters in-place.
+
+    logging.NullHandler cannot be used for this role because its handle()
+    is a stub that skips filter evaluation entirely.  This handler inherits
+    the standard Handler.handle() which calls filters then emit(); emit()
+    here is a no-op so nothing is actually written anywhere.
+    """
+
+    def emit(self, record) -> None:
+        pass
+
+
+def _ensure_engine_log_redaction() -> None:
+    """Attach a SnowflakeSecretRedactionFilter to the SQLAlchemy engine logger.
+
+    Inserts a _RedactionHandler at position 0 on the shared
+    ``sqlalchemy.engine.Engine`` parent logger.  Records from engine-specific
+    child loggers propagate through this parent; Handler.handle() calls the
+    handler's filters which rewrite ``record.msg`` in-place before any real
+    handler (StreamHandler, FileHandler, …) emits the record.  Idempotent:
+    calling multiple times (e.g. from several engines) adds the handler only
+    once.
+    """
+    from .secret_logging import SnowflakeSecretRedactionFilter
+
+    parent = getLogger("sqlalchemy.engine.Engine")
+    if any(
+        isinstance(h, _RedactionHandler)
+        and any(isinstance(f, SnowflakeSecretRedactionFilter) for f in h.filters)
+        for h in parent.handlers
+    ):
+        return
+    h = _RedactionHandler()
+    h.addFilter(SnowflakeSecretRedactionFilter())
+    parent.handlers.insert(0, h)
 
 
 class SnowflakeDialect(default.DefaultDialect):
@@ -173,26 +214,37 @@ class SnowflakeDialect(default.DefaultDialect):
         enable_decfloat: bool = False,
         case_sensitive_identifiers: bool = False,
         cache_column_metadata: bool = False,
+        legacy_url_params: Optional[bool] = None,
+        redact_log_secrets: bool = True,
         **kwargs: Any,
     ):
         super().__init__(isolation_level=isolation_level, **kwargs)
         self.force_div_is_floordiv = force_div_is_floordiv
         self.div_is_floordiv = force_div_is_floordiv
         self._case_sensitive_identifiers = case_sensitive_identifiers
-        self.name_utils = _NameUtils(
-            self.identifier_preparer,
-            case_sensitive_identifiers=case_sensitive_identifiers,
-        )
+        self.name_utils = _NameUtils(self.identifier_preparer)
         self._enable_decfloat = enable_decfloat
         # Initialised here so ``_log_new_connection_event`` and any other
         # pre-connect code path can read the attribute unconditionally.
         # ``create_connect_args`` may later overwrite it when the URL query
         # string carries ``cache_column_metadata=...``.
         self._cache_column_metadata = cache_column_metadata
+        # Opt-in compatibility shim for the legacy URL/query behaviour.
+        # An explicit ``legacy_url_params`` kwarg wins; when it is left unset
+        # (None) the env variable acts as a global fallback.  It is deliberately
+        # NOT readable from the URL query string — see create_connect_args.
+        self._legacy_url_params = (
+            legacy_url_params
+            if legacy_url_params is not None
+            else _legacy_url_params_enabled()
+        )
+        self._redact_log_secrets = redact_log_secrets
 
     def initialize(self, connection):
         super().initialize(connection)
         self.div_is_floordiv = self.force_div_is_floordiv
+        if self._redact_log_secrets:
+            _ensure_engine_log_redaction()
 
     @classmethod
     def dbapi(cls):
@@ -254,34 +306,45 @@ class SnowflakeDialect(default.DefaultDialect):
 
         query = dict(**url.query)  # make mutable
         cache_column_metadata = query.pop("cache_column_metadata", None)
-        self._cache_column_metadata = (
-            parse_url_boolean(cache_column_metadata) if cache_column_metadata else False
-        )
+        if cache_column_metadata is not None:
+            # Preserve the constructor kwarg when the URL omits the param —
+            # matches enable_decfloat / case_sensitive_identifiers below.
+            self._cache_column_metadata = parse_url_boolean(cache_column_metadata)
 
         # Handle enable_decfloat URL parameter
         enable_decfloat = query.pop("enable_decfloat", None)
         if enable_decfloat is not None:
             self._enable_decfloat = parse_url_boolean(enable_decfloat)
 
-        # Handle case_sensitive_identifiers URL parameter
+        # Handle case_sensitive_identifiers URL parameter.  The dialect attribute
+        # is the single source of truth: the preparer and name_utils both read it
+        # live, so flipping it here takes effect everywhere with no rebuild.
         case_sensitive_identifiers = query.pop("case_sensitive_identifiers", None)
         if case_sensitive_identifiers is not None:
-            flag = parse_url_boolean(case_sensitive_identifiers)
-            if flag != self._case_sensitive_identifiers:
-                # Replace ``name_utils`` atomically rather than mutating the
-                # live instance's attribute.  Python attribute assignment is
-                # atomic at the bytecode level, so concurrent readers on
-                # other threads observe either the old ``_NameUtils`` or the
-                # new one — never a torn update where the flag and the
-                # cached preparer are briefly inconsistent.
-                self._case_sensitive_identifiers = flag
-                self.name_utils = _NameUtils(
-                    self.identifier_preparer,
-                    case_sensitive_identifiers=flag,
-                )
+            self._case_sensitive_identifiers = parse_url_boolean(
+                case_sensitive_identifiers
+            )
 
         # URL sets the query parameter values as strings, we need to cast to expected types when necessary
+        #
+        # ``legacy_url_params`` is intentionally read only from the engine kwarg
+        # / env variable (resolved into ``self._legacy_url_params`` in __init__),
+        # never from the URL query string: honouring it as a URL param would let
+        # a caller who controls only the URL re-enable the restricted behaviour
+        # with ``?legacy_url_params=true``, skipping this handling entirely.
+        legacy = self._legacy_url_params
         for name, value in query.items():
+            if name in _URL_QUERY_BLOCKED_KWARGS:
+                _reject_or_warn(
+                    f"Connection parameter {name!r} cannot be set via the URL "
+                    "query string for safety reasons. "
+                    "Pass it via connect_args= in create_engine() instead. "
+                    "To restore the previous behaviour temporarily, pass "
+                    "legacy_url_params=True to create_engine() or set the "
+                    f"{SNOWFLAKE_SQLALCHEMY_LEGACY_URL_PARAMS} environment variable.",
+                    legacy=legacy,
+                    stacklevel=2,
+                )
             opts[name] = self.parse_query_param_type(name, value)
 
         return ([], opts)
@@ -322,9 +385,7 @@ class SnowflakeDialect(default.DefaultDialect):
         return self._has_object(connection, "SEQUENCE", sequence_name, schema)
 
     def _has_object(self, connection, object_type, object_name, schema=None):
-        full_name = self._denormalize_quote_join(
-            self.denormalize_name(schema), self.denormalize_name(object_name)
-        )
+        full_name = self._qualify_object_name(object_name, schema)
         try:
             results = connection.execute(
                 text(f"DESC {object_type} /* sqlalchemy:_has_object */ {full_name}")
@@ -345,10 +406,7 @@ class SnowflakeDialect(default.DefaultDialect):
 
     def _denormalize_quote_join(self, *idents):
         ip = self.identifier_preparer
-        split_idents = reduce(
-            operator.add,
-            [ip._split_schema_by_dot(ids) for ids in idents if ids is not None],
-        )
+        split_idents = ip._split_idents(*idents)
         return ".".join(ip._quote_free_identifiers(*split_idents))
 
     def _always_quote_join(self, *idents):
@@ -359,6 +417,16 @@ class SnowflakeDialect(default.DefaultDialect):
         compatibility with callers inside this class.
         """
         return self.name_utils.always_quote_join(*idents)
+
+    def _qualify_object_name(self, object_name, schema=None):
+        """Return schema.object fully quoted, treating object_name as a single atomic identifier."""
+        ip = self.identifier_preparer
+        parts = []
+        if schema is not None:
+            schema_parts = ip._split_schema_by_dot(self.denormalize_name(schema))
+            parts.extend(ip._quote_free_identifiers(*schema_parts))
+        parts.append(ip._safe_quote(self.denormalize_name(object_name)))
+        return ".".join(parts)
 
     def _get_full_schema_name(self, connection, schema=None, **kw):
         """
@@ -393,7 +461,7 @@ class SnowflakeDialect(default.DefaultDialect):
         # Quote each pre-split part unconditionally, preserving explicit
         # quoted-name boundaries.  Do NOT re-split via always_quote_join
         # because parts may contain literal dots (e.g. "schema.with.dots").
-        return ".".join(self.name_utils._quote_component(p) for p in parts)
+        return self.name_utils.quote_components(parts)
 
     @reflection.cache
     def _current_database_schema(self, connection, **kw):
@@ -933,6 +1001,10 @@ class SnowflakeDialect(default.DefaultDialect):
         Falls back to DESC TABLE per-table for objects not in information_schema
         (temp tables, dynamic tables, etc.).
 
+        When filter_names is set and the full-schema cache is cold, issues a
+        targeted WHERE table_name IN (...) query so that both the SQL scan and
+        the DESC TABLE fan-out are limited to the requested tables only.
+
         Important: the return key must use the original ``schema`` value (which
         may be None), not a normalised substitute, so SA's _reflect_info lookup
         succeeds when schema was not explicitly provided.
@@ -941,9 +1013,35 @@ class SnowflakeDialect(default.DefaultDialect):
         effective_schema = schema or self.default_schema_name
         if not effective_schema:
             _, effective_schema = self._current_database_schema(connection, **kw)
-        all_columns = self._get_schema_columns(connection, effective_schema, **kw)
-        if all_columns is None:
-            all_columns = {}
+
+        # If the full-schema result is already cached, use it as a superset for
+        # any filter_names request — no SQL needed.  The key format matches the
+        # @reflection.cache key produced by a plain _get_schema_columns call
+        # (positional schema arg, no extra kwargs).
+        info_cache = kw.get("info_cache")
+        full_schema_cache_key = ("_get_schema_columns", (effective_schema,), ())
+        if info_cache is not None and full_schema_cache_key in info_cache:
+            all_columns = info_cache[full_schema_cache_key] or {}
+        elif filter_names is not None:
+            # Cold cache, targeted request: pass filter_names as a tuple so
+            # @reflection.cache stores the result under a distinct key that
+            # does not pollute the full-schema entry.  _get_schema_columns will
+            # use _query_filtered_columns_info and only process the requested
+            # rows, which eliminates the DESC TABLE fan-out for other tables.
+            all_columns = (
+                self._get_schema_columns(
+                    connection,
+                    effective_schema,
+                    filter_names=tuple(filter_names),
+                    **kw,
+                )
+                or {}
+            )
+        else:
+            all_columns = (
+                self._get_schema_columns(connection, effective_schema, **kw) or {}
+            )
+
         tables = filter_names if filter_names is not None else list(all_columns.keys())
         mgr = _StructuredTypeInfoManager(
             connection, self.name_utils, self.default_schema_name
@@ -1174,25 +1272,40 @@ class SnowflakeDialect(default.DefaultDialect):
     @reflection.cache
     def _get_schema_columns(self, connection, schema, **kw):
         """
-        Get all columns in the schema with complete metadata.
+        Get columns for a schema (or a filtered subset) with complete metadata.
 
         Args:
             connection: Database connection
             schema: Schema name to reflect
-            **kw: Additional arguments including optional info_cache
+            **kw: Additional arguments including optional info_cache and
+                  filter_names (tuple of table names for a targeted query).
 
         Returns:
             Dictionary mapping table names to lists of column info dicts,
-            or None if information_schema query returned too much data
+            or None if information_schema query returned too much data.
 
         Note:
             Returns None (cacheable) when hitting Snowflake's information_schema
             result size limit, triggering fallback to per-table DESC queries.
+
+            When filter_names is present it is popped from **kw before calling
+            any sub-methods so that their @reflection.cache keys are not
+            contaminated by a kwarg they don't use.
         """
+        # Consume filter_names here so it does not propagate to sub-method
+        # calls (which are also @reflection.cache-decorated) and contaminate
+        # their cache keys.
+        filter_names = kw.pop("filter_names", None)
+
         # Get the fully-qualified database.schema name for SQL commands
         full_schema_name = self._get_full_schema_name(connection, schema, **kw)
 
-        result = self._query_all_columns_info(connection, full_schema_name, **kw)
+        if filter_names is not None:
+            result = self._query_filtered_columns_info(
+                connection, full_schema_name, filter_names
+            )
+        else:
+            result = self._query_all_columns_info(connection, full_schema_name, **kw)
         if result is None:
             return None
 
@@ -1322,14 +1435,11 @@ class SnowflakeDialect(default.DefaultDialect):
             IS_VERSION_20 or self._is_single_table_reflection(schema, **kw)
         ) and table_name:
             single_table_name = table_name
-            if "." in str(table_name):
-                # table_name may arrive as "schema.table" or even
-                # "database.schema.table" when callers pass a qualified
-                # name.  Take the last component so _always_quote_join
-                # does not double-qualify the identifier.
+            if "." in str(table_name) and not getattr(table_name, "quote", False):
+                # Strip any schema prefix — _qualify_object_name adds it from `schema`.
                 parts = self.identifier_preparer._split_schema_by_dot(str(table_name))
                 single_table_name = str(parts[-1])
-            full_table_name = self._always_quote_join(schema, single_table_name)
+            full_table_name = self._qualify_object_name(single_table_name, schema)
             column_info_manager = _StructuredTypeInfoManager(
                 connection, self.name_utils, self.default_schema_name
             )
@@ -1407,6 +1517,82 @@ class SnowflakeDialect(default.DefaultDialect):
                 return None  # None triggers get_table_columns while staying cacheable
             raise
 
+    def _query_filtered_columns_info(self, connection, schema_name, filter_names):
+        """Targeted information_schema.columns query restricted to specific tables.
+
+        Adds ``AND ic.table_name IN (:t0, :t1, …)`` to the WHERE clause so
+        that only the requested rows are returned.  This eliminates both the
+        full-schema SQL scan and the DESC TABLE fan-out for other tables.
+
+        Not decorated with @reflection.cache — the caller (_get_schema_columns)
+        provides the caching boundary and stores the processed result under a
+        key that includes filter_names.
+
+        Args:
+            connection: Database connection.
+            schema_name: Fully-qualified ``"database"."schema"`` name produced
+                by _get_full_schema_name.
+            filter_names: Iterable of table names to query.  An empty iterable
+                returns ``[]`` immediately without issuing SQL (``IN ()`` is
+                invalid in Snowflake).
+
+        Returns:
+            Result set from information_schema.columns for the given tables,
+            or None on Snowflake result-size error 90030.
+        """
+        if not filter_names:
+            return []
+
+        database_raw, schema_raw = self._db_plus_schema(schema_name)
+        if database_raw is None:
+            raise ValueError(
+                f"Expected fully-qualified schema name 'database.schema', got '{schema_name}'"
+            )
+
+        database_part = self.identifier_preparer.quote(database_raw)
+        schema_only = self.denormalize_name(schema_raw)
+        info_schema_table = f"{database_part}.information_schema.columns"
+
+        # Denormalize so names match information_schema casing (uppercase for
+        # case-insensitive identifiers, preserved for quoted ones).
+        table_names = [self.denormalize_name(t) for t in filter_names]
+        placeholders = ", ".join(f":t{i}" for i in range(len(table_names)))
+        params: dict = {"table_schema": schema_only}
+        params.update({f"t{i}": name for i, name in enumerate(table_names)})
+
+        try:
+            return connection.execute(
+                text(
+                    f"""
+            SELECT /* sqlalchemy:_get_schema_columns */
+                   ic.table_name,
+                   ic.column_name,
+                   ic.data_type,
+                   ic.character_maximum_length,
+                   ic.numeric_precision,
+                   ic.numeric_scale,
+                   ic.is_nullable,
+                   ic.column_default,
+                   ic.is_identity,
+                   ic.comment,
+                   ic.identity_start,
+                   ic.identity_increment,
+                   ic.identity_generation,
+                   ic.identity_cycle,
+                   ic.identity_ordered,
+                   ic.data_type_alias
+              FROM {info_schema_table} ic
+             WHERE ic.table_schema=:table_schema
+               AND ic.table_name IN ({placeholders})
+             ORDER BY ic.ordinal_position"""
+                ),
+                params,
+            )
+        except sa_exc.ProgrammingError as pe:
+            if pe.orig.errno == 90030:
+                return None
+            raise
+
     @reflection.cache
     def _get_schema_tables_info(self, connection, schema=None, **kw):
         """
@@ -1456,18 +1642,21 @@ class SnowflakeDialect(default.DefaultDialect):
         Gets the view definition
         """
         schema = schema or self.default_schema_name
+        # denormalize_name gives the stored form without identifier quoting;
+        # escape_string_literal_interior then doubles ' and \ for the LIKE string literal.
+        like_value = escape_string_literal_interior(self.denormalize_name(view_name))
         if schema:
             cursor = connection.execute(
                 text(
-                    f"SHOW /* sqlalchemy:get_view_definition */ VIEWS \
-                    LIKE '{self._denormalize_quote_join(view_name)}' IN {self._denormalize_quote_join(schema)}"
+                    f"SHOW /* sqlalchemy:get_view_definition */ VIEWS "
+                    f"LIKE '{like_value}' IN {self._denormalize_quote_join(schema)}"
                 )
             )
         else:
             cursor = connection.execute(
                 text(
-                    f"SHOW /* sqlalchemy:get_view_definition */ VIEWS \
-                    LIKE '{self._denormalize_quote_join(view_name)}'"
+                    f"SHOW /* sqlalchemy:get_view_definition */ VIEWS "
+                    f"LIKE '{like_value}'"
                 )
             )
 
@@ -1476,7 +1665,7 @@ class SnowflakeDialect(default.DefaultDialect):
             ret = cursor.fetchone()
             if ret:
                 return ret[name_to_index_map["text"]]
-        except Exception:
+        except (sa_exc.DBAPIError, sf_errors.ProgrammingError):
             pass
         return None
 
@@ -1523,9 +1712,12 @@ class SnowflakeDialect(default.DefaultDialect):
         Returns comment of table in a dictionary as described by SQLAlchemy spec.
         """
         full_schema_name = self._get_full_schema_name(connection, schema, **kw)
+        # table_name is embedded in a single-quoted SHOW ... LIKE literal, so escape
+        # its interior (double ' and \) just like get_view_definition. SNOW-3649853.
+        like_value = escape_string_literal_interior(table_name)
         sql_command = (
             "SHOW /* sqlalchemy:_get_table_comment */ "
-            f"TABLES LIKE '{table_name}' IN SCHEMA {full_schema_name}"
+            f"TABLES LIKE '{like_value}' IN SCHEMA {full_schema_name}"
         )
         cursor = connection.execute(text(sql_command))
         return cursor.fetchone()
@@ -1535,9 +1727,12 @@ class SnowflakeDialect(default.DefaultDialect):
         Returns comment of view in a dictionary as described by SQLAlchemy spec.
         """
         full_schema_name = self._get_full_schema_name(connection, schema, **kw)
+        # table_name is embedded in a single-quoted SHOW ... LIKE literal, so escape
+        # its interior (double ' and \) just like get_view_definition. SNOW-3649853.
+        like_value = escape_string_literal_interior(table_name)
         sql_command = (
             "SHOW /* sqlalchemy:_get_view_comment */ "
-            f"VIEWS LIKE '{table_name}' IN SCHEMA {full_schema_name}"
+            f"VIEWS LIKE '{like_value}' IN SCHEMA {full_schema_name}"
         )
         cursor = connection.execute(text(sql_command))
         return cursor.fetchone()
@@ -1742,6 +1937,7 @@ class SnowflakeDialect(default.DefaultDialect):
             telemetry_value["enable_decfloat"] = self._enable_decfloat
             telemetry_value["cache_column_metadata"] = self._cache_column_metadata
             telemetry_value["force_div_is_floordiv"] = self.force_div_is_floordiv
+            telemetry_value["legacy_url_params"] = self._legacy_url_params
 
             snowflake_telemetry_client.add_log_to_batch(
                 TelemetryData.from_telemetry_data_dict(

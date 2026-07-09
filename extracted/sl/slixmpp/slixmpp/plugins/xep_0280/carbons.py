@@ -52,9 +52,9 @@ class XEP_0280(BasePlugin):
         register_stanza_plugin(Iq, stanza.CarbonDisable)
 
         register_stanza_plugin(stanza.ReceivedCarbon,
-                               self.xmpp['xep_0297'].stanza.Forwarded)
+                               self.xmpp.plugin['xep_0297'].stanza.Forwarded)
         register_stanza_plugin(stanza.SentCarbon,
-                               self.xmpp['xep_0297'].stanza.Forwarded)
+                               self.xmpp.plugin['xep_0297'].stanza.Forwarded)
 
     def plugin_end(self):
         self.xmpp.remove_handler('Carbon Received')

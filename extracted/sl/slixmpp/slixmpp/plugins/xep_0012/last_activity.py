@@ -53,10 +53,10 @@ class XEP_0012(BasePlugin):
 
     def plugin_end(self):
         self.xmpp.remove_handler('Last Activity')
-        self.xmpp['xep_0030'].del_feature(feature='jabber:iq:last')
+        self.xmpp.plugin['xep_0030'].del_feature(feature='jabber:iq:last')
 
     def session_bind(self, jid):
-        self.xmpp['xep_0030'].add_feature('jabber:iq:last')
+        self.xmpp.plugin['xep_0030'].add_feature('jabber:iq:last')
 
     def begin_idle(self, jid: JID | None = None, status: str | None = None) -> Future:
         """Reset the last activity for the given JID.

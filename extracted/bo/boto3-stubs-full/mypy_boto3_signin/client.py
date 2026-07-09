@@ -30,18 +30,23 @@ from .paginator import ListResourcePermissionStatementsPaginator
 from .type_defs import (
     CreateOAuth2TokenRequestTypeDef,
     CreateOAuth2TokenResponseTypeDef,
+    CreateOAuth2TokenWithIAMRequestTypeDef,
+    CreateOAuth2TokenWithIAMResponseTypeDef,
     DeleteConsoleAuthorizationConfigurationInputTypeDef,
     DeleteConsoleAuthorizationConfigurationOutputTypeDef,
     DeleteResourcePermissionStatementInputTypeDef,
     GetConsoleAuthorizationConfigurationInputTypeDef,
     GetConsoleAuthorizationConfigurationOutputTypeDef,
     GetResourcePolicyOutputTypeDef,
+    IntrospectOAuth2TokenWithIAMRequestTypeDef,
+    IntrospectOAuth2TokenWithIAMResponseTypeDef,
     ListResourcePermissionStatementsInputTypeDef,
     ListResourcePermissionStatementsOutputTypeDef,
     PutConsoleAuthorizationConfigurationInputTypeDef,
     PutConsoleAuthorizationConfigurationOutputTypeDef,
     PutResourcePermissionStatementInputTypeDef,
     PutResourcePermissionStatementOutputTypeDef,
+    RevokeOAuth2TokenWithIAMRequestTypeDef,
 )
 
 if sys.version_info >= (3, 12):
@@ -99,14 +104,25 @@ class SignInServiceClient(BaseClient):
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_signin/client/#generate_presigned_url)
         """
 
-    def create_o_auth2_token(
+    def create_oauth2_token(
         self, **kwargs: Unpack[CreateOAuth2TokenRequestTypeDef]
     ) -> CreateOAuth2TokenResponseTypeDef:
         """
         CreateOAuth2Token API.
 
-        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/signin/client/create_o_auth2_token.html)
-        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_signin/client/#create_o_auth2_token)
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/signin/client/create_oauth2_token.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_signin/client/#create_oauth2_token)
+        """
+
+    def create_oauth2_token_with_iam(
+        self, **kwargs: Unpack[CreateOAuth2TokenWithIAMRequestTypeDef]
+    ) -> CreateOAuth2TokenWithIAMResponseTypeDef:
+        """
+        Grants permission to exchange client credentials for an OAuth 2.0 access token
+        scoped to a resource that can be used to access AWS services from applications.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/signin/client/create_oauth2_token_with_iam.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_signin/client/#create_oauth2_token_with_iam)
         """
 
     def delete_console_authorization_configuration(
@@ -147,6 +163,17 @@ class SignInServiceClient(BaseClient):
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_signin/client/#get_resource_policy)
         """
 
+    def introspect_oauth2_token_with_iam(
+        self, **kwargs: Unpack[IntrospectOAuth2TokenWithIAMRequestTypeDef]
+    ) -> IntrospectOAuth2TokenWithIAMResponseTypeDef:
+        """
+        Grants permission to inspect the metadata and state of an OAuth 2.0 access
+        token or refresh token.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/signin/client/introspect_oauth2_token_with_iam.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_signin/client/#introspect_oauth2_token_with_iam)
+        """
+
     def list_resource_permission_statements(
         self, **kwargs: Unpack[ListResourcePermissionStatementsInputTypeDef]
     ) -> ListResourcePermissionStatementsOutputTypeDef:
@@ -176,6 +203,17 @@ class SignInServiceClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/signin/client/put_resource_permission_statement.html)
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_signin/client/#put_resource_permission_statement)
+        """
+
+    def revoke_oauth2_token_with_iam(
+        self, **kwargs: Unpack[RevokeOAuth2TokenWithIAMRequestTypeDef]
+    ) -> dict[str, Any]:
+        """
+        Grants permission to revoke an OAuth 2.0 refresh token and its associated
+        refresh tokens.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/signin/client/revoke_oauth2_token_with_iam.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_signin/client/#revoke_oauth2_token_with_iam)
         """
 
     def get_paginator(  # type: ignore[override]

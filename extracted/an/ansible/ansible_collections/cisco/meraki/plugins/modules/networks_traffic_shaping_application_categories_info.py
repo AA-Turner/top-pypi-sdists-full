@@ -2,15 +2,14 @@
 # -*- coding: utf-8 -*-
 
 # Copyright (c) 2021, Cisco Systems
-# GNU General Public License v3.0+ (see LICENSE or
-# https://www.gnu.org/licenses/gpl-3.0.txt)
+# GNU General Public License v3.0+ (see LICENSE or https://www.gnu.org/licenses/gpl-3.0.txt)
 
 DOCUMENTATION = r"""
 module: networks_traffic_shaping_application_categories_info
-short_description: Information module for networks _traffic _shaping _application
-  _categories
+short_description: Information module for networks _trafficshaping _applicationcategories
 description:
-  - Get all networks _traffic _shaping _application _categories.
+  - Information module for Networks Trafficshaping Applicationcategories Info.
+  - Get all networks _trafficshaping _applicationcategories.
   - Returns the application categories for traffic shaping rules. Only applicable
     on networks with a security applicance.
 version_added: '1.0.0'
@@ -23,6 +22,7 @@ options:
     type: dict
   networkId:
     description:
+      - Information module for Networks Trafficshaping Applicationcategories Info.
       - NetworkId path parameter. Network ID.
     type: str
 requirements:
@@ -41,7 +41,7 @@ notes:
 """
 
 EXAMPLES = r"""
-- name: Get all networks _traffic _shaping _application _categories
+- name: Get all networks _trafficshaping _applicationcategories
   cisco.meraki.networks_traffic_shaping_application_categories_info:
     meraki_api_key: "{{ meraki_api_key }}"
     meraki_base_url: "{{ meraki_base_url }}"

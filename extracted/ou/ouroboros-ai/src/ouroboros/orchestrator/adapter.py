@@ -27,6 +27,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any, Protocol
 
 from ouroboros.core.errors import ProviderError
+from ouroboros.core.retry import BASE_TRANSIENT_PATTERNS, is_transient_error
 from ouroboros.core.types import Result
 from ouroboros.observability.logging import get_logger
 from ouroboros.orchestrator.backend_limits import resolve_backend_limits
@@ -245,8 +246,10 @@ def _clone_runtime_handle_data(value: object) -> Any:
 _RUNTIME_HANDLE_BACKEND_ALIASES = {
     "claude": "claude",
     "claude_code": "claude",
+    "claude_mcp": "claude_mcp",
     "codex": "codex_cli",
     "codex_cli": "codex_cli",
+    "codex_mcp": "codex_mcp",
     "opencode": "opencode",
     "opencode_cli": "opencode",
     "hermes": "hermes_cli",
@@ -261,6 +264,12 @@ _RUNTIME_HANDLE_BACKEND_ALIASES = {
     "pi_cli": "pi",
     "gjc": "gjc",
     "gjc_cli": "gjc",
+    "gemini": "gemini_cli",
+    "gemini_cli": "gemini_cli",
+    "grok": "grok_cli",
+    "grok_cli": "grok_cli",
+    "antigravity": "antigravity_cli",
+    "antigravity_cli": "antigravity_cli",
 }
 
 
@@ -718,6 +727,105 @@ class ParamSupport(StrEnum):
     IGNORED = "ignored"
 
 
+class SubagentOrchestration(StrEnum):
+    """How (and whether) the orchestrator can fan work out to sub-agents.
+
+    This is a property of the (runtime × backend) PAIR, declared per
+    ``AgentRuntime`` instance via ``RuntimeCapabilities`` — NOT of the backend
+    name alone. The same backend can present different modes under different
+    runtimes: ``codex`` driven by ``codex exec`` is INTERNAL, but the same
+    ``codex`` driven as ``codex mcp-server`` (``codex``/``codex-reply`` →
+    addressable threads) is EXTERNAL_LEADER_DRIVEN.
+
+    The two EXTERNAL modes are distinguished by *who drives the child*, because
+    that determines the dispatch mechanism and is the seam that generalizes
+    across providers:
+
+    Values:
+        NONE: No sub-agent mechanism the orchestrator can use. Work runs
+            in-process (ouroboros's own ``anyio`` parallel AC executor). Default.
+        INTERNAL: The backend self-parallelizes *inside its own session* but
+            exposes no child-orchestration surface to an external driver.
+            Verified for ``codex exec`` / ``codex mcp-server``: the native
+            ``multi_agent_v1`` / ``codex_app`` team tools live only inside the
+            interactive session, so a delegated call may spin up its own helpers
+            but ouroboros cannot drive those children. In-process fan-out; may
+            *nudge* internal parallelism via developer-instructions.
+        EXTERNAL_HOST_BRIDGE: A host bridge spawns native sub-agents on the
+            orchestrator's behalf, driven OUT-OF-BAND via the ``_subagent``
+            envelope — ouroboros emits a payload and the host (the OpenCode
+            plugin) spawns a child session. ouroboros does NOT call the child
+            directly. Feeds ``should_dispatch_via_plugin``; eligible only when
+            the per-deployment bridge is enabled (``opencode_mode=plugin``).
+        EXTERNAL_LEADER_DRIVEN: ouroboros IS the leader and drives addressable
+            worker sessions DIRECTLY through the runtime's own resumable-session
+            surface — it spawns N sessions, holds their handles, and continues
+            each. This is the provider-NEUTRAL worker-pool mode: any runtime that
+            yields a resumable, addressable session qualifies. Verified surfaces:
+            Codex (``codex``→threadId→``codex-reply`` via ``codex mcp-server``);
+            Claude (``claude --resume <id>`` / ``claude mcp serve`` /
+            ``--print --output-format stream-json``); future Gemini etc. The
+            worker pool reads this mode via :func:`is_leader_driven_worker` and
+            drives the runtime through the ``AgentRuntime`` seam + the threaded
+            ``RuntimeHandle.native_session_id`` — NO ``_subagent`` envelope, so
+            it must NEVER reach ``should_dispatch_via_plugin``.
+    """
+
+    NONE = "none"
+    INTERNAL = "internal"
+    EXTERNAL_HOST_BRIDGE = "external_host_bridge"
+    EXTERNAL_LEADER_DRIVEN = "external_leader_driven"
+
+
+# Canonical backend → sub-agent-orchestration mapping. Single source of truth so
+# the per-runtime ``capabilities`` declarations and the static dispatch gate
+# (``should_dispatch_via_plugin``) can never drift. This map is the COARSE
+# backend-name fallback; the authoritative value is each runtime's declared
+# ``capabilities.subagent_orchestration`` (which can be finer — e.g. a
+# ``codex mcp-server`` worker runtime declares EXTERNAL_LEADER_DRIVEN even though
+# the backend name ``codex`` maps to INTERNAL here). Backends absent default to
+# NONE. Leader-driven worker runtimes deliberately stay ABSENT (→ NONE) so they
+# never trip the host-bridge plugin gate; they are recognized at the runtime
+# layer via :func:`is_leader_driven_worker`.
+_OPENCODE_BACKENDS: frozenset[str] = frozenset({"opencode", "opencode_cli"})
+_CODEX_BACKENDS: frozenset[str] = frozenset({"codex", "codex_cli"})
+
+
+def subagent_orchestration_for_backend(backend: str | None) -> SubagentOrchestration:
+    """Return the coarse backend-name :class:`SubagentOrchestration` fallback.
+
+    Prefer a runtime's declared ``capabilities.subagent_orchestration`` where a
+    runtime instance is available; this name-keyed map cannot distinguish
+    ``codex exec`` from ``codex mcp-server`` and is only the static fallback for
+    the envelope dispatch gate.
+    """
+    normalized = (backend or "").strip().lower()
+    if normalized in _OPENCODE_BACKENDS:
+        return SubagentOrchestration.EXTERNAL_HOST_BRIDGE
+    if normalized in _CODEX_BACKENDS:
+        return SubagentOrchestration.INTERNAL
+    return SubagentOrchestration.NONE
+
+
+def is_leader_driven_worker(capabilities: RuntimeCapabilities) -> bool:
+    """Return whether ouroboros can drive this runtime as a direct worker-pool member.
+
+    Provider-neutral seam: any runtime declaring
+    ``SubagentOrchestration.EXTERNAL_LEADER_DRIVEN`` is eligible to be spawned and
+    addressed directly by the leader (via ``execute_task`` + a resumable
+    ``RuntimeHandle``), regardless of backend name. This is what a future
+    worker-pool scheduler reads — NOT a backend-name check — so adding Claude,
+    Gemini, or a codex-mcp runtime is "declare the mode + supply a thin
+    transport", never a bespoke dispatch path.
+    """
+    return capabilities.subagent_orchestration is SubagentOrchestration.EXTERNAL_LEADER_DRIVEN
+
+
+def is_host_bridge_dispatch(capabilities: RuntimeCapabilities) -> bool:
+    """Return whether this runtime dispatches sub-agents via the host-bridge envelope."""
+    return capabilities.subagent_orchestration is SubagentOrchestration.EXTERNAL_HOST_BRIDGE
+
+
 @dataclass(frozen=True, slots=True)
 class RuntimeCapabilities:
     """Declarative feature contract surfaced by an ``AgentRuntime``.
@@ -767,6 +875,11 @@ class RuntimeCapabilities:
     # enforced — keeping the proof's enforced rows truthful. ``None`` means "no
     # per-level restriction" (any level is enforced when support is NATIVE).
     enforceable_reasoning_efforts: frozenset[str] | None = None
+    # How the orchestrator may fan work out to sub-agents on this backend (see
+    # :class:`SubagentOrchestration`). Defaults to NONE so a backend opts in to
+    # INTERNAL/EXTERNAL only when its surface demonstrably supports it — this is
+    # the capability the sub-agent dispatch gate reads instead of a backend name.
+    subagent_orchestration: SubagentOrchestration = SubagentOrchestration.NONE
 
 
 # Default capability profile for first-class backends (Claude, Codex).
@@ -873,18 +986,20 @@ MAX_RETRIES: int = 3
 RETRY_WAIT_INITIAL: float = 1.0  # seconds
 RETRY_WAIT_MAX: float = 10.0  # seconds
 
-# Error patterns that indicate transient failures worth retrying
-TRANSIENT_ERROR_PATTERNS: tuple[str, ...] = (
-    "concurrency",
-    "rate limit",
-    "429",
-    "500",
-    "502",
-    "503",
-    "504",
-    "timeout",
-    "connection",
+# Error patterns that indicate transient failures worth retrying.
+#
+# Derived from the canonical transient core in ``core.retry`` plus the one
+# execution-specific signal (``"exit code 1"`` — the SDK CLI process failing).
+# Adopting the shared core fixes a real divergence: this adapter previously did
+# NOT retry on ``"overloaded"`` (Anthropic 529), the most common transient error
+# under load, even though the completion adapters did. The shared tuple closes
+# that gap without dropping any pattern this adapter already matched.
+_CLAUDE_EXECUTION_RETRYABLE_EXTRA_PATTERNS = (
     "exit code 1",  # SDK CLI process failed
+)
+TRANSIENT_ERROR_PATTERNS: tuple[str, ...] = (
+    *BASE_TRANSIENT_PATTERNS,
+    *_CLAUDE_EXECUTION_RETRYABLE_EXTRA_PATTERNS,
 )
 
 
@@ -996,8 +1111,10 @@ class ClaudeAgentAdapter:
         Returns:
             True if the error appears to be transient.
         """
-        error_str = str(error).lower()
-        return any(pattern in error_str for pattern in TRANSIENT_ERROR_PATTERNS)
+        return is_transient_error(
+            str(error),
+            extra_patterns=_CLAUDE_EXECUTION_RETRYABLE_EXTRA_PATTERNS,
+        )
 
     @staticmethod
     def _parse_optional_positive_int(
@@ -1761,7 +1878,11 @@ __all__ = [
     "RuntimeCapabilities",
     "RuntimeHandle",
     "SkillDispatchHandler",
+    "SubagentOrchestration",
     "TaskResult",
+    "is_host_bridge_dispatch",
+    "is_leader_driven_worker",
+    "subagent_orchestration_for_backend",
     "runtime_handle_tool_catalog",
     "runtime_handle_capability_graph",
     "runtime_handle_control_plane",

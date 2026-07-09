@@ -23,7 +23,8 @@ def run_tests(filenames=None, debug=False, log_filename=None, only_doctests=Fals
     suites = []
     if not only_doctests:
         suites.extend(collect_unit_tests(filenames))
-    suites.extend(collect_doctests())
+    if filenames is None or only_doctests:
+        suites.extend(collect_doctests())
 
     tests = unittest.TestSuite(suites)
     runner = unittest.TextTestRunner(verbosity=2)

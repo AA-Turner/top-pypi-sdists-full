@@ -17,6 +17,7 @@
 # -----------------------------------------------------------------------------
 import asyncio
 import functools
+import inspect
 import logging
 import os
 from unittest import mock
@@ -596,6 +597,25 @@ async def test_cis_setup_failure():
 
 
 # -----------------------------------------------------------------------------
+def test_cis_parameters_unidirectional():
+    # Test C2P unidirectional (P to C not used)
+    cis_c2p = CigParameters.CisParameters(cis_id=1, max_sdu_p_to_c=0)
+    assert cis_c2p.max_sdu_c_to_p != 0
+    assert cis_c2p.rtn_c_to_p != 0
+    assert cis_c2p.phy_c_to_p != hci.PhyBit(0)
+    assert cis_c2p.rtn_p_to_c == 0
+    assert cis_c2p.phy_p_to_c == hci.PhyBit(0)
+
+    # Test P2C unidirectional (C to P not used)
+    cis_p2c = CigParameters.CisParameters(cis_id=2, max_sdu_c_to_p=0)
+    assert cis_p2c.max_sdu_p_to_c != 0
+    assert cis_p2c.rtn_p_to_c != 0
+    assert cis_p2c.phy_p_to_c != hci.PhyBit(0)
+    assert cis_p2c.rtn_c_to_p == 0
+    assert cis_p2c.phy_c_to_p == hci.PhyBit(0)
+
+
+# -----------------------------------------------------------------------------
 @pytest.mark.asyncio
 async def test_enter_and_exit_sniff_mode():
     devices = TwoDevices()
@@ -672,6 +692,25 @@ async def test_power_on_default_static_address_should_not_be_any():
     await devices[0].power_on()
 
     assert devices[0].static_address != Address.ANY_RANDOM
+
+
+# -----------------------------------------------------------------------------
+def test_cs_channel_map_excludes_forbidden_channels():
+    forbidden = {0, 1, 23, 24, 25, 76, 77, 78, 79}
+    default_map = (
+        inspect.signature(Device.create_cs_config).parameters['channel_map'].default
+    )
+
+    enabled = {
+        byte_idx * 8 + bit
+        for byte_idx, byte in enumerate(default_map)
+        for bit in range(8)
+        if byte & (1 << bit)
+    }
+
+    assert enabled.isdisjoint(
+        forbidden
+    ), f"Default channel_map enables forbidden CS channels: {enabled & forbidden}"
 
 
 # -----------------------------------------------------------------------------

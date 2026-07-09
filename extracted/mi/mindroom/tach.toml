@@ -33,7 +33,16 @@ depends_on = [
     "mindroom.credentials_sync",
     "mindroom.embeddings",
     "mindroom.model_defaults",
+    "mindroom.openai_embedder",
 ]
+
+[[modules]]
+path = "mindroom.model_instance_checks"
+depends_on = []
+
+[[modules]]
+path = "mindroom.openai_embedder"
+depends_on = ["mindroom.model_defaults"]
 
 [[modules]]
 path = "mindroom.path_globs"
@@ -75,7 +84,9 @@ depends_on = [
     "mindroom.credentials_sync",
     "mindroom.error_handling",
     "mindroom.execution_preparation",
-    "mindroom.history",
+    "mindroom.history.prompt_tokens",
+    "mindroom.history.runtime",
+    "mindroom.history.types",
     "mindroom.history.interrupted_replay",
     "mindroom.hooks",
     "mindroom.llm_request_logging",
@@ -239,6 +250,9 @@ depends_on = [
     "mindroom.logging_config",
     "mindroom.tool_system.dependencies",
     "mindroom.claude_prompt_cache",
+    "mindroom.claude_stream_retry",
+    "mindroom.codex_model",
+    "mindroom.vertex_claude_compat",
 ]
 visibility = [
     "mindroom.ai",
@@ -291,7 +305,6 @@ visibility = ["mindroom.approval_manager"]
 path = "mindroom.approval_transport"
 depends_on = [
     "mindroom.constants",
-    "mindroom.config.matrix",
     "mindroom.logging_config",
     "mindroom.matrix.cache",
     "mindroom.matrix.client_delivery",
@@ -508,7 +521,7 @@ depends_on = [
     "mindroom.api.openai_streaming_protocol",
     "mindroom.constants",
     "mindroom.execution_preparation",
-    "mindroom.history",
+    "mindroom.history.runtime",
     "mindroom.knowledge",
     "mindroom.logging_config",
     "mindroom.routing",
@@ -569,6 +582,7 @@ depends_on = [
     "mindroom.knowledge",
     "mindroom.knowledge.watch",
     "mindroom.logging_config",
+    "mindroom.matrix.decrypt_failure",
     "mindroom.matrix.health",
     "mindroom.orchestration.runtime",
     "mindroom.runtime_state",
@@ -659,6 +673,10 @@ depends_on = [
 ]
 
 [[modules]]
+path = "mindroom.api.sandbox_forkserver"
+depends_on = ["mindroom.logging_config"]
+
+[[modules]]
 path = "mindroom.api.sandbox_protocol"
 depends_on = []
 
@@ -675,6 +693,7 @@ path = "mindroom.api.sandbox_runner"
 depends_on = [
     "mindroom.api.sandbox_env_assembly",
     "mindroom.api.sandbox_exec",
+    "mindroom.api.sandbox_forkserver",
     "mindroom.api.sandbox_protocol",
     "mindroom.api.sandbox_worker_prep",
     "mindroom.api.worker_responses",
@@ -742,6 +761,7 @@ depends_on = [
     "mindroom.commands.handler",
     "mindroom.constants",
     "mindroom.matrix.client_room_admin",
+    "mindroom.matrix.decrypt_failure",
     "mindroom.matrix.rooms",
     "mindroom.matrix.state",
     "mindroom.runtime_protocols",
@@ -791,7 +811,6 @@ depends_on = [
 [[modules]]
 path = "mindroom.custom_tools.matrix_conversation_operations"
 depends_on = [
-    "mindroom.config.matrix",
     "mindroom.constants",
     "mindroom.custom_tools.attachment_helpers",
     "mindroom.custom_tools.attachments",
@@ -879,7 +898,10 @@ depends_on = [
     "mindroom.attachments",
     "mindroom.constants",
     "mindroom.entity_resolution",
-    "mindroom.history",
+    "mindroom.history.policy",
+    "mindroom.history.prompt_tokens",
+    "mindroom.history.runtime",
+    "mindroom.history.storage",
     "mindroom.matrix.client_visible_messages",
     "mindroom.prompt_message_tags",
     "mindroom.streaming",
@@ -896,14 +918,15 @@ depends_on = [
 
 [[modules]]
 path = "mindroom.history"
+depends_on = []
+
+[[modules]]
+path = "mindroom.history.manual"
 depends_on = [
-    "mindroom.history.agno_team_patch",
-    "mindroom.history.compaction",
     "mindroom.history.policy",
-    "mindroom.history.prompt_tokens",
     "mindroom.history.runtime",
     "mindroom.history.storage",
-    "mindroom.history.types",
+    "mindroom.logging_config",
 ]
 
 [[modules]]
@@ -936,6 +959,7 @@ depends_on = [
 path = "mindroom.history.summary_call"
 depends_on = [
     "mindroom.cancellation",
+    "mindroom.claude_prompt_cache",
     "mindroom.constants",
     "mindroom.logging_config",
     "mindroom.timing",
@@ -989,6 +1013,7 @@ path = "mindroom.history.runtime"
 depends_on = [
     "mindroom.agent_storage",
     "mindroom.constants",
+    "mindroom.history.agno_team_patch",
     "mindroom.history.compaction",
     "mindroom.history.policy",
     "mindroom.history.prompt_tokens",
@@ -1105,6 +1130,7 @@ depends_on = [
     "mindroom.config.main",
     "mindroom.constants",
     "mindroom.matrix.client_session",
+    "mindroom.matrix.cross_signing",
     "mindroom.matrix.provisioning",
     "mindroom.matrix.state",
     "mindroom.matrix_identifiers",
@@ -1177,7 +1203,8 @@ depends_on = [
     "mindroom.constants",
     "mindroom.delivery_gateway",
     "mindroom.entity_resolution",
-    "mindroom.history",
+    "mindroom.history.storage",
+    "mindroom.history.types",
     "mindroom.history.interrupted_replay",
     "mindroom.history.turn_recorder",
     "mindroom.hooks",
@@ -1266,7 +1293,9 @@ depends_on = [
     "mindroom.constants",
     "mindroom.entity_resolution",
     "mindroom.execution_preparation",
-    "mindroom.history",
+    "mindroom.history.prompt_tokens",
+    "mindroom.history.runtime",
+    "mindroom.history.storage",
     "mindroom.history.interrupted_replay",
     "mindroom.hooks",
     "mindroom.knowledge",
@@ -1788,7 +1817,7 @@ depends_on = [
 
 [[modules]]
 path = "mindroom.matrix.client_delivery"
-depends_on = ["mindroom.config.matrix"]
+depends_on = []
 visibility = [
     "mindroom.approval_transport",
     "mindroom.conversation_resolver",
@@ -1799,6 +1828,7 @@ visibility = [
     "mindroom.delivery_gateway",
     "mindroom.hooks.sender",
     "mindroom.matrix.client",
+    "mindroom.matrix.decrypt_failure",
     "mindroom.matrix.stale_stream_cleanup",
     "mindroom.scheduling",
     "mindroom.streaming",
@@ -1819,6 +1849,7 @@ visibility = [
     "mindroom.api.matrix_operations",
     "mindroom.bot",
     "mindroom.bot_room_lifecycle",
+    "mindroom.commands.encryption_commands",
     "mindroom.commands.thread_mode_commands",
     "mindroom.external_triggers.executor",
     "mindroom.hooks.matrix_admin",
@@ -1831,10 +1862,33 @@ visibility = [
 ]
 
 [[modules]]
+path = "mindroom.matrix.decrypt_failure"
+depends_on = [
+    "mindroom.constants",
+    "mindroom.logging_config",
+    "mindroom.matrix.client_delivery",
+]
+visibility = [
+    "mindroom.api.main",
+    "mindroom.bot",
+    "mindroom.bot_room_lifecycle",
+    "mindroom.commands.encryption_commands",
+]
+
+[[modules]]
+path = "mindroom.matrix.cross_signing"
+depends_on = ["mindroom.logging_config"]
+visibility = [
+    "mindroom.commands.encryption_commands",
+    "mindroom.matrix.users",
+]
+
+[[modules]]
 path = "mindroom.matrix.client_session"
 depends_on = ["mindroom.constants"]
 visibility = [
     "mindroom.bot",
+    "mindroom.cli.doctor",
     "mindroom.matrix.client",
     "mindroom.matrix.provisioning",
     "mindroom.matrix.rooms",
@@ -2015,7 +2069,8 @@ depends_on = [
     "mindroom.agent_storage",
     "mindroom.constants",
     "mindroom.entity_resolution",
-    "mindroom.history",
+    "mindroom.history.runtime",
+    "mindroom.history.types",
     "mindroom.runtime_protocols",
     "mindroom.team_scope",
 ]
@@ -2040,6 +2095,7 @@ depends_on = [
     "mindroom.matrix.client_room_admin",
     "mindroom.matrix.client_session",
     "mindroom.matrix.conversation_cache",
+    "mindroom.matrix.decrypt_failure",
     "mindroom.matrix.event_info",
     "mindroom.matrix.room_cleanup",
     "mindroom.matrix.rooms",
@@ -2117,7 +2173,9 @@ depends_on = [
     "mindroom.constants",
     "mindroom.embeddings",
     "mindroom.google_adc",
+    "mindroom.matrix.client_session",
     "mindroom.matrix.health",
+    "mindroom.matrix.state",
 ]
 
 [[modules]]
@@ -2222,7 +2280,6 @@ depends_on = [
 path = "mindroom.commands.config_confirmation"
 depends_on = [
     "mindroom.commands.config_commands",
-    "mindroom.config.matrix",
     "mindroom.delivery_gateway",
     "mindroom.logging_config",
 ]
@@ -2242,6 +2299,15 @@ depends_on = [
 visibility = ["mindroom.commands.handler"]
 
 [[modules]]
+path = "mindroom.commands.encryption_commands"
+depends_on = [
+    "mindroom.matrix.client_room_admin",
+    "mindroom.matrix.cross_signing",
+    "mindroom.matrix.decrypt_failure",
+]
+visibility = ["mindroom.commands.handler"]
+
+[[modules]]
 path = "mindroom.commands.parsing"
 depends_on = [
     "mindroom.constants",
@@ -2254,6 +2320,7 @@ depends_on = [
     "mindroom.authorization",
     "mindroom.commands.config_commands",
     "mindroom.commands.config_confirmation",
+    "mindroom.commands.encryption_commands",
     "mindroom.commands.model_commands",
     "mindroom.commands.parsing",
     "mindroom.commands.thread_mode_commands",
@@ -2317,6 +2384,7 @@ visibility = [
 [[modules]]
 path = "mindroom.tool_system.metadata"
 depends_on = [
+    "mindroom.constants",
     "mindroom.mcp.registry",
     "mindroom.tool_system.dependencies",
     "mindroom.tool_system.output_files",
@@ -2462,6 +2530,7 @@ depends_on = [
     "mindroom.ai_runtime",
     "mindroom.entity_resolution",
     "mindroom.matrix.client_delivery",
+    "mindroom.model_instance_checks",
     "mindroom.model_loading",
 ]
 
@@ -3075,6 +3144,7 @@ expose = [
     "create_room",
     "edit_message_result",
     "ensure_room_admin_power_levels",
+    "ensure_room_encryption_enabled",
     "ensure_thread_tags_power_level",
     "get_joined_rooms",
     "get_room_members",
@@ -3108,6 +3178,7 @@ expose = [
     "ensure_room_directory_visibility",
     "ensure_room_join_rule",
     "ensure_room_name",
+    "ensure_room_encryption_enabled",
     "ensure_thread_tags_power_level",
     "get_joined_rooms",
     "get_room_members",
@@ -3116,6 +3187,7 @@ expose = [
     "join_room",
     "leave_room",
     "room_admin_power_user",
+    "room_encryption_enabled",
 ]
 from = ["mindroom.matrix.client_room_admin"]
 
@@ -3125,6 +3197,8 @@ expose = [
     "login",
     "matrix_client",
     "matrix_startup_error",
+    "olm_store_dir",
+    "olm_store_exists",
     "restore_login",
 ]
 from = ["mindroom.matrix.client_session"]
@@ -3422,42 +3496,6 @@ expose = [
 ]
 from = ["mindroom.tool_system.worker_routing"]
 
-[[interfaces]]
-expose = [
-    "CompactionOutcome",
-    "HistoryPolicy",
-    "HistoryScope",
-    "PreparedHistoryState",
-    "PreparedScopeHistory",
-    "ResolvedHistorySettings",
-    "ResolvedReplayPlan",
-    "ScopeSessionContext",
-    "StaticTokenEstimator",
-    "agent_static_token_estimator",
-    "agent_tool_definition_payloads_for_logging",
-    "apply_replay_plan",
-    "close_agent_runtime_state_dbs",
-    "close_team_runtime_state_dbs",
-    "compute_prompt_token_breakdown",
-    "context_budget_after_reserve",
-    "create_scope_session_storage",
-    "finalize_history_preparation",
-    "has_pending_force_compaction_scope",
-    "note_prepared_history_timing",
-    "open_bound_scope_session_context",
-    "open_resolved_scope_session_context",
-    "prepare_bound_scope_history",
-    "prepare_scope_history",
-    "read_scope_seen_event_ids",
-    "read_scope_state",
-    "resolve_agent_preparation_inputs",
-    "resolve_bound_team_scope_context",
-    "resolve_history_execution_plan",
-    "team_static_token_estimator",
-    "team_tool_definition_payloads_for_logging",
-    "update_scope_seen_event_ids",
-]
-from = ["mindroom.history"]
 
 [[interfaces]]
 expose = [

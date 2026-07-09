@@ -35,26 +35,33 @@ from .component import (
 from .iter import RulesetIterable, as_rrule
 from .timespan import Timespan
 from .types import (
+    Attachment,
     CalAddress,
     Classification,
+    Conference,
     ExtraProperty,
     Geo,
+    Image,
     Priority,
     Recur,
     RecurrenceId,
     RequestStatus,
     Uri,
     RelatedTo,
+    Period,
 )
 from .util import (
     dtstamp_factory,
     normalize_datetime,
     parse_date_and_datetime,
     parse_date_and_datetime_list,
+    parse_rdate_list,
     uid_factory,
 )
 
 _LOGGER = logging.getLogger(__name__)
+
+__all__ = ["Event", "EventStatus"]
 
 
 class EventStatus(str, enum.Enum):
@@ -166,6 +173,19 @@ class Event(ComponentModel):
         alias="last-modified", default=None
     )
 
+    color: Optional[str] = None
+    """Specifies a color associated with the event.
+
+    The value MUST be a case-insensitive color name defined in CSS3-Color (e.g., "blue" or "turquoise")
+    or a CSS3 RGB/RGBA color value in hex or functional notation (e.g., "#0000FF").
+    """
+
+    image: list[Image] = Field(default_factory=list)
+    """Specifies one or more images associated with the event."""
+
+    conference: list[Conference] = Field(default_factory=list)
+    """Specifies one or more conferences associated with the event."""
+
     location: Optional[str] = None
     """Defines the intended venue for the activity defined by this event."""
 
@@ -206,8 +226,8 @@ class Event(ComponentModel):
     """
 
     rdate: Annotated[
-        list[Union[datetime.date, datetime.datetime]],
-        BeforeValidator(parse_date_and_datetime_list),
+        list[Union[datetime.date, datetime.datetime, Period]],
+        BeforeValidator(parse_rdate_list),
     ] = Field(default_factory=list)
     """Defines the list of date/time values for recurring events.
 
@@ -229,9 +249,9 @@ class Event(ComponentModel):
     then excluding any times specified by exdate.
     """
 
-    request_status: Optional[RequestStatus] = Field(
-        default=None,
+    request_status: list[RequestStatus] = Field(
         alias="request-status",
+        default_factory=list,
     )
 
     sequence: Optional[int] = None
@@ -259,6 +279,9 @@ class Event(ComponentModel):
     information associated with the event can be found.
     """
 
+    attach: list[Attachment] = Field(default_factory=list)
+    """Associate a document object with the event."""
+
     # Unknown or unsupported properties
     extras: list[ExtraProperty] = Field(default_factory=list)
 
@@ -280,7 +303,11 @@ class Event(ComponentModel):
     @property
     def start(self) -> datetime.datetime | datetime.date:
         """Return the start time for the event."""
-        assert self.dtstart is not None
+        if self.dtstart is None:
+            raise AttributeError(
+                "Event.start accessed before dtstart was set; "
+                "ensure the event was fully validated before use."
+            )
         return self.dtstart
 
     @property

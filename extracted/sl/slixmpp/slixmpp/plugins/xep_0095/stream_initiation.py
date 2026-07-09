@@ -42,7 +42,7 @@ class XEP_0095(BasePlugin):
         self.register_method(IBB, 'xep_0047', 50)
 
         register_stanza_plugin(Iq, SI)
-        register_stanza_plugin(SI, self.xmpp['xep_0020'].stanza.FeatureNegotiation)
+        register_stanza_plugin(SI, self.xmpp.plugin['xep_0020'].stanza.FeatureNegotiation)
 
         self.xmpp.register_handler(
             Callback('SI Request',
@@ -54,11 +54,11 @@ class XEP_0095(BasePlugin):
         self.api.register(self._del_pending, 'del_pending', default=True)
 
     def session_bind(self, jid):
-        self.xmpp['xep_0030'].add_feature(SI.namespace)
+        self.xmpp.plugin['xep_0030'].add_feature(SI.namespace)
 
     def plugin_end(self):
         self.xmpp.remove_handler('SI Request')
-        self.xmpp['xep_0030'].del_feature(feature=SI.namespace)
+        self.xmpp.plugin['xep_0030'].del_feature(feature=SI.namespace)
 
     def register_profile(self, profile_name, plugin):
         self._profiles[profile_name] = plugin
@@ -177,7 +177,7 @@ class XEP_0095(BasePlugin):
             ifrom = self.xmpp.boundjid
 
         method_plugin = self._methods[stream['method']][0]
-        self.xmpp[method_plugin].api['preauthorize_sid'](ifrom, sid, jid)
+        self.xmpp.plugin[method_plugin].api['preauthorize_sid'](ifrom, sid, jid)
 
         await self.api['del_pending'](ifrom, sid, jid)
 

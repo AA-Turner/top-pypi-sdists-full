@@ -168,6 +168,10 @@ class Scheduler:
         except Exception as e:
             logger.warning("Failed to load scheduler state: {}", e)
 
+    def save_state(self) -> None:
+        """Persist current job state to disk."""
+        self._save()
+
     def _save(self) -> None:
         self._write_payload(self._build_payload())
 
@@ -270,6 +274,42 @@ class Scheduler:
     def list_jobs(self) -> list[ScheduledJob]:
         return list(self._jobs.values())
 
+    def get_job(self, job_id: str) -> ScheduledJob | None:
+        return self._jobs.get(job_id)
+
+    def get_run_history(self, job_id: str, limit: int = 10) -> list[dict[str, Any]]:
+        """Return recent run info for a job (derived from current state).
+
+        The scheduler does not persist a full run log today; return a
+        summary based on the last execution so callers have something
+        to display. A future iteration can persist per-run records.
+        """
+        job = self._jobs.get(job_id)
+        if not job or not job.last_run_ms:
+            return []
+        return [{
+            "ts": job.last_run_ms,
+            "status": job.last_status or "unknown",
+            "error": job.last_error,
+            "run_count": job.run_count,
+        }]
+
+    async def record_run_outcome(self, job_id: str, status: str, error: str = "") -> None:
+        """Write back the real end-to-end outcome of a dispatched job run.
+
+        _run_job only knows the event was *queued* onto the bus; the agent turn
+        (and any user-facing delivery) completes asynchronously afterwards, in
+        the loop. This lets that downstream completion update last_status to a
+        truthful terminal value ("completed" / "error") instead of leaving it
+        stuck at "queued". No-op if the job is gone (e.g. a run-once job already
+        pruned) so a late writeback can never resurrect scheduler state."""
+        job = self._jobs.get(job_id)
+        if job is None:
+            return
+        job.last_status = status
+        job.last_error = error
+        await self._save_async()
+
     async def trigger_job(self, job_id: str) -> bool:
         job = self._jobs.get(job_id)
         if not job or not job.enabled or job.status in (JobStatus.CANCELLED, JobStatus.COMPLETED):
@@ -330,8 +370,14 @@ class Scheduler:
         job.run_count += 1
         try:
             if self._on_job:
-                await self._on_job(job)
-                job.last_status = "success"
+                # The handler returns what actually happened. For bus-dispatched
+                # jobs this is "queued" — the event was accepted into the bus but
+                # the agent runs (and any delivery) asynchronously afterwards.
+                # Recording "success" here would be a false signal: it would only
+                # ever mean "enqueued", masking downstream execution/delivery
+                # failures. Honour the handler's own status instead.
+                status = await self._on_job(job)
+                job.last_status = status or "queued"
                 job.last_error = ""
             else:
                 job.last_status = "skipped"
@@ -354,11 +400,14 @@ class Scheduler:
         if not _HAS_FCNTL:
             return True
         lock_path = self._lock_dir / f"{job_id}.lock"
+        fd = None
         try:
             fd = open(lock_path, "w")
             fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
             return fd
         except (IOError, OSError):
+            if fd is not None:
+                fd.close()
             return None
 
     def _release_lock(self, lock_fd: Any) -> None:

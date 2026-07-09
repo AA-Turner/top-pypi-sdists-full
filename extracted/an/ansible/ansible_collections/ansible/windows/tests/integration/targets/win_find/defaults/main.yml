@@ -1,3 +1,2 @@
-win_base_dir: '{{ remote_tmp_dir }}\win_find .ÅÑŚÌβŁÈ [$!@^&test(;)]'
-win_find_dir: '{{ win_base_dir }}\testing'
+win_find_dir: '{{ remote_tmp_dir }}\win_find .ÅÑŚÌβŁÈ [$!@^&test(;)]'
 test_win_find_username: testuser

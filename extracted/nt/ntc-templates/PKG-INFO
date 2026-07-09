@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: ntc_templates
-Version: 9.1.0
+Version: 9.2.0
 Summary: TextFSM Templates for Network Devices, and Python wrapper for TextFSM's CliTable.
 Home-page: https://ntc-templates.readthedocs.io
 License: Apache-2.0

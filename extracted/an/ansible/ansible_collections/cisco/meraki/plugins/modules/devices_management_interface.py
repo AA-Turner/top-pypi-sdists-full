@@ -2,14 +2,13 @@
 # -*- coding: utf-8 -*-
 
 # Copyright (c) 2021, Cisco Systems
-# GNU General Public License v3.0+ (see LICENSE or
-# https://www.gnu.org/licenses/gpl-3.0.txt)
+# GNU General Public License v3.0+ (see LICENSE or https://www.gnu.org/licenses/gpl-3.0.txt)
 
 DOCUMENTATION = r"""
 module: devices_management_interface
-short_description: Resource module for devices _management _interface
+short_description: Resource module for devices _managementinterface
 description:
-  - Manage operations create and update of the resource devices _management _interface.
+  - Manage operations create and update of the resource devices _managementinterface.
   - Reboot a device. This endpoint has a sustained rate limit of one request every
     60 seconds.
   - Update the management interface settings for a device.

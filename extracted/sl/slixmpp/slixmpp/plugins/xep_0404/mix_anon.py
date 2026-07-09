@@ -32,7 +32,7 @@ class XEP_0404(BasePlugin):
         Get the jid-participant mapping result (raw).
         :param JID channel: MIX channel JID
         """
-        return await self.xmpp['xep_0030'].get_items(
+        return await self.xmpp.plugin['xep_0030'].get_items(
             channel.bare,
             ifrom=ifrom,
             **pubsubkwargs

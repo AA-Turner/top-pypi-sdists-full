@@ -14,8 +14,6 @@ description:
 - Runs a PowerShell script and outputs the data in a structured format.
 - Use M(ansible.windows.win_command) or M(ansible.windows.win_shell) to run a traditional PowerShell process with
   stdout, stderr, and rc results.
-- Since C(ansible.windows 3.6.0) this module can also run on non-Windows targets with PowerShell 7 present. Targeting
-  non-Windows hosts requires Ansible C(2.22.0) or newer.
 options:
   arguments:
     description:
@@ -60,7 +58,6 @@ options:
     - Both the remote PowerShell and the one specified by I(executable) must be running on PowerShell v5.1 or newer.
     - Setting this value may change the values returned in the C(output) return value depending on the underlying .NET
       type.
-    - This option is only supported on Windows hosts.
     type: str
   parameters:
     description:
@@ -101,8 +98,6 @@ options:
       not exposed in the module invocation args logs.
     - The I(value) suboption can be used to create a SecureString value while
       I(username) and I(password) can be used to create a PSCredential value.
-    - If neither I(value) nor I(username)/I(password) is specified, C($null)
-      is passed as the parameter value.
     type: list
     elements: dict
     suboptions:
@@ -115,8 +110,6 @@ options:
         description:
         - The string to pass as a SecureString of the parameter specified by
           I(name).
-        - Omit both I(value) and I(username)/I(password) to pass C($null)
-          as the parameter value, allowing the script to use its default.
         - This is mutually exclusive with I(username) and I(password).
         type: str
       username:
@@ -135,7 +128,7 @@ seealso:
 - module: ansible.windows.win_command
 - module: ansible.windows.win_shell
 notes:
-- The module is set as failed when a terminating exception is thrown, or C(error_action=stop) and a normal error record
+- The module is set as failed when a terminating exception is throw, or C(error_action=stop) and a normal error record
   is raised.
 - The output values are processed using a custom filter and while it mostly matches the C(ConvertTo-Json) result the
   following value types are different.

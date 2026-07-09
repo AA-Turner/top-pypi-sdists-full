@@ -1,28 +1,29 @@
 import dataclasses
 from collections import defaultdict
-from enum import Enum
+from enum import StrEnum
+from typing import ClassVar
 
 
-class RosterAccess(str, Enum):
+class RosterAccess(StrEnum):
     NONE = "none"
     GET = "get"
     SET = "set"
     BOTH = "both"
 
 
-class MessagePermission(str, Enum):
+class MessagePermission(StrEnum):
     NONE = "none"
     OUTGOING = "outgoing"
 
 
-class IqPermission(str, Enum):
+class IqPermission(StrEnum):
     NONE = "none"
     GET = "get"
     SET = "set"
     BOTH = "both"
 
 
-class PresencePermission(str, Enum):
+class PresencePermission(StrEnum):
     NONE = "none"
     MANAGED_ENTITY = "managed_entity"
     ROSTER = "roster"
@@ -32,5 +33,7 @@ class PresencePermission(str, Enum):
 class Permissions:
     roster = RosterAccess.NONE
     message = MessagePermission.NONE
-    iq = defaultdict(lambda: IqPermission.NONE)
+    iq: ClassVar[defaultdict[str, IqPermission]] = defaultdict(
+        lambda: IqPermission.NONE
+    )
     presence = PresencePermission.NONE

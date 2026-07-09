@@ -117,9 +117,10 @@ _PUA_KEYPAD_NAMES = {
 
 # Alt-only control character name mappings
 ALT_CONTROL_NAMES = {
+    0x0d: 'KEY_ALT_ENTER',      # CR
+    0x0a: 'KEY_ALT_ENTER',      # LF
     0x1b: 'KEY_ALT_ESCAPE',     # ESC
     0x7f: 'KEY_ALT_BACKSPACE',  # DEL
-    0x0d: 'KEY_ALT_ENTER',      # CR
     0x09: 'KEY_ALT_TAB',        # TAB
 }
 
@@ -243,8 +244,8 @@ class Keystroke(str):
 
             # Special C0 controls that should be Alt-only per legacy spec
             # These represent common Alt+key combinations that are unambiguous
-            # (Enter, Escape, DEL, Tab)
-            if char_code in {0x0d, 0x1b, 0x7f, 0x09}:
+            # (Enter (CR/LF), Escape, DEL, Tab)
+            if char_code in {0x0a, 0x0d, 0x1b, 0x7f, 0x09}:
                 return 1 + KittyModifierBits.alt  # 1 + alt flag = 3
 
             # Other control characters represent Ctrl+Alt combinations
@@ -2208,6 +2209,9 @@ class DeviceAttribute():
 
     RE_RESPONSE = re.compile(r'\x1b\[\?([0-9]+)((?:;[0-9]+)*);*c')
 
+    RE_RESPONSE_CTERM = re.compile(
+        r'\x1b\[=' + ';'.join(map(str, map(ord, 'CTerm'))) + r'(?:;[0-9]+)*;*c')
+
     def __init__(self, raw: str, service_class: int,
                  extensions: typing.Optional[typing.List[int]]) -> None:
         """
@@ -2253,6 +2257,11 @@ class DeviceAttribute():
         :rtype: DeviceAttribute
         :returns: DeviceAttribute instance parsed from match
         """
+        if match.re is cls.RE_RESPONSE_CTERM:
+            # SyncTERM is a client used by retrocomputer BBS enthusiasts. It has an illegal response
+            # pattern, spelling out "CTerm" in ASCII as the numeric values using ASCII digits,
+            # causing it to fail to report its support of sixel, corrected here.
+            return cls(match.group(0), 0, [4])
         service_class = int(match.group(1))
         extensions_str = match.group(2)
         extensions: typing.List[int] = []

@@ -52,8 +52,8 @@ from mindroom.constants import (
 )
 from mindroom.dynamic_tool_continuation import DYNAMIC_TOOL_CONTINUATION_LIMIT
 from mindroom.execution_preparation import _PreparedExecutionContext
-from mindroom.history import PreparedHistoryState
 from mindroom.history.turn_recorder import TurnRecorder
+from mindroom.history.types import PreparedHistoryState
 from mindroom.hooks import (
     EnrichmentItem,
     render_system_enrichment_block,
@@ -1493,8 +1493,8 @@ class TestUserIdPassthrough:
         assert "Inline media unavailable for this model" in str(second_prompt[-1].content)
 
     @pytest.mark.asyncio
-    async def test_ai_response_learns_audio_unsupported_for_same_model_route(self, tmp_path: Path) -> None:
-        """Audio-only capability failure should omit audio on later calls to the same concrete route."""
+    async def test_ai_response_learns_media_unsupported_for_same_model_route(self, tmp_path: Path) -> None:
+        """A successful without-media retry teaches the route to omit media on later calls."""
         reset_model_media_capability_cache()
 
         def build_agent() -> MagicMock:
@@ -1560,10 +1560,11 @@ class TestUserIdPassthrough:
         assert fallback_marker in str(cached_prompt[-1].content)
         assert first_prompt[-1].audio == [audio_input]
         assert first_prompt[-1].images == [image_input]
-        assert retry_prompt[-1].audio == ()
-        assert retry_prompt[-1].images == [image_input]
-        assert cached_prompt[-1].audio == ()
-        assert cached_prompt[-1].images == [image_input]
+        # The retry drops all media, and the successful retry teaches the route.
+        assert not retry_prompt[-1].audio
+        assert not retry_prompt[-1].images
+        assert not cached_prompt[-1].audio
+        assert not cached_prompt[-1].images
         reset_model_media_capability_cache()
 
     @pytest.mark.asyncio
@@ -2116,8 +2117,12 @@ class TestUserIdPassthrough:
             ("Error code: 500 - audio input is not supported", True),
             ("Error code: 404 - No endpoints found that support input audio", True),
             ("[openclaw] Error: At most 0 audio(s) may be provided in one prompt.", True),
-            ("invalid_request_error: max_tokens must be <= 4096", False),
-            ("Rate limit exceeded", False),
+            # Invalid-request-class evidence retries once even without media wording.
+            ("invalid_request_error: max_tokens must be <= 4096", True),
+            # Any other failure of a media-bearing request also retries once;
+            # no wording decides whether to retry, only whether the cache teaches.
+            ("Rate limit exceeded", True),
+            ("Error code: 500 - internal server error", True),
         ],
     )
     def test_retry_media_inputs_after_failure_error_matching(self, error_text: str, expected: bool) -> None:
@@ -2170,15 +2175,15 @@ class TestUserIdPassthrough:
         assert custom_user_copy == repeated_custom_user_copy
 
     @pytest.mark.asyncio
-    async def test_ai_response_does_not_retry_without_media_validation_match(self, tmp_path: Path) -> None:
-        """Non-media failures should not trigger inline-media retry even when media is present."""
+    async def test_ai_response_retries_once_without_media_for_any_failure(self, tmp_path: Path) -> None:
+        """Failures outside the invalid-request class still retry once without inline media."""
         mock_agent = MagicMock()
         mock_agent.model = MagicMock()
         mock_agent.model.__class__.__name__ = "OpenAIChat"
         mock_agent.model.id = "test-model"
         mock_agent.name = "GeneralAgent"
         mock_agent.add_history_to_context = False
-        mock_agent.arun = AsyncMock(side_effect=Exception("invalid_request_error: max_tokens must be <= 4096"))
+        mock_agent.arun = AsyncMock(side_effect=Exception("Error code: 500 - upstream connect error"))
 
         document_file = File(
             filepath=str(tmp_path / "report.pdf"),
@@ -2200,7 +2205,8 @@ class TestUserIdPassthrough:
             )
 
         assert response == "friendly"
-        assert mock_agent.arun.await_count == 1
+        # First attempt with media, one retry without it, then the error surfaces.
+        assert mock_agent.arun.await_count == 2
         mock_friendly_error.assert_called_once()
 
     @pytest.mark.asyncio

@@ -38,10 +38,10 @@ class XEP_0394(BasePlugin):
         register_stanza_plugin(Message, Markup)
 
     def session_bind(self, jid):
-        self.xmpp['xep_0030'].add_feature(feature=Markup.namespace)
+        self.xmpp.plugin['xep_0030'].add_feature(feature=Markup.namespace)
 
     def plugin_end(self):
-        self.xmpp['xep_0030'].del_feature(feature=Markup.namespace)
+        self.xmpp.plugin['xep_0030'].del_feature(feature=Markup.namespace)
 
     @staticmethod
     def _split_first_level(body, markup_elem):

@@ -8,12 +8,21 @@ Manage the Vault (or OpenBao) PKI secret engine, request X.509 certificates.
 """
 
 import logging
+from datetime import datetime
+from datetime import timezone
 
 from salt.exceptions import CommandExecutionError
 from salt.exceptions import SaltInvocationError
 
 from saltext.vault.utils import vault
 from saltext.vault.utils.vault.pki import dec2hex
+
+try:
+    import salt.utils.x509 as x509util
+
+    HAS_X509UTIL = True
+except ImportError:
+    HAS_X509UTIL = False
 
 log = logging.getLogger(__name__)
 
@@ -282,7 +291,7 @@ def list_issuers(mount="pki"):
             "key_info"
         ]
     except vault.VaultNotFoundError:
-        return []
+        return {}
     except vault.VaultException as err:
         raise CommandExecutionError(f"{err.__class__}: {err}") from err
 
@@ -424,6 +433,8 @@ def read_issuer_certificate(name="default", mount="pki", include_chain=False):
         If set to true, appends the CA chain to the certificate (in case of intermediate issuer)
     """
     cert_data = read_issuer(name, mount)
+    if not cert_data:
+        raise CommandExecutionError("Issuer does not exist")
 
     if include_chain:
         return "".join(cert_data["ca_chain"])
@@ -678,16 +689,16 @@ def read_issuer_crl(ref="default", mount="pki", delta=False):
     """
     # Check if issuer can sign CRLs at all. If not,
     # there is no point to check for CRL as this throws error
-    issuer = None
     try:
         issuer = vault.query(
             "GET", f"{mount}/issuer/{ref}", __opts__, __context__, is_unauthd=False
         )["data"]
+    except vault.VaultServerError as err:
+        if "unable to find PKI issuer" in str(err):
+            return None
+        raise CommandExecutionError(f"{err.__class__}: {err}") from err
     except vault.VaultException as err:
         raise CommandExecutionError(f"{err.__class__}: {err}") from err
-
-    if issuer is None:
-        return None
 
     if "crl-signing" not in issuer["usage"].split(","):
         return None
@@ -775,9 +786,150 @@ def read_certificate(serial, mount="pki"):
     endpoint = f"{mount}/cert/{serial}"
 
     try:
-        return vault.query("GET", endpoint, __opts__, __context__)["data"]["certificate"]
+        return vault.query("GET", endpoint, __opts__, __context__, is_unauthd=True)["data"][
+            "certificate"
+        ]
     except vault.VaultException as err:
         raise CommandExecutionError(f"{err.__class__}: {err}") from err
+
+
+def read_certificate_full(serial, mount="pki"):
+    """
+    .. versionadded:: 1.7.0
+
+    Get full certificate information as a dictionary, including the certificate (`certificate`)
+    and its CA chain certificates (`ca_chain`, a list of strings) in PEM format.
+
+    `API method docs <https://developer.hashicorp.com/vault/api-docs/secret/pki#read-certificate>`__.
+
+    CLI Example:
+
+    .. code-block:: bash
+
+            salt '*' vault_pki.read_certificate_full 7e:85:c5:d1:85:94:9a:46:08:b5:1b:9c:22:cb:35:e5:ea:f3:56:3f
+
+    serial
+        Specifies the serial of the certificate to read. Valid values are:
+
+        * ``<serial>`` for the certificate with the given serial number, in hyphen-separated or colon-separated hexadecimal.
+        * ``ca`` for the default issuer's CA certificate
+        * ``crl`` for the default issuer's CRL
+        * ``ca_chain`` for the default issuer's CA trust chain.
+
+    mount
+        Mount path the PKI backend is mounted to. Defaults to ``pki``.
+    """
+
+    endpoint = f"{mount}/cert/{serial}"
+
+    try:
+        data = vault.query("GET", endpoint, __opts__, __context__, is_unauthd=True)["data"]
+    except vault.VaultException as err:
+        raise CommandExecutionError(f"{err.__class__}: {err}") from err
+
+    # Ensure trailing newline so callers can concatenate certificate
+    # and ca_chain entries without corrupting PEM boundaries.
+    if not data["certificate"].endswith("\n"):
+        data["certificate"] += "\n"
+
+    if serial == "ca_chain":
+        return data
+
+    # Vault may omit issuer_id and the immediate issuer cert from ca_chain.
+    # Resolve the signing issuer and rebuild a complete chain.
+    if serial in ("ca", "crl"):
+        # These special values always reference the default issuer
+        issuer_ref = "default"
+    else:
+        # Prefer explicit issuer_id, which is only set for revoked certificates.
+        # Otherwise, iterate over all issuers and find the most fitting one.
+        # Newer Vault versions include authority_key_id in the response, OpenBao does not.
+        issuer_ref = data.get("issuer_id") or _find_signing_issuer(
+            data["certificate"], authority_key_id=data.get("authority_key_id"), mount=mount
+        )
+    # Do not fall back to default issuer, it has been checked already.
+    if not issuer_ref:
+        raise CommandExecutionError("Failed to determine cert issuer")
+    issuer_data = read_issuer(ref=issuer_ref, mount=mount)
+    if not issuer_data:
+        raise CommandExecutionError(f"Failed to lookup issuer `{issuer_ref}`")
+    chain = issuer_data["ca_chain"]
+    issuer_cert = issuer_data["certificate"]
+    if issuer_cert not in chain:
+        chain.insert(0, issuer_cert)
+    data["ca_chain"] = chain
+
+    return data
+
+
+def _find_signing_issuer(leaf_pem, authority_key_id=None, mount="pki"):
+    """
+    Find the configured issuer whose certificate SubjectKeyIdentifier matches the
+    certificate's AuthorityKeyIdentifier. Returns the matching ``issuer_id`` or ``None``.
+    """
+    if not HAS_X509UTIL:
+        return None
+    try:
+        leaf = x509util.load_cert(leaf_pem)
+    except (SaltInvocationError, CommandExecutionError):
+        return None
+    if not authority_key_id:
+        try:
+            authority_key_id = leaf.extensions.get_extension_for_class(
+                x509util.cx509.AuthorityKeyIdentifier
+            ).value.key_identifier
+        except x509util.cx509.ExtensionNotFound:
+            return None
+    if not isinstance(authority_key_id, bytes):
+        authority_key_id = bytes.fromhex(authority_key_id.replace(":", ""))
+    try:
+        issuers = list_issuers(mount=mount)
+    except CommandExecutionError as err:
+        log.error(str(err), exc_info_on_loglevel=logging.DEBUG)
+        return None
+    candidates = []
+    now = datetime.now(tz=timezone.utc)
+    for issuer_id in issuers:
+        try:
+            issuer_data = read_issuer(ref=issuer_id, mount=mount)
+        except CommandExecutionError:
+            continue
+        if not issuer_data or "certificate" not in issuer_data:
+            continue
+        try:
+            issuer_cert = x509util.load_cert(issuer_data["certificate"])
+        except (SaltInvocationError, CommandExecutionError):
+            continue
+        try:
+            issuer_ski = issuer_cert.extensions.get_extension_for_class(
+                x509util.cx509.SubjectKeyIdentifier
+            ).value.key_identifier
+        except x509util.cx509.ExtensionNotFound:
+            continue
+        if issuer_ski != authority_key_id:
+            continue
+        try:
+            leaf.verify_directly_issued_by(issuer_cert)  # requires cryptography >=40
+        except (ValueError, TypeError, x509util.InvalidSignature):
+            continue
+        candidates.append((issuer_id, issuer_data, issuer_cert))
+
+    for predicate in (
+        lambda c: not c[1].get("revoked"),
+        lambda c: c[2].not_valid_after_utc > now >= c[2].not_valid_before_utc,
+    ):
+        filtered = [c for c in candidates if predicate(c)]
+        if filtered:
+            candidates = filtered
+    if len(candidates) > 1:
+        default = read_issuer("default", mount=mount)
+        if default:
+            for cand in candidates:
+                if cand[0] == default["issuer_id"]:
+                    return cand[0]
+    if candidates:
+        return candidates[0][0]
+    return None
 
 
 def issue_certificate(
@@ -1081,17 +1233,20 @@ def _split_sans(sans) -> tuple[list, list, list, list]:
 
     try:
         if isinstance(sans, list):
-            sans = dict(map(lambda x: x.split(":", 1), sans))
+            dic = {}
+            for typ, val in map(lambda x: x.split(":", 1), sans):
+                dic.setdefault(typ, []).append(val)
+            sans = dic
 
         for k, v in sans.items():
             if k.upper() == "DNS" or k.upper() == "EMAIL":
-                dns_sans.append(v)
+                dns_sans.extend(v)
             elif k.upper() == "IP":
-                ip_sans.append(v)
+                ip_sans.extend(v)
             elif k.upper() == "URI":
-                uri_sans.append(v)
+                uri_sans.extend(v)
             else:
-                other_sans.append(f"{k};UTF8:{v}")
+                other_sans.extend(f"{k};UTF8:{vv}" for vv in v)
     except ValueError as err:
         raise CommandExecutionError(
             f"SAN is not in correct format. Must be in format <type>:<value>: {err}"

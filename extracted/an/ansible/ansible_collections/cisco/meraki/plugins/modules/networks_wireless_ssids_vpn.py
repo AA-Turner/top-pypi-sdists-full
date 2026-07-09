@@ -2,8 +2,7 @@
 # -*- coding: utf-8 -*-
 
 # Copyright (c) 2021, Cisco Systems
-# GNU General Public License v3.0+ (see LICENSE or
-# https://www.gnu.org/licenses/gpl-3.0.txt)
+# GNU General Public License v3.0+ (see LICENSE or https://www.gnu.org/licenses/gpl-3.0.txt)
 
 DOCUMENTATION = r"""
 module: networks_wireless_ssids_vpn
@@ -20,7 +19,7 @@ options:
     description: The VPN concentrator settings for this SSID.
     suboptions:
       networkId:
-        description: The network ID of the concentrator that should be set.
+        description: The NAT ID of the concentrator that should be set.
         type: str
       vlanId:
         description: The VLAN that should be tagged for the concentrator.
@@ -116,6 +115,7 @@ EXAMPLES = r"""
     meraki_inherit_logging_config: "{{ meraki_inherit_logging_config }}"
     state: present
     concentrator:
+      name: some concentrator name
       networkId: N_123
       vlanId: 44
     failover:
@@ -132,6 +132,10 @@ EXAMPLES = r"""
           destPort: any
           policy: allow
           protocol: Any
+        - comment: split tunnel rule 2
+          destCidr: foo.com
+          destPort: any
+          policy: deny
 """
 RETURN = r"""
 meraki_response:
@@ -139,28 +143,5 @@ meraki_response:
   returned: always
   type: dict
   sample: >
-    {
-      "concentrator": {
-        "networkId": "string",
-        "vlanId": 0,
-        "name": "string"
-      },
-      "failover": {
-        "requestIp": "string",
-        "heartbeatInterval": 0,
-        "idleTimeout": 0
-      },
-      "splitTunnel": {
-        "enabled": true,
-        "rules": [
-          {
-            "protocol": "string",
-            "destCidr": "string",
-            "destPort": "string",
-            "policy": "string",
-            "comment": "string"
-          }
-        ]
-      }
-    }
+    {}
 """

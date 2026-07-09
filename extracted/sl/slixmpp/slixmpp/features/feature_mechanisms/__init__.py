@@ -1,4 +1,3 @@
-
 # Slixmpp: The Slick XMPP Library
 # Copyright (C) 2011  Nathanael C. Fritz
 # This file is part of Slixmpp.
@@ -13,3 +12,5 @@ from slixmpp.features.feature_mechanisms.stanza import Failure
 
 
 register_plugin(FeatureMechanisms)
+
+__all__ = ['FeatureMechanisms', 'Mechanisms', 'Auth', 'Success', 'Failure']

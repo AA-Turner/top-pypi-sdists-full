@@ -28,38 +28,30 @@ Example:
 from __future__ import annotations
 
 import asyncio
-from dataclasses import replace
+from dataclasses import dataclass, replace
 from datetime import UTC, datetime
 import json
 import os
 from pathlib import Path
-import platform
 import re
-import shlex
-import subprocess
-import time
 from typing import TYPE_CHECKING, Any
 
 import anyio
 from rich.console import Console
 
-from ouroboros.core.seed_contract_prompt import render_auto_recursion_guard
+from ouroboros.core.seed import AcceptanceCriterionSpec, ac_text
 from ouroboros.observability.logging import get_logger
+from ouroboros.orchestrator.ac_runtime_handle_manager import ACRuntimeHandleManager
 from ouroboros.orchestrator.adapter import (
     AgentMessage,
     RuntimeHandle,
-    runtime_handle_tool_catalog,
+)
+from ouroboros.orchestrator.atomic_prompt_builder import (
+    AtomicPromptBuilder,
+    _build_success_contract_block,  # noqa: F401  (re-exported for tests/back-compat)
 )
 from ouroboros.orchestrator.backend_limits import resolve_backend_limits
-from ouroboros.orchestrator.capabilities import (
-    build_capability_graph,
-    serialize_capability_graph,
-)
 from ouroboros.orchestrator.context_governor import SiblingStatus, compose_context
-from ouroboros.orchestrator.control_plane import (
-    build_control_plane_state,
-    serialize_control_plane_state,
-)
 from ouroboros.orchestrator.coordinator import CoordinatorReview, LevelCoordinator
 from ouroboros.orchestrator.decomposition_params import (
     build_decomposition_system_prompt,
@@ -67,9 +59,143 @@ from ouroboros.orchestrator.decomposition_params import (
     params_from_profile,
 )
 from ouroboros.orchestrator.effort_routing import resolve_execute_effort
-from ouroboros.orchestrator.events import (
-    create_ac_stall_detected_event,
-    create_heartbeat_event,
+from ouroboros.orchestrator.events import create_ac_stall_detected_event
+from ouroboros.orchestrator.evidence.ac_classification import (  # noqa: F401
+    _CODE_IMPLEMENTATION_ACTION_RE,
+    _CODE_MUTATION_ACTION_RE,
+    _CODE_WORK_SIGNAL_RE,
+    _DOC_ONLY_ACTION_RE,
+    _DOC_ONLY_TARGET_RE,
+    _DOCS_TEST_REFERENCE_RE,
+    _EXISTING_VALIDATION_RE,
+    _NO_MUTATION_VALIDATION_RE,
+    _TEST_MUTATION_WORK_RE,
+    _TEST_WORK_RE,
+    _VALIDATION_ONLY_ACTION_RE,
+    _VALIDATION_ONLY_TEST_SIGNAL_RE,
+    _effective_evidence_schema_for_ac,
+    _has_mixed_code_and_documentation_work,
+    _has_mixed_test_and_documentation_work,
+    _has_mixed_validation_and_documentation_work,
+    _is_documentation_only_ac,
+    _is_validation_only_ac,
+    _out_of_scope_evidence_fields_for_ac,
+    _out_of_scope_evidence_values_for_ac,
+    _profile_with_evidence_schema,
+    _scoped_evidence_record_for_ac,
+)
+from ouroboros.orchestrator.evidence.claims import (  # noqa: F401
+    _bash_command_mutates_file_reference,
+    _file_claim_matches_runtime_path,
+    _file_reference_pattern,
+    _runtime_command_value_to_text,
+    _runtime_message_command_values,
+    _runtime_message_file_path_values,
+    _runtime_message_file_proof_text,
+    _runtime_message_has_following_success,
+    _runtime_message_has_success_evidence,
+    _runtime_message_has_success_signal,
+    _runtime_message_search_text,
+    _runtime_message_supports_command_claim,
+    _runtime_message_supports_file_reference,
+    _runtime_messages_have_masked_test_command_form,
+    _runtime_messages_support_claim,
+    _runtime_messages_support_command_claim,
+    _runtime_messages_support_file_claim,
+    _runtime_support_messages_for_field,
+    _text_supports_file_mutation_reference,
+    _workspace_relative_file_claim,
+)
+from ouroboros.orchestrator.evidence.common import (  # noqa: F401
+    _MAX_LEAF_RESULT_CHARS,
+    _flatten_evidence_values,
+    _normalize_command,
+    _normalize_exact_command,
+    _normalized_evidence_text,
+    _truncate_text,
+)
+from ouroboros.orchestrator.evidence.formatting import (  # noqa: F401
+    _build_governed_parent_summary,
+    _extract_leaf_evidence_lines,
+    _render_ac_section,
+    _subtask_event_label,
+)
+from ouroboros.orchestrator.evidence.runtime_metadata import (  # noqa: F401
+    _AC_RUNTIME_OWNERSHIP_METADATA_KEYS,
+    _AC_RUNTIME_RESUME_METADATA_KEYS,
+    _AC_RUNTIME_SCOPE_METADATA_KEYS,
+    _NON_REUSABLE_RUNTIME_EVENT_TYPES,
+    _REUSABLE_RUNTIME_EVENT_TYPES,
+    _SIBLING_HEADLINE_CHARS,
+    _STALL_SENTINEL,
+    HEARTBEAT_INTERVAL_SECONDS,
+    MAX_STALL_RETRIES,
+    STALL_TIMEOUT_SECONDS,
+    _SiblingACRef,
+)
+from ouroboros.orchestrator.evidence.shell_parsing import (  # noqa: F401
+    _OUTPUT_FILTER_COMMANDS,
+    _TRAILING_REDIRECT_RE,
+    _has_gradle_or_maven_test_skip,
+    _has_trailing_output_filter_pipeline,
+    _is_env_assignment,
+    _is_pipefail_parts,
+    _is_pipefail_preamble,
+    _is_safe_test_command_preamble,
+    _looks_like_test_command,
+    _looks_like_unittest_command,
+    _normalized_command_claim_aliases,
+    _normalized_shell_words_text,
+    _output_filter_pipeline_is_pipefail_protected,
+    _runtime_command_evidence_aliases,
+    _segments_after_safe_shell_preamble,
+    _segments_after_safe_shell_preamble_with_pipefail,
+    _shell_command_body,
+    _single_command_after_safe_shell_preamble,
+    _single_exact_command_after_safe_shell_preamble,
+    _strip_command_output_plumbing,
+    _strip_env_prefix,
+    _test_command_invocation,
+    _test_command_invocation_allowing_output_plumbing,
+    _test_invocation_from_prefix,
+    _test_invocation_from_shell_body,
+    _unittest_command_invocation,
+    _uses_pipefail,
+)
+from ouroboros.orchestrator.evidence.system import (  # noqa: F401
+    _MEMORY_CHECK_INTERVAL_SECONDS,
+    _MEMORY_WAIT_MAX_SECONDS,
+    _MIN_FREE_MEMORY_GB,
+    _get_available_memory_gb,
+)
+from ouroboros.orchestrator.evidence.test_detection import (  # noqa: F401
+    _claim_contains_command_success_summary,
+    _claim_summary_matches_runtime_chunk,
+    _is_tool_result_message,
+    _message_contains_test_success,
+    _runtime_message_test_proof_text,
+    _runtime_messages_have_masked_test_command_for_test_claim,
+    _runtime_messages_support_test_claim,
+    _successful_runtime_test_commands,
+    _test_claim_file_part,
+    _test_command_targets_claim,
+    _text_contains_test_success,
+    _text_contains_unittest_success,
+)
+from ouroboros.orchestrator.evidence.typed_evidence import (  # noqa: F401
+    _add_runtime_command_evidence,
+    _complete_sibling_acs_from_evidence,
+    _criterion_inline_code_values,
+    _criterion_is_exact_command_pass_ac,
+    _criterion_is_exact_command_run_ac,
+    _criterion_is_exact_file_presence_ac,
+    _criterion_satisfied_by_evidence,
+    _evidence_values_from_result,
+    _typed_evidence_is_usable_for_sibling_reconciliation,
+    _typed_file_evidence_proves_current_existence,
+)
+from ouroboros.orchestrator.evidence.verification import (
+    _verify_atomic_evidence_against_runtime_messages,
 )
 from ouroboros.orchestrator.evidence_schema import (
     EvidenceError,
@@ -79,21 +205,22 @@ from ouroboros.orchestrator.evidence_schema import (
     extract_evidence,
     validate_evidence,
 )
+from ouroboros.orchestrator.execution_event_emitter import ExecutionEventEmitter
 from ouroboros.orchestrator.execution_runtime_scope import (
     ACRuntimeIdentity,
     ExecutionNodeIdentity,
     build_ac_runtime_identity,
-    build_ac_runtime_scope,
-    build_level_coordinator_runtime_scope,
+)
+from ouroboros.orchestrator.leaf_dispatcher import (
+    LeafDispatcher,
+    LeafDispatchState,
 )
 from ouroboros.orchestrator.level_context import (
     LevelContext,
-    build_context_prompt,
     deserialize_level_contexts,
     extract_level_context,
     serialize_level_contexts,
 )
-from ouroboros.orchestrator.mcp_tools import serialize_tool_catalog
 from ouroboros.orchestrator.parallel_executor_models import (
     ACExecutionOutcome,
     ACExecutionResult,
@@ -101,21 +228,12 @@ from ouroboros.orchestrator.parallel_executor_models import (
     ParallelExecutionStageResult,
     StageExecutionOutcome,
 )
-from ouroboros.orchestrator.policy import (
-    PolicyContext,
-    PolicyExecutionPhase,
-    PolicySessionRole,
-    evaluate_capability_policy,
-)
-from ouroboros.orchestrator.profile_loader import EvidenceSchema, ExecutionProfile
+from ouroboros.orchestrator.profile_loader import ExecutionProfile
 from ouroboros.orchestrator.rate_limit import (
     RateLimitBackoff,
     RateLimitGate,
     build_rate_limit_gate,
     estimate_runtime_request_tokens,
-)
-from ouroboros.orchestrator.runtime_message_projection import (
-    project_runtime_message,
 )
 from ouroboros.orchestrator.runtime_param_negotiation import (
     announce_execution_param_degradations,
@@ -147,2152 +265,37 @@ MIN_SUB_ACS = 2
 MAX_SUB_ACS = 5
 DECOMPOSITION_TIMEOUT_SECONDS = 60.0
 _IMPLEMENTATION_SESSION_KIND = "implementation_session"
+_VERIFY_OUTPUT_TAIL_CHARS = 2000  # How much verify-command output to attach
 
 
-_DOC_ONLY_TARGET_RE = re.compile(
-    r"\b(readme(?:\.md)?|docs?/|docs?\.[a-z0-9_-]+|documentation|guide|manual|changelog)\b",
-    re.IGNORECASE,
-)
-_DOC_ONLY_ACTION_RE = re.compile(
-    r"\b(document|describe|explain|add|update|create|fix|write|improve)\b",
-    re.IGNORECASE,
-)
-_CODE_IMPLEMENTATION_ACTION_RE = re.compile(
-    r"\b(implement|build|develop|ship)\b",
-    re.IGNORECASE,
-)
-_CODE_MUTATION_ACTION_RE = re.compile(
-    r"\b(add(?:ing)?|fix(?:ing)?|create|creating|update|updating|change|changing|modify|modifying|refactor(?:ing)?|repair(?:ing)?)\b",
-    re.IGNORECASE,
-)
-_CODE_WORK_SIGNAL_RE = re.compile(
-    r"("
-    r"\b[a-zA-Z_][a-zA-Z0-9_]*\s*\("
-    r"|"
-    r"\.(?:py|pyi|js|jsx|ts|tsx|go|rs|java|kt|c|cc|cpp|h|hpp|swift|rb|php|sh|zsh|fish)\b"
-    r"|"
-    r"\b(parser|function|module|api|endpoint|class|method|cli\s+flag|flag|command|"
-    r"bug|runtime|workflow|validator|validation|implementation)\b"
-    r")",
-    re.IGNORECASE,
-)
-_TEST_WORK_RE = re.compile(
-    r"("
-    r"\b(?:run|execute|pass|validate|verify)\b.{0,40}\b(?:pytest|tests?|unit\s+tests?|integration\s+tests?)\b"
-    r"|"
-    r"\b(?:add|write|create|implement|fix|update)\b.{0,40}\b"
-    r"(?:tests?|unit\s+tests?|integration\s+tests?)\b"
-    r"(?!\s+(?:guide|docs?|documentation|setup))"
-    r"|"
-    r"\b(?:pytest|tests_passed|test\s+command)\b"
-    r")",
-    re.IGNORECASE,
-)
-_TEST_MUTATION_WORK_RE = re.compile(
-    r"("
-    r"\b(?:add|write|create|implement|fix|update|extend|expand)\b.{0,60}\b"
-    r"(?:tests?|unit\s+tests?|integration\s+tests?|coverage|test_[\w.-]+\.py)\b"
-    r"|"
-    r"\b(?:tests?|unit\s+tests?|integration\s+tests?|test_[\w.-]+\.py)\b.{0,60}\b"
-    r"(?:cover|coverage)\b"
-    r"|"
-    r"\bcheck(?:ed)?\s+(?:(?:the|existing|current|new|added|updated)\s+){0,3}"
-    r"(?:tests?|unit\s+tests?|integration\s+tests?|test_[\w.-]+\.py)"
-    r"\s+into\b"
-    r"|"
-    r"\bcheck\s+in\b.{0,60}\b"
-    r"(?:tests?|unit\s+tests?|integration\s+tests?|test_[\w.-]+\.py)\b"
-    r")",
-    re.IGNORECASE,
-)
-_DOCS_TEST_REFERENCE_RE = re.compile(
-    r"("
-    r"\b(?:document(?:ing)?|guide|manual|instructions?|usage|setup|how\s+to|verification)\b"
-    r".{0,100}\b(?:test\s+command|python\s+-m\s+unittest|pytest|tests?|unit\s+tests?|test\s+setup)\b"
-    r"|"
-    r"\b(?:test\s+command|python\s+-m\s+unittest|pytest|tests?|unit\s+tests?|test\s+setup)\b"
-    r".{0,100}\b(?:document(?:ing)?|guide|manual|instructions?|usage|setup|how\s+to|verification)\b"
-    r")",
-    re.IGNORECASE,
-)
-_NO_MUTATION_VALIDATION_RE = re.compile(
-    r"("
-    r"\bwithout\s+(?:modifying|changing|editing|writing|updating|touching)\b"
-    r"|"
-    r"\bwith\s+no\s+(?:file|code)?\s*(?:modifications?|changes?|edits?|updates?)\b"
-    r"|"
-    r"\bno\s+(?:file|code)?\s*(?:modifications?|changes?|edits?|updates?)\b"
-    r"|"
-    r"\bdo\s+not\s+(?:modify|change|edit|write|update|touch)\b"
-    r")",
-    re.IGNORECASE,
-)
-_EXISTING_VALIDATION_RE = re.compile(
-    r"\b(?:existing|current|already(?:-|\s+)?satisfied|already(?:-|\s+)?implemented)\b",
-    re.IGNORECASE,
-)
-_VALIDATION_ONLY_ACTION_RE = re.compile(
-    r"\b(?:run|execute|pass|validate|verify|ensure|confirm|check)\b",
-    re.IGNORECASE,
-)
-_VALIDATION_ONLY_TEST_SIGNAL_RE = re.compile(
-    r"\b(?:pytest|unit\s+tests?|integration\s+tests?|tests?|test suite|"
-    r"test_[\w.-]+\.py|python\s+-m\s+unittest)\b",
-    re.IGNORECASE,
-)
+@dataclass(frozen=True)
+class _VerifyGateOutcome:
+    """Outcome of the orchestrator-run AC success-contract gate (PR-V V1)."""
+
+    passed: bool
+    reason: str | None
+    output_tail: str
+    missing_artifacts: tuple[str, ...] = ()
 
 
-def _has_mixed_code_and_documentation_work(ac_content: str) -> bool:
-    """Return True when one AC appears to combine code mutation and docs work."""
-    for connector in re.finditer(
-        r"\b(?:and|then|while|plus)\b|[,;:]",
-        ac_content,
-        re.IGNORECASE,
-    ):
-        before = ac_content[: connector.start()]
-        after = ac_content[connector.end() :]
-        before_has_docs = bool(_DOC_ONLY_TARGET_RE.search(before))
-        after_has_docs = bool(_DOC_ONLY_TARGET_RE.search(after))
-        before_has_code_work = bool(
-            _CODE_MUTATION_ACTION_RE.search(before) and _CODE_WORK_SIGNAL_RE.search(before)
-        )
-        after_has_code_work = bool(
-            _CODE_MUTATION_ACTION_RE.search(after) and _CODE_WORK_SIGNAL_RE.search(after)
-        )
-        if after_has_docs and not before_has_docs and before_has_code_work:
-            return True
-        if before_has_docs and not after_has_docs and after_has_code_work:
-            return True
-    return False
+def _missing_expected_artifacts(artifacts: tuple[str, ...], cwd: str) -> tuple[str, ...]:
+    """Return the expected artifacts absent relative to ``cwd``.
 
-
-def _has_mixed_test_and_documentation_work(ac_content: str) -> bool:
-    """Return True when one AC appears to combine test mutation and docs work."""
-    for connector in re.finditer(
-        r"\b(?:and|then|while|plus)\b|[,;:]",
-        ac_content,
-        re.IGNORECASE,
-    ):
-        before = ac_content[: connector.start()]
-        after = ac_content[connector.end() :]
-        before_has_docs = bool(_DOC_ONLY_TARGET_RE.search(before))
-        after_has_docs = bool(_DOC_ONLY_TARGET_RE.search(after))
-        before_has_test_work = bool(_TEST_MUTATION_WORK_RE.search(before))
-        after_has_test_work = bool(_TEST_MUTATION_WORK_RE.search(after))
-        if after_has_docs and not before_has_docs and before_has_test_work:
-            return True
-        if before_has_docs and not after_has_docs and after_has_test_work:
-            return True
-    return False
-
-
-def _has_mixed_validation_and_documentation_work(ac_content: str) -> bool:
-    """Return True when one AC appears to combine docs work and test execution."""
-    for connector in re.finditer(
-        r"\b(?:and|then|while|plus)\b|[,;:]",
-        ac_content,
-        re.IGNORECASE,
-    ):
-        before = ac_content[: connector.start()]
-        after = ac_content[connector.end() :]
-        before_has_docs = bool(_DOC_ONLY_TARGET_RE.search(before))
-        after_has_docs = bool(_DOC_ONLY_TARGET_RE.search(after))
-        before_has_validation = bool(
-            _VALIDATION_ONLY_ACTION_RE.search(before)
-            and _VALIDATION_ONLY_TEST_SIGNAL_RE.search(before)
-        )
-        after_has_validation = bool(
-            _VALIDATION_ONLY_ACTION_RE.search(after)
-            and _VALIDATION_ONLY_TEST_SIGNAL_RE.search(after)
-        )
-        if after_has_docs and not before_has_docs and before_has_validation:
-            return True
-        if before_has_docs and not after_has_docs and after_has_validation:
-            return True
-    return False
-
-
-def _is_documentation_only_ac(ac_content: str) -> bool:
-    """Return True when an AC asks only for documentation/README work.
-
-    The code profile normally requires runnable test evidence. Normal usage can
-    still include a final docs-only AC (for example README usage examples after
-    code ACs already passed). Such an AC should be verified by docs evidence
-    from the current runtime session, not by re-claiming prior code test IDs.
+    Each entry must resolve to an existing file or directory under ``cwd``.
+    Absolute paths and ``..`` escapes are rejected — treated as missing with the
+    escape named — so a contract cannot be satisfied by files outside the run
+    workspace.
     """
-    normalized = " ".join(ac_content.split())
-    if not normalized:
-        return False
-    has_docs_target = bool(_DOC_ONLY_TARGET_RE.search(normalized))
-    has_docs_action = bool(_DOC_ONLY_ACTION_RE.search(normalized))
-    documents_test_reference = (
-        has_docs_target and has_docs_action and bool(_DOCS_TEST_REFERENCE_RE.search(normalized))
-    )
-    if documents_test_reference and _has_mixed_validation_and_documentation_work(normalized):
-        return False
-    if _TEST_MUTATION_WORK_RE.search(normalized) and (
-        not documents_test_reference or _has_mixed_test_and_documentation_work(normalized)
-    ):
-        return False
-    if _TEST_WORK_RE.search(normalized) and not documents_test_reference:
-        return False
-    if _CODE_IMPLEMENTATION_ACTION_RE.search(normalized):
-        return False
-    if _has_mixed_code_and_documentation_work(normalized):
-        return False
-    if (
-        re.search(r"\bdocumentation\b", normalized, re.IGNORECASE)
-        and _CODE_MUTATION_ACTION_RE.search(normalized)
-        and _CODE_WORK_SIGNAL_RE.search(normalized)
-        and not re.search(
-            r"\b(readme(?:\.md)?|docs?/|docs?\.[a-z0-9_-]+|guide|manual|changelog)\b",
-            normalized,
-            re.IGNORECASE,
-        )
-    ):
-        return False
-    return has_docs_target and has_docs_action
-
-
-def _is_validation_only_ac(ac_content: str) -> bool:
-    """Return True when an AC asks only to run or verify tests.
-
-    Test-writing ACs still require ``files_touched``; validation-only ACs are
-    allowed to prove completion with command/test evidence and no file mutation.
-    """
-    normalized = " ".join(ac_content.split())
-    if not normalized:
-        return False
-    if _is_documentation_only_ac(normalized):
-        return False
-    if _DOC_ONLY_TARGET_RE.search(normalized) and _DOC_ONLY_ACTION_RE.search(normalized):
-        return False
-    stripped_no_mutation_terms = _NO_MUTATION_VALIDATION_RE.sub("", normalized)
-    if _TEST_MUTATION_WORK_RE.search(normalized):
-        return False
-    if _CODE_MUTATION_ACTION_RE.search(stripped_no_mutation_terms) and _CODE_WORK_SIGNAL_RE.search(
-        stripped_no_mutation_terms
-    ):
-        return False
-    if _CODE_IMPLEMENTATION_ACTION_RE.search(stripped_no_mutation_terms):
-        return False
-    if _has_mixed_code_and_documentation_work(stripped_no_mutation_terms):
-        return False
-    if (
-        (
-            _NO_MUTATION_VALIDATION_RE.search(normalized)
-            or _EXISTING_VALIDATION_RE.search(normalized)
-        )
-        and _VALIDATION_ONLY_ACTION_RE.search(normalized)
-        and _VALIDATION_ONLY_TEST_SIGNAL_RE.search(normalized)
-    ):
-        return True
-    return bool(_VALIDATION_ONLY_ACTION_RE.search(normalized)) and bool(
-        _VALIDATION_ONLY_TEST_SIGNAL_RE.search(normalized)
-    )
-
-
-def _effective_evidence_schema_for_ac(
-    profile: ExecutionProfile,
-    ac_content: str,
-) -> EvidenceSchema:
-    """Return the active evidence schema for one atomic AC dispatch."""
-    schema = profile.evidence_schema
-    if _is_validation_only_ac(ac_content) and "files_touched" in schema.required:
-        required = tuple(field for field in schema.required if field != "files_touched")
-        rejected_if = tuple(
-            expr for expr in schema.rejected_if if not expr.strip().startswith("files_touched")
-        )
-        return EvidenceSchema(required=required, rejected_if=rejected_if)
-    if not _is_documentation_only_ac(ac_content) or "tests_passed" not in schema.required:
-        return schema
-    required = tuple(field for field in schema.required if field != "tests_passed")
-    rejected_if = tuple(
-        expr for expr in schema.rejected_if if not expr.strip().startswith("tests_passed")
-    )
-    return EvidenceSchema(required=required, rejected_if=rejected_if)
-
-
-def _out_of_scope_evidence_fields_for_ac(
-    profile: ExecutionProfile,
-    ac_content: str,
-    record: EvidenceRecord | None,
-) -> tuple[str, ...]:
-    """Return non-empty evidence fields excluded by the AC-specific schema."""
-    if record is None:
-        return ()
-    effective_schema = _effective_evidence_schema_for_ac(profile, ac_content)
-    required_fields = set(effective_schema.required)
-    return tuple(
-        field
-        for field in profile.evidence_schema.required
-        if field not in required_fields and _flatten_evidence_values(record.get(field))
-    )
-
-
-def _out_of_scope_evidence_values_for_ac(
-    profile: ExecutionProfile,
-    ac_content: str,
-    record: EvidenceRecord | None,
-) -> dict[str, Any]:
-    """Return out-of-scope evidence values retained for audit metadata only."""
-    if record is None:
-        return {}
-    fields = _out_of_scope_evidence_fields_for_ac(profile, ac_content, record)
-    return {field: record.data[field] for field in fields if field in record.data}
-
-
-def _scoped_evidence_record_for_ac(
-    profile: ExecutionProfile,
-    ac_content: str,
-    record: EvidenceRecord,
-) -> EvidenceRecord:
-    """Return only evidence fields inside the AC-specific schema."""
-    effective_schema = _effective_evidence_schema_for_ac(profile, ac_content)
-    allowed_fields = set(effective_schema.required)
-    return EvidenceRecord(
-        data={field: value for field, value in record.data.items() if field in allowed_fields},
-        source=record.source,
-    )
-
-
-def _profile_with_evidence_schema(
-    profile: ExecutionProfile,
-    schema: EvidenceSchema,
-) -> ExecutionProfile:
-    """Return a shallow profile copy using an AC-specific evidence schema."""
-    required_fields = set(schema.required)
-    must_produce = tuple(field for field in profile.must_produce if field in required_fields)
-    return profile.model_copy(update={"evidence_schema": schema, "must_produce": must_produce})
-
-
-def _subtask_event_label(content: str, *, max_length: int = 50) -> str:
-    """Return compact display text without losing full event content."""
-    normalized = " ".join(content.split())
-    if len(normalized) <= max_length:
-        return normalized
-    return normalized[:max_length]
-
-
-def _flatten_evidence_values(value: object) -> tuple[str, ...]:
-    """Return concrete string claims from a typed evidence field."""
-    if value is None:
-        return ()
-    if isinstance(value, str):
-        stripped = value.strip()
-        return (stripped,) if stripped else ()
-    if isinstance(value, (int, float, bool)):
-        return (str(value),)
-    if isinstance(value, dict):
-        flattened: list[str] = []
-        for item in value.values():
-            flattened.extend(_flatten_evidence_values(item))
-        return tuple(flattened)
-    if isinstance(value, (list, tuple, set)):
-        flattened_sequence: list[str] = []
-        for item in value:
-            flattened_sequence.extend(_flatten_evidence_values(item))
-        return tuple(flattened_sequence)
-    return (str(value),)
-
-
-def _runtime_message_search_text(message: AgentMessage) -> str:
-    """Build searchable transcript text for one non-final runtime message."""
-    parts: list[str] = [message.content]
-    if message.tool_name:
-        parts.append(message.tool_name)
-    tool_input = message.data.get("tool_input")
-    if isinstance(tool_input, dict):
-        parts.extend(str(value) for value in tool_input.values() if value is not None)
-    parts.extend(_flatten_evidence_values(message.data))
-    return "\n".join(parts).lower()
-
-
-def _runtime_message_file_path_values(message: AgentMessage) -> tuple[str, ...]:
-    """Return explicit file path values carried by a runtime message.
-
-    Codex/OpenCode file-change events may report absolute workspace paths while
-    typed evidence should normally claim workspace-relative paths. Keep this
-    structured path extraction separate from broad text search so read-only text
-    mentions still cannot prove ``files_touched``.
-    """
-    path_keys = {
-        "file_path",
-        "filepath",
-        "filePath",
-        "notebook_path",
-        "notebookPath",
-        "path",
-        "target_file",
-        "targetFile",
-    }
-    values: list[str] = []
-
-    def visit(value: object) -> None:
-        if isinstance(value, dict):
-            for key, child in value.items():
-                if key in path_keys and isinstance(child, str) and child.strip():
-                    values.append(child.strip())
-                else:
-                    visit(child)
-        elif isinstance(value, (list, tuple)):
-            for child in value:
-                visit(child)
-
-    for container_key in ("tool_input", "input", "arguments", "args"):
-        visit(message.data.get(container_key))
-    return tuple(values)
-
-
-def _runtime_message_command_values(message: AgentMessage) -> tuple[str, ...]:
-    """Return explicit command strings carried by a runtime message.
-
-    Runtime adapters normalize shell calls slightly differently.  Codex-like
-    events usually expose ``tool_input.command``; Goose may expose ``cmd`` or a
-    list argv form.  Keep extraction structured, not prose-based, so command
-    evidence does not fall back to arbitrary assistant text.
-    """
-    values: list[str] = []
-    for container_key in ("tool_input", "input", "arguments", "args"):
-        container = message.data.get(container_key)
-        if not isinstance(container, dict):
+    root = Path(cwd).resolve()
+    missing: list[str] = []
+    for artifact in artifacts:
+        candidate = (root / artifact).resolve()
+        if not candidate.is_relative_to(root):
+            missing.append(f"{artifact} (escapes workspace)")
             continue
-        for command_key in ("command", "cmd", "command_line"):
-            command = container.get(command_key)
-            normalized = _runtime_command_value_to_text(command)
-            if normalized and normalized not in values:
-                values.append(normalized)
-    return tuple(values)
-
-
-def _runtime_command_value_to_text(value: object) -> str | None:
-    """Normalize a structured runtime command value into shell text."""
-    if isinstance(value, str) and value.strip():
-        return value.strip()
-    if isinstance(value, list) and value:
-        return shlex.join(str(part) for part in value)
-    return None
-
-
-def _file_claim_matches_runtime_path(
-    claim: str,
-    runtime_path: str,
-    *,
-    task_cwd: str | None,
-) -> bool:
-    """Return True when a claimed workspace path matches a runtime path value."""
-    claim_path = Path(claim.strip())
-    if not claim_path or claim_path.is_absolute() or ".." in claim_path.parts:
-        return False
-
-    runtime_path = runtime_path.strip()
-    if not runtime_path:
-        return False
-
-    runtime_candidate = Path(runtime_path)
-    if task_cwd is not None:
-        base = Path(task_cwd).resolve()
-        claimed_absolute = (base / claim_path).resolve()
-        runtime_absolute = (
-            runtime_candidate if runtime_candidate.is_absolute() else base / runtime_candidate
-        ).resolve()
-        try:
-            claimed_absolute.relative_to(base)
-            runtime_absolute.relative_to(base)
-        except ValueError:
-            return False
-        return runtime_absolute == claimed_absolute
-
-    normalized_claim = claim_path.as_posix().lower()
-    normalized_runtime = runtime_candidate.as_posix().lower()
-    return normalized_runtime == normalized_claim or normalized_runtime.endswith(
-        "/" + normalized_claim
-    )
-
-
-def _workspace_relative_file_claim(value: str, *, task_cwd: str | None) -> str | None:
-    """Normalize a files_touched claim to a workspace-relative path.
-
-    The evidence producer should emit workspace-relative paths, but live Codex
-    runs may still report absolute files under the disposable target repo.  Treat
-    those as the same claim only after proving they resolve inside ``task_cwd``.
-    Paths outside the workspace, empty paths, and relative traversal remain
-    unsupported evidence claims.
-    """
-    raw_value = value.strip()
-    if not raw_value or task_cwd is None:
-        return None
-
-    base = Path(task_cwd).resolve()
-    candidate = Path(raw_value)
-    if not candidate.is_absolute() and ".." in candidate.parts:
-        return None
-
-    resolved = (candidate if candidate.is_absolute() else base / candidate).resolve()
-    try:
-        relative = resolved.relative_to(base)
-    except ValueError:
-        return None
-
-    if not relative.parts or ".." in relative.parts:
-        return None
-    return relative.as_posix()
-
-
-def _runtime_support_messages_for_field(
-    field_name: str,
-    messages: tuple[AgentMessage, ...],
-) -> tuple[AgentMessage, ...]:
-    """Narrow support messages for profile-known evidence fields."""
-    normalized = field_name.lower()
-    if normalized == "files_touched":
-        return messages
-    if normalized in {"commands_run", "tests_passed"}:
-        return tuple(message for message in messages if message.tool_name == "Bash")
-    return messages
-
-
-def _runtime_messages_support_claim(value: str, messages: tuple[AgentMessage, ...]) -> bool:
-    """Return True when a non-final runtime message backs a claim string."""
-    needle = value.strip().lower()
-    return bool(needle) and any(
-        needle in _runtime_message_search_text(message) for message in messages
-    )
-
-
-def _runtime_message_supports_command_claim(value: str, message: AgentMessage) -> bool:
-    """Return True when one runtime message backs a command claim.
-
-    Codex commonly records the executed Bash command as a shell wrapper such as
-    ``/bin/zsh -lc 'cd /workspace && python -m unittest "test_hello.py"'``
-    while typed evidence may claim the inner test command.  Treat those as
-    equivalent only through the structured Bash command field; arbitrary output
-    text or assistant narration must not create command aliases.
-    """
-    if message.tool_name != "Bash":
-        return _runtime_messages_support_claim(value, (message,))
-    claim_aliases = set(_normalized_command_claim_aliases(value))
-    claim_test_invocation = _test_command_invocation(value)
-    for runtime_command in _runtime_message_command_values(message):
-        runtime_aliases = set(_normalized_command_claim_aliases(runtime_command))
-        if claim_aliases and runtime_aliases and claim_aliases.intersection(runtime_aliases):
-            return True
-
-        runtime_inner_command = _single_command_after_safe_shell_preamble(runtime_command)
-        if runtime_inner_command and runtime_inner_command in claim_aliases:
-            return True
-
-        runtime_test_invocation = _test_command_invocation(runtime_command)
-        if (
-            claim_test_invocation
-            and runtime_test_invocation
-            and (
-                runtime_test_invocation == claim_test_invocation
-                or runtime_test_invocation.startswith(claim_test_invocation + " ")
-            )
-        ):
-            return True
-    return False
-
-
-def _runtime_messages_support_command_claim(
-    value: str,
-    messages: tuple[AgentMessage, ...],
-) -> bool:
-    """Return True when runtime messages back a command claim."""
-    return any(_runtime_message_supports_command_claim(value, message) for message in messages)
-
-
-def _runtime_messages_have_masked_test_command_form(
-    value: str,
-    messages: tuple[AgentMessage, ...],
-) -> bool:
-    """Return True when a test command claim matches only after unsafe plumbing.
-
-    This deliberately does NOT prove the command claim. It distinguishes a real
-    transcript shape that failed the evidence contract (for example a test run
-    piped through ``tail`` without ``set -o pipefail``) from a fabrication where
-    no related test command appears at all.
-    """
-    claim_invocation = _test_command_invocation(value)
-    if claim_invocation is None:
-        return False
-    for message in messages:
-        if message.tool_name != "Bash":
-            continue
-        for runtime_command in _runtime_message_command_values(message):
-            if not _has_trailing_output_filter_pipeline(runtime_command):
-                continue
-            runtime_invocation = _test_command_invocation_allowing_output_plumbing(runtime_command)
-            if runtime_invocation is None:
-                continue
-            if runtime_invocation == claim_invocation or runtime_invocation.startswith(
-                claim_invocation + " "
-            ):
-                return True
-    return False
-
-
-def _runtime_messages_have_masked_test_command_for_test_claim(
-    *,
-    value: str,
-    messages: tuple[AgentMessage, ...],
-    task_cwd: str | None,
-) -> bool:
-    """Return True when a rejected test claim depends on masked test output.
-
-    This is diagnostic only. It lets the verifier classify a dependent
-    ``tests_passed`` failure with the same evidence-form mismatch as the
-    rejected ``commands_run`` claim, while still refusing to accept the masked
-    command as proof.
-    """
-    for index, message in enumerate(messages):
-        if message.tool_name != "Bash":
-            continue
-        masked_invocations: list[str] = []
-        for runtime_command in _runtime_message_command_values(message):
-            if not _has_trailing_output_filter_pipeline(runtime_command):
-                continue
-            runtime_invocation = _test_command_invocation_allowing_output_plumbing(runtime_command)
-            if runtime_invocation is not None:
-                masked_invocations.append(runtime_invocation)
-        if not masked_invocations:
-            continue
-
-        chunk = [message]
-        for following in messages[index + 1 :]:
-            if following.tool_name and not _is_tool_result_message(following):
-                break
-            chunk.append(following)
-        if not any(_message_contains_test_success(item) for item in chunk):
-            continue
-        chunk_text = "\n".join(_runtime_message_search_text(item) for item in chunk)
-        chunk_test_proof_text = "\n".join(_runtime_message_test_proof_text(item) for item in chunk)
-        if any(
-            _test_command_targets_claim(
-                command=command,
-                claim=value,
-                chunk_text=chunk_text,
-                chunk_test_proof_text=chunk_test_proof_text,
-                messages=messages,
-                task_cwd=task_cwd,
-            )
-            for command in masked_invocations
-        ):
-            return True
-    return False
-
-
-def _runtime_messages_support_file_claim(
-    value: str,
-    messages: tuple[AgentMessage, ...],
-    *,
-    task_cwd: str | None,
-) -> bool:
-    """Return True when runtime transcript evidence backs a workspace file claim.
-
-    Existence alone is not sufficient for ``files_touched``: a stale file in the
-    workspace must not prove that this run created or modified it. Exact
-    transcript support is preferred; basename support is accepted only when the
-    claimed relative path resolves inside the active workspace, which covers
-    tool outputs that report ``generated.py`` instead of ``src/generated.py``.
-    """
-    relative_claim = _workspace_relative_file_claim(value, task_cwd=task_cwd)
-    if relative_claim is None:
-        return False
-    candidate = Path(relative_claim)
-    base = Path(task_cwd).resolve()
-    resolved = (base / candidate).resolve()
-    if any(
-        _runtime_message_supports_file_reference(
-            relative_claim,
-            message,
-            messages=messages,
-            index=index,
-            task_cwd=task_cwd,
-        )
-        for index, message in enumerate(messages)
-    ):
-        return True
-    if not resolved.exists():
-        return False
-    basename = candidate.name.strip().lower()
-    return bool(basename) and any(
-        _runtime_message_supports_file_reference(
-            basename,
-            message,
-            messages=messages,
-            index=index,
-            task_cwd=task_cwd,
-            allow_bash_command_text=False,
-        )
-        for index, message in enumerate(messages)
-    )
-
-
-def _runtime_message_supports_file_reference(
-    reference: str,
-    message: AgentMessage,
-    *,
-    messages: tuple[AgentMessage, ...],
-    index: int,
-    task_cwd: str | None,
-    allow_bash_command_text: bool = True,
-) -> bool:
-    """Return True when one message plausibly reports touching a file reference."""
-    normalized_reference = reference.strip().lower()
-    if not normalized_reference:
-        return False
-    text = _runtime_message_file_proof_text(message)
-    if message.tool_name == "Bash":
-        return _text_supports_file_mutation_reference(text, normalized_reference) or (
-            allow_bash_command_text
-            and _bash_command_mutates_file_reference(message, normalized_reference)
-            and _runtime_message_has_success_evidence(message, messages=messages, index=index)
-        )
-    if message.tool_name in {"Edit", "Write", "NotebookEdit"}:
-        return any(
-            _file_claim_matches_runtime_path(reference, path, task_cwd=task_cwd)
-            for path in _runtime_message_file_path_values(message)
-        )
-    return _text_supports_file_mutation_reference(text, normalized_reference)
-
-
-def _text_supports_file_mutation_reference(text: str, normalized_reference: str) -> bool:
-    """Return True when text pairs a file reference with mutation language."""
-    if not text:
-        return False
-    reference_pattern = _file_reference_pattern(normalized_reference)
-    if not reference_pattern.search(text):
-        return False
-    return bool(
-        re.search(
-            rf"(?<![\w./-]){re.escape(normalized_reference)}(?![\w./-]).*\b("
-            r"updated|modified|changed|created|generated|wrote|written|patched"
-            r")\b|\b("
-            r"updated|modified|changed|created|generated|wrote|written|patched"
-            rf")\b.*(?<![\w./-]){re.escape(normalized_reference)}(?![\w./-])",
-            text,
-        )
-    )
-
-
-def _file_reference_pattern(normalized_reference: str) -> re.Pattern[str]:
-    """Return a conservative token pattern for a workspace-relative file reference."""
-    return re.compile(rf"(?<![\w./-]){re.escape(normalized_reference)}(?![\w./-])")
-
-
-def _bash_command_mutates_file_reference(message: AgentMessage, normalized_reference: str) -> bool:
-    """Return True for explicit shell writes to the referenced file.
-
-    Bash command text is only trusted when the command itself carries mutation
-    semantics for the claimed file. This preserves direct shell-edit evidence
-    such as ``touch src/generated.py`` or ``printf ... > src/generated.py``
-    without allowing read-only probes like ``grep updated src/generated.py`` to
-    prove ``files_touched`` merely by containing a path and a mutation word.
-    """
-    tool_input = message.data.get("tool_input")
-    if not isinstance(tool_input, dict):
-        return False
-    command = tool_input.get("command")
-    if not isinstance(command, str):
-        return False
-    normalized_command = command.strip().lower()
-    if not normalized_command:
-        return False
-    if not _file_reference_pattern(normalized_reference).search(normalized_command):
-        return False
-    quoted_reference = rf"['\"]?{re.escape(normalized_reference)}['\"]?"
-    if re.search(rf"(^|[\s;&|])(?:\d?>|&>|>>|\d>>)\s*{quoted_reference}", normalized_command):
-        return True
-    return bool(
-        re.search(
-            rf"(^|[\s;&|])(touch|truncate|tee)\b[^;&|]*\s{quoted_reference}(?=$|[\s;&|])",
-            normalized_command,
-        )
-        or re.search(
-            rf"(^|[\s;&|])(sed|perl)\b[^;&|]*\s-[^\s;&|]*i[^;&|]*\s"
-            rf"{quoted_reference}(?=$|[\s;&|])",
-            normalized_command,
-        )
-    )
-
-
-def _runtime_message_has_success_signal(message: AgentMessage) -> bool:
-    """Return True when one runtime message carries successful completion evidence."""
-    if message.is_error:
-        return False
-    exit_code = message.data.get("exit_code")
-    if isinstance(exit_code, int):
-        return exit_code == 0
-    if message.data.get("subtype") == "success":
-        return True
-    status = message.data.get("status")
-    if isinstance(status, str) and status.strip().lower() in {
-        "completed",
-        "success",
-        "succeeded",
-    }:
-        return True
-    text = "\n".join(
-        str(part)
-        for part in (
-            message.content,
-            message.data.get("result_preview"),
-            message.data.get("output"),
-            message.data.get("stdout"),
-            message.data.get("stderr"),
-        )
-        if isinstance(part, str)
-    ).lower()
-    return bool(re.search(r"\b(exit\s*code\s*0|completed|succeeded|success)\b", text))
-
-
-def _runtime_message_has_success_evidence(
-    message: AgentMessage,
-    *,
-    messages: tuple[AgentMessage, ...],
-    index: int,
-) -> bool:
-    """Return True when a tool-call message itself or its result proves success."""
-    if _runtime_message_has_success_signal(message):
-        return True
-    return _runtime_message_has_following_success(messages, index)
-
-
-def _runtime_message_has_following_success(messages: tuple[AgentMessage, ...], index: int) -> bool:
-    """Return True when a tool-call message is followed by a successful result."""
-    for candidate in messages[index + 1 :]:
-        if candidate.type == "tool":
-            return False
-        if candidate.is_error:
-            return False
-        if _runtime_message_has_success_signal(candidate):
-            return True
-    return False
-
-
-def _runtime_message_file_proof_text(message: AgentMessage) -> str:
-    """Return text that can prove a file was touched by the current run.
-
-    For Bash tool invocations, command text is not proof by itself: read-only
-    commands such as ``grep updated src/app.py`` can contain both the claimed
-    path and mutation verbs. Trust Bash result/output fields instead. Dedicated
-    edit/write tools still expose their tool inputs because their tool identity
-    supplies the mutation semantics.
-    """
-    if message.tool_name == "Bash":
-        parts: list[str] = []
-        for key in ("result_preview", "output", "stdout", "stderr"):
-            value = message.data.get(key)
-            if isinstance(value, str):
-                parts.append(value)
-        return "\n".join(parts).lower()
-    return _runtime_message_search_text(message)
-
-
-def _looks_like_test_command(command: str) -> bool:
-    """Return True for common whole-suite or targeted test invocations."""
-    return _test_command_invocation(command) is not None
-
-
-def _test_command_invocation(command: str) -> str | None:
-    """Return the backed inner test invocation for a direct or wrapped command.
-
-    Output plumbing (``2>&1``, ``| tail -20``) is peeled first so a clean
-    invocation can be extracted from a ``<cmd> 2>&1 | tail -20`` runtime
-    command. ``_strip_command_output_plumbing`` is deliberately narrow — only
-    presentation-only tails are peeled — so an evidence-altering filter such
-    as ``| grep passed`` survives the strip and is rejected downstream by
-    ``_test_invocation_from_prefix`` rather than being silently dropped.
-    """
-    normalized = command.strip().lower()
-    if not normalized:
-        return None
-
-    direct_candidate = _strip_command_output_plumbing(normalized)
-    if (
-        _has_trailing_output_filter_pipeline(normalized)
-        and not _output_filter_pipeline_is_pipefail_protected(normalized)
-        and _test_invocation_from_prefix(direct_candidate) is not None
-    ):
-        direct_candidate = normalized
-    direct = _test_invocation_from_prefix(direct_candidate)
-    if direct is not None:
-        return direct
-
-    body = _shell_command_body(normalized)
-    if body is None:
-        return None
-    return _test_invocation_from_shell_body(body)
-
-
-def _test_command_invocation_allowing_output_plumbing(command: str) -> str | None:
-    """Return a test invocation after stripping output plumbing unconditionally.
-
-    This must not be used as command proof. It exists only to classify rejected
-    evidence forms for diagnostics while preserving the #1208 masking guard.
-    """
-    normalized = command.strip().lower()
-    if not normalized:
-        return None
-    direct = _test_invocation_from_prefix(_strip_command_output_plumbing(normalized))
-    if direct is not None:
-        return direct
-    body = _shell_command_body(normalized)
-    if body is None:
-        return None
-    for segment, _pipefail_enabled in _segments_after_safe_shell_preamble_with_pipefail(body):
-        invocation = _test_invocation_from_prefix(_strip_command_output_plumbing(segment))
-        if invocation is not None:
-            return invocation
-        return None
-    return None
-
-
-def _shell_command_body(command: str) -> str | None:
-    """Return the ``-c`` body when the command starts with a shell wrapper."""
-    try:
-        parts = shlex.split(command)
-    except ValueError:
-        return None
-    if len(parts) < 3:
-        return None
-    shell_name = Path(parts[0]).name
-    if shell_name not in {"bash", "zsh", "sh"}:
-        return None
-    option_index = next(
-        (index for index, part in enumerate(parts[1:], start=1) if part in {"-c", "-lc", "-cl"}),
-        None,
-    )
-    if option_index is None or option_index + 1 >= len(parts):
-        return None
-    return parts[option_index + 1].strip()
-
-
-def _test_invocation_from_shell_body(body: str) -> str | None:
-    """Return a test invocation after conservative shell setup preambles."""
-    for segment, pipefail_enabled in _segments_after_safe_shell_preamble_with_pipefail(body):
-        candidate = _strip_command_output_plumbing(segment)
-        if (
-            _has_trailing_output_filter_pipeline(segment)
-            and not pipefail_enabled
-            and _test_invocation_from_prefix(candidate) is not None
-        ):
-            candidate = segment
-        invocation = _test_invocation_from_prefix(candidate)
-        if invocation is not None:
-            return invocation
-        return None
-    return None
-
-
-def _single_command_after_safe_shell_preamble(command: str) -> str | None:
-    """Return a wrapped inner command after only safe setup preambles.
-
-    Generic ``commands_run`` evidence may cite the useful command inside a
-    runtime-recorded shell wrapper such as ``cd /work && python scripts/gen.py``.
-    Keep this narrower than substring containment: only ignore setup-only
-    preambles and only when exactly one non-preamble command remains.
-    """
-    body = _shell_command_body(command)
-    if body is None:
-        return None
-    segments = tuple(_segments_after_safe_shell_preamble(body))
-    if len(segments) != 1:
-        return None
-    segment = segments[0]
-    stripped = _strip_command_output_plumbing(segment)
-    if (
-        _has_trailing_output_filter_pipeline(segment)
-        and not _output_filter_pipeline_is_pipefail_protected(body)
-        and _looks_like_test_command(stripped)
-    ):
-        return None
-    return _normalized_evidence_text(stripped)
-
-
-def _segments_after_safe_shell_preamble(body: str) -> tuple[str, ...]:
-    """Return non-preamble shell segments after setup-only commands."""
-    return tuple(
-        segment
-        for segment, _pipefail_enabled in _segments_after_safe_shell_preamble_with_pipefail(body)
-    )
-
-
-def _segments_after_safe_shell_preamble_with_pipefail(body: str) -> tuple[tuple[str, bool], ...]:
-    """Return non-preamble segments with pipefail state active before each one."""
-    remaining: list[tuple[str, bool]] = []
-    pipefail_enabled = False
-    for segment in re.split(r"\s*&&\s*", body.strip()):
-        normalized_segment = segment.strip()
-        if not normalized_segment:
-            continue
-        if not remaining and _is_safe_test_command_preamble(normalized_segment):
-            if _is_pipefail_preamble(normalized_segment):
-                pipefail_enabled = True
-            continue
-        remaining.append((normalized_segment, pipefail_enabled))
-    return tuple(remaining)
-
-
-def _is_safe_test_command_preamble(segment: str) -> bool:
-    """Return True for shell setup segments that do not execute tests themselves."""
-    try:
-        parts = shlex.split(segment)
-    except ValueError:
-        return False
-    if not parts:
-        return True
-    if parts[0] == "cd" and len(parts) == 2:
-        return True
-    if _is_pipefail_parts(parts):
-        return True
-    if parts[0] == "export" and len(parts) > 1:
-        return all(_is_env_assignment(part) for part in parts[1:])
-    return all(_is_env_assignment(part) for part in parts)
-
-
-def _is_env_assignment(value: str) -> bool:
-    """Return True for a simple shell environment assignment token."""
-    return bool(re.match(r"^[A-Za-z_][A-Za-z0-9_]*=.*$", value))
-
-
-def _strip_env_prefix(parts: list[str]) -> list[str]:
-    """Remove leading env assignment tokens before command recognition."""
-    index = 0
-    if parts and parts[0] == "env":
-        index = 1
-    while index < len(parts) and _is_env_assignment(parts[index]):
-        index += 1
-    return parts[index:]
-
-
-def _has_gradle_or_maven_test_skip(parts: list[str]) -> bool:
-    """Return True when a Gradle/Maven command explicitly disables tests."""
-
-    def maven_skip_property_disables_tests(value: str) -> bool:
-        normalized_value = value.lower()
-        if normalized_value in {"skiptests", "maven.test.skip"}:
-            return True
-        if normalized_value.startswith("skiptests=") or normalized_value.startswith(
-            "maven.test.skip="
-        ):
-            _, _, property_value = normalized_value.partition("=")
-            return property_value not in {"false", "0", "no", "off"}
-        return False
-
-    for index, part in enumerate(parts):
-        normalized = part.lower()
-        if normalized == "-d" and index + 1 < len(parts):
-            if maven_skip_property_disables_tests(parts[index + 1]):
-                return True
-        if normalized == "--define" and index + 1 < len(parts):
-            if maven_skip_property_disables_tests(parts[index + 1]):
-                return True
-        if normalized.startswith("--define="):
-            _, _, define_value = normalized.partition("=")
-            if maven_skip_property_disables_tests(define_value):
-                return True
-        if normalized.startswith("-d") and maven_skip_property_disables_tests(normalized[2:]):
-            return True
-        if normalized == "--exclude-task" and index + 1 < len(parts):
-            excluded_task = parts[index + 1].lower().lstrip(":")
-            if excluded_task == "test" or excluded_task.endswith(":test"):
-                return True
-        if normalized.startswith("--exclude-task="):
-            _, _, excluded_task = normalized.partition("=")
-            excluded_task = excluded_task.lstrip(":")
-            if excluded_task == "test" or excluded_task.endswith(":test"):
-                return True
-        if normalized == "-x" and index + 1 < len(parts):
-            excluded_task = parts[index + 1].lower().lstrip(":")
-            if excluded_task == "test" or excluded_task.endswith(":test"):
-                return True
-        if normalized.startswith("-x") and len(normalized) > 2:
-            excluded_task = normalized[2:].lstrip(":")
-            if excluded_task == "test" or excluded_task.endswith(":test"):
-                return True
-    return False
-
-
-def _test_invocation_from_prefix(command: str) -> str | None:
-    """Return a normalized test invocation only when it starts the command text.
-
-    Refuses to extract from commands that still contain a residual shell pipe
-    after presentation plumbing has been peeled (``pytest x | grep passed``).
-    A residual pipe means the runtime command is followed by an
-    evidence-transforming filter (``grep`` / ``wc`` / ``tee``); treating the
-    bare prefix as the clean test invocation there would let a filtered run
-    silently back a clean ``tests_passed`` / ``commands_run`` claim via the
-    ``startswith`` widening in ``_runtime_message_supports_command_claim``.
-    """
-    try:
-        parts = shlex.split(command)
-    except ValueError:
-        parts = command.replace('"', "").replace("'", "").split()
-    parts = _strip_env_prefix(parts)
-    if not parts:
-        return None
-    if "|" in parts:
-        return None
-
-    if parts[0] in {"pytest", "py.test", "tox", "nox"}:
-        return _normalized_evidence_text(" ".join(parts))
-    if len(parts) >= 2 and parts[0] in {"npm", "pnpm", "yarn"} and parts[1] == "test":
-        return _normalized_evidence_text(" ".join(parts))
-    if len(parts) >= 3 and parts[:3] == ["uv", "run", "pytest"]:
-        return _normalized_evidence_text(" ".join(parts))
-    if (
-        len(parts) >= 3
-        and parts[:2] == ["python", "-m"]
-        and parts[2]
-        in {
-            "pytest",
-            "unittest",
-        }
-    ):
-        return _normalized_evidence_text(" ".join(parts))
-    executable = Path(parts[0]).name
-    if (
-        executable in {"gradle", "gradlew", "mvn", "mvnw"}
-        and not _has_gradle_or_maven_test_skip(parts[1:])
-        and any(part in {"test", "check", "verify"} or part.endswith(":test") for part in parts[1:])
-    ):
-        return _normalized_evidence_text(" ".join(parts))
-    return None
-
-
-def _unittest_command_invocation(command: str) -> str | None:
-    """Return the embedded ``python -m unittest`` invocation, if present."""
-    invocation = _test_command_invocation(command)
-    if invocation is None:
-        return None
-    parts = invocation.split()
-    if len(parts) >= 3 and parts[:3] == ["python", "-m", "unittest"]:
-        return invocation
-    return None
-
-
-def _looks_like_unittest_command(command: str) -> bool:
-    """Return True when a shell command invokes stdlib unittest."""
-    return _unittest_command_invocation(command) is not None
-
-
-# Output-only shell filters: a trailing pipe into one of these is presentation
-# or paging, not the work an evidence claim is about.
-#
-# Deliberately narrow: only filters that pass the output stream through (or
-# truncate it positionally) are allowed. ``grep``/``egrep``/``fgrep`` are
-# excluded because they can hide failure lines and make a filtered run back a
-# clean ``commands_run`` / ``tests_passed`` claim (e.g. ``pytest ... | grep
-# passed``). ``tee`` and ``wc`` are excluded for the same reason: ``tee`` can
-# redirect the stream and ``wc`` collapses it to a count, both of which alter
-# what the runtime would have observed and so weaken anti-fabrication.
-_OUTPUT_FILTER_COMMANDS = frozenset({"tail", "head", "cat", "less", "more"})
-
-# Trailing shell output redirection (``2>&1``, ``> log``, ``2> err``, ``&> out``).
-_TRAILING_REDIRECT_RE = re.compile(
-    r"\s*(?:[0-9]*>{1,2}\s*(?:&[0-9]+|[^\s|]+)|&>{1,2}\s*[^\s|]+)\s*$"
-)
-
-
-def _normalized_shell_words_text(command: str) -> str | None:
-    """Return a quote-insensitive normalized argv spelling for one shell command.
-
-    This keeps command evidence matching exact at the argv level while allowing
-    common shell spelling differences such as ``--tests "ClassName"`` versus
-    ``--tests ClassName``. Commands that cannot be parsed, still contain a
-    pipeline, or contain shell control operators are left to the stricter raw
-    aliases.
-    """
-    text = command.strip()
-    if not text:
-        return None
-    try:
-        parts = shlex.split(text)
-    except ValueError:
-        return None
-    if not parts or any(part in {"|", "&&", ";", "||"} for part in parts):
-        return None
-    return _normalized_evidence_text(" ".join(parts))
-
-
-def _strip_command_output_plumbing(command: str) -> str:
-    """Return a command with trailing output redirection and pager pipes removed.
-
-    Agents routinely run ``<cmd> 2>&1 | tail -20`` while their ``commands_run``
-    evidence cites the clean ``<cmd>``. The trailing redirection and the
-    output-only pager pipe are presentation plumbing, not the work being
-    claimed, so they must not block a match. Deliberately conservative:
-
-    - Only trailing output redirections (``2>&1``, ``> log``, ``2> err``,
-      ``&> out``) and pipes into a pager-style filter listed in
-      ``_OUTPUT_FILTER_COMMANDS`` (``tail``/``head``/``cat``/``less``/``more``)
-      are dropped. These pass the underlying stream through (or truncate it
-      positionally), so the runtime evidence is unchanged in kind.
-    - Filters that *transform* the stream — ``grep`` family, ``wc``, ``tee`` —
-      are intentionally not stripped, because they can hide failure lines,
-      collapse the stream to a count, or divert it to a file, which would let
-      a filtered run back a clean ``commands_run`` / ``tests_passed`` claim.
-    - Meaningful pipelines such as ``a | python process.py`` are kept, so a
-      partial ``a`` claim is still not proven by an ``a | python process.py``
-      runtime command.
-    """
-    text = command.strip()
-    if not text:
-        return text
-    # Peel output-only filter pipes from the tail (``... | tail -n 20``).
-    while "|" in text:
-        head, _, tail_segment = text.rpartition("|")
-        tail_tokens = tail_segment.split()
-        if tail_tokens and tail_tokens[0].lower() in _OUTPUT_FILTER_COMMANDS:
-            text = head.strip()
-            continue
-        break
-    # Peel trailing output redirections, possibly several (``2>&1 > log``).
-    prev: str | None = None
-    while prev != text:
-        prev = text
-        text = _TRAILING_REDIRECT_RE.sub("", text).strip()
-    return text
-
-
-def _has_trailing_output_filter_pipeline(command: str) -> bool:
-    """Return True when ``command`` ends in a pager-style output pipe."""
-    text = command.strip()
-    while "|" in text:
-        head, _, tail_segment = text.rpartition("|")
-        tail_tokens = tail_segment.split()
-        if tail_tokens and tail_tokens[0].lower() in _OUTPUT_FILTER_COMMANDS:
-            return True
-        text = head.strip()
-    return False
-
-
-def _output_filter_pipeline_is_pipefail_protected(command: str) -> bool:
-    """Return True when pipefail is enabled before the first stripped pipeline."""
-    pipefail_enabled = False
-    for segment in re.split(r"\s*(?:&&|;)\s*", command.strip()):
-        normalized_segment = segment.strip()
-        if not normalized_segment:
-            continue
-        if _is_pipefail_preamble(normalized_segment):
-            pipefail_enabled = True
-            continue
-        if _has_trailing_output_filter_pipeline(normalized_segment):
-            return pipefail_enabled
-    return False
-
-
-def _uses_pipefail(command: str) -> bool:
-    """Return True when shell text explicitly preserves upstream pipe status."""
-    for segment in re.split(r"\s*(?:&&|;)\s*", command.strip()):
-        try:
-            parts = shlex.split(segment)
-        except ValueError:
-            continue
-        if _is_pipefail_parts(parts):
-            return True
-    return False
-
-
-def _is_pipefail_preamble(segment: str) -> bool:
-    try:
-        parts = shlex.split(segment)
-    except ValueError:
-        return False
-    return _is_pipefail_parts(parts)
-
-
-def _is_pipefail_parts(parts: list[str]) -> bool:
-    return parts == ["set", "-o", "pipefail"]
-
-
-def _normalized_command_claim_aliases(command: str) -> tuple[str, ...]:
-    """Return normalized command forms that a concise evidence claim may use.
-
-    Structured Bash tool inputs may wrap the user command as
-    ``/bin/zsh -lc '<body>'``.  The wrapper itself is runtime-backed, so an
-    evidence claim may cite the exact shell body without re-stating the wrapper.
-    Keep this alias exact: test-command-specific helpers handle conservative
-    setup preambles, while generic ``commands_run`` claims should not be proven
-    by partial substrings of arbitrary shell scripts.
-    """
-    normalized = _normalized_evidence_text(command)
-    aliases = [normalized] if normalized else []
-
-    def append_alias(candidate: str | None) -> None:
-        if candidate and candidate not in aliases:
-            aliases.append(candidate)
-
-    append_alias(_normalized_shell_words_text(command))
-    shell_body = _shell_command_body(command)
-    normalized_shell_body = _normalized_evidence_text(shell_body) if shell_body else None
-    append_alias(normalized_shell_body)
-    append_alias(_normalized_shell_words_text(shell_body) if shell_body else None)
-    test_invocation = _test_command_invocation(command)
-    append_alias(test_invocation)
-    # A recorded command may append output plumbing (``... 2>&1 | tail -20``)
-    # that a concise ``commands_run`` claim omits. Add plumbing-stripped variants
-    # so the two still match. Alias matching stays exact (set intersection), so
-    # this does not widen proof to arbitrary substrings. Also add argv-normalized
-    # plumbing-stripped forms so quoted arguments in the runtime command match
-    # unquoted evidence claims for the same argv vector.
-    for base in tuple(aliases):
-        stripped_raw = _strip_command_output_plumbing(base)
-        stripped = _normalized_evidence_text(stripped_raw)
-        if (
-            stripped
-            and stripped != base
-            and _has_trailing_output_filter_pipeline(base)
-            and _looks_like_test_command(stripped)
-            and not _output_filter_pipeline_is_pipefail_protected(base)
-        ):
-            continue
-        append_alias(stripped)
-        append_alias(_normalized_shell_words_text(stripped_raw))
-    return tuple(aliases)
-
-
-def _text_contains_unittest_success(text: str) -> bool:
-    """Return True for real unittest success output."""
-    return _text_contains_test_success(text) and bool(
-        re.search(r"\bran\s+[1-9]\d*\s+tests?\b[\s\S]*\bok\b", text.lower())
-    )
-
-
-def _text_contains_test_success(text: str) -> bool:
-    """Return True when text contains a conservative test-success signal."""
-    text = text.lower()
-    zero_failure_pattern = (
-        r"\b(0\s+(failed|failures?|errors?)|"
-        r"(failed|failures?|errors?)\s*[:=]\s*0|"
-        r"no\s+(tests?\s+)?(failed|failures?|errors?))\b"
-    )
-    failure_scan_text = re.sub(zero_failure_pattern, "", text)
-    if re.search(
-        r"\b[1-9]\d*\s+(failed|failures?|errors?)\b|"
-        r"\b(failed|failure|failures?|error|errors)\b|"
-        r"exit\s*code\s*[1-9]",
-        failure_scan_text,
-    ):
-        return False
-    if re.search(r"\b0\s+passed\b", text) and not re.search(r"\b[1-9]\d*\s+passed\b", text):
-        return False
-    if re.search(r"\btask\s+[:\w.-]*test\b[^\n]*(no-source|skipped)\b", text):
-        return False
-    if re.search(r"\b0\s+tests?\s+(completed|run|executed)\b", text):
-        return False
-    if re.search(r"\bno\s+tests?\s+(found|run|executed)\b", text):
-        return False
-    return bool(
-        re.search(
-            r"\b([1-9]\d*\s+passed|passed|pass|success|successful|succeeded)\b|"
-            r"\bbuild\s+successful\b|exit\s*code\s*0",
-            text,
-        )
-        or re.search(r"\bran\s+[1-9]\d*\s+tests?\b[\s\S]*\bok\b", text)
-    )
-
-
-def _message_contains_test_success(message: AgentMessage) -> bool:
-    """Return True when one message says a test command passed."""
-    parts = [message.content]
-    for key in ("result_preview", "output", "stdout", "status", "subtype"):
-        value = message.data.get(key)
-        if isinstance(value, str):
-            parts.append(value)
-    exit_code = message.data.get("exit_code")
-    if type(exit_code) is int:
-        parts.append(f"exit code {exit_code}")
-    return _text_contains_test_success("\n".join(parts))
-
-
-def _runtime_message_test_proof_text(message: AgentMessage) -> str:
-    """Return runtime-produced text that can prove test output for a Bash chunk.
-
-    Assistant narration after a Bash call is useful transcript context, but it
-    is not runtime output for that command. Keep summary matching tied to the
-    Bash output/result payloads and tool-result messages that runtimes emit.
-    """
-    resultish = (
-        message.type in {"result", "tool_result"} or message.data.get("subtype") == "tool_result"
-    )
-    parts: list[str] = []
-    if resultish:
-        parts.append(message.content)
-    for key in ("result_preview", "output", "stdout", "stderr", "tool_result_text"):
-        value = message.data.get(key)
-        if isinstance(value, str):
-            parts.append(value)
-    tool_result = message.data.get("tool_result")
-    if isinstance(tool_result, dict):
-        for key in ("text_content", "content", "output", "stdout", "stderr"):
-            value = tool_result.get(key)
-            if isinstance(value, str):
-                parts.append(value)
-    elif isinstance(tool_result, str):
-        parts.append(tool_result)
-    return "\n".join(parts)
-
-
-def _is_tool_result_message(message: AgentMessage) -> bool:
-    """Return True for runtime tool-result messages, including named-tool variants."""
-    return message.type in {"result", "tool_result"} or message.data.get("subtype") == "tool_result"
-
-
-def _test_claim_file_part(value: str) -> str | None:
-    """Return the file path portion of a pytest node-id style claim."""
-    stripped = value.strip()
-    if not stripped:
-        return None
-    file_part = stripped.split("::", 1)[0].strip()
-    return file_part or None
-
-
-def _normalized_evidence_text(text: str) -> str:
-    """Normalize transcript/claim text for conservative containment checks."""
-    return " ".join(text.lower().split())
-
-
-def _claim_summary_matches_runtime_chunk(
-    *,
-    command: str,
-    claim: str,
-    chunk_text: str,
-) -> bool:
-    """Return True when a command+summary claim is present in runtime output.
-
-    This keeps the verifier transcript-driven: the claim may combine the backed
-    command and a unittest-style success summary, but the summary itself must
-    also appear in the runtime chunk. The claim text alone is never proof.
-    """
-    normalized_claim = _normalized_evidence_text(claim)
-    normalized_chunk = _normalized_evidence_text(chunk_text)
-    summary = ""
-    for normalized_command in _normalized_command_claim_aliases(command):
-        if normalized_command in normalized_claim:
-            summary = normalized_claim.split(normalized_command, 1)[1].strip(" :-")
-            break
-    if not summary or summary not in normalized_chunk:
-        return False
-    if (
-        summary == "ok"
-        and _looks_like_unittest_command(command)
-        and _text_contains_unittest_success(chunk_text)
-    ):
-        return True
-    return _text_contains_test_success(summary)
-
-
-def _claim_contains_command_success_summary(*, command: str, claim: str) -> bool:
-    """Return True when a test claim appends a success summary to a command."""
-    normalized_claim = _normalized_evidence_text(claim)
-    for normalized_command in _normalized_command_claim_aliases(command):
-        if normalized_command in normalized_claim:
-            summary = normalized_claim.split(normalized_command, 1)[1].strip(" :-")
-            return bool(summary) and _text_contains_test_success(summary)
-    return False
-
-
-def _test_command_targets_claim(
-    *,
-    command: str,
-    claim: str,
-    chunk_text: str,
-    chunk_test_proof_text: str,
-    messages: tuple[AgentMessage, ...],
-    task_cwd: str | None,
-) -> bool:
-    """Return True when a successful test command can cover a test claim."""
-    needle = claim.strip().lower()
-    if _claim_contains_command_success_summary(command=command, claim=claim):
-        return _claim_summary_matches_runtime_chunk(
-            command=command,
-            claim=claim,
-            chunk_text=chunk_test_proof_text,
-        )
-    if needle and needle in chunk_text:
-        return True
-
-    file_part = _test_claim_file_part(claim)
-    if file_part is None:
-        return False
-    normalized_file = file_part.lower()
-    normalized_command = command.lower()
-    if normalized_file in chunk_text or normalized_file in normalized_command:
-        return True
-    if _claim_summary_matches_runtime_chunk(
-        command=command,
-        claim=claim,
-        chunk_text=chunk_test_proof_text,
-    ):
-        return True
-
-    # A broad suite command such as ``pytest`` can cover a node-id claim when
-    # the claimed test file is also backed by current-run mutation evidence.
-    # Existence alone is deliberately insufficient: otherwise a transcript with
-    # unrelated ``pytest`` output could prove any stale test file in the tree.
-    command_parts = (_test_command_invocation(command) or normalized_command).split()
-    broad_pytest = command_parts in (["pytest"], ["py.test"]) or command_parts[-3:] == [
-        "python",
-        "-m",
-        "pytest",
-    ]
-    if not broad_pytest or task_cwd is None:
-        return False
-    return _runtime_messages_support_file_claim(file_part, messages, task_cwd=task_cwd)
-
-
-def _runtime_messages_support_test_claim(
-    *,
-    value: str,
-    backed_commands: tuple[str, ...],
-    messages: tuple[AgentMessage, ...],
-    task_cwd: str | None,
-) -> bool:
-    """Return True when a backed test command chunk proves one test claim."""
-    needle = value.strip().lower()
-    if not needle:
-        return False
-    for index, message in enumerate(messages):
-        if message.tool_name != "Bash":
-            continue
-        # Candidate test commands are drawn from two transcript-grounded
-        # sources: (1) ``commands_run`` evidence entries already proven against
-        # the transcript, and (2) the Bash message's own recorded command. The
-        # latter is backed by definition — it is the literal invocation in the
-        # transcript — so a real ``pytest <file>`` run can support a node-id
-        # ``tests_passed`` claim even when the agent did not also echo that
-        # exact command into its ``commands_run`` evidence.
-        #
-        # These are NOT three independent checks. For a per-message candidate
-        # the ``_runtime_message_supports_command_claim`` gate below is
-        # tautological — the candidate is that message's own command, so it
-        # trivially supports itself. The anti-fabrication guarantee is carried
-        # entirely by the downstream gates: ``_message_contains_test_success``
-        # (reads only structured runtime output, never agent narration) and
-        # ``_test_command_targets_claim`` (anchors the claim's node-id/file to
-        # the recorded command + proof text). The ``_looks_like_test_command``
-        # filter still excludes non-test commands from this candidate source.
-        candidate_commands = (*backed_commands, *_runtime_message_command_values(message))
-        matching_commands = tuple(
-            candidate
-            for candidate in candidate_commands
-            if _looks_like_test_command(candidate)
-            and _runtime_message_supports_command_claim(candidate, message)
-        )
-        if not matching_commands:
-            continue
-        chunk = [message]
-        for following in messages[index + 1 :]:
-            if following.tool_name and not _is_tool_result_message(following):
-                break
-            chunk.append(following)
-        if not any(_message_contains_test_success(item) for item in chunk):
-            continue
-        chunk_text = "\n".join(_runtime_message_search_text(item) for item in chunk)
-        chunk_test_proof_text = "\n".join(_runtime_message_test_proof_text(item) for item in chunk)
-        if any(
-            _test_command_targets_claim(
-                command=command,
-                claim=value,
-                chunk_text=chunk_text,
-                chunk_test_proof_text=chunk_test_proof_text,
-                messages=messages,
-                task_cwd=task_cwd,
-            )
-            for command in matching_commands
-        ):
-            return True
-    return False
-
-
-_REUSABLE_RUNTIME_EVENT_TYPES = frozenset(
-    {
-        "execution.session.recovered",
-        "execution.session.started",
-        "execution.session.resumed",
-    }
-)
-_NON_REUSABLE_RUNTIME_EVENT_TYPES = frozenset(
-    {
-        "execution.session.completed",
-        "execution.session.failed",
-    }
-)
-_AC_RUNTIME_OWNERSHIP_METADATA_KEYS = frozenset(
-    {
-        "ac_id",
-        "ac_index",
-        "attempt_number",
-        "depth",
-        "display_path",
-        "execution_id",
-        "identity_model",
-        "legacy_node_id",
-        "legacy_node_aliases",
-        "legacy_parent_node_id",
-        "legacy_parent_node_aliases",
-        "legacy_session_scope_id",
-        "legacy_session_scope_ids",
-        "legacy_session_state_path",
-        "legacy_session_state_paths",
-        "node_kind",
-        "node_id",
-        "ordinal",
-        "parent_ac_index",
-        "parent_node_id",
-        "path",
-        "retry_attempt",
-        "root_ac_index",
-        "root_ac_number",
-        "scope",
-        "schema_version",
-        "session_attempt_id",
-        "session_role",
-        "session_scope_id",
-        "session_state_path",
-        "sub_ac_index",
-    }
-)
-_AC_RUNTIME_SCOPE_METADATA_KEYS = frozenset(
-    {
-        "ac_id",
-        "ac_index",
-        "execution_id",
-        "identity_model",
-        "node_kind",
-        "node_id",
-        "parent_ac_index",
-        "parent_node_id",
-        "path",
-        "root_ac_index",
-        "scope",
-        "schema_version",
-        "session_role",
-        "session_scope_id",
-        "session_state_path",
-        "sub_ac_index",
-    }
-)
-_AC_RUNTIME_RESUME_METADATA_KEYS = frozenset({"runtime_event_type", "server_session_id"})
-
-# Stall detection constants
-STALL_TIMEOUT_SECONDS: float = 900.0  # 15 minutes of silence → stall for realistic test suites
-HEARTBEAT_INTERVAL_SECONDS: float = 30.0  # Heartbeat emission interval
-MAX_STALL_RETRIES: int = 2  # Max retries after stall (3 total attempts)
-_STALL_SENTINEL = "__STALL_DETECTED__"  # Sentinel error for stall results
-
-# Memory-pressure gate constants
-_MIN_FREE_MEMORY_GB = 2.0
-_MEMORY_CHECK_INTERVAL_SECONDS = 5.0
-_MEMORY_WAIT_MAX_SECONDS = 120.0
-_MAX_LEAF_RESULT_CHARS = 1200
-_SIBLING_HEADLINE_CHARS = 80
-_SiblingACRef = tuple[int | None, str]
-
-
-def _build_governed_parent_summary(level_contexts: list[LevelContext] | None) -> str:
-    """Render level context for governed dispatch without nested H2 headings.
-
-    ``build_context_prompt()`` is also used by the legacy prompt path, where its
-    top-level ``##`` sections are appropriate.  Governed dispatch already wraps
-    that text in ``## Parent context`` via ``compose_context()``, so preserving
-    those headings creates a hard-to-scan nested hierarchy.  Build the governed
-    variant from structured ``LevelContext`` data so only orchestrator-owned
-    section wrappers become compact labels; embedded markdown from AC outputs
-    remains byte-for-byte content inside its original summary text.
-    """
-    if not level_contexts:
-        return ""
-
-    sections: list[str] = []
-    for ctx in level_contexts:
-        text = ctx.to_prompt_text()
-        if text:
-            sections.append(text)
-
-    has_reviews = any(ctx.coordinator_review for ctx in level_contexts)
-    if not sections and not has_reviews:
-        return ""
-
-    lines: list[str] = []
-    if sections:
-        lines.extend(
-            (
-                "Previous Work Context:",
-                "The following ACs have already been completed. "
-                "Use this context to inform your work.",
-                "",
-                "\n\n".join(sections),
-            )
-        )
-
-    for ctx in level_contexts:
-        if ctx.coordinator_review:
-            review = ctx.coordinator_review
-            review_lines: list[str] = []
-
-            if review.review_summary:
-                review_lines.append(f"**Review**: {review.review_summary}")
-
-            if review.fixes_applied:
-                fixes = "; ".join(review.fixes_applied)
-                review_lines.append(f"**Fixes applied**: {fixes}")
-
-            if review.warnings_for_next_level:
-                for warning in review.warnings_for_next_level:
-                    review_lines.append(f"- WARNING: {warning}")
-
-            if review_lines:
-                if lines:
-                    lines.append("")
-                lines.append(f"Coordinator Review (Level {review.level_number}):")
-                lines.extend(review_lines)
-
-    return "\n".join(lines).strip()
-
-
-def _get_available_memory_gb() -> float | None:
-    """Get available memory in GB. Returns None if check fails."""
-    system = platform.system()
-    try:
-        if system == "Darwin":
-            result = subprocess.run(
-                ["vm_stat"],
-                capture_output=True,
-                text=True,
-                timeout=5,
-            )
-            if result.returncode != 0:
-                return None
-            pages_free = 0
-            pages_inactive = 0
-            page_size = 4096  # macOS default
-            for line in result.stdout.splitlines():
-                if "page size of" in line:
-                    parts = line.split()
-                    for part in parts:
-                        if part.isdigit():
-                            page_size = int(part)
-                elif line.startswith("Pages free:"):
-                    pages_free = int(line.split(":")[1].strip().rstrip("."))
-                elif line.startswith("Pages inactive:"):
-                    pages_inactive = int(line.split(":")[1].strip().rstrip("."))
-            return (pages_free + pages_inactive) * page_size / (1024**3)
-
-        elif system == "Linux":
-            with open("/proc/meminfo") as f:
-                for line in f:
-                    if line.startswith("MemAvailable:"):
-                        kb = int(line.split()[1])
-                        return kb / (1024**2)
-            return None
-
-        else:
-            return None
-    except (OSError, ValueError, subprocess.TimeoutExpired):
-        return None
-
-
-# Data models re-exported from parallel_executor_models for backwards compat.
-# (ACExecutionOutcome, ACExecutionResult, ParallelExecutionStageResult,
-#  ParallelExecutionResult, StageExecutionOutcome are imported above.)
-
-
-def _normalize_command(command: str) -> str:
-    """Normalize Bash commands for stable audit output."""
-    return " ".join(command.split())
-
-
-def _normalize_exact_command(command: str) -> str:
-    """Normalize command whitespace while preserving case-sensitive exactness."""
-    return " ".join(command.split())
-
-
-def _truncate_text(text: str, limit: int = _MAX_LEAF_RESULT_CHARS) -> str:
-    """Truncate long evidence blocks while preserving their beginning."""
-    stripped = text.strip()
-    if len(stripped) <= limit:
-        return stripped
-    return stripped[:limit].rstrip() + "\n[TRUNCATED]"
-
-
-def _extract_leaf_evidence_lines(result: ACExecutionResult) -> list[str]:
-    """Extract normalized command, file, and result evidence for a leaf AC."""
-    lines: list[str] = []
-    seen_commands: set[str] = set()
-    seen_file_ops: set[tuple[str, str]] = set()
-
-    for message in result.messages:
-        if not message.tool_name:
-            continue
-        tool_input = message.data.get("tool_input", {})
-        if not isinstance(tool_input, dict):
-            tool_input = {}
-
-        if message.tool_name == "Bash":
-            command = tool_input.get("command")
-            if isinstance(command, str):
-                normalized = _normalize_command(command)
-                if normalized and normalized not in seen_commands:
-                    if not lines:
-                        lines.append("Commands Run:")
-                    lines.append(f"- Bash: {normalized}")
-                    seen_commands.add(normalized)
-            continue
-
-        if message.tool_name in ("Write", "Edit", "NotebookEdit"):
-            path_key = "notebook_path" if message.tool_name == "NotebookEdit" else "file_path"
-            file_path = tool_input.get(path_key)
-            if isinstance(file_path, str) and file_path:
-                file_op = (message.tool_name, file_path)
-                if file_op not in seen_file_ops:
-                    if "File Changes:" not in lines:
-                        lines.append("File Changes:")
-                    lines.append(f"- {message.tool_name}: {file_path}")
-                    seen_file_ops.add(file_op)
-
-    result_text = result.final_message or (f"Error: {result.error}" if result.error else "")
-    if result_text:
-        lines.append("Result:")
-        lines.append(_truncate_text(result_text))
-    return lines
-
-
-def _successful_runtime_test_commands(messages: tuple[AgentMessage, ...]) -> set[str]:
-    """Return Bash test commands backed by adjacent runtime success output."""
-    commands: set[str] = set()
-    for index, message in enumerate(messages):
-        if message.tool_name != "Bash":
-            continue
-        message_commands = {
-            alias
-            for command in _runtime_message_command_values(message)
-            if _looks_like_test_command(command)
-            for alias in _runtime_command_evidence_aliases(command)
-        }
-        if not message_commands:
-            continue
-        chunk = [message]
-        for following in messages[index + 1 :]:
-            if following.tool_name and not _is_tool_result_message(following):
-                break
-            chunk.append(following)
-        if any(
-            not item.is_final
-            and _text_contains_test_success(_runtime_message_test_proof_text(item))
-            for item in chunk
-        ):
-            commands.update(command for command in message_commands if command)
-    return commands
-
-
-def _add_runtime_command_evidence(commands: set[str], command: str) -> None:
-    """Add runtime command evidence without accepting compound shell aliases."""
-    commands.update(_runtime_command_evidence_aliases(command))
-
-
-def _runtime_command_evidence_aliases(command: str) -> tuple[str, ...]:
-    """Return exact runtime command aliases for sibling reconciliation."""
-    aliases = [_normalize_exact_command(command)]
-    single_inner_command = _single_exact_command_after_safe_shell_preamble(command)
-    if single_inner_command and single_inner_command not in aliases:
-        aliases.append(single_inner_command)
-    return tuple(alias for alias in aliases if alias)
-
-
-def _single_exact_command_after_safe_shell_preamble(command: str) -> str | None:
-    """Return one wrapped inner command without lowercasing exact evidence."""
-    body = _shell_command_body(command)
-    if body is None:
-        return None
-    segments = tuple(_segments_after_safe_shell_preamble(body))
-    if len(segments) != 1:
-        return None
-    return _normalize_exact_command(segments[0])
-
-
-def _typed_evidence_is_usable_for_sibling_reconciliation(result: ACExecutionResult) -> bool:
-    """Return True when typed evidence was not rejected by validation/verifier."""
-    if result.typed_evidence is None:
-        return False
-    if result.typed_evidence_error:
-        return False
-    if result.typed_evidence_validation is not None and not result.typed_evidence_validation.ok:
-        return False
-    return result.atomic_verifier_verdict is None or result.atomic_verifier_verdict.passed
-
-
-def _typed_file_evidence_proves_current_existence(
-    result: ACExecutionResult,
-    relative_path: str,
-) -> bool:
-    """Return True when typed file evidence is backed by current end-state existence."""
-    if result.runtime_handle is None or result.runtime_handle.cwd is None:
-        return False
-    candidate = (Path(result.runtime_handle.cwd).resolve() / relative_path).resolve()
-    try:
-        candidate.relative_to(Path(result.runtime_handle.cwd).resolve())
-    except ValueError:
-        return False
-    return candidate.is_file()
-
-
-def _evidence_values_from_result(result: ACExecutionResult) -> tuple[set[str], set[str], set[str]]:
-    """Return normalized file paths, run commands, and passed commands.
-
-    This intentionally uses only structured/runtime evidence, not broad natural
-    language success claims, so sibling AC completion remains conservative.
-    """
-    files: set[str] = set()
-    run_commands: set[str] = set()
-    passed_commands: set[str] = set()
-
-    if _typed_evidence_is_usable_for_sibling_reconciliation(result):
-        assert result.typed_evidence is not None
-        task_cwd = result.runtime_handle.cwd if result.runtime_handle is not None else None
-        for value in _flatten_evidence_values(result.typed_evidence.get("files_touched")):
-            normalized = (
-                _workspace_relative_file_claim(str(value), task_cwd=task_cwd) or str(value).strip()
-            )
-            if normalized and _typed_file_evidence_proves_current_existence(result, normalized):
-                files.add(normalized)
-        for value in _flatten_evidence_values(result.typed_evidence.get("commands_run")):
-            _add_runtime_command_evidence(run_commands, str(value))
-        for value in _flatten_evidence_values(result.typed_evidence.get("tests_passed")):
-            _add_runtime_command_evidence(passed_commands, str(value))
-            _add_runtime_command_evidence(run_commands, str(value))
-
-    for message in result.messages:
-        if not message.tool_name:
-            continue
-
-        if message.tool_name == "Bash":
-            for command in _runtime_message_command_values(message):
-                _add_runtime_command_evidence(run_commands, command)
-            continue
-
-    passed_commands.update(_successful_runtime_test_commands(result.messages))
-    return files, run_commands, passed_commands
-
-
-def _criterion_satisfied_by_evidence(
-    criterion: str,
-    files: set[str],
-    run_commands: set[str],
-    passed_commands: set[str] | None = None,
-) -> bool:
-    """Conservatively decide whether evidence satisfies a sibling criterion."""
-    normalized_run_commands = {
-        _normalize_exact_command(command) for command in run_commands if command
-    }
-    normalized_passed_commands = {
-        _normalize_exact_command(command) for command in (passed_commands or set()) if command
-    }
-
-    for file_path in files:
-        if file_path and _criterion_is_exact_file_presence_ac(criterion, file_path):
-            return True
-
-    for command in normalized_passed_commands:
-        if command and _criterion_is_exact_command_pass_ac(criterion, command):
-            return True
-
-    for command in normalized_run_commands:
-        if command and _criterion_is_exact_command_run_ac(criterion, command):
-            return True
-
-    return False
-
-
-def _criterion_is_exact_file_presence_ac(criterion: str, file_path: str) -> bool:
-    """Return True when the criterion is only an exact file-presence AC."""
-    normalized_path = Path(file_path.strip()).as_posix()
-    if (
-        not normalized_path
-        or Path(normalized_path).is_absolute()
-        or ".." in Path(normalized_path).parts
-    ):
-        return False
-    inline_code_paths = [
-        Path(match.group(1).strip()).as_posix()
-        for match in re.finditer(r"`([^`]+)`", criterion)
-        if match.group(1).strip()
-    ]
-    if inline_code_paths != [normalized_path]:
-        return False
-
-    normalized = _normalized_evidence_text(
-        re.sub(r"`[^`]+`", "<path>", criterion).strip().rstrip(".")
-    )
-    return normalized in {
-        "<path> exists",
-        "<path> is present",
-        "the file <path> exists",
-        "the file <path> is present",
-    }
-
-
-def _criterion_inline_code_values(criterion: str) -> list[str]:
-    """Return normalized inline-code fragments from a criterion."""
-    return [
-        _normalize_exact_command(match.group(1).strip())
-        for match in re.finditer(r"`([^`]+)`", criterion)
-        if match.group(1).strip()
-    ]
-
-
-def _criterion_is_exact_command_pass_ac(criterion: str, command: str) -> bool:
-    """Return True when the criterion is only an exact command-pass AC."""
-    normalized_command = _normalize_exact_command(command)
-    if not normalized_command or _criterion_inline_code_values(criterion) != [normalized_command]:
-        return False
-    normalized = _normalized_evidence_text(
-        re.sub(r"`[^`]+`", "<command>", criterion).strip().rstrip(".")
-    )
-    return normalized in {
-        "<command> passes",
-        "<command> passed",
-        "<command> succeeds",
-        "<command> succeeded",
-        "the exact command <command> passes",
-        "the exact command <command> passed",
-        "the exact command <command> succeeds",
-        "the exact command <command> succeeded",
-        "the exact command <command> exits with code 0",
-        "the command <command> passes",
-        "the command <command> succeeds",
-    }
-
-
-def _criterion_is_exact_command_run_ac(criterion: str, command: str) -> bool:
-    """Return True when the criterion is only an exact command-run AC."""
-    normalized_command = _normalize_exact_command(command)
-    if not normalized_command or _criterion_inline_code_values(criterion) != [normalized_command]:
-        return False
-    normalized = _normalized_evidence_text(
-        re.sub(r"`[^`]+`", "<command>", criterion).strip().rstrip(".")
-    )
-    return normalized in {
-        "run <command>",
-        "run the exact command <command>",
-        "execute <command>",
-        "execute the exact command <command>",
-        "the exact command <command> runs",
-        "the command <command> runs",
-    }
-
-
-def _complete_sibling_acs_from_evidence(
-    *,
-    level_results: list[ACExecutionResult],
-    ac_statuses: dict[int, str],
-    failed_indices: set[int],
-    completed_count: int,
-    level_success: int,
-    level_failed: int,
-) -> tuple[int, int, int, list[ACExecutionResult]]:
-    """Mark sibling ACs satisfied when a successful sibling has exact evidence.
-
-    Observation jobs often ask for separate ACs such as "file exists", "test
-    file exists", and "pytest passes". A single worker can legitimately create
-    both files and run the test. This function reconciles those concrete sibling
-    ACs from runtime/typed evidence instead of leaving them failed or pending.
-    """
-    replacements: dict[int, ACExecutionResult] = {}
-    successful_evidence = [
-        (result.ac_index, *_evidence_values_from_result(result))
-        for result in level_results
-        if result.success
-    ]
-    if not successful_evidence:
-        return completed_count, level_success, level_failed, level_results
-
-    for result in level_results:
-        if result.success or result.outcome != ACExecutionOutcome.FAILED:
-            continue
-        for source_idx, files, run_commands, passed_commands in successful_evidence:
-            if source_idx == result.ac_index:
-                continue
-            if not _criterion_satisfied_by_evidence(
-                result.ac_content,
-                files,
-                run_commands,
-                passed_commands,
-            ):
-                continue
-            replacements[result.ac_index] = ACExecutionResult(
-                ac_index=result.ac_index,
-                ac_content=result.ac_content,
-                success=True,
-                final_message=(f"Satisfied by runtime evidence from sibling AC {source_idx + 1}."),
-                retry_attempt=result.retry_attempt,
-                outcome=ACExecutionOutcome.SATISFIED_EXTERNALLY,
-            )
-            break
-
-    if not replacements:
-        return completed_count, level_success, level_failed, level_results
-
-    reconciled: list[ACExecutionResult] = []
-    for result in level_results:
-        replacement = replacements.get(result.ac_index)
-        if replacement is None:
-            reconciled.append(result)
-            continue
-        if result.outcome == ACExecutionOutcome.FAILED:
-            failed_indices.discard(result.ac_index)
-            if level_failed > 0:
-                level_failed -= 1
-        ac_statuses[result.ac_index] = "completed"
-        completed_count += 1
-        level_success += 1
-        reconciled.append(replacement)
-
-    return completed_count, level_success, level_failed, reconciled
-
-
-def _render_ac_section(
-    result: ACExecutionResult,
-    *,
-    index_path: tuple[int, ...],
-    heading_level: int,
-    include_header: bool = True,
-) -> list[str]:
-    """Render a single Task or Subtask section for verification/audit output."""
-    lines: list[str] = []
-    if include_header:
-        status = "COMPLETED" if result.success else "FAILED"
-        label = "Task" if len(index_path) == 1 else "Subtask"
-        lines.append(
-            f"{'#' * heading_level} {label} {'.'.join(str(i) for i in index_path)}: "
-            f"[{status}] {result.ac_content}"
-        )
-
-    if result.is_decomposed and result.sub_results:
-        lines.append(f"Decomposed into {len(result.sub_results)} Subtasks")
-        for idx, sub_result in enumerate(result.sub_results, start=1):
-            if lines:
-                lines.append("")
-            lines.extend(
-                _render_ac_section(
-                    sub_result,
-                    index_path=index_path + (idx,),
-                    heading_level=min(heading_level + 1, 6),
-                )
-            )
-        return lines
-
-    evidence_lines = _extract_leaf_evidence_lines(result)
-    if evidence_lines:
-        lines.extend(evidence_lines)
-    else:
-        lines.append("Result:")
-        lines.append("No final result message captured.")
-    return lines
+        if not candidate.exists():
+            missing.append(artifact)
+    return tuple(missing)
 
 
 def _collect_decomposition_depth_warning_paths(
@@ -2313,6 +316,20 @@ def _collect_decomposition_depth_warning_paths(
             )
         )
     return warning_paths
+
+
+def _safe_backend_outcome_weights() -> dict[str, float]:
+    """Per-backend outcome weights for the picker tie-break (PR-X X4), never raising.
+
+    The flywheel is a read-only SQLite scan; any failure collapses to no weights
+    so a failed AC's cross-harness redispatch is never blocked by it.
+    """
+    try:
+        from ouroboros.orchestrator.backend_outcomes import outcome_weights
+
+        return outcome_weights()
+    except Exception:
+        return {}
 
 
 def render_parallel_verification_report(
@@ -2433,6 +450,10 @@ class ParallelACExecutor:
         fat_harness_mode: bool = False,
         atomic_verifier: Verifier | None = None,
         reasoning_effort: str | None = None,
+        run_verify_commands: bool = True,
+        verify_command_timeout_seconds: int = 600,
+        ac_retry_attempts: int = 0,
+        cross_harness_redispatch: bool | None = None,
     ):
         """Initialize executor.
 
@@ -2454,6 +475,17 @@ class ParallelACExecutor:
             atomic_verifier: Optional verifier callable for the separate
                 atomic evidence PASS gate. Defaults to the harness-owned
                 structural verifier.
+            run_verify_commands: When True (default), the orchestrator checks
+                an AC's success contract itself before accepting the AC: all
+                ``spec.expected_artifacts`` must exist under the run workspace
+                and ``spec.verify_command`` must exit 0 (plus any
+                ``output_assertion``).
+            verify_command_timeout_seconds: Timeout for an AC verify command.
+            ac_retry_attempts: How many times a failed AC is re-dispatched
+                before it is marked FAILED (excludes stall retries). The
+                low-level constructor default is 0 so direct/test callers keep
+                today's single-dispatch behavior; real run paths (CLI `ooo run`
+                via the runner) pass the config value (default 2).
         """
         self._adapter = adapter
         self._event_store = event_store
@@ -2464,6 +496,9 @@ class ParallelACExecutor:
         self._task_cwd = task_cwd
         self._execution_profile = execution_profile
         self._fat_harness_mode = fat_harness_mode
+        self._run_verify_commands = run_verify_commands
+        self._verify_command_timeout_seconds = max(1, verify_command_timeout_seconds)
+        self._ac_retry_attempts = max(0, ac_retry_attempts)
         # Effort-first investment dial (RFC #1405). Base level for full-strength
         # units; decomposed children run one notch lower. ``None`` leaves effort
         # routing dormant (execute_task receives no level → no behavior change),
@@ -2476,13 +511,34 @@ class ParallelACExecutor:
             task_cwd=task_cwd,
         )
         self._semaphore = anyio.Semaphore(max_concurrent)
-        self._ac_runtime_handles: dict[str, RuntimeHandle] = {}
+        self._ac_runtime_handle_manager = ACRuntimeHandleManager(
+            adapter,
+            event_store,
+            task_cwd=task_cwd,
+        )
+        self._ac_runtime_handles = self._ac_runtime_handle_manager.runtime_handles
+        self._event_emitter = ExecutionEventEmitter(
+            event_store,
+            safe_emit_event=self._safe_emit_event,
+        )
         self._checkpoint_store = checkpoint_store
         self._execution_counters_lock = asyncio.Lock()
         self._dispatch_rate_gate = self._build_dispatch_rate_gate(adapter)
         # Param degradations already surfaced this run, keyed by (param, support),
         # so the operator is told once rather than on every dispatch.
         self._announced_param_degradations: set[tuple[str, str]] = set()
+        # Cross-harness recovery (PR-X X1): when a terminally failing AC is
+        # eligible, redispatch it once onto a different installed runtime before
+        # marking it FAILED. ``None`` reads the config flag; the throwaway
+        # alternate-runtime executor passes ``False`` as a recursion guard.
+        if cross_harness_redispatch is None:
+            from ouroboros.config import get_cross_harness_redispatch_enabled
+
+            self._cross_harness_redispatch_enabled = get_cross_harness_redispatch_enabled()
+        else:
+            self._cross_harness_redispatch_enabled = cross_harness_redispatch
+        # AC identities that have already consumed their one alt-harness redispatch.
+        self._alt_harness_redispatched_acs: set[str] = set()
 
     @staticmethod
     def _build_dispatch_rate_gate(adapter: AgentRuntime) -> RateLimitGate:
@@ -2623,21 +679,15 @@ class ParallelACExecutor:
         node_identity: ExecutionNodeIdentity | None,
         retry_attempt: int,
     ) -> dict[str, Any]:
-        """Build metadata that binds a runtime handle to a single AC execution scope."""
-        identity = build_ac_runtime_identity(
-            ac_index,
-            execution_context_id=node_identity.execution_context_id
-            if node_identity is not None
-            else None,
+        return ACRuntimeHandleManager._build_expected_ac_runtime_metadata(
+            runtime_scope,
+            ac_index=ac_index,
             is_sub_ac=is_sub_ac,
             parent_ac_index=parent_ac_index,
             sub_ac_index=sub_ac_index,
             node_identity=node_identity,
             retry_attempt=retry_attempt,
         )
-        if identity.runtime_scope != runtime_scope:
-            identity = replace(identity, runtime_scope=runtime_scope)
-        return identity.to_metadata()
 
     @staticmethod
     def _metadata_value_matches_expected_scope(
@@ -2645,44 +695,11 @@ class ParallelACExecutor:
         observed_value: Any,
         expected_metadata: dict[str, Any],
     ) -> bool:
-        """Return True when observed metadata matches canonical or legacy scope."""
-        if observed_value == expected_metadata.get(key):
-            return True
-
-        if key in {"ac_id", "session_scope_id"}:
-            legacy_scope_ids = expected_metadata.get("legacy_session_scope_ids")
-            if isinstance(legacy_scope_ids, (list, tuple)) and observed_value in legacy_scope_ids:
-                return True
-            return observed_value == expected_metadata.get("legacy_session_scope_id")
-
-        if key == "session_state_path":
-            legacy_state_paths = expected_metadata.get("legacy_session_state_paths")
-            if (
-                isinstance(legacy_state_paths, (list, tuple))
-                and observed_value in legacy_state_paths
-            ):
-                return True
-            return observed_value == expected_metadata.get("legacy_session_state_path")
-
-        if key == "node_id":
-            legacy_node_aliases = expected_metadata.get("legacy_node_aliases")
-            if (
-                isinstance(legacy_node_aliases, (list, tuple))
-                and observed_value in legacy_node_aliases
-            ):
-                return True
-            return observed_value == expected_metadata.get("legacy_node_id")
-
-        if key == "parent_node_id":
-            legacy_parent_node_aliases = expected_metadata.get("legacy_parent_node_aliases")
-            if (
-                isinstance(legacy_parent_node_aliases, (list, tuple))
-                and observed_value in legacy_parent_node_aliases
-            ):
-                return True
-            return observed_value == expected_metadata.get("legacy_parent_node_id")
-
-        return False
+        return ACRuntimeHandleManager._metadata_value_matches_expected_scope(
+            key,
+            observed_value,
+            expected_metadata,
+        )
 
     @staticmethod
     def _runtime_handle_claims_foreign_ac_scope(
@@ -2691,24 +708,10 @@ class ParallelACExecutor:
         expected_metadata: dict[str, Any],
         is_sub_ac: bool,
     ) -> bool:
-        """Return True when the handle explicitly belongs to another AC scope."""
-        if runtime_handle is None:
-            return False
-
-        metadata = runtime_handle.metadata
-        for key in _AC_RUNTIME_SCOPE_METADATA_KEYS:
-            if key in metadata and not ParallelACExecutor._metadata_value_matches_expected_scope(
-                key,
-                metadata.get(key),
-                expected_metadata,
-            ):
-                return True
-
-        if is_sub_ac:
-            return metadata.get("ac_index") is not None
-
-        return (
-            metadata.get("parent_ac_index") is not None or metadata.get("sub_ac_index") is not None
+        return ACRuntimeHandleManager._runtime_handle_claims_foreign_ac_scope(
+            runtime_handle,
+            expected_metadata=expected_metadata,
+            is_sub_ac=is_sub_ac,
         )
 
     @classmethod
@@ -2719,37 +722,10 @@ class ParallelACExecutor:
         expected_metadata: dict[str, Any],
         is_sub_ac: bool,
     ) -> bool:
-        """Return True when a resumable handle is fully owned by the current AC scope."""
-        if runtime_handle is None or cls._runtime_resume_session_id(runtime_handle) is None:
-            return False
-
-        metadata = runtime_handle.metadata
-        matched_scope_key = False
-        for key in _AC_RUNTIME_SCOPE_METADATA_KEYS:
-            if key not in metadata:
-                continue
-            matched_scope_key = True
-            if not cls._metadata_value_matches_expected_scope(
-                key,
-                metadata.get(key),
-                expected_metadata,
-            ):
-                return False
-
-        if not matched_scope_key:
-            return False
-
-        if is_sub_ac:
-            return (
-                metadata.get("parent_ac_index") == expected_metadata.get("parent_ac_index")
-                and metadata.get("sub_ac_index") == expected_metadata.get("sub_ac_index")
-                and metadata.get("ac_index") is None
-            )
-
-        return (
-            metadata.get("ac_index") == expected_metadata.get("ac_index")
-            and metadata.get("parent_ac_index") is None
-            and metadata.get("sub_ac_index") is None
+        return ACRuntimeHandleManager._runtime_handle_matches_ac_scope_for_resume(
+            runtime_handle,
+            expected_metadata=expected_metadata,
+            is_sub_ac=is_sub_ac,
         )
 
     @staticmethod
@@ -2759,28 +735,10 @@ class ParallelACExecutor:
         expected_metadata: dict[str, Any],
         scrub_resume_state: bool = False,
     ) -> RuntimeHandle | None:
-        """Overlay normalized AC ownership metadata onto a runtime handle."""
-        if runtime_handle is None:
-            return None
-
-        metadata = dict(runtime_handle.metadata)
-        for key in _AC_RUNTIME_OWNERSHIP_METADATA_KEYS:
-            metadata.pop(key, None)
-        if scrub_resume_state:
-            for key in _AC_RUNTIME_RESUME_METADATA_KEYS:
-                metadata.pop(key, None)
-        metadata.update(expected_metadata)
-
-        return replace(
+        return ACRuntimeHandleManager._bind_runtime_handle_to_ac_scope(
             runtime_handle,
-            native_session_id=None if scrub_resume_state else runtime_handle.native_session_id,
-            conversation_id=None if scrub_resume_state else runtime_handle.conversation_id,
-            previous_response_id=None
-            if scrub_resume_state
-            else runtime_handle.previous_response_id,
-            transcript_path=None if scrub_resume_state else runtime_handle.transcript_path,
-            updated_at=datetime.now(UTC).isoformat(),
-            metadata=metadata,
+            expected_metadata=expected_metadata,
+            scrub_resume_state=scrub_resume_state,
         )
 
     def _normalize_ac_runtime_handle(
@@ -2797,67 +755,17 @@ class ParallelACExecutor:
         source: str,
         require_resume_scope_match: bool,
     ) -> RuntimeHandle | None:
-        """Bind a runtime handle to the active AC scope and reject foreign resumes."""
-        if runtime_handle is None:
-            return None
-
-        expected_metadata = self._build_expected_ac_runtime_metadata(
-            runtime_scope,
+        return self._ac_runtime_handle_manager._normalize_ac_runtime_handle(
+            runtime_handle,
+            runtime_scope=runtime_scope,
             ac_index=ac_index,
             is_sub_ac=is_sub_ac,
             parent_ac_index=parent_ac_index,
             sub_ac_index=sub_ac_index,
             node_identity=node_identity,
             retry_attempt=retry_attempt,
-        )
-
-        if require_resume_scope_match and self._is_resumable_runtime_handle(runtime_handle):
-            if not self._runtime_handle_matches_ac_scope_for_resume(
-                runtime_handle,
-                expected_metadata=expected_metadata,
-                is_sub_ac=is_sub_ac,
-            ):
-                log.warning(
-                    "parallel_executor.ac.runtime_handle_scope_rejected",
-                    source=source,
-                    ac_index=ac_index,
-                    is_sub_ac=is_sub_ac,
-                    parent_ac_index=parent_ac_index,
-                    sub_ac_index=sub_ac_index,
-                    retry_attempt=retry_attempt,
-                    expected_session_scope_id=runtime_scope.aggregate_id,
-                    observed_session_scope_id=runtime_handle.metadata.get("session_scope_id"),
-                    observed_ac_index=runtime_handle.metadata.get("ac_index"),
-                    observed_parent_ac_index=runtime_handle.metadata.get("parent_ac_index"),
-                    observed_sub_ac_index=runtime_handle.metadata.get("sub_ac_index"),
-                )
-                return None
-
-        scrub_resume_state = self._runtime_handle_claims_foreign_ac_scope(
-            runtime_handle,
-            expected_metadata=expected_metadata,
-            is_sub_ac=is_sub_ac,
-        )
-        if scrub_resume_state:
-            log.warning(
-                "parallel_executor.ac.runtime_handle_scope_scrubbed",
-                source=source,
-                ac_index=ac_index,
-                is_sub_ac=is_sub_ac,
-                parent_ac_index=parent_ac_index,
-                sub_ac_index=sub_ac_index,
-                retry_attempt=retry_attempt,
-                expected_session_scope_id=runtime_scope.aggregate_id,
-                observed_session_scope_id=runtime_handle.metadata.get("session_scope_id"),
-                observed_ac_index=runtime_handle.metadata.get("ac_index"),
-                observed_parent_ac_index=runtime_handle.metadata.get("parent_ac_index"),
-                observed_sub_ac_index=runtime_handle.metadata.get("sub_ac_index"),
-            )
-
-        return self._bind_runtime_handle_to_ac_scope(
-            runtime_handle,
-            expected_metadata=expected_metadata,
-            scrub_resume_state=scrub_resume_state,
+            source=source,
+            require_resume_scope_match=require_resume_scope_match,
         )
 
     def _build_ac_runtime_handle(
@@ -2872,12 +780,7 @@ class ParallelACExecutor:
         retry_attempt: int = 0,
         tool_catalog: tuple[MCPToolDefinition, ...] | None = None,
     ) -> RuntimeHandle | None:
-        """Build an AC-scoped runtime handle for implementation work.
-
-        Handles are cached per AC scope so reconnect/resume stays inside the
-        current AC retry/fix loop and never crosses into another AC execution.
-        """
-        runtime_identity = self._resolve_ac_runtime_identity(
+        return self._ac_runtime_handle_manager._build_ac_runtime_handle(
             ac_index,
             execution_context_id=execution_context_id,
             is_sub_ac=is_sub_ac,
@@ -2885,81 +788,7 @@ class ParallelACExecutor:
             sub_ac_index=sub_ac_index,
             node_identity=node_identity,
             retry_attempt=retry_attempt,
-        )
-        cached_seeded_handle = self._ac_runtime_handles.get(runtime_identity.cache_key)
-        seeded_handle = self._normalize_ac_runtime_handle(
-            cached_seeded_handle,
-            runtime_scope=runtime_identity.runtime_scope,
-            ac_index=ac_index,
-            is_sub_ac=is_sub_ac,
-            parent_ac_index=parent_ac_index,
-            sub_ac_index=sub_ac_index,
-            node_identity=node_identity,
-            retry_attempt=retry_attempt,
-            source="cache",
-            require_resume_scope_match=True,
-        )
-        if cached_seeded_handle is not None and seeded_handle is None:
-            self._ac_runtime_handles.pop(runtime_identity.cache_key, None)
-        backend = self._adapter.runtime_backend
-        if not backend:
-            return None
-
-        cwd = self._task_cwd or self._adapter.working_directory
-        approval_mode = self._adapter.permission_mode
-        metadata: dict[str, Any] = dict(seeded_handle.metadata) if seeded_handle is not None else {}
-        metadata.update(runtime_identity.to_metadata())
-        metadata.setdefault("turn_number", 1)
-        metadata.setdefault(
-            "turn_id",
-            self._default_turn_id(runtime_identity, int(metadata["turn_number"])),
-        )
-        if tool_catalog is not None:
-            metadata["tool_catalog"] = serialize_tool_catalog(tool_catalog)
-            capability_graph = build_capability_graph(tool_catalog)
-            policy_context = PolicyContext(
-                runtime_backend=backend,
-                session_role=PolicySessionRole.IMPLEMENTATION,
-                execution_phase=PolicyExecutionPhase.IMPLEMENTATION,
-            )
-            metadata["capability_graph"] = serialize_capability_graph(capability_graph)
-            metadata["control_plane"] = serialize_control_plane_state(
-                build_control_plane_state(
-                    capability_graph,
-                    evaluate_capability_policy(capability_graph, policy_context),
-                )
-            )
-
-        if seeded_handle is not None:
-            return replace(
-                seeded_handle,
-                backend=backend,
-                kind=seeded_handle.kind or _IMPLEMENTATION_SESSION_KIND,
-                cwd=seeded_handle.cwd
-                if seeded_handle.cwd
-                else cwd
-                if isinstance(cwd, str) and cwd
-                else None,
-                approval_mode=(
-                    seeded_handle.approval_mode
-                    if seeded_handle.approval_mode
-                    else approval_mode
-                    if isinstance(approval_mode, str) and approval_mode
-                    else None
-                ),
-                updated_at=datetime.now(UTC).isoformat(),
-                metadata=metadata,
-            )
-
-        return RuntimeHandle(
-            backend=backend,
-            kind=_IMPLEMENTATION_SESSION_KIND,
-            cwd=cwd if isinstance(cwd, str) and cwd else None,
-            approval_mode=approval_mode
-            if isinstance(approval_mode, str) and approval_mode
-            else None,
-            updated_at=datetime.now(UTC).isoformat(),
-            metadata=metadata,
+            tool_catalog=tool_catalog,
         )
 
     async def _load_persisted_ac_runtime_handle(
@@ -2973,8 +802,7 @@ class ParallelACExecutor:
         node_identity: ExecutionNodeIdentity | None = None,
         retry_attempt: int = 0,
     ) -> RuntimeHandle | None:
-        """Load the latest reusable AC-scoped runtime handle from execution events."""
-        runtime_identity = self._resolve_ac_runtime_identity(
+        return await self._ac_runtime_handle_manager._load_persisted_ac_runtime_handle(
             ac_index,
             execution_context_id=execution_context_id,
             is_sub_ac=is_sub_ac,
@@ -2983,100 +811,6 @@ class ParallelACExecutor:
             node_identity=node_identity,
             retry_attempt=retry_attempt,
         )
-        cached_runtime_handle = self._ac_runtime_handles.get(runtime_identity.cache_key)
-        cached_handle = self._normalize_ac_runtime_handle(
-            cached_runtime_handle,
-            runtime_scope=runtime_identity.runtime_scope,
-            ac_index=ac_index,
-            is_sub_ac=is_sub_ac,
-            parent_ac_index=parent_ac_index,
-            sub_ac_index=sub_ac_index,
-            node_identity=node_identity,
-            retry_attempt=retry_attempt,
-            source="cache",
-            require_resume_scope_match=True,
-        )
-        if cached_runtime_handle is not None and cached_handle is None:
-            self._ac_runtime_handles.pop(runtime_identity.cache_key, None)
-        if cached_handle is not None:
-            return cached_handle
-
-        candidate_scope_ids = (
-            runtime_identity.session_scope_id,
-            *runtime_identity.legacy_session_scope_ids,
-        )
-        for candidate_scope_id in dict.fromkeys(candidate_scope_ids):
-            try:
-                events = await self._event_store.replay(
-                    runtime_identity.runtime_scope.aggregate_type,
-                    candidate_scope_id,
-                )
-            except Exception:
-                log.exception(
-                    "parallel_executor.ac.runtime_handle_load_failed",
-                    ac_index=ac_index,
-                    is_sub_ac=is_sub_ac,
-                    parent_ac_index=parent_ac_index,
-                    sub_ac_index=sub_ac_index,
-                    retry_attempt=retry_attempt,
-                    session_scope_id=candidate_scope_id,
-                )
-                continue
-
-            for event in reversed(events):
-                event_data = event.data if isinstance(event.data, dict) else {}
-                if not self._event_matches_ac_runtime_identity(event_data, runtime_identity):
-                    continue
-
-                if event.type in _NON_REUSABLE_RUNTIME_EVENT_TYPES:
-                    self._forget_ac_runtime_handle(
-                        ac_index,
-                        execution_context_id=execution_context_id,
-                        is_sub_ac=is_sub_ac,
-                        parent_ac_index=parent_ac_index,
-                        sub_ac_index=sub_ac_index,
-                        node_identity=node_identity,
-                        retry_attempt=retry_attempt,
-                    )
-                    return None
-                if event.type not in _REUSABLE_RUNTIME_EVENT_TYPES:
-                    continue
-
-                runtime_payload = event_data.get("runtime")
-                try:
-                    runtime_handle = RuntimeHandle.from_dict(runtime_payload)
-                except ValueError as exc:
-                    log.warning(
-                        "parallel_executor.persisted_runtime_handle_invalid",
-                        aggregate_id=event.aggregate_id,
-                        event_type=event.type,
-                        error=str(exc),
-                        runtime_keys=sorted(runtime_payload)
-                        if isinstance(runtime_payload, dict)
-                        else None,
-                    )
-                    continue
-                if runtime_handle is None:
-                    continue
-                runtime_handle = self._normalize_ac_runtime_handle(
-                    runtime_handle,
-                    runtime_scope=runtime_identity.runtime_scope,
-                    ac_index=ac_index,
-                    is_sub_ac=is_sub_ac,
-                    parent_ac_index=parent_ac_index,
-                    sub_ac_index=sub_ac_index,
-                    node_identity=node_identity,
-                    retry_attempt=retry_attempt,
-                    source="persisted_event",
-                    require_resume_scope_match=True,
-                )
-                if runtime_handle is None:
-                    continue
-
-                self._ac_runtime_handles[runtime_identity.cache_key] = runtime_handle
-                return runtime_handle
-
-        return None
 
     def _remember_ac_runtime_handle(
         self,
@@ -3090,12 +824,9 @@ class ParallelACExecutor:
         node_identity: ExecutionNodeIdentity | None = None,
         retry_attempt: int = 0,
     ) -> RuntimeHandle | None:
-        """Cache the latest reusable AC-scoped runtime handle."""
-        if runtime_handle is None:
-            return None
-
-        runtime_identity = self._resolve_ac_runtime_identity(
+        return self._ac_runtime_handle_manager._remember_ac_runtime_handle(
             ac_index,
+            runtime_handle,
             execution_context_id=execution_context_id,
             is_sub_ac=is_sub_ac,
             parent_ac_index=parent_ac_index,
@@ -3103,41 +834,6 @@ class ParallelACExecutor:
             node_identity=node_identity,
             retry_attempt=retry_attempt,
         )
-        normalized_handle = self._normalize_ac_runtime_handle(
-            runtime_handle,
-            runtime_scope=runtime_identity.runtime_scope,
-            ac_index=ac_index,
-            is_sub_ac=is_sub_ac,
-            parent_ac_index=parent_ac_index,
-            sub_ac_index=sub_ac_index,
-            node_identity=node_identity,
-            retry_attempt=retry_attempt,
-            source="runtime",
-            require_resume_scope_match=False,
-        )
-        if normalized_handle is None:
-            return None
-
-        previous_handle = self._ac_runtime_handles.get(runtime_identity.cache_key)
-        normalized_previous_handle = self._normalize_ac_runtime_handle(
-            previous_handle,
-            runtime_scope=runtime_identity.runtime_scope,
-            ac_index=ac_index,
-            is_sub_ac=is_sub_ac,
-            parent_ac_index=parent_ac_index,
-            sub_ac_index=sub_ac_index,
-            node_identity=node_identity,
-            retry_attempt=retry_attempt,
-            source="cache",
-            require_resume_scope_match=False,
-        )
-        normalized_handle = self._augment_ac_runtime_handle(
-            normalized_handle,
-            runtime_identity=runtime_identity,
-            previous_handle=normalized_previous_handle,
-        )
-        self._ac_runtime_handles[runtime_identity.cache_key] = normalized_handle
-        return normalized_handle
 
     def _forget_ac_runtime_handle(
         self,
@@ -3150,8 +846,7 @@ class ParallelACExecutor:
         node_identity: ExecutionNodeIdentity | None = None,
         retry_attempt: int = 0,
     ) -> None:
-        """Drop live cached handle state once an AC scope is no longer resumable."""
-        runtime_identity = self._resolve_ac_runtime_identity(
+        self._ac_runtime_handle_manager._forget_ac_runtime_handle(
             ac_index,
             execution_context_id=execution_context_id,
             is_sub_ac=is_sub_ac,
@@ -3160,7 +855,6 @@ class ParallelACExecutor:
             node_identity=node_identity,
             retry_attempt=retry_attempt,
         )
-        self._ac_runtime_handles.pop(runtime_identity.cache_key, None)
 
     async def _terminate_runtime_handle(
         self,
@@ -3168,27 +862,10 @@ class ParallelACExecutor:
         *,
         runtime_scope_id: str,
     ) -> None:
-        """Best-effort termination for live AC-scoped runtimes."""
-        if runtime_handle is None or not runtime_handle.can_terminate:
-            return
-
-        try:
-            terminated = await runtime_handle.terminate()
-        except Exception as exc:
-            log.warning(
-                "parallel_executor.runtime_handle_terminate_failed",
-                runtime_scope_id=runtime_scope_id,
-                backend=runtime_handle.backend,
-                error=str(exc),
-            )
-            return
-
-        if terminated:
-            log.info(
-                "parallel_executor.runtime_handle_terminated",
-                runtime_scope_id=runtime_scope_id,
-                backend=runtime_handle.backend,
-            )
+        await self._ac_runtime_handle_manager._terminate_runtime_handle(
+            runtime_handle,
+            runtime_scope_id=runtime_scope_id,
+        )
 
     @staticmethod
     def _resolve_ac_runtime_identity(
@@ -3201,8 +878,7 @@ class ParallelACExecutor:
         node_identity: ExecutionNodeIdentity | None = None,
         retry_attempt: int = 0,
     ) -> ACRuntimeIdentity:
-        """Return the normalized AC runtime identity for one implementation attempt."""
-        return build_ac_runtime_identity(
+        return ACRuntimeHandleManager._resolve_ac_runtime_identity(
             ac_index,
             execution_context_id=execution_context_id,
             is_sub_ac=is_sub_ac,
@@ -3217,52 +893,21 @@ class ParallelACExecutor:
         event_data: dict[str, Any],
         runtime_identity: ACRuntimeIdentity,
     ) -> bool:
-        """Return True when an event belongs to the requested AC attempt."""
-        runtime_payload = event_data.get("runtime")
-        runtime_metadata: dict[str, Any] = {}
-        if isinstance(runtime_payload, dict):
-            raw_metadata = runtime_payload.get("metadata")
-            if isinstance(raw_metadata, dict):
-                runtime_metadata = raw_metadata
-
-        expected_metadata = runtime_identity.to_metadata()
-        matched_identity_key = False
-        for key in _AC_RUNTIME_OWNERSHIP_METADATA_KEYS:
-            if key in event_data:
-                observed_value = event_data.get(key)
-            elif key in runtime_metadata:
-                observed_value = runtime_metadata.get(key)
-            else:
-                continue
-
-            matched_identity_key = True
-            if not ParallelACExecutor._metadata_value_matches_expected_scope(
-                key,
-                observed_value,
-                expected_metadata,
-            ):
-                return False
-
-        return matched_identity_key
+        return ACRuntimeHandleManager._event_matches_ac_runtime_identity(
+            event_data,
+            runtime_identity,
+        )
 
     @staticmethod
     def _default_turn_id(
         runtime_identity: ACRuntimeIdentity,
         turn_number: int,
     ) -> str:
-        """Build a stable logical turn identifier within one AC session attempt."""
-        return f"{runtime_identity.session_attempt_id}:turn_{turn_number}"
+        return ACRuntimeHandleManager._default_turn_id(runtime_identity, turn_number)
 
     @staticmethod
     def _runtime_turn_number(runtime_handle: RuntimeHandle | None) -> int:
-        """Return the 1-based logical turn number carried by a runtime handle."""
-        if runtime_handle is None:
-            return 1
-
-        value = runtime_handle.metadata.get("turn_number")
-        if isinstance(value, int) and value > 0:
-            return value
-        return 1
+        return ACRuntimeHandleManager._runtime_turn_number(runtime_handle)
 
     @classmethod
     def _runtime_turn_id(
@@ -3271,26 +916,16 @@ class ParallelACExecutor:
         *,
         runtime_identity: ACRuntimeIdentity,
     ) -> str:
-        """Return the stable logical turn identifier for a runtime handle."""
-        if runtime_handle is not None:
-            value = runtime_handle.metadata.get("turn_id")
-            if isinstance(value, str) and value.strip():
-                return value.strip()
-        return cls._default_turn_id(
-            runtime_identity,
-            cls._runtime_turn_number(runtime_handle),
+        return ACRuntimeHandleManager._runtime_turn_id(
+            runtime_handle,
+            runtime_identity=runtime_identity,
         )
 
     @staticmethod
     def _runtime_recovery_discontinuity(
         runtime_handle: RuntimeHandle | None,
     ) -> dict[str, Any] | None:
-        """Return persisted recovery discontinuity metadata when present."""
-        if runtime_handle is None:
-            return None
-
-        value = runtime_handle.metadata.get("recovery_discontinuity")
-        return dict(value) if isinstance(value, dict) else None
+        return ACRuntimeHandleManager._runtime_recovery_discontinuity(runtime_handle)
 
     @classmethod
     def _runtime_handle_same_session(
@@ -3298,26 +933,10 @@ class ParallelACExecutor:
         previous_handle: RuntimeHandle | None,
         current_handle: RuntimeHandle | None,
     ) -> bool:
-        """Return True when two runtime handles identify the same backend session."""
-        if previous_handle is None or current_handle is None:
-            return False
-
-        previous_native = previous_handle.native_session_id
-        current_native = current_handle.native_session_id
-        if previous_native and current_native:
-            return previous_native == current_native
-
-        previous_server = previous_handle.server_session_id
-        current_server = current_handle.server_session_id
-        if previous_server and current_server:
-            return previous_server == current_server
-
-        previous_resume = previous_handle.resume_session_id
-        current_resume = current_handle.resume_session_id
-        if previous_resume and current_resume:
-            return previous_resume == current_resume
-
-        return False
+        return ACRuntimeHandleManager._runtime_handle_same_session(
+            previous_handle,
+            current_handle,
+        )
 
     @classmethod
     def _build_recovery_discontinuity(
@@ -3327,55 +946,11 @@ class ParallelACExecutor:
         current_handle: RuntimeHandle,
         runtime_identity: ACRuntimeIdentity,
     ) -> dict[str, Any] | None:
-        """Build failed-to-replacement session/turn linkage for soft recovery."""
-        if previous_handle is None or previous_handle.resume_session_id is None:
-            return None
-        if cls._runtime_handle_same_session(previous_handle, current_handle):
-            return None
-
-        current_event_type = current_handle.metadata.get("runtime_event_type")
-        replacement_event = isinstance(
-            current_event_type, str
-        ) and current_event_type.strip().lower() in {"session.started", "thread.started"}
-        previous_native = previous_handle.native_session_id
-        current_native = current_handle.native_session_id
-        previous_server = previous_handle.server_session_id
-        current_server = current_handle.server_session_id
-        native_changed = bool(
-            previous_native and current_native and previous_native != current_native
+        return ACRuntimeHandleManager._build_recovery_discontinuity(
+            previous_handle=previous_handle,
+            current_handle=current_handle,
+            runtime_identity=runtime_identity,
         )
-        server_changed = bool(
-            previous_server and current_server and previous_server != current_server
-        )
-        if not replacement_event and not native_changed and not server_changed:
-            return None
-
-        failed_turn_number = cls._runtime_turn_number(previous_handle)
-        replacement_turn_number = max(
-            cls._runtime_turn_number(current_handle),
-            failed_turn_number + 1,
-        )
-
-        return {
-            "reason": "replacement_session",
-            "failed": {
-                "session_id": previous_native,
-                "server_session_id": previous_server,
-                "resume_session_id": previous_handle.resume_session_id,
-                "turn_id": cls._runtime_turn_id(
-                    previous_handle,
-                    runtime_identity=runtime_identity,
-                ),
-                "turn_number": failed_turn_number,
-            },
-            "replacement": {
-                "session_id": current_native,
-                "server_session_id": current_server,
-                "resume_session_id": current_handle.resume_session_id,
-                "turn_id": cls._default_turn_id(runtime_identity, replacement_turn_number),
-                "turn_number": replacement_turn_number,
-            },
-        }
 
     @classmethod
     def _augment_ac_runtime_handle(
@@ -3385,51 +960,10 @@ class ParallelACExecutor:
         runtime_identity: ACRuntimeIdentity,
         previous_handle: RuntimeHandle | None,
     ) -> RuntimeHandle:
-        """Carry forward logical turn state and record same-attempt recovery linkage."""
-        metadata = dict(runtime_handle.metadata)
-        metadata.setdefault("turn_number", cls._runtime_turn_number(runtime_handle))
-        metadata.setdefault(
-            "turn_id",
-            cls._runtime_turn_id(runtime_handle, runtime_identity=runtime_identity),
-        )
-
-        if previous_handle is not None and cls._runtime_handle_same_session(
-            previous_handle,
+        return ACRuntimeHandleManager._augment_ac_runtime_handle(
             runtime_handle,
-        ):
-            previous_turn_number = cls._runtime_turn_number(previous_handle)
-            if previous_turn_number > cls._runtime_turn_number(runtime_handle):
-                metadata["turn_number"] = previous_turn_number
-                metadata["turn_id"] = cls._runtime_turn_id(
-                    previous_handle,
-                    runtime_identity=runtime_identity,
-                )
-
-            previous_recovery_discontinuity = cls._runtime_recovery_discontinuity(previous_handle)
-            if previous_recovery_discontinuity is not None:
-                metadata.setdefault(
-                    "recovery_discontinuity",
-                    previous_recovery_discontinuity,
-                )
-
-        recovery_discontinuity = cls._build_recovery_discontinuity(
-            previous_handle=previous_handle,
-            current_handle=runtime_handle,
             runtime_identity=runtime_identity,
-        )
-        if recovery_discontinuity is not None:
-            replacement = recovery_discontinuity["replacement"]
-            metadata["turn_number"] = replacement["turn_number"]
-            metadata["turn_id"] = replacement["turn_id"]
-            metadata["recovery_discontinuity"] = recovery_discontinuity
-
-        if metadata == runtime_handle.metadata:
-            return runtime_handle
-
-        return replace(
-            runtime_handle,
-            updated_at=datetime.now(UTC).isoformat(),
-            metadata=metadata,
+            previous_handle=previous_handle,
         )
 
     @staticmethod
@@ -3437,30 +971,15 @@ class ParallelACExecutor:
         runtime_handle: RuntimeHandle | None,
         native_session_id: str | None,
     ) -> RuntimeHandle | None:
-        """Attach a discovered native session id to an existing runtime handle."""
-        if runtime_handle is None or not native_session_id:
-            return runtime_handle
-        if runtime_handle.native_session_id == native_session_id:
-            return runtime_handle
-
-        return replace(
-            runtime_handle,
-            native_session_id=native_session_id,
-            updated_at=datetime.now(UTC).isoformat(),
-            metadata=dict(runtime_handle.metadata),
-        )
+        return ACRuntimeHandleManager._with_native_session_id(runtime_handle, native_session_id)
 
     @staticmethod
     def _is_resumable_runtime_handle(runtime_handle: RuntimeHandle | None) -> bool:
-        """Return True when the handle can reconnect to an existing backend session."""
-        return ParallelACExecutor._runtime_resume_session_id(runtime_handle) is not None
+        return ACRuntimeHandleManager._is_resumable_runtime_handle(runtime_handle)
 
     @staticmethod
     def _runtime_resume_session_id(runtime_handle: RuntimeHandle | None) -> str | None:
-        """Return the minimal persisted session identifier used for reconnect/resume."""
-        if runtime_handle is None:
-            return None
-        return runtime_handle.resume_session_id
+        return ACRuntimeHandleManager._runtime_resume_session_id(runtime_handle)
 
     async def _emit_ac_runtime_event(
         self,
@@ -3475,84 +994,17 @@ class ParallelACExecutor:
         success: bool | None = None,
         error: str | None = None,
     ) -> None:
-        """Persist AC-scoped runtime lifecycle events using normalized metadata."""
-        from ouroboros.events.base import BaseEvent
-
-        effective_session_id = session_id or self._runtime_resume_session_id(runtime_handle)
-        server_session_id = runtime_handle.server_session_id if runtime_handle is not None else None
-        identity_metadata = runtime_identity.to_metadata()
-
-        event = BaseEvent(
-            type=event_type,
-            aggregate_type=runtime_identity.runtime_scope.aggregate_type,
-            aggregate_id=runtime_identity.session_scope_id,
-            data={
-                **identity_metadata,
-                "ac_id": runtime_identity.ac_id,
-                "acceptance_criterion": ac_content,
-                "scope": runtime_identity.scope,
-                "session_role": runtime_identity.session_role,
-                "retry_attempt": runtime_identity.retry_attempt,
-                "attempt_number": runtime_identity.attempt_number,
-                "execution_id": execution_id,
-                "session_scope_id": runtime_identity.session_scope_id,
-                "session_attempt_id": runtime_identity.session_attempt_id,
-                "session_state_path": runtime_identity.session_state_path,
-                "runtime_backend": (runtime_handle.backend if runtime_handle is not None else None),
-                "runtime": (
-                    runtime_handle.to_persisted_dict() if runtime_handle is not None else None
-                ),
-                "session_id": effective_session_id,
-                "server_session_id": server_session_id,
-                "success": success,
-                "result_summary": result_summary,
-                "error": error,
-            },
+        await self._ac_runtime_handle_manager._emit_ac_runtime_event(
+            event_type=event_type,
+            runtime_identity=runtime_identity,
+            ac_content=ac_content,
+            runtime_handle=runtime_handle,
+            execution_id=execution_id,
+            session_id=session_id,
+            result_summary=result_summary,
+            success=success,
+            error=error,
         )
-        if runtime_handle is not None:
-            turn_id = runtime_handle.metadata.get("turn_id")
-            if isinstance(turn_id, str) and turn_id.strip():
-                event.data["turn_id"] = turn_id.strip()
-
-            turn_number = runtime_handle.metadata.get("turn_number")
-            if isinstance(turn_number, int) and turn_number > 0:
-                event.data["turn_number"] = turn_number
-
-            recovery_discontinuity = self._runtime_recovery_discontinuity(runtime_handle)
-            if recovery_discontinuity is not None:
-                event.data["recovery_discontinuity"] = recovery_discontinuity
-        tool_catalog = runtime_handle_tool_catalog(runtime_handle)
-        if tool_catalog is not None:
-            event.data["tool_catalog"] = tool_catalog
-        await self._event_store.append(event)
-        if success is True and execution_id:
-            try:
-                await self._event_store.append(
-                    BaseEvent(
-                        type="execution.ac.completed",
-                        aggregate_type="execution",
-                        aggregate_id=execution_id,
-                        data={
-                            **identity_metadata,
-                            "ac_id": runtime_identity.ac_id,
-                            "acceptance_criterion": ac_content,
-                            "execution_id": execution_id,
-                            "session_id": effective_session_id,
-                            "session_scope_id": runtime_identity.session_scope_id,
-                            "retry_attempt": runtime_identity.retry_attempt,
-                            "attempt_number": runtime_identity.attempt_number,
-                            "success": True,
-                            "result_summary": result_summary,
-                        },
-                    )
-                )
-            except Exception as exc:
-                log.warning(
-                    "parallel_executor.execution_ac_completed_append_failed",
-                    ac_id=runtime_identity.ac_id,
-                    execution_id=execution_id,
-                    error=str(exc),
-                )
 
     @staticmethod
     def _coerce_ac_indices(raw_indices: Any) -> tuple[int, ...]:
@@ -3615,11 +1067,19 @@ class ParallelACExecutor:
         level_contexts: list[LevelContext],
         ac_retry_attempts: dict[int, int],
         execution_counters: dict[str, int] | None = None,
+        retry_prompts: dict[int, str] | None = None,
+        same_runtime_budget_exhausted: bool = True,
     ) -> list[ACExecutionResult | BaseException]:
-        """Execute one batch of stage-ready ACs using the shared worker pool."""
+        """Execute one batch of stage-ready ACs using the shared worker pool.
+
+        ``same_runtime_budget_exhausted`` is forwarded to every AC in the batch:
+        it is ``True`` only on the batch attempt that spends the AC's configured
+        same-runtime retry budget, gating cross-harness redispatch (PR-X X1) so
+        it never pre-empts those retries.
+        """
         batch_results: list[ACExecutionResult | BaseException] = [None] * len(batch_indices)
         sibling_acs: list[_SiblingACRef] = (
-            [(i, seed.acceptance_criteria[i]) for i in batch_indices]
+            [(i, ac_text(seed.acceptance_criteria[i])) for i in batch_indices]
             if len(batch_indices) > 1
             else []
         )
@@ -3627,9 +1087,10 @@ class ParallelACExecutor:
         async def _run_ac(idx: int, ac_idx: int) -> None:
             async with self._semaphore:
                 try:
+                    ac_criterion = seed.acceptance_criteria[ac_idx]
                     batch_results[idx] = await self._execute_single_ac(
                         ac_index=ac_idx,
-                        ac_content=seed.acceptance_criteria[ac_idx],
+                        ac_content=ac_text(ac_criterion),
                         session_id=session_id,
                         tools=tools,
                         tool_catalog=tool_catalog,
@@ -3641,6 +1102,13 @@ class ParallelACExecutor:
                         sibling_acs=sibling_acs,
                         retry_attempt=ac_retry_attempts[ac_idx],
                         execution_counters=execution_counters,
+                        retry_prompt_extra=(retry_prompts or {}).get(ac_idx, ""),
+                        same_runtime_budget_exhausted=same_runtime_budget_exhausted,
+                        ac_spec=(
+                            ac_criterion
+                            if isinstance(ac_criterion, AcceptanceCriterionSpec)
+                            else None
+                        ),
                     )
                 except BaseException as e:
                     # Never suppress anyio Cancelled — doing so breaks
@@ -3759,7 +1227,7 @@ class ParallelACExecutor:
                                 all_results.append(
                                     ACExecutionResult(
                                         ac_index=ac_idx,
-                                        ac_content=seed.acceptance_criteria[ac_idx],
+                                        ac_content=ac_text(seed.acceptance_criteria[ac_idx]),
                                         success=is_completed,
                                         final_message=(
                                             "[Restored from checkpoint]" if is_completed else ""
@@ -3804,7 +1272,7 @@ class ParallelACExecutor:
                 all_results.append(
                     ACExecutionResult(
                         ac_index=idx,
-                        ac_content=seed.acceptance_criteria[idx],
+                        ac_content=ac_text(seed.acceptance_criteria[idx]),
                         success=False,
                         error="Not included in dependency graph",
                         retry_attempt=ac_retry_attempts[idx],
@@ -3923,6 +1391,31 @@ class ParallelACExecutor:
                     metadata = external_completed.get(ac_idx, {})
                     reason = metadata.get("reason")
                     commit = metadata.get("commit")
+
+                    # PR-V V4: --skip-completed trusts working-tree state. When the
+                    # AC carries a success contract (verify_command OR expected
+                    # artifacts), prove it with the gate before skipping; on gate
+                    # failure, execute the AC normally instead.
+                    spec = seed.acceptance_criteria[ac_idx]
+                    verification_status = "assumed"
+                    if (
+                        self._run_verify_commands
+                        and isinstance(spec, AcceptanceCriterionSpec)
+                        and (spec.verify_command or spec.expected_artifacts)
+                    ):
+                        cwd = self._task_cwd or self._adapter.working_directory or os.getcwd()
+                        gate = await self._run_ac_verify_gate(spec=spec, cwd=cwd)
+                        if not gate.passed:
+                            executable.append(ac_idx)
+                            log.info(
+                                "parallel_executor.ac.skip_completed_gate_failed",
+                                session_id=session_id,
+                                ac_index=ac_idx,
+                                reason=gate.reason,
+                            )
+                            continue
+                        verification_status = "verified"
+
                     notes: list[str] = [
                         "Skipped via --skip-completed; existing working tree state is treated as satisfied."
                     ]
@@ -3930,10 +1423,11 @@ class ParallelACExecutor:
                         notes.append(f"Reason: {reason.strip()}")
                     if isinstance(commit, str) and commit.strip():
                         notes.append(f"Commit: {commit.strip()}")
+                    notes.append(f"verification_status={verification_status}")
 
                     satisfied_result = ACExecutionResult(
                         ac_index=ac_idx,
-                        ac_content=seed.acceptance_criteria[ac_idx],
+                        ac_content=ac_text(seed.acceptance_criteria[ac_idx]),
                         success=True,
                         final_message="\n".join(notes),
                         retry_attempt=ac_retry_attempts[ac_idx],
@@ -3956,7 +1450,7 @@ class ParallelACExecutor:
                 for ac_idx in blocked:
                     blocked_result = ACExecutionResult(
                         ac_index=ac_idx,
-                        ac_content=seed.acceptance_criteria[ac_idx],
+                        ac_content=ac_text(seed.acceptance_criteria[ac_idx]),
                         success=False,
                         error="Skipped: dependency failed",
                         retry_attempt=ac_retry_attempts[ac_idx],
@@ -4044,9 +1538,9 @@ class ParallelACExecutor:
                         tool_calls_count=execution_counters["tool_calls_count"],
                     )
 
-                    batch_results = await self._execute_ac_batch(
+                    batch_results = await self._run_batch_with_verify_and_retry(
                         seed=seed,
-                        batch_indices=batch_executable,
+                        batch_executable=batch_executable,
                         session_id=session_id,
                         execution_id=execution_id,
                         tools=tools,
@@ -4063,7 +1557,7 @@ class ParallelACExecutor:
                             error_msg = str(result)
                             ac_result = ACExecutionResult(
                                 ac_index=ac_idx,
-                                ac_content=seed.acceptance_criteria[ac_idx],
+                                ac_content=ac_text(seed.acceptance_criteria[ac_idx]),
                                 success=False,
                                 error=error_msg,
                                 retry_attempt=ac_retry_attempts[ac_idx],
@@ -4098,7 +1592,7 @@ class ParallelACExecutor:
                             )
                             ac_result = ACExecutionResult(
                                 ac_index=ac_idx,
-                                ac_content=seed.acceptance_criteria[ac_idx],
+                                ac_content=ac_text(seed.acceptance_criteria[ac_idx]),
                                 success=False,
                                 error=(f"Stalled (no activity for {STALL_TIMEOUT_SECONDS:.0f}s)"),
                                 retry_attempt=ac_retry_attempts[ac_idx],
@@ -4129,6 +1623,12 @@ class ParallelACExecutor:
                         all_results.append(ac_result)
                         stage_ac_results.append(ac_result)
 
+                flip_gated_out = await self._compute_sibling_flip_gated_out(
+                    seed=seed,
+                    level_results=stage_ac_results,
+                    session_id=session_id,
+                    execution_id=execution_id,
+                )
                 (
                     completed_count,
                     level_success,
@@ -4141,6 +1641,7 @@ class ParallelACExecutor:
                     completed_count=completed_count,
                     level_success=level_success,
                     level_failed=level_failed,
+                    flip_gated_out=flip_gated_out,
                 )
 
                 reconciled_by_index = {result.ac_index: result for result in stage_ac_results}
@@ -4364,6 +1865,9 @@ class ParallelACExecutor:
         parent_ac_index: int | None = None,
         sub_ac_index: int | None = None,
         node_identity: ExecutionNodeIdentity | None = None,
+        retry_prompt_extra: str = "",
+        same_runtime_budget_exhausted: bool = True,
+        ac_spec: AcceptanceCriterionSpec | None = None,
     ) -> ACExecutionResult:
         """Execute a single AC via the sole recursive AC execution entry point.
 
@@ -4383,6 +1887,17 @@ class ParallelACExecutor:
             execution_id: Execution ID for event tracking.
             level_contexts: Context from previously completed levels.
             sibling_acs: Descriptions of ACs running in parallel at this level.
+            same_runtime_budget_exhausted: Whether this call is the AC's final
+                same-runtime attempt. Cross-harness redispatch (PR-X X1) is only
+                consulted when this is ``True`` — i.e. the same-runtime recovery
+                budget (batch-level ``ac_retry_attempts`` retries, plus this
+                call's stall retries) is spent — so the alternate harness never
+                pre-empts the configured same-runtime retries. The batch layer
+                sets it; direct/sub-AC callers default to ``True``.
+            ac_spec: The top-level AC's structured spec, when it carries a success
+                contract, so the atomic leaf prompt can surface it. Only the batch
+                layer passes it for top-level ACs; sub-AC recursion leaves it
+                ``None`` (a decomposed child has no spec-level contract of its own).
 
         Returns:
             ACExecutionResult for this AC.
@@ -4571,6 +2086,28 @@ class ParallelACExecutor:
         # decomposition/dispatch branch above.
         atomic_retry_attempt = retry_attempt
         max_attempts = retry_attempt + MAX_STALL_RETRIES + 1
+        # Stable re-run bundle for a possible cross-harness redispatch (PR-X X1):
+        # every param except retry_attempt is fixed across the atomic loop, so it
+        # can be replayed verbatim on an alternative runtime.
+        alt_rerun_kwargs: dict[str, Any] = {
+            "ac_index": ac_index,
+            "ac_content": ac_content,
+            "session_id": session_id,
+            "tools": tools,
+            "tool_catalog": tool_catalog,
+            "system_prompt": system_prompt,
+            "seed_goal": seed_goal,
+            "depth": depth,
+            "execution_id": execution_id,
+            "level_contexts": level_contexts,
+            "sibling_acs": sibling_acs,
+            "execution_counters": execution_counters,
+            "is_sub_ac": is_sub_ac,
+            "parent_ac_index": parent_ac_index,
+            "sub_ac_index": sub_ac_index,
+            "node_identity": node_identity,
+            "ac_spec": ac_spec,
+        }
         while True:
             atomic_result = await self._execute_atomic_ac(
                 ac_index=ac_index,
@@ -4587,12 +2124,28 @@ class ParallelACExecutor:
                 sibling_acs=sibling_acs,
                 retry_attempt=atomic_retry_attempt,
                 execution_counters=execution_counters,
+                retry_prompt_extra=retry_prompt_extra,
                 is_sub_ac=is_sub_ac,
                 parent_ac_index=parent_ac_index,
                 sub_ac_index=sub_ac_index,
                 node_identity=node_identity,
+                ac_spec=ac_spec,
             )
             if atomic_result.error != _STALL_SENTINEL:
+                if not atomic_result.success and same_runtime_budget_exhausted:
+                    # Non-stall terminal failure (e.g. fabrication, exhausted
+                    # transient 429/529) on the FINAL same-runtime attempt: try
+                    # one cross-harness redispatch. Earlier attempts fall through
+                    # so the configured same-runtime retries run first.
+                    alt_result = await self._maybe_redispatch_alt_harness(
+                        result=atomic_result,
+                        execution_context_id=execution_context_id,
+                        rerun_kwargs=alt_rerun_kwargs,
+                        atomic_retry_attempt=atomic_retry_attempt,
+                        stall_retries_exhausted=False,
+                    )
+                    if alt_result is not None:
+                        atomic_result = alt_result
                 if decomposition_depth_warning:
                     return replace(atomic_result, decomposition_depth_warning=True)
                 return atomic_result
@@ -4632,11 +2185,210 @@ class ParallelACExecutor:
                     atomic_result,
                     error=f"Stalled (no activity for {STALL_TIMEOUT_SECONDS:.0f}s)",
                 )
+                # An abandoned stall is re-dispatched by the batch-level
+                # same-runtime retry loop (its error is no longer the stall
+                # sentinel), so only try a cross-harness redispatch once that
+                # budget is also spent — i.e. this is the final same-runtime
+                # attempt — before the AC is finally marked FAILED.
+                if same_runtime_budget_exhausted:
+                    alt_result = await self._maybe_redispatch_alt_harness(
+                        result=failed_result,
+                        execution_context_id=execution_context_id,
+                        rerun_kwargs=alt_rerun_kwargs,
+                        atomic_retry_attempt=atomic_retry_attempt,
+                        stall_retries_exhausted=True,
+                    )
+                    if alt_result is not None:
+                        failed_result = alt_result
                 if decomposition_depth_warning:
                     return replace(failed_result, decomposition_depth_warning=True)
                 return failed_result
 
             atomic_retry_attempt += 1
+
+    async def _maybe_redispatch_alt_harness(
+        self,
+        *,
+        result: ACExecutionResult,
+        execution_context_id: str,
+        rerun_kwargs: dict[str, Any],
+        atomic_retry_attempt: int,
+        stall_retries_exhausted: bool,
+    ) -> ACExecutionResult | None:
+        """Cross-harness recovery hook (PR-X X1) — narrow shell over the module.
+
+        Consults :func:`decide_alt_harness_redispatch`; on a positive decision,
+        re-runs the SAME AC once on a different runtime (fresh worker session),
+        capped at one alt-harness redispatch per AC. Returns the alternative's
+        result whether it succeeds or fails, so a failed alternate attempt is
+        surfaced as the authoritative outcome (never silently discarded); only a
+        negative decision or an infrastructure error returns ``None`` so the
+        original failure path is untouched.
+        """
+        if not self._cross_harness_redispatch_enabled:
+            return None
+
+        from ouroboros.orchestrator.cross_harness_redispatch import (
+            decide_alt_harness_redispatch,
+            looks_transient_exhausted,
+        )
+        from ouroboros.orchestrator.failure_taxonomy import FailureClass
+
+        from_backend = getattr(self._adapter, "runtime_backend", None)
+        runtime_identity = build_ac_runtime_identity(
+            rerun_kwargs["ac_index"],
+            execution_context_id=execution_context_id,
+            is_sub_ac=rerun_kwargs["is_sub_ac"],
+            parent_ac_index=rerun_kwargs["parent_ac_index"],
+            sub_ac_index=rerun_kwargs["sub_ac_index"],
+            node_identity=rerun_kwargs["node_identity"],
+            retry_attempt=atomic_retry_attempt,
+        )
+        ac_key = runtime_identity.ac_id or f"{execution_context_id}:{rerun_kwargs['ac_index']}"
+
+        failure: FailureClass | None = None
+        verdict = result.atomic_verifier_verdict
+        if verdict is not None and verdict.failure_class:
+            try:
+                failure = FailureClass(verdict.failure_class)
+            except ValueError:
+                failure = None
+        # The stall-abandon site carries no verifier verdict, but the condition
+        # itself is a STALL — name it so the policy can route it.
+        if failure is None and stall_retries_exhausted:
+            failure = FailureClass.STALL
+
+        decision = decide_alt_harness_redispatch(
+            enabled=True,
+            from_backend=from_backend,
+            failure=failure,
+            already_redispatched=ac_key in self._alt_harness_redispatched_acs,
+            stall_retries_exhausted=stall_retries_exhausted,
+            transient_exhausted=looks_transient_exhausted(result.error),
+            exclude={from_backend} if from_backend else None,
+            weights=_safe_backend_outcome_weights(),
+        )
+        if not decision.should_redispatch or decision.to_backend is None:
+            return None
+
+        # Consume the one-per-AC cap up front so a re-run that itself fails does
+        # not trigger a second harness hop.
+        self._alt_harness_redispatched_acs.add(ac_key)
+        try:
+            alt_result = await self._run_single_ac_on_backend(
+                decision.to_backend,
+                rerun_kwargs=rerun_kwargs,
+                retry_attempt=atomic_retry_attempt + 1,
+                decision=decision,
+                runtime_identity=runtime_identity,
+                failure_class=failure.value if failure is not None else None,
+            )
+        except Exception as exc:  # never make a failure worse
+            log.warning(
+                "parallel_executor.alt_harness_redispatch_failed",
+                to_backend=decision.to_backend,
+                ac_index=rerun_kwargs["ac_index"],
+                error=str(exc),
+            )
+            return None
+        if alt_result is None:
+            return None
+        # Surface the alternate attempt as the authoritative outcome regardless of
+        # its success: the alternate backend ran in the SAME workspace and may
+        # have left edits, so on failure the caller must report the alternate's
+        # (failed) result — not the original same-runtime failure — so the
+        # backend that last touched the workspace is honestly represented.
+        return self._annotate_alt_harness_result(
+            alt_result,
+            decision=decision,
+            from_backend=from_backend,
+        )
+
+    @staticmethod
+    def _annotate_alt_harness_result(
+        result: ACExecutionResult,
+        *,
+        decision: Any,
+        from_backend: str | None,
+    ) -> ACExecutionResult:
+        """Make an alternate-harness attempt self-describing for honest reporting.
+
+        On a successful alternate the result already carries the alt backend's
+        session/runtime handle, so it is returned unchanged (the win is the win).
+        On a FAILED alternate the alternate backend ran in the SAME workspace and
+        may have left edits, so the returned failure names the from→to backends
+        and flags the possible workspace mutation in its ``error`` — the field
+        downstream FAILED classification and the human-facing report read — so
+        the final result never describes only the original same-runtime failure
+        while a different backend was the last thing to touch the workspace.
+        """
+        if result.success:
+            return result
+        to_backend = getattr(decision, "to_backend", None)
+        alt_note = (
+            f"Cross-harness redispatch to '{to_backend}' (from '{from_backend}') also FAILED; "
+            f"the alternate backend ran in the shared workspace and may have modified it."
+        )
+        base_error = result.error or "alternate-harness attempt failed"
+        combined_error = f"{base_error}\n[alt-harness] {alt_note}"
+        return replace(result, error=combined_error)
+
+    async def _run_single_ac_on_backend(
+        self,
+        backend: str,
+        *,
+        rerun_kwargs: dict[str, Any],
+        retry_attempt: int,
+        decision: Any,
+        runtime_identity: ACRuntimeIdentity,
+        failure_class: str | None,
+    ) -> ACExecutionResult | None:
+        """Build a throwaway runtime for ``backend`` and replay one AC on it.
+
+        Emits the observable from→to redispatch event, then runs the AC through a
+        fresh, decomposition-disabled executor whose own cross-harness redispatch
+        is turned off (recursion guard).
+        """
+        from ouroboros.orchestrator.cross_harness_redispatch import (
+            create_alt_harness_redispatch_event,
+        )
+        from ouroboros.orchestrator.runtime_factory import create_agent_runtime
+
+        cwd = self._task_cwd or self._adapter.working_directory
+        alt_adapter = create_agent_runtime(backend=backend, cwd=cwd)
+
+        event = create_alt_harness_redispatch_event(
+            session_id=rerun_kwargs["session_id"],
+            ac_index=rerun_kwargs["ac_index"],
+            ac_id=runtime_identity.ac_id,
+            execution_id=rerun_kwargs["execution_id"] or None,
+            decision=decision,
+            redispatch_index=1,
+            failure_class=failure_class,
+        )
+        await self._safe_emit_event(event)
+        log.info(
+            "parallel_executor.alt_harness_redispatch",
+            from_backend=decision.from_backend,
+            to_backend=backend,
+            ac_index=rerun_kwargs["ac_index"],
+        )
+
+        alt_executor = ParallelACExecutor(
+            alt_adapter,
+            self._event_store,
+            console=self._console,
+            enable_decomposition=False,
+            max_concurrent=1,
+            checkpoint_store=self._checkpoint_store,
+            task_cwd=self._task_cwd,
+            execution_profile=self._execution_profile,
+            fat_harness_mode=self._fat_harness_mode,
+            atomic_verifier=self._atomic_verifier,
+            reasoning_effort=self._reasoning_effort,
+            cross_harness_redispatch=False,
+        )
+        return await alt_executor._execute_single_ac(**rerun_kwargs, retry_attempt=retry_attempt)
 
     async def _try_decompose_ac(
         self,
@@ -4958,44 +2710,25 @@ Respond with either "ATOMIC" or the JSON array only, nothing else.
         if self._execution_profile is None or context_audit is None:
             return
 
-        from ouroboros.events.base import BaseEvent
-
-        await self._safe_emit_event(
-            BaseEvent(
-                type="execution.ac.context_governed",
-                aggregate_type=runtime_identity.runtime_scope.aggregate_type,
-                aggregate_id=runtime_identity.session_scope_id,
-                data={
-                    **runtime_identity.to_metadata(),
-                    **self._decomposition_profile_metadata(),
-                    "execution_id": execution_id,
-                    "session_id": session_id,
-                    "acceptance_criterion": ac_content,
-                    "profile": self._execution_profile.profile,
-                    **context_audit,
-                },
-            )
+        await self._event_emitter.emit_atomic_context_governed(
+            runtime_identity=runtime_identity,
+            execution_id=execution_id,
+            session_id=session_id,
+            ac_content=ac_content,
+            profile=self._execution_profile.profile,
+            decomposition_profile_metadata=self._decomposition_profile_metadata(),
+            context_audit=context_audit,
         )
 
     @staticmethod
     def _runtime_event_metadata(message: AgentMessage) -> dict[str, Any]:
         """Serialize shared runtime/tool metadata for execution-scoped events."""
-        projected = project_runtime_message(message)
-        return dict(projected.runtime_metadata)
+        return ExecutionEventEmitter.runtime_event_metadata(message)
 
     @staticmethod
     def _message_tool_input_preview(tool_input: dict[str, Any]) -> str | None:
         """Build a compact preview string for shared session tool-call events."""
-        if not tool_input:
-            return None
-
-        parts: list[str] = []
-        for key, value in tool_input.items():
-            rendered = str(value).strip()
-            if rendered:
-                parts.append(f"{key}: {rendered}")
-        preview = ", ".join(parts)
-        return preview[:100] if preview else None
+        return ExecutionEventEmitter.message_tool_input_preview(tool_input)
 
     @staticmethod
     def _should_emit_session_progress_event(
@@ -5024,43 +2757,11 @@ Respond with either "ATOMIC" or the JSON array only, nothing else.
         projected: Any,
     ):
         """Create a shared session progress event from an AC runtime message."""
-        from ouroboros.orchestrator.events import create_progress_event
-        from ouroboros.orchestrator.workflow_state import coerce_ac_marker_update
-
-        message_type = projected.message_type
-        event = create_progress_event(
-            session_id=session_id,
-            message_type=message_type,
-            content_preview=projected.content,
-            tool_name=projected.tool_name if message_type in {"tool", "tool_result"} else None,
+        return self._event_emitter.build_session_progress_event(
+            session_id,
+            message,
+            projected=projected,
         )
-        event_data = {
-            **event.data,
-            **projected.runtime_metadata,
-            "progress": {
-                "last_message_type": message_type,
-                "last_content_preview": projected.content[:200],
-            },
-        }
-        runtime = event_data.get("runtime")
-        if isinstance(runtime, dict):
-            event_data["progress"]["runtime"] = runtime
-        runtime_event_type = event_data.get("runtime_event_type")
-        if isinstance(runtime_event_type, str) and runtime_event_type:
-            event_data["progress"]["runtime_event_type"] = runtime_event_type
-        runtime_signal = event_data.get("runtime_signal")
-        if isinstance(runtime_signal, str) and runtime_signal:
-            event_data["progress"]["runtime_signal"] = runtime_signal
-        runtime_status = event_data.get("runtime_status")
-        if isinstance(runtime_status, str) and runtime_status:
-            event_data["progress"]["runtime_status"] = runtime_status
-        thinking = event_data.get("thinking")
-        if isinstance(thinking, str) and thinking:
-            event_data["progress"]["thinking"] = thinking
-        ac_tracking = coerce_ac_marker_update(event_data.get("ac_tracking"))
-        if not ac_tracking.is_empty:
-            event_data["progress"]["ac_tracking"] = ac_tracking.to_dict()
-        return event.model_copy(update={"data": event_data})
 
     def _build_session_tool_called_event(
         self,
@@ -5069,26 +2770,15 @@ Respond with either "ATOMIC" or the JSON array only, nothing else.
         projected: Any,
     ):
         """Create a shared session tool-call event from an AC runtime message."""
-        from ouroboros.orchestrator.events import create_tool_called_event
-
-        if projected.tool_name is None:
-            return None
-
-        event = create_tool_called_event(
-            session_id=session_id,
-            tool_name=projected.tool_name,
-            tool_input_preview=self._message_tool_input_preview(projected.tool_input),
+        return self._event_emitter.build_session_tool_called_event(
+            session_id,
+            projected=projected,
         )
-        event_data = {
-            **event.data,
-            **projected.runtime_metadata,
-        }
-        return event.model_copy(update={"data": event_data})
 
     @staticmethod
     def _coordinator_aggregate_id(execution_id: str, level: int) -> str:
         """Build a deterministic level-scoped aggregate ID for coordinator work."""
-        return f"{execution_id}:l{level - 1}:coord"
+        return ExecutionEventEmitter.coordinator_aggregate_id(execution_id, level)
 
     async def _emit_coordinator_started(
         self,
@@ -5098,33 +2788,12 @@ Respond with either "ATOMIC" or the JSON array only, nothing else.
         conflicts: list[Any],
     ) -> None:
         """Emit a level-scoped event when coordinator reconciliation starts."""
-        from ouroboros.events.base import BaseEvent
-
-        runtime_scope = build_level_coordinator_runtime_scope(execution_id, level)
-        event = BaseEvent(
-            type="execution.coordinator.started",
-            aggregate_type="execution",
-            aggregate_id=self._coordinator_aggregate_id(execution_id, level),
-            data={
-                "execution_id": execution_id,
-                "session_id": session_id,
-                "scope": "level",
-                "session_role": "coordinator",
-                "stage_index": level - 1,
-                "level_number": level,
-                "session_scope_id": runtime_scope.aggregate_id,
-                "session_state_path": runtime_scope.state_path,
-                "conflict_count": len(conflicts),
-                "conflicts": [
-                    {
-                        "file_path": conflict.file_path,
-                        "ac_indices": list(conflict.ac_indices),
-                    }
-                    for conflict in conflicts
-                ],
-            },
+        await self._event_emitter.emit_coordinator_started(
+            execution_id,
+            session_id,
+            level,
+            conflicts,
         )
-        await self._event_store.append(event)
 
     async def _emit_coordinator_runtime_events(
         self,
@@ -5133,66 +2802,12 @@ Respond with either "ATOMIC" or the JSON array only, nothing else.
         review: CoordinatorReview,
     ) -> None:
         """Persist normalized coordinator runtime audit events at level scope."""
-        from ouroboros.events.base import BaseEvent
-
-        aggregate_id = self._coordinator_aggregate_id(execution_id, review.level_number)
-        base_data = {
-            "execution_id": execution_id,
-            "session_id": session_id,
-            "coordinator_session_id": review.session_id,
-            "scope": review.scope,
-            "session_role": review.session_role,
-            "stage_index": review.stage_index,
-            "level_number": review.level_number,
-            "session_scope_id": review.artifact_owner_id,
-            "session_state_path": review.artifact_state_path,
-        }
-
-        for message in review.messages:
-            projected = project_runtime_message(message)
-
-            if projected.is_tool_call and projected.tool_name is not None:
-                tool_input = projected.tool_input
-                tool_event = BaseEvent(
-                    type="execution.coordinator.tool.started",
-                    aggregate_type="execution",
-                    aggregate_id=aggregate_id,
-                    data={
-                        **base_data,
-                        "tool_name": projected.tool_name,
-                        "tool_detail": self._format_tool_detail(projected.tool_name, tool_input),
-                        "tool_input": tool_input,
-                        **self._runtime_event_metadata(message),
-                    },
-                )
-                await self._event_store.append(tool_event)
-
-            if projected.is_tool_result and projected.tool_name is not None:
-                tool_result_event = BaseEvent(
-                    type="execution.coordinator.tool.completed",
-                    aggregate_type="execution",
-                    aggregate_id=aggregate_id,
-                    data={
-                        **base_data,
-                        "tool_name": projected.tool_name,
-                        "tool_result_text": projected.content,
-                        **self._runtime_event_metadata(message),
-                    },
-                )
-                await self._event_store.append(tool_result_event)
-
-            if projected.thinking:
-                thinking_event = BaseEvent(
-                    type="execution.coordinator.thinking",
-                    aggregate_type="execution",
-                    aggregate_id=aggregate_id,
-                    data={
-                        **base_data,
-                        "thinking_text": projected.thinking,
-                        **self._runtime_event_metadata(message),
-                    },
-                )
-                await self._event_store.append(thinking_event)
+        await self._event_emitter.emit_coordinator_runtime_events(
+            execution_id,
+            session_id,
+            review,
+            format_tool_detail=self._format_tool_detail,
+        )
 
     async def _emit_coordinator_completed(
         self,
@@ -5201,33 +2816,11 @@ Respond with either "ATOMIC" or the JSON array only, nothing else.
         review: CoordinatorReview,
     ) -> None:
         """Persist the coordinator reconciliation result as a level-scoped artifact."""
-        from ouroboros.events.base import BaseEvent
-
-        event = BaseEvent(
-            type="execution.coordinator.completed",
-            aggregate_type="execution",
-            aggregate_id=self._coordinator_aggregate_id(execution_id, review.level_number),
-            data={
-                "execution_id": execution_id,
-                "session_id": session_id,
-                "coordinator_session_id": review.session_id,
-                **review.to_artifact_payload(),
-                "conflicts_detected": [
-                    {
-                        "file_path": conflict.file_path,
-                        "ac_indices": list(conflict.ac_indices),
-                        "resolved": conflict.resolved,
-                        "resolution_description": conflict.resolution_description,
-                    }
-                    for conflict in review.conflicts_detected
-                ],
-                "review_summary": review.review_summary,
-                "fixes_applied": list(review.fixes_applied),
-                "warnings_for_next_level": list(review.warnings_for_next_level),
-                "duration_seconds": review.duration_seconds,
-            },
+        await self._event_emitter.emit_coordinator_completed(
+            execution_id,
+            session_id,
+            review,
         )
-        await self._event_store.append(event)
 
     async def _execute_atomic_ac(
         self,
@@ -5249,6 +2842,8 @@ Respond with either "ATOMIC" or the JSON array only, nothing else.
         retry_attempt: int = 0,
         tool_catalog: tuple[MCPToolDefinition, ...] | None = None,
         execution_counters: dict[str, int] | None = None,
+        retry_prompt_extra: str = "",
+        ac_spec: AcceptanceCriterionSpec | None = None,
     ) -> ACExecutionResult:
         """Execute an atomic AC directly via Claude Agent.
 
@@ -5257,182 +2852,26 @@ Respond with either "ATOMIC" or the JSON array only, nothing else.
         """
         ac_session_id: str | None = None
 
-        # Build prompt
-        if node_identity is not None:
-            label = (
-                f"AC {node_identity.display_path}"
-                if node_identity.depth == 0
-                else f"Sub-AC {node_identity.display_path}"
-            )
-            indent = "    " if node_identity.depth > 0 else "  "
-        elif is_sub_ac:
-            label = f"Sub-AC {sub_ac_index + 1} of AC {parent_ac_index + 1}"
-            indent = "    "
-        else:
-            label = f"AC {ac_index + 1}"
-            indent = "  "
-
-        task_section, context_governance_audit = self._build_atomic_dispatch_context(
+        # Build prompt (label/indent, governed task section, success contract,
+        # retry/parallel-awareness sections, cwd scan, completion contract).
+        prompt_bundle = AtomicPromptBuilder(self).build(
             ac_index=ac_index,
             ac_content=ac_content,
-            label=label,
+            seed_goal=seed_goal,
+            is_sub_ac=is_sub_ac,
+            parent_ac_index=parent_ac_index,
+            sub_ac_index=sub_ac_index,
+            node_identity=node_identity,
             level_contexts=level_contexts,
             sibling_acs=sibling_acs,
+            retry_attempt=retry_attempt,
+            retry_prompt_extra=retry_prompt_extra,
+            ac_spec=ac_spec,
         )
-        legacy_context_section = (
-            ""
-            if context_governance_audit is not None
-            and context_governance_audit.get("context_governed") is True
-            else build_context_prompt(level_contexts or [])
-        )
-
-        retry_section = ""
-        if retry_attempt > 0:
-            retry_section = (
-                "\n## Retry Context\n"
-                f"This is retry attempt {retry_attempt} for this acceptance criterion.\n"
-                "Resume from the current shared workspace state, including any "
-                "coordinator-reconciled changes already applied.\n"
-            )
-
-        # Build parallel awareness section
-        parallel_section = ""
-        if sibling_acs and len(sibling_acs) > 1:
-            other_acs = [
-                content for sibling_index, content in sibling_acs if sibling_index != ac_index
-            ]
-            if other_acs:
-                context_is_governed = (
-                    context_governance_audit is not None
-                    and context_governance_audit.get("context_governed") is True
-                )
-                if context_is_governed:
-                    if self._fat_harness_mode and self._execution_profile is not None:
-                        other_list = (
-                            "Sibling/future ACs are summarized in the governed "
-                            "sibling-status section above as out-of-scope boundary "
-                            "context."
-                        )
-                    else:
-                        other_list = (
-                            "Sibling tasks in progress are summarized in the governed "
-                            "sibling-status section above."
-                        )
-                else:
-                    sibling_heading = (
-                        "Sibling/future ACs that are OUT OF SCOPE for this dispatch:"
-                        if self._fat_harness_mode and self._execution_profile is not None
-                        else "Sibling tasks in progress:"
-                    )
-                    other_list = (
-                        sibling_heading + "\n" + "\n".join(f"- {ac[:80]}" for ac in other_acs)
-                    )
-                if self._fat_harness_mode and self._execution_profile is not None:
-                    parallel_section = (
-                        "\n## Current AC Scope Boundary\n"
-                        "Sibling/future ACs are listed only to define work that is "
-                        "outside the current dispatch. Do not satisfy those criteria "
-                        "now, and do not pre-create their files, tests, docs, or "
-                        "evidence. Avoid modifying files that sibling/future ACs are "
-                        "likely to own unless the current AC explicitly requires it.\n\n"
-                        f"{other_list}\n"
-                    )
-                else:
-                    parallel_section = (
-                        "\n## Parallel Execution Notice\n"
-                        "Other agents are working on sibling tasks concurrently. "
-                        "Avoid modifying files that other agents are likely editing. "
-                        "Focus on files directly related to YOUR task.\n\n"
-                        f"{other_list}\n"
-                    )
-
-        # Scan the requested runtime workspace so prompts stay aligned with the actual task cwd.
-        import os
-
-        cwd = self._task_cwd or self._adapter.working_directory
-        if not isinstance(cwd, str) or not cwd:
-            cwd = os.getcwd()
-        try:
-            entries = sorted(os.listdir(cwd))
-            file_listing = "\n".join(f"- {e}" for e in entries if not e.startswith("."))
-        except OSError:
-            file_listing = "(unable to list)"
-
-        if self._fat_harness_mode and self._execution_profile is not None:
-            effective_schema = _effective_evidence_schema_for_ac(
-                self._execution_profile, ac_content
-            )
-            required_fields = ", ".join(effective_schema.required)
-            doc_only_note = ""
-            if _is_documentation_only_ac(ac_content):
-                doc_only_note = (
-                    "This is a documentation-only current AC: verify the requested docs "
-                    "with current-session README/docs evidence such as Edit plus a direct "
-                    "read/grep/diff command when that command is the validation for the docs change. "
-                    "Do not include tests_passed at all for documentation-only ACs. "
-                    "If you ran tests as a sanity check, cite only the validation command "
-                    "in commands_run when it directly validates the current docs change; "
-                    "do not list individual test names or prior test IDs.\n"
-                )
-            validation_only_note = ""
-            if _is_validation_only_ac(ac_content):
-                validation_only_note = (
-                    "This is a validation-only current AC: prove it with commands_run "
-                    "and tests_passed from this runtime session. Do not include "
-                    "files_touched unless you actually edited, wrote, or generated files "
-                    "for this current AC. Read-only inspection or running tests does not "
-                    "count as files_touched.\n"
-                )
-            completion_instruction = (
-                "## Current AC Scope Contract\n"
-                "You are responsible only for the current acceptance criterion in "
-                "this dispatch. Do not implement, test, document, or pre-create work "
-                "that belongs only to sibling or future ACs. If another AC mentions "
-                "related files, future functions, tests, or docs, treat that work as "
-                "out of scope unless the current AC explicitly requires it.\n"
-                "Your final evidence JSON must cite only files, commands, and tests "
-                "directly changed or run for this current AC in this runtime session. "
-                "For files_touched, cite workspace-relative paths only, never absolute "
-                "paths such as /tmp/... or /private/tmp/..., and never paths outside "
-                "the working directory. "
-                "For commands_run, include only validation/production commands such "
-                "as test, build, lint, generation, or docs verification commands; omit "
-                "exploratory discovery commands such as rg, grep, sed, cat, ls, find, "
-                "or pwd unless the current AC explicitly requires that command as validation.\n"
-                f"{doc_only_note}{validation_only_note}\n"
-                "Use the available tools to accomplish this task. Report progress through "
-                "tool-visible work, not a prose-only completion claim.\n"
-                "When complete, emit exactly ONE fenced JSON evidence record as the "
-                "final response and then stop. Populate the active profile fields "
-                f"directly ({required_fields}); do not emit a generic command_result "
-                "wrapper. Do not prefix it with [TASK_COMPLETE] or any prose; the "
-                "harness decides success from typed evidence plus the verifier PASS."
-            )
-        else:
-            completion_instruction = (
-                "Use the available tools to accomplish this task. Report your progress "
-                "clearly.\nWhen complete, explicitly state: [TASK_COMPLETE]"
-            )
-
-        prompt = f"""Execute the following task:
-
-## Working Directory
-`{cwd}`
-
-Files present:
-{file_listing}
-
-**Important**: Use Glob to discover files. Never guess absolute paths.
-
-## Goal Context
-{seed_goal}
-
-{render_auto_recursion_guard()}
-
-{task_section}
-{legacy_context_section}{retry_section}{parallel_section}
-{completion_instruction}
-"""
+        prompt = prompt_bundle.prompt
+        label = prompt_bundle.label
+        indent = prompt_bundle.indent
+        context_governance_audit = prompt_bundle.context_governance_audit
 
         messages: list[AgentMessage] = []
         final_message = ""
@@ -5485,19 +2924,6 @@ Files present:
             ac_content=ac_content,
             context_audit=context_governance_audit,
         )
-        lifecycle_event_type = (
-            "execution.session.resumed"
-            if self._is_resumable_runtime_handle(runtime_handle)
-            else "execution.session.started"
-        )
-        lifecycle_emitted = False
-        emitted_recovery_turn_ids: set[str] = set()
-
-        # Stall detection: CancelScope with resettable deadline (RC6)
-        message_count = 0
-        last_heartbeat = time.monotonic()
-        exec_start = time.monotonic()
-
         await self._wait_for_memory(label)
         self._announce_param_degradations(system_prompt=system_prompt, tools=tools)
         # Pace delivery within the backend's shared rate budget (dormant unless
@@ -5505,7 +2931,8 @@ Files present:
         await self._await_dispatch_rate_budget(prompt=prompt, system_prompt=system_prompt)
 
         # Lay the executor on the capability contract: decide the effort level for
-        # this unit (a decomposed child runs one notch lower) and classify how the
+        # this unit (a decomposed child inherits the parent tier unchanged; a hard AC
+        # on its second-or-later retry is raised one notch) and classify how the
         # chosen runtime will honor it from its declared capability — enforced via a
         # native knob, or advised. The level is passed to execute_task; an advised
         # runtime ignores it. Dormant by default (base effort None → level None).
@@ -5513,6 +2940,7 @@ Files present:
             self._adapter,
             base_effort=self._reasoning_effort,
             is_decomposed_child=is_sub_ac,
+            retry_attempt=retry_attempt,
         )
         if effort_decision.level is not None:
             log.debug(
@@ -5535,228 +2963,63 @@ Files present:
             # aborting the AC before runtime dispatch. ``execution_context_id``
             # (execution_id or session_id) keeps the payload scope aligned with the
             # aggregate id even on direct/fallback callers that pass no execution_id.
-            from ouroboros.events.base import BaseEvent
-
-            await self._safe_emit_event(
-                BaseEvent(
-                    type="execution.ac.effort_routed",
-                    aggregate_type=runtime_identity.runtime_scope.aggregate_type,
-                    aggregate_id=runtime_identity.session_scope_id,
-                    data={
-                        **runtime_identity.to_metadata(),
-                        "ac_id": runtime_identity.ac_id,
-                        "execution_id": execution_context_id,
-                        "session_id": session_id,
-                        "ac_index": ac_index,
-                        "is_decomposed_child": is_sub_ac,
-                        "effort_level": effort_decision.level,
-                        "effort_mode": effort_decision.mode,
-                        "base_reasoning_effort": self._reasoning_effort,
-                        "runtime_backend": getattr(self._adapter, "runtime_backend", None),
-                    },
-                )
+            await self._event_emitter.emit_effort_routed(
+                runtime_identity=runtime_identity,
+                execution_id=execution_context_id,
+                session_id=session_id,
+                ac_index=ac_index,
+                is_sub_ac=is_sub_ac,
+                effort_level=effort_decision.level,
+                effort_mode=effort_decision.mode,
+                base_reasoning_effort=self._reasoning_effort,
+                runtime_backend=getattr(self._adapter, "runtime_backend", None),
             )
         # execute_effort_kwargs (from resolve_execute_effort) carries
         # reasoning_effort ONLY for runtimes that enforce it; advised runtimes that
         # do not accept the parameter are never handed it.
 
+        # Runtime dispatch + streaming/heartbeat consumption. The dispatcher owns
+        # the stall-scoped CancelScope and the per-message loop; it mutates
+        # ``dispatch_state`` in place (including on the exception path) so the
+        # ``except``/``finally`` below observe the latest runtime handle, session
+        # id, and partial message list. Created before the ``try`` so it is always
+        # bound for the ``except``/``finally``.
+        dispatch_state = LeafDispatchState(messages=messages, runtime_handle=runtime_handle)
         try:
-            with anyio.CancelScope(
-                deadline=anyio.current_time() + STALL_TIMEOUT_SECONDS,
-            ) as stall_scope:
-                async for message in self._adapter.execute_task(
-                    prompt=prompt,
-                    tools=tools,
-                    system_prompt=system_prompt,
-                    resume_handle=runtime_handle,
-                    **execute_effort_kwargs,
-                ):
-                    # Reset stall deadline on every message (RC6 core)
-                    stall_scope.deadline = anyio.current_time() + STALL_TIMEOUT_SECONDS
-                    if message.resume_handle is not None:
-                        runtime_handle = self._remember_ac_runtime_handle(
-                            ac_index,
-                            message.resume_handle,
-                            execution_context_id=execution_context_id,
-                            is_sub_ac=is_sub_ac,
-                            parent_ac_index=parent_ac_index,
-                            sub_ac_index=sub_ac_index,
-                            node_identity=node_identity,
-                            retry_attempt=retry_attempt,
-                        )
-
-                    if runtime_handle is not None and runtime_handle.native_session_id:
-                        ac_session_id = runtime_handle.native_session_id
-                    elif (
-                        message.resume_handle is None
-                        and isinstance(message.data.get("session_id"), str)
-                        and message.data["session_id"]
-                    ):
-                        ac_session_id = message.data["session_id"]
-
-                    runtime_handle = self._with_native_session_id(runtime_handle, ac_session_id)
-                    if runtime_handle is not None and message.resume_handle is not None:
-                        message = replace(message, resume_handle=runtime_handle)
-
-                    recovery_discontinuity = self._runtime_recovery_discontinuity(runtime_handle)
-                    if recovery_discontinuity is not None:
-                        replacement = recovery_discontinuity.get("replacement", {})
-                        replacement_turn_id = replacement.get("turn_id")
-                        if isinstance(replacement_turn_id, str) and replacement_turn_id:
-                            if replacement_turn_id not in emitted_recovery_turn_ids:
-                                await self._emit_ac_runtime_event(
-                                    event_type="execution.session.recovered",
-                                    runtime_identity=runtime_identity,
-                                    ac_content=ac_content,
-                                    runtime_handle=runtime_handle,
-                                    execution_id=execution_context_id,
-                                    session_id=ac_session_id,
-                                )
-                                emitted_recovery_turn_ids.add(replacement_turn_id)
-
-                    messages.append(message)
-                    message_count += 1
-                    if execution_counters is not None:
-                        async with self._execution_counters_lock:
-                            execution_counters["messages_count"] = (
-                                execution_counters.get("messages_count", 0) + 1
-                            )
-
-                    # RC1: Emit heartbeat piggybacking on message flow
-                    now = time.monotonic()
-                    if now - last_heartbeat >= HEARTBEAT_INTERVAL_SECONDS:
-                        ac_id = runtime_identity.ac_id
-                        heartbeat_event = create_heartbeat_event(
-                            session_id=session_id,
-                            ac_index=ac_index,
-                            ac_id=ac_id,
-                            elapsed_seconds=now - exec_start,
-                            message_count=message_count,
-                        )
-                        if node_identity is not None:
-                            heartbeat_event.data.update(node_identity.to_event_metadata())
-                        await self._safe_emit_event(heartbeat_event)
-                        last_heartbeat = now
-
-                    projected = project_runtime_message(message)
-
-                    persisted_session_id = self._runtime_resume_session_id(runtime_handle)
-                    if not lifecycle_emitted and persisted_session_id:
-                        await self._emit_ac_runtime_event(
-                            event_type=lifecycle_event_type,
-                            runtime_identity=runtime_identity,
-                            ac_content=ac_content,
-                            runtime_handle=runtime_handle,
-                            execution_id=execution_context_id,
-                            session_id=persisted_session_id,
-                        )
-                        lifecycle_emitted = True
-                        self._remember_ac_runtime_handle(
-                            ac_index,
-                            runtime_handle,
-                            execution_context_id=execution_context_id,
-                            is_sub_ac=is_sub_ac,
-                            parent_ac_index=parent_ac_index,
-                            sub_ac_index=sub_ac_index,
-                            node_identity=node_identity,
-                            retry_attempt=retry_attempt,
-                        )
-
-                    session_tool_event = self._build_session_tool_called_event(
-                        session_id,
-                        projected=projected,
-                    )
-                    if session_tool_event is not None:
-                        await self._event_store.append(session_tool_event)
-
-                    if self._should_emit_session_progress_event(
-                        message,
-                        projected=projected,
-                        messages_processed=len(messages),
-                    ):
-                        session_progress_event = self._build_session_progress_event(
-                            session_id,
-                            message,
-                            projected=projected,
-                        )
-                        await self._event_store.append(session_progress_event)
-
-                    if projected.is_tool_call and projected.tool_name is not None:
-                        # RC6: Tool invocations prove liveness — reset stall
-                        # deadline so long-running tools (Bash, external APIs)
-                        # are not falsely detected as stalls.
-                        stall_scope.deadline = anyio.current_time() + STALL_TIMEOUT_SECONDS
-                        if execution_counters is not None:
-                            async with self._execution_counters_lock:
-                                execution_counters["tool_calls_count"] = (
-                                    execution_counters.get("tool_calls_count", 0) + 1
-                                )
-                        tool_input = projected.tool_input
-                        tool_detail = self._format_tool_detail(projected.tool_name, tool_input)
-                        self._console.print(f"{indent}[yellow]{label} → {tool_detail}[/yellow]")
-                        self._flush_console()
-
-                        # Emit tool started event for TUI
-                        from ouroboros.events.base import BaseEvent as _BaseEvent
-
-                        tool_event = _BaseEvent(
-                            type="execution.tool.started",
-                            aggregate_type=runtime_identity.runtime_scope.aggregate_type,
-                            aggregate_id=runtime_identity.session_scope_id,
-                            data={
-                                **runtime_identity.to_metadata(),
-                                "tool_name": projected.tool_name,
-                                "tool_detail": tool_detail,
-                                "tool_input": tool_input,
-                                **self._runtime_event_metadata(message),
-                            },
-                        )
-                        await self._event_store.append(tool_event)
-
-                    if projected.is_tool_result and projected.tool_name is not None:
-                        from ouroboros.events.base import BaseEvent as _BaseEvent
-
-                        tool_result_event = _BaseEvent(
-                            type="execution.tool.completed",
-                            aggregate_type=runtime_identity.runtime_scope.aggregate_type,
-                            aggregate_id=runtime_identity.session_scope_id,
-                            data={
-                                **runtime_identity.to_metadata(),
-                                "tool_name": projected.tool_name,
-                                "tool_result_text": projected.content,
-                                **self._runtime_event_metadata(message),
-                            },
-                        )
-                        await self._event_store.append(tool_result_event)
-
-                    if projected.thinking:
-                        from ouroboros.events.base import BaseEvent as _BaseEvent
-
-                        thinking_event = _BaseEvent(
-                            type="execution.agent.thinking",
-                            aggregate_type=runtime_identity.runtime_scope.aggregate_type,
-                            aggregate_id=runtime_identity.session_scope_id,
-                            data={
-                                **runtime_identity.to_metadata(),
-                                "thinking_text": projected.thinking,
-                                **self._runtime_event_metadata(message),
-                            },
-                        )
-                        await self._event_store.append(thinking_event)
-
-                    if message.is_final:
-                        final_message = message.content
-                        success = not message.is_error
+            await LeafDispatcher(self).stream(
+                state=dispatch_state,
+                prompt=prompt,
+                tools=tools,
+                system_prompt=system_prompt,
+                execute_effort_kwargs=execute_effort_kwargs,
+                runtime_identity=runtime_identity,
+                execution_context_id=execution_context_id,
+                session_id=session_id,
+                ac_index=ac_index,
+                ac_content=ac_content,
+                is_sub_ac=is_sub_ac,
+                parent_ac_index=parent_ac_index,
+                sub_ac_index=sub_ac_index,
+                node_identity=node_identity,
+                retry_attempt=retry_attempt,
+                label=label,
+                indent=indent,
+                execution_counters=execution_counters,
+            )
+            runtime_handle = dispatch_state.runtime_handle
+            ac_session_id = dispatch_state.ac_session_id
+            final_message = dispatch_state.final_message
+            success = dispatch_state.success
 
             # Check if stall was detected (CancelScope ate the Cancelled)
-            if stall_scope.cancelled_caught:
+            if dispatch_state.stalled:
                 duration = (datetime.now(UTC) - start_time).total_seconds()
                 log.warning(
                     "parallel_executor.ac.stall_detected",
                     ac_index=ac_index,
                     depth=depth,
                     silent_seconds=STALL_TIMEOUT_SECONDS,
-                    message_count=message_count,
+                    message_count=dispatch_state.message_count,
                 )
                 clear_cached_runtime_handle = True
                 return ACExecutionResult(
@@ -5784,10 +3047,29 @@ Files present:
 
             duration = (datetime.now(UTC) - start_time).total_seconds()
 
+            # A contract-carrying AC (declares verify_command) delegates its
+            # tests_passed check to the orchestrator's authoritative
+            # _run_ac_verify_gate. When it also declares expected_artifacts,
+            # files_touched is delegated to that gate's filesystem oracle too
+            # (see _effective_evidence_schema_for_ac).
+            has_success_contract = isinstance(ac_spec, AcceptanceCriterionSpec) and bool(
+                ac_spec.verify_command
+            )
+            has_expected_artifacts = isinstance(ac_spec, AcceptanceCriterionSpec) and bool(
+                ac_spec.expected_artifacts
+            )
+            # Delegating tests_passed/files_touched to _run_ac_verify_gate is only
+            # valid when that gate actually runs. _apply_verify_gate returns early
+            # when run_verify_commands is disabled, so with the gate off we must
+            # retain the transcript-backed evidence rather than drop it.
+            verify_gate_active = self._run_verify_commands
             typed_evidence, typed_validation, typed_error = self._observe_atomic_typed_evidence(
                 ac_content=ac_content,
                 final_message=final_message,
                 success=success,
+                has_success_contract=has_success_contract,
+                has_expected_artifacts=has_expected_artifacts,
+                verify_gate_active=verify_gate_active,
             )
             verifier_verdict = self._run_atomic_verifier_pass(
                 ac_content=ac_content,
@@ -5796,6 +3078,9 @@ Files present:
                 messages=tuple(messages),
                 typed_evidence=typed_evidence,
                 typed_validation=typed_validation,
+                has_success_contract=has_success_contract,
+                has_expected_artifacts=has_expected_artifacts,
+                verify_gate_active=verify_gate_active,
             )
             fat_harness_error = self._fat_harness_acceptance_error(
                 runtime_success=success,
@@ -5855,6 +3140,9 @@ Files present:
                 typed_error=typed_error,
                 verifier_verdict=verifier_verdict,
                 enforcement_error=fat_harness_error,
+                has_success_contract=has_success_contract,
+                has_expected_artifacts=has_expected_artifacts,
+                verify_gate_active=verify_gate_active,
             )
             await self._emit_ac_runtime_event(
                 event_type=(
@@ -5880,6 +3168,9 @@ Files present:
                     self._execution_profile,
                     ac_content,
                     typed_evidence,
+                    has_success_contract=has_success_contract,
+                    has_expected_artifacts=has_expected_artifacts,
+                    verify_gate_active=verify_gate_active,
                 )
 
             log.info(
@@ -5914,7 +3205,7 @@ Files present:
 
             self._remember_ac_runtime_handle(
                 ac_index,
-                runtime_handle,
+                dispatch_state.runtime_handle,
                 execution_context_id=execution_context_id,
                 is_sub_ac=is_sub_ac,
                 parent_ac_index=parent_ac_index,
@@ -5926,9 +3217,9 @@ Files present:
                 event_type="execution.session.failed",
                 runtime_identity=runtime_identity,
                 ac_content=ac_content,
-                runtime_handle=runtime_handle,
+                runtime_handle=dispatch_state.runtime_handle,
                 execution_id=execution_context_id,
-                session_id=ac_session_id,
+                session_id=dispatch_state.ac_session_id,
                 success=False,
                 error=str(e),
             )
@@ -5948,15 +3239,15 @@ Files present:
                 messages=tuple(messages),
                 error=str(e),
                 duration_seconds=duration,
-                session_id=ac_session_id,
+                session_id=dispatch_state.ac_session_id,
                 retry_attempt=retry_attempt,
                 depth=depth,
-                runtime_handle=runtime_handle,
+                runtime_handle=dispatch_state.runtime_handle,
             )
         finally:
             if clear_cached_runtime_handle:
                 await self._terminate_runtime_handle(
-                    runtime_handle,
+                    dispatch_state.runtime_handle,
                     runtime_scope_id=runtime_identity.session_scope_id,
                 )
                 self._forget_ac_runtime_handle(
@@ -5975,6 +3266,9 @@ Files present:
         ac_content: str,
         final_message: str,
         success: bool,
+        has_success_contract: bool = False,
+        has_expected_artifacts: bool = False,
+        verify_gate_active: bool = False,
     ) -> tuple[EvidenceRecord | None, ValidationResult | None, str | None]:
         """Parse and validate typed evidence at the atomic AC acceptance boundary.
 
@@ -5991,6 +3285,9 @@ Files present:
             effective_schema = _effective_evidence_schema_for_ac(
                 self._execution_profile,
                 ac_content,
+                has_success_contract=has_success_contract,
+                has_expected_artifacts=has_expected_artifacts,
+                verify_gate_active=verify_gate_active,
             )
             validation = validate_evidence(
                 _profile_with_evidence_schema(self._execution_profile, effective_schema),
@@ -6001,6 +3298,474 @@ Files present:
         except EvidenceError as exc:
             return None, None, str(exc)
         return record, validation, None
+
+    async def _run_ac_verify_gate(
+        self, *, spec: AcceptanceCriterionSpec, cwd: str
+    ) -> _VerifyGateOutcome:
+        """Judge an AC's success contract: expected artifacts + verify command.
+
+        The orchestrator — not the worker — checks the contract so a failing
+        check cannot be self-reported away. All ``expected_artifacts`` must
+        exist under ``cwd`` (checked first — it is cheap — and every missing
+        entry is reported in one failure). ``verify_command``, when set, must
+        then exit 0 and, when ``output_assertion`` is set, print that substring
+        in the combined output.
+        """
+        import contextlib
+
+        missing_artifacts = _missing_expected_artifacts(spec.expected_artifacts, cwd)
+        if missing_artifacts:
+            return _VerifyGateOutcome(
+                passed=False,
+                reason="expected_artifacts missing: " + ", ".join(missing_artifacts),
+                output_tail="",
+                missing_artifacts=missing_artifacts,
+            )
+
+        command = spec.verify_command
+        if not command:
+            return _VerifyGateOutcome(passed=True, reason=None, output_tail="")
+        try:
+            proc = await asyncio.create_subprocess_shell(
+                command,
+                cwd=cwd,
+                stdout=asyncio.subprocess.PIPE,
+                stderr=asyncio.subprocess.STDOUT,
+            )
+        except Exception as exc:  # pragma: no cover - spawn failure is environmental
+            return _VerifyGateOutcome(
+                passed=False,
+                reason=f"verify_command could not start: {exc}",
+                output_tail="",
+            )
+        try:
+            stdout_bytes, _ = await asyncio.wait_for(
+                proc.communicate(),
+                timeout=self._verify_command_timeout_seconds,
+            )
+        except TimeoutError:
+            with contextlib.suppress(ProcessLookupError):
+                proc.kill()
+            with contextlib.suppress(Exception):
+                await proc.wait()
+            return _VerifyGateOutcome(
+                passed=False,
+                reason=(f"verify_command timed out after {self._verify_command_timeout_seconds}s"),
+                output_tail="",
+            )
+
+        combined = (stdout_bytes or b"").decode("utf-8", errors="replace")
+        tail = combined[-_VERIFY_OUTPUT_TAIL_CHARS:]
+        returncode = proc.returncode
+        if returncode != 0:
+            return _VerifyGateOutcome(
+                passed=False,
+                reason=f"verify_command exited with status {returncode}",
+                output_tail=tail,
+            )
+        if spec.output_assertion and spec.output_assertion not in combined:
+            return _VerifyGateOutcome(
+                passed=False,
+                reason=(
+                    f"output_assertion {spec.output_assertion!r} not found in verify_command output"
+                ),
+                output_tail=tail,
+            )
+        return _VerifyGateOutcome(passed=True, reason=None, output_tail=tail)
+
+    async def _apply_verify_gate(
+        self,
+        *,
+        seed: Seed,
+        ac_index: int,
+        result: ACExecutionResult,
+        session_id: str,
+        execution_id: str,
+    ) -> ACExecutionResult:
+        """Gate a successful AC on its success contract (PR-V V1).
+
+        The contract gate applies when the spec carries a ``verify_command`` OR
+        non-empty ``expected_artifacts``. Contract-less ACs and ACs that already
+        failed are returned untouched, so contract-less behavior — and the
+        single fat-harness failure event for an already-failed AC — is
+        preserved (no double-fail for one root cause).
+        """
+        if not self._run_verify_commands or not result.success:
+            return result
+        if ac_index < 0 or ac_index >= len(seed.acceptance_criteria):
+            return result
+        spec = seed.acceptance_criteria[ac_index]
+        if not isinstance(spec, AcceptanceCriterionSpec) or not (
+            spec.verify_command or spec.expected_artifacts
+        ):
+            return result
+
+        cwd = self._task_cwd or self._adapter.working_directory or os.getcwd()
+        outcome = await self._run_ac_verify_gate(spec=spec, cwd=cwd)
+        if outcome.passed:
+            return result
+
+        from ouroboros.events.base import BaseEvent
+        from ouroboros.orchestrator.failure_taxonomy import FailureClass
+
+        reason = f"Verify gate failed: {outcome.reason}"
+        detail = reason
+        if outcome.output_tail:
+            detail = f"{reason}\n--- verify_command output (tail) ---\n{outcome.output_tail}"
+        verdict = VerifierVerdict(
+            passed=False,
+            reasons=(reason,),
+            failure_class=FailureClass.EVIDENCE_MISSING.value,
+        )
+        await self._safe_emit_event(
+            BaseEvent(
+                type="execution.verify.failed",
+                aggregate_type="execution",
+                aggregate_id=execution_id or session_id,
+                data={
+                    "session_id": session_id,
+                    "execution_id": execution_id,
+                    "ac_index": ac_index,
+                    "ac_content": ac_text(spec),
+                    "verify_command": spec.verify_command,
+                    "expected_artifacts": list(spec.expected_artifacts),
+                    "missing_artifacts": list(outcome.missing_artifacts),
+                    "reason": outcome.reason,
+                    "failure_class": FailureClass.EVIDENCE_MISSING.value,
+                    "output_tail": outcome.output_tail,
+                },
+            )
+        )
+        log.warning(
+            "parallel_executor.ac.verify_gate_failed",
+            session_id=session_id,
+            ac_index=ac_index,
+            reason=outcome.reason,
+        )
+        return replace(
+            result,
+            success=False,
+            error=detail,
+            final_message=detail,
+            outcome=ACExecutionOutcome.FAILED,
+            atomic_verifier_verdict=verdict,
+        )
+
+    async def _compute_sibling_flip_gated_out(
+        self,
+        *,
+        seed: Seed,
+        level_results: list[ACExecutionResult],
+        session_id: str,
+        execution_id: str,
+    ) -> frozenset[int]:
+        """Gate sibling-evidence flips for FAILED contract ACs (PR-V V4).
+
+        A FAILED AC whose spec carries a success contract (``verify_command``
+        OR non-empty ``expected_artifacts``) may only be flipped to satisfied by
+        sibling evidence if its own contract passes the orchestrator gate now.
+        ACs without a contract are never gated out.
+        """
+        if not self._run_verify_commands:
+            return frozenset()
+        gated_out: set[int] = set()
+        cwd = self._task_cwd or self._adapter.working_directory or os.getcwd()
+        for result in level_results:
+            if result.success or result.outcome != ACExecutionOutcome.FAILED:
+                continue
+            ac_idx = result.ac_index
+            if ac_idx < 0 or ac_idx >= len(seed.acceptance_criteria):
+                continue
+            spec = seed.acceptance_criteria[ac_idx]
+            if not isinstance(spec, AcceptanceCriterionSpec) or not (
+                spec.verify_command or spec.expected_artifacts
+            ):
+                continue
+            outcome = await self._run_ac_verify_gate(spec=spec, cwd=cwd)
+            if not outcome.passed:
+                gated_out.add(ac_idx)
+        return frozenset(gated_out)
+
+    def _failure_class_for_result(self, result: ACExecutionResult) -> str | None:
+        """Best-effort failure taxonomy label for a failed AC result."""
+        verdict = result.atomic_verifier_verdict
+        if verdict is not None and verdict.failure_class:
+            return verdict.failure_class
+        if result.error == _STALL_SENTINEL:
+            from ouroboros.orchestrator.failure_taxonomy import FailureClass
+
+            return FailureClass.STALL.value
+        return None
+
+    def _is_retryable_failure(self, result: ACExecutionResult | BaseException) -> bool:
+        """Whether a batch result is a non-stall, non-blocked AC failure (PR-V V3)."""
+        if not isinstance(result, ACExecutionResult):
+            return False
+        if result.success or result.is_blocked:
+            return False
+        # Stall retries are handled separately by the atomic leaf loop.
+        return result.error != _STALL_SENTINEL
+
+    def _build_ac_retry_prompt(
+        self,
+        *,
+        result: ACExecutionResult,
+        ac_content: str,
+        is_final_attempt: bool,
+    ) -> str:
+        """Build the enriched retry prompt section for a re-dispatched AC (PR-V V3/V4)."""
+        parts: list[str] = []
+        failure_class = self._failure_class_for_result(result)
+        if failure_class:
+            parts.append(f"### Prior failure classification\n{failure_class}")
+        last_error = result.error or result.final_message or ""
+        if last_error and last_error != _STALL_SENTINEL:
+            parts.append("### Last error (tail)\n" + last_error[-500:])
+        if is_final_attempt:
+            from ouroboros.resilience.lateral import (
+                build_lateral_change_of_approach_directive,
+            )
+
+            parts.append(
+                build_lateral_change_of_approach_directive(
+                    problem_context=ac_content,
+                    current_approach=(
+                        "The previous attempts failed as described above; the same "
+                        "approach is not working."
+                    ),
+                    failed_attempts=(failure_class,) if failure_class else (),
+                )
+            )
+        return "\n\n".join(parts)
+
+    async def _run_batch_with_verify_and_retry(
+        self,
+        *,
+        seed: Seed,
+        batch_executable: list[int],
+        session_id: str,
+        execution_id: str,
+        tools: list[str],
+        tool_catalog: tuple[MCPToolDefinition, ...] | None,
+        system_prompt: str,
+        level_contexts: list[LevelContext],
+        ac_retry_attempts: dict[int, int],
+        execution_counters: dict[str, int] | None,
+    ) -> list[ACExecutionResult | BaseException]:
+        """Dispatch a batch, apply the V1 verify gate, and retry failures (PR-V V1/V3/V4).
+
+        Contract-less ACs with the verify gate off/absent and zero configured
+        retries reduce to a single ``_execute_ac_batch`` call plus the identity
+        gate, so today's behavior is preserved.
+        """
+        results = await self._execute_ac_batch(
+            seed=seed,
+            batch_indices=batch_executable,
+            session_id=session_id,
+            execution_id=execution_id,
+            tools=tools,
+            tool_catalog=tool_catalog,
+            system_prompt=system_prompt,
+            level_contexts=level_contexts,
+            ac_retry_attempts=ac_retry_attempts,
+            execution_counters=execution_counters,
+            # The initial attempt is the AC's final same-runtime attempt only
+            # when no same-runtime retries are configured; otherwise defer
+            # cross-harness redispatch until the V3 loop below is spent.
+            same_runtime_budget_exhausted=self._ac_retry_attempts <= 0,
+        )
+        # V1 gate on freshly-successful ACs.
+        for position, ac_idx in enumerate(batch_executable):
+            result = results[position]
+            if isinstance(result, ACExecutionResult):
+                results[position] = await self._apply_verify_gate(
+                    seed=seed,
+                    ac_index=ac_idx,
+                    result=result,
+                    session_id=session_id,
+                    execution_id=execution_id,
+                )
+
+        if self._ac_retry_attempts <= 0:
+            return results
+
+        # V3 retry loop: re-dispatch non-stall failures up to the configured
+        # attempts. Kill criterion: stop early when the failure class repeats.
+        position_by_idx = {ac_idx: position for position, ac_idx in enumerate(batch_executable)}
+        pending = {
+            ac_idx
+            for position, ac_idx in enumerate(batch_executable)
+            if self._is_retryable_failure(results[position])
+        }
+        last_failure_class = {
+            ac_idx: self._failure_class_for_result(results[position_by_idx[ac_idx]])
+            for ac_idx in pending
+        }
+
+        while pending:
+            retry_idxs = [
+                ac_idx for ac_idx in pending if ac_retry_attempts[ac_idx] < self._ac_retry_attempts
+            ]
+            if not retry_idxs:
+                break
+
+            retry_prompts: dict[int, str] = {}
+            for ac_idx in retry_idxs:
+                ac_retry_attempts[ac_idx] += 1
+                is_final = ac_retry_attempts[ac_idx] >= self._ac_retry_attempts
+                prior = results[position_by_idx[ac_idx]]
+                if isinstance(prior, ACExecutionResult):
+                    retry_prompts[ac_idx] = self._build_ac_retry_prompt(
+                        result=prior,
+                        ac_content=ac_text(seed.acceptance_criteria[ac_idx]),
+                        is_final_attempt=is_final,
+                    )
+
+            # Pending ACs advance their retry counter in lockstep, so the batch
+            # is on its final same-runtime attempt exactly when every retried AC
+            # has reached the configured cap. Only then may cross-harness
+            # redispatch run inside the workers.
+            retry_batch_final = all(
+                ac_retry_attempts[ac_idx] >= self._ac_retry_attempts for ac_idx in retry_idxs
+            )
+            retry_results = await self._execute_ac_batch(
+                seed=seed,
+                batch_indices=retry_idxs,
+                session_id=session_id,
+                execution_id=execution_id,
+                tools=tools,
+                tool_catalog=tool_catalog,
+                system_prompt=system_prompt,
+                level_contexts=level_contexts,
+                ac_retry_attempts=ac_retry_attempts,
+                execution_counters=execution_counters,
+                retry_prompts=retry_prompts,
+                same_runtime_budget_exhausted=retry_batch_final,
+            )
+
+            for retry_position, ac_idx in enumerate(retry_idxs):
+                gated = retry_results[retry_position]
+                if isinstance(gated, ACExecutionResult):
+                    gated = await self._apply_verify_gate(
+                        seed=seed,
+                        ac_index=ac_idx,
+                        result=gated,
+                        session_id=session_id,
+                        execution_id=execution_id,
+                    )
+                results[position_by_idx[ac_idx]] = gated
+
+                if not self._is_retryable_failure(gated):
+                    pending.discard(ac_idx)
+                    continue
+                new_class = (
+                    self._failure_class_for_result(gated)
+                    if isinstance(gated, ACExecutionResult)
+                    else None
+                )
+                if (
+                    new_class is not None
+                    and last_failure_class.get(ac_idx) is not None
+                    and new_class == last_failure_class[ac_idx]
+                ):
+                    # Identical failure class on every attempt: stop early
+                    # rather than burning the last attempt.
+                    log.info(
+                        "parallel_executor.ac.retry_early_stop",
+                        session_id=session_id,
+                        ac_index=ac_idx,
+                        failure_class=new_class,
+                    )
+                    # The same-runtime path has given up before the retry cap, so
+                    # its recovery budget is effectively spent — the alt-harness
+                    # boundary. When this dispatch was not already the final
+                    # attempt (``retry_batch_final``), its workers never got the
+                    # cross-harness hook, so open it here for the (eligible) AC.
+                    if not retry_batch_final and isinstance(gated, ACExecutionResult):
+                        alt = await self._maybe_redispatch_alt_harness_for_batch_ac(
+                            seed=seed,
+                            ac_idx=ac_idx,
+                            result=gated,
+                            session_id=session_id,
+                            execution_id=execution_id,
+                            tools=tools,
+                            tool_catalog=tool_catalog,
+                            system_prompt=system_prompt,
+                            level_contexts=level_contexts,
+                            execution_counters=execution_counters,
+                            retry_attempt=ac_retry_attempts[ac_idx],
+                        )
+                        if isinstance(alt, ACExecutionResult):
+                            # The alternate ran via _execute_single_ac, which has
+                            # no seed-level success contract — apply the same V1
+                            # verify gate the same-runtime results get, so an
+                            # alternate 'success' with a failing verify_command or
+                            # missing expected artifact is not accepted as success.
+                            results[position_by_idx[ac_idx]] = await self._apply_verify_gate(
+                                seed=seed,
+                                ac_index=ac_idx,
+                                result=alt,
+                                session_id=session_id,
+                                execution_id=execution_id,
+                            )
+                    pending.discard(ac_idx)
+                    continue
+                last_failure_class[ac_idx] = new_class
+                if ac_retry_attempts[ac_idx] >= self._ac_retry_attempts:
+                    pending.discard(ac_idx)
+
+        return results
+
+    async def _maybe_redispatch_alt_harness_for_batch_ac(
+        self,
+        *,
+        seed: Seed,
+        ac_idx: int,
+        result: ACExecutionResult,
+        session_id: str,
+        execution_id: str,
+        tools: list[str],
+        tool_catalog: tuple[MCPToolDefinition, ...] | None,
+        system_prompt: str,
+        level_contexts: list[LevelContext],
+        execution_counters: dict[str, int] | None,
+        retry_attempt: int,
+    ) -> ACExecutionResult | None:
+        """Give a terminally-failing top-level batch AC one cross-harness redispatch.
+
+        Used at the retry loop's early-stop boundary (repeated failure class),
+        where the same-runtime recovery has given up before the retry counter cap
+        and the workers therefore never reached the in-worker alt-harness hook.
+        Rebuilds the top-level re-run bundle and defers to the shared
+        :meth:`_maybe_redispatch_alt_harness`, so the alternate-harness decision,
+        the one-per-AC cap, and the failed-alt surfacing all stay in one place.
+        """
+        execution_context_id = execution_id or session_id
+        rerun_kwargs: dict[str, Any] = {
+            "ac_index": ac_idx,
+            "ac_content": ac_text(seed.acceptance_criteria[ac_idx]),
+            "session_id": session_id,
+            "tools": tools,
+            "tool_catalog": tool_catalog,
+            "system_prompt": system_prompt,
+            "seed_goal": seed.goal,
+            "depth": 0,
+            "execution_id": execution_id,
+            "level_contexts": level_contexts,
+            "sibling_acs": [],
+            "execution_counters": execution_counters,
+            "is_sub_ac": False,
+            "parent_ac_index": None,
+            "sub_ac_index": None,
+            "node_identity": None,
+        }
+        return await self._maybe_redispatch_alt_harness(
+            result=result,
+            execution_context_id=execution_context_id,
+            rerun_kwargs=rerun_kwargs,
+            atomic_retry_attempt=retry_attempt,
+            stall_retries_exhausted=False,
+        )
 
     def _fat_harness_acceptance_error(
         self,
@@ -6047,6 +3812,9 @@ Files present:
         messages: tuple[AgentMessage, ...],
         typed_evidence: EvidenceRecord | None,
         typed_validation: ValidationResult | None,
+        has_success_contract: bool = False,
+        has_expected_artifacts: bool = False,
+        verify_gate_active: bool = False,
     ) -> VerifierVerdict | None:
         """Run the separate verifier pass once typed evidence is schema-valid."""
         if (
@@ -6062,7 +3830,11 @@ Files present:
         verifier = self._atomic_verifier
         try:
             effective_schema = _effective_evidence_schema_for_ac(
-                self._execution_profile, ac_content
+                self._execution_profile,
+                ac_content,
+                has_success_contract=has_success_contract,
+                has_expected_artifacts=has_expected_artifacts,
+                verify_gate_active=verify_gate_active,
             )
             effective_profile = _profile_with_evidence_schema(
                 self._execution_profile, effective_schema
@@ -6071,6 +3843,9 @@ Files present:
                 self._execution_profile,
                 ac_content,
                 typed_evidence,
+                has_success_contract=has_success_contract,
+                has_expected_artifacts=has_expected_artifacts,
+                verify_gate_active=verify_gate_active,
             )
             verdict = (
                 verifier(
@@ -6084,6 +3859,9 @@ Files present:
                     messages=messages,
                     typed_evidence=scoped_evidence,
                     ac_content=ac_content,
+                    has_success_contract=has_success_contract,
+                    has_expected_artifacts=has_expected_artifacts,
+                    verify_gate_active=verify_gate_active,
                 )
             )
         except VerifierContractError:
@@ -6101,103 +3879,21 @@ Files present:
         messages: tuple[AgentMessage, ...],
         typed_evidence: EvidenceRecord,
         ac_content: str,
+        has_success_contract: bool = False,
+        has_expected_artifacts: bool = False,
+        verify_gate_active: bool = False,
     ) -> VerifierVerdict:
-        """Verify leaf evidence is backed by runtime transcript events.
-
-        The verifier deliberately ignores the final result message so the
-        accepted evidence cannot be supported only by the leaf's self-report.
-        """
-        support_messages = tuple(messages[:-1] if messages and messages[-1].is_final else messages)
-        if not support_messages:
-            return VerifierVerdict(
-                passed=False,
-                reasons=("no runtime transcript evidence supports the typed evidence claims",),
-                failure_class="EVIDENCE_MISSING",
-            )
-
-        unsupported: list[str] = []
-        evidence_form_mismatches: list[str] = []
-        backed_commands = tuple(
-            command
-            for command in _flatten_evidence_values(typed_evidence.get("commands_run"))
-            if _runtime_messages_support_command_claim(
-                command,
-                _runtime_support_messages_for_field("commands_run", support_messages),
-            )
+        return _verify_atomic_evidence_against_runtime_messages(
+            messages=messages,
+            typed_evidence=typed_evidence,
+            ac_content=ac_content,
+            execution_profile=self._execution_profile,
+            task_cwd=self._task_cwd,
+            adapter_working_directory=self._adapter.working_directory,
+            has_success_contract=has_success_contract,
+            has_expected_artifacts=has_expected_artifacts,
+            verify_gate_active=verify_gate_active,
         )
-        effective_schema = _effective_evidence_schema_for_ac(self._execution_profile, ac_content)
-        required_fields = set(effective_schema.required)
-        fields_to_verify = list(effective_schema.required)
-
-        for field_name in fields_to_verify:
-            values = tuple(_flatten_evidence_values(typed_evidence.get(field_name)))
-            if not values:
-                if field_name in required_fields:
-                    unsupported.append(f"{field_name}: no concrete claim values")
-                continue
-            field_messages = _runtime_support_messages_for_field(field_name, support_messages)
-            for value in values:
-                if field_name == "commands_run":
-                    if _runtime_messages_support_command_claim(value, field_messages):
-                        continue
-                    if _runtime_messages_have_masked_test_command_form(
-                        value,
-                        field_messages,
-                    ):
-                        evidence_form_mismatches.append(f"{field_name}: {value}")
-                        unsupported.append(f"{field_name}: {value}")
-                        continue
-                    unsupported.append(f"{field_name}: {value}")
-                    continue
-                if field_name == "files_touched":
-                    if _runtime_messages_support_file_claim(
-                        value,
-                        field_messages,
-                        task_cwd=self._task_cwd or self._adapter.working_directory,
-                    ):
-                        continue
-                    unsupported.append(f"{field_name}: {value}")
-                    continue
-                if field_name == "tests_passed":
-                    if _runtime_messages_support_test_claim(
-                        value=value,
-                        backed_commands=backed_commands,
-                        messages=support_messages,
-                        task_cwd=self._task_cwd or self._adapter.working_directory,
-                    ):
-                        continue
-                    if _runtime_messages_have_masked_test_command_for_test_claim(
-                        value=value,
-                        messages=support_messages,
-                        task_cwd=self._task_cwd or self._adapter.working_directory,
-                    ):
-                        evidence_form_mismatches.append(f"{field_name}: {value}")
-                        unsupported.append(f"{field_name}: {value}")
-                        continue
-                    unsupported.append(f"{field_name}: {value}")
-                    continue
-                if not _runtime_messages_support_claim(value, field_messages):
-                    unsupported.append(f"{field_name}: {value}")
-
-        if unsupported:
-            failure_class = (
-                "EVIDENCE_FORM_MISMATCH"
-                if evidence_form_mismatches and len(evidence_form_mismatches) == len(unsupported)
-                else "FABRICATION_SUSPECTED"
-            )
-            reason_prefix = (
-                "evidence form mismatch; unprotected output-filter pipeline "
-                "cannot prove a clean command claim"
-                if failure_class == "EVIDENCE_FORM_MISMATCH"
-                else "unsupported evidence claims"
-            )
-            return VerifierVerdict(
-                passed=False,
-                reasons=(reason_prefix + ": " + "; ".join(unsupported),),
-                failure_class=failure_class,
-            )
-
-        return VerifierVerdict(passed=True)
 
     async def _emit_atomic_typed_evidence_event(
         self,
@@ -6211,12 +3907,13 @@ Files present:
         typed_error: str | None,
         verifier_verdict: VerifierVerdict | None = None,
         enforcement_error: str | None = None,
+        has_success_contract: bool = False,
+        has_expected_artifacts: bool = False,
+        verify_gate_active: bool = False,
     ) -> None:
         """Persist typed-evidence metadata for atomic AC completion."""
         if self._execution_profile is None:
             return
-
-        from ouroboros.events.base import BaseEvent
 
         data: dict[str, Any] = {
             **runtime_identity.to_metadata(),
@@ -6226,7 +3923,13 @@ Files present:
             "acceptance_criterion": ac_content,
             "profile": self._execution_profile.profile,
             "required_fields": list(
-                _effective_evidence_schema_for_ac(self._execution_profile, ac_content).required
+                _effective_evidence_schema_for_ac(
+                    self._execution_profile,
+                    ac_content,
+                    has_success_contract=has_success_contract,
+                    has_expected_artifacts=has_expected_artifacts,
+                    verify_gate_active=verify_gate_active,
+                ).required
             ),
             "observe_only": not self._fat_harness_mode,
             "enforced": self._fat_harness_mode,
@@ -6251,12 +3954,18 @@ Files present:
                     self._execution_profile,
                     ac_content,
                     typed_evidence,
+                    has_success_contract=has_success_contract,
+                    has_expected_artifacts=has_expected_artifacts,
+                    verify_gate_active=verify_gate_active,
                 )
             )
             data["ignored_out_of_scope_evidence"] = _out_of_scope_evidence_values_for_ac(
                 self._execution_profile,
                 ac_content,
                 typed_evidence,
+                has_success_contract=has_success_contract,
+                has_expected_artifacts=has_expected_artifacts,
+                verify_gate_active=verify_gate_active,
             )
         if typed_validation is not None:
             data["missing_fields"] = list(typed_validation.missing_fields)
@@ -6265,13 +3974,9 @@ Files present:
                 typed_validation.blocker.summary() if typed_validation.blocker is not None else None
             )
 
-        await self._safe_emit_event(
-            BaseEvent(
-                type="execution.ac.typed_evidence.observed",
-                aggregate_type=runtime_identity.runtime_scope.aggregate_type,
-                aggregate_id=runtime_identity.session_scope_id,
-                data=data,
-            )
+        await self._event_emitter.emit_atomic_typed_evidence_observed(
+            runtime_identity=runtime_identity,
+            data=data,
         )
 
     async def _emit_subtask_event(
@@ -6288,47 +3993,16 @@ Files present:
         ``ac_index`` arrives 0-based from the executor loop but the TUI
         tree keys AC nodes as ``ac_{1-based}``, so we convert here.
         """
-        from ouroboros.events.base import BaseEvent
-
-        ac_index_1 = ac_index + 1  # 0-based → 1-based for TUI node keys
         label = _subtask_event_label(sub_task_content)
-        node_metadata = node_identity.to_event_metadata() if node_identity is not None else {}
-        node_event_type = (
-            "execution.node.created" if status == "pending" else "execution.node.updated"
+        await self._event_emitter.emit_subtask_event(
+            execution_id,
+            ac_index,
+            sub_task_index,
+            sub_task_content,
+            status,
+            node_identity,
+            label=label,
         )
-        if node_identity is not None:
-            node_event = BaseEvent(
-                type=node_event_type,
-                aggregate_type="execution",
-                aggregate_id=execution_id,
-                data={
-                    **node_metadata,
-                    "node_kind": "sub_ac",
-                    "content": sub_task_content,
-                    "label": label,
-                    "status": status,
-                    "legacy_ac_index": ac_index_1,
-                    "legacy_sub_task_index": sub_task_index,
-                    "legacy_sub_task_id": f"ac_{ac_index_1}_sub_{sub_task_index}",
-                },
-            )
-            await self._event_store.append(node_event)
-
-        event = BaseEvent(
-            type="execution.subtask.updated",
-            aggregate_type="execution",
-            aggregate_id=execution_id,
-            data={
-                **node_metadata,
-                "ac_index": ac_index_1,
-                "sub_task_index": sub_task_index,
-                "sub_task_id": f"ac_{ac_index_1}_sub_{sub_task_index}",
-                "content": sub_task_content,
-                "label": label,
-                "status": status,
-            },
-        )
-        await self._event_store.append(event)
 
     async def _emit_level_started(
         self,
@@ -6338,21 +4012,13 @@ Files present:
         total_levels: int,
     ) -> None:
         """Emit event when a parallel level starts."""
-        from ouroboros.events.base import BaseEvent
-
-        event = BaseEvent(
-            type="execution.decomposition.level_started",
-            aggregate_type="execution",
-            aggregate_id=session_id,
-            data={
-                "level": level - 1,  # TUI expects 0-based index
-                "total_levels": total_levels,
-                "child_indices": ac_indices,  # TUI expects this field name
-                "ac_count": len(ac_indices),
-                **self._decomposition_profile_metadata(),
-            },
+        await self._event_emitter.emit_level_started(
+            session_id,
+            level,
+            ac_indices,
+            total_levels,
+            decomposition_profile_metadata=self._decomposition_profile_metadata(),
         )
-        await self._event_store.append(event)
 
     async def _emit_level_completed(
         self,
@@ -6365,23 +4031,15 @@ Files present:
         outcome: str | None = None,
     ) -> None:
         """Emit event when a parallel level completes."""
-        from ouroboros.events.base import BaseEvent
-
-        event = BaseEvent(
-            type="execution.decomposition.level_completed",
-            aggregate_type="execution",
-            aggregate_id=session_id,
-            data={
-                "level": level - 1,  # TUI expects 0-based index
-                "successful": success_count,
-                "failed": failure_count,
-                "blocked": blocked_count,
-                "started": started,
-                "outcome": outcome or StageExecutionOutcome.SUCCEEDED.value,
-                "total": success_count + failure_count + blocked_count,
-            },
+        await self._event_emitter.emit_level_completed(
+            session_id,
+            level,
+            success_count,
+            failure_count,
+            blocked_count=blocked_count,
+            started=started,
+            outcome=outcome,
         )
-        await self._event_store.append(event)
 
     async def _resilient_progress_emitter(
         self,
@@ -6480,62 +4138,20 @@ Files present:
             total_levels: Total execution levels.
             activity: Current activity description.
         """
-        from ouroboros.orchestrator.events import create_workflow_progress_event
-
-        # Build AC list for TUI
-        acceptance_criteria = []
-        for i, ac_content in enumerate(seed.acceptance_criteria):
-            status = ac_statuses.get(i, "pending")
-            retry_attempt = (ac_retry_attempts or {}).get(i, 0)
-            node_identity = ExecutionNodeIdentity.root(
-                execution_context_id=execution_id or session_id,
-                ac_index=i,
-            )
-            runtime_scope = build_ac_runtime_scope(
-                i,
-                execution_context_id=execution_id or session_id,
-                retry_attempt=retry_attempt,
-                node_id=node_identity.node_id,
-                node_path=node_identity.path,
-            )
-            acceptance_criteria.append(
-                {
-                    **node_identity.to_event_metadata(),
-                    "index": i + 1,
-                    "ac_id": runtime_scope.aggregate_id,
-                    "content": ac_content,
-                    "status": status,
-                    "retry_attempt": retry_attempt,
-                    "attempt_number": runtime_scope.attempt_number,
-                    "elapsed": "",
-                }
-            )
-
-        # Determine current AC index (first executing one, or None)
-        current_ac_index = executing_indices[0] if executing_indices else None
-
-        # Build activity detail
-        if executing_indices:
-            activity_detail = (
-                f"Level {current_level}/{total_levels}: ACs {[i + 1 for i in executing_indices]}"
-            )
-        else:
-            activity_detail = f"Level {current_level}/{total_levels}"
-
-        event = create_workflow_progress_event(
-            execution_id=execution_id,
-            session_id=session_id,
-            acceptance_criteria=acceptance_criteria,
-            completed_count=completed_count,
-            total_count=len(seed.acceptance_criteria),
-            current_ac_index=current_ac_index,
-            current_phase="Deliver",  # Parallel execution is in Deliver phase
+        await self._event_emitter.emit_workflow_progress(
+            session_id,
+            execution_id,
+            seed,
+            ac_statuses,
+            ac_retry_attempts,
+            executing_indices,
+            completed_count,
+            current_level,
+            total_levels,
             activity=activity,
-            activity_detail=activity_detail,
             messages_count=messages_count,
             tool_calls_count=tool_calls_count,
         )
-        await self._event_store.append(event)
 
 
 __all__ = [
