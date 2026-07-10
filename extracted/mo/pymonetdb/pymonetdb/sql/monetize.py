@@ -12,6 +12,7 @@ the mapping dict and the datatype as key.
 
 import datetime
 import decimal
+import ipaddress
 import uuid
 
 from pymonetdb.exceptions import ProgrammingError
@@ -92,8 +93,15 @@ def monet_unicode(data):
     return monet_escape(data.encode('utf-8'))
 
 
-mapping = [
+def monet_inet4(data):
+    return f"inet4 '{data.compressed}'"
 
+
+def monet_inet6(data):
+    return f"inet6 '{data.compressed}'"
+
+
+mapping = [
     (str, monet_escape),
     (bytes, monet_bytes),
     (int, str),
@@ -105,6 +113,8 @@ mapping = [
     (datetime.time, monet_time),
     (datetime.date, monet_date),
     (datetime.timedelta, monet_timedelta),
+    (ipaddress.IPv4Address, monet_inet4),
+    (ipaddress.IPv6Address, monet_inet6),
     (bool, monet_bool),
     (type(None), monet_none),
 ]
@@ -116,10 +126,13 @@ def convert(data):
     """
     Return the appropriate convertion function based upon the python type.
     """
-    if type(data) in mapping_dict:
-        return mapping_dict[type(data)](data)
-    else:
+    datatype = type(data)
+    func = mapping_dict.get(datatype)
+    if func is None:
         for type_, func in mapping:
-            if issubclass(type(data), type_):
-                return func(data)
-    raise ProgrammingError("type %s not supported as value" % type(data))
+            if issubclass(datatype, type_):
+                mapping_dict[datatype] = func    # cache for next time
+                break
+        else:
+            raise ProgrammingError("type %s not supported as value" % datatype)
+    return func(data)

@@ -30,13 +30,13 @@ async def main():
 
         # Stream output in real-time
         result = await sandbox.exec(
-            '''python3 -c "
+            '''python3 -u -c "
 import time
 for i in range(5):
     print(f'Line {i+1}')
     time.sleep(0.5)
 "''',
-            on_stdout=lambda data: print(data.strip(), end=" "),
+            on_stdout=lambda data: print(data.strip()),
             on_stderr=lambda data: print(f"ERR: {data.strip()}"),
         )
         print(f"\nExit code: {result.exit_code}")

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pyvers
-Version: 0.2.2
+Version: 0.2.3
 Summary: A Python library for managing multiple versions of dependencies
 License: MIT
 License-File: LICENSE

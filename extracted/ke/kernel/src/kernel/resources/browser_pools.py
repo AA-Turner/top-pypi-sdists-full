@@ -69,6 +69,7 @@ class BrowserPoolsResource(SyncAPIResource):
         name: str | Omit = omit,
         profile: browser_pool_create_params.Profile | Omit = omit,
         proxy_id: str | Omit = omit,
+        refresh_on_profile_update: bool | Omit = omit,
         start_url: str | Omit = omit,
         stealth: bool | Omit = omit,
         timeout_seconds: int | Omit = omit,
@@ -110,15 +111,18 @@ class BrowserPoolsResource(SyncAPIResource):
 
           name: Optional name for the browser pool. Must be unique within the project.
 
-          profile: Profile selection for browsers in a pool. Provide either id or name. The
-              matching profile is loaded into every browser in the pool. Profiles must be
-              created beforehand. Unlike single browser sessions, pools load the profile
-              read-only and never persist changes back to it, so save_changes is omitted here.
-              Any save_changes value sent on a pool profile is silently ignored rather than
-              rejected, so callers reusing a single-session profile object will not error.
+          profile: Profile configuration for browsers in a pool. Provide either id or name.
+              Profiles must be created beforehand. Unlike single browser sessions, pools load
+              the profile read-only and never persist changes back to it, so save_changes is
+              omitted here. Any save_changes value sent on a pool profile is silently ignored
+              rather than rejected.
 
           proxy_id: Optional proxy to associate to the browser session. Must reference a proxy in
               the same project as the browser session.
+
+          refresh_on_profile_update: When true, flush idle browsers when the profile the pool uses is updated, so
+              pool browsers pick up the latest profile data. Requires a profile to be set on
+              the pool.
 
           start_url: Optional URL to navigate to when a new browser is warmed into the pool.
               Best-effort: failures to navigate do not fail pool fill. Only applied to
@@ -166,6 +170,7 @@ class BrowserPoolsResource(SyncAPIResource):
                     "name": name,
                     "profile": profile,
                     "proxy_id": proxy_id,
+                    "refresh_on_profile_update": refresh_on_profile_update,
                     "start_url": start_url,
                     "stealth": stealth,
                     "timeout_seconds": timeout_seconds,
@@ -225,6 +230,7 @@ class BrowserPoolsResource(SyncAPIResource):
         name: str | Omit = omit,
         profile: browser_pool_update_params.Profile | Omit = omit,
         proxy_id: str | Omit = omit,
+        refresh_on_profile_update: bool | Omit = omit,
         size: int | Omit = omit,
         start_url: str | Omit = omit,
         stealth: bool | Omit = omit,
@@ -241,7 +247,9 @@ class BrowserPoolsResource(SyncAPIResource):
 
         As with creation,
         save_changes on the pool profile is ignored (not rejected); pooled browsers
-        never persist changes back to the profile.
+        never persist changes back to the profile. To clear the profile reference, send
+        `profile: { "id": "" }`. Clearing the profile also disables
+        `refresh_on_profile_update`.
 
         Args:
           chrome_policy: Custom Chrome enterprise policy overrides applied to all browsers in this pool.
@@ -249,8 +257,12 @@ class BrowserPoolsResource(SyncAPIResource):
               Blocked: kernel-managed policies (extensions, proxy, CDP/automation). See
               https://chromeenterprise.google/policies/
 
-          discard_all_idle: Whether to discard all idle browsers and rebuild the pool immediately. Defaults
-              to false.
+          discard_all_idle: Whether to discard all idle browsers and rebuild them immediately with the new
+              configuration. Defaults to false. Only browsers that are idle when the update
+              runs are rebuilt. A browser that is in use during the update keeps its original
+              configuration, and if it is later released with `reuse: true` it returns to the
+              pool with that stale configuration until it is discarded (by this flag on a
+              later update, or by flushing the pool).
 
           extensions: List of browser extensions to load into the session. Provide each by id or name.
 
@@ -265,15 +277,18 @@ class BrowserPoolsResource(SyncAPIResource):
 
           name: Optional name for the browser pool. Must be unique within the project.
 
-          profile: Profile selection for browsers in a pool. Provide either id or name. The
-              matching profile is loaded into every browser in the pool. Profiles must be
-              created beforehand. Unlike single browser sessions, pools load the profile
-              read-only and never persist changes back to it, so save_changes is omitted here.
-              Any save_changes value sent on a pool profile is silently ignored rather than
-              rejected, so callers reusing a single-session profile object will not error.
+          profile: Profile configuration for browsers in a pool. Provide either id or name.
+              Profiles must be created beforehand. Unlike single browser sessions, pools load
+              the profile read-only and never persist changes back to it, so save_changes is
+              omitted here. Any save_changes value sent on a pool profile is silently ignored
+              rather than rejected.
 
           proxy_id: Optional proxy to associate to the browser session. Must reference a proxy in
               the same project as the browser session.
+
+          refresh_on_profile_update: When true, flush idle browsers when the profile the pool uses is updated, so
+              pool browsers pick up the latest profile data. Requires a profile to be set on
+              the pool.
 
           size: Number of browsers to maintain in the pool. The maximum size is determined by
               your organization's pooled sessions limit (the sum of all pool sizes cannot
@@ -327,6 +342,7 @@ class BrowserPoolsResource(SyncAPIResource):
                     "name": name,
                     "profile": profile,
                     "proxy_id": proxy_id,
+                    "refresh_on_profile_update": refresh_on_profile_update,
                     "size": size,
                     "start_url": start_url,
                     "stealth": stealth,
@@ -554,7 +570,10 @@ class BrowserPoolsResource(SyncAPIResource):
           session_id: Browser session ID to release back to the pool
 
           reuse: Whether to reuse the browser instance or destroy it and create a new one.
-              Defaults to true.
+              Defaults to true. A reused browser keeps the configuration it was created with,
+              so it does not pick up pool configuration changes made while it was in use.
+              Release with `reuse: false`, or flush the pool afterward, to rebuild it with the
+              current configuration.
 
           extra_headers: Send extra headers
 
@@ -617,6 +636,7 @@ class AsyncBrowserPoolsResource(AsyncAPIResource):
         name: str | Omit = omit,
         profile: browser_pool_create_params.Profile | Omit = omit,
         proxy_id: str | Omit = omit,
+        refresh_on_profile_update: bool | Omit = omit,
         start_url: str | Omit = omit,
         stealth: bool | Omit = omit,
         timeout_seconds: int | Omit = omit,
@@ -658,15 +678,18 @@ class AsyncBrowserPoolsResource(AsyncAPIResource):
 
           name: Optional name for the browser pool. Must be unique within the project.
 
-          profile: Profile selection for browsers in a pool. Provide either id or name. The
-              matching profile is loaded into every browser in the pool. Profiles must be
-              created beforehand. Unlike single browser sessions, pools load the profile
-              read-only and never persist changes back to it, so save_changes is omitted here.
-              Any save_changes value sent on a pool profile is silently ignored rather than
-              rejected, so callers reusing a single-session profile object will not error.
+          profile: Profile configuration for browsers in a pool. Provide either id or name.
+              Profiles must be created beforehand. Unlike single browser sessions, pools load
+              the profile read-only and never persist changes back to it, so save_changes is
+              omitted here. Any save_changes value sent on a pool profile is silently ignored
+              rather than rejected.
 
           proxy_id: Optional proxy to associate to the browser session. Must reference a proxy in
               the same project as the browser session.
+
+          refresh_on_profile_update: When true, flush idle browsers when the profile the pool uses is updated, so
+              pool browsers pick up the latest profile data. Requires a profile to be set on
+              the pool.
 
           start_url: Optional URL to navigate to when a new browser is warmed into the pool.
               Best-effort: failures to navigate do not fail pool fill. Only applied to
@@ -714,6 +737,7 @@ class AsyncBrowserPoolsResource(AsyncAPIResource):
                     "name": name,
                     "profile": profile,
                     "proxy_id": proxy_id,
+                    "refresh_on_profile_update": refresh_on_profile_update,
                     "start_url": start_url,
                     "stealth": stealth,
                     "timeout_seconds": timeout_seconds,
@@ -773,6 +797,7 @@ class AsyncBrowserPoolsResource(AsyncAPIResource):
         name: str | Omit = omit,
         profile: browser_pool_update_params.Profile | Omit = omit,
         proxy_id: str | Omit = omit,
+        refresh_on_profile_update: bool | Omit = omit,
         size: int | Omit = omit,
         start_url: str | Omit = omit,
         stealth: bool | Omit = omit,
@@ -789,7 +814,9 @@ class AsyncBrowserPoolsResource(AsyncAPIResource):
 
         As with creation,
         save_changes on the pool profile is ignored (not rejected); pooled browsers
-        never persist changes back to the profile.
+        never persist changes back to the profile. To clear the profile reference, send
+        `profile: { "id": "" }`. Clearing the profile also disables
+        `refresh_on_profile_update`.
 
         Args:
           chrome_policy: Custom Chrome enterprise policy overrides applied to all browsers in this pool.
@@ -797,8 +824,12 @@ class AsyncBrowserPoolsResource(AsyncAPIResource):
               Blocked: kernel-managed policies (extensions, proxy, CDP/automation). See
               https://chromeenterprise.google/policies/
 
-          discard_all_idle: Whether to discard all idle browsers and rebuild the pool immediately. Defaults
-              to false.
+          discard_all_idle: Whether to discard all idle browsers and rebuild them immediately with the new
+              configuration. Defaults to false. Only browsers that are idle when the update
+              runs are rebuilt. A browser that is in use during the update keeps its original
+              configuration, and if it is later released with `reuse: true` it returns to the
+              pool with that stale configuration until it is discarded (by this flag on a
+              later update, or by flushing the pool).
 
           extensions: List of browser extensions to load into the session. Provide each by id or name.
 
@@ -813,15 +844,18 @@ class AsyncBrowserPoolsResource(AsyncAPIResource):
 
           name: Optional name for the browser pool. Must be unique within the project.
 
-          profile: Profile selection for browsers in a pool. Provide either id or name. The
-              matching profile is loaded into every browser in the pool. Profiles must be
-              created beforehand. Unlike single browser sessions, pools load the profile
-              read-only and never persist changes back to it, so save_changes is omitted here.
-              Any save_changes value sent on a pool profile is silently ignored rather than
-              rejected, so callers reusing a single-session profile object will not error.
+          profile: Profile configuration for browsers in a pool. Provide either id or name.
+              Profiles must be created beforehand. Unlike single browser sessions, pools load
+              the profile read-only and never persist changes back to it, so save_changes is
+              omitted here. Any save_changes value sent on a pool profile is silently ignored
+              rather than rejected.
 
           proxy_id: Optional proxy to associate to the browser session. Must reference a proxy in
               the same project as the browser session.
+
+          refresh_on_profile_update: When true, flush idle browsers when the profile the pool uses is updated, so
+              pool browsers pick up the latest profile data. Requires a profile to be set on
+              the pool.
 
           size: Number of browsers to maintain in the pool. The maximum size is determined by
               your organization's pooled sessions limit (the sum of all pool sizes cannot
@@ -875,6 +909,7 @@ class AsyncBrowserPoolsResource(AsyncAPIResource):
                     "name": name,
                     "profile": profile,
                     "proxy_id": proxy_id,
+                    "refresh_on_profile_update": refresh_on_profile_update,
                     "size": size,
                     "start_url": start_url,
                     "stealth": stealth,
@@ -1102,7 +1137,10 @@ class AsyncBrowserPoolsResource(AsyncAPIResource):
           session_id: Browser session ID to release back to the pool
 
           reuse: Whether to reuse the browser instance or destroy it and create a new one.
-              Defaults to true.
+              Defaults to true. A reused browser keeps the configuration it was created with,
+              so it does not pick up pool configuration changes made while it was in use.
+              Release with `reuse: false`, or flush the pool afterward, to rebuild it with the
+              current configuration.
 
           extra_headers: Send extra headers
 

@@ -24,9 +24,12 @@ import click
 
 from metagit import DEFAULT_CONFIG, __version__
 from metagit.cli.commands.agent import agent
+from metagit.cli.commands.aos import aos_group
 from metagit.cli.commands.api import api
 from metagit.cli.commands.appconfig import appconfig
+from metagit.cli.commands.branch import branch_group
 from metagit.cli.commands.campaign import campaign
+from metagit.cli.commands.claim import claim_group
 from metagit.cli.commands.completion_cmd import completion_group
 from metagit.cli.commands.config import config
 from metagit.cli.commands.context import context
@@ -34,16 +37,22 @@ from metagit.cli.commands.detect import detect
 from metagit.cli.commands.fmt import fmt_cmd
 from metagit.cli.commands.gitnexus import gitnexus
 from metagit.cli.commands.init import init
+from metagit.cli.commands.lease import lease_group
 from metagit.cli.commands.mcp import mcp
+from metagit.cli.commands.merge_cmd import merge_group
 from metagit.cli.commands.project import project
 from metagit.cli.commands.prompt import prompt
 from metagit.cli.commands.record import record
+from metagit.cli.commands.schedule import schedule_group
 from metagit.cli.commands.search import search
+from metagit.cli.commands.semantic import semantic_group
 from metagit.cli.commands.skills import skills
+from metagit.cli.commands.task import task_group
 from metagit.cli.commands.tui import tui_cmd
 from metagit.cli.commands.version_cmd import version_group
 from metagit.cli.commands.web import web
 from metagit.cli.commands.workspace import workspace
+from metagit.cli.commands.worktree import worktree_group
 from metagit.core.appconfig import load_config, resolve_agent_mode
 from metagit.core.utils.logging import LoggerConfig, UnifiedLogger
 
@@ -131,6 +140,16 @@ cli.add_command(record)
 cli.add_command(skills)
 cli.add_command(agent)
 cli.add_command(campaign)
+cli.add_command(branch_group)
+cli.add_command(lease_group)
+cli.add_command(worktree_group)
+cli.add_command(claim_group)
+cli.add_command(merge_group)
+cli.add_command(schedule_group)
+cli.add_command(aos_group)
+cli.add_command(aos_group, name="coord")
+cli.add_command(semantic_group)
+cli.add_command(task_group)
 cli.add_command(init)
 cli.add_command(mcp)
 cli.add_command(gitnexus)

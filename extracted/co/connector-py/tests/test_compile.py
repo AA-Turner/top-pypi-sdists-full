@@ -8,7 +8,7 @@ from pathlib import Path
 from subprocess import run
 
 import pytest
-from connector.compile import collect_package_data_files
+from connector.compile import BundleDetails, bundle_onprem, collect_package_data_files
 
 
 def test_compile():
@@ -159,3 +159,56 @@ def test_collect_package_data_files_no_pyproject(tmp_path):
     assert collect_package_data_files(tmp_path) == []
     (tmp_path / "pyproject.toml").write_text("[project]\nname = 'x'\n")
     assert collect_package_data_files(tmp_path) == []
+
+
+@pytest.mark.skipif(
+    platform.system() == "Windows",
+    reason="chmod/tar permission handling only applies to the non-Windows bundle path",
+)
+def test_bundle_onprem_sets_permissions_recursively(tmp_path):
+    """Every archived member is written with mode 0o770, including nested files and
+    files whose names contain spaces.
+
+    Regression test for INTPLAT-2409: the packaging flow must set permissions across
+    the whole tree before archiving. tar.add() recurses into directories, so a nested
+    file gets written to the archive when its parent directory is added; if it hasn't
+    been chmod'd yet it lands in the tarball with its original mode. A file name with a
+    space also previously broke the shell-based `chmod` this replaced.
+    """
+    compiled_root = tmp_path / "dist" / "main"
+    nested = compiled_root / "_internal" / "jaraco" / "text"
+    nested.mkdir(parents=True)
+    (compiled_root / "main").write_text("#!/bin/sh\n")
+    (nested / "Lorem ipsum.txt").write_text("lorem")
+
+    # Start from modes other than 0o770 so the assertion is meaningful.
+    for path in compiled_root.rglob("*"):
+        path.chmod(0o755 if path.is_dir() else 0o644)
+
+    archive = bundle_onprem(
+        BundleDetails(
+            source_root_directory=tmp_path,
+            compiled_root_directory=compiled_root,
+            bundle_directory=tmp_path / "bundled",
+            version="1.2.3",
+            app_id="mock_connector",
+        )
+    )
+
+    assert archive.exists() and archive.name.endswith(".tar.gz")
+
+    with tarfile.open(archive) as tar:
+        members = tar.getmembers()
+
+    names = {m.name for m in members}
+    # The file whose name contains a space made it into the archive intact.
+    assert "_internal/jaraco/text/Lorem ipsum.txt" in names
+
+    # Every compiled member is 0o770, including those added via directory recursion.
+    # metadata.toml is added separately and isn't governed by the chmod pass.
+    bad = {
+        m.name: oct(m.mode)
+        for m in members
+        if m.name != "metadata.toml" and (m.mode & 0o777) != 0o770
+    }
+    assert not bad, f"archive members with unexpected mode: {bad}"

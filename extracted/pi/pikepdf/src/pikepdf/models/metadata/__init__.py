@@ -50,10 +50,12 @@ from pikepdf.models.metadata._xmp import XmpDocument
 def __getattr__(name):
     if name == 'LANG_ALTS':
         from pikepdf.models.metadata import _constants
+
         val = getattr(_constants, 'LANG_ALTS')
         globals()[name] = val
         return val
     raise AttributeError(f"module {__name__} has no attribute {name}")
+
 
 __all__ = [
     # Main classes

@@ -13,7 +13,7 @@ from typing import Any, AsyncIterator, Dict, Iterator, Optional
 
 import httpx
 
-from .utils import DEFAULT_HTTP_TIMEOUT
+from .utils import DEFAULT_HTTP_TIMEOUT, SandboxServiceError, SandboxTimeoutError
 
 logger = logging.getLogger(__name__)
 
@@ -75,12 +75,12 @@ class SandboxClient:
         self.secret = conn_info.secret
         self.timeout = timeout
         self.headers = _build_headers(conn_info)
-        self._client = httpx.Client(headers=self.headers)
+        self._client = httpx.Client(headers=self.headers, trust_env=True)
         self._closed = False
 
     def close(self) -> None:
         """Close the HTTP client and release resources."""
-        if not self._closed and hasattr(self, "_client"):
+        if not getattr(self, "_closed", True) and hasattr(self, "_client"):
             self._client.close()
             self._closed = True
 
@@ -94,7 +94,7 @@ class SandboxClient:
 
     def __del__(self):
         """Clean up client on deletion (fallback, not guaranteed to run)."""
-        if not self._closed:
+        if not getattr(self, "_closed", True):
             self.close()
 
     def _request_with_retry(
@@ -156,17 +156,26 @@ class SandboxClient:
                     backoff *= 2
                     last_exception = e
                     continue
+                if e.response.status_code >= 500:
+                    raise SandboxServiceError(
+                        status_code=e.response.status_code,
+                        message=e.response.text,
+                    ) from e
                 raise
             except httpx.TimeoutException as e:
-                logger.warning(f"Request timeout after {self.timeout}s: {e}")
-                raise
+                raise SandboxTimeoutError(
+                    f"Request timed out after {kwargs.get('timeout', self.timeout)}s"
+                ) from e
             except httpx.RequestError as e:
                 logger.warning(f"Request failed: {e}")
                 raise
 
         # If we exhausted all retries, raise the last exception
         if last_exception:
-            raise last_exception
+            raise SandboxServiceError(
+                status_code=last_exception.response.status_code,
+                message=last_exception.response.text,
+            ) from last_exception
 
     def health(self) -> Dict[str, str]:
         """
@@ -268,17 +277,29 @@ class SandboxClient:
         if env is not None:
             payload["env"] = env
 
-        with self._client.stream(
-            "POST",
-            f"{self.base_url}/run_streaming",
-            json=payload,
-            timeout=timeout if timeout is not None else self.timeout,
-        ) as response:
-            response.raise_for_status()
-            for line in response.iter_lines():
-                event = _parse_sse_line(line)
-                if event is not None:
-                    yield event
+        request_timeout = timeout if timeout is not None else self.timeout
+        try:
+            with self._client.stream(
+                "POST",
+                f"{self.base_url}/run_streaming",
+                json=payload,
+                timeout=request_timeout,
+            ) as response:
+                if response.status_code >= 500:
+                    response.read()
+                    raise SandboxServiceError(
+                        status_code=response.status_code,
+                        message=response.text,
+                    )
+                response.raise_for_status()
+                for line in response.iter_lines():
+                    event = _parse_sse_line(line)
+                    if event is not None:
+                        yield event
+        except httpx.TimeoutException as e:
+            raise SandboxTimeoutError(
+                f"Request timed out after {request_timeout}s"
+            ) from e
 
     def write_file(self, path: str, content: str) -> Dict[str, Any]:
         """
@@ -535,12 +556,12 @@ class AsyncSandboxClient:
         self.secret = conn_info.secret
         self.timeout = timeout
         self.headers = _build_headers(conn_info)
-        self._client = httpx.AsyncClient(headers=self.headers)
+        self._client = httpx.AsyncClient(headers=self.headers, trust_env=True)
         self._closed = False
 
     async def close(self) -> None:
         """Close the HTTP client and release resources."""
-        if not self._closed and hasattr(self, "_client"):
+        if not getattr(self, "_closed", True) and hasattr(self, "_client"):
             await self._client.aclose()
             self._closed = True
 
@@ -611,17 +632,26 @@ class AsyncSandboxClient:
                     backoff *= 2
                     last_exception = e
                     continue
+                if e.response.status_code >= 500:
+                    raise SandboxServiceError(
+                        status_code=e.response.status_code,
+                        message=e.response.text,
+                    ) from e
                 raise
             except httpx.TimeoutException as e:
-                logger.warning(f"Request timeout after {self.timeout}s: {e}")
-                raise
+                raise SandboxTimeoutError(
+                    f"Request timed out after {kwargs.get('timeout', self.timeout)}s"
+                ) from e
             except httpx.RequestError as e:
                 logger.warning(f"Request failed: {e}")
                 raise
 
         # If we exhausted all retries, raise the last exception
         if last_exception:
-            raise last_exception
+            raise SandboxServiceError(
+                status_code=last_exception.response.status_code,
+                message=last_exception.response.text,
+            ) from last_exception
 
     async def health(self) -> Dict[str, str]:
         """
@@ -723,17 +753,29 @@ class AsyncSandboxClient:
         if env is not None:
             payload["env"] = env
 
-        async with self._client.stream(
-            "POST",
-            f"{self.base_url}/run_streaming",
-            json=payload,
-            timeout=timeout if timeout is not None else self.timeout,
-        ) as response:
-            response.raise_for_status()
-            async for line in response.aiter_lines():
-                event = _parse_sse_line(line)
-                if event is not None:
-                    yield event
+        request_timeout = timeout if timeout is not None else self.timeout
+        try:
+            async with self._client.stream(
+                "POST",
+                f"{self.base_url}/run_streaming",
+                json=payload,
+                timeout=request_timeout,
+            ) as response:
+                if response.status_code >= 500:
+                    await response.aread()
+                    raise SandboxServiceError(
+                        status_code=response.status_code,
+                        message=response.text,
+                    )
+                response.raise_for_status()
+                async for line in response.aiter_lines():
+                    event = _parse_sse_line(line)
+                    if event is not None:
+                        yield event
+        except httpx.TimeoutException as e:
+            raise SandboxTimeoutError(
+                f"Request timed out after {request_timeout}s"
+            ) from e
 
     async def write_file(self, path: str, content: str) -> Dict[str, Any]:
         """

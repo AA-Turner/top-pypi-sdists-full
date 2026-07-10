@@ -13,11 +13,11 @@ import pandas as pd
 from typing import Optional
 from vnai.beam.auth import authenticator
 PERIOD_LIMITS = {
-'guest': 4,
-'free': 8,
-'bronze': None,
-'silver': None,
-'golden': None,
+    'guest': 4,
+    'free': 8,
+    'bronze': None,
+    'silver': None,
+    'golden': None,
 }
 
 def get_max_periods() -> Optional[int]:
@@ -26,7 +26,7 @@ def get_max_periods() -> Optional[int]:
 
 def parse_period(period_str: str) -> tuple:
     if isinstance(period_str, str):
-        if'-Q' in period_str:
+        if '-Q' in period_str:
             year, quarter = period_str.split('-Q')
             return (int(year), int(quarter))
         elif period_str.isdigit():
@@ -37,13 +37,13 @@ def limit_periods_by_columns(df: pd.DataFrame, max_periods: Optional[int] = None
     if max_periods is None:
         return df
     metadata_cols = [
-'ticker','yearReport','lengthReport',
-'item','item_en','item_id','unit','levels','row_number'
+        'ticker', 'yearReport', 'lengthReport',
+        'item', 'item_en', 'item_id', 'unit', 'levels', 'row_number'
     ]
     period_cols = []
     for col in df.columns:
         if isinstance(col, str) and col not in metadata_cols:
-            if col.isdigit() or (len(col) > 4 and'-Q' in col):
+            if col.isdigit() or (len(col) > 4 and '-Q' in col):
                 period_cols.append(col)
     if not period_cols:
         return df
@@ -67,14 +67,14 @@ def limit_vci_periods(df: pd.DataFrame, max_periods: Optional[int] = None) -> pd
         return df
     period_cols = []
     for col in df.columns:
-        if isinstance(col, str) and (col.isdigit() or (len(col) > 4 and'-Q' in col)):
-            if col not in ['row_number','item_id']:
+        if isinstance(col, str) and (col.isdigit() or (len(col) > 4 and '-Q' in col)):
+            if col not in ['row_number', 'item_id']:
                 period_cols.append(col)
     if period_cols:
         return limit_periods_by_columns(df, max_periods=max_periods)
-    if'yearReport' in df.columns:
+    if 'yearReport' in df.columns:
         sort_cols = ['yearReport']
-        if'lengthReport' in df.columns:
+        if 'lengthReport' in df.columns:
             sort_cols.append('lengthReport')
         df_sorted = df.sort_values(by=sort_cols, ascending=False)
         df_limited = df_sorted.head(max_periods).copy()
@@ -82,9 +82,9 @@ def limit_vci_periods(df: pd.DataFrame, max_periods: Optional[int] = None) -> pd
         return df_limited
     return df
 
-def apply_period_limit(df: pd.DataFrame, by_index: bool = False, source: str ='default') -> pd.DataFrame:
+def apply_period_limit(df: pd.DataFrame, by_index: bool = False, source: str = 'default') -> pd.DataFrame:
     max_periods = get_max_periods()
-    if source =='vci' and'yearReport' in df.columns:
+    if source == 'vci' and 'yearReport' in df.columns:
         return limit_vci_periods(df, max_periods)
     elif by_index:
         return limit_periods_by_index(df, max_periods)
@@ -92,37 +92,37 @@ def apply_period_limit(df: pd.DataFrame, by_index: bool = False, source: str ='d
         return limit_periods_by_columns(df, max_periods)
 
 class FinancialReports:
-    def __init__(self, symbol: str, source: str ='vci', show_log: bool = False):
+    def __init__(self, symbol: str, source: str = 'vci', show_log: bool = False):
         self.symbol = symbol
         self.source = source.lower()
         self.show_log = show_log
-        if self.source =='vci':
+        if self.source == 'vci':
             from vnstock.explorer.vci import Finance as VCI_Finance
             self.finance = VCI_Finance(symbol=symbol, show_log=show_log)
             self.by_index = False
-        elif self.source =='kbs':
+        elif self.source == 'kbs':
             from vnstock.explorer.kbs import Finance as KBS_Finance
             self.finance = KBS_Finance(symbol=symbol, show_log=show_log)
             self.by_index = False
-        elif self.source =='tcbs':
+        elif self.source == 'tcbs':
             from vnstock.explorer.tcbs import Finance as TCBS_Finance
             self.finance = TCBS_Finance(symbol=symbol, show_log=show_log)
             self.by_index = True
         else:
             raise ValueError(f"Unsupported source: {source}. Must be 'vci', 'kbs', or 'tcbs'.")
 
-    def balance_sheet(self, period: str ='year', lang: Optional[str] ='en',
+    def balance_sheet(self, period: str = 'year', lang: Optional[str] = 'en',
                      show_log: Optional[bool] = False) -> pd.DataFrame:
-        if self.source =='vci':
+        if self.source == 'vci':
             fetch_limit = 100
             df = self.finance._get_financial_report('balance_sheet', period=period, lang=lang,
                                                    show_log=show_log, limit=fetch_limit)
-        elif self.source =='kbs':
+        elif self.source == 'kbs':
             df = self.finance.balance_sheet(period=period, show_log=show_log)
-        elif self.source =='tcbs':
+        elif self.source == 'tcbs':
             df = self.finance.balance_sheet(period=period, show_log=show_log)
         df = apply_period_limit(df, by_index=self.by_index, source=self.source)
-        if not hasattr(self,'_notice_shown'):
+        if not hasattr(self, '_notice_shown'):
             self._notice_shown = False
         if not self._notice_shown:
             from vnai.beam.patching import should_show_notice, display_period_limit_notice_jupyter
@@ -131,18 +131,18 @@ class FinancialReports:
                 display_period_limit_notice_jupyter()
         return df
 
-    def income_statement(self, period: str ='year', lang: Optional[str] ='en',
+    def income_statement(self, period: str = 'year', lang: Optional[str] = 'en',
                         show_log: Optional[bool] = False) -> pd.DataFrame:
-        if self.source =='vci':
+        if self.source == 'vci':
             fetch_limit = 100
             df = self.finance._get_financial_report('income_statement', period=period, lang=lang,
                                                    show_log=show_log, limit=fetch_limit)
-        elif self.source =='kbs':
+        elif self.source == 'kbs':
             df = self.finance.income_statement(period=period, show_log=show_log)
-        elif self.source =='tcbs':
+        elif self.source == 'tcbs':
             df = self.finance.income_statement(period=period, show_log=show_log)
         df = apply_period_limit(df, by_index=self.by_index, source=self.source)
-        if not hasattr(self,'_notice_shown'):
+        if not hasattr(self, '_notice_shown'):
             self._notice_shown = False
         if not self._notice_shown:
             from vnai.beam.patching import should_show_notice, display_period_limit_notice_jupyter
@@ -151,18 +151,18 @@ class FinancialReports:
                 display_period_limit_notice_jupyter()
         return df
 
-    def cash_flow(self, period: str ='year', lang: Optional[str] ='en',
+    def cash_flow(self, period: str = 'year', lang: Optional[str] = 'en',
                  show_log: Optional[bool] = False) -> pd.DataFrame:
-        if self.source =='vci':
+        if self.source == 'vci':
             fetch_limit = 100
             df = self.finance._get_financial_report('cash_flow', period=period, lang=lang,
                                                    show_log=show_log, limit=fetch_limit)
-        elif self.source =='kbs':
+        elif self.source == 'kbs':
             df = self.finance.cash_flow(period=period, show_log=show_log)
-        elif self.source =='tcbs':
+        elif self.source == 'tcbs':
             df = self.finance.cash_flow(period=period, show_log=show_log)
         df = apply_period_limit(df, by_index=self.by_index, source=self.source)
-        if not hasattr(self,'_notice_shown'):
+        if not hasattr(self, '_notice_shown'):
             self._notice_shown = False
         if not self._notice_shown:
             from vnai.beam.patching import should_show_notice, display_period_limit_notice_jupyter
@@ -171,17 +171,17 @@ class FinancialReports:
                 display_period_limit_notice_jupyter()
         return df
 
-def balance_sheet(symbol: str, source: str ='vci', period: str ='year',
-                 lang: Optional[str] ='en', show_log: bool = False) -> pd.DataFrame:
+def balance_sheet(symbol: str, source: str = 'vci', period: str = 'year',
+                 lang: Optional[str] = 'en', show_log: bool = False) -> pd.DataFrame:
     reports = FinancialReports(symbol=symbol, source=source, show_log=show_log)
     return reports.balance_sheet(period=period, lang=lang, show_log=show_log)
 
-def income_statement(symbol: str, source: str ='vci', period: str ='year',
-                    lang: Optional[str] ='en', show_log: bool = False) -> pd.DataFrame:
+def income_statement(symbol: str, source: str = 'vci', period: str = 'year',
+                    lang: Optional[str] = 'en', show_log: bool = False) -> pd.DataFrame:
     reports = FinancialReports(symbol=symbol, source=source, show_log=show_log)
     return reports.income_statement(period=period, lang=lang, show_log=show_log)
 
-def cash_flow(symbol: str, source: str ='vci', period: str ='year',
-             lang: Optional[str] ='en', show_log: bool = False) -> pd.DataFrame:
+def cash_flow(symbol: str, source: str = 'vci', period: str = 'year',
+             lang: Optional[str] = 'en', show_log: bool = False) -> pd.DataFrame:
     reports = FinancialReports(symbol=symbol, source=source, show_log=show_log)
     return reports.cash_flow(period=period, lang=lang, show_log=show_log)

@@ -1,6 +1,7 @@
 #ifndef VESIN_CPU_CELL_LIST_HPP
 #define VESIN_CPU_CELL_LIST_HPP
 
+#include <cstddef>
 #include <vector>
 
 #include "vesin.h"
@@ -10,7 +11,42 @@
 namespace vesin {
 namespace cpu {
 
+struct VerletList;
+
+/// Extra CPU allocation metadata stored in `VesinNeighborList::opaque`.
+struct ExtraDataCpu {
+    /// Initialize empty CPU-side metadata.
+    ExtraDataCpu() = default;
+    /// Release optional Verlet cache state.
+    ~ExtraDataCpu();
+
+    /// Disallow copy construction; this object owns CPU-side cache metadata.
+    ExtraDataCpu(const ExtraDataCpu&) = delete;
+    /// Disallow copy assignment; this object owns CPU-side cache metadata.
+    ExtraDataCpu& operator=(const ExtraDataCpu&) = delete;
+    /// Disallow move construction; the C API stores this object by pointer.
+    ExtraDataCpu(ExtraDataCpu&&) = delete;
+    /// Disallow move assignment; the C API stores this object by pointer.
+    ExtraDataCpu& operator=(ExtraDataCpu&&) = delete;
+
+    /// Persisted GrowableNeighborList output capacity.
+    size_t capacity = 0;
+    /// Optional cached Verlet state for `skin > 0` calculations.
+    VerletList* verlet_state = nullptr;
+};
+
+class ThreadPool;
+
 void free_neighbors(VesinNeighborList& neighbors);
+
+void cell_list_neighbors(
+    const Vector* points,
+    size_t n_points,
+    BoundingBox box,
+    VesinOptions options,
+    VesinNeighborList& neighbors,
+    size_t& capacity
+);
 
 void neighbors(
     const Vector* points,
@@ -37,7 +73,12 @@ public:
 
     /// Iterate over all possible pairs, calling the given callback every time
     template <typename Function>
-    void foreach_pair(Function callback);
+    void foreach_pair(ThreadPool& thread_pool, size_t n_threads, Function callback);
+
+    /// Number of cells in this list.
+    size_t n_cells() const {
+        return cells_shape_[0] * cells_shape_[1] * cells_shape_[2];
+    }
 
 private:
     /// How many cells do we need to look at when searching neighbors to include
@@ -60,6 +101,7 @@ private:
     BoundingBox box_;
 
     Cell& get_cell(std::array<int32_t, 3> index);
+    const Cell& get_cell(std::array<int32_t, 3> index) const;
 };
 
 /// Wrapper around `VesinNeighborList` that behaves like a std::vector,
@@ -87,8 +129,10 @@ public:
     // `neighbors` according to `options`
     void reset();
 
-    // allocate more memory & update capacity
-    void grow();
+    // allocate more memory & update capacity, `new_size = 0` means doubling the
+    // current capacity, otherwise grow to at least `new_size` capacity. This
+    // function does not update the `length` of `neighbors`.
+    void grow(size_t new_size = 0);
 
     // sort the pairs currently in the neighbor list
     void sort();

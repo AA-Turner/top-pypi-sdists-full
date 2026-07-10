@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: plugin-scanner
-Version: 2.0.1004
+Version: 2.0.1016
 Summary: Protect local AI harnesses with HOL Guard and run scanner checks for Codex, Claude, Cursor, Gemini, OpenCode, and Pi.
 Project-URL: Homepage, https://github.com/hashgraph-online/hol-guard
 Project-URL: Repository, https://github.com/hashgraph-online/hol-guard
@@ -407,6 +407,28 @@ Command names by package:
 hol-guard start
 plugin-scanner verify .
 ```
+
+### DevContainer / Codespaces
+
+Add HOL Guard to your `devcontainer.json` for automatic protection in VS Code Codespaces and remote dev containers:
+
+```json
+{
+    "features": {
+        "ghcr.io/hashgraph-online/hol-guard/hol-guard:1": {}
+    }
+}
+```
+
+Options:
+
+| Option | Default | Description |
+| :--- | :--- | :--- |
+| `version` | `latest` | Pin to a specific release (e.g. `2.0.1004`) |
+| `initHarness` | `auto` | Harness to configure: `auto` (detect installed), `none` (skip init), or a specific name (`codex`, `claude-code`, `cursor`, `gemini`, `opencode`, `pi`) — informational, Guard auto-detects regardless |
+| `strictMode` | `false` | Enable strict mode on install |
+
+See [`devcontainer-features/hol-guard/README.md`](devcontainer-features/hol-guard/README.md) for details.
 
 ## Ecosystem Support
 

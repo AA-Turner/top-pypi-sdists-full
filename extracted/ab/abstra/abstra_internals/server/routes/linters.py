@@ -54,7 +54,9 @@ def get_editor_bp(controller: MainController):
     @bp.post("/refresh")
     @editor_usage
     def _refresh_linters():
-        checks = controller.linter_repository.update_checks()
+        # An explicit user refresh revalidates rule-level network caches
+        # (e.g. the PyPI latest-version cache) instead of trusting TTLs.
+        checks = controller.linter_repository.update_checks(revalidate_caches=True)
         LinterEventController.broadcast(checks)
         return AbstraLibApiEditorLintersFixResponse(success=True).to_dict()
 

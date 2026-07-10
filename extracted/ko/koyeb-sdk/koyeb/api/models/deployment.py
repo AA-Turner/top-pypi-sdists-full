@@ -42,6 +42,7 @@ class Deployment(BaseModel):
     succeeded_at: Optional[datetime] = None
     terminated_at: Optional[datetime] = None
     organization_id: Optional[StrictStr] = None
+    project_id: Optional[StrictStr] = None
     app_id: Optional[StrictStr] = None
     service_id: Optional[StrictStr] = None
     parent_id: Optional[StrictStr] = None
@@ -56,7 +57,8 @@ class Deployment(BaseModel):
     role: Optional[DeploymentRole] = DeploymentRole.INVALID
     version: Optional[StrictStr] = None
     deployment_group: Optional[StrictStr] = None
-    __properties: ClassVar[List[str]] = ["id", "created_at", "updated_at", "allocated_at", "started_at", "succeeded_at", "terminated_at", "organization_id", "app_id", "service_id", "parent_id", "child_id", "status", "metadata", "definition", "messages", "provisioning_info", "database_info", "skip_build", "role", "version", "deployment_group"]
+    instance_snapshot_id: Optional[StrictStr] = None
+    __properties: ClassVar[List[str]] = ["id", "created_at", "updated_at", "allocated_at", "started_at", "succeeded_at", "terminated_at", "organization_id", "project_id", "app_id", "service_id", "parent_id", "child_id", "status", "metadata", "definition", "messages", "provisioning_info", "database_info", "skip_build", "role", "version", "deployment_group", "instance_snapshot_id"]
 
     model_config = ConfigDict(
         validate_by_name=True,
@@ -129,6 +131,7 @@ class Deployment(BaseModel):
             "succeeded_at": obj.get("succeeded_at"),
             "terminated_at": obj.get("terminated_at"),
             "organization_id": obj.get("organization_id"),
+            "project_id": obj.get("project_id"),
             "app_id": obj.get("app_id"),
             "service_id": obj.get("service_id"),
             "parent_id": obj.get("parent_id"),
@@ -142,7 +145,8 @@ class Deployment(BaseModel):
             "skip_build": obj.get("skip_build"),
             "role": obj.get("role") if obj.get("role") is not None else DeploymentRole.INVALID,
             "version": obj.get("version"),
-            "deployment_group": obj.get("deployment_group")
+            "deployment_group": obj.get("deployment_group"),
+            "instance_snapshot_id": obj.get("instance_snapshot_id")
         })
         return _obj
 

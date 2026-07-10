@@ -22,9 +22,9 @@ class Conduit:
         self.buffer_size = buffer_size
         self.sync_interval = sync_interval
         self.buffer = {
-"function_calls": [],
-"api_requests": [],
-"rate_limits": []
+            "function_calls": [],
+            "api_requests": [],
+            "rate_limits": []
         }
         self.lock = threading.Lock()
         self.last_sync_time = time.time()
@@ -32,9 +32,9 @@ class Conduit:
         self.failed_queue = []
         self.project_dir = self._get_project_dir()
         self.project_dir.mkdir(parents=True, exist_ok=True)
-        self.data_dir = self.project_dir /'data'
+        self.data_dir = self.project_dir / 'data'
         self.data_dir.mkdir(parents=True, exist_ok=True)
-        self.config_path = self.data_dir /"relay_config.json"
+        self.config_path = self.data_dir / "relay_config.json"
         try:
             from vnai.scope.profile import inspector
             self.machine_id = inspector.fingerprint()
@@ -48,7 +48,7 @@ class Conduit:
             from vnstock.core.config.ggcolab import get_vnstock_directory
             return get_vnstock_directory()
         except ImportError:
-            return Path.home() /".vnstock"
+            return Path.home() / ".vnstock"
 
     def _generate_fallback_id(self) -> str:
         try:
@@ -64,28 +64,28 @@ class Conduit:
     def _load_config(self):
         if self.config_path.exists():
             try:
-                with open(self.config_path,'r') as f:
+                with open(self.config_path, 'r') as f:
                     config = json.load(f)
-                if'buffer_size' in config:
+                if 'buffer_size' in config:
                     self.buffer_size = config['buffer_size']
-                if'sync_interval' in config:
+                if 'sync_interval' in config:
                     self.sync_interval = config['sync_interval']
-                if'last_sync_time' in config:
+                if 'last_sync_time' in config:
                     self.last_sync_time = config['last_sync_time']
-                if'sync_count' in config:
+                if 'sync_count' in config:
                     self.sync_count = config['sync_count']
             except:
                 pass
 
     def _save_config(self):
         config = {
-'buffer_size': self.buffer_size,
-'sync_interval': self.sync_interval,
-'last_sync_time': self.last_sync_time,
-'sync_count': self.sync_count
+            'buffer_size': self.buffer_size,
+            'sync_interval': self.sync_interval,
+            'last_sync_time': self.last_sync_time,
+            'sync_count': self.sync_count
         }
         try:
-            with open(self.config_path,'w') as f:
+            with open(self.config_path, 'w') as f:
                 json.dump(config, f)
         except:
             pass
@@ -126,18 +126,18 @@ class Conduit:
         total_records = sum(len(buffer) for buffer in self.buffer.values())
         if total_records >= self.buffer_size:
             should_trigger = True
-            trigger_reason ="buffer_full"
-        elif record_type =="rate_limits" and self.buffer["rate_limits"] and             any(item.get("is_exceeded") for item in self.buffer["rate_limits"] if isinstance(item, dict)):
+            trigger_reason = "buffer_full"
+        elif record_type == "rate_limits" and self.buffer["rate_limits"] and             any(item.get("is_exceeded") for item in self.buffer["rate_limits"] if isinstance(item, dict)):
             should_trigger = True
-            trigger_reason ="rate_limit_exceeded"
-        elif record_type =="function_calls" and self.buffer["function_calls"] and             any(not item.get("success") for item in self.buffer["function_calls"] if isinstance(item, dict)):
+            trigger_reason = "rate_limit_exceeded"
+        elif record_type == "function_calls" and self.buffer["function_calls"] and             any(not item.get("success") for item in self.buffer["function_calls"] if isinstance(item, dict)):
             should_trigger = True
-            trigger_reason ="function_error"
+            trigger_reason = "function_error"
         else:
             time_factor = min(1.0, (current_time - self.last_sync_time) / (self.sync_interval / 2))
             if random.random() < 0.05 * time_factor:
                 should_trigger = True
-                trigger_reason ="random_time_weighted"
+                trigger_reason = "random_time_weighted"
         if should_trigger:
             threading.Thread(
                 target=self.dispatch,
@@ -149,23 +149,23 @@ class Conduit:
         try:
             from vnai.scope.promo import ContentManager
             is_paid = ContentManager().is_paid_user
-            segment_val ="paid" if is_paid else"free"
+            segment_val = "paid" if is_paid else "free"
         except Exception:
-            segment_val ="free"
+            segment_val = "free"
 
         def ensure_segment(d):
             if not isinstance(d, dict):
                 return d
             d = dict(d)
-            if"segment" not in d:
+            if "segment" not in d:
                 d["segment"] = segment_val
             return d
-        if isinstance(package, dict) and"segment" not in package:
+        if isinstance(package, dict) and "segment" not in package:
             import base64
             api_key = base64.b64decode("MXlJOEtnYXJudFFyMHB0cmlzZUhoYjRrZG9ta2VueU5JOFZQaXlrNWFvVQ==").decode()
             package["segment"] = segment_val
         if isinstance(package, dict) and isinstance(package.get("data"), dict):
-            if"segment" not in package["data"]:
+            if "segment" not in package["data"]:
                 package["data"]["segment"] = segment_val
         """Queue data package"""
         if not package:
@@ -173,40 +173,40 @@ class Conduit:
         if not isinstance(package, dict):
             self.add_function_call(ensure_segment({"message": str(package)}))
             return True
-        if"timestamp" not in package:
+        if "timestamp" not in package:
             package["timestamp"] = datetime.now().isoformat()
-        if"type" in package:
+        if "type" in package:
             package_type = package["type"]
             data = package.get("data", {})
-            if isinstance(data, dict) and"system" in data:
+            if isinstance(data, dict) and "system" in data:
                 machine_id = data["system"].get("machine_id")
                 data.pop("system")
                 if machine_id:
                     data["machine_id"] = machine_id
-            if package_type =="function":
+            if package_type == "function":
                 self.add_function_call(ensure_segment(data))
-            elif package_type =="api_request":
+            elif package_type == "api_request":
                 self.add_api_request(ensure_segment(data))
-            elif package_type =="rate_limit":
+            elif package_type == "rate_limit":
                 self.add_rate_limit(ensure_segment(data))
-            elif package_type =="system_info":
+            elif package_type == "system_info":
                 self.add_function_call({
-"type":"system_info",
-"commercial": data.get("commercial"),
-"packages": data.get("packages"),
-"timestamp": package.get("timestamp")
+                    "type": "system_info",
+                    "commercial": data.get("commercial"),
+                    "packages": data.get("packages"),
+                    "timestamp": package.get("timestamp")
                 })
-            elif package_type =="metrics":
+            elif package_type == "metrics":
                 metrics_data = data
                 for metric_type, metrics_list in metrics_data.items():
                     if isinstance(metrics_list, list):
-                        if metric_type =="function":
+                        if metric_type == "function":
                             for item in metrics_list:
                                 self.add_function_call(ensure_segment(item))
-                        elif metric_type =="rate_limit":
+                        elif metric_type == "rate_limit":
                             for item in metrics_list:
                                 self.add_rate_limit(ensure_segment(item))
-                        elif metric_type =="request":
+                        elif metric_type == "request":
                             for item in metrics_list:
                                 self.add_api_request(ensure_segment(item))
             else:
@@ -216,17 +216,17 @@ class Conduit:
                     self.add_function_call(ensure_segment(package))
         else:
             self.add_function_call(ensure_segment(package))
-        if priority =="high":
+        if priority == "high":
             self.dispatch("high_priority")
         return True
 
     def _send_data(self, payload):
         import base64
         api_key = base64.b64decode("MXlJOEtnYXJudFFyMHB0cmlzZUhoYjRrZG9ta2VueU5JOFZQaXlrNWFvVQ==").decode()
-        url ="https://hq.vnstocks.com/analytics"
+        url = "https://hq.vnstocks.com/analytics"
         headers = {
-"x-api-key": api_key,
-"Content-Type":"application/json"
+            "x-api-key": api_key,
+            "Content-Type": "application/json"
         }
         try:
             response = requests.post(url, json=payload, headers=headers, timeout=5)
@@ -239,14 +239,14 @@ class Conduit:
             if all(len(records) == 0 for records in self.buffer.values()):
                 return False
             data_to_send = {
-"function_calls": self.buffer["function_calls"].copy(),
-"api_requests": self.buffer["api_requests"].copy(),
-"rate_limits": self.buffer["rate_limits"].copy()
+                "function_calls": self.buffer["function_calls"].copy(),
+                "api_requests": self.buffer["api_requests"].copy(),
+                "rate_limits": self.buffer["rate_limits"].copy()
             }
             self.buffer = {
-"function_calls": [],
-"api_requests": [],
-"rate_limits": []
+                "function_calls": [],
+                "api_requests": [],
+                "rate_limits": []
             }
             self.last_sync_time = time.time()
             self.sync_count += 1
@@ -260,16 +260,16 @@ class Conduit:
         except Exception:
             pass
         payload = {
-"analytics_data": data_to_send,
-"metadata": {
-"timestamp": datetime.now().isoformat(),
-"machine_id": machine_id,
-"sync_count": self.sync_count,
-"trigger_reason": reason,
-"data_counts": {
-"function_calls": len(data_to_send["function_calls"]),
-"api_requests": len(data_to_send["api_requests"]),
-"rate_limits": len(data_to_send["rate_limits"])
+            "analytics_data": data_to_send,
+            "metadata": {
+                "timestamp": datetime.now().isoformat(),
+                "machine_id": machine_id,
+                "sync_count": self.sync_count,
+                "trigger_reason": reason,
+                "data_counts": {
+                    "function_calls": len(data_to_send["function_calls"]),
+                    "api_requests": len(data_to_send["api_requests"]),
+                    "rate_limits": len(data_to_send["rate_limits"])
                 }
             }
         }
@@ -294,11 +294,11 @@ conduit = Conduit()
 
 def track_function_call(function_name, source, execution_time, success=True, error=None, args=None):
     record = {
-"function": function_name,
-"source": source,
-"execution_time": execution_time,
-"timestamp": datetime.now().isoformat(),
-"success": success
+        "function": function_name,
+        "source": source,
+        "execution_time": execution_time,
+        "timestamp": datetime.now().isoformat(),
+        "success": success
     }
     if error:
         record["error"] = error
@@ -317,26 +317,26 @@ def track_function_call(function_name, source, execution_time, success=True, err
 
 def track_rate_limit(source, limit_type, limit_value, current_usage, is_exceeded):
     record = {
-"source": source,
-"limit_type": limit_type,
-"limit_value": limit_value,
-"current_usage": current_usage,
-"is_exceeded": is_exceeded,
-"timestamp": datetime.now().isoformat(),
-"usage_percentage": (current_usage / limit_value) * 100 if limit_value > 0 else 0
+        "source": source,
+        "limit_type": limit_type,
+        "limit_value": limit_value,
+        "current_usage": current_usage,
+        "is_exceeded": is_exceeded,
+        "timestamp": datetime.now().isoformat(),
+        "usage_percentage": (current_usage / limit_value) * 100 if limit_value > 0 else 0
     }
     conduit.add_rate_limit(record)
 
 def track_api_request(endpoint, source, method, status_code, execution_time, request_size=0, response_size=0):
     record = {
-"endpoint": endpoint,
-"source": source,
-"method": method,
-"status_code": status_code,
-"execution_time": execution_time,
-"timestamp": datetime.now().isoformat(),
-"request_size": request_size,
-"response_size": response_size
+        "endpoint": endpoint,
+        "source": source,
+        "method": method,
+        "status_code": status_code,
+        "execution_time": execution_time,
+        "timestamp": datetime.now().isoformat(),
+        "request_size": request_size,
+        "response_size": response_size
     }
     conduit.add_api_request(record)
 

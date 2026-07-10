@@ -41,7 +41,10 @@ option(VESIN_ENABLE_NVTX "Enable NVTX profiling markers" OFF)
 set(VESIN_SOURCES
     ${CMAKE_CURRENT_SOURCE_DIR}/src/vesin.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/src/cpu_cell_list.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/verlet.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/src/vesin_cuda.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/verlet_cuda.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/cuda_buffers.cpp
 )
 
 if (BUILD_VESIN_FOR_PYTHON)
@@ -49,10 +52,10 @@ if (BUILD_VESIN_FOR_PYTHON)
 endif()
 
 # Generate the CUDA source files for NVRTC compilation
-file(GLOB CUDA_SOURCES ${CMAKE_CURRENT_SOURCE_DIR}/src/*.cu)
+file(GLOB CUDA_SOURCES ${CMAKE_CURRENT_SOURCE_DIR}/src/cuda/*.cu)
 foreach(cuda_source IN LISTS CUDA_SOURCES)
     get_filename_component(cuda_filename ${cuda_source} NAME)
-    set(output_file "${CMAKE_CURRENT_BINARY_DIR}/generated/${cuda_filename}.inc")
+    set(output_file "${CMAKE_CURRENT_BINARY_DIR}/generated/cuda/${cuda_filename}.inc")
     add_custom_command(
         OUTPUT ${output_file}
         COMMAND ${CMAKE_COMMAND}
@@ -89,15 +92,17 @@ else()
     FetchContent_Declare(
         gpulite
         GIT_REPOSITORY https://github.com/metatensor/gpu-lite.git
-        GIT_TAG 7e8e9e929b254c3faefc556fb348068027e73319 # v1.1.1
+        GIT_TAG 6c221167aeca7e113ea6f27e9a2e12391bdb189a # mts-v1.3.0
         EXCLUDE_FROM_ALL
     )
 endif()
 
 FetchContent_MakeAvailable(gpulite)
 
-target_link_libraries(vesin_objects PRIVATE gpulite)
-target_link_libraries(vesin PRIVATE gpulite)
+find_package(Threads REQUIRED)
+
+target_link_libraries(vesin_objects PRIVATE gpulite Threads::Threads)
+target_link_libraries(vesin PRIVATE gpulite Threads::Threads)
 
 # Create generated directory
 file(MAKE_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}/generated)

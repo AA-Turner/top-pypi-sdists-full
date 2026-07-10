@@ -146,3 +146,7 @@ class IndexOption(QuantConnect.Securities.Option.Option):
         ...
 
 
+class IndexOptionCache(QuantConnect.Securities.Option.OptionCache):
+    """Index option specific caching support"""
+
+

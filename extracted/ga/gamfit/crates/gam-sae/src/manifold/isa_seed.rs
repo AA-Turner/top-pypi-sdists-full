@@ -67,16 +67,21 @@ use ndarray::{Array1, Array2, ArrayView2};
 /// `κ̂ = m̂₄/m̂₂²` of a gated circle (`r² = a²·Bernoulli(q)`) has
 /// `Var(κ̂) = (1 − q)/(q³ n)`, and the certificate must resolve the gated
 /// anchor `1/q` from the Gaussian-blend anchor `2`, a gap of `1/q − 2`, at the
-/// conventional `z = 3` level: `z·SE ≤ (1/q − 2)/2 ⇒ n ≥ 4z²·q(1 − q)/(1 − 2q)²`.
-/// The bound is increasing in `q` and diverges at `q → ½` (a half-gated circle
-/// has `κ = 2` — genuinely indistinguishable from a blend by κ alone), so the
-/// floor is set at the practical design edge `q = 0.43`:
-/// `n ≥ 4·9·0.43·0.57/0.14² ≈ 450 → 500`. Sparser gates and dense circles
-/// concentrate strictly faster, so 500 covers the whole certifiable range.
-/// (This also retires the old `n = 80`-class fixtures: any harness exercising
-/// the fourth-order certificate needs `n ≥ 300` to be out of the small-sample
-/// floor even in the easy dense case.)
-const ISA_SUBSAMPLE_FLOOR: usize = 500;
+/// conventional `z = 3` level: `z·SE ≤ (1/q − 2)/2 = (1 − 2q)/(2q)`, i.e.
+/// `z²·(1 − q)/(q³n) ≤ (1 − 2q)²/(4q²) ⇒ n ≥ 4z²·(1 − q)/(q·(1 − 2q)²)`.
+/// The bound diverges at BOTH edges — at `q → ½` (a half-gated circle has
+/// `κ = 2`, genuinely indistinguishable from a blend by κ alone) and at
+/// `q → 0` (vanishing active mass: `Var(κ̂) ∼ 1/(q³n)`) — so the floor is set
+/// at the dense-side practical design edge `q = 0.43`:
+/// `n ≥ 4·9·0.57/(0.43·0.14²) ≈ 2435 → 2500`. On the sparse side the same
+/// 2500 resolves gates down to `q ≈ 0.0155` (where the bound re-crosses 2500),
+/// and the certificate's `ln²n` active-count floor already refuses gates in
+/// that duty range at the sample sizes where subsampling engages at all; dense
+/// circles concentrate strictly faster. (This also retires the old
+/// `n = 80`-class fixtures: any harness exercising the fourth-order
+/// certificate needs `n ≥ 300` to be out of the small-sample floor even in the
+/// easy dense case.)
+const ISA_SUBSAMPLE_FLOOR: usize = 2500;
 
 /// Angle samples for one Jacobi pair — DERIVED from the harmonic degree of the
 /// objective, not tuned. In `φ = 2θ` each plane's `E[r²]` is a degree-1 and
@@ -135,11 +140,27 @@ pub struct IsaEigenParts {
     /// direction above it is real structure, not a fluctuation. `σ̂²` is the
     /// median eigenvalue — robust while signal directions are a minority.
     pub mp_edge: f64,
-    /// Noise scale for the κ certificate: the median of the smallest-quartile
-    /// eigenvalues, where white noise provably sits regardless of how many
-    /// directions are signal. (The global median that sets the MP edge lands in
-    /// the SIGNAL bulk on a dense multi-circle residual and would inflate the
-    /// clean anchor past the blend anchor, rejecting even a clean circle.)
+    /// Noise scale for the κ certificate: the SAME monotone MP fixed-point
+    /// estimate that sets [`Self::mp_edge`], i.e. `mp_edge / (1 + √(p/n))²`.
+    /// The certificate must read the true white-noise variance, and the fixed
+    /// point is the only estimator here robust to BOTH failure modes at once:
+    ///
+    /// * signal-majority (dense multi-circle round 0): a plain global median
+    ///   lands in the SIGNAL bulk; the fixed point iterates the edge DOWN to
+    ///   the largest prefix self-consistently below its own MP edge — the noise
+    ///   band whatever fraction of directions are signal (see the derivation on
+    ///   [`Self::mp_edge`]).
+    /// * deflation RESIDUE (producer rounds ≥ 1): accepted planes land at ~0.99
+    ///   ambient overlap, so deflating them leaves ~1% of a circle's energy in
+    ///   near-deflated directions — eigenvalues strictly BELOW the noise bulk
+    ///   (`~1e-5..1e-3` on the p=16/32 fixtures) but far above the numerical
+    ///   rank floor. The old bottom-quartile-of-surviving estimator grabbed that
+    ///   residue and read σ̂²_cert an order of magnitude too small, collapsing
+    ///   the χ²₂ active-gate floor so noise rows gated active (`q̂ → 1`), the
+    ///   noise-corrected anchors inverted, and freshly SEPARATED clean circles
+    ///   were REFUSED — the observed sparse-torus stall at 4/6. The fixed point
+    ///   is immune because the noise eigenvalues OUTNUMBER the residue, so the
+    ///   noise-band median stays in the bulk.
     pub sigma2_cert: f64,
 }
 
@@ -182,22 +203,86 @@ pub fn isa_eigen_parts(residual: ArrayView2<'_, f64>) -> Result<Option<IsaEigenP
     }
     let mut ascending: Vec<f64> = evals.iter().copied().collect();
     ascending.sort_by(|a, b| a.total_cmp(b));
-    let mid = ascending.len() / 2;
-    let sigma2 = if ascending.len() % 2 == 1 {
-        ascending[mid]
-    } else {
-        0.5 * (ascending[mid - 1] + ascending[mid])
-    }
-    .max(f64::MIN_POSITIVE);
     let gamma = p as f64 / n as f64;
-    let mp_edge = sigma2 * (1.0 + gamma.sqrt()).powi(2);
+    let mp_factor = (1.0 + gamma.sqrt()).powi(2);
+    // Numerical-rank screen BEFORE any noise estimation. Deflation
+    // (`isa_deflate_fitted_curve`) removes each accepted plane's two variance
+    // dimensions EXACTLY, so in producer rounds ≥ 2 the bottom of the spectrum
+    // carries one numerically-zero eigenvalue per deflated dimension (and a
+    // rank-deficient `n ≤ p` sample covariance plants them on round 1). Those
+    // are rank deficiencies, not noise observations: left in, the bottom-
+    // quartile certificate scale reads a deflated zero, `σ̂²_cert ≈ 0`
+    // collapses the χ²₂ gate floor to `2·MIN_POSITIVE·ln n`, every row gates
+    // active (`q̂ = 1`, `κ_model = 1`, `gate_mid = 1.125`), genuinely gated
+    // circles left in the residual (`κ_obs ≈ 1/q ≫ 1.125`) are REFUSED, and
+    // any accepted dense circle ships saturated `gate_logits` for all rows.
+    // Both noise estimators below therefore run on the SURVIVING spectrum —
+    // eigenvalues above the eigensolve's numerical-rank threshold. The MP edge
+    // aspect stays `p/n`: for `n ≤ p` the nonzero Wishart bulk still tops out
+    // at `σ²(1 + √(p/n))²`, and after deflation `p/n` is (mildly) conservative.
+    let rank_tol = ascending.last().copied().unwrap_or(0.0).max(0.0) * f64::EPSILON * p as f64;
+    let n_rank_deficient = ascending.partition_point(|&e| e <= rank_tol);
+    let surviving = &ascending[n_rank_deficient..];
+    if surviving.is_empty() {
+        return Ok(None);
+    }
+    // Robust noise floor under MAJORITY signal. A plain median of the spectrum
+    // estimates σ² only while signal directions are a MINORITY; on a DENSE
+    // product-of-circles residual the signal dims are the majority — a k-torus
+    // carries 2k signal eigenvalues (each ≈ a²/2) and 2k > p/2 once the torus is
+    // dense in its frame (the p=16, k=6 `probe_2101` fixture has 12 signal dims of
+    // 16). Then the median lands in the SIGNAL bulk and `λ₊ = σ̂²(1+√γ)²` inflates
+    // to admit only the few strongest circles — the observed 3-of-6 stall (`first
+    // three at overlap≈0.99, circles 4-6 never surface`), while the p=32 producer
+    // gates (12 of 32 = minority) are unaffected because their median already sits
+    // in noise. Estimate σ² instead by a monotone fixed point: σ̂² = median of the
+    // eigenvalues at-or-below the current edge, iterated. The candidate noise band
+    // is a prefix of the ascending spectrum and only shrinks (the edge is
+    // non-increasing because a shorter prefix of a sorted vector has a
+    // non-greater median), so it converges in ≤ p steps to the largest prefix
+    // self-consistently below its own MP edge — the true noise band, whatever
+    // fraction of directions are signal. On a signal-MINORITY spectrum the very
+    // first median is already in noise and the iterate is a no-op (bit-identical
+    // to the old median floor); on pure noise the whole spectrum is the fixed
+    // point and nothing clears the edge (the natural-stop is preserved).
+    let median_prefix = |xs: &[f64]| -> f64 {
+        let m = xs.len();
+        if m == 0 {
+            return f64::MIN_POSITIVE;
+        }
+        if m % 2 == 1 {
+            xs[m / 2]
+        } else {
+            0.5 * (xs[m / 2 - 1] + xs[m / 2])
+        }
+        .max(f64::MIN_POSITIVE)
+    };
+    let mut noise_len = surviving.len();
+    let mut sigma2 = median_prefix(&surviving[..noise_len]);
+    loop {
+        let edge = sigma2 * mp_factor;
+        // Eigenvalues at-or-below the edge form the candidate noise band (a prefix
+        // of the ascending surviving spectrum, since `e <= edge` is true-then-false
+        // on it).
+        let new_len = surviving.partition_point(|&e| e <= edge);
+        if new_len == 0 || new_len == noise_len {
+            break;
+        }
+        noise_len = new_len;
+        sigma2 = median_prefix(&surviving[..noise_len]);
+    }
+    let mp_edge = sigma2 * mp_factor;
     let mut above: Vec<usize> = (0..evals.len()).filter(|&k| evals[k] > mp_edge).collect();
     above.sort_by(|&a, &b| evals[b].total_cmp(&evals[a]));
     if above.is_empty() {
         return Ok(None);
     }
-    let q = (evals.len() / 4).max(1);
-    let sigma2_cert = evals[(q - 1) / 2].max(0.0);
+    // The certificate noise scale is the MP fixed-point σ̂² (`mp_edge/mp_factor`),
+    // NOT a bottom-quartile of the surviving spectrum: after a deflation the
+    // sub-bulk residue of ~0.99-overlap accepted planes contaminates the bottom
+    // quartile and reads σ̂²_cert far too small, refusing clean circles. The
+    // fixed point rides the noise bulk (which outnumbers the residue) instead.
+    let sigma2_cert = sigma2;
     Ok(Some(IsaEigenParts {
         mean,
         evals,

@@ -97,7 +97,7 @@ class TextLinesCursor(Cursor):
         return c
 
     def next_token(self) -> None:
-        p = None
+        p = -1
         while self.pos != p:
             p = self.pos
             self.eat_whitespace()
@@ -279,7 +279,7 @@ class TextLinesCursor(Cursor):
     def _matchre_fast(self, pattern: str | re.Pattern | None) -> bool:
         if not (match := self._scanre(pattern)):
             return False
-        self.move(len(match.group()))
+        self.goto(match.end())
         return True
 
     def _scanre(self, pattern: str | re.Pattern | None) -> re.Match[Any] | None:

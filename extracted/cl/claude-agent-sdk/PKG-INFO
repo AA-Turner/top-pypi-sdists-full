@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: claude-agent-sdk
-Version: 0.2.114
+Version: 0.2.115
 Summary: Python SDK for Claude Code
 Project-URL: Homepage, https://github.com/anthropics/claude-agent-sdk-python
 Project-URL: Documentation, https://docs.anthropic.com/en/docs/claude-code/sdk

@@ -20,9 +20,9 @@ class CreateGroupCommand(Server):
         args_group = create_group_parser.add_argument_group(title=CreateGroupCommand.name)
         args_group.add_argument("name")
 
-    @staticmethod
-    def run_command(args):
-        logger = log(__class__.__name__, args.logging_level)
+    @classmethod
+    def run_command(cls, args):
+        logger = log(cls.__name__, args.logging_level)
         logger.debug(_("tabcmd.launching"))
         session = Session()
         server = session.create_session(args, logger)
@@ -33,6 +33,6 @@ class CreateGroupCommand(Server):
             logger.info(_("common.output.succeeded"))
         except Exception as e:
             if args.continue_if_exists and Errors.is_resource_conflict(e):
-                logger.info(_("errors.xmlapi.already_exists").format(_("content_type.group"), args.name))
+                logger.info(_("errors.xmlapi.already_exists").format(_("tabcmd.content_type.group"), args.name))
                 return
             Errors.exit_with_error(logger, exception=e)

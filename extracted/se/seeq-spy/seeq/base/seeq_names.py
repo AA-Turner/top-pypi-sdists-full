@@ -122,6 +122,7 @@ class SeeqNames:
         none = 'None'
         aggregated = 'Aggregated'
         aggregated_multiple_marker = 'Multiple'
+        lift_parent_row = 'LiftParentRow'
     
     class VantageColumns:
         start = 'Start'

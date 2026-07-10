@@ -21,7 +21,7 @@ from mindroom.conversation_resolver import MessageContext
 from mindroom.dispatch_handoff import DispatchIngressMetadata, PreparedTextEvent
 from mindroom.dispatch_source import TRUSTED_INTERNAL_RELAY_SOURCE_KIND
 from mindroom.entity_resolution import mindroom_user_id
-from mindroom.handled_turns import HandledTurnState
+from mindroom.handled_turns import TurnRecord
 from mindroom.hooks import (
     EVENT_AGENT_STARTED,
     EVENT_MESSAGE_ENRICH,
@@ -149,15 +149,11 @@ def _message_received_context(tmp_path: Path, *, plugin_name: str = "") -> Messa
         correlation_id="corr-hook-send",
         envelope=MessageEnvelope(
             source_event_id="$event",
-            room_id="!room:localhost",
             target=MessageTarget.resolve("!room:localhost", None, "$event"),
-            requester_id="@user:localhost",
-            sender_id="@user:localhost",
             body="hello",
             attachment_ids=(),
             mentioned_agents=(),
             agent_name="code",
-            source_kind="message",
             origin=message_origin(sender_id="@user:localhost", requester_id="@user:localhost", source_kind="message"),
         ),
     )
@@ -178,19 +174,15 @@ def _synthetic_envelope(*, agent_name: str = "code") -> MessageEnvelope:
     """Return a first-hop synthetic envelope from a message:received relay."""
     return MessageEnvelope(
         source_event_id="$hook-event",
-        room_id="!room:localhost",
         target=MessageTarget.resolve(
             "!room:localhost",
             "$thread",
             "$hook-event",
         ),
-        requester_id="@user:localhost",
-        sender_id="@mindroom_router:localhost",
         body="synthetic",
         attachment_ids=(),
         mentioned_agents=(agent_name,),
         agent_name=agent_name,
-        source_kind="hook_dispatch",
         hook_source="origin-plugin:message:received",
         message_received_depth=1,
         origin=message_origin(
@@ -663,7 +655,7 @@ async def test_prepare_dispatch_skips_hook_reemission_but_keeps_hook_dispatch(tm
         event,
         "@mindroom_router:localhost",
         event_label="message",
-        handled_turn=HandledTurnState.from_source_event_id(event.event_id),
+        handled_turn=TurnRecord.create([event.event_id]),
     )
 
     assert dispatch is not None
@@ -723,7 +715,7 @@ async def test_prepare_dispatch_builds_target_via_conversation_resolver(tmp_path
             event,
             "@user:localhost",
             event_label="message",
-            handled_turn=HandledTurnState.from_source_event_id(event.event_id),
+            handled_turn=TurnRecord.create([event.event_id]),
         )
 
     assert dispatch is not None
@@ -779,7 +771,7 @@ async def test_prepare_dispatch_uses_trusted_router_context_for_router_relays(tm
         event,
         "@user:localhost",
         event_label="message",
-        handled_turn=HandledTurnState.from_source_event_id(event.event_id),
+        handled_turn=TurnRecord.create([event.event_id]),
         ingress_metadata=DispatchIngressMetadata(source_kind="trusted_internal_relay"),
     )
 
@@ -853,7 +845,7 @@ async def test_prepare_dispatch_keeps_standard_context_for_non_router_internal_r
         event,
         "@user:localhost",
         event_label="message",
-        handled_turn=HandledTurnState.from_source_event_id(event.event_id),
+        handled_turn=TurnRecord.create([event.event_id]),
         ingress_metadata=DispatchIngressMetadata(source_kind="trusted_internal_relay"),
     )
 
@@ -1044,21 +1036,16 @@ def test_build_message_envelope_uses_conversation_resolver_owner(tmp_path: Path)
     target = MessageTarget.resolve("!room:localhost", None, event.event_id)
     expected = MessageEnvelope(
         source_event_id=event.event_id,
-        room_id="!room:localhost",
         target=target,
-        requester_id="@user:localhost",
-        sender_id=event.sender,
         body=event.body,
         attachment_ids=(),
         mentioned_agents=(),
         agent_name=bot.agent_name,
-        source_kind="message",
         origin=message_origin(sender_id=event.sender, requester_id="@user:localhost", source_kind="message"),
     )
     bot._conversation_resolver.build_message_envelope = MagicMock(return_value=expected)
 
     envelope = bot._conversation_resolver.build_message_envelope(
-        room_id="!room:localhost",
         event=event,
         requester_user_id="@user:localhost",
         context=context,
@@ -1067,7 +1054,6 @@ def test_build_message_envelope_uses_conversation_resolver_owner(tmp_path: Path)
 
     assert envelope is expected
     bot._conversation_resolver.build_message_envelope.assert_called_once_with(
-        room_id="!room:localhost",
         event=event,
         requester_user_id="@user:localhost",
         context=context,
@@ -1114,7 +1100,7 @@ async def test_dispatch_text_message_runs_message_received_before_command_parsin
     assert hook_calls == ["called"]
     bot._turn_controller._execute_command.assert_not_awaited()
     turn_store.record_turn.assert_called_once_with(
-        HandledTurnState.from_source_event_id(event.event_id),
+        TurnRecord.create([event.event_id]),
     )
 
 
@@ -1151,12 +1137,12 @@ async def test_prepare_dispatch_marks_all_source_events_when_hooks_suppress_batc
         event,
         "@user:localhost",
         event_label="message",
-        handled_turn=HandledTurnState.create(["$m1", "$m2"]),
+        handled_turn=TurnRecord.create(["$m1", "$m2"]),
     )
 
     assert dispatch is None
     assert turn_store.record_turn.call_args_list == [
-        call(HandledTurnState.create(["$m1", "$m2"])),
+        call(TurnRecord.create(["$m1", "$m2"])),
     ]
 
 
@@ -1341,7 +1327,7 @@ async def test_prepare_dispatch_allows_hook_dispatch_without_mention(tmp_path: P
         event,
         "@mindroom_router:localhost",
         event_label="message",
-        handled_turn=HandledTurnState.from_source_event_id(event.event_id),
+        handled_turn=TurnRecord.create([event.event_id]),
     )
 
     # Should NOT be filtered despite sender being an agent and no mention
@@ -1395,7 +1381,7 @@ async def test_prepare_dispatch_reruns_message_received_for_hook_dispatch_from_n
         event,
         "@mindroom_router:localhost",
         event_label="message",
-        handled_turn=HandledTurnState.from_source_event_id(event.event_id),
+        handled_turn=TurnRecord.create([event.event_id]),
     )
 
     assert dispatch is not None
@@ -1456,7 +1442,7 @@ async def test_hook_dispatch_from_message_received_reenters_once_and_skips_origi
         event,
         "@mindroom_router:localhost",
         event_label="message",
-        handled_turn=HandledTurnState.from_source_event_id(event.event_id),
+        handled_turn=TurnRecord.create([event.event_id]),
     )
 
     assert dispatch is not None
@@ -1519,7 +1505,7 @@ async def test_hook_dispatch_from_message_received_stops_reentry_after_first_syn
         event,
         "@mindroom_router:localhost",
         event_label="message",
-        handled_turn=HandledTurnState.from_source_event_id(event.event_id),
+        handled_turn=TurnRecord.create([event.event_id]),
     )
 
     assert dispatch is not None
@@ -1979,7 +1965,7 @@ async def test_prepare_dispatch_still_filters_plain_hook_without_mention(tmp_pat
         event,
         "@mindroom_router:localhost",
         event_label="message",
-        handled_turn=HandledTurnState.from_source_event_id(event.event_id),
+        handled_turn=TurnRecord.create([event.event_id]),
     )
 
     # Plain hook messages without mention should still be filtered
@@ -2028,7 +2014,7 @@ async def test_router_precheck_allows_self_authored_hook_dispatch_without_reques
         prechecked.event,
         prechecked.requester_user_id,
         event_label="message",
-        handled_turn=HandledTurnState.from_source_event_id(event.event_id),
+        handled_turn=TurnRecord.create([event.event_id]),
     )
 
     assert dispatch is not None
@@ -2066,5 +2052,5 @@ async def test_precheck_rejects_hook_dispatch_with_unauthorized_original_sender(
 
     assert prechecked is None
     turn_store.record_turn.assert_called_once_with(
-        HandledTurnState.from_source_event_id(event.event_id),
+        TurnRecord.create([event.event_id]),
     )

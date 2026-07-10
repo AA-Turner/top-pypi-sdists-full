@@ -11,6 +11,8 @@ from courier import Courier, AsyncCourier
 from tests.utils import assert_matches_type
 from courier.types.users import (
     PreferenceRetrieveResponse,
+    PreferenceBulkUpdateResponse,
+    PreferenceBulkReplaceResponse,
     PreferenceRetrieveTopicResponse,
     PreferenceUpdateOrCreateTopicResponse,
 )
@@ -70,6 +72,194 @@ class TestPreferences:
         with pytest.raises(ValueError, match=r"Expected a non-empty value for `user_id` but received ''"):
             client.users.preferences.with_raw_response.retrieve(
                 user_id="",
+            )
+
+    @pytest.mark.skip(reason="Mock server tests are disabled")
+    @parametrize
+    def test_method_bulk_replace(self, client: Courier) -> None:
+        preference = client.users.preferences.bulk_replace(
+            user_id="user_id",
+            topics=[
+                {
+                    "status": "OPTED_IN",
+                    "topic_id": "pt_01kx4h2jdafq8bk996nn92357r",
+                }
+            ],
+        )
+        assert_matches_type(PreferenceBulkReplaceResponse, preference, path=["response"])
+
+    @pytest.mark.skip(reason="Mock server tests are disabled")
+    @parametrize
+    def test_method_bulk_replace_with_all_params(self, client: Courier) -> None:
+        preference = client.users.preferences.bulk_replace(
+            user_id="user_id",
+            topics=[
+                {
+                    "status": "OPTED_IN",
+                    "topic_id": "pt_01kx4h2jdafq8bk996nn92357r",
+                    "custom_routing": ["inbox", "email"],
+                    "has_custom_routing": True,
+                }
+            ],
+            tenant_id="tenant_id",
+        )
+        assert_matches_type(PreferenceBulkReplaceResponse, preference, path=["response"])
+
+    @pytest.mark.skip(reason="Mock server tests are disabled")
+    @parametrize
+    def test_raw_response_bulk_replace(self, client: Courier) -> None:
+        response = client.users.preferences.with_raw_response.bulk_replace(
+            user_id="user_id",
+            topics=[
+                {
+                    "status": "OPTED_IN",
+                    "topic_id": "pt_01kx4h2jdafq8bk996nn92357r",
+                }
+            ],
+        )
+
+        assert response.is_closed is True
+        assert response.http_request.headers.get("X-Stainless-Lang") == "python"
+        preference = response.parse()
+        assert_matches_type(PreferenceBulkReplaceResponse, preference, path=["response"])
+
+    @pytest.mark.skip(reason="Mock server tests are disabled")
+    @parametrize
+    def test_streaming_response_bulk_replace(self, client: Courier) -> None:
+        with client.users.preferences.with_streaming_response.bulk_replace(
+            user_id="user_id",
+            topics=[
+                {
+                    "status": "OPTED_IN",
+                    "topic_id": "pt_01kx4h2jdafq8bk996nn92357r",
+                }
+            ],
+        ) as response:
+            assert not response.is_closed
+            assert response.http_request.headers.get("X-Stainless-Lang") == "python"
+
+            preference = response.parse()
+            assert_matches_type(PreferenceBulkReplaceResponse, preference, path=["response"])
+
+        assert cast(Any, response.is_closed) is True
+
+    @pytest.mark.skip(reason="Mock server tests are disabled")
+    @parametrize
+    def test_path_params_bulk_replace(self, client: Courier) -> None:
+        with pytest.raises(ValueError, match=r"Expected a non-empty value for `user_id` but received ''"):
+            client.users.preferences.with_raw_response.bulk_replace(
+                user_id="",
+                topics=[
+                    {
+                        "status": "OPTED_IN",
+                        "topic_id": "pt_01kx4h2jdafq8bk996nn92357r",
+                    }
+                ],
+            )
+
+    @pytest.mark.skip(reason="Mock server tests are disabled")
+    @parametrize
+    def test_method_bulk_update(self, client: Courier) -> None:
+        preference = client.users.preferences.bulk_update(
+            user_id="user_id",
+            topics=[
+                {
+                    "status": "OPTED_IN",
+                    "topic_id": "pt_01kx4h2jdafq8bk996nn92357r",
+                },
+                {
+                    "status": "OPTED_OUT",
+                    "topic_id": "pt_01kx4h2jdafq8bk99eyt3dx43x",
+                },
+            ],
+        )
+        assert_matches_type(PreferenceBulkUpdateResponse, preference, path=["response"])
+
+    @pytest.mark.skip(reason="Mock server tests are disabled")
+    @parametrize
+    def test_method_bulk_update_with_all_params(self, client: Courier) -> None:
+        preference = client.users.preferences.bulk_update(
+            user_id="user_id",
+            topics=[
+                {
+                    "status": "OPTED_IN",
+                    "topic_id": "pt_01kx4h2jdafq8bk996nn92357r",
+                    "custom_routing": ["inbox", "email"],
+                    "has_custom_routing": True,
+                },
+                {
+                    "status": "OPTED_OUT",
+                    "topic_id": "pt_01kx4h2jdafq8bk99eyt3dx43x",
+                    "custom_routing": ["direct_message"],
+                    "has_custom_routing": True,
+                },
+            ],
+            tenant_id="tenant_id",
+        )
+        assert_matches_type(PreferenceBulkUpdateResponse, preference, path=["response"])
+
+    @pytest.mark.skip(reason="Mock server tests are disabled")
+    @parametrize
+    def test_raw_response_bulk_update(self, client: Courier) -> None:
+        response = client.users.preferences.with_raw_response.bulk_update(
+            user_id="user_id",
+            topics=[
+                {
+                    "status": "OPTED_IN",
+                    "topic_id": "pt_01kx4h2jdafq8bk996nn92357r",
+                },
+                {
+                    "status": "OPTED_OUT",
+                    "topic_id": "pt_01kx4h2jdafq8bk99eyt3dx43x",
+                },
+            ],
+        )
+
+        assert response.is_closed is True
+        assert response.http_request.headers.get("X-Stainless-Lang") == "python"
+        preference = response.parse()
+        assert_matches_type(PreferenceBulkUpdateResponse, preference, path=["response"])
+
+    @pytest.mark.skip(reason="Mock server tests are disabled")
+    @parametrize
+    def test_streaming_response_bulk_update(self, client: Courier) -> None:
+        with client.users.preferences.with_streaming_response.bulk_update(
+            user_id="user_id",
+            topics=[
+                {
+                    "status": "OPTED_IN",
+                    "topic_id": "pt_01kx4h2jdafq8bk996nn92357r",
+                },
+                {
+                    "status": "OPTED_OUT",
+                    "topic_id": "pt_01kx4h2jdafq8bk99eyt3dx43x",
+                },
+            ],
+        ) as response:
+            assert not response.is_closed
+            assert response.http_request.headers.get("X-Stainless-Lang") == "python"
+
+            preference = response.parse()
+            assert_matches_type(PreferenceBulkUpdateResponse, preference, path=["response"])
+
+        assert cast(Any, response.is_closed) is True
+
+    @pytest.mark.skip(reason="Mock server tests are disabled")
+    @parametrize
+    def test_path_params_bulk_update(self, client: Courier) -> None:
+        with pytest.raises(ValueError, match=r"Expected a non-empty value for `user_id` but received ''"):
+            client.users.preferences.with_raw_response.bulk_update(
+                user_id="",
+                topics=[
+                    {
+                        "status": "OPTED_IN",
+                        "topic_id": "pt_01kx4h2jdafq8bk996nn92357r",
+                    },
+                    {
+                        "status": "OPTED_OUT",
+                        "topic_id": "pt_01kx4h2jdafq8bk99eyt3dx43x",
+                    },
+                ],
             )
 
     @pytest.mark.skip(reason="Mock server tests are disabled")
@@ -323,6 +513,194 @@ class TestAsyncPreferences:
         with pytest.raises(ValueError, match=r"Expected a non-empty value for `user_id` but received ''"):
             await async_client.users.preferences.with_raw_response.retrieve(
                 user_id="",
+            )
+
+    @pytest.mark.skip(reason="Mock server tests are disabled")
+    @parametrize
+    async def test_method_bulk_replace(self, async_client: AsyncCourier) -> None:
+        preference = await async_client.users.preferences.bulk_replace(
+            user_id="user_id",
+            topics=[
+                {
+                    "status": "OPTED_IN",
+                    "topic_id": "pt_01kx4h2jdafq8bk996nn92357r",
+                }
+            ],
+        )
+        assert_matches_type(PreferenceBulkReplaceResponse, preference, path=["response"])
+
+    @pytest.mark.skip(reason="Mock server tests are disabled")
+    @parametrize
+    async def test_method_bulk_replace_with_all_params(self, async_client: AsyncCourier) -> None:
+        preference = await async_client.users.preferences.bulk_replace(
+            user_id="user_id",
+            topics=[
+                {
+                    "status": "OPTED_IN",
+                    "topic_id": "pt_01kx4h2jdafq8bk996nn92357r",
+                    "custom_routing": ["inbox", "email"],
+                    "has_custom_routing": True,
+                }
+            ],
+            tenant_id="tenant_id",
+        )
+        assert_matches_type(PreferenceBulkReplaceResponse, preference, path=["response"])
+
+    @pytest.mark.skip(reason="Mock server tests are disabled")
+    @parametrize
+    async def test_raw_response_bulk_replace(self, async_client: AsyncCourier) -> None:
+        response = await async_client.users.preferences.with_raw_response.bulk_replace(
+            user_id="user_id",
+            topics=[
+                {
+                    "status": "OPTED_IN",
+                    "topic_id": "pt_01kx4h2jdafq8bk996nn92357r",
+                }
+            ],
+        )
+
+        assert response.is_closed is True
+        assert response.http_request.headers.get("X-Stainless-Lang") == "python"
+        preference = await response.parse()
+        assert_matches_type(PreferenceBulkReplaceResponse, preference, path=["response"])
+
+    @pytest.mark.skip(reason="Mock server tests are disabled")
+    @parametrize
+    async def test_streaming_response_bulk_replace(self, async_client: AsyncCourier) -> None:
+        async with async_client.users.preferences.with_streaming_response.bulk_replace(
+            user_id="user_id",
+            topics=[
+                {
+                    "status": "OPTED_IN",
+                    "topic_id": "pt_01kx4h2jdafq8bk996nn92357r",
+                }
+            ],
+        ) as response:
+            assert not response.is_closed
+            assert response.http_request.headers.get("X-Stainless-Lang") == "python"
+
+            preference = await response.parse()
+            assert_matches_type(PreferenceBulkReplaceResponse, preference, path=["response"])
+
+        assert cast(Any, response.is_closed) is True
+
+    @pytest.mark.skip(reason="Mock server tests are disabled")
+    @parametrize
+    async def test_path_params_bulk_replace(self, async_client: AsyncCourier) -> None:
+        with pytest.raises(ValueError, match=r"Expected a non-empty value for `user_id` but received ''"):
+            await async_client.users.preferences.with_raw_response.bulk_replace(
+                user_id="",
+                topics=[
+                    {
+                        "status": "OPTED_IN",
+                        "topic_id": "pt_01kx4h2jdafq8bk996nn92357r",
+                    }
+                ],
+            )
+
+    @pytest.mark.skip(reason="Mock server tests are disabled")
+    @parametrize
+    async def test_method_bulk_update(self, async_client: AsyncCourier) -> None:
+        preference = await async_client.users.preferences.bulk_update(
+            user_id="user_id",
+            topics=[
+                {
+                    "status": "OPTED_IN",
+                    "topic_id": "pt_01kx4h2jdafq8bk996nn92357r",
+                },
+                {
+                    "status": "OPTED_OUT",
+                    "topic_id": "pt_01kx4h2jdafq8bk99eyt3dx43x",
+                },
+            ],
+        )
+        assert_matches_type(PreferenceBulkUpdateResponse, preference, path=["response"])
+
+    @pytest.mark.skip(reason="Mock server tests are disabled")
+    @parametrize
+    async def test_method_bulk_update_with_all_params(self, async_client: AsyncCourier) -> None:
+        preference = await async_client.users.preferences.bulk_update(
+            user_id="user_id",
+            topics=[
+                {
+                    "status": "OPTED_IN",
+                    "topic_id": "pt_01kx4h2jdafq8bk996nn92357r",
+                    "custom_routing": ["inbox", "email"],
+                    "has_custom_routing": True,
+                },
+                {
+                    "status": "OPTED_OUT",
+                    "topic_id": "pt_01kx4h2jdafq8bk99eyt3dx43x",
+                    "custom_routing": ["direct_message"],
+                    "has_custom_routing": True,
+                },
+            ],
+            tenant_id="tenant_id",
+        )
+        assert_matches_type(PreferenceBulkUpdateResponse, preference, path=["response"])
+
+    @pytest.mark.skip(reason="Mock server tests are disabled")
+    @parametrize
+    async def test_raw_response_bulk_update(self, async_client: AsyncCourier) -> None:
+        response = await async_client.users.preferences.with_raw_response.bulk_update(
+            user_id="user_id",
+            topics=[
+                {
+                    "status": "OPTED_IN",
+                    "topic_id": "pt_01kx4h2jdafq8bk996nn92357r",
+                },
+                {
+                    "status": "OPTED_OUT",
+                    "topic_id": "pt_01kx4h2jdafq8bk99eyt3dx43x",
+                },
+            ],
+        )
+
+        assert response.is_closed is True
+        assert response.http_request.headers.get("X-Stainless-Lang") == "python"
+        preference = await response.parse()
+        assert_matches_type(PreferenceBulkUpdateResponse, preference, path=["response"])
+
+    @pytest.mark.skip(reason="Mock server tests are disabled")
+    @parametrize
+    async def test_streaming_response_bulk_update(self, async_client: AsyncCourier) -> None:
+        async with async_client.users.preferences.with_streaming_response.bulk_update(
+            user_id="user_id",
+            topics=[
+                {
+                    "status": "OPTED_IN",
+                    "topic_id": "pt_01kx4h2jdafq8bk996nn92357r",
+                },
+                {
+                    "status": "OPTED_OUT",
+                    "topic_id": "pt_01kx4h2jdafq8bk99eyt3dx43x",
+                },
+            ],
+        ) as response:
+            assert not response.is_closed
+            assert response.http_request.headers.get("X-Stainless-Lang") == "python"
+
+            preference = await response.parse()
+            assert_matches_type(PreferenceBulkUpdateResponse, preference, path=["response"])
+
+        assert cast(Any, response.is_closed) is True
+
+    @pytest.mark.skip(reason="Mock server tests are disabled")
+    @parametrize
+    async def test_path_params_bulk_update(self, async_client: AsyncCourier) -> None:
+        with pytest.raises(ValueError, match=r"Expected a non-empty value for `user_id` but received ''"):
+            await async_client.users.preferences.with_raw_response.bulk_update(
+                user_id="",
+                topics=[
+                    {
+                        "status": "OPTED_IN",
+                        "topic_id": "pt_01kx4h2jdafq8bk996nn92357r",
+                    },
+                    {
+                        "status": "OPTED_OUT",
+                        "topic_id": "pt_01kx4h2jdafq8bk99eyt3dx43x",
+                    },
+                ],
             )
 
     @pytest.mark.skip(reason="Mock server tests are disabled")

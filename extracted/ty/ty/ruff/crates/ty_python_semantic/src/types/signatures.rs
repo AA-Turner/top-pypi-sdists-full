@@ -10,6 +10,7 @@
 //! argument types and return types. For each callable type in the union, the call expression's
 //! arguments must match _at least one_ overload.
 
+use std::fmt;
 use std::slice::Iter;
 use std::sync::Arc;
 
@@ -1755,8 +1756,8 @@ impl<'c, 'db> TypeRelationChecker<'_, 'c, 'db> {
 
         let source_inferable = source.inferable_typevars(db);
         let target_inferable = target.inferable_typevars(db);
-        let inferable = source_inferable.merge(db, target_inferable);
-        let inferable = self.inferable.merge(db, inferable);
+        let signature_inferable = source_inferable.merge(db, target_inferable);
+        let inferable = self.inferable.merge(db, signature_inferable);
 
         // `inner` will create a constraint set that references these newly inferable typevars.
         let checker = self.with_inferable_typevars(inferable);
@@ -1768,11 +1769,7 @@ impl<'c, 'db> TypeRelationChecker<'_, 'c, 'db> {
         // we produce, we reduce it back down to the inferable set that the caller asked about.
         // If we introduced new inferable typevars, those will be existentially quantified away
         // before returning.
-        when.reduce_inferable(
-            db,
-            self.constraints,
-            source_inferable.iter(db).chain(target_inferable.iter(db)),
-        )
+        when.reduce_inferable(db, self.constraints, signature_inferable)
     }
 
     fn with_signature_recursion_guard(
@@ -3934,6 +3931,45 @@ impl<'db> std::ops::Index<usize> for Parameters<'db> {
     }
 }
 
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub(crate) struct ParameterDisplayName<N> {
+    name: N,
+    prefix: ParameterNamePrefix,
+}
+
+impl ParameterDisplayName<&Name> {
+    pub(crate) fn into_owned(self) -> ParameterDisplayName<Name> {
+        ParameterDisplayName {
+            name: (*self.name).clone(),
+            prefix: self.prefix,
+        }
+    }
+}
+
+impl<N: AsRef<str>> fmt::Display for ParameterDisplayName<N> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str(self.prefix.as_str())?;
+        f.write_str(self.name.as_ref())
+    }
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum ParameterNamePrefix {
+    None,
+    Variadic,
+    KeywordVariadic,
+}
+
+impl ParameterNamePrefix {
+    const fn as_str(self) -> &'static str {
+        match self {
+            Self::None => "",
+            Self::Variadic => "*",
+            Self::KeywordVariadic => "**",
+        }
+    }
+}
+
 #[derive(Clone, Debug, PartialEq, Eq, Hash, salsa::Update, get_size2::GetSize)]
 pub(crate) struct Parameter<'db> {
     /// Annotated type of the parameter. If no annotation was provided, this is `Unknown`.
@@ -4327,12 +4363,14 @@ impl<'db> Parameter<'db> {
     }
 
     /// Display name of the parameter, if it has one.
-    pub(crate) fn display_name(&self) -> Option<ast::name::Name> {
-        self.name().map(|name| match self.kind {
-            ParameterKind::Variadic { .. } => ast::name::Name::new(format!("*{name}")),
-            ParameterKind::KeywordVariadic { .. } => ast::name::Name::new(format!("**{name}")),
-            _ => name.clone(),
-        })
+    pub(crate) fn display_name(&self) -> Option<ParameterDisplayName<&Name>> {
+        let prefix = match self.kind {
+            ParameterKind::Variadic { .. } => ParameterNamePrefix::Variadic,
+            ParameterKind::KeywordVariadic { .. } => ParameterNamePrefix::KeywordVariadic,
+            _ => ParameterNamePrefix::None,
+        };
+        self.name()
+            .map(|name| ParameterDisplayName { name, prefix })
     }
 
     /// Default-value type of the parameter, if any.

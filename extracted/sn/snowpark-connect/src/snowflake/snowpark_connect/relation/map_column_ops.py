@@ -1911,7 +1911,7 @@ def _map_group_map_scala(
         JAVA_UDTF_PREFIX,
         create_java_udtf_for_scala_group_map_handling,
     )
-    from snowflake.snowpark_connect.utils.variant_utils import scala_udf_arg_to_variant
+    from snowflake.snowpark_connect.utils.variant_utils import jvm_udf_arg_to_variant
 
     has_initial_state = initial_state_container is not None
     udtf_name = create_java_udtf_for_scala_group_map_handling(
@@ -1960,7 +1960,7 @@ def _map_group_map_scala(
                 )
                 for item in (
                     snowpark_fn.lit(field_name),
-                    scala_udf_arg_to_variant(
+                    jvm_udf_arg_to_variant(
                         snowpark_fn.col(col_map.snowpark_name),
                         col_type_lookup.get(col_map.snowpark_name, VariantType()),
                     ),
@@ -1973,9 +1973,7 @@ def _map_group_map_scala(
     elif value_type_kind in ("map", "array"):
         value_col = input_container.column_map.get_snowpark_columns()[0]
         value_col_type = col_type_lookup.get(value_col, VariantType())
-        value_expr = scala_udf_arg_to_variant(
-            snowpark_fn.col(value_col), value_col_type
-        )
+        value_expr = jvm_udf_arg_to_variant(snowpark_fn.col(value_col), value_col_type)
         select_cols.append(value_expr.alias(value_col_name))
         value_arg = snowpark_fn.col(value_col_name)
     else:
@@ -2031,7 +2029,7 @@ def _map_group_map_scala(
                 for col_map in initial_state_container.column_map.columns
                 for item in (
                     snowpark_fn.lit(col_map.spark_name),
-                    scala_udf_arg_to_variant(
+                    jvm_udf_arg_to_variant(
                         snowpark_fn.col(col_map.snowpark_name),
                         initial_col_type_lookup.get(
                             col_map.snowpark_name, VariantType()

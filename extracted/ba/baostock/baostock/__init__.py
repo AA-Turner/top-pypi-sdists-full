@@ -13,7 +13,7 @@ __author__ = cons.BAOSTOCK_AUTHOR
 from baostock.login.loginout import (login, logout, set_API_key)
 
 # history data
-from baostock.security.history import (query_history_k_data_plus)
+from baostock.security.history import (query_history_k_data_plus,query_daily_history_k_AStock,query_daily_history_k_ETF)
 
 # sector info
 from baostock.security.sectorinfo import (query_stock_industry,
@@ -25,7 +25,8 @@ from baostock.security.sectorinfo import (query_stock_industry,
 from baostock.evaluation.season_index import (query_dividend_data, query_adjust_factor,
                                               query_profit_data, query_operation_data,
                                               query_growth_data, query_dupont_data,
-                                              query_balance_data, query_cash_flow_data)
+                                              query_balance_data, query_cash_flow_data,
+                                              query_daily_adjust_factor)
 
 # corporate performance
 from baostock.corpreport.corp_performance import (

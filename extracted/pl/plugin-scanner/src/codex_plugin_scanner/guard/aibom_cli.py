@@ -266,6 +266,8 @@ _AIBOM_EMPTY_SYNC_RETRY_SECONDS = 2 * 60
 _AIBOM_GUARD_EVENTS_BACKOFF_KEY = "aibom_guard_events_backoff"
 _AIBOM_GUARD_EVENTS_BACKOFF_MINUTES = 5  # matches _GUARD_EVENTS_ENDPOINT_UNAVAILABLE_RETRY_MINUTES
 _AIBOM_SYNC_BATCH_SIZE = 3  # keep each POST under Cloudflare's 100s origin timeout
+# Guard Cloud queues large projection work; preserve snapshot replacement semantics in transit.
+_AIBOM_MAX_REQUEST_BODY_BYTES = 7_500_000  # stay below the portal's 8 MB request limit
 
 
 def _aware_utc_timestamp(value: str) -> datetime:
@@ -437,14 +439,39 @@ def sync_aibom_snapshots(
         )
         for snapshot in snapshots
     ]
+    event_batches, oversized_events = _batch_inventory_events(events)
+    oversized_statuses: list[dict[str, object]] = [
+        {
+            "eventId": str(event.get("eventId") or ""),
+            "status": "rejected",
+            "reason": "snapshot_too_large",
+        }
+        for event in oversized_events
+    ]
+    if not event_batches:
+        failure_summary: dict[str, object] = {
+            "synced": False,
+            "synced_at": generated_at,
+            "snapshots": len(snapshots),
+            "accepted": 0,
+            "rejected": len(oversized_events),
+            "statuses": oversized_statuses,
+            "partial": False,
+            "reason": "snapshot_too_large",
+            "error": "Guard Cloud AIBOM sync failed because an inventory snapshot exceeds the request limit.",
+        }
+        store.set_sync_payload("aibom_sync_summary", failure_summary, generated_at)
+        return failure_summary
     total_accepted = 0
-    total_rejected = 0
-    all_statuses: list[dict[str, object]] = []
+    total_rejected = len(oversized_events)
+    all_statuses: list[dict[str, object]] = oversized_statuses
     synced_at = generated_at
     batches_sent = 0
-    for batch_start in range(0, len(events), _AIBOM_SYNC_BATCH_SIZE):
-        batch = events[batch_start : batch_start + _AIBOM_SYNC_BATCH_SIZE]
-        body = json.dumps({"events": batch}).encode("utf-8")
+    events_sent = 0
+    syncable_event_count = sum(len(batch) for batch in event_batches)
+
+    for batch in event_batches:
+        body = _inventory_events_request_body(batch)
         request = runner._guard_sync_request(
             resolved_auth_context,
             request_url=sync_url,
@@ -452,6 +479,7 @@ def sync_aibom_snapshots(
             data=body,
             extra_headers=None,
         )
+        auth_refresh_retried = False
         try:
             payload = runner._urlopen_json_with_timeout_retry(
                 request=request,
@@ -459,37 +487,48 @@ def sync_aibom_snapshots(
                 retry_timeout_seconds=120,
             )
         except urllib.error.HTTPError as error:
-            if error.code == 404:
+            if error.code == 401 and not auth_refresh_retried:
+                auth_refresh_retried = True
+                resolved_auth_context = runner._resolve_guard_sync_auth_context(store, force_refresh=True)
+                request = runner._guard_sync_request(
+                    resolved_auth_context,
+                    request_url=sync_url,
+                    method="POST",
+                    data=body,
+                    extra_headers=None,
+                )
+                payload = runner._urlopen_json_with_timeout_retry(
+                    request=request,
+                    timeout_seconds=90,
+                    retry_timeout_seconds=120,
+                )
+            elif error.code == 404:
                 synced_at = generated_at
+                remaining_events = syncable_event_count - events_sent
                 store.set_sync_payload(
                     _AIBOM_GUARD_EVENTS_BACKOFF_KEY,
                     {
                         "synced_at": synced_at,
-                        "events": len(events) - batch_start,
+                        "events": remaining_events,
                         "accepted": total_accepted,
-                        "skipped": len(events) - batch_start,
+                        "skipped": remaining_events,
                         "sync_skipped": True,
                         "sync_reason": "guard_events_endpoint_unavailable",
                     },
                     synced_at,
                 )
-                if batches_sent > 0:
-                    summary: dict[str, object] = {
-                        "synced": False,
-                        "synced_at": synced_at,
-                        "snapshots": len(snapshots),
-                        "accepted": total_accepted,
-                        "rejected": total_rejected,
-                        "statuses": all_statuses,
-                        "partial": True,
-                        "reason": "guard_events_endpoint_unavailable",
-                    }
-                else:
-                    summary = {
-                        "synced": False,
-                        "skipped": True,
-                        "reason": "guard_events_endpoint_unavailable",
-                    }
+                summary: dict[str, object] = {
+                    "synced": False,
+                    "synced_at": synced_at,
+                    "snapshots": len(snapshots),
+                    "accepted": total_accepted,
+                    "rejected": total_rejected,
+                    "statuses": all_statuses,
+                    "partial": batches_sent > 0 or bool(oversized_events),
+                    "reason": "guard_events_endpoint_unavailable",
+                }
+                if batches_sent == 0:
+                    summary["skipped"] = True
                 store.set_sync_payload("aibom_sync_summary", summary, synced_at)
                 return summary
             failure_summary: dict[str, object] = {
@@ -499,7 +538,7 @@ def sync_aibom_snapshots(
                 "accepted": total_accepted,
                 "rejected": total_rejected,
                 "statuses": all_statuses,
-                "partial": batches_sent > 0,
+                "partial": batches_sent > 0 or bool(oversized_events),
                 "error": "Guard Cloud AIBOM sync failed due to an HTTP error.",
             }
             store.set_sync_payload("aibom_sync_summary", failure_summary, synced_at)
@@ -512,12 +551,13 @@ def sync_aibom_snapshots(
                 "accepted": total_accepted,
                 "rejected": total_rejected,
                 "statuses": all_statuses,
-                "partial": batches_sent > 0,
+                "partial": batches_sent > 0 or bool(oversized_events),
                 "error": "Guard Cloud AIBOM sync failed due to a network error.",
             }
             store.set_sync_payload("aibom_sync_summary", failure_summary, synced_at)
             raise RuntimeError("Guard Cloud AIBOM sync failed due to a network error.") from error
         batches_sent += 1  # noqa: SIM113
+        events_sent += len(batch)
         batch_accepted = payload.get("accepted")
         if isinstance(batch_accepted, int):
             total_accepted += batch_accepted
@@ -538,6 +578,9 @@ def sync_aibom_snapshots(
         "rejected": total_rejected,
         "statuses": all_statuses,
     }
+    if oversized_events:
+        summary["partial"] = True
+        summary["reason"] = "snapshot_too_large"
     store.set_sync_payload("aibom_sync_summary", summary, synced_at)
     return summary
 
@@ -803,6 +846,41 @@ def _inventory_snapshot_event(
         "deviceId": device_id,
         "payload": {"snapshot": serialize_inventory_snapshot(snapshot)},
     }
+
+
+def _inventory_events_request_body(events: list[dict[str, object]]) -> bytes:
+    return json.dumps({"events": events}).encode("utf-8")
+
+
+def _batch_inventory_events(
+    events: list[dict[str, object]],
+    *,
+    max_batch_size: int = _AIBOM_SYNC_BATCH_SIZE,
+    max_body_bytes: int = _AIBOM_MAX_REQUEST_BODY_BYTES,
+) -> tuple[list[list[dict[str, object]]], list[dict[str, object]]]:
+    """Batch whole inventory snapshots without changing replacement semantics."""
+    if max_batch_size < 1 or max_body_bytes < 1:
+        raise ValueError("AIBOM request batch limits must be positive.")
+
+    batches: list[list[dict[str, object]]] = []
+    oversized_events: list[dict[str, object]] = []
+    batch: list[dict[str, object]] = []
+    for event in events:
+        if len(_inventory_events_request_body([event])) > max_body_bytes:
+            oversized_events.append(event)
+            continue
+
+        candidate = [*batch, event]
+        candidate_too_large = len(_inventory_events_request_body(candidate)) > max_body_bytes
+        if batch and (len(candidate) > max_batch_size or candidate_too_large):
+            batches.append(batch)
+            batch = [event]
+        else:
+            batch = candidate
+
+    if batch:
+        batches.append(batch)
+    return batches, oversized_events
 
 
 def _sync_timestamp_from_payload(payload: dict[str, object]) -> str | None:

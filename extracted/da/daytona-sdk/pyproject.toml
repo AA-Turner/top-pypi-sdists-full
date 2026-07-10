@@ -4,12 +4,12 @@ build-backend = "poetry.core.masonry.api"
 
 [project]
 name = "daytona_sdk"
-version = "0.194.0"
+version = "0.195.0"
 authors = [
     { name = "Daytona Platforms Inc.", email = "support@daytona.io"  },
 ]
-description = "Python SDK for Daytona"
-readme = "README.md"
+description = "Deprecated: please migrate to the 'daytona' package. This alias is being phased out."
+readme = "DEPRECATED.md"
 requires-python = ">=3.9,<4.0"
 dependencies = [
     "python-dotenv>=1.0.0,<2.0.0",
@@ -29,13 +29,13 @@ dependencies = [
     "opentelemetry-exporter-otlp-proto-http>=1.27.0,<2.0.0",
     "opentelemetry-instrumentation-aiohttp-client>=0.59b0",
     "urllib3>=2.1.0,<3.0.0",
-    "daytona-api-client (==0.194.0)",
-    "daytona-api-client-async (==0.194.0)",
-    "daytona-toolbox-api-client (==0.194.0)",
-    "daytona-toolbox-api-client-async (==0.194.0)"
+    "daytona-api-client (==0.195.0)",
+    "daytona-api-client-async (==0.195.0)",
+    "daytona-toolbox-api-client (==0.195.0)",
+    "daytona-toolbox-api-client-async (==0.195.0)"
 ]
 classifiers = [
-    "Development Status :: 3 - Alpha",
+    "Development Status :: 7 - Inactive",
     "Intended Audience :: Developers",
     "Programming Language :: Python :: 3",
     "Programming Language :: Python :: 3.9",

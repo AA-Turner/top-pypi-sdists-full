@@ -21,13 +21,20 @@ class InvoiceCreateParams(TypedDict, total=False):
     """
 
     invoice_date: Required[Annotated[Union[str, datetime], PropertyInfo(format="iso8601")]]
-    """Optional invoice date to set.
+    """An ISO 8601 date or timestamp, interpreted in the customer's timezone.
 
-    Must be in the past, if not set, `invoice_date` is set to the current time in
-    the customer's timezone.
+    Must be in the past. If a date is set without a time, `invoice_date` is set to
+    midnight on the chosen date in the customer's timezone.
     """
 
     line_items: Required[Iterable[LineItem]]
+
+    auto_collection: Optional[bool]
+    """
+    Determines whether this invoice will automatically attempt to charge a saved
+    payment method, if any. If not specified, the invoice inherits the customer's
+    auto_collection setting.
+    """
 
     customer_id: Optional[str]
     """The id of the `Customer` to create this invoice for.

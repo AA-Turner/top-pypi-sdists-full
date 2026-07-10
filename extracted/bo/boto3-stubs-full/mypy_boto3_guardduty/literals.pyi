@@ -164,6 +164,7 @@ DescribeMalwareScansPaginatorName = Literal["describe_malware_scans"]
 DestinationTypeType = Literal["S3"]
 DetectionSourceType = Literal["AMAZON", "BITDEFENDER"]
 DetectorFeatureResultType = Literal[
+    "AI_ANALYST",
     "CLOUD_TRAIL",
     "DNS_LOGS",
     "EBS_MALWARE_PROTECTION",
@@ -176,6 +177,7 @@ DetectorFeatureResultType = Literal[
     "S3_DATA_EVENTS",
 ]
 DetectorFeatureType = Literal[
+    "AI_ANALYST",
     "EBS_MALWARE_PROTECTION",
     "EKS_AUDIT_LOGS",
     "EKS_RUNTIME_MONITORING",

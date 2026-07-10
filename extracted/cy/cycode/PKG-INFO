@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: cycode
-Version: 3.17.0
+Version: 3.17.1
 Summary: Boost security in your dev lifecycle via SAST, SCA, Secrets & IaC scanning.
 License-Expression: MIT
 License-File: LICENCE
@@ -26,7 +26,7 @@ Requires-Dist: click (>=8.1.0,<8.2.0)
 Requires-Dist: colorama (>=0.4.3,<0.5.0)
 Requires-Dist: gitpython (>=3.1.50,<3.2.0)
 Requires-Dist: marshmallow (>=3.15.0,<4.0.0)
-Requires-Dist: mcp (>=1.9.3,<2.0.0) ; python_version >= "3.10"
+Requires-Dist: mcp (>=1.28.1,<2.0.0) ; python_version >= "3.10"
 Requires-Dist: patch-ng (==1.19.1)
 Requires-Dist: pathvalidate (>=3.3.1,<4.0.0)
 Requires-Dist: pydantic (>=2.11.5,<3.0.0)

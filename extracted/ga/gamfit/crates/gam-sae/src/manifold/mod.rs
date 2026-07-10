@@ -109,16 +109,21 @@ pub(crate) use gam_solve::arrow_schur::{
     ArrowSolveOptions, BetaPenaltyOp, CompositePenaltyOp, DensePenaltyOp, DeviceSaePcgData,
     DeviceSaeSmoothBlock, FactoredFrameGBlock, FactoredFrameKroneckerOp, IbpCrossRowSource,
     IdentityRightKroneckerPenaltyOp, SparseBlockKroneckerPenaltyOp, SparseGBlock,
-    StreamingArrowSchur, solve_arrow_newton_step_with_proximal_correction,
-    solve_streaming_reduced_beta, solve_with_lm_escalation_inner,
-    streaming_cross_row_woodbury_log_det,
+    SparseRankOnePenaltyOp,
+    StreamingArrowSchur, row_sub_floor_null_directions,
+    solve_arrow_newton_step_with_proximal_correction, solve_streaming_reduced_beta,
+    solve_with_lm_escalation_inner, streaming_cross_row_woodbury_log_det,
 };
 
 pub(crate) use gam_terms::analytic_penalties::{
     AnalyticPenalty, AnalyticPenaltyKind, AnalyticPenaltyRegistry, DecoderIncoherencePenalty,
     IbpHessianDiagThirdChannels, IsometryPenalty, MechanismSparsityPenalty, NuclearNormPenalty,
-    PenaltyTier, PsiSlice, WeightField, resolve_learnable_weight,
+    PenaltyTier, PsiSlice, WeightField,
 };
+// The FFI seed path resolves learnable α through the exact terminal-ρ schedule
+// (`gam::terms::sae::manifold::resolve_learnable_weight`), so this re-export
+// must be PUBLIC — pub(crate) here broke every CI test-build shard (E0603).
+pub use gam_terms::analytic_penalties::resolve_learnable_weight;
 
 pub(crate) use gam_terms::latent::{LatentCoordValues, LatentIdMode};
 pub use gam_terms::latent::LatentManifold;
@@ -139,14 +144,22 @@ pub(crate) use gam_linalg::triangular::cholesky_solve_vector;
 
 pub(crate) use gam_solve::arrow_schur::{
     ArrowFactorCache, ArrowRowGaugeDeflation, RowDeflationSpectrum, arrow_factor_max_pivot,
-    arrow_factor_min_pivot, solve_arrow_newton_step_with_options,
+    arrow_factor_min_pivot, probe_undamped_evidence_row_factors,
+    solve_arrow_newton_step_with_options,
 };
 
 // #988 memory-matrix-free evidence log-det: the reduced-Schur SLQ entry point
 // and its shared tuning constants, used when the dense k×k Schur exceeds budget.
 pub(crate) use gam_solve::arrow_schur::{
     SCHUR_SLQ_LOGDET_LANCZOS_STEPS, SCHUR_SLQ_LOGDET_PROBES, SCHUR_SLQ_LOGDET_SEED,
-    matrix_free_arrow_evidence_log_det,
+};
+
+// #2080 rational-surrogate evidence lane: the build-once threaded entry that
+// swaps the SLQ reduced-Schur log|S| for the desync-safe rational surrogate
+// (value + ρ-gradient one functional), plus its per-outer-solve frozen state.
+pub(crate) use gam_solve::arrow_schur::{
+    SurrogateLaneConfig, SurrogateLaneState, hutchinson_reduced_schur_inverse_trace,
+    matrix_free_arrow_evidence_log_det_surrogate,
 };
 
 pub(crate) use gam_solve::estimate::EstimationError;
@@ -171,9 +184,11 @@ pub use crate::frames::*;
 
 mod amortized_routing;
 mod arrow_solver;
+mod basin_bundle;
 mod atom;
 mod behavior;
 mod behavior_fit;
+mod behavior_isometry;
 mod certificate;
 mod construction;
 mod construction_ard;
@@ -193,6 +208,7 @@ mod graph_atom;
 mod inframe_curved;
 mod isa_seed;
 mod kronecker;
+pub mod lift;
 mod loss;
 mod outer_objective;
 mod pair_kappa;
@@ -205,14 +221,20 @@ mod sandwich;
 mod schedule;
 mod shape_uncertainty;
 mod stagewise;
+mod stratum_births;
 mod streaming_plan;
+mod streaming_seed;
 mod term;
 mod terracini;
 mod weight_frame_catalog;
 mod wbic_audit;
+mod wbic_dynamics;
 
 #[cfg(test)]
 mod tests;
+
+#[cfg(test)]
+mod tests_basin_bundle_envelope;
 
 #[cfg(test)]
 mod tests_chart_evaluator_jets;
@@ -239,10 +261,16 @@ mod tests_ibp_capacity_1784;
 mod tests_startup_validation_1782;
 
 #[cfg(test)]
+mod tests_zoo_micro_local;
+
+#[cfg(test)]
 mod tests_schur_seed_refusal_1782;
 
 #[cfg(test)]
 mod tests_streaming_materialize_chunk_1801;
+
+#[cfg(test)]
+mod tests_streaming_seed_parity_2134;
 
 #[cfg(test)]
 mod tests_recovery_split_780;
@@ -267,6 +295,9 @@ mod tests_2111_dense_torus_acceptance;
 
 #[cfg(test)]
 mod tests_rank_charge_2101;
+
+#[cfg(test)]
+mod tests_sure_dispersion_2133;
 
 #[cfg(test)]
 mod tests_behavioral_fisher_rung1;
@@ -317,6 +348,9 @@ mod tests_frame_refresh_alpha_grad;
 mod tests_graph_atom;
 
 #[cfg(test)]
+mod tests_graph_spectral_decode;
+
+#[cfg(test)]
 mod tests_cocollapse_disjoint_2027;
 
 #[cfg(test)]
@@ -326,10 +360,18 @@ mod tests_cocollapse_reseed_2089;
 mod tests_outer_reml_probe_budget_2080;
 
 #[cfg(test)]
+mod tests_outer_probe_forcing;
+
+#[cfg(test)]
 mod lambda_smooth_1556_tests;
 
 #[cfg(test)]
 mod tests_behavior_twoblock_rung2;
+#[cfg(test)]
+mod tests_behavior_isometry_2015;
+
+#[cfg(test)]
+mod tests_crosscoder_multiblock;
 
 #[cfg(test)]
 mod tests_ln_sphere_ambient_f4;
@@ -346,10 +388,15 @@ mod tests_chart_angle_fidelity_2081;
 #[cfg(test)]
 mod tests_joint_vs_cascade_2131;
 
+#[cfg(test)]
+mod tests_outer_row_subsample;
+
 pub use arrow_solver::*;
+pub use basin_bundle::*;
 pub use atom::*;
 pub use behavior::*;
 pub use behavior_fit::*;
+pub use behavior_isometry::*;
 pub use certificate::*;
 pub use construction_aux_types::*;
 pub use construction_cache_refresh::*;
@@ -358,6 +405,10 @@ pub use construction_reconstruction::reconstruct_persisted_atom_set;
 // #16/#2023 — the shared rank-charge DOF core, exposed so the hybrid-split DEMOTE
 // gate prices linear/curved candidates in the SAME currency as the joint REML fit.
 pub(crate) use construction::realised_rank_charge_dof;
+// Occupancy-scaled Jeffreys barrier: the per-assembly frozen routing support
+// (coactivation pairs + per-atom N_eff) carried on `SaeManifoldTerm` — reachable
+// crate-wide because the term's frozen-gate field is.
+pub(crate) use penalties::BarrierCoactivationGate;
 
 /// Public single-currency surface for the realised rank-charge DOF: the SAME
 /// `realised_rank_charge_dof` the joint REML PROMOTE gate, the hybrid-split
@@ -402,8 +453,10 @@ pub use sandwich::*;
 pub use schedule::*;
 pub use shape_uncertainty::*;
 pub use stagewise::*;
+pub use stratum_births::*;
 pub use streaming_plan::*;
 pub use term::*;
 pub use terracini::*;
 pub use weight_frame_catalog::*;
 pub use wbic_audit::*;
+pub use wbic_dynamics::*;

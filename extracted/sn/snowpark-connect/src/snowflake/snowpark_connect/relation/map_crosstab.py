@@ -8,6 +8,7 @@ import snowflake.snowpark.functions as fn
 from snowflake import snowpark
 from snowflake.snowpark_connect.dataframe_container import DataFrameContainer
 from snowflake.snowpark_connect.relation.map_relation import map_relation
+from snowflake.snowpark_connect.utils.identifiers import strip_backtick_quotes_if_quoted
 
 
 def map_crosstab(
@@ -20,10 +21,10 @@ def map_crosstab(
     input_df = input_container.dataframe
 
     col1 = input_container.column_map.get_snowpark_column_name_from_spark_column_name(
-        rel.crosstab.col1
+        strip_backtick_quotes_if_quoted(rel.crosstab.col1)
     )
     col2 = input_container.column_map.get_snowpark_column_name_from_spark_column_name(
-        rel.crosstab.col2
+        strip_backtick_quotes_if_quoted(rel.crosstab.col2)
     )
     input_df = input_df.select(
         fn.col(col1).cast("string").alias(col1), fn.col(col2).cast("string").alias(col2)

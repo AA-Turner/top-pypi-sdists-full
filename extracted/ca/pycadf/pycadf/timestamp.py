@@ -23,7 +23,7 @@ def get_utc_now(timezone=None):
 
     :param timezone: an optional timezone param to offset time to.
     """
-    utc_datetime = datetime.datetime.now(datetime.timezone.utc)
+    utc_datetime = datetime.datetime.now(datetime.UTC)
     if timezone is not None:
         try:
             tz = zoneinfo.Zoneinfo(timezone)
@@ -36,8 +36,7 @@ def get_utc_now(timezone=None):
 # TODO(mrutkows): validate any cadf:Timestamp (type) record against
 # CADF schema
 def is_valid(value):
-    """Validation to ensure timestamp is a string.
-    """
+    """Validation to ensure timestamp is a string."""
     if not isinstance(value, str):
         raise ValueError('Timestamp should be a String')
 

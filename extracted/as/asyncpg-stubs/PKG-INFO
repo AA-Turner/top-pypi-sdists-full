@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: asyncpg-stubs
-Version: 0.31.2
+Version: 0.31.3
 Summary: asyncpg stubs
 License-Expression: BSD-3-Clause
 License-File: LICENSE

@@ -13,7 +13,8 @@ from .option import erase
 from .protocols import ICollection, IEnumerable_1, IEnumerator, IEqualityComparer_1
 from .reflection import TypeInfo, class_type
 from .resize_array import find_index
-from .seq import concat, delay, iterate_indexed, map
+from .seq import concat, delay, iterate_indexed
+from .seq_native import map
 from .string_ import format
 from .system import ArgumentException__ctor_Z721C83C5
 from .types import ExceptionBase

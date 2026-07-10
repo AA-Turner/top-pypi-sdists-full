@@ -21,18 +21,18 @@ class Buffer:
         self.max_size = 1000
         self.backup_interval = 300
         self.home_dir = Path.home()
-        self.project_dir = self.home_dir /".vnstock"
+        self.project_dir = self.home_dir / ".vnstock"
         self.project_dir.mkdir(exist_ok=True)
-        self.data_dir = self.project_dir /'data'
+        self.data_dir = self.project_dir / 'data'
         self.data_dir.mkdir(exist_ok=True)
-        self.backup_path = self.data_dir /"buffer_backup.json"
+        self.backup_path = self.data_dir / "buffer_backup.json"
         self._load_from_backup()
         self._start_backup_thread()
 
     def _load_from_backup(self):
         if self.backup_path.exists():
             try:
-                with open(self.backup_path,'r') as f:
+                with open(self.backup_path, 'r') as f:
                     backup_data = json.load(f)
                 with self.lock:
                     self.data = backup_data
@@ -44,7 +44,7 @@ class Buffer:
             if not self.data:
                 return
             try:
-                with open(self.backup_path,'w') as f:
+                with open(self.backup_path, 'w') as f:
                     json.dump(self.data, f)
             except:
                 pass
@@ -60,7 +60,7 @@ class Buffer:
     def add(self, item, category=None):
         with self.lock:
             if isinstance(item, dict):
-                if"timestamp" not in item:
+                if "timestamp" not in item:
                     item["timestamp"] = datetime.now().isoformat()
                 if category:
                     item["category"] = category

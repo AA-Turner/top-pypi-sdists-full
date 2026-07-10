@@ -8,7 +8,10 @@ from snowflake.snowpark.types import DataType, StructType
 from snowflake.snowpark_connect.column_name_handler import make_unique_snowpark_name
 from snowflake.snowpark_connect.dataframe_container import DataFrameContainer
 from snowflake.snowpark_connect.typed_column import FieldType
-from snowflake.snowpark_connect.utils.jvm_udf_utils import is_decomposable_struct
+from snowflake.snowpark_connect.utils.jvm_udf_utils import (
+    decode_jvm_udf_result,
+    is_decomposable_struct,
+)
 
 
 def unpack_struct_output_to_container(
@@ -89,9 +92,9 @@ def unpack_java_udtf_output_to_container(
         out_sf_names = [make_unique_snowpark_name(n) for n in out_spark_names]
         selected = df.select(
             *[
-                snowpark_fn.col(java_udtf_prefix + f"C{i}")
-                .cast(f.datatype)
-                .alias(sf_name)
+                decode_jvm_udf_result(
+                    snowpark_fn.col(java_udtf_prefix + f"C{i}"), f.datatype
+                ).alias(sf_name)
                 for i, (f, sf_name) in enumerate(zip(fields, out_sf_names))
             ]
         )
@@ -102,9 +105,27 @@ def unpack_java_udtf_output_to_container(
             snowpark_column_types=[FieldType(f.datatype, f.nullable) for f in fields],
         )
 
+    output_col_name = java_udtf_prefix + "C1"
+    out_snowpark_name = make_unique_snowpark_name(non_struct_spark_name)
+    # For non-struct output types: native scalars (primitives, temporal epoch) are
+    # reconstructed directly via decode_jvm_udf_result; VARIANT-backed types (ArrayType,
+    # MapType) also take this path via .cast(dt) inside decode_jvm_udf_result.
+    # Only StructType uses unpack_struct_output_to_container for field-level GET().
+    if not isinstance(output_type, StructType):
+        return DataFrameContainer.create_with_column_mapping(
+            dataframe=df.select(
+                decode_jvm_udf_result(
+                    snowpark_fn.col(output_col_name), output_type
+                ).alias(out_snowpark_name)
+            ),
+            spark_column_names=[non_struct_spark_name],
+            snowpark_column_names=[out_snowpark_name],
+            snowpark_column_types=[output_type],
+        )
+
     return unpack_struct_output_to_container(
         df=df,
-        output_column_name=java_udtf_prefix + "C1",
+        output_column_name=output_col_name,
         output_type=output_type,
         cast_fields=True,
         non_struct_spark_name=non_struct_spark_name,

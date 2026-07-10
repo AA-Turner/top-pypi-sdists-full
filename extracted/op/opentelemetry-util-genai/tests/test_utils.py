@@ -1,16 +1,5 @@
 # Copyright The OpenTelemetry Authors
-#
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-#
-#     http://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
+# SPDX-License-Identifier: Apache-2.0
 
 import json
 import os
@@ -19,13 +8,9 @@ from typing import Any, Mapping, Optional
 from unittest.mock import patch
 
 from opentelemetry import trace
-from opentelemetry.instrumentation._semconv import (
-    OTEL_SEMCONV_STABILITY_OPT_IN,
-    _OpenTelemetrySemanticConventionStability,
-)
 from opentelemetry.sdk._logs import LoggerProvider
 from opentelemetry.sdk._logs.export import (
-    InMemoryLogExporter,
+    InMemoryLogRecordExporter,
     SimpleLogRecordProcessor,
 )
 from opentelemetry.sdk.trace import ReadableSpan, TracerProvider
@@ -33,6 +18,7 @@ from opentelemetry.sdk.trace.export import SimpleSpanProcessor
 from opentelemetry.sdk.trace.export.in_memory_span_exporter import (
     InMemorySpanExporter,
 )
+from opentelemetry.sdk.trace.sampling import Decision, SamplingResult
 from opentelemetry.semconv._incubating.attributes import (
     gen_ai_attributes as GenAI,
 )
@@ -42,11 +28,10 @@ from opentelemetry.semconv.attributes import (
 )
 from opentelemetry.semconv.schemas import Schemas
 from opentelemetry.trace.status import StatusCode
-from opentelemetry.util.genai.environment_variables import (
-    OTEL_INSTRUMENTATION_GENAI_CAPTURE_MESSAGE_CONTENT,
-    OTEL_INSTRUMENTATION_GENAI_EMIT_EVENT,
+from opentelemetry.util.genai.handler import (
+    TelemetryHandler,
+    get_telemetry_handler,
 )
-from opentelemetry.util.genai.handler import get_telemetry_handler
 from opentelemetry.util.genai.types import (
     ContentCapturingMode,
     InputMessage,
@@ -56,28 +41,9 @@ from opentelemetry.util.genai.types import (
 )
 from opentelemetry.util.genai.utils import (
     get_content_capturing_mode,
+    should_capture_content_on_spans,
+    should_emit_event,
 )
-
-
-def patch_env_vars(stability_mode, content_capturing, emit_event):
-    def decorator(test_case):
-        @patch.dict(
-            os.environ,
-            {
-                OTEL_SEMCONV_STABILITY_OPT_IN: stability_mode,
-                OTEL_INSTRUMENTATION_GENAI_CAPTURE_MESSAGE_CONTENT: content_capturing,
-                OTEL_INSTRUMENTATION_GENAI_EMIT_EVENT: emit_event,
-            },
-        )
-        def wrapper(*args, **kwargs):
-            # Reset state.
-            _OpenTelemetrySemanticConventionStability._initialized = False
-            _OpenTelemetrySemanticConventionStability._initialize()
-            return test_case(*args, **kwargs)
-
-        return wrapper
-
-    return decorator
 
 
 def _create_input_message(
@@ -169,40 +135,123 @@ def _normalize_to_dict(value: Any) -> dict[str, Any]:
     return dict(value) if isinstance(value, tuple) else value
 
 
-class TestVersion(unittest.TestCase):
-    @patch_env_vars(
-        stability_mode="gen_ai_latest_experimental",
-        content_capturing="SPAN_ONLY",
-        emit_event="",
-    )
-    def test_get_content_capturing_mode_parses_valid_envvar(self):  # pylint: disable=no-self-use
-        assert get_content_capturing_mode() == ContentCapturingMode.SPAN_ONLY
-
-    @patch_env_vars(
-        stability_mode="gen_ai_latest_experimental",
-        content_capturing="",
-        emit_event="",
-    )
-    def test_empty_content_capturing_envvar(self):  # pylint: disable=no-self-use
-        assert get_content_capturing_mode() == ContentCapturingMode.NO_CONTENT
-
-    @patch_env_vars(
-        stability_mode="default",
-        content_capturing="True",
-        emit_event="",
-    )
-    def test_get_content_capturing_mode_raises_exception_when_semconv_stability_default(
+class TestShouldEmitEvent(unittest.TestCase):
+    def test_should_emit_event_against_various_env_var_combinations(
         self,
     ):  # pylint: disable=no-self-use
-        with self.assertRaises(ValueError):
-            get_content_capturing_mode()
+        expected_results = {
+            ("EVENT_ONLY", "true"): True,
+            ("EVENT_ONLY", "True"): True,
+            ("EVENT_ONLY", "false"): False,
+            ("EVENT_ONLY", "False"): False,
+            ("EVENT_ONLY", ""): True,
+            ("SPAN_AND_EVENT", ""): True,
+            ("NO_CONTENT", ""): False,
+            ("SPAN_ONLY", ""): False,
+            ("", ""): False,
+        }
 
-    @patch_env_vars(
-        stability_mode="gen_ai_latest_experimental",
-        content_capturing="INVALID_VALUE",
-        emit_event="",
+        for (
+            content_capturing,
+            emit_event,
+        ), expected in expected_results.items():
+            with patch.dict(
+                os.environ,
+                {
+                    "OTEL_INSTRUMENTATION_GENAI_CAPTURE_MESSAGE_CONTENT": content_capturing,
+                    "OTEL_INSTRUMENTATION_GENAI_EMIT_EVENT": emit_event,
+                },
+            ):
+                assert should_emit_event() is expected
+
+    @patch.dict(
+        os.environ,
+        {
+            "OTEL_INSTRUMENTATION_GENAI_CAPTURE_MESSAGE_CONTENT": "EVENT_ONLY",
+            "OTEL_INSTRUMENTATION_GENAI_EMIT_EVENT": "INVALID_VALUE",
+        },
     )
-    def test_get_content_capturing_mode_raises_exception_on_invalid_envvar(
+    def test_should_emit_event_with_invalid_value_falls_back_to_default(
+        self,
+    ):  # pylint: disable=no-self-use
+        # When invalid value is set, should fall back to default based on content_capturing_mode
+        # EVENT_ONLY should default to True
+        with self.assertLogs(level="WARNING") as cm:
+            result = should_emit_event()
+            assert result is True, (
+                f"Expected True but got {result} (EVENT_ONLY should default to True)"
+            )
+        self.assertEqual(len(cm.output), 1)
+        self.assertIn("invalid_value is not a valid option for", cm.output[0])
+        self.assertIn(
+            "Must be one of true or false (case-insensitive)", cm.output[0]
+        )
+
+    @patch.dict(
+        os.environ,
+        {
+            "OTEL_INSTRUMENTATION_GENAI_CAPTURE_MESSAGE_CONTENT": "SPAN_ONLY",
+            "OTEL_INSTRUMENTATION_GENAI_EMIT_EVENT": "INVALID_VALUE",
+        },
+    )
+    def test_should_emit_event_with_invalid_value_falls_back_to_false_for_span_only(
+        self,
+    ):  # pylint: disable=no-self-use
+        # When invalid value is set with SPAN_ONLY, should default to False
+        with self.assertLogs(level="WARNING") as cm:
+            result = should_emit_event()
+            assert result is False, (
+                f"Expected False but got {result} (SPAN_ONLY should default to False)"
+            )
+        self.assertEqual(len(cm.output), 1)
+        self.assertIn("invalid_value is not a valid option for", cm.output[0])
+
+
+class TestShouldCaptureContent(unittest.TestCase):
+    def test_should_capture_content_on_spans_against_various_env_var_combinations(
+        self,
+    ):  # pylint: disable=no-self-use
+        for content_capture, span_content_enabled in [
+            ("NO_CONTENT", False),
+            ("EVENT_ONLY", False),
+            ("SPAN_ONLY", True),
+            ("SPAN_AND_EVENT", True),
+        ]:
+            with patch.dict(
+                os.environ,
+                {
+                    "OTEL_INSTRUMENTATION_GENAI_CAPTURE_MESSAGE_CONTENT": content_capture,
+                },
+            ):
+                assert (
+                    should_capture_content_on_spans() is span_content_enabled
+                )
+
+    def test_get_content_capturing_mode(self):  # pylint: disable=no-self-use
+        for content_capture, expected_content_capturing in [
+            ("NO_CONTENT", ContentCapturingMode.NO_CONTENT),
+            ("EVENT_ONLY", ContentCapturingMode.EVENT_ONLY),
+            ("SPAN_ONLY", ContentCapturingMode.SPAN_ONLY),
+            ("SPAN_AND_EVENT", ContentCapturingMode.SPAN_AND_EVENT),
+            ("", ContentCapturingMode.NO_CONTENT),
+        ]:
+            with patch.dict(
+                os.environ,
+                {
+                    "OTEL_INSTRUMENTATION_GENAI_CAPTURE_MESSAGE_CONTENT": content_capture,
+                },
+            ):
+                assert (
+                    get_content_capturing_mode() == expected_content_capturing
+                )
+
+    @patch.dict(
+        os.environ,
+        {
+            "OTEL_INSTRUMENTATION_GENAI_CAPTURE_MESSAGE_CONTENT": "INVALID_VALUE",
+        },
+    )
+    def test_get_content_capturing_mode_with_invalid_envvar_value(
         self,
     ):  # pylint: disable=no-self-use
         with self.assertLogs(level="WARNING") as cm:
@@ -220,7 +269,7 @@ class TestTelemetryHandler(unittest.TestCase):
         tracer_provider.add_span_processor(
             SimpleSpanProcessor(self.span_exporter)
         )
-        self.log_exporter = InMemoryLogExporter()
+        self.log_exporter = InMemoryLogRecordExporter()
         logger_provider = LoggerProvider()
         logger_provider.add_log_record_processor(
             SimpleLogRecordProcessor(self.log_exporter)
@@ -236,10 +285,12 @@ class TestTelemetryHandler(unittest.TestCase):
         if hasattr(get_telemetry_handler, "_default_handler"):
             delattr(get_telemetry_handler, "_default_handler")
 
-    @patch_env_vars(
-        stability_mode="gen_ai_latest_experimental",
-        content_capturing="SPAN_ONLY",
-        emit_event="",
+    @patch.dict(
+        os.environ,
+        {
+            "OTEL_INSTRUMENTATION_GENAI_CAPTURE_MESSAGE_CONTENT": "SPAN_ONLY",
+            "OTEL_INSTRUMENTATION_GENAI_EMIT_EVENT": "false",
+        },
     )
     def test_llm_start_and_stop_creates_span(self):  # pylint: disable=no-self-use
         message = _create_input_message("hello world")
@@ -318,16 +369,18 @@ class TestTelemetryHandler(unittest.TestCase):
         )
         self.assertEqual(span_system[0]["type"], "text")
 
-    @patch_env_vars(
-        stability_mode="gen_ai_latest_experimental",
-        content_capturing="SPAN_ONLY",
-        emit_event="",
+    @patch.dict(
+        os.environ,
+        {
+            "OTEL_INSTRUMENTATION_GENAI_CAPTURE_MESSAGE_CONTENT": "SPAN_ONLY",
+            "OTEL_INSTRUMENTATION_GENAI_EMIT_EVENT": "false",
+        },
     )
     def test_llm_manual_start_and_stop_creates_span(self):
         message = _create_input_message("hi")
         chat_generation = _create_output_message("ok")
 
-        invocation = self.telemetry_handler.start_inference(
+        invocation = self.telemetry_handler.inference(
             "test-provider", request_model="manual-model"
         )
         invocation.input_messages = [message]
@@ -357,8 +410,155 @@ class TestTelemetryHandler(unittest.TestCase):
             },
         )
 
+    def test_start_inference_passes_sampling_attributes_at_span_creation(self):
+        """Verify that sampling-relevant attributes are available at start_span() time."""
+        captured_attributes = {}
+
+        class AttributeCapturingSampler:  # pylint: disable=no-self-use
+            """A sampler that records the attributes passed to should_sample."""
+
+            def should_sample(
+                self,
+                parent_context,
+                trace_id,
+                name,
+                kind=None,
+                attributes=None,
+                links=None,
+            ):
+                captured_attributes.update(attributes or {})
+
+                return SamplingResult(Decision.RECORD_AND_SAMPLE, attributes)
+
+            def get_description(self):
+                return "AttributeCapturingSampler"
+
+        sampler_provider = TracerProvider(sampler=AttributeCapturingSampler())
+        sampler_provider.add_span_processor(
+            SimpleSpanProcessor(self.span_exporter)
+        )
+
+        handler = TelemetryHandler(tracer_provider=sampler_provider)
+
+        invocation = handler.inference(
+            "test-provider",
+            request_model="sampler-model",
+            server_address="api.example.com",
+            server_port=8080,
+        )
+        invocation.stop()
+
+        assert captured_attributes[GenAI.GEN_AI_OPERATION_NAME] == "chat"
+        assert (
+            captured_attributes[GenAI.GEN_AI_REQUEST_MODEL] == "sampler-model"
+        )
+        assert (
+            captured_attributes[GenAI.GEN_AI_PROVIDER_NAME] == "test-provider"
+        )
+        assert (
+            captured_attributes[server_attributes.SERVER_ADDRESS]
+            == "api.example.com"
+        )
+        assert captured_attributes[server_attributes.SERVER_PORT] == 8080
+
+    def test_start_inference_sampler_can_drop_span_based_on_attributes(self):
+        """Verify that a sampler can reject spans based on attributes passed at creation time."""
+
+        class ModelRejectingSampler:  # pylint: disable=no-self-use
+            """Drops spans whose gen_ai.request.model matches the reject list."""
+
+            def __init__(self, reject_models):
+                self._reject_models = reject_models
+
+            def should_sample(
+                self,
+                parent_context,
+                trace_id,
+                name,
+                kind=None,
+                attributes=None,
+                links=None,
+            ):
+                model = (attributes or {}).get(GenAI.GEN_AI_REQUEST_MODEL)
+                if model in self._reject_models:
+                    return SamplingResult(Decision.DROP)
+                return SamplingResult(Decision.RECORD_AND_SAMPLE, attributes)
+
+            def get_description(self):
+                return "ModelRejectingSampler"
+
+        sampler_provider = TracerProvider(
+            sampler=ModelRejectingSampler(reject_models={"rejected-model"})
+        )
+        sampler_provider.add_span_processor(
+            SimpleSpanProcessor(self.span_exporter)
+        )
+
+        handler = TelemetryHandler(tracer_provider=sampler_provider)
+
+        # This invocation should be dropped
+        invocation = handler.inference(
+            "test-provider", request_model="rejected-model"
+        )
+        invocation.stop()
+
+        # This invocation should be recorded
+        invocation = handler.inference(
+            "test-provider", request_model="accepted-model"
+        )
+        invocation.stop()
+
+        spans = self.span_exporter.get_finished_spans()
+        assert len(spans) == 1
+        assert spans[0].name == "chat accepted-model"
+
+    def test_start_embedding_passes_sampling_attributes_at_span_creation(self):
+        """Verify that sampling-relevant attributes are available at start_span() time for embeddings."""
+        captured_attributes = {}
+
+        class AttributeCapturingSampler:  # pylint: disable=no-self-use
+            def should_sample(
+                self,
+                parent_context,
+                trace_id,
+                name,
+                kind=None,
+                attributes=None,
+                links=None,
+            ):
+                captured_attributes.update(attributes or {})
+                return SamplingResult(Decision.RECORD_AND_SAMPLE, attributes)
+
+            def get_description(self):
+                return "AttributeCapturingSampler"
+
+        sampler_provider = TracerProvider(sampler=AttributeCapturingSampler())
+        sampler_provider.add_span_processor(
+            SimpleSpanProcessor(self.span_exporter)
+        )
+        handler = TelemetryHandler(tracer_provider=sampler_provider)
+
+        invocation = handler.embedding(
+            "test-provider",
+            request_model="embed-model",
+            server_address="embed.example.com",
+            server_port=443,
+        )
+        invocation.stop()
+
+        assert captured_attributes[GenAI.GEN_AI_OPERATION_NAME] == "embeddings"
+        assert captured_attributes[GenAI.GEN_AI_REQUEST_MODEL] == "embed-model"
+        assert (
+            captured_attributes[GenAI.GEN_AI_PROVIDER_NAME] == "test-provider"
+        )
+        assert (
+            captured_attributes[server_attributes.SERVER_ADDRESS]
+            == "embed.example.com"
+        )
+        assert captured_attributes[server_attributes.SERVER_PORT] == 443
+
     def test_llm_span_finish_reasons_without_output_messages(self):
-        invocation = self.telemetry_handler.start_inference(
+        invocation = self.telemetry_handler.inference(
             "test-provider", request_model="model-without-output"
         )
         invocation.finish_reasons = ["length"]
@@ -387,7 +587,7 @@ class TestTelemetryHandler(unittest.TestCase):
         )
 
     def test_llm_span_finish_reasons_from_invocation(self):
-        invocation = self.telemetry_handler.start_inference(
+        invocation = self.telemetry_handler.inference(
             "test-provider", request_model="model-reasons"
         )
         invocation.finish_reasons = ["stop", "length", "stop"]
@@ -402,7 +602,7 @@ class TestTelemetryHandler(unittest.TestCase):
         )
 
     def test_llm_span_finish_reasons_from_output_messages(self):
-        invocation = self.telemetry_handler.start_inference(
+        invocation = self.telemetry_handler.inference(
             "test-provider", request_model="model-output-reasons"
         )
         assert invocation.span is not None
@@ -421,7 +621,7 @@ class TestTelemetryHandler(unittest.TestCase):
         )
 
     def test_llm_span_uses_expected_schema_url(self):
-        invocation = self.telemetry_handler.start_inference(
+        invocation = self.telemetry_handler.inference(
             "schema-provider", request_model="schema-model"
         )
         assert invocation.span is not None
@@ -438,13 +638,15 @@ class TestTelemetryHandler(unittest.TestCase):
             == Schemas.V1_37_0.value
         )
 
-    @patch_env_vars(
-        stability_mode="gen_ai_latest_experimental",
-        content_capturing="EVENT_ONLY",
-        emit_event="true",
+    @patch.dict(
+        os.environ,
+        {
+            "OTEL_INSTRUMENTATION_GENAI_CAPTURE_MESSAGE_CONTENT": "EVENT_ONLY",
+            "OTEL_INSTRUMENTATION_GENAI_EMIT_EVENT": "true",
+        },
     )
     def test_llm_log_uses_expected_schema_url(self):
-        invocation = self.telemetry_handler.start_inference(
+        invocation = self.telemetry_handler.inference(
             "schema-provider", request_model="schema-model"
         )
         invocation.output_messages = [_create_output_message()]
@@ -456,10 +658,12 @@ class TestTelemetryHandler(unittest.TestCase):
             logs[0].instrumentation_scope.schema_url, Schemas.V1_37_0.value
         )
 
-    @patch_env_vars(
-        stability_mode="gen_ai_latest_experimental",
-        content_capturing="SPAN_ONLY",
-        emit_event="",
+    @patch.dict(
+        os.environ,
+        {
+            "OTEL_INSTRUMENTATION_GENAI_CAPTURE_MESSAGE_CONTENT": "SPAN_ONLY",
+            "OTEL_INSTRUMENTATION_GENAI_EMIT_EVENT": "false",
+        },
     )
     def test_parent_child_span_relationship(self):
         message = _create_input_message("hi")
@@ -493,18 +697,20 @@ class TestTelemetryHandler(unittest.TestCase):
         # Parent should not have a parent (root)
         assert parent_span.parent is None
 
-    @patch_env_vars(
-        stability_mode="gen_ai_latest_experimental",
-        content_capturing="SPAN_ONLY",
-        emit_event="",
+    @patch.dict(
+        os.environ,
+        {
+            "OTEL_INSTRUMENTATION_GENAI_CAPTURE_MESSAGE_CONTENT": "SPAN_ONLY",
+            "OTEL_INSTRUMENTATION_GENAI_EMIT_EVENT": "false",
+        },
     )
     def test_embedding_parent_child_span_relationship(self):
-        parent_invocation = self.telemetry_handler.start_embedding(
+        parent_invocation = self.telemetry_handler.embedding(
             "test-provider", request_model="embed-parent-model"
         )
         parent_invocation.input_tokens = 10
         assert parent_invocation.span is not None
-        child_invocation = self.telemetry_handler.start_embedding(
+        child_invocation = self.telemetry_handler.embedding(
             "test-provider", request_model="embed-child-model"
         )
         child_invocation.input_tokens = 5
@@ -526,10 +732,12 @@ class TestTelemetryHandler(unittest.TestCase):
         assert child_span.parent.span_id == parent_span.context.span_id
         assert parent_span.parent is None
 
-    @patch_env_vars(
-        stability_mode="gen_ai_latest_experimental",
-        content_capturing="SPAN_ONLY",
-        emit_event="",
+    @patch.dict(
+        os.environ,
+        {
+            "OTEL_INSTRUMENTATION_GENAI_CAPTURE_MESSAGE_CONTENT": "SPAN_ONLY",
+            "OTEL_INSTRUMENTATION_GENAI_EMIT_EVENT": "false",
+        },
     )
     def test_llm_parent_embedding_child_span_relationship(self):
         message = _create_input_message("hi")
@@ -539,7 +747,7 @@ class TestTelemetryHandler(unittest.TestCase):
             "test-provider", request_model="parent-model"
         ) as parent_invocation:
             parent_invocation.input_messages = [message]
-            child_invocation = self.telemetry_handler.start_embedding(
+            child_invocation = self.telemetry_handler.embedding(
                 "test-provider", request_model="embed-child-model"
             )
             child_invocation.input_tokens = 3
@@ -644,13 +852,15 @@ class TestTelemetryHandler(unittest.TestCase):
             },
         )
 
-    @patch_env_vars(
-        stability_mode="gen_ai_latest_experimental",
-        content_capturing="SPAN_ONLY",
-        emit_event="",
+    @patch.dict(
+        os.environ,
+        {
+            "OTEL_INSTRUMENTATION_GENAI_CAPTURE_MESSAGE_CONTENT": "SPAN_ONLY",
+            "OTEL_INSTRUMENTATION_GENAI_EMIT_EVENT": "false",
+        },
     )
     def test_embedding_manual_start_and_stop_creates_span(self):
-        invocation = self.telemetry_handler.start_embedding(
+        invocation = self.telemetry_handler.embedding(
             "test-provider",
             request_model="embed-model",
             server_address="custom.server.com",
@@ -691,7 +901,7 @@ class TestTelemetryHandler(unittest.TestCase):
         class BoomError(RuntimeError):
             pass
 
-        invocation = self.telemetry_handler.start_inference(
+        invocation = self.telemetry_handler.inference(
             "test-provider", request_model="test-model"
         )
         invocation.fail(BoomError("boom"))

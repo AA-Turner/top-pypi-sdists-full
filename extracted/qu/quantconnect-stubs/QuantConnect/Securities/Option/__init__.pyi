@@ -858,6 +858,15 @@ class ConstantQLUnderlyingVolatilityEstimator(System.Object, QuantConnect.Securi
 class OptionCache(QuantConnect.Securities.SecurityCache):
     """Option specific caching support"""
 
+    def store_data(self, data: typing.Sequence[QuantConnect.Data.BaseData], data_type: typing.Type) -> None:
+        """
+        Stores the specified data list in the cache, updating the open interest from any chain universe data
+        
+        :param data: The collection of data to store in this cache
+        :param data_type: The data type
+        """
+        ...
+
 
 class OptionStrategy(System.Object):
     """Option strategy specification class. Describes option strategy and its parameters for trading."""

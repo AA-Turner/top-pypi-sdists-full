@@ -4764,6 +4764,125 @@ mod empirical_flex_jet_oracle_tests {
         }
     }
 
+    /// #932 BMS-flex cutover INC-1(b) GATE: the per-denested-cell moment
+    /// factorization (production `flex_grid_calibration_derivs_factored`, reached
+    /// through `compute_row_analytic_flex_from_parts_into`) reproduces the
+    /// INDEPENDENT grid jet `empirical_flex_row_nll_jet2` (value / dense gradient /
+    /// full Hessian) to ≤1e-9 on DEGENERATE empirical grids — a sparse grid whose
+    /// four nodes leave several denested cells EMPTY and at least one holding a
+    /// single node (the degenerate-moment paths where a factored accumulator
+    /// typically diverges from a loop) — over score-warp AND link-deviation,
+    /// `b>0` AND `b<0`. The fixture routes the `GlobalEmpirical` branch, i.e. the
+    /// production path the cutover replaces; `jet2` is a fully independent
+    /// per-node reference (proven vs the hand path by
+    /// `empirical_flex_row_nll_jet2_matches_hand_path_932`).
+    #[test]
+    fn flex_factored_matches_jet2_degenerate_grids_932() {
+        let sparse = crate::bms::EmpiricalZGrid::new(
+            vec![-2.0, -0.1, 0.1, 2.0],
+            vec![0.25, 0.25, 0.25, 0.25],
+            "flex factored degenerate oracle",
+        )
+        .expect("sparse grid");
+        for is_score_warp in [true, false] {
+            for b0 in [0.35_f64, -0.4_f64] {
+                let mut fx = make_fixture(is_score_warp);
+                // Route BOTH the production path (via latent_measure) and jet2
+                // (via fx.grid) through the degenerate sparse grid.
+                fx.grid = sparse.clone();
+                fx.family.latent_measure =
+                    LatentMeasureKind::GlobalEmpirical { grid: sparse.clone() };
+                let r = fx.primary.total;
+                let q0 = 0.2_f64;
+                let mut p0 = vec![0.0; r];
+                p0[fx.primary.q] = q0;
+                p0[fx.primary.logslope] = b0;
+                let dev_range = if is_score_warp {
+                    fx.primary.h.clone().unwrap()
+                } else {
+                    fx.primary.w.clone().unwrap()
+                };
+                for (k, i) in dev_range.clone().enumerate() {
+                    p0[i] = fx.beta_dev[k];
+                }
+                let beta: Array1<f64> = Array1::from_iter(dev_range.clone().map(|i| p0[i]));
+                let (beta_h, beta_w) = if is_score_warp {
+                    (Some(&beta), None)
+                } else {
+                    (None, Some(&beta))
+                };
+                let scale = fx.family.probit_frailty_scale();
+                let marginal = bernoulli_marginal_link_map(
+                    &InverseLink::Standard(gam_problem::StandardLink::Probit),
+                    q0,
+                )
+                .expect("link map");
+                let a0 = witness_intercept(&fx, marginal.mu, b0, &beta, scale);
+                let basis_arg = |node: f64| -> f64 {
+                    if is_score_warp {
+                        node
+                    } else {
+                        a0 + b0 * node
+                    }
+                };
+                let mut f_a = 0.0_f64;
+                for (node, weight) in fx.grid.pairs() {
+                    let eta0 = witness_eta(&fx, a0, b0, &beta, node, scale);
+                    let eta0_a = if is_score_warp {
+                        scale
+                    } else {
+                        let stacks = witness_basis_stacks_at(&fx, basis_arg(node));
+                        let mut s = 1.0_f64;
+                        for (j, stack) in stacks.iter().enumerate() {
+                            s += beta[j] * stack[1];
+                        }
+                        scale * s
+                    };
+                    f_a += weight * witness_normal_pdf(eta0) * eta0_a;
+                }
+                let row_ctx = BernoulliMarginalSlopeRowExactContext {
+                    intercept: a0,
+                    m_a: f_a,
+                    intercept_fast_path: false,
+                    degree9_cells: None,
+                };
+                let mut scratch =
+                    crate::bms::hessian_paths::BernoulliMarginalSlopeFlexRowScratch::new(r);
+                let neglog = fx
+                    .family
+                    .compute_row_analytic_flex_from_parts_into(
+                        0, &fx.primary, q0, b0, beta_h, beta_w, &row_ctx, None, None, true,
+                        &mut scratch,
+                    )
+                    .expect("factored flex path");
+                let jet = empirical_flex_row_nll_jet2(&fx, &p0);
+                let label = if is_score_warp { "score-warp" } else { "link-dev" };
+                let tol = |x: f64| 1e-9 * x.abs().max(1.0);
+                assert!(
+                    (neglog - jet.v).abs() <= tol(jet.v),
+                    "{label} b={b0} value: factored {neglog:+.12e} != jet2 {:+.12e}",
+                    jet.v
+                );
+                for u in 0..r {
+                    assert!(
+                        (scratch.grad[u] - jet.g[u]).abs() <= tol(jet.g[u]),
+                        "{label} b={b0} grad[{u}]: factored {:+.12e} != jet2 {:+.12e}",
+                        scratch.grad[u],
+                        jet.g[u]
+                    );
+                    for v in 0..r {
+                        let h_f = scratch.hess[[u, v]];
+                        let h_j = jet.h[u * r + v];
+                        assert!(
+                            (h_f - h_j).abs() <= tol(h_j),
+                            "{label} b={b0} hess[{u},{v}]: factored {h_f:+.12e} != jet2 {h_j:+.12e}"
+                        );
+                    }
+                }
+            }
+        }
+    }
+
     // NOTE: the #932 hand-vs-jet2 timing baseline (`flex_handpath_vs_jet2_timing_932`)
     // was removed — `#[ignore]`d timing benches are banned by `build.rs`. The
     // *correctness* of `empirical_flex_row_nll_jet2` against the production hand

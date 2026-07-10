@@ -23,7 +23,7 @@
 import os
 import sys
 import warnings
-from distutils.version import LooseVersion
+from pyspark.loose_version import LooseVersion
 from typing import Any
 
 from pyspark.pandas.missing.general_functions import MissingPandasLikeGeneralFunctions

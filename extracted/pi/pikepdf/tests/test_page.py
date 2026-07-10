@@ -224,10 +224,7 @@ def test_push_stack(fourpages, outpdf):
     pdf.pages.extend(fourpages.pages)
 
     page.Contents = pdf.make_stream(
-        b"0.4 G\n"
-        b"0 500 500 1000 re s\n"
-        b"500 500 1000 1000 re s\n"
-        b"-1 0 0 1 500 0 cm\n"
+        b"0.4 G\n0 500 500 1000 re s\n500 500 1000 1000 re s\n-1 0 0 1 500 0 cm\n"
     )
 
     xobj1 = page.add_overlay(
@@ -294,7 +291,8 @@ def test_page_attrs(graph):
 
     del graph.pages[0].Resources
     with pytest.raises(
-        AttributeError, match=r"can't delete|property( '')? of 'Page' object has no deleter"
+        AttributeError,
+        match=r"can't delete|property( '')? of 'Page' object has no deleter",
     ):
         del graph.pages[0].obj
     del graph.pages[0]['/Contents']

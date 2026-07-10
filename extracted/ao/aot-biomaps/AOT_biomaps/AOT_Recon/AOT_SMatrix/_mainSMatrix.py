@@ -33,9 +33,14 @@ class SMatrix(ABC):
     # Class-level cache for compiled CUDA module shared across all matrix types
     _compiled_module = None
 
-    def __init__(self, experiment, device: Optional[str] = None):
+    def __init__(self, experiment, isComplexSMatrix: bool = False, device: Optional[str] = None):
         """
         Initialize base matrix parameters.
+
+        Args:
+            experiment: The experiment object containing acoustic field data.
+            isComplexSMatrix (bool): If True, use complex64 for values. If False, use float32.
+            device (Optional[str]): The device to use for computation ('cpu' or 'gpu:0').
         """
         # Determine device
         if device is None:
@@ -43,10 +48,18 @@ class SMatrix(ABC):
         else:
             self.device = device
 
-        
         self.experiment = experiment
+        self.isComplexSMatrix = isComplexSMatrix
+        if self.isComplexSMatrix:
+            print("[AOT-biomaps] Using complex 4-phase quadrature SMatrix representation (complex64).")
+        else:
+            print("[AOT-biomaps] Using real SMatrix representation (float32).")
+
         # Standard dimensions from AcousticFields
-        self.N = len(experiment.AcousticFields)
+        if self.isComplexSMatrix:
+            self.N = len(experiment.AcousticFields_demodulated)
+        else:
+            self.N = len(experiment.AcousticFields)
         self.T = experiment.AcousticFields[0].field.shape[0]
         self.Z = experiment.AcousticFields[0].field.shape[1]
         self.X = experiment.AcousticFields[0].field.shape[2]
@@ -71,6 +84,14 @@ class SMatrix(ABC):
 
     def __exit__(self, exc_type, exc, tb):
         self.free()
+
+    def _get_dtype(self):
+        """Returns the appropriate dtype based on isComplexSMatrix."""
+        return np.complex64 if self.isComplexSMatrix else np.float32
+
+    def _get_cp_dtype(self):
+        """Returns the appropriate CuPy dtype based on isComplexSMatrix."""
+        return cp.complex64 if self.isComplexSMatrix else cp.float32
 
     def load_module(self):
         """Compile and load CUDA kernels from source using CuPy."""
@@ -108,13 +129,13 @@ class SMatrix(ABC):
         TN = int(self.T * self.N)
         use_gpu = check_gpu_available(self)
 
-        ones = cp.ones(TN, dtype=np.float32) if use_gpu else np.ones(TN, dtype=np.float32)
+        ones = cp.ones(TN, dtype=self._get_cp_dtype()) if use_gpu else np.ones(TN, dtype=self._get_dtype())
         
         c_device = self.backward_projection(ones) 
         c_host = cp.asnumpy(c_device) if use_gpu else c_device.copy()
         
         c_host = np.maximum(c_host, 1e-6)
-        self.norm_factor_inv = (1.0 / c_host).astype(np.float32)
+        self.norm_factor_inv = (1.0 / c_host).astype(self._get_dtype())
 
         if CUPY_AVAILABLE:
             self.norm_factor_inv_gpu = cp.asarray(self.norm_factor_inv)
@@ -152,7 +173,7 @@ class SMatrix(ABC):
                     self._allocate_gpu()
                     return
             except Exception as e:
-                warnings.warn(f"GPU allocation failed: {e}. Falling back to CPU.")
+                warnings.warn(f"[AOT-biomaps] GPU allocation failed: {e}. Falling back to CPU.")
 
         # Fallback to CPU
         self.device = 'cpu'
@@ -183,11 +204,6 @@ class SMatrix(ABC):
     @abstractmethod
     def apply_apodization(self, window_vector: Union[np.ndarray, 'cp.ndarray']):
         """Apply apodization window to the matrix."""
-        pass
-
-    @abstractmethod
-    def flip_probe(self):
-        """Flip the probe at 180 degrees."""
         pass
 
     @abstractmethod

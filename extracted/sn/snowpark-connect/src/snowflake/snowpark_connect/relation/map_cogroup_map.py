@@ -22,7 +22,7 @@ from snowflake.snowpark_connect.utils.udf_helper import require_creating_udf_in_
 from snowflake.snowpark_connect.utils.udxf_import_utils import (
     get_python_udxf_import_files,
 )
-from snowflake.snowpark_connect.utils.variant_utils import scala_udf_arg_to_variant
+from snowflake.snowpark_connect.utils.variant_utils import jvm_udf_arg_to_variant
 
 KEY_COL_PREFIX = "__SC_COGROUP_KEY_"
 VALUE_COL_NAME = "__SC_COGROUP_VALUE__"
@@ -164,7 +164,7 @@ def _build_value_expression(
                 for field_name, snowpark_name in zip(field_names, snowpark_cols)
                 for item in (
                     snowpark_fn.lit(field_name),
-                    scala_udf_arg_to_variant(
+                    jvm_udf_arg_to_variant(
                         snowpark_fn.col(snowpark_name),
                         col_type_lookup.get(snowpark_name, VariantType()),
                     ),
@@ -175,7 +175,7 @@ def _build_value_expression(
 
     if value_type_kind in ("map", "array"):
         col_type = col_type_lookup.get(snowpark_cols[0], VariantType())
-        return scala_udf_arg_to_variant(snowpark_fn.col(snowpark_cols[0]), col_type)
+        return jvm_udf_arg_to_variant(snowpark_fn.col(snowpark_cols[0]), col_type)
 
     expr = snowpark_fn.col(snowpark_cols[0])
     return expr.cast(expected_type) if expected_type else expr

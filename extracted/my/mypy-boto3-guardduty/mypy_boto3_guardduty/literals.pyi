@@ -164,6 +164,7 @@ DescribeMalwareScansPaginatorName = Literal["describe_malware_scans"]
 DestinationTypeType = Literal["S3"]
 DetectionSourceType = Literal["AMAZON", "BITDEFENDER"]
 DetectorFeatureResultType = Literal[
+    "AI_ANALYST",
     "CLOUD_TRAIL",
     "DNS_LOGS",
     "EBS_MALWARE_PROTECTION",
@@ -176,6 +177,7 @@ DetectorFeatureResultType = Literal[
     "S3_DATA_EVENTS",
 ]
 DetectorFeatureType = Literal[
+    "AI_ANALYST",
     "EBS_MALWARE_PROTECTION",
     "EKS_AUDIT_LOGS",
     "EKS_RUNTIME_MONITORING",
@@ -605,8 +607,6 @@ ServiceName = Literal[
     "iot-jobs-data",
     "iot-managed-integrations",
     "iotdeviceadvisor",
-    "iotevents",
-    "iotevents-data",
     "iotfleetwise",
     "iotsecuretunneling",
     "iotsitewise",
@@ -702,10 +702,10 @@ ServiceName = Literal[
     "organizations",
     "osis",
     "outposts",
-    "panorama",
     "partnercentral-account",
     "partnercentral-benefits",
     "partnercentral-channel",
+    "partnercentral-revenue-measurement",
     "partnercentral-selling",
     "payment-cryptography",
     "payment-cryptography-data",
@@ -788,7 +788,6 @@ ServiceName = Literal[
     "signer-data",
     "signin",
     "simpledbv2",
-    "simspaceweaver",
     "snow-device-management",
     "snowball",
     "sns",
@@ -809,6 +808,7 @@ ServiceName = Literal[
     "supplychain",
     "support",
     "support-app",
+    "supportauthz",
     "sustainability",
     "swf",
     "synthetics",

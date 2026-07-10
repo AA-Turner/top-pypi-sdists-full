@@ -1,20 +1,7 @@
 # Copyright The OpenTelemetry Authors
-#
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-#
-#     http://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
+# SPDX-License-Identifier: Apache-2.0
 
 from __future__ import annotations
-
-from typing import Any
 
 from opentelemetry._logs import Logger
 from opentelemetry.semconv._incubating.attributes import (
@@ -35,21 +22,14 @@ from opentelemetry.util.genai.types import (
     OutputMessage,
     ToolDefinition,
 )
-
-# TODO: Migrate to GenAI constants once available in semconv package
-_GEN_AI_AGENT_VERSION = "gen_ai.agent.version"
-_GEN_AI_USAGE_CACHE_CREATION_INPUT_TOKENS = (
-    "gen_ai.usage.cache_creation.input_tokens"
-)
-_GEN_AI_USAGE_CACHE_READ_INPUT_TOKENS = "gen_ai.usage.cache_read.input_tokens"
+from opentelemetry.util.types import AttributeValue
 
 
 class AgentInvocation(GenAIInvocation):
     """Represents a single agent invocation (invoke_agent span).
 
-    Use handler.start_invoke_local_agent() / handler.start_invoke_remote_agent()
-    or the handler.invoke_local_agent() / handler.invoke_remote_agent() context
-    managers rather than constructing this directly.
+    Use handler.invoke_local_agent() or handler.invoke_remote_agent()
+    rather than constructing this directly.
 
     Reference:
         Client span: https://github.com/open-telemetry/semantic-conventions/blob/main/docs/gen-ai/gen-ai-agent-spans.md#invoke-agent-client-span
@@ -62,16 +42,15 @@ class AgentInvocation(GenAIInvocation):
         metrics_recorder: InvocationMetricsRecorder,
         logger: Logger,
         completion_hook: CompletionHook,
-        provider: str,
         *,
+        provider: str | None = None,
         span_kind: SpanKind = SpanKind.INTERNAL,
         request_model: str | None = None,
         server_address: str | None = None,
         server_port: int | None = None,
-        attributes: dict[str, Any] | None = None,
-        metric_attributes: dict[str, Any] | None = None,
+        agent_name: str | None = None,
     ) -> None:
-        """Use handler.start_invoke_local_agent() or handler.start_invoke_remote_agent() instead of calling this directly."""
+        """Use handler.invoke_local_agent() or handler.invoke_remote_agent() instead of calling this directly."""
         _operation_name = GenAI.GenAiOperationNameValues.INVOKE_AGENT.value
         super().__init__(
             tracer,
@@ -79,17 +58,17 @@ class AgentInvocation(GenAIInvocation):
             logger,
             completion_hook,
             operation_name=_operation_name,
-            span_name=_operation_name,
+            span_name=f"{_operation_name} {agent_name}"
+            if agent_name
+            else _operation_name,
             span_kind=span_kind,
-            attributes=attributes,
-            metric_attributes=metric_attributes,
         )
-        self.provider = provider
         self.request_model = request_model
         self.server_address = server_address
         self.server_port = server_port
+        self.provider = provider
 
-        self.agent_name: str | None = None
+        self.agent_name: str | None = agent_name
         self.agent_id: str | None = None
         self.agent_description: str | None = None
         self.agent_version: str | None = None
@@ -119,25 +98,39 @@ class AgentInvocation(GenAIInvocation):
         self.system_instruction: list[MessagePart] = []
         self.tool_definitions: list[ToolDefinition] | None = None
 
-        self._start()
+        self._start(self._get_base_attributes())
 
-    def _get_common_attributes(self) -> dict[str, Any]:
+    def _get_base_attributes(self) -> dict[str, AttributeValue]:
+        """Return sampling-relevant attributes available at span creation time."""
         optional_attrs = (
+            (GenAI.GEN_AI_PROVIDER_NAME, self.provider),
+            (GenAI.GEN_AI_REQUEST_MODEL, self.request_model),
+            (GenAI.GEN_AI_AGENT_NAME, self.agent_name),
+            (server_attributes.SERVER_ADDRESS, self.server_address),
+            (server_attributes.SERVER_PORT, self.server_port),
+        )
+        return {
+            GenAI.GEN_AI_OPERATION_NAME: self._operation_name,
+            **{k: v for k, v in optional_attrs if v is not None},
+        }
+
+    def _get_common_attributes(self) -> dict[str, AttributeValue]:
+        optional_attrs = (
+            (GenAI.GEN_AI_PROVIDER_NAME, self.provider),
             (GenAI.GEN_AI_REQUEST_MODEL, self.request_model),
             (server_attributes.SERVER_ADDRESS, self.server_address),
             (server_attributes.SERVER_PORT, self.server_port),
             (GenAI.GEN_AI_AGENT_NAME, self.agent_name),
             (GenAI.GEN_AI_AGENT_ID, self.agent_id),
             (GenAI.GEN_AI_AGENT_DESCRIPTION, self.agent_description),
-            (_GEN_AI_AGENT_VERSION, self.agent_version),
+            (GenAI.GEN_AI_AGENT_VERSION, self.agent_version),
         )
         return {
             GenAI.GEN_AI_OPERATION_NAME: self._operation_name,
-            GenAI.GEN_AI_PROVIDER_NAME: self.provider,
             **{k: v for k, v in optional_attrs if v is not None},
         }
 
-    def _get_request_attributes(self) -> dict[str, Any]:
+    def _get_request_attributes(self) -> dict[str, AttributeValue]:
         optional_attrs = (
             (GenAI.GEN_AI_CONVERSATION_ID, self.conversation_id),
             (GenAI.GEN_AI_DATA_SOURCE_ID, self.data_source_id),
@@ -153,27 +146,27 @@ class AgentInvocation(GenAIInvocation):
         )
         return {k: v for k, v in optional_attrs if v is not None}
 
-    def _get_response_attributes(self) -> dict[str, Any]:
+    def _get_response_attributes(self) -> dict[str, AttributeValue]:
         if self.finish_reasons:
             return {GenAI.GEN_AI_RESPONSE_FINISH_REASONS: self.finish_reasons}
         return {}
 
-    def _get_usage_attributes(self) -> dict[str, Any]:
+    def _get_usage_attributes(self) -> dict[str, AttributeValue]:
         optional_attrs = (
             (GenAI.GEN_AI_USAGE_INPUT_TOKENS, self.input_tokens),
             (GenAI.GEN_AI_USAGE_OUTPUT_TOKENS, self.output_tokens),
             (
-                _GEN_AI_USAGE_CACHE_CREATION_INPUT_TOKENS,
+                GenAI.GEN_AI_USAGE_CACHE_CREATION_INPUT_TOKENS,
                 self.cache_creation_input_tokens,
             ),
             (
-                _GEN_AI_USAGE_CACHE_READ_INPUT_TOKENS,
+                GenAI.GEN_AI_USAGE_CACHE_READ_INPUT_TOKENS,
                 self.cache_read_input_tokens,
             ),
         )
         return {k: v for k, v in optional_attrs if v is not None}
 
-    def _get_content_attributes_for_span(self) -> dict[str, Any]:
+    def _get_content_attributes_for_span(self) -> dict[str, AttributeValue]:
         return get_content_attributes(
             input_messages=self.input_messages,
             output_messages=self.output_messages,
@@ -182,14 +175,14 @@ class AgentInvocation(GenAIInvocation):
             for_span=True,
         )
 
-    def _get_metric_attributes(self) -> dict[str, Any]:
+    def _get_metric_attributes(self) -> dict[str, AttributeValue]:
         optional_attrs = (
             (GenAI.GEN_AI_PROVIDER_NAME, self.provider),
             (GenAI.GEN_AI_REQUEST_MODEL, self.request_model),
             (server_attributes.SERVER_ADDRESS, self.server_address),
             (server_attributes.SERVER_PORT, self.server_port),
         )
-        attrs: dict[str, Any] = {
+        attrs: dict[str, AttributeValue] = {
             GenAI.GEN_AI_OPERATION_NAME: self._operation_name,
             **{k: v for k, v in optional_attrs if v is not None},
         }
@@ -210,11 +203,7 @@ class AgentInvocation(GenAIInvocation):
         if error is not None:
             self._apply_error_attributes(error)
 
-        # Update span name if agent_name was set after construction
-        if self.agent_name:
-            self.span.update_name(f"{self._operation_name} {self.agent_name}")
-
-        attributes: dict[str, Any] = {}
+        attributes: dict[str, AttributeValue] = {}
         attributes.update(self._get_common_attributes())
         attributes.update(self._get_request_attributes())
         attributes.update(self._get_response_attributes())

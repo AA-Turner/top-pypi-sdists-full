@@ -9,7 +9,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "RestrictedPython"
-version = "8.3"
+version = "8.4"
 description = "RestrictedPython is a defined subset of the Python language which allows to provide a program input into a trusted environment."
 license = "ZPL-2.1"
 classifiers = [
@@ -24,6 +24,7 @@ classifiers = [
     "Programming Language :: Python :: 3.14",
     "Programming Language :: Python :: Implementation :: CPython",
     "Topic :: Security",
+    "Typing :: Typed",
 ]
 dynamic = ["readme"]
 requires-python = ">=3.10, <3.16"
@@ -50,12 +51,16 @@ docs = [
     "Sphinx",
     "furo",
 ]
+typecheck = [
+    "mypy",
+]
 
 [project.urls]
 Documentation = "https://restrictedpython.readthedocs.io/"
 Issues = "https://github.com/zopefoundation/RestrictedPython/issues"
 Source = "https://github.com/zopefoundation/RestrictedPython"
 Changelog = "https://github.com/zopefoundation/RestrictedPython/blob/master/CHANGES.rst"
+
 
 [tool.coverage.run]
 branch = true
@@ -82,6 +87,28 @@ directory = "parts/htmlcov"
 
 [tool.setuptools.dynamic]
 readme = {file = ["README.rst", "CHANGES.rst"]}
+
+
+[tool.mypy]
+mypy_path = "src"
+packages = ["RestrictedPython"]
+python_version = "3.10"
+warn_unreachable = true
+implicit_reexport = false
+strict = true
+
+[[tool.mypy.overrides]]
+module = ["DateTime"]
+ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+module = ["RestrictedPython.Guards"]
+check_untyped_defs = false
+disallow_untyped_defs = false
+
+[[tool.mypy.overrides]]
+module = ["RestrictedPython.transformer"]
+warn_no_return = false
 
 
 [tool.zest-releaser]

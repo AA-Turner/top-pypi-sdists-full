@@ -61,7 +61,7 @@ class Medium:
         else:
             self.kgrid = None
             self.Nt_reshaped = self.params.general.get('Nt', 400)
-            warnings.warn("kWave is not available. Using default values for grid parameters.", UserWarning)
+            print("[AOT-biomaps] Warning: kWave is not available. Using default values for grid parameters.")
 
     @abstractmethod
     def generate_medium(self):
@@ -77,13 +77,13 @@ class Medium:
         Universally handles any subclass (PVAMedium, BubbleMedium, etc.)
         """
         if os.path.splitext(fileName)[1]:
-            raise ValueError("The fileName should not contain an extension; .npy will be added automatically.")
+            raise ValueError("[AOT-biomaps] The fileName should not contain an extension; .npy will be added automatically.")
         
         os.makedirs(folderPath, exist_ok=True)
         filePath = os.path.join(folderPath, fileName + '.npy')
         
         if os.path.isdir(filePath):
-            raise IsADirectoryError(f"Cannot save medium: {filePath} is a directory.")
+            raise IsADirectoryError(f"[AOT-biomaps] Cannot save medium: {filePath} is a directory.")
         
         state_to_save = {}
         kmedium_data = {}
@@ -114,11 +114,11 @@ class Medium:
         into their constructors.
         """
         if os.path.splitext(fileName)[1]:
-            raise ValueError("The fileName should not contain an extension; .npy will be added automatically.")
-        
+            raise ValueError("[AOT-biomaps] The fileName should not contain an extension; .npy will be added automatically.")
+
         filePath = os.path.join(folderPath, fileName + '.npy')
         if not os.path.exists(filePath):
-            raise FileNotFoundError(f"The file {filePath} does not exist.")
+            raise FileNotFoundError(f"[AOT-biomaps] The file {filePath} does not exist.")
         
         loaded_state = np.load(filePath, allow_pickle=True).item()
         
@@ -170,11 +170,11 @@ class Medium:
             
     def plot_medium_properties(self, figsize=(12, 5),vmin_speed=None, vmax_speed=None, vmin_density=None, vmax_density=None):
         if not KWAVE_AVAILABLE:
-            warnings.warn("kWave is not available. Cannot plot medium properties.", UserWarning)
+            print("[AOT-biomaps] Warning: kWave is not available. Cannot plot medium properties.")
             return
         
         if getattr(self, 'kmedium', None) is None:
-            raise ValueError("Medium properties are not available. Please generate or load the medium first.")
+            raise ValueError("[AOT-biomaps] Medium properties are not available. Please generate or load the medium first.")
             
         if vmin_speed is None:
             vmin_speed = np.min(self.kmedium.sound_speed)

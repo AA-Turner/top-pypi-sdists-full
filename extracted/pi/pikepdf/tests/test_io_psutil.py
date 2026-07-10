@@ -95,9 +95,9 @@ def test_save_named_file_closed(
             pdf.save(path, progress=confirm_opened)
         except ValueError:
             pass
-        assert file_descriptor_is_closed(
-            path
-        ), "pikepdf did not close a stream it opened"
+        assert file_descriptor_is_closed(path), (
+            "pikepdf did not close a stream it opened"
+        )
 
 
 def test_save_streamed_file_not_closed(resources, outdir, file_descriptor_is_open):

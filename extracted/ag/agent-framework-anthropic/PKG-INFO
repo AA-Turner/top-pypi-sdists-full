@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: agent-framework-anthropic
-Version: 1.0.0b260630
+Version: 1.0.0b260709
 Summary: Anthropic integration for Microsoft Agent Framework.
 Author-email: Microsoft <af-support@microsoft.com>
 Requires-Python: >=3.10
@@ -16,8 +16,8 @@ Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
 Classifier: Typing :: Typed
 License-File: LICENSE
-Requires-Dist: agent-framework-core>=1.10.0,<2
-Requires-Dist: anthropic>=0.80.0,<0.80.1
+Requires-Dist: agent-framework-core>=1.11.0,<2
+Requires-Dist: anthropic>=0.80.0,<0.117.0
 Project-URL: homepage, https://aka.ms/agent-framework
 Project-URL: issues, https://github.com/microsoft/agent-framework/issues
 Project-URL: release_notes, https://github.com/microsoft/agent-framework/releases?q=tag%3Apython-1&expanded=true
@@ -47,4 +47,22 @@ See the [Anthropic agent examples](../../samples/02-agents/providers/anthropic/)
 
 - Connecting to a Anthropic endpoint with an agent
 - Streaming and non-streaming responses
+
+### Structured system blocks for prompt caching
+
+Use `instructions` with Anthropic-native system blocks when you need structured system prompt content, such as
+prompt-cache `cache_control` metadata. Do not combine structured `instructions` blocks with a leading system message.
+
+```python
+from anthropic.types.beta import BetaTextBlockParam
+
+from agent_framework_anthropic import AnthropicClient
+
+client = AnthropicClient()
+system_blocks: list[BetaTextBlockParam] = [
+    {"type": "text", "text": "Stable instructions", "cache_control": {"type": "ephemeral", "ttl": "1h"}},
+]
+
+response = await client.get_response("Hello", options={"instructions": system_blocks})
+```
 

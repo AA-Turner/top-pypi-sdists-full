@@ -7110,6 +7110,454 @@ _STRINGS.update({
         "zh": "目标: {target}\n尝试上传 Webshell。包含 Gnuboard5 漏洞及通用 GIF polyglot webshell 技术，执行从查找可上传路径到确认执行的全过程。",
         "en": "Target: {target}\nAttempt webshell upload. Include Gnuboard5 vulnerabilities and GIF polyglot webshell techniques. Perform the full process from finding uploadable paths to confirming execution.",
     },
+
+    # ── sqli_autoexploit 출력 메시지 ─────────────────────────────────────────
+    "sqli_stage1": {
+        "ko": "=== STAGE 1: Boolean Oracle 탐지 ===",
+        "zh": "=== STAGE 1: Boolean Oracle 检测 ===",
+        "en": "=== STAGE 1: Boolean Oracle Detection ===",
+    },
+    "sqli_oracle_confirmed": {
+        "ko": "  ✅ Oracle 확인: {op}  diff={diff}",
+        "zh": "  ✅ Oracle 已确认: {op}  diff={diff}",
+        "en": "  ✅ Oracle confirmed: {op}  diff={diff}",
+    },
+    "sqli_no_oracle": {
+        "ko": "❌ Boolean oracle 없음 → 시간기반 시도",
+        "zh": "❌ 无 Boolean Oracle → 尝试时间盲注",
+        "en": "❌ No boolean oracle → trying time-based",
+    },
+    "sqli_oracle_verify": {
+        "ko": "  Oracle 검증: 1=1→{t},  1=2→{f}",
+        "zh": "  Oracle 验证: 1=1→{t},  1=2→{f}",
+        "en": "  Oracle verify: 1=1→{t},  1=2→{f}",
+    },
+    "sqli_oracle_bad": {
+        "ko": "  ⚠ Boolean oracle 불안정(BAD) — boolean 비활성화, error/time-based 전환",
+        "zh": "  ⚠ Boolean Oracle 不可靠(BAD) — 禁用布尔注入，切换至错误/时间盲注",
+        "en": "  ⚠ Boolean oracle unreliable (BAD) — disabling boolean, trying error/time-based only",
+    },
+    "sqli_stage2": {
+        "ko": "\n=== STAGE 2: 문자 추출 함수 탐지 ===",
+        "zh": "\n=== STAGE 2: 字符提取函数检测 ===",
+        "en": "\n=== STAGE 2: Char Extraction Function Detection ===",
+    },
+    "sqli_stage2_funcs": {
+        "ko": "  SUBSTRING: {sub}  MID: {mid}  HEX: {hex}",
+        "zh": "  SUBSTRING: {sub}  MID: {mid}  HEX: {hex}",
+        "en": "  SUBSTRING: {sub}  MID: {mid}  HEX: {hex}",
+    },
+    "sqli_stage2_db_blocked": {
+        "ko": "  ⚠ WAF가 DB 함수 호출을 모두 차단 — 불가능 조건이 True 반환!",
+        "zh": "  ⚠ WAF 屏蔽所有 DB 函数调用 — 不可能的条件返回 True！",
+        "en": "  ⚠ DB function calls blocked by WAF — impossible condition returned True!",
+    },
+    "sqli_stage2_db_blocked2": {
+        "ko": "  Boolean 문자 추출 비활성화 — error/time-based 폴백으로 전환.",
+        "zh": "  Boolean 字符提取已禁用 — 切换到 error/time-based 备选方案。",
+        "en": "  Boolean char extraction disabled — falling back to error/time-based only.",
+    },
+    "sqli_stage2_db_ok": {
+        "ko": "  DB 함수 오라클: ✅ (불가능 조건 = False)",
+        "zh": "  DB 函数 Oracle: ✅ (不可能的条件 = False)",
+        "en": "  DB function oracle: ✅ (provably-false condition = False)",
+    },
+    "sqli_expr_blocked": {
+        "ko": "  {tag}⚠ WAF가 식 '{expr}' 차단 — 불가능 조건이 True, 건너뜀",
+        "zh": "  {tag}⚠ WAF 屏蔽表达式 '{expr}' — 不可能条件为 True，跳过",
+        "en": "  {tag}⚠ WAF blocks expression '{expr}' — impossible-false returned True, skip",
+    },
+    "sqli_stage25": {
+        "ko": "\n=== STAGE 2.5: Error-Based 인젝션 탐지 ===",
+        "zh": "\n=== STAGE 2.5: 基于错误注入检测 ===",
+        "en": "\n=== STAGE 2.5: Error-Based Injection Detection ===",
+    },
+    "sqli_eb_ok": {
+        "ko": "  Error-based 인젝션: ✅ {type} 동작 확인 — 샘플: '{sample}'",
+        "zh": "  基于错误注入: ✅ {type} 可用 — 样例: '{sample}'",
+        "en": "  Error-based injection: ✅ {type} confirmed — sample: '{sample}'",
+    },
+    "sqli_eb_fail": {
+        "ko": "  Error-based 인젝션: ❌ (EXTRACTVALUE/UPDATEXML 차단 또는 미지원)",
+        "zh": "  基于错误注入: ❌ (EXTRACTVALUE/UPDATEXML 被拦截或不支持)",
+        "en": "  Error-based injection: ❌ (EXTRACTVALUE/UPDATEXML blocked or unsupported)",
+    },
+    "sqli_eb_fp": {
+        "ko": "  ⚠ 베이스라인 응답에 동일 패턴 존재 — 페이지 고유 구분자(오탐). 건너뜀.",
+        "zh": "  ⚠ 基准响应中已存在相同模式 — 页面固有分隔符(误报). 跳过.",
+        "en": "  ⚠ Error-based pattern found in baseline — page noise, not MySQL error. Skipping.",
+    },
+    "sqli_eb_verif_fail": {
+        "ko": "  ⚠ Error-based 검증 토큰 미탐지 — WAF가 실제로 차단 중. 건너뜀.",
+        "zh": "  ⚠ 错误注入验证令牌未被检测到 — WAF可能正在拦截. 跳过.",
+        "en": "  ⚠ Error-based verification token not found — WAF likely blocking. Skipping.",
+    },
+    "sqli_eb_sanity_fail": {
+        "ko": "  ⚠ Error-based 추출 결과 검증 실패 — DB 데이터가 아닌 페이지 내용 추출됨. Error-based 비활성화.",
+        "zh": "  ⚠ Error-based提取结果验证失败 — 提取的是页面内容而非数据库数据. 禁用Error-based.",
+        "en": "  ⚠ Error-based extraction sanity FAILED — results look like page content, not DB data. Disabling error-based method.",
+    },
+    "sqli_stage26": {
+        "ko": "\n=== STAGE 2.6: Time-Based 인젝션 탐지 ===",
+        "zh": "\n=== STAGE 2.6: 时间盲注检测 ===",
+        "en": "\n=== STAGE 2.6: Time-Based Injection Detection ===",
+    },
+    "sqli_tb_base": {
+        "ko": "  기준 응답 시간: {t:.2f}s",
+        "zh": "  基准响应时间: {t:.2f}s",
+        "en": "  Base response time: {t:.2f}s",
+    },
+    "sqli_tb_resp": {
+        "ko": "  [{type}] 응답시간: {elapsed:.2f}s (임계값: {thresh:.2f}s)",
+        "zh": "  [{type}] 响应时间: {elapsed:.2f}s (阈值: {thresh:.2f}s)",
+        "en": "  [{type}] response_time: {elapsed:.2f}s (threshold: {thresh:.2f}s)",
+    },
+    "sqli_tb_ok": {
+        "ko": "  ✅ Time-based 인젝션 확인: {type} (delay={elapsed:.2f}s)",
+        "zh": "  ✅ 时间盲注已确认: {type} (delay={elapsed:.2f}s)",
+        "en": "  ✅ Time-based injection confirmed: {type} (delay={elapsed:.2f}s)",
+    },
+    "sqli_tb_fail": {
+        "ko": "  Time-based 인젝션: ❌",
+        "zh": "  时间盲注: ❌",
+        "en": "  Time-based injection: ❌",
+    },
+    "sqli_tb_false_delay": {
+        "ko": "  FALSE 확인: {t:.2f}s (< {thresh:.2f}s 이어야 정상)",
+        "zh": "  FALSE 验证: {t:.2f}s (应 < {thresh:.2f}s)",
+        "en": "  FALSE confirm: {t:.2f}s (should be < {thresh:.2f}s)",
+    },
+    "sqli_tb_unreliable": {
+        "ko": "  ⚠ FALSE도 지연됨 — time-based 불안정",
+        "zh": "  ⚠ FALSE 也有延迟 — 时间盲注不可靠",
+        "en": "  ⚠ FALSE also delayed — time-based unreliable",
+    },
+    "sqli_tb_len_unstable": {
+        "ko": "  {tag}⚠ [time-based] length={max_l} 인데 >{max_l}도 True — 신뢰도 낮음",
+        "zh": "  {tag}⚠ [time-based] length={max_l} 但 >{max_l} 也为 True — 可靠性低",
+        "en": "  {tag}⚠ [time-based] length={max_l} but >{max_l} also True — low reliability",
+    },
+    "sqli_tb_len_zero": {
+        "ko": "  {tag}[time-based] length=0 또는 차단됨",
+        "zh": "  {tag}[time-based] length=0 或已被拦截",
+        "en": "  {tag}[time-based] length=0 or blocked",
+    },
+    "sqli_tb_len": {
+        "ko": "  {tag}[time-based] length={length}",
+        "zh": "  {tag}[time-based] length={length}",
+        "en": "  {tag}[time-based] length={length}",
+    },
+    "sqli_tb_substr_blocked": {
+        "ko": "  {tag}[time-based] 모든 문자 '?' — SUBSTRING도 차단됨",
+        "zh": "  {tag}[time-based] 所有字符均为 '?' — SUBSTRING 也被拦截",
+        "en": "  {tag}[time-based] all chars '?' — SUBSTRING also blocked",
+    },
+    "sqli_tb_result": {
+        "ko": "  {tag}[time-based] 결과: '{out}'",
+        "zh": "  {tag}[time-based] 结果: '{out}'",
+        "en": "  {tag}[time-based] result: '{out}'",
+    },
+    "sqli_len_fn_blocked": {
+        "ko": "  {tag}길이함수 {fn} 차단됨, 다음 시도...",
+        "zh": "  {tag}长度函数 {fn} 被拦截, 尝试下一个...",
+        "en": "  {tag}length-fn {fn} blocked, trying next...",
+    },
+    "sqli_len_unstable": {
+        "ko": "  {tag}⚠ length={max_l} 인데 >{max_l}도 True — oracle 불안정, 스킵",
+        "zh": "  {tag}⚠ length={max_l} 但 >{max_l} 也为 True — Oracle 不稳定, 跳过",
+        "en": "  {tag}⚠ length={max_l} but >{max_l} also True — oracle unstable, skipping",
+    },
+    "sqli_len_result": {
+        "ko": "  {tag}length={length} (fn:{fn}, 이진탐색)",
+        "zh": "  {tag}length={length} (fn:{fn}, 二分搜索)",
+        "en": "  {tag}length={length} (fn:{fn}, binary-search)",
+    },
+    "sqli_len_like": {
+        "ko": "  {tag}length={length} (LIKE 폴백)",
+        "zh": "  {tag}length={length} (LIKE 回退)",
+        "en": "  {tag}length={length} (LIKE fallback)",
+    },
+    "sqli_len_zero": {
+        "ko": "  {tag}length=0 또는 추출 실패",
+        "zh": "  {tag}length=0 或提取失败",
+        "en": "  {tag}length=0 or extraction failed",
+    },
+    "sqli_char_ord_used": {
+        "ko": "  {tag}문자 추출: ORD({fn}) 사용",
+        "zh": "  {tag}字符提取: 使用 ORD({fn})",
+        "en": "  {tag}char-extract: ORD({fn}) used",
+    },
+    "sqli_char_ord_blocked": {
+        "ko": "  {tag}ORD({fn}) 차단됨 → LIKE/HEX 폴백",
+        "zh": "  {tag}ORD({fn}) 被拦截 → LIKE/HEX 回退",
+        "en": "  {tag}ORD({fn}) blocked → LIKE/HEX fallback",
+    },
+    "sqli_char_hex_used": {
+        "ko": "  {tag}문자 추출: {fn} 사용",
+        "zh": "  {tag}字符提取: 使用 {fn}",
+        "en": "  {tag}char-extract: {fn} used",
+    },
+    "sqli_char_hex_blocked": {
+        "ko": "  {tag}HEX 계열 전부 차단됨 → LIKE 폴백",
+        "zh": "  {tag}所有 HEX 函数均被拦截 → LIKE 回退",
+        "en": "  {tag}all HEX variants blocked → LIKE fallback",
+    },
+    "sqli_char_waf": {
+        "ko": "  {tag}⚠ 모든 문자 '?' — WAF 차단 가능성 높음",
+        "zh": "  {tag}⚠ 所有字符均为 '?' — 可能被 WAF 拦截",
+        "en": "  {tag}⚠ all chars '?' — likely WAF blocking",
+    },
+    "sqli_char_result": {
+        "ko": "  {tag}결과: '{out}'",
+        "zh": "  {tag}结果: '{out}'",
+        "en": "  {tag}result: '{out}'",
+    },
+    "sqli_stage3": {
+        "ko": "\n=== STAGE 3: DB 정보 추출 ===",
+        "zh": "\n=== STAGE 3: 数据库信息提取 ===",
+        "en": "\n=== STAGE 3: DB Info Extraction ===",
+    },
+    "sqli_from_bypass": {
+        "ko": "  FROM bypass: '{fv}' 사용",
+        "zh": "  FROM bypass: 使用 '{fv}'",
+        "en": "  FROM bypass: '{fv}' used",
+    },
+    "sqli_eb_extract_ok": {
+        "ko": "  [{label}] Error-based 추출 성공: '{val}'",
+        "zh": "  [{label}] 基于错误提取成功: '{val}'",
+        "en": "  [{label}] Error-based extraction OK: '{val}'",
+    },
+    "sqli_len_blocked_next": {
+        "ko": "  [{label}] {expr} → LENGTH 차단됨, 다음 시도...",
+        "zh": "  [{label}] {expr} → LENGTH 被拦截, 尝试下一个...",
+        "en": "  [{label}] {expr} → LENGTH blocked, trying next...",
+    },
+    "sqli_extract_fail": {
+        "ko": "  [{label}] {expr} → 추출 실패, 다음 시도...",
+        "zh": "  [{label}] {expr} → 提取失败, 尝试下一个...",
+        "en": "  [{label}] {expr} → extraction failed, trying next...",
+    },
+    "sqli_try_timebased": {
+        "ko": "  [{label}] → Time-based 추출 시도 (SLEEP)",
+        "zh": "  [{label}] → 尝试时间盲注提取 (SLEEP)",
+        "en": "  [{label}] → Trying time-based extraction (SLEEP)",
+    },
+    "sqli_stage4": {
+        "ko": "\n=== STAGE 4: 테이블 목록 추출 ===",
+        "zh": "\n=== STAGE 4: 表名提取 ===",
+        "en": "\n=== STAGE 4: Table List Extraction ===",
+    },
+    "sqli_isch_tbl_variant": {
+        "ko": "  information_schema.tables 변형: '{v}'",
+        "zh": "  information_schema.tables 变体: '{v}'",
+        "en": "  information_schema.tables variant: '{v}'",
+    },
+    "sqli_isch_col_variant": {
+        "ko": "  information_schema.columns 변형: '{v}'",
+        "zh": "  information_schema.columns 变体: '{v}'",
+        "en": "  information_schema.columns variant: '{v}'",
+    },
+    "sqli_isch_fail": {
+        "ko": "  ⚠ information_schema 접근 불가 — 테이블 추출 실패 (WAF 차단 의심)",
+        "zh": "  ⚠ information_schema 无法访问 — 表提取失败 (疑似 WAF 拦截)",
+        "en": "  ⚠ information_schema inaccessible — table extraction failed (WAF block suspected)",
+    },
+    "sqli_tables": {
+        "ko": "  테이블: {tables}",
+        "zh": "  数据表: {tables}",
+        "en": "  Tables: {tables}",
+    },
+    "sqli_dump_target": {
+        "ko": "  → 덤프 대상: {table}",
+        "zh": "  → 转储目标: {table}",
+        "en": "  → dump target: {table}",
+    },
+    "sqli_stage5": {
+        "ko": "\n=== STAGE 5: {table} 컬럼 목록 ===",
+        "zh": "\n=== STAGE 5: {table} 列名提取 ===",
+        "en": "\n=== STAGE 5: {table} Column List ===",
+    },
+    "sqli_columns": {
+        "ko": "  컬럼: {columns}",
+        "zh": "  列名: {columns}",
+        "en": "  Columns: {columns}",
+    },
+    "sqli_selected_cols": {
+        "ko": "  → 선택 컬럼: {cols}",
+        "zh": "  → 已选列: {cols}",
+        "en": "  → selected columns: {cols}",
+    },
+    "sqli_stage6": {
+        "ko": "\n=== STAGE 6: {table} 데이터 덤프 (최대 {rows}행) ===",
+        "zh": "\n=== STAGE 6: {table} 数据转储 (最多 {rows} 行) ===",
+        "en": "\n=== STAGE 6: {table} Data Dump (max {rows} rows) ===",
+    },
+    "sqli_done": {
+        "ko": "[AUTOEXPLOIT 완료] {url}?{param}=...",
+        "zh": "[AUTOEXPLOIT 完成] {url}?{param}=...",
+        "en": "[AUTOEXPLOIT DONE] {url}?{param}=...",
+    },
+    "sqli_summary_oracle": {
+        "ko": "  oracle   : {op}",
+        "zh": "  oracle   : {op}",
+        "en": "  oracle   : {op}",
+    },
+    "sqli_oracle_diff": {
+        "ko": "  [{op}] TRUE={t} FALSE={f} diff={diff}",
+        "zh": "  [{op}] TRUE={t} FALSE={f} diff={diff}",
+        "en": "  [{op}] TRUE={t} FALSE={f} diff={diff}",
+    },
+    "sqli_db_version": {
+        "ko": "  VERSION : {v}",
+        "zh": "  VERSION : {v}",
+        "en": "  VERSION : {v}",
+    },
+    "sqli_db_name": {
+        "ko": "  DATABASE: {v}",
+        "zh": "  DATABASE: {v}",
+        "en": "  DATABASE: {v}",
+    },
+    "sqli_db_user": {
+        "ko": "  USER    : {v}",
+        "zh": "  USER    : {v}",
+        "en": "  USER    : {v}",
+    },
+    "sqli_row": {
+        "ko": "  행[{i}]: {row}",
+        "zh": "  行[{i}]: {row}",
+        "en": "  row[{i}]: {row}",
+    },
+    "sqli_pip_install": {
+        "ko": "⚙  pip install -e . 실행 중...",
+        "zh": "⚙  正在执行 pip install -e . ...",
+        "en": "⚙  Running pip install -e . ...",
+    },
+    "sqli_pip_fail": {
+        "ko": "⚠  pip install 실패 — 수동 실행:",
+        "zh": "⚠  pip install 失败 — 手动运行:",
+        "en": "⚠  pip install failed — run manually:",
+    },
+    # ── v6.2.43: aaaa/OOOO 반복 문자 감지 경고 ──────────────────────────────────
+    "sqli_repeat_char_warning": {
+        "ko": (
+            "⛔ [SQLI_EXTRACTION_FAILURE] 반복 문자 '{char}' 감지 — "
+            "커스텀 Boolean Oracle 추출 루프 오작동 (WAF가 SQL 함수 차단 또는 oracle 오보정). "
+            "커스텀 추출 루프를 즉시 중단하고 sqli_autoexploit TOOL_CALL 로 전환하라."
+        ),
+        "zh": (
+            "⛔ [SQLI_EXTRACTION_FAILURE] 检测到重复字符 '{char}' — "
+            "自定义 Boolean Oracle 提取循环故障 (WAF 屏蔽 SQL 函数或 Oracle 校准错误). "
+            "立即停止自定义提取循环，改用 sqli_autoexploit TOOL_CALL."
+        ),
+        "en": (
+            "⛔ [SQLI_EXTRACTION_FAILURE] Repeating char '{char}' detected — "
+            "Custom Boolean Oracle extraction loop is malfunctioning "
+            "(WAF blocking SQL functions or oracle miscalibration). "
+            "Stop all custom extraction loops immediately. Use sqli_autoexploit TOOL_CALL instead."
+        ),
+    },
+    "autocorrect_runtime_pattern": {
+        "ko": "[런타임 패턴 자동 교정 적용]",
+        "zh": "[运行时模式自动修正已应用]",
+        "en": "[Runtime pattern auto-correction applied]",
+    },
+    "autocorrect_pre_pattern": {
+        "ko": "[사전 정적 패턴 교정 적용]",
+        "zh": "[预执行静态模式修正已应用]",
+        "en": "[Pre-execution static pattern correction applied]",
+    },
+
+    # ── v6.2.53: 자동화 공격 모듈 다국어 키 ──────────────────────────────────────
+    "ae_lfi_found": {
+        "ko": "🗂  LFI 취약점 발견! {n}개 페이로드 성공",
+        "zh": "🗂  发现 LFI 漏洞！{n} 个载荷成功",
+        "en": "🗂  LFI vulnerability found! {n} payload(s) succeeded",
+    },
+    "ae_lfi_not_found": {
+        "ko": "🗂  LFI 취약점 미발견",
+        "zh": "🗂  未发现 LFI 漏洞",
+        "en": "🗂  No LFI vulnerability found",
+    },
+    "ae_jwt_cracked": {
+        "ko": "🔑 JWT 비밀키 크랙 성공: {secret}",
+        "zh": "🔑 JWT 密钥破解成功: {secret}",
+        "en": "🔑 JWT secret cracked: {secret}",
+    },
+    "ae_jwt_alg_none": {
+        "ko": "🔑 JWT alg:none 공격 성공!",
+        "zh": "🔑 JWT alg:none 攻击成功！",
+        "en": "🔑 JWT alg:none attack succeeded!",
+    },
+    "ae_jwt_not_found": {
+        "ko": "🔑 JWT 취약점 미발견",
+        "zh": "🔑 未发现 JWT 漏洞",
+        "en": "🔑 No JWT vulnerability found",
+    },
+    "ae_ssrf_found": {
+        "ko": "🌐 SSRF 취약점 발견! {n}개",
+        "zh": "🌐 发现 SSRF 漏洞！{n} 个",
+        "en": "🌐 SSRF vulnerability found! {n} endpoint(s)",
+    },
+    "ae_ssrf_not_found": {
+        "ko": "🌐 SSRF 직접 탐지 없음 — DNS callback 방식 수동 시도 권장",
+        "zh": "🌐 未直接检测到 SSRF — 建议手动尝试 DNS callback 方式",
+        "en": "🌐 No direct SSRF detected — DNS callback method recommended",
+    },
+    "ae_xss_found": {
+        "ko": "💉 XSS 취약점 발견! {n}개 페이로드 미이스케이프 반사",
+        "zh": "💉 发现 XSS 漏洞！{n} 个载荷未转义反射",
+        "en": "💉 XSS vulnerability found! {n} payload(s) reflected unescaped",
+    },
+    "ae_xss_not_found": {
+        "ko": "💉 XSS 취약점 미발견 (모든 페이로드 이스케이프 또는 미반사)",
+        "zh": "💉 未发现 XSS 漏洞（所有载荷均已转义或未反射）",
+        "en": "💉 No XSS found (all payloads escaped or not reflected)",
+    },
+    "ae_csrf_poc_saved": {
+        "ko": "🎭 CSRF PoC HTML 저장됨: {path}",
+        "zh": "🎭 CSRF PoC HTML 已保存: {path}",
+        "en": "🎭 CSRF PoC HTML saved: {path}",
+    },
+    "ae_csrf_protected": {
+        "ko": "🎭 CSRF 방어 탐지됨: {protections}",
+        "zh": "🎭 检测到 CSRF 防护: {protections}",
+        "en": "🎭 CSRF protection detected: {protections}",
+    },
+    "ae_deser_found": {
+        "ko": "💣 역직렬화 취약점 발견! ({lang})",
+        "zh": "💣 发现反序列化漏洞！({lang})",
+        "en": "💣 Deserialization vulnerability found! ({lang})",
+    },
+    "ae_deser_not_found": {
+        "ko": "💣 역직렬화 취약점 미발견",
+        "zh": "💣 未发现反序列化漏洞",
+        "en": "💣 No deserialization vulnerability found",
+    },
+    "ae_smuggling_found": {
+        "ko": "🚢 HTTP Smuggling 취약 의심! {type} 타이밍 차이={diff}s",
+        "zh": "🚢 疑似 HTTP 走私漏洞！{type} 时序差异={diff}s",
+        "en": "🚢 HTTP Smuggling suspected! {type} timing diff={diff}s",
+    },
+    "ae_smuggling_not_found": {
+        "ko": "🚢 HTTP Smuggling 미탐지",
+        "zh": "🚢 未检测到 HTTP 走私",
+        "en": "🚢 No HTTP Smuggling detected",
+    },
+    "ae_pp_found": {
+        "ko": "🧬 Prototype Pollution 취약점 발견!",
+        "zh": "🧬 发现 Prototype Pollution 漏洞！",
+        "en": "🧬 Prototype Pollution vulnerability found!",
+    },
+    "ae_pp_not_found": {
+        "ko": "🧬 Prototype Pollution 미탐지 (Node.js 앱에서만 유효)",
+        "zh": "🧬 未检测到 Prototype Pollution（仅适用于 Node.js 应用）",
+        "en": "🧬 No Prototype Pollution detected (only applicable for Node.js apps)",
+    },
+    "ae_saved": {
+        "ko": "💾 결과 저장됨: {path}",
+        "zh": "💾 结果已保存: {path}",
+        "en": "💾 Results saved: {path}",
+    },
 })
 
 

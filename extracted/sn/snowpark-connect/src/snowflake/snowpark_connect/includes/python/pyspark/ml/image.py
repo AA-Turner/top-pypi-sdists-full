@@ -28,7 +28,7 @@ import sys
 from typing import Any, Dict, List, NoReturn, Optional, cast
 
 import numpy as np
-from distutils.version import LooseVersion
+from pyspark.loose_version import LooseVersion
 
 from pyspark import SparkContext
 from pyspark.sql.types import Row, StructType, _create_row, _parse_datatype_json_string

@@ -175,13 +175,72 @@ def query_adjust_factor(code, start_date=None, end_date=None):
         data.cur_page_num = body_arr[4]
         data.per_page_count = body_arr[5]
         data.setData(body_arr[6])
-        data.code = body_arr[7]
+        data.code = body_arr[7]      # 股票代码
         data.start_date = body_arr[8]
         data.end_date = body_arr[9]
         data.setFields(body_arr[10])
 
     return data
 
+def query_daily_adjust_factor(date=None):
+    """获取某日复权因子信息
+    @param date: 指定日期，为空时默认当前日
+    """
+
+    if date is None or date == "":
+        date = time.strftime("%Y-%m-%d", time.localtime())
+
+    data = rs.ResultData()
+    user_id = ""
+    try:
+        user_id = getattr(conx, "user_id")
+    except Exception:
+        print("you don't login.")
+        data.error_code = cons.BSERR_NO_LOGIN
+        data.error_msg = "you don't login."
+        return data
+
+    param = "%s,%s,%s" % ("query_daily_adjust_factor", user_id, date)
+
+    msg_body = strUtil.organize_msg_body(param)
+    msg_header = msgheader.to_message_header(
+        cons.MESSAGE_TYPE_GETKDaily_ADJUSTFACTOR_REQUEST, len(msg_body))
+
+    data.msg_type = cons.MESSAGE_TYPE_GETKDaily_ADJUSTFACTOR_REQUEST
+    data.msg_body = msg_body
+
+    head_body = msg_header + msg_body
+    crc32str = zlib.crc32(bytes(head_body, encoding='utf-8'))
+    receive_data = sock.send_msg(head_body + cons.MESSAGE_SPLIT + str(crc32str))
+
+    if receive_data is None or receive_data.strip() == "":
+        data.error_code = cons.BSERR_RECVSOCK_FAIL
+        data.error_msg = "网络接收错误。"
+        return data
+
+    msg_header = receive_data[0:cons.MESSAGE_HEADER_LENGTH]
+    msg_body = receive_data[cons.MESSAGE_HEADER_LENGTH:-1]
+    header_arr = msg_header.split(cons.MESSAGE_SPLIT)
+    body_arr = msg_body.split(cons.MESSAGE_SPLIT)
+    data.msg_body_length = header_arr[2]
+    data.error_code = body_arr[0]
+    data.error_msg = body_arr[1]
+
+    if cons.BSERR_SUCCESS == data.error_code:
+        data.method = body_arr[2]
+        data.user_id = body_arr[3]
+        # data.cur_page_num = body_arr[4]
+        # data.per_page_count = body_arr[5]
+        data.cur_page_num = '1'  #起始第一条记录开始
+        data.per_page_count = '20000' #当前query_daily_adjust_factor查询不进行分页查询处理，所有设置一页最多20000条记录。
+        data.setData(body_arr[4])
+        # data.code = body_arr[7]       # 股票代码
+        # data.start_date = body_arr[8]
+        # data.end_date = body_arr[9]
+        data.setFields(body_arr[5])
+        data.date = date
+
+    return data
 
 def query_profit_data(code, year=None, quarter=None):
     """季频盈利能力

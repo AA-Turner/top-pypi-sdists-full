@@ -20,7 +20,7 @@ def _browser_config():
         instance_url="https://test.service-now.com",
         auth={
             "type": "browser",
-            "browser": {"username": "jeongsh", "instance_url": "https://test.service-now.com"},
+            "browser": {"username": "testuser", "instance_url": "https://test.service-now.com"},
         },
     )
 
@@ -395,7 +395,7 @@ def test_not_applied_attaches_raw_diagnostics():
     result = manage_session_context(
         _browser_config(),
         auth,
-        ManageSessionContextParams(action="set_app", app_id="41c8a9e73b1e4a10ec3cbf2a85e45ab7"),
+        ManageSessionContextParams(action="set_app", app_id="aaaa1111bbbb2222cccc3333dddd4444"),
     )
     assert result["success"] is False
     assert result["error"] == "not_applied"
@@ -436,8 +436,8 @@ def test_picker_value_current_as_bare_sys_id_string():
     {sysId:...} object. Old parser read this as empty → false not_applied."""
     from servicenow_mcp.tools.session_context_tools import _picker_value
 
-    assert _picker_value({"result": {"current": "fbf3dd8c3bbb321046a3934a85e45ab2"}}) == {
-        "sys_id": "fbf3dd8c3bbb321046a3934a85e45ab2",
+    assert _picker_value({"result": {"current": "eeee5555ffff6666aaaa7777bbbb8888"}}) == {
+        "sys_id": "eeee5555ffff6666aaaa7777bbbb8888",
         "name": "",
     }
 
@@ -499,24 +499,24 @@ def test_picker_value_real_application_shape_bare_current_plus_list():
 
     payload = {
         "result": {
-            "current": "41c8a9e73b1e4a10ec3cbf2a85e45ab7",
+            "current": "aaaa1111bbbb2222cccc3333dddd4444",
             "list": [
                 {"sysId": "global", "name": "Global", "scopeName": "global"},
                 {
-                    "sysId": "41c8a9e73b1e4a10ec3cbf2a85e45ab7",
+                    "sysId": "aaaa1111bbbb2222cccc3333dddd4444",
                     "name": "BPM",
-                    "scopeName": "x_yergb_bpm",
+                    "scopeName": "x_acme_bpm",
                 },
                 {
-                    "sysId": "fbf3dd8c3bbb321046a3934a85e45ab2",
+                    "sysId": "eeee5555ffff6666aaaa7777bbbb8888",
                     "name": "HBPM",
-                    "scopeName": "x_yergb_hbpm",
+                    "scopeName": "x_acme_hbpm",
                 },
             ],
         }
     }
     assert _picker_value(payload) == {
-        "sys_id": "41c8a9e73b1e4a10ec3cbf2a85e45ab7",
+        "sys_id": "aaaa1111bbbb2222cccc3333dddd4444",
         "name": "BPM",
     }
 
@@ -529,9 +529,9 @@ def test_set_app_success_with_real_application_shape():
         _resp(
             {
                 "result": {
-                    "current": "fbf3dd8c3bbb321046a3934a85e45ab2",
+                    "current": "eeee5555ffff6666aaaa7777bbbb8888",
                     "list": [
-                        {"sysId": "fbf3dd8c3bbb321046a3934a85e45ab2", "name": "HBPM"},
+                        {"sysId": "eeee5555ffff6666aaaa7777bbbb8888", "name": "HBPM"},
                     ],
                 }
             }
@@ -540,7 +540,7 @@ def test_set_app_success_with_real_application_shape():
     result = manage_session_context(
         _browser_config(),
         auth,
-        ManageSessionContextParams(action="set_app", app_id="fbf3dd8c3bbb321046a3934a85e45ab2"),
+        ManageSessionContextParams(action="set_app", app_id="eeee5555ffff6666aaaa7777bbbb8888"),
     )
     assert result["success"] is True
-    assert result["current"] == {"sys_id": "fbf3dd8c3bbb321046a3934a85e45ab2", "name": "HBPM"}
+    assert result["current"] == {"sys_id": "eeee5555ffff6666aaaa7777bbbb8888", "name": "HBPM"}

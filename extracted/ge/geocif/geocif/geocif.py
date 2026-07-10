@@ -194,6 +194,21 @@ class Geocif:
         # Valid values: none, SHAP, stabl, feature_engine, mrmr, RFECV, lasso,
         #   BorutaPy, Leshy, PowerShap, BorutaShap, Genetic, RFE, multi, gOMP
         self.check_yield_trend = self.parser.getboolean("ML", "check_yield_trend")
+        # Diag-STFN-style trend gate (Zhuang et al. 2026, Ecological Informatics
+        # doi:10.1016/j.ecoinf.2026.103860). When True, the ``check_yield_trend``
+        # flag above is OVERRIDDEN per LOOCV fold by an auto-diagnosis that
+        # checks (a) statistical significance of the (year, yield) Pearson
+        # correlation on pooled training rows (p <= 0.05) AND (b) that a
+        # linear trend fit beats the region-mean baseline on an inner
+        # validation year (Imp = 1 - MSE_trend/MSE_naive >= 0). Only if BOTH
+        # gates pass does detrending get activated for that (crop, country,
+        # forecast_season). Motivated by the rice-vs-maize gap in this
+        # session's Brazil metrics: rice trend baseline hit R2=0.939 (trend
+        # clearly useful) while maize trend baseline hit R2=0.10 (trend
+        # barely helps). Default False keeps prior behavior.
+        self.check_yield_trend_diagnostic = self.parser.getboolean(
+            "ML", "check_yield_trend_diagnostic", fallback=False,
+        )
         # Per-region anomaly target: when set, training fits on
         # (y - region_mean_train_years); predictions add the region mean back
         # at inference time so the DB / plots / FDW stay in absolute yield
@@ -220,6 +235,22 @@ class Geocif:
         # is the max of the two when target_mode = region_anomaly).
         self.min_years_per_region = self.parser.getint(
             "ML", "min_years_per_region", fallback=5
+        )
+        # Percent-of-national-production share filter — drops regions whose
+        # mean training-year share of national production is below this
+        # threshold (units: percent, so 0.5 = 0.5%). 0.0 = off. Applied in
+        # _prepare_train_test_split AFTER min_years_per_region so year-sparse
+        # regions are dropped first. Production = Area (ha) x Yield (tn/ha),
+        # summed within region-year, share computed vs national annual total
+        # then averaged across training years for stability. Reason: tiny
+        # states like Distrito Federal or Roraima can dominate aggregate
+        # rrmsep with high per-region MAPE despite contributing < 1% of the
+        # national maize crop; excluding them focuses the model on regions
+        # that actually move the national forecast. NOTE: dropping regions
+        # mechanically improves the average-of-regional-rrmsep metric even
+        # if remaining-region skill is unchanged, so compare fairly.
+        self.min_production_share = self.parser.getfloat(
+            "ML", "min_production_share", fallback=0.0
         )
 
         # Per-region [min_year, max_year] filter applied ONLY to df_train seen by
@@ -470,6 +501,18 @@ class Geocif:
         elif self.model_type == "CLASSIFICATION" and not self.classify_target:
             raise ValueError("Model type is classification but classify_target is False")
 
+    def _refresh_target_column(self):
+        """Refresh ``self.target_column`` after ``self.check_yield_trend`` was
+        toggled. The initial ``target_column`` is set in ``__init__`` before
+        model-type-specific ``_setup_*_flags`` methods override the trend
+        flag, so per-model toggles need to call this to keep the two in
+        sync. Regression only; classification uses ``self.target_class``.
+        """
+        if getattr(self, "model_type", None) == "REGRESSION":
+            self.target_column = (
+                f"Detrended {self.target}" if self.check_yield_trend else self.target
+            )
+
     def _setup_model_specific_flags(self):
         """Setup model-specific flags based on model type and name."""
         if self.model_type == "CLASSIFICATION":
@@ -485,6 +528,7 @@ class Geocif:
         self.estimate_ci_for_all = self.parser.getboolean("ML", "estimate_ci_for_all")
         self.ci_method = self.parser.get("ML", "ci_method", fallback="crepes")
         self.check_yield_trend = False
+        self._refresh_target_column()
 
         if self.model_name == "ngboost":
             self.cat_features = [col for col in self.cat_features if col != "Region"]
@@ -512,6 +556,17 @@ class Geocif:
         self.estimate_ci = False
         self.check_yield_trend = False
         self.estimate_ci_for_all = False
+        # Baseline (non-ML) models and simple regressors always fit on
+        # absolute yield -- refresh target_column so it tracks the flag
+        # toggle above. Without this, target_column stays at "Detrended
+        # Yield (tn per ha)" (set in __init__ before this flag override
+        # runs) and _setup_training_data's dropna(subset=[target_column])
+        # raises KeyError because _get_common_columns excludes the
+        # Detrended column when check_yield_trend is False. That was
+        # the "No predictions found for brazil maize null/trend" bug --
+        # every baseline region crashed and got skipped, but the outer
+        # loop still reported "N/110 done" from the model iteration.
+        self._refresh_target_column()
 
     def _setup_cumulative_flags(self):
         """Flags for cumulative models."""
@@ -526,6 +581,7 @@ class Geocif:
         self.estimate_ci = False
         self.estimate_ci_for_all = False
         self.check_yield_trend = True
+        self._refresh_target_column()
         self.cluster_strategy = "single"
         self.use_spatial_neighbors = False
         self.select_cid_by = "Index"
@@ -563,6 +619,7 @@ class Geocif:
         self.alpha = self.parser.getfloat("ML", "alpha")
         self.ci_method = self.parser.get("ML", "ci_method", fallback="crepes")
         self.check_yield_trend = self.parser.getboolean("ML", "check_yield_trend")
+        self._refresh_target_column()
 
     def _setup_seasons_and_stages(self):
         """Setup seasons and simulation stages."""
@@ -2245,6 +2302,62 @@ class Geocif:
                     self.df_test[admin_col].isin(keep)
                 ].copy()
 
+        # Min-production-share filter — drops regions whose mean training-year
+        # share of national production is below [ML] min_production_share
+        # (units: percent). Applied AFTER min_years_per_region so year-sparse
+        # regions are dropped first. Production = Area (ha) x Yield (tn/ha)
+        # summed within (region, year), share = region_prod / national_prod
+        # per year, then averaged across training years for stability
+        # (leak-safe: uses df_train only, computed post-LOOCV split).
+        if (
+            self.min_production_share > 0.0
+            and "Region" in self.df_train.columns
+            and "Area (ha)" in self.df_train.columns
+            and self.target in self.df_train.columns
+        ):
+            admin_col = (
+                "Country__Region"
+                if getattr(self, "countries_pooled", None)
+                and "Country__Region" in self.df_train.columns
+                else "Region"
+            )
+            prod = (
+                self.df_train[[admin_col, "Harvest Year", "Area (ha)", self.target]]
+                .assign(
+                    _prod_tn=lambda d: d["Area (ha)"].astype(float)
+                    * d[self.target].astype(float)
+                )
+                .groupby([admin_col, "Harvest Year"], as_index=False)["_prod_tn"].sum()
+            )
+            national_annual = prod.groupby("Harvest Year")["_prod_tn"].sum()
+            prod["_share_pct"] = 100.0 * prod["_prod_tn"] / prod["Harvest Year"].map(national_annual)
+            mean_share = prod.groupby(admin_col)["_share_pct"].mean()
+            keep_ps = mean_share[mean_share >= self.min_production_share].index.tolist()
+            dropped_ps = sorted(set(mean_share.index) - set(keep_ps))
+            if dropped_ps:
+                cache_key = (
+                    self.country,
+                    self.crop,
+                    self.min_production_share,
+                    frozenset(dropped_ps),
+                )
+                if getattr(self, "_last_min_share_drop", None) != cache_key:
+                    dropped_shares = {
+                        r: round(mean_share[r], 3) for r in dropped_ps[:10]
+                    }
+                    self.logger.warning(
+                        f"  min_production_share={self.min_production_share}%: "
+                        f"dropping {len(dropped_ps)} region(s) below threshold: "
+                        f"{dropped_shares}{'...' if len(dropped_ps) > 10 else ''}"
+                    )
+                    self._last_min_share_drop = cache_key
+                self.df_train = self.df_train[
+                    self.df_train[admin_col].isin(keep_ps)
+                ].copy()
+                self.df_test = self.df_test[
+                    self.df_test[admin_col].isin(keep_ps)
+                ].copy()
+
         # Within-year neighbor-yield leakage (0.4.774+, opt-in via
         # [ML] use_neighbor_leakage=True). Injects k nearest centroid
         # neighbors' forecast-year rows back into df_train. Default
@@ -2528,8 +2641,79 @@ class Geocif:
                 f"column(s) for {len(self.region_zscore_cids)} base CID(s)"
             )
 
+    def _diagnose_yield_trend(self):
+        """Diag-STFN-style trend-gate diagnostic. Returns (activate: bool,
+        message: str). Runs on ``self.df_train`` so it's leak-safe per
+        LOOCV fold. Gates:
+          1. Pearson r on pooled (Harvest Year, target) with p <= 0.05
+          2. Improvement skill score ``Imp = 1 - MSE_trend/MSE_naive >= 0``
+             on the latest training year (inner held-out validation),
+             using per-region linear trend fit on earlier training years.
+        Both must pass; otherwise skip detrending for this (crop, country,
+        forecast_season) fold.
+        """
+        try:
+            from scipy.stats import pearsonr as _pearsonr
+        except Exception as _e:
+            return False, f"scipy unavailable: {_e}"
+        df = self.df_train.dropna(subset=[self.target])
+        if df.empty or df["Harvest Year"].nunique() < 5:
+            return False, f"too few training years ({df['Harvest Year'].nunique() if not df.empty else 0})"
+        try:
+            r, p = _pearsonr(
+                df["Harvest Year"].astype(float).values,
+                df[self.target].astype(float).values,
+            )
+        except Exception as _e:
+            return False, f"pearsonr failed: {_e}"
+        if not np.isfinite(p) or p > 0.05:
+            return False, f"r={r:.2f}, p={p:.3g} (not significant)"
+        # Inner held-out: latest training year for Imp check
+        max_yr = int(df["Harvest Year"].max())
+        inner_val = df[df["Harvest Year"] == max_yr]
+        inner_train = df[df["Harvest Year"] < max_yr]
+        if inner_val.empty or inner_train["Harvest Year"].nunique() < 3:
+            return False, f"insufficient inner-val history (r={r:.2f}, p={p:.3g})"
+        mse_trend = 0.0
+        mse_naive = 0.0
+        n_val = 0
+        for region_name, sub_val in inner_val.groupby("Region", observed=True):
+            trn = inner_train[inner_train["Region"] == region_name]
+            if trn["Harvest Year"].nunique() < 2:
+                continue
+            years = trn["Harvest Year"].astype(float).values
+            vals = trn[self.target].astype(float).values
+            slope, intercept = np.polyfit(years, vals, 1)
+            naive_mean = float(vals.mean())
+            for _, row_v in sub_val.iterrows():
+                y_true = float(row_v[self.target])
+                y_hat_trend = intercept + slope * float(row_v["Harvest Year"])
+                mse_trend += (y_true - y_hat_trend) ** 2
+                mse_naive += (y_true - naive_mean) ** 2
+                n_val += 1
+        if n_val == 0 or mse_naive <= 0:
+            return False, f"no usable inner-val obs (r={r:.2f}, p={p:.3g})"
+        imp = 1.0 - (mse_trend / mse_naive)
+        if imp < 0:
+            return False, f"r={r:.2f}, p={p:.3g}, Imp={imp:.3f} < 0 (trend hurts inner-val)"
+        return True, f"r={r:.2f}, p={p:.3g}, Imp={imp:.3f}"
+
     def _compute_detrended_yield(self):
         """Compute detrended yield for each region."""
+        # Diag-STFN-style auto-gate: when [ML] check_yield_trend_diagnostic
+        # is True, override self.check_yield_trend for THIS fold based on
+        # a statistical test of trend significance + practical gain.
+        if self.check_yield_trend_diagnostic:
+            activate, msg = self._diagnose_yield_trend()
+            prev = self.check_yield_trend
+            self.check_yield_trend = bool(activate)
+            self._refresh_target_column()
+            self.logger.info(
+                f"  trend_diagnostic [{self.country}/{self.crop}/"
+                f"season={self.forecast_season}]: {msg} -> "
+                f"check_yield_trend={self.check_yield_trend} (was {prev})"
+            )
+
         self.df_train[f"Detrended {self.target}"] = np.nan
         self.df_train["Detrended Model"] = np.nan
         self.df_train["Detrended Model Type"] = pd.Series(np.nan, index=self.df_train.index, dtype="object")

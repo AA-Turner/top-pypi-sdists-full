@@ -12,9 +12,11 @@
 #include "namepath.h"
 #include "parsers.h"
 
+#include <algorithm>
 #include <cctype>
 #include <cmath>
 #include <cstring>
+#include <vector>
 
 #include "object.h"
 #include <qpdf/Buffer.hh>
@@ -70,6 +72,21 @@ void init_object_methods(py::class_<QPDFObjectHandle> &object)
                     return h; // Empty path returns self
                 }
                 return traverse_namepath(h, path);
+            })
+        .def("__getitem__",
+            [](QPDFObjectHandle &h, py::slice slice) {
+                QpdfLockGuard lock(h.getOwningQPDF());
+                ensure_array(h, "slice");
+                auto [start, stop, step, slicelength] =
+                    slice.compute(h.getArrayNItems());
+                std::vector<QPDFObjectHandle> items;
+                items.reserve(slicelength);
+                Py_ssize_t idx = start;
+                for (size_t i = 0; i < slicelength; ++i) {
+                    items.push_back(h.getArrayItem(static_cast<int>(idx)));
+                    idx += step;
+                }
+                return QPDFObjectHandle::newArray(items);
             })
         .def("__getitem__",
             [](QPDFObjectHandle &h, py::object key) -> QPDFObjectHandle {
@@ -199,6 +216,25 @@ void init_object_methods(py::class_<QPDFObjectHandle> &object)
         .def("__delitem__",
             [](QPDFObjectHandle &h, QPDFObjectHandle &name) {
                 object_del_key(h, name.getName());
+            })
+        .def("__delitem__",
+            [](QPDFObjectHandle &h, py::slice slice) {
+                QpdfLockGuard lock(h.getOwningQPDF());
+                ensure_array(h, "delete slice");
+                auto [start, stop, step, slicelength] =
+                    slice.compute(h.getArrayNItems());
+                std::vector<int> indices;
+                indices.reserve(slicelength);
+                Py_ssize_t idx = start;
+                for (size_t i = 0; i < slicelength; ++i) {
+                    indices.push_back(static_cast<int>(idx));
+                    idx += step;
+                }
+                // Delete from highest index to lowest so earlier indices
+                // remain valid as items are erased.
+                std::sort(indices.begin(), indices.end(), std::greater<int>());
+                for (int i : indices)
+                    h.eraseItem(i);
             })
         .def("__delitem__",
             [](QPDFObjectHandle &h, py::object key) {
@@ -447,6 +483,56 @@ void init_object_methods(py::class_<QPDFObjectHandle> &object)
             py::arg("value").none())
         .def(
             "__setitem__",
+            [](QPDFObjectHandle &h, py::slice slice, py::object val) {
+                QpdfLockGuard lock(h.getOwningQPDF());
+                ensure_array(h, "set slice");
+
+                // Validate iterability and obtain an iterator. Typing the
+                // value as py::object (not py::iterable) lets us emit the
+                // list-compatible message for non-iterables like int.
+                PyObject *iter_raw = PyObject_GetIter(val.ptr());
+                if (!iter_raw) {
+                    PyErr_Clear();
+                    throw py::type_error("can only assign an iterable");
+                }
+                py::object iterator = py::steal(iter_raw);
+
+                auto [start, stop, step, slicelength] =
+                    slice.compute(h.getArrayNItems());
+
+                std::vector<QPDFObjectHandle> new_vals;
+                PyObject *item;
+                while ((item = PyIter_Next(iterator.ptr())) != nullptr) {
+                    py::object o = py::steal(item);
+                    new_vals.push_back(objecthandle_encode(o));
+                }
+                if (PyErr_Occurred())
+                    throw py::python_error();
+
+                if (step != 1) {
+                    if (new_vals.size() != slicelength)
+                        throw py::value_error(("attempt to assign sequence of size " +
+                                               std::to_string(new_vals.size()) +
+                                               " to extended slice of size " +
+                                               std::to_string(slicelength))
+                                .c_str());
+                    Py_ssize_t idx = start;
+                    for (size_t i = 0; i < new_vals.size(); ++i) {
+                        h.setArrayItem(static_cast<int>(idx), new_vals[i]);
+                        idx += step;
+                    }
+                } else {
+                    for (size_t i = 0; i < slicelength; ++i)
+                        h.eraseItem(static_cast<int>(start));
+                    int insert_at = static_cast<int>(start);
+                    for (auto const &obj : new_vals)
+                        h.insertItem(insert_at++, obj);
+                }
+            },
+            py::arg("slice"),
+            py::arg("value"))
+        .def(
+            "__setitem__",
             [](QPDFObjectHandle &h, py::object key, py::object pyvalue) {
                 std::string k = string_from_key(key);
                 auto value = objecthandle_encode(pyvalue);
@@ -470,6 +556,105 @@ void init_object_methods(py::class_<QPDFObjectHandle> &object)
                     h.appendItem(objecthandle_encode(item));
                 }
             })
+        .def(
+            "clear",
+            [](QPDFObjectHandle &h) {
+                QpdfLockGuard lock(h.getOwningQPDF());
+                ensure_array(h, "clear");
+                for (int i = h.getArrayNItems() - 1; i >= 0; --i)
+                    h.eraseItem(i);
+            },
+            "Remove all items from the array.")
+        .def(
+            "reverse",
+            [](QPDFObjectHandle &h) {
+                QpdfLockGuard lock(h.getOwningQPDF());
+                ensure_array(h, "reverse");
+                int n = h.getArrayNItems();
+                for (int i = 0; i < n / 2; ++i) {
+                    auto left = h.getArrayItem(i);
+                    auto right = h.getArrayItem(n - 1 - i);
+                    h.setArrayItem(i, right);
+                    h.setArrayItem(n - 1 - i, left);
+                }
+            },
+            "Reverse the elements of the array in place.")
+        .def(
+            "insert",
+            [](QPDFObjectHandle &h, int index, py::object value) {
+                QpdfLockGuard lock(h.getOwningQPDF());
+                ensure_array(h, "insert");
+                int nitems = h.getArrayNItems();
+                if (index < 0)
+                    index += nitems;
+                if (index < 0)
+                    index = 0;
+                if (index > nitems)
+                    index = nitems;
+                h.insertItem(index, objecthandle_encode(value));
+            },
+            py::arg("index"),
+            py::arg("value").none(),
+            "Insert an object before the given index (Python list.insert semantics).")
+        .def(
+            "pop",
+            [](QPDFObjectHandle &h, int index) {
+                QpdfLockGuard lock(h.getOwningQPDF());
+                ensure_array(h, "pop");
+                auto u_index = list_range_check(h, index);
+                auto item = h.getArrayItem(static_cast<int>(u_index));
+                h.eraseItem(static_cast<int>(u_index));
+                return item;
+            },
+            py::arg("index") = -1,
+            "Remove and return the item at *index* (default last).")
+        .def(
+            "remove",
+            [](QPDFObjectHandle &h, py::object value) {
+                QpdfLockGuard lock(h.getOwningQPDF());
+                ensure_array(h, "remove");
+                auto needle = objecthandle_encode(value);
+                int n = h.getArrayNItems();
+                for (int i = 0; i < n; ++i) {
+                    if (objecthandle_equal(h.getArrayItem(i), needle)) {
+                        h.eraseItem(i);
+                        return;
+                    }
+                }
+                throw py::value_error("item not in array");
+            },
+            py::arg("value"),
+            "Remove the first item equal to *value*.")
+        .def(
+            "index",
+            [](QPDFObjectHandle &h, py::object value) {
+                QpdfLockGuard lock(h.getOwningQPDF());
+                ensure_array(h, "index");
+                auto needle = objecthandle_encode(value);
+                int n = h.getArrayNItems();
+                for (int i = 0; i < n; ++i) {
+                    if (objecthandle_equal(h.getArrayItem(i), needle))
+                        return i;
+                }
+                throw py::value_error("item not in array");
+            },
+            py::arg("value"),
+            "Return the index of the first item equal to *value*.")
+        .def(
+            "count",
+            [](QPDFObjectHandle &h, py::object value) {
+                QpdfLockGuard lock(h.getOwningQPDF());
+                ensure_array(h, "count");
+                auto needle = objecthandle_encode(value);
+                int count = 0;
+                for (auto const &item : h.aitems()) {
+                    if (objecthandle_equal(item, needle))
+                        ++count;
+                }
+                return count;
+            },
+            py::arg("value"),
+            "Return the number of items equal to *value*.")
         .def_prop_ro("is_rectangle",
             &QPDFObjectHandle::isRectangle // LCOV_EXCL_LINE
             )
@@ -530,7 +715,7 @@ void init_object_methods(py::class_<QPDFObjectHandle> &object)
             py::arg("description") = "")
         .def("_parse_page_contents_grouped",
             [](QPDFObjectHandle &h, std::string const &whitelist) {
-                OperandGrouper og(whitelist);
+                OperandGrouper og(whitelist, h.getKey("/Resources"));
                 h.parsePageContents(&og);
                 return og.getInstructions();
             })
@@ -540,7 +725,12 @@ void init_object_methods(py::class_<QPDFObjectHandle> &object)
             "``pikepdf.parse_content_stream``.")
         .def_static("_parse_stream_grouped",
             [](QPDFObjectHandle &h, std::string const &whitelist) {
-                OperandGrouper og(whitelist);
+                // A content stream (e.g. a Form XObject) may carry its own
+                // /Resources, used to resolve inline images' named colour spaces.
+                QPDFObjectHandle resources;
+                if (h.isStream())
+                    resources = h.getDict().getKey("/Resources");
+                OperandGrouper og(whitelist, resources);
                 QPDFObjectHandle::parseContentStream(h, &og);
                 // LCOV_EXCL_START - warning path depends on qpdf internals
                 if (!og.getWarning().empty()) {

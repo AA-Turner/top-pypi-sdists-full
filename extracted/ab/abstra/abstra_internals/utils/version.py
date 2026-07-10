@@ -2,6 +2,7 @@ import json
 import os
 from datetime import datetime
 from pathlib import Path
+from typing import Optional
 
 import requests
 from packaging.version import Version
@@ -9,32 +10,41 @@ from packaging.version import Version
 from abstra_internals.consts.filepaths import CACHED_VERSIONS_DIR_PATH
 from abstra_internals.logger import AbstraLogger
 
-EXPIRE_PERIOD = 60 * 60 * 4  # 4 hours
+EXPIRE_PERIOD = 60 * 15  # 15 minutes
 TIMEOUT = 5
 
 
-def get_cached_latest_version(root_path: Path, package_name="abstra"):
+def _read_cached_version(root_path: Path, package_name: str) -> Optional[Version]:
     cached_file = root_path / CACHED_VERSIONS_DIR_PATH / f"{package_name}.json"
 
-    if cached_file.exists():
-        try:
-            with open(cached_file, "r", encoding="utf-8") as f:
-                cached_version = json.loads(f.readline())
+    if not cached_file.exists():
+        return None
 
-            created_at = cached_version["created_at"]
-            version = cached_version["version"]
-        except Exception as e:
-            AbstraLogger.capture_exception(e)
-            created_at = None
-            version = None
+    try:
+        with open(cached_file, "r", encoding="utf-8") as f:
+            cached_version = json.loads(f.readline())
 
-        if (
-            created_at is not None
-            and isinstance(created_at, float)
-            and version is not None
-            and datetime.utcnow().timestamp() - created_at < EXPIRE_PERIOD
-        ):
-            return Version(version)
+        created_at = cached_version["created_at"]
+        version = cached_version["version"]
+    except Exception as e:
+        AbstraLogger.capture_exception(e)
+        return None
+
+    if (
+        isinstance(created_at, float)
+        and version is not None
+        and datetime.utcnow().timestamp() - created_at < EXPIRE_PERIOD
+    ):
+        return Version(version)
+
+    return None
+
+
+def get_cached_latest_version(root_path: Path, package_name="abstra", revalidate=False):
+    if not revalidate:
+        cached = _read_cached_version(root_path, package_name)
+        if cached is not None:
+            return cached
 
     try:
         response = requests.get(
@@ -47,6 +57,11 @@ def get_cached_latest_version(root_path: Path, package_name="abstra"):
 
         return Version(latest_version)
     except Exception:
+        # A revalidating pass skipped a possibly still-valid cache: fall back
+        # to it so a network hiccup on manual refresh doesn't drop an existing
+        # banner.
+        if revalidate:
+            return _read_cached_version(root_path, package_name)
         return None
 
 

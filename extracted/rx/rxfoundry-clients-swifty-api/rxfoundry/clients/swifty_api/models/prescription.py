@@ -22,6 +22,7 @@ from datetime import datetime
 from pydantic import BaseModel, ConfigDict, Field, StrictBool, StrictFloat, StrictInt, StrictStr, field_validator
 from typing import Any, ClassVar, Dict, List, Optional, Union
 from typing_extensions import Annotated
+from rxfoundry.clients.swifty_api.models.assignment import Assignment
 from rxfoundry.clients.swifty_api.models.code import Code
 from rxfoundry.clients.swifty_api.models.medication import Medication
 from rxfoundry.clients.swifty_api.models.patient import Patient
@@ -107,7 +108,8 @@ class Prescription(BaseModel):
     status: Optional[PrescriptionStatusType] = None
     status_reason: Optional[PrescriptionStatusReasonType] = None
     status_history: Optional[List[PrescriptionStatusAudit]] = Field(default=None, description="The history of statuses for the prescription.")
-    __properties: ClassVar[List[str]] = ["uuid", "rx_number", "prescriber_order_number", "patient", "pharmacy", "prescriber", "prescriber_supervisor", "drug_description", "prescribed_ndc", "preferred_ndc", "medication", "dea_compliant", "dea_schedule", "dea_compliance_method", "number_of_fills", "quantity_value", "quantity_type", "quantity_uom", "days_supply", "written_date", "expiration_date", "substitutions", "number_of_refills", "fill_quantity", "total_quantity", "sig_text", "structured_sig_snomed_verson", "structured_sig_fmt_version", "structured_sig_instructions", "structured_sig_indications", "structured_sig_max_does_restrictions", "structured_sig_clarifying_free_text", "rx_fill_indicators", "pv0", "pv1", "is_on_formulary", "has_open_issues", "ignore_open_issues", "prohibit_renewal_request", "has_running_workflow", "has_pending_change_requests", "has_approved_change_requests", "has_denied_change_requests", "notified_on", "prescription_issues", "prescription_tasks", "prescription_edits", "prescription_change_requests", "prescription_transfer_requests", "transfer_requested_on", "transfer_requested_to", "transferred_on", "transfer_type", "transferred_by", "original_image_pdf", "original_image_png", "image_pdf", "image_png", "source", "status", "status_reason", "status_history"]
+    assignment: Optional[Assignment] = None
+    __properties: ClassVar[List[str]] = ["uuid", "rx_number", "prescriber_order_number", "patient", "pharmacy", "prescriber", "prescriber_supervisor", "drug_description", "prescribed_ndc", "preferred_ndc", "medication", "dea_compliant", "dea_schedule", "dea_compliance_method", "number_of_fills", "quantity_value", "quantity_type", "quantity_uom", "days_supply", "written_date", "expiration_date", "substitutions", "number_of_refills", "fill_quantity", "total_quantity", "sig_text", "structured_sig_snomed_verson", "structured_sig_fmt_version", "structured_sig_instructions", "structured_sig_indications", "structured_sig_max_does_restrictions", "structured_sig_clarifying_free_text", "rx_fill_indicators", "pv0", "pv1", "is_on_formulary", "has_open_issues", "ignore_open_issues", "prohibit_renewal_request", "has_running_workflow", "has_pending_change_requests", "has_approved_change_requests", "has_denied_change_requests", "notified_on", "prescription_issues", "prescription_tasks", "prescription_edits", "prescription_change_requests", "prescription_transfer_requests", "transfer_requested_on", "transfer_requested_to", "transferred_on", "transfer_type", "transferred_by", "original_image_pdf", "original_image_png", "image_pdf", "image_png", "source", "status", "status_reason", "status_history", "assignment"]
 
     @field_validator('transfer_type')
     def transfer_type_validate_enum(cls, value):
@@ -249,6 +251,9 @@ class Prescription(BaseModel):
                 if _item_status_history:
                     _items.append(_item_status_history.to_dict())
             _dict['status_history'] = _items
+        # override the default output from pydantic by calling `to_dict()` of assignment
+        if self.assignment:
+            _dict['assignment'] = self.assignment.to_dict()
         return _dict
 
     @classmethod
@@ -322,7 +327,8 @@ class Prescription(BaseModel):
             "source": obj.get("source"),
             "status": obj.get("status"),
             "status_reason": obj.get("status_reason"),
-            "status_history": [PrescriptionStatusAudit.from_dict(_item) for _item in obj["status_history"]] if obj.get("status_history") is not None else None
+            "status_history": [PrescriptionStatusAudit.from_dict(_item) for _item in obj["status_history"]] if obj.get("status_history") is not None else None,
+            "assignment": Assignment.from_dict(obj["assignment"]) if obj.get("assignment") is not None else None
         })
         return _obj
 

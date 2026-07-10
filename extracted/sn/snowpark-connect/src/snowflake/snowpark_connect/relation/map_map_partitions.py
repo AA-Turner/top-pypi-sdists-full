@@ -27,8 +27,8 @@ from snowflake.snowpark_connect.utils.java_udtf_utils import (
     create_java_udtf,
 )
 from snowflake.snowpark_connect.utils.jvm_udf_utils import (
+    encode_jvm_udf_arg,
     is_decomposable_struct,
-    is_native_sql_type,
 )
 from snowflake.snowpark_connect.utils.pandas_udtf_utils import (
     create_pandas_udtf,
@@ -42,7 +42,7 @@ from snowflake.snowpark_connect.utils.udtf_helper import (
 from snowflake.snowpark_connect.utils.udxf_import_utils import (
     get_python_udxf_import_files,
 )
-from snowflake.snowpark_connect.utils.variant_utils import scala_udf_arg_to_variant
+from snowflake.snowpark_connect.utils.variant_utils import jvm_udf_arg_to_variant
 
 
 def map_map_partitions(
@@ -174,22 +174,19 @@ def _map_with_udtf(
             )
             if is_decomposable_struct(arg_types[0]):
                 # Decompose struct fields: native fields passed as their SQL type,
-                # non-native fields (Timestamp, Date, Array, …) passed as VARIANT.
+                # temporal/interval native fields lowered to epoch INT/BIGINT,
+                # non-native fields (Array, Map, …) passed as VARIANT.
                 # Applies to both flatMap and mapPartitions (batch_mode).
                 snowpark_cols = input_df_container.column_map.get_snowpark_columns()
                 udtf_arg_columns = [
-                    snowpark_fn.col(snowpark_cols[i])
-                    if is_native_sql_type(f.datatype)
-                    else scala_udf_arg_to_variant(
-                        snowpark_fn.col(snowpark_cols[i]), f.datatype
-                    )
+                    encode_jvm_udf_arg(snowpark_fn.col(snowpark_cols[i]), f.datatype)
                     for i, f in enumerate(arg_types[0].fields)
                 ]
             else:
                 # Non-decomposable struct: pass the whole struct as a single VARIANT arg.
                 # Computed only here to avoid the eager analyzer call on the decomposed path.
                 udtf_arg_columns = [
-                    scala_udf_arg_to_variant(typed_col.col, typed_col.typ)
+                    jvm_udf_arg_to_variant(typed_col.col, typed_col.typ)
                 ]
         else:
             snowpark_col = snowpark_fn.col(
@@ -197,11 +194,7 @@ def _map_with_udtf(
             )
             spark_col_name = input_df_container.column_map.get_spark_columns()[0]
             arg_types = [input_schema.fields[0].datatype]
-            udtf_arg_columns = (
-                [snowpark_col]
-                if is_native_sql_type(arg_types[0])
-                else [scala_udf_arg_to_variant(snowpark_col, arg_types[0])]
-            )
+            udtf_arg_columns = [encode_jvm_udf_arg(snowpark_col, arg_types[0])]
 
         partition_hint = input_df_container.partition_hint
 

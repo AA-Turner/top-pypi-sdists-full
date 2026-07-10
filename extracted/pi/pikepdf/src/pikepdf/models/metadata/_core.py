@@ -97,9 +97,7 @@ class PdfMetadata(MutableMapping):
         except AttributeError:
             data = b''
 
-        return XmpDocument(
-            data, overwrite_invalid_xml=self._overwrite_invalid_xml
-        )
+        return XmpDocument(data, overwrite_invalid_xml=self._overwrite_invalid_xml)
 
     def load_from_docinfo(
         self, docinfo, delete_missing: bool = False, raise_failure: bool = False

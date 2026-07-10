@@ -18,10 +18,14 @@ import snowflake.snowpark.functions as snowpark_fn
 from snowflake.snowpark._internal.udf_utils import extract_return_input_types
 from snowflake.snowpark._internal.utils import TempObjectType
 from snowflake.snowpark.types import (
+    ArrayType,
     DataType,
+    MapType,
     PandasDataFrameType,
     StringType,
     StructType,
+    TimestampTimeZone,
+    TimestampType,
     VariantType,
 )
 
@@ -108,25 +112,251 @@ def create_null_safe_wrapper(func):
     return wrapper
 
 
+def build_timestamp_return_descriptor(sf_type):
+    """
+    Build a lightweight, cloudpickle-safe descriptor of the TimestampType leaves
+    within a Snowpark return type, or None when the type contains no timestamp.
+
+    The descriptor drives ``create_timestamp_return_wrapper`` so that timestamps
+    nested in Array/Map/Struct return values are normalised (not just scalar
+    TIMESTAMP returns). Shapes:
+      - timestamp:  ("ts", is_ntz)
+      - array:      ("array", element_desc)
+      - map:        ("map", key_desc, value_desc)
+      - struct:     ("struct", [(field_name, field_desc), ...])
+    """
+    if isinstance(sf_type, TimestampType):
+        return ("ts", sf_type.tz == TimestampTimeZone.NTZ)
+    if isinstance(sf_type, ArrayType):
+        inner = build_timestamp_return_descriptor(sf_type.element_type)
+        return ("array", inner) if inner is not None else None
+    if isinstance(sf_type, MapType):
+        key_desc = build_timestamp_return_descriptor(sf_type.key_type)
+        val_desc = build_timestamp_return_descriptor(sf_type.value_type)
+        if key_desc is not None or val_desc is not None:
+            return ("map", key_desc, val_desc)
+        return None
+    if isinstance(sf_type, StructType):
+        fields = [
+            (f.name, build_timestamp_return_descriptor(f.datatype))
+            for f in sf_type.fields
+        ]
+        if any(d is not None for _, d in fields):
+            return ("struct", fields)
+        return None
+    return None
+
+
+def create_timestamp_return_wrapper(func: Callable, descriptor) -> Callable:
+    """
+    Convert the ``datetime`` values in a UDF's return to the naive form the
+    TIMESTAMP return column expects, matching PySpark (verified against
+    test_function_year / test_function_year_plus) and mirroring the Scala
+    UdfPacketUtils rule (LTZ uses the session timezone, NTZ uses UTC). Handles
+    timestamps nested inside Array/Map/Struct via ``descriptor`` (built by
+    ``build_timestamp_return_descriptor``).
+
+    Per timestamp leaf:
+      - TIMESTAMP_NTZ: the value is the wall clock. A naive datetime is returned
+        unchanged; a tz-aware one is converted to UTC and stripped.
+      - TIMESTAMP_LTZ / default: the value denotes a UTC instant (a naive value
+        is treated as UTC), expressed in the explicit session timezone ($TZ)
+        with tzinfo dropped, so TIMESTAMP_LTZ (which re-interprets the naive
+        value in the session timezone) stores the same instant. E.g. a returned
+        2025-03-01 15:30:00 displays as 07:30 in America/Los_Angeles.
+
+    This also avoids Snowflake rejecting a tz-aware datetime on the return path
+    ("Datetime object must be naive to be convertible to TIMESTAMP_LTZ").
+    """
+    import datetime as _dt
+    import os as _os
+
+    import pytz as _pytz
+
+    def _conv_leaf(value, is_ntz, session_zone):
+        if not isinstance(value, _dt.datetime):
+            return value
+        if is_ntz:
+            if value.tzinfo is not None:
+                return value.astimezone(_pytz.utc).replace(tzinfo=None)
+            return value
+        if value.tzinfo is None:
+            value = _pytz.utc.localize(value)
+        return value.astimezone(session_zone).replace(tzinfo=None)
+
+    def _walk(value, desc, session_zone):
+        if value is None or desc is None:
+            return value
+        kind = desc[0]
+        if kind == "ts":
+            return _conv_leaf(value, desc[1], session_zone)
+        if kind == "array":
+            if isinstance(value, (list, tuple)):
+                return [_walk(v, desc[1], session_zone) for v in value]
+            return value
+        if kind == "map":
+            if isinstance(value, dict):
+                key_desc, val_desc = desc[1], desc[2]
+                return {
+                    (
+                        _walk(k, key_desc, session_zone) if key_desc is not None else k
+                    ): _walk(v, val_desc, session_zone)
+                    for k, v in value.items()
+                }
+            return value
+        if kind == "struct":
+            fields = desc[1]
+            if isinstance(value, dict):
+                # struct results are dicts keyed by field name (case may differ).
+                lower_to_actual = {k.lower(): k for k in value}
+                result = dict(value)
+                for fname, fdesc in fields:
+                    if fdesc is None:
+                        continue
+                    actual = lower_to_actual.get(fname.lower())
+                    if actual is not None:
+                        result[actual] = _walk(result[actual], fdesc, session_zone)
+                return result
+            if isinstance(value, (list, tuple)) and len(value) == len(fields):
+                return type(value)(
+                    _walk(v, fdesc, session_zone) if fdesc is not None else v
+                    for (_, fdesc), v in zip(fields, value)
+                )
+            return value
+        return value
+
+    @functools.wraps(func)
+    def wrapper(*args, **kwargs):
+        # Resolve the session timezone once per invocation (not per leaf).
+        return _walk(
+            func(*args, **kwargs),
+            descriptor,
+            _pytz.timezone(_os.environ.get("TZ", "UTC")),
+        )
+
+    return wrapper
+
+
 def create_schema_json_coercion_wrapper(func: Callable) -> Callable:
     """
     Wrap a UDF to coerce its arguments based on a per-call schema_json sidecar
     appended as the last positional argument by the call site.
 
-    This works around the fact that casting a Snowflake FLOAT/DOUBLE value to
-    VARIANT collapses integer-valued floats (e.g. ``1.0``) to integers, so a
-    Python UDF registered with VARIANT inputs receives ``int(1)`` instead of
-    ``float(1.0)``. PySpark always passes the call-site Spark type to Python,
-    so we restore that contract by coercing on the SAS side using the type
-    metadata captured at SQL-resolution time.
+    This works around the type information lost when Snowflake VARIANT
+    round-trips Python values:
+    - FLOAT/DOUBLE: integer-valued floats (e.g. ``1.0``) collapse to ``int``.
+    - TIMESTAMP*: timestamps become ISO-formatted strings instead of
+      ``datetime.datetime``.  The UDF receives the naive wall-clock value (any
+      LTZ offset is stripped), matching PySpark's Python-UDF contract for both
+      TIMESTAMP_NTZ and TIMESTAMP_LTZ.
+    - DATE: dates become date strings instead of ``datetime.date``.
+    - Compound types (array, map, struct) are handled recursively, so
+      timestamps nested inside lists or dicts are also restored.
 
-    The schema_json (a JSON-encoded list of Spark type names, one per real
-    argument) is appended by ``map_unresolved_function`` whenever the wrapped
-    UDF has ``attach_schema_json=True``. We coerce only the types where
-    Variant round-trip loses information today; everything else is passed
-    through unchanged so user code keeps seeing the same Python value.
+    PySpark always passes the call-site Spark type to Python, so we restore
+    that contract on the SAS side using the type metadata captured at
+    SQL-resolution time.
+
+    The schema_json (a JSON-encoded list of Spark type descriptors, one per
+    real argument) is appended by ``map_unresolved_function`` whenever the
+    wrapped UDF has ``attach_schema_json=True``. Values whose type needs no
+    special handling are passed through unchanged.
+
+    IMPORTANT: helpers are defined as nested functions (not module-level
+    references) so that cloudpickle serialises them as code objects. If they
+    were referenced as module-level globals, cloudpickle would try to resolve
+    them via ``import snowflake.snowpark_connect.utils.udf_utils``, which is
+    not available inside Snowflake's UDF runtime.
     """
+    import datetime as _dt
     import json as _json
+    import re as _re
+
+    _TS_TYPES = frozenset(
+        {"timestamp", "timestamp_ntz", "timestamp_ltz", "timestamp_tz"}
+    )
+    _TZ_RE = _re.compile(r"\s+([+-]\d{2}:?\d{2}|UTC|Z)$")
+
+    def _parse_ts(s):
+        # Match the datetime PySpark delivers to a Python UDF. The
+        # distinguishing signal is whether the VARIANT string carries a UTC
+        # offset, not the declared type:
+        #   - offset present (LTZ / instant): convert to UTC and drop tzinfo,
+        #     e.g. "2025-03-01 07:30:00 -0800" -> 2025-03-01 15:30:00.
+        #   - no offset (NTZ / wall clock): return the naive value as-is,
+        #     e.g. "2025-03-01 10:30:00" -> 2025-03-01 10:30:00.
+        # Remove the space before a trailing offset and normalise the offset so
+        # datetime.fromisoformat accepts it on every supported runtime: map
+        # " UTC"/" Z" to "+00:00" and insert a colon into colon-less offsets
+        # ("-0800" -> "-08:00"). Python < 3.11 rejects colon-less offsets and
+        # bare "Z", so without this the LTZ path would silently fall back to the
+        # raw string on 3.10 clients.
+        def _norm_offset(m):
+            tok = m.group(1)
+            if tok in ("UTC", "Z"):
+                return "+00:00"
+            return tok if ":" in tok else tok[:3] + ":" + tok[3:]
+
+        normalized = _TZ_RE.sub(_norm_offset, s)
+        try:
+            parsed = _dt.datetime.fromisoformat(normalized)
+        except ValueError:
+            return s
+        if parsed.tzinfo is not None:
+            return parsed.astimezone(_dt.timezone.utc).replace(tzinfo=None)
+        return parsed
+
+    def _coerce(value, type_desc):
+        if value is None:
+            return None
+        if isinstance(type_desc, str):
+            if type_desc in ("double", "float"):
+                if not isinstance(value, float):
+                    try:
+                        return float(value)
+                    except (TypeError, ValueError):
+                        return value
+            elif type_desc in _TS_TYPES:
+                if isinstance(value, str):
+                    return _parse_ts(value)
+            elif type_desc == "date":
+                if isinstance(value, str):
+                    try:
+                        return _dt.date.fromisoformat(value)
+                    except ValueError:
+                        return value
+            return value
+        if isinstance(type_desc, dict):
+            kind = type_desc.get("type")
+            if kind == "array" and isinstance(value, list):
+                elem_type = type_desc.get("element_type")
+                if elem_type is not None:
+                    return [_coerce(v, elem_type) for v in value]
+            elif kind == "map" and isinstance(value, dict):
+                key_type = type_desc.get("key_type")
+                val_type = type_desc.get("value_type")
+                if val_type is not None:
+                    if key_type is not None:
+                        return {
+                            _coerce(k, key_type): _coerce(v, val_type)
+                            for k, v in value.items()
+                        }
+                    return {k: _coerce(v, val_type) for k, v in value.items()}
+            elif kind == "struct" and isinstance(value, dict):
+                fields = type_desc.get("fields", [])
+                if fields:
+                    # Snowpark upper-cases field names; match case-insensitively.
+                    lower_to_actual = {k.lower(): k for k in value}
+                    result = dict(value)
+                    for field in fields:
+                        desc_name = field.get("name", "")
+                        actual_key = lower_to_actual.get(desc_name.lower())
+                        if actual_key is not None:
+                            result[actual_key] = _coerce(
+                                value[actual_key], field.get("type")
+                            )
+                    return result
+        return value
 
     @functools.wraps(func)
     def wrapper(*args, **kwargs):
@@ -143,20 +373,7 @@ def create_schema_json_coercion_wrapper(func: Callable) -> Callable:
                 )
                 schema = None
             if isinstance(schema, list) and len(schema) == len(real_args):
-                coerced = []
-                for value, spark_type in zip(real_args, schema):
-                    if value is None:
-                        coerced.append(value)
-                    elif spark_type in ("double", "float") and not isinstance(
-                        value, float
-                    ):
-                        try:
-                            coerced.append(float(value))
-                        except (TypeError, ValueError):
-                            coerced.append(value)
-                    else:
-                        coerced.append(value)
-                real_args = coerced
+                real_args = [_coerce(v, t) for v, t in zip(real_args, schema)]
         return func(*real_args, **kwargs)
 
     return wrapper
@@ -469,13 +686,14 @@ class ProcessCommonInlineUserDefinedFunction:
             struct_input_wrapper if struct_positions else callable_func
         )
 
-        # SNOW-3381818: when the caller asked for schema-driven coercion AND
-        # we ended up defaulting to all-Variant inputs, splice in an extra
-        # trailing StringType input that carries the call-site Spark type
-        # metadata and wrap the user callable so it strips and consumes that
-        # arg. This restores the int-vs-float distinction for
-        # FloatType/DoubleType arguments that Snowflake VARIANT round-trip
-        # would otherwise lose.
+        # SNOW-3381818/SNOW-3595424: when the caller asked for schema-driven
+        # coercion AND we ended up defaulting to all-Variant inputs, splice in
+        # an extra trailing StringType input that carries the call-site Spark
+        # type metadata and wrap the user callable so it strips and consumes
+        # that arg.  This restores type fidelity for values that VARIANT
+        # round-trip silently changes: float/double integer-valued collapse,
+        # timestamps arriving as strings, dates arriving as strings, and any
+        # of these nested inside array/map/struct compound types.
         apply_schema_coercion = (
             self._coerce_via_schema_json
             and defaulted_input_types_to_variant
@@ -487,9 +705,22 @@ class ProcessCommonInlineUserDefinedFunction:
                 updated_callable_func
             )
 
+        # Descriptor of TimestampType leaves in the return type (scalar or
+        # nested in Array/Map/Struct). Drives return-value normalisation and
+        # requires pytz in the UDF runtime for the session-timezone conversion.
+        ts_return_desc = build_timestamp_return_descriptor(self._original_return_type)
+        if ts_return_desc is not None and "pytz" not in packages:
+            packages.append("pytz")
+
         if not needs_struct_conversion:
             # Apply null-safe wrapper first, then telemetry wrapper (if enabled)
             wrapped_func = create_null_safe_wrapper(updated_callable_func)
+            # Normalise TIMESTAMP values in the return (LTZ -> session tz,
+            # NTZ -> UTC), including timestamps nested in Array/Map/Struct.
+            if ts_return_desc is not None:
+                wrapped_func = create_timestamp_return_wrapper(
+                    wrapped_func, ts_return_desc
+                )
             if ENABLE_UDF_TELEMETRY:
                 wrapped_func = create_telemetry_wrapper(
                     wrapped_func, self._function_name
@@ -524,19 +755,22 @@ class ProcessCommonInlineUserDefinedFunction:
 
         def struct_wrapper(*args):
             if struct_positions:
+                # Inline UDF with struct inputs: decompose to Row proxies,
+                # call the original callable, then convert the result back.
                 processed_args = []
                 for i, arg in enumerate(args):
                     if i in struct_positions:
                         processed_args.append(convert_to_row(arg))
                     else:
                         processed_args.append(arg)
-                args = tuple(processed_args)
-
-            result = callable_func(*args)
-
-            # Convert StructRowProxy back to dict for serialization
-            if struct_positions:
+                result = callable_func(*tuple(processed_args))
                 result = convert_from_row(result)
+            else:
+                # Registered UDF (all-VARIANT inputs, no struct decomposition):
+                # use updated_callable_func so that the schema-json coercion
+                # wrapper (if applied) correctly restores timestamps / dates
+                # in the input before the user function sees them.
+                result = updated_callable_func(*args)
 
             if isinstance(result, (tuple, list)):
                 # Convert tuple/list to dict using struct field names
@@ -578,6 +812,12 @@ class ProcessCommonInlineUserDefinedFunction:
                 udf_function.__annotations__ = original_callable.__annotations__
         else:
             udf_function = create_null_safe_wrapper(struct_wrapper)
+            # Normalise TIMESTAMP values nested in the returned struct
+            # (LTZ -> session tz, NTZ -> UTC).
+            if ts_return_desc is not None:
+                udf_function = create_timestamp_return_wrapper(
+                    udf_function, ts_return_desc
+                )
 
         # Apply telemetry wrapper (if enabled)
         if ENABLE_UDF_TELEMETRY:

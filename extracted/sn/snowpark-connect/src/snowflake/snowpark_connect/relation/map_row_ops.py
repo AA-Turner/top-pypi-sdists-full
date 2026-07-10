@@ -63,6 +63,7 @@ from snowflake.snowpark_connect.relation.read.metadata_utils import (
 from snowflake.snowpark_connect.typed_column import FieldType
 from snowflake.snowpark_connect.utils.identifiers import (
     split_fully_qualified_spark_name,
+    strip_backtick_quotes_if_quoted,
 )
 from snowflake.snowpark_connect.utils.telemetry import (
     SnowparkConnectNotImplementedError,
@@ -469,7 +470,7 @@ def map_dropna(
             # Check if column has nested path (e.g., "c1.c1-1")
             try:
                 col_parts = c.split(".")
-                base_col = col_parts[0]
+                base_col = strip_backtick_quotes_if_quoted(col_parts[0])
                 snowpark_col = input_container.column_map.get_snowpark_column_name_from_spark_column_name(
                     base_col
                 )
@@ -1254,10 +1255,21 @@ def map_replace(
             return snowpark_expr(case_expr)
 
     if len(rel.replace.cols) > 0:
-        columns: list[str] = [
-            column_map.get_snowpark_column_name_from_spark_column_name(c)
-            for c in rel.replace.cols
-        ]
+        # Spark's replace() resolves subset names using the current caseSensitive
+        # mode (raising if no match at all) but only applies the replacement when
+        # the column name matches exactly (case-sensitive).  E.g. with column "id":
+        #   caseSensitive=false, subset="ID" → resolves (no error), skip replacement
+        #   caseSensitive=false, subset="a"  → doesn't resolve → error
+        #   caseSensitive=true,  subset="ID" → doesn't resolve → error
+        columns: list[str] = []
+        for c in rel.replace.cols:
+            spark_name = strip_backtick_quotes_if_quoted(c)
+            # Phase 1: resolve using caseSensitive mode — raises if not found
+            column_map.get_snowpark_column_name_from_spark_column_name(spark_name)
+            # Phase 2: only apply replacement on exact-case match
+            col_entries = column_map.spark_to_col.get(spark_name)
+            if col_entries:
+                columns.append(col_entries[0].snowpark_name)
     else:
         columns: list[str] = [
             c.snowpark_name

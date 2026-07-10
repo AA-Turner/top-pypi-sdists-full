@@ -1214,7 +1214,7 @@ class _TestObject(_BaseTestCase):
         obj.obj_reset_changes()
         self.assertEqual({}, obj.obj_get_changes())
 
-        timestamp = datetime.datetime(2001, 1, 1, tzinfo=datetime.timezone.utc)
+        timestamp = datetime.datetime(2001, 1, 1, tzinfo=datetime.UTC)
         with mock.patch.object(timeutils, 'utcnow') as mock_utcnow:
             mock_utcnow.return_value = timestamp
             obj.timestamp = timeutils.utcnow()
@@ -1277,12 +1277,14 @@ class _TestObject(_BaseTestCase):
 
     def test_obj_mutable_default(self):
         obj = MyObj(context=self.context, foo=123, bar='abc')
-        obj.mutable_default = None
+        # we're assigning None here to trigger the mutable-default reset
+        # mechanism but these fields are not typed as nullable
+        obj.mutable_default = None  # type: ignore[assignment]
         obj.mutable_default.append('s1')
         self.assertEqual(obj.mutable_default, ['s1'])
 
         obj1 = MyObj(context=self.context, foo=123, bar='abc')
-        obj1.mutable_default = None
+        obj1.mutable_default = None  # type: ignore[assignment]
         obj1.mutable_default.append('s2')
         self.assertEqual(obj1.mutable_default, ['s2'])
 
@@ -2708,15 +2710,15 @@ class TestTimestampedObject(test.TestCase):
 
     def test_timestamped_holds_timestamps(self):
         now = timeutils.utcnow(with_timezone=True)
-        self.my_object.updated_at = now  # type: ignore[attr-defined]
-        self.my_object.created_at = now  # type: ignore[attr-defined]
-        self.assertEqual(now, self.my_object.updated_at)  # type: ignore[attr-defined]
-        self.assertEqual(now, self.my_object.created_at)  # type: ignore[attr-defined]
+        self.my_object.updated_at = now
+        self.my_object.created_at = now
+        self.assertEqual(now, self.my_object.updated_at)
+        self.assertEqual(now, self.my_object.created_at)
 
     def test_timestamped_rejects_not_timestamps(self):
         # we are intentionally assigning the wrong types hence the type ignores
         with testtools.ExpectedException(ValueError, '.*parse date.*'):
-            self.my_object.updated_at = 'a string'  # type: ignore[attr-defined]
+            self.my_object.updated_at = 'a string'  # type: ignore[assignment]
 
         with testtools.ExpectedException(ValueError, '.*parse date.*'):
-            self.my_object.created_at = 'a string'  # type: ignore[attr-defined]
+            self.my_object.created_at = 'a string'  # type: ignore[assignment]

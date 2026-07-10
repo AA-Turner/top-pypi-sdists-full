@@ -34,8 +34,8 @@ from typing import (
     Concatenate,
     overload,
     ParamSpec,
+    Self,
     TypeVar,
-    TYPE_CHECKING,
 )
 import warnings
 
@@ -47,12 +47,11 @@ from oslo_versionedobjects._i18n import _
 from oslo_versionedobjects import exception
 from oslo_versionedobjects import fields as obj_fields
 
-if TYPE_CHECKING:
-    from typing_extensions import Self
-
 LOG = logging.getLogger('object')
 
 _VO = TypeVar('_VO', bound='VersionedObject')
+# we'd like this to be ObjectListBase[_VO] but Python doesn't allow this :(
+_VOL = TypeVar('_VOL', bound='ObjectListBase[Any]')
 
 
 class _NotSpecifiedSentinel:
@@ -401,62 +400,83 @@ class VersionedObject:
 
     indirection_api: VersionedObjectIndirectionAPI | None = None
 
-    # Object versioning rules
-    #
-    # Each service has its set of objects, each with a version attached. When
-    # a client attempts to call an object method, the server checks to see if
-    # the version of that object matches (in a compatible way) its object
-    # implementation. If so, cool, and if not, fail.
-    #
-    # This version is allowed to have three parts, X.Y.Z, where the .Z element
-    # is reserved for stable branch backports. The .Z is ignored for the
-    # purposes of triggering a backport, which means anything changed under
-    # a .Z must be additive and non-destructive such that a node that knows
-    # about X.Y can consider X.Y.Z equivalent.
+    #: Object version field
+    #:
+    #: Each service has its set of objects, each with a version attached. When
+    #: a client attempts to call an object method, the server checks to see if
+    #: the version of that object matches (in a compatible way) its object
+    #: implementation. If so, cool, and if not, fail.
+    #:
+    #: This version is allowed to have three parts, ``X.Y.Z``, where the ``.Z``
+    #: element is reserved for stable branch backports. The ``.Z`` is ignored
+    #: for the purposes of triggering a backport, which means anything changed
+    #: under a ``.Z`` must be additive and non-destructive such that a node
+    #: that knows about ``X.Y`` can consider ``X.Y.Z`` equivalent.
     VERSION: str = '1.0'
 
-    # Object namespace for serialization
-    # NB: Generally this should not be changed, but is needed for backwards
-    #     compatibility
+    #: Object namespace for serialization
+    #:
+    #: This should generally not be changed, but is needed for backwards
+    #: compatibility
     OBJ_SERIAL_NAMESPACE: str = 'versioned_object'
 
-    # Object project namespace for serialization
-    # This is used to disambiguate owners of objects sharing a common RPC
-    # medium
+    #: Object project namespace for serialization
+    #:
+    #: This is used to disambiguate owners of objects sharing a common RPC
+    #: medium.
     OBJ_PROJECT_NAMESPACE: str = 'versionedobjects'
 
-    # The fields present in this object as key:field pairs. For example:
-    #
-    # fields = { 'foo': obj_fields.IntegerField(),
-    #            'bar': obj_fields.StringField(),
-    #          }
+    #: The fields present in this object as ``key:field`` pairs.
+    #:
+    #: For example::
+    #:
+    #:     fields = {
+    #:         'foo': obj_fields.IntegerField(),
+    #:         'bar': obj_fields.StringField(),
+    #:     }
+    #:
     fields: MutableMapping[str, obj_fields.Field[Any]] = {}
+
+    #: List of additional object attributes to expose alongside :attr:`fields`.
+    #:
+    #: Names listed here are typically implemented as Python properties and
+    #: are included in :attr:`obj_fields` and exposed through iteration, but
+    #: they are not versioned and not serialized during RPC::
+    #:
+    #:     class MyObject(VersionedObject):
+    #:         fields = {'foo': obj_fields.IntegerField()}
+    #:         obj_extra_fields = ['bar']
+    #:
+    #:         @property
+    #:         def bar(self):
+    #:             return self.foo * 2
     obj_extra_fields: Sequence[str] = []
 
-    # Table of sub-object versioning information
-    #
-    # This contains a list of version mappings, by the field name of
-    # the subobject. The mappings must be in order of oldest to
-    # newest, and are tuples of (my_version, subobject_version). A
-    # request to backport this object to $my_version will cause the
-    # subobject to be backported to $subobject_version.
-    #
-    # obj_relationships = {
-    #     'subobject1': [('1.2', '1.1'), ('1.4', '1.2')],
-    #     'subobject2': [('1.2', '1.0')],
-    # }
-    #
-    # In the above example:
-    #
-    # - If we are asked to backport our object to version 1.3,
-    #   subobject1 will be backported to version 1.1, since it was
-    #   bumped to version 1.2 when our version was 1.4.
-    # - If we are asked to backport our object to version 1.5,
-    #   no changes will be made to subobject1 or subobject2, since
-    #   they have not changed since version 1.4.
-    # - If we are asked to backlevel our object to version 1.1, we
-    #   will remove both subobject1 and subobject2 from the primitive,
-    #   since they were not added until version 1.2.
+    #: Table of sub-object versioning information
+    #:
+    #: This contains a list of version mappings, by the field name of
+    #: the subobject. The mappings must be in order of oldest to
+    #: newest, and are tuples of ``(my_version, subobject_version)``. A
+    #: request to backport this object to ``my_version`` will cause the
+    #: subobject to be backported to ``subobject_version``::
+    #:
+    #:     obj_relationships = {
+    #:         'subobject1': [('1.2', '1.1'), ('1.4', '1.2')],
+    #:         'subobject2': [('1.2', '1.0')],
+    #:     }
+    #:
+    #: In the above example:
+    #:
+    #: * If we are asked to backport our object to version 1.3,
+    #:   ``subobject1`` will be backported to version 1.1, since it was
+    #:   bumped to version 1.2 when our version was 1.4.
+    #: * If we are asked to backport our object to version 1.5,
+    #:   no changes will be made to ``subobject1`` or ``subobject2``, since
+    #:   they have not changed since version 1.4.
+    #: * If we are asked to backlevel our object to version 1.1, we
+    #:   will remove both ``subobject1`` and ``subobject2`` from the primitive,
+    #:   since they were not added until version 1.2.
+    #:
     obj_relationships: dict[str, list[tuple[str, str]]] = {}
 
     _changed_fields: set[str]
@@ -507,7 +527,7 @@ class VersionedObject:
 
     @classmethod
     def obj_name(cls) -> str:
-        """Return the object's name
+        """Return the object's name.
 
         Return a canonical name for this object which will be used over
         the wire for remote hydration.
@@ -663,9 +683,9 @@ class VersionedObject:
         requires that the obj_relationships table in this object is
         correct and up-to-date.
 
-        :param:primitive: The primitive version of this object
-        :param:target_version: The version string requested for this object
-        :param:field: The name of the field in this object containing the
+        :param primitive: The primitive version of this object
+        :param target_version: The version string requested for this object
+        :param field: The name of the field in this object containing the
                       sub-object to be backported
         """
         relationship_map = self._obj_relationship_for(field, target_version)
@@ -946,7 +966,32 @@ class ComparableVersionedObject:
         return NotImplemented
 
 
-class TimestampedObject:
+class VersionedObjectMixin:
+    """Marker base class for OVO mixin classes that contribute fields.
+
+    Mixin classes that define an OVO ``fields`` dict should inherit from this
+    class so that the ``oslo_versionedobjects.mypy`` plugin can discover and
+    type-check their fields in the same way it handles registered
+    ``VersionedObject`` subclasses.
+
+    Example::
+
+        class MyFieldsMixin(VersionedObjectMixin):
+            fields: MutableMapping[str, fields.Field[Any]] = {
+                'name': fields.StringField(),
+            }
+
+
+        @base.VersionedObjectRegistry.register
+        class MyObject(MyFieldsMixin, base.VersionedObject):
+            VERSION = '1.0'
+            fields = {
+                'count': fields.IntegerField(),
+            }
+    """
+
+
+class TimestampedObject(VersionedObjectMixin):
     """Mixin class for db backed objects with timestamp fields.
 
     Sqlalchemy models that inherit from the oslo_db TimestampMixin will include
@@ -1222,9 +1267,9 @@ class VersionedObjectSerializer(messaging.NoOpSerializer):  # type: ignore[misc]
     ) -> tuple[Any, ...] | list[Any] | dict[str, Any]:
         """Process an iterable, taking an action on each value.
 
-        :param:context: Request context
-        :param:action_fn: Action to take on each item in values
-        :param:values: Iterable container of things to take action on
+        :param context: Request context
+        :param action_fn: Action to take on each item in values
+        :param values: Iterable container of things to take action on
         :returns: A new container of the same type (except set) with
                   items from values having had action applied.
         """
@@ -1439,21 +1484,21 @@ class VersionedObjectIndirectionAPI(metaclass=abc.ABCMeta):
 
 def obj_make_list(
     context: Any,
-    list_obj: ObjectListBase[_VO],
+    list_obj: _VOL,
     item_cls: type[_VO],
     db_list: list[dict[str, Any]],
     **extra_args: Any,
-) -> ObjectListBase[_VO]:
+) -> _VOL:
     """Construct an object list from a list of primitives.
 
     This calls item_cls._from_db_object() on each item of db_list, and
     adds the resulting object to list_obj.
 
-    :param:context: Request context
-    :param:list_obj: An ObjectListBase object
-    :param:item_cls: The VersionedObject class of the objects within the list
-    :param:db_list: The list of primitives to convert to objects
-    :param:extra_args: Extra arguments to pass to _from_db_object()
+    :param context: Request context
+    :param list_obj: An ObjectListBase object
+    :param item_cls: The VersionedObject class of the objects within the list
+    :param db_list: The list of primitives to convert to objects
+    :param extra_args: Extra arguments to pass to _from_db_object()
     :returns: list_obj
     """
     list_obj.objects = []

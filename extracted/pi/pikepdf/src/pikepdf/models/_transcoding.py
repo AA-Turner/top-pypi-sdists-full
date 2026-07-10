@@ -12,6 +12,7 @@ from pikepdf._core import _unpack_subbyte_2bit, _unpack_subbyte_4bit
 if TYPE_CHECKING:
     from PIL import Image
 
+
 class ImageDecompressionError(Exception):
     """Image decompression error."""
 
@@ -126,6 +127,60 @@ def image_from_byte_buffer(buffer: BytesLike, size: tuple[int, int], stride: int
                 raise ImageDecompressionError(str(e2)) from e2
         else:
             raise ImageDecompressionError() from e
+
+
+def image_from_int16_buffer(buffer: BytesLike, size: tuple[int, int]):
+    """Create a 16-bit grayscale image from a buffer of big-endian samples.
+
+    PDF stores 16-bit samples most-significant-byte first (ISO 32000-2 §8.9.3).
+    The data is read big-endian and normalized to native ``I;16`` via a 32-bit
+    ``I`` intermediate: Pillow's direct ``I;16B`` -> ``I;16`` conversion clips to
+    8 bits, but going through ``I`` is lossless.
+    """
+    from PIL import Image
+
+    try:
+        im = Image.frombuffer('I;16', size, buffer, 'raw', 'I;16B', 0, 1)
+        return im.convert('I').convert('I;16')
+    except ValueError as e:
+        raise ImageDecompressionError() from e
+
+
+def downconvert_int16_to_8bit(buffer: BytesLike) -> bytes:
+    """Reduce big-endian 16-bit samples to 8-bit by keeping the high byte.
+
+    Pillow has no 48/64-bit-per-pixel raw mode for RGB/CMYK, so multi-component
+    16-bit images are lossily reduced to 8-bit: the high (most significant) byte
+    of every 2-byte big-endian sample is taken.
+    """
+    mv = memoryview(buffer)
+    return bytes(mv[0::2])
+
+
+def colorkey_alpha(
+    raw: BytesLike, size: tuple[int, int], nbands: int, ranges: list[int]
+) -> Image.Image:
+    """Build an ``L`` alpha band from a colour-key mask over 8-bit samples.
+
+    A sample is masked out (alpha 0) when every component falls within its
+    ``[min, max]`` range from *ranges* (``[min1 max1 ... minn maxn]``), per
+    ISO 32000-2 §8.9.6.4; otherwise it is opaque (alpha 255).
+    """
+    from PIL import Image
+
+    width, height = size
+    count = width * height
+    out = bytearray(count)
+    mv = memoryview(raw)
+    for px in range(count):
+        masked = True
+        for c in range(nbands):
+            v = mv[px * nbands + c]
+            if not (ranges[2 * c] <= v <= ranges[2 * c + 1]):
+                masked = False
+                break
+        out[px] = 0 if masked else 255
+    return Image.frombuffer('L', size, bytes(out), 'raw', 'L', 0, 1)
 
 
 def _make_rgb_palette(gray_palette: BytesLike) -> bytes:

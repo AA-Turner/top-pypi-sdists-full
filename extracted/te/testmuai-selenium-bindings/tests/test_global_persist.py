@@ -13,12 +13,20 @@ names (server's 200/403 decides persist, exactly like V2 — no local is_persist
 check), guarded on LT creds.
 """
 import base64
+import logging
 
 import pytest
 import requests
 
 from testmu_selenium import _config
-from testmu_selenium._vars import set_var, var, clear_state, _variable_store
+from testmu_selenium._vars import (
+    set_var,
+    var,
+    clear_state,
+    _variable_store,
+    _global_variables,
+    _session_variable_value,
+)
 
 
 @pytest.fixture(autouse=True)
@@ -105,6 +113,55 @@ class TestSetVarGlobalPersist:
         set_var("global.token", "abc")
         assert capture_put == []
         assert _variable_store["token"] == "abc"
+
+
+class TestGlobalSetVarUpdatesSessionValue:
+    """set_var("global.X") must ALWAYS update the local session snapshot —
+    parity with the in-product runtime: session data updates regardless of
+    persist; is_persist only gates the TMS write. Without this, a
+    {{global.X}} read with is_persist=false falls back to the authoring-time
+    session_value baked into configure() and types a stale value."""
+
+    def test_updates_existing_entry_session_value(self, lt_creds, capture_put):
+        _global_variables.append(
+            {"name": "email", "value": "auth@x.com", "session_value": "auth@x.com",
+             "is_persist": False}
+        )
+        set_var("global.email", "new@x.com")
+        assert _session_variable_value("email") == "new@x.com"
+
+    def test_appends_entry_when_variable_not_baked(self, lt_creds, capture_put):
+        set_var("global.email", "new@x.com")
+        assert _session_variable_value("email") == "new@x.com"
+
+    def test_updates_session_value_without_creds(self, monkeypatch):
+        """Session snapshot updates even on standalone/local runs (no ATMS)."""
+        monkeypatch.setattr(_config, "lt_auth", False)
+        set_var("global.email", "new@x.com")
+        assert _session_variable_value("email") == "new@x.com"
+
+
+class TestGlobalSetVarPersistOffStatus:
+    """TMS rejects the write-back for persist-off variables (observed as 500,
+    designed as 403). Both must surface as a quiet 'persistence is off' info
+    line — never a warning exposing the raw status."""
+
+    @pytest.mark.parametrize("status", [403, 500])
+    def test_persist_off_status_logs_info_not_warning(
+        self, lt_creds, monkeypatch, caplog, status
+    ):
+        monkeypatch.setattr(
+            requests, "put", lambda *a, **k: _FakeResp(status, "not persistent")
+        )
+        with caplog.at_level(logging.INFO):
+            set_var("global.email", "new@x.com")
+        assert any("persistence is off" in r.message for r in caplog.records)
+        assert not any(
+            r.levelno >= logging.WARNING and str(status) in r.message
+            for r in caplog.records
+        )
+        # value still usable for the rest of the run
+        assert _variable_store["email"] == "new@x.com"
 
 
 class TestGlobalSetVarResolvesBareReference:

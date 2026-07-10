@@ -18,10 +18,10 @@ jobs:
     runs-on: ${{ matrix.os }}
 
     steps:
-    - uses: actions/checkout@v4
+    - uses: actions/checkout@v7
 
     - name: Set up Python ${{ matrix.python-version }} on ${{ matrix.os }}
-      uses: actions/setup-python@v5
+      uses: actions/setup-python@v6
       with:
         python-version: ${{ matrix.python-version }}
 
@@ -30,10 +30,11 @@ jobs:
         python --version
         python -m pip install --upgrade pip
         python -m pip install --upgrade build
-        pip install .
-        pip install .[test]
+        pip install .[versioning]
         doit version
+        pip install .
         python -m build
+        pip install .[test]
 
     #  https://github.com/marketplace/actions/pytest-coverage-comment
     - name: Generate coverage report
@@ -45,6 +46,7 @@ jobs:
 
     - name: Comment on pull request with coverage
       uses: MishaKav/pytest-coverage-comment@main
+      continue-on-error: true
       with:
         pytest-coverage-path: ./pytest-coverage.txt
         # TODO: check if this has been fixed

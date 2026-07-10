@@ -1,16 +1,5 @@
 # Copyright The OpenTelemetry Authors
-#
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-#
-#     http://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
+# SPDX-License-Identifier: Apache-2.0
 
 
 import opentelemetry._logs._internal
@@ -62,9 +51,9 @@ class OTelProviderSnapshot:
 
     def restore(self):
         _bypass_otel_once()
-        set_tracer_provider(self._tracer_provider)
-        set_logger_provider(self._logger_provider)
-        set_meter_provider(self._meter_provider)
+        opentelemetry.trace._TRACER_PROVIDER = None
+        opentelemetry._logs._internal._LOGGER_PROVIDER = None
+        opentelemetry.metrics._internal._METER_PROVIDER = None
 
 
 class _LogWrapper:

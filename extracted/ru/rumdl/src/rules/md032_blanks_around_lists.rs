@@ -1009,6 +1009,61 @@ mod tests {
         rule.fix(&ctx).expect("Lint fix failed")
     }
 
+    #[test]
+    fn test_fix_does_not_split_item_before_different_list_type() {
+        // The continuation line belongs to the bullet item. Only one blank line
+        // is needed, between the two lists; inserting one after the marker line
+        // would split the item into a list plus a stray paragraph.
+        let content = "- alpha beta\n  aligned\n1. ordered item\n   cont\n";
+        assert_eq!(fix(content), "- alpha beta\n  aligned\n\n1. ordered item\n   cont\n");
+
+        // check() anchors the boundary on the first list's last line and the
+        // second list's first line, exactly as it does when neither item wraps.
+        let warnings = lint(content);
+        assert_eq!(warnings.len(), 2);
+        assert_eq!(warnings[0].line, 2);
+        assert_eq!(warnings[1].line, 3);
+    }
+
+    #[test]
+    fn test_fix_does_not_split_blockquoted_item_before_different_list_type() {
+        let content = "> - alpha beta\n>   aligned\n> 1. ordered item\n";
+        assert_eq!(fix(content), "> - alpha beta\n>   aligned\n>\n> 1. ordered item\n");
+    }
+
+    #[test]
+    fn test_fix_keeps_lazy_continuation_with_its_item() {
+        // Per CommonMark the lazy line continues the item's paragraph, so the
+        // blank belongs after it, before the new list. Splitting it off would
+        // promote it to a standalone paragraph and change the rendering.
+        let content = "- alpha beta\nlazy\n1. ordered item\n";
+        assert_eq!(fix(content), "- alpha beta\nlazy\n\n1. ordered item\n");
+
+        let warnings = lint(content);
+        assert_eq!(warnings.len(), 2);
+        assert_eq!(warnings[0].line, 2);
+        assert_eq!(warnings[1].line, 3);
+    }
+
+    #[test]
+    fn test_fix_keeps_blockquoted_lazy_continuation_with_its_item() {
+        let content = "> - alpha beta\n> lazy\n> 1. ordered item\n";
+        assert_eq!(fix(content), "> - alpha beta\n> lazy\n>\n> 1. ordered item\n");
+    }
+
+    #[test]
+    fn test_fix_indents_lazy_continuation_when_not_allowed() {
+        // With allow_lazy_continuation = false the lazy line is first indented
+        // into the item (Phase 0), then the blank separates the two lists.
+        let rule = MD032BlanksAroundLists::from_config_struct(MD032Config {
+            allow_lazy_continuation: false,
+        });
+        let content = "- alpha beta\nlazy\n1. ordered item\n";
+        let ctx = LintContext::new(content, crate::config::MarkdownFlavor::Standard, None);
+        let fixed = rule.fix(&ctx).expect("Lint fix failed");
+        assert_eq!(fixed, "- alpha beta\n  lazy\n\n1. ordered item\n");
+    }
+
     // Test that warnings include Fix objects
     fn check_warnings_have_fixes(content: &str) {
         let warnings = lint(content);

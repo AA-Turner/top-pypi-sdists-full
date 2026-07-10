@@ -1,6 +1,11 @@
 import pathlib
+from functools import wraps
 from typing import Any
+from typing import Callable
 from typing import Optional
+from typing import TypeVar
+
+F = TypeVar("F", bound=Callable[..., Any])
 
 DETECTED_EXECUTABLE_NOT_FOUND_TEXT = """\
 The executable that was automatically located by pystack doesn't exist.
@@ -81,8 +86,7 @@ core' command.
 """
 
 
-class PystackError(Exception):
-    ...
+class PystackError(Exception): ...
 
 
 class EngineError(PystackError):
@@ -102,12 +106,10 @@ class EngineError(PystackError):
         return f"Engine error: {message}"
 
 
-class ProcessNotFound(PystackError, ProcessLookupError):
-    ...
+class ProcessNotFound(PystackError, ProcessLookupError): ...
 
 
-class InvalidPythonProcess(PystackError):
-    ...
+class InvalidPythonProcess(PystackError): ...
 
 
 class CoreExecutableNotFound(PystackError):
@@ -128,3 +130,19 @@ class InvalidExecutable(PystackError):
 
 class MissingExecutableMaps(PystackError):
     HELP_TEXT = MISSING_EXECUTABLE_MAPS_HELP_TEXT
+
+
+def intercept_runtime_errors() -> Callable[[F], F]:
+    """Decorator that converts RuntimeError to EngineError."""
+
+    def decorator(func: F) -> F:
+        @wraps(func)
+        def wrapper(*args: Any, **kwargs: Any) -> Any:
+            try:
+                return func(*args, **kwargs)
+            except RuntimeError as e:
+                raise EngineError(str(e)) from e
+
+        return wrapper  # type: ignore[return-value]
+
+    return decorator

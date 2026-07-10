@@ -367,6 +367,9 @@ def _extend_existing_feature_class(*, target: Type[Any], aux: Type[Any], via: st
         f.auxiliary_feature_class_ast = origin.feature_class_ast
         f.auxiliary_error_builder = origin.error_builder
         target.__annotations__[attr_name] = annotation
+        if f.typ._unparsed_underlying is None:
+            f.typ._features_cls = cast(Type[Features], target)
+            f.typ._attribute_name = attr_name
         target.__chalk_features_raw__.append(f)
         wrapper = FeatureWrapper(f)
         type.__setattr__(target, attr_name, wrapper)

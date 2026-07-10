@@ -1,7 +1,7 @@
 from unittest import TestCase, SkipTest
 import tempfile
 from typing import Optional
-from tests.util import test_args
+from tests.util import have_monetdb_version_at_least, test_args
 import pymonetdb
 from pymonetdb.sql.connections import Connection
 
@@ -29,6 +29,8 @@ class TestUdf(TestCase):
             cls.conn.close()
 
     def test_debug_udf(self):
+        if have_monetdb_version_at_least(56, 0, 0):
+            raise SkipTest("embedded python not supported anymore")
         self.cursor.execute("""
             CREATE FUNCTION test_python_udf(i INTEGER)
             RETURNS INTEGER
@@ -40,7 +42,7 @@ class TestUdf(TestCase):
         try:
             self.cursor.execute('SELECT test_python_udf(1);')
         except pymonetdb.exceptions.OperationalError:
-            raise SkipTest("Don't know if MonetDB has with embedded Python support enabled")
+            raise SkipTest("Don't know if MonetDB has embedded Python support enabled")
 
         else:
             result = self.cursor.fetchall()

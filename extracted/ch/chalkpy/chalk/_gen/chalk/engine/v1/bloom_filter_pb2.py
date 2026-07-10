@@ -14,7 +14,7 @@ _sym_db = _symbol_database.Default()
 
 
 DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(
-    b'\n"chalk/engine/v1/bloom_filter.proto\x12\x0f\x63halk.engine.v1"\xf2\x01\n\x0b\x42loomFilter\x12 \n\x0b\x65nvironment\x18\x01 \x01(\tR\x0b\x65nvironment\x12\x1c\n\tnamespace\x18\x02 \x01(\tR\tnamespace\x12\x1f\n\x0bnum_entries\x18\x03 \x01(\x04R\nnumEntries\x12\x30\n\x14num_expected_entries\x18\x04 \x01(\x04R\x12numExpectedEntries\x12\x1d\n\nnum_hashes\x18\x05 \x01(\x04R\tnumHashes\x12\x1d\n\nsize_bytes\x18\x06 \x01(\x04R\tsizeBytes\x12\x12\n\x04\x64\x61ta\x18\x07 \x01(\x0cR\x04\x64\x61taB\x85\x01\n\x13\x63om.chalk.engine.v1B\x10\x42loomFilterProtoP\x01\xa2\x02\x03\x43\x45X\xaa\x02\x0f\x43halk.Engine.V1\xca\x02\x0f\x43halk\\Engine\\V1\xe2\x02\x1b\x43halk\\Engine\\V1\\GPBMetadata\xea\x02\x11\x43halk::Engine::V1b\x06proto3'
+    b'\n"chalk/engine/v1/bloom_filter.proto\x12\x0f\x63halk.engine.v1"\xf2\x01\n\x0b\x42loomFilter\x12 \n\x0b\x65nvironment\x18\x01 \x01(\tR\x0b\x65nvironment\x12\x1c\n\tnamespace\x18\x02 \x01(\tR\tnamespace\x12\x1f\n\x0bnum_entries\x18\x03 \x01(\x04R\nnumEntries\x12\x30\n\x14num_expected_entries\x18\x04 \x01(\x04R\x12numExpectedEntries\x12\x1d\n\nnum_hashes\x18\x05 \x01(\x04R\tnumHashes\x12\x1d\n\nsize_bytes\x18\x06 \x01(\x04R\tsizeBytes\x12\x12\n\x04\x64\x61ta\x18\x07 \x01(\x0cR\x04\x64\x61ta"}\n\x15\x42loomFilterDataConfig\x12\x30\n\x14num_expected_entries\x18\x01 \x01(\x04R\x12numExpectedEntries\x12\x32\n\x15target_collision_rate\x18\x02 \x01(\x01R\x13targetCollisionRate"\x8d\x02\n\x14\x42loomFilterDataStats\x12*\n\x11\x66ilter_size_bytes\x18\x01 \x01(\x04R\x0f\x66ilterSizeBytes\x12 \n\x0cnum_bits_set\x18\x02 \x01(\x04R\nnumBitsSet\x12\x32\n\x15\x65stimated_num_entries\x18\x03 \x01(\x04R\x13\x65stimatedNumEntries\x12\x30\n\x14\x65stimated_error_rate\x18\x04 \x01(\x01R\x12\x65stimatedErrorRate\x12\x41\n\x1d\x65mpirical_false_positive_rate\x18\x05 \x01(\x01R\x1a\x65mpiricalFalsePositiveRate"\xc1\x01\n\x15\x41\x63tiveBloomFilterInfo\x12\x1c\n\tnamespace\x18\x01 \x01(\tR\tnamespace\x12>\n\x06\x63onfig\x18\x02 \x01(\x0b\x32&.chalk.engine.v1.BloomFilterDataConfigR\x06\x63onfig\x12@\n\x05stats\x18\x03 \x01(\x0b\x32%.chalk.engine.v1.BloomFilterDataStatsH\x00R\x05stats\x88\x01\x01\x42\x08\n\x06_stats"<\n\x1aInspectBloomFiltersRequest\x12\x1e\n\nnamespaces\x18\x01 \x03(\tR\nnamespaces"w\n\x1bInspectBloomFiltersResponse\x12X\n\x14\x61\x63tive_bloom_filters\x18\x01 \x03(\x0b\x32&.chalk.engine.v1.ActiveBloomFilterInfoR\x12\x61\x63tiveBloomFiltersB\x85\x01\n\x13\x63om.chalk.engine.v1B\x10\x42loomFilterProtoP\x01\xa2\x02\x03\x43\x45X\xaa\x02\x0f\x43halk.Engine.V1\xca\x02\x0f\x43halk\\Engine\\V1\xe2\x02\x1b\x43halk\\Engine\\V1\\GPBMetadata\xea\x02\x11\x43halk::Engine::V1b\x06proto3'
 )
 
 _globals = globals()
@@ -27,4 +27,14 @@ if _descriptor._USE_C_DESCRIPTORS == False:
     ]._serialized_options = b"\n\023com.chalk.engine.v1B\020BloomFilterProtoP\001\242\002\003CEX\252\002\017Chalk.Engine.V1\312\002\017Chalk\\Engine\\V1\342\002\033Chalk\\Engine\\V1\\GPBMetadata\352\002\021Chalk::Engine::V1"
     _globals["_BLOOMFILTER"]._serialized_start = 56
     _globals["_BLOOMFILTER"]._serialized_end = 298
+    _globals["_BLOOMFILTERDATACONFIG"]._serialized_start = 300
+    _globals["_BLOOMFILTERDATACONFIG"]._serialized_end = 425
+    _globals["_BLOOMFILTERDATASTATS"]._serialized_start = 428
+    _globals["_BLOOMFILTERDATASTATS"]._serialized_end = 697
+    _globals["_ACTIVEBLOOMFILTERINFO"]._serialized_start = 700
+    _globals["_ACTIVEBLOOMFILTERINFO"]._serialized_end = 893
+    _globals["_INSPECTBLOOMFILTERSREQUEST"]._serialized_start = 895
+    _globals["_INSPECTBLOOMFILTERSREQUEST"]._serialized_end = 955
+    _globals["_INSPECTBLOOMFILTERSRESPONSE"]._serialized_start = 957
+    _globals["_INSPECTBLOOMFILTERSRESPONSE"]._serialized_end = 1076
 # @@protoc_insertion_point(module_scope)

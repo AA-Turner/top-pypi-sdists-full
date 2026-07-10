@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: aiormq
-Version: 6.9.4
+Version: 7.0.0
 Summary: Pure python AMQP asynchronous client library
 Keywords: rabbitmq,asyncio,amqp,amqp 0.9.1,driver,pamqp
 Author: Dmitry Orlov
@@ -21,16 +21,15 @@ Classifier: Operating System :: Microsoft
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
 Classifier: Programming Language :: Python :: 3 :: Only
-Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
 Classifier: Programming Language :: Python :: Implementation :: PyPy
 Classifier: Programming Language :: Python :: Implementation :: CPython
-Requires-Dist: pamqp==3.3.0
+Requires-Dist: pamqp>=4,<5
 Requires-Dist: yarl
-Requires-Python: >=3.10, <4
+Requires-Python: >=3.11, <4
 Project-URL: Homepage, https://github.com/mosquito/aiormq
 Project-URL: Source, https://github.com/mosquito/aiormq
 Project-URL: Tracker, https://github.com/mosquito/aiormq/issues

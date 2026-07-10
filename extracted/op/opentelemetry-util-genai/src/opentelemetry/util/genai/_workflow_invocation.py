@@ -1,21 +1,9 @@
 # Copyright The OpenTelemetry Authors
-#
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-#
-#     http://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
+# SPDX-License-Identifier: Apache-2.0
 
 from __future__ import annotations
 
 from dataclasses import asdict
-from typing import Any
 
 from opentelemetry._logs import Logger
 from opentelemetry.semconv._incubating.attributes import (
@@ -30,11 +18,10 @@ from opentelemetry.util.genai.types import (
     OutputMessage,
 )
 from opentelemetry.util.genai.utils import (
-    ContentCapturingMode,
     gen_ai_json_dumps,
-    get_content_capturing_mode,
-    is_experimental_mode,
+    should_capture_content_on_spans,
 )
+from opentelemetry.util.types import AttributeValue
 
 
 class WorkflowInvocation(GenAIInvocation):
@@ -43,8 +30,7 @@ class WorkflowInvocation(GenAIInvocation):
     and retrieval invocations). A workflow groups multiple operations together,
     accepting input(s) and producing final output(s).
 
-    Use handler.start_workflow(name) or the handler.workflow(name) context
-    manager rather than constructing this directly.
+    Use handler.workflow(name) rather than constructing this directly.
     """
 
     def __init__(
@@ -54,13 +40,8 @@ class WorkflowInvocation(GenAIInvocation):
         logger: Logger,
         completion_hook: CompletionHook,
         name: str | None,
-        *,
-        input_messages: list[InputMessage] | None = None,
-        output_messages: list[OutputMessage] | None = None,
-        attributes: dict[str, Any] | None = None,
-        metric_attributes: dict[str, Any] | None = None,
     ) -> None:
-        """Use handler.start_workflow(name) or handler.workflow(name) instead of calling this directly."""
+        """Use handler.workflow(name) rather than calling this directly."""
         _operation_name = "invoke_workflow"
         super().__init__(
             tracer,
@@ -70,23 +51,21 @@ class WorkflowInvocation(GenAIInvocation):
             operation_name=_operation_name,
             span_name=f"{_operation_name} {name}" if name else _operation_name,
             span_kind=SpanKind.INTERNAL,
-            attributes=attributes,
-            metric_attributes=metric_attributes,
         )
         self.name = name
-        self.input_messages: list[InputMessage] = (
-            [] if input_messages is None else input_messages
-        )
-        self.output_messages: list[OutputMessage] = (
-            [] if output_messages is None else output_messages
-        )
-        self._start()
+        self.input_messages: list[InputMessage] = []
+        self.output_messages: list[OutputMessage] = []
+        self._start(self._get_base_attributes())
 
-    def _get_messages_for_span(self) -> dict[str, Any]:
-        if not is_experimental_mode() or get_content_capturing_mode() not in (
-            ContentCapturingMode.SPAN_ONLY,
-            ContentCapturingMode.SPAN_AND_EVENT,
-        ):
+    def _get_base_attributes(self) -> dict[str, AttributeValue]:
+        """Return sampling-relevant attributes available at span creation time."""
+        attrs: dict[str, AttributeValue] = {
+            GenAI.GEN_AI_OPERATION_NAME: self._operation_name,
+        }
+        return attrs
+
+    def _get_messages_for_span(self) -> dict[str, AttributeValue]:
+        if not should_capture_content_on_spans():
             return {}
         optional_attrs = (
             (
@@ -107,8 +86,8 @@ class WorkflowInvocation(GenAIInvocation):
         }
 
     def _apply_finish(self, error: Error | None = None) -> None:
-        attributes: dict[str, Any] = {
-            GenAI.GEN_AI_OPERATION_NAME: self._operation_name
+        attributes: dict[str, AttributeValue] = {
+            GenAI.GEN_AI_OPERATION_NAME: self._operation_name,
         }
         attributes.update(self._get_messages_for_span())
         if error is not None:

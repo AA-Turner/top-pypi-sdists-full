@@ -4,7 +4,11 @@ to provide a group or command with aliases.
 """
 
 import typing as t
-from importlib import metadata
+
+try:
+    from importlib import metadata
+except ImportError:  # pragma: no cover - Python 3.7
+    import importlib_metadata as metadata
 
 import click
 
@@ -14,8 +18,8 @@ _click7: bool = metadata.version("click")[0] >= "7"
 class ClickAliasedGroup(click.Group):
     def __init__(self, *args: t.Any, **kwargs: t.Any) -> None:
         super().__init__(*args, **kwargs)
-        self._commands: dict[str, list[str]] = {}
-        self._aliases: dict[str, str] = {}
+        self._commands: t.Dict[str, t.List[str]] = {}
+        self._aliases: t.Dict[str, str] = {}
 
     def add_command(self, *args: t.Any, **kwargs: t.Any) -> None:
         aliases = kwargs.pop("aliases", [])
@@ -33,7 +37,7 @@ class ClickAliasedGroup(click.Group):
 
     def command(  # type: ignore[override]
         self, *args: t.Any, **kwargs: t.Any
-    ) -> t.Callable[[t.Callable[..., t.Any]], click.Command] | click.Command:
+    ) -> t.Union[t.Callable[[t.Callable[..., t.Any]], click.Command], click.Command]:
         aliases = kwargs.pop("aliases", [])
         decorator = super().command(*args, **kwargs)
         if not aliases:
@@ -51,7 +55,7 @@ class ClickAliasedGroup(click.Group):
 
     def group(  # type: ignore[override]
         self, *args: t.Any, **kwargs: t.Any
-    ) -> t.Callable[[t.Callable[..., t.Any]], click.Group] | click.Group:
+    ) -> t.Union[t.Callable[[t.Callable[..., t.Any]], click.Group], click.Group]:
         aliases = kwargs.pop("aliases", [])
         decorator = super().group(*args, **kwargs)
         if not aliases:
@@ -72,7 +76,7 @@ class ClickAliasedGroup(click.Group):
             return self._aliases[cmd_name]
         return cmd_name
 
-    def get_command(self, ctx: click.Context, cmd_name: str) -> click.Command | None:
+    def get_command(self, ctx: click.Context, cmd_name: str) -> t.Optional[click.Command]:
         cmd_name = self.resolve_alias(cmd_name)
         command = super().get_command(ctx, cmd_name)
         if command:

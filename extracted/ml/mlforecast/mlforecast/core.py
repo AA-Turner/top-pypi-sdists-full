@@ -1,4 +1,4 @@
-__all__ = ['TimeSeries']
+__all__ = ["TimeSeries"]
 
 
 import copy
@@ -17,12 +17,14 @@ from typing import (
     List,
     Mapping,
     Optional,
+    Sequence,
     Tuple,
     Union,
 )
 
 import cloudpickle
 import fsspec
+import narwhals as nw
 import numpy as np
 import pandas as pd
 import utilsforecast.processing as ufp
@@ -31,7 +33,6 @@ from sklearn.pipeline import Pipeline
 from utilsforecast.compat import (
     DataFrame,
     DFType,
-    Series,
     pl,
     pl_DataFrame,
     pl_Series,
@@ -43,9 +44,20 @@ from mlforecast.target_transforms import (
     _BaseGroupedArrayTargetTransform,
 )
 
+from .compat import CatBoostRegressor
 from .grouped_array import GroupedArray
 from .lag_transforms import Lag, _BaseLagTransform
-from .utils import _ShortSeriesException, _resolve_num_threads
+from .pooled import (
+    PooledState,
+    _order_preserving_left_join,
+    compute_pooled_features,
+)
+from .utils import (
+    _DUMMY_FEATURE_VALUES,
+    _ShortSeriesException,
+    _compute_date_dummies,
+    _resolve_num_threads,
+)
 
 date_features_dtypes = {
     "year": np.uint16,
@@ -132,6 +144,10 @@ def _as_tuple(x):
     return (x,)
 
 
+def _dedupe_preserve_order(items: Iterable[str]) -> list:
+    return list(dict.fromkeys(items))
+
+
 Freq = Union[int, str]
 Lags = Iterable[int]
 LagTransform = Union[Callable, Tuple[Callable, Any]]
@@ -196,6 +212,29 @@ def _parse_transforms(
     return transforms
 
 
+def _static_feature_changes_over_time(start_series, end_series) -> bool:
+    """Whether a static feature differs between each series' start and end.
+
+    Backend-agnostic (narwhals) and null-safe: two missing values count as equal
+    (so an all-null static feature, e.g. a null groupby key, is not flagged as
+    changing), while a missing-vs-present pair counts as a change. Mirrors the
+    dtype-aware "missing" rule used for pooled bucket keys (null, plus NaN for
+    float dtypes).
+    """
+    a = nw.from_native(start_series, series_only=True)
+    b = nw.from_native(end_series, series_only=True)
+    a_missing = a.is_null()
+    b_missing = b.is_null()
+    if a.dtype.is_float():
+        a_missing = a_missing | a.is_nan()
+    if b.dtype.is_float():
+        b_missing = b_missing | b.is_nan()
+    both_missing = a_missing & b_missing
+    both_present_equal = (~a_missing) & (~b_missing) & (a == b)
+    changed = ~(both_missing | both_present_equal)
+    return bool(changed.fill_null(False).any())
+
+
 class TimeSeries:
     """Utility class for storing and transforming time series data."""
 
@@ -208,8 +247,11 @@ class TimeSeries:
         num_threads: int = 1,
         target_transforms: Optional[List[TargetTransform]] = None,
         lag_transforms_namer: Optional[Callable] = None,
+        date_features_as_dummies: bool = False,
+        drop_auxiliary_columns: Union[bool, Sequence[str]] = True,
     ):
         self.freq = freq
+        self.date_features_as_dummies = date_features_as_dummies
         num_threads = _resolve_num_threads(num_threads)
         if not isinstance(num_threads, int) or num_threads < 1:
             warnings.warn("Setting num_threads to 1.")
@@ -235,11 +277,13 @@ class TimeSeries:
                     "Can't use a lambda as a date feature because the function name gets used as the feature name."
                 )
         self.lag_transforms_namer = lag_transforms_namer
+        self.drop_auxiliary_columns = drop_auxiliary_columns
         self.transforms = _parse_transforms(
             lags=self.lags,
             lag_transforms=self.lag_transforms,
             namer=lag_transforms_namer,
         )
+        self.horizon_features_: Dict[int, List[str]] = {}
         self.ga: GroupedArray
 
     def _get_core_lag_tfms(self) -> Dict[str, _BaseLagTransform]:
@@ -247,24 +291,39 @@ class TimeSeries:
             k: v for k, v in self.transforms.items() if isinstance(v, _BaseLagTransform)
         }
 
-    def _get_global_tfms(self) -> Dict[str, _BaseLagTransform]:
-        return {
-            k: v
-            for k, v in self.transforms.items()
-            if isinstance(v, _BaseLagTransform) and getattr(v, "global_", False)
-        }
+    def _get_pooled_tfms(self) -> Dict[Tuple, Dict[str, _BaseLagTransform]]:
+        """Group all nonlocal transforms by their pooled key.
 
-    def _get_group_tfms(self) -> Dict[Tuple[str, ...], Dict[str, _BaseLagTransform]]:
-        grouped: Dict[Tuple[str, ...], Dict[str, _BaseLagTransform]] = {}
+        Key structure: ``(mode, group_cols_tuple, partition_cols_tuple)``
+
+        Examples::
+
+            ("global", (), ())                        -- pure global
+            ("groupby", ("brand",), ())               -- pure groupby
+            ("local", (), ("promo",))                 -- local partition
+            ("nonlocal", (), ("promo",))              -- global+partition
+            ("nonlocal", ("brand",), ("promo",))      -- groupby+partition
+        """
+        pooled: Dict[Tuple, Dict[str, _BaseLagTransform]] = {}
         for name, tfm in self.transforms.items():
             if not isinstance(tfm, _BaseLagTransform):
                 continue
+            is_global = getattr(tfm, "global_", False)
             groupby = getattr(tfm, "groupby", None)
-            if not groupby:
+            partition_by = getattr(tfm, "partition_by", None)
+            if not is_global and not groupby and not partition_by:
                 continue
-            key = tuple(groupby)
-            grouped.setdefault(key, {})[name] = tfm
-        return grouped
+            if partition_by:
+                mode = "local" if (not is_global and not groupby) else "nonlocal"
+            elif is_global:
+                mode = "global"
+            else:
+                mode = "groupby"
+            group_cols = tuple(groupby) if groupby else ()
+            part_cols = tuple(partition_by) if partition_by else ()
+            key = (mode, group_cols, part_cols)
+            pooled.setdefault(key, {})[name] = tfm
+        return pooled
 
     def _get_local_tfms(
         self,
@@ -276,12 +335,60 @@ class TimeSeries:
                 continue
             if isinstance(tfm, _BaseLagTransform) and getattr(tfm, "groupby", None):
                 continue
+            if isinstance(tfm, _BaseLagTransform) and getattr(
+                tfm, "partition_by", None
+            ):
+                continue
             local[name] = tfm
         return local
 
+    def _trim_pooled_states(self) -> None:
+        """Trim each pooled state's history under ``keep_last_n``.
+
+        Parity with the ``self.ga`` trim: a pooled state whose transforms are
+        *all* finite-window drops its unused history prefix, while a state
+        containing any Expanding*/EWM transform keeps full history (pooled has
+        no carried accumulator -- it recomputes over the full aggregate vectors
+        at predict, so trimming those would move predictions).
+
+        Retention is ``max(keep_last_n, W_state)`` ordinals, where ``W_state``
+        is the state's largest finite window. The floor is required and is where
+        pooled legitimately diverges from the local coreforecast path: local
+        rolling survives an undersized explicit ``keep_last_n`` because
+        coreforecast carries a per-transform window buffer; pooled has none (the
+        aggregates *are* the buffer), so trimming below ``W_state`` would compute
+        windows off a truncated prefix. When ``keep_last_n`` is inferred it
+        already equals the global max window, so the floor is then a no-op.
+        """
+        if self.keep_last_n is None:
+            return
+        for key, tfms in self._get_pooled_tfms().items():
+            state = self._pooled_states.get(key)
+            if state is None:
+                continue
+            tfm_list = list(tfms.values())
+            if not all(tfm._is_finite_window for tfm in tfm_list):
+                continue
+            w_state = max(tfm.update_samples for tfm in tfm_list)
+            state.trim_to_last(max(self.keep_last_n, w_state))
+
+    def _initialize_lag_transform_states(self) -> None:
+        """Materialize lag transform state for subsequent update-based prediction.
+
+        This is needed when a new ``TimeSeries`` instance is created from historical
+        data right before calling ``predict(new_df=...)``. Local (coreforecast)
+        transforms need a full ``transform`` pass so stateful transforms like
+        ``ExpandingMean`` can initialize their internal buffers before the first
+        ``update(...)`` call. Pooled transforms keep their state in ``_ts_aggs``
+        (built at construction), so they need no warm-up pass.
+        """
+        core_tfms = self._get_core_lag_tfms()
+        if core_tfms:
+            self._compute_transforms(core_tfms, updates_only=False)
+
     def _check_aligned_ends(self) -> None:
-        """Check that all series end at the same timestamp when using global/group transforms."""
-        if not (self._get_global_tfms() or self._get_group_tfms()):
+        """Check that all series end at the same timestamp when using pooled lag transforms."""
+        if not self._get_pooled_tfms():
             return
         if isinstance(self.last_dates, pd.Index):
             aligned = self.last_dates.nunique() == 1
@@ -289,12 +396,25 @@ class TimeSeries:
             aligned = self.last_dates.n_unique() == 1
         if not aligned:
             raise ValueError(
-                "Global and group lag transforms require all series to end at the same timestamp."
+                "Pooled lag transforms require all series to end at the same timestamp "
+                "(recursive prediction advances all series in lockstep)."
             )
 
     @property
-    def _date_feature_names(self):
-        return [f.__name__ if callable(f) else f for f in self.date_features]
+    def _date_feature_names(self) -> List[str]:
+        names: List[str] = []
+        for f in self.date_features:
+            if (
+                self.date_features_as_dummies
+                and isinstance(f, str)
+                and f in _DUMMY_FEATURE_VALUES
+            ):
+                names.extend(f"{f}_{v}" for v in _DUMMY_FEATURE_VALUES[f])
+            elif callable(f):
+                names.append(f.__name__)
+            else:
+                names.append(f)
+        return names
 
     @property
     def features(self) -> List[str]:
@@ -305,11 +425,58 @@ class TimeSeries:
         """Identify user-provided exogenous columns that need time-alignment."""
         static_cols = set(self.static_features_.columns)
         lag_cols = set(self.transforms.keys())
-        date_cols = {f.__name__ if callable(f) else f for f in self.date_features}
-        exclude = static_cols | lag_cols | date_cols | {self.id_col, self.time_col, self.target_col}
+        date_cols = set(self._date_feature_names) | {
+            f
+            for f in self.date_features
+            if self.date_features_as_dummies
+            and isinstance(f, str)
+            and f in _DUMMY_FEATURE_VALUES
+        }
+        exclude = (
+            static_cols
+            | lag_cols
+            | date_cols
+            | {self.id_col, self.time_col, self.target_col}
+        )
         if self.weight_col is not None:
             exclude.add(self.weight_col)
         return [c for c in df_columns if c not in exclude]
+
+    def _split_horizon_exog_cols(
+        self,
+        exog_cols: List[str],
+        horizon_features: Dict[int, List[str]],
+    ) -> Tuple[List[str], Dict[int, List[str]]]:
+        """Split exogenous columns into common and horizon-specific sets."""
+        if not horizon_features:
+            return exog_cols, {}
+        matched_cols = {
+            col
+            for cols in horizon_features.values()
+            for col in cols
+            if col in exog_cols
+        }
+        common_exog = [c for c in exog_cols if c not in matched_cols]
+        return common_exog, horizon_features
+
+    def _get_cols_for_horizon(
+        self,
+        h: int,
+        common_exog: List[str],
+        horizon_exog_map: Dict[int, List[str]],
+        exog_cols: List[str],
+    ) -> List[str]:
+        """Return the ordered feature columns to use for 0-indexed horizon h.
+
+        ``horizon_exog_map`` uses 1-indexed keys (matching the user-facing
+        ``horizon_features`` dict), so we convert with ``h + 1``.
+        """
+        # Internal horizons are 0-indexed; user-facing horizon_features keys are
+        # 1-indexed, hence the +1 conversion here.
+        allowed_exog = common_exog + horizon_exog_map.get(h + 1, [])
+        return [
+            c for c in self.features_order_ if c not in exog_cols or c in allowed_exog
+        ]
 
     def __repr__(self):
         return (
@@ -382,31 +549,31 @@ class TimeSeries:
                     tfm.set_column_names(id_col, time_col, target_col)
                     sorted_df = tfm.fit_transform(sorted_df)
                     ga.data = sorted_df[target_col].to_numpy()
-        self._global_ga: Optional[GroupedArray] = None
-        self._global_times: Optional[Union[Series, pd.Index]] = None
-        if self._get_global_tfms():
-            global_df = ufp.group_by_agg(
-                sorted_df[[time_col, target_col]],
-                time_col,
-                {target_col: "sum"},
-                maintain_order=True,
-            )
-            global_df = ufp.sort(global_df, by=time_col)
-            global_values = global_df[target_col].to_numpy().astype(ga.data.dtype)
-            self._global_ga = GroupedArray(
-                global_values, np.array([0, global_values.size], dtype=np.int32)
-            )
-            if isinstance(global_df, pd.DataFrame):
-                self._global_times = pd.Index(global_df[time_col])
-            else:
-                self._global_times = global_df[time_col]
         to_drop = [id_col, time_col, target_col]
         if static_features is None:
-            static_features = [c for c in df.columns if c not in [time_col, target_col]]
-        elif id_col not in static_features:
-            static_features = [id_col, *static_features]
-        else:  # static_features defined and contain id_col
-            to_drop = [time_col, target_col]
+            partition_cols = {
+                col
+                for tfm in self.transforms.values()
+                if isinstance(tfm, _BaseLagTransform)
+                for col in (getattr(tfm, "partition_by", None) or [])
+            }
+            self._partition_cols = partition_cols
+            static_features = [
+                c
+                for c in df.columns
+                if c not in [time_col, target_col] and c not in partition_cols
+            ]
+        else:
+            self._partition_cols = {
+                col
+                for tfm in self.transforms.values()
+                if isinstance(tfm, _BaseLagTransform)
+                for col in (getattr(tfm, "partition_by", None) or [])
+            }
+            if id_col not in static_features:
+                static_features = [id_col, *static_features]
+            else:
+                to_drop = [time_col, target_col]
         if weight_col is not None:
             to_drop.append(weight_col)
             static_features = [f for f in static_features if f != weight_col]
@@ -423,7 +590,9 @@ class TimeSeries:
             ufp.take_rows(df, series_ends)[static_features]
         )
         for feat in static_features:
-            if (statics_on_starts[feat] != statics_on_ends[feat]).any():
+            if _static_feature_changes_over_time(
+                statics_on_starts[feat], statics_on_ends[feat]
+            ):
                 raise ValueError(
                     f"{feat} is declared as a static feature but its values change "
                     "over time. Please set the `static_features` argument to "
@@ -431,87 +600,112 @@ class TimeSeries:
                     "are dynamic please set `static_features=[]`."
                 )
         self.static_features_ = statics_on_ends
-        self.features_order_ = [c for c in df.columns if c not in to_drop] + [
-            f for f in self.features if f not in df.columns
-        ]
-        self._group_states: Dict[Tuple[str, ...], Dict[str, Any]] = {}
-        group_tfms = self._get_group_tfms()
-        if group_tfms:
+        raw_date_sources = {
+            f
+            for f in self.date_features
+            if self.date_features_as_dummies
+            and isinstance(f, str)
+            and f in _DUMMY_FEATURE_VALUES
+        }
+        self.features_order_ = [
+            c for c in df.columns if c not in to_drop and c not in raw_date_sources
+        ] + [f for f in self.features if f not in df.columns]
+        if self.drop_auxiliary_columns is True:
+            to_exclude = set()
+            for lag_tfm in self.transforms.values():
+                if not isinstance(lag_tfm, _BaseLagTransform):
+                    continue
+                for col in getattr(lag_tfm, "groupby", None) or []:
+                    to_exclude.add(col)
+                for col in getattr(lag_tfm, "partition_by", None) or []:
+                    to_exclude.add(col)
+        elif self.drop_auxiliary_columns is False:
+            to_exclude = set()
+        else:
+            to_exclude = set(self.drop_auxiliary_columns)
+            unknown = [f for f in to_exclude if f not in self.features_order_]
+            if unknown:
+                warnings.warn(
+                    f"The following drop_auxiliary_columns were not found in the feature set: {unknown}",
+                    UserWarning,
+                )
+        self.features_order_ = [f for f in self.features_order_ if f not in to_exclude]
+        self._pooled_states: Dict[Tuple, PooledState] = {}
+        pooled_tfms = self._get_pooled_tfms()
+        if pooled_tfms:
             if self.target_transforms is not None:
                 transformed_target = ga.data
                 if self._restore_idxs is not None:
                     transformed_target = transformed_target[self._restore_idxs]
-                df_for_group = ufp.assign_columns(df, target_col, transformed_target)
+                df_for_pooled = ufp.assign_columns(df, target_col, transformed_target)
             else:
-                df_for_group = df
-
-            def _add_group_id(data, cols):
-                if isinstance(data, pd.DataFrame):
-                    groups = data[cols].drop_duplicates().reset_index(drop=True)
-                    groups["_group_id"] = np.arange(len(groups), dtype=np.int64)
-                    data = data.merge(groups, on=cols, how="left")
-                else:
-                    groups = data.select(cols).unique(maintain_order=True)
-                    groups = groups.with_row_index(name="_group_id")
-                    data = data.join(groups, on=cols, how="left")
-                return data, groups
-
-            def _map_group_id(data, groups, cols):
-                if isinstance(data, pd.DataFrame):
-                    joined = data[cols].merge(groups, on=cols, how="left")
-                    return joined["_group_id"].to_numpy()
-                joined = data.select(cols).join(groups, on=cols, how="left")
-                return joined["_group_id"].to_numpy()
-
-            for group_cols, tfms in group_tfms.items():
-                for col in group_cols:
-                    if col not in df.columns:
-                        raise ValueError(f"Groupby column '{col}' not found in dataframe.")
-                group_cols_list = list(group_cols)
-                missing = [c for c in group_cols_list if c not in self.static_features_.columns]
-                if missing:
-                    raise ValueError(
-                        "Groupby columns must be static features. "
-                        f"Missing from static_features: {missing}."
+                df_for_pooled = df
+            for key, tfms in pooled_tfms.items():
+                mode, group_cols_t, part_cols_t = key
+                if mode == "global" and not part_cols_t:
+                    self._pooled_states[key] = PooledState.from_global(
+                        sorted_df,
+                        id_col=id_col,
+                        time_col=time_col,
+                        target_col=target_col,
+                        ga_data_dtype=ga.data.dtype,
+                        n_series=len(ga.indptr) - 1,
                     )
-                group_df = ufp.group_by_agg(
-                    df_for_group[group_cols_list + [time_col, target_col]],
-                    group_cols_list + [time_col],
-                    {target_col: "sum"},
-                    maintain_order=True,
-                )
-                group_df = ufp.sort(group_df, by=group_cols_list + [time_col])
-                group_df, groups = _add_group_id(group_df, group_cols_list)
-                group_df = ufp.drop_index_if_pandas(group_df)
-                groups = ufp.drop_index_if_pandas(groups)
-                if isinstance(group_df, pd.DataFrame):
-                    process_df = group_df[["_group_id", time_col, target_col]]
+                elif mode == "groupby" and not part_cols_t:
+                    for col in group_cols_t:
+                        if col not in df.columns:
+                            raise ValueError(
+                                f"Groupby column '{col}' not found in dataframe."
+                            )
+                    group_cols_list = list(group_cols_t)
+                    missing = [
+                        c
+                        for c in group_cols_list
+                        if c not in self.static_features_.columns
+                    ]
+                    if missing:
+                        raise ValueError(
+                            "Groupby columns must be static features. "
+                            f"Missing from static_features: {missing}."
+                        )
+                    self._pooled_states[key] = PooledState.from_groupby(
+                        df_for_pooled,
+                        group_cols_list=group_cols_list,
+                        id_col=id_col,
+                        time_col=time_col,
+                        target_col=target_col,
+                        ga_data_dtype=ga.data.dtype,
+                        static_features=self.static_features_,
+                    )
                 else:
-                    process_df = group_df.select(["_group_id", time_col, target_col])
-                processed = ufp.process_df(
-                    process_df,
-                    id_col="_group_id",
-                    time_col=time_col,
-                    target_col=target_col,
-                )
-                if processed.sort_idxs is not None:
-                    group_df = ufp.take_rows(group_df, processed.sort_idxs)
-                group_df = ufp.drop_index_if_pandas(group_df)
-                group_values = processed.data[:, 0]
-                group_ga = GroupedArray(group_values, processed.indptr)
-                group_uids = processed.uids
-                series_group_id = _map_group_id(
-                    self.static_features_, groups, group_cols_list
-                )
-                group_idx = series_group_id.astype(np.int64, copy=False)
-                self._group_states[group_cols] = {
-                    "ga": group_ga,
-                    "df": group_df,
-                    "group_cols": group_cols_list,
-                    "groups": groups,
-                    "group_uids": group_uids,
-                    "group_idx": group_idx,
-                }
+                    all_cols = list(group_cols_t) + list(part_cols_t)
+                    for col in all_cols:
+                        if col not in df.columns and col != id_col:
+                            raise ValueError(
+                                f"partition_by/groupby column '{col}' not found in dataframe."
+                            )
+                    part_group_cols = list(group_cols_t) if group_cols_t else None
+                    self._pooled_states[key] = PooledState.from_partition(
+                        df_for_pooled,
+                        mode=mode,
+                        group_cols_list=part_group_cols,
+                        partition_cols_list=list(part_cols_t),
+                        id_col=id_col,
+                        time_col=time_col,
+                        target_col=target_col,
+                        ga_data_dtype=ga.data.dtype,
+                        static_features=self.static_features_,
+                        n_series=len(ga.indptr) - 1,
+                    )
+            for key, state in self._pooled_states.items():
+                if state.groups is not None:
+                    from .pooled import _compute_idsorted_to_bucket_pos
+
+                    state._idsorted_to_bucket_pos = _compute_idsorted_to_bucket_pos(
+                        state.bucket_df,
+                        id_col,
+                        time_col,
+                    )
         return self
 
     def _compute_transforms(
@@ -537,24 +731,67 @@ class TimeSeries:
             )
         return out
 
-    def _compute_date_feature(self, dates, feature):
+    def _join_bucket_features(
+        self,
+        features: Dict[str, np.ndarray],
+        df: DFType,
+        bucket_df: DFType,
+        bucket_vals: Dict[str, np.ndarray],
+        join_cols: list,
+    ) -> None:
+        feature_cols = list(bucket_vals.keys())
+        if not feature_cols:
+            return
+        if isinstance(df, pd.DataFrame):
+            join_df = bucket_df[join_cols].copy()
+            for name, vals in bucket_vals.items():
+                join_df[name] = vals
+            left = df[join_cols]
+        else:
+            join_df = bucket_df.select(join_cols)
+            for name, vals in bucket_vals.items():
+                join_df = join_df.with_columns(pl.Series(name=name, values=vals))
+            left = df.select(join_cols)
+        joined = nw.to_native(
+            _order_preserving_left_join(
+                nw.from_native(left), nw.from_native(join_df), on=join_cols
+            )
+        )
+        for name in feature_cols:
+            features[name] = joined[name].to_numpy()
+
+    def _compute_date_feature(self, dates, feature) -> Dict[str, Any]:
+        """Compute date feature(s) and return as a ``{col_name: values}`` dict."""
+        if (
+            self.date_features_as_dummies
+            and isinstance(feature, str)
+            and feature in _DUMMY_FEATURE_VALUES
+        ):
+            return _compute_date_dummies(dates, feature)
+
         if callable(feature):
             feat_name = feature.__name__
             feat_vals = feature(dates)
+            if isinstance(feat_vals, pd.DataFrame):
+                return {col: np.asarray(feat_vals[col]) for col in feat_vals.columns}
+            if isinstance(feat_vals, (pd.Index, pd.Series)):
+                feat_vals = np.asarray(feat_vals)
+            return {feat_name: feat_vals}
+
+        # regular string feature
+        feat_name = feature
+        if isinstance(dates, pd.DatetimeIndex):
+            if feature in ("week", "weekofyear"):
+                dates = dates.isocalendar()
+            feat_vals = getattr(dates, feature)
+            if isinstance(feat_vals, (pd.Index, pd.Series)):
+                feat_vals = np.asarray(feat_vals)
+                feat_dtype = date_features_dtypes.get(feature)
+                if feat_dtype is not None:
+                    feat_vals = feat_vals.astype(feat_dtype)
         else:
-            feat_name = feature
-            if isinstance(dates, pd.DatetimeIndex):
-                if feature in ("week", "weekofyear"):
-                    dates = dates.isocalendar()
-                feat_vals = getattr(dates, feature)
-            else:
-                feat_vals = getattr(dates.dt, feature)()
-        if isinstance(feat_vals, (pd.Index, pd.Series)):
-            feat_vals = np.asarray(feat_vals)
-            feat_dtype = date_features_dtypes.get(feature)
-            if feat_dtype is not None:
-                feat_vals = feat_vals.astype(feat_dtype)
-        return feat_name, feat_vals
+            feat_vals = getattr(dates.dt, feature)()
+        return {feat_name: feat_vals}
 
     def _transform(
         self,
@@ -586,55 +823,55 @@ class TimeSeries:
         features = self._compute_transforms(
             transforms=self.transforms, updates_only=False
         )
-        global_tfms = self._get_global_tfms()
-        if global_tfms:
-            assert self._global_ga is not None
-            assert self._global_times is not None
-            global_vals = self._global_ga.apply_transforms(
-                transforms=global_tfms, updates_only=False
-            )
-            if isinstance(df, pd.DataFrame):
-                for name, vals in global_vals.items():
-                    mapped = pd.Series(vals, index=self._global_times)
-                    features[name] = df[self.time_col].map(mapped).to_numpy()
+        pooled_tfms = self._get_pooled_tfms()
+        if pooled_tfms:
+            if self._sort_idxs is not None:
+                df_sorted = ufp.take_rows(df, self._sort_idxs)
             else:
-                global_df = pl_DataFrame({self.time_col: self._global_times})
-                for name, vals in global_vals.items():
-                    global_df = global_df.with_columns(
-                        pl.Series(name=name, values=vals)
+                df_sorted = df
+            for key, tfms in pooled_tfms.items():
+                state = self._pooled_states[key]
+                fast_features: Dict[str, Any] = {}
+                slow_tfms: Dict[str, _BaseLagTransform] = {}
+                for name, tfm in tfms.items():
+                    ts_vals = tfm._compute_ts_level_from_aggs(state._ts_aggs)
+                    if ts_vals is not None:
+                        fast_features[name] = ts_vals
+                    else:
+                        slow_tfms[name] = tfm
+                if fast_features:
+                    if state.groups is None:
+                        unique_times = np.unique(state.time)
+                        time_vals = df_sorted[self.time_col].to_numpy()
+                        row_ords = np.searchsorted(unique_times, time_vals)
+                        for name, ts_vals_by_bucket in fast_features.items():
+                            features[name] = ts_vals_by_bucket[0][row_ords]
+                    elif state._idsorted_to_bucket_pos is not None:
+                        pos = state._idsorted_to_bucket_pos
+                        bid_df = state.bucket_id[pos]
+                        ord_df = state.time_index[pos]
+                        for name, ts_vals_by_bucket in fast_features.items():
+                            out = np.full(len(pos), np.nan)
+                            for bid, ts_vals in ts_vals_by_bucket.items():
+                                mask = bid_df == bid
+                                bucket_ords = ord_df[mask]
+                                agg = state._ts_aggs[bid]
+                                dense_pos = np.searchsorted(
+                                    agg.unique_times, bucket_ords
+                                )
+                                out[mask] = ts_vals[dense_pos]
+                            features[name] = out
+                    else:
+                        slow_tfms.update({n: tfms[n] for n in fast_features})
+                if slow_tfms:
+                    bucket_vals = compute_pooled_features(state, slow_tfms)
+                    self._join_bucket_features(
+                        features,
+                        df_sorted,
+                        state.bucket_df,
+                        bucket_vals,
+                        state.join_cols,
                     )
-                joined = df.select(self.time_col).join(
-                    global_df, on=self.time_col, how="left"
-                )
-                for name in global_vals.keys():
-                    features[name] = joined[name].to_numpy()
-        group_tfms = self._get_group_tfms()
-        if group_tfms:
-            for group_cols, tfms in group_tfms.items():
-                state = self._group_states[group_cols]
-                group_df = state["df"]
-                ga = state["ga"]
-                group_vals = ga.apply_transforms(transforms=tfms, updates_only=False)
-                group_cols_list = state["group_cols"]
-                feature_cols = list(group_vals.keys())
-                if isinstance(df, pd.DataFrame):
-                    join_df = group_df[group_cols_list + [self.time_col]].copy()
-                    for name, vals in group_vals.items():
-                        join_df[name] = vals
-                    joined = df[group_cols_list + [self.time_col]].merge(
-                        join_df, on=group_cols_list + [self.time_col], how="left"
-                    )
-                    for name in feature_cols:
-                        features[name] = joined[name].to_numpy()
-                else:
-                    join_df = group_df.select(group_cols_list + [self.time_col])
-                    for name, vals in group_vals.items():
-                        join_df = join_df.with_columns(pl.Series(name=name, values=vals))
-                    joined = df.select(group_cols_list + [self.time_col]).join(
-                        join_df, on=group_cols_list + [self.time_col], how="left"
-                    )
-                    for name in feature_cols:
-                        features[name] = joined[name].to_numpy()
         # filter out the features that already exist in df to avoid overwriting them
         features = {k: v for k, v in features.items() if k not in df}
         if self._restore_idxs is not None:
@@ -703,6 +940,7 @@ class TimeSeries:
             self.keep_last_n = max(update_samples)
         if self.keep_last_n is not None:
             self.ga = self.ga.take_from_groups(slice(-self.keep_last_n, None))
+            self._trim_pooled_states()
         del self._restore_idxs, self._sort_idxs
 
         # lag transforms
@@ -711,9 +949,19 @@ class TimeSeries:
                 df = ufp.assign_columns(df, feat, features[feat])
 
         # date features
-        names = [f.__name__ if callable(f) else f for f in self.date_features]
+        def _feature_in_df(f, cols):
+            if (
+                self.date_features_as_dummies
+                and isinstance(f, str)
+                and f in _DUMMY_FEATURE_VALUES
+            ):
+                return all(f"{f}_{v}" in cols for v in _DUMMY_FEATURE_VALUES[f])
+            name = f.__name__ if callable(f) else f
+            return name in cols
+
+        df_cols = set(df.columns)
         date_features = [
-            f for f, name in zip(self.date_features, names) if name not in df
+            f for f in self.date_features if not _feature_in_df(f, df_cols)
         ]
         if date_features:
             unique_dates = df[self.time_col].unique()
@@ -723,16 +971,32 @@ class TimeSeries:
                 date2pos = {date: i for i, date in enumerate(unique_dates)}
                 restore_idxs = df[self.time_col].map(date2pos)
                 for feature in date_features:
-                    feat_name, feat_vals = self._compute_date_feature(
+                    for feat_name, feat_vals in self._compute_date_feature(
                         unique_dates, feature
-                    )
-                    df[feat_name] = feat_vals[restore_idxs]
+                    ).items():
+                        df[feat_name] = feat_vals[restore_idxs]
             elif isinstance(df, pl_DataFrame):
                 exprs = []
+                nw_feats: Dict[str, Any] = {}
                 for feat in date_features:  # type: ignore
-                    name, vals = self._compute_date_feature(pl.col(self.time_col), feat)
-                    exprs.append(vals.alias(name))
-                feats = unique_dates.to_frame().with_columns(*exprs)
+                    if (
+                        self.date_features_as_dummies
+                        and isinstance(feat, str)
+                        and feat in _DUMMY_FEATURE_VALUES
+                    ):
+                        nw_feats.update(_compute_date_dummies(unique_dates, feat))
+                    else:
+                        for name, vals in self._compute_date_feature(
+                            pl.col(self.time_col), feat
+                        ).items():
+                            exprs.append(vals.alias(name))
+                feats = unique_dates.to_frame()
+                if exprs:
+                    feats = feats.with_columns(*exprs)
+                for col_name, col_vals in nw_feats.items():
+                    feats = feats.with_columns(
+                        pl.Series(name=col_name, values=col_vals)
+                    )
                 df = df.join(feats, on=self.time_col, how="left")
 
         # assemble return
@@ -749,7 +1013,9 @@ class TimeSeries:
             # remove original target
             out_cols = [c for c in df.columns if c != self.target_col]
             df = df[out_cols]
-            target_names = [f"{self.target_col}{i}" for i in range(effective_max_horizon)]
+            target_names = [
+                f"{self.target_col}{i}" for i in range(effective_max_horizon)
+            ]
             df = ufp.assign_columns(df, target_names, target)
         else:
             df = ufp.copy_if_pandas(df, deep=False)
@@ -781,7 +1047,11 @@ class TimeSeries:
         Yields:
             Tuple of (horizon_index, X, y) where horizon_index is 0-indexed
         """
-        exog_cols = self._get_dynamic_exog_cols(list(original_df.columns))
+        exog_cols = self._get_dynamic_exog_cols(self.features_order_)
+        exog_cols_set = set(exog_cols)
+        common_exog_cols, horizon_exog_map = self._split_horizon_exog_cols(
+            exog_cols, self.horizon_features_
+        )
 
         # Get feature columns (excluding target columns)
         if self.weight_col is not None:
@@ -791,7 +1061,6 @@ class TimeSeries:
 
         # Non-exog feature columns (lags, date features, static)
         non_exog_cols = [c for c in x_cols if c not in exog_cols]
-
         # Build exog lookup dictionary from original_df for efficient lookups
         # Key: (id, time) -> exog values
         if exog_cols:
@@ -799,15 +1068,26 @@ class TimeSeries:
             exog_lookup = original_df[[self.id_col, self.time_col] + exog_cols]
 
         for h in horizons:
+            h_cols = self._get_cols_for_horizon(
+                h, common_exog_cols, horizon_exog_map, exog_cols
+            )
+            h_cols_set = set(h_cols)
+            # exog subset for this horizon — used for time-aligned joining and NaN filtering
+            horizon_exog = [c for c in h_cols if c in exog_cols_set]
+            # weight_col lives in x_cols but not in features_order_ (and thus not in
+            # h_cols); keep any x_col that is non-exog (weight, lags, dates, static)
+            # or is an allowed exog for this horizon.
+            x_cols_h = [c for c in x_cols if c not in exog_cols_set or c in h_cols_set]
+
             # Target column name for this horizon
             target_col_h = f"{target_col}{h}"
 
             # Get target for this horizon
             y_h = prep[target_col_h].to_numpy()
 
-            if h == 0 or not exog_cols:
+            if h == 0 or not horizon_exog:
                 # No offset needed for horizon 0 or if no exog cols
-                X_h = prep[x_cols]
+                X_h = prep[x_cols_h]
             else:
                 # Start with the non-exog features from prep
                 X_h = ufp.copy_if_pandas(prep[non_exog_cols], deep=True)
@@ -820,37 +1100,45 @@ class TimeSeries:
                     # Polars - use with_row_index()
                     lookup_df = (
                         prep[[self.id_col]]
-                        .with_columns(pl_Series('_offset_time', offset_times))
-                        .with_row_index('_row_idx')
+                        .with_columns(pl_Series("_offset_time", offset_times))
+                        .with_row_index("_row_idx")
                     )
-                    exog_renamed = exog_lookup.rename({self.time_col: '_offset_time'})
-                    merged = lookup_df.join(exog_renamed, on=[self.id_col, '_offset_time'], how='left')
-                    merged = merged.sort('_row_idx')
+                    exog_renamed = exog_lookup.rename({self.time_col: "_offset_time"})
+                    merged = lookup_df.join(
+                        exog_renamed, on=[self.id_col, "_offset_time"], how="left"
+                    )
+                    merged = merged.sort("_row_idx")
 
                     # Assign exog columns to X_h
-                    for col in exog_cols:
+                    for col in horizon_exog:
                         X_h = X_h.with_columns(merged[col].alias(col))
                 else:
                     # Pandas
                     lookup_df = prep[[self.id_col]].copy()
-                    lookup_df['_offset_time'] = offset_times
-                    lookup_df['_row_idx'] = np.arange(len(prep))
-                    exog_renamed = exog_lookup.rename(columns={self.time_col: '_offset_time'})
-                    merged = lookup_df.merge(exog_renamed, on=[self.id_col, '_offset_time'], how='left')
+                    lookup_df["_offset_time"] = offset_times
+                    lookup_df["_row_idx"] = np.arange(len(prep))
+                    exog_renamed = exog_lookup.rename(
+                        columns={self.time_col: "_offset_time"}
+                    )
+                    merged = lookup_df.merge(
+                        exog_renamed, on=[self.id_col, "_offset_time"], how="left"
+                    )
                     # Sort by original row order
-                    merged = merged.sort_values('_row_idx')
+                    merged = merged.sort_values("_row_idx")
 
                     # Assign exog columns to X_h
-                    for col in exog_cols:
+                    for col in horizon_exog:
                         X_h[col] = merged[col].values
 
                 # Reorder columns to match x_cols
-                X_h = X_h[x_cols]
+                X_h = X_h[x_cols_h]
 
-            # Filter valid rows (non-NaN target and exog)
+            # Filter valid rows: rows where any horizon-specific exog is NaN/null
+            # are dropped — they cannot be used for this horizon's model even if
+            # the target itself is valid.
             valid = ~np.isnan(y_h)
-            if exog_cols and h > 0:
-                for col in exog_cols:
+            if horizon_exog and h > 0:
+                for col in horizon_exog:
                     valid &= ~ufp.is_nan_or_none(X_h[col]).to_numpy()
 
             X_h = ufp.filter_with_mask(X_h, valid)
@@ -917,31 +1205,8 @@ class TimeSeries:
         self.y_pred.append(new)
         new_arr = np.asarray(new)
         self.ga = self.ga.append(new_arr)
-        global_tfms = self._get_global_tfms()
-        if global_tfms:
-            assert self._global_ga is not None
-            new_val = np.array([new_arr.sum()], dtype=self.ga.data.dtype)
-            combined = np.concatenate([self._global_ga.data, new_val])
-            indptr = np.array([0, combined.size], dtype=np.int32)
-            self._global_ga = GroupedArray(combined, indptr)
-            if self._global_times is not None:
-                if isinstance(self._global_times, pl_Series):
-                    self._global_times = pl.concat(
-                        [self._global_times, pl.Series([self.curr_dates[0]])]
-                    )
-                else:
-                    self._global_times = self._global_times.append(
-                        pd.Index([self.curr_dates[0]])
-                    )
-        group_tfms = self._get_group_tfms()
-        if group_tfms:
-            for group_cols, _tfms in group_tfms.items():
-                state = self._group_states[group_cols]
-                group_idx = state["group_idx"]
-                n_groups = len(state["group_uids"])
-                group_sums = np.zeros(n_groups, dtype=self.ga.data.dtype)
-                np.add.at(group_sums, group_idx, new_arr)
-                state["ga"] = state["ga"].append(group_sums)
+        for state in self._pooled_states.values():
+            state.append_predictions(self.curr_dates, new_arr, len(new_arr))
 
     def _update_features(self) -> DataFrame:
         """Compute the current values of all the features using the latest values of the time series."""
@@ -951,27 +1216,63 @@ class TimeSeries:
         self.test_dates.append(self.curr_dates)
 
         features = self._compute_transforms(self.transforms, updates_only=True)
-        global_tfms = self._get_global_tfms()
-        if global_tfms:
-            assert self._global_ga is not None
-            global_updates = self._global_ga.apply_transforms(
-                transforms=global_tfms, updates_only=True
-            )
+        pooled_tfms = self._get_pooled_tfms()
+        for key, tfms in pooled_tfms.items():
+            state = self._pooled_states[key]
             n_series = len(self.uids)
-            for name, vals in global_updates.items():
-                features[name] = np.full(n_series, vals[0])
-        group_tfms = self._get_group_tfms()
-        if group_tfms:
-            for group_cols, tfms in group_tfms.items():
-                state = self._group_states[group_cols]
-                updates = state["ga"].apply_transforms(transforms=tfms, updates_only=True)
-                group_idx = state["group_idx"]
-                for name, vals in updates.items():
-                    features[name] = vals[group_idx]
+            slow_tfms: Dict[str, _BaseLagTransform] = {}
+            for name, tfm in tfms.items():
+                latest = tfm._compute_latest_from_aggs(
+                    state._ts_aggs,
+                    state.next_time_index_by_bucket,
+                )
+                if latest is not None:
+                    if state.groups is None:
+                        features[name] = np.full(n_series, latest[0])
+                    else:
+                        max_bid = max(
+                            max(latest.keys(), default=-1),
+                            int(state.series_bucket_id.max()),
+                        )
+                        lookup = np.full(max_bid + 1, np.nan)
+                        for bid, val in latest.items():
+                            lookup[bid] = val
+                        features[name] = lookup[state.series_bucket_id]
+                else:
+                    slow_tfms[name] = tfm
+            if slow_tfms:
+                query = state.build_query_arrays(self.curr_dates, n_series)
+                bucket_vals = compute_pooled_features(
+                    state,
+                    slow_tfms,
+                    query_arrays=query,
+                )
+                if state.groups is None:
+                    for name, vals in bucket_vals.items():
+                        features[name] = np.full(n_series, vals[-1])
+                else:
+                    tmp_bid = query[0]
+                    n_orig = len(state.y)
+                    for name, vals in bucket_vals.items():
+                        new_vals = vals[n_orig:]
+                        new_bid_vals = tmp_bid[n_orig:]
+                        val_map = {}
+                        for bv, v in zip(new_bid_vals, new_vals):
+                            val_map[bv] = v
+                        max_bid = max(
+                            max(val_map.keys(), default=-1),
+                            int(state.series_bucket_id.max()),
+                        )
+                        lookup = np.full(max_bid + 1, np.nan)
+                        for bid, val in val_map.items():
+                            lookup[bid] = val
+                        features[name] = lookup[state.series_bucket_id]
 
         for feature in self.date_features:
-            feat_name, feat_vals = self._compute_date_feature(self.curr_dates, feature)
-            features[feat_name] = feat_vals
+            for feat_name, feat_vals in self._compute_date_feature(
+                self.curr_dates, feature
+            ).items():
+                features[feat_name] = feat_vals
 
         if isinstance(self.last_dates, pl_Series):
             df_constructor = pl_DataFrame
@@ -1009,17 +1310,69 @@ class TimeSeries:
         )
         return df
 
+    def _current_step_rows(self, X_df):
+        """One row per series from ``X_df`` for the current horizon step (``self._h``)."""
+        n_series = len(self.uids)
+        h = X_df.shape[0] // n_series
+        row_offset = min(self._h, h - 1)
+        rows = np.arange(row_offset, X_df.shape[0], h)
+        return ufp.drop_index_if_pandas(ufp.take_rows(X_df, rows))
+
+    def _update_partition_assignments(self, X_df):
+        """Update partition state bucket assignments from current X_df row.
+
+        Returns the sliced X_row (one row per series for the current step)
+        so ``_get_features_for_next_step`` can reuse it without re-slicing.
+        Returns ``None`` when there are no partition columns.
+        """
+        if not getattr(self, "_partition_cols", None):
+            return None
+        X_row = self._current_step_rows(X_df)
+        # Both frames hold one row per series in uid order, so selecting key
+        # columns from each and concatenating keeps the context aligned.
+        X_row_nw = nw.from_native(X_row, eager_only=True)
+        statics_nw = nw.from_native(self.static_features_, eager_only=True)
+        x_cols = set(X_row_nw.columns)
+        sf_cols = set(statics_nw.columns)
+        for key, state in self._pooled_states.items():
+            _mode, _group_cols, part_cols = key
+            if not part_cols or state.key_cols is None:
+                continue
+            from_statics = [self.id_col]
+            from_x = []
+            missing_keys = []
+            for col in state.key_cols:
+                if col == self.id_col:
+                    continue
+                if col in x_cols:
+                    from_x.append(col)
+                elif col in sf_cols:
+                    from_statics.append(col)
+                else:
+                    missing_keys.append(col)
+            if missing_keys:
+                raise ValueError(
+                    f"Partition/group key column(s) {missing_keys} not found "
+                    f"in X_df or static_features. Provide these columns in "
+                    f"X_df for prediction."
+                )
+            context_nw = statics_nw.select(from_statics)
+            if from_x:
+                context_nw = nw.concat(
+                    [context_nw, X_row_nw.select(from_x)], how="horizontal"
+                )
+            state.update_series_bucket_id(context_nw.to_native(), self.id_col)
+        return X_row
+
     def _get_features_for_next_step(self, X_df=None):
+        X_row = None
+        if X_df is not None:
+            X_row = self._update_partition_assignments(X_df)
         new_x = self._update_features()
         if X_df is not None:
-            n_series = len(self.uids)
-            h = X_df.shape[0] // n_series  # how many timestamps per series
-            # Use min to cap at last available row if self._h exceeds available data
-            row_offset = min(self._h, h - 1)
-            rows = np.arange(row_offset, X_df.shape[0], h)
-            X = ufp.take_rows(X_df, rows)
-            X = ufp.drop_index_if_pandas(X)
-            new_x = ufp.horizontal_concat([new_x, X])
+            if X_row is None:
+                X_row = self._current_step_rows(X_df)
+            new_x = ufp.horizontal_concat([new_x, X_row])
         if isinstance(new_x, pd.DataFrame):
             nulls = new_x.isnull().any()
             cols_with_nulls = nulls[nulls].index.tolist()
@@ -1027,7 +1380,7 @@ class TimeSeries:
             nulls = new_x.select(pl.all().is_null().any())
             cols_with_nulls = [k for k, v in nulls.to_dicts()[0].items() if v]
         if cols_with_nulls:
-            warnings.warn(f'Found null values in {", ".join(cols_with_nulls)}.')
+            warnings.warn(f"Found null values in {', '.join(cols_with_nulls)}.")
         self._h += 1
         new_x = new_x[self.features_order_]
         if self.as_numpy:
@@ -1036,23 +1389,20 @@ class TimeSeries:
 
     @contextmanager
     def _backup(self) -> Iterator[None]:
-        # this gets modified during predict because the predictions are appended
         ga = copy.copy(self.ga)
-        # if these save state (like ExpandingMean) they'll get modified by the updates
         lag_tfms = copy.deepcopy(self.transforms)
-        group_states = copy.deepcopy(getattr(self, "_group_states", {}))
-        global_ga = copy.copy(getattr(self, "_global_ga", None))
-        global_times = copy.copy(getattr(self, "_global_times", None))
+        # Pooled states are only appended to during prediction, so a cheap
+        # structural snapshot (references + shallow container copies) restores
+        # them faithfully without deep-copying every aggregate array per model.
+        pooled_states = getattr(self, "_pooled_states", {})
+        pooled_snaps = {key: state.snapshot() for key, state in pooled_states.items()}
         try:
             yield
         finally:
             self.ga = ga
             self.transforms = lag_tfms
-            if global_ga is not None or global_times is not None:
-                self._global_ga = global_ga
-                self._global_times = global_times
-            if group_states:
-                self._group_states = group_states
+            for key, snap in pooled_snaps.items():
+                self._pooled_states[key].restore(snap)
 
     def _predict_setup(self) -> None:
         # TODO: move to utils
@@ -1080,7 +1430,12 @@ class TimeSeries:
                     new_x = self._get_features_for_next_step(X_df)
                     if before_predict_callback is not None:
                         new_x = before_predict_callback(new_x)
-                    predictions = model.predict(new_x)
+                    model_x = new_x
+                    if isinstance(model, CatBoostRegressor) and isinstance(
+                        new_x, pl_DataFrame
+                    ):
+                        model_x = new_x.to_pandas()
+                    predictions = model.predict(model_x)
                     if after_predict_callback is not None:
                         predictions = after_predict_callback(predictions)
                     self._update_y(predictions)
@@ -1137,8 +1492,13 @@ class TimeSeries:
             # So dates need to be [s0_h0, s0_h1, ..., s1_h0, s1_h1, ...]
             if isinstance(self.curr_dates, pl_Series):
                 df_constructor = pl_DataFrame
-                # Compute dates for all horizons, then stack and flatten
-                dates_per_horizon = [ufp.offset_times(self.curr_dates, self.freq, h + 1) for h in horizons_to_predict]
+                # Compute dates for all horizons, then stack and flatten.
+                # horizons_to_predict is 0-indexed; offset_times(dates, freq, n) gives
+                # dates + n*freq, so h + 1 converts 0-indexed h to a 1-step-ahead offset.
+                dates_per_horizon = [
+                    ufp.offset_times(self.curr_dates, self.freq, h + 1)
+                    for h in horizons_to_predict
+                ]
                 # Stack: each row is a series, each col is a horizon
                 dates_matrix = pl.DataFrame(dates_per_horizon).transpose()
                 # Flatten row by row: [s0_h0, s0_h1, ..., s1_h0, s1_h1, ...]
@@ -1146,8 +1506,13 @@ class TimeSeries:
                 dates = pl.Series(dates)
             else:
                 df_constructor = pd.DataFrame
-                # Compute dates for all horizons, then stack and flatten
-                dates_per_horizon = [ufp.offset_times(self.curr_dates, self.freq, h + 1) for h in horizons_to_predict]
+                # Compute dates for all horizons, then stack and flatten.
+                # horizons_to_predict is 0-indexed; offset_times(dates, freq, n) gives
+                # dates + n*freq, so h + 1 converts 0-indexed h to a 1-step-ahead offset.
+                dates_per_horizon = [
+                    ufp.offset_times(self.curr_dates, self.freq, h + 1)
+                    for h in horizons_to_predict
+                ]
                 # Stack: each row is a series, each col is a horizon
                 dates_matrix = np.column_stack(dates_per_horizon)
                 # Flatten row by row: [s0_h0, s0_h1, ..., s1_h0, s1_h1, ...]
@@ -1162,6 +1527,20 @@ class TimeSeries:
                 df_constructor = pd.DataFrame
 
         result = df_constructor({self.id_col: uids, self.time_col: dates})
+        exog_cols = self._get_dynamic_exog_cols(self.features_order_)
+        common_exog_cols, horizon_exog_map = self._split_horizon_exog_cols(
+            exog_cols, self.horizon_features_
+        )
+        feature_idx = {c: i for i, c in enumerate(self.features_order_)}
+        horizon_feature_indices = {}
+        if self.horizon_features_:
+            for h in horizons_to_predict:
+                h_cols = self._get_cols_for_horizon(
+                    h, common_exog_cols, horizon_exog_map, exog_cols
+                )
+                horizon_feature_indices[h] = np.array(
+                    [feature_idx[c] for c in h_cols], dtype=np.int32
+                )
 
         for name, model in models.items():
             with self._backup():
@@ -1177,10 +1556,27 @@ class TimeSeries:
                     if before_predict_callback is not None:
                         new_x = before_predict_callback(new_x)
 
+                    model_x = new_x
+                    if self.horizon_features_:
+                        if isinstance(new_x, np.ndarray):
+                            col_idx = horizon_feature_indices.get(h)
+                            if col_idx is not None:
+                                model_x = new_x[:, col_idx]
+                        else:
+                            h_cols = self._get_cols_for_horizon(
+                                h, common_exog_cols, horizon_exog_map, exog_cols
+                            )
+                            model_x = new_x[h_cols]
                     horizon_model = model[h]
-                    preds = horizon_model.predict(new_x)
+                    if isinstance(horizon_model, CatBoostRegressor) and isinstance(
+                        model_x, pl_DataFrame
+                    ):
+                        model_x = model_x.to_pandas()
+                    preds = horizon_model.predict(model_x)
                     if len(preds) != len(self.uids):
-                        raise ValueError(f"Model returned {len(preds)} predictions but expected {len(self.uids)}")
+                        raise ValueError(
+                            f"Model returned {len(preds)} predictions but expected {len(self.uids)}"
+                        )
                     predictions[:, out_idx] = preds
 
                 raw_preds = predictions.ravel()
@@ -1237,11 +1633,13 @@ class TimeSeries:
         X_df: Optional[DFType] = None,
         ids: Optional[List[str]] = None,
     ) -> DFType:
-        if ids is not None and (self._get_global_tfms() or self._get_group_tfms()):
-            raise ValueError(
-                "Cannot use `ids` with global or group lag transforms. "
-                "These transforms require forecasting all series together."
-            )
+        if ids is not None:
+            has_nonlocal = any(mode != "local" for mode, _, _ in self._pooled_states)
+            if has_nonlocal:
+                raise ValueError(
+                    "Cannot use `ids` with global, group, or nonlocal partition lag transforms. "
+                    "These transforms require forecasting all series together."
+                )
         self._check_aligned_ends()
         if ids is not None:
             unseen = set(ids) - set(self.uids)
@@ -1252,6 +1650,17 @@ class TimeSeries:
             idxs: Optional[np.ndarray] = np.where(ufp.is_in(self.uids, ids))[0]
         else:
             idxs = None
+        if X_df is None:
+            required_future_cols = set(
+                self._get_dynamic_exog_cols(self.features_order_)
+            )
+            required_future_cols.update(getattr(self, "_partition_cols", set()))
+            if required_future_cols:
+                raise ValueError(
+                    "X_df is required for prediction because future values are needed "
+                    "for feature generation or model inputs used during training: "
+                    f"{sorted(required_future_cols)}."
+                )
         with self._maybe_subset(idxs):
             if X_df is not None:
                 if self.id_col not in X_df or self.time_col not in X_df:
@@ -1266,10 +1675,23 @@ class TimeSeries:
                 ]
                 common = [c for c in dynamics if c in statics]
                 if common:
+                    warnings.warn(
+                        "The following columns were provided through X_df but were considered "
+                        f"static during fit and will be ignored: {common}. "
+                        "If any of these columns should vary over the forecast horizon, refit "
+                        "with static_features=[] or exclude them from static_features.",
+                        UserWarning,
+                        stacklevel=2,
+                    )
+                required_future_cols = set(
+                    self._get_dynamic_exog_cols(self.features_order_)
+                )
+                required_future_cols.update(getattr(self, "_partition_cols", set()))
+                missing = sorted(required_future_cols - set(dynamics))
+                if missing:
                     raise ValueError(
-                        f"The following features were provided through `X_df` but were considered as static during fit: {common}.\n"
-                        "Please re-run the fit step using the `static_features` argument to indicate which features are static. "
-                        "If all your features are dynamic please provide an empty list (static_features=[])."
+                        "X_df is missing future values required for feature generation or "
+                        f"model inputs used during training: {missing}."
                     )
                 starts = ufp.offset_times(self.last_dates, self.freq, 1)
                 ends = ufp.offset_times(self.last_dates, self.freq, horizon)
@@ -1299,7 +1721,7 @@ class TimeSeries:
                         "Features will be reused for missing horizon steps. "
                         "Use `make_future_dataframe(h)` or `get_missing_future(h, X_df)` to generate complete features."
                     )
-                drop_cols = [self.id_col, self.time_col, "_start", "_end"]
+                drop_cols = [self.id_col, self.time_col, "_start", "_end"] + common
                 X_df = ufp.sort(X_df, [self.id_col, self.time_col])
                 X_df = ufp.drop_columns(X_df, drop_cols)
             if getattr(self, "max_horizon", None) is None:
@@ -1326,7 +1748,9 @@ class TimeSeries:
                     ]
                     # Calculate actual predictions per series (handles sparse horizons)
                     preds_per_series = len(preds) // len(self.uids)
-                    indptr = np.arange(0, preds_per_series * (len(self.uids) + 1), preds_per_series)
+                    indptr = np.arange(
+                        0, preds_per_series * (len(self.uids) + 1), preds_per_series
+                    )
                 for tfm in self.target_transforms[::-1]:
                     if isinstance(tfm, _BaseGroupedArrayTargetTransform):
                         for col in model_cols:
@@ -1348,10 +1772,13 @@ class TimeSeries:
         with fsspec.open(path, "rb", protocol=protocol) as f:
             ts = cloudpickle.load(f)
         return ts
-    
+
     def _validate_new_df(self, df: DataFrame) -> None:
         from .data_validation import validate_update_df
-        validate_update_df(df, self.id_col, self.time_col, self.uids, self.last_dates, self.freq)
+
+        validate_update_df(
+            df, self.id_col, self.time_col, self.uids, self.last_dates, self.freq
+        )
 
     def update(self, df: DataFrame, validate_new_data: bool = False) -> None:
         """Update the values of the stored series.
@@ -1371,7 +1798,7 @@ class TimeSeries:
         values = df[self.target_col].to_numpy()
         values = values.astype(self.ga.data.dtype, copy=False)
         self._check_aligned_ends()
-        if self._get_global_tfms() or self._get_group_tfms():
+        if self._pooled_states:
             if isinstance(df, pd.DataFrame):
                 expected_ids = pd.Index(uids).union(pd.Index(new_ids))
                 expected_count = len(expected_ids)
@@ -1379,22 +1806,21 @@ class TimeSeries:
                 bad_times = counts[counts != expected_count]
                 if not bad_times.empty:
                     raise ValueError(
-                        "Global and group lag transforms require updates to include all series for each timestamp."
+                        "Pooled lag transforms require updates to include all series for each timestamp."
                     )
             else:
                 expected_ids = pl.concat([pl.Series(uids), pl.Series(new_ids)]).unique()
                 expected_count = expected_ids.len()
-                counts = (
-                    df.group_by(self.time_col)
-                    .agg(pl.col(self.id_col).n_unique().alias("_n_ids"))
+                counts = df.group_by(self.time_col).agg(
+                    pl.col(self.id_col).n_unique().alias("_n_ids")
                 )
                 bad_times = counts.filter(pl.col("_n_ids") != expected_count)
                 if bad_times.height:
                     raise ValueError(
-                        "Global and group lag transforms require updates to include all series for each timestamp."
+                        "Pooled lag transforms require updates to include all series for each timestamp."
                     )
-        if validate_new_data:   
-            self._validate_new_df(df=df) 
+        if validate_new_data:
+            self._validate_new_df(df=df)
         id_counts = ufp.counts_by_id(df, self.id_col)
         try:
             sizes = ufp.join(uids, id_counts, on=self.id_col, how="outer_coalesce")
@@ -1422,7 +1848,7 @@ class TimeSeries:
             new_ids_df = ufp.filter_with_mask(df, ufp.is_in(df[self.id_col], new_ids))
             new_ids_counts = ufp.counts_by_id(new_ids_df, self.id_col)
             new_statics = ufp.take_rows(
-                df, new_ids_counts["counts"].to_numpy().cumsum() - 1
+                new_ids_df, new_ids_counts["counts"].to_numpy().cumsum() - 1
             )
             new_statics = new_statics[self.static_features_.columns]
             self.static_features_ = ufp.vertical_concat(
@@ -1445,121 +1871,12 @@ class TimeSeries:
             new_values=values,
             new_groups=new_groups.to_numpy(),
         )
-        global_tfms = self._get_global_tfms()
-        if global_tfms:
-            global_df = ufp.group_by_agg(
-                df[[self.time_col, self.target_col]],
-                self.time_col,
-                {self.target_col: "sum"},
-                maintain_order=True,
+        for state in self._pooled_states.values():
+            state.append_observations(
+                df,
+                id_col=self.id_col,
+                time_col=self.time_col,
+                target_col=self.target_col,
+                ga_data_dtype=self.ga.data.dtype,
+                static_features=self.static_features_,
             )
-            global_df = ufp.sort(global_df, by=self.time_col)
-            global_values = global_df[self.target_col].to_numpy().astype(
-                self.ga.data.dtype
-            )
-            if self._global_ga is None:
-                self._global_ga = GroupedArray(
-                    global_values,
-                    np.array([0, global_values.size], dtype=np.int32),
-                )
-            else:
-                combined = np.concatenate([self._global_ga.data, global_values])
-                indptr = np.array([0, combined.size], dtype=np.int32)
-                self._global_ga = GroupedArray(combined, indptr)
-            if self._global_times is None:
-                if isinstance(global_df, pd.DataFrame):
-                    self._global_times = pd.Index(global_df[self.time_col])
-                else:
-                    self._global_times = global_df[self.time_col]
-            else:
-                if isinstance(self._global_times, pl_Series):
-                    self._global_times = pl.concat(
-                        [self._global_times, global_df[self.time_col]]
-                    )
-                else:
-                    self._global_times = self._global_times.append(
-                        pd.Index(global_df[self.time_col])
-                    )
-        group_tfms = self._get_group_tfms()
-        if group_tfms:
-            def _attach_group_id(data, groups, cols):
-                if isinstance(data, pd.DataFrame):
-                    return data.merge(groups, on=cols, how="left")
-                return data.join(groups, on=cols, how="left")
-
-            for group_cols in group_tfms.keys():
-                state = self._group_states[group_cols]
-                group_cols_list = state["group_cols"]
-                group_df = ufp.group_by_agg(
-                    df[group_cols_list + [self.time_col, self.target_col]],
-                    group_cols_list + [self.time_col],
-                    {self.target_col: "sum"},
-                    maintain_order=True,
-                )
-                group_df = ufp.sort(group_df, by=group_cols_list + [self.time_col])
-                groups = state["groups"]
-                group_df = _attach_group_id(group_df, groups, group_cols_list)
-                if isinstance(group_df, pd.DataFrame):
-                    missing = group_df["_group_id"].isna()
-                    if missing.any():
-                        new_groups = group_df.loc[missing, group_cols_list].drop_duplicates()
-                        new_groups = new_groups.reset_index(drop=True)
-                        start = len(groups)
-                        new_groups["_group_id"] = np.arange(
-                            start, start + len(new_groups), dtype=np.int64
-                        )
-                        groups = pd.concat([groups, new_groups], ignore_index=True)
-                        group_df = group_df.drop(columns="_group_id").merge(
-                            groups, on=group_cols_list, how="left"
-                        )
-                else:
-                    missing = group_df["_group_id"].is_null()
-                    if missing.any():
-                        new_groups = (
-                            group_df.filter(missing)
-                            .select(group_cols_list)
-                            .unique(maintain_order=True)
-                        )
-                        start = groups.height
-                        new_groups = new_groups.with_row_index(
-                            name="_group_id", offset=start
-                        )
-                        groups = pl.concat([groups, new_groups], how="vertical")
-                        group_df = group_df.drop("_group_id").join(
-                            groups, on=group_cols_list, how="left"
-                        )
-                state["groups"] = groups
-                id_counts = ufp.counts_by_id(group_df, "_group_id")
-                uids = state["group_uids"]
-                if isinstance(uids, pd.Index):
-                    uids = pd.Series(uids)
-                uids, new_ids = ufp.match_if_categorical(uids, group_df["_group_id"])
-                group_df = ufp.assign_columns(group_df, "_group_id", new_ids)
-                group_df = ufp.sort(group_df, by=["_group_id", self.time_col])
-                values = group_df[self.target_col].to_numpy().astype(self.ga.data.dtype, copy=False)
-                try:
-                    sizes = ufp.join(uids, id_counts, on="_group_id", how="outer_coalesce")
-                except (KeyError, ValueError):
-                    sizes = ufp.join(uids, id_counts, on="_group_id", how="outer")
-                sizes = ufp.fill_null(sizes, {"counts": 0})
-                sizes = ufp.sort(sizes, by="_group_id")
-                new_groups = ~ufp.is_in(sizes["_group_id"], uids)
-                state["ga"] = state["ga"].append_several(
-                    new_sizes=sizes["counts"].to_numpy().astype(np.int32),
-                    new_values=values,
-                    new_groups=new_groups.to_numpy(),
-                )
-                state["group_uids"] = ufp.sort(sizes["_group_id"])
-                if isinstance(self.static_features_, pd.DataFrame):
-                    series_group_id = self.static_features_[group_cols_list].merge(
-                        groups, on=group_cols_list, how="left"
-                    )["_group_id"].to_numpy()
-                    state["group_idx"] = series_group_id.astype(np.int64, copy=False)
-                else:
-                    series_group_id = (
-                        self.static_features_
-                        .select(group_cols_list)
-                        .join(groups, on=group_cols_list, how="left")["_group_id"]
-                        .to_numpy()
-                    )
-                    state["group_idx"] = series_group_id.astype(np.int64, copy=False)

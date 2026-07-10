@@ -14,7 +14,7 @@
 """  # noqa: E501
 
 
-__version__ = "1.5.0"
+__version__ = "1.5.1"
 
 # Define package exports
 __all__ = [
@@ -30,6 +30,7 @@ __all__ = [
     "DeploymentsApi",
     "DockerHelperApi",
     "DomainsApi",
+    "InstanceSnapshotsApi",
     "InstancesApi",
     "IntercomApi",
     "LogsApi",
@@ -116,6 +117,8 @@ __all__ = [
     "CreateCredentialReply",
     "CreateDomain",
     "CreateDomainReply",
+    "CreateInstanceSnapshotReply",
+    "CreateInstanceSnapshotRequest",
     "CreateOrganizationInvitationReply",
     "CreateOrganizationInvitationRequest",
     "CreateOrganizationReply",
@@ -145,6 +148,7 @@ __all__ = [
     "DeclareStageProgressRequest",
     "DeclareStepProgressRequest",
     "DeclineOrganizationInvitationReply",
+    "DeleteInstanceSnapshotReply",
     "DeleteOrganizationReply",
     "DeletePersistentVolumeReply",
     "DeleteSnapshotReply",
@@ -198,6 +202,8 @@ __all__ = [
     "DomainStatus",
     "DomainType",
     "DomainsSummary",
+    "EgressPolicy",
+    "EgressPolicyMode",
     "Env",
     "Error",
     "ErrorField",
@@ -219,6 +225,7 @@ __all__ = [
     "GetGithubInstallationReply",
     "GetIdenfyTokenReply",
     "GetInstanceReply",
+    "GetInstanceSnapshotReply",
     "GetIntercomProfileReply",
     "GetMetricsReply",
     "GetMetricsReplyMetric",
@@ -258,6 +265,11 @@ __all__ = [
     "InstanceAvailability",
     "InstanceEvent",
     "InstanceListItem",
+    "InstanceSnapshot",
+    "InstanceSnapshotEvent",
+    "InstanceSnapshotQuotas",
+    "InstanceSnapshotStatus",
+    "InstanceSnapshotType",
     "InstanceStatus",
     "InstanceUsage",
     "InstancesSummary",
@@ -290,6 +302,8 @@ __all__ = [
     "ListDeploymentsReply",
     "ListDomainsReply",
     "ListInstanceEventsReply",
+    "ListInstanceSnapshotEventsReply",
+    "ListInstanceSnapshotsReply",
     "ListInstancesReply",
     "ListOrganizationInvitationsReply",
     "ListOrganizationMembersReply",
@@ -321,6 +335,8 @@ __all__ = [
     "NeonPostgresDatabaseNeonDatabase",
     "NeonPostgresDatabaseNeonRole",
     "NeonPostgresSummary",
+    "NetworkPolicy",
+    "NetworkPolicyDestination",
     "NextInvoiceReply",
     "NextInvoiceReplyDiscount",
     "NextInvoiceReplyDiscountType",
@@ -470,6 +486,7 @@ from koyeb.api.api.credentials_api import CredentialsApi as CredentialsApi
 from koyeb.api.api.deployments_api import DeploymentsApi as DeploymentsApi
 from koyeb.api.api.docker_helper_api import DockerHelperApi as DockerHelperApi
 from koyeb.api.api.domains_api import DomainsApi as DomainsApi
+from koyeb.api.api.instance_snapshots_api import InstanceSnapshotsApi as InstanceSnapshotsApi
 from koyeb.api.api.instances_api import InstancesApi as InstancesApi
 from koyeb.api.api.intercom_api import IntercomApi as IntercomApi
 from koyeb.api.api.logs_api import LogsApi as LogsApi
@@ -560,6 +577,8 @@ from koyeb.api.models.create_credential import CreateCredential as CreateCredent
 from koyeb.api.models.create_credential_reply import CreateCredentialReply as CreateCredentialReply
 from koyeb.api.models.create_domain import CreateDomain as CreateDomain
 from koyeb.api.models.create_domain_reply import CreateDomainReply as CreateDomainReply
+from koyeb.api.models.create_instance_snapshot_reply import CreateInstanceSnapshotReply as CreateInstanceSnapshotReply
+from koyeb.api.models.create_instance_snapshot_request import CreateInstanceSnapshotRequest as CreateInstanceSnapshotRequest
 from koyeb.api.models.create_organization_invitation_reply import CreateOrganizationInvitationReply as CreateOrganizationInvitationReply
 from koyeb.api.models.create_organization_invitation_request import CreateOrganizationInvitationRequest as CreateOrganizationInvitationRequest
 from koyeb.api.models.create_organization_reply import CreateOrganizationReply as CreateOrganizationReply
@@ -589,6 +608,7 @@ from koyeb.api.models.deactivate_organization_request import DeactivateOrganizat
 from koyeb.api.models.declare_stage_progress_request import DeclareStageProgressRequest as DeclareStageProgressRequest
 from koyeb.api.models.declare_step_progress_request import DeclareStepProgressRequest as DeclareStepProgressRequest
 from koyeb.api.models.decline_organization_invitation_reply import DeclineOrganizationInvitationReply as DeclineOrganizationInvitationReply
+from koyeb.api.models.delete_instance_snapshot_reply import DeleteInstanceSnapshotReply as DeleteInstanceSnapshotReply
 from koyeb.api.models.delete_organization_reply import DeleteOrganizationReply as DeleteOrganizationReply
 from koyeb.api.models.delete_persistent_volume_reply import DeletePersistentVolumeReply as DeletePersistentVolumeReply
 from koyeb.api.models.delete_snapshot_reply import DeleteSnapshotReply as DeleteSnapshotReply
@@ -642,6 +662,8 @@ from koyeb.api.models.domain_load_balancer_quotas import DomainLoadBalancerQuota
 from koyeb.api.models.domain_status import DomainStatus as DomainStatus
 from koyeb.api.models.domain_type import DomainType as DomainType
 from koyeb.api.models.domains_summary import DomainsSummary as DomainsSummary
+from koyeb.api.models.egress_policy import EgressPolicy as EgressPolicy
+from koyeb.api.models.egress_policy_mode import EgressPolicyMode as EgressPolicyMode
 from koyeb.api.models.env import Env as Env
 from koyeb.api.models.error import Error as Error
 from koyeb.api.models.error_field import ErrorField as ErrorField
@@ -663,6 +685,7 @@ from koyeb.api.models.get_domain_reply import GetDomainReply as GetDomainReply
 from koyeb.api.models.get_github_installation_reply import GetGithubInstallationReply as GetGithubInstallationReply
 from koyeb.api.models.get_idenfy_token_reply import GetIdenfyTokenReply as GetIdenfyTokenReply
 from koyeb.api.models.get_instance_reply import GetInstanceReply as GetInstanceReply
+from koyeb.api.models.get_instance_snapshot_reply import GetInstanceSnapshotReply as GetInstanceSnapshotReply
 from koyeb.api.models.get_intercom_profile_reply import GetIntercomProfileReply as GetIntercomProfileReply
 from koyeb.api.models.get_metrics_reply import GetMetricsReply as GetMetricsReply
 from koyeb.api.models.get_metrics_reply_metric import GetMetricsReplyMetric as GetMetricsReplyMetric
@@ -702,6 +725,11 @@ from koyeb.api.models.instance import Instance as Instance
 from koyeb.api.models.instance_availability import InstanceAvailability as InstanceAvailability
 from koyeb.api.models.instance_event import InstanceEvent as InstanceEvent
 from koyeb.api.models.instance_list_item import InstanceListItem as InstanceListItem
+from koyeb.api.models.instance_snapshot import InstanceSnapshot as InstanceSnapshot
+from koyeb.api.models.instance_snapshot_event import InstanceSnapshotEvent as InstanceSnapshotEvent
+from koyeb.api.models.instance_snapshot_quotas import InstanceSnapshotQuotas as InstanceSnapshotQuotas
+from koyeb.api.models.instance_snapshot_status import InstanceSnapshotStatus as InstanceSnapshotStatus
+from koyeb.api.models.instance_snapshot_type import InstanceSnapshotType as InstanceSnapshotType
 from koyeb.api.models.instance_status import InstanceStatus as InstanceStatus
 from koyeb.api.models.instance_usage import InstanceUsage as InstanceUsage
 from koyeb.api.models.instances_summary import InstancesSummary as InstancesSummary
@@ -734,6 +762,8 @@ from koyeb.api.models.list_deployment_events_reply import ListDeploymentEventsRe
 from koyeb.api.models.list_deployments_reply import ListDeploymentsReply as ListDeploymentsReply
 from koyeb.api.models.list_domains_reply import ListDomainsReply as ListDomainsReply
 from koyeb.api.models.list_instance_events_reply import ListInstanceEventsReply as ListInstanceEventsReply
+from koyeb.api.models.list_instance_snapshot_events_reply import ListInstanceSnapshotEventsReply as ListInstanceSnapshotEventsReply
+from koyeb.api.models.list_instance_snapshots_reply import ListInstanceSnapshotsReply as ListInstanceSnapshotsReply
 from koyeb.api.models.list_instances_reply import ListInstancesReply as ListInstancesReply
 from koyeb.api.models.list_organization_invitations_reply import ListOrganizationInvitationsReply as ListOrganizationInvitationsReply
 from koyeb.api.models.list_organization_members_reply import ListOrganizationMembersReply as ListOrganizationMembersReply
@@ -765,6 +795,8 @@ from koyeb.api.models.neon_postgres_database_deployment_metadata import NeonPost
 from koyeb.api.models.neon_postgres_database_neon_database import NeonPostgresDatabaseNeonDatabase as NeonPostgresDatabaseNeonDatabase
 from koyeb.api.models.neon_postgres_database_neon_role import NeonPostgresDatabaseNeonRole as NeonPostgresDatabaseNeonRole
 from koyeb.api.models.neon_postgres_summary import NeonPostgresSummary as NeonPostgresSummary
+from koyeb.api.models.network_policy import NetworkPolicy as NetworkPolicy
+from koyeb.api.models.network_policy_destination import NetworkPolicyDestination as NetworkPolicyDestination
 from koyeb.api.models.next_invoice_reply import NextInvoiceReply as NextInvoiceReply
 from koyeb.api.models.next_invoice_reply_discount import NextInvoiceReplyDiscount as NextInvoiceReplyDiscount
 from koyeb.api.models.next_invoice_reply_discount_type import NextInvoiceReplyDiscountType as NextInvoiceReplyDiscountType

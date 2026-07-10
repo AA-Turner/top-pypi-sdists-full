@@ -55,7 +55,22 @@ def map_group_by_aggregate(
     input_df_actual = input_df_container.dataframe
 
     if len(columns.grouping_expressions()) == 0:
-        result = input_df_actual.agg(*columns.aggregation_expressions())
+        if len(columns.aggregation_expressions()) == 0:
+            # Global aggregate with no expressions: Spark returns 1 empty row.
+            # Snowflake would return 0 rows, so we synthesize a dummy aggregate
+            # to guarantee 1 row, marked as internal (hidden from the user).
+            result = input_df_actual.agg(
+                snowpark_fn.count(snowpark_fn.lit(1)).alias("__DUMMY")
+            )
+            return DataFrameContainer.create_with_column_mapping(
+                dataframe=result,
+                spark_column_names=["__DUMMY"],
+                snowpark_column_names=["__DUMMY"],
+                parent_column_name_map=input_df_container.column_map,
+                column_is_internal=[True],
+            )
+        else:
+            result = input_df_actual.agg(*columns.aggregation_expressions())
     else:
         result = input_df_actual.group_by(*columns.grouping_expressions()).agg(
             *columns.aggregation_expressions()

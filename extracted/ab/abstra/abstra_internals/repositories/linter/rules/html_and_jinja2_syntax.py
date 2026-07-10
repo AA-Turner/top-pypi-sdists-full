@@ -6,13 +6,16 @@ import html5lib
 from jinja2 import Environment
 from jinja2.exceptions import TemplateSyntaxError
 
+from abstra_internals.repositories.linter.context import (
+    LintContext,
+    current_lint_context,
+)
 from abstra_internals.repositories.linter.models import (
     LinterIssue,
     PathScopedLinterRule,
     linter_path_key,
     normalize_linter_path,
 )
-from abstra_internals.services.fs import FileSystemService
 from abstra_internals.settings import Settings
 
 
@@ -64,16 +67,17 @@ class HtmlAndJinja2Syntax(PathScopedLinterRule):
     fix_with_ai = True
 
     def find_issues(self, path: Optional[Path] = None) -> List[LinterIssue]:
+        project = (current_lint_context() or LintContext()).project
         issues: List[LinterIssue] = []
         root = Settings.root_path
         jinja_env = Environment()
 
         if path is not None:
-            if path.suffix != ".html":
+            if path.suffix != ".html" or project.is_ignored_path(path):
                 return []
             files = [normalize_linter_path(path)]
         else:
-            files = FileSystemService.list_files(root, allowed_suffixes=[".html"])
+            files = list(project.iter_project_files(allowed_suffixes=[".html"]))
 
         for html_file in files:
             try:

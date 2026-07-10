@@ -24,7 +24,6 @@ import base64
 import datetime
 import warnings
 import re
-import rfc3339
 from functools import wraps
 
 from .excs import ValidationError
@@ -57,10 +56,16 @@ KNOWN_FORMATS = [
     "google-fieldmask",
     "google-duration",
     "google-datetime",
+    "google.protobuf.Any",
 ]
 
 # After writing a format check for any of those formats, remove the format you wrote the checker for.
-IGNORABLE_FORMATS = ["google-fieldmask", "google-duration", "google-datetime"]
+IGNORABLE_FORMATS = [
+    "google-fieldmask",
+    "google-duration",
+    "google-datetime",
+    "google.protobuf.Any",
+]
 
 TYPE_FORMAT_MAPPING = {
     # Given this type, if None then don't check for additional "format" property in the schema, else, format might be any of the mapped values
@@ -229,6 +234,13 @@ def byte_validator(value, schema_name=None):
     base64.urlsafe_b64decode(value)
 
 
+def parse_rfc3339_datetime(value):
+    # datetime.fromisoformat() rejects the RFC 3339 'Z'/'z' UTC suffix before Python 3.11
+    return datetime.datetime.fromisoformat(
+        value.replace("Z", "+00:00").replace("z", "+00:00")
+    )
+
+
 @handle_type_and_value_errors
 def date_validator(value, schema_name=None):
     msg = make_validation_error_msg(
@@ -237,8 +249,7 @@ def date_validator(value, schema_name=None):
         schema_name,
     )
     try:
-        pvalue = rfc3339.parse_date(value)
-        # pvalue = datetime.date.fromisoformat(value)
+        pvalue = datetime.date.fromisoformat(value)
     except Exception as e:
         raise ValidationError(str(e) + msg)
     if not isinstance(pvalue, datetime.date):
@@ -253,8 +264,7 @@ def datetime_validator(value, schema_name=None):
         schema_name,
     )
     try:
-        pvalue = rfc3339.parse_datetime(value)
-        # pvalue = datetime.datetime.fromisoformat(value)
+        pvalue = parse_rfc3339_datetime(value)
     except Exception as e:
         raise ValidationError(str(e), msg)
     if not isinstance(pvalue, datetime.datetime):

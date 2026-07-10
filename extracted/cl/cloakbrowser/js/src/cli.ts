@@ -408,7 +408,10 @@ async function main(): Promise<void> {
 }
 
 // Only run when invoked as the CLI entry point — not when imported by tests.
+// import.meta.url is resolved through symlinks by Node's ESM loader, but
+// process.argv[1] is left exactly as invoked — so realpath both sides before
+// comparing, otherwise every symlinked bin (npm/pnpm/npx) fails the check silently.
 const invokedPath = process.argv[1];
-if (invokedPath && import.meta.url === pathToFileURL(invokedPath).href) {
+if (invokedPath && import.meta.url === pathToFileURL(fs.realpathSync(invokedPath)).href) {
   main();
 }

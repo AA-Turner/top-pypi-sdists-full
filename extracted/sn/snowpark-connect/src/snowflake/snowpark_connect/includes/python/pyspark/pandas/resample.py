@@ -19,7 +19,7 @@
 A wrapper for ResampledData to behave like pandas Resampler.
 """
 from abc import ABCMeta, abstractmethod
-from distutils.version import LooseVersion
+from pyspark.loose_version import LooseVersion
 from functools import partial
 from typing import (
     Any,

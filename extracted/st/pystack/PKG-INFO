@@ -1,32 +1,24 @@
-Metadata-Version: 2.4
+Metadata-Version: 2.2
 Name: pystack
-Version: 1.6.0
+Version: 1.7.0
 Summary: Analysis of the stack of remote python processes
-Home-page: https://github.com/bloomberg/pystack
 Author: Pablo Galindo Salgado
+License: Apache-2.0
 Classifier: Intended Audience :: Developers
 Classifier: License :: OSI Approved :: Apache Software License
 Classifier: Operating System :: POSIX :: Linux
-Classifier: Programming Language :: Python :: 3.8
 Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
+Classifier: Programming Language :: Python :: 3.15
 Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Topic :: Software Development :: Debuggers
-Requires-Python: >=3.7.0
+Project-URL: Homepage, https://github.com/bloomberg/pystack
+Requires-Python: >=3.9
 Description-Content-Type: text/markdown
-License-File: LICENSE
-Dynamic: author
-Dynamic: classifier
-Dynamic: description
-Dynamic: description-content-type
-Dynamic: home-page
-Dynamic: license-file
-Dynamic: requires-python
-Dynamic: summary
 
 <p align="center">
 <img src="https://user-images.githubusercontent.com/11718525/226942590-de015c9a-4d5b-4960-9c42-8c1eac0845c1.png" width="70%">
@@ -58,6 +50,7 @@ PyStack has the following amazing features:
 - 🧵 Shows if each thread currently holds the Python GIL, is waiting to acquire it, or is currently
   dropping it.
 - 🗑️ Shows if a thread is running a garbage collection cycle.
+- 🪆 Reports on multiple interpreters in the same process.
 - 🐍 Optionally shows native function calls, as well as Python ones. In this mode, PyStack prints
   the native stack trace (C/C++/Rust function calls), except that the calls to Python callables are
   replaced with frames showing the Python code being executed, instead of showing the internal C
@@ -114,18 +107,17 @@ cd pystack
 python3 -m venv ../pystack-env/  # just an example, put this wherever you want
 source ../pystack-env/bin/activate
 python3 -m pip install --upgrade pip
-python3 -m pip install -e .
-python3 -m pip install -r requirements-test.txt -r requirements-extra.txt
+python3 -m pip install -e . --group test --group extra
 ```
 
 This will install PyStack in the virtual environment in development mode (the `-e` of the last
 `pip install` command), and then install the Python libraries needed to test it, lint it, and
 generate its documentation.
 
-If you plan to contribute back, you should install the pre-commit hooks:
+If you plan to contribute back, you should install the prek (pre-commit) hooks:
 
 ```shell
-pre-commit install
+prek install
 ```
 
 This will ensure that your contribution passes our linting checks.
@@ -308,3 +300,5 @@ You must use your real name (sorry, no pseudonyms, and no anonymous contribution
 - Submit the Issue.
 - Submit a Pull Request and link it to the Issue by including "#<issue number>" in the Pull Request
   summary.
+
+Please read [CONTRIBUTING.md](./CONTRIBUTING.md) for more info.

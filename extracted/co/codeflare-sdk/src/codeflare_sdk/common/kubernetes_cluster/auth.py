@@ -53,13 +53,13 @@ class Authentication(metaclass=abc.ABCMeta):
     Specifically, this class defines the need for a `login()` and a `logout()` function.
     """
 
-    def login(self):
+    def login(self) -> None:
         """
         Method for logging in to a remote cluster.
         """
         pass
 
-    def logout(self):
+    def logout(self) -> None:
         """
         Method for logging out of the remote cluster.
         """
@@ -71,13 +71,13 @@ class KubeConfiguration(metaclass=abc.ABCMeta):
     An abstract class that defines the method for loading a user defined config file using the `load_kube_config()` function
     """
 
-    def load_kube_config(self):
+    def load_kube_config(self) -> None:
         """
         Method for setting your Kubernetes configuration to a certain file
         """
         pass
 
-    def logout(self):
+    def logout(self) -> None:
         """
         Method for logging out of the remote cluster
         """
@@ -101,8 +101,8 @@ class TokenAuthentication(Authentication):
         token: str,
         server: str,
         skip_tls: bool = False,
-        ca_cert_path: str = None,
-    ):
+        ca_cert_path: Optional[str] = None,
+    ) -> None:
         """
         Initialize a TokenAuthentication object that requires a value for `token`, the API Token
         and `server`, the API server address for authenticating to a Kubernetes cluster.
@@ -133,9 +133,13 @@ class TokenAuthentication(Authentication):
         # Legacy implementation (kube-authkit doesn't support direct token auth)
         try:
             configuration = client.Configuration()
-            configuration.api_key_prefix["authorization"] = "Bearer"
             configuration.host = self.server
-            configuration.api_key["authorization"] = self.token
+            # Set both key names for cross-version compatibility:
+            # kubernetes client <=35 looks up by header name ("authorization"),
+            # kubernetes client >=36 looks up by scheme name ("BearerToken").
+            for key in ("authorization", "BearerToken"):
+                configuration.api_key[key] = self.token
+                configuration.api_key_prefix[key] = "Bearer"
 
             if self.skip_tls:
                 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
@@ -150,7 +154,9 @@ class TokenAuthentication(Authentication):
             config_path = None
             return "Logged into %s" % self.server
         except client.ApiException as e:
+            api_client = None
             _kube_api_error_handling(e)
+            raise
 
     def logout(self) -> str:
         """
@@ -171,7 +177,7 @@ class KubeConfigFileAuthentication(KubeConfiguration):
     Specifically this class defines the `load_kube_config()` and `config_check()` functions.
     """
 
-    def __init__(self, kube_config_path: str = None):
+    def __init__(self, kube_config_path: Optional[str] = None):
         warnings.warn(
             _DEPRECATION_MSG.format(cls_name="KubeConfigFileAuthentication"),
             DeprecationWarning,
@@ -179,14 +185,14 @@ class KubeConfigFileAuthentication(KubeConfiguration):
         )
         self.kube_config_path = kube_config_path
 
-    def load_kube_config(self):
+    def load_kube_config(self) -> str:
         """
         Function for loading a user's own predefined Kubernetes config file.
         """
         global config_path
         global api_client
 
-        if self.kube_config_path == None:
+        if self.kube_config_path is None:
             return "Please specify a config file path"
 
         # Try kube-authkit first
@@ -216,7 +222,7 @@ class KubeConfigFileAuthentication(KubeConfiguration):
         return response
 
 
-def config_check() -> str:
+def config_check() -> Optional[str]:
     """
     Check and load the Kubernetes config from the default location.
 
@@ -256,7 +262,7 @@ def config_check() -> str:
             # Verify connection
             client.AuthenticationApi(api_client).get_api_group()
             return config_path
-        except Exception as e:
+        except Exception:
             # Fall through to legacy method
             api_client = None
             # Don't warn - auto-detection failure is expected when no auth is configured
@@ -337,7 +343,7 @@ def get_api_client() -> client.ApiClient:
     return to_return
 
 
-def set_api_client(new_client: client.ApiClient):
+def set_api_client(new_client: client.ApiClient) -> None:
     """
     Set a custom Kubernetes API client for the SDK to use.
 

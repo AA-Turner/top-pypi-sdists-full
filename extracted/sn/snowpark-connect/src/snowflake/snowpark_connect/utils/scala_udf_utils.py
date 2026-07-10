@@ -20,11 +20,7 @@ from typing import List
 
 import snowflake.snowpark.types as snowpark_type
 from snowflake.snowpark import Session
-from snowflake.snowpark_connect.config import (
-    get_scala_version,
-    global_config,
-    validate_session_timezone,
-)
+from snowflake.snowpark_connect.config import get_scala_version
 from snowflake.snowpark_connect.type_mapping import proto_to_snowpark_type
 from snowflake.snowpark_connect.utils.context import get_spark_session_id
 from snowflake.snowpark_connect.utils.jvm_udf_utils import (
@@ -38,6 +34,7 @@ from snowflake.snowpark_connect.utils.jvm_udf_utils import (
     is_decomposable_struct,
     is_native_sql_type,
     map_type_to_snowflake_native_sql_type,
+    needs_epoch_lowering,
 )
 from snowflake.snowpark_connect.utils.session import get_or_create_snowpark_session
 from snowflake.snowpark_connect.utils.snowpark_connect_logging import logger
@@ -108,9 +105,6 @@ class JavaScalarUDFDef:
 
     def _gen_body_java(self) -> str:
         operation_file = self.imports[0].split("/")[-1]
-        session_timezone = validate_session_timezone(
-            global_config.spark_sql_session_timeZone or "UTC"
-        )
 
         # Build per-arg TypeDescriptors and handler parameter declarations.
         arg_descs: list[TypeDescriptor] = []
@@ -174,7 +168,7 @@ class JavaScalarUDFDef:
                 )
                 lines.append(
                     f"        var in{i} = com.snowflake.sas.scala.UdfPacketUtils$.MODULE$"
-                    f".convertInput(udfPacket, _sas_args_{i}, {i}, true, __schema_json, SESSION_TIMEZONE);"
+                    f'.convertInput(udfPacket, _sas_args_{i}, {i}, true, __schema_json, java.time.ZoneId.of(System.getProperty("user.timezone")));'
                 )
             else:
                 lines.append(
@@ -182,7 +176,7 @@ class JavaScalarUDFDef:
                 )
                 lines.append(
                     f"        var in{i} = com.snowflake.sas.scala.UdfPacketUtils$.MODULE$"
-                    f".convertInput(udfPacket, _sas_args_{i}, {i}, false, __schema_json, SESSION_TIMEZONE);"
+                    f'.convertInput(udfPacket, _sas_args_{i}, {i}, false, __schema_json, java.time.ZoneId.of(System.getProperty("user.timezone")));'
                 )
 
         object_types = ", ".join(["Object"] * (self.num_args + 1))
@@ -198,7 +192,18 @@ class JavaScalarUDFDef:
                 " ? (((scala.Option<?>) result).isEmpty() ? null : ((scala.Option<?>) result).get())"
                 " : result;"
             )
-            lines.append(f"        return {_gen_native_return_cast(java_return_type)};")
+            if needs_epoch_lowering(self.return_snowpark_type):
+                # Temporal/interval return: Scala value (Date, Timestamp, Period, Duration)
+                # must be converted to its epoch Long representation so the RETURNS INT/BIGINT
+                # DDL type is satisfied. encodeTemporalToEpoch uses the output encoder to determine
+                # the correct inverse conversion.
+                lines.append(
+                    "        return com.snowflake.sas.scala.UdfPacketUtils$.MODULE$.encodeTemporalToEpoch(result, udfPacket);"
+                )
+            else:
+                lines.append(
+                    f"        return {_gen_native_return_cast(java_return_type)};"
+                )
         else:
             lines.append(
                 "        return com.snowflake.sas.scala.Utils$.MODULE$.toVariant(result, udfPacket);"
@@ -212,7 +217,6 @@ import com.snowflake.snowpark_java.types.Variant;
 
 public class RecreatedSparkJavaUdf {{
     private static final String OPERATION_FILE = "{operation_file}";
-    private static final String SESSION_TIMEZONE = "{session_timezone}";
     private final UdfPacket udfPacket;
     private final Object func;
 
@@ -267,6 +271,10 @@ def _gen_native_return_cast(java_return_type: str) -> str:
         # Use toString() instead of a direct cast so that enum-returning UDFs
         # (Scala Enumeration#Value / Java enum) stringify correctly without CCE.
         return "result == null ? null : result.toString()"
+    if java_return_type == "byte[]":
+        return "(byte[]) result"
+    if java_return_type == "java.math.BigDecimal":
+        return "(java.math.BigDecimal) result"
     # Long or Double: cast through Number to handle Scala Int/Float boxing mismatches.
     method = "longValue" if java_return_type == "Long" else "doubleValue"
     return (
@@ -322,15 +330,35 @@ def _emit_scala_udf_ddl(
     Called by ``LazySnowparkUdf._emit_ddl()`` on first call-site execution.
     Uses native SQL types (VARCHAR, BIGINT, etc.) wherever possible to avoid
     VARIANT JSON serialization overhead.
+
+    Returns the effective return type used in the DDL.  This may differ from
+    ``return_type`` when the declared return is the default JBigDecimal encoding
+    (DecimalType(38,18)) and the call-site has a more specific Decimal input type,
+    in which case the call-site type is used to avoid scale mismatch / overflow.
     """
     num_args = len(call_site_types)
     sql_input_params, input_snowpark_types = _build_scala_udf_sql_input_params(
         call_site_types
     )
 
+    # When the declared return type is the default JBigDecimal encoding (38,18)
+    # and there is exactly one Decimal call-site input, infer the return type from
+    # the call-site so Snowflake doesn't overflow the declared scale.
+    effective_return_type = return_type
+    if (
+        isinstance(return_type, snowpark_type.DecimalType)
+        and return_type.precision == 38
+        and return_type.scale == 18
+    ):
+        decimal_inputs = [
+            t for t in call_site_types if isinstance(t, snowpark_type.DecimalType)
+        ]
+        if len(decimal_inputs) == 1:
+            effective_return_type = decimal_inputs[0]
+
     sql_return_type = (
-        map_type_to_snowflake_native_sql_type(return_type)
-        if is_native_sql_type(return_type)
+        map_type_to_snowflake_native_sql_type(effective_return_type)
+        if is_native_sql_type(effective_return_type)
         else "VARIANT"
     )
 
@@ -342,7 +370,7 @@ def _emit_scala_udf_ddl(
         imports=imports,
         num_args=num_args,
         input_snowpark_types=input_snowpark_types,
-        return_snowpark_type=return_type,
+        return_snowpark_type=effective_return_type,
     )
     create_udf_sql = udf_def.to_create_function_sql()
     logger.info(
@@ -351,6 +379,7 @@ def _emit_scala_udf_ddl(
     )
     logger.debug(f"Deferred Java UDF with body: {create_udf_sql}")
     session.sql(create_udf_sql).collect()
+    return effective_return_type
 
 
 def create_scala_udf(
@@ -407,11 +436,21 @@ def create_scala_udf(
         pciudf._payload,
         udf_name,
     )
-    if not input_types and pciudf._called_from == "register_udf":
-        # Input types are unknown at registration time (spark.udf.register without
-        # explicit types).  Defer DDL creation to the first call-site execution so we
-        # can use the actual call-site types rather than emitting an all-VARIANT DDL now
-        # and re-emitting it later.
+
+    def _is_default_decimal(t: snowpark_type.DataType) -> bool:
+        return (
+            isinstance(t, snowpark_type.DecimalType)
+            and t.precision == 38
+            and t.scale == 18
+        )
+
+    if (
+        not input_types or all(_is_default_decimal(t) for t in input_types)
+    ) and pciudf._called_from == "register_udf":
+        # Input types are unknown or all carry the default JBigDecimal encoding
+        # (DecimalType(38,18)), which has no real precision/scale information.
+        # Defer DDL creation to the first call-site execution so actual argument
+        # types (e.g. DECIMAL(18,4)) are used for the Snowflake parameter types.
         logger.info(f"Deferring Scala UDF DDL creation until first call: {udf_name}")
         return LazyCreatedScalaUdf(udf_name, pciudf._return_type, stage_imports=imports)
 

@@ -425,11 +425,11 @@ impl GaussianLocationScaleFamily {
         }
 
         let rows = self.get_or_compute_row_scalars(etamu, eta_ls)?;
-        // Block-diagonal Gaussian Fisher curvature (μ ⊥ σ ⇒ cross = 0, #684;
-        // (ls,ls) = 2κ²a, #566), built from the shared single-source-of-truth
+        // Observed joint Hessian (Wood–Pya–Säfken 2016 LAML object; #1561):
+        // mm = w, ml = 2κm, ll = κ'(a−n)+2κ²n. Shared single-source-of-truth
         // constructor so this dense path and the matrix-free workspace can never
-        // disagree on the cross block. See `gaussian_locscale_fisher_joint_row_coeffs`.
-        let (mm, cross, scale) = gaussian_locscale_fisher_joint_row_coeffs(&rows);
+        // disagree on the cross block. See `gaussian_locscale_observed_joint_row_coeffs`.
+        let (mm, cross, scale) = gaussian_locscale_observed_joint_row_coeffs(&rows);
         Ok(Some(gaussian_joint_hessian_from_designs(
             xmu, x_ls, &mm, &cross, &scale,
         )?))
@@ -472,13 +472,14 @@ impl GaussianLocationScaleFamily {
         let directional = gaussian_joint_first_directionalweights(&rows, &ximu, &xi_ls);
         let dhmumu = directional.0;
         let dh_ls_ls = directional.2;
-        // Fisher cross block E[H_{μ,ls}] ≡ 0 (μ ⊥ σ; see
-        // exact_newton_joint_hessian_from_designs / #684), so its directional
-        // derivative is identically 0 — keep the Hessian's curvature object the
-        // block-diagonal Gaussian Fisher information at every order. The
-        // observed-cross directional weight (`directional.1`) is therefore not
-        // assembled.
-        let dhmu_ls = Array1::<f64>::zeros(dhmumu.len());
+        // Observed cross block H_{μ,ls} = 2κm is nonzero away from the truth
+        // (the value Hessian carries it; see
+        // exact_newton_joint_hessian_from_designs / #1561), so its directional
+        // derivative d(2κm)[ξ] = −2κw·ξ_μ + (2κ'−4κ²)m·ξ_s is nonzero too. Use
+        // the computed observed-cross channel (`directional.1`) so the Hessian's
+        // derivative and its value are the SAME functional at every order (no
+        // objective↔gradient desync feeding the outer criterion).
+        let dhmu_ls = directional.1;
 
         Ok(Some(gaussian_joint_hessian_from_designs(
             xmu, x_ls, &dhmumu, &dhmu_ls, &dh_ls_ls,
@@ -524,10 +525,12 @@ impl GaussianLocationScaleFamily {
             gaussian_jointsecond_directionalweights(&rows, &ximu_u, &xi_ls_u, &ximuv, &xi_lsv);
         let d2hmumu = second.0;
         let d2h_ls_ls = second.2;
-        // Fisher cross block E[H_{μ,ls}] ≡ 0 (μ ⊥ σ; #684), so its second
-        // directional derivative is identically 0; `second.1` (observed) is not
-        // assembled, keeping the curvature object block-diagonal Fisher.
-        let d2hmu_ls = Array1::<f64>::zeros(d2hmumu.len());
+        // Observed cross block H_{μ,ls} = 2κm (see
+        // exact_newton_joint_hessian_from_designs / #1561); its second
+        // directional derivative d²(2κm)[u,v] (`second.1`) is nonzero and must
+        // be assembled so the value and its second derivative are the SAME
+        // functional at every order.
+        let d2hmu_ls = second.1;
 
         Ok(Some(gaussian_joint_hessian_from_designs(
             xmu, x_ls, &d2hmumu, &d2hmu_ls, &d2h_ls_ls,
@@ -914,11 +917,15 @@ impl GaussianLocationScaleFamily {
                 total
             ) }.into());
         }
-        // Only the log-σ–channel direction enters the surviving Fisher blocks
-        // of the mixed drift (the μ-channel direction fed the observed cross
-        // block, now Fisher 0; μ ⊥ σ, #684).
+        // Both channels enter the OBSERVED mixed drift (#1561): the cross block
+        // H_{μ,ls}=2κm and the observed h_ls_ls depend on the μ-channel drift
+        // (xi_mu = Xmu·u_mu), the ψ μ-direction (dir_a.z_primary_psi), and the
+        // mixed μ direction-curvature (uza_mu = (dXmu/dψ)·u_mu).
+        let u_mu = d_beta_flat.slice(s![0..pmu]);
         let u_ls = d_beta_flat.slice(s![pmu..pmu + p_ls]);
+        let xi_mu = fast_av(xmu, &u_mu);
         let xi_ls = fast_av(x_ls, &u_ls);
+        let uza_mu = xmu_map.forward_mul(u_mu);
         let uza_ls = x_ls_map.forward_mul(u_ls);
         // Mixed drift T_a[u] = D_beta H_a^{(D)}[u] for the Gaussian family.
         //
@@ -962,8 +969,15 @@ impl GaussianLocationScaleFamily {
         // Generic code then combines this with S(theta)-motion and the profile
         // mode responses to form ddot H_{ij}.
         let rows = self.get_or_compute_row_scalars(etamu, eta_ls)?;
-        let mut mixedweights =
-            gaussian_joint_psi_mixed_driftweights(&rows, &xi_ls, &dir_a.z_ls_psi, &uza_ls);
+        let mut mixedweights = gaussian_joint_psi_mixed_driftweights(
+            &rows,
+            &xi_mu,
+            &xi_ls,
+            &dir_a.z_primary_psi,
+            &dir_a.z_ls_psi,
+            &uza_mu,
+            &uza_ls,
+        );
         if let Some(sub_rows) = subsample {
             // HT mask: `gaussian_joint_psi_mixedhessian_drift_fromweights` is
             // row-linear in every `mixedweights.*` array via `xt_diag_*_dense`
@@ -1140,19 +1154,17 @@ impl FamilyChannelHessian for GaussianLocationScaleChannelHessian {
 }
 
 impl CustomFamily for GaussianLocationScaleFamily {
-    /// The Gaussian location-scale joint curvature is the EXACT FISHER
-    /// (expected) information, which is block-diagonal: μ ⊥ log σ so the
-    /// cross block E[H_{μ,log σ}] ≡ 0, the (μ,μ) block weight is a/σ², and the
-    /// (log σ,log σ) block weight is 2κ²a (κ = dlog σ/dη); see
-    /// `gaussian_locscale_fisher_joint_row_coeffs` and #684/#566. (The earlier
-    /// observed Hessian — with residual-dependent row scalars m = r·w, n = r²·w
-    /// in the cross and (log σ,log σ) blocks — was replaced by this Fisher
-    /// information; the row scalars still carry m/n but the curvature
-    /// constructor discards them.) Both Fisher weights depend on β through the
-    /// scale predictor (σ = σ(η_{log σ}), κ = κ(η_{log σ})), so the curvature
-    /// moves when β_{log σ} moves — hence this override is `true`. It does NOT
-    /// depend on β_μ. The β-dependence is essential for correct M_j[u] drift
-    /// corrections when ψ hyperparameters move the design matrices.
+    /// The Gaussian location-scale joint curvature is the OBSERVED joint
+    /// Hessian (Wood–Pya–Säfken 2016 LAML object; #1561): (μ,μ) weight `w = a/σ²`,
+    /// cross `2κm`, (log σ,log σ) `κ'(a−n)+2κ²n` — see
+    /// `gaussian_locscale_observed_joint_row_coeffs`. Residual-dependent cross /
+    /// scale weights supply the Schur deficit and fitted-residual shrinkage the
+    /// block-Fisher object (#684/#566) dropped, which had biased λ̂_σ upward on
+    /// flat scale surfaces. Both observed weights depend on β through μ (via the
+    /// residual in m,n) and through the scale predictor (σ,κ), so the curvature
+    /// moves when either block moves — hence this override is `true`. The
+    /// β-dependence is essential for correct M_j[u] drift corrections when ψ
+    /// hyperparameters move the design matrices.
     fn exact_newton_joint_hessian_beta_dependent(&self) -> bool {
         true
     }

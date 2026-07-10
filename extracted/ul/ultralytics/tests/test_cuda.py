@@ -82,7 +82,8 @@ def test_export_onnx_matrix(task, dynamic, batch, simplify, nms):
         # Limit Jetson task coverage for slow CI speed; full task coverage remains on GPU CI.
         # for task, dynamic, quantize, batch in product(TASKS, [True, False], [8, 16], [1, 2])
         for task, dynamic, quantize, batch in product(["detect"] if IS_JETSON else sorted(TASKS), [True], [8, 16], [2])
-    ],
+    ]
+    + [("detect", False, 8, 2)],  # exercise TensorRT 7-10 implicit INT8 quantization on GPU CI
 )
 def test_export_engine_matrix(task, dynamic, quantize, batch):
     """Test YOLO model export to TensorRT format for various configurations and run inference."""
@@ -177,6 +178,15 @@ def test_predict_multiple_devices():
     assert str(model.device) == cuda_device
     _ = model(SOURCE)
     assert str(model.device) == cuda_device
+
+
+@pytest.mark.skipif(not DEVICES, reason="No CUDA devices available")
+def test_track_exported_model():
+    """Track with an exported model on GPU; exported backends return raw preds as a single Tensor."""
+    file = YOLO(MODEL).export(format="torchscript", imgsz=160, device=DEVICES[0])
+    results = YOLO(file).track(SOURCE, imgsz=160, device=DEVICES[0])
+    assert len(results[0].boxes)
+    Path(file).unlink()  # cleanup
 
 
 @pytest.mark.skipif(not DEVICES, reason="No CUDA devices available")

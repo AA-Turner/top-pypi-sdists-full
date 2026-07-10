@@ -20,6 +20,7 @@ from snowflake.snowpark_connect.dataframe_container import DataFrameContainer
 from snowflake.snowpark_connect.error.error_codes import ErrorCodes
 from snowflake.snowpark_connect.error.error_utils import attach_custom_error_code
 from snowflake.snowpark_connect.relation.map_relation import map_relation
+from snowflake.snowpark_connect.utils.identifiers import strip_backtick_quotes_if_quoted
 from snowflake.snowpark_connect.utils.session import get_or_create_snowpark_session
 
 
@@ -36,10 +37,10 @@ def map_corr(
     input_df = input_container.dataframe
 
     col1 = input_container.column_map.get_snowpark_column_name_from_spark_column_name(
-        rel.corr.col1
+        strip_backtick_quotes_if_quoted(rel.corr.col1)
     )
     col2 = input_container.column_map.get_snowpark_column_name_from_spark_column_name(
-        rel.corr.col2
+        strip_backtick_quotes_if_quoted(rel.corr.col2)
     )
     # TODO: Handle method, Snowpark does not support this yet.
     # if rel.corr.HasField("method"):
@@ -63,10 +64,10 @@ def map_cov(
     input_df = input_container.dataframe
 
     col1 = input_container.column_map.get_snowpark_column_name_from_spark_column_name(
-        rel.cov.col1
+        strip_backtick_quotes_if_quoted(rel.cov.col1)
     )
     col2 = input_container.column_map.get_snowpark_column_name_from_spark_column_name(
-        rel.cov.col2
+        strip_backtick_quotes_if_quoted(rel.cov.col2)
     )
 
     col1_type = next(
@@ -98,13 +99,19 @@ def map_approx_quantile(
         "snowpark.connect.enable_snowflake_extension_behavior"
     )
 
+    requested_spark_cols = [
+        strip_backtick_quotes_if_quoted(c) for c in rel.approx_quantile.cols
+    ]
+
     if not snowflake_compatible:
         # When Snowflake extension behavior is disabled, validate that all requested columns exist
-        requested_spark_cols = list(rel.approx_quantile.cols)
         available_spark_cols = input_container.column_map.get_spark_columns()
 
         for col_name in requested_spark_cols:
-            if col_name not in available_spark_cols:
+            resolved = input_container.column_map.get_snowpark_column_name_from_spark_column_name(
+                col_name, allow_non_exists=True, return_first=True
+            )
+            if resolved is None:
                 # Find suggestions for the unresolved column
                 suggestions = [c for c in available_spark_cols if c != col_name]
                 suggestion_text = (
@@ -120,7 +127,7 @@ def map_approx_quantile(
                 raise exception
 
     cols = input_container.column_map.get_snowpark_column_names_from_spark_column_names(
-        list(rel.approx_quantile.cols)
+        requested_spark_cols
     )
     quantile = list(rel.approx_quantile.probabilities)
     # TODO: Handle relative_error, Snowpark does not support this yet.
@@ -221,11 +228,14 @@ def map_describe(
         if rel.describe.cols
         else input_container.column_map.get_spark_columns()
     )
+    requested_spark_cols = [
+        strip_backtick_quotes_if_quoted(column) for column in spark_cols
+    ]
     cols = [
         input_container.column_map.get_snowpark_column_name_from_spark_column_name(
-            column
+            requested_spark_col
         )
-        for column in spark_cols
+        for requested_spark_col in requested_spark_cols
     ]
 
     statistics = ["count", "mean", "stddev", "min", "max"]
@@ -264,7 +274,9 @@ def map_describe(
         ]
     )
     ordered_desc_df = session.create_dataframe(string_data, schema)
-    return _build_column_map_helper_container(ordered_desc_df, input_container)
+    return _build_column_map_helper_container(
+        ordered_desc_df, cols, requested_spark_cols
+    )
 
 
 # TODO: track missing Snowpark feature
@@ -425,18 +437,22 @@ def map_freq_items(rel: relation_proto.Relation) -> DataFrameContainer:
 
     session = get_or_create_snowpark_session()
     support = rel.freq_items.support
-    spark_col_names = []
-    cols = input_container.column_map.get_snowpark_column_names_from_spark_column_names(
-        list(rel.freq_items.cols)
-    )
+    raw_cols = list(rel.freq_items.cols)
+    # Resolve per-name so an unresolved column raises COLUMN_NOT_FOUND (matching
+    # Spark) instead of degrading into an empty select downstream.
+    cols = [
+        input_container.column_map.get_snowpark_column_name_from_spark_column_name(
+            strip_backtick_quotes_if_quoted(c)
+        )
+        for c in raw_cols
+    ]
 
     # handle empty DataFrame case
     row_count = input_df.count()
 
-    for sp_col_name in cols:
-        spark_col_names.append(
-            f"{input_container.column_map.get_spark_column_name_from_snowpark_column_name(sp_col_name)}_freqItems"
-        )
+    # Spark names the output column from the raw string the caller passed in
+    # (backticks included), not the resolved column name.
+    spark_col_names = [f"{c}_freqItems" for c in raw_cols]
 
     if row_count == 0:
         # If DataFrame is empty, return empty arrays for each column
@@ -479,17 +495,20 @@ def map_freq_items(rel: relation_proto.Relation) -> DataFrameContainer:
 
 def _build_column_map_helper_container(
     desc_df: snowpark.DataFrame,
-    input_container: DataFrameContainer,
+    snowpark_cols: list[str],
+    requested_spark_cols: list[str],
 ) -> DataFrameContainer:
-    """Container version of _build_column_map_helper."""
-    spark_col_names = ["summary"]
-    for i, sp_col_name in enumerate(desc_df.columns):
-        if i != 0:
-            spark_col_names.append(
-                input_container.column_map.get_spark_column_name_from_snowpark_column_name(
-                    sp_col_name
-                )
-            )
+    """Build describe output column map using caller-requested Spark names.
+
+    Spark names output columns from the strings passed to describe(), not from
+    the resolved physical column name.  When caseSensitive=false a request for
+    ``watt-hr`` must label the stat column ``watt-hr``, even if the underlying
+    column is ``Watt-hr``.
+    """
+    snowpark_to_requested = dict(zip(snowpark_cols, requested_spark_cols))
+    spark_col_names = ["summary"] + [
+        snowpark_to_requested[sp_col_name] for sp_col_name in desc_df.columns[1:]
+    ]
 
     return DataFrameContainer.create_with_column_mapping(
         dataframe=desc_df,

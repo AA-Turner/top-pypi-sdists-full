@@ -108,6 +108,13 @@ typedef struct _interpreter_frame
 namespace Python3_12 {
 typedef signed char PyFrameState;
 
+enum _frameowner {
+    FRAME_OWNED_BY_THREAD = 0,
+    FRAME_OWNED_BY_GENERATOR = 1,
+    FRAME_OWNED_BY_FRAME_OBJECT = 2,
+    FRAME_OWNED_BY_CSTACK = 3,
+};
+
 typedef struct _interpreter_frame
 {
     PyCodeObject* f_code;
@@ -128,27 +135,17 @@ typedef struct _interpreter_frame
 
 namespace Python3_14 {
 
+enum _frameowner {
+    FRAME_OWNED_BY_THREAD = 0,
+    FRAME_OWNED_BY_GENERATOR = 1,
+    FRAME_OWNED_BY_FRAME_OBJECT = 2,
+    FRAME_OWNED_BY_INTERPRETER = 3,
+    FRAME_OWNED_BY_CSTACK = 4,
+};
+
 typedef union _PyStackRef {
     uintptr_t bits;
 } _PyStackRef;
-
-typedef struct _interpreter_frame
-{
-    _PyStackRef f_executable;
-    void* previous;
-    void* f_funcobj;
-    PyObject* f_globals;
-    PyObject* f_builtins;
-    PyObject* f_locals;
-    PyObject* frame_obj;
-    _Py_CODEUNIT* instr_ptr;
-    _PyStackRef stackpointer;
-    /* int32_t tlbc_index; */
-    uint16_t return_offset;
-    char owner;
-    uint8_t visited;
-    void* localsplus[1];
-} PyFrameObject;
 
 }  // namespace Python3_14
 

@@ -14,11 +14,14 @@ class PartnerChannel:
         "id": None,  # int64 - The unique ID of the Partner Channel.
         "workspace_id": None,  # int64 - ID of the Workspace associated with this Partner Channel.
         "partner_id": None,  # int64 - ID of the Partner this Channel belongs to.
+        "partner_channel_template_id": None,  # int64 - ID of the Partner Channel Template that manages this Channel, if any.
         "path": None,  # string - Channel path relative to the Partner root folder. This must be slash-delimited, but it must neither start nor end with a slash. Maximum of 5000 characters.
         "to_partner_folder_name": None,  # string - Optional Channel-level to-Partner folder name override.
         "from_partner_folder_name": None,  # string - Optional Channel-level from-Partner folder name override.
         "from_partner_route_path": None,  # string - Optional route path for files uploaded by the Partner.
         "to_partner_route_path": None,  # string - Optional route path for files delivered to the Partner.
+        "to_partner_managed_folder_paths": None,  # array(string) - Managed folder paths inside the to-Partner folder.
+        "from_partner_managed_folder_paths": None,  # array(string) - Managed folder paths inside the from-Partner folder.
         "effective_to_partner_folder_name": None,  # string - Resolved to-Partner folder name after Channel override and default.
         "effective_from_partner_folder_name": None,  # string - Resolved from-Partner folder name after Channel override and default.
         "channel_path": None,  # string - Resolved Channel folder path.
@@ -52,8 +55,10 @@ class PartnerChannel:
 
     # Parameters:
     #   from_partner_folder_name - string - Optional Channel-level from-Partner folder name override.
+    #   from_partner_managed_folder_paths - array(string) - Managed folder paths inside the from-Partner folder.
     #   from_partner_route_path - string - Optional route path for files uploaded by the Partner.
     #   to_partner_folder_name - string - Optional Channel-level to-Partner folder name override.
+    #   to_partner_managed_folder_paths - array(string) - Managed folder paths inside the to-Partner folder.
     #   to_partner_route_path - string - Optional route path for files delivered to the Partner.
     #   path - string - Channel path relative to the Partner root folder.
     def update(self, params=None):
@@ -74,6 +79,12 @@ class PartnerChannel:
             raise InvalidParameterError(
                 "Bad parameter: from_partner_folder_name must be an str"
             )
+        if "from_partner_managed_folder_paths" in params and not isinstance(
+            params["from_partner_managed_folder_paths"], builtins.list
+        ):
+            raise InvalidParameterError(
+                "Bad parameter: from_partner_managed_folder_paths must be an list"
+            )
         if "from_partner_route_path" in params and not isinstance(
             params["from_partner_route_path"], str
         ):
@@ -85,6 +96,12 @@ class PartnerChannel:
         ):
             raise InvalidParameterError(
                 "Bad parameter: to_partner_folder_name must be an str"
+            )
+        if "to_partner_managed_folder_paths" in params and not isinstance(
+            params["to_partner_managed_folder_paths"], builtins.list
+        ):
+            raise InvalidParameterError(
+                "Bad parameter: to_partner_managed_folder_paths must be an list"
             )
         if "to_partner_route_path" in params and not isinstance(
             params["to_partner_route_path"], str
@@ -191,8 +208,10 @@ def get(id, params=None, options=None):
 
 # Parameters:
 #   from_partner_folder_name - string - Optional Channel-level from-Partner folder name override.
+#   from_partner_managed_folder_paths - array(string) - Managed folder paths inside the from-Partner folder.
 #   from_partner_route_path - string - Optional route path for files uploaded by the Partner.
 #   to_partner_folder_name - string - Optional Channel-level to-Partner folder name override.
+#   to_partner_managed_folder_paths - array(string) - Managed folder paths inside the to-Partner folder.
 #   to_partner_route_path - string - Optional route path for files delivered to the Partner.
 #   partner_id (required) - int64 - ID of the Partner this Channel belongs to.
 #   path (required) - string - Channel path relative to the Partner root folder.
@@ -208,6 +227,12 @@ def create(params=None, options=None):
         raise InvalidParameterError(
             "Bad parameter: from_partner_folder_name must be an str"
         )
+    if "from_partner_managed_folder_paths" in params and not isinstance(
+        params["from_partner_managed_folder_paths"], builtins.list
+    ):
+        raise InvalidParameterError(
+            "Bad parameter: from_partner_managed_folder_paths must be an list"
+        )
     if "from_partner_route_path" in params and not isinstance(
         params["from_partner_route_path"], str
     ):
@@ -219,6 +244,12 @@ def create(params=None, options=None):
     ):
         raise InvalidParameterError(
             "Bad parameter: to_partner_folder_name must be an str"
+        )
+    if "to_partner_managed_folder_paths" in params and not isinstance(
+        params["to_partner_managed_folder_paths"], builtins.list
+    ):
+        raise InvalidParameterError(
+            "Bad parameter: to_partner_managed_folder_paths must be an list"
         )
     if "to_partner_route_path" in params and not isinstance(
         params["to_partner_route_path"], str
@@ -248,8 +279,10 @@ def create(params=None, options=None):
 
 # Parameters:
 #   from_partner_folder_name - string - Optional Channel-level from-Partner folder name override.
+#   from_partner_managed_folder_paths - array(string) - Managed folder paths inside the from-Partner folder.
 #   from_partner_route_path - string - Optional route path for files uploaded by the Partner.
 #   to_partner_folder_name - string - Optional Channel-level to-Partner folder name override.
+#   to_partner_managed_folder_paths - array(string) - Managed folder paths inside the to-Partner folder.
 #   to_partner_route_path - string - Optional route path for files delivered to the Partner.
 #   path - string - Channel path relative to the Partner root folder.
 def update(id, params=None, options=None):
@@ -266,6 +299,12 @@ def update(id, params=None, options=None):
         raise InvalidParameterError(
             "Bad parameter: from_partner_folder_name must be an str"
         )
+    if "from_partner_managed_folder_paths" in params and not isinstance(
+        params["from_partner_managed_folder_paths"], builtins.list
+    ):
+        raise InvalidParameterError(
+            "Bad parameter: from_partner_managed_folder_paths must be an list"
+        )
     if "from_partner_route_path" in params and not isinstance(
         params["from_partner_route_path"], str
     ):
@@ -277,6 +316,12 @@ def update(id, params=None, options=None):
     ):
         raise InvalidParameterError(
             "Bad parameter: to_partner_folder_name must be an str"
+        )
+    if "to_partner_managed_folder_paths" in params and not isinstance(
+        params["to_partner_managed_folder_paths"], builtins.list
+    ):
+        raise InvalidParameterError(
+            "Bad parameter: to_partner_managed_folder_paths must be an list"
         )
     if "to_partner_route_path" in params and not isinstance(
         params["to_partner_route_path"], str

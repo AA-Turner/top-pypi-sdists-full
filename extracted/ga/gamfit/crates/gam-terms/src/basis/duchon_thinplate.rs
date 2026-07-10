@@ -430,14 +430,18 @@ fn build_duchon_basis_uncached(
         // (`frozen_radial_reparam` already folded above on the replay paths). At
         // that point `kernel_transform` is still the raw `Z`.
         //
-        // The reparam is gated to the native-Gram-only configuration (no active
-        // mass/tension/stiffness operator penalties): those operators build
-        // their own collocation Grams in the un-rotated `Z` frame, so rotating
-        // only the native penalty would desync the operator penalty columns.
-        // Default Duchon terms have mass+tension active, so they deliberately
-        // bypass this fused native-only path; `all_disabled()` is the opt-in
-        // configuration that reaches it.
-        let operators_active = spec.operator_penalties.has_active_operator_penalty();
+        // The reparam is adopted for EVERY configuration, including the default
+        // all-on Hilbert scale (mass+tension active). The frozen `V` is threaded
+        // into the operator collocation builder (`duchon_operator_penalty_candidates`
+        // → `build_duchon_collocation_operator_matriceswithworkspace`) so the
+        // mass/tension blocks are assembled directly in the same `K·Z·V` frame as
+        // the design and the native `Primary` penalty — no design↔penalty desync.
+        // Skipping the reparam whenever operators were active (the old gate) left
+        // the default Duchon on the raw cliff-less Mercer spectrum, so REML
+        // over-selected EDF (a single 2-D bump fit to EDF≈30/49), which in turn
+        // made the fit a knife-edge unstable to ulp-level covariate rotation and
+        // unable to collapse toward the null on an irrelevant covariate. Restoring
+        // the cliff for the default is what makes those recoveries hold.
         // When the fresh data-metric reparam is computed, its `raw` (un-rotated)
         // design is built here from a full `n×k` kernel evaluation. That SAME
         // realized design is the base of the final basis — rotating it by the
@@ -447,7 +451,7 @@ fn build_duchon_basis_uncached(
         // configurations (`all_disabled()`, no frozen reparam), closing their
         // wall-time gap to `thinplate(x, z)` without changing default terms.
         let mut prebuilt_raw_basis: Option<Array2<f64>> = None;
-        if frozen_radial_reparam.is_none() && !operators_active {
+        if frozen_radial_reparam.is_none() {
             let kernel_cols = kernel_transform.ncols();
             if kernel_cols > 0 {
                 // Build the un-rotated constrained kernel design once, take its
@@ -588,6 +592,7 @@ fn build_duchon_basis_uncached(
             effective_nullspace_order,
             aniso.is_some(),
             identifiability_transform.as_ref(),
+            frozen_radial_reparam.as_ref(),
             workspace,
         )?);
     }
@@ -692,6 +697,7 @@ pub fn duchon_penalties_at_length_scale(
             effective_nullspace_order,
             aniso.is_some(),
             identifiability_transform,
+            radial_reparam,
             workspace,
         )?);
     }
@@ -736,6 +742,76 @@ pub(crate) fn polynomial_block_from_order(
         }
         DuchonNullspaceOrder::Degree(degree) => monomial_basis_block(points, degree),
     }
+}
+
+/// Range-floor the reparam'd Duchon Primary curvature block so its numerical
+/// null space is exactly the polynomial null space, not inflated by the
+/// ill-conditioned kernel Gram's low-curvature tail.
+///
+/// The default duchon adopts the data-metric radial reparam `V`, so the Primary
+/// penalty kernel block is `Vᵀ Ω_c V` — diagonal in the `μ` (generalized
+/// curvature) eigenvalues. The Duchon polyharmonic Gram is extremely
+/// ill-conditioned (cond ≫ 1e10 at k=20), so most `μ` fall far below the
+/// numerical-rank cutoff `spectral_tolerance = nrows·1e-10·λmax` that
+/// [`analyze_penalty_block`] uses to partition range vs null. Those genuine
+/// low-curvature directions are then mis-classified as UNPENALIZED null:
+/// retained in the design (they clear the SEPARATE `k·ε` design-support floor)
+/// but shrinkable by NO `λ`, so the smooth cannot collapse toward the null on an
+/// irrelevant covariate (measured `nulldim = 19` vs the affine `{1,x} = 2`
+/// expected on the gam#1815 null-recovery fixture) and REML over-selects EDF.
+///
+/// Lift the smallest eigenvalues to a relative floor one decade above that
+/// cutoff (`nrows·1e-9·λmax`, with `nrows` the EMBEDDED penalty dimension
+/// kernel+poly, so the floor clears the tolerance the assembled block is scored
+/// against) so every retained mode is a genuine — if weak — penalized `Range`
+/// direction; REML's `λ→∞` tail then collapses them. The floor is far below the
+/// statistical scale and lifts only the lowest-curvature (near-linear) modes, so
+/// signal recovery (e.g. the sin8 centers=50 escape) is unchanged — the
+/// high-curvature signal modes sit orders of magnitude above the floor.
+pub(crate) fn duchon_range_floor_curvature(
+    omega: &Array2<f64>,
+    embedded_penalty_dim: usize,
+) -> Result<Array2<f64>, BasisError> {
+    let n = omega.nrows();
+    if n == 0 {
+        return Ok(omega.clone());
+    }
+    let sym = symmetrize_penalty(omega);
+    let (mut evals, evecs) = FaerEigh::eigh(&sym, Side::Lower).map_err(BasisError::LinalgError)?;
+    let lam_max = evals.iter().copied().fold(0.0_f64, |a, v| a.max(v.abs()));
+    if !lam_max.is_finite() || lam_max <= 0.0 {
+        return Ok(sym);
+    }
+    // Two decades above `analyze_penalty_block`'s `nrows·1e-10·λmax` cutoff, so
+    // the margin survives the later identifiability congruence `Tᵀ(·)T` and the
+    // Frobenius renormalization before the block's rank is scored. Still far
+    // below the statistical scale (`≤ nrows·1e-8·λmax`).
+    let floor = (embedded_penalty_dim.max(n) as f64) * 1e-8 * lam_max;
+    let mut floored = false;
+    for v in evals.iter_mut() {
+        if v.is_finite() && *v < floor {
+            *v = floor;
+            floored = true;
+        }
+    }
+    if !floored {
+        return Ok(sym);
+    }
+    // Reconstruct `U diag(evals) Uᵀ` with the floored spectrum.
+    let mut out = Array2::<f64>::zeros((n, n));
+    for j in 0..n {
+        let lam = evals[j];
+        for a in 0..n {
+            let ua = evecs[[a, j]];
+            if ua == 0.0 {
+                continue;
+            }
+            for b in 0..n {
+                out[[a, b]] += ua * lam * evecs[[b, j]];
+            }
+        }
+    }
+    Ok(symmetrize_penalty(&out))
 }
 
 pub fn monomial_exponents(dimension: usize, max_total_degree: usize) -> Vec<Vec<usize>> {
@@ -1289,6 +1365,48 @@ pub(crate) fn thin_plate_penalty_order(dimension: usize) -> usize {
 #[inline(always)]
 pub(crate) fn d_canonical_tps_infeasible(dimension: usize, num_centers: usize) -> bool {
     num_centers < thin_plate_polynomial_basis_dimension(dimension)
+}
+
+/// Whether canonical thin-plate splines are infeasible at THESE specific
+/// centers — the single governing feasibility test for the auto-promotion gate.
+///
+/// Canonical TPS requires the polynomial nullspace block `P(C)` (`k × M(d)`) to
+/// have full column rank `M(d)`; otherwise the side constraint `P(C)ᵀα = 0` is
+/// overdetermined (count-short) or rank-deficient (degenerate geometry), and
+/// `thin_plate_kernel_constraint_nullspace` hard-errors. There are two failure
+/// modes and rank subsumes both:
+///   * too few centers — `k < M(d)` (the cheap count short-circuit, which also
+///     avoids materialising an oversized `k × M(d)` block when `M(d)` explodes
+///     in high dimension, e.g. `M(16) = 735_471`); and
+///   * enough centers but geometrically DEGENERATE — the selected centers are
+///     affinely/polynomially dependent, so `rank P(C) < M(d)` even though
+///     `k ≥ M(d)` (e.g. coplanar points in 3-D).
+///
+/// The prior gate tested only the count, so a degenerate-but-sufficient center
+/// set slipped past it into canonical TPS and hard-errored instead of promoting
+/// to the Duchon generalisation (which handles a rank-deficient nullspace
+/// gracefully — it takes the RRQR nullspace at the *actual* rank and downgrades
+/// the effective nullspace order). Making rank the test keeps the promotion gate
+/// from drifting out of sync with the linear-algebra feasibility the builder
+/// enforces downstream.
+pub(crate) fn thin_plate_canonical_infeasible_at_centers(centers: ArrayView2<'_, f64>) -> bool {
+    let dimension = centers.ncols();
+    // Cheap count short-circuit; also guards high `d`, where forming the
+    // `k × M(d)` polynomial block is itself intractable.
+    if d_canonical_tps_infeasible(dimension, centers.nrows()) {
+        return true;
+    }
+    // Enough centers by count (`M(d) ≤ k`), so the block is small enough to
+    // form: check the ACTUAL rank so a degenerate center geometry promotes to
+    // Duchon rather than hard-erroring in canonical TPS.
+    let poly_block = thin_plate_polynomial_block(centers);
+    let poly_cols = poly_block.ncols();
+    match rrqr_nullspace_basis(&poly_block, default_rrqr_rank_alpha()) {
+        Ok((_, rank)) => rank < poly_cols,
+        // If the rank probe itself fails, defer to the canonical path, which
+        // surfaces a precise error rather than silently promoting.
+        Err(_) => false,
+    }
 }
 
 /// Pick Duchon parameters for the TPS auto-promotion at infeasible (d, k).

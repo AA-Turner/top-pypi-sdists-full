@@ -8,14 +8,15 @@ from collections.abc import Callable, Iterable, Mapping
 from threading import Event
 from typing import Any, NamedTuple
 
-from ..packetz import api as _packetz_api
-from ..packetz.queue import PacketzQueue
 from ..util import memory_use
 from .payload import VisualPayload
 from .result import Result
 
 
-type Func = Callable[..., Any]
+type Func = Callable[[Any], Any]
+type TaskFunc[*P] = Callable[[Task, *P], Any]
+type TransfFunc = Callable[[Any], Any]
+type PrintFunc = Callable[..., None]
 type VisualFunc = Func
 
 
@@ -24,7 +25,6 @@ class TaskStop(Exception):
 
 
 class Task(NamedTuple):
-    queue: PacketzQueue
     stop: Event
     func: Func
     payload: Any
@@ -36,8 +36,10 @@ class Task(NamedTuple):
 
 def taskproc(task: Task) -> Result:
     if task.stop.is_set():
-        return Result(task.stop, task.payload)
-    _packetz_api.init_queue(task.queue)
+        return Result(
+            task.stop,
+            task.payload, exception=InterruptedError("stopped"),
+        )
 
     result = Result(task.stop, task.payload)
     outcome: Any = None
@@ -56,6 +58,9 @@ def taskproc(task: Task) -> Result:
             outcome = task.func(task.payload.path, *task.args, **task.kwargs)
 
         elapsed = time.thread_time() - start_time
+    except KeyboardInterrupt:
+        task.stop.set()
+        raise
     except RuntimeError:
         raise
     except (Exception, RecursionError) as e:

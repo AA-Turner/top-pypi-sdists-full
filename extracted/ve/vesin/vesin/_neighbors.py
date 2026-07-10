@@ -72,10 +72,13 @@ class NeighborList:
 
     def __init__(
         self,
+        *,
         cutoff: float,
         full_list: bool,
         sorted: bool = False,
         algorithm: str = "auto",
+        skin: float = 0.0,
+        n_threads: int = 0,
     ):
         """
         :param cutoff: spherical cutoff for this neighbor list
@@ -86,13 +89,23 @@ class NeighborList:
             second point index (``j``) and shifts in the list of pairs is unspecified.
         :param algorithm: algorithm to use when computing the neighbor list. One of
             ``"auto"``, ``"brute_force"``, or ``"cell_list"``.
+        :param skin: skin size for Verlet caching. A positive value enables
+            caching the neighbor list until any atom moves farther than
+            ``skin/2`` from its reference coordinates.
+        :param n_threads: number of CPU threads to use. Must be 0 or a positive
+            integer. If set to 0, Vesin uses ``OMP_NUM_THREADS`` when set to a
+            positive integer, and otherwise the number of available CPU cores.
         """
         self._lib = _get_library()
         self.cutoff = float(cutoff)
         self.full_list = bool(full_list)
         self.sorted = bool(sorted)
+        self.skin = float(skin)
 
         self.algorithm = algorithm
+        self.n_threads = int(n_threads)
+        if self.n_threads < 0:
+            raise ValueError("n_threads must be zero or a positive integer")
 
         self._neighbors = VesinNeighborList()
 
@@ -198,6 +211,8 @@ class NeighborList:
         options.return_distances = "d" in quantities
         options.return_vectors = "D" in quantities
         options.algorithm = self._c_algorithm
+        options.skin = self.skin
+        options.n_threads = self.n_threads
 
         if isinstance(periodic, (bool, np.bool_)):
             periodic = np.array([periodic, periodic, periodic], dtype=np.bool_)

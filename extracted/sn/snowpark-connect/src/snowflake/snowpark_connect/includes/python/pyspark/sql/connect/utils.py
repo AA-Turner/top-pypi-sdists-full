@@ -39,7 +39,7 @@ def require_minimum_grpc_version() -> None:
     """Raise ImportError if minimum version of grpc is not installed"""
     minimum_grpc_version = "1.48.1"
 
-    from distutils.version import LooseVersion
+    from pyspark.loose_version import LooseVersion
 
     try:
         import grpc

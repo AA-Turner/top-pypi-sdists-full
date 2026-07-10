@@ -691,6 +691,11 @@ class SemanticConvention:
     GEN_AI_AGENT_VERSION = _get_otel_attr(
         OTelGenAIAttributes, "GEN_AI_AGENT_VERSION", "gen_ai.agent.version"
     )
+    # OpenLIT vendor extension: auto-computed canonical fingerprint over the
+    # parts of an agent's definition that meaningfully change its behavior
+    # (system prompt + tools + primary model + sampling config). Stamped on
+    # every chat span/event so the server can group traffic by version.
+    OPENLIT_AGENT_VERSION_HASH = "openlit.agent.version_hash"
 
     GEN_AI_AGENT_TYPE = "gen_ai.agent.type"
     GEN_AI_AGENT_TASK_ID = "gen_ai.agent.task.id"
@@ -731,6 +736,12 @@ class SemanticConvention:
     GEN_AI_AGENT_ACTION_LOG = "gen_ai.agent.action.log"
     GEN_AI_AGENT_FINISH_OUTPUT = "gen_ai.agent.finish.output"
     GEN_AI_AGENT_FINISH_LOG = "gen_ai.agent.finish.log"
+
+    # Agent Threat Detection Events
+    GEN_AI_AGENT_THREAT_DETECTED = "gen_ai.agent.threat_detected"
+    GEN_AI_AGENT_THREAT_RULE_ID = "gen_ai.agent.threat.rule_id"
+    GEN_AI_AGENT_THREAT_SEVERITY = "gen_ai.agent.threat.severity"
+    GEN_AI_AGENT_THREAT_CLASS = "gen_ai.agent.threat.threat_class"
 
     GEN_AI_AGENT_TYPE_BROWSER = "browser"
 
@@ -1041,6 +1052,14 @@ class SemanticConvention:
     GUARD_VALIDATOR = "guard.validator"
     GUARD_EXPLANATION = "guard.explanation"
 
+    # Guard events (new guard system)
+    GUARD_EVALUATION_EVENT = "guard.evaluation"
+    GUARD_NAME = "guard.name"
+    GUARD_PHASE = "guard.phase"
+    GUARD_ACTION = "guard.action"
+    GUARD_LATENCY_MS = "guard.latency_ms"
+    GUARD_DENIED = "guard.denied"
+
     # GenAI Evaluation Event (OTel Semantic Convention)
     # Per OpenTelemetry semantic conventions for generative AI
     # https://github.com/open-telemetry/semantic-conventions/blob/main/docs/gen-ai/gen-ai-events.md#event-gen_aievaluationresult
@@ -1049,6 +1068,7 @@ class SemanticConvention:
     GEN_AI_EVALUATION_SCORE_VALUE = "gen_ai.evaluation.score.value"
     GEN_AI_EVALUATION_SCORE_LABEL = "gen_ai.evaluation.score.label"
     GEN_AI_EVALUATION_EXPLANATION = "gen_ai.evaluation.explanation"
+    OPENLIT_SCORE_IDEMPOTENCY_KEY = "openlit.score.idempotency_key"
 
     # === FRAMEWORK OPERATIONS (Generic attributes for all RAG/AI frameworks) ===
 

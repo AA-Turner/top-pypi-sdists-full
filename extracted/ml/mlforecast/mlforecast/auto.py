@@ -1,6 +1,23 @@
-__all__ = ['lightgbm_space', 'xgboost_space', 'catboost_space', 'linear_regression_space', 'ridge_space', 'lasso_space',
-           'elastic_net_space', 'random_forest_space', 'AutoModel', 'AutoLightGBM', 'AutoXGBoost', 'AutoCatboost',
-           'AutoLinearRegression', 'AutoRidge', 'AutoLasso', 'AutoElasticNet', 'AutoRandomForest', 'AutoMLForecast']
+__all__ = [
+    "lightgbm_space",
+    "xgboost_space",
+    "catboost_space",
+    "linear_regression_space",
+    "ridge_space",
+    "lasso_space",
+    "elastic_net_space",
+    "random_forest_space",
+    "AutoModel",
+    "AutoLightGBM",
+    "AutoXGBoost",
+    "AutoCatboost",
+    "AutoLinearRegression",
+    "AutoRidge",
+    "AutoLasso",
+    "AutoElasticNet",
+    "AutoRandomForest",
+    "AutoMLForecast",
+]
 
 
 import warnings
@@ -448,7 +465,7 @@ class AutoMLForecast:
         optimize_kwargs: Optional[Dict[str, Any]] = None,
         fitted: bool = False,
         prediction_intervals: Optional[PredictionIntervals] = None,
-        weight_col: Optional[np.ndarray] = None
+        weight_col: Optional[np.ndarray] = None,
     ) -> "AutoMLForecast":
         """Carry out the optimization process.
         Each model is optimized independently and the best one is trained on all data
@@ -492,6 +509,7 @@ class AutoMLForecast:
                 min_value=df[target_col].min(),
             )
         if loss is None:
+
             def loss(df, train_df):  # noqa: ARG001
                 return smape(
                     df,
@@ -499,6 +517,7 @@ class AutoMLForecast:
                     id_col=id_col,
                     target_col=target_col,
                 )["model"].mean()
+
         if study_kwargs is None:
             study_kwargs = {}
         if "sampler" not in study_kwargs:
@@ -523,6 +542,7 @@ class AutoMLForecast:
                 )
             )
         for name, auto_model in self.models.items():
+
             def config_fn(trial: optuna.Trial) -> Dict[str, Any]:
                 return {
                     "model_params": auto_model.config(trial),
@@ -532,6 +552,7 @@ class AutoMLForecast:
                     },
                     "mlf_fit_params": self.fit_config(trial),
                 }
+
             objective = mlforecast_objective(
                 df=df,
                 config_fn=config_fn,
@@ -568,7 +589,7 @@ class AutoMLForecast:
                 freq=self.freq,
                 **best_config["mlf_init_params"],
             )
-            
+
             self.models_[name].fit(
                 df,
                 fitted=fitted,
@@ -621,26 +642,50 @@ class AutoMLForecast:
     def forecast_fitted_values(
         self,
         level: Optional[List[Union[int, float]]] = None,
+        *,
+        h: int = 1,
+        train_df: Optional[DataFrame] = None,
     ) -> DataFrame:
         """Access in-sample predictions.
 
         Args:
             level (list of ints or floats, optional): Confidence levels between 0 and 100 for prediction intervals.
                 Defaults to None.
+            h (int): Forecast horizon for fitted values. Defaults to 1.
+            train_df (pandas or polars DataFrame, optional): Training data to use when computing
+                recursive fitted values for ``h>1`` on demand. Defaults to None.
 
         Returns:
-            (pandas or polars DataFrame): Dataframe with predictions for the training set
+            pandas or polars DataFrame: DataFrame with the following columns:
+
+            - ``id_col``: series identifier.
+            - ``time_col``: timestamp of the predicted observation.
+            - ``target_col``: actual observed value.
+            - ``h``: number of steps ahead the prediction was made. For recursive models
+              this equals the ``h`` argument. For direct models (``max_horizon``) it
+              reflects the specific horizon step (1-indexed) at which each row was
+              predicted, ranging from 1 to ``max_horizon``.
+            - One column per model with the fitted (in-sample) predictions.
+            - If ``level`` is provided, additional columns with the lower and upper
+              bounds of the prediction intervals for each model and confidence level.
         """
         fitted_vals = None
         for name, model in self.models_.items():
-            model_fitted = model.forecast_fitted_values(level=level)
+            model_fitted = model.forecast_fitted_values(
+                level=level,
+                h=h,
+                train_df=train_df,
+            )
             if fitted_vals is None:
                 fitted_vals = model_fitted
             else:
+                join_keys = [model.ts.id_col, model.ts.time_col]
+                if "h" in fitted_vals.columns and "h" in model_fitted.columns:
+                    join_keys.append("h")
                 fitted_vals = ufp.join(
                     fitted_vals,
                     ufp.drop_columns(model_fitted, model.ts.target_col),
-                    on=[model.ts.id_col, model.ts.time_col],
+                    on=join_keys,
                     how="inner",
                 )
         return fitted_vals

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: gcloud-aio-datastore
-Version: 9.2.0
+Version: 9.2.1
 Summary: Python Client for Google Cloud Datastore
 License: MIT
 License-File: LICENSE

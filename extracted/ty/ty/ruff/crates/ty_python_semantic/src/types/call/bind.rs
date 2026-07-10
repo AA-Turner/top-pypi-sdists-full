@@ -34,7 +34,7 @@ use crate::types::callable::CallableTypeKind;
 use crate::types::constraints::{
     ConstraintSet, ConstraintSetBuilder, PathBound, PathBounds, Solutions,
 };
-use crate::types::dedicated::pydantic::StrictMode;
+use crate::types::dedicated::pydantic::{self, ConfigBoolean};
 use crate::types::diagnostic::{
     CALL_NON_CALLABLE, CALL_TOP_CALLABLE, INVALID_ARGUMENT_TYPE, INVALID_DATACLASS,
     MISSING_ARGUMENT, NO_MATCHING_OVERLOAD, PARAMETER_ALREADY_ASSIGNED,
@@ -53,8 +53,8 @@ use crate::types::generics::{
 use crate::types::infer::original_class_type;
 use crate::types::known_instance::FieldInstance;
 use crate::types::signatures::{
-    CallableSignature, Parameter, ParameterKind, Parameters, ParametersKind, PartialApplication,
-    PartialSignatureApplication,
+    CallableSignature, Parameter, ParameterDisplayName, ParameterKind, Parameters, ParametersKind,
+    PartialApplication, PartialSignatureApplication,
 };
 use crate::types::tuple::{TupleLength, TupleSpec, TupleType};
 use crate::types::typed_dict::{TypedDictOpenness, extract_unpacked_typed_dict_from_value_type};
@@ -1686,7 +1686,7 @@ impl<'db> Bindings<'db> {
                         }
                     }
 
-                    function @ Type::FunctionLiteral(_)
+                    function @ Type::FunctionLiteral(function_type)
                         if dataclass_field_specifiers.contains(&function) =>
                     {
                         // Helper to get the type of a keyword argument by name. We first try to get it from
@@ -1708,18 +1708,31 @@ impl<'db> Bindings<'db> {
                             })
                         };
 
-                        let has_default_value = get_argument_type("default", false).is_some()
-                            || get_argument_type("default_factory", false).is_some()
-                            || get_argument_type("factory", false).is_some();
+                        let default = get_argument_type("default", false);
+                        let has_default_value = get_argument_type("default_factory", false)
+                            .is_some()
+                            || get_argument_type("factory", false).is_some()
+                            || default.is_some_and(|default| {
+                                pydantic::field_provides_default(db, function_type, default)
+                            });
 
                         let init = get_argument_type("init", true);
                         let kw_only = get_argument_type("kw_only", true);
                         let alias = get_argument_type("alias", true);
+                        let validation_alias = get_argument_type("validation_alias", true);
                         let converter = get_argument_type("converter", true);
-                        let strict = get_argument_type("strict", false)
-                            .map_or(StrictMode::Unspecified, |strict| {
-                                StrictMode::from_field_type(db, strict)
-                            });
+                        // `Field(strict=None)` inherits the model-global strictness configuration,
+                        // so treat it like an unspecified field-level value.
+                        let strict = get_argument_type("strict", false).map_or(
+                            ConfigBoolean::Unspecified,
+                            |strict| {
+                                if strict.is_none(db) {
+                                    ConfigBoolean::Unspecified
+                                } else {
+                                    ConfigBoolean::from_type(strict)
+                                }
+                            },
+                        );
 
                         // `dataclasses.field` and field-specifier functions of commonly used
                         // libraries like `pydantic`, `attrs`, and `SQLAlchemy` all return
@@ -1752,8 +1765,12 @@ impl<'db> Bindings<'db> {
                             None
                         };
 
-                        let alias = alias
+                        // A Pydantic validation alias takes precedence over the ordinary alias for
+                        // constructor input. `FieldInstance::alias` only models the constructor
+                        // parameter name, so the ordinary alias does not need to be retained here.
+                        let alias = validation_alias
                             .and_then(Type::as_string_literal)
+                            .or_else(|| alias.and_then(Type::as_string_literal))
                             .map(|literal| Box::from(literal.value(db)));
 
                         // Extract the first positional parameter type and the return type from the
@@ -6791,7 +6808,7 @@ impl std::fmt::Display for CallableDescription<'_> {
 /// Information needed to emit a diagnostic regarding a parameter.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub(crate) struct ParameterContext {
-    name: Option<ast::name::Name>,
+    name: Option<ParameterDisplayName<Name>>,
     index: usize,
 
     /// Was the argument for this parameter passed positionally, and matched to a non-variadic
@@ -6803,7 +6820,9 @@ pub(crate) struct ParameterContext {
 impl ParameterContext {
     fn new(parameter: &Parameter, index: usize, positional: bool) -> Self {
         Self {
-            name: parameter.display_name(),
+            name: parameter
+                .display_name()
+                .map(ParameterDisplayName::into_owned),
             index,
             positional,
         }

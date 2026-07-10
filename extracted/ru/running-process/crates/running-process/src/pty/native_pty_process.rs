@@ -142,6 +142,10 @@ impl NativePtyProcess {
         store_pty_returncode(&self.returncode, code);
     }
 
+    // Windows takes + joins the reader worker inside the bounded teardown
+    // thread in `close_impl` (issue #590, cluster C); only the Unix paths
+    // call this helper directly.
+    #[cfg(not(windows))]
     pub(super) fn join_reader_worker(&self) {
         if let Some(worker) = self
             .reader_worker
@@ -354,9 +358,24 @@ impl NativePtyProcess {
                                     return Err(PtyError::Io(err));
                                 }
                             }
-                            let code = match child.wait() {
-                                Ok(status) => status as i32,
-                                Err(_) => -9,
+                            // Bounded wait after kill (issue #590, cluster I):
+                            // `ConPtyChild::wait` is a raw
+                            // `WaitForSingleObject(process, INFINITE)`, so an
+                            // uninterruptible child that survives
+                            // TerminateProcess would wedge close() forever.
+                            // Poll `try_wait` for a short grace instead; the
+                            // Job Object's KILL_ON_JOB_CLOSE (dropped earlier)
+                            // plus TerminateProcess normally make this resolve
+                            // in one iteration.
+                            let kill_deadline = Instant::now() + Duration::from_secs(2);
+                            let code = loop {
+                                match child.try_wait() {
+                                    Ok(Some(status)) => break status as i32,
+                                    Ok(None) if Instant::now() < kill_deadline => {
+                                        thread::sleep(Duration::from_millis(10));
+                                    }
+                                    _ => break -9,
+                                }
                             };
                             self.store_returncode(code);
                             break;
@@ -374,18 +393,34 @@ impl NativePtyProcess {
                 );
                 drop(writer);
             }
+            // Bounded teardown (issue #590, cluster C). `drop(master)`
+            // calls ClosePseudoConsole, which blocks until the ConPTY
+            // output pipe drains; the reader's synchronous ReadFile only
+            // sees EOF once that pipe's last write end closes. A detached
+            // grandchild that inherited the pipe keeps it open, so both
+            // ClosePseudoConsole and the reader join would wedge close()
+            // forever. Run them on a helper thread and bound the wait; on
+            // timeout we return — the teardown thread + reader leak, but the
+            // caller is unblocked.
             {
                 crate::rp_rust_debug_scope!(
-                    "running_process::NativePtyProcess::close_impl.drop_master"
+                    "running_process::NativePtyProcess::close_impl.bounded_teardown"
                 );
-                drop(master);
-            }
-            drop(child);
-            {
-                crate::rp_rust_debug_scope!(
-                    "running_process::NativePtyProcess::close_impl.join_reader"
-                );
-                self.join_reader_worker();
+                let reader_worker = self
+                    .reader_worker
+                    .lock()
+                    .expect("pty reader worker mutex poisoned")
+                    .take();
+                let (tx, rx) = std::sync::mpsc::channel();
+                std::thread::spawn(move || {
+                    drop(master);
+                    drop(child);
+                    if let Some(worker) = reader_worker {
+                        let _ = worker.join();
+                    }
+                    let _ = tx.send(());
+                });
+                let _ = rx.recv_timeout(Duration::from_secs(2));
             }
             self.mark_reader_closed();
             Ok(())
@@ -454,10 +489,24 @@ impl NativePtyProcess {
             }
         }
         drop(writer);
-        drop(master);
-        drop(child);
+        // On Windows `drop(master)` (ClosePseudoConsole) blocks until the
+        // ConPTY output pipe drains, which can wedge if a grandchild
+        // inherited it (issue #590, cluster C). This is the `Drop` path and
+        // MUST stay non-blocking as its name promises, so move the blocking
+        // drops to a detached thread (`PtyMaster`/`PtyChild` are
+        // `Send + 'static`). On Unix `drop(master)` just closes the master
+        // fd, so drop inline.
         #[cfg(windows)]
-        drop(_job);
+        std::thread::spawn(move || {
+            drop(master);
+            drop(child);
+            drop(_job);
+        });
+        #[cfg(not(windows))]
+        {
+            drop(master);
+            drop(child);
+        }
         self.mark_reader_closed();
     }
 
@@ -533,7 +582,9 @@ impl NativePtyProcess {
 
         *guard = Some(NativePtyHandles {
             master: Box::new(master) as Box<dyn PtyMaster>,
-            writer,
+            // #590 cluster D: writer lives behind its own mutex so a
+            // blocking input write never holds the `handles` lock.
+            writer: Arc::new(Mutex::new(writer)),
             child: Box::new(child) as Box<dyn PtyChild>,
             #[cfg(windows)]
             _job: job,

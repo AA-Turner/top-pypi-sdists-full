@@ -6,11 +6,12 @@ import typing
 
 import pydantic
 import typing_extensions
-from ..core.pydantic_utilities import IS_PYDANTIC_V2
+from ..core.pydantic_utilities import IS_PYDANTIC_V2, update_forward_refs
 from ..core.unchecked_base_model import UncheckedBaseModel, UnionMetadata
-from .agent_transfer import AgentTransfer
+from .agent_transfer_output import AgentTransferOutput
 from .phone_number_transfer import PhoneNumberTransfer
 from .procedure_at_version_output import ProcedureAtVersionOutput
+from .sub_agent_output import SubAgentOutput
 
 
 class SystemToolConfigOutputParams_EndCall(UncheckedBaseModel):
@@ -81,6 +82,20 @@ class SystemToolConfigOutputParams_PlayKeypadTouchTone(UncheckedBaseModel):
             extra = pydantic.Extra.allow
 
 
+class SystemToolConfigOutputParams_RunSubagent(UncheckedBaseModel):
+    system_tool_type: typing.Literal["run_subagent"] = "run_subagent"
+    agents: typing.List[SubAgentOutput]
+
+    if IS_PYDANTIC_V2:
+        model_config: typing.ClassVar[pydantic.ConfigDict] = pydantic.ConfigDict(extra="allow", frozen=True)  # type: ignore # Pydantic v2
+    else:
+
+        class Config:
+            frozen = True
+            smart_union = True
+            extra = pydantic.Extra.allow
+
+
 class SystemToolConfigOutputParams_SkipTurn(UncheckedBaseModel):
     system_tool_type: typing.Literal["skip_turn"] = "skip_turn"
 
@@ -110,7 +125,7 @@ class SystemToolConfigOutputParams_StartProcedure(UncheckedBaseModel):
 
 class SystemToolConfigOutputParams_TransferToAgent(UncheckedBaseModel):
     system_tool_type: typing.Literal["transfer_to_agent"] = "transfer_to_agent"
-    transfers: typing.List[AgentTransfer]
+    transfers: typing.List[AgentTransferOutput]
 
     if IS_PYDANTIC_V2:
         model_config: typing.ClassVar[pydantic.ConfigDict] = pydantic.ConfigDict(extra="allow", frozen=True)  # type: ignore # Pydantic v2
@@ -158,6 +173,7 @@ SystemToolConfigOutputParams = typing_extensions.Annotated[
         SystemToolConfigOutputParams_KnowledgeBaseRag,
         SystemToolConfigOutputParams_LanguageDetection,
         SystemToolConfigOutputParams_PlayKeypadTouchTone,
+        SystemToolConfigOutputParams_RunSubagent,
         SystemToolConfigOutputParams_SkipTurn,
         SystemToolConfigOutputParams_StartProcedure,
         SystemToolConfigOutputParams_TransferToAgent,
@@ -166,3 +182,4 @@ SystemToolConfigOutputParams = typing_extensions.Annotated[
     ],
     UnionMetadata(discriminant="system_tool_type"),
 ]
+update_forward_refs(SystemToolConfigOutputParams_RunSubagent)

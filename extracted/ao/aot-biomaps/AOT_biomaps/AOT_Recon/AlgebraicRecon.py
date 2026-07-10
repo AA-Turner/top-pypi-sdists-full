@@ -213,7 +213,7 @@ class AlgebraicRecon(Recon):
         blockRows: int = 64,
         sliceHeight: int = 64,
         sigma_sell: int = 4096,
-        isComplexeRecon: bool = False,
+        isComplexRecon: bool = False,
         device: Optional[str] = None,
         # Preconditioning
         preconditionerType: Optional[PreconditionerType] = PreconditionerType.NONE,
@@ -253,7 +253,7 @@ class AlgebraicRecon(Recon):
             sparseThreshold: Threshold for sparse matrix construction (default: 0.1)
             blockRows: Number of rows per block for sparse matrix construction (default: 64) (only used for CSR and SELL)
             sliceHeight: Number of rows per slice for SELL format (default: 64)
-            isComplexeRecon: Whether to perform complex reconstruction (default: False)
+            isComplexRecon: Whether to perform complex reconstruction (default: False)
             device: Device to use ('cpu' or 'gpu') (default: auto-detected)
             preconditionerType: Type of preconditioner (PreconditionerType.NONE or DIAGONAL, default: NONE)
             alpha: Step size for LS (default: None)
@@ -296,7 +296,7 @@ class AlgebraicRecon(Recon):
         self.isCostFunction = isCostFunction
         self.maxSaves = maxSaves
         self.denominatorThreshold = denominatorThreshold
-        self.isComplexeRecon = isComplexeRecon
+        self.isComplexRecon = isComplexRecon
         if device is None:
             device = config.select_best_gpu()
             if device is None:
@@ -345,13 +345,13 @@ class AlgebraicRecon(Recon):
         self.CRC: Optional[List[float]] = None
                
         # Handle complex reconstruction
-        if self.isComplexeRecon:
+        if self.isComplexRecon:
             if self.experiment.AOsignal_withTumor is not None:
                 self.experiment.AOsignal_withTumor_demodulated = self.experiment.parse_and_demodulate(withTumor=True)
             elif self.experiment.AOsignal_withoutTumor is not None:
                 self.experiment.AOsignal_withoutTumor_demodulated = self.experiment.parse_and_demodulate(withTumor=False)
             else:
-                raise ValueError("No AO signal available for demodulation. Please provide at least one signal, with or without tumor.")
+                raise ValueError("[AOT-biomaps] No AO signal available for demodulation. Please provide at least one signal, with or without tumor.")
             self.experiment.AcousticFields_demodulated = self.experiment.demodulate_acoustic_fields()
     
     def _validate_potential_compatibility(self, errors: list):
@@ -384,38 +384,38 @@ class AlgebraicRecon(Recon):
         current_potential = self.potentialFunction if self.potentialFunction is not None else PotentialType.NONE
 
         if current_potential not in POTENTIAL_COMPATIBILITY:
-            errors.append(f"Unknown potential function: {current_potential}")
+            errors.append(f"[AOT-biomaps] Unknown potential function: {current_potential}")
             return
         
         compatible_optimizers = POTENTIAL_COMPATIBILITY[current_potential]
         if self.optimizer not in compatible_optimizers:
             compatible_names = [opt.value for opt in compatible_optimizers]
             errors.append(
-                f"Potential '{current_potential.value}' is not compatible with optimizer '{self.optimizer.value}'. "
-                f"Compatible optimizers: {', '.join(compatible_names)}"
+                f"[AOT-biomaps] Potential '{current_potential.value}' is not compatible with optimizer '{self.optimizer.value}'. "
+                f"[AOT-biomaps] Compatible optimizers: {', '.join(compatible_names)}"
             )
         
         # Hyperparameters dependency checks per potential type
         if current_potential == PotentialType.TOTAL_VARIATION:
             if self.beta is None:
-                errors.append("TOTAL_VARIATION potential requires 'beta' parameter to be set.")
+                errors.append("[AOT-biomaps] TOTAL_VARIATION potential requires 'beta' parameter to be set.")
             if self.PotentialShape != PotentialShapeType.CROSS or self.PotentialRadius != 1:
-                errors.append(f"TOTAL_VARIATION strictly requires shape=CROSS and radius=1 for proximal evaluation. Got shape={self.PotentialShape}, radius={self.PotentialRadius}.")
+                errors.append(f"[AOT-biomaps] TOTAL_VARIATION strictly requires shape=CROSS and radius=1 for proximal evaluation. Got shape={self.PotentialShape}, radius={self.PotentialRadius}.")
         
         elif current_potential == PotentialType.HUBER:
             if self.delta is None:
-                errors.append("HUBER potential requires 'delta' parameter to be set.")
+                errors.append("[AOT-biomaps] HUBER potential requires 'delta' parameter to be set.")
         
         elif current_potential == PotentialType.RELATIVE_DIFFERENCE:
             if self.beta is None:
-                errors.append("RELATIVE_DIFFERENCE potential requires 'beta' parameter to be set.")
+                errors.append("[AOT-biomaps] RELATIVE_DIFFERENCE potential requires 'beta' parameter to be set.")
             if self.delta is None:
-                errors.append("RELATIVE_DIFFERENCE potential requires 'delta' parameter to be set.")
+                errors.append("[AOT-biomaps] RELATIVE_DIFFERENCE potential requires 'delta' parameter to be set.")
 
     def _validate_hyperparameters(self):
         """Validate all hyperparameters and stopping criteria for the selected optimizer."""
         if self.optimizer not in ALGORITHM_FORMULAS:
-            warnings.warn(f"Unknown optimizer type: {self.optimizer}. Skipping hyperparameter validation.")
+            warnings.warn(f"[AOT-biomaps] Unknown optimizer type: {self.optimizer}. Skipping hyperparameter validation.")
             return
 
         formula_info = ALGORITHM_FORMULAS[self.optimizer]
@@ -423,20 +423,20 @@ class AlgebraicRecon(Recon):
 
         # 1. Structural checks
         if self.numIterations <= 0:
-            errors.append(f"numIterations must be > 0, got {self.numIterations}")
+            errors.append(f"[AOT-biomaps] numIterations must be > 0, got {self.numIterations}")
         if self.numSubsets <= 0:
-            errors.append(f"numSubsets must be > 0, got {self.numSubsets}")
+            errors.append(f"[AOT-biomaps] numSubsets must be > 0, got {self.numSubsets}")
 
         # 2. Validate Stopping Criteria Logic
         stop_crit = getattr(self, 'stop_criterion', StopCriterionType.MAX_ITERATIONS)
         if stop_crit != StopCriterionType.MAX_ITERATIONS:
             threshold = getattr(self, 'stop_threshold', None)
             if threshold is None or threshold <= 0:
-                errors.append(f"Stopping criterion {stop_crit.name} requires a positive 'stop_threshold'. Got {threshold}.")
+                errors.append(f"[AOT-biomaps] Stopping criterion {stop_crit.name} requires a positive 'stop_threshold'. Got {threshold}.")
             if stop_crit == StopCriterionType.MSE:
                 # Basic check to ensure we are in a simulated context if MSE is requested
                 if self.experiment.OpticImage is None or self.experiment.OpticImage.phantom is None:
-                    errors.append("MSE stopping criterion requires a simulated Ground Truth (phantom) in the experiment.")
+                    errors.append("[AOT-biomaps] MSE stopping criterion requires a simulated Ground Truth (phantom) in the experiment.")
 
         # 3. Check optimizer-specific mathematical constraints
         constraints = formula_info.get("constraints", {})
@@ -448,26 +448,26 @@ class AlgebraicRecon(Recon):
 
             if param_value is None:
                 if param_name in formula_info.get("required_params", []):
-                    errors.append(f"Required hyperparameter '{display_name}' is not set.")
+                    errors.append(f"[AOT-biomaps] Required hyperparameter '{display_name}' is not set.")
                 continue
 
             if constraint == "> 0 or 'auto'":
                 if not (param_value == 'auto' or (isinstance(param_value, (int, float)) and param_value > 0)):
-                    errors.append(f"'{display_name}' must be > 0 or 'auto', got '{param_value}'")
+                    errors.append(f"[AOT-biomaps] '{display_name}' must be > 0 or 'auto', got '{param_value}'")
 
             elif constraint == "> 0":
                 if not (isinstance(param_value, (int, float)) and param_value > 0):
-                    errors.append(f"'{display_name}' must be strictly > 0, got '{param_value}'")
+                    errors.append(f"[AOT-biomaps] '{display_name}' must be strictly > 0, got '{param_value}'")
 
             elif constraint == ">= 0":
                 if not (isinstance(param_value, (int, float)) and param_value >= 0):
-                    errors.append(f"'{display_name}' must be >= 0, got '{param_value}'")
+                    errors.append(f"[AOT-biomaps] '{display_name}' must be >= 0, got '{param_value}'")
 
             elif constraint.startswith("in ["):
                 try:
                     low, high = map(float, constraint[4:-1].split(","))
                     if not (low <= param_value <= high):
-                        errors.append(f"'{display_name}' must be in closed interval [{low}, {high}], got '{param_value}'")
+                        errors.append(f"[AOT-biomaps] '{display_name}' must be in closed interval [{low}, {high}], got '{param_value}'")
                 except ValueError:
                     pass
 
@@ -512,11 +512,11 @@ class AlgebraicRecon(Recon):
         elif self.smatrixType == SMatrixType.CSR:
             self.SMatrix = self._fill_SMatrix_CSR(isShowLogs=isShowLogs)
         elif self.smatrixType == SMatrixType.COO:
-            raise NotImplementedError("COO sparse matrix not implemented yet.")
+            raise NotImplementedError(f"[AOT-biomaps] COO sparse matrix not implemented yet.")
         elif self.smatrixType == SMatrixType.SELL:
             self.SMatrix = self._fill_SMatrix_SELL(isShowLogs=isShowLogs)
         else:
-            raise ValueError(f"Unsupported SMatrix type: {self.smatrixType}")
+            raise ValueError(f"[AOT-biomaps] Unsupported SMatrix type: {self.smatrixType}")
     
     def flip_probe(self):
         self.SMatrix.flip_probe()
@@ -550,7 +550,7 @@ class AlgebraicRecon(Recon):
         elif processType == ProcessType.PYTHON:
             self._algebraic_recon_Python(y=y, withTumor=withTumor, stop_criterion=stop_criterion, stop_threshold=stop_threshold, stop_window_size=stop_window_size, show_criterion=show_criterion, show_logs=show_logs)
         else:
-            raise ValueError(f"Unknown Algebraic reconstruction type: {processType}")
+            raise ValueError(f"[AOT-biomaps] Unknown Algebraic reconstruction type: {processType}")
 
     def _algebraic_recon_Python(self, y=None, withTumor: bool = True, stop_criterion=StopCriterionType.MAX_ITERATIONS, stop_threshold=None, stop_window_size=1, show_criterion=True, show_logs: bool = True):
         """
@@ -574,13 +574,13 @@ class AlgebraicRecon(Recon):
         if y is None:
             if withTumor:
                 if self.experiment.AOsignal_withTumor is None:
-                    raise ValueError("AO signal with tumor is not available. Please generate AO signal with tumor in the experiment first.")
-                y = self.experiment.AOsignal_withTumor
+                    raise ValueError("[AOT-biomaps] AO signal with tumor is not available. Please generate AO signal with tumor in the experiment first.")
+                y = self.experiment.AOsignal_withTumor if not self.isComplexRecon else np.array([self.experiment.AOsignal_withTumor_demodulated[key] for key in self.experiment.AOsignal_withTumor_demodulated.keys()]).T
             else:
                 if self.experiment.AOsignal_withoutTumor is None:
-                    raise ValueError("AO signal without tumor is not available. Please generate AO signal without tumor in the experiment first.")
-                y = self.experiment.AOsignal_withoutTumor
-        
+                    raise ValueError("[AOT-biomaps] AO signal without tumor is not available. Please generate AO signal without tumor in the experiment first.")
+                y = self.experiment.AOsignal_withoutTumor if not self.isComplexRecon else np.array([self.experiment.AOsignal_withoutTumor_demodulated[key] for key in self.experiment.AOsignal_withoutTumor_demodulated.keys()]).T
+
         self._validate_hyperparameters()
 
         # Dispatch to optimizer-specific method
@@ -603,7 +603,7 @@ class AlgebraicRecon(Recon):
         elif self.optimizer == OptimizerType.LBFGS:
             self._run_LBFGS(y=y, withTumor=withTumor, stop_criterion=stop_criterion, stop_threshold=stop_threshold, stop_window_size=stop_window_size, show_criterion=show_criterion, show_logs=show_logs)
         else:
-            raise ValueError(f"Unsupported optimizer type: {self.optimizer}")
+            raise ValueError(f"[AOT-biomaps] Unsupported optimizer type: {self.optimizer}")
 
     def _algebraic_recon_CASToR(self, withTumor: bool = True, show_logs: bool = True):
         """
@@ -626,7 +626,7 @@ class AlgebraicRecon(Recon):
         # Check and generate input files if necessary
         if not os.path.isfile(os.path.join(self.saveDir, fileName)):
             if show_logs:
-                print(f"Missing .cdh file. Generating {fileName}...")
+                print(f"[AOT-biomaps] Missing .cdh file. Generating {fileName}...")
             self.experiment.saveAOsignals_Castor(self.saveDir)
 
         # Check/generate system matrix
@@ -634,12 +634,12 @@ class AlgebraicRecon(Recon):
             os.makedirs(smatrix, exist_ok=True)
         if not os.listdir(smatrix):
             if show_logs:
-                print("System matrix missing. Generating...")
+                print(f"[AOT-biomaps] System matrix missing. Generating...")
             self.experiment.saveAcousticFields(self.saveDir)
 
         # Verify that the .cdh file exists
         if not os.path.isfile(os.path.join(self.saveDir, fileName)):
-            raise FileNotFoundError(f".cdh file does not exist: {fileName}")
+            raise FileNotFoundError(f"[AOT-biomaps] .cdh file does not exist: {fileName}")
 
         # Create output directory
         os.makedirs(os.path.join(self.saveDir, 'results', 'recon'), exist_ok=True)
@@ -730,7 +730,7 @@ class AlgebraicRecon(Recon):
         # Make script executable and run it
         subprocess.run(["chmod", "+x", recon_script_path], check=True)
         if show_logs:
-            print(f"Running reconstruction with CASToR...")
+            print(f"[AOT-biomaps] Running reconstruction with CASToR...")
         result = subprocess.run(recon_script_path, env=env, check=True, capture_output=True, text=True)
 
         # Display CASToR output for debugging
@@ -742,7 +742,7 @@ class AlgebraicRecon(Recon):
                 print(result.stderr)
 
         if show_logs:
-            print("Reconstruction completed successfully.")
+            print(f"[AOT-biomaps] Reconstruction completed successfully.")
         self.load_reconCASToR(withTumor=withTumor)
 
     def _run_MLEM(self, y, withTumor=True, stop_criterion=StopCriterionType.MAX_ITERATIONS, stop_threshold=None, stop_window_size=1, show_criterion=True, show_logs=True):
@@ -1158,9 +1158,9 @@ class AlgebraicRecon(Recon):
             None
         """
         if self.cost_historyPhantom is None and self.cost_historyLaser is None:
-            raise ValueError("Cost function history is empty. Please calculate it first.")
+            raise ValueError("[AOT-biomaps] Cost function history is empty. Please calculate it first.")
         if self.cost_historyPhantom is not None and len(self.cost_historyPhantom) < 1 or self.cost_historyLaser is not None and len(self.cost_historyLaser) < 1:
-            raise ValueError("Plotting cost function requires more than one data point. Please set isSavingEachIteration=True and isCostFunction=True when running the reconstruction to plot cost function history.")
+            raise ValueError("[AOT-biomaps] Plotting cost function requires more than one data point. Please set isSavingEachIteration=True and isCostFunction=True when running the reconstruction to plot cost function history.")
 
         # Plot cost function curve
         plt.figure(figsize=figSize)
@@ -1193,7 +1193,7 @@ class AlgebraicRecon(Recon):
             SavingFolder = os.path.join(self.saveDir, f'{len(self.experiment.AcousticFields)}_SCANS_Cost_plot_{self.optimizer.name}_{scale_str}{date_str}.png')
             plt.savefig(SavingFolder, dpi=300)
             if show_logs:
-                print(f"Cost plot saved to {SavingFolder}")
+                print(f"[AOT-biomaps] Cost plot saved to {SavingFolder}")
         plt.show()
     
     def plot_MSE(self, isSaving=True, log_scale_x=False, log_scale_y=False, figSize=(4,3), show_logs=True):
@@ -1208,14 +1208,14 @@ class AlgebraicRecon(Recon):
             None
         """
         if not self.MSE:
-            raise ValueError("MSE is empty. Please calculate MSE first.")
+            raise ValueError("[AOT-biomaps] MSE is empty. Please calculate MSE first.")
         if self.MSE is not None and len(self.MSE) < 1:
-            raise ValueError("Plotting MSE function requires more than one data point. Please set isSavingEachIteration=True and isCostFunction=True when running the reconstruction to plot MSE history.")  
+            raise ValueError("[AOT-biomaps] Plotting MSE function requires more than one data point. Please set isSavingEachIteration=True and isCostFunction=True when running the reconstruction to plot MSE history.")  
 
 
         best_idx = self.indices[np.argmin(self.MSE)]
         if show_logs:
-            print(f"Lowest MSE = {np.min(self.MSE):.4f} at iteration {best_idx+1}")
+            print(f"[AOT-biomaps] Lowest MSE = {np.min(self.MSE):.4f} at iteration {best_idx+1}")
         # Plot MSE curve
         plt.figure(figsize=figSize)
         plt.plot(self.indices, self.MSE, 'r-', label="MSE curve")
@@ -1245,13 +1245,13 @@ class AlgebraicRecon(Recon):
             SavingFolder = os.path.join(self.saveDir, f'{len(self.experiment.AcousticFields)}_SCANS_MSE_plot_{self.optimizer.name}_{scale_str}{date_str}.png')
             plt.savefig(SavingFolder, dpi=300)
             if show_logs:
-                print(f"MSE plot saved to {SavingFolder}")
+                print(f"[AOT-biomaps] MSE plot saved to {SavingFolder}")
 
         plt.show()
 
     def show_MSE_bestRecon(self, isSaving=True, show_logs=True, figSize=(15, 5)):
         if not self.MSE:
-            raise ValueError("MSE is empty. Please calculate MSE first.")
+            raise ValueError("[AOT-biomaps] MSE is empty. Please calculate MSE first.")
 
         best_idx = np.argmin(self.MSE)
         best_recon = self.reconPhantom[best_idx]
@@ -1311,7 +1311,7 @@ class AlgebraicRecon(Recon):
             SavingFolder = os.path.join(self.saveDir, f'{len(self.experiment.AcousticFields)}_SCANS_comparison_MSE_BestANDLastRecon_{self.optimizer.name}_{date_str}.png')
             plt.savefig(SavingFolder, dpi=300, bbox_inches='tight')
             if show_logs:
-                print(f"MSE plot saved to {SavingFolder}")
+                print(f"[AOT-biomaps] MSE plot saved to {SavingFolder}")
 
         plt.show()
 
@@ -1331,10 +1331,10 @@ class AlgebraicRecon(Recon):
         mpl.rcParams['animation.embed_limit'] = 200
 
         if len(self.reconPhantom) == 0 or len(self.reconPhantom) < 2:
-            raise ValueError("Not enough lambda matrices available for animation.")
+            raise ValueError("[AOT-biomaps] Not enough lambda matrices available for animation.")
 
         if isPropMSE and (self.MSE is None or len(self.MSE) == 0):
-            raise ValueError("MSE is empty or not calculated. Please calculate MSE first.")
+            raise ValueError("[AOT-biomaps] MSE is empty or not calculated. Please calculate MSE first.")
 
         frames = np.array(self.reconPhantom)
         mse = np.array(self.MSE)
@@ -1426,11 +1426,11 @@ class AlgebraicRecon(Recon):
 
     def plot_SSIM(self, isSaving=True, log_scale_x=False, log_scale_y=False, figSize=(4,3), show_logs=True):
         if not self.SSIM:
-            raise ValueError("SSIM is empty. Please calculate SSIM first.")
+            raise ValueError("[AOT-biomaps] SSIM is empty. Please calculate SSIM first.")
 
         best_idx = self.indices[np.argmax(self.SSIM)]
         if show_logs:
-            print(f"Highest SSIM = {np.max(self.SSIM):.4f} at iteration {best_idx+1}")
+            print(f"[AOT-biomaps] Highest SSIM = {np.max(self.SSIM):.4f} at iteration {best_idx+1}")
         # Plot SSIM curve
         plt.figure(figsize=figSize)
         plt.plot(self.indices, self.SSIM, 'r-', label="SSIM curve")
@@ -1460,14 +1460,14 @@ class AlgebraicRecon(Recon):
             SavingFolder = os.path.join(self.saveDir, f'{len(self.experiment.AcousticFields)}_SCANS_SSIM_plot_{self.optimizer.name}_{scale_str}{date_str}.png')
             plt.savefig(SavingFolder, dpi=300)
             if show_logs:
-                print(f"SSIM plot saved to {SavingFolder}")
+                print(f"[AOT-biomaps] SSIM plot saved to {SavingFolder}")
 
         plt.show()
 
     def show_SSIM_bestRecon(self, isSaving=True, figSize=(15, 5), show_logs=True):
         
         if not self.SSIM:
-            raise ValueError("SSIM is empty. Please calculate SSIM first.")
+            raise ValueError("[AOT-biomaps] SSIM is empty. Please calculate SSIM first.")
 
         best_idx = np.argmax(self.SSIM)
         best_recon = self.reconPhantom[best_idx]
@@ -1510,7 +1510,7 @@ class AlgebraicRecon(Recon):
             SavingFolder = os.path.join(self.saveDir, f'{len(self.experiment.AcousticFields)}_SCANS_comparison_SSIM_BestANDLastRecon_{self.optimizer.name}_{date_str}.png')
             plt.savefig(SavingFolder, dpi=300)
             if show_logs:
-                print(f"SSIM plot saved to {SavingFolder}")
+                print(f"[AOT-biomaps] SSIM plot saved to {SavingFolder}")
         plt.show()
 
     def plot_CRC_vs_Noise(self, use_ROI=True, fin=None, min_distance=0.01, figSize = (4,3),
@@ -1525,13 +1525,13 @@ class AlgebraicRecon(Recon):
         """
         # Vérifications initiales
         if self.reconLaser is None or self.reconLaser == []:
-            raise ValueError("Reconstructed laser is empty. Run reconstruction first.")
+            raise ValueError("[AOT-biomaps] Reconstructed laser is empty. Run reconstruction first.")
         if isinstance(self.reconLaser, list) and len(self.reconLaser) == 1:
-            raise ValueError("Reconstructed Image without tumor is a single frame. Run with isSavingEachIteration=True.")
+            raise ValueError("[AOT-biomaps] Reconstructed Image without tumor is a single frame. Run with isSavingEachIteration=True.")
         if self.reconPhantom is None or self.reconPhantom == []:
-            raise ValueError("Reconstructed phantom is empty. Run reconstruction first.")
+            raise ValueError("[AOT-biomaps] Reconstructed phantom is empty. Run reconstruction first.")
         if isinstance(self.reconPhantom, list) and len(self.reconPhantom) == 1:
-            raise ValueError("Reconstructed Image with tumor is a single frame. Run with isSavingEachIteration=True.")
+            raise ValueError("[AOT-biomaps] Reconstructed Image with tumor is a single frame. Run with isSavingEachIteration=True.")
 
         if fin is None:
             fin = len(self.reconPhantom) - 1
@@ -1603,7 +1603,7 @@ class AlgebraicRecon(Recon):
         # Sauvegarde
         if isSaving:
             if self.saveDir is None:
-                print("Warning: saveDir is None. Configure saving path to save the figure.")
+                print("[AOT-biomaps] Warning: saveDir is None. Configure saving path to save the figure.")
             else:
                 os.makedirs(self.saveDir, exist_ok=True)
                 now = datetime.now()
@@ -1614,7 +1614,7 @@ class AlgebraicRecon(Recon):
                 save_path = os.path.join(self.saveDir, filename)
                 plt.savefig(save_path, dpi=300, bbox_inches='tight')
                 if show_logs:
-                    print(f"Plot saved to: {save_path}")
+                    print(f"[AOT-biomaps] Plot saved to: {save_path}")
 
         plt.tight_layout()
         plt.show()
@@ -1642,17 +1642,17 @@ class AlgebraicRecon(Recon):
         # Check data availability
         if with_tumor:
             if self.reconPhantom is None or self.reconPhantom == []:
-                raise ValueError("Reconstructed phantom is empty. Run reconstruction first.")
+                raise ValueError("[AOT-biomaps] Reconstructed phantom is empty. Run reconstruction first.")
             if isinstance(self.reconPhantom, list) and len(self.reconPhantom) == 1:
-                raise ValueError("Reconstructed Image with tumor is a single frame. Run reconstruction with isSavingEachIteration=True.")
+                raise ValueError("[AOT-biomaps] Reconstructed Image with tumor is a single frame. Run reconstruction with isSavingEachIteration=True.")
             recon_list = self.reconPhantom
             ground_truth = self.experiment.OpticImage.phantom
             title_suffix = "with_tumor"
         else:
             if self.reconLaser is None or self.reconLaser == []:
-                raise ValueError("Reconstructed laser is empty. Run reconstruction first.")
+                raise ValueError("[AOT-biomaps] Reconstructed laser is empty. Run reconstruction first.")
             if isinstance(self.reconLaser, list) and len(self.reconLaser) == 1:
-                raise ValueError("Reconstructed Image without tumor is a single frame. Run reconstruction with isSavingEachIteration=True.")
+                raise ValueError("[AOT-biomaps] Reconstructed Image without tumor is a single frame. Run reconstruction with isSavingEachIteration=True.")
             recon_list = self.reconLaser
             ground_truth = self.experiment.OpticImage.laser.intensity
             title_suffix = "without_tumor"
@@ -1725,7 +1725,7 @@ class AlgebraicRecon(Recon):
                 save_path = f"{save_path}_{title_suffix}"
             plt.savefig(save_path, dpi=300)
             if show_logs:
-                print(f"Figure saved to: {save_path}")
+                print(f"[AOT-biomaps] Figure saved to: {save_path}")
 
         plt.show()
 
@@ -1742,7 +1742,7 @@ class AlgebraicRecon(Recon):
             tuple: (bool: whether to save, str: the filepath)
         """
         if self.saveDir is None:
-            raise ValueError("Save directory is not specified.")
+            raise ValueError("[AOT-biomaps] Save directory is not specified.")
         if date is None:
             date = datetime.now().strftime("%d%m")
         results_dir = os.path.join(self.saveDir, f'results_{date}_{self.optimizer.value}')
@@ -1769,11 +1769,11 @@ class AlgebraicRecon(Recon):
         if filePath is not None:
             # Direct load mode from a specified file
             if not os.path.exists(filePath):
-                raise FileNotFoundError(f"No reconstruction file found at {filePath}.")
+                raise FileNotFoundError(f"[AOT-biomaps] No reconstruction file found at {filePath}.")
             recon_path = filePath
         else:
             if self.saveDir is None:
-                raise ValueError("Save directory is not specified. Please set saveDir before loading.")
+                raise ValueError("[AOT-biomaps] Save directory is not specified. Please set saveDir before loading.")
 
             # Determine the optimizer name to use
             opt_name = optimizer.value if optimizer is not None else self.optimizer.value
@@ -1801,7 +1801,7 @@ class AlgebraicRecon(Recon):
                     matching_dirs.append(d)
 
             if not matching_dirs:
-                raise FileNotFoundError(f"No matching results directory found for pattern 'results_*_{opt_name}' in {self.saveDir}.")
+                raise FileNotFoundError(f"[AOT-biomaps] No matching results directory found for pattern 'results_*_{opt_name}' in {self.saveDir}.")
 
             # If results_date is specified, use it
             if results_date is not None:
@@ -1816,7 +1816,7 @@ class AlgebraicRecon(Recon):
                 # Check if the directory exists
                 results_dir = os.path.join(self.saveDir, target_dir)
                 if not os.path.exists(results_dir):
-                    raise FileNotFoundError(f"Directory {results_dir} does not exist.")
+                    raise FileNotFoundError(f"[AOT-biomaps] Directory {results_dir} does not exist.")
             else:
                 # Find the most recent directory (sorted by date in ddmm format)
                 matching_dirs.sort(reverse=True)  # Sort alphabetically (ddmm dates are sortable)
@@ -1825,7 +1825,7 @@ class AlgebraicRecon(Recon):
             # Path to the reconstruction file
             recon_path = os.path.join(results_dir, f'{recon_key}.npy')
             if not os.path.exists(recon_path):
-                raise FileNotFoundError(f"No {recon_key}.npy file found in {results_dir}.")
+                raise FileNotFoundError(f"[AOT-biomaps] No {recon_key}.npy file found in {results_dir}.")
 
         # Load the file (3D array or list of 2D arrays)
         data = np.load(recon_path, allow_pickle=True)
@@ -1852,7 +1852,7 @@ class AlgebraicRecon(Recon):
             self.indices = None
 
         if show_logs:
-            print(f"Loaded reconstruction results and indices from {recon_path}")
+            print(f"[AOT-biomaps] Loaded reconstruction results and indices from {recon_path}")
         
     def normalizeSMatrix(self):
         self.SMatrix = self.SMatrix / (float(self.experiment.params.acoustic['emission']['voltage'])*float(self.experiment.params.acoustic['emission']['sensitivity']))  
@@ -1861,40 +1861,40 @@ class AlgebraicRecon(Recon):
              
     def _fill_SMatrix_DENSE(self, isShowLogs=True):
         """
-        Build a dense matrix using SMatrix_DENSE class.
+        Build a real or complex dense matrix using SMatrix_DENSE class.
         Frees all temporary memory at each step.
         """
-        print("Building DENSE SMatrix") if isShowLogs else None
-        SMatrix = SMatrix_DENSE(experiment=self.experiment, device=self.device)
+        print("[AOT-biomaps] Building DENSE SMatrix") if isShowLogs else None
+        SMatrix = SMatrix_DENSE(experiment=self.experiment, device=self.device, isComplexSMatrix=self.isComplexRecon)
         SMatrix.allocate()
         if isShowLogs:
-            print(f"DENSE SMatrix size: {SMatrix.get_matrix_size()['total_gb']:.2f} GB")
+            print(f"[AOT-biomaps] DENSE SMatrix size: {SMatrix.get_matrix_size()['total_gb']:.2f} GB")
         return SMatrix
     
     def _fill_SMatrix_CSR(self, isShowLogs=True):
         """
-        Built a sparse CSR matrix in chunks without intermediate concatenation.
+        Built a real or complex sparse CSR matrix in chunks without intermediate concatenation.
         Frees all temporary memory at each step.
         """
-        print("Building CSR SMatrix with relative threshold =", self.sparseThreshold) if isShowLogs else None
-        SMatrix = SMatrix_CSR(experiment=self.experiment, device=self.device, block_rows=self.blockRows, relative_threshold=self.sparseThreshold)
+        print("[AOT-biomaps] Building CSR SMatrix with relative threshold =", self.sparseThreshold) if isShowLogs else None
+        SMatrix = SMatrix_CSR(experiment=self.experiment, device=self.device, block_rows=self.blockRows, relative_threshold=self.sparseThreshold, isComplexSMatrix=self.isComplexRecon)
         SMatrix.allocate()
         if isShowLogs:
-            print(f"CSR SMatrix size: {SMatrix.get_matrix_size()['total_gb']:.2f} GB")
-            print(f"CSR sparse matrix density: {SMatrix.compute_density():.2f}%")
+            print(f"[AOT-biomaps] CSR SMatrix size: {SMatrix.get_matrix_size()['total_gb']:.2f} GB")
+            print(f"[AOT-biomaps] CSR sparse matrix density: {SMatrix.compute_density():.2f}%")
         return SMatrix
     
     def _fill_SMatrix_SELL(self, isShowLogs=True):
         """
-        Built a sparse SELL matrix in chunks without intermediate concatenation.
+        Built a real or complex sparse SELL matrix in chunks without intermediate concatenation.
         Frees all temporary memory at each step.
         """
-        print("Building SELL SMatrix with relative threshold =", self.sparseThreshold) if isShowLogs else None
-        SMatrix = SMatrix_SELL(experiment=self.experiment, device=self.device, block_rows=self.blockRows, relative_threshold=self.sparseThreshold, slice_height=self.sliceHeight, sigma=self.sigma_sell)
+        print("[AOT-biomaps] Building SELL SMatrix with relative threshold =", self.sparseThreshold) if isShowLogs else None
+        SMatrix = SMatrix_SELL(experiment=self.experiment, device=self.device, block_rows=self.blockRows, relative_threshold=self.sparseThreshold, slice_height=self.sliceHeight, sigma=self.sigma_sell, isComplexSMatrix=self.isComplexRecon)
         SMatrix.allocate()
         if isShowLogs:
-            print(f"SELL SMatrix size: {SMatrix.get_matrix_size()['total_gb']:.2f} GB")
-            print(f"SELL sparse matrix density: {SMatrix.compute_density():.2f}%")
+            print(f"[AOT-biomaps] SELL SMatrix size: {SMatrix.get_matrix_size()['total_gb']:.2f} GB")
+            print(f"[AOT-biomaps] SELL sparse matrix density: {SMatrix.compute_density():.2f}%")
         return SMatrix
         
     # STATIC METHODS
@@ -1912,21 +1912,19 @@ class AlgebraicRecon(Recon):
             labels = [f"Recon {i+1}" for i in range(len(recon_list))]
 
         plt.figure(figsize=figSize)
-        colors = ['red', 'green', 'blue', 'orange', 'purple']  # Ajoute d'autres couleurs si nécessaire
+        colors = ['red', 'green', 'blue', 'orange', 'purple'] 
 
         for i, recon in enumerate(recon_list):
             color = colors[i % len(colors)]
             label = labels[i] if i < len(labels) else f"Recon {i+1}"
 
-            # Trouve l'index et la valeur minimale du MSE
+
             best_idx = recon.indices[np.argmin(recon.MSE)]
             min_mse = np.min(recon.MSE)
 
-            # Trace la courbe de MSE
+
             plt.plot(recon.indices, recon.MSE, f'{color}-', label=label)
-            # Ligne horizontale pour le min MSE
             plt.axhline(min_mse, color=color, linestyle='--', alpha=0.5)
-            # Ligne verticale pour l'itération du min MSE
             plt.axvline(best_idx, color=color, linestyle='--', alpha=0.5)
 
         plt.xlabel("Iteration")
@@ -1936,7 +1934,6 @@ class AlgebraicRecon(Recon):
         plt.yscale('log')
         plt.grid(True, which="both", ls="-")
 
-        # Légende personnalisée
         handles = []
         for i, recon in enumerate(recon_list):
             color = colors[i % len(colors)]

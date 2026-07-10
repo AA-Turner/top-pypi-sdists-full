@@ -160,6 +160,7 @@ def _validate_code_change_impl(
     diff: str,
     path: str = ".",
     policy: str | None = None,
+    check_dependencies: bool = True,
 ) -> dict:
     """Core logic for validate_code_change, extracted for testability."""
     from skylos.rules.quality.regression import detect_security_regressions
@@ -295,6 +296,25 @@ def _validate_code_change_impl(
             elif not raw_line.startswith("-"):
                 line_no += 1
 
+    registry_status = "skipped"
+    if check_dependencies:
+        try:
+            from skylos.rules.ai_defect.diff_dependencies import (
+                scan_diff_dependency_hallucinations,
+            )
+
+            dep_result = scan_diff_dependency_hallucinations(
+                diff, Path(path).resolve()
+            )
+        except Exception:
+            registry_status = "error"
+            logger.debug("Diff dependency check failed", exc_info=True)
+        else:
+            all_findings.extend(dep_result["findings"])
+            registry_status = (
+                "unreachable" if dep_result["registry_unreachable"] else "ok"
+            )
+
     if policy:
         policy_path = Path(policy) if not Path(policy).is_absolute() else Path(policy)
         if not policy_path.exists():
@@ -317,6 +337,7 @@ def _validate_code_change_impl(
         "status": status,
         "findings": all_findings,
         "summary": summary_text,
+        "registry": registry_status,
     }
 
 
@@ -326,7 +347,7 @@ def _verify_change_impl(
     line_range: str | None = None,
     confidence: int = 60,
     project_context: bool = False,
-    include_dependency_hallucinations: bool = False,
+    include_dependency_hallucinations: bool = True,
     exclude_folders: str | None = None,
     contract_path: str | None = None,
     contract_enabled: bool = True,
@@ -352,6 +373,213 @@ def _verify_change_impl(
         include_dependency_hallucinations=include_dependency_hallucinations,
         contract_path=contract_path,
         contract_enabled=contract_enabled,
+    )
+
+
+def _verify_agent_excludes(exclude_folders: str | None) -> set[str]:
+    from skylos.commands.defend_cmd import DEFAULT_DEFEND_EXCLUDES, _build_defend_excludes
+
+    extra = None
+    if exclude_folders:
+        extra = [folder.strip() for folder in exclude_folders.split(",")]
+        extra = [folder for folder in extra if folder]
+    return _build_defend_excludes(extra) if extra else set(DEFAULT_DEFEND_EXCLUDES)
+
+
+def _agent_coverage_summary(coverage: dict) -> dict[str, int]:
+    summary = {"covered": 0, "partial": 0, "uncovered": 0, "not_applicable": 0}
+    for info in coverage.values():
+        status = info.get("status")
+        if status in summary:
+            summary[status] += 1
+    return summary
+
+
+def _agent_failed_checks(results: list[Any]) -> list[dict[str, Any]]:
+    failed_checks = []
+    for result in results:
+        if result.passed or result.category != "defense":
+            continue
+        failed_checks.append(
+            {
+                "plugin_id": result.plugin_id,
+                "severity": result.severity,
+                "integration_location": result.integration_location,
+                "location": result.location,
+                "message": result.message,
+                "remediation": result.remediation,
+                "owasp_llm": result.owasp_llm,
+            }
+        )
+    return failed_checks
+
+
+def _agent_gate(
+    *,
+    fail_on: str | None,
+    min_score: int | None,
+    results: list[Any],
+    score: Any,
+) -> dict[str, Any] | None:
+    if not fail_on and min_score is None:
+        return None
+
+    from skylos.defend.scoring import evaluate_gate
+
+    return {
+        "fail_on": fail_on,
+        "min_score": min_score,
+        "passed": evaluate_gate(
+            results,
+            score,
+            fail_on=fail_on,
+            min_score=min_score,
+        ),
+    }
+
+
+def _agent_attestation(
+    *,
+    target: Path,
+    files: list[Path],
+    results: list[Any],
+    integrations: list[Any],
+    score: Any,
+    ops_score: Any,
+    coverage: dict,
+    framework_evidence: dict,
+    owasp_framework: str,
+    owasp_version: str,
+) -> dict:
+    from skylos.defend.attestation import build_attestation
+    from skylos.defend.engine import resolve_active_plugin_ids
+
+    return build_attestation(
+        target=target,
+        files=files,
+        results=results,
+        plugin_ids=resolve_active_plugin_ids(),
+        policy_path=None,
+        owasp_framework=owasp_framework,
+        owasp_version=owasp_version,
+        integrations=integrations,
+        score=score,
+        ops_score=ops_score,
+        owasp_coverage=coverage,
+        framework_evidence=framework_evidence,
+    )
+
+
+def _agent_response(
+    *,
+    target: Path,
+    files: list[Path],
+    integrations: list[Any],
+    score: Any,
+    ops_score: Any,
+    failed_checks: list[dict[str, Any]],
+    coverage_summary: dict[str, int],
+    attestation: dict,
+    gate: dict[str, Any] | None,
+    owasp_framework: str,
+    owasp_version: str,
+) -> dict:
+    return {
+        "schema_version": 1,
+        "tool": "verify_agent",
+        "path": str(target),
+        "integrations_found": len(integrations),
+        "files_scanned": len(files),
+        "defense_score": score.to_dict(),
+        "ops_score": ops_score.to_dict(),
+        "failed_checks": failed_checks,
+        "owasp": {
+            "framework": owasp_framework,
+            "version": owasp_version,
+            "coverage_summary": coverage_summary,
+        },
+        "attestation": {
+            "algorithm": attestation["algorithm"],
+            "digest": attestation["digest"],
+        },
+        "gate": gate,
+        "summary": (
+            f"Defense score {score.score_pct}% ({score.risk_rating}); "
+            f"{len(failed_checks)} failed check(s) across "
+            f"{len(integrations)} integration(s)"
+        ),
+    }
+
+
+def _verify_agent_impl(
+    path: str = ".",
+    fail_on: str | None = None,
+    min_score: int | None = None,
+    owasp_framework: str = "llm",
+    owasp_version: str | None = None,
+    exclude_folders: str | None = None,
+) -> dict:
+    """Core logic for verify_agent, extracted for testability."""
+    from skylos.defend.engine import run_defense_checks
+    from skylos.defend.frameworks import compute_framework_evidence
+    from skylos.defend.owasp import compute_owasp_coverage, normalize_owasp_selection
+    from skylos.discover.detector import _collect_ai_files, detect_integrations
+
+    target = Path(path).expanduser().resolve()
+    if not target.is_dir():
+        return {"error": f"Path is not a directory: {path}"}
+
+    owasp_framework, owasp_version = normalize_owasp_selection(
+        owasp_framework,
+        owasp_version,
+    )
+
+    exclude = _verify_agent_excludes(exclude_folders)
+    files = _collect_ai_files(target, exclude)
+    integrations, graph = detect_integrations(target, exclude_folders=exclude)
+    results, score, ops_score = run_defense_checks(
+        integrations,
+        graph,
+        owasp_framework=owasp_framework,
+        owasp_version=owasp_version,
+    )
+
+    coverage = compute_owasp_coverage(
+        results,
+        framework=owasp_framework,
+        version=owasp_version,
+    )
+    framework_evidence = compute_framework_evidence(results)
+    attestation = _agent_attestation(
+        target=target,
+        files=files,
+        results=results,
+        integrations=integrations,
+        score=score,
+        ops_score=ops_score,
+        coverage=coverage,
+        framework_evidence=framework_evidence,
+        owasp_framework=owasp_framework,
+        owasp_version=owasp_version,
+    )
+
+    return _agent_response(
+        target=target,
+        files=files,
+        integrations=integrations,
+        score=score,
+        ops_score=ops_score,
+        failed_checks=_agent_failed_checks(results),
+        coverage_summary=_agent_coverage_summary(coverage),
+        attestation=attestation,
+        gate=_agent_gate(
+            fail_on=fail_on,
+            min_score=min_score,
+            results=results,
+            score=score,
+        ),
+        owasp_framework=owasp_framework,
+        owasp_version=owasp_version,
     )
 
 
@@ -1077,6 +1305,7 @@ def _register_tools(mcp):
         diff: str,
         path: str = ".",
         policy: str | None = None,
+        check_dependencies: bool = True,
     ) -> str:
         """Validate a code diff for security regressions and issues before it lands.
 
@@ -1085,6 +1314,11 @@ def _register_tools(mcp):
         - New dangerous patterns (eval, exec, SQL injection, etc.)
         - Secrets in added code
         - AI defense issues in added code
+        - Hallucinated or undeclared dependencies in added imports and manifest
+          entries (requirements*.txt, pyproject.toml, package.json, go.mod),
+          verified against the package registries. The "registry" field reports
+          "ok", "unreachable" (lookups incomplete — do not treat pass as clean),
+          or "skipped".
 
         Returns pass/fail with findings.
         """
@@ -1093,7 +1327,7 @@ def _register_tools(mcp):
             return gate_err
 
         try:
-            result = _validate_code_change_impl(diff, path, policy)
+            result = _validate_code_change_impl(diff, path, policy, check_dependencies)
             _store_result(result, "validate_code_change", path)
             return json.dumps(result, indent=2)
         except Exception as e:
@@ -1106,7 +1340,7 @@ def _register_tools(mcp):
         line_range: str | None = None,
         confidence: int = 60,
         project_context: bool = False,
-        include_dependency_hallucinations: bool = False,
+        include_dependency_hallucinations: bool = True,
         exclude_folders: str | None = None,
         contract_path: str | None = None,
         contract_enabled: bool = True,
@@ -1115,8 +1349,9 @@ def _register_tools(mcp):
 
         Returns a narrow, versioned JSON verdict containing only AI-code trust
         findings such as hallucinated references, unfinished generated code,
-        stale references, disabled controls, and optional dependency
-        hallucinations.
+        stale references, disabled controls, and dependency hallucinations
+        (checked by default; pass include_dependency_hallucinations=False to
+        skip the registry lookups).
         """
         gate_err = _gate("verify_change")
         if gate_err:
@@ -1135,6 +1370,45 @@ def _register_tools(mcp):
                 contract_enabled=contract_enabled,
             )
             _store_result(result, "verify_change", path)
+            return json.dumps(result, indent=2)
+        except Exception as e:
+            return json.dumps({"error": str(e)})
+
+    @mcp.tool()
+    def verify_agent(
+        path: str = ".",
+        fail_on: str | None = None,
+        min_score: int | None = None,
+        owasp_framework: str = "llm",
+        owasp_version: str | None = None,
+        exclude_folders: str | None = None,
+    ) -> str:
+        """Statically verify an AI agent's guardrails before deployment.
+
+        Deterministic, local pre-deployment agent verification: inventories
+        LLM integrations, runs the defense checks (prompt-injection exposure,
+        dangerous sinks, tool scope, output validation, PII filtering, cost
+        controls), and returns scores, failed checks with remediation, OWASP
+        LLM/Agentic coverage, and a reproducible attestation digest. No model
+        is involved in the verdict and no code leaves the machine. Optional
+        gate: set fail_on (severity) and/or min_score (0-100).
+        """
+        gate_err = _gate("verify_agent")
+        if gate_err:
+            return gate_err
+
+        try:
+            result = _verify_agent_impl(
+                path=path,
+                fail_on=fail_on,
+                min_score=min_score,
+                owasp_framework=owasp_framework,
+                owasp_version=owasp_version,
+                exclude_folders=exclude_folders,
+            )
+            if "error" in result:
+                return json.dumps(result)
+            _store_result(result, "verify_agent", path)
             return json.dumps(result, indent=2)
         except Exception as e:
             return json.dumps({"error": str(e)})

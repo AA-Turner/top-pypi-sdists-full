@@ -1,22 +1,25 @@
 # Copyright The OpenTelemetry Authors
-#
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-#
-#     http://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
+# SPDX-License-Identifier: Apache-2.0
 
 """Tests for ToolCallRequest and ToolInvocation inheritance structure"""
+
+import os
+from unittest.mock import patch
 
 import pytest
 
 from opentelemetry.sdk.trace import TracerProvider
+from opentelemetry.sdk.trace.export import SimpleSpanProcessor
+from opentelemetry.sdk.trace.export.in_memory_span_exporter import (
+    InMemorySpanExporter,
+)
+from opentelemetry.sdk.trace.sampling import Decision, SamplingResult
+from opentelemetry.semconv._incubating.attributes import (
+    gen_ai_attributes as GenAI,
+)
+from opentelemetry.util.genai.environment_variables import (
+    OTEL_INSTRUMENTATION_GENAI_CAPTURE_MESSAGE_CONTENT,
+)
 from opentelemetry.util.genai.handler import TelemetryHandler
 from opentelemetry.util.genai.invocation import GenAIInvocation
 from opentelemetry.util.genai.types import (
@@ -25,6 +28,7 @@ from opentelemetry.util.genai.types import (
     ServerToolCallResponse,
     ToolCallRequest,
 )
+from opentelemetry.util.genai.utils import gen_ai_json_dumps
 
 
 def _make_handler() -> TelemetryHandler:
@@ -43,7 +47,8 @@ def test_toolcallrequest_is_message_part():
 def test_toolcall_inherits_from_genaiinvocation():
     """ToolInvocation inherits from GenAIInvocation for lifecycle management"""
     handler = _make_handler()
-    tc = handler.start_tool("get_weather", arguments={"city": "Paris"})
+    tc = handler.tool("get_weather")
+    tc.arguments = {"city": "Paris"}
     assert isinstance(tc, GenAIInvocation)
     assert not isinstance(tc, ToolCallRequest)
     tc.stop()
@@ -52,7 +57,7 @@ def test_toolcall_inherits_from_genaiinvocation():
 def test_toolcall_has_attributes_dict():
     """ToolInvocation inherits attributes dict from GenAIInvocation"""
     handler = _make_handler()
-    tc = handler.start_tool("test")
+    tc = handler.tool("test")
     tc.attributes["custom.key"] = "value"
     assert tc.attributes["custom.key"] == "value"
     tc.stop()
@@ -72,7 +77,7 @@ def test_toolcallrequest_in_message_part_union():
 def test_toolcall_operation_name():
     """ToolInvocation operation_name is fixed to execute_tool"""
     handler = _make_handler()
-    tc = handler.start_tool("my_tool")
+    tc = handler.tool("my_tool")
     assert tc._operation_name == "execute_tool"
     tc.stop()
 
@@ -136,3 +141,133 @@ def test_server_tool_call_in_message():
 
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])
+
+
+def test_start_tool_passes_sampling_attributes_at_span_creation():
+    """Verify that sampling-relevant attributes are available at start_span() time for tools."""
+    captured_attributes = {}
+
+    class AttributeCapturingSampler:  # pylint: disable=no-self-use
+        def should_sample(
+            self,
+            parent_context,
+            trace_id,
+            name,
+            kind=None,
+            attributes=None,
+            links=None,
+        ):
+            captured_attributes.update(attributes or {})
+            return SamplingResult(Decision.RECORD_AND_SAMPLE, attributes)
+
+        def get_description(self):
+            return "AttributeCapturingSampler"
+
+    span_exporter = InMemorySpanExporter()
+    sampler_provider = TracerProvider(sampler=AttributeCapturingSampler())
+    sampler_provider.add_span_processor(SimpleSpanProcessor(span_exporter))
+    handler = TelemetryHandler(tracer_provider=sampler_provider)
+
+    invocation = handler.tool(
+        "get_weather",
+        tool_call_id="call_123",
+        tool_type="function",
+        tool_description="Gets weather for a location",
+    )
+    invocation.stop()
+
+    assert captured_attributes[GenAI.GEN_AI_OPERATION_NAME] == "execute_tool"
+    assert captured_attributes[GenAI.GEN_AI_TOOL_NAME] == "get_weather"
+    assert captured_attributes[GenAI.GEN_AI_TOOL_CALL_ID] == "call_123"
+    assert captured_attributes[GenAI.GEN_AI_TOOL_TYPE] == "function"
+    assert (
+        captured_attributes[GenAI.GEN_AI_TOOL_DESCRIPTION]
+        == "Gets weather for a location"
+    )
+
+
+# ---------------------------------------------------------------------------
+# _any_value_to_attribute_value — tested via the public ToolInvocation API
+# ---------------------------------------------------------------------------
+
+
+def _make_span_exporter_and_handler():
+    span_exporter = InMemorySpanExporter()
+    tracer_provider = TracerProvider()
+    tracer_provider.add_span_processor(SimpleSpanProcessor(span_exporter))
+    handler = TelemetryHandler(tracer_provider=tracer_provider)
+    return span_exporter, handler
+
+
+@patch.dict(
+    os.environ,
+    {OTEL_INSTRUMENTATION_GENAI_CAPTURE_MESSAGE_CONTENT: "SPAN_ONLY"},
+)
+def test_arguments_dict_serialized_to_json():
+    """dict arguments are JSON-serialized onto the span attribute."""
+    span_exporter, handler = _make_span_exporter_and_handler()
+    invocation = handler.tool("get_weather")
+    invocation.arguments = {"location": "Paris", "unit": "celsius"}
+    invocation.stop()
+
+    attrs = span_exporter.get_finished_spans()[0].attributes
+    assert GenAI.GEN_AI_TOOL_CALL_ARGUMENTS in attrs
+    assert attrs[GenAI.GEN_AI_TOOL_CALL_ARGUMENTS] == gen_ai_json_dumps(
+        {"location": "Paris", "unit": "celsius"}
+    )
+
+
+@patch.dict(
+    os.environ,
+    {OTEL_INSTRUMENTATION_GENAI_CAPTURE_MESSAGE_CONTENT: "SPAN_ONLY"},
+)
+def test_arguments_str_passed_through():
+    """str arguments are stored as-is (no JSON wrapping)."""
+    span_exporter, handler = _make_span_exporter_and_handler()
+    invocation = handler.tool("echo")
+    invocation.arguments = "hello"
+    invocation.stop()
+
+    attrs = span_exporter.get_finished_spans()[0].attributes
+    assert attrs[GenAI.GEN_AI_TOOL_CALL_ARGUMENTS] == "hello"
+
+
+@patch.dict(
+    os.environ,
+    {OTEL_INSTRUMENTATION_GENAI_CAPTURE_MESSAGE_CONTENT: "SPAN_ONLY"},
+)
+def test_arguments_int_passed_through():
+    """int arguments are stored as-is."""
+    span_exporter, handler = _make_span_exporter_and_handler()
+    invocation = handler.tool("counter")
+    invocation.arguments = 42
+    invocation.stop()
+
+    attrs = span_exporter.get_finished_spans()[0].attributes
+    assert attrs[GenAI.GEN_AI_TOOL_CALL_ARGUMENTS] == 42
+
+
+@patch.dict(
+    os.environ,
+    {OTEL_INSTRUMENTATION_GENAI_CAPTURE_MESSAGE_CONTENT: "SPAN_ONLY"},
+)
+def test_arguments_none_omits_attribute():
+    """None arguments must not produce the attribute on the span."""
+    span_exporter, handler = _make_span_exporter_and_handler()
+    invocation = handler.tool("noop")
+    invocation.arguments = None
+    invocation.stop()
+
+    attrs = span_exporter.get_finished_spans()[0].attributes
+    assert GenAI.GEN_AI_TOOL_CALL_ARGUMENTS not in attrs
+
+
+def test_arguments_omitted_when_content_capture_disabled():
+    """arguments must not appear on the span when content capture is off."""
+    span_exporter, handler = _make_span_exporter_and_handler()
+    invocation = handler.tool("get_weather")
+    invocation.arguments = {"location": "Paris"}
+    invocation.stop()
+
+    attrs = span_exporter.get_finished_spans()[0].attributes
+    assert GenAI.GEN_AI_TOOL_CALL_ARGUMENTS not in attrs

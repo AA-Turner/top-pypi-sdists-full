@@ -940,16 +940,27 @@ fn crossfit_evidence(
     let ci_low = mean_delta - 1.959963984540054 * se;
     let linear_total: f64 = linear_loss.iter().sum();
     let chart_total: f64 = chart_loss.iter().sum();
-    let gain = linear_total - chart_total;
+    // Profiled Gaussian held-out deviance gain, in NATS. The held-out residual
+    // lives in the `r`-dimensional frame subspace, so it is an r-DIMENSIONAL
+    // isotropic Gaussian: its profiled per-row deviance carries the log-det
+    // factor `r/2`, giving the total `½·r·n_eff·ln(SSE_lin/SSE_chart)` — NOT the
+    // scalar `½·n_eff·ln(...)`. Omitting `r` made the gain `r ×` too small
+    // against the `r·ln(n_eff)` charge below (d_eff = 2r), structurally
+    // suppressing higher-rank in-frame charts. The ratio is scale-invariant, so
+    // `gain − charge` stays unit-free. Totals floored so a perfect chart fit
+    // yields a large finite gain, not ln(∞).
+    let sse_floor = 1.0e-12 * (linear_total.max(chart_total)).max(1.0e-300);
+    let gain = 0.5
+        * (r.max(1) as f64)
+        * n_eff.max(2.0)
+        * (linear_total.max(sse_floor) / chart_total.max(sse_floor)).ln();
     // In-frame curved DOF: the radial chart carries a center + scale per frame
     // direction (2r), matching the block-lane chart convention.
     let d_eff = (2 * r).max(1) as f64;
     let charge = 0.5 * d_eff * n_eff.max(2.0).ln();
     let margin = gain - charge;
-    let scale = (linear_total / n as f64)
-        .max(chart_total / n as f64)
-        .max(1.0e-12);
-    let log_e_value = (margin / scale).max(0.0);
+    // Both terms are nats now; the e-value exponent needs no per-unit rescale.
+    let log_e_value = margin.max(0.0);
     Ok(RegionEvidence {
         n_rows: n_g,
         n_effective: n_eff,

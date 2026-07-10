@@ -368,7 +368,7 @@ class MemoryStorage(BaseStorage):
         return len(self._schedule)
 
     def scheduled_items(self, limit=None):
-        items = sorted(data for _, data in self._schedule)
+        items = [data for _, data in sorted(self._schedule)]
         if limit:
             items = items[:limit]
         return items
@@ -638,7 +638,7 @@ class RedisExpireStorage(RedisStorage):
         if is_result:
             # We only want to expire task result data. If we are storing an
             # important metadata like a revocation key, we need to preserve it.
-            self.conn.setex(self.result_key(key), self._expire_time, value)
+            self.conn.set(self.result_key(key), value, ex=self._expire_time)
             if isinstance(key, bytes):
                 key = key.decode('utf8')
             if self.notify_result:
@@ -761,10 +761,12 @@ class BaseSqlStorage(BaseStorage):
     ddl = []
 
     def __init__(self, *args, **kwargs):
+        create_tables = kwargs.pop('create_tables', True)
         super(BaseSqlStorage, self).__init__(*args, **kwargs)
         self.lock = threading.Lock()
         self._conn = None
-        self.initialize_schema()
+        if create_tables:
+            self.initialize_schema()
 
     def close(self):
         if self._conn is None:
@@ -853,9 +855,11 @@ class SqliteStorage(BaseSqlStorage):
         # NOTE: changing an existing database is not supported, so you will
         # need to delete and re-create it to change this value.
         if strict_fifo:
-            self.ddl[3] = self.table_task.replace(
+            ddl = list(self.ddl)
+            ddl[3] = self.table_task.replace(
                 'primary key',
                 'primary key autoincrement')
+            self.ddl = ddl
 
         self.to_blob = lambda b: sqlite3.Binary(b)
 
@@ -1028,7 +1032,8 @@ class SqliteStorage(BaseSqlStorage):
 
 class PostgresStorage(BaseSqlStorage):
     def __init__(self, name='huey', dsn=None, connection=None, blocking=True,
-                 read_timeout=1, table_prefix='huey', **connection_params):
+                 read_timeout=1, table_prefix='huey', create_tables=True,
+                 **connection_params):
         if psycopg is None:
             raise ConfigurationError('"psycopg" (version 3.2 or newer) not '
                                      'found, cannot use Postgres storage '
@@ -1088,7 +1093,7 @@ class PostgresStorage(BaseSqlStorage):
         # this is safe on both sides of a fork.
         self._listen_local = threading.local()
 
-        super(PostgresStorage, self).__init__(name)
+        super(PostgresStorage, self).__init__(name, create_tables=create_tables)
 
     def _connect(self):
         if self.connection is not None:

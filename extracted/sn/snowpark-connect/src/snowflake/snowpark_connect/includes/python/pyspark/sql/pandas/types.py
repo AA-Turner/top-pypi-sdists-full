@@ -61,7 +61,7 @@ if TYPE_CHECKING:
 
 def to_arrow_type(dt: DataType) -> "pa.DataType":
     """Convert Spark data type to pyarrow type"""
-    from distutils.version import LooseVersion
+    from pyspark.loose_version import LooseVersion
     import pyarrow as pa
 
     if type(dt) == BooleanType:
@@ -143,7 +143,7 @@ def to_arrow_schema(schema: StructType) -> "pa.Schema":
 
 def from_arrow_type(at: "pa.DataType", prefer_timestamp_ntz: bool = False) -> DataType:
     """Convert pyarrow type to Spark data type."""
-    from distutils.version import LooseVersion
+    from pyspark.loose_version import LooseVersion
     import pyarrow as pa
     import pyarrow.types as types
 

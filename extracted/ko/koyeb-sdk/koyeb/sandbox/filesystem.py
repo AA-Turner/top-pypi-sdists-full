@@ -14,6 +14,7 @@ from typing import TYPE_CHECKING, Dict, List, Union
 from .executor_client import AsyncSandboxClient, SandboxClient
 from .utils import (
     SandboxError,
+    SandboxServiceError,
     check_error_message,
     escape_shell_arg,
 )
@@ -95,9 +96,9 @@ class SandboxFilesystem:
             if response.get("error"):
                 error_msg = response.get("error", "Unknown error")
                 raise SandboxFilesystemError(f"Failed to write file: {error_msg}")
+        except (SandboxServiceError, SandboxFilesystemError):
+            raise
         except Exception as e:
-            if isinstance(e, SandboxFilesystemError):
-                raise
             raise SandboxFilesystemError(f"Failed to write file: {str(e)}") from e
 
     def read_file(self, path: str, encoding: str = "utf-8") -> FileInfo:
@@ -129,7 +130,7 @@ class SandboxFilesystem:
             else:
                 content = content_str
             return FileInfo(content=content, encoding=encoding)
-        except (SandboxFileNotFoundError, SandboxFilesystemError):
+        except (SandboxServiceError, SandboxFileNotFoundError, SandboxFilesystemError):
             raise
         except Exception as e:
             error_msg = str(e)
@@ -155,7 +156,7 @@ class SandboxFilesystem:
                 if check_error_message(error_msg, "FILE_EXISTS"):
                     raise SandboxFileExistsError(f"Directory already exists: {path}")
                 raise SandboxFilesystemError(f"Failed to create directory: {error_msg}")
-        except (SandboxFileExistsError, SandboxFilesystemError):
+        except (SandboxServiceError, SandboxFileExistsError, SandboxFilesystemError):
             raise
         except Exception as e:
             error_msg = str(e)
@@ -186,7 +187,7 @@ class SandboxFilesystem:
                 raise SandboxFilesystemError(f"Failed to list directory: {error_msg}")
             entries = response.get("entries", [])
             return entries
-        except (SandboxFileNotFoundError, SandboxFilesystemError):
+        except (SandboxServiceError, SandboxFileNotFoundError, SandboxFilesystemError):
             raise
         except Exception as e:
             error_msg = str(e)
@@ -212,7 +213,7 @@ class SandboxFilesystem:
                 if check_error_message(error_msg, "NO_SUCH_FILE"):
                     raise SandboxFileNotFoundError(f"File not found: {path}")
                 raise SandboxFilesystemError(f"Failed to delete file: {error_msg}")
-        except (SandboxFileNotFoundError, SandboxFilesystemError):
+        except (SandboxServiceError, SandboxFileNotFoundError, SandboxFilesystemError):
             raise
         except Exception as e:
             error_msg = str(e)
@@ -238,7 +239,7 @@ class SandboxFilesystem:
                 if check_error_message(error_msg, "DIR_NOT_EMPTY"):
                     raise SandboxFilesystemError(f"Directory not empty: {path}")
                 raise SandboxFilesystemError(f"Failed to delete directory: {error_msg}")
-        except (SandboxFileNotFoundError, SandboxFilesystemError):
+        except (SandboxServiceError, SandboxFileNotFoundError, SandboxFilesystemError):
             raise
         except Exception as e:
             error_msg = str(e)
@@ -345,7 +346,9 @@ class SandboxFilesystem:
         with open(local_path, "rb") as f:
             content_bytes = f.read()
 
-        SandboxFilesystem.write_file(self, remote_path, content_bytes, encoding=encoding)
+        SandboxFilesystem.write_file(
+            self, remote_path, content_bytes, encoding=encoding
+        )
 
     def download_file(
         self, remote_path: str, local_path: str, encoding: str = "utf-8"
@@ -467,9 +470,9 @@ class AsyncSandboxFilesystem(SandboxFilesystem):
             if response.get("error"):
                 error_msg = response.get("error", "Unknown error")
                 raise SandboxFilesystemError(f"Failed to write file: {error_msg}")
+        except (SandboxServiceError, SandboxFilesystemError):
+            raise
         except Exception as e:
-            if isinstance(e, SandboxFilesystemError):
-                raise
             raise SandboxFilesystemError(f"Failed to write file: {str(e)}") from e
 
     async def read_file(self, path: str, encoding: str = "utf-8") -> FileInfo:
@@ -501,7 +504,7 @@ class AsyncSandboxFilesystem(SandboxFilesystem):
             else:
                 content = content_str
             return FileInfo(content=content, encoding=encoding)
-        except (SandboxFileNotFoundError, SandboxFilesystemError):
+        except (SandboxServiceError, SandboxFileNotFoundError, SandboxFilesystemError):
             raise
         except Exception as e:
             error_msg = str(e)
@@ -527,7 +530,7 @@ class AsyncSandboxFilesystem(SandboxFilesystem):
                 if check_error_message(error_msg, "FILE_EXISTS"):
                     raise SandboxFileExistsError(f"Directory already exists: {path}")
                 raise SandboxFilesystemError(f"Failed to create directory: {error_msg}")
-        except (SandboxFileExistsError, SandboxFilesystemError):
+        except (SandboxServiceError, SandboxFileExistsError, SandboxFilesystemError):
             raise
         except Exception as e:
             error_msg = str(e)
@@ -558,7 +561,7 @@ class AsyncSandboxFilesystem(SandboxFilesystem):
                 raise SandboxFilesystemError(f"Failed to list directory: {error_msg}")
             entries = response.get("entries", [])
             return entries
-        except (SandboxFileNotFoundError, SandboxFilesystemError):
+        except (SandboxServiceError, SandboxFileNotFoundError, SandboxFilesystemError):
             raise
         except Exception as e:
             error_msg = str(e)
@@ -584,7 +587,7 @@ class AsyncSandboxFilesystem(SandboxFilesystem):
                 if check_error_message(error_msg, "NO_SUCH_FILE"):
                     raise SandboxFileNotFoundError(f"File not found: {path}")
                 raise SandboxFilesystemError(f"Failed to delete file: {error_msg}")
-        except (SandboxFileNotFoundError, SandboxFilesystemError):
+        except (SandboxServiceError, SandboxFileNotFoundError, SandboxFilesystemError):
             raise
         except Exception as e:
             error_msg = str(e)
@@ -610,7 +613,7 @@ class AsyncSandboxFilesystem(SandboxFilesystem):
                 if check_error_message(error_msg, "DIR_NOT_EMPTY"):
                     raise SandboxFilesystemError(f"Directory not empty: {path}")
                 raise SandboxFilesystemError(f"Failed to delete directory: {error_msg}")
-        except (SandboxFileNotFoundError, SandboxFilesystemError):
+        except (SandboxServiceError, SandboxFileNotFoundError, SandboxFilesystemError):
             raise
         except Exception as e:
             error_msg = str(e)

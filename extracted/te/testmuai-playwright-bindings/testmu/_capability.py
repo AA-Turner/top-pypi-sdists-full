@@ -7,11 +7,24 @@ produced by the TestMu code-export pipeline.
 """
 
 import json
+import logging
 import os
 import urllib.parse
 from pathlib import Path
 
 from testmu import _configure
+
+_log = logging.getLogger("testmu")
+
+# KaneAI/HYE mac hub token → playwright-grid platform display name.
+_MAC_PLATFORM_NAMES = {
+    "mac10.15": "macOS Catalina",
+    "mac11": "macOS Big Sur",
+    "mac12": "macOS Monterey",
+    "mac13": "macOS Ventura",
+    "mac14": "macOS Sonoma",
+    "mac15": "macOS Sequoia",
+}
 
 try:
     from importlib.metadata import version as _pkg_version
@@ -41,6 +54,23 @@ def _get_download_folder() -> Path:
 def _get_cap_value(cap_name: str, default_value=None):
     """Return env var value or default — mirrors get_cap_value(None, ...) path."""
     return os.getenv(cap_name, default_value)
+
+
+def _bool_he(key: str, default: bool) -> bool:
+    """Resolve a boolean capability: HE test_config > env var > default.
+
+    Module-level (not just a get_capabilities() helper) so other callers —
+    e.g. testmu._session's cloud-teardown video gate — can reuse the exact
+    same VIDEO/CONSOLE/etc. resolution instead of re-deriving it.
+    """
+    from testmu._test_config import get_cap_value
+
+    val = get_cap_value(key, None)
+    if val is None:
+        return default
+    if isinstance(val, bool):
+        return val
+    return str(val).lower() in ("1", "true", "yes")
 
 
 # ---------------------------------------------------------------------------
@@ -82,6 +112,40 @@ def get_capabilities(
     _resolution = resolution or os.getenv("LT_RESOLUTION", "1920x1080")
     _platform = platform or os.getenv("LT_PLATFORM", "linux")
 
+    # KaneAI/HYE environments carry mac hub tokens (mac12, mac13, ...); the playwright
+    # gateway's platform grammar is display-name style ("macOS Monterey" → parsed as
+    # "macos 12.0"). An unrecognized platform is queued forever by the gateway (no 400)
+    # until the client's connect timeout — grid-observed with "mac12" + pw-webkit.
+    # Normalize known mac tokens; anything else passes through verbatim.
+    _normalized_platform = _MAC_PLATFORM_NAMES.get(_platform.strip().lower(), _platform)
+    if _normalized_platform != _platform:
+        _log.info(
+            "platform '%s' -> '%s' (playwright grid platform name)",
+            _platform,
+            _normalized_platform,
+        )
+        _platform = _normalized_platform
+
+    # Safari → pw-webkit: the playwright relay has no real Safari — its browserName
+    # allowlist is [chrome MicrosoftEdge pw-chromium pw-webkit pw-firefox island].
+    # Map explicitly and loudly; a safari environment must never silently run Chrome.
+    # pw-webkit's WebKit version tracks the Playwright driver, so a UI-selected Safari
+    # version (e.g. "15.0") is meaningless — coerce to "latest".
+    _is_webkit = _browser.lower() in ("safari", "webkit", "pw-webkit")
+    if _is_webkit:
+        _log.info(
+            "browser '%s' -> 'pw-webkit' (Playwright WebKit — the relay's Safari slot)",
+            _browser,
+        )
+        if _browser_version.lower() != "latest":
+            _log.warning(
+                "browserVersion '%s' ignored for pw-webkit — WebKit version tracks "
+                "the Playwright driver; forcing 'latest'",
+                _browser_version,
+            )
+        _browser = "pw-webkit"
+        _browser_version = "latest"
+
     username = os.getenv("LT_USERNAME")
     access_key = os.getenv("LT_ACCESS_KEY")
 
@@ -95,15 +159,6 @@ def get_capabilities(
         if val is None:
             return default
         return val.lower() in ("1", "true", "yes")
-
-    def _bool_he(key: str, default: bool) -> bool:
-        """Check test_config first, then env var, then default."""
-        val = _he_cap(key, None)
-        if val is None:
-            return default
-        if isinstance(val, bool):
-            return val
-        return str(val).lower() in ("1", "true", "yes")
 
     # Build + name: configure() > test_config > env > default
     _build = _configure.get("build") or _he_cap(
@@ -153,7 +208,6 @@ def get_capabilities(
             "plugin": "python-python",
             "console": _console,
             "tms.tc_id": _tc_id,
-            "loadExtensions": [os.getenv("EXTENSION")],
             "playwrightClientVersion": _PW_VERSION,
             "tunnel": _tunnel,
             "performance": _performance,
@@ -164,6 +218,12 @@ def get_capabilities(
             "dependentTestsInScenario": multiple_profiles,
         },
     }
+
+    # loadExtensions=[EXTENSION] (the dom-watcher) — set for every browser EXCEPT WebKit:
+    # WebKit loads no extensions, and for safari the EXTENSION env carries lt_utility.js
+    # (a JS file, not an extension zip), which must not be sent as loadExtensions.
+    if not _is_webkit:
+        capabilities["LT:Options"]["loadExtensions"] = [os.getenv("EXTENSION")]
 
     # Geolocation — conditional (matches: if os.getenv("GEO_LOCATION", False))
     if os.getenv("GEO_LOCATION", False):

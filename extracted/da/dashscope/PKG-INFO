@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: dashscope
-Version: 1.26.2
+Version: 1.26.3
 Summary: dashscope client sdk library
 Home-page: https://dashscope.aliyun.com/
 Author: Alibaba Cloud
@@ -20,6 +20,8 @@ Requires-Python: >=3.8.0
 Description-Content-Type: text/markdown
 Provides-Extra: tokenizer
 License-File: LICENSE
+License-File: LICENSE.certifi
+License-File: NOTICE
 
 # DashScope Python SDK
 

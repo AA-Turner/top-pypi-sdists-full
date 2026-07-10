@@ -365,6 +365,7 @@ class UntagResourceRequestTypeDef(TypedDict):
 class AddReplicaLocationInputTypeDef(TypedDict):
     Location: str
     VpcConfig: NotRequired[VpcConfigInputTypeDef]
+    KmsKeyArn: NotRequired[str]
 
 
 class ArtifactConfigInputTypeDef(TypedDict):
@@ -512,6 +513,7 @@ class CreateCanaryRequestTypeDef(TypedDict):
     AddReplicaLocations: NotRequired[Sequence[AddReplicaLocationInputTypeDef]]
     Tags: NotRequired[Mapping[str, str]]
     ArtifactConfig: NotRequired[ArtifactConfigInputTypeDef]
+    KmsKeyArn: NotRequired[str]
 
 
 class MultiLocationConfigTypeDef(TypedDict):
@@ -557,6 +559,7 @@ class UpdateCanaryRequestTypeDef(TypedDict):
     BrowserConfigs: NotRequired[Sequence[BrowserConfigTypeDef]]
     AddReplicaLocations: NotRequired[Sequence[AddReplicaLocationInputTypeDef]]
     RemoveReplicaLocations: NotRequired[Sequence[str]]
+    KmsKeyArn: NotRequired[str]
 
 
 class DescribeCanariesLastRunResponseTypeDef(TypedDict):
@@ -588,6 +591,7 @@ class CanaryTypeDef(TypedDict):
     MultiLocationConfig: NotRequired[MultiLocationConfigTypeDef]
     Tags: NotRequired[dict[str, str]]
     ArtifactConfig: NotRequired[ArtifactConfigOutputTypeDef]
+    KmsKeyArn: NotRequired[str]
     DryRunConfig: NotRequired[DryRunConfigOutputTypeDef]
 
 

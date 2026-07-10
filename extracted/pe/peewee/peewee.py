@@ -68,7 +68,7 @@ except ImportError:
         mysql = None
 
 
-__version__ = '4.1.1'
+__version__ = '4.1.2'
 __all__ = [
     'AnyField',
     'AsIs',
@@ -163,6 +163,15 @@ def reraise(tp, value, tb=None):
         raise value.with_traceback(tb)
     raise value
 
+def qesc(s):
+    return s.replace('"', '""')
+
+def unqesc(part):
+    part = part.strip()
+    if re.match(r'^"(?:[^"]|"")*"$', part):
+        return part[1:-1].replace('""', '"')
+    return part
+
 # Other compat issues.
 if sys.version_info < (3, 12):
     utcfromtimestamp = datetime.datetime.utcfromtimestamp
@@ -247,6 +256,34 @@ def _sqlite_regexp(regex, value):
     if value is None:
         return False
     return re.search(regex, value) is not None
+
+def _json_scalar_eq(a, b):
+    return a is b if (isinstance(a, bool) or isinstance(b, bool)) else a == b
+
+def _json_array_has(a, y):
+    if isinstance(y, (dict, list)):
+        return any(_json_document_contains(x, y, False) for x in a)
+    return any(not isinstance(x, (dict, list)) and _json_scalar_eq(x, y)
+               for x in a)
+
+def _json_document_contains(a, b, top=True):
+    if isinstance(b, dict):
+        return isinstance(a, dict) and all(
+            k in a and _json_document_contains(a[k], v, False)
+            for k, v in b.items())
+    if isinstance(b, list):
+        return isinstance(a, list) and all(_json_array_has(a, y) for y in b)
+    if top and isinstance(a, list):  # scalar-in-array exception: top-level only
+        return _json_array_has(a, b)
+    return not isinstance(a, (dict, list)) and _json_scalar_eq(a, b)
+
+def _sqlite_json_contains(haystack, needle):
+    try:
+        h = json.loads(haystack)
+        n = json.loads(needle)
+    except (TypeError, ValueError):
+        return None
+    return 1 if _json_document_contains(h, n) else 0
 
 
 def __deprecated__(s):
@@ -3224,6 +3261,35 @@ class SqliteJSONMethods(BaseJSONMethods):
         # RFC-7396 merge patch. Null values delete keys.
         return fn.json_patch(field, fn.json(field._dumps(value)))
 
+    def _contains_value(self, field, value):
+        return Value(field._dumps(value), converter=False)
+
+    def contains(self, field, keys, value):
+        # _pw_json_contains() is a registered UDF - a per-row full scan, no index.
+        call = fn._pw_json_contains(self.extract(field, keys),
+                                    self._contains_value(field, value))
+        return Expression(call, OP.EQ, 1)
+
+    def contained_by(self, field, keys, value):
+        call = fn._pw_json_contains(self._contains_value(field, value),
+                                    self.extract(field, keys))
+        return Expression(call, OP.EQ, 1)
+
+    def has_key(self, field, keys, key):
+        # json_type() is NULL only when the path selects nothing, so it
+        # doubles as a key-existence test (a stored JSON null still has a
+        # type). Matches MySQL's object-key semantics.
+        path = self._path(tuple(keys) + (key,))
+        return Expression(fn.json_type(field, path), OP.IS_NOT, None)
+
+    def has_keys(self, field, keys, key_list):
+        return reduce(operator.and_,
+                      [self.has_key(field, keys, k) for k in key_list])
+
+    def has_any_keys(self, field, keys, key_list):
+        return reduce(operator.or_,
+                      [self.has_key(field, keys, k) for k in key_list])
+
 class PostgresqlJSONMethods(BaseJSONMethods):
     def make_value_wrapper(self, dumps):
         db = self.database
@@ -3509,10 +3575,12 @@ IndexMetadata = collections.namedtuple(
     ('name', 'sql', 'columns', 'unique', 'table'))
 ColumnMetadata = collections.namedtuple(
     'ColumnMetadata',
-    ('name', 'data_type', 'null', 'primary_key', 'table', 'default'))
+    ('name', 'data_type', 'null', 'primary_key', 'table', 'default',
+     'full_type', 'identity'), defaults=(None, False))
 ForeignKeyMetadata = collections.namedtuple(
     'ForeignKeyMetadata',
-    ('column', 'dest_table', 'dest_column', 'table'))
+    ('column', 'dest_table', 'dest_column', 'table', 'name', 'on_delete',
+     'on_update'), defaults=(None, None, None))
 ViewMetadata = collections.namedtuple('ViewMetadata', ('name', 'sql'))
 
 
@@ -3991,6 +4059,7 @@ class SqliteDatabase(Database):
         self.nulls_ordering = self.server_version >= (3, 30, 0)
         self.register_function(_sqlite_date_part, 'date_part', 2)
         self.register_function(_sqlite_date_trunc, 'date_trunc', 2)
+        self.register_function(_sqlite_json_contains, '_pw_json_contains', 2)
         if regexp_function:
             self.register_function(_sqlite_regexp, 'regexp', 2)
         if rank_functions:
@@ -4238,19 +4307,19 @@ class SqliteDatabase(Database):
             return self.execute_sql('ROLLBACK')
 
     def get_tables(self, schema=None):
-        schema = (schema or 'main').replace('"', '""')
+        schema = qesc(schema or 'main')
         cursor = self.execute_sql('SELECT name FROM "%s".sqlite_master WHERE '
                                   'type=? ORDER BY name' % schema, ('table',))
         return [row for row, in cursor.fetchall()]
 
     def get_views(self, schema=None):
-        schema = (schema or 'main').replace('"', '""')
+        schema = qesc(schema or 'main')
         sql = ('SELECT name, sql FROM "%s".sqlite_master WHERE type=? '
                'ORDER BY name') % schema
         return [ViewMetadata(*row) for row in self.execute_sql(sql, ('view',))]
 
     def get_indexes(self, table, schema=None):
-        schema = (schema or 'main').replace('"', '""')
+        schema = qesc(schema or 'main')
         query = ('SELECT name, sql FROM "%s".sqlite_master '
                  'WHERE tbl_name = ? AND type = ? ORDER BY name') % schema
         cursor = self.execute_sql(query, (table, 'index'))
@@ -4259,7 +4328,7 @@ class SqliteDatabase(Database):
         # Determine which indexes have a unique constraint.
         unique_indexes = set()
         cursor = self.execute_sql('PRAGMA "%s".index_list("%s")' %
-                                  (schema, table))
+                                  (schema, qesc(table)))
         for row in cursor.fetchall():
             name = row[1]
             is_unique = int(row[2]) == 1
@@ -4270,7 +4339,7 @@ class SqliteDatabase(Database):
         index_columns = {}
         for index_name in sorted(index_to_sql):
             cursor = self.execute_sql('PRAGMA "%s".index_info("%s")' %
-                                      (schema, index_name))
+                                      (schema, qesc(index_name)))
             index_columns[index_name] = [row[2] for row in cursor.fetchall()]
 
         return [
@@ -4283,23 +4352,27 @@ class SqliteDatabase(Database):
             for name in sorted(index_to_sql)]
 
     def get_columns(self, table, schema=None):
-        schema = (schema or 'main').replace('"', '""')
-        cursor = self.execute_sql('PRAGMA "%s".table_info("%s")' %
-                                  (schema, table))
-        return [ColumnMetadata(r[1], r[2], not r[3], bool(r[5]), table, r[4])
-                for r in cursor.fetchall()]
+        schema = qesc(schema or 'main')
+        rows = self.execute_sql('PRAGMA "%s".table_info("%s")' %
+                                (schema, qesc(table))).fetchall()
+        pks = [r for r in rows if r[5]]
+        is_rowid = len(pks) == 1 and (pks[0][2] or '').upper() == 'INTEGER'
+        return [ColumnMetadata(r[1], r[2], not r[3], bool(r[5]), table, r[4],
+                               r[2], bool(r[5]) and is_rowid)
+                for r in rows]
 
     def get_primary_keys(self, table, schema=None):
-        schema = (schema or 'main').replace('"', '""')
+        schema = qesc(schema or 'main')
         cursor = self.execute_sql('PRAGMA "%s".table_info("%s")' %
-                                  (schema, table))
+                                  (schema, qesc(table)))
         return [row[1] for row in filter(lambda r: r[-1], cursor.fetchall())]
 
     def get_foreign_keys(self, table, schema=None):
-        schema = (schema or 'main').replace('"', '""')
+        schema = qesc(schema or 'main')
         cursor = self.execute_sql('PRAGMA "%s".foreign_key_list("%s")' %
-                                  (schema, table))
-        return [ForeignKeyMetadata(row[3], row[2], row[4], table)
+                                  (schema, qesc(table)))
+        return [ForeignKeyMetadata(row[3], row[2], row[4], table, None,
+                                   row[6], row[5])
                 for row in cursor.fetchall()]
 
     def get_binary_type(self):
@@ -4613,20 +4686,35 @@ class PostgresqlDatabase(Database):
             WHERE t.relname = %s AND t.relkind = %s AND n.nspname = %s
             ORDER BY idx.indisunique DESC, i.relname;"""
         cursor = self.execute_sql(query, (table, 'r', schema or 'public'))
-        return [IndexMetadata(name, sql.rstrip(' ;'), columns.split(','),
-                              is_unique, table)
-                for name, sql, is_unique, columns in cursor.fetchall()]
+        unesc = lambda cols: [unqesc(c) for c in cols.split(',')]
+        return [IndexMetadata(name, sql.rstrip(' ;'), unesc(cols), unique,
+                              table)
+                for name, sql, unique, cols in cursor.fetchall()]
 
     def get_columns(self, table, schema=None):
         query = """
-            SELECT column_name, is_nullable, data_type, column_default
-            FROM information_schema.columns
-            WHERE table_name = %s AND table_schema = %s
-            ORDER BY ordinal_position"""
+            SELECT c.column_name, c.is_nullable, c.data_type,
+                c.column_default,
+                pg_catalog.format_type(a.atttypid, a.atttypmod),
+                c.is_identity
+            FROM information_schema.columns AS c
+            INNER JOIN pg_catalog.pg_namespace AS n
+                ON (n.nspname = c.table_schema)
+            INNER JOIN pg_catalog.pg_class AS t
+                ON (t.relname = c.table_name AND t.relnamespace = n.oid)
+            INNER JOIN pg_catalog.pg_attribute AS a
+                ON (a.attrelid = t.oid AND a.attname = c.column_name)
+            WHERE c.table_name = %s AND c.table_schema = %s
+                AND NOT a.attisdropped
+            ORDER BY c.ordinal_position"""
         cursor = self.execute_sql(query, (table, schema or 'public'))
         pks = set(self.get_primary_keys(table, schema))
-        return [ColumnMetadata(name, dt, null == 'YES', name in pks, table, df)
-                for name, null, dt, df in cursor.fetchall()]
+        def is_ident(ident, df):
+            return ident == 'YES' or (df or '').startswith(
+                ('nextval(', 'unique_rowid('))
+        return [ColumnMetadata(name, dt, null == 'YES', name in pks, table,
+                               df, ft, is_ident(ident, df))
+                for name, null, dt, df, ft, ident in cursor.fetchall()]
 
     def get_primary_keys(self, table, schema=None):
         query = """
@@ -4647,7 +4735,8 @@ class PostgresqlDatabase(Database):
     def get_foreign_keys(self, table, schema=None):
         sql = """
             SELECT DISTINCT
-                kcu.column_name, ccu.table_name, ccu.column_name
+                kcu.column_name, ccu.table_name, ccu.column_name,
+                tc.constraint_name, rc.delete_rule, rc.update_rule
             FROM information_schema.table_constraints AS tc
             JOIN information_schema.key_column_usage AS kcu
                 ON (tc.constraint_name = kcu.constraint_name AND
@@ -4657,12 +4746,16 @@ class PostgresqlDatabase(Database):
             JOIN information_schema.constraint_column_usage AS ccu
                 ON (ccu.constraint_name = tc.constraint_name AND
                     ccu.constraint_schema = tc.constraint_schema)
+            JOIN information_schema.referential_constraints AS rc
+                ON (rc.constraint_name = tc.constraint_name AND
+                    rc.constraint_schema = tc.constraint_schema)
             WHERE
                 tc.constraint_type = 'FOREIGN KEY' AND
                 tc.table_name = %s AND
                 tc.table_schema = %s"""
         cursor = self.execute_sql(sql, (table, schema or 'public'))
-        return [ForeignKeyMetadata(row[0], row[1], row[2], table)
+        return [ForeignKeyMetadata(row[0], row[1], row[2], table, row[3],
+                                   row[4], row[5])
                 for row in cursor.fetchall()]
 
     def sequence_exists(self, sequence):
@@ -4833,20 +4926,28 @@ class MySQLDatabase(Database):
 
     def get_tables(self, schema=None):
         query = ('SELECT table_name FROM information_schema.tables '
-                 'WHERE table_schema = DATABASE() AND table_type != %s '
-                 'ORDER BY table_name')
-        return [table for table, in self.execute_sql(query, ('VIEW',))]
+                 'WHERE table_schema = COALESCE(%s, DATABASE()) '
+                 'AND table_type != %s ORDER BY table_name')
+        return [table for table, in self.execute_sql(query, (schema, 'VIEW'))]
 
     def get_views(self, schema=None):
         query = ('SELECT table_name, view_definition '
                  'FROM information_schema.views '
-                 'WHERE table_schema = DATABASE() ORDER BY table_name')
-        cursor = self.execute_sql(query)
+                 'WHERE table_schema = COALESCE(%s, DATABASE()) '
+                 'ORDER BY table_name')
+        cursor = self.execute_sql(query, (schema,))
         return [ViewMetadata(*row) for row in cursor.fetchall()]
+
+    def _show_index_target(self, table, schema):
+        table = table.replace('`', '``')
+        if schema:
+            return '`%s`.`%s`' % (schema.replace('`', '``'), table)
+        return '`%s`' % table
 
     def get_indexes(self, table, schema=None):
         table = table.replace('`', '``')
-        cursor = self.execute_sql('SHOW INDEX FROM `%s`' % table)
+        cursor = self.execute_sql('SHOW INDEX FROM %s' %
+                                  self._show_index_target(table, schema))
         unique = set()
         indexes = {}
         for row in cursor.fetchall():
@@ -4859,33 +4960,49 @@ class MySQLDatabase(Database):
 
     def get_columns(self, table, schema=None):
         sql = """
-            SELECT column_name, is_nullable, data_type, column_default
+            SELECT column_name, is_nullable, data_type, column_default,
+                column_type, extra
             FROM information_schema.columns
-            WHERE table_name = %s AND table_schema = DATABASE()
+            WHERE table_name = %s AND table_schema = COALESCE(%s, DATABASE())
             ORDER BY ordinal_position"""
-        cursor = self.execute_sql(sql, (table,))
-        pks = set(self.get_primary_keys(table))
-        return [ColumnMetadata(name, dt, null == 'YES', name in pks, table, df)
-                for name, null, dt, df in cursor.fetchall()]
+        cursor = self.execute_sql(sql, (table, schema))
+        pks = set(self.get_primary_keys(table, schema))
+        accum = []
+        for name, null, dt, df, ft, extra in cursor.fetchall():
+            null = null == 'YES'
+            # MariaDB reports the literal string NULL for nullable columns
+            # that have no default.
+            if null and df == 'NULL':
+                df = None
+            accum.append(ColumnMetadata(
+                name, dt, null, name in pks, table, df, ft,
+                'auto_increment' in (extra or '')))
+        return accum
 
     def get_primary_keys(self, table, schema=None):
-        table = table.replace('`', '``')
-        cursor = self.execute_sql('SHOW INDEX FROM `%s`' % table)
+        cursor = self.execute_sql('SHOW INDEX FROM %s' %
+                                  self._show_index_target(table, schema))
         return [row[4] for row in
                 filter(lambda row: row[2] == 'PRIMARY', cursor.fetchall())]
 
     def get_foreign_keys(self, table, schema=None):
         query = """
-            SELECT column_name, referenced_table_name, referenced_column_name
-            FROM information_schema.key_column_usage
-            WHERE table_name = %s
-                AND table_schema = DATABASE()
-                AND referenced_table_name IS NOT NULL
-                AND referenced_column_name IS NOT NULL"""
-        cursor = self.execute_sql(query, (table,))
-        return [
-            ForeignKeyMetadata(column, dest_table, dest_column, table)
-            for column, dest_table, dest_column in cursor.fetchall()]
+            SELECT kcu.column_name, kcu.referenced_table_name,
+                kcu.referenced_column_name, kcu.constraint_name,
+                rc.delete_rule, rc.update_rule
+            FROM information_schema.key_column_usage AS kcu
+            INNER JOIN information_schema.referential_constraints AS rc
+                ON (rc.constraint_schema = kcu.constraint_schema AND
+                    rc.constraint_name = kcu.constraint_name AND
+                    rc.table_name = kcu.table_name)
+            WHERE kcu.table_name = %s
+                AND kcu.table_schema = COALESCE(%s, DATABASE())
+                AND kcu.referenced_table_name IS NOT NULL
+                AND kcu.referenced_column_name IS NOT NULL"""
+        cursor = self.execute_sql(query, (table, schema))
+        return [ForeignKeyMetadata(row[0], row[1], row[2], table, row[3],
+                                   row[4], row[5])
+                for row in cursor.fetchall()]
 
     def get_binary_type(self):
         return mysql.Binary
@@ -6001,6 +6118,15 @@ class TimestampField(BigIntegerField):
     # Support second -> microsecond resolution.
     valid_resolutions = [10**i for i in range(7)]
 
+    # Allow str formatted when converting.
+    formats = [
+        '%Y-%m-%d %H:%M:%S.%f',
+        '%Y-%m-%d %H:%M:%S',
+        '%Y-%m-%d %H:%M:%S.%f%z',
+        '%Y-%m-%d %H:%M:%S%z',
+        '%Y-%m-%d',
+    ]
+
     def __init__(self, *args, **kwargs):
         self.resolution = kwargs.pop('resolution', None)
 
@@ -6034,8 +6160,9 @@ class TimestampField(BigIntegerField):
         return datetime.datetime.fromtimestamp(ts)
 
     def get_timestamp(self, value):
-        if self.utc:
-            # If utc-mode is on, then we assume all naive datetimes are in UTC.
+        if self.utc or value.tzinfo is not None:
+            # Aware datetimes denote an unambiguous instant; naive datetimes in
+            # utc-mode are assumed to already be UTC.
             return calendar.timegm(value.utctimetuple())
         else:
             return time.mktime(value.timetuple())
@@ -6043,6 +6170,9 @@ class TimestampField(BigIntegerField):
     def db_value(self, value):
         if value is None:
             return
+
+        if isinstance(value, str):
+            value = format_date_time(value, self.formats)
 
         if isinstance(value, datetime.datetime):
             pass
@@ -8148,12 +8278,20 @@ class BaseModelSelect(_ModelQueryHelper):
             self.execute()
         return iter(self._cursor_wrapper)
 
+    def _model_rows(self):
+        # Hydration and bucketing require model-instance rows.
+        if self._row_type in (None, ROW.MODEL):
+            return True
+        return (self._row_type == ROW.CONSTRUCTOR and
+                isinstance(self._constructor, type) and
+                issubclass(self._constructor, Model))
+
     def _execute(self, database):
         first_run = self._cursor_wrapper is None
         cursor_wrapper = super(BaseModelSelect, self)._execute(database)
-        if first_run and self._load_tree:
-            if self._row_type not in (ROW.TUPLE, ROW.DICT, ROW.NAMED_TUPLE):
-                _load_related(list(cursor_wrapper), self, self._load_tree)
+        if first_run and self._load_tree and self._model_rows():
+            _load_related(list(cursor_wrapper), self, self._load_tree,
+                          database=database)
         return cursor_wrapper
 
     def iterator(self, database=None):
@@ -8167,7 +8305,9 @@ class BaseModelSelect(_ModelQueryHelper):
 
     @Node.copy
     def with_related(self, *loads):
-        self._load_tree = loads
+        # Accept fk/backref references, wrap w/Load().
+        self._load_tree = tuple(l if isinstance(l, Load) else Load(l)
+                                for l in loads)
 
     def get(self, database=None):
         clone = self.paginate(1, 1)
@@ -8237,14 +8377,19 @@ class ModelSelect(BaseModelSelect, Select):
 
     def clone(self):
         clone = super(ModelSelect, self).clone()
-        clone._joins = dict(clone._joins)
+        # Copy the join lists too, or joining on a clone that departs from an
+        # already-joined model appends into the original's join list.
+        clone._joins = {src: list(joins) for src, joins
+                        in clone._joins.items()}
         return clone
 
     def select(self, *fields_or_models):
         if fields_or_models or not self._is_default:
-            self._is_default = False
             fields = _normalize_model_select(fields_or_models)
-            return super(ModelSelect, self).select(*fields)
+            # Flag the clone, not the receiver, as having a projection.
+            clone = super(ModelSelect, self).select(*fields)
+            clone._is_default = False
+            return clone
         return self
 
     def select_extend(self, *columns):
@@ -9074,15 +9219,24 @@ class PrefetchQuery(collections.namedtuple('_PrefetchQuery', (
                 id_map[key].append(instance)
 
 
+def _parent_keys(parent_query, cols):
+    sub = parent_query.select(*cols)
+    # MySQL rejects LIMIT directly inside IN so move it into a derived table.
+    if parent_query._limit is not None or parent_query._offset is not None:
+        sub = sub.alias('_limited')
+        return Select((sub,), [getattr(sub.c, c.column_name) for c in cols])
+    return sub
+
+
 def _relate_children(query, parent_query, pairs, strategy):
     """Restrict a one-to-many child query to rows whose foreign key matches a
     parent in parent_query. pairs are (child_fk, parent_key) field tuples."""
     if strategy == PREFETCH_TYPE.JOIN:
-        keys = {pk for _, pk in pairs}
-        on = reduce(operator.or_, [getattr(parent_query.c, pk.column_name) == fk
+        sub = _parent_keys(parent_query, {pk for _, pk in pairs})
+        on = reduce(operator.or_, [getattr(sub.c, pk.column_name) == fk
                                    for fk, pk in pairs])
-        return query.distinct().join(parent_query.select(*keys), on=on)
-    expr = reduce(operator.or_, [fk << parent_query.select(pk)
+        return query.distinct().join(sub, on=on)
+    expr = reduce(operator.or_, [fk << _parent_keys(parent_query, (pk,))
                                  for fk, pk in pairs])
     return query.where(expr)
 
@@ -9091,11 +9245,11 @@ def _relate_parent(query, parent_query, pairs, strategy):
     """Restrict a many-to-one query to the rows referenced by parent_query.
     pairs are (child_ref, parent_fk) field tuples."""
     if strategy == PREFETCH_TYPE.JOIN:
-        fks = [fk for _, fk in pairs]
-        on = reduce(operator.or_, [ref == getattr(parent_query.c, fk.column_name)
+        sub = _parent_keys(parent_query, [fk for _, fk in pairs])
+        on = reduce(operator.or_, [ref == getattr(sub.c, fk.column_name)
                                    for ref, fk in pairs])
-        return query.distinct().join(parent_query.select(*fks), on=on)
-    expr = reduce(operator.or_, [ref << parent_query.select(fk)
+        return query.distinct().join(sub, on=on)
+    expr = reduce(operator.or_, [ref << _parent_keys(parent_query, (fk,))
                                  for ref, fk in pairs])
     return query.where(expr)
 
@@ -9158,6 +9312,8 @@ def prefetch(sq, *subqueries, **kwargs):
         raise ValueError('PREFETCH_TYPE.MATERIALIZE is not supported by '
                          'prefetch(). Use Model.select().with_related() with '
                          'a Load() node instead.')
+    elif prefetch_type not in PREFETCH_TYPE.values():
+        raise ValueError('prefetch_type must be a PREFETCH_TYPE value.')
 
     fixed_queries = prefetch_add_subquery(sq, subqueries, prefetch_type)
     deps = {}
@@ -9183,13 +9339,30 @@ def prefetch(sq, *subqueries, **kwargs):
     return list(pq.query)
 
 
-def _bucket(child_query, field, is_backref, children, parents):
-    pq = PrefetchQuery(child_query, fields=[field], is_backref=is_backref)
-    id_map = {}
-    for child in children:
-        pq.store_instance(child, id_map)
-    for parent in parents:
-        pq.populate_instance(parent, id_map)
+def _bucket(field, is_backref, children, parents):
+    # Single-relation bucketing on the raw fk/key values writes __rel__ and
+    # backref lists directly, skipping descriptor and dirty tracking.
+    name, rel_name = field.name, field.rel_field.name
+    if is_backref:
+        # children are the referenced rows, parents carry the fk.
+        id_map = {}
+        for child in children:
+            id_map[child.__data__[rel_name]] = child
+        for parent in parents:
+            key = parent.__data__[name]
+            if key in id_map:
+                parent.__rel__[name] = id_map[key]
+    else:
+        # children carry the fk, parents get backref lists.
+        buckets = {}
+        for child in children:
+            buckets.setdefault(child.__data__[name], []).append(child)
+        backref = field.backref
+        for parent in parents:
+            rel = buckets.get(parent.__data__[rel_name], [])
+            for inst in rel:
+                inst.__rel__[name] = parent
+            setattr(parent, backref, rel)
 
 
 class Load(Node):
@@ -9201,6 +9374,11 @@ class Load(Node):
         if query is not None and query.model is not rel_model:
             raise ValueError('Load() query must select from %s, got %s.' %
                              (rel_model, query.model))
+        if query is not None and not query._model_rows():
+            raise ValueError('Load() query must return model instances, not '
+                             'dicts/tuples/namedtuples.')
+        if strategy not in PREFETCH_TYPE.values():
+            raise ValueError('Load() strategy must be a PREFETCH_TYPE value.')
         self._query = query
         self._strategy = strategy
         self._per_parent = per_parent
@@ -9219,7 +9397,8 @@ class Load(Node):
 
     @Node.copy
     def then(self, *children):
-        self._children = self._children + tuple(children)
+        self._children = self._children + tuple(
+            c if isinstance(c, Load) else Load(c) for c in children)
 
     def _base(self, rel_model):
         # Modifiers (where/order/limit/joins) ride on the supplied query.
@@ -9242,8 +9421,10 @@ class Load(Node):
             keys = self._distinct(parents,
                                   lambda p: getattr(p, field.rel_field.name))
             return query.where(field << keys)
-        return _relate_children(query, parent_query,
-                                [(field, field.rel_field)],
+        # Resolve the key on parent_query.model so aliased parents render
+        # against their alias.
+        pk = getattr(parent_query.model, field.rel_field.name)
+        return _relate_children(query, parent_query, [(field, pk)],
                                 self._strategy)
 
     def _link_parent(self, query, parent_query, parents):
@@ -9252,31 +9433,42 @@ class Load(Node):
             keys = self._distinct(parents,
                                   lambda p: p.__data__.get(field.name))
             return query.where(field.rel_field << keys)
-        return _relate_parent(query, parent_query, [(field.rel_field, field)],
+        fk = getattr(parent_query.model, field.name)
+        return _relate_parent(query, parent_query, [(field.rel_field, fk)],
                               self._strategy)
 
-    def _run(self, parents, parent_query, depth=0):
-        # _bucket's is_backref is the storage side, opposite self._is_backref.
+    def _run(self, parents, parent_query, depth=0, database=None):
         field = self._field
         if self._is_backref:
-            rel_model = field.model
             if self._per_parent is not None:
                 child_query = self._windowed(parent_query, parents, depth)
             else:
-                child_query = self._link_children(self._base(rel_model),
+                child_query = self._link_children(self._base(field.model),
                                                   parent_query, parents)
-            children = list(child_query)
-            _bucket(child_query, field, False, children, parents)
         else:
-            rel_model = field.rel_model
-            child_query = self._link_parent(self._base(rel_model),
+            child_query = self._link_parent(self._base(field.rel_model),
                                             parent_query, parents)
-            children = list(child_query)
-            _bucket(child_query, field, True, children, parents)
+        # The whole tree runs on the database the parent ran against.
+        children = list(child_query.execute(database))
+        _bucket(field, not self._is_backref, children, parents)
         return children, child_query
 
+    @staticmethod
+    def _rank_term(term, pks, field):
+        # Aggregate non-grouped order terms (MIN asc / MAX desc) so a to-many
+        # join cannot rank one child twice.
+        o = term if isinstance(term, Ordering) else Asc(term)
+        node = o.node.unwrap()
+        if isinstance(node, SQL):
+            raise ValueError('per_parent cannot rank by a SQL() literal, '
+                             'order by a field or expression instead.')
+        if node is field or any(node is pk for pk in pks):
+            return term
+        agg = fn.MAX(node) if 'DESC' in o.direction.upper() else fn.MIN(node)
+        return Ordering(agg, o.direction, o.collation, o.nulls)
+
     def _windowed(self, parent_query, parents, depth=0):
-        # Top-N children per parent via a ranking CTE; the outer joins back for
+        # Top-N children per parent via a ranking CTE. The outer joins back for
         # full rows and orders by rank, so the relation's joins stay inside.
         field = self._field
         rel_model = field.model
@@ -9285,30 +9477,38 @@ class Load(Node):
             raise ValueError('per_parent is not supported with a grouped or '
                              'aggregate relation query.')
         pks = rel_model._meta.get_primary_keys()
-        order = list(base._order_by or pks)
+        order = [self._rank_term(o, pks, field)
+                 for o in (base._order_by or pks)]
         rn = (fn.ROW_NUMBER()
               .over(partition_by=[field], order_by=order)
               .alias('_rn'))
         # Collapse row-multiplying joins to one row per child before ranking.
-        group = [field] + [n.unwrap() for n in order]
         inner = (base.select(*pks, rn).order_by().limit(None).offset(None)
-                 .group_by(*pks, *group))
+                 .group_by(*pks, field))
         # Unique name per depth so a nested windowed parent doesn't collide.
         cte = (self._link_children(inner, parent_query, parents)
                .cte('_load_ranked_%d' % depth))
         on = reduce(operator.and_,
                     [pk == getattr(cte.c, pk.column_name) for pk in pks])
-        return (rel_model.select().join(cte, on=on)
+        # A custom projection keeps the relation's joins so selected
+        # instances ride along; a row-multiplying projection multiplies.
+        if base._is_default:
+            outer = rel_model.select()
+        else:
+            outer = base.limit(None).offset(None).switch(rel_model)
+        return (outer.join(cte, on=on)
                 .where(cte.c._rn <= self._per_parent)
                 .with_cte(cte)
                 .order_by(cte.c._rn))
 
 
-def _load_related(parents, parent_query, loads, depth=0):
+def _load_related(parents, parent_query, loads, depth=0, database=None):
     # Walk the tree top-down: one query per relation, bucketed onto parents.
     if not parents:
         return
     for node in loads:
-        children, child_query = node._run(parents, parent_query, depth)
+        children, child_query = node._run(parents, parent_query, depth,
+                                          database)
         if node._children:
-            _load_related(children, child_query, node._children, depth + 1)
+            _load_related(children, child_query, node._children, depth + 1,
+                          database)

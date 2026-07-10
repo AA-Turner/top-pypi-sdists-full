@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: aiogoogle
-Version: 5.17.0
+Version: 5.18.0
 Summary: Async Google API client
 Home-page: https://github.com/omarryhan/aiogoogle
 Author: Omar Ryhan
@@ -13,7 +13,6 @@ License-File: LICENSE
 Requires-Dist: aiohttp
 Requires-Dist: aiofiles
 Requires-Dist: google-auth
-Requires-Dist: tonyg-rfc3339
 Requires-Dist: async-timeout
 Requires-Dist: contextvars; python_version < "3.7"
 Provides-Extra: curio-asks

@@ -868,9 +868,7 @@ def _text_appearance_multiline(pdf: Pdf, form: AcroForm, field: AcroFormField):
                     top_offset = da_info.line_spacing or 0
                 else:
                     # Scale to text-space
-                    top_offset = da_info.font.convert_width(
-                        ascent, da_info.font_size
-                    )
+                    top_offset = da_info.font.convert_width(ascent, da_info.font_size)
                 cs.set_text_matrix(
                     Matrix.identity().translated(
                         bbox.llx, Decimal(bbox.ury) - top_offset

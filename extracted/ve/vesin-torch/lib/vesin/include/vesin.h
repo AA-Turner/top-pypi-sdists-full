@@ -58,6 +58,15 @@ struct VesinOptions {
     bool sorted;
     /// Which algorithm to use for the calculation
     VesinAlgorithm algorithm;
+    /// Skin size for Verlet caching. A positive value enables caching: vesin
+    /// builds the cached topology with `cutoff + skin` and reuses it until an
+    /// atom moves more than `skin / 2` from the cached reference positions.
+    double skin;
+    /// Number of CPU threads to use. This must be zero or positive. A value of
+    /// zero means using the `OMP_NUM_THREADS` environment variable when set to a
+    /// positive value, or otherwise defaulting to the number of available CPU
+    /// cores.
+    int32_t n_threads;
 
     /// Should the returned `VesinNeighborList` contain `shifts`?
     bool return_shifts;

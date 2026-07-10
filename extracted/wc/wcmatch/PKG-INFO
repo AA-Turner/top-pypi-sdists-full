@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: wcmatch
-Version: 10.2.1
+Version: 11.0
 Summary: Wildcard/glob file name matcher.
 Project-URL: Homepage, https://github.com/facelessuser/wcmatch
 Author-email: Isaac Muse <Isaac.Muse@gmail.com>

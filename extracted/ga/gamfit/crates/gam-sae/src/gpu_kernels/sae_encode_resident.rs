@@ -115,12 +115,22 @@ impl EncodeAtomDevice {
     ) -> Result<Self, String> {
         let d = atom.latent_dim;
         let p = atom.output_dim();
-        let m = atom.basis_size();
+        // FULL inner-basis width + full-width decoder pre-image `B = Q B̃`, never
+        // the stored (possibly #1117 rank-reduced) width/decoder. The device
+        // evaluates the raw monomial family from the exponent table, so a reduced
+        // atom's Q-mixture columns are unrepresentable directly — but the
+        // reconstruction is identical through the full-width frame
+        // (`Φ̃ B̃ = Φ_full (Q B̃)`), which the exponent table CAN express. Extracting
+        // at the reduced width would either error the deployment (reduced width
+        // matches no patch column count) or — worse, when `r` coincides with a
+        // smaller degree's count — silently evaluate the WRONG polynomial family
+        // against the reduced decoder. Identical for un-reduced atoms.
+        let m = atom.full_basis_size();
         let degree = euclidean_patch_degree(d, m);
         let exps = gam_terms::basis::monomial_exponents(d, degree);
         if exps.len() != m {
             return Err(format!(
-                "EncodeAtomDevice::from_atom_atlas: monomial table len {} != basis_size {m} \
+                "EncodeAtomDevice::from_atom_atlas: monomial table len {} != full basis width {m} \
                  (atom is not a EuclideanPatch degree-{degree} monomial family)",
                 exps.len()
             ));
@@ -131,7 +141,7 @@ impl EncodeAtomDevice {
                 exponents[col * d + axis] = alpha[axis] as i32;
             }
         }
-        let dec = &atom.decoder_coefficients;
+        let dec = atom.full_width_decoder();
         if dec.dim() != (m, p) {
             return Err(format!(
                 "EncodeAtomDevice::from_atom_atlas: decoder dim {:?} != ({m}, {p})",
@@ -687,9 +697,18 @@ fn certify_with_basin_warmup(
         if dnorm <= crate::encode::NEWTON_REFINE_CONVERGED_EPS * (1.0 + tnorm) {
             break;
         }
+        // Mirror production `refine_certified_start`'s in-chart soundness guard:
+        // `chart.lipschitz` is only valid inside the chart ball, so a refine
+        // iterate that leaves it would recompute `h` with an invalid `L` — refuse
+        // and flag, exactly as the warm-up step guard above.
+        let mut next = t.clone();
         for i in 0..dev.d {
-            t[i] += delta[i];
+            next[i] += delta[i];
         }
+        if !in_chart(&next, &chart.center, chart.radius) {
+            return None;
+        }
+        t = next;
         let (nc, nd) = row_certificate(dev, &t, x, amplitude, chart.lipschitz, scratch);
         if !nc.certified() {
             return None;
@@ -1066,7 +1085,12 @@ __device__ int certify_basin(const int* exps, const double* dec,
     double dnorm=0.0, tnorm=0.0;
     for(int i=0;i<DD;++i){ dnorm+=delta[i]*delta[i]; tnorm+=t[i]*t[i]; }
     if(sqrt(dnorm) <= REFINE_EPS*(1.0+sqrt(tnorm))) break;
-    for(int i=0;i<DD;++i) t[i]+=delta[i];
+    // in-chart soundness guard (mirror production refine_certified_start): L is
+    // only valid inside the chart ball; an out-of-ball iterate would recompute h
+    // with an invalid L, so refuse — exactly as the warm-up step guard above.
+    double rnext[DD]; for(int i=0;i<DD;++i) rnext[i]=t[i]+delta[i];
+    if(!in_chart(rnext, center, radius)) return 0;
+    for(int i=0;i<DD;++i) t[i]=rnext[i];
     row_certificate(exps, dec, t, x, amp, L, &h, &beta, &eta, delta);
     if(!(isfinite(h) && h<=KANTOROVICH)) return 0;
   }

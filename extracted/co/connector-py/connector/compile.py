@@ -291,10 +291,13 @@ def bundle_onprem(bundle: BundleDetails) -> Path:
         return local_file_path
     else:
         local_file_path = bundle.bundle_directory / archive_filename
+        # change file permissions across the whole tree before archiving, as these
+        # are preserved in the tar. tar.add() recurses into directories, so every
+        # descendant must already have the desired mode before its parent is added.
+        for path in bundle.compiled_root_directory.rglob("*"):
+            os.chmod(path, 0o770)
         with tarfile.open(local_file_path, "w:gz") as tar:
             for file in (bundle.compiled_root_directory).rglob("*"):
-                # change file permission as these are preserved in the tar
-                os.system(f"chmod -R 770 {file.absolute()}")
                 location_in_archive = file.relative_to(bundle.compiled_root_directory)
                 tar.add(file, location_in_archive)
 

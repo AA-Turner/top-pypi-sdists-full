@@ -28,6 +28,7 @@ from snowflake.snowpark_connect.column_name_handler import ColumnNameMap
 from snowflake.snowpark_connect.config import (
     get_string_session_config_param,
     get_timestamp_type,
+    global_config,
 )
 from snowflake.snowpark_connect.constants import (
     COLUMN_METADATA_COLLISION_KEY,
@@ -42,6 +43,7 @@ from snowflake.snowpark_connect.expression.literal import get_literal_field_and_
 from snowflake.snowpark_connect.expression.map_sql_expression import (
     _INTERVAL_DAYTIME_PATTERN_RE,
     _INTERVAL_YEARMONTH_PATTERN_RE,
+    _get_sql_conf,
 )
 from snowflake.snowpark_connect.utils.context import (
     get_is_evaluating_sql,
@@ -80,35 +82,83 @@ def _get_struct_type_class():
 
 
 @cache
-def get_python_sql_utils_class():
+def _get_python_sql_utils_class():
     with get_jpype_jclass_lock():
         return jpype.JClass("org.apache.spark.sql.api.python.PythonSQLUtils")
 
 
-def _parse_ddl_with_spark_scala(ddl_string: str) -> pyspark.sql.types.DataType:
+def _parse_type_string_with_spark_scala(
+    type_string: str, single_type: bool
+) -> pyspark.sql.types.DataType:
     """
-    Parse DDL string using PySpark's Scala StructType.fromDDL() method.
+    Shared parsing core for :func:`_parse_ddl_with_spark_scala` (schema strings)
+    and :func:`_parse_single_type_with_spark_scala` (a lone data type).
 
-    This mimics pysparks.ddl parsing logic pyspark.sql.types._py_parse_datatype_string
+    Both try the same sequence of Scala parsers; they differ only in which
+    exception is surfaced when every attempt fails.  We never surface the
+    internal ``struct<...>`` wrapping error (whose "Syntax error at or near '>'"
+    confused customers in SNOW-3585778); instead we surface the error that
+    describes the string the user actually passed.
     """
     struct_type_class = _get_struct_type_class()
-    python_sql_utils = get_python_sql_utils_class()
+    python_sql_utils = _get_python_sql_utils_class()
+
+    # Sync spark.sql.timestampType into the JVM's thread-local SQLConf so that
+    # StructType.fromDDL resolves "timestamp" according to the current session
+    # config.  Without this, a prior sql_parser() call (which also writes to the
+    # same SQLConf) can leave a stale value that causes cross-session pollution
+    # or incorrect type resolution after a config change.
+    ts_type = global_config.get("spark.sql.timestampType")
+    if ts_type is not None:
+        _get_sql_conf().get().setConfString("spark.sql.timestampType", str(ts_type))
 
     try:
         # DDL format, "fieldname datatype, fieldname datatype".
-        spark_struct_type = struct_type_class.fromDDL(ddl_string)
+        spark_struct_type = struct_type_class.fromDDL(type_string)
         return pyspark.sql.types._parse_datatype_json_string(spark_struct_type.json())
-    except jpype.JException:
+    except jpype.JException as first_exception:
         try:
             # For backwards compatibility, "integer", "struct<fieldname: datatype>" and etc.
             # Parse as a single data type using PythonSQLUtils.parseDataType()
-            spark_datatype = python_sql_utils.parseDataType(ddl_string)
+            spark_datatype = python_sql_utils.parseDataType(type_string)
             return pyspark.sql.types._parse_datatype_json_string(spark_datatype.json())
-        except jpype.JException:
-            # For backwards compatibility, "fieldname: datatype, fieldname: datatype" case.
-            legacy_ddl = f"struct<{ddl_string.strip()}>"
-            spark_datatype = python_sql_utils.parseDataType(legacy_ddl)
-            return pyspark.sql.types._parse_datatype_json_string(spark_datatype.json())
+        except jpype.JException as single_type_exception:
+            try:
+                # For backwards compatibility, "fieldname: datatype, fieldname: datatype" case.
+                legacy_ddl = f"struct<{type_string.strip()}>"
+                spark_datatype = python_sql_utils.parseDataType(legacy_ddl)
+                return pyspark.sql.types._parse_datatype_json_string(
+                    spark_datatype.json()
+                )
+            except jpype.JException:
+                raise single_type_exception if single_type else first_exception
+
+
+def _parse_ddl_with_spark_scala(ddl_string: str) -> pyspark.sql.types.DataType:
+    """
+    Parse a schema/DDL string ("fieldname datatype, ...") using Spark's Scala
+    ``StructType.fromDDL``.
+
+    This mimics ``pyspark.sql.types._parse_datatype_string``: when every parse
+    attempt fails it re-raises the ``fromDDL`` error (exactly like PySpark's
+    ``raise e``).  Use this for schema callers such as ``createDataFrame`` and
+    reader ``.schema(...)``.  For a lone data type (e.g. a cast target) use
+    :func:`_parse_single_type_with_spark_scala` instead.
+    """
+    return _parse_type_string_with_spark_scala(ddl_string, single_type=False)
+
+
+def _parse_single_type_with_spark_scala(type_string: str) -> pyspark.sql.types.DataType:
+    """
+    Parse a single data type ("string", "struct<...>", "decimal(10,2)") the way
+    Spark Connect parses a cast's ``type_str`` — via ``PythonSQLUtils.parseDataType``.
+
+    When every parse attempt fails it re-raises the ``parseDataType`` error, so
+    invalid types produce Spark-identical messages (e.g. ``UNSUPPORTED_DATATYPE
+    "STR"`` for ``cast("str")``) rather than the misleading ``struct<...>``
+    wrapping error (SNOW-3585778).
+    """
+    return _parse_type_string_with_spark_scala(type_string, single_type=True)
 
 
 def snowpark_to_proto_type(
@@ -1223,14 +1273,12 @@ def map_json_schema_to_snowpark(
             return map_simple_types(schema["type"])
 
 
-def _map_type_string(
+def _pyspark_type_to_snowpark_pair(
     type_string: str,
+    pyspark_type: pyspark.sql.types.DataType,
 ) -> tuple[pyspark.sql.types.DataType, snowpark.types.DataType]:
-    """
-    Map a ddl-string type to a tuple of PySpark data type and a Snowpark data type.
-    """
-
-    pyspark_type = _parse_ddl_with_spark_scala(type_string)
+    """Resolve a parsed PySpark type to its (PySpark, Snowpark) pair, applying
+    the session-dependent timestamp handling shared by all type-string callers."""
     match type_string:
         case "timestamp" if not get_is_evaluating_sql():
             return pyspark_type, get_timestamp_type()
@@ -1240,8 +1288,30 @@ def _map_type_string(
             return pyspark_type, map_pyspark_types_to_snowpark_types(pyspark_type)
 
 
+def _map_type_string(
+    type_string: str,
+) -> tuple[pyspark.sql.types.DataType, snowpark.types.DataType]:
+    """
+    Map a ddl-string type to a tuple of PySpark data type and a Snowpark data type.
+    """
+    pyspark_type = _parse_ddl_with_spark_scala(type_string)
+    return _pyspark_type_to_snowpark_pair(type_string, pyspark_type)
+
+
 def map_type_string_to_snowpark_type(type_string: str) -> snowpark.types.DataType:
     _, snowpark_type = _map_type_string(type_string)
+    return snowpark_type
+
+
+def map_single_type_string_to_snowpark_type(
+    type_string: str,
+) -> snowpark.types.DataType:
+    """Map a lone data-type string (e.g. a ``Column.cast`` target) to a Snowpark
+    type, surfacing Spark-identical parser errors for invalid types (SNOW-3585778).
+    Use this instead of :func:`map_type_string_to_snowpark_type` when the input is
+    a single type rather than a multi-field schema."""
+    pyspark_type = _parse_single_type_with_spark_scala(type_string)
+    _, snowpark_type = _pyspark_type_to_snowpark_pair(type_string, pyspark_type)
     return snowpark_type
 
 

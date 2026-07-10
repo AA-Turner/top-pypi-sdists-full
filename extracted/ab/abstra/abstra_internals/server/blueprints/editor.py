@@ -172,6 +172,24 @@ def get_editor_bp(controller: MainController):
     return bp
 
 
+def set_editor_auth_cookie(response: flask.Response, token: str) -> None:
+    response.set_cookie(
+        "editor_auth",
+        token,
+        max_age=60 * 60 * 24 * 7,  # Expires in 7 day (in seconds)
+        httponly=True,  # Makes it inaccessible to JavaScript
+        secure=True,  # Ensures it's sent over HTTPS
+        samesite="Lax",  # Protects against CSRF
+    )
+
+
+def _safe_redirect_path(path) -> str:
+    # Only same-origin relative paths — "//host" would be an open redirect.
+    if isinstance(path, str) and path.startswith("/") and not path.startswith("//"):
+        return path
+    return "/_editor/"
+
+
 def get_editor_auth_bp():
     bp = flask.Blueprint("editor_auth", __name__)
 
@@ -193,19 +211,16 @@ def get_editor_auth_bp():
 
         response = flask.make_response({"ok": True})
 
-        response.headers["Location"] = "/_editor/"
+        # The console forwards an optional `redirect` param so an expired
+        # session lands back on the page the user was at.
+        response.headers["Location"] = _safe_redirect_path(
+            flask.request.args.get("redirect")
+        )
         response.status_code = 302
 
         save_editor_auth_token_to_file(token)
 
-        response.set_cookie(
-            "editor_auth",
-            token,
-            max_age=60 * 60 * 24 * 7,  # Expires in 7 day (in seconds)
-            httponly=True,  # Makes it inaccessible to JavaScript
-            secure=True,  # Ensures it's sent over HTTPS
-            samesite="Lax",  # Protects against CSRF
-        )
+        set_editor_auth_cookie(response, token)
         return response
 
     return bp

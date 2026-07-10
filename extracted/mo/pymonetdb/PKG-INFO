@@ -1,6 +1,6 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: pymonetdb
-Version: 1.9.0
+Version: 1.9.1
 Summary: Native MonetDB client Python API
 Home-page: http://www.monetdb.org/
 Download-URL: https://github.com/MonetDB/pymonetdb
@@ -20,9 +20,24 @@ Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: Implementation :: PyPy
-Provides-Extra: test
-Provides-Extra: doc
 License-File: LICENSE
+Provides-Extra: test
+Requires-Dist: pytest; extra == "test"
+Requires-Dist: mypy; extra == "test"
+Requires-Dist: pycodestyle; extra == "test"
+Requires-Dist: types-setuptools; extra == "test"
+Provides-Extra: doc
+Requires-Dist: sphinx; extra == "doc"
+Requires-Dist: sphinx_rtd_theme; extra == "doc"
+Dynamic: author
+Dynamic: author-email
+Dynamic: classifier
+Dynamic: description
+Dynamic: download-url
+Dynamic: home-page
+Dynamic: license-file
+Dynamic: provides-extra
+Dynamic: summary
 
 .. This Source Code Form is subject to the terms of the Mozilla Public
 .. License, v. 2.0.  If a copy of the MPL was not distributed with this

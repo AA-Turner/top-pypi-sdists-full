@@ -43,6 +43,20 @@ def _force_cloud_run_target():
         yield
 
 
+@pytest.fixture(autouse=True)
+def _mock_teardown_settle():
+    """These tests exercise pending-failure surfacing, not run()'s post-status
+    settle window (see test_session_video_drain.py). Without this, the real
+    settle step would burn the full idle-timeout against a bare MagicMock
+    driver (WebDriverWait never sees readyState=="complete") plus the drain
+    sleep on every test. Mock WebDriverWait (test_click.py's pattern) and the
+    drain sleep so these tests stay fast.
+    """
+    with patch("testmu_selenium._session.WebDriverWait"), \
+         patch("testmu_selenium._session.time.sleep"):
+        yield
+
+
 @patch("testmu_selenium._session.webdriver.Remote")
 def test_run_raises_when_fail_continue_step_recorded(mock_remote):
     """End-of-fn with pending failures must raise so HE sees non-zero exit."""

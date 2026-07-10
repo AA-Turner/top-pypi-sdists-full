@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: kfp-kubernetes
-Version: 2.16.1
+Version: 2.17.0
 Summary: Kubernetes platform configuration library and generated protos.
 Home-page: https://github.com/kubeflow/pipelines
 Author: google
@@ -11,16 +11,21 @@ Project-URL: Bug Tracker, https://github.com/kubeflow/pipelines/issues
 Project-URL: Source, https://github.com/kubeflow/pipelines/tree/master/kubernetes_platform/python
 Requires-Python: >=3.9.0
 Description-Content-Type: text/markdown
-Requires-Dist: protobuf<7.0,>=6.31.1
-Requires-Dist: kfp<3,>=2.16.0
+Requires-Dist: protobuf<7.0,>=6.33.5
+Requires-Dist: kfp<3,>=2.17.0
+Requires-Dist: requests==2.32.5; python_version < "3.10"
+Requires-Dist: requests==2.33.0; python_version >= "3.10"
+Requires-Dist: urllib3==2.6.3; python_version < "3.10"
+Requires-Dist: urllib3==2.7.0; python_version >= "3.10"
 Provides-Extra: dev
 Requires-Dist: docformatter==1.4; extra == "dev"
 Requires-Dist: isort==5.10.1; extra == "dev"
 Requires-Dist: mypy==0.941; extra == "dev"
 Requires-Dist: pre-commit==2.19.0; extra == "dev"
 Requires-Dist: pycln==2.1.1; extra == "dev"
-Requires-Dist: pytest==7.1.2; extra == "dev"
-Requires-Dist: pytest-xdist==2.5.0; extra == "dev"
+Requires-Dist: pytest==8.4.2; python_version < "3.10" and extra == "dev"
+Requires-Dist: pytest==9.0.3; python_version >= "3.10" and extra == "dev"
+Requires-Dist: pytest-xdist==3.8.0; extra == "dev"
 Requires-Dist: yapf==0.32.0; extra == "dev"
 Dynamic: author
 Dynamic: author-email
@@ -239,7 +244,7 @@ def make_data():
 @dsl.pipeline
 def my_pipeline():
     task1 = make_data()
-    # note that the created pvc will be autoamatically cleaned up once pod disappeared and cannot be shared between pods
+    # note that the created pvc will be automatically cleaned up once pod disappeared and cannot be shared between pods
     kubernetes.add_ephemeral_volume(
         task1,
         volume_name="my-pvc",
@@ -275,7 +280,7 @@ def my_pipeline():
     )
 ```
 
-### Kubernetes Field: Use Kubernetes Field Path as enviornment variable
+### Kubernetes Field: Use Kubernetes Field Path as environment variable
 ```python
 from kfp import dsl
 from kfp import kubernetes

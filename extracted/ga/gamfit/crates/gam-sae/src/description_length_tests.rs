@@ -4,11 +4,247 @@
 
 use super::{
     Crossover, DescriptionLength, Featurizer, ScoreRow, bar_birth_threshold_nats,
-    bar_supports_birth, circle_coding_gain_bits, circle_shape_const_bits, crossover_firings,
-    curved_coding_gain_bits, evidence_per_log_persistence, kappa_coding_gain_detector,
-    reverse_water_filling, scalar_rate_bits, score, selection_bits,
+    bar_supports_birth, circle_chart_columns, circle_coding_gain_bits, circle_shape_const_bits,
+    crossover_firings, curved_coding_gain_bits, evidence_per_log_persistence,
+    kappa_coding_gain_detector, manifold_fit_description_length, matched_dl, matched_dl_delta,
+    reverse_water_filling, scalar_rate_bits, score, se_resolution_bits, selection_bits,
+    uniform_unit_range_sd,
 };
 use crate::atom_codes::SparseAtomCodes;
+
+#[test]
+fn manifold_fit_dl_decomposes_and_sums_to_total() {
+    // ev=0.9 ⇒ per-coordinate rate ½·log₂(1/0.1). k̄=4 firings of d̄=1 coord over
+    // N=1000 tokens, G=32 atoms, 96 decoder scalars at the distortion-matched
+    // precision (l_param defaults to the coordinate rate).
+    let dl = manifold_fit_description_length(0.9, 1000, 4.0, 1.0, 32, 96, None);
+    let rate = scalar_rate_bits(1.0, 0.1);
+    assert!((dl.coordinate_rate_bits - rate).abs() < 1e-12);
+    assert!((dl.l_param_bits - rate).abs() < 1e-12, "default l_param = code rate");
+
+    // Code = k̄·d̄·rate per token; selection = log₂ C(32, 4) per token.
+    assert!((dl.code_bits_per_token - 4.0 * rate).abs() < 1e-12);
+    assert!((dl.selection_bits_per_token - selection_bits(32, 4)).abs() < 1e-12);
+
+    // Corpus totals and per-token accounting reconcile with the parts.
+    assert!((dl.code_bits - 1000.0 * dl.code_bits_per_token).abs() < 1e-9);
+    assert!((dl.selection_bits - 1000.0 * dl.selection_bits_per_token).abs() < 1e-9);
+    assert!((dl.dict_bits - 96.0 * rate).abs() < 1e-12);
+    let total = dl.code_bits + dl.selection_bits + dl.dict_bits;
+    assert!((dl.total_bits - total).abs() < 1e-9, "ledgers must sum to the total");
+    assert!((dl.bits_per_token - dl.total_bits / 1000.0).abs() < 1e-9);
+    assert!(
+        (dl.dict_bits_per_token - dl.dict_bits / 1000.0).abs() < 1e-9,
+        "dictionary bits are amortised across the corpus"
+    );
+}
+
+#[test]
+fn manifold_fit_dl_code_rate_rises_with_explained_variance() {
+    // The honest rate–distortion signature the matched-EV number hides: a higher
+    // EV means a finer distortion floor, so each coordinate costs MORE code bits.
+    let lo = manifold_fit_description_length(0.5, 500, 3.0, 1.0, 64, 64, None);
+    let hi = manifold_fit_description_length(0.95, 500, 3.0, 1.0, 64, 64, None);
+    assert!(
+        hi.coordinate_rate_bits > lo.coordinate_rate_bits,
+        "higher EV must cost more per-coordinate bits: {} !> {}",
+        hi.coordinate_rate_bits,
+        lo.coordinate_rate_bits
+    );
+    assert!(hi.code_bits_per_token > lo.code_bits_per_token);
+}
+
+#[test]
+fn manifold_fit_dl_saturated_ev_stays_finite() {
+    // ev == 1 would drive the rate to +∞; the (1−ev) floor keeps it large but
+    // finite so a report never prints an infinity.
+    let dl = manifold_fit_description_length(1.0, 10, 1.0, 1.0, 8, 8, None);
+    assert!(dl.bits_per_token.is_finite());
+    assert!(dl.coordinate_rate_bits.is_finite() && dl.coordinate_rate_bits > 0.0);
+}
+
+#[test]
+fn manifold_fit_dl_explicit_l_param_overrides_default() {
+    // Passing fp16 precision (16 bits/scalar) must be used verbatim for the
+    // dictionary charge instead of the distortion-matched default.
+    let dl = manifold_fit_description_length(0.8, 100, 2.0, 1.0, 16, 50, Some(16.0));
+    assert!((dl.l_param_bits - 16.0).abs() < 1e-12);
+    assert!((dl.dict_bits - 50.0 * 16.0).abs() < 1e-9);
+}
+
+#[test]
+fn se_resolution_bits_is_the_uniform_quantization_cost() {
+    // The closed form ½·log₂(1/(12·SE²)): a coordinate known to SE = 0.01 on a unit
+    // range costs exactly −½·log₂(12·0.01²) bits.
+    let se = 0.01;
+    let got = se_resolution_bits(se);
+    let expected = -0.5 * (12.0 * se * se).log2();
+    assert!((got - expected).abs() < 1e-12, "got {got} expected {expected}");
+    assert!(got > 0.0, "a well-localized coordinate must carry positive bits");
+    // At the uniform-prior ceiling SE = 1/√12 the cost is exactly 0 (no info beyond
+    // the U(0,1) prior); above it, still 0 (floored).
+    let ceil = uniform_unit_range_sd();
+    assert!(se_resolution_bits(ceil).abs() < 1e-12, "ceiling SE must cost 0 bits");
+    assert_eq!(se_resolution_bits(2.0 * ceil), 0.0, "above-ceiling SE costs 0 bits");
+    // Halving SE adds exactly one bit (a factor-2 finer resolution).
+    let d = se_resolution_bits(se / 2.0) - se_resolution_bits(se);
+    assert!((d - 1.0).abs() < 1e-12, "halving SE must add exactly 1 bit, got {d}");
+}
+
+#[test]
+fn matched_dl_planted_circle_gives_closed_form_bit_count() {
+    // A planted circle chart of known harmonic order H fired f times, each firing at
+    // a known coordinate SE, in ambient p, at l_param bits/scalar. The matched
+    // description length must equal the hand-computed closed form exactly:
+    //   total = (2H+1)·p·l_param  +  f · ½log₂(1/(12·SE²)).
+    let h = 3usize; // harmonic order
+    let p = 64i64; // ambient dim
+    let l_param = 4.0; // bits per stored scalar
+    let se = 0.02; // per-firing coordinate SE (σ/(2π‖z‖))
+    let f = 250usize; // firings
+    let columns = circle_chart_columns(h);
+    assert_eq!(columns, 7, "2H+1 = 7 for H=3");
+
+    let ses = vec![se; f];
+    let ev = 0.4;
+    // A circle chart transmits ONE phase coordinate per firing.
+    let dl = matched_dl(columns, 1, p, l_param, &ses, ev);
+
+    let expected_param = 7.0 * 64.0 * 4.0;
+    let expected_coding = f as f64 * (-0.5 * (12.0 * se * se).log2());
+    let expected_total = expected_param + expected_coding;
+    assert!(
+        (dl.param_bits - expected_param).abs() < 1e-9,
+        "param bits {} vs {expected_param}",
+        dl.param_bits
+    );
+    assert!(
+        (dl.coding_bits - expected_coding).abs() < 1e-6,
+        "coding bits {} vs {expected_coding}",
+        dl.coding_bits
+    );
+    assert!(
+        (dl.total_dl_bits - expected_total).abs() < 1e-6,
+        "total DL bits {} vs {expected_total}",
+        dl.total_dl_bits
+    );
+    assert_eq!(dl.n_firings, f as i64);
+    assert!((dl.dl_per_ev - expected_total / ev).abs() < 1e-6);
+
+    // Matched-DL delta vs the flat / line atom (1 column, 1 amplitude per firing at
+    // the SAME SE): both arms transmit ONE scalar per firing at the same SE so the
+    // coding bits cancel, and the curved chart pays 2H extra columns of parameter
+    // charge — at large p the flat atom is the shorter code here (delta < 0 — the
+    // honest "curvature doesn't pay at these firings" verdict). This is the
+    // primitive's equal-SE behavior; the real per-arm phase-vs-amplitude SE
+    // distinction (the 2π factor) is pinned in
+    // `matched_dl_per_arm_phase_vs_amplitude_rate_removes_pro_chart_bias`.
+    let flat = matched_dl(1, 1, p, l_param, &ses, ev);
+    let delta = matched_dl_delta(&flat, &dl);
+    let expected_delta = flat.total_dl_bits - dl.total_dl_bits;
+    assert!((delta - expected_delta).abs() < 1e-9);
+    assert!(
+        (delta - (1.0 - 7.0) * 64.0 * 4.0).abs() < 1e-6,
+        "delta must be the pure param-column difference (coding bits cancel): {delta}"
+    );
+    assert!(delta < 0.0, "flat cheaper than a 7-column chart at equal firings");
+
+    // The code-economy axis: a b=4 flat BLOCK transmits 4 coefficients per firing
+    // where the chart transmits 1, so the block pays 3·Σ bits(SE) extra coding
+    // bits — enough firings and the chart wins on code economy alone even against
+    // a cheaper dictionary.
+    let block = matched_dl(4, 4, p, l_param, &ses, ev);
+    let per_firing_bits = -0.5 * (12.0 * se * se).log2();
+    assert!(
+        (block.coding_bits - 4.0 * f as f64 * per_firing_bits).abs() < 1e-6,
+        "block codes 4 scalars per firing: {}",
+        block.coding_bits
+    );
+    let economy_delta = matched_dl_delta(&block, &dl);
+    let expected_economy = (4.0 - 7.0) * 64.0 * 4.0 + 3.0 * f as f64 * per_firing_bits;
+    assert!(
+        (economy_delta - expected_economy).abs() < 1e-6,
+        "delta = param-column difference + per-firing economy: {economy_delta} vs {expected_economy}"
+    );
+    assert!(
+        economy_delta > 0.0,
+        "at 250 firings the chart's per-firing economy beats its extra columns"
+    );
+}
+
+#[test]
+fn matched_dl_per_arm_phase_vs_amplitude_rate_removes_pro_chart_bias() {
+    use std::f64::consts::TAU;
+    // The S5 fix: a circle chart codes ONE phase per firing at the phase SE
+    // σ̂/(2π‖z‖); a flat b-block codes b AMPLITUDES per firing at the amplitude SE
+    // σ̂/‖z‖ = 2π·SE_phase. Pricing the flat amplitudes at the finer PHASE SE (the
+    // old shared-list arithmetic) overcharged the flat arm by log₂(2π) bits per
+    // coded scalar — a pro-chart bias. Pin the corrected closed form and the SIGN
+    // of the correction relative to the biased delta.
+    let p = 64i64;
+    let l_param = 3.0;
+    let b = 4i64; // flat block coordinates per firing
+    let f = 200usize; // firings
+    let ev = 0.5;
+    let sigma = 0.3; // radial scatter σ̂
+    let radius = 2.0; // firing radius ‖z‖ (constant ⇒ a clean closed form)
+    let se_phase = sigma / (TAU * radius); // σ̂/(2π‖z‖)
+    let se_amp = sigma / radius; // σ̂/‖z‖ = 2π·SE_phase
+    assert!((se_amp - TAU * se_phase).abs() < 1e-12);
+
+    let phase_ses = vec![se_phase; f];
+    let amp_ses = vec![se_amp; f];
+
+    // Corrected arms: flat codes its b amplitudes at SE_amp, chart its 1 phase at
+    // SE_phase — each at its OWN resolution.
+    let flat = matched_dl(b, b, p, l_param, &amp_ses, ev);
+    let chart = matched_dl(1, 1, p, l_param, &phase_ses, ev);
+
+    let phase_bits = se_resolution_bits(se_phase);
+    let amp_bits = se_resolution_bits(se_amp);
+    // Closed form: coding = coords_per_firing · f · se_resolution_bits(SE).
+    assert!(
+        (flat.coding_bits - b as f64 * f as f64 * amp_bits).abs() < 1e-6,
+        "flat codes b amplitudes at the amplitude SE: {}",
+        flat.coding_bits
+    );
+    assert!(
+        (chart.coding_bits - f as f64 * phase_bits).abs() < 1e-6,
+        "chart codes 1 phase at the phase SE: {}",
+        chart.coding_bits
+    );
+    // The per-coordinate phase↔amplitude gap is EXACTLY log₂(2π): the phase, read
+    // over the circumference 2π‖z‖, resolves 2π finer than an amplitude over ‖z‖.
+    assert!(
+        (phase_bits - amp_bits - TAU.log2()).abs() < 1e-9,
+        "phase SE is 2π finer than amplitude SE ⇒ log₂(2π) more bits per coordinate"
+    );
+
+    let corrected_delta = matched_dl_delta(&flat, &chart); // flat − chart, bits
+
+    // The OLD biased arithmetic priced the flat amplitudes at the PHASE SE too.
+    let flat_biased = matched_dl(b, b, p, l_param, &phase_ses, ev);
+    let biased_delta = matched_dl_delta(&flat_biased, &chart);
+
+    // Sign of the correction: matched_dl_delta = flat − chart (positive ⇒ chart is
+    // the shorter code). Overcharging the flat amplitudes inflated flat.total, which
+    // inflated flat − chart — i.e. OVERSTATED the chart's advantage. Coding each
+    // amplitude at its own (coarser) SE removes exactly b·f·log₂(2π) bits from the
+    // flat arm, so the corrected delta is LOWER by that bias.
+    let removed_bias = b as f64 * f as f64 * TAU.log2();
+    assert!(
+        (corrected_delta - (biased_delta - removed_bias)).abs() < 1e-6,
+        "corrected delta must drop by the removed bias: {corrected_delta} vs {}",
+        biased_delta - removed_bias
+    );
+    assert!(
+        corrected_delta < biased_delta,
+        "the correction removes a PRO-CHART bias, so flat − chart must DROP: {corrected_delta} !< {biased_delta}"
+    );
+    // Parameter-column ledger is untouched by the coding-rate correction.
+    assert!((flat.param_bits - b as f64 * p as f64 * l_param).abs() < 1e-9);
+    assert!((chart.param_bits - 1.0 * p as f64 * l_param).abs() < 1e-9);
+}
 
 #[test]
 fn circle_gain_matches_closed_form() {

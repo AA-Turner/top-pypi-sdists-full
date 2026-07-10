@@ -269,6 +269,32 @@ fn emit_stagewise_progress(
     progress: &mut Option<&mut StagewiseProgressCallback<'_>>,
     event: StagewiseProgress<'_>,
 ) -> Result<(), String> {
+    // Birth-round OUTCOMES are additionally logged at the default-visible level
+    // (the same grade the #1026 incumbent-restore and shape-uncertainty
+    // fallback lines use; the crate's default filter is Warn): a stagewise fit
+    // on real data is a multi-hour loop of exactly `births + rejections` such
+    // events, and a driver that wires no progress callback (the pyffi
+    // `sae_manifold_fit_stagewise` path) was LOG-SILENT for the whole fit — a
+    // 7 h T2 circle run produced zero lines, so a live fit was
+    // indistinguishable from a hang. Cadence is bounded by `max_births + 2`
+    // per fit, so this is not a per-row/per-iteration hot-path log.
+    match event.event {
+        StagewiseEventKind::BirthAccepted | StagewiseEventKind::BirthRejected => {
+            let fmt = |v: Option<f64>| v.map_or_else(|| "-".to_string(), |x| format!("{x:.4}"));
+            log::warn!(
+                "[stagewise] birth round {} {:?}: K={} accepted={} rejected={} ev={} reml {} -> {}",
+                event.birth_round,
+                event.event,
+                event.k_atoms,
+                event.births_accepted,
+                event.births_rejected,
+                fmt(event.ev),
+                fmt(event.joint_reml_before),
+                fmt(event.joint_reml_after),
+            );
+        }
+        _ => {}
+    }
     if let Some(callback) = progress.as_deref_mut() {
         callback(event)?;
     }
@@ -286,6 +312,40 @@ fn current_residual(
 /// Frozen (`inner_max_iter == 0`, the #850 freeze) joint REML criterion of a term
 /// at its current `(t, β)` — evaluate-don't-optimize. This is the joint-Laplace
 /// evidence at a fixed converged state (`loss.total() + extra penalties + ½
+
+/// Refresh the structured per-row metric on the FINAL residual before a
+/// terminal frozen joint evidence: the birth loop installs Σ⁻¹ fitted BEFORE
+/// each birth, so after the last accepted birth the installed metric still
+/// describes the PREVIOUS dictionary's residual. Scoring the terminal composed
+/// tier under that stale Σ prices the data term as ½·R_{t+1}ᵀ·M_t·R_{t+1};
+/// the stated convention is the running covariance of the residual actually
+/// being scored. No-op when structured whitening is off or the final residual
+/// carries no factor structure.
+fn refresh_terminal_row_metric(
+    term: &mut SaeManifoldTerm,
+    target: ArrayView2<'_, f64>,
+    config: &StagewiseConfig,
+) -> Result<(), String> {
+    if !config.structured_whitening {
+        return Ok(());
+    }
+    let residual = current_residual(term, target)?;
+    match fit_residual_covariance_on(term, residual, config) {
+        Ok(Some((_, model))) => term.set_row_metric(model.row_metric(target.nrows())?)?,
+        // No factor structure left in the final residual — nothing to refresh.
+        Ok(None) => {}
+        // A DEGENERATE final residual (e.g. a fully-explained target leaves
+        // R ≈ 0, whose factor solve hits a non-PD pivot) is the same
+        // nothing-to-refresh case, not a fit failure: keep the running metric
+        // the last birth installed rather than aborting a converged fit at the
+        // terminal bookkeeping step.
+        Err(err) => {
+            log::debug!("stagewise terminal Σ refresh skipped (degenerate final residual): {err}");
+        }
+    }
+    Ok(())
+}
+
 /// log|H| − Occam`), the quantity the birth evidence gate and the terminal
 /// assembly compare on. Lower is better evidence.
 pub fn frozen_joint_evidence(
@@ -325,14 +385,20 @@ fn activity_of(term: &SaeManifoldTerm) -> Array1<f64> {
     (0..n).map(|r| assignments.row(r).sum()).collect()
 }
 
-/// Fit the running structured residual-covariance `Σ` on `R = target − fitted`.
-/// Returns `None` when the residual is empty/single-channel (no factor subspace).
-fn fit_residual_covariance(
+/// Fit the running structured residual-covariance `Σ` on an ALREADY-COMPUTED
+/// residual — the pooled `R = target − fitted` or a stratum-local masked `R`.
+/// Returns `None` when the residual is empty/single-channel (no factor
+/// subspace). The stagewise loop computes the pooled residual once, applies the
+/// [`stratum_local_birth_residual`] screen, and mines whichever residual clears
+/// the router floor — but the factor fit and per-row activity are otherwise
+/// identical, so this is the shared body. (The unscreened pooled path lives on
+/// only as the `fit_residual_covariance` oracle in the `tests` module, which the
+/// stratum-local tests compare against.)
+fn fit_residual_covariance_on(
     term: &SaeManifoldTerm,
-    target: ArrayView2<'_, f64>,
+    residual: Array2<f64>,
     config: &StagewiseConfig,
 ) -> Result<Option<(Array2<f64>, StructuredResidualModel)>, String> {
-    let residual = current_residual(term, target)?;
     let (n, p) = residual.dim();
     if n == 0 || p < 2 {
         return Ok(None);
@@ -346,6 +412,44 @@ fn fit_residual_covariance(
     })
     .map(|model| Some((residual, model)))
     .map_err(|err| format!("fit_residual_covariance: structured residual fit failed: {err}"))
+}
+
+/// The residual the next birth should be mined on, chosen by the routing floor.
+///
+/// #P3 — stratum-local births. Compute the pooled residual `R = target − fitted`,
+/// then screen it with [`stratum_local_birth_residual`] against the router floor
+/// `routability_floor(p, K, 1, 1)` at `K = k_atoms + max_births` (the widest this run
+/// can grow — derived, no new knob). If a rare high-residual STRATUM carries a
+/// dominant direction whose LOCAL own-subspace energy fraction clears the floor while
+/// the POOLED fraction does NOT, mine the birth on that stratum's rows (the masked
+/// residual); the diffuse structure that sits below the floor on the pooled residual
+/// by construction is then reachable. When the pooled residual already routes (small
+/// `K`, or a globally dominant direction) the screen changes nothing — the pooled
+/// residual is mined, bit-for-bit as before.
+fn birth_mining_residual(term: &SaeManifoldTerm, target: ArrayView2<'_, f64>, config: &StagewiseConfig) -> Result<Array2<f64>, String> {
+    let pooled = current_residual(term, target)?;
+    let (n, p) = pooled.dim();
+    if n == 0 || p < 2 {
+        return Ok(pooled);
+    }
+    // Router width the eventual dictionary competes at: the current atoms plus the
+    // remaining birth budget (the widest this run reaches). `max(2)` keeps the
+    // union-bound log well defined for the very first birth off a single seed.
+    let k_router = (term.k_atoms() + config.max_births).max(2);
+    let floor = crate::routability::routability_floor(p, k_router, 1, 1.0);
+    let min_routable = crate::routability::minimum_routable_energy(&floor);
+    // Only re-target when the POOLED birth would actually fail the floor: if the
+    // pooled dominant direction already clears it, the historical pooled path is
+    // kept unchanged (no behavior change where births already routed).
+    let all_rows: Vec<usize> = (0..n).collect();
+    let pooled_fraction = dominant_energy_fraction(pooled.view(), &all_rows);
+    if pooled_fraction >= min_routable {
+        return Ok(pooled);
+    }
+    match stratum_local_birth_residual(pooled.view(), &floor) {
+        Some(pick) => Ok(pick.masked_residual),
+        None => Ok(pooled),
+    }
 }
 
 fn fit_single_atom_response_in_place(
@@ -1042,7 +1146,16 @@ pub fn fit_stagewise(
         // Certified circle residuals are tried first on this freshly-deflated
         // residual. If no circle certifies, use the anchor-scored shared-factor
         // seed, then the #2080 residual-principal rank-1 fallback.
-        let Some((residual, model)) = fit_residual_covariance(&term, target, config)? else {
+        //
+        // #P3 — the mined residual is STRATUM-LOCAL: if the pooled residual's
+        // dominant direction sits below the router floor (diffuse structure invisible
+        // to any width-p gate on the pooled average) but a rare high-residual stratum
+        // carries it above the floor locally, mine the birth on that stratum's rows.
+        // `birth_mining_residual` returns the pooled residual unchanged whenever the
+        // pooled birth already routes, so small-K behavior is untouched.
+        let mining_residual = birth_mining_residual(&term, target, config)?;
+        let Some((residual, model)) = fit_residual_covariance_on(&term, mining_residual, config)?
+        else {
             break StagewiseStop::NoResidualStructure;
         };
         let seed = if let Some(seed) = isa_birth_seed_batch(&term, residual.view(), 1)?
@@ -1540,6 +1653,7 @@ pub fn fit_stagewise(
     }
 
     // ── Phase 3 — terminal frozen joint evidence of the composed tier ──────────
+    refresh_terminal_row_metric(&mut term, target, config)?;
     let (terminal_joint_reml, terminal_joint_loss) =
         frozen_joint_evidence(&mut term, target, &rho, registry, config)?;
 
@@ -1985,7 +2099,13 @@ pub fn fit_stagewise_batched(
         if consecutive_reject_rounds >= 2 {
             break StagewiseStop::TwoConsecutiveRejections;
         }
-        let Some((residual, model)) = fit_residual_covariance(&term, target, base)? else {
+        // #P3 — stratum-local mining (see `birth_mining_residual`): the batched round
+        // harvests its candidate planes from the SAME floor-cleared residual the
+        // serial loop mines, so a diffuse tail structure below the pooled floor is
+        // reachable here too. Pooled residual unchanged when it already routes.
+        let mining_residual = birth_mining_residual(&term, target, base)?;
+        let Some((residual, model)) = fit_residual_covariance_on(&term, mining_residual, base)?
+        else {
             break StagewiseStop::NoResidualStructure;
         };
         if base.structured_whitening {
@@ -2131,6 +2251,7 @@ pub fn fit_stagewise_batched(
     }
 
     // ── Phase 3 — terminal frozen joint evidence of the composed tier ───────────
+    refresh_terminal_row_metric(&mut term, target, base)?;
     let (terminal_joint_reml, terminal_joint_loss) =
         frozen_joint_evidence(&mut term, target, &rho, registry, base)?;
     term.set_guards_enabled(true);
@@ -2192,6 +2313,19 @@ mod tests {
         AssignmentMode, PeriodicHarmonicEvaluator, SaeAssignment, SaeAtomBasisKind,
         SaeBasisEvaluator, SaeManifoldAtom,
     };
+
+    /// Unscreened pooled-residual covariance oracle: `Σ` fit on the full
+    /// `R = target − fitted` with no stratum-local floor screen. Production
+    /// routes through [`birth_mining_residual`]; the stratum-local tests use
+    /// this as the comparison oracle.
+    fn fit_residual_covariance(
+        term: &SaeManifoldTerm,
+        target: ArrayView2<'_, f64>,
+        config: &StagewiseConfig,
+    ) -> Result<Option<(Array2<f64>, StructuredResidualModel)>, String> {
+        let residual = current_residual(term, target)?;
+        fit_residual_covariance_on(term, residual, config)
+    }
     use gam_terms::latent::LatentManifold;
     use ndarray::Array2;
     use std::sync::Arc;

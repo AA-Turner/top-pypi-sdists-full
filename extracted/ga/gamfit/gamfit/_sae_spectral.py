@@ -118,6 +118,123 @@ def dimension_spectrometer(
 
 
 # --------------------------------------------------------------------------- #
+# Tiered SAE fit (#2023)
+# --------------------------------------------------------------------------- #
+# Unified-ledger move kind legend for ``TieredFitResult.ledger_move_kind``.
+SAE_MOVE_BIRTH = 0
+SAE_MOVE_DEATH = 1
+SAE_MOVE_REFUSE = 2
+# Ladder-stage legend for ``TieredFitResult.ledger_move_stage``.
+SAE_STAGE_RESIDUAL = 0
+SAE_STAGE_LINEAR = 1
+SAE_STAGE_CURVED = 2
+# Birth-seed legend for ``TieredFitResult.ledger_move_seed`` (``-1`` non-birth).
+SAE_SEED_RESIDUAL_FACTOR = 0
+SAE_SEED_LINEAR_ATOM = 1
+SAE_SEED_CURVED_CHART = 2
+SAE_SEED_PRINCIPAL_COMPONENT = 3
+
+
+@dataclass(frozen=True)
+class TieredFitResult:
+    """End-to-end tiered SAE fit: Tier-0 mean, Tier-1 block-sparse linear bulk,
+    Tier-2 curved co-fit on the Tier-1 residual, and the unified migration ledger.
+
+    ``ledger_move_kind`` uses the ``SAE_MOVE_*`` legend (``0`` birth, ``1`` death,
+    ``2`` refuse), ``ledger_move_stage`` the ``SAE_STAGE_*`` legend (``0``
+    residual, ``1`` linear, ``2`` curved), and ``ledger_move_seed`` the
+    ``SAE_SEED_*`` legend for births (``-1`` for non-births); a
+    ``ledger_move_round`` of ``-1`` marks the Tier-1 structural death tally.
+    ``ledger_pc_reseed_events`` is ``0`` by construction on this path (the curved
+    tier seeds from the Tier-1 routing / residual, never principal components).
+    """
+
+    explained_variance: float
+    tier0_mean: np.ndarray
+    tier1_decoder: np.ndarray
+    tier1_blocks: np.ndarray
+    tier1_gamma: float
+    tier1_block_utilization: np.ndarray
+    tier1_explained_variance: float
+    tier1_epochs: int
+    tier1_converged: bool
+    tier2_enabled: bool
+    tier2_explained_variance: float
+    tier2_n_rounds: int
+    tier2_n_accepted_charts: int
+    ledger_pc_reseed_events: int
+    ledger_n_births: int
+    ledger_n_deaths: int
+    ledger_n_refusals: int
+    ledger_move_kind: np.ndarray
+    ledger_move_stage: np.ndarray
+    ledger_move_seed: np.ndarray
+    ledger_move_round: np.ndarray
+    ledger_move_count: np.ndarray
+    ledger_move_dl_bits: np.ndarray
+    ledger_move_reml_delta: np.ndarray
+    ledger_move_rank_charge: np.ndarray
+    ledger_move_objective: np.ndarray
+
+
+def sae_manifold_fit_tiered(
+    data: Any,
+    *,
+    n_blocks: int,
+    block_size: int = 2,
+    block_topk: int = 1,
+    max_epochs: int = 30,
+    tier2_enabled: bool = True,
+    cofit_max_rounds: int = 6,
+    cofit_rel_tol: float = 1.0e-4,
+    cofit_code_ridge: float = 1.0e-6,
+) -> TieredFitResult:
+    """Fit the tiered decomposition (#2023): Tier-0 mean peel → Tier-1
+    block-sparse linear bulk → Tier-2 curved co-fit on the Tier-1 residual, with
+    a migration ledger that replaces principal-component reseeding."""
+    x = _as_2d_f32(data, "data")
+    payload = rust_module().sae_manifold_fit_tiered(
+        x,
+        n_blocks,
+        block_size,
+        block_topk,
+        max_epochs,
+        tier2_enabled,
+        cofit_max_rounds,
+        cofit_rel_tol,
+        cofit_code_ridge,
+    )
+    return TieredFitResult(
+        explained_variance=float(payload["explained_variance"]),
+        tier0_mean=np.asarray(payload["tier0_mean"]),
+        tier1_decoder=np.asarray(payload["tier1_decoder"]),
+        tier1_blocks=np.asarray(payload["tier1_blocks"]),
+        tier1_gamma=float(payload["tier1_gamma"]),
+        tier1_block_utilization=np.asarray(payload["tier1_block_utilization"]),
+        tier1_explained_variance=float(payload["tier1_explained_variance"]),
+        tier1_epochs=int(payload["tier1_epochs"]),
+        tier1_converged=bool(payload["tier1_converged"]),
+        tier2_enabled=bool(payload["tier2_enabled"]),
+        tier2_explained_variance=float(payload["tier2_explained_variance"]),
+        tier2_n_rounds=int(payload["tier2_n_rounds"]),
+        tier2_n_accepted_charts=int(payload["tier2_n_accepted_charts"]),
+        ledger_pc_reseed_events=int(payload["ledger_pc_reseed_events"]),
+        ledger_n_births=int(payload["ledger_n_births"]),
+        ledger_n_deaths=int(payload["ledger_n_deaths"]),
+        ledger_n_refusals=int(payload["ledger_n_refusals"]),
+        ledger_move_kind=np.asarray(payload["ledger_move_kind"]),
+        ledger_move_stage=np.asarray(payload["ledger_move_stage"]),
+        ledger_move_seed=np.asarray(payload["ledger_move_seed"]),
+        ledger_move_round=np.asarray(payload["ledger_move_round"]),
+        ledger_move_count=np.asarray(payload["ledger_move_count"]),
+        ledger_move_dl_bits=np.asarray(payload["ledger_move_dl_bits"]),
+        ledger_move_reml_delta=np.asarray(payload["ledger_move_reml_delta"]),
+        ledger_move_rank_charge=np.asarray(payload["ledger_move_rank_charge"]),
+        ledger_move_objective=np.asarray(payload["ledger_move_objective"]),
+    )
+
+
+# --------------------------------------------------------------------------- #
 # Block-firing circle coordinates
 # --------------------------------------------------------------------------- #
 @dataclass(frozen=True)
@@ -439,25 +556,147 @@ def audit_sae(
         cod,
         acts,
         rw_cod,
-        active,
-        block_size,
-        block_topk,
-        delta,
-        q_levels,
-        max_candidates,
-        blocks,
-        activation_threshold,
-        max_absorption_pairs,
-        theta_in,
-        theta_out,
-        transport_layer_from,
-        transport_layer_to,
+        {
+            "active": active,
+            "block_size": block_size,
+            "block_topk": block_topk,
+            "delta": delta,
+            "quantile_levels": q_levels,
+            "max_candidates": max_candidates,
+            "coordinate_blocks": blocks,
+            "activation_threshold": activation_threshold,
+            "max_absorption_pairs": max_absorption_pairs,
+            "transport_theta_in": theta_in,
+            "transport_theta_out": theta_out,
+            "transport_layer_from": transport_layer_from,
+            "transport_layer_to": transport_layer_to,
+        },
     )
     report = dict(payload)
     report["checkpoint"] = checkpoint_meta
     report["route_source"] = route_meta
     report["api"] = "gamfit.audit_sae"
     return report
+
+
+# --------------------------------------------------------------------------- #
+# SAEBench manifold-native metrics (chart-interp, dose-response, posterior)
+# --------------------------------------------------------------------------- #
+@dataclass(frozen=True)
+class ChartInterpReport:
+    """Orientation-quotiented weighted cyclic phase-lock of a recovered chart
+    coordinate against ground-truth cyclic labels (#1942 chart-interp metric).
+
+    ``circular_correlation`` is the ``[0, 1]`` phase-lock after quotienting
+    orientation; ``signed_circular_correlation`` keeps the sign (negative when
+    the recovered coordinate runs backwards relative to the labels);
+    ``effective_weight`` is the accepted posterior/evidence weight mass.
+    """
+
+    circular_correlation: float
+    signed_circular_correlation: float
+    effective_weight: float
+
+
+def chart_interp_score(
+    observations: list[tuple[float, float, float]],
+) -> ChartInterpReport:
+    """Score chart-coordinate interpretability against cyclic labels.
+
+    ``observations`` are ``(recovered_turns, label_turns, weight)`` triples: the
+    recovered chart coordinate and its ground-truth cyclic label, both in turns
+    (wrapped modulo one), and a non-negative posterior/evidence weight. All
+    scoring is the audited Rust ``chart_interp_score`` definition."""
+    payload = rust_module().chart_interp_score(
+        [(float(t), float(y), float(w)) for t, y, w in observations]
+    )
+    return ChartInterpReport(
+        circular_correlation=float(payload["circular_correlation"]),
+        signed_circular_correlation=float(payload["signed_circular_correlation"]),
+        effective_weight=float(payload["effective_weight"]),
+    )
+
+
+@dataclass(frozen=True)
+class DoseResponseCalibrationReport:
+    """Output-Fisher dose-response calibration ledger (#1942 dose-response
+    metric).
+
+    ``slope_through_origin`` is the no-intercept weighted least-squares slope of
+    measured nats on predicted output-Fisher nats and ``r2_through_origin`` its
+    weighted R²; ``mean_measured_nats_per_arc`` / ``cv_measured_nats_per_arc``
+    are the weighted mean and coefficient of variation of measured nats per unit
+    arc-length — the unit-speed constancy kill-test.
+    """
+
+    slope_through_origin: float
+    r2_through_origin: float
+    mean_measured_nats_per_arc: float
+    cv_measured_nats_per_arc: float
+    effective_weight: float
+
+
+def dose_response_calibration(
+    observations: list[tuple[float, float, float, float]],
+) -> DoseResponseCalibrationReport:
+    """Fit the dose-response calibration ledger along a steered arc.
+
+    ``observations`` are ``(arc_length, predicted_nats, measured_nats, weight)``
+    rows: the unit-speed path coordinate, the local output-Fisher prediction in
+    nats, the measured KL/behaviour change in nats, and a non-negative weight.
+    All scoring is the audited Rust ``dose_response_calibration`` definition."""
+    payload = rust_module().dose_response_calibration(
+        [
+            (float(s), float(p), float(m), float(w))
+            for s, p, m, w in observations
+        ]
+    )
+    return DoseResponseCalibrationReport(
+        slope_through_origin=float(payload["slope_through_origin"]),
+        r2_through_origin=float(payload["r2_through_origin"]),
+        mean_measured_nats_per_arc=float(payload["mean_measured_nats_per_arc"]),
+        cv_measured_nats_per_arc=float(payload["cv_measured_nats_per_arc"]),
+        effective_weight=float(payload["effective_weight"]),
+    )
+
+
+@dataclass(frozen=True)
+class CoordinatePosterior:
+    """Per-coordinate Gaussian posterior inverted from a row-Hessian precision
+    block the arrow solve already factors (#1942 posterior enabler).
+
+    ``covariance_diag`` is the diagonal of the inverse-precision covariance,
+    ``covariance_trace`` its trace, and ``precision_weight`` the evidence mass
+    ``1 / trace`` that weights both manifold-native metrics.
+    """
+
+    mean: list[float]
+    covariance_diag: list[float]
+    covariance_trace: float
+    precision_weight: float
+
+
+def coordinate_posterior_from_precision(
+    mean: Any,
+    precision_row_major: Any,
+) -> CoordinatePosterior:
+    """Invert a row-Hessian precision block into a per-coordinate posterior.
+
+    ``mean`` is the posterior mean coordinate and ``precision_row_major`` the
+    row-major ``d x d`` precision (inverse-covariance) block. The inversion and
+    trace are computed by the audited Rust
+    ``coordinate_posterior_from_precision``."""
+    mean_vec = [float(v) for v in np.asarray(mean, dtype=np.float64).ravel()]
+    precision_vec = [
+        float(v) for v in np.asarray(precision_row_major, dtype=np.float64).ravel()
+    ]
+    payload = rust_module().coordinate_posterior_from_precision(mean_vec, precision_vec)
+    return CoordinatePosterior(
+        mean=[float(v) for v in payload["mean"]],
+        covariance_diag=[float(v) for v in payload["covariance_diag"]],
+        covariance_trace=float(payload["covariance_trace"]),
+        precision_weight=float(payload["precision_weight"]),
+    )
 
 
 # --------------------------------------------------------------------------- #
@@ -547,6 +786,74 @@ def loop_holonomy(
         net_angle=float(payload["net_angle"]),
         is_trivial=bool(payload["is_trivial"]),
         angle_tolerance=float(payload["angle_tolerance"]),
+    )
+
+
+# --------------------------------------------------------------------------- #
+# Atlas nerve (Čech-nerve Betti signature over block charts)
+# --------------------------------------------------------------------------- #
+@dataclass(frozen=True)
+class AtlasNerveDiagram:
+    """Čech-nerve reduction of a block-sparse dictionary's per-block charts.
+
+    ``computed`` is False for shapes the nerve does not apply to (scalar
+    ``block_size == 1``, a width that does not divide ``K`` into >= 2 charts, or
+    more blocks than ``max_charts`` without an explicit ``blocks`` list), in which
+    case only ``reason`` is populated. When ``computed`` is True, ``betti`` is the
+    ``{b0, b1, b2}`` signature and the simplex counts / covering side describe the
+    reduced nerve complex.
+    """
+
+    computed: bool
+    reason: str | None = None
+    chart_blocks: list[int] | None = None
+    betti: dict[str, int | None] | None = None
+    n_vertices: int | None = None
+    n_edges: int | None = None
+    n_triangles: int | None = None
+    n_tetrahedra: int | None = None
+    sampled_support_size: int | None = None
+    covering_side: str | None = None
+    max_filtration: float | None = None
+    note: str | None = None
+
+
+def atlas_nerve_diagram(
+    codes: Any,
+    block_size: int,
+    *,
+    activation_threshold: float = 1.0e-6,
+    blocks: Any | None = None,
+    max_charts: int = 16,
+) -> AtlasNerveDiagram:
+    """Build the atlas-nerve Betti signature from a dense ``N x K`` block-sparse
+    code matrix, one chart per ``block_size``-wide block. Returns a report whose
+    ``computed`` flag is False (with a ``reason``) for shapes the nerve does not
+    apply to."""
+    cod = _as_2d_f32(codes, "codes")
+    block_list = None if blocks is None else [int(b) for b in blocks]
+    payload = rust_module().atlas_nerve_diagram(
+        cod, int(block_size), float(activation_threshold), block_list, int(max_charts)
+    )
+    if not bool(payload["computed"]):
+        return AtlasNerveDiagram(computed=False, reason=str(payload["reason"]))
+    betti = payload["betti"]
+    return AtlasNerveDiagram(
+        computed=True,
+        chart_blocks=[int(b) for b in payload["chart_blocks"]],
+        betti={
+            "b0": int(betti["b0"]),
+            "b1": int(betti["b1"]),
+            "b2": None if betti["b2"] is None else int(betti["b2"]),
+        },
+        n_vertices=int(payload["n_vertices"]),
+        n_edges=int(payload["n_edges"]),
+        n_triangles=int(payload["n_triangles"]),
+        n_tetrahedra=int(payload["n_tetrahedra"]),
+        sampled_support_size=int(payload["sampled_support_size"]),
+        covering_side=str(payload["covering_side"]),
+        max_filtration=float(payload["max_filtration"]),
+        note=str(payload["note"]),
     )
 
 

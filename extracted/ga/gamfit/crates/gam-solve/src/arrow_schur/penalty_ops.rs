@@ -415,6 +415,115 @@ impl BetaPenaltyOp for DensePenaltyOp {
     }
 }
 
+/// Rank-1 PSD penalty operator `scale · v vᵀ` with a SPARSE carrier `v`
+/// (nonzero on only a few atom decoder blocks). Carries the SAE separation
+/// barrier's EXACT self-concordant curvature `∂²P/∂o² · (∂o/∂B)(∂o/∂B)ᵀ` into the
+/// matrix-free / framed penalty operator (#1038), where the per-atom scalar ridge
+/// cannot represent the cross-atom rank-1 coupling: on that path the missing
+/// curvature let the dictionary co-collapse (indefinite reduced Schur → non-PD →
+/// the criterion refines forever). `scale = d2 = ∂²P/∂o² ≥ 0` on the gated
+/// interior ⇒ this rank-1 is PSD, so adding it to any PSD penalty op keeps the
+/// operator PD. The carrier is expressed in whatever coordinate space the operator
+/// runs in (full-`B` on the non-frames path; factored border coords on the framed
+/// path, where the full-`B` `v` is projected `v_c = Φᵀ v` before construction —
+/// still a rank-1 because `Φ` is linear).
+pub struct SparseRankOnePenaltyOp {
+    /// Full β dimension `K` of the coordinate space the carrier lives in.
+    pub k: usize,
+    /// Nonnegative curvature scale `d2 = ∂²P/∂o²`.
+    pub scale: f64,
+    /// Sparse carrier `v`: `(global_index, value)` with every `index < k`.
+    pub carrier: Vec<(usize, f64)>,
+}
+
+impl BetaPenaltyOp for SparseRankOnePenaltyOp {
+    fn dim(&self) -> usize {
+        self.k
+    }
+
+    fn matvec(&self, x: &[f64], y: &mut [f64]) {
+        // y += scale · v (vᵀ x)
+        let mut dot = 0.0_f64;
+        for &(idx, val) in &self.carrier {
+            dot += val * x[idx];
+        }
+        let s = self.scale * dot;
+        for &(idx, val) in &self.carrier {
+            y[idx] += s * val;
+        }
+    }
+
+    fn gradient(&self, beta: &[f64], out: &mut [f64]) {
+        let mut dot = 0.0_f64;
+        for &(idx, val) in &self.carrier {
+            dot += val * beta[idx];
+        }
+        let s = self.scale * dot;
+        for &(idx, val) in &self.carrier {
+            out[idx] += s * val;
+        }
+    }
+
+    fn diagonal(&self, diag: &mut [f64]) {
+        for &(idx, val) in &self.carrier {
+            diag[idx] += self.scale * val * val;
+        }
+    }
+
+    fn block(&self, id: BetaBlockId, offsets: &[Range<usize>], out: &mut Array2<f64>) {
+        // Only the intra-block sub-outer-product contributes to this block-Jacobi
+        // sub-block (the cross-block coupling is invisible to the preconditioner,
+        // exactly as for any operator with off-block entries).
+        let range = &offsets[id.0];
+        for &(gi, vi) in &self.carrier {
+            if gi < range.start || gi >= range.end {
+                continue;
+            }
+            let bi = gi - range.start;
+            for &(gj, vj) in &self.carrier {
+                if gj < range.start || gj >= range.end {
+                    continue;
+                }
+                out[[bi, gj - range.start]] += self.scale * vi * vj;
+            }
+        }
+    }
+
+    fn to_dense(&self) -> Array2<f64> {
+        let mut out = Array2::<f64>::zeros((self.k, self.k));
+        for &(gi, vi) in &self.carrier {
+            for &(gj, vj) in &self.carrier {
+                out[[gi, gj]] += self.scale * vi * vj;
+            }
+        }
+        out
+    }
+
+    fn fingerprint(&self, hasher: &mut Fingerprinter) {
+        hasher.write_str("sparse-rank-one-penalty-op-v1");
+        hasher.write_usize(self.k);
+        hasher.write_f64(self.scale);
+        hasher.write_usize(self.carrier.len());
+        for &(idx, val) in &self.carrier {
+            hasher.write_usize(idx);
+            hasher.write_f64(val);
+        }
+    }
+
+    fn row_abs_sums(&self) -> Array1<f64> {
+        // Row `gi` of `scale·v vᵀ` is `scale·v_gi·vᵀ`, so its ∞-row sum is
+        // `scale·|v_gi|·Σ_j|v_j|`. Fold the sparse carrier directly — NEVER
+        // materialize the dense `K×K` (the SAE border critical path, #1017).
+        let mut out = Array1::<f64>::zeros(self.k);
+        let abs_sum: f64 = self.carrier.iter().map(|&(_, v)| v.abs()).sum();
+        let s = self.scale * abs_sum;
+        for &(gi, vi) in &self.carrier {
+            out[gi] += s * vi.abs();
+        }
+        out
+    }
+}
+
 /// Block-local penalty operator: applies per-block penalty matrices
 /// (matching `ParameterBlockSpec` boundaries) without materialising a
 /// full `K×K` dense matrix.
@@ -968,6 +1077,122 @@ impl DeviceSaePcgData {
     /// copy with byte-for-byte identical reads (#1033).
     pub(crate) fn local_jac_shared(&self) -> Arc<[Vec<f64>]> {
         Arc::clone(&self.local_jac)
+    }
+}
+
+/// #1017/#2230 residency measurement: the host→device operand bytes that
+/// `flatten_device_sae_data` / `flatten_device_sae_frame_data` re-upload on EVERY
+/// matrix-free PCG solve (hence on every LM ridge-ladder escalation trial),
+/// broken out by category. Lets the a100 job confirm which sub-lane a real fit
+/// takes — legacy sparse (`⊗ I_p` a_phi/local_jac) vs framed dense (per-row
+/// `row_htbeta` at the factored border) — and size the transfer a base-resident
+/// frame would remove. Pure host accounting, no device contact, so it is
+/// CPU-CI testable without CUDA.
+#[derive(Clone, Debug, Default)]
+pub struct SaePcgOperandReport {
+    /// `true` when the framed dense per-row cross path is active (frame present).
+    pub framed: bool,
+    /// Border width `k` (= `beta_dim`).
+    pub beta_dim: usize,
+    /// Per-row support `a_phi`: total `(row, weight)` pairs and their bytes.
+    pub a_phi_pairs: usize,
+    pub a_phi_bytes: usize,
+    /// Per-row local Jacobians `local_jac`: total `f64` and their bytes.
+    pub local_jac_elems: usize,
+    pub local_jac_bytes: usize,
+    /// Smooth penalty factors `λ S_k`: bytes.
+    pub smooth_bytes: usize,
+    /// Sparse `G` co-occurrence blocks (legacy `⊗ I_p`): bytes.
+    pub sparse_g_bytes: usize,
+    /// Framed per-row dense cross `row_htbeta`: bytes (0 on the legacy path). This
+    /// is the 34MiB-vs-31GiB discriminator the #2230 design report flagged: a full
+    /// factored-border dense cross balloons here, a legacy fit leaves it at 0.
+    pub row_htbeta_bytes: usize,
+    /// Number of rows carrying a non-empty framed `row_htbeta` slab.
+    pub row_htbeta_rows: usize,
+    /// Framed `G_{ij} ⊗ W_{ij}` co-occurrence factors: bytes (0 on legacy).
+    pub frame_blocks_bytes: usize,
+    /// Sum of the data-category bytes above — the per-solve re-upload total.
+    pub total_bytes: usize,
+}
+
+impl std::fmt::Display for SaePcgOperandReport {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let mib = |b: usize| b as f64 / (1024.0 * 1024.0);
+        write!(
+            f,
+            "sae-pcg operand upload [{lane}]: total={total:.1}MiB k={k} \
+             a_phi={pairs}pairs/{aphi:.1}MiB local_jac={lj:.1}MiB smooth={sm:.1}MiB \
+             sparse_g={sg:.1}MiB row_htbeta={rh:.1}MiB({rhrows}rows) frame_blocks={fb:.1}MiB",
+            lane = if self.framed { "framed-dense" } else { "legacy-sparse" },
+            total = mib(self.total_bytes),
+            k = self.beta_dim,
+            pairs = self.a_phi_pairs,
+            aphi = mib(self.a_phi_bytes),
+            lj = mib(self.local_jac_bytes),
+            sm = mib(self.smooth_bytes),
+            sg = mib(self.sparse_g_bytes),
+            rh = mib(self.row_htbeta_bytes),
+            rhrows = self.row_htbeta_rows,
+            fb = mib(self.frame_blocks_bytes),
+        )
+    }
+}
+
+impl DeviceSaePcgData {
+    /// #1017/#2230 residency measurement — see [`SaePcgOperandReport`]. Sums the
+    /// resident host operands by category; no device contact.
+    pub fn operand_byte_report(&self) -> SaePcgOperandReport {
+        const PAIR: usize = std::mem::size_of::<(usize, f64)>();
+        const F64: usize = std::mem::size_of::<f64>();
+
+        let a_phi_pairs: usize = self.a_phi.iter().map(|r| r.len()).sum();
+        let local_jac_elems: usize = self.local_jac.iter().map(|r| r.len()).sum();
+        let smooth_bytes = self
+            .smooth_blocks
+            .iter()
+            .map(|b| b.factor_a.len())
+            .sum::<usize>()
+            * F64;
+        let sparse_g_bytes = self
+            .sparse_g_blocks
+            .iter()
+            .map(|b| b.data.len())
+            .sum::<usize>()
+            * F64;
+
+        let (framed, row_htbeta_bytes, row_htbeta_rows, frame_blocks_bytes) =
+            if let Some(frame) = self.frame.as_ref() {
+                let rh_elems: usize = frame.row_htbeta.iter().map(|r| r.len()).sum();
+                let rh_rows = frame.row_htbeta.iter().filter(|r| !r.is_empty()).count();
+                let fb_elems: usize =
+                    frame.frame_blocks.iter().map(|b| b.g.len() + b.w.len()).sum();
+                (true, rh_elems * F64, rh_rows, fb_elems * F64)
+            } else {
+                (false, 0, 0, 0)
+            };
+
+        let a_phi_bytes = a_phi_pairs * PAIR;
+        let local_jac_bytes = local_jac_elems * F64;
+        SaePcgOperandReport {
+            framed,
+            beta_dim: self.beta_dim,
+            a_phi_pairs,
+            a_phi_bytes,
+            local_jac_elems,
+            local_jac_bytes,
+            smooth_bytes,
+            sparse_g_bytes,
+            row_htbeta_bytes,
+            row_htbeta_rows,
+            frame_blocks_bytes,
+            total_bytes: a_phi_bytes
+                + local_jac_bytes
+                + smooth_bytes
+                + sparse_g_bytes
+                + row_htbeta_bytes
+                + frame_blocks_bytes,
+        }
     }
 }
 

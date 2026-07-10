@@ -42,9 +42,9 @@ def test_attachment_crud(pal, resources, outpdf):
         assert 'rle.pdf' in output.attachments, "filename not present"
         rle_spec = output.attachments['rle.pdf']
         rle_file = rle_spec.get_file()
-        assert (
-            rle_bytes == rle_file.read_bytes()
-        ), "attachment not reproduced bit for bit"
+        assert rle_bytes == rle_file.read_bytes(), (
+            "attachment not reproduced bit for bit"
+        )
 
         del output.attachments['rle.pdf']
         assert 'rle.pdf' not in output.attachments, "del failed"

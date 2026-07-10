@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: ansible-dev-tools
-Version: 26.6.1
+Version: 26.7.1
 Summary: Ansible Developtment Tools kit bundles all tools needed for content creation and testing.
 Author-email: "Bradley A. Thornton" <bthornto@redhat.com>
 Maintainer-email: Ansible by Red Hat <info@ansible.com>
@@ -27,7 +27,7 @@ Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: ansible-builder>=3.1.1
 Requires-Dist: ansible-compat>=26.3.0
-Requires-Dist: ansible-creator>=26.3.3
+Requires-Dist: ansible-creator>=26.6.1
 Requires-Dist: ansible-dev-environment>=26.4.0
 Requires-Dist: ansible-lint>=26.4.0
 Requires-Dist: ansible-navigator>=26.1.3

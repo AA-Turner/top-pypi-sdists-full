@@ -54,12 +54,14 @@ from ......schema_classes import MLModelDeploymentKeyClass
 from ......schema_classes import MLModelGroupKeyClass
 from ......schema_classes import MLModelKeyClass
 from ......schema_classes import MLPrimaryKeyKeyClass
+from ......schema_classes import MetricKeyClass
 from ......schema_classes import NotebookKeyClass
 from ......schema_classes import OwnershipTypeKeyClass
 from ......schema_classes import PostKeyClass
 from ......schema_classes import QueryKeyClass
 from ......schema_classes import RoleKeyClass
 from ......schema_classes import SchemaFieldKeyClass
+from ......schema_classes import SemanticModelKeyClass
 from ......schema_classes import TagKeyClass
 from ......schema_classes import TelemetryKeyClass
 from ......schema_classes import TestKeyClass
@@ -113,12 +115,14 @@ MLModelDeploymentKey = MLModelDeploymentKeyClass
 MLModelGroupKey = MLModelGroupKeyClass
 MLModelKey = MLModelKeyClass
 MLPrimaryKeyKey = MLPrimaryKeyKeyClass
+MetricKey = MetricKeyClass
 NotebookKey = NotebookKeyClass
 OwnershipTypeKey = OwnershipTypeKeyClass
 PostKey = PostKeyClass
 QueryKey = QueryKeyClass
 RoleKey = RoleKeyClass
 SchemaFieldKey = SchemaFieldKeyClass
+SemanticModelKey = SemanticModelKeyClass
 TagKey = TagKeyClass
 TelemetryKey = TelemetryKeyClass
 TestKey = TestKeyClass

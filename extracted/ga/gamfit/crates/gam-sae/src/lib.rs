@@ -1,13 +1,16 @@
 pub mod amortized_encoder;
 pub mod assignment;
+pub mod assignment_state;
 pub mod front_door;
 pub mod attention_kernel;
 pub mod atom_codes;
 pub mod basis;
+pub mod basis_gpu;
 pub mod candidate_index;
 pub mod certificate_impls;
 pub mod certificates;
 pub mod chart_canonicalization;
+pub mod chart_coordinate_solve;
 pub mod chart_transfer;
 pub mod coactivation_conditionality;
 pub mod corpus;
@@ -24,6 +27,7 @@ pub mod identifiability;
 pub mod inference;
 pub mod k_selection;
 pub mod manifold;
+pub mod migration_ledger;
 pub mod nuisance_atlas;
 pub mod null_sampler;
 pub mod null_battery;
@@ -35,6 +39,7 @@ pub mod spectrometer;
 pub mod structure_harvest;
 pub mod super_resolution;
 pub mod tiered;
+pub mod trust_scores;
 
 // The pre-split engine referenced GPU infrastructure as `crate::gpu::*`; after
 // the #1521 split that code lives in the `gam-gpu` crate. Alias it back so the

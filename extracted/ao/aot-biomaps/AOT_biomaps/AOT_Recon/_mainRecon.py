@@ -28,7 +28,7 @@ class Recon(ABC):
         self.isMultiCPU = isMultiCPU
 
         if str(type(self.experiment)) != str(Tomography):
-            raise TypeError(f"Experiment must be of type {Tomography}")
+            raise TypeError(f"[AOT-biomaps] Experiment must be of type {Tomography}")
 
     @abstractmethod
     def run(self,withTumor = True):
@@ -54,11 +54,11 @@ class Recon(ABC):
 
         if withTumor:
             if not self.reconPhantom or len(self.reconPhantom) == 0:
-                raise ValueError("Reconstructed phantom is empty. Run reconstruction first.")
+                raise ValueError("[AOT-biomaps] Reconstructed phantom is empty. Run reconstruction first.")
             np.save(filepathRecon, np.array(self.reconPhantom))
         else:
             if not self.reconLaser or len(self.reconLaser) == 0:
-                raise ValueError("Reconstructed laser is empty. Run reconstruction first.")
+                raise ValueError("[AOT-biomaps] Reconstructed laser is empty. Run reconstruction first.")
             np.save(filepathRecon, np.array(self.reconLaser))
 
         if self.indices is not None and len(self.indices) > 0:
@@ -66,7 +66,7 @@ class Recon(ABC):
             np.save(filepathIndices, np.array(self.indices))
 
         if show_logs:
-            print(f"Reconstruction results saved to {os.path.dirname(filepath)}")
+            print(f"[AOT-biomaps] Reconstruction results saved to {os.path.dirname(filepath)}")
 
     @abstractmethod
     def check_existing_file(self, date=None, withTumor=True):
@@ -84,16 +84,16 @@ class Recon(ABC):
         :return: CRC value or list of CRC values.
         """
         if self.reconType is None:
-            raise ValueError("Run reconstruction first")
+            raise ValueError("[AOT-biomaps] Run reconstruction first")
 
         if self.reconLaser is None or self.reconLaser == []:
-            raise ValueError("Reconstructed laser is empty. Run reconstruction first.")
+            raise ValueError("[AOT-biomaps] Reconstructed laser is empty. Run reconstruction first.")
         if self.reconPhantom is None or self.reconPhantom == []:
-            raise ValueError("Reconstructed phantom is empty. Run reconstruction first.")
+            raise ValueError("[AOT-biomaps] Reconstructed phantom is empty. Run reconstruction first.")
 
         # Handle empty reconstructions
         if self.reconLaser is None or self.reconLaser == []:
-            print("Reconstructed laser is empty. Running reconstruction without tumor...")
+            print("[AOT-biomaps] Reconstructed laser is empty. Running reconstruction without tumor...")
             self.run(withTumor=False, isSavingEachIteration=True)
 
         # Get the ROI mask(s) from the phantom if needed
@@ -101,7 +101,7 @@ class Recon(ABC):
             self.experiment.OpticImage.find_ROI()
             global_mask = np.logical_or.reduce(self.experiment.OpticImage.maskList)
         if len(global_mask) == 0:
-            print("No ROIs found in the phantom. Computing global CRC instead.")
+            print("[AOT-biomaps] No ROIs found in the phantom. Computing global CRC instead.")
             use_ROI = False
 
         # Analytic reconstruction case
@@ -140,7 +140,7 @@ class Recon(ABC):
             mse: float or list of floats, Mean Squared Error of the reconstruction
         """
         if self.reconPhantom is None or self.reconPhantom == []:
-            raise ValueError("Reconstructed phantom is empty. Run reconstruction first.")
+            raise ValueError("[AOT-biomaps] Reconstructed phantom is empty. Run reconstruction first.")
 
         if self.reconType in (ReconType.Analytic, ReconType.DeepLearning):
             self.MSE = mse(None, self.experiment.OpticImage.phantom, self.reconPhantom)
@@ -159,7 +159,7 @@ class Recon(ABC):
         Calculate SSIM without normalizing images, using original data_range.
         """
         if self.reconPhantom is None or self.reconPhantom == []:
-            raise ValueError("Reconstructed phantom is empty. Run reconstruction first.")
+            raise ValueError("[AOT-biomaps] Reconstructed phantom is empty. Run reconstruction first.")
 
         # Select reference image
         if withTumor:
@@ -213,18 +213,18 @@ class Recon(ABC):
         # Determine the image to display
         if withTumor:
             if self.reconPhantom is None:
-                raise ValueError("Reconstructed phantom with tumor is empty. Run reconstruction first.")
+                raise ValueError("[AOT-biomaps] Reconstructed phantom with tumor is empty. Run reconstruction first.")
             if isinstance(self.reconPhantom, (list, tuple)) and len(self.reconPhantom) == 0:
-                raise ValueError("Reconstructed phantom with tumor is empty. Run reconstruction first.")
+                raise ValueError("[AOT-biomaps] Reconstructed phantom with tumor is empty. Run reconstruction first.")
             image = self.reconPhantom[-1] if isinstance(self.reconPhantom, list) else self.reconPhantom
             ground_truth = self.experiment.OpticImage.phantom if self.experiment.OpticImage else None
             title_recon = "Reconstructed phantom with tumor"
             title_gt = "Phantom with tumor"
         else:
             if self.reconLaser is None:
-                raise ValueError("Reconstructed laser without tumor is empty. Run reconstruction first.")
+                raise ValueError("[AOT-biomaps] Reconstructed laser without tumor is empty. Run reconstruction first.")
             if isinstance(self.reconLaser, (list, tuple)) and len(self.reconLaser) == 0:
-                raise ValueError("Reconstructed laser without tumor is empty. Run reconstruction first.")
+                raise ValueError("[AOT-biomaps] Reconstructed laser without tumor is empty. Run reconstruction first.")
             image = self.reconLaser[-1] if isinstance(self.reconLaser, list) else self.reconLaser
             ground_truth = self.experiment.OpticImage.laser.intensity if self.experiment.OpticImage else None
             title_recon = "Reconstructed laser without tumor"

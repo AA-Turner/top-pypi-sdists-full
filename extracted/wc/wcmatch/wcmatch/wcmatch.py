@@ -15,19 +15,20 @@ from typing import Any, Iterator, Generic, AnyStr
 __all__ = (
     "CASE", "IGNORECASE", "RAWCHARS", "FILEPATHNAME", "DIRPATHNAME", "PATHNAME",
     "EXTMATCH", "GLOBSTAR", "BRACE", "MINUSNEGATE", "SYMLINKS", "HIDDEN", "RECURSIVE",
-    "MATCHBASE",
-    "C", "I", "R", "P", "E", "G", "M", "DP", "FP", "SL", "HD", "RV", "X", "B",
+    "MATCHBASE", "NUMRANGE",
+    "C", "I", "R", "P", "E", "G", "M", "DP", "FP", "SL", "HD", "RV", "X", "B", "ZN",
     "WcMatch"
 )
 
+B = BRACE = _wcparse.BRACE
 C = CASE = _wcparse.CASE
-I = IGNORECASE = _wcparse.IGNORECASE
-R = RAWCHARS = _wcparse.RAWCHARS
 E = EXTMATCH = _wcparse.EXTMATCH
 G = GLOBSTAR = _wcparse.GLOBSTAR
-B = BRACE = _wcparse.BRACE
+I = IGNORECASE = _wcparse.IGNORECASE
 M = MINUSNEGATE = _wcparse.MINUSNEGATE
+R = RAWCHARS = _wcparse.RAWCHARS
 X = MATCHBASE = _wcparse.MATCHBASE
+ZN = NUMRANGE = _wcparse.NUMRANGE
 
 # Control `PATHNAME` individually for folder exclude and files
 DP = DIRPATHNAME = 0x1000000
@@ -61,6 +62,7 @@ FLAG_MASK = (
     SYMLINKS |
     HIDDEN |
     RECURSIVE |
+    NUMRANGE |
     MATCHBASE
 )
 
@@ -144,7 +146,11 @@ class WcMatch(Generic[AnyStr]):
             if self.matchbase:
                 flags |= MATCHBASE
 
-        return _wcparse.compile([pattern], flags, self.limit) if pattern else None
+        return _wcparse.compile(
+            [pattern],
+            flags,
+            self.limit
+        ) if pattern else None
 
     def _compile(self, file_pattern: AnyStr, folder_exclude_pattern: AnyStr) -> None:
         """Compile patterns."""

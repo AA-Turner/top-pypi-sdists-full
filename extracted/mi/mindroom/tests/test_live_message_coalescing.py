@@ -53,7 +53,7 @@ from mindroom.dispatch_source import (
     TRUSTED_INTERNAL_RELAY_SOURCE_KIND,
     VOICE_SOURCE_KIND,
 )
-from mindroom.handled_turns import HandledTurnState
+from mindroom.handled_turns import TurnRecord
 from mindroom.hooks import MessageEnvelope
 from mindroom.inbound_turn_normalizer import (
     BatchMediaAttachmentRequest,
@@ -220,7 +220,7 @@ def _respond_dispatch_plan(action: object | None = None) -> _DispatchPlan:
     )
 
 
-def _handled_turn_source_event_ids(handled_turn: HandledTurnState | None) -> list[str]:
+def _handled_turn_source_event_ids(handled_turn: TurnRecord | None) -> list[str]:
     """Return source event IDs from one handled-turn carrier for test assertions."""
     return list(handled_turn.source_event_ids) if handled_turn is not None else []
 
@@ -418,15 +418,11 @@ def _prepared_dispatch(
         correlation_id=event_id,
         envelope=MessageEnvelope(
             source_event_id=event_id,
-            room_id="!room:localhost",
             target=target,
-            requester_id=requester_user_id,
-            sender_id=requester_user_id,
             body=body,
             attachment_ids=(),
             mentioned_agents=(),
             agent_name="test_agent",
-            source_kind=source_kind,
             dispatch_policy_source_kind=dispatch_policy_source_kind,
             origin=message_origin(sender_id=requester_user_id, requester_id=requester_user_id, source_kind=source_kind),
         ),
@@ -453,7 +449,7 @@ async def test_single_message_dispatches_after_debounce_window(tmp_path: Path) -
         _requester_user_id: str,
         *,
         media_events: list[object] | None = None,
-        handled_turn: HandledTurnState | None = None,
+        handled_turn: TurnRecord | None = None,
         **_metadata: object,
     ) -> None:
         _ = handled_turn
@@ -488,7 +484,7 @@ async def test_two_rapid_text_messages_dispatch_one_combined_turn(tmp_path: Path
         _requester_user_id: str,
         *,
         media_events: list[object] | None = None,
-        handled_turn: HandledTurnState | None = None,
+        handled_turn: TurnRecord | None = None,
         **_metadata: object,
     ) -> None:
         _ = media_events, handled_turn
@@ -574,7 +570,7 @@ async def test_image_and_text_coalesce_into_single_dispatch(tmp_path: Path) -> N
         _requester_user_id: str,
         *,
         media_events: list[object] | None = None,
-        handled_turn: HandledTurnState | None = None,
+        handled_turn: TurnRecord | None = None,
         **_metadata: object,
     ) -> None:
         _ = handled_turn
@@ -626,7 +622,7 @@ async def test_room_root_image_and_caption_coalesce_into_single_dispatch(tmp_pat
         _requester_user_id: str,
         *,
         media_events: list[object] | None = None,
-        handled_turn: HandledTurnState | None = None,
+        handled_turn: TurnRecord | None = None,
         **_metadata: object,
     ) -> None:
         calls.append((dispatched_event.body, _handled_turn_source_event_ids(handled_turn), len(media_events or [])))
@@ -667,7 +663,7 @@ async def test_images_then_caption_coalesce_into_single_dispatch(tmp_path: Path)
         _requester_user_id: str,
         *,
         media_events: list[object] | None = None,
-        handled_turn: HandledTurnState | None = None,
+        handled_turn: TurnRecord | None = None,
         **_metadata: object,
     ) -> None:
         calls.append((_handled_turn_source_event_ids(handled_turn), len(media_events or [])))
@@ -718,7 +714,7 @@ async def test_each_thread_text_dispatches_immediately_as_own_turn(tmp_path: Pat
         _requester_user_id: str,
         *,
         media_events: list[object] | None = None,
-        handled_turn: HandledTurnState | None = None,
+        handled_turn: TurnRecord | None = None,
         **_metadata: object,
     ) -> None:
         _ = media_events, handled_turn
@@ -764,7 +760,7 @@ async def test_image_after_text_dispatch_is_a_second_batch(tmp_path: Path) -> No
         _requester_user_id: str,
         *,
         media_events: list[object] | None = None,
-        handled_turn: HandledTurnState | None = None,
+        handled_turn: TurnRecord | None = None,
         **_metadata: object,
     ) -> None:
         _ = handled_turn
@@ -810,7 +806,7 @@ async def test_different_senders_dispatch_separately(tmp_path: Path) -> None:
         _requester_user_id: str,
         *,
         media_events: list[object] | None = None,
-        handled_turn: HandledTurnState | None = None,
+        handled_turn: TurnRecord | None = None,
         **_metadata: object,
     ) -> None:
         _ = media_events, handled_turn
@@ -938,7 +934,7 @@ async def test_same_sender_different_threads_dispatch_separately(tmp_path: Path)
         _requester_user_id: str,
         *,
         media_events: list[object] | None = None,
-        handled_turn: HandledTurnState | None = None,
+        handled_turn: TurnRecord | None = None,
         **_metadata: object,
     ) -> None:
         _ = media_events, handled_turn
@@ -987,7 +983,7 @@ async def test_room_message_and_plain_reply_to_known_thread_do_not_coalesce_toge
         _requester_user_id: str,
         *,
         media_events: list[object] | None = None,
-        handled_turn: HandledTurnState | None = None,
+        handled_turn: TurnRecord | None = None,
         **_metadata: object,
     ) -> None:
         _ = media_events, handled_turn
@@ -1053,7 +1049,7 @@ async def test_plain_reply_with_unproven_root_is_not_admitted_under_guessed_key(
         _requester_user_id: str,
         *,
         media_events: list[object] | None = None,
-        handled_turn: HandledTurnState | None = None,
+        handled_turn: TurnRecord | None = None,
         **_metadata: object,
     ) -> None:
         _ = media_events, handled_turn
@@ -1089,7 +1085,7 @@ async def test_command_executes_immediately_while_text_batch_debounces(tmp_path:
         _requester_user_id: str,
         *,
         media_events: list[object] | None = None,
-        handled_turn: HandledTurnState | None = None,
+        handled_turn: TurnRecord | None = None,
         **_metadata: object,
     ) -> None:
         _ = media_events, handled_turn
@@ -1124,7 +1120,7 @@ async def test_command_during_media_debounce_executes_immediately(tmp_path: Path
         _requester_user_id: str,
         *,
         media_events: list[object] | None = None,
-        handled_turn: HandledTurnState | None = None,
+        handled_turn: TurnRecord | None = None,
         **_metadata: object,
     ) -> None:
         _ = media_events
@@ -1169,7 +1165,7 @@ async def test_messages_during_active_response_wait_and_batch_after_completion(t
         _requester_user_id: str,
         *,
         media_events: list[object] | None = None,
-        handled_turn: HandledTurnState | None = None,
+        handled_turn: TurnRecord | None = None,
         **_metadata: object,
     ) -> None:
         _ = media_events, handled_turn
@@ -1316,7 +1312,7 @@ async def test_slow_thread_lookup_active_follow_up_stays_before_later_follow_up(
         _requester_user_id: str,
         *,
         media_events: list[object] | None = None,
-        handled_turn: HandledTurnState | None = None,
+        handled_turn: TurnRecord | None = None,
         **_metadata: object,
     ) -> None:
         _ = media_events
@@ -1404,7 +1400,7 @@ async def test_later_slow_thread_lookup_active_follow_up_lands_as_own_turn(tmp_p
         _requester_user_id: str,
         *,
         media_events: list[object] | None = None,
-        handled_turn: HandledTurnState | None = None,
+        handled_turn: TurnRecord | None = None,
         **_metadata: object,
     ) -> None:
         _ = media_events
@@ -1731,7 +1727,7 @@ async def test_command_executes_immediately_despite_unresolved_ingress(tmp_path:
         _requester_user_id: str,
         *,
         media_events: list[object] | None = None,
-        handled_turn: HandledTurnState | None = None,
+        handled_turn: TurnRecord | None = None,
         **_metadata: object,
     ) -> None:
         _ = media_events, handled_turn
@@ -2399,7 +2395,7 @@ async def test_enqueue_for_dispatch_returns_while_drain_dispatch_blocks(tmp_path
         _requester_user_id: str,
         *,
         media_events: list[object] | None = None,
-        handled_turn: HandledTurnState | None = None,
+        handled_turn: TurnRecord | None = None,
         **_metadata: object,
     ) -> None:
         _ = media_events
@@ -2469,7 +2465,7 @@ async def test_coalescing_exempt_source_kinds_bypass_gate(tmp_path: Path, source
         _requester_user_id: str,
         *,
         media_events: list[object] | None = None,
-        handled_turn: HandledTurnState | None = None,
+        handled_turn: TurnRecord | None = None,
         **_metadata: object,
     ) -> None:
         _ = media_events, handled_turn
@@ -2554,7 +2550,7 @@ async def test_untrusted_source_kind_content_does_not_bypass_or_promote(
         _requester_user_id: str,
         *,
         media_events: list[object] | None = None,
-        handled_turn: HandledTurnState | None = None,
+        handled_turn: TurnRecord | None = None,
         queued_notice_reservation: object | None = None,
         **_metadata: object,
     ) -> None:
@@ -2690,7 +2686,7 @@ async def test_overlapping_scheduled_checkins_coalesce(tmp_path: Path) -> None:
         _requester_user_id: str,
         *,
         media_events: list[object] | None = None,
-        handled_turn: HandledTurnState | None = None,
+        handled_turn: TurnRecord | None = None,
         **_metadata: object,
     ) -> None:
         _ = media_events, handled_turn
@@ -2744,7 +2740,7 @@ async def test_prepare_for_sync_shutdown_waits_for_active_flush_task(tmp_path: P
         _requester_user_id: str,
         *,
         media_events: list[object] | None = None,
-        handled_turn: HandledTurnState | None = None,
+        handled_turn: TurnRecord | None = None,
         **_metadata: object,
     ) -> None:
         _ = media_events, handled_turn
@@ -2788,7 +2784,7 @@ async def test_prepare_for_sync_shutdown_drains_pending_debounced_messages(tmp_p
         _requester_user_id: str,
         *,
         media_events: list[object] | None = None,
-        handled_turn: HandledTurnState | None = None,
+        handled_turn: TurnRecord | None = None,
         **_metadata: object,
     ) -> None:
         _ = media_events, handled_turn
@@ -2822,7 +2818,7 @@ async def test_prepare_for_sync_shutdown_drains_pending_media_debounce(tmp_path:
         _requester_user_id: str,
         *,
         media_events: list[object] | None = None,
-        handled_turn: HandledTurnState | None = None,
+        handled_turn: TurnRecord | None = None,
         **_metadata: object,
     ) -> None:
         _ = media_events
@@ -2862,7 +2858,7 @@ async def test_shutdown_during_in_flight_dispatch_flushes_remaining_without_wait
         _requester_user_id: str,
         *,
         media_events: list[object] | None = None,
-        handled_turn: HandledTurnState | None = None,
+        handled_turn: TurnRecord | None = None,
         **_metadata: object,
     ) -> None:
         _ = media_events, handled_turn
@@ -2923,7 +2919,7 @@ async def test_thread_followups_dispatch_while_first_turn_root_in_flight(tmp_pat
         _requester_user_id: str,
         *,
         media_events: list[object] | None = None,
-        handled_turn: HandledTurnState | None = None,
+        handled_turn: TurnRecord | None = None,
         **_metadata: object,
     ) -> None:
         _ = media_events, handled_turn
@@ -4051,7 +4047,7 @@ async def test_zero_debounce_dispatches_immediately(tmp_path: Path) -> None:
         _requester_user_id: str,
         *,
         media_events: list[object] | None = None,
-        handled_turn: HandledTurnState | None = None,
+        handled_turn: TurnRecord | None = None,
         **_metadata: object,
     ) -> None:
         _ = media_events, handled_turn
@@ -4086,7 +4082,7 @@ async def test_multiple_commands_each_dispatch_independently(tmp_path: Path) -> 
         _requester_user_id: str,
         *,
         media_events: list[object] | None = None,
-        handled_turn: HandledTurnState | None = None,
+        handled_turn: TurnRecord | None = None,
         **_metadata: object,
     ) -> None:
         _ = media_events, handled_turn
@@ -6618,7 +6614,7 @@ async def test_sidecar_hydration_refreshes_prompt_and_mentions_before_dispatch(t
         server_timestamp=1000,
     )
     captured_envelopes: list[MessageEnvelope] = []
-    captured_handled_turns: list[HandledTurnState] = []
+    captured_handled_turns: list[TurnRecord] = []
 
     async def record_plan(*args: object, **_kwargs: object) -> _DispatchPlan:
         dispatch = cast("PreparedDispatch", args[2])
@@ -6626,9 +6622,9 @@ async def test_sidecar_hydration_refreshes_prompt_and_mentions_before_dispatch(t
         return _respond_dispatch_plan()
 
     async def record_response(*_args: object, **kwargs: object) -> None:
-        captured_handled_turns.append(cast("HandledTurnState", kwargs["handled_turn"]))
+        captured_handled_turns.append(cast("TurnRecord", kwargs["handled_turn"]))
 
-    handled_turn = HandledTurnState.create(["$sidecar"], source_event_prompts={"$sidecar": "preview"})
+    handled_turn = TurnRecord.create(["$sidecar"], source_event_prompts={"$sidecar": "preview"})
     with (
         patch.object(
             bot._inbound_turn_normalizer,

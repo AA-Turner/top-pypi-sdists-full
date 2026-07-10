@@ -15,40 +15,40 @@ logger = logging.getLogger(__name__)
 
 class IDEDetector:
     IDE_MARKERS = {
-'pycharm':'PyCharm',
-'idea':'IntelliJ IDEA',
-'webstorm':'WebStorm',
-'code':'VS Code',
-'code helper':'VS Code',
-'code-server':'VS Code Server',
-'code-oss':'VS Code OSS',
-'vscodium':'VSCodium',
-'cursor':'Cursor',
-'cursor helper':'Cursor',
-'windsurf':'Windsurf',
-'windsurf helper':'Windsurf',
-'jupyter-lab':'Jupyter Lab',
-'jupyter-notebook':'Classic Jupyter',
-'jupyter-server':'Jupyter Server',
-'ipython':'IPython',
-'docker-init':'Docker Container',
-'node':'Node.js',
-'antigravity':'Google Antigravity',
-'claude':'Claude Code',
-'openclaw':'OpenClaw Environment',
-'claude-dispatch':'Claude Dispatcher',
+        'pycharm': 'PyCharm',
+        'idea': 'IntelliJ IDEA',
+        'webstorm': 'WebStorm',
+        'code': 'VS Code',
+        'code helper': 'VS Code',
+        'code-server': 'VS Code Server',
+        'code-oss': 'VS Code OSS',
+        'vscodium': 'VSCodium',
+        'cursor': 'Cursor',
+        'cursor helper': 'Cursor',
+        'windsurf': 'Windsurf',
+        'windsurf helper': 'Windsurf',
+        'jupyter-lab': 'Jupyter Lab',
+        'jupyter-notebook': 'Classic Jupyter',
+        'jupyter-server': 'Jupyter Server',
+        'ipython': 'IPython',
+        'docker-init': 'Docker Container',
+        'node': 'Node.js',
+        'antigravity': 'Google Antigravity',
+        'claude': 'Claude Code',
+        'openclaw': 'OpenClaw Environment',
+        'claude-dispatch': 'Claude Dispatcher',
     }
     ENV_MARKERS = {
-'COLAB_GPU':'Google Colab',
-'COLAB_RELEASE_TAG':'Google Colab',
-'KAGGLE_KERNEL_RUN_TYPE':'Kaggle Notebook',
-'JUPYTERHUB_SERVICE_PREFIX':'JupyterHub',
-'OPENCLAW_AGENT':'OpenClaw Agent',
-'CLAUDE_DISPATCH':'Claude Dispatcher',
+        'COLAB_GPU': 'Google Colab',
+        'COLAB_RELEASE_TAG': 'Google Colab',
+        'KAGGLE_KERNEL_RUN_TYPE': 'Kaggle Notebook',
+        'JUPYTERHUB_SERVICE_PREFIX': 'JupyterHub',
+        'OPENCLAW_AGENT': 'OpenClaw Agent',
+        'CLAUDE_DISPATCH': 'Claude Dispatcher',
     }
     SHELL_MARKERS = {
-'zsh','bash','fish','sh','ksh','tcsh',
-'cmd','powershell','pwsh','commandline'
+        'zsh', 'bash', 'fish', 'sh', 'ksh', 'tcsh',
+        'cmd', 'powershell', 'pwsh', 'commandline'
     }
     @staticmethod
 
@@ -57,27 +57,27 @@ class IDEDetector:
             proc = psutil.Process(os.getpid())
             chain = []
             chain.append({
-'pid': proc.pid,
-'name': proc.name(),
-'exe': proc.exe(),
-'depth': 0
+                'pid': proc.pid,
+                'name': proc.name(),
+                'exe': proc.exe(),
+                'depth': 0
             })
             for depth, ancestor in enumerate(proc.parents(), start=1):
                 if depth > max_depth:
                     break
                 try:
                     chain.append({
-'pid': ancestor.pid,
-'name': ancestor.name(),
-'exe': ancestor.exe(),
-'depth': depth
+                        'pid': ancestor.pid,
+                        'name': ancestor.name(),
+                        'exe': ancestor.exe(),
+                        'depth': depth
                     })
                 except (psutil.NoSuchProcess, psutil.AccessDenied):
                     chain.append({
-'pid': ancestor.pid,
-'name':'<access_denied or terminated>',
-'exe': None,
-'depth': depth
+                        'pid': ancestor.pid,
+                        'name': '<access_denied or terminated>',
+                        'exe': None,
+                        'depth': depth
                     })
             return chain
         except Exception as e:
@@ -92,12 +92,12 @@ class IDEDetector:
             if ipython is None:
                 return None
             kernel_type = type(ipython).__name__
-            if'ZMQInteractiveShell' in kernel_type:
-                return'Jupyter Kernel'
-            elif'TerminalInteractiveShell' in kernel_type:
-                return'IPython Terminal'
+            if 'ZMQInteractiveShell' in kernel_type:
+                return 'Jupyter Kernel'
+            elif 'TerminalInteractiveShell' in kernel_type:
+                return 'IPython Terminal'
             else:
-                return'IPython'
+                return 'IPython'
         except (ImportError, AttributeError):
             return None
     @staticmethod
@@ -106,74 +106,74 @@ class IDEDetector:
         for env_var, ide_name in IDEDetector.ENV_MARKERS.items():
             if env_var in os.environ:
                 return ide_name, {
-'detection_method':'environment_variable',
-'env_var': env_var,
-'detected_at': datetime.now().isoformat(),
+                    'detection_method': 'environment_variable',
+                    'env_var': env_var,
+                    'detected_at': datetime.now().isoformat(),
                 }
         jupyter_env = IDEDetector._check_jupyter_environment()
-        if jupyter_env and jupyter_env =='Jupyter Kernel':
+        if jupyter_env and jupyter_env == 'Jupyter Kernel':
             chain = IDEDetector.get_process_chain()
             for process_info in chain:
-                name = (process_info['name'] or"").lower()
+                name = (process_info['name'] or "").lower()
                 for marker, ide_name in IDEDetector.IDE_MARKERS.items():
-                    if marker in name and marker not in ['docker-init','node']:
-                        ide_display =f"{ide_name} (Jupyter)"
+                    if marker in name and marker not in ['docker-init', 'node']:
+                        ide_display = f"{ide_name} (Jupyter)"
                         return ide_display, {
-'detection_method':'jupyter_with_ide_frontend',
-'frontend': ide_name,
-'detected_at': datetime.now().isoformat(),
+                            'detection_method': 'jupyter_with_ide_frontend',
+                            'frontend': ide_name,
+                            'detected_at': datetime.now().isoformat(),
                         }
-            kernel_name ='Jupyter Kernel'
+            kernel_name = 'Jupyter Kernel'
             return kernel_name, {
-'detection_method':'ipython_kernel',
-'detected_at': datetime.now().isoformat(),
+                'detection_method': 'ipython_kernel',
+                'detected_at': datetime.now().isoformat(),
             }
         chain = IDEDetector.get_process_chain()
         if not chain:
-            return'Unknown', {
-'detection_method':'failed_to_get_chain',
-'detected_at': datetime.now().isoformat(),
+            return 'Unknown', {
+                'detection_method': 'failed_to_get_chain',
+                'detected_at': datetime.now().isoformat(),
             }
         for process_info in chain:
-            name = (process_info['name'] or"").lower()
-            exe = (process_info['exe'] or"").lower()
+            name = (process_info['name'] or "").lower()
+            exe = (process_info['exe'] or "").lower()
             for marker, ide_name in IDEDetector.IDE_MARKERS.items():
                 if marker in name or marker in exe:
-                    if marker in ['node','docker-init']:
+                    if marker in ['node', 'docker-init']:
                         chain_names = [p['name'].lower() for p in chain]
                         if not any('jupyter' in n for n in chain_names):
                             continue
                     return ide_name, {
-'detection_method':'process_chain',
-'matched_process': process_info['name'],
-'depth': process_info['depth'],
-'detected_at': datetime.now().isoformat(),
+                        'detection_method': 'process_chain',
+                        'matched_process': process_info['name'],
+                        'depth': process_info['depth'],
+                        'detected_at': datetime.now().isoformat(),
                     }
         if chain:
             first_process_name = chain[0]['name'].lower()
             if any(sh in first_process_name for sh in IDEDetector.SHELL_MARKERS):
-                return'Terminal', {
-'detection_method':'shell_detected',
-'shell_name': chain[0]['name'],
-'detected_at': datetime.now().isoformat(),
+                return 'Terminal', {
+                    'detection_method': 'shell_detected',
+                    'shell_name': chain[0]['name'],
+                    'detected_at': datetime.now().isoformat(),
                 }
-        return'Unknown', {
-'detection_method':'no_match',
-'detected_at': datetime.now().isoformat(),
+        return 'Unknown', {
+            'detection_method': 'no_match',
+            'detected_at': datetime.now().isoformat(),
         }
     @staticmethod
 
     def get_ide_info() -> Dict:
         ide_name, detection_info = IDEDetector.detect_ide()
         return {
-'ide_name': ide_name,
-'detection_method': detection_info.get('detection_method'),
-'detected_at': detection_info.get('detected_at'),
-'process_chain_depth': detection_info.get('depth'),
-'matched_process': detection_info.get('matched_process'),
-'environment_variable': detection_info.get('env_var'),
-'frontend': detection_info.get('frontend'),
-'shell_name': detection_info.get('shell_name'),
+            'ide_name': ide_name,
+            'detection_method': detection_info.get('detection_method'),
+            'detected_at': detection_info.get('detected_at'),
+            'process_chain_depth': detection_info.get('depth'),
+            'matched_process': detection_info.get('matched_process'),
+            'environment_variable': detection_info.get('env_var'),
+            'frontend': detection_info.get('frontend'),
+            'shell_name': detection_info.get('shell_name'),
         }
 
 def detect_current_ide() -> Tuple[str, Dict]:
@@ -198,12 +198,12 @@ class DeviceRegistry:
 
     def _initialize(self, project_dir: str | None = None) -> None:
         if project_dir is None:
-            project_dir = Path.home() /".vnstock"
+            project_dir = Path.home() / ".vnstock"
         else:
             project_dir = Path(project_dir)
-        self.id_dir = project_dir /'id'
-        self.registry_file = self.id_dir /'hw_info.json'
-        old_registry_file = self.id_dir /'device_registry.json'
+        self.id_dir = project_dir / 'id'
+        self.registry_file = self.id_dir / 'hw_info.json'
+        old_registry_file = self.id_dir / 'device_registry.json'
         if old_registry_file.exists() and not self.registry_file.exists():
             try:
                 old_registry_file.rename(self.registry_file)
@@ -214,7 +214,7 @@ class DeviceRegistry:
         self._registry = None
         if self.registry_file.exists():
             try:
-                with open(self.registry_file,'r', encoding='utf-8') as f:
+                with open(self.registry_file, 'r', encoding='utf-8') as f:
                     self._registry = json.load(f)
             except Exception as e:
                 logger.warning(f"Failed to load device registry: {e}")
@@ -241,40 +241,40 @@ class DeviceRegistry:
             except Exception:
                 ide_info = {}
         registry = {
-"device_id": device_info.get('machine_id'),
-"register_date": datetime.now().isoformat(),
-"version_installed": version,
-"os": device_info.get('os_name'),
-"os_platform": device_info.get('platform'),
-"python": device_info.get('python_version'),
-"arch": (
-                device_info.get('platform','').split('-')[-1]
-                if device_info.get('platform') else'unknown'
+            "device_id": device_info.get('machine_id'),
+            "register_date": datetime.now().isoformat(),
+            "version_installed": version,
+            "os": device_info.get('os_name'),
+            "os_platform": device_info.get('platform'),
+            "python": device_info.get('python_version'),
+            "arch": (
+                device_info.get('platform', '').split('-')[-1]
+                if device_info.get('platform') else 'unknown'
             ),
-"cpu_count": device_info.get('cpu_count'),
-"memory_gb": device_info.get('memory_gb'),
-"environment": device_info.get('environment'),
-"hosting_service": device_info.get('hosting_service'),
-"ide": ide_info,
-"reference_data": {
-"commercial_usage": device_info.get(
-'commercial_usage'
+            "cpu_count": device_info.get('cpu_count'),
+            "memory_gb": device_info.get('memory_gb'),
+            "environment": device_info.get('environment'),
+            "hosting_service": device_info.get('hosting_service'),
+            "ide": ide_info,
+            "reference_data": {
+                "commercial_usage": device_info.get(
+                    'commercial_usage'
                 ),
-"packages_snapshot": (
+                "packages_snapshot": (
                     device_info.get('dependencies', {}).get(
-'vnstock_family', []
+                        'vnstock_family', []
                     )
                 ),
-"git_info": device_info.get('git_info')
+                "git_info": device_info.get('git_info')
             }
         }
         try:
-            with open(self.registry_file,'w', encoding='utf-8') as f:
+            with open(self.registry_file, 'w', encoding='utf-8') as f:
                 json.dump(registry, f, indent=2)
             self._registry = registry
             logger.info(
-f"Device registered: {device_info.get('machine_id')} "
-f"(version {version})"
+                f"Device registered: {device_info.get('machine_id')} "
+                f"(version {version})"
             )
         except Exception as e:
             logger.error(f"Failed to register device: {e}")
@@ -314,7 +314,7 @@ f"(version {version})"
             self._registry['version_installed'] = new_version
             self._registry['last_version_update'] = datetime.now().isoformat()
             try:
-                with open(self.registry_file,'w', encoding='utf-8') as f:
+                with open(self.registry_file, 'w', encoding='utf-8') as f:
                     json.dump(self._registry, f, indent=2)
             except Exception as e:
                 logger.warning(f"Failed to update version in registry: {e}")

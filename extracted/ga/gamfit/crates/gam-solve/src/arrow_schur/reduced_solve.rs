@@ -114,9 +114,26 @@ pub(crate) fn reduce_row_schur_contributions<B: BatchedBlockSolver + Sync>(
     let n = sys.rows.len();
     let k = sys.k;
 
-    let tiles = gam_gpu::device_runtime::GpuRuntime::global()
-        .map(|rt| gam_gpu::pool::balanced_partition(rt, n))
-        .filter(|tiles| tiles.len() > 1);
+    // Size gate BEFORE the device probe (startup-tax ordering fix): the
+    // multi-GPU tile path exists to overlap the per-row `leftᵀ·right` GEMMs
+    // (≈ `2·d·k²` flops each, `2·n·d·k²` total) across the pool, and each
+    // tile's GEMMs still pass through the policy-gated dispatch shims — which
+    // refuse every op when the WHOLE assembly is below
+    // `MIN_CALIBRATABLE_GEMM_FLOPS`, the smallest floor any reachable policy
+    // can carry. Such a shape would only inherit the tile split's inter-tile
+    // reassociation (the documented, tolerance-bounded departure) while doing
+    // 100% CPU work, so route it to the serial/rayon reference path below
+    // WITHOUT calling `GpuRuntime::global()` (whose first call creates a CUDA
+    // primary context on every GPU). Shapes clearing the floor probe and tile
+    // exactly as before.
+    let assembly_work = 2u128 * (n as u128) * (sys.d as u128) * (k as u128) * (k as u128);
+    let tiles = if assembly_work < gam_gpu::GpuDispatchPolicy::MIN_CALIBRATABLE_GEMM_FLOPS {
+        None
+    } else {
+        gam_gpu::device_runtime::GpuRuntime::global()
+            .map(|rt| gam_gpu::pool::balanced_partition(rt, n))
+            .filter(|tiles| tiles.len() > 1)
+    };
 
     let Some(tiles) = tiles else {
         // Single-device / CPU. The per-row contributions `-Σ_i leftᵀ·right` fold
@@ -468,7 +485,48 @@ pub(crate) fn matrix_inf_norm(a: &Array2<f64>) -> f64 {
 pub(crate) fn spectral_pd_floored_schur(
     schur: &Array2<f64>,
     relative_floor: f64,
-) -> Option<Array2<f64>> {
+) -> Option<(Array2<f64>, Array2<f64>)> {
+    spectral_conditioned_schur_with_factor(schur, relative_floor, false)
+}
+
+/// Unit-stiffness quotient conditioning for the *reduced* evidence Schur block.
+///
+/// `spectral_pd_floored_schur` is the right object for Newton steps: it is a
+/// Levenberg-Marquardt floor that damps collapsed decoder directions just enough
+/// to compute a stable `Δβ`.  The Laplace evidence path is different.  Once the
+/// reduced Schur is being used only for a log determinant, a non-positive (or
+/// numerically null) reduced direction is a quotient/null direction, just like
+/// the per-row `H_tt` spectral-deflation case.  It must contribute the
+/// ρ-independent constant `log 1 = 0`, not `log(floor·max λ)`: the latter is a
+/// ρ-dependent Occam reward for collapsed/redundant decoders and can make the
+/// outer REML sweep prefer a worse planted-manifold optimum.
+pub(crate) fn spectral_unit_deflated_schur(
+    schur: &Array2<f64>,
+    relative_floor: f64,
+) -> Option<(Array2<f64>, Array2<f64>)> {
+    spectral_conditioned_schur_with_factor(schur, relative_floor, true)
+}
+
+/// Shared body for [`spectral_pd_floored_schur`] / [`spectral_unit_deflated_schur`]:
+/// symmetrise, eigendecompose, condition the spectrum per policy, and return BOTH
+/// the conditioned matrix `Σ λ̃_i v_i v_iᵀ` (consumed by Steihaug / matvec /
+/// mixed-precision refinement) and its lower Cholesky factor.
+///
+/// The factor is built DIRECTLY from the conditioned spectral form — QR of
+/// `W = diag(√λ̃)·Vᵀ` gives `A = WᵀW = RᵀR`, so `L = Rᵀ` — never by
+/// re-factorising the reconstructed matrix. Reconstruct-then-refactor fails
+/// under extreme eigenvalue spread: with `λ_max ~ 1e57` the `Σ λ̃ v vᵀ`
+/// reconstruction carries `O(ε·λ_max)` round-off, which swamps unit-deflated
+/// (`λ̃ = 1`) and floored (`λ̃ = floor·λ_max`) directions and re-poisons the
+/// second Cholesky — the #2230 "spectral PD-floor reconstruction still non-PD"
+/// refusal at a ρ whose conditioned evidence is perfectly well-defined. The QR
+/// route factors the exact conditioned spectrum, so it succeeds whenever the
+/// policy produced strictly positive `λ̃` (always, by construction).
+fn spectral_conditioned_schur_with_factor(
+    schur: &Array2<f64>,
+    relative_floor: f64,
+    unit_deflate_null_directions: bool,
+) -> Option<(Array2<f64>, Array2<f64>)> {
     let n = schur.nrows();
     if n == 0 || schur.ncols() != n || !(relative_floor.is_finite() && relative_floor > 0.0) {
         return None;
@@ -494,80 +552,33 @@ pub(crate) fn spectral_pd_floored_schur(
         return None;
     }
     let floor = relative_floor * max_abs;
-    // Reconstruct `Σ_i max(λ_i, floor) v_i v_iᵀ`: clamp every eigenvalue UP to a
-    // strictly positive `floor`. Healthy positive directions (`λ ≫ floor`) are
-    // untouched; non-positive / tiny collapsed directions are lifted to exactly
-    // `floor`. The result is symmetric PD by construction.
+    let deflate_floor = floor * (1.0 - SPECTRAL_DEFLATION_HYSTERESIS_FRACTION);
+    // Newton-step policy (LM): clamp every eigenvalue UP to a strictly positive
+    // `floor` — healthy positive directions (`λ ≫ floor`) keep their EXACT
+    // eigenvalue, collapsed/indefinite directions get the minimal stiffness for
+    // a stable `Δβ`. Evidence policy (`unit_deflate_null_directions`): a
+    // non-positive / numerically-null direction is a quotient direction and
+    // contributes the ρ-independent `log 1 = 0`, so it is set to UNIT stiffness
+    // instead (see the doc comments on the public wrappers).
     let mut conditioned = Array2::<f64>::zeros((n, n));
+    let mut weighted_vt = Array2::<f64>::zeros((n, n));
     for eig_idx in 0..evals.len() {
         let lambda = evals[eig_idx];
-        let lambda_floored = if lambda.is_finite() {
+        let lambda_conditioned = if unit_deflate_null_directions {
+            if !lambda.is_finite() || lambda <= 0.0 || lambda < deflate_floor {
+                1.0
+            } else {
+                lambda.max(floor)
+            }
+        } else if lambda.is_finite() {
             lambda.max(floor)
         } else {
             floor
         };
+        let sqrt_lambda = lambda_conditioned.sqrt();
         for i in 0..n {
             let vi = evecs[[i, eig_idx]];
-            if vi == 0.0 {
-                continue;
-            }
-            for j in 0..n {
-                conditioned[[i, j]] += lambda_floored * vi * evecs[[j, eig_idx]];
-            }
-        }
-    }
-    Some(conditioned)
-}
-
-/// Unit-stiffness quotient conditioning for the *reduced* evidence Schur block.
-///
-/// `spectral_pd_floored_schur` is the right object for Newton steps: it is a
-/// Levenberg-Marquardt floor that damps collapsed decoder directions just enough
-/// to compute a stable `Δβ`.  The Laplace evidence path is different.  Once the
-/// reduced Schur is being used only for a log determinant, a non-positive (or
-/// numerically null) reduced direction is a quotient/null direction, just like
-/// the per-row `H_tt` spectral-deflation case.  It must contribute the
-/// ρ-independent constant `log 1 = 0`, not `log(floor·max λ)`: the latter is a
-/// ρ-dependent Occam reward for collapsed/redundant decoders and can make the
-/// outer REML sweep prefer a worse planted-manifold optimum.
-pub(crate) fn spectral_unit_deflated_schur(
-    schur: &Array2<f64>,
-    relative_floor: f64,
-) -> Option<Array2<f64>> {
-    let n = schur.nrows();
-    if n == 0 || schur.ncols() != n || !(relative_floor.is_finite() && relative_floor > 0.0) {
-        return None;
-    }
-    let mut sym = Array2::<f64>::zeros((n, n));
-    for i in 0..n {
-        for j in 0..n {
-            let v = 0.5 * (schur[[i, j]] + schur[[j, i]]);
-            if !v.is_finite() {
-                return None;
-            }
-            sym[[i, j]] = v;
-        }
-    }
-    let (evals, evecs) = sym.eigh(Side::Lower).ok()?;
-    let max_abs = evals.iter().fold(
-        0.0_f64,
-        |acc, &v| if v.is_finite() { acc.max(v.abs()) } else { acc },
-    );
-    if !(max_abs.is_finite() && max_abs > 0.0) {
-        return None;
-    }
-    let floor = relative_floor * max_abs;
-    let deflate_floor = floor * (1.0 - SPECTRAL_DEFLATION_HYSTERESIS_FRACTION);
-    let mut conditioned = Array2::<f64>::zeros((n, n));
-    for eig_idx in 0..evals.len() {
-        let lambda = evals[eig_idx];
-        let lambda_conditioned = if !lambda.is_finite() || lambda <= 0.0 || lambda < deflate_floor {
-            1.0
-        } else {
-            lambda.max(floor)
-        };
-        for i in 0..n {
-            let vi = evecs[[i, eig_idx]];
+            weighted_vt[[eig_idx, i]] = sqrt_lambda * vi;
             if vi == 0.0 {
                 continue;
             }
@@ -576,7 +587,39 @@ pub(crate) fn spectral_unit_deflated_schur(
             }
         }
     }
-    Some(conditioned)
+    let factor = spectral_qr_cholesky_factor(&weighted_vt)
+        .or_else(|| cholesky_lower(&conditioned).ok())?;
+    Some((conditioned, factor))
+}
+
+/// Lower Cholesky factor of `A = WᵀW` computed from `W` itself: QR gives
+/// `W = QR ⇒ A = RᵀR`, so the factor is `L = Rᵀ` (rows sign-fixed to a positive
+/// diagonal). `W` here is `diag(√λ̃)·Vᵀ` with every `λ̃ > 0`, so `W` has full
+/// rank and the factor exists exactly; returns `None` only if the QR itself
+/// declines or produces a non-finite / zero pivot, in which case the caller
+/// falls back to factoring the reconstructed matrix (the historical path).
+fn spectral_qr_cholesky_factor(weighted_vt: &Array2<f64>) -> Option<Array2<f64>> {
+    let n = weighted_vt.nrows();
+    let (_q, r) = weighted_vt.qr().ok()?;
+    if r.nrows() != n || r.ncols() != n {
+        return None;
+    }
+    let mut l = Array2::<f64>::zeros((n, n));
+    for i in 0..n {
+        let d = r[[i, i]];
+        if !d.is_finite() || d == 0.0 {
+            return None;
+        }
+        let s = if d < 0.0 { -1.0 } else { 1.0 };
+        for j in i..n {
+            let v = s * r[[i, j]];
+            if !v.is_finite() {
+                return None;
+            }
+            l[[j, i]] = v;
+        }
+    }
+    Some(l)
 }
 
 pub(crate) fn factor_dense_reduced_schur(
@@ -605,17 +648,7 @@ pub(crate) fn factor_dense_reduced_schur(
                 } else {
                     spectral_pd_floored_schur(schur, relative_floor)
                 } {
-                    Some(floored) => (
-                        cholesky_lower(&floored).map_err(|floored_err| {
-                            ArrowSchurError::SchurFactorFailed {
-                                reason: format!(
-                                    "reduced Schur non-PD ({e}); spectral PD-floor \
-                                     reconstruction still non-PD: {floored_err}"
-                                ),
-                            }
-                        })?,
-                        Some(floored),
-                    ),
+                    Some((floored, floored_factor)) => (floored_factor, Some(floored)),
                     None => {
                         return Err(ArrowSchurError::SchurFactorFailed {
                             reason: format!(
@@ -698,8 +731,7 @@ pub(crate) fn solve_dense_reduced_system(
             // (futilely) lift a fundamentally rank-deficient dead-atom subspace.
             // Without the floor (BA / non-SAE callers) the strict refusal stands.
             if let Some(relative_floor) = options.schur_pd_floor
-                && let Some(floored) = spectral_pd_floored_schur(schur, relative_floor)
-                && let Ok(floored_factor) = cholesky_lower(&floored)
+                && let Some((floored, floored_factor)) = spectral_pd_floored_schur(schur, relative_floor)
             {
                 let direct =
                     mixed_precision_reduced_beta(&floored, &floored_factor, rhs_beta, options)
@@ -899,7 +931,7 @@ pub(crate) const SCHUR_PROLOGUE_PARALLEL_K_MIN: usize = 512;
 /// criterion ranking across topology candidates is stable except for candidates
 /// separated by less than that f64 margin, where reassociation can flip the
 /// near-tie winner — it is NOT an exact no-move guarantee (#1211).
-pub(crate) struct SaeResidentReducedSchur {
+pub struct SaeResidentReducedSchur {
     /// Decoder output dimension `p` (the side length of every `G_i = L_iᵀ Y_i`).
     pub(crate) p: usize,
     /// Per-row **factored** residency: `(L_i, Y_i)`, each stored row-major as a
@@ -1353,6 +1385,624 @@ pub fn matrix_free_arrow_evidence_log_det(
         seed,
     );
     Ok((log_det_tt, slq))
+}
+
+/// Fixed configuration for the #2080 rational-surrogate evidence lane: the probe
+/// count, seeds, quadrature/CG tolerances, and derived-rank deflation budget the
+/// [`SurrogateLaneState`] plan is (re)built with. The caller (the SAE streaming
+/// criterion) supplies these once; `deflation_target_std_err_rel` is the derived
+/// bar `0.1 · STALL_REL_TOL` (see [`rational_reduced_schur_plan_derived`]).
+#[derive(Clone)]
+pub struct SurrogateLaneConfig {
+    pub num_probes: usize,
+    pub seed: u64,
+    pub rel_tol: f64,
+    pub power_iters: usize,
+    pub cg_rel_tol: f64,
+    pub cg_max_iters: usize,
+    pub deflation_max_rank: usize,
+    pub deflation_subspace_iters: usize,
+    pub deflation_target_std_err_rel: f64,
+}
+
+/// Per-outer-solve state for the #2080 rational-surrogate evidence lane. Holds
+/// the FROZEN derived-rank plan — probes, bracket-centred quadrature, and Hutch++
+/// `Q`, all fixed once at the entry ρ so value and gradient stay a single
+/// functional across the ρ sweep — plus the config to (re)build it when the
+/// reduced-Schur dimension changes (a basin mutation between outer solves).
+/// Threaded as `Option<&mut _>` through the streaming criterion; `None` keeps the
+/// bit-identical SLQ path.
+pub struct SurrogateLaneState {
+    plan: Option<RationalLogdetPlan>,
+    cfg: SurrogateLaneConfig,
+    /// When set, the next matrix-free evidence eval also computes the shared
+    /// `(probes, S⁻¹·probes)` bundle for the tr(S⁻¹·M) gradient channels (the
+    /// #2080 selected-inverse umbrella) and stashes it in `inverse_probes`. The
+    /// gradient lane (EFS α-step) sets this before its criterion call and takes
+    /// the bundle after; the value probes leave it unset and pay nothing.
+    request_inverse_probes: bool,
+    /// The last-computed shared bundle: the FROZEN plan's probes `v_j` and their
+    /// `S⁻¹ v_j` (t = 0) solves at the current operator. One bundle drives every
+    /// selected-inverse trace `tr(S⁻¹·M) ≈ (1/m)Σ_j (S⁻¹v_j)ᵀ(M v_j)` off the
+    /// SAME probes as the value, so value and ρ-gradient never desync.
+    inverse_probes: Option<(Vec<Array1<f64>>, Vec<Array1<f64>>)>,
+    /// The previous ρ's `S⁻¹ v_j` solves, kept as the CG warm-start for the next
+    /// bundle solve. `S⁻¹` is smooth in ρ, so a neighbouring-ρ solution is a near
+    /// seed (common-random-numbers reuse — the discipline that makes the
+    /// surrogate's shifted ladder cheap); the converged solve is unchanged to
+    /// `cg_rel_tol`, only its iteration count drops. Cleared when the plan rebuilds
+    /// (basin border change ⇒ the old-dim seeds are meaningless).
+    warm_inverse_probes: Option<Vec<Array1<f64>>>,
+}
+
+impl SurrogateLaneState {
+    /// A lane with no plan yet — the first evaluation builds and freezes it.
+    pub fn new(cfg: SurrogateLaneConfig) -> Self {
+        Self {
+            plan: None,
+            cfg,
+            request_inverse_probes: false,
+            inverse_probes: None,
+            warm_inverse_probes: None,
+        }
+    }
+
+    /// The frozen plan, once built (for the gradient lane, which contracts
+    /// against the SAME `Q` the value used).
+    pub fn plan(&self) -> Option<&RationalLogdetPlan> {
+        self.plan.as_ref()
+    }
+
+    /// Ask the next matrix-free evidence eval to also emit the shared
+    /// `(probes, S⁻¹·probes)` bundle. Clears any stale bundle so a failed or
+    /// skipped eval cannot hand back last call's solves.
+    pub fn request_inverse_probes(&mut self) {
+        self.request_inverse_probes = true;
+        self.inverse_probes = None;
+    }
+
+    /// Take the shared bundle produced by the most recent eval, if requested and
+    /// computed. Consumes it so a later gradient read cannot reuse stale solves.
+    pub fn take_inverse_probes(&mut self) -> Option<(Vec<Array1<f64>>, Vec<Array1<f64>>)> {
+        self.request_inverse_probes = false;
+        self.inverse_probes.take()
+    }
+}
+
+/// Split arrow-Schur evidence `log|H| = Σ log|H_tt| + log|S|` where the reduced
+/// Schur term is estimated by the #2080 rational surrogate rather than SLQ, on
+/// ONE shared factorization. The build-once companion to
+/// [`matrix_free_arrow_evidence_log_det`]:
+///
+/// - `lane = None` runs the identical [`slq_reduced_schur_log_det`] path — a
+///   bit-for-bit fallback so a caller that has not opted in is unchanged.
+/// - `lane = Some(state)` builds (or, when the reduced-Schur dimension is
+///   unchanged, reuses) the frozen derived-rank [`RationalLogdetPlan`] and
+///   evaluates it against the current operator. The plan's `Q`/probes/quadrature
+///   are fixed at first build, so only the matrix-free `S·v` apply moves with ρ —
+///   the value and its [`RationalLogdetPlan::directional_derivative`] gradient
+///   remain one functional.
+///
+/// Returns `(log_det_tt, log_det_schur)`; the caller adds them for the evidence.
+pub fn matrix_free_arrow_evidence_log_det_surrogate(
+    sys: &ArrowSchurSystem,
+    ridge_t: f64,
+    ridge_beta: f64,
+    options: &ArrowSolveOptions,
+    slq_num_probes: usize,
+    slq_lanczos_steps: usize,
+    slq_seed: u64,
+    lane: Option<&mut SurrogateLaneState>,
+) -> Result<(f64, f64), ArrowSchurError> {
+    let backend = CpuBatchedBlockSolver;
+    let factorization = factor_blocks_for_system(sys, ridge_t, options, &backend)?;
+    let htt_factors = factorization.factors;
+    let mut log_det_tt = 0.0_f64;
+    for row in 0..htt_factors.len() {
+        let factor = htt_factors.factor(row);
+        for axis in 0..factor.nrows() {
+            log_det_tt += 2.0 * factor[[axis, axis]].ln();
+        }
+    }
+    let resident = SaeResidentReducedSchur::build(sys, &htt_factors, &backend);
+
+    let log_det_schur = match lane {
+        None => {
+            let slq = slq_reduced_schur_log_det(
+                sys,
+                &htt_factors,
+                ridge_beta,
+                &backend,
+                resident.as_ref(),
+                slq_num_probes,
+                slq_lanczos_steps,
+                slq_seed,
+            );
+            slq.estimate
+        }
+        Some(state) => {
+            let dim = sys.k;
+            // (Re)build the frozen plan when absent or dimension-mismatched (a
+            // basin mutation changed the border); otherwise reuse the frozen Q.
+            let need_build = state.plan.as_ref().map_or(true, |p| p.dim != dim);
+            if need_build {
+                let cfg = state.cfg.clone();
+                let plan = rational_reduced_schur_plan_derived(
+                    sys,
+                    &htt_factors,
+                    ridge_beta,
+                    &backend,
+                    resident.as_ref(),
+                    cfg.num_probes,
+                    cfg.seed,
+                    cfg.rel_tol,
+                    cfg.power_iters,
+                    cfg.cg_rel_tol,
+                    cfg.cg_max_iters,
+                    cfg.deflation_max_rank,
+                    cfg.deflation_subspace_iters,
+                    cfg.deflation_target_std_err_rel,
+                )
+                .ok_or_else(|| ArrowSchurError::SchurFactorFailed {
+                    reason: format!(
+                        "rational log-det surrogate plan build failed for reduced Schur dim {dim}"
+                    ),
+                })?;
+                state.plan = Some(plan);
+                // The old-dim S⁻¹·probes are meaningless against the new border.
+                state.warm_inverse_probes = None;
+            }
+            let plan = state
+                .plan
+                .as_ref()
+                .expect("plan installed just above when absent");
+            let want_bundle = state.request_inverse_probes;
+            // Value (and, when the gradient lane asked for it, the shared
+            // (probes, S⁻¹·probes) bundle) computed under one borrow of the
+            // frozen plan; the bundle is stashed on the lane after the borrow
+            // ends. The bundle uses the plan's RAW probes v_j (not the deflation-
+            // projected ones) since tr(S⁻¹·M) contracts the full S⁻¹ v_j.
+            let (estimate, bundle) = {
+                let matvec = |v: ArrayView1<f64>| -> Array1<f64> {
+                    let x = v.to_owned();
+                    let mut out = Array1::<f64>::zeros(dim);
+                    schur_matvec(sys, &htt_factors, ridge_beta, &x, &mut out, &backend, resident.as_ref());
+                    out
+                };
+                let eval = plan
+                    .evaluate(&matvec, state.cfg.cg_rel_tol, state.cfg.cg_max_iters)
+                    .ok_or_else(|| ArrowSchurError::SchurFactorFailed {
+                        reason: "rational log-det surrogate evaluation returned non-finite"
+                            .to_string(),
+                    })?;
+                let bundle = if want_bundle {
+                    let sinv = reduced_schur_inverse_probe_solves(
+                        sys,
+                        &htt_factors,
+                        ridge_beta,
+                        &backend,
+                        resident.as_ref(),
+                        &plan.probes,
+                        state.warm_inverse_probes.as_deref(),
+                        state.cfg.cg_rel_tol,
+                        state.cfg.cg_max_iters,
+                    )
+                    .ok_or_else(|| ArrowSchurError::SchurFactorFailed {
+                        reason: "rational surrogate inverse-probe bundle solve failed".to_string(),
+                    })?;
+                    Some((plan.probes.clone(), sinv))
+                } else {
+                    None
+                };
+                (eval.estimate, bundle)
+            };
+            if want_bundle {
+                // Keep the fresh solves as the next ρ's warm-start seed (CRN),
+                // then hand the bundle to the gradient lane.
+                if let Some((_, sinv)) = &bundle {
+                    state.warm_inverse_probes = Some(sinv.clone());
+                }
+                state.inverse_probes = bundle;
+                state.request_inverse_probes = false;
+            }
+            estimate
+        }
+    };
+    Ok((log_det_tt, log_det_schur))
+}
+
+/// Power-iteration estimate of the largest eigenvalue `λ_max` of the SPD reduced
+/// Schur `S` through the matrix-free [`schur_matvec`] apply — the upper end of
+/// the spectral bracket the #2080 rational log-det surrogate
+/// ([`RationalLogdetPlan`]) needs to size its bracket-centred DE quadrature.
+///
+/// Deterministic: the start vector is a fixed SplitMix64 Rademacher draw from
+/// `seed`, so a given `(sys, htt_factors, ρ_β, resident, iters, seed)` always
+/// returns the same estimate — the surrogate bracket must be reproducible for the
+/// REML outer loop, exactly like the SLQ probes. `iters` power steps refine the
+/// Rayleigh quotient `vᵀ S v` (each step is one `schur_matvec`); a handful
+/// suffice because the surrogate only needs a bracket good to a factor, not a
+/// converged eigenvalue (the quadrature window is padded two decades each side).
+///
+/// Returns `None` for a degenerate operator (`k == 0`) or a non-finite /
+/// non-positive Rayleigh quotient (an SPD operator forbids the latter, so it
+/// signals a caller bug or a non-finite operator, both of which must surface
+/// rather than be silently bracketed).
+pub fn reduced_schur_lambda_max<B: BatchedBlockSolver + Sync>(
+    sys: &ArrowSchurSystem,
+    htt_factors: &ArrowFactorSlab,
+    ridge_beta: f64,
+    backend: &B,
+    resident: Option<&SaeResidentReducedSchur>,
+    iters: usize,
+    seed: u64,
+) -> Option<f64> {
+    let k = sys.k;
+    if k == 0 {
+        return None;
+    }
+    // Deterministic Rademacher start (same stream discipline as the surrogate
+    // probes): a ±1 vector never lands orthogonal to the top eigenspace.
+    let mut v = Array1::<f64>::zeros(k);
+    {
+        let mut state = seed.wrapping_mul(0x9E37_79B9_7F4A_7C15);
+        let mut bits: u64 = 0;
+        let mut remaining: u32 = 0;
+        for value in v.iter_mut() {
+            if remaining == 0 {
+                bits = gam_linalg::utils::splitmix64(&mut state);
+                remaining = 64;
+            }
+            *value = if bits & 1 == 1 { 1.0 } else { -1.0 };
+            bits >>= 1;
+            remaining -= 1;
+        }
+    }
+    let inv_norm0 = v.dot(&v).sqrt().recip();
+    if !inv_norm0.is_finite() {
+        return None;
+    }
+    v.mapv_inplace(|x| x * inv_norm0);
+    let apply = |x: &Array1<f64>| -> Array1<f64> {
+        let mut out = Array1::<f64>::zeros(k);
+        schur_matvec(sys, htt_factors, ridge_beta, x, &mut out, backend, resident);
+        out
+    };
+    for _ in 0..iters.max(1) {
+        let sv = apply(&v);
+        let norm = sv.dot(&sv).sqrt();
+        if !(norm.is_finite() && norm > 0.0) {
+            break;
+        }
+        v = sv / norm;
+    }
+    // Rayleigh quotient on the converged iterate (v stays unit).
+    let sv = apply(&v);
+    let lambda = v.dot(&sv);
+    (lambda.is_finite() && lambda > 0.0).then_some(lambda)
+}
+
+/// Matrix-free reduced-Schur log-determinant `log|S|` via the #2080 fixed
+/// rational surrogate ([`RationalLogdetPlan`]) on the exact [`schur_matvec`]
+/// apply — the desync-safe companion to [`slq_reduced_schur_log_det`]. **The
+/// dense `k×k` `S` is NEVER formed.**
+///
+/// Returns the built plan and its evaluation so the caller can (a) read
+/// `eval.estimate` = the surrogate value `L̃ ≈ log|S|` (with `eval.std_err` the
+/// honest Hutchinson error bar), and (b) later contract the SAME shifted-solve
+/// bundle against any per-ρ-coordinate Schur-derivative operator `∂S` via
+/// [`rational_reduced_schur_directional`]. Because both the value and that
+/// derivative are the exact value / gradient of the ONE deterministic function
+/// `L̃(ρ)` (fixed probes, fixed quadrature), the outer optimiser descends a
+/// function whose gradient is its own — the objective↔gradient desync class the
+/// bare SLQ value re-opened (a stochastic value paired with the analytic exact
+/// gradient) is closed by construction, not by tolerance tuning.
+///
+/// The spectral bracket is estimated matrix-free: `λ_max` by power iteration
+/// ([`reduced_schur_lambda_max`]), `λ_min` from the deflation-floor convention
+/// `SPECTRAL_DEFLATION_REL_FLOOR·λ_max` (the operative lower bound of the
+/// unit-deflated spectrum). Deterministic for a fixed
+/// `(sys, htt_factors, ρ_β, resident, num_probes, seed, rel_tol, power_iters,
+/// cg_rel_tol, cg_max_iters)`.
+///
+/// `None` when `k == 0`, the bracket estimate is degenerate, the plan cannot be
+/// built, or a shifted CG solve breaks down on a non-finite operator.
+pub fn rational_reduced_schur_log_det<B: BatchedBlockSolver + Sync>(
+    sys: &ArrowSchurSystem,
+    htt_factors: &ArrowFactorSlab,
+    ridge_beta: f64,
+    backend: &B,
+    resident: Option<&SaeResidentReducedSchur>,
+    num_probes: usize,
+    seed: u64,
+    rel_tol: f64,
+    power_iters: usize,
+    cg_rel_tol: f64,
+    cg_max_iters: usize,
+) -> Option<(RationalLogdetPlan, RationalLogdetEval)> {
+    let k = sys.k;
+    if k == 0 {
+        return None;
+    }
+    let lambda_max =
+        reduced_schur_lambda_max(sys, htt_factors, ridge_beta, backend, resident, power_iters, seed)?;
+    // λ_min from the deflation floor: after unit-deflation the operative spectrum
+    // is bounded below by `SPECTRAL_DEFLATION_REL_FLOOR·λ_max` (or 1.0), so this
+    // is a sound lower bracket for the quadrature window sizing. The window is
+    // padded two decades below `λ_min` inside `RationalLogdetPlan::build`, so a
+    // conservative (too-small) floor only widens the resolved range, never biases
+    // the estimate.
+    let lambda_min = (SPECTRAL_DEFLATION_REL_FLOOR * lambda_max).max(f64::MIN_POSITIVE);
+    let plan = RationalLogdetPlan::build(k, num_probes, seed, lambda_min, lambda_max, rel_tol)?;
+    let matvec = |v: ArrayView1<f64>| -> Array1<f64> {
+        // `schur_matvec` clears and fully assigns `out`, so a fresh zeroed buffer
+        // per apply is correct; the probes fan across rayon workers (in
+        // `evaluate`), and `schur_matvec`'s own row parallelism is guarded off
+        // inside a worker, so there is no nested oversubscription.
+        let x = v.to_owned();
+        let mut out = Array1::<f64>::zeros(k);
+        schur_matvec(sys, htt_factors, ridge_beta, &x, &mut out, backend, resident);
+        out
+    };
+    let eval = plan.evaluate(&matvec, cg_rel_tol, cg_max_iters)?;
+    Some((plan, eval))
+}
+
+/// Build the FROZEN #2080 surrogate plan for one outer solve, with the Hutch++
+/// deflation rank DERIVED from a pilot evaluation — the build-once companion to
+/// per-ρ [`RationalLogdetPlan::evaluate`]. Returns just the plan (probes +
+/// quadrature + frozen Hutch++ `Q`); the caller evaluates it at each ρ, so the
+/// expensive rank derivation (several re-solves) is paid ONCE per outer solve,
+/// not per criterion evaluation.
+///
+/// Derived rank (the #2080 lead ruling): a rank-0 pilot fixes the log-det scale,
+/// the target bar is `deflation_target_std_err_rel · (|log|S|_pilot| + 1)` — one
+/// order under the smallest tolerance the criterion feeds (the caller passes
+/// `0.1 · STALL_REL_TOL`; `log|S|` is the criterion's dominant term at wide `k`
+/// so `|log|S||+1` is the right objective scale to `O(1)` and the `0.1` margin
+/// absorbs the loss/Occam remainder). The peel rank grows on a doubling schedule
+/// until the Hutchinson error bar clears the target or the `deflation_max_rank`
+/// cap is hit; `deflation_max_rank == 0` (or a pilot already under target) yields
+/// the bare-Hutchinson plan. Deterministic for fixed inputs (`Q` and probes are
+/// seed-derived). The returned plan's `Q` is FROZEN, so
+/// [`RationalLogdetPlan::directional_derivative`] on its evaluations is the exact
+/// surrogate gradient.
+pub fn rational_reduced_schur_plan_derived<B: BatchedBlockSolver + Sync>(
+    sys: &ArrowSchurSystem,
+    htt_factors: &ArrowFactorSlab,
+    ridge_beta: f64,
+    backend: &B,
+    resident: Option<&SaeResidentReducedSchur>,
+    num_probes: usize,
+    seed: u64,
+    rel_tol: f64,
+    power_iters: usize,
+    cg_rel_tol: f64,
+    cg_max_iters: usize,
+    deflation_max_rank: usize,
+    deflation_subspace_iters: usize,
+    deflation_target_std_err_rel: f64,
+) -> Option<RationalLogdetPlan> {
+    let k = sys.k;
+    if k == 0 {
+        return None;
+    }
+    let lambda_max =
+        reduced_schur_lambda_max(sys, htt_factors, ridge_beta, backend, resident, power_iters, seed)?;
+    let lambda_min = (SPECTRAL_DEFLATION_REL_FLOOR * lambda_max).max(f64::MIN_POSITIVE);
+    let base_plan = RationalLogdetPlan::build(k, num_probes, seed, lambda_min, lambda_max, rel_tol)?;
+    let matvec = |v: ArrayView1<f64>| -> Array1<f64> {
+        let x = v.to_owned();
+        let mut out = Array1::<f64>::zeros(k);
+        schur_matvec(sys, htt_factors, ridge_beta, &x, &mut out, backend, resident);
+        out
+    };
+    // Rank-0 pilot: fixes the |log|S|| scale and is the answer outright when no
+    // deflation is requested or the bare bar already clears the target.
+    let pilot = base_plan.evaluate(&matvec, cg_rel_tol, cg_max_iters)?;
+    if deflation_max_rank == 0 {
+        return Some(base_plan);
+    }
+    let target = deflation_target_std_err_rel.max(0.0) * (pilot.estimate.abs() + 1.0);
+    if pilot.std_err <= target {
+        return Some(base_plan);
+    }
+    // Grow the peel rank (doubling ⇒ log-many re-solves) until the bar clears or
+    // the cap is hit; keep the LAST plan (its frozen Q is the deepest peel tried).
+    let cap = deflation_max_rank.min(k);
+    let mut rank = 4usize;
+    loop {
+        let r = rank.min(cap);
+        let plan = base_plan
+            .clone()
+            .with_deflation(&matvec, r, deflation_subspace_iters, seed);
+        let eval = plan.evaluate(&matvec, cg_rel_tol, cg_max_iters)?;
+        if eval.std_err <= target || r >= cap {
+            return Some(plan);
+        }
+        rank = rank.saturating_mul(2);
+    }
+}
+
+/// Contract the surrogate's shifted-solve bundle from
+/// [`rational_reduced_schur_log_det`] against a reduced-Schur derivative operator
+/// `∂S` (supplied through its matvec `dmatvec(v) = (∂S)·v`) to obtain the EXACT
+/// ρ-derivative of the surrogate value:
+/// `∂L̃ = (1/m)·Σ_{j,ℓ} w_ℓ · y_{jℓ}ᵀ (∂S) y_{jℓ}`, `y_{jℓ} = (S+t_ℓ I)⁻¹ v_j`.
+///
+/// This is the true gradient of the SAME function the value came from — value
+/// and gradient can never desync. Thin reduced-Schur wrapper over
+/// [`RationalLogdetPlan::directional_derivative`]; the `∂S` matvec is the
+/// per-ρ-coordinate Schur-derivative operator the SAE trace channels assemble
+/// row-locally (`(∂S)·y = (∂H_ββ)y − Σ_i[ (∂H_βt^(i))(H_tt⁻¹H_tβ y) −
+/// H_βt H_tt⁻¹(∂H_tt^(i))H_tt⁻¹H_tβ y + H_βt H_tt⁻¹(∂H_tβ^(i))y ]`).
+pub fn rational_reduced_schur_directional(
+    plan: &RationalLogdetPlan,
+    eval: &RationalLogdetEval,
+    dmatvec: &(impl Fn(ArrayView1<f64>) -> Array1<f64> + Sync),
+) -> Option<f64> {
+    plan.directional_derivative(eval, dmatvec)
+}
+
+/// Plain CG solve `S y = b` on the SPD reduced Schur through the matrix-free
+/// [`schur_matvec`] apply (the `t = 0`, unshifted companion to the surrogate's
+/// shifted solves), warm-started from `y0`. Yields `y = S⁻¹ b` — the operator
+/// every `tr(S⁻¹·M)` gradient / adjoint channel contracts against at massive K.
+/// `None` on a non-finite breakdown (SPD `S` ⇒ that signals a caller bug or a
+/// non-finite operator, both of which must surface rather than be swallowed).
+fn reduced_schur_cg_solve<B: BatchedBlockSolver + Sync>(
+    sys: &ArrowSchurSystem,
+    htt_factors: &ArrowFactorSlab,
+    ridge_beta: f64,
+    backend: &B,
+    resident: Option<&SaeResidentReducedSchur>,
+    b: &Array1<f64>,
+    y0: &Array1<f64>,
+    cg_rel_tol: f64,
+    cg_max_iters: usize,
+) -> Option<Array1<f64>> {
+    let k = sys.k;
+    let apply = |v: &Array1<f64>| -> Array1<f64> {
+        let mut out = Array1::<f64>::zeros(k);
+        schur_matvec(sys, htt_factors, ridge_beta, v, &mut out, backend, resident);
+        out
+    };
+    let mut y = y0.clone();
+    let mut r = b - &apply(&y);
+    let b_norm = b.dot(b).sqrt().max(f64::MIN_POSITIVE);
+    let mut p = r.clone();
+    let mut rs = r.dot(&r);
+    if !rs.is_finite() {
+        return None;
+    }
+    let tol = cg_rel_tol * b_norm;
+    let mut iters = 0usize;
+    while rs.sqrt() > tol && iters < cg_max_iters {
+        let ap = apply(&p);
+        let denom = p.dot(&ap);
+        if !(denom.is_finite() && denom > 0.0) {
+            return None;
+        }
+        let alpha = rs / denom;
+        y.scaled_add(alpha, &p);
+        r.scaled_add(-alpha, &ap);
+        let rs_new = r.dot(&r);
+        if !rs_new.is_finite() {
+            return None;
+        }
+        p = &r + &(&p * (rs_new / rs));
+        rs = rs_new;
+        iters += 1;
+    }
+    Some(y)
+}
+
+/// Matrix-free single-rhs reduced-Schur solve `S⁻¹ rhs` (`t = 0`) via CG on
+/// [`schur_matvec`], warm-started from `warm` (or cold). The base primitive for
+/// the selected-inverse gradient channels whose `S⁻¹` argument is NOT the fixed
+/// probe family but a per-call probe-derived vector (e.g. `(H⁻¹)_tt`'s
+/// `H_βt(H_tt)⁻¹z` term in the ARD latent-block diagonal, and the per-row
+/// `(H⁻¹)_tβ` blocks the θ-adjoint / assignment-strength traces contract) — those
+/// cannot reuse the `(probes, S⁻¹·probes)` bundle, so they solve `S⁻¹` on demand
+/// through this. `None` on a CG breakdown (SPD `S` forbids it, so it signals a
+/// non-finite operator or caller bug).
+pub fn reduced_schur_inverse_apply<B: BatchedBlockSolver + Sync>(
+    sys: &ArrowSchurSystem,
+    htt_factors: &ArrowFactorSlab,
+    ridge_beta: f64,
+    backend: &B,
+    resident: Option<&SaeResidentReducedSchur>,
+    rhs: &Array1<f64>,
+    warm: Option<&Array1<f64>>,
+    cg_rel_tol: f64,
+    cg_max_iters: usize,
+) -> Option<Array1<f64>> {
+    let zero = Array1::<f64>::zeros(sys.k);
+    let y0 = warm.unwrap_or(&zero);
+    reduced_schur_cg_solve(
+        sys,
+        htt_factors,
+        ridge_beta,
+        backend,
+        resident,
+        rhs,
+        y0,
+        cg_rel_tol,
+        cg_max_iters,
+    )
+}
+
+/// The `S⁻¹ v_j` bundle for a fixed probe set: solves `S y_j = v_j` (`t = 0`) on
+/// the matrix-free reduced Schur for each probe `v_j`, warm-started per-probe
+/// from `warm` when supplied (e.g. the surrogate's smallest-shift solves, which
+/// already sit close to `S⁻¹ v_j`). Computed ONCE per outer solve and reused
+/// across every `tr(S⁻¹·M)` channel, so the whole massive-K ρ-gradient +
+/// θ-adjoint rides on one probe family — one functional, desync closed.
+///
+/// `probes` are the surrogate plan's Rademacher probes (`RationalLogdetPlan::
+/// probes`); pass the SAME set the value used so the trace estimates are
+/// consistent with it. `None` on any CG breakdown.
+pub fn reduced_schur_inverse_probe_solves<B: BatchedBlockSolver + Sync>(
+    sys: &ArrowSchurSystem,
+    htt_factors: &ArrowFactorSlab,
+    ridge_beta: f64,
+    backend: &B,
+    resident: Option<&SaeResidentReducedSchur>,
+    probes: &[Array1<f64>],
+    warm: Option<&[Array1<f64>]>,
+    cg_rel_tol: f64,
+    cg_max_iters: usize,
+) -> Option<Vec<Array1<f64>>> {
+    let k = sys.k;
+    let zero = Array1::<f64>::zeros(k);
+    let mut out = Vec::with_capacity(probes.len());
+    for (j, v) in probes.iter().enumerate() {
+        let y0 = warm.and_then(|w| w.get(j)).unwrap_or(&zero);
+        let y = reduced_schur_cg_solve(
+            sys,
+            htt_factors,
+            ridge_beta,
+            backend,
+            resident,
+            v,
+            y0,
+            cg_rel_tol,
+            cg_max_iters,
+        )?;
+        out.push(y);
+    }
+    Some(out)
+}
+
+/// Hutchinson estimate `tr(S⁻¹ M) ≈ (1/m) Σ_j (S⁻¹ v_j)ᵀ (M v_j)` for the reduced
+/// Schur `S` and a SYMMETRIC channel operator `M` supplied by its matvec
+/// `m_matvec(v) = M·v`. `sinv_probes[j] = S⁻¹ v_j` is the bundle from
+/// [`reduced_schur_inverse_probe_solves`] and `probes` the matching probe set.
+///
+/// The general umbrella (#2080): every dense-`S⁻¹` consumer in the SAE outer
+/// gradient — the per-row selected-inverse deflation corrections
+/// (`M = Σ_i G_iᵀ C_i G_i`), the direct β–β contractions (`M = ∂H_ββ` channel),
+/// and the θ-adjoint — is ultimately a `tr(S⁻¹·M)` with `M·v` computable
+/// row-locally without forming `M`. Estimating them all from the SAME
+/// `(probes, S⁻¹ v_j)` pair keeps the value, ρ-gradient, and θ-adjoint one
+/// functional. Unbiased for the ±1 Rademacher probes (`E[vᵀ S⁻¹ M v] =
+/// tr(S⁻¹ M)`). `None` on a length mismatch or a non-finite accumulation.
+pub fn hutchinson_reduced_schur_inverse_trace(
+    probes: &[Array1<f64>],
+    sinv_probes: &[Array1<f64>],
+    m_matvec: &(impl Fn(ArrayView1<f64>) -> Array1<f64> + Sync),
+) -> Option<f64> {
+    let m = probes.len();
+    if m == 0 || sinv_probes.len() != m {
+        return None;
+    }
+    let mut acc = 0.0_f64;
+    for (v, y) in probes.iter().zip(sinv_probes) {
+        let mv = m_matvec(v.view());
+        acc += y.dot(&mv);
+    }
+    acc /= m as f64;
+    acc.is_finite().then_some(acc)
 }
 
 /// Accumulate one row's reduced-Schur point-elimination contribution
@@ -2300,7 +2950,6 @@ pub(crate) fn assemble_local_schur_block<B: BatchedBlockSolver + Sync>(
     backend: &B,
     cols: &[usize],
 ) -> Array2<f64> {
-    let d = sys.d;
     let b = cols.len();
     let mut s_block = Array2::<f64>::zeros((b, b));
     // Initialise from H_ββ via penalty_subblock_add (#296): routes through
@@ -2310,24 +2959,33 @@ pub(crate) fn assemble_local_schur_block<B: BatchedBlockSolver + Sync>(
         s_block[[bi, bi]] += ridge_beta;
     }
     let cluster_row_into = |row_idx: usize, row: &ArrowRowBlock, acc: &mut Array2<f64>| {
-        let mut col_vec = Array1::<f64>::zeros(d);
-        let mut solved_cols = Array2::<f64>::zeros((d, b));
+        // Materialize the b needed cross-block columns through the ROUTED
+        // `H_tβ` convention (`sys_htbeta_apply_row`: matrix-free operator plus
+        // any dense supplement) at the row's OWN width `di` — never a raw
+        // `row.htbeta` read at the global `sys.d`: matvec-backed rows carry
+        // absent/zero-sized slabs by contract (a raw read is wrong or panics),
+        // and per-row widths vary.
+        let di = sys.row_dims[row_idx];
+        let mut e_g = Array1::<f64>::zeros(sys.k);
+        let mut col_i = Array1::<f64>::zeros(di);
+        let mut cols_mat = Array2::<f64>::zeros((di, b));
+        let mut solved_cols = Array2::<f64>::zeros((di, b));
         for bj in 0..b {
             let gj = cols[bj];
-            for c in 0..d {
-                col_vec[c] = row.htbeta[[c, gj]];
-            }
-            let solved = backend.solve_block_vector(htt_factors.factor(row_idx), col_vec.view());
-            for c in 0..d {
+            e_g[gj] = 1.0;
+            sys_htbeta_apply_row(sys, row_idx, row, e_g.view(), &mut col_i);
+            e_g[gj] = 0.0;
+            let solved = backend.solve_block_vector(htt_factors.factor(row_idx), col_i.view());
+            for c in 0..di {
+                cols_mat[[c, bj]] = col_i[c];
                 solved_cols[[c, bj]] = solved[c];
             }
         }
         for bi in 0..b {
-            let gi = cols[bi];
             for bj in 0..b {
                 let mut dot = 0.0;
-                for c in 0..d {
-                    dot += row.htbeta[[c, gi]] * solved_cols[[c, bj]];
+                for c in 0..di {
+                    dot += cols_mat[[c, bi]] * solved_cols[[c, bj]];
                 }
                 acc[[bi, bj]] -= dot;
             }
@@ -3284,28 +3942,32 @@ pub(crate) fn build_schur_scalar_inv<B: BatchedBlockSolver>(
     backend: &B,
     cols: &[usize],
 ) -> Result<Vec<f64>, ArrowSchurError> {
-    let d = sys.d;
     let mut result = Vec::with_capacity(cols.len());
-    let mut col_vec = Array1::<f64>::zeros(d);
     // Extract the penalty diagonal for all K columns once, then index per-column.
     let mut full_diag = Array1::<f64>::zeros(sys.k);
     {
         let diag_slice = full_diag.as_slice_mut().expect("full_diag contiguous");
         sys.penalty_diagonal_add(diag_slice);
     }
+    // Probe each needed column through the ROUTED `H_tβ` convention at each
+    // row's own width (see `assemble_local_schur_block` for why a raw
+    // `row.htbeta` read at the global `sys.d` is wrong here).
+    let mut e_g = Array1::<f64>::zeros(sys.k);
     for &gi in cols {
         let mut s = full_diag[gi] + ridge_beta;
+        e_g[gi] = 1.0;
         for (row_idx, row) in sys.rows.iter().enumerate() {
-            for c in 0..d {
-                col_vec[c] = row.htbeta[[c, gi]];
-            }
+            let di = sys.row_dims[row_idx];
+            let mut col_vec = Array1::<f64>::zeros(di);
+            sys_htbeta_apply_row(sys, row_idx, row, e_g.view(), &mut col_vec);
             let solved = backend.solve_block_vector(htt_factors.factor(row_idx), col_vec.view());
             let mut acc = 0.0;
-            for c in 0..d {
+            for c in 0..di {
                 acc += col_vec[c] * solved[c];
             }
             s -= acc;
         }
+        e_g[gi] = 0.0;
         if !s.is_finite() || s <= JACOBI_DIAGONAL_PD_FLOOR {
             return Err(ArrowSchurError::PcgFailed {
                 reason: format!(

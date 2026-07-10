@@ -189,10 +189,14 @@ tags:
       Read the authenticated user and team members.
   - name: Usage
     description: |
-      Usage and metering, hub + spokes. `GET /v1/usage` is the hub: plan, billing period,
-      and quota usage in one snapshot (`/v1/usage-stats` is its deprecated alias). The
-      `/v1/usage/<domain>` spokes (calls, sms) meter consumption over any window with a
-      uniform contract: since/until/number/groupBy in, totals + groups out.
+      Usage and metering. `GET /v1/usage` is dual-mode: bare calls return the
+      plan / quota snapshot (back-compat, same as `/v1/usage-stats`); calls
+      with `range` / `granularity` params return usage METERING — billed spend
+      (USD) by product family (accounts, numbers, calls, sms, dlc, xApi,
+      credits) over any window, from Metronome's invoice breakdown (also served
+      at `GET /v1/usage/daily`). The `/v1/usage/<domain>` spokes (calls, sms)
+      meter per-domain consumption volumes over a window. `GET /v1/billing` is
+      the billing statement (balance, credits, caps, payment status).
   - name: Profiles
     description: |
       Manage profiles (named groups of social accounts).
@@ -1608,6 +1612,10 @@ components:
                     type: string
                   error:
                     type: string
+            metadata:
+              type: object
+              additionalProperties: true
+              description: The free-form `metadata` object supplied when the post was created, echoed back so you can map events onto your own records. Omitted when the post was created without it.
         timestamp:
           type: string
           format: date-time
@@ -1658,6 +1666,10 @@ components:
                   platformPostId: { type: string }
                   publishedUrl: { type: string }
                   error: { type: string }
+            metadata:
+              type: object
+              additionalProperties: true
+              description: The free-form `metadata` object supplied when the post was created, echoed back so you can map events onto your own records. Omitted when the post was created without it.
         platform:
           type: object
           description: The specific platform that just transitioned to a terminal state.
@@ -3344,6 +3356,19 @@ components:
         timestamp:
           type: string
           format: date-time
+    DiscordRole:
+      type: object
+      description: A Discord guild role, returned verbatim from Discord's API.
+      properties:
+        id: { type: string, description: Role snowflake ID }
+        name: { type: string }
+        color: { type: integer, description: "Decimal color (0 = no color). Convert to hex via .toString(16)." }
+        position: { type: integer, description: "Position in role hierarchy (higher = more authority)" }
+        permissions: { type: string, description: Permissions bitfield as a stringified integer }
+        managed: { type: boolean, description: True for integration-managed roles (bot roles) }
+        mentionable: { type: boolean }
+        hoist: { type: boolean, description: True if role is displayed separately in member list }
+
     GeoRestriction:
       type: object
       description: >
@@ -4071,10 +4096,6 @@ components:
           type: object
           description: "Offer details. Required when topicType is OFFER. All fields are optional per Google's API, but at least one is recommended."
           properties:
-            offerType:
-              type: string
-              enum: [OFFER, BUY_ONE_GET_ONE]
-              description: Type of offer
             redeemOnlineUrl:
               type: string
               format: uri
@@ -4615,6 +4636,139 @@ components:
           enum: [read-write, read]
           description: "'read-write' allows all operations, 'read' restricts to GET requests only"
           default: read-write
+    BillingSnapshot:
+      type: object
+      description: |
+        Account billing state — plan, cycle, balance, spend caps, and payment /
+        access status. Returned by `GET /v1/billing`.
+      properties:
+        billingSystem:
+          type: string
+          enum: [metronome, stripe]
+        plan:
+          type: object
+          properties:
+            name: { type: string }
+            isUsageBased: { type: boolean }
+        period:
+          type: object
+          description: Current billing cycle. `start`/`end` are resolved for usage-based accounts only.
+          properties:
+            start: { type: string, format: date-time, nullable: true }
+            end: { type: string, format: date-time, nullable: true }
+            anchorDay: { type: integer, description: Day-of-month the cycle resets. }
+        balance:
+          type: object
+          nullable: true
+          description: Accrued spend + remaining credits this cycle. `null` for fixed-subscription (Stripe) plans.
+          properties:
+            accruedThisPeriodCents: { type: integer }
+            creditsRemainingCents: { type: integer }
+        caps:
+          type: object
+          properties:
+            xSpendUsedCents: { type: integer }
+            xSpendLimitCents: { type: integer, nullable: true, description: Monthly X-API spend cap; null = unlimited. }
+        status:
+          type: object
+          properties:
+            hasAccess: { type: boolean }
+            suspended: { type: boolean }
+            suspendedAt: { type: string, format: date-time, nullable: true }
+            suspensionReason: { type: string, nullable: true }
+            openInvoiceUrl: { type: string, nullable: true, description: Hosted invoice URL for dunning (Stripe). }
+            declineReason: { type: string, nullable: true }
+            autoUpgradeEnabled: { type: boolean }
+        legacy:
+          type: object
+          description: Deprecated plan entitlements (Stripe only); absent for usage-based accounts.
+          properties:
+            limits:
+              type: object
+              properties:
+                uploads: { type: integer }
+                profiles: { type: integer }
+    UsageMetering:
+      type: object
+      description: |
+        Billed spend by product family over a window, from Metronome's invoice
+        breakdown (the CHARGE view). Returned by `GET /v1/usage`.
+      properties:
+        supported:
+          type: boolean
+          description: False for legacy Stripe accounts (no Metronome invoice to split); `days` and `totals` are then empty/zero.
+        granularity:
+          type: string
+          enum: [day, month, total]
+        days:
+          type: array
+          description: One row per bucket. Empty when `granularity=total`. `date` is a UTC date (month buckets use the 1st).
+          items:
+            type: object
+            properties:
+              date: { type: string, format: date }
+              accounts: { type: number }
+              numbers: { type: number }
+              calls: { type: number }
+              sms: { type: number }
+              dlc: { type: number, description: 10DLC registration (brand + campaign) fees. }
+              xApi: { type: number }
+              credits: { type: number, description: Applied credits/discounts (negative). }
+              other: { type: number }
+        totals:
+          type: object
+          description: Sum of each product over the whole window (USD), plus `total`. Unaffected by `granularity`.
+          properties:
+            accounts: { type: number }
+            numbers: { type: number }
+            calls: { type: number }
+            sms: { type: number }
+            dlc: { type: number }
+            xApi: { type: number }
+            credits: { type: number }
+            other: { type: number }
+            total: { type: number }
+        lineItems:
+          type: array
+          description: Per-invoice-line-item rows (largest spend first) for a detailed breakdown.
+          items:
+            type: object
+            properties:
+              name: { type: string }
+              product:
+                type: string
+                enum: [accounts, numbers, calls, sms, dlc, xApi, credits, other]
+              totalUsd: { type: number }
+              quantity: { type: number }
+        peaks:
+          type: object
+          description: Peak counts over the window (Metronome COUNT metrics + live active-number count).
+          properties:
+            accounts: { type: integer }
+            numbers: { type: integer }
+        callUsage:
+          type: object
+          description: Billable call volumes over the window.
+          properties:
+            whatsapp:
+              type: object
+              properties:
+                count: { type: integer }
+                minutes: { type: integer }
+            pstn:
+              type: object
+              properties:
+                count: { type: integer }
+                minutes: { type: integer }
+        period:
+          type: object
+          properties:
+            start: { type: string, format: date-time }
+            end: { type: string, format: date-time }
+            source:
+              type: string
+              enum: [cycle, window]
+              description: '`cycle` = a real billing period resolved; `window` = trailing/custom window (or cycle fallback).'
     UsageStats:
       type: object
       description: |
@@ -10323,6 +10477,30 @@ paths:
         '400': { description: Missing params }
         '401': { $ref: '#/components/responses/Unauthorized' }
         '404': { description: Account not found }
+  /v1/billing:
+    get:
+      operationId: getBilling
+      tags: [Usage]
+      summary: Account billing snapshot (plan, cycle, balance, caps, status)
+      description: |
+        The billing "wallet/statement" view: current plan, billing cycle,
+        accrued balance + remaining credits this period, spend caps, and
+        payment / access status. This is the billing half of the legacy
+        `/v1/usage-stats` snapshot — the per-product consumption half is metering
+        and lives on `GET /v1/usage`.
+
+        Usage-based (Metronome) accounts get a populated `balance`; legacy Stripe
+        accounts get `balance: null` plus a deprecated `legacy.limits` block and,
+        when payment-blocked, `status.openInvoiceUrl` / `status.declineReason`.
+      responses:
+        '200':
+          description: Billing snapshot
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/BillingSnapshot'
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
   /v1/billing/x-pricing:
     get:
       operationId: getXApiPricing
@@ -10388,23 +10566,27 @@ paths:
     get:
       operationId: getUsage
       tags: [Usage]
-      summary: Get plan and usage snapshot
+      summary: Usage snapshot (default) or billed-spend metering (with params)
       description: |
-        The usage hub: current plan name, billing period, plan limits, and
-        usage counts, in one snapshot. For metered consumption over an
-        arbitrary window with breakdowns (by day, by number), use the
-        domain spokes: `GET /v1/usage/calls` and `GET /v1/usage/sms`.
+        Dual-mode endpoint, selected by query params — fully backward
+        compatible:
 
-        The response shape depends on the account's `billingSystem`:
-          * Stripe users: per-period `usage.uploads` / `usage.profiles` counters.
-          * Metronome (usage-based) users: `usage.connectedAccounts`,
-            `usage.xApiCallsByOperation` (per-operation X API call counts —
-            resolve keys via `GET /v1/billing/x-pricing`), plus a `spend`
-            block with `currentPeriodCents`, `xSpendCents`, and
-            `xSpendLimitCents`. The legacy `usage.xApiCalls` 3-tier
-            aggregate is still emitted for back-compat but excludes the
-            $0.200 URL tier and any future tiers — new clients should
-            consume `xApiCallsByOperation` only.
+        **Without metering params (the default):** the plan / quota / usage
+        snapshot — plan name, billing period, limits, usage counts, access
+        state. Identical to `GET /v1/usage-stats`. Existing integrations keep
+        working unchanged.
+
+        **With `range`, `granularity`, `from`, or `to`:** usage METERING —
+        billed spend (USD) by product family (`accounts`, `numbers`, `calls`,
+        `sms`, `dlc`, `xApi`, `credits`, `other`) over the window, at
+        `day` / `month` / `total` granularity, from Metronome's invoice
+        breakdown (the CHARGE view — always reconciles with what gets billed).
+        Also served at `GET /v1/usage/daily`. Usage-based accounts only —
+        legacy Stripe accounts get `{ "supported": false, "days": [] }`.
+
+        For per-domain consumption *volumes* use `GET /v1/usage/calls` and
+        `GET /v1/usage/sms`. For the billing statement (balance, credits,
+        caps, payment status) use `GET /v1/billing`.
       parameters:
         - name: reconcile
           in: query
@@ -10412,18 +10594,53 @@ paths:
           schema:
             type: boolean
           description: |
-            For Stripe subscription users, `true` forces a subscription
-            reconciliation pass even when cached plan data looks complete.
-            Omit the parameter, or pass `false`, to use the default
-            first-time-only reconciliation behavior. Invalid boolean values are
-            rejected.
+            Snapshot mode only. For Stripe subscription users, `true` forces a
+            subscription reconciliation pass even when cached plan data looks
+            complete.
+        - name: range
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [cycle, prev-cycle, 7d, 14d, 30d, 3mo, 12mo, custom]
+            default: cycle
+          description: |
+            Window to report. `cycle` / `prev-cycle` resolve to the customer's
+            real billing-period bounds (falling back to a trailing 30 days when
+            no invoice exists yet); `7d`…`12mo` are trailing windows; `custom`
+            uses `from` / `to`.
+        - name: from
+          in: query
+          required: false
+          schema: { type: string, format: date }
+          description: Inclusive start (UTC date). Required when `range=custom`.
+        - name: to
+          in: query
+          required: false
+          schema: { type: string, format: date }
+          description: Inclusive end (UTC date). Required when `range=custom`. Max span 366 days.
+        - name: granularity
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [day, month, total]
+            default: day
+          description: |
+            Bucketing of the `days` series: `day` (one row per UTC day),
+            `month` (one row per calendar month, dated to the 1st), or `total`
+            (no series — read `totals`). Does not affect `totals`.
       responses:
         '200':
-          description: Usage snapshot
+          description: |
+            Snapshot (no metering params) or billed spend by product over the
+            window (with metering params).
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/UsageStats'
+                oneOf:
+                  - $ref: '#/components/schemas/UsageStats'
+                  - $ref: '#/components/schemas/UsageMetering'
         '400': { description: Invalid query parameter }
         '401': { $ref: '#/components/responses/Unauthorized' }
         '404': { $ref: '#/components/responses/NotFound' }
@@ -10431,14 +10648,15 @@ paths:
     get:
       operationId: getUsageStats
       tags: [Usage]
-      summary: Get plan and usage stats
+      summary: Get plan and usage snapshot (plan, limits, payment status)
       deprecated: true
       description: |
-        Deprecated alias of `GET /v1/usage`; same contract. New integrations
-        should use that path (the usage hub), with `GET /v1/usage/calls` and
-        `GET /v1/usage/sms` for metered breakdowns.
-
-        Returns the current plan name, billing period, plan limits, and usage counts.
+        The plan / quota / payment-status snapshot: current plan name, billing
+        period, plan limits, usage counts, and access state. Identical to a
+        bare `GET /v1/usage` call (this path is its deprecated alias). For
+        billed spend by product, call `GET /v1/usage` with `range` /
+        `granularity` params. The statement view (balance, credits, caps,
+        payment status) lives at `GET /v1/billing`.
 
         The response shape depends on the account's `billingSystem`:
           * Stripe users: per-period `usage.uploads` / `usage.profiles` counters.
@@ -10528,7 +10746,7 @@ paths:
     get:
       operationId: getCallsUsage
       tags: [Usage]
-      summary: Calling usage (volumes + billable cost)
+      summary: Calling usage and cost
       description: |
         Aggregated calling usage across your numbers, both channels
         (WhatsApp Business Calling + regular phone/PSTN): call counts,
@@ -11715,15 +11933,34 @@ paths:
       tags: [Posts]
       summary: Edit published post
       description: |
-        Edit a published post on a social media platform. Currently only supported for X (Twitter).
+        Edit the text of an already-published post. Supported on X (Twitter), Discord,
+        Facebook, and Reddit. Each platform enforces its own rules:
 
-        Requirements:
+        **X (Twitter)**
         - Connected X account must have an active X Premium subscription
         - Must be within 1 hour of original publish time
         - Maximum 5 edits per tweet (enforced by X)
-        - Text-only edits (media changes are not supported)
+        - Threads cannot be edited, only single tweets
+        - X assigns a NEW post ID on edit, returned as `id`
 
-        The post record in Zernio is updated with the new content and edit history.
+        **Discord**
+        - No time limit and no premium requirement
+        - The message ID is unchanged after the edit
+
+        **Facebook**
+        - Graph only permits editing a post that the same app created, so this works on
+          posts published through Zernio and is rejected for posts created in Meta
+          Business Suite / Composer or by another tool
+        - Media cannot be swapped, only the message text
+        - Reactions, comments, and shares are preserved. The post ID is unchanged
+
+        **Reddit**
+        - Self-posts only. A link post has no editable body and is rejected before the write
+        - Body only. Reddit exposes no API to edit a post title, ever
+        - The post ID is unchanged
+
+        Media edits are not supported on any platform. The post record in Zernio is updated
+        with the new content and an edit-history entry.
       parameters:
         - name: postId
           in: path
@@ -11739,14 +11976,14 @@ paths:
               properties:
                 platform:
                   type: string
-                  description: The platform to edit the post on. Currently only twitter is supported.
-                  enum: [twitter]
+                  description: The platform to edit the post on.
+                  enum: [twitter, discord, facebook, reddit]
                 content:
                   type: string
-                  description: The new tweet text content
+                  description: The new post text content
             example:
-              platform: "twitter"
-              content: "Updated tweet text with corrected information"
+              platform: "facebook"
+              content: "Updated post text with corrected information"
       responses:
         '200':
           description: Post edited successfully
@@ -11756,22 +11993,30 @@ paths:
                 type: object
                 properties:
                   success: { type: boolean }
-                  id: { type: string, description: New tweet ID assigned by X after edit }
-                  url: { type: string, format: uri, description: URL of the edited tweet }
+                  id:
+                    type: string
+                    description: >
+                      The platform post ID after the edit. X assigns a new ID; Discord,
+                      Facebook, and Reddit return the original ID unchanged.
+                  url: { type: string, format: uri, description: URL of the edited post }
                   message: { type: string }
               example:
                 success: true
                 id: "1234567890123456790"
                 url: "https://twitter.com/i/web/status/1234567890123456790"
-                message: "Tweet edited successfully"
+                message: "twitter post edited successfully"
         '400':
-          description: "Invalid request: platform not supported, post not published, edit window expired, not Premium, or missing content."
+          description: >
+            Invalid request: platform not supported, post not published, edit window expired,
+            not X Premium, or missing content. Also returned when the platform rejects the edit
+            with a 4xx, which covers a Reddit link post (no editable body) and a Facebook post
+            that was not created by this app.
         '401': { $ref: '#/components/responses/Unauthorized' }
         '403':
           description: Forbidden
         '404': { $ref: '#/components/responses/NotFound' }
         '500':
-          description: Platform API edit failed
+          description: Platform API edit failed for a reason the platform did not classify.
   /v1/posts/{postId}/update-metadata:
     post:
       operationId: updatePostMetadata
@@ -12953,7 +13198,7 @@ paths:
         - name: redirect_url
           in: query
           schema: { type: string, format: uri }
-          description: Your custom redirect URL after connection completes. Standard mode appends ?connected={platform}&profileId=X&accountId=Y&username=Z. Headless mode appends OAuth data params for platforms requiring selection (e.g. LinkedIn orgs, Facebook pages). If no selection is needed, the account is created directly and the redirect includes accountId.
+          description: Your custom redirect URL after connection completes. Accepts an http(s) URL, a custom app scheme for mobile deeplinks (e.g. myapp://callback), or a relative path. Result params are appended with the URL API, so an existing query string is preserved. Standard mode appends connected={platform}&profileId=X&accountId=Y&username=Z. Headless mode appends OAuth data params for platforms requiring selection (e.g. LinkedIn orgs, Facebook pages). If no selection is needed, the account is created directly and the redirect includes accountId.
         - name: headless
           in: query
           schema: { type: boolean, default: false }
@@ -13055,7 +13300,7 @@ paths:
         - name: redirect_url
           in: query
           schema: { type: string, format: uri }
-          description: Custom redirect URL after OAuth completes (same-token platforms only)
+          description: Custom redirect URL after OAuth completes (same-token platforms only). Accepts an http(s) URL, a custom app scheme for mobile deeplinks (e.g. myapp://callback), or a relative path.
         - name: headless
           in: query
           schema: { type: boolean, default: false }
@@ -17412,6 +17657,45 @@ paths:
         '401': { $ref: '#/components/responses/Unauthorized' }
         '404': { description: Instagram account not found. }
 
+  /v1/accounts/{accountId}/instagram/publishing-limit:
+    get:
+      operationId: getInstagramPublishingLimit
+      tags: [Instagram]
+      summary: Get Instagram publishing limit
+      description: |
+        Returns the account's remaining content-publishing quota for Instagram's rolling
+        24-hour window, so you can pace publishing and warn before the cap is reached.
+
+        `quotaUsage` counts containers published since the start of the window.
+        Always compare against the returned `quotaTotal` rather than hardcoding a number:
+        Meta's prose documentation and the live API disagree on the value, and the live
+        value is authoritative.
+      parameters:
+        - name: accountId
+          in: path
+          required: true
+          description: The ID of the Instagram account
+          schema: { type: string }
+      responses:
+        '200':
+          description: Remaining publishing quota for the rolling window
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  quotaUsage: { type: integer, description: Containers published so far in the current window }
+                  quotaTotal: { type: integer, description: Maximum containers publishable per window }
+                  quotaDurationSeconds: { type: integer, description: Length of the rolling window in seconds }
+              example:
+                quotaUsage: 3
+                quotaTotal: 50
+                quotaDurationSeconds: 86400
+        '400': { description: Not an Instagram account }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { description: Account not found }
+        '502': { description: Instagram rejected the request }
+
   /v1/accounts/{accountId}/instagram/stories/{storyId}/insights:
     get:
       operationId: getInstagramStoryInsights
@@ -17774,6 +18058,68 @@ paths:
         '401': { $ref: '#/components/responses/Unauthorized' }
         '404': { description: Account not found }
 
+  /v1/accounts/{accountId}/facebook-post-reactions:
+    get:
+      operationId: getFacebookPostReactions
+      tags: [Analytics]
+      summary: Get Facebook post reactions
+      description: |
+        Returns the reaction breakdown for a Facebook Page post: a count per reaction type
+        plus the overall total.
+
+        The whole breakdown is fetched in a single Graph call. Note that the post analytics
+        endpoint reports only an aggregate reaction count (surfaced there as `likes`), so use
+        this endpoint when you need per-type counts.
+      parameters:
+        - name: accountId
+          in: path
+          required: true
+          description: The ID of the Facebook Page account
+          schema: { type: string }
+        - name: postId
+          in: query
+          required: true
+          description: The Facebook post ID
+          schema: { type: string }
+          example: "1234567890_9876543210"
+      responses:
+        '200':
+          description: Reaction breakdown for the post
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  accountId: { type: string }
+                  platform: { type: string, example: facebook }
+                  username: { type: string }
+                  postId: { type: string }
+                  total: { type: integer, description: Total reactions across all types }
+                  breakdown:
+                    type: object
+                    description: Count per reaction type. A type with no reactions returns 0.
+                    properties:
+                      like: { type: integer }
+                      love: { type: integer }
+                      haha: { type: integer }
+                      wow: { type: integer }
+                      sad: { type: integer }
+                      angry: { type: integer }
+                      care: { type: integer }
+                  lastUpdated: { type: string, format: date-time }
+              example:
+                accountId: "60f7a1b2c3d4e5f6a7b8c9d0"
+                platform: "facebook"
+                username: "My Page"
+                postId: "1234567890_9876543210"
+                total: 28
+                breakdown: { like: 10, love: 5, haha: 4, wow: 3, sad: 2, angry: 1, care: 3 }
+                lastUpdated: "2026-07-09T09:43:50.000Z"
+        '400': { description: Not a Facebook account or missing postId parameter }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { description: Account not found }
+        '502': { description: Facebook rejected the request }
+
   /v1/accounts/{accountId}/reddit-subreddits:
     get:
       operationId: getRedditSubreddits
@@ -17859,6 +18205,123 @@ paths:
         '401': { $ref: '#/components/responses/Unauthorized' }
         '404': { description: Account not found }
 
+  /v1/accounts/{accountId}/reddit-subreddits/{subreddit}/rules:
+    get:
+      operationId: getSubredditRules
+      tags: [Connect]
+      summary: Get subreddit rules
+      description: |
+        Returns a subreddit's posting rules plus Reddit's site-wide rules, so you can check
+        them before submitting and avoid a removal.
+
+        Use this alongside `POST /v1/tools/validate/subreddit`, which only confirms that a
+        subreddit exists and reports its basic posting settings.
+      parameters:
+        - name: accountId
+          in: path
+          required: true
+          description: The ID of the Reddit account
+          schema: { type: string }
+        - name: subreddit
+          in: path
+          required: true
+          description: Subreddit name (without the "r/" prefix)
+          schema: { type: string }
+          example: "webdev"
+      responses:
+        '200':
+          description: Subreddit and site rules
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  rules:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        kind: { type: string, description: "Scope of the rule: 'link', 'comment', or 'all'" }
+                        shortName: { type: string, description: Short rule title shown in the subreddit sidebar }
+                        description: { type: string, description: Full rule text }
+                        violationReason: { type: string, description: Reason shown to a user when the rule is enforced }
+                        createdUtc: { type: number, description: Unix timestamp when the rule was created }
+                        priority: { type: integer, description: Display order of the rule }
+                  siteRules:
+                    type: array
+                    description: Reddit's site-wide content policy rules
+                    items: { type: string }
+              example:
+                rules:
+                  - kind: "link"
+                    shortName: "No self-promotion"
+                    description: "Posts that primarily promote your own product will be removed."
+                    violationReason: "Self-promotion"
+                    createdUtc: 1611234567
+                    priority: 0
+                siteRules:
+                  - "Spam"
+                  - "Personal and confidential information"
+        '400': { description: Not a Reddit account }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { description: Account or subreddit not found }
+        '502': { description: Reddit was unreachable or returned an unclassified error. Reddit 4xx statuses are forwarded as-is. }
+
+  /v1/accounts/{accountId}/reddit-vote:
+    post:
+      operationId: voteRedditThing
+      tags: [Connect]
+      summary: Vote on a Reddit post or comment
+      description: |
+        Cast, change, or clear the connected account's vote on a Reddit post or comment.
+
+        **Reddit requires that votes be cast by humans.** Reddit's API terms permit a client
+        to proxy a human's action one-for-one, and prohibit a bot from deciding how to vote
+        or from amplifying a human's vote. Call this endpoint only in direct response to an
+        explicit action by the account owner. Automated or agent-decided voting is
+        vote manipulation and puts API access at risk.
+      parameters:
+        - name: accountId
+          in: path
+          required: true
+          description: The ID of the Reddit account casting the vote
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [thingId, direction]
+              properties:
+                thingId:
+                  type: string
+                  description: >
+                    Reddit fullname of the target. Prefix "t3_" for a post and "t1_" for a
+                    comment. A bare id with no prefix is treated as a post ("t3_").
+                  example: "t3_abc123"
+                direction:
+                  type: integer
+                  description: "1 to upvote, -1 to downvote, 0 to clear an existing vote"
+                  enum: [1, 0, -1]
+            example:
+              thingId: "t3_abc123"
+              direction: 1
+      responses:
+        '200':
+          description: Vote registered
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean }
+              example: { success: true }
+        '400': { description: "Not a Reddit account, or invalid thingId/direction" }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { description: Account not found }
+        '502': { description: Reddit was unreachable or returned an unclassified error. Reddit 4xx statuses are forwarded as-is. }
+
   /v1/accounts/{accountId}/reddit-flairs:
     get:
       operationId: getRedditFlairs
@@ -17905,6 +18368,55 @@ paths:
         '400': { description: Not a Reddit account or missing subreddit parameter }
         '401': { $ref: '#/components/responses/Unauthorized' }
         '404': { description: Account not found }
+    post:
+      operationId: setRedditPostFlair
+      tags: [Connect]
+      summary: Set Reddit post flair
+      description: |
+        Applies a flair to a post the connected account already published. Use the GET on this
+        path to list the available `flairTemplateId` values for the subreddit.
+
+        Flair can also be set at submit time by passing `flairId` in `platformSpecificData`
+        when creating the post. This endpoint is for changing it afterwards.
+
+        The subreddit must allow users to select their own post flair. Setting flair on
+        another user's post requires moderator permissions, which Zernio does not request.
+      parameters:
+        - name: accountId
+          in: path
+          required: true
+          description: The ID of the Reddit account that owns the post
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [subreddit, postId, flairTemplateId]
+              properties:
+                subreddit: { type: string, description: Subreddit name (without the "r/" prefix) }
+                postId: { type: string, description: 'Reddit post id, with or without the t3_ prefix' }
+                flairTemplateId: { type: string, description: Flair template id from the GET on this path }
+                text: { type: string, description: "Optional override text, only for editable flair templates" }
+            example:
+              subreddit: "webdev"
+              postId: "t3_abc123"
+              flairTemplateId: "a1b2c3d4-e5f6-7890-abcd-ef1234567890"
+      responses:
+        '200':
+          description: Flair applied
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean }
+              example: { success: true }
+        '400': { description: "Not a Reddit account, or missing subreddit/postId/flairTemplateId" }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { description: Account not found }
+        '502': { description: "Reddit was unreachable or returned an unclassified error. Reddit 4xx statuses (e.g. subreddit does not allow user flair selection) are forwarded as-is." }
 
   /v1/accounts/{accountId}/discord-settings:
     get:
@@ -18171,7 +18683,8 @@ paths:
         '400': { description: "Validation error (missing required fields, content > 2000 chars, malformed snowflake, or all of content/embeds/attachments missing)." }
         '401': { $ref: '#/components/responses/Unauthorized' }
         '404': { description: Discord account not found or not accessible to this user. }
-        '502': { description: "Discord rejected the message (most commonly: bot doesn't share a guild with the recipient, OR the recipient has DMs disabled). Error body contains Discord's response." }
+        '403': { description: "Discord refused the message (most commonly: bot doesn't share a guild with the recipient, OR the recipient has DMs disabled). Error body contains Discord's response." }
+        '502': { description: Discord was unreachable or returned an unclassified error. }
 
   /v1/discord/guilds/{guildId}/roles:
     get:
@@ -18215,7 +18728,132 @@ paths:
         '400': { description: Invalid accountId or guildId format. }
         '401': { $ref: '#/components/responses/Unauthorized' }
         '404': { description: "Discord account not found, not accessible, or not bound to this guild." }
-        '502': { description: Discord rejected the request (bot lacks View Channels permission in the guild). }
+        '403': { description: Discord refused the request (bot lacks View Channels permission in the guild). }
+        '502': { description: Discord was unreachable or returned an unclassified error. }
+    post:
+      operationId: createDiscordGuildRole
+      tags: [Discord]
+      summary: Create a Discord guild role
+      description: |
+        Creates a new role in the guild.
+
+        Requires the bot to hold the Manage Roles permission. Guilds that added the Zernio bot
+        before role management shipped must re-invite it, because Discord applies the
+        permission set at invite time.
+
+        Discord's role hierarchy applies: the bot cannot create a role positioned at or above
+        its own highest role, and cannot grant permissions it does not itself hold. Either
+        attempt returns a 403 carrying Discord's own error.
+      parameters:
+        - { name: guildId, in: path, required: true, schema: { type: string }, description: Discord guild snowflake ID }
+        - { name: accountId, in: query, required: true, schema: { type: string }, description: SocialAccount _id of the Discord account bound to this guild }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name]
+              properties:
+                name: { type: string, minLength: 1, maxLength: 100 }
+                color: { type: integer, minimum: 0, maximum: 16777215, description: "Decimal color (0 = no color). 0xFF0000 red is 16711680." }
+                hoist: { type: boolean, description: Display members with this role separately in the member list }
+                mentionable: { type: boolean, description: Allow anyone to @mention this role }
+                permissions: { type: string, description: Permissions bitfield as a stringified integer }
+            example:
+              name: "Moderators"
+              color: 16711680
+              hoist: true
+              mentionable: false
+      responses:
+        '201':
+          description: Role created.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data: { $ref: '#/components/schemas/DiscordRole' }
+        '400': { description: "Invalid accountId, guildId, or role body." }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { description: "Discord account not found, not accessible, or not bound to this guild." }
+        '403': { description: "Discord refused the action (bot lacks Manage Roles, or the new role would sit at or above the bot's highest role)." }
+        '502': { description: Discord was unreachable or returned an unclassified error. }
+
+  /v1/discord/guilds/{guildId}/roles/{roleId}:
+    patch:
+      operationId: editDiscordGuildRole
+      tags: [Discord]
+      summary: Edit a Discord guild role
+      description: |
+        Updates a role's name, color, hoist, mentionable flag, or permission bitfield.
+        At least one field must be supplied. Omitted fields are left unchanged.
+
+        Requires the bot to hold Manage Roles, and the target role must sit below the bot's
+        highest role. See the create-role operation for the re-invite requirement.
+      parameters:
+        - { name: guildId, in: path, required: true, schema: { type: string }, description: Discord guild snowflake ID }
+        - { name: roleId, in: path, required: true, schema: { type: string }, description: Discord role snowflake ID }
+        - { name: accountId, in: query, required: true, schema: { type: string }, description: SocialAccount _id of the Discord account bound to this guild }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              minProperties: 1
+              properties:
+                name: { type: string, minLength: 1, maxLength: 100 }
+                color: { type: integer, minimum: 0, maximum: 16777215 }
+                hoist: { type: boolean }
+                mentionable: { type: boolean }
+                permissions: { type: string, description: Permissions bitfield as a stringified integer }
+            example:
+              name: "Senior Moderators"
+              mentionable: true
+      responses:
+        '200':
+          description: Role updated.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data: { $ref: '#/components/schemas/DiscordRole' }
+        '400': { description: "Invalid ids, or no fields supplied to edit." }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { description: "Discord account not found, not accessible, or not bound to this guild." }
+        '403': { description: "Discord refused the action (bot lacks Manage Roles, or the target role sits at or above the bot's highest role)." }
+        '502': { description: Discord was unreachable or returned an unclassified error. }
+    delete:
+      operationId: deleteDiscordGuildRole
+      tags: [Discord]
+      summary: Delete a Discord guild role
+      description: |
+        Permanently deletes a role from the guild and removes it from every member.
+        This cannot be undone.
+
+        Requires the bot to hold Manage Roles, and the target role must sit below the bot's
+        highest role.
+      parameters:
+        - { name: guildId, in: path, required: true, schema: { type: string }, description: Discord guild snowflake ID }
+        - { name: roleId, in: path, required: true, schema: { type: string }, description: Discord role snowflake ID }
+        - { name: accountId, in: query, required: true, schema: { type: string }, description: SocialAccount _id of the Discord account bound to this guild }
+      responses:
+        '200':
+          description: Role deleted.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean }
+              example: { success: true }
+        '400': { description: "Invalid accountId, guildId, or roleId format." }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { description: "Discord account not found, not accessible, or not bound to this guild." }
+        '403': { description: "Discord refused the action (bot lacks Manage Roles, or the target role sits at or above the bot's highest role)." }
+        '502': { description: Discord was unreachable or returned an unclassified error. }
 
   /v1/discord/guilds/{guildId}/members:
     get:
@@ -18311,7 +18949,8 @@ paths:
         '400': { description: "Validation error (malformed snowflake) or @everyone manipulation attempt." }
         '401': { $ref: '#/components/responses/Unauthorized' }
         '404': { description: Discord account not found or not in this guild. }
-        '502': { description: "Discord rejected the request: bot lacks MANAGE_ROLES, or target role is above the bot's highest role." }
+        '403': { description: "Discord refused the request: bot lacks MANAGE_ROLES, or target role is at or above the bot's highest role." }
+        '502': { description: Discord was unreachable or returned an unclassified error. }
 
     delete:
       operationId: removeDiscordMemberRole
@@ -18343,7 +18982,129 @@ paths:
         '400': { description: Validation error. }
         '401': { $ref: '#/components/responses/Unauthorized' }
         '404': { description: Discord account not found or not in this guild. }
-        '502': { description: Discord rejected the request (permission or hierarchy issue). }
+        '403': { description: Discord refused the request (permission or hierarchy issue). }
+        '502': { description: Discord was unreachable or returned an unclassified error. }
+
+  /v1/discord/channels/{channelId}/messages/{messageId}:
+    delete:
+      operationId: deleteDiscordMessage
+      tags: [Discord]
+      summary: Delete a Discord channel message
+      description: |
+        Deletes a message from a channel, for moderation and cleanup. This cannot be undone.
+
+        Deleting a message the bot did not send requires the bot to hold the Manage Messages
+        permission, which the Zernio bot requests at install time. Deleting the bot's own
+        message needs no extra permission.
+
+        Ownership is verified by resolving the channel's guild and confirming the caller owns
+        a Discord account bound to it.
+      parameters:
+        - { name: channelId, in: path, required: true, schema: { type: string }, description: Discord channel snowflake ID }
+        - { name: messageId, in: path, required: true, schema: { type: string }, description: Discord message snowflake ID }
+        - { name: accountId, in: query, required: true, schema: { type: string }, description: SocialAccount _id of the Discord account bound to this channel's guild }
+      responses:
+        '200':
+          description: Message deleted.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean }
+              example: { success: true }
+        '400': { description: "Invalid accountId, channelId, or messageId format." }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { description: "Discord account not found, not accessible, or not bound to this channel's guild." }
+        '403': { description: "Discord refused the action (bot lacks Manage Messages)." }
+        '502': { description: Discord was unreachable or returned an unclassified error. }
+
+  /v1/discord/channels/{channelId}/messages/{messageId}/crosspost:
+    post:
+      operationId: crosspostDiscordMessage
+      tags: [Discord]
+      summary: Crosspost Discord message
+      description: |
+        Publishes a message from an announcement channel so it propagates to every server
+        following that channel.
+
+        The source channel must be an announcement channel. Calling this on a regular text
+        channel returns a 400 before Discord is contacted, because Discord's own error for
+        this case is opaque.
+      parameters:
+        - { name: channelId, in: path, required: true, schema: { type: string }, description: Discord announcement channel snowflake ID }
+        - { name: messageId, in: path, required: true, schema: { type: string }, description: Discord message snowflake ID }
+        - { name: accountId, in: query, required: true, schema: { type: string }, description: SocialAccount _id of the Discord account bound to this channel's guild }
+      responses:
+        '200':
+          description: Message crossposted.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: object
+                    description: The crossposted Discord message object.
+        '400': { description: "Invalid ids, or the channel is not an announcement channel." }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { description: "Discord account not found, not accessible, or not bound to this channel's guild." }
+        '403': { description: Discord refused the action (bot lacks the required permission). }
+        '502': { description: Discord was unreachable or returned an unclassified error. }
+
+  /v1/discord/channels/{channelId}/threads:
+    post:
+      operationId: createDiscordThread
+      tags: [Discord]
+      summary: Create a Discord public thread
+      description: |
+        Creates a public thread in a channel. Pass `messageId` to start the thread from an
+        existing message, or omit it to create a standalone thread.
+
+        Threads created here are always public. Requires the bot to hold Create Public
+        Threads, which the Zernio bot requests at install time.
+      parameters:
+        - { name: channelId, in: path, required: true, schema: { type: string }, description: Discord channel snowflake ID }
+        - { name: accountId, in: query, required: true, schema: { type: string }, description: SocialAccount _id of the Discord account bound to this channel's guild }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [name]
+              properties:
+                name: { type: string, minLength: 1, maxLength: 100, description: Thread name }
+                messageId:
+                  type: string
+                  description: Optional message snowflake to start the thread from. Omit for a standalone thread.
+                autoArchiveDuration:
+                  type: integer
+                  enum: [60, 1440, 4320, 10080]
+                  description: Minutes of inactivity before the thread auto-archives. Discord accepts only these four values.
+            example:
+              name: "Release 2.4 discussion"
+              autoArchiveDuration: 1440
+      responses:
+        '200':
+          description: Thread created.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: object
+                    properties:
+                      id: { type: string, description: Thread snowflake ID }
+                      name: { type: string }
+              example:
+                data: { id: "1180000000000000000", name: "Release 2.4 discussion" }
+        '400': { description: "Invalid accountId, channelId, messageId, name, or autoArchiveDuration." }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { description: "Discord account not found, not accessible, or not bound to this channel's guild." }
+        '403': { description: "Discord refused the action (bot lacks Create Public Threads)." }
+        '502': { description: Discord was unreachable or returned an unclassified error. }
 
   /v1/discord/channels/{channelId}/pins:
     get:
@@ -18629,10 +19390,11 @@ paths:
                 type: object
                 properties:
                   data: { $ref: '#/components/schemas/DiscordScheduledEvent' }
-        '400': { description: "Validation error, OR no updatable fields beyond accountId provided." }
+        '400': { description: "Validation error, no updatable fields beyond accountId provided, or Discord rejected the update (invalid status transition)." }
         '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { description: Discord refused the update (bot permissions). }
         '404': { description: Event or Discord account not found. }
-        '502': { description: "Discord rejected the update (invalid status transition, bot permissions, etc.)." }
+        '502': { description: Discord was unreachable or returned an unclassified error. }
 
     delete:
       operationId: deleteDiscordScheduledEvent
@@ -19638,7 +20400,7 @@ paths:
 
         Supported platforms: X/Twitter, Bluesky, Reddit, and WhatsApp. Other platforms return PLATFORM_NOT_SUPPORTED.
 
-        WhatsApp: this is the endpoint for sending an approved template message to a phone number. Provide templateName, templateLanguage, and templateParams (body variable values), with the recipient phone in participantId. A template is required because WhatsApp does not permit freeform messages to open a conversation; a missing template returns TEMPLATE_REQUIRED. Templates with media headers (image, video, document) are handled automatically: Zernio reads the approved template definition and fills the header at send time. Calling this for a number you already have a thread with simply sends the template into that thread, which also makes it the way to re-engage a contact after the 24-hour customer-service window has closed. Once the recipient replies (opening the 24h window), send freeform messages with the send-message endpoint (POST /v1/inbox/conversations/{conversationId}/messages). Template fields are accepted on the JSON body only, not on multipart requests.
+        WhatsApp: this is the endpoint for sending an approved template message to a phone number. Provide templateName, templateLanguage, and templateParams (variable values for the text header, body and dynamic URL buttons, in that order), with the recipient phone in participantId. A template is required because WhatsApp does not permit freeform messages to open a conversation; a missing template returns TEMPLATE_REQUIRED. Templates with media headers (image, video, document) are handled automatically: Zernio reads the approved template definition and fills the header at send time. Calling this for a number you already have a thread with simply sends the template into that thread, which also makes it the way to re-engage a contact after the 24-hour customer-service window has closed. Once the recipient replies (opening the 24h window), send freeform messages with the send-message endpoint (POST /v1/inbox/conversations/{conversationId}/messages). Template fields are accepted on the JSON body only, not on multipart requests.
 
         DM eligibility (X/Twitter): Before sending, the endpoint checks if the recipient accepts DMs from your account (via the receives_your_dm field). If not, a 422 error with code DM_NOT_ALLOWED is returned. You can skip this check with skipDmCheck: true if you have already verified eligibility.
 
@@ -19680,7 +20442,16 @@ paths:
                 templateParams:
                   type: array
                   items: { type: string }
-                  description: WhatsApp only. Body variable values, in order. Works with positional placeholders ({{1}}, {{2}}, ...) and with named placeholders ({{name}}, {{company}} - how Meta Business Manager creates templates), where values fill the named slots in order of appearance.
+                  description: >-
+                    WhatsApp only. Template variable values as one flat array, in the order the
+                    variables appear across the whole template: text-header variables first, then
+                    body variables, then one value per dynamic URL button (in button order). Works
+                    with positional placeholders ({{1}}, {{2}}, ...) and with named placeholders
+                    ({{name}}, {{company}} - how Meta Business Manager creates templates), where
+                    values fill the named slots in order of appearance. Example - a body with
+                    {{1}}, {{2}} plus a URL button https://example.com/{{1}} takes three values:
+                    [body1, body2, buttonSuffix]. Media headers (image, video, document) are filled
+                    automatically from the approved template and take no value here.
           multipart/form-data:
             schema:
               type: object
@@ -20551,7 +21322,7 @@ paths:
                                 properties:
                                   card_index: { type: integer, minimum: 0, maximum: 9, description: Card position. Auto-filled sequentially when omitted. }
                                   type: { type: string, description: "`product` for a product card; media cards use `cta_url` or a quick-reply type." }
-                                  header: { type: object, description: Media cards only, required. Carries the card's image or video. }
+                                  header: { type: object, description: "Media cards only, required. Carries the card's image or video." }
                                   body: { type: object, description: Optional card body text. }
                                   action: { type: object, description: "Product cards: `{ catalog_id, product_retailer_id }` (required). Media cards: the card's button action (e.g. `cta_url` with `parameters.display_text` and `parameters.url`)." }
                 replyMarkup:
@@ -21576,6 +22347,133 @@ paths:
         '403':
           description: Inbox addon required
 
+  /v1/inbox/comments/{postId}/{commentId}:
+    patch:
+      operationId: editInboxComment
+      summary: Edit comment
+      description: |
+        Edit the body of a comment the connected account posted. Supported on Reddit only.
+
+        Reddit keeps the same comment id after an edit. Reddit exposes no API to edit a post
+        title, and a link post has no editable body. To edit a published post's body, use
+        `POST /v1/posts/{postId}/edit`.
+      tags: [Comments]
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: postId
+          in: path
+          required: true
+          schema: { type: string }
+        - name: commentId
+          in: path
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [accountId, platform, content]
+              properties:
+                accountId: { type: string, description: The social account ID }
+                platform: { type: string, enum: [reddit], description: Only Reddit supports editing a comment }
+                content: { type: string, minLength: 1, description: The new comment body }
+            example:
+              accountId: "60f7a1b2c3d4e5f6a7b8c9d0"
+              platform: "reddit"
+              content: "Edited: corrected the version number."
+      responses:
+        '200':
+          description: Comment edited
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status: { type: string }
+                  commentId: { type: string }
+                  platform: { type: string }
+              example:
+                status: "success"
+                commentId: "t1_xyz789"
+                platform: "reddit"
+        '400':
+          description: "Platform does not support editing comments (code: platform_not_supported), or content missing."
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403':
+          description: Inbox addon required
+        '404': { description: Account not found }
+        '502': { description: Reddit was unreachable or returned an unclassified error. Reddit 4xx statuses are forwarded as-is. }
+
+  /v1/inbox/comments/{postId}/{commentId}/moderation:
+    post:
+      operationId: setCommentModeration
+      summary: Set comment moderation status
+      description: |
+        Set a comment's moderation status. Supported on YouTube only.
+
+        Use this to work a moderation queue: approve a held comment (`published`), reject it
+        (`rejected`), or send it back for review (`heldForReview`).
+
+        The request must be authorized by the owner of the channel or video the comment
+        belongs to. You cannot moderate comments on videos you do not own.
+
+        This is distinct from `POST /v1/inbox/comments/{postId}/{commentId}/hide`, which
+        covers Facebook, Instagram, Threads, and X/Twitter and does not apply to YouTube.
+      tags: [Comments]
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - name: postId
+          in: path
+          required: true
+          schema: { type: string }
+        - name: commentId
+          in: path
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [accountId, platform, moderationStatus]
+              properties:
+                accountId: { type: string, description: The social account ID }
+                platform: { type: string, enum: [youtube], description: Only YouTube supports comment moderation }
+                moderationStatus:
+                  type: string
+                  enum: [published, rejected, heldForReview]
+                  description: "published approves the comment, rejected removes it, heldForReview returns it to the queue."
+                banAuthor:
+                  type: boolean
+                  description: >
+                    Also ban the comment's author, auto-rejecting their future comments.
+                    Only valid when moderationStatus is "rejected"; any other pairing is a 400.
+            example:
+              accountId: "60f7a1b2c3d4e5f6a7b8c9d0"
+              platform: "youtube"
+              moderationStatus: "rejected"
+              banAuthor: true
+      responses:
+        '200':
+          description: Moderation status applied
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean }
+              example: { success: true }
+        '400':
+          description: "Platform does not support comment moderation (code: platform_not_supported), or banAuthor was set without moderationStatus=rejected."
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403':
+          description: Inbox addon required
+        '404': { description: Account not found }
+        '502': { description: "YouTube rejected the request (e.g. the account does not own the video)." }
+
   /v1/inbox/comments/{postId}/{commentId}/hide:
     post:
       operationId: hideInboxComment
@@ -22225,6 +23123,68 @@ paths:
                         enum: [asc, desc]
         '401': { $ref: '#/components/responses/Unauthorized' }
         '403': { description: Inbox addon required }
+
+  /v1/inbox/mentions/reply:
+    post:
+      operationId: replyToMention
+      summary: Reply to a mention
+      description: |
+        Reply to a mention of the connected account. Supported on Instagram only.
+
+        Two shapes, selected by whether `commentId` is present:
+
+        - **Comment mention** (someone @mentioned the account inside a comment): pass both
+          `mediaId` and `commentId`. Instagram posts a reply under that comment.
+        - **Caption mention** (someone @mentioned the account in their media caption, so no
+          comment exists): pass `mediaId` only. Instagram posts a comment on their media.
+
+        Story mentions are not supported by Instagram's API.
+
+        Note that `GET /v1/inbox/mentions` currently returns LinkedIn mentions only and does
+        not surface Instagram mentions. Source `mediaId` and `commentId` from Instagram's
+        `comments` webhook, which is where mention notifications are delivered for accounts
+        connected through Instagram Login.
+      tags: [Mentions]
+      security: [{ bearerAuth: [] }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [accountId, mediaId, message]
+              properties:
+                accountId: { type: string, description: The Instagram social account ID }
+                mediaId: { type: string, description: The ID of the media the account was mentioned in }
+                commentId:
+                  type: string
+                  description: The mentioning comment's ID. Omit for a caption mention.
+                message: { type: string, description: The reply text }
+            example:
+              accountId: "60f7a1b2c3d4e5f6a7b8c9d0"
+              mediaId: "17895695668004550"
+              commentId: "17870913561140000"
+              message: "Thanks for the shout-out!"
+      responses:
+        '200':
+          description: Reply posted
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success: { type: boolean }
+                  id: { type: string, description: ID of the created reply or comment }
+              example:
+                success: true
+                id: "17912345678901234"
+        '400':
+          description: "Platform does not support replying to mentions (code: platform_not_supported), or missing mediaId/message."
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403':
+          description: Inbox addon required
+        '404': { description: Account not found }
+        '502': { description: Instagram was unreachable or returned an unclassified error. Instagram 4xx statuses are forwarded as-is. }
 
   /v1/inbox/reviews:
     get:
@@ -23254,7 +24214,7 @@ paths:
     get:
       operationId: getCallRecording
       tags: [Calls]
-      summary: Get a call recording (any channel)
+      summary: Get a call recording
       description: |
         Channel-agnostic recording fetch: resolves a fresh, playable MP3 URL
         for any call regardless of channel (provider-signed URLs expire ~10
@@ -23792,13 +24752,13 @@ paths:
                 brand:
                   type: object
                   description: Required for 10DLC. The legal entity behind the traffic (TCR brand).
-                  required: [entityType, displayName, country, vertical]
+                  required: [entityType, displayName, country, vertical, website, street, city, state, postalCode]
                   properties:
                     entityType: { type: string, enum: [PRIVATE_PROFIT, PUBLIC_PROFIT, NON_PROFIT, GOVERNMENT, SOLE_PROPRIETOR] }
                     displayName: { type: string }
                     companyName: { type: string, description: Legal company name. Required for every entityType except SOLE_PROPRIETOR. }
                     ein: { type: string, description: Required for every entityType except SOLE_PROPRIETOR. }
-                    phone: { type: string }
+                    phone: { type: string, description: Business contact phone. Required for every entityType except SOLE_PROPRIETOR. }
                     mobilePhone: { type: string, description: Required for SOLE_PROPRIETOR; the verification OTP is texted there (US/CA mobile). }
                     street: { type: string }
                     city: { type: string }
@@ -23806,19 +24766,24 @@ paths:
                     postalCode: { type: string }
                     country: { type: string, enum: [US, CA] }
                     email: { type: string, format: email, description: Brand contact email; defaults to your account email when omitted. }
-                    website: { type: string }
+                    website: { type: string, description: "The brand's website (sole proprietors may use a social profile such as LinkedIn or a business Facebook page). Carriers verify the brand against it; a bare domain is normalized to https://." }
                     vertical: { type: string, enum: [AGRICULTURE, COMMUNICATION, CONSTRUCTION, EDUCATION, ENERGY, ENTERTAINMENT, FINANCIAL, GAMBLING, GOVERNMENT, HEALTHCARE, HOSPITALITY, HUMAN_RESOURCES, INSURANCE, LEGAL, MANUFACTURING, NGO, POLITICAL, POSTAL, PROFESSIONAL, REAL_ESTATE, RETAIL, TECHNOLOGY, TRANSPORTATION] }
                     stockSymbol: { type: string }
                 campaign:
                   type: object
-                  description: Required for 10DLC. What you'll send and how recipients opt in/out.
-                  required: [usecase, description, messageFlow, sample1, helpMessage, optinKeywords, optinMessage, optoutKeywords, optoutMessage, helpKeywords]
+                  description: |
+                    Required for 10DLC. What you'll send and how recipients opt in/out.
+                    Opt-in/opt-out/help auto-responses must name the registered brand and
+                    carry the carrier-required disclosures; submissions that don't (or that
+                    are blank) are automatically rewritten to a compliant, brand-named
+                    template before the campaign is filed.
+                  required: [usecase, description, messageFlow, sample1, sample2, helpMessage, optinKeywords, optinMessage, optoutKeywords, optoutMessage, helpKeywords]
                   properties:
                     usecase: { type: string }
                     description: { type: string, minLength: 40, maxLength: 4096 }
                     messageFlow: { type: string, minLength: 40, maxLength: 2048, description: How a recipient ends up receiving your messages (the opt-in flow). }
                     sample1: { type: string, minLength: 20 }
-                    sample2: { type: string }
+                    sample2: { type: string, minLength: 20, description: Second example message; carriers require two distinct samples, so it must differ from sample1. }
                     helpMessage: { type: string, minLength: 20, maxLength: 320 }
                     optinKeywords: { type: string }
                     optinMessage: { type: string, minLength: 20, maxLength: 320 }
@@ -24214,6 +25179,11 @@ paths:
         Upload a new profile picture for the WhatsApp Business Profile.
         Uses Meta's resumable upload API under the hood: creates an upload session,
         uploads the image bytes, then updates the business profile with the resulting handle.
+
+        Provide the image either as a binary upload (`multipart/form-data` with `file`)
+        or as a download URL (`application/json` with `url`) — with a URL we fetch the
+        image server-side and upload the bytes for you. Meta's profile-photo API is
+        bytes-only, so there is no direct URL passthrough. JPEG/PNG, max 5MB either way.
       security:
         - bearerAuth: []
       requestBody:
@@ -24231,6 +25201,18 @@ paths:
                   type: string
                   format: binary
                   description: Image file (JPEG or PNG, max 5MB, recommended 640x640)
+          application/json:
+            schema:
+              type: object
+              required: [accountId, url]
+              properties:
+                accountId:
+                  type: string
+                  description: WhatsApp social account ID
+                url:
+                  type: string
+                  format: uri
+                  description: Publicly reachable https URL of the image (JPEG or PNG, max 5MB, recommended 640x640). Fetched server-side; must resolve directly without redirects.
       responses:
         '200':
           description: Profile picture updated successfully
@@ -24241,9 +25223,10 @@ paths:
                 properties:
                   success: { type: boolean }
                   message: { type: string }
-        '400': { description: "Invalid file type, file too large, or missing parameters" }
+        '400': { description: "Invalid file type/URL, file too large, or missing parameters" }
         '401': { $ref: '#/components/responses/Unauthorized' }
         '404': { description: WhatsApp account not found }
+        '422': { description: "Profile photo is locked for WhatsApp coexistence numbers (manage it in the WhatsApp Business app)" }
 
   /v1/whatsapp/business-profile/display-name:
     get:
@@ -26894,7 +27877,7 @@ paths:
     post:
       operationId: reuseSmsRegistrationForNumber
       tags: [SMS]
-      summary: Add a number to an existing registration
+      summary: Add number to SMS registration
       description: |
         Attaches this number to your existing approved 10DLC campaign instead
         of running a fresh registration: the number inherits the campaign's

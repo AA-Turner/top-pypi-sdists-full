@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: dbt-databricks
-Version: 1.12.1
+Version: 1.12.2
 Summary: The Databricks adapter plugin for dbt
 Project-URL: homepage, https://github.com/databricks/dbt-databricks
 Project-URL: changelog, https://github.com/databricks/dbt-databricks/blob/main/CHANGELOG.md
@@ -20,11 +20,11 @@ Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Requires-Python: >=3.10
 Requires-Dist: click<9.0.0,>=8.2.0
-Requires-Dist: databricks-sdk<0.105.0,>=0.68.0
-Requires-Dist: databricks-sql-connector[pyarrow]<4.2.7,>=4.1.1
-Requires-Dist: dbt-adapters<1.23.0,>=1.22.0
+Requires-Dist: databricks-sdk<0.118.0,>=0.68.0
+Requires-Dist: databricks-sql-connector[pyarrow]<4.3.1,>=4.1.1
+Requires-Dist: dbt-adapters<1.25.0,>=1.22.0
 Requires-Dist: dbt-common<1.38.0,>=1.37.0
-Requires-Dist: dbt-core<1.11.12,>=1.11.2
+Requires-Dist: dbt-core<1.11.13,>=1.11.2
 Requires-Dist: dbt-spark<1.11.0,>=1.10.0
 Requires-Dist: keyring<25.6.0,>=23.13.0
 Requires-Dist: packaging<26.0,>=21.0

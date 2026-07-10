@@ -129,7 +129,12 @@ class SidecarLinterServer:
     def _handle(self, method: Optional[str], params: dict) -> dict:
         repository = self._repository
         if method == "run_all":
-            return {"checks": self._serialized(repository.update_checks())}
+            revalidate = bool(params.get("revalidate_caches"))
+            return {
+                "checks": self._serialized(
+                    repository.update_checks(revalidate_caches=revalidate)
+                )
+            }
         if method == "run_rules":
             rules = self._resolve_rules(params.get("rules") or [])
             raw_paths = params.get("paths")

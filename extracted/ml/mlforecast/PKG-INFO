@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: mlforecast
-Version: 1.0.31
+Version: 1.1.0
 Summary: Scalable machine learning based time series forecasting
 Author-email: José Morales <jmoralz92@gmail.com>
 License: Apache Software License 2.0
@@ -28,6 +28,29 @@ Requires-Dist: optuna
 Requires-Dist: pandas<3.0
 Requires-Dist: scikit-learn
 Requires-Dist: utilsforecast>=0.2.9
+Provides-Extra: dask
+Requires-Dist: fugue[dask]>=0.9.4; extra == "dask"
+Requires-Dist: dask[complete]; extra == "dask"
+Requires-Dist: lightgbm; extra == "dask"
+Requires-Dist: xgboost; extra == "dask"
+Provides-Extra: ray
+Requires-Dist: fugue[ray]>=0.9.4; (sys_platform != "win32" and python_version < "3.14") and extra == "ray"
+Requires-Dist: lightgbm_ray; (sys_platform != "win32" and python_version < "3.14") and extra == "ray"
+Requires-Dist: xgboost_ray>=0.1.19; (sys_platform != "win32" and python_version < "3.14") and extra == "ray"
+Requires-Dist: xgboost<2.1.0,>=2.0.0; (sys_platform != "win32" and python_version < "3.14") and extra == "ray"
+Provides-Extra: spark
+Requires-Dist: fugue[spark]>=0.9.4; extra == "spark"
+Requires-Dist: pyspark>=3.3; extra == "spark"
+Requires-Dist: lightgbm; extra == "spark"
+Requires-Dist: xgboost; extra == "spark"
+Provides-Extra: aws
+Requires-Dist: fsspec[s3]; extra == "aws"
+Provides-Extra: gcp
+Requires-Dist: fsspec[gcs]; extra == "gcp"
+Provides-Extra: azure
+Requires-Dist: fsspec[adl]; extra == "azure"
+Provides-Extra: polars
+Requires-Dist: polars[numpy]; extra == "polars"
 Dynamic: license-file
 
 # mlforecast
@@ -124,6 +147,9 @@ use Conformal Prediction to produce prediciton intervals.
 👩‍🔬 [Cross
 Validation](https://nixtlaverse.nixtla.io/mlforecast/docs/how-to-guides/cross_validation.html):
 robust model’s performance evaluation.
+
+🔁 [M5: Reuse CV Splits + Global/Grouped Rolling Means](https://nixtlaverse.nixtla.io/mlforecast/docs/how-to-guides/hyperparameter_optimization.html):
+optimize with cached CV windows while tuning global and grouped rolling features in one workflow.
 
 🔌 [Predict Demand
 Peaks](https://nixtlaverse.nixtla.io/mlforecast/docs/tutorials/electricity_peak_forecasting.html):

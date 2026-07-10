@@ -20,7 +20,7 @@ import sys
 from collections.abc import Iterator
 from enum import IntEnum
 from types import EllipsisType, ModuleType
-from typing import Any, Final, Literal, SupportsIndex, Callable
+from typing import Any, Literal, SupportsIndex, Callable
 
 import numpy as np
 import numpy.typing as npt
@@ -40,33 +40,12 @@ from ._dtypes import (
     _real_to_complex_map,
     _result_type,
 )
+from ._devices import (
+    CPU_DEVICE, Device, device_supports_dtype, _normalize_dl_device, _DLPACK_DEVICE_FOR,
+    DLDeviceType
+)
 from ._flags import get_array_api_strict_flags, set_array_api_strict_flags
 from ._typing import PyCapsule
-
-
-class Device:
-    _device: Final[str]
-    __slots__ = ("_device", "__weakref__")
-
-    def __init__(self, device: str = "CPU_DEVICE"):
-        if device not in ("CPU_DEVICE", "device1", "device2"):
-            raise ValueError(f"The device '{device}' is not a valid choice.")
-        self._device = device
-
-    def __repr__(self) -> str:
-        return f"array_api_strict.Device('{self._device}')"
-
-    def __eq__(self, other: object) -> bool:
-        if not isinstance(other, Device):
-            return False
-        return self._device == other._device
-
-    def __hash__(self) -> int:
-        return hash(("Device", self._device))
-
-
-CPU_DEVICE = Device()
-ALL_DEVICES = (CPU_DEVICE, Device("device1"), Device("device2"))
 
 
 class Array:
@@ -113,10 +92,15 @@ class Array:
             raise TypeError(
                 f"The array_api_strict namespace does not support the dtype '{x.dtype}'"
             )
-        obj._array = x
-        obj._dtype = _dtype
+
         if device is None:
             device = CPU_DEVICE
+        if not device_supports_dtype(device, _dtype):
+            raise ValueError(f"Device {device!r} does not support dtype={_dtype!r}.")
+
+        obj._array = x
+        obj._dtype = _dtype
+
         obj._device = device
         return obj
 
@@ -400,7 +384,7 @@ class Array:
                 isinstance(i, SupportsIndex)  # i.e. ints
                 or isinstance(i, slice)
                 or i == Ellipsis
-                or i is None
+                or (op == "getitem" and i is None) # `None` disallowed in setitem
                 or isinstance(i, Array)
                 or isinstance(i, np.ndarray)
             ):
@@ -630,22 +614,40 @@ class Array:
                 raise NotImplementedError("The copy argument to __dlpack__ is not yet implemented")
 
             return self._array.__dlpack__(stream=stream)
-        else:
-            kwargs = {'stream': stream}
-            if max_version is not _undef:
-                kwargs['max_version'] = max_version
-            if dl_device is not _undef:
-                kwargs['dl_device'] = dl_device
-            if copy is not _undef:
-                kwargs['copy'] = copy
-            return self._array.__dlpack__(**kwargs)
+
+        kwargs: dict[str, Any] = {'stream': stream}
+        self_dl_device = _normalize_dl_device(*_DLPACK_DEVICE_FOR[self._device])
+        cpu_dl_device = _normalize_dl_device(DLDeviceType.kDLCPU, 0)
+        numpy_dl_device: tuple[IntEnum, int] | None = None
+
+        if dl_device not in [_undef, None]:
+            requested = _normalize_dl_device(dl_device[0], dl_device[1])
+            if requested == self_dl_device:
+                pass
+            elif requested == cpu_dl_device and self_dl_device != cpu_dl_device:
+                if copy is False:
+                    raise BufferError(
+                        "Cannot export array to CPU without copying when copy=False"
+                    )
+                if copy is _undef:
+                    copy = True
+                numpy_dl_device = (DLDeviceType.kDLCPU, 0)
+            else:
+                raise BufferError("unsupported device requested")
+
+        if max_version is not _undef:
+            kwargs['max_version'] = max_version
+        if numpy_dl_device is not None:
+            kwargs['dl_device'] = numpy_dl_device
+        if copy is not _undef:
+            kwargs['copy'] = copy
+        return self._array.__dlpack__(**kwargs)
 
     def __dlpack_device__(self) -> tuple[IntEnum, int]:
         """
         Performs the operation __dlpack_device__.
         """
-        # Note: device support is required for this
-        return self._array.__dlpack_device__()
+        return _DLPACK_DEVICE_FOR[self._device]
 
     def __eq__(self, other: Array | complex, /) -> Array:  # type: ignore[override]
         """
@@ -960,6 +962,10 @@ class Array:
         other = value
         if isinstance(value, (bool, int, float, complex)):
             other = self._promote_scalar(value)
+        else:
+            if value.device != self.device:
+                raise ValueError(f"mismatched devices: {self.device = } != {value.device =}.")
+
         dt = _result_type(self.dtype, other.dtype)
         if dt != self.dtype:
             raise TypeError(f"mismatched dtypes: {self.dtype = } and {other.dtype = }")

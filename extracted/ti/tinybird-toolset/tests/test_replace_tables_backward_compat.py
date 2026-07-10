@@ -370,14 +370,16 @@ def _log_cases(cases):
 
 def _results_match(baseline, target, function_name=None):
     # Allow specific functions to transition from blocked to allowed
-    ALLOWED_UNBLOCKS = {"getSetting"}
+    ALLOWED_UNBLOCKS = {"getSetting", "hasAllTokens", "hasAnyTokens", "hasPhrase"}
 
     if baseline.get("ok") != target.get("ok"):
         # Check if this is an allowed unblock (was blocked, now allowed)
         is_unblock = (not baseline.get("ok") and target.get("ok"))
         is_allowed = function_name in ALLOWED_UNBLOCKS
-        is_restriction = "is restricted" in baseline.get("error_message", "")
-        if is_unblock and is_allowed and is_restriction:
+        # Blocked via deny list ("is restricted") or absent from allowlist ("Unknown function ...").
+        baseline_error = baseline.get("error_message", "")
+        is_block = "is restricted" in baseline_error or "Unknown function" in baseline_error
+        if is_unblock and is_allowed and is_block:
             return True  # This is an expected breaking change
         return False
     if baseline.get("ok"):

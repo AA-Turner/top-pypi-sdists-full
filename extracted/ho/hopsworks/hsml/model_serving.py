@@ -20,10 +20,10 @@ import posixpath
 import re
 import tempfile
 import zipfile
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 from hopsworks_apigen import public
-from hopsworks_common import usage, util
+from hopsworks_common import tag, usage, util
 from hopsworks_common.client.exceptions import RestAPIError
 from hopsworks_common.constants import INFERENCE_ENDPOINTS as IE
 from hopsworks_common.constants import PREDICTOR_STATE
@@ -42,6 +42,13 @@ except ImportError:
 
 
 _AGENT_IDENTIFIER_RE = re.compile(r"^[A-Za-z0-9_-]+$")
+_GIT_PROVIDER_ALIASES = {
+    "github": "GitHub",
+    "gitlab": "GitLab",
+    "bitbucket": "BitBucket",
+}
+_SAFE_GIT_RELATIVE_PATH_RE = re.compile(r"^[A-Za-z0-9._/-]+$")
+_SAFE_GIT_BRANCH_NAME_RE = re.compile(r"^[A-Za-z0-9._/-]+$")
 
 
 if TYPE_CHECKING:
@@ -122,7 +129,12 @@ class ModelServing:
         """
         if name is None and ("DEPLOYMENT_NAME" in os.environ):
             name = os.environ["DEPLOYMENT_NAME"]
-        return self._serving_api._get(name)
+        deployment_instance = self._serving_api._get(name)
+        if deployment_instance is not None:
+            util._check_missing_mandatory_tags(
+                deployment_instance.missing_mandatory_tags
+            )
+        return deployment_instance
 
     @public
     @usage._method_logger
@@ -208,6 +220,7 @@ class ModelServing:
         vllm_variant: str | None = None,
         vllm_image_tag: str | None = None,
         tracing: DeploymentTracingConfig | dict | None = None,
+        tags: tag.Tag | dict[str, Any] | list[tag.Tag | dict[str, Any]] | None = None,
     ) -> Predictor:
         """Create a Predictor metadata object.
 
@@ -253,6 +266,9 @@ class ModelServing:
             vllm_variant: vLLM image variant for vLLM deployments. One of `'VLLM'` or `'VLLM_OMNI'`. Ignored for non-vLLM model servers.
             vllm_image_tag: vLLM image tag override. `None` uses the cluster default; if set, it should match one of the tags made available by a cluster administrator. Ignored for non-vLLM model servers.
             tracing: Tracing configuration for the predictor.
+            tags: Optionally the tags to attach to the deployment when it is created, in the same shapes accepted by feature groups.
+                A single [`Tag`][hopsworks.tag.Tag], a `{"name": "owner", "value": "team-a"}` dict, or a list of either, for example `[{"name": "owner", "value": "team-a"}]`.
+                The tags ride the create request, so any mandatory deployment tags missing from them cause the backend to reject the creation.
 
         Returns:
             The predictor metadata object.
@@ -277,6 +293,7 @@ class ModelServing:
             vllm_variant=vllm_variant,
             vllm_image_tag=vllm_image_tag,
             tracing=tracing,
+            tags=tags,
         )
 
     @public
@@ -371,6 +388,9 @@ class ModelServing:
         scaling_configuration: PredictorScalingConfig | dict | None = None,
         env_vars: dict | None = None,
         tracing: DeploymentTracingConfig | dict | None = None,
+        git_url: str | None = None,
+        git_provider: str | None = None,
+        git_branch: str | None = None,
     ) -> Predictor:
         """Create an Entrypoint metadata object.
 
@@ -402,10 +422,20 @@ class ModelServing:
             scaling_configuration: Scaling configuration for the predictor.
             env_vars: Environment variables to set on the predictor.
             tracing: Tracing configuration for the endpoint.
+            git_url: Optional Git repository URL for a git-backed endpoint.
+            git_provider: Git provider for git-backed endpoints.
+            git_branch: Optional branch to clone for git-backed endpoints.
 
         Returns:
             The predictor metadata object.
         """
+        git_url = _trim_to_none(git_url)
+        git_provider = _normalize_git_provider(git_provider)
+        git_branch = _trim_to_none(git_branch)
+
+        if git_url is not None:
+            _validate_git_agent_source(script_file, git_url, git_provider, git_branch)
+
         return Predictor.for_server(
             name=name,
             script_file=script_file,
@@ -418,6 +448,9 @@ class ModelServing:
             scaling_configuration=scaling_configuration,
             env_vars=env_vars,
             tracing=tracing,
+            git_url=git_url,
+            git_provider=git_provider,
+            git_branch=git_branch,
         )
 
     @public
@@ -436,6 +469,9 @@ class ModelServing:
         api_protocol: str | None = IE.API_PROTOCOL_REST,
         scaling_configuration: PredictorScalingConfig | dict | None = None,
         tracing: DeploymentTracingConfig | dict | None = None,
+        git_url: str | None = None,
+        git_provider: str | None = None,
+        git_branch: str | None = None,
     ) -> Deployment:
         """Deploy a Python script or package as an agent.
 
@@ -447,6 +483,7 @@ class ModelServing:
         Pass either a `.py` script or a directory containing a `pyproject.toml`.
         For a script, the file is uploaded and run directly.
         For a package, a wheel is built locally with the project's PEP 517 backend, uploaded, and installed; a small runner module invokes the package via `runpy.run_module`.
+        When `git_url` is set, `entry` must be a safe relative `.py` path inside the repository and is used as-is.
 
         ```python
         ms = project.get_model_serving()
@@ -478,6 +515,10 @@ class ModelServing:
             api_protocol: API protocol to be enabled in the deployment (i.e., 'REST' or 'GRPC').
             scaling_configuration: Scaling configuration for the predictor.
             tracing: Tracing configuration for the deployment.
+            git_url: Optional Git repository URL. When set, `entry` is treated as
+                a relative path inside the repository and is not uploaded.
+            git_provider: Git provider for git-backed agent deployments.
+            git_branch: Optional branch to clone for git-backed agent deployments.
 
         Returns:
             The deployment metadata object.
@@ -486,18 +527,39 @@ class ModelServing:
             ValueError: If `entry` is neither a `.py` file nor a directory with `pyproject.toml`, or if `name`/`environment` contain characters outside `[A-Za-z0-9_-]`.
             hopsworks.client.exceptions.RestAPIError: If the backend encounters an error when handling the request.
         """
-        entry_abs = os.path.abspath(entry)
-        is_script = os.path.isfile(entry_abs) and entry_abs.endswith(".py")
-        is_package = os.path.isdir(entry_abs) and os.path.isfile(
-            os.path.join(entry_abs, "pyproject.toml")
-        )
-        if not (is_script or is_package):
-            raise ValueError(
-                f"entry must be a .py file or a directory containing pyproject.toml: {entry}"
+        entry = _trim_to_none(entry)
+        if entry is None:
+            raise ValueError("entry must not be empty")
+        requirements = _trim_to_none(requirements)
+
+        git_url = _trim_to_none(git_url)
+        git_provider = _normalize_git_provider(git_provider)
+        git_branch = _trim_to_none(git_branch)
+        git_backed = git_url is not None
+
+        if git_backed:
+            _validate_git_agent_source(entry, git_url, git_provider, git_branch)
+            is_script = True
+            is_package = False
+            script_file = entry
+        else:
+            entry_abs = os.path.abspath(entry)
+            is_script = os.path.isfile(entry_abs) and entry_abs.endswith(".py")
+            is_package = os.path.isdir(entry_abs) and os.path.isfile(
+                os.path.join(entry_abs, "pyproject.toml")
             )
+            if not (is_script or is_package):
+                raise ValueError(
+                    f"entry must be a .py file or a directory containing pyproject.toml: {entry}"
+                )
+
+            script_file = None
 
         if name is None:
-            name = os.path.basename(entry_abs)
+            default_name_source = entry
+            if not git_backed:
+                default_name_source = os.path.basename(entry_abs)
+            name = os.path.basename(default_name_source)
             if is_script:
                 name = os.path.splitext(name)[0]
         _validate_agent_identifier(name, "name")
@@ -511,19 +573,7 @@ class ModelServing:
         ds_api = _dataset_api.DatasetApi()
         env_api = _environment_api.EnvironmentApi()
 
-        _ensure_dataset_dir(ds_api, agent_dir)
-
-        env = env_api.get_environment(env_name) or env_api.create_environment(
-            env_name, base_environment_name="python-agent-pipeline"
-        )
-
-        if is_script:
-            script_file = ds_api.upload(entry_abs, agent_dir, overwrite=True)
-        else:
-            script_file = _build_and_install_package(ds_api, env, entry_abs, agent_dir)
-        # The serving backend expects the script path under /Projects/<proj>/...
-        script_file = util._convert_to_abs(script_file, self._project_name)
-
+        requirements_abs = None
         if requirements is not None:
             requirements_abs = os.path.abspath(requirements)
             if not os.path.isfile(requirements_abs):
@@ -531,6 +581,25 @@ class ModelServing:
                     "requirements must be a path to an existing file: "
                     + requirements_abs
                 )
+
+        if not git_backed or requirements_abs is not None:
+            _ensure_dataset_dir(ds_api, agent_dir)
+
+        env = env_api.get_environment(env_name) or env_api.create_environment(
+            env_name, base_environment_name="python-agent-pipeline"
+        )
+
+        if not git_backed:
+            if is_script:
+                script_file = ds_api.upload(entry_abs, agent_dir, overwrite=True)
+            else:
+                script_file = _build_and_install_package(
+                    ds_api, env, entry_abs, agent_dir
+                )
+            # The serving backend expects the script path under /Projects/<proj>/...
+            script_file = util._convert_to_abs(script_file, self._project_name)
+
+        if requirements_abs is not None:
             req_remote = ds_api.upload(requirements_abs, agent_dir, overwrite=True)
             env.install_requirements(req_remote)
 
@@ -545,6 +614,9 @@ class ModelServing:
             environment=env_name,
             scaling_configuration=scaling_configuration,
             tracing=tracing,
+            git_url=git_url if git_backed else None,
+            git_provider=git_provider if git_backed else None,
+            git_branch=git_branch if git_backed else None,
         )
 
         existing = self.get_deployment(name)
@@ -567,6 +639,7 @@ class ModelServing:
         predictor: Predictor,
         name: str | None = None,
         environment: str | None = None,
+        tags: tag.Tag | dict[str, Any] | list[tag.Tag | dict[str, Any]] | None = None,
     ) -> Deployment:
         """Create a Deployment metadata object.
 
@@ -631,10 +704,15 @@ class ModelServing:
             predictor: predictor to be used in the deployment
             name: name of the deployment
             environment: (**Deprecated**) The project Python environment to use. This argument will be ignored, use the argument `environment` in the `create_predictor()` or `create_endpoint()` methods instead.
+            tags: Optionally the tags to attach to the deployment when it is created, in the same shapes accepted by feature groups.
+                A single [`Tag`][hopsworks.tag.Tag], a `{"name": "owner", "value": "team-a"}` dict, or a list of either, for example `[{"name": "owner", "value": "team-a"}]`.
+                The tags ride the create request, so any mandatory deployment tags missing from them cause the backend to reject the creation.
 
         Returns:
             The deployment metadata object.
         """
+        if tags:
+            predictor._tags = tag.Tag._normalize(tags)
         return Deployment(predictor=predictor, name=name)
 
     @public
@@ -704,7 +782,7 @@ def _build_and_install_package(ds_api, env, package_dir: str, agent_dir: str) ->
 
     Returns the remote path of the runner script to use as `script_file`.
     """
-    from build import ProjectBuilder
+    from build import ProjectBuilder  # noqa: I001
     from build.env import DefaultIsolatedEnv
 
     pkg_name = _read_package_name(package_dir)
@@ -787,3 +865,68 @@ def _read_package_name(package_dir: str) -> str:
             f"Cannot read [project].name as a static string from {package_dir}/pyproject.toml"
         )
     return pkg_name
+
+
+def _trim_to_none(value: str | None) -> str | None:
+    if value is None:
+        return None
+    if not isinstance(value, str):
+        value = str(value)
+    trimmed = value.strip()
+    return trimmed or None
+
+
+def _normalize_git_provider(git_provider: str | None) -> str | None:
+    if hasattr(git_provider, "git_provider"):
+        git_provider = git_provider.git_provider
+    provider = _trim_to_none(git_provider)
+    if not provider:
+        return None
+    normalized = _GIT_PROVIDER_ALIASES.get(provider.lower())
+    return normalized or provider
+
+
+def _is_valid_https_url(value: str | None) -> bool:
+    if not value:
+        return False
+    from urllib.parse import urlparse
+
+    try:
+        parsed = urlparse(value)
+    except ValueError:
+        return False
+    return parsed.scheme.lower() == "https" and bool(parsed.netloc)
+
+
+def _is_safe_relative_path(value: str) -> bool:
+    return (
+        not value.startswith("/")
+        and ".." not in value
+        and bool(_SAFE_GIT_RELATIVE_PATH_RE.fullmatch(value))
+    )
+
+
+def _is_safe_branch_name(value: str) -> bool:
+    return (
+        not value.startswith("-")
+        and ".." not in value
+        and bool(_SAFE_GIT_BRANCH_NAME_RE.fullmatch(value))
+    )
+
+
+def _validate_git_agent_source(
+    entry: str,
+    git_url: str | None,
+    git_provider: str | None,
+    git_branch: str | None,
+) -> None:
+    if not _is_valid_https_url(git_url):
+        raise ValueError("Git URL must be a valid https URL.")
+    if not git_provider:
+        raise ValueError("Git provider is required for Git-backed deployments.")
+    if not _is_safe_relative_path(entry):
+        raise ValueError("Predictor script must be a safe relative path.")
+    if not entry.endswith(".py"):
+        raise ValueError("Predictor script must be a .py file.")
+    if git_branch is not None and not _is_safe_branch_name(git_branch):
+        raise ValueError("Git branch must be a safe branch name.")

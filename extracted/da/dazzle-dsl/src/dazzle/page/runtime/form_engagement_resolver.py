@@ -7,9 +7,10 @@ primitive dispatch:
 
 - **Autofocus** — the most-engaged plain field gets ``autofocus``, so the form
   opens where users actually start. Plain means it will render as a native
-  ``Field``/``Combobox`` input; rich client-controller widgets (TomSelect,
-  Flatpickr, …) are skipped — HTML5 ``autofocus`` on a JS-enhanced control
-  races its mount.
+  ``Field``/``Combobox`` input; rich client-controller widgets (combobox,
+  tags, slider, …) are skipped — HTML5 ``autofocus`` on a JS-enhanced
+  control races its mount.
+
 - **Combobox upgrade** — a heavily-engaged plain ``select`` with a long option
   list is promoted to the searchable ``combobox`` widget. An author-declared
   ``widget`` is authoritative and never overridden.
@@ -91,7 +92,7 @@ def annotate_form_fields_by_usage(
     # Combobox upgrades FIRST: an upgraded select is a rich client widget, so
     # it must already carry `widget` when the autofocus pass filters on
     # plainness — otherwise the hottest select could take autofocus and then
-    # turn into the TomSelect control autofocus is excluded from.
+    # turn into the searchable combobox control autofocus is excluded from.
     for entry in fields:
         if entry.get("widget") or str(entry.get("kind", "")).lower() != "select":
             continue

@@ -9,6 +9,7 @@ from sklearn.compose import ColumnTransformer
 from sklearn.linear_model import Ridge
 from sklearn.pipeline import make_pipeline
 from sklearn.preprocessing import OneHotEncoder
+from utilsforecast.losses import mae
 
 from mlforecast.auto import (
     AutoLightGBM,
@@ -18,6 +19,7 @@ from mlforecast.auto import (
     PredictionIntervals,
     ridge_space,
 )
+from mlforecast.lag_transforms import ExpandingMean
 
 from .conftest import assert_raises_with_message
 
@@ -76,13 +78,15 @@ def test_automlforecast_pipeline(weekly_data):
     assert not preds.empty
     fitted_vals = auto_mlf.forecast_fitted_values(level=[95])
     assert not fitted_vals.empty
+    assert "h" in fitted_vals.columns
+    assert not any(col.startswith("h_") for col in fitted_vals.columns)
     
 def test_automlforecast_weight_col(weekly_data):
 
     def custom_loss(val_df, train_df, weight_col):
+        assert weight_col in val_df
         error = (val_df['y'] - val_df['model']).abs()
-        indices = val_df.index
-        weights = train.loc[indices, weight_col].values
+        weights = val_df[weight_col]
         weighted_sum = sum(e * w for e, w in zip(error, weights))
         total_weight = sum(weights)
 
@@ -314,3 +318,43 @@ def test_reuse_cv_splits_same_predictions(weekly_data):
 
     assert preds_a.columns.tolist() == preds_b.columns.tolist()
     assert (preds_a["ridge"].to_numpy() == preds_b["ridge"].to_numpy()).all()
+
+
+def test_automlforecast_refit_false_with_grouped_expanding_mean(grouped_expanding_mean_df):
+    def init_config(trial):  # noqa: ARG001
+        return {
+            "lags": [1],
+            "lag_transforms": {1: [ExpandingMean(groupby=["cat_code"])]},
+        }
+
+    def fit_config(trial):  # noqa: ARG001
+        return {
+            "static_features": ["cat_code"],
+            "max_horizon": 2,
+        }
+
+    def model_config(trial):  # noqa: ARG001
+        return {}
+
+    def loss(df, train_df):  # noqa: ARG001
+        return mae(df, models=["model"])["model"].mean()
+
+    automl = AutoMLForecast(
+        models={"ridge": AutoModel(Ridge(), config=model_config)},
+        freq="D",
+        init_config=init_config,
+        fit_config=fit_config,
+        num_threads=1,
+    )
+
+    result = automl.fit(
+        grouped_expanding_mean_df,
+        n_windows=2,
+        h=2,
+        num_samples=1,
+        step_size=2,
+        refit=False,
+        loss=loss,
+    )
+
+    assert result is automl

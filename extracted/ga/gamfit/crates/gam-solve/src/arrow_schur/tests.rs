@@ -3935,6 +3935,69 @@ pub(crate) fn device_a_phi_shared_is_refcount_bump_not_clone_1033() {
     );
 }
 
+/// #1017/#2230 residency measurement: `operand_byte_report` must categorise the
+/// per-solve host→device operand bytes correctly on BOTH matrix-free sub-lanes,
+/// so the a100 job's log numbers are trustworthy. Legacy (`frame = None`) carries
+/// the sparse `a_phi`/`local_jac` and zero `row_htbeta`; framed carries a dense
+/// per-row `row_htbeta` (the 34MiB-vs-31GiB discriminator the #2230 report flags).
+#[test]
+pub(crate) fn sae_pcg_operand_byte_report_categorises_both_lanes_1017() {
+    let p = 5usize;
+    // Legacy sparse lane: 2 rows, supports of 3 and 2 atoms; local_jac 4+6 f64.
+    let a_phi: std::sync::Arc<[Vec<(usize, f64)>]> = std::sync::Arc::from(
+        vec![vec![(0usize, 1.0), (2, 0.5), (7, -0.3)], vec![(1usize, 1.0), (4, 0.2)]]
+            .into_boxed_slice(),
+    );
+    let jac: std::sync::Arc<[Vec<f64>]> =
+        std::sync::Arc::from(vec![vec![1.0; 4], vec![2.0; 6]].into_boxed_slice());
+    let legacy = DeviceSaePcgData {
+        p,
+        beta_dim: 12,
+        a_phi: std::sync::Arc::clone(&a_phi),
+        local_jac: std::sync::Arc::clone(&jac),
+        smooth_blocks: Vec::new(),
+        sparse_g_blocks: Vec::new(),
+        frame: None,
+    };
+    let r = legacy.operand_byte_report();
+    assert!(!r.framed, "frame = None must report the legacy sparse lane");
+    assert_eq!(r.a_phi_pairs, 5, "3 + 2 support pairs");
+    assert_eq!(r.a_phi_bytes, 5 * std::mem::size_of::<(usize, f64)>());
+    assert_eq!(r.local_jac_elems, 10);
+    assert_eq!(r.local_jac_bytes, 10 * 8);
+    assert_eq!(r.row_htbeta_bytes, 0, "legacy lane has no dense per-row cross");
+    assert_eq!(r.frame_blocks_bytes, 0);
+    assert_eq!(r.total_bytes, r.a_phi_bytes + r.local_jac_bytes);
+
+    // Framed dense lane: 3 rows, two carrying a length-4 dense cross, one empty.
+    let frame = DeviceSaeFrameData {
+        ranks: vec![2, 2],
+        basis_sizes: vec![3, 3],
+        border_offsets: vec![0, 6],
+        frame_blocks: Vec::new(),
+        smooth_ranks: Vec::new(),
+        row_htbeta: vec![vec![0.0; 4], vec![0.0; 4], Vec::new()],
+    };
+    let framed = DeviceSaePcgData {
+        p,
+        beta_dim: 12,
+        a_phi: std::sync::Arc::clone(&a_phi),
+        local_jac: std::sync::Arc::clone(&jac),
+        smooth_blocks: Vec::new(),
+        sparse_g_blocks: Vec::new(),
+        frame: Some(frame),
+    };
+    let rf = framed.operand_byte_report();
+    assert!(rf.framed, "frame = Some must report the framed dense lane");
+    assert_eq!(rf.row_htbeta_rows, 2, "two rows carry a non-empty cross slab");
+    assert_eq!(rf.row_htbeta_bytes, 8 * 8, "4 + 4 f64 across the two rows");
+    assert_eq!(
+        rf.total_bytes,
+        rf.a_phi_bytes + rf.local_jac_bytes + rf.row_htbeta_bytes,
+        "total must fold the framed dense cross into the per-solve upload"
+    );
+}
+
 /// #1033 frames-engaged assembly guard: `set_device_sae_pcg_data` must NOT panic
 /// when the frames-engaged builder (`build_framed_device_sae_data`) hands it a
 /// `DeviceSaePcgData` whose full-`B` per-row `a_phi`/`local_jac` slabs are left
@@ -4975,6 +5038,546 @@ fn slq_reduced_schur_log_det_matches_dense_evidence() {
     assert!(
         conv_rel < 0.05,
         "matrix-free evidence log|S| rel err {conv_rel:.3e} exceeds 5%"
+    );
+}
+
+/// The #2080 evidence lane switch: `matrix_free_arrow_evidence_log_det_surrogate`
+/// with `lane = None` must be BIT-IDENTICAL to `matrix_free_arrow_evidence_log_det`
+/// (same factorization, same SLQ path — a caller that has not opted in is
+/// unchanged), and with `lane = Some(state)` must (a) build+freeze the derived
+/// plan on first call, (b) return a `log|S|` close to the dense reduced Schur,
+/// and (c) REUSE the frozen plan on a second call at the same dimension
+/// (bit-identical estimate, and the same `Q` is what the gradient will contract).
+#[test]
+fn matrix_free_arrow_evidence_surrogate_none_matches_slq_some_builds_and_reuses() {
+    let (n, d, k) = (40usize, 3usize, 80usize);
+    let sys = dense_direct_system(n, d, k);
+    let backend = CpuBatchedBlockSolver;
+    let ridge_beta = 1e-6;
+    let seed = 0x2080_5A17_C0DE_u64;
+    let options = ArrowSolveOptions::direct().with_ill_conditioning_tolerated();
+
+    // Dense oracle for the reduced-Schur log|S|.
+    let htt_factors = backend
+        .factor_blocks(&sys.rows, 0.0, d, options.tolerate_ill_conditioning)
+        .expect("SPD per-row blocks must factor");
+    let schur = build_dense_schur_direct(&sys, &htt_factors, ridge_beta, &backend)
+        .expect("dense reduced Schur must build");
+    let l = cholesky_lower(&schur).expect("reduced Schur must be SPD");
+    let exact_logdet: f64 = (0..k).map(|i| 2.0 * l[[i, i]].ln()).sum();
+
+    // (a) None ⇒ bit-identical to the SLQ convenience.
+    let (tt_ref, slq_ref) =
+        matrix_free_arrow_evidence_log_det(&sys, 0.0, ridge_beta, &options, 48, 60, seed)
+            .expect("SLQ convenience must succeed");
+    let (tt_none, schur_none) = matrix_free_arrow_evidence_log_det_surrogate(
+        &sys, 0.0, ridge_beta, &options, 48, 60, seed, None,
+    )
+    .expect("None-lane surrogate entry must succeed");
+    assert_eq!(tt_none, tt_ref, "log_det_tt must be bit-identical to the SLQ convenience");
+    assert_eq!(
+        schur_none, slq_ref.estimate,
+        "None-lane log|S| must be the bit-identical SLQ estimate"
+    );
+
+    // (b) Some ⇒ builds+freezes the derived plan, log|S| tracks the dense oracle.
+    let cfg = SurrogateLaneConfig {
+        num_probes: 48,
+        seed,
+        rel_tol: 1e-9,
+        power_iters: 40,
+        cg_rel_tol: 1e-11,
+        cg_max_iters: 20_000,
+        deflation_max_rank: 16,
+        deflation_subspace_iters: 4,
+        deflation_target_std_err_rel: 1e-4,
+    };
+    let mut state = SurrogateLaneState::new(cfg);
+    assert!(state.plan().is_none(), "a fresh lane has no plan until first evaluated");
+    let (tt_some, schur_some) = matrix_free_arrow_evidence_log_det_surrogate(
+        &sys,
+        0.0,
+        ridge_beta,
+        &options,
+        48,
+        60,
+        seed,
+        Some(&mut state),
+    )
+    .expect("Some-lane surrogate entry must succeed");
+    assert_eq!(tt_some, tt_ref, "log_det_tt is factorization-only, independent of the log|S| lane");
+    assert!(state.plan().is_some(), "the first Some evaluation must build+freeze the plan");
+    let rel = (schur_some - exact_logdet).abs() / exact_logdet.abs();
+    eprintln!("surrogate-lane log|S|={schur_some:.6} exact={exact_logdet:.6} rel={rel:.3e}");
+    assert!(rel < 0.05, "surrogate-lane log|S| rel err {rel:.3e} exceeds 5%");
+
+    // (c) Second call at the same dim reuses the frozen plan ⇒ bit-identical.
+    let (_tt2, schur_reuse) = matrix_free_arrow_evidence_log_det_surrogate(
+        &sys,
+        0.0,
+        ridge_beta,
+        &options,
+        48,
+        60,
+        seed,
+        Some(&mut state),
+    )
+    .expect("reused-lane surrogate entry must succeed");
+    assert_eq!(
+        schur_reuse, schur_some,
+        "reusing the frozen plan at the same dimension must be bit-deterministic"
+    );
+}
+
+/// Dense power-iteration reference for the top eigenvalue of an SPD matrix — a
+/// self-contained oracle for [`reduced_schur_lambda_max`] that needs no eigh
+/// import. Converges to `λ_max` from below; 200 steps is far more than the
+/// well-separated fixture needs.
+fn dense_top_eigenvalue(a: &Array2<f64>) -> f64 {
+    let n = a.nrows();
+    let mut v = Array1::<f64>::from_elem(n, 1.0);
+    let inv = v.dot(&v).sqrt().recip();
+    v.mapv_inplace(|x| x * inv);
+    let mut lambda = 0.0;
+    for _ in 0..200 {
+        let av = a.dot(&v);
+        lambda = v.dot(&av);
+        let norm = av.dot(&av).sqrt();
+        if norm == 0.0 {
+            break;
+        }
+        v = av / norm;
+    }
+    lambda
+}
+
+/// The #2080 fixed-rational log-det surrogate on the matrix-free `schur_matvec`
+/// apply (`rational_reduced_schur_log_det`, NO dense `k×k` Schur formed) must
+/// agree with the exact dense evidence `log|S|` it replaces, be bit-reproducible
+/// for a fixed seed (the REML outer loop differentiates a DETERMINISTIC
+/// objective), and bracket the spectrum correctly via the matrix-free power
+/// iteration. Companion to `slq_reduced_schur_log_det_matches_dense_evidence` —
+/// the surrogate's added contract (value/gradient one functional) is exercised
+/// separately by `rational_reduced_schur_directional_matches_fd_of_surrogate`.
+#[test]
+fn rational_reduced_schur_log_det_matches_dense_evidence() {
+    let (n, d, k) = (40usize, 3usize, 80usize);
+    let sys = dense_direct_system(n, d, k);
+    let backend = CpuBatchedBlockSolver;
+    let ridge_beta = 1e-6;
+    let seed = 0x2080_0B0A_C0DE_u64;
+
+    let htt_factors = backend
+        .factor_blocks(&sys.rows, 0.0, d, false)
+        .expect("SPD per-row blocks must factor");
+
+    // Exact dense reduced-Schur log|S| and top eigenvalue — the O(k²) assembly
+    // the matrix-free surrogate avoids, kept here only as the test oracle.
+    let schur = build_dense_schur_direct(&sys, &htt_factors, ridge_beta, &backend)
+        .expect("dense reduced Schur must build for the well-conditioned fixture");
+    let l = cholesky_lower(&schur).expect("reduced Schur must be SPD");
+    let exact_logdet: f64 = (0..k).map(|i| 2.0 * l[[i, i]].ln()).sum();
+    let true_lambda_max = dense_top_eigenvalue(&schur);
+
+    // Spectral bracket: power iteration on `schur_matvec` recovers λ_max
+    // (Rayleigh quotient converges from below, so it never exceeds the truth).
+    // The surrogate only needs a bracket good to a factor — its quadrature window
+    // is padded two decades each side — so assert a factor-of-2 band rather than a
+    // tight eigenvalue tolerance, which would be flaky when the top two
+    // eigenvalues are close (slow power-iteration convergence).
+    let lambda_max =
+        reduced_schur_lambda_max(&sys, &htt_factors, ridge_beta, &backend, None, 80, seed)
+            .expect("power iteration must produce a finite positive λ_max");
+    assert!(
+        lambda_max <= true_lambda_max * (1.0 + 1e-9),
+        "power-iteration Rayleigh quotient cannot exceed the true λ_max \
+         (est={lambda_max}, true={true_lambda_max})"
+    );
+    assert!(
+        lambda_max >= 0.5 * true_lambda_max,
+        "spectral-bracket λ_max must be within a factor of 2 of the truth \
+         (est={lambda_max}, true={true_lambda_max})"
+    );
+
+    // Matrix-free surrogate value — never forms S.
+    let (_plan, eval) = rational_reduced_schur_log_det(
+        &sys,
+        &htt_factors,
+        ridge_beta,
+        &backend,
+        None,
+        64,   // num_probes
+        seed,
+        1e-9, // rel_tol (quadrature)
+        40,   // power_iters
+        1e-11,
+        20_000,
+    )
+    .expect("rational surrogate must evaluate for the SPD fixture");
+    let rel = (eval.estimate - exact_logdet).abs() / exact_logdet.abs();
+    eprintln!(
+        "matrix-free reduced-Schur log|S|: rational={:.6} exact={:.6} rel={:.3e} std_err={:.3e}",
+        eval.estimate, exact_logdet, rel, eval.std_err
+    );
+    assert!(
+        rel < 0.05,
+        "matrix-free rational reduced-Schur log|S| rel err {rel:.3e} exceeds 5% \
+         (rational={}, exact={exact_logdet})",
+        eval.estimate
+    );
+
+    // Bit-reproducible for a fixed seed.
+    let (_plan2, eval2) = rational_reduced_schur_log_det(
+        &sys, &htt_factors, ridge_beta, &backend, None, 64, seed, 1e-9, 40, 1e-11, 20_000,
+    )
+    .expect("rational surrogate must re-evaluate");
+    assert_eq!(
+        eval.estimate, eval2.estimate,
+        "the fixed plan (fixed probes + fixed quadrature) must be bit-deterministic"
+    );
+}
+
+/// THE surrogate contract at the reduced-Schur level: the derivative returned by
+/// `rational_reduced_schur_directional` is the EXACT derivative of the SAME
+/// function `rational_reduced_schur_log_det` evaluates (same probes, same
+/// quadrature, same shifted-solve bundle), not of the true `log|S|`. A central
+/// finite difference of the surrogate value along a Schur perturbation `∂S`
+/// (evaluated on the SAME plan so the probes/nodes never move) must agree
+/// tightly — the FD gate that pins value↔gradient consistency, mirrored from the
+/// matrix-level `directional_derivative_matches_fd_of_the_surrogate_itself` but
+/// composed through `schur_matvec`.
+#[test]
+fn rational_reduced_schur_directional_matches_fd_of_surrogate() {
+    let (n, d, k) = (24usize, 2usize, 48usize);
+    let sys = dense_direct_system(n, d, k);
+    let backend = CpuBatchedBlockSolver;
+    let ridge_beta = 1e-5;
+    let seed = 0x2080_D1_EC_u64;
+
+    let htt_factors = backend
+        .factor_blocks(&sys.rows, 0.0, d, false)
+        .expect("SPD per-row blocks must factor");
+
+    // A fixed SPD perturbation operator `∂S = diag(δ_c)`, δ_c ∈ [0.3, 1.3): a
+    // valid symmetric direction whose apply is trivially matrix-free. Deriving it
+    // from a fixed seed keeps the test reproducible with no RNG dependency.
+    let mut state = 0x00FF_2080_u64;
+    let d_diag: Array1<f64> = Array1::from_shape_fn(k, |_| {
+        let bits = gam_linalg::utils::splitmix64(&mut state) >> 11;
+        0.3 + (bits as f64) / ((1u64 << 53) as f64)
+    });
+    let d_matvec = |v: ArrayView1<f64>| -> Array1<f64> { &d_diag * &v.to_owned() };
+
+    // Build the surrogate value + solve bundle once from S.
+    let (plan, eval) = rational_reduced_schur_log_det(
+        &sys, &htt_factors, ridge_beta, &backend, None, 16, seed, 1e-10, 60, 1e-13, 40_000,
+    )
+    .expect("rational surrogate must evaluate");
+    let grad = rational_reduced_schur_directional(&plan, &eval, &d_matvec)
+        .expect("directional derivative must be finite");
+
+    // Central FD of the SAME plan's value along S ± h·∂S (probes/nodes fixed).
+    let h = 1e-5;
+    let eval_at = |scale: f64| -> f64 {
+        let matvec = |v: ArrayView1<f64>| -> Array1<f64> {
+            let x = v.to_owned();
+            let mut out = Array1::<f64>::zeros(k);
+            schur_matvec(&sys, &htt_factors, ridge_beta, &x, &mut out, &backend, None);
+            out.scaled_add(scale, &(&d_diag * &x));
+            out
+        };
+        plan.evaluate(&matvec, 1e-13, 40_000)
+            .expect("perturbed surrogate must evaluate")
+            .estimate
+    };
+    let fd = (eval_at(h) - eval_at(-h)) / (2.0 * h);
+    let rel = (grad - fd).abs() / fd.abs().max(1e-12);
+    eprintln!("reduced-Schur surrogate grad={grad:.9e} fd={fd:.9e} rel={rel:.3e}");
+    assert!(
+        rel < 1e-5,
+        "reduced-Schur surrogate directional {grad:.9e} vs its own FD {fd:.9e} (rel {rel:.3e})"
+    );
+    // Sign sanity: an SPD ∂S direction increases log det.
+    assert!(grad > 0.0, "SPD ∂S must increase the surrogate log det, got {grad}");
+}
+
+/// `rational_reduced_schur_plan_derived` (the build-once companion): the derived
+/// Hutch++ deflation rank must (a) leave the log|S| estimate exact (deflation is
+/// an unbiased variance-reduction split, so the value cannot move outside the
+/// error bar) while (b) tightening the Hutchinson std_err below the bare-probe
+/// pilot when the target bar demands it. `deflation_max_rank == 0` must return
+/// the bare plan (bit-identical to `rational_reduced_schur_log_det`'s plan). The
+/// derived plan's frozen `Q` is what the gradient contracts against, so this pins
+/// the value the criterion swap will consume.
+#[test]
+fn rational_reduced_schur_plan_derived_deflates_to_target() {
+    let (n, d, k) = (40usize, 3usize, 80usize);
+    let sys = dense_direct_system(n, d, k);
+    let backend = CpuBatchedBlockSolver;
+    let ridge_beta = 1e-6;
+    let seed = 0x2080_DEF1_u64;
+
+    let htt_factors = backend
+        .factor_blocks(&sys.rows, 0.0, d, false)
+        .expect("SPD per-row blocks must factor");
+    let schur = build_dense_schur_direct(&sys, &htt_factors, ridge_beta, &backend)
+        .expect("dense reduced Schur must build");
+    let l = cholesky_lower(&schur).expect("reduced Schur must be SPD");
+    let exact_logdet: f64 = (0..k).map(|i| 2.0 * l[[i, i]].ln()).sum();
+
+    let matvec = |v: ArrayView1<f64>| -> Array1<f64> {
+        let x = v.to_owned();
+        let mut out = Array1::<f64>::zeros(k);
+        schur_matvec(&sys, &htt_factors, ridge_beta, &x, &mut out, &backend, None);
+        out
+    };
+
+    // Bare pilot (rank-0): the variance the deflation must beat.
+    let bare = rational_reduced_schur_plan_derived(
+        &sys, &htt_factors, ridge_beta, &backend, None, 32, seed, 1e-9, 40, 1e-11, 20_000, 0, 4,
+        0.0,
+    )
+    .expect("bare plan must build");
+    let bare_eval = bare.evaluate(&matvec, 1e-11, 20_000).expect("bare eval");
+    assert!(
+        (bare_eval.estimate - exact_logdet).abs() / exact_logdet.abs() < 0.05,
+        "bare surrogate estimate {} must match dense {exact_logdet}",
+        bare_eval.estimate
+    );
+
+    // Derived rank: an aggressive target (well under the bare std_err) forces the
+    // peel to grow. The returned plan's frozen Q reduces the Hutchinson bar and
+    // leaves the estimate exact.
+    let target_rel = 0.1 * bare_eval.std_err / (exact_logdet.abs() + 1.0);
+    let derived = rational_reduced_schur_plan_derived(
+        &sys,
+        &htt_factors,
+        ridge_beta,
+        &backend,
+        None,
+        32,
+        seed,
+        1e-9,
+        40,
+        1e-11,
+        20_000,
+        32, // deflation_max_rank
+        6,  // subspace_iters
+        target_rel,
+    )
+    .expect("derived plan must build");
+    let derived_eval = derived.evaluate(&matvec, 1e-11, 20_000).expect("derived eval");
+    eprintln!(
+        "derived-rank plan: est={:.6} exact={:.6} bare_std_err={:.3e} derived_std_err={:.3e}",
+        derived_eval.estimate, exact_logdet, bare_eval.std_err, derived_eval.std_err
+    );
+    assert!(
+        (derived_eval.estimate - exact_logdet).abs() / exact_logdet.abs() < 0.05,
+        "deflation must not bias the estimate: derived={} exact={exact_logdet}",
+        derived_eval.estimate
+    );
+    assert!(
+        derived_eval.std_err < bare_eval.std_err,
+        "Hutch++ deflation must reduce the std_err below the bare probe pilot \
+         (bare={:.3e}, derived={:.3e})",
+        bare_eval.std_err,
+        derived_eval.std_err
+    );
+}
+
+/// Dense reference `tr(S⁻¹)` from the lower-Cholesky factor `S = L Lᵀ`:
+/// `tr(S⁻¹) = tr(L⁻ᵀ L⁻¹) = ‖L⁻¹‖_F²`, with each `L⁻¹` column solved by forward
+/// substitution (`L y = e_c`). Self-contained oracle for the matrix-free
+/// `tr(S⁻¹·M)` estimator, no eigensolver needed.
+fn dense_trace_inverse(l: &Array2<f64>) -> f64 {
+    let k = l.nrows();
+    let mut acc = 0.0;
+    for c in 0..k {
+        let mut y = vec![0.0_f64; k];
+        for i in 0..k {
+            let mut s = if i == c { 1.0 } else { 0.0 };
+            for j in 0..i {
+                s -= l[[i, j]] * y[j];
+            }
+            y[i] = s / l[[i, i]];
+        }
+        acc += y.iter().map(|v| v * v).sum::<f64>();
+    }
+    acc
+}
+
+/// The matrix-free `tr(S⁻¹·M)` Hutchinson estimator (#2080 general umbrella):
+/// the `S⁻¹ v_j` bundle (`reduced_schur_inverse_probe_solves`, `t = 0` CG on
+/// `schur_matvec`) contracted against a channel matvec. `M = S` is the exact
+/// plumbing check (`tr(S⁻¹ S) = k` with ZERO variance, since `(S⁻¹v)ᵀ(Sv) =
+/// ‖v‖² = k`), and `M = I` exercises the genuine Hutchinson estimate of
+/// `tr(S⁻¹)` against the dense oracle. Also pins determinism.
+#[test]
+fn hutchinson_reduced_schur_inverse_trace_matches_dense() {
+    let (n, d, k) = (40usize, 3usize, 80usize);
+    let sys = dense_direct_system(n, d, k);
+    let backend = CpuBatchedBlockSolver;
+    let ridge_beta = 1e-6;
+    let seed = 0x2080_51_7A_u64;
+
+    let htt_factors = backend
+        .factor_blocks(&sys.rows, 0.0, d, false)
+        .expect("SPD per-row blocks must factor");
+    let schur = build_dense_schur_direct(&sys, &htt_factors, ridge_beta, &backend)
+        .expect("dense reduced Schur must build");
+    let l = cholesky_lower(&schur).expect("reduced Schur must be SPD");
+    let exact_tr_inv = dense_trace_inverse(&l);
+
+    // Fixed probe set (reuse the surrogate plan's Rademacher probes).
+    let plan = RationalLogdetPlan::build(k, 64, seed, 1e-3, 1e3, 1e-9).expect("plan");
+    let sinv = reduced_schur_inverse_probe_solves(
+        &sys,
+        &htt_factors,
+        ridge_beta,
+        &backend,
+        None,
+        &plan.probes,
+        None,
+        1e-12,
+        50_000,
+    )
+    .expect("S⁻¹ v_j bundle must solve");
+
+    // M = S ⇒ tr(S⁻¹S) = k, variance-free (a plumbing + solve-accuracy gate).
+    let tr_sinv_s = hutchinson_reduced_schur_inverse_trace(&plan.probes, &sinv, &|v| {
+        let x = v.to_owned();
+        let mut out = Array1::<f64>::zeros(k);
+        schur_matvec(&sys, &htt_factors, ridge_beta, &x, &mut out, &backend, None);
+        out
+    })
+    .expect("tr(S⁻¹S) estimate");
+    let rel_s = (tr_sinv_s - k as f64).abs() / k as f64;
+    assert!(
+        rel_s < 1e-5,
+        "tr(S⁻¹S) must equal k to solve accuracy: got {tr_sinv_s} vs k={k} (rel {rel_s:.3e})"
+    );
+
+    // M = I ⇒ tr(S⁻¹) against the dense forward-substitution oracle.
+    let tr_sinv_i = hutchinson_reduced_schur_inverse_trace(&plan.probes, &sinv, &|v| v.to_owned())
+        .expect("tr(S⁻¹) estimate");
+    let rel_i = (tr_sinv_i - exact_tr_inv).abs() / exact_tr_inv.abs().max(1e-12);
+    eprintln!("tr(S⁻¹): est={tr_sinv_i:.6} exact={exact_tr_inv:.6} rel={rel_i:.3e}");
+    assert!(
+        rel_i < 0.15,
+        "matrix-free tr(S⁻¹) rel err {rel_i:.3e} exceeds 15% (est {tr_sinv_i} vs exact {exact_tr_inv})"
+    );
+
+    // Determinism: the fixed probe set + deterministic CG reproduce bit-for-bit.
+    let sinv2 = reduced_schur_inverse_probe_solves(
+        &sys, &htt_factors, ridge_beta, &backend, None, &plan.probes, None, 1e-12, 50_000,
+    )
+    .expect("S⁻¹ v_j bundle must re-solve");
+    let tr2 = hutchinson_reduced_schur_inverse_trace(&plan.probes, &sinv2, &|v| v.to_owned())
+        .expect("tr(S⁻¹) re-estimate");
+    assert_eq!(tr_sinv_i, tr2, "tr(S⁻¹) estimator must be bit-reproducible");
+}
+
+/// Dense SPD solve `S⁻¹ rhs` from the lower-Cholesky factor `S = L Lᵀ`: forward
+/// substitution `L y = rhs` then back substitution `Lᵀ x = y`. Oracle for the
+/// matrix-free single-rhs [`reduced_schur_inverse_apply`].
+fn dense_spd_solve_from_lower(l: &Array2<f64>, rhs: &Array1<f64>) -> Array1<f64> {
+    let k = l.nrows();
+    let mut y = vec![0.0_f64; k];
+    for i in 0..k {
+        let mut s = rhs[i];
+        for j in 0..i {
+            s -= l[[i, j]] * y[j];
+        }
+        y[i] = s / l[[i, i]];
+    }
+    let mut x = vec![0.0_f64; k];
+    for i in (0..k).rev() {
+        let mut s = y[i];
+        for j in i + 1..k {
+            s -= l[[j, i]] * x[j];
+        }
+        x[i] = s / l[[i, i]];
+    }
+    Array1::from_vec(x)
+}
+
+/// The matrix-free single-rhs reduced-Schur solve
+/// [`reduced_schur_inverse_apply`] (the base primitive for the selected-inverse
+/// gradient channels whose `S⁻¹` argument is per-call, not the fixed probe
+/// bundle) must reproduce the dense `S⁻¹ rhs` to solve accuracy and be
+/// bit-reproducible for a fixed rhs.
+#[test]
+fn reduced_schur_inverse_apply_matches_dense_solve() {
+    let (n, d, k) = (40usize, 3usize, 80usize);
+    let sys = dense_direct_system(n, d, k);
+    let backend = CpuBatchedBlockSolver;
+    let ridge_beta = 1e-6;
+
+    let htt_factors = backend
+        .factor_blocks(&sys.rows, 0.0, d, false)
+        .expect("SPD per-row blocks must factor");
+    let schur = build_dense_schur_direct(&sys, &htt_factors, ridge_beta, &backend)
+        .expect("dense reduced Schur must build");
+    let l = cholesky_lower(&schur).expect("reduced Schur must be SPD");
+
+    // Fixed Rademacher rhs (deterministic, no eigensolver needed).
+    let mut state = 0x2080_A951_C0DE_u64;
+    let rhs = Array1::<f64>::from_shape_fn(k, |_| {
+        if gam_linalg::utils::splitmix64(&mut state) & 1 == 1 {
+            1.0
+        } else {
+            -1.0
+        }
+    });
+    let dense_x = dense_spd_solve_from_lower(&l, &rhs);
+
+    let mf_x = reduced_schur_inverse_apply(
+        &sys,
+        &htt_factors,
+        ridge_beta,
+        &backend,
+        None,
+        &rhs,
+        None,
+        1e-12,
+        50_000,
+    )
+    .expect("matrix-free S⁻¹ rhs must solve");
+    let err = (&mf_x - &dense_x).mapv(|x| x * x).sum().sqrt();
+    let scale = dense_x.mapv(|x| x * x).sum().sqrt().max(1e-12);
+    let rel = err / scale;
+    eprintln!("matrix-free S⁻¹ rhs: rel err {rel:.3e}");
+    assert!(
+        rel < 1e-6,
+        "matrix-free S⁻¹ rhs must match the dense L Lᵀ solve to CG accuracy (rel {rel:.3e})"
+    );
+
+    // Bit-reproducible for a fixed rhs (the REML gradient lane requires it).
+    let mf_x2 = reduced_schur_inverse_apply(
+        &sys, &htt_factors, ridge_beta, &backend, None, &rhs, None, 1e-12, 50_000,
+    )
+    .expect("matrix-free S⁻¹ rhs must re-solve");
+    assert_eq!(mf_x, mf_x2, "single-rhs S⁻¹ solve must be bit-reproducible");
+
+    // Warm-start slot: seeding with the exact solution converges to it (the CRN
+    // reuse the surrogate lane does across the ρ walk cannot move the answer, only
+    // cut iterations).
+    let mf_warm = reduced_schur_inverse_apply(
+        &sys,
+        &htt_factors,
+        ridge_beta,
+        &backend,
+        None,
+        &rhs,
+        Some(&dense_x),
+        1e-12,
+        50_000,
+    )
+    .expect("warm-started S⁻¹ rhs must solve");
+    let warm_rel = (&mf_warm - &dense_x).mapv(|x| x * x).sum().sqrt() / scale;
+    assert!(
+        warm_rel < 1e-6,
+        "warm-starting from the exact solution must return it (rel {warm_rel:.3e})"
     );
 }
 

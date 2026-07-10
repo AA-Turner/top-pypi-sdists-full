@@ -5,7 +5,7 @@ from typing import Any
 from .array_ import Array
 from .option import Option, some
 from .reflection import TypeInfo, union_type
-from .union import Union, tagged_union
+from .union import Union, narrow, tagged_union
 from .util import UNIT
 
 
@@ -321,7 +321,7 @@ def Choice_makeChoice2Of2[T2, A](x: T2 = UNIT) -> FSharpChoice_2[A, T2]:
 def Choice_tryValueIfChoice1Of2[T1, T2](x: FSharpChoice_2[T1, T2]) -> Option[T1]:
     match x.tag:
         case 0:
-            return some(x.fields[0])
+            return some(narrow(Choice1Of2, x).item)
 
         case _:
             return None
@@ -330,7 +330,7 @@ def Choice_tryValueIfChoice1Of2[T1, T2](x: FSharpChoice_2[T1, T2]) -> Option[T1]
 def Choice_tryValueIfChoice2Of2[T1, T2](x: FSharpChoice_2[T1, T2]) -> Option[T2]:
     match x.tag:
         case 1:
-            return some(x.fields[0])
+            return some(narrow(Choice2Of2, x).item)
 
         case _:
             return None

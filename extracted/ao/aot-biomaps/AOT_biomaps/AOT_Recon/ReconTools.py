@@ -87,7 +87,7 @@ def calculate_step_size_reg(SMatrix, gamma, num_subsets, num_iters, show_logs):
     sigma_q_val = float((0.99 * gamma / np.sqrt(L_total)) * num_subsets)
     sigma_p_val = float(0.99 * gamma / np.sqrt(L_total))
     if show_logs:
-        print(f"Estimated Lipschitz: {L_estimate:.2e} | tau: {tau_val:.2e} | sigma_q: {sigma_q_val:.2e} | sigma_p: {sigma_p_val:.2e}")
+        print(f"[AOT-biomaps] Estimated Lipschitz: {L_estimate:.2e} | tau: {tau_val:.2e} | sigma_q: {sigma_q_val:.2e} | sigma_p: {sigma_p_val:.2e}")
         
     return tau_val, sigma_q_val, sigma_p_val
 
@@ -104,11 +104,11 @@ def calculate_step_size(SMatrix, eta, num_iters, show_logs):
         print("Warning: eta not set. Defaulting to 1.9.")
         eta = 1.9
     if not (1.0 < eta < 2.0):
-        print(f"Warning: eta={eta} is outside (1.0, 2.0). Convergence might be suboptimal.")
+        print(f"[AOT-biomaps] Warning: eta={eta} is outside (1.0, 2.0). Convergence might be suboptimal.")
     L_estimate = estimate_operator_norm(SMatrix, num_iters=num_iters)
     alpha = eta / (L_estimate**2) if L_estimate > 0 else 1.0
     if show_logs:
-        print(f"Estimated Lipschitz constant: {L_estimate:.2e}, using step size alpha: {alpha:.2e}")
+        print(f"[AOT-biomaps] Estimated Lipschitz constant: {L_estimate:.2e}, using step size alpha: {alpha:.2e}")
     return alpha
 
 def estimate_operator_norm(SMatrix, num_iters: int = 15) -> float:
@@ -347,7 +347,7 @@ def get_potential_function(
                 grad_out, hess_out, energy_out
             )
         else:
-            raise ValueError(f"Unsupported potential: {potential_type}")
+            raise ValueError(f"[AOT-biomaps] Unsupported potential: {potential_type}")
 
         # The loop traverses the full neighborhood, each edge is counted twice (A->B and B->A)
         U_value = float(xp.sum(energy_out) / 2.0) if compute_energy else 0.0
@@ -450,17 +450,17 @@ def check_stopping_criterion(SMatrix, current_lambda, prev_lambda, criterion_typ
         
     elif criterion_type == StopCriterionType.MSE:
         if ground_truth is None:
-            raise ValueError("Ground truth image required for MSE stopping criterion.")
+            raise ValueError(f"[AOT-biomaps] Ground truth image required for MSE stopping criterion.")
         # Assuming mse() returns a scalar
         raw_metric = float(mse(SMatrix, ground_truth, current_lambda))
         
     elif criterion_type == StopCriterionType.GRADIENT_NORM:
         if gradient is None:
-            raise ValueError("Gradient stop criterion is not supported with this optimizer.")
+            raise ValueError(f"[AOT-biomaps] Gradient stop criterion is not supported with this optimizer.")
         raw_metric = float(xp.linalg.norm(gradient))
         
     else:
-        raise ValueError(f"Unsupported stopping criterion type: {criterion_type}")
+        raise ValueError(f"[AOT-biomaps] Unsupported stopping criterion type: {criterion_type}")
 
     # 2. Sliding window management
     window_history.append(raw_metric)
@@ -613,7 +613,7 @@ def load_recon(hdr_path):
 
     data_file = header.get('name of data file')
     if data_file is None:
-        raise ValueError(f"Cannot find data file associated with header file {hdr_path}")
+        raise ValueError(f"[AOT-biomaps] Cannot find data file associated with header file {hdr_path}")
 
     img_path = os.path.join(os.path.dirname(hdr_path), data_file)
 
@@ -622,8 +622,7 @@ def load_recon(hdr_path):
         shape = shape[:-1]
 
     if not shape:
-        raise ValueError("Cannot determine image shape from metadata.")
-
+        raise ValueError(f"[AOT-biomaps] Cannot determine image shape from metadata.")
     data_type = header.get('number format', 'short float').lower()
     dtype_map = {
         'short float': np.float32,
@@ -635,7 +634,7 @@ def load_recon(hdr_path):
     }
     dtype = dtype_map.get(data_type)
     if dtype is None:
-        raise ValueError(f"Unsupported data type: {data_type}")
+        raise ValueError(f"[AOT-biomaps] Unsupported data type: {data_type}")
 
     byte_order = header.get('imagedata byte order', 'LITTLEENDIAN').lower()
     endianess = '<' if 'little' in byte_order else '>'
@@ -644,7 +643,7 @@ def load_recon(hdr_path):
     expected_size = np.prod(shape) * np.dtype(dtype).itemsize
 
     if img_size != expected_size:
-        raise ValueError(f"Image file size ({img_size} bytes) does not match expected size ({expected_size} bytes).")
+        raise ValueError(f"[AOT-biomaps] Image file size ({img_size} bytes) does not match expected size ({expected_size} bytes).")
 
     with open(img_path, 'rb') as f:
         data = np.fromfile(f, dtype=endianess + np.dtype(dtype).char)
@@ -674,22 +673,22 @@ def calculate_memory_requirement(SMatrix, y):
     try:
         matrix_size_gb = SMatrix.get_matrix_size()
         if isinstance(matrix_size_gb, dict) and 'error' in matrix_size_gb:
-            raise ValueError(f"SMatrix allocation error: {matrix_size_gb['error']}")
+            raise ValueError(f"[AOT-biomaps] SMatrix allocation error: {matrix_size_gb['error']}")
         
         size_SMatrix = matrix_size_gb * (1024 ** 3)
         total_bytes += size_SMatrix
-        print(f"SMatrix size: {matrix_size_gb:.3f} GB")
+        print(f"[AOT-biomaps] SMatrix size: {matrix_size_gb:.3f} GB")
     except AttributeError:
-        raise AttributeError("SMatrix must implement the get_matrix_size() method.")
+        raise AttributeError(f"[AOT-biomaps] SMatrix must implement the get_matrix_size() method.")
     
     # Vector y
     if hasattr(y, 'nbytes'):
         size_y = y.nbytes
         total_bytes += size_y
-        print(f"Vector y size: {size_y / (1024 ** 3):.3f} GB")
+        print(f"[AOT-biomaps] Vector y size: {size_y / (1024 ** 3):.3f} GB")
     else:
-        raise ValueError("Vector y must be an array type exposing the .nbytes attribute.")
-    
+        raise ValueError(f"[AOT-biomaps] Vector y must be an array type exposing the .nbytes attribute.")
+
     return total_bytes / (1024 ** 3)
 
 def check_gpu_memory(device_index, required_memory, show_logs=True):
@@ -701,7 +700,7 @@ def check_gpu_memory(device_index, required_memory, show_logs=True):
     free_memory_gb = free_memory / 1024**3
     
     if show_logs:
-        print(f"Free memory on GPU {device_index}: {free_memory_gb:.2f} GB, Required memory: {required_memory:.2f} GB")
+        print(f"[AOT-biomaps] Free memory on GPU {device_index}: {free_memory_gb:.2f} GB, Required memory: {required_memory:.2f} GB")
     
     return free_memory_gb >= required_memory
 
@@ -712,7 +711,7 @@ def check_gpu_available(SMatrix) -> bool:
     if not hasattr(SMatrix, 'sparse_mod'):
         return False
     if not CUPY_AVAILABLE:
-        warnings.warn("CuPy not available. Falling back to CPU.")
+        print("[AOT-biomaps] Warning: CuPy is not available. Falling back to CPU.")
         SMatrix.device = 'cpu'
         return False
     return True
@@ -856,7 +855,7 @@ def filter_radon(f, N, filter_type, Fc):
     elif filter_type == 'hann':
         FILTER = FILTER * (1 + np.cos(2 * np.pi * f / (4 * Fc))) / 2
     else:
-        raise ValueError(f"Unknown filter type: {filter_type}")
+        raise ValueError(f"[AOT-biomaps] Unknown filter type: {filter_type}")
 
     FILTER[np.abs(f) > Fc] = 0
     FILTER = FILTER * np.exp(-2 * (np.abs(f) / Fc)**10)
@@ -953,7 +952,7 @@ def build_preconditioner(SMatrix, preconditioner_type):
     elif preconditioner_type == PreconditionerType.DIAGONAL:
         return _compute_diagonal_preconditioner(SMatrix)
     else:
-        raise ValueError(f"Unknown preconditioner type: {preconditioner_type}")
+        raise ValueError(f"[AOT-biomaps] Unknown preconditioner type: {preconditioner_type}")
 
 def apply_preconditioner(U, preconditioner, SMatrix):
     """

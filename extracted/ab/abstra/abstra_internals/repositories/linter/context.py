@@ -34,7 +34,11 @@ from abstra_internals.repositories.project.project import (
 
 
 class LintContext:
-    def __init__(self) -> None:
+    def __init__(self, revalidate_caches: bool = False) -> None:
+        # True marks a pass the user explicitly requested (the linter refresh
+        # button): rules that cache network results should revalidate against
+        # the origin instead of trusting their TTL.
+        self.revalidate_caches = revalidate_caches
         # Reentrant: project_files reads project, project_file_keys reads
         # project_files, all under the same lock.
         self._lock = threading.RLock()

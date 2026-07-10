@@ -109,7 +109,10 @@ class BarRow(WithID):
         /,
         pos: int,
         total: int = -1,
-        label: str = "",
+        label: str | None = None,
+        fill: str | None = None,
+        style: list[Style] | None = None,  # noqa: ARG002
+        cols: list[Any] | None = None,  # noqa: ARG002
         *_args,
         **_kwargs,
     ):
@@ -119,6 +122,8 @@ class BarRow(WithID):
         self.pos = max(0, min(pos, self.total))
         if label:
             self.label = label
+        if fill is not None:
+            self.fill = fill
 
     def render(self, m: Metrics) -> list[Any]:
         return [m.resolve(c) if isinstance(c, Col) else c for c in self._cols]

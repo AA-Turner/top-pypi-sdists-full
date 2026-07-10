@@ -4,7 +4,7 @@
 Koyeb Sandbox - Interactive execution environment for running arbitrary code on Koyeb
 """
 
-__version__ = "1.5.0"
+__version__ = "1.5.1"
 
 from koyeb.api.models.config_file import ConfigFile
 from koyeb.api.models.instance_status import InstanceStatus as SandboxStatus
@@ -19,7 +19,13 @@ from .exec import (
 )
 from .filesystem import FileInfo, SandboxFilesystem
 from .sandbox import AsyncSandbox, ExposedPort, ProcessInfo, Sandbox
-from .utils import SandboxDeploymentError, SandboxError, SandboxTimeoutError
+from .utils import (
+    EgressPolicyError,
+    SandboxDeploymentError,
+    SandboxError,
+    SandboxServiceError,
+    SandboxTimeoutError,
+)
 
 __all__ = [
     "Sandbox",
@@ -31,8 +37,10 @@ __all__ = [
     "AsyncSandboxExecutor",
     "FileInfo",
     "SandboxStatus",
+    "EgressPolicyError",
     "SandboxDeploymentError",
     "SandboxError",
+    "SandboxServiceError",
     "SandboxTimeoutError",
     "CommandResult",
     "CommandStatus",

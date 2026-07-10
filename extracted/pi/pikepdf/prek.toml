@@ -1,0 +1,78 @@
+# SPDX-FileCopyrightText: 2022 James R. Barlow
+# SPDX-License-Identifier: MPL-2.0
+
+# prek pre-commit configuration — https://prek.j178.dev
+#
+# The local/system hooks below invoke the project's OWN pinned tools (ruff/
+# mypy/clang-format from uv.lock) and run CONTRIBUTING.md's documented lint
+# commands verbatim, so they can never drift from what CI or a developer's
+# shell sees. prek installs nothing of its own for them — "system" language
+# just execs whatever `uv run` resolves.
+#
+# check-case-conflict/check-merge-conflict/check-toml/check-yaml run from
+# prek's builtin implementations (no external repo clone needed). debug-
+# statements and name-tests-test are Python-specific checks that only exist
+# in pre-commit-hooks, so those two stay sourced from that repo.
+#
+# Run all checks manually: `uv run prek run --all-files`
+# Install the git hooks:   `uv run prek install`
+
+default_install_hook_types = ["pre-commit", "pre-push"]
+default_stages = ["pre-commit"]
+
+[[repos]]
+repo = "builtin"
+hooks = [
+    { id = "check-case-conflict" },
+    { id = "check-merge-conflict", exclude = "\\.rst$" },
+    { id = "check-toml" },
+    { id = "check-yaml" },
+]
+
+[[repos]]
+repo = "https://github.com/pre-commit/pre-commit-hooks"
+rev = "v6.0.0"
+
+[[repos.hooks]]
+id = "debug-statements"
+
+[[repos.hooks]]
+id = "name-tests-test"
+args = ["--pytest-test-first"]
+
+[[repos]]
+repo = "local"
+
+[[repos.hooks]]
+id = "ruff-format"
+name = "ruff format (check)"
+language = "system"
+entry = "uv run ruff format --check src tests"
+types = ["python"]
+pass_filenames = false
+require_serial = true
+
+[[repos.hooks]]
+id = "ruff-check"
+name = "ruff check"
+language = "system"
+entry = "uv run ruff check src tests"
+types = ["python"]
+pass_filenames = false
+require_serial = true
+
+[[repos.hooks]]
+id = "mypy"
+name = "mypy"
+language = "system"
+entry = "uv run python -m mypy src"
+types = ["python"]
+pass_filenames = false
+require_serial = true
+
+[[repos.hooks]]
+id = "clang-format"
+name = "clang-format (check)"
+language = "system"
+entry = "uv run clang-format --dry-run --Werror"
+files = "^src/.*\\.(cpp|h|hpp)$"

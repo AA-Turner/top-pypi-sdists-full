@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: koyeb-sdk
-Version: 1.5.0
+Version: 1.5.1
 Summary: Koyeb python sdk
 Author-email: Koyeb team <support@koyeb.com>
 License-Expression: Apache-2.0
@@ -15,6 +15,9 @@ Requires-Dist: pydantic>=2
 Requires-Dist: typing-extensions>=4.7.1
 Requires-Dist: websockets>=15.0.1
 Requires-Dist: httpx>=0.28.1
+Provides-Extra: socks
+Requires-Dist: socksio>=1.0.0; extra == "socks"
+Requires-Dist: PySocks>=1.7.1; extra == "socks"
 Dynamic: license-file
 
 # Koyeb python sdk

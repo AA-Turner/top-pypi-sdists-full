@@ -932,20 +932,15 @@ impl DirSQLBuilder {
         self
     }
 
-    /// Enable persistent on-disk storage. When `true`, the SQLite database is
-    /// written to `<root>/.dirsql/cache.db` (override via
-    /// [`persist_path`](Self::persist_path)) so subsequent startups only
-    /// re-parse files that have actually changed. See
-    /// `docs/howto/persist.md` for the reconcile contract.
-    pub fn persist(mut self, persist: bool) -> Self {
-        self.persist = persist;
-        self
-    }
-
-    /// Override the location of the persistent cache file. Ignored when
-    /// [`persist`](Self::persist) is `false`.
-    pub fn persist_path(mut self, path: impl AsRef<Path>) -> Self {
-        self.persist_path = Some(path.as_ref().to_path_buf());
+    /// Enable persistent on-disk storage. `None` writes the SQLite database to
+    /// the default `<root>/.dirsql/cache.db`; `Some(path)` writes it to `path`.
+    /// Either way, subsequent startups only re-parse files that have actually
+    /// changed. See `docs/howto/persist.md` for the reconcile contract.
+    pub fn persist(mut self, path: Option<impl AsRef<Path>>) -> Self {
+        self.persist = true;
+        if let Some(path) = path {
+            self.persist_path = Some(path.as_ref().to_path_buf());
+        }
         self
     }
 
@@ -967,13 +962,18 @@ impl DirSQLBuilder {
             mut extensions,
             config_path,
             suppress_config_extensions,
-            mut persist,
-            mut persist_path,
+            persist,
+            persist_path,
             poll_interval,
         } = self;
 
-        let mut config_root: Option<PathBuf> = None;
-
+        // The config layer is an ordered list of entries, each carrying its
+        // loaded `config`, its `config_dir` (where `on-file` hooks run and the
+        // base for extension/persist path resolution), its resolved index
+        // `root` (the base for `{path}`), and its `hook_timeout`. Every caller
+        // supplies at most one config, so the list holds 0 or 1 entries and the
+        // in-order merge below is byte-for-byte identical to a single pass.
+        let mut config_entries: Vec<ResolvedConfigEntry> = Vec::new();
         if let Some(ref cfg_path) = config_path {
             let cfg = config::load_config(cfg_path).map_err(DirSqlError::config)?;
 
@@ -990,11 +990,30 @@ impl DirSQLBuilder {
             } else {
                 cfg_parent.clone()
             };
+            let hook_timeout = cfg.hook_timeout.unwrap_or(command::DEFAULT_COMMAND_TIMEOUT);
+            config_entries.push(ResolvedConfigEntry {
+                config: cfg,
+                config_dir: cfg_parent,
+                root: resolved_root,
+                hook_timeout,
+            });
+        }
+
+        let mut config_root: Option<PathBuf> = None;
+        for entry in config_entries {
+            let ResolvedConfigEntry {
+                config: cfg,
+                config_dir: cfg_parent,
+                root: resolved_root,
+                hook_timeout,
+            } = entry;
             config_root = Some(resolved_root.clone());
 
-            // `on-file` commands run in the config file's directory and compute
-            // `{path}` relative to the resolved index root.
-            let cfg_tables = build_tables_from_config(&cfg, &cfg_parent, &resolved_root)?;
+            // `on-file` commands run in the config file's directory; `{path}`
+            // is the matched file's absolute path and `{root}` the resolved
+            // index root.
+            let cfg_tables =
+                build_tables_from_config(&cfg, &cfg_parent, &resolved_root, hook_timeout)?;
             tables.extend(cfg_tables);
             ignore.extend(cfg.ignore);
 
@@ -1013,20 +1032,6 @@ impl DirSQLBuilder {
                         entrypoint: ext.entrypoint,
                     });
                 }
-            }
-
-            if cfg.persist {
-                persist = true;
-            }
-            if persist_path.is_none()
-                && let Some(p) = cfg.persist_path.clone()
-            {
-                let resolved = if p.is_absolute() {
-                    p
-                } else {
-                    cfg_parent.join(p)
-                };
-                persist_path = Some(resolved);
             }
         }
 
@@ -1087,6 +1092,18 @@ impl DirSQLBuilder {
 
 /// Default poll interval for the channel-based watch loop.
 const DEFAULT_POLL_INTERVAL: Duration = Duration::from_millis(200);
+
+/// One resolved config file in the ordered list [`DirSQLBuilder::resolve`]
+/// merges over. Carries the loaded `config`, its `config_dir` (the config
+/// file's parent -- where `on-file` hooks run and the base for extension /
+/// persist path resolution), the resolved index `root` (the base for the
+/// `{path}` placeholder), and the `hook_timeout` bounding each `on-file` run.
+struct ResolvedConfigEntry {
+    config: config::Config,
+    config_dir: PathBuf,
+    root: PathBuf,
+    hook_timeout: Duration,
+}
 
 /// Fully-resolved builder inputs: the result of merging programmatic
 /// settings with values loaded from a `.dirsql.toml` config file.
@@ -1379,16 +1396,17 @@ fn relative_path(root: &Path, path: &Path) -> String {
 /// array of row objects on stdout, which becomes the file's rows (filesystem
 /// facts are still merged on top, user values winning). `config_dir` is the
 /// command's working directory (the config file's parent) and `root` is the
-/// resolved index root used to compute the `{path}` placeholder. Each run is
-/// bounded by the global `[dirsql].hook-timeout` key when present, falling
-/// back to [`command::DEFAULT_COMMAND_TIMEOUT`].
+/// resolved index root exposed as the `{root}` placeholder. `timeout` bounds
+/// each `on-file` run; the caller resolves it from the global
+/// `[dirsql].hook-timeout` key, falling back to
+/// [`command::DEFAULT_COMMAND_TIMEOUT`].
 fn build_tables_from_config(
     cfg: &config::Config,
     config_dir: &Path,
     root: &Path,
+    timeout: Duration,
 ) -> Result<Vec<Table>> {
     let mut tables = Vec::with_capacity(cfg.tables.len());
-    let timeout = cfg.hook_timeout.unwrap_or(command::DEFAULT_COMMAND_TIMEOUT);
 
     for table_cfg in &cfg.tables {
         let mut table = match &table_cfg.on_file {
@@ -1427,10 +1445,10 @@ fn build_tables_from_config(
 /// Run a table's `on-file` command for one matched file and parse its output
 /// into rows.
 ///
-/// Placeholders: `{path}` (the file relative to `root`, append-if-absent so
-/// `cmd` and `cmd {path}` behave identically), `{abspath}` (the absolute path),
-/// and `{root}` (the index root). `{path}` falls back to the absolute path
-/// when the file is not under `root`.
+/// Placeholders: `{path}` (the file's absolute path) and `{root}` (the index
+/// root). An absolute `{path}` is self-sufficient from any cwd, so a hook whose
+/// config lives outside the index still resolves it. A template that omits a
+/// placeholder simply never receives its value — nothing is appended.
 ///
 /// Per-file isolation: any failure — a spawn/exit/timeout error from
 /// [`command::run_command`], or output that is not a JSON array of objects —
@@ -1444,14 +1462,8 @@ fn run_on_file(
     root: &Path,
     timeout: Duration,
 ) -> Vec<Row> {
-    let abs = Path::new(abs_path);
-    let rel = abs
-        .strip_prefix(root)
-        .map(|p| p.to_string_lossy().into_owned())
-        .unwrap_or_else(|_| abs_path.to_string());
     let placeholders = [
-        Placeholder::append("path", rel),
-        Placeholder::new("abspath", abs_path),
+        Placeholder::new("path", abs_path),
         Placeholder::new("root", root.to_string_lossy().into_owned()),
     ];
 
@@ -2670,14 +2682,45 @@ mod internal_tests {
             .ignore(["skip/**"])
             .extensions(Vec::<Extension>::new())
             .suppress_config_extensions(true)
-            .persist(true)
-            .persist_path(&cache)
+            .persist(Some(&cache))
             .poll_interval(Duration::from_millis(50))
             .build()
             .unwrap();
         assert!(db.query("SELECT * FROM a").is_ok());
         assert!(db.query("SELECT * FROM b").is_ok());
         assert_eq!(db.inner.poll_interval, Duration::from_millis(50));
+    }
+
+    #[test]
+    fn persist_none_enables_default_path() {
+        let resolved = DirSQL::builder()
+            .root("/tmp/x")
+            .persist(None::<&Path>)
+            .resolve()
+            .unwrap();
+        assert!(resolved.persist);
+        assert!(resolved.persist_path.is_none());
+    }
+
+    #[test]
+    fn persist_some_enables_explicit_path() {
+        let resolved = DirSQL::builder()
+            .root("/tmp/x")
+            .persist(Some("/tmp/x/custom.db"))
+            .resolve()
+            .unwrap();
+        assert!(resolved.persist);
+        assert_eq!(
+            resolved.persist_path,
+            Some(PathBuf::from("/tmp/x/custom.db"))
+        );
+    }
+
+    #[test]
+    fn persist_unset_leaves_persistence_off() {
+        let resolved = DirSQL::builder().root("/tmp/x").resolve().unwrap();
+        assert!(!resolved.persist);
+        assert!(resolved.persist_path.is_none());
     }
 
     /// A second persist build over the same root+cache finds a compatible
@@ -2693,8 +2736,7 @@ mod internal_tests {
                 "*.txt",
                 |_| vec![],
             )])
-            .persist(true)
-            .persist_path(&cache)
+            .persist(Some(&cache))
             .build()
             .unwrap();
         drop(first);
@@ -2705,8 +2747,7 @@ mod internal_tests {
                 "*.txt",
                 |_| vec![],
             )])
-            .persist(true)
-            .persist_path(&cache)
+            .persist(Some(&cache))
             .build()
             .unwrap();
         assert!(second.query("SELECT * FROM t").is_ok());
@@ -2866,19 +2907,52 @@ mod internal_tests {
         ))
         .unwrap();
         let dir = TempDir::new().unwrap();
-        let tables = build_tables_from_config(&cfg, dir.path(), dir.path()).unwrap();
+        let tables = build_tables_from_config(
+            &cfg,
+            dir.path(),
+            dir.path(),
+            command::DEFAULT_COMMAND_TIMEOUT,
+        )
+        .unwrap();
         assert_eq!(tables.len(), 2);
         assert_eq!((tables[0].extract)("/whatever").unwrap().len(), 1);
         assert!(tables[1].strict, "on-file table preserves strict flag");
     }
 
     #[test]
+    fn build_tables_from_config_uses_the_caller_supplied_timeout() {
+        // The timeout is now threaded in as an explicit argument rather than
+        // re-derived from `cfg.hook_timeout` inside the function; a table built
+        // from a config declaring its own `hook-timeout` must honor the value
+        // the caller passes, independent of the config key.
+        let cfg = config::load_config_str(concat!(
+            "[dirsql]\n",
+            "hook-timeout = 999\n\n",
+            "[[table]]\n",
+            "ddl = \"CREATE TABLE b (y TEXT)\"\n",
+            "glob = \"*.b\"\n",
+            "on-file = \"printf '[{\\\"y\\\":1}]'\"\n",
+        ))
+        .unwrap();
+        let dir = TempDir::new().unwrap();
+        let abs = dir.path().join("f.b");
+        let tables =
+            build_tables_from_config(&cfg, dir.path(), dir.path(), Duration::from_secs(5)).unwrap();
+        assert_eq!(tables.len(), 1);
+        // The passed timeout is generous, so the on-file command runs and its
+        // row is produced -- proving the argument path is live.
+        assert_eq!(
+            (tables[0].extract)(&abs.to_string_lossy()).unwrap().len(),
+            1
+        );
+    }
+
+    #[test]
     fn run_on_file_parses_command_json_output() {
         let dir = TempDir::new().unwrap();
         let abs = dir.path().join("f.txt");
-        // `{path}` is append-if-absent, so the file path lands as a trailing
-        // argv element; `printf` with a conversion-free format ignores it,
-        // keeping the JSON payload clean.
+        // The template omits every placeholder, so nothing is appended; the
+        // `printf` payload is the whole output.
         let rows = run_on_file(
             "printf '[{\"n\":1}]'",
             &abs.to_string_lossy(),
@@ -2888,6 +2962,48 @@ mod internal_tests {
         );
         assert_eq!(rows.len(), 1);
         assert_eq!(rows[0]["n"], Value::Integer(1));
+    }
+
+    /// `{abspath}` is not in the substitution table: it is left literal like any
+    /// unknown `{…}`, so `printf` receives the string `{abspath}` verbatim. The
+    /// template references `{path}` so that arg is the real path (and no path is
+    /// appended), isolating the `{abspath}` behavior in the `q` column.
+    #[test]
+    fn run_on_file_does_not_substitute_abspath() {
+        let dir = TempDir::new().unwrap();
+        let abs = dir.path().join("f.txt");
+        let rows = run_on_file(
+            r#"printf '[{"p":"%s","q":"%s"}]' {path} {abspath}"#,
+            &abs.to_string_lossy(),
+            dir.path(),
+            dir.path(),
+            command::DEFAULT_COMMAND_TIMEOUT,
+        );
+        assert_eq!(rows.len(), 1);
+        assert_eq!(rows[0]["q"], Value::Text("{abspath}".into()));
+    }
+
+    /// `{path}` interpolates the matched file's **absolute** path (not a
+    /// root-relative one). The command echoes its `{path}` argument back as a
+    /// row value, and we assert it is byte-for-byte the absolute path even when
+    /// the file sits directly under `root` (the case the old `strip_prefix`
+    /// would have shortened to a bare relative path).
+    #[test]
+    fn run_on_file_passes_absolute_path_for_path_placeholder() {
+        let dir = TempDir::new().unwrap();
+        let abs = dir.path().join("f.txt");
+        let rows = run_on_file(
+            r#"sh -c "printf '[{\"p\":\"%s\"}]' \"$1\"" sh {path}"#,
+            &abs.to_string_lossy(),
+            dir.path(),
+            dir.path(),
+            command::DEFAULT_COMMAND_TIMEOUT,
+        );
+        assert_eq!(rows.len(), 1);
+        assert_eq!(
+            rows[0]["p"],
+            Value::Text(abs.to_string_lossy().into_owned())
+        );
     }
 
     /// A command that cannot be spawned yields no rows (per-file isolation).

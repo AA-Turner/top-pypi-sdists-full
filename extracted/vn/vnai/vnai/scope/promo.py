@@ -42,7 +42,7 @@ class ContentManager:
             return cls._instance
 
     def _initialize(self, debug=False):
-        self.content_base_url ="https://hq.vnstocks.com/content-delivery"
+        self.content_base_url = "https://hq.vnstocks.com/content-delivery"
         self.is_paid_user = None
         self.license_checked = False
         self._debug = debug
@@ -57,13 +57,13 @@ class ContentManager:
                 api_key_checker = None
         self.last_display = 0
         self.display_interval = 24 * 3600
-        self.content_base_url ="https://hq.vnstocks.com/content-delivery"
-        self.target_url ="https://vnstocks.com/lp-khoa-hoc-python-chung-khoan"
+        self.content_base_url = "https://hq.vnstocks.com/content-delivery"
+        self.target_url = "https://vnstocks.com/lp-khoa-hoc-python-chung-khoan"
         self.image_url = (
-"https://vnstocks.com/img/trang-chu-vnstock-python-api-phan-tich-giao-dich-chung-khoan.jpg"
+            "https://vnstocks.com/img/trang-chu-vnstock-python-api-phan-tich-giao-dich-chung-khoan.jpg"
         )
-        self.vnstock_dir = Path.home() /".vnstock"
-        self.message_cache_file = self.vnstock_dir /"message_cache.json"
+        self.vnstock_dir = Path.home() / ".vnstock"
+        self.message_cache_file = self.vnstock_dir / "message_cache.json"
         self.message_cache = {}
         self._load_message_cache()
         self._start_periodic_display()
@@ -71,7 +71,7 @@ class ContentManager:
     def _load_message_cache(self) -> None:
         try:
             if self.message_cache_file.exists():
-                with open(self.message_cache_file,'r') as f:
+                with open(self.message_cache_file, 'r') as f:
                     self.message_cache = json.load(f)
             else:
                 self.message_cache = {}
@@ -82,13 +82,13 @@ class ContentManager:
     def _save_message_cache(self) -> None:
         try:
             self.vnstock_dir.mkdir(exist_ok=True)
-            with open(self.message_cache_file,'w') as f:
+            with open(self.message_cache_file, 'w') as f:
                 json.dump(self.message_cache, f, indent=2)
         except Exception as e:
             logger.debug(f"Failed to save message cache: {e}")
 
     def should_show_promotional_for_rate_limit(self, tier: str) -> bool:
-        if tier !="free":
+        if tier != "free":
             return False
         last_promo = self.message_cache.get("last_promotional_message")
         if last_promo:
@@ -127,18 +127,18 @@ class ContentManager:
                 if self._debug:
                     logger.info(f"API key check result: {result}")
                 valid_statuses = [
-'verified',
-'cached',
-'device_limit_exceeded'
+                    'verified',
+                    'cached',
+                    'device_limit_exceeded'
                 ]
                 if result.get('status') in valid_statuses:
                     self.is_paid_user = result.get('is_paid', False)
                     self.license_checked = True
                     if self._debug:
                         status_msg = (
-"Detected paid user"
+                            "Detected paid user"
                             if self.is_paid_user
-                            else"Detected free user"
+                            else "Detected free user"
                         )
                         logger.info(f"{status_msg} via API key")
                 else:
@@ -146,7 +146,7 @@ class ContentManager:
                     self.license_checked = True
                     if self._debug:
                         logger.info(
-f"No valid license: {result.get('status')}"
+                            f"No valid license: {result.get('status')}"
                         )
             except Exception as e:
                 if self._debug:
@@ -156,8 +156,8 @@ f"No valid license: {result.get('status')}"
         else:
             if self._debug:
                 logger.warning(
-"API key checker not available. "
-"Cannot determine paid user status."
+                    "API key checker not available. "
+                    "Cannot determine paid user status."
                 )
             self.is_paid_user = False
             self.license_checked = True
@@ -172,9 +172,9 @@ f"No valid license: {result.get('status')}"
             return False
 
     def _get_startup_ad_content(self, tier: str) -> dict:
-        content = {"html":"","markdown":"","terminal":"","simple":""}
-        if tier =='guest':
-            content["html"] ="""
+        content = {"html": "", "markdown": "", "terminal": "", "simple": ""}
+        if tier == 'guest':
+            content["html"] = """
             <div style="border: 2px solid #e67e22; padding: 15px; border-radius: 8px; margin: 10px 0; background: linear-gradient(135deg, #fef9e7, #fdebd0);">
                 <h3 style="color: #e67e22; margin-top: 0;">🔑 Đăng ký API Key miễn phí để mở khoá tính năng!</h3>
                 <p>Bạn đang sử dụng <strong>phiên bản khách</strong> với giới hạn:</p>
@@ -193,7 +193,7 @@ f"No valid license: {result.get('status')}"
                 <a href="https://vnstocks.com/insiders-program" style="color: #e67e22;">vnstocks.com/insiders-program</a></p>
             </div>
             """
-            content["markdown"] ="""
+            content["markdown"] = """
 ## 🔑 Đăng ký API Key miễn phí để mở khoá tính năng!
 Bạn đang sử dụng **phiên bản khách** (20 requests/phút | Tối đa 4 kỳ BCTC).
 **Đăng ký API Key miễn phí** để nâng lên 60 requests/phút và 8 kỳ báo cáo:
@@ -203,7 +203,7 @@ Bạn đang sử dụng **phiên bản khách** (20 requests/phút | Tối đa 4
 📚 Tài liệu: [vnstocks.com/docs](https://vnstocks.com/docs) | Cộng đồng: [Facebook Group](https://facebook.com/groups/vnstock.official)
 ⭐ **Tham gia gói tài trợ để sử dụng không giới hạn:** [vnstocks.com/insiders-program](https://vnstocks.com/insiders-program)
             """
-            content["terminal"] ="""
+            content["terminal"] = """
 ╔════════════════════════════════════════════════════════════╗
 ║                                                            ║
 ║  🔑 ĐĂNG KÝ API KEY MIỄN PHÍ ĐỂ MỞ KHOÁ TÍNH NĂNG!       ║
@@ -224,12 +224,12 @@ Bạn đang sử dụng **phiên bản khách** (20 requests/phút | Tối đa 4
 ╚════════════════════════════════════════════════════════════╝
             """
             content["simple"] = (
-"🔑 Đăng ký API Key miễn phí: vnstocks.com/login → vnai.setup_api_key('key') "
-"| 📚 Tài liệu: vnstocks.com/docs "
-"| ⭐ Gói tài trợ: vnstocks.com/insiders-program"
+                "🔑 Đăng ký API Key miễn phí: vnstocks.com/login → vnai.setup_api_key('key') "
+                "| 📚 Tài liệu: vnstocks.com/docs "
+                "| ⭐ Gói tài trợ: vnstocks.com/insiders-program"
             )
-        elif tier =='free':
-            content["html"] ="""
+        elif tier == 'free':
+            content["html"] = """
             <div style="border: 2px solid #3498db; padding: 15px; border-radius: 8px; margin: 10px 0; background: linear-gradient(135deg, #ebf5fb, #d6eaf8);">
                 <h3 style="color: #3498db; margin-top: 0;">👋 Chào mừng bạn đến với Vnstock!</h3>
                 <p>Bạn đang sử dụng <strong>Phiên bản cộng đồng</strong>:</p>
@@ -247,7 +247,7 @@ Bạn đang sử dụng **phiên bản khách** (20 requests/phút | Tối đa 4
                 👥 <a href="https://facebook.com/groups/vnstock.official" style="color: #3498db;">Cộng đồng</a></p>
             </div>
             """
-            content["markdown"] ="""
+            content["markdown"] = """
 ## 👋 Chào mừng bạn đến với Vnstock!
 Bạn đang sử dụng **Phiên bản cộng đồng** (60 requests/phút | Tối đa 8 kỳ BCTC).
 ⭐ **Nâng cấp lên gói tài trợ để:**
@@ -257,7 +257,7 @@ Bạn đang sử dụng **Phiên bản cộng đồng** (60 requests/phút | T�
 ➤ **Tham gia ngay:** [vnstocks.com/insiders-program](https://vnstocks.com/insiders-program)
 📚 [Tài liệu](https://vnstocks.com/docs) | 👥 [Cộng đồng](https://facebook.com/groups/vnstock.official)
             """
-            content["terminal"] ="""
+            content["terminal"] = """
 ╔════════════════════════════════════════════════════════════╗
 ║                                                            ║
 ║  👋 Chào mừng bạn đến với Vnstock!                         ║
@@ -277,9 +277,9 @@ Bạn đang sử dụng **Phiên bản cộng đồng** (60 requests/phút | T�
 ╚════════════════════════════════════════════════════════════╝
             """
             content["simple"] = (
-"👋 Chào mừng bạn đến với Vnstock! "
-"Phiên bản cộng đồng (60 req/phút). "
-"⭐ Nâng cấp gói tài trợ (10X tốc độ): vnstocks.com/insiders-program"
+                "👋 Chào mừng bạn đến với Vnstock! "
+                "Phiên bản cộng đồng (60 req/phút). "
+                "⭐ Nâng cấp gói tài trợ (10X tốc độ): vnstocks.com/insiders-program"
             )
         return content
 
@@ -292,20 +292,20 @@ Bạn đang sử dụng **Phiên bản cộng đồng** (60 requests/phút | T�
             from vnai.beam.auth import authenticator
             tier = authenticator.get_tier()
         except Exception:
-            tier ='guest'
+            tier = 'guest'
         if self._debug:
             logger.info(f"Showing startup ad for tier: {tier}")
-        environment ='unknown'
+        environment = 'unknown'
         try:
             from vnai.scope.profile import inspector
-            environment = inspector.examine().get("environment","unknown")
+            environment = inspector.examine().get("environment", "unknown")
         except Exception as e:
             logger.debug(f"Environment detection failed: {e}")
         remote_content = self.fetch_remote_content(
-            context="init", html=(environment =="jupyter")
+            context="init", html=(environment == "jupyter")
         )
         fallback = self._get_startup_ad_content(tier)
-        if environment =="jupyter":
+        if environment == "jupyter":
             try:
                 from IPython.display import display, HTML, Markdown
                 if remote_content:
@@ -317,7 +317,7 @@ Bạn đang sử dụng **Phiên bản cộng đồng** (60 requests/phút | T�
                         display(HTML(fallback["html"]))
             except Exception:
                 pass
-        elif environment =="terminal":
+        elif environment == "terminal":
             if remote_content:
                 print(remote_content)
             else:
@@ -347,14 +347,14 @@ Bạn đang sử dụng **Phiên bản cộng đồng** (60 requests/phút | T�
         thread = threading.Thread(target=periodic_display, daemon=True)
         thread.start()
 
-    def fetch_remote_content(self, context: str ="init", html: bool = True) -> str:
+    def fetch_remote_content(self, context: str = "init", html: bool = True) -> str:
         if not self.license_checked:
             self._check_license_status()
         if self.is_paid_user:
-            return""
+            return ""
         try:
-            params = {"context": context,"html":"true" if html else"false"}
-            url =f"{self.content_base_url}?{urllib.parse.urlencode(params)}"
+            params = {"context": context, "html": "true" if html else "false"}
+            url = f"{self.content_base_url}?{urllib.parse.urlencode(params)}"
             response = requests.get(url, timeout=3)
             if response.status_code == 200:
                 return response.text
@@ -364,7 +364,7 @@ Bạn đang sử dụng **Phiên bản cộng đồng** (60 requests/phút | T�
             logger.error(f"Failed to fetch remote content: {e}")
             return None
 
-    def present_content(self, context: str ="init", ad_category: int = AdCategory.FREE) -> None:
+    def present_content(self, context: str = "init", ad_category: int = AdCategory.FREE) -> None:
         if not self.license_checked:
             self._check_license_status()
         if self.is_paid_user and ad_category == AdCategory.FREE:
@@ -373,15 +373,15 @@ Bạn đang sử dụng **Phiên bản cộng đồng** (60 requests/phút | T�
         environment = None
         try:
             from vnai.scope.profile import inspector
-            environment = inspector.examine().get("environment","unknown")
+            environment = inspector.examine().get("environment", "unknown")
         except Exception as e:
             logger.error(f"Không detect được environment: {e}")
-            environment ="unknown"
+            environment = "unknown"
         remote_content = self.fetch_remote_content(
-            context=context, html=(environment =="jupyter")
+            context=context, html=(environment == "jupyter")
         )
         fallback = self._generate_fallback_content(context)
-        if environment =="jupyter":
+        if environment == "jupyter":
             try:
                 from IPython.display import display, HTML, Markdown
                 if remote_content:
@@ -393,7 +393,7 @@ Bạn đang sử dụng **Phiên bản cộng đồng** (60 requests/phút | T�
                         display(HTML(fallback["html"]))
             except Exception as e:
                 pass
-        elif environment =="terminal":
+        elif environment == "terminal":
             if remote_content:
                 print(remote_content)
             else:
@@ -402,10 +402,10 @@ Bạn đang sử dụng **Phiên bản cộng đồng** (60 requests/phút | T�
             print(fallback["simple"])
 
     def _generate_fallback_content(self, context):
-        fallback = {"html":"","markdown":"","terminal":"","simple":""}
-        if context =="loop":
+        fallback = {"html": "", "markdown": "", "terminal": "", "simple": ""}
+        if context == "loop":
             fallback["html"] = (
-f"""
+                f"""
             <div style="border: 1px solid #e74c3c; padding: 15px; border-radius: 5px; margin: 10px 0;">
                 <h3 style="color: #e74c3c;">⚠️ Bạn đang sử dụng vòng lặp với quá nhiều requests</h3>
                 <p>Để tránh bị giới hạn tốc độ và tối ưu hiệu suất:</p>
@@ -418,7 +418,7 @@ f"""
             """
             )
             fallback["markdown"] = (
-"""
+                """
 ## ⚠️ Bạn đang sử dụng vòng lặp với quá nhiều requests
 Để tránh bị giới hạn tốc độ và tối ưu hiệu suất:
 * Thêm thời gian chờ giữa các lần gọi API
@@ -431,23 +431,23 @@ f"""
         else:
             from vnai.beam.auth import authenticator
             tier = authenticator.get_tier()
-            period_limit_info =""
-            if tier =='guest':
+            period_limit_info = ""
+            if tier == 'guest':
                 period_limit_info = (
-"<p style='color: #e67e22; margin-top: 10px;'>"
-"<strong>📊 Phiên bản cộng đồng:</strong> Báo cáo tài chính được giới hạn tối đa <strong>4 kỳ</strong> để minh hoạ thuật toán. "
-"Để truy cập đầy đủ, vui lòng <a href='https://vnstocks.com/insiders-program' style='color: #e67e22;'>tham gia gói thành viên tài trợ dự án</a>."
-"</p>"
+                    "<p style='color: #e67e22; margin-top: 10px;'>"
+                    "<strong>📊 Phiên bản cộng đồng:</strong> Báo cáo tài chính được giới hạn tối đa <strong>4 kỳ</strong> để minh hoạ thuật toán. "
+                    "Để truy cập đầy đủ, vui lòng <a href='https://vnstocks.com/insiders-program' style='color: #e67e22;'>tham gia gói thành viên tài trợ dự án</a>."
+                    "</p>"
                 )
-            elif tier =='free':
+            elif tier == 'free':
                 period_limit_info = (
-"<p style='color: #e67e22; margin-top: 10px;'>"
-"<strong>📊 Phiên bản cộng đồng:</strong> Báo cáo tài chính được giới hạn tối đa <strong>8 kỳ</strong> để minh hoạ thuật toán. "
-"Để truy cập đầy đủ, vui lòng <a href='https://vnstocks.com/insiders-program' style='color: #e67e22;'>tham gia gói thành viên tài trợ dự án</a>."
-"</p>"
+                    "<p style='color: #e67e22; margin-top: 10px;'>"
+                    "<strong>📊 Phiên bản cộng đồng:</strong> Báo cáo tài chính được giới hạn tối đa <strong>8 kỳ</strong> để minh hoạ thuật toán. "
+                    "Để truy cập đầy đủ, vui lòng <a href='https://vnstocks.com/insiders-program' style='color: #e67e22;'>tham gia gói thành viên tài trợ dự án</a>."
+                    "</p>"
                 )
             fallback["html"] = (
-f"""
+                f"""
             <div style="border: 1px solid #3498db; padding: 15px; border-radius: 5px; margin: 10px 0;">
                 <h3 style="color: #3498db;">👋 Chào mừng bạn đến với Vnstock!</h3>
                 <p>Cảm ơn bạn đã sử dụng công cụ kết nối API dữ liệu chứng khoán cho Python</p>
@@ -460,13 +460,13 @@ f"""
             </div>
             """
             )
-            period_limit_markdown =""
-            if tier =='guest':
-                period_limit_markdown ="\n**📊 Phiên bản cộng đồng:** Báo cáo tài chính được giới hạn tối đa **4 kỳ** để minh hoạ thuật toán. Để truy cập đầy đủ, vui lòng [tham gia gói thành viên tài trợ dự án](https://vnstocks.com/insiders-program)."
-            elif tier =='free':
-                period_limit_markdown ="\n**📊 Phiên bản cộng đồng:** Báo cáo tài chính được giới hạn tối đa **8 kỳ** để minh hoạ thuật toán. Để truy cập đầy đủ, vui lòng [tham gia gói thành viên tài trợ dự án](https://vnstocks.com/insiders-program)."
+            period_limit_markdown = ""
+            if tier == 'guest':
+                period_limit_markdown = "\n**📊 Phiên bản cộng đồng:** Báo cáo tài chính được giới hạn tối đa **4 kỳ** để minh hoạ thuật toán. Để truy cập đầy đủ, vui lòng [tham gia gói thành viên tài trợ dự án](https://vnstocks.com/insiders-program)."
+            elif tier == 'free':
+                period_limit_markdown = "\n**📊 Phiên bản cộng đồng:** Báo cáo tài chính được giới hạn tối đa **8 kỳ** để minh hoạ thuật toán. Để truy cập đầy đủ, vui lòng [tham gia gói thành viên tài trợ dự án](https://vnstocks.com/insiders-program)."
             fallback["markdown"] = (
-f"""
+                f"""
 ## 👋 Chào mừng bạn đến với Vnstock!
 Cảm ơn bạn đã sử dụng package phân tích chứng khoán #1 tại Việt Nam
 * Tài liệu: [Sổ tay hướng dẫn](https://vnstocks.com/docs)
@@ -474,13 +474,13 @@ Cảm ơn bạn đã sử dụng package phân tích chứng khoán #1 tại Vi�
 Khám phá các tính năng mới nhất và tham gia cộng đồng để nhận hỗ trợ.{period_limit_markdown}
                 """
             )
-            period_limit_terminal =""
-            if tier =='guest':
-                period_limit_terminal ="\n║  📊 Báo cáo tài chính: Giới hạn 4 kỳ (phiên bản cộng đồng)                ║\n║  Nâng cấp: https://vnstocks.com/insiders-program                ║"
-            elif tier =='free':
-                period_limit_terminal ="\n║  📊 Báo cáo tài chính: Giới hạn 8 kỳ (phiên bản cộng đồng)                ║\n║  Nâng cấp: https://vnstocks.com/insiders-program                ║"
+            period_limit_terminal = ""
+            if tier == 'guest':
+                period_limit_terminal = "\n║  📊 Báo cáo tài chính: Giới hạn 4 kỳ (phiên bản cộng đồng)                ║\n║  Nâng cấp: https://vnstocks.com/insiders-program                ║"
+            elif tier == 'free':
+                period_limit_terminal = "\n║  📊 Báo cáo tài chính: Giới hạn 8 kỳ (phiên bản cộng đồng)                ║\n║  Nâng cấp: https://vnstocks.com/insiders-program                ║"
             fallback["terminal"] = (
-f"""
+                f"""
 ╔════════════════════════════════════════════════════════════╗
 ║                                                            ║
 ║  👋 Chào mừng bạn đến với Vnstock!                         ║
@@ -497,26 +497,26 @@ f"""
 ╚════════════════════════════════════════════════════════════╝
                 """
             )
-            period_limit_simple =""
-            if tier =='guest':
-                period_limit_simple =" | 📊 Báo cáo tài chính: Giới hạn 4 kỳ"
-            elif tier =='free':
-                period_limit_simple =" | 📊 Báo cáo tài chính: Giới hạn 8 kỳ"
+            period_limit_simple = ""
+            if tier == 'guest':
+                period_limit_simple = " | 📊 Báo cáo tài chính: Giới hạn 4 kỳ"
+            elif tier == 'free':
+                period_limit_simple = " | 📊 Báo cáo tài chính: Giới hạn 8 kỳ"
             fallback["simple"] = (
-"👋 Chào mừng bạn đến với Vnstock! "
-"Tài liệu: https://vnstocks.com/onboard | "
-"Cộng đồng: https://facebook.com/groups/vnstock.official"
-f"{period_limit_simple}"
+                "👋 Chào mừng bạn đến với Vnstock! "
+                "Tài liệu: https://vnstocks.com/onboard | "
+                "Cộng đồng: https://facebook.com/groups/vnstock.official"
+                f"{period_limit_simple}"
             )
         return fallback
 manager = ContentManager()
 
-def present(context: str ="init", ad_category: int = AdCategory.FREE) -> None:
+def present(context: str = "init", ad_category: int = AdCategory.FREE) -> None:
     manager.present_content(context=context, ad_category=ad_category)
 
-def get_promotional_message(format_type: str ="terminal") -> str:
-    if format_type =="terminal":
-        return"""
+def get_promotional_message(format_type: str = "terminal") -> str:
+    if format_type == "terminal":
+        return """
 ╔═════════════════════════════════════════════════════════════════╗
 ║                                                                 ║
 ║   🚫 ĐANG BỊ CHẶN BỞI GIỚI HẠN API? GIẢI PHÁP Ở ĐÂY!            ║
@@ -529,13 +529,13 @@ def get_promotional_message(format_type: str ="terminal") -> str:
 ║                                                                 ║
 ╚═════════════════════════════════════════════════════════════════╝
 """
-    elif format_type =="simple":
+    elif format_type == "simple":
         return (
-"🚫 Đang bị giới hạn API? Tăng tốc độ gọi API lên 10X với gói "
-"Vnstock Insider: https://vnstocks.com/insiders-program"
+            "🚫 Đang bị giới hạn API? Tăng tốc độ gọi API lên 10X với gói "
+            "Vnstock Insider: https://vnstocks.com/insiders-program"
         )
-    elif format_type =="html":
-        return"""
+    elif format_type == "html":
+        return """
 <div style="border: 2px solid #e74c3c; padding: 15px; border-radius: 5px; margin: 10px 0; background-color: #fadbd8;">
     <h3 style="color: #c0392b; margin-top: 0;">🚫 ĐANG BỊ CHẶN BỞI GIỚI HẠN API?</h3>
     <p><strong>✓ Tăng ngay 10X tốc độ gọi API - Không còn lỗi RateLimit</strong></p>

@@ -22,7 +22,7 @@ import threading
 import os
 import warnings
 from collections.abc import Sized
-from distutils.version import LooseVersion
+from pyspark.loose_version import LooseVersion
 from functools import reduce
 from threading import RLock
 from typing import (

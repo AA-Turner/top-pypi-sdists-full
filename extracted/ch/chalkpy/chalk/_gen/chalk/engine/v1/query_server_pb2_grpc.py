@@ -6,6 +6,7 @@ import grpc
 from chalk._gen.chalk.aggregate.v1 import service_pb2 as chalk_dot_aggregate_dot_v1_dot_service__pb2
 from chalk._gen.chalk.common.v1 import online_query_pb2 as chalk_dot_common_dot_v1_dot_online__query__pb2
 from chalk._gen.chalk.common.v1 import upload_features_pb2 as chalk_dot_common_dot_v1_dot_upload__features__pb2
+from chalk._gen.chalk.engine.v1 import bloom_filter_pb2 as chalk_dot_engine_dot_v1_dot_bloom__filter__pb2
 from chalk._gen.chalk.engine.v1 import query_server_pb2 as chalk_dot_engine_dot_v1_dot_query__server__pb2
 
 
@@ -62,6 +63,11 @@ class QueryServiceStub(object):
             "/chalk.engine.v1.QueryService/GetPullQueryResult",
             request_serializer=chalk_dot_engine_dot_v1_dot_query__server__pb2.GetPullQueryResultRequest.SerializeToString,
             response_deserializer=chalk_dot_engine_dot_v1_dot_query__server__pb2.GetPullQueryResultResponse.FromString,
+        )
+        self.InspectBloomFilters = channel.unary_unary(
+            "/chalk.engine.v1.QueryService/InspectBloomFilters",
+            request_serializer=chalk_dot_engine_dot_v1_dot_bloom__filter__pb2.InspectBloomFiltersRequest.SerializeToString,
+            response_deserializer=chalk_dot_engine_dot_v1_dot_bloom__filter__pb2.InspectBloomFiltersResponse.FromString,
         )
 
 
@@ -133,6 +139,12 @@ class QueryServiceServicer(object):
         context.set_details("Method not implemented!")
         raise NotImplementedError("Method not implemented!")
 
+    def InspectBloomFilters(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details("Method not implemented!")
+        raise NotImplementedError("Method not implemented!")
+
 
 def add_QueryServiceServicer_to_server(servicer, server):
     rpc_method_handlers = {
@@ -180,6 +192,11 @@ def add_QueryServiceServicer_to_server(servicer, server):
             servicer.GetPullQueryResult,
             request_deserializer=chalk_dot_engine_dot_v1_dot_query__server__pb2.GetPullQueryResultRequest.FromString,
             response_serializer=chalk_dot_engine_dot_v1_dot_query__server__pb2.GetPullQueryResultResponse.SerializeToString,
+        ),
+        "InspectBloomFilters": grpc.unary_unary_rpc_method_handler(
+            servicer.InspectBloomFilters,
+            request_deserializer=chalk_dot_engine_dot_v1_dot_bloom__filter__pb2.InspectBloomFiltersRequest.FromString,
+            response_serializer=chalk_dot_engine_dot_v1_dot_bloom__filter__pb2.InspectBloomFiltersResponse.SerializeToString,
         ),
     }
     generic_handler = grpc.method_handlers_generic_handler("chalk.engine.v1.QueryService", rpc_method_handlers)
@@ -441,6 +458,35 @@ class QueryService(object):
             "/chalk.engine.v1.QueryService/GetPullQueryResult",
             chalk_dot_engine_dot_v1_dot_query__server__pb2.GetPullQueryResultRequest.SerializeToString,
             chalk_dot_engine_dot_v1_dot_query__server__pb2.GetPullQueryResultResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+        )
+
+    @staticmethod
+    def InspectBloomFilters(
+        request,
+        target,
+        options=(),
+        channel_credentials=None,
+        call_credentials=None,
+        insecure=False,
+        compression=None,
+        wait_for_ready=None,
+        timeout=None,
+        metadata=None,
+    ):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            "/chalk.engine.v1.QueryService/InspectBloomFilters",
+            chalk_dot_engine_dot_v1_dot_bloom__filter__pb2.InspectBloomFiltersRequest.SerializeToString,
+            chalk_dot_engine_dot_v1_dot_bloom__filter__pb2.InspectBloomFiltersResponse.FromString,
             options,
             channel_credentials,
             insecure,

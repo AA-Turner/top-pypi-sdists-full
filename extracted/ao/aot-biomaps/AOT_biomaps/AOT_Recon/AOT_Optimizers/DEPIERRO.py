@@ -144,7 +144,7 @@ def DEPIERRO(
     cost_history = [] if isCostFunction else None
     window_history = []
 
-    description = f"AOT-BioMaps -- DEPIERRO ({SMatrix.matrix_type.name})  with {potential_type.name} potential (shape: {potential_shape.name}, radius: {potential_radius}) β={beta} & δ={delta} ---- {'WITH' if withTumor else 'WITHOUT'} TUMOR ---- {SMatrix.device.upper()}"
+    description = f"[AOT-biomaps] DEPIERRO ({SMatrix.matrix_type.name})  with {potential_type.name} potential (shape: {potential_shape.name}, radius: {potential_radius}) β={beta} & δ={delta} ---- {'WITH' if withTumor else 'WITHOUT'} TUMOR ---- {SMatrix.device.upper()}"
     iterator = trange(numIterations, desc=description) if show_logs else range(numIterations)
 
     for it in iterator:
@@ -190,7 +190,7 @@ def DEPIERRO(
             if show_logs and show_criterion:
                 iterator.set_postfix_str(f"{stop_criterion.name}: {val:.2e}")
             if isStop:
-                if show_logs: print(f"\n[Stopping] Criterion {stop_criterion.name} reached at iteration {it}.")
+                if show_logs: print(f"\n[AOT-biomaps] Stopping Criterion {stop_criterion.name} reached at iteration {it}.")
                 cost_history.pop() if isCostFunction else None
                 break
         

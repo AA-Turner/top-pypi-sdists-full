@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: kfp
-Version: 2.16.1
+Version: 2.17.0
 Summary: Kubeflow Pipelines SDK
 Home-page: https://github.com/kubeflow/pipelines
 Author: The Kubeflow Authors
@@ -31,23 +31,26 @@ Requires-Dist: docstring-parser<1,>=0.7.3
 Requires-Dist: google-api-core!=2.0.*,!=2.1.*,!=2.2.*,!=2.3.0,<3.0.0dev,>=1.31.5
 Requires-Dist: google-auth<3,>=1.6.1
 Requires-Dist: google-cloud-storage<4,>=2.2.1
-Requires-Dist: kfp-pipeline-spec<3,>=2.16.0
-Requires-Dist: kfp-server-api<3,>=2.16.0
+Requires-Dist: kfp-pipeline-spec<3,>=2.17.0
+Requires-Dist: kfp-server-api<3,>=2.17.0
 Requires-Dist: kubernetes<31,>=8.0.0
 Requires-Dist: protobuf<7.0,>=6.31.1
 Requires-Dist: PyYAML<7,>=5.3
+Requires-Dist: requests==2.32.5; python_version < "3.10"
+Requires-Dist: requests==2.33.0; python_version >= "3.10"
 Requires-Dist: requests-toolbelt<2,>=0.8.0
 Requires-Dist: tabulate<1,>=0.8.6
-Requires-Dist: urllib3<3.0.0
+Requires-Dist: urllib3==2.6.3; python_version < "3.10"
+Requires-Dist: urllib3==2.7.0; python_version >= "3.10"
 Requires-Dist: typing-extensions<5,>=3.7.4; python_version < "3.9"
 Provides-Extra: all
 Requires-Dist: docker; extra == "all"
-Requires-Dist: kfp-kubernetes==2.16.1; extra == "all"
+Requires-Dist: kfp-kubernetes==2.17.0; extra == "all"
 Requires-Dist: nbclient<1,>=0.10; extra == "all"
 Requires-Dist: ipykernel<7,>=6; extra == "all"
 Requires-Dist: jupyter_client<9,>=7; extra == "all"
 Provides-Extra: kubernetes
-Requires-Dist: kfp-kubernetes==2.16.1; extra == "kubernetes"
+Requires-Dist: kfp-kubernetes==2.17.0; extra == "kubernetes"
 Provides-Extra: notebooks
 Requires-Dist: nbclient<1,>=0.10; extra == "notebooks"
 Requires-Dist: ipykernel<7,>=6; extra == "notebooks"

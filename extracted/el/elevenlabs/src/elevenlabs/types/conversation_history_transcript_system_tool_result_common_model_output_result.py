@@ -9,7 +9,9 @@ import typing_extensions
 from ..core.pydantic_utilities import IS_PYDANTIC_V2
 from ..core.unchecked_base_model import UncheckedBaseModel, UnionMetadata
 from .knowledge_base_rag_tool_status import KnowledgeBaseRagToolStatus
-from .transfer_to_agent_tool_result_success_model_branch_info import TransferToAgentToolResultSuccessModelBranchInfo
+from .transfer_to_agent_tool_result_success_model_output_branch_info import (
+    TransferToAgentToolResultSuccessModelOutputBranchInfo,
+)
 
 
 class ConversationHistoryTranscriptSystemToolResultCommonModelOutputResult_EndCallSuccess(UncheckedBaseModel):
@@ -92,6 +94,37 @@ class ConversationHistoryTranscriptSystemToolResultCommonModelOutputResult_PlayD
             extra = pydantic.Extra.allow
 
 
+class ConversationHistoryTranscriptSystemToolResultCommonModelOutputResult_RunSubagentError(UncheckedBaseModel):
+    result_type: typing.Literal["run_subagent_error"] = "run_subagent_error"
+    status: typing.Optional[typing.Literal["error"]] = None
+    error: str
+
+    if IS_PYDANTIC_V2:
+        model_config: typing.ClassVar[pydantic.ConfigDict] = pydantic.ConfigDict(extra="allow", frozen=True)  # type: ignore # Pydantic v2
+    else:
+
+        class Config:
+            frozen = True
+            smart_union = True
+            extra = pydantic.Extra.allow
+
+
+class ConversationHistoryTranscriptSystemToolResultCommonModelOutputResult_RunSubagentSuccess(UncheckedBaseModel):
+    result_type: typing.Literal["run_subagent_success"] = "run_subagent_success"
+    status: typing.Optional[typing.Literal["success"]] = None
+    query: str
+    agent_response: str
+
+    if IS_PYDANTIC_V2:
+        model_config: typing.ClassVar[pydantic.ConfigDict] = pydantic.ConfigDict(extra="allow", frozen=True)  # type: ignore # Pydantic v2
+    else:
+
+        class Config:
+            frozen = True
+            smart_union = True
+            extra = pydantic.Extra.allow
+
+
 class ConversationHistoryTranscriptSystemToolResultCommonModelOutputResult_SkipTurnSuccess(UncheckedBaseModel):
     result_type: typing.Literal["skip_turn_success"] = "skip_turn_success"
     status: typing.Optional[typing.Literal["success"]] = None
@@ -148,7 +181,7 @@ class ConversationHistoryTranscriptSystemToolResultCommonModelOutputResult_Trans
     delay_ms: typing.Optional[int] = None
     transfer_message: typing.Optional[str] = None
     enable_transferred_agent_first_message: typing.Optional[bool] = None
-    branch_info: typing.Optional[TransferToAgentToolResultSuccessModelBranchInfo] = None
+    branch_info: typing.Optional[TransferToAgentToolResultSuccessModelOutputBranchInfo] = None
     preserve_client_tts_overrides: typing.Optional[bool] = None
 
     if IS_PYDANTIC_V2:
@@ -264,6 +297,8 @@ ConversationHistoryTranscriptSystemToolResultCommonModelOutputResult = typing_ex
         ConversationHistoryTranscriptSystemToolResultCommonModelOutputResult_LanguageDetectionSuccess,
         ConversationHistoryTranscriptSystemToolResultCommonModelOutputResult_PlayDtmfError,
         ConversationHistoryTranscriptSystemToolResultCommonModelOutputResult_PlayDtmfSuccess,
+        ConversationHistoryTranscriptSystemToolResultCommonModelOutputResult_RunSubagentError,
+        ConversationHistoryTranscriptSystemToolResultCommonModelOutputResult_RunSubagentSuccess,
         ConversationHistoryTranscriptSystemToolResultCommonModelOutputResult_SkipTurnSuccess,
         ConversationHistoryTranscriptSystemToolResultCommonModelOutputResult_TestingToolResult,
         ConversationHistoryTranscriptSystemToolResultCommonModelOutputResult_TransferToAgentError,

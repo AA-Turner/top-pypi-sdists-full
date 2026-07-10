@@ -3,7 +3,7 @@ from typing import List
 import pytest
 import torch
 
-from vesin.torch import NeighborList
+from vesin_torch import NeighborList
 
 
 DEVICES = ["cpu"]
@@ -43,6 +43,10 @@ def test_errors():
             periodic=False,
             quantities="ij",
         )
+
+    message = "n_threads must be zero or a positive integer"
+    with pytest.raises(ValueError, match=message):
+        NeighborList(cutoff=2.8, full_list=True, n_threads=-1)
 
 
 @pytest.mark.parametrize("quantities", ["ijS", "D", "d", "ijSDd"])
@@ -90,8 +94,23 @@ def test_all_alone_no_neighbors(quantities, dtype):
 
 
 class NeighborListWrap:
-    def __init__(self, cutoff: float, full_list: bool, sorted: bool):
-        self._c = NeighborList(cutoff=cutoff, full_list=full_list, sorted=sorted)
+    def __init__(
+        self,
+        cutoff: float,
+        full_list: bool,
+        sorted: bool,
+        algorithm: str,
+        skin: float,
+        n_threads: int,
+    ):
+        self._c = NeighborList(
+            cutoff=cutoff,
+            full_list=full_list,
+            sorted=sorted,
+            algorithm=algorithm,
+            skin=skin,
+            n_threads=n_threads,
+        )
 
     def compute(
         self,

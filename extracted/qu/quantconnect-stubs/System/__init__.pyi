@@ -5634,11 +5634,19 @@ class MemoryExtensions(System.Object):
         ...
 
     @staticmethod
+    def to_lower_ordinal(source: System.ReadOnlySpan[str], destination: System.Span[str]) -> int:
+        ...
+
+    @staticmethod
     def to_upper(source: System.ReadOnlySpan[str], destination: System.Span[str], culture: System.Globalization.CultureInfo) -> int:
         ...
 
     @staticmethod
     def to_upper_invariant(source: System.ReadOnlySpan[str], destination: System.Span[str]) -> int:
+        ...
+
+    @staticmethod
+    def to_upper_ordinal(source: System.ReadOnlySpan[str], destination: System.Span[str]) -> int:
         ...
 
 
@@ -12351,6 +12359,10 @@ class Char(System.IComparable[str], System.IEquatable[str], System.IConvertible,
     def to_lower_invariant(c: str) -> str:
         ...
 
+    @staticmethod
+    def to_lower_ordinal(c: str) -> str:
+        ...
+
     @overload
     def to_string(self) -> str:
         ...
@@ -12376,6 +12388,10 @@ class Char(System.IComparable[str], System.IEquatable[str], System.IConvertible,
 
     @staticmethod
     def to_upper_invariant(c: str) -> str:
+        ...
+
+    @staticmethod
+    def to_upper_ordinal(c: str) -> str:
         ...
 
     @staticmethod
@@ -16031,6 +16047,9 @@ class String(System.Object, System.IComparable[str], System.IConvertible, System
     def to_lower_invariant(self) -> str:
         ...
 
+    def to_lower_ordinal(self) -> str:
+        ...
+
     @overload
     def to_string(self) -> str:
         ...
@@ -16048,6 +16067,9 @@ class String(System.Object, System.IComparable[str], System.IConvertible, System
         ...
 
     def to_upper_invariant(self) -> str:
+        ...
+
+    def to_upper_ordinal(self) -> str:
         ...
 
     @overload

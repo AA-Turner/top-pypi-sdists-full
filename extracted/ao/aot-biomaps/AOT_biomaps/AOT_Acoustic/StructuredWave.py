@@ -46,7 +46,7 @@ class StructuredWave(AcousticField):
 
         def __str__(self):
             """Return a string representation of the PatternParams object."""
-            return f"PatternParams(space_0={self.space_0}, space_1={self.space_1}, move_head_0_2tail={self.move_head_0_2tail}, move_tail_1_2head={self.move_tail_1_2head}, len_hex={self.len_hex})"
+            return f"[AOT-biomaps] PatternParams(space_0={self.space_0}, space_1={self.space_1}, move_head_0_2tail={self.move_head_0_2tail}, move_tail_1_2head={self.move_tail_1_2head}, len_hex={self.len_hex})"
 
         def generate_pattern(self):
             """
@@ -77,7 +77,7 @@ class StructuredWave(AcousticField):
 
                 return hex_output
             except Exception as e:
-                print(f"Error generating pattern: {e}")
+                print(f"[AOT-biomaps] Error generating pattern: {e}")
                 return None
         
         def generate_paths(self, base_path):
@@ -136,16 +136,16 @@ class StructuredWave(AcousticField):
                 self.angle = get_angle(fileName)
                 self.pattern.activeList = fileName.split('_')[0]
             else:
-                raise ValueError("Invalid pattern parameters, must provide either fileName or all space/move parameters.")
+                raise ValueError("[AOT-biomaps] Invalid pattern parameters, must provide either fileName or all space/move parameters.")
             
             self.pattern.len_hex = self.params.acoustic['probe']['num_elements'] // 4
             self.f_s = get_frequency(self.pattern.activeList, self.params.acoustic['probe']['num_elements'], self.params.general['dx'])
 
             if len(self.pattern.activeList) != self.params.acoustic['probe']['num_elements'] // 4:
-                raise ValueError(f"Active list string must be {self.params.acoustic['probe']['num_elements'] // 4} characters long.")
+                raise ValueError(f"[AOT-biomaps] Active list string must be {self.params.acoustic['probe']['num_elements'] // 4} characters long.")
             
         except Exception as e:
-            print(f"Error initializing StructuredWave: {e}")
+            print(f"[AOT-biomaps] Error initializing StructuredWave: {e}")
 
     def get_name_field(self):
         """
@@ -159,7 +159,7 @@ class StructuredWave(AcousticField):
             angle_str = format_angle(self.angle)
             return f"field_{pattern_str}_{angle_str}"
         except Exception as e:
-            print(f"Error generating file path: {e}")
+            print(f"[AOT-biomaps] Error generating file path: {e}")
             return None
     
     def plot_delay(self,figsize=(4,3)):
@@ -182,8 +182,7 @@ class StructuredWave(AcousticField):
             plt.grid(True)
             plt.show()
         except Exception as e:
-            print(f"Error plotting max times: {e}")
-
+            print(f"[AOT-biomaps] Error plotting max times: {e}")
 
     ## PRIVATE METHODS ##
 
@@ -327,7 +326,7 @@ class StructuredWave(AcousticField):
                 f_hdr2.write(headerFieldGlob)
 
         except Exception as e:
-            print(f"Error saving HDR/IMG files: {e}")
+            print(f"[AOT-biomaps] Error saving HDR/IMG files: {e}")
 
     def _generate_acoustic_field_SIMPLE_SIM(self, show_log=False):
         """

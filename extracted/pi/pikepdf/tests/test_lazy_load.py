@@ -1,6 +1,8 @@
 import subprocess
 import sys
+
 import pytest
+
 
 @pytest.mark.abi3_smoke
 def test_pikepdf_import_does_not_eagerly_load_heavy_deps():
@@ -34,11 +36,14 @@ print("OK")
 
 
 def test_lang_alts_works():
-    from pikepdf.models.metadata import LANG_ALTS
+    from pikepdf.models.metadata import LANG_ALTS  # noqa: F401
+
     with pytest.raises(ImportError):
-        from pikepdf.models.metadata import THIS_DOES_NOT_EXIST
+        from pikepdf.models.metadata import THIS_DOES_NOT_EXIST  # noqa: F401
+
 
 def test_lazy_xml_works():
-    from pikepdf._xml import _Element, _ElementTree
+    from pikepdf._xml import _Element, _ElementTree  # noqa: F401
+
     with pytest.raises(ImportError):
-        from pikepdf._xml import THIS_DOES_NOT_EXIST
+        from pikepdf._xml import THIS_DOES_NOT_EXIST  # noqa: F401

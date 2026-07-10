@@ -22,6 +22,7 @@ import re
 import warnings
 from typing import Dict, Any, Optional, Tuple, Union
 
+from kubernetes import client
 from ray.runtime_env import RuntimeEnv
 from codeflare_sdk.common.kueue.kueue import (
     get_default_kueue_name,
@@ -39,6 +40,7 @@ from codeflare_sdk.ray.rayjobs.runtime_env import (
     process_runtime_env,
 )
 
+from ...common.kubernetes_cluster.auth import config_check, get_api_client
 from ...common.utils import get_current_namespace
 from ...common.utils.validation import validate_ray_version_compatibility
 
@@ -169,8 +171,13 @@ class RayJob:
             self.cluster_name = cluster_name
             logger.info(f"Using existing cluster: {self.cluster_name}")
 
+        config_check()
+        k8s_client = get_api_client()
         self._api = RayjobApi()
+        self._api.api = client.CustomObjectsApi(k8s_client)
         self._cluster_api = RayClusterApi()
+        self._cluster_api.api = client.CustomObjectsApi(k8s_client)
+        self._cluster_api.core_v1_api = client.CoreV1Api(k8s_client)
 
         logger.info(f"Initialized RayJob: {self.name} in namespace: {self.namespace}")
 
@@ -202,7 +209,7 @@ class RayJob:
         else:
             raise RuntimeError(f"Failed to submit RayJob {self.name}")
 
-    def stop(self):
+    def stop(self) -> bool:
         """
         Suspend the Ray job.
         """
@@ -213,7 +220,7 @@ class RayJob:
         else:
             raise RuntimeError(f"Failed to stop the RayJob {self.name}")
 
-    def resubmit(self):
+    def resubmit(self) -> bool:
         """
         Resubmit the Ray job.
         """
@@ -223,7 +230,7 @@ class RayJob:
         else:
             raise RuntimeError(f"Failed to resubmit the RayJob {self.name}")
 
-    def delete(self):
+    def delete(self) -> bool:
         """
         Delete the Ray job.
         Returns True if deleted successfully or if already deleted.
@@ -295,8 +302,8 @@ class RayJob:
         else:
             if self.local_queue or self.priority_class:
                 logger.warning(
-                    f"Kueue labels (local_queue, priority_class) are ignored for RayJobs "
-                    f"targeting existing clusters. Kueue only manages RayJobs that create new clusters."
+                    "Kueue labels (local_queue, priority_class) are ignored for RayJobs "
+                    "targeting existing clusters. Kueue only manages RayJobs that create new clusters."
                 )
 
         # Add active deadline if specified
@@ -311,9 +318,9 @@ class RayJob:
         # Add submitterPodTemplate if we have files to mount
         if files:
             secret_name = f"{self.name}-files"
-            rayjob_cr["spec"][
-                "submitterPodTemplate"
-            ] = self._build_submitter_pod_template(files, secret_name)
+            rayjob_cr["spec"]["submitterPodTemplate"] = (
+                self._build_submitter_pod_template(files, secret_name)
+            )
 
         # Configure cluster: either use existing or create new
         if self._cluster_config is not None:

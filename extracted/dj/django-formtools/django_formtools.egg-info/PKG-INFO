@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: django-formtools
-Version: 2.6.1
+Version: 2.7
 Summary: A set of high-level abstractions for Django forms
 Author-email: Django Software Foundation <foundation@djangoproject.com>
 License: BSD
@@ -9,9 +9,6 @@ Project-URL: Source, https://github.com/jazzband/django-formtools
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Environment :: Web Environment
 Classifier: Framework :: Django
-Classifier: Framework :: Django :: 4.2
-Classifier: Framework :: Django :: 5.0
-Classifier: Framework :: Django :: 5.1
 Classifier: Framework :: Django :: 5.2
 Classifier: Framework :: Django :: 6.0
 Classifier: Intended Audience :: Developers
@@ -19,16 +16,16 @@ Classifier: License :: OSI Approved :: BSD License
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3 :: Only
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Topic :: Internet :: WWW/HTTP
-Requires-Python: >=3.8
+Requires-Python: >=3.10
 Description-Content-Type: text/x-rst
 License-File: LICENSE
-Requires-Dist: Django>=4.2
+Requires-Dist: Django>=5.2
 
 ================
 django-formtools
@@ -67,13 +64,8 @@ https://django-formtools.readthedocs.io/
 django-formtools can also be found on and installed from the Python
 Package Index: https://pypi.python.org/pypi/django-formtools
 
-To get more help:
-
-* Join the #django channel on irc.libera.chat. Lots of helpful people hang out
-  there.
-
-* Join the django-users mailing list, or read the archives, at
-  https://groups.google.com/group/django-users.
+To get more help, please use the offical Django Forum at
+https://forum.djangoproject.com/
 
 Contributing to django-formtools
 --------------------------------

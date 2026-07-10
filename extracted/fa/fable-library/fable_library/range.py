@@ -9,10 +9,10 @@ from .char import char_code_at
 from .core import float64, int32, int64, uint8, uint32, uint64
 from .decimal_ import from_parts
 from .decimal_ import op_addition as op_addition_1
-from .long import op_addition as op_addition_2
 from .option import erase
 from .protocols import IEnumerable_1
-from .seq import delay, unfold
+from .seq import delay
+from .seq_native import unfold
 from .util import UNIT, compare
 
 
@@ -25,7 +25,7 @@ def make_range_step_function[T](
 
     step_greater_than_zero: bool = step_compared_with_zero > int32.ZERO
 
-    def _arrow85(x: T = UNIT, step: Any = step, stop: Any = stop, add: Any = add) -> tuple[T, T] | None:
+    def _arrow69(x: T = UNIT, step: Any = step, stop: Any = stop, add: Any = add) -> tuple[T, T] | None:
         compared_with_last: int32 = compare(x, stop)
         return (
             ((x, add(x, step)))
@@ -37,16 +37,16 @@ def make_range_step_function[T](
             else None
         )
 
-    return _arrow85
+    return _arrow69
 
 
 def integral_range_step[T](start: T, step: T, stop: T, zero: T, add: Callable[[T, T], T]) -> IEnumerable_1[T]:
     step_fn: Callable[[Any], tuple[Any, Any] | None] = erase(make_range_step_function(step, stop, zero, add))
 
-    def _arrow86(start: Any = start) -> IEnumerable_1[T]:
+    def _arrow70(start: Any = start) -> IEnumerable_1[T]:
         return unfold(step_fn, start)
 
-    return delay(_arrow86)
+    return delay(_arrow70)
 
 
 def range_big_int(start: int, step: int, stop: int) -> IEnumerable_1[int]:
@@ -60,38 +60,44 @@ def range_decimal(start: Decimal, step: Decimal, stop: Decimal) -> IEnumerable_1
 
 
 def range_double(start: float64, step: float64, stop: float64) -> IEnumerable_1[float64]:
-    def _arrow87(x: float64, y: float64) -> float64:
+    def _arrow72(x: float64, y: float64) -> float64:
         return x + y
 
-    return integral_range_step(start, step, stop, float64(0.0), _arrow87)
+    return integral_range_step(start, step, stop, float64(0.0), _arrow72)
 
 
 def range_int32(start: int32, step: int32, stop: int32) -> IEnumerable_1[int32]:
-    def _arrow88(x: int32, y: int32) -> int32:
+    def _arrow74(x: int32, y: int32) -> int32:
         return x + y
 
-    return integral_range_step(start, step, stop, int32.ZERO, _arrow88)
+    return integral_range_step(start, step, stop, int32.ZERO, _arrow74)
 
 
 def range_uint32(start: uint32, step: uint32, stop: uint32) -> IEnumerable_1[uint32]:
-    def _arrow89(x: uint32, y: uint32) -> uint32:
+    def _arrow75(x: uint32, y: uint32) -> uint32:
         return x + y
 
-    return integral_range_step(start, step, stop, uint32.ZERO, _arrow89)
+    return integral_range_step(start, step, stop, uint32.ZERO, _arrow75)
 
 
 def range_int64(start: int64, step: int64, stop: int64) -> IEnumerable_1[int64]:
-    return integral_range_step(start, step, stop, int64.ZERO, op_addition_2)
+    def _arrow76(x: int64, y: int64) -> int64:
+        return x + y
+
+    return integral_range_step(start, step, stop, int64.ZERO, _arrow76)
 
 
 def range_uint64(start: uint64, step: uint64, stop: uint64) -> IEnumerable_1[uint64]:
-    return integral_range_step(start, step, stop, uint64.ZERO, op_addition_2)
+    def _arrow77(x: uint64, y: uint64) -> uint64:
+        return x + y
+
+    return integral_range_step(start, step, stop, uint64.ZERO, _arrow77)
 
 
 def range_char(start: str, stop: str) -> IEnumerable_1[str]:
     int_stop: int32 = int32(char_code_at(stop, int32.ZERO))
 
-    def _arrow90(start: Any = start) -> IEnumerable_1[str]:
+    def _arrow79(start: Any = start) -> IEnumerable_1[str]:
         def step_fn(i: int32) -> tuple[str, int32] | None:
             if i <= int_stop:
                 return (chr(int(i)), i + int32.ONE)
@@ -101,7 +107,7 @@ def range_char(start: str, stop: str) -> IEnumerable_1[str]:
 
         return unfold(step_fn, int32(char_code_at(start, int32.ZERO)))
 
-    return delay(_arrow90)
+    return delay(_arrow79)
 
 
 __all__ = [

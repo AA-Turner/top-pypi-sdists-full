@@ -1,6 +1,6 @@
 [project]
 name = "lion-pytorch"
-version = "0.2.4"
+version = "0.2.5"
 description = "Lion Optimizer - Pytorch"
 authors = [
     { name = "Phil Wang", email = "lucidrains@gmail.com" }

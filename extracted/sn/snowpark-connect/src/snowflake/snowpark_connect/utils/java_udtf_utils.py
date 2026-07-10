@@ -16,11 +16,7 @@ from snowflake.snowpark.types import (
     StructType,
     VariantType,
 )
-from snowflake.snowpark_connect.config import (
-    get_scala_version,
-    global_config,
-    validate_session_timezone,
-)
+from snowflake.snowpark_connect.config import get_scala_version
 from snowflake.snowpark_connect.resources_initializer import (
     ensure_scala_udf_jars_uploaded,
 )
@@ -37,6 +33,7 @@ from snowflake.snowpark_connect.utils.jvm_udf_utils import (
     build_jvm_udxf_imports,
     is_decomposable_struct,
     map_type_to_java_type,
+    needs_epoch_lowering,
     to_json,
 )
 from snowflake.snowpark_connect.utils.session import get_or_create_snowpark_session
@@ -135,7 +132,7 @@ def _gen_convert_input_call(in_desc: TypeDescriptor, param_names: list[str]) -> 
     return (
         f"Object[] _sas_args = new Object[]{{{args_array}}};\n"
         f"        Object mappedInput = com.snowflake.sas.scala.UdfPacketUtils$.MODULE$"
-        f".convertInput(udfPacket, _sas_args, 0, {is_struct}, SCHEMA_JSON, SESSION_TIMEZONE);"
+        f'.convertInput(udfPacket, _sas_args, 0, {is_struct}, SCHEMA_JSON, java.time.ZoneId.of(System.getProperty("user.timezone")));'
     )
 
 
@@ -188,6 +185,14 @@ def _gen_output_row_from_result(out_desc: TypeDescriptor, result_expr: str) -> s
     else:
         # native scalar output
         jt = out_desc.java_type
+        if needs_epoch_lowering(out_desc.snowpark_type):
+            # Temporal return: the Scala value (Timestamp, Instant, Period, Duration) must be
+            # converted to its epoch Long before being placed in the OutputRow. encodeTemporalToEpoch
+            # handles Option unwrapping and all temporal sub-types via the output encoder.
+            return (
+                f"Object _sas_r = {result_expr}; "
+                f"return new OutputRow(com.snowflake.sas.scala.UdfPacketUtils$.MODULE$.encodeTemporalToEpoch(_sas_r, udfPacket));"
+            )
         if jt in ("Long", "Double"):
             method = "longValue" if jt == "Long" else "doubleValue"
             return (
@@ -216,6 +221,16 @@ def _gen_accum_stmt(out_desc: TypeDescriptor, iter_var: str) -> str:
         )
     else:
         jt = out_desc.java_type
+        if needs_epoch_lowering(out_desc.snowpark_type):
+            # Temporal return: the Scala value is Timestamp/Duration/Period/Date,
+            # not a Number — casting through Number throws ClassCastException. Use
+            # encodeTemporalToEpoch which handles all temporal sub-types correctly.
+            return (
+                f"Object _sas_r = {iter_var}.next();\n"
+                f"            Long _sas_v = _sas_r == null ? null"
+                f" : com.snowflake.sas.scala.UdfPacketUtils$.MODULE$.encodeTemporalToEpoch(_sas_r, udfPacket);\n"
+                f"            results.add(new OutputRow(_sas_v));"
+            )
         if jt in ("Long", "Double"):
             method = "longValue" if jt == "Long" else "doubleValue"
             return (
@@ -281,9 +296,6 @@ class JavaUDTFDef:
         param_names = self._param_names()
         convert_input = _gen_convert_input_call(in_desc, param_names)
         process_params = self._process_params()
-        session_tz = validate_session_timezone(
-            global_config.spark_sql_session_timeZone or "UTC"
-        )
         operation_file = self.imports[0].split("/")[-1]
         out_row_class = _gen_output_row_class(out_desc, JAVA_UDTF_PREFIX)
 
@@ -297,7 +309,6 @@ class JavaUDTFDef:
 public class JavaUdtfHandler {{
     private final static String OPERATION_FILE = "{operation_file}";
     private final static String SCHEMA_JSON = "{self.schema_json}";
-    private final static String SESSION_TIMEZONE = "{session_tz}";
     private static scala.Function1<scala.collection.Iterator<Object>, scala.collection.Iterator<Object>> operation = null;
     private static UdfPacket udfPacket = null;
     private List<Object> accumulatedInputs = new ArrayList<>();
@@ -346,7 +357,7 @@ public class JavaUdtfHandler {{
 public class JavaUdtfHandler {{
     private final static String OPERATION_FILE = "{operation_file}";
     private final static String SCHEMA_JSON = "{self.schema_json}";
-    private final static String SESSION_TIMEZONE = "{session_tz}";
+
     private static scala.Function1<scala.collection.Iterator<Object>, scala.collection.Iterator<Object>> operation = null;
     private static UdfPacket udfPacket = null;
 
@@ -443,7 +454,10 @@ def create_java_udtf(
             sql_input_params.append(Param(param_name, desc.sql_type))
 
     return_type = proto_to_snowpark_type(udf_proto.scalar_scala_udf.outputType)
-    sql_return_type = map_type_to_snowflake_type(return_type)
+    # Use the native epoch SQL type for temporal types (BIGINT/INT) rather than the
+    # Snowflake interval SQL type. to_create_function_sql() uses _output_sql_type() directly
+    # for the RETURNS TABLE clause; this value is stored in Signature.returns only.
+    sql_return_type = _output_sql_type(return_type)
 
     name_prefix = "MP_" if batch_mode else ""
     udtf_name = (
@@ -503,9 +517,6 @@ class JavaGroupMapUDTFDef:
     return_snowpark_type: Optional[snowpark_type.DataType] = None
 
     def _gen_body_java(self) -> str:
-        session_tz = validate_session_timezone(
-            global_config.spark_sql_session_timeZone or "UTC"
-        )
         operation_file = self.imports[0].split("/")[-1]
         _rt = self.return_snowpark_type
         out_desc = (
@@ -517,14 +528,14 @@ class JavaGroupMapUDTFDef:
         accum_body = _gen_accum_stmt(out_desc, "scalaResultIterator")
 
         if self.is_variant_key:
-            key_conv = "Object scalaKey = com.snowflake.sas.scala.UdfPacketUtils$.MODULE$.fromVariant(udfPacket, currentKey, 0, SCHEMA_JSON, SESSION_TIMEZONE);"
+            key_conv = 'Object scalaKey = com.snowflake.sas.scala.UdfPacketUtils$.MODULE$.fromVariant(udfPacket, currentKey, 0, SCHEMA_JSON, java.time.ZoneId.of(System.getProperty("user.timezone")));'
         else:
             key_conv = "Object scalaKey = currentKey;"
 
         if self.is_variant_value:
             val_iter = """
         java.util.Iterator<Object> javaIterator = accumulatedValues.stream()
-            .map(v -> com.snowflake.sas.scala.UdfPacketUtils$.MODULE$.fromVariant(udfPacket, v, 1, SCHEMA_JSON, SESSION_TIMEZONE))
+            .map(v -> com.snowflake.sas.scala.UdfPacketUtils$.MODULE$.fromVariant(udfPacket, v, 1, SCHEMA_JSON, java.time.ZoneId.of(System.getProperty("user.timezone"))))
             .iterator();
         scala.collection.Iterator<Object> scalaIterator = new scala.collection.AbstractIterator<Object>() {
             public boolean hasNext() { return javaIterator.hasNext(); }
@@ -554,7 +565,7 @@ class JavaGroupMapUDTFDef:
   }}"""
             group_state = """
             Object scalaInitialState = initialStateVariant != null
-                ? com.snowflake.sas.scala.UdfPacketUtils$.MODULE$.fromVariantAsOutput(udfPacket, initialStateVariant, SESSION_TIMEZONE)
+                ? com.snowflake.sas.scala.UdfPacketUtils$.MODULE$.fromVariantAsOutput(udfPacket, initialStateVariant, java.time.ZoneId.of(System.getProperty("user.timezone")))
                 : null;
             org.apache.spark.sql.streaming.GroupState<Object> groupState = scalaInitialState != null
                 ? org.apache.spark.sql.scos.GroupStateUtils$.MODULE$.groupStateWithInitial(scalaInitialState)
@@ -581,7 +592,7 @@ class JavaGroupMapUDTFDef:
 public class JavaUdtfHandler {{
     private final static String OPERATION_FILE = "{operation_file}";
     private final static String SCHEMA_JSON = "{self.schema_json}";
-    private final static String SESSION_TIMEZONE = "{session_tz}";
+
     private static Object operation = null;
     private static boolean hasGroupState = false;
     private static UdfPacket udfPacket = null;
@@ -754,9 +765,6 @@ class JavaCoGroupMapUDTFDef:
     return_snowpark_type: Optional[snowpark_type.DataType] = None
 
     def _gen_body_java(self) -> str:
-        session_tz = validate_session_timezone(
-            global_config.spark_sql_session_timeZone or "UTC"
-        )
         operation_file = self.imports[0].split("/")[-1]
         _rt = self.return_snowpark_type
         out_desc = (
@@ -768,7 +776,7 @@ class JavaCoGroupMapUDTFDef:
         accum_body = _gen_accum_stmt(out_desc, "scalaResultIterator")
 
         if self.is_variant_key:
-            key_conv = "Object scalaKey = com.snowflake.sas.scala.UdfPacketUtils$.MODULE$.fromVariant(udfPacket, currentKey, 0, SCHEMA_JSON, SESSION_TIMEZONE);"
+            key_conv = 'Object scalaKey = com.snowflake.sas.scala.UdfPacketUtils$.MODULE$.fromVariant(udfPacket, currentKey, 0, SCHEMA_JSON, java.time.ZoneId.of(System.getProperty("user.timezone")));'
         else:
             key_conv = "Object scalaKey = currentKey;"
 
@@ -776,7 +784,7 @@ class JavaCoGroupMapUDTFDef:
             if self.is_variant_value:
                 return f"""
         java.util.Iterator<Object> javaIterator{suffix} = accumulatedValues{suffix}.stream()
-            .map(v -> com.snowflake.sas.scala.UdfPacketUtils$.MODULE$.fromVariant(udfPacket, v, {idx}, SCHEMA_JSON, SESSION_TIMEZONE))
+            .map(v -> com.snowflake.sas.scala.UdfPacketUtils$.MODULE$.fromVariant(udfPacket, v, {idx}, SCHEMA_JSON, java.time.ZoneId.of(System.getProperty("user.timezone"))))
             .iterator();
         scala.collection.Iterator<Object> scalaIterator{suffix} = new scala.collection.AbstractIterator<Object>() {{
             public boolean hasNext() {{ return javaIterator{suffix}.hasNext(); }}
@@ -800,7 +808,7 @@ class JavaCoGroupMapUDTFDef:
 public class JavaUdtfHandler {{
     private final static String OPERATION_FILE = "{operation_file}";
     private final static String SCHEMA_JSON = "{self.schema_json}";
-    private final static String SESSION_TIMEZONE = "{session_tz}";
+
     private static Object operation = null;
     private static UdfPacket udfPacket = null;
 

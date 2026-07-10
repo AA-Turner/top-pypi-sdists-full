@@ -7,10 +7,7 @@ import os
 from . import util
 from . import posix
 from . _wcmatch import WcRegexp
-from typing import AnyStr, Iterable, Pattern, Generic, Sequence, overload
-
-UNICODE_RANGE = '\u0000-\U0010ffff'
-ASCII_RANGE = '\x00-\xff'
+from typing import AnyStr, Iterable, Pattern, Generic, Sequence, Iterator
 
 PATTERN_LIMIT = 1000
 
@@ -56,33 +53,45 @@ RE_MAGIC_ESCAPE = (
 )
 
 MAGIC_DEF = (
-    frozenset("*?[]\\"),
-    frozenset(b"*?[]\\")
+    {"*", "?", "[", "]", "\\"},
+    {b"*", b"?", b"[", b"]", b"\\"}
 )
 MAGIC_SPLIT = (
-    frozenset("|"),
-    frozenset(b"|")
+    {"|"},
+    {b"|"}
 )
 MAGIC_NEGATE = (
-    frozenset('!'),
-    frozenset(b'!')
+    {'!'},
+    {b'!'}
 )
 MAGIC_MINUS_NEGATE = (
-    frozenset('-'),
-    frozenset(b'-')
+    {'-'},
+    {b'-'}
 )
 MAGIC_TILDE = (
-    frozenset('~'),
-    frozenset(b'~')
+    {'~'},
+    {b'~'}
 )
 MAGIC_EXTMATCH = (
-    frozenset('()'),
-    frozenset(b'()')
+    {'(', ')'},
+    {b'(', b')'}
+)
+MAGIC_NUMRANGE = (
+    {'<', '>'},
+    {b'<', b'>'}
 )
 MAGIC_BRACE = (
-    frozenset("{}"),
-    frozenset(b"{}")
+    {"{", "}"},
+    {b"{", b"}"}
 )
+MAGIC_WIN_DRIVE = (
+    {"\\"},
+    {b"\\"}
+)
+MAGIC_UNIX_DRIVE = (
+    set(),
+    set()
+)  # type: tuple[set[str], set[bytes]]
 
 RE_MAGIC = (
     re.compile(r'([-!~*?(\[|{\\])'),
@@ -116,7 +125,10 @@ TILDE_SYM = (
 
 RE_ANCHOR = re.compile(r'^/+')
 RE_WIN_ANCHOR = re.compile(r'^(?:\\\\|/)+')
-RE_POSIX = re.compile(r':(alnum|alpha|ascii|blank|cntrl|digit|graph|lower|print|punct|space|upper|word|xdigit):\]')
+RE_POSIX = re.compile(r'\[:(alnum|alpha|ascii|blank|cntrl|digit|graph|lower|print|punct|space|upper|word|xdigit):\]')
+RE_NUM_RANGE = re.compile(r'([0-9]*-[0-9]*)>')
+RE_EMPTY_EXT_SLOTS = re.compile(r'[|]+')
+RE_EXT_GROUP = re.compile(r'[@*+?!]\(')
 
 SET_OPERATORS = frozenset(('&', '~', '|'))
 NEGATIVE_SYM = frozenset((b'!', '!'))
@@ -149,6 +161,8 @@ GLOBTILDE = 0x40000
 NOUNIQUE = 0x80000
 NODOTDIR = 0x100000
 GLOBSTARLONG = 0x200000
+NUMRANGE = 0x400000
+CAPTURE = 0x800000
 
 # Internal flag
 _TRANSLATE = 0x100000000  # Lets us know we are performing a translation, and we just want the regex.
@@ -180,6 +194,8 @@ FLAG_MASK = (
     SPLIT |
     NOUNIQUE |
     NODOTDIR |
+    NUMRANGE |
+    CAPTURE |
     _TRANSLATE |
     _ANCHOR |
     _EXTMATCHBASE |
@@ -262,6 +278,36 @@ _NO_WIN_DIR = (
     rb'^(?:.*?(?:[\\/]\.{1,2}[\\/]*|[\\/])|\.{1,2}[\\/]*)$'
 )
 
+# Mapping describing if an extended group can be appended to the parent group,
+# e.g. `@(a|@(b|c))` -> `@(a|b|c)`.
+# Some groups cannot be appended to the parent without an empty group.
+# e.g. `+(a|*(b|c))` -> `+(a|b|c|)`.
+# `{child: **}`
+EXT_REDUCE = {
+    '@': {'parent': {'@', '?', '*', '+', '!'}, 'empty': set()},
+    '?': {'parent': {'@', '?', '*', '+', '!'}, 'empty': {'@', '+', '!'}},
+    '*': {'parent': {'*', '+'}, 'empty': {'+',}},
+    '+': {'parent': {'*', '+'}, 'empty': set()},
+    '!': {'parent': set(), 'empty': set()}
+}  # type: dict[str, dict[str, set[str]]]
+
+# Mapping describing group promotion.
+# If the only child of a group is another group, it is possible that the
+# parent can take on the identity of the child group.
+# e.g. `!(!(a|b))` -> `@(a|b)`.
+# `{parent: {child: new_parent}}`
+EXT_PROMOTE = {
+    '@': {'?': '?', '*': '*', '+': '+', '!': '!'},
+    '?': {'@': '?', '*': '*', '+': '*'},
+    '*': {'@': '*'},
+    '+': {'@': '+', '?': '*', '*': '*'},
+    '!': {'@': '!', '!': '@'}
+}
+
+
+class ExtPromote(str):
+    """Promote extended group object."""
+
 
 class InvPlaceholder(str):
     """Placeholder for inverse pattern !(...)."""
@@ -277,16 +323,6 @@ class DotException(Exception):
 
 class PatternLimitException(Exception):
     """Pattern limit exception."""
-
-
-@overload
-def iter_patterns(patterns: str | Sequence[str]) -> Iterable[str]:
-    ...
-
-
-@overload
-def iter_patterns(patterns: bytes | Sequence[bytes]) -> Iterable[bytes]:
-    ...
 
 
 def iter_patterns(patterns: AnyStr | Sequence[AnyStr]) -> Iterable[AnyStr]:
@@ -307,17 +343,17 @@ def escape(pattern: AnyStr, unix: bool | None = None, pathname: bool = True) -> 
     """
 
     if isinstance(pattern, bytes):
-        drive_pat = RE_WIN_DRIVE[util.BYTES]  # type: Pattern[AnyStr]  # type: ignore[assignment]
-        magic = RE_MAGIC_ESCAPE[util.BYTES]  # type: Pattern[AnyStr]  # type: ignore[assignment]
-        drive_magic = RE_WIN_DRIVE_MAGIC[util.BYTES]  # type: Pattern[AnyStr]  # type: ignore[assignment]
+        drive_pat = RE_WIN_DRIVE[util.BYTES]  # type: Pattern[AnyStr]
+        magic = RE_MAGIC_ESCAPE[util.BYTES]  # type: Pattern[AnyStr]
+        drive_magic = RE_WIN_DRIVE_MAGIC[util.BYTES]  # type: Pattern[AnyStr]
         replace = br'\\\1'
         slash = b'\\'
         double_slash = b'\\\\'
         drive = b''
     else:
-        drive_pat = RE_WIN_DRIVE[util.UNICODE]  # type: ignore[assignment]
-        magic = RE_MAGIC_ESCAPE[util.UNICODE]  # type: ignore[assignment]
-        drive_magic = RE_WIN_DRIVE_MAGIC[util.UNICODE]  # type: ignore[assignment]
+        drive_pat = RE_WIN_DRIVE[util.UNICODE]
+        magic = RE_MAGIC_ESCAPE[util.UNICODE]
+        drive_magic = RE_WIN_DRIVE_MAGIC[util.UNICODE]
         replace = r'\\\1'
         slash = '\\'
         double_slash = '\\\\'
@@ -393,37 +429,33 @@ def _get_win_drive(
     return root_specified, drive, slash, end
 
 
-def _get_magic_symbols(pattern: AnyStr, unix: bool, flags: int) -> tuple[set[AnyStr], set[AnyStr]]:
+def _get_magic_symbols(
+    pattern: AnyStr,
+    unix: bool,
+    flags: int
+) -> tuple[set[AnyStr], set[AnyStr]]:
     """Get magic symbols."""
 
-    if isinstance(pattern, bytes):
-        ptype = util.BYTES
-        slash = b'\\'  # type: AnyStr
-    else:
-        ptype = util.UNICODE
-        slash = '\\'
-
-    if unix:
-        magic_drive = set()  # type: set[AnyStr]
-    else:
-        magic_drive = {slash}
-
-    magic = set(MAGIC_DEF[ptype])  # type: set[AnyStr]  # type: ignore[arg-type]
+    ptype = util.BYTES if isinstance(pattern, bytes) else util.UNICODE
+    magic_drive = set(MAGIC_UNIX_DRIVE[ptype] if unix else MAGIC_WIN_DRIVE[ptype])
+    magic = set(MAGIC_DEF[ptype])
     if flags & BRACE:
-        magic |= MAGIC_BRACE[ptype]  # type: ignore[arg-type]
-        magic_drive |= MAGIC_BRACE[ptype]  # type: ignore[arg-type]
+        magic |= MAGIC_BRACE[ptype]
+        magic_drive |= MAGIC_BRACE[ptype]
     if flags & SPLIT:
-        magic |= MAGIC_SPLIT[ptype]  # type: ignore[arg-type]
-        magic_drive |= MAGIC_SPLIT[ptype]  # type: ignore[arg-type]
+        magic |= MAGIC_SPLIT[ptype]
+        magic_drive |= MAGIC_SPLIT[ptype]
     if flags & GLOBTILDE:
-        magic |= MAGIC_TILDE[ptype]  # type: ignore[arg-type]
+        magic |= MAGIC_TILDE[ptype]
     if flags & EXTMATCH:
-        magic |= MAGIC_EXTMATCH[ptype]  # type: ignore[arg-type]
+        magic |= MAGIC_EXTMATCH[ptype]
+    if flags & NUMRANGE:
+        magic |= MAGIC_NUMRANGE[ptype]
     if flags & NEGATE:
         if flags & MINUSNEGATE:
-            magic |= MAGIC_MINUS_NEGATE[ptype]  # type: ignore[arg-type]
+            magic |= MAGIC_MINUS_NEGATE[ptype]
         else:
-            magic |= MAGIC_NEGATE[ptype]  # type: ignore[arg-type]
+            magic |= MAGIC_NEGATE[ptype]
 
     return magic, magic_drive
 
@@ -439,7 +471,7 @@ def is_magic(pattern: AnyStr, flags: int = 0) -> bool:
     else:
         ptype = util.UNICODE
 
-    drive_pat = RE_WIN_DRIVE[ptype]  # type: Pattern[AnyStr]  # type: ignore[assignment]
+    drive_pat = RE_WIN_DRIVE[ptype]  # type: Pattern[AnyStr]
 
     magic, magic_drive = _get_magic_symbols(pattern, unix, flags)
     is_path = flags & PATHNAME
@@ -518,8 +550,8 @@ def expand_tilde(pattern: AnyStr, is_unix: bool, flags: int) -> AnyStr:
 
     if pos > -1:
         string_type = util.BYTES if isinstance(pattern, bytes) else util.UNICODE
-        tilde = TILDE_SYM[string_type]  # type: AnyStr  # type: ignore[assignment]
-        re_tilde = RE_WIN_TILDE[string_type] if not is_unix else RE_TILDE[string_type]  # type: Pattern[AnyStr]  # type: ignore[assignment]
+        tilde = TILDE_SYM[string_type]  # type: AnyStr
+        re_tilde = RE_WIN_TILDE[string_type] if not is_unix else RE_TILDE[string_type]  # type: Pattern[AnyStr]
         m = re_tilde.match(pattern, pos)
         if m:
             expanded = os.path.expanduser(m.group(0))
@@ -588,26 +620,6 @@ def no_negate_flags(flags: int) -> int:
     return flags
 
 
-@overload
-def translate(
-    patterns: str | Sequence[str],
-    flags: int,
-    limit: int = PATTERN_LIMIT,
-    exclude: str | Sequence[str] | None = None
-) -> tuple[list[str], list[str]]:
-    ...
-
-
-@overload
-def translate(
-    patterns: bytes | Sequence[bytes],
-    flags: int,
-    limit: int = PATTERN_LIMIT,
-    exclude: bytes | Sequence[bytes] | None = None
-) -> tuple[list[bytes], list[bytes]]:
-    ...
-
-
 def translate(
     patterns: AnyStr | Sequence[AnyStr],
     flags: int,
@@ -621,7 +633,11 @@ def translate(
 
     if exclude is not None:
         flags = no_negate_flags(flags)
-        negative = translate(exclude, flags=flags | DOTMATCH | _NO_GLOBSTAR_CAPTURE, limit=limit)[0]
+        negative = translate(
+            exclude,
+            flags=flags | DOTMATCH | _NO_GLOBSTAR_CAPTURE,
+            limit=limit
+        )[0]
         limit -= len(negative)
 
     flags = (flags | _TRANSLATE) & FLAG_MASK
@@ -655,13 +671,11 @@ def translate(
     if negative and not positive:
         if flags & NEGATEALL:
             default = b'**' if isinstance(negative[0], bytes) else '**'
-            positive.append(
-                WcParse(default, flags | (GLOBSTAR if flags & PATHNAME else 0)).parse()
-            )
+            positive.append(WcParse(default, flags | (GLOBSTAR if flags & PATHNAME else 0)).parse())
 
     if positive and flags & NODIR:
         index = util.BYTES if isinstance(positive[0], bytes) else util.UNICODE
-        negative.append(_NO_NIX_DIR[index] if is_unix else _NO_WIN_DIR[index])  # type: ignore[arg-type]
+        negative.append(_NO_NIX_DIR[index] if is_unix else _NO_WIN_DIR[index])
 
     return positive, negative
 
@@ -673,26 +687,6 @@ def split(pattern: AnyStr, flags: int) -> Iterable[AnyStr]:
         yield from WcSplit(pattern, flags).split()
     else:
         yield pattern
-
-
-@overload
-def compile_pattern(
-    patterns: str | Sequence[str],
-    flags: int,
-    limit: int = PATTERN_LIMIT,
-    exclude: str | Sequence[str] | None = None
-) -> tuple[list[Pattern[str]], list[Pattern[str]]]:
-    ...
-
-
-@overload
-def compile_pattern(
-    patterns: bytes | Sequence[bytes],
-    flags: int,
-    limit: int = PATTERN_LIMIT,
-    exclude: bytes | Sequence[bytes] | None = None
-) -> tuple[list[Pattern[bytes]], list[Pattern[bytes]]]:
-    ...
 
 
 def compile_pattern(
@@ -745,29 +739,9 @@ def compile_pattern(
 
     if positive and flags & NODIR:
         ptype = util.BYTES if isinstance(positive[0].pattern, bytes) else util.UNICODE
-        negative.append(RE_NO_DIR[ptype] if is_unix else RE_WIN_NO_DIR[ptype])  # type: ignore[arg-type]
+        negative.append(RE_NO_DIR[ptype] if is_unix else RE_WIN_NO_DIR[ptype])
 
     return positive, negative
-
-
-@overload
-def compile(  # noqa: A001
-    patterns: str | Sequence[str],
-    flags: int,
-    limit: int = PATTERN_LIMIT,
-    exclude: str | Sequence[str] | None = None
-) -> WcRegexp[str]:
-    ...
-
-
-@overload
-def compile(  # noqa: A001
-    patterns: bytes | Sequence[bytes],
-    flags: int,
-    limit: int = PATTERN_LIMIT,
-    exclude: bytes | Sequence[bytes] | None = None
-) -> WcRegexp[bytes]:
-    ...
 
 
 def compile(  # noqa: A001
@@ -803,14 +777,15 @@ class WcSplit(Generic[AnyStr]):
         self.extend = bool(flags & EXTMATCH)
         self.unix = is_unix_style(flags)
         self.bslash_abort = not self.unix
+        self.bad_sequence = -1
 
     def _sequence(self, i: util.StringIter) -> None:
         """Handle character group."""
 
         c = next(i)
-        if c == '!':
+        if c in ('!', '^'):
             c = next(i)
-        if c in ('^', '-', '['):
+        if c in ('-', ']'):
             c = next(i)
 
         try:
@@ -821,6 +796,10 @@ class WcSplit(Generic[AnyStr]):
                 elif c == '/':
                     if self.pathname:
                         raise StopIteration
+                elif c == '[':
+                    m = i.match(RE_POSIX)
+                    if m:
+                        i.advance(m.end(0) - i.index)
                 c = next(i)
         except PathNameException as e:
             raise StopIteration from e
@@ -844,36 +823,46 @@ class WcSplit(Generic[AnyStr]):
     def parse_extend(self, c: str, i: util.StringIter) -> bool:
         """Parse extended pattern lists."""
 
-        # Start list parsing
-        success = True
         index = i.index
-        list_type = c
+
+        if not i.match(RE_EXT_GROUP):
+            i.rewind(i.index - index)
+            return False
+
+        success = True
+        bad_sequence = self.bad_sequence
+
+        # Start list parsing
         try:
-            c = next(i)
-            if c != '(':
-                raise StopIteration
             while c != ')':
                 c = next(i)
 
-                if self.extend and c in EXT_TYPES and self.parse_extend(c, i):
-                    continue
+                if not self.extend:
+                    raise StopIteration
+
+                #See if we should parse a nested extended pattern.
+                if c in EXT_TYPES:
+                    if self.parse_extend(c, i):
+                        continue
 
                 if c == '\\':
                     try:
                         self._references(i)
                     except StopIteration:
                         pass
-                elif c == '[':
-                    index = i.index
+                elif c == '[' and (self.bad_sequence == -1 or i.index > self.bad_sequence):
+                    index2 = i.index
                     try:
                         self._sequence(i)
                     except StopIteration:
-                        i.rewind(i.index - index)
+                        self.bad_sequence = i.index
+                        i.rewind(i.index - index2)
 
         except StopIteration:
             success = False
-            c = list_type
             i.rewind(i.index - index)
+            self.bad_sequence = bad_sequence
+            self.extend = False
 
         return success
 
@@ -898,11 +887,12 @@ class WcSplit(Generic[AnyStr]):
                     self._references(i)
                 except StopIteration:
                     i.rewind(i.index - index)
-            elif c == '[':
+            elif c == '[' and (self.bad_sequence == -1 or i.index > self.bad_sequence):
                 index = i.index
                 try:
                     self._sequence(i)
                 except StopIteration:
+                    self.bad_sequence = i.index
                     i.rewind(i.index - index)
 
         if start < len(pattern):
@@ -943,13 +933,16 @@ class WcParse(Generic[AnyStr]):
         self.extmatchbase = bool(flags & _EXTMATCHBASE)
         self.anchor = bool(flags & _ANCHOR)
         self.nodotdir = bool(flags & NODOTDIR)
-        self.capture = self.translate
+        self.numrange = bool(flags & NUMRANGE)
+        self.capture = self.translate and bool(flags & CAPTURE)
         self.case_sensitive = get_case(flags)
         self.in_list = False
         self.inv_nest = False
         self.flags = flags
         self.inv_ext = 0
         self.unix = is_unix_style(self.flags)
+        self.bad_sequence = -1
+        self.ext_empty = False
         if not self.unix:
             self.win_drive_detect = self.pathname
             self.char_avoid = (ord('\\'), ord('/'), ord('.'))  # type: tuple[int, ...]
@@ -1028,7 +1021,7 @@ class WcParse(Generic[AnyStr]):
 
     def _sequence_range_check(self, result: list[str], last: str) -> bool:
         """
-        If range backwards, remove it.
+        If range is backwards, remove it.
 
         A bad range will cause the regular expression to fail,
         so we need to remove it, but return that we removed it
@@ -1065,6 +1058,148 @@ class WcParse(Generic[AnyStr]):
                 result[-1] = '\\' + result[-1]
             result.append(posix.get_posix_property(m.group(1), self.is_bytes))
         return last_posix
+
+    def _digit_range_parts(self, lo: str, hi: str) -> Iterator[str]:
+        """Take two equal-length integer strings, return a list of regex fragments that combine to match the numbers."""
+
+        # Single digit number
+        if len(lo) == 1:
+            # Range of an exact numb
+            if lo == hi:
+                yield lo
+
+            # Range of single digit numbers.
+            else:
+                yield f"[{lo}-{hi}]"
+
+        # Range of an exact number.
+        elif lo == hi:
+            yield lo
+
+        # Two different, multi-digit numbers.
+        else:
+
+            lo_digit, lo_rest = lo[0], lo[1:]
+            hi_digit, hi_rest = hi[0], hi[1:]
+
+            # Identical digits
+            if lo_digit == hi_digit:
+                yield from ((lo_digit + s) for s in self._digit_range_parts(lo_rest, hi_rest))
+
+            # Different digits
+            else:
+                rest_len = len(lo_rest)
+                all_zeros = "0" * rest_len
+                all_nines = "9" * rest_len
+
+                # Low piece: `lo_digit` followed by `[lo_rest .. 999...9]`
+                # If `lo_digit` already covers the full span for the tail, fold it into middle.
+                if lo_rest == all_zeros:
+                    low_start = lo_digit
+                else:
+                    yield from (lo_digit + s for s in self._digit_range_parts(lo_rest, all_nines))
+                    low_start = str(int(lo_digit) + 1)
+
+                # High piece: `hi_digit` followed by `[000...0 .. hi_rest]`
+                # If `hi_digit` already covers the full span for the tail, fold it into middle.
+                if hi_rest == all_nines:
+                    high_end = hi_digit
+                else:
+                    yield from (hi_digit + s for s in self._digit_range_parts(all_zeros, hi_rest))
+                    high_end = str(int(hi_digit) - 1)
+
+                # Middle piece: any digit strictly between the adjusted bounds.
+                if low_start <= high_end:
+                    digit_part = low_start if low_start == high_end else f"[{low_start}-{high_end}]"
+                    if rest_len == 1:
+                        tail = "[0-9]"
+                    else:
+                        tail = f"[0-9]{{{rest_len}}}"
+                    yield digit_part + tail
+
+    def range_to_regex(
+        self,
+        mn: int | None = None,
+        mx: int | None = None,
+        leading_zeros: bool = True,
+        limit: int = 19
+    ) -> str:
+        """
+        Convert a non-negative minimum and maximum into a regular expression that matches the range.
+
+        A missing minimum is assumed to be zero and a missing maximum is any number greater than the
+        minimum. Leading zeros are automatically gathered as well.
+
+        A minimum that is greater than the maximum will return an impossible match.
+
+        Explicit values with greater than 19 digits will be truncated.
+        """
+
+        # If no start, zero is the start
+        if mn is None:
+            mn = 0
+
+        # Minimum should be less than the maximum, if not, return an impossible match.
+        if mx is not None and mn > mx:
+            return '(?!)'
+
+        # Minimum range up to an unspecified large number
+        if mx is None:
+            lo = str(mn)
+            lo_len = len(lo)
+
+            # Truncate to 19 digits like ZSH to prevent insanity
+            if lo_len > limit:
+                lo = lo[:limit]
+                lo_len = limit
+
+            parts = [part for part in self._digit_range_parts(lo, "9" * lo_len)]
+            parts.append(f"[1-9][0-9]{{{lo_len},}}")
+
+        # Bounded minimum and maximum
+        else:
+            lo, hi = str(mn), str(mx)
+            lo_len, hi_len = len(lo), len(hi)
+
+            # Truncate to 19 digits like ZSH to prevent insanity
+            if lo_len > limit:
+                lo = lo[:limit]
+                lo_len = limit
+            if hi_len > limit:
+                hi = hi[:limit]
+                hi_len = limit
+
+            if lo_len == hi_len:
+                ranges = [(lo, hi)]
+            else:
+                ranges = [(lo, "9" * lo_len)]
+                for length in range(lo_len + 1, hi_len):
+                    ranges.append(("1" + "0" * (length - 1), "9" * length))
+                ranges.append(("1" + "0" * (hi_len - 1), hi))
+
+            parts = []
+            for lo, hi in ranges:
+                parts.extend([part for part in self._digit_range_parts(lo, hi)])
+
+        # Join the parts together and wrap in a group if needed.
+        pattern = "|".join(parts)
+        if len(parts) > 1:
+            pattern = f"(?:{pattern})"
+
+        # Allow leading zeros.
+        if leading_zeros:
+            pattern = f"0*?{pattern}"
+
+        return pattern
+
+    def _handle_numrange(self, i: util.StringIter) -> str:
+        """Handle ZSH style number range."""
+
+        m = i.match_next(RE_NUM_RANGE)
+        if m:
+            start, end = [x.strip() for x in m.group(1).split('-')]
+            return self.range_to_regex(int(start) if start else None, int(end) if end else None)
+        return re.escape('<')
 
     def _sequence(self, i: util.StringIter) -> str:
         """Handle character group."""
@@ -1154,12 +1289,12 @@ class WcParse(Generic[AnyStr]):
             if value == '[]':
                 # We specified some ranges, but they are all
                 # out of reach.  Create an impossible sequence to match.
-                result = [f'[^{ASCII_RANGE if self.is_bytes else UNICODE_RANGE}]']
+                result = ['(?!)']
             elif value == '[^]':
-                # We specified some range, but hey are all
+                # We specified some range, but they are all
                 # out of reach. Since this is exclusive
                 # that means we can match *anything*.
-                result = [f'[{ASCII_RANGE if self.is_bytes else UNICODE_RANGE}]']
+                result = [r'[\s\S]']
             else:
                 result = [value]
 
@@ -1336,8 +1471,10 @@ class WcParse(Generic[AnyStr]):
                     # Use double star
                     value = globstar
 
-        if self.after_start and value != globstar:
-            value = self.need_char + value
+        if value != globstar:
+            if self.after_start:
+                value = self.need_char + value
+
             # Consume duplicate starts
             try:
                 c = next(i)
@@ -1371,7 +1508,7 @@ class WcParse(Generic[AnyStr]):
         Clean up current.
 
         Python doesn't have variable lookbehinds, so we have to do negative lookaheads.
-        !(...) when converted to regular expression is atomic, so once it matches, that's it.
+        `!(...)`, when converted to regular expression, is atomic, so once it matches, that's it.
         So we use the pattern `(?:(?!(?:stuff|to|exclude)<x>))[^/]*?)` where <x> is everything
         that comes after the negative group. `!(this|that)other` --> `(?:(?!(?:this|that)other))[^/]*?)`.
 
@@ -1397,39 +1534,55 @@ class WcParse(Generic[AnyStr]):
             index -= 1
         self.inv_ext = 0
 
-    def parse_extend(self, c: str, i: util.StringIter, current: list[str], reset_dot: bool = False) -> bool:
+    def parse_extend(
+        self,
+        c: str,
+        i: util.StringIter,
+        current: list[str],
+        reset_dot: bool = False,
+        parent: str = ''
+    ) -> bool:
         """Parse extended pattern lists."""
 
+        list_type = c
+        index = i.index
+
+        if not i.match(RE_EXT_GROUP):
+            i.rewind(i.index - index)
+            return False
+
         # Save state
+        temp_ext_empty = self.ext_empty
+        bad_sequence = self.bad_sequence
         temp_dir_start = self.dir_start
         temp_after_start = self.after_start
         temp_in_list = self.in_list
         temp_inv_ext = self.inv_ext
         temp_inv_nest = self.inv_nest
+        self.ext_empty = False
         self.in_list = True
-        self.inv_nest = c == '!'
+        self.inv_nest = list_type == '!'
 
         if reset_dot:
             self.match_dot_dir = False
 
         # Start list parsing
         success = True
-        index = i.index
-        list_type = c
         extended = []  # type: list[str]
 
         try:
-            c = next(i)
-            if c != '(':
-                raise StopIteration
-
             while c != ')':
                 c = next(i)
 
-                if self.extend and c in EXT_TYPES and self.parse_extend(c, i, extended):
-                    # Nothing more to do
-                    pass
-                elif c == '*':
+                if not self.extend:
+                    raise StopIteration
+
+                # See if we should parse a nested extended pattern.
+                if c in EXT_TYPES:
+                    if self.parse_extend(c, i, extended, parent=list_type):
+                        continue
+
+                if c == '*':
                     self._handle_star(i, extended)
                 elif c == '.':
                     self._handle_dot(i, extended)
@@ -1442,12 +1595,22 @@ class WcParse(Generic[AnyStr]):
                     if self.pathname:
                         extended.append(self._restrict_extended_slash())
                     extended.append(self.sep)
-                elif c == "|":
-                    if self.inv_nest:
-                        self.clean_up_inverse(extended, temp_inv_nest)
-                    extended.append(c)
+                elif c == '|':
+                    # Add a new slot, but avoid adding more empty slots if we have a known one
+                    if not extended or extended[-1] == '|':
+                        if not self.ext_empty:
+                            extended.append(c)
+                            self.ext_empty = True
+                    else:
+                        extended.append(c)
+                    # Gobble up any empty slots, but avoid adding redundant empty slots
+                    if i.match_next(RE_EMPTY_EXT_SLOTS) and not self.ext_empty:
+                        extended.append('|')
+                        self.ext_empty = True
                     if temp_after_start:
                         self.set_start_dir()
+                elif self.numrange and c == '<':
+                    extended.append(self._handle_numrange(i))
                 elif c == '\\':
                     try:
                         extended.append(self._references(i))
@@ -1457,11 +1620,12 @@ class WcParse(Generic[AnyStr]):
                         # We've reached the end.
                         # Do nothing because this is going to abort the `extmatch` anyways.
                         pass
-                elif c == '[':
+                elif c == '[' and (self.bad_sequence == -1 or i.index > self.bad_sequence):
                     subindex = i.index
                     try:
                         extended.append(self._sequence(i))
                     except StopIteration:
+                        self.bad_sequence = i.index
                         i.rewind(i.index - subindex)
                         extended.append(r'\[')
                 elif c != ')':
@@ -1469,7 +1633,59 @@ class WcParse(Generic[AnyStr]):
 
                 self.update_dir_state()
 
-            if list_type == '?':
+            # Pop extra pipe if we get an extra one.
+            if len(extended) > 1 and (extended[-1] == '|' == extended[-2]):
+                extended.pop(-1)
+
+            # See if the current content is going into it's own slot, by itself
+            # Additionally, determine if this group is the only child.
+
+            # At the start of a slot?
+            group_start = not current
+            slot_start = group_start or current[-1] == '|'
+            group_end = slot_end = False
+            try:
+                end = next(i)
+                group_end = end == ')'
+                slot_end = group_end or end == '|'
+                i.rewind(1)
+            except StopIteration:
+                pass
+            empty_slot = slot_start and slot_end
+            only_child = parent and group_start and group_end
+            ext_reduce = EXT_REDUCE[list_type]
+            promote_ext = EXT_PROMOTE.get(parent, {})
+
+            # Promote the group type to a different type before final processing.
+            # Child content has already been reduced into this parent.
+            if not self.capture and extended and isinstance(extended[-1], ExtPromote):
+                t = str(extended.pop(-1))
+                list_type = t
+                self.inv_nest = t == '!'
+
+            # Reduce child group into the parent and notify the parent type should change.
+            # Groups must be compatible. e.g. `!(!(a|b))` -> `@(a|b)`.
+            if not self.capture and only_child and list_type in promote_ext:
+                current.extend(extended)
+                t = promote_ext[list_type]
+                current.append(ExtPromote(t))
+                temp_in_list = False
+
+            # Reduce current group into parent group.
+            # When reducing extended groups  `+(a|@(b|c)|d)` -> `+(a|b|c|d)` for
+            # more efficient regular expressions. Nested group must occupy it's own
+            # slot. e.g. `+(a|@(b|c)|d)` not `+(a|test@(b|c)|d)`.
+            # Certain groups cannot be reduced without adding a blank entry.
+            elif not self.capture and parent in ext_reduce['parent'] and empty_slot:
+                current.extend(extended)
+                if parent in ext_reduce['empty'] and not temp_ext_empty:
+                    current.append('|')
+                    if not group_end:
+                        current.append('|')
+                    temp_ext_empty = True
+
+            # Finalize groups of varying types.
+            elif list_type == '?':
                 current.append((_QMARK_CAPTURE_GROUP if self.capture else _QMARK_GROUP).format(''.join(extended)))
             elif list_type == '*':
                 current.append((_STAR_CAPTURE_GROUP if self.capture else _STAR_GROUP).format(''.join(extended)))
@@ -1500,25 +1716,25 @@ class WcParse(Generic[AnyStr]):
                 # so we know which one to use
                 current.append(InvPlaceholder(star))
 
+            # Clean up nested inverse group placeholders and finalize the inverse lookaheads.
             if temp_in_list:
                 self.clean_up_inverse(current, temp_inv_nest and self.inv_nest)
 
         except StopIteration:
             success = False
-            self.inv_ext = temp_inv_ext
             i.rewind(i.index - index)
+            self.extend = False
+            self.inv_ext = temp_inv_ext
+            self.bad_sequence = bad_sequence
+            self.dir_start = temp_dir_start
+            self.after_start = temp_after_start
 
-        # Either restore if extend parsing failed, or reset if it worked
-        if not temp_in_list:
-            self.in_list = False
-        if not temp_inv_nest:
-            self.inv_nest = False
+        self.in_list = temp_in_list
+        self.inv_nest = temp_inv_nest
+        self.ext_empty = temp_ext_empty
 
         if success:
             self.reset_dir_track()
-        else:
-            self.dir_start = temp_dir_start
-            self.after_start = temp_after_start
 
         return success
 
@@ -1581,10 +1797,12 @@ class WcParse(Generic[AnyStr]):
         for c in i:
 
             index = i.index
+
             if self.extend and c in EXT_TYPES and self.parse_extend(c, i, current, True):
-                # Nothing to do
-                pass
-            elif c == '.':
+                self.update_dir_state()
+                continue
+
+            if c == '.':
                 self._handle_dot(i, current)
             elif c == '*':
                 self._handle_star(i, current)
@@ -1599,6 +1817,8 @@ class WcParse(Generic[AnyStr]):
                     self.matchbase = False
                 else:
                     current.append(self.sep)
+            elif self.numrange and c == '<':
+                current.append(self._handle_numrange(i))
             elif c == '\\':
                 index = i.index
                 try:
@@ -1613,11 +1833,12 @@ class WcParse(Generic[AnyStr]):
                 except StopIteration:
                     # Escapes nothing, ignore
                     i.rewind(i.index - index)
-            elif c == '[':
+            elif c == '[' and (self.bad_sequence == -1 or i.index > self.bad_sequence):
                 index = i.index
                 try:
                     current.append(self._sequence(i))
                 except StopIteration:
+                    self.bad_sequence = i.index
                     i.rewind(i.index - index)
                     current.append(re.escape(c))
             else:

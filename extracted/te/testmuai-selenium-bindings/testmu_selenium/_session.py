@@ -12,16 +12,23 @@ HyperExecute classifies the scenario as "skipped" regardless of exit code
 so HE returned `total_tests:0, status:"skipped"`). Mirrors V2 Selenium's emit of
 `driver.execute_script(f"lambda-status={status}")` and V4
 playwright's `set_test_status(page, status, remark)` convention.
+
+After status reporting and before `driver.quit()`, cloud runs with video
+enabled get a best-effort settle window (see `_settle_before_teardown`) so
+the grid's video encoder can flush the final action's frames before the
+session tears down.
 """
 import logging
 import os
 import platform
+import time
 from typing import Callable
 from selenium import webdriver
+from selenium.webdriver.support.ui import WebDriverWait
 
 from testmu_selenium import _config
 from testmu_selenium._config import _config as _config_dict
-from testmu_selenium._capability import build_capability
+from testmu_selenium._capability import _bool_he, build_capability
 from testmu_selenium._helpers.driver import _set_driver, _clear_drivers
 from testmu_selenium._route_failure import (
     _has_pending_failures,
@@ -78,6 +85,41 @@ def _report_lambda_status(driver, status: str, remark: str) -> None:
         driver.execute_script(f"lambda-status={status}")
     except Exception as e:  # noqa: BLE001 — never propagate reporter errors
         logger.warning("[testmu] failed to report LT test status: %s", e)
+
+
+def _settle_before_teardown(driver) -> None:
+    """Best-effort settle window before ``driver.quit()`` so the grid's video
+    encoder can flush the final action's frames.
+
+    On the LambdaTest grid (capability ``video:true``), ``driver.quit()``
+    firing immediately after the verdict is reported gives the grid-side
+    encoder no time to flush — the session VIDEO recording blacks out before
+    the last action is visible (regression repro: last steps missing from
+    the recording despite the test itself passing). No-op for the local run
+    target or when video recording is disabled — there's no grid-side
+    encoder to protect in either case.
+
+    Called from ``run()``'s ``finally`` block, so this must never raise or
+    replace the test verdict/exception already in flight; every step here is
+    best-effort and swallows its own errors.
+
+    Args:
+        driver: Selenium WebDriver instance about to be torn down.
+    """
+    if _config.run_target != "cloud" or not _bool_he("VIDEO", True):
+        return
+
+    idle_timeout_ms = int(os.getenv("TESTMU_TEARDOWN_IDLE_TIMEOUT_MS", "5000"))
+    try:
+        WebDriverWait(driver, idle_timeout_ms / 1000.0).until(
+            lambda d: d.execute_script("return document.readyState") == "complete"
+        )
+    except Exception as e:  # noqa: BLE001 — session may already be gone; teardown must proceed
+        logger.warning("[testmu] settle wait-for-idle failed: %s", e)
+
+    drain_ms = int(os.getenv("TESTMU_TEARDOWN_VIDEO_DRAIN_MS", "2000"))
+    if drain_ms > 0:
+        time.sleep(drain_ms / 1000.0)
 
 
 def _create_local_driver():
@@ -224,6 +266,7 @@ def run(fn: Callable, profile: str = "default") -> None:
         _report_lambda_status(driver, "failed", str(e))
         raise
     finally:
+        _settle_before_teardown(driver)
         try:
             driver.quit()
         except Exception as e:

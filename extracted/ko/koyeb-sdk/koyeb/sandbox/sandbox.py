@@ -18,6 +18,9 @@ from koyeb.api.exceptions import ApiException, NotFoundException
 from koyeb.api.models.create_app import AppLifeCycle, CreateApp
 from koyeb.api.models.create_service import CreateService, ServiceLifeCycle
 from koyeb.api.models.deployment_status import DeploymentStatus
+from koyeb.api.models.egress_policy import EgressPolicy
+from koyeb.api.models.egress_policy_mode import EgressPolicyMode
+from koyeb.api.models.network_policy import NetworkPolicy
 from koyeb.api.models.update_service import UpdateService
 
 from .executor_client import ConnectionInfo
@@ -28,6 +31,7 @@ from .utils import (
     SandboxError,
     SandboxTimeoutError,
     build_config_files,
+    build_network_policy,
     build_env_vars,
     create_deployment_definition,
     create_docker_source,
@@ -54,9 +58,9 @@ class ProcessInfo:
     pid: Optional[int] = None  # OS process ID (if running)
     exit_code: Optional[int] = None  # Exit code (if completed)
     started_at: Optional[str] = None  # ISO 8601 timestamp when process started
-    completed_at: Optional[str] = (
-        None  # ISO 8601 timestamp when process completed (if applicable)
-    )
+    completed_at: Optional[
+        str
+    ] = None  # ISO 8601 timestamp when process completed (if applicable)
 
 
 @dataclass
@@ -137,6 +141,8 @@ class Sandbox:
         command: Optional[str] = None,
         args: Optional[List[str]] = None,
         host: Optional[str] = None,
+        block_network: bool = False,
+        outbound_allowlist: Optional[List[str]] = None,
     ) -> Sandbox:
         """
             Create a new sandbox instance.
@@ -178,6 +184,10 @@ class Sandbox:
                 entrypoint: Override the default entrypoint of the Docker image (e.g., ["/bin/sh", "-c"])
                 command: Override the default command of the Docker image (e.g., "python app.py")
                 host: Koyeb API host URL. If not provided, will try to get from KOYEB_API_HOST env var (defaults to https://app.koyeb.com)
+                block_network: If True, block all outbound network access from the sandbox
+                outbound_allowlist: List of IPs/CIDRs allowed as outbound destinations;
+                    all other outbound traffic is blocked. Bare IPs are normalized to
+                    /32 (IPv4) or /128 (IPv6). Mutually exclusive with block_network.
 
         Returns:
                 Sandbox: A new Sandbox instance
@@ -185,6 +195,8 @@ class Sandbox:
         Raises:
                 ValueError: If API token is not provided
                 SandboxTimeoutError: If wait_ready is True and sandbox does not become ready within timeout
+                EgressPolicyError: If both block_network and outbound_allowlist are passed,
+                    or an allowlist entry is not a valid IP address or CIDR
 
         Example:
             >>> # Public image (default)
@@ -228,6 +240,8 @@ class Sandbox:
             command=command,
             args=args,
             host=host,
+            block_network=block_network,
+            outbound_allowlist=outbound_allowlist,
         )
 
         if wait_ready:
@@ -268,11 +282,14 @@ class Sandbox:
         command: Optional[str] = None,
         args: Optional[List[str]] = None,
         host: Optional[str] = None,
+        block_network: bool = False,
+        outbound_allowlist: Optional[List[str]] = None,
     ) -> Sandbox:
         """
         Synchronous creation method that returns creation parameters.
         Subclasses can override to return their own type.
         """
+        network_policy = build_network_policy(block_network, outbound_allowlist)
 
         clients = get_api_clients(api_token, host)
         apps_api = clients.apps
@@ -302,8 +319,12 @@ class Sandbox:
         env_vars = build_env_vars(env)
         config_file_objects = build_config_files(config_files)
         docker_source = create_docker_source(
-            image, privileged=privileged, image_registry_secret=registry_secret,
-            entrypoint=entrypoint, command=command, args=args,
+            image,
+            privileged=privileged,
+            image_registry_secret=registry_secret,
+            entrypoint=entrypoint,
+            command=command,
+            args=args,
         )
 
         deployment_definition = create_deployment_definition(
@@ -320,6 +341,7 @@ class Sandbox:
             _experimental_deep_sleep_value=_experimental_deep_sleep_value,
             enable_mesh=enable_mesh,
             config_files=config_file_objects if config_file_objects else None,
+            network_policy=network_policy,
         )
 
         service_life_cycle = ServiceLifeCycle(
@@ -1102,6 +1124,68 @@ class Sandbox:
                 raise
             raise SandboxError(f"Failed to update life cycle: {str(e)}") from e
 
+    def update_network_policy(
+        self,
+        block_network: bool = False,
+        outbound_allowlist: Optional[List[str]] = None,
+    ) -> None:
+        """
+        Update the sandbox's network policy.
+
+        Warning: applying a new network policy triggers a redeployment of the
+        sandbox service. The sandbox is restarted and any in-memory or
+        non-persisted state is lost. This method does not wait for the
+        redeployment to finish.
+
+        Args:
+            block_network: If True, block all outbound network access from the sandbox
+            outbound_allowlist: List of IPs/CIDRs allowed as outbound destinations;
+                all other outbound traffic is blocked. Bare IPs are normalized to
+                /32 (IPv4) or /128 (IPv6). Mutually exclusive with block_network.
+
+        With both arguments unset, the network policy is reset to the
+        platform default (unrestricted outbound access).
+
+        Raises:
+            EgressPolicyError: If both block_network and outbound_allowlist are
+                passed, or an allowlist entry is not a valid IP address or CIDR
+            SandboxError: If updating the network policy fails
+
+        Example:
+            >>> sandbox.update_network_policy(block_network=True)
+            >>> sandbox.update_network_policy(outbound_allowlist=["10.0.0.0/8", "1.2.3.4"])
+            >>> sandbox.update_network_policy()  # reset to unrestricted
+        """
+        network_policy = build_network_policy(block_network, outbound_allowlist)
+        if network_policy is None:
+            network_policy = NetworkPolicy(
+                egress=EgressPolicy(mode=EgressPolicyMode.EGRESS_POLICY_MODE_DEFAULT)
+            )
+        try:
+            clients = get_api_clients(self.api_token)
+            services_api = clients.services
+            deployments_api = clients.deployments
+            service_response = services_api.get_service(self.service_id)
+            service = service_response.service
+
+            if not service:
+                raise SandboxError("Sandbox service not found")
+
+            deployment_response = deployments_api.get_deployment(
+                service.latest_deployment_id
+            )
+            definition = deployment_response.deployment.definition
+            definition.network_policy = network_policy
+
+            services_api.update_service(
+                id=self.service_id,
+                service=UpdateService(definition=definition),
+            )
+        except Exception as e:
+            if isinstance(e, SandboxError):
+                raise
+            raise SandboxError(f"Failed to update network policy: {str(e)}")
+
     def __enter__(self) -> "Sandbox":
         """Context manager entry - returns self."""
         return self
@@ -1265,6 +1349,8 @@ class AsyncSandbox(Sandbox):
         command: Optional[str] = None,
         args: Optional[List[str]] = None,
         host: Optional[str] = None,
+        block_network: bool = False,
+        outbound_allowlist: Optional[List[str]] = None,
     ) -> AsyncSandbox:
         """
             Create a new sandbox instance with async support.
@@ -1308,6 +1394,10 @@ class AsyncSandbox(Sandbox):
                 entrypoint: Override the default entrypoint of the Docker image (e.g., ["/bin/sh", "-c"])
                 command: Override the default command of the Docker image (e.g., "python app.py")
                 host: Koyeb API host URL. If not provided, will try to get from KOYEB_API_HOST env var (defaults to https://app.koyeb.com)
+                block_network: If True, block all outbound network access from the sandbox
+                outbound_allowlist: List of IPs/CIDRs allowed as outbound destinations;
+                    all other outbound traffic is blocked. Bare IPs are normalized to
+                    /32 (IPv4) or /128 (IPv6). Mutually exclusive with block_network.
 
         Returns:
                 AsyncSandbox: A new AsyncSandbox instance
@@ -1315,6 +1405,8 @@ class AsyncSandbox(Sandbox):
         Raises:
                 ValueError: If API token is not provided
                 SandboxTimeoutError: If wait_ready is True and sandbox does not become ready within timeout
+                EgressPolicyError: If both block_network and outbound_allowlist are passed,
+                    or an allowlist entry is not a valid IP address or CIDR
         """
         if api_token is None:
             api_token = os.getenv("KOYEB_API_TOKEN")
@@ -1323,11 +1415,15 @@ class AsyncSandbox(Sandbox):
                     "API token is required. Set KOYEB_API_TOKEN environment variable or pass api_token parameter"
                 )
 
-        from .utils import get_async_api_clients
+        from .utils import get_async_api_clients, build_network_policy
         from koyeb.api_async.models.create_app import CreateApp as AsyncCreateApp
         from koyeb.api_async.models.create_app import AppLifeCycle as AsyncAppLifeCycle
         from koyeb.api_async.models.create_service import CreateService as AsyncCreateService
         from koyeb.api_async.models.create_service import ServiceLifeCycle as AsyncServiceLifeCycle
+
+        # Build the network policy from the provided parameters. Validate before
+        # any API call so invalid input fails fast without orphaning an app.
+        network_policy = build_network_policy(block_network, outbound_allowlist)
 
         clients = get_async_api_clients(api_token, host)
 
@@ -1373,6 +1469,7 @@ class AsyncSandbox(Sandbox):
             _experimental_deep_sleep_value=_experimental_deep_sleep_value,
             enable_mesh=enable_mesh,
             config_files=config_file_objects if config_file_objects else None,
+            network_policy=network_policy,
         )
 
         service_life_cycle = AsyncServiceLifeCycle(
@@ -1723,6 +1820,66 @@ class AsyncSandbox(Sandbox):
             if isinstance(e, SandboxError):
                 raise
             raise SandboxError(f"Failed to update life cycle: {str(e)}") from e
+
+    async def update_network_policy(
+        self,
+        block_network: bool = False,
+        outbound_allowlist: Optional[List[str]] = None,
+    ) -> None:
+        """Update the sandbox's network policy asynchronously.
+
+        Warning: applying a new network policy triggers a redeployment of the
+        sandbox service. The sandbox is restarted and any in-memory or
+        non-persisted state is lost. This method does not wait for the
+        redeployment to finish.
+
+        See Sandbox.update_network_policy for full documentation.
+
+        Raises:
+            EgressPolicyError: If both block_network and outbound_allowlist are
+                passed, or an allowlist entry is not a valid IP address or CIDR
+            SandboxError: If updating the network policy fails
+        """
+        from .utils import get_async_api_clients, build_network_policy
+        from koyeb.api_async.models.network_policy import NetworkPolicy as AsyncNetworkPolicy
+        from koyeb.api_async.models.egress_policy import EgressPolicy as AsyncEgressPolicy
+        from koyeb.api_async.models.egress_policy_mode import (
+            EgressPolicyMode as AsyncEgressPolicyMode,
+        )
+        from koyeb.api_async.models.update_service import UpdateService as AsyncUpdateService
+
+        sync_policy = build_network_policy(block_network, outbound_allowlist)
+        if sync_policy is None:
+            network_policy = AsyncNetworkPolicy(
+                egress=AsyncEgressPolicy(
+                    mode=AsyncEgressPolicyMode.EGRESS_POLICY_MODE_DEFAULT
+                )
+            )
+        else:
+            network_policy = AsyncNetworkPolicy.from_dict(sync_policy.to_dict())
+
+        try:
+            clients = get_async_api_clients(self.api_token, self.host)
+            service_response = await clients.services.get_service(self.service_id)
+            service = service_response.service
+
+            if not service:
+                raise SandboxError("Sandbox service not found")
+
+            deployment_response = await clients.deployments.get_deployment(
+                service.latest_deployment_id
+            )
+            definition = deployment_response.deployment.definition
+            definition.network_policy = network_policy
+
+            await clients.services.update_service(
+                id=self.service_id,
+                service=AsyncUpdateService(definition=definition),
+            )
+        except Exception as e:
+            if isinstance(e, SandboxError):
+                raise
+            raise SandboxError(f"Failed to update network policy: {str(e)}") from e
 
     async def __aenter__(self) -> "AsyncSandbox":
         """Async context manager entry - returns self."""

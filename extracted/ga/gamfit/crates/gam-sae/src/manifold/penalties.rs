@@ -1,6 +1,135 @@
 use super::*;
 use gam_linalg::faer_ndarray::FaerSvd;
 
+/// #1610 / Jeffreys — one co-firing connected component of the SAE decoder
+/// Jeffreys prior. The anti-collapse penalty is the Jeffreys prior on the
+/// dictionary, `π(B) ∝ √det F(B)`, i.e. `−½·log det F`, where `F = Q ∘ O` is the
+/// data-weighted Fisher information of the co-active atom directions:
+///
+/// ```text
+///   O[j,k] = ⟨B_jᵀB_j, B_kᵀB_k⟩_F / (‖B_jᵀB_j‖_F·‖B_kᵀB_k‖_F) = o_jk   (decoder
+///            subspace overlap, a genuine Frobenius cosine of the PSD self-Grams,
+///            so O is a PSD correlation matrix with unit diagonal),
+///   Q[j,k] = q_jk  (normalized routing coactivation = cosine of the atoms'
+///            activation-mass vectors, also PSD with unit diagonal, frozen per
+///            assembly), and `∘` is the Hadamard product.
+/// ```
+///
+/// `F = Q ∘ O` is PSD with unit diagonal by the Schur product theorem, so
+/// `det F ∈ (0, 1]` and `−½·log det F ≥ 0`, vanishing exactly when the co-active
+/// atoms are mutually orthogonal and diverging as any co-firing pair aligns
+/// (`det F → 0`). This is the honest multi-atom object of which the historical
+/// pairwise barrier `−μ·q·w(o)·log(1−o+ε)` was only the `K = 2` shadow
+/// (`det[[1,r],[r,1]] = 1 − r²`, `r = q·o`): the Jeffreys exponent `½` is fixed —
+/// there is no free strength `μ_C` — and it is the exact reparametrization-
+/// invariant counter-term to the Laplace evidence's `+½·log(volume)` collapse
+/// reward. Because a pair that never co-fires has `q_jk = 0`, `Q` is block
+/// diagonal across co-firing components and `det F` factorizes over them: atoms
+/// that never fire together contribute a determinant factor of exactly `1` (zero
+/// interaction — automatic sharing at `K ≫ p`). We therefore assemble the
+/// penalty per co-firing connected component (the "routed-support blocks"), never
+/// a dense `K × K` Gram.
+///
+/// OCCUPANCY SCALING (the collapse-RANKING fix). The bare `−½·log det(F + εI)`
+/// is O(1): it saturates at `−½·s·log ε` no matter how much data co-fired, while
+/// the Laplace evidence's collapse REWARD is EXTENSIVE in the data — every
+/// co-fired row's likelihood flattens in the aligning direction, so the log-det
+/// volume the collapse harvests from `−½·log|H|` (with `H ≈ N_eff·F ⊗ Ḡ`) and the
+/// `½·d·log N_eff` dimension refund both grow with `N_eff`. An O(1) prior can
+/// therefore never re-rank a collapse basin at scale (measured on real
+/// activations: collapse basins hundreds of nats BELOW real structure within
+/// `dρ ≈ 0.01`). The honest Jeffreys prior must be taken over the TOTAL Fisher
+/// information of the co-fired data, not the per-observation one: a component `C`
+/// whose atoms co-fire on `N_eff,C` effective rows carries total co-active
+/// information `N_eff,C · F_C`, and the reparametrization-invariant volume
+/// deficit of that block relative to independence is `N_eff,C · log det F_C`
+/// (each effective co-fired observation loses `log det F_C` nats of Fisher
+/// log-volume to the overlap). The barrier is therefore the OCCUPANCY-SCALED
+/// Jeffreys
+///
+/// ```text
+///   P = −½ · Σ_C n_C · log det(F_C + ε_C·I),    n_C = N_eff,C = mean_{k∈C} N_eff,k,
+///   N_eff,k = Σ_{i∈J_k} a_ik²   (the SAME summed-squared-gate currency the rank
+///                                charge / `fisher_n` uses, over the SAME truncated
+///                                active support as q's denominators),
+/// ```
+///
+/// which prices collapse in exactly the currency the Laplace `½·d·log N_eff`
+/// prices dimensions: at exact collapse of one direction the cost is
+/// `½·N_eff,C·log(1/ε_C)`, extensive in the co-fired data, so destroying
+/// structure that `N` effective rows support always costs more evidence than the
+/// `½·Δd·log N` refund the collapse buys — the ordering flips for every `N`.
+///
+/// DATA-DERIVED SOFTENING `ε_C` (no magic constant). `F`'s off-diagonals `q·o`
+/// carry the sampling noise of the occupancy cosine `q̂` estimated from the
+/// component's co-fired rows: the Fisher variance of a correlation-type
+/// estimator from `N` effective samples is `(1−q²)²/N ≤ 1/N`. An `s × s`
+/// symmetric perturbation with independent entry noise of std `σ = 1/√N` has
+/// spectral norm concentrating at the Wigner/MP bulk edge `2σ√s`, and by Weyl
+/// `|λ̂_i − λ_i| ≤ ‖E‖₂`, so an eigenvalue of `F` below
+///
+/// ```text
+///   ε_C = 2·√(s / min_{k∈C} N_eff,k)
+/// ```
+///
+/// is statistically indistinguishable from an exactly-collapsed direction. The
+/// interior-point shift `F + ε_C·I` therefore saturates the barrier precisely at
+/// the data's own resolution limit — the same MP-bulk-edge construction the rank
+/// charge uses for its reconstruction spectrum (`R·(1+√(p/N_eff))²`), with
+/// dispersion `R ≡ 1` because `F` is unit-diagonal (a self-normalized
+/// correlation; the residual-dispersion seam the rank charge needs for its
+/// data-unit spectrum has no unit to contribute here). `min` (not mean) bounds
+/// the worst-case entry noise, so `ε_C` is an honest resolution floor for every
+/// edge in the component. With no effective co-fired data (`N_eff → 0`) the
+/// floor exceeds the whole spectrum and `n_C → 0`: the barrier honestly abstains
+/// — collapse of atoms no data supports carries no evidence cost.
+///
+/// Local edge indices `jl, kl` index into the owning component's `atoms`.
+struct BarrierComponent {
+    /// Global atom indices spanned by this component.
+    atoms: Vec<usize>,
+    /// Co-firing edges among `atoms`.
+    edges: Vec<BarrierEdge>,
+    /// Occupancy scale `n_C = mean_{k∈C} N_eff,k` multiplying this component's
+    /// `−½·log det(F + ε_C·I)` in value, gradient, and curvature alike (the
+    /// three consumers read THIS field, so they can never desync).
+    n_scale: f64,
+    /// Data-derived interior-point softening `ε_C = 2·√(s / min_{k∈C} N_eff,k)`,
+    /// the Wigner/MP bulk edge of the coactivation estimation noise (see above).
+    eps: f64,
+}
+
+/// Per-assembly FROZEN separation-barrier support (see
+/// [`SaeManifoldTerm::refresh_barrier_coactivation_gate`]): the co-firing pairs
+/// `(j, k, q_jk)` AND the per-atom effective sample sizes
+/// `N_eff,k = Σ_{i∈J_k} a_ik²`, both read from ONE truncated-support scan of the
+/// routing so the Jeffreys Fisher's weights `Q`, its occupancy scale `n_C`, and
+/// its softening `ε_C` are mutually consistent and all frozen at the same
+/// chokepoint (lagged diffusivity — the gradient treats all three as constants,
+/// so the line-search value must too).
+#[derive(Clone, Debug)]
+pub(crate) struct BarrierCoactivationGate {
+    /// Co-firing pairs `(j, k, q_jk)`, `j < k`, `q_jk ∈ (0, 1]`.
+    pub(crate) pairs: Vec<(usize, usize, f64)>,
+    /// Per-atom `N_eff,k` over the SAME truncated active support as `q`'s
+    /// denominators (length `k_atoms`).
+    pub(crate) atom_neff: Vec<f64>,
+}
+
+/// One co-firing edge of a [`BarrierComponent`].
+struct BarrierEdge {
+    /// Global atom indices of the two endpoints (`j < k`).
+    j: usize,
+    k: usize,
+    /// Local indices into the owning component's `atoms`.
+    jl: usize,
+    kl: usize,
+    /// Frozen normalized coactivation `q_jk ∈ [0, 1]`.
+    q: f64,
+    /// Live rank-aware decoder subspace overlap `o_jk ∈ [0, 1]`.
+    o: f64,
+}
+
 impl SaeManifoldTerm {
     pub(crate) fn live_decoder_incoherence_penalty(
         &self,
@@ -180,26 +309,28 @@ impl SaeManifoldTerm {
     /// `q_jk` at assembly entry, the analog of [`Self::refresh_decoder_repulsion_gate`]
     /// for the #1522 collapse-prevention barrier.
     ///
-    /// The barrier energy `P_sep = μ_C·Σ_{j<k} −q_jk·log(1−c_jk²+ε)` weights the
-    /// per-pair decoder-shape repulsion by the routing coactivation
-    /// `q_jk = (Σ_i a_ij a_ik)/√(Σa_ij²·Σa_ik²)`. That coactivation is a function
-    /// of the assignment masses `a_ik` (hence the logits the inner Newton solve
-    /// moves), but the barrier's gradient assembly differentiates ONLY the decoder
-    /// shape `c_jk²` — it consumes `q_jk` as a constant multiplicative weight (the
-    /// `α = μ q_jk/(1−c²+ε)` prefactor). Recomputing `q_jk` from the trial logits
-    /// in the line-search VALUE while the GRADIENT held it fixed is a value/gradient
+    /// The Jeffreys barrier energy `−½·log det(Q ∘ O)` (see [`BarrierComponent`])
+    /// weights each co-firing edge of its data-weighted Fisher `F = Q ∘ O` by the
+    /// routing coactivation `q_jk = (Σ_i a_ij a_ik)/√(Σa_ij²·Σa_ik²)`. That
+    /// coactivation is a function of the assignment masses `a_ik` (hence the logits
+    /// the inner Newton solve moves), but the barrier's gradient assembly
+    /// differentiates ONLY the decoder overlaps `o_jk` — it consumes `q_jk` as a
+    /// constant weight in `F`. Recomputing `q_jk` from the trial logits in the
+    /// line-search VALUE while the GRADIENT held it fixed is a value/gradient
     /// desync: the value sees a logit force the Newton step never modelled, so the
     /// inner solve cannot reach KKT stationarity in the logit block and the undamped
     /// evidence solve refuses to rank an off-optimum Laplace criterion (#1625). It
     /// is also the WRONG semantics for a collapse-prevention barrier — an atom pair
     /// must separate its decoder SHAPES, not merely route apart to dodge the
-    /// measurement, or the decoders could collapse while the routing hides it.
+    /// measurement. (Routing-hidden duplicates — near-identical decoders that route
+    /// APART to escape a coactivation-weighted force — are reclassified as
+    /// redundancy under the structure search's fusion move; see the report.)
     ///
     /// Freezing `q_jk` here (lagged-diffusivity, at the SAME chokepoint as the
     /// smoothness Gram and the repulsion gate) makes the barrier a pure function of
-    /// the decoder shapes within a Newton step: value, gradient, and curvature all
+    /// the decoder overlaps within a Newton step: value, gradient, and curvature all
     /// read this frozen weight, so they stay mutually consistent across the line
-    /// search while the decoder cross-Gram `c_jk²` still moves with the trial. The
+    /// search while the decoder Grams (hence `O`) still move with the trial. The
     /// weight is refreshed every assembly, so across outer iterations it tracks the
     /// converging routing exactly (a self-consistent fixed point), never lagging by
     /// more than the one in-flight step the repulsion gate also lags. `None` when no
@@ -211,63 +342,40 @@ impl SaeManifoldTerm {
             self.barrier_coactivation_gate = None;
             return;
         }
-        let pairs = self.barrier_coactive_pairs();
+        let (pairs, atom_neff) = self.barrier_coactive_support();
         if pairs.is_empty() {
             self.barrier_coactivation_gate = None;
             return;
         }
-        // #1610 — freeze the EVIDENCE-DERIVED per-pair strength `μ_jk` alongside
-        // `q_jk`. `μ_jk` is a function of the frozen design (chart basis + routing)
-        // only (see `barrier_pair_strength`), so it is constant across the inner
-        // line search and is computed once here rather than per trial. The gates
-        // are read once and shared across every pair's strength computation. The #2
-        // collinearity gate `w(o_jk)` is deliberately NOT frozen here — it is a
-        // function of the decoder shapes the barrier is actively separating, so it
-        // stays LIVE and differentiated in the value/gradient (like the
-        // interior-point term), the same design as before this fix.
-        let gates = self.assignment.assignments();
-        let frozen: Vec<(usize, usize, f64, f64)> = pairs
-            .into_iter()
-            .map(|(j, k, q)| {
-                (
-                    j,
-                    k,
-                    q,
-                    self.barrier_pair_strength_with_gates(gates.view(), j, k),
-                )
-            })
-            .collect();
-        self.barrier_coactivation_gate = Some(frozen);
+        // The Jeffreys barrier freezes the ROUTING-derived quantities only: the
+        // coactivation weights `q_jk` AND the per-atom effective sample sizes
+        // `N_eff,k` (which set the occupancy scale `n_C` and the softening `ε_C`
+        // of every component — see [`BarrierComponent`]). The whole strength is
+        // the fixed Jeffreys exponent `½` (no evidence-derived `μ_jk` to freeze).
+        // The decoder overlaps `o_jk` are deliberately NOT frozen — they are the
+        // shapes the barrier is actively separating, so they stay LIVE and
+        // differentiated in the value/gradient/curvature.
+        self.barrier_coactivation_gate = Some(BarrierCoactivationGate { pairs, atom_neff });
     }
 
-    /// #1625 — the SEPARATION barrier's coactivation pairs `(j, k, q_jk)`,
-    /// preferring the per-assembly FROZEN weights ([`Self::barrier_coactivation_gate`])
-    /// when present so the value and gradient seams differentiate the SAME `q_jk`
-    /// across a Newton step (see [`Self::refresh_barrier_coactivation_gate`]). Falls
-    /// back to the LIVE [`Self::barrier_coactive_pairs`] for standalone calls made
-    /// outside an inner-solve assembly (e.g. the #1522 prevention-vs-bandaid test
-    /// and the owed-1026 FD battery), which evaluate value and gradient at one and
-    /// the same state and so are self-consistent either way.
-    pub(crate) fn barrier_coactivation_pairs(&self) -> Vec<(usize, usize, f64, f64)> {
+    /// #1625 — the SEPARATION barrier's routing support: the coactivation pairs
+    /// `(j, k, q_jk)` and the per-atom effective sample sizes `N_eff,k`,
+    /// preferring the per-assembly FROZEN gate ([`Self::barrier_coactivation_gate`])
+    /// when present so the value and gradient seams read the SAME `q_jk`, the SAME
+    /// occupancy scale `n_C`, and the SAME softening `ε_C` across a Newton step
+    /// (see [`Self::refresh_barrier_coactivation_gate`]). Falls back to the LIVE
+    /// [`Self::barrier_coactive_support`] for standalone calls made outside an
+    /// inner-solve assembly (e.g. the #1522 prevention-vs-bandaid test and the
+    /// owed-1026 FD battery), which evaluate value and gradient at one and the
+    /// same state and so are self-consistent either way.
+    pub(crate) fn barrier_coactivation_pairs(&self) -> (Vec<(usize, usize, f64)>, Vec<f64>) {
         match &self.barrier_coactivation_gate {
-            Some(pairs) => pairs.clone(),
+            Some(gate) => (gate.pairs.clone(), gate.atom_neff.clone()),
             None => {
-                // Standalone (non-line-search) call: recompute both the
-                // coactivation and the evidence-derived per-pair strength live from
-                // the current design. Value and gradient are evaluated at the same
-                // state here, so they stay self-consistent.
-                let gates = self.assignment.assignments();
-                self.barrier_coactive_pairs()
-                    .into_iter()
-                    .map(|(j, k, q)| {
-                        (
-                            j,
-                            k,
-                            q,
-                            self.barrier_pair_strength_with_gates(gates.view(), j, k),
-                        )
-                    })
-                    .collect()
+                // Standalone (non-line-search) call: recompute the coactivation live
+                // from the current routing. Value and gradient are evaluated at the
+                // same state here, so they stay self-consistent.
+                self.barrier_coactive_support()
             }
         }
     }
@@ -403,9 +511,25 @@ impl SaeManifoldTerm {
     /// bit (unchanged from before). Cost is `O(N·K)` to read the gates plus
     /// `O(Σ_row active_row²)` over the per-row support.
     pub(crate) fn barrier_coactive_pairs(&self) -> Vec<(usize, usize, f64)> {
+        self.barrier_coactive_support().0
+    }
+
+    /// The full LIVE routing support of the separation barrier from ONE
+    /// truncated-support scan: the co-firing pairs `(j, k, q_jk)` (see
+    /// [`Self::barrier_coactive_pairs`]) AND the per-atom effective sample sizes
+    /// `N_eff,k = Σ_{i∈J_k} a_ik²` — the q-denominator energies themselves, i.e.
+    /// the SAME summed-squared-gate currency the rank charge's
+    /// `per_atom_effective_sample_size` (`fisher_n = Σ w²`) uses, restricted to
+    /// the same relative-mass active support as the numerator so numerator,
+    /// denominator, occupancy scale `n_C`, and softening `ε_C` are one measure
+    /// (for hard-gated routings — JumpReLU/IBP/TopK — the truncated and full sums
+    /// coincide exactly; for softmax the sub-floor tail is dropped from ALL of
+    /// them consistently). Returned together so the frozen gate can pin both at
+    /// the same chokepoint.
+    pub(crate) fn barrier_coactive_support(&self) -> (Vec<(usize, usize, f64)>, Vec<f64>) {
         let k_atoms = self.k_atoms();
         if k_atoms < 2 {
-            return Vec::new();
+            return (Vec::new(), vec![0.0; k_atoms]);
         }
         let gates = self.assignment.assignments();
         let n = gates.nrows();
@@ -462,7 +586,7 @@ impl SaeManifoldTerm {
                 pairs.push((j, k, qjk));
             }
         }
-        pairs
+        (pairs, energy)
     }
 
     /// #1610 — data-derived (scale-invariant) decoder-norm-squared floor below
@@ -648,43 +772,38 @@ impl SaeManifoldTerm {
         out
     }
 
-    /// #1610 — the EVIDENCE-DERIVED per-pair separation-barrier strength `μ_jk`.
+    /// #1610 — the EVIDENCE-DERIVED per-pair data-fit inseparability strength
+    /// `μ_jk`, the stiffness of the subdominant decoder-repulsion CONDITIONER.
     ///
-    /// The separation barrier is an interior-point SAFEGUARD whose sole job is to
-    /// keep the joint inner (Laplace/REML) Hessian positive definite so the model
-    /// evidence stays defined; it is NOT statistical shrinkage, so its strength is
-    /// NOT a REML smoothing `λ ∝ σ²/τ²`. The principled strength is the
-    /// central-path / minimal-PD weight: enough to dominate the data-fit's own
-    /// pull toward co-collapse, and no more (a healthy, data-separable pair should
-    /// pay ~0 barrier so the evidence is unbiased at convergence — reinforced by
-    /// the `#1625` `c² < 0.5` gate that zeroes the barrier on well-separated
-    /// atoms). That pull is exactly the data-fit inseparability `γ_jk`
-    /// ([`Self::design_inseparability_with_gates`]): the whitened data Hessian
-    /// loses positive definiteness in the aligning direction as `γ_jk → 1`, so the
-    /// barrier must stiffen without bound there, and can vanish as `γ_jk → 0`.
-    /// Hence
+    /// NOTE. This is NO LONGER the primary separation barrier's strength — that
+    /// barrier is now the parameter-free Jeffreys prior `−½ log det F` (see
+    /// [`BarrierComponent`]), which has no per-pair `μ`. `μ_jk` survives only to
+    /// scale the collinearity-gated decoder-repulsion conditioner
+    /// ([`Self::decoder_repulsion_strength`], a fixed fraction of the worst-case
+    /// `μ_C`), a subdominant Gauss–Newton nudge on near-collinear co-firing pairs.
+    ///
+    /// The repulsion is an interior-point SAFEGUARD whose job is to help keep the
+    /// joint inner (Laplace/REML) Hessian positive definite; it is NOT statistical
+    /// shrinkage. The principled strength is the reciprocal-margin to the data-fit's
+    /// co-collapse boundary, the data-fit inseparability `γ_jk`
+    /// ([`Self::design_inseparability_with_gates`]): the whitened data Hessian loses
+    /// positive definiteness in the aligning direction as `γ_jk → 1`, so the
+    /// conditioner stiffens without bound there and vanishes as `γ_jk → 0`. Hence
     ///
     /// ```text
     ///   μ_jk = γ_jk / max(1 - γ_jk, ε_barrier),
     /// ```
     ///
-    /// the reciprocal-margin to the data-fit's singular (co-collapse) boundary. It
-    /// is (a) EVIDENCE-DERIVED — read from the reconstruction Hessian's own
-    /// conditioning, the quantity that governs whether the Laplace evidence exists,
-    /// replacing the previous overcompleteness rank ratio `Σ min(M_k,p)/min(n,p)`
-    /// which was a geometry heuristic, not an objective-derived quantity; and (b)
-    /// DECODER-SCALE-INVARIANT — `γ_jk` depends on the chart design + routing, not
-    /// the decoder magnitudes. The softening `ε_barrier` reuses the barrier's own
-    /// [`SAE_SEPARATION_BARRIER_EPS`] (the same `c² = 1` regularization), so a
-    /// perfectly data-degenerate pair (`γ_jk = 1`, the two atoms are the SAME
-    /// feature) gets the largest finite strength `1/ε_barrier` rather than a
-    /// hand-picked cap.
+    /// (a) EVIDENCE-DERIVED — read from the reconstruction Hessian's own
+    /// conditioning; and (b) DECODER-SCALE-INVARIANT — `γ_jk` depends on the chart
+    /// design + routing, not the decoder magnitudes. The softening `ε_barrier`
+    /// reuses [`SAE_SEPARATION_BARRIER_EPS`], so a perfectly data-degenerate pair
+    /// (`γ_jk = 1`) gets the largest finite strength `1/ε_barrier`.
     ///
     /// The runtime override (per-fit [`Self::separation_barrier_strength_override`],
     /// or the deprecated process-global [`sae_separation_barrier_override`]) still
-    /// takes precedence — when set it is the absolute strength for EVERY pair, so a
-    /// Python FFI sweep of `μ` from one compiled wheel is unchanged, and `0.0`
-    /// stays a legitimate "barrier off" value.
+    /// takes precedence — when set it is the absolute conditioner strength for
+    /// EVERY pair, and `0.0` stays a legitimate "conditioner off" value.
     pub(crate) fn barrier_pair_strength_with_gates(
         &self,
         gates: ArrayView2<'_, f64>,
@@ -701,16 +820,14 @@ impl SaeManifoldTerm {
         gamma / (1.0 - gamma).max(SAE_SEPARATION_BARRIER_EPS)
     }
 
-    /// #1610 — a single representative separation-barrier strength `μ_C` for the
-    /// dictionary: the WORST-CASE (largest) evidence-derived per-pair strength over
-    /// the co-active pairs, i.e. the stiffness the most nearly-collapsed pair
-    /// demands. Used for the subdominant decoder-repulsion strength (a fixed
-    /// fraction of the primary barrier) and by external callers/tests that want one
-    /// scalar. The barrier's own value/gradient/curvature do NOT read this — they
-    /// use the exact PER-PAIR `μ_jk` (frozen in `barrier_coactivation_gate`) so
-    /// each pair gets precisely the safeguard its data-fit inseparability demands.
-    /// The runtime override takes precedence (absolute strength); a term with no
-    /// co-active pair has no collapse geometry, so the strength is `0`.
+    /// #1610 — a single representative dictionary stiffness `μ_C`: the WORST-CASE
+    /// (largest) evidence-derived per-pair data-fit inseparability over the
+    /// co-active pairs. Used ONLY as the scale of the subdominant decoder-repulsion
+    /// conditioner (a fixed fraction of it) and by external callers/tests that want
+    /// one scalar. The primary Jeffreys separation barrier does NOT read this — it
+    /// is parameter-free (the fixed Jeffreys exponent `½`, no `μ`). The runtime
+    /// override takes precedence (absolute strength); a term with no co-active pair
+    /// has no collapse geometry, so the strength is `0`.
     pub(crate) fn separation_barrier_strength(&self) -> f64 {
         if let Some(over) = self
             .separation_barrier_strength_override
@@ -738,55 +855,134 @@ impl SaeManifoldTerm {
         SAE_DECODER_REPULSION_BARRIER_RATIO * self.separation_barrier_strength()
     }
 
-    /// #1625 — the SEPARATION barrier's C1 collinearity gate
-    /// `w(c²) ∈ [0,1]` and its derivative `w'(c²)`, evaluated together so the
-    /// value and the analytic gradient/curvature differentiate one shared
-    /// smoothstep. Exactly `(0, 0)` below
-    /// [`SAE_SEPARATION_BARRIER_COLLINEARITY_GATE`] `s0` (the barrier is a strict
-    /// no-op on well-separated atoms), ramping as the Hermite smoothstep
-    /// `w = t²(3−2t)`, `t = (c²−s0)/(1−s0)`, to `(1, 0)` at `c² = 1` — so the
-    /// barrier's interior-point divergence `−log(1−c²+ε)` is recovered at the
-    /// collapse limit while moderate collinearity is untaxed. `w'` carries the
-    /// chain-rule `dt/dc² = 1/(1−s0)` so the returned pair is the exact gradient of
-    /// the SAME `w` the value uses (no value/gradient desync across the line
-    /// search). Mirrors the decoder-repulsion smoothstep in
-    /// [`Self::refresh_decoder_repulsion_gate`].
-    fn separation_barrier_gate(c2: f64) -> (f64, f64) {
-        let s0 = SAE_SEPARATION_BARRIER_COLLINEARITY_GATE;
-        if c2 <= s0 {
-            return (0.0, 0.0);
+    /// Jeffreys prior support: partition the co-firing atom pairs into connected
+    /// components and attach each edge's FROZEN coactivation `q` and LIVE decoder
+    /// overlap `o`. An atom below the shape-undefined norm floor (a ~zero decoder
+    /// has no direction to collapse onto) is dropped from every edge, so it joins no
+    /// component. Pairs that never co-fire are absent, so the Fisher `F = Q ∘ O` is
+    /// block diagonal across components and `−½ log det F` factorizes over them
+    /// (an atom pair that never co-fires contributes a determinant factor of exactly
+    /// `1` — zero interaction). Both the value ([`Self::separation_barrier_value`])
+    /// and the gradient/curvature ([`Self::add_sae_separation_barrier`]) build `F`
+    /// from THIS partition, so they read the identical `Q`, `O`, and support across
+    /// the line search. See [`BarrierComponent`].
+    fn barrier_components(&self, norm_sq: &[f64], floor2: f64) -> Vec<BarrierComponent> {
+        let (support_pairs, atom_neff) = self.barrier_coactivation_pairs();
+        // Co-firing edges with a defined decoder shape at BOTH endpoints.
+        let raw: Vec<(usize, usize, f64, f64)> = support_pairs
+            .into_iter()
+            .filter(|&(j, k, _q)| norm_sq[j] > floor2 && norm_sq[k] > floor2)
+            .map(|(j, k, q)| (j, k, q, self.decoder_gram_cosine_sq(j, k)))
+            .collect();
+        if raw.is_empty() {
+            return Vec::new();
         }
-        let span = 1.0 - s0;
-        if !(span > 0.0) {
-            // Degenerate gate (s0 ≥ 1): treat as fully engaged with no ramp.
-            return (1.0, 0.0);
+        // Union–find over the atoms appearing in an edge → co-firing components.
+        let k_atoms = self.k_atoms();
+        let mut parent: Vec<usize> = (0..k_atoms).collect();
+        fn find(parent: &mut [usize], x: usize) -> usize {
+            let mut r = x;
+            while parent[r] != r {
+                r = parent[r];
+            }
+            let mut c = x;
+            while parent[c] != r {
+                let n = parent[c];
+                parent[c] = r;
+                c = n;
+            }
+            r
         }
-        let t = ((c2 - s0) / span).min(1.0);
-        let w = t * t * (3.0 - 2.0 * t);
-        // dw/dc² = (6t − 6t²) · dt/dc² = 6t(1−t)/span; flat (0) once t saturates.
-        let dw = if t >= 1.0 {
-            0.0
-        } else {
-            6.0 * t * (1.0 - t) / span
-        };
-        (w, dw)
+        let mut present = vec![false; k_atoms];
+        for &(j, k, _, _) in &raw {
+            present[j] = true;
+            present[k] = true;
+            let rj = find(&mut parent, j);
+            let rk = find(&mut parent, k);
+            if rj != rk {
+                parent[rj] = rk;
+            }
+        }
+        // Assign each present atom a component index and a local position.
+        use std::collections::BTreeMap;
+        let mut local = vec![usize::MAX; k_atoms];
+        let mut root_to_comp: BTreeMap<usize, usize> = BTreeMap::new();
+        let mut comps: Vec<BarrierComponent> = Vec::new();
+        for a in 0..k_atoms {
+            if !present[a] {
+                continue;
+            }
+            let r = find(&mut parent, a);
+            let ci = *root_to_comp.entry(r).or_insert_with(|| {
+                comps.push(BarrierComponent {
+                    atoms: Vec::new(),
+                    edges: Vec::new(),
+                    n_scale: 0.0,
+                    eps: f64::INFINITY,
+                });
+                comps.len() - 1
+            });
+            local[a] = comps[ci].atoms.len();
+            comps[ci].atoms.push(a);
+        }
+        for &(j, k, q, o) in &raw {
+            let r = find(&mut parent, j);
+            let ci = root_to_comp[&r];
+            comps[ci].edges.push(BarrierEdge {
+                j,
+                k,
+                jl: local[j],
+                kl: local[k],
+                q,
+                o,
+            });
+        }
+        // Occupancy scale and data-derived softening per component (see
+        // [`BarrierComponent`]): `n_C = mean_{k∈C} N_eff,k` and
+        // `ε_C = 2·√(s / min_{k∈C} N_eff,k)`, from the SAME (frozen-or-live)
+        // truncated-support energies as the edge weights `q`, so value, gradient,
+        // and curvature all read one measure. An atom index outside the support
+        // vector (a stale gate across a structural edit — the assembly resets the
+        // gate on structure changes, so this is defensive) reads `N_eff = 0`,
+        // which zeroes `n_C`/blows up `ε_C` and makes the consumers abstain
+        // rather than index out of bounds.
+        for comp in comps.iter_mut() {
+            let s = comp.atoms.len();
+            let mut sum = 0.0_f64;
+            let mut min = f64::INFINITY;
+            for &a in &comp.atoms {
+                let ne = atom_neff.get(a).copied().unwrap_or(0.0);
+                sum += ne;
+                min = min.min(ne);
+            }
+            comp.n_scale = if s > 0 { sum / s as f64 } else { 0.0 };
+            comp.eps = if min > 0.0 {
+                2.0 * (s as f64 / min).sqrt()
+            } else {
+                f64::INFINITY
+            };
+        }
+        comps
     }
 
-    /// #1026/#1522/#1625/#1610 SEPARATION barrier value
-    /// `P_sep = Σ_{j<k} μ_jk · q_jk · w(c_jk²) · [-log(1 - c_jk² + ε)]` on the
-    /// normalized shapes, with the #1625 collinearity gate `w(c²)` and the #1610
-    /// EVIDENCE-DERIVED PER-PAIR strength `μ_jk` (frozen with `q_jk` in the
-    /// coactivation gate). Diverges as two coactive atoms align (`c_jk² → 1`);
-    /// exactly 0 below the gate (distinct atoms feel no force). 0 for `K<2`.
+    /// SEPARATION barrier value — the OCCUPANCY-SCALED SAE decoder Jeffreys prior
+    /// `P_sep = −½ · Σ_components n_C · log det(F_C + ε_C·I)`, `F = Q ∘ O`,
+    /// `n_C = N_eff,C` (see [`BarrierComponent`] for the full derivation of both
+    /// the occupancy scale and the data-derived softening `ε_C`). Diverges as any
+    /// co-firing pair aligns (`det F → 0`) with a cost EXTENSIVE in the co-fired
+    /// effective sample size — `½·N_eff,C·log(1/ε_C)` at exact collapse — so a
+    /// collapsed dictionary always scores worse than the structure it destroys
+    /// (the Laplace dimension refund is only `½·Δd·log N_eff`). Exactly `0` on a
+    /// mutually-orthogonal co-active set (`F = I`) and `0` for `K < 2` or a fully
+    /// disjoint routing. The Jeffreys exponent `½` is fixed — there is no strength
+    /// `μ_C`. `penalty_scale = 0` disables it (the "no prevention" arm).
     pub(crate) fn separation_barrier_value(&self, penalty_scale: f64) -> f64 {
         if penalty_scale == 0.0 {
             return 0.0;
         }
-        let k_atoms = self.k_atoms();
-        if k_atoms < 2 {
+        if self.k_atoms() < 2 {
             return 0.0;
         }
-        let eps = SAE_SEPARATION_BARRIER_EPS;
         let norm_sq: Vec<f64> = self
             .atoms
             .iter()
@@ -794,31 +990,42 @@ impl SaeManifoldTerm {
             .collect();
         let floor2 = Self::barrier_norm_floor_sq(&norm_sq);
         let mut acc = 0.0_f64;
-        // #1625/#1610 — read the FROZEN coactivation `q_jk` AND per-pair strength
-        // `μ_jk` (falls back to live when no assembly has frozen them) so this value
-        // matches the gradient the line search is testing against; the decoder shape
-        // `c_jk²` below is still the LIVE cross-Gram, moving with the trial decoders.
-        // #2 fix — the collinearity scalar is the TRUE rank-aware decoder subspace
-        // overlap `o = o_jk` ([`Self::decoder_gram_cosine_sq`]), NOT the
-        // Frobenius-NORM-normalized `‖B_jB_kᵀ‖²_F/(‖B_j‖²_F‖B_k‖²_F)`. The latter
-        // reads `1/r` for two identical rank-r subspaces (`= 1/2` for identical
-        // 2-row decoders), sitting at/below the `0.5` gate so multi-row co-collapse
-        // went undetected; `o ∈ [0,1]` scores `1` for identical subspaces of any
-        // rank and reduces to the squared cosine for rank-1 blocks. Both the gate
-        // `w(o)` and the interior-point `-log(1-o+ε)` are the LIVE, differentiated
-        // functions of `o` (matching the analytic gradient in
-        // `add_sae_separation_barrier`).
-        for (j, k, qjk, mu_jk) in self.barrier_coactivation_pairs() {
-            if mu_jk == 0.0 || norm_sq[j] <= floor2 || norm_sq[k] <= floor2 {
+        for comp in &self.barrier_components(&norm_sq, floor2) {
+            let s = comp.atoms.len();
+            if s < 2 {
                 continue;
             }
-            let o = self.decoder_gram_cosine_sq(j, k);
-            let (gate, _dgate) = Self::separation_barrier_gate(o);
-            if gate == 0.0 {
+            // No effective co-fired data ⇒ the barrier honestly abstains (the
+            // gradient/curvature seam applies the identical guard).
+            if !(comp.n_scale > 0.0) || !comp.eps.is_finite() {
                 continue;
             }
-            let arg = (1.0 - o + eps).max(eps);
-            acc += mu_jk * (-qjk * gate * arg.ln());
+            let eps = comp.eps;
+            // F = Q ∘ O over the component: unit diagonal, off-diagonal `q·o` on the
+            // co-firing edges (the LIVE decoder overlap `o`, the FROZEN routing `q`).
+            let mut f = Array2::<f64>::eye(s);
+            for e in &comp.edges {
+                let v = e.q * e.o;
+                f[[e.jl, e.kl]] = v;
+                f[[e.kl, e.jl]] = v;
+            }
+            let sv = match f.svd(false, false) {
+                Ok((_, sv, _)) => sv,
+                Err(_) => continue,
+            };
+            // −½·n_C·log det(F + ε_C·I), identity-referenced: the ε-SHIFTED,
+            // occupancy-scaled Jeffreys barrier. Shifting (rather than flooring)
+            // keeps the pole bounded (an exactly-collapsed direction contributes
+            // −½·n_C·ln ε_C — extensive in the co-fired data) while the gradient
+            // n_C·(F + ε_C·I)⁻¹ is the EXACT derivative of this value everywhere
+            // — no sub-floor value/gradient mismatch, no Armijo conservatism at
+            // the pole. The per-eigenvalue −ln(1+ε_C) reference keeps a
+            // mutually-orthogonal co-active set (F = I) at exactly 0.
+            let mut logdet = 0.0_f64;
+            for &lam in sv.iter() {
+                logdet += (lam + eps).ln() - (1.0 + eps).ln();
+            }
+            acc += -0.5 * comp.n_scale * logdet;
         }
         penalty_scale * acc
     }
@@ -903,28 +1110,60 @@ impl SaeManifoldTerm {
         (cross_sq / (dj * dk)).min(1.0)
     }
 
-    /// #1026/#1522 — accumulate the SEPARATION barrier's analytic gradient into
-    /// `sys.gb` and a PSD majorizer into `sys.hbb`, in the full-`B` β layout.
-    /// Returns `true` iff anything was written.
+    /// Accumulate the SEPARATION barrier's analytic gradient into `sys.gb` and a
+    /// PSD majorizer of its curvature into `sys.hbb` (dense path) or the
+    /// `atom_curv` / `sep_rank1` carriers (matrix-free / framed path), in the
+    /// full-`B` β layout. Returns `true` iff anything was written.
     ///
-    /// #2 — per pair `j<k` on the TRUE rank-aware overlap `o` (see
-    /// [`Self::decoder_gram_cosine_sq`]): `M=B_jB_kᵀ`, `S_·=B_·B_·ᵀ`,
-    /// `D_·=‖S_·‖_F`, `o=‖M‖²_F/(D_jD_k)`, and (gate `w`, `w'`)
-    /// `α = μ q_jk[w/(1-o+ε) - w'·log(1-o+ε)] ≥ 0`:
-    ///   `∂P/∂B_j = 2α[ (M B_k)/(D_jD_k) - (o/D_j²) S_j B_j ]`,
-    ///   `∂P/∂B_k = 2α[ (Mᵀ B_j)/(D_jD_k) - (o/D_k²) S_k B_k ]`.
-    /// The exact Hessian is indefinite; a Levenberg PSD majorizer adds the
-    /// positive scalar `2α o/D_·` on the moving atom's diagonal block (dominating
-    /// the self-shrink gradient term's operator scale), which is PSD and grows
-    /// without bound as `o→1`, exactly where separating curvature is needed. For
-    /// rank-1 blocks `D_·=‖B_·‖²_F`, `S_·B_·=‖B_·‖²_F·B_·` and `o=c²`, so this
-    /// reduces bit-for-bit to the historical Frobenius squared-cosine barrier.
+    /// The barrier is the OCCUPANCY-SCALED SAE decoder Jeffreys prior
+    /// `P = −½ Σ_comp n_C · log det(F + ε_C·I)`, `F = Q ∘ O` (see
+    /// [`BarrierComponent`] for the derivation of the occupancy scale `n_C` and
+    /// the data-derived softening `ε_C`). Per component (`G ≜ (F + ε_C·I)⁻¹`):
+    ///
+    /// GRADIENT. `∂P/∂o_e = −n_C·G[jₑ,kₑ]·q_e` (edge `e = (j,k)`, since
+    /// `F[j,k] = q_e·o_e` and `n_C`, `ε_C` are frozen routing constants), and
+    /// `∂o_e/∂B` is the historical rank-aware carrier
+    /// `v_e`: with `M = B_jB_kᵀ`, `S_· = B_·B_·ᵀ`, `D_· = ‖S_·‖_F`,
+    /// `o_e = ‖M‖²_F/(D_jD_k)`,
+    ///   `∂o_e/∂B_j = 2[ (M B_k)/(D_jD_k) − (o_e/D_j²) S_j B_j ]`,
+    ///   `∂o_e/∂B_k = 2[ (Mᵀ B_j)/(D_jD_k) − (o_e/D_k²) S_k B_k ]`,
+    /// so `∂P/∂B = Σ_e α_e·v_e`, `α_e = penalty_scale·n_C·(−G[jₑ,kₑ]·q_e)`. For
+    /// the `K = 2` component `F = [[1,r],[r,1]]`, `r = q·o`, this is
+    /// `α = n_C·q²o/((1+ε)²−q²o²)·penalty_scale ≥ 0` — the same repulsive
+    /// `∂o/∂B` force as the historical pairwise barrier, but with the Jeffreys
+    /// `½` fixing the per-observation strength, the occupancy `n_C` making the
+    /// restoring force extensive in the co-fired data, and NO smoothstep gate:
+    /// the force vanishes as `O(o)` for separated atoms (so it cannot drag a
+    /// healthy fit off the data optimum, the #1625 concern) and diverges as
+    /// `det F → 0`, an automatic soft gate.
+    ///
+    /// CURVATURE. `F` is LINEAR in the overlaps `o_e`, so the overlap-space Hessian
+    /// is exactly Gauss–Newton and PSD:
+    ///   `M[a,b] = ∂²P/∂o_a∂o_b = n_C·q_a q_b (G[jₐ,m_b]G[kₐ,l_b] + G[jₐ,l_b]G[kₐ,m_b])`
+    /// (`a = (jₐ,kₐ)`, `b = (l_b,m_b)`), and the β-Hessian's PSD part is
+    /// `Σ_{a,b} M[a,b] v_a v_bᵀ`. Eigendecomposing `M = Σ_r λ_r e_r e_rᵀ` gives the
+    /// exact rank-1 carriers `(λ_r, w_r)`, `w_r = Σ_a e_r[a] v_a`, each PSD. For a
+    /// single-edge component this reduces to one rank-1 `∂²P/∂o²·v vᵀ`,
+    /// bit-compatible with the historical self-concordant rank-1. The remaining
+    /// indefinite `Σ_e (∂P/∂o_e)·∂²o_e/∂B²` part is handled by the per-atom
+    /// Levenberg ridge `2|α_e|·o_e/D_·` (`α_e` already carries `n_C`, so the
+    /// ridge scales with the same occupancy as the force it dominates), which
+    /// dominates its NEGATIVE part: the
+    /// negative curvature of the cosine² overlap only appears past `o > ½` and
+    /// scales like `2(2o−1)⁺·|α_e|/D_· ≤ 2o·|α_e|/D_·` (at small `o` the overlap
+    /// sits at its minimum, so the dropped term is PSD and needs no domination —
+    /// the metric merely under-counts positive curvature there, which the line
+    /// search absorbs). The total metric GN + ridge is PSD by construction.
+    /// Value (`−½·n_C·Σ ln(λ+ε_C)`), gradient (`n_C·G`), and curvature (`n_C·GN`
+    /// + `|α|`-ridge) all read `n_C` and `ε_C` from the SAME
+    /// [`BarrierComponent`], so the three seams cannot desync.
     pub(crate) fn add_sae_separation_barrier(
         &self,
         sys: &mut ArrowSchurSystem,
         penalty_scale: f64,
         dense_beta_curvature: bool,
         atom_curv: &mut [f64],
+        sep_rank1: &mut Vec<(f64, Vec<(usize, f64)>)>,
     ) -> bool {
         if penalty_scale == 0.0 {
             return false;
@@ -933,7 +1172,6 @@ impl SaeManifoldTerm {
         if k_atoms < 2 {
             return false;
         }
-        let eps = SAE_SEPARATION_BARRIER_EPS;
         let p = self.output_dim();
         let offsets = self.beta_offsets();
         let norm_sq: Vec<f64> = self
@@ -943,141 +1181,210 @@ impl SaeManifoldTerm {
             .collect();
         let floor2 = Self::barrier_norm_floor_sq(&norm_sq);
         let mut wrote = false;
-        // #1625/#1610 — use the FROZEN coactivation `q_jk` AND per-pair evidence
-        // strength `μ_jk` (lagged at assembly entry), matching the value path. The
-        // decoder cross matrix / overlap `o` below are the LIVE decoders, so the
-        // assembled force still tracks the trial shape; only the routing weight and
-        // the data-fit-derived strength are held fixed within the step, which is why
-        // no logit-block gradient is owed for this term.
-        for (j, k, qjk, mu_jk) in self.barrier_coactivation_pairs() {
-            let mu = penalty_scale * mu_jk;
-            if mu == 0.0 || norm_sq[j] <= floor2 || norm_sq[k] <= floor2 {
+        for comp in &self.barrier_components(&norm_sq, floor2) {
+            let s = comp.atoms.len();
+            let ne = comp.edges.len();
+            if s < 2 || ne == 0 {
                 continue;
             }
-            let bj = &self.atoms[j].decoder_coefficients;
-            let bk = &self.atoms[k].decoder_coefficients;
-            let (m_j, pj) = (bj.nrows(), bj.ncols());
-            let m_k = bk.nrows();
-            if pj != p || bk.ncols() != p {
+            // No effective co-fired data ⇒ abstain, exactly like the value seam.
+            if !(comp.n_scale > 0.0) || !comp.eps.is_finite() {
                 continue;
             }
-            // Cross matrix M = B_j B_kᵀ (m_j × m_k) and the self-Grams
-            // S_j = B_jB_jᵀ (m_j × m_j), S_k likewise.
-            let mut cross = Array2::<f64>::zeros((m_j, m_k));
-            for a in 0..m_j {
-                for b in 0..m_k {
-                    let mut c = 0.0_f64;
-                    for o in 0..p {
-                        c += bj[[a, o]] * bk[[b, o]];
+            let eps = comp.eps;
+            // F = Q ∘ O over the component and its ε_C-shifted spectral inverse G.
+            let mut f = Array2::<f64>::eye(s);
+            for e in &comp.edges {
+                let v = e.q * e.o;
+                f[[e.jl, e.kl]] = v;
+                f[[e.kl, e.jl]] = v;
+            }
+            let (sv, vt) = match f.svd(false, true) {
+                Ok((_, sv, Some(vt))) => (sv, vt),
+                _ => continue,
+            };
+            // G = (F + εI)⁻¹ = Σ_i vᵢ vᵢᵀ/(λ_i + ε) — the EXACT derivative of the
+            // ε-shifted value −½·Σ ln(λ+ε), sharing one factorization with it.
+            // The shift keeps the interior-point desideratum the old floor bought
+            // (a bounded restoring force ≤ 1/ε at the pole — a collapsed state is
+            // still pushed out of, never flat-lined) with zero value/gradient
+            // mismatch, so the line search's Armijo contract is exact at the pole
+            // too.
+            let mut g = Array2::<f64>::zeros((s, s));
+            for (i, &lam) in sv.iter().enumerate() {
+                let inv = 1.0 / (lam + eps);
+                for a in 0..s {
+                    let va = vt[[i, a]];
+                    if va == 0.0 {
+                        continue;
                     }
-                    cross[[a, b]] = c;
+                    for b in 0..s {
+                        g[[a, b]] += inv * va * vt[[i, b]];
+                    }
                 }
             }
-            let s_j = bj.dot(&bj.t());
-            let s_k = bk.dot(&bk.t());
-            // #2 — the TRUE rank-aware decoder subspace overlap
-            //   `o = ‖B_jB_kᵀ‖²_F / (‖B_jB_jᵀ‖_F·‖B_kB_kᵀ‖_F) = ‖M‖²_F/(D_j D_k)`,
-            // scoring 1 for identical subspaces of ANY rank (the Frobenius-norm
-            // score `‖M‖²_F/(‖B_j‖²_F‖B_k‖²_F)` reads `1/r` there and left multi-row
-            // co-collapse ungated). `D_· = ‖S_·‖_F`. It reduces to the Frobenius
-            // squared-cosine `c²` for rank-1 blocks (`D_· = ‖B_·‖²_F`, `S_·B_· =
-            // ‖B_·‖²_F·B_·`), so this whole block is bit-identical to the historical
-            // `c²` path for single-row decoders.
-            let g: f64 = cross.iter().map(|v| v * v).sum();
-            let d_j = s_j.iter().map(|v| v * v).sum::<f64>().sqrt();
-            let d_k = s_k.iter().map(|v| v * v).sum::<f64>().sqrt();
-            if !(d_j > 0.0 && d_k > 0.0) {
-                continue;
-            }
-            let o_overlap = (g / (d_j * d_k)).min(1.0);
-            // #1625 — collinearity-gated barrier `P = -μ q w(o) log(1-o+ε)`, LIVE and
-            // differentiated in `o`. Force `α = ∂P/∂o = μ q [ w(o)/(1-o+ε) - w'(o)·log(1-o+ε) ]`
-            // (product rule through the smoothstep); both summands ≥ 0, so `α ≥ 0`.
-            // Below the gate `w=w'=0 ⇒ α=0`, a strict no-op.
-            let (gate, dgate) = Self::separation_barrier_gate(o_overlap);
-            if gate == 0.0 {
-                continue;
-            }
-            let arg = (1.0 - o_overlap + eps).max(eps);
-            let alpha = mu * qjk * (gate / arg - dgate * arg.ln());
-            let inv = 1.0 / (d_j * d_k);
-            let off_j = offsets[j];
-            let off_k = offsets[k];
-            // ∂o/∂B_j = 2[ (M B_k)/(D_j D_k) - (o/D_j²) S_j B_j ], so
-            // ∂P/∂B_j = α · ∂o/∂B_j (and symmetrically for B_k). `S_· B_·` is the
-            // rank-aware analog of the historical self-shrink `‖B_·‖²_F·B_·`.
-            let sh_j = o_overlap / (d_j * d_j);
-            let sh_k = o_overlap / (d_k * d_k);
-            for a in 0..m_j {
-                for o in 0..p {
-                    let mut mb = 0.0_f64;
+            // Per-edge ∂o/∂B carrier `v_e` and force scalar `α_e`; scatter the
+            // gradient and the bounded Levenberg majorizer as we go.
+            let mut edge_v: Vec<Vec<(usize, f64)>> = Vec::with_capacity(ne);
+            for e in &comp.edges {
+                let bj = &self.atoms[e.j].decoder_coefficients;
+                let bk = &self.atoms[e.k].decoder_coefficients;
+                let (m_j, pj) = (bj.nrows(), bj.ncols());
+                let m_k = bk.nrows();
+                if pj != p || bk.ncols() != p {
+                    edge_v.push(Vec::new());
+                    continue;
+                }
+                let mut cross = Array2::<f64>::zeros((m_j, m_k));
+                for a in 0..m_j {
                     for b in 0..m_k {
-                        mb += cross[[a, b]] * bk[[b, o]];
+                        let mut c = 0.0_f64;
+                        for o in 0..p {
+                            c += bj[[a, o]] * bk[[b, o]];
+                        }
+                        cross[[a, b]] = c;
                     }
-                    let mut sjb = 0.0_f64;
-                    for a2 in 0..m_j {
-                        sjb += s_j[[a, a2]] * bj[[a2, o]];
+                }
+                let s_j = bj.dot(&bj.t());
+                let s_k = bk.dot(&bk.t());
+                let d_j = s_j.iter().map(|v| v * v).sum::<f64>().sqrt();
+                let d_k = s_k.iter().map(|v| v * v).sum::<f64>().sqrt();
+                if !(d_j > 0.0 && d_k > 0.0) {
+                    edge_v.push(Vec::new());
+                    continue;
+                }
+                let inv_dd = 1.0 / (d_j * d_k);
+                let o_overlap = e.o;
+                let sh_j = o_overlap / (d_j * d_j);
+                let sh_k = o_overlap / (d_k * d_k);
+                // `α_e = penalty_scale·(∂P/∂o_e) = penalty_scale·n_C·(−G[jl,kl]·q_e)`
+                // — the occupancy scale rides the force exactly as it rides the
+                // value (−½·n_C·log det), keeping the FD contract exact.
+                let alpha = penalty_scale * comp.n_scale * (-g[[e.jl, e.kl]] * e.q);
+                let off_j = offsets[e.j];
+                let off_k = offsets[e.k];
+                let mut v: Vec<(usize, f64)> = Vec::with_capacity(m_j * p + m_k * p);
+                for a in 0..m_j {
+                    for o in 0..p {
+                        let mut mb = 0.0_f64;
+                        for b in 0..m_k {
+                            mb += cross[[a, b]] * bk[[b, o]];
+                        }
+                        let mut sjb = 0.0_f64;
+                        for a2 in 0..m_j {
+                            sjb += s_j[[a, a2]] * bj[[a2, o]];
+                        }
+                        let do_j = 2.0 * (mb * inv_dd - sh_j * sjb);
+                        sys.gb[off_j + a * p + o] += alpha * do_j;
+                        v.push((off_j + a * p + o, do_j));
                     }
-                    let grad = 2.0 * alpha * (mb * inv - sh_j * sjb);
-                    sys.gb[off_j + a * p + o] += grad;
+                }
+                for b in 0..m_k {
+                    for o in 0..p {
+                        let mut mtb = 0.0_f64;
+                        for a in 0..m_j {
+                            mtb += cross[[a, b]] * bj[[a, o]];
+                        }
+                        let mut skb = 0.0_f64;
+                        for b2 in 0..m_k {
+                            skb += s_k[[b, b2]] * bk[[b2, o]];
+                        }
+                        let do_k = 2.0 * (mtb * inv_dd - sh_k * skb);
+                        sys.gb[off_k + b * p + o] += alpha * do_k;
+                        v.push((off_k + b * p + o, do_k));
+                    }
+                }
+                if alpha != 0.0 {
+                    wrote = true;
+                }
+                // Bounded Levenberg majorizer for the indefinite `α_e·∂²o_e/∂B²`
+                // part. `|α_e|` keeps it PSD regardless of the sign of `G[jl,kl]`
+                // (a frustrated component can carry either sign). On the dense path
+                // scatter `lev·I` onto the atom block's `hbb` diagonal; on the
+                // matrix-free/framed path hand the per-atom scalar back (folded into
+                // `smooth_scaled_s`, the single source for the CPU op and device
+                // smooth blocks).
+                let lev_j = 2.0 * alpha.abs() * o_overlap / d_j;
+                let lev_k = 2.0 * alpha.abs() * o_overlap / d_k;
+                if dense_beta_curvature {
+                    if lev_j > 0.0 {
+                        for idx in 0..(m_j * p) {
+                            let gi = off_j + idx;
+                            sys.hbb[[gi, gi]] += lev_j;
+                        }
+                    }
+                    if lev_k > 0.0 {
+                        for idx in 0..(m_k * p) {
+                            let gi = off_k + idx;
+                            sys.hbb[[gi, gi]] += lev_k;
+                        }
+                    }
+                } else {
+                    if lev_j > 0.0 {
+                        atom_curv[e.j] += lev_j;
+                    }
+                    if lev_k > 0.0 {
+                        atom_curv[e.k] += lev_k;
+                    }
+                }
+                edge_v.push(v);
+            }
+            // Exact PSD Gauss–Newton curvature: the overlap-space Hessian `M`
+            // (`F` linear in `o` ⇒ no `∂²F/∂o²` term), eigendecomposed into rank-1
+            // carriers `(penalty_scale·λ_r, w_r)`, `w_r = Σ_a e_r[a] v_a`.
+            let mut mm = Array2::<f64>::zeros((ne, ne));
+            for a in 0..ne {
+                let ea = &comp.edges[a];
+                for b in 0..ne {
+                    let eb = &comp.edges[b];
+                    // `n_C` scales the whole overlap-space Hessian of
+                    // `−½·n_C·log det(F+ε_C·I)` — same factor as value and force.
+                    mm[[a, b]] = comp.n_scale
+                        * ea.q
+                        * eb.q
+                        * (g[[ea.jl, eb.kl]] * g[[ea.kl, eb.jl]]
+                            + g[[ea.jl, eb.jl]] * g[[ea.kl, eb.kl]]);
                 }
             }
-            for b in 0..m_k {
-                for o in 0..p {
-                    let mut mtb = 0.0_f64;
-                    for a in 0..m_j {
-                        mtb += cross[[a, b]] * bj[[a, o]];
-                    }
-                    let mut skb = 0.0_f64;
-                    for b2 in 0..m_k {
-                        skb += s_k[[b, b2]] * bk[[b2, o]];
-                    }
-                    let grad = 2.0 * alpha * (mtb * inv - sh_k * skb);
-                    sys.gb[off_k + b * p + o] += grad;
+            let (sm, vm) = match mm.svd(false, true) {
+                Ok((_, sm, Some(vm))) => (sm, vm),
+                _ => continue,
+            };
+            for (r_i, &lam) in sm.iter().enumerate() {
+                let scale = penalty_scale * lam;
+                if !(scale > 0.0) {
+                    continue;
                 }
-            }
-            wrote = true;
-            // Levenberg PSD majorizer: a positive scalar on each atom's diagonal
-            // block, magnitude `2α o/D_·`, growing as o→1 — exactly the separating
-            // curvature needed at the co-collapse limit. It dominates the self-shrink
-            // gradient term (whose operator scale is `(o/D_·²)·σ_max(S_·) ≤ o/D_·`)
-            // and reduces to the historical `2α c²/‖B_·‖²_F` for rank-1 blocks.
-            let lev_j = 2.0 * alpha * o_overlap / d_j;
-            let lev_k = 2.0 * alpha * o_overlap / d_k;
-            if dense_beta_curvature {
-                // Dense path: scatter onto the dense `sys.hbb` diagonal — the
-                // block `effective_penalty_op` reads (`DensePenaltyOp(hbb)`).
-                if lev_j > 0.0 {
-                    for idx in 0..(m_j * p) {
-                        let g_i = off_j + idx;
-                        sys.hbb[[g_i, g_i]] += lev_j;
+                // Aggregate `w_r = Σ_a e_r[a] v_a` over global β indices (edges can
+                // share an atom's decoder coefficients, so accumulate into a map).
+                use std::collections::BTreeMap;
+                let mut agg: BTreeMap<usize, f64> = BTreeMap::new();
+                for a in 0..ne {
+                    let coef = vm[[r_i, a]];
+                    if coef == 0.0 {
+                        continue;
+                    }
+                    for &(idx, val) in &edge_v[a] {
+                        *agg.entry(idx).or_insert(0.0) += coef * val;
                     }
                 }
-                if lev_k > 0.0 {
-                    for idx in 0..(m_k * p) {
-                        let g_i = off_k + idx;
-                        sys.hbb[[g_i, g_i]] += lev_k;
+                let carrier: Vec<(usize, f64)> =
+                    agg.into_iter().filter(|&(_, v)| v != 0.0).collect();
+                if carrier.is_empty() {
+                    continue;
+                }
+                if dense_beta_curvature {
+                    // Scatter `scale·w wᵀ` into `hbb` (diagonal + true cross coupling).
+                    for &(gi, vi) in &carrier {
+                        let dvi = scale * vi;
+                        for &(gj, vj) in &carrier {
+                            sys.hbb[[gi, gj]] += dvi * vj;
+                        }
                     }
+                } else {
+                    sep_rank1.push((scale, carrier));
                 }
-            } else {
-                // #1610 — matrix-free / framed production path: `sys.hbb` is unused
-                // (the β-block is the structured `penalty_op`), so a dense-hbb write
-                // is silently dropped and the dictionary co-collapses (indefinite
-                // joint Hessian → non-PD reduced Schur → all seeds rejected on real
-                // OLMo). The majorizer is a per-ATOM scalar ridge `lev·I` over the
-                // whole `M_k·p` decoder block; because the frame `U_k` is
-                // orthonormal (`U_kᵀU_k = I`) it projects to the same scalar ridge
-                // in factored coordinates. Hand the per-atom scalar back to the
-                // assembler, which folds it into `smooth_scaled_s[k]` — the single
-                // source for the CPU composite penalty op AND the device smooth
-                // blocks — so the curvature reaches the operator on every path
-                // (CPU dense-Direct, CPU PCG, device PCG) with no divergence.
-                if lev_j > 0.0 {
-                    atom_curv[j] += lev_j;
-                }
-                if lev_k > 0.0 {
-                    atom_curv[k] += lev_k;
-                }
+                wrote = true;
             }
         }
         wrote
@@ -1337,9 +1644,9 @@ impl SaeManifoldTerm {
     /// current decoders, scaled by `penalty_scale`. Hermetic seam so the owed-1026
     /// FD battery can certify `∂P_sep/∂B` in isolation, and so the #1522
     /// prevention-vs-bandaid pinning test can read the barrier ON (`scale = 1`)
-    /// against barrier OFF (`scale = 0`, the local "no prevention" arm — `μ = 0`
-    /// writes nothing — without touching the process-global strength override).
-    /// Returns `(value, grad)`.
+    /// against barrier OFF (`scale = 0`, the local "no prevention" arm —
+    /// `penalty_scale = 0` writes nothing — without touching the process-global
+    /// strength override). Returns `(value, grad)`.
     pub fn separation_barrier_value_and_grad_for_test(
         &self,
         penalty_scale: f64,
@@ -1348,7 +1655,14 @@ impl SaeManifoldTerm {
         sys.gb = Array1::<f64>::zeros(self.beta_dim());
         sys.hbb = Array2::<f64>::zeros((0, 0));
         let mut atom_curv = vec![0.0_f64; self.k_atoms()];
-        self.add_sae_separation_barrier(&mut sys, penalty_scale, false, &mut atom_curv);
+        let mut sep_rank1 = Vec::new();
+        self.add_sae_separation_barrier(
+            &mut sys,
+            penalty_scale,
+            false,
+            &mut atom_curv,
+            &mut sep_rank1,
+        );
         (self.separation_barrier_value(penalty_scale), sys.gb)
     }
 }
@@ -2453,8 +2767,8 @@ mod tests_findings_234 {
         // Precondition: strictly on the smoothstep interior (0.5 < o < 1).
         let o = base.decoder_gram_cosine_sq(0, 1);
         assert!(
-            o > SAE_SEPARATION_BARRIER_COLLINEARITY_GATE && o < 1.0,
-            "fixture must sit on the gate ramp, got o={o}"
+            o > 0.5 && o < 1.0,
+            "fixture must sit on the interior (materially collinear, not collapsed), got o={o}"
         );
         let (_v, grad) = base.separation_barrier_value_and_grad_for_test(1.0);
         let offsets = base.beta_offsets();

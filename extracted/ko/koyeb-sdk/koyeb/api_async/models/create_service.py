@@ -33,7 +33,9 @@ class CreateService(BaseModel):
     definition: Optional[DeploymentDefinition] = None
     life_cycle: Optional[ServiceLifeCycle] = None
     project_id: Optional[StrictStr] = None
-    __properties: ClassVar[List[str]] = ["app_id", "definition", "life_cycle", "project_id"]
+    instance_snapshot_id: Optional[StrictStr] = None
+    name: Optional[StrictStr] = None
+    __properties: ClassVar[List[str]] = ["app_id", "definition", "life_cycle", "project_id", "instance_snapshot_id", "name"]
 
     model_config = ConfigDict(
         validate_by_name=True,
@@ -95,7 +97,9 @@ class CreateService(BaseModel):
             "app_id": obj.get("app_id"),
             "definition": DeploymentDefinition.from_dict(obj["definition"]) if obj.get("definition") is not None else None,
             "life_cycle": ServiceLifeCycle.from_dict(obj["life_cycle"]) if obj.get("life_cycle") is not None else None,
-            "project_id": obj.get("project_id")
+            "project_id": obj.get("project_id"),
+            "instance_snapshot_id": obj.get("instance_snapshot_id"),
+            "name": obj.get("name")
         })
         return _obj
 

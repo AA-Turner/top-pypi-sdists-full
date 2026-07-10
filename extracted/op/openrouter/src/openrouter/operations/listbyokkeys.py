@@ -149,7 +149,7 @@ Provider = Union[
         "recraft",
         "reka",
         "relace",
-        "sakana-ai",
+        "sakana",
         "sambanova",
         "seed",
         "siliconflow",

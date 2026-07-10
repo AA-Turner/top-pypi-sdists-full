@@ -17,7 +17,7 @@ import pprint
 import re  # noqa: F401
 import json
 
-from pydantic import BaseModel, ConfigDict, StrictBool, StrictStr
+from pydantic import BaseModel, ConfigDict, Field, StrictBool, StrictStr
 from typing import Any, ClassVar, Dict, List, Optional
 from koyeb.api.models.archive_source import ArchiveSource
 from koyeb.api.models.config_file import ConfigFile
@@ -35,6 +35,7 @@ from koyeb.api.models.deployment_strategy import DeploymentStrategy
 from koyeb.api.models.deployment_volume import DeploymentVolume
 from koyeb.api.models.docker_source import DockerSource
 from koyeb.api.models.git_source import GitSource
+from koyeb.api.models.network_policy import NetworkPolicy
 from typing import Optional, Set
 from typing_extensions import Self
 from pydantic_core import to_jsonable_python
@@ -43,7 +44,7 @@ class DeploymentDefinition(BaseModel):
     """
     DeploymentDefinition
     """ # noqa: E501
-    name: Optional[StrictStr] = None
+    name: Optional[StrictStr] = Field(default=None, description="Service name. Deprecated, set it directly in the Service when creating it.")
     type: Optional[DeploymentDefinitionType] = DeploymentDefinitionType.INVALID
     strategy: Optional[DeploymentStrategy] = None
     routes: Optional[List[DeploymentRoute]] = None
@@ -58,11 +59,12 @@ class DeploymentDefinition(BaseModel):
     config_files: Optional[List[ConfigFile]] = None
     skip_cache: Optional[StrictBool] = None
     mesh: Optional[DeploymentMesh] = DeploymentMesh.DEPLOYMENT_MESH_AUTO
+    network_policy: Optional[NetworkPolicy] = None
     docker: Optional[DockerSource] = None
     git: Optional[GitSource] = None
     database: Optional[DatabaseSource] = None
     archive: Optional[ArchiveSource] = None
-    __properties: ClassVar[List[str]] = ["name", "type", "strategy", "routes", "ports", "proxy_ports", "env", "regions", "scalings", "instance_types", "health_checks", "volumes", "config_files", "skip_cache", "mesh", "docker", "git", "database", "archive"]
+    __properties: ClassVar[List[str]] = ["name", "type", "strategy", "routes", "ports", "proxy_ports", "env", "regions", "scalings", "instance_types", "health_checks", "volumes", "config_files", "skip_cache", "mesh", "network_policy", "docker", "git", "database", "archive"]
 
     model_config = ConfigDict(
         validate_by_name=True,
@@ -169,6 +171,9 @@ class DeploymentDefinition(BaseModel):
                 if _item_config_files:
                     _items.append(_item_config_files.to_dict())
             _dict['config_files'] = _items
+        # override the default output from pydantic by calling `to_dict()` of network_policy
+        if self.network_policy:
+            _dict['network_policy'] = self.network_policy.to_dict()
         # override the default output from pydantic by calling `to_dict()` of docker
         if self.docker:
             _dict['docker'] = self.docker.to_dict()
@@ -208,6 +213,7 @@ class DeploymentDefinition(BaseModel):
             "config_files": [ConfigFile.from_dict(_item) for _item in obj["config_files"]] if obj.get("config_files") is not None else None,
             "skip_cache": obj.get("skip_cache"),
             "mesh": obj.get("mesh") if obj.get("mesh") is not None else DeploymentMesh.DEPLOYMENT_MESH_AUTO,
+            "network_policy": NetworkPolicy.from_dict(obj["network_policy"]) if obj.get("network_policy") is not None else None,
             "docker": DockerSource.from_dict(obj["docker"]) if obj.get("docker") is not None else None,
             "git": GitSource.from_dict(obj["git"]) if obj.get("git") is not None else None,
             "database": DatabaseSource.from_dict(obj["database"]) if obj.get("database") is not None else None,

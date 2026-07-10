@@ -9,6 +9,11 @@ from __future__ import annotations
 import re
 from typing import Dict, List, Optional, Set
 
+from .anonymizer.providers.clinical_ids import (
+    validate_uk_nhs_number,
+    validate_uk_nino,
+)
+
 # ---------------------------------------------------------------------------
 # Constants
 # ---------------------------------------------------------------------------
@@ -31,9 +36,9 @@ SUPPORTED_LANGUAGES: Set[str] = {
     "th",
 }
 
-# Languages with checksum-validated national-ID coverage but no bundled
-# default PII model or full language pack yet.
-NATIONAL_ID_ONLY_LANGUAGES: Set[str] = {"pl", "ko"}
+# Languages with validator-backed national-ID coverage but no bundled default
+# PII model or full language pack yet.
+NATIONAL_ID_ONLY_LANGUAGES: Set[str] = {"pl", "ko", "lv", "sk", "ms", "tl", "da"}
 
 LANGUAGE_NAMES: Dict[str, str] = {
     "en": "English",
@@ -88,6 +93,27 @@ DEFAULT_PII_MODELS: Dict[str, str] = {
     "id": "OpenMed/privacy-filter-multilingual",
     "th": "OpenMed/privacy-filter-multilingual",
 }
+
+
+# ---------------------------------------------------------------------------
+# Financial Identifier Validators
+# ---------------------------------------------------------------------------
+
+
+def validate_iban(text: str) -> bool:
+    """Validate an IBAN using ISO 7064 MOD-97-10 checksum rules."""
+
+    from .anonymizer.providers import clinical_ids
+
+    return clinical_ids.validate_iban(text)
+
+
+def validate_bic(text: str) -> bool:
+    """Validate a SWIFT/BIC code's 8- or 11-character structure."""
+
+    from .anonymizer.providers import clinical_ids
+
+    return clinical_ids.validate_bic(text)
 
 
 # ---------------------------------------------------------------------------
@@ -548,6 +574,150 @@ def validate_thai_national_id(text: str) -> bool:
     return numbers[12] == check
 
 
+def validate_malaysian_mykad(text: str) -> bool:
+    """Validate Malaysian MyKad / NRIC structure.
+
+    MyKad values are 12 digits, commonly written as ``YYMMDD-PB-XXXX``. OpenMed
+    validates only offline structural properties: an embedded birth date, a
+    non-zero place-of-birth code, and a non-zero serial. It does not bundle or
+    query Malaysian registry data.
+
+    Args:
+        text: MyKad string, with or without dashes.
+
+    Returns:
+        True when the value has a plausible MyKad structure and embedded date.
+    """
+    digits = re.sub(r"[^0-9]", "", text)
+
+    if len(digits) != 12:
+        return False
+
+    year_suffix = int(digits[0:2])
+    month = int(digits[2:4])
+    day = int(digits[4:6])
+    place_code = int(digits[6:8])
+    serial = int(digits[8:12])
+
+    if place_code == 0 or serial == 0:
+        return False
+    if month < 1 or month > 12:
+        return False
+    if day < 1 or day > 31:
+        return False
+
+    import calendar
+
+    try:
+        return any(
+            day <= calendar.monthrange(century + year_suffix, month)[1]
+            for century in (1900, 2000)
+        )
+    except (ValueError, calendar.IllegalMonthError):
+        return False
+
+
+def _matches_digit_grouping(text: str, group_sizes: tuple[int, ...]) -> bool:
+    """Return whether ``text`` has contiguous digits or the requested grouping."""
+    stripped = text.strip()
+    total_digits = sum(group_sizes)
+    if re.fullmatch(rf"\d{{{total_digits}}}", stripped):
+        return True
+
+    grouped_pattern = r"[\s-]+".join(rf"\d{{{size}}}" for size in group_sizes)
+    return re.fullmatch(grouped_pattern, stripped) is not None
+
+
+def validate_philsys_psn(text: str) -> bool:
+    """Validate Philippine PhilSys PSN structure.
+
+    PhilSys PSNs are 12 digits, commonly written as ``NNNN-NNNN-NNNN``.
+    OpenMed performs offline structural validation only: expected length,
+    expected grouping when separators are present, and non-trivial digits.
+    It does not query Philippine registry data.
+    """
+    digits = re.sub(r"[^0-9]", "", text)
+
+    if len(digits) != 12:
+        return False
+    if len(set(digits)) == 1:
+        return False
+    return _matches_digit_grouping(text, (4, 4, 4))
+
+
+def validate_philhealth_pin(text: str) -> bool:
+    """Validate Philippine PhilHealth Identification Number structure.
+
+    PhilHealth PINs are 12 digits, commonly written as ``NN-NNNNNNNNN-N``.
+    OpenMed checks only local structural properties: expected length,
+    expected grouping when separators are present, and non-trivial groups.
+    """
+    digits = re.sub(r"[^0-9]", "", text)
+
+    if len(digits) != 12:
+        return False
+    if len(set(digits)) == 1:
+        return False
+    if digits[:2] == "00" or digits[2:11] == "000000000":
+        return False
+    return _matches_digit_grouping(text, (2, 9, 1))
+
+
+def _danish_cpr_candidate_years(
+    year_suffix: int, century_digit: int
+) -> tuple[int, ...]:
+    """Return possible birth years encoded by a Danish CPR century digit."""
+    if 0 <= century_digit <= 3:
+        return (1900 + year_suffix,)
+    if century_digit in (4, 9):
+        if year_suffix <= 36:
+            return (2000 + year_suffix,)
+        return (1900 + year_suffix,)
+    if 5 <= century_digit <= 8:
+        if year_suffix <= 57:
+            return (2000 + year_suffix,)
+        return (1800 + year_suffix,)
+    return ()
+
+
+def validate_danish_cpr(text: str) -> bool:
+    """Validate Danish CPR/personnummer structure.
+
+    CPR values are 10 digits, commonly written as ``DDMMYY-SSSS``. The first
+    six digits encode date of birth, and the first serial digit disambiguates
+    the century. OpenMed intentionally does not require the historical
+    modulus-11 checksum because Danish CPR numbers without that check have been
+    validly issued since 2007.
+    """
+    stripped = text.strip()
+    if re.fullmatch(r"\d{6}(?:[-\s]?\d{4})", stripped) is None:
+        return False
+
+    digits = re.sub(r"[^0-9]", "", stripped)
+    day = int(digits[0:2])
+    month = int(digits[2:4])
+    year_suffix = int(digits[4:6])
+    century_digit = int(digits[6])
+    serial = int(digits[6:10])
+
+    if serial == 0:
+        return False
+    if month < 1 or month > 12:
+        return False
+    if day < 1 or day > 31:
+        return False
+
+    import calendar
+
+    for year in _danish_cpr_candidate_years(year_suffix, century_digit):
+        try:
+            if day <= calendar.monthrange(year, month)[1]:
+                return True
+        except (ValueError, calendar.IllegalMonthError):
+            continue
+    return False
+
+
 def validate_polish_pesel(text: str) -> bool:
     """Validate Polish PESEL number.
 
@@ -621,6 +791,51 @@ def validate_polish_pesel(text: str) -> bool:
         return False
 
     return True
+
+
+def validate_latvian_personas_kods(text: str) -> bool:
+    """Validate Latvian personas kods.
+
+    Legacy values encode birth date as ``DDMMYY-CNNNQ``. New values issued
+    from 2017 use an opaque ``32`` prefix, but both formats keep an 11-digit
+    modulo-11 check digit.
+    """
+
+    digits = re.sub(r"[^0-9]", "", text)
+
+    if len(digits) != 11:
+        return False
+
+    numbers = [int(digit) for digit in digits]
+    check_digit = _latvian_personas_kods_check_digit(numbers[:10])
+    if numbers[10] != check_digit:
+        return False
+
+    if digits.startswith("32"):
+        return True
+
+    day = int(digits[0:2])
+    month = int(digits[2:4])
+    year_suffix = int(digits[4:6])
+    century_digit = int(digits[6])
+    if century_digit not in (0, 1, 2):
+        return False
+
+    import calendar
+
+    year = 1800 + century_digit * 100 + year_suffix
+    try:
+        return day <= calendar.monthrange(year, month)[1]
+    except (ValueError, calendar.IllegalMonthError):
+        return False
+
+
+def _latvian_personas_kods_check_digit(digits: list[int]) -> int:
+    """Return the Latvian personas kods check digit for the first 10 digits."""
+    weights = (1, 6, 3, 7, 9, 10, 5, 8, 4, 2)
+    return (
+        (1101 - sum(weight * digit for weight, digit in zip(weights, digits))) % 11 % 10
+    )
 
 
 def validate_korean_rrn(text: str) -> bool:
@@ -697,6 +912,68 @@ def validate_korean_rrn(text: str) -> bool:
     check = (11 - total % 11) % 10
 
     return numbers[12] == check
+
+
+def validate_czechoslovak_rodne_cislo(text: str) -> bool:
+    """Validate a Czech/Slovak rodne cislo birth number.
+
+    Modern Czech and Slovak birth numbers use ten digits in the shape
+    ``YYMMDDXXXX`` with a modulo-11 checksum over the whole value. Female
+    identifiers add 50 to the birth month; overflow series may add 20 for
+    men or 70 for women.
+
+    Args:
+        text: Birth number string, optionally containing a slash, spaces, or
+            hyphen separators.
+
+    Returns:
+        True if the identifier has a decodable birth date and modulo-11 check.
+    """
+    digits = re.sub(r"[^0-9]", "", text)
+
+    if len(digits) != 10:
+        return False
+    if int(digits) % 11 != 0:
+        return False
+
+    year_suffix = int(digits[0:2])
+    encoded_month = int(digits[2:4])
+    day = int(digits[4:6])
+
+    overflow_series = False
+    if 1 <= encoded_month <= 12:
+        month = encoded_month
+    elif 21 <= encoded_month <= 32:
+        month = encoded_month - 20
+        overflow_series = True
+    elif 51 <= encoded_month <= 62:
+        month = encoded_month - 50
+    elif 71 <= encoded_month <= 82:
+        month = encoded_month - 70
+        overflow_series = True
+    else:
+        return False
+
+    if day < 1 or day > 31:
+        return False
+
+    import calendar
+
+    # Ten-digit rodne cislo values were introduced in 1954. The two-digit year
+    # is century-ambiguous, so accept either plausible civil-registration
+    # century while keeping the overflow series in the post-2004 era.
+    for century in (1900, 2000):
+        year = century + year_suffix
+        if year < 1954:
+            continue
+        if overflow_series and year < 2004:
+            continue
+        try:
+            if day <= calendar.monthrange(year, month)[1]:
+                return True
+        except (ValueError, calendar.IllegalMonthError):
+            continue
+    return False
 
 
 # ---------------------------------------------------------------------------
@@ -900,6 +1177,20 @@ LANGUAGE_MONTH_NAMES: Dict[str, List[str]] = {
         "November",
         "Desember",
     ],
+    "ms": [
+        "Januari",
+        "Februari",
+        "Mac",
+        "April",
+        "Mei",
+        "Jun",
+        "Julai",
+        "Ogos",
+        "September",
+        "Oktober",
+        "November",
+        "Disember",
+    ],
     "th": [
         "มกราคม",
         "กุมภาพันธ์",
@@ -918,10 +1209,220 @@ LANGUAGE_MONTH_NAMES: Dict[str, List[str]] = {
 
 
 # ---------------------------------------------------------------------------
+# ICAO 9303 machine-readable zone (MRZ) validation
+# ---------------------------------------------------------------------------
+
+_MRZ_LINE_RE = re.compile(r"[A-Z0-9<]+")
+
+
+def _mrz_char_value(char: str) -> int:
+    """ICAO 9303 character value: digits 0-9, A-Z = 10-35, filler '<' = 0."""
+    if char == "<":
+        return 0
+    if char.isdigit():
+        return int(char)
+    if "A" <= char <= "Z":
+        return ord(char) - ord("A") + 10
+    return -1
+
+
+def _mrz_check_digit(field: str) -> Optional[int]:
+    """Compute the ICAO 9303 modulo-10 check digit (7-3-1 weighting)."""
+    weights = (7, 3, 1)
+    total = 0
+    for index, char in enumerate(field):
+        value = _mrz_char_value(char)
+        if value < 0:
+            return None
+        total += value * weights[index % 3]
+    return total % 10
+
+
+def _mrz_check_ok(field: str, check_char: str) -> bool:
+    expected = _mrz_check_digit(field)
+    if expected is None:
+        return False
+    if check_char.isdigit():
+        return expected == int(check_char)
+    if check_char == "<":  # filler check digit for all-filler fields
+        return expected == 0
+    return False
+
+
+def _mrz_lines(text: str, width: int, count: int) -> Optional[List[str]]:
+    """Return the ``count`` MRZ lines of exactly ``width`` chars, else None."""
+    lines = [line.strip() for line in text.strip().splitlines()]
+    candidates = [
+        line for line in lines if len(line) == width and _MRZ_LINE_RE.fullmatch(line)
+    ]
+    if len(candidates) != count:
+        return None
+    return candidates
+
+
+def validate_mrz_td3(text: str) -> bool:
+    """Validate an ICAO 9303 TD3 (passport) MRZ: two 44-character lines.
+
+    Confirms the document-number, date-of-birth, expiry, personal-number and
+    composite modulo-10 check digits. Date fields must be numeric (YYMMDD).
+    """
+    lines = _mrz_lines(text, 44, 2)
+    if lines is None:
+        return False
+    line2 = lines[1]
+    checks = (
+        (line2[0:9], line2[9]),  # document number
+        (line2[13:19], line2[19]),  # date of birth
+        (line2[21:27], line2[27]),  # expiry date
+        (line2[28:42], line2[42]),  # optional personal number
+        (line2[0:10] + line2[13:20] + line2[21:43], line2[43]),  # composite
+    )
+    if not all(_mrz_check_ok(field, check) for field, check in checks):
+        return False
+    return line2[13:19].isdigit() and line2[21:27].isdigit()
+
+
+def validate_mrz_td1(text: str) -> bool:
+    """Validate an ICAO 9303 TD1 (ID card) MRZ: three 30-character lines.
+
+    Confirms the document-number, date-of-birth, expiry and composite
+    modulo-10 check digits. Date fields must be numeric (YYMMDD).
+    """
+    lines = _mrz_lines(text, 30, 3)
+    if lines is None:
+        return False
+    line1, line2 = lines[0], lines[1]
+    composite = line1[5:30] + line2[0:7] + line2[8:15] + line2[18:29]
+    checks = (
+        (line1[5:14], line1[14]),  # document number
+        (line2[0:6], line2[6]),  # date of birth
+        (line2[8:14], line2[14]),  # expiry date
+        (composite, line2[29]),  # composite
+    )
+    if not all(_mrz_check_ok(field, check) for field, check in checks):
+        return False
+    return line2[0:6].isdigit() and line2[8:14].isdigit()
+
+
+_MRZ_FILLER = "<"
+_MRZ_LETTERS = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+_MRZ_ALPHANUM = _MRZ_LETTERS + "0123456789"
+
+
+def _mrz_pad(text: str, length: int) -> str:
+    return (text + _MRZ_FILLER * length)[:length]
+
+
+def generate_mrz_td3(rng=None) -> str:
+    """Generate a synthetic but check-digit-valid TD3 (passport) MRZ block."""
+    import random as _random
+
+    rng = rng or _random.Random()
+    digits = lambda n: "".join(str(rng.randint(0, 9)) for _ in range(n))  # noqa: E731
+    country = "".join(rng.choice(_MRZ_LETTERS) for _ in range(3))
+    docnum = "".join(rng.choice(_MRZ_ALPHANUM) for _ in range(9))
+    dob, expiry = digits(6), digits(6)
+    sex = rng.choice("MF<")
+    personal = _MRZ_FILLER * 14
+    partial = (
+        f"{docnum}{_mrz_check_digit(docnum)}{country}"
+        f"{dob}{_mrz_check_digit(dob)}{sex}"
+        f"{expiry}{_mrz_check_digit(expiry)}"
+        f"{personal}{_mrz_check_digit(personal)}"
+    )
+    composite = partial[0:10] + partial[13:20] + partial[21:43]
+    line2 = partial + str(_mrz_check_digit(composite))
+    line1 = "P<" + country + _mrz_pad("SPECIMEN<<TRAVELLER", 39)
+    return f"{line1}\n{line2}"
+
+
+def generate_mrz_td1(rng=None) -> str:
+    """Generate a synthetic but check-digit-valid TD1 (ID-card) MRZ block."""
+    import random as _random
+
+    rng = rng or _random.Random()
+    digits = lambda n: "".join(str(rng.randint(0, 9)) for _ in range(n))  # noqa: E731
+    country = "".join(rng.choice(_MRZ_LETTERS) for _ in range(3))
+    docnum = "".join(rng.choice(_MRZ_ALPHANUM) for _ in range(9))
+    line1 = _mrz_pad(f"I<{country}{docnum}{_mrz_check_digit(docnum)}", 30)
+    dob, expiry = digits(6), digits(6)
+    sex = rng.choice("MF<")
+    middle = (
+        f"{dob}{_mrz_check_digit(dob)}{sex}"
+        f"{expiry}{_mrz_check_digit(expiry)}{country}{_MRZ_FILLER * 11}"
+    )
+    composite = line1[5:30] + middle[0:7] + middle[8:15] + middle[18:29]
+    line2 = middle + str(_mrz_check_digit(composite))
+    line3 = _mrz_pad("SPECIMEN<<TRAVELLER", 30)
+    return f"{line1}\n{line2}\n{line3}"
+
+
+# ---------------------------------------------------------------------------
 # Language-specific PII patterns
 # ---------------------------------------------------------------------------
 
 from .pii_entity_merger import PIIPattern  # noqa: E402
+
+_UK_ENGLISH_PII_PATTERNS: List[PIIPattern] = [
+    # UK NHS Number (10 digits, optional 3-3-4 spacing, Modulus 11 check).
+    PIIPattern(
+        r"\b\d{3}\s?\d{3}\s?\d{4}\b",
+        "national_id",
+        priority=11,
+        base_score=0.45,
+        context_words=[
+            "nhs",
+            "nhs number",
+            "nhs no",
+            "patient number",
+            "health identifier",
+        ],
+        context_boost=0.45,
+        validator=validate_uk_nhs_number,
+    ),
+    # UK National Insurance Number (NINO).
+    PIIPattern(
+        r"\b[A-Z]{2}\s?\d{2}\s?\d{2}\s?\d{2}\s?[A-D]\b",
+        "national_id",
+        priority=10,
+        base_score=0.45,
+        context_words=[
+            "national insurance",
+            "national insurance number",
+            "nino",
+            "ni number",
+        ],
+        context_boost=0.45,
+        validator=validate_uk_nino,
+        flags=re.IGNORECASE,
+    ),
+]
+
+
+# Language-agnostic ICAO 9303 machine-readable-zone patterns, guarded by the
+# check-digit validators and always included in the universal base set.
+MRZ_PII_PATTERNS: List[PIIPattern] = [
+    # TD3 passport MRZ: two 44-character lines.
+    PIIPattern(
+        r"^[A-Z0-9<]{44}\n[A-Z0-9<]{44}$",
+        "passport_mrz",
+        priority=15,
+        flags=re.MULTILINE,
+        base_score=0.7,
+        context_words=["passport", "mrz", "machine readable zone"],
+        validator=validate_mrz_td3,
+    ),
+    # TD1 identity-card MRZ: three 30-character lines.
+    PIIPattern(
+        r"^[A-Z0-9<]{30}\n[A-Z0-9<]{30}\n[A-Z0-9<]{30}$",
+        "passport_mrz",
+        priority=15,
+        flags=re.MULTILINE,
+        base_score=0.7,
+        context_words=["passport", "identity card", "mrz"],
+        validator=validate_mrz_td1,
+    ),
+]
 
 _FRENCH_PII_PATTERNS: List[PIIPattern] = [
     # French dates DD/MM/YYYY
@@ -2323,6 +2824,70 @@ _POLISH_PII_PATTERNS: List[PIIPattern] = [
     ),
 ]
 
+# ---------------------------------------------------------------------------
+# Latvian PII patterns
+# ---------------------------------------------------------------------------
+
+_LATVIAN_PII_PATTERNS: List[PIIPattern] = [
+    PIIPattern(
+        r"\b\d{1,2}[./-]\d{1,2}[./-]\d{2,4}\b",
+        "date",
+        priority=9,
+        base_score=0.6,
+        context_words=[
+            "datums",
+            "dzimsanas",
+            "dzimšanas",
+            "uznemts",
+            "uzņemts",
+            "izrakstits",
+            "izrakstīts",
+        ],
+        context_boost=0.3,
+    ),
+    PIIPattern(
+        r"(?<!\w)(?:\+371\s?)?[267]\d{3}[\s.-]?\d{4}\b",
+        "phone_number",
+        priority=8,
+        base_score=0.55,
+        context_words=["telefons", "talrunis", "tālrunis", "mobilais", "kontakts"],
+        context_boost=0.35,
+        flags=re.IGNORECASE,
+    ),
+    PIIPattern(
+        r"\b\d{6}[-\s]?\d{5}\b",
+        "national_id",
+        priority=10,
+        base_score=0.5,
+        context_words=[
+            "personas kods",
+            "personas kods:",
+            "pk",
+        ],
+        context_boost=0.4,
+        validator=validate_latvian_personas_kods,
+    ),
+    PIIPattern(
+        r"\b(?:[A-Z][A-Za-z.'-]+\s+(?:iela|gatve|bulvaris|prospekts)\s+\d{1,5}[A-Za-z]?|(?:iela|gatve|bulvaris|prospekts)\s+[A-Z][A-Za-z .'-]{2,60}\s+\d{1,5}[A-Za-z]?)\b",
+        "street_address",
+        priority=7,
+        base_score=0.65,
+        context_words=["adrese", "dzivesvieta", "dzīvesvieta", "iela"],
+        context_boost=0.25,
+        flags=re.IGNORECASE,
+    ),
+    PIIPattern(
+        r"\bLV[-\s]?\d{4}\b",
+        "postcode",
+        priority=6,
+        base_score=0.3,
+        context_words=["pasta indekss", "indekss", "adrese"],
+        context_boost=0.45,
+        safety_sweep_requires_context=True,
+        flags=re.IGNORECASE,
+    ),
+]
+
 
 _KOREAN_PII_PATTERNS: List[PIIPattern] = [
     # RRN (13-digit Resident Registration Number)
@@ -2344,6 +2909,422 @@ _KOREAN_PII_PATTERNS: List[PIIPattern] = [
     ),
 ]
 
+
+_MALAY_MONTH_PATTERN = (
+    r"Januari|Februari|Mac|April|Mei|Jun|Julai|Ogos|September|"
+    r"Oktober|November|Disember"
+)
+
+_MALAY_PII_PATTERNS: List[PIIPattern] = [
+    PIIPattern(
+        r"\b\d{1,2}[/-]\d{1,2}[/-]\d{2,4}\b",
+        "date",
+        priority=9,
+        base_score=0.6,
+        context_words=[
+            "tarikh",
+            "tarikh lahir",
+            "lahir",
+            "masuk",
+            "keluar",
+            "rawatan",
+            "temu janji",
+        ],
+        context_boost=0.3,
+    ),
+    PIIPattern(
+        rf"\b\d{{1,2}}\s+(?:{_MALAY_MONTH_PATTERN})\s+\d{{4}}\b",
+        "date",
+        priority=8,
+        base_score=0.7,
+        context_words=[
+            "tarikh",
+            "tarikh lahir",
+            "lahir",
+            "masuk",
+            "keluar",
+            "rawatan",
+            "temu janji",
+        ],
+        context_boost=0.25,
+        flags=re.IGNORECASE,
+    ),
+    PIIPattern(
+        r"(?<!\w)(?:\+60[\s.-]?|0)1\d(?:[\s.-]?\d{3,4}){2}\b",
+        "phone_number",
+        priority=8,
+        base_score=0.55,
+        context_words=[
+            "telefon",
+            "tel",
+            "nombor telefon",
+            "bimbit",
+            "mudah alih",
+            "hubungi",
+            "kontak",
+        ],
+        context_boost=0.35,
+    ),
+    PIIPattern(
+        r"(?<!\d)\d{6}(?:-\d{2}-|\d{2})\d{4}(?!\d)",
+        "national_id",
+        priority=10,
+        base_score=0.45,
+        context_words=[
+            "mykad",
+            "nric",
+            "kad pengenalan",
+            "no kad pengenalan",
+            "nombor kad pengenalan",
+            "no kp",
+            "ic",
+        ],
+        context_boost=0.45,
+        safety_sweep_requires_context=True,
+        validator=validate_malaysian_mykad,
+    ),
+    PIIPattern(
+        r"\b(?:Jalan|Jl\.?|Lorong|Lrg\.?|Taman|Persiaran|Lebuh|Kampung)\s+[A-Z][A-Za-z0-9 .'-]{2,60}\b",
+        "street_address",
+        priority=7,
+        base_score=0.65,
+        context_words=[
+            "alamat",
+            "tinggal",
+            "kediaman",
+            "jalan",
+            "lorong",
+            "taman",
+        ],
+        context_boost=0.25,
+        flags=re.IGNORECASE,
+    ),
+]
+
+
+_TAGALOG_MONTH_PATTERN = (
+    r"Enero|Pebrero|Marso|Abril|Mayo|Hunyo|Hulyo|Agosto|Setyembre|"
+    r"Oktubre|Nobyembre|Disyembre"
+)
+
+_TAGALOG_PII_PATTERNS: List[PIIPattern] = [
+    PIIPattern(
+        r"\b\d{1,2}[/-]\d{1,2}[/-]\d{2,4}\b",
+        "date",
+        priority=9,
+        base_score=0.6,
+        context_words=[
+            "petsa",
+            "petsa ng kapanganakan",
+            "kapanganakan",
+            "ipinanganak",
+            "isinilang",
+            "admit",
+            "discharge",
+            "nilabas",
+        ],
+        context_boost=0.3,
+    ),
+    PIIPattern(
+        rf"\b\d{{1,2}}\s+(?:{_TAGALOG_MONTH_PATTERN})\s+\d{{4}}\b",
+        "date",
+        priority=8,
+        base_score=0.7,
+        context_words=[
+            "petsa",
+            "petsa ng kapanganakan",
+            "kapanganakan",
+            "ipinanganak",
+            "isinilang",
+            "admit",
+            "discharge",
+            "nilabas",
+        ],
+        context_boost=0.25,
+        flags=re.IGNORECASE,
+    ),
+    PIIPattern(
+        r"(?<!\w)(?:\+63[\s.-]?|0)9\d{2}[\s.-]?\d{3}[\s.-]?\d{4}\b",
+        "phone_number",
+        priority=8,
+        base_score=0.55,
+        context_words=[
+            "telepono",
+            "tel",
+            "mobile",
+            "cellphone",
+            "numero",
+            "numero ng telepono",
+            "kontak",
+            "tawagan",
+        ],
+        context_boost=0.35,
+    ),
+    PIIPattern(
+        r"(?<!\d)\d{4}(?:[\s-]?\d{4}){2}(?!\d)",
+        "national_id",
+        priority=10,
+        base_score=0.45,
+        context_words=[
+            "psn",
+            "philsys",
+            "philippine identification",
+            "philippine national id",
+            "pambansang id",
+            "national id",
+        ],
+        context_boost=0.45,
+        safety_sweep_requires_context=True,
+        validator=validate_philsys_psn,
+    ),
+    PIIPattern(
+        r"(?<!\d)\d{2}[\s-]?\d{9}[\s-]?\d(?!\d)",
+        "national_id",
+        priority=10,
+        base_score=0.45,
+        context_words=[
+            "philhealth",
+            "philhealth pin",
+            "philhealth number",
+            "philhealth no",
+            "pin",
+            "numero ng philhealth",
+        ],
+        context_boost=0.45,
+        safety_sweep_requires_context=True,
+        validator=validate_philhealth_pin,
+    ),
+    PIIPattern(
+        r"\b(?:Barangay|Brgy\.?|Bgy\.?|Kalye|Kalsada|Daang|Daan|Avenida|Sitio|Purok)\s+[A-Z][A-Za-z0-9 .'-]{2,60}\b",
+        "street_address",
+        priority=7,
+        base_score=0.65,
+        context_words=[
+            "tirahan",
+            "address",
+            "adres",
+            "barangay",
+            "kalye",
+            "kalsada",
+            "sitio",
+            "purok",
+        ],
+        context_boost=0.25,
+        flags=re.IGNORECASE,
+    ),
+]
+
+
+_DANISH_MONTH_PATTERN = (
+    r"januar|februar|marts|april|maj|juni|juli|august|september|"
+    r"oktober|november|december"
+)
+
+_DANISH_PII_PATTERNS: List[PIIPattern] = [
+    PIIPattern(
+        r"\b\d{1,2}[./-]\d{1,2}[./-]\d{2,4}\b",
+        "date",
+        priority=9,
+        base_score=0.6,
+        context_words=[
+            "dato",
+            "født",
+            "foedt",
+            "fodt",
+            "fødselsdato",
+            "foedselsdato",
+            "indlagt",
+            "udskrevet",
+        ],
+        context_boost=0.3,
+    ),
+    PIIPattern(
+        rf"\b\d{{1,2}}\.?\s+(?:{_DANISH_MONTH_PATTERN})\s+\d{{4}}\b",
+        "date",
+        priority=8,
+        base_score=0.7,
+        context_words=[
+            "dato",
+            "født",
+            "foedt",
+            "fodt",
+            "fødselsdato",
+            "foedselsdato",
+            "indlagt",
+            "udskrevet",
+        ],
+        context_boost=0.25,
+        flags=re.IGNORECASE,
+    ),
+    PIIPattern(
+        r"(?<!\w)(?:\+45[\s.-]?)?(?:\d{2}[\s.-]?){3}\d{2}\b",
+        "phone_number",
+        priority=8,
+        base_score=0.55,
+        context_words=[
+            "telefon",
+            "tlf",
+            "mobil",
+            "kontakt",
+            "ring",
+        ],
+        context_boost=0.35,
+    ),
+    PIIPattern(
+        r"(?<!\d)\d{6}[-\s]?\d{4}(?!\d)",
+        "national_id",
+        priority=10,
+        base_score=0.45,
+        context_words=[
+            "cpr",
+            "cpr-nummer",
+            "cpr nummer",
+            "personnummer",
+            "person nr",
+            "person-id",
+        ],
+        context_boost=0.45,
+        safety_sweep_requires_context=True,
+        validator=validate_danish_cpr,
+    ),
+    PIIPattern(
+        r"\b(?!(?:adresse|bopæl|bopael)\b)[A-ZÆØÅ][A-Za-zÆØÅæøå .'-]{2,60}(?:gade|vej|all[eé]|plads|torv|str[æa]de)\s+\d{1,5}[A-Za-z]?\b",
+        "street_address",
+        priority=7,
+        base_score=0.65,
+        context_words=[
+            "adresse",
+            "bopæl",
+            "bopael",
+            "vej",
+            "gade",
+        ],
+        context_boost=0.25,
+        flags=re.IGNORECASE,
+    ),
+    PIIPattern(
+        r"(?<!\d)(?:DK[-\s]?)?\d{4}(?!\d)",
+        "postcode",
+        priority=6,
+        base_score=0.25,
+        context_words=["postnummer", "postnr", "postkode", "adresse"],
+        context_boost=0.5,
+        safety_sweep_requires_context=True,
+        flags=re.IGNORECASE,
+    ),
+]
+
+
+_SLOVAK_MONTH_PATTERN = (
+    r"janu[aá]r(?:a)?|febru[aá]r(?:a)?|marec|marca|apr[ií]l(?:a)?|"
+    r"m[aá]j(?:a)?|j[uú]n(?:a)?|j[uú]l(?:a)?|august(?:a)?|"
+    r"september|septembra|okt[oó]ber|okt[oó]bra|november|novembra|"
+    r"december|decembra"
+)
+
+_SLOVAK_PII_PATTERNS: List[PIIPattern] = [
+    PIIPattern(
+        r"\b\d{1,2}[./-]\d{1,2}[./-]\d{2,4}\b",
+        "date",
+        priority=9,
+        base_score=0.6,
+        context_words=[
+            "datum",
+            "d\u00e1tum",
+            "narodenia",
+            "narodeny",
+            "naroden\u00fd",
+            "prijaty",
+            "prijat\u00fd",
+            "prepusteny",
+            "prepusten\u00fd",
+        ],
+        context_boost=0.3,
+    ),
+    PIIPattern(
+        rf"\b\d{{1,2}}\.?\s+(?:{_SLOVAK_MONTH_PATTERN})\s+\d{{4}}\b",
+        "date",
+        priority=8,
+        base_score=0.7,
+        context_words=[
+            "datum",
+            "d\u00e1tum",
+            "narodenia",
+            "narodeny",
+            "naroden\u00fd",
+            "prijaty",
+            "prijat\u00fd",
+            "prepusteny",
+            "prepusten\u00fd",
+        ],
+        context_boost=0.25,
+        flags=re.IGNORECASE,
+    ),
+    PIIPattern(
+        r"(?<!\w)(?:\+421\s?|0)9\d{2}(?:[\s.-]?\d{3}){2}\b",
+        "phone_number",
+        priority=8,
+        base_score=0.55,
+        context_words=[
+            "telefon",
+            "telef\u00f3n",
+            "tel",
+            "mobil",
+            "cislo",
+            "\u010d\u00edslo",
+            "kontakt",
+        ],
+        context_boost=0.35,
+    ),
+    PIIPattern(
+        r"(?<!\d)\d{2}(?:0[1-9]|1[0-2]|2[1-9]|3[0-2]|5[1-9]|6[0-2]|7[1-9]|8[0-2])(?:0[1-9]|[12]\d|3[01])[\s/-]?\d{4}(?!\d)",
+        "national_id",
+        priority=10,
+        base_score=0.5,
+        context_words=[
+            "rodne cislo",
+            "rodn\u00e9 \u010d\u00edslo",
+            "rc",
+            "r\u010d",
+            "identifikacne cislo",
+            "identifika\u010dn\u00e9 \u010d\u00edslo",
+        ],
+        context_boost=0.45,
+        validator=validate_czechoslovak_rodne_cislo,
+    ),
+    PIIPattern(
+        r"\b(?!(?:adresa|bydlisko|trvale)\b)(?:[A-Z\u00c0-\u024f][A-Za-z\u00c0-\u024f.'-]+(?:\s+[A-Z\u00c0-\u024f][A-Za-z\u00c0-\u024f.'-]+)*?\s+(?:ulica|ul\.|trieda|n[aá]mestie|cesta)\s+\d{1,5}[A-Za-z]?|(?:ulica|ul\.|trieda|n[aá]mestie|cesta)\s+[A-Z\u00c0-\u024f][A-Za-z\u00c0-\u024f .'-]{2,60}\s+\d{1,5}[A-Za-z]?)\b",
+        "street_address",
+        priority=7,
+        base_score=0.65,
+        context_words=[
+            "adresa",
+            "bydlisko",
+            "trvale bydlisko",
+            "trval\u00e9 bydlisko",
+            "ulica",
+        ],
+        context_boost=0.25,
+        flags=re.IGNORECASE,
+    ),
+    PIIPattern(
+        r"(?<!\d)\d{3}\s?\d{2}(?!\d)",
+        "postcode",
+        priority=6,
+        base_score=0.25,
+        context_words=[
+            "psc",
+            "ps\u010d",
+            "postove smerovacie cislo",
+            "po\u0161tov\u00e9 smerovacie \u010d\u00edslo",
+            "adresa",
+        ],
+        context_boost=0.5,
+        safety_sweep_requires_context=True,
+        flags=re.IGNORECASE,
+    ),
+]
+
 LANGUAGE_PII_PATTERNS: Dict[str, List[PIIPattern]] = {
     "fr": _FRENCH_PII_PATTERNS,
     "de": _GERMAN_PII_PATTERNS,
@@ -2359,8 +3340,17 @@ LANGUAGE_PII_PATTERNS: Dict[str, List[PIIPattern]] = {
     "tr": _TURKISH_PII_PATTERNS,
     "id": _INDONESIAN_PII_PATTERNS,
     "th": _THAI_PII_PATTERNS,
+    "lv": _LATVIAN_PII_PATTERNS,
     "pl": _POLISH_PII_PATTERNS,
     "ko": _KOREAN_PII_PATTERNS,
+    "sk": _SLOVAK_PII_PATTERNS,
+    "ms": _MALAY_PII_PATTERNS,
+    "tl": _TAGALOG_PII_PATTERNS,
+    "da": _DANISH_PII_PATTERNS,
+}
+
+LOCALE_PII_PATTERNS: Dict[str, List[PIIPattern]] = {
+    "en_gb": _UK_ENGLISH_PII_PATTERNS,
 }
 
 
@@ -2699,6 +3689,56 @@ LANGUAGE_FAKE_DATA: Dict[str, Dict[str, List[str]]] = {
         "LOCATION": ["Jakarta", "Bandung", "Surabaya"],
         "ZIPCODE": ["10110", "40123", "60234"],
     },
+    "ms": {
+        "NAME": ["Nur Aisyah", "Ahmad Hakim", "Siti Farah", "Lim Wei Han"],
+        "FIRST_NAME": ["Nur", "Ahmad", "Siti", "Wei Han"],
+        "LAST_NAME": ["Aisyah", "Hakim", "Farah", "Lim"],
+        "EMAIL": ["pesakit@contoh.my", "hubungi@contoh.org"],
+        "PHONE": ["+60 12-345 6789", "012-987 6543"],
+        "ID_NUM": ["850817-14-5678", "900101145678"],
+        "STREET_ADDRESS": ["Jalan Merdeka 10", "Lorong Damai 5"],
+        "URL_PERSONAL": ["https://contoh.my"],
+        "USERNAME": ["pesakit123", "pengguna456"],
+        "DATE": ["17/08/1985", "1 Januari 2000"],
+        "AGE": ["45", "62", "38"],
+        "LOCATION": ["Kuala Lumpur", "Johor Bahru", "George Town"],
+        "ZIPCODE": ["50000", "80000", "10300"],
+    },
+    "tl": {
+        "NAME": [
+            "Maria Santos",
+            "Jose Reyes",
+            "Ana Cruz",
+            "Juan dela Cruz",
+        ],
+        "FIRST_NAME": ["Maria", "Jose", "Ana", "Juan"],
+        "LAST_NAME": ["Santos", "Reyes", "Cruz", "dela Cruz"],
+        "EMAIL": ["pasyente@example.ph", "kontak@example.org"],
+        "PHONE": ["+63 917 123 4567", "0917-987-6543"],
+        "ID_NUM": ["1234-5678-9012", "98-765432109-8"],
+        "STREET_ADDRESS": ["Barangay Maligaya", "Kalye Rizal 12"],
+        "URL_PERSONAL": ["https://example.ph"],
+        "USERNAME": ["pasyente123", "gumagamit456"],
+        "DATE": ["17/08/1985", "17 Agosto 1985"],
+        "AGE": ["45", "62", "38"],
+        "LOCATION": ["Manila", "Quezon City", "Cebu City"],
+        "ZIPCODE": ["1000", "1100", "6000"],
+    },
+    "da": {
+        "NAME": ["Anna Nielsen", "Peter Jensen", "Mette Hansen", "Lars Andersen"],
+        "FIRST_NAME": ["Anna", "Peter", "Mette", "Lars"],
+        "LAST_NAME": ["Nielsen", "Jensen", "Hansen", "Andersen"],
+        "EMAIL": ["patient@example.dk", "kontakt@example.org"],
+        "PHONE": ["+45 20 12 34 56", "30 45 67 89"],
+        "ID_NUM": ["170885-1234", "010101-4001"],
+        "STREET_ADDRESS": ["Bredgade 12", "Roskildevej 45"],
+        "URL_PERSONAL": ["https://example.dk"],
+        "USERNAME": ["patient123", "bruger456"],
+        "DATE": ["17/08/1985", "17 august 1985"],
+        "AGE": ["45", "62", "38"],
+        "LOCATION": ["Kobenhavn", "Aarhus", "Odense"],
+        "ZIPCODE": ["1260", "8000", "5000"],
+    },
     "th": {
         "NAME": [
             "สมชาย ใจดี",
@@ -2722,6 +3762,41 @@ LANGUAGE_FAKE_DATA: Dict[str, Dict[str, List[str]]] = {
         "LOCATION": ["กรุงเทพมหานคร", "เชียงใหม่", "ภูเก็ต"],
         "ZIPCODE": ["10110", "50000", "83000"],
     },
+    "lv": {
+        "NAME": ["Anna Kalnina", "Janis Berzins", "Ilze Ozolina", "Peteris Liepa"],
+        "FIRST_NAME": ["Anna", "Janis", "Ilze", "Peteris"],
+        "LAST_NAME": ["Kalnina", "Berzins", "Ozolina", "Liepa"],
+        "EMAIL": ["pacients@example.lv", "kontakts@example.org"],
+        "PHONE": ["+371 2123 4567", "2912 3456"],
+        "ID_NUM": ["161175-19997", "32867300679"],
+        "STREET_ADDRESS": ["Brivibas iela 12", "Dzirnavu iela 45"],
+        "URL_PERSONAL": ["https://example.lv"],
+        "USERNAME": ["pacients123", "lietotajs456"],
+        "DATE": ["16.11.1975", "01.01.2000"],
+        "AGE": ["45", "62", "38"],
+        "LOCATION": ["Riga", "Daugavpils", "Liepaja"],
+        "ZIPCODE": ["LV-1010", "LV-5401", "LV-3401"],
+    },
+    "sk": {
+        "NAME": [
+            "Jana Kovacova",
+            "Peter Novak",
+            "Marta Horvathova",
+            "Tomas Kral",
+        ],
+        "FIRST_NAME": ["Jana", "Peter", "Marta", "Tomas"],
+        "LAST_NAME": ["Kovacova", "Novak", "Horvathova", "Kral"],
+        "EMAIL": ["pacient@example.sk", "kontakt@example.org"],
+        "PHONE": ["+421 903 123 456", "0903 987 654"],
+        "ID_NUM": ["850505/1236", "855505/1230"],
+        "STREET_ADDRESS": ["Hlavna ulica 12", "Namestie SNP 5"],
+        "URL_PERSONAL": ["https://example.sk"],
+        "USERNAME": ["pacient123", "pouzivatel456"],
+        "DATE": ["05.05.1985", "5. maja 1985"],
+        "AGE": ["45", "62", "38"],
+        "LOCATION": ["Bratislava", "Kosice", "Zilina"],
+        "ZIPCODE": ["81101", "04001", "01001"],
+    },
 }
 
 
@@ -2730,17 +3805,46 @@ LANGUAGE_FAKE_DATA: Dict[str, Dict[str, List[str]]] = {
 # ---------------------------------------------------------------------------
 
 
-def get_patterns_for_language(lang: str) -> List[PIIPattern]:
+def _normalize_pattern_language(lang: str) -> str:
+    return lang.strip().replace("-", "_").split("_", 1)[0].casefold()
+
+
+def _normalize_pattern_locale(locale: str) -> str:
+    return locale.strip().replace("-", "_").casefold()
+
+
+def _locale_pattern_keys(lang: str, locale: str | None) -> list[str]:
+    keys: list[str] = []
+    if locale:
+        keys.append(_normalize_pattern_locale(locale))
+    if "_" in lang or "-" in lang:
+        keys.append(_normalize_pattern_locale(lang))
+
+    deduped: list[str] = []
+    seen: set[str] = set()
+    for key in keys:
+        if key and key not in seen:
+            deduped.append(key)
+            seen.add(key)
+    return deduped
+
+
+def get_patterns_for_language(lang: str, locale: str | None = None) -> List[PIIPattern]:
     """Return combined PII patterns for the given language.
 
     English patterns (email, URL, IP, etc.) are universal and always
     included. Language-specific patterns (dates, phones, national IDs,
-    addresses) are added on top.
+    addresses) are added on top. Locale-specific overlays, such as
+    ``en_GB`` UK identifiers, are appended when ``locale`` is provided or
+    when ``lang`` includes a region code.
 
     Args:
-        lang: ISO 639-1 language code. Model-backed languages are listed in
+        lang: ISO 639-1 language code, optionally with a region suffix for
+            pattern lookup. Model-backed languages are listed in
             :data:`SUPPORTED_LANGUAGES`; national-ID-only languages are listed
             in :data:`NATIONAL_ID_ONLY_LANGUAGES`.
+        locale: Optional locale override (for example, ``"en_GB"``) whose
+            locale-specific deterministic patterns should also be active.
 
     Returns:
         List of PIIPattern instances for the language
@@ -2749,7 +3853,8 @@ def get_patterns_for_language(lang: str) -> List[PIIPattern]:
         ValueError: If the language is not supported
     """
     supported_pattern_languages = SUPPORTED_LANGUAGES | NATIONAL_ID_ONLY_LANGUAGES
-    if lang not in supported_pattern_languages:
+    base_lang = _normalize_pattern_language(lang)
+    if base_lang not in supported_pattern_languages:
         raise ValueError(
             f"Unsupported language '{lang}'. "
             f"Supported: {sorted(supported_pattern_languages)}"
@@ -2758,11 +3863,14 @@ def get_patterns_for_language(lang: str) -> List[PIIPattern]:
     from .pii_entity_merger import PII_PATTERNS
 
     # English patterns serve as universal base
-    base = list(PII_PATTERNS)
+    # MRZ patterns are language-agnostic, so they join the universal base.
+    base = list(PII_PATTERNS) + MRZ_PII_PATTERNS
 
-    if lang == "en":
-        return base
+    combined = base
+    if base_lang != "en":
+        combined = combined + LANGUAGE_PII_PATTERNS.get(base_lang, [])
 
-    # Add language-specific patterns
-    lang_patterns = LANGUAGE_PII_PATTERNS.get(lang, [])
-    return base + lang_patterns
+    for locale_key in _locale_pattern_keys(lang, locale):
+        combined = combined + LOCALE_PII_PATTERNS.get(locale_key, [])
+
+    return combined

@@ -19,6 +19,7 @@ FrameObject::FrameObject(
 {
     LOG(DEBUG) << "Copying frame number " << frame_no;
     LOG(DEBUG) << std::hex << std::showbase << "Copying frame struct from address " << addr;
+
     Structure<py_frame_v> frame(manager, addr);
 
     d_addr = addr;
@@ -36,7 +37,15 @@ FrameObject::FrameObject(
     auto prev_addr = frame.getField(&py_frame_v::o_back);
     LOG(DEBUG) << std::hex << std::showbase << "Previous frame address: " << prev_addr;
     if (prev_addr) {
-        d_prev = std::make_shared<FrameObject>(manager, prev_addr, next_frame_no);
+        try {
+            d_prev = std::make_shared<FrameObject>(manager, prev_addr, next_frame_no);
+        } catch (const RemoteMemCopyError& ex) {
+            // The previous frame address points to unreadable memory (e.g., guard page,
+            // unmapped region). Treat this as the end of the frame chain.
+            LOG(DEBUG) << "Failed to read previous frame at " << std::hex << std::showbase << prev_addr
+                       << ", treating as end of frame chain: " << ex.what();
+            d_prev = nullptr;
+        }
     }
     d_is_entry = isEntry(manager, frame);
 }
@@ -47,8 +56,12 @@ FrameObject::getIsShim(
         Structure<py_frame_v>& frame)
 {
     if (manager->versionIsAtLeast(3, 12)) {
-        constexpr int FRAME_OWNED_BY_CSTACK = 3;
-        return frame.getField(&py_frame_v::o_owner) == FRAME_OWNED_BY_CSTACK;
+        int owner = frame.getField(&py_frame_v::o_owner);
+        if (manager->versionIsAtLeast(3, 14)) {
+            return owner == Python3_14::FRAME_OWNED_BY_CSTACK
+                   || owner == Python3_14::FRAME_OWNED_BY_INTERPRETER;
+        }
+        return owner == Python3_12::FRAME_OWNED_BY_CSTACK;
     }
     return false;  // Versions before 3.12 don't have shim frames.
 }
@@ -61,6 +74,13 @@ FrameObject::getCode(
     remote_addr_t py_code_addr = frame.getField(&py_frame_v::o_code);
     if (manager->versionIsAtLeast(3, 14)) {
         py_code_addr = py_code_addr & (~3);
+    }
+
+    if (py_code_addr == (remote_addr_t) nullptr) {
+        // In Python 3.14+, the base/sentinel frame at the bottom of each
+        // thread's frame stack has a NULL f_executable. This is an internal
+        // interpreter frame that should be skipped.
+        return nullptr;
     }
 
     LOG(DEBUG) << std::hex << std::showbase << "Attempting to construct code object from address "

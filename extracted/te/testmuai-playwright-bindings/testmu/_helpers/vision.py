@@ -577,7 +577,6 @@ async def get_vision_coordinates(
             json={
                 "screenshot_b64": screenshot_b64,
                 "action_instruction": description,
-                "action_type": action_type,
                 "width": width,
                 "height": height,
             },

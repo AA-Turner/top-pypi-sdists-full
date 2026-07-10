@@ -920,7 +920,28 @@ fn factor_coordinates(
     let p = lambda.nrows();
     let rank = lambda.ncols();
     let n = r.nrows();
-    let d_inv: Vec<f64> = (0..p).map(|i| 1.0 / diagonal[i]).collect();
+    // GLS weights 1/D_ii, with zero-variance channels DROPPED (weight 0): a
+    // channel whose residual is identically zero carries no factor information,
+    // and its 1/0 = ∞ weight poisons the whole normal matrix into NaN — the
+    // fully-explained-target abort (Cholesky NonPositivePivot) that killed
+    // stagewise runs on targets the dictionary explains exactly. Dropping the
+    // channel is the pseudo-inverse limit; with every channel degenerate the
+    // ridged normal matrix stays PD and the coordinates are the least-norm 0.
+    let d_inv: Vec<f64> = (0..p)
+        .map(|i| {
+            let d = diagonal[i];
+            if !(d > 0.0 && d.is_finite()) {
+                return 0.0;
+            }
+            // A subnormal-floored variance (the zero-residual case floors the
+            // scale reference at f64::MIN_POSITIVE) passes `d > 0` but its
+            // reciprocal OVERFLOWS to ∞ — the same NaN poisoning through the
+            // second door. A non-finite weight is the same degenerate-channel
+            // verdict: drop it.
+            let w = d.recip();
+            if w.is_finite() { w } else { 0.0 }
+        })
+        .collect();
     // Normal matrix ΛᵀD^{-1}Λ (+ tiny ridge for invertibility).
     let mut normal = Array2::<f64>::zeros((rank, rank));
     for a in 0..rank {
@@ -991,24 +1012,29 @@ fn lower_cholesky_psd(a: &Array2<f64>) -> Result<Array2<f64>, String> {
     if let Ok(chol) = a.cholesky(Side::Lower) {
         return Ok(chol.lower_triangular());
     }
-    // Eigen-repair: clamp eigenvalues to a small positive floor and rebuild a
-    // symmetric square root, then Cholesky that (always succeeds, PD).
+    // Eigen-repair: clamp eigenvalues to a small positive floor, rebuild the
+    // REPAIRED matrix Q·diag(λ_clamped)·Qᵀ itself, and Cholesky that (always
+    // succeeds, PD). The returned factor must satisfy L·Lᵀ = A_repaired —
+    // rebuilding the symmetric square root here and factoring THAT would hand
+    // callers a factor with L·Lᵀ = A^{1/2}, silently taking every whitened
+    // quadratic form against the square root of the intended precision.
     let (evals, evecs) = symmetric_eig_ascending(a)?;
     let max_ev = evals.iter().copied().fold(0.0_f64, f64::max).max(1.0);
     let floor = 1e-10 * max_ev;
     let p = a.nrows();
-    let mut sqrt = Array2::<f64>::zeros((p, p));
+    let mut repaired = Array2::<f64>::zeros((p, p));
     for i in 0..p {
         for j in 0..p {
             let mut acc = 0.0_f64;
             for k in 0..p {
                 let ev = evals[k].max(floor);
-                acc += evecs[[i, k]] * ev.sqrt() * evecs[[j, k]];
+                acc += evecs[[i, k]] * ev * evecs[[j, k]];
             }
-            sqrt[[i, j]] = acc;
+            repaired[[i, j]] = acc;
         }
     }
-    sqrt.cholesky(Side::Lower)
+    repaired
+        .cholesky(Side::Lower)
         .map(|c| c.lower_triangular())
         .map_err(|e| format!("lower_cholesky_psd eigen-repair: {e:?}"))
 }

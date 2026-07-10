@@ -19,7 +19,14 @@ import snowflake.snowpark.functions as snowpark_fn
 import snowflake.snowpark_connect.tcm as tcm
 import snowflake.snowpark_connect.utils.udf_utils as udf_utils
 from snowflake.snowpark import Session
-from snowflake.snowpark.types import DataType, _parse_datatype_json_value
+from snowflake.snowpark.types import (
+    ArrayType,
+    DataType,
+    MapType,
+    StructType,
+    VariantType,
+    _parse_datatype_json_value,
+)
 from snowflake.snowpark_connect.column_name_handler import ColumnNameMap
 from snowflake.snowpark_connect.config import (
     global_config,
@@ -40,7 +47,12 @@ from snowflake.snowpark_connect.utils.context import (
     get_is_aggregate_function,
     get_is_evaluating_join_condition,
 )
-from snowflake.snowpark_connect.utils.jvm_udf_utils import is_decomposable_struct
+from snowflake.snowpark_connect.utils.jvm_udf_utils import (
+    UdfKind,
+    decode_jvm_udf_result,
+    encode_jvm_udf_args,
+    is_decomposable_struct,
+)
 from snowflake.snowpark_connect.utils.scala_udf_utils import _emit_scala_udf_ddl
 from snowflake.snowpark_connect.utils.session import get_or_create_snowpark_session
 from snowflake.snowpark_connect.utils.snowpark_connect_logging import logger
@@ -57,12 +69,13 @@ def _invoke_udf(
     """Append the schema-JSON sentinel (if needed) and return call_udf(...)."""
     from snowflake.snowpark_connect.utils.jvm_udf_utils import to_json
 
-    if udf.attach_schema_json:
+    if udf.kind in (UdfKind.SCALA_UDF, UdfKind.PYTHON_REGISTERED):
         schema_json = to_json([t.typ for t in typed_args], escape_quotes=False)
         converted_args.append(snowpark_fn.lit(schema_json))
     return snowpark_fn.call_udf(override_name or udf.name, *converted_args)
 
 
+@dataclass
 class SnowparkUdfBase(ABC):
     """Abstract base for all Snowflake UDF handles.
 
@@ -71,19 +84,25 @@ class SnowparkUdfBase(ABC):
     (``LazySnowparkUdf``).
     """
 
+    name: str
+    return_type: DataType
+    original_return_type: DataType | None
+    kind: UdfKind
+    cast_to_original_return_type: bool
+
     @abstractmethod
-    def call(
+    def _call(
         self,
         converted_args: list["snowpark_fn.Column"],
         typed_args: list[TypedColumn],
         session: Session,
     ) -> "snowpark_fn.Column":
-        """Invoke the UDF and return the resulting column expression.
+        """Invoke the UDF with already-encoded arguments and return the raw column.
 
-        ``converted_args`` must already contain the per-argument columns (with
-        any struct decomposition or VARIANT casts applied by the caller).
-        ``typed_args`` is the original list of ``TypedColumn`` values used to
-        derive the schema-JSON sentinel when ``attach_schema_json`` is set.
+        ``converted_args`` must already contain the per-argument columns (with any
+        struct decomposition / VARIANT / epoch encoding applied). ``typed_args`` is the
+        original list used to derive the schema-JSON sentinel when ``attach_schema_json``
+        is set. This is the low-level primitive; callers use ``invoke``.
         """
 
     def decomposes_struct_arg(self, position: int, call_site_type: DataType) -> bool:
@@ -97,19 +116,65 @@ class SnowparkUdfBase(ABC):
         """
         return is_decomposable_struct(call_site_type)
 
+    def effective_return_type_for(self, call_site_types: list[DataType]) -> DataType:
+        """The DDL return type for these call-site types.
 
-@dataclass(frozen=True)
+        Lazy Scala UDFs infer a narrower type at DDL-emission time (e.g. DECIMAL(18,4)
+        instead of DECIMAL(38,18)); every other handle uses the declared return type.
+        Overridden by ``LazySnowparkUdf``.
+        """
+        return self.original_return_type
+
+    def invoke(
+        self,
+        typed_args: list[TypedColumn],
+        column_mapping: ColumnNameMap,
+        session: Session,
+    ) -> TypedColumn:
+        """Encode arguments, invoke the UDF, and decode the result to its declared type.
+
+        The single public entry point: the UDF handle owns its full marshalling, so both
+        call sites (inline ``map_udf`` and registered-SQL ``map_unresolved_function``)
+        share one path with no external branching. Returns the result as a ``TypedColumn``
+        (column paired with its Spark type).
+
+        The marshalling contract is selected by ``self.kind`` (see ``UdfKind``):
+          * ``SCALA_UDF/JAVA_UDAF``: ``encode_jvm_udf_args`` lowers temporals to epoch /
+            wraps non-native args in VARIANT; ``decode_jvm_udf_result`` reconstructs the
+            declared type on return (epoch → temporal, else cast).
+          * ``PYTHON_REGISTERED/JAVA_SCALAR``: args cast to VARIANT; a VARIANT-backed
+            return is cast back.
+          * ``PYTHON_INLINE``: args pass through; a VARIANT-backed Map/Struct return is
+            reconstructed via ``PARSE_JSON`` then cast.
+        """
+        match self.kind:
+            case UdfKind.SCALA_UDF | UdfKind.JAVA_UDAF:
+                args: list = encode_jvm_udf_args(self, typed_args, column_mapping)
+            case UdfKind.PYTHON_REGISTERED | UdfKind.JAVA_SCALAR:
+                args = [snowpark_fn.cast(tc.col, VariantType()) for tc in typed_args]
+            case UdfKind.PYTHON_INLINE:
+                args = [tc.col for tc in typed_args]
+
+        raw = self._call(args, typed_args, session)
+
+        if not self.cast_to_original_return_type:
+            return TypedColumn(raw, lambda: [self.return_type])
+        rt = self.effective_return_type_for([tc.typ for tc in typed_args])
+        match self.kind:
+            case UdfKind.SCALA_UDF | UdfKind.JAVA_UDAF:
+                col = decode_jvm_udf_result(raw, rt)
+            case UdfKind.PYTHON_REGISTERED | UdfKind.JAVA_SCALAR:
+                col = snowpark_fn.cast(raw, rt)
+            case UdfKind.PYTHON_INLINE:
+                col = snowpark_fn.parse_json(raw).cast(rt)
+        return TypedColumn(col, lambda: [rt])
+
+
+@dataclass
 class SnowparkUDF(SnowparkUdfBase):
-    name: str
-    return_type: DataType
     input_types: list[DataType]
-    original_return_type: DataType | None
-    cast_to_original_return_type: bool = False
-    attach_schema_json: bool = False
-    is_scala: bool = False
-    is_java_udaf: bool = False
 
-    def call(
+    def _call(
         self,
         converted_args: list["snowpark_fn.Column"],
         typed_args: list[TypedColumn],
@@ -147,15 +212,9 @@ class LazySnowparkUdf(SnowparkUdfBase):
     eventual CREATE FUNCTION statement.
     """
 
-    name: str
-    return_type: DataType
-    original_return_type: DataType | None
-    cast_to_original_return_type: bool
-    attach_schema_json: bool
     stage_imports: list[str]
     # Lazy UDFs are always Scala scalars — never UDAFs.
-    is_scala: bool = field(default=True, init=False)
-    is_java_udaf: bool = field(default=False, init=False)
+    kind: UdfKind = field(default=UdfKind.SCALA_UDF, init=False)
     input_types: list[DataType] = field(default_factory=list, init=False)
     _materialized: bool = field(default=False, init=False, repr=False)
     # Maps repr(call_site_types) -> materialized UDF name for that signature.
@@ -174,8 +233,12 @@ class LazySnowparkUdf(SnowparkUdfBase):
     _ddl_lock: "threading.Lock" = field(
         default_factory=threading.Lock, init=False, repr=False
     )
+    # Maps repr(call_site_types) -> effective return DataType for that signature.
+    # Only populated when the inferred return type differs from original_return_type
+    # (e.g. Decimal return type inferred from call-site input).
+    _type_to_effective_rt: dict = field(default_factory=dict, init=False, repr=False)
 
-    def call(
+    def _call(
         self,
         converted_args: list["snowpark_fn.Column"],
         typed_args: list[TypedColumn],
@@ -189,6 +252,16 @@ class LazySnowparkUdf(SnowparkUdfBase):
                     self._emit_ddl(call_site_types, session, type_key)
         return _invoke_udf(
             self, converted_args, typed_args, self._type_to_name[type_key]
+        )
+
+    def effective_return_type_for(self, call_site_types: list[DataType]) -> DataType:
+        """Return the effective DDL return type for the given call-site types.
+
+        Falls back to original_return_type when no inference was applied (the
+        common case for non-Decimal or already-specific Decimal return types).
+        """
+        return self._type_to_effective_rt.get(
+            repr(call_site_types), self.original_return_type
         )
 
     def _emit_ddl(
@@ -207,13 +280,17 @@ class LazySnowparkUdf(SnowparkUdfBase):
             suffix = hashlib.md5(type_key.encode()).hexdigest()[:8]
             udf_name = f"{self.name}_{suffix}"
 
-        _emit_scala_udf_ddl(
+        effective_rt = _emit_scala_udf_ddl(
             udf_name,
             self.stage_imports,
             call_site_types,
             self.original_return_type,
             session,
         )
+        # Store the inferred return type only when it differs from the declared one,
+        # so post-processing casts use the actual DDL return type.
+        if effective_rt is not None and effective_rt != self.original_return_type:
+            self._type_to_effective_rt[type_key] = effective_rt
         # input_types is written for structural symmetry with SnowparkUDF but is never
         # read on the lazy path: decomposes_struct_arg uses the call_site_type parameter.
         self.input_types = call_site_types
@@ -257,6 +334,7 @@ def process_udf_in_sproc(
     common_inline_user_defined_function: expressions_proto.CommonInlineUserDefinedFunction,
     called_from: str,
     return_type: DataType,
+    kind: UdfKind,
     input_types: list | None = None,
     input_column_names: list[str] | None = None,
     udf_name: str | None = None,
@@ -318,12 +396,17 @@ def process_udf_in_sproc(
     )
 
     udf_attr = json.loads(sproc_res)
+    return_type = _parse_datatype_json_value(udf_attr["return_type"])
+    cast_to_original = isinstance(return_type, VariantType) and isinstance(
+        original_return_type, (ArrayType, MapType, StructType)
+    )
     snowpark_udf = SnowparkUDF(
         name=udf_attr["name"],
         input_types=[_parse_datatype_json_value(t) for t in udf_attr["input_types"]],
-        return_type=_parse_datatype_json_value(udf_attr["return_type"]),
+        return_type=return_type,
         original_return_type=original_return_type,
-        attach_schema_json=coerce_via_schema_json,
+        kind=kind,
+        cast_to_original_return_type=cast_to_original,
     )
     if called_from == "register_udf":
         from snowflake.snowpark_connect.utils.spark_session_cache import (

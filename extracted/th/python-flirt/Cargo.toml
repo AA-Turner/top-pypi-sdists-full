@@ -3,7 +3,7 @@
 [workspace]
 resolver = "2"
 
-members = ["pyflirt"]
+members = ["flirt", "pyflirt"]
 
 [profile.release]
 lto = "fat"

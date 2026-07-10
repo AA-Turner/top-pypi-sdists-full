@@ -1,7 +1,9 @@
 Metadata-Version: 2.4
 Name: mcp-server-git
-Version: 2026.6.16
+Version: 2026.7.10
 Summary: A Model Context Protocol server providing tools to read, search, and manipulate Git repositories programmatically via LLMs
+Project-URL: Repository, https://github.com/modelcontextprotocol/servers/tree/main/src/git
+Project-URL: Issues, https://github.com/modelcontextprotocol/servers/issues
 Author: Anthropic, PBC.
 Maintainer-email: David Soria Parra <davidsp@anthropic.com>
 License: MIT
@@ -26,6 +28,8 @@ Description-Content-Type: text/markdown
 ## Overview
 
 A Model Context Protocol server for Git repository interaction and automation. This server provides tools to read, search, and manipulate Git repositories via Large Language Models.
+
+Source: https://github.com/modelcontextprotocol/servers/tree/main/src/git
 
 Please note that mcp-server-git is currently in early development. The functionality and available tools are subject to change and expansion as we continue to develop and improve the server.
 

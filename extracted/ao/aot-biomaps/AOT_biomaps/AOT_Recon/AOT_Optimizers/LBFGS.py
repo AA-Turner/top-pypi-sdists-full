@@ -77,7 +77,7 @@ def LBFGS(
     ZX = Z * X
 
     if SMatrix.T != y.shape[0] or SMatrix.N != y.shape[1]:
-        raise ValueError(f"Shape mismatch: y={y.shape}, SMatrix T={SMatrix.T}, N={SMatrix.N}.")
+        raise ValueError(f"[AOT-biomaps] Shape mismatch: y={y.shape}, SMatrix T={SMatrix.T}, N={SMatrix.N}.")
 
     y_flat = xp.asarray(y.T.flatten(), dtype=xp.float32)
     lambda_flat = xp.full(ZX, 0.1, dtype=xp.float32)
@@ -96,7 +96,7 @@ def LBFGS(
     cost_history = [] if isCostFunction else None
     window_history = []
 
-    description = f"AOT-BioMaps -- LBFGS ({SMatrix.matrix_type.name}) with {potential_type.name} (w^2) β={beta} ---- {'WITH' if withTumor else 'WITHOUT'} TUMOR ---- {SMatrix.device.upper()}"
+    description = f"[AOT-biomaps] LBFGS ({SMatrix.matrix_type.name}) with {potential_type.name} (w^2) β={beta} ---- {'WITH' if withTumor else 'WITHOUT'} TUMOR ---- {SMatrix.device.upper()}"
     iterator = trange(numIterations, desc=description) if show_logs else range(numIterations)
 
     # --- Initial computations ---
@@ -130,7 +130,6 @@ def LBFGS(
             
         alphas.reverse()
 
-        # [CORRECTION 1] : Normalisation du premier pas si historique vide
         if len(s_history) > 0:
             gamma_k = float(xp.vdot(s_history[-1], y_history[-1])) / (float(xp.vdot(y_history[-1], y_history[-1])) + 1e-10)
         else:
@@ -145,14 +144,12 @@ def LBFGS(
 
         d_w = -d_w
 
-        # [CORRECTION 2] : Garde-fou anti-divergence avant la line search
         dir_deriv = float(xp.vdot(grad_w, d_w))
         if dir_deriv >= 0.0:
-            if show_logs and it > 0: print(f"\n[Info] Not a descent direction at {it}. Resetting L-BFGS.")
+            if show_logs and it > 0: print(f"\n[AOT-biomaps] Not a descent direction at {it}. Resetting L-BFGS.")
             s_history.clear()
             y_history.clear()
             rho_history.clear()
-            # On force une descente de gradient pur normalisée
             d_w = -grad_w / (float(xp.linalg.norm(grad_w)) + 1e-8)
             dir_deriv = float(xp.vdot(grad_w, d_w))
 
@@ -161,7 +158,6 @@ def LBFGS(
         step = 1.0
         max_ls_iter = 20
         
-        # Pre-compute polynomial projection components
         delta1 = xp.float32(2.0) * w_flat * d_w
         delta2 = d_w * d_w
         q1 = forward_projection(SMatrix, delta1)
@@ -211,8 +207,7 @@ def LBFGS(
                     
             step *= 0.5
         else:
-            # [CORRECTION 3] : Arrêt de l'algorithme face au mur Float32 au lieu de stagner
-            if show_logs: print(f"\n[Stop] Numérique limit reached (Float32) at iteration {it}. Stopping early.")
+            if show_logs: print(f"\n[AOT-biomaps] Stop Criterion reached (Float32) at iteration {it}. Stopping early.")
             break 
 
         # --- UPDATE GRADIENTS & L-BFGS HISTORY ---
@@ -230,7 +225,6 @@ def LBFGS(
         
         curvature = float(xp.vdot(y_k, s_k))
         
-        # [CORRECTION 4] : Vidage de la mémoire si perte de convexité locale
         if curvature > 1e-10:
             if len(s_history) >= m:
                 s_history.pop(0)
@@ -259,7 +253,7 @@ def LBFGS(
             if show_logs and show_criterion:
                 iterator.set_postfix_str(f"{stop_criterion.name}: {val:.2e}")
             if isStop:
-                if show_logs: print(f"\n[Stopping] Criterion {stop_criterion.name} reached at iteration {it}.")
+                if show_logs: print(f"\n[AOT-biomaps] Stopping Criterion {stop_criterion.name} reached at iteration {it}.")
                 cost_history.pop() if isCostFunction else None
                 break
 

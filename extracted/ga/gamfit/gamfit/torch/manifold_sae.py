@@ -59,6 +59,7 @@ from .._sae_manifold import (
 from ._coerce import from_numpy_like, to_numpy_f64
 from .penalties import (
     BlockOrthogonalityPenalty,
+    HarmonicRoughnessPenalty,
     IBPAssignmentPenalty,
     JumpReLUPenalty,
     MonotonicityPenalty,
@@ -162,9 +163,10 @@ class SparsityConfig:
         if self.tau_schedule == "linear":
             kwargs["steps"] = int(self.tau_steps)
         elif self.tau_schedule == "geometric":
-            ratio = float(self.tau_min / self.tau_start)
-            steps = max(1, int(self.tau_steps))
-            kwargs["rate"] = ratio ** (1.0 / steps)
+            # Hand the (tau_start, tau_min, steps) spec over verbatim; the Rust
+            # schedule derives the geometric decay rate = (tau_min/tau_start) **
+            # (1/steps) so the arithmetic lives in exactly one place.
+            kwargs["steps"] = int(self.tau_steps)
         return GumbelTemperatureSchedule(**kwargs)
 
 
@@ -444,6 +446,62 @@ class _BasisWithJetFn(torch.autograd.Function):
         params_json: str,
     ) -> torch.Tensor:
         params = _decode_params_json(params_json)
+        if t.is_cuda and kind == "periodic":
+            # Device-resident lane: the Rust NVRTC kernel
+            # (`gam_sae::basis_gpu`) writes phi/jet straight into torch-owned
+            # CUDA buffers — no host round-trip, and the basis math stays
+            # single-sourced in Rust (the CPU path below is the parity oracle).
+            # The pre-call synchronize orders torch's producing stream before
+            # the kernel's stream; the FFI synchronizes its own stream before
+            # returning, so the outputs are visible to any subsequent reader.
+            n_harm = int(params["n_harmonics"])
+            m = 2 * n_harm + 1
+            t64 = t.detach().to(dtype=torch.float64).contiguous()
+            phi = torch.empty((t64.shape[0], m), dtype=torch.float64, device=t.device)
+            jet = torch.empty((t64.shape[0], m, 1), dtype=torch.float64, device=t.device)
+            torch.cuda.synchronize(t.device)
+            rust_module().sae_periodic_basis_with_jet_cuda(
+                int(t.device.index or 0),
+                t64.data_ptr(),
+                int(t64.shape[0]),
+                n_harm,
+                phi.data_ptr(),
+                jet.data_ptr(),
+            )
+            ctx.save_for_backward(jet.to(dtype=t.dtype))
+            return phi.to(dtype=t.dtype)
+        if t.is_cuda and kind == "duchon":
+            # Multi-d sibling of the periodic device lane: same Rust-owned
+            # kernel math, same pointer/synchronization contract. The
+            # center-derived state (Z, amplification, coefficient, monomial
+            # exponents) is cached device-side per (centers, m), so the
+            # per-step cost is one launch.
+            centers_np = np.asarray(params["centers"], dtype=np.float64)
+            if centers_np.ndim == 1:
+                centers_np = centers_np.reshape(-1, 1)
+            m_order = int(params["m"])
+            dim = int(t.shape[1])
+            t64 = t.detach().to(dtype=torch.float64).contiguous()
+            ordinal = int(t.device.index or 0)
+            width = rust_module().sae_duchon_device_basis_width(
+                ordinal, centers_np, m_order
+            )
+            phi = torch.empty(
+                (t64.shape[0], width), dtype=torch.float64, device=t.device
+            )
+            jet = torch.empty(
+                (t64.shape[0], width, dim), dtype=torch.float64, device=t.device
+            )
+            torch.cuda.synchronize(t.device)
+            rust_module().sae_duchon_basis_with_jet_cuda(
+                ordinal,
+                (t64.data_ptr(), phi.data_ptr(), jet.data_ptr()),
+                int(t64.shape[0]),
+                centers_np,
+                m_order,
+            )
+            ctx.save_for_backward(jet.to(dtype=t.dtype))
+            return phi.to(dtype=t.dtype)
         phi_np, jet_np, _penalty_np = rust_module().basis_with_jet(
             kind, to_numpy_f64(t), params
         )
@@ -458,6 +516,105 @@ class _BasisWithJetFn(torch.autograd.Function):
             grad_phi = grad_phi.reshape(jet.shape[:-1])
         grad_t = torch.einsum("nk,nkd->nd", grad_phi.to(dtype=jet.dtype), jet)
         return grad_t, None, None
+
+
+class _PositionAlignmentPenaltyFn(torch.autograd.Function):
+    """Period-1 coordinate alignment penalty through Rust.
+
+    Forward returns the scalar mean squared circular (period-1) distance
+    between the tape-connected encoder positions and the detached solved
+    positions. The Rust core
+    (``gam_sae::chart_coordinate_solve::position_alignment_penalty``) also
+    returns ``∂value/∂encoder`` (``2·wrap(e − s)/M`` per entry), which is cached
+    for backward — no wrap/mean math lives in Python. ``solved`` is a tape
+    constant, so it receives no gradient.
+    """
+
+    @staticmethod
+    def forward(
+        ctx: Any, encoder: torch.Tensor, solved: torch.Tensor
+    ) -> torch.Tensor:
+        n = int(encoder.shape[0])
+        value, grad_np = rust_module().sae_position_alignment_penalty(
+            to_numpy_f64(encoder.reshape(n, -1)),
+            to_numpy_f64(solved.reshape(n, -1)),
+        )
+        ctx.save_for_backward(from_numpy_like(grad_np, encoder).reshape(encoder.shape))
+        return torch.as_tensor(
+            value, dtype=encoder.dtype, device=encoder.device
+        )
+
+    @staticmethod
+    def backward(
+        ctx: Any, *grad_outputs: torch.Tensor
+    ) -> tuple[torch.Tensor, None]:
+        (grad_output,) = grad_outputs
+        (grad_enc,) = ctx.saved_tensors
+        return grad_output * grad_enc, None
+
+
+class _ResidualEmScoreFn(torch.autograd.Function):
+    """Residual-EM routing scores through Rust (issue #1282).
+
+    Forward calls ``sae_residual_em_score`` → the single-sourced criterion kernel
+    ``gam::terms::sae::criterion_atoms::residual_em_score``: for every
+    ``(row, atom)`` it solves the best scalar code against the atom's decoded
+    curve ``per_atom_recon`` and scores the atom by the scale-free relative
+    residual, returning ``(code (N, F), relative_residual (N, F))``. ``nonneg``
+    selects the ``target_k == 1`` non-negative code vs. the ``target_k > 1``
+    signed one.
+
+    Backward calls ``sae_residual_em_score_vjp`` → the paired analytic VJP
+    ``residual_em_score_vjp``: both outputs carry reconstruction gradient into the
+    decoder (``code`` is the routed magnitude, ``relative_residual`` feeds the
+    soft EM responsibilities), so this keeps the autograd tape continuous around
+    the Rust boundary with a Rust-computed gradient (no finite differences). ``x``
+    is the activation batch — a tape constant that never requires grad — so it
+    receives no gradient.
+    """
+
+    @staticmethod
+    def forward(
+        ctx: Any,
+        x: torch.Tensor,
+        per_atom_recon: torch.Tensor,
+        nonneg: bool,
+    ) -> tuple[torch.Tensor, torch.Tensor]:
+        n, f = int(per_atom_recon.shape[0]), int(per_atom_recon.shape[1])
+        code_np, relres_np = rust_module().sae_residual_em_score(
+            to_numpy_f64(x),
+            to_numpy_f64(per_atom_recon),
+            bool(nonneg),
+        )
+        ctx.save_for_backward(x, per_atom_recon)
+        ctx.nonneg = bool(nonneg)
+        ctx.nf = (n, f)
+        return (
+            from_numpy_like(code_np, per_atom_recon),
+            from_numpy_like(relres_np, per_atom_recon),
+        )
+
+    @staticmethod
+    def backward(ctx: Any, *grad_outputs: torch.Tensor) -> tuple[Any, ...]:
+        g_code, g_relres = grad_outputs
+        x, per_atom_recon = ctx.saved_tensors
+        n, f = ctx.nf
+        if g_code is None:
+            g_code = torch.zeros((n, f), dtype=x.dtype, device=x.device)
+        if g_relres is None:
+            g_relres = torch.zeros((n, f), dtype=x.dtype, device=x.device)
+        grad_recon_np = rust_module().sae_residual_em_score_vjp(
+            to_numpy_f64(x),
+            to_numpy_f64(per_atom_recon),
+            bool(ctx.nonneg),
+            to_numpy_f64(g_code),
+            to_numpy_f64(g_relres),
+        )
+        grad_recon = from_numpy_like(grad_recon_np, per_atom_recon).reshape(
+            per_atom_recon.shape
+        )
+        # (x is a tape constant; nonneg is a non-tensor arg.)
+        return None, grad_recon, None
 
 
 def _decode_params_json(params_json: str) -> dict[str, Any]:
@@ -847,46 +1004,20 @@ class _SparsityLayer(nn.Module):
         the best and second-best line alignment), so an ambiguous split where
         every row aligns with every line equally is rejected. Keys only on the
         input rows; no hardcoded geometry.
+
+        The seed-free k-lines clustering and the balance/margin confidence gate
+        are the Rust source of truth
+        (``gam::geometry::sae_routing::direction_cluster_anchor``); Python marshals
+        the detached rows across the FFI and re-wraps the returned one-hot on the
+        input tensor's device/dtype. ``valid`` false reproduces the torch
+        ``(None, False)`` cases (too few rows, ``< 2`` atoms, eigensolver failure).
         """
-        if n_atoms < 2 or x.shape[0] < 2 * n_atoms:
+        onehot_np, valid, confident = rust_module().sae_direction_cluster_anchor(
+            to_numpy_f64(x), int(n_atoms), int(iters)
+        )
+        if not valid:
             return None, False
-        xn = x / x.norm(dim=1, keepdim=True).clamp_min(1e-12)
-        n = int(x.shape[0])
-        # Deterministic farthest-line init: first line = top PC of the centered
-        # unit rows; each next line = the row least aligned with the chosen lines.
-        try:
-            _, _, vh = torch.linalg.svd(xn - xn.mean(dim=0, keepdim=True), full_matrices=False)
-        except torch.linalg.LinAlgError:
-            return None, False
-        centers = [vh[0]]
-        for _ in range(1, n_atoms):
-            aligned = torch.stack([(xn @ c).abs() for c in centers], dim=1).max(dim=1).values
-            centers.append(xn[int(aligned.argmin().item())])
-        C = torch.stack(centers, dim=0)
-        assign = torch.zeros(n, dtype=torch.long, device=x.device)
-        for _ in range(iters):
-            align = (xn @ C.T).abs()
-            assign = align.argmax(dim=1)
-            for k in range(n_atoms):
-                members = xn[assign == k]
-                if members.shape[0] > 0:
-                    try:
-                        _, _, vk = torch.linalg.svd(members, full_matrices=False)
-                    except torch.linalg.LinAlgError:
-                        return None, False
-                    C[k] = vk[0]
-        align = (xn @ C.T).abs()
-        counts = torch.bincount(assign, minlength=n_atoms).to(dtype=x.dtype)
-        balance = float((counts.min() / (n / n_atoms)).item())
-        if n_atoms >= 2:
-            top2 = align.topk(2, dim=1).values
-            margin = float((top2[:, 0] - top2[:, 1]).mean().item())
-        else:
-            margin = 1.0
-        confident = bool(balance >= 0.6 and margin >= 0.25)
-        onehot = torch.zeros(n, n_atoms, dtype=x.dtype, device=x.device)
-        onehot[torch.arange(n, device=x.device), assign] = 1.0
-        return onehot, confident
+        return from_numpy_like(onehot_np, x), bool(confident)
 
     @torch.no_grad()
     def _quadratic_subspace_anchor(
@@ -901,115 +1032,24 @@ class _SparsityLayer(nn.Module):
         features ``x_i*x_j`` and accepts only a split whose two clusters have a
         sharply smaller PCA residual than every competing split. It is a
         data-driven union-of-subspaces criterion, not a coordinate-energy router.
+
+        The deterministic cross-term search, PCA tail-residual scoring, and the
+        low-residual + high-margin acceptance gate are the Rust source of truth
+        (``gam::geometry::sae_routing::quadratic_subspace_anchor``). Python marshals
+        the detached rows across the FFI; on a confident split it persists the
+        returned ``(i, j, threshold)`` decision rule (so it transfers to
+        out-of-sample batches via ``_apply_global_anchor_rule``) and re-wraps the
+        one-hot on the input tensor's device/dtype.
         """
         if self.n_atoms != 2:
             return None, False
-        n, d = int(x.shape[0]), int(x.shape[1])
-        if n < 4 or d < 2:
-            return None, False
-        xn = x / x.norm(dim=1, keepdim=True).clamp_min(1e-12)
-        rank = min(self._anchor_subspace_dim, d)
-        min_count = max(2, int(math.ceil(0.3 * n)))
-
-        def split_residual(assign: torch.Tensor) -> torch.Tensor | None:
-            total = torch.zeros((), dtype=x.dtype, device=x.device)
-            for k in (0, 1):
-                rows = xn[assign == k]
-                count = int(rows.shape[0])
-                if count < min_count:
-                    return None
-                centered = rows - rows.mean(dim=0, keepdim=True)
-                try:
-                    singular = torch.linalg.svdvals(centered)
-                except torch.linalg.LinAlgError:
-                    return None
-                if singular.numel() > rank:
-                    tail = singular[rank:].square().sum()
-                else:
-                    tail = torch.zeros((), dtype=x.dtype, device=x.device)
-                total = total + tail / float(n)
-            return total
-
-        best_assign: torch.Tensor | None = None
-        best_resid: torch.Tensor | None = None
-        best_rule: tuple[int, int, float] | None = None
-        # Best residual achieved by any *other* (i, j) cross-term feature. The
-        # high-margin uniqueness check compares across distinct features, not
-        # across the two thresholds of the same feature (which are correlated),
-        # so it never rejects the winner just because its own median/sign
-        # candidate is a near-tie.
-        second_resid: float | None = None
-        for i in range(d):
-            xi = xn[:, i]
-            for j in range(i + 1, d):
-                feature = xi * xn[:, j]
-                # Two candidate thresholds per signed cross term:
-                #  * the batch median, which balances the split when the
-                #    feature distribution is symmetric, and
-                #  * exactly zero, the SIGN of the cross product, which is the
-                #    geometrically exact boundary for a sign-coupled
-                #    union-of-subspaces split (e.g. the #1282 energy-degenerate
-                #    fixture: x_1*x_3 = s^2 >= 0 on one circle, -s^2 <= 0 on the
-                #    other). The median of such a feature is NOT zero — s^2 for
-                #    uniform phase is right-skewed, so the pooled median drifts
-                #    off the true boundary and misroutes the small-|sin| rows
-                #    (the seed-dependent collapse the reopen audit caught). The
-                #    sign threshold is invariant to label balance and noise, so
-                #    it is robust across seeds. We evaluate both and keep the
-                #    candidate with the lower subspace residual.
-                median = float(feature.median().item())
-                feature_best: float | None = None
-                feature_best_assign: torch.Tensor | None = None
-                feature_best_threshold = 0.0
-                for threshold in (median, 0.0):
-                    assign = (feature > threshold).to(torch.long)
-                    count1 = int(assign.sum().item())
-                    if min(count1, n - count1) < min_count:
-                        continue
-                    resid = split_residual(assign)
-                    if resid is None:
-                        continue
-                    resid_val = float(resid.item())
-                    if feature_best is None or resid_val < feature_best:
-                        feature_best = resid_val
-                        feature_best_assign = assign
-                        feature_best_threshold = float(threshold)
-                if feature_best is None or feature_best_assign is None:
-                    continue
-                if best_resid is None or feature_best < best_resid:
-                    # Demote the previous champion to the cross-feature runner-up.
-                    if best_resid is not None and (
-                        second_resid is None or best_resid < second_resid
-                    ):
-                        second_resid = best_resid
-                    best_resid = feature_best
-                    best_assign = feature_best_assign
-                    best_rule = (i, j, feature_best_threshold)
-                elif second_resid is None or feature_best < second_resid:
-                    second_resid = feature_best
-
-        if best_assign is None or best_resid is None or second_resid is None:
-            return None, False
-        best = float(best_resid)
-        second = float(second_resid)
-        # The accepted split must be both absolutely low-residual on normalized
-        # circle-like rows and uniquely better than the next deterministic split.
-        confident = best <= 0.05 and second >= max(3.0 * best, best + 0.02)
+        onehot_np, confident, i, j, threshold = rust_module().sae_quadratic_subspace_anchor(
+            to_numpy_f64(x), int(self._anchor_subspace_dim)
+        )
         if not confident:
             return None, False
-        # Persist the winning quadratic-feature decision rule so the SAME
-        # union-of-subspaces split routes *any* batch — in particular the
-        # out-of-sample (different-N) evaluation batch, where the cached per-row
-        # one-hot anchor cannot apply. Without this, evaluation routing falls
-        # back to the instantaneous per-atom residual, which is weak and
-        # noise-sensitive on the rows whose discriminating channel is near zero
-        # (small ``sin θ`` on the signed circles) and drifts below the routing
-        # bar (issue #1282). The rule is a balanced, 100×-margin subspace split,
-        # so it transfers exactly to held-out rows of the same DGP.
-        self._global_anchor_rule = best_rule
-        onehot = torch.zeros(n, 2, dtype=x.dtype, device=x.device)
-        onehot[torch.arange(n, device=x.device), best_assign] = 1.0
-        return onehot, True
+        self._global_anchor_rule = (int(i), int(j), float(threshold))
+        return from_numpy_like(onehot_np, x), True
 
     @torch.no_grad()
     def _apply_global_anchor_rule(self, x: torch.Tensor) -> torch.Tensor | None:
@@ -1030,12 +1070,13 @@ class _SparsityLayer(nn.Module):
         d = int(x.shape[1])
         if i >= d or j >= d:
             return None
-        xn = x / x.norm(dim=1, keepdim=True).clamp_min(1e-12)
-        feature = xn[:, i] * xn[:, j]
-        assign = (feature > threshold).to(torch.long)
-        onehot = torch.zeros(int(x.shape[0]), 2, dtype=x.dtype, device=x.device)
-        onehot[torch.arange(int(x.shape[0]), device=x.device), assign] = 1.0
-        return onehot
+        # The normalized-row cross-term split lives in Rust
+        # (``gam::geometry::sae_routing::apply_anchor_rule``); Python marshals the
+        # detached batch and re-wraps the one-hot on the input device/dtype.
+        onehot_np = rust_module().sae_apply_anchor_rule(
+            to_numpy_f64(x), int(i), int(j), float(threshold)
+        )
+        return from_numpy_like(onehot_np, x)
 
     def reconstruction_topk_gate(
         self,
@@ -1069,20 +1110,17 @@ class _SparsityLayer(nn.Module):
         stays differentiable and depends only on the reconstruction fit.
         """
         # Best non-negative scalar code per row/atom against that atom's curve,
-        # and the residual it leaves. The code carries the SAE magnitude and is
-        # *not* detached, so reconstruction gradients train the decoder's shape
-        # and scale directly.
-        denom = per_atom_recon.square().sum(dim=-1).clamp_min(1e-12)
-        code = (per_atom_recon * x.unsqueeze(1)).sum(dim=-1) / denom
-        code = code.clamp_min(0.0)
-        residual = ((code.unsqueeze(-1) * per_atom_recon - x.unsqueeze(1)) ** 2).sum(
-            dim=-1
-        )
-        # Per-row scale-free relative residual: normalize by the row energy so
-        # the annealing temperature is comparable across rows of different
-        # magnitude and tau alone controls assignment hardness.
+        # and the scale-free relative residual it leaves — the residual-EM
+        # criterion math, computed by the Rust kernel
+        # (``sae_residual_em_score`` → ``residual_em_score``) through a
+        # ``torch.autograd.Function`` so the tape stays continuous. The code
+        # carries the SAE magnitude and both outputs are *not* detached, so
+        # reconstruction gradients (Rust-computed analytic VJP) train the
+        # decoder's shape and scale directly. ``row_scale`` (the row energy the
+        # relative residual is already normalized by) is recovered here only for
+        # the code floor further down.
+        code, relative_residual = _ResidualEmScoreFn.apply(x, per_atom_recon, True)
         row_scale = x.square().sum(dim=1, keepdim=True).clamp_min(1e-12)
-        relative_residual = residual / row_scale
         tau = max(float(self.tau.item()), 1e-6)
 
         if self.target_k == 1:
@@ -1244,11 +1282,15 @@ class _SparsityLayer(nn.Module):
             # count is honored exactly as before; selection can only improve the
             # reconstruction fit). The ``target_k == 1`` path above is untouched
             # and keeps the non-negative ``code``.
-            signed_code = (per_atom_recon * x.unsqueeze(1)).sum(dim=-1) / denom
-            signed_residual = (
-                (signed_code.unsqueeze(-1) * per_atom_recon - x.unsqueeze(1)) ** 2
-            ).sum(dim=-1)
-            signed_relative_residual = signed_residual / row_scale
+            # Signed least-squares code + relative residual from the same Rust
+            # criterion kernel (``nonneg=False``): the signed coefficient both
+            # scores and gates so the effective active-atom count tracks
+            # ``target_k`` up to a dense gate. The top-k selection is a hard
+            # value-only mask (no gradient through the selection), so the
+            # reconstruction gradient flows only through ``signed_code``.
+            signed_code, signed_relative_residual = _ResidualEmScoreFn.apply(
+                x, per_atom_recon, False
+            )
             responsibilities = self._topk_mask(-signed_relative_residual)
             return signed_code * responsibilities
 
@@ -1296,83 +1338,28 @@ class _SparsityLayer(nn.Module):
 
         Keys only on the reconstruction residual covariance — geometry-agnostic
         (no hardcoded knowledge of circles or coordinate-energy profiles).
+
+        The two-phase residual-PC / residual-energy commitment numerics are the
+        Rust source of truth
+        (``gam::geometry::sae_routing::matching_pursuit_commit``); Python guards
+        the non-committing configuration (no step, ``target_k != 1``,
+        ``n_atoms != 2``), marshals the detached tensors across the FFI, and
+        re-wraps the one-hot on the input device/dtype. ``valid`` false reproduces
+        the torch ``None`` cases (``step >= commit_steps`` or eigensolver failure).
         """
         if step is None or self.target_k != 1 or self.n_atoms != 2:
             return None
-        if step >= self._commit_steps:
+        onehot_np, valid = rust_module().sae_matching_pursuit_commit(
+            to_numpy_f64(x),
+            to_numpy_f64(per_atom_recon),
+            to_numpy_f64(code),
+            int(step),
+            int(self._commit_steps),
+            int(self.n_atoms),
+        )
+        if not valid:
             return None
-        n = int(x.shape[0])
-        f = int(self.n_atoms)
-        device, dtype = x.device, x.dtype
-        # Phase 1: atom 0 fits everything (harmonic confines it to the shared
-        # averaged plane, so its residual carries the manifold difference).
-        if step < max(1, self._commit_steps // 2):
-            onehot = torch.zeros(n, f, dtype=dtype, device=device)
-            onehot[:, 0] = 1.0
-            return onehot
-        # Phase 2: split by the sign of the top residual PC of atom 0's fit, then
-        # refine by *per-atom reconstruction residual* as the decoders specialize.
-        #
-        # The bare residual-PC sign split is a seed-free partition for manifolds
-        # that occupy distinct residual directions (disjoint circles), but it
-        # collapses to chance on the energy-degenerate signed circles
-        # ``(c,s,c,±s)``: once atom 0 settles on the shared averaged plane its
-        # residual is ``±s`` along the single channel-3 line, and the sign of that
-        # projection is ``sign(±s)`` — entangled with the phase ``sin θ`` rather
-        # than with the manifold label, so the partition is ~50/50 (issue #1282).
-        # The discriminator that *is* manifold-clean is which curve reconstructs a
-        # row better once the two atoms have specialized: the ``+s`` curve fits a
-        # ``+s`` row at residual ~0 but a ``-s`` row leaves ``2s`` in channel 3 (it
-        # cannot match both signs at one phase), so the per-atom reconstruction
-        # residual separates the manifolds where the residual *sign* cannot. We
-        # therefore use the PC-sign split only to *seed* atom-1's differentiation
-        # (so it leaves the random init and starts reconstructing one signed
-        # branch) and, once atom 1 carries a real curve, route each row to the
-        # atom with the smaller current reconstruction residual — recomputed every
-        # step, so the commit tracks (and reinforces) the decoders as they
-        # specialize instead of freezing the noisy sign seed. This is the
-        # gradient-path analogue of the closed-form lane's residual-energy
-        # assignment, and it matches the eval-time per-atom-residual readout so the
-        # committed train routing and the reported routing agree. A balance guard
-        # forbids either atom from owning every row (the collapse the commit
-        # exists to prevent). Keys only on the reconstruction residual —
-        # geometry-agnostic (no hardcoded knowledge of circles or channels).
-        with torch.no_grad():
-            # Per-row, per-atom best non-negative scalar fit residual.
-            resid = (
-                (code.unsqueeze(-1) * per_atom_recon - x.unsqueeze(1)) ** 2
-            ).sum(dim=-1)  # (N, F)
-            # Seed window: atom 1 is still near its random init for the first few
-            # phase-2 steps, so its residual is meaningless; use the residual-PC
-            # sign split to push atom 1 toward one signed branch first.
-            phase1_end = max(1, self._commit_steps // 2)
-            seed_steps = max(2, (self._commit_steps - phase1_end) // 4)
-            if step < phase1_end + seed_steps:
-                resid0 = code[:, 0:1] * per_atom_recon[:, 0, :] - x  # (N, D)
-                rd = resid0 - resid0.mean(dim=0, keepdim=True)
-                try:
-                    _, _, vh = torch.linalg.svd(rd, full_matrices=False)
-                except torch.linalg.LinAlgError:
-                    return None
-                proj = rd @ vh[0]
-                assign = (proj > 0).to(torch.long)
-                if int(assign.sum().item()) in (0, n):
-                    assign = (proj > proj.median()).to(torch.long)
-            else:
-                # Residual-energy assignment: each row to the atom that currently
-                # reconstructs it best. Balance guard: if the argmin sends fewer
-                # than a quarter of the rows to either atom, split the rows by the
-                # *residual gap* median instead so both atoms keep a populated
-                # half (a degenerate all-one-atom split carries no specialization
-                # signal — the exact collapse this commit prevents).
-                gap = resid[:, 0] - resid[:, 1]  # >0 ⇒ atom 1 fits better
-                assign = (gap > 0).to(torch.long)
-                count1 = int(assign.sum().item())
-                if min(count1, n - count1) < n // 4:
-                    assign = (gap > gap.median()).to(torch.long)
-        onehot = torch.zeros(n, f, dtype=dtype, device=device)
-        onehot[torch.arange(n, device=device), assign] = 1.0
-        return onehot
+        return from_numpy_like(onehot_np, x)
 
     def _update_assign_ema(
         self, signal: torch.Tensor | None
@@ -1415,32 +1402,23 @@ class _SparsityLayer(nn.Module):
         (each atom claims ``N/F`` of the total assignment mass). This is the
         Sinkhorn projection of the row-stochastic responsibility matrix onto the
         doubly-balanced transport polytope with a uniform atom marginal; a few
-        fixed-point sweeps converge it. The potentials are computed under
-        ``no_grad`` and treated as constants in the M-step — they only steer the
-        *assignment*, the reconstruction gradient still flows through the
-        residual-driven ``log_scores``.
+        fixed-point sweeps converge it.
+
+        The fixed-point sweep itself is a Rust kernel
+        (``gam::geometry::sae_routing::sinkhorn_balance_bias``): Python marshals
+        the detached scores across the FFI and receives the per-atom potential
+        ``b``. Adding ``b`` back to ``log_scores`` keeps the reconstruction
+        gradient flowing through the residual-driven ``log_scores`` while ``b``
+        enters as the detached constant the M-step treats it as.
         """
         n_atoms = log_scores.shape[-1]
         if n_atoms < 2:
             return log_scores
         with torch.no_grad():
-            bias = torch.zeros(
-                n_atoms, dtype=log_scores.dtype, device=log_scores.device
+            bias_np = rust_module().sae_sinkhorn_balance_bias(
+                to_numpy_f64(log_scores), int(iters)
             )
-            target = torch.log(
-                torch.tensor(
-                    1.0 / float(n_atoms),
-                    dtype=log_scores.dtype,
-                    device=log_scores.device,
-                )
-            )
-            for _ in range(iters):
-                resp = torch.softmax(log_scores + bias, dim=-1)
-                # Mean assignment mass per atom (row-marginal already 1).
-                usage = resp.mean(dim=0).clamp_min(1e-12)
-                # Multiplicative Sinkhorn update toward the uniform marginal.
-                bias = bias + (target - torch.log(usage))
-                bias = bias - bias.mean()
+            bias = from_numpy_like(bias_np, log_scores)
         return log_scores + bias
 
     def penalty(self, logits: torch.Tensor) -> torch.Tensor:
@@ -1496,6 +1474,7 @@ class ManifoldSAE(nn.Module):
             "_train_steps", torch.zeros((), dtype=torch.long), persistent=False
         )
 
+
         # The forward path evaluates a Duchon kernel both for an explicit
         # `atom_basis='duchon'` AND for every `product`/`cylinder` patch (whose
         # multi-axis torch basis is the full d-dimensional Duchon kernel — there
@@ -1517,12 +1496,44 @@ class ManifoldSAE(nn.Module):
         self.sparsity = _SparsityLayer(cfg)
         self.log_lambda = nn.Parameter(torch.zeros(F, dtype=dt))
 
-        # #1282 decoder-harmonic smoothness weight. The training loss scales
-        # `regularization()` by a small coefficient (~1e-5); this internal weight
-        # lifts the harmonic (h>=2) smoothness term to an effective magnitude
-        # that actually suppresses decoder snaking while leaving the fundamental
-        # ellipse free. See `decoder_harmonic_penalty`.
-        self._harmonic_penalty_weight = 5.0e3
+        # #1282 decoder-harmonic smoothness penalty: Rust ``harmonic_roughness``
+        # descriptor over each circle atom's periodic basis-coefficient axis.
+        # ``row_weights`` is the periodic penalty Gram's diagonal for one atom
+        # (``h⁴`` on the sin/cos rows of harmonics ``h >= 2``, ``0`` on DC and
+        # the fundamental), tiled across all ``F`` atoms of the stacked
+        # ``(F·K, D)`` decoder. The penalty STRENGTH is no longer a hand-tuned
+        # constant: it is the evidence-optimal roughness precision the Rust REML
+        # machinery returns from the current decoder blocks, refreshed every
+        # ``_harmonic_penalty_refresh`` calls (see `decoder_harmonic_penalty`).
+        # Only well-defined for the odd-K ``[DC, {sinθ,cosθ}, {sin2θ,cos2θ}, …]``
+        # circle layout with harmonics beyond the fundamental.
+        if (
+            cfg.atom_manifold == "circle"
+            and K == 1 + 2 * ((K - 1) // 2)
+            and K >= 4
+        ):
+            row_weights = [0.0] * K
+            for h in range(2, (K - 1) // 2 + 1):
+                sin_row = 1 + 2 * (h - 1)
+                row_weights[sin_row] = float(h) ** 4
+                row_weights[sin_row + 1] = float(h) ** 4
+            self._harmonic_row_weights: list[float] | None = row_weights
+            self._harmonic_penalty: HarmonicRoughnessPenalty | None = (
+                HarmonicRoughnessPenalty(
+                    row_weights=row_weights,
+                    n_eff=F * K,
+                    weight=1.0,
+                )
+            )
+            # Refresh the evidence-sourced weight every N regularization() calls;
+            # -1 forces a refresh on the first call.
+            self._harmonic_penalty_refresh = 25
+            self._harmonic_penalty_step = -1
+        else:
+            self._harmonic_row_weights = None
+            self._harmonic_penalty = None
+            self._harmonic_penalty_refresh = 0
+            self._harmonic_penalty_step = 0
 
         # Decoder orthogonality penalty: Rust ``block_orthogonality`` descriptor.
         # The penalty operates on a flat target of shape ``(n_eff, latent_dim)``
@@ -1639,6 +1650,84 @@ class ManifoldSAE(nn.Module):
             "a_init": np.ascontiguousarray(a_init, dtype=np.float64),
         }
 
+    @torch.no_grad()
+    def _solve_chart_coordinates(
+        self,
+        x: torch.Tensor,
+        *,
+        prev_positions: torch.Tensor | None = None,
+        gate_weights: torch.Tensor | None = None,
+    ) -> torch.Tensor:
+        """E-step coordinate solve through the Rust FFI (no math in Python).
+
+        For every ``(row, atom)`` pair the Rust kernel
+        (``sae_solve_chart_coordinates`` →
+        ``gam_sae::chart_coordinate_solve``) projects the target onto the atom's
+        CURRENT decoded periodic curve, amplitude profiled out, over a grid of
+        ``8·K`` points, and returns the argmax coordinate. The returned
+        coordinates are detached E-step CONSTANTS: the decoder gradient flows
+        through the later ``basis_with_jet`` evaluation at these coordinates, and
+        the encoder position head is kept learning through
+        :meth:`position_alignment_penalty`.
+
+        ``prev_positions`` / ``gate_weights`` are the previous sweep's ``(N, F)``
+        coordinates / gate weights; when supplied the kernel targets the
+        leave-one-out residual ``x − Σ_{g≠f} gate_g · m_g(t_g)`` (second sweep).
+
+        Returns solved coordinates ``(N, F, 1)`` in ``[0, 1)``.
+        """
+        n = int(x.shape[0])
+        F = int(self.cfg.n_atoms)
+        K = int(self.cfg.n_basis_per_atom)
+        # Periodic basis width the circle forward path uses (see ``_basis_rust``):
+        # n_harm = max(1, (K-1)//2), width m = 2·n_harm + 1. The padded tail row
+        # (when K is even) is multiplied by a zero curve column downstream, so it
+        # is excluded from the projection here to keep the width contract.
+        n_harm = max(1, (K - 1) // 2)
+        m = 2 * n_harm + 1
+        dec = to_numpy_f64(self.decoder_blocks)[:, :m, :]
+        x_np = to_numpy_f64(x)
+        prev_np = (
+            None
+            if prev_positions is None
+            else to_numpy_f64(prev_positions.reshape(n, F))
+        )
+        gate_np = (
+            None if gate_weights is None else to_numpy_f64(gate_weights.reshape(n, F))
+        )
+        solved = rust_module().sae_solve_chart_coordinates(
+            np.ascontiguousarray(x_np, dtype=np.float64),
+            np.ascontiguousarray(dec, dtype=np.float64),
+            int(n_harm),
+            prev_np,
+            gate_np,
+        )
+        solved_t = from_numpy_like(solved, x)
+        return solved_t.reshape(n, F, 1)
+
+    def position_alignment_penalty(self) -> torch.Tensor:
+        """Mean squared circular (period-1) distance between the encoder-predicted
+        and E-step-solved coordinates of the last forward.
+
+        Under the E-step coordinate path the reconstruction is built at solved
+        coordinates that are tape constants, so the encoder position head gets no
+        reconstruction gradient. This penalty pulls the encoder toward the
+        coordinates the projection solve found, keeping the position head
+        learning. The subtraction, period-1 wrap, and mean live in the Rust core
+        (:class:`_PositionAlignmentPenaltyFn` →
+        ``gam_sae::chart_coordinate_solve::position_alignment_penalty``); this
+        wrapper only routes the stashed tensors through that autograd bridge.
+        Returns a zero scalar when the last forward did not run the E-step
+        (non-circle / non-``softmax_topk`` lane, or before any forward).
+        """
+        enc = getattr(self, "_last_encoder_positions", None)
+        solved = getattr(self, "_last_solved_positions", None)
+        if enc is None or solved is None:
+            return torch.zeros(
+                (), dtype=self.cfg.dtype, device=self.decoder_blocks.device
+            )
+        return _PositionAlignmentPenaltyFn.apply(enc, solved)
+
     def forward(self, x: torch.Tensor) -> ManifoldSAEOutput:
         if not isinstance(x, torch.Tensor):
             raise TypeError("ManifoldSAE forward expects a torch.Tensor")
@@ -1656,9 +1745,80 @@ class ManifoldSAE(nn.Module):
             return self._forward_from_closed_form(x)
         raw_positions, amp_logits = self._encode(x)
         raw_with_anchor = raw_positions + self.atom_raw_anchor.unsqueeze(0)
-        positions = _project_to_manifold(
+        encoder_positions = _project_to_manifold(
             raw_with_anchor, self.cfg.atom_manifold, self.cfg.intrinsic_rank
         )
+
+        # Issue #1282: break expert collapse with an early *committed* assignment
+        # window (see ``reconstruction_topk_gate``). Track the training step here
+        # so the gate knows whether it is inside the commitment window; only
+        # advance while training. Computed once and shared across E-step sweeps.
+        step = None
+        if self.cfg.sparsity.kind == "softmax_topk" and self.training:
+            step = int(self._train_steps.item())
+            self._train_steps += 1
+
+        # DEFAULT coordinate path for the circle (rank-1) softmax_topk lane: the
+        # Rust E-step coordinate solver. Positions are solved by projecting each
+        # row onto the atom's current decoded curve rather than gradient-learned
+        # through the near-zero basis jet (the measured plateau root cause). The
+        # solved coordinates are tape CONSTANTS; the decoder gradient still flows
+        # through the basis evaluation at them, and the encoder position head
+        # keeps learning through ``position_alignment_penalty``.
+        use_estep = (
+            self.cfg.sparsity.kind == "softmax_topk"
+            and int(self.cfg.intrinsic_rank) == 1
+            and not getattr(self, "_disable_estep", False)
+        )
+        if use_estep:
+            # Sweep 1: plain target x.
+            coords1 = self._solve_chart_coordinates(x)
+            curves1 = _eval_basis_on_manifold(
+                coords1, self.cfg, self._forward_centers
+            )
+            per_atom_recon1 = torch.einsum(
+                "nfk,fkd->nfd", curves1, self.decoder_blocks
+            )
+            # Single gate evaluation (one commitment-state advance): the routing
+            # gate on the sweep-1 reconstruction, reused for the final x_hat.
+            z = self.sparsity.reconstruction_topk_gate(x, per_atom_recon1, step=step)
+            # Sweep 2: leave-one-out residual target using sweep-1 positions and
+            # the (detached) gate weights.
+            positions = self._solve_chart_coordinates(
+                x, prev_positions=coords1, gate_weights=z.detach()
+            )
+            curves = _eval_basis_on_manifold(
+                positions, self.cfg, self._forward_centers
+            )
+            per_atom_recon = torch.einsum(
+                "nfk,fkd->nfd", curves, self.decoder_blocks
+            )
+            gate_pre = amp_logits
+            assignments = z
+            raw_magnitudes = self.sparsity._topk_activation(amp_logits)
+            # Stash for the encoder alignment penalty: tape-connected encoder
+            # positions vs the detached solved coordinates.
+            self._last_encoder_positions = encoder_positions
+            self._last_solved_positions = positions.detach()
+            reml_score = torch.tensor(
+                float("nan"), dtype=x.dtype, device=x.device
+            )
+            lambdas = torch.exp(self.log_lambda).to(dtype=x.dtype, device=x.device)
+            x_hat = (z.unsqueeze(-1) * per_atom_recon).sum(dim=1)
+            return ManifoldSAEOutput(
+                z=z,
+                x_hat=x_hat,
+                positions=positions,
+                amplitudes=z.abs(),
+                curves=curves,
+                gate=gate_pre,
+                assignments=assignments,
+                reml_score=reml_score,
+                lambdas=lambdas,
+                raw_magnitudes=raw_magnitudes,
+            )
+
+        positions = encoder_positions
         curves = _eval_basis_on_manifold(
             positions,
             self.cfg,
@@ -1667,14 +1827,6 @@ class ManifoldSAE(nn.Module):
         per_atom_recon = torch.einsum("nfk,fkd->nfd", curves, self.decoder_blocks)
         if self.cfg.sparsity.kind == "softmax_topk":
             gate_pre = amp_logits
-            # Issue #1282: break expert collapse with an early *committed*
-            # assignment window (see ``reconstruction_topk_gate``). Track the
-            # training step here so the gate knows whether it is inside the
-            # commitment window; only advance while training.
-            step = None
-            if self.training:
-                step = int(self._train_steps.item())
-                self._train_steps += 1
             assignments = self.sparsity.reconstruction_topk_gate(
                 x, per_atom_recon, step=step
             )
@@ -1682,6 +1834,8 @@ class ManifoldSAE(nn.Module):
             # Honest pre-mask magnitude: the independent non-negative activation
             # the top-k selection masks, strictly positive even for dropped atoms.
             raw_magnitudes = self.sparsity._topk_activation(amp_logits)
+            self._last_encoder_positions = None
+            self._last_solved_positions = None
         else:
             # IBP-Gumbel / JumpReLU: the code IS the Rust-computed bounded gate,
             # exactly the family the closed-form fit solves — magnitude lives in
@@ -2053,6 +2207,37 @@ class ManifoldSAE(nn.Module):
             return None
         return None if self._last_fit.cotrain is None else dict(self._last_fit.cotrain)
 
+    def summary(self) -> dict[str, Any]:
+        """Fit summary LED by the honest headline currency, bits/token.
+
+        Delegates to the cached closed-form fit
+        (:class:`gamfit._sae_manifold.ManifoldSAE`), whose ``summary()`` leads
+        with ``bits_per_token`` and the description-length decomposition (code /
+        selection / dictionary) and keeps explained variance as a demoted line —
+        matched-EV is insensitive to the manifold hypothesis by construction
+        (``experiments/real_manifold_sae/results.md``), bits/token is not.
+
+        Raises ``RuntimeError`` before a closed-form solve has run (no fit to
+        report).
+        """
+        if self._last_fit is None:
+            raise RuntimeError(
+                "ManifoldSAE.summary() requires a completed closed-form fit; "
+                "call .fit(x) first."
+            )
+        return self._last_fit.summary()
+
+    def description_length(self, *, l_param_bits: float | None = None) -> dict[str, Any] | None:
+        """Fit-level bits/token description length of the cached closed-form fit.
+
+        Thin delegate to
+        :meth:`gamfit._sae_manifold.ManifoldSAE.description_length`. Returns
+        ``None`` when no closed-form fit is cached.
+        """
+        if self._last_fit is None:
+            return None
+        return self._last_fit.description_length(l_param_bits=l_param_bits)
+
     @torch.no_grad()
     def extract_feature_curves(self, grid_size: int = 128) -> dict[int, torch.Tensor]:
         """Per-atom reconstruction curve over a manifold grid.
@@ -2160,27 +2345,52 @@ class ManifoldSAE(nn.Module):
         the disjoint case) untouched while removing only the snaking capacity the
         true circles never use.
 
+        The value / gradient of the ``h⁴``-graduated smoothness form are computed
+        by the Rust ``harmonic_roughness`` analytic-penalty descriptor. Its
+        strength is the evidence-optimal roughness precision the Rust REML
+        machinery returns from the current decoder blocks (empirical-Bayes /
+        variance-component optimum ``λ⋆ = N_pen / Σ Sᵢᵢ bᵢ²`` under the periodic
+        penalty Gram), refreshed every ``_harmonic_penalty_refresh`` calls — the
+        former hand-tuned ``5e3`` constant is gone. ``λ⋆`` is a detached
+        hyperparameter (never differentiated through), so the training loss sees
+        an evidence-sourced, decoder-scale-relative weight that self-calibrates
+        as the harmonics shrink.
+
         Only well-defined for the ``circle`` manifold with the standard odd-K
         ``[DC, {sinθ,cosθ}, {sin2θ,cos2θ}, …]`` layout (row index == basis
         column == harmonic), where ``decoder_blocks`` rows ``>= 3`` are the
         harmonics ``h >= 2``; returns zero otherwise.
         """
-        K = int(self.cfg.n_basis_per_atom)
-        if self.cfg.atom_manifold != "circle" or K != 1 + 2 * ((K - 1) // 2):
+        if self._harmonic_penalty is None:
             return self.decoder_blocks.new_zeros(())
-        if K < 4:  # no harmonics beyond the fundamental to penalize
-            return self.decoder_blocks.new_zeros(())
-        total = self.decoder_blocks.new_zeros(())
-        # rows: 0=DC, 1,2=h1 (fundamental, free), then (sin,cos) pairs for h>=2.
-        for h in range(2, (K - 1) // 2 + 1):
-            sin_row = 1 + 2 * (h - 1)
-            cos_row = sin_row + 1
-            w = float(h) ** 4  # graduated smoothness weight (Rust convention)
-            total = total + w * (
-                self.decoder_blocks[:, sin_row, :].square().sum()
-                + self.decoder_blocks[:, cos_row, :].square().sum()
+        # decoder_blocks: (F, K, D) → row-major (F·K, D) so each atom's K basis
+        # rows are contiguous and the periodic-Gram row_weights tile with period K.
+        F, K, D = self.decoder_blocks.shape
+        flat = self.decoder_blocks.reshape(F * K, D)
+        # Refresh the evidence-optimal precision from the current (detached)
+        # decoder blocks via the Rust REML machinery every N calls.
+        self._harmonic_penalty_step += 1
+        if (
+            self._harmonic_penalty_step % max(1, self._harmonic_penalty_refresh) == 0
+            or self._harmonic_penalty_step == 0
+        ):
+            lam = float(
+                rust_module().harmonic_roughness_evidence_weight(
+                    np.ascontiguousarray(
+                        flat.detach().to(torch.float64).cpu().numpy().reshape(-1)
+                    ),
+                    int(F * K),
+                    np.ascontiguousarray(
+                        np.asarray(self._harmonic_row_weights, dtype=np.float64)
+                    ),
+                )
             )
-        return self._harmonic_penalty_weight * total
+            # A degenerate all-zero harmonic block yields λ⋆ = 0 (nothing to
+            # penalize yet); keep the penalty inert rather than pinning a weight.
+            self._harmonic_penalty.weight = lam if np.isfinite(lam) and lam > 0.0 else 0.0
+        if self._harmonic_penalty.weight == 0.0:
+            return self.decoder_blocks.new_zeros(())
+        return self._harmonic_penalty(flat)
 
     def regularization(self, logits: torch.Tensor | None = None) -> torch.Tensor:
         """Sum of Rust-backed regularizers used by the loss."""

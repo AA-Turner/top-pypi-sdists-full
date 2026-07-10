@@ -16,6 +16,7 @@
 from __future__ import annotations
 
 import json
+import logging
 import warnings
 from datetime import date, datetime
 from typing import TYPE_CHECKING, TypeVar
@@ -24,6 +25,9 @@ from hsfs import decorators, engine, split_statistics, statistics, util
 from hsfs.client import exceptions
 from hsfs.core import job, statistics_api
 from hsfs.core.feature_descriptive_statistics import FeatureDescriptiveStatistics
+
+
+logger = logging.getLogger(__name__)
 
 
 if TYPE_CHECKING:
@@ -112,6 +116,12 @@ class StatisticsEngine:
         window_end_commit_time: int,
         row_percentage: float,
         feature_name: str | list[str] | None = None,
+        *,
+        histograms: bool = False,
+        exact_uniqueness: bool = False,
+        correlations: bool = False,
+        kll: bool = False,
+        histogram_bins: int | None = None,
     ) -> statistics.Statistics:
         """Compute statistics for one or more features and send the result to Hopsworks.
 
@@ -122,6 +132,11 @@ class StatisticsEngine:
             window_end_commit_time: Window end commit time
             row_percentage: Percentage of rows to include.
             feature_name: Feature name or list of names to compute the statistics on. If not set, statistics are computed on all features.
+            histograms: Whether to compute histograms.
+            exact_uniqueness: Whether to compute exact uniqueness.
+            correlations: Whether to compute feature correlations.
+            kll: Whether to compute KLL sketches.
+            histogram_bins: Number of bins to use for histograms.
 
         Returns:
             Statistics metadata containing a list of single feature descriptive statistics.
@@ -136,8 +151,39 @@ class StatisticsEngine:
 
         if engine._get_type() == "spark":
             commit_time = int(float(datetime.now().timestamp()) * 1000)
+
+            if self._is_dataframe_empty(feature_dataframe):
+                entity_name = getattr(
+                    metadata_instance, "name", repr(metadata_instance)
+                )
+                logger.warning(
+                    "Monitoring statistics registration skipped for entity '%s': "
+                    "no data in window [%s, %s] for features %s.",
+                    entity_name,
+                    window_start_commit_time,
+                    window_end_commit_time,
+                    feature_names,
+                )
+                empty_fds = [
+                    FeatureDescriptiveStatistics(feature_name=f, count=0)
+                    for f in feature_names
+                ]
+                return statistics.Statistics(
+                    computation_time=commit_time,
+                    row_percentage=row_percentage,
+                    feature_descriptive_statistics=empty_fds,
+                    window_start_commit_time=window_start_commit_time,
+                    window_end_commit_time=window_end_commit_time,
+                )
+
             stats_str = self._profile_statistics(
-                feature_dataframe, feature_names, False, False, False
+                feature_dataframe,
+                feature_names,
+                correlations,
+                histograms,
+                exact_uniqueness,
+                kll=kll,
+                histogram_bins=histogram_bins,
             )
             desc_stats = self._parse_deequ_statistics(stats_str)
 
@@ -158,6 +204,10 @@ class StatisticsEngine:
         )
 
     @staticmethod
+    def _is_dataframe_empty(feature_dataframe) -> bool:
+        return len(feature_dataframe.head(1)) == 0
+
+    @staticmethod
     def _profile_statistics_with_config(feature_dataframe, statistics_config) -> str:
         """Compute statistics on a feature DataFrame based on a given configuration.
 
@@ -174,6 +224,8 @@ class StatisticsEngine:
             statistics_config.correlations,
             statistics_config.histograms,
             statistics_config.exact_uniqueness,
+            kll=getattr(statistics_config, "kll", False) or False,
+            histogram_bins=getattr(statistics_config, "histogram_bins", None),
         )
 
     @staticmethod
@@ -183,6 +235,9 @@ class StatisticsEngine:
         correlations: bool,
         histograms: bool,
         exact_uniqueness: bool,
+        *,
+        kll: bool = False,
+        histogram_bins: int | None = None,
     ) -> str:
         """Compute statistics on a feature DataFrame.
 
@@ -192,11 +247,13 @@ class StatisticsEngine:
             correlations: Whether to compute correlations or not.
             histograms: Whether to compute histograms or not.
             exact_uniqueness: Whether to compute exact uniqueness values or not.
+            kll: Whether to compute KLL sketches (enables percentile estimates).
+            histogram_bins: Number of histogram bins. None falls back to the Deequ default (20).
 
         Returns:
             Serialized features statistics.
         """
-        if len(feature_dataframe.head(1)) == 0:
+        if StatisticsEngine._is_dataframe_empty(feature_dataframe):
             warnings.warn(
                 "There is no data in the entity that you are trying to compute "
                 "statistics for. A possible cause might be that you inserted only data "
@@ -208,7 +265,13 @@ class StatisticsEngine:
             col_stats = [{"column": col_name, "count": 0} for col_name in columns]
             return json.dumps({"columns": col_stats})
         return engine._get_instance()._profile(
-            feature_dataframe, columns, correlations, histograms, exact_uniqueness
+            feature_dataframe,
+            columns,
+            correlations,
+            histograms,
+            exact_uniqueness,
+            kll,
+            histogram_bins,
         )
 
     def _compute_and_save_split_statistics(
@@ -270,17 +333,76 @@ class StatisticsEngine:
         Returns:
             Statistics metadata containing a list of single feature descriptive statistics.
         """
+        stats = self._compute_transformation_fn_statistics_no_save(
+            columns, label_encoder_features, feature_dataframe
+        )
+        return self._save_statistics(stats, td_metadata_instance, feature_view_obj)
+
+    def _compute_transformation_fn_statistics_no_save(
+        self,
+        columns: list[str],
+        label_encoder_features: list[str],
+        feature_dataframe: TypeVar("pyspark.sql.DataFrame")
+        | pd.DataFrame
+        | None = None,
+    ) -> statistics.Statistics:
+        """Compute transformation-function statistics without persisting them.
+
+        Used by the chained transformation fit, which profiles intermediate
+        features level by level and persists the full set in a single save at
+        the end (so serving retrieves one complete statistics entity rather than
+        the most recent partial one).
+
+        Parameters:
+            columns: Feature names to compute statistics on, excluding label encoded features.
+            label_encoder_features: Label encoded feature names.
+            feature_dataframe: Spark or Pandas DataFrame to compute the statistics on.
+
+        Returns:
+            Statistics metadata containing the single-feature descriptive statistics.
+        """
         computation_time = int(float(datetime.now().timestamp()) * 1000)
         stats_str = self._profile_transformation_fn_statistics(
             feature_dataframe, columns, label_encoder_features
         )
         desc_stats = self._parse_deequ_statistics(stats_str)
-        stats = statistics.Statistics(
+        return statistics.Statistics(
             computation_time=computation_time,
             feature_descriptive_statistics=desc_stats,
             before_transformation=True,
         )
-        return self._save_statistics(stats, td_metadata_instance, feature_view_obj)
+
+    def _save_transformation_fn_statistics(
+        self,
+        feature_descriptive_statistics: list[FeatureDescriptiveStatistics],
+        td_metadata_instance: training_dataset.TrainingDataset,
+        feature_view_obj: feature_view.FeatureView,
+    ) -> statistics.Statistics:
+        """Persist precomputed transformation-function statistics in a single save.
+
+        Used by the chained transformation fit: the statistics were profiled
+        stage by stage while the feature values were the fitted ones, so they
+        are persisted as computed instead of being re-profiled on the
+        transformed dataframe.
+
+        Parameters:
+            feature_descriptive_statistics: The single-feature descriptive statistics to persist.
+            td_metadata_instance: Training Dataset the statistics belong to.
+            feature_view_obj: Metadata of the feature view used to create the Training Dataset.
+
+        Returns:
+            Statistics metadata containing the persisted descriptive statistics.
+        """
+        computation_time = int(float(datetime.now().timestamp()) * 1000)
+        return self._save_statistics(
+            statistics.Statistics(
+                computation_time=computation_time,
+                feature_descriptive_statistics=feature_descriptive_statistics,
+                before_transformation=True,
+            ),
+            td_metadata_instance,
+            feature_view_obj,
+        )
 
     @decorators._catch_not_found("hsfs.statistics.Statistics", fallback_return=None)
     def _get(
@@ -351,13 +473,12 @@ class StatisticsEngine:
     )
     def _get_by_time_window(
         self,
-        metadata_instance: feature_group.FeatureGroup
-        | training_dataset.TrainingDataset,
+        metadata_instance,
         start_commit_time: str | int | datetime | date | None = None,
         end_commit_time: str | int | datetime | date | None = None,
         feature_names: list[str] | None = None,
         row_percentage: float | None = None,
-    ) -> statistics.Statistics | list[statistics.Statistics] | None:
+    ) -> statistics.Statistics | None:
         """Get the statistics of an entity based on a commit time window.
 
         Parameters:
@@ -378,6 +499,43 @@ class StatisticsEngine:
             end_commit_time=end_commit_time,
             feature_names=feature_names,
             row_percentage=row_percentage,
+        )
+
+    @decorators._catch_not_found(
+        "hsfs.statistics.Statistics",
+        "hsfs.feature_group_commit.FeatureGroupCommit",
+        fallback_return=None,
+    )
+    def _get_all_in_time_window(
+        self,
+        metadata_instance,
+        start_commit_time: int | None = None,
+        end_commit_time: int | None = None,
+        feature_names: list[str] | None = None,
+        limit: int | None = None,
+    ) -> list[statistics.Statistics] | None:
+        """Get all per-batch statistics rows within a commit time window, with content.
+
+        Used by the KLL-merge path to enumerate individual commit statistics.
+
+        Parameters:
+            metadata_instance: Metadata of the entity.
+            start_commit_time: Window start commit time (ms timestamp).
+            end_commit_time: Window end commit time (ms timestamp).
+            feature_names: Feature names to filter.
+            limit: Maximum rows to fetch. Defenses against unbounded `with_content=True`
+                responses on long windows.
+
+        Returns:
+            List of Statistics objects (each containing feature_descriptive_statistics),
+            or None if not found.
+        """
+        return self._statistics_api._get_all_in_window(
+            metadata_instance,
+            start_commit_time=start_commit_time,
+            end_commit_time=end_commit_time,
+            feature_names=feature_names,
+            limit=limit,
         )
 
     def _profile_transformation_fn_statistics(

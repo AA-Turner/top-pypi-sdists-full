@@ -143,6 +143,7 @@ from snowflake.snowpark_connect.utils.context import (
     set_sql_args,
     set_sql_plan_name,
 )
+from snowflake.snowpark_connect.utils.jvm_udf_utils import UdfKind
 from snowflake.snowpark_connect.utils.scala_udf_utils import (
     _build_scala_udf_sql_input_params,
 )
@@ -1572,6 +1573,28 @@ def _raise_if_cld_nested_add_sql_error(
     raise e
 
 
+def _looks_like_cld_lowercase_identifier_error(e: SnowparkSQLException) -> bool:
+    """Best-effort match: is the Snowflake 4510 ``Invalid identifier``
+    error pointing at the catalog-linked-database case-insensitive
+    identifier restriction?
+
+    Snowflake error text for this case currently looks like:
+    ``Invalid identifier <NAME>. Only lowercase and double-quoted
+    identifier names are allowed for case insensitive catalog like
+    AWS Glue, Unity etc. in catalog-linked databases.``
+
+    We match on the diagnostic phrasing (``catalog-linked database`` +
+    either ``lowercase`` or ``case insensitive catalog``) rather than
+    on the exact identifier, so future wording tweaks still hit the
+    friendlier path. Returns ``False`` on any unexpected shape so
+    unrelated 4510s propagate intact.
+    """
+    msg = (getattr(e, "message", None) or str(e) or "").lower()
+    return "catalog-linked database" in msg and (
+        "lowercase" in msg or "case insensitive catalog" in msg
+    )
+
+
 def _execute_managed_iceberg_nested_add_column(
     session: Session,
     table_name: str,
@@ -1760,12 +1783,55 @@ def _execute_create_namespace(
     When ``if_not_exists`` is true, swallow Snowflake error 2002 (object already
     exists) so ``CREATE NAMESPACE IF NOT EXISTS`` matches Spark's no-op semantics
     on catalog-linked databases that don't honor ``IF NOT EXISTS`` upstream.
+
+    Translate Snowflake error 4510 on case-insensitive catalog-linked databases
+    into an actionable ``AnalysisException`` (SNOW-3471833).
     """
     previous_name = session.connection.schema
     if_not_exists_sql = "IF NOT EXISTS " if if_not_exists else ""
     try:
         session.sql(f"CREATE SCHEMA {if_not_exists_sql}{name}").collect()
     except SnowparkSQLException as e:
+        # SNOW-3471833: Snowflake catalog-linked databases
+        # backed by case-insensitive external catalogs (Unity
+        # Iceberg REST, AWS Glue) only accept lowercase or
+        # double-quoted schema identifiers. SCOS upper-cases
+        # unquoted Spark identifiers by default
+        # (``_spark_to_snowflake`` in
+        # ``get_relation_identifier_name``), so a
+        # vanilla ``CREATE NAMESPACE`` from Spark turns into
+        # ``CREATE SCHEMA CLDUNITY.UPPER_NAME`` which fails
+        # at the platform with
+        # ``004510 / 42601 Invalid identifier <NAME>.
+        # Only lowercase and double-quoted identifier
+        # names are allowed for case insensitive catalog...``.
+        # Surface an actionable AnalysisException that
+        # points the customer at the two workarounds rather
+        # than letting them chase a phantom syntax bug.
+        if getattr(
+            e, "sql_error_code", None
+        ) == 4510 and _looks_like_cld_lowercase_identifier_error(e):
+            exception = AnalysisException(
+                "CREATE NAMESPACE failed on a Snowflake "
+                "catalog-linked database. Catalog-linked "
+                "databases backed by case-insensitive external "
+                "catalogs (Unity Iceberg REST, AWS Glue) require "
+                "schema identifiers to be lowercase or "
+                f"double-quoted. SCOS evaluated '{name}' from "
+                "your Spark SQL, which Snowflake's "
+                "case-insensitive identifier rules upper-case "
+                "before the catalog sees it, and the external "
+                "catalog rejected the result. Workarounds: "
+                "(a) use a lowercase schema name in your "
+                "Spark SQL (e.g. ``CREATE NAMESPACE "
+                "catalog.mynamespace``), or (b) quote the "
+                "identifier with backticks in Spark SQL "
+                "(e.g. ``CREATE NAMESPACE catalog.`MyNs```) "
+                "so SCOS forwards it double-quoted. Underlying "
+                f"Snowflake error: {e}"
+            )
+            attach_custom_error_code(exception, ErrorCodes.UNSUPPORTED_OPERATION)
+            raise exception from e
         # SNOW-3471774: Snowflake catalog-linked databases
         # (Glue / Unity Iceberg REST) don't always honor
         # ``IF NOT EXISTS`` on schema creation — the underlying
@@ -1816,6 +1882,28 @@ def _translate_create_view_snowpark_error(
         attach_custom_error_code(exception, ErrorCodes.UNSUPPORTED_OPERATION)
         raise exception from e
     raise e
+
+
+def _relation_time_travel_extensions_disabled_exception() -> AnalysisException:
+    """Build the SNOW-3471774 error when ``spark.sql.extensions`` is unset."""
+    exception = AnalysisException(
+        "SQL time travel ('VERSION AS OF' / 'TIMESTAMP AS OF') "
+        "is gated on the 'spark.sql.extensions' config naming "
+        "the Iceberg Spark SQL extensions class. SCOS implements "
+        "time travel natively (no extra JAR install is required), "
+        "but the customer-visible support contract still requires "
+        "the flag so Snowpark Connect can distinguish "
+        "Spark-native time travel from the bare ``RelationTimeTravel`` "
+        "plan node Spark 3.3+ also produces on non-Iceberg tables. "
+        "Set it on the SCOS server (e.g. in spark-defaults.conf "
+        "or via the SPARK_CONF_spark__sql__extensions env var) to: "
+        "'org.apache.iceberg.spark.extensions."
+        "IcebergSparkSessionExtensions'. This is a static config — "
+        "``spark.conf.set()`` from the client is rejected on "
+        "purpose by Spark's config rules."
+    )
+    attach_custom_error_code(exception, ErrorCodes.UNSUPPORTED_OPERATION)
+    return exception
 
 
 def map_sql_to_pandas_df(
@@ -2378,7 +2466,7 @@ def map_sql_to_pandas_df(
                             session.sql(
                                 f"DROP FUNCTION {if_exists_clause}{variant_name}{arg_str}"
                             ).collect()
-                    elif udf_entry is not None and udf_entry.is_scala:
+                    elif udf_entry is not None and udf_entry.kind is UdfKind.SCALA_UDF:
                         # Eager Scala UDF: single physical function, same type-string rules.
                         sql_params, _ = _build_scala_udf_sql_input_params(input_types)
                         argument_string = (
@@ -3711,21 +3799,21 @@ def map_logical_plan_relation(
             # backed tables, so we keep the customer-visible support
             # contract tight: it lights up exactly when the Iceberg
             # extension class is wired into ``spark.sql.extensions``.
-            # Customers who hit this path without the extension get a
-            # clear pointer to ``pip install 'snowpark-connect[iceberg]'``
-            # rather than a generic "unsupported plan node" message.
+            #
+            # SNOW-3471774: the customer-visible message previously
+            # implied that the Iceberg extensions PACKAGE has to be pip-
+            # installed (``pip install 'snowpark-connect[iceberg]'``).
+            # That is misleading — SCOS implements ``VERSION AS OF`` /
+            # ``TIMESTAMP AS OF`` natively in ``iceberg_sql_time_travel.py``
+            # and does NOT depend on the OSS Iceberg JAR. The only
+            # missing piece is the config flag itself. The message now
+            # reflects that, and also tells customers exactly how to set
+            # the flag (which is a static config — has to be set in the
+            # server-side ``spark-defaults.conf`` or via
+            # ``SPARK_CONF_<key>`` env, not via ``spark.conf.set()``
+            # from the client).
             if not is_iceberg_sql_extensions_enabled():
-                exception = AnalysisException(
-                    "SQL time travel ('VERSION AS OF' / 'TIMESTAMP AS OF') "
-                    "requires the Iceberg Spark SQL Extensions. Enable them "
-                    "with: spark.conf.set('spark.sql.extensions', "
-                    "'org.apache.iceberg.spark.extensions."
-                    "IcebergSparkSessionExtensions'). If the package is not "
-                    "installed, install with: "
-                    "pip install 'snowpark-connect[iceberg]'."
-                )
-                attach_custom_error_code(exception, ErrorCodes.UNSUPPORTED_OPERATION)
-                raise exception
+                raise _relation_time_travel_extensions_disabled_exception()
 
             base = rel.relation()
             base_class = str(base.getClass().getSimpleName())
@@ -4606,133 +4694,82 @@ def _escape_sql_comment(comment: str) -> str:
 
 
 def _extract_table_location(logical_plan) -> str | None:
-    """Read ``tableSpec().location()`` off the logical plan; return None on absence.
+    """Read ``tableSpec().location()`` off the logical plan; ``None`` when unset.
 
-    The accessor returns an ``Option[String]`` on Spark 3.4+ (the
-    ``CreateTable`` / ``ReplaceTable`` logical plan), but defensive against
-    older parser outputs that may surface the value as a plain string or
-    omit ``tableSpec()`` entirely.
+    ``location`` is declared ``Option[String]`` on ``TableSpecBase`` (never
+    null), so we read the ``Option`` shape directly rather than guarding
+    accessor errors. See Spark v3.5.3 (the version pinned via
+    ``snowpark-connect-deps``):
+    https://github.com/apache/spark/blob/v3.5.3/sql/catalyst/src/main/scala/org/apache/spark/sql/catalyst/plans/logical/v2Commands.scala#L1406-L1413
     """
-    try:
-        loc = logical_plan.tableSpec().location()
-    except Exception as exc:
-        # Py4J errors come through here when the underlying JVM plan
-        # doesn't expose tableSpec()/.location(). Log at debug so the
-        # session-config fallback isn't silently masked.
-        logger.debug(
-            "tableSpec().location() not accessible on logical plan (%s); "
-            "falling back to session config",
-            exc,
-        )
-        return None
-    if loc is None:
-        return None
-    if hasattr(loc, "isDefined"):
-        return str(loc.get()) if loc.isDefined() else None
-    return str(loc)
+    location = logical_plan.tableSpec().location()
+    return str(location.get()) if location.isDefined() else None
 
 
 def _extract_table_provider(logical_plan: typing.Any) -> str:
-    """Return Spark's table provider from ``tableSpec()``, lower-cased.
+    """Return Spark's table provider from ``tableSpec().provider()``, lower-cased.
 
-    Spark SQL ``CREATE TABLE ... USING iceberg`` and CTAS both expose the
-    provider through ``tableSpec().provider()`` on Spark 3.5. Some parser shapes
-    can omit the accessor, so failures degrade to ``"default"`` and preserve the
-    non-Iceberg path.
+    ``provider`` is declared ``Option[String]`` on ``TableSpecBase``
+    (``Some("iceberg")`` for ``USING iceberg``; ``None`` when no ``USING``
+    clause). Absent provider degrades to ``"default"`` so the non-Iceberg
+    path is preserved. See Spark v3.5.3 (the version pinned via
+    ``snowpark-connect-deps``):
+    https://github.com/apache/spark/blob/v3.5.3/sql/catalyst/src/main/scala/org/apache/spark/sql/catalyst/plans/logical/v2Commands.scala#L1406-L1413
     """
-    try:
-        table_spec = logical_plan.tableSpec()
-        if hasattr(table_spec, "provider"):
-            provider_opt = table_spec.provider()
-            if provider_opt.isDefined():
-                return str(provider_opt.get()).lower()
-        table_properties = table_spec.properties()
-        if not table_properties.isEmpty():
-            for prop in table_properties.get():
-                if str(prop.key()) == "FORMAT":
-                    return str(prop.value()).lower()
-    except Exception:
-        logger.debug(
-            "tableSpec provider/properties not accessible; using default table provider",
-            exc_info=True,
-        )
-    return "default"
+    provider = logical_plan.tableSpec().provider()
+    return str(provider.get()).lower() if provider.isDefined() else "default"
 
 
 def _extract_identity_partition_columns(logical_plan: typing.Any) -> list[str]:
     """Read identity partition columns off a ``CreateTable`` / ``ReplaceTable``
     logical plan (``PARTITIONED BY (col1, col2)``).
 
-    Spark exposes partition specs as ``Array[Transform]``. For the literal
+    Spark exposes partition specs as a ``Seq[Transform]``
+    (``org.apache.spark.sql.connector.expressions.Transform``). For the literal
     column-name form these are ``IdentityTransform``s whose single reference's
     ``fieldNames()[0]`` is the column name. Non-identity transforms
     (``years()``, ``months()``, ``days()``, ``hours()``, ``bucket()``,
-    ``truncate()``) are silently dropped from this clause — they are a
-    separate gap that needs JVM-side Spark→Snowflake transform mapping and
-    are tracked outside SNOW-3589401.
+    ``truncate()``) are dropped from this clause — they need JVM-side
+    Spark→Snowflake transform mapping and are tracked outside SNOW-3589401.
 
-    Returns ``[]`` when the accessor is unavailable or no identity transforms
-    are present, so downstream concatenation stays simple. Best-effort by
-    design: a broken JVM proxy degrades to "no PARTITION BY clause" rather
-    than failing the whole DDL — same posture as :func:`_extract_table_location`.
+    Both call sites pass a V2 create-table plan, so ``partitioning()`` and the
+    ``Transform`` / ``NamedReference`` accessors are guaranteed by Spark's
+    stable connector API — we pattern-match on their shape rather than
+    defensively swallowing errors.
     """
-    try:
-        partitioning = logical_plan.partitioning()
-    except Exception as exc:
-        logger.debug(
-            "logical_plan.partitioning() not accessible (%s); "
-            "skipping partition extraction",
-            exc,
-        )
-        return []
+    partitioning = logical_plan.partitioning()
     if partitioning is None:
         return []
+    # ``partitioning()`` is a Scala ``Seq`` at runtime; ``seqAsJavaList`` makes
+    # it jpype-iterable. Unit tests pass a plain Python ``list``, which is
+    # already iterable — only the JVM ``Seq`` shape needs converting.
+    transforms = (
+        partitioning if isinstance(partitioning, list) else as_java_list(partitioning)
+    )
     cols: list[str] = []
-    try:
-        for transform in partitioning:
-            try:
-                transform_name = str(transform.name())
-            except Exception:
-                transform_name = ""
-            if transform_name != "identity":
-                # Bump to warning (was debug) so customers using SQL
-                # `PARTITIONED BY (years(ts))` / `bucket(N, c)` etc. on
-                # a CLD iceberg target get a visible signal that the
-                # transform was dropped from the resulting DDL —
-                # otherwise the silent drop is only noticed at write
-                # time. AnalysisException is too aggressive (would break
-                # customers who don't care about the transform); WARN
-                # keeps the best-effort posture but is visible in logs.
-                logger.warning(
-                    "Dropping non-identity partition transform %r from "
-                    "CREATE ICEBERG TABLE DDL on CLD target — only "
-                    "identity transforms are emitted today "
-                    "(years / months / days / hours / bucket / truncate "
-                    "are tracked outside SNOW-3589401)",
-                    transform_name,
-                )
-                continue
-            try:
-                refs = transform.references()
-                if not refs or len(refs) == 0:
-                    continue
-                field_names = refs[0].fieldNames()
-                if not field_names or len(field_names) == 0:
-                    continue
-                cols.append(str(field_names[0]))
-            except Exception as exc:
-                logger.debug(
-                    "Failed to read identity transform reference (%s); " "skipping",
-                    exc,
-                )
-                continue
-    except Exception as exc:
-        logger.debug(
-            "Failed to iterate partitioning() transforms (%s); "
-            "skipping partition extraction",
-            exc,
-        )
-        return []
+    for transform in transforms:
+        transform_name = str(transform.name())
+        if transform_name != "identity":
+            # WARN (not debug) so customers using SQL `PARTITIONED BY
+            # (years(ts))` / `bucket(N, c)` etc. on a CLD iceberg target get
+            # a visible signal that the transform was dropped from the
+            # resulting DDL — otherwise the silent drop is only noticed at
+            # write time. AnalysisException would be too aggressive.
+            logger.warning(
+                "Dropping non-identity partition transform %r from "
+                "CREATE ICEBERG TABLE DDL on CLD target — only identity "
+                "transforms are emitted today (years / months / days / "
+                "hours / bucket / truncate are tracked outside SNOW-3589401)",
+                transform_name,
+            )
+            continue
+        references = transform.references()
+        if not references or len(references) == 0:
+            continue
+        field_names = references[0].fieldNames()
+        if not field_names or len(field_names) == 0:
+            continue
+        cols.append(str(field_names[0]))
     return cols
 
 
@@ -4740,58 +4777,24 @@ def _extract_table_properties(logical_plan: typing.Any) -> dict[str, str]:
     """Read ``TBLPROPERTIES (...)`` off a ``CreateTable`` / ``ReplaceTable``
     logical plan as a plain Python ``dict``.
 
-    Spark's ``TableSpec.properties`` is a Scala ``Map[String, String]``.
-    Across Spark versions / Py4J versions it can surface as either a Scala
-    ``Map`` (with a ``Tuple2`` iterator) or a Java ``Map`` (with
-    ``entrySet().iterator()``). We try the Scala shape first since that's
-    what Spark 3.5's ``TableSpec`` declares; if that throws we log at
-    debug level and fall back to the Java-Map style. An empty / missing
-    map returns ``{}``.
+    ``properties`` is declared ``Map[String, String]`` on ``TableSpecBase``
+    (never null; empty when there are no properties). Via jpype it surfaces
+    as a Scala ``Map`` whose ``iterator()`` yields ``Tuple2[String, String]``
+    (``_1()`` / ``_2()`` = key / value) — we read that shape directly. See
+    Spark v3.5.3 (the version pinned via ``snowpark-connect-deps``):
+    https://github.com/apache/spark/blob/v3.5.3/sql/catalyst/src/main/scala/org/apache/spark/sql/catalyst/plans/logical/v2Commands.scala#L1406-L1413
 
     Used by :func:`_build_create_iceberg_table_clauses` to map Spark
     Iceberg's ``format-version`` table property to Snowflake's
     ``ICEBERG_VERSION = N`` clause (SNOW-3589401).
     """
-    try:
-        table_spec = logical_plan.tableSpec()
-        props = table_spec.properties()
-    except Exception as exc:
-        logger.debug(
-            "tableSpec().properties() not accessible (%s); "
-            "skipping table-property extraction",
-            exc,
-        )
-        return {}
-    if props is None:
-        return {}
-    # Try Scala Map's iterator() returning Tuple2[String, String]
-    try:
-        props_iterator = props.iterator()
-        result: dict[str, str] = {}
-        while props_iterator.hasNext():
-            pair = props_iterator.next()
-            result[str(pair._1())] = str(pair._2())
-        return result
-    except Exception as exc:
-        logger.debug(
-            "Scala-map iteration over JVM properties failed (%s); "
-            "trying Java-Map fallback",
-            exc,
-        )
-    # Fall back to Java Map's entrySet() pattern
-    try:
-        entries = props.entrySet().iterator()
-        result_java: dict[str, str] = {}
-        while entries.hasNext():
-            entry = entries.next()
-            result_java[str(entry.getKey())] = str(entry.getValue())
-        return result_java
-    except Exception as exc:
-        logger.debug(
-            "Failed to iterate JVM properties map (%s); " "returning empty dict",
-            exc,
-        )
-        return {}
+    props = logical_plan.tableSpec().properties()
+    result: dict[str, str] = {}
+    props_iterator = props.iterator()
+    while props_iterator.hasNext():
+        pair = props_iterator.next()
+        result[str(pair._1())] = str(pair._2())
+    return result
 
 
 def _build_create_iceberg_table_clauses(

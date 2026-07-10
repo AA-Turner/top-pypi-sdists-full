@@ -341,10 +341,14 @@ pub enum KnownModule {
     // Third-party modules
     #[strum(serialize = "pydantic.config")]
     PydanticConfig,
+    #[strum(serialize = "pydantic.fields")]
+    PydanticFields,
     #[strum(serialize = "pydantic.main")]
     PydanticMain,
     #[strum(serialize = "pydantic.root_model")]
     PydanticRootModel,
+    #[strum(serialize = "pydantic_settings.main")]
+    PydanticSettingsMain,
     #[strum(serialize = "pydantic.types")]
     PydanticTypes,
 }
@@ -385,8 +389,10 @@ impl KnownModule {
             Self::Numbers => "numbers",
             Self::Struct => "struct",
             Self::PydanticConfig => "pydantic.config",
+            Self::PydanticFields => "pydantic.fields",
             Self::PydanticMain => "pydantic.main",
             Self::PydanticRootModel => "pydantic.root_model",
+            Self::PydanticSettingsMain => "pydantic_settings.main",
             Self::PydanticTypes => "pydantic.types",
         }
     }
@@ -412,8 +418,10 @@ impl KnownModule {
     pub const fn is_third_party(self) -> bool {
         match self {
             Self::PydanticConfig
+            | Self::PydanticFields
             | Self::PydanticMain
             | Self::PydanticRootModel
+            | Self::PydanticSettingsMain
             | Self::PydanticTypes => true,
             Self::Builtins
             | Self::Enum

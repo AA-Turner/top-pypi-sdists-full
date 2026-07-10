@@ -82,6 +82,26 @@ class ConfigurationError(Exception):
     pass
 
 
+def _normalize_graph_auth_method(value: str) -> str:
+    """Return the canonical :class:`AuthMethod` member name for *value*.
+
+    Matching is case-insensitive so config values like ``certificate`` are
+    accepted alongside the canonical ``Certificate``.
+
+    Raises:
+        ConfigurationError: When *value* does not match a known auth method.
+    """
+    value_lower = value.lower()
+    for method in AuthMethod:
+        if method.name.lower() == value_lower:
+            return method.name
+    raise ConfigurationError(
+        "Invalid msgraph auth_method: {0!r}. Valid values are: {1}".format(
+            value, ", ".join(m.name for m in AuthMethod)
+        )
+    )
+
+
 def _str_to_list(s):
     """Converts a comma separated string to a list"""
     _list = s.split(",")
@@ -295,6 +315,51 @@ def _configure_logging(log_level, log_file=None):
             logger.addHandler(fh)
         except (IOError, OSError, PermissionError) as error:
             logger.warning("Unable to write to log file: {}".format(error))
+
+
+# Loggers of the libraries that implement the mailbox and Microsoft Graph
+# layers. parsedmarc only configures its own logger, so without this list
+# their records — including azure-identity's AADSTS token-endpoint errors,
+# which are what distinguish a local config problem from an Exchange
+# Online / Entra ID one — are silently dropped even with --debug.
+# The Graph SDK's kiota middleware (kiota_http etc.) is deliberately
+# absent: it does not use Python logging (its observability is
+# OpenTelemetry tracing), so there are no records to enable.
+_DEPENDENCY_LOGGERS = (
+    "mailsuite",
+    "azure",
+    "msgraph",
+    "httpx",
+    "httpcore",
+)
+
+
+def _configure_dependency_logging(level: int) -> None:
+    """Apply parsedmarc's logging verbosity to dependency loggers.
+
+    Follows the parsedmarc log level when ``--verbose``/``--debug`` makes it
+    more verbose than WARNING, and stays at WARNING otherwise, so dependency
+    warnings keep surfacing without adding noise at the default level.
+
+    Handlers are synced to exactly the parsedmarc logger's own handlers
+    (console and optional file), so dependency records reach the same
+    destinations, and a SIGHUP reload that swaps the log file neither
+    duplicates output nor keeps writing to a closed handler. Propagation
+    to the root logger is disabled so that a stray ``logging.basicConfig()``
+    anywhere in the process cannot double-print every dependency record.
+    CLI-only: library consumers configure logging themselves.
+    """
+    dep_level = min(level, logging.WARNING)
+    for name in _DEPENDENCY_LOGGERS:
+        dep_logger = logging.getLogger(name)
+        dep_logger.setLevel(dep_level)
+        dep_logger.propagate = False
+        for existing in list(dep_logger.handlers):
+            if existing not in logger.handlers:
+                dep_logger.removeHandler(existing)
+        for wanted in logger.handlers:
+            if wanted not in dep_logger.handlers:
+                dep_logger.addHandler(wanted)
 
 
 def cli_parse(
@@ -635,7 +700,9 @@ def _parse_config(config: ConfigParser, opts):
             )
             opts.graph_auth_method = AuthMethod.UsernamePassword.name
         else:
-            opts.graph_auth_method = graph_config["auth_method"]
+            opts.graph_auth_method = _normalize_graph_auth_method(
+                graph_config["auth_method"]
+            )
 
         if opts.graph_auth_method == AuthMethod.UsernamePassword.name:
             if "user" in graph_config:
@@ -688,6 +755,14 @@ def _parse_config(config: ConfigParser, opts):
                 )
             if "certificate_password" in graph_config:
                 opts.graph_certificate_password = graph_config["certificate_password"]
+
+        if opts.graph_auth_method == AuthMethod.ClientAssertion.name:
+            if "client_assertion" in graph_config:
+                opts.graph_client_assertion = graph_config["client_assertion"]
+            else:
+                raise ConfigurationError(
+                    "client_assertion setting missing from the msgraph config section"
+                )
 
         if "client_id" in graph_config:
             opts.graph_client_id = graph_config["client_id"]
@@ -1922,6 +1997,7 @@ def _main():
         graph_client_secret=None,
         graph_certificate_path=None,
         graph_certificate_password=None,
+        graph_client_assertion=None,
         graph_tenant_id=None,
         graph_mailbox=None,
         graph_allow_unencrypted_storage=False,
@@ -2079,6 +2155,7 @@ def _main():
             logger.warning("Unable to write to log file: {}".format(error))
 
     opts.active_log_file = opts.log_file
+    _configure_dependency_logging(logger.level)
 
     if (
         opts.imap_host is None
@@ -2360,6 +2437,34 @@ def _main():
     if opts.graph_client_id:
         try:
             mailbox = opts.graph_mailbox or opts.graph_user
+            # Redacted connection summary: enough to spot a wrong
+            # tenant/client/mailbox at a glance, before any network I/O,
+            # so a hang during credential construction leaves a trace.
+            # Secret values are never logged.
+            logger.info(
+                "Connecting to Microsoft Graph (auth_method=%s, tenant_id=%s, "
+                "client_id=%s, mailbox=%s, graph_url=%s)",
+                opts.graph_auth_method,
+                opts.graph_tenant_id,
+                opts.graph_client_id,
+                mailbox,
+                opts.graph_url,
+            )
+            logger.debug(
+                "Microsoft Graph auth details: username=%s, "
+                "certificate_path=%s, certificate_password %s, "
+                "client_secret %s, password %s, client_assertion %s, "
+                "token_file=%s, allow_unencrypted_storage=%s",
+                opts.graph_user,
+                opts.graph_certificate_path,
+                "set" if opts.graph_certificate_password else "not set",
+                "set" if opts.graph_client_secret else "not set",
+                "set" if opts.graph_password else "not set",
+                "set" if opts.graph_client_assertion else "not set",
+                opts.graph_token_file,
+                bool(opts.graph_allow_unencrypted_storage),
+            )
+            connect_start = time.monotonic()
             mailbox_connection = MSGraphConnection(
                 auth_method=opts.graph_auth_method,
                 mailbox=mailbox,
@@ -2368,12 +2473,20 @@ def _main():
                 client_secret=opts.graph_client_secret,
                 certificate_path=opts.graph_certificate_path,
                 certificate_password=opts.graph_certificate_password,
+                client_assertion=opts.graph_client_assertion,
                 username=opts.graph_user,
                 password=opts.graph_password,
                 token_file=opts.graph_token_file,
                 allow_unencrypted_storage=bool(opts.graph_allow_unencrypted_storage),
                 graph_url=opts.graph_url,
                 token_cache_name="parsedmarc",
+            )
+            # App-only methods (ClientSecret/Certificate) construct their
+            # credential lazily; the first token request happens on the
+            # first mailbox call, so failures can still surface later.
+            logger.info(
+                "Microsoft Graph connection initialized in %.2f seconds",
+                time.monotonic() - connect_start,
             )
 
         except Exception:
@@ -2660,6 +2773,8 @@ def _main():
                                 "Unable to write to log file: {}".format(log_error)
                             )
                     opts.active_log_file = new_log_file
+
+                _configure_dependency_logging(logger.level)
 
                 logger.info("Configuration reloaded successfully")
             except Exception:

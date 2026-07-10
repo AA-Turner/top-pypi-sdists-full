@@ -6,7 +6,7 @@
 @contact: baostock@163.com
 """
 # 版本信息
-BAOSTOCK_CLIENT_VERSION = "00.9.20"
+BAOSTOCK_CLIENT_VERSION = "00.9.30"
 BAOSTOCK_AUTHOR = "baostock.com"
 BAOSTOCK_SERVER_IP = "public-api.baostock.com"  # localhost  public-api.baostock.com   127.0.0.1
 BAOSTOCK_SERVER_PORT = 10030
@@ -31,8 +31,6 @@ MESSAGE_TYPE_LOGIN_RESPONSE = "01"  # 登陆响应
 MESSAGE_TYPE_LOGOUT_REQUEST = "02"  # 登出请求
 MESSAGE_TYPE_LOGOUT_RESPONSE = "03"  # 登出响应
 MESSAGE_TYPE_EXCEPTIONS = "04"  # 错误信息
-MESSAGE_TYPE_GETKDATA_REQUEST = "11"  # 获取历史K线数据请求
-MESSAGE_TYPE_GETKDATA_RESPONSE = "12"  # 获取历史K线数据响应
 MESSAGE_TYPE_QUERYDIVIDENDDATA_REQUEST = "13"  # 估值指标（季频）,股息分红 请求
 MESSAGE_TYPE_QUERYDIVIDENDDATA_RESPONSE = "14"  # 估值指标（季频）,股息分红 响应
 MESSAGE_TYPE_ADJUSTFACTOR_REQUEST = "15"  # 复权因子数据 请求
@@ -112,7 +110,12 @@ MESSAGE_TYPE_QUERYSTOCKINRISK_REQUEST = "93"    # 获取风险警示板分类请
 MESSAGE_TYPE_QUERYSTOCKINRISK_RESPONST = "94"    # 获取风险警示板分类响应
 MESSAGE_TYPE_GETKDATAPLUS_REQUEST = "95"   # 获取历史K线数据Plus的请求，行情压缩
 MESSAGE_TYPE_GETKDATAPLUS_RESPONSE = "96"  # 获取历史K线数据Plus的响应，行情压缩
-
+MESSAGE_TYPE_GETKDaily_D_AStock_REQUEST = "98"   # 获取某日所有股票日K线数据的请求
+MESSAGE_TYPE_GETKDaily_D_AStock_RESPONSE = "99"  # 获取某日所有股票日K线数据的响应
+MESSAGE_TYPE_GETKDaily_D_ETF_REQUEST = "9A"   # 获取某日所有ETF日K线数据的请求
+MESSAGE_TYPE_GETKDaily_D_ETF_RESPONSE = "9B"  # 获取某日所有ETF日K线数据的响应
+MESSAGE_TYPE_GETKDaily_ADJUSTFACTOR_REQUEST = "9C"   # 获取某日复权因子信息数据的请求
+MESSAGE_TYPE_GETKDaily_ADJUSTFACTOR_RESPONSE = "9D"  # 获取某日复权因子信息数据的响应
 
 # 以上为消息请求类型
 
@@ -128,7 +131,10 @@ MESSAGE_PACKAGE_MAPPING = {
 
 # 返回消息体进行压缩的响应代码
 # 目前消息体进行压缩的有：获取历史K线数据响应
-COMPRESSED_MESSAGE_TYPE_TUPLE = (MESSAGE_TYPE_GETKDATAPLUS_RESPONSE, )
+COMPRESSED_MESSAGE_TYPE_TUPLE = (MESSAGE_TYPE_GETKDATAPLUS_RESPONSE
+                                 ,MESSAGE_TYPE_GETKDaily_D_AStock_RESPONSE
+                                 ,MESSAGE_TYPE_GETKDaily_D_ETF_RESPONSE
+                                 ,MESSAGE_TYPE_GETKDaily_ADJUSTFACTOR_RESPONSE )
 
 # 以下是错误代码
 
@@ -178,4 +184,4 @@ BSERR_SYSTEM_ERROR = "10005001"  # 系统级别错误
 
 CLIENT_ERROR_PARAM = "参数错误，请检查。"  # 客户端参数错误
 
-BAOSTOCK_PER_PAGE_COUNT = 500  # 默认每页查询条数
+BAOSTOCK_PER_PAGE_COUNT = 2000  # 默认每页查询条数

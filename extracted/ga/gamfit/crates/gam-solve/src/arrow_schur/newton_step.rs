@@ -56,27 +56,14 @@ pub fn solve_arrow_newton_step_with_options(
     // resulting cache. The Newton step is corrected to `H_full⁻¹(−g)` below so the
     // returned step and the reported curvature describe the SAME `H_full`.
     let downdated_owner;
-    let (sys, ibp_source): (&ArrowSchurSystem, Option<&IbpCrossRowSource>) =
-        match sys.ibp_cross_row.as_ref() {
-            Some(source) => {
-                let mut downdated = sys.clone();
-                let total_len = downdated.row_offsets[downdated.rows.len()];
-                let down = source.self_term_downdate(total_len);
-                let offsets = Arc::clone(&downdated.row_offsets);
-                for (i, row) in downdated.rows.iter_mut().enumerate() {
-                    let base = offsets[i];
-                    let di = row.htt.nrows();
-                    for j in 0..di {
-                        row.htt[[j, j]] -= down[base + j];
-                    }
-                }
-                // The downdated rows carry a new curvature fingerprint.
-                downdated.refresh_row_hessian_fingerprint();
-                downdated_owner = downdated;
-                (&downdated_owner, Some(source))
-            }
-            None => (sys, None),
-        };
+    let ibp_source: Option<&IbpCrossRowSource> = sys.ibp_cross_row.as_ref();
+    let sys: &ArrowSchurSystem = match ibp_self_term_downdated_system(sys) {
+        Some(downdated) => {
+            downdated_owner = downdated;
+            &downdated_owner
+        }
+        None => sys,
+    };
     let step = solve_arrow_newton_step_artifacts(sys, ridge_t, ridge_beta, options)?;
     let backend = CpuBatchedBlockSolver;
 
@@ -208,6 +195,91 @@ pub fn solve_arrow_newton_step_with_options(
     Ok((delta_t, delta_beta, cache))
 }
 
+/// #1038 — build the NO-SELF `H₀'` system for an IBP cross-row source: clone the
+/// system and downdate each per-row logit-slot diagonal by the self term
+/// `d_k·z'_ik²`, so factoring against it plus the exact rank-`R` Woodbury
+/// `U D Uᵀ` correction never double-counts the `i = j` diagonal. Returns `None`
+/// when the system carries no `ibp_cross_row` source (factor the system as-is).
+/// Single source of the downdate arithmetic for the full evidence entry
+/// ([`solve_arrow_newton_step_with_options`]) and the per-row feasibility probe
+/// ([`probe_undamped_evidence_row_factors`]), so both always factor the SAME
+/// per-row blocks and reach the identical PD / non-PD verdict.
+pub(crate) fn ibp_self_term_downdated_system(sys: &ArrowSchurSystem) -> Option<ArrowSchurSystem> {
+    let source = sys.ibp_cross_row.as_ref()?;
+    let mut downdated = sys.clone();
+    let total_len = downdated.row_offsets[downdated.rows.len()];
+    let down = source.self_term_downdate(total_len);
+    let offsets = Arc::clone(&downdated.row_offsets);
+    for (i, row) in downdated.rows.iter_mut().enumerate() {
+        let base = offsets[i];
+        let di = row.htt.nrows();
+        for j in 0..di {
+            row.htt[[j, j]] -= down[base + j];
+        }
+    }
+    // The downdated rows carry a new curvature fingerprint.
+    downdated.refresh_row_hessian_fingerprint();
+    Some(downdated)
+}
+
+/// #2080 — per-row-only UNDAMPED evidence feasibility factorization.
+///
+/// Factors ONLY the per-row `H_tt^(i)` blocks at `ridge_t = 0` — with the same
+/// IBP self-term downdate ([`ibp_self_term_downdated_system`]) and the same
+/// gauge / spectral deflation policy ([`factor_blocks_for_system`]) the full
+/// evidence entry `solve_arrow_newton_step_with_options(sys, 0.0, 0.0, options)`
+/// applies as its FIRST stage — then discards the factors. It never forms the
+/// reduced border (β-Schur) system, so it costs `O(Σ_i d_i³)` per-row work
+/// instead of the full `O(n·d·k²)` Schur assembly plus the `O(k³/3)` dense
+/// border Cholesky the full entry pays.
+///
+/// Purpose: the SAE inner-refinement loop
+/// (`converge_inner_for_undamped_logdet`) needs the full undamped factor cache
+/// ONLY at the KKT-stationary iterate — the Laplace normaliser `½log|H|` is the
+/// REML criterion only at the inner optimum, and every pre-stationarity factor
+/// was built and immediately discarded. What a NON-stationary refine round does
+/// need is exactly one bit: whether the undamped per-row blocks are PD (the
+/// infeasible-ρ signal, [`ArrowSchurError::PerRowFactorFailed`], which drives
+/// the #2080 probe fast-refusal and the refine-budget escalation). This probe
+/// surfaces that signal with the IDENTICAL error (same `factor_one_row` text,
+/// same deflation policy, same downdated blocks) without the cubic border work.
+///
+/// Semantics: `Ok(())` means "no per-row infeasibility detected"; it makes NO
+/// claim about the reduced Schur factor (that is only ever formed — and its
+/// failures surfaced — at the stationary iterate's full factorization).
+/// Cross-row-penalty systems route the full solve through matrix-free CG,
+/// where no per-row-only verdict exists, so they return `Ok(())` here; the SAE
+/// evidence path never carries `cross_row_penalties` (its IBP coupling is the
+/// separate `ibp_cross_row` Woodbury source, which IS downdated and checked).
+pub fn probe_undamped_evidence_row_factors(
+    sys: &ArrowSchurSystem,
+    options: &ArrowSolveOptions,
+) -> Result<(), ArrowSchurError> {
+    if options.streaming_chunk_size.is_some() {
+        return Err(ArrowSchurError::SchurFactorFailed {
+            reason: "streaming Arrow-Schur solve does not materialize the per-row factors \
+                     required by the undamped evidence feasibility probe"
+                .to_string(),
+        });
+    }
+    if !sys.cross_row_penalties.is_empty() {
+        // The cross-row route factors nothing per-row at ridge 0 in isolation
+        // (it runs matrix-free CG on the full joint system), so there is no
+        // cheap per-row verdict to surface; the caller's stationary-point full
+        // factorization remains the authority.
+        return Ok(());
+    }
+    let downdated_owner;
+    let sys: &ArrowSchurSystem = match ibp_self_term_downdated_system(sys) {
+        Some(downdated) => {
+            downdated_owner = downdated;
+            &downdated_owner
+        }
+        None => sys,
+    };
+    factor_blocks_for_system(sys, 0.0, options, &CpuBatchedBlockSolver).map(|_| ())
+}
+
 pub(crate) fn estimated_htbeta_bytes(n: usize, d: usize, k: usize) -> Option<usize> {
     n.checked_mul(d)?
         .checked_mul(k)?
@@ -316,7 +388,6 @@ pub(crate) fn maybe_inject_gpu_schur_matvec(
     if !sys.cross_row_penalties.is_empty() || options.streaming_chunk_size.is_some() {
         return None;
     }
-    let runtime = gam_gpu::device_runtime::GpuRuntime::global()?;
     // #1017 Phase-1 call-site re-key: the reduced-Schur matvec is `O(n · d · k)`
     // per apply and the PCG runs `cg_iters` applies over device-resident frames,
     // so the offload becomes profitable on the CG-AMORTISED batched work — the
@@ -326,16 +397,30 @@ pub(crate) fn maybe_inject_gpu_schur_matvec(
     // launches with (`pcg.max_iterations.min(trust_region.max_iterations)`).
     // `try_device_arrow_direct` deliberately keeps the dense gate — that path is
     // one large factorization, not the amortised matvec.
+    //
+    // Size gate BEFORE the device probe (startup-tax ordering fix):
+    // `reduced_schur_matvec_should_offload` reads only associated constants
+    // (`DEVICE_LOOP_MIN_P`, the matvec offload floors) — never a calibrated
+    // policy field — so evaluating it on the pre-probe default policy is
+    // IDENTICAL to evaluating it on the probed runtime's policy. A shape it
+    // rejects therefore skips `GpuRuntime::global()` (whose first call creates
+    // a CUDA primary context on every GPU); an admitted shape probes exactly as
+    // before.
     let cg_iters = options
         .pcg
         .max_iterations
         .min(options.trust_region.max_iterations);
-    if !runtime
-        .policy()
-        .reduced_schur_matvec_should_offload(sys.rows.len(), sys.k, sys.d, cg_iters)
-    {
+    if !gam_gpu::GpuDispatchPolicy::default().reduced_schur_matvec_should_offload(
+        sys.rows.len(),
+        sys.k,
+        sys.d,
+        cg_iters,
+    ) {
         return None;
     }
+    // Require a live device before assembling the GPU matvec backend; the
+    // runtime handle itself is not needed here, only its presence.
+    gam_gpu::device_runtime::GpuRuntime::global()?;
     let matvec =
         crate::gpu_kernels::arrow_schur::gpu_schur_matvec_backend(sys, ridge_t, ridge_beta).ok()?;
     let mut device_options = options.clone();
@@ -390,6 +475,23 @@ pub(crate) fn try_device_arrow_direct(
         || sys.hbb_matvec.is_some()
         || sys.htbeta_matvec.is_some()
         || sys.penalty_op.is_some()
+    {
+        return None;
+    }
+    // Size gate BEFORE the device probe (startup-tax ordering fix): the probed
+    // admission below is `dense_hessian_work_target_is_gpu(n, k)` — `k ≥
+    // DEVICE_LOOP_MIN_P` (an associated constant) and `2·n·k²` over the
+    // policy's dense-reduction flop floor, which no reachable policy can
+    // calibrate below `MIN_CALIBRATABLE_GEMM_FLOPS`. A shape failing this
+    // most-permissive bound is refused by EVERY policy, so it returns to the
+    // CPU dense path without `GpuRuntime::global()` (whose first call creates a
+    // CUDA primary context on every GPU). Shapes clearing it probe and face the
+    // runtime's real (possibly calibrated) gate exactly as before.
+    let n_rows = sys.rows.len();
+    let dense_work = 2u128 * (n_rows as u128) * (sys.k as u128) * (sys.k as u128);
+    if n_rows == 0
+        || sys.k < gam_gpu::GpuDispatchPolicy::DEVICE_LOOP_MIN_P
+        || dense_work < gam_gpu::GpuDispatchPolicy::MIN_CALIBRATABLE_GEMM_FLOPS
     {
         return None;
     }
@@ -517,22 +619,26 @@ pub(crate) fn try_device_arrow_direct_sae_pcg(
         );
         return None;
     }
-    let Some(runtime) = gam_gpu::device_runtime::GpuRuntime::global() else {
-        trace_decline!("no GpuRuntime::global() (CPU-only host or probe failed)");
-        return None;
-    };
     // CG-amortised work gate (same predicate the InexactPCG matvec-offload site
     // uses): the SAE reduced-Schur apply is `O(n · k · d)` reused over the CG
     // iteration budget, so it registers the real batched arithmetic the cold
     // single-launch dense floor misses.
+    //
+    // Evaluated BEFORE the device probe (startup-tax ordering fix): the
+    // predicate reads only associated constants — never a calibrated policy
+    // field — so the pre-probe default policy decides identically to the probed
+    // runtime's policy, and a rejected shape skips `GpuRuntime::global()`
+    // (whose first call creates a CUDA primary context on every GPU) entirely.
     let cg_iters = options
         .pcg
         .max_iterations
         .min(options.trust_region.max_iterations);
-    if !runtime
-        .policy()
-        .reduced_schur_matvec_should_offload(sys.rows.len(), sys.k, sys.d, cg_iters)
-    {
+    if !gam_gpu::GpuDispatchPolicy::default().reduced_schur_matvec_should_offload(
+        sys.rows.len(),
+        sys.k,
+        sys.d,
+        cg_iters,
+    ) {
         trace_decline!(
             "offload predicate rejected shape (n={}, k={}, d={}, cg_iters={})",
             sys.rows.len(),
@@ -540,6 +646,10 @@ pub(crate) fn try_device_arrow_direct_sae_pcg(
             sys.d,
             cg_iters
         );
+        return None;
+    }
+    if gam_gpu::device_runtime::GpuRuntime::global().is_none() {
+        trace_decline!("no GpuRuntime::global() (CPU-only host or probe failed)");
         return None;
     }
     log::debug!(
@@ -718,6 +828,57 @@ pub(crate) fn try_device_arrow_direct_sae_pcg(
     }
 }
 
+/// #1017: build a base-block-resident Arrow-Schur frame for the LM ridge ladder,
+/// or `None` when the current path should keep its per-trial re-upload behaviour.
+///
+/// The admission predicate is EXACTLY [`try_device_arrow_direct`]'s (Direct mode,
+/// dense — no cross-row penalties / streaming / matrix-free `H_ββ`·`H_tβ` /
+/// `penalty_op`, `k ≥ DEVICE_LOOP_MIN_P`, over the dense-reduction flop floor,
+/// runtime policy admits) so that whenever this returns `Some`, the per-trial path
+/// it replaces would ALSO have executed on the device — the residency frame only
+/// changes HOW the (identical) device step is fed (base blocks resident vs
+/// re-uploaded), never the numbers. It additionally declines under
+/// [`gam_gpu::GpuMode::Off`], leaving the Off path bit-identical to before.
+fn build_resident_base_frame_if_admitted(
+    sys: &ArrowSchurSystem,
+    options: &ArrowSolveOptions,
+) -> Option<crate::gpu_kernels::arrow_schur::ResidentBaseArrowFrameHandle> {
+    if options.mode != ArrowSolverMode::Direct {
+        return None;
+    }
+    if !sys.cross_row_penalties.is_empty()
+        || options.streaming_chunk_size.is_some()
+        || sys.hbb_matvec.is_some()
+        || sys.htbeta_matvec.is_some()
+        || sys.penalty_op.is_some()
+    {
+        return None;
+    }
+    if matches!(gam_gpu::gpu_mode(), gam_gpu::GpuMode::Off) {
+        return None;
+    }
+    // Same size gate as `try_device_arrow_direct`, BEFORE `GpuRuntime::global()`,
+    // so a below-threshold shape never creates a CUDA primary context.
+    let n_rows = sys.rows.len();
+    let dense_work = 2u128 * (n_rows as u128) * (sys.k as u128) * (sys.k as u128);
+    if n_rows == 0
+        || sys.k < gam_gpu::GpuDispatchPolicy::DEVICE_LOOP_MIN_P
+        || dense_work < gam_gpu::GpuDispatchPolicy::MIN_CALIBRATABLE_GEMM_FLOPS
+    {
+        return None;
+    }
+    let runtime = gam_gpu::device_runtime::GpuRuntime::global()?;
+    if !runtime
+        .policy()
+        .dense_hessian_work_target_is_gpu(sys.rows.len(), sys.k)
+    {
+        return None;
+    }
+    // The frame's own upload re-checks admission and rejects matrix-free systems;
+    // a decline here (transient device-unavailable) simply keeps the per-trial path.
+    crate::gpu_kernels::arrow_schur::ResidentBaseArrowFrameHandle::new(sys).ok()
+}
+
 /// LM-style ridge escalation around `solve_arrow_newton_step_core`.
 ///
 /// On `PerRowFactorFailed` / `PerRowFactorIllConditioned` /
@@ -751,6 +912,12 @@ pub fn solve_with_lm_escalation_inner(
     let mut proximal_ridge = 0.0_f64;
     let mut escalations: usize = 0;
     let mut last_err: Option<ArrowSchurError> = None;
+    // #1017: when the shape is device-admitted, hold the ridge-independent base
+    // blocks (D, B, H_ββ, gradient) resident and re-factor per trial rather than
+    // re-uploading the whole system each escalation. `None` keeps the exact
+    // per-trial re-upload path unchanged (Off, non-Direct, matrix-free, or below
+    // the device threshold).
+    let mut resident_frame = build_resident_base_frame_if_admitted(sys, options);
     for attempt in 0..=DEFAULT_PROXIMAL_MAX_ATTEMPTS {
         let damped_ridge_t = ridge_t + proximal_ridge;
         let damped_ridge_beta = ridge_beta + proximal_ridge;
@@ -762,7 +929,49 @@ pub fn solve_with_lm_escalation_inner(
         // CPU-only assembly entry and bypasses that seam, so the SAE inner loop
         // (the one consumer of this escalation helper) never saw the GPU. The
         // returned `(Δt, Δβ, diagnostics)` contract is identical.
-        match solve_arrow_newton_step_core(sys, damped_ridge_t, damped_ridge_beta, options) {
+        // Prefer the resident base frame when live: it re-factors the resident
+        // base blocks at this trial's ridge (device-to-device copy + on-device
+        // diagonal ridge add), avoiding the full O(n·d·k) re-upload that
+        // `solve_arrow_newton_step_core` pays every trial. A non-PD per-row block
+        // or Schur pivot is surfaced as the SAME recoverable CPU error variant
+        // `try_device_arrow_direct` uses, so escalation is byte-for-byte unchanged;
+        // any other device decline retires the frame and takes the established
+        // per-trial path for this and every later trial.
+        let step_result = match resident_frame
+            .as_ref()
+            .map(|frame| frame.refactor_and_solve(damped_ridge_t, damped_ridge_beta))
+        {
+            Some(Ok(solution)) => Ok((
+                solution.delta_t,
+                solution.delta_beta,
+                PcgDiagnostics {
+                    used_device_arrow: true,
+                    ..PcgDiagnostics::default()
+                },
+            )),
+            Some(Err(
+                crate::gpu_kernels::arrow_schur::ArrowSchurGpuFailure::RidgeBumpRequired {
+                    row,
+                    bump,
+                },
+            )) => Err(ArrowSchurError::PerRowFactorFailed {
+                row,
+                reason: format!(
+                    "resident base-frame per-row block non-PD; suggested ridge bump {bump:e}"
+                ),
+            }),
+            Some(Err(
+                crate::gpu_kernels::arrow_schur::ArrowSchurGpuFailure::SchurFactorFailed { reason },
+            )) => Err(ArrowSchurError::SchurFactorFailed { reason }),
+            Some(Err(_)) => {
+                // Unavailable / GpuRequiresDenseSystem / NaN-ridge: retire the
+                // resident frame and fall back to the per-trial re-upload path.
+                resident_frame = None;
+                solve_arrow_newton_step_core(sys, damped_ridge_t, damped_ridge_beta, options)
+            }
+            None => solve_arrow_newton_step_core(sys, damped_ridge_t, damped_ridge_beta, options),
+        };
+        match step_result {
             Ok((delta_t, delta_beta, mut pcg_diagnostics)) => {
                 pcg_diagnostics.ridge_escalations = escalations;
                 return Ok((delta_t, delta_beta, pcg_diagnostics));

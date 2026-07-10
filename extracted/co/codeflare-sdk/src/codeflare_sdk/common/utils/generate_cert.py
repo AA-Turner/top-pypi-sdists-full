@@ -17,6 +17,7 @@ import os
 import stat
 import ipaddress
 from pathlib import Path
+from typing import Dict, List, Tuple
 from cryptography.hazmat.primitives import serialization, hashes
 from cryptography.hazmat.primitives.asymmetric import rsa
 from cryptography import x509
@@ -31,7 +32,7 @@ from kubernetes import client
 from .. import _kube_api_error_handling
 
 
-def generate_ca_cert(days: int = 30):
+def generate_ca_cert(days: int = 30) -> Tuple[str, str]:
     """
     Generates a self-signed CA certificate and private key, encoded in base64 format.
 
@@ -120,7 +121,9 @@ def generate_ca_cert(days: int = 30):
     return key, certificate
 
 
-def get_secret_name(cluster_name, namespace, api_instance):
+def get_secret_name(
+    cluster_name: str, namespace: str, api_instance: client.CoreV1Api
+) -> str:
     """
     Retrieves the name of the Kubernetes secret containing the CA certificate for the given Ray cluster.
 
@@ -157,7 +160,9 @@ def get_secret_name(cluster_name, namespace, api_instance):
         return _kube_api_error_handling(e)
 
 
-def generate_tls_cert(cluster_name, namespace, days=30, force_regenerate=False):
+def generate_tls_cert(
+    cluster_name: str, namespace: str, days: int = 30, force_regenerate: bool = False
+) -> None:
     """
     Generates a TLS certificate and key for a Ray cluster, saving them locally along with the CA certificate.
 
@@ -289,6 +294,18 @@ def generate_tls_cert(cluster_name, namespace, days=30, force_regenerate=False):
     service_dns = f"{head_svc_name}.{namespace}.svc"
     service_dns_cluster_local = f"{head_svc_name}.{namespace}.svc.cluster.local"
 
+    # Build the AKI from the CA's actual SKI when available (preferred),
+    # falling back to recomputation for CAs without an SKI extension.
+    try:
+        ca_ski = ca_cert_obj.extensions.get_extension_for_class(
+            x509.SubjectKeyIdentifier
+        ).value
+        aki = x509.AuthorityKeyIdentifier.from_issuer_subject_key_identifier(ca_ski)
+    except x509.ExtensionNotFound:
+        aki = x509.AuthorityKeyIdentifier.from_issuer_public_key(
+            ca_cert_obj.public_key()
+        )
+
     one_day = datetime.timedelta(1, 0, 0)
     tls_cert = (
         x509.CertificateBuilder()
@@ -349,12 +366,7 @@ def generate_tls_cert(cluster_name, namespace, days=30, force_regenerate=False):
             x509.SubjectKeyIdentifier.from_public_key(key.public_key()),
             critical=False,
         )
-        .add_extension(
-            x509.AuthorityKeyIdentifier.from_issuer_public_key(
-                ca_cert_obj.public_key()
-            ),
-            critical=False,
-        )
+        .add_extension(aki, critical=False)
         .sign(
             ca_private_key,
             hashes.SHA256(),
@@ -373,7 +385,7 @@ def generate_tls_cert(cluster_name, namespace, days=30, force_regenerate=False):
         pass  # May already be out of scope
 
 
-def export_env(cluster_name, namespace):
+def export_env(cluster_name: str, namespace: str) -> None:
     """
     Sets environment variables to configure TLS for a Ray cluster.
 
@@ -398,7 +410,7 @@ def export_env(cluster_name, namespace):
     os.environ["RAY_TLS_CA_CERT"] = os.path.join(tls_dir, "ca.crt")
 
 
-def cleanup_tls_cert(cluster_name, namespace):
+def cleanup_tls_cert(cluster_name: str, namespace: str) -> bool:
     """
     Removes TLS certificates and keys for a specific Ray cluster.
 
@@ -428,7 +440,7 @@ def cleanup_tls_cert(cluster_name, namespace):
     return False
 
 
-def list_tls_certificates():
+def list_tls_certificates() -> List[Dict]:
     """
     Lists all TLS certificate directories and their details.
 
@@ -501,7 +513,7 @@ def list_tls_certificates():
     return certificates
 
 
-def cleanup_expired_certificates(dry_run=True):
+def cleanup_expired_certificates(dry_run: bool = True) -> List[str]:
     """
     Removes TLS certificates that have expired.
 
@@ -540,7 +552,7 @@ def cleanup_expired_certificates(dry_run=True):
     return expired_certs
 
 
-def cleanup_old_certificates(days=30, dry_run=True):
+def cleanup_old_certificates(days: int = 30, dry_run: bool = True) -> List[str]:
     """
     Removes TLS certificates older than a specified number of days.
 
@@ -581,7 +593,7 @@ def cleanup_old_certificates(days=30, dry_run=True):
     return old_certs
 
 
-def refresh_tls_cert(cluster_name, namespace, days=30):
+def refresh_tls_cert(cluster_name: str, namespace: str, days: int = 30) -> bool:
     """
     Refreshes TLS certificates by removing old ones and generating new ones.
 

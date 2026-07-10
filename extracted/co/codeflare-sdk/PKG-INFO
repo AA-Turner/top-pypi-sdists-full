@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: codeflare-sdk
-Version: 0.37.0
+Version: 0.38.0
 Summary: Python SDK for codeflare client
 Home-page: https://github.com/project-codeflare/codeflare-sdk
 License: Apache-2.0
@@ -19,7 +19,7 @@ Requires-Dist: kube-authkit (>=0.4.0)
 Requires-Dist: kubernetes (>=27.2.0)
 Requires-Dist: openshift-client (==1.0.18)
 Requires-Dist: pydantic (>=2.10.6)
-Requires-Dist: ray[data,default] (==2.54.1)
+Requires-Dist: ray[data,default] (==2.55.1)
 Requires-Dist: rich (>=12.5,<15.0)
 Project-URL: Repository, https://github.com/project-codeflare/codeflare-sdk
 Description-Content-Type: text/markdown

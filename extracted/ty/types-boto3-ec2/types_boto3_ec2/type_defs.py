@@ -144,6 +144,8 @@ from .literals import (
     FleetActivityStatusType,
     FleetEventTypeType,
     FleetExcessCapacityTerminationPolicyType,
+    FleetHttpTokensStateType,
+    FleetInstanceMetadataEndpointStateType,
     FleetOnDemandAllocationStrategyType,
     FleetReplacementStrategyType,
     FleetStateCodeType,
@@ -1988,6 +1990,8 @@ __all__ = (
     "FleetCapacityReservationTypeDef",
     "FleetDataTypeDef",
     "FleetEbsBlockDeviceRequestTypeDef",
+    "FleetIamInstanceProfileSpecificationRequestTypeDef",
+    "FleetInstanceMetadataOptionsRequestTypeDef",
     "FleetLaunchTemplateConfigRequestTypeDef",
     "FleetLaunchTemplateConfigTypeDef",
     "FleetLaunchTemplateOverridesRequestTypeDef",
@@ -6709,10 +6713,22 @@ class TargetCapacitySpecificationTypeDef(TypedDict):
     TargetCapacityUnitType: NotRequired[TargetCapacityUnitTypeType]
 
 
+class FleetIamInstanceProfileSpecificationRequestTypeDef(TypedDict):
+    Arn: NotRequired[str]
+    Name: NotRequired[str]
+
+
+class FleetInstanceMetadataOptionsRequestTypeDef(TypedDict):
+    HttpTokens: NotRequired[FleetHttpTokensStateType]
+    HttpPutResponseHopLimit: NotRequired[int]
+    HttpEndpoint: NotRequired[FleetInstanceMetadataEndpointStateType]
+
+
 class FleetLaunchTemplateSpecificationRequestTypeDef(TypedDict):
     LaunchTemplateId: NotRequired[str]
     LaunchTemplateName: NotRequired[str]
     Version: NotRequired[str]
+    LaunchTemplateSpecificationUserData: NotRequired[str]
 
 
 class FleetLaunchTemplateSpecificationTypeDef(TypedDict):
@@ -23198,7 +23214,10 @@ class FleetLaunchTemplateOverridesRequestTypeDef(TypedDict):
     WeightedCapacity: NotRequired[float]
     Priority: NotRequired[float]
     Placement: NotRequired[PlacementTypeDef]
+    KeyName: NotRequired[str]
     BlockDeviceMappings: NotRequired[Sequence[FleetBlockDeviceMappingRequestTypeDef]]
+    IamInstanceProfile: NotRequired[FleetIamInstanceProfileSpecificationRequestTypeDef]
+    MetadataOptions: NotRequired[FleetInstanceMetadataOptionsRequestTypeDef]
     InstanceRequirements: NotRequired[InstanceRequirementsRequestTypeDef]
     ImageId: NotRequired[str]
     AvailabilityZoneId: NotRequired[str]
@@ -23811,6 +23830,9 @@ class CreateFleetInstanceTypeDef(TypedDict):
     InstanceIds: NotRequired[list[str]]
     InstanceType: NotRequired[InstanceTypeType]
     Platform: NotRequired[Literal["windows"]]
+    AvailabilityZoneId: NotRequired[str]
+    AvailabilityZone: NotRequired[str]
+    SubnetId: NotRequired[str]
 
 
 class DescribeFleetErrorTypeDef(TypedDict):

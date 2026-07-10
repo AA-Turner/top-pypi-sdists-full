@@ -23,6 +23,7 @@
 
 from __future__ import annotations
 
+from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 from zensical.extensions.autorefs import get_autorefs_store
@@ -60,8 +61,13 @@ class ToolConfig:
 
 
 def get_mkdocstrings_extension(
+    handlers: dict[str, Any] | None = None,
+    *,
+    custom_templates: str | None = None,
+    enable_inventory: bool = True,  # noqa: ARG001
+    default_handler: str = "python",
+    locale: str = "en",
     config: dict[str, Any],
-    path: str,
 ) -> MkdocstringsExtension:
     """Create the mkdocstrings Markdown extension."""
     from mkdocstrings import (  # noqa: PLC0415  # ty:ignore[unresolved-import]
@@ -73,19 +79,19 @@ def get_mkdocstrings_extension(
 
     global HANDLERS  # noqa: PLW0603
     if HANDLERS is None:
-        mkdocstrings_config = config["plugins"]["mkdocstrings"]["config"]
-        tool_config = ToolConfig(config_file_path=path)
+        root_dir = Path(config["root_dir"])
+        config_file = root_dir / "zensical.toml"
+        tool_config = ToolConfig(config_file_path=str(config_file))
         HANDLERS = Handlers(
             theme="material",
-            default=mkdocstrings_config.get("default_handler") or "python",
-            inventory_project=mkdocstrings_config.get("inventory_project")
-            or config["site_name"],
-            inventory_version=mkdocstrings_config.get("inventory_version"),
-            handlers_config=mkdocstrings_config.get("handlers"),
-            custom_templates=mkdocstrings_config.get("custom_templates"),
+            default=default_handler,
+            inventory_project=config["site_name"],
+            inventory_version="0.0.0",
+            handlers_config=handlers if handlers is not None else {},
+            custom_templates=custom_templates,
             mdx=config["markdown_extensions"],
             mdx_config=config["mdx_configs"],
-            locale=mkdocstrings_config.get("locale"),
+            locale=locale,
             tool_config=tool_config,
         )
 

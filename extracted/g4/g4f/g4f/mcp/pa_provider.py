@@ -67,7 +67,7 @@ import traceback
 import builtins as _builtins
 from pathlib import Path
 from typing import Any, Dict, FrozenSet, List, Optional, Type
-
+from .. import debug
 # ---------------------------------------------------------------------------
 # Workspace directory
 # ---------------------------------------------------------------------------
@@ -78,6 +78,9 @@ def get_workspace_dir() -> Path:
     workspace.mkdir(parents=True, exist_ok=True)
     return workspace
 
+def is_hidden_file(path: str) -> bool:
+    """Return True if *path* is a hidden file (starts with a dot)."""
+    return any(part.startswith(".") for part in str(path).replace("\\", "/").split("/"))
 
 # ---------------------------------------------------------------------------
 # Whitelisted modules
@@ -85,6 +88,7 @@ def get_workspace_dir() -> Path:
 
 #: Modules that are allowed inside the safe execution sandbox.
 SAFE_MODULES: FrozenSet[str] = frozenset({
+    "__future__", "concurrent", "warnings", "urllib3", "urllib3.exceptions",
     # Math / numeric
     "math", "cmath", "decimal", "fractions", "statistics", "random", "numbers",
     # String / text
@@ -227,6 +231,7 @@ def _make_restricted_import(allowed: FrozenSet[str]):
     _ALLOWED_G4F_SUBPATHS: FrozenSet[str] = frozenset({
         "g4f.Provider.helper",
         "g4f.Provider.base_provider",
+        "g4f.Provider.template",
         "g4f.typing",
     })
 
@@ -529,8 +534,8 @@ def list_pa_providers(directory: "Optional[str | Path]" = None) -> List[Path]:
         directory = get_workspace_dir()
     directory = Path(directory)
     if not directory.exists():
-        return []
-    return sorted(directory.rglob("*.pa.py"))
+        return directory, []
+    return directory, sorted(directory.rglob("*.pa.py"))
 
 
 # ---------------------------------------------------------------------------
@@ -582,12 +587,14 @@ class PaProviderRegistry:
     def refresh(self) -> None:
         """Re-scan the workspace and reload all ``.pa.py`` providers."""
         entries: List[tuple] = []
-        for pa_path in list_pa_providers():
+        directory, pa_paths = list_pa_providers()
+        for pa_path in pa_paths:
             try:
                 cls = load_pa_provider(pa_path)
                 if cls is None:
                     continue
                 provider_id = self._make_id(pa_path)
+                cls.__name__ = f"pa:{provider_id}"
                 models_list: List[str] = []
                 try:
                     if hasattr(cls, "get_models"):
@@ -597,6 +604,10 @@ class PaProviderRegistry:
                         models_list = list(getattr(cls, "models") or [])
                 except Exception:
                     pass
+                relative_path = pa_path.relative_to(directory).as_posix()
+                debug.log(f"Loaded PA provider: {provider_id} ({relative_path})")
+                if is_hidden_file(relative_path):
+                    relative_path = None
                 entries.append((
                     provider_id,
                     getattr(cls, "label", cls.__name__),
@@ -604,8 +615,10 @@ class PaProviderRegistry:
                     bool(getattr(cls, "working", True)),
                     getattr(cls, "url", None),
                     cls,
+                    relative_path
                 ))
-            except Exception:
+            except Exception as e:
+                debug.error(f"Failed to load PA provider from {pa_path}:", e)
                 pass
         self._entries = entries
         self._loaded_at = _time_module.monotonic()
@@ -621,6 +634,7 @@ class PaProviderRegistry:
                 "models": e[2],
                 "working": e[3],
                 "url": e[4],
+                "path": e[6]
             }
             for e in self._entries
         ]
@@ -645,6 +659,7 @@ class PaProviderRegistry:
                     "models": e[2],
                     "working": e[3],
                     "url": e[4],
+                    "path": e[6]
                 }
         return None
 

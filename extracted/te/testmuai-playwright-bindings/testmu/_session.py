@@ -19,6 +19,7 @@ from types import SimpleNamespace
 from testmu import _config
 from testmu import _configure
 from testmu._capability import (
+    _bool_he,
     _sanitize_lt_options,
     get_capabilities,
     get_cdp_url,
@@ -201,6 +202,74 @@ async def _download_files(files):
                 _log.warning(f"Failed to download {name}: {e}")
 
 
+async def _settle_before_teardown(page) -> None:
+    """Best-effort cloud-only settle so the grid's video encoder flushes the
+    final frames before teardown.
+
+    RCA: on the LambdaTest grid the session VIDEO blacks out before the last
+    action is visible because `browser.close()` runs immediately after the
+    verdict is reported, giving the grid-side video encoder no chance to
+    flush. This waits for the page to go idle, then sleeps briefly so the
+    encoder can catch up — called from `_async_run`'s `finally` block after
+    `stop_capture(page)` and before `browser.close()`, on both the pass and
+    fail paths.
+
+    Every step here is best-effort: it must never raise or mask the test
+    verdict/exception, so failures are swallowed rather than propagated.
+    No-op for local runs or when the VIDEO capability is disabled.
+
+    Args:
+        page: The live Playwright Page about to be torn down.
+    """
+    if _config.run_target != "cloud" or not _bool_he("VIDEO", True):
+        return
+
+    try:
+        idle_timeout_ms = int(os.environ.get("TESTMU_TEARDOWN_IDLE_TIMEOUT_MS", "5000"))
+        try:
+            await page.wait_for_load_state("networkidle", timeout=idle_timeout_ms)
+        except Exception:
+            # Page may already be closed/crashed — the drain sleep below
+            # still runs regardless.
+            pass
+
+        drain_ms = int(os.environ.get("TESTMU_TEARDOWN_VIDEO_DRAIN_MS", "2000"))
+        if drain_ms > 0:
+            await asyncio.sleep(drain_ms / 1000.0)
+    except Exception:
+        pass
+
+
+async def _settle_before_test() -> None:
+    """Cloud+video+v3 only: give the grid video encoder time to start before step 1.
+
+    RCA (2026-07-07, grid VIDEO head fix): the grid-side session video encoder
+    starts asynchronously 2-13s AFTER the browser session is live and accepting
+    commands, while the binding fires its first command ~0.4s after session
+    start — so the first steps (goto + load) can finish before the encoder's
+    first frame and are permanently missing from the recording (video opens
+    mid-test). This bounded sleep runs between page creation and the test body
+    so the encoder is rolling before step 1. Head-twin of
+    `_settle_before_teardown` (the tail-blackout drain). Pure sleep — the page
+    is still about:blank, so there is nothing to idle-wait on.
+
+    No-op for local runs, video-off runs, and any kane_version other than "v3"
+    — v4 runs are deliberately untouched. Knob: TESTMU_STARTUP_VIDEO_SETTLE_MS
+    (default 3000, <= 0 disables). Must never raise.
+    """
+    if _config.run_target != "cloud" or not _bool_he("VIDEO", True):
+        return
+    if _configure.get("kane_version", "v4") != "v3":
+        return
+
+    try:
+        settle_ms = int(os.environ.get("TESTMU_STARTUP_VIDEO_SETTLE_MS", "3000"))
+        if settle_ms > 0:
+            await asyncio.sleep(settle_ms / 1000.0)
+    except Exception:
+        pass
+
+
 async def _async_run(fn):
     """Async session lifecycle."""
     # Log config summary
@@ -240,6 +309,10 @@ async def _async_run(fn):
             _test_params.update(param_overrides)
             _log.info("Applied %d test param overrides from HE config", len(param_overrides))
 
+        # Grid VIDEO head fix: the encoder starts a few seconds after the session is
+        # live; settle before step 1 so the first actions land on film (v3+cloud+video only).
+        await _settle_before_test()
+
         await fn(page=page)
     finally:
         _log.info("Tearing down session...")
@@ -250,6 +323,7 @@ async def _async_run(fn):
             stop_capture(page)
         except Exception:
             pass
+        await _settle_before_teardown(page)
         try:
             await stop_sse_capture()
         except Exception:

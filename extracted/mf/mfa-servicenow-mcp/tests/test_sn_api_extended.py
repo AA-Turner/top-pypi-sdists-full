@@ -689,10 +689,10 @@ class TestResolveScopeNamespace:
     def test_display_name_resolves_to_namespace(self):
         from servicenow_mcp.tools.sn_api import resolve_scope_namespace
 
-        rows = [{"sys_id": "s1", "scope": "x_yergb_hbpm", "name": "BPM"}]
+        rows = [{"sys_id": "s1", "scope": "x_acme_hbpm", "name": "BPM"}]
         with self._patch_rows(rows):
             ns, rec = resolve_scope_namespace(_make_config(), MagicMock(), "BPM")
-        assert ns == "x_yergb_hbpm"
+        assert ns == "x_acme_hbpm"
         assert rec["name"] == "BPM"
 
     def test_namespace_input_returns_itself(self):
@@ -747,13 +747,13 @@ class TestApplyScopeNamespace:
         class P(BaseModel):
             scope: str
 
-        rows = [{"sys_id": "s1", "scope": "x_yergb_hbpm", "name": "BPM"}]
+        rows = [{"sys_id": "s1", "scope": "x_acme_hbpm", "name": "BPM"}]
         original = P(scope="BPM")
         with patch("servicenow_mcp.tools.sn_api.sn_query_all", return_value=rows):
             new, resolution = apply_scope_namespace(_make_config(), MagicMock(), original)
-        assert new.scope == "x_yergb_hbpm"
+        assert new.scope == "x_acme_hbpm"
         assert original.scope == "BPM"  # immutable: original untouched
-        assert "x_yergb_hbpm" in resolution and "BPM" in resolution
+        assert "x_acme_hbpm" in resolution and "BPM" in resolution
 
     def test_not_found_keeps_scope_and_warns(self):
         from unittest.mock import patch

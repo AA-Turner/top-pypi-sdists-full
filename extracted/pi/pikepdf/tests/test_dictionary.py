@@ -7,7 +7,7 @@ import io
 
 import pytest
 
-from pikepdf import Array, Dictionary, Name, Pdf, PdfError, Stream, String
+from pikepdf import Array, Dictionary, Pdf, PdfError, Stream, String
 
 # pylint: disable=redefined-outer-name,pointless-statement,expression-not-assigned
 
@@ -233,10 +233,7 @@ def test_values_standard():
     pdf.add_blank_page()
 
     # Dictionary test
-    d = pdf.make_indirect({
-        "/A": 1,
-        "/B": 2
-    })
+    d = pdf.make_indirect({"/A": 1, "/B": 2})
 
     vals = list(d.values())
     assert len(vals) == 2
@@ -259,6 +256,7 @@ def test_values_type_error():
     arr = pdf.make_indirect([1, 2, 3])
     with pytest.raises(TypeError, match=r"values\(\) not available"):
         arr.values()
+
 
 def test_update_stream_error():
     d = Dictionary()

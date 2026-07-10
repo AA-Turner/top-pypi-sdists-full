@@ -1,6 +1,6 @@
 Metadata-Version: 2.2
 Name: coreforecast
-Version: 0.0.17
+Version: 0.0.18
 Summary: Fast implementations of common forecasting routines
 Keywords: forecasting,time-series
 Author-Email: Jose Morales <jmoralz92@gmail.com>

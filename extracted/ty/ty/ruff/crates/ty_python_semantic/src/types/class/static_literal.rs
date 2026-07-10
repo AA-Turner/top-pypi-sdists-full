@@ -141,10 +141,8 @@ impl<'db> StaticClassLiteral<'db> {
     /// This specifically excludes Pydantic models, even though their metaclass also uses
     /// `dataclass_transform`.
     pub(crate) fn is_dataclass_like(self, db: &'db dyn Db) -> bool {
-        matches!(
-            CodeGeneratorKind::from_class(db, ClassLiteral::Static(self)),
-            Some(CodeGeneratorKind::DataclassLike(_))
-        )
+        CodeGeneratorKind::from_class(db, ClassLiteral::Static(self))
+            .is_some_and(CodeGeneratorKind::is_dataclass_like)
     }
 
     /// Returns `true` if this class is decorated with `@dataclass(order=True)`.
@@ -859,14 +857,11 @@ impl<'db> StaticClassLiteral<'db> {
         }
     }
 
-    /// Return `true` if Pydantic's dataclass-transform metadata marks this model as frozen.
-    fn is_frozen_pydantic_model(
-        self,
-        db: &'db dyn Db,
-        field_policy: CodeGeneratorKind<'db>,
-    ) -> bool {
-        matches!(field_policy, CodeGeneratorKind::Pydantic(_))
-            && self.has_dataclass_param(db, field_policy, DataclassFlags::FROZEN)
+    /// Return `true` if Pydantic's effective model configuration marks this model as frozen.
+    fn is_frozen_pydantic_model(db: &'db dyn Db, field_policy: CodeGeneratorKind<'db>) -> bool {
+        field_policy
+            .pydantic_metadata()
+            .is_some_and(|metadata| metadata.is_frozen(db))
     }
 
     /// Checks if the given dataclass parameter flag is set for this class.
@@ -1100,32 +1095,7 @@ impl<'db> StaticClassLiteral<'db> {
         name: &str,
         policy: MemberLookupPolicy,
     ) -> PlaceAndQualifiers<'db> {
-        fn into_function_like_callable<'d>(db: &'d dyn Db, ty: Type<'d>) -> Type<'d> {
-            match ty {
-                Type::Callable(callable_ty) => Type::Callable(CallableType::new(
-                    db,
-                    callable_ty.signatures(db),
-                    CallableTypeKind::FunctionLike,
-                    callable_ty.provenance(db),
-                )),
-                Type::Union(union) => {
-                    union.map(db, |element| into_function_like_callable(db, *element))
-                }
-                Type::Intersection(intersection) => intersection
-                    .map_positive(db, |element| into_function_like_callable(db, *element)),
-                _ => ty,
-            }
-        }
-
-        let mut member = self.class_member_inner(db, None, name, policy);
-
-        // We generally treat dunder attributes with `Callable` types as function-like callables.
-        // See `callables_as_descriptors.md` for more details.
-        if name.starts_with("__") && name.ends_with("__") {
-            member = member.map_type(|ty| into_function_like_callable(db, ty));
-        }
-
-        member
+        self.class_member_inner(db, None, name, policy)
     }
 
     pub(super) fn class_member_inner(
@@ -1145,6 +1115,23 @@ impl<'db> StaticClassLiteral<'db> {
         policy: MemberLookupPolicy,
         mro_iter: impl Iterator<Item = ClassBase<'db>>,
     ) -> PlaceAndQualifiers<'db> {
+        fn into_function_like_callable<'d>(db: &'d dyn Db, ty: Type<'d>) -> Type<'d> {
+            match ty {
+                Type::Callable(callable_ty) => Type::Callable(CallableType::new(
+                    db,
+                    callable_ty.signatures(db),
+                    CallableTypeKind::FunctionLike,
+                    callable_ty.provenance(db),
+                )),
+                Type::Union(union) => {
+                    union.map(db, |element| into_function_like_callable(db, *element))
+                }
+                Type::Intersection(intersection) => intersection
+                    .map_positive(db, |element| into_function_like_callable(db, *element)),
+                _ => ty,
+            }
+        }
+
         let result = MroLookup::new(db, mro_iter).class_member(
             name,
             policy,
@@ -1152,12 +1139,20 @@ impl<'db> StaticClassLiteral<'db> {
             self.is_known(db, KnownClass::Object),
         );
 
-        match result {
+        let mut member = match result {
             ClassMemberResult::Done(result) => result.finalize(db),
             ClassMemberResult::TypedDict(module) => {
                 typed_dict_class_member(db, self.identity_specialization(db), module, policy, name)
             }
+        };
+
+        // We generally treat dunder attributes with `Callable` types as function-like callables.
+        // See `callables_as_descriptors.md` for more details.
+        if name.starts_with("__") && name.ends_with("__") {
+            member = member.map_type(|ty| into_function_like_callable(db, ty));
         }
+
+        member
     }
 
     /// Returns the inferred type of the class member named `name`. Only bound members
@@ -1174,10 +1169,9 @@ impl<'db> StaticClassLiteral<'db> {
         name: &str,
     ) -> Member<'db> {
         // Check if this class is dataclass-like (either via @dataclass or via dataclass_transform)
-        if matches!(
-            CodeGeneratorKind::from_class(db, self.into()),
-            Some(CodeGeneratorKind::DataclassLike(_))
-        ) {
+        if CodeGeneratorKind::from_class(db, self.into())
+            .is_some_and(CodeGeneratorKind::is_dataclass_like)
+        {
             if name == "__dataclass_fields__" {
                 // Make this class look like a subclass of the `DataClassInstance` protocol
                 return Member {
@@ -1261,7 +1255,7 @@ impl<'db> StaticClassLiteral<'db> {
             .raw_type()
             .is_some_and(|ty| ty.is_instance_of(db, KnownClass::KwOnly))
             && CodeGeneratorKind::from_static_class(db, self)
-                .is_some_and(|policy| matches!(policy, CodeGeneratorKind::DataclassLike(_)))
+                .is_some_and(CodeGeneratorKind::is_dataclass_like)
         {
             return Member::unbound();
         }
@@ -1355,8 +1349,10 @@ impl<'db> StaticClassLiteral<'db> {
 
         let field_policy = CodeGeneratorKind::from_class(db, self.into())?;
         let pydantic_constructor_fields_are_keyword_only =
-            matches!(field_policy, CodeGeneratorKind::Pydantic(_))
-                && pydantic::constructor_fields_are_keyword_only(db, self);
+            field_policy.is_pydantic() && pydantic::constructor_fields_are_keyword_only(db, self);
+        let pydantic_constructor_fields_are_optional = name == "__init__"
+            && field_policy.is_pydantic()
+            && pydantic::constructor_fields_are_optional(db, self);
 
         let instance_ty =
             Type::instance(db, self.apply_optional_specialization(db, specialization));
@@ -1370,7 +1366,7 @@ impl<'db> StaticClassLiteral<'db> {
                         None,
                         None,
                         None,
-                        pydantic::StrictMode::Unspecified,
+                        pydantic::ConfigBoolean::Unspecified,
                     ),
                     FieldKind::Dataclass {
                         init,
@@ -1385,7 +1381,7 @@ impl<'db> StaticClassLiteral<'db> {
                         *kw_only,
                         alias.as_ref(),
                         *converter,
-                        pydantic::StrictMode::Unspecified,
+                        pydantic::ConfigBoolean::Unspecified,
                     ),
                     FieldKind::Pydantic {
                         init,
@@ -1472,32 +1468,74 @@ impl<'db> StaticClassLiteral<'db> {
                     field_ty = pydantic::constructor_parameter_type(db, field_ty, strict, metadata);
                 }
 
+                if pydantic_constructor_fields_are_optional && default_ty.is_none() {
+                    default_ty = Some(Type::unknown());
+                }
+
                 let is_kw_only = matches!(name, "__replace__" | "_replace")
                     || pydantic_constructor_fields_are_keyword_only
                     || kw_only.unwrap_or(false);
 
-                // Use the alias name if provided, otherwise use the field name
-                let parameter_name =
-                    Name::new(alias.map(|alias| &**alias).unwrap_or(&**field_name));
+                let mut add_parameter_with_name = |parameter_name, default_ty| {
+                    let mut parameter = if is_kw_only {
+                        Parameter::keyword_only(parameter_name)
+                    } else {
+                        Parameter::positional_or_keyword(parameter_name)
+                    }
+                    .with_annotated_type(field_ty)
+                    .with_definition(field.first_declaration);
 
-                let mut parameter = if is_kw_only {
-                    Parameter::keyword_only(parameter_name)
-                } else {
-                    Parameter::positional_or_keyword(parameter_name)
-                }
-                .with_annotated_type(field_ty)
-                .with_definition(field.first_declaration);
+                    parameter = if matches!(name, "__replace__" | "_replace") {
+                        // When replacing, we know there is a default value for the field
+                        // (the value that is currently assigned to the field)
+                        // assume this to be the declared type of the field
+                        parameter.with_default_type(field_ty)
+                    } else {
+                        parameter.with_optional_default_type(default_ty)
+                    };
 
-                parameter = if matches!(name, "__replace__" | "_replace") {
-                    // When replacing, we know there is a default value for the field
-                    // (the value that is currently assigned to the field)
-                    // assume this to be the declared type of the field
-                    parameter.with_default_type(field_ty)
-                } else {
-                    parameter.with_optional_default_type(default_ty)
+                    parameters.push(parameter);
                 };
 
-                parameters.push(parameter);
+                if name == "__init__"
+                    && let Some(metadata) = field_policy.pydantic_metadata()
+                    && let Some(alias) = alias
+                {
+                    match (
+                        metadata.validates_by_alias(db),
+                        metadata.validates_by_name(db),
+                    ) {
+                        (true, true) => {
+                            let alias = Name::new(&**alias);
+                            if alias == *field_name {
+                                add_parameter_with_name(field_name.clone(), default_ty);
+                            } else {
+                                // A normal signature cannot express that at least one of two
+                                // differently named parameters is required. We could solve
+                                // this with overloads, but the number of overloads would grow
+                                // exponentially in the number of parameters. So for now, we
+                                // treat both the alias and the field name as optional
+                                // parameters, which leads to false negatives if none of them
+                                // is provided.
+                                let default_ty = Some(default_ty.unwrap_or_else(Type::unknown));
+                                add_parameter_with_name(alias, default_ty);
+                                add_parameter_with_name(field_name.clone(), default_ty);
+                            }
+                        }
+                        (true, false) => {
+                            add_parameter_with_name(Name::new(&**alias), default_ty);
+                        }
+                        (false, true) => {
+                            add_parameter_with_name(field_name.clone(), default_ty);
+                        }
+                        (false, false) => {}
+                    }
+                } else {
+                    // Use the alias name if provided, otherwise use the field name.
+                    let parameter_name =
+                        Name::new(alias.map(|alias| &**alias).unwrap_or(&**field_name));
+                    add_parameter_with_name(parameter_name, default_ty);
+                }
             }
 
             // In the event that we have a mix of keyword-only and positional parameters, we need to sort them
@@ -1528,7 +1566,9 @@ impl<'db> StaticClassLiteral<'db> {
             (field_policy, "__init__")
                 if field_policy.synthesizes_constructor_signature_from_fields() =>
             {
-                if !self.has_dataclass_param(db, field_policy, DataclassFlags::INIT) {
+                if field_policy.is_dataclass_like()
+                    && !self.has_dataclass_param(db, field_policy, DataclassFlags::INIT)
+                {
                     return None;
                 }
 
@@ -1707,7 +1747,7 @@ impl<'db> StaticClassLiteral<'db> {
                 "__setattr__",
             ) => {
                 if self.is_frozen_dataclass(db) == Some(true)
-                    || self.is_frozen_pydantic_model(db, field_policy)
+                    || Self::is_frozen_pydantic_model(db, field_policy)
                 {
                     let signature = Signature::new(
                         Parameters::standard([
@@ -1915,7 +1955,10 @@ impl<'db> StaticClassLiteral<'db> {
                 let class = superclass.into_class()?;
 
                 if let Some((class_literal, specialization)) = class.static_class_literal(db) {
-                    if field_policy.matches(db, class_literal.into()) {
+                    // Pydantic collects annotated attributes from every class in the model's MRO,
+                    // including ordinary classes that are not themselves Pydantic models.
+                    if field_policy.is_pydantic() || field_policy.matches(db, class_literal.into())
+                    {
                         return Some(FieldSource::Static(class_literal, specialization));
                     }
                 }
@@ -1982,7 +2025,7 @@ impl<'db> StaticClassLiteral<'db> {
 
             match name.as_str() {
                 "__setattr__" | "__delattr__" => {
-                    if matches!(field_policy, CodeGeneratorKind::DataclassLike(_))
+                    if field_policy.is_dataclass_like()
                         && self.is_frozen_dataclass(db) == Some(true)
                     {
                         if let Some(builder) = context.report_lint(
@@ -1999,7 +2042,7 @@ impl<'db> StaticClassLiteral<'db> {
                     }
                 }
                 "__lt__" | "__le__" | "__gt__" | "__ge__" => {
-                    if matches!(field_policy, CodeGeneratorKind::DataclassLike(_))
+                    if field_policy.is_dataclass_like()
                         && self.has_dataclass_param(db, field_policy, DataclassFlags::ORDER)
                     {
                         if let Some(builder) = context.report_lint(
@@ -2067,7 +2110,8 @@ impl<'db> StaticClassLiteral<'db> {
             } else {
                 false
             };
-        let dataclass_kw_only_default = matches!(field_policy, CodeGeneratorKind::DataclassLike(_))
+        let dataclass_kw_only_default = field_policy
+            .is_dataclass_like()
             .then(|| self.has_dataclass_param(db, field_policy, DataclassFlags::KW_ONLY));
         let mut kw_only_sentinel_field_seen = false;
         let mut field_declarations = Vec::new();
@@ -2140,7 +2184,7 @@ impl<'db> StaticClassLiteral<'db> {
                 let mut kw_only = None;
                 let mut alias = None;
                 let mut converter = None;
-                let mut strict = pydantic::StrictMode::Unspecified;
+                let mut strict = pydantic::ConfigBoolean::Unspecified;
                 if let Some(Type::KnownInstance(KnownInstanceType::Field(field))) = default_ty {
                     default_ty = field.default_type(db);
                     init = field.init(db);
@@ -2162,7 +2206,9 @@ impl<'db> StaticClassLiteral<'db> {
                     },
                     CodeGeneratorKind::Pydantic(_) => FieldKind::Pydantic {
                         default_ty,
-                        init,
+                        // Pydantic treats underscore-prefixed annotations as private attributes,
+                        // which are instance attributes but never constructor parameters.
+                        init: init && !symbol.name().starts_with('_'),
                         alias,
                         strict,
                     },
@@ -2192,9 +2238,7 @@ impl<'db> StaticClassLiteral<'db> {
                 };
 
                 // Check if this is a KW_ONLY sentinel and mark subsequent fields as keyword-only
-                if matches!(field_policy, CodeGeneratorKind::DataclassLike(_))
-                    && field.is_kw_only_sentinel(db)
-                {
+                if field_policy.is_dataclass_like() && field.is_kw_only_sentinel(db) {
                     kw_only_sentinel_field_seen = true;
                 }
 
@@ -2668,10 +2712,8 @@ impl<'db> StaticClassLiteral<'db> {
 
                     // `KW_ONLY` sentinels are markers, not real instance attributes.
                     if declared_ty.is_instance_of(db, KnownClass::KwOnly)
-                        && matches!(
-                            CodeGeneratorKind::from_static_class(db, self),
-                            Some(CodeGeneratorKind::DataclassLike(_))
-                        )
+                        && CodeGeneratorKind::from_static_class(db, self)
+                            .is_some_and(CodeGeneratorKind::is_dataclass_like)
                     {
                         return Member::unbound();
                     }

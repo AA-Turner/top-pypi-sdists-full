@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: vesin-torch
-Version: 0.5.8
+Version: 0.6.0
 Summary: Computing neighbor lists for atomistic system, in TorchScript
 Author-email: Guillaume Fraux <guillaume.fraux@epfl.ch>
 License-Expression: BSD-3-Clause
@@ -97,11 +97,12 @@ information on how to use the code from C or C++.
 ### Benchmarks
 
 You can find below benchmark result computing neighbor lists for increasingly
-large diamond supercells, using an AMD 3955WX CPU and an NVIDIA 4070 Ti SUPER
-GPU. You can run this benchmark on your system with the script at
-`benchmarks/benchmark.py`. Missing points indicate that a specific code could
-not run the calculation (for example, NNPOps requires the cell to be twice the
-cutoff in size, and can't run with large cutoffs and small cells).
+large diamond supercells, using an AMD EPYC 9334 CPU and an NVIDIA H100 GPU. You
+can run this benchmark on your system with the script at
+`benchmarks/benchmark.py`. Cross on points indicate that a specific code could
+not run the calculation after or before the cross (for example, NNPOps requires
+the cell to be twice the cutoff in size, and can't run with large cutoffs and
+small cells).
 
 ![Benchmarks](./docs/src/benchmark.png)
 

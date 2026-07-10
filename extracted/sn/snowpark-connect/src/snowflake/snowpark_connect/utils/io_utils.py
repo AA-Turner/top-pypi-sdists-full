@@ -16,10 +16,14 @@ from snowflake.snowpark._internal.analyzer.analyzer_utils import (
     unquote_if_quoted,
 )
 from snowflake.snowpark._internal.utils import ttl_cache
-from snowflake.snowpark.functions import col, equal_null, lit
+from snowflake.snowpark.functions import col, date_trunc, equal_null, lit
+from snowflake.snowpark.types import StructType
 from snowflake.snowpark_connect.error.error_codes import ErrorCodes
 from snowflake.snowpark_connect.error.error_utils import attach_custom_error_code
 from snowflake.snowpark_connect.utils.identifiers import FQN, spark_to_sf_single_id
+from snowflake.snowpark_connect.utils.telemetry import (
+    SnowparkConnectNotImplementedError,
+)
 
 _MINUS_AT_THE_BEGINNING_REGEX = re.compile(r"^-")
 _TTL_CACHE_EXIPRATION_TIME_SECONDS = 15
@@ -222,3 +226,142 @@ def get_overwrite_condition(
 
     # no partitions in the input data
     return None
+
+
+# Iceberg partition transforms supported in the dynamic-overwrite predicate, keyed on
+# the transform string exactly as it appears in Iceberg table metadata
+# (``PartitionField.transform``): singular time units. ``bucket[N]`` / ``truncate[W]``
+# are bracketed and intentionally absent — the gate rejects them until implemented.
+_DATE_TRUNC_UNIT_BY_TRANSFORM = {
+    "year": "YEAR",
+    "month": "MONTH",
+    "day": "DAY",
+    "hour": "HOUR",
+}
+SUPPORTED_OVERWRITE_TRANSFORMS = frozenset({"identity"}) | frozenset(
+    _DATE_TRUNC_UNIT_BY_TRANSFORM
+)
+
+
+def overwrite_transform_supported(transform: str) -> bool:
+    return transform in SUPPORTED_OVERWRITE_TRANSFORMS
+
+
+def reject_unsupported_overwrite_transform(transform: str) -> None:
+    """Gate: reject any transform SCOS cannot match correctly in the overwrite
+    predicate, rather than silently producing wrong results / data loss."""
+    if not overwrite_transform_supported(transform):
+        exception = SnowparkConnectNotImplementedError(
+            f"Iceberg partition overwrite is not supported for the '{transform}' "
+            "transform"
+        )
+        attach_custom_error_code(exception, ErrorCodes.UNSUPPORTED_OPERATION)
+        raise exception
+
+
+def apply_overwrite_partition_transform(column: Column, transform: str) -> Column:
+    """Apply the Iceberg partition transform ``T(col)`` for the overwrite predicate.
+
+    Keyed on the Iceberg-metadata transform name (``identity``/``year``/``month``/
+    ``day``/``hour``). Applied on *both* sides of the predicate so the comparison is on
+    the transformed partition value, not the raw value. Intended to be shared with the
+    SQL ``INSERT OVERWRITE`` path (``map_sql.py``) in a follow-up; callers must gate
+    unsupported transforms via ``reject_unsupported_overwrite_transform`` first.
+
+    The table is partitioned by Snowflake's ``DAY``/``MONTH``/... DDL transform, so the
+    predicate matches it with the equivalent ``DATE_TRUNC`` evaluated in the same
+    (session) context Snowflake used to assign the partitions — NOT normalized to UTC.
+    Both sides use the same expression, so rows are grouped consistently with the
+    table's own partitioning.
+    """
+    if transform == "identity":
+        return column
+    unit = _DATE_TRUNC_UNIT_BY_TRANSFORM.get(transform)
+    if unit is not None:
+        return date_trunc(unit, column)
+    reject_unsupported_overwrite_transform(transform)
+
+
+def get_transform_overwrite_condition(
+    input_df: snowpark.DataFrame,
+    table_partition_spec: "PartitionSpec",
+    column_map,
+    table_schema: StructType,
+) -> Column | None:
+    """Build the dynamic-overwrite delete predicate for an Iceberg table that has a
+    persisted partition spec, honoring non-identity transforms.
+
+    Identity-only specs delegate to ``get_overwrite_condition`` (unchanged behavior).
+    For transforms, each partition field's source column is resolved by NAME: its
+    ``source_id``/``position`` is an ordinal into the *table* schema (the partition
+    field's own name differs from the source column for transforms), so we read the
+    source name from ``table_schema`` and match it to the input by name — order- and
+    projection-independent, matching Spark's name-based ``overwritePartitions`` and the
+    identity branch. The transform is applied on both the input side (to collect
+    distinct transformed keys) and the predicate side. Unsupported transforms (bucket,
+    truncate, void, unknown) are rejected by the gate.
+    """
+    # Gate first, so an unsupported transform errors regardless of input contents.
+    for field in table_partition_spec.fields:
+        reject_unsupported_overwrite_transform(field.transform)
+
+    if not table_partition_spec.uses_transform():
+        # Identity: preserve the existing name-based behavior exactly.
+        names = column_map.get_snowpark_column_names_from_spark_column_names(
+            table_partition_spec.columns()
+        )
+        distinct_partitions_df = input_df.select(*names).distinct()
+        return get_overwrite_condition(distinct_partitions_df, names)
+
+    # ``source_id``/``position`` indexes the TABLE schema (where source-ids are
+    # defined), NOT the input DataFrame. Read each source column name from the table
+    # schema and resolve it against the input by name, so an input whose columns are
+    # reordered/projected still targets the correct partition (indexing the input by
+    # table ordinal would build the predicate against the wrong column -> data loss).
+    #
+    # Resolve one field at a time and require exactly one match: the resolver is a
+    # flat-map that silently skips unresolvable names and expands ambiguous ones, so a
+    # single batched call could return a list that no longer lines up 1:1 with
+    # ``fields`` -- pairing a transform with the wrong column and deleting the wrong
+    # partitions. Per-field resolution keeps ``snowpark_names[i]`` aligned with
+    # ``fields[i]`` and turns any skip/expand into a hard error instead of silent loss.
+    snowpark_names = []
+    for field in table_partition_spec.fields:
+        source_name = unquote_if_quoted(table_schema.fields[field.position].name)
+        resolved = column_map.get_snowpark_column_names_from_spark_column_names(
+            [source_name]
+        )
+        if len(resolved) != 1:
+            exception = ValueError(
+                f"Iceberg partition source column {source_name!r} resolved to "
+                f"{len(resolved)} input columns; expected exactly 1"
+            )
+            attach_custom_error_code(exception, ErrorCodes.INTERNAL_ERROR)
+            raise exception
+        snowpark_names.append(resolved[0])
+    # (snowpark_col_name, transform) per partition field.
+    descriptors = [
+        (snowpark_names[i], field.transform)
+        for i, field in enumerate(table_partition_spec.fields)
+    ]
+
+    input_exprs = [
+        apply_overwrite_partition_transform(col(name), transform).alias(
+            f"__owp_key_{i}"
+        )
+        for i, (name, transform) in enumerate(descriptors)
+    ]
+    distinct_partitions = input_df.select(*input_exprs).distinct().collect()
+    if not distinct_partitions:
+        return None
+
+    or_conditions = []
+    for row in distinct_partitions:
+        and_conditions = []
+        for (name, transform), value in zip(descriptors, row):
+            sf_col_name = spark_to_sf_single_id(unquote_if_quoted(name), is_column=True)
+            target = apply_overwrite_partition_transform(col(sf_col_name), transform)
+            and_conditions.append(equal_null(target, lit(value)))
+        or_conditions.append(functools.reduce(lambda a, b: a & b, and_conditions))
+
+    return functools.reduce(lambda a, b: a | b, or_conditions)

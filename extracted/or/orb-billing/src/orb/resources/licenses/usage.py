@@ -8,8 +8,8 @@ from datetime import date
 import httpx
 
 from ... import _legacy_response
-from ..._types import Body, Omit, Query, Headers, NotGiven, SequenceNotStr, omit, not_given
-from ..._utils import maybe_transform, async_maybe_transform
+from ..._types import Body, Omit, Query, Headers, NotGiven, omit, not_given
+from ..._utils import path_template, maybe_transform, async_maybe_transform
 from ..._compat import cached_property
 from ..._resource import SyncAPIResource, AsyncAPIResource
 from ..._response import to_streamed_response_wrapper, async_to_streamed_response_wrapper
@@ -48,7 +48,7 @@ class Usage(SyncAPIResource):
         subscription_id: str,
         cursor: Optional[str] | Omit = omit,
         end_date: Union[str, date, None] | Omit = omit,
-        group_by: Optional[SequenceNotStr[str]] | Omit = omit,
+        group_by: Optional[str] | Omit = omit,
         limit: int | Omit = omit,
         start_date: Union[str, date, None] | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
@@ -119,7 +119,7 @@ class Usage(SyncAPIResource):
         *,
         cursor: Optional[str] | Omit = omit,
         end_date: Union[str, date, None] | Omit = omit,
-        group_by: Optional[SequenceNotStr[str]] | Omit = omit,
+        group_by: Optional[str] | Omit = omit,
         limit: int | Omit = omit,
         start_date: Union[str, date, None] | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
@@ -159,7 +159,7 @@ class Usage(SyncAPIResource):
         if not license_id:
             raise ValueError(f"Expected a non-empty value for `license_id` but received {license_id!r}")
         return self._get(
-            f"/licenses/{license_id}/usage",
+            path_template("/licenses/{license_id}/usage", license_id=license_id),
             options=make_request_options(
                 extra_headers=extra_headers,
                 extra_query=extra_query,
@@ -207,7 +207,7 @@ class AsyncUsage(AsyncAPIResource):
         subscription_id: str,
         cursor: Optional[str] | Omit = omit,
         end_date: Union[str, date, None] | Omit = omit,
-        group_by: Optional[SequenceNotStr[str]] | Omit = omit,
+        group_by: Optional[str] | Omit = omit,
         limit: int | Omit = omit,
         start_date: Union[str, date, None] | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
@@ -278,7 +278,7 @@ class AsyncUsage(AsyncAPIResource):
         *,
         cursor: Optional[str] | Omit = omit,
         end_date: Union[str, date, None] | Omit = omit,
-        group_by: Optional[SequenceNotStr[str]] | Omit = omit,
+        group_by: Optional[str] | Omit = omit,
         limit: int | Omit = omit,
         start_date: Union[str, date, None] | Omit = omit,
         # Use the following arguments if you need to pass additional parameters to the API that aren't available via kwargs.
@@ -318,7 +318,7 @@ class AsyncUsage(AsyncAPIResource):
         if not license_id:
             raise ValueError(f"Expected a non-empty value for `license_id` but received {license_id!r}")
         return await self._get(
-            f"/licenses/{license_id}/usage",
+            path_template("/licenses/{license_id}/usage", license_id=license_id),
             options=make_request_options(
                 extra_headers=extra_headers,
                 extra_query=extra_query,

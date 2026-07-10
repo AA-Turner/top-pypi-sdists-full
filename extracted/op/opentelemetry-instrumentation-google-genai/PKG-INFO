@@ -1,9 +1,9 @@
 Metadata-Version: 2.4
 Name: opentelemetry-instrumentation-google-genai
-Version: 0.7b1
+Version: 1.0b0
 Summary: OpenTelemetry
-Project-URL: Homepage, https://github.com/open-telemetry/opentelemetry-python-contrib/tree/main/instrumentation-genai/opentelemetry-instrumentation-google-genai
-Project-URL: Repository, https://github.com/open-telemetry/opentelemetry-python-contrib
+Project-URL: Homepage, https://github.com/open-telemetry/opentelemetry-python-genai/tree/main/instrumentation/opentelemetry-instrumentation-google-genai
+Project-URL: Repository, https://github.com/open-telemetry/opentelemetry-python-genai
 Author-email: OpenTelemetry Authors <cncf-opentelemetry-contributors@lists.cncf.io>
 License-Expression: Apache-2.0
 License-File: LICENSE
@@ -17,13 +17,14 @@ Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
-Requires-Python: >=3.9
-Requires-Dist: opentelemetry-api~=1.37
-Requires-Dist: opentelemetry-instrumentation<2,>=0.58b0
-Requires-Dist: opentelemetry-semantic-conventions<2,>=0.58b0
-Requires-Dist: opentelemetry-util-genai<0.4b0,>=0.3b0
+Requires-Python: >=3.10
+Requires-Dist: opentelemetry-api~=1.40
+Requires-Dist: opentelemetry-instrumentation<2,>=0.61b0
+Requires-Dist: opentelemetry-semantic-conventions<2,>=0.61b0
+Requires-Dist: opentelemetry-util-genai<2,>=0.4b0
+Requires-Dist: wrapt<3.0.0,>=1.0.0
 Provides-Extra: instruments
-Requires-Dist: google-genai<3,>=1.0.0; extra == 'instruments'
+Requires-Dist: google-genai<3,>=1.32.0; extra == 'instruments'
 Description-Content-Type: text/x-rst
 
 OpenTelemetry Google GenAI SDK Instrumentation
@@ -72,10 +73,10 @@ Check out the `manual example <examples/manual>`_ for more details.
 Instrumenting all clients
 *************************
 
-When using the instrumentor, all clients will automatically trace GenAI ``generate_content`` operations.
+When using the instrumentor, all clients will automatically trace GenAI ``generate_content``, ``embed_content`` and ``interactions.create`` operations.
 You can also optionally capture prompts and responses as log events.
 
-Make sure to configure OpenTelemetry tracing, logging, metrics, and events to capture all telemetry emitted by the instrumentation.
+Make sure to configure OpenTelemetry tracing, logging, and metrics to capture all telemetry emitted by the instrumentation.
 
 .. code-block:: python
 
@@ -95,20 +96,51 @@ Limitations
 ***********
 
 When using the Google GenAI SDK with automatic function calling enabled,
-the OpenTelemetry instrumentation creates a span only for the top-level
-``generate_content`` call.
+the OpenTelemetry instrumentation creates an ``execute_tool`` span for each tool call the SDK executes,
+these spans are nested under the ``generate_content`` span.
 
-Internal model or tool calls triggered automatically by the SDK are executed
-within the SDK internals and are not traced as separate spans.
+Only tool calls that the SDK executes are traced, if you disable the automatic function calling and instead
+do the function calling in your application, our instrumentation cannot trace them.
 
 
 Enabling message content
-*************************
+************************
 
-Message content such as the contents of the prompt and response
-are not captured by default. To capture message content as log events, set the environment variable
-``OTEL_INSTRUMENTATION_GENAI_CAPTURE_MESSAGE_CONTENT`` to ``true``.
+Message content is not captured by default. To capture message content set the environment variable
+``OTEL_INSTRUMENTATION_GENAI_CAPTURE_MESSAGE_CONTENT`` to one of ``NO_CONTENT``, ``SPAN_AND_EVENT``, ``SPAN_ONLY``, ``EVENT_ONLY``.
+This controls whether the following content is captured on spans and/or events:
 
+- Input messages to the LLM.
+- Output messages from the LLM.
+- System Instructions
+- The result of tool calls and the tool call parameters (other tool call details and tool definitions are always captured).
+
+
+Configuration recording
+***********************
+
+The instrumentation can optionally record ``GenerateContentConfig`` parameters
+as span and event attributes under the ``gcp.gen_ai.operation.config.*`` namespace.
+
+By default, no config fields are recorded. You can control which fields are
+captured using the following environment variables:
+
+* ``OTEL_GOOGLE_GENAI_GENERATE_CONTENT_CONFIG_INCLUDES`` — A comma-separated
+  list of config field names to include in the span attributes. For example:
+
+  .. code-block:: bash
+
+      export OTEL_GOOGLE_GENAI_GENERATE_CONTENT_CONFIG_INCLUDES=temperature,max_output_tokens
+
+* ``OTEL_GOOGLE_GENAI_GENERATE_CONTENT_CONFIG_EXCLUDES`` — A comma-separated
+  list of config field names to exclude from the span attributes:
+
+  .. code-block:: bash
+
+      export OTEL_GOOGLE_GENAI_GENERATE_CONTENT_CONFIG_EXCLUDES=stop_sequences
+
+If both variables are set, the includes list is applied first, then the
+excludes list filters the result further.
 
 Uninstrument
 ************
@@ -128,8 +160,9 @@ To uninstrument clients, call the uninstrument method:
 
 References
 ----------
-* `Google Gen AI SDK Documentation <https://ai.google.dev/gemini-api/docs/sdks>`_
-* `Google Gen AI SDK on GitHub <https://github.com/googleapis/python-genai>`_
-* `Using Vertex AI with Google Gen AI SDK <https://cloud.google.com/vertex-ai/generative-ai/docs/sdks/overview>`_
+
 * `OpenTelemetry Project <https://opentelemetry.io/>`_
-* `OpenTelemetry Python Examples <https://github.com/open-telemetry/opentelemetry-python/tree/main/docs/examples>`_
+* `OpenTelemetry GenAI semantic conventions <https://opentelemetry.io/docs/specs/semconv/gen-ai/>`_
+* `Google Gen AI SDK (Python) <https://github.com/googleapis/python-genai>`_
+* `Google Gen AI SDK Documentation <https://ai.google.dev/gemini-api/docs/sdks>`_
+* `Using Vertex AI with Google Gen AI SDK <https://cloud.google.com/vertex-ai/generative-ai/docs/sdks/overview>`_

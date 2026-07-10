@@ -53,6 +53,20 @@ from abstra_internals.utils.string import to_kebab_case
 ServedStage = Union["FormStage", "HookStage", "PageStage"]
 StageType = Literal["form", "hook", "job", "script", "component", "page"]
 STAGE_JSON_KEYS = ["forms", "hooks", "scripts", "jobs", "pages", "components"]
+IGNORED_FILENAMES = frozenset(
+    {
+        ".pyrefly_buffer.py",
+    }
+)
+IGNORED_DIRNAMES = frozenset(
+    {
+        ".abstra",
+        ".git",
+        ".venv",
+        "venv",
+        "__pycache__",
+    }
+)
 
 
 class Stage(ABC):
@@ -1383,17 +1397,39 @@ class Project:
             file_path.absolute().resolve(), []
         )
 
-    def iter_py_files(self) -> Generator[Path, None, None]:
-        root = Settings.root_path
-        for path in FileSystemService.list_files(root, allowed_suffixes=[".py"]):
+    def is_ignored_path(self, path: Path) -> bool:
+        if path.name in IGNORED_FILENAMES:
+            return True
+        if not path.is_absolute():
+            path = Settings.root_path / path
+        try:
+            relative = path.resolve().relative_to(Settings.root_path.resolve())
+        except ValueError:
+            return False
+        return any(part in IGNORED_DIRNAMES for part in relative.parts)
+
+    def iter_project_files(
+        self, allowed_suffixes: Optional[list[str]] = None, ignore: bool = True
+    ) -> Generator[Path, None, None]:
+        for path in FileSystemService.list_files(
+            Settings.root_path, allowed_suffixes=allowed_suffixes
+        ):
+            if ignore and self.is_ignored_path(path):
+                continue
             yield path
 
-    def iter_scoped_py_files(self, path: Optional[Path]) -> Generator[Path, None, None]:
+    def iter_py_files(self, ignore: bool = True) -> Generator[Path, None, None]:
+        yield from self.iter_project_files(allowed_suffixes=[".py"], ignore=ignore)
+
+    def iter_scoped_py_files(
+        self, path: Optional[Path], ignore: bool = True
+    ) -> Generator[Path, None, None]:
         if path is not None:
-            yield path
+            if not (ignore and self.is_ignored_path(path)):
+                yield path
             return
 
-        yield from self.iter_py_files()
+        yield from self.iter_py_files(ignore=ignore)
 
     def iter_entrypoints(self) -> Generator[Path, None, None]:
         for stage in self.workflow_stages:

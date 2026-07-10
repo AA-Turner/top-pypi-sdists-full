@@ -45,7 +45,10 @@ from snowflake.snowpark.types import (
     _NumericType,
 )
 from snowflake.snowpark_connect.column_name_handler import ColumnNameMap
-from snowflake.snowpark_connect.config import global_config
+from snowflake.snowpark_connect.config import (
+    global_config,
+    is_cast_string_to_integral_high_precision_enabled,
+)
 from snowflake.snowpark_connect.error.error_codes import ErrorCodes
 from snowflake.snowpark_connect.error.error_utils import attach_custom_error_code
 from snowflake.snowpark_connect.expression.error_utils import raise_error_helper
@@ -58,7 +61,7 @@ from snowflake.snowpark_connect.expression.integral_types_support import (
 )
 from snowflake.snowpark_connect.expression.typer import ExpressionTyper
 from snowflake.snowpark_connect.type_mapping import (
-    map_type_string_to_snowpark_type,
+    map_single_type_string_to_snowpark_type,
     proto_to_snowpark_type,
     snowpark_to_proto_type,
 )
@@ -344,7 +347,7 @@ def map_cast(
             to_type = proto_to_snowpark_type(exp.cast.type)
             to_type_str = to_type.simpleString().upper()
         case "type_str":
-            to_type = map_type_string_to_snowpark_type(exp.cast.type_str)
+            to_type = map_single_type_string_to_snowpark_type(exp.cast.type_str)
             to_type_str = exp.cast.type_str.upper()
         case _:
             exception = ValueError("No type to cast to")
@@ -436,9 +439,18 @@ def map_cast(
         # Integral Types may require casting even if they are already the same type
         # so that the generate SQL has explicit cast to NUMBER(p, 0) type to ensure proper emulation
         case (_IntegralType(), _IntegralType()):
-            result_exp = apply_integral_overflow_with_ansi_check(
-                col, to_type, spark_sql_ansi_enabled
-            )
+            # SNOW-3585745: If casting to the same type with the same precision
+            # do not emit double cast:
+            # CAST(CAST(... AS BIGINT) AS BIGINT) wrapper (commonly produced
+            # around sum() aggregations whose result is already cast to BIGINT).
+            # Narrower integral targets still get an explicit cast so Snowflake
+            # enforces the NUMBER(p, 0) range emulation noted above.
+            if from_type == to_type:
+                result_exp = col
+            else:
+                result_exp = apply_integral_overflow_with_ansi_check(
+                    col, to_type, spark_sql_ansi_enabled
+                )
         case (_, _) if (from_type == to_type):
             result_exp = col
         case (NullType(), _):
@@ -614,16 +626,31 @@ def map_cast(
             )
             result_exp = apply_fractional_to_integral_cast(result_exp, to_type)
         case (StringType(), _) if (isinstance(to_type, _IntegralType)):
+            # SNOW-3585745: For LongType targets a DOUBLE intermediate loses
+            # precision. DOUBLE has only ~15-16 significant digits, so 19-digit
+            # values near Long.MIN/MAX (e.g. 9223372036854775807) round to the
+            # nearest power of two. DecimalType(38, 18) preserves full integer precision (20
+            # integer digits, enough for the 19-digit Long range) while still
+            # carrying a fractional part so floor/ceil truncate like Spark.
+            # Smaller integral types fit comfortably in DOUBLE.
+            intermediate_type = (
+                DecimalType(38, 18)
+                if (
+                    is_cast_string_to_integral_high_precision_enabled()
+                    and isinstance(to_type, LongType)
+                )
+                else DoubleType()
+            )
             if spark_sql_ansi_enabled:
-                double_val = snowpark_fn.cast(col, DoubleType())
+                numeric_val = snowpark_fn.cast(col, intermediate_type)
 
                 target_min, target_max = get_integral_type_bounds(to_type)
                 raise_error = raise_error_helper(to_type, NumberFormatException)
                 to_type_name = to_type.__class__.__name__.upper().replace("TYPE", "")
 
                 truncated = snowpark_fn.when(
-                    double_val < 0, snowpark_fn.ceil(double_val)
-                ).otherwise(snowpark_fn.floor(double_val))
+                    numeric_val < 0, snowpark_fn.ceil(numeric_val)
+                ).otherwise(snowpark_fn.floor(numeric_val))
 
                 result_exp = snowpark_fn.when(
                     (truncated < snowpark_fn.lit(target_min))
@@ -637,16 +664,16 @@ def map_cast(
                     ),
                 ).otherwise(truncated.cast(to_type))
             else:
-                double_val = snowpark_fn.try_cast(col, DoubleType())
+                numeric_val = snowpark_fn.try_cast(col, intermediate_type)
 
                 truncated = snowpark_fn.when(
-                    double_val < 0, snowpark_fn.ceil(double_val)
-                ).otherwise(snowpark_fn.floor(double_val))
+                    numeric_val < 0, snowpark_fn.ceil(numeric_val)
+                ).otherwise(snowpark_fn.floor(numeric_val))
 
                 target_min, target_max = get_integral_type_bounds(to_type)
                 result_exp = (
                     snowpark_fn.when(
-                        double_val.isNull(), snowpark_fn.lit(None).cast(to_type)
+                        numeric_val.isNull(), snowpark_fn.lit(None).cast(to_type)
                     )
                     .when(
                         (truncated < snowpark_fn.lit(target_min))

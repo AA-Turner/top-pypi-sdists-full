@@ -64,6 +64,22 @@ pub(crate) fn try_factor_blocks_batched(
     {
         return None;
     }
+    // Size gate BEFORE the device probe (startup-tax ordering fix): the batched
+    // POTRF below routes through `try_cholesky_batched_lower_inplace`, whose
+    // admission is `SmallDenseBatchedPotrf { p: d, batch }` or
+    // `Potrf { p: d, batch }`. When NO reachable dispatch policy could admit
+    // either op, the shim is guaranteed to decline, so return to the exact
+    // per-row CPU path without calling `is_available()` — whose first call
+    // probes the driver and creates a CUDA primary context on every GPU.
+    // Admissible shapes probe and dispatch exactly as before.
+    let batch = rows.len();
+    if !(gam_gpu::linalg_dispatch::DispatchOp::SmallDenseBatchedPotrf { p: d, batch })
+        .admissible_under_any_policy()
+        && !(gam_gpu::linalg_dispatch::DispatchOp::Potrf { p: d, batch })
+            .admissible_under_any_policy()
+    {
+        return None;
+    }
     // No device → let the CPU path own the work (it is the exact fallback).
     if !gam_gpu::device_runtime::GpuRuntime::is_available() {
         return None;
@@ -580,6 +596,117 @@ pub(crate) fn factor_spectral_deflated_evidence_row(
             cond_evals,
         }),
     })
+}
+
+/// The per-row `H_tt` eigen-directions a STEP-side solve must GAUGE-FIX — take
+/// exactly zero Newton step along — using the SAME spectral floor and hysteresis
+/// convention [`factor_spectral_deflated_evidence_row`] uses to unit-stiffness
+/// deflate them in the EVIDENCE log-det. This is the step twin of that evidence
+/// routine (#1095/#2228 second root).
+///
+/// Why the evidence deflation alone is not enough for the STEP. The evidence
+/// path keeps a deflated null at `log 1 = 0` (the ρ-independent quotient
+/// pseudo-determinant convention) — correct for the Laplace normaliser. But
+/// under unit stiffness the block's inverse maps the null-direction gradient to
+/// `step_null = g_null / 1`, which is zero ONLY when `g_null` is exactly zero.
+/// At finite noise the data exerts a small radial pull `g_null ≠ 0` at every
+/// iterate (the null is data-FLAT, not data-ABSENT), and those sub-floor steps
+/// ACCUMULATE across the cumulative outer ρ-walk — the drift that walks an
+/// over-parametrized d=2 circle chart off its unit radius, collapsing its
+/// angular resolution (reconstruction R²≈0.43) and making the inner optimum —
+/// hence the REML criterion — depend on the warm-start rather than on ρ alone.
+/// True gauge fixing is therefore a PROJECTION, not a stiffness: the caller
+/// subtracts each returned direction from that row's coordinate step so there is
+/// NO motion along a deflated direction, period, while the identifiable
+/// (angular) complement is solved exactly by the unit-stiffness / floored
+/// factor. Evidence keeps unit stiffness (value convention unchanged); only the
+/// step gets this projection.
+///
+/// Returned vectors are ORTHONORMAL eigenvectors (columns of the block's
+/// symmetric eigendecomposition), each in the row's own `d`-dimensional
+/// coordinates, so a caller projects with the bare `v (vᵀ Δ)` — no normaliser.
+///
+/// The floor is a RANK statement, NOT a topology assumption. A block whose
+/// smallest eigenvalue sits ABOVE the floor is genuinely full-rank — merely
+/// ill-conditioned if its κ is high — and returns an EMPTY list: a non-null
+/// ill-conditioned block (e.g. two K>1 atoms weakly identified against each
+/// other) is left ENTIRELY to the LM ridge escalation, which must DAMP its
+/// data-supported weak direction, not FREEZE it; and a well-conditioned
+/// full-rank row is bit-for-bit untouched. Genuinely radius-curved circle data
+/// lifts the radial eigenvalue above the floor, so nothing is frozen there — the
+/// gauge fix is auto-undone exactly where the chart is not over-parametrized.
+pub fn row_sub_floor_null_directions(htt: ArrayView2<'_, f64>) -> Vec<Array1<f64>> {
+    let d = htt.nrows();
+    if d == 0 || htt.ncols() != d {
+        return Vec::new();
+    }
+    // Symmetrise defensively (assembled to reduction order, as the evidence
+    // routine does) before the eigendecomposition.
+    let mut sym = Array2::<f64>::zeros((d, d));
+    for i in 0..d {
+        for j in 0..d {
+            let v = 0.5 * (htt[[i, j]] + htt[[j, i]]);
+            if !v.is_finite() {
+                return Vec::new();
+            }
+            sym[[i, j]] = v;
+        }
+    }
+    let Ok((evals, evecs)) = sym.eigh(Side::Lower) else {
+        return Vec::new();
+    };
+    let max_abs = evals.iter().fold(
+        0.0_f64,
+        |acc, &v| if v.is_finite() { acc.max(v.abs()) } else { acc },
+    );
+    if !(max_abs.is_finite() && max_abs > 0.0) {
+        return Vec::new();
+    }
+    let floor = SPECTRAL_DEFLATION_REL_FLOOR * max_abs;
+    let deflate_floor = floor * (1.0 - SPECTRAL_DEFLATION_HYSTERESIS_FRACTION);
+    let mut dirs = Vec::new();
+    for eig_idx in 0..evals.len() {
+        let lambda = evals[eig_idx];
+        // Identical deflation predicate to `factor_spectral_deflated_evidence_row`:
+        // every non-positive / non-finite eigenvalue (a genuine null / indefinite
+        // quotient direction) plus any positive one that has dropped below the
+        // hysteresis band edge is a sub-floor null direction to gauge-fix. So the
+        // step freezes EXACTLY the directions the evidence log-det deflated — the
+        // two stay consistent by construction.
+        if !(lambda.is_finite() && lambda > deflate_floor) {
+            dirs.push(evecs.column(eig_idx).to_owned());
+        }
+    }
+    // Knife-edge fallback — mirror `factor_spectral_deflated_evidence_row`'s
+    // `deflated_count == 0` branch so the STEP freezes EXACTLY the direction the
+    // EVIDENCE log-det deflates in the barely-non-PD case, by construction. When
+    // the hysteresis band kept every eigenvalue (nothing strictly sub-floor) YET
+    // the raw block's ridge-0 Cholesky still REFUSES, the block is non-PD at the
+    // band's ε margin: the evidence routine (reached from `factor_one_row_result`
+    // only on that same refused ridge-0 Cholesky) deflates the single
+    // smallest-eigenvalue direction to unit stiffness, so the step must freeze
+    // that same direction. The trigger is deliberately the Cholesky REFUSAL, read
+    // on the raw block's lower triangle exactly as `factor_row_block_cholesky`
+    // does — NOT a high-κ-but-PD block whose Cholesky SUCCEEDS. The evidence
+    // path's separate Ok-arm κ-deflation (it also force-deflates a PD-but-ill-
+    // conditioned block for log-det finiteness) is intentionally NOT mirrored: a
+    // non-null ill-conditioned block is genuinely full-rank and its weak but
+    // data-supported direction must stay with the LM ridge damping, not be frozen
+    // (the step's non-null-ill-conditioning guardrail). So the two lists are
+    // identical wherever the block is non-PD, and differ only where the block is
+    // PD — where the step must not freeze anyway.
+    if dirs.is_empty() && cholesky_lower(&htt.to_owned()).is_err() {
+        let mut min_idx = 0usize;
+        let mut min_lambda = f64::INFINITY;
+        for eig_idx in 0..evals.len() {
+            if evals[eig_idx] < min_lambda {
+                min_lambda = evals[eig_idx];
+                min_idx = eig_idx;
+            }
+        }
+        dirs.push(evecs.column(min_idx).to_owned());
+    }
+    dirs
 }
 
 pub(crate) fn cholesky_solve_vector_fixed<const D: usize>(

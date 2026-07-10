@@ -220,10 +220,12 @@ class MoneyField:
 
 @dataclass(frozen=True, slots=True)
 class WidgetCombobox:
-    """TomSelect enum picker (`widget=combobox`) — at parity with the legacy
-    `_render_combobox`. Distinct from the plain `Combobox` (a vanilla
-    `<select>`): this emits `data-dz-widget="combobox"` so the client TomSelect
-    controller mounts. A leading empty/placeholder option is always rendered."""
+    """HM-native searchable enum single-select (`widget=combobox`, HMC-018
+    slice 1). Emits a real native `<select data-dz-combobox>` — fully usable
+    with JS off (submits, native required) — that controllers/dz-combobox.js
+    progressively enhances into a searchable role=combobox overlay. Distinct
+    from the plain `Combobox` (a vanilla `<select>`) by the `data-dz-combobox`
+    enhancement hook. A leading empty/placeholder option is always rendered."""
 
     name: str
     label: str
@@ -239,8 +241,10 @@ class WidgetCombobox:
 
 @dataclass(frozen=True, slots=True)
 class TagsField:
-    """Free-form tag entry (`widget=tags`) — TomSelect with create + remove
-    plugins. Parity with the legacy `_render_tags`."""
+    """Free-form tag entry (`widget=tags`) — HM-native progressive-enhancement
+    over a native `<input data-dz-tags>` carrying a comma-joined value, driven
+    by controllers/dz-tags.js (HMC-018 slice 2). Usable with JS off (the server
+    splits on comma)."""
 
     name: str
     label: str
@@ -251,24 +255,6 @@ class TagsField:
     def __post_init__(self) -> None:
         if not self.name:
             raise ValueError("TagsField requires a non-empty name")
-
-
-@dataclass(frozen=True, slots=True)
-class DatePickerField:
-    """Flatpickr date/datetime picker (`widget=picker`). Parity with the legacy
-    `_render_date_picker` — `data-dz-widget="datepicker"` + a `data-dz-options`
-    JSON carrying `dateFormat` (+ `enableTime` for datetime)."""
-
-    name: str
-    label: str
-    is_datetime: bool = False
-    required: bool = False
-    placeholder: str = ""
-    initial_value: str = ""
-
-    def __post_init__(self) -> None:
-        if not self.name:
-            raise ValueError("DatePickerField requires a non-empty name")
 
 
 @dataclass(frozen=True, slots=True)

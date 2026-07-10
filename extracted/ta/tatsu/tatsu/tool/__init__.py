@@ -1,28 +1,3 @@
-from ..api import (
-    compile,
-    compile_to_parser,
-    gencode,
-    genmodel,
-    parse,
-    to_grammar_json,
-    to_parsermodel_sourcecode,
-    to_python_model,
-    to_python_sourcecode,
-)
-from .cli import tatsu_main
-from .cling import cling_main
-
-
-__all__ = [
-    'compile',
-    'compile_to_parser',
-    'gencode',
-    'genmodel',
-    'parse',
-    'cling_main',
-    'tatsu_main',
-    'to_grammar_json',
-    'to_python_model',
-    'to_python_sourcecode',
-    'to_parsermodel_sourcecode',
-]
+# Copyright (c) 2017-2026 Juancarlo Añez (apalala@gmail.com)
+# SPDX-License-Identifier: BSD-4-Clause
+from __future__ import annotations

@@ -3,14 +3,16 @@ from typing import List, Optional
 
 import tinycss2
 
+from abstra_internals.repositories.linter.context import (
+    LintContext,
+    current_lint_context,
+)
 from abstra_internals.repositories.linter.models import (
     LinterIssue,
     PathScopedLinterRule,
     linter_path_key,
     normalize_linter_path,
 )
-from abstra_internals.services.fs import FileSystemService
-from abstra_internals.settings import Settings
 
 
 class CssSyntaxErrorsFound(LinterIssue):
@@ -26,15 +28,15 @@ class CssSyntax(PathScopedLinterRule):
     fix_with_ai = True
 
     def find_issues(self, path: Optional[Path] = None) -> List[LinterIssue]:
+        project = (current_lint_context() or LintContext()).project
         issues: List[LinterIssue] = []
-        root = Settings.root_path
 
         if path is not None:
-            if path.suffix != ".css":
+            if path.suffix != ".css" or project.is_ignored_path(path):
                 return []
             files = [normalize_linter_path(path)]
         else:
-            files = FileSystemService.list_files(root, allowed_suffixes=[".css"])
+            files = list(project.iter_project_files(allowed_suffixes=[".css"]))
 
         for css_file in files:
             try:

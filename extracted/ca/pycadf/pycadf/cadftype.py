@@ -24,11 +24,9 @@ EVENTTYPE_ACTIVITY = 'activity'
 EVENTTYPE_MONITOR = 'monitor'
 EVENTTYPE_CONTROL = 'control'
 
-VALID_EVENTTYPES = frozenset([
-    EVENTTYPE_ACTIVITY,
-    EVENTTYPE_MONITOR,
-    EVENTTYPE_CONTROL
-])
+VALID_EVENTTYPES = frozenset(
+    [EVENTTYPE_ACTIVITY, EVENTTYPE_MONITOR, EVENTTYPE_CONTROL]
+)
 
 
 def is_valid_eventType(value):
@@ -40,18 +38,16 @@ REPORTER_ROLE_OBSERVER = 'observer'
 REPORTER_ROLE_MODIFIER = 'modifier'
 REPORTER_ROLE_RELAY = 'relay'
 
-VALID_REPORTER_ROLES = frozenset([
-    REPORTER_ROLE_OBSERVER,
-    REPORTER_ROLE_MODIFIER,
-    REPORTER_ROLE_RELAY
-])
+VALID_REPORTER_ROLES = frozenset(
+    [REPORTER_ROLE_OBSERVER, REPORTER_ROLE_MODIFIER, REPORTER_ROLE_RELAY]
+)
 
 
 def is_valid_reporter_role(value):
     return value in VALID_REPORTER_ROLES
 
 
-class ValidatorDescriptor(object):
+class ValidatorDescriptor:
     def __init__(self, name, func=None):
         self.name = name
         self.func = func
@@ -62,15 +58,16 @@ class ValidatorDescriptor(object):
                 if self.func(value):
                     instance.__dict__[self.name] = value
                 else:
-                    raise ValueError('%s failed validation: %s' %
-                                     (self.name, self.func))
+                    raise ValueError(
+                        f'{self.name} failed validation: {self.func}'
+                    )
             else:
                 instance.__dict__[self.name] = value
         else:
-            raise ValueError('%s must not be None.' % self.name)
+            raise ValueError(f'{self.name} must not be None.')
 
 
-class CADFAbstractType(object, metaclass=abc.ABCMeta):
+class CADFAbstractType(metaclass=abc.ABCMeta):
     """The abstract base class for all CADF (complex) data types (classes)."""
 
     @abc.abstractmethod

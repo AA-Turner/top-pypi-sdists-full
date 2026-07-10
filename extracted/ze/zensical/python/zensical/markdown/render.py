@@ -96,11 +96,12 @@ def render(content: str, path: str, url: str) -> dict:
             extension._kwargs["page"] = page
             break
     else:
-        config["markdown_extensions"].append(
+        config["markdown_extensions"].insert(
+            0,
             ContextExtension(
                 page=page,
                 config=config,
-            )
+            ),
         )
 
     # Initialize Markdown parser

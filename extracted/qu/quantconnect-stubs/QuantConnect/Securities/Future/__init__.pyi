@@ -645,6 +645,15 @@ class FutureCache(QuantConnect.Securities.SecurityCache):
         """
         ...
 
+    def store_data(self, data: typing.Sequence[QuantConnect.Data.BaseData], data_type: typing.Type) -> None:
+        """
+        Stores the specified data list in the cache, updating the open interest from any chain universe data
+        
+        :param data: The collection of data to store in this cache
+        :param data_type: The data type
+        """
+        ...
+
 
 class MarginRequirementsEntry(System.Object):
     """POCO class for modeling margin requirements at given date"""

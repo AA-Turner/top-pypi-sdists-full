@@ -37,7 +37,7 @@ class LinterRepository(ABC):
         pass
 
     @abstractmethod
-    def update_checks(self) -> List[LinterCheck]:
+    def update_checks(self, revalidate_caches: bool = False) -> List[LinterCheck]:
         pass
 
     @abstractmethod
@@ -143,9 +143,11 @@ class LocalLinterRepository(LinterRepository):
         finally:
             self._run_lock.release()
 
-    def update_checks(self):
+    def update_checks(self, revalidate_caches: bool = False):
         with self._run_lock:
-            return self._run_rules(rules, merge=False)
+            return self._run_rules(
+                rules, merge=False, revalidate_caches=revalidate_caches
+            )
 
     def update_specific_checks(
         self, target_rules: List[LinterRule], paths: Optional[List[Path]] = None
@@ -245,6 +247,7 @@ class LocalLinterRepository(LinterRepository):
         target_rules: List[LinterRule],
         merge: bool,
         paths: Optional[List[Path]] = None,
+        revalidate_caches: bool = False,
     ) -> List[LinterCheck]:
         if {r.name for r in target_rules} == _PACKAGE_INSTALL_RULE_NAMES:
             self._refresh_install_sensitive_caches()
@@ -252,7 +255,7 @@ class LocalLinterRepository(LinterRepository):
         # One context per pass: the project is loaded once and shared by every
         # rule (via the ContextVar the fan-out workers publish), instead of each
         # project-reading rule re-loading it under the class lock.
-        context = LintContext()
+        context = LintContext(revalidate_caches=revalidate_caches)
         new_checks, scoped_results = self._execute_rules(
             target_rules, paths=paths, context=context
         )
@@ -414,7 +417,7 @@ class ProductionLinterRepository(LinterRepository):
     def find_issues_in_codebase(self) -> List[LinterCheck]:
         raise NotImplementedError("Linters are not available in production.")
 
-    def update_checks(self) -> List[LinterCheck]:
+    def update_checks(self, revalidate_caches: bool = False) -> List[LinterCheck]:
         raise NotImplementedError("Linters are not available in production.")
 
     def update_specific_checks(

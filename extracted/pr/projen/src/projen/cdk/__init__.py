@@ -1988,6 +1988,7 @@ class JsiiProject(
         vscode: typing.Optional[builtins.bool] = None,
         add_package_manager_to_dev_engines: typing.Optional[builtins.bool] = None,
         allow_library_dependencies: typing.Optional[builtins.bool] = None,
+        allow_scripts: typing.Optional[typing.Sequence[builtins.str]] = None,
         author_email: typing.Optional[builtins.str] = None,
         author_name: typing.Optional[builtins.str] = None,
         author_organization: typing.Optional[builtins.bool] = None,
@@ -2020,6 +2021,7 @@ class JsiiProject(
         package_name: typing.Optional[builtins.str] = None,
         peer_dependency_options: typing.Optional[typing.Union["_javascript_eb5dbe11.PeerDependencyOptions", typing.Dict[builtins.str, typing.Any]]] = None,
         peer_deps: typing.Optional[typing.Sequence[builtins.str]] = None,
+        pnpm_options: typing.Optional[typing.Union["_javascript_eb5dbe11.PnpmOptions", typing.Dict[builtins.str, typing.Any]]] = None,
         pnpm_version: typing.Optional[builtins.str] = None,
         repository: typing.Optional[builtins.str] = None,
         repository_directory: typing.Optional[builtins.str] = None,
@@ -2153,6 +2155,7 @@ class JsiiProject(
         :param vscode: (experimental) Enable VSCode integration. Enabled by default for root projects. Disabled for non-root projects. Default: true
         :param add_package_manager_to_dev_engines: (experimental) Automatically add the resolved ``packageManager`` to ``devEngines.packageManager`` in ``package.json``, setting ``onFail`` to ``ignore``. Default: true
         :param allow_library_dependencies: (experimental) Allow the project to include ``peerDependencies`` and ``bundledDependencies``. This is normally only allowed for libraries. For apps, there's no meaning for specifying these. Default: true
+        :param allow_scripts: (experimental) List of dependency (package) names that are allowed to run lifecycle install scripts (``preinstall``, ``install``, ``postinstall``, ``prepare``) during dependency installation. These scripts can execute arbitrary code, making them a common supply-chain attack vector. Package managers are moving toward blocking them by default and requiring an explicit allowlist. Configuring ``allowScripts`` sets up that allowlist so scripts only run for the packages you have explicitly reviewed and trust. Support for this setting depends on the configured ``packageManager``: - ``NPM``: written to the native ``allowScripts`` field in ``package.json`` (requires npm >= 11.16; see https://docs.npmjs.com/cli/v11/commands/npm-approve-scripts). - ``BUN``: written to the native ``trustedDependencies`` field in ``package.json`` (see https://bun.com/docs/pm/lifecycle). - ``PNPM``: written to the ``onlyBuiltDependencies`` setting in ``pnpm-workspace.yaml`` (see https://pnpm.io/settings#onlybuiltdependencies). - ``YARN2``, ``YARN_BERRY``: written to the native ``dependenciesMeta.<pkg>.built`` allowlist in ``package.json``, combined with ``enableScripts: false`` in ``.yarnrc.yml`` (see https://yarnpkg.com/features/security#postinstalls). If you set ``yarnBerryOptions.yarnRcOptions.enableScripts`` explicitly, that value is respected instead of being overridden. - ``YARN``, ``YARN_CLASSIC``: not supported. Yarn Classic has no native mechanism to allowlist install scripts for specific dependencies. Setting this option with one of these package managers throws an error at synthesis time. Default: - all install scripts are allowed to run (package manager default)
         :param author_email: (experimental) Author's e-mail.
         :param author_name: (experimental) Author's name.
         :param author_organization: (experimental) Is the author an organization.
@@ -2185,6 +2188,7 @@ class JsiiProject(
         :param package_name: (experimental) The "name" in package.json. Default: - defaults to project name
         :param peer_dependency_options: (experimental) Options for ``peerDeps``.
         :param peer_deps: (experimental) Peer dependencies for this module. Dependencies listed here are required to be installed (and satisfied) by the *consumer* of this library. Using peer dependencies allows you to ensure that only a single module of a certain library exists in the ``node_modules`` tree of your consumers. Note that prior to npm@7, peer dependencies are *not* automatically installed, which means that adding peer dependencies to a library will be a breaking change for your customers. Unless ``peerDependencyOptions.pinnedDevDependency`` is disabled (it is enabled by default), projen will automatically add a dev dependency with a pinned version for each peer dependency. This will ensure that you build & test your module against the lowest peer version required. Default: []
+        :param pnpm_options: (experimental) Options for pnpm. Default: - all default options
         :param pnpm_version: (experimental) The version of PNPM to use if using PNPM as a package manager. Default: "10.33.0"
         :param repository: (experimental) The repository is the location where the actual code for your package lives. See https://classic.yarnpkg.com/en/docs/package-json/#toc-repository
         :param repository_directory: (experimental) If the package.json for your package is not in the root directory (for example if it is part of a monorepo), you can specify the directory in which it lives.
@@ -2320,6 +2324,7 @@ class JsiiProject(
             vscode=vscode,
             add_package_manager_to_dev_engines=add_package_manager_to_dev_engines,
             allow_library_dependencies=allow_library_dependencies,
+            allow_scripts=allow_scripts,
             author_email=author_email,
             author_name=author_name,
             author_organization=author_organization,
@@ -2352,6 +2357,7 @@ class JsiiProject(
             package_name=package_name,
             peer_dependency_options=peer_dependency_options,
             peer_deps=peer_deps,
+            pnpm_options=pnpm_options,
             pnpm_version=pnpm_version,
             repository=repository,
             repository_directory=repository_directory,
@@ -2432,6 +2438,7 @@ class JsiiProject(
         "vscode": "vscode",
         "add_package_manager_to_dev_engines": "addPackageManagerToDevEngines",
         "allow_library_dependencies": "allowLibraryDependencies",
+        "allow_scripts": "allowScripts",
         "author_email": "authorEmail",
         "author_name": "authorName",
         "author_organization": "authorOrganization",
@@ -2464,6 +2471,7 @@ class JsiiProject(
         "package_name": "packageName",
         "peer_dependency_options": "peerDependencyOptions",
         "peer_deps": "peerDeps",
+        "pnpm_options": "pnpmOptions",
         "pnpm_version": "pnpmVersion",
         "repository": "repository",
         "repository_directory": "repositoryDirectory",
@@ -2601,6 +2609,7 @@ class JsiiProjectOptions(_typescript_7a66cf84.TypeScriptProjectOptions):
         vscode: typing.Optional[builtins.bool] = None,
         add_package_manager_to_dev_engines: typing.Optional[builtins.bool] = None,
         allow_library_dependencies: typing.Optional[builtins.bool] = None,
+        allow_scripts: typing.Optional[typing.Sequence[builtins.str]] = None,
         author_email: typing.Optional[builtins.str] = None,
         author_name: typing.Optional[builtins.str] = None,
         author_organization: typing.Optional[builtins.bool] = None,
@@ -2633,6 +2642,7 @@ class JsiiProjectOptions(_typescript_7a66cf84.TypeScriptProjectOptions):
         package_name: typing.Optional[builtins.str] = None,
         peer_dependency_options: typing.Optional[typing.Union["_javascript_eb5dbe11.PeerDependencyOptions", typing.Dict[builtins.str, typing.Any]]] = None,
         peer_deps: typing.Optional[typing.Sequence[builtins.str]] = None,
+        pnpm_options: typing.Optional[typing.Union["_javascript_eb5dbe11.PnpmOptions", typing.Dict[builtins.str, typing.Any]]] = None,
         pnpm_version: typing.Optional[builtins.str] = None,
         repository: typing.Optional[builtins.str] = None,
         repository_directory: typing.Optional[builtins.str] = None,
@@ -2766,6 +2776,7 @@ class JsiiProjectOptions(_typescript_7a66cf84.TypeScriptProjectOptions):
         :param vscode: (experimental) Enable VSCode integration. Enabled by default for root projects. Disabled for non-root projects. Default: true
         :param add_package_manager_to_dev_engines: (experimental) Automatically add the resolved ``packageManager`` to ``devEngines.packageManager`` in ``package.json``, setting ``onFail`` to ``ignore``. Default: true
         :param allow_library_dependencies: (experimental) Allow the project to include ``peerDependencies`` and ``bundledDependencies``. This is normally only allowed for libraries. For apps, there's no meaning for specifying these. Default: true
+        :param allow_scripts: (experimental) List of dependency (package) names that are allowed to run lifecycle install scripts (``preinstall``, ``install``, ``postinstall``, ``prepare``) during dependency installation. These scripts can execute arbitrary code, making them a common supply-chain attack vector. Package managers are moving toward blocking them by default and requiring an explicit allowlist. Configuring ``allowScripts`` sets up that allowlist so scripts only run for the packages you have explicitly reviewed and trust. Support for this setting depends on the configured ``packageManager``: - ``NPM``: written to the native ``allowScripts`` field in ``package.json`` (requires npm >= 11.16; see https://docs.npmjs.com/cli/v11/commands/npm-approve-scripts). - ``BUN``: written to the native ``trustedDependencies`` field in ``package.json`` (see https://bun.com/docs/pm/lifecycle). - ``PNPM``: written to the ``onlyBuiltDependencies`` setting in ``pnpm-workspace.yaml`` (see https://pnpm.io/settings#onlybuiltdependencies). - ``YARN2``, ``YARN_BERRY``: written to the native ``dependenciesMeta.<pkg>.built`` allowlist in ``package.json``, combined with ``enableScripts: false`` in ``.yarnrc.yml`` (see https://yarnpkg.com/features/security#postinstalls). If you set ``yarnBerryOptions.yarnRcOptions.enableScripts`` explicitly, that value is respected instead of being overridden. - ``YARN``, ``YARN_CLASSIC``: not supported. Yarn Classic has no native mechanism to allowlist install scripts for specific dependencies. Setting this option with one of these package managers throws an error at synthesis time. Default: - all install scripts are allowed to run (package manager default)
         :param author_email: (experimental) Author's e-mail.
         :param author_name: (experimental) Author's name.
         :param author_organization: (experimental) Is the author an organization.
@@ -2798,6 +2809,7 @@ class JsiiProjectOptions(_typescript_7a66cf84.TypeScriptProjectOptions):
         :param package_name: (experimental) The "name" in package.json. Default: - defaults to project name
         :param peer_dependency_options: (experimental) Options for ``peerDeps``.
         :param peer_deps: (experimental) Peer dependencies for this module. Dependencies listed here are required to be installed (and satisfied) by the *consumer* of this library. Using peer dependencies allows you to ensure that only a single module of a certain library exists in the ``node_modules`` tree of your consumers. Note that prior to npm@7, peer dependencies are *not* automatically installed, which means that adding peer dependencies to a library will be a breaking change for your customers. Unless ``peerDependencyOptions.pinnedDevDependency`` is disabled (it is enabled by default), projen will automatically add a dev dependency with a pinned version for each peer dependency. This will ensure that you build & test your module against the lowest peer version required. Default: []
+        :param pnpm_options: (experimental) Options for pnpm. Default: - all default options
         :param pnpm_version: (experimental) The version of PNPM to use if using PNPM as a package manager. Default: "10.33.0"
         :param repository: (experimental) The repository is the location where the actual code for your package lives. See https://classic.yarnpkg.com/en/docs/package-json/#toc-repository
         :param repository_directory: (experimental) If the package.json for your package is not in the root directory (for example if it is part of a monorepo), you can specify the directory in which it lives.
@@ -2930,6 +2942,8 @@ class JsiiProjectOptions(_typescript_7a66cf84.TypeScriptProjectOptions):
             dev_engines = _javascript_eb5dbe11.DevEngines(**dev_engines)
         if isinstance(peer_dependency_options, dict):
             peer_dependency_options = _javascript_eb5dbe11.PeerDependencyOptions(**peer_dependency_options)
+        if isinstance(pnpm_options, dict):
+            pnpm_options = _javascript_eb5dbe11.PnpmOptions(**pnpm_options)
         if isinstance(yarn_berry_options, dict):
             yarn_berry_options = _javascript_eb5dbe11.YarnBerryOptions(**yarn_berry_options)
         if isinstance(workflow_runs_on_group, dict):
@@ -3006,6 +3020,7 @@ class JsiiProjectOptions(_typescript_7a66cf84.TypeScriptProjectOptions):
             check_type(argname="argument vscode", value=vscode, expected_type=type_hints["vscode"])
             check_type(argname="argument add_package_manager_to_dev_engines", value=add_package_manager_to_dev_engines, expected_type=type_hints["add_package_manager_to_dev_engines"])
             check_type(argname="argument allow_library_dependencies", value=allow_library_dependencies, expected_type=type_hints["allow_library_dependencies"])
+            check_type(argname="argument allow_scripts", value=allow_scripts, expected_type=type_hints["allow_scripts"])
             check_type(argname="argument author_email", value=author_email, expected_type=type_hints["author_email"])
             check_type(argname="argument author_name", value=author_name, expected_type=type_hints["author_name"])
             check_type(argname="argument author_organization", value=author_organization, expected_type=type_hints["author_organization"])
@@ -3038,6 +3053,7 @@ class JsiiProjectOptions(_typescript_7a66cf84.TypeScriptProjectOptions):
             check_type(argname="argument package_name", value=package_name, expected_type=type_hints["package_name"])
             check_type(argname="argument peer_dependency_options", value=peer_dependency_options, expected_type=type_hints["peer_dependency_options"])
             check_type(argname="argument peer_deps", value=peer_deps, expected_type=type_hints["peer_deps"])
+            check_type(argname="argument pnpm_options", value=pnpm_options, expected_type=type_hints["pnpm_options"])
             check_type(argname="argument pnpm_version", value=pnpm_version, expected_type=type_hints["pnpm_version"])
             check_type(argname="argument repository", value=repository, expected_type=type_hints["repository"])
             check_type(argname="argument repository_directory", value=repository_directory, expected_type=type_hints["repository_directory"])
@@ -3201,6 +3217,8 @@ class JsiiProjectOptions(_typescript_7a66cf84.TypeScriptProjectOptions):
             self._values["add_package_manager_to_dev_engines"] = add_package_manager_to_dev_engines
         if allow_library_dependencies is not None:
             self._values["allow_library_dependencies"] = allow_library_dependencies
+        if allow_scripts is not None:
+            self._values["allow_scripts"] = allow_scripts
         if author_email is not None:
             self._values["author_email"] = author_email
         if author_name is not None:
@@ -3265,6 +3283,8 @@ class JsiiProjectOptions(_typescript_7a66cf84.TypeScriptProjectOptions):
             self._values["peer_dependency_options"] = peer_dependency_options
         if peer_deps is not None:
             self._values["peer_deps"] = peer_deps
+        if pnpm_options is not None:
+            self._values["pnpm_options"] = pnpm_options
         if pnpm_version is not None:
             self._values["pnpm_version"] = pnpm_version
         if repository is not None:
@@ -3812,6 +3832,42 @@ class JsiiProjectOptions(_typescript_7a66cf84.TypeScriptProjectOptions):
         return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
+    def allow_scripts(self) -> typing.Optional[typing.List[builtins.str]]:
+        '''(experimental) List of dependency (package) names that are allowed to run lifecycle install scripts (``preinstall``, ``install``, ``postinstall``, ``prepare``) during dependency installation.
+
+        These scripts can execute arbitrary code, making them a common
+        supply-chain attack vector. Package managers are moving toward
+        blocking them by default and requiring an explicit allowlist.
+        Configuring ``allowScripts`` sets up that allowlist so scripts only run
+        for the packages you have explicitly reviewed and trust.
+
+        Support for this setting depends on the configured ``packageManager``:
+
+        - ``NPM``: written to the native ``allowScripts`` field in ``package.json``
+          (requires npm >= 11.16; see https://docs.npmjs.com/cli/v11/commands/npm-approve-scripts).
+        - ``BUN``: written to the native ``trustedDependencies`` field in
+          ``package.json`` (see https://bun.com/docs/pm/lifecycle).
+        - ``PNPM``: written to the ``onlyBuiltDependencies`` setting in
+          ``pnpm-workspace.yaml`` (see https://pnpm.io/settings#onlybuiltdependencies).
+        - ``YARN2``, ``YARN_BERRY``: written to the native
+          ``dependenciesMeta.<pkg>.built`` allowlist in ``package.json``, combined
+          with ``enableScripts: false`` in ``.yarnrc.yml`` (see
+          https://yarnpkg.com/features/security#postinstalls). If you set
+          ``yarnBerryOptions.yarnRcOptions.enableScripts`` explicitly, that value
+          is respected instead of being overridden.
+        - ``YARN``, ``YARN_CLASSIC``: not supported. Yarn Classic has no native
+          mechanism to allowlist install scripts for specific dependencies.
+          Setting this option with one of these package managers throws an
+          error at synthesis time.
+
+        :default: - all install scripts are allowed to run (package manager default)
+
+        :stability: experimental
+        '''
+        result = self._values.get("allow_scripts")
+        return typing.cast(typing.Optional[typing.List[builtins.str]], result)
+
+    @builtins.property
     def author_email(self) -> typing.Optional[builtins.str]:
         '''(experimental) Author's e-mail.
 
@@ -4251,6 +4307,17 @@ class JsiiProjectOptions(_typescript_7a66cf84.TypeScriptProjectOptions):
         '''
         result = self._values.get("peer_deps")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
+
+    @builtins.property
+    def pnpm_options(self) -> typing.Optional["_javascript_eb5dbe11.PnpmOptions"]:
+        '''(experimental) Options for pnpm.
+
+        :default: - all default options
+
+        :stability: experimental
+        '''
+        result = self._values.get("pnpm_options")
+        return typing.cast(typing.Optional["_javascript_eb5dbe11.PnpmOptions"], result)
 
     @builtins.property
     def pnpm_version(self) -> typing.Optional[builtins.str]:
@@ -5946,6 +6013,7 @@ class ConstructLibrary(
         vscode: typing.Optional[builtins.bool] = None,
         add_package_manager_to_dev_engines: typing.Optional[builtins.bool] = None,
         allow_library_dependencies: typing.Optional[builtins.bool] = None,
+        allow_scripts: typing.Optional[typing.Sequence[builtins.str]] = None,
         author_email: typing.Optional[builtins.str] = None,
         author_name: typing.Optional[builtins.str] = None,
         author_organization: typing.Optional[builtins.bool] = None,
@@ -5978,6 +6046,7 @@ class ConstructLibrary(
         package_name: typing.Optional[builtins.str] = None,
         peer_dependency_options: typing.Optional[typing.Union["_javascript_eb5dbe11.PeerDependencyOptions", typing.Dict[builtins.str, typing.Any]]] = None,
         peer_deps: typing.Optional[typing.Sequence[builtins.str]] = None,
+        pnpm_options: typing.Optional[typing.Union["_javascript_eb5dbe11.PnpmOptions", typing.Dict[builtins.str, typing.Any]]] = None,
         pnpm_version: typing.Optional[builtins.str] = None,
         repository: typing.Optional[builtins.str] = None,
         repository_directory: typing.Optional[builtins.str] = None,
@@ -6112,6 +6181,7 @@ class ConstructLibrary(
         :param vscode: (experimental) Enable VSCode integration. Enabled by default for root projects. Disabled for non-root projects. Default: true
         :param add_package_manager_to_dev_engines: (experimental) Automatically add the resolved ``packageManager`` to ``devEngines.packageManager`` in ``package.json``, setting ``onFail`` to ``ignore``. Default: true
         :param allow_library_dependencies: (experimental) Allow the project to include ``peerDependencies`` and ``bundledDependencies``. This is normally only allowed for libraries. For apps, there's no meaning for specifying these. Default: true
+        :param allow_scripts: (experimental) List of dependency (package) names that are allowed to run lifecycle install scripts (``preinstall``, ``install``, ``postinstall``, ``prepare``) during dependency installation. These scripts can execute arbitrary code, making them a common supply-chain attack vector. Package managers are moving toward blocking them by default and requiring an explicit allowlist. Configuring ``allowScripts`` sets up that allowlist so scripts only run for the packages you have explicitly reviewed and trust. Support for this setting depends on the configured ``packageManager``: - ``NPM``: written to the native ``allowScripts`` field in ``package.json`` (requires npm >= 11.16; see https://docs.npmjs.com/cli/v11/commands/npm-approve-scripts). - ``BUN``: written to the native ``trustedDependencies`` field in ``package.json`` (see https://bun.com/docs/pm/lifecycle). - ``PNPM``: written to the ``onlyBuiltDependencies`` setting in ``pnpm-workspace.yaml`` (see https://pnpm.io/settings#onlybuiltdependencies). - ``YARN2``, ``YARN_BERRY``: written to the native ``dependenciesMeta.<pkg>.built`` allowlist in ``package.json``, combined with ``enableScripts: false`` in ``.yarnrc.yml`` (see https://yarnpkg.com/features/security#postinstalls). If you set ``yarnBerryOptions.yarnRcOptions.enableScripts`` explicitly, that value is respected instead of being overridden. - ``YARN``, ``YARN_CLASSIC``: not supported. Yarn Classic has no native mechanism to allowlist install scripts for specific dependencies. Setting this option with one of these package managers throws an error at synthesis time. Default: - all install scripts are allowed to run (package manager default)
         :param author_email: (experimental) Author's e-mail.
         :param author_name: (experimental) Author's name.
         :param author_organization: (experimental) Is the author an organization.
@@ -6144,6 +6214,7 @@ class ConstructLibrary(
         :param package_name: (experimental) The "name" in package.json. Default: - defaults to project name
         :param peer_dependency_options: (experimental) Options for ``peerDeps``.
         :param peer_deps: (experimental) Peer dependencies for this module. Dependencies listed here are required to be installed (and satisfied) by the *consumer* of this library. Using peer dependencies allows you to ensure that only a single module of a certain library exists in the ``node_modules`` tree of your consumers. Note that prior to npm@7, peer dependencies are *not* automatically installed, which means that adding peer dependencies to a library will be a breaking change for your customers. Unless ``peerDependencyOptions.pinnedDevDependency`` is disabled (it is enabled by default), projen will automatically add a dev dependency with a pinned version for each peer dependency. This will ensure that you build & test your module against the lowest peer version required. Default: []
+        :param pnpm_options: (experimental) Options for pnpm. Default: - all default options
         :param pnpm_version: (experimental) The version of PNPM to use if using PNPM as a package manager. Default: "10.33.0"
         :param repository: (experimental) The repository is the location where the actual code for your package lives. See https://classic.yarnpkg.com/en/docs/package-json/#toc-repository
         :param repository_directory: (experimental) If the package.json for your package is not in the root directory (for example if it is part of a monorepo), you can specify the directory in which it lives.
@@ -6280,6 +6351,7 @@ class ConstructLibrary(
             vscode=vscode,
             add_package_manager_to_dev_engines=add_package_manager_to_dev_engines,
             allow_library_dependencies=allow_library_dependencies,
+            allow_scripts=allow_scripts,
             author_email=author_email,
             author_name=author_name,
             author_organization=author_organization,
@@ -6312,6 +6384,7 @@ class ConstructLibrary(
             package_name=package_name,
             peer_dependency_options=peer_dependency_options,
             peer_deps=peer_deps,
+            pnpm_options=pnpm_options,
             pnpm_version=pnpm_version,
             repository=repository,
             repository_directory=repository_directory,
@@ -6399,6 +6472,7 @@ typing.cast(typing.Any, ConstructLibrary).__jsii_proxy_class__ = lambda : _Const
         "vscode": "vscode",
         "add_package_manager_to_dev_engines": "addPackageManagerToDevEngines",
         "allow_library_dependencies": "allowLibraryDependencies",
+        "allow_scripts": "allowScripts",
         "author_email": "authorEmail",
         "author_name": "authorName",
         "author_organization": "authorOrganization",
@@ -6431,6 +6505,7 @@ typing.cast(typing.Any, ConstructLibrary).__jsii_proxy_class__ = lambda : _Const
         "package_name": "packageName",
         "peer_dependency_options": "peerDependencyOptions",
         "peer_deps": "peerDeps",
+        "pnpm_options": "pnpmOptions",
         "pnpm_version": "pnpmVersion",
         "repository": "repository",
         "repository_directory": "repositoryDirectory",
@@ -6569,6 +6644,7 @@ class ConstructLibraryOptions(JsiiProjectOptions):
         vscode: typing.Optional[builtins.bool] = None,
         add_package_manager_to_dev_engines: typing.Optional[builtins.bool] = None,
         allow_library_dependencies: typing.Optional[builtins.bool] = None,
+        allow_scripts: typing.Optional[typing.Sequence[builtins.str]] = None,
         author_email: typing.Optional[builtins.str] = None,
         author_name: typing.Optional[builtins.str] = None,
         author_organization: typing.Optional[builtins.bool] = None,
@@ -6601,6 +6677,7 @@ class ConstructLibraryOptions(JsiiProjectOptions):
         package_name: typing.Optional[builtins.str] = None,
         peer_dependency_options: typing.Optional[typing.Union["_javascript_eb5dbe11.PeerDependencyOptions", typing.Dict[builtins.str, typing.Any]]] = None,
         peer_deps: typing.Optional[typing.Sequence[builtins.str]] = None,
+        pnpm_options: typing.Optional[typing.Union["_javascript_eb5dbe11.PnpmOptions", typing.Dict[builtins.str, typing.Any]]] = None,
         pnpm_version: typing.Optional[builtins.str] = None,
         repository: typing.Optional[builtins.str] = None,
         repository_directory: typing.Optional[builtins.str] = None,
@@ -6735,6 +6812,7 @@ class ConstructLibraryOptions(JsiiProjectOptions):
         :param vscode: (experimental) Enable VSCode integration. Enabled by default for root projects. Disabled for non-root projects. Default: true
         :param add_package_manager_to_dev_engines: (experimental) Automatically add the resolved ``packageManager`` to ``devEngines.packageManager`` in ``package.json``, setting ``onFail`` to ``ignore``. Default: true
         :param allow_library_dependencies: (experimental) Allow the project to include ``peerDependencies`` and ``bundledDependencies``. This is normally only allowed for libraries. For apps, there's no meaning for specifying these. Default: true
+        :param allow_scripts: (experimental) List of dependency (package) names that are allowed to run lifecycle install scripts (``preinstall``, ``install``, ``postinstall``, ``prepare``) during dependency installation. These scripts can execute arbitrary code, making them a common supply-chain attack vector. Package managers are moving toward blocking them by default and requiring an explicit allowlist. Configuring ``allowScripts`` sets up that allowlist so scripts only run for the packages you have explicitly reviewed and trust. Support for this setting depends on the configured ``packageManager``: - ``NPM``: written to the native ``allowScripts`` field in ``package.json`` (requires npm >= 11.16; see https://docs.npmjs.com/cli/v11/commands/npm-approve-scripts). - ``BUN``: written to the native ``trustedDependencies`` field in ``package.json`` (see https://bun.com/docs/pm/lifecycle). - ``PNPM``: written to the ``onlyBuiltDependencies`` setting in ``pnpm-workspace.yaml`` (see https://pnpm.io/settings#onlybuiltdependencies). - ``YARN2``, ``YARN_BERRY``: written to the native ``dependenciesMeta.<pkg>.built`` allowlist in ``package.json``, combined with ``enableScripts: false`` in ``.yarnrc.yml`` (see https://yarnpkg.com/features/security#postinstalls). If you set ``yarnBerryOptions.yarnRcOptions.enableScripts`` explicitly, that value is respected instead of being overridden. - ``YARN``, ``YARN_CLASSIC``: not supported. Yarn Classic has no native mechanism to allowlist install scripts for specific dependencies. Setting this option with one of these package managers throws an error at synthesis time. Default: - all install scripts are allowed to run (package manager default)
         :param author_email: (experimental) Author's e-mail.
         :param author_name: (experimental) Author's name.
         :param author_organization: (experimental) Is the author an organization.
@@ -6767,6 +6845,7 @@ class ConstructLibraryOptions(JsiiProjectOptions):
         :param package_name: (experimental) The "name" in package.json. Default: - defaults to project name
         :param peer_dependency_options: (experimental) Options for ``peerDeps``.
         :param peer_deps: (experimental) Peer dependencies for this module. Dependencies listed here are required to be installed (and satisfied) by the *consumer* of this library. Using peer dependencies allows you to ensure that only a single module of a certain library exists in the ``node_modules`` tree of your consumers. Note that prior to npm@7, peer dependencies are *not* automatically installed, which means that adding peer dependencies to a library will be a breaking change for your customers. Unless ``peerDependencyOptions.pinnedDevDependency`` is disabled (it is enabled by default), projen will automatically add a dev dependency with a pinned version for each peer dependency. This will ensure that you build & test your module against the lowest peer version required. Default: []
+        :param pnpm_options: (experimental) Options for pnpm. Default: - all default options
         :param pnpm_version: (experimental) The version of PNPM to use if using PNPM as a package manager. Default: "10.33.0"
         :param repository: (experimental) The repository is the location where the actual code for your package lives. See https://classic.yarnpkg.com/en/docs/package-json/#toc-repository
         :param repository_directory: (experimental) If the package.json for your package is not in the root directory (for example if it is part of a monorepo), you can specify the directory in which it lives.
@@ -6900,6 +6979,8 @@ class ConstructLibraryOptions(JsiiProjectOptions):
             dev_engines = _javascript_eb5dbe11.DevEngines(**dev_engines)
         if isinstance(peer_dependency_options, dict):
             peer_dependency_options = _javascript_eb5dbe11.PeerDependencyOptions(**peer_dependency_options)
+        if isinstance(pnpm_options, dict):
+            pnpm_options = _javascript_eb5dbe11.PnpmOptions(**pnpm_options)
         if isinstance(yarn_berry_options, dict):
             yarn_berry_options = _javascript_eb5dbe11.YarnBerryOptions(**yarn_berry_options)
         if isinstance(workflow_runs_on_group, dict):
@@ -6978,6 +7059,7 @@ class ConstructLibraryOptions(JsiiProjectOptions):
             check_type(argname="argument vscode", value=vscode, expected_type=type_hints["vscode"])
             check_type(argname="argument add_package_manager_to_dev_engines", value=add_package_manager_to_dev_engines, expected_type=type_hints["add_package_manager_to_dev_engines"])
             check_type(argname="argument allow_library_dependencies", value=allow_library_dependencies, expected_type=type_hints["allow_library_dependencies"])
+            check_type(argname="argument allow_scripts", value=allow_scripts, expected_type=type_hints["allow_scripts"])
             check_type(argname="argument author_email", value=author_email, expected_type=type_hints["author_email"])
             check_type(argname="argument author_name", value=author_name, expected_type=type_hints["author_name"])
             check_type(argname="argument author_organization", value=author_organization, expected_type=type_hints["author_organization"])
@@ -7010,6 +7092,7 @@ class ConstructLibraryOptions(JsiiProjectOptions):
             check_type(argname="argument package_name", value=package_name, expected_type=type_hints["package_name"])
             check_type(argname="argument peer_dependency_options", value=peer_dependency_options, expected_type=type_hints["peer_dependency_options"])
             check_type(argname="argument peer_deps", value=peer_deps, expected_type=type_hints["peer_deps"])
+            check_type(argname="argument pnpm_options", value=pnpm_options, expected_type=type_hints["pnpm_options"])
             check_type(argname="argument pnpm_version", value=pnpm_version, expected_type=type_hints["pnpm_version"])
             check_type(argname="argument repository", value=repository, expected_type=type_hints["repository"])
             check_type(argname="argument repository_directory", value=repository_directory, expected_type=type_hints["repository_directory"])
@@ -7174,6 +7257,8 @@ class ConstructLibraryOptions(JsiiProjectOptions):
             self._values["add_package_manager_to_dev_engines"] = add_package_manager_to_dev_engines
         if allow_library_dependencies is not None:
             self._values["allow_library_dependencies"] = allow_library_dependencies
+        if allow_scripts is not None:
+            self._values["allow_scripts"] = allow_scripts
         if author_email is not None:
             self._values["author_email"] = author_email
         if author_name is not None:
@@ -7238,6 +7323,8 @@ class ConstructLibraryOptions(JsiiProjectOptions):
             self._values["peer_dependency_options"] = peer_dependency_options
         if peer_deps is not None:
             self._values["peer_deps"] = peer_deps
+        if pnpm_options is not None:
+            self._values["pnpm_options"] = pnpm_options
         if pnpm_version is not None:
             self._values["pnpm_version"] = pnpm_version
         if repository is not None:
@@ -7787,6 +7874,42 @@ class ConstructLibraryOptions(JsiiProjectOptions):
         return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
+    def allow_scripts(self) -> typing.Optional[typing.List[builtins.str]]:
+        '''(experimental) List of dependency (package) names that are allowed to run lifecycle install scripts (``preinstall``, ``install``, ``postinstall``, ``prepare``) during dependency installation.
+
+        These scripts can execute arbitrary code, making them a common
+        supply-chain attack vector. Package managers are moving toward
+        blocking them by default and requiring an explicit allowlist.
+        Configuring ``allowScripts`` sets up that allowlist so scripts only run
+        for the packages you have explicitly reviewed and trust.
+
+        Support for this setting depends on the configured ``packageManager``:
+
+        - ``NPM``: written to the native ``allowScripts`` field in ``package.json``
+          (requires npm >= 11.16; see https://docs.npmjs.com/cli/v11/commands/npm-approve-scripts).
+        - ``BUN``: written to the native ``trustedDependencies`` field in
+          ``package.json`` (see https://bun.com/docs/pm/lifecycle).
+        - ``PNPM``: written to the ``onlyBuiltDependencies`` setting in
+          ``pnpm-workspace.yaml`` (see https://pnpm.io/settings#onlybuiltdependencies).
+        - ``YARN2``, ``YARN_BERRY``: written to the native
+          ``dependenciesMeta.<pkg>.built`` allowlist in ``package.json``, combined
+          with ``enableScripts: false`` in ``.yarnrc.yml`` (see
+          https://yarnpkg.com/features/security#postinstalls). If you set
+          ``yarnBerryOptions.yarnRcOptions.enableScripts`` explicitly, that value
+          is respected instead of being overridden.
+        - ``YARN``, ``YARN_CLASSIC``: not supported. Yarn Classic has no native
+          mechanism to allowlist install scripts for specific dependencies.
+          Setting this option with one of these package managers throws an
+          error at synthesis time.
+
+        :default: - all install scripts are allowed to run (package manager default)
+
+        :stability: experimental
+        '''
+        result = self._values.get("allow_scripts")
+        return typing.cast(typing.Optional[typing.List[builtins.str]], result)
+
+    @builtins.property
     def author_email(self) -> typing.Optional[builtins.str]:
         '''(experimental) Author's e-mail.
 
@@ -8226,6 +8349,17 @@ class ConstructLibraryOptions(JsiiProjectOptions):
         '''
         result = self._values.get("peer_deps")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
+
+    @builtins.property
+    def pnpm_options(self) -> typing.Optional["_javascript_eb5dbe11.PnpmOptions"]:
+        '''(experimental) Options for pnpm.
+
+        :default: - all default options
+
+        :stability: experimental
+        '''
+        result = self._values.get("pnpm_options")
+        return typing.cast(typing.Optional["_javascript_eb5dbe11.PnpmOptions"], result)
 
     @builtins.property
     def pnpm_version(self) -> typing.Optional[builtins.str]:
@@ -9768,6 +9902,7 @@ def _typecheckingstub__c8323b2edac3105e05d346954d0050d635763ca6b27825b5452fa3d2b
     vscode: typing.Optional[builtins.bool] = None,
     add_package_manager_to_dev_engines: typing.Optional[builtins.bool] = None,
     allow_library_dependencies: typing.Optional[builtins.bool] = None,
+    allow_scripts: typing.Optional[typing.Sequence[builtins.str]] = None,
     author_email: typing.Optional[builtins.str] = None,
     author_name: typing.Optional[builtins.str] = None,
     author_organization: typing.Optional[builtins.bool] = None,
@@ -9800,6 +9935,7 @@ def _typecheckingstub__c8323b2edac3105e05d346954d0050d635763ca6b27825b5452fa3d2b
     package_name: typing.Optional[builtins.str] = None,
     peer_dependency_options: typing.Optional[typing.Union[_javascript_eb5dbe11.PeerDependencyOptions, typing.Dict[builtins.str, typing.Any]]] = None,
     peer_deps: typing.Optional[typing.Sequence[builtins.str]] = None,
+    pnpm_options: typing.Optional[typing.Union[_javascript_eb5dbe11.PnpmOptions, typing.Dict[builtins.str, typing.Any]]] = None,
     pnpm_version: typing.Optional[builtins.str] = None,
     repository: typing.Optional[builtins.str] = None,
     repository_directory: typing.Optional[builtins.str] = None,
@@ -9955,6 +10091,7 @@ def _typecheckingstub__0faec4221ab7163e96a5287d81c7e28c1c8f831e5f79f595bd4a88cdd
     vscode: typing.Optional[builtins.bool] = None,
     add_package_manager_to_dev_engines: typing.Optional[builtins.bool] = None,
     allow_library_dependencies: typing.Optional[builtins.bool] = None,
+    allow_scripts: typing.Optional[typing.Sequence[builtins.str]] = None,
     author_email: typing.Optional[builtins.str] = None,
     author_name: typing.Optional[builtins.str] = None,
     author_organization: typing.Optional[builtins.bool] = None,
@@ -9987,6 +10124,7 @@ def _typecheckingstub__0faec4221ab7163e96a5287d81c7e28c1c8f831e5f79f595bd4a88cdd
     package_name: typing.Optional[builtins.str] = None,
     peer_dependency_options: typing.Optional[typing.Union[_javascript_eb5dbe11.PeerDependencyOptions, typing.Dict[builtins.str, typing.Any]]] = None,
     peer_deps: typing.Optional[typing.Sequence[builtins.str]] = None,
+    pnpm_options: typing.Optional[typing.Union[_javascript_eb5dbe11.PnpmOptions, typing.Dict[builtins.str, typing.Any]]] = None,
     pnpm_version: typing.Optional[builtins.str] = None,
     repository: typing.Optional[builtins.str] = None,
     repository_directory: typing.Optional[builtins.str] = None,

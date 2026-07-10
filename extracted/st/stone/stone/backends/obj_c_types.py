@@ -1,9 +1,8 @@
 import json
 import os
-import shutil
 
-import six
-
+from stone.backends.helpers import (
+    ensure_str, )
 from stone.backends.obj_c import (
     base_file_comment,
     comment_prefix,
@@ -83,7 +82,7 @@ class ObjCTypesBackend(ObjCBaseBackend):
 
     cmdline_parser = _cmdline_parser
     obj_name_to_namespace = {}  # type: typing.Dict[str, str]
-    namespace_to_has_route_auth_list = {}  # type: typing.Dict[typing.Any, typing.Set]
+    namespace_to_has_route_auth_list = {}  # type: typing.Dict[typing.Any, typing.List]
 
     def generate(self, api):
         """
@@ -99,26 +98,26 @@ class ObjCTypesBackend(ObjCBaseBackend):
             os.makedirs(rsrc_output_folder)
 
         self.logger.info('Copying DBStoneValidators.{h,m} to output folder')
-        shutil.copy(
+        self.copy_to_path(
             os.path.join(rsrc_folder, 'DBStoneValidators.h'),
             rsrc_output_folder)
-        shutil.copy(
+        self.copy_to_path(
             os.path.join(rsrc_folder, 'DBStoneValidators.m'),
             rsrc_output_folder)
         self.logger.info('Copying DBStoneSerializers.{h,m} to output folder')
-        shutil.copy(
+        self.copy_to_path(
             os.path.join(rsrc_folder, 'DBStoneSerializers.h'),
             rsrc_output_folder)
-        shutil.copy(
+        self.copy_to_path(
             os.path.join(rsrc_folder, 'DBStoneSerializers.m'),
             rsrc_output_folder)
         self.logger.info('Copying DBStoneBase.{h,m} to output folder')
-        shutil.copy(
+        self.copy_to_path(
             os.path.join(rsrc_folder, 'DBStoneBase.h'), rsrc_output_folder)
-        shutil.copy(
+        self.copy_to_path(
             os.path.join(rsrc_folder, 'DBStoneBase.m'), rsrc_output_folder)
         self.logger.info('Copying DBSerializableProtocol.h to output folder')
-        shutil.copy(
+        self.copy_to_path(
             os.path.join(rsrc_folder, 'DBSerializableProtocol.h'),
             rsrc_output_folder)
 
@@ -134,17 +133,24 @@ class ObjCTypesBackend(ObjCBaseBackend):
                 ns_dict = {"name": ns_name, "children": [], }
                 jazzy_cfg['custom_categories'].insert(idx, ns_dict)
 
+        namespace_to_has_route_auth_list = {}
+
         for namespace in api.namespaces.values():
-            self.namespace_to_has_route_auth_list[namespace] = set()
+            namespace_to_has_route_auth_list[namespace] = set()
             if namespace.routes:
                 for route in namespace.routes:
                     auth_types = set(map(lambda x: x.strip(), route.attrs.get('auth').split(',')))
                     if 'noauth' not in auth_types:
-                        self.namespace_to_has_route_auth_list[namespace].add(
+                        namespace_to_has_route_auth_list.setdefault(namespace, set()).add(
                             route.attrs.get('auth'))
                     else:
-                        self.namespace_to_has_route_auth_list[namespace].add(
+                        namespace_to_has_route_auth_list.setdefault(namespace, set()).add(
                             'user')
+
+        self.namespace_to_has_route_auth_list = {
+            k: sorted(v)
+            for k, v in namespace_to_has_route_auth_list.items()
+        }
 
         with self.output_to_relative_path('DBSDKImportsGenerated.h'):
             self._generate_all_imports(api)
@@ -915,7 +921,7 @@ class ObjCTypesBackend(ObjCBaseBackend):
                          if data_type.min_length else 'nil'),
                         ('maxLength', '@({})'.format(data_type.max_length)
                          if data_type.max_length else 'nil'),
-                        ('pattern', '@"{}"'.format(six.ensure_str(pattern))
+                        ('pattern', '@"{}"'.format(ensure_str(pattern))
                          if pattern else 'nil'),
                     ]))
 

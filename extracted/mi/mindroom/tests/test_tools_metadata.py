@@ -36,10 +36,10 @@ from mindroom.tool_system.metadata import (
     deserialize_tool_validation_snapshot,
     export_tools_metadata,
     get_tool_by_name,
-    register_tool_with_metadata,
     resolved_tool_validation_snapshot_for_runtime,
     serialize_tool_validation_snapshot,
 )
+from mindroom.tool_system.registration import register_tool_with_metadata
 from mindroom.tool_system.registry_state import (
     BUILTIN_TOOL_METADATA,
     BUILTIN_TOOL_REGISTRY,
@@ -57,7 +57,7 @@ from mindroom.tools.custom_api import custom_api_tools
 _BASE_TOOL_REGISTRY = TOOL_REGISTRY.copy()
 _BASE_TOOL_METADATA = TOOL_METADATA.copy()
 _SKIP_PARALLEL_FACTORY_IMPORTS = {"daytona", "openbb"}
-_OPTIONAL_TOOL_IMPORTS = frozenset({"telegram"})
+_OPTIONAL_TOOL_IMPORTS = frozenset({"scrapegraph", "telegram"})
 
 
 def _restore_builtin_tool_metadata_state() -> None:

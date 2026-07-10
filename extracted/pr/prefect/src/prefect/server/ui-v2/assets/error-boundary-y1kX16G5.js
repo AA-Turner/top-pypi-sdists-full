@@ -1,0 +1,2 @@
+import{r as e}from"./rolldown-runtime-QTnfLwEv.js";import{s as t}from"./vendor-codemirror-CLqq8XWe.js";var n=e(t(),1),r=class extends n.Component{constructor(e){super(e),this.state={hasError:!1,error:null}}static getDerivedStateFromError(e){return{hasError:!0,error:e}}render(){if(this.state.hasError){let{fallback:e}=this.props;return typeof e==`function`?e(this.state.error??Error(`Unknown error`)):e}return this.props.children}};export{r as t};
+//# sourceMappingURL=error-boundary-y1kX16G5.js.map

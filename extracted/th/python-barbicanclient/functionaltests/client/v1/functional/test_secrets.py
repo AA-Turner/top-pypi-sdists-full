@@ -18,6 +18,8 @@ import datetime
 import sys
 import time
 
+from oslo_utils import timeutils
+
 from barbicanclient import exceptions
 from functionaltests.client import base
 from functionaltests.common import cleanup
@@ -297,12 +299,13 @@ class SecretsTestCase(base.TestCase):
         self.cleanup.delete_entity(secret_ref)
 
     @testcase.attr('negative')
-    def test_secret_delete_with_consumers_no_force(self):
-        """Deleting a secret with consumers.
+    def test_secret_delete_with_consumers_no_force_version_1_1(self):
+        """Deleting a secret with consumers using microversion 1.1
 
         Tries to delete a secret with consumers, but
         without providing the 'force' parameter.
         """
+        self.barbicanclient._set_microversion('1.1')
         secret_ref = self._create_test_secret()
 
         secret = self.barbicanclient.secrets.register_consumer(
@@ -313,19 +316,63 @@ class SecretsTestCase(base.TestCase):
         )
         self.assertEqual(secret_ref, secret.secret_ref)
 
-        e = self.assertRaises(ValueError, self.barbicanclient.secrets.delete,
-                              secret.secret_ref)
-
-        self.assertIn("Secret has consumers! Remove them first or use the "
-                      "force parameter to delete it.", str(e))
+        self.assertRaises(exceptions.SecretHasConsumers,
+                          self.barbicanclient.secrets.delete,
+                          secret.secret_ref)
 
     @testcase.attr('positive')
-    def test_secret_delete_with_consumers_with_force(self):
-        """Deleting a secret with consumers.
+    def test_secret_delete_with_consumers_with_force_version_1_1(self):
+        """Deleting a secret with consumers using microversion 1.1
 
         Tries to delete a secret with consumers,
         making the 'force' parameter equals True.
         """
+        self.barbicanclient._set_microversion('1.1')
+        secret_ref = self._create_test_secret()
+
+        secret = self.barbicanclient.secrets.register_consumer(
+            secret_ref,
+            service="service1",
+            resource_type="type1",
+            resource_id="id1"
+        )
+        self.assertEqual(secret_ref, secret.secret_ref)
+
+        self.barbicanclient.secrets.delete(secret.secret_ref, True)
+        resp = self.barbicanclient.secrets.get(secret_ref)
+        self.assertRaises(exceptions.HTTPClientError, getattr, resp, "name")
+        self.cleanup.delete_entity(secret_ref)
+
+    @testcase.attr('negative')
+    def test_secret_delete_with_consumers_no_force_version_1_2(self):
+        """Deleting a secret with consumers using microversion 1.2
+
+        Tries to delete a secret with consumers, but
+        without providing the 'force' parameter.
+        """
+        self.barbicanclient._set_microversion('1.2')
+        secret_ref = self._create_test_secret()
+
+        secret = self.barbicanclient.secrets.register_consumer(
+            secret_ref,
+            service="service1",
+            resource_type="type1",
+            resource_id="id1"
+        )
+        self.assertEqual(secret_ref, secret.secret_ref)
+
+        self.assertRaises(exceptions.SecretHasConsumers,
+                          self.barbicanclient.secrets.delete,
+                          secret.secret_ref)
+
+    @testcase.attr('positive')
+    def test_secret_delete_with_consumers_with_force_version_1_2(self):
+        """Deleting a secret with consumers using microversion 1.2
+
+        Tries to delete a secret with consumers,
+        making the 'force' parameter equals True.
+        """
+        self.barbicanclient._set_microversion('1.2')
         secret_ref = self._create_test_secret()
 
         secret = self.barbicanclient.secrets.register_consumer(
@@ -1157,7 +1204,7 @@ class SecretsTestCase(base.TestCase):
     })
     @testcase.attr('positive')
     def test_secret_list_with_date_filter(self, date_type):
-        now = datetime.datetime.utcnow()
+        now = timeutils.utcnow()
         expiration_1 = (now + datetime.timedelta(days=3)).isoformat()
         expiration_2 = (now + datetime.timedelta(days=5)).isoformat()
         secret_1 = self.barbicanclient.secrets.create(expiration=expiration_1)

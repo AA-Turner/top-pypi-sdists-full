@@ -99,7 +99,9 @@ def get_editor_bp(controller: MainController):
         email = None
         if EDITOR_MODE != "local":
             token = flask.request.cookies.get("editor_auth")
-            claims = decode_jwt(token, aud=f"web-editor-{PROJECT_ID}")
+            claims = (
+                decode_jwt(token, aud=f"web-editor-{PROJECT_ID}") if token else None
+            )
             if not claims:
                 return flask.make_response({"ok": False, "error": "Invalid token"}, 403)
             email = claims.get("email")

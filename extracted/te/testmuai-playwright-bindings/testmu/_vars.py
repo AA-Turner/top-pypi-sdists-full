@@ -83,6 +83,12 @@ def set_var(name, value):
     if name.startswith(_GLOBAL_PREFIX):
         bare = name[len(_GLOBAL_PREFIX):]
         _variable_store[bare] = value
+        # Session snapshot updates unconditionally (in-product runtime parity:
+        # session data always reflects the latest generated value; is_persist
+        # only gates the TMS write). resolveGlobal's is_persist=false fallback
+        # reads this — without the upsert it returns the authoring-time value
+        # baked into configure(global_variables=[...]).
+        _update_session_variable_value(bare, value)
         from testmu import _config
         if _config.lt_auth:
             _atms_persist_global_variable(bare, value)
@@ -509,8 +515,11 @@ def _atms_persist_global_variable(name, value):
         resp = requests.put(url=url, headers=_atms_auth_headers(), json=payload)
         if resp.status_code == 200:
             _log.info(f"global.{name} persisted to ATMS")
-        elif resp.status_code == 403:
-            _log.info(f"global.{name} not persist-enabled (403) — session value only")
+        elif resp.status_code in (403, 500):
+            # ATMS rejects the write-back for persist-off variables (403 by
+            # design, 500 observed in practice). Not an error: the session
+            # value is already updated locally, so just say persistence is off.
+            _log.info(f"global.{name} variable persistence is off — session value only")
         else:
             _log.warning(f"ATMS persist for global.{name} failed ({resp.status_code}): {resp.text}")
     except Exception as exc:
@@ -528,6 +537,21 @@ def _session_variable_value(name):
         if gv.get("name") == name:
             return gv.get("session_value", gv.get("value"))
     return None
+
+
+def _update_session_variable_value(name, value):
+    """Upsert the session snapshot for a global variable (bare name).
+
+    Mirrors the in-product runtime: the session value always tracks the latest
+    generated value, independent of is_persist. Entries missing from the baked
+    configure() metadata are appended so a later is_persist=false read still
+    finds the runtime value.
+    """
+    for gv in _global_variables:
+        if gv.get("name") == name:
+            gv["session_value"] = value
+            return
+    _global_variables.append({"name": name, "session_value": value})
 
 
 # ---------------------------------------------------------------------------

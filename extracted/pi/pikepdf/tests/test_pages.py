@@ -173,12 +173,12 @@ def test_slice_unequal_replacement(fourpages, sandwich, outdir):
 
     assert len(pdf.pages) == 2, "number of pages must be changed"
     pdf.save(outdir / 'out.pdf')
-    assert (
-        pdf.pages[0].Contents.Length == page0_content_len
-    ), "page 0 should be unchanged"
-    assert (
-        pdf.pages[1].Contents.Length != page1_content_len
-    ), "page 1's contents should have changed"
+    assert pdf.pages[0].Contents.Length == page0_content_len, (
+        "page 0 should be unchanged"
+    )
+    assert pdf.pages[1].Contents.Length != page1_content_len, (
+        "page 1's contents should have changed"
+    )
 
 
 def test_slice_with_step(fourpages, sandwich, outdir):
@@ -277,9 +277,9 @@ def test_emplace(fourpages):
         if k != Name.Parent:
             assert fourpages.pages[0][k] == fourpages.pages[1][k], "Key not copied"
         else:
-            assert (
-                fourpages.pages[0][k] == Name.ParentWillBeRetained
-            ), "Retained key not retained"
+            assert fourpages.pages[0][k] == Name.ParentWillBeRetained, (
+                "Retained key not retained"
+            )
     assert Name.SpecialKey not in fourpages.pages[0]
     assert repr_fourpages_1 == repr(fourpages.pages[1]), "Source page was modified"
 
@@ -471,7 +471,12 @@ def test_page_index_foreign_page(fourpages, sandwich):
         (lambda: Dictionary(P='A-', S=Name.D, St=2), 'A-2', None, None),
         (lambda: Dictionary(S=Name.R, St=42), 'XLII', None, None),
         (lambda: Dictionary(S=Name.r, St=1729), 'mdccxxix', None, None),
-        (lambda: Dictionary(P="Appendix-", S=Name.a, St=261), 'Appendix-ja', None, None),
+        (
+            lambda: Dictionary(P="Appendix-", S=Name.a, St=261),
+            'Appendix-ja',
+            None,
+            None,
+        ),
         (lambda: 42, '42', None, None),
         (lambda: Dictionary(S=Name.R, St=-42), None, ValueError, "Can't represent"),
         (lambda: Dictionary(S=Name.A, St=-42), None, ValueError, "Can't represent"),

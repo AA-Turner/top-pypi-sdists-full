@@ -5,7 +5,7 @@
 import json
 from dataclasses import dataclass
 from enum import Enum
-from typing import List, Union
+from typing import TYPE_CHECKING, List, Union
 
 import pyspark.sql.connect.proto.types_pb2 as types_proto
 
@@ -36,6 +36,14 @@ from snowflake.snowpark_connect.resources_initializer import (
     SPARK_SQL_JAR_213,
 )
 from snowflake.snowpark_connect.typed_column import TypedColumn
+from snowflake.snowpark_connect.utils.variant_utils import (
+    epoch_to_temporal_col,
+    jvm_udf_arg_to_variant,
+    temporal_to_epoch_col,
+)
+
+if TYPE_CHECKING:
+    from snowflake.snowpark_connect.utils.udf_helper import SnowparkUdfBase
 
 
 @dataclass(frozen=True)
@@ -295,7 +303,9 @@ def map_type_to_java_type(
             raise exception
 
 
-_NATIVE_SNOWPARK_TYPES = (
+# Native types passed to the Java UDF as their own SQL type, unchanged. DecimalType is
+# native too but guarded on precision/scale, so it is classified in jvm_marshal_kind.
+_DIRECT_NATIVE_TYPES = (
     snowpark_type.BooleanType,
     snowpark_type.ByteType,
     snowpark_type.ShortType,
@@ -304,14 +314,112 @@ _NATIVE_SNOWPARK_TYPES = (
     snowpark_type.FloatType,
     snowpark_type.DoubleType,
     snowpark_type.StringType,
-    # BinaryType excluded: Snowflake stores binary data as VARIANT internally,
-    # so the call-site passes VARIANT even when the column type is BINARY.
+    # Binary maps directly to BINARY / byte[].
+    snowpark_type.BinaryType,
 )
+
+# Native types whose wire representation is an epoch number (INT/BIGINT), not their own
+# SQL type: lowered via temporal_to_epoch_col on the call-site and reconstructed via
+# epoch_to_temporal_col on the return side.
+_EPOCH_NATIVE_TYPES = (
+    snowpark_type.DateType,
+    snowpark_type.TimestampType,
+    snowpark_type.YearMonthIntervalType,
+    snowpark_type.DayTimeIntervalType,
+)
+
+
+class JvmMarshalKind(Enum):
+    """How a Snowpark type crosses the boundary to a JVM (Scala/Java) UDF.
+
+    Single source of truth for the native-fast-path type taxonomy: the encode/decode
+    primitives, the predicates, and the DDL/Java type mappers all classify a type once
+    via ``jvm_marshal_kind`` instead of repeating the rules.
+    """
+
+    DIRECT = "direct"  # native SQL type, passed unchanged
+    EPOCH = "epoch"  # temporal/interval, passed as epoch INT/BIGINT, reconstructed on return
+    VARIANT = "variant"  # non-native, VARIANT round-trip
+
+
+class UdfKind(Enum):
+    """Kind of UDF, used to select the encode-args → call → decode-result contract.
+
+    Each value corresponds to a distinct UDF registration mechanism and boundary protocol:
+
+    * ``SCALA_UDF``         – Scala scalar UDF: temporals lowered to epoch INT/BIGINT,
+      non-native types wrapped in VARIANT, struct args expanded per-field;
+      ``decode_jvm_udf_result`` reconstructs the declared type on return.
+    * ``JAVA_UDAF``         – Scala/Java UDAF: same JVM encoding as SCALA_UDF but struct
+      arguments are never decomposed (the UDAF accumulator receives the whole VARIANT).
+    * ``PYTHON_REGISTERED`` – Python UDF registered via ``spark.udf.register``: each
+      argument is cast to VARIANT (DDL params default to VARIANT); a VARIANT-backed
+      return is cast back.
+    * ``JAVA_SCALAR``       – Java UDF registered via ``spark.udf.registerJavaFunction``:
+      same VARIANT-boundary protocol as PYTHON_REGISTERED.
+    * ``PYTHON_INLINE``     – Inline Python UDF (``df.mapPartitions`` etc.): arguments
+      pass through unchanged; a VARIANT-backed Map/Struct return is reconstructed via
+      PARSE_JSON then cast.
+    """
+
+    SCALA_UDF = "scala_udf"
+    JAVA_UDAF = "java_udaf"
+    PYTHON_REGISTERED = "python_registered"
+    JAVA_SCALAR = "java_scalar"
+    PYTHON_INLINE = "python_inline"
+
+
+def jvm_marshal_kind(dt: snowpark_type.DataType | None) -> JvmMarshalKind:
+    """Classify how ``dt`` is marshalled across the JVM UDF boundary."""
+    if isinstance(dt, _EPOCH_NATIVE_TYPES):
+        return JvmMarshalKind.EPOCH
+    if isinstance(dt, _DIRECT_NATIVE_TYPES):
+        return JvmMarshalKind.DIRECT
+    if isinstance(dt, snowpark_type.DecimalType):
+        if dt.scale > dt.precision:
+            raise ValueError(
+                f"Invalid DecimalType: scale ({dt.scale}) cannot be greater than "
+                f"precision ({dt.precision})"
+            )
+        if 1 <= dt.precision <= 38:
+            return JvmMarshalKind.DIRECT
+    return JvmMarshalKind.VARIANT
 
 
 def is_native_sql_type(dt: snowpark_type.DataType | None) -> bool:
     """Returns True for types Snowflake can pass natively to Java UDFs without VARIANT."""
-    return isinstance(dt, _NATIVE_SNOWPARK_TYPES)
+    return jvm_marshal_kind(dt) in (JvmMarshalKind.DIRECT, JvmMarshalKind.EPOCH)
+
+
+def needs_epoch_lowering(dt: snowpark_type.DataType | None) -> bool:
+    """True for native temporal/interval types whose wire form is an epoch INT/BIGINT.
+
+    These are passed as epoch values to the UDF and reconstructed on the return side,
+    instead of as their native SQL type (DATE/TIMESTAMP/INTERVAL).
+    """
+    return jvm_marshal_kind(dt) is JvmMarshalKind.EPOCH
+
+
+def encode_jvm_udf_arg(
+    col: snowpark.Column, typ: snowpark_type.DataType
+) -> snowpark.Column:
+    """Encode a scalar (non-decomposed) JVM UDF argument into the form its native DDL
+    parameter expects:
+
+      * EPOCH   temporal / interval → epoch INT/BIGINT (temporal_to_epoch_col)
+      * DIRECT  other native types  → passed through unchanged
+      * VARIANT non-native types    → VARIANT round-trip (jvm_udf_arg_to_variant)
+
+    Inverse of ``decode_jvm_udf_result``. Shared by the registered-UDF
+    (map_unresolved_function), inline-UDF (map_udf), struct-field
+    (expand_struct_arg_for_jvm_udf), and UDTF (map_map_partitions) call sites.
+    """
+    kind = jvm_marshal_kind(typ)
+    if kind is JvmMarshalKind.EPOCH:
+        return temporal_to_epoch_col(col, typ)
+    if kind is JvmMarshalKind.DIRECT:
+        return col
+    return jvm_udf_arg_to_variant(col, typ)
 
 
 def is_decomposable_struct(dt: snowpark_type.DataType | None) -> bool:
@@ -320,7 +428,11 @@ def is_decomposable_struct(dt: snowpark_type.DataType | None) -> bool:
 
 
 def map_type_to_snowflake_native_sql_type(dt: snowpark_type.DataType) -> str:
-    """Maps a native-compatible Snowpark type to its Snowflake SQL DDL type string."""
+    """Maps a native-compatible Snowpark type to its Snowflake SQL DDL type string.
+
+    Temporal/interval types use an epoch numeric type (INT/BIGINT), not the SQL temporal
+    type, so the Scala handler always receives a plain Long.
+    """
     match type(dt):
         case snowpark_type.BooleanType:
             return "BOOLEAN"
@@ -338,6 +450,21 @@ def map_type_to_snowflake_native_sql_type(dt: snowpark_type.DataType) -> str:
             return "DOUBLE"
         case snowpark_type.StringType:
             return "VARCHAR"
+        # Temporal: epoch days (INT) or epoch microseconds / total microseconds (BIGINT).
+        case snowpark_type.DateType:
+            return "INT"
+        case snowpark_type.TimestampType:
+            return "BIGINT"
+        case snowpark_type.YearMonthIntervalType:
+            return "INT"
+        case snowpark_type.DayTimeIntervalType:
+            return "BIGINT"
+        # Binary: direct native mapping.
+        case snowpark_type.BinaryType:
+            return "BINARY"
+        # Decimal: carry precision/scale.
+        case snowpark_type.DecimalType:
+            return f"NUMBER({dt.precision},{dt.scale})"
         case _:
             raise ValueError(
                 f"map_type_to_snowflake_native_sql_type called with non-native type {dt!r}; "
@@ -350,6 +477,7 @@ def map_type_to_native_java_type(dt: snowpark_type.DataType) -> str:
 
     Integer SQL types (TINYINT/SMALLINT/INT/BIGINT) → Java Long (Snowflake always passes Long
     for fixed-point numbers). Float/Double → Java Double (Snowflake FLOAT is 64-bit).
+    Temporal/interval types are passed as epoch INT/BIGINT, so they also map to Long.
     """
     match type(dt):
         case snowpark_type.BooleanType:
@@ -361,10 +489,19 @@ def map_type_to_native_java_type(dt: snowpark_type.DataType) -> str:
             | snowpark_type.ShortType
             | snowpark_type.IntegerType
             | snowpark_type.LongType
+            # Temporal types passed as epoch INT/BIGINT → Long.
+            | snowpark_type.DateType
+            | snowpark_type.TimestampType
+            | snowpark_type.YearMonthIntervalType
+            | snowpark_type.DayTimeIntervalType
         ):
             return "Long"
         case snowpark_type.FloatType | snowpark_type.DoubleType:
             return "Double"
+        case snowpark_type.BinaryType:
+            return "byte[]"
+        case snowpark_type.DecimalType:
+            return "java.math.BigDecimal"
         case _:
             return "Variant"
 
@@ -406,7 +543,7 @@ def gen_pre_narrow_expr(dt: snowpark_type.DataType, arg_name: str) -> str:
             return arg_name  # Long, Double, Boolean, String: no narrowing needed
 
 
-def expand_struct_arg_for_scala_udf(
+def expand_struct_arg_for_jvm_udf(
     tc: TypedColumn,
     column_mapping: ColumnNameMap,
 ) -> list:
@@ -426,8 +563,6 @@ def expand_struct_arg_for_scala_udf(
     name.  The alias wrapper is stripped before subscript access because Snowflake error
     1301 forbids aliases in sub-expression position.
     """
-    from snowflake.snowpark_connect.utils.variant_utils import scala_udf_arg_to_variant
-
     # Strip any Alias wrapper before classifying the expression.  Aliases are only valid
     # at the SELECT-list root in Snowflake; carrying one into a sub-expression (e.g.
     # col("person").alias("p")["name"]) raises error 1301.  An aliased column reference
@@ -472,8 +607,65 @@ def expand_struct_arg_for_scala_udf(
             )
         else:
             field_col = struct_col[f.name]
-        if is_native_sql_type(f.datatype):
-            result.append(field_col)
-        else:
-            result.append(scala_udf_arg_to_variant(field_col, f.datatype))
+        result.append(encode_jvm_udf_arg(field_col, f.datatype))
     return result
+
+
+def encode_jvm_udf_args(
+    udf: "SnowparkUdfBase",
+    typed_args: list[TypedColumn],
+    column_mapping: ColumnNameMap,
+) -> list:
+    """Encode all arguments of a JVM (Scala) UDF for its native call signature.
+
+    Owns the per-argument decision shared by the registered-UDF (map_unresolved_function)
+    and inline-UDF (map_udf) call sites: a decomposable struct expands to per-field columns
+    (each encoded via expand_struct_arg_for_jvm_udf), every other argument is encoded with
+    encode_jvm_udf_arg. UDAFs never decompose their struct argument.
+    """
+    out: list = []
+    for position, tc in enumerate(typed_args):
+        if udf.kind is not UdfKind.JAVA_UDAF and udf.decomposes_struct_arg(
+            position, tc.typ
+        ):
+            out.extend(expand_struct_arg_for_jvm_udf(tc, column_mapping))
+        else:
+            out.append(encode_jvm_udf_arg(tc.col, tc.typ))
+    return out
+
+
+def jvm_return_needs_decode(
+    processed_rt: snowpark_type.DataType,
+    original_rt: snowpark_type.DataType,
+) -> bool:
+    """True when a JVM UDF's raw result must be reconstructed to its declared type.
+
+    Decode is needed unless the DDL already returns the declared type directly: a
+    non-DIRECT processed type means the DDL returns VARIANT (non-native) or an epoch
+    INT/BIGINT (temporal), and a processed type differing from the declared one needs a
+    narrowing cast.
+    """
+    return (
+        jvm_marshal_kind(processed_rt) is not JvmMarshalKind.DIRECT
+        or processed_rt != original_rt
+    )
+
+
+def decode_jvm_udf_result(
+    col: snowpark.Column, return_type: snowpark_type.DataType
+) -> snowpark.Column:
+    """Reconstruct a JVM UDF / UDTF native-path result column to its declared type.
+
+    Per-value inverse of encode_jvm_udf_arg, dispatched purely on the type's marshal kind:
+
+      * EPOCH           → epoch_to_temporal_col (epoch INT/BIGINT → temporal/interval)
+      * DIRECT / VARIANT → cast to the declared type (the cast also un-wraps a
+        VARIANT-backed array/map/struct result)
+
+    Used by SnowparkUdfBase.call_and_marshal (scalar UDFs) and output_struct_utils
+    (UDTF output). The Scala encode end's counterpart is
+    UdfPacketUtils.encodeTemporalToEpoch.
+    """
+    if jvm_marshal_kind(return_type) is JvmMarshalKind.EPOCH:
+        return epoch_to_temporal_col(col, return_type)
+    return col.cast(return_type)

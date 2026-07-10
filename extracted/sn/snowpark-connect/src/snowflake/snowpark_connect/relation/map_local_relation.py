@@ -27,7 +27,7 @@ from snowflake.snowpark_connect.error.error_codes import ErrorCodes
 from snowflake.snowpark_connect.error.error_utils import attach_custom_error_code
 from snowflake.snowpark_connect.execute_plan.utils import _relax_pa_schema_for_nulls
 from snowflake.snowpark_connect.type_mapping import (
-    get_python_sql_utils_class,
+    _parse_ddl_with_spark_scala,
     map_json_schema_to_snowpark,
     map_pyarrow_to_snowpark_types,
     map_simple_types,
@@ -48,7 +48,7 @@ def parse_local_relation_schema_string(rel: relation_proto.Relation):
         schema_dict = json.loads(schema_str)
     except JSONDecodeError:
         # Legacy scala clients sends unparsed struct type strings like "struct<id:bigint,a:int,b:double>"
-        spark_datatype = get_python_sql_utils_class().parseDataType(schema_str)
+        spark_datatype = _parse_ddl_with_spark_scala(schema_str)
         schema_dict = json.loads(spark_datatype.json())
 
     column_metadata = {}

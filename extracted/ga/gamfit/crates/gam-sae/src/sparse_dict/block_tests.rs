@@ -366,7 +366,8 @@ fn near_orthogonal_row_is_orphaned_by_gate_floor() {
     let mut x = Array2::<f32>::zeros((1, p));
     x[[0, 2]] = 1.0;
 
-    let codes = route_and_code_all(x.view(), decoder.view(), 1.0, n_blocks, b, k, 1, 1);
+    let codes = route_and_code_all(x.view(), decoder.view(), 1.0, n_blocks, b, k, 1, 1)
+        .expect("CPU block route is infallible");
     assert_eq!(codes.len(), 1);
     let code = &codes[0];
     assert!(
@@ -641,6 +642,28 @@ fn block_seed_manifest_is_rust_owned_and_gauge_shaped() {
     assert!(manifest.blocks[0].total_var > 0.0);
     assert_eq!(manifest.blocks[0].mdl_block.kind, "block");
     assert_eq!(manifest.blocks[0].mdl_chart.kind, "chart");
+    // #P3 matched-DL report column: the curved chart charges its n_basis_chart
+    // columns, the flat block its block_size columns, and the delta = flat − chart
+    // reads the curved-vs-flat comparison in bits. Here n_basis_chart (4) > block_size
+    // (1), so the chart carries the larger parameter charge and the delta is negative
+    // (flat is the shorter code at these firings).
+    let rec = &manifest.blocks[0];
+    assert_eq!(rec.matched_dl_flat.coded_columns, config.block_size as i64);
+    assert_eq!(rec.matched_dl_chart.coded_columns, config.n_basis_chart as i64);
+    assert_eq!(rec.matched_dl_flat.n_firings, n as i64);
+    assert!(rec.matched_dl_flat.total_dl_bits.is_finite());
+    assert!(rec.matched_dl_chart.total_dl_bits.is_finite());
+    assert!(
+        (rec.matched_dl_delta_bits
+            - (rec.matched_dl_flat.total_dl_bits - rec.matched_dl_chart.total_dl_bits))
+            .abs()
+            < 1e-9
+    );
+    assert!(
+        rec.matched_dl_delta_bits <= 0.0,
+        "flat (1 col) must be no costlier than the 4-column chart at equal firings: {}",
+        rec.matched_dl_delta_bits
+    );
     let recon = reconstruct_block_sparse_rows(decoder.view(), blocks.view(), codes.view(), 1)
         .expect("block reconstruct");
     for i in 0..n {

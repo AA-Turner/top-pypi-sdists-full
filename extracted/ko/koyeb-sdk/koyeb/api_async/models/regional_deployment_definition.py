@@ -26,6 +26,7 @@ from koyeb.api_async.models.deployment_strategy import DeploymentStrategy
 from koyeb.api_async.models.docker_source import DockerSource
 from koyeb.api_async.models.env import Env
 from koyeb.api_async.models.git_source import GitSource
+from koyeb.api_async.models.network_policy import NetworkPolicy
 from koyeb.api_async.models.port import Port
 from koyeb.api_async.models.regional_deployment_definition_type import RegionalDeploymentDefinitionType
 from koyeb.api_async.models.regional_deployment_mesh import RegionalDeploymentMesh
@@ -55,10 +56,11 @@ class RegionalDeploymentDefinition(BaseModel):
     config_files: Optional[List[ConfigFile]] = None
     skip_cache: Optional[StrictBool] = None
     mesh: Optional[RegionalDeploymentMesh] = RegionalDeploymentMesh.REGIONAL_DEPLOYMENT_MESH_AUTO
+    network_policy: Optional[NetworkPolicy] = None
     docker: Optional[DockerSource] = None
     git: Optional[GitSource] = None
     archive: Optional[ArchiveSource] = None
-    __properties: ClassVar[List[str]] = ["name", "type", "strategy", "routes", "ports", "env", "region", "scaling", "instance_type", "deployment_group", "health_checks", "volumes", "config_files", "skip_cache", "mesh", "docker", "git", "archive"]
+    __properties: ClassVar[List[str]] = ["name", "type", "strategy", "routes", "ports", "env", "region", "scaling", "instance_type", "deployment_group", "health_checks", "volumes", "config_files", "skip_cache", "mesh", "network_policy", "docker", "git", "archive"]
 
     model_config = ConfigDict(
         validate_by_name=True,
@@ -147,6 +149,9 @@ class RegionalDeploymentDefinition(BaseModel):
                 if _item_config_files:
                     _items.append(_item_config_files.to_dict())
             _dict['config_files'] = _items
+        # override the default output from pydantic by calling `to_dict()` of network_policy
+        if self.network_policy:
+            _dict['network_policy'] = self.network_policy.to_dict()
         # override the default output from pydantic by calling `to_dict()` of docker
         if self.docker:
             _dict['docker'] = self.docker.to_dict()
@@ -183,6 +188,7 @@ class RegionalDeploymentDefinition(BaseModel):
             "config_files": [ConfigFile.from_dict(_item) for _item in obj["config_files"]] if obj.get("config_files") is not None else None,
             "skip_cache": obj.get("skip_cache"),
             "mesh": obj.get("mesh") if obj.get("mesh") is not None else RegionalDeploymentMesh.REGIONAL_DEPLOYMENT_MESH_AUTO,
+            "network_policy": NetworkPolicy.from_dict(obj["network_policy"]) if obj.get("network_policy") is not None else None,
             "docker": DockerSource.from_dict(obj["docker"]) if obj.get("docker") is not None else None,
             "git": GitSource.from_dict(obj["git"]) if obj.get("git") is not None else None,
             "archive": ArchiveSource.from_dict(obj["archive"]) if obj.get("archive") is not None else None

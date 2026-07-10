@@ -30,7 +30,8 @@ jobs:
             UPLOAD_FILE_NAME: tabcmd.exe
             OUT_FILE_NAME: tabcmd.exe
             ASSET_MIME: application/vnd.microsoft.portable-executable
-          - os: macos-13
+          - os: macos-14-large
+            # This builds for x86
             TARGET: macos
             CMD_BUILD:  >
               pyinstaller tabcmd-mac.spec --clean --noconfirm --distpath ./dist/macos/
@@ -60,9 +61,9 @@ jobs:
             UPLOAD_FILE_NAME: tabcmd
 
     steps:
-    - uses: actions/checkout@v4
+    - uses: actions/checkout@v7
 
-    - uses: actions/setup-python@v5
+    - uses: actions/setup-python@v6
       with:
         python-version: 3.12
 
@@ -71,10 +72,11 @@ jobs:
         python --version
         python -m pip install --upgrade pip
         python -m pip install --upgrade build
-        pip install .
-        pip install .[package]
+        pip install .[versioning]
         doit version
+        pip install .
         python -m build
+        pip install .[package]
 
     - name: Package with pyinstaller for ${{matrix.TARGET}}
       run: ${{matrix.CMD_BUILD}}
@@ -95,7 +97,14 @@ jobs:
         tar -cvf ${{ matrix.UPLOAD_FILE_NAME }} ${{ matrix.OUT_FILE_NAME }}
 
 
+    - name: Upload build artifact for ${{ matrix.TARGET }}
+      uses: actions/upload-artifact@v7
+      with:
+        name: tabcmd-${{ matrix.TARGET }}
+        path: ./dist/${{ matrix.TARGET }}/${{ matrix.UPLOAD_FILE_NAME }}
+
     - name: Upload binaries to release for ${{ matrix.TARGET }}
+      if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/')
       uses: svenstaro/upload-release-action@v2
       with:
         repo_token: ${{ secrets.GITHUB_TOKEN }}
@@ -103,4 +112,3 @@ jobs:
         file: ./dist/${{ matrix.TARGET }}/${{ matrix.UPLOAD_FILE_NAME }}
         tag: ${{ github.ref_name }}
         overwrite: true
-        promote: true

@@ -55,6 +55,7 @@ class BenchmarkResult:
 def _setup_mem_parser(grammar_src: str) -> tuple[peg.Grammar, float]:
     with timer() as t:
         model = compile(grammar_src)
+        model = model.optimized()
     return model, t.delta
 
 
@@ -476,11 +477,12 @@ def add_argparse_options(parser: argparse.ArgumentParser) -> None:
         help='benchmark ogopego parser',
         action='store_true',
     )
-    parser.add_argument(
-        '--verbose',
-        help='show error output from failed parses',
-        action='store_true',
-    )
+    if '--verbose' not in parser._option_string_actions:
+        parser.add_argument(
+            '--verbose',
+            help='show error output from failed parses',
+            action='store_true',
+        )
     parser.add_argument("grammar", type=Path, help="path to the grammar file")
     parser.add_argument(
         "inputs",
@@ -509,23 +511,30 @@ def bench_cmd(parser: argparse.ArgumentParser) -> int:
             print(f"error: file '{p}' not found.")
             return 1
     mode = set()
+    all = True
     if args.mem or args.both or args.all:
         mode |= {'mem'}
+        all = False
     if args.gen or args.both or args.all:
         mode |= {'gen'}
+        all = False
     if args.tiexiu or args.all:
         mode |= {'tiexiu'}
+        all = False
     if args.ogo or args.all:
         mode |= {'ogo'}
+        all = False
+    if all:
+        mode = {'mem', 'gen', 'tiexiu', 'ogo'}
 
     if {'tiexiu'} in mode and not have_tiexiu:
         print("warning: tiexiu not found, skipping tiexiu benchmark.")
-        if args.mode == 'tiexiu':
+        if mode == {'tiexiu'}:
             return 1
 
     if 'ogo' in mode and not have_ogopego:
         print("warning: ogopego not found, skipping ogopego benchmark.")
-        if args.mode == 'ogo':
+        if mode == {'ogo'}:
             return 1
 
     try:

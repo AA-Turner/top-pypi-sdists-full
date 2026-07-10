@@ -1,27 +1,15 @@
 # Copyright The OpenTelemetry Authors
-#
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-#
-#     http://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
+# SPDX-License-Identifier: Apache-2.0
 
 from __future__ import annotations
 
 import timeit
-from abc import ABC, abstractmethod
-from contextlib import contextmanager
+from abc import abstractmethod
+from contextlib import AbstractContextManager
 from contextvars import Token
 from dataclasses import asdict
-from typing import TYPE_CHECKING, Any, Iterator, Sequence
-
-from typing_extensions import Self, TypeAlias
+from types import TracebackType
+from typing import TYPE_CHECKING, Any, Sequence, TypeAlias
 
 from opentelemetry._logs import Logger, LogRecord
 from opentelemetry.context import Context, attach, detach
@@ -44,22 +32,23 @@ from opentelemetry.util.genai.utils import (
     ContentCapturingMode,
     gen_ai_json_dumps,
     get_content_capturing_mode,
-    is_experimental_mode,
 )
+from opentelemetry.util.types import AttributeValue
 
 if TYPE_CHECKING:
     from opentelemetry.util.genai.metrics import InvocationMetricsRecorder
 
+
 ContextToken: TypeAlias = Token[Context]
 
 
-class GenAIInvocation(ABC):
+class GenAIInvocation(AbstractContextManager["GenAIInvocation"]):
     """
     Base class for all GenAI invocation types. Manages the lifecycle of a single
     GenAI operation (LLM call, embedding, tool execution, workflow, etc.).
 
-    Use the factory methods on TelemetryHandler (start_inference, start_embedding,
-    start_workflow, start_tool) rather than constructing invocations directly.
+    Use the factory methods on TelemetryHandler (inference, embedding,
+    workflow, tool) rather than constructing invocations directly.
     """
 
     def __init__(
@@ -73,19 +62,19 @@ class GenAIInvocation(ABC):
         operation_name: str,
         span_name: str,
         span_kind: SpanKind = SpanKind.CLIENT,
-        attributes: dict[str, Any] | None = None,
-        metric_attributes: dict[str, Any] | None = None,
+        attributes: dict[str, AttributeValue] | None = None,
+        metric_attributes: dict[str, AttributeValue] | None = None,
     ) -> None:
         self._tracer = tracer
         self._metrics_recorder = metrics_recorder
         self._logger = logger
         self._completion_hook = completion_hook
         self._operation_name: str = operation_name
-        self.attributes: dict[str, Any] = (
+        self.attributes: dict[str, AttributeValue] = (
             {} if attributes is None else attributes
         )
         """Additional attributes to set on spans and/or events. Not set on metrics."""
-        self.metric_attributes: dict[str, Any] = (
+        self.metric_attributes: dict[str, AttributeValue] = (
             {} if metric_attributes is None else metric_attributes
         )
         """Additional attributes to set on metrics. Must be low cardinality. Not set on spans or events."""
@@ -96,17 +85,24 @@ class GenAIInvocation(ABC):
         self._context_token: ContextToken | None = None
         self._monotonic_start_s: float | None = None
 
-    def _start(self) -> None:
-        """Start the invocation span and attach it to the current context."""
+    def _start(
+        self, attributes: dict[str, AttributeValue] | None = None
+    ) -> None:
+        """Start the invocation span and attach it to the current context.
+
+        Args:
+            attributes: Initial span attributes available for sampling decisions.
+        """
         self.span = self._tracer.start_span(
             name=self._span_name,
             kind=self._span_kind,
+            attributes=attributes,
         )
         self._span_context = set_span_in_context(self.span)
         self._monotonic_start_s = timeit.default_timer()
         self._context_token = attach(self._span_context)
 
-    def _get_metric_attributes(self) -> dict[str, Any]:
+    def _get_metric_attributes(self) -> dict[str, AttributeValue]:
         """Return low-cardinality attributes for metric recording."""
         return self.metric_attributes
 
@@ -171,15 +167,19 @@ class GenAIInvocation(ABC):
             error = Error(type=type(error), message=str(error))
         self._finish(error)
 
-    @contextmanager
-    def _managed(self) -> Iterator[Self]:
-        """Context manager that calls stop() on success or fail() on exception."""
-        try:
-            yield self
-        except Exception as exc:
-            self.fail(exc)
-            raise
-        self.stop()
+    def __enter__(self) -> GenAIInvocation:
+        return self
+
+    def __exit__(
+        self,
+        exc_type: type[BaseException] | None,
+        exc_value: BaseException | None,
+        traceback: TracebackType | None,
+    ) -> None:
+        if exc_value is not None and isinstance(exc_value, Exception):
+            self.fail(exc_value)
+        else:
+            self.stop()
 
 
 def get_content_attributes(
@@ -200,9 +200,6 @@ def get_content_attributes(
         for_span: If True, serialize for span attributes (JSON string);
                   if False, serialize for event attributes (list of dicts).
     """
-    if not is_experimental_mode():
-        return {}
-
     mode = get_content_capturing_mode()
     allowed_modes = (
         (
@@ -215,12 +212,19 @@ def get_content_attributes(
             ContentCapturingMode.SPAN_AND_EVENT,
         )
     )
-    if mode not in allowed_modes:
-        return {}
 
     def serialize(items: Sequence[Any]) -> Any:
         dicts = [asdict(item) for item in items]
         return gen_ai_json_dumps(dicts) if for_span else dicts
+
+    # Tool definitions are always captured, the sem conv recommends adding params / description only
+    # when the content capture mode is set..
+    if mode not in allowed_modes:
+        return (
+            {GenAI.GEN_AI_TOOL_DEFINITIONS: serialize(tool_definitions)}
+            if tool_definitions
+            else {}
+        )
 
     optional_attrs = (
         (

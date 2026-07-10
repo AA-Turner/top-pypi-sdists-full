@@ -1,20 +1,7 @@
 # Copyright The OpenTelemetry Authors
-#
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-#
-#     http://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
+# SPDX-License-Identifier: Apache-2.0
 
 from __future__ import annotations
-
-from typing import Any
 
 from opentelemetry._logs import Logger
 from opentelemetry.semconv._incubating.attributes import (
@@ -24,6 +11,23 @@ from opentelemetry.trace import Tracer
 from opentelemetry.util.genai._invocation import Error, GenAIInvocation
 from opentelemetry.util.genai.completion_hook import CompletionHook
 from opentelemetry.util.genai.metrics import InvocationMetricsRecorder
+from opentelemetry.util.genai.utils import (
+    gen_ai_json_dumps,
+    should_capture_content_on_spans,
+)
+from opentelemetry.util.types import AnyValue, AttributeValue
+
+
+def _any_value_to_attribute_value(value: AnyValue) -> AttributeValue | None:
+    """Serialize an AnyValue to an AttributeValue for OTel span attributes."""
+    if value is None:
+        return None
+    if isinstance(value, (bool, str, bytes, int, float)):
+        return value
+    try:
+        return gen_ai_json_dumps(value)
+    except (TypeError, ValueError):
+        return str(value)
 
 
 class ToolInvocation(GenAIInvocation):
@@ -31,7 +35,7 @@ class ToolInvocation(GenAIInvocation):
 
     Not used as a message part — use ToolCallRequest for that purpose.
 
-    Use handler.start_tool(name) rather than constructing this directly.
+    Use handler.tool(name) rather than constructing this directly.
 
     Reference: https://github.com/open-telemetry/semantic-conventions/blob/main/docs/gen-ai/gen-ai-spans.md#execute-tool-span
 
@@ -54,15 +58,11 @@ class ToolInvocation(GenAIInvocation):
         completion_hook: CompletionHook,
         name: str,
         *,
-        arguments: Any = None,
         tool_call_id: str | None = None,
         tool_type: str | None = None,
         tool_description: str | None = None,
-        tool_result: Any = None,
-        attributes: dict[str, Any] | None = None,
-        metric_attributes: dict[str, Any] | None = None,
     ) -> None:
-        """Use handler.start_tool(name) or handler.tool(name) instead of calling this directly."""
+        """Use handler.tool(name) instead of calling this directly."""
         _operation_name = GenAI.GenAiOperationNameValues.EXECUTE_TOOL.value
         super().__init__(
             tracer,
@@ -71,19 +71,35 @@ class ToolInvocation(GenAIInvocation):
             completion_hook,
             operation_name=_operation_name,
             span_name=f"{_operation_name} {name}" if name else _operation_name,
-            attributes=attributes,
-            metric_attributes=metric_attributes,
         )
+        self.should_capture_content_on_span = should_capture_content_on_spans()
         self.name = name
-        self.arguments = arguments
+        self.tool_result: AnyValue | None = None
+        # Since arguments and tool_result can be expensive to serialize,
+        # it's recommended to check the content capture flag in the
+        # instrumentation library before assigning these attributes
+        # to the invocation.
+        self.arguments: AnyValue | None = None
         self.tool_call_id = tool_call_id
         self.tool_type = tool_type
         self.tool_description = tool_description
-        self.tool_result = tool_result
-        self._start()
+        self._start(self._get_base_attributes())
 
-    def _get_metric_attributes(self) -> dict[str, Any]:
-        attrs: dict[str, Any] = {
+    def _get_base_attributes(self) -> dict[str, AttributeValue]:
+        """Return sampling-relevant attributes available at span creation time."""
+        optional_attrs = (
+            (GenAI.GEN_AI_TOOL_NAME, self.name),
+            (GenAI.GEN_AI_TOOL_CALL_ID, self.tool_call_id),
+            (GenAI.GEN_AI_TOOL_TYPE, self.tool_type),
+            (GenAI.GEN_AI_TOOL_DESCRIPTION, self.tool_description),
+        )
+        return {
+            GenAI.GEN_AI_OPERATION_NAME: self._operation_name,
+            **{k: v for k, v in optional_attrs if v is not None},
+        }
+
+    def _get_metric_attributes(self) -> dict[str, AttributeValue]:
+        attrs: dict[str, AttributeValue] = {
             GenAI.GEN_AI_OPERATION_NAME: self._operation_name,
         }
         attrs.update(self.metric_attributes)
@@ -97,8 +113,22 @@ class ToolInvocation(GenAIInvocation):
             (GenAI.GEN_AI_TOOL_CALL_ID, self.tool_call_id),
             (GenAI.GEN_AI_TOOL_TYPE, self.tool_type),
             (GenAI.GEN_AI_TOOL_DESCRIPTION, self.tool_description),
+            (
+                GenAI.GEN_AI_TOOL_CALL_ARGUMENTS,
+                _any_value_to_attribute_value(self.arguments)
+                if self.should_capture_content_on_span
+                and self.arguments is not None
+                else None,
+            ),
+            (
+                GenAI.GEN_AI_TOOL_CALL_RESULT,
+                _any_value_to_attribute_value(self.tool_result)
+                if self.should_capture_content_on_span
+                and self.tool_result is not None
+                else None,
+            ),
         )
-        attributes: dict[str, Any] = {
+        attributes: dict[str, AttributeValue] = {
             GenAI.GEN_AI_OPERATION_NAME: self._operation_name,
             **{k: v for k, v in optional_attrs if v is not None},
         }

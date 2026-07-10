@@ -13,14 +13,14 @@ class RateLimitExceeded(Exception):
         self.retry_after = retry_after
         self.tier = tier
         if custom_message:
-            message =f"\n{'='*60}\n"
-            message +=f"⚠️  GIỚI HẠN API ĐÃ ĐẠT TỐI ĐA (Rate Limit Exceeded)\n"
-            message +=f"{'='*60}\n\n"
-            message +=f"{custom_message}\n"
-            message +=f"\n{'='*60}\n"
+            message = f"\n{'='*60}\n"
+            message += f"⚠️  GIỚI HẠN API ĐÃ ĐẠT TỐI ĐA (Rate Limit Exceeded)\n"
+            message += f"{'='*60}\n\n"
+            message += f"{custom_message}\n"
+            message += f"\n{'='*60}\n"
             super().__init__(message)
             return
-        promotional_message =""
+        promotional_message = ""
         try:
             from vnai.scope.promo import (
                 should_show_promotional_for_rate_limit,
@@ -28,61 +28,61 @@ class RateLimitExceeded(Exception):
                 get_promotional_message
             )
             if should_show_promotional_for_rate_limit(tier):
-                promotional_message = get_promotional_message() +"\n"
+                promotional_message = get_promotional_message() + "\n"
                 mark_promotional_shown()
         except Exception as e:
             pass
-        message =f"\n{'='*60}\n"
-        message +=f"⚠️  GIỚI HẠN API ĐÃ ĐẠT TỐI ĐA (Rate Limit Exceeded)\n"
-        message +=f"{'='*60}\n\n"
+        message = f"\n{'='*60}\n"
+        message += f"⚠️  GIỚI HẠN API ĐÃ ĐẠT TỐI ĐA (Rate Limit Exceeded)\n"
+        message += f"{'='*60}\n\n"
         scope_names = {
-'min':'phút (minute)',
-'hour':'giờ (hour)',
-'day':'ngày (day)',
-'month':'tháng (month)'
+            'min': 'phút (minute)',
+            'hour': 'giờ (hour)',
+            'day': 'ngày (day)',
+            'month': 'tháng (month)'
         }
         scope_display = scope_names.get(limit_type, limit_type)
-        message +=f"📌 Bạn đã đạt giới hạn tối đa số lượt yêu cầu API trong 1 {scope_display}.\n"
-        message +=f"   (You have reached the maximum API request limit for this period)\n\n"
-        message +=f"📊 Chi tiết (Details):\n"
+        message += f"📌 Bạn đã đạt giới hạn tối đa số lượt yêu cầu API trong 1 {scope_display}.\n"
+        message += f"   (You have reached the maximum API request limit for this period)\n\n"
+        message += f"📊 Chi tiết (Details):\n"
         if tier:
             tier_names = {
-'guest':'Khách (Guest)',
-'free':'Phiên bản cộng đồng (Community)',
-'bronze':'Thành viên Bronze (Bronze Member)',
-'silver':'Thành viên Silver (Silver Member)',
-'golden':'Thành viên Golden (Golden Member)',
-'diamond':'Thành viên Diamond (Diamond Member)'
+                'guest': 'Khách (Guest)',
+                'free': 'Phiên bản cộng đồng (Community)',
+                'bronze': 'Thành viên Bronze (Bronze Member)',
+                'silver': 'Thành viên Silver (Silver Member)',
+                'golden': 'Thành viên Golden (Golden Member)',
+                'diamond': 'Thành viên Diamond (Diamond Member)'
             }
-            tier_display = tier_names.get(tier,f"Thành viên {tier.title()}")
-            message +=f"   • Gói hiện tại: {tier_display}\n"
-        message +=f"   • Giới hạn: {limit_value} requests/{scope_display.split()[0]}\n"
-        message +=f"   • Đã sử dụng: {current_usage}/{limit_value}\n"
+            tier_display = tier_names.get(tier, f"Thành viên {tier.title()}")
+            message += f"   • Gói hiện tại: {tier_display}\n"
+        message += f"   • Giới hạn: {limit_value} requests/{scope_display.split()[0]}\n"
+        message += f"   • Đã sử dụng: {current_usage}/{limit_value}\n"
         if retry_after:
-            message +=f"   • Chờ {round(retry_after)} giây để tiếp tục (Wait to retry)\n"
-        message +=f"\n💡 Giải pháp (Solutions):\n"
-        message +=f"   1️⃣ Chờ {round(retry_after) if retry_after else 'một lúc'} giây rồi thử lại\n"
-        message +=f"      (Wait and retry)\n"
-        message +=f"   2️⃣ Tham gia chương trình tài trợ dự án (Sponsor) để sử dụng không gián đoạn.\n"
-        message +=f"      Lưu ý: vnstock là công cụ mã nguồn mở giúp tự động hoá kết nối với\n"
-        message +=f"      các API công khai mà bạn vốn đã có quyền truy cập hợp lệ, không\n"
-        message +=f"      phải nhà cung cấp dữ liệu. Việc tài trợ giúp duy trì\n"
-        message +=f"      nghiên cứu - phát triển công cụ và hạ tầng công nghệ phục vụ cộng đồng.\n"
-        if tier =='guest':
-            message +=f"\n🚀 Nâng cấp (Upgrade):\n"
-            message +=f"   • Phiên bản cộng đồng (60 request/phút - Community):\n"
-            message +=f"     Đăng ký API key miễn phí: https://vnstocks.com/login\n"
-            message +=f"   • Gói thành viên tài trợ (180-600 request/phút - Sponsor):\n"
-            message +=f"     Tham gia: https://vnstocks.com/insiders-program\n"
-            message +=f"     Sau khi tham gia tài trợ, cài bộ thư viện riêng vnstock_data theo hướng dẫn https://vnstocks.com/onboard-member\n"
-        elif tier =='free':
-            message +=f"\n🚀 Nâng cấp (Upgrade):\n"
-            message +=f"   • Gói thành viên tài trợ (180-600 request/phút - Sponsor):\n"
-            message +=f"     Tham gia: https://vnstocks.com/insiders-program\n"
+            message += f"   • Chờ {round(retry_after)} giây để tiếp tục (Wait to retry)\n"
+        message += f"\n💡 Giải pháp (Solutions):\n"
+        message += f"   1️⃣ Chờ {round(retry_after) if retry_after else 'một lúc'} giây rồi thử lại\n"
+        message += f"      (Wait and retry)\n"
+        message += f"   2️⃣ Tham gia chương trình tài trợ dự án (Sponsor) để sử dụng không gián đoạn.\n"
+        message += f"      Lưu ý: vnstock là công cụ mã nguồn mở giúp tự động hoá kết nối với\n"
+        message += f"      các API công khai mà bạn vốn đã có quyền truy cập hợp lệ, không\n"
+        message += f"      phải nhà cung cấp dữ liệu. Việc tài trợ giúp duy trì\n"
+        message += f"      nghiên cứu - phát triển công cụ và hạ tầng công nghệ phục vụ cộng đồng.\n"
+        if tier == 'guest':
+            message += f"\n🚀 Nâng cấp (Upgrade):\n"
+            message += f"   • Phiên bản cộng đồng (60 request/phút - Community):\n"
+            message += f"     Đăng ký API key miễn phí: https://vnstocks.com/login\n"
+            message += f"   • Gói thành viên tài trợ (180-600 request/phút - Sponsor):\n"
+            message += f"     Tham gia: https://vnstocks.com/insiders-program\n"
+            message += f"     Sau khi tham gia tài trợ, cài bộ thư viện riêng vnstock_data theo hướng dẫn https://vnstocks.com/onboard-member\n"
+        elif tier == 'free':
+            message += f"\n🚀 Nâng cấp (Upgrade):\n"
+            message += f"   • Gói thành viên tài trợ (180-600 request/phút - Sponsor):\n"
+            message += f"     Tham gia: https://vnstocks.com/insiders-program\n"
         else:
-            message +=f"\n🚀 Nâng cấp (Upgrade):\n"
-            message +=f"   • Gói cao hơn (Higher tier): https://vnstocks.com/insiders-program\n"
-        message +=f"\n{'='*60}\n"
+            message += f"\n🚀 Nâng cấp (Upgrade):\n"
+            message += f"   • Gói cao hơn (Higher tier): https://vnstocks.com/insiders-program\n"
+        message += f"\n{'='*60}\n"
         if promotional_message:
             message += promotional_message
         super().__init__(message)
@@ -110,21 +110,21 @@ class Guardian:
             import requests
             from vnai.scope.profile import inspector
             sys_info = inspector.examine()
-            device_id = sys_info.get("machine_id","unknown")
+            device_id = sys_info.get("machine_id", "unknown")
             payload = {
-'api_key': api_key,
-'device_id': device_id,
-'package_name':'vnai',
-'version':'1.0.0',
-'usage_count': usage_count
+                'api_key': api_key,
+                'device_id': device_id,
+                'package_name': 'vnai',
+                'version': '1.0.0',
+                'usage_count': usage_count
             }
-            url ='https://vnstocks.com/api/vnstock/license/verify'
+            url = 'https://vnstocks.com/api/vnstock/license/verify'
             response = requests.post(url, json=payload, timeout=5)
             if response.status_code == 429:
                 data = response.json()
-                self._server_blocked_error = data.get('error','API Limit Exceeded (Backend)')
+                self._server_blocked_error = data.get('error', 'API Limit Exceeded (Backend)')
                 if data.get('action'):
-                    self._server_blocked_error +="\n\n👉 " + data['action']
+                    self._server_blocked_error += "\n\n👉 " + data['action']
             elif response.status_code == 200:
                 self._server_blocked_error = None
         except Exception:
@@ -144,7 +144,7 @@ class Guardian:
             from vnai.beam.auth import authenticator
             return authenticator.get_limits()
         except Exception as e:
-            return {"min": 20,"hour": 1200,"day": 28800}
+            return {"min": 20, "hour": 1200, "day": 28800}
 
     def _get_current_tier(self):
         try:
@@ -154,7 +154,7 @@ class Guardian:
             return None
 
     def verify(self, operation_id, resource_type="default", api_key=None):
-        if getattr(self,'_server_blocked_error', None):
+        if getattr(self, '_server_blocked_error', None):
             current_tier = self._get_current_tier()
             raise RateLimitExceeded(
                 resource_type=resource_type,
@@ -174,7 +174,7 @@ class Guardian:
                 if not quota_check.get("allowed"):
                     raise RateLimitExceeded(
                         resource_type=resource_type,
-                        limit_type=quota_check.get("reason","unknown"),
+                        limit_type=quota_check.get("reason", "unknown"),
                         current_usage=quota_check.get("usage"),
                         limit_value=quota_check.get("limit"),
                         retry_after=quota_check.get("reset_in_seconds")
@@ -189,13 +189,13 @@ class Guardian:
         if minute_exceeded:
             from vnai.beam.metrics import collector
             collector.record(
-"rate_limit",
+                "rate_limit",
                 {
-"resource_type": resource_type,
-"limit_type":"min",
-"limit_value": limits["min"],
-"current_usage": minute_usage,
-"is_exceeded": True
+                    "resource_type": resource_type,
+                    "limit_type": "min",
+                    "limit_value": limits["min"],
+                    "current_usage": minute_usage,
+                    "is_exceeded": True
                 },
                 priority="high"
             )
@@ -217,13 +217,13 @@ class Guardian:
         hour_exceeded = hour_usage >= limits["hour"]
         from vnai.beam.metrics import collector
         collector.record(
-"rate_limit",
+            "rate_limit",
             {
-"resource_type": resource_type,
-"limit_type":"hour" if hour_exceeded else"min",
-"limit_value": limits["hour"] if hour_exceeded else limits["min"],
-"current_usage": hour_usage if hour_exceeded else minute_usage,
-"is_exceeded": hour_exceeded
+                "resource_type": resource_type,
+                "limit_type": "hour" if hour_exceeded else "min",
+                "limit_value": limits["hour"] if hour_exceeded else limits["min"],
+                "current_usage": hour_usage if hour_exceeded else minute_usage,
+                "is_exceeded": hour_exceeded
             }
         )
         if hour_exceeded:
@@ -239,7 +239,7 @@ class Guardian:
         self.usage_counters[resource_type]["min"].append(current_time)
         self.usage_counters[resource_type]["hour"].append(current_time)
         self._unsynced_count += 1
-        if api_key and (current_time - getattr(self,'_last_sync', 0) > 300 or getattr(self,'_unsynced_count', 0) >= 50):
+        if api_key and (current_time - getattr(self, '_last_sync', 0) > 300 or getattr(self, '_unsynced_count', 0) >= 50):
             usage_to_sync = self._unsynced_count
             self._unsynced_count = 0
             self._last_sync = current_time
@@ -278,20 +278,20 @@ class Guardian:
         minute_usage = len([t for t in self.usage_counters[resource_type]["min"] if t > minute_cutoff])
         hour_usage = len([t for t in self.usage_counters[resource_type]["hour"] if t > hour_cutoff])
         return {
-"resource_type": resource_type,
-"minute_limit": {
-"usage": minute_usage,
-"limit": limits["min"],
-"percentage": (minute_usage / limits["min"]) * 100 if limits["min"] > 0 else 0,
-"remaining": max(0, limits["min"] - minute_usage),
-"reset_in_seconds": 60 - (current_time % 60)
+            "resource_type": resource_type,
+            "minute_limit": {
+                "usage": minute_usage,
+                "limit": limits["min"],
+                "percentage": (minute_usage / limits["min"]) * 100 if limits["min"] > 0 else 0,
+                "remaining": max(0, limits["min"] - minute_usage),
+                "reset_in_seconds": 60 - (current_time % 60)
             },
-"hour_limit": {
-"usage": hour_usage,
-"limit": limits["hour"],
-"percentage": (hour_usage / limits["hour"]) * 100 if limits["hour"] > 0 else 0,
-"remaining": max(0, limits["hour"] - hour_usage),
-"reset_in_seconds": 3600 - (current_time % 3600)
+            "hour_limit": {
+                "usage": hour_usage,
+                "limit": limits["hour"],
+                "percentage": (hour_usage / limits["hour"]) * 100 if limits["hour"] > 0 else 0,
+                "remaining": max(0, limits["hour"] - hour_usage),
+                "reset_in_seconds": 3600 - (current_time % 3600)
             }
         }
 guardian = Guardian()
@@ -318,7 +318,7 @@ def optimize(resource_type='default', loop_threshold=10, time_window=5, ad_coold
             max_retries=2, backoff_factor=2, debug=False):
     if callable(resource_type):
         func = resource_type
-        return _create_wrapper(func,'default', loop_threshold, time_window, ad_cooldown, content_trigger_threshold,
+        return _create_wrapper(func, 'default', loop_threshold, time_window, ad_cooldown, content_trigger_threshold,
                              max_retries, backoff_factor, debug)
     if loop_threshold < 2:
         raise ValueError(f"loop_threshold must be at least 2, got {loop_threshold}")
@@ -389,13 +389,13 @@ def _create_wrapper(func, resource_type, loop_threshold, time_window, ad_cooldow
             except RateLimitExceeded as e:
                 from vnai.beam.metrics import collector
                 collector.record(
-"error",
+                    "error",
                     {
-"function": func.__name__,
-"error": str(e),
-"context":"resource_verification",
-"resource_type": resource_type,
-"retry_attempt": retries
+                        "function": func.__name__,
+                        "error": str(e),
+                        "context": "resource_verification",
+                        "resource_type": resource_type,
+                        "retry_attempt": retries
                     },
                     priority="high"
                 )
@@ -410,7 +410,7 @@ def _create_wrapper(func, resource_type, loop_threshold, time_window, ad_cooldow
                 if retries < max_retries:
                     wait_time = backoff_factor ** retries
                     retries += 1
-                    if hasattr(e,"retry_after") and e.retry_after:
+                    if hasattr(e, "retry_after") and e.retry_after:
                         wait_time = min(wait_time, e.retry_after)
                     if debug:
                         print(f"Đã đạt giới hạn tốc độ cho {func.__name__}, thử lại sau {wait_time} giây (lần thử {retries}/{max_retries})")
@@ -433,29 +433,29 @@ def _create_wrapper(func, resource_type, loop_threshold, time_window, ad_cooldow
                 try:
                     from vnai.beam.metrics import collector
                     collector.record(
-"function",
+                        "function",
                         {
-"function": func.__name__,
-"resource_type": resource_type,
-"execution_time": execution_time,
-"success": success,
-"error": error,
-"in_loop": loop_detected,
-"loop_depth": len(call_history),
-"content_triggered": content_triggered,
-"timestamp": datetime.now().isoformat(),
-"retry_count": retries if retries > 0 else None
+                            "function": func.__name__,
+                            "resource_type": resource_type,
+                            "execution_time": execution_time,
+                            "success": success,
+                            "error": error,
+                            "in_loop": loop_detected,
+                            "loop_depth": len(call_history),
+                            "content_triggered": content_triggered,
+                            "timestamp": datetime.now().isoformat(),
+                            "retry_count": retries if retries > 0 else None
                         }
                     )
                     if content_triggered:
                         collector.record(
-"ad_opportunity",
+                            "ad_opportunity",
                             {
-"function": func.__name__,
-"resource_type": resource_type,
-"call_frequency": len(call_history) / time_window,
-"consecutive_loops": consecutive_loop_detections,
-"timestamp": datetime.now().isoformat()
+                                "function": func.__name__,
+                                "resource_type": resource_type,
+                                "call_frequency": len(call_history) / time_window,
+                                "consecutive_loops": consecutive_loop_detections,
+                                "timestamp": datetime.now().isoformat()
                             }
                         )
                 except ImportError:

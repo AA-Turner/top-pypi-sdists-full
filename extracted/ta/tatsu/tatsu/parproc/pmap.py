@@ -30,7 +30,7 @@ def active_pmap() -> Callable[
 
     def executor_pmap(
         executorcls: type[Executor],
-        stop_event: Event,
+        stop: Event,
         process: Func,
         tasks: Iterable[Any],
         max_workers: int | None = None,
@@ -41,7 +41,6 @@ def active_pmap() -> Callable[
             return
 
         with executorcls(max_workers=max_workers) as ex:  # type: ignore
-            # with executorcls(None) as ex:  # type: ignore
             try:
                 n = 1 + (max_workers or 8)
                 taskiter = iter(tasks)
@@ -51,28 +50,27 @@ def active_pmap() -> Callable[
                     }
                 else:
                     futures = {ex.submit(process, task): task for task in taskiter}
+
                 while futures:
+                    if stop.is_set():
+                        ex.shutdown(wait=False, cancel_futures=True)
+                        break
+
                     for future in as_completed(futures):
-                        yield future.result()
                         _task = futures.pop(future)
-                        for task in islice(taskiter, 1):
-                            new_future = ex.submit(process, task)
-                            futures[new_future] = task
-                # while futures:
-                #     finished = {f for f in futures if f.done()}
-                #     for f in finished:
-                #         futures.remove(f)
-                #         yield f.result()
-                #         finished = {f for f in futures if f.done()}
-                # if futures:
-                #     time.sleep(0.01)
-                # yield from packetz.receive()
-                # for future in as_completed(futures):
-                #     yield from packetz.receive()
-                #     yield future.result()
-                #     yield from packetz.receive()
+
+                        if not stop.is_set():
+                            for task in islice(taskiter, 1):
+                                new_future = ex.submit(process, task)
+                                futures[new_future] = task
+
+                        yield future.result()
+
+                        if stop.is_set():
+                            break
+
             except KeyboardInterrupt:
-                stop_event.set()
+                stop.set()
 
                 print(file=sys.stderr)
                 print(file=sys.stderr)
@@ -83,8 +81,6 @@ def active_pmap() -> Callable[
 
                 print("           ", end="\r", file=sys.stderr)
                 sys.stderr.flush()
-
-                raise
 
     def thread_pmap(
         event: Event,

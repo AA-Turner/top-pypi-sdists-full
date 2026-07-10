@@ -23,11 +23,11 @@ class LicenseCache:
     def _initialize(self) -> None:
         try:
             from vnstock.core.config.ggcolab import get_vnstock_directory
-            cache_dir = get_vnstock_directory() /"id"
+            cache_dir = get_vnstock_directory() / "id"
         except ImportError:
-            cache_dir = Path.home() /".vnstock" /"id"
+            cache_dir = Path.home() / ".vnstock" / "id"
         self.cache_dir = cache_dir
-        self.cache_file = self.cache_dir /"license_cache.json"
+        self.cache_file = self.cache_dir / "license_cache.json"
         self.cache = None
         self.lock = threading.Lock()
         self.cache_dir.mkdir(parents=True, exist_ok=True)
@@ -36,9 +36,9 @@ class LicenseCache:
     def _load_cache(self) -> None:
         try:
             if self.cache_file.exists():
-                with open(self.cache_file,'r') as f:
+                with open(self.cache_file, 'r') as f:
                     self.cache = json.load(f)
-                    msg =f"Loaded license cache from {self.cache_file}"
+                    msg = f"Loaded license cache from {self.cache_file}"
                     logger.debug(msg)
         except Exception as e:
             logger.warning(f"Failed to load license cache: {e}")
@@ -46,7 +46,7 @@ class LicenseCache:
 
     def _save_cache(self) -> None:
         try:
-            with open(self.cache_file,'w') as f:
+            with open(self.cache_file, 'w') as f:
                 json.dump(self.cache, f, indent=2)
                 logger.debug(f"Saved license cache to {self.cache_file}")
         except Exception as e:
@@ -69,8 +69,8 @@ class LicenseCache:
             age = current_time - cache_time_ts
             if age > self.CACHE_TTL:
                 logger.info(
-f"License cache expired (age: {age:.0f}s, TTL: "
-f"{self.CACHE_TTL}s)"
+                    f"License cache expired (age: {age:.0f}s, TTL: "
+                    f"{self.CACHE_TTL}s)"
                 )
                 return None
             return self.cache
@@ -86,16 +86,16 @@ f"{self.CACHE_TTL}s)"
                 cache_ttl_until = cache_time + self.CACHE_TTL
                 grace_until = cache_time + self.GRACE_PERIOD
                 self.cache = {
-"is_paid": is_paid,
-"checked_at": checked_at,
-"cache_ttl_until": cache_ttl_until,
-"grace_period_until": grace_until,
-"cache_age_seconds": 0
+                    "is_paid": is_paid,
+                    "checked_at": checked_at,
+                    "cache_ttl_until": cache_ttl_until,
+                    "grace_period_until": grace_until,
+                    "cache_age_seconds": 0
                 }
                 self._save_cache()
                 logger.info(
-f"License cache updated: is_paid={is_paid}, "
-f"TTL_expires={datetime.fromtimestamp(cache_ttl_until)}"
+                    f"License cache updated: is_paid={is_paid}, "
+                    f"TTL_expires={datetime.fromtimestamp(cache_ttl_until)}"
                 )
                 return True
             except Exception as e:
@@ -144,7 +144,7 @@ f"TTL_expires={datetime.fromtimestamp(cache_ttl_until)}"
         if self.is_in_grace_period():
             if self.cache:
                 logger.info(
-"Using cached license status (grace period active)"
+                    "Using cached license status (grace period active)"
                 )
                 return self.cache.get("is_paid", False)
         return None
@@ -164,33 +164,33 @@ f"TTL_expires={datetime.fromtimestamp(cache_ttl_until)}"
     def get_cache_info(self) -> dict:
         with self.lock:
             if not self.cache:
-                return {"status":"empty"}
+                return {"status": "empty"}
             current_time = time.time()
             cache_time_str = self.cache.get("checked_at")
             if not isinstance(cache_time_str, str):
-                return {"status":"invalid"}
+                return {"status": "invalid"}
             try:
                 cache_time = datetime.fromisoformat(cache_time_str)
                 cache_time_ts = cache_time.timestamp()
             except (ValueError, TypeError):
-                return {"status":"invalid"}
+                return {"status": "invalid"}
             age = current_time - cache_time_ts
             is_valid = age <= self.CACHE_TTL
             in_grace = (age > self.CACHE_TTL and
                         age <= self.CACHE_TTL + self.GRACE_PERIOD)
             return {
-"status":"valid" if is_valid else (
-"grace_period" if in_grace else"expired"
+                "status": "valid" if is_valid else (
+                    "grace_period" if in_grace else "expired"
                 ),
-"is_paid": self.cache.get("is_paid"),
-"checked_at": cache_time_str,
-"age_seconds": int(age),
-"ttl_seconds": self.CACHE_TTL,
-"ttl_remaining_seconds": max(
+                "is_paid": self.cache.get("is_paid"),
+                "checked_at": cache_time_str,
+                "age_seconds": int(age),
+                "ttl_seconds": self.CACHE_TTL,
+                "ttl_remaining_seconds": max(
                     0, self.CACHE_TTL - int(age)
                 ),
-"grace_period_seconds": self.GRACE_PERIOD,
-"grace_remaining_seconds": max(
+                "grace_period_seconds": self.GRACE_PERIOD,
+                "grace_remaining_seconds": max(
                     0, self.CACHE_TTL + self.GRACE_PERIOD - int(age)
                 )
             }

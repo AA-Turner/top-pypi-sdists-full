@@ -358,16 +358,10 @@ pub(super) fn parse_list_blocks(content: &str, lines: &[LineInfo]) -> Vec<ListBl
                         &mut min_continuation_for_tracking,
                     );
                 } else {
-                    // End current block and start a new one
-                    // When a different list type starts AT THE SAME LEVEL (not nested),
-                    // trim back lazy continuation lines
-                    if !same_type
-                        && !is_nested
-                        && let Some(&last_item) = block.item_lines.last()
-                    {
-                        block.end_line = last_item;
-                    }
-
+                    // End current block and start a new one. The block keeps every
+                    // continuation line it collected, including lazy (column 0) ones:
+                    // per CommonMark those continue the item's paragraph, so cutting
+                    // them off would make MD032 insert its blank line inside the item.
                     let new_block = ListBlock {
                         start_line: line_num,
                         end_line: line_num,

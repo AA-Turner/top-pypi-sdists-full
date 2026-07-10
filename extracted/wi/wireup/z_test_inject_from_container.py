@@ -2,16 +2,20 @@ import wireup
 from wireup._annotations import Injected, injectable
 
 
-@injectable
+@injectable(lifetime="scoped")
 class Foo: ...
 
 
-container = wireup.create_async_container(injectables=[Foo])
+container = wireup.create_sync_container(injectables=[Foo])
 
 
 @wireup.inject_from_container(container)
-async def main(foo: Injected[Foo]):
+def main(foo: Injected[Foo]):
     pass
 
 
 print(main.__wireup_generated_code__)
+
+
+with container.override({Foo: 1}):
+    print(container.get(Foo))

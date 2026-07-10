@@ -172,7 +172,8 @@ def read_pam_sidecar(path):
         if colors is not None:
             out['category_colors'] = colors
         return out
-    except (OSError, ValueError, TypeError, IndexError, ParseError):
+    except (OSError, ValueError, TypeError, IndexError, OverflowError,
+            ParseError):
         # A missing, malformed, or foreign sidecar is non-fatal auxiliary
         # metadata, not a read error -- never let it break open_geotiff.
         # IndexError covers a thematic RAT whose <Row> carries fewer <F>
@@ -182,17 +183,29 @@ def read_pam_sidecar(path):
         # adjacent sidecar. ParseError covers a truncated or otherwise
         # non-well-formed sidecar: safe_fromstring raises it (a SyntaxError
         # subclass, so not covered by the types above) and it would
-        # likewise escape and crash the read.
+        # likewise escape and crash the read. OverflowError covers a Value
+        # cell whose text parses to infinity ("1e400", "inf"):
+        # int(float(...)) in _parse_rat raises it, and it subclasses
+        # ArithmeticError rather than ValueError, so it too would escape
+        # and crash the read (issue #3590).
         return {}
+
+
+_MAX_CATEGORIES = 1_000_000
 
 
 def _parse_rat(rat):
     """Return (names, colors) from a thematic ``<GDALRasterAttributeTable>``.
 
     Returns ``(None, None)`` when the table has no Name column, i.e. it does
-    not describe categories. ``names`` is ordered by the row's Value column;
-    ``colors`` is the RGBA list when the RAT defines color columns, else
-    ``None``.
+    not describe categories. ``names`` is index-aligned to pixel values
+    (index == pixel value), padded with empty strings for gaps between
+    sparse RAT rows. ``colors`` is the RGBA list when the RAT defines color
+    columns, else ``None``; gaps are padded with ``(0, 0, 0, 0)``.
+
+    Fails closed (returns ``(None, None)``) on negative pixel values or a
+    maximum value exceeding ``_MAX_CATEGORIES``, which would otherwise
+    allocate a list large enough to OOM.
     """
     usage_to_col = {}
     for fd in rat.findall('FieldDefn'):
@@ -225,7 +238,24 @@ def _parse_rat(rat):
     if not rows:
         return None, None
 
-    rows.sort(key=lambda r: r[0])
-    names = [name for _, name, _ in rows]
-    colors = [color for _, _, color in rows] if have_colors else None
+    min_val = max_val = rows[0][0]
+    for r in rows:
+        v = r[0]
+        if v < min_val:
+            min_val = v
+        if v > max_val:
+            max_val = v
+    if min_val < 0 or max_val >= _MAX_CATEGORIES:
+        return None, None
+
+    names = [''] * (max_val + 1)
+    if have_colors:
+        colors = [(0, 0, 0, 0)] * (max_val + 1)
+    else:
+        colors = None
+    for value, name, color in rows:
+        names[value] = name
+        if have_colors:
+            colors[value] = color
+
     return names, colors

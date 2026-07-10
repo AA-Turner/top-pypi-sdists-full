@@ -181,6 +181,23 @@ py_is()
 
 template<class T>
 constexpr py_is_v
+py_isv37()
+{
+    return {
+            sizeof(T),
+            {offsetof(T, next)},
+            {offsetof(T, tstate_head)},
+            {offsetof(T, gc)},
+            {offsetof(T, modules)},
+            {offsetof(T, sysdict)},
+            {offsetof(T, builtins)},
+            {0},
+            {offsetof(T, id)},
+    };
+}
+
+template<class T>
+constexpr py_is_v
 py_isv311()
 {
     return {
@@ -191,6 +208,8 @@ py_isv311()
             {offsetof(T, modules)},
             {offsetof(T, sysdict)},
             {offsetof(T, builtins)},
+            {0},
+            {offsetof(T, id)},
     };
 }
 
@@ -207,6 +226,7 @@ py_isv312()
             {offsetof(T, sysdict)},
             {offsetof(T, builtins)},
             {offsetof(T, ceval.gil)},
+            {offsetof(T, id)},
     };
 }
 
@@ -273,6 +293,92 @@ py_runtimev313()
             sizeof(T),
             {offsetof(T, finalizing)},
             {offsetof(T, interpreters.head)},
+            {},
+            {},
+            {offsetof(T, debug_offsets.cookie)},
+            {offsetof(T, debug_offsets.version)},
+            {offsetof(T, debug_offsets.free_threaded)},
+            {offsetof(T, debug_offsets.runtime_state.size)},
+            {offsetof(T, debug_offsets.runtime_state.finalizing)},
+            {offsetof(T, debug_offsets.runtime_state.interpreters_head)},
+            {offsetof(T, debug_offsets.interpreter_state.size)},
+            {offsetof(T, debug_offsets.interpreter_state.id)},
+            {offsetof(T, debug_offsets.interpreter_state.next)},
+            {offsetof(T, debug_offsets.interpreter_state.threads_head)},
+            {offsetof(T, debug_offsets.interpreter_state.gc)},
+            {offsetof(T, debug_offsets.interpreter_state.imports_modules)},
+            {offsetof(T, debug_offsets.interpreter_state.sysdict)},
+            {offsetof(T, debug_offsets.interpreter_state.builtins)},
+            {offsetof(T, debug_offsets.interpreter_state.ceval_gil)},
+            {offsetof(T, debug_offsets.interpreter_state.gil_runtime_state)},
+            {offsetof(T, debug_offsets.interpreter_state.gil_runtime_state_enabled)},
+            {offsetof(T, debug_offsets.interpreter_state.gil_runtime_state_locked)},
+            {offsetof(T, debug_offsets.interpreter_state.gil_runtime_state_holder)},
+            {offsetof(T, debug_offsets.thread_state.size)},
+            {offsetof(T, debug_offsets.thread_state.prev)},
+            {offsetof(T, debug_offsets.thread_state.next)},
+            {offsetof(T, debug_offsets.thread_state.interp)},
+            {offsetof(T, debug_offsets.thread_state.current_frame)},
+            {offsetof(T, debug_offsets.thread_state.thread_id)},
+            {offsetof(T, debug_offsets.thread_state.native_thread_id)},
+            {offsetof(T, debug_offsets.thread_state.datastack_chunk)},
+            {offsetof(T, debug_offsets.thread_state.status)},
+            {offsetof(T, debug_offsets.interpreter_frame.size)},
+            {offsetof(T, debug_offsets.interpreter_frame.previous)},
+            {offsetof(T, debug_offsets.interpreter_frame.executable)},
+            {offsetof(T, debug_offsets.interpreter_frame.instr_ptr)},
+            {offsetof(T, debug_offsets.interpreter_frame.localsplus)},
+            {offsetof(T, debug_offsets.interpreter_frame.owner)},
+            {offsetof(T, debug_offsets.code_object.size)},
+            {offsetof(T, debug_offsets.code_object.filename)},
+            {offsetof(T, debug_offsets.code_object.name)},
+            {offsetof(T, debug_offsets.code_object.qualname)},
+            {offsetof(T, debug_offsets.code_object.linetable)},
+            {offsetof(T, debug_offsets.code_object.firstlineno)},
+            {offsetof(T, debug_offsets.code_object.argcount)},
+            {offsetof(T, debug_offsets.code_object.localsplusnames)},
+            {offsetof(T, debug_offsets.code_object.localspluskinds)},
+            {offsetof(T, debug_offsets.code_object.co_code_adaptive)},
+            {offsetof(T, debug_offsets.pyobject.size)},
+            {offsetof(T, debug_offsets.pyobject.ob_type)},
+            {offsetof(T, debug_offsets.type_object.size)},
+            {offsetof(T, debug_offsets.type_object.tp_name)},
+            {offsetof(T, debug_offsets.type_object.tp_repr)},
+            {offsetof(T, debug_offsets.type_object.tp_flags)},
+            {offsetof(T, debug_offsets.tuple_object.size)},
+            {offsetof(T, debug_offsets.tuple_object.ob_item)},
+            {offsetof(T, debug_offsets.tuple_object.ob_size)},
+            {offsetof(T, debug_offsets.list_object.size)},
+            {offsetof(T, debug_offsets.list_object.ob_item)},
+            {offsetof(T, debug_offsets.list_object.ob_size)},
+            {offsetof(T, debug_offsets.dict_object.size)},
+            {offsetof(T, debug_offsets.dict_object.ma_keys)},
+            {offsetof(T, debug_offsets.dict_object.ma_values)},
+            {offsetof(T, debug_offsets.float_object.size)},
+            {offsetof(T, debug_offsets.float_object.ob_fval)},
+            {offsetof(T, debug_offsets.long_object.size)},
+            {offsetof(T, debug_offsets.long_object.lv_tag)},
+            {offsetof(T, debug_offsets.long_object.ob_digit)},
+            {offsetof(T, debug_offsets.bytes_object.size)},
+            {offsetof(T, debug_offsets.bytes_object.ob_size)},
+            {offsetof(T, debug_offsets.bytes_object.ob_sval)},
+            {offsetof(T, debug_offsets.unicode_object.size)},
+            {offsetof(T, debug_offsets.unicode_object.state)},
+            {offsetof(T, debug_offsets.unicode_object.length)},
+            {offsetof(T, debug_offsets.unicode_object.asciiobject_size)},
+            {offsetof(T, debug_offsets.gc.size)},
+            {offsetof(T, debug_offsets.gc.collecting)},
+    };
+}
+
+template<class T>
+constexpr py_runtime_v
+py_runtimev314()
+{
+    return {
+            sizeof(T),
+            {},
+            {},
             {},
             {},
             {offsetof(T, debug_offsets.cookie)},
@@ -578,7 +684,7 @@ python_v python_v3_7 = {
         py_code<Python3_6::PyCodeObject>(),
         py_frame<Python3_7::PyFrameObject>(),
         py_thread<Python3_7::PyThreadState>(),
-        py_is<Python3_7::PyInterpreterState>(),
+        py_isv37<Python3_7::PyInterpreterState>(),
         py_runtime<Python3_7::PyRuntimeState>(),
         py_gc<Python3_7::_gc_runtime_state>(),
 };
@@ -600,7 +706,7 @@ python_v python_v3_8 = {
         py_code<Python3_8::PyCodeObject>(),
         py_frame<Python3_7::PyFrameObject>(),
         py_thread<Python3_7::PyThreadState>(),
-        py_is<Python3_8::PyInterpreterState>(),
+        py_isv37<Python3_8::PyInterpreterState>(),
         py_runtime<Python3_8::PyRuntimeState>(),
         py_gc<Python3_8::_gc_runtime_state>(),
 };
@@ -622,7 +728,7 @@ python_v python_v3_9 = {
         py_code<Python3_8::PyCodeObject>(),
         py_frame<Python3_7::PyFrameObject>(),
         py_thread<Python3_7::PyThreadState>(),
-        py_is<Python3_9::PyInterpreterState>(),
+        py_isv37<Python3_9::PyInterpreterState>(),
         py_runtime<Python3_9::PyRuntimeState>(),
         py_gc<Python3_8::_gc_runtime_state>(),
 };
@@ -644,7 +750,7 @@ python_v python_v3_10 = {
         py_code<Python3_8::PyCodeObject>(),
         py_frame<Python3_10::PyFrameObject>(),
         py_thread<Python3_7::PyThreadState>(),
-        py_is<Python3_9::PyInterpreterState>(),
+        py_isv37<Python3_9::PyInterpreterState>(),
         py_runtime<Python3_9::PyRuntimeState>(),
         py_gc<Python3_8::_gc_runtime_state>(),
 };
@@ -723,25 +829,51 @@ python_v python_v3_13 = {
 // ---- Python 3.14 ------------------------------------------------------------
 
 python_v python_v3_14 = {
-        py_tuple<PyTupleObject>(),
-        py_list<PyListObject>(),
-        py_dict<Python3::PyDictObject>(),
+        {},
+        {},
+        {},
         py_dictkeys<Python3_11::PyDictKeysObject>(),
         py_dictvalues<Python3_13::PyDictValuesObject>(),
-        py_float<PyFloatObject>(),
-        py_long<_PyLongObject>(),
-        py_bytes<Python3::PyBytesObject>(),
-        py_unicode<Python3_12::PyUnicodeObject>(),
-        py_object<PyObject>(),
-        py_type<Python3_8::PyTypeObject>(),
-        py_codev311<Python3_14::PyCodeObject>(),
-        py_framev314<Python3_14::PyFrameObject>(),
-        py_threadv313<Python3_13::PyThreadState>(),
-        py_isv312<Python3_13::PyInterpreterState>(),
-        py_runtimev313<Python3_14::PyRuntimeState>(),
-        py_gc<Python3_14::_gc_runtime_state>(),
+        {},
+        {},
+        {},
+        {},
+        {},
+        {},
+        {},
+        {},
+        {},
+        {},
+        py_runtimev314<Python3_14::PyRuntimeState>(),
+        {},
         py_cframe<Python3_12::CFrame>(),
-        py_gilruntimestate<Python3_14::_gil_runtime_state>(),
+        {},
+};
+
+// -----------------------------------------------------------------------------
+
+// ---- Python 3.15 ------------------------------------------------------------
+
+python_v python_v3_15 = {
+        {},
+        {},
+        {},
+        py_dictkeys<Python3_11::PyDictKeysObject>(),
+        py_dictvalues<Python3_13::PyDictValuesObject>(),
+        {},
+        {},
+        {},
+        {},
+        {},
+        {},
+        {},
+        {},
+        {},
+        {},
+        py_runtimev314<Python3_15::PyRuntimeState>(),
+        {},
+        py_cframe<Python3_12::CFrame>(),
+        {},
 };
 
 // -----------------------------------------------------------------------------
@@ -811,11 +943,14 @@ getCPythonOffsets(int major, int minor)
                 case 13:
                     return &python_v3_13;
                     break;
+                case 14:
+                    return &python_v3_14;
+                    break;
                 default:
                     warnAboutUnsuportedVersion(major, minor);
                     // fallthrough to latest
-                case 14:
-                    return &python_v3_14;
+                case 15:
+                    return &python_v3_15;
                     break;
             }
             break;

@@ -2,6 +2,7 @@
 SMatrix_DENSE.py
 
 Dense matrix construction and operations.
+Supports both REAL and COMPLEX fields via `isComplexSMatrix` flag.
 Supports both CPU (NumPy) and GPU (CuPy/CUDA) implementations.
 """
 
@@ -25,19 +26,14 @@ except ImportError:
 class SMatrix_DENSE(SMatrix):
     """
     Construction of a DENSE matrix from a `experiment` object.
-
-    Usage:
-        S = SMatrix_DENSE(experiment, device='gpu')  # or 'cpu'
-        S.allocate()
+    Supports both REAL and COMPLEX fields via `isComplexSMatrix`.
     """
 
     def __init__(self, **kwargs):
         """
         Initialize DENSE matrix.
         Args:
-            **kwargs: Arguments passed to base SMatrix class
-                - experiment: Experiment object containing AcousticFields
-                - device: 'cpu' or 'gpu:{gpu_id}' (optional, defaults to GPU if available)
+            **kwargs: Arguments passed to base SMatrix class.
         """
         super().__init__(**kwargs)
         self.matrix_type = SMatrixType.DENSE
@@ -48,23 +44,31 @@ class SMatrix_DENSE(SMatrix):
 
     def _allocate_gpu(self):
         """Allocate and fill the DENSE matrix on GPU using custom kernels."""
+        dtype = self._get_dtype()
+        cp_dtype = self._get_cp_dtype()
+
         # Allocate dense matrix on GPU
-        self.dense_matrix_gpu = cp.zeros((self.T, self.N, self.Z, self.X), dtype=np.float32)
+        self.dense_matrix_gpu = cp.zeros((self.T, self.N, self.Z, self.X), dtype=cp_dtype)
 
         # Prepare host buffer for field data (1D array)
-        field_host = np.empty((self.T * self.Z * self.X), dtype=np.float32)
+        field_host = np.empty((self.T * self.Z * self.X), dtype=dtype)
 
         # Fill dense matrix using CUDA kernel
-        fill_kernel = self.sparse_mod.get_function("fill_kernel__DENSE")
+        fill_kernel_name = "fill_kernel__DENSE__COMPLEX" if self.isComplexSMatrix else "fill_kernel__DENSE__REAL"
+        fill_kernel = self.sparse_mod.get_function(fill_kernel_name)
 
-        for n in trange(self.N, desc="Filling DENSE (GPU)"):
-            # Copy field data for this angle to host buffer (flattened)
-            for t in range(self.T):
-                field_host[t * (self.Z * self.X) : (t + 1) * (self.Z * self.X)] = (
-                    self.experiment.AcousticFields[n].field[t].flatten().astype(np.float32)
-                )
+        for n in trange(self.N, desc=f"[AOT-biomaps] Filling DENSE (GPU - {'Complex' if self.isComplexSMatrix else 'Real'})"):
+            if self.isComplexSMatrix:
+                # For complex: use demodulated_fields
+                key = list(self.experiment.AcousticFields_demodulated.keys())[n]
+                for t in range(self.T):
+                    field_host[t * (self.Z * self.X) : (t + 1) * (self.Z * self.X)] = self.experiment.AcousticFields_demodulated[key][t].flatten()
+            else:
+                # For real: use AcousticFields
+                for t in range(self.T):
+                    field_host[t * (self.Z * self.X) : (t + 1) * (self.Z * self.X)] = self.experiment.AcousticFields[n].field[t].flatten().astype(dtype)
 
-            field_gpu = cp.asarray(field_host)
+            field_gpu = cp.asarray(field_host, dtype=cp_dtype)
 
             threads = 256
             blocks = (self.T * self.Z * self.X + threads - 1) // threads
@@ -79,7 +83,7 @@ class SMatrix_DENSE(SMatrix):
                     np.int32(self.N),
                     np.int32(self.Z),
                     np.int32(self.X),
-                    np.int32(n)  # Passer l'angle courant
+                    np.int32(n)
                 ]
             )
             cp.cuda.Stream.null.synchronize()
@@ -92,34 +96,40 @@ class SMatrix_DENSE(SMatrix):
 
     def _allocate_cpu(self):
         """Allocate and fill the DENSE matrix on CPU."""
-        self.dense_matrix = np.zeros((self.T, self.N, self.Z, self.X), dtype=np.float32)
+        dtype = self._get_dtype()
+        self.dense_matrix = np.zeros((self.T, self.N, self.Z, self.X), dtype=dtype)
 
-        for n in trange(self.N, desc="Filling DENSE (CPU)"):
-            field = self.experiment.AcousticFields[n].field
-            for t in range(self.T):
-                self.dense_matrix[t, n] = field[t].astype(np.float32)
+        for n in trange(self.N, desc=f"[AOT-biomaps] Filling DENSE (CPU - {'Complex' if self.isComplexSMatrix else 'Real'})"):
+            if self.isComplexSMatrix:
+                key = list(self.experiment.AcousticFields_demodulated.keys())[n]
+                for t in range(self.T):
+                    self.dense_matrix[t, n] = self.experiment.AcousticFields_demodulated[key][t]
+            else:
+                field = self.experiment.AcousticFields[n].field
+                for t in range(self.T):
+                    self.dense_matrix[t, n] = field[t].astype(dtype)
 
         self.compute_norm_factor()
 
     def forward_projection(self, theta: Union[np.ndarray, 'cp.ndarray']) -> Union[np.ndarray, 'cp.ndarray']:
         """
         Perform forward projection: q = A * theta
-
-        Args:
-            theta: Input vector (Z*X,)
-
-        Returns:
-            Projection result (N*T,)
         """
-        if check_gpu_available(self) and self.dense_matrix_gpu is not None:
-            theta_gpu = cp.asarray(theta) if not isinstance(theta, cp.ndarray) else theta
-            q_gpu = cp.zeros(self.N * self.T, dtype=np.float32)
+        dtype = self._get_dtype()
+        cp_dtype = self._get_cp_dtype()
 
-            # Sécurisation des layouts mémoire bruts pour les kernels CUDA custom
+        if check_gpu_available(self) and self.dense_matrix_gpu is not None:
+            theta_gpu = cp.asarray(theta, dtype=cp_dtype) if not isinstance(theta, cp.ndarray) else theta
+            if theta_gpu.dtype != cp_dtype:
+                theta_gpu = theta_gpu.astype(cp_dtype)
+            q_gpu = cp.zeros(self.N * self.T, dtype=cp_dtype)
+
+            # Ensure contiguous memory layout for custom CUDA kernels
             dense_contiguous = cp.ascontiguousarray(self.dense_matrix_gpu)
             theta_contiguous = cp.ascontiguousarray(theta_gpu)
 
-            proj_kernel = self.sparse_mod.get_function('forward_projection_kernel__DENSE')
+            proj_kernel_name = "forward_projection_kernel__DENSE__COMPLEX" if self.isComplexSMatrix else "forward_projection_kernel__DENSE__REAL"
+            proj_kernel = self.sparse_mod.get_function(proj_kernel_name)
             threads = 256
             blocks = (self.N * self.T + threads - 1) // threads
 
@@ -131,16 +141,17 @@ class SMatrix_DENSE(SMatrix):
             cp.cuda.Stream.null.synchronize()
             return q_gpu
         else:
-            theta_cpu = np.asarray(theta) if not isinstance(theta, np.ndarray) else theta
+            theta_cpu = np.asarray(theta, dtype=dtype) if not isinstance(theta, np.ndarray) else theta
             if isinstance(theta_cpu, cp.ndarray):
                 theta_cpu = cp.asnumpy(theta_cpu)
+            if theta_cpu.dtype != dtype:
+                theta_cpu = theta_cpu.astype(dtype)
 
-            q = np.zeros(self.N * self.T, dtype=np.float32)
-            # Boucle CPU alignée sur le layout (N * T)
+            q = np.zeros(self.N * self.T, dtype=dtype)
             for n in range(self.N):
                 for t in range(self.T):
                     row_idx = n * self.T + t
-                    acc = 0.0
+                    acc = 0.0 if not self.isComplexSMatrix else 0.0 + 0.0j
                     for z in range(self.Z):
                         for x in range(self.X):
                             col_idx = z * self.X + x
@@ -151,22 +162,22 @@ class SMatrix_DENSE(SMatrix):
     def backward_projection(self, e: Union[np.ndarray, 'cp.ndarray']) -> Union[np.ndarray, 'cp.ndarray']:
         """
         Perform backward projection: c = A^T * e
-
-        Args:
-            e: Input vector (N*T,)
-
-        Returns:
-            Backprojection result (Z*X,)
         """
-        if check_gpu_available(self) and self.dense_matrix_gpu is not None:
-            e_gpu = cp.asarray(e) if not isinstance(e, cp.ndarray) else e
-            c_gpu = cp.zeros(self.Z * self.X, dtype=np.float32)
+        dtype = self._get_dtype()
+        cp_dtype = self._get_cp_dtype()
 
-            # Sécurisation des layouts mémoire bruts pour les kernels CUDA custom
+        if check_gpu_available(self) and self.dense_matrix_gpu is not None:
+            e_gpu = cp.asarray(e, dtype=cp_dtype) if not isinstance(e, cp.ndarray) else e
+            if e_gpu.dtype != cp_dtype:
+                e_gpu = e_gpu.astype(cp_dtype)
+            c_gpu = cp.zeros(self.Z * self.X, dtype=cp_dtype)
+
+            # Ensure contiguous memory layout for custom CUDA kernels
             dense_contiguous = cp.ascontiguousarray(self.dense_matrix_gpu)
             e_contiguous = cp.ascontiguousarray(e_gpu)
 
-            bp_kernel = self.sparse_mod.get_function('backward_projection_kernel__DENSE')
+            bp_kernel_name = "backward_projection_kernel__DENSE__COMPLEX" if self.isComplexSMatrix else "backward_projection_kernel__DENSE__REAL"
+            bp_kernel = self.sparse_mod.get_function(bp_kernel_name)
             threads = 256
             blocks = (self.Z * self.X + threads - 1) // threads
 
@@ -178,30 +189,28 @@ class SMatrix_DENSE(SMatrix):
             cp.cuda.Stream.null.synchronize()
             return c_gpu
         else:
-            e_cpu = np.asarray(e) if not isinstance(e, np.ndarray) else e
+            e_cpu = np.asarray(e, dtype=dtype) if not isinstance(e, np.ndarray) else e
             if isinstance(e_cpu, cp.ndarray):
                 e_cpu = cp.asnumpy(e_cpu)
+            if e_cpu.dtype != dtype:
+                e_cpu = e_cpu.astype(dtype)
 
-            c = np.zeros(self.Z * self.X, dtype=np.float32)
-            # Boucle CPU alignée sur le layout (N * T)
+            c = np.zeros(self.Z * self.X, dtype=dtype)
             for n in range(self.N):
                 for t in range(self.T):
                     row_idx = n * self.T + t
                     e_val = e_cpu[row_idx]
-                    if e_val == 0.0:
+                    if e_val == (0.0 if not self.isComplexSMatrix else 0.0 + 0.0j):
                         continue
                     for z in range(self.Z):
                         for x in range(self.X):
                             col_idx = z * self.X + x
                             c[col_idx] += self.dense_matrix[t, n, z, x] * e_val
-            return c    
-    
+            return c
+
     def apply_apodization(self, window_vector: Union[np.ndarray, 'cp.ndarray']):
         raise NotImplementedError("Apodization not implemented for DENSE matrix.")
 
-    def flip_probe(self):
-        raise NotImplementedError("Probe flipping not implemented for DENSE matrix.")
-    
     def get_matrix_size(self):
         """Get matrix size information."""
         if self.dense_matrix is not None:
@@ -213,16 +222,22 @@ class SMatrix_DENSE(SMatrix):
                 'dtype': str(self.dense_matrix.dtype)
             }
         else:
-            return {'error': 'Matrix not allocated'}
+            return {'error': '[AOT-biomaps] Matrix not allocated'}
 
     def _free_specific(self):
-        """Free specific GPU memory allocated by CSR."""
-        for attr in ['col_ind_gpu', 'values_gpu', 'row_ptr_gpu']:
+        """Free all GPU memory allocated by DENSE."""
+        attrs = ['dense_matrix_gpu']
+        for attr in attrs:
             gpu_mem = getattr(self, attr, None)
             if gpu_mem is not None:
                 try:
-                    if hasattr(gpu_mem, 'free'): gpu_mem.free()
-                    else: del gpu_mem
-                except:
-                    pass
-            setattr(self, attr, None)
+                    setattr(self, attr, None)
+                    if hasattr(gpu_mem, 'free'):
+                        gpu_mem.free()
+                    del gpu_mem
+                except Exception as e:
+                    warnings.warn(f"[AOT-biomaps] Error freeing {attr}: {e}")
+
+        if CUPY_AVAILABLE:
+            cp._default_memory_pool.free_all_blocks()
+            cp.cuda.Stream.null.synchronize()

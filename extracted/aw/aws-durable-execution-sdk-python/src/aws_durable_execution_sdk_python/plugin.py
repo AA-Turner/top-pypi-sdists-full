@@ -1,13 +1,15 @@
+from __future__ import annotations
+
 import contextlib
 import datetime
 import functools
 import logging
 from concurrent.futures import ThreadPoolExecutor
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from enum import Enum
-from typing import Any, Callable, MutableMapping
+from collections.abc import Mapping, Sequence
+from typing import Any, Callable, MutableMapping, cast
 
-from aws_durable_execution_sdk_python.exceptions import SuspendExecution
 from aws_durable_execution_sdk_python.identifier import OperationIdentifier
 from aws_durable_execution_sdk_python.lambda_service import (
     DurableExecutionInvocationOutput,
@@ -26,6 +28,33 @@ from aws_durable_execution_sdk_python.types import LambdaContext
 logger = logging.getLogger(__name__)
 
 
+def _extract_result(operation: Operation) -> str | None:
+    if operation.step_details and operation.step_details.result is not None:
+        return operation.step_details.result
+    if operation.callback_details and operation.callback_details.result is not None:
+        return operation.callback_details.result
+    if (
+        operation.chained_invoke_details
+        and operation.chained_invoke_details.result is not None
+    ):
+        return operation.chained_invoke_details.result
+    if operation.context_details and operation.context_details.result is not None:
+        return operation.context_details.result
+    return None
+
+
+def _extract_error(operation: Operation) -> ErrorObject | None:
+    if operation.step_details and operation.step_details.error:
+        return operation.step_details.error
+    if operation.callback_details and operation.callback_details.error:
+        return operation.callback_details.error
+    if operation.chained_invoke_details and operation.chained_invoke_details.error:
+        return operation.chained_invoke_details.error
+    if operation.context_details and operation.context_details.error:
+        return operation.context_details.error
+    return None
+
+
 @dataclass(frozen=True)
 class OperationInfo:
     operation_id: str
@@ -34,6 +63,35 @@ class OperationInfo:
     name: str | None
     parent_id: str | None
     start_time: datetime.datetime | None
+    is_replayed: bool
+    status: OperationStatus
+    end_time: datetime.datetime | None = field(default=None, kw_only=True)
+    result: str | None = field(default=None, kw_only=True)
+    error: ErrorObject | None = field(default=None, kw_only=True)
+    attempt: int | None = field(default=None, kw_only=True)
+
+    @staticmethod
+    def from_operation(
+        operation: Operation,
+        *,
+        is_replayed: bool = False,
+    ) -> OperationInfo:
+        return OperationInfo(
+            operation_id=operation.operation_id,
+            operation_type=operation.operation_type,
+            sub_type=operation.sub_type,
+            name=operation.name,
+            parent_id=operation.parent_id,
+            start_time=operation.start_timestamp,
+            end_time=operation.end_timestamp,
+            result=_extract_result(operation),
+            error=_extract_error(operation),
+            attempt=(
+                operation.step_details.attempt if operation.step_details else None
+            ),
+            is_replayed=is_replayed,
+            status=operation.status,
+        )
 
 
 @dataclass(frozen=True)
@@ -43,33 +101,31 @@ class OperationStartInfo(OperationInfo):
 
 @dataclass(frozen=True)
 class OperationEndInfo(OperationInfo):
-    status: OperationStatus
-    end_time: datetime.datetime | None
-    error: ErrorObject | None
+    pass
+
+
+@dataclass(frozen=True)
+class OperationChangeInfo:
+    execution_arn: str | None
+    updated_operations: dict[str, OperationInfo]
+    operations: dict[str, OperationInfo]
 
 
 class UserFunctionOutcome(Enum):
     SUCCEEDED = "SUCCEEDED"
     FAILED = "FAILED"
-    PENDING = "PENDING"
 
     @classmethod
-    def from_error(cls, error: ErrorObject | None) -> "UserFunctionOutcome":
+    def from_error(cls, error: ErrorObject | None) -> UserFunctionOutcome:
         if error is None:
             return cls(cls.SUCCEEDED)
-        elif error.type == SuspendExecution.__name__:
-            return cls(cls.PENDING)
-        else:
-            return cls(cls.FAILED)
+        return cls(cls.FAILED)
 
 
 @dataclass(frozen=True)
 class UserFunctionStartInfo(OperationInfo):
     is_replay_children: bool = (
         False  # True if user function is called to replay children (MAP/PARALLEL)
-    )
-    attempt: int | None = (
-        None  # None for user function called more than once in CONTEXT
     )
 
 
@@ -78,15 +134,12 @@ class UserFunctionEndInfo(OperationInfo):
     is_replay_children: (
         bool  # True if user function is called to replay children (MAP/PARALLEL)
     )
-    attempt: int | None  # None for user function called more than once in CONTEXT
     outcome: UserFunctionOutcome
-    end_time: datetime.datetime | None
-    error: ErrorObject | None
 
     @classmethod
     def from_start_info(
         cls, start_info: UserFunctionStartInfo, error: ErrorObject | None
-    ) -> "UserFunctionEndInfo":
+    ) -> UserFunctionEndInfo:
         return UserFunctionEndInfo(
             operation_id=start_info.operation_id,
             operation_type=start_info.operation_type,
@@ -94,6 +147,8 @@ class UserFunctionEndInfo(OperationInfo):
             name=start_info.name,
             parent_id=start_info.parent_id,
             start_time=start_info.start_time,
+            is_replayed=start_info.is_replayed,
+            status=start_info.status,
             is_replay_children=start_info.is_replay_children,
             attempt=start_info.attempt,
             outcome=UserFunctionOutcome.from_error(error),
@@ -159,7 +214,8 @@ class DurableInstrumentationPlugin:
 
     def on_operation_start(self, info: OperationStartInfo) -> None:
         """
-        Called when an operation checkpoints STARTED status. This is called NOT within the thread that runs operation.
+        Called when an operation checkpoints STARTED status, or when a prior
+        operation is replayed. This is called NOT within the thread that runs operation.
 
         Args:
             info: Information about the operation.
@@ -169,10 +225,21 @@ class DurableInstrumentationPlugin:
 
     def on_operation_end(self, info: OperationEndInfo) -> None:
         """
-        Called when an operation checkpoints a terminal status. This is called NOT within the thread that runs operation.
+        Called when an operation checkpoints a terminal status, or when a prior
+        terminal operation is replayed. This is called NOT within the thread that runs operation.
 
         Args:
             info: Information about the operation.
+        """
+        pass
+
+    def on_operation_change(self, info: OperationChangeInfo) -> None:
+        """
+        Called when checkpointed operations change after a checkpoint response is merged.
+        This is called NOT within the thread that runs operation.
+
+        Args:
+            info: Updated operations and the full operation map for the invocation.
         """
         pass
 
@@ -227,6 +294,8 @@ class PluginExecutor:
                     plugin.on_operation_start(info)
                 case OperationEndInfo():
                     plugin.on_operation_end(info)
+                case OperationChangeInfo():
+                    plugin.on_operation_change(info)
                 case UserFunctionStartInfo():
                     plugin.on_user_function_start(info)
                 case UserFunctionEndInfo():
@@ -298,6 +367,8 @@ class PluginExecutor:
             name=operation_identifier.name,
             parent_id=operation_identifier.parent_id,
             start_time=datetime.datetime.now(datetime.UTC),
+            is_replayed=False,
+            status=OperationStatus.STARTED,
             is_replay_children=is_replay_children,
             attempt=attempt,
         )
@@ -328,22 +399,27 @@ class PluginExecutor:
                     name=update.name,
                     parent_id=update.parent_id,
                     start_time=datetime.datetime.now(datetime.UTC),
+                    is_replayed=False,
+                    status=OperationStatus.STARTED,
                 ),
                 sync=True,
             )
 
-    def on_operation_update(self, operation: Operation | None):
-        """Execute any registered plugins for a given operation when it receives an update
+    def on_operation_replay(self, operation: Operation) -> None:
+        """Execute plugins for a checkpointed operation observed during replay."""
+        start_info = OperationStartInfo(
+            operation_id=operation.operation_id,
+            operation_type=operation.operation_type,
+            sub_type=operation.sub_type,
+            name=operation.name,
+            parent_id=operation.parent_id,
+            start_time=operation.start_timestamp,
+            is_replayed=True,
+            status=operation.status,
+        )
+        self.execute_plugins(start_info, sync=True)
 
-        Updates such as STARTED might be omitted because START and completion action (e.g. SUCCEED/FAIL) may be
-        checkpointed in batch and the backend returns only the terminal status (e.g. SUCCEEDED/PENDING/FAILED).
-
-        Note: the operation may not be up-to-date if the checkpoint is called asynchronously.
-
-        Args:
-            operation: the operation is just checkpointed
-        """
-        if operation and self._is_terminal_status(operation.status):
+        if self._is_terminal_status(operation.status):
             self.execute_plugins(
                 OperationEndInfo(
                     operation_id=operation.operation_id,
@@ -353,23 +429,103 @@ class PluginExecutor:
                     parent_id=operation.parent_id,
                     start_time=operation.start_timestamp,
                     end_time=operation.end_timestamp,
+                    result=_extract_result(operation),
                     status=operation.status,
                     error=self._extract_error(operation),
+                    attempt=(
+                        operation.step_details.attempt
+                        if operation.step_details
+                        else None
+                    ),
+                    is_replayed=True,
                 ),
                 sync=True,
             )
 
+    def on_operation_update(
+        self,
+        operation_or_operations: Operation | Sequence[Operation] | None,
+        operations: Mapping[str, Operation] | None = None,
+        previous_operations: Mapping[str, Operation] | None = None,
+    ):
+        """Execute any registered plugins for operation updates.
+
+        Updates such as STARTED might be omitted because START and completion action (e.g. SUCCEED/FAIL) may be
+        checkpointed in batch and the backend returns only the terminal status (e.g. SUCCEEDED/PENDING/FAILED).
+
+        Note: the operation may not be up-to-date if the checkpoint is called asynchronously.
+
+        Args:
+            operation_or_operations: operation or operations that were just checkpointed.
+            operations: full operation map after the update, when available.
+            previous_operations: operation map before the update, when available.
+        """
+        if operation_or_operations is None:
+            return
+
+        updated_operations: list[Operation] = (
+            cast(list[Operation], list(operation_or_operations))
+            if isinstance(operation_or_operations, list | tuple)
+            else [cast(Operation, operation_or_operations)]
+        )
+        for operation in updated_operations:
+            if self._is_terminal_status(operation.status):
+                self.execute_plugins(
+                    OperationEndInfo(
+                        operation_id=operation.operation_id,
+                        operation_type=operation.operation_type,
+                        sub_type=operation.sub_type,
+                        name=operation.name,
+                        parent_id=operation.parent_id,
+                        start_time=operation.start_timestamp,
+                        end_time=operation.end_timestamp,
+                        result=_extract_result(operation),
+                        status=operation.status,
+                        error=self._extract_error(operation),
+                        attempt=(
+                            operation.step_details.attempt
+                            if operation.step_details
+                            else None
+                        ),
+                        is_replayed=False,
+                    ),
+                    sync=True,
+                )
+
+        if (
+            operations is None
+            or previous_operations is None
+            or self._invocation_status is None
+        ):
+            return
+
+        changed_operations = [
+            operation
+            for operation in updated_operations
+            if previous_operations.get(operation.operation_id) is None
+            or previous_operations[operation.operation_id].status != operation.status
+        ]
+        if not changed_operations:
+            return
+
+        self.execute_plugins(
+            OperationChangeInfo(
+                execution_arn=self._invocation_status.execution_arn,
+                updated_operations={
+                    operation.operation_id: OperationInfo.from_operation(operation)
+                    for operation in changed_operations
+                },
+                operations={
+                    operation_id: OperationInfo.from_operation(operation)
+                    for operation_id, operation in operations.items()
+                },
+            ),
+            sync=True,
+        )
+
     @staticmethod
     def _extract_error(operation: Operation):
-        if operation.step_details and operation.step_details.error:
-            return operation.step_details.error
-        if operation.callback_details and operation.callback_details.error:
-            return operation.callback_details.error
-        if operation.chained_invoke_details and operation.chained_invoke_details.error:
-            return operation.chained_invoke_details.error
-        if operation.context_details and operation.context_details.error:
-            return operation.context_details.error
-        return None
+        return _extract_error(operation)
 
     @staticmethod
     def _is_terminal_status(status):

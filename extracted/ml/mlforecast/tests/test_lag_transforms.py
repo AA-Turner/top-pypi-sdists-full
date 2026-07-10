@@ -55,6 +55,120 @@ def test_combine_name_and_transform(grouped_array):
     expected = Lag(1).transform(grouped_array) / Lag(2).transform(grouped_array)
     np.testing.assert_allclose(transformed, expected)
 
+def test_combine_take(grouped_array):
+    tfm = Combine(
+        RollingMean(window_size=7, min_samples=1),
+        RollingMean(window_size=5, min_samples=1),
+        operator.add
+    )._set_core_tfm(1)
+    tfm.transform(grouped_array)
+
+    idxs = np.array([0, 5, 10, 15])
+    subset_tfm = tfm.take(idxs)
+
+    assert isinstance(subset_tfm, Combine)
+    assert subset_tfm.tfm1 is not None
+    assert subset_tfm.tfm2 is not None
+    assert subset_tfm.operator == operator.add
+
+def test_nested_combine_take(grouped_array):
+    inner = Combine(
+        RollingMean(window_size=7, min_samples=1),
+        RollingMean(window_size=5, min_samples=1),
+        operator.add
+    )
+    outer = Combine(
+        inner,
+        RollingMean(window_size=3, min_samples=1),
+        operator.sub
+    )._set_core_tfm(1)
+    outer.transform(grouped_array)
+
+    idxs = np.array([0, 5, 10])
+    subset_tfm = outer.take(idxs)
+
+    assert isinstance(subset_tfm, Combine)
+    assert isinstance(subset_tfm.tfm1, Combine)
+    assert subset_tfm.operator == operator.sub
+    assert subset_tfm.tfm1.operator == operator.add
+
+    # Numerical correctness: subset update() matches a fresh fit on the same 3 groups
+    indptr = grouped_array.indptr
+    parts = [grouped_array.data[indptr[i]:indptr[i + 1]] for i in idxs]
+    new_indptr = np.zeros(len(idxs) + 1, dtype=indptr.dtype)
+    for j, part in enumerate(parts):
+        new_indptr[j + 1] = new_indptr[j] + len(part)
+    subset_ga = CoreGroupedArray(np.concatenate(parts), new_indptr)
+
+    fresh_tfm = Combine(
+        Combine(
+            RollingMean(window_size=7, min_samples=1),
+            RollingMean(window_size=5, min_samples=1),
+            operator.add
+        ),
+        RollingMean(window_size=3, min_samples=1),
+        operator.sub
+    )._set_core_tfm(1)
+    fresh_tfm.transform(subset_ga)
+    np.testing.assert_allclose(subset_tfm.update(subset_ga), fresh_tfm.update(subset_ga))
+
+def test_combine_stack(grouped_array):
+    tfm1 = Combine(
+        RollingMean(window_size=7, min_samples=1),
+        RollingMean(window_size=5, min_samples=1),
+        operator.add
+    )._set_core_tfm(1)
+    tfm2 = Combine(
+        RollingMean(window_size=7, min_samples=1),
+        RollingMean(window_size=5, min_samples=1),
+        operator.add
+    )._set_core_tfm(1)
+
+    tfm1.transform(grouped_array)
+    tfm2.transform(grouped_array)
+
+    stacked_tfm = Combine.stack([tfm1, tfm2])
+
+    assert isinstance(stacked_tfm, Combine)
+    assert stacked_tfm.operator == operator.add
+
+    # Numerical correctness: stacking a single fitted transform should reproduce its update()
+    single_stacked = Combine.stack([tfm1])
+    tfm1.transform(grouped_array)  # reset internal state
+    np.testing.assert_allclose(single_stacked.update(grouped_array), tfm1.update(grouped_array))
+
+
+def test_combine_stack_behavioral(grouped_array):
+    """Verify that Combine.stack() doesn't just return first partition"""
+    # Create two Combine transforms with DIFFERENT window sizes to detect if
+    # stacking just returns the first partition vs actually combining them
+    tfm1 = Combine(
+        RollingMean(window_size=3, min_samples=1),
+        RollingMean(window_size=5, min_samples=1),
+        operator.add
+    )._set_core_tfm(1)
+
+    tfm2 = Combine(
+        RollingMean(window_size=7, min_samples=1),  # Different window size
+        RollingMean(window_size=9, min_samples=1),  # Different window size
+        operator.add
+    )._set_core_tfm(1)
+
+    tfm1.transform(grouped_array)
+    tfm2.transform(grouped_array)
+
+    # If stack incorrectly returned partition_tfms[0], it would just return tfm1
+    # The stacked transform should have tfm1's window sizes (since stack keeps first's config)
+    # but should have stacked internal state from both
+    stacked = Combine.stack([tfm1, tfm2])
+
+    # Verify stacked uses first transform's configuration
+    assert stacked.tfm1.window_size == 3
+    assert stacked.tfm2.window_size == 5
+    # Verify it's not just a reference to tfm1 (defensive check)
+    assert stacked is not tfm1
+
+
 @pytest.mark.parametrize("tfm", [
     ExpandingMax(),
     ExpandingMean(),

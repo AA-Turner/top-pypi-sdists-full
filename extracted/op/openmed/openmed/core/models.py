@@ -36,15 +36,15 @@ if TYPE_CHECKING:
 from ..processing.tokenizer_cache import get_tokenizer_with_loader
 from .config import get_config
 from .model_registry import (
-    OPENMED_MODELS,
+    ModelInfo as RegistryModelInfo,
+)
+from .model_registry import (
     get_all_models,
     get_model_info,
     get_model_suggestions,
     get_models_by_category,
 )
-from .model_registry import (
-    ModelInfo as RegistryModelInfo,
-)
+from .offline import configure_offline_mode, is_local_only
 
 
 class ModelLoader:
@@ -63,6 +63,7 @@ class ModelLoader:
             )
 
         self.config = config or get_config()
+        configure_offline_mode(self.config)
         self._models = {}  # Cache for loaded models
         self._tokenizers = {}  # Cache for loaded tokenizers
         self._pipelines = {}  # Cache for created pipelines
@@ -82,6 +83,8 @@ class ModelLoader:
             List of model names available for loading.
         """
         models = []
+        if is_local_only(self.config):
+            include_remote = False
 
         if include_registry:
             registry_models = [info.model_id for info in get_all_models().values()]
@@ -573,6 +576,9 @@ class ModelLoader:
         kwargs: Optional[Dict[str, Any]] = None,
     ) -> Dict[str, Any]:
         """Force local-only Hub loading for filesystem-backed model names."""
+        if is_local_only(self.config):
+            configure_offline_mode(self.config)
+            return {"local_files_only": True}
         if kwargs and "local_files_only" in kwargs:
             return {"local_files_only": kwargs["local_files_only"]}
         if self._as_existing_local_path(model_name) is not None:

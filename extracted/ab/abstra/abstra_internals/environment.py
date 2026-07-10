@@ -59,6 +59,8 @@ CLOUD_API_PROD_SHARED_TOKEN = os.getenv(
 CLOUD_API_PROD_HEADERS = {"shared-token": CLOUD_API_PROD_SHARED_TOKEN}
 CLOUD_API_PROD_URL = f"{CLOUD_API_ENDPOINT}/apps"
 
+CLOUD_CONSOLE_URL = os.getenv("ABSTRA_CONSOLE_URL", "https://cloud.abstra.io")
+
 
 # DOCS
 

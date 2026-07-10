@@ -6382,16 +6382,18 @@ class Mergify(
     def add_queue(
         self,
         *,
-        commit_message_template: builtins.str,
         name: builtins.str,
+        commit_message_format: typing.Optional[typing.Union["MergifyCommitMessageFormat", typing.Dict[builtins.str, typing.Any]]] = None,
+        commit_message_template: typing.Optional[builtins.str] = None,
         merge_conditions: typing.Optional[typing.Sequence[typing.Union[builtins.str, typing.Union["MergifyConditionalOperator", typing.Dict[builtins.str, typing.Any]]]]] = None,
         merge_method: typing.Optional[builtins.str] = None,
         queue_conditions: typing.Optional[typing.Sequence[typing.Union[builtins.str, typing.Union["MergifyConditionalOperator", typing.Dict[builtins.str, typing.Any]]]]] = None,
         update_method: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param commit_message_template: (experimental) Template to use as the commit message when using the merge or squash merge method.
         :param name: (experimental) The name of the queue.
+        :param commit_message_format: (experimental) When merging with the merge or squash method, configure the title, body, and trailers of the resulting commit.
+        :param commit_message_template: (deprecated) Template to use as the commit message when using the merge or squash merge method.
         :param merge_conditions: (experimental) The list of conditions to match to get the queued pull request merged. This automatically includes the queueConditions. In case of speculative merge pull request, the merge conditions are evaluated against the temporary pull request instead of the original one.
         :param merge_method: (experimental) Merge method to use. Possible values are ``merge``, ``squash``, ``rebase`` or ``fast-forward``. ``fast-forward`` is not supported on queues with ``speculative_checks`` > 1, ``batch_size`` > 1, or with ``allow_inplace_checks`` set to false. Default: "merge"
         :param queue_conditions: (experimental) The list of conditions that needs to match to queue the pull request.
@@ -6400,8 +6402,9 @@ class Mergify(
         :stability: experimental
         '''
         queue = MergifyQueue(
-            commit_message_template=commit_message_template,
             name=name,
+            commit_message_format=commit_message_format,
+            commit_message_template=commit_message_template,
             merge_conditions=merge_conditions,
             merge_method=merge_method,
             queue_conditions=queue_conditions,
@@ -6428,6 +6431,87 @@ class Mergify(
         rule = MergifyRule(actions=actions, conditions=conditions, name=name)
 
         return typing.cast(None, jsii.invoke(self, "addRule", [rule]))
+
+
+@jsii.data_type(
+    jsii_type="projen.github.MergifyCommitMessageFormat",
+    jsii_struct_bases=[],
+    name_mapping={"body": "body", "title": "title", "trailers": "trailers"},
+)
+class MergifyCommitMessageFormat:
+    def __init__(
+        self,
+        *,
+        body: typing.Optional[builtins.str] = None,
+        title: typing.Optional[builtins.str] = None,
+        trailers: typing.Optional[typing.Sequence[builtins.str]] = None,
+    ) -> None:
+        '''(experimental) Declarative configuration for Mergify ``commit_message_format``.
+
+        :param body: (experimental) Commit body format. - ``inherit``: use the GitHub repository default merge commit body format - ``pr-body``: use the pull request body - ``empty``: set the commit body to be empty
+        :param title: (experimental) Commit title format. - ``inherit``: use the GitHub repository default merge commit title format - ``pr-title``: use the pull request title (with the PR number appended)
+        :param trailers: (experimental) Optional list of trailers to append to the commit message.
+
+        :see: https://docs.mergify.com/workflow/actions/merge/#customizing-the-commit-message
+        :stability: experimental
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__eaf974c9c38a82c453776b75290a6fc12b4b52de3d470c8f3be0c61bbcd29942)
+            check_type(argname="argument body", value=body, expected_type=type_hints["body"])
+            check_type(argname="argument title", value=title, expected_type=type_hints["title"])
+            check_type(argname="argument trailers", value=trailers, expected_type=type_hints["trailers"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {}
+        if body is not None:
+            self._values["body"] = body
+        if title is not None:
+            self._values["title"] = title
+        if trailers is not None:
+            self._values["trailers"] = trailers
+
+    @builtins.property
+    def body(self) -> typing.Optional[builtins.str]:
+        '''(experimental) Commit body format.
+
+        - ``inherit``: use the GitHub repository default merge commit body format
+        - ``pr-body``: use the pull request body
+        - ``empty``: set the commit body to be empty
+
+        :stability: experimental
+        '''
+        result = self._values.get("body")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def title(self) -> typing.Optional[builtins.str]:
+        '''(experimental) Commit title format.
+
+        - ``inherit``: use the GitHub repository default merge commit title format
+        - ``pr-title``: use the pull request title (with the PR number appended)
+
+        :stability: experimental
+        '''
+        result = self._values.get("title")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def trailers(self) -> typing.Optional[typing.List[builtins.str]]:
+        '''(experimental) Optional list of trailers to append to the commit message.
+
+        :stability: experimental
+        '''
+        result = self._values.get("trailers")
+        return typing.cast(typing.Optional[typing.List[builtins.str]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "MergifyCommitMessageFormat(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
 
 
 @jsii.data_type(
@@ -6560,8 +6644,9 @@ class MergifyOptions:
     jsii_type="projen.github.MergifyQueue",
     jsii_struct_bases=[],
     name_mapping={
-        "commit_message_template": "commitMessageTemplate",
         "name": "name",
+        "commit_message_format": "commitMessageFormat",
+        "commit_message_template": "commitMessageTemplate",
         "merge_conditions": "mergeConditions",
         "merge_method": "mergeMethod",
         "queue_conditions": "queueConditions",
@@ -6572,16 +6657,18 @@ class MergifyQueue:
     def __init__(
         self,
         *,
-        commit_message_template: builtins.str,
         name: builtins.str,
+        commit_message_format: typing.Optional[typing.Union["MergifyCommitMessageFormat", typing.Dict[builtins.str, typing.Any]]] = None,
+        commit_message_template: typing.Optional[builtins.str] = None,
         merge_conditions: typing.Optional[typing.Sequence[typing.Union[builtins.str, typing.Union["MergifyConditionalOperator", typing.Dict[builtins.str, typing.Any]]]]] = None,
         merge_method: typing.Optional[builtins.str] = None,
         queue_conditions: typing.Optional[typing.Sequence[typing.Union[builtins.str, typing.Union["MergifyConditionalOperator", typing.Dict[builtins.str, typing.Any]]]]] = None,
         update_method: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param commit_message_template: (experimental) Template to use as the commit message when using the merge or squash merge method.
         :param name: (experimental) The name of the queue.
+        :param commit_message_format: (experimental) When merging with the merge or squash method, configure the title, body, and trailers of the resulting commit.
+        :param commit_message_template: (deprecated) Template to use as the commit message when using the merge or squash merge method.
         :param merge_conditions: (experimental) The list of conditions to match to get the queued pull request merged. This automatically includes the queueConditions. In case of speculative merge pull request, the merge conditions are evaluated against the temporary pull request instead of the original one.
         :param merge_method: (experimental) Merge method to use. Possible values are ``merge``, ``squash``, ``rebase`` or ``fast-forward``. ``fast-forward`` is not supported on queues with ``speculative_checks`` > 1, ``batch_size`` > 1, or with ``allow_inplace_checks`` set to false. Default: "merge"
         :param queue_conditions: (experimental) The list of conditions that needs to match to queue the pull request.
@@ -6589,18 +6676,24 @@ class MergifyQueue:
 
         :stability: experimental
         '''
+        if isinstance(commit_message_format, dict):
+            commit_message_format = MergifyCommitMessageFormat(**commit_message_format)
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__0471efd0a49bc64e556512e765a1df23d4a975f26cb6de765579b4173907f467)
-            check_type(argname="argument commit_message_template", value=commit_message_template, expected_type=type_hints["commit_message_template"])
             check_type(argname="argument name", value=name, expected_type=type_hints["name"])
+            check_type(argname="argument commit_message_format", value=commit_message_format, expected_type=type_hints["commit_message_format"])
+            check_type(argname="argument commit_message_template", value=commit_message_template, expected_type=type_hints["commit_message_template"])
             check_type(argname="argument merge_conditions", value=merge_conditions, expected_type=type_hints["merge_conditions"])
             check_type(argname="argument merge_method", value=merge_method, expected_type=type_hints["merge_method"])
             check_type(argname="argument queue_conditions", value=queue_conditions, expected_type=type_hints["queue_conditions"])
             check_type(argname="argument update_method", value=update_method, expected_type=type_hints["update_method"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
-            "commit_message_template": commit_message_template,
             "name": name,
         }
+        if commit_message_format is not None:
+            self._values["commit_message_format"] = commit_message_format
+        if commit_message_template is not None:
+            self._values["commit_message_template"] = commit_message_template
         if merge_conditions is not None:
             self._values["merge_conditions"] = merge_conditions
         if merge_method is not None:
@@ -6611,16 +6704,6 @@ class MergifyQueue:
             self._values["update_method"] = update_method
 
     @builtins.property
-    def commit_message_template(self) -> builtins.str:
-        '''(experimental) Template to use as the commit message when using the merge or squash merge method.
-
-        :stability: experimental
-        '''
-        result = self._values.get("commit_message_template")
-        assert result is not None, "Required property 'commit_message_template' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
     def name(self) -> builtins.str:
         '''(experimental) The name of the queue.
 
@@ -6629,6 +6712,27 @@ class MergifyQueue:
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
         return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def commit_message_format(self) -> typing.Optional["MergifyCommitMessageFormat"]:
+        '''(experimental) When merging with the merge or squash method, configure the title, body, and trailers of the resulting commit.
+
+        :see: https://docs.mergify.com/workflow/actions/merge/#customizing-the-commit-message
+        :stability: experimental
+        '''
+        result = self._values.get("commit_message_format")
+        return typing.cast(typing.Optional["MergifyCommitMessageFormat"], result)
+
+    @builtins.property
+    def commit_message_template(self) -> typing.Optional[builtins.str]:
+        '''(deprecated) Template to use as the commit message when using the merge or squash merge method.
+
+        :deprecated: Use ``commitMessageFormat`` instead.
+
+        :stability: deprecated
+        '''
+        result = self._values.get("commit_message_template")
+        return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def merge_conditions(
@@ -10862,6 +10966,7 @@ __all__ = [
     "MergeQueue",
     "MergeQueueOptions",
     "Mergify",
+    "MergifyCommitMessageFormat",
     "MergifyConditionalOperator",
     "MergifyOptions",
     "MergifyQueue",
@@ -11634,6 +11739,15 @@ def _typecheckingstub__98cefc8f23feb67fa3f26fe0afa2490919ec4c7078182e46e92ccd422
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__eaf974c9c38a82c453776b75290a6fc12b4b52de3d470c8f3be0c61bbcd29942(
+    *,
+    body: typing.Optional[builtins.str] = None,
+    title: typing.Optional[builtins.str] = None,
+    trailers: typing.Optional[typing.Sequence[builtins.str]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__c18537aa65489dcd3a6af1268daa4ec994e84f0720a3e846460acbcbf8e1474d(
     *,
     and_: typing.Optional[typing.Sequence[typing.Union[builtins.str, typing.Union[MergifyConditionalOperator, typing.Dict[builtins.str, typing.Any]]]]] = None,
@@ -11652,8 +11766,9 @@ def _typecheckingstub__527734fcd5357c536553ff5f47fe5062b93958305a451f587c870879e
 
 def _typecheckingstub__0471efd0a49bc64e556512e765a1df23d4a975f26cb6de765579b4173907f467(
     *,
-    commit_message_template: builtins.str,
     name: builtins.str,
+    commit_message_format: typing.Optional[typing.Union[MergifyCommitMessageFormat, typing.Dict[builtins.str, typing.Any]]] = None,
+    commit_message_template: typing.Optional[builtins.str] = None,
     merge_conditions: typing.Optional[typing.Sequence[typing.Union[builtins.str, typing.Union[MergifyConditionalOperator, typing.Dict[builtins.str, typing.Any]]]]] = None,
     merge_method: typing.Optional[builtins.str] = None,
     queue_conditions: typing.Optional[typing.Sequence[typing.Union[builtins.str, typing.Union[MergifyConditionalOperator, typing.Dict[builtins.str, typing.Any]]]]] = None,

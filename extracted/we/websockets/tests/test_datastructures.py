@@ -1,6 +1,7 @@
 import unittest
 
 from websockets.datastructures import *
+from websockets.exceptions import InvalidHeaderValue
 
 
 class MultipleValuesErrorTests(unittest.TestCase):
@@ -121,6 +122,10 @@ class HeadersTests(unittest.TestCase):
         self.headers["upgrade"] = "websocket"
         self.assertEqual(self.headers["Upgrade"], "websocket")
 
+    def test_setitem_invalid_value(self):
+        with self.assertRaises(InvalidHeaderValue):
+            self.headers["X-Invalid"] = "multi\r\nline"
+
     def test_delitem(self):
         del self.headers["Connection"]
         with self.assertRaises(KeyError):
@@ -167,6 +172,14 @@ class HeadersTests(unittest.TestCase):
             list(self.headers.raw_items()),
             [("Connection", "Upgrade"), ("Server", "websockets")],
         )
+
+    def test_set_insecure(self):
+        self.headers.set_insecure("Upgrade", "websocket")
+        self.assertEqual(self.headers["Upgrade"], "websocket")
+
+    def test_set_insecure_invalid_value(self):
+        self.headers.set_insecure("X-Invalid", "multi\r\nline")
+        self.assertEqual(self.headers["X-Invalid"], "multi\r\nline")  # oops
 
 
 class MultiValueHeadersTests(unittest.TestCase):

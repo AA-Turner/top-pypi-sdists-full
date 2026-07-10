@@ -41,11 +41,11 @@ from tomli import load as toml_load
 from yaml import Loader, YAMLError
 from yaml.constructor import ConstructorError
 
-from zensical.compat.mkdocstrings import get_mkdocstrings_extension
 from zensical.extensions.autorefs import AutorefsExtension
 from zensical.extensions.emoji import to_svg, twemoji
 from zensical.extensions.glightbox import GlightboxExtension
 from zensical.extensions.macros import MacrosExtension
+from zensical.extensions.mkdocstrings import MkdocstringsExtension
 
 if TYPE_CHECKING:
     from collections.abc import Iterator
@@ -458,9 +458,10 @@ def _apply_defaults(config: dict, path: str) -> dict:
         config["edit_uri"] = edit_uri.rstrip("/")
 
     # Set defaults for theme font settings
-    theme = set_default(config, "theme", {}, dict)
-    if isinstance(theme, str):
-        config["theme"] = {"name": theme}
+    if "theme" in config and isinstance(config["theme"], str):
+        config["theme"] = {"name": config["theme"]}
+    elif "theme" not in config:
+        config["theme"] = {}
 
     # Set defaults for custom theme directory
     set_default(config["theme"], "custom_dir", None, str)
@@ -679,7 +680,7 @@ def _apply_defaults(config: dict, path: str) -> dict:
     # Map plugins configuration to Markdown extensions
     _shim_autorefs(config)
     _shim_markdown_exec(config)
-    _shim_mkdocstrings(config, path)
+    _shim_mkdocstrings(config)
     _shim_glightbox(config)
     _shim_macros(config)
 
@@ -819,6 +820,9 @@ def _resolve_toc(config: dict[str, Any]) -> None:
 
 
 def _shim_autorefs(config: dict[str, Any]) -> None:
+    # The Markdown extension is already enabled
+    if AutorefsExtension.name in config["markdown_extensions"]:
+        return
     # Map autorefs plugin configuration to the extension configuration
     if "autorefs" in config["plugins"]:
         plugin = config["plugins"]["autorefs"]["config"]
@@ -829,6 +833,9 @@ def _shim_autorefs(config: dict[str, Any]) -> None:
         plugin = config["plugins"]["mkdocstrings"]["config"]
         if plugin.get("enabled", True):
             config["markdown_extensions"].append(AutorefsExtension.name)
+    elif "zensical.extensions.mkdocstrings" in config["markdown_extensions"]:
+        # same when mkdocstrings is enabled as a Markdown extension
+        config["markdown_extensions"].append(AutorefsExtension.name)
 
 
 def _shim_markdown_exec(config: dict[str, Any]) -> None:
@@ -858,35 +865,46 @@ def _shim_markdown_exec(config: dict[str, Any]) -> None:
             )
 
 
-def _shim_mkdocstrings(config: dict[str, Any], path: str) -> None:
+def _shim_mkdocstrings(config: dict[str, Any]) -> None:
+    # The Markdown extension is already enabled
+    if MkdocstringsExtension.name in config["markdown_extensions"]:
+        return
     # Map mkdocstrings plugin configuration to the extension configuration
     if "mkdocstrings" in config["plugins"]:
-        mkdocstrings_config = config["plugins"]["mkdocstrings"]["config"]
-        if mkdocstrings_config.get("enabled", True):
+        plugin = config["plugins"]["mkdocstrings"]["config"]
+        if plugin.get("enabled", True):
             if not find_spec("mkdocstrings"):
                 raise ConfigurationError(
                     "mkdocstrings plugin is enabled, but mkdocstrings is not "
                     "installed. Please install mkdocstrings or disable the "
                     "plugin."
                 )
-            mkdocstrings = get_mkdocstrings_extension(config, path)
-            config["markdown_extensions"].append(mkdocstrings)
+            config["markdown_extensions"].append(MkdocstringsExtension.name)
+            config["mdx_configs"][MkdocstringsExtension.name] = plugin
 
 
 def _shim_glightbox(config: dict[str, Any]) -> None:
+    # The Markdown extension is already enabled
+    if GlightboxExtension.name in config["markdown_extensions"]:
+        return
     # Map glightbox plugin configuration to the extension configuration
     if "glightbox" in config["plugins"]:
         plugin = config["plugins"]["glightbox"]["config"]
-        config["markdown_extensions"].append(GlightboxExtension.name)
-        config["mdx_configs"][GlightboxExtension.name] = plugin
+        if plugin.get("enabled", True):
+            config["markdown_extensions"].append(GlightboxExtension.name)
+            config["mdx_configs"][GlightboxExtension.name] = plugin
 
 
 def _shim_macros(config: dict[str, Any]) -> None:
+    # The Markdown extension is already enabled
+    if MacrosExtension.name in config["markdown_extensions"]:
+        return
     # Map macros plugin configuration to the extension configuration
     if "macros" in config["plugins"]:
         plugin = config["plugins"]["macros"]["config"]
-        config["markdown_extensions"].append(MacrosExtension.name)
-        config["mdx_configs"][MacrosExtension.name] = plugin
+        if plugin.get("enabled", True):
+            config["markdown_extensions"].append(MacrosExtension.name)
+            config["mdx_configs"][MacrosExtension.name] = plugin
 
 
 # ----------------------------------------------------------------------------

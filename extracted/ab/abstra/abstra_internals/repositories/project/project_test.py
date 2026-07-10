@@ -1,4 +1,5 @@
 from multiprocessing import Queue
+from pathlib import Path
 from unittest import TestCase
 
 from flask import Flask
@@ -7,6 +8,7 @@ from abstra_internals.repositories.consumer import EditorConsumer
 from abstra_internals.repositories.factory import build_editor_repositories
 from abstra_internals.repositories.project.project import (
     FormStage,
+    LocalProjectRepository,
     NotificationTrigger,
     Project,
     ScriptStage,
@@ -1182,3 +1184,59 @@ class ProjectTests(TestCase):
         self.assertEqual(loaded_project.forms[0].title, "My Form")
         self.assertFalse(loaded_project.forms[0].access_control.is_public)
         self.assertEqual(loaded_project.forms[0].access_control.required_roles, [])
+
+
+class IgnoredPathsTests(TestCase):
+    def setUp(self):
+        self.root = init_dir()
+        self.project = LocalProjectRepository().load()
+
+    def tearDown(self) -> None:
+        clear_dir(self.root)
+
+    def test_is_ignored_path_matches_ignored_filenames_anywhere(self):
+        self.assertTrue(self.project.is_ignored_path(self.root / ".pyrefly_buffer.py"))
+        self.assertTrue(
+            self.project.is_ignored_path(self.root / "helpers" / ".pyrefly_buffer.py")
+        )
+        self.assertFalse(self.project.is_ignored_path(self.root / "main.py"))
+
+    def test_is_ignored_path_matches_ignored_dirnames(self):
+        for dirname in [".abstra", ".git", ".venv", "venv", "__pycache__"]:
+            self.assertTrue(
+                self.project.is_ignored_path(self.root / dirname / "module.py")
+            )
+        self.assertFalse(self.project.is_ignored_path(self.root / "pages" / "home.py"))
+
+    def test_is_ignored_path_accepts_relative_paths(self):
+        self.assertTrue(self.project.is_ignored_path(Path(".pyrefly_buffer.py")))
+        self.assertTrue(self.project.is_ignored_path(Path("venv") / "module.py"))
+        self.assertFalse(self.project.is_ignored_path(Path("main.py")))
+
+    def test_iter_project_files_skips_ignored_paths(self):
+        (self.root / "main.py").write_text("print(1)")
+        (self.root / ".pyrefly_buffer.py").write_text("print(1)")
+        (self.root / "venv").mkdir()
+        (self.root / "venv" / "module.py").write_text("print(1)")
+
+        listed = list(self.project.iter_project_files(allowed_suffixes=[".py"]))
+
+        self.assertIn(self.root / "main.py", listed)
+        self.assertNotIn(self.root / ".pyrefly_buffer.py", listed)
+        self.assertNotIn(self.root / "venv" / "module.py", listed)
+
+    def test_iter_scoped_py_files_skips_ignored_path(self):
+        buffer_path = self.root / ".pyrefly_buffer.py"
+        self.assertEqual(list(self.project.iter_scoped_py_files(buffer_path)), [])
+
+        main_path = self.root / "main.py"
+        self.assertEqual(
+            list(self.project.iter_scoped_py_files(main_path)), [main_path]
+        )
+
+    def test_ignore_false_opts_out_of_filtering(self):
+        (self.root / ".pyrefly_buffer.py").write_text("print(1)")
+
+        listed = list(self.project.iter_py_files(ignore=False))
+
+        self.assertIn(self.root / ".pyrefly_buffer.py", listed)

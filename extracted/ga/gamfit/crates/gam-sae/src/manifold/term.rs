@@ -98,6 +98,7 @@ pub(crate) const SAE_MANIFOLD_INNER_OBJECTIVE_STALL_FRACTION: f64 = 1.0e-4;
 /// refine budget — terminating the ill-conditioned crawl early is the goal.
 pub(crate) const SAE_MANIFOLD_INNER_OBJECTIVE_STALL_MIN_ROUNDS: usize = 3;
 
+
 /// Above this full-`B` β width, dense beta-penalty curvature is never
 /// materialized when Grassmann frames are engaged; exact curvature is probed
 /// directly in the factored coordinate space instead.
@@ -283,27 +284,31 @@ pub(crate) const SAE_COACTIVE_RELATIVE_MASS_FLOOR: f64 = 1.0e-3;
 // death. So there is no amplitude strength or active-atom gate to override.
 static SAE_SEP_STRENGTH_OVERRIDE_BITS: std::sync::atomic::AtomicU64 =
     std::sync::atomic::AtomicU64::new(0x7ff8_0000_0000_0000);
-/// #1026/#1522/#1610 — read the process-global separation-barrier-strength
-/// override, or `None` when unset. `None` ⇒ the evidence-derived per-pair μ_jk
-/// (the data-fit inseparability strength from
+/// #1026/#1522/#1610 — read the process-global override for the decoder-repulsion
+/// CONDITIONER strength `μ_C`, or `None` when unset. `None` ⇒ the evidence-derived
+/// per-pair `μ_jk` (data-fit inseparability from
 /// [`super::penalties::SaeManifoldTerm::barrier_pair_strength_with_gates`]) is
-/// used. A quiet-NaN sentinel means "unset → derive from the problem"; `0.0`
-/// stays a legitimate swept value (barrier disabled).
+/// used. NOTE: this no longer scales the primary separation barrier — that is now
+/// the parameter-free Jeffreys prior `−½ log det F` — only the subdominant
+/// repulsion conditioner. A quiet-NaN sentinel means "unset → derive from the
+/// problem"; `0.0` stays a legitimate swept value (conditioner disabled).
 pub(crate) fn sae_separation_barrier_override() -> Option<f64> {
     let v =
         f64::from_bits(SAE_SEP_STRENGTH_OVERRIDE_BITS.load(std::sync::atomic::Ordering::Relaxed));
     if v.is_nan() { None } else { Some(v) }
 }
 
-/// Set the process-global SAE separation-barrier strength override (one wheel,
-/// many configs). `sep_strength` is NaN to clear the override back to the
-/// evidence-derived per-pair μ_jk (`γ_jk / (1 - γ_jk)`, the data-fit
-/// inseparability strength — see
+/// Set the process-global override for the SAE decoder-repulsion CONDITIONER
+/// strength `μ_C` (one wheel, many configs). NOTE: the primary separation barrier
+/// is now the parameter-free Jeffreys prior `−½ log det F` and ignores this — the
+/// override scales only the subdominant repulsion conditioner. `sep_strength` is
+/// NaN to clear the override back to the evidence-derived per-pair `μ_jk`
+/// (`γ_jk / (1 - γ_jk)`, the data-fit inseparability strength — see
 /// [`super::penalties::SaeManifoldTerm::barrier_pair_strength_with_gates`]); there
 /// is no compiled-constant default any more.
 /// The amplitude (keep-alive) barrier and its active-atom gate were removed
 /// (surplus features are allowed to die into a ridge-parked state), so this
-/// takes only the separation strength. Called from the gamfit Python FFI.
+/// takes only the conditioner strength. Called from the gamfit Python FFI.
 ///
 /// CONCURRENCY: this is a PROCESS-GLOBAL atomic, so it is NOT safe to use across
 /// concurrent in-process fits — a parallel candidate/rung/layer sweep that sets
@@ -317,50 +322,33 @@ pub fn set_sae_barrier_overrides(sep_strength: f64) {
         .store(sep_strength.to_bits(), std::sync::atomic::Ordering::Relaxed);
 }
 
-// #1026/#1522/#1610 — the SEPARATION barrier strength is NO LONGER a hand-picked
-// absolute constant (it was `10.0`, matched to no problem scale), nor the
-// overcompleteness rank ratio `Σ min(M_k,p)/min(n,p)` (a geometry heuristic).
-// It is now EVIDENCE-DERIVED PER PAIR from the reconstruction objective: the
-// data-fit inseparability `γ_jk` (largest canonical correlation of the two atoms'
-// coactivation-weighted chart designs — the quantity that governs whether the
-// joint inner Laplace/REML Hessian stays PD) sets `μ_jk = γ_jk/(1-γ_jk)`. See the
-// full derivation on
-// [`super::penalties::SaeManifoldTerm::barrier_pair_strength_with_gates`] (the
-// penalty form `P_sep = Σ μ_jk q_jk [-log(1-c²+ε)]` on the normalized decoder
-// shapes is documented on `separation_barrier_value`). The runtime override
-// (`set_sae_barrier_overrides`) still takes precedence over the derived value.
+// The SEPARATION barrier has NO strength scalar `μ_C` at all: it is the SAE decoder
+// Jeffreys prior `−½ log det F` (see [`super::penalties::BarrierComponent`]), whose
+// exponent `½` is fixed by the prior (`π(B) ∝ √det F`) and is the exact
+// reparametrization-invariant counter-term to the Laplace evidence's `+½ log(volume)`
+// collapse reward — so a per-pair strength is neither present nor needed. The
+// historical `μ_jk = γ_jk/(1−γ_jk)` (data-fit inseparability, see
+// [`super::penalties::SaeManifoldTerm::barrier_pair_strength_with_gates`]) survives
+// ONLY as the per-dictionary strength of the subdominant decoder-repulsion CONDITIONER
+// (`decoder_repulsion_strength = ratio · μ_C`), not of the barrier. The runtime
+// override (`set_sae_barrier_overrides`) therefore now scales only that conditioner.
 
-/// #1026/#1522 SEPARATION barrier softening `ε` in `log(1 - c_jk² + ε)`. Bounds
-/// the barrier (and its PSD majorizer) at the exact-alignment limit `c_jk² = 1`.
+/// SEPARATION barrier softening `ε`: the floor on the eigenvalues of the Jeffreys
+/// Fisher `F = Q ∘ O` (see [`super::penalties::BarrierComponent`]) in
+/// `−½ log det F`. Bounds the barrier (and its PSD curvature majorizer) at exact
+/// collapse (`det F → 0`) at a finite `−½ log ε` — the multi-atom analog of the
+/// historical pairwise softening `1 − c_jk² + ε`.
 pub(crate) const SAE_SEPARATION_BARRIER_EPS: f64 = 1.0e-6;
 
-/// #1625 — normalized collinearity `c_jk² = ‖U_jU_kᵀ‖²_F ∈ [0,1]` at/above which
-/// the SEPARATION barrier engages, the analog of
-/// [`SAE_DECODER_REPULSION_COLLINEARITY_GATE`] for the primary anti-collapse
-/// barrier. A C1 smoothstep ramps the barrier from exactly 0 at this threshold to
-/// full strength (and the interior-point divergence) as `c_jk² → 1`, so the
-/// barrier is a genuine COLLAPSE-prevention force — active only once two coactive
-/// atoms are materially aligned — rather than a global orthogonality prior that
-/// taxes every distinct-but-correlated pair.
-///
-/// WHY a gate at all (the ungated `−log(1−c²+ε)` was the #1625 stall): the
-/// interior-point shape has force `∂P/∂c² = 1/(1−c²+ε) ≈ 1` even at MODERATE
-/// collinearity, so two genuinely-distinct atoms (e.g. `c² = 0.36`, a 53° angle —
-/// nowhere near the `c² → 1` collapse) feel an O(1) separating force that, on a
-/// well-specified fit whose data residual is near zero, DOMINATES the objective and
-/// drags the decoders off the data optimum. The inner (t, β) Newton then has to
-/// chase a barrier-shifted optimum it converges to only slowly, and
-/// `reml_criterion`'s undamped-PD inner solve never reaches KKT stationarity —
-/// the #1625 "inner solve did not converge" refusal. Gating the barrier to the
-/// near-collapse regime (`c² ≳ 0.5`) leaves well-separated dictionaries at their
-/// data optimum (so they converge) while preserving the divergent restoring force
-/// exactly where collapse happens (`c² → 1`).
-///
-/// Chosen equal to the repulsion gate (`0.5`): the two anti-collapse terms then
-/// engage on the same near-collinear pair set, the barrier as the divergent
-/// interior-point core and the repulsion as its subdominant conditioner. Pairs
-/// below `0.5` (≥ 45° apart) are not collapsing and need no anti-collapse force.
-pub(crate) const SAE_SEPARATION_BARRIER_COLLINEARITY_GATE: f64 = 0.5;
+// The SEPARATION barrier no longer has a hard collinearity gate. Its predecessor,
+// the pairwise `−μ q w(c²) log(1−c²+ε)`, needed a C1 smoothstep `w(c²)` (exactly 0
+// below `c² ≈ 0.5`) to suppress the ungated `−log(1−c²+ε)`'s O(1) force at moderate
+// collinearity (the #1625 stall: an O(1) force at `c² = 0.36` drags a healthy fit
+// off the data optimum). The Jeffreys `−½ log det F` needs no such gate: its force
+// on an edge is `q²o/(1−q²o²)·∂o/∂B`, which vanishes as `O(o)` for separated atoms
+// (so it cannot dominate a near-zero data residual) and diverges only as
+// `det F → 0`. The soft interior-point structure IS the gate — with the Jeffreys
+// exponent `½` fixed and no tuned threshold `s0`.
 
 /// #1026/#1522/#1610 RELATIVE decoder-norm floor below which an atom is treated
 /// as inactive / shape-undefined for the SEPARATION barrier (its `U_k` is
@@ -531,6 +519,22 @@ pub struct SaeManifoldTerm {
     /// carried alongside the EV so the multi-start can break (near-)equal-EV ties
     /// on coordinate fidelity ([`prefer_candidate_basin`]).
     pub(crate) best_cocollapse_incumbent: Option<(f64, Option<f64>, SaeManifoldMutableState)>,
+    /// Fit-level keep-best across the WHOLE outer ρ search (#1026 lifted one
+    /// level). The per-call incumbent inside `run_joint_fit_arrow_schur` only
+    /// protects one call: an outer probe sequence that walks the warm-start
+    /// state into a collapse basin loses the earlier good basin across calls
+    /// (measured on the manifold-zoo arena: in-call incumbents decayed
+    /// 0.77 → 0.54 → 0.38 while every call ended in an EV-degraded restore, and
+    /// the terminal model reconstructed held-out data at R² 0.18 against its own
+    /// best-visited 0.77). This banks the best (EV, uniformity, state) at every
+    /// ACCEPTED outer iterate — same [`prefer_candidate_basin`] ordering and
+    /// `SAE_FIT_DATA_COLLAPSE_EV_FLOOR` gate as the co-collapse ledger — and
+    /// `into_fitted` restores it when the terminal state reconstructs strictly
+    /// worse. Transient like `best_cocollapse_incumbent` (never persisted;
+    /// cleared at each outer-optimization entry). Snapshot states are row-count
+    /// bound, so a subsampled search term's bank dies with that term and never
+    /// crosses the full-row seam.
+    pub(crate) best_fit_incumbent: Option<(f64, Option<f64>, SaeManifoldMutableState)>,
     /// Bounded high-EV structural-collapse reseeds spent by the frame-coherence
     /// guard in the current optimization. This is separate from total decoder
     /// co-collapse: these atoms still carry decoder norm and EV, but duplicate an
@@ -576,19 +580,21 @@ pub struct SaeManifoldTerm {
     /// no pair co-fires (`K < 2`, or a fully-disjoint routing — the strict no-op);
     /// callers fall back to the live coactivation in that case. Transient: not part
     /// of the persisted term identity (Clone starts `None`, rebuilt next assembly).
-    /// #1610 — per-assembly FROZEN separation-barrier pairs
-    /// `(j, k, q_jk, μ_jk)`: the co-firing atom indices, their normalized
-    /// coactivation weight `q_jk`, and the EVIDENCE-DERIVED per-pair barrier
-    /// strength `μ_jk` (the data-fit inseparability strength, see
-    /// [`super::penalties::SaeManifoldTerm::barrier_pair_strength`]). Both the
-    /// coactivation and the strength are functions of the frozen design (chart
-    /// basis + routing), so freezing them here keeps the barrier value, gradient,
-    /// and curvature reading the SAME weights across an inner line search. The #2
-    /// collinearity GATE is NOT frozen — it is the LIVE, differentiated smoothstep
-    /// `w(o_jk)` of the TRUE decoder subspace overlap
-    /// [`super::penalties::SaeManifoldTerm::decoder_gram_cosine_sq`], moving with
-    /// the trial decoders exactly like the interior-point term it multiplies.
-    pub(crate) barrier_coactivation_gate: Option<Vec<(usize, usize, f64, f64)>>,
+    /// Per-assembly FROZEN separation-barrier support: the co-firing pairs
+    /// `(j, k, q_jk)` — the entries of the Jeffreys Fisher `F = Q ∘ O` (see
+    /// [`super::penalties::BarrierComponent`]) — TOGETHER with the per-atom
+    /// effective sample sizes `N_eff,k = Σ_{i∈J_k} a_ik²` accumulated over the
+    /// SAME truncated active support as `q`'s denominators. Both are functions of
+    /// the routing masses (hence the logits the inner Newton solve moves), so
+    /// freezing them here keeps the barrier value, gradient, and curvature reading
+    /// the SAME `Q`, the SAME occupancy scale `n_C` (the occupancy-scaled Jeffreys
+    /// weight), and the SAME data-derived softening `ε_C` across an inner line
+    /// search. The decoder overlaps `O` are NOT frozen — they are the LIVE shapes
+    /// the barrier separates
+    /// ([`super::penalties::SaeManifoldTerm::decoder_gram_cosine_sq`]), moving with
+    /// the trial decoders. The Jeffreys exponent `½` is fixed, so there is no
+    /// per-pair strength `μ_jk` to freeze (that under-derived scalar is gone).
+    pub(crate) barrier_coactivation_gate: Option<BarrierCoactivationGate>,
     /// #1801 — STREAMING gate-freeze flag. The collapse-prevention gates
     /// ([`Self::decoder_repulsion_gate`], [`Self::barrier_coactivation_gate`]) are
     /// GLOBAL dictionary properties: their per-pair strength `μ_jk` inverts the
@@ -632,14 +638,16 @@ pub struct SaeManifoldTerm {
     /// [`Self::set_hybrid_linear_images`]. Consulted by
     /// [`Self::hybrid_linear_image_map`] so train and OOS share one collapse map.
     pub(crate) oos_linear_images: Option<Vec<crate::hybrid_split::AtomLinearImage>>,
-    /// #1777 PER-FIT separation-barrier strength override `μ_C` — the source of
-    /// truth for the barrier strength when set, replacing the process-global
-    /// [`set_sae_barrier_overrides`] atomic. `Some(μ_C)` forces the absolute
-    /// strength (bypassing the #1610 evidence-derived per-pair reciprocal-margin
-    /// strengths), scoped to THIS term/fit so concurrent in-process fits are
-    /// isolated; `0.0` disables the barrier. `None` ⇒ fall back to the deprecated
-    /// process-global override, then the evidence-derived strength (bit-identical
-    /// to the historical path when neither override is set). Read via
+    /// #1777 PER-FIT decoder-repulsion CONDITIONER strength override `μ_C` — the
+    /// source of truth for the conditioner strength when set, replacing the
+    /// process-global [`set_sae_barrier_overrides`] atomic. NOTE: the primary
+    /// separation barrier is now the parameter-free Jeffreys prior `−½ log det F`
+    /// and ignores this; the override scales only the subdominant repulsion
+    /// conditioner. `Some(μ_C)` forces the absolute strength (bypassing the #1610
+    /// evidence-derived per-pair reciprocal-margin strengths), scoped to THIS
+    /// term/fit so concurrent in-process fits are isolated; `0.0` disables the
+    /// conditioner. `None` ⇒ fall back to the deprecated process-global override,
+    /// then the evidence-derived strength. Read via
     /// [`super::penalties::SaeManifoldTerm::separation_barrier_strength`]; set from
     /// the FFI through [`SaeManifoldTerm::set_fit_config`]. Carried across clones
     /// (persisted configuration, like the assignment mode).
@@ -677,7 +685,7 @@ pub struct SaeManifoldTerm {
     /// path) for the WBIC SOFT rank-charge ledger. Only has effect when
     /// `rank_charge_evidence` is also on: inside that branch the per-atom coefficient
     /// of the occupancy log-scale `ln N_eff,k` becomes the finite-n WBIC learning
-    /// coefficient `λ_k = ½·rank_soft_k·basis_edf_k` (the tempered β=1/log n count on
+    /// coefficient `λ_k = ½·rank_soft_k·basis_edf_k` (the β=1/log n_eff likelihood-tempered, prior-untempered count on
     /// the occupancy-corrected reconstruction spectrum) instead of the hard limit
     /// `½·d_eff,k`. The two coincide away from the Marchenko–Pastur edge (soft→hard)
     /// and the soft one is strictly smaller near it — the honest Watanabe correction
@@ -780,6 +788,7 @@ impl Clone for SaeManifoldTerm {
             // term identity (like `border_hbb_workspace`); a fresh clone starts
             // with no incumbent and rebuilds it if it re-enters co-collapse.
             best_cocollapse_incumbent: None,
+            best_fit_incumbent: None,
             structural_cocollapse_reseeds: self.structural_cocollapse_reseeds,
             // Transient per-assembly frozen gate — rebuilt at the next assembly.
             decoder_repulsion_gate: None,

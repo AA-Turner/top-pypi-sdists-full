@@ -5815,6 +5815,7 @@ class Permission(pycarlo.lib.types.Enum):
     * `SettingsApiAccess`None
     * `SettingsApiEdit`None
     * `SettingsApiManageTokens`None
+    * `SettingsApiManageUserTokens`None
     * `SettingsAuthorizationGroupsAccess`None
     * `SettingsAuthorizationGroupsEdit`None
     * `SettingsAuthorizationGroupsManageDomainsManagers`None
@@ -5926,6 +5927,7 @@ class Permission(pycarlo.lib.types.Enum):
         "SettingsApiAccess",
         "SettingsApiEdit",
         "SettingsApiManageTokens",
+        "SettingsApiManageUserTokens",
         "SettingsAuthorizationGroupsAccess",
         "SettingsAuthorizationGroupsEdit",
         "SettingsAuthorizationGroupsManageDomainsManagers",
@@ -6235,6 +6237,30 @@ class PredicateRequiredType(pycarlo.lib.types.Enum):
 
     __schema__ = schema
     __choices__ = ("ANY", "DATE", "NUMBER", "REGEX", "TEXT", "TIMESTAMP")
+
+
+class PreflightRunStatus(pycarlo.lib.types.Enum):
+    """Enumeration Choices:
+
+    * `BASELINE_CREATED`None
+    * `COMPLETED`None
+    * `DEPLETED`None
+    * `DRIFTED`None
+    * `ERROR`None
+    * `NO_BASELINE`None
+    * `UNSTABLE`None
+    """
+
+    __schema__ = schema
+    __choices__ = (
+        "BASELINE_CREATED",
+        "COMPLETED",
+        "DEPLETED",
+        "DRIFTED",
+        "ERROR",
+        "NO_BASELINE",
+        "UNSTABLE",
+    )
 
 
 class Priority(pycarlo.lib.types.Enum):
@@ -9851,6 +9877,47 @@ class AzureDevopsSourceSelectionInput(sgqlc.types.Input):
 
     repository_id = sgqlc.types.Field(String, graphql_name="repositoryId")
     """ID of Azure DevOps repository"""
+
+
+class BehaviorInput(sgqlc.types.Input):
+    """Behavior metrics captured by the preflight replay session."""
+
+    __schema__ = schema
+    __field_names__ = (
+        "llm_calls",
+        "tool_calls",
+        "total_tokens",
+        "duration_ms",
+        "unexpected_http",
+        "misses",
+        "sequence_drift",
+        "depleted",
+    )
+    llm_calls = sgqlc.types.Field(sgqlc.types.non_null(Int), graphql_name="llmCalls")
+    """Number of LLM calls in the run."""
+
+    tool_calls = sgqlc.types.Field(sgqlc.types.non_null(Int), graphql_name="toolCalls")
+    """Number of tool calls in the run."""
+
+    total_tokens = sgqlc.types.Field(sgqlc.types.non_null(Int), graphql_name="totalTokens")
+    """Total tokens consumed by the run."""
+
+    duration_ms = sgqlc.types.Field(sgqlc.types.non_null(Int), graphql_name="durationMs")
+    """Wall-clock duration of the run in milliseconds. Recorded, never
+    scored.
+    """
+
+    unexpected_http = sgqlc.types.Field(Int, graphql_name="unexpectedHttp")
+    """Count of HTTP calls not served from the replay cache."""
+
+    misses = sgqlc.types.Field(Int, graphql_name="misses")
+    """Count of replay-cache misses."""
+
+    sequence_drift = sgqlc.types.Field(Int, graphql_name="sequenceDrift")
+    """Count of out-of-sequence replay-cache reads."""
+
+    depleted = sgqlc.types.Field(Boolean, graphql_name="depleted")
+    """Whether the replay cache was exhausted before the run finished."""
 
 
 class BiWarehouseSourcesInput(sgqlc.types.Input):
@@ -14094,6 +14161,64 @@ class QueryTemplateVariableValueInput(sgqlc.types.Input):
 
     value_json = sgqlc.types.Field(JSONString, graphql_name="valueJson")
     """Variable value (in JSON)"""
+
+
+class RecordPreflightRunInput(sgqlc.types.Input):
+    __schema__ = schema
+    __field_names__ = (
+        "trace_id",
+        "promote",
+        "persist",
+        "commit_sha",
+        "pr",
+        "attempt",
+        "test",
+        "spans",
+        "templates",
+        "behavior",
+    )
+    trace_id = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="traceId")
+    """Source trace id of the replay cache; the baseline lookup key."""
+
+    promote = sgqlc.types.Field(Boolean, graphql_name="promote")
+    """True: store the evaluation results as a new baseline version for
+    traceId. False: compare against the latest stored baseline and
+    record a run.
+    """
+
+    persist = sgqlc.types.Field(sgqlc.types.non_null(Boolean), graphql_name="persist")
+    """False: compare-only local mode — evaluates, compares, and returns
+    the full verdict but writes nothing.
+    """
+
+    commit_sha = sgqlc.types.Field(String, graphql_name="commitSha")
+    """Commit under test; run metadata."""
+
+    pr = sgqlc.types.Field(Int, graphql_name="pr")
+    """Pull request number; run metadata."""
+
+    attempt = sgqlc.types.Field(Int, graphql_name="attempt")
+    """Retry attempt number; run metadata."""
+
+    test = sgqlc.types.Field(String, graphql_name="test")
+    """Preflight test name; display grouping only, not identity."""
+
+    spans = sgqlc.types.Field(
+        sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null(AgentSpanInput))),
+        graphql_name="spans",
+    )
+    """Agent spans to evaluate; same shape as runAgentEvaluations."""
+
+    templates = sgqlc.types.Field(
+        sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null(EvaluationTemplateRef))),
+        graphql_name="templates",
+    )
+    """Evaluation templates to apply to each span; promptOverride
+    supported.
+    """
+
+    behavior = sgqlc.types.Field(sgqlc.types.non_null(BehaviorInput), graphql_name="behavior")
+    """Behavior metrics from the replay session."""
 
 
 class RedshiftConnectionDetails(sgqlc.types.Input):
@@ -28433,6 +28558,7 @@ class DataCollectorSchedule(sgqlc.types.Type):
         "timezone",
         "dynamic_schedule_mcons",
         "is_dynamic_schedule_poller",
+        "is_monitored_table_schedule",
         "min_interval_seconds",
         "is_automatic",
         "friendly_name",
@@ -28514,6 +28640,17 @@ class DataCollectorSchedule(sgqlc.types.Type):
     )
     """If true, this schedule is for used to poll forfreshness to trigger
     dynamically scheduled jobs
+    """
+
+    is_monitored_table_schedule = sgqlc.types.Field(
+        sgqlc.types.non_null(Boolean), graphql_name="isMonitoredTableSchedule"
+    )
+    """If true, this is the dedicated fixed schedule that collects
+    DESCRIBE DETAIL for Databricks table-monitor tables when the OOTB
+    metadata sweep skips detail collection. Fixed timing; the table
+    set is dynamic (recomputed each run from the warehouse's active
+    table monitors). Sibling of the dynamic poller, no event-
+    triggering (YET-1643).
     """
 
     min_interval_seconds = sgqlc.types.Field(Int, graphql_name="minIntervalSeconds")
@@ -30226,6 +30363,17 @@ class DeleteAlertComment(sgqlc.types.Type):
     success = sgqlc.types.Field(Boolean, graphql_name="success")
 
 
+class DeleteAllUserApiKeys(sgqlc.types.Type):
+    """Delete all personal API keys belonging to a user in your account
+    (account admin).
+    """
+
+    __schema__ = schema
+    __field_names__ = ("deleted_count",)
+    deleted_count = sgqlc.types.Field(sgqlc.types.non_null(Int), graphql_name="deletedCount")
+    """The number of API keys that were deleted."""
+
+
 class DeleteAllowListEntry(sgqlc.types.Type):
     __schema__ = schema
     __field_names__ = ("success", "project_name", "dataset")
@@ -30784,6 +30932,17 @@ class DeleteUnifiedUserAssignment(sgqlc.types.Type):
     __schema__ = schema
     __field_names__ = ("success",)
     success = sgqlc.types.Field(Boolean, graphql_name="success")
+
+
+class DeleteUserApiKey(sgqlc.types.Type):
+    """Delete a specific personal API key belonging to a user in your
+    account (account admin).
+    """
+
+    __schema__ = schema
+    __field_names__ = ("deleted",)
+    deleted = sgqlc.types.Field(sgqlc.types.non_null(Boolean), graphql_name="deleted")
+    """Whether the API key was deleted."""
 
 
 class DeleteUserInvite(sgqlc.types.Type):
@@ -34890,6 +35049,20 @@ class GenerateSqlEvalOutput(sgqlc.types.Type):
 
     customize = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="customize")
     """How to modify the expression for different use cases"""
+
+
+class GenerateSsoRecoveryCodes(sgqlc.types.Type):
+    __schema__ = schema
+    __field_names__ = ("codes",)
+    codes = sgqlc.types.Field(
+        sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null(String))),
+        graphql_name="codes",
+    )
+    """The full set of newly generated recovery codes, in plaintext.
+    Returned only once at creation — they are stored hashed and cannot
+    be retrieved again, so the caller must surface them to the user
+    immediately. Any previously active set is invalidated.
+    """
 
 
 class GenerateWebhookUrl(sgqlc.types.Type):
@@ -39445,9 +39618,7 @@ class MonitorTuningRunResult(sgqlc.types.Type):
 
 
 class MonitorTuningSuggestion(sgqlc.types.Type):
-    """A monitor with a pending, not-yet-applied proactive tuning
-    suggestion.
-    """
+    """A monitor with a pending, not-yet-applied tuning suggestion."""
 
     __schema__ = schema
     __field_names__ = (
@@ -40213,10 +40384,14 @@ class Mutation(sgqlc.types.Type):
         "set_integration_name",
         "create_or_update_saml_identity_provider",
         "delete_saml_identity_provider",
+        "generate_sso_recovery_codes",
+        "revoke_sso_recovery_codes",
         "invite_users",
         "invite_users_v2",
         "switch_user_account",
         "delete_user_invite",
+        "delete_user_api_key",
+        "delete_all_user_api_keys",
         "resend_user_invite",
         "disable_user",
         "revoke_user_authorized_client",
@@ -40329,6 +40504,7 @@ class Mutation(sgqlc.types.Type):
         "delete_alation_integration",
         "create_or_update_alation_table_flag",
         "run_agent_evaluations",
+        "record_preflight_run",
         "set_etl_job_generates_alerts_v3",
         "bulk_set_etl_job_generates_alerts_v3",
         "delete_etl_jobs_v3",
@@ -58035,6 +58211,21 @@ class Mutation(sgqlc.types.Type):
         DeleteSamlIdentityProvider, graphql_name="deleteSamlIdentityProvider"
     )
 
+    generate_sso_recovery_codes = sgqlc.types.Field(
+        GenerateSsoRecoveryCodes, graphql_name="generateSsoRecoveryCodes"
+    )
+    """(experimental) Generate a fresh set of single-use SSO recovery
+    codes for the account, invalidating any previously active set. The
+    plaintext codes are returned once.
+    """
+
+    revoke_sso_recovery_codes = sgqlc.types.Field(
+        "RevokeSsoRecoveryCodes", graphql_name="revokeSsoRecoveryCodes"
+    )
+    """(experimental) Invalidate all of the account's active SSO recovery
+    codes.
+    """
+
     invite_users = sgqlc.types.Field(
         InviteUsersPayload,
         graphql_name="inviteUsers",
@@ -58144,6 +58335,53 @@ class Mutation(sgqlc.types.Type):
     Arguments:
 
     * `emails` (`[String]!`): List of email addresses to invite
+    """
+
+    delete_user_api_key = sgqlc.types.Field(
+        DeleteUserApiKey,
+        graphql_name="deleteUserApiKey",
+        args=sgqlc.types.ArgDict(
+            (
+                (
+                    "token_id",
+                    sgqlc.types.Arg(sgqlc.types.non_null(ID), graphql_name="tokenId", default=None),
+                ),
+                (
+                    "user_id",
+                    sgqlc.types.Arg(sgqlc.types.non_null(ID), graphql_name="userId", default=None),
+                ),
+            )
+        ),
+    )
+    """(general availability) Delete a specific user's personal API key
+    (account admin).
+
+    Arguments:
+
+    * `token_id` (`ID!`): The API key id to delete.
+    * `user_id` (`ID!`): cognito_user_id of the target user, who must
+      be in your account.
+    """
+
+    delete_all_user_api_keys = sgqlc.types.Field(
+        DeleteAllUserApiKeys,
+        graphql_name="deleteAllUserApiKeys",
+        args=sgqlc.types.ArgDict(
+            (
+                (
+                    "user_id",
+                    sgqlc.types.Arg(sgqlc.types.non_null(ID), graphql_name="userId", default=None),
+                ),
+            )
+        ),
+    )
+    """(general availability) Delete all of a user's personal API keys
+    (account admin).
+
+    Arguments:
+
+    * `user_id` (`ID!`): cognito_user_id of the target user, who must
+      be in your account.
     """
 
     resend_user_invite = sgqlc.types.Field(
@@ -62469,6 +62707,35 @@ class Mutation(sgqlc.types.Type):
       templates to apply to each span.
     """
 
+    record_preflight_run = sgqlc.types.Field(
+        "RecordPreflightRunOutput",
+        graphql_name="recordPreflightRun",
+        args=sgqlc.types.ArgDict(
+            (
+                (
+                    "input",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(RecordPreflightRunInput),
+                        graphql_name="input",
+                        default=None,
+                    ),
+                ),
+            )
+        ),
+    )
+    """(experimental) Record a preflight run: evaluate the submitted
+    agent spans with the same LLM-as-judge path as
+    runAgentEvaluations, then either promote the results as a new
+    baseline version for the trace (promote: true) or compare them
+    against the latest stored baseline and record the run. Comparison
+    and scoring happen at write time and are frozen into the record.
+    With persist: false, evaluates and compares but writes nothing.
+
+    Arguments:
+
+    * `input` (`RecordPreflightRunInput!`)None
+    """
+
     set_etl_job_generates_alerts_v3 = sgqlc.types.Field(
         "SetEtlJobGeneratesAlertsV3Result",
         graphql_name="setEtlJobGeneratesAlertsV3",
@@ -65483,6 +65750,119 @@ class Predicate(sgqlc.types.Type):
     right_required_type = sgqlc.types.Field(PredicateRequiredType, graphql_name="rightRequiredType")
 
 
+class PreflightBaselineBehavior(sgqlc.types.Type):
+    __schema__ = schema
+    __field_names__ = ("llm_calls", "tool_calls", "total_tokens", "duration_ms")
+    llm_calls = sgqlc.types.Field(sgqlc.types.non_null(Int), graphql_name="llmCalls")
+
+    tool_calls = sgqlc.types.Field(sgqlc.types.non_null(Int), graphql_name="toolCalls")
+
+    total_tokens = sgqlc.types.Field(sgqlc.types.non_null(Int), graphql_name="totalTokens")
+
+    duration_ms = sgqlc.types.Field(sgqlc.types.non_null(Int), graphql_name="durationMs")
+
+
+class PreflightBaselineQuality(sgqlc.types.Type):
+    __schema__ = schema
+    __field_names__ = ("per_eval",)
+    per_eval = sgqlc.types.Field(
+        sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null("PreflightPerEvalQuality"))),
+        graphql_name="perEval",
+    )
+    """Baseline per-template aggregates the run was compared against."""
+
+
+class PreflightBaselineSnapshot(sgqlc.types.Type):
+    """The frozen baseline snapshot the run was compared against."""
+
+    __schema__ = schema
+    __field_names__ = ("baseline_id", "uuid", "version", "model_name", "quality", "behavior")
+    baseline_id = sgqlc.types.Field(sgqlc.types.non_null(ID), graphql_name="baselineId")
+
+    uuid = sgqlc.types.Field(sgqlc.types.non_null(ID), graphql_name="uuid")
+    """Globally unique id of this baseline row."""
+
+    version = sgqlc.types.Field(sgqlc.types.non_null(Int), graphql_name="version")
+
+    model_name = sgqlc.types.Field(String, graphql_name="modelName")
+    """Model name stored on the baseline at promotion time."""
+
+    quality = sgqlc.types.Field(
+        sgqlc.types.non_null(PreflightBaselineQuality), graphql_name="quality"
+    )
+
+    behavior = sgqlc.types.Field(
+        sgqlc.types.non_null(PreflightBaselineBehavior), graphql_name="behavior"
+    )
+
+
+class PreflightPerEvalQuality(sgqlc.types.Type):
+    __schema__ = schema
+    __field_names__ = ("template_alias", "mean", "pass_rate", "dropped")
+    template_alias = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="templateAlias")
+    """Score alias of the template (templateAlias in run records)."""
+
+    mean = sgqlc.types.Field(Float, graphql_name="mean")
+    """Run-level mean across per-span scores; numeric templates only."""
+
+    pass_rate = sgqlc.types.Field(Float, graphql_name="passRate")
+    """Fraction of spans scored true; boolean templates only. Boolean
+    templates are reported but excluded from the quality score.
+    """
+
+    dropped = sgqlc.types.Field(Boolean, graphql_name="dropped")
+    """True when this template's mean dropped more than the server-side
+    threshold below the baseline mean. One-sided: improvements never
+    flag. Null for baselines, boolean templates, and templates absent
+    from the baseline.
+    """
+
+
+class PreflightQuality(sgqlc.types.Type):
+    __schema__ = schema
+    __field_names__ = ("per_eval", "spans")
+    per_eval = sgqlc.types.Field(
+        sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null(PreflightPerEvalQuality))),
+        graphql_name="perEval",
+    )
+    """Run-level aggregate per evaluation template."""
+
+    spans = sgqlc.types.Field(
+        sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null("PreflightSpanScores"))),
+        graphql_name="spans",
+    )
+    """Per-span scores; stored for V1 per-span comparison, not compared
+    in V0.
+    """
+
+
+class PreflightScores(sgqlc.types.Type):
+    __schema__ = schema
+    __field_names__ = ("quality", "stability", "stability_formula")
+    quality = sgqlc.types.Field(Float, graphql_name="quality")
+    """Mean of the numeric templates' run-level means; null when the run
+    has no numeric templates.
+    """
+
+    stability = sgqlc.types.Field(Int, graphql_name="stability")
+    """Weighted behavior score vs the baseline, clamped to >= 0; null
+    without a baseline.
+    """
+
+    stability_formula = sgqlc.types.Field(String, graphql_name="stabilityFormula")
+    """Human-readable echo of the stability formula and weights applied."""
+
+
+class PreflightSpanScores(sgqlc.types.Type):
+    __schema__ = schema
+    __field_names__ = ("span_key", "scores")
+    span_key = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="spanKey")
+    """Stable span identity: agent/workflow/task/span_name#ordinal."""
+
+    scores = sgqlc.types.Field(sgqlc.types.non_null(JSONString), graphql_name="scores")
+    """JSON object mapping template alias to this span's score."""
+
+
 class PrivateLinkDetails(sgqlc.types.Type):
     """Private Link information"""
 
@@ -66227,6 +66607,7 @@ class Query(sgqlc.types.Type):
         "favorite_assets",
         "is_favorite",
         "get_user",
+        "sso_recovery_code_status",
         "get_warehouses",
         "get_warehouse",
         "get_collection_properties",
@@ -66248,6 +66629,7 @@ class Query(sgqlc.types.Type):
         "get_user_authorized_clients",
         "get_invites_in_account",
         "get_token_metadata",
+        "get_user_api_keys",
         "get_integration_keys",
         "test_existing_connection",
         "test_telnet_connection",
@@ -80668,8 +81050,8 @@ class Query(sgqlc.types.Type):
         sgqlc.types.list_of(sgqlc.types.non_null(MonitorTuningSuggestion)),
         graphql_name="getMonitorTuningSuggestions",
     )
-    """(experimental) Account-wide monitors with a pending proactive
-    tuning suggestion, newest first.
+    """(experimental) Account-wide monitors with a pending tuning
+    suggestion, newest first.
     """
 
     agentic_notification_routes = sgqlc.types.Field(
@@ -85312,6 +85694,14 @@ class Query(sgqlc.types.Type):
 
     get_user = sgqlc.types.Field("User", graphql_name="getUser")
 
+    sso_recovery_code_status = sgqlc.types.Field(
+        "SsoRecoveryCodeStatus", graphql_name="ssoRecoveryCodeStatus"
+    )
+    """(experimental) Status of the account's SSO recovery codes: how
+    many are currently active (unused and unrevoked). Requires the
+    Edit SSO Settings permission.
+    """
+
     get_warehouses = sgqlc.types.Field(
         sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null("Warehouse"))),
         graphql_name="getWarehouses",
@@ -86450,6 +86840,27 @@ class Query(sgqlc.types.Type):
     * `is_service_api_token` (`Boolean`): Filter by token type. If not
       provided, returns all token types the caller is authorized to
       see.
+    """
+
+    get_user_api_keys = sgqlc.types.Field(
+        sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null("TokenMetadata"))),
+        graphql_name="getUserApiKeys",
+        args=sgqlc.types.ArgDict(
+            (
+                (
+                    "user_id",
+                    sgqlc.types.Arg(sgqlc.types.non_null(ID), graphql_name="userId", default=None),
+                ),
+            )
+        ),
+    )
+    """(general availability) List a specific user's personal API keys
+    (account admin).
+
+    Arguments:
+
+    * `user_id` (`ID!`): cognito_user_id of the target user, who must
+      be in your account.
     """
 
     get_integration_keys = sgqlc.types.Field(
@@ -89643,6 +90054,53 @@ class ReInviteUsers(sgqlc.types.Type):
     """
 
 
+class RecordPreflightRunOutput(sgqlc.types.Type):
+    __schema__ = schema
+    __field_names__ = (
+        "run_id",
+        "baseline_id",
+        "baseline_uuid",
+        "baseline_version",
+        "status",
+        "model_mismatch",
+        "scores",
+        "quality",
+        "baseline",
+    )
+    run_id = sgqlc.types.Field(ID, graphql_name="runId")
+    """Id of the persisted run record; null unless one was written."""
+
+    baseline_id = sgqlc.types.Field(ID, graphql_name="baselineId")
+    """Id of the baseline written (promote) or compared against (run);
+    null when no baseline exists or nothing was written.
+    """
+
+    baseline_uuid = sgqlc.types.Field(ID, graphql_name="baselineUuid")
+    """Globally unique id of the baseline row written (promote) or
+    compared against (run); unlike baselineId, never collides across
+    same-day promotions.
+    """
+
+    baseline_version = sgqlc.types.Field(Int, graphql_name="baselineVersion")
+    """Version of the baseline written or compared against."""
+
+    status = sgqlc.types.Field(sgqlc.types.non_null(PreflightRunStatus), graphql_name="status")
+
+    model_mismatch = sgqlc.types.Field(Boolean, graphql_name="modelMismatch")
+    """True when the run spans' model name differs from the baseline's
+    stored model name; null without a baseline.
+    """
+
+    scores = sgqlc.types.Field(sgqlc.types.non_null(PreflightScores), graphql_name="scores")
+
+    quality = sgqlc.types.Field(sgqlc.types.non_null(PreflightQuality), graphql_name="quality")
+
+    baseline = sgqlc.types.Field(PreflightBaselineSnapshot, graphql_name="baseline")
+    """Frozen snapshot compared against; null for promotions and no-
+    baseline runs.
+    """
+
+
 class RefreshConversationClusteringSpace(sgqlc.types.Type):
     __schema__ = schema
     __field_names__ = ("space",)
@@ -90030,6 +90488,15 @@ class RevokeCustomerMcpServerAuthorization(sgqlc.types.Type):
     __field_names__ = ("revoked",)
     revoked = sgqlc.types.Field(Boolean, graphql_name="revoked")
     """Whether the authorization was revoked"""
+
+
+class RevokeSsoRecoveryCodes(sgqlc.types.Type):
+    __schema__ = schema
+    __field_names__ = ("revoked_count",)
+    revoked_count = sgqlc.types.Field(sgqlc.types.non_null(Int), graphql_name="revokedCount")
+    """Number of active recovery codes that were invalidated by this
+    call.
+    """
 
 
 class RevokeUserAuthorizedClient(sgqlc.types.Type):
@@ -92317,6 +92784,20 @@ class SsoDetails(sgqlc.types.Type):
 
     sso_url = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="ssoUrl")
     """ACS endpoint URL / SSO URL"""
+
+
+class SsoRecoveryCodeStatus(sgqlc.types.Type):
+    __schema__ = schema
+    __field_names__ = ("active_count", "has_active_codes")
+    active_count = sgqlc.types.Field(sgqlc.types.non_null(Int), graphql_name="activeCount")
+    """Number of recovery codes currently active (unused and unrevoked)
+    for the account.
+    """
+
+    has_active_codes = sgqlc.types.Field(
+        sgqlc.types.non_null(Boolean), graphql_name="hasActiveCodes"
+    )
+    """Whether the account has any active recovery codes."""
 
 
 class StartDatabricksWarehouse(sgqlc.types.Type):

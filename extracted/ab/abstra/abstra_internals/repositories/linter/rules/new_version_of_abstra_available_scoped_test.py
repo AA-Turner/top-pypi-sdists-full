@@ -15,7 +15,7 @@ _PVM_PATH = (
 
 
 class NewVersionScopedTest(TestCase):
-    """The new-version check hits PyPI (cached 4h). It must not run on a
+    """The new-version check hits PyPI (cached 15 min). It must not run on a
     per-save (scoped) pass — the version cannot change because of a file edit.
     The existing banner (a project-global issue, path=None) is preserved across
     scoped runs by the merge, so the rule simply returns [] when scoped."""

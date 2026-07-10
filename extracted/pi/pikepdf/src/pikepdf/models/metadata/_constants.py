@@ -95,6 +95,7 @@ _LANG_ALTS_LAZY = [
 
 _LOADED_LXML_NAMESPACES = False
 
+
 # lxml lazy-loading
 def __getattr__(name: str) -> Any:
     global _LOADED_LXML_NAMESPACES
@@ -104,12 +105,13 @@ def __getattr__(name: str) -> Any:
 
         if not _LOADED_LXML_NAMESPACES:
             from lxml import etree
+
             # Register all namespaces with lxml
             for _uri, _prefix in DEFAULT_NAMESPACES:
                 etree.register_namespace(_prefix, _uri)
             _LOADED_LXML_NAMESPACES = True
 
-        val = frozenset([str(QName(x, y)) for x,y in _LANG_ALTS_LAZY])
+        val = frozenset([str(QName(x, y)) for x, y in _LANG_ALTS_LAZY])
         globals()[name] = val
 
         return val

@@ -15,6 +15,7 @@ from metagit.core.config.graph_cypher_export import GraphCypherExportService
 from metagit.core.config.graph_suggest import GraphRelationshipSuggestService
 from metagit.core.config.manager import MetagitConfigManager
 from metagit.core.context.approval_service import ApprovalService
+from metagit.core.context.compiler import ContextCompiler
 from metagit.core.context.context_pack_service import ContextPackService
 from metagit.core.context.handoff_service import HandoffService
 from metagit.core.context.models import ApprovalStatus
@@ -22,6 +23,11 @@ from metagit.core.context.objective_service import ObjectiveService
 from metagit.core.context.repo_card_service import RepoCardService
 from metagit.core.context.session_begin_service import SessionBeginService
 from metagit.core.context.session_digest_service import SessionDigestService
+from metagit.core.coordination.branch_service import BranchService
+from metagit.core.coordination.claim_service import ClaimService
+from metagit.core.coordination.lease_service import LeaseService
+from metagit.core.coordination.models import ClaimCheckResult
+from metagit.core.coordination.worktree_service import WorktreeService
 from metagit.core.gitnexus.group_sync import GitNexusGroupSyncService
 from metagit.core.mcp.gate import WorkspaceGate
 from metagit.core.mcp.models import McpActivationState, WorkspaceStatus
@@ -55,10 +61,15 @@ from metagit.core.mcp.tools.bootstrap_plan_only import (
     metagit_bootstrap_config_plan_only,
 )
 from metagit.core.mcp.tools.workspace_status import metagit_workspace_status
+from metagit.core.merge.models import MergeRequest
+from metagit.core.merge.service import MergeOrchestrator
 from metagit.core.project.search_service import ManagedRepoSearchService
 from metagit.core.release.release_check_service import ReleaseCheckService
 from metagit.core.release.upgrade_service import VersionUpgradeService
+from metagit.core.scheduler.service import SchedulerService
+from metagit.core.semantic.service import SemanticGraphService
 from metagit.core.state.resolver import resolve_backend
+from metagit.core.taskgraph.service import TaskGraphService
 from metagit.core.utils.logging import LoggerConfig, UnifiedLogger
 from metagit.core.workspace.catalog_models import CatalogError
 from metagit.core.workspace.catalog_service import WorkspaceCatalogService
@@ -382,6 +393,21 @@ class MetagitMcpRuntime:
                 },
                 "additionalProperties": False,
             },
+            "metagit_context_compile": {
+                "type": "object",
+                "required": ["project_name", "repo_name"],
+                "properties": {
+                    "project_name": {"type": "string"},
+                    "repo_name": {"type": "string"},
+                    "tier": {"type": "integer", "enum": [0, 1, 2]},
+                    "budget": {"type": "integer", "minimum": 1},
+                    "profile": {"type": "string"},
+                    "task_id": {"type": "string"},
+                    "graph_id": {"type": "string"},
+                    "objective_id": {"type": "string"},
+                },
+                "additionalProperties": False,
+            },
             "metagit_session_begin": {
                 "type": "object",
                 "properties": {
@@ -528,6 +554,409 @@ class MetagitMcpRuntime:
                 "type": "object",
                 "properties": {
                     "since": {"type": "string"},
+                },
+                "additionalProperties": False,
+            },
+            "metagit_merge_enqueue": {
+                "type": "object",
+                "required": ["repository", "source_branch", "target_branch"],
+                "properties": {
+                    "repository": {"type": "string"},
+                    "source_branch": {"type": "string"},
+                    "target_branch": {"type": "string"},
+                    "node_id": {"type": "string"},
+                    "agent_id": {"type": "string"},
+                    "repo_path": {"type": "string"},
+                },
+                "additionalProperties": False,
+            },
+            "metagit_merge_status": {
+                "type": "object",
+                "properties": {
+                    "repository": {"type": "string"},
+                },
+                "additionalProperties": False,
+            },
+            "metagit_merge_retry": {
+                "type": "object",
+                "required": ["merge_id"],
+                "properties": {
+                    "merge_id": {"type": "string"},
+                    "repo_path": {"type": "string"},
+                },
+                "additionalProperties": False,
+            },
+            "metagit_merge_integrate": {
+                "type": "object",
+                "required": ["merge_id"],
+                "properties": {
+                    "merge_id": {"type": "string"},
+                    "repo_path": {"type": "string"},
+                },
+                "additionalProperties": False,
+            },
+            "metagit_schedule_next": {
+                "type": "object",
+                "properties": {
+                    "graph_id": {"type": "string"},
+                    "limit": {"type": "integer"},
+                },
+                "additionalProperties": False,
+            },
+            "metagit_schedule_status": {
+                "type": "object",
+                "properties": {
+                    "recent": {"type": "integer"},
+                },
+                "additionalProperties": False,
+            },
+            "metagit_schedule_policy": {
+                "type": "object",
+                "properties": {
+                    "action": {"type": "string"},
+                    "priority": {"type": "number"},
+                    "affinity": {"type": "number"},
+                    "cost": {"type": "number"},
+                    "fairness": {"type": "number"},
+                    "merge_queue_threshold": {"type": "integer"},
+                    "merge_pressure_penalty": {"type": "number"},
+                    "skip_on_merge_pressure": {"type": "boolean"},
+                    "graph_id": {"type": "string"},
+                },
+                "additionalProperties": False,
+            },
+            "metagit_aos_status": {
+                "type": "object",
+                "properties": {},
+                "additionalProperties": False,
+            },
+            "metagit_aos_doctor": {
+                "type": "object",
+                "properties": {
+                    "fix": {"type": "boolean"},
+                    "confirm": {"type": "boolean"},
+                },
+                "additionalProperties": False,
+            },
+            "metagit_aos_next": {
+                "type": "object",
+                "properties": {
+                    "commit": {"type": "boolean"},
+                    "apply_hints": {"type": "boolean"},
+                    "agent_id": {"type": "string"},
+                    "graph_id": {"type": "string"},
+                    "limit": {"type": "integer"},
+                },
+                "additionalProperties": False,
+            },
+            "metagit_coord_status": {
+                "type": "object",
+                "properties": {},
+                "additionalProperties": False,
+            },
+            "metagit_coord_doctor": {
+                "type": "object",
+                "properties": {
+                    "fix": {"type": "boolean"},
+                    "confirm": {"type": "boolean"},
+                },
+                "additionalProperties": False,
+            },
+            "metagit_coord_next": {
+                "type": "object",
+                "properties": {
+                    "commit": {"type": "boolean"},
+                    "apply_hints": {"type": "boolean"},
+                    "agent_id": {"type": "string"},
+                    "graph_id": {"type": "string"},
+                    "limit": {"type": "integer"},
+                },
+                "additionalProperties": False,
+            },
+            "metagit_branch_allocate": {
+                "type": "object",
+                "required": ["repository", "agent_id", "task_id"],
+                "properties": {
+                    "repository": {"type": "string"},
+                    "agent_id": {"type": "string"},
+                    "task_id": {"type": "string"},
+                    "description": {"type": "string"},
+                    "branch_name": {"type": "string"},
+                    "base": {"type": "string"},
+                    "integration_branch": {"type": "string"},
+                    "create_git_branch": {"type": "boolean"},
+                },
+                "additionalProperties": False,
+            },
+            "metagit_branch_list": {
+                "type": "object",
+                "properties": {
+                    "repository": {"type": "string"},
+                    "status": {"type": "string"},
+                },
+                "additionalProperties": False,
+            },
+            "metagit_branch_release": {
+                "type": "object",
+                "properties": {
+                    "branch_id": {"type": "string"},
+                    "name": {"type": "string"},
+                    "repository": {"type": "string"},
+                },
+                "additionalProperties": False,
+            },
+            "metagit_lease_acquire": {
+                "type": "object",
+                "required": ["repository", "agent_id", "task_id"],
+                "properties": {
+                    "repository": {"type": "string"},
+                    "agent_id": {"type": "string"},
+                    "task_id": {"type": "string"},
+                    "branch": {"type": "string"},
+                    "branch_id": {"type": "string"},
+                    "ttl": {"type": "string"},
+                    "allocate": {"type": "boolean"},
+                    "description": {"type": "string"},
+                },
+                "additionalProperties": False,
+            },
+            "metagit_lease_renew": {
+                "type": "object",
+                "required": ["lease_id", "agent_id"],
+                "properties": {
+                    "lease_id": {"type": "string"},
+                    "agent_id": {"type": "string"},
+                    "ttl": {"type": "string"},
+                    "force": {"type": "boolean"},
+                },
+                "additionalProperties": False,
+            },
+            "metagit_lease_release": {
+                "type": "object",
+                "required": ["lease_id", "agent_id"],
+                "properties": {
+                    "lease_id": {"type": "string"},
+                    "agent_id": {"type": "string"},
+                    "force": {"type": "boolean"},
+                    "release_branch": {"type": "boolean"},
+                },
+                "additionalProperties": False,
+            },
+            "metagit_lease_list": {
+                "type": "object",
+                "properties": {
+                    "repository": {"type": "string"},
+                    "status": {"type": "string"},
+                    "agent_id": {"type": "string"},
+                },
+                "additionalProperties": False,
+            },
+            "metagit_worktree_create": {
+                "type": "object",
+                "required": ["repository", "agent_id", "task_id", "branch"],
+                "properties": {
+                    "repository": {"type": "string"},
+                    "agent_id": {"type": "string"},
+                    "task_id": {"type": "string"},
+                    "branch": {"type": "string"},
+                    "lease_id": {"type": "string"},
+                    "integration_branch": {"type": "string"},
+                    "claims": {"type": "array", "items": {"type": "string"}},
+                },
+                "additionalProperties": False,
+            },
+            "metagit_worktree_destroy": {
+                "type": "object",
+                "properties": {
+                    "worktree_id": {"type": "string"},
+                    "agent_id": {"type": "string"},
+                    "repository": {"type": "string"},
+                    "force": {"type": "boolean"},
+                },
+                "additionalProperties": False,
+            },
+            "metagit_worktree_status": {
+                "type": "object",
+                "properties": {
+                    "worktree_id": {"type": "string"},
+                    "agent_id": {"type": "string"},
+                },
+                "additionalProperties": False,
+            },
+            "metagit_worktree_list": {
+                "type": "object",
+                "properties": {
+                    "repository": {"type": "string"},
+                    "agent_id": {"type": "string"},
+                    "status": {"type": "string"},
+                },
+                "additionalProperties": False,
+            },
+            "metagit_claim_declare": {
+                "type": "object",
+                "required": ["repository", "agent_id", "patterns"],
+                "properties": {
+                    "repository": {"type": "string"},
+                    "agent_id": {"type": "string"},
+                    "patterns": {"type": "array", "items": {"type": "string"}},
+                    "task_id": {"type": "string"},
+                    "strict": {"type": "boolean"},
+                },
+                "additionalProperties": False,
+            },
+            "metagit_claim_check": {
+                "type": "object",
+                "required": ["repository", "patterns"],
+                "properties": {
+                    "repository": {"type": "string"},
+                    "patterns": {"type": "array", "items": {"type": "string"}},
+                    "agent_id": {"type": "string"},
+                },
+                "additionalProperties": False,
+            },
+            "metagit_claim_list": {
+                "type": "object",
+                "properties": {
+                    "repository": {"type": "string"},
+                    "agent_id": {"type": "string"},
+                    "status": {"type": "string"},
+                },
+                "additionalProperties": False,
+            },
+            "metagit_claim_release": {
+                "type": "object",
+                "required": ["claim_id", "agent_id"],
+                "properties": {
+                    "claim_id": {"type": "string"},
+                    "agent_id": {"type": "string"},
+                    "force": {"type": "boolean"},
+                },
+                "additionalProperties": False,
+            },
+            "metagit_semantic_declare": {
+                "type": "object",
+                "required": ["concept", "repository", "patterns"],
+                "properties": {
+                    "concept": {"type": "string"},
+                    "repository": {"type": "string"},
+                    "patterns": {"type": "array", "items": {"type": "string"}},
+                    "symbol_hints": {"type": "array", "items": {"type": "string"}},
+                },
+                "additionalProperties": False,
+            },
+            "metagit_semantic_query": {
+                "type": "object",
+                "required": ["concept"],
+                "properties": {
+                    "concept": {"type": "string"},
+                },
+                "additionalProperties": False,
+            },
+            "metagit_semantic_owners": {
+                "type": "object",
+                "required": ["repository", "path"],
+                "properties": {
+                    "repository": {"type": "string"},
+                    "path": {"type": "string"},
+                },
+                "additionalProperties": False,
+            },
+            "metagit_semantic_conflicts": {
+                "type": "object",
+                "required": ["repository"],
+                "properties": {
+                    "repository": {"type": "string"},
+                },
+                "additionalProperties": False,
+            },
+            "metagit_semantic_ingest": {
+                "type": "object",
+                "properties": {},
+                "additionalProperties": False,
+            },
+            "metagit_task_create": {
+                "type": "object",
+                "required": ["title", "goal"],
+                "properties": {
+                    "title": {"type": "string"},
+                    "goal": {"type": "string"},
+                    "acceptance": {"type": "array", "items": {"type": "string"}},
+                    "objective_id": {"type": "string"},
+                    "handoff_id": {"type": "string"},
+                    "project": {"type": "string"},
+                    "repos": {"type": "array", "items": {"type": "string"}},
+                    "graph_id": {"type": "string"},
+                },
+                "additionalProperties": False,
+            },
+            "metagit_task_expand": {
+                "type": "object",
+                "required": ["graph_id", "outline"],
+                "properties": {
+                    "graph_id": {"type": "string"},
+                    "outline": {
+                        "oneOf": [
+                            {"type": "string"},
+                            {"type": "array", "items": {"type": "object"}},
+                        ]
+                    },
+                },
+                "additionalProperties": False,
+            },
+            "metagit_task_list": {
+                "type": "object",
+                "properties": {
+                    "graph_id": {"type": "string"},
+                    "status": {"type": "string"},
+                },
+                "additionalProperties": False,
+            },
+            "metagit_task_status": {
+                "type": "object",
+                "required": ["node_id"],
+                "properties": {
+                    "node_id": {"type": "string"},
+                    "graph_id": {"type": "string"},
+                },
+                "additionalProperties": False,
+            },
+            "metagit_task_ready": {
+                "type": "object",
+                "properties": {
+                    "graph_id": {"type": "string"},
+                },
+                "additionalProperties": False,
+            },
+            "metagit_task_block": {
+                "type": "object",
+                "required": ["node_id", "reason"],
+                "properties": {
+                    "node_id": {"type": "string"},
+                    "reason": {"type": "string"},
+                    "graph_id": {"type": "string"},
+                },
+                "additionalProperties": False,
+            },
+            "metagit_task_complete": {
+                "type": "object",
+                "required": ["node_id"],
+                "properties": {
+                    "node_id": {"type": "string"},
+                    "graph_id": {"type": "string"},
+                },
+                "additionalProperties": False,
+            },
+            "metagit_task_bind_acl": {
+                "type": "object",
+                "required": ["node_id", "agent_id"],
+                "properties": {
+                    "node_id": {"type": "string"},
+                    "agent_id": {"type": "string"},
+                    "graph_id": {"type": "string"},
+                    "branch": {"type": "string"},
+                    "lease_id": {"type": "string"},
+                    "worktree_id": {"type": "string"},
+                    "pattern": {"type": "string"},
                 },
                 "additionalProperties": False,
             },
@@ -1274,6 +1703,58 @@ class MetagitMcpRuntime:
             )
             return pack.model_dump(mode="json")
 
+        if name == "metagit_context_compile":
+            if not config or not status.root_path:
+                raise InvalidToolArgumentsError("context compile requires an active workspace")
+            project_name = str(arguments.get("project_name", "")).strip()
+            repo_name = str(arguments.get("repo_name", "")).strip()
+            if not project_name:
+                raise InvalidToolArgumentsError("project_name is required")
+            if not repo_name:
+                raise InvalidToolArgumentsError("repo_name is required")
+            tier_raw = arguments.get("tier", 1)
+            try:
+                tier_val = int(tier_raw)
+            except (TypeError, ValueError) as exc:
+                raise InvalidToolArgumentsError("tier must be an integer") from exc
+            if tier_val not in (0, 1, 2):
+                raise InvalidToolArgumentsError("tier must be 0, 1, or 2")
+            budget_raw = arguments.get("budget")
+            budget: int | None = None
+            if budget_raw is not None:
+                try:
+                    budget = int(budget_raw)
+                except (TypeError, ValueError) as exc:
+                    raise InvalidToolArgumentsError("budget must be an integer") from exc
+                if budget < 1:
+                    raise InvalidToolArgumentsError("budget must be >= 1")
+            config_path = str(Path(status.root_path) / ".metagit.yml")
+            definition_root = status.root_path
+            app_config = AppConfig.load()
+            sync_root = (
+                resolve_sync_root(definition_root, app_config.workspace.path)
+                if not isinstance(app_config, Exception)
+                else definition_root
+            )
+            compiled = ContextCompiler(pack_service=self._context_pack).compile(
+                config=config,
+                config_path=config_path,
+                workspace_root=sync_root,
+                session_root=definition_root,
+                definition_root=definition_root,
+                project=project_name,
+                repo=repo_name,
+                tier=cast(Literal[0, 1, 2], tier_val),
+                budget=budget,
+                profile=arguments.get("profile") if isinstance(arguments.get("profile"), str) else None,
+                task_id=arguments.get("task_id") if isinstance(arguments.get("task_id"), str) else None,
+                graph_id=arguments.get("graph_id") if isinstance(arguments.get("graph_id"), str) else None,
+                objective_id=arguments.get("objective_id") if isinstance(arguments.get("objective_id"), str) else None,
+            )
+            if isinstance(compiled, Exception):
+                raise InvalidToolArgumentsError(str(compiled)) from compiled
+            return compiled.model_dump(mode="json")
+
         if name == "metagit_session_begin":
             if not config or not status.root_path:
                 raise InvalidToolArgumentsError("session begin requires an active workspace")
@@ -1586,6 +2067,30 @@ class MetagitMcpRuntime:
             since_raw = arguments.get("since")
             since_opt = str(since_raw).strip() if isinstance(since_raw, str) and since_raw.strip() else None
             return resolve_backend(status.root_path).events().list_events(since=since_opt).model_dump(mode="json")
+
+        if name.startswith("metagit_merge_"):
+            return self._call_merge_tool(name, arguments, status)
+
+        if name.startswith("metagit_schedule_"):
+            return self._call_schedule_tool(name, arguments, status)
+        if name.startswith("metagit_aos_") or name.startswith("metagit_coord_"):
+            return self._call_aos_tool(name, arguments, status)
+
+        if name.startswith("metagit_task_"):
+            return self._call_task_tool(name, arguments, status)
+
+        if name.startswith("metagit_semantic_"):
+            return self._call_semantic_tool(name, arguments, status)
+
+        if (
+            name.startswith("metagit_branch_")
+            or name.startswith("metagit_lease_")
+            or name.startswith(
+                "metagit_worktree_",
+            )
+            or name.startswith("metagit_claim_")
+        ):
+            return self._call_acl_tool(name, arguments, status)
 
         if name == "metagit_repo_card":
             if not config or not status.root_path:
@@ -1976,6 +2481,566 @@ class MetagitMcpRuntime:
             )
 
         raise ValueError(f"Unsupported tool: {name}")
+
+    def _call_acl_tool(
+        self,
+        name: str,
+        arguments: dict[str, Any],
+        status: WorkspaceStatus,
+    ) -> dict[str, Any]:
+        """Dispatch RFC-0007 ACL MCP tools against the session root."""
+        if not status.root_path:
+            raise InvalidToolArgumentsError(f"{name} requires an active workspace")
+        root = status.root_path
+        definition = str(Path(root) / ".metagit.yml")
+        worktrees_path: str | None = None
+        try:
+            app_cfg = AppConfig.load()
+            if isinstance(app_cfg, AppConfig) and app_cfg.workspace:
+                worktrees_path = app_cfg.workspace.worktrees_path
+        except Exception:  # noqa: BLE001 — fall back to defaults
+            worktrees_path = None
+
+        def _require(key: str) -> str:
+            value = str(arguments.get(key, "")).strip()
+            if not value:
+                raise InvalidToolArgumentsError(f"{key} is required")
+            return value
+
+        def _unwrap(result: Any) -> dict[str, Any]:
+            if isinstance(result, Exception):
+                raise InvalidToolArgumentsError(str(result)) from result
+            if hasattr(result, "model_dump"):
+                return result.model_dump(mode="json")
+            if isinstance(result, list):
+                return {
+                    "ok": True,
+                    "items": [item.model_dump(mode="json") if hasattr(item, "model_dump") else item for item in result],
+                }
+            return {"ok": True, "result": result}
+
+        if name == "metagit_branch_allocate":
+            service = BranchService(root, sync_root=root, definition_path=definition)
+            return _unwrap(
+                service.allocate(
+                    repository=_require("repository"),
+                    agent_id=_require("agent_id"),
+                    task_id=_require("task_id"),
+                    description=arguments.get("description") if isinstance(arguments.get("description"), str) else None,
+                    branch_name=arguments.get("branch_name") if isinstance(arguments.get("branch_name"), str) else None,
+                    base=arguments.get("base") if isinstance(arguments.get("base"), str) else None,
+                    integration_branch=arguments.get("integration_branch")
+                    if isinstance(arguments.get("integration_branch"), str)
+                    else None,
+                    create_git_branch=bool(arguments.get("create_git_branch", True)),
+                ),
+            )
+        if name == "metagit_branch_list":
+            service = BranchService(root, sync_root=root, definition_path=definition)
+            return _unwrap(
+                service.list(
+                    repository=arguments.get("repository") if isinstance(arguments.get("repository"), str) else None,
+                    status=arguments.get("status") if isinstance(arguments.get("status"), str) else None,
+                ),
+            )
+        if name == "metagit_branch_release":
+            service = BranchService(root, sync_root=root, definition_path=definition)
+            return _unwrap(
+                service.release(
+                    branch_id=arguments.get("branch_id") if isinstance(arguments.get("branch_id"), str) else None,
+                    name=arguments.get("name") if isinstance(arguments.get("name"), str) else None,
+                    repository=arguments.get("repository") if isinstance(arguments.get("repository"), str) else None,
+                ),
+            )
+        if name == "metagit_lease_acquire":
+            service = LeaseService(root, sync_root=root, definition_path=definition)
+            return _unwrap(
+                service.acquire(
+                    repository=_require("repository"),
+                    agent_id=_require("agent_id"),
+                    task_id=_require("task_id"),
+                    branch=arguments.get("branch") if isinstance(arguments.get("branch"), str) else None,
+                    branch_id=arguments.get("branch_id") if isinstance(arguments.get("branch_id"), str) else None,
+                    ttl=str(arguments.get("ttl") or "30m"),
+                    allocate_if_missing=bool(arguments.get("allocate", False)),
+                    description=arguments.get("description") if isinstance(arguments.get("description"), str) else None,
+                ),
+            )
+        if name == "metagit_lease_renew":
+            service = LeaseService(root, sync_root=root, definition_path=definition)
+            return _unwrap(
+                service.renew(
+                    lease_id=_require("lease_id"),
+                    agent_id=_require("agent_id"),
+                    ttl=str(arguments.get("ttl") or "30m"),
+                    force=bool(arguments.get("force", False)),
+                ),
+            )
+        if name == "metagit_lease_release":
+            service = LeaseService(root, sync_root=root, definition_path=definition)
+            return _unwrap(
+                service.release(
+                    lease_id=_require("lease_id"),
+                    agent_id=_require("agent_id"),
+                    force=bool(arguments.get("force", False)),
+                    release_branch=bool(arguments.get("release_branch", False)),
+                ),
+            )
+        if name == "metagit_lease_list":
+            service = LeaseService(root, sync_root=root, definition_path=definition)
+            return _unwrap(
+                service.list(
+                    repository=arguments.get("repository") if isinstance(arguments.get("repository"), str) else None,
+                    status=arguments.get("status") if isinstance(arguments.get("status"), str) else None,
+                    agent_id=arguments.get("agent_id") if isinstance(arguments.get("agent_id"), str) else None,
+                ),
+            )
+        if name == "metagit_worktree_create":
+            service = WorktreeService(
+                root,
+                sync_root=root,
+                definition_path=definition,
+                worktrees_path=worktrees_path,
+            )
+            claims_raw = arguments.get("claims")
+            claims = [str(item) for item in claims_raw] if isinstance(claims_raw, list) else None
+            return _unwrap(
+                service.create(
+                    repository=_require("repository"),
+                    agent_id=_require("agent_id"),
+                    task_id=_require("task_id"),
+                    branch=_require("branch"),
+                    lease_id=arguments.get("lease_id") if isinstance(arguments.get("lease_id"), str) else None,
+                    integration_branch=arguments.get("integration_branch")
+                    if isinstance(arguments.get("integration_branch"), str)
+                    else None,
+                    claims=claims,
+                ),
+            )
+        if name == "metagit_worktree_destroy":
+            service = WorktreeService(
+                root,
+                sync_root=root,
+                definition_path=definition,
+                worktrees_path=worktrees_path,
+            )
+            return _unwrap(
+                service.destroy(
+                    worktree_id=arguments.get("worktree_id") if isinstance(arguments.get("worktree_id"), str) else None,
+                    agent_id=arguments.get("agent_id") if isinstance(arguments.get("agent_id"), str) else None,
+                    repository=arguments.get("repository") if isinstance(arguments.get("repository"), str) else None,
+                    force=bool(arguments.get("force", False)),
+                ),
+            )
+        if name == "metagit_worktree_status":
+            service = WorktreeService(
+                root,
+                sync_root=root,
+                definition_path=definition,
+                worktrees_path=worktrees_path,
+            )
+            return _unwrap(
+                service.status(
+                    worktree_id=arguments.get("worktree_id") if isinstance(arguments.get("worktree_id"), str) else None,
+                    agent_id=arguments.get("agent_id") if isinstance(arguments.get("agent_id"), str) else None,
+                ),
+            )
+        if name == "metagit_worktree_list":
+            service = WorktreeService(
+                root,
+                sync_root=root,
+                definition_path=definition,
+                worktrees_path=worktrees_path,
+            )
+            return _unwrap(
+                service.list(
+                    repository=arguments.get("repository") if isinstance(arguments.get("repository"), str) else None,
+                    agent_id=arguments.get("agent_id") if isinstance(arguments.get("agent_id"), str) else None,
+                    status=arguments.get("status") if isinstance(arguments.get("status"), str) else None,
+                ),
+            )
+        if name == "metagit_claim_declare":
+            service = ClaimService(root)
+            patterns_raw = arguments.get("patterns")
+            if not isinstance(patterns_raw, list) or not patterns_raw:
+                raise InvalidToolArgumentsError("patterns is required")
+            result = service.declare(
+                repository=_require("repository"),
+                agent_id=_require("agent_id"),
+                patterns=[str(item) for item in patterns_raw],
+                task_id=arguments.get("task_id") if isinstance(arguments.get("task_id"), str) else None,
+                allow_conflicts=not bool(arguments.get("strict", False)),
+            )
+            if isinstance(result, ClaimCheckResult):
+                payload = result.model_dump(mode="json")
+                payload["ok"] = False
+                return payload
+            return _unwrap(result)
+        if name == "metagit_claim_check":
+            service = ClaimService(root)
+            patterns_raw = arguments.get("patterns")
+            if not isinstance(patterns_raw, list) or not patterns_raw:
+                raise InvalidToolArgumentsError("patterns is required")
+            return _unwrap(
+                service.check(
+                    repository=_require("repository"),
+                    patterns=[str(item) for item in patterns_raw],
+                    agent_id=arguments.get("agent_id") if isinstance(arguments.get("agent_id"), str) else None,
+                ),
+            )
+        if name == "metagit_claim_list":
+            service = ClaimService(root)
+            return _unwrap(
+                service.list(
+                    repository=arguments.get("repository") if isinstance(arguments.get("repository"), str) else None,
+                    agent_id=arguments.get("agent_id") if isinstance(arguments.get("agent_id"), str) else None,
+                    status=arguments.get("status") if isinstance(arguments.get("status"), str) else None,
+                ),
+            )
+        if name == "metagit_claim_release":
+            service = ClaimService(root)
+            return _unwrap(
+                service.release(
+                    claim_id=_require("claim_id"),
+                    agent_id=_require("agent_id"),
+                    force=bool(arguments.get("force", False)),
+                ),
+            )
+        raise ValueError(f"Unsupported ACL tool: {name}")
+
+    def _call_merge_tool(
+        self,
+        name: str,
+        arguments: dict[str, Any],
+        status: WorkspaceStatus,
+    ) -> dict[str, Any]:
+        if not status.root_path:
+            raise InvalidToolArgumentsError("merge tools require an active workspace")
+        service = MergeOrchestrator(status.root_path)
+
+        def _require(key: str) -> str:
+            value = str(arguments.get(key, "")).strip()
+            if not value:
+                raise InvalidToolArgumentsError(f"{key} is required")
+            return value
+
+        def _unwrap(result: Any) -> dict[str, Any]:
+            if isinstance(result, Exception):
+                raise InvalidToolArgumentsError(str(result)) from result
+            if hasattr(result, "model_dump"):
+                return result.model_dump(mode="json")
+            if isinstance(result, list):
+                return {
+                    "ok": True,
+                    "items": [item.model_dump(mode="json") if hasattr(item, "model_dump") else item for item in result],
+                }
+            return {"ok": True, "result": result}
+
+        def _apply_repo_path(merge_id: str) -> None:
+            repo_path = arguments.get("repo_path")
+            if not isinstance(repo_path, str) or not repo_path.strip():
+                return
+            request = service.store.load(merge_id)
+            if isinstance(request, Exception):
+                raise InvalidToolArgumentsError(str(request)) from request
+            if not isinstance(request, MergeRequest):
+                raise InvalidToolArgumentsError("merge request could not be loaded")
+            request.repo_path = repo_path
+            saved = service.store.save(request)
+            if isinstance(saved, Exception):
+                raise InvalidToolArgumentsError(str(saved)) from saved
+
+        if name == "metagit_merge_enqueue":
+            return _unwrap(
+                service.enqueue(
+                    _require("repository"),
+                    _require("source_branch"),
+                    _require("target_branch"),
+                    node_id=arguments.get("node_id") if isinstance(arguments.get("node_id"), str) else None,
+                    agent_id=arguments.get("agent_id") if isinstance(arguments.get("agent_id"), str) else None,
+                    repo_path=arguments.get("repo_path") if isinstance(arguments.get("repo_path"), str) else None,
+                )
+            )
+        if name == "metagit_merge_status":
+            repository = arguments.get("repository") if isinstance(arguments.get("repository"), str) else None
+            return _unwrap(service.status(repository=repository))
+        if name == "metagit_merge_retry":
+            merge_id = _require("merge_id")
+            _apply_repo_path(merge_id)
+            return _unwrap(service.retry(merge_id))
+        if name == "metagit_merge_integrate":
+            merge_id = _require("merge_id")
+            _apply_repo_path(merge_id)
+            return _unwrap(service.integrate(merge_id))
+        raise ValueError(f"Unsupported merge tool: {name}")
+
+    def _call_schedule_tool(
+        self,
+        name: str,
+        arguments: dict[str, Any],
+        status: WorkspaceStatus,
+    ) -> dict[str, Any] | list[Any]:
+        if not status.root_path:
+            raise InvalidToolArgumentsError("schedule tools require an active workspace")
+        service = SchedulerService(status.root_path)
+
+        def _unwrap(result: Any) -> Any:
+            if isinstance(result, Exception):
+                raise InvalidToolArgumentsError(str(result)) from result
+            if hasattr(result, "model_dump"):
+                return result.model_dump(mode="json")
+            if isinstance(result, list):
+                return [item.model_dump(mode="json") if hasattr(item, "model_dump") else item for item in result]
+            return result
+
+        if name == "metagit_schedule_next":
+            graph_id = arguments.get("graph_id") if isinstance(arguments.get("graph_id"), str) else None
+            limit_raw = arguments.get("limit", 1)
+            try:
+                limit = int(limit_raw) if limit_raw is not None else 1
+            except (TypeError, ValueError) as exc:
+                raise InvalidToolArgumentsError("limit must be an integer") from exc
+            return _unwrap(service.next(graph_id, limit=limit))
+        if name == "metagit_schedule_status":
+            recent_raw = arguments.get("recent", 10)
+            try:
+                recent = int(recent_raw) if recent_raw is not None else 10
+            except (TypeError, ValueError) as exc:
+                raise InvalidToolArgumentsError("recent must be an integer") from exc
+            return _unwrap(service.status(recent=recent))
+        if name == "metagit_schedule_policy":
+            action = str(arguments.get("action") or "show").strip().lower()
+            if action == "show":
+                return _unwrap(service.policy_show())
+            if action != "set":
+                raise InvalidToolArgumentsError("action must be show or set")
+            weights = {
+                key: float(arguments[key])
+                for key in ("priority", "affinity", "cost", "fairness")
+                if arguments.get(key) is not None
+            }
+            graph_id = arguments.get("graph_id") if isinstance(arguments.get("graph_id"), str) else None
+            return _unwrap(
+                service.policy_set(
+                    weights=None if graph_id else (weights or None),
+                    merge_queue_threshold=(
+                        int(arguments["merge_queue_threshold"])
+                        if arguments.get("merge_queue_threshold") is not None
+                        else None
+                    ),
+                    merge_pressure_penalty=(
+                        float(arguments["merge_pressure_penalty"])
+                        if arguments.get("merge_pressure_penalty") is not None
+                        else None
+                    ),
+                    skip_on_merge_pressure=(
+                        bool(arguments["skip_on_merge_pressure"])
+                        if arguments.get("skip_on_merge_pressure") is not None
+                        else None
+                    ),
+                    graph_id=graph_id,
+                    graph_weights=weights if graph_id else None,
+                )
+            )
+        raise ValueError(f"Unsupported schedule tool: {name}")
+
+    def _call_aos_tool(
+        self,
+        name: str,
+        arguments: dict[str, Any],
+        status: WorkspaceStatus,
+    ) -> dict[str, Any]:
+        if not status.root_path:
+            raise InvalidToolArgumentsError("aos tools require an active workspace")
+        from metagit.core.aos.service import AosService
+
+        service = AosService(status.root_path)
+        canonical = name.replace("metagit_coord_", "metagit_aos_", 1)
+
+        def _unwrap(result: Any) -> Any:
+            if isinstance(result, Exception):
+                raise InvalidToolArgumentsError(str(result)) from result
+            if hasattr(result, "model_dump"):
+                return result.model_dump(mode="json")
+            return result
+
+        if canonical == "metagit_aos_status":
+            return _unwrap(service.status())
+        if canonical == "metagit_aos_doctor":
+            return _unwrap(
+                service.doctor(
+                    fix=bool(arguments.get("fix")),
+                    confirm=bool(arguments.get("confirm")),
+                )
+            )
+        if canonical == "metagit_aos_next":
+            graph_id = arguments.get("graph_id") if isinstance(arguments.get("graph_id"), str) else None
+            agent_id = arguments.get("agent_id") if isinstance(arguments.get("agent_id"), str) else None
+            limit_raw = arguments.get("limit", 1)
+            try:
+                limit = int(limit_raw) if limit_raw is not None else 1
+            except (TypeError, ValueError) as exc:
+                raise InvalidToolArgumentsError("limit must be an integer") from exc
+            return _unwrap(
+                service.next(
+                    commit=bool(arguments.get("commit")),
+                    apply_hints=bool(arguments.get("apply_hints")),
+                    agent_id=agent_id,
+                    graph_id=graph_id,
+                    limit=limit,
+                )
+            )
+        raise ValueError(f"Unsupported aos tool: {name}")
+
+    def _call_task_tool(
+        self,
+        name: str,
+        arguments: dict[str, Any],
+        status: WorkspaceStatus,
+    ) -> dict[str, Any]:
+        if not status.root_path:
+            raise InvalidToolArgumentsError("task tools require an active workspace")
+        root = status.root_path
+        service = TaskGraphService(root)
+
+        def _require(key: str) -> str:
+            value = str(arguments.get(key, "")).strip()
+            if not value:
+                raise InvalidToolArgumentsError(f"{key} is required")
+            return value
+
+        def _unwrap(result: Any) -> dict[str, Any]:
+            if isinstance(result, Exception):
+                raise InvalidToolArgumentsError(str(result)) from result
+            if hasattr(result, "model_dump"):
+                return result.model_dump(mode="json")
+            if isinstance(result, list):
+                return {
+                    "ok": True,
+                    "items": [item.model_dump(mode="json") if hasattr(item, "model_dump") else item for item in result],
+                }
+            return {"ok": True, "result": result}
+
+        if name == "metagit_task_create":
+            acceptance_raw = arguments.get("acceptance")
+            repos_raw = arguments.get("repos")
+            return _unwrap(
+                service.create(
+                    title=_require("title"),
+                    goal=_require("goal"),
+                    acceptance=[str(item) for item in acceptance_raw] if isinstance(acceptance_raw, list) else None,
+                    objective_id=arguments.get("objective_id")
+                    if isinstance(arguments.get("objective_id"), str)
+                    else None,
+                    handoff_id=arguments.get("handoff_id") if isinstance(arguments.get("handoff_id"), str) else None,
+                    project=arguments.get("project") if isinstance(arguments.get("project"), str) else None,
+                    repos=[str(item) for item in repos_raw] if isinstance(repos_raw, list) else None,
+                    graph_id=arguments.get("graph_id") if isinstance(arguments.get("graph_id"), str) else None,
+                ),
+            )
+        if name == "metagit_task_expand":
+            outline = arguments.get("outline")
+            if outline is None:
+                raise InvalidToolArgumentsError("outline is required")
+            return _unwrap(service.expand(_require("graph_id"), outline))
+        if name == "metagit_task_list":
+            graph_id = arguments.get("graph_id") if isinstance(arguments.get("graph_id"), str) else None
+            status_filter = arguments.get("status") if isinstance(arguments.get("status"), str) else None
+            if graph_id or status_filter:
+                return _unwrap(service.list_nodes(graph_id=graph_id, status=status_filter))  # type: ignore[arg-type]
+            return _unwrap(service.list_graphs())
+        if name == "metagit_task_status":
+            return _unwrap(
+                service.status(
+                    _require("node_id"),
+                    graph_id=arguments.get("graph_id") if isinstance(arguments.get("graph_id"), str) else None,
+                ),
+            )
+        if name == "metagit_task_ready":
+            return _unwrap(
+                service.ready(arguments.get("graph_id") if isinstance(arguments.get("graph_id"), str) else None),
+            )
+        if name == "metagit_task_block":
+            return _unwrap(
+                service.block(
+                    _require("node_id"),
+                    _require("reason"),
+                    graph_id=arguments.get("graph_id") if isinstance(arguments.get("graph_id"), str) else None,
+                ),
+            )
+        if name == "metagit_task_complete":
+            return _unwrap(
+                service.complete(
+                    _require("node_id"),
+                    graph_id=arguments.get("graph_id") if isinstance(arguments.get("graph_id"), str) else None,
+                ),
+            )
+        if name == "metagit_task_bind_acl":
+            return _unwrap(
+                service.bind_acl(
+                    _require("node_id"),
+                    agent_id=_require("agent_id"),
+                    graph_id=arguments.get("graph_id") if isinstance(arguments.get("graph_id"), str) else None,
+                    branch=arguments.get("branch") if isinstance(arguments.get("branch"), str) else None,
+                    lease_id=arguments.get("lease_id") if isinstance(arguments.get("lease_id"), str) else None,
+                    worktree_id=arguments.get("worktree_id") if isinstance(arguments.get("worktree_id"), str) else None,
+                    pattern=arguments.get("pattern") if isinstance(arguments.get("pattern"), str) else None,
+                ),
+            )
+        raise ValueError(f"Unsupported task tool: {name}")
+
+    def _call_semantic_tool(
+        self,
+        name: str,
+        arguments: dict[str, Any],
+        status: WorkspaceStatus,
+    ) -> dict[str, Any]:
+        if not status.root_path:
+            raise InvalidToolArgumentsError("semantic tools require an active workspace")
+        service = SemanticGraphService(status.root_path)
+
+        def _require(key: str) -> str:
+            value = str(arguments.get(key, "")).strip()
+            if not value:
+                raise InvalidToolArgumentsError(f"{key} is required")
+            return value
+
+        def _unwrap(result: Any) -> dict[str, Any]:
+            if isinstance(result, Exception):
+                raise InvalidToolArgumentsError(str(result)) from result
+            if hasattr(result, "model_dump"):
+                return result.model_dump(mode="json")
+            return {"ok": True, "result": result}
+
+        if name == "metagit_semantic_declare":
+            patterns_raw = arguments.get("patterns")
+            if not isinstance(patterns_raw, list) or not patterns_raw:
+                raise InvalidToolArgumentsError("patterns is required")
+            symbol_hints_raw = arguments.get("symbol_hints")
+            return _unwrap(
+                service.declare(
+                    concept=_require("concept"),
+                    repository=_require("repository"),
+                    patterns=[str(item) for item in patterns_raw],
+                    symbol_hints=[str(item) for item in symbol_hints_raw]
+                    if isinstance(symbol_hints_raw, list)
+                    else None,
+                ),
+            )
+        if name == "metagit_semantic_query":
+            return _unwrap(service.query(concept=_require("concept")))
+        if name == "metagit_semantic_owners":
+            return _unwrap(
+                service.owners(
+                    path=_require("path"),
+                    repository=_require("repository"),
+                ),
+            )
+        if name == "metagit_semantic_conflicts":
+            return _unwrap(service.conflicts(repository=_require("repository")))
+        if name == "metagit_semantic_ingest":
+            return _unwrap(service.ingest())
+        raise ValueError(f"Unsupported semantic tool: {name}")
 
     def _resolve_status_and_config(self) -> tuple[WorkspaceStatus, Any]:
         resolved_root = self._resolver.resolve(cwd=os.getcwd(), cli_root=self._root_override)

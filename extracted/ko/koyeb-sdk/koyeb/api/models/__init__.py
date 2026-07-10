@@ -59,6 +59,8 @@ from koyeb.api.models.create_credential import CreateCredential
 from koyeb.api.models.create_credential_reply import CreateCredentialReply
 from koyeb.api.models.create_domain import CreateDomain
 from koyeb.api.models.create_domain_reply import CreateDomainReply
+from koyeb.api.models.create_instance_snapshot_reply import CreateInstanceSnapshotReply
+from koyeb.api.models.create_instance_snapshot_request import CreateInstanceSnapshotRequest
 from koyeb.api.models.create_organization_invitation_reply import CreateOrganizationInvitationReply
 from koyeb.api.models.create_organization_invitation_request import CreateOrganizationInvitationRequest
 from koyeb.api.models.create_organization_reply import CreateOrganizationReply
@@ -88,6 +90,7 @@ from koyeb.api.models.deactivate_organization_request import DeactivateOrganizat
 from koyeb.api.models.declare_stage_progress_request import DeclareStageProgressRequest
 from koyeb.api.models.declare_step_progress_request import DeclareStepProgressRequest
 from koyeb.api.models.decline_organization_invitation_reply import DeclineOrganizationInvitationReply
+from koyeb.api.models.delete_instance_snapshot_reply import DeleteInstanceSnapshotReply
 from koyeb.api.models.delete_organization_reply import DeleteOrganizationReply
 from koyeb.api.models.delete_persistent_volume_reply import DeletePersistentVolumeReply
 from koyeb.api.models.delete_snapshot_reply import DeleteSnapshotReply
@@ -141,6 +144,8 @@ from koyeb.api.models.domain_load_balancer_quotas import DomainLoadBalancerQuota
 from koyeb.api.models.domain_status import DomainStatus
 from koyeb.api.models.domain_type import DomainType
 from koyeb.api.models.domains_summary import DomainsSummary
+from koyeb.api.models.egress_policy import EgressPolicy
+from koyeb.api.models.egress_policy_mode import EgressPolicyMode
 from koyeb.api.models.env import Env
 from koyeb.api.models.error import Error
 from koyeb.api.models.error_field import ErrorField
@@ -162,6 +167,7 @@ from koyeb.api.models.get_domain_reply import GetDomainReply
 from koyeb.api.models.get_github_installation_reply import GetGithubInstallationReply
 from koyeb.api.models.get_idenfy_token_reply import GetIdenfyTokenReply
 from koyeb.api.models.get_instance_reply import GetInstanceReply
+from koyeb.api.models.get_instance_snapshot_reply import GetInstanceSnapshotReply
 from koyeb.api.models.get_intercom_profile_reply import GetIntercomProfileReply
 from koyeb.api.models.get_metrics_reply import GetMetricsReply
 from koyeb.api.models.get_metrics_reply_metric import GetMetricsReplyMetric
@@ -201,6 +207,11 @@ from koyeb.api.models.instance import Instance
 from koyeb.api.models.instance_availability import InstanceAvailability
 from koyeb.api.models.instance_event import InstanceEvent
 from koyeb.api.models.instance_list_item import InstanceListItem
+from koyeb.api.models.instance_snapshot import InstanceSnapshot
+from koyeb.api.models.instance_snapshot_event import InstanceSnapshotEvent
+from koyeb.api.models.instance_snapshot_quotas import InstanceSnapshotQuotas
+from koyeb.api.models.instance_snapshot_status import InstanceSnapshotStatus
+from koyeb.api.models.instance_snapshot_type import InstanceSnapshotType
 from koyeb.api.models.instance_status import InstanceStatus
 from koyeb.api.models.instance_usage import InstanceUsage
 from koyeb.api.models.instances_summary import InstancesSummary
@@ -233,6 +244,8 @@ from koyeb.api.models.list_deployment_events_reply import ListDeploymentEventsRe
 from koyeb.api.models.list_deployments_reply import ListDeploymentsReply
 from koyeb.api.models.list_domains_reply import ListDomainsReply
 from koyeb.api.models.list_instance_events_reply import ListInstanceEventsReply
+from koyeb.api.models.list_instance_snapshot_events_reply import ListInstanceSnapshotEventsReply
+from koyeb.api.models.list_instance_snapshots_reply import ListInstanceSnapshotsReply
 from koyeb.api.models.list_instances_reply import ListInstancesReply
 from koyeb.api.models.list_organization_invitations_reply import ListOrganizationInvitationsReply
 from koyeb.api.models.list_organization_members_reply import ListOrganizationMembersReply
@@ -264,6 +277,8 @@ from koyeb.api.models.neon_postgres_database_deployment_metadata import NeonPost
 from koyeb.api.models.neon_postgres_database_neon_database import NeonPostgresDatabaseNeonDatabase
 from koyeb.api.models.neon_postgres_database_neon_role import NeonPostgresDatabaseNeonRole
 from koyeb.api.models.neon_postgres_summary import NeonPostgresSummary
+from koyeb.api.models.network_policy import NetworkPolicy
+from koyeb.api.models.network_policy_destination import NetworkPolicyDestination
 from koyeb.api.models.next_invoice_reply import NextInvoiceReply
 from koyeb.api.models.next_invoice_reply_discount import NextInvoiceReplyDiscount
 from koyeb.api.models.next_invoice_reply_discount_type import NextInvoiceReplyDiscountType

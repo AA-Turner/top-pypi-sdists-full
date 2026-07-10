@@ -126,6 +126,40 @@ invalid_bit_pattern = re.compile(
 CREATE_SCHEMA_PATTERN = re.compile(r"create\s+schema", re.IGNORECASE)
 CREATE_TABLE_PATTERN = re.compile(r"create\s+table", re.IGNORECASE)
 
+# Snowflake error 002034: a non-boolean expression used where a predicate is
+# required (e.g. `WHERE "s"` for a VARCHAR column). Spark rejects the same shape
+# at analysis time with DATATYPE_MISMATCH.FILTER_NOT_BOOLEAN.
+FILTER_NOT_BOOLEAN_PATTERN = re.compile(
+    r"invalid data type \[([^\]]+)\] for predicate \[([^\]]+)\]", re.IGNORECASE
+)
+_SNOWFLAKE_TO_SPARK_TYPE_NAME = {
+    "VARCHAR": "STRING",
+    "CHAR": "STRING",
+    "STRING": "STRING",
+    "TEXT": "STRING",
+    "NUMBER": "DECIMAL",
+    "NUMERIC": "DECIMAL",
+    "DECIMAL": "DECIMAL",
+    "INT": "INT",
+    "INTEGER": "INT",
+    "BIGINT": "BIGINT",
+    "FLOAT": "DOUBLE",
+    "DOUBLE": "DOUBLE",
+    "REAL": "DOUBLE",
+    "DATE": "DATE",
+    "TIME": "TIME",
+    "TIMESTAMP": "TIMESTAMP",
+    "TIMESTAMP_LTZ": "TIMESTAMP",
+    "TIMESTAMP_NTZ": "TIMESTAMP",
+    "TIMESTAMP_TZ": "TIMESTAMP",
+    "BINARY": "BINARY",
+}
+
+
+def _snowflake_predicate_type_to_spark(sf_type: str) -> str:
+    base = sf_type.split("(")[0].strip().upper()
+    return _SNOWFLAKE_TO_SPARK_TYPE_NAME.get(base, base or sf_type.strip().upper())
+
 
 def attach_custom_error_code(exception: Exception, custom_error_code: int) -> Exception:
     """
@@ -203,6 +237,22 @@ def _get_converted_known_sql_or_custom_exception(
         # We try our best to detect if the SQL string contains a UDTF call and the output schema is empty.
         exception = PythonException(
             message=f"[UDTF_RETURN_SCHEMA_MISMATCH] {ex.message}"
+        )
+        attach_custom_error_code(exception, ErrorCodes.TYPE_MISMATCH)
+        return exception
+
+    # a bare non-boolean filter/WHERE condition is forwarded to
+    # Snowflake and surfaces as an opaque compilation error. Remap it to Spark's
+    # analysis-time error.
+    original_msg = ex.message if hasattr(ex, "message") else str(ex)
+    predicate_match = FILTER_NOT_BOOLEAN_PATTERN.search(original_msg)
+    if predicate_match:
+        spark_type = _snowflake_predicate_type_to_spark(predicate_match.group(1))
+        predicate = predicate_match.group(2)
+        exception = AnalysisException(
+            f'[DATATYPE_MISMATCH.FILTER_NOT_BOOLEAN] Cannot resolve "{predicate}" '
+            f'due to data type mismatch: filter expression "{predicate}" of type '
+            f'"{spark_type}" is not a boolean.'
         )
         attach_custom_error_code(exception, ErrorCodes.TYPE_MISMATCH)
         return exception

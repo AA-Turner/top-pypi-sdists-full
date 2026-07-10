@@ -1,10 +1,13 @@
 from __future__ import annotations
 
+import contextlib
 import inspect
 import json
 import re
+import threading
 import uuid
 import warnings
+import weakref
 from typing import TYPE_CHECKING, Any
 from weakref import WeakSet
 
@@ -25,6 +28,238 @@ if TYPE_CHECKING:
         from typing import Self
     else:
         from typing_extensions import Self
+
+
+def _capi_value_signature(value: Any) -> tuple:
+    """
+    Compute a stable, hashable signature for a single parameter value.
+
+    The signature mirrors the *structural* type that ``lbug`` will infer
+    when binding the parameter: for a Python ``dict`` that has ``"key"``
+    and ``"value"`` list fields of equal length, the binder produces a
+    ``MAP(K, V)`` and the signature records the element type of both
+    lists.  Any other string-keyed ``dict`` produces a ``STRUCT`` and the
+    signature records each field's name and child signature.  This
+    granularity is required because two STRUCTs with different field
+    names produce different C++ plans, and routing a second shape
+    through the first shape's cached plan would misread fields.
+
+    The signature is independent of *value contents* (so callers passing
+    the same query with different numeric values still share the cache)
+    but is sensitive to anything that would change the binder's plan:
+    nesting, field names, and element type.
+    """
+    if value is None:
+        return ("null",)
+    if isinstance(value, bool):
+        return ("bool",)
+    # ``bool`` is a subclass of ``int``; check it first.
+    if isinstance(value, int):
+        return ("int",)
+    if isinstance(value, float):
+        return ("float",)
+    if isinstance(value, (bytes, bytearray, memoryview)):
+        return ("blob",)
+    # ``CAPIJsonParameter`` is a frozen dataclass wrapping a JSON string.
+    # Treat it as a string for caching purposes.
+    if type(value).__name__ == "CAPIJsonParameter":
+        return ("string",)
+    if isinstance(value, str):
+        return ("string",)
+    if isinstance(value, dict):
+        if (
+            set(value.keys()) == {"key", "value"}
+            and isinstance(value["key"], list)
+            and isinstance(value["value"], list)
+            and len(value["key"]) == len(value["value"])
+        ):
+            # ``MAP`` - the binder treats the two parallel lists as the
+            # key and value columns.  Record the per-list element type so
+            # that ``MAP(INT,INT)`` vs ``MAP(STRING,INT)`` get distinct
+            # plans.
+            key_sig = (
+                ("list", ("null",))
+                if not value["key"]
+                else ("list", _capi_value_signature(value["key"][0]))
+            )
+            val_sig = (
+                ("list", ("null",))
+                if not value["value"]
+                else ("list", _capi_value_signature(value["value"][0]))
+            )
+            return ("map", key_sig, val_sig)
+        if all(isinstance(k, str) for k in value):
+            # ``STRUCT`` - the binder infers one field per key.  Field
+            # names matter because they appear in the plan's expressions
+            # and column metadata.
+            return (
+                "struct",
+                tuple(sorted((k, _capi_value_signature(v)) for k, v in value.items())),
+            )
+        return ("dict",)
+    if isinstance(value, (list, tuple)):
+        if not value:
+            return ("list", ("null",))
+        return ("list", _capi_value_signature(value[0]))
+    return ("unknown", type(value).__name__)
+
+
+def _capi_param_signature(parameters: dict[str, Any]) -> tuple:
+    """
+    Return a hashable signature of parameter *types* (not values).
+
+    The signature is independent of value contents but stable across
+    calls that pass the same kind of parameters.  The keys are sorted so
+    that two callers that pass the same parameters in different orders
+    share a prepared statement.
+    """
+    return tuple(
+        sorted((key, _capi_value_signature(val)) for key, val in parameters.items())
+    )
+
+
+# Maps id(object) to (generation, weakref) for pointer-type parameters
+# (DataFrames, Arrow tables, etc.).  We use weakref to detect when the
+# original object has been garbage-collected.  If the object is gone and
+# its id is recycled, the tracker assigns a new generation so the
+# prepared-statement cache does not return a stale entry compiled for
+# the old (now freed) object.
+_pybind_pointer_gen = 0
+_pybind_pointer_tracker: dict[int, tuple[int, weakref.ref]] = {}
+
+
+def _get_pointer_schema_fingerprint(value: Any) -> int:
+    """
+    Compute a hash of the schema for a pandas/pyarrow/polars object.
+
+    Two objects with the same shape, column names, and column dtypes
+    produce the same fingerprint.  If the object is mutated in place
+    (e.g. columns dropped, renamed, or dtypes changed) the fingerprint
+    changes, causing a cache miss so a fresh prepared statement is
+    compiled for the new schema.
+    """
+    module_name = type(value).__module__
+    if module_name == "pandas.core.frame":
+        cols = list(value.columns)
+        return hash(
+            (value.shape, tuple(cols), tuple(str(value[col].dtype) for col in cols))
+        )
+    if module_name.startswith("pyarrow"):
+        schema = value.schema
+        return hash(tuple((f.name, str(f.type)) for f in schema))
+    if module_name.startswith("polars"):
+        schema = value.schema
+        return hash(tuple(sorted((name, str(dtype)) for name, dtype in schema.items())))
+    return 0
+
+
+def _pybind_int_signature(value: int) -> tuple[str]:
+    if -(2**7) <= value <= 2**7 - 1:
+        return ("int8",)
+    if 0 <= value <= 2**8 - 1:
+        return ("uint8",)
+    if -(2**15) <= value <= 2**15 - 1:
+        return ("int16",)
+    if 0 <= value <= 2**16 - 1:
+        return ("uint16",)
+    if -(2**31) <= value <= 2**31 - 1:
+        return ("int32",)
+    if 0 <= value <= 2**32 - 1:
+        return ("uint32",)
+    return ("int64",)
+
+
+def _pybind_homogeneous_list_signature(
+    value: list[Any] | tuple[Any, ...],
+) -> tuple | None:
+    first_non_null = next((item for item in value if item is not None), None)
+    if first_non_null is None:
+        return ("list", ("any",))
+    if not isinstance(first_non_null, (bool, int, float)):
+        return None
+    first_type = type(first_non_null)
+    if any(item is not None and type(item) is not first_type for item in value):
+        return None
+    if isinstance(first_non_null, bool):
+        return ("list", ("bool",))
+    if isinstance(first_non_null, int):
+        return ("list", ("int64",))
+    return ("list", ("double",))
+
+
+def _pybind_value_signature(value: Any) -> tuple:
+    """
+    Compute the parameter type signature used by the pybind binder.
+
+    This intentionally differs from the C-API signature for Python ints:
+    pybind narrows scalar ints to INT8/UINT8/INT16/... based on the value
+    seen during prepare.  Reusing a prepared statement across those
+    widths corrupts later executions because updateParameter() mutates
+    the value without revalidating the logical type.
+    """
+    if value is None:
+        return ("any",)
+    if isinstance(value, bool):
+        return ("bool",)
+    if isinstance(value, int):
+        return _pybind_int_signature(value)
+    if isinstance(value, float):
+        return ("double",)
+    if isinstance(value, (bytes, bytearray, memoryview)):
+        return ("blob",)
+    if isinstance(value, str):
+        return ("string",)
+    module_name = type(value).__module__
+    if module_name.startswith(("pandas", "polars", "pyarrow")):
+        global _pybind_pointer_gen, _pybind_pointer_tracker
+        obj_id = id(value)
+        fp = _get_pointer_schema_fingerprint(value)
+        entry = _pybind_pointer_tracker.get(obj_id)
+        if entry is not None:
+            gen, weak = entry
+            if weak() is not None:
+                return ("pointer", module_name, type(value).__name__, gen, fp)
+            # Original object was GC'd and a new object now occupies the
+            # same memory address.  Purge the stale entry and fall
+            # through to assign a fresh generation.
+            del _pybind_pointer_tracker[obj_id]
+        _pybind_pointer_gen += 1
+        gen = _pybind_pointer_gen
+        _pybind_pointer_tracker[obj_id] = (gen, weakref.ref(value))
+        return ("pointer", module_name, type(value).__name__, gen, fp)
+    if isinstance(value, dict):
+        items = list(value.items())
+        if (
+            len(items) == 2
+            and items[0][0] == "key"
+            and items[1][0] == "value"
+            and isinstance(items[0][1], list)
+            and isinstance(items[1][1], list)
+            and len(items[0][1]) == len(items[1][1])
+        ):
+            return (
+                "map",
+                _pybind_value_signature(items[0][1])[1],
+                _pybind_value_signature(items[1][1])[1],
+            )
+        return (
+            "struct",
+            tuple((str(k), _pybind_value_signature(v)) for k, v in items),
+        )
+    if isinstance(value, (list, tuple)):
+        homogeneous = _pybind_homogeneous_list_signature(value)
+        if homogeneous is not None:
+            return homogeneous
+        if not value:
+            return ("list", ("any",))
+        return ("list", _pybind_value_signature(value[0]))
+    return ("unknown", type(value).__name__)
+
+
+def _pybind_param_signature(parameters: dict[str, Any]) -> tuple:
+    return tuple(
+        sorted((key, _pybind_value_signature(val)) for key, val in parameters.items())
+    )
 
 
 class Connection:
@@ -52,6 +287,20 @@ class Connection:
         self._query_timeout_ms = 0
         self._query_results: WeakSet[QueryResult] = WeakSet()
         self._capi_scan_tables: set[str] = set()
+        # Implicit prepared-statement cache, shared by the pybind and
+        # C-API paths.  The key is (query, backend_param_signature) so that two
+        # callers passing the same query with *different* parameter
+        # shapes (e.g. MAP vs STRUCT, or two STRUCTs with different
+        # field names) or pybind-native integer widths get independent
+        # prepared statements.  Each cached entry's plan stays consistent
+        # with its bound values, avoiding the upstream "cached plan vs
+        # rebound parameterMap" mismatch.
+        self._pybind_implicit_prepared_cache: dict[tuple[str, tuple], Any] = {}
+        # Serializes prepare / bind / execute on a single connection so
+        # that the cached entry's mutable bound state cannot be torn by
+        # concurrent callers (multi-threaded users or AsyncConnection's
+        # thread-pool).
+        self._prepared_cache_lock = threading.RLock()
         self.database._register_connection(self)
         self.init_connection()
 
@@ -116,6 +365,23 @@ class Connection:
         for query_result in list(self._query_results):
             query_result.close()
         self._query_results.clear()
+        # Destroy the C++ ``lbug_prepared_statement`` held by every cached
+        # entry before we drop the references.  ``lbug_prepared_statement``
+        # does not own a Python ``__del__`` so the entries would otherwise
+        # leak their ``_prepared_statement`` and ``_bound_values`` C++
+        # allocations.  Pybind entries are safe to drop because their state
+        # is held in a ``shared_ptr`` that self-cleans on refcount=0.
+        with self._prepared_cache_lock:
+            for prepared in self._pybind_implicit_prepared_cache.values():
+                close_fn = getattr(prepared, "close", None)
+                if callable(close_fn):
+                    with contextlib.suppress(RuntimeError):
+                        # The C++ connection may already be torn down
+                        # (close ordering between connection and cache).
+                        # Best-effort: the entries are about to be dropped
+                        # anyway.
+                        close_fn()
+            self._pybind_implicit_prepared_cache.clear()
 
         if self._connection is not None and not self.database.is_closed:
             self._connection.close()
@@ -460,8 +726,39 @@ class Connection:
             return py_connection.query(query)
 
         query, parameters = self._normalize_parameters_for_pybind(query, parameters)
-        prepared = py_connection.prepare(query, parameters)
-        return py_connection.execute(prepared, parameters)
+        with self._prepared_cache_lock:
+            prepared = self._get_or_prepare_pybind_statement(
+                py_connection, query, parameters
+            )
+            return py_connection.execute(prepared, parameters)
+
+    def _get_or_prepare_pybind_statement(
+        self,
+        py_connection: Any,
+        query: str,
+        parameters: dict[str, Any],
+    ) -> Any:
+        # Caller must hold ``self._prepared_cache_lock``.
+        cache_key = (query, _pybind_param_signature(parameters))
+        prepared = self._pybind_implicit_prepared_cache.get(cache_key)
+        if prepared is None:
+            prepared = py_connection.prepare(query, parameters)
+            self._pybind_implicit_prepared_cache[cache_key] = prepared
+        return prepared
+
+    def _get_or_prepare_capi_statement(
+        self,
+        query: str,
+        parameters: dict[str, Any],
+    ) -> PreparedStatement:
+        # Caller must hold ``self._prepared_cache_lock``.
+        cache_key = (query, _capi_param_signature(parameters))
+        cached = self._pybind_implicit_prepared_cache.get(cache_key)
+        if cached is not None:
+            return cached
+        prepared = self._prepare(query, parameters)
+        self._pybind_implicit_prepared_cache[cache_key] = prepared
+        return prepared
 
     def _maybe_raise_scan_unsupported_object(self, query: str) -> None:
         match = re.search(
@@ -565,12 +862,21 @@ class Connection:
                 query, parameters = self._normalize_parameters_for_capi(
                     query, parameters
                 )
-            prepared_statement = (
-                self._prepare(query, parameters) if isinstance(query, str) else query
-            )
-            query_result_internal = self._connection.execute(
-                prepared_statement._prepared_statement, parameters
-            )
+            # Hold the lock across prepare + bind + execute so that
+            # concurrent callers (threads / async tasks) cannot tear the
+            # cached entry's mutable bound state.  The C++ side has its
+            # own ``mtx`` around ``executeWithParams``; the lock here
+            # only protects the C-API ``_bound_values`` map and the
+            # cache itself.
+            with self._prepared_cache_lock:
+                prepared_statement = (
+                    self._get_or_prepare_capi_statement(query, parameters)
+                    if isinstance(query, str)
+                    else query
+                )
+                query_result_internal = self._connection.execute(
+                    prepared_statement._prepared_statement, parameters
+                )
         if not query_result_internal.isSuccess():
             raise RuntimeError(query_result_internal.getErrorMessage())
         for table_name in scan_tables_to_drop:

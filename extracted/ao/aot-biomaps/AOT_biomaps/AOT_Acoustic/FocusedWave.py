@@ -41,7 +41,7 @@ class FocusedWave(AcousticField):
         try:
             return f"field_focused_X{self.focal_line*1000:.2f}_Z{self.params.acoustic['emission']['Foc']*1000:.2f}"
         except Exception as e:
-            print(f"Error generating file name: {e}")
+            print(f"[AOT-biomaps] Error generating file name: {e}")
             return None
 
     def plot_delay(self, figsize=(4,3)):
@@ -213,11 +213,11 @@ class FocusedWave(AcousticField):
             with open(os.path.join(filePath, "field.hdr"), "w") as f_hdr2:
                 f_hdr2.write(headerFieldGlob)
         except Exception as e:
-            print(f"Error saving HDR/IMG files: {e}")
+            print(f"[AOT-biomaps] Error saving HDR/IMG files: {e}")
 
     def _generate_acoustic_field_SIMPLE_SIM(self, show_log=False):
         """
         Generate acoustic field using a simple simulation method.
         (Placeholder for future implementation)
         """
-        raise NotImplementedError("Simple simulation method is not implemented yet.")
+        raise NotImplementedError("[AOT-biomaps] Simple simulation method is not implemented yet.")

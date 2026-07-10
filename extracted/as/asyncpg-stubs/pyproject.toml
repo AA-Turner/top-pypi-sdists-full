@@ -1,6 +1,6 @@
 [project]
 name = "asyncpg-stubs"
-version = "0.31.2"
+version = "0.31.3"
 description = "asyncpg stubs"
 authors = [
   {name = "Bryan Forbes", email = "bryan@reigndropsfall.net"},
@@ -21,10 +21,11 @@ Homepage = "https://github.com/bryanforbes/asyncpg-stubs"
 dev = [
   "async-timeout ==5.0.1",
   # Mark this as 3.10+ to get the latest version
-  "pre-commit ==4.5.1 ; python_version >= '3.10' and python_version < '4.0'",
-  "pyright[nodejs] ==1.1.408",
+  "pre-commit ==4.6.0; python_version >= '3.10' and python_version < '4.0'",
+  "pyright[nodejs] ==1.1.410",
+  # Mark this as 3.10+ to get the latest version
   "mypy ==1.19.1",
-  "ruff ==0.15.1",
+  "ruff ==0.15.16",
 ]
 
 [tool.poetry]

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: RestrictedPython
-Version: 8.3
+Version: 8.4
 Summary: RestrictedPython is a defined subset of the Python language which allows to provide a program input into a trusted environment.
 Author-email: Zope Foundation and contributors <zope-dev@zope.dev>
 Maintainer-email: Plone Foundation and contributors <zope-dev@zope.dev>
@@ -21,6 +21,7 @@ Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
 Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Topic :: Security
+Classifier: Typing :: Typed
 Requires-Python: <3.16,>=3.10
 Description-Content-Type: text/x-rst
 License-File: LICENSE.txt
@@ -30,6 +31,8 @@ Requires-Dist: pytest-mock; extra == "test"
 Provides-Extra: docs
 Requires-Dist: Sphinx; extra == "docs"
 Requires-Dist: furo; extra == "docs"
+Provides-Extra: typecheck
+Requires-Dist: mypy; extra == "typecheck"
 Dynamic: license-file
 
 .. image:: https://github.com/zopefoundation/RestrictedPython/actions/workflows/tests.yml/badge.svg
@@ -122,6 +125,19 @@ the documentation `Contributing page
 
 Changes
 =======
+
+8.4 (2026-07-10)
+----------------
+
+- Add type annotations to the package code.
+  For clarification, restricted Python code does not support type annotations.
+
+- Allow ``ast.Module``, ``ast.Expression`` and ``ast.Interactive`` as body in compile_restricted_function
+
+- Disallow ``mode="function"`` in ``compile_restricted`` (it never worked).
+
+- Prevent access to ``string.Formatter`` and its unsafe traversal methods via
+  ``safer_getattr``.
 
 8.3 (2026-06-16)
 ----------------

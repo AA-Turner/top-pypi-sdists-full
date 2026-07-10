@@ -29,6 +29,7 @@ from dstack._internal.core.backends.base.compute import (
     get_dstack_gateway_commands,
     merge_tags,
 )
+from dstack._internal.core.backends.base.offers import RegionalSkipOfferCache, gpu_matches_gpu_spec
 from dstack._internal.core.backends.kubernetes.api_client import API_CLIENT_EXCEPTIONS
 from dstack._internal.core.backends.kubernetes.models import KubernetesConfig
 from dstack._internal.core.backends.kubernetes.resources import (
@@ -37,7 +38,6 @@ from dstack._internal.core.backends.kubernetes.resources import (
     AMD_GPU_NODE_TAINT,
     AMD_GPU_RESOURCE,
     LABEL_VALUE_MAX_LENGTH,
-    NVIDIA_GPU_NAME_TO_GPU_INFO,
     NVIDIA_GPU_NODE_TAINT,
     NVIDIA_GPU_PRODUCT_LABEL,
     NVIDIA_GPU_RESOURCE,
@@ -62,7 +62,6 @@ from dstack._internal.core.backends.kubernetes.resources import (
 from dstack._internal.core.backends.kubernetes.utils import (
     LEGACY_CURRENT_CONTEXT_REGION,
     Cluster,
-    SkipOfferCache,
     call_api_method,
     get_clusters_from_backend_config,
     try_delete_object_if_exists,
@@ -77,7 +76,6 @@ from dstack._internal.core.models.gateways import (
     GatewayProvisioningData,
 )
 from dstack._internal.core.models.instances import (
-    Gpu,
     InstanceOfferWithAvailability,
     SSHConnectionParams,
 )
@@ -138,7 +136,7 @@ class KubernetesCompute(
     def __init__(self, config: KubernetesConfig):
         super().__init__()
         self.region_cluster_map = {c.region: c for c in get_clusters_from_backend_config(config)}
-        self.skip_offer_cache = SkipOfferCache(ttl=60)
+        self.skip_offer_cache = RegionalSkipOfferCache(ttl=60)
 
     def get_offers_by_requirements(
         self, requirements: Requirements
@@ -752,7 +750,7 @@ def _get_nvidia_gpu_node_affinity(
     for node in nodes:
         labels = get_node_labels(node)
         gpu = get_nvidia_gpu_from_node_labels(labels)
-        if gpu is not None and _gpu_matches_gpu_spec(gpu, gpu_spec):
+        if gpu is not None and gpu_matches_gpu_spec(gpu, gpu_spec):
             matching_gpu_label_values.add(labels[NVIDIA_GPU_PRODUCT_LABEL])
     if not matching_gpu_label_values:
         raise ComputeError(
@@ -785,7 +783,7 @@ def _get_amd_gpu_node_affinity(
     for node in nodes:
         labels = get_node_labels(node)
         gpu = get_amd_gpu_from_node_labels(labels)
-        if gpu is not None and _gpu_matches_gpu_spec(gpu, gpu_spec):
+        if gpu is not None and gpu_matches_gpu_spec(gpu, gpu_spec):
             matching_device_ids.update(AMD_GPU_NAME_TO_DEVICE_IDS[gpu.name])
     return client.V1NodeAffinity(
         required_during_scheduling_ignored_during_execution=client.V1NodeSelector(
@@ -802,29 +800,6 @@ def _get_amd_gpu_node_affinity(
             ],
         ),
     )
-
-
-def _gpu_matches_gpu_spec(gpu: Gpu, gpu_spec: GPUSpec) -> bool:
-    if gpu_spec.vendor is not None and gpu.vendor != gpu_spec.vendor:
-        return False
-    if gpu_spec.name is not None and gpu.name.lower() not in map(str.lower, gpu_spec.name):
-        return False
-    if gpu_spec.memory is not None:
-        min_memory_gib = gpu_spec.memory.min
-        if min_memory_gib is not None and gpu.memory_mib < min_memory_gib * 1024:
-            return False
-        max_memory_gib = gpu_spec.memory.max
-        if max_memory_gib is not None and gpu.memory_mib > max_memory_gib * 1024:
-            return False
-    if gpu_spec.compute_capability is not None:
-        if gpu.vendor != AcceleratorVendor.NVIDIA:
-            return False
-        gpu_info = NVIDIA_GPU_NAME_TO_GPU_INFO.get(gpu.name)
-        if gpu_info is None:
-            return False
-        if gpu_info.compute_capability < gpu_spec.compute_capability:
-            return False
-    return True
 
 
 def _create_jump_pod_service_if_not_exists(
@@ -1131,6 +1106,7 @@ def _create_job_pod(
     tolerations: list[client.V1Toleration] = []
     volumes_: list[client.V1Volume] = []
     volume_mounts: list[client.V1VolumeMount] = []
+    env_vars: list[client.V1EnvVar] = []
 
     resources_spec = job_spec.requirements.resources
     assert isinstance(resources_spec.cpu, CPUSpec)
@@ -1138,21 +1114,23 @@ def _create_job_pod(
         resources_requests["cpu"] = str(cpu_min)
     if (cpu_max := resources_spec.cpu.count.max) is not None:
         resources_limits["cpu"] = str(cpu_max)
-    if (gpu_spec := resources_spec.gpu) is not None:
-        if (gpu_request := get_gpu_request_from_gpu_spec(gpu_spec)) > 0:
-            gpu_resource, node_affinity, node_taint = _get_pod_spec_parameters_for_gpu(
-                api, gpu_spec
+    gpu_spec = resources_spec.gpu
+    if gpu_spec is not None and (gpu_request := get_gpu_request_from_gpu_spec(gpu_spec)) > 0:
+        gpu_resource, node_affinity, node_taint = _get_pod_spec_parameters_for_gpu(api, gpu_spec)
+        logger.debug("Requesting GPU resource: %s=%d", gpu_resource, gpu_request)
+        resources_requests[gpu_resource] = str(gpu_request)
+        # Limit must be set (GPU resources cannot be overcommitted) and must be equal to request.
+        resources_limits[gpu_resource] = str(gpu_request)
+        # It should be NoSchedule, but we also add NoExecute toleration just in case.
+        for effect in [TaintEffect.NO_SCHEDULE, TaintEffect.NO_EXECUTE]:
+            tolerations.append(
+                client.V1Toleration(key=node_taint, operator=Operator.EXISTS, effect=effect)
             )
-            logger.debug("Requesting GPU resource: %s=%d", gpu_resource, gpu_request)
-            resources_requests[gpu_resource] = str(gpu_request)
-            # Limit must be set (GPU resources cannot be overcommitted)
-            # and must be equal to request.
-            resources_limits[gpu_resource] = str(gpu_request)
-            # It should be NoSchedule, but we also add NoExecute toleration just in case.
-            for effect in [TaintEffect.NO_SCHEDULE, TaintEffect.NO_EXECUTE]:
-                tolerations.append(
-                    client.V1Toleration(key=node_taint, operator=Operator.EXISTS, effect=effect)
-                )
+    else:
+        # Prevents GPU allocation if NVIDIA_VISIBLE_DEVICES with a value such as "all" is baked
+        # into the image (NVIDIA images and images based on them including dstackai/base)
+        # See https://github.com/NVIDIA/k8s-device-plugin/issues/61
+        env_vars.append(client.V1EnvVar(name="NVIDIA_VISIBLE_DEVICES", value="void"))
     if (memory_min := resources_spec.memory.min) is not None:
         resources_requests["memory"] = format_memory(memory_min)
     if (memory_max := resources_spec.memory.max) is not None:
@@ -1272,6 +1250,7 @@ def _create_job_pod(
                         limits=resources_limits,
                     ),
                     volume_mounts=volume_mounts,
+                    env=env_vars,
                 )
             ],
             image_pull_secrets=(

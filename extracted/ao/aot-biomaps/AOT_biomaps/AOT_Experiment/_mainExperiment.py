@@ -4,6 +4,7 @@ from AOT_biomaps.AOT_Acoustic.AcousticEnums import TypeSim, WaveType, FormatSave
 from AOT_biomaps.AOT_Acoustic.StructuredWave import StructuredWave
 from AOT_biomaps.AOT_Medium.HomogeneousMedium import HomogeneousMedium
 from AOT_biomaps.AOT_Medium.PVAMedium import PVAMedium
+from AOT_biomaps.AOT_Medium.BubbleMedium import BubbleMedium
 from AOT_biomaps.AOT_Medium.MediumEnums import PhantomType
 from AOT_biomaps.AOT_Experiment.ExperimentTools import load_AOsignal, create_dark_transparent_hot_cmap
 from abc import ABC, abstractmethod
@@ -36,13 +37,13 @@ class Experiment(ABC):
         self.AOsignal_withoutTumor = None
 
         if type(acousticType).__name__ != "WaveType":
-            raise TypeError("acousticType must be an instance of the WaveType class")
+            raise TypeError("[AOT-biomaps] acousticType must be an instance of the WaveType class")
 
         self.FormatSave = formatSave
         self.TypeAcoustic = acousticType
 
         if type(self.params) != Params:
-            raise TypeError("params must be an instance of the Params class")
+            raise TypeError("[AOT-biomaps] params must be an instance of the Params class")
 
     def copy(self):
         """
@@ -62,18 +63,31 @@ class Experiment(ABC):
         This method initializes the medium attribute based on the parameters.
         """
         if self.params.acoustic['medium']['type'] == PhantomType.Homogeneous.value:
-            self.medium = HomogeneousMedium(params=self.params)
-            self.medium.generate_medium()
-            print("Medium generated: Homogeneous. -- done.")
+            try:
+                self.medium = HomogeneousMedium(params=self.params)
+                self.medium.generate_medium()
+                print("[AOT-biomaps] Medium generated: Homogeneous. -- done.")
+            except Exception as e:
+                print(f"[AOT-biomaps] Error generating Homogeneous medium: {e}")
+                raise
+        elif self.params.acoustic['medium']['type'] == PhantomType.Bubble.value:
+            try:
+                self.medium = BubbleMedium(params=self.params)
+                self.medium.generate_medium()
+                print("[AOT-biomaps] Medium generated: Bubbles. -- done.")
+            except Exception as e:
+                print(f"[AOT-biomaps] Error generating Bubble medium: {e}")
+                raise
         elif self.params.acoustic['medium']['type'] == PhantomType.PVA.value:
             try:
                 self.medium = PVAMedium(params=self.params)
                 self.medium.generate_medium()
-                print("Medium generated: PVA heterogeneous. -- done.")
+                print("[AOT-biomaps] Medium generated: PVA heterogeneous. -- done.")
             except Exception as e:
-                
-                print(f"Error generating PVA medium: {e}")
+                print(f"[AOT-biomaps] Error generating PVA medium: {e}")
                 raise
+        else:   
+            raise ValueError(f"[AOT-biomaps] Unsupported medium type: {self.params.acoustic['medium']['type']}. Supported options are in PhantomType Enum: {list(PhantomType)}")
     
     def load_medium(self, folderPath, fileName="medium"):
         """
@@ -93,8 +107,11 @@ class Experiment(ABC):
         elif self.params.acoustic['medium']['type'] == PhantomType.PVA.value:
             self.medium = PVAMedium(params=self.params)
             self.medium.load_medium(folderPath, fileName)
+        elif self.params.acoustic['medium']['type'] == PhantomType.Bubble.value:
+            self.medium = BubbleMedium(params=self.params)
+            self.medium.load_medium(folderPath, fileName)
         else:
-            raise ValueError(f"Unsupported medium type: {self.params.acoustic['medium']['type']}")
+            raise ValueError(f"[AOT-biomaps] Unsupported medium type: {self.params.acoustic['medium']['type']}. Supported options are in PhantomType Enum: {list(PhantomType)}")
 
     def save_medium(self, folderPath, fileName="medium"):
         """
@@ -108,7 +125,7 @@ class Experiment(ABC):
             ValueError: If medium is not initialized.
         """
         if self.medium is None:
-            raise ValueError("Medium is not initialized. Please generate or set the medium before saving.")
+            raise ValueError("[AOT-biomaps] Medium is not initialized. Please generate or set the medium before saving.")
         self.medium.save_medium(folderPath, fileName)
 
     @abstractmethod
@@ -151,7 +168,7 @@ class Experiment(ABC):
             field.reshape_field(dx=dx, dy=dy, dz=dz, dt=dt, Nx=Nx, Ny=Ny, Nz=Nz, Nt=Nt, factorX=factorX, factorY=factorY, factorZ=factorZ, factorT=factorT, reshape_type=reshape_type, isGPU=isGPU, GPUdevice=GPUdevice)
             if overwrite:
                 if fieldDataPath is None:
-                    raise ValueError("fieldDataPath must be provided when overwrite is True.")
+                    raise ValueError("[AOT-biomaps] fieldDataPath must be provided when overwrite is True.")
                 if self.params.acoustic['typeSim'] != TypeSim.SIMPLE_SIM.value:
                     field.save_field(fieldDataPath, formatSave=self.FormatSave)
 
@@ -200,18 +217,18 @@ class Experiment(ABC):
         """
 
         if min_t < 0 or max_t < 0:
-            raise ValueError("min_t and max_t must be non-negative integers.")
+            raise ValueError("[AOT-biomaps] min_t and max_t must be non-negative integers.")
         if min_t >= max_t:
-            raise ValueError("min_t must be less than max_t.")
+            raise ValueError("[AOT-biomaps] min_t must be less than max_t.")
 
         if not self.AcousticFields:
-            raise ValueError("AcousticFields is empty. Cannot cut fields.")
+            raise ValueError("[AOT-biomaps] AcousticFields is empty. Cannot cut fields.")
 
-        iteration = range(len(self.AcousticFields)) if not show_log else trange(len(self.AcousticFields), desc=f"Cutting Acoustic Fields ({min_t} to {max_t} samples)")
+        iteration = range(len(self.AcousticFields)) if not show_log else trange(len(self.AcousticFields), desc=f"[AOT-biomaps] Cutting Acoustic Fields ({min_t} to {max_t} samples)")
         for i in iteration:
             field = self.AcousticFields[i]
             if field.field.shape[0] < max_t:
-                raise ValueError(f"Field {field.get_name_field()} has an invalid shape: {field.field.shape}. Expected shape to be at least ({max_t},).")
+                raise ValueError(f"[AOT-biomaps] Field {field.get_name_field()} has an invalid shape: {field.field.shape}. Expected shape to be at least ({max_t},).")
             self.AcousticFields[i].field = field.field[min_t:max_t, :, :]
 
     def add_noise(self, y=None, noiseType='gaussian', noiseLvl=0.1, dataToUse=None, m=1, withTumor=True, show_log=True):
@@ -239,11 +256,11 @@ class Experiment(ABC):
         if y is None:
             if withTumor:
                 if self.AOsignal_withTumor is None:
-                    raise ValueError("AO signal with tumor not generated. Generate it first.")
+                    raise ValueError("[AOT-biomaps] AO signal with tumor not generated. Generate it first.")
                 signals = self.AOsignal_withTumor
             else:
                 if self.AOsignal_withoutTumor is None:
-                    raise ValueError("AO signal without tumor not generated. Generate it first.")
+                    raise ValueError("[AOT-biomaps] AO signal without tumor not generated. Generate it first.")
                 signals = self.AOsignal_withoutTumor
         else:
             signals = y
@@ -251,7 +268,7 @@ class Experiment(ABC):
         # For experimental noise, estimate noise parameters from dataToUse
         if noiseType.lower() == 'experimental':
             if dataToUse is None:
-                raise ValueError("dataToUse must be provided for experimental noise type.")
+                raise ValueError("[AOT-biomaps] dataToUse must be provided for experimental noise type.")
             # Estimate noise variance from experimental data (using random pairs)
             n_pairs = min(500, dataToUse.shape[0] // 2)
             random_pairs = np.random.choice(dataToUse.shape[0], size=(n_pairs, 2), replace=False)
@@ -269,7 +286,7 @@ class Experiment(ABC):
         n_signals = signals.shape[1]
 
         # Loop over signals
-        iteration = trange(n_signals, desc=f"Adding {noiseType} noise") if show_log else range(n_signals)
+        iteration = trange(n_signals, desc=f"[AOT-biomaps] Adding {noiseType} noise") if show_log else range(n_signals)
         for i in iteration:
             signal = signals[:, i]
 
@@ -292,7 +309,7 @@ class Experiment(ABC):
                 noise = np.random.randn(signal.shape[0]) * np.sqrt(noise_var_for_m) * amplitude_ratio
                 noisy_signal = signal + noise
             else:
-                raise ValueError("noiseType must be 'gaussian', 'poisson', or 'experimental'.")
+                raise ValueError("[AOT-biomaps] noiseType must be 'gaussian', 'poisson', or 'experimental'.")
 
             # Ensure non-negative (shift if needed)
             if np.min(noisy_signal) < 0:
@@ -309,20 +326,20 @@ class Experiment(ABC):
         Returns a numpy array and updates numerical parameters.
         """
         if not CUPY_AVAILABLE:
-            warnings.warn("CuPy not available. Using numpy for downsampling.", UserWarning)
+            print("[AOT-biomaps] Warning: CuPy not available. Using numpy for downsampling.")
             # Fall back to numpy implementation
             for i in trange(len(self.AcousticFields),
-                            desc="Downsampling Acoustic Fields (T, X, Z → T//2, X//2, Z//2)"):
+                            desc=f"[AOT-biomaps] Downsampling Acoustic Fields (T, X, Z → T//2, X//2, Z//2)"):
                 field = self.AcousticFields[i].field
                 if field.ndim != 3:
-                    raise ValueError(f"Unsupported shape: {field.shape}. Expected (T, X, Z).")
+                    raise ValueError(f"[AOT-biomaps] Unsupported shape: {field.shape}. Expected (T, X, Z).")
                 # Simple numpy downsampling by slicing
                 x_down = field[::2, ::2, ::2]
                 self.AcousticFields[i].field = x_down
             return
         
         for i in trange(len(self.AcousticFields),
-                        desc="Downsampling Acoustic Fields (T, X, Z → T//2, X//2, Z//2)"):
+                        desc=f"[AOT-biomaps] Downsampling Acoustic Fields (T, X, Z → T//2, X//2, Z//2)"):
             # Convert to CuPy array
             field = self.AcousticFields[i].field
             if not isinstance(field, cp.ndarray):
@@ -330,7 +347,7 @@ class Experiment(ABC):
 
             # Check shape (must be 3D: T, X, Z)
             if field.ndim != 3:
-                raise ValueError(f"Unsupported shape: {field.shape}. Expected (T, X, Z).")
+                raise ValueError(f"[AOT-biomaps] Unsupported shape: {field.shape}. Expected (T, X, Z).")
 
             # Add dimensions for pool3d: (1, 1, T, X, Z)
             x = field[cp.newaxis, cp.newaxis, ...]
@@ -358,16 +375,16 @@ class Experiment(ABC):
 
     def normalize_AOsignals(self, withTumor=True):
         if withTumor and self.AOsignal_withTumor is None:
-            raise ValueError("AO signal with tumor is not generated. Please generate it first.")
+            raise ValueError("[AOT-biomaps] AO signal with tumor is not generated. Please generate it first.")
         if not withTumor and self.AOsignal_withoutTumor is None:
-            raise ValueError("AO signal without tumor is not generated. Please generate it first.")
+            raise ValueError("[AOT-biomaps] AO signal without tumor is not generated. Please generate it first.")
         if withTumor:
             self.AOsignal_withTumor = self.AOsignal_withTumor - np.min(self.AOsignal_withTumor)/(np.max(self.AOsignal_withTumor)-np.min(self.AOsignal_withTumor))
         else:
             self.AOsignal_withoutTumor = self.AOsignal_withoutTumor - np.min(self.AOsignal_withoutTumor)/(np.max(self.AOsignal_withoutTumor)-np.min(self.AOsignal_withoutTumor))
 
     def save_acoustic_fields(self, save_directory):
-        progress_bar = trange(len(self.AcousticFields), desc="Saving Acoustic Fields")
+        progress_bar = trange(len(self.AcousticFields), desc="[AOT-biomaps] Saving Acoustic Fields")
         for i in progress_bar:
             progress_bar.set_postfix_str(f"-- {self.AcousticFields[i].get_name_field()}")
             self.AcousticFields[i].save_field(save_directory, formatSave=self.FormatSave)
@@ -436,7 +453,7 @@ class Experiment(ABC):
             save_filename = f"AcousticField_{wave_name}_{date_str}.gif"
             save_path = os.path.join(save_dir, save_filename)
             ani.save(save_path, writer='pillow', fps=20)
-            print(f"Saved: {save_path}")
+            print(f"[AOT-biomaps] Saved: {save_path}")
 
         plt.close(fig)
         return ani
@@ -445,23 +462,23 @@ class Experiment(ABC):
 
         if AOsignalDataPath is not None:
             if not os.path.exists(AOsignalDataPath):
-                raise FileNotFoundError(f"AO file {AOsignalDataPath} not found.")
+                raise FileNotFoundError(f"[AOT-biomaps] AO file {AOsignalDataPath} not found.")
             if withTumor:
                 self.AOsignal_withTumor = load_AOsignal(AOsignalDataPath)
                 if self.AOsignal_withTumor.shape[0] != self.AcousticFields[0].field.shape[0]:
-                    print(f"AO signal shape {self.AOsignal_withTumor.shape} does not match the expected shape {self.AcousticFields[0].field.shape}. Resizing Acoustic fields...")
+                    print(f"[AOT-biomaps] AO signal shape {self.AOsignal_withTumor.shape} does not match the expected shape {self.AcousticFields[0].field.shape}. Resizing Acoustic fields...")
                     self.cut_acoustic_fields(max_t=self.AOsignal_withTumor.shape[0] / float(self.params.acoustic['f_saving']), min_t=0)
             else:
                 self.AOsignal_withoutTumor = load_AOsignal(AOsignalDataPath)
                 if self.AOsignal_withoutTumor.shape[0] != self.AcousticFields[0].field.shape[0]:
-                    print(f"AO signal shape {self.AOsignal_withoutTumor.shape} does not match the expected shape {self.AcousticFields[0].field.shape}. Resizing Acoustic fields...")
+                    print(f"[AOT-biomaps] AO signal shape {self.AOsignal_withoutTumor.shape} does not match the expected shape {self.AcousticFields[0].field.shape}. Resizing Acoustic fields...")
                     self.cut_acoustic_fields(max_t=self.AOsignal_withoutTumor.shape[0] / float(self.params.acoustic['f_saving']), min_t=0)
         else:    
             if self.AcousticFields is None:
-                raise ValueError("AcousticFields is not initialized. Please generate the system matrix first.")
+                raise ValueError("[AOT-biomaps] AcousticFields is not initialized. Please generate the system matrix first.")
 
             if self.OpticImage is None:
-                raise ValueError("OpticImage is not initialized. Please generate the phantom first.")
+                raise ValueError("[AOT-biomaps] OpticImage is not initialized. Please generate the phantom first.")
             
             if not all(field.field.shape == self.AcousticFields[0].field.shape for field in self.AcousticFields):
                 minShape = min([field.field.shape[0] for field in self.AcousticFields])
@@ -472,9 +489,9 @@ class Experiment(ABC):
             AOsignal = np.zeros((shape_field[0], len(self.AcousticFields)), dtype=np.float32)
 
             if withTumor:
-                description = "Generating AO Signal with Tumor"
+                description = "[AOT-biomaps] Generating AO Signal with Tumor"
             else:
-                description = "Generating AO Signal without Tumor"
+                description = "[AOT-biomaps] Generating AO Signal without Tumor"
 
             for i in trange(len(self.AcousticFields), desc=description):
                 for t in range(self.AcousticFields[i].field.shape[0]):
@@ -531,13 +548,13 @@ class Experiment(ABC):
             for field in self.AcousticFields:
                 fileID.write(field.get_name_field() + "\n")
 
-        print(f"Files .cdf, .cdh and info.txt saved in {save_directory}")
+        print(f"[AOT-biomaps] Files .cdf, .cdh and info.txt saved in {save_directory}")
 
     def show_AOsignal(self, withTumor=True, save_dir=None, wave_name=None, figsize=(12, 5)):
         if withTumor and self.AOsignal_withTumor is None:
-            raise ValueError("AO signal with tumor is not generated. Please generate it first.")
+            raise ValueError("[AOT-biomaps] AO signal with tumor is not generated. Please generate it first.")
         if not withTumor and self.AOsignal_withoutTumor is None:
-            raise ValueError("AO signal without tumor is not generated. Please generate it first.")
+            raise ValueError("[AOT-biomaps] AO signal without tumor is not generated. Please generate it first.")
 
         if withTumor:
             AOsignal = self.AOsignal_withTumor
@@ -583,14 +600,14 @@ class Experiment(ABC):
             save_filename = f"Static_y_Plot{wave_name}_{date_str}.png"
             save_path = os.path.join(save_dir, save_filename)
             plt.savefig(save_path, dpi=200)
-            print(f"Saved: {save_path}")
+            print(f"[AOT-biomaps] Saved: {save_path}")
 
         plt.show()
         plt.close(fig)
 
     def show_experiment_static(self, fileOfAcousticField=None, N_file=None, save_dir=None, withTumor=True, t=None, figsize=(8, 4), wave_name=None):
         if fileOfAcousticField is None and N_file is None:
-            print("No acoustic field file provided. Showing the first field in AcousticFields.")
+            print(f"[AOT-biomaps] Warning: No acoustic field file provided. Showing the first field in AcousticFields.")
             fieldToPlot = self.AcousticFields[0]
             idx = 0
         elif fileOfAcousticField is not None:
@@ -600,14 +617,14 @@ class Experiment(ABC):
                     idx = self.AcousticFields.index(field)
                     break
             else:
-                raise ValueError(f"Field {fileOfAcousticField} not found in AcousticFields.")
+                raise ValueError(f"[AOT-biomaps] Field {fileOfAcousticField} not found in AcousticFields.")
         elif N_file is not None:
             if N_file < 0 or N_file >= len(self.AcousticFields):
-                raise ValueError(f"N_file must be between 0 and {len(self.AcousticFields)-1}.")
+                raise ValueError(f"[AOT-biomaps] N_file must be between 0 and {len(self.AcousticFields)-1}.")
             fieldToPlot = self.AcousticFields[N_file]
             idx = N_file
         elif fileOfAcousticField is not None and N_file is not None:
-            raise ValueError("Provide either fileOfAcousticField or N_file, not both.")
+            raise ValueError(f"[AOT-biomaps] Provide either fileOfAcousticField or N_file, not both.")
 
         if wave_name is None:
             wave_name = f"{fieldToPlot.pattern.activeList}"
@@ -632,20 +649,20 @@ class Experiment(ABC):
 
         if withTumor:
             if self.AOsignal_withTumor is None:
-                raise ValueError("AO signal with tumor is not generated. Please generate it first.")
+                raise ValueError("[AOT-biomaps] AO signal with tumor is not generated. Please generate it first.")
             else:
                 AOsignal = self.AOsignal_withTumor
             if self.OpticImage.phantom is None:
-                raise ValueError("Phantom is not generated. Please generate the phantom first.")
+                raise ValueError("[AOT-biomaps] Phantom is not generated. Please generate the phantom first.")
             else:
                 opticImageToPlot = self.OpticImage.phantom
         else:
             if self.AOsignal_withoutTumor is None:
-                raise ValueError("AO signal without tumor is not generated. Please generate it first.")
+                raise ValueError("[AOT-biomaps] AO signal without tumor is not generated. Please generate it first.")
             else:
                 AOsignal = self.AOsignal_withoutTumor
             if self.OpticImage.laser is None:
-                raise ValueError("Laser image is not generated. Please generate the laser image first.")
+                raise ValueError("[AOT-biomaps] Laser image is not generated. Please generate the laser image first.")
             else:
                 opticImageToPlot = self.OpticImage.laser.intensity
 
@@ -697,7 +714,7 @@ class Experiment(ABC):
             save_filename = f"experiment_static_{fieldToPlot.pattern.activeList}_{fieldToPlot.angle}_{date_str}_t{t:.2f}us.png"
             save_path = os.path.join(save_dir, save_filename)
             fig.savefig(save_path, dpi=300, bbox_inches='tight')
-            print(f"Saved: {save_path}")
+            print(f"[AOT-biomaps] Saved: {save_path}")
 
         plt.show()
     
@@ -708,7 +725,7 @@ class Experiment(ABC):
         try:
             self.OpticImage.show_phantom(withROI=withROI, figsize=figsize)
         except Exception as e:
-            raise RuntimeError(f"Error plotting phantom: {e}")
+            raise RuntimeError(f"[AOT-biomaps] Error plotting phantom: {e}")
     
     def show_laser(self, figsize=(4,4)):
         """
@@ -717,7 +734,7 @@ class Experiment(ABC):
         try:
             self.OpticImage.laser.show_laser(figsize=figsize)
         except Exception as e:
-            raise RuntimeError(f"Error plotting laser: {e}")
+            raise RuntimeError(f"[AOT-biomaps] Error plotting laser: {e}")
     
     def show_medium(self, figsize=(8,4)):
         """
@@ -726,7 +743,7 @@ class Experiment(ABC):
         try:
             self.medium.plot_medium_properties(figsize=figsize)
         except Exception as e:
-            raise RuntimeError(f"Error plotting medium: {e}")
+            raise RuntimeError(f"[AOT-biomaps] Error plotting medium: {e}")
 
     @abstractmethod
     def check(self):

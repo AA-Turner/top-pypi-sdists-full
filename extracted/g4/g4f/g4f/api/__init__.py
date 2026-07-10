@@ -74,7 +74,7 @@ from g4f.providers.response import AudioResponse
 from g4f.providers.any_provider import AnyProvider
 from g4f.providers.any_model_map import model_map, vision_models, image_models, audio_models, video_models
 from g4f.config import AppConfig
-from g4f.client import ClientFactory
+from g4f.client.factory import AbstractClientFactory
 from g4f import Provider
 from g4f.Provider import ProviderUtils
 
@@ -432,15 +432,6 @@ def update_headers(request: Request, new_api_key: str = None, user: str = None) 
     delattr(request, "_headers")
     return request
 
-def get_provider_by_label(provider: str) -> ProviderType:
-    try:
-        return ProviderUtils.get_by_label(provider)
-    except ValueError as e:
-        try:
-            return ClientFactory.create_provider(None, provider)
-        except ProviderNotFoundError:
-            raise e
-
 class Api:
     def __init__(self, app: FastAPI) -> None:
         self.app = app
@@ -615,16 +606,16 @@ class Api:
                 ]
             }
 
-        @self.app.get("/api/{provider}/models", responses={
+        @self.app.get("/api/{provider:path}/models", responses={
             HTTP_200_OK: {"model": List[ModelResponseModel]},
         })
         async def models(provider: str, credentials: Annotated[HTTPAuthorizationCredentials, Depends(Api.security)] = None):
             try:
-                provider = get_provider_by_label(provider)
-            except ValueError as e:
+                provider = AbstractClientFactory.create_provider(None, provider)
+            except ProviderNotFoundError as e:
                 return ErrorResponse.from_message(str(e), 404)
             if not hasattr(provider, "get_models"):
-                models = []
+                models = getattr(provider, "models", [])
             elif credentials is not None and credentials.credentials != "secret":
                 models = provider.get_models(api_key=credentials.credentials)
             else:
@@ -641,17 +632,17 @@ class Api:
                     "audio": (model.get("id") if isinstance(model, dict) else model) in getattr(provider, "audio_models", []),
                     "video": (model.get("id") if isinstance(model, dict) else model) in getattr(provider, "video_models", []),
                     "type": "image" if (model.get("id") if isinstance(model, dict) else model) in getattr(provider, "image_models", []) else "chat",
-                    "count": provider.models_count.get(model.get("id") if isinstance(model, dict) else model, 0),
+                    "count": getattr(provider, "models_count", {}).get(model.get("id") if isinstance(model, dict) else model, 0),
                     **(model if isinstance(model, dict) else {})
                 } for model in (models.values() if isinstance(models, dict) else models)]
             }
 
         # quota endpoint mimics backend-api/v2/quota but exposed on public API
-        @self.app.get("/api/{provider}/quota")
+        @self.app.get("/api/{provider:path}/quota")
         async def provider_quota(provider: str, credentials: Annotated[HTTPAuthorizationCredentials, Depends(Api.security)] = None):
             try:
-                provider = get_provider_by_label(provider)
-            except ValueError as e:
+                provider = AbstractClientFactory.create_provider(None, provider)
+            except ProviderNotFoundError as e:
                 return ErrorResponse.from_message(str(e), 404)
             if not hasattr(provider, "get_quota"):
                 return ErrorResponse.from_message("Provider doesn't support get_quota", HTTP_500_INTERNAL_SERVER_ERROR)
@@ -694,7 +685,7 @@ class Api:
             HTTP_500_INTERNAL_SERVER_ERROR: {"model": ErrorResponseModel},
         }
         @self.app.post("/v1/chat/completions", responses=responses)
-        @self.app.post("/api/{provider}/chat/completions", responses=responses)
+        @self.app.post("/api/{provider:path}/chat/completions", responses=responses)
         @self.app.post("/api/{provider}/{conversation_id}/chat/completions", responses=responses)
         async def chat_completions(
             config: ChatCompletionsConfig,
@@ -708,8 +699,8 @@ class Api:
             if config.provider is None:
                 config.provider = AppConfig.provider
             try:
-                provider = get_provider_by_label(config.provider)
-            except ValueError as e:
+                provider = AbstractClientFactory.create_provider(None, config.provider)
+            except ProviderNotFoundError as e:
                 return ErrorResponse.from_message(str(e), 404)
             try:
                 if config.conversation_id is None:
@@ -764,9 +755,16 @@ class Api:
                 )
 
                 if not config.stream:
-                    return await response
-
+                    result = await response
+                    return Response(
+                        content=result.model_dump_json() if hasattr(result, "model_dump_json") else result.json(),
+                        media_type="application/json",
+                        headers=getattr(result, "_headers").get_dict() if hasattr(result, "_headers") else None
+                    )
+                
+                first_chunk = await response.__anext__()
                 async def streaming():
+                    yield f"data: {first_chunk.model_dump_json() if hasattr(first_chunk, 'model_dump_json') else first_chunk.json()}\n\n"
                     try:
                         async for chunk in response:
                             if isinstance(chunk, BaseConversation):
@@ -786,8 +784,11 @@ class Api:
                         yield f'data: {format_exception(e, config)}\n\n'
                     yield "data: [DONE]\n\n"
 
-                return StreamingResponse(streaming(), media_type="text/event-stream")
-
+                return StreamingResponse(
+                    streaming(),
+                    media_type="text/event-stream",
+                    headers=getattr(first_chunk, "_headers").get_dict() if hasattr(first_chunk, "_headers") else None
+                )
             except (ModelNotFoundError, ProviderNotFoundError) as e:
                 logger.exception(e)
                 return ErrorResponse.from_exception(e, config, HTTP_404_NOT_FOUND)
@@ -810,7 +811,7 @@ class Api:
         @self.app.post("/v1/media/generate", responses=responses)
         @self.app.post("/v1/images/generate", responses=responses)
         @self.app.post("/v1/images/generations", responses=responses)
-        @self.app.post("/api/{provider}/images/generations", responses=responses)
+        @self.app.post("/api/{provider:path}/images/generations", responses=responses)
         async def generate_image(
             request: Request,
             config: ImageGenerationConfig,
@@ -822,8 +823,8 @@ class Api:
             if provider is None:
                 provider = AppConfig.provider
             try:
-                provider = get_provider_by_label(provider)
-            except ValueError as e:
+                provider = AbstractClientFactory.create_provider(None, provider)
+            except ProviderNotFoundError as e:
                 return ErrorResponse.from_message(str(e), 404)
             if config.api_key is None and credentials is not None and credentials.credentials != "secret":
                 config.api_key = credentials.credentials
@@ -866,8 +867,8 @@ class Api:
         })
         async def providers_info(provider: str):
             try:
-                provider = get_provider_by_label(provider)
-            except ValueError as e:
+                provider = AbstractClientFactory.create_provider(None, provider)
+            except ProviderNotFoundError as e:
                 return ErrorResponse.from_message(str(e), 404)
             def safe_get_models(provider: ProviderType) -> list[str]:
                 try:
@@ -916,96 +917,6 @@ class Api:
                 )
             return info
 
-        responses_pa = {
-            HTTP_200_OK: {"model": ChatCompletion},
-            HTTP_401_UNAUTHORIZED: {"model": ErrorResponseModel},
-            HTTP_404_NOT_FOUND: {"model": ErrorResponseModel},
-            HTTP_422_UNPROCESSABLE_ENTITY: {"model": ErrorResponseModel},
-            HTTP_500_INTERNAL_SERVER_ERROR: {"model": ErrorResponseModel},
-        }
-
-        @self.app.post("/pa/chat/completions", responses=responses_pa)
-        @self.app.post("/pa/{provider_id}/chat/completions", responses=responses_pa)
-        async def pa_chat_completions(
-            config: ChatCompletionsConfig,
-            credentials: Annotated[HTTPAuthorizationCredentials, Depends(Api.security)] = None,
-            provider_id: str = None,
-        ):
-            """OpenAI-compatible chat completions endpoint backed by PA providers.
-
-            The PA provider is identified by its opaque ID either from the URL
-            path (``/pa/{provider_id}/chat/completions``) or from the ``provider``
-            field in the JSON body.  When both are absent the first available PA
-            provider is used.
-            """
-            from g4f.mcp.pa_provider import get_pa_registry
-
-            registry = get_pa_registry()
-            pid = provider_id or config.provider
-            if pid is None:
-                listing = registry.list_providers()
-                if not listing:
-                    return ErrorResponse.from_message(
-                        "No PA providers found in workspace", HTTP_404_NOT_FOUND
-                    )
-                pid = listing[0]["id"]
-
-            provider_cls = registry.get_provider_class(pid)
-            if provider_cls is None:
-                return ErrorResponse.from_message(
-                    f"PA provider '{pid}' not found", HTTP_404_NOT_FOUND
-                )
-
-            try:
-                config.provider = None  # pass the class directly below
-                if credentials is not None and credentials.credentials != "secret":
-                    config.api_key = credentials.credentials
-
-                response = self.client.chat.completions.create(
-                    **filter_none(
-                        **(
-                            config.model_dump(exclude_none=True)
-                            if hasattr(config, "model_dump")
-                            else config.dict(exclude_none=True)
-                        ),
-                        **{
-                            "conversation_id": None,
-                            "provider": provider_cls,
-                        },
-                    ),
-                )
-
-                if not config.stream:
-                    return await response
-
-                async def streaming():
-                    try:
-                        async for chunk in response:
-                            if not isinstance(chunk, BaseConversation):
-                                yield (
-                                    f"data: "
-                                    f"{chunk.model_dump_json() if hasattr(chunk, 'model_dump_json') else chunk.json()}"
-                                    f"\n\n"
-                                )
-                    except GeneratorExit:
-                        pass
-                    except Exception as e:
-                        logger.exception(e)
-                        yield f"data: {format_exception(e, config)}\n\n"
-                    yield "data: [DONE]\n\n"
-
-                return StreamingResponse(streaming(), media_type="text/event-stream")
-
-            except (ModelNotFoundError, ProviderNotFoundError) as e:
-                logger.exception(e)
-                return ErrorResponse.from_exception(e, config, HTTP_404_NOT_FOUND)
-            except (MissingAuthError, NoValidHarFileError) as e:
-                logger.exception(e)
-                return ErrorResponse.from_exception(e, config, HTTP_401_UNAUTHORIZED)
-            except Exception as e:
-                logger.exception(e)
-                return ErrorResponse.from_exception(e, config, HTTP_500_INTERNAL_SERVER_ERROR)
-
         # ------------------------------------------------------------------ #
         # PA workspace static file serving (HTML/CSS/JS/images for browser)   #
         # ------------------------------------------------------------------ #
@@ -1032,6 +943,7 @@ class Api:
             "woff2": "font/woff2",
             "ttf":   "font/ttf",
             "otf":   "font/otf",
+            "py":    "text/plain; charset=utf-8",
         }
 
         @self.app.get("/pa/files/{file_path:path}", responses={
@@ -1159,7 +1071,7 @@ class Api:
             HTTP_500_INTERNAL_SERVER_ERROR: {"model": ErrorResponseModel},
         }
         @self.app.post("/v1/audio/transcriptions", responses=responses)
-        @self.app.post("/api/{path_provider}/audio/transcriptions", responses=responses)
+        @self.app.post("/api/{path_provider:path}/audio/transcriptions", responses=responses)
         @self.app.post("/api/markitdown", responses=responses)
         async def convert(
             file: UploadFile,
@@ -1173,8 +1085,8 @@ class Api:
             if provider is None:
                 provider = "MarkItDown"
             try:
-                provider = get_provider_by_label(provider)
-            except ValueError as e:
+                provider = AbstractClientFactory.create_provider(None, provider)
+            except ProviderNotFoundError as e:
                 return ErrorResponse.from_message(str(e), 404)
             kwargs = {"modalities": ["text"]}
             try:
@@ -1203,7 +1115,7 @@ class Api:
             HTTP_500_INTERNAL_SERVER_ERROR: {"model": ErrorResponseModel},
         }
         @self.app.post("/v1/audio/speech", responses=responses)
-        @self.app.post("/api/{provider}/audio/speech", responses=responses)
+        @self.app.post("/api/{provider:path}/audio/speech", responses=responses)
         async def generate_speech(
             config: AudioSpeechConfig,
             provider: Optional[str] = None,
@@ -1217,8 +1129,8 @@ class Api:
             if provider is None:
                 provider = AppConfig.media_provider
             try:
-                provider = get_provider_by_label(provider)
-            except ValueError as e:
+                provider = AbstractClientFactory.create_provider(None, provider)
+            except ProviderNotFoundError as e:
                 return ErrorResponse.from_message(str(e), 404)
             try:
                 audio = filter_none(voice=config.voice, format=config.response_format, language=config.language)
@@ -1393,12 +1305,12 @@ class Api:
             start = max(0, total - limit - offset)
             end = total - offset if offset < total else total
             page = list(reversed(entries[start:end]))
-            return {"total": total, "entries": page}
+            return JSONResponse({"total": total, "entries": page}, headers={"Cache-Control": "no-store"})
 
         @self.app.delete("/api/logs")
         async def clear_logs():
             _request_log.clear()
-            return {"status": "cleared"}
+            return JSONResponse({"status": "cleared"})
 
 def format_exception(e: Union[Exception, str], config: Union[ChatCompletionsConfig, ImageGenerationConfig] = None, image: bool = False) -> str:
     provider = (AppConfig.media_provider if image else AppConfig.provider)

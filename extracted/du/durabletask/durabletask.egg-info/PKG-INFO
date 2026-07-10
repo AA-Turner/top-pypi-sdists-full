@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: durabletask
-Version: 1.7.0
+Version: 1.7.2
 Summary: A Durable Task Client SDK for Python
 License:     MIT License
         

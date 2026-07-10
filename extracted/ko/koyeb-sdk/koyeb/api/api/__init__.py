@@ -13,6 +13,7 @@ from koyeb.api.api.credentials_api import CredentialsApi
 from koyeb.api.api.deployments_api import DeploymentsApi
 from koyeb.api.api.docker_helper_api import DockerHelperApi
 from koyeb.api.api.domains_api import DomainsApi
+from koyeb.api.api.instance_snapshots_api import InstanceSnapshotsApi
 from koyeb.api.api.instances_api import InstancesApi
 from koyeb.api.api.intercom_api import IntercomApi
 from koyeb.api.api.logs_api import LogsApi

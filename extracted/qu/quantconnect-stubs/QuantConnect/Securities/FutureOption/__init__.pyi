@@ -47,6 +47,10 @@ class FuturesOptionsExpiryFunctions(System.Object):
         ...
 
 
+class FutureOptionCache(QuantConnect.Securities.Option.OptionCache):
+    """Future option specific caching support"""
+
+
 class FutureOption(QuantConnect.Securities.Option.Option):
     """Futures Options security"""
 

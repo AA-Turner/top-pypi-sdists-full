@@ -150,7 +150,11 @@ class AutorefsHookInterface(ABC):
 class AutorefsInlineProcessor(ReferenceInlineProcessor):
     """A Markdown extension to handle inline references."""
 
-    name = "autorefs"
+    # We have to keep the legacy name `mkdocs-autorefs` because mkdocstrings
+    # checks that the name of the original inline processor is a member of
+    # `self.md.inlinepatterns` to know whether it must assign the hook.
+    # This can be changed to something else if we update mkdocstrings.
+    name = "mkdocs-autorefs"
     hook: AutorefsHookInterface | None = None
 
     def __init__(self, *args: Any, **kwargs: Any) -> None:
@@ -366,8 +370,14 @@ class AutorefsExtension(Extension):
 
     name = "zensical.extensions.autorefs"
 
+    def __init__(self, **kwargs: Any) -> None:
+        """Initialize the extension."""
+        self._enabled: bool = kwargs.pop("enabled", True)
+
     def extendMarkdown(self, md: Markdown) -> None:
         """Register the Markdown extension."""
+        if not self._enabled:
+            return
         md.registerExtension(self)
 
         inline_processor = AutorefsInlineProcessor(md)

@@ -1,6 +1,6 @@
 [project]
 name = "koyeb-sdk"
-version = "1.5.0"
+version = "1.5.1"
 description = "Koyeb python sdk"
 authors = [{ name = "Koyeb team", email = "support@koyeb.com" }]
 license = "Apache-2.0"
@@ -16,6 +16,9 @@ dependencies = [
   "websockets>=15.0.1",
   "httpx>=0.28.1",
 ]
+
+[project.optional-dependencies]
+socks = ["socksio>=1.0.0", "PySocks>=1.7.1"]
 
 [project.urls]
 Repository = "https://github.com/koyeb/koyeb-python-sdk"

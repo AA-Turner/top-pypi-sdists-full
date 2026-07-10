@@ -75,6 +75,7 @@ from hsfs.core import (
     online_ingestion_api,
     spine_group_engine,
     statistics_engine,
+    transformation_execution_dag,
     validation_report_engine,
     validation_result_engine,
 )
@@ -151,6 +152,39 @@ class FeatureGroupBase:
     """
 
     NOT_FOUND_ERROR_CODE = 270009
+
+    # Subclasses that support transformation functions (FeatureGroup) shadow
+    # this in __init__; the class-level default keeps graph-reading methods
+    # (e.g. visualize_transformations) working on ExternalFeatureGroup and
+    # SpineGroup instead of raising AttributeError.
+    _transformation_function_execution_dag: (
+        transformation_execution_dag.TransformationExecutionDAG | None
+    ) = None
+
+    @public
+    def visualize_transformations(self, mode: str = "auto", orient: str = "LR") -> None:
+        """Visualize the transformation function execution DAG attached to this feature group.
+
+        Renders the transformation pipeline as a directed graph of input features,
+        transformation functions, dependency edges with their linking column names,
+        and output features.
+        The default mode (`"auto"`) renders a Mermaid `flowchart` inline in Jupyter
+        and falls back to a text representation otherwise.
+
+        Parameters:
+            mode: Display mode. One of `"auto"` (default), `"text"`, `"mermaid"`.
+            orient: Layout direction for the rendered flowchart. One of:
+                `"LR"` (left-to-right, default), `"TB"` (top-to-bottom),
+                `"BT"` (bottom-to-top), `"RL"` (right-to-left).
+
+        Raises:
+            `FeatureStoreException`: If no transformation functions are attached to the feature group.
+        """
+        if self._transformation_function_execution_dag is None:
+            raise FeatureStoreException(
+                "No transformation functions attached to this feature group."
+            )
+        self._transformation_function_execution_dag._visualize(mode=mode, orient=orient)
 
     def __init__(
         self,
@@ -1891,16 +1925,16 @@ class FeatureGroupBase:
         )
 
     @public
-    def create_statistics_monitoring(
+    def create_scheduled_statistics(
         self,
         name: str,
-        feature_name: str | None = None,
+        feature_names: str | list[str] | None = None,
         description: str | None = None,
         start_date_time: int | str | datetime | date | pd.Timestamp | None = None,
         end_date_time: int | str | datetime | date | pd.Timestamp | None = None,
         cron_expression: str | None = "0 0 12 ? * * *",
     ) -> fmc.FeatureMonitoringConfig:
-        """Run a job to compute statistics on snapshot of feature data on a schedule.
+        """Create a job to compute statistics on snapshot of feature data on a schedule.
 
         Experimental:
             Public API is subject to change, this feature is not suitable for production use-cases.
@@ -1911,7 +1945,7 @@ class FeatureGroupBase:
             fg = fs.get_feature_group(name="my_feature_group", version=1)
 
             # enable statistics monitoring
-            my_config = fg.create_statistics_monitoring(
+            my_config = fg.create_scheduled_statistics(
                 name="my_config",
                 start_date_time="2021-01-01 00:00:00",
                 description="my description",
@@ -1927,8 +1961,8 @@ class FeatureGroupBase:
             name:
                 Name of the feature monitoring configuration.
                 The name must be unique for all configurations attached to the feature group.
-            feature_name:
-                Name of the feature to monitor.
+            feature_names:
+                Name of the features to monitor.
                 If not specified, statistics will be computed for all features.
             description: Description of the feature monitoring configuration.
             start_date_time: Start date and time from which to start computing statistics.
@@ -1947,24 +1981,33 @@ class FeatureGroupBase:
         """
         if not self._id:
             raise FeatureStoreException(
-                "Only Feature Group registered with Hopsworks can enable scheduled statistics monitoring."
+                "Only Feature Group registered with Hopsworks can enable scheduled statistics."
             )
 
-        return self._feature_monitoring_config_engine._build_default_statistics_monitoring_config(
+        valid_features = {feat.name: feat.type for feat in self._features}
+        valid_feature_names = list(valid_features.keys())
+
+        if feature_names is None:
+            # choose all features if none is selected
+            feature_names = valid_feature_names
+        elif not isinstance(feature_names, list):
+            feature_names = [feature_names]
+
+        return self._feature_monitoring_config_engine._build_default_scheduled_statistics_config(
             name=name,
-            feature_name=feature_name,
+            feature_names=feature_names,
             description=description,
             start_date_time=start_date_time,
-            valid_feature_names=[feat.name for feat in self._features],
+            valid_feature_names=valid_feature_names,
             end_date_time=end_date_time,
             cron_expression=cron_expression,
+            valid_features=valid_features,
         )
 
     @public
     def create_feature_monitoring(
         self,
         name: str,
-        feature_name: str,
         description: str | None = None,
         start_date_time: int | str | datetime | date | pd.Timestamp | None = None,
         end_date_time: int | str | datetime | date | pd.Timestamp | None = None,
@@ -1983,7 +2026,6 @@ class FeatureGroupBase:
             # enable feature monitoring
             my_config = fg.create_feature_monitoring(
                 name="my_monitoring_config",
-                feature_name="my_feature",
                 description="my monitoring config description",
                 cron_expression="0 0 12 ? * * *",
             ).with_detection_window(
@@ -1995,6 +2037,7 @@ class FeatureGroupBase:
                 time_offset="1w1d",
                 window_length="1d",
             ).compare_on(
+                feature_name="my_feature",
                 metric="mean",
                 threshold=0.5,
             ).save()
@@ -2004,7 +2047,6 @@ class FeatureGroupBase:
             name:
                 Name of the feature monitoring configuration.
                 The name must be unique for all configurations attached to the feature group.
-            feature_name: Name of the feature to monitor.
             description: Description of the feature monitoring configuration.
             start_date_time: Start date and time from which to start computing statistics.
             end_date_time: End date and time at which to stop computing statistics.
@@ -2025,14 +2067,15 @@ class FeatureGroupBase:
                 "Only Feature Group registered with Hopsworks can enable feature monitoring."
             )
 
+        valid_features = {feat.name: feat.type for feat in self._features}
         return self._feature_monitoring_config_engine._build_default_feature_monitoring_config(
             name=name,
-            feature_name=feature_name,
             description=description,
             start_date_time=start_date_time,
-            valid_feature_names=[feat.name for feat in self._features],
+            valid_feature_names=list(valid_features.keys()),
             end_date_time=end_date_time,
             cron_expression=cron_expression,
+            valid_features=valid_features,
         )
 
     def __getattr__(self, name: str) -> Any:
@@ -2394,6 +2437,10 @@ class FeatureGroupBase:
             "feature_validation_success",
             "feature_validation_warning",
             "feature_validation_failure",
+            "monitoring_shift_undetected",
+            "monitoring_shift_detected",
+            "monitoring_empty_detection_window",
+            # deprecated since ~=3.8.1; kept for one release
             "feature_monitor_shift_undetected",
             "feature_monitor_shift_detected",
         ],
@@ -2404,6 +2451,9 @@ class FeatureGroupBase:
         Parameters:
             receiver: The receiver of the alert.
             status: The status that will trigger the alert.
+                The names feature_monitor_shift_undetected and
+                feature_monitor_shift_detected are deprecated since ~=3.8.1 and will
+                be removed in a future release.
             severity: The severity of the alert.
 
         Returns:
@@ -3090,10 +3140,24 @@ class FeatureGroup(FeatureGroupBase):
                         )
                     self._transformation_functions.append(transformation_function)
 
+        self._transformation_function_execution_dag: (
+            transformation_execution_dag.TransformationExecutionDAG | None
+        ) = None
         if self._transformation_functions:
             self._transformation_functions = (
                 FeatureGroup._sort_transformation_functions(
                     self._transformation_functions
+                )
+            )
+            # Building the DAG rejects a cyclic on-demand configuration here.
+            self._transformation_function_execution_dag = (
+                transformation_execution_dag.TransformationExecutionDAG(
+                    self.transformation_functions,
+                    schema_feature_names={
+                        feat.name for feat in self._features if not feat.on_demand
+                    }
+                    if self._features
+                    else None,
                 )
             )
 
@@ -3588,6 +3652,7 @@ class FeatureGroup(FeatureGroupBase):
         write_options: dict[str, Any] | None = None,
         validation_options: dict[str, Any] | None = None,
         wait: bool = False,
+        n_processes: int | None = None,
     ) -> tuple[
         Job | None,
         great_expectations.core.ExpectationSuiteValidationResult | None,
@@ -3649,6 +3714,11 @@ class FeatureGroup(FeatureGroupBase):
             wait:
                 Wait for job and online ingestion to finish before returning.
                 Shortcut for write_options `{"wait_for_job": False, "wait_for_online_ingestion": False}`.
+
+            n_processes:
+                Number of worker processes for executing chained transformation functions on the input DataFrame.
+                Defaults to `1` (sequential execution); a value above the DAG's maximum parallelism is capped, with a warning.
+                In the Spark engine the transformations are pushed down to Spark and this parameter is ignored.
 
         Returns:
             When using the `python` engine, it returns the Hopsworks Job that was launched to ingest the feature group data.
@@ -3735,27 +3805,15 @@ class FeatureGroup(FeatureGroupBase):
 
         # fg_job is used only if the python engine is used
         fg_job, ge_report = self._feature_group_engine._save(
-            self, feature_dataframe, write_options, validation_options or {}
+            self,
+            feature_dataframe,
+            write_options,
+            validation_options or {},
+            n_processes=n_processes,
         )
 
-        # Compute stats in client if there is no backfill job:
-        # - spark engine: always compute in client
-        # - python engine: only compute if FG is offline only (no backfill job)
-        if self.statistics_config.enabled and engine._get_type().startswith("spark"):
-            self._statistics_engine._compute_and_save_statistics(
-                self, feature_dataframe
-            )
-        elif (
-            self.statistics_config.enabled
-            and engine._get_type() == "python"
-            and not self.stream
-        ):
-            commit_id = list(self.commit_details(limit=1))[0]
-            self._statistics_engine._compute_and_save_statistics(
-                metadata_instance=self,
-                feature_dataframe=feature_dataframe,
-                feature_group_commit_id=commit_id,
-            )
+        # Stats are computed automatically by the ingestion-triggered FM job on the backend.
+        # No client-side trigger needed.
 
         if user_version is None:
             warnings.warn(
@@ -3787,6 +3845,7 @@ class FeatureGroup(FeatureGroupBase):
         wait: bool = False,
         transformation_context: dict[str, Any] = None,
         transform: bool = True,
+        n_processes: int | None = None,
     ) -> tuple[Job | None, ValidationReport | None]:
         """Persist the metadata and materialize the feature group to the feature store or insert data from a dataframe into the existing feature group.
 
@@ -3905,6 +3964,11 @@ class FeatureGroup(FeatureGroupBase):
                 When set to `False`, the dataframe is inserted without applying any on-demand transformations
                 In this case, all required on-demand features must already exist in the provided dataframe.
 
+            n_processes:
+                Number of worker processes for executing chained transformation functions on the input DataFrame.
+                Defaults to `1` (sequential execution); a value above the DAG's maximum parallelism is capped, with a warning.
+                In the Spark engine the transformations are pushed down to Spark and this parameter is ignored.
+
         Returns:
             Job: The job information if python engine is used.
             ValidationReport: The validation report if validation is enabled.
@@ -3956,29 +4020,11 @@ class FeatureGroup(FeatureGroupBase):
             validation_options={"save_report": True, **validation_options},
             transformation_context=transformation_context,
             transform=transform,
+            n_processes=n_processes,
         )
 
-        # Compute stats in client if there is no backfill job:
-        # - spark engine: always compute in client
-        # - python engine: only compute if FG is offline only (no backfill job)
-        if (
-            engine._get_type().startswith("spark")
-            and not self.stream
-            and storage_normalized != "online"
-        ):
-            self.compute_statistics()
-        elif (
-            self.statistics_config.enabled
-            and engine._get_type() == "python"
-            and not self.stream
-            and storage_normalized != "online"
-        ):
-            commit_id = list(self.commit_details(limit=1))[0]
-            self._statistics_engine._compute_and_save_statistics(
-                metadata_instance=self,
-                feature_dataframe=feature_dataframe,
-                feature_group_commit_id=commit_id,
-            )
+        # Stats are computed automatically by the ingestion-triggered FM job on the backend.
+        # No client-side trigger needed.
 
         return (
             job,
@@ -4004,6 +4050,7 @@ class FeatureGroup(FeatureGroupBase):
         validation_options: dict[str, Any] | None = None,
         transformation_context: dict[str, Any] = None,
         transform: bool = True,
+        n_processes: int | None = None,
     ) -> (
         tuple[Job | None, ValidationReport | None]
         | feature_group_writer.FeatureGroupWriter
@@ -4096,6 +4143,11 @@ class FeatureGroup(FeatureGroupBase):
                 When set to `False`, the dataframe is inserted without applying any on-demand transformations.
                 In this case, all required on-demand features must already exist in the provided dataframe.
 
+            n_processes:
+                Number of worker processes for executing chained transformation functions on the input DataFrame.
+                Defaults to `1` (sequential execution); a value above the DAG's maximum parallelism is capped, with a warning.
+                In the Spark engine the transformations are pushed down to Spark and this parameter is ignored.
+
         Returns:
             A tuple of (Job, ValidationReport) when inserting directly, or a FeatureGroupWriter when used as a context manager.
         """
@@ -4113,6 +4165,7 @@ class FeatureGroup(FeatureGroupBase):
             validation_options or {},
             transformation_context,
             transform=transform,
+            n_processes=n_processes,
         )
 
     @public
@@ -4698,6 +4751,7 @@ class FeatureGroup(FeatureGroupBase):
         online: bool | None = None,
         transformation_context: dict[str, Any] | list[dict[str, Any]] = None,
         request_parameters: dict[str, Any] | list[dict[str, Any]] = None,
+        n_processes: int | None = None,
     ) -> list[dict[str, Any]] | pd.DataFrame:
         """Apply on-demand transformations attached to the feature group on the provided data.
 
@@ -4729,12 +4783,19 @@ class FeatureGroup(FeatureGroupBase):
             ```
 
         Parameters:
-            data: Input data to apply transformations to. This can a dataframe or a dictionary.
-            online: Whether to apply transformations in online mode (single values) or offline mode (batch/vectorized). Defaults to offline mode
+            data: Input data to apply transformations to.
+                This can be a dataframe or a dictionary.
+            online: Whether to apply transformations in online mode (single values) or offline mode (batch/vectorized).
+                Defaults to offline mode.
             transformation_context: A dictionary mapping variable names to objects that provide contextual information to the transformation function at runtime.
-                The `context` variables must be defined as parameters in the transformation function for these to be accessible during execution. For batch processing with different contexts per row, provide a list of dictionaries.
-            request_parameters: Request parameters passed to the transformation functions. For batch processing with different parameters per row, provide a list of dictionaries.
-                These parameters take **highest priority** when resolving feature values - if a key exists in both `request_parameters` and the input data, the value from `request_parameters` is used.
+                The `context` variables must be defined as parameters in the transformation function for these to be accessible during execution.
+                For batch processing with different contexts per row, provide a list of dictionaries.
+            request_parameters: Request parameters passed to the transformation functions.
+                For batch processing with different parameters per row, provide a list of dictionaries.
+                These parameters take **highest priority** when resolving feature values: if a key exists in both `request_parameters` and the input data, the value from `request_parameters` is used.
+            n_processes: Number of worker processes for executing transformation functions.
+                Defaults to `1` (sequential execution); a value above the DAG's maximum parallelism is capped, with a warning.
+                In the Spark engine the transformations are pushed down to Spark and this parameter is ignored.
 
         Returns:
             The transformed data in the same format as the input:
@@ -4743,11 +4804,12 @@ class FeatureGroup(FeatureGroupBase):
         """
         if self.transformation_functions:
             data = self._feature_group_engine._apply_on_demand_transformations(
-                transformation_functions=self.transformation_functions,
+                execution_graph=self._transformation_function_execution_dag,
                 data=data,
                 online=online,
                 transformation_context=transformation_context,
                 request_parameters=request_parameters,
+                n_processes=n_processes,
             )
         else:
             _logger.info(
@@ -4897,6 +4959,20 @@ class FeatureGroup(FeatureGroupBase):
         transformation_functions: list[TransformationFunction],
     ) -> None:
         self._transformation_functions = transformation_functions
+        # Rebuild the execution DAG so downstream consumers see a consistent
+        # topological order; a cyclic configuration is rejected here.
+        self._transformation_function_execution_dag = (
+            transformation_execution_dag.TransformationExecutionDAG(
+                transformation_functions,
+                schema_feature_names={
+                    feat.name for feat in self._features if not feat.on_demand
+                }
+                if self._features
+                else None,
+            )
+            if transformation_functions
+            else None
+        )
 
     @public
     @property
@@ -5048,7 +5124,8 @@ class ExternalFeatureGroup(FeatureGroupBase):
         )
 
         if self._id:
-            # Got from Hopsworks, deserialize features and storage connector
+            # Got from Hopsworks, deserialize features and storage connector.
+            # self._features is already deserialized above (defaults to []).
             self.primary_key = (
                 [feat.name for feat in self._features if feat.primary is True]
                 if self._features

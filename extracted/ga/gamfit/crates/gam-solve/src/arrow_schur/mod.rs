@@ -101,6 +101,7 @@ mod factorization;
 mod newton_step;
 mod penalty_ops;
 mod prelude;
+mod rational_logdet;
 mod reduced_solve;
 mod slq_logdet;
 mod solve_options;
@@ -113,9 +114,14 @@ pub(crate) use factorization::*;
 // `SPECTRAL_DEFLATION_REL_FLOOR` is consumed cross-crate (gam-sae streaming plan)
 // so it needs a `pub` re-export path; the rest of `factorization` stays crate-local.
 pub use factorization::SPECTRAL_DEFLATION_REL_FLOOR;
+// The step-side gauge-fix null directions (#1095/#2228 second root): the SAE
+// inner solve projects each row's coordinate step onto the identifiable
+// complement of these directions so a deflated null takes ZERO step.
+pub use factorization::row_sub_floor_null_directions;
 pub use newton_step::*;
 pub use penalty_ops::*;
 pub use prelude::*;
+pub use rational_logdet::*;
 pub use reduced_solve::*;
 pub use slq_logdet::*;
 pub use solve_options::*;

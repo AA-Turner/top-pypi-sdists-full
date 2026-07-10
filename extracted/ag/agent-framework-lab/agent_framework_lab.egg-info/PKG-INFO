@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: agent-framework-lab
-Version: 1.0.0b251024
+Version: 1.0.0b260709
 Summary: Experimental modules for Microsoft Agent Framework
 Author-email: Microsoft <af-support@microsoft.com>
 Project-URL: homepage, https://aka.ms/agent-framework
@@ -15,18 +15,21 @@ Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Requires-Python: >=3.10
 Description-Content-Type: text/markdown
 License-File: LICENSE
-Requires-Dist: agent-framework-core
+Requires-Dist: agent-framework-core<2,>=1.11.0
 Provides-Extra: gaia
 Requires-Dist: pydantic>=2.0.0; extra == "gaia"
-Requires-Dist: opentelemetry-api>=1.24.0; extra == "gaia"
+Requires-Dist: opentelemetry-api>=1.39.0; extra == "gaia"
+Requires-Dist: opentelemetry-sdk<2,>=1.39.0; extra == "gaia"
 Requires-Dist: tqdm>=4.60.0; extra == "gaia"
 Requires-Dist: huggingface-hub>=0.20.0; extra == "gaia"
-Requires-Dist: orjson>=3.8.0; extra == "gaia"
+Requires-Dist: orjson<4,>=3.10.7; extra == "gaia"
+Requires-Dist: pyarrow>=18.0.0; extra == "gaia"
 Provides-Extra: lightning
-Requires-Dist: agentlightning<0.3.0,>=0.2.0; extra == "lightning"
+Requires-Dist: agentlightning<0.4.0,>=0.2.0; extra == "lightning"
 Provides-Extra: tau2
 Requires-Dist: pydantic>=2.0.0; extra == "tau2"
 Requires-Dist: tiktoken>=0.11.0; extra == "tau2"
@@ -82,7 +85,13 @@ This structure maintains a single PyPI package `agent-framework-lab` while suppo
 
 ## Installation
 
-For details on installing individual modules, see their respective README files listed above.
+To install each lab module, use the extras syntax with `pip`:
+
+```bash
+pip install "agent-framework-lab[gaia]"
+pip install "agent-framework-lab[tau2]"
+pip install "agent-framework-lab[lightning]"
+```
 
 ## Usage
 
@@ -92,6 +101,27 @@ For example, to use the GAIA module:
 ```python
 # Using GAIA module
 from agent_framework.lab.gaia import GAIA
+```
+
+## Running Tests Locally
+
+For machine-safe local runs, prefer package-scoped commands first:
+
+```bash
+uv run --directory packages/lab poe test
+uv run --directory packages/lab pytest -q -m "not integration"
+```
+
+When you need to run lab tests from the repository root, scope the root task to the lab package:
+
+```bash
+uv run poe test -P lab
+```
+
+Lightning observability tests intentionally exercise heavier tracing paths and are marked as `resource_intensive`:
+
+```bash
+uv run --directory packages/lab pytest lightning/tests/test_lightning.py -m "resource_intensive" -q
 ```
 
 ## Should I consume Lab Modules?

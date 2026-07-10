@@ -250,6 +250,11 @@ class ProviderConfigId(str, enum.Enum):
     Synqly Custom Provider
     """
 
+    EDR_BITDEFENDER = "edr_bitdefender"
+    """
+    Bitdefender GravityZone EDR
+    """
+
     EDR_CROWD_STRIKE = "edr_crowdstrike"
     """
     CrowdStrike Falcon® Insight EDR
@@ -313,6 +318,11 @@ class ProviderConfigId(str, enum.Enum):
     EMAIL_SECURITY_DEFENDER_FOR_OFFICE_MOCK = "emailsecurity_defender_for_office_mock"
     """
     [MOCK] Microsoft Defender for Office 365
+    """
+
+    EMAIL_SECURITY_EXCHANGE_ONLINE = "emailsecurity_exchange_online"
+    """
+    Microsoft Exchange Online
     """
 
     EMAIL_SECURITY_MIMECAST_CLOUD_GATEWAY = "emailsecurity_mimecast_cloud_gateway"
@@ -859,6 +869,7 @@ class ProviderConfigId(str, enum.Enum):
         cloud_security_upwind: typing.Callable[[], T_Result],
         cloud_security_wiz: typing.Callable[[], T_Result],
         custom_synqly: typing.Callable[[], T_Result],
+        edr_bitdefender: typing.Callable[[], T_Result],
         edr_crowd_strike: typing.Callable[[], T_Result],
         edr_crowd_strike_mock: typing.Callable[[], T_Result],
         edr_defender: typing.Callable[[], T_Result],
@@ -872,6 +883,7 @@ class ProviderConfigId(str, enum.Enum):
         edr_trellix_ens: typing.Callable[[], T_Result],
         email_security_defender_for_office: typing.Callable[[], T_Result],
         email_security_defender_for_office_mock: typing.Callable[[], T_Result],
+        email_security_exchange_online: typing.Callable[[], T_Result],
         email_security_mimecast_cloud_gateway: typing.Callable[[], T_Result],
         email_security_mimecast_cloud_gateway_mock: typing.Callable[[], T_Result],
         endpointmanagement_automox: typing.Callable[[], T_Result],
@@ -1064,6 +1076,8 @@ class ProviderConfigId(str, enum.Enum):
             return cloud_security_wiz()
         if self is ProviderConfigId.CUSTOM_SYNQLY:
             return custom_synqly()
+        if self is ProviderConfigId.EDR_BITDEFENDER:
+            return edr_bitdefender()
         if self is ProviderConfigId.EDR_CROWD_STRIKE:
             return edr_crowd_strike()
         if self is ProviderConfigId.EDR_CROWD_STRIKE_MOCK:
@@ -1090,6 +1104,8 @@ class ProviderConfigId(str, enum.Enum):
             return email_security_defender_for_office()
         if self is ProviderConfigId.EMAIL_SECURITY_DEFENDER_FOR_OFFICE_MOCK:
             return email_security_defender_for_office_mock()
+        if self is ProviderConfigId.EMAIL_SECURITY_EXCHANGE_ONLINE:
+            return email_security_exchange_online()
         if self is ProviderConfigId.EMAIL_SECURITY_MIMECAST_CLOUD_GATEWAY:
             return email_security_mimecast_cloud_gateway()
         if self is ProviderConfigId.EMAIL_SECURITY_MIMECAST_CLOUD_GATEWAY_MOCK:

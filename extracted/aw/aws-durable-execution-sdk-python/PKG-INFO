@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: aws-durable-execution-sdk-python
-Version: 1.6.0
+Version: 1.7.0
 Summary: AWS Durable Execution SDK for Python
 Project-URL: Documentation, https://github.com/aws/aws-durable-execution-sdk-python#readme
 Project-URL: Issues, https://github.com/aws/aws-durable-execution-sdk-python/issues

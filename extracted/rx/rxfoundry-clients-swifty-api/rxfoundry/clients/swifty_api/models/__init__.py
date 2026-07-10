@@ -16,6 +16,7 @@
 
 # import models into model package
 from rxfoundry.clients.swifty_api.models.address import Address
+from rxfoundry.clients.swifty_api.models.assignment import Assignment
 from rxfoundry.clients.swifty_api.models.asynchronous_response import AsynchronousResponse
 from rxfoundry.clients.swifty_api.models.code import Code
 from rxfoundry.clients.swifty_api.models.code_qualifier_code import CodeQualifierCode
@@ -35,6 +36,7 @@ from rxfoundry.clients.swifty_api.models.patient_activity_data import PatientAct
 from rxfoundry.clients.swifty_api.models.patient_activity_notification import PatientActivityNotification
 from rxfoundry.clients.swifty_api.models.patient_address_data import PatientAddressData
 from rxfoundry.clients.swifty_api.models.patient_allergy import PatientAllergy
+from rxfoundry.clients.swifty_api.models.patient_assignment_data import PatientAssignmentData
 from rxfoundry.clients.swifty_api.models.patient_condition import PatientCondition
 from rxfoundry.clients.swifty_api.models.patient_data import PatientData
 from rxfoundry.clients.swifty_api.models.patient_external_identifier import PatientExternalIdentifier

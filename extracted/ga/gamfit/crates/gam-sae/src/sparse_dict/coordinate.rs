@@ -261,6 +261,15 @@ fn phase_se_b2(sigma: f64, norm: f64) -> (f64, bool) {
     }
 }
 
+/// Per-firing circle-phase coordinate standard error `σ/(2π‖z‖)`, clamped at the
+/// uniform-phase ceiling `√(1/12)` — the bare SE (no clamp flag) [`phase_se_b2`]
+/// exposes for the matched-description-length report column. `σ` is the block's
+/// radial-scatter noise scale, `norm = ‖z‖` the firing radius. A zero-norm firing
+/// returns the uniform ceiling (never NaN).
+pub(crate) fn phase_coordinate_se(sigma: f64, norm: f64) -> f64 {
+    phase_se_b2(sigma, norm).0
+}
+
 fn coeffs_from_code(z: &[f64]) -> Vec<(f64, f64)> {
     z.chunks_exact(2).map(|pair| (pair[0], pair[1])).collect()
 }
@@ -410,6 +419,27 @@ fn maybe_super_resolve(z: &[f64], sigma: f64) -> (Vec<MeasureSpikeCoordinate>, f
     } else {
         (accepted, eta, true)
     }
+}
+
+/// Gated multi-spike recovery for one within-block harmonic code `z ∈ ℝ^{2H}`.
+///
+/// This is the per-firing decision that [`harmonic_measure_coordinates`] applies
+/// to every live block/row, exposed for a *single* code so a caller holding raw
+/// harmonic coefficients (e.g. an activation projected onto a fitted circle
+/// atom's `2H`-frame, or a controlled planted fixture) can recover the point
+/// masses without assembling a whole [`BlockSparseFit`]. It runs the single-spike
+/// matched-filter path, and only escalates to matrix-pencil super-resolution when
+/// the BLASSO dual birth ratio `η > 1` or the profile/residual is multi-modal —
+/// accepting the multi-spike support only when it reduces the coefficient
+/// residual and respects the super-resolution separation limit. Returns the
+/// recovered `(amplitude, coordinate, coordinate_se)` point masses (≥ 1), the
+/// single-spike dual birth ratio `η`, and whether super-resolution supplied the
+/// support. The number of returned spikes is the **multiplicity count**.
+pub fn recover_measure_from_code(
+    z: &[f64],
+    sigma: f64,
+) -> (Vec<MeasureSpikeCoordinate>, f64, bool) {
+    maybe_super_resolve(z, sigma)
 }
 
 /// Per-firing coordinate readout for a `b = 2` circle block: phase `t̂`,

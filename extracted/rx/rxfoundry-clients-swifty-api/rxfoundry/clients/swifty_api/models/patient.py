@@ -23,6 +23,7 @@ from pydantic import BaseModel, ConfigDict, Field, StrictBool, StrictInt, Strict
 from typing import Any, ClassVar, Dict, List, Optional
 from typing_extensions import Annotated
 from rxfoundry.clients.swifty_api.models.address import Address
+from rxfoundry.clients.swifty_api.models.assignment import Assignment
 from rxfoundry.clients.swifty_api.models.code import Code
 from rxfoundry.clients.swifty_api.models.insurance import Insurance
 from rxfoundry.clients.swifty_api.models.patient_allergy import PatientAllergy
@@ -63,7 +64,8 @@ class Patient(BaseModel):
     former_insurances: Optional[List[Insurance]] = None
     is_registered: Optional[StrictBool] = Field(default=None, description="Whether this patient is registered in the frontend portal tied to this tenant.  Patient records must be created through the async API to be considered registered.")
     score: Optional[StrictInt] = Field(default=None, description="Search relevance score (e.g., from Typesense); present only on search results, with higher values indicating more relevant matches.")
-    __properties: ClassVar[List[str]] = ["uuid", "last_name", "first_name", "middle_name", "preferred_name", "suffix", "prefix", "gender", "date_of_birth", "home_address", "primary_phone", "alternate_phone", "email", "external_references", "allergies", "conditions", "medications", "insurances", "preferred_language", "former_names", "former_phone_numbers", "former_addresses", "former_insurances", "is_registered", "score"]
+    assignment: Optional[Assignment] = None
+    __properties: ClassVar[List[str]] = ["uuid", "last_name", "first_name", "middle_name", "preferred_name", "suffix", "prefix", "gender", "date_of_birth", "home_address", "primary_phone", "alternate_phone", "email", "external_references", "allergies", "conditions", "medications", "insurances", "preferred_language", "former_names", "former_phone_numbers", "former_addresses", "former_insurances", "is_registered", "score", "assignment"]
 
     model_config = ConfigDict(
         populate_by_name=True,
@@ -176,6 +178,9 @@ class Patient(BaseModel):
                 if _item_former_insurances:
                     _items.append(_item_former_insurances.to_dict())
             _dict['former_insurances'] = _items
+        # override the default output from pydantic by calling `to_dict()` of assignment
+        if self.assignment:
+            _dict['assignment'] = self.assignment.to_dict()
         return _dict
 
     @classmethod
@@ -212,7 +217,8 @@ class Patient(BaseModel):
             "former_addresses": [Address.from_dict(_item) for _item in obj["former_addresses"]] if obj.get("former_addresses") is not None else None,
             "former_insurances": [Insurance.from_dict(_item) for _item in obj["former_insurances"]] if obj.get("former_insurances") is not None else None,
             "is_registered": obj.get("is_registered"),
-            "score": obj.get("score")
+            "score": obj.get("score"),
+            "assignment": Assignment.from_dict(obj["assignment"]) if obj.get("assignment") is not None else None
         })
         return _obj
 

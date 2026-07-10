@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: astrapy
-Version: 2.3.0
+Version: 2.3.1
 Summary: A Python client for the Data API on DataStax Astra DB
 Project-URL: Homepage, https://github.com/datastax/astrapy
 Project-URL: Documentation, https://docs.datastax.com/en/astra-db-serverless/api-reference/dataapiclient.html

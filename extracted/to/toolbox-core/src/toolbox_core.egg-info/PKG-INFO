@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: toolbox-core
-Version: 1.1.0
+Version: 1.2.0
 Summary: Python Base SDK for interacting with the Toolbox service
 Author-email: Google LLC <googleapis-packages@google.com>
 Project-URL: Homepage, https://github.com/googleapis/mcp-toolbox-sdk-python/blob/main/packages/toolbox-core
@@ -28,18 +28,19 @@ Requires-Dist: opentelemetry-api<2.0.0,>=1.20.0; extra == "telemetry"
 Requires-Dist: opentelemetry-sdk<1.42.0,>=1.41.1; extra == "telemetry"
 Requires-Dist: opentelemetry-exporter-otlp<1.42.0,>=1.41.1; extra == "telemetry"
 Provides-Extra: test
-Requires-Dist: black[jupyter]==26.5.0; extra == "test"
+Requires-Dist: black[jupyter]==26.5.1; extra == "test"
 Requires-Dist: isort==8.0.1; extra == "test"
 Requires-Dist: mypy==2.1.0; extra == "test"
 Requires-Dist: pytest==9.0.3; extra == "test"
 Requires-Dist: pytest-aioresponses==0.3.0; extra == "test"
-Requires-Dist: pytest-asyncio==1.3.0; extra == "test"
+Requires-Dist: pytest-asyncio==1.4.0; extra == "test"
 Requires-Dist: pytest-cov==7.1.0; extra == "test"
 Requires-Dist: pytest-mock==3.15.1; extra == "test"
 Requires-Dist: google-cloud-secret-manager==2.28.0; extra == "test"
 Requires-Dist: google-cloud-storage==3.10.1; extra == "test"
 Requires-Dist: aioresponses==0.7.8; extra == "test"
 Requires-Dist: toolbox-core[telemetry]; extra == "test"
+Requires-Dist: numpy<2; extra == "test"
 
 ![MCP Toolbox Logo](https://raw.githubusercontent.com/googleapis/mcp-toolbox/main/logo.png)
 
@@ -106,6 +107,7 @@ The core package provides a framework-agnostic way to interact with your Toolbox
 - [Authenticating Tools](https://mcp-toolbox.dev/documentation/connect-to/toolbox-sdks/python-sdk/core/#authenticating-tools)
 - [Binding Parameter Values](https://mcp-toolbox.dev/documentation/connect-to/toolbox-sdks/python-sdk/core/#parameter-binding)
 - [OpenTelemetry](https://mcp-toolbox.dev/documentation/connect-to/toolbox-sdks/python-sdk/core/#opentelemetry)
+- [Protocol Negotiation](https://mcp-toolbox.dev/documentation/connect-to/toolbox-sdks/python-sdk/core/#protocol-negotiation)
 
 
 # Contributing

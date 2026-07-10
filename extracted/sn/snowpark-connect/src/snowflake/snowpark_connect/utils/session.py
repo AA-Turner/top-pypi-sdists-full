@@ -408,6 +408,8 @@ def configure_snowpark_session(session: snowpark.Session):
         "ENABLE_STRUCTURED_TYPES_IN_SNOWPARK_CONNECT_RESPONSE": "true",
         "QUERY_TAG": f"'{query_tag}'",
     }
+    if global_config.snowpark_connect_use2000AsTwoDigitCenturyStart:
+        session_params["TWO_DIGIT_CENTURY_START"] = "2000"
     already_configured = getattr(session, "_scos_configured", False)
 
     # SNOW-2245971: Stored procedures inside Native Apps run as Execute As Owner and hence cannot set session params.

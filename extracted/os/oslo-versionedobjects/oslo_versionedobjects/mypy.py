@@ -14,7 +14,6 @@ from collections.abc import Callable
 import os
 
 from mypy import nodes
-from mypy import options as _options
 from mypy import plugin as _plugin
 from mypy import types
 
@@ -49,15 +48,11 @@ class OsloVersionedObjectPlugin(_plugin.Plugin):
     to the class definition.
 
     The plugin also handles inherited fields (e.g. from TimestampedObject
-    mixins) by caching each class's fields dict while its body is still
-    intact, then using that cache when processing subclasses.
+    mixins) by traversing the MRO and reading each parent class's ``fields``
+    dict directly from its body. Parent class bodies have already had semantic
+    analysis applied (and so have fully-resolved ``fullname`` attributes on
+    their AST nodes) by the time subclasses are processed.
     """
-
-    def __init__(self, options: _options.Options) -> None:
-        super().__init__(options)
-        # Cache of class fullname -> fields DictExpr, populated by
-        # _cache_fields while each class body is still accessible.
-        self._fields_cache: dict[str, nodes.DictExpr] = {}
 
     def get_class_decorator_hook(
         self, fullname: str
@@ -69,40 +64,25 @@ class OsloVersionedObjectPlugin(_plugin.Plugin):
             return self.generate_ovo_field_defs
         return None
 
+    def get_class_decorator_hook_2(
+        self, fullname: str
+    ) -> Callable[[_plugin.ClassDefContext], bool] | None:
+        dec_classes = os.environ.get(
+            "OVO_MYPY_DECORATOR_CLASSES", "VersionedObjectRegistry"
+        )
+        if any(dec_class in fullname for dec_class in dec_classes.split()):
+            return self.generate_ovo_field_defs_2
+        return None
+
     def get_base_class_hook(
         self, fullname: str
     ) -> Callable[[_plugin.ClassDefContext], None] | None:
         base_classes = os.environ.get(
-            "OVO_MYPY_BASE_CLASSES", "VersionedObject"
+            "OVO_MYPY_BASE_CLASSES", "VersionedObject VersionedObjectMixin"
         )
         if any(base_class in fullname for base_class in base_classes.split()):
             return self.generate_ovo_field_defs
-        # Cache field dicts for all classes while their bodies are intact.
-        # This is needed to support MRO traversal for mixin parent classes
-        # (e.g. TimestampedObject) whose bodies are empty by the time we
-        # process subclasses.
-        if fullname == "builtins.object":
-            return self._cache_fields
         return None
-
-    def _cache_fields(self, ctx: _plugin.ClassDefContext) -> None:
-        """Cache the fields dict from this class's body while it is intact."""
-        fields = _fields_dict_from_body(ctx.cls.defs.body)
-        if fields is not None:
-            self._fields_cache[ctx.cls.info.fullname] = fields
-
-    def _get_fields_dict_from_type_info(
-        self, type_info: nodes.TypeInfo
-    ) -> nodes.DictExpr | None:
-        """Get the 'fields' dict expression for a class in the MRO.
-
-        Checks the cache first (populated by _cache_fields), then falls back
-        to reading from the class body (which is only non-empty for the class
-        currently being processed).
-        """
-        if type_info.fullname in self._fields_cache:
-            return self._fields_cache[type_info.fullname]
-        return _fields_dict_from_body(type_info.defn.defs.body)
 
     def _add_member_to_class(
         self, member_name: str, member_type: types.Type, clazz: nodes.TypeInfo
@@ -162,7 +142,7 @@ class OsloVersionedObjectPlugin(_plugin.Plugin):
         ovo_field_type_name: str,
         args: list[nodes.Expression],
         kwargs: dict[str, nodes.Expression],
-    ) -> types.Type:
+    ) -> types.Type | None:
         # lookup_fully_qualified_or_none requires a dotted name (bare names
         # like a local callable would raise ValueError inside mypy)
         if '.' not in ovo_field_type_name:
@@ -181,7 +161,7 @@ class OsloVersionedObjectPlugin(_plugin.Plugin):
         field_fullname = field_symbol.node.fullname
 
         # ObjectField and ListOfObjectsField take the target class name as a
-        # positional string arg rather than exposing a static MYPY_TYPE.
+        # positional string arg rather than a generic parameter
         if field_fullname == 'oslo_versionedobjects.fields.ListOfObjectsField':
             base_type: types.Type | None = None
             if args and isinstance(args[0], nodes.StrExpr):
@@ -196,7 +176,7 @@ class OsloVersionedObjectPlugin(_plugin.Plugin):
                 self.log(
                     f"Could not resolve object type for {ovo_field_type_name}"
                 )
-                return types.AnyType(types.TypeOfAny.implementation_artifact)
+                return None
             return self._apply_nullable(base_type, ctx, kwargs)
 
         if field_fullname == 'oslo_versionedobjects.fields.ObjectField':
@@ -207,25 +187,30 @@ class OsloVersionedObjectPlugin(_plugin.Plugin):
             self.log(
                 f"Could not resolve object type for {ovo_field_type_name}"
             )
-            return types.AnyType(types.TypeOfAny.implementation_artifact)
+            return None
 
-        mypy_type_node = field_symbol.node.names.get("MYPY_TYPE")
-        if (
-            mypy_type_node is None
-            or not isinstance(mypy_type_node.node, nodes.Var)
-            or mypy_type_node.node.type is None
-        ):
-            self.log(f"No MYPY_TYPE defined on {ovo_field_type_name}")
-            return types.AnyType(types.TypeOfAny.implementation_artifact)
+        # AutoTypedField is a proper generic. We can retrieve its type from
+        # this.
+        for class_info in field_symbol.node.mro:
+            for base in class_info.bases:
+                if (
+                    isinstance(base, types.Instance)
+                    and base.type.fullname
+                    == 'oslo_versionedobjects.fields.AutoTypedField'
+                    and base.args
+                    and not isinstance(base.args[0], types.TypeVarType)
+                ):
+                    return self._apply_nullable(base.args[0], ctx, kwargs)
 
-        return self._apply_nullable(mypy_type_node.node.type, ctx, kwargs)
+        return types.AnyType(types.TypeOfAny.implementation_artifact)
 
     def _add_ovo_members_to_class(
         self,
         ctx: _plugin.ClassDefContext,
         fields_def: nodes.DictExpr,
         processed_fields: set[str],
-    ) -> None:
+    ) -> bool:
+        all_resolved = True
 
         for k, v in fields_def.items:
             # This means we do not support the case when the name of the
@@ -250,7 +235,7 @@ class OsloVersionedObjectPlugin(_plugin.Plugin):
             if (
                 not isinstance(v, nodes.CallExpr)
                 or not isinstance(v.callee, (nodes.MemberExpr, nodes.NameExpr))
-                or v.callee.fullname is None
+                or not v.callee.fullname
             ):
                 self.log(
                     f"Skipping field {field_name}: unexpected AST structure"
@@ -270,26 +255,48 @@ class OsloVersionedObjectPlugin(_plugin.Plugin):
                     if arg_name is not None
                 }
 
-                field_type = self._get_python_type_from_ovo_field_type(
+                resolved = self._get_python_type_from_ovo_field_type(
                     ctx, v.callee.fullname, args, kwargs
                 )
+                if resolved is None:
+                    all_resolved = False
+                    field_type = types.AnyType(
+                        types.TypeOfAny.implementation_artifact
+                    )
+                else:
+                    field_type = resolved
 
             self._add_member_to_class(field_name, field_type, ctx.cls.info)
 
+        return all_resolved
+
     def generate_ovo_field_defs(self, ctx: _plugin.ClassDefContext) -> None:
-        # Process fields from this class and all inherited classes via MRO,
-        # so that inherited fields (e.g. from TimestampedObject) are included.
+        self.generate_ovo_field_defs_2(ctx)
+
+    def generate_ovo_field_defs_2(self, ctx: _plugin.ClassDefContext) -> bool:
+        # Process fields from this class and all classes in its MRO whose
+        # bodies are still available (i.e. same-file classes).  Cross-module
+        # parent classes have their bodies cleared by mypy after their own
+        # module is analyzed; their fields are instead picked up via mypy's
+        # normal MRO attribute resolution because the plugin fires for those
+        # classes too (via get_base_class_hook) while their bodies are intact.
+        #
+        # hook_2 callables can return False to request a retry, but we always
+        # return True: by the time hook_2 fires all modules are loaded, so any
+        # ObjectField target that is still unresolvable will remain so on
+        # subsequent attempts.
         processed_fields: set[str] = set()
 
         for type_info in ctx.cls.info.mro:
-            fields_dict_expr = self._get_fields_dict_from_type_info(type_info)
+            fields_dict_expr = _fields_dict_from_body(type_info.defn.defs.body)
             if fields_dict_expr is None:
                 continue
 
-            # add a typed field def per `fields` dict k-v pair
             self._add_ovo_members_to_class(
                 ctx, fields_dict_expr, processed_fields
             )
+
+        return True
 
     def log(self, msg: str) -> None:
         if self.options.verbosity > 0:

@@ -1957,6 +1957,77 @@ pub(crate) fn per_fit_config_isolates_barrier_and_ibp_alpha() {
     assert_eq!(term_b.assignment.resolved_ibp_alpha(&rho_b), Some(5.0));
 }
 
+/// F5 — the per-fit separation-barrier override (#1777) must isolate two
+/// genuinely CONCURRENT in-process fits: two threads that each build a term,
+/// set a DIFFERENT `μ_sep` via [`SaeFitConfig`], and hammer
+/// [`SaeManifoldTerm::separation_barrier_strength`] must each keep reading their
+/// OWN strength for the whole run, and the process-global barrier atomic must
+/// stay unset throughout (the field, not the global, is the source of truth).
+///
+/// This is the concurrency safety the process-global `set_sae_barrier_overrides`
+/// atomic could NOT provide (last-writer-wins across threads leaks the override
+/// between fits): a parallel candidate/rung/layer sweep is now safe because the
+/// strength lives on the term, so there is no shared cell to race on. The
+/// pre-#1777 global-atomic path would fail this test — thread B's `store` would
+/// be observed by thread A's `separation_barrier_strength` read.
+#[test]
+pub(crate) fn per_fit_barrier_isolated_under_concurrent_fits() {
+    // Neither thread touches a global setter, so the global fallback must stay
+    // unset for the whole run — assert the precondition up front.
+    assert!(
+        super::term::sae_separation_barrier_override().is_none(),
+        "test must not depend on a preset global barrier override"
+    );
+
+    // Two distinct per-fit strengths, one per worker. Chosen far apart so a leak
+    // between threads (either direction) is unambiguous.
+    let strengths = [0.125_f64, 7.5_f64];
+    let iters = 4000usize;
+
+    std::thread::scope(|scope| {
+        let handles: Vec<_> = strengths
+            .iter()
+            .map(|&mu| {
+                scope.spawn(move || {
+                    // Each thread owns its term (a distinct concurrent "fit").
+                    let (mut term, _t, _rho) = small_two_atom_ibp_term();
+                    term.set_fit_config(SaeFitConfig {
+                        separation_barrier_strength_override: Some(mu),
+                        ibp_alpha_override: None,
+                    });
+                    // Hammer the barrier-strength read while the sibling thread
+                    // hammers its own with a different μ. The per-fit field is
+                    // the source of truth, so every read is this thread's μ and
+                    // the global stays unset — under the old global atomic the
+                    // sibling's `store` would be visible here.
+                    for _ in 0..iters {
+                        assert_eq!(
+                            term.separation_barrier_strength(),
+                            mu,
+                            "concurrent fit read a leaked barrier strength (expected {mu})"
+                        );
+                        assert!(
+                            super::term::sae_separation_barrier_override().is_none(),
+                            "a per-fit override must never write the process-global atomic"
+                        );
+                    }
+                    mu
+                })
+            })
+            .collect();
+        for (handle, &mu) in handles.into_iter().zip(strengths.iter()) {
+            assert_eq!(handle.join().unwrap(), mu);
+        }
+    });
+
+    // Post-condition: the global barrier atomic is still unset — no thread leaked
+    // its per-fit strength into the process-global cell.
+    assert!(
+        super::term::sae_separation_barrier_override().is_none(),
+        "the process-global barrier atomic must remain unset after concurrent per-fit fits"
+    );
+}
+
 /// #1777 GOAL 3 — the assignment mode is the accurately-named `ThresholdGate`
 /// (a hard-sigmoid gate, NOT the literature JumpReLU magnitude activation); the
 /// legacy `jumprelu` constructor remains a back-compat alias producing the SAME
@@ -2977,7 +3048,7 @@ pub(crate) fn reconstruction_dispersion_uses_ard_shrunk_coordinate_edf() {
     let (_delta_t, _delta_beta, cache) =
         solve_arrow_newton_step_with_options(&sys, 0.0, 0.0, &options).unwrap();
 
-    let dispersion = term.reconstruction_dispersion(&loss, &cache, &rho).unwrap();
+    let dispersion = term.reconstruction_dispersion(&loss, &cache, &rho, None).unwrap();
     let smooth_edf: f64 = term
         .decoder_smoothness_effective_dof_per_atom(&cache, &rho.lambda_smooth_vec())
         .unwrap()
@@ -3002,6 +3073,382 @@ pub(crate) fn reconstruction_dispersion_uses_ard_shrunk_coordinate_edf() {
         dispersion < 0.75 * old_full_coordinate_dispersion,
         "φ̂ must use the ARD-shrunk coordinate edf, not the old full \
              coordinate count: got {dispersion}, old formula {old_full_coordinate_dispersion}"
+    );
+}
+
+/// #2080 decoder-smoothness gradient channel: the matrix-free EDF off the shared
+/// (probes, S⁻¹·probes) bundle
+/// ([`SaeManifoldTerm::decoder_smoothness_effective_dof_per_atom_from_probes`])
+/// must reproduce the dense `beta_inv` trace
+/// ([`SaeManifoldTerm::decoder_smoothness_effective_dof_per_atom`]) that the
+/// Fellner–Schall α-step consumes. Feeding the bundle the EXACT dense `S⁻¹`
+/// (`cache.schur_inverse_apply`) at FULL-BASIS probes `√k·e_j` makes the
+/// Hutchinson estimator collapse to the exact trace `tr(S⁻¹·M_k)` deterministically
+/// (both `S⁻¹` and `M_k` symmetric), so the two paths must agree to solve
+/// precision — the FD-equivalent acceptance gate for the channel, isolating the
+/// new M_k-apply/umbrella-contraction code from the CG machinery (tested in
+/// gam-solve). The production path swaps the dense `S⁻¹` for the surrogate's
+/// matrix-free probe solves.
+#[test]
+fn matrix_free_smoothness_edf_from_probes_matches_dense_selected_inverse() {
+    let n = 24usize;
+    let p = 2usize;
+    let coords = Array2::from_shape_fn((n, 1), |(row, _)| (row as f64 + 0.25) / n as f64);
+    let (phi, jet) = periodic_basis(&coords);
+    let atom = SaeManifoldAtom::new(
+        "periodic",
+        SaeAtomBasisKind::Periodic,
+        1,
+        phi,
+        jet,
+        array![[0.30, -0.10], [0.20, 0.40], [-0.35, 0.15]],
+        Array2::<f64>::eye(3),
+    )
+    .unwrap()
+    .with_basis_evaluator(Arc::new(TestPeriodicEvaluator));
+    let assignment = SaeAssignment::from_blocks_with_mode_and_manifolds(
+        Array2::<f64>::zeros((n, 1)),
+        vec![coords],
+        vec![LatentManifold::Circle { period: 1.0 }],
+        AssignmentMode::softmax(1.0),
+    )
+    .unwrap();
+    let mut term = SaeManifoldTerm::new(vec![atom], assignment).unwrap();
+    let target = Array2::from_shape_fn((n, p), |(row, col)| {
+        let x = (row as f64 + 0.5) / n as f64;
+        if col == 0 {
+            0.45 * (std::f64::consts::TAU * x).sin() + 0.07
+        } else {
+            -0.20 * (std::f64::consts::TAU * x).cos() + 0.03 * row as f64
+        }
+    });
+    let rho = SaeManifoldRho::new(0.0, 0.8_f64.ln(), vec![array![250.0_f64.ln()]]);
+    let sys = term
+        .assemble_arrow_schur(target.view(), &rho, None)
+        .unwrap();
+    let options = ArrowSolveOptions::direct().with_ill_conditioning_tolerated();
+    let (_delta_t, _delta_beta, cache) =
+        solve_arrow_newton_step_with_options(&sys, 0.0, 0.0, &options).unwrap();
+    let lambda = rho.lambda_smooth_vec();
+
+    let dense = term
+        .decoder_smoothness_effective_dof_per_atom(&cache, &lambda)
+        .unwrap();
+
+    // Full-basis probes √k·e_j + the EXACT dense S⁻¹ ⇒ the umbrella estimate is
+    // the exact trace, deterministically.
+    let k = cache.k;
+    let sqrt_k = (k as f64).sqrt();
+    let probes: Vec<Array1<f64>> = (0..k)
+        .map(|j| {
+            let mut v = Array1::<f64>::zeros(k);
+            v[j] = sqrt_k;
+            v
+        })
+        .collect();
+    let sinv: Vec<Array1<f64>> = probes
+        .iter()
+        .map(|v| cache.schur_inverse_apply(v.view()).unwrap())
+        .collect();
+    let matrix_free = term
+        .decoder_smoothness_effective_dof_per_atom_from_probes(&probes, &sinv, &lambda)
+        .unwrap();
+
+    assert_eq!(dense.len(), matrix_free.len());
+    for (atom_idx, (d, mf)) in dense.iter().zip(&matrix_free).enumerate() {
+        assert_abs_diff_eq!(d, mf, epsilon = 1.0e-9);
+        assert!(
+            atom_idx < 1 || *mf >= 0.0,
+            "atom {atom_idx} edof must be a nonneg dof, got {mf}"
+        );
+    }
+}
+
+/// #2080 ARD gradient channel: the matrix-free posterior-variance trace off the
+/// shared (probes, S⁻¹·probes) bundle
+/// ([`SaeManifoldTerm::ard_inverse_traces_from_probes`]) must reproduce the dense
+/// selected-inverse / `full_inverse_apply` trace
+/// ([`SaeManifoldTerm::ard_inverse_traces`]) the Fellner–Schall α-step consumes.
+/// Feeding the bundle the EXACT dense `S⁻¹` (`cache.schur_inverse_apply`) at
+/// FULL-BASIS probes `√k·e_j` collapses the per-(atom, axis) Hutchinson estimate
+/// to its exact trace `tr(S⁻¹·M_{ka})` deterministically, so the reformulation
+/// `(A_i⁻¹)[s,s] + Σ_i s_ij[s]·w_ij[s]` must equal the dense diagonal to solve
+/// precision — the FD-equivalent acceptance gate isolating the new cache-only
+/// M_{ka}-contraction from the CG machinery (tested in gam-solve). The production
+/// path swaps the dense `S⁻¹` for the surrogate's matrix-free probe solves.
+#[test]
+fn matrix_free_ard_traces_from_probes_matches_dense_selected_inverse() {
+    let n = 24usize;
+    let p = 2usize;
+    let coords = Array2::from_shape_fn((n, 1), |(row, _)| (row as f64 + 0.25) / n as f64);
+    let (phi, jet) = periodic_basis(&coords);
+    let atom = SaeManifoldAtom::new(
+        "periodic",
+        SaeAtomBasisKind::Periodic,
+        1,
+        phi,
+        jet,
+        array![[0.30, -0.10], [0.20, 0.40], [-0.35, 0.15]],
+        Array2::<f64>::eye(3),
+    )
+    .unwrap()
+    .with_basis_evaluator(Arc::new(TestPeriodicEvaluator));
+    let assignment = SaeAssignment::from_blocks_with_mode_and_manifolds(
+        Array2::<f64>::zeros((n, 1)),
+        vec![coords],
+        vec![LatentManifold::Circle { period: 1.0 }],
+        AssignmentMode::softmax(1.0),
+    )
+    .unwrap();
+    let mut term = SaeManifoldTerm::new(vec![atom], assignment).unwrap();
+    let target = Array2::from_shape_fn((n, p), |(row, col)| {
+        let x = (row as f64 + 0.5) / n as f64;
+        if col == 0 {
+            0.45 * (std::f64::consts::TAU * x).sin() + 0.07
+        } else {
+            -0.20 * (std::f64::consts::TAU * x).cos() + 0.03 * row as f64
+        }
+    });
+    let rho = SaeManifoldRho::new(0.0, 0.8_f64.ln(), vec![array![250.0_f64.ln()]]);
+    let sys = term
+        .assemble_arrow_schur(target.view(), &rho, None)
+        .unwrap();
+    let options = ArrowSolveOptions::direct().with_ill_conditioning_tolerated();
+    let (_delta_t, _delta_beta, cache) =
+        solve_arrow_newton_step_with_options(&sys, 0.0, 0.0, &options).unwrap();
+
+    let dense = term.ard_inverse_traces(&cache).unwrap();
+
+    // Full-basis probes √k·e_j + the EXACT dense S⁻¹ ⇒ the per-(atom, axis)
+    // umbrella estimate is the exact selected-inverse trace, deterministically.
+    let k = cache.k;
+    let sqrt_k = (k as f64).sqrt();
+    let probes: Vec<Array1<f64>> = (0..k)
+        .map(|j| {
+            let mut v = Array1::<f64>::zeros(k);
+            v[j] = sqrt_k;
+            v
+        })
+        .collect();
+    let sinv: Vec<Array1<f64>> = probes
+        .iter()
+        .map(|v| cache.schur_inverse_apply(v.view()).unwrap())
+        .collect();
+    let matrix_free = term
+        .ard_inverse_traces_from_probes(&cache, &probes, &sinv)
+        .unwrap();
+
+    assert_eq!(dense.len(), matrix_free.len());
+    for (atom_idx, (d, mf)) in dense.iter().zip(&matrix_free).enumerate() {
+        assert_eq!(d.len(), mf.len());
+        for (axis, (dv, mv)) in d.iter().zip(mf.iter()).enumerate() {
+            assert_abs_diff_eq!(dv, mv, epsilon = 1.0e-9);
+            assert!(
+                *mv >= -1.0e-12,
+                "atom {atom_idx} axis {axis} posterior-variance trace must be nonneg, got {mv}"
+            );
+        }
+    }
+}
+
+/// #2080 ARD ½log|H| ρ-gradient channel: the matrix-free ARD-Hessian trace off the
+/// shared (probes, S⁻¹·probes) bundle
+/// ([`SaeManifoldTerm::ard_log_precision_hessian_trace_from_probes`]) must reproduce
+/// the dense solver trace ([`SaeManifoldTerm::ard_log_precision_hessian_trace`]) the
+/// analytic outer ρ-gradient's ARD block consumes. On the PLAIN (undeflated) fixture
+/// the dense path's Daleckii–Krein correction is identically zero, so both reduce to
+/// `Σ ½·(H⁻¹)_tt[s,s]·hess`; feeding the bundle the EXACT dense `S⁻¹`
+/// (`cache.schur_inverse_apply`) at FULL-BASIS probes `√k·e_j` collapses the
+/// per-slot selected-inverse diagonal to its exact value, so the two must agree to
+/// solve precision — the FD-equivalent acceptance gate isolating the new
+/// bundle-sourced diagonal from the CG machinery (tested in gam-solve).
+#[test]
+fn matrix_free_ard_logdet_hessian_trace_from_probes_matches_dense() {
+    let n = 24usize;
+    let p = 2usize;
+    let coords = Array2::from_shape_fn((n, 1), |(row, _)| (row as f64 + 0.25) / n as f64);
+    let (phi, jet) = periodic_basis(&coords);
+    let atom = SaeManifoldAtom::new(
+        "periodic",
+        SaeAtomBasisKind::Periodic,
+        1,
+        phi,
+        jet,
+        array![[0.30, -0.10], [0.20, 0.40], [-0.35, 0.15]],
+        Array2::<f64>::eye(3),
+    )
+    .unwrap()
+    .with_basis_evaluator(Arc::new(TestPeriodicEvaluator));
+    let assignment = SaeAssignment::from_blocks_with_mode_and_manifolds(
+        Array2::<f64>::zeros((n, 1)),
+        vec![coords],
+        vec![LatentManifold::Circle { period: 1.0 }],
+        AssignmentMode::softmax(1.0),
+    )
+    .unwrap();
+    let mut term = SaeManifoldTerm::new(vec![atom], assignment).unwrap();
+    let target = Array2::from_shape_fn((n, p), |(row, col)| {
+        let x = (row as f64 + 0.5) / n as f64;
+        if col == 0 {
+            0.45 * (std::f64::consts::TAU * x).sin() + 0.07
+        } else {
+            -0.20 * (std::f64::consts::TAU * x).cos() + 0.03 * row as f64
+        }
+    });
+    let rho = SaeManifoldRho::new(0.0, 0.8_f64.ln(), vec![array![250.0_f64.ln()]]);
+    let sys = term
+        .assemble_arrow_schur(target.view(), &rho, None)
+        .unwrap();
+    let options = ArrowSolveOptions::direct().with_ill_conditioning_tolerated();
+    let (_delta_t, _delta_beta, cache) =
+        solve_arrow_newton_step_with_options(&sys, 0.0, 0.0, &options).unwrap();
+
+    let solver = DeflatedArrowSolver::plain(&cache);
+    let dense = term
+        .ard_log_precision_hessian_trace(&rho, &cache, &solver)
+        .unwrap();
+
+    let k = cache.k;
+    let sqrt_k = (k as f64).sqrt();
+    let probes: Vec<Array1<f64>> = (0..k)
+        .map(|j| {
+            let mut v = Array1::<f64>::zeros(k);
+            v[j] = sqrt_k;
+            v
+        })
+        .collect();
+    let sinv: Vec<Array1<f64>> = probes
+        .iter()
+        .map(|v| cache.schur_inverse_apply(v.view()).unwrap())
+        .collect();
+    let matrix_free = term
+        .ard_log_precision_hessian_trace_from_probes(&rho, &cache, &probes, &sinv)
+        .unwrap();
+
+    assert_eq!(dense.len(), matrix_free.len());
+    for (d, mf) in dense.iter().zip(&matrix_free) {
+        assert_eq!(d.len(), mf.len());
+        for (dv, mv) in d.iter().zip(mf.iter()) {
+            assert_abs_diff_eq!(dv, mv, epsilon = 1.0e-9);
+        }
+    }
+}
+
+/// #2080 analytic-gradient cluster routing seam: the whole analytic outer ρ-gradient
+/// assembled through `analytic_outer_rho_gradient_components_with_bundle(Some(bundle))`
+/// — routing BOTH selected-inverse channels (per-atom smoothness EDF `tr(H⁻¹ M_k)`
+/// and the per-(atom,axis) ARD log-precision Hessian trace `½tr(H⁻¹ ∂H/∂logα)`) off
+/// the shared (probes, S⁻¹·probes) bundle as one all-or-nothing cluster — must
+/// reproduce the dense (`None`) assembly bit-for-bit on the PLAIN (undeflated)
+/// fixture. Every other channel (explicit, Occam, the #1006 envelope third-order
+/// correction) is fed the IDENTICAL cache + plain solver in both calls, so this
+/// isolates the bundle routing: feeding full-basis probes `√k·e_j` with the EXACT
+/// dense `S⁻¹` (`cache.schur_inverse_apply`) collapses each channel's selected-inverse
+/// diagonal to its exact value, so the two assemblies must agree to solve precision.
+/// The gate that keeps the (dormant, `None`-only in production) forward plumbing from
+/// silently desyncing the value and gradient lanes if a routing flip ever engages it.
+#[test]
+fn analytic_outer_gradient_with_bundle_matches_dense_assembly() {
+    let n = 24usize;
+    let p = 2usize;
+    let coords = Array2::from_shape_fn((n, 1), |(row, _)| (row as f64 + 0.25) / n as f64);
+    let (phi, jet) = periodic_basis(&coords);
+    let atom = SaeManifoldAtom::new(
+        "periodic",
+        SaeAtomBasisKind::Periodic,
+        1,
+        phi,
+        jet,
+        array![[0.30, -0.10], [0.20, 0.40], [-0.35, 0.15]],
+        Array2::<f64>::eye(3),
+    )
+    .unwrap()
+    .with_basis_evaluator(Arc::new(TestPeriodicEvaluator));
+    let assignment = SaeAssignment::from_blocks_with_mode_and_manifolds(
+        Array2::<f64>::zeros((n, 1)),
+        vec![coords],
+        vec![LatentManifold::Circle { period: 1.0 }],
+        AssignmentMode::softmax(1.0),
+    )
+    .unwrap();
+    let term = SaeManifoldTerm::new(vec![atom], assignment).unwrap();
+    let target = Array2::from_shape_fn((n, p), |(row, col)| {
+        let x = (row as f64 + 0.5) / n as f64;
+        if col == 0 {
+            0.45 * (std::f64::consts::TAU * x).sin() + 0.07
+        } else {
+            -0.20 * (std::f64::consts::TAU * x).cos() + 0.03 * row as f64
+        }
+    });
+    let rho = SaeManifoldRho::new(0.0, 0.8_f64.ln(), vec![array![250.0_f64.ln()]]);
+    let sys = term
+        .assemble_arrow_schur(target.view(), &rho, None)
+        .unwrap();
+    let options = ArrowSolveOptions::direct().with_ill_conditioning_tolerated();
+    let (_delta_t, _delta_beta, cache) =
+        solve_arrow_newton_step_with_options(&sys, 0.0, 0.0, &options).unwrap();
+    let loss = term.loss(target.view(), &rho).unwrap();
+
+    // Same plain (undeflated) solver in BOTH assemblies — the only variable is the
+    // bundle routing of the two selected-inverse channels.
+    let solver = DeflatedArrowSolver::plain(&cache);
+    let dense = term
+        .analytic_outer_rho_gradient_components(target.view(), &rho, &loss, &cache, &solver)
+        .unwrap();
+
+    let k = cache.k;
+    let sqrt_k = (k as f64).sqrt();
+    let probes: Vec<Array1<f64>> = (0..k)
+        .map(|j| {
+            let mut v = Array1::<f64>::zeros(k);
+            v[j] = sqrt_k;
+            v
+        })
+        .collect();
+    let sinv: Vec<Array1<f64>> = probes
+        .iter()
+        .map(|v| cache.schur_inverse_apply(v.view()).unwrap())
+        .collect();
+    let bundled = term
+        .analytic_outer_rho_gradient_components_with_bundle(
+            target.view(),
+            &rho,
+            &loss,
+            &cache,
+            &solver,
+            Some((&probes, &sinv)),
+        )
+        .unwrap();
+
+    // The routed log|H|-trace channel must match the dense selected-inverse trace on
+    // every ρ-coordinate…
+    assert_eq!(dense.logdet_trace.len(), bundled.logdet_trace.len());
+    for (i, (d, b)) in dense
+        .logdet_trace
+        .iter()
+        .zip(bundled.logdet_trace.iter())
+        .enumerate()
+    {
+        assert_abs_diff_eq!(d, b, epsilon = 1.0e-9);
+        assert!(
+            d.is_finite() && b.is_finite(),
+            "logdet-trace coordinate {i} must be finite (dense={d}, bundled={b})"
+        );
+    }
+    // …and the FULLY ASSEMBLED gradient (all channels summed) must agree, since every
+    // other channel is fed identical inputs.
+    let dense_grad = dense.gradient();
+    let bundled_grad = bundled.gradient();
+    assert_eq!(dense_grad.len(), bundled_grad.len());
+    for (d, b) in dense_grad.iter().zip(bundled_grad.iter()) {
+        assert_abs_diff_eq!(d, b, epsilon = 1.0e-9);
+    }
+    // Non-triviality: the routed trace must be a genuine, nonzero contribution so the
+    // parity assertion is not vacuous (identity smooth penalty + ARD-shrunk axis).
+    let trace_sq: f64 = dense.logdet_trace.iter().map(|v| v * v).sum();
+    assert!(
+        trace_sq > 0.0 && trace_sq.is_finite(),
+        "the routed log|H|-trace channel must be non-trivial; ‖logdet_trace‖²={trace_sq}"
     );
 }
 
@@ -4062,11 +4509,14 @@ pub(crate) fn sae_arrow_schur_beta_quadratic_model_matches_penalized_loss_change
     );
 }
 
-/// #1610 — the separation barrier's PSD majorizer must survive the production
-/// matrix-free / framed β-tier. The dense path writes a per-atom scalar ridge onto
-/// `sys.hbb`; the deferred path must return the SAME scalar through `atom_curv` so
-/// assembly can fold it into the structured penalty operator instead of silently
-/// dropping collapse-prevention curvature.
+/// #1610/#1038 — the separation barrier's PSD curvature must survive the production
+/// matrix-free / framed β-tier IDENTICALLY to the dense path. The dense path writes
+/// the full curvature onto `sys.hbb`: a per-atom Levenberg scalar ridge `lev·I` PLUS
+/// the exact self-concordant rank-1 `d2·(∂o/∂B)(∂o/∂B)ᵀ`. The deferred path returns
+/// the SAME two pieces through separate channels — the scalar ridge via `atom_curv`
+/// (folded into the structured smooth op) and the rank-1 via `sep_rank1` (installed
+/// as a `SparseRankOnePenaltyOp`) — so assembly reconstructs the identical operator
+/// instead of silently dropping collapse-prevention curvature.
 #[test]
 pub(crate) fn separation_barrier_deferred_curvature_matches_dense_hbb_1610() {
     let (term, _target, _rho) = small_two_atom_periodic_term();
@@ -4075,21 +4525,39 @@ pub(crate) fn separation_barrier_deferred_curvature_matches_dense_hbb_1610() {
     dense.gb = Array1::<f64>::zeros(beta_dim);
     dense.hbb = Array2::<f64>::zeros((beta_dim, beta_dim));
     let mut dense_atom_curv = vec![0.0_f64; term.k_atoms()];
+    let mut dense_rank1 = Vec::new();
     assert!(
-        term.add_sae_separation_barrier(&mut dense, 1.0, true, &mut dense_atom_curv),
+        term.add_sae_separation_barrier(
+            &mut dense,
+            1.0,
+            true,
+            &mut dense_atom_curv,
+            &mut dense_rank1
+        ),
         "fixture must activate the co-collapse separation barrier on the dense path"
     );
     assert!(
         dense_atom_curv.iter().all(|v| *v == 0.0),
         "dense path writes curvature directly to hbb, not the deferred atom accumulator"
     );
+    assert!(
+        dense_rank1.is_empty(),
+        "dense path scatters the rank-1 straight into hbb, not the deferred carrier"
+    );
 
     let mut deferred = ArrowSchurSystem::new(0, 0, beta_dim);
     deferred.gb = Array1::<f64>::zeros(beta_dim);
     deferred.hbb = Array2::<f64>::zeros((0, 0));
     let mut atom_curv = vec![0.0_f64; term.k_atoms()];
+    let mut sep_rank1 = Vec::new();
     assert!(
-        term.add_sae_separation_barrier(&mut deferred, 1.0, false, &mut atom_curv),
+        term.add_sae_separation_barrier(
+            &mut deferred,
+            1.0,
+            false,
+            &mut atom_curv,
+            &mut sep_rank1
+        ),
         "fixture must activate the co-collapse separation barrier on the deferred path"
     );
 
@@ -4101,6 +4569,14 @@ pub(crate) fn separation_barrier_deferred_curvature_matches_dense_hbb_1610() {
     }
 
     let offsets = term.beta_offsets();
+    // Reconstruct the deferred path's β-curvature operator from its two channels:
+    // the per-atom scalar ridge `atom_curv[k]·I` over atom k's block, plus every
+    // rank-1 carrier `scale·v vᵀ`. It must equal the dense `hbb` bit-for-bit.
+    assert!(
+        !sep_rank1.is_empty(),
+        "deferred path must export the exact self-concordant rank-1 curvature carrier"
+    );
+    let mut deferred_hbb = Array2::<f64>::zeros((beta_dim, beta_dim));
     for atom_idx in 0..term.k_atoms() {
         let start = offsets[atom_idx];
         let end = if atom_idx + 1 < offsets.len() {
@@ -4113,9 +4589,24 @@ pub(crate) fn separation_barrier_deferred_curvature_matches_dense_hbb_1610() {
             "deferred path must export positive per-atom collapse-prevention curvature"
         );
         for idx in start..end {
+            deferred_hbb[[idx, idx]] += atom_curv[atom_idx];
+        }
+    }
+    for (scale, carrier) in &sep_rank1 {
+        for &(gi, vi) in carrier {
+            for &(gj, vj) in carrier {
+                deferred_hbb[[gi, gj]] += scale * vi * vj;
+            }
+        }
+    }
+    for i in 0..beta_dim {
+        for j in 0..beta_dim {
             assert!(
-                (dense.hbb[[idx, idx]] - atom_curv[atom_idx]).abs() <= 1.0e-12,
-                "deferred atom curvature must equal the dense hbb diagonal for atom {atom_idx}"
+                (dense.hbb[[i, j]] - deferred_hbb[[i, j]]).abs() <= 1.0e-12,
+                "dense hbb and reconstructed deferred (ridge + rank-1) curvature must \
+                 match at ({i},{j}): dense={} deferred={}",
+                dense.hbb[[i, j]],
+                deferred_hbb[[i, j]]
             );
         }
     }

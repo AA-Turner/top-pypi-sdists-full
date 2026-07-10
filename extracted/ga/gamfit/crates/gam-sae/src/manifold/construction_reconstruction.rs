@@ -172,15 +172,38 @@ impl SaeManifoldTerm {
     /// prior-dominated coordinates contribute 0 to both the trace and the
     /// count, hence 0 edf). The residual dof is floored at 1 so `φ̂` stays
     /// finite and positive.
+    /// `residual` is the per-row reconstruction residual `f(θ̂) − y` (n×p) at the
+    /// same state that produced `cache`. When supplied it engages the #2133 SURE
+    /// within-basin second-order deflation correction
+    /// ([`Self::coordinate_sure_deflation_correction`]) — the exact-Newton
+    /// completion of the Gauss-Newton `coord_edf`, which removes the
+    /// incidental-parameters under-dispersion of the per-row coordinate MAP.
+    /// `None` reproduces the historical Gauss-Newton dispersion exactly (used by
+    /// callers with no residual in hand — the correction is then simply absent).
     pub(crate) fn reconstruction_dispersion(
         &self,
         loss: &SaeManifoldLoss,
         cache: &ArrowFactorCache,
         rho: &SaeManifoldRho,
+        residual: Option<ArrayView2<'_, f64>>,
     ) -> Result<f64, String> {
         let n = self.n_obs();
         let p = self.output_dim();
-        let n_scalar = (n * p) as f64;
+        // Scalar-observation count for the residual dof, kept on the SAME scale as
+        // `rss = Σᵢ wᵢ·‖rᵢ‖²` below. Under the outer-criterion Horvitz–Thompson row
+        // subsample an un-normalized inverse-inclusion weight `wᵢ = N / n_sub` lifts
+        // the weighted residual sum back to full-`N` scale (see
+        // `set_uniform_inclusion_weight`); the effective observation count must be
+        // lifted the same way — `Σᵢ wᵢ·p ≈ N·p` — or `φ̂ = rss / resid_dof` inflates
+        // by exactly `N / n_sub` (the RSS numerator is full-`N` while the
+        // denominator is the `n_sub·p` subproblem). Single-sourcing the count from
+        // the installed weights makes the three regimes consistent by construction:
+        // `None` and the mean-1 design-honesty weights both sum to `n`, so
+        // `n_scalar = n·p` there, bit-for-bit the historical count.
+        let n_scalar = match self.row_loss_weights() {
+            Some(w) => w.iter().sum::<f64>() * p as f64,
+            None => (n * p) as f64,
+        };
         let rss = 2.0 * loss.data_fit;
         let smooth_edf: f64 = self
             .decoder_smoothness_effective_dof_per_atom(cache, &rho.lambda_smooth_vec())
@@ -247,6 +270,24 @@ impl SaeManifoldTerm {
                 let edf_kj = (n_active_k - alpha * traces[k][j]).clamp(0.0, n_active_k);
                 coord_edf += edf_kj;
             }
+        }
+        // #2133 — restore the second-order residual-curvature term the
+        // Gauss-Newton `coord_edf` above drops, turning the per-row GN divergence
+        // into the exact within-basin SURE divergence of the coordinate MAP. Pure
+        // additive readout; only engaged when the caller supplies the residual.
+        if let Some(residual) = residual {
+            coord_edf = (coord_edf + self.coordinate_sure_deflation_correction(residual, rho)?)
+                .clamp(0.0, n_scalar);
+            // #2133 — the basin-SELECTION (search) deflation dof: the boundary
+            // Stein term the within-basin correction above omits. The per-row charge
+            // depends on σ̂ = √φ̂, so seed it with the within-basin-corrected but
+            // search-UNcorrected φ̂ and take ONE monotone fixed-point pass (the charge
+            // is decreasing in σ̂ through the margin z, so one pass contracts). It is
+            // identically 0 for single-basin / hard-frozen / genuinely-soft rows, so
+            // w=None + non-selecting fits are bit-for-bit today's φ̂.
+            let phi_seed = rss / (n_scalar - beta_edf - coord_edf).max(1.0);
+            let df_search = self.basin_selection_deflation_correction(residual, rho, phi_seed)?;
+            coord_edf = (coord_edf + df_search).clamp(0.0, n_scalar);
         }
         let resid_dof = (n_scalar - beta_edf - coord_edf).max(1.0);
         let phi = rss / resid_dof;
@@ -446,7 +487,9 @@ impl SaeManifoldTerm {
             ridge_ext_coord,
             ridge_beta,
         )?;
-        let dispersion = self.reconstruction_dispersion(&loss, &cache, rho)?;
+        let residual = self.reconstruction_residual(target, rho)?;
+        let dispersion =
+            self.reconstruction_dispersion(&loss, &cache, rho, Some(residual.view()))?;
         self.assemble_shape_uncertainty(&cache, dispersion)
     }
 

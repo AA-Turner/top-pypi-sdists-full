@@ -378,9 +378,14 @@ class MacrosExtension(Extension):
     name = "zensical.extensions.macros"
 
     def __init__(self, **kwargs: Any) -> None:
+        """Initialize the extension."""
+        self._enabled: bool = kwargs.pop("enabled", True)
         self._kwargs: dict[str, Any] = kwargs
 
     def extendMarkdown(self, md: Markdown) -> None:
+        """Register Markdown extension."""
+        if not self._enabled:
+            return
         md.registerExtension(self)
         config = MacrosConfig(**self._kwargs)
         preprocessor = MacrosPreprocessor(md, config)

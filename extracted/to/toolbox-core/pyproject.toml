@@ -49,18 +49,19 @@ telemetry = [
     "opentelemetry-exporter-otlp>=1.41.1,<1.42.0"
 ]
 test = [
-    "black[jupyter]==26.5.0",
+    "black[jupyter]==26.5.1",
     "isort==8.0.1",
     "mypy==2.1.0",
     "pytest==9.0.3",
     "pytest-aioresponses==0.3.0",
-    "pytest-asyncio==1.3.0",
+    "pytest-asyncio==1.4.0",
     "pytest-cov==7.1.0",
     "pytest-mock==3.15.1",
     "google-cloud-secret-manager==2.28.0",
     "google-cloud-storage==3.10.1",
     "aioresponses==0.7.8",
-    "toolbox-core[telemetry]"
+    "toolbox-core[telemetry]",
+    "numpy<2", # Pinned to <2 to prevent mypy syntax errors on python 3.10 with numpy 2.x stubs
 ]
 [build-system]
 requires = ["setuptools"]

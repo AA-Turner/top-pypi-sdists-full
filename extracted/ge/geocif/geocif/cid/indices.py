@@ -1345,6 +1345,14 @@ class CIDs:
                 if not df_processed.empty:
                     frames_group.append(df_processed)
             # 2) EO indices (NDVI, ESI, GCVI, H-INDEX, etc.)
+            # H-INDEX trimmed 2026-07-09 to Precip only: the Tmax/Tmin/Tmean
+            # variants collapse to TXx/TNx/TG (bit-identical values seen in
+            # Brazil DF 2016 diagnostic), and the NDVI/ESI/GCVI variants have
+            # scale-dependent semantics (values in the 4-6 or 300+ range that
+            # depend on input scaling, not the intended h-index definition).
+            # H-INDEX_Precip is kept because it's semantically distinct (N days
+            # with rain >= N mm) and was the top-selected H-INDEX at 540 gOMP
+            # picks. See dict_hindex in definitions.py for the trim.
             eo_vars = ["GCVI", "NDVI", "ESI4WK", "ETREF", "H-INDEX", "AEF"]
             if any(c.startswith("fldas_") for c in df_group.columns):
                 eo_vars.append("FLDAS")

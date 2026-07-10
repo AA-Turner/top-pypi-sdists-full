@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: snowflake-snowpark-python
-Version: 1.52.0
+Version: 1.53.0
 Summary: Snowflake Snowpark for Python
 Home-page: https://www.snowflake.com/
 Author: Snowflake, Inc
@@ -41,13 +41,16 @@ Requires-Dist: snowflake-connector-python<5.0.0,>=3.17.0
 Requires-Dist: typing-extensions<5.0.0,>=4.1.0
 Requires-Dist: pyyaml
 Requires-Dist: cloudpickle!=2.1.0,!=2.2.0,<=3.1.1,>=1.6.0
-Requires-Dist: protobuf<6.34,>=3.20
+Requires-Dist: protobuf<6.34,>=3.20; python_version < "3.14"
+Requires-Dist: protobuf<6.34,>=5.29.0; python_version >= "3.14"
 Requires-Dist: python-dateutil
 Requires-Dist: tzlocal
 Provides-Extra: pandas
 Requires-Dist: snowflake-connector-python[pandas]<5.0.0,>=3.17.0; extra == "pandas"
+Requires-Dist: pandas<3.0.0; extra == "pandas"
 Provides-Extra: modin
 Requires-Dist: snowflake-connector-python[pandas]<5.0.0,>=3.17.0; extra == "modin"
+Requires-Dist: pandas<3.0.0; extra == "modin"
 Requires-Dist: modin<0.38.0,>=0.36.0; extra == "modin"
 Requires-Dist: pandas<=2.4; extra == "modin"
 Requires-Dist: tqdm; extra == "modin"
@@ -76,6 +79,7 @@ Requires-Dist: lxml; extra == "development"
 Requires-Dist: pyarrow; extra == "development"
 Provides-Extra: modin-development
 Requires-Dist: snowflake-connector-python[pandas]<5.0.0,>=3.17.0; extra == "modin-development"
+Requires-Dist: pandas<3.0.0; extra == "modin-development"
 Requires-Dist: modin<0.38.0,>=0.36.0; extra == "modin-development"
 Requires-Dist: pandas<=2.4; extra == "modin-development"
 Requires-Dist: tqdm; extra == "modin-development"

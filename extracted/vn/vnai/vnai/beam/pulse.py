@@ -14,7 +14,7 @@ class Monitor:
             return cls._instance
 
     def _initialize(self):
-        self.health_status ="healthy"
+        self.health_status = "healthy"
         self.last_check = time.time()
         self.check_interval = 300
         self.error_count = 0
@@ -42,18 +42,18 @@ class Monitor:
         resource_usage = guardian.usage()
         high_usage = resource_usage > 80
         if has_errors and high_usage:
-            self.health_status ="critical"
+            self.health_status = "critical"
             self.error_count += 1
         elif has_errors or high_usage:
-            self.health_status ="warning"
+            self.health_status = "warning"
             self.warning_count += 1
         else:
-            self.health_status ="healthy"
+            self.health_status = "healthy"
         self.status_history.append({
-"timestamp": datetime.now().isoformat(),
-"status": self.health_status,
-"metrics": metrics_summary,
-"resource_usage": resource_usage
+            "timestamp": datetime.now().isoformat(),
+            "status": self.health_status,
+            "metrics": metrics_summary,
+            "resource_usage": resource_usage
         })
         if len(self.status_history) > 10:
             self.status_history = self.status_history[-10:]
@@ -63,15 +63,15 @@ class Monitor:
         if time.time() - self.last_check > self.check_interval:
             self.check_health()
         return {
-"status": self.health_status,
-"last_check": datetime.fromtimestamp(self.last_check).isoformat(),
-"error_count": self.error_count,
-"warning_count": self.warning_count,
-"history": self.status_history[-3:],
+            "status": self.health_status,
+            "last_check": datetime.fromtimestamp(self.last_check).isoformat(),
+            "error_count": self.error_count,
+            "warning_count": self.warning_count,
+            "history": self.status_history[-3:],
         }
 
     def reset(self):
-        self.health_status ="healthy"
+        self.health_status = "healthy"
         self.error_count = 0
         self.warning_count = 0
         self.status_history = []

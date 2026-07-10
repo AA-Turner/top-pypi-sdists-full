@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: agno
-Version: 2.7.1
+Version: 2.7.2
 Summary: The programming language for agentic software.
 Author-email: Agno Team <hello@agno.com>
 License:                                  Apache License
@@ -248,8 +248,7 @@ Requires-Dist: python-multipart>=0.0.18; extra == "dev"
 Requires-Dist: uvicorn; extra == "dev"
 Requires-Dist: websockets; extra == "dev"
 Requires-Dist: PyJWT; extra == "dev"
-Requires-Dist: mcp; extra == "dev"
-Requires-Dist: fastmcp; extra == "dev"
+Requires-Dist: agno[mcp]; extra == "dev"
 Requires-Dist: openai; extra == "dev"
 Requires-Dist: ddgs; extra == "dev"
 Requires-Dist: fakeredis; extra == "dev"
@@ -274,7 +273,7 @@ Requires-Dist: openinference-instrumentation-agno; extra == "os"
 Requires-Dist: agno[scheduler]; extra == "os"
 Provides-Extra: mcp
 Requires-Dist: mcp>=1.9.2; extra == "mcp"
-Requires-Dist: fastmcp; extra == "mcp"
+Requires-Dist: fastmcp<4,>=3.4.3; extra == "mcp"
 Provides-Extra: scheduler
 Requires-Dist: croniter>=1.3; extra == "scheduler"
 Requires-Dist: pytz>=2023.3; extra == "scheduler"
@@ -667,7 +666,7 @@ Requires-Dist: ddgs; extra == "integration-tests"
 Requires-Dist: yfinance; extra == "integration-tests"
 Requires-Dist: sqlalchemy; extra == "integration-tests"
 Requires-Dist: Pillow; extra == "integration-tests"
-Requires-Dist: fastmcp; extra == "integration-tests"
+Requires-Dist: agno[mcp]; extra == "integration-tests"
 Requires-Dist: PyJWT; extra == "integration-tests"
 Requires-Dist: pytest-rerunfailures; extra == "integration-tests"
 Requires-Dist: pytest-timeout; extra == "integration-tests"
@@ -685,7 +684,7 @@ Requires-Dist: uvicorn; extra == "demo"
 Requires-Dist: websockets; extra == "demo"
 Requires-Dist: google-genai; extra == "demo"
 Requires-Dist: matplotlib; extra == "demo"
-Requires-Dist: mcp; extra == "demo"
+Requires-Dist: agno[mcp]; extra == "demo"
 Requires-Dist: nest_asyncio; extra == "demo"
 Requires-Dist: openai; extra == "demo"
 Requires-Dist: openinference-instrumentation-agno; extra == "demo"

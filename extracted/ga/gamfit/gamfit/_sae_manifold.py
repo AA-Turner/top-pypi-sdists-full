@@ -111,12 +111,20 @@ def _training_data_handle(x: np.ndarray) -> _SaeTrainingDataHandle:
     return _SaeTrainingDataHandle(tuple(int(v) for v in x.shape), x.dtype)
 
 
-def _sae_fit_admission(n_obs: int, output_dim: int, n_atoms: int) -> dict[str, Any]:
+def _sae_fit_admission(
+    n_obs: int,
+    output_dim: int,
+    n_atoms: int,
+    d_max: int = 1,
+    topk_support: int | None = None,
+) -> dict[str, Any]:
     return dict(
         rust_module().sae_fit_admission(
             int(n_obs),
             int(output_dim),
             int(n_atoms),
+            int(d_max),
+            None if topk_support is None else int(topk_support),
         )
     )
 
@@ -180,6 +188,7 @@ _ASSIGNMENT_KINDS: dict[str, str] = {
     "softmax": "softmax",
     "threshold_gate": "threshold_gate",
     "jumprelu": "threshold_gate",
+    "topk": "topk",
 }
 
 _PUBLIC_ASSIGNMENT_KINDS: dict[str, str] = {
@@ -187,6 +196,7 @@ _PUBLIC_ASSIGNMENT_KINDS: dict[str, str] = {
     "softmax": "softmax",
     "threshold_gate": "threshold_gate",
     "jumprelu": "threshold_gate",
+    "topk": "topk",
 }
 
 # Public assignment alias table (#159). Both the ``assignment=`` and the
@@ -203,6 +213,8 @@ _PUBLIC_ASSIGNMENT_ALIASES: dict[str, str] = {
     "gated": "threshold_gate",
     "jump_relu": "threshold_gate",
     "jumprelu": "threshold_gate",
+    "topk": "topk",
+    "top_k": "topk",
 }
 
 
@@ -257,6 +269,54 @@ def _active_threshold_for_assignment(assignment: str, k_atoms: int) -> float:
     return 1.0e-8
 
 
+def _channel_cov_factors(
+    decoder_covariance: np.ndarray | None, m_basis: int
+) -> list | None:
+    """Compact per-channel covariance factor a shape band consumes for save/load.
+
+    The dense phi-scaled decoder covariance is ``(M_k·p, M_k·p)`` in row-major
+    ``(basis, channel)`` flat layout (flat index ``b·p + c``). The posterior
+    shape band reads ONLY the same-channel blocks ``Cov[(b1,c),(b2,c)]`` — its
+    variance is ``Var_c(t) = Σ_{b1,b2} Φ[b1]Φ[b2] Cov[(b1,c),(b2,c)]`` — so those
+    ``p`` blocks of ``M_k × M_k`` are the complete, compact factor the band
+    needs. This extracts them as a ``(p, M_k, M_k)`` array (pure reshaping /
+    diagonal slicing — no numerical decomposition), replacing the dense
+    ``(M_k·p)²`` joint covariance in the on-disk format. ``None`` when the fit
+    carries no covariance (e.g. an LLM-scale ``p`` where even the fresh fit omits
+    the dense lift); the band's stored ``shape_band_sd`` still round-trips.
+    """
+    if decoder_covariance is None:
+        return None
+    cov = np.ascontiguousarray(np.asarray(decoder_covariance, dtype=float))
+    # Reshaping / diagonal-slicing math (#2091) lives in the Rust owner. `None`
+    # (layout does not match an (M_k, p) decoder) round-trips as before — the
+    # band's stored `shape_band_sd` still recovers.
+    blocks = rust_module().decoder_channel_cov_factors(cov, int(m_basis))
+    return None if blocks is None else blocks.tolist()
+
+
+def _channel_cov_from_factors(factors: Any) -> np.ndarray | None:
+    """Rebuild the full-shape ``(M_k·p, M_k·p)`` decoder covariance from the
+    compact per-channel factor written by :func:`_channel_cov_factors`.
+
+    The result is block-diagonal across channels: the same-channel ``M_k × M_k``
+    blocks are restored exactly and the cross-channel entries (which no band
+    reads) are zero. Reproduces the shape band ``Σ Φ Φ Cov[(·,c),(·,c)]`` to
+    machine precision. ``None`` when no factor was stored.
+    """
+    if factors is None:
+        return None
+    blocks = np.ascontiguousarray(np.asarray(factors, dtype=float))
+    if blocks.ndim != 3:
+        raise ValueError(
+            "decoder_covariance_channel_factors must be a (p, M_k, M_k) array; "
+            f"got shape {blocks.shape}"
+        )
+    # Block-diagonal reassembly math (#2091) lives in the Rust owner; it raises
+    # on a non-square trailing pair, matching the previous contract.
+    return rust_module().decoder_cov_from_channel_factors(blocks)
+
+
 def _canonical_n_harmonics(
     basis_kinds: list[str],
     raw_n_harmonics: list[int],
@@ -267,60 +327,20 @@ def _canonical_n_harmonics(
     A periodic atom's basis width is ``M = 2H + 1`` with ``H >= 1``. A plan
     value that collapsed to ``<= 0`` (a born/fissioned atom recovered with a
     degenerate constant-only width) is floored to the harmonic count implied by
-    the trained decoder width, mirroring ``_functional_basis_params`` /
-    ``_periodic_shape_band``. Canonicalizing ``self._n_harmonics`` at ingestion
-    ensures OOS reconstruct and :meth:`ManifoldSAE.steer` use the recovered
-    value rather than the raw (possibly 0/stale) plan value. Non-periodic atoms
-    pass through unchanged.
+    the trained decoder width. The repair formula lives in the Rust owner
+    (#2091, SPEC thin-wrapper rule 8); canonicalizing ``self._n_harmonics`` at
+    ingestion ensures OOS reconstruct and :meth:`ManifoldSAE.steer` use the
+    recovered value rather than the raw (possibly 0/stale) plan value.
+    Non-periodic atoms pass through unchanged.
     """
-    out: list[int] = []
-    for bk, h, width in zip(basis_kinds, raw_n_harmonics, decoder_widths):
-        kind = str(bk).lower().replace("-", "_")
-        value = int(h)
-        if kind in {"periodic", "periodic_spline", "circle"} and value <= 0:
-            value = max(1, (int(width) - 1) // 2)
-        out.append(value)
-    return out
-
-
-def _e_benjamini_hochberg(log_e_values: list[float], alpha: float) -> list[int]:
-    """e-BH confirmed set, mirroring `inference::structure_evidence::e_benjamini_hochberg`.
-
-    Sort claims by descending log e-value; confirm the prefix up to the largest
-    rank `k` whose k-th-largest log e-value clears `ln(m) - ln(alpha) - ln(k)`
-    (i.e. `e_(k) >= m / (alpha * k)`). FDR <= alpha over the confirmed set under
-    arbitrary dependence; valid at any stopping time.
-    """
-    import math
-
-    m = len(log_e_values)
-    if m == 0 or not (alpha > 0.0):
-        return []
-    order = sorted(range(m), key=lambda i: log_e_values[i], reverse=True)
-    k_star = 0
-    for rank0, idx in enumerate(order):
-        k = rank0 + 1
-        if log_e_values[idx] >= math.log(m) - math.log(alpha) - math.log(k):
-            k_star = rank0 + 1
-    return order[:k_star]
-
-
-def _structure_claim_label(kind: Any) -> str:
-    """Human-readable label for a serialized `ClaimKind` (serde-tagged enum)."""
-    if isinstance(kind, str):
-        return kind
-    if isinstance(kind, Mapping):
-        for tag, body in kind.items():
-            if tag == "AtomExists":
-                return f"atom {body['atom']} exists"
-            if tag == "BindingEdge":
-                return f"atoms {body['a']}-{body['b']} bound"
-            if tag == "GeometryKind":
-                return f"atom {body['atom']} geometry={body['kind']}"
-            if tag == "Custom":
-                return str(body.get("label", "custom"))
-            return f"{tag}:{body}"
-    return str(kind)
+    return [
+        int(h)
+        for h in rust_module().sae_canonical_n_harmonics(
+            [str(bk) for bk in basis_kinds],
+            [int(h) for h in raw_n_harmonics],
+            [int(w) for w in decoder_widths],
+        )
+    ]
 
 
 def _jsonable_value(value: Any) -> Any:
@@ -436,33 +456,28 @@ _ALPHA_UNSET: Any = object()
 def _default_ibp_concentration_for_k_atoms(k_atoms: int) -> float:
     """K-aware default IBP concentration ``α`` (#1784).
 
-    Mirror of the Rust source of truth
-    ``gam_sae::manifold::assignment::default_ibp_concentration_for_k_atoms``.
-    The ordered stick-breaking prior mean ``π_k = (α/(α+1))^{k+1}`` decays
-    GEOMETRICALLY in the atom index, so the historical fixed default ``α = 1``
-    (the ``(0.5)^{k+1}`` schedule) collapses to a near-hard mask past atom ~3: a
-    K-atom dictionary can then only place mass on its first handful of atoms,
-    which is why the manifold SAE underfit a linear dictionary of equal K on real
-    activations and why its late atoms carried zero mass — leaving the per-row
-    joint Hessian rank-deficient (the K = 128 ``RemlConvergenceError``). Choosing
-    ``α`` so the LAST atom retains prior mass ``π_{K-1} = (α/(α+1))^K ≈ e^{-1}``
-    makes the prior SPAN the whole dictionary while staying a monotone, honest
-    ordered stick-breaking prior (no atom structurally masked). Solving
-    ``(α/(α+1))^K = e^{-1}`` gives ``α = 1/(exp(1/K) − 1) ≈ K − 1/2``; floored at
-    ``1.0`` so ``K = 1`` keeps the historical ``α = 1``.
+    Thin wrapper over the Rust source of truth
+    ``assignment::default_ibp_concentration_for_k_atoms`` (FFI
+    ``sae_default_ibp_concentration_for_k_atoms``): the formula
+    ``α = max(1, 1/(exp(1/K) − 1))`` is computed once in the core, never mirrored
+    in Python. Choosing ``α`` so the last atom retains prior mass
+    ``π_{K-1} = (α/(α+1))^K ≈ e^{-1}`` makes the ordered stick-breaking prior SPAN
+    the whole dictionary (no atom structurally masked); floored at ``1.0`` so
+    ``K = 1`` keeps the historical ``α = 1``.
     """
-    k = float(max(int(k_atoms), 1))
-    return max(1.0, 1.0 / (math.expm1(1.0 / k)))
+    return float(rust_module().sae_default_ibp_concentration_for_k_atoms(int(max(int(k_atoms), 1))))
 
 
 def _default_top_k_for_large_dictionary(n_obs: int, k_atoms: int) -> int | None:
-    n = int(n_obs)
-    k = int(k_atoms)
-    if n <= 0 or k <= 1:
-        return None
-    if n >= k * k:
-        return None
-    return max(1, min(k - 1, math.ceil(n / k)))
+    """Default large-K active cap from the data-per-atom ratio.
+
+    Thin wrapper over the Rust source of truth
+    ``assignment::default_top_k_for_large_dictionary`` (FFI
+    ``sae_default_top_k_for_large_dictionary``): ``None`` when the dense softmax
+    path is admitted, else the per-row cap ``clamp(ceil(N/K), 1, K−1)``.
+    """
+    cap = rust_module().sae_default_top_k_for_large_dictionary(int(n_obs), int(k_atoms))
+    return None if cap is None else int(cap)
 
 
 def _resolve_public_assignment(assignment: Any, assignment_prior: Any) -> str:
@@ -552,6 +567,11 @@ class SaeManifoldAtomFit:
         coefficients, shape ``(M_k * p, M_k * p)`` in row-major
         ``(basis, channel)`` layout. Entries have squared ``X`` units. Present
         on fresh fits when the Rust payload includes posterior uncertainty.
+        Across :meth:`ManifoldSAE.save` / :meth:`ManifoldSAE.load` only the
+        band-relevant same-channel Schur blocks are persisted (the compact
+        per-atom factor), so a restored covariance is block-diagonal across
+        channels: every quantity the shape band reads is reproduced exactly, and
+        the cross-channel entries the band never touches are zero.
     shape_band_coords
         Optional coordinate grid for the posterior shape band, shape
         ``(G, d_k)``, in the same latent-coordinate units as ``coords``.
@@ -840,6 +860,17 @@ class ManifoldSAE:
     # object. ``None`` when no eligible d=1 atom existed (nothing to adjudicate) or
     # for payloads predating the report.
     hybrid_split: dict[str, Any] | None = None
+    # #2132 — the training fit's TERMINAL REML-selected penalized-objective
+    # hyperparameters (``ρ*``), retained so the frozen-decoder OOS encode
+    # (:meth:`_oos_payload`) descends the SAME objective the training state
+    # converged under. ``sparsity_strength`` / ``smoothness`` above are the
+    # INITIAL seeds the outer ρ search started from; feeding those back into the
+    # OOS solve made it optimize a different model, so re-encoding the training
+    # rows collapsed (warm-started at the trained optimum it walked AWAY).
+    # ``None`` (payloads predating the keys) falls back to the initial scalars.
+    selected_log_lambda_sparse: float | None = None
+    selected_log_lambda_smooth: np.ndarray | None = None
+    selected_log_ard: list[np.ndarray] | None = None
     _lazy_artifact: _SaeLazyFitArtifact | None = field(default=None, init=False, repr=False)
 
     def __post_init__(self) -> None:
@@ -891,8 +922,14 @@ class ManifoldSAE:
     def __repr__(self) -> str:
         d_atom = int(self.coords[0].shape[1]) if self.coords else 0
         n, p = (self.fitted.shape if self.fitted.ndim == 2 else (self.fitted.shape[0], 1))
+        # Lead with bits/token (the headline currency); keep EV as a demoted line.
+        try:
+            dl = self.description_length()
+        except Exception:
+            dl = None
+        bpt = "n/a" if dl is None else f"{float(dl['bits_per_token']):.3f}"
         return (
-            f"ManifoldSAE(K={len(self.atoms)}, d_atom={d_atom}, "
+            f"ManifoldSAE(bits/token={bpt}, K={len(self.atoms)}, d_atom={d_atom}, "
             f"atom_topology={self.atom_topology!r}, assignment={self.assignment!r}, "
             f"alpha={self.alpha!r}, learnable_alpha={self.learnable_alpha}, "
             f"n={n}, p={p}, r2={self.reconstruction_r2:.3f})"
@@ -950,38 +987,20 @@ class ManifoldSAE:
                 )
             order = np.argsort(coords[:, 0], kind="mergesort")
             coords = np.ascontiguousarray(coords[order])
-            decoder = np.asarray(atom["decoder_B"], dtype=float)
-            # #1132 bug 1: a periodic atom is intrinsically at least one harmonic
-            # (basis width 2H+1 with H>=1). A plan field that collapsed to 0 (a
-            # degenerate constant-only width recovered from a born/fissioned atom
-            # at K>=4) must be floored to the harmonic count implied by the
-            # trained decoder width `M = 2H+1`, mirroring `_functional_basis_params`
-            # — never raised. Otherwise the curved (n_harmonics=0) EV-vs-K curve at
-            # K>=4 dies here instead of reconstructing the shape band.
-            n_harmonics = int(plan["n_harmonics"])
-            if n_harmonics <= 0:
-                n_harmonics = (int(decoder.shape[0]) - 1) // 2
-            n_harmonics = max(1, n_harmonics)
-            phi, _jet, _penalty = rust_module().basis_with_jet(
-                "periodic",
-                coords,
-                {"n_harmonics": n_harmonics},
-            )
-            phi = np.asarray(phi, dtype=float)
-            if phi.shape[1] != decoder.shape[0]:
-                # The posterior shape band is an OPTIONAL diagnostic, not part of
-                # reconstruction (which uses `decoder_blocks` via predict_oos). A
-                # periodic atom whose decoder collapsed to a non-`2H+1` width
-                # (e.g. the hybrid-split linear collapse replacing the curved
-                # decoder with a 1-row straight image, or a degenerate
-                # born/fissioned atom) cannot present a periodic shape band — but
-                # that must NOT abort the whole fit. Skip the band gracefully.
+            # The band MEAN is a Rust-owned quantity, exactly like the sd: the
+            # engine's decode applies the atom's amplitude exp(log_amplitude) on
+            # top of Phi(t)·B, and the amplitude never crosses the FFI. The
+            # historical Python recompute (`phi @ decoder`) silently DROPPED
+            # that factor, so the band drew at the wrong radius whenever gauge
+            # canonicalization peeled decoder norm into the amplitude. Read the
+            # payload's amplitude-correct mean, reordered to the sorted
+            # coordinates, and never recompute model math here (SPEC rule 8). An
+            # absent Rust mean means no band: a wrong-radius curve is worse than
+            # an absent diagnostic.
+            mean = _opt_arr(atom, "shape_band_mean")
+            if mean is None:
                 return None, None, None
-            mean = phi @ decoder
-            # Posterior sd is surfaced only when the Rust payload already carries
-            # it. The delta-method covariance push-forward that once recomputed
-            # the band sd in Python (var = phiᵀ Σ phi per channel) was numeric
-            # SE/variance math and has been removed; SE is a Rust-owned quantity.
+            mean = np.asarray(mean, dtype=float)[order]
             sd = _opt_arr(atom, "shape_band_sd")
             if sd is not None:
                 sd = np.asarray(sd, dtype=float)[order]
@@ -1171,6 +1190,23 @@ class ManifoldSAE:
                 if payload.get("hybrid_split") is None
                 else dict(payload["hybrid_split"])
             ),
+            # #2132 — retain the terminal REML-selected ρ* so OOS encode
+            # optimizes the SAME penalized objective the fit converged under.
+            selected_log_lambda_sparse=(
+                None
+                if payload.get("log_lambda_sparse") is None
+                else float(payload["log_lambda_sparse"])
+            ),
+            selected_log_lambda_smooth=(
+                None
+                if payload.get("log_lambda_smooth") is None
+                else np.asarray(payload["log_lambda_smooth"], dtype=float)
+            ),
+            selected_log_ard=(
+                None
+                if payload.get("log_ard") is None
+                else [np.asarray(a, dtype=float) for a in payload["log_ard"]]
+            ),
         )
 
     def structure_certificate(self, *, alpha: float | None = None) -> dict[str, Any]:
@@ -1203,54 +1239,21 @@ class ManifoldSAE:
             the additional log-evidence a probe must accumulate before the claim
             crosses the confirmation threshold (0 once already confirmed).
         """
-        import json
-        import math
-
         if self.structure_certificate_json is None:
             raise ValueError(
                 "this fitted model carries no structure certificate (payload "
                 "predates #1058); refit to obtain one"
             )
-        cert = json.loads(self.structure_certificate_json)
-        entries = list(cert.get("entries", []))
-        stored_alpha = float(cert.get("alpha", 0.05))
-        level = stored_alpha if alpha is None else float(alpha)
-        if not (0.0 < level < 1.0):
-            raise ValueError(f"alpha must lie in (0, 1); got {level}")
-        log_e = [float(e["log_e"]) for e in entries]
-        confirmed_idx = set(_e_benjamini_hochberg(log_e, level))
-        # Measure the remaining budget against the SAME rank/multiplicity-aware
-        # e-BH threshold the local confirmation helper uses (#984/H): a claim at
-        # descending-log_e rank k (1-based) out of m clears the rule when
-        # log_e >= ln(m) - ln(alpha) - ln(k) == ln(m / (alpha*k)). The previous
-        # ln(1/alpha) threshold dropped the ln(m) - ln(k) term and so understated
-        # the evidence a contested claim still needs.
-        m = len(entries)
-        order = sorted(range(m), key=lambda j: log_e[j], reverse=True)
-        rank_of = {idx: rank0 + 1 for rank0, idx in enumerate(order)}
-        claims: list[dict[str, Any]] = []
-        for i, entry in enumerate(entries):
-            le = float(entry["log_e"])
-            k_rank = rank_of[i]
-            threshold = math.log(m) - math.log(level) - math.log(k_rank)
-            claims.append(
-                {
-                    "claim_index": i,
-                    "claim": _structure_claim_label(entry["kind"]),
-                    "kind": entry["kind"],
-                    "e_value": math.exp(le),
-                    "log_e": le,
-                    "steps": int(entry["steps"]),
-                    "confirmed": i in confirmed_idx,
-                    "evidence_remaining_nats": max(0.0, threshold - le),
-                }
+        # The whole accessor computation — re-run the rank/multiplicity-aware e-BH
+        # at `alpha`, and derive each claim's label, e-value, confirmed flag, and
+        # anytime-valid `evidence_remaining_nats` budget — lives in the Rust owner
+        # (#2091, SPEC thin-wrapper rule 8). We only json.loads its report.
+        return json.loads(
+            rust_module().sae_structure_certificate_report(
+                self.structure_certificate_json,
+                None if alpha is None else float(alpha),
             )
-        return {
-            "alpha": level,
-            "fdr_level": level,
-            "n_confirmed": len(confirmed_idx),
-            "claims": claims,
-        }
+        )
 
     def atom_inference(self) -> list[dict[str, Any]]:
         """Per-atom smooth-functional inference reports (#1097 / #1103).
@@ -1515,6 +1518,27 @@ class ManifoldSAE:
             # sub-models so the held-out reconstruction decodes verdict-linear
             # d=1 slots by the SAME linear image the training reconstruction used.
             hybrid_linear_images=self._hybrid_linear_images_for_oos(),
+            # #2132 — thread the trained TERMINAL ρ* so the frozen-decoder OOS
+            # Newton solve descends the SAME penalized objective the training
+            # state converged under. Without these the solve rebuilt ρ from the
+            # INITIAL sparsity/smoothness scalars and zero ARD — a different
+            # objective under which the trained optimum is not stationary, so
+            # re-encoding the training rows collapsed (warm start decayed BELOW
+            # the cold start). ``None`` entries keep the legacy fallback.
+            log_lambda_sparse=self.selected_log_lambda_sparse,
+            log_lambda_smooth=(
+                None
+                if self.selected_log_lambda_smooth is None
+                else [float(v) for v in np.asarray(self.selected_log_lambda_smooth, dtype=float)]
+            ),
+            log_ard=(
+                None
+                if self.selected_log_ard is None
+                else [[float(v) for v in np.asarray(a, dtype=float).ravel()] for a in self.selected_log_ard]
+            ),
+            # #2132 — a learnable-IBP fit's OOS gates must resolve α through the
+            # same learnable schedule (terminal log_lambda_sparse) as training.
+            learnable_alpha=bool(self.learnable_alpha),
         )
         return dict(payload)
 
@@ -1606,12 +1630,16 @@ class ManifoldSAE:
         false certificate). When omitted they default to the trained assignment
         magnitudes and the training-row norms, respectively.
         """
+        # Default bounds (per-atom max|assignment| and max row L2 of x) are
+        # reduced inside the Rust builder: hand it the raw arrays and a `None`
+        # sentinel rather than pre-reducing in NumPy. Explicit bounds pass
+        # through verbatim and the arrays are omitted.
+        assignments_arr = None
         if amplitude_bounds is None:
-            amp = np.abs(np.asarray(self.assignments, dtype=float))
-            amplitude_bounds = [
-                float(amp[:, k].max()) if amp.shape[0] else 1.0
-                for k in range(len(self._atom_dims))
-            ]
+            assignments_arr = np.ascontiguousarray(
+                np.asarray(self.assignments, dtype=float)
+            )
+        encode_rows_arr = None
         if target_norm_bound is None:
             if isinstance(self.training_data, _SaeTrainingDataHandle):
                 raise ValueError(
@@ -1619,9 +1647,8 @@ class ManifoldSAE:
                     "training data, but ManifoldSAE no longer stores the input matrix; "
                     "pass target_norm_bound explicitly."
                 )
-            td = np.asarray(self.training_data, dtype=float)
-            target_norm_bound = (
-                float(np.max(np.sqrt(np.sum(td * td, axis=1)))) if td.size else 1.0
+            encode_rows_arr = np.ascontiguousarray(
+                np.asarray(self.training_data, dtype=float)
             )
         return rust_module().build_sae_encode_atlas(
             list(self._basis_kinds),
@@ -1629,8 +1656,10 @@ class ManifoldSAE:
             [np.ascontiguousarray(b) for b in self.decoder_blocks],
             [None if c is None else np.ascontiguousarray(c) for c in self._duchon_centers],
             [int(s) for s in self._basis_sizes],
-            [float(a) for a in amplitude_bounds],
-            float(target_norm_bound),
+            None if amplitude_bounds is None else [float(a) for a in amplitude_bounds],
+            None if target_norm_bound is None else float(target_norm_bound),
+            assignments=assignments_arr,
+            encode_rows=encode_rows_arr,
             grid_resolution=int(grid_resolution),
             ridge=float(ridge),
             newton_steps=int(newton_steps),
@@ -2030,6 +2059,53 @@ class ManifoldSAE:
     def get_anchors(self) -> list[np.ndarray]:
         return [c.copy() for c in self.coords]
 
+    def description_length(self, *, l_param_bits: float | None = None) -> dict[str, Any] | None:
+        """Fit-level bits/token description length — the honest headline currency.
+
+        The manifold hypothesis is informational: a manifold in the data is a
+        redundancy in the CODES, priced in **bits/token**, not in the
+        matched-EV fraction of ambient residual variance that
+        ``experiments/real_manifold_sae/results.md`` shows is insensitive to the
+        thesis by construction. This returns the whole reconstruction's code
+        length per token decomposed into code / selection / dictionary bits.
+
+        The bits are computed by the Rust
+        ``sae_manifold_description_length`` core from this fit's own summary
+        quantities (achieved EV, mean active atoms per token, coordinate dim,
+        dictionary size ``K``, decoder scalar count); Python only marshals those
+        scalars. ``l_param_bits`` overrides the per-decoder-scalar precision
+        (default: the distortion-matched precision). Returns ``None`` for an
+        empty fit (no atoms or no coded tokens).
+        """
+        k_atoms = len(self.atoms)
+        n_tokens = int(self.fitted.shape[0]) if self.fitted.ndim >= 1 else 0
+        if k_atoms == 0 or n_tokens == 0:
+            return None
+        module = rust_module()
+        # The bits/token math lives entirely in the Rust core. When the loaded
+        # engine predates these exports (older build or a test double), degrade
+        # to ``None`` rather than crashing the report — the fit is unchanged.
+        dl_fn = getattr(module, "sae_manifold_description_length", None)
+        summary_fn = getattr(module, "sae_manifold_assignment_summary", None)
+        if dl_fn is None or summary_fn is None:
+            return None
+        threshold = _active_threshold_for_assignment(self.assignment, k_atoms)
+        avg_active, _mean_mass = summary_fn(self.assignments, threshold)
+        coord_dims = [int(c.shape[1]) for c in self.coords if c.ndim == 2 and c.shape[1] > 0]
+        coord_dim = float(np.mean(coord_dims)) if coord_dims else 1.0
+        n_params = int(sum(int(b.size) for b in self.decoder_blocks))
+        return dict(
+            dl_fn(
+                float(self.reconstruction_r2),
+                int(n_tokens),
+                float(avg_active),
+                float(coord_dim),
+                int(k_atoms),
+                int(n_params),
+                l_param_bits=None if l_param_bits is None else float(l_param_bits),
+            )
+        )
+
     def summary(self) -> dict[str, Any]:
         # Active-atom detection is mode-specific. The Rust counter is INCLUSIVE
         # (active iff assignment >= threshold), so the threshold is the next
@@ -2048,12 +2124,22 @@ class ManifoldSAE:
         score = (
             None if self.penalized_loss_score is None else float(self.penalized_loss_score)
         )
+        # Lead with the honest headline currency: bits/token and the description-
+        # length decomposition (code / selection / dictionary). Explained variance
+        # (``reconstruction_r2``) is kept but DEMOTED below it — matched-EV is
+        # insensitive to the manifold hypothesis by construction
+        # (``experiments/real_manifold_sae/results.md``); bits/token is not.
+        dl = self.description_length()
+        bits_per_token = None if dl is None else float(dl["bits_per_token"])
         return {
+            "bits_per_token": bits_per_token,
+            "description_length": dl,
             "K": len(self.atoms),
             "d_atom": int(self.coords[0].shape[1]) if self.coords else 0,
             "atom_topology": self.atom_topology, "assignment": self.assignment,
             "alpha": float(self.alpha), "learnable_alpha": bool(self.learnable_alpha),
             "penalized_loss_score": score, "reml_score": score,
+            # Secondary line: explained variance, demoted beneath bits/token.
             "reconstruction_r2": float(self.reconstruction_r2),
             "dispersion": float(self.dispersion),
             "atom_trust": np.asarray(self.diagnostics["atom_trust"], dtype=float).tolist(),
@@ -2152,7 +2238,17 @@ class ManifoldSAE:
                     "coords_u_arc": _optional_list(a.coords_u_arc),
                     "evidence": None if a.evidence is None else float(a.evidence),
                     "active_dim": int(a.active_dim),
-                    "decoder_covariance": _optional_list(a.decoder_covariance),
+                    # Objective-2 (band survives save/load): serialize the COMPACT
+                    # per-atom, per-channel covariance factor the shape band
+                    # actually consumes — the `(p, M_k, M_k)` same-channel Schur
+                    # blocks `Cov[(·,c),(·,c)]` — NOT the dense `(M_k·p)²` joint
+                    # covariance (gigabytes per atom at LLM-scale `p`, and the
+                    # cross-channel entries no band ever reads). `load()`
+                    # reconstructs the full-shape block-diagonal covariance from
+                    # this factor, reproducing the band to machine precision.
+                    "decoder_covariance_channel_factors": _channel_cov_factors(
+                        a.decoder_covariance, a.decoder_coefficients.shape[0]
+                    ),
                     "shape_band_coords": _optional_list(a.shape_band_coords),
                     "shape_band_mean": _optional_list(a.shape_band_mean),
                     "shape_band_sd": _optional_list(a.shape_band_sd),
@@ -2203,6 +2299,19 @@ class ManifoldSAE:
             ),
             "metric_provenance": str(self.metric_provenance),
             "fisher_mass_residual": _optional_list(self.fisher_mass_residual),
+            # #2132 — terminal REML-selected ρ*, round-tripped so a reloaded
+            # model's OOS encode optimizes the SAME objective the fit selected.
+            "selected_log_lambda_sparse": (
+                None
+                if self.selected_log_lambda_sparse is None
+                else float(self.selected_log_lambda_sparse)
+            ),
+            "selected_log_lambda_smooth": _optional_list(self.selected_log_lambda_smooth),
+            "selected_log_ard": (
+                None
+                if self.selected_log_ard is None
+                else [np.asarray(a, dtype=float).ravel().tolist() for a in self.selected_log_ard]
+            ),
         }
 
     def save(self, path: str | Path) -> None:
@@ -2240,7 +2349,14 @@ class ManifoldSAE:
                 coords=np.asarray(a["coords"], dtype=float),
                 evidence=None if a.get("evidence") is None else float(a["evidence"]),
                 active_dim=int(a["active_dim"]),
-                decoder_covariance=_optional_array(a, "decoder_covariance"),
+                # Reconstruct the full-shape `(M_k·p, M_k·p)` decoder covariance
+                # from the compact per-channel factor written by `to_dict`. It is
+                # block-diagonal across channels (the cross-channel entries the
+                # band never reads are not stored), so it reproduces the shape
+                # band `Σ_{b1,b2} Φ[b1]Φ[b2] Cov[(b1,c),(b2,c)]` exactly.
+                decoder_covariance=_channel_cov_from_factors(
+                    a.get("decoder_covariance_channel_factors")
+                ),
                 shape_band_coords=_optional_array(a, "shape_band_coords"),
                 shape_band_mean=_optional_array(a, "shape_band_mean"),
                 shape_band_sd=_optional_array(a, "shape_band_sd"),
@@ -2400,6 +2516,24 @@ class ManifoldSAE:
             structured_residual_diagnostics=[
                 dict(item) for item in payload.get("structured_residual_diagnostics", [])
             ],
+            # #2132 — restore the terminal REML-selected ρ* so a loaded model's
+            # OOS encode optimizes the SAME objective the fit selected. Legacy
+            # dicts lack these keys and load with the initial-scalar fallback.
+            selected_log_lambda_sparse=(
+                None
+                if payload.get("selected_log_lambda_sparse") is None
+                else float(payload["selected_log_lambda_sparse"])
+            ),
+            selected_log_lambda_smooth=(
+                None
+                if payload.get("selected_log_lambda_smooth") is None
+                else np.asarray(payload["selected_log_lambda_smooth"], dtype=float)
+            ),
+            selected_log_ard=(
+                None
+                if payload.get("selected_log_ard") is None
+                else [np.asarray(a, dtype=float) for a in payload["selected_log_ard"]]
+            ),
         )
 
     @classmethod
@@ -2450,7 +2584,7 @@ def sae_manifold_fit(X: Any = None, K: int | None = None, d_atom: int = 2, atom_
                      weights: Any = None,
                      separation_barrier_strength: float | None = None,
                      ibp_alpha: float | None = None,
-                     structured_residual_passes: int = 0,
+                     structured_residual_passes: int = 2,
                      promote_from_residual: bool = False,
                      score_mode: str = "auto",
                      _run_structure_search: bool = True,
@@ -2489,10 +2623,17 @@ def sae_manifold_fit(X: Any = None, K: int | None = None, d_atom: int = 2, atom_
         ``top_k`` cap from rows per atom when the caller leaves ``top_k`` unset.
         ``"ibp_map"`` uses the IBP-MAP gate path as an explicit small-fit
         research mode, and ``"threshold_gate"`` uses the
-        hard-sigmoid gate family (#1777, renamed from ``"jumprelu"``). Public
-        aliases are accepted (#159):
+        hard-sigmoid gate family (#1777, renamed from ``"jumprelu"``).
+        ``"topk"`` is the hard per-row support gate (``AssignmentMode::TopK``):
+        it requires an explicit ``top_k`` (the fixed active-set size), carries
+        no live gate coordinates, and is therefore the one assignment admitted
+        to the CURVED framed/streaming manifold lane in the overcomplete
+        ``K > P`` regime (within the host memory budget; refused with an
+        actionable error over it) instead of the penalty-gated sparse-code
+        reroute. Public aliases are accepted (#159):
         ``"ibp"``/``"ibp-map"``/``"ibp_map"`` -> ``"ibp_map"``,
         ``"softmax"`` -> ``"softmax"``,
+        ``"topk"``/``"top_k"`` -> ``"topk"``,
         ``"threshold_gate"`` (primary) and the deprecated
         ``"gated"``/``"jump_relu"``/``"jumprelu"`` -> ``"threshold_gate"``.
         ``assignment_prior`` is an alias for ``assignment`` and normalizes
@@ -2575,14 +2716,19 @@ def sae_manifold_fit(X: Any = None, K: int | None = None, d_atom: int = 2, atom_
         dictionary and left the K=128 fit rank-deficient). A per-fit ``ibp_alpha``
         or the global ``sae_set_ibp_alpha`` setter still overrides it.
     structured_residual_passes
-        Number of structured-residual sculpting passes run after the primary
-        joint fit. Defaults to ``0`` (off). Each pass fits the current
-        reconstruction residual and folds the recovered structure back into the
-        atom dictionary. Must be a non-negative int; the native core clamps the
-        effective count to ``STRUCTURED_RESIDUAL_PASSES_MAX`` (currently ``4``),
-        so larger values behave like ``4``. An explicit, typed opt-in — with the
-        default ``0`` the fit is bit-identical to the pre-existing behavior. The
-        default-on iid→structured refit is deferred to #2080.
+        Number of structured-residual whitening passes run after the primary
+        joint fit. Defaults to ``2`` (#2021 — ON by default; "magic by default":
+        the superposition-aware whitened metric is the best-known behavior, not
+        an opt-in). Each pass fits the current reconstruction residual's
+        structured covariance and installs the Σ-damped per-row metric under the
+        annealed schedule ``γ_p = (p+1)/(N+1)``, so with the default ``N = 2``
+        the final pass installs a majority-structured metric (``γ = 2/3``); ``2``
+        is also the ``PROMOTION_NURSERY_MIN_PASSES`` dwell, so the default budget
+        is coherent with the (opt-in) residual-atom promotion. Pass ``0`` to
+        force the legacy iid fit (bit-identical to the pre-#2021 behavior). Must
+        be a non-negative int; the native core clamps the effective count to
+        ``STRUCTURED_RESIDUAL_PASSES_MAX`` (currently ``4``), so larger values
+        behave like ``4``.
     promote_from_residual
         When ``True`` (default ``False``), atoms discovered in the structured
         residual passes are promoted into the primary atom tier rather than kept
@@ -3014,13 +3160,34 @@ def sae_manifold_fit(X: Any = None, K: int | None = None, d_atom: int = 2, atom_
             )
         else:
             top_k_arg = top_k_int
-    # Front-door lane admission: the dense exact manifold engine is the small-K
-    # certification lane only. Once its `N x K` assignment state would exceed the
-    # response matrix scale `N x P`, route to the sparse-code trainer before
-    # constructing dense logits / coordinates. The admission decision is owned by
-    # the Rust front door so the Python public entry and FFI boundary share one
-    # K-vs-P rule.
-    admission = _sae_fit_admission(n_obs, int(x.shape[1]), k_atoms)
+    # The hard top-k support gate (`AssignmentMode::TopK`) has no default
+    # support size: its per-row active set IS the model. Require it eagerly so
+    # a K > P topk request can never fall through to the penalty-gated K-vs-P
+    # rule below (which would reroute a MANIFOLD request to the linear trainer
+    # — the exact silent substitution the front door exists to prevent).
+    if kind == "topk" and top_k_arg is None:
+        raise ValueError(
+            f"sae_manifold_fit: assignment='topk' requires top_k (the fixed per-row "
+            f"active-set size, in [1, K={k_atoms}])"
+        )
+    # Front-door lane admission, owned by the Rust front door so the Python
+    # public entry and the FFI boundary share one rule:
+    #   * penalty-gated assignments (softmax / ibp_map / threshold_gate) carry
+    #     live N x K Newton logits, so the dense exact manifold engine is their
+    #     small-K certification lane only: once K > P they route to the
+    #     sparse-code trainer before constructing dense logits / coordinates;
+    #   * assignment='topk' carries NO gate coordinates (read-only routing,
+    #     per-row active sets of size top_k), so K > P is admitted to the
+    #     CURVED framed/streaming lane ("curved_streaming") within the host
+    #     memory budget, and refused with an actionable error over it — never
+    #     substituted with the linear lane.
+    admission = _sae_fit_admission(
+        n_obs,
+        int(x.shape[1]),
+        k_atoms,
+        d_max=max(dims),
+        topk_support=(top_k_arg if kind == "topk" else None),
+    )
     if admission["lane"] == "sparse_codes":
         if a_init is not None or t_init is not None:
             raise ValueError(
@@ -3431,12 +3598,19 @@ class StagewiseSAE:
         return self.to_manifold_sae().encode(X, **kwargs)
 
     def reconstruction_ev(self) -> float:
-        """Centered explained variance of the in-sample reconstruction."""
-        x = np.asarray(self.training_data, dtype=np.float64)
-        recon = self._in_sample_reconstruction()
-        rss = float(np.sum((x - recon) ** 2))
-        tss = float(np.sum((x - x.mean(axis=0, keepdims=True)) ** 2))
-        return 1.0 - rss / tss if tss > 0.0 else 0.0
+        """Centered explained variance of the in-sample reconstruction.
+
+        The coefficient of determination ``R² = 1 − SSR/SST`` (column-mean-centered
+        SST, residual SSR) is a numeric kernel owned by the Rust core —
+        ``sae_manifold_reconstruction_r2``, the same FFI
+        :class:`gamfit.crosscoder` reports — so the SSR/SST reduction, the
+        ``SST == 0 → NaN`` convention, and the non-finite guards live there rather
+        than being re-derived in Python (SPEC thin-wrapper rule). Marshals the
+        target and composed reconstruction as contiguous ``f64`` and forwards.
+        """
+        x = np.ascontiguousarray(np.asarray(self.training_data, dtype=np.float64))
+        recon = np.ascontiguousarray(self._in_sample_reconstruction())
+        return float(rust_module().sae_manifold_reconstruction_r2(x, recon))
 
 
 def _basis_with_jet_for_atom(
@@ -3468,19 +3642,15 @@ def _basis_with_jet_for_atom(
         # atom can degenerate to the DC-only width M = 1 (H = 0) — the SAC driver
         # emits these — so H is ``(M - 1) // 2`` with NO ``max(1, …)`` floor: a
         # spurious floor would rebuild a 3-column Φ against a 1-row decoder and the
-        # ``Φ @ B`` reconstruct would raise a shape mismatch. For H = 0 the basis is
-        # just the constant column, evaluated here directly (the Rust harmonic
-        # evaluator agrees: ``PeriodicHarmonicEvaluator::new(1)`` → Φ ≡ 1).
-        n_harmonics = (int(basis_size) - 1) // 2
-        if n_harmonics <= 0:
-            n_rows = int(t.shape[0])
-            phi = np.ones((n_rows, 1), dtype=np.float64)
-            jet = np.zeros((n_rows, 1, 1), dtype=np.float64)
-            penalty = np.zeros((1, 1), dtype=np.float64)
-        else:
-            phi, jet, penalty = rust_module().basis_with_jet(
-                "periodic", t[:, :1], {"n_harmonics": int(n_harmonics)}
-            )
+        # ``Φ @ B`` reconstruct would raise a shape mismatch. H = 0 is not a Python
+        # special case: the Rust ``basis_with_jet`` periodic kernel honours
+        # ``n_harmonics = 0`` natively (M = 1 constant column, zero jet, DC-only
+        # penalty — the same DC treatment every wider periodic atom gets), so all
+        # widths route through the one Rust kernel and no basis math lives here.
+        n_harmonics = max((int(basis_size) - 1) // 2, 0)
+        phi, jet, penalty = rust_module().basis_with_jet(
+            "periodic", t[:, :1], {"n_harmonics": int(n_harmonics)}
+        )
     elif canon == "sphere":
         phi, jet, penalty = rust_module().basis_with_jet("sphere", t[:, : max(1, latent_dim)], {})
     else:
@@ -4365,17 +4535,12 @@ def _trust_scores(model: ManifoldSAE, activations: np.ndarray | None = None) -> 
             "trust score assignments shape mismatch: "
             f"expected {(n_rows, n_atoms)}, got {assignments.shape}"
         )
-    weights = np.clip(assignments, 0.0, np.inf)
-    denom = weights.sum(axis=1)
-    normalized = np.divide(
-        weights,
-        denom[:, None],
-        out=np.zeros_like(weights, dtype=float),
-        where=denom[:, None] > 0.0,
+    row, per_atom = rust_module().sae_row_trust_scores(
+        np.ascontiguousarray(assignments, dtype=np.float64),
+        np.ascontiguousarray(atom_trust, dtype=np.float64),
     )
-    per_atom = normalized * atom_trust[None, :]
     return {
-        "row": per_atom.sum(axis=1),
+        "row": row,
         "per_atom": per_atom,
         "atom": atom_trust,
         "diagnostics": model.diagnostics,

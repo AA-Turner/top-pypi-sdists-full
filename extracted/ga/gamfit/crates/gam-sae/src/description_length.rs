@@ -494,6 +494,298 @@ pub fn kappa_coding_gain_detector(kappa: f64) -> f64 {
     (kappa - 2.0).powi(2)
 }
 
+// ===========================================================================
+// Matched description length (curved-vs-flat in bits): the honest headline
+// currency for a birth. EV alone is not comparable across topologies — a circle
+// chart and a line atom that reach the same EV pay DIFFERENT description lengths,
+// so the fair comparison is total bits, parameter charge PLUS per-firing coding.
+// ===========================================================================
+//
+// # The uniform-quantization coding argument (per-firing coordinate bits)
+//
+// A firing's coordinate — a circle chart's PHASE `t ∈ [0, 1)`, or a flat atom's
+// AMPLITUDE on its unit range — is recovered with a delta-method standard error
+// `SE = σ / (2π·‖z‖)` (the already-computed coordinate SE; `σ` the per-component
+// residual scale, `‖z‖` the firing radius). To TRANSMIT that coordinate we quantize
+// it with a uniform quantizer of cell width `Δ`. A uniform quantizer of width `Δ`
+// has quantization-noise variance `Δ²/12` (the variance of `U(−Δ/2, Δ/2)`). There
+// is no point resolving the coordinate finer than the estimator's own uncertainty,
+// so we MATCH the quantizer to the estimate — set the quantization noise equal to
+// the estimation variance, `Δ²/12 = SE²`, i.e. cell width `Δ = SE·√12` (a `±SE·√12/2`
+// uniform resolution). Coding a coordinate that ranges over a unit interval at that
+// resolution costs
+//
+// ```text
+//   bits(SE) = log₂(range / Δ) = log₂(1 / (SE·√12)) = −½·log₂(12·SE²)
+//            = ½·log₂( 1 / (12·SE²) ).
+// ```
+//
+// The cost is floored at 0: once `SE ≥ 1/√12` (the SD of `U(0,1)` — the maximum-
+// entropy prior on a unit-range coordinate, exactly the phase-SE ceiling the
+// coordinate readout clamps to), the coordinate is not localized beyond its prior
+// and carries no code bits.
+//
+// # The matched description length of a chart / atom
+//
+// A featurizer that stores `C` dictionary columns in ambient dim `p`, each scalar
+// quantized to `l_param` bits, and fires `f` times, has description length
+//
+// ```text
+//   total_dl_bits = C·p·l_param            (parameter-column charge)
+//                 + Σ_{i=1..f} bits(SE_i)  (per-firing coordinate coding)
+// ```
+//
+// A **circle chart** of harmonic order `H` charges `C = 2H + 1` columns (a cos and
+// a sin row per harmonic, plus the constant/DC row) and per-firing PHASE bits. A
+// **line / flat atom** charges `C = 1` column and per-firing AMPLITUDE bits under
+// the same `bits(SE)` rule. The curved-vs-flat comparison then reads directly in
+// bits via [`matched_dl_delta`] (flat − chart; positive ⇒ the curved chart is the
+// shorter code) and per-chart [`MatchedDl::dl_per_ev`].
+
+/// SD of the uniform distribution on a unit-range coordinate, `√(1/12)` — the
+/// phase-SE ceiling above which a coordinate carries no code bits beyond its prior.
+pub fn uniform_unit_range_sd() -> f64 {
+    (1.0f64 / 12.0).sqrt()
+}
+
+/// Uniform-quantization coding cost, in bits, of one unit-range coordinate known to
+/// standard error `se`: `½·log₂(1/(12·se²))`, floored at 0.
+///
+/// Derived in the module note: matching a uniform quantizer's noise variance
+/// `Δ²/12` to the estimation variance `se²` gives cell width `Δ = se·√12` and cost
+/// `log₂(1/Δ) = ½·log₂(1/(12·se²))`. Returns `0` for `se ≥ 1/√12` (the coordinate
+/// is not localized beyond its `U(0,1)` prior) and `+∞` for a perfectly-known
+/// `se = 0` (an exact continuous value needs unbounded bits). A non-finite or
+/// negative `se` is treated as unidentified (`0` bits).
+pub fn se_resolution_bits(se: f64) -> f64 {
+    if !se.is_finite() || se < 0.0 {
+        return 0.0;
+    }
+    if se == 0.0 {
+        return f64::INFINITY;
+    }
+    let bits = -0.5 * (12.0 * se * se).log2();
+    bits.max(0.0)
+}
+
+/// Dictionary-column count a circle chart of harmonic order `H` charges: `2H + 1`
+/// (a cos and a sin row per harmonic plus the constant/DC row). `H = 0` degenerates
+/// to the single constant column (`1`).
+pub fn circle_chart_columns(harmonic_order: usize) -> i64 {
+    2 * harmonic_order as i64 + 1
+}
+
+/// The matched description length of one chart / atom, in bits: the parameter-column
+/// charge plus the summed per-firing coordinate coding bits (see the module note).
+#[derive(Clone, Copy, Debug)]
+pub struct MatchedDl {
+    /// Dictionary columns charged (`2H+1` for a circle chart, `1` for a flat atom).
+    pub coded_columns: i64,
+    /// Ambient dimension `p` each stored column spans.
+    pub ambient_p: i64,
+    /// Bits per stored dictionary scalar.
+    pub l_param_bits: f64,
+    /// Parameter-column charge `C·p·l_param` (bits).
+    pub param_bits: f64,
+    /// Coordinates transmitted PER FIRING: `d_atom` for a chart (1 for a circle),
+    /// `block_size` for a flat block that codes every coefficient. This is the
+    /// code-economy axis — at matched per-scalar distortion, a chart spanning the
+    /// same subspace as a b-dim block saves `(b − d)` coded scalars per firing.
+    pub coords_per_firing: i64,
+    /// Summed per-firing coordinate coding bits `coords_per_firing · Σ_i bits(SE_i)`.
+    pub coding_bits: f64,
+    /// Number of firings coded.
+    pub n_firings: i64,
+    /// Total description length `param_bits + coding_bits` (bits).
+    pub total_dl_bits: f64,
+    /// Explained variance the chart / atom achieves (the reported dose).
+    pub ev: f64,
+    /// Matched-DL cost per unit EV, `total_dl_bits / ev` (`+∞` when `ev ≤ 0`).
+    pub dl_per_ev: f64,
+}
+
+/// Assemble the matched description length of a chart / atom from its column count,
+/// ambient dim, per-scalar precision, per-firing coordinate SEs, and achieved EV.
+///
+/// `coded_columns` is `2H+1` for a circle chart ([`circle_chart_columns`]) or the
+/// column count of a flat block. `coords_per_firing` is how many coordinates each
+/// FIRING transmits — `d_atom` for a chart (1 for a circle's phase), `block_size`
+/// for a flat block coding every coefficient: at matched per-scalar distortion the
+/// per-firing bits are `coords_per_firing · se_resolution_bits(SE_i)`, so the
+/// chart's code economy (fewer transmitted scalars per firing) is priced, not
+/// erased. `per_firing_se` are the delta-method coordinate SEs (`σ/(2π‖z‖)`), one
+/// per firing. The total is `coded_columns·ambient_p·l_param_bits +
+/// coords_per_firing·Σ_i se_resolution_bits(SE_i)`.
+pub fn matched_dl(
+    coded_columns: i64,
+    coords_per_firing: i64,
+    ambient_p: i64,
+    l_param_bits: f64,
+    per_firing_se: &[f64],
+    ev: f64,
+) -> MatchedDl {
+    let coded_columns = coded_columns.max(0);
+    let coords_per_firing = coords_per_firing.max(0);
+    let ambient_p = ambient_p.max(0);
+    let param_bits = coded_columns as f64 * ambient_p as f64 * l_param_bits.max(0.0);
+    let coding_bits: f64 = coords_per_firing as f64
+        * per_firing_se
+            .iter()
+            .map(|&se| se_resolution_bits(se))
+            .sum::<f64>();
+    let total = param_bits + coding_bits;
+    let dl_per_ev = if ev > 0.0 { total / ev } else { f64::INFINITY };
+    MatchedDl {
+        coded_columns,
+        ambient_p,
+        l_param_bits,
+        param_bits,
+        coords_per_firing,
+        coding_bits,
+        n_firings: per_firing_se.len() as i64,
+        total_dl_bits: total,
+        ev,
+        dl_per_ev,
+    }
+}
+
+/// Matched-DL delta `flat − chart`, in bits: the description length the curved chart
+/// SAVES over the flat/line atom at the SAME firings. Positive ⇒ the curved chart is
+/// the shorter code (curvature pays in bits); negative ⇒ the flat atom is cheaper
+/// (the honest "curvature does not pay here" verdict).
+pub fn matched_dl_delta(flat: &MatchedDl, chart: &MatchedDl) -> f64 {
+    flat.total_dl_bits - chart.total_dl_bits
+}
+
+// ===========================================================================
+// Fit-level bits/token: the headline currency for a WHOLE manifold-SAE fit.
+// The per-featurizer `score` surface prices ONE featurizer at a stated floor;
+// this prices the entire reconstruction at its achieved explained variance, so
+// the user-facing report can LEAD with bits/token instead of the
+// manifold-insensitive matched-EV number (see
+// `experiments/real_manifold_sae/results.md`).
+// ===========================================================================
+
+/// The fit-level description length of a manifold-SAE reconstruction, in bits,
+/// decomposed into the same three ledgers the [`score`] surface uses: CODE
+/// (the coordinates transmitted per firing), SELECTION (naming which atoms
+/// fired), and DICTIONARY (the amortised decoder).
+///
+/// # Currency (reuses [`scalar_rate_bits`] + [`selection_bits`], no new math)
+///
+/// A token is coded by (1) naming which `k_active` of `g_dict` atoms fired —
+/// `selection_bits(g_dict, k_active)` bits — and (2) transmitting each firing's
+/// `coord_dim` latent coordinates. A unit-variance coordinate coded to the
+/// achieved RELATIVE distortion `1 − ev` costs `scalar_rate_bits(1, 1 − ev)`
+/// bits — the numerically-kind reverse-water-filling rate `½·log₂(1 + 1/(1−ev))`
+/// (≈ `½·log₂(1/(1−ev))` once `ev` is high) at the fit's operating EV: a higher
+/// EV means a finer distortion floor and therefore MORE code bits, the honest
+/// rate–distortion trade the matched-EV comparison hides. The decoder is stored
+/// once, `n_params · l_param_bits`, amortised across the `n_tokens` corpus.
+///
+/// `bits_per_token = total_bits / n_tokens` is the headline. It is the code
+/// length per token of the WHOLE representation (codes + amortised dictionary),
+/// so two fits at matched EV but different topologies are finally comparable in
+/// the currency the manifold thesis is stated in.
+#[derive(Clone, Copy, Debug)]
+pub struct ManifoldFitDl {
+    /// Explained variance the reconstruction achieves (the demoted EV line).
+    pub ev: f64,
+    /// Number of coded tokens `N`.
+    pub n_tokens: i64,
+    /// Mean active atoms per token `k̄` (the firing count charged per token).
+    pub k_active: f64,
+    /// Mean coded coordinates per active atom `d̄`.
+    pub coord_dim: f64,
+    /// Dictionary size `G` (atom count) the selection cost names into.
+    pub g_dict: i64,
+    /// Decoder scalar count `n_params = Σ_k M_k·p` charged at `l_param_bits`.
+    pub n_params: i64,
+    /// Per-coordinate code rate `½·log₂(1 + 1/(1 − ev))` (bits): the numerically-
+    /// kind rate to code one unit-variance coordinate to the achieved floor
+    /// (`≈ ½·log₂(1/(1 − ev))` once `ev` is high).
+    pub coordinate_rate_bits: f64,
+    /// Bits per stored dictionary scalar (`l_param_bits`); defaults to the
+    /// distortion-matched precision `coordinate_rate_bits`.
+    pub l_param_bits: f64,
+    /// Selection bits per token, `log₂ C(G, round(k̄))`.
+    pub selection_bits_per_token: f64,
+    /// Code bits per token, `k̄ · d̄ · coordinate_rate_bits`.
+    pub code_bits_per_token: f64,
+    /// Amortised dictionary bits per token, `n_params · l_param_bits / N`.
+    pub dict_bits_per_token: f64,
+    /// Total code bits over the corpus, `N · code_bits_per_token`.
+    pub code_bits: f64,
+    /// Total selection bits over the corpus, `N · selection_bits_per_token`.
+    pub selection_bits: f64,
+    /// Total dictionary bits (not per token), `n_params · l_param_bits`.
+    pub dict_bits: f64,
+    /// Total description length in bits, `code + selection + dict`.
+    pub total_bits: f64,
+    /// The headline currency: `total_bits / n_tokens`.
+    pub bits_per_token: f64,
+}
+
+/// Assemble the fit-level [`ManifoldFitDl`] from a fit's own summary quantities.
+///
+/// `ev` is the achieved explained variance, `n_tokens` the coded-token count,
+/// `k_active` the mean active atoms per token, `coord_dim` the mean coded
+/// coordinates per active atom, `g_dict` the dictionary size, `n_params` the
+/// decoder scalar count, and `l_param_bits` the per-scalar decoder precision
+/// (`None` ⇒ the distortion-matched precision = the per-coordinate code rate).
+/// Every quantity is READ OFF an existing fit; nothing is re-fit. `1 − ev` is
+/// floored at a tiny positive so a numerically-saturated fit reports a large
+/// (finite) code rate rather than `∞`.
+pub fn manifold_fit_description_length(
+    ev: f64,
+    n_tokens: i64,
+    k_active: f64,
+    coord_dim: f64,
+    g_dict: i64,
+    n_params: i64,
+    l_param_bits: Option<f64>,
+) -> ManifoldFitDl {
+    // Relative distortion floor achieved by the reconstruction. Floored away
+    // from zero so a saturated fit reports a large finite rate, not +∞.
+    let rel_distortion = (1.0 - ev).max(1.0e-12);
+    let coordinate_rate_bits = scalar_rate_bits(1.0, rel_distortion);
+    let l_param = l_param_bits.unwrap_or(coordinate_rate_bits).max(0.0);
+
+    let k_round = k_active.max(0.0).round() as i64;
+    let selection_bits_per_token = selection_bits(g_dict, k_round);
+    let code_bits_per_token = k_active.max(0.0) * coord_dim.max(0.0) * coordinate_rate_bits;
+    let dict_bits = n_params.max(0) as f64 * l_param;
+
+    let n = n_tokens.max(0) as f64;
+    let code_bits = n * code_bits_per_token;
+    let selection_bits_total = n * selection_bits_per_token;
+    let total_bits = code_bits + selection_bits_total + dict_bits;
+    let (bits_per_token, dict_bits_per_token) = if n_tokens > 0 {
+        (total_bits / n, dict_bits / n)
+    } else {
+        (f64::INFINITY, f64::INFINITY)
+    };
+
+    ManifoldFitDl {
+        ev,
+        n_tokens,
+        k_active,
+        coord_dim,
+        g_dict,
+        n_params,
+        coordinate_rate_bits,
+        l_param_bits: l_param,
+        selection_bits_per_token,
+        code_bits_per_token,
+        dict_bits_per_token,
+        code_bits,
+        selection_bits: selection_bits_total,
+        dict_bits,
+        total_bits,
+        bits_per_token,
+    }
+}
+
 #[cfg(test)]
 #[path = "description_length_tests.rs"]
 mod description_length_tests;

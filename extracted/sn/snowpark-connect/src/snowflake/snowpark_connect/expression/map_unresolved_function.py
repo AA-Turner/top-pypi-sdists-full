@@ -78,6 +78,7 @@ from snowflake.snowpark_connect.config import (
     get_boolean_session_config_param,
     get_timestamp_type,
     global_config,
+    is_aggregate_string_coercion_enabled,
     is_complex_type_nullability_enabled,
 )
 from snowflake.snowpark_connect.constants import (
@@ -150,10 +151,6 @@ from snowflake.snowpark_connect.utils.context import (
     resolving_lambda_function,
     set_is_aggregate_function,
 )
-from snowflake.snowpark_connect.utils.jvm_udf_utils import (
-    expand_struct_arg_for_scala_udf,
-    is_native_sql_type,
-)
 from snowflake.snowpark_connect.utils.session import get_or_create_snowpark_session
 from snowflake.snowpark_connect.utils.snowpark_connect_logging import logger
 from snowflake.snowpark_connect.utils.spark_session_cache import get_spark_session_cache
@@ -168,7 +165,6 @@ from snowflake.snowpark_connect.utils.udf_cache import (
     register_cached_java_udf,
     register_cached_sql_udf,
 )
-from snowflake.snowpark_connect.utils.variant_utils import scala_udf_arg_to_variant
 from snowflake.snowpark_connect.utils.xxhash64 import DEFAULT_SEED
 
 MAX_UINT64 = 2**64 - 1
@@ -736,6 +732,7 @@ def map_unresolved_function(
     )
     spark_col_names = []
     spark_sql_ansi_enabled = global_config.spark_sql_ansi_enabled
+    aggregate_string_coercion_enabled = is_aggregate_string_coercion_enabled()
     spark_sql_legacy_allow_hash_on_map_type = (
         global_config.spark_sql_legacy_allowHashOnMapType
     )
@@ -914,31 +911,11 @@ def map_unresolved_function(
     match function_name:
         case func_name if cache.udfs.has(func_name.lower()):
             udf = cache.udfs.get(func_name.lower())
-            udf_args = []
-            for position, (arg, tc) in enumerate(
-                zip(snowpark_args, snowpark_typed_args)
-            ):
-                if (
-                    udf.is_scala
-                    and not udf.is_java_udaf
-                    and udf.decomposes_struct_arg(position, tc.typ)
-                ):
-                    udf_args.extend(expand_struct_arg_for_scala_udf(tc, column_mapping))
-                elif udf.is_scala and not is_native_sql_type(tc.typ):
-                    udf_args.append(scala_udf_arg_to_variant(arg, tc.typ))
-                elif udf.is_scala:
-                    # Native scalar arg → pass natively to match the native DDL param.
-                    udf_args.append(arg)
-                else:
-                    udf_args.append(snowpark_fn.cast(arg, VariantType()))
-            result_exp = udf.call(
-                udf_args, snowpark_typed_args, get_or_create_snowpark_session()
+            # The UDF handle owns the full marshalling round-trip; same path the inline
+            # call site (map_udf) uses. Returns a TypedColumn, normalized below.
+            result_exp = udf.invoke(
+                snowpark_typed_args, column_mapping, get_or_create_snowpark_session()
             )
-            if udf.cast_to_original_return_type:
-                result_exp = snowpark_fn.cast(result_exp, udf.original_return_type)
-                result_type = udf.original_return_type
-            else:
-                result_type = udf.return_type
         case func_name if (
             get_is_evaluating_sql() and cache.udtfs.has(func_name.lower())
         ):
@@ -2073,8 +2050,15 @@ def map_unresolved_function(
             input_type = snowpark_typed_args[0].typ
             nullable = _unary_nullable(snowpark_typed_args)
             if isinstance(input_type, StringType):
+                # SNOW-3585745: match Spark's string->double coercion (TRY_CAST
+                # in non-ANSI so malformed input becomes NULL instead of raising
+                # Snowflake error 100038).
                 result_exp = snowpark_fn.abs(
-                    snowpark_fn.cast(snowpark_args[0], DoubleType())
+                    _coerce_string_input_to_double(
+                        snowpark_args[0],
+                        spark_sql_ansi_enabled,
+                        aggregate_string_coercion_enabled,
+                    )
                 )
                 result_type = FieldType(DoubleType(), nullable)
             elif isinstance(input_type, _IntegralType):
@@ -2837,7 +2821,17 @@ def map_unresolved_function(
             else:
                 result_type = DoubleType()
 
-            avg_exp = snowpark_fn.avg(snowpark_args[0])
+            avg_arg = snowpark_args[0]
+            if isinstance(input_type, StringType):
+                # SNOW-3585745: Spark coerces string inputs to double; a strict
+                # CAST here fails with 100038 on non-numeric data even in
+                # non-ANSI mode. Use TRY_CAST (NULL on bad input) to match Spark.
+                avg_arg = _coerce_string_input_to_double(
+                    avg_arg,
+                    spark_sql_ansi_enabled,
+                    aggregate_string_coercion_enabled,
+                )
+            avg_exp = snowpark_fn.avg(avg_arg)
             if (
                 isinstance(input_type, DecimalType)
                 and result_type.precision - result_type.scale
@@ -10175,7 +10169,9 @@ def map_unresolved_function(
 
             arg = snowpark_args[0]
             if isinstance(input_type, StringType):
-                arg = snowpark_fn.cast(arg, DoubleType())
+                arg = _coerce_string_input_to_double(
+                    arg, spark_sql_ansi_enabled, aggregate_string_coercion_enabled
+                )
 
             if isinstance(input_type, DecimalType):
                 result_type = _bounded_decimal(
@@ -12632,6 +12628,32 @@ def _try_cast_to_double(column: Column, from_: DataType) -> Column:
         else snowpark_fn.cast(column, StringType())
     )
     return snowpark_fn.try_cast(string_column, DoubleType())
+
+
+def _coerce_string_input_to_double(
+    arg: Column, ansi_enabled: bool, coercion_enabled: bool = True
+) -> Column:
+    """Coerce a string argument of a numeric function to ``DoubleType``.
+
+    Spark implicitly casts string inputs of numeric functions (e.g. ``sum``,
+    ``avg``, ``abs``) to double. In non-ANSI mode a malformed string coerces to
+    NULL (so the aggregate simply ignores that row); in ANSI mode the cast
+    raises. We mirror that exactly: ``TRY_CAST`` when non-ANSI, strict ``CAST``
+    when ANSI.
+
+    SNOW-3585745: previously this always used a strict ``CAST``, so a single
+    non-numeric value made the whole query fail with Snowflake error 100038
+    ("Numeric value '...' is not recognized") even in non-ANSI mode, where Spark
+    would have returned a result.
+
+    When *coercion_enabled* is False the pre-BCR strict ``CAST`` is restored
+    regardless of ANSI mode, so customers who relied on the 100038 error as a
+    data-quality gate can revert via config flag
+    ``snowpark.connect.aggregate.coerceStringToNumeric=false``.
+    """
+    if ansi_enabled or not coercion_enabled:
+        return snowpark_fn.cast(arg, DoubleType())
+    return snowpark_fn.try_cast(arg, DoubleType())
 
 
 def _extract_window_args(fn: expressions_proto.Expression) -> (str, str):

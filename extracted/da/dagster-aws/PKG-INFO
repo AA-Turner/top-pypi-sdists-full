@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: dagster-aws
-Version: 0.29.12
+Version: 0.29.13
 Summary: Package for AWS-specific Dagster framework solid and resource components.
 Project-URL: Homepage, https://github.com/dagster-io/dagster/tree/master/python_modules/libraries/dagster-aws
 Author-email: Dagster Labs <hello@dagsterlabs.com>
@@ -8,11 +8,11 @@ License-Expression: Apache-2.0
 License-File: LICENSE
 Requires-Python: <3.15,>=3.10
 Requires-Dist: boto3
-Requires-Dist: dagster==1.13.12
+Requires-Dist: dagster==1.13.13
 Requires-Dist: packaging
 Requires-Dist: requests
 Provides-Extra: pyspark
-Requires-Dist: dagster-pyspark==0.29.12; extra == 'pyspark'
+Requires-Dist: dagster-pyspark==0.29.13; extra == 'pyspark'
 Provides-Extra: redshift
 Requires-Dist: psycopg2-binary; extra == 'redshift'
 Provides-Extra: stubs

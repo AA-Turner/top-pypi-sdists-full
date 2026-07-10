@@ -17,6 +17,8 @@ from logging import FileHandler
 import multiprocessing
 import sys
 from typing import Any, ClassVar, Dict, List, Literal, Optional, TypedDict, Union
+from urllib.parse import urlparse
+from urllib.request import getproxies_environment, proxy_bypass_environment
 from typing_extensions import NotRequired, Self
 
 import urllib3
@@ -329,7 +331,7 @@ conf = koyeb.api.Configuration(
            per pool. None in the constructor is coerced to cpu_count * 5.
         """
 
-        self.proxy = proxy
+        self.proxy = proxy if proxy is not None else self._get_proxy_from_env()
         """Proxy URL
         """
         self.proxy_headers = proxy_headers
@@ -355,6 +357,19 @@ conf = koyeb.api.Configuration(
         self.date_format = date_format
         """date format
         """
+
+    def _get_proxy_from_env(self) -> Optional[str]:
+        proxies = getproxies_environment()
+        if not proxies:
+            return None
+
+        parsed = urlparse(self._base_path)
+        host = parsed.hostname or ''
+
+        if proxy_bypass_environment(host):
+            return None
+
+        return proxies.get(parsed.scheme) or proxies.get('all') or None
 
     def __deepcopy__(self, memo:  Dict[int, Any]) -> Self:
         cls = self.__class__
@@ -554,7 +569,7 @@ conf = koyeb.api.Configuration(
                "OS: {env}\n"\
                "Python Version: {pyversion}\n"\
                "Version of the API: 1.0.0\n"\
-               "SDK Package Version: 1.5.0".\
+               "SDK Package Version: 1.5.1".\
                format(env=sys.platform, pyversion=sys.version)
 
     def get_host_settings(self) -> List[HostSetting]:

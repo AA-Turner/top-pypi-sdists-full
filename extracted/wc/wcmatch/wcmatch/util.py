@@ -7,13 +7,13 @@ import re
 import unicodedata
 from functools import wraps
 import warnings
-from typing import Any, Callable, AnyStr, Match, Pattern
+from typing import Any, Callable, AnyStr, Match, Pattern, Literal
 
 PY312 = (3, 12) <= sys.version_info
 PY313 = (3, 13) <= sys.version_info
 
-UNICODE = 0
-BYTES = 1
+UNICODE: Literal[0] = 0
+BYTES: Literal[1] = 1
 
 CASE_FS = os.path.normcase('A') != os.path.normcase('a')
 
@@ -144,13 +144,26 @@ class StringIter:
     def __next__(self) -> str:
         """Python 3 iterator compatible next."""
 
-        return self.iternext()
+        try:
+            char = self._string[self._index]
+            self._index += 1
+        except IndexError as e:  # pragma: no cover
+            raise StopIteration from e
+        return char
 
-    def match(self, pattern: Pattern[str]) -> Match[str] | None:
+    def match(self, pattern: Pattern[str], update: bool = True) -> Match[str] | None:
+        """Perform regex match at index."""
+
+        m = pattern.match(self._string, self._index - 1)
+        if m and update:
+            self._index = m.end()
+        return m
+
+    def match_next(self, pattern: Pattern[str], update: bool = True) -> Match[str] | None:
         """Perform regex match at index."""
 
         m = pattern.match(self._string, self._index)
-        if m:
+        if m and update:
             self._index = m.end()
         return m
 
@@ -177,17 +190,6 @@ class StringIter:
             raise ValueError("Can't rewind past beginning!")
 
         self._index -= count
-
-    def iternext(self) -> str:
-        """Iterate through characters of the string."""
-
-        try:
-            char = self._string[self._index]
-            self._index += 1
-        except IndexError as e:  # pragma: no cover
-            raise StopIteration from e
-
-        return char
 
 
 class Immutable:

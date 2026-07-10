@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: metagit-cli
-Version: 0.16.0
+Version: 0.21.0
 Summary: Metagit multi-repo management tool
 Author-email: Zachary Loeber <zloeber@gmail.com>
 Project-URL: Homepage, https://github.com/metagit-ai/metagit-cli

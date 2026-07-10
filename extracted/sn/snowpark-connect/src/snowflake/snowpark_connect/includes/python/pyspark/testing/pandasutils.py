@@ -20,7 +20,7 @@ import shutil
 import tempfile
 import warnings
 from contextlib import contextmanager
-from distutils.version import LooseVersion
+from pyspark.loose_version import LooseVersion
 import decimal
 from typing import Any, Union, TYPE_CHECKING
 

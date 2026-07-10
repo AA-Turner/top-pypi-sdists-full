@@ -22,6 +22,11 @@ from abstra_internals.repositories.code_markers.repository import (
     ProductionCodeMarkersRepository,
 )
 from abstra_internals.repositories.connectors import ConnectorsRepository
+from abstra_internals.repositories.editor_auth import (
+    EditorAuthRepository,
+    ProductionEditorAuthRepository,
+    WebEditorAuthRepository,
+)
 from abstra_internals.repositories.email import EmailRepository
 from abstra_internals.repositories.execution import (
     ExecutionRepository,
@@ -143,6 +148,7 @@ class Repositories:
     linter: LinterRepository
     infra: InfraRepository
     code_markers: CodeMarkersRepository
+    editor_auth: EditorAuthRepository
 
 
 def build_editor_repositories(local_queue: Optional[Queue] = None):
@@ -165,6 +171,13 @@ def build_editor_repositories(local_queue: Optional[Queue] = None):
         tasks=LocalTasksRepository(),
         tables=LocalTablesRepository(client=http_client),
         email=EmailRepository(client=http_client),
+        # The real implementation (not a no-op) even though the local editor
+        # never renews tokens: this bundle also serves the legacy web editor
+        # (EDITOR_MODE=web without RABBITMQ_CONNECTION_URI — see
+        # interface/cli/editor.py), where session renewal must work. Once the
+        # legacy mode is removed, this can become a no-op and the real
+        # implementation moves exclusively to build_web_editor_repositories.
+        editor_auth=WebEditorAuthRepository(client=http_client),
         roles=LocalRolesRepository(client=http_client),
         ai=LocalAIRepository(client=http_client),
         execution_logs=LocalExecutionLogsRepository(),
@@ -196,6 +209,7 @@ def build_prod_repositories():
         execution=ProductionExecutionRepository(client=http_client),
         tables=ProductionTablesRepository(client=http_client),
         email=EmailRepository(client=http_client),
+        editor_auth=ProductionEditorAuthRepository(),
         roles=ProductionRolesRepository(),
         users=ProductionUsersRepository(client=http_client),
         tasks=ProductionTasksRepository(client=http_client),
@@ -275,6 +289,7 @@ def build_web_editor_repositories(rabbitmq_connection_uri: str):
         tasks=tasks,
         tables=LocalTablesRepository(client=http_client),
         email=EmailRepository(client=http_client),
+        editor_auth=WebEditorAuthRepository(client=http_client),
         roles=LocalRolesRepository(client=http_client),
         ai=LocalAIRepository(client=http_client),
         execution_logs=execution_logs,

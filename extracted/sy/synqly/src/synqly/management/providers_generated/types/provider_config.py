@@ -63,6 +63,7 @@ from .upwind_region import UpwindRegion
 from .wiz_credential import WizCredential
 from .wiz_region import WizRegion
 from .custom_endpoint import CustomEndpoint
+from .bitdefender_credential import BitdefenderCredential
 from .edr_crowd_strike_dataset import EdrCrowdStrikeDataset
 from .eset_credential import EsetCredential
 from .api_region import ApiRegion
@@ -78,6 +79,7 @@ from .microsoft_defender_region import MicrosoftDefenderRegion
 from .email_security_defender_for_office_dataset import (
     EmailSecurityDefenderForOfficeDataset,
 )
+from .exchange_online_credential import ExchangeOnlineCredential
 from .mimecast_api_gateway import MimecastApiGateway
 from .mimecast_cloud_gateway_credential import MimecastCloudGatewayCredential
 from .email_security_mimecast_cloud_gateway_dataset import (
@@ -922,6 +924,22 @@ class ProviderConfig_CustomSynqly(UncheckedBaseModel):
             extra = pydantic.Extra.allow
 
 
+class ProviderConfig_EdrBitdefender(UncheckedBaseModel):
+    type: typing.Literal["edr_bitdefender"] = "edr_bitdefender"
+    credential: BitdefenderCredential
+    url: str
+
+    if IS_PYDANTIC_V2:
+        model_config: typing.ClassVar[pydantic.ConfigDict] = pydantic.ConfigDict(
+            extra="allow"
+        )  # type: ignore # Pydantic v2
+    else:
+
+        class Config:
+            smart_union = True
+            extra = pydantic.Extra.allow
+
+
 class ProviderConfig_EdrCrowdstrike(UncheckedBaseModel):
     type: typing.Literal["edr_crowdstrike"] = "edr_crowdstrike"
     credential: CrowdStrikeCredential
@@ -1129,6 +1147,24 @@ class ProviderConfig_EmailsecurityDefenderForOfficeMock(UncheckedBaseModel):
         "emailsecurity_defender_for_office_mock"
     )
     dataset: EmailSecurityDefenderForOfficeDataset
+
+    if IS_PYDANTIC_V2:
+        model_config: typing.ClassVar[pydantic.ConfigDict] = pydantic.ConfigDict(
+            extra="allow"
+        )  # type: ignore # Pydantic v2
+    else:
+
+        class Config:
+            smart_union = True
+            extra = pydantic.Extra.allow
+
+
+class ProviderConfig_EmailsecurityExchangeOnline(UncheckedBaseModel):
+    type: typing.Literal["emailsecurity_exchange_online"] = (
+        "emailsecurity_exchange_online"
+    )
+    credential: ExchangeOnlineCredential
+    tenant_id: str
 
     if IS_PYDANTIC_V2:
         model_config: typing.ClassVar[pydantic.ConfigDict] = pydantic.ConfigDict(
@@ -2837,6 +2873,7 @@ ProviderConfig = typing_extensions.Annotated[
         ProviderConfig_CloudsecurityUpwind,
         ProviderConfig_CloudsecurityWiz,
         ProviderConfig_CustomSynqly,
+        ProviderConfig_EdrBitdefender,
         ProviderConfig_EdrCrowdstrike,
         ProviderConfig_EdrCrowdstrikeMock,
         ProviderConfig_EdrDefender,
@@ -2850,6 +2887,7 @@ ProviderConfig = typing_extensions.Annotated[
         ProviderConfig_EdrTrellixEns,
         ProviderConfig_EmailsecurityDefenderForOffice,
         ProviderConfig_EmailsecurityDefenderForOfficeMock,
+        ProviderConfig_EmailsecurityExchangeOnline,
         ProviderConfig_EmailsecurityMimecastCloudGateway,
         ProviderConfig_EmailsecurityMimecastCloudGatewayMock,
         ProviderConfig_EndpointmanagementAutomox,

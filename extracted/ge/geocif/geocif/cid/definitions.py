@@ -114,12 +114,17 @@ dict_esi4wk = {
 }
 
 dict_hindex = {
-    "H-INDEX_NDVI": ["h-Index", "h-Index of NDVI"],
-    "H-INDEX_GCVI": ["h-Index", "h-Index of GCVI"],
-    "H-INDEX_ESI4WK": ["h-Index", "h-Index of ESI 4WK"],
-    "H-INDEX_Tmax": ["h-Index", "h-Index of Tmax"],
-    "H-INDEX_Tmin": ["h-Index", "h-Index of Tmin"],
-    "H-INDEX_Tmean": ["h-Index", "h-Index of Tmean"],
+    # Trimmed 2026-07-09 to keep only H-INDEX_Precip. The Tmax/Tmin/Tmean
+    # variants collapse to TXx/TNx/TG (identical values in Brazil DF 2016
+    # diagnostic across every stage window -- h-index on Celsius temp
+    # returns the max as long as the window has more than a few days).
+    # The NDVI/GCVI/ESI variants have scale-dependent semantics (input
+    # NDVI is not on 0-1, so h-index returns values in the 4-6 range that
+    # depend on the input scaling convention, not a well-defined
+    # h-index property). Precip stays: N days with rain >= N mm captures
+    # a genuinely distinct intensity-frequency tradeoff not encoded by
+    # any other CID, and was the top-selected H-INDEX at 540 gOMP picks
+    # in the Brazil maize July_09 13h03 run.
     "H-INDEX_Precip": ["h-Index", "h-Index of Precipitation"],
 }
 

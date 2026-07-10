@@ -23,7 +23,7 @@
 
 [package]
 name = "zensical"
-version = "0.0.47"
+version = "0.0.50"
 description = "Zensical"
 edition.workspace = true
 rust-version.workspace = true
@@ -39,7 +39,7 @@ workspace = true
 
 [lib]
 name = "zensical"
-crate-type = ["cdylib"]
+crate-type = ["cdylib", "rlib"]
 
 [dependencies]
 zensical-serve.workspace = true

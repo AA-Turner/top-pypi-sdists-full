@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: prefect-cloud
-Version: 0.1.11
+Version: 0.1.12
 Summary: Package for easily deploying to Prefect Cloud.
 Author-email: "Prefect Technologies, Inc." <help@prefect.io>
 License-File: LICENSE

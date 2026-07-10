@@ -1,6 +1,6 @@
 [package]
 name = "uuid-utils"
-version = "0.16.2"
+version = "0.17.0"
 edition = "2024"
 readme = "README.md"
 
@@ -14,7 +14,7 @@ pyo3 = { version = "0.29.0", features = [
     "generate-import-lib",
 ]}
 rand = "0.10.1"
-uuid = { version  = "1.23.3", features = [
+uuid = { version  = "1.23.4", features = [
     "v1",
     "v3",
     "v4",

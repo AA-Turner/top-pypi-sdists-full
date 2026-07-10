@@ -19,17 +19,18 @@ from .option import value as value_1
 from .protocols import ICollection, IComparer_1, IEnumerable_1, IEnumerator
 from .record import Record
 from .reflection import TypeInfo, bool_type, class_type, list_type, option_type, record_type
-from .seq import compare_with, unfold
-from .seq import map as map_1
+from .seq import compare_with
 from .seq import pick as pick_1
 from .seq import try_pick as try_pick_1
+from .seq_native import map as map_1
+from .seq_native import unfold
 from .string_ import format, join
 from .system import NotSupportedException__ctor_Z721C83C5
 from .types import ExceptionBase
 from .util import UNIT, Disposable, Unit, compare, equals, get_enumerator, ignore, nullable, range, structural_hash
 
 
-def _expr246(gen0: TypeInfo, gen1: TypeInfo) -> TypeInfo:
+def _expr225(gen0: TypeInfo, gen1: TypeInfo) -> TypeInfo:
     return class_type("Map.MapTreeLeaf`2", Array([gen0, gen1]), MapTreeLeaf_2)
 
 
@@ -39,7 +40,7 @@ class MapTreeLeaf_2[KEY, VALUE]:
         self.v: Any = v
 
 
-MapTreeLeaf_2_reflection = _expr246
+MapTreeLeaf_2_reflection = _expr225
 
 
 def MapTreeLeaf_2__ctor_5BDDA1[KEY, VALUE](k: KEY, v: VALUE) -> MapTreeLeaf_2[KEY, VALUE]:
@@ -54,7 +55,7 @@ def MapTreeLeaf_2__get_Value[KEY, VALUE](_: MapTreeLeaf_2[KEY, VALUE]) -> VALUE:
     return _.v
 
 
-def _expr247(gen0: TypeInfo, gen1: TypeInfo) -> TypeInfo:
+def _expr226(gen0: TypeInfo, gen1: TypeInfo) -> TypeInfo:
     return class_type("Map.MapTreeNode`2", Array([gen0, gen1]), MapTreeNode_2, MapTreeLeaf_2_reflection(gen0, gen1))
 
 
@@ -73,7 +74,7 @@ class MapTreeNode_2[KEY, VALUE](MapTreeLeaf_2):
         self.h: int32 = h
 
 
-MapTreeNode_2_reflection = _expr247
+MapTreeNode_2_reflection = _expr226
 
 
 def MapTreeNode_2__ctor_Z39DE9543[KEY, VALUE](
@@ -177,7 +178,7 @@ def MapTreeModule_rebalance[KEY, VALUE](
         if isinstance(match_value, MapTreeNode_2):
             t2_0027: MapTreeNode_2[Any, Any] = match_value
 
-            def _arrow248(__unit: Unit = UNIT) -> int32:
+            def _arrow228(__unit: Unit = UNIT) -> int32:
                 m_2: MapTreeLeaf_2[Any, Any] | None = erase(MapTreeNode_2__get_Left(t2_0027))
                 if m_2 is not None:
                     m2_2: MapTreeLeaf_2[Any, Any] = m_2
@@ -186,7 +187,7 @@ def MapTreeModule_rebalance[KEY, VALUE](
                 else:
                     return int32.ZERO
 
-            if _arrow248() > (t1h + int32.ONE):
+            if _arrow228() > (t1h + int32.ONE):
                 match_value_1: MapTreeLeaf_2[Any, Any] = value_1(MapTreeNode_2__get_Left(t2_0027))
                 if isinstance(match_value_1, MapTreeNode_2):
                     t2l: MapTreeNode_2[Any, Any] = match_value_1
@@ -225,7 +226,7 @@ def MapTreeModule_rebalance[KEY, VALUE](
         if isinstance(match_value_2, MapTreeNode_2):
             t1_0027: MapTreeNode_2[Any, Any] = match_value_2
 
-            def _arrow249(__unit: Unit = UNIT) -> int32:
+            def _arrow229(__unit: Unit = UNIT) -> int32:
                 m_3: MapTreeLeaf_2[Any, Any] | None = erase(MapTreeNode_2__get_Right(t1_0027))
                 if m_3 is not None:
                     m2_3: MapTreeLeaf_2[Any, Any] = m_3
@@ -234,7 +235,7 @@ def MapTreeModule_rebalance[KEY, VALUE](
                 else:
                     return int32.ZERO
 
-            if _arrow249() > (t2h + int32.ONE):
+            if _arrow229() > (t2h + int32.ONE):
                 match_value_3: MapTreeLeaf_2[Any, Any] = value_1(MapTreeNode_2__get_Right(t1_0027))
                 if isinstance(match_value_3, MapTreeNode_2):
                     t1r: MapTreeNode_2[Any, Any] = match_value_3
@@ -998,12 +999,12 @@ def MapTreeModule_toList[KEY, VALUE](m: MapTreeLeaf_2[KEY, VALUE] | None = None)
 def MapTreeModule_copyToArray[_A, _B](m: MapTreeLeaf_2[_A, _B] | None, arr: Array[Any], i: int32) -> None:
     j: int32 = i
 
-    def _arrow251(x: _A, y: _B, arr: Any = arr) -> None:
+    def _arrow230(x: _A, y: _B, arr: Any = arr) -> None:
         nonlocal j
         arr[j] = (x, y)
         j = j + int32.ONE
 
-    MapTreeModule_iter(_arrow251, m)
+    MapTreeModule_iter(_arrow230, m)
 
 
 def MapTreeModule_toArray[_A, _B](m: MapTreeLeaf_2[_A, _B] | None = None) -> Array[Any]:
@@ -1015,12 +1016,12 @@ def MapTreeModule_toArray[_A, _B](m: MapTreeLeaf_2[_A, _B] | None = None) -> Arr
 def MapTreeModule_ofList[_A, _B](
     comparer: IComparer_1[_A], l: FSharpList[tuple[_A, _B]]
 ) -> MapTreeLeaf_2[_A, _B] | None:
-    def _arrow252(
+    def _arrow231(
         acc: MapTreeLeaf_2[_A, _B] | None, tupled_arg: tuple[_A, _B], comparer: Any = comparer
     ) -> MapTreeLeaf_2[_A, _B] | None:
         return erase(MapTreeModule_add(comparer, tupled_arg[0], tupled_arg[1], acc))
 
-    return erase(fold_1(_arrow252, MapTreeModule_empty(), l))
+    return erase(fold_1(_arrow231, MapTreeModule_empty(), l))
 
 
 def MapTreeModule_mkFromEnumerator[_A, _B](
@@ -1065,7 +1066,7 @@ def MapTreeModule_ofSeq[KEY, VALUE](
             return erase(MapTreeModule_mkFromEnumerator(comparer, MapTreeModule_empty(), ie))
 
 
-def _expr253(gen0: TypeInfo, gen1: TypeInfo) -> TypeInfo:
+def _expr232(gen0: TypeInfo, gen1: TypeInfo) -> TypeInfo:
     return record_type(
         "Map.MapTreeModule.MapIterator`2",
         Array([gen0, gen1]),
@@ -1083,7 +1084,7 @@ class MapTreeModule_MapIterator_2[KEY, VALUE](Record):
         return int(self.GetHashCode())
 
 
-MapTreeModule_MapIterator_2_reflection = _expr253
+MapTreeModule_MapIterator_2_reflection = _expr232
 
 
 def MapTreeModule_collapseLHS[KEY, VALUE](
@@ -1184,7 +1185,7 @@ def MapTreeModule_moveNext[KEY, VALUE](i: MapTreeModule_MapIterator_2[KEY, VALUE
 def MapTreeModule_mkIEnumerator[A, B](m: MapTreeLeaf_2[A, B] | None = None) -> IEnumerator[Any]:
     i: MapTreeModule_MapIterator_2[Any, Any] = MapTreeModule_mkIterator(m)
 
-    class ObjectExpr254(EnumeratorBase[Any], DisposableBase):
+    class ObjectExpr233(EnumeratorBase[Any], DisposableBase):
         def System_Collections_Generic_IEnumerator_1_get_Current(self, __unit: Unit = UNIT) -> Any:
             return MapTreeModule_current(i)
 
@@ -1201,7 +1202,7 @@ def MapTreeModule_mkIEnumerator[A, B](m: MapTreeLeaf_2[A, B] | None = None) -> I
         def Dispose(self, __unit: Unit = UNIT) -> None:
             pass
 
-    return ObjectExpr254()
+    return ObjectExpr233()
 
 
 def MapTreeModule_toSeq[_A, _B](s: MapTreeLeaf_2[_A, _B] | None = None) -> IEnumerable_1[Any]:
@@ -1283,7 +1284,7 @@ def MapTreeModule_rightmost[KEY, VALUE](m_mut: MapTreeLeaf_2[KEY, VALUE] | None)
         break
 
 
-def _expr257(gen0: TypeInfo, gen1: TypeInfo) -> TypeInfo:
+def _expr236(gen0: TypeInfo, gen1: TypeInfo) -> TypeInfo:
     return class_type("Map.FSharpMap", Array([gen0, gen1]), FSharpMap)
 
 
@@ -1328,10 +1329,10 @@ class FSharpMap[KEY, VALUE](Mapping[Any, Any], StringableBase, ComparableBase, E
     def ToString(self, __unit: Unit = UNIT) -> str:
         this: FSharpMap[Any, Any] = self
 
-        def _arrow255(kv: Any) -> str:
+        def _arrow234(kv: Any) -> str:
             return format("({0}, {1})", kv[0], kv[1])
 
-        return ("map [" + join("; ", map_1(_arrow255, this))) + "]"
+        return ("map [" + join("; ", map_1(_arrow234, this))) + "]"
 
     def GetEnumerator(self, __unit: Unit = UNIT) -> IEnumerator[Any]:
         _: FSharpMap[Any, Any] = self
@@ -1344,11 +1345,11 @@ class FSharpMap[KEY, VALUE](Mapping[Any, Any], StringableBase, ComparableBase, E
     def CompareTo(self, other: Any = None) -> int32:
         this: FSharpMap[Any, Any] = self
 
-        def _arrow256(kvp1: Any, kvp2: Any) -> int32:
+        def _arrow235(kvp1: Any, kvp2: Any) -> int32:
             c: int32 = this.comparer.Compare(kvp1[0], kvp2[0])
             return c if (c != int32.ZERO) else compare(kvp1[1], kvp2[1])
 
-        return compare_with(_arrow256, this, other) if isinstance(other, FSharpMap) else int32.ONE
+        return compare_with(_arrow235, this, other) if isinstance(other, FSharpMap) else int32.ONE
 
     def System_Collections_Generic_ICollection_1_Add2B595(self, x: Any = UNIT) -> None:
         ignore(x)
@@ -1407,7 +1408,7 @@ class FSharpMap[KEY, VALUE](Mapping[Any, Any], StringableBase, ComparableBase, E
             yield kv[0]
 
 
-FSharpMap_reflection = _expr257
+FSharpMap_reflection = _expr236
 
 
 def FSharpMap__ctor[KEY, VALUE](

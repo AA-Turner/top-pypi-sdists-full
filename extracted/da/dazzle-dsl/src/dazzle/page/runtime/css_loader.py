@@ -38,8 +38,6 @@ CSS_LAYER_ORDER = "@layer reset, vendor, tokens, base, utilities, components, ov
 # ``static/css/dazzle.css`` (#920).
 CSS_SOURCE_FILES: tuple[tuple[str | None, str], ...] = (
     ("reset", "css/reset.css"),
-    ("vendor", "vendor/tom-select.css"),
-    ("vendor", "vendor/flatpickr.css"),
     # HaTchi-MaXchi — consumed as its PUBLISHED dist artifact (boundary
     # Phase 2), not per-source files. The bundle is pre-layered by the
     # package's build.py (vendor fonts, tokens, base, components — the
@@ -51,19 +49,45 @@ CSS_SOURCE_FILES: tuple[tuple[str | None, str], ...] = (
     # dz-richtext (Dazzle-native, bundled).
     # vendor/pickr.css removed in #976 — `widget=color` uses native
     # <input type="color">, no vendor CSS required.
-    ("utilities", "css/utilities.css"),
-    ("components", "css/components/dashboard.css"),
-    ("components", "css/components/detail.css"),
-    ("components", "css/components/fragments.css"),
-    ("components", "css/components/pdf-viewer.css"),
-    ("components", "css/components/regions.css"),
-    ("components", "css/components/mobile-scroll.css"),
-    # #977 cycle 1 — Dazzle-native rich-text editor (replaces Quill in cycle 4).
-    ("components", "css/components/richtext.css"),
-    # v0.71.x guided onboarding (overlay primitives for the eight step kinds).
-    ("components", "css/components/onboarding.css"),
-    ("components", "css/dazzle-layer.css"),
-    ("components", "css/site-sections.css"),
+    # utilities.css deleted (HMC-023, 2026-07-09): its layout utils
+    # (.stack/.row/.cluster/.between/.centre/.grid-auto/.flow) were dead (0 emitter
+    # uses; HM layout.css provides the dz-prefixed equivalents), and .visually-hidden
+    # is byte-identical to HM base.css's — so the whole file was redundant.
+    # dashboard.css migrated into HaTchi-MaXchi (HMC-020): its only remaining rule
+    # (the #dz-detail-drawer width instance) now lives in HM drawer.css (travels
+    # with the drawer component). Card grid/shell/chrome already moved in 007b/c/d.
+    # detail.css (HMC-012) + fragments.css (HMC-016) migrated into HaTchi-MaXchi —
+    # the detail-view family + the shared fragment/region chrome families now live
+    # in packages/hatchi-maxchi/components/{detail,fragments}.css (heavily
+    # HM-token-based). Dropped from the Dazzle bundle; served via the HM dist.
+    # pdf-viewer.css migrated into HaTchi-MaXchi (HMC-015) -- PDF detail-view chrome
+    # now lives in packages/hatchi-maxchi/components/pdf-viewer.css (sits on the HM pdf
+    # embed primitive). Served via the HM dist.
+    # regions.css removed from the bundle (HMC-007): it is now 130 lines of
+    # pure tombstone comments (every region family promoted to HM) — zero CSS
+    # rules, so shipping it to every browser was dead weight. File retained on
+    # disk as the provenance index (+ read by a few content-union tests).
+    # mobile-scroll.css migrated into HaTchi-MaXchi (HMC-022): touch scroll-containment
+    # rules now live in packages/hatchi-maxchi/components/mobile-scroll.css. Served via HM dist.
+    # richtext.css migrated into HaTchi-MaXchi (HMC-021): the rich-text editor
+    # internals now live in packages/hatchi-maxchi/components/richtext.css
+    # (complements the .dz-form-richtext field base in HM form.css). Served via HM dist.
+    # onboarding.css migrated into HaTchi-MaXchi (HMC-014) — guided-onboarding
+    # overlay primitives now live in packages/hatchi-maxchi/components/onboarding.css
+    # (mostly HM-token-based; bespoke spotlight geometry retained). Served via HM dist.
+    # dazzle-layer.css removed from the bundle (HMC-003b, 2026-07-08): its
+    # remaining rules are all dead for the main HM runtime — `#app`/`.dz-app`
+    # (root layout; the main shell is `<body class="dz-page">` + `.dz-app-shell`,
+    # which owns its own min-height:100vh in HM app-shell.css), `.dz-app__main`
+    # + `.dz-text-muted` (used ONLY by the legacy pre-HM `dnr-ui`/`build-ui`
+    # export, never by render/page emitters), empty no-op hooks
+    # (`.dz-workspace`/`__header`/`__sidebar`/`__footer`; HM workspace-shell.css
+    # owns the real `.dz-workspace`), and a commented-out `[data-dazzle-entity]`
+    # rule. Empty-state styling was folded into HM in HMC-003c. Provably inert
+    # removal — no main-runtime emitter references any of these. File deleted from
+    # disk (HM-sitespec 1C, 2026-07-09); the legacy dnr export generator is defunct
+    # and committed dnr-ui snapshots bake their own CSS.
+    # site-sections.css ported into HM components/sitespec.css (HM-sitespec 1B, 2026-07-09) — served via the HM dist now.
 )
 
 # Files loaded unlayered (after every @layer block) so they can
@@ -71,8 +95,14 @@ CSS_SOURCE_FILES: tuple[tuple[str | None, str], ...] = (
 # always lose to unlayered styles in the CSS cascade.
 CSS_UNLAYERED_FILES: tuple[str, ...] = (
     "css/dz.css",
-    "css/dz-widgets.css",
-    "css/dz-tones.css",
+    # dz-widgets.css deleted (HMC-018 slice 3): it held only the .ts-* TomSelect
+    # theme overrides; combobox/tags are now HM-native and multiselect was
+    # retired (0 fleet usage), so the whole file was dead. TomSelect vendor
+    # bytes (css + min.js) removed in the same change.
+    # dz-tones.css fully drained (HMC-005/005b): metric-tile → HM metrics.css,
+    # action-grid/status-list → their HM components, and the last family
+    # (notice-band tone tints) → HM dashboard-card.css (tinting travels with the
+    # component). File deleted; nothing left to bundle.
 )
 
 

@@ -81,7 +81,7 @@ class _FakeRepo:
         with self._active_lock:
             self.active -= 1
 
-    def update_checks(self):
+    def update_checks(self, revalidate_caches=False):
         self._enter()
         try:
             self.calls.append(("update_checks",))

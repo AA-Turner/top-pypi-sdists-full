@@ -1,3 +1,4 @@
+import time
 import typing
 from dataclasses import dataclass
 from functools import lru_cache
@@ -12,7 +13,7 @@ USER_AUTH_HEADER_KEY = "Authorization"
 
 
 @lru_cache(maxsize=10)
-def decode_jwt(jwt_str: str, aud=PROJECT_ID, skip_verify: bool = False):
+def _decode_jwt_cached(jwt_str: str, aud, skip_verify: bool):
     try:
         if not skip_verify and PUBLIC_KEY:
             return jwt.decode(
@@ -27,14 +28,32 @@ def decode_jwt(jwt_str: str, aud=PROJECT_ID, skip_verify: bool = False):
                 options={"verify_signature": False, "verify_aud": False},
             )
         # PUBLIC_KEY is not set but skip_verify was not requested — still
-        # validate audience (used by _guard() to ensure correct JWT type).
-        return jwt.decode(jwt_str, options={"verify_signature": False}, audience=aud)
+        # validate audience and expiration. PyJWT silently disables every
+        # other check when verify_signature is False, so both must be
+        # re-enabled explicitly (used by _guard() to ensure correct JWT type).
+        return jwt.decode(
+            jwt_str,
+            options={"verify_signature": False, "verify_aud": True, "verify_exp": True},
+            audience=aud,
+        )
 
     except jwt.ExpiredSignatureError:
         return None
     except Exception as e:
         AbstraLogger.capture_exception(e)
         return None
+
+
+def decode_jwt(jwt_str: str, aud=PROJECT_ID, skip_verify: bool = False):
+    claims = _decode_jwt_cached(jwt_str, aud, skip_verify)
+    if claims is None:
+        return None
+    # The cache outlives token expiration: a token validated while still
+    # valid would otherwise stay "valid" for the life of the process.
+    exp = claims.get("exp")
+    if not skip_verify and exp is not None and time.time() >= exp:
+        return None
+    return claims
 
 
 @dataclass

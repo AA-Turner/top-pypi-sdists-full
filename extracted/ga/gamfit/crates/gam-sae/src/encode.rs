@@ -59,7 +59,7 @@
 //!    caller to the existing exact multi-start solve. No approximation enters
 //!    silently.
 
-use ndarray::{Array1, Array2, ArrayView1, ArrayView2};
+use ndarray::{Array1, Array2, ArrayView1, ArrayView2, Axis};
 
 use crate::candidate_index::{AtomFrameSketch, SaeCandidateIndex, auto_candidate_budget};
 use crate::manifold::{
@@ -543,6 +543,12 @@ pub(crate) fn pair_trig_decoder_sup(
     (0.5 * (trace + disc)).sqrt()
 }
 
+/// Per-harmonic reconstruction jet sups of a periodic atom. `decoder` MUST be
+/// the FULL-width decoder on the standard `[1, sin 2πt, cos 2πt, …]` inner
+/// basis: the row pairing below identifies rows `(2h−1, 2h)` as the harmonic-`h`
+/// `(sin, cos)` pair and prices them at `ω = 2πh`. A #1117 rank-reduced decoder
+/// `B̃ = Qᵀ B` has NO such row meaning (each reduced row mixes all harmonics),
+/// so callers re-expand through `Q` first — see [`reconstruction_jet_sups`].
 pub(crate) fn periodic_reconstruction_jet_sups(
     decoder: ArrayView2<'_, f64>,
 ) -> ReconstructionJetSups {
@@ -584,10 +590,23 @@ pub(crate) fn reconstruction_jet_sups(
     atom: &SaeManifoldAtom,
     sups: JetSups,
 ) -> ReconstructionJetSups {
+    // `sups` bounds the FULL-width family (see `family_jet_sups`), so the
+    // decoder it pairs with must be the full-width pre-image `B = Q B̃` when the
+    // atom was #1117 rank-reduced. The reconstruction is identical through that
+    // frame (`Φ̃ B̃ = Φ (Q B̃)`), so the bound is exact-in-structure; pairing the
+    // full sups with the reduced `B̃` instead would price periodic rows at the
+    // wrong harmonic and mismatch the family the sups were taken over.
+    let full_decoder = atom
+        .reduced_column_map
+        .is_some()
+        .then(|| atom.full_width_decoder());
+    let decoder = full_decoder
+        .as_ref()
+        .map_or_else(|| atom.decoder_coefficients.view(), |b| b.view());
     if matches!(atom.basis_kind, crate::manifold::SaeAtomBasisKind::Periodic) {
-        periodic_reconstruction_jet_sups(atom.decoder_coefficients.view())
+        periodic_reconstruction_jet_sups(decoder)
     } else {
-        let decoder_norm_sum = decoder_row_norm_sum(atom.decoder_coefficients.view());
+        let decoder_norm_sum = decoder_row_norm_sum(decoder);
         ReconstructionJetSups {
             value: decoder_norm_sum * sups.value,
             jacobian: decoder_norm_sum * sups.jacobian,
@@ -831,12 +850,26 @@ pub(crate) const SAE_CYLINDER_LINE_DEGREE: usize = 2;
 /// atlas needs to evaluate the jet sups, which live on the concrete evaluator
 /// types; the atom carries the evaluator as `Arc<dyn SaeBasisEvaluator>`, so we
 /// reconstruct the family bound from the atom's basis kind + width + centers.
+///
+/// The width used is the FULL inner-basis width [`SaeManifoldAtom::full_basis_size`],
+/// never the stored (possibly #1117 rank-reduced) [`SaeManifoldAtom::basis_size`].
+/// After [`SaeManifoldAtom::reduce_basis_to_subspace`] the live columns are
+/// Q-mixtures `Φ̃ = Φ Q` of the fixed-width family, so a family rebuilt at the
+/// REDUCED width bounds the wrong function space — a 5-wide periodic atom reduced
+/// to `r = 3` would be bounded as a single-harmonic family (under-estimating the
+/// `g`-th jet by `2^g`), and a degree-2 patch reduced to `r = 2` would be bounded
+/// as affine (`L = 0` ⇒ every start "certifies": a FALSE Kantorovich
+/// certificate, violating the module invariant that every bound over-estimates).
+/// The sups returned here bound the FULL-width family; [`reconstruction_jet_sups`]
+/// pairs them with the full-width decoder pre-image `B = Q B̃`, against which the
+/// reconstruction is IDENTICAL (`Φ̃ B̃ = Φ (Q B̃)`), so the certificate frame never
+/// sees the reduction and stays sound.
 pub(crate) fn family_jet_sups(
     atom: &SaeManifoldAtom,
     chart: &ChartRegion,
 ) -> Result<JetSups, String> {
     use crate::manifold::SaeAtomBasisKind::*;
-    let m = atom.basis_size();
+    let m = atom.full_basis_size();
     let d = atom.latent_dim;
     let sups = match &atom.basis_kind {
         Periodic => {
@@ -1026,12 +1059,118 @@ impl JetSups {
 /// locally-constant reconstruction has `H = 0`, whose ridged `λI` would falsely
 /// certify a non-isolated, non-unique root). Ridge stays only in the
 /// UNCERTIFIED amortized predictor (`center_amortized_jacobian`/`center_beta`).
-pub(crate) fn encode_grad_hess(
+pub fn encode_grad_hess(
     atom: &SaeManifoldAtom,
     evaluator: &dyn SaeBasisEvaluator,
     t: ArrayView1<'_, f64>,
     x: ArrayView1<'_, f64>,
     amplitude: f64,
+) -> Result<Option<(Array1<f64>, Array2<f64>)>, String> {
+    // The bare Euclidean, prior-free objective — the historical field, bit-identical
+    // to the metric-free encode (see [`encode_grad_hess_core`], `EncodeObjective`).
+    encode_grad_hess_core(
+        atom,
+        evaluator,
+        t,
+        x,
+        amplitude,
+        &EncodeObjective::euclidean(),
+    )
+}
+
+/// The TRUE per-row encode objective's non-Euclidean ingredients (F3), so the
+/// Kantorovich certificate certifies the SAME functional the fit optimized `t`
+/// against — not a bare Euclidean stand-in.
+///
+/// The fit's per-row data loss is generalized least squares `½ rᵀ M_n r`
+/// (`r = m(t) − x`) under a per-row output metric `M_n = U_n U_nᵀ`
+/// ([`gam_problem::RowMetric`]), plus a per-axis latent coordinate prior
+/// `Σ_a ArdAxisPrior(α_a, t_a)` (the ARD Gaussian / von-Mises energy the fit
+/// placed on the coordinate). The metric-free encode drops BOTH, so its certified
+/// root solves a different problem whenever a non-identity metric or an active
+/// prior is present. `EncodeObjective` threads them back in:
+///
+/// * `metric_factor` — the per-row factor `U_n ∈ ℝ^{p×rank}`; `None` ⇒ `M = I`.
+///   Whitening reduces to `M r = U(Uᵀr)` and `Jᵀ M J = (UᵀJ)ᵀ(UᵀJ)`.
+/// * `prior_alpha` — per-axis ARD precision `α_a` (the caller folds in any row
+///   weight); `None`/`0` ⇒ no prior on that axis. The period is read from the
+///   atom's basis kind so a periodic axis uses the von-Mises energy.
+/// * `metric_norm_bound` — a GLOBAL upper bound `max_n ‖M_n‖` used to scale the
+///   offline chart Lipschitz (the per-row `M_n` enters `β, η` online; the
+///   certificate needs a valid `L` upper bound, and `L_data` scales by `‖M‖`).
+///
+/// [`EncodeObjective::euclidean`] (all `None`, bound `1`) reproduces the metric-
+/// free field bit-for-bit, so every existing caller is unchanged.
+#[derive(Clone, Copy)]
+pub struct EncodeObjective<'a> {
+    /// Per-row output-metric factor `U ∈ ℝ^{p×rank}` (`M = U Uᵀ`). `None` ⇒ `I`.
+    pub metric_factor: Option<ArrayView2<'a, f64>>,
+    /// Per-axis ARD precision `α_a` (row weight folded in). `None` ⇒ no prior.
+    pub prior_alpha: Option<&'a [f64]>,
+    /// Global bound `max_n ‖M_n‖` scaling the offline chart Lipschitz. `1.0` for
+    /// the Euclidean objective.
+    pub metric_norm_bound: f64,
+}
+
+impl<'a> EncodeObjective<'a> {
+    /// The bare Euclidean, prior-free objective — every code path is bit-identical
+    /// to the metric-free encode under this value.
+    pub fn euclidean() -> Self {
+        Self {
+            metric_factor: None,
+            prior_alpha: None,
+            metric_norm_bound: 1.0,
+        }
+    }
+
+    /// Closed-form Lipschitz contribution of the latent prior's third derivative.
+    /// The Gaussian (non-periodic) prior is quadratic, so `prior''' ≡ 0`; the
+    /// von-Mises (periodic) prior has `hess = α cos(κt)` ⇒ `third = −α κ sin(κt)`,
+    /// bounded by `α·κ` with `κ = 2π/period`. Summed over axes (a conservative
+    /// bound on the diagonal third-order tensor's operator norm — over-estimating
+    /// `L` only shrinks the certified radius, never certifies a divergent start).
+    fn prior_lipschitz(&self, atom: &SaeManifoldAtom) -> f64 {
+        let Some(alpha) = self.prior_alpha else {
+            return 0.0;
+        };
+        let mut l = 0.0;
+        for axis in 0..atom.latent_dim.min(alpha.len()) {
+            if let Some(period) = latent_axis_period(atom, axis) {
+                let kappa = std::f64::consts::TAU / period;
+                l += alpha[axis].abs() * kappa;
+            }
+        }
+        l
+    }
+
+    /// The chart's Kantorovich Lipschitz for the TRUE objective: the stored
+    /// Euclidean data-term bound `data_lipschitz` scaled by the global metric
+    /// operator-norm bound (`½ rᵀM r`'s Hessian-Lipschitz is `‖M‖·L_data`), plus
+    /// the prior's third-derivative bound. Reduces to `data_lipschitz` exactly for
+    /// [`Self::euclidean`] (`1·L + 0`).
+    fn effective_lipschitz(&self, atom: &SaeManifoldAtom, data_lipschitz: f64) -> f64 {
+        self.metric_norm_bound * data_lipschitz + self.prior_lipschitz(atom)
+    }
+}
+
+/// Apply the per-row output metric `M = U Uᵀ` to a residual/tangent vector:
+/// `M v = U (Uᵀ v)`, `U ∈ ℝ^{p×rank}`. `O(p·rank)`, never the dense `p×p`.
+fn apply_row_metric(u: ArrayView2<'_, f64>, v: ArrayView1<'_, f64>) -> Array1<f64> {
+    let utv = u.t().dot(&v); // Uᵀ v ∈ ℝ^rank
+    u.dot(&utv) // U (Uᵀ v) ∈ ℝ^p
+}
+
+/// Objective-aware gradient/Hessian of the certified encode field (F3). With
+/// [`EncodeObjective::euclidean`] this is bit-for-bit the historical metric-free
+/// field; with a metric it whitens the residual through `M = U Uᵀ`, and with a
+/// prior it adds the ARD/von-Mises gradient and (diagonal) Hessian.
+pub(crate) fn encode_grad_hess_core(
+    atom: &SaeManifoldAtom,
+    evaluator: &dyn SaeBasisEvaluator,
+    t: ArrayView1<'_, f64>,
+    x: ArrayView1<'_, f64>,
+    amplitude: f64,
+    objective: &EncodeObjective<'_>,
 ) -> Result<Option<(Array1<f64>, Array2<f64>)>, String> {
     let d = atom.latent_dim;
     let p = atom.output_dim();
@@ -1076,29 +1215,46 @@ pub(crate) fn encode_grad_hess(
         Some(result) => result?,
         None => return Ok(None),
     };
-    // Residual · decoder-row `r·B_{basis,:}` is INDEPENDENT of the (a,b) axes, yet
-    // the old code recomputed it `d²` times inside the Hessian double loop. Hoist it
+    // F3 — metric whitening. The certified objective is `½ rᵀ M r`, so the field
+    // reads the M-weighted residual `M r` and M-weighted image tangents `M J_m[a]`.
+    // With no metric (`None`) `wr` aliases `residual` and `jb` aliases `jm.row(b)`,
+    // so the assembly below is the historical Euclidean field bit-for-bit.
+    let mr_owned;
+    let wr: &Array1<f64> = match objective.metric_factor {
+        Some(u) => {
+            mr_owned = apply_row_metric(u, residual.view());
+            &mr_owned
+        }
+        None => &residual,
+    };
+    let mjm: Option<Vec<Array1<f64>>> = objective
+        .metric_factor
+        .map(|u| (0..d).map(|a| apply_row_metric(u, jm.row(a))).collect());
+    // (M-weighted) residual · decoder-row is INDEPENDENT of the (a,b) axes; hoist it
     // to one O(m·p) pass so the per-axis curvature term is a cheap O(m) dot.
     let mut rd = vec![0.0_f64; m];
     for (basis_col, rd_col) in rd.iter_mut().enumerate() {
         let mut dot = 0.0;
         for out in 0..p {
-            dot += residual[out] * decoder[[basis_col, out]];
+            dot += wr[out] * decoder[[basis_col, out]];
         }
         *rd_col = dot;
     }
-    // g_t[axis] = J_m[axis] · r ;  H_tt[a,b] = J_m[a]·J_m[b] + r·∂²m/∂t_a∂t_b.
+    // g_t[a] = J_m[a] · (M r) ;  H_tt[a,b] = J_m[a]·(M J_m[b]) + (M r)·∂²m/∂t_a∂t_b.
     // The full Hessian is symmetric (Gauss-Newton block + symmetric second jet), so
     // compute the upper triangle and mirror — half the curvature work.
     let mut g = Array1::<f64>::zeros(d);
     let mut h = Array2::<f64>::zeros((d, d));
     for a in 0..d {
         let ja = jm.row(a);
-        g[a] = ja.dot(&residual);
+        g[a] = ja.dot(wr);
         for b in a..d {
-            // Gauss-Newton block.
-            let mut hab = ja.dot(&jm.row(b));
-            // Residual · second-jet curvature: r · ∂²m_{ab},
+            // Gauss-Newton block `J_aᵀ M J_b` (Euclidean: `J_aᵀ J_b`).
+            let mut hab = match &mjm {
+                Some(v) => ja.dot(&v[b]),
+                None => ja.dot(&jm.row(b)),
+            };
+            // (M-weighted) residual · second-jet curvature: (M r) · ∂²m_{ab},
             // ∂²m_{ab}[out] = z · Σ_basis (∂²Φ/∂t_a∂t_b) · B[basis, out].
             let mut curv = 0.0;
             for basis_col in 0..m {
@@ -1111,6 +1267,22 @@ pub(crate) fn encode_grad_hess(
             hab += curv;
             h[[a, b]] = hab;
             h[[b, a]] = hab;
+        }
+    }
+    // F3 — latent coordinate prior. The fit placed an ARD (Gaussian) / von-Mises
+    // (periodic) prior on `t`; its energy enters the certified objective, so its
+    // gradient and (per-axis diagonal) Hessian enter the Newton field. Absent for
+    // `EncodeObjective::euclidean` (no allocation, no arithmetic).
+    if let Some(alpha) = objective.prior_alpha {
+        for axis in 0..d.min(alpha.len()) {
+            let alpha_axis = alpha[axis];
+            if alpha_axis == 0.0 {
+                continue;
+            }
+            let pr =
+                crate::manifold::ArdAxisPrior::eval(alpha_axis, t[axis], latent_axis_period(atom, axis));
+            g[axis] += pr.grad;
+            h[[axis, axis]] += pr.hess;
         }
     }
     // NO ridge: the certificate must use the TRUE Hessian (F2). See the doc above.
@@ -1205,6 +1377,31 @@ pub fn row_certificate(
     amplitude: f64,
     lipschitz: f64,
 ) -> Result<(RowCertificate, Array1<f64>), String> {
+    // Euclidean, prior-free objective — bit-identical to the metric-free encode.
+    row_certificate_core(
+        atom,
+        evaluator,
+        t0,
+        x,
+        amplitude,
+        lipschitz,
+        &EncodeObjective::euclidean(),
+    )
+}
+
+/// Objective-aware [`row_certificate`] (F3): the certificate `h = β·η·L` is
+/// computed from the TRUE objective's gradient/Hessian ([`encode_grad_hess_core`])
+/// so it certifies the metric- and prior-weighted field. `lipschitz` must already
+/// be the objective's effective bound ([`EncodeObjective::effective_lipschitz`]).
+pub(crate) fn row_certificate_core(
+    atom: &SaeManifoldAtom,
+    evaluator: &dyn SaeBasisEvaluator,
+    t0: ArrayView1<'_, f64>,
+    x: ArrayView1<'_, f64>,
+    amplitude: f64,
+    lipschitz: f64,
+    objective: &EncodeObjective<'_>,
+) -> Result<(RowCertificate, Array1<f64>), String> {
     let uncertified = || {
         (
             RowCertificate {
@@ -1217,7 +1414,7 @@ pub fn row_certificate(
         )
     };
     // No second jet ⇒ no full Hessian ⇒ uncertifiable (flag).
-    let Some((g, h)) = encode_grad_hess(atom, evaluator, t0, x, amplitude)? else {
+    let Some((g, h)) = encode_grad_hess_core(atom, evaluator, t0, x, amplitude, objective)? else {
         return Ok(uncertified());
     };
     match beta_eta_newton(h.view(), g.view())? {
@@ -1255,6 +1452,9 @@ fn refine_certified_start(
     newton_steps: usize,
     initial_cert: RowCertificate,
     mut delta: Array1<f64>,
+    chart_center: ArrayView1<'_, f64>,
+    chart_radius: f64,
+    objective: &EncodeObjective<'_>,
 ) -> Result<Option<CertifiedEncodeProbe>, String> {
     assert!(initial_cert.certified());
     let mut final_cert = initial_cert;
@@ -1267,9 +1467,23 @@ fn refine_certified_start(
         if delta.dot(&delta).sqrt() <= NEWTON_REFINE_CONVERGED_EPS * (1.0 + t.dot(&t).sqrt()) {
             break;
         }
-        t = &t + &delta;
+        let next = &t + &delta;
+        // SOUNDNESS GUARD — same containment rule as `certify_with_basin_warmup`:
+        // `lipschitz` is only a valid Hessian-Lipschitz bound inside this chart's
+        // ball for the chart-local families. A refine iterate that leaves the ball
+        // would have its certificate recomputed below with an `L` that no longer
+        // bounds the true geometry there, so `h ≤ ½` would NOT imply Kantorovich
+        // convergence — and the in-hand certificate at the previous iterate is
+        // itself suspect (its guarantee needs `L` valid on the Newton sequence's
+        // ball, part of which now lies outside the chart). Refuse and flag for the
+        // exact fallback, exactly as the warm-up does. Wrap-aware distance, so
+        // periodic-seam iterates are measured in the true manifold geometry.
+        if latent_coordinate_distance(atom, next.view(), chart_center) > chart_radius {
+            return Ok(None);
+        }
+        t = next;
         let (cert, next_delta) =
-            row_certificate(atom, evaluator, t.view(), x, amplitude, lipschitz)?;
+            row_certificate_core(atom, evaluator, t.view(), x, amplitude, lipschitz, objective)?;
         if !cert.certified() {
             return Ok(None);
         }
@@ -1397,6 +1611,7 @@ fn certify_with_basin_warmup(
     newton_steps: usize,
     chart_center: ArrayView1<'_, f64>,
     chart_radius: f64,
+    objective: &EncodeObjective<'_>,
 ) -> Result<Option<CertifiedEncodeProbe>, String> {
     // SOUNDNESS GUARD: `lipschitz` is the chart's Hessian-Lipschitz sup, which is
     // only a valid bound over this chart's ball `‖t − center‖ ≤ radius` for the
@@ -1436,7 +1651,7 @@ fn certify_with_basin_warmup(
         return Ok(None);
     }
     let (mut cert, mut delta) =
-        row_certificate(atom, evaluator, t.view(), x, amplitude, lipschitz)?;
+        row_certificate_core(atom, evaluator, t.view(), x, amplitude, lipschitz, objective)?;
     while !cert.certified() {
         // Not steppable (indefinite / non-finite Hessian): flag.
         if !(cert.h.is_finite() && cert.beta.is_finite() && cert.eta.is_finite()) {
@@ -1450,7 +1665,7 @@ fn certify_with_basin_warmup(
         }
         t = next;
         let (next_cert, next_delta) =
-            row_certificate(atom, evaluator, t.view(), x, amplitude, lipschitz)?;
+            row_certificate_core(atom, evaluator, t.view(), x, amplitude, lipschitz, objective)?;
         cert = next_cert;
         delta = next_delta;
         // The warm-up only helps while h keeps *multiplicatively* contracting
@@ -1484,6 +1699,9 @@ fn certify_with_basin_warmup(
         newton_steps,
         cert,
         delta,
+        chart_center,
+        chart_radius,
+        objective,
     )
 }
 
@@ -1668,7 +1886,11 @@ impl EncodeAtlas {
                 centers.nrows()
             ));
         }
-        let decoder_norm_sum = decoder_row_norm_sum(atom.decoder_coefficients.view());
+        // Full-width frame (matches `family_jet_sups` / `reconstruction_jet_sups`):
+        // the atlas's stored decoder scaling must pair with the full-width family
+        // sups, so a #1117 rank-reduced atom contributes `Σ‖(Q B̃)_{m,:}‖`, not the
+        // reduced-row sum. Identical for an un-reduced atom.
+        let decoder_norm_sum = decoder_row_norm_sum(atom.full_width_decoder().view());
         let mut charts = Vec::with_capacity(centers.nrows());
         // HONEST REFUSAL for Duchon atoms (F2/F3): the closed-form Hessian-Lipschitz
         // bound available here (`family_jet_sups` Duchon arm) hard-codes cubic-r³
@@ -1824,19 +2046,26 @@ impl EncodeAtlas {
         t: Array1<f64>,
         x: ArrayView1<'_, f64>,
         amplitude: f64,
+        objective: &EncodeObjective<'_>,
     ) -> Result<(Array1<f64>, RowCertificate), String> {
         // Certify from the warm start, navigating into the Kantorovich basin first
         // if the unit-amplitude start has h > ½ (see `certify_with_basin_warmup`).
+        // The Lipschitz is the objective's EFFECTIVE bound (F3): the stored
+        // Euclidean data-term `L` scaled by the metric operator-norm bound plus the
+        // prior's third-derivative bound. Reduces to `chart.lipschitz` exactly for
+        // the Euclidean objective, so the metric-free path is unchanged.
+        let lipschitz = objective.effective_lipschitz(atom, chart.lipschitz);
         let Some(probe) = certify_with_basin_warmup(
             atom,
             evaluator,
             t,
             x,
             amplitude,
-            chart.lipschitz,
+            lipschitz,
             self.config.newton_steps,
             chart.region.center.view(),
             chart.region.radius,
+            objective,
         )?
         else {
             return Ok((
@@ -1865,11 +2094,51 @@ impl EncodeAtlas {
         x: ArrayView1<'_, f64>,
         amplitude: f64,
     ) -> Result<(Array1<f64>, RowCertificate), String> {
+        // The bare Euclidean, prior-free objective — bit-identical to the metric-
+        // free certified encode.
+        self.certified_encode_row_with_objective(
+            atom,
+            atom_index,
+            x,
+            amplitude,
+            &EncodeObjective::euclidean(),
+        )
+    }
+
+    /// [`Self::certified_encode_row`] against the TRUE encode objective (F3): the
+    /// Newton–Kantorovich certificate is computed under the fit's per-row output
+    /// metric and latent coordinate prior ([`EncodeObjective`]), so the certified
+    /// root is the minimizer of the SAME generalized-least-squares-plus-prior
+    /// functional the fit used — not a bare Euclidean stand-in that certifies a
+    /// different problem. The metric operator-norm bound scales the offline chart
+    /// Lipschitz; the per-row metric and prior enter `β, η` and the candidate-
+    /// ranking SSE guard online. `EncodeObjective::euclidean()` reproduces the
+    /// metric-free path exactly.
+    pub fn certified_encode_row_with_objective(
+        &self,
+        atom: &SaeManifoldAtom,
+        atom_index: usize,
+        x: ArrayView1<'_, f64>,
+        amplitude: f64,
+        objective: &EncodeObjective<'_>,
+    ) -> Result<(Array1<f64>, RowCertificate), String> {
         let atom_atlas = self
             .atoms
             .get(atom_index)
             .ok_or_else(|| format!("certified_encode_row: atom {atom_index} not in atlas"))?;
         let d = atom.latent_dim;
+        // A per-row metric factor `U` must be `p × rank` (`M = U Uᵀ` acts on the
+        // p-dim output). A shape mismatch is a caller bug — surface it rather than
+        // silently certifying a wrong (or panicking) whitening.
+        if let Some(u) = objective.metric_factor {
+            if u.nrows() != atom.output_dim() {
+                return Err(format!(
+                    "certified_encode_row_with_objective: metric factor has {} rows but atom output_dim is {}",
+                    u.nrows(),
+                    atom.output_dim()
+                ));
+            }
+        }
         // A missing basis evaluator means the amortized/cold predictor cannot fire
         // for this atom (e.g. a frozen-baseline or first-build atom that never
         // attached a distilled evaluator). That is exactly the "cannot certify"
@@ -1934,17 +2203,19 @@ impl EncodeAtlas {
                 t,
                 x,
                 amplitude,
+                objective,
             )?;
             if nearest_fallback.is_none() {
                 nearest_fallback = Some((coord.clone(), cert.clone()));
             }
             if cert.certified() {
-                let err = encode_reconstruction_error(
+                let err = encode_reconstruction_error_core(
                     atom,
                     evaluator.as_ref(),
                     coord.view(),
                     x,
                     amplitude,
+                    objective,
                 );
                 if best.as_ref().map(|(_, _, e)| err < *e).unwrap_or(true) {
                     best = Some((coord, cert, err));
@@ -2002,6 +2273,32 @@ impl EncodeAtlas {
         x: ArrayView1<'_, f64>,
         amplitude: f64,
     ) -> Result<(Array1<f64>, RowCertificate), String> {
+        // Euclidean, prior-free objective — bit-identical to the metric-free path.
+        self.amortized_encode_row_with_objective(
+            atom,
+            atom_index,
+            x,
+            amplitude,
+            &EncodeObjective::euclidean(),
+        )
+    }
+
+    /// [`Self::amortized_encode_row`] against the TRUE encode objective (F3): the
+    /// distilled predictor's warm start is Euclidean (its `A₁` is the Euclidean
+    /// Gauss–Newton block), but BOTH Kantorovich probes certify under the supplied
+    /// metric + prior objective, with the chart Lipschitz taken as the objective's
+    /// effective bound. So the fast path is preserved (one mat-vec warm start) while
+    /// the certificate — and therefore the trust/fallback decision — is honest about
+    /// the metric-and-prior objective the fit optimized. `EncodeObjective::euclidean`
+    /// reproduces the metric-free distilled path exactly.
+    pub fn amortized_encode_row_with_objective(
+        &self,
+        atom: &SaeManifoldAtom,
+        atom_index: usize,
+        x: ArrayView1<'_, f64>,
+        amplitude: f64,
+        objective: &EncodeObjective<'_>,
+    ) -> Result<(Array1<f64>, RowCertificate), String> {
         let atom_atlas = self
             .atoms
             .get(atom_index)
@@ -2039,6 +2336,12 @@ impl EncodeAtlas {
         let Some(t_hat) = amortized_warm_start(chart, x, amplitude) else {
             return Ok(uncertified());
         };
+        // Effective Kantorovich Lipschitz for the TRUE objective (F3): the stored
+        // Euclidean data-term bound scaled by the metric operator-norm bound plus
+        // the prior's third-derivative bound. Reduces to `chart.lipschitz` exactly
+        // for `EncodeObjective::euclidean`, so the metric-free distilled path is
+        // unchanged.
+        let lipschitz = objective.effective_lipschitz(atom, chart.lipschitz);
         // Evaluate the SAME Kantorovich certificate at the predicted start. The
         // amortized prediction is trusted only if this certificate holds AND an
         // independent cold chart-center probe certifies and agrees below the
@@ -2051,15 +2354,16 @@ impl EncodeAtlas {
             t_hat,
             x,
             amplitude,
-            chart.lipschitz,
+            lipschitz,
             self.config.newton_steps,
             chart.region.center.view(),
             chart.region.radius,
+            objective,
         )?
         else {
             return Ok((
                 Array1::<f64>::zeros(d),
-                uncertified_certificate(chart.lipschitz),
+                uncertified_certificate(lipschitz),
             ));
         };
 
@@ -2070,15 +2374,16 @@ impl EncodeAtlas {
             cold_start,
             x,
             amplitude,
-            chart.lipschitz,
+            lipschitz,
             self.config.newton_steps,
             chart.region.center.view(),
             chart.region.radius,
+            objective,
         )?
         else {
             return Ok((
                 amortized_probe.coord,
-                uncertified_certificate(chart.lipschitz),
+                uncertified_certificate(lipschitz),
             ));
         };
 
@@ -2088,7 +2393,7 @@ impl EncodeAtlas {
         if !(gap.is_finite() && gap <= tolerance) {
             return Ok((
                 amortized_probe.coord,
-                uncertified_certificate(chart.lipschitz),
+                uncertified_certificate(lipschitz),
             ));
         }
         // F5: return the certificate at the refined landing coordinate
@@ -2395,7 +2700,16 @@ impl EncodeAtlas {
             (0..n)
                 .map(|row| {
                     let z = amplitudes[row];
-                    if !z.is_finite() {
+                    // F4 — ACTIVITY GATE BEFORE ROUTING: an inactive (z = 0) or
+                    // non-finite-amplitude row is skipped by the predictor loop
+                    // below (`amp.abs() > 0.0`), so its chart never matters. Routing
+                    // it anyway is the dense `O(n·K·C·p)` waste this path incurs at
+                    // massive K, where each atom is active on only a sparse handful of
+                    // the N rows yet the routing scan still touches every (row, chart)
+                    // pair. Gate the amplitude here so the `C·p` distance scan runs
+                    // only for the atom's genuinely-active rows; the chart-0 sentinel
+                    // is moot for the gated rows (they are dropped downstream).
+                    if !(z.is_finite() && z.abs() > 0.0) {
                         return 0usize;
                     }
                     let x_row = x.row(row);
@@ -3252,12 +3566,37 @@ pub(crate) fn nearest_charts_topk(
 /// criterion the certified encode minimizes over its candidate charts to pick the
 /// GLOBAL basin. `m(t) = Bᵀ Φ(t)` is the amplitude-1 reconstruction; `z` is the
 /// amplitude. A non-finite reconstruction returns `+∞` so it never wins.
-pub(crate) fn encode_reconstruction_error(
+pub fn encode_reconstruction_error(
     atom: &SaeManifoldAtom,
     evaluator: &dyn SaeBasisEvaluator,
     coord: ArrayView1<'_, f64>,
     x: ArrayView1<'_, f64>,
     amplitude: f64,
+) -> f64 {
+    // Bare Euclidean residual norm — bit-identical to the metric-free encode.
+    encode_reconstruction_error_core(
+        atom,
+        evaluator,
+        coord,
+        x,
+        amplitude,
+        &EncodeObjective::euclidean(),
+    )
+}
+
+/// Objective-aware reconstruction error (F3): the WHITENED residual norm
+/// `‖M^{1/2} r‖ = ‖Uᵀ r‖` when a metric is active, so the candidate-ranking /
+/// warm-start SSE guard measures error in the SAME metric the certified objective
+/// minimizes — an unwhitened `‖r‖₂` guard would rank candidates by a different
+/// functional than the one being certified. With no metric this is `‖r‖₂`, exactly
+/// the historical guard.
+pub(crate) fn encode_reconstruction_error_core(
+    atom: &SaeManifoldAtom,
+    evaluator: &dyn SaeBasisEvaluator,
+    coord: ArrayView1<'_, f64>,
+    x: ArrayView1<'_, f64>,
+    amplitude: f64,
+    objective: &EncodeObjective<'_>,
 ) -> f64 {
     let d = atom.latent_dim;
     let p = atom.output_dim();
@@ -3269,15 +3608,30 @@ pub(crate) fn encode_reconstruction_error(
     let Ok((phi, _jet)) = evaluator.evaluate(coords.view()) else {
         return f64::INFINITY;
     };
-    let mut err2 = 0.0;
+    let mut residual = Array1::<f64>::zeros(p);
     for out in 0..p {
         let mut recon = 0.0;
         for basis_col in 0..m {
             recon += phi[[0, basis_col]] * atom.decoder_coefficients[[basis_col, out]];
         }
-        let r = x[out] - amplitude * recon;
-        err2 += r * r;
+        residual[out] = x[out] - amplitude * recon;
     }
+    // `½ rᵀ M r = ½‖Uᵀr‖²` under `M = U Uᵀ`; the guard reports the metric norm
+    // `‖Uᵀr‖`. Euclidean (`None`) accumulates `Σ r²` in the SAME element order as
+    // the historical loop, so the metric-free guard is bit-for-bit unchanged.
+    let err2 = match objective.metric_factor {
+        Some(u) => {
+            let utr = u.t().dot(&residual);
+            utr.dot(&utr)
+        }
+        None => {
+            let mut e = 0.0;
+            for out in 0..p {
+                e += residual[out] * residual[out];
+            }
+            e
+        }
+    };
     if err2.is_finite() {
         err2.sqrt()
     } else {
@@ -3717,39 +4071,60 @@ pub fn joint_encode_fallback_fraction(
     if n == 0 || k_atoms == 0 {
         return Ok(0.0);
     }
-    // Per-atom row tangents (None ⇒ evaluator-less atom, no coupling).
-    let mut tangents: Vec<Option<Vec<Array2<f64>>>> = Vec::with_capacity(k_atoms);
-    for (atom_idx, atom) in atoms.iter().enumerate() {
-        if coords[atom_idx].nrows() != n {
+    // F5 — FILTER BEFORE MATERIALIZE: the dense form built the full `n × K`
+    // tangent tensor (`atom_row_tangents` over every atom, all N rows) BEFORE the
+    // per-row activity filter, which OOMs at `K = 32k` even though each row couples
+    // only through its co-active atoms. Cross-coupling exists only among a row's
+    // co-active, differentiable atoms (`z > floor`), so materialize just that row's
+    // active tangents, lazily, per row. `atom_row_tangents` is row-wise, so the
+    // single-row slice is bit-identical to the batched evaluate the dense path
+    // indexed — the fallback fraction is unchanged; only the peak allocation drops
+    // from `O(n·K·d·p)` to the max active-set size per row.
+    for (atom_idx, coord) in coords.iter().enumerate() {
+        if coord.nrows() != n {
             return Err(format!(
                 "joint_encode_fallback_fraction: coord block {atom_idx} has {} rows, expected {n}",
-                coords[atom_idx].nrows()
+                coord.nrows()
             ));
         }
-        tangents.push(atom_row_tangents(atom, coords[atom_idx].view())?);
     }
     let mut fallback_rows = 0usize;
     for row in 0..n {
-        // Gather this row's co-active, differentiable atoms.
+        // Gather this row's co-active, differentiable atoms (evaluator-less atoms
+        // carry no coupling — same `is_some()` predicate the dense path applied via
+        // `tangents[k].is_some()`).
         let active: Vec<usize> = (0..k_atoms)
-            .filter(|&k| amplitudes[[row, k]] > amplitude_floor && tangents[k].is_some())
+            .filter(|&k| amplitudes[[row, k]] > amplitude_floor && atoms[k].basis_evaluator.is_some())
             .collect();
         if active.len() < 2 {
             continue; // no cross blocks: the per-atom certificate composes trivially
         }
-        let mut row_needs_multistart = false;
+        // Materialize ONLY this row's active tangents (one `d × p` block per active
+        // atom), never the dense tensor. An atom that unexpectedly yields no tangent
+        // (evaluator present but non-differentiable) simply drops out of the coupling,
+        // exactly as a `None` block did in the dense path.
+        let mut tans: Vec<Array2<f64>> = Vec::with_capacity(active.len());
+        let mut zs: Vec<f64> = Vec::with_capacity(active.len());
         for &k in &active {
-            let tan_k = &tangents[k].as_ref().unwrap()[row];
-            let zk = amplitudes[[row, k]];
+            let coord_row = coords[k].row(row).insert_axis(Axis(0)); // (1, d)
+            if let Some(mut block) = atom_row_tangents(&atoms[k], coord_row)? {
+                tans.push(block.pop().expect("single-row tangents carry one block"));
+                zs.push(amplitudes[[row, k]]);
+            }
+        }
+        if tans.len() < 2 {
+            continue;
+        }
+        let mut row_needs_multistart = false;
+        for (ki, tan_k) in tans.iter().enumerate() {
+            let zk = zs[ki];
             let lam_min = min_curvature_eigenvalue(tan_k, zk)?;
             let mut coupling = 0.0;
-            for &j in &active {
-                if j == k {
+            for (ji, tan_j) in tans.iter().enumerate() {
+                if ji == ki {
                     continue;
                 }
-                let tan_j = &tangents[j].as_ref().unwrap()[row];
-                let zj = amplitudes[[row, j]];
-                coupling += cross_block_frobenius(tan_k, tan_j, zk, zj);
+                coupling += cross_block_frobenius(tan_k, tan_j, zk, zs[ji]);
             }
             if lam_min <= coupling {
                 row_needs_multistart = true;

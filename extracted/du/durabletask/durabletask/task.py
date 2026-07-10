@@ -8,6 +8,7 @@ import logging
 import math
 from abc import ABC, abstractmethod
 from collections.abc import Callable, Generator, Sequence
+from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 from typing import TYPE_CHECKING, Any, Generic, TypeAlias, TypeVar, cast, overload
 
@@ -35,6 +36,22 @@ class OrchestrationContext(ABC):
         -------
         str
             The ID of the current orchestration instance.
+        """
+        pass
+
+    @property
+    @abstractmethod
+    def parent_instance_id(self) -> str | None:
+        """Get the ID of the parent orchestration instance.
+
+        For a sub-orchestration, this is the instance ID of the orchestration
+        that scheduled it. For a top-level orchestration, this is ``None``.
+
+        Returns
+        -------
+        str | None
+            The parent orchestration instance ID, or ``None`` if this
+            orchestration was not scheduled by a parent orchestration.
         """
         pass
 
@@ -433,23 +450,11 @@ class ReplaySafeLogger(_LoggerAdapterBase):
         return self.logger.isEnabledFor(level)
 
 
+@dataclass(frozen=True)
 class FailureDetails:
-    def __init__(self, message: str, error_type: str, stack_trace: str | None):
-        self._message = message
-        self._error_type = error_type
-        self._stack_trace = stack_trace
-
-    @property
-    def message(self) -> str:
-        return self._message
-
-    @property
-    def error_type(self) -> str:
-        return self._error_type
-
-    @property
-    def stack_trace(self) -> str | None:
-        return self._stack_trace
+    message: str
+    error_type: str
+    stack_trace: str | None
 
 
 class TaskFailedError(Exception):

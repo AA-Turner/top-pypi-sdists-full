@@ -2,12 +2,14 @@
 import re
 import pytest
 from datetime import datetime
+from unittest.mock import patch
 
 import pyotp
 
 from testmu_selenium import _config
 from testmu_selenium._vars import (
-    _variable_store, _test_params, set_var, var, clear_state, resolve_variable,
+    _variable_store, _test_params, _global_variables, set_var, var, clear_state,
+    resolve_variable,
 )
 from testmu_selenium._errors import TestmuConfigError
 
@@ -263,3 +265,45 @@ class TestNamespaceDispatch:
 
     def test_regression_unknown_plain_name_returns_literal(self):
         assert var("{{nope}}") == "{{nope}}"
+
+
+class TestGlobalIsPersistSessionValue:
+    """{{global.x}} resolution when ATMS reports is_persist=False — the session
+    snapshot in _global_variables must win over the raw ATMS 'value', and a
+    runtime set_var("global.X", ...) must in turn win over the baked
+    authoring-time session_value (is_persist only gates the TMS write, never
+    which value is typed)."""
+
+    def test_global_is_persist_false_uses_session_value(self, monkeypatch):
+        monkeypatch.setattr(_config, "lt_auth", True)
+        _global_variables.append(
+            {"name": "MY_VAR", "value": "stored", "session_value": "session_val"}
+        )
+        with patch(
+            "testmu_selenium._vars._atms_get_variable",
+            return_value={"value": "stored", "is_persist": False},
+        ):
+            result = var("{{global.MY_VAR}}")
+        assert result == "session_val"
+
+    def test_global_is_persist_false_prefers_runtime_regenerated_value(self, monkeypatch):
+        """A value regenerated during the run via set_var("global.X") must win
+        over the authoring-time session_value snapshot baked into configure()
+        — is_persist only gates the TMS write, never which value is typed."""
+        monkeypatch.setattr(_config, "lt_auth", True)
+        _global_variables.append(
+            {
+                "name": "MY_VAR",
+                "value": "authoring_val",
+                "session_value": "authoring_val",
+                "is_persist": False,
+            }
+        )
+        with patch("testmu_selenium._vars._atms_persist_global_variable"):
+            set_var("global.MY_VAR", "regenerated_val")
+        with patch(
+            "testmu_selenium._vars._atms_get_variable",
+            return_value={"value": "authoring_val", "is_persist": False},
+        ):
+            result = var("{{global.MY_VAR}}")
+        assert result == "regenerated_val"

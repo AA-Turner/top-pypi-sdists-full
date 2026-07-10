@@ -113,52 +113,9 @@ VirtualMap::Size() const
     return d_end - d_start;
 }
 
-MemoryMapInformation::MemoryMapInformation()
-: d_main_map(std::nullopt)
-, d_bss(std::nullopt)
-, d_heap(std::nullopt)
-{
-}
-
-const std::optional<VirtualMap>&
-MemoryMapInformation::MainMap()
-{
-    return d_main_map;
-}
-
-const std::optional<VirtualMap>&
-MemoryMapInformation::Bss()
-{
-    return d_bss;
-}
-
-const std::optional<VirtualMap>&
-MemoryMapInformation::Heap()
-{
-    return d_heap;
-}
-
-void
-MemoryMapInformation::setMainMap(const VirtualMap& main_map)
-{
-    d_main_map = main_map;
-}
-
-void
-MemoryMapInformation::setBss(const VirtualMap& bss)
-{
-    d_bss = bss;
-}
-
-void
-MemoryMapInformation::setHeap(const VirtualMap& heap)
-{
-    d_heap = heap;
-}
-
 LRUCache::LRUCache(size_t capacity)
 : d_cache_capacity(capacity)
-, d_size(0){};
+, d_size(0) {};
 
 void
 LRUCache::put(uintptr_t key, std::vector<char>&& value)
@@ -310,8 +267,14 @@ ProcessMemoryManager::copyMemoryFromProcess(remote_addr_t addr, size_t len, void
 
     if (!d_lru_cache.exists(key)) {
         std::vector<char> buf(chunk_size);
-        readChunk(vmap_start_addr, chunk_size, buf.data());
-        d_lru_cache.put(key, std::move(buf));
+        try {
+            readChunk(vmap_start_addr, chunk_size, buf.data());
+            d_lru_cache.put(key, std::move(buf));
+        } catch (const InvalidRemoteAddress&) {
+            // The full vmap read failed (e.g. guard pages in JIT mappings).
+            // Fall back to reading just the requested bytes directly.
+            return readChunk(addr, len, reinterpret_cast<char*>(dst));
+        }
     }
 
     std::memcpy(dst, d_lru_cache.get(key).data() + offset_addr, len);
@@ -322,7 +285,7 @@ ProcessMemoryManager::copyMemoryFromProcess(remote_addr_t addr, size_t len, void
 bool
 ProcessMemoryManager::isAddressValid(remote_addr_t addr, const VirtualMap& map) const
 {
-    if (addr == (uintptr_t) nullptr) {
+    if (addr == (uintptr_t)nullptr) {
         return false;
     }
     return map.Start() <= addr && addr < map.End();
@@ -543,7 +506,7 @@ CorefileRemoteMemoryManager::getMemoryLocationFromElf(
 bool
 CorefileRemoteMemoryManager::isAddressValid(remote_addr_t addr, const VirtualMap& map) const
 {
-    if (addr == (uintptr_t) nullptr) {
+    if (addr == (uintptr_t)nullptr) {
         return false;
     }
     return map.Start() <= addr && addr < map.Start() + map.Size();

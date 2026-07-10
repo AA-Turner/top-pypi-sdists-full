@@ -4,6 +4,7 @@ import os
 import subprocess
 import sys
 import tempfile
+import threading
 import time
 from collections.abc import Iterable
 from pathlib import Path
@@ -15,11 +16,67 @@ import playwright.sync_api
 from playwright.sync_api import Page
 from playwright.sync_api import TimeoutError as PlaywrightTimeoutError
 
+from abstra_internals.agents import lifecycle
 from abstra_internals.constants import get_persistent_dir
 from abstra_internals.services.audit import FileScanAuditEvent
 from abstra_internals.services.clamav import default_scanner
 
 from .base import AgentTools
+
+
+class _ThreadDriverState(threading.local):
+    context: Optional[Any] = None
+    driver: Optional[playwright.sync_api.Playwright] = None
+    refcount: int = 0
+
+
+_thread_driver = _ThreadDriverState()
+
+
+def _acquire_playwright(debug_mode: bool = False) -> playwright.sync_api.Playwright:
+    """Start (or reuse) this thread's shared sync playwright driver.
+
+    Playwright's sync API keeps an asyncio loop marked as running on the
+    thread for the driver's whole lifetime, so starting a second driver on
+    the same thread trips its "Sync API inside the asyncio loop" guard and
+    stacks a second driver process. One refcounted driver per thread avoids
+    both; `_release_playwright` stops it when the last holder closes.
+    """
+    if _thread_driver.refcount > 0 and _thread_driver.driver is not None:
+        _thread_driver.refcount += 1
+        return _thread_driver.driver
+
+    try:
+        loop = asyncio.get_running_loop()
+        if loop.is_running():
+            # A loop we don't own is marked as running (e.g. a notebook
+            # kernel). Unset the marker so the sync API can start — same
+            # behavior BrowserTools always had for this case.
+            if debug_mode:
+                print("[DEBUG][BrowserTools] Found running event loop, unsetting it")
+            asyncio._set_running_loop(None)
+    except RuntimeError:
+        pass
+
+    context = playwright.sync_api.sync_playwright()
+    _thread_driver.driver = context.start()
+    _thread_driver.context = context
+    _thread_driver.refcount = 1
+    return _thread_driver.driver
+
+
+def _release_playwright() -> None:
+    """Drop one reference to the thread's shared driver, stopping it at zero."""
+    if _thread_driver.refcount <= 0:
+        return
+    _thread_driver.refcount -= 1
+    if _thread_driver.refcount > 0:
+        return
+    context = _thread_driver.context
+    _thread_driver.context = None
+    _thread_driver.driver = None
+    if context is not None:
+        context.__exit__(None, None, None)
 
 
 def _default_download_dir() -> Path:
@@ -742,6 +799,7 @@ class BrowserTools(AgentTools):
     debug_mode: bool
     allow_close_page: bool
     headless: bool
+    _closed: bool
 
     def __init__(
         self,
@@ -776,53 +834,46 @@ class BrowserTools(AgentTools):
                 f"[DEBUG][BrowserTools.__init__] url={url}, listen_network={listen_network}, listen_console={listen_console}, debug_mode={debug_mode}, allow_close_page={allow_close_page}"
             )
             print(f"[DEBUG][BrowserTools.__init__] resolved urls={self.urls}")
+        self._closed = False
+        pw = _acquire_playwright(debug_mode=self.debug_mode)
+        lifecycle.register_tool(self)
         try:
-            loop = asyncio.get_running_loop()
-            if loop.is_running():
-                if self.debug_mode:
-                    print(
-                        "[DEBUG][BrowserTools.__init__] Found running event loop, unsetting it"
-                    )
-                asyncio._set_running_loop(None)
-        except RuntimeError:
+            selenium_remote_url = os.environ.get("SELENIUM_REMOTE_URL")
+            self._is_remote = bool(selenium_remote_url)
             if self.debug_mode:
-                print("[DEBUG][BrowserTools.__init__] No running event loop found")
-        self._playwright_context = playwright.sync_api.sync_playwright()
-        pw = self._playwright_context.start()
-
-        selenium_remote_url = os.environ.get("SELENIUM_REMOTE_URL")
-        self._is_remote = bool(selenium_remote_url)
-        if self.debug_mode:
-            print(
-                f"[DEBUG][BrowserTools.__init__] Launching chromium (headless={self.headless}, remote={self._is_remote})"
-            )
-        if not self._is_remote:
-            # Local only: auto-install Chromium if missing
-            # Web editor uses remote Selenium via SELENIUM_REMOTE_URL
-            if not os.path.exists(pw.chromium.executable_path):
-                if self.debug_mode:
-                    print(
-                        "[DEBUG][BrowserTools.__init__] Chromium not found, installing..."
-                    )
-                subprocess.run(
-                    [sys.executable, "-m", "playwright", "install", "chromium"],
-                    check=True,
+                print(
+                    f"[DEBUG][BrowserTools.__init__] Launching chromium (headless={self.headless}, remote={self._is_remote})"
                 )
-        # When SELENIUM_REMOTE_URL is set, Playwright automatically routes
-        # through Selenium Grid (supported since Playwright 1.28)
-        self.browser = pw.chromium.launch(headless=self.headless)
-        self._browser_context = self._build_browser_context(client_certificate)
-        if self.debug_mode:
-            print("[DEBUG][BrowserTools.__init__] Browser launched successfully")
-        self.pages = {}
-        self.listen_network = listen_network
-        self.listen_console = listen_console
-        self.listen_websocket = listen_websocket
-        self.network_requests = {}
-        self.console_logs = {}
-        self.websocket_frames = {}
-        self._extracted_elements: Dict[str, List[Dict[str, Any]]] = {}
-        self.extractor = ElementExtractor()
+            if not self._is_remote:
+                # Local only: auto-install Chromium if missing
+                # Web editor uses remote Selenium via SELENIUM_REMOTE_URL
+                if not os.path.exists(pw.chromium.executable_path):
+                    if self.debug_mode:
+                        print(
+                            "[DEBUG][BrowserTools.__init__] Chromium not found, installing..."
+                        )
+                    subprocess.run(
+                        [sys.executable, "-m", "playwright", "install", "chromium"],
+                        check=True,
+                    )
+            # When SELENIUM_REMOTE_URL is set, Playwright automatically routes
+            # through Selenium Grid (supported since Playwright 1.28)
+            self.browser = pw.chromium.launch(headless=self.headless)
+            self._browser_context = self._build_browser_context(client_certificate)
+            if self.debug_mode:
+                print("[DEBUG][BrowserTools.__init__] Browser launched successfully")
+            self.pages = {}
+            self.listen_network = listen_network
+            self.listen_console = listen_console
+            self.listen_websocket = listen_websocket
+            self.network_requests = {}
+            self.console_logs = {}
+            self.websocket_frames = {}
+            self._extracted_elements: Dict[str, List[Dict[str, Any]]] = {}
+            self.extractor = ElementExtractor()
+        except BaseException:
+            self.close()
+            raise
 
     def _build_browser_context(
         self, client_certificate: Optional[ClientCertificate]
@@ -851,48 +902,67 @@ class BrowserTools(AgentTools):
         return self.browser.new_context(**context_options)
 
     def close(self):
-        if self.debug_mode:
-            print(f"[DEBUG][BrowserTools.close] Closing {len(self.pages)} pages")
-        for page_id, page in list(self.pages.items()):
+        # Idempotent and tolerant of partially-built instances: the executor
+        # teardown closes leaked tools, and __init__ closes itself on failure.
+        if self._closed:
+            return
+        self._closed = True
+
+        # The driver release and registry removal run in a finally: the
+        # executor's SIGTERM handler raises ClientAbandoned (a BaseException),
+        # and if it lands mid-close the shared driver refcount must still be
+        # dropped — otherwise it stays pinned for the life of the warm
+        # executor.
+        try:
+            pages = getattr(self, "pages", {})
+            if self.debug_mode:
+                print(f"[DEBUG][BrowserTools.close] Closing {len(pages)} pages")
+            for page_id, page in list(pages.items()):
+                try:
+                    if self.debug_mode:
+                        print(f"[DEBUG][BrowserTools.close] Closing page {page_id}")
+                    page.close()
+                except Exception as e:
+                    if self.debug_mode:
+                        print(
+                            f"[DEBUG][BrowserTools.close] Error closing page {page_id}: {e}"
+                        )
+            pages.clear()
+
+            browser_context = getattr(self, "_browser_context", None)
+            if browser_context is not None:
+                try:
+                    if self.debug_mode:
+                        print("[DEBUG][BrowserTools.close] Closing browser context")
+                    browser_context.close()
+                except Exception as e:
+                    if self.debug_mode:
+                        print(
+                            f"[DEBUG][BrowserTools.close] Error closing browser context: {e}"
+                        )
+
+            browser = getattr(self, "browser", None)
+            if browser is not None and not getattr(self, "_is_remote", False):
+                # Only close the browser for local launches;
+                # remote CDP connections share the browser with other clients
+                try:
+                    if self.debug_mode:
+                        print("[DEBUG][BrowserTools.close] Closing browser")
+                    browser.close()
+                except Exception as e:
+                    if self.debug_mode:
+                        print(f"[DEBUG][BrowserTools.close] Error closing browser: {e}")
+        finally:
             try:
                 if self.debug_mode:
-                    print(f"[DEBUG][BrowserTools.close] Closing page {page_id}")
-                page.close()
+                    print("[DEBUG][BrowserTools.close] Releasing playwright driver")
+                _release_playwright()
             except Exception as e:
                 if self.debug_mode:
                     print(
-                        f"[DEBUG][BrowserTools.close] Error closing page {page_id}: {e}"
+                        f"[DEBUG][BrowserTools.close] Error releasing playwright driver: {e}"
                     )
-        self.pages.clear()
-
-        try:
-            if self.debug_mode:
-                print("[DEBUG][BrowserTools.close] Closing browser context")
-            self._browser_context.close()
-        except Exception as e:
-            if self.debug_mode:
-                print(f"[DEBUG][BrowserTools.close] Error closing browser context: {e}")
-
-        if not self._is_remote:
-            # Only close the browser for local launches;
-            # remote CDP connections share the browser with other clients
-            try:
-                if self.debug_mode:
-                    print("[DEBUG][BrowserTools.close] Closing browser")
-                self.browser.close()
-            except Exception as e:
-                if self.debug_mode:
-                    print(f"[DEBUG][BrowserTools.close] Error closing browser: {e}")
-
-        try:
-            if self.debug_mode:
-                print("[DEBUG][BrowserTools.close] Exiting playwright context")
-            self._playwright_context.__exit__(None, None, None)
-        except Exception as e:
-            if self.debug_mode:
-                print(
-                    f"[DEBUG][BrowserTools.close] Error exiting playwright context: {e}"
-                )
+            lifecycle.unregister_tool(self)
 
     def __enter__(self):
         return self

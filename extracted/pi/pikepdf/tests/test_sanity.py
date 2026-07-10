@@ -39,7 +39,9 @@ def test_import_star():
     # Every name advertised in __all__ must be an actual attribute, otherwise
     # `from pikepdf import *` raises AttributeError. Regression test for #721.
     missing = [name for name in pikepdf.__all__ if not hasattr(pikepdf, name)]
-    assert not missing, f"pikepdf.__all__ lists names not defined on the module: {missing}"
+    assert not missing, (
+        f"pikepdf.__all__ lists names not defined on the module: {missing}"
+    )
 
     namespace: dict = {}
     exec("from pikepdf import *", namespace)

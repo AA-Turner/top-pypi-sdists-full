@@ -7,7 +7,7 @@ from pydantic import Field, validator
 from typing_extensions import Annotated, Literal
 
 from dstack._internal.core.models.backends.base import BackendType
-from dstack._internal.core.models.common import CoreModel
+from dstack._internal.core.models.common import ApplyAction, CoreModel
 from dstack._internal.core.models.routers import AnyGatewayRouterConfig
 from dstack._internal.utils.tags import tags_validator
 
@@ -19,6 +19,14 @@ class GatewayStatus(str, Enum):
     PROVISIONING = "provisioning"
     RUNNING = "running"
     FAILED = "failed"
+
+
+class GatewayReplicaStatus(str, Enum):
+    SUBMITTED = "submitted"
+    PROVISIONING = "provisioning"
+    RUNNING = "running"
+    TERMINATING = "terminating"
+    TERMINATED = "terminated"
 
 
 class LetsEncryptGatewayCertificate(CoreModel):
@@ -80,7 +88,8 @@ class GatewayConfiguration(CoreModel):
                 "The gateway wildcard domain name, e.g. `example.com`."
                 " Service domain names are constructed as `<run name>.<gateway domain`."
                 " The domain name can use the `${{ run.project_name }}` variable"
-                " to include the service’s project name"
+                " to include the service’s project name."
+                " Can be updated in-place. Updates do not affect existing services"
             )
         ),
     ] = None
@@ -119,11 +128,14 @@ class GatewaySpec(CoreModel):
 
 
 class GatewayReplica(CoreModel):
-    hostname: str
+    hostname: Optional[str] = None
     replica_num: int
-    backend: BackendType
-    region: str
+    backend: Optional[BackendType] = None
+    region: Optional[str] = None
     created_at: datetime.datetime
+    status: Optional[GatewayReplicaStatus] = None
+    """`status` is only optional on the client side for compatibility with 0.20.25 and 0.20.26 servers"""
+    status_message: Optional[str] = None
 
 
 class Gateway(CoreModel):
@@ -165,7 +177,22 @@ class GatewayPlan(CoreModel):
     project_name: str
     user: str
     spec: GatewaySpec
+    effective_spec: GatewaySpec
     current_resource: Optional[Gateway] = None
+    action: ApplyAction
+
+
+class ApplyGatewayPlanInput(CoreModel):
+    spec: GatewaySpec
+    current_resource: Annotated[
+        Optional[Gateway],
+        Field(
+            description=(
+                "The expected current resource."
+                " If the resource has changed, the apply fails unless `force: true`."
+            )
+        ),
+    ] = None
 
 
 class GatewayComputeConfiguration(CoreModel):

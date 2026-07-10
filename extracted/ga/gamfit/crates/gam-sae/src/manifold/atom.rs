@@ -689,6 +689,16 @@ pub struct SaeManifoldAtom {
     /// reduced frame at the emission boundary so it never leaks. `None` ⇒ the
     /// atom was never reduced and the stored decoder is already full-width.
     pub reduced_column_map: Option<Array2<f64>>,
+    /// #F3 — the fitted per-axis ARD precision `α_a = exp(log_ard[k][a])` of the
+    /// latent coordinate prior, length `latent_dim`. Stamped from the TERMINAL
+    /// `rho.log_ard[k]` when the term finalizes each atom (alongside the other
+    /// terminal-rho state), so the certified encode can add the SAME ARD /
+    /// von-Mises coordinate prior the fit optimized `t` against
+    /// ([`crate::encode::EncodeObjective`] `prior_alpha`) rather than certifying a
+    /// prior-free objective. `None` ⇒ no coordinate prior was fitted for this atom
+    /// (`rho.log_ard[k]` empty), in which case the encode objective is prior-free
+    /// exactly as before.
+    pub ard_precisions: Option<Array1<f64>>,
 }
 
 /// Quadrature-subsample cap for the `d ≥ 2` bending Gram: above this many active
@@ -763,6 +773,9 @@ impl SaeManifoldAtom {
             // Set only by `reduce_basis_to_subspace`; a freshly-built atom is
             // full-width (its decoder is already the un-reduced `M × p` block).
             reduced_column_map: None,
+            // Stamped from the terminal `rho.log_ard` at fit finalization; a
+            // freshly-built atom carries no fitted coordinate prior yet.
+            ard_precisions: None,
         };
         // Seed `smooth_penalty` with the intrinsic Gram at the initial
         // decoder/coordinates so the very first assembly already reads the
@@ -1589,6 +1602,44 @@ impl SaeManifoldAtom {
         }
         // #2022 — same exp(s) scaling as the value/derivative primitives so the
         // curved η-derivative stays consistent. No-op at s == 0.0 (default).
+        if self.log_amplitude != 0.0 {
+            let amp = self.log_amplitude.exp();
+            for slot in out.iter_mut() {
+                *slot *= amp;
+            }
+        }
+    }
+
+    /// #2133 — the pure second coordinate derivative `∂²g_k/∂t_{ik,axis}²`
+    /// contracted through the decoder, for one row/axis, given the atom's second
+    /// jet `(n, M, d, d)` (from [`SaeManifoldTerm::atom_second_jets`]). This is the
+    /// `f''` leg the Gauss-Newton `htt = J̃J̃ᵀ` omits; the SURE within-basin
+    /// divergence correction contracts it against the metric residual `M·r`.
+    /// Mirrors [`Self::fill_decoded_derivative_row`] exactly (same decoder axpy,
+    /// same `exp(s)` log-amplitude scaling), only the basis weight is the diagonal
+    /// second jet `∂²Φ/∂t_axis²` instead of the first jet `∂Φ/∂t_axis`.
+    pub(crate) fn fill_decoded_second_derivative_row(
+        &self,
+        second_jet: &Array4<f64>,
+        row: usize,
+        latent_axis: usize,
+        out: &mut [f64],
+    ) {
+        let m = self.basis_size();
+        assert_eq!(out.len(), self.output_dim());
+        for slot in out.iter_mut() {
+            *slot = 0.0;
+        }
+        for basis_col in 0..m {
+            let d2phi = second_jet[[row, basis_col, latent_axis, latent_axis]];
+            if d2phi == 0.0 {
+                continue;
+            }
+            let dec = self.decoder_coefficients.row(basis_col);
+            for (o, &d) in out.iter_mut().zip(dec.iter()) {
+                *o += d2phi * d;
+            }
+        }
         if self.log_amplitude != 0.0 {
             let amp = self.log_amplitude.exp();
             for slot in out.iter_mut() {

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: acryl-datahub
-Version: 1.6.0.10
+Version: 1.6.0.13
 Summary: DataHub ingestion framework and CLI — connect, extract, and push metadata from 50+ data sources into your DataHub catalog
 Home-page: https://datahub.com/
 License-Expression: Apache-2.0
@@ -446,6 +446,7 @@ Requires-Dist: botocore!=1.23.0,<2.0.0; extra == "glue"
 Requires-Dist: cachetools<6.0.0; extra == "glue"
 Requires-Dist: patchy==2.8.0; extra == "glue"
 Requires-Dist: sqlglot[c]==30.8.0; extra == "glue"
+Requires-Dist: sqlparse<0.6.0; extra == "glue"
 Requires-Dist: urllib3<3.0,>=1.26; extra == "glue"
 Provides-Extra: grafana
 Requires-Dist: patchy==2.8.0; extra == "grafana"
@@ -561,6 +562,10 @@ Provides-Extra: metabase
 Requires-Dist: patchy==2.8.0; extra == "metabase"
 Requires-Dist: requests<3.0.0; extra == "metabase"
 Requires-Dist: sqlglot[c]==30.8.0; extra == "metabase"
+Provides-Extra: microstrategy
+Requires-Dist: patchy==2.8.0; extra == "microstrategy"
+Requires-Dist: requests<3.0.0; extra == "microstrategy"
+Requires-Dist: sqlglot[c]==30.8.0; extra == "microstrategy"
 Provides-Extra: mlflow
 Requires-Dist: mlflow-skinny<2.21.0,>=2.3.0; extra == "mlflow"
 Requires-Dist: setuptools<82; extra == "mlflow"

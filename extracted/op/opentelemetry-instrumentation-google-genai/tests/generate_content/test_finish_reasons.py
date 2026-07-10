@@ -1,16 +1,5 @@
 # Copyright The OpenTelemetry Authors
-#
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-#
-#     http://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
+# SPDX-License-Identifier: Apache-2.0
 
 
 from google.genai import types as genai_types
@@ -27,7 +16,8 @@ class FinishReasonsTestCase(TestCase):
             "generate_content gemini-2.5-flash-001"
         )
         assert span is not None
-        assert "gen_ai.response.finish_reasons" in span.attributes
+        if "gen_ai.response.finish_reasons" not in span.attributes:
+            return []
         return list(span.attributes["gen_ai.response.finish_reasons"])
 
     def test_single_candidate_with_valid_reason(self):
@@ -71,7 +61,8 @@ class FinishReasonsTestCase(TestCase):
             )
         )
         self.assertEqual(
-            self.generate_and_get_span_finish_reasons(), ["unspecified"]
+            self.generate_and_get_span_finish_reasons(),
+            ["finish_reason_unspecified"],
         )
 
     def test_multiple_candidates_with_valid_reasons(self):
@@ -89,7 +80,7 @@ class FinishReasonsTestCase(TestCase):
             self.generate_and_get_span_finish_reasons(), ["max_tokens", "stop"]
         )
 
-    def test_sorts_finish_reasons(self):
+    def test_doesnt_sort_finish_reasons(self):
         self.configure_valid_response(
             candidates=[
                 genai_types.Candidate(
@@ -105,10 +96,10 @@ class FinishReasonsTestCase(TestCase):
         )
         self.assertEqual(
             self.generate_and_get_span_finish_reasons(),
-            ["max_tokens", "safety", "stop"],
+            ["stop", "max_tokens", "safety"],
         )
 
-    def test_deduplicates_finish_reasons(self):
+    def test_doesnt_deduplicate_finish_reasons(self):
         self.configure_valid_response(
             candidates=[
                 genai_types.Candidate(
@@ -139,5 +130,14 @@ class FinishReasonsTestCase(TestCase):
         )
         self.assertEqual(
             self.generate_and_get_span_finish_reasons(),
-            ["max_tokens", "safety", "stop"],
+            [
+                "stop",
+                "max_tokens",
+                "stop",
+                "stop",
+                "safety",
+                "stop",
+                "stop",
+                "stop",
+            ],
         )

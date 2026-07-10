@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: k8s-agent-sandbox
-Version: 0.5.0
+Version: 0.5.1
 Summary: A client library to interact with the Agentic Sandbox on Kubernetes.
 Project-URL: Homepage, https://github.com/kubernetes-sigs/agent-sandbox
 Project-URL: Bug Tracker, https://github.com/kubernetes-sigs/agent-sandbox/issues
@@ -350,6 +350,34 @@ Behavioral notes:
 - Client-side validation only checks RFC-1123 label syntax. The controller's
   domain allow-list and system-label restrictions are enforced server-side and
   are not replicated client-side.
+
+### 8. Custom Volume Claim Templates
+
+You can dynamically request persistent volumes to be attached to your Sandbox Pod by specifying `volume_claim_templates`. This allows the sandbox to mount custom PersistentVolumeClaims (PVCs).
+
+```python
+sandbox = client.create_sandbox(
+    warmpool="python-sandbox-warmpool",
+    namespace="default",
+    volume_claim_templates=[
+        {
+            "metadata": {
+                "name": "my-volume",
+            },
+            "spec": {
+                "accessModes": ["ReadWriteOnce"],
+                "resources": {
+                    "requests": {
+                        "storage": "1Gi",
+                    },
+                },
+            },
+        }
+    ],
+)
+```
+
+The volume claim templates are validated against the warmpool template's policy and rules (e.g., whether custom volume claims are allowed or if overrides are permitted).
 
 ## Testing
 

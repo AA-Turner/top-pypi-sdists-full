@@ -21,7 +21,7 @@ def require_minimum_pandas_version() -> None:
     # TODO(HyukjinKwon): Relocate and deduplicate the version specification.
     minimum_pandas_version = "1.0.5"
 
-    from distutils.version import LooseVersion
+    from pyspark.loose_version import LooseVersion
 
     try:
         import pandas
@@ -46,7 +46,7 @@ def require_minimum_pyarrow_version() -> None:
     # TODO(HyukjinKwon): Relocate and deduplicate the version specification.
     minimum_pyarrow_version = "4.0.0"
 
-    from distutils.version import LooseVersion
+    from pyspark.loose_version import LooseVersion
     import os
 
     try:
@@ -76,7 +76,7 @@ def require_minimum_pyarrow_version() -> None:
 def pyarrow_version_less_than_minimum(minimum_pyarrow_version: str) -> bool:
     """Return False if the installed pyarrow version is less than minimum_pyarrow_version
     or if pyarrow is not installed."""
-    from distutils.version import LooseVersion
+    from pyspark.loose_version import LooseVersion
 
     try:
         import pyarrow

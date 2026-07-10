@@ -53,10 +53,11 @@ class RegionalDeployment(BaseModel):
     metadata: Optional[Dict[str, Any]] = None
     provisioning_info: Optional[DeploymentProvisioningInfo] = None
     role: Optional[RegionalDeploymentRole] = RegionalDeploymentRole.INVALID
+    instance_snapshot_id: Optional[StrictStr] = None
     version: Optional[StrictStr] = None
     deployment_group: Optional[StrictStr] = None
     deployment_id: Optional[StrictStr] = None
-    __properties: ClassVar[List[str]] = ["id", "created_at", "updated_at", "scheduled_at", "allocated_at", "started_at", "succeeded_at", "terminated_at", "organization_id", "app_id", "service_id", "region", "parent_id", "child_id", "status", "messages", "definition", "datacenters", "metadata", "provisioning_info", "role", "version", "deployment_group", "deployment_id"]
+    __properties: ClassVar[List[str]] = ["id", "created_at", "updated_at", "scheduled_at", "allocated_at", "started_at", "succeeded_at", "terminated_at", "organization_id", "app_id", "service_id", "region", "parent_id", "child_id", "status", "messages", "definition", "datacenters", "metadata", "provisioning_info", "role", "instance_snapshot_id", "version", "deployment_group", "deployment_id"]
 
     model_config = ConfigDict(
         validate_by_name=True,
@@ -136,6 +137,7 @@ class RegionalDeployment(BaseModel):
             "metadata": obj.get("metadata"),
             "provisioning_info": DeploymentProvisioningInfo.from_dict(obj["provisioning_info"]) if obj.get("provisioning_info") is not None else None,
             "role": obj.get("role") if obj.get("role") is not None else RegionalDeploymentRole.INVALID,
+            "instance_snapshot_id": obj.get("instance_snapshot_id"),
             "version": obj.get("version"),
             "deployment_group": obj.get("deployment_group"),
             "deployment_id": obj.get("deployment_id")

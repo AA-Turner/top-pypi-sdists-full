@@ -266,12 +266,6 @@ from .congress.watca import (
 from .congress.mcdonald_rivet import (
     create_working_parents_tax_relief_act_reform,
 )
-from .states.nj.stay_nj import (
-    create_nj_stay_nj_reform,
-)
-from .states.nj.anchor import (
-    create_nj_anchor_reform,
-)
 from .refundable_credit_conversion import (
     create_refundable_credit_conversion_reform,
 )
@@ -566,8 +560,6 @@ def create_structural_reforms_from_parameters(parameters, period):
     sc_fully_refundable_eitc = create_sc_fully_refundable_eitc_reform(
         parameters, period
     )
-    nj_stay_nj = create_nj_stay_nj_reform(parameters, period)
-    nj_anchor = create_nj_anchor_reform(parameters, period)
     working_parents_tax_relief_act = create_working_parents_tax_relief_act_reform(
         parameters, period
     )
@@ -707,8 +699,6 @@ def create_structural_reforms_from_parameters(parameters, period):
         oh_refundable_eitc,
         ut_fully_refundable_eitc,
         sc_fully_refundable_eitc,
-        nj_stay_nj,
-        nj_anchor,
         working_parents_tax_relief_act,
         refundable_credit_conversion,
     ]

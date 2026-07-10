@@ -281,6 +281,8 @@ class ServerlessSecret:
     name: str
     created_at: datetime
     environment_name: str | None = None
+    # None means the account-level default exposure applies.
+    default_exposed: bool | None = None
 
 
 @dataclass
@@ -959,6 +961,7 @@ class FalServerlessConnection:
         data_mounts: list[str] | None = None,
         entrypoint: str | None = None,
         build_environment: bool | None = None,
+        attach_to_deployment: bool | None = None,
     ) -> Iterator[RegisterApplicationResult]:
         if (
             function is None
@@ -1081,6 +1084,8 @@ class FalServerlessConnection:
             request.private_logs = private_logs
         if build_environment is not None:
             request.build_environment = build_environment
+        if attach_to_deployment is not None:
+            request.attach_to_deployment = attach_to_deployment
         for partial_result in self.stub.RegisterApplication(request):
             yield from_grpc(partial_result)
 
@@ -1402,10 +1407,18 @@ class FalServerlessConnection:
         return [from_grpc(runner) for runner in response.runners]
 
     def set_secret(
-        self, name: str, value: str, *, environment_name: str | None = None
+        self,
+        name: str,
+        value: str,
+        *,
+        environment_name: str | None = None,
+        default_exposed: bool | None = None,
     ) -> None:
         request = isolate_proto.SetSecretRequest(
-            name=name, value=value, environment_name=environment_name
+            name=name,
+            value=value,
+            environment_name=environment_name,
+            default_exposed=default_exposed,
         )
         self.stub.SetSecret(request)
 
@@ -1425,6 +1438,11 @@ class FalServerlessConnection:
                 name=secret.name,
                 created_at=isolate_proto.datetime_from_timestamp(secret.created_time),
                 environment_name=secret.environment_name,
+                default_exposed=(
+                    secret.default_exposed
+                    if secret.HasField("default_exposed")
+                    else None
+                ),
             )
             for secret in response.secrets
         ]

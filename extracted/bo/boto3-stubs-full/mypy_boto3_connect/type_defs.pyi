@@ -40,6 +40,7 @@ from .literals import (
     ChannelType,
     ChatEventTypeType,
     ConfigurableNotificationPriorityType,
+    ContactFieldType,
     ContactFlowModuleStateType,
     ContactFlowModuleStatusType,
     ContactFlowStateType,
@@ -471,6 +472,7 @@ __all__ = (
     "DecimalConditionTypeDef",
     "DefaultVocabularyTypeDef",
     "DeleteAttachedFileRequestTypeDef",
+    "DeleteContactDataRequestTypeDef",
     "DeleteContactEvaluationRequestTypeDef",
     "DeleteContactFlowModuleAliasRequestTypeDef",
     "DeleteContactFlowModuleRequestTypeDef",
@@ -2526,6 +2528,11 @@ class DeleteAttachedFileRequestTypeDef(TypedDict):
     InstanceId: str
     FileId: str
     AssociatedResourceArn: str
+
+class DeleteContactDataRequestTypeDef(TypedDict):
+    InstanceId: str
+    ContactId: str
+    ContactFields: Sequence[ContactFieldType]
 
 class DeleteContactEvaluationRequestTypeDef(TypedDict):
     InstanceId: str

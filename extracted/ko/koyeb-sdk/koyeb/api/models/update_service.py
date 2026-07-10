@@ -17,7 +17,7 @@ import pprint
 import re  # noqa: F401
 import json
 
-from pydantic import BaseModel, ConfigDict, Field, StrictBool
+from pydantic import BaseModel, ConfigDict, Field, StrictBool, StrictStr
 from typing import Any, ClassVar, Dict, List, Optional
 from koyeb.api.models.deployment_definition import DeploymentDefinition
 from koyeb.api.models.deployment_metadata import DeploymentMetadata
@@ -35,7 +35,8 @@ class UpdateService(BaseModel):
     skip_build: Optional[StrictBool] = Field(default=None, description="If set to true, the build stage will be skipped and the image coming from the last successful build step will be used instead. The call fails if no previous successful builds happened.")
     save_only: Optional[StrictBool] = None
     life_cycle: Optional[ServiceLifeCycle] = None
-    __properties: ClassVar[List[str]] = ["definition", "metadata", "skip_build", "save_only", "life_cycle"]
+    instance_snapshot_id: Optional[StrictStr] = None
+    __properties: ClassVar[List[str]] = ["definition", "metadata", "skip_build", "save_only", "life_cycle", "instance_snapshot_id"]
 
     model_config = ConfigDict(
         validate_by_name=True,
@@ -101,7 +102,8 @@ class UpdateService(BaseModel):
             "metadata": DeploymentMetadata.from_dict(obj["metadata"]) if obj.get("metadata") is not None else None,
             "skip_build": obj.get("skip_build"),
             "save_only": obj.get("save_only"),
-            "life_cycle": ServiceLifeCycle.from_dict(obj["life_cycle"]) if obj.get("life_cycle") is not None else None
+            "life_cycle": ServiceLifeCycle.from_dict(obj["life_cycle"]) if obj.get("life_cycle") is not None else None,
+            "instance_snapshot_id": obj.get("instance_snapshot_id")
         })
         return _obj
 

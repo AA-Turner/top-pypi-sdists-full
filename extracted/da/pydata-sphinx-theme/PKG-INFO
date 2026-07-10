@@ -1,12 +1,11 @@
 Metadata-Version: 2.4
 Name: pydata-sphinx-theme
-Version: 0.19.0
+Version: 0.20.0
 Summary: Bootstrap-based Sphinx theme from the PyData community
 Maintainer-Email: Joris Van den Bossche <jorisvandenbossche@gmail.com>
 License-File: LICENSE
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
@@ -16,14 +15,15 @@ Classifier: Framework :: Sphinx :: Theme
 Classifier: License :: OSI Approved :: BSD License
 Classifier: Operating System :: OS Independent
 Project-URL: Source, https://github.com/pydata/pydata-sphinx-theme
-Requires-Python: >=3.10
-Requires-Dist: sphinx<10,>=8.0
+Requires-Python: >=3.11
+Requires-Dist: sphinx<10,>=8.2
 Requires-Dist: beautifulsoup4
 Requires-Dist: docutils!=0.17.0
 Requires-Dist: Babel
 Requires-Dist: pygments>=2.7
 Requires-Dist: accessible-pygments
-Requires-Dist: typing-extensions
+Requires-Dist: jinja2
+Requires-Dist: requests
 Provides-Extra: doc
 Requires-Dist: astroid!=4.0.3,>=3; extra == "doc"
 Requires-Dist: numpydoc; extra == "doc"
@@ -66,6 +66,7 @@ Requires-Dist: pytest-cov; extra == "test"
 Requires-Dist: pytest-regressions; extra == "test"
 Requires-Dist: sphinx[test]; extra == "test"
 Requires-Dist: pytest-playwright; extra == "test"
+Requires-Dist: typing-extensions; extra == "test"
 Provides-Extra: a11y
 Requires-Dist: pydata-sphinx-theme[test]; extra == "a11y"
 Provides-Extra: i18n

@@ -1,0 +1,2 @@
+import{r as e}from"./rolldown-runtime-QTnfLwEv.js";import{s as t}from"./vendor-codemirror-CLqq8XWe.js";var n=e(t(),1);function r(e,t){let[r,i]=(0,n.useState)(()=>{if(typeof window<`u`)try{let n=localStorage.getItem(e);return n?JSON.parse(n)??t:t}catch(e){return console.log(e),t}else return t});return(0,n.useEffect)(()=>{typeof window<`u`&&localStorage.setItem(e,JSON.stringify(r))},[e,r]),[r,i]}export{r as t};
+//# sourceMappingURL=use-local-storage-CUZKPTBh.js.map

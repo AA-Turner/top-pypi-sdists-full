@@ -2,6 +2,7 @@ from chalk._gen.chalk.aggregate.v1 import service_pb2 as _service_pb2
 from chalk._gen.chalk.auth.v1 import permissions_pb2 as _permissions_pb2
 from chalk._gen.chalk.common.v1 import online_query_pb2 as _online_query_pb2
 from chalk._gen.chalk.common.v1 import upload_features_pb2 as _upload_features_pb2
+from chalk._gen.chalk.engine.v1 import bloom_filter_pb2 as _bloom_filter_pb2
 from google.protobuf.internal import enum_type_wrapper as _enum_type_wrapper
 from google.protobuf import descriptor as _descriptor
 from google.protobuf import message as _message

@@ -455,6 +455,7 @@ pub struct CheckCommand {
         num_args = 0..=1,
         require_equals = true,
         // conflicts_with = "add_noqa",
+        conflicts_with = "add_ignore",
         conflicts_with = "show_files",
         conflicts_with = "show_settings",
         // Unsupported default-command arguments.
@@ -466,6 +467,28 @@ pub struct CheckCommand {
         conflicts_with = "diff",
     )]
     pub add_noqa: Option<String>,
+    /// Enable automatic additions of `ruff:ignore` comments to failing lines.
+    /// Optionally provide a reason to append after the rule names.
+    /// Requires preview mode.
+    #[arg(
+        long,
+        value_name = "REASON",
+        default_missing_value = "",
+        num_args = 0..=1,
+        require_equals = true,
+        // conflicts_with = "add_ignore",
+        conflicts_with = "add_noqa",
+        conflicts_with = "show_files",
+        conflicts_with = "show_settings",
+        // Unsupported default-command arguments.
+        conflicts_with = "ignore_noqa",
+        conflicts_with = "statistics",
+        conflicts_with = "stdin_filename",
+        conflicts_with = "watch",
+        conflicts_with = "fix",
+        conflicts_with = "diff",
+    )]
+    pub add_ignore: Option<String>,
     /// See the files Ruff will be run against with the current settings.
     #[arg(
         long,
@@ -538,6 +561,14 @@ pub struct FormatCommand {
         help_heading = "File selection"
     )]
     pub exclude: Option<Vec<FilePattern>>,
+    /// Like --exclude, but adds additional files and directories on top of those already excluded.
+    #[arg(
+        long,
+        value_delimiter = ',',
+        value_name = "FILE_PATTERN",
+        help_heading = "File selection"
+    )]
+    pub extend_exclude: Option<Vec<FilePattern>>,
 
     /// Enforce exclusions, even for paths passed to Ruff directly on the command-line.
     /// Use `--no-force-exclude` to disable.
@@ -766,6 +797,7 @@ impl CheckCommand {
     ) -> anyhow::Result<(CheckArguments, ConfigArguments)> {
         let check_arguments = CheckArguments {
             add_noqa: self.add_noqa,
+            add_ignore: self.add_ignore,
             diff: self.diff,
             exit_non_zero_on_fix: self.exit_non_zero_on_fix,
             exit_zero: self.exit_zero,
@@ -837,6 +869,7 @@ impl FormatCommand {
             line_length: self.line_length,
             respect_gitignore: resolve_bool_arg(self.respect_gitignore, self.no_respect_gitignore),
             exclude: self.exclude,
+            extend_exclude: self.extend_exclude,
             preview: resolve_bool_arg(self.preview, self.no_preview).map(PreviewMode::from),
             force_exclude: resolve_bool_arg(self.force_exclude, self.no_force_exclude),
             target_version: self.target_version.map(ast::PythonVersion::from),
@@ -1103,6 +1136,7 @@ Possible choices:
 #[expect(clippy::struct_excessive_bools)]
 pub struct CheckArguments {
     pub add_noqa: Option<String>,
+    pub add_ignore: Option<String>,
     pub diff: bool,
     pub exit_non_zero_on_fix: bool,
     pub exit_zero: bool,

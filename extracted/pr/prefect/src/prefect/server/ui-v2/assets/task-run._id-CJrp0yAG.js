@@ -1,0 +1,2 @@
+import{o as e}from"./vendor-codemirror-CLqq8XWe.js";import{t}from"./error-utils-CRZTwdQh.js";import{t as n}from"./route-error-state-BUl0D3o4.js";var r=e(),i=function({error:e,reset:i}){let a=t(e,`Failed to load task run`);return(0,r.jsxs)(`div`,{className:`flex flex-col gap-4`,children:[(0,r.jsx)(`div`,{children:(0,r.jsx)(`h1`,{className:`text-2xl font-semibold`,children:`Task Run`})}),(0,r.jsx)(n,{error:a,onRetry:i})]})};export{i as errorComponent};
+//# sourceMappingURL=task-run._id-CJrp0yAG.js.map

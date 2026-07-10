@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: dda
-Version: 0.36.0
+Version: 0.36.1
 Summary: Tool for developing on the Datadog Agent platform
 Project-URL: Homepage, https://github.com/DataDog/datadog-agent-dev
 Project-URL: Documentation, https://datadoghq.dev/datadog-agent/setup/
@@ -20,6 +20,7 @@ Requires-Dist: boto3~=1.38.8
 Requires-Dist: click~=8.1
 Requires-Dist: datadog-api-client~=2.46
 Requires-Dist: dep-sync~=0.1
+Requires-Dist: filelock~=3.18
 Requires-Dist: find-exe~=0.1
 Requires-Dist: httpx[http2]~=0.28.1
 Requires-Dist: hvac~=2.3.0

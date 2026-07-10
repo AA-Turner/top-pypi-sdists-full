@@ -126,7 +126,9 @@ async def test_stream_response_yields_events_for_text_content(monkeypatch) -> No
             completion_tokens=5,
             prompt_tokens=7,
             total_tokens=12,
-            prompt_tokens_details=PromptTokensDetails(cached_tokens=2),
+            prompt_tokens_details=PromptTokensDetails.model_validate(
+                {"cached_tokens": 2, "cache_write_tokens": 4}
+            ),
             completion_tokens_details=CompletionTokensDetails(reasoning_tokens=3),
         ),
     )
@@ -197,7 +199,68 @@ async def test_stream_response_yields_events_for_text_content(monkeypatch) -> No
     assert completed_resp.usage.output_tokens == 5
     assert completed_resp.usage.total_tokens == 12
     assert completed_resp.usage.input_tokens_details.cached_tokens == 2
+    assert getattr(completed_resp.usage.input_tokens_details, "cache_write_tokens", None) == 4
     assert completed_resp.usage.output_tokens_details.reasoning_tokens == 3
+
+
+@pytest.mark.allow_call_model_methods
+@pytest.mark.asyncio
+async def test_stream_response_close_closes_provider_stream_with_async_close(
+    monkeypatch,
+) -> None:
+    chunk = ChatCompletionChunk(
+        id="chunk-id",
+        created=1,
+        model="fake",
+        object="chat.completion.chunk",
+        choices=[Choice(index=0, delta=ChoiceDelta(content="Hi"))],
+    )
+
+    class ClosableChatStream:
+        def __init__(self) -> None:
+            self._yielded = False
+            self.close_calls = 0
+
+        def __aiter__(self) -> "ClosableChatStream":
+            return self
+
+        async def __anext__(self) -> ChatCompletionChunk:
+            if self._yielded:
+                raise StopAsyncIteration
+            self._yielded = True
+            return chunk
+
+        async def close(self) -> None:
+            self.close_calls += 1
+
+    provider_stream = ClosableChatStream()
+
+    async def patched_fetch_response(self, *args, **kwargs):
+        return _empty_response(), provider_stream
+
+    monkeypatch.setattr(OpenAIChatCompletionsModel, "_fetch_response", patched_fetch_response)
+    model = OpenAIProvider(use_responses=False).get_model("gpt-4")
+
+    stream = model.stream_response(
+        system_instructions=None,
+        input="",
+        model_settings=ModelSettings(),
+        tools=[],
+        output_schema=None,
+        handoffs=[],
+        tracing=ModelTracing.DISABLED,
+        previous_response_id=None,
+        conversation_id=None,
+        prompt=None,
+    )
+    stream_agen = cast(Any, stream)
+
+    event = await stream_agen.__anext__()
+    assert event.type == "response.created"
+
+    await stream_agen.aclose()
+
+    assert provider_stream.close_calls == 1
 
 
 @pytest.mark.asyncio
@@ -1044,6 +1107,82 @@ async def test_stream_response_includes_logprobs(monkeypatch) -> None:
     assert text_part.text == "Hi there"
     assert text_part.logprobs is not None
     assert [lp.token for lp in text_part.logprobs] == ["Hi", " there"]
+
+
+@pytest.mark.allow_call_model_methods
+@pytest.mark.asyncio
+async def test_stream_response_accumulates_logprobs_across_many_deltas(monkeypatch) -> None:
+    # Each content delta carries its own logprobs, and the streamed output text part must
+    # accumulate all of them in order across the whole stream.
+    tokens = ["a", "b", "c", "d", "e"]
+
+    def make_chunk(token: str) -> ChatCompletionChunk:
+        return ChatCompletionChunk(
+            id="chunk-id",
+            created=1,
+            model="fake",
+            object="chat.completion.chunk",
+            choices=[
+                Choice(
+                    index=0,
+                    delta=ChoiceDelta(content=token),
+                    logprobs=ChoiceLogprobs(
+                        content=[
+                            ChatCompletionTokenLogprob(
+                                token=token,
+                                logprob=-0.5,
+                                bytes=[1],
+                                top_logprobs=[TopLogprob(token=token, logprob=-0.5, bytes=[1])],
+                            )
+                        ]
+                    ),
+                )
+            ],
+        )
+
+    async def fake_stream() -> AsyncIterator[ChatCompletionChunk]:
+        for token in tokens:
+            yield make_chunk(token)
+
+    async def patched_fetch_response(self, *args, **kwargs):
+        resp = Response(
+            id="resp-id",
+            created_at=0,
+            model="fake-model",
+            object="response",
+            output=[],
+            tool_choice="none",
+            tools=[],
+            parallel_tool_calls=False,
+        )
+        return resp, fake_stream()
+
+    monkeypatch.setattr(OpenAIChatCompletionsModel, "_fetch_response", patched_fetch_response)
+    model = OpenAIProvider(use_responses=False).get_model("gpt-4")
+    output_events = []
+    async for event in model.stream_response(
+        system_instructions=None,
+        input="",
+        model_settings=ModelSettings(),
+        tools=[],
+        output_schema=None,
+        handoffs=[],
+        tracing=ModelTracing.DISABLED,
+        previous_response_id=None,
+        conversation_id=None,
+        prompt=None,
+    ):
+        output_events.append(event)
+
+    completed_event = next(event for event in output_events if event.type == "response.completed")
+    assert isinstance(completed_event, ResponseCompletedEvent)
+    completed_resp = completed_event.response
+    assert isinstance(completed_resp.output[0], ResponseOutputMessage)
+    text_part = completed_resp.output[0].content[0]
+    assert isinstance(text_part, ResponseOutputText)
+    assert text_part.text == "".join(tokens)
+    assert text_part.logprobs is not None
+    assert [lp.token for lp in text_part.logprobs] == tokens
 
 
 @pytest.mark.allow_call_model_methods

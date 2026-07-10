@@ -335,6 +335,7 @@ class XmpDocument:
         )
         from lxml import etree
         from lxml.etree import QName
+
         seq = etree.SubElement(node, str(QName(XMP_NS_RDF, rdf_type)))
         tag_attrib: dict[str, str] | None = None
         if rdf_type == 'Alt':

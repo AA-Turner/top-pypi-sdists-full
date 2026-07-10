@@ -248,7 +248,7 @@ def test_register(repo_with_commit: str):
         ["-r", repo_with_commit, "a2", "v1.2.3"],
         "Created git tag 'a2@v1.2.3!' that deregisters version\n"
         "To push the changes upstream, run:\n"
-        "    git push origin a2@v1.2.3!\n",
+        "    git push origin 'a2@v1.2.3!'\n",
     )
 
     _check_successful_cmd(
@@ -256,7 +256,7 @@ def test_register(repo_with_commit: str):
         ["-r", repo_with_commit, "a2", "--simple", "false"],
         "Created git tag 'a2@v1.2.3#1' that registers version\n"
         "To push the changes upstream, run:\n"
-        "    git push origin a2@v1.2.3#1\n",
+        "    git push origin 'a2@v1.2.3#1'\n",
     )
 
     _check_failing_cmd(
@@ -287,7 +287,7 @@ def test_assign(repo_with_commit: str):
         ["-r", repo_with_commit, "nn1", "HEAD", "--stage", "prod"],
         "Created git tag 'nn1#prod#1' that assigns stage to version 'v0.0.1'\n"
         "To push the changes upstream, run:\n"
-        "    git push origin nn1#prod#1\n",
+        "    git push origin 'nn1#prod#1'\n",
     )
     # this check depends on the previous assignment
     _check_failing_cmd(
@@ -328,7 +328,7 @@ def test_assign(repo_with_commit: str):
         "    git push origin nn2@v0.0.1\n"
         "Created git tag 'nn2#prod#1' that assigns stage to version 'v0.0.1'\n"
         "To push the changes upstream, run:\n"
-        "    git push origin nn2#prod#1\n",
+        "    git push origin 'nn2#prod#1'\n",
     )
 
 
@@ -495,6 +495,19 @@ def test_show_ref_flag_not_applicable(repo_with_commit: str):
         "Cannot apply --ref",
         _check_output_contains,
     )
+
+
+def test_show_line_flag_empty_result():
+    with mock.patch("gto.api.show", return_value=([], "keys")):
+        _check_successful_cmd("show", ["-r", ".", "m5#missing", "--version"], "")
+
+
+def test_show_line_flags_strip_value_newlines():
+    output = ([{"ref": "rf@v1.2.4\n", "version": "v1.2.4\r\n"}], "keys")
+    with mock.patch("gto.api.show", return_value=output):
+        _check_successful_cmd("show", ["-r", ".", "rf@latest", "--ref"], "rf@v1.2.4\n")
+    with mock.patch("gto.api.show", return_value=output):
+        _check_successful_cmd("show", ["-r", ".", "rf@latest", "--version"], "v1.2.4\n")
 
 
 def test_history_json_empty(repo_with_commit: str):

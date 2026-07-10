@@ -1710,9 +1710,13 @@ fn canonicalize_assignment_kind(kind: &str) -> Result<String, String> {
         // Primary spelling and the retained legacy alias both collapse to the
         // renamed variant's canonical token.
         "threshold_gate" | "jumprelu" => Ok("threshold_gate".to_string()),
+        // Sparsity by construction: hard top-k support, no sparsity penalty, no
+        // gate coordinates in the inner system. The support size is the fit's
+        // `top_k` argument (required for this mode).
+        "topk" => Ok("topk".to_string()),
         other => Err(format!(
-            "assignment_kind must be one of 'softmax', 'ibp_map', or 'threshold_gate' \
-             (legacy alias 'jumprelu' also accepted); got {other:?}"
+            "assignment_kind must be one of 'softmax', 'ibp_map', 'threshold_gate', \
+             or 'topk' (legacy alias 'jumprelu' also accepted); got {other:?}"
         )),
     }
 }
@@ -1945,9 +1949,20 @@ fn gumbel_temperature_schedule_from_pydict(
     };
     let decay = match decay_name.as_str() {
         "geometric" => {
-            let rate = match schedule.get_item("rate").map_err(|err| err.to_string())? {
-                Some(value) => value.extract::<f64>().map_err(|err| err.to_string())?,
-                None => 0.9,
+            // Prefer the (tau_start, tau_min, steps) endpoints spec and derive
+            // the rate here; fall back to an explicit `rate` (default 0.9).
+            let steps = match schedule.get_item("steps").map_err(|err| err.to_string())? {
+                Some(value) => Some(value.extract::<usize>().map_err(|err| err.to_string())?),
+                None => None,
+            };
+            let rate = match steps {
+                Some(steps) => {
+                    ScheduleKind::geometric_rate_from_steps(tau_start, tau_min, steps)
+                }
+                None => match schedule.get_item("rate").map_err(|err| err.to_string())? {
+                    Some(value) => value.extract::<f64>().map_err(|err| err.to_string())?,
+                    None => 0.9,
+                },
             };
             ScheduleKind::Geometric { rate }
         }
@@ -2325,7 +2340,7 @@ fn sae_structured_residual_model(
     row_loss_weights = None,
     separation_barrier_strength_override = None,
     ibp_alpha_override = None,
-    structured_residual_passes = 0,
+    structured_residual_passes = 2,
     promote_from_residual = false,
     run_structure_search = true,
     run_outer_rho_search = true,
@@ -2380,8 +2395,8 @@ fn sae_manifold_fit<'py>(
     // atomic setter (or the compiled default). See `SaeManifoldTerm::set_fit_config`.
     separation_barrier_strength_override: Option<f64>,
     ibp_alpha_override: Option<f64>,
-    // #2021 — opt-in count of extra whitened-residual structured-alternation
-    // passes (default 0 = historical iid-only path, bit-for-bit).
+    // #2021 — count of extra whitened-residual structured-alternation passes
+    // (default 2: production whitens; 0 restores the historical iid-only path).
     structured_residual_passes: usize,
     promote_from_residual: bool,
     run_structure_search: bool,
@@ -2734,10 +2749,20 @@ fn sae_manifold_fit_stagewise<'py>(
         "softmax" => AssignmentMode::softmax(tau),
         "ibp_map" => AssignmentMode::ibp_map(tau, alpha, learnable_alpha),
         "threshold_gate" => AssignmentMode::threshold_gate(tau, 0.0),
+        "topk" => {
+            // The stagewise entry carries no per-row support-size argument yet;
+            // routing 'topk' through it silently would guess k. Typed refusal
+            // until the stagewise signature grows the support parameter.
+            return Err(py_value_error(
+                "sae_manifold_fit_stagewise: assignment_kind 'topk' is not routed through \
+                 the stagewise entry yet — use sae_manifold_fit (joint) with top_k set"
+                    .to_string(),
+            ));
+        }
         other => {
             return Err(py_value_error(format!(
-                "sae_manifold_fit_stagewise: assignment_kind must be softmax/ibp_map/threshold_gate; \
-                 got {other}"
+                "sae_manifold_fit_stagewise: assignment_kind must be \
+                 softmax/ibp_map/threshold_gate/topk; got {other}"
             )));
         }
     };
@@ -3038,10 +3063,10 @@ fn sae_manifold_fit_inner<'py>(
     separation_barrier_strength_override: Option<f64>,
     ibp_alpha_override: Option<f64>,
     // #2021 — number of EXTRA whitened-residual refit passes after the iid
-    // pass-0 fit (the structured-residual outer alternation). `0` (the default)
-    // keeps the historical iid-only path bit-for-bit; the value is clamped to
-    // `STRUCTURED_RESIDUAL_PASSES_MAX`. An explicit, typed opt-in — no hidden
-    // env lever.
+    // pass-0 fit (the structured-residual outer alternation). Default-ON at `2`
+    // ("magic by default": the superposition-aware whitened metric is the
+    // best-known behavior); pass `0` for the legacy iid-only path bit-for-bit.
+    // The value is clamped to `STRUCTURED_RESIDUAL_PASSES_MAX`.
     structured_residual_passes: usize,
     promote_from_residual: bool,
     run_structure_search: bool,
@@ -3279,10 +3304,22 @@ fn sae_manifold_fit_inner<'py>(
         // (`canonicalize_assignment_kind`), so the legacy "jumprelu" alias arrives
         // here as "threshold_gate".
         "threshold_gate" => AssignmentMode::threshold_gate(tau, jumprelu_threshold),
+        // Hard top-k support: sparsity by construction (no penalty, no gate
+        // coordinates). The fit's `top_k` argument IS the support size.
+        "topk" => {
+            let k_top = top_k.ok_or_else(|| {
+                py_value_error(
+                    "sae_manifold_fit: assignment_kind 'topk' requires the top_k argument \
+                     (the fixed per-row support size)"
+                        .to_string(),
+                )
+            })?;
+            AssignmentMode::top_k_support(k_top)
+        }
         _ => {
             return Err(py_value_error(format!(
-                "assignment_kind must be one of 'softmax', 'ibp_map', or 'threshold_gate' \
-                 (legacy alias 'jumprelu' also accepted); got {assignment_kind}"
+                "assignment_kind must be one of 'softmax', 'ibp_map', 'threshold_gate', or \
+                 'topk' (legacy alias 'jumprelu' also accepted); got {assignment_kind}"
             )));
         }
     };
@@ -3651,20 +3688,43 @@ fn sae_manifold_fit_inner<'py>(
         // structured_passes, so a 3-pass budget with min-dwell 3 could never
         // promote); 2 is the floor of the concept.
         const PROMOTION_NURSERY_MIN_PASSES: usize = 2;
-        // PROMOTION_ALIGN_MIN — PRICED. The |cos| a lineage's Λ direction must
-        // hold with the previous pass's to count as the SAME structure. No
-        // first-principles value exists (it trades false-merge vs false-split of
-        // lineages), so it is priced against the null: two independent unit
-        // directions in the r-dim residual signal subspace align at
-        // E|cos| ≈ sqrt(2/(π·r)) — roughly 0.3–0.4 for the few-dim SAE residual —
-        // so 0.9 sits well above chance (near-collinear). What breaks at 10×
-        // either way: toward the ~0.35 null floor, noise-aligned directions merge
-        // into spurious lineages and promote junk; toward 1.0, only numerically
-        // identical directions survive and genuine structure that rotates slightly
-        // between passes never matures. 0.9 keeps a wide margin over the null while
-        // tolerating the small inter-pass rotation a real direction undergoes as
-        // the metric anneals.
-        const PROMOTION_ALIGN_MIN: f64 = 0.9;
+        // PROMOTION_ALIGN_MIN — DERIVED (#2071), no longer the fixed `0.9`. The
+        // |cos| a lineage's Λ direction must hold with the previous pass's to
+        // count as the SAME structure is the (1 − α) quantile of the random-
+        // alignment null keyed to the residual signal-subspace dimension `r`
+        // (`model.factor_rank()`): for two independent unit directions in an
+        // r-dim subspace, `cos²θ ~ Beta(½, (r−1)/2)`, so the α-level threshold is
+        //   align_min(r) = sqrt( Beta⁻¹_{1−α}(½, (r−1)/2) ),
+        // i.e. the |cos| that phase-independent directions exceed only with
+        // probability α (a false-merge rate), computed per pass from the current
+        // factor rank via [`promotion_align_min`]. This self-scales: at small r
+        // (a genuinely few-dim residual) random directions align strongly, so the
+        // bar is near 1; as r grows the bar drops toward the `sqrt(2/(π·r))` null
+        // mean. `α` is the shared screening level [`PROMOTION_ALIGN_ALPHA`].
+        //
+        // The same conventional `0.05` false-birth level the structure battery
+        // uses; here it is the per-pass false-MERGE rate of two independent
+        // residual-factor directions.
+        const PROMOTION_ALIGN_ALPHA: f64 = 0.05;
+        // align_min(r) = sqrt(Beta⁻¹_{1−α}(½, (r−1)/2)); r = residual factor rank.
+        // r ≤ 1 is degenerate (a 1-D subspace has a single direction up to sign,
+        // so any two align at |cos| = 1): fall back to r = 2, the smallest rank
+        // at which alignment carries information. Non-finite/NaN quantiles (only
+        // possible from a degenerate shape) clamp the gate open-safe at 1.0 so a
+        // bad estimate never promotes on a spurious near-collinear match.
+        fn promotion_align_min(factor_rank: usize) -> f64 {
+            let r = factor_rank.max(2) as f64;
+            let cos2 = gam::inference::probability::beta_quantile(
+                1.0 - PROMOTION_ALIGN_ALPHA,
+                0.5,
+                (r - 1.0) / 2.0,
+            );
+            if cos2.is_finite() {
+                cos2.sqrt().clamp(0.0, 1.0)
+            } else {
+                1.0
+            }
+        }
         // `promote_from_residual` is the typed pyfunction kwarg (default false);
         // opt-in, default-off ⇒ whitening runs without growth unless set.
         let mut nursery: Vec<(Array1<f64>, usize)> = Vec::new();
@@ -3757,18 +3817,18 @@ fn sae_manifold_fit_inner<'py>(
                 None
             };
             if let Some(prev) = prev_for_promotion {
+                // Per-pass derived alignment threshold from the current residual
+                // factor rank (#2071); used identically by the producer-side
+                // candidate gate and the nursery lineage-dedup below.
+                let align_min = promotion_align_min(model.factor_rank());
                 let cands = model
-                    .promotion_candidates(
-                        Some(prev),
-                        PROMOTION_ALIGN_MIN,
-                        PROMOTION_ENERGY_FLOOR_MULT,
-                    )
+                    .promotion_candidates(Some(prev), align_min, PROMOTION_ENERGY_FLOOR_MULT)
                     .map_err(py_value_error)?;
                 let mut seen = vec![false; nursery.len()];
                 for cand in &cands {
                     let hit = nursery
                         .iter()
-                        .position(|(d, _)| cand.direction.dot(d).abs() >= PROMOTION_ALIGN_MIN);
+                        .position(|(d, _)| cand.direction.dot(d).abs() >= align_min);
                     match hit {
                         Some(i) => {
                             nursery[i].0 = cand.direction.clone();
@@ -3816,7 +3876,7 @@ fn sae_manifold_fit_inner<'py>(
                     // Drop the promoted lineage so it is not re-promoted; the next
                     // pass rebuilds the objective from the grown `term`/`rho` and
                     // `warm_flat.len()` picks up the enlarged ρ automatically.
-                    nursery.retain(|(d, _)| d.dot(&dir).abs() < PROMOTION_ALIGN_MIN);
+                    nursery.retain(|(d, _)| d.dot(&dir).abs() < align_min);
                 }
             }
             // Carry this pass's model forward as the next pass's damping anchor.
@@ -4046,6 +4106,10 @@ fn sae_manifold_fit_inner<'py>(
             analytic_penalties.as_ref(),
         )
         .map_err(py_value_error)?;
+        // Snapshot the fitted term: the optional joint recompute mutates `term`
+        // while re-solving, so a recoverable refusal must not leave the actual
+        // fitted model perturbed. Restore it before degrading to per-atom bands.
+        let saved_term_for_shape_recompute = term.clone();
         match term.recompute_joint_shape_uncertainty(
             z_view.view(),
             &rho,
@@ -4063,6 +4127,7 @@ fn sae_manifold_fit_inner<'py>(
                     .map_err(py_value_error)?;
             }
             Err(e) => {
+                term = saved_term_for_shape_recompute;
                 // The joint factor could not be reformed at the final state (a
                 // non-PD post-search Hessian / an unadmitted dense Schur). Fall
                 // back to the per-atom Laplace completion: invalidate the stale
@@ -4421,6 +4486,14 @@ fn sae_manifold_fit_inner<'py>(
     // negligible allocation that matches every other still-live-owner field
     // emission in this file (`lambdas.clone()`, `class_levels.clone()`, …).
     out.set_item("log_lambda_smooth", rho.log_lambda_smooth.clone())?;
+    // #2132 — the terminal REML-selected sparsity strength, alongside the
+    // per-atom `log_lambda_smooth` / `log_ard` above. The OOS fixed-decoder
+    // encode (`sae_manifold_predict_oos`) must optimize the SAME penalized
+    // objective the training state converged under; without this key Python
+    // could only feed the INITIAL `sparsity_strength` back in, so the OOS
+    // Newton solve descended a different objective and walked the warm-started
+    // trained optimum away from itself (the cold re-encode collapse).
+    out.set_item("log_lambda_sparse", rho.log_lambda_sparse)?;
     out.set_item("log_ard", log_ard_py)?;
     out.set_item("assignment_prior", assignment_kind)?;
     out.set_item(
@@ -6394,6 +6467,29 @@ fn sae_decoder_lsq_init(
                     tau,
                     jumprelu_threshold,
                 );
+                for k in 0..k_atoms {
+                    a_init[[row, k]] = weights[k];
+                }
+            }
+        }
+        // #1026 — hard top-`k` support gate. The forward map at `initial_logits`
+        // is exactly `topk_row`: gate 1.0 on the `k_top` largest logits (ties
+        // toward the lower atom index), 0 elsewhere. Reusing the production
+        // helper keeps the LSQ seed bit-consistent with the fit's gate.
+        "topk" => {
+            let k_top = top_k.ok_or_else(|| {
+                "sae_decoder_lsq_init: assignment_kind 'topk' requires the top_k \
+                 argument (the fixed per-row support size)"
+                    .to_string()
+            })?;
+            if k_top == 0 || k_top > k_atoms {
+                return Err(format!(
+                    "sae_decoder_lsq_init: top_k must satisfy 1 <= top_k <= k_atoms={k_atoms}; got {k_top}"
+                ));
+            }
+            for row in 0..n_obs {
+                let weights =
+                    gam::terms::sae::manifold::topk_row(initial_logits.row(row), k_top);
                 for k in 0..k_atoms {
                     a_init[[row, k]] = weights[k];
                 }

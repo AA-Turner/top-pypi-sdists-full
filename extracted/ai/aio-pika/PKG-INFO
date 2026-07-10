@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: aio-pika
-Version: 9.6.2
+Version: 10.0.1
 Summary: Wrapper around the aiormq for asyncio and humans
 Keywords: rabbitmq,asyncio,amqp,amqp 0.9.1,aiormq
 Author: Dmitry Orlov
@@ -14,7 +14,6 @@ Classifier: Operating System :: MacOS
 Classifier: Operating System :: Microsoft
 Classifier: Operating System :: POSIX
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
@@ -26,10 +25,9 @@ Classifier: Topic :: Internet
 Classifier: Topic :: Software Development :: Libraries
 Classifier: Topic :: Software Development
 Classifier: Typing :: Typed
-Requires-Dist: aiormq>=6.8,<7
+Requires-Dist: aiormq>=7,<8
 Requires-Dist: yarl
-Requires-Dist: exceptiongroup>=1,<2 ; python_full_version < '3.11'
-Requires-Python: >=3.10, <4
+Requires-Python: >=3.11, <4
 Project-URL: Homepage, https://github.com/mosquito/aio-pika
 Project-URL: Source, https://github.com/mosquito/aio-pika
 Project-URL: Tracker, https://github.com/mosquito/aio-pika/issues
@@ -65,7 +63,7 @@ If you are a newcomer to RabbitMQ, please start with the [adopted official Rabbi
 * Object oriented API.
 * Transparent auto-reconnects with complete state recovery with `connect_robust`
   (e.g. declared queues or exchanges, consuming state and bindings).
-* Python 3.10+ compatible.
+* Python 3.11+ compatible.
 * Transparent [publisher confirms](https://www.rabbitmq.com/confirms.html) support.
 * [Transactions](https://www.rabbitmq.com/semantics.html) support.
 * Complete type-hints coverage.

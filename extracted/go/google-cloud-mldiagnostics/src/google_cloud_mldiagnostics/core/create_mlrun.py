@@ -57,6 +57,7 @@ def initialize_mlrun(
     name: str,
     environment: str,
     on_demand_xprof: bool,
+    log_system_metrics: bool = True,
     run_group: str | None = None,
     configs: Mapping[str, Any] | None = None,
     gcs_path: str | None = None,
@@ -72,8 +73,8 @@ def initialize_mlrun(
       name: The name of the run.
       environment: The environment to use for the control plane client
         (autopush, staging, prod).
-      on_demand_xprof: Whether to start an on-demand xprof profiling server.
-        If enabled, the port is set to 9999.
+      on_demand_xprof: Whether to start an on-demand xprof profiling server. If
+        enabled, the port is set to 9999.
       run_group: The run set this run belongs to.
       configs: Dictionary of configuration parameters.
       gcs_path: GCS path for storing run artifacts.
@@ -107,8 +108,8 @@ def initialize_mlrun(
 
   created_at = datetime.datetime.now(datetime.timezone.utc).isoformat()
   run_phase = mlrun_types.RunPhase.PHASE_ACTIVE
-  workload_details = host_utils.get_workload_details()
   orchestrator = orchestrator_utils.detect_orchestrator()
+  workload_details = host_utils.get_workload_details(orchestrator)
 
   # Generate display name and name for the MLRun.
   # TODO: [INTERNAL] - Add support for non-GKE workloads.
@@ -124,26 +125,38 @@ def initialize_mlrun(
           " configuration, please see"
           " https://github.com/AI-Hypercomputer/google-cloud-mldiagnostics?tab=readme-ov-file#configure-gke-cluster."
       )
-    name = host_utils.get_identifier(workload_details)
+    name = host_utils.get_identifier(orchestrator, workload_details)
+  elif orchestrator == "GCE":
+    if not workload_details:
+      raise ValueError(
+          "Detected GCE environment but GCE workload details are missing."
+      )
+    name = host_utils.get_identifier(orchestrator, workload_details)
   else:
     name = name + "-" + str(datetime.datetime.now().strftime("%Y%m%d%H%M%S"))
 
   # sanitize the name and use it as the MLRun name for the control plane.
   sanitized_name = host_utils.sanitize_identifier(name)
 
+  workload_targets = host_utils.get_workload_targets(
+      orchestrator, workload_details
+  )
+
   ml_run = mlrun_types.MLRun(
-      run_group=run_group,
+      run_group=run_group,  # pyrefly: ignore[bad-argument-type]
       name=sanitized_name,
       configs=configs,
       gcs_path=gcs_path,
-      location=region,
-      project=project,
+      location=region,  # pyrefly: ignore[bad-argument-type]
+      project=project,  # pyrefly: ignore[bad-argument-type]
       run_phase=run_phase,
       created_at=created_at,
       workload_details=workload_details,
+      workload_targets=workload_targets,
       orchestrator=orchestrator,
       display_name=display_name,
       on_demand_xprof=on_demand_xprof,
+      log_system_metrics=log_system_metrics,
       environment=environment,
       framework=framework,
       serving_engine=serving_engine,
@@ -153,7 +166,7 @@ def initialize_mlrun(
   manager = global_manager.get_global_run_manager()
   manager.initialize(ml_run)
 
-  ml_diagnostics_url = create_diagnostics_url(region, project, sanitized_name)
+  ml_diagnostics_url = create_diagnostics_url(region, project, sanitized_name)  # pyrefly: ignore[bad-argument-type]
   xprof_url = create_xprof_url(ml_diagnostics_url)
   logging.info("MLRun '%s' created successfully.", ml_run.display_name)
   logging.info(
@@ -168,7 +181,7 @@ def initialize_mlrun(
   )
 
   if orchestrator == "GKE":
-    gke_url = create_gke_url(region, project, sanitized_name)
+    gke_url = create_gke_url(region, project, sanitized_name)  # pyrefly: ignore[bad-argument-type]
     logging.info(
         "GKE detail view URL: %s : %s",
         ml_run.display_name,
@@ -185,69 +198,74 @@ def initialize_mlrun(
       if not _METRICS_RECORDER_THREAD_STARTED:
         # Avoid starting the metrics recorder thread repeatedly if the run is
         # already initialized.
-        accelerator_type = config_utils.get_accelerator_type(framework)
-        if accelerator_type == metric_types.AcceleratorType.GPU.value:
-          metric_collectors = [
-              _create_metric_collector(
-                  metric_types.MetricType.GPU_UTILIZATION.value,
-                  gpu_metric.get_gpu_utilization,
-                  framework,
-                  metric_types.AcceleratorType.GPU.value,
-              ),
-              _create_metric_collector(
-                  metric_types.MetricType.GPU_TENSORCORE_UTILIZATION.value,
-                  gpu_metric.get_gpu_tensorcore_utilization,
-                  framework,
-                  metric_types.AcceleratorType.GPU.value,
-              ),
-              _create_metric_collector(
-                  metric_types.MetricType.VRAM_UTILIZATION.value,
-                  gpu_metric.get_vram_utilization,
-                  framework,
-                  metric_types.AcceleratorType.GPU.value,
-              ),
-              _create_metric_collector(
-                  metric_types.MetricType.HOST_CPU_UTILIZATION.value,
-                  metric_utils.get_host_cpu_utilization,
-                  framework,
-              ),
-              _create_metric_collector(
-                  metric_types.MetricType.HOST_MEMORY_UTILIZATION.value,
-                  metric_utils.get_host_memory_utilization,
-                  framework,
-              ),
-          ]
+        metric_collectors = []
+        if log_system_metrics:
+          logging.info("System metrics logging is enabled.")
+          accelerator_type = config_utils.get_accelerator_type(framework)
+          if accelerator_type == metric_types.AcceleratorType.GPU.value:
+            metric_collectors = [
+                _create_metric_collector(
+                    metric_types.MetricType.GPU_UTILIZATION.value,
+                    gpu_metric.get_gpu_utilization,
+                    framework,
+                    metric_types.AcceleratorType.GPU.value,
+                ),
+                _create_metric_collector(
+                    metric_types.MetricType.GPU_TENSORCORE_UTILIZATION.value,
+                    gpu_metric.get_gpu_tensorcore_utilization,
+                    framework,
+                    metric_types.AcceleratorType.GPU.value,
+                ),
+                _create_metric_collector(
+                    metric_types.MetricType.VRAM_UTILIZATION.value,
+                    gpu_metric.get_vram_utilization,
+                    framework,
+                    metric_types.AcceleratorType.GPU.value,
+                ),
+                _create_metric_collector(
+                    metric_types.MetricType.HOST_CPU_UTILIZATION.value,
+                    metric_utils.get_host_cpu_utilization,
+                    framework,
+                ),
+                _create_metric_collector(
+                    metric_types.MetricType.HOST_MEMORY_UTILIZATION.value,
+                    metric_utils.get_host_memory_utilization,
+                    framework,
+                ),
+            ]
+          else:
+            metric_collectors = [
+                _create_metric_collector(
+                    metric_types.MetricType.TPU_DUTY_CYCLE.value,
+                    metric_utils.get_tpu_duty_cycle,
+                    framework,
+                    metric_types.AcceleratorType.TPU.value,
+                ),
+                _create_metric_collector(
+                    metric_types.MetricType.TPU_TENSORCORE_UTILIZATION.value,
+                    metric_utils.get_tpu_tensorcore_utilization,
+                    framework,
+                    metric_types.AcceleratorType.TPU.value,
+                ),
+                _create_metric_collector(
+                    metric_types.MetricType.HBM_UTILIZATION.value,
+                    metric_utils.get_hbm_utilization,
+                    framework,
+                    metric_types.AcceleratorType.TPU.value,
+                ),
+                _create_metric_collector(
+                    metric_types.MetricType.HOST_CPU_UTILIZATION.value,
+                    metric_utils.get_host_cpu_utilization,
+                    framework,
+                ),
+                _create_metric_collector(
+                    metric_types.MetricType.HOST_MEMORY_UTILIZATION.value,
+                    metric_utils.get_host_memory_utilization,
+                    framework,
+                ),
+            ]
         else:
-          metric_collectors = [
-              _create_metric_collector(
-                  metric_types.MetricType.TPU_DUTY_CYCLE.value,
-                  metric_utils.get_tpu_duty_cycle,
-                  framework,
-                  metric_types.AcceleratorType.TPU.value,
-              ),
-              _create_metric_collector(
-                  metric_types.MetricType.TPU_TENSORCORE_UTILIZATION.value,
-                  metric_utils.get_tpu_tensorcore_utilization,
-                  framework,
-                  metric_types.AcceleratorType.TPU.value,
-              ),
-              _create_metric_collector(
-                  metric_types.MetricType.HBM_UTILIZATION.value,
-                  metric_utils.get_hbm_utilization,
-                  framework,
-                  metric_types.AcceleratorType.TPU.value,
-              ),
-              _create_metric_collector(
-                  metric_types.MetricType.HOST_CPU_UTILIZATION.value,
-                  metric_utils.get_host_cpu_utilization,
-                  framework,
-              ),
-              _create_metric_collector(
-                  metric_types.MetricType.HOST_MEMORY_UTILIZATION.value,
-                  metric_utils.get_host_memory_utilization,
-                  framework,
-              ),
-          ]
+          logging.info("System metrics logging is disabled.")
         default_metrics_recorder = metrics.MetricsRecorderThread(
             metric_collectors=metric_collectors,
             interval_seconds=metrics_record_interval_sec,
@@ -263,15 +281,14 @@ def initialize_mlrun(
     xprof_port = 9999
     # LINT.ThenChange(//depot/google3/cloud/hosted/hypercomputecluster/clh/diagnostics/consumerservice/profilersession.go:defaultCapturePort)
     from google_cloud_mldiagnostics.core import xprof  # pylint: disable=g-import-not-at-top
+
     xprof.start_on_demand_xprof(port=xprof_port)
     run_phase_monitor.register_cleanup_handler(xprof.stop_on_demand_xprof)
 
   return ml_run
 
 
-def create_gke_url(
-    region: str, project: str, name: str
-) -> str:
+def create_gke_url(region: str, project: str, name: str) -> str:
   """Creates GKE detail view URL."""
   return f"https://console.cloud.google.com/kubernetes/aiml/run/{region}/{name}?project={project}"
 

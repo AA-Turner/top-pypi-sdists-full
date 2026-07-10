@@ -3,6 +3,7 @@
 
 from __future__ import annotations
 
+import json
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Optional
@@ -11,6 +12,11 @@ from metagit.core.context.approval_service import ApprovalService
 from metagit.core.context.handoff_service import HandoffService
 from metagit.core.context.models import WorkspaceEvent, WorkspaceEventsResult
 from metagit.core.context.objective_service import ObjectiveService
+from metagit.core.coordination.event_store import AclEventStore
+from metagit.core.merge.events import MergeEventStore
+from metagit.core.scheduler.events import ScheduleEventStore
+from metagit.core.semantic.events import SemanticGraphEventStore
+from metagit.core.taskgraph.events import TaskGraphEventStore
 
 
 class WorkspaceEventService:
@@ -90,6 +96,118 @@ class WorkspaceEventService:
                         kind="created",
                         id=path.stem,
                         data={"path": str(path), "mtime": stat.st_mtime},
+                    )
+                )
+
+        acl_events = AclEventStore(self._root).list_events(since=None)
+        if not isinstance(acl_events, Exception):
+            for event in acl_events:
+                if objective_id and event.payload.get("objective_id") != objective_id:
+                    continue
+                if campaign and event.payload.get("campaign") != campaign:
+                    continue
+                rows.append(
+                    WorkspaceEvent(
+                        timestamp=event.at,
+                        source="acl",
+                        kind=event.type,
+                        id=event.event_id,
+                        data=dict(event.payload),
+                    )
+                )
+
+        task_events = TaskGraphEventStore(self._root).list_events(since=None)
+        if not isinstance(task_events, Exception):
+            for event in task_events:
+                if objective_id and event.payload.get("objective_id") != objective_id:
+                    continue
+                if campaign and event.payload.get("campaign") != campaign:
+                    continue
+                rows.append(
+                    WorkspaceEvent(
+                        timestamp=event.at,
+                        source="taskgraph",
+                        kind=event.type,
+                        id=event.event_id,
+                        data=dict(event.payload),
+                    )
+                )
+
+        semantic_events = SemanticGraphEventStore(self._root).list_events(since=None)
+        if not isinstance(semantic_events, Exception):
+            for event in semantic_events:
+                if objective_id and event.payload.get("objective_id") != objective_id:
+                    continue
+                if campaign and event.payload.get("campaign") != campaign:
+                    continue
+                rows.append(
+                    WorkspaceEvent(
+                        timestamp=event.at,
+                        source="semantic",
+                        kind=event.type,
+                        id=event.event_id,
+                        data=dict(event.payload),
+                    )
+                )
+
+        merge_events = MergeEventStore(self._root).list_events(since=None)
+        if not isinstance(merge_events, Exception):
+            for event in merge_events:
+                if objective_id and event.payload.get("objective_id") != objective_id:
+                    continue
+                if campaign and event.payload.get("campaign") != campaign:
+                    continue
+                rows.append(
+                    WorkspaceEvent(
+                        timestamp=event.at,
+                        source="merge",
+                        kind=event.type,
+                        id=event.event_id,
+                        data=dict(event.payload),
+                    )
+                )
+
+        schedule_events = ScheduleEventStore(self._root).list_events(since=None)
+        if not isinstance(schedule_events, Exception):
+            for event in schedule_events:
+                if objective_id and event.payload.get("objective_id") != objective_id:
+                    continue
+                if campaign and event.payload.get("campaign") != campaign:
+                    continue
+                rows.append(
+                    WorkspaceEvent(
+                        timestamp=event.at,
+                        source="scheduler",
+                        kind=event.type,
+                        id=event.event_id,
+                        data=dict(event.payload),
+                    )
+                )
+
+        context_events_path = Path(self._root) / ".metagit" / "events" / "context.jsonl"
+        if context_events_path.is_file():
+            for line in context_events_path.read_text(encoding="utf-8").splitlines():
+                stripped = line.strip()
+                if not stripped:
+                    continue
+                try:
+                    raw = json.loads(stripped)
+                except json.JSONDecodeError:
+                    continue
+                if not isinstance(raw, dict):
+                    continue
+                payload = raw.get("payload") if isinstance(raw.get("payload"), dict) else {}
+                if objective_id and payload.get("objective_id") != objective_id:
+                    continue
+                if campaign and payload.get("campaign") != campaign:
+                    continue
+                rows.append(
+                    WorkspaceEvent(
+                        timestamp=str(raw.get("at") or ""),
+                        source="context",
+                        kind=str(raw.get("type") or "ContextCompiled"),
+                        id=str(raw.get("event_id") or ""),
+                        data=dict(payload),
                     )
                 )
 

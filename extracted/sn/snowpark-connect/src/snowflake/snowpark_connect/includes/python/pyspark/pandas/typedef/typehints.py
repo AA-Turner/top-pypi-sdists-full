@@ -23,7 +23,7 @@ import decimal
 import sys
 import typing
 from collections.abc import Iterable
-from distutils.version import LooseVersion
+from pyspark.loose_version import LooseVersion
 from inspect import isclass
 from typing import Any, Callable, Generic, List, Tuple, Union, Type, get_type_hints
 

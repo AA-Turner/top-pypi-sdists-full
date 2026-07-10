@@ -19,6 +19,22 @@ def force_cloud_run_target():
         yield
 
 
+@pytest.fixture(autouse=True)
+def _mock_teardown_settle():
+    """These tests exercise status-reporting/lifecycle behavior, not the
+    post-status settle window (see test_session_video_drain.py). Without
+    this, run()'s finally-block settle would run for real against a bare
+    MagicMock driver: WebDriverWait polls document.readyState against a
+    mock that never returns "complete", burning the full idle-timeout
+    before falling through to the drain sleep — several real seconds per
+    test. Mock WebDriverWait (same pattern as test_click.py) so `.until()`
+    resolves instantly, and skip the real drain delay.
+    """
+    with patch("testmu_selenium._session.WebDriverWait"), \
+         patch("testmu_selenium._session.time.sleep"):
+        yield
+
+
 @patch("testmu_selenium._session.webdriver.Remote")
 def test_run_launches_driver(mock_remote):
     fake_driver = MagicMock()

@@ -59,6 +59,31 @@ def _seed(field_file, local, baseline):
 
 
 # ---------------------------------------------------------------------------
+# _baseline/ directories keep themselves out of the user's git status
+# ---------------------------------------------------------------------------
+class TestBaselineDirSelfIgnores:
+    def test_write_baseline_creates_self_ignoring_gitignore(self, field_file):
+        write_baseline_for(field_file, ORIGINAL)
+        gitignore = field_file.parent / "_baseline" / ".gitignore"
+        assert gitignore.exists()
+        # '*' ignores every snapshot AND the .gitignore itself -> nothing shows.
+        assert gitignore.read_text().splitlines()[-1] == "*"
+
+    def test_gitignore_lives_inside_baseline_dir_and_is_an_artifact(self, field_file):
+        write_baseline_for(field_file, ORIGINAL)
+        gitignore = field_file.parent / "_baseline" / ".gitignore"
+        # Being under _baseline/, scanners skip it exactly like snapshots.
+        assert is_baseline_artifact(gitignore)
+
+    def test_existing_gitignore_is_not_clobbered(self, field_file):
+        write_baseline_for(field_file, ORIGINAL)
+        gitignore = field_file.parent / "_baseline" / ".gitignore"
+        gitignore.write_text("custom\n", encoding="utf-8")
+        write_baseline_for(field_file, REMOTE_EDIT)
+        assert gitignore.read_text() == "custom\n"
+
+
+# ---------------------------------------------------------------------------
 # sync_field_file decision matrix
 # ---------------------------------------------------------------------------
 class TestSyncFieldFile:
@@ -251,7 +276,11 @@ class TestPushRefreshesBaseline:
                 "script": "var x = 0;",
                 "sys_updated_on": "2025-01-10 10:00:00",
             },
-            {"sys_id": "wid-1", "sys_updated_on": "2025-01-10 11:00:00"},
+            {
+                "sys_id": "wid-1",
+                "script": "var x = 1;",  # landed = local
+                "sys_updated_on": "2025-01-10 11:00:00",
+            },
         ]
         mock_update.return_value = {"message": "Update successful", "sys_id": "wid-1"}
 
@@ -500,7 +529,11 @@ class TestForceCAS:
     ):
         mock_fetch.side_effect = [
             self._drifted_remote(),
-            {"sys_id": "wid-1", "sys_updated_on": "2025-01-12 11:00:00"},
+            {
+                "sys_id": "wid-1",
+                "script": "var x = 1;",  # landed = local
+                "sys_updated_on": "2025-01-12 11:00:00",
+            },
         ]
         mock_update.return_value = {"message": "Update successful", "sys_id": "wid-1"}
         script = widget_root / "global" / "sp_widget" / "my-widget" / "script.js"
@@ -549,7 +582,11 @@ class TestForceCAS:
         # Back-compat escape hatch: bare force=true keeps working.
         mock_fetch.side_effect = [
             self._drifted_remote(),
-            {"sys_id": "wid-1", "sys_updated_on": "2025-01-12 11:00:00"},
+            {
+                "sys_id": "wid-1",
+                "script": "var x = 1;",  # landed = local
+                "sys_updated_on": "2025-01-12 11:00:00",
+            },
         ]
         mock_update.return_value = {"message": "Update successful", "sys_id": "wid-1"}
         script = widget_root / "global" / "sp_widget" / "my-widget" / "script.js"

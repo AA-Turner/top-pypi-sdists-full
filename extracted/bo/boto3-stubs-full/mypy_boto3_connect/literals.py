@@ -47,6 +47,7 @@ __all__ = (
     "ConnectServiceName",
     "ContactEvaluationAttributeComparisonTypeType",
     "ContactEvaluationAttributeKeyType",
+    "ContactFieldType",
     "ContactFlowModuleStateType",
     "ContactFlowModuleStatusType",
     "ContactFlowStateType",
@@ -340,6 +341,7 @@ ComparisonType = Literal["LT"]
 ConfigurableNotificationPriorityType = Literal["HIGH", "LOW"]
 ContactEvaluationAttributeComparisonTypeType = Literal["EXACT"]
 ContactEvaluationAttributeKeyType = Literal["ContactAgentId"]
+ContactFieldType = Literal["ADDITIONAL_EMAIL_RECIPIENTS", "CUSTOMER_ENDPOINT", "EMAIL_SUBJECT"]
 ContactFlowModuleStateType = Literal["ACTIVE", "ARCHIVED"]
 ContactFlowModuleStatusType = Literal["PUBLISHED", "SAVED"]
 ContactFlowStateType = Literal["ACTIVE", "ARCHIVED"]

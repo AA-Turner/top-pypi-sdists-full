@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: durabletask.azuremanaged
-Version: 1.7.0
+Version: 1.7.2
 Summary: Durable Task Python SDK provider implementation for the Azure Durable Task Scheduler
 Project-URL: repository, https://github.com/microsoft/durabletask-python
 Project-URL: changelog, https://github.com/microsoft/durabletask-python/blob/main/CHANGELOG.md
@@ -10,7 +10,7 @@ Classifier: Programming Language :: Python :: 3
 Classifier: License :: OSI Approved :: MIT License
 Requires-Python: >=3.10
 Description-Content-Type: text/markdown
-Requires-Dist: durabletask>=1.7.0
+Requires-Dist: durabletask>=1.7.2
 Requires-Dist: azure-identity>=1.19.0
 Provides-Extra: azure-blob-payloads
-Requires-Dist: durabletask[azure-blob-payloads]>=1.7.0; extra == "azure-blob-payloads"
+Requires-Dist: durabletask[azure-blob-payloads]>=1.7.2; extra == "azure-blob-payloads"

@@ -36,6 +36,7 @@ __all__ = [
     "set_current_cld_context",
     "transform_identifier_for_snowflake",
     "is_backtick_quoted",
+    "strip_backtick_quotes_if_quoted",
     "unquote_spark_identifier_if_quoted",
     "spark_to_sf_single_id",
     "spark_to_sf_single_id_with_unquoting",
@@ -83,6 +84,22 @@ def unquote_spark_identifier_if_quoted(spark_name: str) -> str:
     exception = AnalysisException(f"Invalid name: {spark_name}")
     attach_custom_error_code(exception, ErrorCodes.INTERNAL_ERROR)
     raise exception
+
+
+def strip_backtick_quotes_if_quoted(name: str) -> str:
+    """Strip surrounding backticks from a raw Spark column-name string if present.
+
+    Unlike :func:`unquote_spark_identifier_if_quoted`, this is lenient: names
+    that are neither valid unquoted identifiers nor properly backtick-quoted
+    (e.g. ``Watt-hr``) are returned unchanged instead of raising. This matches
+    how Spark's stat/na DataFrame APIs (approxQuantile, corr, cov, describe,
+    freqItems, crosstab, dropna, replace) parse their raw string column
+    arguments: a backtick-quoted name is unquoted, everything else is taken
+    verbatim.
+    """
+    if is_backtick_quoted(name):
+        return name[1:-1].replace("``", "`")
+    return name
 
 
 def spark_to_sf_single_id_with_unquoting(

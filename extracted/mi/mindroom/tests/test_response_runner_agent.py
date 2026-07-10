@@ -36,7 +36,7 @@ from mindroom.dispatch_source import (
     MESSAGE_SOURCE_KIND,
 )
 from mindroom.final_delivery import FinalDeliveryOutcome, StreamTransportOutcome
-from mindroom.handled_turns import HandledTurnState
+from mindroom.handled_turns import TurnRecord
 from mindroom.history.storage import write_scope_state
 from mindroom.history.types import CompactionLifecycleStart, HistoryScope, HistoryScopeState
 from mindroom.hooks import (
@@ -1433,10 +1433,10 @@ class TestAgentBot(AgentBotTestBase):
                 DispatchPayloadInputs((), (), ()),
                 processing_log="processing",
                 dispatch_started_at=0.0,
-                handled_turn=HandledTurnState.from_source_event_id(event.event_id),
+                handled_turn=TurnRecord.create([event.event_id]),
             )
         tracker.record_handled_turn.assert_called_once_with(
-            HandledTurnState.from_source_event_id(event.event_id).with_response_event_id("$cancelled"),
+            replace(TurnRecord.create([event.event_id]), response_event_id="$cancelled"),
         )
 
     @pytest.mark.asyncio
@@ -2149,20 +2149,16 @@ class TestAgentBot(AgentBotTestBase):
         _install_runtime_cache_support(bot)
         envelope = MessageEnvelope(
             source_event_id="$reply_plain:localhost",
-            room_id="!test:localhost",
             target=MessageTarget.resolve(
                 room_id="!test:localhost",
                 thread_id=None,
                 reply_to_event_id="$reply_plain:localhost",
                 thread_start_root_event_id="$thread_root:localhost",
             ),
-            requester_id="@alice:localhost",
-            sender_id="@alice:localhost",
             body="Continue",
             attachment_ids=(),
             mentioned_agents=(),
             agent_name=mock_agent_user.agent_name,
-            source_kind=MESSAGE_SOURCE_KIND,
             origin=message_origin(
                 sender_id="@alice:localhost",
                 requester_id="@alice:localhost",

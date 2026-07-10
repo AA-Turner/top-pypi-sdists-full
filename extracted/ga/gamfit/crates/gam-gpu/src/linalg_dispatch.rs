@@ -22,6 +22,7 @@
 use ndarray::{Array1, Array2, Array3, ArrayView1, ArrayView2, ArrayView3};
 
 use super::device_runtime::GpuRuntime;
+use super::policy::GpuDispatchPolicy;
 
 pub struct CudaGemmDispatch;
 
@@ -136,6 +137,56 @@ impl DispatchOp {
             }
         }
     }
+
+    /// True when SOME reachable dispatch policy could admit this op.
+    ///
+    /// Pre-probe size gate (the CUDA startup-tax ordering fix): evaluated with
+    /// the MOST PERMISSIVE values any production policy can carry — the
+    /// calibration crossover floors ([`GpuDispatchPolicy::MIN_CALIBRATABLE_GEMM_FLOPS`],
+    /// [`GpuDispatchPolicy::MIN_CALIBRATABLE_POTRF_P`]) for the calibrated
+    /// fields, and the [`GpuDispatchPolicy::default`] values for the
+    /// small-dense-batched-POTRF fields, which `calibration::calibrate_device`
+    /// never adjusts. A `false` here means EVERY reachable policy's
+    /// [`route_through_gpu`] admission would also refuse, so the caller may
+    /// return to the CPU path WITHOUT touching `GpuRuntime::global()` — i.e.
+    /// without triggering the device probe and its per-GPU
+    /// `cuDevicePrimaryCtxRetain` context creation. A `true` decides nothing:
+    /// the probed runtime's real policy still gates the op exactly as before.
+    #[must_use]
+    pub fn admissible_under_any_policy(self) -> bool {
+        let seed = GpuDispatchPolicy::default();
+        let min_gemm = GpuDispatchPolicy::MIN_CALIBRATABLE_GEMM_FLOPS;
+        match self {
+            Self::Gemm { m, n, k } => self.flops() >= min_gemm && m.min(n).min(k) > 0,
+            Self::BatchedGemm { batch, m, n, k } => {
+                self.flops() >= min_gemm && batch > 1 && m.min(n).min(k) > 0
+            }
+            Self::Gemv { m, k } => self.flops() >= min_gemm && m > 0 && k > 0,
+            Self::Potrf { p, batch } => {
+                p > 0
+                    && batch > 0
+                    && (p >= GpuDispatchPolicy::MIN_CALIBRATABLE_POTRF_P
+                        || (batch > 1 && self.flops() >= min_gemm))
+            }
+            // These two policy fields are never calibrated, so the default seed
+            // values ARE the runtime values and this arm is exact, not a bound.
+            Self::SmallDenseBatchedPotrf { p, batch } => {
+                p > 0
+                    && p <= seed.small_dense_batched_potrf_max_p
+                    && batch >= seed.small_dense_batched_potrf_min_batch
+            }
+            Self::Trsm { m, n } => self.flops() >= min_gemm && m > 0 && n > 0,
+            // XtDiagX/XtDiagY admit on `dense_reduction_flops_min` =
+            // min(xtwx_flops_min, gemm_min_flops); the smallest reachable value
+            // of that min is MIN_CALIBRATABLE_GEMM_FLOPS (the xtwx crossover
+            // cannot calibrate below its smallest measurement, which exceeds it).
+            Self::XtDiagX { n, p } => n > 0 && p > 0 && self.flops() >= min_gemm,
+            Self::XtDiagY { n, px, q } => n > 0 && px > 0 && q > 0 && self.flops() >= min_gemm,
+            Self::JointHessian2x2 { n, pa, pb } => {
+                n > 0 && (pa + pb) > 0 && self.flops() >= min_gemm
+            }
+        }
+    }
 }
 
 /// Returns `Some(runtime)` when both a device is available and the workload
@@ -145,6 +196,14 @@ impl DispatchOp {
 #[inline]
 #[must_use]
 pub fn route_through_gpu(op: DispatchOp) -> Option<&'static GpuRuntime> {
+    // Size gate BEFORE the device probe (startup-tax ordering fix): an op no
+    // reachable policy could admit must not pay `GpuRuntime::global()` — the
+    // first call of which creates a CUDA primary context on every GPU. Ops that
+    // clear this most-permissive bound fall through to the probed runtime's
+    // real policy admission below, bit-for-bit as before.
+    if !op.admissible_under_any_policy() {
+        return None;
+    }
     let runtime = GpuRuntime::global()?;
     let policy = &runtime.policy;
     let admit = match op {
@@ -886,6 +945,179 @@ pub fn try_solve_upper_triangular_matrix(
     {
         let runtime = route_through_gpu(DispatchOp::Trsm { m, n })?;
         cuda_backend::trsm(runtime, upper, rhs, true)
+    }
+}
+
+#[cfg(test)]
+mod pre_probe_gate_tests {
+    //! Pins the CUDA startup-tax ordering fix at the dispatch chokepoint: an op
+    //! no reachable policy could admit must be refused by `route_through_gpu`
+    //! WITHOUT calling `GpuRuntime::global()` — i.e. without triggering the
+    //! device probe and its per-GPU `cuDevicePrimaryCtxRetain` context
+    //! creation. Observable on any host (CUDA or not) through the process-wide
+    //! `global_call_count` counter; nextest gives each test its own process.
+    use super::{DispatchOp, GpuDispatchPolicy, route_through_gpu};
+    use crate::device_runtime::GpuRuntime;
+
+    #[test]
+    fn cpu_sized_ops_are_refused_before_the_device_probe() {
+        let tiny_ops = [
+            DispatchOp::Gemm { m: 8, n: 8, k: 8 },
+            DispatchOp::BatchedGemm {
+                batch: 4,
+                m: 8,
+                n: 8,
+                k: 8,
+            },
+            DispatchOp::Gemv { m: 64, k: 64 },
+            DispatchOp::Potrf { p: 24, batch: 1 },
+            DispatchOp::Trsm { m: 16, n: 16 },
+            DispatchOp::XtDiagX { n: 700, p: 12 },
+            DispatchOp::XtDiagY {
+                n: 700,
+                px: 12,
+                q: 4,
+            },
+            DispatchOp::JointHessian2x2 {
+                n: 700,
+                pa: 8,
+                pb: 8,
+            },
+        ];
+        let before = GpuRuntime::global_call_count();
+        for op in tiny_ops {
+            assert!(
+                !op.admissible_under_any_policy(),
+                "fixture op must be inadmissible under every policy: {op:?}"
+            );
+            assert!(
+                route_through_gpu(op).is_none(),
+                "inadmissible op must not route: {op:?}"
+            );
+        }
+        assert_eq!(
+            GpuRuntime::global_call_count(),
+            before,
+            "route_through_gpu must refuse CPU-sized ops BEFORE GpuRuntime::global(), \
+             so no CUDA context is ever created for them"
+        );
+    }
+
+    #[test]
+    fn admissible_ops_fall_through_to_the_probed_runtime() {
+        // An op above every floor must consult the runtime (identical behaviour
+        // to the pre-fix path for genuinely GPU-sized work).
+        let big = DispatchOp::Gemm {
+            m: 2_048,
+            n: 2_048,
+            k: 2_048,
+        };
+        assert!(big.admissible_under_any_policy());
+        let before = GpuRuntime::global_call_count();
+        // Discard the routing result; this test asserts only the fall-through
+        // side effect (that an admissible op reached GpuRuntime::global()).
+        drop(route_through_gpu(big));
+        assert!(
+            GpuRuntime::global_call_count() > before,
+            "an admissible op must fall through to GpuRuntime::global()"
+        );
+    }
+
+    #[test]
+    fn admissibility_bound_never_tightens_the_real_admission() {
+        // For every op the pre-probe bound admits AT LEAST what the seed policy
+        // and the most permissive calibrated policy admit: check against both
+        // the default seed and a synthetic policy floored at the calibration
+        // minima. (If the real admission passed, the pre-gate must have too —
+        // otherwise the ordering fix would change GPU-sized behaviour.)
+        let floor_policy = GpuDispatchPolicy {
+            gemm_min_flops: usize::try_from(GpuDispatchPolicy::MIN_CALIBRATABLE_GEMM_FLOPS)
+                .expect("fits usize"),
+            potrf_min_p: GpuDispatchPolicy::MIN_CALIBRATABLE_POTRF_P,
+            xtwx_flops_min: 4_194_304, // smallest xtwx calibration measurement
+            ..GpuDispatchPolicy::default()
+        };
+        let policies = [GpuDispatchPolicy::default(), floor_policy];
+        let ops = [
+            DispatchOp::Gemm {
+                m: 64,
+                n: 64,
+                k: 64,
+            },
+            DispatchOp::Gemm {
+                m: 63,
+                n: 64,
+                k: 64,
+            },
+            DispatchOp::BatchedGemm {
+                batch: 8,
+                m: 64,
+                n: 64,
+                k: 8,
+            },
+            DispatchOp::Gemv { m: 512, k: 512 },
+            DispatchOp::Potrf { p: 64, batch: 1 },
+            DispatchOp::Potrf { p: 63, batch: 1 },
+            DispatchOp::Potrf { p: 24, batch: 512 },
+            DispatchOp::SmallDenseBatchedPotrf { p: 24, batch: 8 },
+            DispatchOp::SmallDenseBatchedPotrf { p: 24, batch: 7 },
+            DispatchOp::Trsm { m: 128, n: 64 },
+            DispatchOp::XtDiagX { n: 50_000, p: 96 },
+            DispatchOp::XtDiagX { n: 700, p: 24 },
+            DispatchOp::XtDiagY {
+                n: 50_000,
+                px: 96,
+                q: 8,
+            },
+            DispatchOp::JointHessian2x2 {
+                n: 50_000,
+                pa: 64,
+                pb: 64,
+            },
+        ];
+        for policy in &policies {
+            for op in ops {
+                let admitted = match op {
+                    DispatchOp::Gemm { m, n, k } => {
+                        op.flops() >= policy.gemm_min_flops as u128 && m.min(n).min(k) > 0
+                    }
+                    DispatchOp::BatchedGemm { batch, m, n, k } => {
+                        op.flops() >= policy.gemm_min_flops as u128
+                            && batch > 1
+                            && m.min(n).min(k) > 0
+                    }
+                    DispatchOp::Gemv { m, k } => {
+                        op.flops() >= policy.gemm_min_flops as u128 && m > 0 && k > 0
+                    }
+                    DispatchOp::Potrf { p, batch } => {
+                        p > 0
+                            && batch > 0
+                            && (p >= policy.potrf_min_p
+                                || (batch > 1 && op.flops() >= policy.gemm_min_flops as u128))
+                    }
+                    DispatchOp::SmallDenseBatchedPotrf { p, batch } => {
+                        p > 0
+                            && p <= policy.small_dense_batched_potrf_max_p
+                            && batch >= policy.small_dense_batched_potrf_min_batch
+                    }
+                    DispatchOp::Trsm { m, n } => {
+                        op.flops() >= policy.gemm_min_flops as u128 && m > 0 && n > 0
+                    }
+                    DispatchOp::XtDiagX { n, p } => policy.xtwx_target_is_gpu(n, p, true),
+                    DispatchOp::XtDiagY { n, px, q } => policy.xtwy_target_is_gpu(n, px, q, true),
+                    DispatchOp::JointHessian2x2 { n, pa, pb } => {
+                        n > 0 && (pa + pb) > 0 && op.flops() >= policy.gemm_min_flops as u128
+                    }
+                };
+                if admitted {
+                    assert!(
+                        op.admissible_under_any_policy(),
+                        "pre-probe bound must not refuse an op the real admission accepts: \
+                         {op:?} under {policy:?}"
+                    );
+                }
+            }
+        }
     }
 }
 

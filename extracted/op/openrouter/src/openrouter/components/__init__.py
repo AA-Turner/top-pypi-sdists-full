@@ -8,6 +8,19 @@ if TYPE_CHECKING:
     from .aabenchmarkentry import AABenchmarkEntry, AABenchmarkEntryTypedDict
     from .activityitem import ActivityItem, ActivityItemTypedDict
     from .activityresponse import ActivityResponse, ActivityResponseTypedDict
+    from .additionaltoolsitem import (
+        AdditionalToolsItem,
+        AdditionalToolsItemRole,
+        AdditionalToolsItemTool,
+        AdditionalToolsItemToolFunction,
+        AdditionalToolsItemToolFunctionTypedDict,
+        AdditionalToolsItemToolTypedDict,
+        AdditionalToolsItemToolUnion,
+        AdditionalToolsItemToolUnionTypedDict,
+        AdditionalToolsItemTypeFunction,
+        AdditionalToolsItemTypedDict,
+        TypeAdditionalTools,
+    )
     from .advisornestedtool import AdvisorNestedTool, AdvisorNestedToolTypedDict
     from .advisorreasoning import (
         AdvisorReasoning,
@@ -1139,9 +1152,7 @@ if TYPE_CHECKING:
         InputFidelity,
         InputImageMask,
         InputImageMaskTypedDict,
-        ModelEnum,
         Moderation,
-        Size,
     )
     from .imagegenerationservertool_openrouter import (
         ImageGenerationServerToolOpenRouter,
@@ -2139,6 +2150,16 @@ if TYPE_CHECKING:
         PreviewWebSearchUserLocationType,
         PreviewWebSearchUserLocationTypedDict,
     )
+    from .promptcachebreakpoint import (
+        PromptCacheBreakpoint,
+        PromptCacheBreakpointMode,
+        PromptCacheBreakpointTypedDict,
+    )
+    from .promptcacheoptions import (
+        PromptCacheOptions,
+        PromptCacheOptionsMode,
+        PromptCacheOptionsTypedDict,
+    )
     from .promptinjectionscanscope import PromptInjectionScanScope
     from .providername import ProviderName
     from .provideroptions import ProviderOptions, ProviderOptionsTypedDict
@@ -2165,6 +2186,7 @@ if TYPE_CHECKING:
         ProviderResponse,
         ProviderResponseProviderName,
         ProviderResponseTypedDict,
+        RoutedServiceTier,
     )
     from .providersort import ProviderSort
     from .providersortconfig import (
@@ -2198,6 +2220,7 @@ if TYPE_CHECKING:
         RankingsDailyResponseTypedDict,
     )
     from .reasoningconfig import ReasoningConfig, ReasoningConfigTypedDict
+    from .reasoningcontext import ReasoningContext
     from .reasoningdeltaevent import (
         ReasoningDeltaEvent,
         ReasoningDeltaEventType,
@@ -2207,6 +2230,11 @@ if TYPE_CHECKING:
         ReasoningDetailEncrypted,
         ReasoningDetailEncryptedType,
         ReasoningDetailEncryptedTypedDict,
+    )
+    from .reasoningdetailservertoolcall import (
+        ReasoningDetailServerToolCall,
+        ReasoningDetailServerToolCallType,
+        ReasoningDetailServerToolCallTypedDict,
     )
     from .reasoningdetailsummary import (
         ReasoningDetailSummary,
@@ -2240,6 +2268,7 @@ if TYPE_CHECKING:
         ReasoningItemType,
         ReasoningItemTypedDict,
     )
+    from .reasoningmode import ReasoningMode
     from .reasoningsummarypartaddedevent import (
         ReasoningSummaryPartAddedEvent,
         ReasoningSummaryPartAddedEventType,
@@ -2471,6 +2500,17 @@ if TYPE_CHECKING:
     from .subagentservertoolconfig import (
         SubagentServerToolConfig,
         SubagentServerToolConfigTypedDict,
+    )
+    from .submitgenerationfeedbackrequest import (
+        Category,
+        SubmitGenerationFeedbackRequest,
+        SubmitGenerationFeedbackRequestTypedDict,
+    )
+    from .submitgenerationfeedbackresponse import (
+        SubmitGenerationFeedbackResponse,
+        SubmitGenerationFeedbackResponseData,
+        SubmitGenerationFeedbackResponseDataTypedDict,
+        SubmitGenerationFeedbackResponseTypedDict,
     )
     from .taskclassificationitem import (
         TaskClassificationItem,
@@ -2742,6 +2782,16 @@ __all__ = [
     "ActivityItemTypedDict",
     "ActivityResponse",
     "ActivityResponseTypedDict",
+    "AdditionalToolsItem",
+    "AdditionalToolsItemRole",
+    "AdditionalToolsItemTool",
+    "AdditionalToolsItemToolFunction",
+    "AdditionalToolsItemToolFunctionTypedDict",
+    "AdditionalToolsItemToolTypedDict",
+    "AdditionalToolsItemToolUnion",
+    "AdditionalToolsItemToolUnionTypedDict",
+    "AdditionalToolsItemTypeFunction",
+    "AdditionalToolsItemTypedDict",
     "AdvisorNestedTool",
     "AdvisorNestedToolTypedDict",
     "AdvisorReasoning",
@@ -2979,6 +3029,7 @@ __all__ = [
     "CachingTypedDict",
     "CapabilityDescriptor",
     "CapabilityDescriptorTypedDict",
+    "Category",
     "ChatAssistantImages",
     "ChatAssistantImagesImageURL",
     "ChatAssistantImagesImageURLTypedDict",
@@ -3795,7 +3846,6 @@ __all__ = [
     "ModelArchitectureTypedDict",
     "ModelBenchmarks",
     "ModelBenchmarksTypedDict",
-    "ModelEnum",
     "ModelGroup",
     "ModelLinks",
     "ModelLinksTypedDict",
@@ -4210,6 +4260,12 @@ __all__ = [
     "PriceSource",
     "Pricing",
     "PricingTypedDict",
+    "PromptCacheBreakpoint",
+    "PromptCacheBreakpointMode",
+    "PromptCacheBreakpointTypedDict",
+    "PromptCacheOptions",
+    "PromptCacheOptionsMode",
+    "PromptCacheOptionsTypedDict",
     "PromptInjectionScanScope",
     "ProviderName",
     "ProviderOptions",
@@ -4246,12 +4302,16 @@ __all__ = [
     "Reason",
     "ReasoningConfig",
     "ReasoningConfigTypedDict",
+    "ReasoningContext",
     "ReasoningDeltaEvent",
     "ReasoningDeltaEventType",
     "ReasoningDeltaEventTypedDict",
     "ReasoningDetailEncrypted",
     "ReasoningDetailEncryptedType",
     "ReasoningDetailEncryptedTypedDict",
+    "ReasoningDetailServerToolCall",
+    "ReasoningDetailServerToolCallType",
+    "ReasoningDetailServerToolCallTypedDict",
     "ReasoningDetailSummary",
     "ReasoningDetailSummaryType",
     "ReasoningDetailSummaryTypedDict",
@@ -4273,6 +4333,7 @@ __all__ = [
     "ReasoningItemStatusUnionTypedDict",
     "ReasoningItemType",
     "ReasoningItemTypedDict",
+    "ReasoningMode",
     "ReasoningSummaryPartAddedEvent",
     "ReasoningSummaryPartAddedEventType",
     "ReasoningSummaryPartAddedEventTypedDict",
@@ -4335,6 +4396,7 @@ __all__ = [
     "ResponsesRequestTypedDict",
     "ResponsesStreamingResponse",
     "ResponsesStreamingResponseTypedDict",
+    "RoutedServiceTier",
     "RouterAttempt",
     "RouterAttemptTypedDict",
     "RouterParams",
@@ -4394,7 +4456,6 @@ __all__ = [
     "ShellServerToolOpenRouterTypedDict",
     "ShellServerToolType",
     "ShellServerToolTypedDict",
-    "Size",
     "Sort",
     "SortTypedDict",
     "SourceContent",
@@ -4460,6 +4521,12 @@ __all__ = [
     "SubagentServerToolOpenRouter",
     "SubagentServerToolOpenRouterType",
     "SubagentServerToolOpenRouterTypedDict",
+    "SubmitGenerationFeedbackRequest",
+    "SubmitGenerationFeedbackRequestTypedDict",
+    "SubmitGenerationFeedbackResponse",
+    "SubmitGenerationFeedbackResponseData",
+    "SubmitGenerationFeedbackResponseDataTypedDict",
+    "SubmitGenerationFeedbackResponseTypedDict",
     "SupportedAspectRatio",
     "SupportedFrameImage",
     "SupportedResolution",
@@ -4542,6 +4609,7 @@ __all__ = [
     "Truncation",
     "Type",
     "TypeAdaptive",
+    "TypeAdditionalTools",
     "TypeAdvisor20260301",
     "TypeAny",
     "TypeBash20250124",
@@ -4738,6 +4806,17 @@ _dynamic_imports: dict[str, str] = {
     "ActivityItemTypedDict": ".activityitem",
     "ActivityResponse": ".activityresponse",
     "ActivityResponseTypedDict": ".activityresponse",
+    "AdditionalToolsItem": ".additionaltoolsitem",
+    "AdditionalToolsItemRole": ".additionaltoolsitem",
+    "AdditionalToolsItemTool": ".additionaltoolsitem",
+    "AdditionalToolsItemToolFunction": ".additionaltoolsitem",
+    "AdditionalToolsItemToolFunctionTypedDict": ".additionaltoolsitem",
+    "AdditionalToolsItemToolTypedDict": ".additionaltoolsitem",
+    "AdditionalToolsItemToolUnion": ".additionaltoolsitem",
+    "AdditionalToolsItemToolUnionTypedDict": ".additionaltoolsitem",
+    "AdditionalToolsItemTypeFunction": ".additionaltoolsitem",
+    "AdditionalToolsItemTypedDict": ".additionaltoolsitem",
+    "TypeAdditionalTools": ".additionaltoolsitem",
     "AdvisorNestedTool": ".advisornestedtool",
     "AdvisorNestedToolTypedDict": ".advisornestedtool",
     "AdvisorReasoning": ".advisorreasoning",
@@ -5539,9 +5618,7 @@ _dynamic_imports: dict[str, str] = {
     "InputFidelity": ".imagegenerationservertool",
     "InputImageMask": ".imagegenerationservertool",
     "InputImageMaskTypedDict": ".imagegenerationservertool",
-    "ModelEnum": ".imagegenerationservertool",
     "Moderation": ".imagegenerationservertool",
-    "Size": ".imagegenerationservertool",
     "ImageGenerationServerToolOpenRouter": ".imagegenerationservertool_openrouter",
     "ImageGenerationServerToolOpenRouterType": ".imagegenerationservertool_openrouter",
     "ImageGenerationServerToolOpenRouterTypedDict": ".imagegenerationservertool_openrouter",
@@ -6330,6 +6407,12 @@ _dynamic_imports: dict[str, str] = {
     "PreviewWebSearchUserLocation": ".preview_websearchuserlocation",
     "PreviewWebSearchUserLocationType": ".preview_websearchuserlocation",
     "PreviewWebSearchUserLocationTypedDict": ".preview_websearchuserlocation",
+    "PromptCacheBreakpoint": ".promptcachebreakpoint",
+    "PromptCacheBreakpointMode": ".promptcachebreakpoint",
+    "PromptCacheBreakpointTypedDict": ".promptcachebreakpoint",
+    "PromptCacheOptions": ".promptcacheoptions",
+    "PromptCacheOptionsMode": ".promptcacheoptions",
+    "PromptCacheOptionsTypedDict": ".promptcacheoptions",
     "PromptInjectionScanScope": ".promptinjectionscanscope",
     "ProviderName": ".providername",
     "ProviderOptions": ".provideroptions",
@@ -6352,6 +6435,7 @@ _dynamic_imports: dict[str, str] = {
     "ProviderResponse": ".providerresponse",
     "ProviderResponseProviderName": ".providerresponse",
     "ProviderResponseTypedDict": ".providerresponse",
+    "RoutedServiceTier": ".providerresponse",
     "ProviderSort": ".providersort",
     "By": ".providersortconfig",
     "Partition": ".providersortconfig",
@@ -6377,12 +6461,16 @@ _dynamic_imports: dict[str, str] = {
     "RankingsDailyResponseTypedDict": ".rankingsdailyresponse",
     "ReasoningConfig": ".reasoningconfig",
     "ReasoningConfigTypedDict": ".reasoningconfig",
+    "ReasoningContext": ".reasoningcontext",
     "ReasoningDeltaEvent": ".reasoningdeltaevent",
     "ReasoningDeltaEventType": ".reasoningdeltaevent",
     "ReasoningDeltaEventTypedDict": ".reasoningdeltaevent",
     "ReasoningDetailEncrypted": ".reasoningdetailencrypted",
     "ReasoningDetailEncryptedType": ".reasoningdetailencrypted",
     "ReasoningDetailEncryptedTypedDict": ".reasoningdetailencrypted",
+    "ReasoningDetailServerToolCall": ".reasoningdetailservertoolcall",
+    "ReasoningDetailServerToolCallType": ".reasoningdetailservertoolcall",
+    "ReasoningDetailServerToolCallTypedDict": ".reasoningdetailservertoolcall",
     "ReasoningDetailSummary": ".reasoningdetailsummary",
     "ReasoningDetailSummaryType": ".reasoningdetailsummary",
     "ReasoningDetailSummaryTypedDict": ".reasoningdetailsummary",
@@ -6405,6 +6493,7 @@ _dynamic_imports: dict[str, str] = {
     "ReasoningItemStatusUnionTypedDict": ".reasoningitem",
     "ReasoningItemType": ".reasoningitem",
     "ReasoningItemTypedDict": ".reasoningitem",
+    "ReasoningMode": ".reasoningmode",
     "ReasoningSummaryPartAddedEvent": ".reasoningsummarypartaddedevent",
     "ReasoningSummaryPartAddedEventType": ".reasoningsummarypartaddedevent",
     "ReasoningSummaryPartAddedEventTypedDict": ".reasoningsummarypartaddedevent",
@@ -6569,6 +6658,13 @@ _dynamic_imports: dict[str, str] = {
     "SubagentServerToolOpenRouterTypedDict": ".subagentservertool_openrouter",
     "SubagentServerToolConfig": ".subagentservertoolconfig",
     "SubagentServerToolConfigTypedDict": ".subagentservertoolconfig",
+    "Category": ".submitgenerationfeedbackrequest",
+    "SubmitGenerationFeedbackRequest": ".submitgenerationfeedbackrequest",
+    "SubmitGenerationFeedbackRequestTypedDict": ".submitgenerationfeedbackrequest",
+    "SubmitGenerationFeedbackResponse": ".submitgenerationfeedbackresponse",
+    "SubmitGenerationFeedbackResponseData": ".submitgenerationfeedbackresponse",
+    "SubmitGenerationFeedbackResponseDataTypedDict": ".submitgenerationfeedbackresponse",
+    "SubmitGenerationFeedbackResponseTypedDict": ".submitgenerationfeedbackresponse",
     "TaskClassificationItem": ".taskclassificationitem",
     "TaskClassificationItemTypedDict": ".taskclassificationitem",
     "TaskClassificationMacroCategory": ".taskclassificationmacrocategory",

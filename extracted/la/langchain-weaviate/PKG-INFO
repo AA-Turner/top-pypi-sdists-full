@@ -1,6 +1,6 @@
 Metadata-Version: 2.3
 Name: langchain-weaviate
-Version: 0.0.7
+Version: 0.0.8
 Summary: An integration package connecting Weaviate and LangChain
 License: MIT
 Requires-Python: >=3.10,<4.0

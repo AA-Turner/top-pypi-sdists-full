@@ -22,15 +22,26 @@ dependencies = [
     # previously shipped (incl. ASTB, oncoref #223) AND it ships the
     # median-of-ratios housekeeping normalization pirlygenes delegates to
     # (oncoref #204 / #516). 1.8.95 adds the ontology_level/ontology_kind
-    # columns and reparents CRC_MSI under CRC (oncoref #322/#323); 1.8.98
-    # (#325/#326) finishes the intermediate-tier wiring (SARC_LPS/ESS leaves
-    # reparented, NEC_LUNG tier added) and ships cancer_subtype_groupings.
-    # The registry-completeness baseline is keyed to that registry shape.
+    # columns and reparents CRC_MSI under CRC (oncoref #322/#323); 1.8.103
+    # (#325/#326) finishes the aggregate tier wiring — the intermediate SARC
+    # histology rollups (SARC_LPS/ESS/RMS) and NEC_LUNG become type-level
+    # computed_union tiers. 1.8.107 restructures the neuroendocrine / renal /
+    # thymic taxonomy: NEN/RCC/THYM_EPITHELIAL added as grouping unions
+    # (NEN -> NET/NEC, RCC -> KIRC/KIRP/KICH/RCC_NCC, THYM_EPITHELIAL ->
+    # THYM/THYMCA) and NEN_G3_EXTRAPULMONARY renamed to NEN_EXTRAPULMONARY_HG.
+    # The grouping-signal tests + registry-completeness baseline gate on
+    # ontology_level=='grouping' (auto-exempt) so this taxonomy churn no longer
+    # needs a frozenset edit per release (see tests/test_registry_completeness.py
+    # and tests/test_ontology_level_groupings.py).
     # >=1.8.75 also gives the builders the cleaned-up source-matrix QC /
     # mapping-audit / parse-diagnostics contract they delegate to — Entrez
     # resolver (#293) + un-versioned QC contract with configurable HK floor +
     # proxy warn-only (#292); see pirlygenes#526 (satisfied by 1.8.98).
-    "oncoref>=1.8.98",
+    # 1.8.98 also serves the representative/percentile accessors pirlygenes
+    # delegates in #208 (representative_cohort_samples with
+    # representative_id_style/sample_qc='artifact', available_representative_
+    # cohorts, available_percentile_cohorts, cohort_gene_percentiles).
+    "oncoref>=1.8.107",
     "openpyxl>=3.1.0",
     "pandas>=2.0",
     # Parquet engine for the cohort-view / representative / percentile
@@ -107,16 +118,14 @@ pirlygenes = [
 # lazily by pirlygenes.data_bundle):
 #   data/cancer-reference-expression/*                  ~325 MB
 #   data/cancer-reference-expression-views/*            precomputed views
-#   data/cancer-reference-expression-representatives/*   ~48 MB  (#312)
-#   data/cancer-reference-expression-percentiles/*       percentile vectors
 #   data/pan-cancer-expression.csv                       ~11 MB
 #   data/hpa-cell-type-expression.csv                    ~7 MB
+# (Per-cohort medoid representatives + per-gene percentile vectors moved to
+#  oncoref in #208; pirlygenes no longer ships or downloads them.)
 [tool.setuptools.exclude-package-data]
 pirlygenes = [
     "data/cancer-reference-expression/*",
     "data/cancer-reference-expression-views/*",
-    "data/cancer-reference-expression-representatives/*",
-    "data/cancer-reference-expression-percentiles/*",
     "data/pan-cancer-expression.csv",
     "data/hpa-cell-type-expression.csv",
 ]

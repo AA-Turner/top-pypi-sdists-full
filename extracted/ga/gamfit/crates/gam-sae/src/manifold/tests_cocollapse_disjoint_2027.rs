@@ -256,6 +256,62 @@ pub(crate) fn two_circle_whitened_k2_recovers_disjoint_signal_2027() {
     );
 }
 
+/// #2099 quotient-ON twin of `two_circle_whitened_k2_recovers_disjoint_signal_2027`.
+///
+/// Identical fixture, ρ, and EV bar as the original; the only difference is
+/// `set_quotient_scale(true)` + `set_cone_atom_recovery(true)` (a co-collapse
+/// recovery scenario, so the cone-atom breach-gated retraction is implied). This
+/// is the conflict-2 (#980 whitening / OutputFisher) acceptance under the quotient.
+/// Default path untouched.
+///
+/// FALSIFIABLE PREDICTION (per my #2099 subsystem-2 audit): this fixture is
+/// Euclidean-metric, so no whitener is built from the decoder and `∂W/∂s_k = 0` —
+/// the whitening geometry cannot itself regress under the quotient. THEREFORE this
+/// twin should PASS (EV > 0.20, matching OFF). If it FAILS, the root is again
+/// trajectory cadence, most specifically the keep-best amplitude VarPro
+/// (`optimize_log_amplitudes_closed_form`, monotone revert on the fit's OWN
+/// weighted data-fit) FIGHTING the accepted-iterate `retract_collapsed_decoders_in_loop`
+/// on the breach rows of a genuinely co-collapsing K=2 pair: the retraction peels a
+/// near-collapsed atom's `‖B‖` into `s` (unit-frame + small `s`), then the next
+/// amplitude solve — because the peel changed the per-atom design `C_k = Φ·B_k`
+/// scale — either reverts (keep-best) or re-inflates `s`, so the two atoms never
+/// settle onto distinct rank-2 territories and the EV falls back toward the null
+/// floor. Watch `dictionary_cocollapse_reseeds` climbing relative to the OFF run.
+#[test]
+pub(crate) fn two_circle_whitened_k2_recovers_disjoint_signal_2027_quotient_on_2099() {
+    let n = 96usize;
+    let p = 16usize;
+    let m = 5usize; // [1, sin2πt, cos2πt, sin4πt, cos4πt]
+    let (mut term, target) = two_circle_k2_term(n, p, m);
+    // The lines under test: general scale quotient + cone-atom recovery engaged.
+    term.set_quotient_scale(true);
+    term.set_cone_atom_recovery(true);
+
+    let mut rho = SaeManifoldRho::new(
+        0.0,
+        -6.0,
+        vec![Array1::<f64>::zeros(1), Array1::<f64>::zeros(1)],
+    );
+    let loss = term
+        .run_joint_fit_arrow_schur(target.view(), &mut rho, None, 60, 0.05, 1.0e-3, 1.0e-3)
+        .unwrap();
+    assert!(loss.total().is_finite(), "loss must stay finite (quotient ON)");
+
+    let ev = term
+        .dictionary_reconstruction_ev(target.view(), &rho)
+        .unwrap();
+    eprintln!(
+        "[#2099 twin] K=2 whitened two-circle EV (quotient ON) = {ev:.4}, cocollapse_reseeds = {}",
+        term.dictionary_cocollapse_reseeds
+    );
+    assert!(
+        ev > 0.20,
+        "#2099: K=2 whitened two-circle with quotient_scale ON co-collapsed: EV={ev:.4} \
+         (expected > 0.20). The Euclidean whitening cannot cause this — a regression localizes \
+         to the retraction/amplitude-solve cadence on the breach rows"
+    );
+}
+
 /// The greedy disjoint-subspace decoder refit must, on a co-collapsed reseed,
 /// leave BOTH atoms carrying material decoder norm — never let one atom take all
 /// the residual while the other stays ≈0 (the relative-norm collapse the joint
@@ -386,21 +442,30 @@ pub(crate) fn two_circle_separates_at_narrow_and_wide_widths_2027() {
     }
 }
 
-/// #2082 — the STRUCTURAL coherence detector must fire on atoms that decode the
-/// SAME output subspace (the "high EV, no structure" collapse the two-width test
-/// catches) and stay SILENT on atoms whose decoders span ORTHOGONAL subspaces
-/// (a healthy well-separated dictionary), keying on the derived random-subspace
-/// null — so a live fit's guard reseeds a merged pair without touching separated
-/// atoms.
+/// #2082/#2132/#1893 — the STRUCTURAL coherence detector fires on FUNCTIONAL
+/// REDUNDANCY (two atoms that reconstruct the SAME rows — a genuine duplicate),
+/// NOT on mere output-subspace sharing. Three cases pin the contract:
+///
+///  (1) ORTHOGONAL output subspaces → frames don't even overlap → NOT flagged.
+///  (2) SAME output subspace but DIFFERENT charts (identical decoder, distinct
+///      phases) → the atoms decode DIFFERENT rows, so their gated contributions
+///      `Y_k = diag(a)ΦB` are NOT collinear → benign, NOT flagged. This is the
+///      over-complete (`K > rank`) regime the old frame-coherence detector
+///      false-positived on (the `ibp_default_alpha` regression: healthy EV≈0.99,
+///      frame coherence ≈1, contribution cosine ≈ the independence null): several
+///      curved atoms MUST share the ≤`p`-dim output space while encoding distinct
+///      structure.
+///  (3) TRUE DUPLICATE (identical decoder AND identical chart) → `Y_0 ∝ Y_1` →
+///      contribution cosine → 1 → FLAGGED.
 #[test]
 pub(crate) fn structural_coherence_detector_fires_on_duplicate_not_orthogonal_2082() {
     let n = 48usize;
     let p = 8usize;
     let m = 5usize;
-    let (mut term, _target) = two_circle_k2_term(n, p, m);
 
-    // ORTHOGONAL output subspaces: atom 0 decodes only EVEN output channels, atom 1
-    // only ODD → their output frames are orthogonal → coherence 0 → NOT flagged.
+    // (1) ORTHOGONAL output subspaces: atom 0 decodes only EVEN output channels,
+    // atom 1 only ODD → orthogonal frames → not a candidate → NOT flagged.
+    let (mut term, _target) = two_circle_k2_term(n, p, m);
     for atom in 0..2 {
         let mut b = Array2::<f64>::zeros((m, p));
         for col in 0..m {
@@ -418,22 +483,48 @@ pub(crate) fn structural_coherence_detector_fires_on_duplicate_not_orthogonal_20
         "orthogonal-subspace atoms must NOT be flagged as structurally collapsed"
     );
 
-    // DUPLICATE output subspaces: both atoms decode the SAME two output directions
-    // → identical output frames → coherence ~1 → flagged (well above the ½(μ_null+1)
-    // bar; for p=8, rank-2, μ_null ≈ 0.9 so the bar ≈ 0.95, and 1.0 clears it).
+    // (2) SAME output subspace, DIFFERENT charts: identical decoder, but the two
+    // atoms keep their distinct PCA-seeded phases → same output frame (coherence
+    // ≈1) yet DIFFERENT per-row contributions → NOT functional redundancy → the
+    // functional-redundancy detector must stay SILENT (the old frame-only detector
+    // wrongly fired here).
     let mut dup = Array2::<f64>::zeros((m, p));
-    dup[[0, 0]] = 1.0;
-    dup[[1, 1]] = 1.0;
+    dup[[1, 0]] = 1.0;
+    dup[[2, 1]] = 1.0;
     term.atoms[0].decoder_coefficients = dup.clone();
-    term.atoms[1].decoder_coefficients = dup;
+    term.atoms[1].decoder_coefficients = dup.clone();
+    let mut shifted = term.assignment.coords[0].as_matrix().to_owned();
+    for t in shifted.iter_mut() {
+        *t = (*t + 0.25).rem_euclid(1.0);
+    }
+    let shifted_flat: Array1<f64> = shifted.iter().copied().collect();
+    term.assignment.coords[1].set_flat(shifted_flat.view());
+    term.atoms[1].refresh_basis(shifted.view()).unwrap();
+    assert!(
+        term.structural_coherence_collapse_detected()
+            .unwrap()
+            .is_none(),
+        "same output subspace with DIFFERENT charts is benign over-completeness and \
+         must NOT be flagged (the ibp_default_alpha false positive)"
+    );
+
+    // (3) TRUE DUPLICATE: identical decoder AND identical chart (copy atom 0's
+    // coords onto atom 1) → the two atoms reconstruct the SAME rows → contribution
+    // cosine → 1 → FLAGGED as the genuine high-EV co-collapse.
+    let coords0 = term.assignment.coords[0].as_matrix().to_owned();
+    let flat0: Array1<f64> = coords0.iter().copied().collect();
+    term.assignment.coords[1].set_flat(flat0.view());
+    term.atoms[1]
+        .refresh_basis(term.assignment.coords[1].as_matrix().view())
+        .unwrap();
     let hit = term
         .structural_coherence_collapse_detected()
         .unwrap()
-        .expect("duplicate-subspace atoms must be flagged as structurally collapsed");
+        .expect("a true duplicate (identical decoder AND chart) must be flagged");
     assert_eq!((hit.0, hit.1), (0, 1), "the offending pair is (0, 1)");
     assert!(
-        hit.2 > 0.99,
-        "duplicate output frames must report coherence ~1, got {}",
+        hit.2 > 0.9,
+        "true-duplicate contribution cosine must be ~1, got {}",
         hit.2
     );
 }

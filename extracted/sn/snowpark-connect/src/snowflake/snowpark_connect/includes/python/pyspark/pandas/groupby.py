@@ -21,7 +21,7 @@ A wrapper for GroupedData to behave like pandas GroupBy.
 from abc import ABCMeta, abstractmethod
 import inspect
 from collections import defaultdict, namedtuple
-from distutils.version import LooseVersion
+from pyspark.loose_version import LooseVersion
 from functools import partial
 from itertools import product
 from typing import (

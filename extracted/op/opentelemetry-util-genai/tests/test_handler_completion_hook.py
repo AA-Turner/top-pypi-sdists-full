@@ -1,27 +1,10 @@
 # Copyright The OpenTelemetry Authors
-#
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-#
-#     http://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
+# SPDX-License-Identifier: Apache-2.0
 
 import os
 from unittest import TestCase
 from unittest.mock import MagicMock, patch
 
-from tests.test_utils import patch_env_vars
-
-from opentelemetry.instrumentation._semconv import (
-    OTEL_SEMCONV_STABILITY_OPT_IN,
-    _OpenTelemetrySemanticConventionStability,
-)
 from opentelemetry.sdk.trace import TracerProvider
 from opentelemetry.sdk.trace.export import SimpleSpanProcessor
 from opentelemetry.sdk.trace.export.in_memory_span_exporter import (
@@ -40,8 +23,7 @@ from opentelemetry.util.genai.types import (
     Text,
 )
 
-_EXPERIMENTAL_ENV = {
-    OTEL_SEMCONV_STABILITY_OPT_IN: "gen_ai_latest_experimental",
+_CAPTURE_EVENT_ENV = {
     OTEL_INSTRUMENTATION_GENAI_CAPTURE_MESSAGE_CONTENT: "EVENT_ONLY",
     OTEL_INSTRUMENTATION_GENAI_EMIT_EVENT: "true",
 }
@@ -54,12 +36,6 @@ class TestHandlerCompletionHook(TestCase):  # pylint: disable=too-many-public-me
         self.tracer_provider.add_span_processor(
             SimpleSpanProcessor(self.span_exporter)
         )
-        _OpenTelemetrySemanticConventionStability._initialized = False
-        _OpenTelemetrySemanticConventionStability._initialize()
-
-    def tearDown(self) -> None:
-        # Reset semconv stability state between tests
-        _OpenTelemetrySemanticConventionStability._initialized = False
 
     def _make_handler(self, hook=None):
         return TelemetryHandler(
@@ -90,7 +66,7 @@ class TestHandlerCompletionHook(TestCase):  # pylint: disable=too-many-public-me
             )
         ]
 
-        invocation = handler.start_inference("openai", request_model="gpt-4o")
+        invocation = handler.inference("openai", request_model="gpt-4o")
         invocation.input_messages = input_messages
         invocation.output_messages = output_messages
         invocation.system_instruction = system_instruction
@@ -113,7 +89,7 @@ class TestHandlerCompletionHook(TestCase):  # pylint: disable=too-many-public-me
             InputMessage(role="user", parts=[Text(content="hello")])
         ]
 
-        invocation = handler.start_inference("openai", request_model="gpt-4o")
+        invocation = handler.inference("openai", request_model="gpt-4o")
         invocation.input_messages = input_messages
         invocation.fail(ValueError("boom"))
 
@@ -125,39 +101,34 @@ class TestHandlerCompletionHook(TestCase):  # pylint: disable=too-many-public-me
     def test_hook_not_called_when_not_set(self):
         # No hook — stop should not raise
         handler = self._make_handler()
-        handler.start_inference("openai", request_model="gpt-4o").stop()
+        handler.inference("openai", request_model="gpt-4o").stop()
 
     def test_log_record_is_none_when_events_disabled(self):
-        # Default env: no experimental mode, so log_record should be None.
+        # Default env: no event.
         # Also pins that tool_definitions defaults to None when unset
         # (the upload hook hashes off None vs []).
         hook = MagicMock()
         handler = self._make_handler(hook)
 
-        handler.start_inference("openai", request_model="gpt-4o").stop()
+        handler.inference("openai", request_model="gpt-4o").stop()
 
         kwargs = hook.on_completion.call_args.kwargs
         self.assertIsNone(kwargs["log_record"])
         self.assertIsNone(kwargs["tool_definitions"])
 
-    @patch.dict(os.environ, _EXPERIMENTAL_ENV)
+    @patch.dict(os.environ, _CAPTURE_EVENT_ENV)
     def test_log_record_passed_when_events_enabled(self):
-        _OpenTelemetrySemanticConventionStability._initialized = False
-        _OpenTelemetrySemanticConventionStability._initialize()
-
         hook = MagicMock()
         handler = self._make_handler(hook)
 
-        handler.start_inference("openai", request_model="gpt-4o").stop()
+        handler.inference("openai", request_model="gpt-4o").stop()
 
         kwargs = hook.on_completion.call_args.kwargs
         self.assertIsNotNone(kwargs["log_record"])
 
-    @patch.dict(os.environ, _EXPERIMENTAL_ENV)
+    @patch.dict(os.environ, _CAPTURE_EVENT_ENV)
     def test_hook_can_stamp_attrs_on_log_record(self):
         # Verify that attrs stamped by the hook are on the same log_record that gets emitted
-        _OpenTelemetrySemanticConventionStability._initialized = False
-        _OpenTelemetrySemanticConventionStability._initialize()
 
         stamped_record = None
 
@@ -173,7 +144,7 @@ class TestHandlerCompletionHook(TestCase):  # pylint: disable=too-many-public-me
         hook = MagicMock(on_completion=stamp_ref)
         handler = self._make_handler(hook)
 
-        handler.start_inference("openai", request_model="gpt-4o").stop()
+        handler.inference("openai", request_model="gpt-4o").stop()
 
         # The record the hook stamped is the same one that would be emitted
         self.assertIsNotNone(stamped_record)
@@ -181,101 +152,6 @@ class TestHandlerCompletionHook(TestCase):  # pylint: disable=too-many-public-me
             stamped_record.attributes.get("gen_ai.input_messages_ref"),
             "s3://bucket/inputs.json",
         )
-
-    @patch.dict(
-        os.environ, {OTEL_INSTRUMENTATION_GENAI_CAPTURE_MESSAGE_CONTENT: ""}
-    )
-    def test_should_capture_content_false_by_default(self):
-        handler = self._make_handler()
-        self.assertFalse(handler.should_capture_content())
-
-    def test_should_capture_content_true_when_real_hook_set(self):
-        # A real (non-noop) hook forces content capture regardless of env vars
-        hook = MagicMock()
-        handler = self._make_handler(hook)
-        self.assertTrue(handler.should_capture_content())
-
-    @patch.dict(
-        os.environ, {OTEL_INSTRUMENTATION_GENAI_CAPTURE_MESSAGE_CONTENT: ""}
-    )
-    def test_should_capture_content_false_when_noop_hook(self):
-        handler = self._make_handler(_NoOpCompletionHook())
-        self.assertFalse(handler.should_capture_content())
-
-    @patch.dict(
-        os.environ,
-        {OTEL_INSTRUMENTATION_GENAI_CAPTURE_MESSAGE_CONTENT: "true"},
-    )
-    def test_should_capture_content_true_in_legacy_mode_when_content_env_true(
-        self,
-    ):
-        handler = self._make_handler()
-        self.assertTrue(handler.should_capture_content())
-
-    @patch.dict(
-        os.environ,
-        {OTEL_INSTRUMENTATION_GENAI_CAPTURE_MESSAGE_CONTENT: "false"},
-    )
-    def test_should_capture_content_false_in_legacy_mode_when_content_env_false(
-        self,
-    ):
-        handler = self._make_handler()
-        self.assertFalse(handler.should_capture_content())
-
-    @patch.dict(
-        os.environ,
-        {OTEL_INSTRUMENTATION_GENAI_CAPTURE_MESSAGE_CONTENT: "span_only"},
-    )
-    def test_should_capture_content_true_in_legacy_mode_when_content_env_span_only(
-        self,
-    ):
-        handler = self._make_handler()
-        self.assertTrue(handler.should_capture_content())
-
-    @patch.dict(
-        os.environ,
-        {OTEL_INSTRUMENTATION_GENAI_CAPTURE_MESSAGE_CONTENT: "event_only"},
-    )
-    def test_should_capture_content_true_in_legacy_mode_when_content_env_event_only(
-        self,
-    ):
-        handler = self._make_handler()
-        self.assertTrue(handler.should_capture_content())
-
-    @patch_env_vars("gen_ai_latest_experimental", "span_only", "false")
-    def test_should_capture_content_true_in_experimental_mode_with_content(
-        self,
-    ):
-        handler = self._make_handler()
-        self.assertTrue(handler.should_capture_content())
-
-    @patch_env_vars("gen_ai_latest_experimental", "no_content", "false")
-    def test_should_capture_content_false_in_experimental_mode_with_no_content(
-        self,
-    ):
-        handler = self._make_handler()
-        self.assertFalse(handler.should_capture_content())
-
-    @patch_env_vars("gen_ai_latest_experimental", "no_content", "false")
-    def test_should_capture_content_true_in_experimental_mode_no_content_but_hook_set(
-        self,
-    ):
-        # Hook overrides no_content mode
-        hook = MagicMock()
-        handler = self._make_handler(hook)
-        self.assertTrue(handler.should_capture_content())
-
-    @patch_env_vars("gen_ai_latest_experimental", "no_content", "false")
-    @patch.dict(
-        os.environ,
-        {OTEL_INSTRUMENTATION_GENAI_CAPTURE_MESSAGE_CONTENT: "true"},
-    )
-    def test_should_capture_content_false_in_experimental_mode_ignores_legacy_env(
-        self,
-    ):
-        # Legacy CAPTURE_MESSAGE_CONTENT=true should NOT override NO_CONTENT in experimental mode
-        handler = self._make_handler()
-        self.assertFalse(handler.should_capture_content())
 
     def test_workflow_hook_called_on_stop_with_messages(self):
         hook = MagicMock()
@@ -292,7 +168,7 @@ class TestHandlerCompletionHook(TestCase):  # pylint: disable=too-many-public-me
             )
         ]
 
-        invocation = handler.start_workflow(name="my-workflow")
+        invocation = handler.workflow(name="my-workflow")
         invocation.input_messages = input_messages
         invocation.output_messages = output_messages
         invocation.stop()
@@ -311,7 +187,7 @@ class TestHandlerCompletionHook(TestCase):  # pylint: disable=too-many-public-me
         hook = MagicMock()
         handler = self._make_handler(hook)
 
-        invocation = handler.start_workflow(name="my-workflow")
+        invocation = handler.workflow(name="my-workflow")
         invocation.input_messages = [
             InputMessage(role="user", parts=[Text(content="hello")])
         ]
@@ -325,7 +201,7 @@ class TestHandlerCompletionHook(TestCase):  # pylint: disable=too-many-public-me
         hook = MagicMock()
         handler = self._make_handler(hook)
 
-        handler.start_workflow(name="my-workflow").stop()
+        handler.workflow(name="my-workflow").stop()
 
         hook.on_completion.assert_called_once()
         kwargs = hook.on_completion.call_args.kwargs
@@ -355,9 +231,7 @@ class TestHandlerCompletionHook(TestCase):  # pylint: disable=too-many-public-me
             )
         ]
 
-        invocation = handler.start_invoke_local_agent(
-            "openai", request_model="gpt-4"
-        )
+        invocation = handler.invoke_local_agent(request_model="gpt-4")
         invocation.agent_name = "Math Tutor"
         invocation.input_messages = input_messages
         invocation.output_messages = output_messages
@@ -378,9 +252,7 @@ class TestHandlerCompletionHook(TestCase):  # pylint: disable=too-many-public-me
         hook = MagicMock()
         handler = self._make_handler(hook)
 
-        invocation = handler.start_invoke_local_agent(
-            "openai", request_model="gpt-4"
-        )
+        invocation = handler.invoke_local_agent(request_model="gpt-4")
         invocation.input_messages = [
             InputMessage(role="user", parts=[Text(content="hello")])
         ]
@@ -413,7 +285,7 @@ class TestHandlerCompletionHook(TestCase):  # pylint: disable=too-many-public-me
             )
         ]
 
-        invocation = handler.start_invoke_remote_agent(
+        invocation = handler.invoke_remote_agent(
             "openai",
             request_model="gpt-4",
             server_address="api.openai.com",
@@ -436,7 +308,7 @@ class TestHandlerCompletionHook(TestCase):  # pylint: disable=too-many-public-me
         hook = MagicMock()
         handler = self._make_handler(hook)
 
-        invocation = handler.start_invoke_remote_agent("openai")
+        invocation = handler.invoke_remote_agent("openai")
         invocation.fail(RuntimeError("remote agent crashed"))
 
         hook.on_completion.assert_called_once()
@@ -447,8 +319,8 @@ class TestHandlerCompletionHook(TestCase):  # pylint: disable=too-many-public-me
         hook = MagicMock()
         handler = self._make_handler(hook)
 
-        handler.start_invoke_local_agent("openai").stop()
-        handler.start_invoke_remote_agent("openai").stop()
+        handler.invoke_local_agent().stop()
+        handler.invoke_remote_agent("openai").stop()
 
         for call in hook.on_completion.call_args_list:
             self.assertEqual(call.kwargs["inputs"], [])
@@ -459,5 +331,39 @@ class TestHandlerCompletionHook(TestCase):  # pylint: disable=too-many-public-me
     def test_agent_hook_not_called_when_not_set(self):
         # No hook — stop should not raise
         handler = self._make_handler()
-        handler.start_invoke_local_agent("openai").stop()
-        handler.start_invoke_remote_agent("openai").stop()
+        handler.invoke_local_agent().stop()
+        handler.invoke_remote_agent("openai").stop()
+
+    def test_should_capture_content_false_by_default(self):
+        for env_var, expected_content_capture in [
+            ("", False),
+            ("NO_CONTENT", False),
+            ("SPAN_ONLY", True),
+            ("EVENT_ONLY", True),
+            ("SPAN_AND_EVENT", True),
+        ]:
+            with patch.dict(
+                os.environ,
+                {OTEL_INSTRUMENTATION_GENAI_CAPTURE_MESSAGE_CONTENT: env_var},
+            ):
+                handler = self._make_handler()
+                self.assertEqual(
+                    handler.should_capture_content(), expected_content_capture
+                )
+
+    @patch.dict(
+        os.environ,
+        {OTEL_INSTRUMENTATION_GENAI_CAPTURE_MESSAGE_CONTENT: "no_content"},
+    )
+    def test_should_capture_content_true_when_real_hook_set(self):
+        # A real (non-noop) hook forces content capture regardless of env vars
+        hook = MagicMock()
+        handler = self._make_handler(hook)
+        self.assertTrue(handler.should_capture_content())
+
+    @patch.dict(
+        os.environ, {OTEL_INSTRUMENTATION_GENAI_CAPTURE_MESSAGE_CONTENT: ""}
+    )
+    def test_should_capture_content_false_when_noop_hook(self):
+        handler = self._make_handler(_NoOpCompletionHook())
+        self.assertFalse(handler.should_capture_content())

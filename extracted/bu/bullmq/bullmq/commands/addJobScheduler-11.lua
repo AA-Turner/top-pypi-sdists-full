@@ -432,6 +432,7 @@ local function storeJobScheduler(schedulerId, schedulerKey, repeatKey, nextMilli
   rcall("HMSET", schedulerKey, "name", opts['name'], unpack(optionalValues))
 end
 local function getJobSchedulerEveryNextMillis(prevMillis, every, now, offset, startDate)
+    offset = tonumber(offset)
     local nextMillis
     if not prevMillis then
         if startDate then
@@ -440,6 +441,18 @@ local function getJobSchedulerEveryNextMillis(prevMillis, every, now, offset, st
             nextMillis = nextMillis > now and nextMillis or now
         else
             nextMillis = now
+            -- For the first iteration with no startDate and an explicit
+            -- offset, align nextMillis to the next offset slot strictly
+            -- after now. Without this the user-supplied offset is
+            -- recorded but ignored, and the first job fires at now
+            -- instead of the next aligned timestamp (issue #3705).
+            if offset and offset > 0 then
+                local aligned = math.floor(nextMillis / every) * every + offset
+                if aligned <= nextMillis then
+                    aligned = aligned + every
+                end
+                nextMillis = aligned
+            end
         end
     else
         nextMillis = prevMillis + every

@@ -18,15 +18,15 @@ class Collector:
 
     def _initialize(self):
         self.metrics = {
-"function": [],
-"rate_limit": [],
-"request": [],
-"error": []
+            "function": [],
+            "rate_limit": [],
+            "request": [],
+            "error": []
         }
         self.thresholds = {
-"buffer_size": 50,
-"error_threshold": 0.1,
-"performance_threshold": 5.0
+            "buffer_size": 50,
+            "error_threshold": 0.1,
+            "performance_threshold": 5.0
         }
         self.function_count = 0
         self.colab_auth_triggered = False
@@ -39,19 +39,19 @@ class Collector:
     def record(self, metric_type, data, priority=None):
         if not isinstance(data, dict):
             data = {"value": str(data)}
-        if"timestamp" not in data:
+        if "timestamp" not in data:
             data["timestamp"] = datetime.now().isoformat()
-        if metric_type !="system_info":
+        if metric_type != "system_info":
             data.pop("system", None)
             from vnai.scope.profile import inspector
             data["machine_id"] = inspector.fingerprint()
         now = time.time()
         last_time = self._last_record_time.get(metric_type, 0)
-        if now - last_time < self.min_interval_per_type and priority !="high":
+        if now - last_time < self.min_interval_per_type and priority != "high":
             return
         self._last_record_time[metric_type] = now
         data_hash = hashlib.md5(json.dumps(data, sort_keys=True).encode()).hexdigest()
-        if data_hash in self._recent_hashes and priority !="high":
+        if data_hash in self._recent_hashes and priority != "high":
             return
         self._recent_hashes.append(data_hash)
         if metric_type in self.metrics:
@@ -60,14 +60,14 @@ class Collector:
                 self.metrics[metric_type] = self.metrics[metric_type][-self.max_metric_length:]
         else:
             self.metrics["function"].append(data)
-        if metric_type =="function":
+        if metric_type == "function":
             self.function_count += 1
-            if self.function_count > 10 and not self.colab_auth_triggered and'google.colab' in sys.modules:
+            if self.function_count > 10 and not self.colab_auth_triggered and 'google.colab' in sys.modules:
                 self.colab_auth_triggered = True
                 threading.Thread(target=self._trigger_colab_auth, daemon=True).start()
         if sum(len(metric_list) for metric_list in self.metrics.values()) >= self.thresholds["buffer_size"]:
             self._send_metrics()
-        if priority =="high" or metric_type =="error":
+        if priority == "high" or metric_type == "error":
             self._send_metrics()
 
     def _trigger_colab_auth(self):
@@ -93,28 +93,28 @@ class Collector:
                 continue
             for data in data_list:
                 try:
-                    if metric_type =="function":
+                    if metric_type == "function":
                         track_function_call(
-                            function_name=data.get("function","unknown"),
-                            source=data.get("source","vnai"),
+                            function_name=data.get("function", "unknown"),
+                            source=data.get("source", "vnai"),
                             execution_time=data.get("execution_time", 0),
                             success=data.get("success", True),
                             error=data.get("error"),
                             args=data.get("args")
                         )
-                    elif metric_type =="rate_limit":
+                    elif metric_type == "rate_limit":
                         track_rate_limit(
-                            source=data.get("source","vnai"),
-                            limit_type=data.get("limit_type","unknown"),
+                            source=data.get("source", "vnai"),
+                            limit_type=data.get("limit_type", "unknown"),
                             limit_value=data.get("limit_value", 0),
                             current_usage=data.get("current_usage", 0),
                             is_exceeded=data.get("is_exceeded", False)
                         )
-                    elif metric_type =="request":
+                    elif metric_type == "request":
                         track_api_request(
-                            endpoint=data.get("endpoint","unknown"),
-                            source=data.get("source","vnai"),
-                            method=data.get("method","GET"),
+                            endpoint=data.get("endpoint", "unknown"),
+                            source=data.get("source", "vnai"),
+                            method=data.get("method", "GET"),
                             status_code=data.get("status_code", 200),
                             execution_time=data.get("execution_time", 0),
                             request_size=data.get("request_size", 0),
@@ -145,9 +145,9 @@ def capture(module_type="function"):
             except Exception as e:
                 error = str(e)
                 collector.record("error", {
-"function": func.__name__,
-"error": error,
-"args": str(args)[:100] if args else None
+                    "function": func.__name__,
+                    "error": error,
+                    "args": str(args)[:100] if args else None
                 })
                 raise
             finally:
@@ -155,12 +155,12 @@ def capture(module_type="function"):
                 collector.record(
                     module_type,
                     {
-"function": func.__name__,
-"execution_time": execution_time,
-"success": success,
-"error": error,
-"timestamp": datetime.now().isoformat(),
-"args": str(args)[:100] if args else None
+                        "function": func.__name__,
+                        "execution_time": execution_time,
+                        "success": success,
+                        "error": error,
+                        "timestamp": datetime.now().isoformat(),
+                        "args": str(args)[:100] if args else None
                     }
                 )
         return wrapper

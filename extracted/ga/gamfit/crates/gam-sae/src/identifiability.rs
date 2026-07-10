@@ -1537,21 +1537,24 @@ fn atom_isometry_generators(atom: &FittedAtom) -> Vec<(Array1<f64>, String)> {
     let mut out: Vec<(Array1<f64>, String)> = Vec::new();
     match &atom.topology {
         AtomTopology::Circle => {
-            // so(2): A = [[0,-1],[1,0]] on the 1 circle, but a Circle atom has a
-            // single latent axis whose isometry is a *shift* of the periodic
-            // coordinate. The first-order motion of the (cos,sin) frame columns
-            // under a shift is the orthogonal frame column. With latent_dim == 1
-            // the decoder frame's single column moves along its own
-            // 90°-rotated image, which (lacking a second column) is realised as
-            // the tangent that advances the periodic phase: the unit direction
-            // along the frame column itself (the generator of the U(1) shift).
-            if d >= 1 {
-                let mut g = Array1::<f64>::zeros(p * d);
-                for i in 0..p {
-                    g[i * d] = atom.frame[[i, 0]];
-                }
-                out.push((g, format!("{}: S¹ U(1) phase shift", atom.name)));
-            }
+            // The S¹ U(1) shift θ ↦ θ+ε is a *translation* of the periodic
+            // coordinate, not a rotation of latent axes (so(1) = 0). Its
+            // first-order action on the decoder FRAME parameter is the derivative
+            // of the frame tangent along the orbit, i.e. the acceleration
+            // ∂²g/∂θ² = J·(∂g/∂θ) — the 90°-rotated frame column IN THE CIRCLE'S
+            // EMBEDDING 2-PLANE (the complex structure J). The mean frame stores
+            // only the single tangent column ∂g/∂θ and no radial companion, so
+            // that 2-plane — and hence J·frame — is not recoverable here. The
+            // former emission used the tangent column `frame` ITSELF, which is the
+            // amplitude/scaling direction (scaling the decoder always costs
+            // reconstruction) and so read as a false "pin", biasing the circle
+            // toward "identified". Rather than fabricate a J the mean frame cannot
+            // supply, we emit nothing: the U(1) shift is faithfully certified by
+            // the exact #998 orbit path (`exact_orbit_fields`, which realises it
+            // as the chart-free coordinate motion δt = 1 and profiles out the
+            // decoder compensation) and, for canonicalized d = 1 charts, recorded
+            // as `PinnedByCanonicalization`. The frame path must not carry a
+            // third, wrong-direction proxy for the same freedom.
         }
         AtomTopology::Sphere | AtomTopology::EuclideanPatch { .. } | AtomTopology::Torus { .. } => {
             // so(d) rotation generators: one per unordered axis pair (a < b).
@@ -1579,18 +1582,17 @@ fn atom_isometry_generators(atom: &FittedAtom) -> Vec<(Array1<f64>, String)> {
                     ));
                 }
             }
-            // Torus additionally carries `d` independent circle shifts: the unit
-            // tangent advancing each axis's periodic phase (translation of that
-            // circle coordinate), realised as motion along each frame column.
-            if let AtomTopology::Torus { .. } = atom.topology {
-                for a in 0..d {
-                    let mut g = Array1::<f64>::zeros(p * d);
-                    for i in 0..p {
-                        g[i * d + a] = atom.frame[[i, a]];
-                    }
-                    out.push((g, format!("{}: Tᵈ circle shift axis {a}", atom.name)));
-                }
-            }
+            // Torus additionally carries `d` independent circle shifts (one U(1)
+            // translation per axis). As in the [`AtomTopology::Circle`] arm above,
+            // each shift's action on the frame parameter is the J-rotated (radial)
+            // acceleration ∂²g/∂θ_a² in axis a's embedding 2-plane, which the mean
+            // frame — storing only the tangent column ∂g/∂θ_a — cannot realise.
+            // The former emission used the tangent column itself (the amplitude
+            // direction, a false pin), so we drop it: the per-axis circle shifts
+            // are certified exactly by the #998 orbit path (δt = e_a per axis) and,
+            // for canonicalized torus charts, by `PinnedByCanonicalization`. The
+            // so(d) latent-frame rotation generators above (realised faithfully as
+            // frame·Aᵀ, a genuine rotation of latent axes) are unaffected.
         }
     }
     out
@@ -1632,16 +1634,44 @@ fn equal_ard_rotation_generators(atom: &FittedAtom) -> Vec<(Array1<f64>, String)
     out
 }
 
-/// Build global decoder output-frame rotation generators `O(output_dim)`: a
-/// rotation `B ∈ so(output_dim)` acts on every atom's frame from the left
-/// (`B · frame`). The induced tangent on the joint parameter vector stacks
-/// `B · frame_k` per atom. We enumerate the full `so(output_dim)` basis — one
-/// generator per unordered output-axis pair `(oi < oj)`, count
-/// `output_dim·(output_dim−1)/2` — since the per-generator rank test treats each
-/// independently and we want the certificate to find every output-frame freedom,
-/// not a subset. `output_dim` is taken as the maximum frame row-count across
-/// atoms; an atom whose frame lacks one of the two axes contributes nothing to
-/// that generator.
+/// Build global decoder output-frame rotation generators: a rotation
+/// `B ∈ so(output_dim)` acts on every atom's frame from the left (`B · frame`),
+/// and the induced tangent on the joint parameter vector stacks `B · frame_k`
+/// per atom.
+///
+/// # Why the full `so(output_dim)` basis is neither necessary nor feasible
+///
+/// Enumerating one generator per unordered output-axis pair `(oi < oj)` is
+/// `p·(p−1)/2` dense param-length vectors; at production width `p = output_dim ≈
+/// 1024` (with `param_dim` in the tens of thousands) that is hundreds of GB, so
+/// the certificate cannot run on a real dictionary. The reduction below drops
+/// exactly the generators that CANNOT affect the verdict, so it changes no
+/// reported freedom while running at real width.
+///
+/// Let `S = span{ frame columns }` (dimension `r = rank`, `r ≤ Σ_k d_k ≪ p` for
+/// the low-latent-dim atoms a dictionary actually carries), and `U` an
+/// orthonormal basis of `S` in output space. Split every `so(p)` generator by
+/// where its two axes sit relative to `S`:
+///
+/// * **both axes in `Sᗮ`** — `B · frame_k = 0` for every atom (the frame has no
+///   component on either axis), so the tangent is IDENTICALLY ZERO. The
+///   curvature test reports a zero-norm generator `unpinned = false`; it can
+///   never be a residual freedom and never enters `residual_gauge_dim`.
+/// * **one axis in `S`, one in `Sᗮ`** — the rotation tilts frame mass into an
+///   ambient direction the reconstruction does not use, so it MOVES the
+///   reconstruction orthogonally to itself; the data block of the curvature root
+///   (`√W·J`, whose row space is the realised reconstruction motion) therefore
+///   charges it a strictly positive second-order cost. It is always data-pinned,
+///   so it too never enters `residual_gauge_dim`.
+/// * **both axes in `S`** — a genuine reorientation of the fitted decoder
+///   structure; this is the ONLY family that can be a metric-preserving residual
+///   freedom (unpinned) and thus the only one the count can depend on.
+///
+/// So we enumerate exactly the `r·(r−1)/2` within-`S` rotations, expressed in the
+/// orthonormal basis `U` and embedded per atom. This is bounded by the real
+/// latent budget, and — because the dropped families are all zero-tangent or
+/// data-pinned — leaves `residual_gauge_dim` (a count of UNPINNED verdicts)
+/// unchanged. `output_dim` is the maximum frame row-count across atoms.
 fn frame_rotation_generators(model: &FittedSaeManifold) -> Vec<(Array1<f64>, String)> {
     let mut out: Vec<(Array1<f64>, String)> = Vec::new();
     let p = model
@@ -1651,22 +1681,75 @@ fn frame_rotation_generators(model: &FittedSaeManifold) -> Vec<(Array1<f64>, Str
         .max()
         .unwrap_or(0);
     let param_dim = model.param_dim();
-    for oi in 0..p {
-        for oj in (oi + 1)..p {
+    if p == 0 || param_dim == 0 {
+        return out;
+    }
+
+    // Stack every atom's frame columns as vectors in output space ℝ^p (rows past
+    // an atom's own frame height are left zero). Column span = S.
+    let n_cols: usize = model.atoms.iter().map(|a| a.frame.ncols()).sum();
+    if n_cols == 0 {
+        return out;
+    }
+    let mut cols = Array2::<f64>::zeros((p, n_cols));
+    let mut col = 0usize;
+    for atom in &model.atoms {
+        let (ap, ad) = atom.frame.dim();
+        for c in 0..ad {
+            for i in 0..ap {
+                cols[[i, col]] = atom.frame[[i, c]];
+            }
+            col += 1;
+        }
+    }
+
+    // Orthonormal basis U of range(cols): left singular vectors with a non-negligible
+    // singular value. Thin SVD of a p×n_cols matrix with n_cols ≪ p is cheap.
+    let (u_opt, sv, _vt) = match cols.svd(true, false) {
+        Ok(t) => t,
+        Err(_) => return out,
+    };
+    let u = match u_opt {
+        Some(u) => u,
+        None => return out,
+    };
+    let smax = sv.iter().cloned().fold(0.0_f64, f64::max);
+    if !(smax > 0.0) {
+        return out;
+    }
+    let tol = smax * f64::EPSILON * (p.max(n_cols) as f64);
+    let r = sv.iter().filter(|&&s| s > tol).count().min(u.ncols());
+    if r < 2 {
+        // Fewer than two independent frame directions ⇒ no non-trivial within-span
+        // rotation exists.
+        return out;
+    }
+
+    // Within-span rotation B_{ab} = u_a u_bᵀ − u_b u_aᵀ; its frame motion is
+    // (B_{ab} · frame_k)[i,c] = u_a[i]·(u_bᵀ frame_k[:,c]) − u_b[i]·(u_aᵀ frame_k[:,c]).
+    for a in 0..r {
+        for b in (a + 1)..r {
             let mut g = Array1::<f64>::zeros(param_dim);
             for (k, atom) in model.atoms.iter().enumerate() {
                 let (ap, ad) = atom.frame.dim();
-                if oi >= ap || oj >= ap {
-                    continue;
-                }
                 let base = model.atom_offset(k);
-                // (B · frame)[oi, c] = −frame[oj, c]; [oj, c] = +frame[oi, c].
                 for c in 0..ad {
-                    g[base + oi * ad + c] = -atom.frame[[oj, c]];
-                    g[base + oj * ad + c] = atom.frame[[oi, c]];
+                    // Project this frame column onto the two basis axes.
+                    let mut proj_a = 0.0_f64;
+                    let mut proj_b = 0.0_f64;
+                    for i in 0..ap {
+                        proj_a += u[[i, a]] * atom.frame[[i, c]];
+                        proj_b += u[[i, b]] * atom.frame[[i, c]];
+                    }
+                    if proj_a == 0.0 && proj_b == 0.0 {
+                        continue;
+                    }
+                    for i in 0..ap {
+                        g[base + i * ad + c] = u[[i, a]] * proj_b - u[[i, b]] * proj_a;
+                    }
                 }
             }
-            out.push((g, format!("output-frame rotation axes ({oi},{oj})")));
+            out.push((g, format!("output-frame rotation within-span axes ({a},{b})")));
         }
     }
     out
@@ -2198,8 +2281,25 @@ fn exact_orbit_verdicts(
             Some(op) if op.stiffness_sq > f64::MIN_POSITIVE => {
                 let delta_b = vt.t().dot(&scaled); // δB = −V Σ⁺ Uᵀ u, (M, p)
                 let image = (op.apply)(delta_b.view(), dt.view());
-                let cost: f64 = image.iter().map(|v| v * v).sum();
-                (cost / op.stiffness_sq).clamp(0.0, 1.0)
+                // `cost = ‖image‖² = μ·Σ_n ‖δg_n‖²_F` is EXTENSIVE — it sums the
+                // per-row gram-curvature over every row the orbit moves, so it
+                // grows with the motion size `‖δt‖²` (≈ n for the δt = 1 circle
+                // shift). `stiffness_sq = μ·max_n σ_max(∂g_n/∂t)²` is the
+                // INTENSIVE per-unit-COORDINATE-motion stiffness scale. Dividing
+                // the extensive cost by the intensive scale gives a ratio that
+                // scales like `‖δt‖²` and clamps to 1 for any real motion,
+                // overstating the pin. To land on the documented relative
+                // convention — the same scale-invariant fraction `data_fraction`
+                // uses — normalise the cost by the orbit's own coordinate-motion
+                // energy `‖δt‖²` so the reported quantity is the penalty cost per
+                // unit coordinate motion relative to the stiffest unit motion.
+                let motion_sq: f64 = dt.iter().map(|v| v * v).sum();
+                if motion_sq > f64::MIN_POSITIVE {
+                    let cost: f64 = image.iter().map(|v| v * v).sum();
+                    (cost / (op.stiffness_sq * motion_sq)).clamp(0.0, 1.0)
+                } else {
+                    0.0
+                }
             }
             _ => 0.0,
         };

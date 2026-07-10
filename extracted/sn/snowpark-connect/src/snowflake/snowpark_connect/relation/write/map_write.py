@@ -130,6 +130,7 @@ from snowflake.snowpark_connect.utils.io_utils import (
     get_overwrite_condition,
     get_partition_spec,
     get_table_type,
+    get_transform_overwrite_condition,
 )
 from snowflake.snowpark_connect.utils.schema_utils import force_nullable_schema
 from snowflake.snowpark_connect.utils.session import get_or_create_snowpark_session
@@ -1171,11 +1172,28 @@ def map_write(request: proto_base.ExecutePlanRequest):
                 cld_create_options, session_conf
             )
 
+            is_insert_into = (
+                write_op.table.save_method
+                == commands_proto.WriteOperation.SaveTable.TableSaveMethod.TABLE_SAVE_METHOD_INSERT_INTO
+            )
+            # Fetch once here; all write_mode branches consume it so we avoid
+            # a second round-trip in the common case.
+            table_schema_or_error = _get_table_schema_or_error(
+                snowpark_table_name, session
+            )
+            if is_insert_into and not isinstance(table_schema_or_error, DataType):
+                # SNOW-3717449: Spark's insertInto requires the target table to
+                # already exist; unlike saveAsTable it never creates it. Match
+                # Spark's TABLE_OR_VIEW_NOT_FOUND instead of silently creating.
+                exception = AnalysisException(
+                    f"[TABLE_OR_VIEW_NOT_FOUND] The table or view "
+                    f"`{snowpark_table_name}` cannot be found."
+                )
+                attach_custom_error_code(exception, ErrorCodes.TABLE_NOT_FOUND)
+                raise exception
+
             match write_mode:
                 case None | "error" | "errorifexists":
-                    table_schema_or_error = _get_table_schema_or_error(
-                        snowpark_table_name, session
-                    )
                     _validate_table_does_not_exist(
                         snowpark_table_name, table_schema_or_error
                     )
@@ -1205,9 +1223,6 @@ def map_write(request: proto_base.ExecutePlanRequest):
                             iceberg_config=iceberg_config,
                         )
                 case "append":
-                    table_schema_or_error = _get_table_schema_or_error(
-                        snowpark_table_name, session
-                    )
                     if isinstance(table_schema_or_error, DataType):  # Table exists
                         _validate_table_type(snowpark_table_name, session, "iceberg")
                     elif is_cld:
@@ -1257,9 +1272,6 @@ def map_write(request: proto_base.ExecutePlanRequest):
                             iceberg_config=iceberg_config,
                         )
                 case "ignore":
-                    table_schema_or_error = _get_table_schema_or_error(
-                        snowpark_table_name, session
-                    )
                     if not isinstance(
                         table_schema_or_error, DataType
                     ):  # Table not exists
@@ -1288,14 +1300,30 @@ def map_write(request: proto_base.ExecutePlanRequest):
                                 iceberg_config=iceberg_config,
                             )
                 case "overwrite":
-                    table_schema_or_error = _get_table_schema_or_error(
-                        snowpark_table_name, session
-                    )
                     table_exists = isinstance(table_schema_or_error, DataType)
                     if table_exists:
                         _validate_table_type(snowpark_table_name, session, "iceberg")
 
-                    if is_cld and not table_exists:
+                    if table_exists and is_insert_into:
+                        # SNOW-3717449: insertInto(overwrite) overwrites rows in
+                        # place via INSERT OVERWRITE INTO (mode="truncate" +
+                        # table_exists=True), preserving the table's external
+                        # volume / iceberg version / comment / grants instead of
+                        # rebuilding it. saveAsTable(overwrite) still rebuilds (may
+                        # change schema) via the else branch. Mirrors V2
+                        # MODE_OVERWRITE (SNOW-3310119).
+                        _validate_schema_and_get_writer(
+                            input_df,
+                            "append",
+                            snowpark_table_name,
+                            table_schema_or_error,
+                        ).saveAsTable(
+                            table_name=snowpark_table_name,
+                            table_exists=True,
+                            mode="truncate",
+                            column_order=_column_order_for_write,
+                        )
+                    elif is_cld and not table_exists:
                         # CLD requires explicit CREATE ICEBERG TABLE syntax.
                         # After creating the table, use overwrite mode to insert data.
                         # Note: CLD tables don't use iceberg_config because the external
@@ -1333,9 +1361,6 @@ def map_write(request: proto_base.ExecutePlanRequest):
                             input_df=input_df,
                         )
                 case "overwrite_partitions":
-                    table_schema_or_error = _get_table_schema_or_error(
-                        snowpark_table_name, session
-                    )
                     _validate_table_exist_and_of_type(
                         snowpark_table_name, session, "iceberg", table_schema_or_error
                     )
@@ -1802,17 +1827,43 @@ def map_write_v2(request: proto_base.ExecutePlanRequest):
             if actual_is_iceberg:
                 table_partition_spec = get_partition_spec(snowpark_table_name, session)
 
-                # Prefer the table's persisted spec; fall back to this request's
-                # partitionedBy columns only when the table has none (best-effort
-                # for unpartitioned tables — identity cols; raw col for transforms).
-                # partition_specs is None for the common overwritePartitions call
-                # (no partitionedBy in the request); treat that as "no columns" so
-                # the guard below falls through to a full overwrite.
-                effective_partition_cols = (
-                    table_partition_spec.columns()
-                    if table_partition_spec
-                    else [spec.column for spec in (partition_specs or [])]
-                )
+                if table_partition_spec and table_partition_spec.fields:
+                    # The table's persisted partition spec is the source of truth
+                    # (preferred over the request's partitionedBy). Handles identity
+                    # and transforms; the helper gates unsupported transforms (bucket,
+                    # truncate, void, unknown) rather than silently producing wrong
+                    # results / data loss.
+                    _validate_data_columns_present_in_table(
+                        table_schema_or_error,
+                        input_df.schema,
+                        snowpark_table_name,
+                    )
+                    overwrite_condition = get_transform_overwrite_condition(
+                        input_df,
+                        table_partition_spec,
+                        updated_result.column_map,
+                        table_schema_or_error,
+                    )
+                    # Empty input has no partitions to overwrite — skip the
+                    # write entirely so existing data is not truncated.
+                    if overwrite_condition is not None:
+                        _overwrite_partitions_with_unmanaged_fallback(
+                            input_df,
+                            snowpark_table_name,
+                            table_schema_or_error,
+                            overwrite_condition,
+                            session,
+                        )
+                    return
+
+                # No persisted spec: fall back to this request's partitionedBy columns
+                # (identity raw-value matching — for an existing unpartitioned table a
+                # request-side transform is irrelevant to which partitions to replace).
+                # partition_specs is None for the common overwritePartitions call (no
+                # partitionedBy in the request); treat that as "no columns".
+                effective_partition_cols = [
+                    spec.column for spec in (partition_specs or [])
+                ]
 
                 if effective_partition_cols:
                     _validate_data_columns_present_in_table(
@@ -1834,21 +1885,12 @@ def map_write_v2(request: proto_base.ExecutePlanRequest):
                     # Empty input has no partitions to overwrite — skip the
                     # write entirely so existing data is not truncated.
                     if overwrite_condition is not None:
-                        # overwritePartitions preserves the table definition and
-                        # replaces only the partitions present in the DataFrame.
-                        # Use append-style schema handling (validate/align to the
-                        # existing table) so a mismatched schema fails cleanly.
-                        _validate_schema_and_get_writer(
+                        _overwrite_partitions_with_unmanaged_fallback(
                             input_df,
-                            "append",
                             snowpark_table_name,
                             table_schema_or_error,
-                        ).saveAsTable(
-                            table_name=snowpark_table_name,
-                            table_exists=True,
-                            mode="overwrite",
-                            column_order=_column_order_for_write,
-                            overwrite_condition=overwrite_condition,
+                            overwrite_condition,
+                            session,
                         )
                     return
 
@@ -2835,7 +2877,7 @@ def _is_external_catalog_error(exc: SnowparkSQLException) -> bool:
     ):
         return True
     # Belt-and-suspenders: also match on message substrings in case the
-    # numeric code is not surfaced in the exception object.
+    # numeric code is not surfaced in exception object.
     msg = str(exc)
     return (
         "Column specifications are only allowed for Iceberg tables using the Snowflake catalog"
@@ -2844,6 +2886,86 @@ def _is_external_catalog_error(exc: SnowparkSQLException) -> bool:
         or "CREATE ICEBERG TABLE with COPY GRANTS is not supported in Catalog-Linked Databases"
         in msg
     )
+
+
+def _is_unmanaged_transaction_error(exc: SnowparkSQLException) -> bool:
+    """Return ``True`` when *exc* indicates an unmanaged (external-catalog /
+    catalog-linked-database) Iceberg table was modified inside a multi-statement
+    transaction, which Snowflake rejects.
+
+    Snowpark's ``overwrite_condition`` performs an *atomic* (transaction-wrapped)
+    targeted delete+insert. Unmanaged Iceberg tables do not allow that, surfacing:
+      091586 – "Unmanaged Iceberg tables cannot be modified within a
+               multi-statement transaction."
+    We catch it to fall back to a non-atomic targeted DELETE + APPEND.
+    """
+    error_code = getattr(exc, "sql_error_code", None)
+    if error_code is not None and int(error_code) == 91586:
+        return True
+    return "cannot be modified within a multi-statement transaction" in str(exc)
+
+
+def _overwrite_partitions_with_unmanaged_fallback(
+    input_df: snowpark.DataFrame,
+    snowpark_table_name: str,
+    table_schema_or_error: StructType,
+    overwrite_condition: snowpark.Column,
+    session: snowpark.Session,
+    iceberg_config: dict | None = None,
+) -> None:
+    """Apply a partition-targeted overwrite, with a non-atomic fallback for
+    unmanaged (external-catalog / CLD) Iceberg tables.
+
+    The normal path is Snowpark's ``overwrite_condition``, an *atomic*
+    delete+insert wrapped in a transaction. Unmanaged Iceberg tables reject
+    multi-statement transactions (091586), so on that error we fall back to a
+    non-atomic equivalent: a single ``DELETE`` of the matching partitions, then
+    an ``append``. This preserves dynamic-partition semantics (only the matching
+    partitions are replaced) — unlike the full-table TRUNCATE fallback used for
+    plain overwrite. The fallback is not atomic: if the append fails after the
+    delete, the targeted partitions are left empty (same tradeoff as
+    ``_overwrite_iceberg_with_fallback``); the input schema was already validated
+    by the caller.
+    """
+    extra = {"iceberg_config": iceberg_config} if iceberg_config is not None else {}
+    writer = _validate_schema_and_get_writer(
+        input_df, "overwrite", snowpark_table_name, table_schema_or_error
+    )
+    try:
+        writer.saveAsTable(
+            table_name=snowpark_table_name,
+            table_exists=True,
+            mode="overwrite",
+            column_order=_column_order_for_write,
+            overwrite_condition=overwrite_condition,
+            **extra,
+        )
+    except SnowparkSQLException as exc:
+        if not _is_unmanaged_transaction_error(exc):
+            raise
+        logger.info(
+            "Atomic partition overwrite rejected for unmanaged iceberg table %s "
+            "(multi-statement transaction not allowed); falling back to a "
+            "non-atomic targeted DELETE + APPEND.",
+            snowpark_table_name,
+        )
+        # The rejected atomic write is compiled as BEGIN TRANSACTION; DELETE;
+        # INSERT; COMMIT run as separate statements. BEGIN succeeded and the
+        # DELETE then failed, so the transaction is left OPEN on the session;
+        # without this ROLLBACK the fallback DML below runs inside that same
+        # transaction and hits 091586 again.
+        session.sql("ROLLBACK").collect()
+        # NON-ATOMIC fallback: two independent statements (no transaction). If the
+        # APPEND fails after the DELETE commits, the targeted partitions are left
+        # empty — similar issue to SNOW-3517523.
+        session.table(snowpark_table_name).delete(overwrite_condition)
+        writer.saveAsTable(
+            table_name=snowpark_table_name,
+            table_exists=True,
+            mode="append",
+            column_order=_column_order_for_write,
+            **extra,
+        )
 
 
 def _overwrite_iceberg_with_fallback(

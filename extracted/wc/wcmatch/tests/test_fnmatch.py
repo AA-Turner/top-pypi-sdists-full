@@ -153,6 +153,11 @@ class TestFnMatch:
         ['!(2)_@(foo|bar)', '1_foo', True, fnmatch.E],
         ['!(!(2|3))_@(foo|bar)', '2_foo', True, fnmatch.E],
 
+        # Nested extended list reduction cases
+        ['!(!(2|3))_@(foo|bar)', '2_foo', True, fnmatch.E],
+        ['@(!(2))_!(!(foo|bar))', '1_foo', True, fnmatch.E],
+        ['@(!(2))_!(!(foo|bar)_test)', '1_foo_test', True, fnmatch.E],
+
         # POSIX style character classes
         ['[[:alnum:]]bc', 'zbc', True, 0],
         ['[[:alnum:]]bc', '1bc', True, 0],
@@ -178,6 +183,8 @@ class TestFnMatch:
         # Negation
         ['[![:alnum:]]bc', '!bc', True, 0],
         ['[^[:alnum:]]bc', '!bc', True, 0],
+        ['[!^]bc', '!bc', True, 0],
+        ['[^!]bc', '^bc', True, 0],
 
         # Negation and extended glob together
         # `!` will be treated as an exclude pattern if it isn't followed by `(`.
@@ -199,7 +206,11 @@ class TestFnMatch:
         # Escaped slashes are just slashes as they aren't treated special beyond normalization.
         [R'a\/b', ('a/b' if util.is_case_sensitive() else 'a\\\\b'), True, 0],
         [R'a\/b', 'a/b', True, fnmatch.U],
-        [R'a\/b', 'a\\\\b', True, fnmatch.W]
+        [R'a\/b', 'a\\\\b', True, fnmatch.W],
+
+        # Empty string cases
+        ['*(a|b|c)', '', True, fnmatch.E],
+        ['', '', True, 0]
     ]
 
     @classmethod
@@ -344,7 +355,7 @@ class TestFnMatchTranslate(unittest.TestCase):
     def test_capture_groups(self):
         """Test capture groups."""
 
-        gpat = fnmatch.translate("test @(this) +(many) ?(meh)*(!) !(not this)@(.md)", flags=fnmatch.E)
+        gpat = fnmatch.translate("test @(this) +(many) ?(meh)*(!) !(not this)@(.md)", flags=fnmatch.E | fnmatch.TC)
         pat = re.compile(gpat[0][0])
         match = pat.match('test this manymanymany meh!!!!! okay.md')
         self.assertEqual(('this', 'manymanymany', 'meh', '!!!!!', 'okay', '.md'), match.groups())
@@ -352,7 +363,7 @@ class TestFnMatchTranslate(unittest.TestCase):
     def test_nested_capture_groups(self):
         """Test nested capture groups."""
 
-        gpat = fnmatch.translate("@(file)@(+([[:digit:]]))@(.*)", flags=fnmatch.E)
+        gpat = fnmatch.translate("@(file)@(+([[:digit:]]))@(.*)", flags=fnmatch.E | fnmatch.TC)
         pat = re.compile(gpat[0][0])
         match = pat.match('file33.test.txt')
         self.assertEqual(('file', '33', '33', '.test.txt'), match.groups())
@@ -360,7 +371,7 @@ class TestFnMatchTranslate(unittest.TestCase):
     def test_list_groups(self):
         """Test capture groups with lists."""
 
-        gpat = fnmatch.translate("+(f|i|l|e)+([[:digit:]])@(.*)", flags=fnmatch.E)
+        gpat = fnmatch.translate("+(f|i|l|e)+([[:digit:]])@(.*)", flags=fnmatch.E | fnmatch.TC)
         pat = re.compile(gpat[0][0])
         match = pat.match('file33.test.txt')
         self.assertEqual(('file', '33', '.test.txt'), match.groups())
@@ -404,6 +415,9 @@ class TestFnMatchTranslate(unittest.TestCase):
 
         p1 = self.split_translate(R'\\u0300', flags=flags | fnmatch.R)[0]
         self.assertEqual(p1, [r'^(?s:\\u0300)$'])
+
+        p1 = self.split_translate('test[[:upper:]|]', flags=flags)[0]
+        self.assertEqual(p1, ['^(?s:test[A-Z\\|])$'])
 
     def test_posix_range(self):
         """Test posix range."""
@@ -738,6 +752,142 @@ class TestFnMatchEscapes(unittest.TestCase):
         check('//[^what]/name/temp', R'//\[^what\]/name/temp', unix=True)
 
 
+class TestZSHNumbers(unittest.TestCase):
+    """Test ZSH numbers."""
+
+    def range_check(self, min_val=None, max_val=None, ceiling = 2000) -> None:
+        """Check cases."""
+
+        print('')
+
+        mn = str(min_val) if min_val is not None else ''
+        mx = str(max_val) if max_val is not None else ''
+
+        p = f'test<{mn}-{mx}>.txt'
+        print('CASE:', p)
+
+        pattern = fnmatch.compile(p, flags=fnmatch.ZN)
+        for n in range(0, ceiling):
+            if max_val is None and min_val is None:
+                expected = 0 <= n
+            elif max_val is None:
+                expected = min_val <= n
+            elif min_val is None:
+                expected = 0 <= n <= max_val
+            else:
+                expected = min_val <= n <= max_val
+            actual = pattern.match(f'test{n}.txt')
+            self.assertEqual(actual, expected)
+
+            actual = pattern.match(f'test00{n}.txt')
+            self.assertEqual(actual, expected)
+
+        if max_val is None and min_val:
+            # spot-check some very large numbers well beyond ceiling
+            for n in [10**6, 10**6 + 1, 10**9, 10**9 - 1, 10**12]:
+                expected = n >= (min_val if min_val is not None else 0)
+                actual = pattern.match(f'test{n}.txt')
+                self.assertEqual(actual, expected)
+
+        if min_val is not None and max_val is not None:
+            # also check some non-numeric / malformed inputs never match
+            for bad in ["", "-5", "1a", " 5", "5 ", "007" if min_val > 7 or max_val < 7 else "abc"]:
+                self.assertFalse(pattern.match(bad))
+
+    def test_range(self):
+        """Test number range."""
+
+        test_ranges = [
+            (1, 9), (0, 9), (5, 9), (1, 100), (5, 1200), (10, 99),
+            (100, 999), (1, 1), (7, 7), (0, 0), (1, 15), (99, 101),
+            (999, 1001), (1, 1000), (250, 750), (1, 3), (17, 5000),
+        ]
+        for lo, hi in test_ranges:
+            self.range_check(lo, hi, ceiling=max(hi + 50, 2000))
+
+    def test_fuzz(self):
+        """Test fuzzed number range."""
+
+        import random
+
+        random.seed(0)
+        for _ in range(200):
+            a = random.randint(0, 5000)
+            b = random.randint(0, 5000)
+            lo, hi = min(a, b), max(a, b)
+            self.range_check(lo, hi, ceiling=5100)
+
+    def test_uncapped_high(self):
+        """Test uncapped high value."""
+
+        for lo in [0, 1, 5, 9, 10, 17, 99, 100, 250, 999, 1000, 4321]:
+            self.range_check(lo, ceiling=6000)
+
+    def test_uncapped_high_fuzz(self):
+        """Test fuzzed uncapped high values."""
+
+        import random
+
+        for _ in range(100):
+            lo = random.randint(0, 6000)
+            self.range_check(lo, ceiling=6100)
+
+    def test_uncapped_low(self):
+        """Test uncapped low value."""
+
+        for hi in [0, 1, 5, 9, 10, 17, 99, 100, 250, 999, 1000, 4321]:
+            self.range_check(max_val=hi, ceiling=6000)
+
+    def test_uncapped_low_fuzz(self):
+        """Test fuzzed uncapped low values."""
+
+        import random
+
+        for _ in range(100):
+            hi = random.randint(0, 6000)
+            self.range_check(max_val=hi, ceiling=6100)
+
+
+    def test_uncapped_low_high(self):
+        """Test uncapped low and high value."""
+
+        self.range_check(ceiling=6000)
+
+    def test_bad_syntax(self):
+        """Test bad syntax."""
+
+        self.assertTrue(fnmatch.fnmatch('test<3-.txt', 'test<3-.txt', flags=fnmatch.ZN))
+
+    def test_escaped(self):
+        """Test bad syntax."""
+
+        self.assertTrue(fnmatch.fnmatch('test<0-9>.txt', R'test<0-9\>.txt', flags=fnmatch.ZN))
+        self.assertTrue(fnmatch.fnmatch('test<0-9>.txt', R'test\<0-9>.txt', flags=fnmatch.ZN))
+
+    def test_bad_range(self):
+        """Test bad range."""
+
+        self.assertFalse(fnmatch.fnmatch('test3.txt', 'test<9-0>.txt', flags=fnmatch.ZN))
+
+    def test_exmatch(self):
+        """Test within `EXTMATCH`."""
+
+        self.assertTrue(fnmatch.fnmatch('test3.txt', '@(test|test<0-9>).txt', flags=fnmatch.ZN | fnmatch.E))
+
+    def test_truncate(self):
+        """Test number truncation."""
+
+        tmax = 0xffff_ffff_ffff_ffff
+        self.assertFalse(fnmatch.fnmatch(f'test{tmax}.txt', f'test<{0}-{tmax}>.txt', flags=fnmatch.ZN))
+        self.assertTrue(fnmatch.fnmatch(f'test{0xFFFF_FFFF}.txt', f'test<{0}-{tmax}>.txt', flags=fnmatch.ZN))
+        self.assertTrue(fnmatch.fnmatch(f'test{tmax}.txt', f'test<{tmax}->.txt', flags=fnmatch.ZN))
+        self.assertFalse(fnmatch.fnmatch(f'test{0xFFFF_FFFF}.txt', f'test<{tmax}->.txt', flags=fnmatch.ZN))
+        self.assertFalse(fnmatch.fnmatch(f'test{0xFFFF_FFFF}.txt', f'test<{tmax}-{tmax}>.txt', flags=fnmatch.ZN))
+        self.assertFalse(fnmatch.fnmatch(f'test{tmax + 10}.txt', f'test<{tmax}-{tmax}>.txt', flags=fnmatch.ZN))
+        self.assertFalse(fnmatch.fnmatch(f'test{tmax}.txt', f'test<{tmax}-{tmax}>.txt', flags=fnmatch.ZN))
+        self.assertTrue(fnmatch.fnmatch(f'test{str(tmax)[:19]}.txt', f'test<{tmax}-{tmax}>.txt', flags=fnmatch.ZN))
+
+
 class TestExpansionLimit(unittest.TestCase):
     """Test expansion limits."""
 
@@ -758,6 +908,166 @@ class TestExpansionLimit(unittest.TestCase):
 
         with self.assertRaises(_wcparse.PatternLimitException):
             fnmatch.translate('{1..11}', flags=fnmatch.BRACE, limit=10)
+
+
+class TestExtendedCases(unittest.TestCase):
+    """Test extended match cases."""
+
+    def assert_group_equal(self, pat1, pat2):
+        """Compare equivalent groups."""
+
+        regex1 = fnmatch.translate(pat1, flags=fnmatch.E)[0][0]
+        regex2 = fnmatch.translate(pat2, flags=fnmatch.E)[0][0]
+        try:
+            self.assertEqual(regex1, regex2)
+        except Exception:
+            print(f"{pat1} <=> {pat2}")
+            raise
+
+    def test_and(self):
+        """Test reduction of the `@` group and other groups."""
+
+        self.assert_group_equal('@(@(a|b)|c|d)', '@(a|b|c|d)')
+        self.assert_group_equal('@(a|@(b|c)|d)', '@(a|b|c|d)')
+        self.assert_group_equal('@(a|b|@(c|d))', '@(a|b|c|d)')
+
+        self.assert_group_equal('?(@(a|b)|c|d)', '?(a|b|c|d)')
+        self.assert_group_equal('?(a|@(b|c)|d)', '?(a|b|c|d)')
+        self.assert_group_equal('?(a|b|@(c|d))', '?(a|b|c|d)')
+
+        self.assert_group_equal('*(@(a|b)|c|d)', '*(a|b|c|d)')
+        self.assert_group_equal('*(a|@(b|c)|d)', '*(a|b|c|d)')
+        self.assert_group_equal('*(a|b|@(c|d))', '*(a|b|c|d)')
+
+        self.assert_group_equal('+(@(a|b)|c|d)', '+(a|b|c|d)')
+        self.assert_group_equal('+(a|@(b|c)|d)', '+(a|b|c|d)')
+        self.assert_group_equal('+(a|b|@(c|d))', '+(a|b|c|d)')
+
+        self.assert_group_equal('!(@(a|b)|c|d)', '!(a|b|c|d)')
+        self.assert_group_equal('!(a|@(b|c)|d)', '!(a|b|c|d)')
+        self.assert_group_equal('!(a|b|@(c|d))', '!(a|b|c|d)')
+
+        self.assert_group_equal('@(@(a|b|c))', '@(a|b|c)')
+        self.assert_group_equal('?(@(a|b|c))', '?(a|b|c)')
+        self.assert_group_equal('*(@(a|b|c))', '*(a|b|c)')
+        self.assert_group_equal('+(@(a|b|c))', '+(a|b|c)')
+        self.assert_group_equal('!(@(a|b|c))', '!(a|b|c)')
+
+    def test_one_or_none(self):
+        """Test reduction of the `?` group and other groups."""
+
+        self.assert_group_equal('@(?(a|b)|c|d)', '@(a|b||c|d)')
+        self.assert_group_equal('@(a|?(b|c)|d)', '@(a|b|c||d)')
+        self.assert_group_equal('@(a|b|?(c|d))', '@(a|b|c|d|)')
+
+        self.assert_group_equal('?(?(a|b)|c|d)', '?(a|b|c|d)')
+        self.assert_group_equal('?(a|?(b|c)|d)', '?(a|b|c|d)')
+        self.assert_group_equal('?(a|b|?(c|d))', '?(a|b|c|d)')
+
+        self.assert_group_equal('*(?(a|b)|c|d)', '*(a|b|c|d)')
+        self.assert_group_equal('*(a|?(b|c)|d)', '*(a|b|c|d)')
+        self.assert_group_equal('*(a|b|?(c|d))', '*(a|b|c|d)')
+
+        self.assert_group_equal('+(?(a|b)|c|d)', '+(a|b||c|d)')
+        self.assert_group_equal('+(a|?(b|c)|d)', '+(a|b|c||d)')
+        self.assert_group_equal('+(a|b|?(c|d))', '+(a|b|c|d|)')
+
+        self.assert_group_equal('!(?(a|b)|c|d)', '!(a|b||c|d)')
+        self.assert_group_equal('!(a|?(b|c)|d)', '!(a|b|c||d)')
+        self.assert_group_equal('!(a|b|?(c|d))', '!(a|b|c|d|)')
+
+        self.assert_group_equal('@(?(a|b|c))', '?(a|b|c)')
+        self.assert_group_equal('?(?(a|b|c))', '?(a|b|c)')
+        self.assert_group_equal('*(?(a|b|c))', '*(a|b|c)')
+        self.assert_group_equal('+(?(a|b|c))', '*(a|b|c)')
+
+    def test_more_or_none(self):
+        """Test reduction of the `*` group and other groups."""
+
+        self.assert_group_equal('*(*(a|b)|c|d)', '*(a|b|c|d)')
+        self.assert_group_equal('*(a|*(b|c)|d)', '*(a|b|c|d)')
+        self.assert_group_equal('*(a|b|*(c|d))', '*(a|b|c|d)')
+
+        self.assert_group_equal('+(*(a|b)|c|d)', '+(a|b||c|d)')
+        self.assert_group_equal('+(a|*(b|c)|d)', '+(a|b|c||d)')
+        self.assert_group_equal('+(a|b|*(c|d))', '+(a|b|c|d|)')
+
+        self.assert_group_equal('@(*(a|b|c))', '*(a|b|c)')
+
+    def test_one_or_more(self):
+        """Test reduction of the `+` group and other groups."""
+
+        self.assert_group_equal('*(+(a|b)|c|d)', '*(a|b|c|d)')
+        self.assert_group_equal('*(a|+(b|c)|d)', '*(a|b|c|d)')
+        self.assert_group_equal('*(a|b|+(c|d))', '*(a|b|c|d)')
+
+        self.assert_group_equal('+(+(a|b)|c|d)', '+(a|b|c|d)')
+        self.assert_group_equal('+(a|+(b|c)|d)', '+(a|b|c|d)')
+        self.assert_group_equal('+(a|b|+(c|d))', '+(a|b|c|d)')
+
+        self.assert_group_equal('@(+(a|b|c))', '+(a|b|c)')
+        self.assert_group_equal('?(+(a|b|c))', '*(a|b|c)')
+        self.assert_group_equal('*(+(a|b|c))', '*(a|b|c)')
+
+    def test_not(self):
+        """Test reduction of the `!` group and other groups."""
+
+        self.assert_group_equal('@(!(a|b|c))', '!(a|b|c)')
+        self.assert_group_equal('!(!(a|b|c))', '@(a|b|c)')
+
+    def test_mixed(self):
+        """Test mixed cases."""
+
+        self.assert_group_equal(
+            '!(!(@(@(a|b)|?(@(c|d)|?(e|f))|*(@(f|h)|?(i|j)|*(k|l)|+(m|n)))))',
+            '@(a|b|c|d|e|f||*(f|h|i|j|k|l|m|n))'
+        )
+
+    def test_empty_slots(self):
+        """Test empty slot reduction."""
+
+        self.assert_group_equal('+(||?(a|b)|c|d)', '+(|a|b|c|d)')
+        self.assert_group_equal('+(a|b|?(c|d)|||e)', '+(a|b|c|d||e)')
+        self.assert_group_equal('+(a|b||||?(c|d)|e)', '+(a|b||c|d|e)')
+        self.assert_group_equal('+(a|b|?(c|d)|||)', '+(a|b|c|d|)')
+
+        self.assert_group_equal('@(||||)', '@(|)')
+        self.assert_group_equal('@(|||a|b)', '@(|a|b)')
+        self.assert_group_equal('@(a|b|||)', '@(a|b|)')
+        self.assert_group_equal('@(a||||b)', '@(a||b)')
+
+    def test_parse_halt_split(self):
+        """Test halting of parsing."""
+
+        # Top level
+        p1 = '@(test+(a|b)'
+        p2 = R'@\(test+\(a|b\)'
+        self.assert_group_equal(p1, p2)
+
+        self.assertEqual(
+            len(fnmatch.translate(p1, flags=fnmatch.E | fnmatch.S)[0]),
+            len(fnmatch.translate(p2, flags=fnmatch.E | fnmatch.S)[0])
+        )
+
+        # Nested
+        p1 = '@(@(test+(a|b)'
+        p2 = R'@\(@\(test+\(a|b\)'
+        self.assert_group_equal(p1, p2)
+
+        self.assertEqual(
+            len(fnmatch.translate(p1, flags=fnmatch.E | fnmatch.S)[0]),
+            len(fnmatch.translate(p2, flags=fnmatch.E | fnmatch.S)[0])
+        )
+
+        # Deeply nested
+        p1 = '@(@(@(test+(a|b)'
+        p2 = R'@\(@\(@\(test+\(a|b\)'
+        self.assert_group_equal(p1, p2)
+
+        self.assertEqual(
+            len(fnmatch.translate(p1, flags=fnmatch.E | fnmatch.S)[0]),
+            len(fnmatch.translate(p2, flags=fnmatch.E | fnmatch.S)[0])
+        )
 
 
 class TestTypes(unittest.TestCase):

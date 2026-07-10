@@ -337,6 +337,26 @@ class GlobalConfig:
         # (default), unknown keys return None silently and a telemetry event is
         # emitted instead, allowing us to observe impact before enabling the BCR.
         "snowpark.connect.config.raiseForUnknownKeys": "false",
+        # SNOW-3585745 BCR: when false (default), cast(string → LongType) uses
+        # the DOUBLE intermediate (lossy near Long.MIN/MAX). When true,
+        # uses a DecimalType(38,18) intermediate for full 19-digit precision.
+        # Set true to opt into the corrected near-boundary values.
+        "snowpark.connect.cast.stringToIntegralHighPrecision": "false",
+        # SNOW-3585745 : when true (default), sum/avg/mean/abs over a
+        # StringType column use TRY_CAST (non-ANSI: malformed → NULL, ignored
+        # by the aggregate). When false, reverts to the pre-BCR strict CAST
+        # that raises Snowflake error 100038 on non-numeric strings even in
+        # non-ANSI mode. Set false to restore prior behavior if a workload
+        # relies on the 100038 error as a data-quality gate.
+        "snowpark.connect.aggregate.coerceStringToNumeric": "true",
+        # SNOW-3644027: Spark maps a standalone two-digit year ('yy') to the
+        # 2000-2099 window, while Snowflake's native 'YY' parsing follows the
+        # TWO_DIGIT_CENTURY_START session parameter (default 1970: 00-69 ->
+        # 2000-2069, 70-99 -> 1970-1999). When true, sets
+        # TWO_DIGIT_CENTURY_START = 2000 for the session, giving the Spark
+        # 2000-2099 window. When false (default), TWO_DIGIT_CENTURY_START is
+        # left untouched.
+        "snowpark.connect.use2000AsTwoDigitCenturyStart": "false",
     }
 
     boolean_config_list = [
@@ -367,6 +387,9 @@ class GlobalConfig:
         "snowpark.connect.nullability.trackComplexTypes",
         "snowpark.connect.addDebugInfoToQueryTag",
         "snowpark.connect.config.raiseForUnknownKeys",
+        "snowpark.connect.cast.stringToIntegralHighPrecision",
+        "snowpark.connect.aggregate.coerceStringToNumeric",
+        "snowpark.connect.use2000AsTwoDigitCenturyStart",
     ]
 
     int_config_list = [
@@ -536,6 +559,10 @@ SESSION_CONFIG_KEY_WHITELIST = {
     # session-scoped default for Iceberg ``TARGET_FILE_SIZE`` on subsequent
     # CREATE ICEBERG TABLE writes (see ``_build_iceberg_config``).
     "spark.sql.files.maxPartitionBytes",
+    "snowpark.connect.config.raiseForUnknownKeys",
+    "snowpark.connect.cast.stringToIntegralHighPrecision",
+    "snowpark.connect.aggregate.coerceStringToNumeric",
+    "snowpark.connect.use2000AsTwoDigitCenturyStart",
 }
 
 # Static Spark configs that nonetheless accept a *per-session* override at
@@ -1052,44 +1079,6 @@ def _verify_is_not_readonly_config(key):
         raise exception
 
 
-# Timezone IDs may only contain characters used by IANA region IDs
-# (e.g. "America/Los_Angeles"), fixed offsets ("+05:30", "-08:00") and
-# the "UTC"/"GMT" forms. This deliberately excludes quotes, whitespace,
-# parentheses and semicolons so a config value can never break out of the
-# string literal it is spliced into when generating Java UDF source.
-_VALID_TIMEZONE_RE = re.compile(r"[A-Za-z0-9/_+:.-]+")
-
-
-def validate_session_timezone(timezone_id: str) -> str:
-    """
-    Validate a ``spark.sql.session.timeZone`` value before it is embedded into
-    generated Java source. The value reaches us unvalidated via the Config RPC,
-    so an unchecked value such as ``UTC"; Runtime.exec("id");//`` would inject
-    arbitrary Java when spliced into a UDF/UDAF body.
-
-    Args:
-        timezone_id: The configured timezone string.
-
-    Returns:
-        The validated timezone string, unchanged.
-
-    Raises:
-        ValueError: If the value contains characters outside the set permitted
-            for timezone identifiers.
-    """
-    # fullmatch (not match + ``$``) so a trailing newline cannot slip a value
-    # such as "UTC\n<java>" past the check and inject a new line of source.
-    if not _VALID_TIMEZONE_RE.fullmatch(timezone_id):
-        exception = ValueError(
-            f"Invalid spark.sql.session.timeZone value: {timezone_id!r}. "
-            "Timezone must be an IANA region ID (e.g. 'America/Los_Angeles') "
-            "or a fixed offset (e.g. '+05:30')."
-        )
-        attach_custom_error_code(exception, ErrorCodes.INVALID_CONFIG_VALUE)
-        raise exception
-    return timezone_id
-
-
 def set_jvm_timezone(timezone_id: str):
     """
     Set JVM default timezone at runtime (after JVM startup).
@@ -1153,6 +1142,15 @@ def set_snowflake_parameters(
                 ).collect()
             else:
                 snowpark_session.sql("ALTER SESSION UNSET TIMEZONE").collect()
+        case "snowpark.connect.use2000AsTwoDigitCenturyStart":
+            if global_config.snowpark_connect_use2000AsTwoDigitCenturyStart:
+                snowpark_session.sql(
+                    "ALTER SESSION SET TWO_DIGIT_CENTURY_START = 2000"
+                ).collect()
+            else:
+                snowpark_session.sql(
+                    "ALTER SESSION UNSET TWO_DIGIT_CENTURY_START"
+                ).collect()
         case "spark.sql.globalTempDatabase":
             if not value:
                 value = global_config.default_static_global_config.get(key)
@@ -1589,6 +1587,20 @@ def is_column_nullability_tracking_enabled() -> bool:
 def is_complex_type_nullability_enabled() -> bool:
     return str_to_bool(
         global_config.get("snowpark.connect.nullability.trackComplexTypes", "false")
+    )
+
+
+def is_cast_string_to_integral_high_precision_enabled() -> bool:
+    return str_to_bool(
+        global_config.get(
+            "snowpark.connect.cast.stringToIntegralHighPrecision", "false"
+        )
+    )
+
+
+def is_aggregate_string_coercion_enabled() -> bool:
+    return str_to_bool(
+        global_config.get("snowpark.connect.aggregate.coerceStringToNumeric", "true")
     )
 
 

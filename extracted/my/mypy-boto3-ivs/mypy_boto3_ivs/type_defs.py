@@ -130,6 +130,7 @@ __all__ = (
     "PlaybackKeyPairTypeDef",
     "PlaybackRestrictionPolicySummaryTypeDef",
     "PlaybackRestrictionPolicyTypeDef",
+    "PostRollConfigurationTypeDef",
     "PutMetadataRequestTypeDef",
     "RecordingConfigurationSummaryTypeDef",
     "RecordingConfigurationTypeDef",
@@ -166,6 +167,11 @@ __all__ = (
 
 class MediaTailorPlaybackConfigurationTypeDef(TypedDict):
     playbackConfigurationArn: NotRequired[str]
+
+
+class PostRollConfigurationTypeDef(TypedDict):
+    durationSeconds: int
+    enabled: bool
 
 
 class AudioConfigurationTypeDef(TypedDict):
@@ -536,6 +542,7 @@ class AdConfigurationSummaryTypeDef(TypedDict):
     arn: str
     mediaTailorPlaybackConfigurations: list[MediaTailorPlaybackConfigurationTypeDef]
     name: NotRequired[str]
+    postRollConfiguration: NotRequired[PostRollConfigurationTypeDef]
     tags: NotRequired[dict[str, str]]
 
 
@@ -543,12 +550,14 @@ class AdConfigurationTypeDef(TypedDict):
     arn: str
     mediaTailorPlaybackConfigurations: list[MediaTailorPlaybackConfigurationTypeDef]
     name: NotRequired[str]
+    postRollConfiguration: NotRequired[PostRollConfigurationTypeDef]
     tags: NotRequired[dict[str, str]]
 
 
 class CreateAdConfigurationRequestTypeDef(TypedDict):
     mediaTailorPlaybackConfigurations: Sequence[MediaTailorPlaybackConfigurationTypeDef]
     name: NotRequired[str]
+    postRollConfiguration: NotRequired[PostRollConfigurationTypeDef]
     tags: NotRequired[Mapping[str, str]]
 
 
@@ -558,6 +567,7 @@ class UpdateAdConfigurationRequestTypeDef(TypedDict):
     mediaTailorPlaybackConfigurations: NotRequired[
         Sequence[MediaTailorPlaybackConfigurationTypeDef]
     ]
+    postRollConfiguration: NotRequired[PostRollConfigurationTypeDef]
 
 
 class EmptyResponseMetadataTypeDef(TypedDict):

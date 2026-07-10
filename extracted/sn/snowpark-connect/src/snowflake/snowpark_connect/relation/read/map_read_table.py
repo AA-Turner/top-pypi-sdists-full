@@ -406,6 +406,30 @@ def _require_snowpark_iceberg_snapshot_id_support() -> None:
     raise exception
 
 
+def _snowpark_supports_iceberg_incremental_read() -> bool:
+    """Return ``True`` iff installed snowpark-python emits ``CHANGES ... AT
+    (VERSION => ...) [END (VERSION => ...)]`` for incremental reads."""
+    try:
+        from snowflake.snowpark._internal.utils import IcebergChangesConfig
+    except ImportError:
+        return False
+    return "start_version" in getattr(IcebergChangesConfig, "_fields", ())
+
+
+def _require_snowpark_iceberg_incremental_read_support() -> None:
+    if _snowpark_supports_iceberg_incremental_read():
+        return
+    exception = AnalysisException(
+        "The installed snowflake-snowpark-python does not support Iceberg "
+        "incremental read ('start-snapshot-id' / 'end-snapshot-id'). Upgrade "
+        "snowflake-snowpark-python to a version that exposes "
+        "IcebergChangesConfig (the CHANGES ... AT(VERSION => ...) SQL "
+        "surface)."
+    )
+    attach_custom_error_code(exception, ErrorCodes.UNSUPPORTED_OPERATION)
+    raise exception
+
+
 def _snowpark_supports_iceberg_version_tag() -> bool:
     """Return ``True`` iff the installed snowpark-python knows how to emit
     ``AT(VERSION_TAG => '<name>')`` for the Spark Iceberg ``tag`` reader
@@ -719,6 +743,75 @@ def _extract_iceberg_snapshot_id(options: dict[str, str]) -> int | None:
     return snapshot_id
 
 
+def _extract_iceberg_incremental_snapshot_ids(
+    options: dict[str, str],
+) -> tuple[int | None, int | None]:
+    """Pull Spark Iceberg incremental-read options from a read options dict.
+
+    Returns ``(start_snapshot_id, end_snapshot_id)`` where each component
+    is ``None`` when the corresponding option is absent. Raises
+    ``AnalysisException`` (INVALID_INPUT) when a present value cannot be
+    parsed as a 64-bit integer, when ``end-snapshot-id`` is supplied
+    without ``start-snapshot-id``, or when both dashed and underscored
+    variants disagree.
+    """
+    normalized = {k.lower(): v for k, v in options.items()}
+
+    def _coalesce_snapshot_option(dashed_key: str, underscored_key: str) -> str | None:
+        dashed_val = normalized.get(dashed_key)
+        underscored_val = normalized.get(underscored_key)
+        if (
+            dashed_val is not None
+            and underscored_val is not None
+            and dashed_val != underscored_val
+        ):
+            exception = AnalysisException(
+                f"Iceberg read options '{dashed_key}' and '{underscored_key}' "
+                f"disagree: got {dashed_val!r} vs {underscored_val!r}."
+            )
+            attach_custom_error_code(exception, ErrorCodes.INVALID_INPUT)
+            raise exception
+        return dashed_val if dashed_val is not None else underscored_val
+
+    start_raw = _coalesce_snapshot_option("start-snapshot-id", "start_snapshot_id")
+    end_raw = _coalesce_snapshot_option("end-snapshot-id", "end_snapshot_id")
+
+    if start_raw is None and end_raw is None:
+        return None, None
+    if start_raw is None:
+        exception = AnalysisException(
+            "Iceberg incremental read requires 'start-snapshot-id'; "
+            "'end-snapshot-id' cannot be used alone."
+        )
+        attach_custom_error_code(exception, ErrorCodes.INVALID_INPUT)
+        raise exception
+
+    def _parse_snapshot_id(raw: str, option_name: str) -> int:
+        try:
+            snapshot_id = int(raw)
+        except (TypeError, ValueError):
+            exception = AnalysisException(
+                f"Iceberg '{option_name}' option must be a 64-bit integer "
+                f"snapshot id, got {raw!r}."
+            )
+            attach_custom_error_code(exception, ErrorCodes.INVALID_INPUT)
+            raise exception
+        if not _INT64_MIN <= snapshot_id <= _INT64_MAX:
+            exception = AnalysisException(
+                f"Iceberg '{option_name}' option must fit in a 64-bit signed "
+                f"integer (range [{_INT64_MIN}, {_INT64_MAX}]); got {snapshot_id}."
+            )
+            attach_custom_error_code(exception, ErrorCodes.INVALID_INPUT)
+            raise exception
+        return snapshot_id
+
+    start_id = _parse_snapshot_id(start_raw, "start-snapshot-id")
+    end_id = (
+        _parse_snapshot_id(end_raw, "end-snapshot-id") if end_raw is not None else None
+    )
+    return start_id, end_id
+
+
 def _resolve_iceberg_dataframe_as_of_aliases(
     options: dict[str, str],
 ) -> dict[str, str]:
@@ -973,6 +1066,8 @@ def get_table_from_name(
     iceberg_snapshot_id: int | None = None,
     iceberg_as_of_timestamp: datetime.datetime | None = None,
     iceberg_version_tag: str | None = None,
+    iceberg_start_snapshot_id: int | None = None,
+    iceberg_end_snapshot_id: int | None = None,
 ) -> DataFrameContainer:
     """Resolve a Spark table identifier to a Snowpark DataFrame container.
 
@@ -1008,6 +1103,11 @@ def get_table_from_name(
     The three time-travel inputs are mutually exclusive — Spark Iceberg
     rejects any combination at plan time, and so do we, with a clear
     pointer to the single supported shape per read.
+
+    Incremental read (``start-snapshot-id`` / ``end-snapshot-id``) is
+    also mutually exclusive with the three time-travel inputs. It routes
+    to Snowpark's ``CHANGES (INFORMATION => APPEND_ONLY) AT (VERSION =>
+    ...) [END (VERSION => ...)]`` surface.
     """
 
     # Verify if recursive view read is not attempted
@@ -1028,14 +1128,40 @@ def get_table_from_name(
         "as-of-timestamp": iceberg_as_of_timestamp,
         "tag": iceberg_version_tag,
     }
-    set_inputs = [k for k, v in time_travel_inputs.items() if v is not None]
-    if len(set_inputs) > 1:
+    incremental_inputs = {
+        "start-snapshot-id": iceberg_start_snapshot_id,
+        "end-snapshot-id": iceberg_end_snapshot_id,
+    }
+    set_time_travel = [k for k, v in time_travel_inputs.items() if v is not None]
+    set_incremental = [k for k, v in incremental_inputs.items() if v is not None]
+    if len(set_time_travel) > 1:
         exception = AnalysisException(
             "Cannot specify multiple Iceberg time-travel options on the "
-            f"same read; got {set_inputs!r}. Choose one: 'snapshot-id' "
+            f"same read; got {set_time_travel!r}. Choose one: 'snapshot-id' "
             "for a specific snapshot id, 'as-of-timestamp' for the "
             "snapshot current at a given wall-clock time, or 'tag' for "
             "a named Iceberg snapshot reference."
+        )
+        attach_custom_error_code(exception, ErrorCodes.INVALID_INPUT)
+        raise exception
+    if set_incremental and set_time_travel:
+        exception = AnalysisException(
+            "Cannot combine Iceberg incremental read options "
+            f"({set_incremental!r}) with time-travel options "
+            f"({set_time_travel!r}) on the same read."
+        )
+        attach_custom_error_code(exception, ErrorCodes.INVALID_INPUT)
+        raise exception
+    if (
+        "end-snapshot-id" in set_incremental
+        and "start-snapshot-id" not in set_incremental
+    ):
+        # map_read_table validates options via _extract_iceberg_incremental_snapshot_ids
+        # first; this guard covers direct get_table_from_name callers that pass parsed
+        # iceberg_*_snapshot_id kwargs without going through option extraction.
+        exception = AnalysisException(
+            "Iceberg incremental read requires 'start-snapshot-id'; "
+            "'end-snapshot-id' cannot be used alone."
         )
         attach_custom_error_code(exception, ErrorCodes.INVALID_INPUT)
         raise exception
@@ -1077,6 +1203,16 @@ def get_table_from_name(
             )
             attach_custom_error_code(exception, ErrorCodes.UNSUPPORTED_OPERATION)
             raise exception
+        if iceberg_start_snapshot_id is not None or iceberg_end_snapshot_id is not None:
+            exception = AnalysisException(
+                "Iceberg incremental read is not supported on Iceberg "
+                f"metadata tables (got '{table_name}'). Read the base "
+                'table via \'spark.read.format("iceberg").option('
+                '"start-snapshot-id", S1).option("end-snapshot-id", S2)'
+                '.load("<base_table>")\' instead.'
+            )
+            attach_custom_error_code(exception, ErrorCodes.UNSUPPORTED_OPERATION)
+            raise exception
         return _read_iceberg_metadata_table(
             table_name,
             base_table_parts,
@@ -1109,6 +1245,12 @@ def get_table_from_name(
         if iceberg_version_tag is not None:
             exception = AnalysisException(
                 "Iceberg tag time travel is not supported on temporary views."
+            )
+            attach_custom_error_code(exception, ErrorCodes.UNSUPPORTED_OPERATION)
+            raise exception
+        if iceberg_start_snapshot_id is not None or iceberg_end_snapshot_id is not None:
+            exception = AnalysisException(
+                "Iceberg incremental read is not supported on temporary views."
             )
             attach_custom_error_code(exception, ErrorCodes.UNSUPPORTED_OPERATION)
             raise exception
@@ -1172,6 +1314,12 @@ def get_table_from_name(
         df = session.read.option("version_tag", iceberg_version_tag).table(
             snowpark_name
         )
+    elif iceberg_start_snapshot_id is not None:
+        _require_snowpark_iceberg_incremental_read_support()
+        reader = session.read.option("start-snapshot-id", iceberg_start_snapshot_id)
+        if iceberg_end_snapshot_id is not None:
+            reader = reader.option("end-snapshot-id", iceberg_end_snapshot_id)
+        df = reader.table(snowpark_name)
     else:
         df = session.read.table(snowpark_name)
     return post_process_df(df, plan_id, table_name)
@@ -1201,6 +1349,8 @@ def map_read_table(
     iceberg_snapshot_id: int | None = None
     iceberg_as_of_timestamp: datetime.datetime | None = None
     iceberg_version_tag: str | None = None
+    iceberg_start_snapshot_id: int | None = None
+    iceberg_end_snapshot_id: int | None = None
     if rel.read.HasField("named_table"):
         # ``spark.read.table("t")``: Spark Connect doesn't carry per-read
         # ``option()`` values on the named-table path, so there's nothing
@@ -1239,6 +1389,10 @@ def map_read_table(
         iceberg_snapshot_id = _extract_iceberg_snapshot_id(options)
         iceberg_as_of_timestamp = _extract_iceberg_as_of_timestamp(options)
         iceberg_version_tag = _extract_iceberg_version_tag(options)
+        (
+            iceberg_start_snapshot_id,
+            iceberg_end_snapshot_id,
+        ) = _extract_iceberg_incremental_snapshot_ids(options)
     else:
         exception = ValueError("The relation must have a table identifier.")
         attach_custom_error_code(exception, ErrorCodes.INVALID_INPUT)
@@ -1250,4 +1404,6 @@ def map_read_table(
         iceberg_snapshot_id=iceberg_snapshot_id,
         iceberg_as_of_timestamp=iceberg_as_of_timestamp,
         iceberg_version_tag=iceberg_version_tag,
+        iceberg_start_snapshot_id=iceberg_start_snapshot_id,
+        iceberg_end_snapshot_id=iceberg_end_snapshot_id,
     )

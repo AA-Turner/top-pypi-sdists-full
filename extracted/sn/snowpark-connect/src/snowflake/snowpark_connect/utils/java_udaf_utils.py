@@ -5,11 +5,7 @@
 from dataclasses import dataclass
 
 import snowflake.snowpark.types as snowpark_type
-from snowflake.snowpark_connect.config import (
-    get_scala_version,
-    global_config,
-    validate_session_timezone,
-)
+from snowflake.snowpark_connect.config import get_scala_version
 from snowflake.snowpark_connect.type_mapping import map_type_to_snowflake_type
 from snowflake.snowpark_connect.utils.context import get_spark_session_id
 from snowflake.snowpark_connect.utils.jvm_udf_utils import (
@@ -23,6 +19,7 @@ from snowflake.snowpark_connect.utils.jvm_udf_utils import (
     map_type_to_java_type,
     map_type_to_native_java_type,
     map_type_to_snowflake_native_sql_type,
+    needs_epoch_lowering,
     to_json,
 )
 from snowflake.snowpark_connect.utils.snowpark_connect_logging import logger
@@ -53,7 +50,6 @@ import com.snowflake.snowpark_java.types.*;
 public class JavaUDAF {
     private final static String OPERATION_FILE = "__operation_file__";
     private final static String SCHEMA_JSON = "__schema_json__";
-    private final static String SESSION_TIMEZONE = "__session_timezone__";
     private static scala.Function2<__reduce_type__, __reduce_type__, __reduce_type__> operation = null;
     private static UdfPacket udfPacket = null;
 
@@ -133,7 +129,7 @@ class JavaUDAFDef:
     imports: list[str]
     schema_json: str
     # Snowpark type of the reduce element; when set and is_native_sql_type(), the
-    # generated wrapper uses fromNative() instead of fromVariant() for the input.
+    # generated wrapper uses convertInput() instead of fromVariant() for the input.
     reduce_snowpark_type: snowpark_type.DataType | None = None
     null_handling: NullHandling = NullHandling.RETURNS_NULL_ON_NULL_INPUT
 
@@ -154,16 +150,33 @@ class JavaUDAFDef:
             # Native path: skip VARIANT round-trip for primitive state types.
             # Snowflake passes all fixed-point SQL types as Java Long and FLOAT as
             # Double, so we pre-narrow to the exact Scala-expected boxed type then
-            # use fromNative() which handles the Scala-encoder-level conversion
-            # without JSON.  The state is held as Object (erased Scala type).
+            # use convertInput() for Scala-encoder-level conversion without JSON.
+            # convertInput handles LTZ-source LocalDateTime correctly (applies the
+            # session timezone); the state is held as Object (erased Scala type).
             native_java = map_type_to_native_java_type(reduce_dt)
             narrow_expr = gen_pre_narrow_expr(reduce_dt, "input")
-            mapped_value = f"com.snowflake.sas.scala.UdfPacketUtils$.MODULE$.fromNative(udfPacket, {narrow_expr}, 0)"
+            mapped_value = (
+                f"com.snowflake.sas.scala.UdfPacketUtils$.MODULE$.convertInput("
+                f'udfPacket, new Object[]{{{narrow_expr}}}, 0, false, SCHEMA_JSON, java.time.ZoneId.of(System.getProperty("user.timezone")))'
+            )
             reduce_type = "Object"
             return_type = native_java
-            if native_java in ("String", "Boolean"):
+            if needs_epoch_lowering(reduce_dt):
+                # Temporal/interval return: state.value is a Scala temporal object
+                # (Date, Timestamp, Period, Duration). encodeTemporalToEpoch converts it to
+                # the epoch Long that matches the RETURNS INT/BIGINT DDL.
+                response_wrapper = "com.snowflake.sas.scala.UdfPacketUtils$.MODULE$.encodeTemporalToEpoch(state.value, udfPacket)"
+            elif native_java in ("String", "Boolean"):
                 response_wrapper = (
                     f"(state.value instanceof scala.Option"
+                    f" ? (((scala.Option<?>) state.value).isEmpty() ? null : ({native_java}) ((scala.Option<?>) state.value).get())"
+                    f" : ({native_java}) state.value)"
+                )
+            elif native_java in ("byte[]", "java.math.BigDecimal"):
+                # Not a Number subtype — direct cast without numeric widening.
+                response_wrapper = (
+                    f"(state.value == null ? null"
+                    f" : state.value instanceof scala.Option"
                     f" ? (((scala.Option<?>) state.value).isEmpty() ? null : ({native_java}) ((scala.Option<?>) state.value).get())"
                     f" : ({native_java}) state.value)"
                 )
@@ -196,7 +209,7 @@ class JavaUDAFDef:
                 else self.java_signature.params[0].data_type
             )
             mapped_value = (
-                "com.snowflake.sas.scala.UdfPacketUtils$.MODULE$.fromVariant(udfPacket, input, 0, SCHEMA_JSON, SESSION_TIMEZONE)"
+                'com.snowflake.sas.scala.UdfPacketUtils$.MODULE$.fromVariant(udfPacket, input, 0, SCHEMA_JSON, java.time.ZoneId.of(System.getProperty("user.timezone")))'
                 if is_variant_input
                 else "input"
             )
@@ -210,12 +223,6 @@ class JavaUDAFDef:
             .replace("__return_type__", return_type)
             .replace("__response_wrapper__", response_wrapper)
             .replace("__schema_json__", self.schema_json)
-            .replace(
-                "__session_timezone__",
-                validate_session_timezone(
-                    global_config.spark_sql_session_timeZone or "UTC"
-                ),
-            )
         )
 
     def to_create_function_sql(self) -> str:
@@ -324,8 +331,6 @@ def create_java_udaf_for_reduce_scala_function(
         snowpark_type.MapType,
         snowpark_type.VariantType,
         snowpark_type.StructType,
-        snowpark_type.DateType,
-        snowpark_type.TimestampType,
     )
 
     # For reduce(), all input elements have the same type; only the first is needed.

@@ -7,6 +7,8 @@
 
 from __future__ import annotations
 
+from typing import TYPE_CHECKING
+
 from pikepdf._version import __version__
 
 try:
@@ -160,6 +162,8 @@ __all__ = [
     'ContentStreamInlineImage',
     'ContentStreamInstruction',
     'DataDecodingError',
+    'DecompressionBombError',
+    'DecompressionBombWarning',
     'DeletedObjectError',
     'DependencyError',
     'Dictionary',
@@ -219,3 +223,22 @@ __all__ = [
     'UnsupportedImageTypeError',
     'XrefEntry',
 ]
+
+if TYPE_CHECKING:
+    from pikepdf.models.image import (
+        DecompressionBombError,
+        DecompressionBombWarning,
+    )
+
+
+def __getattr__(name: str):
+    """Lazily expose Pillow-derived exceptions without importing Pillow eagerly.
+
+    Keeps ``import pikepdf`` free of Pillow (see tests/test_lazy_load.py) while
+    still allowing ``pikepdf.DecompressionBombError`` to be referenced.
+    """
+    if name in ('DecompressionBombError', 'DecompressionBombWarning'):
+        from pikepdf.models import image
+
+        return getattr(image, name)
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")

@@ -1,112 +1,62 @@
 # Copyright The OpenTelemetry Authors
-#
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-#
-#     http://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
-# pylint: disable=too-many-lines
+# SPDX-License-Identifier: Apache-2.0
 
-import copy
-import dataclasses
-import functools
 import json
-import logging
 import os
-import time
-import typing
-from typing import Any, AsyncIterator, Awaitable, Iterator, Optional, Union
+from collections.abc import AsyncIterable, Callable, Iterable
+from typing import Any, Optional, Union
 
 from google.genai.models import AsyncModels, Models
 from google.genai.models import t as transformers
 from google.genai.types import (
-    BlockedReason,
-    Candidate,
-    Content,
     ContentListUnion,
     ContentListUnionDict,
-    ContentUnion,
-    ContentUnionDict,
     GenerateContentConfig,
     GenerateContentConfigOrDict,
     GenerateContentResponse,
     Tool,
-    ToolListUnionDict,
     ToolUnionDict,
 )
+from wrapt import wrap_function_wrapper
 
 from opentelemetry import context as context_api
-from opentelemetry import trace
-from opentelemetry._logs import LogRecord
-from opentelemetry.instrumentation._semconv import (
-    _OpenTelemetrySemanticConventionStability,
-    _OpenTelemetryStabilitySignalType,
-    _StabilityMode,
-)
 from opentelemetry.semconv._incubating.attributes import (
-    code_attributes,
     gen_ai_attributes,
 )
-from opentelemetry.semconv.attributes import error_attributes
-from opentelemetry.trace.span import Span
-from opentelemetry.util.genai.completion_hook import CompletionHook
+from opentelemetry.util.genai.handler import TelemetryHandler
+from opentelemetry.util.genai.invocation import (
+    InferenceInvocation,
+)
+from opentelemetry.util.genai.stream import (
+    AsyncStreamWrapper,
+    SyncStreamWrapper,
+)
 from opentelemetry.util.genai.types import (
-    ContentCapturingMode,
     FunctionToolDefinition,
     GenericToolDefinition,
-    InputMessage,
-    MessagePart,
-    OutputMessage,
     ToolDefinition,
 )
-from opentelemetry.util.genai.utils import gen_ai_json_dumps
 from opentelemetry.util.types import AttributeValue
 
 from .allowlist_util import AllowList
 from .custom_semconv import GCP_GENAI_OPERATION_CONFIG
 from .dict_util import flatten_dict
-from .flags import is_content_recording_enabled
 from .message import (
     to_input_messages,
     to_output_messages,
     to_system_instructions,
 )
-from .otel_wrapper import OTelWrapper
-from .tool_call_wrapper import wrapped as wrapped_tool
+from .tool_call_wrapper import wrapped_tool
 
 _is_mcp_imported = False
-if typing.TYPE_CHECKING:
+McpClientSession = McpTool = None
+try:
     from mcp import ClientSession as McpClientSession
     from mcp import Tool as McpTool
 
-    is_mcp_imported = True
-else:
-    try:
-        from mcp import ClientSession as McpClientSession
-        from mcp import Tool as McpTool
-
-        _is_mcp_imported = True
-    except ImportError:
-        McpClientSession = None
-        McpTool = None
-
-_logger = logging.getLogger(__name__)
-
-GEN_AI_TOOL_DEFINITIONS = getattr(
-    gen_ai_attributes, "GEN_AI_TOOL_DEFINITIONS", "gen_ai.tool.definitions"
-)
-
-# Constant used to make the absence of content more understandable.
-_CONTENT_ELIDED = "<elided>"
-
-# Constant used for the value of 'gen_ai.operation.name".
-_GENERATE_CONTENT_OP_NAME = "generate_content"
+    _is_mcp_imported = True
+except ImportError:
+    pass
 
 GENERATE_CONTENT_EXTRA_ATTRIBUTES_CONTEXT_KEY = context_api.create_key(
     "generate_content_extra_attributes_context_key"
@@ -147,21 +97,13 @@ class _MethodsSnapshot:
         )
 
 
-def _get_vertexai_system_name():
-    return gen_ai_attributes.GenAiSystemValues.VERTEX_AI.name.lower()
-
-
-def _get_gemini_system_name():
-    return gen_ai_attributes.GenAiSystemValues.GEMINI.name.lower()
-
-
 def _guess_genai_system_from_env():
     if os.environ.get("GOOGLE_GENAI_USE_VERTEXAI", "0").lower() in [
         "true",
         "1",
     ]:
-        return _get_vertexai_system_name()
-    return _get_gemini_system_name()
+        return gen_ai_attributes.GenAiSystemValues.VERTEX_AI.name.lower()
+    return gen_ai_attributes.GenAiSystemValues.GEMINI.name.lower()
 
 
 def _get_is_vertexai(models_object: Union[Models, AsyncModels]):
@@ -186,20 +128,8 @@ def _determine_genai_system(models_object: Union[Models, AsyncModels]):
     if vertexai_attr is None:
         return _guess_genai_system_from_env()
     if vertexai_attr:
-        return _get_vertexai_system_name()
-    return _get_gemini_system_name()
-
-
-def _to_dict(value: object):
-    if isinstance(value, dict):
-        return value
-    if hasattr(value, "model_dump"):
-        try:
-            return value.model_dump()
-        except TypeError:
-            return {"ModelName": str(value)}
-
-    return json.loads(json.dumps(value))
+        return gen_ai_attributes.GenAiSystemValues.VERTEX_AI.name.lower()
+    return gen_ai_attributes.GenAiSystemValues.GEMINI.name.lower()
 
 
 def _model_dump_to_tool_definition(tool: Any) -> ToolDefinition:
@@ -338,77 +268,49 @@ async def _to_tool_definition_async(
     return _to_tool_definition_common(tool)
 
 
-def _tool_def_without_parameters_attr(
-    tool_def: list[ToolDefinition],
-) -> dict[str, AttributeValue]:
-    if tool_def == []:
-        return {}
-
-    return {
-        GEN_AI_TOOL_DEFINITIONS: [
-            dataclasses.asdict(
-                FunctionToolDefinition(
-                    name=td.name, description=td.description, parameters=None
-                )
-                if isinstance(td, FunctionToolDefinition)
-                else td
-            )
-            for td in tool_def
-        ]
-    }
-
-
-def _create_request_attributes(
-    config: Optional[GenerateContentConfigOrDict],
+def _apply_request_attributes(
+    config: GenerateContentConfig,
     allow_list: AllowList,
-) -> dict[str, AttributeValue]:
-    if not config:
-        return {}
-    config = _to_dict(config)
+    invocation: InferenceInvocation,
+) -> None:
+    invocation.temperature = config.temperature
+    invocation.top_p = config.top_p
+    invocation.top_k = config.top_k
+    invocation.request_choice_count = config.candidate_count
+    invocation.max_tokens = config.max_output_tokens
+    invocation.stop_sequences = config.stop_sequences
+    invocation.frequency_penalty = config.frequency_penalty
+    invocation.presence_penalty = config.presence_penalty
+    invocation.seed = config.seed
+    if config.response_mime_type == "text/plain":
+        invocation.output_type = "text"
+    elif config.response_mime_type == "application/json":
+        invocation.output_type = "json"
+    else:
+        invocation.output_type = config.response_mime_type
     attributes = flatten_dict(
-        config,
+        config.model_dump(exclude_none=True),
         # A custom prefix is used, because the names/structure of the
         # configuration is likely to be specific to Google Gen AI SDK.
         key_prefix=GCP_GENAI_OPERATION_CONFIG,
-        exclude_keys=[
-            # System instruction can be overly long for a span attribute.
-            # Additionally, it is recorded as an event (log), instead.
-            "gcp.gen_ai.operation.config.system_instruction",
-        ],
-        # Although a custom prefix is used by default, some of the attributes
-        # are captured in common, standard, Semantic Conventions. For the
-        # well-known properties whose values align with Semantic Conventions,
-        # we ensure that the key name matches the standard SemConv name.
-        rename_keys={
-            # TODO: add more entries here as more semantic conventions are
-            # generalized to cover more of the available config options.
-            "gcp.gen_ai.operation.config.temperature": gen_ai_attributes.GEN_AI_REQUEST_TEMPERATURE,
-            "gcp.gen_ai.operation.config.top_k": gen_ai_attributes.GEN_AI_REQUEST_TOP_K,
-            "gcp.gen_ai.operation.config.top_p": gen_ai_attributes.GEN_AI_REQUEST_TOP_P,
-            "gcp.gen_ai.operation.config.candidate_count": gen_ai_attributes.GEN_AI_REQUEST_CHOICE_COUNT,
-            "gcp.gen_ai.operation.config.max_output_tokens": gen_ai_attributes.GEN_AI_REQUEST_MAX_TOKENS,
-            "gcp.gen_ai.operation.config.stop_sequences": gen_ai_attributes.GEN_AI_REQUEST_STOP_SEQUENCES,
-            "gcp.gen_ai.operation.config.frequency_penalty": gen_ai_attributes.GEN_AI_REQUEST_FREQUENCY_PENALTY,
-            "gcp.gen_ai.operation.config.presence_penalty": gen_ai_attributes.GEN_AI_REQUEST_PRESENCE_PENALTY,
-            "gcp.gen_ai.operation.config.seed": gen_ai_attributes.GEN_AI_REQUEST_SEED,
+        # These are all captured above as semantic conventions.
+        exclude_keys={
+            f"{GCP_GENAI_OPERATION_CONFIG}.system_instruction",
+            f"{GCP_GENAI_OPERATION_CONFIG}.temperature",
+            f"{GCP_GENAI_OPERATION_CONFIG}.top_k",
+            f"{GCP_GENAI_OPERATION_CONFIG}.top_p",
+            f"{GCP_GENAI_OPERATION_CONFIG}.candidate_count",
+            f"{GCP_GENAI_OPERATION_CONFIG}.max_output_tokens",
+            f"{GCP_GENAI_OPERATION_CONFIG}.stop_sequences",
+            f"{GCP_GENAI_OPERATION_CONFIG}.frequency_penalty",
+            f"{GCP_GENAI_OPERATION_CONFIG}.presence_penalty",
+            f"{GCP_GENAI_OPERATION_CONFIG}.seed",
+            f"{GCP_GENAI_OPERATION_CONFIG}.response_mime_type",
         },
     )
-    response_mime_type = config.get("response_mime_type")
-    if response_mime_type:
-        if response_mime_type == "text/plain":
-            attributes[gen_ai_attributes.GEN_AI_OUTPUT_TYPE] = "text"
-        elif response_mime_type == "application/json":
-            attributes[gen_ai_attributes.GEN_AI_OUTPUT_TYPE] = "json"
-        else:
-            attributes[gen_ai_attributes.GEN_AI_OUTPUT_TYPE] = (
-                response_mime_type
-            )
-    for key in list(attributes.keys()):
-        if key.startswith(
-            GCP_GENAI_OPERATION_CONFIG
-        ) and not allow_list.allowed(key):
-            del attributes[key]
-    return attributes
+    invocation.attributes.update(
+        {k: v for k, v in attributes.items() if allow_list.allowed(k)}
+    )
 
 
 def _get_response_property(response: GenerateContentResponse, path: str):
@@ -424,79 +326,23 @@ def _get_response_property(response: GenerateContentResponse, path: str):
     return current_context
 
 
-def _coerce_config_to_object(
-    config: GenerateContentConfigOrDict,
-) -> GenerateContentConfig:
-    if isinstance(config, GenerateContentConfig):
-        return config
-    # Input must be a dictionary; convert by invoking the constructor.
-    return GenerateContentConfig(**config)
-
-
 def _wrapped_config_with_tools(
-    otel_wrapper: OTelWrapper,
-    config: GenerateContentConfig,
-    **kwargs,
-):
+    telemetry_handler: TelemetryHandler,
+    config: GenerateContentConfigOrDict | None,
+) -> tuple[GenerateContentConfig, bool]:
+    if config is None:
+        return GenerateContentConfig(), False
+    if isinstance(config, dict):
+        try:
+            config = GenerateContentConfig.model_validate(config)
+        except Exception:
+            return GenerateContentConfig(), True
     if not config.tools:
-        return config
-    result = copy.copy(config)
-    result.tools = [
-        wrapped_tool(tool, otel_wrapper, **kwargs) for tool in config.tools
+        return config, False
+    config.tools = [
+        wrapped_tool(tool, telemetry_handler) for tool in config.tools
     ]
-    return result
-
-
-def _config_to_system_instruction(
-    config: Union[GenerateContentConfigOrDict, None],
-) -> Union[ContentUnion, None]:
-    if not config:
-        return None
-
-    if isinstance(config, dict):
-        return GenerateContentConfig.model_validate(config).system_instruction
-    return config.system_instruction
-
-
-def _config_to_tools(
-    config: Union[GenerateContentConfigOrDict, None],
-) -> Union[ToolListUnionDict, None]:
-    if not config:
-        return None
-
-    if isinstance(config, dict):
-        return GenerateContentConfig.model_validate(config).tools
-    return config.tools
-
-
-def _create_completion_details_attributes(
-    input_messages: list[InputMessage],
-    output_messages: list[OutputMessage],
-    system_instructions: list[MessagePart],
-    tool_definitions: list[ToolDefinition],
-    as_str: bool = False,
-) -> dict[str, AttributeValue]:
-    attributes: dict[str, AttributeValue] = {
-        gen_ai_attributes.GEN_AI_INPUT_MESSAGES: [
-            dataclasses.asdict(input_message)
-            for input_message in input_messages
-        ],
-        gen_ai_attributes.GEN_AI_OUTPUT_MESSAGES: [
-            dataclasses.asdict(output_message)
-            for output_message in output_messages
-        ],
-    }
-    if system_instructions:
-        attributes[gen_ai_attributes.GEN_AI_SYSTEM_INSTRUCTIONS] = [
-            dataclasses.asdict(sys_instr) for sys_instr in system_instructions
-        ]
-
-    if tool_definitions:
-        attributes[GEN_AI_TOOL_DEFINITIONS] = [
-            dataclasses.asdict(tool_def) for tool_def in tool_definitions
-        ]
-
-    return attributes
+    return config, True
 
 
 def _get_extra_generate_content_attributes() -> dict[str, AttributeValue]:
@@ -506,829 +352,434 @@ def _get_extra_generate_content_attributes() -> dict[str, AttributeValue]:
     return dict(attrs or {})
 
 
-class _GenerateContentInstrumentationHelper:
-    def __init__(
-        self,
-        models_object: Union[Models, AsyncModels],
-        otel_wrapper: OTelWrapper,
-        model: str,
-        completion_hook: CompletionHook,
-        generate_content_config_key_allowlist: Optional[AllowList] = None,
-        is_async: bool = False,
-    ):
-        self._start_time = time.time_ns()
-        self._otel_wrapper = otel_wrapper
-        self._genai_system = _determine_genai_system(models_object)
-        self._genai_request_model = model
-        self.completion_hook = completion_hook
-        self._finish_reasons_set = set()
-        self._error_type = None
-        self._input_tokens = 0
-        self._output_tokens = 0
-        self.sem_conv_opt_in_mode = _OpenTelemetrySemanticConventionStability._get_opentelemetry_stability_opt_in_mode(
-            _OpenTelemetryStabilitySignalType.GEN_AI
-        )
-        self._content_recording_enabled = is_content_recording_enabled(
-            self.sem_conv_opt_in_mode
-        )
-        self._response_index = 0
-        self._candidate_index = 0
-        self._generate_content_config_key_allowlist = (
-            generate_content_config_key_allowlist or AllowList()
-        )
-        self._is_async = is_async
+def _apply_response_attributes(
+    response: GenerateContentResponse,
+    finish_reasons: list[str],
+    invocation: InferenceInvocation,
+):
+    if response.response_id:
+        invocation.response_id = response.response_id
+    if response.model_version:
+        invocation.response_model_name = response.model_version
+    for candidate in response.candidates or []:
+        if candidate.finish_reason:
+            finish_reasons.append(candidate.finish_reason.value.lower())
+    invocation.finish_reasons = finish_reasons
+    input_tokens = _get_response_property(
+        response, "usage_metadata.prompt_token_count"
+    )
+    output_tokens = _get_response_property(
+        response, "usage_metadata.candidates_token_count"
+    )
+    cached_tokens = _get_response_property(
+        response, "usage_metadata.cached_content_token_count"
+    )
+    thinking_tokens = _get_response_property(
+        response, "usage_metadata.thoughts_token_count"
+    )
+    if cached_tokens is not None and isinstance(cached_tokens, int):
+        invocation.cache_read_input_tokens = cached_tokens
+    if input_tokens is not None and isinstance(input_tokens, int):
+        invocation.input_tokens = input_tokens
+    if output_tokens is not None and isinstance(output_tokens, int):
+        invocation.output_tokens = output_tokens
+    if thinking_tokens is not None and isinstance(thinking_tokens, int):
+        # The util library will add this total to output tokens.
+        invocation.thinking_tokens = thinking_tokens
 
-    def wrapped_config(
-        self, config: Optional[GenerateContentConfigOrDict]
-    ) -> Optional[GenerateContentConfig]:
-        if config is None:
-            return None
-        return _wrapped_config_with_tools(
-            self._otel_wrapper,
-            _coerce_config_to_object(config),
-            extra_span_attributes={"gen_ai.system": self._genai_system},
-        )
 
-    def start_span_as_current_span(
-        self, model_name, function_name, end_on_exit=True
-    ) -> Span:
-        return self._otel_wrapper.start_as_current_span(
-            f"{_GENERATE_CONTENT_OP_NAME} {model_name}",
-            start_time=self._start_time,
-            attributes={
-                code_attributes.CODE_FUNCTION_NAME: function_name,
-                gen_ai_attributes.GEN_AI_REQUEST_MODEL: self._genai_request_model,
-                gen_ai_attributes.GEN_AI_OPERATION_NAME: _GENERATE_CONTENT_OP_NAME,
-            },
-            end_on_exit=end_on_exit,
-        )
+def _maybe_get_tool_definitions(
+    config: GenerateContentConfig,
+) -> list[ToolDefinition]:
+    return [
+        de
+        for tool in config.tools or []
+        for de in _to_tool_definition(tool)
+        if de
+    ]
 
-    def create_final_attributes(self) -> dict[str, AttributeValue]:
-        final_attributes = {
-            gen_ai_attributes.GEN_AI_USAGE_INPUT_TOKENS: self._input_tokens,
-            gen_ai_attributes.GEN_AI_USAGE_OUTPUT_TOKENS: self._output_tokens,
-            gen_ai_attributes.GEN_AI_RESPONSE_FINISH_REASONS: sorted(
-                self._finish_reasons_set
-            ),
-        }
-        if self._error_type:
-            final_attributes[error_attributes.ERROR_TYPE] = self._error_type
-        return final_attributes
 
-    def process_request(
-        self,
-        contents: Union[ContentListUnion, ContentListUnionDict],
-        config: Optional[GenerateContentConfigOrDict],
-        span: Span,
-    ):
-        span.set_attribute(gen_ai_attributes.GEN_AI_SYSTEM, self._genai_system)
-        self._maybe_log_system_instruction(config=config)
-        self._maybe_log_user_prompt(contents)
-
-    def process_response(self, response: GenerateContentResponse):
-        self._update_response(response)
-        self._maybe_log_response(response)
-        self._response_index += 1
-
-    def process_error(self, e: Exception):
-        self._error_type = str(e.__class__.__name__)
-
-    def _update_response(self, response: GenerateContentResponse):
-        # TODO: Determine if there are other response properties that
-        # need to be reflected back into the span attributes.
-        #
-        # See also: TODOS.md.
-        self._update_finish_reasons(response)
-        self._maybe_update_token_counts(response)
-        self._maybe_update_error_type(response)
-
-    def _update_finish_reasons(self, response: GenerateContentResponse):
-        if not response.candidates:
-            return
-        for candidate in response.candidates:
-            finish_reason = candidate.finish_reason
-            if finish_reason is None:
-                continue
-            finish_reason_str = finish_reason.name.lower().removeprefix(
-                "finish_reason_"
-            )
-            self._finish_reasons_set.add(finish_reason_str)
-
-    def _maybe_update_token_counts(self, response: GenerateContentResponse):
-        input_tokens = _get_response_property(
-            response, "usage_metadata.prompt_token_count"
-        )
-        output_tokens = _get_response_property(
-            response, "usage_metadata.candidates_token_count"
-        )
-        if input_tokens and isinstance(input_tokens, int):
-            self._input_tokens = input_tokens
-        if output_tokens and isinstance(output_tokens, int):
-            self._output_tokens = output_tokens
-
-    def _maybe_update_error_type(self, response: GenerateContentResponse):
-        if response.candidates:
-            return
-        if (
-            (not response.prompt_feedback)
-            or (not response.prompt_feedback.block_reason)
-            or (
-                response.prompt_feedback.block_reason
-                == BlockedReason.BLOCKED_REASON_UNSPECIFIED
-            )
-        ):
-            self._error_type = "NO_CANDIDATES"
-            return
-        # TODO: in the case where there are no candidate responses due to
-        # safety settings like this, it might make sense to emit an event
-        # that contains more details regarding the safety settings, their
-        # thresholds, etc. However, this requires defining an associated
-        # semantic convention to capture this. Follow up with SemConv to
-        # establish appropriate data modelling to capture these details,
-        # and then emit those details accordingly. (For the time being,
-        # we use the defined 'error.type' semantic convention to relay
-        # just the minimum amount of error information here).
-        #
-        # See also: "TODOS.md"
-        block_reason = response.prompt_feedback.block_reason.name.upper()
-        self._error_type = f"BLOCKED_{block_reason}"
-
-    def _maybe_get_tool_definitions(self, config) -> list[ToolDefinition]:
-        if (
-            self.sem_conv_opt_in_mode
-            != _StabilityMode.GEN_AI_LATEST_EXPERIMENTAL
-        ):
-            return []
-
-        if tools := _config_to_tools(config):
-            return [
-                de for tool in tools for de in _to_tool_definition(tool) if de
-            ]
-        return []
-
-    async def _maybe_get_tool_definitions_async(
-        self, config
-    ) -> list[ToolDefinition]:
-        if (
-            self.sem_conv_opt_in_mode
-            != _StabilityMode.GEN_AI_LATEST_EXPERIMENTAL
-        ):
-            return []
-
-        tool_definitions = []
-        if tools := _config_to_tools(config):
-            for tool in tools:
-                definitions = await _to_tool_definition_async(tool)
-                for de in definitions:
-                    if de:
-                        tool_definitions.append(de)
-
-        return tool_definitions
-
-    def _maybe_log_completion_details_in_log(
-        self,
-        event: LogRecord,
-        completion_details_attributes: dict[str, AttributeValue],
-        tool_definitions: Optional[list[ToolDefinition]] = None,
-    ):
-        if self._content_recording_enabled in [
-            ContentCapturingMode.EVENT_ONLY,
-            ContentCapturingMode.SPAN_AND_EVENT,
-        ]:
-            event.attributes = {
-                **(event.attributes or {}),
-                **completion_details_attributes,
-            }
-        else:
-            event.attributes = {
-                **(event.attributes or {}),
-                **_tool_def_without_parameters_attr(tool_definitions),
-            }
-
-        self._otel_wrapper.log_completion_details(event=event)
-
-    def _maybe_log_completion_details_in_span(
-        self,
-        span: Span,
-        completion_details_attributes: dict[str, AttributeValue],
-        tool_definitions: Optional[list[ToolDefinition]] = None,
-    ):
-        if self._content_recording_enabled in [
-            ContentCapturingMode.SPAN_ONLY,
-            ContentCapturingMode.SPAN_AND_EVENT,
-        ]:
-            span.set_attributes(
-                {
-                    k: gen_ai_json_dumps(v)
-                    for k, v in completion_details_attributes.items()
-                }
-            )
-            # request attributes were already set on the span..
-        else:
-            span.set_attributes(
-                {
-                    k: gen_ai_json_dumps(v)
-                    for k, v in _tool_def_without_parameters_attr(
-                        tool_definitions
-                    ).items()
-                }
-            )
-
-    def _maybe_log_completion_details(
-        self,
-        extra_attributes: dict[str, AttributeValue],
-        request_attributes: dict[str, AttributeValue],
-        final_attributes: dict[str, AttributeValue],
-        request: Union[ContentListUnion, ContentListUnionDict],
-        candidates: list[Candidate],
-        config: Optional[GenerateContentConfigOrDict] = None,
-        tool_definitions: Optional[list[ToolDefinition]] = None,
-    ):
-        if (
-            self.sem_conv_opt_in_mode
-            != _StabilityMode.GEN_AI_LATEST_EXPERIMENTAL
-        ):
-            return
-        system_instructions = []
-        if system_content := _config_to_system_instruction(config):
-            system_instructions = to_system_instructions(
-                content=transformers.t_contents(system_content)[0]
-            )
-        input_messages = to_input_messages(
-            contents=transformers.t_contents(request)
-        )
-        output_messages = to_output_messages(candidates=candidates)
-
-        span = trace.get_current_span()
-        event = LogRecord(
-            event_name="gen_ai.client.inference.operation.details",
-            attributes=extra_attributes
-            | request_attributes
-            | final_attributes,
-        )
-        tool_definitions = tool_definitions or []
-        self.completion_hook.on_completion(
-            inputs=input_messages,
-            outputs=output_messages,
-            system_instruction=system_instructions,
-            tool_definitions=tool_definitions,
-            span=span,
-            log_record=event,
-        )
-        completion_details_attributes = _create_completion_details_attributes(
-            input_messages,
-            output_messages,
-            system_instructions,
-            tool_definitions,
-        )
-        self._maybe_log_completion_details_in_log(
-            event=event,
-            completion_details_attributes=completion_details_attributes,
-            tool_definitions=tool_definitions,
-        )
-        self._maybe_log_completion_details_in_span(
-            span=span,
-            completion_details_attributes=completion_details_attributes,
-            tool_definitions=tool_definitions,
-        )
-
-    def _maybe_log_system_instruction(
-        self, config: Optional[GenerateContentConfigOrDict] = None
-    ):
-        content_union = _config_to_system_instruction(config)
-        if not content_union:
-            return
-        content = transformers.t_contents(content_union)[0]
-        if not content.parts:
-            return
-        # System instruction is required to be text. An error will be returned by the API if it isn't.
-        system_instruction = " ".join(
-            part.text for part in content.parts if part.text
-        )
-        if not system_instruction:
-            return
-        self._otel_wrapper.log_system_prompt(
-            attributes={
-                gen_ai_attributes.GEN_AI_SYSTEM: self._genai_system,
-            },
-            body={
-                "content": (
-                    system_instruction
-                    if self._content_recording_enabled
-                    else _CONTENT_ELIDED
-                )
-            },
-        )
-
-    def _maybe_log_user_prompt(
-        self, contents: Union[ContentListUnion, ContentListUnionDict]
-    ):
-        if isinstance(contents, list):
-            total = len(contents)
-            index = 0
-            for entry in contents:
-                self._maybe_log_single_user_prompt(
-                    entry, index=index, total=total
-                )
-                index += 1
-        else:
-            self._maybe_log_single_user_prompt(contents)
-
-    def _maybe_log_single_user_prompt(
-        self, contents: Union[ContentUnion, ContentUnionDict], index=0, total=1
-    ):
-        # TODO: figure out how to report the index in a manner that is
-        # aligned with the OTel semantic conventions.
-        attributes = {
-            gen_ai_attributes.GEN_AI_SYSTEM: self._genai_system,
-        }
-
-        # TODO: determine if "role" should be reported here or not and, if so,
-        # what the value ought to be. It is not clear whether there is always
-        # a role supplied (and it looks like there could be cases where there
-        # is more than one role present in the supplied contents)?
-        #
-        # See also: "TODOS.md"
-        body = {}
-        if self._content_recording_enabled:
-            logged_contents = contents
-            if isinstance(contents, list):
-                logged_contents = Content(parts=contents)
-            body["content"] = _to_dict(logged_contents)
-        else:
-            body["content"] = _CONTENT_ELIDED
-        self._otel_wrapper.log_user_prompt(
-            attributes=attributes,
-            body=body,
-        )
-
-    def _maybe_log_response(self, response: GenerateContentResponse):
-        self._maybe_log_response_stats(response)
-        self._maybe_log_response_safety_ratings(response)
-        if not response.candidates:
-            return
-        candidate_in_response_index = 0
-        for candidate in response.candidates:
-            self._maybe_log_response_candidate(
-                candidate,
-                flat_candidate_index=self._candidate_index,
-                candidate_in_response_index=candidate_in_response_index,
-                response_index=self._response_index,
-            )
-            self._candidate_index += 1
-            candidate_in_response_index += 1
-
-    def _maybe_log_response_candidate(
-        self,
-        candidate: Candidate,
-        flat_candidate_index: int,
-        candidate_in_response_index: int,
-        response_index: int,
-    ):
-        # TODO: Determine if there might be a way to report the
-        # response index and candidate response index.
-        attributes = {
-            gen_ai_attributes.GEN_AI_SYSTEM: self._genai_system,
-        }
-        # TODO: determine if "role" should be reported here or not and, if so,
-        # what the value ought to be.
-        #
-        # TODO: extract tool information into a separate tool message.
-        #
-        # TODO: determine if/when we need to emit a 'gen_ai.assistant.message' event.
-        #
-        # TODO: determine how to report other relevant details in the candidate that
-        # are not presently captured by Semantic Conventions. For example, the
-        # "citation_metadata", "grounding_metadata", "logprobs_result", etc.
-        #
-        # See also: "TODOS.md"
-        body = {
-            "index": flat_candidate_index,
-        }
-        if self._content_recording_enabled:
-            if candidate.content:
-                body["content"] = _to_dict(candidate.content)
-        else:
-            body["content"] = _CONTENT_ELIDED
-        if candidate.finish_reason is not None:
-            body["finish_reason"] = candidate.finish_reason.name
-        self._otel_wrapper.log_response_content(
-            attributes=attributes,
-            body=body,
-        )
-
-    def _maybe_log_response_stats(self, response: GenerateContentResponse):
-        # TODO: Determine if there is a way that we can log a summary
-        # of the overall response in a manner that is aligned with
-        # Semantic Conventions. For example, it would be natural
-        # to report an event that looks something like:
-        #
-        #      gen_ai.response.stats {
-        #         response_index: 0,
-        #         candidate_count: 3,
-        #         parts_per_candidate: [
-        #            3,
-        #            1,
-        #            5
-        #         ]
-        #      }
-        #
-        pass
-
-    def _maybe_log_response_safety_ratings(
-        self, response: GenerateContentResponse
-    ):
-        # TODO: Determine if there is a way that we can log
-        # the "prompt_feedback". This would be especially useful
-        # in the case where the response is blocked.
-        pass
-
-    def _record_token_usage_metric(self):
-        self._otel_wrapper.token_usage_metric.record(
-            self._input_tokens,
-            attributes={
-                gen_ai_attributes.GEN_AI_TOKEN_TYPE: "input",
-                gen_ai_attributes.GEN_AI_SYSTEM: self._genai_system,
-                gen_ai_attributes.GEN_AI_REQUEST_MODEL: self._genai_request_model,
-                gen_ai_attributes.GEN_AI_OPERATION_NAME: _GENERATE_CONTENT_OP_NAME,
-            },
-        )
-        self._otel_wrapper.token_usage_metric.record(
-            self._output_tokens,
-            attributes={
-                gen_ai_attributes.GEN_AI_TOKEN_TYPE: "output",
-                gen_ai_attributes.GEN_AI_SYSTEM: self._genai_system,
-                gen_ai_attributes.GEN_AI_REQUEST_MODEL: self._genai_request_model,
-                gen_ai_attributes.GEN_AI_OPERATION_NAME: _GENERATE_CONTENT_OP_NAME,
-            },
-        )
-
-    def _record_duration_metric(self):
-        attributes = {
-            gen_ai_attributes.GEN_AI_SYSTEM: self._genai_system,
-            gen_ai_attributes.GEN_AI_REQUEST_MODEL: self._genai_request_model,
-            gen_ai_attributes.GEN_AI_OPERATION_NAME: _GENERATE_CONTENT_OP_NAME,
-        }
-        if self._error_type is not None:
-            attributes[error_attributes.ERROR_TYPE] = self._error_type
-        duration_nanos = time.time_ns() - self._start_time
-        duration_seconds = duration_nanos / 1e9
-        self._otel_wrapper.operation_duration_metric.record(
-            duration_seconds,
-            attributes=attributes,
-        )
+async def _maybe_get_tool_definitions_async(
+    config: GenerateContentConfig,
+) -> list[ToolDefinition]:
+    return [
+        de
+        for tool in config.tools or []
+        for de in await _to_tool_definition_async(tool)
+        if de
+    ]
 
 
 def _create_instrumented_generate_content(
-    snapshot: _MethodsSnapshot,
-    otel_wrapper: OTelWrapper,
-    completion_hook: CompletionHook,
-    generate_content_config_key_allowlist: Optional[AllowList] = None,
+    telemetry_handler: TelemetryHandler,
+    generate_content_config_key_allowlist: AllowList,
 ):
-    wrapped_func = snapshot.generate_content
-
-    @functools.wraps(wrapped_func)
     def instrumented_generate_content(
-        self: Models,
-        *,
-        model: str,
-        contents: Union[ContentListUnion, ContentListUnionDict],
-        config: Optional[GenerateContentConfigOrDict] = None,
-        **kwargs: Any,
-    ) -> GenerateContentResponse:
-        candidates = []
-        helper = _GenerateContentInstrumentationHelper(
-            self,
-            otel_wrapper,
-            model,
-            completion_hook,
-            generate_content_config_key_allowlist=generate_content_config_key_allowlist,
-            is_async=False,
-        )
-        request_attributes = _create_request_attributes(
-            config,
-            helper._generate_content_config_key_allowlist,
-        )
-        with helper.start_span_as_current_span(
-            model, "google.genai.Models.generate_content"
-        ) as span:
-            extra_attributes = _get_extra_generate_content_attributes()
-            span.set_attributes(extra_attributes | request_attributes)
-            if helper.sem_conv_opt_in_mode == _StabilityMode.DEFAULT:
-                helper.process_request(contents, config, span)
-            try:
-                response = wrapped_func(
-                    self,
-                    model=model,
-                    contents=contents,
-                    config=helper.wrapped_config(config),
-                    **kwargs,
+        wrapped: Callable[..., Any],
+        instance: Any,
+        args: tuple[Any, ...],
+        kwargs: dict[str, Any],
+    ):
+        def _execute(
+            model: str,
+            contents: Union[ContentListUnion, ContentListUnionDict],
+            config: Optional[GenerateContentConfigOrDict] = None,
+            *_args,
+            **_kwargs,
+        ):
+            # If we are unable to parse the config, or don't modify it, we pass it through
+            # as is to the real GenerateContent. This way the real GenerateContent can deal
+            # with invalid or empty configs as it normally would.
+            wrapped_config, has_wrapped_tools = _wrapped_config_with_tools(
+                telemetry_handler,
+                config,
+            )
+            finish_reasons = []
+            with telemetry_handler.inference(
+                provider=_determine_genai_system(instance),
+                request_model=model,
+                operation_name="generate_content",
+            ) as invocation:
+                _apply_request_attributes(
+                    wrapped_config,
+                    generate_content_config_key_allowlist,
+                    invocation,
                 )
-                if (
-                    helper.sem_conv_opt_in_mode
-                    == _StabilityMode.GEN_AI_LATEST_EXPERIMENTAL
-                ):
-                    helper._update_response(response)
-                    if response.candidates:
-                        candidates += response.candidates
+                invocation.attributes.update(
+                    _get_extra_generate_content_attributes()
+                )
+                invocation.tool_definitions = _maybe_get_tool_definitions(
+                    wrapped_config
+                )
 
-                else:
-                    helper.process_response(response)
-                return response
-            except Exception as error:
-                helper.process_error(error)
-                raise
-            finally:
-                final_attributes = helper.create_final_attributes()
-                span.set_attributes(final_attributes)
-                maybe_tool_definitions = helper._maybe_get_tool_definitions(
-                    config
-                )
-                helper._maybe_log_completion_details(
-                    extra_attributes,
-                    request_attributes,
-                    final_attributes,
-                    contents,
-                    candidates,
-                    config,
-                    maybe_tool_definitions,
-                )
-                helper._record_token_usage_metric()
-                helper._record_duration_metric()
+                if telemetry_handler.should_capture_content():
+                    invocation.input_messages = to_input_messages(
+                        contents=transformers.t_contents(contents)
+                    )
+                    if wrapped_config.system_instruction:
+                        invocation.system_instruction = to_system_instructions(
+                            content=transformers.t_contents(
+                                wrapped_config.system_instruction
+                            )[0]
+                        )
+                candidates = []
+                try:
+                    response = wrapped(
+                        model=model,
+                        contents=contents,
+                        config=wrapped_config if has_wrapped_tools else config,
+                        *_args,
+                        **_kwargs,
+                    )
+                    _apply_response_attributes(
+                        response, finish_reasons, invocation
+                    )
+                    if response.candidates:
+                        candidates.extend(response.candidates)
+                    return response
+                finally:
+                    if (
+                        telemetry_handler.should_capture_content()
+                        and candidates
+                    ):
+                        invocation.output_messages = to_output_messages(
+                            candidates=candidates
+                        )
+
+        return _execute(*args, **kwargs)
 
     return instrumented_generate_content
 
 
-def _create_instrumented_generate_content_stream(
-    snapshot: _MethodsSnapshot,
-    otel_wrapper: OTelWrapper,
-    completion_hook: CompletionHook,
-    generate_content_config_key_allowlist: Optional[AllowList] = None,
-):
-    wrapped_func = snapshot.generate_content_stream
+class GenerateContentStreamWrapper(SyncStreamWrapper[GenerateContentResponse]):
+    def __init__(
+        self,
+        stream: Iterable[GenerateContentResponse],
+        invocation: InferenceInvocation,
+        telemetry_handler: TelemetryHandler,
+    ) -> None:
+        super().__init__(stream)
+        self._self_invocation = invocation
+        self._self_telemetry_handler = telemetry_handler
+        self._self_finish_reasons: list[str] = []
+        self._self_candidates = []
 
-    @functools.wraps(wrapped_func)
+    def _process_chunk(self, chunk: GenerateContentResponse) -> None:
+        _apply_response_attributes(
+            chunk,
+            self._self_finish_reasons,
+            self._self_invocation,
+        )
+        if chunk.candidates:
+            self._self_candidates.extend(chunk.candidates)
+
+    def _on_stream_end(self) -> None:
+        if (
+            self._self_telemetry_handler.should_capture_content()
+            and self._self_candidates
+        ):
+            self._self_invocation.output_messages = to_output_messages(
+                candidates=self._self_candidates
+            )
+        self._self_invocation.stop()
+
+    def _on_stream_error(self, error: BaseException) -> None:
+        self._self_invocation.fail(error)
+
+
+class AsyncGenerateContentStreamWrapper(
+    AsyncStreamWrapper[GenerateContentResponse]
+):
+    def __init__(
+        self,
+        stream: AsyncIterable[GenerateContentResponse],
+        invocation: InferenceInvocation,
+        telemetry_handler: TelemetryHandler,
+    ) -> None:
+        super().__init__(stream)
+        # _self_ is a naming convention used by the wrapt library to differentiate
+        # between attributes on the wrapped function and the original function.
+        self._self_invocation = invocation
+        self._self_telemetry_handler = telemetry_handler
+        self._self_finish_reasons: list[str] = []
+        self._self_candidates = []
+
+    def _process_chunk(self, chunk: GenerateContentResponse) -> None:
+        _apply_response_attributes(
+            chunk,
+            self._self_finish_reasons,
+            self._self_invocation,
+        )
+        if chunk.candidates:
+            self._self_candidates.extend(chunk.candidates)
+
+    def _on_stream_end(self) -> None:
+        if (
+            self._self_telemetry_handler.should_capture_content()
+            and self._self_candidates
+        ):
+            self._self_invocation.output_messages = to_output_messages(
+                candidates=self._self_candidates
+            )
+        self._self_invocation.stop()
+
+    def _on_stream_error(self, error: BaseException) -> None:
+        self._self_invocation.fail(error)
+
+
+def _create_instrumented_generate_content_stream(
+    telemetry_handler: TelemetryHandler,
+    generate_content_config_key_allowlist: AllowList,
+):
     def instrumented_generate_content_stream(
-        self: Models,
-        *,
-        model: str,
-        contents: Union[ContentListUnion, ContentListUnionDict],
-        config: Optional[GenerateContentConfigOrDict] = None,
-        **kwargs: Any,
-    ) -> Iterator[GenerateContentResponse]:
-        candidates: list[Candidate] = []
-        helper = _GenerateContentInstrumentationHelper(
-            self,
-            otel_wrapper,
-            model,
-            completion_hook,
-            generate_content_config_key_allowlist=generate_content_config_key_allowlist,
-            is_async=False,
-        )
-        request_attributes = _create_request_attributes(
-            config,
-            helper._generate_content_config_key_allowlist,
-        )
-        with helper.start_span_as_current_span(
-            model, "google.genai.Models.generate_content_stream"
-        ) as span:
-            extra_attributes = _get_extra_generate_content_attributes()
-            span.set_attributes(extra_attributes | request_attributes)
-            if helper.sem_conv_opt_in_mode == _StabilityMode.DEFAULT:
-                helper.process_request(contents, config, span)
-            try:
-                for response in wrapped_func(
-                    self,
+        wrapped: Callable[..., Any],
+        instance: Any,
+        args: tuple[Any, ...],
+        kwargs: dict[str, Any],
+    ):
+        def _execute(
+            model: str,
+            contents: Union[ContentListUnion, ContentListUnionDict],
+            config: Optional[GenerateContentConfigOrDict] = None,
+            *_args,
+            **_kwargs,
+        ):
+            # If we are unable to parse the config, or don't modify it, we pass it through
+            # as is to the real GenerateContent. This way the real GenerateContent can deal
+            # with invalid or empty configs as it normally would.
+            wrapped_config, has_wrapped_tools = _wrapped_config_with_tools(
+                telemetry_handler,
+                config,
+            )
+            invocation = telemetry_handler.inference(
+                provider=_determine_genai_system(instance),
+                request_model=model,
+                operation_name="generate_content",
+            )
+            _apply_request_attributes(
+                wrapped_config,
+                generate_content_config_key_allowlist,
+                invocation,
+            )
+            invocation.attributes.update(
+                _get_extra_generate_content_attributes()
+            )
+            invocation.tool_definitions = _maybe_get_tool_definitions(
+                wrapped_config
+            )
+
+            if telemetry_handler.should_capture_content():
+                invocation.input_messages = to_input_messages(
+                    contents=transformers.t_contents(contents)
+                )
+                if wrapped_config.system_instruction:
+                    invocation.system_instruction = to_system_instructions(
+                        content=transformers.t_contents(
+                            wrapped_config.system_instruction
+                        )[0]
+                    )
+            return GenerateContentStreamWrapper(
+                wrapped(
                     model=model,
                     contents=contents,
-                    config=helper.wrapped_config(config),
-                    **kwargs,
-                ):
-                    if (
-                        helper.sem_conv_opt_in_mode
-                        == _StabilityMode.GEN_AI_LATEST_EXPERIMENTAL
-                    ):
-                        helper._update_response(response)
-                        if response.candidates:
-                            candidates += response.candidates
+                    config=wrapped_config if has_wrapped_tools else config,
+                    *_args,
+                    **_kwargs,
+                ),
+                invocation,
+                telemetry_handler,
+            )
 
-                    else:
-                        helper.process_response(response)
-                    yield response
-            except Exception as error:
-                helper.process_error(error)
-                raise
-            finally:
-                final_attributes = helper.create_final_attributes()
-                span.set_attributes(final_attributes)
-                maybe_tool_definitions = helper._maybe_get_tool_definitions(
-                    config
-                )
-                helper._maybe_log_completion_details(
-                    extra_attributes,
-                    request_attributes,
-                    final_attributes,
-                    contents,
-                    candidates,
-                    config,
-                    maybe_tool_definitions,
-                )
-                helper._record_token_usage_metric()
-                helper._record_duration_metric()
+        return _execute(*args, **kwargs)
 
     return instrumented_generate_content_stream
 
 
 def _create_instrumented_async_generate_content(
-    snapshot: _MethodsSnapshot,
-    otel_wrapper: OTelWrapper,
-    completion_hook: CompletionHook,
-    generate_content_config_key_allowlist: Optional[AllowList] = None,
+    telemetry_handler: TelemetryHandler,
+    generate_content_config_key_allowlist: AllowList,
 ):
-    wrapped_func = snapshot.async_generate_content
-
-    @functools.wraps(wrapped_func)
     async def instrumented_generate_content(
-        self: AsyncModels,
-        *,
-        model: str,
-        contents: Union[ContentListUnion, ContentListUnionDict],
-        config: Optional[GenerateContentConfigOrDict] = None,
-        **kwargs: Any,
-    ) -> GenerateContentResponse:
-        helper = _GenerateContentInstrumentationHelper(
-            self,
-            otel_wrapper,
-            model,
-            completion_hook,
-            generate_content_config_key_allowlist=generate_content_config_key_allowlist,
-            is_async=True,
-        )
-        request_attributes = _create_request_attributes(
-            config,
-            helper._generate_content_config_key_allowlist,
-        )
-        candidates: list[Candidate] = []
-        with helper.start_span_as_current_span(
-            model, "google.genai.AsyncModels.generate_content"
-        ) as span:
-            extra_attributes = _get_extra_generate_content_attributes()
-            span.set_attributes(extra_attributes | request_attributes)
-            if helper.sem_conv_opt_in_mode == _StabilityMode.DEFAULT:
-                helper.process_request(contents, config, span)
-            try:
-                response = await wrapped_func(
-                    self,
-                    model=model,
-                    contents=contents,
-                    config=helper.wrapped_config(config),
-                    **kwargs,
+        wrapped: Callable[..., Any],
+        instance: Any,
+        args: tuple[Any, ...],
+        kwargs: dict[str, Any],
+    ):
+        async def _execute(
+            model: str,
+            contents: Union[ContentListUnion, ContentListUnionDict],
+            config: Optional[GenerateContentConfigOrDict] = None,
+            *_args,
+            **_kwargs,
+        ):
+            # If we are unable to parse the config, or don't modify it, we pass it through
+            # as is to the real GenerateContent. This way the real GenerateContent can deal
+            # with invalid or empty configs as it normally would.
+            wrapped_config, has_wrapped_tools = _wrapped_config_with_tools(
+                telemetry_handler,
+                config,
+            )
+            finish_reasons = []
+            with telemetry_handler.inference(
+                provider=_determine_genai_system(instance),
+                request_model=model,
+                operation_name="generate_content",
+            ) as invocation:
+                invocation.attributes.update(
+                    _get_extra_generate_content_attributes()
                 )
-                if (
-                    helper.sem_conv_opt_in_mode
-                    == _StabilityMode.GEN_AI_LATEST_EXPERIMENTAL
-                ):
-                    helper._update_response(response)
+                _apply_request_attributes(
+                    wrapped_config,
+                    generate_content_config_key_allowlist,
+                    invocation,
+                )
+                invocation.tool_definitions = (
+                    await _maybe_get_tool_definitions_async(wrapped_config)
+                )
+
+                if telemetry_handler.should_capture_content():
+                    invocation.input_messages = to_input_messages(
+                        contents=transformers.t_contents(contents)
+                    )
+                    if wrapped_config.system_instruction:
+                        invocation.system_instruction = to_system_instructions(
+                            content=transformers.t_contents(
+                                wrapped_config.system_instruction
+                            )[0]
+                        )
+                candidates = []
+                try:
+                    response = await wrapped(
+                        model=model,
+                        contents=contents,
+                        config=wrapped_config if has_wrapped_tools else config,
+                        *_args,
+                        **_kwargs,
+                    )
+                    _apply_response_attributes(
+                        response, finish_reasons, invocation
+                    )
                     if response.candidates:
-                        candidates += response.candidates
-                else:
-                    helper.process_response(response)
-                return response
-            except Exception as error:
-                helper.process_error(error)
-                raise
-            finally:
-                final_attributes = helper.create_final_attributes()
-                span.set_attributes(final_attributes)
-                maybe_tool_definitions = (
-                    await helper._maybe_get_tool_definitions_async(config)
-                )
-                helper._maybe_log_completion_details(
-                    extra_attributes,
-                    request_attributes,
-                    final_attributes,
-                    contents,
-                    candidates,
-                    config,
-                    maybe_tool_definitions,
-                )
-                helper._record_token_usage_metric()
-                helper._record_duration_metric()
+                        candidates.extend(response.candidates)
+                    return response
+                finally:
+                    if (
+                        telemetry_handler.should_capture_content()
+                        and candidates
+                    ):
+                        invocation.output_messages = to_output_messages(
+                            candidates=candidates
+                        )
+
+        return await _execute(*args, **kwargs)
 
     return instrumented_generate_content
 
 
-# Disabling type checking because this is not yet implemented and tested fully.
 def _create_instrumented_async_generate_content_stream(  # type: ignore
-    snapshot: _MethodsSnapshot,
-    otel_wrapper: OTelWrapper,
-    completion_hook: CompletionHook,
-    generate_content_config_key_allowlist: Optional[AllowList] = None,
+    telemetry_handler: TelemetryHandler,
+    generate_content_config_key_allowlist: AllowList,
 ):
-    wrapped_func = snapshot.async_generate_content_stream
-
-    @functools.wraps(wrapped_func)
     async def instrumented_generate_content_stream(
-        self: AsyncModels,
-        *,
-        model: str,
-        contents: Union[ContentListUnion, ContentListUnionDict],
-        config: Optional[GenerateContentConfigOrDict] = None,
-        **kwargs: Any,
-    ) -> Awaitable[AsyncIterator[GenerateContentResponse]]:  # type: ignore
-        helper = _GenerateContentInstrumentationHelper(
-            self,
-            otel_wrapper,
-            model,
-            completion_hook,
-            generate_content_config_key_allowlist=generate_content_config_key_allowlist,
-            is_async=True,
-        )
-        request_attributes = _create_request_attributes(
-            config,
-            helper._generate_content_config_key_allowlist,
-        )
-        with helper.start_span_as_current_span(
-            model,
-            "google.genai.AsyncModels.generate_content_stream",
-            end_on_exit=False,
-        ) as span:
-            extra_attributes = _get_extra_generate_content_attributes()
-            span.set_attributes(extra_attributes | request_attributes)
-            if (
-                not helper.sem_conv_opt_in_mode
-                == _StabilityMode.GEN_AI_LATEST_EXPERIMENTAL
-            ):
-                helper.process_request(contents, config, span)
-            try:
-                response_async_generator = await wrapped_func(
-                    self,
+        wrapped: Callable[..., Any],
+        instance: Any,
+        args: tuple[Any, ...],
+        kwargs: dict[str, Any],
+    ):
+        async def _execute(
+            model: str,
+            contents: Union[ContentListUnion, ContentListUnionDict],
+            config: Optional[GenerateContentConfigOrDict] = None,
+            *_args,
+            **_kwargs,
+        ):
+            # If we are unable to parse the config, or don't modify it, we pass it through
+            # as is to the real GenerateContent. This way the real GenerateContent can deal
+            # with invalid or empty configs as it normally would.
+            wrapped_config, has_wrapped_tools = _wrapped_config_with_tools(
+                telemetry_handler,
+                config,
+            )
+            invocation = telemetry_handler.inference(
+                provider=_determine_genai_system(instance),
+                request_model=model,
+                operation_name="generate_content",
+            )
+            invocation.attributes.update(
+                _get_extra_generate_content_attributes()
+            )
+            _apply_request_attributes(
+                wrapped_config,
+                generate_content_config_key_allowlist,
+                invocation,
+            )
+            invocation.tool_definitions = (
+                await _maybe_get_tool_definitions_async(wrapped_config)
+            )
+
+            if telemetry_handler.should_capture_content():
+                invocation.input_messages = to_input_messages(
+                    contents=transformers.t_contents(contents)
+                )
+                if wrapped_config.system_instruction:
+                    invocation.system_instruction = to_system_instructions(
+                        content=transformers.t_contents(
+                            wrapped_config.system_instruction
+                        )[0]
+                    )
+            return AsyncGenerateContentStreamWrapper(
+                await wrapped(
                     model=model,
                     contents=contents,
-                    config=helper.wrapped_config(config),
-                    **kwargs,
-                )
-            except Exception as error:  # pylint: disable=broad-exception-caught
-                helper.process_error(error)
-                helper._record_token_usage_metric()
-                final_attributes = helper.create_final_attributes()
-                span.set_attributes(final_attributes)
-                maybe_tool_definitions = (
-                    await helper._maybe_get_tool_definitions_async(config)
-                )
-                helper._maybe_log_completion_details(
-                    extra_attributes,
-                    request_attributes,
-                    final_attributes,
-                    contents,
-                    [],
-                    config,
-                    maybe_tool_definitions,
-                )
-                helper._record_duration_metric()
-                with trace.use_span(span, end_on_exit=True):
-                    raise
+                    config=wrapped_config if has_wrapped_tools else config,
+                    *_args,
+                    **_kwargs,
+                ),
+                invocation,
+                telemetry_handler,
+            )
 
-            async def _response_async_generator_wrapper():
-                candidates: list[Candidate] = []
-                with trace.use_span(span, end_on_exit=True):
-                    try:
-                        async for response in response_async_generator:
-                            if (
-                                helper.sem_conv_opt_in_mode
-                                == _StabilityMode.GEN_AI_LATEST_EXPERIMENTAL
-                            ):
-                                helper._update_response(response)
-                                if response.candidates:
-                                    candidates += response.candidates
-
-                            else:
-                                helper.process_response(response)
-                            yield response
-                    except Exception as error:
-                        helper.process_error(error)
-                        raise
-                    finally:
-                        final_attributes = helper.create_final_attributes()
-                        span.set_attributes(final_attributes)
-                        maybe_tool_definitions = (
-                            await helper._maybe_get_tool_definitions_async(
-                                config
-                            )
-                        )
-                        helper._maybe_log_completion_details(
-                            extra_attributes,
-                            request_attributes,
-                            final_attributes,
-                            contents,
-                            candidates,
-                            config,
-                            maybe_tool_definitions,
-                        )
-                        helper._record_token_usage_metric()
-                        helper._record_duration_metric()
-
-            return _response_async_generator_wrapper()
+        return await _execute(*args, **kwargs)
 
     return instrumented_generate_content_stream
 
@@ -1339,41 +790,41 @@ def uninstrument_generate_content(snapshot: object):
 
 
 def instrument_generate_content(
-    otel_wrapper: OTelWrapper,
-    completion_hook: CompletionHook,
-    generate_content_config_key_allowlist: Optional[AllowList] = None,
+    telemetry_handler: TelemetryHandler,
+    generate_content_config_key_allowlist: AllowList,
 ) -> object:
-    opt_in_mode = _OpenTelemetrySemanticConventionStability._get_opentelemetry_stability_opt_in_mode(
-        _OpenTelemetryStabilitySignalType.GEN_AI
-    )
-    if opt_in_mode not in (
-        _StabilityMode.GEN_AI_LATEST_EXPERIMENTAL,
-        _StabilityMode.DEFAULT,
-    ):
-        raise ValueError(f"Sem Conv opt in mode {opt_in_mode} not supported.")
+    os.environ["OTEL_INSTRUMENTATION_GENAI_EMIT_EVENT"] = "true"
     snapshot = _MethodsSnapshot()
-    Models.generate_content = _create_instrumented_generate_content(
-        snapshot,
-        otel_wrapper,
-        completion_hook,
-        generate_content_config_key_allowlist=generate_content_config_key_allowlist,
+    wrap_function_wrapper(
+        "google.genai.models",
+        "Models.generate_content",
+        _create_instrumented_generate_content(
+            telemetry_handler,
+            generate_content_config_key_allowlist,
+        ),
     )
-    Models.generate_content_stream = _create_instrumented_generate_content_stream(
-        snapshot,
-        otel_wrapper,
-        completion_hook,
-        generate_content_config_key_allowlist=generate_content_config_key_allowlist,
+    wrap_function_wrapper(
+        "google.genai.models",
+        "Models.generate_content_stream",
+        _create_instrumented_generate_content_stream(
+            telemetry_handler,
+            generate_content_config_key_allowlist,
+        ),
     )
-    AsyncModels.generate_content = _create_instrumented_async_generate_content(
-        snapshot,
-        otel_wrapper,
-        completion_hook,
-        generate_content_config_key_allowlist=generate_content_config_key_allowlist,
+    wrap_function_wrapper(
+        "google.genai.models",
+        "AsyncModels.generate_content",
+        _create_instrumented_async_generate_content(
+            telemetry_handler,
+            generate_content_config_key_allowlist,
+        ),
     )
-    AsyncModels.generate_content_stream = _create_instrumented_async_generate_content_stream(
-        snapshot,
-        otel_wrapper,
-        completion_hook,
-        generate_content_config_key_allowlist=generate_content_config_key_allowlist,
+    wrap_function_wrapper(
+        "google.genai.models",
+        "AsyncModels.generate_content_stream",
+        _create_instrumented_async_generate_content_stream(
+            telemetry_handler,
+            generate_content_config_key_allowlist,
+        ),
     )
     return snapshot

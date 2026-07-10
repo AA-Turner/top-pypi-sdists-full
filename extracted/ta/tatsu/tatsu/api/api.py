@@ -3,11 +3,12 @@
 from __future__ import annotations
 
 from collections.abc import Callable
+from pathlib import Path
 from typing import Any
 
 from .. import peg as g
 from ..boot import TatSuParserGenerator
-from ..boot.bootparser import GRAMMAR_MODEL
+from ..boot.bootparser import GRAMMAR_MODEL, TatSuBootstrapParser
 from ..config import ParserConfig
 from ..exceptions import ParseException
 from ..input import Text
@@ -88,6 +89,7 @@ def compile(
         )
         model.semantics = ModelBuilderSemantics(config=builderconfig)
 
+    model.initialize()
     return model
 
 
@@ -138,7 +140,7 @@ def parse(
     typedefs: list[TypeContainer] | None = None,
     constructors: list[Constructor] | None = None,
     **settings: Any,
-):
+) -> Any:
     filename = filename or settings.pop('source', None)
     config = ParserConfig.new(
         config=config,
@@ -178,7 +180,7 @@ def to_python_sourcecode(
     filename: str | None = None,
     config: ParserConfig | None = None,
     **settings: Any,
-):
+) -> str:
     filename = filename or settings.pop('source', None)
     config = ParserConfig.new(config=config, name=name, source=filename, **settings)
     model = compile(grammar, config=config, name=name, source=filename)
@@ -194,7 +196,7 @@ def to_python_model(
     basetype: type = Node,
     config: ParserConfig | None = None,
     **settings: Any,
-):
+) -> str:
     filename = filename or settings.pop('source', None)
     config = ParserConfig.new(config=config, name=name, source=filename, **settings)
     model = compile(grammar, name=name, source=filename, config=config)
@@ -209,15 +211,28 @@ def to_parsermodel_sourcecode(
     filename: str | None = None,
     config: ParserConfig | None = None,
     **settings: Any,
-):
+) -> str:
     filename = filename or settings.pop('source', None)
     model = compile(grammar, config=config, name=name, source=filename, **settings)
     return parsermodel_gen(model, name=name)
 
 
-def to_grammar_json(grammar: str) -> str:
-    from ..parser.bootparser import TatSuBootstrapParser
+def load_grammar(path: str | Path) -> g.Grammar:
+    """Load a Grammar from an .ebnf or .json file."""
 
+    p = Path(path)
+    source = p.read_text(encoding="utf-8")
+    if p.suffix == ".json":
+        return load_json_grammar(source)
+    else:
+        return compile(source)
+
+
+def load_json_grammar(source: str) -> g.Grammar:
+    return g.Grammar.loads(source)
+
+
+def to_grammar_json(grammar: str) -> Any:
     parser = TatSuBootstrapParser()
     model = parser.parse(grammar)
     return model.asjson()
@@ -231,7 +246,7 @@ def genmodel(
     semantics: type | None = None,
     config: ParserConfig | None = None,
     **settings: Any,
-):
+) -> g.Grammar:
     if grammar is None:
         raise ParseException('grammar is None')
 
@@ -247,7 +262,7 @@ def gencode(
     codegen: Callable = pythongen,
     config: ParserConfig | None = None,
     **settings: Any,
-):
+) -> str:
     filename = filename or settings.pop('source', None)
     model = compile(
         grammar,

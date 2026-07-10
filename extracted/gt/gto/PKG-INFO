@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: gto
-Version: 1.10.0
+Version: 1.10.1
 Summary: Version and deploy your models following GitOps principles
 Author-email: Alexander Guschin <aguschin@iterative.ai>
 License: Apache License 2.0

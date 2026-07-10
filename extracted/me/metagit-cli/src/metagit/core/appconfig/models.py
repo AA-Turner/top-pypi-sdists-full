@@ -67,6 +67,14 @@ class WorkspaceConfig(BaseModel):
             "Defaults to _campaigns to avoid colliding with a workspace project named campaigns."
         ),
     )
+    worktrees_path: str = Field(
+        default=".worktrees",
+        description=(
+            "Directory for ACL agent git worktree checkouts. Relative paths resolve from the "
+            "manifest/session root. Defaults to .worktrees; the path basename is reserved and "
+            "cannot be used as a workspace project name."
+        ),
+    )
     default_project: Optional[str] = Field(
         default=None,
         description=(
@@ -216,6 +224,17 @@ class StateConfig(BaseModel):
     )
 
 
+class MergeConfig(BaseModel):
+    """Merge orchestrator settings."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    validators: list[str] = Field(
+        default_factory=list,
+        description="Opt-in shell command strings that must pass before merge promotion",
+    )
+
+
 class AppConfig(BaseModel):
     """Application-level settings (not the Metagit package release version — use `metagit version`)."""
 
@@ -260,6 +279,7 @@ class AppConfig(BaseModel):
         default_factory=StateConfig,
         description="Workspace coordination state backend (objectives, handoffs, approvals)",
     )
+    merge: MergeConfig = Field(default_factory=MergeConfig, description="Merge orchestrator settings")
 
     @classmethod
     def load(cls, config_path: str = None) -> Union["AppConfig", Exception]:
@@ -289,6 +309,7 @@ class AppConfig(BaseModel):
             config = cls._override_from_environment(config)
             os.environ.setdefault("METAGIT_WORKSPACE_SESSION_PATH", config.workspace.session_path)
             os.environ.setdefault("METAGIT_WORKSPACE_CAMPAIGNS_PATH", config.workspace.campaigns_path)
+            os.environ.setdefault("METAGIT_WORKSPACE_WORKTREES_PATH", config.workspace.worktrees_path)
 
             return config
 
@@ -350,6 +371,8 @@ class AppConfig(BaseModel):
             config.workspace.session_path = os.getenv("METAGIT_WORKSPACE_SESSION_PATH")
         if os.getenv("METAGIT_WORKSPACE_CAMPAIGNS_PATH"):
             config.workspace.campaigns_path = os.getenv("METAGIT_WORKSPACE_CAMPAIGNS_PATH")
+        if os.getenv("METAGIT_WORKSPACE_WORKTREES_PATH"):
+            config.workspace.worktrees_path = os.getenv("METAGIT_WORKSPACE_WORKTREES_PATH")
         if os.getenv("METAGIT_WORKSPACE_DEFAULT_PROJECT"):
             config.workspace.default_project = os.getenv("METAGIT_WORKSPACE_DEFAULT_PROJECT")
         if os.getenv("METAGIT_WORKSPACE_DEDUPE_ENABLED"):

@@ -16,7 +16,7 @@
 #
 
 import warnings
-from distutils.version import LooseVersion
+from pyspark.loose_version import LooseVersion
 
 import matplotlib as mat
 import numpy as np

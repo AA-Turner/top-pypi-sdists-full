@@ -4393,6 +4393,29 @@ def register_generated_tools(mcp, _get_client):
         except Exception as e:
             return f"Error: {e}"
 
+    @mcp.tool(
+        annotations=ToolAnnotations(
+            title="Get Facebook post reactions",
+            readOnlyHint=True,
+            destructiveHint=False,
+            openWorldHint=False,
+        )
+    )
+    def analytics_get_facebook_post_reactions(account_id: str, post_id: str) -> str:
+        """Get Facebook post reactions
+
+        Args:
+            account_id: The ID of the Facebook Page account (required)
+            post_id: The Facebook post ID (required)"""
+        client = _get_client()
+        try:
+            response = client.analytics.get_facebook_post_reactions(
+                account_id=account_id, post_id=post_id
+            )
+            return _format_response(response)
+        except Exception as e:
+            return f"Error: {e}"
+
     # API_KEYS
 
     @mcp.tool(
@@ -4819,14 +4842,14 @@ def register_generated_tools(mcp, _get_client):
 
     @mcp.tool(
         annotations=ToolAnnotations(
-            title="Get a call recording (any channel)",
+            title="Get a call recording",
             readOnlyHint=True,
             destructiveHint=False,
             openWorldHint=False,
         )
     )
     def calls_get_call_recording(id: str, as_: str | None = None) -> str:
-        """Get a call recording (any channel)
+        """Get a call recording
 
         Args:
             id: (required)
@@ -5208,6 +5231,77 @@ def register_generated_tools(mcp, _get_client):
 
     @mcp.tool(
         annotations=ToolAnnotations(
+            title="Edit comment",
+            readOnlyHint=False,
+            destructiveHint=True,
+            openWorldHint=True,
+        )
+    )
+    def comments_edit_inbox_comment(
+        post_id: str, comment_id: str, account_id: str, platform: str, content: str
+    ) -> str:
+        """Edit comment
+
+        Args:
+            post_id: (required)
+            comment_id: (required)
+            account_id: The social account ID (required)
+            platform: Only Reddit supports editing a comment (required)
+            content: The new comment body (required)"""
+        client = _get_client()
+        try:
+            response = client.comments.edit_inbox_comment(
+                post_id=post_id,
+                comment_id=comment_id,
+                account_id=account_id,
+                platform=platform,
+                content=content,
+            )
+            return _format_response(response)
+        except Exception as e:
+            return f"Error: {e}"
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
+            title="Set comment moderation status",
+            readOnlyHint=False,
+            destructiveHint=True,
+            openWorldHint=True,
+        )
+    )
+    def comments_set_comment_moderation(
+        post_id: str,
+        comment_id: str,
+        account_id: str,
+        platform: str,
+        moderation_status: str,
+        ban_author: bool | None = None,
+    ) -> str:
+        """Set comment moderation status
+
+        Args:
+            post_id: (required)
+            comment_id: (required)
+            account_id: The social account ID (required)
+            platform: Only YouTube supports comment moderation (required)
+            moderation_status: published approves the comment, rejected removes it, heldForReview returns it to the queue. (required)
+            ban_author: Also ban the comment's author, auto-rejecting their future comments. Only valid when moderationStatus is "rejected"; any other pairing is a 400."""
+        client = _get_client()
+        try:
+            response = client.comments.set_comment_moderation(
+                post_id=post_id,
+                comment_id=comment_id,
+                account_id=account_id,
+                platform=platform,
+                moderation_status=moderation_status,
+                ban_author=ban_author,
+            )
+            return _format_response(response)
+        except Exception as e:
+            return f"Error: {e}"
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
             title="Hide comment",
             readOnlyHint=False,
             destructiveHint=True,
@@ -5381,7 +5475,7 @@ def register_generated_tools(mcp, _get_client):
         Args:
             platform: Social media platform to connect (required)
             profile_id: Your Zernio profile ID (get from /v1/profiles) (required)
-            redirect_url: Your custom redirect URL after connection completes. Standard mode appends ?connected={platform}&profileId=X&accountId=Y&username=Z. Headless mode appends OAuth data params for platforms requiring selection (e.g. LinkedIn orgs, Facebook pages). If no selection is needed, the account is created directly and the redirect includes accountId.
+            redirect_url: Your custom redirect URL after connection completes. Accepts an http(s) URL, a custom app scheme for mobile deeplinks (e.g. myapp://callback), or a relative path. Result params are appended with the URL API, so an existing query string is preserved. Standard mode appends connected={platform}&profileId=X&accountId=Y&username=Z. Headless mode appends OAuth data params for platforms requiring selection (e.g. LinkedIn orgs, Facebook pages). If no selection is needed, the account is created directly and the redirect includes accountId.
             headless: When true, the user is redirected to your redirect_url with raw OAuth data (code, state) instead of Zernio's default account selection UI. Use this to build a custom connect experience."""
         client = _get_client()
         try:
@@ -5448,7 +5542,7 @@ def register_generated_tools(mcp, _get_client):
         omit to enter ads-only mode (no TikTok posting account linked; ad creation uses
         a Brand Identity instead of a TT_USER). Ignored for same-token (`facebook`,
         `instagram`, `linkedin`, `pinterest`) and standalone (`googleads`) platforms.
-                redirect_url: Custom redirect URL after OAuth completes (same-token platforms only)
+                redirect_url: Custom redirect URL after OAuth completes (same-token platforms only). Accepts an http(s) URL, a custom app scheme for mobile deeplinks (e.g. myapp://callback), or a relative path.
                 headless: Enable headless mode (same-token platforms only)
                 ad_account_id: Scope ad sync to a single platform ad account. Without this param,
         sync covers every ad account the connected token can see. Supported
@@ -6336,6 +6430,56 @@ def register_generated_tools(mcp, _get_client):
 
     @mcp.tool(
         annotations=ToolAnnotations(
+            title="Get subreddit rules",
+            readOnlyHint=True,
+            destructiveHint=False,
+            openWorldHint=False,
+        )
+    )
+    def connect_get_subreddit_rules(account_id: str, subreddit: str) -> str:
+        """Get subreddit rules
+
+        Args:
+            account_id: The ID of the Reddit account (required)
+            subreddit: Subreddit name (without the "r/" prefix) (required)"""
+        client = _get_client()
+        try:
+            response = client.connect.get_subreddit_rules(
+                account_id=account_id, subreddit=subreddit
+            )
+            return _format_response(response)
+        except Exception as e:
+            return f"Error: {e}"
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
+            title="Vote on a Reddit post or comment",
+            readOnlyHint=False,
+            destructiveHint=True,
+            openWorldHint=True,
+        )
+    )
+    def connect_vote_reddit_thing(
+        account_id: str, thing_id: str, direction: int
+    ) -> str:
+        """Vote on a Reddit post or comment
+
+           Args:
+               account_id: The ID of the Reddit account casting the vote (required)
+               thing_id: Reddit fullname of the target. Prefix "t3_" for a post and "t1_" for a comment. A bare id with no prefix is treated as a post ("t3_").
+        (required)
+               direction: 1 to upvote, -1 to downvote, 0 to clear an existing vote (required)"""
+        client = _get_client()
+        try:
+            response = client.connect.vote_reddit_thing(
+                account_id=account_id, thing_id=thing_id, direction=direction
+            )
+            return _format_response(response)
+        except Exception as e:
+            return f"Error: {e}"
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
             title="List subreddit flairs",
             readOnlyHint=True,
             destructiveHint=False,
@@ -6352,6 +6496,42 @@ def register_generated_tools(mcp, _get_client):
         try:
             response = client.connect.get_reddit_flairs(
                 account_id=account_id, subreddit=subreddit
+            )
+            return _format_response(response)
+        except Exception as e:
+            return f"Error: {e}"
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
+            title="Set Reddit post flair",
+            readOnlyHint=False,
+            destructiveHint=True,
+            openWorldHint=True,
+        )
+    )
+    def connect_set_reddit_post_flair(
+        account_id: str,
+        subreddit: str,
+        post_id: str,
+        flair_template_id: str,
+        text: str | None = None,
+    ) -> str:
+        """Set Reddit post flair
+
+        Args:
+            account_id: The ID of the Reddit account that owns the post (required)
+            subreddit: Subreddit name (without the "r/" prefix) (required)
+            post_id: Reddit post id, with or without the t3_ prefix (required)
+            flair_template_id: Flair template id from the GET on this path (required)
+            text: Optional override text, only for editable flair templates"""
+        client = _get_client()
+        try:
+            response = client.connect.set_reddit_post_flair(
+                account_id=account_id,
+                subreddit=subreddit,
+                post_id=post_id,
+                flair_template_id=flair_template_id,
+                text=text,
             )
             return _format_response(response)
         except Exception as e:
@@ -6884,6 +7064,119 @@ def register_generated_tools(mcp, _get_client):
 
     @mcp.tool(
         annotations=ToolAnnotations(
+            title="Create a Discord guild role",
+            readOnlyHint=False,
+            destructiveHint=True,
+            openWorldHint=True,
+        )
+    )
+    def discord_create_discord_guild_role(
+        guild_id: str,
+        account_id: str,
+        name: str,
+        color: int | None = None,
+        hoist: bool | None = None,
+        mentionable: bool | None = None,
+        permissions: str | None = None,
+    ) -> str:
+        """Create a Discord guild role
+
+        Args:
+            guild_id: Discord guild snowflake ID (required)
+            account_id: SocialAccount _id of the Discord account bound to this guild (required)
+            name: (required)
+            color: Decimal color (0 = no color). 0xFF0000 red is 16711680.
+            hoist: Display members with this role separately in the member list
+            mentionable: Allow anyone to @mention this role
+            permissions: Permissions bitfield as a stringified integer"""
+        client = _get_client()
+        try:
+            response = client.discord.create_discord_guild_role(
+                guild_id=guild_id,
+                account_id=account_id,
+                name=name,
+                color=color,
+                hoist=hoist,
+                mentionable=mentionable,
+                permissions=permissions,
+            )
+            return _format_response(response)
+        except Exception as e:
+            return f"Error: {e}"
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
+            title="Edit a Discord guild role",
+            readOnlyHint=False,
+            destructiveHint=True,
+            openWorldHint=True,
+        )
+    )
+    def discord_edit_discord_guild_role(
+        guild_id: str,
+        role_id: str,
+        account_id: str,
+        name: str | None = None,
+        color: int | None = None,
+        hoist: bool | None = None,
+        mentionable: bool | None = None,
+        permissions: str | None = None,
+    ) -> str:
+        """Edit a Discord guild role
+
+        Args:
+            guild_id: Discord guild snowflake ID (required)
+            role_id: Discord role snowflake ID (required)
+            account_id: SocialAccount _id of the Discord account bound to this guild (required)
+            name
+            color
+            hoist
+            mentionable
+            permissions: Permissions bitfield as a stringified integer"""
+        client = _get_client()
+        try:
+            response = client.discord.edit_discord_guild_role(
+                guild_id=guild_id,
+                role_id=role_id,
+                account_id=account_id,
+                name=name,
+                color=color,
+                hoist=hoist,
+                mentionable=mentionable,
+                permissions=permissions,
+            )
+            return _format_response(response)
+        except Exception as e:
+            return f"Error: {e}"
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
+            title="Delete a Discord guild role",
+            readOnlyHint=False,
+            destructiveHint=True,
+            openWorldHint=True,
+        )
+    )
+    def discord_delete_discord_guild_role(
+        guild_id: str, role_id: str, account_id: str
+    ) -> str:
+        """Delete a Discord guild role
+
+        Args:
+            guild_id: Discord guild snowflake ID (required)
+            role_id: Discord role snowflake ID (required)
+            account_id: SocialAccount _id of the Discord account bound to this guild (required)"""
+        client = _get_client()
+        try:
+            response = client.discord.delete_discord_guild_role(
+                guild_id=guild_id, role_id=role_id, account_id=account_id
+            )
+            return _format_response(response)
+        except Exception as e:
+            return f"Error: {e}"
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
             title="List Discord guild members",
             readOnlyHint=True,
             destructiveHint=False,
@@ -6964,6 +7257,94 @@ def register_generated_tools(mcp, _get_client):
                 user_id=user_id,
                 role_id=role_id,
                 account_id=account_id,
+            )
+            return _format_response(response)
+        except Exception as e:
+            return f"Error: {e}"
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
+            title="Delete a Discord channel message",
+            readOnlyHint=False,
+            destructiveHint=True,
+            openWorldHint=True,
+        )
+    )
+    def discord_delete_discord_message(
+        channel_id: str, message_id: str, account_id: str
+    ) -> str:
+        """Delete a Discord channel message
+
+        Args:
+            channel_id: Discord channel snowflake ID (required)
+            message_id: Discord message snowflake ID (required)
+            account_id: SocialAccount _id of the Discord account bound to this channel's guild (required)"""
+        client = _get_client()
+        try:
+            response = client.discord.delete_discord_message(
+                channel_id=channel_id, message_id=message_id, account_id=account_id
+            )
+            return _format_response(response)
+        except Exception as e:
+            return f"Error: {e}"
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
+            title="Crosspost Discord message",
+            readOnlyHint=False,
+            destructiveHint=True,
+            openWorldHint=True,
+        )
+    )
+    def discord_crosspost_discord_message(
+        channel_id: str, message_id: str, account_id: str
+    ) -> str:
+        """Crosspost Discord message
+
+        Args:
+            channel_id: Discord announcement channel snowflake ID (required)
+            message_id: Discord message snowflake ID (required)
+            account_id: SocialAccount _id of the Discord account bound to this channel's guild (required)"""
+        client = _get_client()
+        try:
+            response = client.discord.crosspost_discord_message(
+                channel_id=channel_id, message_id=message_id, account_id=account_id
+            )
+            return _format_response(response)
+        except Exception as e:
+            return f"Error: {e}"
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
+            title="Create a Discord public thread",
+            readOnlyHint=False,
+            destructiveHint=True,
+            openWorldHint=True,
+        )
+    )
+    def discord_create_discord_thread(
+        channel_id: str,
+        account_id: str,
+        name: str,
+        message_id: str | None = None,
+        auto_archive_duration: int | None = None,
+    ) -> str:
+        """Create a Discord public thread
+
+        Args:
+            channel_id: Discord channel snowflake ID (required)
+            account_id: SocialAccount _id of the Discord account bound to this channel's guild (required)
+            name: Thread name (required)
+            message_id: Optional message snowflake to start the thread from. Omit for a standalone thread.
+            auto_archive_duration: Minutes of inactivity before the thread auto-archives. Discord accepts only these four values."""
+        client = _get_client()
+        try:
+            response = client.discord.create_discord_thread(
+                channel_id=channel_id,
+                account_id=account_id,
+                name=name,
+                message_id=message_id,
+                auto_archive_duration=auto_archive_duration,
             )
             return _format_response(response)
         except Exception as e:
@@ -7706,6 +8087,28 @@ def register_generated_tools(mcp, _get_client):
 
     @mcp.tool(
         annotations=ToolAnnotations(
+            title="Get Instagram publishing limit",
+            readOnlyHint=True,
+            destructiveHint=False,
+            openWorldHint=False,
+        )
+    )
+    def instagram_get_instagram_publishing_limit(account_id: str) -> str:
+        """Get Instagram publishing limit
+
+        Args:
+            account_id: The ID of the Instagram account (required)"""
+        client = _get_client()
+        try:
+            response = client.instagram.get_instagram_publishing_limit(
+                account_id=account_id
+            )
+            return _format_response(response)
+        except Exception as e:
+            return f"Error: {e}"
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
             title="Get Instagram story insights",
             readOnlyHint=True,
             destructiveHint=False,
@@ -7897,6 +8300,36 @@ def register_generated_tools(mcp, _get_client):
         except Exception as e:
             return f"Error: {e}"
 
+    @mcp.tool(
+        annotations=ToolAnnotations(
+            title="Reply to a mention",
+            readOnlyHint=False,
+            destructiveHint=True,
+            openWorldHint=True,
+        )
+    )
+    def mentions_reply_to_mention(
+        account_id: str, media_id: str, message: str, comment_id: str | None = None
+    ) -> str:
+        """Reply to a mention
+
+        Args:
+            account_id: The Instagram social account ID (required)
+            media_id: The ID of the media the account was mentioned in (required)
+            comment_id: The mentioning comment's ID. Omit for a caption mention.
+            message: The reply text (required)"""
+        client = _get_client()
+        try:
+            response = client.mentions.reply_to_mention(
+                account_id=account_id,
+                media_id=media_id,
+                comment_id=comment_id,
+                message=message,
+            )
+            return _format_response(response)
+        except Exception as e:
+            return f"Error: {e}"
+
     # MESSAGES
 
     @mcp.tool(
@@ -7969,7 +8402,7 @@ def register_generated_tools(mcp, _get_client):
             skip_dm_check: X/Twitter only. Skip the receives_your_dm eligibility check before sending. Use if you have already verified the recipient accepts DMs.
             template_name: WhatsApp only. Name of the approved template to start the conversation with (required for WhatsApp).
             template_language: WhatsApp only. Template language code (e.g. en_US).
-            template_params: WhatsApp only. Body variable values, in order. Works with positional placeholders ({{1}}, {{2}}, ...) and with named placeholders ({{name}}, {{company}} - how Meta Business Manager creates templates), where values fill the named slots in order of appearance."""
+            template_params: WhatsApp only. Template variable values as one flat array, in the order the variables appear across the whole template: text-header variables first, then body variables, then one value per dynamic URL button (in button order). Works with positional placeholders ({{1}}, {{2}}, ...) and with named placeholders ({{name}}, {{company}} - how Meta Business Manager creates templates), where values fill the named slots in order of appearance. Example - a body with {{1}}, {{2}} plus a URL button https://example.com/{{1}} takes three values: [body1, body2, buttonSuffix]. Media headers (image, video, document) are filled automatically from the approved template and take no value here."""
         client = _get_client()
         try:
             response = client.messages.create_inbox_conversation(
@@ -9316,8 +9749,8 @@ def register_generated_tools(mcp, _get_client):
 
         Args:
             post_id: (required)
-            platform: The platform to edit the post on. Currently only twitter is supported. (required)
-            content: The new tweet text content (required)"""
+            platform: The platform to edit the post on. (required)
+            content: The new post text content (required)"""
         client = _get_client()
         try:
             response = client.posts.edit_post(
@@ -10245,12 +10678,16 @@ def register_generated_tools(mcp, _get_client):
     ) -> str:
         """Start a carrier registration
 
-        Args:
-            registration_type: (required)
-            phone_numbers: Your numbers this registration covers. (required)
-            brand: Required for 10DLC. The legal entity behind the traffic (TCR brand).
-            campaign: Required for 10DLC. What you'll send and how recipients opt in/out.
-            toll_free: Required for toll_free."""
+            Args:
+                registration_type: (required)
+                phone_numbers: Your numbers this registration covers. (required)
+                brand: Required for 10DLC. The legal entity behind the traffic (TCR brand).
+                campaign: Required for 10DLC. What you'll send and how recipients opt in/out.
+        Opt-in/opt-out/help auto-responses must name the registered brand and
+        carry the carrier-required disclosures; submissions that don't (or that
+        are blank) are automatically rewritten to a compliant, brand-named
+        template before the campaign is filed.
+                toll_free: Required for toll_free."""
         client = _get_client()
         try:
             response = client.sms.start_sms_registration(
@@ -10407,14 +10844,14 @@ def register_generated_tools(mcp, _get_client):
 
     @mcp.tool(
         annotations=ToolAnnotations(
-            title="Add a number to an existing registration",
+            title="Add number to SMS registration",
             readOnlyHint=False,
             destructiveHint=True,
             openWorldHint=True,
         )
     )
     def sms_reuse_sms_registration_for_number(id: str) -> str:
-        """Add a number to an existing registration
+        """Add number to SMS registration
 
         Args:
             id: (required)"""
@@ -10803,6 +11240,23 @@ def register_generated_tools(mcp, _get_client):
 
     @mcp.tool(
         annotations=ToolAnnotations(
+            title="Account billing snapshot (plan, cycle, balance, caps, status)",
+            readOnlyHint=True,
+            destructiveHint=False,
+            openWorldHint=False,
+        )
+    )
+    def usage_get_billing() -> str:
+        """Account billing snapshot (plan, cycle, balance, caps, status)"""
+        client = _get_client()
+        try:
+            response = client.usage.get_billing()
+            return _format_response(response)
+        except Exception as e:
+            return f"Error: {e}"
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
             title="Get X/Twitter API pricing table",
             readOnlyHint=True,
             destructiveHint=False,
@@ -10820,38 +11274,57 @@ def register_generated_tools(mcp, _get_client):
 
     @mcp.tool(
         annotations=ToolAnnotations(
-            title="Get plan and usage snapshot",
+            title="Usage snapshot (default) or billed-spend metering (with params)",
             readOnlyHint=True,
             destructiveHint=False,
             openWorldHint=False,
         )
     )
-    def usage_get_usage(reconcile: bool | None = None) -> str:
-        """Get plan and usage snapshot
+    def usage_get_usage(
+        reconcile: bool | None = None,
+        range: str = "cycle",
+        from_: str | None = None,
+        to: str | None = None,
+        granularity: str = "day",
+    ) -> str:
+        """Usage snapshot (default) or billed-spend metering (with params)
 
             Args:
-                reconcile: For Stripe subscription users, `true` forces a subscription
-        reconciliation pass even when cached plan data looks complete.
-        Omit the parameter, or pass `false`, to use the default
-        first-time-only reconciliation behavior. Invalid boolean values are
-        rejected."""
+                reconcile: Snapshot mode only. For Stripe subscription users, `true` forces a
+        subscription reconciliation pass even when cached plan data looks
+        complete.
+                range: Window to report. `cycle` / `prev-cycle` resolve to the customer's
+        real billing-period bounds (falling back to a trailing 30 days when
+        no invoice exists yet); `7d`…`12mo` are trailing windows; `custom`
+        uses `from` / `to`.
+                from_: Inclusive start (UTC date). Required when `range=custom`.
+                to: Inclusive end (UTC date). Required when `range=custom`. Max span 366 days.
+                granularity: Bucketing of the `days` series: `day` (one row per UTC day),
+        `month` (one row per calendar month, dated to the 1st), or `total`
+        (no series — read `totals`). Does not affect `totals`."""
         client = _get_client()
         try:
-            response = client.usage.get_usage(reconcile=reconcile)
+            response = client.usage.get_usage(
+                reconcile=reconcile,
+                range=range,
+                from_=from_,
+                to=to,
+                granularity=granularity,
+            )
             return _format_response(response)
         except Exception as e:
             return f"Error: {e}"
 
     @mcp.tool(
         annotations=ToolAnnotations(
-            title="Get plan and usage stats",
+            title="Get plan and usage snapshot (plan, limits, payment status)",
             readOnlyHint=True,
             destructiveHint=False,
             openWorldHint=False,
         )
     )
     def usage_get_usage_stats(reconcile: bool | None = None) -> str:
-        """Get plan and usage stats
+        """Get plan and usage snapshot (plan, limits, payment status)
 
             Args:
                 reconcile: For Stripe subscription users, `true` forces a subscription
@@ -10868,7 +11341,7 @@ def register_generated_tools(mcp, _get_client):
 
     @mcp.tool(
         annotations=ToolAnnotations(
-            title="Calling usage (volumes + billable cost)",
+            title="Calling usage and cost",
             readOnlyHint=True,
             destructiveHint=False,
             openWorldHint=False,
@@ -10881,7 +11354,7 @@ def register_generated_tools(mcp, _get_client):
         number: str | None = None,
         group_by: str | None = None,
     ) -> str:
-        """Calling usage (volumes + billable cost)
+        """Calling usage and cost
 
         Args:
             since: Start of the window (inclusive). Default 30 days before `until`.
@@ -11798,11 +12271,17 @@ def register_generated_tools(mcp, _get_client):
             openWorldHint=True,
         )
     )
-    def whatsapp_upload_whats_app_profile_photo() -> str:
-        """Upload profile picture"""
+    def whatsapp_upload_whats_app_profile_photo(account_id: str, url: str) -> str:
+        """Upload profile picture
+
+        Args:
+            account_id: WhatsApp social account ID (required)
+            url: Publicly reachable https URL of the image (JPEG or PNG, max 5MB, recommended 640x640). Fetched server-side; must resolve directly without redirects. (required)"""
         client = _get_client()
         try:
-            response = client.whatsapp.upload_whats_app_profile_photo()
+            response = client.whatsapp.upload_whats_app_profile_photo(
+                account_id=account_id, url=url
+            )
             return _format_response(response)
         except Exception as e:
             return f"Error: {e}"

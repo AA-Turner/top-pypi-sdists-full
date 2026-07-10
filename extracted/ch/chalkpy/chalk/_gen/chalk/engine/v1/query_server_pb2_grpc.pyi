@@ -27,6 +27,10 @@ from chalk._gen.chalk.common.v1.upload_features_pb2 import (
     UploadFeaturesRequest,
     UploadFeaturesResponse,
 )
+from chalk._gen.chalk.engine.v1.bloom_filter_pb2 import (
+    InspectBloomFiltersRequest,
+    InspectBloomFiltersResponse,
+)
 from chalk._gen.chalk.engine.v1.query_server_pb2 import (
     GetPullQueryResultRequest,
     GetPullQueryResultResponse,
@@ -92,6 +96,10 @@ class QueryServiceStub:
         GetPullQueryResultResponse,
     ]
     """Poll for pull query results. Results are stored in Redis keyed by query_id."""
+    InspectBloomFilters: UnaryUnaryMultiCallable[
+        InspectBloomFiltersRequest,
+        InspectBloomFiltersResponse,
+    ]
 
 class QueryServiceServicer(metaclass=ABCMeta):
     @abstractmethod
@@ -162,5 +170,11 @@ class QueryServiceServicer(metaclass=ABCMeta):
         context: ServicerContext,
     ) -> GetPullQueryResultResponse:
         """Poll for pull query results. Results are stored in Redis keyed by query_id."""
+    @abstractmethod
+    def InspectBloomFilters(
+        self,
+        request: InspectBloomFiltersRequest,
+        context: ServicerContext,
+    ) -> InspectBloomFiltersResponse: ...
 
 def add_QueryServiceServicer_to_server(servicer: QueryServiceServicer, server: Server) -> None: ...

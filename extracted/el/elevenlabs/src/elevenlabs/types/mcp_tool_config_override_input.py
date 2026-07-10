@@ -7,10 +7,11 @@ from ..core.pydantic_utilities import IS_PYDANTIC_V2
 from ..core.unchecked_base_model import UncheckedBaseModel
 from .dynamic_variable_assignment import DynamicVariableAssignment
 from .mcp_tool_config_override_input_input_overrides_value import McpToolConfigOverrideInputInputOverridesValue
+from .mcp_tool_config_override_input_tool_call_sound import McpToolConfigOverrideInputToolCallSound
 from .pre_tool_speech_mode import PreToolSpeechMode
 from .tool_call_sound_behavior import ToolCallSoundBehavior
-from .tool_call_sound_type import ToolCallSoundType
 from .tool_execution_mode import ToolExecutionMode
+from .tool_interruption_mode import ToolInterruptionMode
 from .tool_response_mock_config_input import ToolResponseMockConfigInput
 
 
@@ -32,12 +33,17 @@ class McpToolConfigOverrideInput(UncheckedBaseModel):
 
     disable_interruptions: typing.Optional[bool] = pydantic.Field(default=None)
     """
-    If set, overrides the server's disable_interruptions setting for this tool
+    DEPRECATED: use `interruption_mode` instead. If set, overrides the server's disable_interruptions setting for this tool.
     """
 
-    tool_call_sound: typing.Optional[ToolCallSoundType] = pydantic.Field(default=None)
+    interruption_mode: typing.Optional[ToolInterruptionMode] = pydantic.Field(default=None)
     """
-    If set, overrides the server's tool_call_sound setting for this tool
+    If set, overrides the server's interruption_mode setting for this tool.
+    """
+
+    tool_call_sound: typing.Optional[McpToolConfigOverrideInputToolCallSound] = pydantic.Field(default=None)
+    """
+    Overrides the server's tool_call_sound setting for this tool. A sound name plays that sound; 'off' overrides to no sound (silence); null means do not override (inherit the server default).
     """
 
     tool_call_sound_behavior: typing.Optional[ToolCallSoundBehavior] = pydantic.Field(default=None)

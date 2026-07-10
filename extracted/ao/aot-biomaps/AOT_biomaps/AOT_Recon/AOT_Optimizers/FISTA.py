@@ -125,7 +125,7 @@ def FISTA(
     ZX = Z * X
 
     if SMatrix.T != y.shape[0] or SMatrix.N != y.shape[1]:
-        raise ValueError(f"Shape mismatch: y={y.shape}, SMatrix T={SMatrix.T}, N={SMatrix.N}.")
+        raise ValueError(f"[AOT-biomaps] Shape mismatch: y={y.shape}, SMatrix T={SMatrix.T}, N={SMatrix.N}.")
 
     y_flat = xp.asarray(y.T.flatten(), dtype=xp.float32)
     
@@ -146,7 +146,7 @@ def FISTA(
         alpha_val = alpha
 
     if preconditioner_type != PreconditionerType.NONE:
-        if show_logs: print(f"[FISTA] Calcul du préconditionneur : {preconditioner_type.name}...")
+        if show_logs: print(f"[AOT-biomaps] preconditionning calculation : {preconditioner_type.name}...")
         preconditioner = build_preconditioner(SMatrix, preconditioner_type)
         preconditioner /= xp.max(preconditioner)
         alpha_vec = alpha_val / (preconditioner + 1e-8)
@@ -162,7 +162,7 @@ def FISTA(
     window_history = []
 
     prec_str = "Precond" if preconditioner_type != PreconditionerType.NONE else "NoPrecond"
-    description = f"AOT-BioMaps -- FISTA-{prec_str} ({SMatrix.matrix_type.name}) with {potential_type.name} β={beta} ---- {'WITH' if withTumor else 'WITHOUT'} TUMOR"
+    description = f"[AOT-biomaps] FISTA-{prec_str} ({SMatrix.matrix_type.name}) with {potential_type.name} β={beta} ---- {'WITH' if withTumor else 'WITHOUT'} TUMOR"
     iterator = trange(numIterations, desc=description) if show_logs else range(numIterations)
 
     for it in iterator:
@@ -202,7 +202,7 @@ def FISTA(
             if show_logs and show_criterion:
                 iterator.set_postfix_str(f"{stop_criterion.name}: {val:.2e}")
             if isStop:
-                if show_logs: print(f"\n[Stopping] Criterion {stop_criterion.name} reached at iteration {it}.")
+                if show_logs: print(f"\n[AOT-biomaps] Stopping Criterion {stop_criterion.name} reached at iteration {it}.")
                 cost_history.pop() if isCostFunction else None
                 break
             

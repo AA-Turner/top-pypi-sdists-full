@@ -236,6 +236,7 @@ from .type_defs import (
     DeactivateEvaluationFormRequestTypeDef,
     DeactivateEvaluationFormResponseTypeDef,
     DeleteAttachedFileRequestTypeDef,
+    DeleteContactDataRequestTypeDef,
     DeleteContactEvaluationRequestTypeDef,
     DeleteContactFlowModuleAliasRequestTypeDef,
     DeleteContactFlowModuleRequestTypeDef,
@@ -735,6 +736,7 @@ class Exceptions(BaseClientExceptions):
     ConflictException: type[BotocoreClientError]
     ContactFlowNotPublishedException: type[BotocoreClientError]
     ContactNotFoundException: type[BotocoreClientError]
+    ContactNotTerminatedException: type[BotocoreClientError]
     DestinationNotAllowedException: type[BotocoreClientError]
     DuplicateResourceException: type[BotocoreClientError]
     IdempotencyException: type[BotocoreClientError]
@@ -1537,6 +1539,17 @@ class ConnectClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connect/client/delete_attached_file.html)
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_connect/client/#delete_attached_file)
+        """
+
+    def delete_contact_data(
+        self, **kwargs: Unpack[DeleteContactDataRequestTypeDef]
+    ) -> dict[str, Any]:
+        """
+        Deletes the specified fields containing personally identifiable information
+        (PII) from a contact in the specified Connect Customer instance.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connect/client/delete_contact_data.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_connect/client/#delete_contact_data)
         """
 
     def delete_contact_evaluation(

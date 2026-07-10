@@ -86,6 +86,8 @@ py::object ContentStreamInlineImage::get_inline_image() const
     auto kwargs = py::dict();
     kwargs["image_data"] = this->image_data;
     kwargs["image_object"] = this->image_metadata;
+    if (this->resources.isInitialized() && !this->resources.isNull())
+        kwargs["resources"] = this->resources;
     auto iimage = PdfInlineImage(**kwargs);
     return iimage;
 }
@@ -111,8 +113,8 @@ std::ostream &operator<<(std::ostream &os, ContentStreamInlineImage &csii)
     return os;
 }
 
-OperandGrouper::OperandGrouper(const std::string &operators)
-    : parsing_inline_image(false), count(0)
+OperandGrouper::OperandGrouper(const std::string &operators, QPDFObjectHandle resources)
+    : parsing_inline_image(false), count(0), resources(resources)
 {
     std::istringstream f(operators);
     f.imbue(std::locale::classic());
@@ -149,7 +151,8 @@ void OperandGrouper::handleObject(QPDFObjectHandle obj)
             if (op == "ID") {
                 this->inline_metadata = this->tokens;
             } else if (op == "EI") {
-                ContentStreamInlineImage csii(this->inline_metadata, this->tokens[0]);
+                ContentStreamInlineImage csii(
+                    this->inline_metadata, this->tokens[0], this->resources);
                 this->instructions.append(csii);
                 this->inline_metadata = ObjectList();
                 this->parsing_inline_image = false;

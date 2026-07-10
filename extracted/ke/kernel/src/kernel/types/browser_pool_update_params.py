@@ -21,9 +21,13 @@ class BrowserPoolUpdateParams(TypedDict, total=False):
     """
 
     discard_all_idle: bool
-    """Whether to discard all idle browsers and rebuild the pool immediately.
-
-    Defaults to false.
+    """
+    Whether to discard all idle browsers and rebuild them immediately with the new
+    configuration. Defaults to false. Only browsers that are idle when the update
+    runs are rebuilt. A browser that is in use during the update keeps its original
+    configuration, and if it is later released with `reuse: true` it returns to the
+    pool with that stale configuration until it is discarded (by this flag on a
+    later update, or by flushing the pool).
     """
 
     extensions: Iterable[BrowserExtension]
@@ -52,20 +56,25 @@ class BrowserPoolUpdateParams(TypedDict, total=False):
     """Optional name for the browser pool. Must be unique within the project."""
 
     profile: Profile
-    """Profile selection for browsers in a pool.
+    """Profile configuration for browsers in a pool.
 
-    Provide either id or name. The matching profile is loaded into every browser in
-    the pool. Profiles must be created beforehand. Unlike single browser sessions,
-    pools load the profile read-only and never persist changes back to it, so
-    save_changes is omitted here. Any save_changes value sent on a pool profile is
-    silently ignored rather than rejected, so callers reusing a single-session
-    profile object will not error.
+    Provide either id or name. Profiles must be created beforehand. Unlike single
+    browser sessions, pools load the profile read-only and never persist changes
+    back to it, so save_changes is omitted here. Any save_changes value sent on a
+    pool profile is silently ignored rather than rejected.
     """
 
     proxy_id: str
     """Optional proxy to associate to the browser session.
 
     Must reference a proxy in the same project as the browser session.
+    """
+
+    refresh_on_profile_update: bool
+    """
+    When true, flush idle browsers when the profile the pool uses is updated, so
+    pool browsers pick up the latest profile data. Requires a profile to be set on
+    the pool.
     """
 
     size: int
@@ -114,13 +123,12 @@ class BrowserPoolUpdateParams(TypedDict, total=False):
 
 
 class Profile(TypedDict, total=False):
-    """Profile selection for browsers in a pool.
+    """Profile configuration for browsers in a pool.
 
-    Provide either id or name. The matching profile is
-    loaded into every browser in the pool. Profiles must be created beforehand. Unlike single
-    browser sessions, pools load the profile read-only and never persist changes back to it, so
-    save_changes is omitted here. Any save_changes value sent on a pool profile is silently
-    ignored rather than rejected, so callers reusing a single-session profile object will not error.
+    Provide either id or name. Profiles must
+    be created beforehand. Unlike single browser sessions, pools load the profile read-only
+    and never persist changes back to it, so save_changes is omitted here. Any save_changes
+    value sent on a pool profile is silently ignored rather than rejected.
     """
 
     id: str

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: peewee
-Version: 4.1.1
+Version: 4.1.2
 Summary: a little orm
 Author-email: Charles Leifer <coleifer@gmail.com>
 Project-URL: Repository, https://github.com/coleifer/peewee

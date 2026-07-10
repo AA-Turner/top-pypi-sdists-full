@@ -4,6 +4,55 @@ use super::*;
 /// Hessian unfactorable.
 const SAE_MANIFOLD_ROW_RIDGE_MAX_ATTEMPTS: usize = 12;
 
+/// Floor on the per-axis coordinate spread used to guard the ARD moment-match
+/// (`α' = α · spread_pre / spread_post`, F3). Below this the spread is
+/// numerically degenerate (a near-constant coordinate) and the ratio is
+/// meaningless, so the untransformed precision is stamped instead. Not a tuning
+/// knob — it only fences the division against a vanishing denominator at f64
+/// resolution.
+const ARD_SPREAD_FLOOR: f64 = 1.0e-12;
+
+/// Per-axis spread of a coordinate column used for the ARD moment-match (F3): the
+/// population variance on a flat axis, and the circular variance `1 − R`
+/// (`R = |mean e^{iθ}|`, `θ = 2π t / period`) on a periodic axis — the wrap-aware
+/// second moment, so a seam-straddling circle coordinate is measured by its true
+/// angular concentration rather than a spuriously large linear variance. `NaN`
+/// for an empty column or an out-of-range axis (the caller then leaves the
+/// precision untransformed).
+fn axis_coordinate_spread(coords: ArrayView2<'_, f64>, axis: usize, period: Option<f64>) -> f64 {
+    let n = coords.nrows();
+    if n == 0 || axis >= coords.ncols() {
+        return f64::NAN;
+    }
+    match period {
+        Some(p) if p.is_finite() && p > 0.0 => {
+            let w = std::f64::consts::TAU / p;
+            let mut cs = 0.0;
+            let mut sn = 0.0;
+            for row in 0..n {
+                let ang = coords[[row, axis]] * w;
+                cs += ang.cos();
+                sn += ang.sin();
+            }
+            let r = (cs * cs + sn * sn).sqrt() / n as f64;
+            (1.0 - r).max(0.0)
+        }
+        _ => {
+            let mut mean = 0.0;
+            for row in 0..n {
+                mean += coords[[row, axis]];
+            }
+            mean /= n as f64;
+            let mut var = 0.0;
+            for row in 0..n {
+                let d = coords[[row, axis]] - mean;
+                var += d * d;
+            }
+            var / n as f64
+        }
+    }
+}
+
 /// Per-fit-CONSTANT centered statistics of the reconstruction target, shared by
 /// the #976 decoder-norm co-collapse guard's EV and output-energy signals.
 ///
@@ -54,6 +103,13 @@ impl TargetCenteredColStats {
             col_means[col] = mean;
         }
         Self { col_means, ss_tot }
+    }
+
+    /// Centered total sum of squares `Σ_col Σ_row (y − mean_col)²` — the EV
+    /// normalizer. Exposed for the basin-identity reconstruction distance in
+    /// [`SaeManifoldOuterObjective`] (#2230/#2087).
+    pub(crate) fn ss_tot(&self) -> f64 {
+        self.ss_tot
     }
 }
 
@@ -346,6 +402,33 @@ impl SaeManifoldTerm {
         analytic_penalties: Option<&AnalyticPenaltyRegistry>,
     ) -> Result<(), String> {
         use crate::chart_canonicalization::{CHART_RECOMPOSITION_REL_TOL, CanonicalChartTopology};
+
+        // #F3 — capture the PRE-canonicalization coordinate spread per atom/axis.
+        // The ARD precisions are stamped AFTER the reparameterization below (see the
+        // end of this fn), MOMENT-MATCHED into the canonical chart: a coordinate
+        // prior `½ α t²` whose `α` was REML-calibrated to the FIT-chart coordinate
+        // spread must preserve its mass against the realized spread, so
+        // `α' = α · spread_pre / spread_post`. This is exact for any linear rescale
+        // `t' = c·t` (`α/c²` — e.g. the affine `d = 1` arc-length map) and is the
+        // natural second-moment-matched correction for the nonlinear `d = 2` flows;
+        // non-canonicalized atoms have `spread_post == spread_pre`, so the ratio is
+        // 1 and `α` is unchanged. Periodic axes use the circular variance.
+        let ard_pre_spread: Vec<Vec<f64>> = (0..self.k_atoms())
+            .map(|k| {
+                let coords = self.assignment.coords[k].as_matrix();
+                let periods = self.assignment.coords[k].effective_axis_periods();
+                (0..coords.ncols())
+                    .map(|axis| {
+                        axis_coordinate_spread(
+                            coords.view(),
+                            axis,
+                            periods.get(axis).copied().flatten(),
+                        )
+                    })
+                    .collect()
+            })
+            .collect();
+
         /// Which canonical-representative construction applies to an atom:
         /// arc length for `d = 1` (#1019 stage 1), the minimum-isometry-defect
         /// flow for `d = 2` torus atoms (#1019 stage 2), and the same flow
@@ -573,6 +656,52 @@ impl SaeManifoldTerm {
             Err(err) => {
                 log::warn!("[#1026] hybrid split report unavailable: {err}");
                 self.hybrid_split_report = None;
+            }
+        }
+
+        // #F3 — stamp the MOMENT-MATCHED ARD precisions from the TERMINAL rho, now
+        // that the reparameterization above has settled the canonical chart the
+        // encode uses (see the pre-spread capture at the top of this fn).
+        // `α_a = exp(log_ard[k][a])` is the REML precision in the FIT chart;
+        // `α'_a = α_a · spread_pre / spread_post` re-expresses it against the
+        // canonical chart's realized coordinate spread. Uses the identical
+        // `stable_exp_strength` map as the fit's `ArdAxisPrior`; an atom with no
+        // fitted coordinate prior (`rho.log_ard[k]` empty) is left `None`
+        // (prior-free encode, unchanged). A degenerate/non-finite spread on either
+        // side leaves that axis' `α` untransformed. Guarded on the rho/atom-count
+        // invariant so a malformed rho leaves the priors untouched rather than
+        // panicking during finalization.
+        if rho.log_ard.len() == self.k_atoms() {
+            for atom_idx in 0..self.k_atoms() {
+                let log_ard = &rho.log_ard[atom_idx];
+                self.atoms[atom_idx].ard_precisions = if log_ard.is_empty() {
+                    None
+                } else {
+                    let coords = self.assignment.coords[atom_idx].as_matrix();
+                    let periods = self.assignment.coords[atom_idx].effective_axis_periods();
+                    let pre = &ard_pre_spread[atom_idx];
+                    let stamped: Array1<f64> = (0..log_ard.len())
+                        .map(|axis| {
+                            let alpha = SaeManifoldRho::stable_exp_strength(log_ard[axis]);
+                            let sp_pre = pre.get(axis).copied().unwrap_or(f64::NAN);
+                            let sp_post = axis_coordinate_spread(
+                                coords.view(),
+                                axis,
+                                periods.get(axis).copied().flatten(),
+                            );
+                            if sp_pre.is_finite()
+                                && sp_post.is_finite()
+                                && sp_pre > ARD_SPREAD_FLOOR
+                                && sp_post > ARD_SPREAD_FLOOR
+                            {
+                                alpha * sp_pre / sp_post
+                            } else {
+                                alpha
+                            }
+                        })
+                        .collect();
+                    Some(stamped)
+                };
             }
         }
 
@@ -1769,6 +1898,21 @@ impl SaeManifoldTerm {
         }
         let ev = 1.0 - ssr / sst;
         let out_energy_ratio = sfit / sst;
+        // F9 perf — the exact reachable-rank SVD below (`reachable_dictionary_rank`,
+        // an `O(n·(Σ_k M_k)²)` concatenated decomposition — the ~hundreds-of-MB,
+        // dominant cost of this per-probe check) only feeds `ev_floor = q / n`, and
+        // `q = reachable_dictionary_rank` is CAPPED at `min(n, p)` (see
+        // `reachable_dictionary_rank`). The collapse verdict requires `ev ≤ ev_floor
+        // ≤ min(n, p) / n`, so any fit whose EV clears that data-rank ceiling CANNOT
+        // be a collapse regardless of the exact rank. Skip the SVD and return the
+        // no-collapse verdict directly: healthy probes (the overwhelming majority)
+        // exit here having paid only the `O(n·p)` sums already computed above, and
+        // the returned verdict is byte-identical to the full path (the `ev ≤ ev_floor`
+        // branch at the same bar is the only place `q` can change the outcome).
+        let max_possible_ev_floor = n.min(p) as f64 / n as f64;
+        if ev.is_finite() && ev > max_possible_ev_floor {
+            return Ok(false);
+        }
         // S1 (guard surgery) — the collapse verdict that feeds the outer BFGS WALL
         // must fire ONLY on ABSOLUTE degeneracy, never on a fit that is merely
         // below a competitiveness ceiling. The former `0.5 × dense rank-K PCA
@@ -2241,6 +2385,24 @@ impl SaeManifoldTerm {
                 // just-active, inside the smooth transition band.
                 for row in 0..n {
                     self.assignment.logits[[row, atom]] = threshold + temperature;
+                }
+            }
+            AssignmentMode::TopK { .. } => {
+                // The support is a deterministic top-k of the ROUTING logits, so
+                // "re-seed to neutral" means routing parity: tie the atom with
+                // each row's current winner so the next support refresh can admit
+                // it wherever it carries signal (the analogue of the Softmax
+                // parity re-seed, without any simplex canonicalization).
+                for row in 0..n {
+                    let row_max = self
+                        .assignment
+                        .logits
+                        .row(row)
+                        .iter()
+                        .copied()
+                        .fold(f64::NEG_INFINITY, f64::max);
+                    self.assignment.logits[[row, atom]] =
+                        if row_max.is_finite() { row_max } else { 0.0 };
                 }
             }
         }
@@ -3122,7 +3284,35 @@ impl SaeManifoldTerm {
         let frames = (0..k)
             .map(|atom| crate::manifold::certificate::certificate_output_frame(self, atom))
             .collect::<Result<Vec<_>, String>>()?;
-        let mut collapsed = Vec::new();
+        // OVERCOMPLETE GATE (ibp_default_alpha false-positive root cause). A shared
+        // output subspace is evidence of a REDUNDANT atom only when the dictionary is
+        // NOT overcomplete relative to the output space it actually occupies. Let
+        // `R = dim(⋃_k col Q_k)` be the effective output rank — the dimension spanned
+        // by the atoms' orthonormal decoder output frames. When `K > R`, pigeonhole
+        // FORCES output-frame sharing: `K` curved atoms cannot each claim a private
+        // output direction inside an `R < K`-dim space, so every co-firing pair MUST
+        // overlap while encoding DISTINCT charts/phases — benign over-completeness, not
+        // duplication (measured on `ibp_default_alpha`: 8 curved atoms in a ~6-dim
+        // output, every frame-coherent pair reconstructs EV≈0.99 with contribution
+        // cosine at the independence null; firing the reseed here burns the iteration
+        // budget — guards-on 12-iter EV 0.697 vs guards-off 0.990). Restrict the whole
+        // detector to `K ≤ R`, where a shared output frame is genuine evidence of a
+        // redundant atom and the PASS-2 contribution-cosine verdict then separates a
+        // true duplicate from a merely-correlated pair. `R` is READ from the frames at
+        // hand (numeric rank of the stacked orthonormal frames), never a config knob.
+        let effective_output_rank = union_output_frame_rank(&frames, p);
+        if k > effective_output_rank {
+            return Ok(Vec::new());
+        }
+        // PASS 1 — output-SUBSPACE overlap CANDIDATES. A pair enters the guard only
+        // when its decoder output frames overlap beyond the random-frame null
+        // `½(μ_null+1)`. This is a cheap prune, NOT the verdict: sharing an output
+        // subspace is FORCED for an over-complete (`K > rank`) manifold dictionary
+        // (several curved atoms cannot avoid the ≤`p`-dim output space) and is not
+        // itself co-collapse. Orthogonal-output atoms have coherence≈0 and never
+        // become candidates (their contributions are also uncorrelated), so nothing
+        // functionally-redundant is pruned here.
+        let mut candidates: Vec<(usize, usize)> = Vec::new();
         for j in 0..k {
             for kk in (j + 1)..k {
                 let rj = frames[j].ncols();
@@ -3138,10 +3328,87 @@ impl SaeManifoldTerm {
                 let a = rj as f64 / p as f64;
                 let b = rk as f64 / p as f64;
                 let mu_null = (a * (1.0 - b)).max(0.0).sqrt() + (b * (1.0 - a)).max(0.0).sqrt();
-                let bar = 0.5 * (mu_null.min(1.0) + 1.0);
-                if coherence > bar {
-                    collapsed.push((j, kk, coherence, bar));
+                let frame_bar = 0.5 * (mu_null.min(1.0) + 1.0);
+                if coherence > frame_bar {
+                    candidates.push((j, kk));
                 }
+            }
+        }
+        if candidates.is_empty() {
+            return Ok(Vec::new());
+        }
+        // PASS 2 — FUNCTIONAL-REDUNDANCY verdict (#2132/#1893). A frame-coherent pair
+        // is genuine high-EV co-collapse only when the two atoms are the SAME
+        // FUNCTION — their gated per-row contributions `Y_k = diag(a_·k)·Φ_k·B_k`
+        // (n×p) are collinear over the rows — NOT merely when they share an output
+        // subspace. Two curved atoms sharing a decoder frame at DIFFERENT charts
+        // (phases) reconstruct DIFFERENT rows, so `Y_j ≠ Y_k`: benign, healthy,
+        // must not be reseeded (measured on `ibp_default_alpha`: every frame-coherent
+        // pair reconstructs EV≈0.99 with contribution cosine ≤0.27, right at the
+        // independence null, while the frame coherence reads ≈1). Confirm each
+        // candidate on the Frobenius cosine of its contributions against a bar
+        // RE-DERIVED for THIS statistic (the frame-coherence bar `½(μ_null+1)` is the
+        // WRONG null here). Matched null: same frames, INDEPENDENT phases ⇒ the two
+        // contributions are independent random vectors whose shared structure spans
+        // `D = M_k·r_k` dimensions (`M` chart basis functions × `r` frame rank), so
+        // `E_null|cos| = √(2/(πD))`; the bar is its ½-envelope to full alignment,
+        // `contribution_bar = ½(√(2/(πD)) + 1)`, with `D = min(M_j r_j, M_k r_k)` (the
+        // smaller intrinsic dimension bounds the null correlation). No inherited
+        // constant. A true duplicate (`Y_j ∝ Y_k`, cos→1) clears it and still fires;
+        // the benign overcomplete pair (cos≈E_null) does not.
+        // Gated per-row contributions `Y_k` for every atom appearing in a candidate
+        // (computed once each). `None` = no gated design available for that atom.
+        let gates = self.assignment.assignments();
+        let n = gates.nrows();
+        let mut in_candidate = vec![false; k];
+        for &(j, kk) in &candidates {
+            in_candidate[j] = true;
+            in_candidate[kk] = true;
+        }
+        let mut contribution: Vec<Option<Array2<f64>>> = vec![None; k];
+        for atom in 0..k {
+            if !in_candidate[atom] {
+                continue;
+            }
+            let phi = &self.atoms[atom].basis_values;
+            if phi.nrows() != n || n == 0 {
+                continue;
+            }
+            let mut y = phi.dot(&self.atoms[atom].decoder_coefficients);
+            for row in 0..n {
+                let g = gates[[row, atom]];
+                for col in 0..y.ncols() {
+                    y[[row, col]] *= g;
+                }
+            }
+            contribution[atom] = Some(y);
+        }
+        let mut collapsed = Vec::with_capacity(candidates.len());
+        for (j, kk) in candidates {
+            let d_eff = (self.atoms[j].basis_size().max(1) * frames[j].ncols().max(1))
+                .min(self.atoms[kk].basis_size().max(1) * frames[kk].ncols().max(1))
+                as f64;
+            let e_null = (2.0 / (std::f64::consts::PI * d_eff)).sqrt();
+            let contribution_bar = 0.5 * (e_null.min(1.0) + 1.0);
+            let contribution_cos = match (&contribution[j], &contribution[kk]) {
+                (Some(yj), Some(yk)) => {
+                    let mut dot = 0.0_f64;
+                    let mut nj = 0.0_f64;
+                    let mut nk = 0.0_f64;
+                    for (a, b) in yj.iter().zip(yk.iter()) {
+                        dot += a * b;
+                        nj += a * a;
+                        nk += b * b;
+                    }
+                    let denom = (nj * nk).sqrt();
+                    if denom > 0.0 { (dot / denom).abs() } else { 0.0 }
+                }
+                // Contribution unavailable (decoder-only detector call before any
+                // gated design): keep the subspace verdict rather than lose it.
+                _ => 1.0,
+            };
+            if contribution_cos > contribution_bar {
+                collapsed.push((j, kk, contribution_cos, contribution_bar));
             }
         }
         Ok(collapsed)
@@ -3323,36 +3590,14 @@ impl SaeManifoldTerm {
             //    plane (independence contrast); otherwise re-seed from the current
             //    residual's leading structure (one-atom PCA seed on the residual
             //    left by prior atoms).
-            let kind = self.atoms[atom].basis_kind.clone();
             let dim = self.atoms[atom].latent_dim;
-            let isa_plane = if dim > 0 && matches!(kind, SaeAtomBasisKind::Periodic) {
+            let is_periodic = matches!(self.atoms[atom].basis_kind, SaeAtomBasisKind::Periodic);
+            let isa_plane = if dim > 0 && is_periodic {
                 next_isa_plane.next()
             } else {
                 None
             };
-            let mut flat = Array1::<f64>::zeros(n * dim);
-            if let Some(plane) = isa_plane {
-                // The certified per-row phase (turns, `[0, 1)`) IS the circle chart
-                // seed on axis 0; higher axes stay zero, matching the Periodic PCA
-                // seed which only writes axis 0.
-                for row in 0..n {
-                    flat[row * dim] = plane.phases_turns[[row, 0]];
-                }
-            } else {
-                let seeded = sae_pca_seed_initial_coords(
-                    residual.view(),
-                    std::slice::from_ref(&kind),
-                    std::slice::from_ref(&dim),
-                )?;
-                for row in 0..n {
-                    for axis in 0..dim {
-                        flat[row * dim + axis] = seeded[[0, row, axis]];
-                    }
-                }
-            }
-            self.assignment.coords[atom].set_flat(flat.view());
-            let coords = self.assignment.coords[atom].as_matrix();
-            self.atoms[atom].refresh_basis(coords.view())?;
+            self.seed_atom_chart_coords(atom, n, residual.view(), isa_plane)?;
             // 2. Fit this atom's decoder to the residual on its fresh chart (gated
             //    design `diag(a_·k)·Φ_k`), then deflate the residual by its fit.
             let m = self.atoms[atom].basis_size();
@@ -3385,6 +3630,176 @@ impl SaeManifoldTerm {
             }
         }
         Ok(())
+    }
+
+    /// Seed atom `atom`'s chart coordinates from the current residual: write the
+    /// certified ISA circle phase when a jointly-separated plane is supplied,
+    /// otherwise the one-atom Periodic/Euclidean PCA seed on the residual, then
+    /// refresh the atom's basis at the seeded coordinates. Shared verbatim by the
+    /// dense ([`Self::seed_cold_start_disjoint_charts`]) and streaming
+    /// ([`Self::seed_cold_start_disjoint_charts_streaming`]) seed drivers so both
+    /// place identical charts — only the decoder LSQ that follows differs (dense
+    /// full-height SVD vs chunked normal equations).
+    fn seed_atom_chart_coords(
+        &mut self,
+        atom: usize,
+        n: usize,
+        residual: ArrayView2<'_, f64>,
+        isa_plane: Option<super::isa_seed::IsaPlaneCandidate>,
+    ) -> Result<(), String> {
+        let kind = self.atoms[atom].basis_kind.clone();
+        let dim = self.atoms[atom].latent_dim;
+        let mut flat = Array1::<f64>::zeros(n * dim);
+        if let Some(plane) = isa_plane {
+            // The certified per-row phase (turns, `[0, 1)`) IS the circle chart
+            // seed on axis 0; higher axes stay zero, matching the Periodic PCA
+            // seed which only writes axis 0.
+            for row in 0..n {
+                flat[row * dim] = plane.phases_turns[[row, 0]];
+            }
+        } else {
+            let seeded = sae_pca_seed_initial_coords(
+                residual,
+                std::slice::from_ref(&kind),
+                std::slice::from_ref(&dim),
+            )?;
+            for row in 0..n {
+                for axis in 0..dim {
+                    flat[row * dim + axis] = seeded[[0, row, axis]];
+                }
+            }
+        }
+        self.assignment.coords[atom].set_flat(flat.view());
+        let coords = self.assignment.coords[atom].as_matrix();
+        self.atoms[atom].refresh_basis(coords.view())?;
+        Ok(())
+    }
+
+    /// CHUNKED-SEED cold start for the overcomplete (`K > P`) curved TopK lane
+    /// (#2134 walls 1+2, #1893): the streaming twin of
+    /// [`Self::seed_cold_start_disjoint_charts`].
+    ///
+    /// Places the same disjoint charts (via the shared
+    /// [`Self::seed_atom_chart_coords`]), but fits each atom's decoder from the
+    /// NORMAL EQUATIONS accumulated one row chunk of `chunk_rows` at a time
+    /// ([`super::streaming_seed::AtomDecoderNormalEq`]) instead of forming the
+    /// full-height gated design `(N × M_k)` and thin-SVD-solving it. The gated
+    /// design is materialised only one `chunk_rows`-tall block at a time and
+    /// dropped after it is accumulated, so the seed's peak footprint is the chunk
+    /// window plus the `M_k² + M_k·P` accumulators — never `O(N · M_k)`. Because
+    /// the Gram `G_k = D_kᵀ D_k` and cross `B_k = D_kᵀ R` are exact row sums, the
+    /// solve `β_k = G_k⁺ B_k` equals the dense thin-SVD seed to tolerance (proved
+    /// bit/tolerance-exact in `streaming_seed::tests` and end-to-end against this
+    /// method's dense twin in the driver parity test). The residual is deflated
+    /// chunkwise by each fitted atom, exactly as the dense path deflates it in
+    /// full.
+    ///
+    /// `chunk_rows` is the sanctioned width from the admission ledger
+    /// ([`crate::manifold::SaeTopKCurvedBudget::seed_chunk_rows`]); a `0`/`>N`
+    /// value clamps into `[1, N]`, so a caller that streams the whole batch in
+    /// one chunk is admissible (and still solves via the normal equations).
+    pub fn seed_cold_start_disjoint_charts_streaming(
+        &mut self,
+        target: ArrayView2<'_, f64>,
+        rho: &SaeManifoldRho,
+        chunk_rows: usize,
+    ) -> Result<(), String> {
+        let n = self.n_obs();
+        let p = self.output_dim();
+        let k = self.k_atoms();
+        if n == 0 || k == 0 {
+            return Ok(());
+        }
+        let step = chunk_rows.clamp(1, n);
+        // Joint ISA chart separation, identical to the dense seed's front matter.
+        let joint_planes: Vec<super::isa_seed::IsaPlaneCandidate> =
+            match super::isa_seed::capture_signal_span(target, k)? {
+                Some(parts) => super::isa_seed::isa_extract_certified_planes(
+                    target,
+                    &parts,
+                    k,
+                    &super::isa_seed::IsaSeedConfig::default(),
+                ),
+                None => Vec::new(),
+            };
+        let mut next_isa_plane = joint_planes.into_iter();
+
+        let mut residual = target.to_owned();
+        for atom in 0..k {
+            // 1. Seed the chart (shared with the dense path).
+            let dim = self.atoms[atom].latent_dim;
+            let is_periodic = matches!(self.atoms[atom].basis_kind, SaeAtomBasisKind::Periodic);
+            let isa_plane = if dim > 0 && is_periodic {
+                next_isa_plane.next()
+            } else {
+                None
+            };
+            self.seed_atom_chart_coords(atom, n, residual.view(), isa_plane)?;
+            // 2. Fit the decoder from chunked normal equations: accumulate
+            //    `G_k = D_kᵀ D_k`, `B_k = D_kᵀ R` over row chunks of `step`,
+            //    materialising each gated design block only transiently.
+            let m = self.atoms[atom].basis_size();
+            let mut eq = super::streaming_seed::AtomDecoderNormalEq::zeros(m, p);
+            let mut start = 0usize;
+            while start < n {
+                let end = (start + step).min(n);
+                let design_chunk = self.gated_design_chunk(atom, start, end, m, rho)?;
+                eq.accumulate_chunk(design_chunk.view(), residual.slice(s![start..end, ..]))?;
+                start = end;
+            }
+            let beta = eq.solve()?;
+            if beta.dim() != (m, p) {
+                return Err(format!(
+                    "SaeManifoldTerm::seed_cold_start_disjoint_charts_streaming: atom {atom} beta shape {:?} != ({m}, {p})",
+                    beta.dim()
+                ));
+            }
+            // 3. Deflate the residual chunkwise by this atom's fit (same total
+            //    deflation as the dense `residual -= D_k β_k`), then store β_k.
+            let mut start = 0usize;
+            while start < n {
+                let end = (start + step).min(n);
+                let design_chunk = self.gated_design_chunk(atom, start, end, m, rho)?;
+                let fit_chunk = design_chunk.dot(&beta);
+                let mut resid_chunk = residual.slice_mut(s![start..end, ..]);
+                resid_chunk -= &fit_chunk;
+                start = end;
+            }
+            for col in 0..m {
+                for out in 0..p {
+                    self.atoms[atom].decoder_coefficients[[col, out]] = beta[[col, out]];
+                }
+            }
+            self.atoms[atom].refresh_intrinsic_smooth_penalty();
+            if self.quotient_scale {
+                self.atoms[atom].log_amplitude = 0.0;
+                self.atoms[atom].absorb_decoder_norm_into_log_amplitude(f64::MIN_POSITIVE);
+            }
+        }
+        Ok(())
+    }
+
+    /// The gated design block `D_k[start..end] = diag(a_·k)·Φ_k` over one row
+    /// chunk (`(end - start) × M`), matching the dense seed's per-row gating
+    /// (`w · basis_values`) exactly. Materialised transiently by the streaming
+    /// seed and dropped after it is accumulated.
+    fn gated_design_chunk(
+        &self,
+        atom: usize,
+        start: usize,
+        end: usize,
+        m: usize,
+        rho: &SaeManifoldRho,
+    ) -> Result<Array2<f64>, String> {
+        let mut d = Array2::<f64>::zeros((end - start, m));
+        for row in start..end {
+            let assignments = self.assignment.try_assignments_row_for_rho(row, rho)?;
+            let w = assignments[atom];
+            for col in 0..m {
+                d[[row - start, col]] = w * self.atoms[atom].basis_values[[row, col]];
+            }
+        }
+        Ok(d)
     }
 
     pub(crate) fn apply_newton_step_impl(
@@ -4284,6 +4699,56 @@ impl SaeManifoldTerm {
             let (mut delta_ext_coord, mut delta_beta, _diag) =
                 solve_with_lm_escalation_inner(&sys, ridge_ext_coord, ridge_beta, &solve_options)
                     .map_err(|err| format!("SaeManifoldTerm::run_joint_fit_arrow_schur: {err}"))?;
+            // #1095/#2228 (second root) — per-row STEP gauge fixing. On a chart
+            // over-parametrized for its intrinsic data dimension (d=2 chart on an
+            // intrinsically 1-D circle) every per-row `H_tt` carries a rank-1
+            // radial null whose direction ROTATES per row (the null is the radial
+            // unit vector `(cosθ_i, sinθ_i)`, distinct for every row — NOT a chart
+            // axis, so no global/per-atom axis reduction can capture it). The
+            // undamped acceptance factorizations in `reml_criterion` already deflate
+            // that null to UNIT stiffness (`log 1 = 0`, ρ-independent) so the
+            // evidence log-det is finite — but the coordinate SOLVE here does not:
+            // `solve_with_lm_escalation_inner` LM-ridge-damps the near-null block,
+            // leaving a small-but-nonzero step along the radial null (the data is
+            // radially FLAT, not absent, so `g_null ≠ 0` at finite noise). Those
+            // sub-floor steps ACCUMULATE across the cumulative outer ρ-walk, walking
+            // `t` off the unit circle → the decoder loses angular resolution
+            // (reconstruction collapses) and the inner optimum — hence the REML
+            // criterion — becomes warm-start dependent rather than a function of ρ.
+            //
+            // True gauge fixing is a projection: subtract each row's sub-floor null
+            // direction from that row's coordinate step so there is ZERO motion along
+            // a deflated direction, period, while the identifiable (angular)
+            // complement keeps the exact LM/Newton step. `row_sub_floor_null_directions`
+            // uses the IDENTICAL spectral floor + hysteresis the evidence deflation
+            // uses, so the step freezes exactly what the log-det deflated. It returns
+            // EMPTY for a genuinely full-rank row (a well-conditioned block, or a
+            // merely-ill-conditioned NON-null K>1 block whose weak but data-supported
+            // direction must stay with the LM damping, not be frozen) and for
+            // radius-curved circle data (the radial eigenvalue lifts above the floor)
+            // — so healthy fits are bit-for-bit unchanged and the fix is auto-undone
+            // wherever the chart is not over-parametrized. Projecting the coordinate
+            // block alone is sufficient: the null's cross-coupling to β flows through
+            // `H_tβ = ∂²/∂t∂β`, built from the SAME decoded derivative that vanishes
+            // in the radial direction, so it is second-order small; the dominant
+            // drift is the direct `Δt` null component removed here, and any residual
+            // β coupling is re-solved next iterate from the on-circle state.
+            for row_idx in 0..sys.rows.len() {
+                let off = sys.row_offsets[row_idx];
+                let di = sys.row_dims[row_idx];
+                for dir in row_sub_floor_null_directions(sys.rows[row_idx].htt.view()) {
+                    if dir.len() != di {
+                        continue;
+                    }
+                    let mut dot = 0.0;
+                    for a in 0..di {
+                        dot += dir[a] * delta_ext_coord[off + a];
+                    }
+                    for a in 0..di {
+                        delta_ext_coord[off + a] -= dot * dir[a];
+                    }
+                }
+            }
             // Relative-scale floor on the directional decrease. When the
             // gradient is nearly orthogonal to the Newton step (ill-conditioned
             // near-convergence), `directional_decrease` collapses to O(machine
@@ -4693,6 +5158,29 @@ impl SaeManifoldTerm {
                         best_reconstruction_uniformity = candidate_uniformity;
                         best_reconstruction_state = Some(self.snapshot_mutable_state());
                     }
+                    // Fit-LEVEL keep-best (`best_fit_incumbent`): the in-call
+                    // ledger above dies with this call, but the outer ρ search
+                    // re-enters this driver once per probe and each probe's walk
+                    // can drag the shared warm-start state into a collapse basin
+                    // — across calls the good basin is unrecoverable. Bank it on
+                    // the term under the same ordering, floor-gated so a
+                    // sub-collapse basin never becomes the fit's incumbent.
+                    if ev >= SAE_FIT_DATA_COLLAPSE_EV_FLOOR {
+                        let bank = match self.best_fit_incumbent.as_ref() {
+                            None => ev.is_finite(),
+                            Some((best_ev, best_uniformity, _)) => prefer_candidate_basin(
+                                ev,
+                                candidate_uniformity,
+                                *best_ev,
+                                *best_uniformity,
+                                SAE_FINAL_EV_DEGRADATION_TOL,
+                            ),
+                        };
+                        if bank {
+                            self.best_fit_incumbent =
+                                Some((ev, candidate_uniformity, self.snapshot_mutable_state()));
+                        }
+                    }
                 }
             }
         }
@@ -4925,7 +5413,30 @@ impl SaeManifoldTerm {
             }
         };
 
-        let rt = crate::gpu::device_runtime::GpuRuntime::global();
+        // Size gate BEFORE the device probe (startup-tax ordering fix): the
+        // device path runs one `XtDiagX { n, p: m_k }` per atom, and every
+        // reachable dispatch policy refuses that op below
+        // `MIN_CALIBRATABLE_GEMM_FLOPS` — so when even the LARGEST per-atom
+        // Gram is under the floor, every device attempt would decline and the
+        // scatter would reproduce the CPU path exactly. Take the CPU path
+        // directly without calling `GpuRuntime::global()` (whose first call
+        // creates a CUDA primary context on every GPU). Shapes with at least
+        // one admissible atom probe and scatter exactly as before.
+        let max_atom_gram_flops: u128 = self
+            .atoms
+            .iter()
+            .map(|atom| {
+                let m = atom.basis_size() as u128;
+                2u128 * (n as u128) * m * m
+            })
+            .max()
+            .unwrap_or(0);
+        let rt = if max_atom_gram_flops < crate::gpu::GpuDispatchPolicy::MIN_CALIBRATABLE_GEMM_FLOPS
+        {
+            None
+        } else {
+            crate::gpu::device_runtime::GpuRuntime::global()
+        };
         match rt {
             None => {
                 for atom_idx in 0..self.atoms.len() {
@@ -5634,6 +6145,77 @@ impl SaeManifoldTerm {
         )
     }
 
+    /// Admission-gated CHUNKED-SEED streaming driver for the overcomplete
+    /// (`K > P`) hard-TopK CURVED lane (#2134 walls 1+2, #1893).
+    ///
+    /// This is the fit-driver call the front-door refusal names: whenever a
+    /// [`crate::assignment::AssignmentMode::TopK`] request is `K > P` and its
+    /// dense routing seed (`N·K·(1+d_max)·8` bytes) exceeds the in-core budget,
+    /// [`crate::front_door::admit_topk_manifold`] refuses with a
+    /// typed error pointing here so a `K > P` fit is NEVER silently substituted
+    /// with the linear sparse-code lane. It consults the streaming-plan ledger
+    /// ([`crate::manifold::admit_topk_curved_lane`]) BEFORE any dense `(N, K)`
+    /// seed is built, and drives the fit in row chunks sized by the ledger's
+    /// [`SaeTopKCurvedBudget::seed_chunk_rows`] — the sanctioned cache-multiple
+    /// chunk width. Each chunk's `(logits, coords, Z)` is (re-)provided by
+    /// `chunk_init` and dropped after the chunk, so the routing seed only ever
+    /// exists as the transient `seed_chunk_rows · K` dense window
+    /// (`lane.routing_window_bytes`), never as a resident `N × K` intermediate;
+    /// the seeder retains per row only the `support_k` active indices / gate
+    /// values / coordinates (`lane.active_state_bytes`). The dense resident
+    /// [`Self::run_joint_fit_arrow_schur`] path and the generic
+    /// [`Self::fit_streaming_in_memory`] path are untouched (bit-for-bit).
+    ///
+    /// Returns the admission `Err` verbatim when the shape exceeds even the
+    /// streaming budget, and otherwise the streamed fit's loss. `chunk_init` has
+    /// the same `(start, end) -> (logits, coords, Z)` contract as
+    /// [`Self::run_joint_fit_arrow_schur_streaming`]; a disk-backed or
+    /// compact-basis seeder drives the LLM-scale `K > P` fit without a resident
+    /// dense seed.
+    pub fn fit_topk_curved_streaming<F>(
+        &mut self,
+        n_total: usize,
+        d_max: usize,
+        support_k: usize,
+        rho: &mut SaeManifoldRho,
+        analytic_penalties: Option<&AnalyticPenaltyRegistry>,
+        max_iter: usize,
+        step_size: f64,
+        ridge_ext_coord: f64,
+        ridge_beta: f64,
+        chunk_init: F,
+    ) -> Result<SaeManifoldLoss, String>
+    where
+        F: FnMut(usize, usize) -> Result<(Array2<f64>, Vec<Array2<f64>>, Array2<f64>), String>,
+    {
+        // SEAM: consult the streaming ledger BEFORE any dense (N, K) seed. The
+        // ledger is a pure function of the shape + host budget, so this reproduces
+        // exactly the resident/streaming decision the front door already made, and
+        // yields the sanctioned chunk width.
+        let lane = crate::manifold::admit_topk_curved_lane(
+            n_total,
+            self.output_dim(),
+            self.k_atoms(),
+            d_max,
+            support_k,
+        )?;
+        // One dense score window per chunk stays inside the cache-multiple bound
+        // (`seed_chunk_rows`), floored/capped by the ledger; `run_joint_fit_arrow_
+        // schur_streaming` re-clamps to `n_total`.
+        let chunk_size = lane.seed_chunk_rows().min(n_total.max(1)).max(1);
+        self.run_joint_fit_arrow_schur_streaming(
+            n_total,
+            chunk_size,
+            rho,
+            analytic_penalties,
+            max_iter,
+            step_size,
+            ridge_ext_coord,
+            ridge_beta,
+            chunk_init,
+        )
+    }
+
     /// Accumulate one chunk system's reduced-Schur contribution into the shared
     /// `(β × β)` accumulator and reduced RHS, consuming the chunk's Kronecker
     /// `htbeta_matvec` procedurally via [`StreamingArrowSchur`].
@@ -5769,4 +6351,48 @@ impl SaeManifoldTerm {
             total,
         ))
     }
+}
+
+/// Effective output rank `R = dim(⋃_k col(Q_k))` — the dimension actually spanned by
+/// the atoms' orthonormal decoder output frames `Q_k` (`certificate_output_frame`),
+/// as the numeric rank of the HORIZONTALLY-STACKED frames at the shared frame-rank
+/// cutoff [`crate::frames::SAE_FRAME_RANK_CUTOFF`]. Caps the structural-coherence
+/// overcomplete gate: a dictionary with `K > R` atoms cannot give each atom a private
+/// output direction, so output-frame sharing there is FORCED (benign over-completeness)
+/// rather than evidence of a redundant atom. `p` is the output dimension (every frame
+/// is `p × r_k`); an SVD failure degrades to `p` (the maximal meaningful rank) so a
+/// numerical hiccup never spuriously DISABLES the guard.
+fn union_output_frame_rank(frames: &[Array2<f64>], p: usize) -> usize {
+    let total_cols: usize = frames.iter().map(|q| q.ncols()).sum();
+    if p == 0 || total_cols == 0 {
+        return 0;
+    }
+    let mut stacked = Array2::<f64>::zeros((p, total_cols));
+    let mut col = 0usize;
+    for q in frames {
+        let m = q.ncols();
+        if m == 0 {
+            continue;
+        }
+        // Frames are `p × r_k`; guard a stray row-count mismatch rather than panic.
+        if q.nrows() != p {
+            return p;
+        }
+        for qc in 0..m {
+            for row in 0..p {
+                stacked[[row, col + qc]] = q[[row, qc]];
+            }
+        }
+        col += m;
+    }
+    let sv = match stacked.svd(false, false) {
+        Ok((_, sv, _)) => sv,
+        Err(_) => return p,
+    };
+    let max_sv = sv.iter().copied().fold(0.0_f64, f64::max);
+    if !(max_sv > 0.0) {
+        return 0;
+    }
+    let tol = crate::frames::SAE_FRAME_RANK_CUTOFF * max_sv;
+    sv.iter().filter(|&&v| v > tol).count().min(p)
 }

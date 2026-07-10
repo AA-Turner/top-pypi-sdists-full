@@ -72,10 +72,10 @@ class Cluster:
         if is_notebook():
             cluster_apply_down_buttons(self)
 
-    def get_dynamic_client(self):  # pragma: no cover
+    def get_dynamic_client(self) -> DynamicClient:  # pragma: no cover
         return DynamicClient(get_api_client())
 
-    def config_check(self):
+    def config_check(self) -> str:
         return config_check()
 
     @property
@@ -94,7 +94,7 @@ class Cluster:
     @property
     def job_client(self):
         self._check_tls_certs_exist()
-        k8client = get_api_client()
+        _ = get_api_client()  # Initialize API client
         if self._job_submission_client:
             return self._job_submission_client
         if _is_openshift_cluster():
@@ -109,7 +109,7 @@ class Cluster:
             )
         return self._job_submission_client
 
-    def create_resource(self):
+    def create_resource(self) -> None:
         """
         Called upon cluster object creation, creates a RayCluster yaml based on
         the specifications of the ClusterConfiguration.
@@ -125,7 +125,7 @@ class Cluster:
         return build_ray_cluster(self)
 
     # creates a new cluster with the provided or default spec
-    def up(self):
+    def up(self) -> None:
         """
         Applies the Cluster yaml, pushing the resource request onto
         the Kueue localqueue.
@@ -161,7 +161,7 @@ class Cluster:
             return _kube_api_error_handling(e)
 
     # Applies a new cluster with the provided or default spec
-    def apply(self, force=False, timeout: int = 300):
+    def apply(self, force: bool = False, timeout: int = 300) -> None:
         """
         Applies the Cluster yaml using server-side apply.
 
@@ -316,7 +316,7 @@ class Cluster:
             _kube_api_error_handling(e)
             raise RuntimeError("Failed to get RayCluster CustomResourceDefinition.")
 
-    def down(self):
+    def down(self) -> None:
         """
         Deletes the RayCluster, scaling-down and deleting all resources
         associated with the cluster.
@@ -428,7 +428,9 @@ class Cluster:
         else:
             return False
 
-    def wait_ready(self, timeout: Optional[int] = None, dashboard_check: bool = True):
+    def wait_ready(
+        self, timeout: Optional[int] = None, dashboard_check: bool = True
+    ) -> None:
         """
         Waits for the requested cluster to be ready, up to an optional timeout.
 
@@ -495,7 +497,7 @@ class Cluster:
             if not dashboard_wait_logged:
                 dashboard_uri = self.cluster_dashboard_uri()
                 if not dashboard_uri.startswith(("http://", "https://")):
-                    print(f"Waiting for dashboard route/HTTPRoute to be created...")
+                    print("Waiting for dashboard route/HTTPRoute to be created...")
                 else:
                     print(
                         f"Waiting for dashboard to become accessible: {dashboard_uri}"
@@ -532,7 +534,6 @@ class Cluster:
         This is called by connection methods (cluster_uri, local_client_url, job_client)
         to help users debug mTLS connection issues.
         """
-        from pathlib import Path
 
         from codeflare_sdk.common.utils.generate_cert import _get_tls_base_dir
 
@@ -576,7 +577,7 @@ class Cluster:
         self._check_tls_certs_exist()
         return f"ray://{self.config.name}-head-svc.{self.config.namespace}.svc:10001"
 
-    def refresh_certificates(self):
+    def refresh_certificates(self) -> None:
         """
         Refreshes TLS certificates by removing old ones and generating new ones.
 
@@ -641,9 +642,7 @@ class Cluster:
                     "name"
                 ] == f"ray-dashboard-{self.config.name}" or route["metadata"][
                     "name"
-                ].startswith(
-                    f"{self.config.name}-ingress"
-                ):
+                ].startswith(f"{self.config.name}-ingress"):
                     protocol = "https" if route["spec"].get("tls") else "http"
                     return f"{protocol}://{route['spec']['host']}"
             # No route found for this cluster
@@ -669,7 +668,7 @@ class Cluster:
                 return f"{protocol}://{ingress.spec.rules[0].host}"
         return "Dashboard not available yet, have you run cluster.apply()? Run cluster.details() to check if it's ready."
 
-    def list_jobs(self) -> List:
+    def list_jobs(self) -> List[Dict]:
         """
         This method accesses the head ray node in your cluster and lists the running jobs.
         """
@@ -713,7 +712,7 @@ class Cluster:
 
         return head_extended_resources, worker_extended_resources
 
-    def local_client_url(self):
+    def local_client_url(self) -> str:
         """
         Constructs the URL for the local Ray client.
 
@@ -746,7 +745,9 @@ class Cluster:
             _apply_ray_cluster(self.resource_yaml, namespace, api_instance)
 
 
-def list_all_clusters(namespace: str, print_to_console: bool = True):
+def list_all_clusters(
+    namespace: str, print_to_console: bool = True
+) -> List[RayCluster]:
     """
     Returns (and prints by default) a list of all clusters in a given namespace.
     """
@@ -791,7 +792,7 @@ def _get_kueue_workload_for_cluster(
         return None
 
 
-def list_all_queued(namespace: str, print_to_console: bool = True):
+def list_all_queued(namespace: str, print_to_console: bool = True) -> List[RayCluster]:
     """
     Returns (and prints by default) a list of all currently queued-up Ray Clusters
     in a given namespace.
@@ -826,7 +827,7 @@ def get_cluster(
     namespace: str = "default",
     verify_tls: bool = True,
     write_to_file: bool = False,
-):
+) -> "Cluster":
     """
     Retrieves an existing Ray Cluster as a Cluster object.
 
@@ -871,20 +872,29 @@ def get_cluster(
     ) = Cluster._head_worker_extended_resources_from_rc_dict(resource)
 
     # Fix for RHOAIENG-54729: Handle head-only clusters (no workers)
+    enable_autoscaling = resource["spec"].get("enableInTreeAutoscaling", False)
+    min_workers = None
+    max_workers = None
+
     if len(resource["spec"].get("workerGroupSpecs", [])) > 0:
-        num_workers = resource["spec"]["workerGroupSpecs"][0]["minReplicas"]
-        worker_cpu_limits = resource["spec"]["workerGroupSpecs"][0]["template"]["spec"][
-            "containers"
-        ][0]["resources"]["limits"]["cpu"]
-        worker_cpu_requests = resource["spec"]["workerGroupSpecs"][0]["template"][
-            "spec"
-        ]["containers"][0]["resources"]["requests"]["cpu"]
-        worker_memory_limits = resource["spec"]["workerGroupSpecs"][0]["template"][
-            "spec"
-        ]["containers"][0]["resources"]["limits"]["memory"]
-        worker_memory_requests = resource["spec"]["workerGroupSpecs"][0]["template"][
-            "spec"
-        ]["containers"][0]["resources"]["requests"]["memory"]
+        worker_group = resource["spec"]["workerGroupSpecs"][0]
+        num_workers = worker_group["minReplicas"]
+        worker_cpu_limits = worker_group["template"]["spec"]["containers"][0][
+            "resources"
+        ]["limits"]["cpu"]
+        worker_cpu_requests = worker_group["template"]["spec"]["containers"][0][
+            "resources"
+        ]["requests"]["cpu"]
+        worker_memory_limits = worker_group["template"]["spec"]["containers"][0][
+            "resources"
+        ]["limits"]["memory"]
+        worker_memory_requests = worker_group["template"]["spec"]["containers"][0][
+            "resources"
+        ]["requests"]["memory"]
+
+        if enable_autoscaling:
+            min_workers = worker_group.get("minReplicas", num_workers)
+            max_workers = worker_group.get("maxReplicas", num_workers)
     else:
         # Head-only cluster - use defaults for worker specs
         num_workers = 0
@@ -918,6 +928,9 @@ def get_cluster(
         worker_memory_requests=worker_memory_requests,
         head_extended_resource_requests=head_extended_resources,
         worker_extended_resource_requests=worker_extended_resources,
+        enable_autoscaling=enable_autoscaling,
+        min_workers=min_workers,
+        max_workers=max_workers,
     )
 
     # Ignore the warning here for the lack of a ClusterConfiguration
@@ -1150,19 +1163,20 @@ def _map_to_ray_cluster(rc) -> Optional[RayCluster]:
 
     # Fix for RHOAIENG-54729: Handle head-only clusters (no workers)
     if len(rc["spec"].get("workerGroupSpecs", [])) > 0:
-        num_workers = rc["spec"]["workerGroupSpecs"][0]["replicas"]
-        worker_mem_limits = rc["spec"]["workerGroupSpecs"][0]["template"]["spec"][
-            "containers"
-        ][0]["resources"]["limits"]["memory"]
-        worker_mem_requests = rc["spec"]["workerGroupSpecs"][0]["template"]["spec"][
-            "containers"
-        ][0]["resources"]["requests"]["memory"]
-        worker_cpu_requests = rc["spec"]["workerGroupSpecs"][0]["template"]["spec"][
-            "containers"
-        ][0]["resources"]["requests"]["cpu"]
-        worker_cpu_limits = rc["spec"]["workerGroupSpecs"][0]["template"]["spec"][
-            "containers"
-        ][0]["resources"]["limits"]["cpu"]
+        worker_group = rc["spec"]["workerGroupSpecs"][0]
+        num_workers = worker_group["replicas"]
+        worker_mem_limits = worker_group["template"]["spec"]["containers"][0][
+            "resources"
+        ]["limits"]["memory"]
+        worker_mem_requests = worker_group["template"]["spec"]["containers"][0][
+            "resources"
+        ]["requests"]["memory"]
+        worker_cpu_requests = worker_group["template"]["spec"]["containers"][0][
+            "resources"
+        ]["requests"]["cpu"]
+        worker_cpu_limits = worker_group["template"]["spec"]["containers"][0][
+            "resources"
+        ]["limits"]["cpu"]
     else:
         # Head-only cluster - use defaults for worker specs
         num_workers = 0
@@ -1174,7 +1188,6 @@ def _map_to_ray_cluster(rc) -> Optional[RayCluster]:
     return RayCluster(
         name=rc["metadata"]["name"],
         status=status,
-        # for now we are not using autoscaling so same replicas is fine
         num_workers=num_workers,
         worker_mem_limits=worker_mem_limits,
         worker_mem_requests=worker_mem_requests,
@@ -1253,6 +1266,13 @@ def _get_dashboard_url_from_httproute(
     Get the Ray dashboard URL from an HTTPRoute (RHOAI v3.0+ Gateway API).
     Searches for HTTPRoute labeled with ray.io/cluster-name and ray.io/cluster-namespace.
     Returns the dashboard URL if found, or None to allow fallback to Routes/Ingress.
+
+    Hostname resolution order:
+    1. Gateway spec.listeners[].hostname
+    2. OpenShift Route exposing the Gateway
+    3. GatewayConfig CR domain configuration (ODH/RHOAI)
+    4. Gateway status.addresses[].value
+
     Args:
         cluster_name: Ray cluster name
         namespace: Ray cluster namespace
@@ -1359,6 +1379,29 @@ def _get_dashboard_url_from_httproute(
                         break
             except Exception:
                 pass  # Continue to next fallback
+
+        # If no hostname from Route, try GatewayConfig CR
+        if not hostname:
+            try:
+                # GatewayConfig is a cluster-scoped CR in services.platform.opendatahub.io
+                gateway_config = api_instance.get_cluster_custom_object(
+                    group="services.platform.opendatahub.io",
+                    version="v1alpha1",
+                    plural="gatewayconfigs",
+                    name="default",
+                )
+
+                # Extract subdomain (defaults to "data-science-gateway")
+                subdomain = gateway_config.get("spec", {}).get("subdomain", "").strip()
+                if not subdomain:
+                    subdomain = "data-science-gateway"
+
+                # Extract domain from GatewayConfig
+                domain = gateway_config.get("spec", {}).get("domain", "").strip()
+                if domain:
+                    hostname = f"{subdomain}.{domain}"
+            except Exception:
+                pass
 
         # If still no hostname, try status.addresses (internal address - may only work in-cluster)
         if not hostname:

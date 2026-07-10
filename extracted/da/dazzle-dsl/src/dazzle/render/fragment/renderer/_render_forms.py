@@ -29,7 +29,6 @@ from dazzle.render.fragment.primitives import (
     CardPicker,
     ColorField,
     Combobox,
-    DatePickerField,
     Field,
     FileUpload,
     FormSection,
@@ -360,9 +359,9 @@ class _RenderFormsMixin:
             'role="status" aria-label="Searching">'
             '<svg class="dz-search-select-spinner-icon" fill="none" viewBox="0 0 24 24" '
             'aria-hidden="true">'
-            '<circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" '
+            '<circle class="dz-spinner-track" cx="12" cy="12" r="10" stroke="currentColor" '
             'stroke-width="4"></circle>'
-            '<path class="opacity-75" fill="currentColor" '
+            '<path class="dz-spinner-head" fill="currentColor" '
             'd="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z"></path>'
             "</svg></span>"
             f'<div id="search-results-{name}" '
@@ -456,11 +455,14 @@ class _RenderFormsMixin:
         )
 
     def _emit_widget_combobox(self, c: WidgetCombobox, ctx: RenderContext) -> str:
+        # HM-native searchable single-select (HMC-018 slice 1): emit a real
+        # native <select data-dz-combobox> carrying the placeholder + all enum
+        # options. With JS off it is a fully usable select (submits, native
+        # required); controllers/dz-combobox.js progressively enhances it into
+        # a searchable role=combobox overlay on first interaction. No
+        # data-dz-widget hook — that was the retired TomSelect mount.
         name = ctx.escape_attr(c.name)
         placeholder_html = ctx.escape(c.placeholder or "Select...")
-        placeholder_attr = (
-            f' placeholder="{ctx.escape_attr(c.placeholder)}"' if c.placeholder else ""
-        )
         required_attr = ' required aria-required="true"' if c.required else ""
         opts = [f'<option value="">{placeholder_html}</option>']
         for value, label in c.options:
@@ -469,14 +471,20 @@ class _RenderFormsMixin:
                 f'<option value="{ctx.escape_attr(value)}"{sel}>{ctx.escape(label)}</option>'
             )
         inner = (
-            f'<select id="field-{name}" name="{name}" '
-            "data-dz-widget=\"combobox\" data-dz-options='{}' "
-            f'class="dz-form-input"{placeholder_attr}{required_attr}>'
+            f'<select id="field-{name}" name="{name}" data-dazzle-field="{name}" '
+            f'data-dz-combobox class="dz-form-input"{required_attr}>'
             f"{''.join(opts)}</select>"
         )
         return self._widget_label(ctx.escape(c.label), name, inner)
 
     def _emit_tags_field(self, t: TagsField, ctx: RenderContext) -> str:
+        # HM-native multi-value chips (HMC-018 slice 2): emit a plain native
+        # <input type="text" data-dz-tags> carrying a COMMA-JOINED value. With
+        # JS off it is a usable comma-separated text field (the server splits
+        # on comma); controllers/dz-tags.js progressively enhances it into a
+        # chips UI on first interaction, keeping the native input as the
+        # submitted value. No data-dz-widget hook — that was the retired
+        # TomSelect mount.
         name = ctx.escape_attr(t.name)
         placeholder_attr = (
             f' placeholder="{ctx.escape_attr(t.placeholder)}"' if t.placeholder else ""
@@ -484,29 +492,11 @@ class _RenderFormsMixin:
         required_attr = ' required aria-required="true"' if t.required else ""
         inner = (
             f'<input id="field-{name}" name="{name}" type="text" '
-            'data-dz-widget="tags" '
-            'data-dz-options=\'{"create":true,"plugins":["remove_button"]}\' '
+            f'data-dazzle-field="{name}" data-dz-tags '
             f'class="dz-form-input" value="{ctx.escape_attr(t.initial_value)}"'
             f"{placeholder_attr}{required_attr}>"
         )
         return self._widget_label(ctx.escape(t.label), name, inner)
-
-    def _emit_date_picker(self, d: DatePickerField, ctx: RenderContext) -> str:
-        name = ctx.escape_attr(d.name)
-        date_format = "Y-m-d H:i" if d.is_datetime else "Y-m-d"
-        enable_time = ',"enableTime":true' if d.is_datetime else ""
-        placeholder_attr = (
-            f' placeholder="{ctx.escape_attr(d.placeholder)}"' if d.placeholder else ""
-        )
-        required_attr = ' required aria-required="true"' if d.required else ""
-        inner = (
-            f'<input id="field-{name}" name="{name}" type="text" '
-            'data-dz-widget="datepicker" '
-            f'data-dz-options=\'{{"dateFormat":"{date_format}"{enable_time}}}\' '
-            f'class="dz-form-input" value="{ctx.escape_attr(d.initial_value)}"'
-            f"{placeholder_attr}{required_attr}>"
-        )
-        return self._widget_label(ctx.escape(d.label), name, inner)
 
     def _emit_color_field(self, c: ColorField, ctx: RenderContext) -> str:
         name = ctx.escape_attr(c.name)

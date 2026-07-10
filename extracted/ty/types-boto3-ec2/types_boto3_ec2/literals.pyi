@@ -300,7 +300,9 @@ __all__ = (
     "FleetCapacityReservationUsageStrategyType",
     "FleetEventTypeType",
     "FleetExcessCapacityTerminationPolicyType",
+    "FleetHttpTokensStateType",
     "FleetInstanceMatchCriteriaType",
+    "FleetInstanceMetadataEndpointStateType",
     "FleetOnDemandAllocationStrategyType",
     "FleetReplacementStrategyType",
     "FleetReservationTypeType",
@@ -1217,7 +1219,9 @@ FleetCapacityReservationTenancyType = Literal["default"]
 FleetCapacityReservationUsageStrategyType = Literal["use-capacity-reservations-first"]
 FleetEventTypeType = Literal["fleet-change", "instance-change", "service-error"]
 FleetExcessCapacityTerminationPolicyType = Literal["no-termination", "termination"]
+FleetHttpTokensStateType = Literal["optional", "required"]
 FleetInstanceMatchCriteriaType = Literal["open"]
+FleetInstanceMetadataEndpointStateType = Literal["disabled", "enabled"]
 FleetOnDemandAllocationStrategyType = Literal["lowest-price", "prioritized"]
 FleetReplacementStrategyType = Literal["launch", "launch-before-terminate"]
 FleetReservationTypeType = Literal["interruptible-capacity-reservation"]

@@ -1,23 +1,14 @@
 # Copyright The OpenTelemetry Authors
-#
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-#
-#     http://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
+# SPDX-License-Identifier: Apache-2.0
 
 import json
+import os
 import unittest
+from unittest.mock import patch
 
 from opentelemetry.sdk._logs import LoggerProvider
 from opentelemetry.sdk._logs.export import (
-    InMemoryLogExporter,
+    InMemoryLogRecordExporter,
     SimpleLogRecordProcessor,
 )
 from opentelemetry.sdk.trace import TracerProvider
@@ -40,7 +31,6 @@ from .test_utils import (
     _get_span_attributes,
     _normalize_to_dict,
     _normalize_to_list,
-    patch_env_vars,
 )
 
 
@@ -51,7 +41,7 @@ class TestTelemetryHandlerEvents(unittest.TestCase):
         tracer_provider.add_span_processor(
             SimpleSpanProcessor(self.span_exporter)
         )
-        self.log_exporter = InMemoryLogExporter()
+        self.log_exporter = InMemoryLogRecordExporter()
         logger_provider = LoggerProvider()
         logger_provider.add_log_record_processor(
             SimpleLogRecordProcessor(self.log_exporter)
@@ -66,13 +56,15 @@ class TestTelemetryHandlerEvents(unittest.TestCase):
         if hasattr(get_telemetry_handler, "_default_handler"):
             delattr(get_telemetry_handler, "_default_handler")
 
-    @patch_env_vars(
-        stability_mode="gen_ai_latest_experimental",
-        content_capturing="EVENT_ONLY",
-        emit_event="true",
+    @patch.dict(
+        os.environ,
+        {
+            "OTEL_INSTRUMENTATION_GENAI_CAPTURE_MESSAGE_CONTENT": "EVENT_ONLY",
+            "OTEL_INSTRUMENTATION_GENAI_EMIT_EVENT": "true",
+        },
     )
     def test_emits_llm_event(self):
-        invocation = self.telemetry_handler.start_inference(
+        invocation = self.telemetry_handler.inference(
             "test-provider", request_model="event-model"
         )
         invocation.input_messages = [_create_input_message("test query")]
@@ -144,17 +136,19 @@ class TestTelemetryHandlerEvents(unittest.TestCase):
         self.assertEqual(log_record.trace_id, span.context.trace_id)
         self.assertEqual(log_record.span_id, span.context.span_id)
 
-    @patch_env_vars(
-        stability_mode="gen_ai_latest_experimental",
-        content_capturing="SPAN_AND_EVENT",
-        emit_event="true",
+    @patch.dict(
+        os.environ,
+        {
+            "OTEL_INSTRUMENTATION_GENAI_CAPTURE_MESSAGE_CONTENT": "SPAN_AND_EVENT",
+            "OTEL_INSTRUMENTATION_GENAI_EMIT_EVENT": "true",
+        },
     )
     def test_emits_llm_event_and_span(self):
         message = _create_input_message("combined test")
         chat_generation = _create_output_message("combined response")
         system_instruction = _create_system_instruction("System prompt here")
 
-        invocation = self.telemetry_handler.start_inference(
+        invocation = self.telemetry_handler.inference(
             "test-provider", request_model="combined-model"
         )
         invocation.input_messages = [message]
@@ -201,17 +195,19 @@ class TestTelemetryHandlerEvents(unittest.TestCase):
         self.assertEqual(log_record.trace_id, span.context.trace_id)
         self.assertEqual(log_record.span_id, span.context.span_id)
 
-    @patch_env_vars(
-        stability_mode="gen_ai_latest_experimental",
-        content_capturing="EVENT_ONLY",
-        emit_event="true",
+    @patch.dict(
+        os.environ,
+        {
+            "OTEL_INSTRUMENTATION_GENAI_CAPTURE_MESSAGE_CONTENT": "EVENT_ONLY",
+            "OTEL_INSTRUMENTATION_GENAI_EMIT_EVENT": "true",
+        },
     )
     def test_emits_llm_event_with_error(self):
         class TestError(RuntimeError):
             pass
 
         message = _create_input_message("error test")
-        invocation = self.telemetry_handler.start_inference(
+        invocation = self.telemetry_handler.inference(
             "test-provider", request_model="error-model"
         )
         invocation.input_messages = [message]
@@ -238,16 +234,18 @@ class TestTelemetryHandlerEvents(unittest.TestCase):
         self.assertEqual(log_record.trace_id, span.context.trace_id)
         self.assertEqual(log_record.span_id, span.context.span_id)
 
-    @patch_env_vars(
-        stability_mode="gen_ai_latest_experimental",
-        content_capturing="EVENT_ONLY",
-        emit_event="false",
+    @patch.dict(
+        os.environ,
+        {
+            "OTEL_INSTRUMENTATION_GENAI_CAPTURE_MESSAGE_CONTENT": "EVENT_ONLY",
+            "OTEL_INSTRUMENTATION_GENAI_EMIT_EVENT": "false",
+        },
     )
     def test_does_not_emit_llm_event_when_emit_event_false(self):
         message = _create_input_message("emit false test")
         chat_generation = _create_output_message("emit false response")
 
-        invocation = self.telemetry_handler.start_inference(
+        invocation = self.telemetry_handler.inference(
             "test-provider", request_model="emit-false-model"
         )
         invocation.input_messages = [message]
@@ -258,14 +256,15 @@ class TestTelemetryHandlerEvents(unittest.TestCase):
         logs = self.log_exporter.get_finished_logs()
         self.assertEqual(len(logs), 0)
 
-    @patch_env_vars(
-        stability_mode="gen_ai_latest_experimental",
-        content_capturing="NO_CONTENT",
-        emit_event="",
+    @patch.dict(
+        os.environ,
+        {
+            "OTEL_INSTRUMENTATION_GENAI_CAPTURE_MESSAGE_CONTENT": "NO_CONTENT",
+        },
     )
     def test_does_not_emit_llm_event_by_default_for_no_content(self):
         """Test that event is not emitted by default when content_capturing is NO_CONTENT and OTEL_INSTRUMENTATION_GENAI_EMIT_EVENT is not set."""
-        invocation = self.telemetry_handler.start_inference(
+        invocation = self.telemetry_handler.inference(
             "test-provider", request_model="default-model"
         )
         invocation.input_messages = [_create_input_message("default test")]
@@ -278,14 +277,15 @@ class TestTelemetryHandlerEvents(unittest.TestCase):
         logs = self.log_exporter.get_finished_logs()
         self.assertEqual(len(logs), 0)
 
-    @patch_env_vars(
-        stability_mode="gen_ai_latest_experimental",
-        content_capturing="SPAN_ONLY",
-        emit_event="",
+    @patch.dict(
+        os.environ,
+        {
+            "OTEL_INSTRUMENTATION_GENAI_CAPTURE_MESSAGE_CONTENT": "SPAN_ONLY",
+        },
     )
     def test_does_not_emit_llm_event_by_default_for_span_only(self):
         """Test that event is not emitted by default when content_capturing is SPAN_ONLY and OTEL_INSTRUMENTATION_GENAI_EMIT_EVENT is not set."""
-        invocation = self.telemetry_handler.start_inference(
+        invocation = self.telemetry_handler.inference(
             "test-provider", request_model="default-model"
         )
         invocation.input_messages = [_create_input_message("default test")]
@@ -298,14 +298,15 @@ class TestTelemetryHandlerEvents(unittest.TestCase):
         logs = self.log_exporter.get_finished_logs()
         self.assertEqual(len(logs), 0)
 
-    @patch_env_vars(
-        stability_mode="gen_ai_latest_experimental",
-        content_capturing="EVENT_ONLY",
-        emit_event="",
+    @patch.dict(
+        os.environ,
+        {
+            "OTEL_INSTRUMENTATION_GENAI_CAPTURE_MESSAGE_CONTENT": "EVENT_ONLY",
+        },
     )
     def test_emits_llm_event_by_default_for_event_only(self):
         """Test that event is emitted by default when content_capturing is EVENT_ONLY and OTEL_INSTRUMENTATION_GENAI_EMIT_EVENT is not set."""
-        invocation = self.telemetry_handler.start_inference(
+        invocation = self.telemetry_handler.inference(
             "test-provider", request_model="default-model"
         )
         invocation.input_messages = [_create_input_message("default test")]
@@ -322,10 +323,11 @@ class TestTelemetryHandlerEvents(unittest.TestCase):
             log_record.event_name, "gen_ai.client.inference.operation.details"
         )
 
-    @patch_env_vars(
-        stability_mode="gen_ai_latest_experimental",
-        content_capturing="SPAN_AND_EVENT",
-        emit_event="",
+    @patch.dict(
+        os.environ,
+        {
+            "OTEL_INSTRUMENTATION_GENAI_CAPTURE_MESSAGE_CONTENT": "SPAN_AND_EVENT",
+        },
     )
     def test_emits_llm_event_by_default_for_span_and_event(self):
         """Test that event is emitted by default when content_capturing is SPAN_AND_EVENT and OTEL_INSTRUMENTATION_GENAI_EMIT_EVENT is not set."""
@@ -333,7 +335,7 @@ class TestTelemetryHandlerEvents(unittest.TestCase):
         chat_generation = _create_output_message("span and event response")
         system_instruction = _create_system_instruction("System prompt")
 
-        invocation = self.telemetry_handler.start_inference(
+        invocation = self.telemetry_handler.inference(
             "test-provider", request_model="span-and-event-model"
         )
         invocation.input_messages = [message]

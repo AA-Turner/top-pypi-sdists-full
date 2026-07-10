@@ -16,14 +16,14 @@ log = logging.getLogger(__name__)
 class AuthStateManager:
     def __init__(self, state_dir: Path):
         self.state_dir = state_dir
-        self.state_file = state_dir /"auth_state.json"
+        self.state_file = state_dir / "auth_state.json"
         self.state_dir.mkdir(parents=True, exist_ok=True)
         self._state = self._load_state()
 
     def _load_state(self) -> Dict:
         if self.state_file.exists():
             try:
-                with open(self.state_file,'r') as f:
+                with open(self.state_file, 'r') as f:
                     return json.load(f)
             except (json.JSONDecodeError, IOError) as e:
                 log.debug(f"Could not load auth state: {e}")
@@ -32,13 +32,13 @@ class AuthStateManager:
 
     def _default_state(self) -> Dict:
         return {
-"session_id": self._generate_session_id(),
-"authenticated": False,
-"user": None,
-"tier": None,
-"auth_time": None,
-"packages_notified": [],
-"cache_ttl_minutes": 60
+            "session_id": self._generate_session_id(),
+            "authenticated": False,
+            "user": None,
+            "tier": None,
+            "auth_time": None,
+            "packages_notified": [],
+            "cache_ttl_minutes": 60
         }
 
     def _generate_session_id(self) -> str:
@@ -46,7 +46,7 @@ class AuthStateManager:
 
     def _save_state(self) -> None:
         try:
-            with open(self.state_file,'w') as f:
+            with open(self.state_file, 'w') as f:
                 json.dump(self._state, f, indent=2)
         except IOError as e:
             log.warning(f"Could not save auth state: {e}")
@@ -67,8 +67,8 @@ class AuthStateManager:
 
     def mark_authenticated(self, license_info: Dict, package_name: str) -> None:
         self._state["authenticated"] = True
-        self._state["user"] = license_info.get("user","Unknown")
-        self._state["tier"] = license_info.get("tier","free")
+        self._state["user"] = license_info.get("user", "Unknown")
+        self._state["tier"] = license_info.get("tier", "free")
         self._state["auth_time"] = datetime.now().isoformat()
         packages_notified = self._state.get("packages_notified", [])
         if package_name not in packages_notified:
@@ -80,9 +80,9 @@ class AuthStateManager:
         if not self._is_cache_valid():
             return None
         return {
-"user": self._state.get("user"),
-"tier": self._state.get("tier"),
-"from_cache": True
+            "user": self._state.get("user"),
+            "tier": self._state.get("tier"),
+            "from_cache": True
         }
 
     def reset(self) -> None:
@@ -94,17 +94,17 @@ def get_auth_state_manager(project_dir: Path) -> AuthStateManager:
 
 class Authenticator:
     TIER_LIMITS = {
-"guest": {"min": 20,"hour": 1200,"day": 5000},
-"free": {"min": 60,"hour": 3600,"day": 10000},
-"bronze": {"min": 180,"hour": 10800,"day": 50000},
-"silver": {"min": 300,"hour": 15000,"day": 100000},
-"golden": {"min": 500,"hour": 30000,"day": 150000},
-"diamond": {"min": 600,"hour": 36000,"day": 180000}
+        "guest": {"min": 20, "hour": 1200, "day": 5000},
+        "free": {"min": 60, "hour": 3600, "day": 10000},
+        "bronze": {"min": 180, "hour": 10800, "day": 50000},
+        "silver": {"min": 300, "hour": 15000, "day": 100000},
+        "golden": {"min": 500, "hour": 30000, "day": 150000},
+        "diamond": {"min": 600, "hour": 36000, "day": 180000}
     }
 
     def __init__(self):
-        self.vnstock_dir = Path.home() /".vnstock"
-        self.api_key_file = self.vnstock_dir /"api_key.json"
+        self.vnstock_dir = Path.home() / ".vnstock"
+        self.api_key_file = self.vnstock_dir / "api_key.json"
         self._cached_tier = None
         self._cache_timestamp = 0
         self._cache_ttl = 300
@@ -124,15 +124,15 @@ class Authenticator:
         if tier_from_vnii:
             return tier_from_vnii
         if self._has_api_key():
-            return"free"
-        return"guest"
+            return "free"
+        return "guest"
 
     def _check_vnii_tier(self) -> Optional[str]:
         try:
             import vnii
             from vnii.auth import authenticate
             license_info = authenticate(self.vnstock_dir)
-            tier_string = license_info.get('tier','free')
+            tier_string = license_info.get('tier', 'free')
             log.debug(f"Got tier from vnii: {tier_string}")
             return tier_string
         except ImportError:
@@ -150,9 +150,9 @@ class Authenticator:
             return True
         if self.api_key_file.exists():
             try:
-                with open(self.api_key_file,'r') as f:
+                with open(self.api_key_file, 'r') as f:
                     data = json.load(f)
-                    api_key = data.get('api_key','').strip()
+                    api_key = data.get('api_key', '').strip()
                     return bool(api_key)
             except Exception as e:
                 log.debug(f"Failed to read API key: {e}")
@@ -167,18 +167,18 @@ class Authenticator:
         tier = self.get_tier()
         limits = self.get_limits(tier)
         descriptions = {
-"guest":"Khách (Guest - chưa đăng ký)",
-"free":"Phiên bản cộng đồng (Community - có API key)",
-"bronze":"Thành viên Bronze (Bronze Member)",
-"silver":"Thành viên Silver (Silver Member)",
-"golden":"Thành viên Golden (Golden Member)"
+            "guest": "Khách (Guest - chưa đăng ký)",
+            "free": "Phiên bản cộng đồng (Community - có API key)",
+            "bronze": "Thành viên Bronze (Bronze Member)",
+            "silver": "Thành viên Silver (Silver Member)",
+            "golden": "Thành viên Golden (Golden Member)"
         }
         return {
-"tier": tier,
-"description": descriptions.get(tier,f"Gói {tier.title()}"),
-"limits": {
-"per_minute": limits["min"],
-"per_hour": limits["hour"]
+            "tier": tier,
+            "description": descriptions.get(tier, f"Gói {tier.title()}"),
+            "limits": {
+                "per_minute": limits["min"],
+                "per_hour": limits["hour"]
             }
         }
 
@@ -186,7 +186,7 @@ class Authenticator:
         try:
             self.vnstock_dir.mkdir(exist_ok=True)
             api_key_data = {"api_key": api_key.strip()}
-            with open(self.api_key_file,'w') as f:
+            with open(self.api_key_file, 'w') as f:
                 json.dump(api_key_data, f, indent=2)
             self._cached_tier = None
             self._cache_timestamp = 0
@@ -208,7 +208,7 @@ class Authenticator:
             return os.getenv('VNSTOCK_API_KEY')
         if self.api_key_file.exists():
             try:
-                with open(self.api_key_file,'r') as f:
+                with open(self.api_key_file, 'r') as f:
                     data = json.load(f)
                     return data.get('api_key')
             except Exception as e:
@@ -242,28 +242,28 @@ class Authenticator:
             try:
                 ide_name, ide_info = IDEDetector.detect_ide()
             except Exception:
-                ide_name ='Unknown'
+                ide_name = 'Unknown'
                 ide_info = {}
             payload = {
-'api_key': api_key,
-'device_id': system_info['machine_id'],
-'device_name': system_info.get('platform', platform.node()),
-'os_type': system_info['os_name'].lower(),
-'os_version': system_info.get('platform', platform.release()),
-'machine_info': {
-'platform': system_info.get('platform', platform.platform()),
-'machine': platform.machine(),
-'processor': platform.processor(),
-'system': platform.system(),
-'release': platform.release(),
-'python_version': system_info.get('python_version'),
-'environment': system_info.get('environment','unknown'),
-'ide_name': ide_name,
-'ide_detection_method': ide_info.get('detection_method'),
-'ide_frontend': ide_info.get('frontend')
+                'api_key': api_key,
+                'device_id': system_info['machine_id'],
+                'device_name': system_info.get('platform', platform.node()),
+                'os_type': system_info['os_name'].lower(),
+                'os_version': system_info.get('platform', platform.release()),
+                'machine_info': {
+                    'platform': system_info.get('platform', platform.platform()),
+                    'machine': platform.machine(),
+                    'processor': platform.processor(),
+                    'system': platform.system(),
+                    'release': platform.release(),
+                    'python_version': system_info.get('python_version'),
+                    'environment': system_info.get('environment', 'unknown'),
+                    'ide_name': ide_name,
+                    'ide_detection_method': ide_info.get('detection_method'),
+                    'ide_frontend': ide_info.get('frontend')
                 }
             }
-            url ='https://vnstocks.com/api/vnstock/auth/device-register'
+            url = 'https://vnstocks.com/api/vnstock/auth/device-register'
             try:
                 requests.post(url, json=payload, timeout=5)
                 log.debug("Device registered successfully to vnstocks.com")
@@ -274,33 +274,33 @@ class Authenticator:
 
     def has_active_subscription(self) -> bool:
         tier = self.get_tier()
-        paid_tiers = {'bronze','silver','golden','diamond'}
+        paid_tiers = {'bronze', 'silver', 'golden', 'diamond'}
         return tier in paid_tiers
 
     def check_api_key_status(self) -> dict:
         api_key = self.get_api_key()
         if api_key:
-            preview = api_key[:15] +"..." if len(api_key) > 15 else api_key
+            preview = api_key[:15] + "..." if len(api_key) > 15 else api_key
             tier_info = self.get_tier_info()
             print(f"✓ API key: {preview}")
             print(f"✓ Tier (Gói): {tier_info['tier']}")
             print(f"✓ Giới hạn (Limits): {tier_info['limits']}")
             return {
-'has_api_key': True,
-'api_key_preview': preview,
-'tier': tier_info['tier'],
-'limits': tier_info['limits']
+                'has_api_key': True,
+                'api_key_preview': preview,
+                'tier': tier_info['tier'],
+                'limits': tier_info['limits']
             }
         else:
             return {
-'has_api_key': False,
-'api_key_preview': None,
-'tier': self.get_tier(),
-'limits': self.get_limits()
+                'has_api_key': False,
+                'api_key_preview': None,
+                'tier': self.get_tier(),
+                'limits': self.get_limits()
             }
 
     def print_help(self):
-        print("\n" +"="*60)
+        print("\n" + "="*60)
         print("VNSTOCK API KEY SETUP (Cài đặt API Key)")
         print("="*60)
         print("\n📋 Các gói sử dụng (Available Tiers):")
@@ -320,5 +320,5 @@ class Authenticator:
         print("  vnai.check_api_key_status()")
         print("\n🤝 Tham gia gói thành viên tài trợ (Join Vnstock Sponsor):")
         print("  Truy cập: https://vnstocks.com/insiders-program")
-        print("="*60 +"\n")
+        print("="*60 + "\n")
 authenticator = Authenticator()

@@ -53,13 +53,21 @@ NeighborListHolder::NeighborListHolder(
     double cutoff,
     bool full_list,
     bool sorted,
-    std::string algorithm
+    std::string algorithm,
+    double skin,
+    int64_t n_threads
 ):
     cutoff_(cutoff),
     full_list_(full_list),
     sorted_(sorted),
     algorithm_(std::move(algorithm)),
+    skin_(skin),
+    n_threads_(n_threads),
     data_(nullptr) {
+    if (n_threads_ < 0) {
+        throw std::runtime_error("n_threads must be zero or a positive integer");
+    }
+
     data_ = new VesinNeighborList();
 }
 
@@ -164,11 +172,18 @@ std::vector<torch::Tensor> NeighborListHolder::compute(
         );
     }
 
+    auto n_threads = static_cast<int32_t>(n_threads_);
+    if (n_threads == 0) {
+        n_threads = at::get_num_threads();
+    }
+
     auto options = VesinOptions{
         /*cutoff=*/this->cutoff_,
         /*full=*/this->full_list_,
         /*sorted=*/this->sorted_,
         /*algorithm=*/algorithm,
+        /*skin=*/this->skin_,
+        /*n_threads=*/n_threads,
         /*return_shifts=*/return_shifts,
         /*return_distances=*/return_distances,
         /*return_vectors=*/return_vectors,
@@ -310,11 +325,13 @@ TORCH_LIBRARY(vesin, m) {
     // clang-format off
     m.class_<NeighborListHolder>("_NeighborList")
         .def(
-            torch::init<double, bool, bool, std::string>(), DOCSTRING, {
+            torch::init<double, bool, bool, std::string, double, int64_t>(), DOCSTRING, {
                 torch::arg("cutoff"),
                 torch::arg("full_list"),
                 torch::arg("sorted") = false,
                 torch::arg("algorithm") = "auto",
+                torch::arg("skin") = 0.0,
+                torch::arg("n_threads") = 0,
             }
         )
         .def("compute", &NeighborListHolder::compute, DOCSTRING, {
@@ -325,23 +342,23 @@ TORCH_LIBRARY(vesin, m) {
             torch::arg("copy") = true
         })
         .def_pickle(
-            [](const c10::intrusive_ptr<NeighborListHolder>& self)
-                -> c10::Dict<std::string, c10::IValue> {
+            [](const c10::intrusive_ptr<NeighborListHolder>& self) -> c10::Dict<std::string, c10::IValue> {
                 c10::impl::GenericDict dict(c10::StringType::get(), c10::AnyType::get());
                 dict.insert("cutoff", self->cutoff());
                 dict.insert("full_list", self->full_list());
                 dict.insert("sorted", self->sorted());
                 dict.insert("algorithm", self->algorithm());
+                dict.insert("n_threads", self->n_threads());
 
-                return c10::impl::toTypedDict<std::string, c10::IValue>(std::move(dict));
+                return c10::impl::toTypedDict<std::string, c10::IValue>(dict);
             },
-            [](c10::Dict<std::string, c10::IValue> data)
-                -> c10::intrusive_ptr<NeighborListHolder> {
+            [](c10::Dict<std::string, c10::IValue> data) -> c10::intrusive_ptr<NeighborListHolder> {
                 return c10::make_intrusive<NeighborListHolder>(
                     data.at("cutoff").toDouble(),
                     data.at("full_list").toBool(),
                     data.at("sorted").toBool(),
-                    data.at("algorithm").toStringRef()
+                    data.at("algorithm").toStringRef(),
+                    data.at("n_threads").toInt()
                 );
             }
         );

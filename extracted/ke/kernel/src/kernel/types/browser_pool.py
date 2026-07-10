@@ -11,13 +11,12 @@ __all__ = ["BrowserPool", "BrowserPoolConfig", "BrowserPoolConfigProfile"]
 
 
 class BrowserPoolConfigProfile(BaseModel):
-    """Profile selection for browsers in a pool.
+    """Profile configuration for browsers in a pool.
 
-    Provide either id or name. The matching profile is
-    loaded into every browser in the pool. Profiles must be created beforehand. Unlike single
-    browser sessions, pools load the profile read-only and never persist changes back to it, so
-    save_changes is omitted here. Any save_changes value sent on a pool profile is silently
-    ignored rather than rejected, so callers reusing a single-session profile object will not error.
+    Provide either id or name. Profiles must
+    be created beforehand. Unlike single browser sessions, pools load the profile read-only
+    and never persist changes back to it, so save_changes is omitted here. Any save_changes
+    value sent on a pool profile is silently ignored rather than rejected.
     """
 
     id: Optional[str] = None
@@ -74,20 +73,25 @@ class BrowserPoolConfig(BaseModel):
     """Optional name for the browser pool. Must be unique within the project."""
 
     profile: Optional[BrowserPoolConfigProfile] = None
-    """Profile selection for browsers in a pool.
+    """Profile configuration for browsers in a pool.
 
-    Provide either id or name. The matching profile is loaded into every browser in
-    the pool. Profiles must be created beforehand. Unlike single browser sessions,
-    pools load the profile read-only and never persist changes back to it, so
-    save_changes is omitted here. Any save_changes value sent on a pool profile is
-    silently ignored rather than rejected, so callers reusing a single-session
-    profile object will not error.
+    Provide either id or name. Profiles must be created beforehand. Unlike single
+    browser sessions, pools load the profile read-only and never persist changes
+    back to it, so save_changes is omitted here. Any save_changes value sent on a
+    pool profile is silently ignored rather than rejected.
     """
 
     proxy_id: Optional[str] = None
     """Optional proxy to associate to the browser session.
 
     Must reference a proxy in the same project as the browser session.
+    """
+
+    refresh_on_profile_update: Optional[bool] = None
+    """
+    When true, flush idle browsers when the profile the pool uses is updated, so
+    pool browsers pick up the latest profile data. Requires a profile to be set on
+    the pool.
     """
 
     start_url: Optional[str] = None
@@ -146,5 +150,21 @@ class BrowserPool(BaseModel):
     created_at: datetime
     """Timestamp when the browser pool was created"""
 
+    extension_ids: List[str]
+    """Resolved extension IDs attached to the pool, in configured load order.
+
+    Empty when no extensions are attached. Authoritative for programmatic consumers;
+    the extensions inside `browser_pool_config` reflect the configured selector
+    (echoed as sent on create).
+    """
+
     name: Optional[str] = None
     """Browser pool name, if set"""
+
+    profile_id: Optional[str] = None
+    """Resolved profile ID the pool is attached to.
+
+    Omitted when no profile is attached. Authoritative for programmatic consumers;
+    the profile inside `browser_pool_config` reflects the configured selector
+    (echoed as sent on create).
+    """

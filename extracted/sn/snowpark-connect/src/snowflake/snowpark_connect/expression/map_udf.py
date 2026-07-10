@@ -5,9 +5,8 @@
 import pyspark.sql.connect.proto.expressions_pb2 as expressions_proto
 import pyspark.sql.connect.proto.types_pb2 as types_proto
 
-import snowflake.snowpark.functions as snowpark_fn
 from snowflake import snowpark
-from snowflake.snowpark.types import MapType, StructType, VariantType
+from snowflake.snowpark.types import ArrayType, MapType, StructType, VariantType
 from snowflake.snowpark_connect.column_name_handler import ColumnNameMap
 from snowflake.snowpark_connect.config import get_artifact_repository, global_config
 from snowflake.snowpark_connect.error.error_codes import ErrorCodes
@@ -19,8 +18,8 @@ from snowflake.snowpark_connect.utils.context import get_grouping_by_scala_udf_k
 from snowflake.snowpark_connect.utils.java_stored_procedure import create_java_udf
 from snowflake.snowpark_connect.utils.java_udaf_utils import JavaUdaf
 from snowflake.snowpark_connect.utils.jvm_udf_utils import (
-    expand_struct_arg_for_scala_udf,
-    is_native_sql_type,
+    UdfKind,
+    jvm_return_needs_decode,
 )
 from snowflake.snowpark_connect.utils.scala_udf_utils import LazyCreatedScalaUdf
 from snowflake.snowpark_connect.utils.session import get_or_create_snowpark_session
@@ -40,7 +39,6 @@ from snowflake.snowpark_connect.utils.udf_utils import (
 from snowflake.snowpark_connect.utils.udxf_import_utils import (
     get_python_udxf_import_files,
 )
-from snowflake.snowpark_connect.utils.variant_utils import scala_udf_arg_to_variant
 
 
 def cache_external_udf_wrapper(from_register_udf: bool):
@@ -99,10 +97,26 @@ def process_udf_return_type(
 
     # Snowflake UDF does not support MapType or StructType, so we convert them to VariantType.
     # We return both the converted type and original type for proper result processing.
-    if isinstance(original_snowpark_type, (MapType, StructType)):
+    # Array Type with Timestamps raises an incident when return type is not converted to VariantType.
+    # Related JIRA: https://snowflakecomputing.atlassian.net/browse/SNOW-2131897
+    if isinstance(original_snowpark_type, (ArrayType, MapType, StructType)):
         return VariantType(), original_snowpark_type
 
     return original_snowpark_type, original_snowpark_type
+
+
+def _resolve_udf_kind(function_type: str, udf, inline: bool) -> UdfKind:
+    match function_type:
+        case "scalar_scala_udf" if isinstance(udf, JavaUdaf):
+            return UdfKind.JAVA_UDAF
+        case "scalar_scala_udf":
+            return UdfKind.SCALA_UDF
+        case "python_udf":
+            return UdfKind.PYTHON_INLINE if inline else UdfKind.PYTHON_REGISTERED
+        case "java_udf":
+            return UdfKind.JAVA_SCALAR
+        case _:
+            raise ValueError(f"Unsupported UDF type {function_type!r}")
 
 
 @cache_external_udf_wrapper(from_register_udf=True)
@@ -138,6 +152,7 @@ def register_udf(
                 input_types=java_udf._input_types,
                 return_type=java_udf._return_type,
                 original_return_type=original_return_type,
+                kind=UdfKind.JAVA_SCALAR,
                 cast_to_original_return_type=True,
             )
             get_spark_session_cache().udfs.register(
@@ -176,19 +191,16 @@ def register_udf(
 
     use_sproc = require_creating_udf_in_sproc(udf_proto)
     if use_sproc:
-        return process_udf_in_sproc(**kwargs)
+        return process_udf_in_sproc(**kwargs, kind=UdfKind.PYTHON_REGISTERED)
     else:
         udf_processor = ProcessCommonInlineUserDefinedFunction(**kwargs)
         udf = udf_processor.create_udf()
-        is_scala_udf = udf_proto.WhichOneof("function") == "scalar_scala_udf"
-
-        # Non-native Scala return types (Array, Decimal, Timestamp, …) use RETURNS VARIANT
-        # DDL under the hood, so Snowflake returns a JSON string that needs to be cast back.
-        cast_to_original = udf._return_type == VariantType() or (
-            is_scala_udf and not is_native_sql_type(udf._return_type)
+        udf_kind = _resolve_udf_kind(
+            str(udf_proto.WhichOneof("function")), udf, inline=False
         )
-        attach_schema = (is_scala_udf and not isinstance(udf, JavaUdaf)) or (
-            is_python_udf and udf_processor._coerce_via_schema_json
+        cast_to_original = udf._return_type == VariantType() or (
+            udf_kind in (UdfKind.SCALA_UDF, UdfKind.JAVA_UDAF)
+            and jvm_return_needs_decode(udf._return_type, original_return_type)
         )
         if isinstance(udf, LazyCreatedScalaUdf):
             snowpark_udf: SnowparkUdfBase = LazySnowparkUdf(
@@ -196,7 +208,6 @@ def register_udf(
                 return_type=udf._return_type,
                 original_return_type=original_return_type,
                 cast_to_original_return_type=cast_to_original,
-                attach_schema_json=attach_schema,
                 stage_imports=udf.stage_imports,
             )
         else:
@@ -205,10 +216,8 @@ def register_udf(
                 input_types=udf._input_types,
                 return_type=udf._return_type,
                 original_return_type=original_return_type,
+                kind=udf_kind,
                 cast_to_original_return_type=cast_to_original,
-                attach_schema_json=attach_schema,
-                is_scala=is_scala_udf,
-                is_java_udaf=isinstance(udf, JavaUdaf),
             )
         cache = get_spark_session_cache()
         cache.udfs.register(udf_proto.function_name.lower(), snowpark_udf)
@@ -258,22 +267,27 @@ def map_common_inline_user_defined_udf(
         }
         use_sproc = require_creating_udf_in_sproc(udf_proto)
         if use_sproc:
-            snowpark_udf = process_udf_in_sproc(**kwargs)
+            snowpark_udf = process_udf_in_sproc(**kwargs, kind=UdfKind.PYTHON_INLINE)
         else:
             udf_processor = ProcessCommonInlineUserDefinedFunction(**kwargs)
             udf = udf_processor.create_udf()
-            is_scala_udf = udf_proto.WhichOneof("function") == "scalar_scala_udf"
-
-            if is_scala_udf and isinstance(udf, LazyCreatedScalaUdf):
-                # cast_to_original_return_type is False here (unlike the register_udf path):
-                # this inline call site applies its own native-return handling below, so the
-                # flag is unused for Lazy UDFs reached via map_common_inline_user_defined_udf.
+            # Inline UDFs are created with concrete call-site types,
+            # unlike spark.udf.register UDFs which default to VARIANT inputs.
+            udf_kind = _resolve_udf_kind(
+                str(udf_proto.WhichOneof("function")), udf, inline=True
+            )
+            cast_to_original = udf._return_type == VariantType() or (
+                udf_kind in (UdfKind.SCALA_UDF, UdfKind.JAVA_UDAF)
+                and jvm_return_needs_decode(udf._return_type, original_return_type)
+            )
+            if udf_kind in (UdfKind.SCALA_UDF, UdfKind.JAVA_UDAF) and isinstance(
+                udf, LazyCreatedScalaUdf
+            ):
                 snowpark_udf: SnowparkUdfBase = LazySnowparkUdf(
                     name=udf.name,
                     return_type=udf._return_type,
                     original_return_type=original_return_type,
-                    cast_to_original_return_type=False,
-                    attach_schema_json=not isinstance(udf, JavaUdaf),
+                    cast_to_original_return_type=cast_to_original,
                     stage_imports=udf.stage_imports,
                 )
             else:
@@ -282,60 +296,19 @@ def map_common_inline_user_defined_udf(
                     input_types=udf._input_types,
                     return_type=udf._return_type,
                     original_return_type=original_return_type,
-                    attach_schema_json=is_scala_udf and not isinstance(udf, JavaUdaf),
-                    is_scala=is_scala_udf,
-                    is_java_udaf=isinstance(udf, JavaUdaf),
+                    kind=udf_kind,
+                    cast_to_original_return_type=cast_to_original,
                 )
         return snowpark_udf
 
     snowpark_udf = get_snowpark_udf(udf_proto)
-    is_scala_udf = udf_proto.WhichOneof("function") == "scalar_scala_udf"
 
-    converted_args = []
-    for position, tc in enumerate(snowpark_udf_typed_args):
-        if (
-            is_scala_udf
-            and not snowpark_udf.is_java_udaf
-            and snowpark_udf.decomposes_struct_arg(position, tc.typ)
-        ):
-            # per-field decomposition via shared helper (also used by
-            # map_unresolved_function for registered UDFs).
-            converted_args.extend(expand_struct_arg_for_scala_udf(tc, column_mapping))
-        elif is_scala_udf and not is_native_sql_type(tc.typ):
-            # Native scalar args are passed as their native SQL type (matching the native
-            # DDL param); only non-native types still go through the VARIANT round-trip.
-            converted_args.append(scala_udf_arg_to_variant(tc.col, tc.typ))
-        else:
-            converted_args.append(tc.col)
-
-    udf_call_expr = snowpark_udf.call(
-        converted_args, snowpark_udf_typed_args, get_or_create_snowpark_session()
+    # The UDF handle owns the full marshalling round-trip (encode args → invoke → decode
+    # result), so the inline and registered-SQL (map_unresolved_function) call sites share
+    # one path with no per-call-site branching.
+    typed_result = snowpark_udf.invoke(
+        snowpark_udf_typed_args, column_mapping, get_or_create_snowpark_session()
     )
-
-    # Skip the cast only for truly native return types (BIGINT, VARCHAR, BOOLEAN, etc.)
-    # where the SQL DDL already returns the right type directly. For all other types
-    # (Decimal, Date, Array, Map, Struct) the DDL uses VARIANT, so we must cast back.
-    # Note: for non-native non-struct types (e.g. Date, Timestamp, Decimal),
-    # processed_return_type == original_return_type, so the second condition
-    # (not is_native_sql_type) is the load-bearing branch that triggers the cast.
-    if is_scala_udf:
-        if processed_return_type != original_return_type or not is_native_sql_type(
-            original_return_type
-        ):
-            result_expr = snowpark_fn.cast(udf_call_expr, original_return_type)
-        else:
-            result_expr = udf_call_expr
-        result_type = original_return_type
-
-    elif isinstance(original_return_type, (MapType, StructType)) and isinstance(
-        processed_return_type, VariantType
-    ):
-        # Parse JSON and cast back to original type for Python UDFs
-        result_expr = snowpark_fn.parse_json(udf_call_expr).cast(original_return_type)
-        result_type = original_return_type
-    else:
-        result_expr = udf_call_expr
-        result_type = snowpark_udf.return_type
 
     name = f"{udf_proto.function_name}({', '.join(snowpark_udf_arg_names)})"
     if get_grouping_by_scala_udf_key() and not isinstance(
@@ -346,4 +319,4 @@ def map_common_inline_user_defined_udf(
             if global_config.spark_sql_legacy_dataset_nameNonStructGroupingKeyAsValue
             else "key"
         )
-    return (name, TypedColumn(result_expr, lambda: [result_type]))
+    return (name, typed_result)

@@ -31,6 +31,7 @@ mod block_chart;
 mod block_scoring_gpu;
 mod block_stream;
 mod codes;
+mod cofit;
 mod coordinate;
 mod scoring;
 #[cfg(target_os = "linux")]
@@ -63,11 +64,14 @@ pub use block_stream::{
     BlockEpochStats, BlockShardStats, BlockSparseStreamArtifact, BlockSparseStreamState,
 };
 pub use codes::SparseCode;
+pub use cofit::{
+    CofitConfig, CofitReport, CofitRound, cofit_block_and_curved,
+};
 pub use coordinate::{
     BlockCoordinateReport, BlockMeasureCoordinateReport, FiringCoordinate, MeasureSpikeCoordinate,
     MeasureValuedCode, block_firing_coordinates, block_measure_valued_codes,
     explained_variance_from_reconstruction, harmonic_firing_coordinates,
-    harmonic_measure_coordinates, reconstruct_measure_valued_rows,
+    harmonic_measure_coordinates, recover_measure_from_code, reconstruct_measure_valued_rows,
     reconstruct_single_coordinate_rows,
 };
 pub use scoring::{ScoreRoutePath, ScoreRouteResult, ScoreRouteStats, TileScorer, top_s_online};

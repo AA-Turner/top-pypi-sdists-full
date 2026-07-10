@@ -593,6 +593,31 @@ class SecurityCache(System.Object):
         """Gets whether or not this dynamic data instance has data stored for the specified type"""
         ...
 
+    @overload
+    def update_open_interest(self, data: QuantConnect.Data.BaseData) -> None:
+        """
+        Helper method to update the open interest cache property from a chain universe data point,
+        which carries the contracts daily open interest
+        
+        
+        This Class is protected.
+        
+        :param data: The data point being stored
+        """
+        ...
+
+    @overload
+    def update_open_interest(self, data: typing.Sequence[QuantConnect.Data.BaseData]) -> None:
+        """
+        Helper method to update the open interest cache property from the last data point of a stored data list
+        
+        
+        This Class is protected.
+        
+        :param data: The data list being stored
+        """
+        ...
+
 
 class MarketHoursState(IntEnum):
     """Specifies the open/close state for a MarketHoursSegment"""

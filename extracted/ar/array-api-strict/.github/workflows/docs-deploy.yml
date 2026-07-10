@@ -11,9 +11,9 @@ jobs:
     environment:
       name: docs-deploy
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7.0.0
       - name: Download Artifact
-        uses: dawidd6/action-download-artifact@v14
+        uses: dawidd6/action-download-artifact@v21
         with:
           workflow: docs-build.yml
           name: docs-build

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: lion-pytorch
-Version: 0.2.4
+Version: 0.2.5
 Summary: Lion Optimizer - Pytorch
 Project-URL: Homepage, https://pypi.org/project/lion-pytorch/
 Project-URL: Repository, https://codeberg.org/lucidrains/lion-pytorch

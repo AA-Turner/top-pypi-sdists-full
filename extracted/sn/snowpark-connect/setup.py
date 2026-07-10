@@ -69,7 +69,7 @@ setup(
         "aiobotocore>=2.23.0,<4",
         # The following are dependencies for the vendored pyspark
         "py4j>=0.10.9.7, <0.10.10.0",
-        "pandas>=1.0.5",
+        "pandas>=1.0.5,<3.0",
         "pyarrow>=23.0.1,<25.0.0",
         "grpcio>=1.56.0,<=1.78.0",
         "grpcio-status>=1.56.0,<=1.78.0",

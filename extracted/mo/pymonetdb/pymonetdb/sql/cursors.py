@@ -39,7 +39,7 @@ class Cursor(object):
     description: Optional[List[Description]]
     _can_bindecode: Optional[bool]
     _bindecoders: Optional[List['pythonizebin.BinaryDecoder']]
-    rownumber: int
+    rownumber: Optional[int]
     _executed: Optional[str]
     _offset: int
     _rows: List[Tuple]
@@ -100,9 +100,9 @@ class Cursor(object):
         self._can_bindecode = None
         self._bindecoders = None
 
-        # This read-only attribute indicates at which row
+        # This read-only attribute indicates at which row of a result set
         # we currently are
-        self.rownumber = -1
+        self.rownumber = None
 
         self._executed = None
 
@@ -339,6 +339,9 @@ class Cursor(object):
 
     def nextset(self) -> Optional[bool]:
         if not self._next_result_sets:
+            self._query_id = None
+            self.description = None
+            self.rownumber = None
             return None
 
         (self._query_id, self.rowcount, self.description, self._rows) = self._next_result_sets[0]
@@ -414,7 +417,7 @@ class Cursor(object):
         return self.next()
 
     def _store_result(self, block, *, update_existing: bool):  # noqa: C901
-        """ parses the mapi result into a resultset"""
+        """ parses the mapi result into result sets"""
 
         if not update_existing:
             self._next_result_sets = []
@@ -541,6 +544,7 @@ class Cursor(object):
                 self._rows = []
                 self.description = None
                 self.rowcount = -1
+                self.connection.autocommit = (line[3] == 't')
 
             elif line == mapi.MSG_PROMPT:
                 return

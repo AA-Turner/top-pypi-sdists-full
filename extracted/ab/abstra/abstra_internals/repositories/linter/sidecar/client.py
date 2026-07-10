@@ -205,9 +205,9 @@ class SidecarLinterRepository(LinterRepository):
             AbstraLogger.warning(f"[LinterSidecar] get_checks degraded: {e}")
         return self.checks
 
-    def update_checks(self) -> List[LinterCheck]:
+    def update_checks(self, revalidate_caches: bool = False) -> List[LinterCheck]:
         try:
-            self._request("run_all")
+            self._request("run_all", {"revalidate_caches": revalidate_caches})
         except SidecarUnavailableError as e:
             AbstraLogger.warning(
                 f"[LinterSidecar] update_checks degraded (stale mirror): {e}"

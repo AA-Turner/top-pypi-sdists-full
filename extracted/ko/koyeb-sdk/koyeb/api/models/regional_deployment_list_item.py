@@ -37,7 +37,8 @@ class RegionalDeploymentListItem(BaseModel):
     status: Optional[RegionalDeploymentStatus] = RegionalDeploymentStatus.PENDING
     messages: Optional[List[StrictStr]] = None
     definition: Optional[RegionalDeploymentDefinition] = None
-    __properties: ClassVar[List[str]] = ["id", "created_at", "updated_at", "region", "status", "messages", "definition"]
+    instance_snapshot_id: Optional[StrictStr] = None
+    __properties: ClassVar[List[str]] = ["id", "created_at", "updated_at", "region", "status", "messages", "definition", "instance_snapshot_id"]
 
     model_config = ConfigDict(
         validate_by_name=True,
@@ -99,7 +100,8 @@ class RegionalDeploymentListItem(BaseModel):
             "region": obj.get("region"),
             "status": obj.get("status") if obj.get("status") is not None else RegionalDeploymentStatus.PENDING,
             "messages": obj.get("messages"),
-            "definition": RegionalDeploymentDefinition.from_dict(obj["definition"]) if obj.get("definition") is not None else None
+            "definition": RegionalDeploymentDefinition.from_dict(obj["definition"]) if obj.get("definition") is not None else None,
+            "instance_snapshot_id": obj.get("instance_snapshot_id")
         })
         return _obj
 

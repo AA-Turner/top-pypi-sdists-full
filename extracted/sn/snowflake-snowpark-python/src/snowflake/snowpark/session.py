@@ -2773,11 +2773,15 @@ class Session:
             # timestamp_type remains "NTZ" (user's explicit choice respected)
             >>> table2 = session.read.table("my_table", time_travel_mode="at", timestamp=tz_aware, timestamp_type="NTZ")  # doctest: +SKIP
         """
-        # ``version`` (Iceberg snapshot id) is intentionally not in the public
-        # signature — it's consumed by Snowpark Connect and may be removed
-        # once a first-class API lands. Accept it through **kwargs so direct
-        # callers can still pass it without us advertising it.
+        # ``version`` (Iceberg snapshot id) and ``version_tag`` (Iceberg tag
+        # name) are intentionally not in the public signature — they are
+        # consumed by Snowpark Connect and may be removed once a first-class
+        # API lands. Accept them through **kwargs so direct callers can
+        # still pass them without us advertising the surface.
         version = kwargs.pop("version", None)
+        version_tag = kwargs.pop("version_tag", None)
+        start_snapshot_id = kwargs.pop("start_snapshot_id", None)
+        end_snapshot_id = kwargs.pop("end_snapshot_id", None)
         if kwargs:
             raise TypeError(
                 f"table() got unexpected keyword arguments: {sorted(kwargs)}"
@@ -2820,6 +2824,9 @@ class Session:
             timestamp_type=timestamp_type,
             stream=stream,
             version=version,
+            version_tag=version_tag,
+            start_snapshot_id=start_snapshot_id,
+            end_snapshot_id=end_snapshot_id,
         )
         # Replace API call origin for table
         set_api_call_source(t, "Session.table")

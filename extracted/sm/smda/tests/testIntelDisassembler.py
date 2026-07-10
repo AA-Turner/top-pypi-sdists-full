@@ -269,6 +269,135 @@ class TestIntelDisassembler(unittest.TestCase):
 
         self.assertEqual(manager.candidates[0x1010].call_ref_sources, {0x1000})
 
+    def _first_gap_candidate(self, stub, base=0x1000, stub_off=0x10):
+        # Build a buffer with a gap (between two mapped instructions at base and base+0x100),
+        # int3-padded up to `stub` at base+stub_off, then drive the gap scanner once.
+        from capstone import CS_ARCH_X86, CS_MODE_32, Cs
+
+        buf = bytearray(b"\x90")  # base+0x00: a mapped instruction bounding the gap
+        buf += b"\xcc" * (stub_off - len(buf))  # int3 padding leading into the gap
+        buf += stub  # base+stub_off: the candidate bytes under test
+        buf += b"\xcc" * (0x200 - len(buf))  # trailing fill
+
+        binary_info = BinaryInfo(bytes(buf))
+        binary_info.base_addr = base
+        binary_info.binary_size = len(buf)
+        binary_info.bitness = 32
+        disassembly = SimpleNamespace(
+            binary_info=binary_info,
+            code_map={base: 1, base + 0x100: 1},
+            data_map={},
+            getRawBytes=lambda offset, n: bytes(buf)[offset : offset + n],
+        )
+        manager = FunctionCandidateManager(SmdaConfig())
+        manager.disassembly = disassembly
+        manager.bitness = 32
+        manager.capstone = Cs(CS_ARCH_X86, CS_MODE_32)
+        return manager.nextGapCandidate()
+
+    def test_hotpatch_prologue_not_skipped_as_effective_nop(self):
+        # `mov edi, edi; push ebp; mov ebp, esp` is an MSVC hotpatch stub whose leading
+        # `mov edi, edi` (0x8bff) is an effective NOP but IS the true function start. The
+        # gap scanner must return the stub start, not skip it to the `push ebp` two bytes
+        # later (which would mislocate the function and drop its true entry).
+        self.assertEqual(self._first_gap_candidate(b"\x8b\xff\x55\x8b\xec"), 0x1010)
+        # control: a bare `mov edi, edi` not followed by a real prologue is still treated
+        # as an effective NOP and skipped, so it is never returned as the candidate start.
+        self.assertNotEqual(self._first_gap_candidate(b"\x8b\xff\x90\x90\x90"), 0x1010)
+
+    def test_is_hotpatch_prologue_predicate(self):
+        # The shared predicate backs both the gap scanner and the post-call alignment-cut
+        # path, so lock its contract directly: both `mov edi, edi` encodings of the MSVC
+        # hotpatch stub match in 32-bit, non-hotpatch windows do not, and 64-bit never
+        # matches (the stub is a 32-bit convention; COMMON_PROLOGUES["5"][64] is empty).
+        manager = FunctionCandidateManager(SmdaConfig())
+        manager.bitness = 32
+        self.assertTrue(manager.isHotpatchPrologue(b"\x8b\xff\x55\x8b\xec"))
+        self.assertTrue(manager.isHotpatchPrologue(b"\x89\xff\x55\x8b\xec"))
+        self.assertFalse(manager.isHotpatchPrologue(b"\x8b\xff\x90\x90\x90"))
+        self.assertFalse(manager.isHotpatchPrologue(b"\x55\x8b\xec\x83\xec"))  # bare prologue, no NOP
+        manager.bitness = 64
+        self.assertFalse(manager.isHotpatchPrologue(b"\x8b\xff\x55\x8b\xec"))
+
+    def test_function_gaps_cover_head_and_tail_without_code_areas(self):
+        # Raw memory dumps are loaded without section info (_code_areas is empty). The gap scan
+        # must still cover the head (before the first instruction) and tail (after the last
+        # instruction) of the mapped image, otherwise functions that lie entirely before the first
+        # or after the last already-discovered instruction (e.g. trailing jmp/thunk tables) are
+        # never reached by the gap pass.
+        manager = FunctionCandidateManager(SmdaConfig())
+        binary_info = BinaryInfo(b"\x00" * 0x100)
+        binary_info.base_addr = 0x1000
+        binary_info.binary_size = 0x100
+        manager._code_areas = []
+        # only one already-discovered instruction, in the middle of the image
+        manager.disassembly = SimpleNamespace(binary_info=binary_info, code_map={0x1080: 1})
+
+        manager.updateFunctionGaps()
+
+        # a head gap [base_addr, first_instruction) and a tail gap that starts AFTER the last
+        # instruction's address (max_code + 1, mirroring the interior-hole branch). Starting the
+        # tail gap at max_code itself would leave the gap-pointer on a code_map address, which
+        # getNextGap() cannot advance past -- the tail would never be scanned.
+        self.assertIn([0x1000, 0x1080, 0x80], manager.function_gaps)
+        self.assertIn([0x1081, 0x1100, 0x7F], manager.function_gaps)
+
+    def test_gap_scan_skips_single_byte_padding_run(self):
+        config = SmdaConfig()
+        binary_info = BinaryInfo(b"\x00\x90\xcc\x55\xc3")
+        binary_info.base_addr = 0x1000
+        binary_info.bitness = 32
+        binary_info.binary_size = len(binary_info.binary)
+
+        manager = FunctionCandidateManager(config)
+        manager.disassembly = SimpleNamespace(
+            binary_info=binary_info,
+            code_map={},
+            data_map={},
+            getRawBytes=lambda offset, size: binary_info.binary[offset : offset + size],
+        )
+        manager.bitness = 32
+        manager.capstone = SimpleNamespace(disasm_lite=lambda data, offset: [(offset, 1, "push", "ebp")])
+        manager.function_gaps = [[0x1000, 0x1005, 5]]
+        manager.gap_pointer = 0x1000
+
+        self.assertEqual(manager.nextGapCandidate(), 0x1003)
+
+    def test_prefixed_call_keeps_fallthrough_in_same_block(self):
+        state = FunctionAnalysisState(0x1000, SimpleNamespace())
+        state.instructions = [
+            (0x1000, 6, "bnd call", "0x1010", b""),
+            (0x1006, 2, "xor", "eax, eax", b""),
+            (0x1008, 1, "ret", "", b""),
+        ]
+        state.instruction_start_bytes = {0x1000, 0x1006, 0x1008}
+        state.addCodeRef(0x1000, 0x1010, by_jump=False)
+        state.addCodeRef(0x1000, 0x1006, by_jump=False)
+
+        self.assertEqual([[ins[0] for ins in block] for block in state.getBlocks()], [[0x1000, 0x1006, 0x1008]])
+
+    def test_alignment_sequence_recognizes_prefixed_ret(self):
+        # a bnd-prefixed ret right after a run of alignment padding is still real code, not
+        # more padding - isAlignmentSequence() must recognize it like a plain "ret".
+        manager = FunctionCandidateManager(SmdaConfig())
+        instruction_sequence = [
+            SimpleNamespace(address=0x100F, bytes=b"\x90", mnemonic="nop"),
+            SimpleNamespace(address=0x1010, bytes=b"\xf2\xc3", mnemonic="bnd ret"),
+        ]
+
+        self.assertFalse(manager.isAlignmentSequence(instruction_sequence))
+
+    def test_gap_stub_with_prefixed_jmp_is_accepted(self):
+        # a single bnd-prefixed jmp stub discovered via gap-scanning (e.g. a misaligned
+        # import-jmp thunk) must still be accepted as a legitimate function, matching the
+        # plain "jmp" case.
+        state = FunctionAnalysisState(0x1000, SimpleNamespace(getByte=lambda addr: 0xF2))
+        state.is_sanely_ending = False
+        state.num_blocks_analyzed = 0
+        state.instructions = [(0x1000, 6, "bnd jmp", "dword ptr [0x2000]", b"")]
+
+        self.assertTrue(state.finalizeAnalysis(as_gap=True))
+
     @staticmethod
     def _ins(mnemonic, op_str, address=0x1000, size=0):
         # (address, size, mnemonic, op_str) as produced by capstone disasm_lite

@@ -509,6 +509,7 @@ class RedshiftAdapterExtension(BaseAdapterExtension):
                     pci.relcreationtime AS event_time
                 FROM pg_class_info pci
                 WHERE pci.relcreationtime IS NOT NULL
+                AND pci.relcreationtime >= DATEADD(minute, -{self._SYS_QUERY_DETAIL_LOOKBACK_MINUTES}, (SYSDATE at time zone CURRENT_SETTING('timezone')) at time zone 'UTC')
 
                 UNION ALL
 

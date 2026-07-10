@@ -81,6 +81,7 @@ class SandboxExecutor:
         timeout: int = 30,
         on_stdout: Optional[Callable[[str], None]] = None,
         on_stderr: Optional[Callable[[str], None]] = None,
+        stream: bool = True,
     ) -> CommandResult:
         """
         Execute a command in a shell synchronously. Supports streaming output via callbacks.
@@ -111,92 +112,73 @@ class SandboxExecutor:
         """
         start_time = time.time()
 
-        # Use streaming if callbacks are provided
-        if on_stdout or on_stderr:
-            stdout_buffer = []
-            stderr_buffer = []
+        if stream:
+            buffer = not on_stdout and not on_stderr
+            stdout_buffer: List[str] = []
+            stderr_buffer: List[str] = []
             exit_code = 0
 
-            try:
-                client = self._get_client()
-                for event in client.run_streaming(
-                    cmd=command, cwd=cwd, env=env, timeout=float(timeout)
-                ):
-                    if "stream" in event:
-                        stream_type = event["stream"]
-                        data = event["data"]
-
-                        if stream_type == "stdout":
-                            stdout_buffer.append(data)
-                            if on_stdout:
-                                on_stdout(data)
-                        elif stream_type == "stderr":
-                            stderr_buffer.append(data)
-                            if on_stderr:
-                                on_stderr(data)
-                    elif "code" in event:
-                        exit_code = event["code"]
-                    elif "error" in event and isinstance(event["error"], str):
-                        # Error starting command
-                        return CommandResult(
-                            stdout="",
-                            stderr=event["error"],
-                            exit_code=1,
-                            status=CommandStatus.FAILED,
-                            duration=time.time() - start_time,
-                            command=command,
-                        )
-
-                return CommandResult(
-                    stdout="".join(stdout_buffer),
-                    stderr="".join(stderr_buffer),
-                    exit_code=exit_code,
-                    status=(
-                        CommandStatus.FINISHED
-                        if exit_code == 0
-                        else CommandStatus.FAILED
-                    ),
-                    duration=time.time() - start_time,
-                    command=command,
-                )
-            except Exception as e:
-                return CommandResult(
-                    stdout="",
-                    stderr=f"Command execution failed: {str(e)}",
-                    exit_code=1,
-                    status=CommandStatus.FAILED,
-                    duration=time.time() - start_time,
-                    command=command,
-                )
-
-        # Use regular run for non-streaming execution
-        try:
             client = self._get_client()
-            response = client.run(cmd=command, cwd=cwd, env=env, timeout=float(timeout))
+            for event in client.run_streaming(
+                cmd=command, cwd=cwd, env=env, timeout=float(timeout)
+            ):
+                if "stream" in event:
+                    stream_type = event["stream"]
+                    data = event["data"]
 
-            stdout = response.get("stdout", "")
-            stderr = response.get("stderr", "")
-            exit_code = response.get("code", 0)
+                    if stream_type == "stdout":
+                        if on_stdout:
+                            on_stdout(data)
+                        elif buffer:
+                            stdout_buffer.append(data)
+                    elif stream_type == "stderr":
+                        if on_stderr:
+                            on_stderr(data)
+                        elif buffer:
+                            stderr_buffer.append(data)
+                elif "code" in event:
+                    exit_code = event["code"]
+                elif "error" in event and isinstance(event["error"], str):
+                    return CommandResult(
+                        stdout="",
+                        stderr=event["error"],
+                        exit_code=1,
+                        status=CommandStatus.FAILED,
+                        duration=time.time() - start_time,
+                        command=command,
+                    )
 
             return CommandResult(
-                stdout=stdout,
-                stderr=stderr,
+                stdout="".join(stdout_buffer),
+                stderr="".join(stderr_buffer),
                 exit_code=exit_code,
                 status=(
-                    CommandStatus.FINISHED if exit_code == 0 else CommandStatus.FAILED
+                    CommandStatus.FINISHED
+                    if exit_code == 0
+                    else CommandStatus.FAILED
                 ),
                 duration=time.time() - start_time,
                 command=command,
             )
-        except Exception as e:
-            return CommandResult(
-                stdout="",
-                stderr=f"Command execution failed: {str(e)}",
-                exit_code=1,
-                status=CommandStatus.FAILED,
-                duration=time.time() - start_time,
-                command=command,
-            )
+
+        # Use regular run for non-streaming execution
+        client = self._get_client()
+        response = client.run(cmd=command, cwd=cwd, env=env, timeout=float(timeout))
+
+        stdout = response.get("stdout", "")
+        stderr = response.get("stderr", "")
+        exit_code = response.get("code", 0)
+
+        return CommandResult(
+            stdout=stdout,
+            stderr=stderr,
+            exit_code=exit_code,
+            status=(
+                CommandStatus.FINISHED if exit_code == 0 else CommandStatus.FAILED
+            ),
+            duration=time.time() - start_time,
+            command=command,
+        )
 
 
 class AsyncSandboxExecutor(SandboxExecutor):
@@ -220,6 +202,7 @@ class AsyncSandboxExecutor(SandboxExecutor):
         timeout: int = 30,
         on_stdout: Optional[Callable[[str], None]] = None,
         on_stderr: Optional[Callable[[str], None]] = None,
+        stream: bool = True,
     ) -> CommandResult:
         """
         Execute a command in a shell asynchronously. Supports streaming output via callbacks.
@@ -250,91 +233,73 @@ class AsyncSandboxExecutor(SandboxExecutor):
         """
         start_time = time.time()
 
-        # Use streaming if callbacks are provided
-        if on_stdout or on_stderr:
+        if stream:
+            buffer = not on_stdout and not on_stderr
             stdout_buffer: List[str] = []
             stderr_buffer: List[str] = []
             exit_code = 0
 
-            try:
-                client = self._get_async_client()
-
-                async for event in client.run_streaming(
-                    cmd=command, cwd=cwd, env=env, timeout=float(timeout)
-                ):
-                    if "stream" in event:
-                        stream_type = event["stream"]
-                        data = event["data"]
-
-                        if stream_type == "stdout":
-                            stdout_buffer.append(data)
-                            if on_stdout:
-                                on_stdout(data)
-                        elif stream_type == "stderr":
-                            stderr_buffer.append(data)
-                            if on_stderr:
-                                on_stderr(data)
-                    elif "code" in event:
-                        exit_code = event["code"]
-                    elif "error" in event and isinstance(event["error"], str):
-                        return CommandResult(
-                            stdout="",
-                            stderr=event["error"],
-                            exit_code=1,
-                            status=CommandStatus.FAILED,
-                            duration=time.time() - start_time,
-                            command=command,
-                        )
-
-                return CommandResult(
-                    stdout="".join(stdout_buffer),
-                    stderr="".join(stderr_buffer),
-                    exit_code=exit_code,
-                    status=(
-                        CommandStatus.FINISHED
-                        if exit_code == 0
-                        else CommandStatus.FAILED
-                    ),
-                    duration=time.time() - start_time,
-                    command=command,
-                )
-            except Exception as e:
-                return CommandResult(
-                    stdout="",
-                    stderr=f"Command execution failed: {str(e)}",
-                    exit_code=1,
-                    status=CommandStatus.FAILED,
-                    duration=time.time() - start_time,
-                    command=command,
-                )
-
-        # Use native async for non-streaming execution
-        try:
             client = self._get_async_client()
-            response = await client.run(
-                cmd=command, cwd=cwd, env=env, timeout=float(timeout)
-            )
 
-            stdout = response.get("stdout", "")
-            stderr = response.get("stderr", "")
-            exit_code = response.get("code", 0)
+            async for event in client.run_streaming(
+                cmd=command, cwd=cwd, env=env, timeout=float(timeout)
+            ):
+                if "stream" in event:
+                    stream_type = event["stream"]
+                    data = event["data"]
+
+                    if stream_type == "stdout":
+                        if on_stdout:
+                            on_stdout(data)
+                        elif buffer:
+                            stdout_buffer.append(data)
+                    elif stream_type == "stderr":
+                        if on_stderr:
+                            on_stderr(data)
+                        elif buffer:
+                            stderr_buffer.append(data)
+                elif "code" in event:
+                    exit_code = event["code"]
+                elif "error" in event and isinstance(event["error"], str):
+                    return CommandResult(
+                        stdout="",
+                        stderr=event["error"],
+                        exit_code=1,
+                        status=CommandStatus.FAILED,
+                        duration=time.time() - start_time,
+                        command=command,
+                    )
 
             return CommandResult(
-                stdout=stdout,
-                stderr=stderr,
+                stdout="".join(stdout_buffer),
+                stderr="".join(stderr_buffer),
                 exit_code=exit_code,
                 status=(
-                    CommandStatus.FINISHED if exit_code == 0 else CommandStatus.FAILED
+                    CommandStatus.FINISHED
+                    if exit_code == 0
+                    else CommandStatus.FAILED
                 ),
                 duration=time.time() - start_time,
                 command=command,
             )
-        except Exception as e:
-            return CommandResult(
-                stdout="",
-                stderr=f"Command execution failed: {str(e)}",
-                exit_code=1,
-                status=CommandStatus.FAILED,
-                duration=time.time() - start_time,
-                command=command,
-            )
+
+        # Use native async for non-streaming execution
+        client = self._get_async_client()
+        response = await client.run(
+            cmd=command, cwd=cwd, env=env, timeout=float(timeout)
+        )
+
+        stdout = response.get("stdout", "")
+        stderr = response.get("stderr", "")
+        exit_code = response.get("code", 0)
+
+        return CommandResult(
+            stdout=stdout,
+            stderr=stderr,
+            exit_code=exit_code,
+            status=(
+                CommandStatus.FINISHED if exit_code == 0 else CommandStatus.FAILED
+            ),
+            duration=time.time() - start_time,
+            command=command,
+        )

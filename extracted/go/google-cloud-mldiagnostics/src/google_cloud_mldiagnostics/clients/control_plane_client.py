@@ -203,6 +203,7 @@ class ControlPlaneClient:
       labels: Optional[Dict[str, str]] = None,
       orchestrator: Optional[str] = None,
       workload_details: Optional[Dict[str, Any]] = None,
+      workload_targets: Optional[List[Dict[str, Any]]] = None,
   ) -> Dict[str, Any]:
     """Create a new ML run using the Google Cloud API.
 
@@ -217,6 +218,7 @@ class ControlPlaneClient:
         labels: Custom labels for the run
         orchestrator: Orchestrator the workload is running on (e.g., GCE, GKE)
         workload_details: Details about the workload
+        workload_targets: Targets for the workload
 
     Returns:
         Response from the API as a dictionary
@@ -227,22 +229,22 @@ class ControlPlaneClient:
     payload = {"displayName": display_name, "name": name}
 
     if configs:
-      payload["configs"] = configs
+      payload["configs"] = configs  # pyrefly: ignore[bad-assignment]
 
     if artifacts:
-      payload["artifacts"] = artifacts
+      payload["artifacts"] = artifacts  # pyrefly: ignore[bad-assignment]
 
     if run_group:
       payload["runSet"] = run_group
 
     if labels:
-      payload["labels"] = labels
+      payload["labels"] = labels  # pyrefly: ignore[bad-assignment]
 
     if run_phase:
       payload["runPhase"] = run_phase
 
     if tools:
-      payload["tools"] = tools
+      payload["tools"] = tools  # pyrefly: ignore[bad-assignment]
 
     if orchestrator:
       payload["orchestrator"] = orchestrator
@@ -262,7 +264,20 @@ class ControlPlaneClient:
         creation_timestamp = workload_details.get("creation-timestamp")
         if creation_timestamp:
           gke_workload_details["createTime"] = creation_timestamp
-        payload["workloadDetails"] = {"gke": gke_workload_details}
+        payload["workloadDetails"] = {"gke": gke_workload_details}  # pyrefly: ignore[bad-assignment]
+      elif orchestrator == "GCE" and workload_details:
+        gce_workload_details = {
+            "id": workload_details["id"],
+            "display_name": workload_details["display_name"],
+            "create_time": workload_details["create_time"],
+        }
+        payload["workloadDetails"] = {"gce": gce_workload_details}  # pyrefly: ignore[bad-assignment]
+
+    if workload_targets:
+      if not payload.get("workloadDetails", None):
+        payload["workloadDetails"] = {}
+
+      payload["workloadDetails"]["targets"] = workload_targets  # pyrefly: ignore[bad-assignment]
 
     # Sanitize the name for machineLearningRunId
     sanitized_name = host_utils.sanitize_identifier(name)
@@ -309,6 +324,8 @@ class ControlPlaneClient:
               tools=tools,
               artifacts=artifacts,
               run_phase=run_phase,
+              labels=labels,
+              configs=configs,
           )
         raise
     else:
@@ -419,7 +436,7 @@ class ControlPlaneClient:
     ) as response:
       try:
         response.raise_for_status()
-      except requests.exceptions.HTTPError as e:
+      except requests.exceptions.HTTPError:
         if response.status_code == 409:
           err_dict = ast.literal_eval(response.text)
           logger.info("error dict: %s", err_dict)
@@ -611,6 +628,9 @@ class ControlPlaneClient:
       display_name: Optional[str] = None,
       tools: Optional[List[Dict[str, Any]]] = None,
       artifacts: Optional[Dict[str, str]] = None,
+      labels: Optional[Dict[str, str]] = None,
+      configs: Optional[Dict[str, Any]] = None,
+      update_mask: str = "*",
   ) -> Dict[str, Any]:
     """Update an existing ML run.
 
@@ -624,6 +644,9 @@ class ControlPlaneClient:
         display_name: Optional new display name for the run
         tools: Optional new list of tools to enable (e.g., XProf, NSys)
         artifacts: Optional new artifacts configuration (e.g., gcsPath)
+        labels: Optional new dictionary of labels to merge
+        configs: Optional new dictionary of configs to merge
+        update_mask: Update mask for the ML run
 
     Returns:
         Response from the API as a dictionary
@@ -641,6 +664,9 @@ class ControlPlaneClient:
             display_name=display_name,
             tools=tools,
             artifacts=artifacts,
+            labels=labels,
+            configs=configs,
+            update_mask=update_mask,
         )
       except requests.exceptions.HTTPError as e:
         logger.warning(
@@ -669,6 +695,9 @@ class ControlPlaneClient:
       display_name: Optional[str] = None,
       tools: Optional[List[Dict[str, Any]]] = None,
       artifacts: Optional[Dict[str, str]] = None,
+      labels: Optional[Dict[str, str]] = None,
+      configs: Optional[Dict[str, Any]] = None,
+      update_mask: str = "*",
   ) -> Dict[str, Any]:
     """Attempt to update an existing ML run once."""
     payload = self.get_ml_run(name)
@@ -692,6 +721,39 @@ class ControlPlaneClient:
       payload["artifacts"] = artifacts
       need_update = True
 
+    if labels is not None:
+      existing_labels = payload.get("labels")
+      if not isinstance(existing_labels, dict):
+        existing_labels = {}
+      labels_modified = False
+      is_foreign_run = (
+          "created_by" in existing_labels
+          and existing_labels.get("created_by") != "diagon_sdk"
+      )
+      for key, value in labels.items():
+        if key in ("created_by", "create-tool-mode"):
+          if key in existing_labels or is_foreign_run:
+            continue
+        if existing_labels.get(key) != value:
+          existing_labels[key] = value
+          labels_modified = True
+      if labels_modified:
+        payload["labels"] = existing_labels
+        need_update = True
+
+    if configs is not None:
+      existing_configs = payload.get("configs")
+      if not isinstance(existing_configs, dict):
+        existing_configs = {}
+      configs_modified = False
+      for key, value in configs.items():
+        if existing_configs.get(key) != value:
+          existing_configs[key] = value
+          configs_modified = True
+      if configs_modified:
+        payload["configs"] = existing_configs
+        need_update = True
+
     if not need_update:
       return payload
 
@@ -700,7 +762,7 @@ class ControlPlaneClient:
       payload.pop(field, None)
 
     run_url = f"{self.ml_runs_path}/{name}"
-    params = {"update_mask": "*"}
+    params = {"update_mask": update_mask}
 
     logger.debug(
         "Update ML Run request: url=%s, params=%s, json=%s",
@@ -743,85 +805,3 @@ class ControlPlaneClient:
       raise requests.exceptions.HTTPError(f"Operation failed: {err}")
 
     return operation.get("response", operation)
-
-  def create_profiler_target(
-      self,
-      *,
-      ml_run_name: str,
-      name: str,
-      is_master: bool,
-      hostname: str,
-      node_index: int,
-  ) -> None:
-    """Create a profiler target for the ML run.
-
-    Args:
-        ml_run_name: The name of the ML run.
-        name: Name of the profiler target
-        is_master: Whether the target is the master host
-        hostname: Hostname of the target
-        node_index: Index of the node in the cluster
-
-    Raises:
-        requests.exceptions.RequestException: If the HTTP request fails
-    """
-    profiler_target_url = f"{self.ml_runs_path}/{ml_run_name}/profilerTargets"
-    params = {"profiler_target_id": name}
-    payload = {
-        "name": name,
-        "isMaster": is_master,
-        "hostname": hostname,
-        "nodeIndex": node_index,
-    }
-
-    logger.debug(
-        "Create a profiler target: url=%s, params=%r, payload=%r",
-        profiler_target_url,
-        params,
-        payload,
-    )
-    response = requests.post(
-        profiler_target_url,
-        headers=self._get_headers(),
-        params=params,
-        json=payload,
-    )
-
-    try:
-      response.raise_for_status()
-    except requests.exceptions.HTTPError:
-      if response.status_code == 409:
-        logger.warning(
-            "Profiler target '%s/%s' already exists, ignoring the "
-            "create request.",
-            profiler_target_url,
-            name,
-        )
-        return
-      else:
-        logger.error(
-            "Create profiler target request failed: status_code=%s, content=%s",
-            response.status_code,
-            response.text,
-        )
-        raise
-    json_response = response.json()
-    if logger.isEnabledFor(logging.DEBUG):
-      logger.debug(
-          "Create profiler target response: %s", pprint.pformat(json_response)
-      )
-
-    if not json_response.get("done"):
-      operation = self._wait_for_operation(json_response["name"])
-    else:
-      operation = json_response
-
-    if logger.isEnabledFor(logging.INFO):
-      logger.info(
-          "Create profiler target operation: %s", pprint.pformat(operation)
-      )
-
-    if operation.get("error"):
-      raise requests.exceptions.HTTPError(
-          f"Operation {operation['name']!r} failed: {operation['error']!r}"
-      )

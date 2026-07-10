@@ -13,21 +13,29 @@ from .config import (
 from .custom_recognizer import CustomRecognizer
 from .model_search import ModelQuery, ModelSearchResult, search_models
 from .models import ModelLoader, load_model
+from .offline import OfflineModeError
 from .redaction_preview import redaction_preview, render_redaction_preview
 from .script_detect import (
     SCRIPT_LANGUAGE_HINTS,
     SUPPORTED_SCRIPTS,
     UNKNOWN_SCRIPT,
+    ZERO_WIDTH_CHARS,
+    DetectionNormalization,
     candidate_languages_for_script,
     detect_script,
+    normalize_for_pii_detection,
     segment_by_script,
 )
 from .surrogate_vault import (
+    ENCRYPTION_SCHEME,
     InMemorySurrogateStore,
     JsonFileSurrogateStore,
     SurrogateEntry,
     SurrogateKey,
+    SurrogateSource,
     SurrogateVault,
+    VaultConsistencyReport,
+    VaultRotationResult,
 )
 
 __all__ = [
@@ -47,8 +55,12 @@ __all__ = [
     "SurrogateVault",
     "SurrogateKey",
     "SurrogateEntry",
+    "SurrogateSource",
+    "VaultConsistencyReport",
+    "VaultRotationResult",
     "InMemorySurrogateStore",
     "JsonFileSurrogateStore",
+    "ENCRYPTION_SCHEME",
     "PROFILE_PRESETS",
     "list_profiles",
     "get_profile",
@@ -58,7 +70,11 @@ __all__ = [
     "SCRIPT_LANGUAGE_HINTS",
     "SUPPORTED_SCRIPTS",
     "UNKNOWN_SCRIPT",
+    "ZERO_WIDTH_CHARS",
+    "DetectionNormalization",
     "candidate_languages_for_script",
     "detect_script",
+    "normalize_for_pii_detection",
     "segment_by_script",
+    "OfflineModeError",
 ]

@@ -440,6 +440,7 @@ fn betti_signature_dict<'py>(
 fn topology_records_dict<'py>(
     py: Python<'py>,
     records: &[AuditTopologyRecord],
+    calibration: Option<&gam::terms::sae::null_battery::ClaimNullCalibration>,
 ) -> PyResult<Bound<'py, PyDict>> {
     let atoms = PyList::empty(py);
     let mut circles = 0usize;
@@ -478,6 +479,7 @@ fn topology_records_dict<'py>(
     summary.set_item("tori", tori)?;
     summary.set_item("lines_or_points", lines_or_points)?;
     summary.set_item("contested", contested)?;
+    set_null_calibration_items(&summary, calibration)?;
 
     let out = PyDict::new(py);
     out.set_item("summary", summary)?;
@@ -486,45 +488,18 @@ fn topology_records_dict<'py>(
 }
 
 fn topology_records_from_codes(
-    codes: ndarray::ArrayView2<'_, f32>,
     coordinate_reports: &[gam::terms::sae::sparse_dict::BlockCoordinateReport],
     block_size: usize,
     activation_threshold: f32,
 ) -> Vec<AuditTopologyRecord> {
     let threshold = activation_threshold as f64;
     if block_size == 1 {
-        let mut records = Vec::with_capacity(codes.ncols());
-        for atom in 0..codes.ncols() {
-            let support_size = codes
-                .column(atom)
-                .iter()
-                .filter(|value| (**value).abs() as f64 > threshold)
-                .count();
-            let b0 = if support_size > 0 { 1 } else { 0 };
-            let betti = gam::terms::sae::manifold::BettiSignature {
-                b0,
-                b1: 0,
-                b2: None,
-            };
-            records.push(AuditTopologyRecord {
-                atom,
-                support_size,
-                landmark_count: support_size.min(1),
-                covering_side: if support_size > 0 {
-                    "at_or_above_covering_number".to_string()
-                } else {
-                    "below_covering_number".to_string()
-                },
-                measured_betti: betti,
-                expected_betti: betti,
-                contested: false,
-                dominant_h1_persistence: 0.0,
-                dominant_h2_persistence: 0.0,
-                note: "scalar external SAE feature: frozen dictionary exposes a point/line chart"
-                    .to_string(),
-            });
-        }
-        return records;
+        // A scalar external SAE feature is a point/line chart, not a manifold:
+        // there is no circle/torus topology to audit. This mirrors the atlas
+        // nerve, which likewise declines the scalar `block_size == 1` shape, so a
+        // scalar dictionary reports zero topology atoms rather than one trivial
+        // point record per column.
+        return Vec::new();
     }
 
     let expected = gam::terms::sae::manifold::BettiSignature {
@@ -678,6 +653,45 @@ fn atlas_nerve_dict<'py>(
     Ok(out)
 }
 
+/// Standalone atlas-nerve diagram from a dense block-sparse code matrix (#985 / E1
+/// FFI completeness). This exposes the same Čech-nerve reduction `audit_sae`
+/// computes internally as its own front-door accessor: build one `AtlasChart` per
+/// requested `b`-wide block from the per-row block-energy weights, wire the charts
+/// with all-valid transfer gates, and reduce the nerve to its Betti signature and
+/// simplex counts. Every number is computed in the `gam::terms::sae::inference::
+/// atlas_nerve` core; this only marshals the code matrix in and the diagram dict
+/// out. Returns `{computed: false, reason}` for shapes the nerve does not apply to
+/// (scalar `block_size == 1`, a width that does not divide `K`, fewer than two
+/// charts, or more blocks than `max_charts` with no explicit `blocks`), matching
+/// `atlas_nerve_dict`'s skipped-report contract.
+#[pyfunction(signature = (codes, block_size, activation_threshold = 1.0e-6, blocks = None, max_charts = 16))]
+fn atlas_nerve_diagram<'py>(
+    py: Python<'py>,
+    codes: PyReadonlyArray2<'py, f32>,
+    block_size: usize,
+    activation_threshold: f32,
+    blocks: Option<Vec<usize>>,
+    max_charts: usize,
+) -> PyResult<Py<PyDict>> {
+    let codes = codes.as_array().to_owned();
+    let report = detach_py_result(py, "atlas_nerve_diagram", move || {
+        atlas_nerve_from_codes(
+            codes.view(),
+            block_size,
+            activation_threshold,
+            blocks.as_deref(),
+            max_charts,
+        )
+    })?;
+    let reason = if block_size == 1 {
+        "scalar block_size == 1 exposes no atlas nerve"
+    } else {
+        "atlas nerve not applicable: block_size must divide K into >= 2 charts \
+         (or supply `blocks`, or raise `max_charts`)"
+    };
+    Ok(atlas_nerve_dict(py, report.as_ref(), reason)?.unbind())
+}
+
 /// Dimension spectrometer: fit a single-atom (`s = 1`) sparse dictionary at each
 /// rung of the doubling ladder `k_min·2^j`, `j = 0..=n_doublings`, and invert the
 /// fitted reconstruction-loss scaling law `L(K) − σ² ∝ K^{-2/d}` into an
@@ -739,6 +753,169 @@ fn dimension_spectrometer<'py>(
     out.set_item("d_hat", report.d_hat)?;
     out.set_item("d_hat_se", report.d_hat_se)?;
     out.set_item("floor_saturated", report.floor_saturated)?;
+    Ok(out.unbind())
+}
+
+/// End-to-end tiered SAE fit (#2023): Tier-0 shared-mean peel → Tier-1
+/// block-sparse linear bulk → Tier-2 curved co-fit on the Tier-1 residual, with
+/// the migration ledger (`residual factor ↔ linear atom ↔ curved atom`) that
+/// replaces principal-component reseeding. Thin marshalling wrapper over
+/// `gam::terms::sae::tiered::fit_tiered`; the Python facade stays a marshalling
+/// layer per SPEC. Unified-ledger move kinds are returned as an integer legend:
+/// `0 = birth`, `1 = death`, `2 = refuse`; `move_stage` is `0 = residual`,
+/// `1 = linear`, `2 = curved`; a move `round` of `-1` marks the Tier-1 structural
+/// death tally (not a co-fit round).
+#[pyfunction(signature = (
+    data,
+    n_blocks,
+    block_size = 2,
+    block_topk = 1,
+    max_epochs = 30,
+    tier2_enabled = true,
+    cofit_max_rounds = 6,
+    cofit_rel_tol = 1.0e-4,
+    cofit_code_ridge = 1.0e-6
+))]
+fn sae_manifold_fit_tiered<'py>(
+    py: Python<'py>,
+    data: PyReadonlyArray2<'py, f32>,
+    n_blocks: usize,
+    block_size: usize,
+    block_topk: usize,
+    max_epochs: usize,
+    tier2_enabled: bool,
+    cofit_max_rounds: usize,
+    cofit_rel_tol: f64,
+    cofit_code_ridge: f32,
+) -> PyResult<Py<PyDict>> {
+    use gam::terms::sae::migration_ledger::SaeMove;
+    use gam::terms::sae::tiered::TieredFitConfig;
+
+    let data64 = data.as_array().mapv(|v| v as f64);
+    let mut config = TieredFitConfig::tiered(n_blocks, block_size);
+    config.tier1.block_topk = block_topk;
+    config.tier1.max_epochs = max_epochs;
+    config.tier2_enabled = tier2_enabled;
+    config.cofit.max_rounds = cofit_max_rounds;
+    config.cofit.rel_tol = cofit_rel_tol;
+    config.cofit.code_ridge = cofit_code_ridge;
+
+    let report = detach_py_result(py, "sae_manifold_fit_tiered", move || {
+        gam::terms::sae::tiered::fit_tiered(data64.view(), &config)
+    })?;
+
+    // Unified migration ledger → parallel columns. `move_kind`: 0 = birth,
+    // 1 = death, 2 = refuse. `move_stage`: 0 = residual, 1 = linear, 2 = curved.
+    // `move_seed`: birth seed (0 = residual factor, 1 = linear atom, 2 = curved
+    // chart, 3 = principal-component reseed [forbidden]); -1 for non-births.
+    let n_moves = report.ledger.moves.len();
+    let mut move_kind = Vec::with_capacity(n_moves);
+    let mut move_stage = Vec::with_capacity(n_moves);
+    let mut move_seed = Vec::with_capacity(n_moves);
+    let mut move_round = Vec::with_capacity(n_moves);
+    let mut move_count = Vec::with_capacity(n_moves);
+    let mut move_dl_bits = Vec::with_capacity(n_moves);
+    let mut move_reml_delta = Vec::with_capacity(n_moves);
+    let mut move_rank_charge = Vec::with_capacity(n_moves);
+    let mut move_objective = Vec::with_capacity(n_moves);
+    for mv in &report.ledger.moves {
+        move_kind.push(mv.kind.kind_code());
+        move_stage.push(mv.kind.stage().code());
+        move_seed.push(match &mv.kind {
+            SaeMove::Birth { seed, .. } => seed.code() as i64,
+            _ => -1i64,
+        });
+        move_round.push(mv.round.map(|r| r as i64).unwrap_or(-1));
+        move_count.push(mv.count as u64);
+        move_dl_bits.push(mv.evidence.dl_bits);
+        move_reml_delta.push(mv.evidence.reml_delta);
+        move_rank_charge.push(mv.evidence.rank_charge);
+        move_objective.push(mv.objective);
+    }
+
+    let out = PyDict::new(py);
+    out.set_item("explained_variance", report.explained_variance)?;
+
+    // Tier-0.
+    out.set_item(
+        "tier0_mean",
+        report.tier0.mean.clone().into_pyarray(py),
+    )?;
+
+    // Tier-1 linear bulk.
+    out.set_item("tier1_decoder", report.tier1.decoder.clone().into_pyarray(py))?;
+    out.set_item("tier1_blocks", report.tier1.blocks.clone().into_pyarray(py))?;
+    out.set_item("tier1_gamma", report.tier1.gamma)?;
+    out.set_item(
+        "tier1_block_utilization",
+        ndarray::Array1::from_vec(report.tier1.block_utilization.clone()).into_pyarray(py),
+    )?;
+    out.set_item("tier1_explained_variance", report.tier1.explained_variance)?;
+    out.set_item("tier1_epochs", report.tier1.epochs)?;
+    out.set_item("tier1_converged", report.tier1.converged)?;
+
+    // Tier-2 curved co-fit (None ⇒ NaN EV, empty rounds).
+    match &report.tier2 {
+        Some(cofit) => {
+            out.set_item("tier2_enabled", true)?;
+            out.set_item("tier2_explained_variance", cofit.explained_variance)?;
+            out.set_item("tier2_n_rounds", cofit.rounds.len())?;
+            let final_charts = cofit
+                .rounds
+                .last()
+                .map(|r| r.n_accepted_charts)
+                .unwrap_or(0);
+            out.set_item("tier2_n_accepted_charts", final_charts)?;
+        }
+        None => {
+            out.set_item("tier2_enabled", false)?;
+            out.set_item("tier2_explained_variance", f64::NAN)?;
+            out.set_item("tier2_n_rounds", 0usize)?;
+            out.set_item("tier2_n_accepted_charts", 0usize)?;
+        }
+    }
+
+    // Unified migration ledger.
+    out.set_item("ledger_pc_reseed_events", report.ledger.pc_reseed_events)?;
+    out.set_item("ledger_n_births", report.ledger.n_births)?;
+    out.set_item("ledger_n_deaths", report.ledger.n_deaths)?;
+    out.set_item("ledger_n_refusals", report.ledger.n_refusals)?;
+    out.set_item(
+        "ledger_move_kind",
+        ndarray::Array1::from_vec(move_kind).into_pyarray(py),
+    )?;
+    out.set_item(
+        "ledger_move_stage",
+        ndarray::Array1::from_vec(move_stage).into_pyarray(py),
+    )?;
+    out.set_item(
+        "ledger_move_seed",
+        ndarray::Array1::from_vec(move_seed).into_pyarray(py),
+    )?;
+    out.set_item(
+        "ledger_move_round",
+        ndarray::Array1::from_vec(move_round).into_pyarray(py),
+    )?;
+    out.set_item(
+        "ledger_move_count",
+        ndarray::Array1::from_vec(move_count).into_pyarray(py),
+    )?;
+    out.set_item(
+        "ledger_move_dl_bits",
+        ndarray::Array1::from_vec(move_dl_bits).into_pyarray(py),
+    )?;
+    out.set_item(
+        "ledger_move_reml_delta",
+        ndarray::Array1::from_vec(move_reml_delta).into_pyarray(py),
+    )?;
+    out.set_item(
+        "ledger_move_rank_charge",
+        ndarray::Array1::from_vec(move_rank_charge).into_pyarray(py),
+    )?;
+    out.set_item(
+        "ledger_move_objective",
+        ndarray::Array1::from_vec(move_objective).into_pyarray(py),
+    )?;
     Ok(out.unbind())
 }
 
@@ -935,35 +1112,184 @@ fn sparse_dict_dual_certificate<'py>(
     Ok(out.unbind())
 }
 
-/// One-shot audit over an externally supplied, frozen SAE dictionary: decoder
-/// rows `K×P`, dense activation/codes matrix `N×K`, and source activations
-/// `N×P`. No fitting occurs here; the function reconstructs the frozen rows,
-/// derives the sparse/block routing views required by the existing Rust
-/// diagnostics, and returns a dict of dual-cert, routability, coordinate-SE,
-/// absorption, and optional transport diagnostics.
-#[pyfunction(signature = (
-    decoder,
-    codes,
-    data,
-    active = None,
-    block_size = 1,
-    block_topk = None,
-    delta = 0.05,
-    quantile_levels = None,
-    max_candidates = 16,
-    coordinate_blocks = None,
-    activation_threshold = 0.0,
-    max_absorption_pairs = 32,
-    transport_theta_in = None,
-    transport_theta_out = None,
-    transport_layer_from = 0,
-    transport_layer_to = 1
-))]
-fn audit_sae<'py>(
-    py: Python<'py>,
-    decoder: PyReadonlyArray2<'py, f32>,
-    codes: PyReadonlyArray2<'py, f32>,
-    data: PyReadonlyArray2<'py, f32>,
+/// Attach the compact null-battery / spike-in calibration a topology or
+/// atlas-nerve claim ships with. When `calibration` is present the observed
+/// statistic, its architecture-matched-donor p-value / z-score, and the
+/// spike-in detection power at the claimed operating point are emitted; when it
+/// is absent (a shape carrying no topological claim) the same keys are emitted
+/// as `None` so the report schema is stable.
+fn set_null_calibration_items(
+    dict: &Bound<'_, PyDict>,
+    calibration: Option<&gam::terms::sae::null_battery::ClaimNullCalibration>,
+) -> PyResult<()> {
+    match calibration {
+        Some(cal) => {
+            dict.set_item("null_pvalue", cal.null_pvalue)?;
+            dict.set_item("null_z", cal.null_z)?;
+            dict.set_item("null_observed_statistic", cal.observed_statistic)?;
+            dict.set_item("spikein_power", cal.spikein_power)?;
+            dict.set_item("null_claimed_snr", cal.claimed_snr)?;
+            dict.set_item(
+                "null_claimed_false_positive_rate",
+                cal.claimed_false_positive_rate,
+            )?;
+        }
+        None => {
+            let py = dict.py();
+            dict.set_item("null_pvalue", py.None())?;
+            dict.set_item("null_z", py.None())?;
+            dict.set_item("null_observed_statistic", py.None())?;
+            dict.set_item("spikein_power", py.None())?;
+            dict.set_item("null_claimed_snr", py.None())?;
+            dict.set_item("null_claimed_false_positive_rate", py.None())?;
+        }
+    }
+    Ok(())
+}
+
+/// Monte-Carlo operating points for the standing null battery / spike-in
+/// calibration `audit_sae` attaches to its topology and atlas-nerve claims.
+/// Surfaced on the FFI so callers can widen the null replicate count or move the
+/// spike-in operating point; the FFI defaults are the reporting operating
+/// points.
+#[derive(Clone, Copy)]
+struct StandingCalibrationConfig {
+    null_replicates: usize,
+    null_seed: u64,
+    spikein_trials: usize,
+    spikein_snr: f64,
+    spikein_false_positive_rate: f64,
+}
+
+/// Atlas-nerve topological-richness statistic on a dense `N×K` code matrix: the
+/// admitted higher-simplex count (`edges + triangles + tetrahedra`) of the
+/// all-valid Čech nerve built from the per-block energy charts. This is the
+/// scalar audit the standing null battery re-invokes on the architecture-matched
+/// random-weight donor surrogates to calibrate the atlas / topology claims.
+fn atlas_nerve_richness_statistic(
+    codes: ndarray::ArrayView2<'_, f64>,
+    block_size: usize,
+    chart_blocks: &[usize],
+    activation_threshold: f64,
+) -> Result<f64, String> {
+    if block_size == 0 || codes.ncols() % block_size != 0 {
+        return Err(format!(
+            "atlas null statistic: codes have K={} columns, not a multiple of block_size {block_size}",
+            codes.ncols()
+        ));
+    }
+    let n_blocks = codes.ncols() / block_size;
+    let mut charts = Vec::with_capacity(chart_blocks.len());
+    for (chart_idx, &block) in chart_blocks.iter().enumerate() {
+        if block >= n_blocks {
+            return Err(format!(
+                "atlas null statistic: block {block} out of range 0..{n_blocks}"
+            ));
+        }
+        let mut weights = ndarray::Array1::<f64>::zeros(codes.nrows());
+        for row in 0..codes.nrows() {
+            let mut norm2 = 0.0f64;
+            for offset in 0..block_size {
+                let value = codes[[row, block * block_size + offset]];
+                norm2 += value * value;
+            }
+            let norm = norm2.sqrt();
+            if norm > activation_threshold {
+                weights[row] = norm;
+            }
+        }
+        charts.push(
+            gam::terms::sae::inference::atlas_nerve::AtlasChart::from_weights(chart_idx, weights)?,
+        );
+    }
+    let mut gates = Vec::new();
+    for a in 0..chart_blocks.len() {
+        for b in (a + 1)..chart_blocks.len() {
+            gates.push(gam::terms::sae::inference::atlas_nerve::AtlasTransferGate {
+                a,
+                b,
+                valid: true,
+                transport_defect: 0.0,
+                equivariance_defect: 0.0,
+            });
+        }
+    }
+    let diagram = gam::terms::sae::inference::atlas_nerve::build_atlas_nerve(&charts, &gates)?;
+    Ok((diagram.n_edges + diagram.n_triangles + diagram.n_tetrahedra) as f64)
+}
+
+/// Build the standing null battery + spike-in calibration for the audit's
+/// topology / atlas-nerve claims. The architecture-matched random-weight donor
+/// (`random_weight_codes`) supplies the required null: the atlas-richness audit
+/// is re-run on donor-resampled, moment-matched surrogates to form the null
+/// distribution of the claim statistic, and a synthetic circle is planted into
+/// the real audit residuals to measure the block-chart/topology detector's
+/// spike-in power at the claimed operating point. Returns `None` for shapes that
+/// carry no topological claim or cannot support the spike-in detector (fewer
+/// than two charts, residuals with < 4 rows or < 2 columns, or a donor whose
+/// atom width does not match the dictionary).
+fn standing_null_calibration(
+    codes_f64: ndarray::ArrayView2<'_, f64>,
+    donor_f64: ndarray::ArrayView2<'_, f64>,
+    residuals_f64: ndarray::ArrayView2<'_, f64>,
+    block_size: usize,
+    chart_blocks: &[usize],
+    activation_threshold: f64,
+    cfg: &StandingCalibrationConfig,
+) -> Result<Option<gam::terms::sae::null_battery::ClaimNullCalibration>, String> {
+    use gam::terms::sae::null_battery as nb;
+    if chart_blocks.len() < 2
+        || donor_f64.ncols() != codes_f64.ncols()
+        || donor_f64.nrows() == 0
+        || residuals_f64.nrows() < 4
+        || residuals_f64.ncols() < 2
+        || cfg.null_replicates == 0
+        || cfg.spikein_trials == 0
+    {
+        return Ok(None);
+    }
+    // Required null: the architecture-matched random-weight donor. A whole-row
+    // token shuffle preserves cross-chart coactivation (it does not break the
+    // nerve) and a column rotation mixes the block charts, so only an
+    // independent random-weight encoder is a valid negative control for a nerve
+    // claim.
+    let null_config = nb::NullBatteryConfig {
+        replicates: cfg.null_replicates,
+        seed: cfg.null_seed,
+        kinds: vec![nb::NullKind::ArchitectureMatchedRandomWeight],
+        tail: nb::Tail::Larger,
+    };
+    let chart_blocks = chart_blocks.to_vec();
+    let nulls = nb::run_null_battery(codes_f64, Some(donor_f64), &null_config, |surrogate| {
+        atlas_nerve_richness_statistic(surrogate, block_size, &chart_blocks, activation_threshold)
+    })?;
+    // Spike-in power: plant a synthetic circle into the real audit residuals and
+    // measure the default block-chart/topology detector's recovery rate at the
+    // requested false-positive operating point. Bootstrapping the empirical
+    // residual rows keeps the real post-fit covariance and tails in the loop.
+    let mut roc_config =
+        nb::SpikeInRocConfig::circle(vec![0.0, cfg.spikein_snr], cfg.spikein_trials, cfg.null_seed);
+    roc_config.noise_mode = nb::SpikeInNoiseMode::EmpiricalResidualBootstrap;
+    roc_config.fpr_levels = vec![cfg.spikein_false_positive_rate];
+    let roc = nb::default_spike_in_roc_curve(residuals_f64, &roc_config)?;
+    let report = nb::calibrated_roc_claim_report(
+        "audit_sae.topology_atlas_nerve",
+        cfg.spikein_snr,
+        cfg.spikein_false_positive_rate,
+        nulls,
+        roc,
+    )?;
+    Ok(Some(nb::ClaimNullCalibration::from_calibrated_roc(report)))
+}
+
+/// Typed knob bundle for `audit_sae`, decoded from the single Python-side
+/// `options` dict so the FFI entrypoint keeps a small fixed arity while the
+/// audit keeps its full tuning surface. Field defaults are the audit's
+/// long-standing keyword defaults; [`SaeAuditOptions::from_pydict`] overlays
+/// caller-provided keys on top of them and hard-errors on unknown keys so a
+/// typo can never silently fall back to a default.
+#[derive(Debug)]
+struct SaeAuditOptions {
     active: Option<usize>,
     block_size: usize,
     block_topk: Option<usize>,
@@ -973,14 +1299,274 @@ fn audit_sae<'py>(
     coordinate_blocks: Option<Vec<usize>>,
     activation_threshold: f32,
     max_absorption_pairs: usize,
-    transport_theta_in: Option<PyReadonlyArray1<'py, f64>>,
-    transport_theta_out: Option<PyReadonlyArray1<'py, f64>>,
+    transport_theta_in: Option<Vec<f64>>,
+    transport_theta_out: Option<Vec<f64>>,
     transport_layer_from: usize,
     transport_layer_to: usize,
+    null_replicates: usize,
+    null_seed: u64,
+    spikein_trials: usize,
+    spikein_snr: f64,
+    spikein_false_positive_rate: f64,
+}
+
+impl SaeAuditOptions {
+    /// Every key `from_pydict` accepts, in documentation order; kept as a
+    /// single list so the unknown-key error names the full valid vocabulary.
+    const KNOWN_KEYS: [&'static str; 18] = [
+        "active",
+        "block_size",
+        "block_topk",
+        "delta",
+        "quantile_levels",
+        "max_candidates",
+        "coordinate_blocks",
+        "activation_threshold",
+        "max_absorption_pairs",
+        "transport_theta_in",
+        "transport_theta_out",
+        "transport_layer_from",
+        "transport_layer_to",
+        "null_replicates",
+        "null_seed",
+        "spikein_trials",
+        "spikein_snr",
+        "spikein_false_positive_rate",
+    ];
+
+    /// The audit's historical keyword defaults (the pre-dict FFI signature).
+    fn defaults() -> Self {
+        Self {
+            active: None,
+            block_size: 1,
+            block_topk: None,
+            delta: 0.05,
+            quantile_levels: None,
+            max_candidates: 16,
+            coordinate_blocks: None,
+            activation_threshold: 0.0,
+            max_absorption_pairs: 32,
+            transport_theta_in: None,
+            transport_theta_out: None,
+            transport_layer_from: 0,
+            transport_layer_to: 1,
+            null_replicates: 64,
+            null_seed: 0x5AE0_A0D1,
+            spikein_trials: 32,
+            spikein_snr: 2.0,
+            spikein_false_positive_rate: 0.05,
+        }
+    }
+
+    /// Wrap an extraction failure for one options entry with the key name so
+    /// the caller sees which knob was malformed.
+    fn knob_error(key: &str, err: &PyErr) -> PyErr {
+        PyValueError::new_err(format!("audit_sae options[{key:?}]: {err}"))
+    }
+
+    /// `None`-passthrough extraction for the optional integer knobs
+    /// (`active`, `block_topk`).
+    fn optional_usize(value: &Bound<'_, PyAny>, key: &str) -> PyResult<Option<usize>> {
+        if value.is_none() {
+            return Ok(None);
+        }
+        value
+            .extract::<usize>()
+            .map(Some)
+            .map_err(|err| Self::knob_error(key, &err))
+    }
+
+    /// `None`-passthrough extraction for the optional index-list knob
+    /// (`coordinate_blocks`).
+    fn optional_usize_vec(value: &Bound<'_, PyAny>, key: &str) -> PyResult<Option<Vec<usize>>> {
+        if value.is_none() {
+            return Ok(None);
+        }
+        value
+            .extract::<Vec<usize>>()
+            .map(Some)
+            .map_err(|err| Self::knob_error(key, &err))
+    }
+
+    /// `None`-passthrough extraction for the optional float-vector knobs
+    /// (`quantile_levels`, `transport_theta_in`, `transport_theta_out`).
+    /// The transport angles arrive from the Python facade as contiguous 1-D
+    /// float64 numpy arrays, so a `PyReadonlyArray1<f64>` fast path is tried
+    /// first; plain float sequences (lists/tuples) fall through to the
+    /// `Vec<f64>` extraction.
+    fn optional_f64_vec(value: &Bound<'_, PyAny>, key: &str) -> PyResult<Option<Vec<f64>>> {
+        if value.is_none() {
+            return Ok(None);
+        }
+        if let Ok(array) = value.extract::<PyReadonlyArray1<f64>>() {
+            return Ok(Some(array.as_array().to_vec()));
+        }
+        value
+            .extract::<Vec<f64>>()
+            .map(Some)
+            .map_err(|err| Self::knob_error(key, &err))
+    }
+
+    /// Decode the `options` dict: start from [`Self::defaults`], overlay every
+    /// provided key, and reject unknown keys and non-string keys outright.
+    fn from_pydict(options: Option<&Bound<'_, PyDict>>) -> PyResult<Self> {
+        let mut cfg = Self::defaults();
+        let Some(options) = options else {
+            return Ok(cfg);
+        };
+        for (key_any, value) in options.iter() {
+            let key = key_any.extract::<String>().map_err(|_| {
+                PyValueError::new_err("audit_sae options keys must be strings")
+            })?;
+            match key.as_str() {
+                "active" => cfg.active = Self::optional_usize(&value, &key)?,
+                "block_size" => {
+                    cfg.block_size = value
+                        .extract::<usize>()
+                        .map_err(|err| Self::knob_error(&key, &err))?;
+                }
+                "block_topk" => cfg.block_topk = Self::optional_usize(&value, &key)?,
+                "delta" => {
+                    cfg.delta = value
+                        .extract::<f64>()
+                        .map_err(|err| Self::knob_error(&key, &err))?;
+                }
+                "quantile_levels" => {
+                    cfg.quantile_levels = Self::optional_f64_vec(&value, &key)?;
+                }
+                "max_candidates" => {
+                    cfg.max_candidates = value
+                        .extract::<usize>()
+                        .map_err(|err| Self::knob_error(&key, &err))?;
+                }
+                "coordinate_blocks" => {
+                    cfg.coordinate_blocks = Self::optional_usize_vec(&value, &key)?;
+                }
+                "activation_threshold" => {
+                    cfg.activation_threshold = value
+                        .extract::<f32>()
+                        .map_err(|err| Self::knob_error(&key, &err))?;
+                }
+                "max_absorption_pairs" => {
+                    cfg.max_absorption_pairs = value
+                        .extract::<usize>()
+                        .map_err(|err| Self::knob_error(&key, &err))?;
+                }
+                "transport_theta_in" => {
+                    cfg.transport_theta_in = Self::optional_f64_vec(&value, &key)?;
+                }
+                "transport_theta_out" => {
+                    cfg.transport_theta_out = Self::optional_f64_vec(&value, &key)?;
+                }
+                "transport_layer_from" => {
+                    cfg.transport_layer_from = value
+                        .extract::<usize>()
+                        .map_err(|err| Self::knob_error(&key, &err))?;
+                }
+                "transport_layer_to" => {
+                    cfg.transport_layer_to = value
+                        .extract::<usize>()
+                        .map_err(|err| Self::knob_error(&key, &err))?;
+                }
+                "null_replicates" => {
+                    cfg.null_replicates = value
+                        .extract::<usize>()
+                        .map_err(|err| Self::knob_error(&key, &err))?;
+                }
+                "null_seed" => {
+                    cfg.null_seed = value
+                        .extract::<u64>()
+                        .map_err(|err| Self::knob_error(&key, &err))?;
+                }
+                "spikein_trials" => {
+                    cfg.spikein_trials = value
+                        .extract::<usize>()
+                        .map_err(|err| Self::knob_error(&key, &err))?;
+                }
+                "spikein_snr" => {
+                    cfg.spikein_snr = value
+                        .extract::<f64>()
+                        .map_err(|err| Self::knob_error(&key, &err))?;
+                }
+                "spikein_false_positive_rate" => {
+                    cfg.spikein_false_positive_rate = value
+                        .extract::<f64>()
+                        .map_err(|err| Self::knob_error(&key, &err))?;
+                }
+                other => {
+                    return Err(PyValueError::new_err(format!(
+                        "audit_sae options has unknown key {other:?}; valid keys: {}",
+                        Self::KNOWN_KEYS.join(", ")
+                    )));
+                }
+            }
+        }
+        Ok(cfg)
+    }
+}
+
+/// One-shot audit over an externally supplied, frozen SAE dictionary: decoder
+/// rows `K×P`, dense activation/codes matrix `N×K`, source activations `N×P`,
+/// and an architecture-matched random-weight code donor `N'×K` for the required
+/// topology/atlas null battery. No fitting occurs here; the function
+/// reconstructs the frozen rows, derives the sparse/block routing views required
+/// by the existing Rust diagnostics, calibrates the topology/atlas claims
+/// against the donor null and a residual spike-in, and returns a dict of
+/// dual-cert, routability, coordinate-SE, absorption, topology, atlas-nerve, and
+/// optional transport diagnostics.
+///
+/// All tuning knobs travel in the single optional `options` dict; omitted keys
+/// (or `options = None`) take the audit's long-standing defaults, and unknown
+/// keys are a hard error. Accepted keys and their defaults:
+///
+/// * `active = None` — sparse-lane atoms per row (`block_size == 1`).
+/// * `block_size = 1` — dictionary block width; `>= 2` selects the block lane.
+/// * `block_topk = None` — active blocks per row in the block lane.
+/// * `delta = 0.05` — routability confidence level.
+/// * `quantile_levels = None` — routability quantiles (default `[0.5, 0.9, 0.99]`).
+/// * `max_candidates = 16` — dual-certificate candidate budget.
+/// * `coordinate_blocks = None` — block indices for the harmonic coordinate readout.
+/// * `activation_threshold = 0.0` — firing threshold for topology/atlas/absorption.
+/// * `max_absorption_pairs = 32` — absorption-audit pair budget.
+/// * `transport_theta_in = None` / `transport_theta_out = None` — paired circle
+///   coordinates (1-D float64 array or float sequence) for the transport class.
+/// * `transport_layer_from = 0` / `transport_layer_to = 1` — transport layer labels.
+/// * `null_replicates = 64`, `null_seed = 0x5AE0_A0D1` — donor null battery.
+/// * `spikein_trials = 32`, `spikein_snr = 2.0`,
+///   `spikein_false_positive_rate = 0.05` — residual spike-in ROC calibration.
+#[pyfunction(signature = (decoder, codes, data, random_weight_codes, options = None))]
+fn audit_sae<'py>(
+    py: Python<'py>,
+    decoder: PyReadonlyArray2<'py, f32>,
+    codes: PyReadonlyArray2<'py, f32>,
+    data: PyReadonlyArray2<'py, f32>,
+    random_weight_codes: PyReadonlyArray2<'py, f32>,
+    options: Option<&Bound<'py, PyDict>>,
 ) -> PyResult<Py<PyDict>> {
+    let SaeAuditOptions {
+        active,
+        block_size,
+        block_topk,
+        delta,
+        quantile_levels,
+        max_candidates,
+        coordinate_blocks,
+        activation_threshold,
+        max_absorption_pairs,
+        transport_theta_in: theta_in_values,
+        transport_theta_out: theta_out_values,
+        transport_layer_from,
+        transport_layer_to,
+        null_replicates,
+        null_seed,
+        spikein_trials,
+        spikein_snr,
+        spikein_false_positive_rate,
+    } = SaeAuditOptions::from_pydict(options)?;
     let decoder_values = decoder.as_array().to_owned();
     let code_values = codes.as_array().to_owned();
     let data_values = data.as_array().to_owned();
+    let donor_values = random_weight_codes.as_array().to_owned();
     if decoder_values.nrows() == 0 || decoder_values.ncols() == 0 {
         return Err(PyValueError::new_err(
             "audit_sae requires a non-empty decoder matrix",
@@ -1026,10 +1612,49 @@ fn audit_sae<'py>(
             "audit_sae activation_threshold must be finite and non-negative",
         ));
     }
+    if donor_values.ncols() != decoder_values.nrows() || donor_values.nrows() == 0 {
+        return Err(PyValueError::new_err(format!(
+            "audit_sae random_weight_codes must be a non-empty N'xK donor matrix with K={} \
+             columns (the dictionary atom count); got {:?}",
+            decoder_values.nrows(),
+            donor_values.dim()
+        )));
+    }
+    if donor_values.iter().any(|value| !value.is_finite()) {
+        return Err(PyValueError::new_err(
+            "audit_sae random_weight_codes must be finite",
+        ));
+    }
+    if null_replicates == 0 {
+        return Err(PyValueError::new_err(
+            "audit_sae null_replicates must be >= 1",
+        ));
+    }
+    if spikein_trials == 0 {
+        return Err(PyValueError::new_err("audit_sae spikein_trials must be >= 1"));
+    }
+    if !spikein_snr.is_finite() || spikein_snr < 0.0 {
+        return Err(PyValueError::new_err(
+            "audit_sae spikein_snr must be finite and non-negative",
+        ));
+    }
+    if !spikein_false_positive_rate.is_finite()
+        || spikein_false_positive_rate <= 0.0
+        || spikein_false_positive_rate >= 1.0
+    {
+        return Err(PyValueError::new_err(
+            "audit_sae spikein_false_positive_rate must be in (0, 1)",
+        ));
+    }
 
+    let calibration_cfg = StandingCalibrationConfig {
+        null_replicates,
+        null_seed,
+        spikein_trials,
+        spikein_snr,
+        spikein_false_positive_rate,
+    };
     let quantiles = quantile_levels.unwrap_or_else(|| vec![0.5, 0.9, 0.99]);
-    let theta_in_values = transport_theta_in.map(|values| values.as_array().to_owned().to_vec());
-    let theta_out_values = transport_theta_out.map(|values| values.as_array().to_owned().to_vec());
 
     let audit = detach_py_result(py, "audit_sae", move || {
         let residuals =
@@ -1088,7 +1713,6 @@ fn audit_sae<'py>(
         };
 
         let topology_records = topology_records_from_codes(
-            code_values.view(),
             &coordinate_reports,
             block_size,
             activation_threshold,
@@ -1119,6 +1743,29 @@ fn audit_sae<'py>(
             }
         };
 
+        // Standing null battery + spike-in calibration for the audit's
+        // topological claims: re-invoke the atlas-richness audit on the
+        // architecture-matched random-weight donor and plant a circle into the
+        // real residuals. Gated on a selected atlas chart set (block dictionaries
+        // with >= 2 charts); scalar/degenerate shapes carry no such claim.
+        let calibration = match atlas_nerve.as_ref() {
+            Some(atlas) => {
+                let codes_f64 = code_values.mapv(|value| value as f64);
+                let donor_f64 = donor_values.mapv(|value| value as f64);
+                let residuals_f64 = residuals.mapv(|value| value as f64);
+                standing_null_calibration(
+                    codes_f64.view(),
+                    donor_f64.view(),
+                    residuals_f64.view(),
+                    block_size,
+                    &atlas.chart_blocks,
+                    activation_threshold as f64,
+                    &calibration_cfg,
+                )?
+            }
+            None => None,
+        };
+
         Ok::<_, String>((
             routability,
             dual,
@@ -1126,6 +1773,7 @@ fn audit_sae<'py>(
             topology_records,
             atlas_nerve,
             transport,
+            calibration,
             decoder_values,
             code_values,
         ))
@@ -1138,6 +1786,7 @@ fn audit_sae<'py>(
         topology_records,
         atlas_nerve,
         transport,
+        calibration,
         decoder_values,
         code_values,
     ) = audit;
@@ -1186,15 +1835,17 @@ fn audit_sae<'py>(
         coordinate_list.append(block_coordinate_report_dict(py, report)?)?;
     }
     out.set_item("coordinate_se", coordinate_list)?;
-    out.set_item("topology", topology_records_dict(py, &topology_records)?)?;
     out.set_item(
-        "atlas_nerve",
-        atlas_nerve_dict(
-            py,
-            atlas_nerve.as_ref(),
-            "atlas nerve requires a block dictionary with at least two selected charts",
-        )?,
+        "topology",
+        topology_records_dict(py, &topology_records, calibration.as_ref())?,
     )?;
+    let atlas_dict = atlas_nerve_dict(
+        py,
+        atlas_nerve.as_ref(),
+        "atlas nerve requires a block dictionary with at least two selected charts",
+    )?;
+    set_null_calibration_items(&atlas_dict, calibration.as_ref())?;
+    out.set_item("atlas_nerve", atlas_dict)?;
 
     match transport {
         Some(report) => out.set_item("transport", transport_report_dict(py, &report)?)?,
@@ -1231,6 +1882,16 @@ mod sae_spectral_ffi_tests {
                 [0.0_f32, 0.2_f32],
             ];
             let data = codes.clone();
+            let random_weight_codes = ndarray::array![
+                [0.31_f32, 0.72_f32],
+                [0.64_f32, 0.18_f32],
+                [0.12_f32, 0.55_f32],
+                [0.83_f32, 0.27_f32],
+                [0.49_f32, 0.61_f32],
+                [0.22_f32, 0.44_f32],
+                [0.71_f32, 0.09_f32],
+                [0.38_f32, 0.86_f32],
+            ];
             let theta_in = ndarray::array![
                 0.0_f64,
                 std::f64::consts::FRAC_PI_4,
@@ -1246,27 +1907,40 @@ mod sae_spectral_ffi_tests {
             let decoder_py = decoder.into_pyarray(py);
             let codes_py = codes.into_pyarray(py);
             let data_py = data.into_pyarray(py);
+            let donor_py = random_weight_codes.into_pyarray(py);
             let theta_in_py = theta_in.into_pyarray(py);
             let theta_out_py = theta_out.into_pyarray(py);
+
+            let options = PyDict::new(py);
+            options
+                .set_item("quantile_levels", vec![0.5, 0.9])
+                .expect("set quantile_levels");
+            options
+                .set_item("max_candidates", 4)
+                .expect("set max_candidates");
+            options
+                .set_item("max_absorption_pairs", 4)
+                .expect("set max_absorption_pairs");
+            options
+                .set_item("transport_theta_in", &theta_in_py)
+                .expect("set transport_theta_in");
+            options
+                .set_item("transport_theta_out", &theta_out_py)
+                .expect("set transport_theta_out");
+            options
+                .set_item("transport_layer_from", 3)
+                .expect("set transport_layer_from");
+            options
+                .set_item("transport_layer_to", 4)
+                .expect("set transport_layer_to");
 
             let payload = audit_sae(
                 py,
                 decoder_py.readonly(),
                 codes_py.readonly(),
                 data_py.readonly(),
-                None,
-                1,
-                None,
-                0.05,
-                Some(vec![0.5, 0.9]),
-                4,
-                None,
-                0.0,
-                4,
-                Some(theta_in_py.readonly()),
-                Some(theta_out_py.readonly()),
-                3,
-                4,
+                donor_py.readonly(),
+                Some(&options),
             )
             .expect("audit_sae FFI round-trip");
 
@@ -1304,6 +1978,23 @@ mod sae_spectral_ffi_tests {
                     .extract::<usize>()
                     .expect("transport n_samples usize"),
                 8
+            );
+        });
+    }
+
+    #[test]
+    fn audit_sae_options_rejects_unknown_keys() {
+        Python::attach(|py| {
+            let options = PyDict::new(py);
+            options
+                .set_item("block_sise", 2)
+                .expect("set misspelled key");
+            let err = SaeAuditOptions::from_pydict(Some(&options))
+                .expect_err("typo'd options key must error, not fall back to defaults");
+            let message = err.to_string();
+            assert!(
+                message.contains("unknown key \"block_sise\"") && message.contains("block_size"),
+                "unknown-key error must name the typo and the valid vocabulary; got {message}"
             );
         });
     }
@@ -1547,6 +2238,116 @@ fn effect_weighted_retention(
     Ok(out.unbind())
 }
 
+/// Score chart-coordinate interpretability against cyclic ground-truth labels.
+///
+/// `observations` are `(recovered_turns, label_turns, weight)` triples: the
+/// recovered chart coordinate and the ground-truth cyclic label, both in turns
+/// (values are wrapped modulo one), plus a non-negative posterior/evidence
+/// weight per row. Returns `{circular_correlation, signed_circular_correlation,
+/// effective_weight}` from the audited [`saebench_metrics::chart_interp_score`]
+/// definition — the orientation-quotiented weighted cyclic phase-lock the #1942
+/// chart-interp metric reports.
+#[pyfunction(signature = (observations,))]
+fn chart_interp_score(
+    py: Python<'_>,
+    observations: Vec<(f64, f64, f64)>,
+) -> PyResult<Py<PyDict>> {
+    let report = detach_py_result(py, "chart_interp_score", move || {
+        let rows: Vec<gam::terms::sae::saebench_metrics::ChartInterpObservation> = observations
+            .iter()
+            .map(|&(recovered_turns, label_turns, weight)| {
+                gam::terms::sae::saebench_metrics::ChartInterpObservation {
+                    recovered_turns,
+                    label_turns,
+                    weight,
+                }
+            })
+            .collect();
+        gam::terms::sae::saebench_metrics::chart_interp_score(&rows)
+    })?;
+    let out = PyDict::new(py);
+    out.set_item("circular_correlation", report.circular_correlation)?;
+    out.set_item(
+        "signed_circular_correlation",
+        report.signed_circular_correlation,
+    )?;
+    out.set_item("effective_weight", report.effective_weight)?;
+    Ok(out.unbind())
+}
+
+/// Fit the output-Fisher dose-response calibration ledger.
+///
+/// `observations` are `(arc_length, predicted_nats, measured_nats, weight)`
+/// rows along a steered arc: the unit-speed path coordinate, the local
+/// output-Fisher prediction in nats, the measured KL/behaviour change in nats,
+/// and a non-negative weight. Returns `{slope_through_origin, r2_through_origin,
+/// mean_measured_nats_per_arc, cv_measured_nats_per_arc, effective_weight}` from
+/// the audited [`saebench_metrics::dose_response_calibration`] — the #1942
+/// dose-response calibration figure (through-origin slope + weighted R², plus
+/// the unit-speed constancy kill-test via the nats-per-arc coefficient of
+/// variation).
+#[pyfunction(signature = (observations,))]
+fn dose_response_calibration(
+    py: Python<'_>,
+    observations: Vec<(f64, f64, f64, f64)>,
+) -> PyResult<Py<PyDict>> {
+    let report = detach_py_result(py, "dose_response_calibration", move || {
+        let rows: Vec<gam::terms::sae::saebench_metrics::DoseResponseObservation> = observations
+            .iter()
+            .map(
+                |&(arc_length, predicted_nats, measured_nats, weight)| {
+                    gam::terms::sae::saebench_metrics::DoseResponseObservation {
+                        arc_length,
+                        predicted_nats,
+                        measured_nats,
+                        weight,
+                    }
+                },
+            )
+            .collect();
+        gam::terms::sae::saebench_metrics::dose_response_calibration(&rows)
+    })?;
+    let out = PyDict::new(py);
+    out.set_item("slope_through_origin", report.slope_through_origin)?;
+    out.set_item("r2_through_origin", report.r2_through_origin)?;
+    out.set_item(
+        "mean_measured_nats_per_arc",
+        report.mean_measured_nats_per_arc,
+    )?;
+    out.set_item("cv_measured_nats_per_arc", report.cv_measured_nats_per_arc)?;
+    out.set_item("effective_weight", report.effective_weight)?;
+    Ok(out.unbind())
+}
+
+/// Invert a row-Hessian precision block into a per-coordinate posterior.
+///
+/// `mean` is the posterior mean coordinate the fit/encoder supplies and
+/// `precision_row_major` is the row-major `d x d` precision (inverse-covariance)
+/// block that the arrow solve already factors for that chart coordinate.
+/// Returns `{mean, covariance_diag, covariance_trace, precision_weight}` from
+/// the audited [`saebench_metrics::coordinate_posterior_from_precision`]: the
+/// per-token coordinate posterior uncertainty that weights both #1942
+/// manifold-native metrics and tightens the steering validity radius.
+#[pyfunction(signature = (mean, precision_row_major))]
+fn coordinate_posterior_from_precision(
+    py: Python<'_>,
+    mean: Vec<f64>,
+    precision_row_major: Vec<f64>,
+) -> PyResult<Py<PyDict>> {
+    let posterior = detach_py_result(py, "coordinate_posterior_from_precision", move || {
+        gam::terms::sae::saebench_metrics::coordinate_posterior_from_precision(
+            &mean,
+            &precision_row_major,
+        )
+    })?;
+    let out = PyDict::new(py);
+    out.set_item("mean", posterior.mean)?;
+    out.set_item("covariance_diag", posterior.covariance_diag)?;
+    out.set_item("covariance_trace", posterior.covariance_trace)?;
+    out.set_item("precision_weight", posterior.precision_weight)?;
+    Ok(out.unbind())
+}
+
 #[cfg(test)]
 mod ffi_completeness_tests {
     use super::*;
@@ -1640,6 +2441,98 @@ mod ffi_completeness_tests {
             let r1: bool = a1.get_item("retained").unwrap().unwrap().extract().unwrap();
             assert!(!r1, "atom 1 should not be retained");
             assert!(a1.get_item("variance").unwrap().unwrap().is_none());
+        });
+    }
+
+    #[test]
+    fn chart_interp_score_quotients_orientation_over_the_ffi_boundary() {
+        Python::attach(|py| {
+            // Recovered coordinate runs backwards relative to the cyclic label;
+            // the orientation-quotiented score still locks phase, and the signed
+            // score records the reversal.
+            let out = chart_interp_score(
+                py,
+                vec![
+                    (0.99, 0.01, 1.0),
+                    (0.24, 0.76, 1.0),
+                    (0.49, 0.51, 1.0),
+                    (0.74, 0.26, 1.0),
+                ],
+            )
+            .expect("chart interp score");
+            let d = out.bind(py);
+            let cc: f64 = d
+                .get_item("circular_correlation")
+                .unwrap()
+                .unwrap()
+                .extract()
+                .unwrap();
+            assert!(cc > 0.99, "circular_correlation = {cc}");
+            let signed: f64 = d
+                .get_item("signed_circular_correlation")
+                .unwrap()
+                .unwrap()
+                .extract()
+                .unwrap();
+            assert!(signed < 0.0, "signed_circular_correlation = {signed}");
+        });
+    }
+
+    #[test]
+    fn dose_response_calibration_reports_slope_and_unit_speed_constancy() {
+        Python::attach(|py| {
+            let out = dose_response_calibration(
+                py,
+                vec![
+                    (1.0, 0.5, 1.0, 1.0),
+                    (2.0, 1.0, 2.0, 1.0),
+                    (3.0, 1.5, 3.0, 1.0),
+                ],
+            )
+            .expect("dose response calibration");
+            let d = out.bind(py);
+            let slope: f64 = d
+                .get_item("slope_through_origin")
+                .unwrap()
+                .unwrap()
+                .extract()
+                .unwrap();
+            assert!((slope - 2.0).abs() < 1e-9, "slope = {slope}");
+            let cv: f64 = d
+                .get_item("cv_measured_nats_per_arc")
+                .unwrap()
+                .unwrap()
+                .extract()
+                .unwrap();
+            assert!(cv < 1e-9, "unit-speed cv = {cv}");
+        });
+    }
+
+    #[test]
+    fn coordinate_posterior_inverts_precision_block_over_the_ffi_boundary() {
+        Python::attach(|py| {
+            let out = coordinate_posterior_from_precision(
+                py,
+                vec![0.25, 0.75],
+                vec![4.0, 1.0, 1.0, 3.0],
+            )
+            .expect("coordinate posterior");
+            let d = out.bind(py);
+            let diag: Vec<f64> = d
+                .get_item("covariance_diag")
+                .unwrap()
+                .unwrap()
+                .extract()
+                .unwrap();
+            assert!((diag[0] - 3.0 / 11.0).abs() < 1e-9, "diag0 = {}", diag[0]);
+            assert!((diag[1] - 4.0 / 11.0).abs() < 1e-9, "diag1 = {}", diag[1]);
+            let pw: f64 = d
+                .get_item("precision_weight")
+                .unwrap()
+                .unwrap()
+                .extract()
+                .unwrap();
+            assert!((pw - 11.0 / 7.0).abs() < 1e-9, "precision_weight = {pw}");
         });
     }
 }

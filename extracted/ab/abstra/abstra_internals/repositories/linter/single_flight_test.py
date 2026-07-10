@@ -46,7 +46,7 @@ class SingleFlightTest(unittest.TestCase):
         active = {"n": 0, "max": 0}
         active_lock = threading.Lock()
 
-        def tracking_run_rules(target_rules, merge):
+        def tracking_run_rules(target_rules, merge, revalidate_caches=False):
             with active_lock:
                 active["n"] += 1
                 active["max"] = max(active["max"], active["n"])

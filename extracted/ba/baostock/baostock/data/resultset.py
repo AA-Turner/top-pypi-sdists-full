@@ -58,7 +58,8 @@ class ResultData(object):
         if len(self.data) == 0:
             return False
 
-        if self.cur_row_num < len(self.data):
+        data_len = len(self.data)
+        if self.cur_row_num < data_len:
             # 当前页还有数据
             return True
         else:
@@ -66,10 +67,14 @@ class ResultData(object):
             if len(self.data) < cons.BAOSTOCK_PER_PAGE_COUNT:
                 return False
 
-            # 当前页没有数据，取下一页数据
+            # 2026-06-22,当前页获取的总记录数大于cons.BAOSTOCK_PER_PAGE_COUNT时，代表向server端请求的数据不用翻页请求操作。例如：query_history_daily_k_AStock请求
+            if len(self.data) > cons.BAOSTOCK_PER_PAGE_COUNT:
+                return False
+
             msg_body_split = self.msg_body.split(cons.MESSAGE_SPLIT)
 
             if self.cur_page_num.isdigit():
+                # 取下一页数据
                 next_page = int(self.cur_page_num) + 1
                 msg_body_split[2] = str(next_page)
             else:

@@ -4,14 +4,16 @@ from typing import List, Optional
 import tree_sitter_javascript as tsjs
 from tree_sitter import Language, Parser
 
+from abstra_internals.repositories.linter.context import (
+    LintContext,
+    current_lint_context,
+)
 from abstra_internals.repositories.linter.models import (
     LinterIssue,
     PathScopedLinterRule,
     linter_path_key,
     normalize_linter_path,
 )
-from abstra_internals.services.fs import FileSystemService
-from abstra_internals.settings import Settings
 
 # tree-sitter is a recovery parser designed for editors — it reports error
 # locations but not descriptive messages (e.g. "Unexpected token ;").
@@ -44,16 +46,16 @@ class JsSyntax(PathScopedLinterRule):
     fix_with_ai = True
 
     def find_issues(self, path: Optional[Path] = None) -> List[LinterIssue]:
+        project = (current_lint_context() or LintContext()).project
         issues: List[LinterIssue] = []
-        root = Settings.root_path
         parser = Parser(JS_LANGUAGE)
 
         if path is not None:
-            if path.suffix != ".js":
+            if path.suffix != ".js" or project.is_ignored_path(path):
                 return []
             files = [normalize_linter_path(path)]
         else:
-            files = FileSystemService.list_files(root, allowed_suffixes=[".js"])
+            files = list(project.iter_project_files(allowed_suffixes=[".js"]))
 
         for js_file in files:
             try:

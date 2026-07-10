@@ -22,18 +22,19 @@ import testtools
 
 
 class TestCase(testtools.TestCase):
-
     def setUp(self):
-        super(TestCase, self).setUp()
+        super().setUp()
         self.tempdir = self.useFixture(fixtures.TempDir())
         cfg.CONF([], project='pycadf')
 
     def path_get(self, project_file=None):
-        root = os.path.abspath(os.path.join(os.path.dirname(__file__),
-                                            '..',
-                                            '..',
-                                            )
-                               )
+        root = os.path.abspath(
+            os.path.join(
+                os.path.dirname(__file__),
+                '..',
+                '..',
+            )
+        )
         if project_file:
             return os.path.join(root, project_file)
         else:
@@ -44,4 +45,4 @@ class TestCase(testtools.TestCase):
 
     def tearDown(self):
         cfg.CONF.reset()
-        super(TestCase, self).tearDown()
+        super().tearDown()

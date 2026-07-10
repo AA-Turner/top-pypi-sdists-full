@@ -6,7 +6,7 @@ import json
 import logging
 import warnings
 from concurrent.futures import ThreadPoolExecutor
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any
 
 from aws_durable_execution_sdk_python.context import DurableContext
@@ -14,7 +14,6 @@ from aws_durable_execution_sdk_python.exceptions import (
     BackgroundThreadError,
     BotoClientError,
     CheckpointError,
-    DurableExecutionsError,
     ExecutionError,
     InvocationError,
     SuspendExecution,
@@ -26,7 +25,6 @@ from aws_durable_execution_sdk_python.lambda_service import (
     InvocationStatus,
     LambdaClient,
     Operation,
-    OperationType,
     OperationUpdate,
 )
 from aws_durable_execution_sdk_python.plugin import (
@@ -94,6 +92,7 @@ class DurableExecutionInvocationInput:
     durable_execution_arn: str
     checkpoint_token: str
     initial_execution_state: InitialExecutionState
+    updated_operation_ids: list[str] = field(default_factory=list, kw_only=True)
 
     @staticmethod
     def from_dict(
@@ -105,6 +104,7 @@ class DurableExecutionInvocationInput:
             initial_execution_state=InitialExecutionState.from_dict(
                 input_dict.get("InitialExecutionState", {})
             ),
+            updated_operation_ids=list(input_dict.get("UpdatedOperationIds", [])),
         )
 
     @staticmethod
@@ -117,6 +117,7 @@ class DurableExecutionInvocationInput:
             initial_execution_state=InitialExecutionState.from_json_dict(
                 input_dict.get("InitialExecutionState", {})
             ),
+            updated_operation_ids=list(input_dict.get("UpdatedOperationIds", [])),
         )
 
     def to_dict(self) -> MutableMapping[str, Any]:
@@ -124,6 +125,7 @@ class DurableExecutionInvocationInput:
             "DurableExecutionArn": self.durable_execution_arn,
             "CheckpointToken": self.checkpoint_token,
             "InitialExecutionState": self.initial_execution_state.to_dict(),
+            "UpdatedOperationIds": self.updated_operation_ids,
         }
 
     def to_json_dict(self) -> MutableMapping[str, Any]:
@@ -131,6 +133,7 @@ class DurableExecutionInvocationInput:
             "DurableExecutionArn": self.durable_execution_arn,
             "CheckpointToken": self.checkpoint_token,
             "InitialExecutionState": self.initial_execution_state.to_json_dict(),
+            "UpdatedOperationIds": self.updated_operation_ids,
         }
 
 
@@ -152,6 +155,7 @@ class DurableExecutionInvocationInputWithClient(DurableExecutionInvocationInput)
             durable_execution_arn=invocation_input.durable_execution_arn,
             checkpoint_token=invocation_input.checkpoint_token,
             initial_execution_state=invocation_input.initial_execution_state,
+            updated_operation_ids=invocation_input.updated_operation_ids,
             service_client=service_client,
         )
 
@@ -227,8 +231,8 @@ def durable_execution(
             initial_checkpoint_token=invocation_input.checkpoint_token,
             operations={},
             service_client=service_client,
-            replay_status=ReplayStatus.NEW,
             plugin_executor=plugin_executor,
+            updated_operation_ids=invocation_input.updated_operation_ids,
         )
 
         try:
@@ -252,7 +256,11 @@ def durable_execution(
                 ).to_dict()
             raise
 
-        execution_state.mark_replaying_if_prior_operations_exist()
+        # Determine whether this is a replay (prior operations exist) at the
+        # execution level. This seeds the root context's replay status and the
+        # plugin's is_first_invocation flag. Replay status itself is then
+        # tracked per-context as execution proceeds.
+        has_prior_operations: bool = execution_state.has_prior_operations()
 
         raw_input_payload: str | None = execution_state.get_input_payload()
 
@@ -270,7 +278,11 @@ def durable_execution(
                 raise
 
         durable_context: DurableContext = DurableContext.from_lambda_context(
-            state=execution_state, lambda_context=context
+            state=execution_state,
+            lambda_context=context,
+            replay_status=(
+                ReplayStatus.REPLAY if has_prior_operations else ReplayStatus.NEW
+            ),
         )
 
         # Use ThreadPoolExecutor for concurrent execution of user code and background checkpoint processing
@@ -291,7 +303,7 @@ def durable_execution(
                     if execution_operation is not None
                     else None
                 ),
-                is_first_invocation=not execution_state.is_replaying(),
+                is_first_invocation=not has_prior_operations,
             )
             # Thread 1: Run background checkpoint processing
             executor.submit(execution_state.checkpoint_batches_forever)

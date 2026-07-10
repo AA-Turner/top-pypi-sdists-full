@@ -14,14 +14,16 @@ VersionStatus = Enum(
 
 
 class PackageVersionManager:
-    def __init__(self, package_name: str) -> None:
+    def __init__(self, package_name: str, revalidate: bool = False) -> None:
         self.package_name = package_name
         self.package_display_name = (
             package_name if package_name != "abstra" else "Abstra Editor"
         )
         self.current_local_version = pkg_utils.get_local_package_version(package_name)
         self.cached_latest_version = (
-            vsn_utils.get_cached_latest_version(Settings.root_path, package_name)
+            vsn_utils.get_cached_latest_version(
+                Settings.root_path, package_name, revalidate=revalidate
+            )
             or self.current_local_version
         )
 

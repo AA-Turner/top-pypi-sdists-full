@@ -35,8 +35,8 @@ class GlobalRunManager:
 
   _instance: Optional["GlobalRunManager"] = None
   _lock = threading.RLock()
-  _PROFILER_TARGET_CREATION_TIMEOUT_SEC = 20
   _PROFILER_SESSION_CREATION_TIMEOUT_SEC = 20
+  _MAX_GET_ML_RUN_ATTEMPTS = 2
 
   def __new__(cls, *args, **kwargs) -> "GlobalRunManager":
     """Ensure only one instance is created (thread-safe singleton)."""
@@ -46,18 +46,15 @@ class GlobalRunManager:
         if cls._instance is None:
           cls._instance = super(GlobalRunManager, cls).__new__(cls)
           cls._instance._initialized = False
-          cls._instance._ml_run: Optional[mlrun_types.MLRun] = None
-          cls._instance._current_logging_client: Optional[
+          cls._instance._ml_run: Optional[mlrun_types.MLRun] = None  # pyrefly: ignore[bad-assignment]
+          cls._instance._current_logging_client: Optional[  # pyrefly: ignore[bad-assignment]
               logging_client.LoggingClient
           ] = None
-          cls._instance._control_plane_client: Optional[
+          cls._instance._control_plane_client: Optional[  # pyrefly: ignore[bad-assignment]
               control_plane_client.ControlPlaneClient
           ] = None
-          cls._instance._timer_pt_creation: threading.Timer | None = None
-          cls._instance._pt_creation_start_time: float | None = None
-          cls._instance._timer_ps_creation: threading.Timer | None = None
-          cls._instance._ps_creation_start_time: float | None = None
-          cls._instance._profiler_target: Optional[str] = None
+          cls._instance._timer_ps_creation: threading.Timer | None = None  # pyrefly: ignore[bad-assignment]
+          cls._instance._ps_creation_start_time: float | None = None  # pyrefly: ignore[bad-assignment]
     return cls._instance
 
   def __init__(
@@ -79,11 +76,8 @@ class GlobalRunManager:
       self._control_plane_client: Optional[
           control_plane_client.ControlPlaneClient
       ] = None
-      self._timer_pt_creation: threading.Timer | None = None
-      self._pt_creation_start_time: float | None = None
       self._timer_ps_creation: threading.Timer | None = None
       self._ps_creation_start_time: float | None = None
-      self._profiler_target: Optional[str] = None
 
     if not hasattr(self, "_accelerator_type") or accelerator_type is not None:
       self._accelerator_type = (
@@ -96,16 +90,6 @@ class GlobalRunManager:
     Args:
         mlrun: The ML run to initialize.
     """
-    if mlrun.environment != "prod":
-      logger.info(
-          "Non-prod environment %r detected. Profiler target creation will"
-          " be attempted.",
-          mlrun.environment,
-      )
-      # Check and register ML host as Profiler Target, run this before acquiring
-      # the lock to avoid deadlock.
-      self.create_profiler_target()
-
     with self._lock:
       if self._initialized:
         logger.info(
@@ -158,208 +142,76 @@ class GlobalRunManager:
           )
         del mlrun.configs["userConfigs"]
 
-      try:
-        logger.info("Checking for existing ML run with name: %s", mlrun.name)
-        response = self._control_plane_client.get_ml_run(mlrun.name)
-        logger.info(
-            "Found existing ML run: %s.",
-            response.get("name", "unknown"),
-        )
-        if response.get("runPhase") == mlrun_types.RunPhase.PHASE_FAILED.value:
-          logger.info(
-              "Existing ML run %r is in FAILED state, updating to ACTIVE.",
-              mlrun.name,
-          )
-          self._control_plane_client.update_ml_run(
-              name=mlrun.name,
-              run_phase=mlrun_types.RunPhase.PHASE_ACTIVE.value,
-          )
-        else:
-          logger.info(
-              "ML run %r with status %s already exists, skipping creation.",
-              mlrun.name,
-              response.get("runPhase"),
-          )
-      except requests.exceptions.HTTPError as e:
-        if e.response is not None and e.response.status_code == 404:
-          logger.info("ML run %r not found, creating a new one.", mlrun.name)
-          # Prepare artifacts configuration if gcs_path is provided
-          artifacts = None
-          if mlrun.gcs_path:
-            artifacts = {"gcsPath": mlrun.gcs_path}
-
-          # Prepare default tools (XProf is commonly used)
-          tools = [{"xprof": {}}]
-          # Create the ML run with mapped parameters
-          try:
-            response = self._control_plane_client.create_ml_run(
-                name=mlrun.name,
-                display_name=mlrun.display_name,
-                run_phase=str(mlrun.run_phase.value),
-                run_group=mlrun.run_group,
-                configs=mlrun.configs,
-                tools=tools,
-                artifacts=artifacts,
-                labels={
-                    "created_by": "diagon_sdk",
-                    # Request provision xprof tool, can be removed when
-                    # Control Plane does this by default.
-                    "create-tool-mode": "regular",
-                    "diagon_sdk_version": (
-                        _version.get_version().replace(".", "-")
-                    ),
-                    "on_demand_xprof": (
-                        "enabled" if mlrun.on_demand_xprof else "disabled"
-                    ),
-                    "accelerator_type": self._accelerator_type.value,
-                    "framework": mlrun.framework.value.lower(),
-                    "serving_engine": mlrun.serving_engine.value.lower() if mlrun.serving_engine != mlrun_types.ServingEngine.NONE else "",
-                },
-                orchestrator=mlrun.orchestrator,
-                workload_details=mlrun.workload_details,
-            )
-            logger.info(
-                "Successfully created ML run: %s",
-                response.get("name") if response else "unknown",
-            )
-            if response and "name" in response:
-              self._ml_run.name = response.get("name", "unknown").split("/")[-1]
-
-          except requests.exceptions.HTTPError as e_create:
-            if (
-                e_create.response is not None
-                and e_create.response.status_code == 409
-            ):
-              logger.info(
-                  "ML run %r already exists, skipping creation.", mlrun.name
-              )
-            else:
-              logger.error("Failed to create ML run: %s", e_create)
-              raise
-          except Exception as e_create:
-            logger.error("Failed to create ML run: %s", e_create)
-            raise
-        else:
-          # HTTPError with status other than 404, or no response
-          logger.error("Failed to get ML run %r: %s", mlrun.name, e)
-          raise
-      except Exception as e_get:
-        logger.error("Failed to get ML run %r: %s", mlrun.name, e_get)
-        raise
-
+      self._create_ml_run_on_control_plane(mlrun)
       self._initialized = True
 
-  def _start_profiler_target_creation_timer(self, wait_time_sec: float) -> None:
-    """Start profiler target creation timer.
+  def _create_ml_run_on_control_plane(self, mlrun: mlrun_types.MLRun) -> None:
+    """Helper to call create_ml_run on control plane client."""
+    artifacts = None
+    if mlrun.gcs_path:
+      artifacts = {"gcsPath": mlrun.gcs_path}
 
-    Args:
-        wait_time_sec: The time in seconds to wait before attempting to create
-          the profiler target again.
-
-    Raises:
-        TimeoutError: If the profiler target creation has exceeded the maximum
-          allowed timeout.
-    """
-    if (
-        self._pt_creation_start_time is not None
-        and time.time() - self._pt_creation_start_time
-        > self._PROFILER_TARGET_CREATION_TIMEOUT_SEC
-    ):
-      raise TimeoutError(
-          "Profiler target creation time exceeded wait time of"
-          f" {self._PROFILER_TARGET_CREATION_TIMEOUT_SEC} seconds."
+    tools = [{"xprof": {}}]
+    labels = {
+        "created_by": "diagon_sdk",
+        "create-tool-mode": "regular",
+        "diagon_sdk_version": _version.get_version().replace(".", "-"),
+        "on_demand_xprof": "enabled" if mlrun.on_demand_xprof else "disabled",
+        "sdk_report_system_metrics": (
+            "true" if mlrun.log_system_metrics else "false"
+        ),
+        "accelerator_type": self._accelerator_type.value,
+        "framework": mlrun.framework.value.lower(),
+        "serving_engine": (
+            mlrun.serving_engine.value.lower()
+            if mlrun.serving_engine != mlrun_types.ServingEngine.NONE
+            else ""
+        ),
+    }
+    try:
+      response = self._control_plane_client.create_ml_run(
+          name=mlrun.name,
+          display_name=mlrun.display_name,
+          run_phase=str(mlrun.run_phase.value),
+          run_group=mlrun.run_group,
+          configs=mlrun.configs,
+          tools=tools,
+          artifacts=artifacts,
+          labels=labels,
+          orchestrator=mlrun.orchestrator,
+          workload_details=mlrun.workload_details,
+          workload_targets=mlrun.workload_targets,
       )
-    logger.info(
-        "Starting profiler target creation timer with wait time: %s",
-        wait_time_sec,
-    )
-    self._timer_pt_creation = threading.Timer(
-        wait_time_sec, self.create_profiler_target
-    )
-    self._timer_pt_creation.start()
+      logger.info(
+          "Successfully created ML run: %s",
+          response.get("name") if response else "unknown",
+      )
+      if response and "name" in response:
+        self._ml_run.name = response.get("name", "unknown").split("/")[-1]
 
-  def create_profiler_target(self) -> None:
-    """Create profiler targets for the ML run.
-
-    Raises:
-      TimeoutError: If profiler target creation time exceeds the defined
-        timeout.
-      requests.exceptions.HTTPError: If an HTTP error occurs during API calls
-        to the control plane.
-      Exception: For other unexpected errors during profiler target creation.
-    """
-    with self._lock:
-      timer = self._timer_pt_creation
-      if timer is not None:
-        logger.info("Cancelling profiler target creation timer.")
-        timer.cancel()
-        self._timer_pt_creation = None
-
-      if self._pt_creation_start_time is None:
-        logger.info(
-            "Starting profiler target creation timer. Current time: %s",
-            time.time(),
-        )
-        self._pt_creation_start_time = time.time()
-
+    except requests.exceptions.HTTPError as e_create:
       if (
-          not self._initialized
-          or self._ml_run is None
-          or self._control_plane_client is None
+          e_create.response is not None
+          and e_create.response.status_code == 409
       ):
-        logger.warning(
-            "Prerequisites not met. initialized: %r, run_id: %r,"
-            " control_plane_client: %r, retrying profiler target creation after"
-            " 0.2 seconds.",
-            self._initialized,
-            self._ml_run.name if self._ml_run else None,
-            self._control_plane_client,
-        )
-        self._start_profiler_target_creation_timer(0.2)
-        return
-
-      client = self._control_plane_client
-      try:
-        client.get_ml_run(self._ml_run.name)
-      except requests.exceptions.HTTPError as e_get:
-        if e_get.response is not None and (
-            e_get.response.status_code == 404
-            or 500 <= e_get.response.status_code < 600
-        ):
-          logger.info(
-              "ML run %r not found, waiting for master node to create it.",
-              self._ml_run.name,
-          )
-          self._start_profiler_target_creation_timer(0.5)
-          return
-
-        logger.error("Failed to get ML run '%s': %s", self._ml_run.name, e_get)
-        raise
-
-      try:
-        instance_id = host_utils.get_instance_id()
-        hostname = host_utils.get_hostname()
-        node_index = host_utils.get_process_index(
-            self._ml_run.framework, self._ml_run.serving_engine
-        )
-        client.create_profiler_target(
-            ml_run_name=self._ml_run.name,
-            name=instance_id,
-            is_master=host_utils.is_master_host(
-                self._ml_run.framework, self._ml_run.serving_engine
-            ),
-            hostname=hostname,
-            node_index=node_index,
-        )
         logger.info(
-            "Successfully created profiler target for ML run: %s",
-            self._ml_run.name,
+            "ML run %r already exists. Updating existing run details.", mlrun.name
         )
-        # Clear the start time after successful creation
-        self._pt_creation_start_time = None
-      except Exception:
-        logger.exception("Failed to create profiler target.")
-        raise RuntimeError("Failed to create profiler target.") from None
+        self._control_plane_client.update_ml_run(
+            name=mlrun.name,
+            display_name=mlrun.display_name,
+            tools=tools,
+            artifacts=artifacts,
+            run_phase=mlrun_types.RunPhase.PHASE_ACTIVE.value,
+            labels=labels,
+            configs=mlrun.configs,
+        )
+      else:
+        logger.error("Failed to create ML run: %s", e_create)
+        raise
+    except Exception as e_create:
+      logger.error("Failed to create ML run: %s", e_create)
+      raise
 
   def _start_report_profiler_session_timer(
       self,
@@ -411,8 +263,8 @@ class GlobalRunManager:
     """Create profiler session for the ML run.
 
     Args:
-        create_new_session: Whether to create a new session or update an existing
-          one.
+        create_new_session: Whether to create a new session or update an
+          existing one.
         session_id: The session ID to use for the profiling session.
         start_time: Requested start time of the profile.
         end_time: Requested end time of the profile.
@@ -452,28 +304,45 @@ class GlobalRunManager:
       client = self._control_plane_client
       try:
         hostname = host_utils.get_hostname()
-        if self._profiler_target is None:
-          workload_details = self._ml_run.workload_details or {}
-          if not workload_details.get("targets", None):
+        workload_details = self._ml_run.workload_details or {}
+        if not workload_details.get("targets", None):
+          # Attempt to fetch targets, and if missing, try updating
+          # workload_details and fetch again as the backend might populate it.
+          for i in range(self._MAX_GET_ML_RUN_ATTEMPTS):
             resp = client.get_ml_run(self._ml_run.name)
             workload_details = resp.get("workloadDetails", {})
             self._ml_run.workload_details = workload_details
 
-          if not workload_details.get("targets", None):
-            # TODO([INTERNAL]): Update ML Run to include targets details from GKE.
+            if len(workload_details.get("targets", [])) > 0:
+              break
+
+            if i == 0:
+              logger.info(
+                  "No targets found in ML Run workload details, trying to"
+                  " update ML Run."
+              )
+              client.update_ml_run(
+                  name=self._ml_run.name,
+                  force=True,
+                  run_phase=mlrun_types.RunPhase.PHASE_ACTIVE.value,
+                  update_mask="workload_details"
+              )
+              continue
+
             logger.error(
-                "No targets found in ML Run workload details, aborting session"
-                " creation."
+                "No targets found in ML Run workload details even after"
+                " update ML Run, aborting session creation."
             )
             return
 
-          for target in workload_details.get("targets", []):
-            # In GKE, hostname is the pod name without unique suffix.
-            if target.get("displayName", "").startswith(hostname):
-              self._profiler_target = target.get("displayName", None)
-              break
+        profiler_target = None
+        for target in workload_details.get("targets", []):
+          # In GKE, hostname is the pod name without unique suffix.
+          if target.get("displayName", "").startswith(hostname):
+            profiler_target = target.get("displayName", None)
+            break
 
-        if self._profiler_target is None:
+        if profiler_target is None:
           logger.error(
               "No profiler target found for hostname %r, aborting session"
               " creation.",
@@ -489,8 +358,8 @@ class GlobalRunManager:
         resp = report_function(
             ml_run_id=self._ml_run.name,
             profiler_session_id=session_id,
-            gsc_file_path=self._ml_run.gcs_path + "/" + session_id,
-            profiler_target=self._profiler_target,
+            gsc_file_path=self._ml_run.gcs_path + "/" + session_id,  # pyrefly: ignore[unsupported-operation]
+            profiler_target=profiler_target,
             start_time=start_time,
             end_time=end_time,
             session_phase=session_phase,
@@ -602,22 +471,19 @@ class GlobalRunManager:
   ) -> Optional[control_plane_client.ControlPlaneClient]:
     """Get the current control plane client."""
     with self._lock:
-      if self._ml_run and host_utils.is_master_host(self._ml_run.framework, self._ml_run.serving_engine):
+      if self._ml_run and host_utils.is_master_host(
+          self._ml_run.framework, self._ml_run.serving_engine
+      ):
         return self._control_plane_client
       return None
 
   def clear(self) -> None:
     """Clear the current run state."""
     with self._lock:
-      if self._timer_pt_creation is not None:
-        logger.info("Cancelling profiler target creation timer during clear.")
-        self._timer_pt_creation.cancel()
-        self._timer_pt_creation = None
       if self._timer_ps_creation is not None:
         logger.info("Cancelling profiler session creation timer during clear.")
         self._timer_ps_creation.cancel()
         self._timer_ps_creation = None
-      self._pt_creation_start_time = None
       self._ps_creation_start_time = None
       self._ml_run = None
       self._current_logging_client = None

@@ -4,6 +4,7 @@ from pathlib import Path
 from typing import List, Optional
 
 from abstra_internals.logger import AbstraLogger
+from abstra_internals.repositories.linter.context import current_lint_context
 from abstra_internals.repositories.linter.models import (
     LinterFix,
     LinterIssue,
@@ -67,13 +68,17 @@ class NewVersionOfAbstraAvailable(PathScopedLinterRule):
 
     def find_issues(self, path: Optional[Path] = None) -> List[LinterIssue]:
         # A file save cannot change the published Abstra version, and the check
-        # hits PyPI (cached 4h). Skip it on scoped (save) runs; the existing
+        # hits PyPI (cached 15 min). Skip it on scoped (save) runs; the existing
         # project-global banner is preserved by the scoped merge. The check
         # still runs on full passes (boot/refresh/deploy).
         if path is not None:
             return []
         try:
-            package_version = PackageVersionManager("abstra")
+            # A revalidating pass (user hit the linter refresh button) skips
+            # the cached PyPI response and revalidates against the live index.
+            context = current_lint_context()
+            revalidate = context.revalidate_caches if context is not None else False
+            package_version = PackageVersionManager("abstra", revalidate=revalidate)
         except PackageNotFoundError:
             return []
         version_status = package_version.get_version_status()

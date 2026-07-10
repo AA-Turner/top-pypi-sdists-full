@@ -211,6 +211,15 @@ impl SaeManifoldTerm {
             }
 
             // (3) periodic ARD: ΔC_coord = (V'' − max(V'',0)) = min(V'',0), diagonal.
+            // HT row weighting: the assembly writes the majorizer this corrects as
+            // `w_row·max(V'',0)` (the weighted ARD seam in
+            // `construction_arrow_schur_assembly.rs`), so the dropped-curvature
+            // delta `A − B = w_row·min(V'',0)` must carry the SAME full `w_row` —
+            // otherwise the exact operator `A = B + ΔC` no longer equals the
+            // weighted von-Mises curvature `w_row·V''` on a subsample (the prior is
+            // added directly with full `w_row`, NOT through the √w jet seam, so the
+            // correct single factor here is `w_row`, not `√w`). `None` ⇒ w_row = 1.
+            let w_row = row_loss_w.map_or(1.0, |w| w[row]);
             for (a, va) in jets.vars.iter().enumerate() {
                 let SaeLocalRowVar::Coord { atom, axis } = *va else {
                     continue;
@@ -223,7 +232,7 @@ impl SaeManifoldTerm {
                 let prior = ArdAxisPrior::eval(alpha, t_val, ard_axis_periods[atom][axis]);
                 let neg = prior.hess.min(0.0);
                 if neg != 0.0 {
-                    out.t[base + a] += neg * v_t[a];
+                    out.t[base + a] += w_row * neg * v_t[a];
                 }
             }
         }
@@ -282,11 +291,49 @@ impl SaeManifoldTerm {
         cache: &ArrowFactorCache,
         solver: &DeflatedArrowSolver<'_>,
     ) -> Result<SaeOuterRhoGradientComponents, OuterGradientError> {
+        self.analytic_outer_rho_gradient_components_with_bundle(
+            target, rho, loss, cache, solver, None,
+        )
+    }
+
+    /// #2080 forward plumbing — the analytic outer-ρ gradient with an OPTIONAL
+    /// shared selected-inverse probe bundle `(z_j, S⁻¹ z_j)`.
+    ///
+    /// When `inverse_probe_bundle` is `Some`, the two `½log|H|`-trace channels
+    /// that have matrix-free selected-inverse siblings — the per-atom decoder
+    /// smoothness EDF `tr(H⁻¹ M_k)` and the per-(atom,axis) ARD log-precision
+    /// Hessian trace `½tr(H⁻¹ ∂H/∂logα)` — are evaluated off that bundle
+    /// (`decoder_smoothness_effective_dof_per_atom_from_probes` /
+    /// `ard_log_precision_hessian_trace_from_probes`) instead of the dense
+    /// `DeflatedArrowSolver` selected inverse. They convert together as ONE
+    /// all-or-nothing cluster on the single `Some` (invariant #1): never a
+    /// partial mix within a single eval.
+    ///
+    /// The analytic-gradient cluster is DENSE-ONLY today (invariant #3): every
+    /// production caller passes `None`, so this `Some` branch is dormant forward
+    /// plumbing that the eventual routing flip (once the surrogate lane owns the
+    /// analytic gradient, not just the EFS lane) will exercise. Flipping any
+    /// caller to `Some` additionally requires matrix-free siblings for the
+    /// channels that still consume `solver` even on the `Some` branch — the
+    /// assignment/learnable-IBP log-strength traces and the `logdet_theta_adjoint`
+    /// envelope Γ (#2080 task-2, the θ-adjoint `tr(S⁻¹·M)` fold) — so the `solver`
+    /// argument is still required here and the flip stays off until that gap
+    /// closes.
+    pub(crate) fn analytic_outer_rho_gradient_components_with_bundle(
+        &self,
+        target: ArrayView2<'_, f64>,
+        rho: &SaeManifoldRho,
+        loss: &SaeManifoldLoss,
+        cache: &ArrowFactorCache,
+        solver: &DeflatedArrowSolver<'_>,
+        inverse_probe_bundle: Option<(&[Array1<f64>], &[Array1<f64>])>,
+    ) -> Result<SaeOuterRhoGradientComponents, OuterGradientError> {
         let n_params = rho.to_flat().len();
         let mut explicit = Array1::<f64>::zeros(n_params);
         let mut logdet_trace = Array1::<f64>::zeros(n_params);
         let mut occam = Array1::<f64>::zeros(n_params);
         let mut third_order_correction = Array1::<f64>::zeros(n_params);
+        let mut third_order_correction_raw = Array1::<f64>::zeros(n_params);
 
         explicit[0] = assignment_prior_log_strength_derivative(&self.assignment, rho)
             + self
@@ -327,17 +374,33 @@ impl SaeManifoldTerm {
                 *v *= renorm;
             }
         }
-        let smooth_logdet = self
-            .decoder_smoothness_effective_dof_with_solver_per_atom(
-                cache,
-                solver,
-                &lambda_smooth_vec,
-            )
-            .map_err(|err| OuterGradientError::InternalInvariant {
-                reason: format!("analytic_outer_rho_gradient_components: {err}"),
-            })?;
+        // #2080: the per-atom smoothness EDF `tr(H⁻¹ M_k)` off the shared
+        // selected-inverse bundle when the surrogate lane supplied it; the dense
+        // `DeflatedArrowSolver` selected inverse otherwise (all callers today).
+        let smooth_logdet = match inverse_probe_bundle {
+            Some((probes, sinv)) => self
+                .decoder_smoothness_effective_dof_per_atom_from_probes(
+                    probes,
+                    sinv,
+                    &lambda_smooth_vec,
+                )
+                .map_err(|err| OuterGradientError::InternalInvariant {
+                    reason: format!(
+                        "analytic_outer_rho_gradient_components: smooth dof (matrix-free): {err}"
+                    ),
+                })?,
+            None => self
+                .decoder_smoothness_effective_dof_with_solver_per_atom(
+                    cache,
+                    solver,
+                    &lambda_smooth_vec,
+                )
+                .map_err(|err| OuterGradientError::InternalInvariant {
+                    reason: format!("analytic_outer_rho_gradient_components: {err}"),
+                })?,
+        };
         let smooth_occam = self
-            .reml_occam_log_lambda_smooth_derivative()
+            .reml_occam_log_lambda_smooth_derivative(rho)
             .map_err(OuterGradientError::internal)?;
         for atom_idx in 0..k_smooth {
             explicit[1 + atom_idx] = smooth_explicit[atom_idx];
@@ -348,11 +411,28 @@ impl SaeManifoldTerm {
         let ard_explicit = self
             .ard_log_precision_explicit_derivatives(rho)
             .map_err(OuterGradientError::internal)?;
-        let ard_trace = self
-            .ard_log_precision_hessian_trace(rho, cache, solver)
-            .map_err(|err| OuterGradientError::InternalInvariant {
-                reason: format!("analytic_outer_rho_gradient_components: {err}"),
-            })?;
+        // #2080: the per-(atom,axis) ARD log-precision Hessian trace
+        // `½tr(H⁻¹ ∂H/∂logα)` off the SAME shared selected-inverse bundle (the
+        // all-or-nothing cluster's second channel) when present; the dense
+        // deflated selected inverse otherwise. The from-probes channel HARD-REFUSES
+        // any row carrying gauge/rotation deflation (the plain-S⁻¹ bundle cannot
+        // reconstruct the Daleckii–Krein correction), routing that fit to the dense
+        // channel rather than silently dropping the correction.
+        let ard_trace = match inverse_probe_bundle {
+            Some((probes, sinv)) => self
+                .ard_log_precision_hessian_trace_from_probes(rho, cache, probes, sinv)
+                .map_err(|err| OuterGradientError::InternalInvariant {
+                    reason: format!(
+                        "analytic_outer_rho_gradient_components: ARD logdet trace \
+                         (matrix-free): {err}"
+                    ),
+                })?,
+            None => self
+                .ard_log_precision_hessian_trace(rho, cache, solver)
+                .map_err(|err| OuterGradientError::InternalInvariant {
+                    reason: format!("analytic_outer_rho_gradient_components: {err}"),
+                })?,
+        };
         // #1026 shared-ARD: `ard_flat_index` maps `(k, axis)` onto the flat outer
         // coordinate for BOTH parameterizations. In `Shared` mode several atoms
         // alias one axis coordinate `1+K+axis`, and the outer derivative there is
@@ -383,10 +463,40 @@ impl SaeManifoldTerm {
         // preconditioned Neumann fixed point (`A = B + ΔC`,
         // `ΔC = apply_exact_hessian_minus_b`), so the correction is no longer
         // biased by `(B⁻¹ − A⁻¹)`.
+        //
+        // #2087 dead-zone gate. The raw envelope term `−½·Γᵀθ̂_ρ` is the response
+        // of the SMOOTH criterion `V(ρ) = penalized_loss(θ̂(ρ),ρ) + ½log|H|` that
+        // presumes the inner optimum tracks ρ exactly. The production inner solve
+        // does NOT: it accepts `θ̂` once the KKT gradient is stationary to the
+        // relative tolerance `τ = SAE_MANIFOLD_INNER_GRAD_REL_TOL · iterate_scale`
+        // (`reml_criterion`'s `grad_tolerance`, construction.rs). Under an outer
+        // step `dρ_j` the warm-started re-solve leaves `θ̂` UNCHANGED as long as
+        // the perturbed inner gradient stays inside that dead-zone. The IFT step
+        // `θ̂_ρ,j = −A⁻¹ rhs_j` images back through the inner Hessian to an inner
+        // gradient of exactly `A·θ̂_ρ,j = −rhs_j` (the `rhs_j` = `∂g/∂ρ_j`
+        // perturbation the re-solve would have to null), so `‖rhs_j‖` is precisely
+        // the inner-gradient signal that the predicted θ̂-response carries. When
+        // `‖rhs_j‖ ≤ τ`, a unit-ρ move perturbs the inner KKT gradient by less
+        // than the stationarity tolerance that declared convergence — the re-solve
+        // returns the incumbent and `θ̂` is FROZEN, so the criterion the outer
+        // search actually experiences has `θ̂` locally constant and its gradient is
+        // `explicit + logdet_trace + occam` with NO envelope term. A large raw
+        // `−½·Γᵀθ̂_ρ` there is the spurious amplification of a below-tolerance
+        // signal through a weakly-identified (near-null) direction of `A`. We
+        // therefore keep the envelope term ONLY on coordinates whose driving
+        // signal escapes the dead-zone (`‖rhs_j‖ > τ`, where the inner re-solve
+        // genuinely tracks `θ̂(ρ)`), and zero it otherwise. The raw value is
+        // preserved on `third_order_correction_raw` for diagnostics; no VALUE
+        // channel changes. Constants come entirely from the inner solver's own
+        // stationarity tolerance — no new knob.
+        let dead_zone_tol = SAE_MANIFOLD_INNER_GRAD_REL_TOL * self.inner_iterate_scale();
         for coord in 0..n_params {
             let rhs = self
                 .outer_rho_gradient_ift_rhs(rho, target, coord, cache)
                 .map_err(OuterGradientError::internal)?;
+            let rhs_norm_sq = rhs.t.iter().map(|&v| v * v).sum::<f64>()
+                + rhs.beta.iter().map(|&v| v * v).sum::<f64>();
+            let rhs_norm = rhs_norm_sq.sqrt();
             let solved = self
                 .solve_exact_stationarity(rho, target, cache, solver, &rhs)
                 .map_err(OuterGradientError::internal)?;
@@ -397,7 +507,11 @@ impl SaeManifoldTerm {
             for idx in 0..gamma.beta.len() {
                 dot += gamma.beta[idx] * solved.beta[idx];
             }
-            third_order_correction[coord] = -0.5 * dot;
+            let raw = -0.5 * dot;
+            third_order_correction_raw[coord] = raw;
+            // Dead-zone gate: only trust the envelope response where the outer
+            // step would drive the inner gradient past the stationarity tolerance.
+            third_order_correction[coord] = if rhs_norm > dead_zone_tol { raw } else { 0.0 };
         }
 
         Ok(SaeOuterRhoGradientComponents {
@@ -405,6 +519,7 @@ impl SaeManifoldTerm {
             logdet_trace,
             occam,
             third_order_correction,
+            third_order_correction_raw,
         })
     }
 }

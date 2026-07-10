@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "dagster"
-version = "1.13.12"
+version = "1.13.13"
 description = "Dagster is an orchestration platform for the development, production, and observation of data assets."
 authors = [{name = "Dagster Labs", email = "hello@dagsterlabs.com"}]
 license = "Apache-2.0"
@@ -28,8 +28,8 @@ dependencies = [
     "alembic>=1.2.1,!=1.6.3,!=1.7.0,!=1.11.0",
     "grpcio>=1.66.2; python_version>='3.13'",
     "grpcio>=1.44.0; python_version<'3.13'",
-    "grpcio-health-checking>=1.66.2; python_version>='3.13'",
-    "grpcio-health-checking>=1.44.0; python_version<'3.13'",
+    "grpcio-health-checking>=1.66.2,<1.82; python_version>='3.13'",
+    "grpcio-health-checking>=1.44.0,<1.82; python_version<'3.13'",
     "protobuf>=3.20.0,<7; python_version<'3.11'",
     "protobuf>=4,<7; python_version>='3.11'",
     "python-dotenv",
@@ -51,8 +51,8 @@ dependencies = [
     "universal_pathlib>=0.2.0; python_version>='3.12'",
     "rich",
     "filelock",
-    "dagster-pipes==1.13.12",
-    "dagster-shared==1.13.12",
+    "dagster-pipes==1.13.13",
+    "dagster-shared==1.13.13",
     "antlr4-python3-runtime<4.14",
 ]
 

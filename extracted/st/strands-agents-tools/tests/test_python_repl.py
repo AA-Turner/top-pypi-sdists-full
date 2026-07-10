@@ -1,6 +1,7 @@
 """Tests for the python_repl tool using the Agent interface."""
 
 import os
+import stat
 import sys
 import tempfile
 import threading
@@ -381,6 +382,30 @@ class TestPythonRepl:
             assert "cancelled by the user" in result["content"][0]["text"]
             assert "should_not_execute" not in python_repl.repl_state.get_namespace()
 
+    def test_state_not_loaded_before_consent(self, mock_console):
+        """Declining consent must not load the persisted REPL state.
+
+        get_repl_state() loads the state file on first use, so it must only be
+        called after the user approves execution, never before the prompt.
+        """
+        tool_use = {
+            "toolUseId": "test-id",
+            "input": {"code": "should_not_execute = True", "interactive": False},
+        }
+
+        with (
+            patch("strands_tools.python_repl.get_repl_state") as mock_get_state,
+            patch("strands_tools.python_repl.get_user_input", side_effect=["n", "Testing rejection"]),
+            patch.dict("os.environ", {"BYPASS_TOOL_CONSENT": "false"}, clear=False),
+        ):
+            result = python_repl.python_repl(tool=tool_use)
+
+            assert result["status"] == "error"
+            assert "cancelled by the user" in result["content"][0]["text"]
+            # State access is deferred until after consent, so a declined run
+            # never triggers the state load.
+            mock_get_state.assert_not_called()
+
     def test_custom_rejection_message(self, mock_console):
         """Test that custom rejection message is included."""
         # Clear REPL state to ensure clean test environment
@@ -699,3 +724,94 @@ class TestPtyManager:
         # Verify truncation occurred
         assert "[binary content truncated]" in output
         assert len(output) < len(binary_content)
+
+
+class TestLazyState:
+    """Test that the global ReplState is created lazily, not at import time."""
+
+    def test_import_does_not_create_state(self):
+        """Importing the module should not instantiate ReplState."""
+        import importlib
+
+        module = importlib.reload(python_repl)
+        try:
+            # Right after import the global instance must not exist yet.
+            assert module._repl_state is None
+        finally:
+            # Restore a usable state for subsequent tests in this session.
+            module.get_repl_state()
+
+    def test_get_repl_state_is_lazy_singleton(self):
+        """get_repl_state creates the instance on first use and reuses it."""
+        import importlib
+
+        module = importlib.reload(python_repl)
+        assert module._repl_state is None
+        first = module.get_repl_state()
+        assert module._repl_state is first
+        assert module.get_repl_state() is first
+
+
+class TestStatePermissions:
+    """Test that persisted state is written with restrictive permissions."""
+
+    def test_persistence_dir_is_owner_only(self):
+        """The persistence directory should be created mode 0o700."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            with patch.dict(os.environ, {"PYTHON_REPL_PERSISTENCE_DIR": tmpdir}):
+                repl = python_repl.ReplState()
+                mode = stat.S_IMODE(os.stat(repl.persistence_dir).st_mode)
+                # No group or other access bits should be set.
+                assert mode & 0o077 == 0, oct(mode)
+
+    def test_state_file_is_owner_only(self):
+        """The persisted state file should be written mode 0o600."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            with patch.dict(os.environ, {"PYTHON_REPL_PERSISTENCE_DIR": tmpdir}):
+                repl = python_repl.ReplState()
+                repl.clear_state()
+                repl.save_state("perm_test = 1")
+                assert os.path.exists(repl.state_file)
+                mode = stat.S_IMODE(os.stat(repl.state_file).st_mode)
+                assert mode & 0o077 == 0, oct(mode)
+
+    def test_existing_state_file_permissions_are_tightened(self):
+        """A pre-existing, group/other-readable state file is tightened on save.
+
+        os.open with O_CREAT only applies the mode on creation, so a file left
+        behind with looser permissions must still be restricted on the next save.
+        """
+        with tempfile.TemporaryDirectory() as tmpdir:
+            with patch.dict(os.environ, {"PYTHON_REPL_PERSISTENCE_DIR": tmpdir}):
+                repl = python_repl.ReplState()
+                repl.clear_state()
+                # Pre-create the state file world-readable.
+                with open(repl.state_file, "wb") as f:
+                    f.write(b"stale")
+                os.chmod(repl.state_file, 0o644)
+                assert stat.S_IMODE(os.stat(repl.state_file).st_mode) & 0o077 != 0
+
+                repl.save_state("perm_test = 1")
+
+                mode = stat.S_IMODE(os.stat(repl.state_file).st_mode)
+                assert mode & 0o077 == 0, oct(mode)
+
+    def test_error_log_is_owner_only(self):
+        """The error log echoes executed code, so it must be written mode 0o600."""
+        with tempfile.TemporaryDirectory() as tmpdir:
+            original_cwd = os.getcwd()
+            os.chdir(tmpdir)
+            try:
+                tool_use = {
+                    "toolUseId": "test-id",
+                    "input": {"code": "this is not valid python", "interactive": False},
+                }
+                with patch("strands_tools.python_repl.get_user_input", return_value="y"):
+                    python_repl.python_repl(tool=tool_use)
+
+                error_file = os.path.join(tmpdir, "errors", "errors.txt")
+                assert os.path.exists(error_file)
+                mode = stat.S_IMODE(os.stat(error_file).st_mode)
+                assert mode & 0o077 == 0, oct(mode)
+            finally:
+                os.chdir(original_cwd)

@@ -20,6 +20,7 @@ import json
 from pydantic import BaseModel, ConfigDict, StrictInt, StrictStr
 from typing import Any, ClassVar, Dict, List, Optional
 from koyeb.api.models.domain_load_balancer_quotas import DomainLoadBalancerQuotas
+from koyeb.api.models.instance_snapshot_quotas import InstanceSnapshotQuotas
 from koyeb.api.models.lifecycle_quotas import LifecycleQuotas
 from koyeb.api.models.persistent_volume_quotas import PersistentVolumeQuotas
 from koyeb.api.models.scale_to_zero_quotas import ScaleToZeroQuotas
@@ -53,7 +54,8 @@ class Quotas(BaseModel):
     archive_max_size_mb: Optional[StrictStr] = None
     lifecycle: Optional[LifecycleQuotas] = None
     max_projects: Optional[StrictStr] = None
-    __properties: ClassVar[List[str]] = ["apps", "services", "domains", "services_by_app", "service_provisioning_concurrency", "memory_mb", "instance_types", "regions", "max_organization_members", "max_instances_by_type", "persistent_volumes_by_region", "custom_domains", "domains_load_balancer", "metrics_retention", "logs_retention", "access_reserved_subdomains", "proxy_ports", "scale_to_zero", "archives", "archive_max_size_mb", "lifecycle", "max_projects"]
+    instance_snapshots: Optional[InstanceSnapshotQuotas] = None
+    __properties: ClassVar[List[str]] = ["apps", "services", "domains", "services_by_app", "service_provisioning_concurrency", "memory_mb", "instance_types", "regions", "max_organization_members", "max_instances_by_type", "persistent_volumes_by_region", "custom_domains", "domains_load_balancer", "metrics_retention", "logs_retention", "access_reserved_subdomains", "proxy_ports", "scale_to_zero", "archives", "archive_max_size_mb", "lifecycle", "max_projects", "instance_snapshots"]
 
     model_config = ConfigDict(
         validate_by_name=True,
@@ -110,6 +112,9 @@ class Quotas(BaseModel):
         # override the default output from pydantic by calling `to_dict()` of lifecycle
         if self.lifecycle:
             _dict['lifecycle'] = self.lifecycle.to_dict()
+        # override the default output from pydantic by calling `to_dict()` of instance_snapshots
+        if self.instance_snapshots:
+            _dict['instance_snapshots'] = self.instance_snapshots.to_dict()
         return _dict
 
     @classmethod
@@ -148,7 +153,8 @@ class Quotas(BaseModel):
             "archives": obj.get("archives"),
             "archive_max_size_mb": obj.get("archive_max_size_mb"),
             "lifecycle": LifecycleQuotas.from_dict(obj["lifecycle"]) if obj.get("lifecycle") is not None else None,
-            "max_projects": obj.get("max_projects")
+            "max_projects": obj.get("max_projects"),
+            "instance_snapshots": InstanceSnapshotQuotas.from_dict(obj["instance_snapshots"]) if obj.get("instance_snapshots") is not None else None
         })
         return _obj
 

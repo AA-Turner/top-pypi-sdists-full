@@ -19,6 +19,7 @@ import pprint
 from pydantic import BaseModel, ConfigDict, Field, StrictStr, ValidationError, field_validator
 from typing import Any, List, Optional
 from rxfoundry.clients.swifty_api.models.patient_address_data import PatientAddressData
+from rxfoundry.clients.swifty_api.models.patient_assignment_data import PatientAssignmentData
 from rxfoundry.clients.swifty_api.models.patient_data import PatientData
 from rxfoundry.clients.swifty_api.models.patient_health_profile_data import PatientHealthProfileData
 from rxfoundry.clients.swifty_api.models.patient_insurance_data import PatientInsuranceData
@@ -27,7 +28,7 @@ from pydantic import StrictStr, Field
 from typing import Union, List, Set, Optional, Dict
 from typing_extensions import Literal, Self
 
-PATIENTACTIVITYDATA_ONE_OF_SCHEMAS = ["PatientAddressData", "PatientData", "PatientHealthProfileData", "PatientInsuranceData", "PatientRelationshipData"]
+PATIENTACTIVITYDATA_ONE_OF_SCHEMAS = ["PatientAddressData", "PatientAssignmentData", "PatientData", "PatientHealthProfileData", "PatientInsuranceData", "PatientRelationshipData"]
 
 class PatientActivityData(BaseModel):
     """
@@ -43,8 +44,10 @@ class PatientActivityData(BaseModel):
     oneof_schema_4_validator: Optional[PatientHealthProfileData] = None
     # data type: PatientRelationshipData
     oneof_schema_5_validator: Optional[PatientRelationshipData] = None
-    actual_instance: Optional[Union[PatientAddressData, PatientData, PatientHealthProfileData, PatientInsuranceData, PatientRelationshipData]] = None
-    one_of_schemas: Set[str] = { "PatientAddressData", "PatientData", "PatientHealthProfileData", "PatientInsuranceData", "PatientRelationshipData" }
+    # data type: PatientAssignmentData
+    oneof_schema_6_validator: Optional[PatientAssignmentData] = None
+    actual_instance: Optional[Union[PatientAddressData, PatientAssignmentData, PatientData, PatientHealthProfileData, PatientInsuranceData, PatientRelationshipData]] = None
+    one_of_schemas: Set[str] = { "PatientAddressData", "PatientAssignmentData", "PatientData", "PatientHealthProfileData", "PatientInsuranceData", "PatientRelationshipData" }
 
     model_config = ConfigDict(
         validate_assignment=True,
@@ -95,12 +98,17 @@ class PatientActivityData(BaseModel):
             error_messages.append(f"Error! Input type `{type(v)}` is not `PatientRelationshipData`")
         else:
             match += 1
+        # validate data type: PatientAssignmentData
+        if not isinstance(v, PatientAssignmentData):
+            error_messages.append(f"Error! Input type `{type(v)}` is not `PatientAssignmentData`")
+        else:
+            match += 1
         if match > 1:
             # more than 1 match
-            raise ValueError("Multiple matches found when setting `actual_instance` in PatientActivityData with oneOf schemas: PatientAddressData, PatientData, PatientHealthProfileData, PatientInsuranceData, PatientRelationshipData. Details: " + ", ".join(error_messages))
+            raise ValueError("Multiple matches found when setting `actual_instance` in PatientActivityData with oneOf schemas: PatientAddressData, PatientAssignmentData, PatientData, PatientHealthProfileData, PatientInsuranceData, PatientRelationshipData. Details: " + ", ".join(error_messages))
         elif match == 0:
             # no match
-            raise ValueError("No match found when setting `actual_instance` in PatientActivityData with oneOf schemas: PatientAddressData, PatientData, PatientHealthProfileData, PatientInsuranceData, PatientRelationshipData. Details: " + ", ".join(error_messages))
+            raise ValueError("No match found when setting `actual_instance` in PatientActivityData with oneOf schemas: PatientAddressData, PatientAssignmentData, PatientData, PatientHealthProfileData, PatientInsuranceData, PatientRelationshipData. Details: " + ", ".join(error_messages))
         else:
             return v
 
@@ -145,13 +153,19 @@ class PatientActivityData(BaseModel):
             match += 1
         except (ValidationError, ValueError) as e:
             error_messages.append(str(e))
+        # deserialize data into PatientAssignmentData
+        try:
+            instance.actual_instance = PatientAssignmentData.from_json(json_str)
+            match += 1
+        except (ValidationError, ValueError) as e:
+            error_messages.append(str(e))
 
         if match > 1:
             # more than 1 match
-            raise ValueError("Multiple matches found when deserializing the JSON string into PatientActivityData with oneOf schemas: PatientAddressData, PatientData, PatientHealthProfileData, PatientInsuranceData, PatientRelationshipData. Details: " + ", ".join(error_messages))
+            raise ValueError("Multiple matches found when deserializing the JSON string into PatientActivityData with oneOf schemas: PatientAddressData, PatientAssignmentData, PatientData, PatientHealthProfileData, PatientInsuranceData, PatientRelationshipData. Details: " + ", ".join(error_messages))
         elif match == 0:
             # no match
-            raise ValueError("No match found when deserializing the JSON string into PatientActivityData with oneOf schemas: PatientAddressData, PatientData, PatientHealthProfileData, PatientInsuranceData, PatientRelationshipData. Details: " + ", ".join(error_messages))
+            raise ValueError("No match found when deserializing the JSON string into PatientActivityData with oneOf schemas: PatientAddressData, PatientAssignmentData, PatientData, PatientHealthProfileData, PatientInsuranceData, PatientRelationshipData. Details: " + ", ".join(error_messages))
         else:
             return instance
 
@@ -165,7 +179,7 @@ class PatientActivityData(BaseModel):
         else:
             return json.dumps(self.actual_instance)
 
-    def to_dict(self) -> Optional[Union[Dict[str, Any], PatientAddressData, PatientData, PatientHealthProfileData, PatientInsuranceData, PatientRelationshipData]]:
+    def to_dict(self) -> Optional[Union[Dict[str, Any], PatientAddressData, PatientAssignmentData, PatientData, PatientHealthProfileData, PatientInsuranceData, PatientRelationshipData]]:
         """Returns the dict representation of the actual instance"""
         if self.actual_instance is None:
             return None

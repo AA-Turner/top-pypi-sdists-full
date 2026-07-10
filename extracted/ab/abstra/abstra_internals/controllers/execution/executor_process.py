@@ -11,6 +11,7 @@ from uuid import uuid4
 
 from dotenv import load_dotenv
 
+from abstra_internals.agents import lifecycle
 from abstra_internals.consts.filepaths import SMARTCHAT_SNIPPETS_DIR_PATH
 from abstra_internals.controllers.execution.connection_protocol import (
     ConnectionProtocol,
@@ -230,6 +231,16 @@ def handle_warmup(
         response_queue.put(ExecutorResponse(success=False, error=str(e)))
 
 
+def _close_leaked_agent_tools(execution_id: Optional[str] = None) -> None:
+    leaked = lifecycle.close_leaked_tools()
+    if leaked:
+        suffix = f" after execution {execution_id}" if execution_id else ""
+        AbstraLogger.warning(
+            f"[Executor] Closed {leaked} leaked agent tool(s){suffix}. "
+            "Close BrowserTools (or use it as a context manager) when done."
+        )
+
+
 def handle_execute(
     state: ExecutorState,
     request: ExecuteRequest,
@@ -438,6 +449,15 @@ def handle_execute(
         # 3. Clear broadcast publisher
         set_broadcast_publisher(None)
 
+        # 3.5. Close agent tools (browsers etc.) leaked by user code. Warm
+        #      executors are reused across executions: a leaked playwright
+        #      driver keeps an asyncio loop marked as running on this thread
+        #      and stacks Chromium/driver processes on every reuse. Runs after
+        #      the log flush and execution:ended — playwright's close has no
+        #      client-side timeout, so a wedged Chromium must not be able to
+        #      hold the delivery lifecycle hostage.
+        _close_leaked_agent_tools(request.execution_id)
+
         # 4. Close the connection (NATS, RabbitMQ, or multiprocessing)
         if nats_connection_to_close is not None:
             try:
@@ -529,6 +549,7 @@ def handle_run_snippet(
         AbstraLogger.capture_exception(e)
         response_queue.put(ExecutorResponse(success=False, error=str(e)))
     finally:
+        _close_leaked_agent_tools()
         if snippet_file.exists():
             snippet_file.unlink()
 

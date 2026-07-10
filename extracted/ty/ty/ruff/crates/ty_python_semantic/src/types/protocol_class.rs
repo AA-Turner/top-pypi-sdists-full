@@ -1023,6 +1023,109 @@ fn property_set_member_type<'db>(
     ))
 }
 
+/// Derive the observable instance capabilities of a descriptor-decorated protocol member.
+fn descriptor_decorated_protocol_member<'db>(
+    db: &'db dyn Db,
+    descriptor_ty: Type<'db>,
+    protocol: ClassType<'db>,
+    definition: Option<Definition<'db>>,
+) -> Option<ProtocolMemberData<'db>> {
+    // Applying a generic descriptor decorator to a method that refers to an enclosing type
+    // variable can currently materialize that variable as `Unknown`. Reducing the descriptor to
+    // its `__get__` result would then erase the remaining descriptor structure and weaken the
+    // protocol member to a bare `Unknown`.
+    if super::visitor::any_over_type(db, descriptor_ty, false, |ty| ty.is_unknown()) {
+        return None;
+    }
+
+    let Place::Defined(DefinedPlace {
+        definedness: Definedness::AlwaysDefined,
+        ..
+    }) = descriptor_ty
+        .class_member_with_policy(db, "__get__".into(), MemberLookupPolicy::REQUIRE_CONCRETE)
+        .place
+    else {
+        return None;
+    };
+
+    let receiver_ty = Type::instance(db, protocol);
+    let (read_ty, _) =
+        descriptor_ty.try_call_dunder_get(db, Some(receiver_ty), receiver_ty.to_meta_type(db))?;
+    let read = Some(ProtocolMemberType::with_definition(read_ty, definition));
+
+    let write = if let Place::Defined(DefinedPlace {
+        ty: setter_ty,
+        definedness: Definedness::AlwaysDefined,
+        ..
+    }) = descriptor_ty
+        .class_member_with_policy(db, "__set__".into(), MemberLookupPolicy::REQUIRE_CONCRETE)
+        .place
+    {
+        Some(ProtocolMemberType::with_definition(
+            descriptor_setter_write_type(db, setter_ty, descriptor_ty, receiver_ty)
+                .unwrap_or_else(Type::unknown),
+            definition,
+        ))
+    } else {
+        None
+    };
+
+    Some(ProtocolMemberData::property(read, write, definition))
+}
+
+/// Derive a write type from a single ordinary setter signature.
+fn descriptor_setter_write_type<'db>(
+    db: &'db dyn Db,
+    setter_ty: Type<'db>,
+    descriptor_ty: Type<'db>,
+    receiver_ty: Type<'db>,
+) -> Option<Type<'db>> {
+    let callable = setter_ty.try_upcast_to_callable(db)?.exactly_one()?;
+    let signatures = callable.signatures(db);
+    let [signature] = signatures.overloads.as_ref() else {
+        return None;
+    };
+
+    // A method type variable cannot be used as the write type directly: it is inferred separately
+    // for each call. Deriving its accepted values requires generic call analysis.
+    if signature.generic_context.is_some_and(|generic_context| {
+        generic_context.variables(db).any(|typevar| {
+            !typevar.typevar(db).is_self(db)
+                && typevar
+                    .binding_context(db)
+                    .definition()
+                    .is_some_and(|definition| definition.kind(db).is_function_def())
+        })
+    }) {
+        return None;
+    }
+
+    let parameters = signature.parameters();
+    if parameters.len() != 3 {
+        return None;
+    }
+    let descriptor_parameter = parameters
+        .get_positional(0)?
+        .annotated_type()
+        .bind_self_typevars(db, descriptor_ty);
+    let receiver_parameter = parameters
+        .get_positional(1)?
+        .annotated_type()
+        .bind_self_typevars(db, descriptor_ty);
+    if !descriptor_ty.is_assignable_to(db, descriptor_parameter)
+        || !receiver_ty.is_assignable_to(db, receiver_parameter)
+    {
+        return None;
+    }
+
+    Some(
+        parameters
+            .get_positional(2)?
+            .annotated_type()
+            .bind_self_typevars(db, descriptor_ty),
+    )
+}
+
 fn property_set_type<'db>(
     db: &'db dyn Db,
     property: PropertyInstanceType<'db>,
@@ -1052,7 +1155,9 @@ fn protocol_member_read_type<'db>(
             member.name,
             Place::Undefined.into(),
             InstanceFallbackShadowsNonDataDescriptor::No,
-            MemberLookupPolicy::default(),
+            // The undefined fallback excludes instance members. Keep the class
+            // member lookup from reintroducing dynamic instance fallbacks.
+            MemberLookupPolicy::NO_INSTANCE_FALLBACK,
         )
         .place
     } else {
@@ -1437,7 +1542,18 @@ impl<'c, 'db> TypeRelationChecker<'_, 'c, 'db> {
             required_ty.bind_self(db, fallback_ty).when_some_and(
                 db,
                 self.constraints,
-                |required_ty| self.check_type_pair(db, attribute_type, required_ty),
+                |required_ty| {
+                    let result = self.check_type_pair(db, attribute_type, required_ty);
+                    if let Some(context) = self.report_context()
+                        && result.is_never_satisfied(db)
+                    {
+                        context.push(ErrorContext::ProtocolMemberReadTypeIncompatible {
+                            source: attribute_type,
+                            target: required_ty,
+                        });
+                    }
+                    result
+                },
             )
         }
     }
@@ -1497,7 +1613,16 @@ impl<'c, 'db> TypeRelationChecker<'_, 'c, 'db> {
                         db,
                         self.constraints,
                         |write_ty| {
-                            self.check_property_write(db, receiver_ty, member.name, write_ty)
+                            let result =
+                                self.check_property_write(db, receiver_ty, member.name, write_ty);
+                            if let Some(context) = self.report_context()
+                                && result.is_never_satisfied(db)
+                            {
+                                context.push(ErrorContext::ProtocolMemberWriteTypeIncompatible {
+                                    target: write_ty,
+                                });
+                            }
+                            result
                         },
                     )
                 },
@@ -1623,14 +1748,27 @@ impl<'c, 'db> TypeRelationChecker<'_, 'c, 'db> {
                 ) else {
                     return self.never();
                 };
-                self.check_type_pair(db, source, target)
+                let result = self.check_type_pair(db, source, target);
+                if let Some(context) = self.report_context()
+                    && !target_member.is_method()
+                    && result.is_never_satisfied(db)
+                {
+                    context
+                        .push(ErrorContext::ProtocolMemberReadTypeIncompatible { source, target });
+                }
+                result
             }
         };
 
         read_result.and(db, self.constraints, || {
             match (source.write, target.write) {
                 (_, None) => self.always(),
-                (None, Some(_)) => self.never(),
+                (None, Some(_)) => {
+                    if let Some(context) = self.report_context() {
+                        context.push(ErrorContext::ProtocolMemberNotWritable);
+                    }
+                    self.never()
+                }
                 (Some(source), Some(target)) => {
                     let (Some(target), Some(source)) = (
                         target.bind_self(db, source_type),
@@ -1638,7 +1776,13 @@ impl<'c, 'db> TypeRelationChecker<'_, 'c, 'db> {
                     ) else {
                         return self.never();
                     };
-                    self.check_type_pair(db, target, source)
+                    let result = self.check_type_pair(db, target, source);
+                    if let Some(context) = self.report_context()
+                        && result.is_never_satisfied(db)
+                    {
+                        context.push(ErrorContext::ProtocolMemberWriteTypeIncompatible { target });
+                    }
+                    result
                 }
             }
         })
@@ -1941,6 +2085,18 @@ fn cached_protocol_interface<'db>(
                 }
                 Type::FunctionLiteral(function) if bound_on_class.is_yes() => {
                     ProtocolMemberData::method(function.into_callable_type(db), definition)
+                }
+                _ if bound_on_class.is_yes()
+                    && definition
+                        .is_some_and(|definition| definition.kind(db).is_function_def()) =>
+                {
+                    if let Some(descriptor) =
+                        descriptor_decorated_protocol_member(db, ty, class, definition)
+                    {
+                        descriptor
+                    } else {
+                        ProtocolMemberData::attribute(ty, qualifiers, definition)
+                    }
                 }
                 _ => ProtocolMemberData::attribute(ty, qualifiers, definition),
             };
