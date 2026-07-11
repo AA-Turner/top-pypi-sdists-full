@@ -11,7 +11,7 @@ from collections.abc import Mapping
 from datetime import datetime, timedelta
 from enum import IntEnum, StrEnum, unique
 import logging
-from typing import Final, Unpack, cast, override
+from typing import ClassVar, Final, Unpack, cast, override
 
 from aiohomematic import i18n
 from aiohomematic.central.events import DataPointStateChangedEvent
@@ -25,7 +25,7 @@ from aiohomematic.const import (
 )
 from aiohomematic.decorators import inspector
 from aiohomematic.exceptions import ValidationException
-from aiohomematic.interfaces import ChannelProtocol, GenericDataPointProtocolAny
+from aiohomematic.interfaces import ChannelProtocol
 from aiohomematic.model.custom.capabilities.climate import (
     BASIC_CLIMATE_CAPABILITIES,
     IP_THERMOSTAT_CAPABILITIES,
@@ -48,12 +48,17 @@ from aiohomematic.model.generic import (
     DpSensor,
     DpSwitch,
 )
-from aiohomematic.property_decorators import DelegatedProperty, Kind, config_property, state_property
+from aiohomematic.property_decorators import DelegatedProperty, hm_property
 from aiohomematic.type_aliases import UnsubscribeCallback
 
 _LOGGER: Final = logging.getLogger(__name__)
 
 _CLOSED_LEVEL: Final = 0.0
+# Fallback upper bound when a device exposes neither a TEMPERATURE_MAXIMUM value nor a
+# MAX in its SETPOINT paramset description (e.g. an incomplete paramset description after a
+# failed getParamsetDescription). Chosen as the highest maximum seen on real Homematic
+# thermostats so valid schedule temperatures are never wrongly rejected as out of range.
+_DEFAULT_MAX_TEMPERATURE: Final = 30.5
 _DEFAULT_TEMPERATURE_STEP: Final = 0.5
 _OFF_TEMPERATURE: Final = 4.5
 _PARTY_DATE_FORMAT: Final = "%Y_%m_%d %H:%M"
@@ -159,7 +164,7 @@ class BaseCustomDpClimate(CustomDataPoint):
 
     _category = DataPointCategory.CLIMATE
 
-    @config_property(cached=True)
+    @hm_property(cached=True)
     def capabilities(self) -> ClimateCapabilities:
         """Return the climate capabilities."""
         return self._compute_capabilities()
@@ -177,6 +182,7 @@ class BaseCustomDpClimate(CustomDataPoint):
     _dp_temperature: Final = DataPointField(field=Field.TEMPERATURE, dpt=DpSensor[float | None])
     _dp_temperature_maximum: Final = DataPointField(field=Field.TEMPERATURE_MAXIMUM, dpt=DpFloat)
     _dp_temperature_minimum: Final = DataPointField(field=Field.TEMPERATURE_MINIMUM, dpt=DpFloat)
+    _validity_relevant_fields: ClassVar[frozenset[Field]] = frozenset({Field.TEMPERATURE, Field.SETPOINT})
 
     def __init__(
         self,
@@ -204,31 +210,9 @@ class BaseCustomDpClimate(CustomDataPoint):
         )
         self._old_manu_setpoint: float | None = None
 
-    current_humidity: Final = DelegatedProperty[int | None](path="_dp_humidity.value", kind=Kind.STATE)
-    current_temperature: Final = DelegatedProperty[float | None](path="_dp_temperature.value", kind=Kind.STATE)
-    target_temperature: Final = DelegatedProperty[float | None](path="_dp_setpoint.value", kind=Kind.STATE)
-
-    @property
-    def _validity_irrelevant_data_points(self) -> tuple[GenericDataPointProtocolAny, ...]:
-        """
-        Return readable data points that must not affect climate validity (#3255).
-
-        Actuator/activity values (``LEVEL``, ``STATE``, ``VALVE_STATE``) are not reported by
-        the CCU for heating groups (``HmIP-HEATING`` on the VirtualDevices interface), and since
-        the #3228 fixes the ``getValue`` fallback no longer fills them with a placeholder. Left
-        in the validity set they would keep ``is_refreshed``/``is_valid`` false forever, freezing
-        ``current_temperature``/``current_humidity`` (``value_state=restored``) while the sibling
-        sensors keep updating. Subclasses list their actuator data points here.
-        """
-        return ()
-
-    @property
-    @override
-    def _relevant_data_points(self) -> tuple[GenericDataPointProtocolAny, ...]:
-        """Return readable data points relevant for validity, excluding actuator values (#3255)."""
-        if not (irrelevant := self._validity_irrelevant_data_points):
-            return self._readable_data_points
-        return tuple(dp for dp in self._readable_data_points if dp not in irrelevant)
+    current_humidity: Final = DelegatedProperty[int | None](path="_dp_humidity.value")
+    current_temperature: Final = DelegatedProperty[float | None](path="_dp_temperature.value")
+    target_temperature: Final = DelegatedProperty[float | None](path="_dp_setpoint.value")
 
     @property
     def _temperature_for_heat_mode(self) -> float:
@@ -247,36 +231,38 @@ class BaseCustomDpClimate(CustomDataPoint):
             return self.max_temp
         return temp
 
-    @config_property
+    @property
     def target_temperature_step(self) -> float:
         """Return the supported step of target temperature."""
         return _DEFAULT_TEMPERATURE_STEP
 
-    @config_property
+    @property
     def temperature_unit(self) -> str:
         """Return temperature unit."""
         return _TEMP_CELSIUS
 
-    @state_property(alt_name="action")
+    @property
     def activity(self) -> ClimateActivity | None:
         """Return the current activity."""
         return None
 
-    @config_property
+    @property
     def max_temp(self) -> float:
         """Return the maximum temperature."""
         if self._dp_temperature_maximum.value is not None:
             return float(self._dp_temperature_maximum.value)
-        return cast(float, self._dp_setpoint.max)
+        if self._dp_setpoint.max is not None:
+            return float(self._dp_setpoint.max)
+        return _DEFAULT_MAX_TEMPERATURE
 
-    @state_property
+    @property
     def min_max_value_not_relevant_for_manu_mode(self) -> bool:
         """Return the maximum temperature."""
         if self._dp_min_max_value_not_relevant_for_manu_mode.value is not None:
             return self._dp_min_max_value_not_relevant_for_manu_mode.value
         return False
 
-    @config_property
+    @property
     def min_temp(self) -> float:
         """Return the minimum temperature."""
         if self._dp_temperature_minimum.value is not None:
@@ -288,22 +274,22 @@ class BaseCustomDpClimate(CustomDataPoint):
             return min_temp + _DEFAULT_TEMPERATURE_STEP
         return min_temp
 
-    @state_property(alt_name="hvac_mode")
+    @property
     def mode(self) -> ClimateMode:
         """Return current operation mode."""
         return ClimateMode.HEAT
 
-    @state_property(alt_name="hvac_modes")
+    @property
     def modes(self) -> tuple[ClimateMode, ...]:
         """Return the available operation modes."""
         return (ClimateMode.HEAT,)
 
-    @state_property(alt_name="preset_mode")
+    @property
     def profile(self) -> ClimateProfile:
         """Return the current profile."""
         return ClimateProfile.NONE
 
-    @state_property(alt_name="preset_modes")
+    @property
     def profiles(self) -> tuple[ClimateProfile, ...]:
         """Return available profiles."""
         return (ClimateProfile.NONE,)
@@ -481,6 +467,9 @@ class CustomDpRfThermostat(BaseCustomDpClimate):
     _dp_temperature_offset: Final = DataPointField(field=Field.TEMPERATURE_OFFSET, dpt=DpSelect)
     _dp_valve_state: Final = DataPointField(field=Field.VALVE_STATE, dpt=DpSensor[int | None])
     _dp_week_program_pointer: Final = DataPointField(field=Field.WEEK_PROGRAM_POINTER, dpt=DpSelect)
+    _validity_relevant_fields: ClassVar[frozenset[Field]] = frozenset(
+        {Field.TEMPERATURE, Field.SETPOINT, Field.CONTROL_MODE}
+    )
 
     @property
     def _current_profile_name(self) -> ClimateProfile | None:
@@ -506,17 +495,6 @@ class CustomDpRfThermostat(BaseCustomDpClimate):
         return profiles
 
     @property
-    @override
-    def _validity_irrelevant_data_points(self) -> tuple[GenericDataPointProtocolAny, ...]:
-        """Exclude the VALVE_STATE actuator readback from validity checks (#3255)."""
-        return (self._dp_valve_state,)
-
-    @config_property
-    def schedule_profile_nos(self) -> int:
-        """Return the number of supported profiles."""
-        return len(self._profiles)
-
-    @state_property(alt_name="action")
     def activity(self) -> ClimateActivity | None:
         """Return the current activity."""
         if self._dp_valve_state.value is None:
@@ -527,7 +505,7 @@ class CustomDpRfThermostat(BaseCustomDpClimate):
             return ClimateActivity.HEAT
         return ClimateActivity.IDLE
 
-    @state_property(alt_name="hvac_mode")
+    @property
     def mode(self) -> ClimateMode:
         """Return current operation mode."""
         if self.target_temperature and self.target_temperature <= _OFF_TEMPERATURE:
@@ -536,12 +514,12 @@ class CustomDpRfThermostat(BaseCustomDpClimate):
             return ClimateMode.HEAT
         return ClimateMode.AUTO
 
-    @state_property(alt_name="hvac_modes")
+    @property
     def modes(self) -> tuple[ClimateMode, ...]:
         """Return the available operation modes."""
         return (ClimateMode.AUTO, ClimateMode.HEAT, ClimateMode.OFF)
 
-    @state_property(alt_name="preset_mode")
+    @property
     def profile(self) -> ClimateProfile:
         """Return the current profile."""
         if self._dp_control_mode.value is None:
@@ -554,7 +532,7 @@ class CustomDpRfThermostat(BaseCustomDpClimate):
             return self._current_profile_name or ClimateProfile.NONE
         return ClimateProfile.NONE
 
-    @state_property(alt_name="preset_modes")
+    @property
     def profiles(self) -> tuple[ClimateProfile, ...]:
         """Return available profile."""
         control_modes = [ClimateProfile.BOOST, ClimateProfile.COMFORT, ClimateProfile.ECO, ClimateProfile.NONE]
@@ -562,7 +540,12 @@ class CustomDpRfThermostat(BaseCustomDpClimate):
             control_modes.extend(self._profile_names)
         return tuple(control_modes)
 
-    @state_property
+    @property
+    def schedule_profile_nos(self) -> int:
+        """Return the number of supported profiles."""
+        return len(self._profiles)
+
+    @property
     def temperature_offset(self) -> str | None:
         """Return the maximum temperature."""
         val = self._dp_temperature_offset.value
@@ -686,9 +669,12 @@ class CustomDpIpThermostat(BaseCustomDpClimate):
     _dp_set_point_mode: Final = DataPointField(field=Field.SET_POINT_MODE, dpt=DpInteger)
     _dp_state: Final = DataPointField(field=Field.STATE, dpt=DpBinarySensor)
     _dp_temperature_offset: Final = DataPointField(field=Field.TEMPERATURE_OFFSET, dpt=DpFloat)
+    _validity_relevant_fields: ClassVar[frozenset[Field]] = frozenset(
+        {Field.TEMPERATURE, Field.SETPOINT, Field.SET_POINT_MODE}
+    )
 
-    optimum_start_stop: Final = DelegatedProperty[bool | None](path="_dp_optimum_start_stop.value", kind=Kind.STATE)
-    temperature_offset: Final = DelegatedProperty[float | None](path="_dp_temperature_offset.value", kind=Kind.STATE)
+    optimum_start_stop: Final = DelegatedProperty[bool | None](path="_dp_optimum_start_stop.value")
+    temperature_offset: Final = DelegatedProperty[float | None](path="_dp_temperature_offset.value")
 
     @property
     def _current_profile_name(self) -> ClimateProfile | None:
@@ -720,27 +706,6 @@ class CustomDpIpThermostat(BaseCustomDpClimate):
         return profiles
 
     @property
-    @override
-    def _validity_irrelevant_data_points(self) -> tuple[GenericDataPointProtocolAny, ...]:
-        """
-        Exclude data points a valve-only heating group never refreshes from validity checks.
-
-        ``LEVEL``/``STATE`` are actuator values the CCU does not report for heating groups
-        (#3255). ``HUMIDITY``/``HEATING_COOLING`` are only fed by a wall thermostat
-        (``HmIP-WTH``/``STHD``): a group built from valves alone (``HmIP-eTRV``) never receives
-        events for them, and since #3228 ``VirtualDevices`` get no ``getValue`` fallback. Left in
-        the validity set they keep ``is_refreshed``/``is_valid`` false forever, freezing
-        ``current_temperature`` (``value_state=restored``) even though ``ACTUAL_TEMPERATURE``
-        arrives via event (#3279).
-        """
-        return (self._dp_level, self._dp_state, self._dp_humidity, self._dp_heating_mode)
-
-    @config_property
-    def schedule_profile_nos(self) -> int:
-        """Return the number of supported profiles."""
-        return len(self._profiles)
-
-    @state_property(alt_name="action")
     def activity(self) -> ClimateActivity | None:
         """
         Return the current activity.
@@ -785,7 +750,7 @@ class CustomDpIpThermostat(BaseCustomDpClimate):
             return ClimateActivity.HEAT if self._is_heating_mode else ClimateActivity.COOL
         return ClimateActivity.IDLE
 
-    @state_property(alt_name="hvac_mode")
+    @property
     def mode(self) -> ClimateMode:
         """Return current operation mode."""
         if self.target_temperature and self.target_temperature <= _OFF_TEMPERATURE:
@@ -796,7 +761,7 @@ class CustomDpIpThermostat(BaseCustomDpClimate):
             return ClimateMode.AUTO
         return ClimateMode.AUTO
 
-    @state_property(alt_name="hvac_modes")
+    @property
     def modes(self) -> tuple[ClimateMode, ...]:
         """Return the available operation modes."""
         return (
@@ -805,7 +770,7 @@ class CustomDpIpThermostat(BaseCustomDpClimate):
             ClimateMode.OFF,
         )
 
-    @state_property(alt_name="preset_mode")
+    @property
     def profile(self) -> ClimateProfile:
         """Return the current control mode."""
         if self._dp_boost_mode.value:
@@ -816,13 +781,18 @@ class CustomDpIpThermostat(BaseCustomDpClimate):
             return self._current_profile_name or ClimateProfile.NONE
         return ClimateProfile.NONE
 
-    @state_property(alt_name="preset_modes")
+    @property
     def profiles(self) -> tuple[ClimateProfile, ...]:
         """Return available control modes."""
         control_modes = [ClimateProfile.BOOST, ClimateProfile.NONE]
         if self.mode == ClimateMode.AUTO:
             control_modes.extend(self._profile_names)
         return tuple(control_modes)
+
+    @property
+    def schedule_profile_nos(self) -> int:
+        """Return the number of supported profiles."""
+        return len(self._profiles)
 
     @inspector
     async def disable_away_mode(self) -> None:

@@ -17,6 +17,7 @@
 from __future__ import annotations
 
 import json
+import os
 import shutil
 import subprocess
 from importlib import resources
@@ -166,14 +167,35 @@ def cmd_generate(
     )
 
     console.print("[bold]Syncing eval dependencies...[/bold]")
+    # Capture (hide) the verbose uv output; run() folds it into the error if the
+    # sync fails, so the failure reason is still surfaced.
     run(
         ["uv", "sync", "--dev", "--extra", "eval"],
         cwd=str(project_root),
         check_err_msg="Failed to sync eval dependencies",
+        capture=True,
+        print_cmd=False,
     )
 
     console.print(f"[bold]Running inference on dataset:[/bold] [cyan]{dataset}[/cyan]")
     console.print(f"[bold]Using agent:[/bold] [cyan]{cfg.agent_directory}[/cyan]")
+
+    # Env for the inference subprocess. TQDM_DISABLE / LITELLM_LOG are already in
+    # os.environ (set by eval/__init__.py) and are inherited by the subprocess, so
+    # they aren't repeated here. Beyond unbuffering, we add PYTHONWARNINGS: the
+    # Vertex eval SDK leaves semaphores for its resource_tracker child to reap at
+    # shutdown, so we silence that separate child process's benign "leaked
+    # semaphore" warning. Appended so any user-set PYTHONWARNINGS is preserved.
+    resource_tracker_filter = "ignore::UserWarning:multiprocessing.resource_tracker"
+    existing_warnings = os.environ.get("PYTHONWARNINGS")
+    inference_env = {
+        "PYTHONUNBUFFERED": "1",
+        "PYTHONWARNINGS": (
+            f"{existing_warnings},{resource_tracker_filter}"
+            if existing_warnings
+            else resource_tracker_filter
+        ),
+    }
 
     stage_dir = project_root / _INFERENCE_STAGE_DIR
     stage_dir_existed = stage_dir.exists()
@@ -195,7 +217,7 @@ def cmd_generate(
                 cwd=str(project_root),
                 check_err_msg="Inference failed",
                 timeout=_INFERENCE_TIMEOUT,
-                env={"PYTHONUNBUFFERED": "1"},
+                env=inference_env,
             )
         except subprocess.TimeoutExpired as exc:
             raise click.ClickException(

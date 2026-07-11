@@ -364,6 +364,34 @@ class Biome(
 
         return typing.cast(None, jsii.invoke(self, "expandLinterRules", [rules]))
 
+    @jsii.member(jsii_name="postProjectCreation")
+    def post_project_creation(
+        self,
+        *,
+        args: typing.Mapping[builtins.str, typing.Any],
+        comments: "_projen_04054675.InitProjectOptionHints",
+        fqn: builtins.str,
+        post: builtins.bool,
+        synth: builtins.bool,
+        type: typing.Union["_projen_04054675.ProjectType", typing.Dict[builtins.str, typing.Any]],
+    ) -> None:
+        '''(experimental) Runs biome once, right after the project is first created, so the generated code is linted and formatted immediately.
+
+        :param args: (experimental) Initial arguments passed to ``projen new``.
+        :param comments: (experimental) Include commented out options. Does not apply to projenrc.json files. Default: InitProjectOptionHints.FEATURED
+        :param fqn: (experimental) The JSII FQN of the project type.
+        :param post: (experimental) Whether ``projen new`` should run post-synthesis steps (e.g. package manager install). Default: true
+        :param synth: (experimental) Whether ``projen new`` should call ``project.synth()`` after construction. Default: true
+        :param type: (experimental) Project metadata.
+
+        :stability: experimental
+        '''
+        _init_project = _projen_04054675.InitProject(
+            args=args, comments=comments, fqn=fqn, post=post, synth=synth, type=type
+        )
+
+        return typing.cast(None, jsii.invoke(self, "postProjectCreation", [_init_project]))
+
     @builtins.property
     @jsii.member(jsii_name="file")
     def file(self) -> "_projen_04054675.JsonFile":
@@ -1960,6 +1988,34 @@ class Eslint(
             type_hints = cached_type_hints(_typecheckingstub__45c512f160dd2d4145e1c0d43de9571ffe4d89e10b34c7d9a7b9fbba3f85ca56)
             check_type(argname="argument pattern", value=pattern, expected_type=type_hints["pattern"])
         return typing.cast(None, jsii.invoke(self, "allowDevDeps", [pattern]))
+
+    @jsii.member(jsii_name="postProjectCreation")
+    def post_project_creation(
+        self,
+        *,
+        args: typing.Mapping[builtins.str, typing.Any],
+        comments: "_projen_04054675.InitProjectOptionHints",
+        fqn: builtins.str,
+        post: builtins.bool,
+        synth: builtins.bool,
+        type: typing.Union["_projen_04054675.ProjectType", typing.Dict[builtins.str, typing.Any]],
+    ) -> None:
+        '''(experimental) Runs eslint once, right after the project is first created, so the generated code is linted (and auto-fixed) immediately.
+
+        :param args: (experimental) Initial arguments passed to ``projen new``.
+        :param comments: (experimental) Include commented out options. Does not apply to projenrc.json files. Default: InitProjectOptionHints.FEATURED
+        :param fqn: (experimental) The JSII FQN of the project type.
+        :param post: (experimental) Whether ``projen new`` should run post-synthesis steps (e.g. package manager install). Default: true
+        :param synth: (experimental) Whether ``projen new`` should call ``project.synth()`` after construction. Default: true
+        :param type: (experimental) Project metadata.
+
+        :stability: experimental
+        '''
+        _init_project = _projen_04054675.InitProject(
+            args=args, comments=comments, fqn=fqn, post=post, synth=synth, type=type
+        )
+
+        return typing.cast(None, jsii.invoke(self, "postProjectCreation", [_init_project]))
 
     @builtins.property
     @jsii.member(jsii_name="config")
@@ -14973,6 +15029,37 @@ class Projenrc(
         :stability: experimental
         '''
         return typing.cast(None, jsii.invoke(self, "preSynthesize", []))
+
+    @jsii.member(jsii_name="projectCreation")
+    def project_creation(
+        self,
+        *,
+        args: typing.Mapping[builtins.str, typing.Any],
+        comments: "_projen_04054675.InitProjectOptionHints",
+        fqn: builtins.str,
+        post: builtins.bool,
+        synth: builtins.bool,
+        type: typing.Union["_projen_04054675.ProjectType", typing.Dict[builtins.str, typing.Any]],
+    ) -> None:
+        '''(experimental) Called once, right after ``synthesize()``, only when the project is created for the first time.
+
+        It does not run on later ``projen`` invocations. It only fires for ``projen new`` (or ``Projects.createProject``).
+        Use it for deterministic, one-off file generation. Order across components is not guaranteed.
+
+        :param args: (experimental) Initial arguments passed to ``projen new``.
+        :param comments: (experimental) Include commented out options. Does not apply to projenrc.json files. Default: InitProjectOptionHints.FEATURED
+        :param fqn: (experimental) The JSII FQN of the project type.
+        :param post: (experimental) Whether ``projen new`` should run post-synthesis steps (e.g. package manager install). Default: true
+        :param synth: (experimental) Whether ``projen new`` should call ``project.synth()`` after construction. Default: true
+        :param type: (experimental) Project metadata.
+
+        :stability: experimental
+        '''
+        init_project = _projen_04054675.InitProject(
+            args=args, comments=comments, fqn=fqn, post=post, synth=synth, type=type
+        )
+
+        return typing.cast(None, jsii.invoke(self, "projectCreation", [init_project]))
 
     @builtins.property
     @jsii.member(jsii_name="filePath")

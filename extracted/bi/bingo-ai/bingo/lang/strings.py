@@ -7558,6 +7558,463 @@ _STRINGS.update({
         "zh": "💾 结果已保存: {path}",
         "en": "💾 Results saved: {path}",
     },
+
+    # ── v6.2.56: autoexploit 배너 / 진행 메시지 ───────────────────────────────
+    "ae_banner_lfi": {
+        "ko": "🗂  LFI / Path Traversal 자동 탐지",
+        "zh": "🗂  LFI / 路径遍历自动检测",
+        "en": "🗂  LFI / Path Traversal Auto-Detection",
+    },
+    "ae_lfi_size_change": {
+        "ko": "🟡 크기 변화 {diff}B — payload={payload}",
+        "zh": "🟡 响应大小变化 {diff}B — payload={payload}",
+        "en": "🟡 Size change {diff}B — payload={payload}",
+    },
+    "ae_stats": {
+        "ko": "테스트: {tested}개 | 발견: {found}개",
+        "zh": "测试: {tested}个 | 发现: {found}个",
+        "en": "Tested: {tested} | Found: {found}",
+    },
+    "ae_save_result": {
+        "ko": "💾 결과 저장: {path}",
+        "zh": "💾 结果已保存: {path}",
+        "en": "💾 Result saved: {path}",
+    },
+    "ae_banner_jwt": {
+        "ko": "🔑 JWT 취약점 자동 분석",
+        "zh": "🔑 JWT 漏洞自动分析",
+        "en": "🔑 JWT Vulnerability Auto-Analysis",
+    },
+    "ae_jwt_attack_ok": {
+        "ko": "✅ {name} — HTTP {code} (성공!)",
+        "zh": "✅ {name} — HTTP {code} (成功！)",
+        "en": "✅ {name} — HTTP {code} (Success!)",
+    },
+    "ae_jwt_attack_fail": {
+        "ko": "❌ {name} — HTTP {code}",
+        "zh": "❌ {name} — HTTP {code}",
+        "en": "❌ {name} — HTTP {code}",
+    },
+    "ae_jwt_alg_none_start": {
+        "ko": "[1] alg:none 공격 시도...",
+        "zh": "[1] 尝试 alg:none 攻击...",
+        "en": "[1] Attempting alg:none attack...",
+    },
+    "ae_jwt_brute_start": {
+        "ko": "[2] 약한 비밀키 브루트포스 ({n}개)...",
+        "zh": "[2] 弱密钥爆破中 ({n}个)...",
+        "en": "[2] Weak secret brute-force ({n} candidates)...",
+    },
+    "ae_jwt_secret_found": {
+        "ko": "✅ 비밀키 발견: {secret}",
+        "zh": "✅ 发现密钥: {secret}",
+        "en": "✅ Secret found: {secret}",
+    },
+    "ae_jwt_no_secret": {
+        "ko": "❌ 약한 비밀키 없음",
+        "zh": "❌ 未发现弱密钥",
+        "en": "❌ No weak secret found",
+    },
+    "ae_jwt_alg_confusion": {
+        "ko": "[3] RS256→HS256 알고리즘 혼동 공격...",
+        "zh": "[3] RS256→HS256 算法混淆攻击...",
+        "en": "[3] RS256→HS256 algorithm confusion attack...",
+    },
+    "ae_jwt_pubkey_hint": {
+        "ko": "ℹ️  공개키를 수동으로 입력해야 합니다: jwt_autoexploit(token, pubkey='...')",
+        "zh": "ℹ️  需要手动提供公钥: jwt_autoexploit(token, pubkey='...')",
+        "en": "ℹ️  Public key required manually: jwt_autoexploit(token, pubkey='...')",
+    },
+    "ae_jwt_kid_inject": {
+        "ko": "[4] kid 파라미터 인젝션 시도 (kid={kid})...",
+        "zh": "[4] kid 参数注入尝试 (kid={kid})...",
+        "en": "[4] kid parameter injection (kid={kid})...",
+    },
+    "ae_jwt_total": {
+        "ko": "총 공격: {total}개 | 성공: {success}개",
+        "zh": "总攻击: {total}个 | 成功: {success}个",
+        "en": "Total attacks: {total} | Succeeded: {success}",
+    },
+    "ae_banner_ssrf": {
+        "ko": "🌐 SSRF 자동 탐지",
+        "zh": "🌐 SSRF 自动检测",
+        "en": "🌐 SSRF Auto-Detection",
+    },
+    "ae_ssrf_baseline": {
+        "ko": "Baseline: {size}B",
+        "zh": "基线响应: {size}B",
+        "en": "Baseline: {size}B",
+    },
+    "ae_ssrf_confirmed": {
+        "ko": "🔴 SSRF 확인! payload={payload}",
+        "zh": "🔴 SSRF 确认！payload={payload}",
+        "en": "🔴 SSRF confirmed! payload={payload}",
+    },
+    "ae_ssrf_suspect": {
+        "ko": "🟡 의심 — size_diff={diff}B  payload={payload}",
+        "zh": "🟡 疑似 — 大小差异={diff}B  payload={payload}",
+        "en": "🟡 Suspected — size_diff={diff}B  payload={payload}",
+    },
+    "ae_banner_xss": {
+        "ko": "💉 XSS 자동 탐지",
+        "zh": "💉 XSS 自动检测",
+        "en": "💉 XSS Auto-Detection",
+    },
+    "ae_xss_type_both": {
+        "ko": "반사형+저장형",
+        "zh": "反射型+存储型",
+        "en": "Reflected+Stored",
+    },
+    "ae_xss_type_reflect": {
+        "ko": "반사형",
+        "zh": "反射型",
+        "en": "Reflected",
+    },
+    "ae_xss_check_stored": {
+        "ko": "[저장형 확인] {url}",
+        "zh": "[存储型验证] {url}",
+        "en": "[Stored XSS check] {url}",
+    },
+    "ae_xss_stored_found": {
+        "ko": "🔴 저장형 XSS 확인!",
+        "zh": "🔴 存储型 XSS 已确认！",
+        "en": "🔴 Stored XSS confirmed!",
+    },
+    "ae_banner_csrf": {
+        "ko": "🎭 CSRF PoC HTML 생성",
+        "zh": "🎭 CSRF PoC HTML 生成",
+        "en": "🎭 CSRF PoC HTML Generation",
+    },
+    "ae_csrf_defense_detected": {
+        "ko": "⚠️  방어 탐지: {protections}",
+        "zh": "⚠️  检测到防护: {protections}",
+        "en": "⚠️  Defense detected: {protections}",
+    },
+    "ae_csrf_no_defense": {
+        "ko": "✅ CSRF 방어 미탐지 — PoC 생성",
+        "zh": "✅ 未检测到 CSRF 防护 — 生成 PoC",
+        "en": "✅ No CSRF defense detected — generating PoC",
+    },
+    "ae_csrf_poc_hint": {
+        "ko": "📌 브라우저에서 열어 피해자가 클릭 시 요청 전송",
+        "zh": "📌 用浏览器打开，受害者点击后发送请求",
+        "en": "📌 Open in browser — victim click triggers request",
+    },
+    "ae_banner_deser": {
+        "ko": "💣 역직렬화 취약점 탐지",
+        "zh": "💣 反序列化漏洞检测",
+        "en": "💣 Deserialization Vulnerability Detection",
+    },
+    "ae_deser_testing_lang": {
+        "ko": "[{lang}] 테스트 중...",
+        "zh": "[{lang}] 测试中...",
+        "en": "[{lang}] Testing...",
+    },
+    "ae_deser_req_fail": {
+        "ko": "❌ {lang} — 요청 실패",
+        "zh": "❌ {lang} — 请求失败",
+        "en": "❌ {lang} — Request failed",
+    },
+    "ae_found_count": {
+        "ko": "발견: {n}개",
+        "zh": "发现: {n}个",
+        "en": "Found: {n}",
+    },
+    "ae_banner_smuggling": {
+        "ko": "🚢 HTTP Request Smuggling 탐지",
+        "zh": "🚢 HTTP 请求走私检测",
+        "en": "🚢 HTTP Request Smuggling Detection",
+    },
+    "ae_smug_cl_te_start": {
+        "ko": "[1] CL.TE 탐지 중...",
+        "zh": "[1] CL.TE 检测中...",
+        "en": "[1] Detecting CL.TE...",
+    },
+    "ae_smug_timing": {
+        "ko": "정상 요청: {normal}s  스머글링 요청: {smuggle}s  차이: {diff}s",
+        "zh": "正常请求: {normal}s  走私请求: {smuggle}s  差值: {diff}s",
+        "en": "Normal: {normal}s  Smuggling: {smuggle}s  Diff: {diff}s",
+    },
+    "ae_smug_cl_te_found": {
+        "ko": "🔴 CL.TE 스머글링 취약 의심! (타이밍 차이 5초 이상)",
+        "zh": "🔴 疑似 CL.TE 走私漏洞！（时序差异超过5秒）",
+        "en": "🔴 CL.TE smuggling suspected! (timing diff > 5s)",
+    },
+    "ae_smug_cl_te_not_found": {
+        "ko": "❌ CL.TE 스머글링 미탐지",
+        "zh": "❌ 未检测到 CL.TE 走私",
+        "en": "❌ CL.TE smuggling not detected",
+    },
+    "ae_smug_te_cl_start": {
+        "ko": "[2] TE.CL 탐지 중...",
+        "zh": "[2] TE.CL 检测中...",
+        "en": "[2] Detecting TE.CL...",
+    },
+    "ae_smug_te_cl_found": {
+        "ko": "🟡 TE.CL 잠재적 취약점 — HTTP {status}",
+        "zh": "🟡 潜在 TE.CL 漏洞 — HTTP {status}",
+        "en": "🟡 Potential TE.CL vulnerability — HTTP {status}",
+    },
+    "ae_smug_te_cl_not_found": {
+        "ko": "❌ TE.CL 미탐지 — HTTP {status}",
+        "zh": "❌ 未检测到 TE.CL — HTTP {status}",
+        "en": "❌ TE.CL not detected — HTTP {status}",
+    },
+    "ae_smug_te_te_start": {
+        "ko": "[3] TE.TE (헤더 난독화) 탐지 중...",
+        "zh": "[3] TE.TE（请求头混淆）检测中...",
+        "en": "[3] Detecting TE.TE (header obfuscation)...",
+    },
+    "ae_smug_te_te_found": {
+        "ko": "🟡 TE.TE — {header}  status={status}",
+        "zh": "🟡 TE.TE — {header}  状态={status}",
+        "en": "🟡 TE.TE — {header}  status={status}",
+    },
+    "ae_banner_proto": {
+        "ko": "🧬 Prototype Pollution 탐지",
+        "zh": "🧬 原型链污染检测",
+        "en": "🧬 Prototype Pollution Detection",
+    },
+    "ae_proto_confirmed": {
+        "ko": "🔴 Prototype Pollution 확인! payload={payload}",
+        "zh": "🔴 原型链污染已确认！payload={payload}",
+        "en": "🔴 Prototype Pollution confirmed! payload={payload}",
+    },
+    "ae_proto_suspect": {
+        "ko": "🟡 PP 의심 — 에러 발생: {error}  payload={payload}",
+        "zh": "🟡 疑似 PP — 出现错误: {error}  payload={payload}",
+        "en": "🟡 PP suspected — error triggered: {error}  payload={payload}",
+    },
+    "ae_xss_stored_found_url": {
+        "ko": "⚠️  저장형 XSS 확인: {url}",
+        "zh": "⚠️  存储型 XSS 已确认: {url}",
+        "en": "⚠️  Stored XSS confirmed: {url}",
+    },
+    "ae_csrf_token_found": {
+        "ko": "CSRF 토큰 필드 발견",
+        "zh": "发现 CSRF token 字段",
+        "en": "CSRF token field found",
+    },
+    # ── v6.2.57: terminal.py 하드코딩 한국어 다국어화 ─────────────────────────
+    "tool_call_json_recovered": {
+        "ko": "⚠ TOOL_CALL JSON 자동복구 성공 ({name})",
+        "zh": "⚠ TOOL_CALL JSON 自动恢复成功 ({name})",
+        "en": "⚠ TOOL_CALL JSON auto-recovered ({name})",
+    },
+    "scan_summary_prompt": {
+        "ko": "위 스캔 결과를 분석하고 발견된 취약점을 요약해줘. 가장 심각한 것부터 정리하고, 다음 공격 단계를 추천해줘.",
+        "zh": "请分析上述扫描结果，总结发现的漏洞。从最严重的开始整理，并推荐下一步攻击步骤。",
+        "en": "Analyze the scan results above and summarize the vulnerabilities found. List the most critical ones first and recommend the next attack steps.",
+    },
+    # ── v6.2.58: 주입점 트리거 / 실제 IP 탐지 알림 ──────────────────────────────
+    "sqli_trigger_detected": {
+        "ko": "💉 SQLi 주입점 확인 — sqli_autoexploit 즉시 호출 중",
+        "zh": "💉 SQL注入触发点确认 — 立即调用 sqli_autoexploit",
+        "en": "💉 SQLi injection point confirmed — calling sqli_autoexploit immediately",
+    },
+    "real_ip_in_html": {
+        "ko": "🔍 HTML 소스에서 실제 IP 발견 → curl --resolve 자동 적용",
+        "zh": "🔍 在HTML源码中发现真实IP → 自动应用 curl --resolve",
+        "en": "🔍 Real IP found in HTML source → applying curl --resolve automatically",
+    },
+    "sqli_loop_wasted": {
+        "ko": "⚠ 주입점 확인 후 추가 탐색 감지 — sqli_autoexploit 으로 전환 필요",
+        "zh": "⚠ 注入点确认后检测到额外探测 — 需切换至 sqli_autoexploit",
+        "en": "⚠ Extra exploration detected after injection confirmed — switch to sqli_autoexploit",
+    },
+    "rule30_exploit_now": {
+        "ko": "⚡ RULE #30: 탐색 종료 — 즉시 데이터 추출 시작",
+        "zh": "⚡ RULE #30: 侦察结束 — 立即开始数据提取",
+        "en": "⚡ RULE #30: Recon complete — starting data extraction immediately",
+    },
+    # ── Next.js SPA Attack Module (v6.2.67) ──────────────────────────────────
+    "ae_nextjs_banner": {
+        "ko": "⚡ Next.js SPA 공격 모듈",
+        "zh": "⚡ Next.js SPA 攻击模块",
+        "en": "⚡ Next.js SPA Attack Module",
+    },
+    "ae_nextjs_step1": {
+        "ko": "  [1/5] Next.js buildId 추출 중...",
+        "zh": "  [1/5] 提取 Next.js buildId...",
+        "en": "  [1/5] Extracting Next.js buildId...",
+    },
+    "ae_nextjs_no_buildid": {
+        "ko": "    ⚠ buildId 없음 — /_next/data/ 단계 건너뜀",
+        "zh": "    ⚠ 未找到 buildId — 跳过 /_next/data/ 步骤",
+        "en": "    ⚠ buildId not found — skipping /_next/data/ step",
+    },
+    "ae_nextjs_step2": {
+        "ko": "  [2/5] /_next/data/ 라우트 열거 중...",
+        "zh": "  [2/5] 枚举 /_next/data/ 路由...",
+        "en": "  [2/5] Enumerating /_next/data/ routes...",
+    },
+    "ae_nextjs_step3": {
+        "ko": "  [3/5] GET 파라미터 SQLi 퍼징 중...",
+        "zh": "  [3/5] GET 参数 SQLi 模糊测试...",
+        "en": "  [3/5] SQLi fuzzing on GET parameters...",
+    },
+    "ae_nextjs_step4": {
+        "ko": "  [4/5] 쿠키 조작 테스트 중...",
+        "zh": "  [4/5] Cookie 操作测试...",
+        "en": "  [4/5] Cookie manipulation test...",
+    },
+    "ae_nextjs_step5": {
+        "ko": "  [5/5] robots.txt / sitemap 확인 중...",
+        "zh": "  [5/5] 检查 robots.txt / sitemap...",
+        "en": "  [5/5] Checking robots.txt / sitemap...",
+    },
+    "ae_nextjs_routes_found": {
+        "ko": "    발견: {n}개 /_next/data/ 라우트",
+        "zh": "    发现: {n} 个 /_next/data/ 路由",
+        "en": "    Found: {n} /_next/data/ route(s)",
+    },
+    "ae_nextjs_sqli_count": {
+        "ko": "    SQLi 후보: {n}개",
+        "zh": "    SQLi 候选: {n} 个",
+        "en": "    SQLi candidates: {n}",
+    },
+    "ae_nextjs_cookie_count": {
+        "ko": "    쿠키 우회: {n}개",
+        "zh": "    Cookie 绕过: {n} 个",
+        "en": "    Cookie bypass: {n}",
+    },
+    "ae_found_count": {
+        "ko": "\n  발견: {n}개",
+        "zh": "\n  发现: {n} 个",
+        "en": "\n  Found: {n}",
+    },
+    "ae_nextjs_disco_found": {
+        "ko": "    ✅ {url} → {n}개 경로",
+        "zh": "    ✅ {url} → {n} 条路径",
+        "en": "    ✅ {url} → {n} path(s)",
+    },
+    # ── v6.2.71 신규 모듈 ─────────────────────────────────────────────────────
+    "ae_xxe_banner": {
+        "ko": "🔗 XXE 자동 탐지",
+        "zh": "🔗 XXE 自动检测",
+        "en": "🔗 XXE Auto-Test",
+    },
+    "ae_ssti_banner": {
+        "ko": "🧪 SSTI 자동 탐지",
+        "zh": "🧪 SSTI 自动检测",
+        "en": "🧪 SSTI Auto-Test",
+    },
+    "ae_nosql_banner": {
+        "ko": "🗄️ NoSQL 인젝션 자동 탐지",
+        "zh": "🗄️ NoSQL 注入自动检测",
+        "en": "🗄️ NoSQL Injection Auto-Test",
+    },
+    "ae_ldap_banner": {
+        "ko": "📂 LDAP 인젝션 자동 탐지",
+        "zh": "📂 LDAP 注入自动检测",
+        "en": "📂 LDAP Injection Auto-Test",
+    },
+    "ae_cmdi_banner": {
+        "ko": "💥 커맨드 인젝션 자동 탐지",
+        "zh": "💥 命令注入自动检测",
+        "en": "💥 Command Injection Auto-Test",
+    },
+    "ae_idor_banner": {
+        "ko": "🔑 IDOR/BOLA 자동 탐지",
+        "zh": "🔑 IDOR/BOLA 自动检测",
+        "en": "🔑 IDOR/BOLA Auto-Test",
+    },
+    "ae_cors_banner": {
+        "ko": "🌐 CORS 자동 탐지",
+        "zh": "🌐 CORS 自动检测",
+        "en": "🌐 CORS Auto-Test",
+    },
+    "ae_redirect_banner": {
+        "ko": "↪️  Open Redirect 자동 탐지",
+        "zh": "↪️  开放重定向自动检测",
+        "en": "↪️  Open Redirect Auto-Test",
+    },
+    "ae_clickjack_banner": {
+        "ko": "🖱️  클릭재킹 자동 탐지",
+        "zh": "🖱️  点击劫持自动检测",
+        "en": "🖱️  Clickjacking Auto-Test",
+    },
+    "ae_crlf_banner": {
+        "ko": "↵  CRLF 인젝션 자동 탐지",
+        "zh": "↵  CRLF 注入自动检测",
+        "en": "↵  CRLF Injection Auto-Test",
+    },
+    "ae_upload_banner": {
+        "ko": "📤 파일 업로드 우회 자동 탐지",
+        "zh": "📤 文件上传绕过自动检测",
+        "en": "📤 File Upload Bypass Auto-Test",
+    },
+    "ae_graphql_banner": {
+        "ko": "📊 GraphQL 자동 탐지",
+        "zh": "📊 GraphQL 自动检测",
+        "en": "📊 GraphQL Auto-Test",
+    },
+    "ae_race_banner": {
+        "ko": "⚡ 레이스 컨디션 자동 탐지",
+        "zh": "⚡ 竞争条件自动检测",
+        "en": "⚡ Race Condition Auto-Test",
+    },
+    "ae_jssec_banner": {
+        "ko": "🔍 JS 시크릿 추출기",
+        "zh": "🔍 JS 密钥提取器",
+        "en": "🔍 JS Secrets Extractor",
+    },
+    "ae_jssec_count": {
+        "ko": "총 발견된 시크릿: {n}개",
+        "zh": "共发现密钥: {n} 个",
+        "en": "Total secrets found: {n}",
+    },
+    "ae_subdomain_banner": {
+        "ko": "🌐 서브도메인 탈취 점검",
+        "zh": "🌐 子域名接管检查",
+        "en": "🌐 Subdomain Takeover Check",
+    },
+    "ae_oauth_banner": {
+        "ko": "🔐 OAuth 자동 탐지",
+        "zh": "🔐 OAuth 自动检测",
+        "en": "🔐 OAuth Auto-Test",
+    },
+    "ae_ws_banner": {
+        "ko": "🔌 WebSocket 자동 탐지",
+        "zh": "🔌 WebSocket 自动检测",
+        "en": "🔌 WebSocket Auto-Test",
+    },
+    "ae_not_found": {
+        "ko": "  ℹ 취약점 없음",
+        "zh": "  ℹ 未发现漏洞",
+        "en": "  ℹ Not vulnerable",
+    },
+    # ── v6.2.72 신규 ──────────────────────────────────────────────────────────
+    "ae_mfa_banner": {
+        "ko": "🔐 2FA/MFA 우회 자동 탐지",
+        "zh": "🔐 2FA/MFA绕过自动检测",
+        "en": "🔐 2FA/MFA Bypass Auto-Test",
+    },
+    "ae_session_banner": {
+        "ko": "🍪 세션 고정 자동 탐지",
+        "zh": "🍪 会话固定自动检测",
+        "en": "🍪 Session Fixation Auto-Test",
+    },
+    "ae_webdav_banner": {
+        "ko": "📁 WebDAV 자동 탐지",
+        "zh": "📁 WebDAV自动检测",
+        "en": "📁 WebDAV Auto-Test",
+    },
+    "ae_dns_banner": {
+        "ko": "🌐 DNS Zone Transfer 점검",
+        "zh": "🌐 DNS区域传输检查",
+        "en": "🌐 DNS Zone Transfer Check",
+    },
+    "ae_cms_banner": {
+        "ko": "🖥️  CMS 자동 탐지 (WordPress/Joomla/Drupal)",
+        "zh": "🖥️  CMS自动检测 (WordPress/Joomla/Drupal)",
+        "en": "🖥️  CMS Auto-Test (WordPress/Joomla/Drupal)",
+    },
+    "ae_price_banner": {
+        "ko": "💰 가격·쿠폰 조작 자동 탐지",
+        "zh": "💰 价格/优惠券篡改自动检测",
+        "en": "💰 Price/Coupon Manipulation Auto-Test",
+    },
 })
 
 

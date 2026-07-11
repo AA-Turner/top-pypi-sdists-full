@@ -710,17 +710,30 @@ def target_ids(
     scope_type: ScopeType,
     scope_id: str,
     actor_workspace_id: str,
+    google_access_token: str = "",
 ) -> tuple[str, str | None, str | None]:
     if scope_type == "organization":
         return scope_id, None, None
     if scope_type == "actor":
         organization_id = (
-            adapter.resolve_organization_id("workspace", actor_workspace_id)
+            adapter.resolve_organization_id(
+                "workspace",
+                actor_workspace_id,
+                google_access_token=google_access_token,
+            )
             if actor_workspace_id
             else ""
         )
         return organization_id, actor_workspace_id or None, scope_id
-    return adapter.resolve_organization_id("workspace", scope_id), scope_id, None
+    return (
+        adapter.resolve_organization_id(
+            "workspace",
+            scope_id,
+            google_access_token=google_access_token,
+        ),
+        scope_id,
+        None,
+    )
 
 
 def cloud_scope_url(

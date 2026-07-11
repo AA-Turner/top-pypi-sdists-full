@@ -5,7 +5,7 @@ from pathlib import Path
 from pyrig.core.subprocesses import Args
 from pyrig.rig.tools.base.tool import Group, Tool
 from pyrig.rig.tools.package_manager import PackageManager
-from pyrig.rig.tools.version_control.version_controller import VersionController
+from pyrig.rig.tools.version_control.controller import VersionController
 
 
 class DocsBuilder(Tool):
@@ -38,7 +38,7 @@ class DocsBuilder(Tool):
 
     def version_control_ignore_paths(self) -> tuple[str, ...]:
         """Return the built site output directory, `'/site'`."""
-        return ("/site",)
+        return (f"/{self.site_dir().as_posix()}",)
 
     def build_args(self, *args: str) -> Args:
         """Construct arguments for the `mkdocs build` command.
@@ -70,3 +70,7 @@ class DocsBuilder(Tool):
             PackageManager.I.project_name(),
         )
         return f"https://{owner}.github.io/{repo}"
+
+    def site_dir(self) -> Path:
+        """Return the built site output directory, `Path('site')`."""
+        return Path("site")

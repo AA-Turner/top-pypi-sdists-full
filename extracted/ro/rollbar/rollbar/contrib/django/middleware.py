@@ -86,16 +86,15 @@ import rollbar
 from django.core.exceptions import MiddlewareNotUsed
 from django.conf import settings
 from django.http import Http404
+from django.urls import resolve
 
-try:
-    from django.urls import resolve
-except ImportError:
-    from django.core.urlresolvers import resolve
+from rollbar import set_current_session
+from rollbar.lib.session import reset_current_session
 
 try:
     from django.utils.deprecation import MiddlewareMixin
 except ImportError:
-    from rollbar.contrib.django.utils import MiddlewareMixin
+    from rollbar.contrib.django.utils import MiddlewareMixin  # type: ignore[assignment]
 
 log = logging.getLogger(__name__)
 
@@ -257,6 +256,20 @@ class RollbarNotifierMiddleware(MiddlewareMixin):
                     " To disable, set `ROLLBAR['patch_debugview'] = False` in settings.py."
                     " Exception was: %r", e
                 )
+
+    def __call__(self, request):
+        headers = {}
+        for k, v in request.META.items():
+            if k.startswith('HTTP_'):
+                header_name = '-'.join(k[len('HTTP_'):].replace('_', ' ').title().split(' '))
+                headers[header_name] = v
+        set_current_session(headers)
+
+        try:
+            response = self.get_response(request)
+            return response
+        finally:
+            reset_current_session()
 
     def _ensure_log_handler(self):
         """

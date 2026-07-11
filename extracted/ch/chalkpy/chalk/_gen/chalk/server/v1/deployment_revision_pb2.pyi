@@ -198,3 +198,15 @@ class ListDeploymentRevisionsResponse(_message.Message):
         revisions: _Optional[_Iterable[_Union[DeploymentRevision, _Mapping]]] = ...,
         next_cursor: _Optional[str] = ...,
     ) -> None: ...
+
+class GetDeploymentRevisionRequest(_message.Message):
+    __slots__ = ("id",)
+    ID_FIELD_NUMBER: _ClassVar[int]
+    id: str
+    def __init__(self, id: _Optional[str] = ...) -> None: ...
+
+class GetDeploymentRevisionResponse(_message.Message):
+    __slots__ = ("revision",)
+    REVISION_FIELD_NUMBER: _ClassVar[int]
+    revision: DeploymentRevision
+    def __init__(self, revision: _Optional[_Union[DeploymentRevision, _Mapping]] = ...) -> None: ...

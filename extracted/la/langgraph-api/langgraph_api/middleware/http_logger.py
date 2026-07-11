@@ -7,6 +7,12 @@ from starlette.types import Message, Receive, Scope, Send
 
 from langgraph_api.config import MOUNT_PREFIX
 from langgraph_api.http_metrics import HTTP_METRICS_COLLECTOR
+from langgraph_api.http_metrics_utils import get_route, should_filter_route
+from langgraph_api.metrics_otlp import (
+    COUNTER_HTTP_REQUESTS,
+    LATENCY_HTTP_REQUEST,
+    get_otlp_metrics_reporter,
+)
 from langgraph_api.utils.headers import should_include_header_in_logs
 
 asgi = structlog.stdlib.get_logger("asgi")
@@ -150,6 +156,24 @@ class AccessLoggerMiddleware:
 
             if method and route and status:
                 HTTP_METRICS_COLLECTOR.record_request(method, route, status, latency)
+                route_path = get_route(route)
+                if route_path is not None and not should_filter_route(route_path):
+                    reporter = get_otlp_metrics_reporter()
+                    reporter.inc_counter(
+                        COUNTER_HTTP_REQUESTS,
+                        attributes={
+                            "method": method,
+                            "path": route_path,
+                            "status": str(status),
+                        },
+                    )
+                    # record_latency takes seconds and stores milliseconds; latency
+                    # is already in ms, so pass seconds.
+                    reporter.record_latency(
+                        LATENCY_HTTP_REQUEST,
+                        latency / 1000.0,
+                        attributes={"method": method, "path": route_path},
+                    )
             qs = scope.get("query_string")
             first_byte_time = info["first_byte_time"]
             ttfb_ms = (

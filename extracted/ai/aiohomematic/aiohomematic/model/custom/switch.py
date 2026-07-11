@@ -7,7 +7,7 @@ Public API of this module is defined by __all__.
 """
 
 import logging
-from typing import Final, Unpack, override
+from typing import ClassVar, Final, Unpack, override
 
 from aiohomematic.const import DataPointCategory, DeviceProfile, Field, Parameter
 from aiohomematic.model.combined.field import CombinedTimerField
@@ -18,7 +18,7 @@ from aiohomematic.model.custom.mixins import GroupStateMixin, StateChangeArgs, S
 from aiohomematic.model.custom.registry import DeviceProfileRegistry, ExtendedDeviceConfig
 from aiohomematic.model.data_point import CallParameterCollector, bind_collector
 from aiohomematic.model.generic import DpBinarySensor, DpSwitch
-from aiohomematic.property_decorators import DelegatedProperty, Kind
+from aiohomematic.property_decorators import DelegatedProperty
 
 _LOGGER: Final = logging.getLogger(__name__)
 
@@ -34,8 +34,9 @@ class CustomDpSwitch(StateChangeTimerMixin, GroupStateMixin, CustomDataPoint):
     _dp_group_state = DataPointField(field=Field.GROUP_STATE, dpt=DpBinarySensor)
     _dp_on_time = CombinedTimerField(value_field=Field.ON_TIME_VALUE)
     _dp_state: Final = DataPointField(field=Field.STATE, dpt=DpSwitch)
+    _validity_relevant_fields: ClassVar[frozenset[Field]] = frozenset({Field.STATE})
 
-    value: Final = DelegatedProperty[bool | None](path="_dp_state.value", kind=Kind.STATE)
+    value: Final = DelegatedProperty[bool | None](path="_dp_state.value")
 
     @override
     def is_state_change(self, **kwargs: Unpack[StateChangeArgs]) -> bool:

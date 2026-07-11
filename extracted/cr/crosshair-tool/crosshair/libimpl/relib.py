@@ -14,14 +14,21 @@ from typing import Any, Callable, Dict, Iterable, List, Optional, Tuple, Union, 
 
 import z3  # type: ignore
 
-from crosshair.core import deep_realize, realize, register_patch, with_realized_args
+from crosshair.core import (
+    SymbolicFactory,
+    deep_realize,
+    realize,
+    register_patch,
+    register_type,
+    with_realized_args,
+)
 from crosshair.libimpl.builtinslib import (
     AnySymbolicStr,
     BytesLike,
     SymbolicInt,
     split_parts_lazy,
 )
-from crosshair.statespace import context_statespace
+from crosshair.statespace import IgnoreAttempt, context_statespace
 from crosshair.tracers import NoTracing, ResumedTracing, is_tracing
 from crosshair.unicode_categories import CharMask, get_unicode_categories
 from crosshair.util import (
@@ -134,11 +141,13 @@ def single_char_mask(
     Returns a list of valid codepoint or codepoint ranges if it can find them, or raises
     ReUnhandled if such an expression cannot be determined.
     """
-    (op, arg) = parsed
+    op, arg = parsed
     isascii = re.ASCII & flags
     if op in (LITERAL, NOT_LITERAL):
         if re.IGNORECASE & flags:
             ret = unicode_ignorecase_mask(arg)
+            if isascii:
+                ret = ret.intersect(_ASCII_CHAR)
         else:
             ret = CharMask([arg])
         if op is NOT_LITERAL:
@@ -153,6 +162,8 @@ def single_char_mask(
                     (ord(chr(lo).upper()), ord(chr(hi).upper()) + 1),
                 ]
             )
+            if isascii:
+                ret = ret.intersect(_ASCII_CHAR)
         else:
             ret = CharMask([(lo, hi + 1)])
     elif op is IN:
@@ -169,29 +180,36 @@ def single_char_mask(
             ret = ret.invert()
     elif op is CATEGORY:
         cats = get_unicode_categories()
+        # re.ASCII restricts only these shorthands to ASCII -- NOT literals,
+        # ranges, or negated sets, so it is applied per-class here (not as a
+        # blanket clip of the final mask).
         if arg == CATEGORY_DIGIT:
-            ret = cats["Nd"]
+            digit = cats["Nd"]
+            return digit.intersect(_ASCII_CHAR) if isascii else digit
         elif arg == CATEGORY_NOT_DIGIT:
-            ret = cats["Nd"].invert()
+            digit = cats["Nd"]
+            if isascii:
+                digit = digit.intersect(_ASCII_CHAR)
+            return digit.invert()
         elif arg == CATEGORY_SPACE:
             return _ASCII_WHITESPACE_CHAR if isascii else _UNICODE_WHITESPACE_CHAR
         elif arg == CATEGORY_NOT_SPACE:
-            ret = _ASCII_WHITESPACE_CHAR if isascii else _UNICODE_WHITESPACE_CHAR
-            return ret.invert()
+            ws = _ASCII_WHITESPACE_CHAR if isascii else _UNICODE_WHITESPACE_CHAR
+            return ws.invert()
         elif arg == CATEGORY_WORD:
-            ret = cats["word"]
+            word = cats["word"]
+            return word.intersect(_ASCII_CHAR) if isascii else word
         elif arg == CATEGORY_NOT_WORD:
-            ret = cats["word"].invert()
+            word = cats["word"]
+            if isascii:
+                word = word.intersect(_ASCII_CHAR)
+            return word.invert()
         else:
             raise ReUnhandled("Unsupported category: ", arg)
     elif op is ANY and arg is None:
-        # TODO: test dot under ascii mode (seems like we should fall through to the re.ASCII check below)
         return _ANY_CHAR if re.DOTALL & flags else _ANY_NON_NEWLINE_CHAR
     else:
         return None
-    if re.ASCII & flags:
-        # TODO: this is probably expensive!
-        ret = ret.intersect(_ASCII_CHAR)
     return ret
 
 
@@ -218,7 +236,7 @@ class _MatchPart:
         groups = self._groups
         for idx, span in enumerate(groups):
             if span is not None:
-                (span_start, span_end) = span
+                span_start, span_end = span
                 with ResumedTracing():
                     if span_start == span_end:
                         if span_start < start:
@@ -227,7 +245,7 @@ class _MatchPart:
                             groups[idx] = (end, end)
 
     def isempty(self):
-        (start, end) = self._groups[0]
+        start, end = self._groups[0]
         return _traced_binop(end, operator.le, start)
 
     def __bool__(self):
@@ -492,9 +510,9 @@ def _internal_match_patterns(
         smt_ch = SymbolicInt._coerce_to_smt_sort(char)
         return fork_on(mask.smt_matches(smt_ch), 1)
 
-    (op, arg) = pattern
+    op, arg = pattern
     if op in (MIN_REPEAT, MAX_REPEAT):
-        (min_repeat, max_repeat, subpattern) = arg
+        min_repeat, max_repeat, subpattern = arg
         if max_repeat < min_repeat:
             return None
         reps = 0
@@ -608,7 +626,7 @@ def _internal_match_patterns(
                 at_boundary_expr = z3.Not(at_boundary_expr)
             return fork_on(at_boundary_expr, 0)
     elif op in (ASSERT, ASSERT_NOT):
-        (direction_int, subpattern) = arg
+        direction_int, subpattern = arg
         positive_look = op == ASSERT
         if direction_int == 1:
             matched = _internal_match_patterns(
@@ -631,7 +649,7 @@ def _internal_match_patterns(
             top_patterns[1:], flags, string, offset, allow_empty, ord=ord, chr=chr
         )
     elif op is SUBPATTERN:
-        (groupnum, _a, _b, subpatterns) = arg
+        groupnum, _a, _b, subpatterns = arg
         if (_a, _b) != (0, 0):
             raise ReUnhandled("unsupported subpattern args")
         new_top = (
@@ -643,7 +661,7 @@ def _internal_match_patterns(
             new_top, flags, string, offset, allow_empty, ord=ord, chr=chr
         )
     elif op is _END_GROUP_MARKER:
-        (group_num, begin) = arg
+        group_num, begin = arg
         match = continue_matching(_MatchPart([(offset, offset)]))
         if match is None:
             return None
@@ -851,7 +869,7 @@ def _search(
 
 
 def _sub(self, repl, string, count=0):
-    (result, _) = _subn(self, repl, string, count)
+    result, _ = _subn(self, repl, string, count)
     return result
 
 
@@ -884,14 +902,52 @@ def _subn(
         remaining = string[match.end() + 1 :]
     else:
         remaining = string[match.end() :]
-    (result_suffix, suffix_replacements) = _subn(self, repl, remaining, count - 1)
+    result_suffix, suffix_replacements = _subn(self, repl, remaining, count - 1)
     return (result_prefix + result_suffix, suffix_replacements + 1)
 
 
+# A few concrete patterns tried first (forked over) to curate the path tree
+# toward common match shapes -- zero/one/two groups, and a non-zero start.  The
+# final branch compiles an arbitrary realized string, so the space of patterns
+# stays complete (if painfully slow to explore): omitting it would restrict
+# symbolic patterns to these shapes and let CrossHair unsoundly confirm false
+# universals, the way pinning Decimal to zero once did.
+_COMMON_PATTERNS = [
+    re.compile(pattern, re.DOTALL)
+    for pattern in (r"(.*)", r"(.*)(.*)", r"([0-9]+)", r".*")
+]
+
+
+def _make_pattern(factory: SymbolicFactory, typ=None) -> re.Pattern:
+    space = factory.space
+    for idx, pattern in enumerate(_COMMON_PATTERNS):
+        if space.smt_fork(desc=f"re_common_pattern_{idx}"):
+            return pattern
+    return re.compile(realize(factory(str, "_pattern")))
+
+
+# Python code cannot instantiate re.Match directly, so we derive one from the
+# existing (sound) match machinery: search a symbolic string with a symbolic
+# pattern and IgnoreAttempt on no-match, so every Match handed out is a real,
+# reachable result.
+def _make_match(factory: SymbolicFactory) -> re.Match:
+    string = factory(str, "_string")
+    pattern = factory(re.Pattern, "_pattern")
+    with ResumedTracing():
+        match = pattern.search(string)
+        if match is None:
+            raise IgnoreAttempt("string did not match pattern")
+        return match
+
+
 def make_registrations():
+    register_type(re.Pattern, _make_pattern)
+    register_type(re.Match, _make_match)
     register_patch(re._compile, _compile)
     register_patch(re.Pattern.search, _search)
     register_patch(re.Pattern.match, _match)
+    if hasattr(re.Pattern, "prefixmatch"):  # Python 3.15+
+        register_patch(re.Pattern.prefixmatch, _match)
     register_patch(re.Pattern.fullmatch, _fullmatch)
     register_patch(re.Pattern.split, _split)
     register_patch(re.Pattern.findall, with_realized_args(re.Pattern.findall))

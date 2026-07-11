@@ -17,6 +17,9 @@ from typing import Literal
 
 import semver
 import yaml
+from airbyte_connector_models.metadata.v0.connector_metadata_definition_v0 import (
+    ConnectorMetadataDefinitionV0DataConnectorReleasesRolloutConfigurationDefaultRolloutMode as DefaultRolloutMode,
+)
 
 from airbyte_ops_mcp.airbyte_repo._yaml_helpers import (
     load_metadata_yaml,
@@ -545,8 +548,20 @@ def update_changelog(
 
 _RC_BUMP_TYPES = {BumpType.PATCH_RC, BumpType.MINOR_RC, BumpType.MAJOR_RC, BumpType.RC}
 
+# `releases.rolloutConfiguration.defaultRolloutMode` values, sourced from the
+# type-safe `DefaultRolloutMode` enum generated from the connector metadata
+# schema (airbyte-connector-models) so they cannot drift from the schema.
+# `autopilot` marks a connector as running autopilot rollouts. These are
+# defined here — the lowest-level rollout module — so promote handling can stay
+# autopilot-aware without a circular import; `progressive_rollout` re-exports
+# them.
+AUTOPILOT_ROLLOUT_MODE = DefaultRolloutMode.autopilot.value
 
-def _set_progressive_rollout_flag(data: dict, enabled: bool) -> bool:
+# `defaultRolloutMode` value for connectors whose rollouts are driven manually.
+MANUAL_ROLLOUT_MODE = DefaultRolloutMode.manual.value
+
+
+def set_progressive_rollout_flag(data: dict, enabled: bool) -> bool:
     """Toggle `enableProgressiveRollout` in an already-deserialized metadata dict.
 
     Mutates `data` in place.  This is the single place that reads and
@@ -600,7 +615,7 @@ def _setup_progressive_rollout_metadata(
 
     data = metadata.get("data", {})
 
-    modified = _set_progressive_rollout_flag(data, enabled=True)
+    modified = set_progressive_rollout_flag(data, enabled=True)
 
     if not modified:
         return False
@@ -617,11 +632,14 @@ def _cleanup_progressive_rollout_metadata(
     connector_path: Path,
     dry_run: bool = False,
 ) -> bool:
-    """Disable progressive rollout in `metadata.yaml`.
+    """Disable progressive rollout in `metadata.yaml` on promote (RC → GA).
 
-    Called automatically when promoting an RC to GA.  Sets
-    `enableProgressiveRollout` to false so the promoted GA version becomes
-    eligible for default/latest evaluation.
+    Clears `enableProgressiveRollout` so the promoted GA version becomes
+    eligible for default/latest evaluation — *unless* the connector's
+    `defaultRolloutMode` is `autopilot`. Autopilot connectors treat progressive
+    rollout as their standing default, so the flag is left `true` across the
+    promote and the next RC continues rolling out automatically. Connectors
+    that are not on autopilot keep the prior behaviour (flag cleared to false).
 
     Args:
         connector_path: Path to the connector directory
@@ -643,7 +661,11 @@ def _cleanup_progressive_rollout_metadata(
     if not rollout_config.get("enableProgressiveRollout"):
         return False
 
-    modified = _set_progressive_rollout_flag(data, enabled=False)
+    # Autopilot connectors keep progressive rollout enabled through promote.
+    if rollout_config.get("defaultRolloutMode") == AUTOPILOT_ROLLOUT_MODE:
+        return False
+
+    modified = set_progressive_rollout_flag(data, enabled=False)
 
     metadata["data"] = data
 
@@ -680,8 +702,10 @@ def bump_connector_version(
     metadata so the registry compile step excludes this version from
     default/latest evaluation while the rollout is in progress.
 
-    For `promote`, this sets `enableProgressiveRollout` to false so the
-    version becomes eligible for default/latest again.
+    For `promote`, this clears `enableProgressiveRollout` to false so the
+    version becomes eligible for default/latest again — unless the connector's
+    `defaultRolloutMode` is `autopilot`, in which case the flag is left `true`
+    (autopilot connectors keep progressive rollout on as their default).
 
     Args:
         repo_path: Path to the Airbyte monorepo
@@ -784,7 +808,7 @@ def bump_connector_version(
     if progressive_rollout_enabled is not None:
         metadata = load_metadata_yaml(metadata_file)
         data = metadata.get("data", {})
-        if _set_progressive_rollout_flag(data, progressive_rollout_enabled):
+        if set_progressive_rollout_flag(data, progressive_rollout_enabled):
             metadata["data"] = data
             if not dry_run:
                 write_metadata_yaml(metadata, metadata_file)

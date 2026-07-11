@@ -188,6 +188,9 @@ def _generic_method_register(name: str, *args: Any, **kwargs: Any):
     to_ops[tensor] = TO_CUDA
     return tensor
 
+def enter_mode():
+    pass
+
 def patch():
     torch.Tensor.__deepcopy__ = _tensor_deepcopy_register
     torch.Tensor.__new__      = _tensor_new_register # pyright: ignore [reportAttributeAccessIssue]

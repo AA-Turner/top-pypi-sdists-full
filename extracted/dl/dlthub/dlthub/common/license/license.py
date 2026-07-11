@@ -1,7 +1,5 @@
 """Issue, validate license and manage scopes"""
 
-from jose import jwt
-from jose.exceptions import ExpiredSignatureError, JWTError
 import time
 from datetime import datetime  # noqa: TID251
 from uuid import uuid4
@@ -186,6 +184,7 @@ def create_license(
     Raises:
         ValueError: If the provided scope string includes an unknown scope.
     """
+    from jose import jwt  # type: ignore
 
     private_key_bytes = bytes(private_key, "utf-8")
 
@@ -210,9 +209,10 @@ def create_license(
     }
     if scope:
         license["scope"] = scope
+
     encoded = jwt.encode(cast(Any, license), private_key_bytes, algorithm=algorithm)
 
-    return encoded
+    return encoded  # type: ignore
 
 
 def create_self_signed_license(scope: str, additional_allowed_scopes: Set[str] = None) -> str:
@@ -269,6 +269,9 @@ def validate_license_signature(
 ) -> DltLicense:
     """Decode a jwt with the public, verify signature using `public_key` and `algorithm` and return
     the decoded license object"""
+    from jose import jwt
+    from jose.exceptions import ExpiredSignatureError, JWTError  # type: ignore
+
     if not public_key:
         raise DltLicenseSignatureInvalidException()
 
@@ -328,6 +331,8 @@ def ensure_feature_scope(scope: str) -> None:
 
 def decode_license(license: str) -> DltLicense:
     """Decode the license without verifying that the signature is valid"""
+    from jose import jwt
+
     return cast(DltLicense, jwt.get_unverified_claims(license))
 
 

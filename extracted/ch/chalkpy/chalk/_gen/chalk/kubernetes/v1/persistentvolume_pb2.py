@@ -14,7 +14,7 @@ _sym_db = _symbol_database.Default()
 
 
 DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(
-    b'\n*chalk/kubernetes/v1/persistentvolume.proto\x12\x13\x63halk.kubernetes.v1"\xc6\x01\n\x1f\x43halkKubernetesPersistentVolume\x12L\n\x04spec\x18\x01 \x01(\x0b\x32\x38.chalk.kubernetes.v1.ChalkKubernetesPersistentVolumeSpecR\x04spec\x12U\n\x07metrics\x18\x02 \x01(\x0b\x32;.chalk.kubernetes.v1.ChalkKubernetesPersistentVolumeMetricsR\x07metrics"\xf2\x01\n#ChalkKubernetesPersistentVolumeSpec\x12#\n\rstorage_class\x18\x01 \x01(\tR\x0cstorageClass\x12\x12\n\x04name\x18\x02 \x01(\tR\x04name\x12!\n\x0c\x61\x63\x63\x65ss_modes\x18\x03 \x03(\tR\x0b\x61\x63\x63\x65ssModes\x12\x1a\n\x08\x63\x61pacity\x18\x04 \x01(\tR\x08\x63\x61pacity\x12\x16\n\x06status\x18\x05 \x01(\tR\x06status\x12%\n\x0ereclaim_policy\x18\x06 \x01(\tR\rreclaimPolicy\x12\x14\n\x05\x63laim\x18\x07 \x01(\tR\x05\x63laim"\x97\x01\n&ChalkKubernetesPersistentVolumeMetrics\x12%\n\x0e\x63\x61pacity_bytes\x18\x01 \x01(\x01R\rcapacityBytes\x12\x1d\n\nused_bytes\x18\x02 \x01(\x01R\tusedBytes\x12\'\n\x0f\x61vailable_bytes\x18\x03 \x01(\x01R\x0e\x61vailableBytesB\xba\x01\n\x17\x63om.chalk.kubernetes.v1B\x15PersistentvolumeProtoP\x01Z\x1akubernetes/v1;kubernetesv1\xa2\x02\x03\x43KX\xaa\x02\x13\x43halk.Kubernetes.V1\xca\x02\x13\x43halk\\Kubernetes\\V1\xe2\x02\x1f\x43halk\\Kubernetes\\V1\\GPBMetadata\xea\x02\x15\x43halk::Kubernetes::V1b\x06proto3'
+    b'\n*chalk/kubernetes/v1/persistentvolume.proto\x12\x13\x63halk.kubernetes.v1"\xc6\x01\n\x1f\x43halkKubernetesPersistentVolume\x12L\n\x04spec\x18\x01 \x01(\x0b\x32\x38.chalk.kubernetes.v1.ChalkKubernetesPersistentVolumeSpecR\x04spec\x12U\n\x07metrics\x18\x02 \x01(\x0b\x32;.chalk.kubernetes.v1.ChalkKubernetesPersistentVolumeMetricsR\x07metrics"\x9b\x02\n#ChalkKubernetesPersistentVolumeSpec\x12#\n\rstorage_class\x18\x01 \x01(\tR\x0cstorageClass\x12\x12\n\x04name\x18\x02 \x01(\tR\x04name\x12!\n\x0c\x61\x63\x63\x65ss_modes\x18\x03 \x03(\tR\x0b\x61\x63\x63\x65ssModes\x12\x1a\n\x08\x63\x61pacity\x18\x04 \x01(\tR\x08\x63\x61pacity\x12\x16\n\x06status\x18\x05 \x01(\tR\x06status\x12%\n\x0ereclaim_policy\x18\x06 \x01(\tR\rreclaimPolicy\x12\x14\n\x05\x63laim\x18\x07 \x01(\tR\x05\x63laim\x12\'\n\x0f\x63laim_namespace\x18\x08 \x01(\tR\x0e\x63laimNamespace"\x97\x01\n&ChalkKubernetesPersistentVolumeMetrics\x12%\n\x0e\x63\x61pacity_bytes\x18\x01 \x01(\x01R\rcapacityBytes\x12\x1d\n\nused_bytes\x18\x02 \x01(\x01R\tusedBytes\x12\'\n\x0f\x61vailable_bytes\x18\x03 \x01(\x01R\x0e\x61vailableBytesB\xba\x01\n\x17\x63om.chalk.kubernetes.v1B\x15PersistentvolumeProtoP\x01Z\x1akubernetes/v1;kubernetesv1\xa2\x02\x03\x43KX\xaa\x02\x13\x43halk.Kubernetes.V1\xca\x02\x13\x43halk\\Kubernetes\\V1\xe2\x02\x1f\x43halk\\Kubernetes\\V1\\GPBMetadata\xea\x02\x15\x43halk::Kubernetes::V1b\x06proto3'
 )
 
 _globals = globals()
@@ -28,7 +28,7 @@ if _descriptor._USE_C_DESCRIPTORS == False:
     _globals["_CHALKKUBERNETESPERSISTENTVOLUME"]._serialized_start = 68
     _globals["_CHALKKUBERNETESPERSISTENTVOLUME"]._serialized_end = 266
     _globals["_CHALKKUBERNETESPERSISTENTVOLUMESPEC"]._serialized_start = 269
-    _globals["_CHALKKUBERNETESPERSISTENTVOLUMESPEC"]._serialized_end = 511
-    _globals["_CHALKKUBERNETESPERSISTENTVOLUMEMETRICS"]._serialized_start = 514
-    _globals["_CHALKKUBERNETESPERSISTENTVOLUMEMETRICS"]._serialized_end = 665
+    _globals["_CHALKKUBERNETESPERSISTENTVOLUMESPEC"]._serialized_end = 552
+    _globals["_CHALKKUBERNETESPERSISTENTVOLUMEMETRICS"]._serialized_start = 555
+    _globals["_CHALKKUBERNETESPERSISTENTVOLUMEMETRICS"]._serialized_end = 706
 # @@protoc_insertion_point(module_scope)

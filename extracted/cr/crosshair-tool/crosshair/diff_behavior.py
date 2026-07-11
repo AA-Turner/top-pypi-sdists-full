@@ -8,6 +8,7 @@ import time
 from typing import Any, Callable, Dict, Iterable, List, Optional, Set, Tuple, Union
 
 from crosshair import IgnoreAttempt
+from crosshair.behavior_compare import flexible_equal
 from crosshair.condition_parser import condition_parser
 from crosshair.core import ExceptionFilter, Patched, deep_realize, gen_args
 from crosshair.fnutil import FunctionInfo
@@ -19,7 +20,6 @@ from crosshair.statespace import (
     StateSpaceContext,
     VerificationStatus,
 )
-from crosshair.test_util import flexible_equal
 from crosshair.tracers import (
     COMPOSITE_TRACER,
     CoverageResult,
@@ -138,9 +138,12 @@ def diff_behavior(
     debug("Resolved signature:", sig1)
     all_diffs: List[BehaviorDiff] = []
     half1, half2 = options.split_limits(0.5)
-    with condition_parser(
-        options.analysis_kind
-    ), Patched(), COMPOSITE_TRACER, NoTracing():
+    with (
+        condition_parser(options.analysis_kind),
+        Patched(),
+        COMPOSITE_TRACER,
+        NoTracing(),
+    ):
         # We attempt both orderings of functions. This helps by:
         # (1) avoiding code path explosions in one of the functions
         # (2) using both signatures (in case they differ)
@@ -161,7 +164,7 @@ def diff_behavior(
     while all_diffs:
         scorer = diff_scorer(opcodeset1, opcodeset2)
         selection = max(all_diffs, key=scorer)
-        (num_opcodes, _) = scorer(selection)
+        num_opcodes, _ = scorer(selection)
         debug("Considering input", selection.args, " num opcodes=", num_opcodes)
         if num_opcodes == 0:
             break
@@ -204,7 +207,7 @@ def diff_behavior_with_signature(
             output = None
             try:
                 with ResumedTracing():
-                    (verification_status, output) = run_iteration(
+                    verification_status, output = run_iteration(
                         fn1, fn2, sig, space, exception_equivalence
                     )
             except IgnoreAttempt:

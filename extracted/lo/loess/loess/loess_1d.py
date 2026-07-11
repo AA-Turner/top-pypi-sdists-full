@@ -4,7 +4,7 @@
     E-mail: michele.cappellari_at_physics.ox.ac.uk
 
     Updated versions of the software are available from my web page
-    http://purl.org/cappellari/software
+    http://purl.org/cappellari
 
     If you have found this software useful for your research,
     I would appreciate an acknowledgement to the use of the
@@ -124,17 +124,14 @@ def biweight_sigma(y, zero=False):
 ################################################################################
 
 
-def rotate_points(x, y, ang):
+def rotate_points(x, y, angle):
     """
-    Rotates points counter-clockwise by an angle ANG in degrees.
+    Rotates points counter-clockwise by an angle in degrees.
     Michele cappellari, Paranal, 10 November 2013
-
     """
-    theta = np.radians(ang)
-    xNew = x*np.cos(theta) - y*np.sin(theta)
-    yNew = x*np.sin(theta) + y*np.cos(theta)
-
-    return xNew, yNew
+    theta = np.radians(angle)
+    c, s = np.cos(theta), np.sin(theta)
+    return x*c - y*s, x*s + y*c
 
 
 ################################################################################
@@ -162,56 +159,56 @@ def loess_1d(x, y, xnew=None, degree=1, frac=0.5, npoints=None, rotate=False, si
         xout, yout, wout = loess_1d(x, y, xnew=None, degree=1, frac=0.5,
                                     npoints=None, rotate=False, sigy=None)
 
-    Input Parameters
-    ----------------
+    Parameters
+    ----------
 
-    x: array_like with shape (n,)
+    x : array_like with shape (n,)
         Vector of ``x`` coordinate.
-    y: array_like with shape (n,)
+    y : array_like with shape (n,)
         Vector of ``y`` coordinate to be LOESS smoothed.
 
-    Optional Keywords
-    -----------------
+    Other parameters
+    ----------------
 
-    xnew: array_like with shape (m,), optional
+    xnew : array_like with shape (m,), optional
         Vector of coordinates at which to compute the smoothed ``y`` values.
-    degree: {1, 2}, optional
+    degree : {1, 2}, optional
         degree of the local 1-dim polynomial approximation (default ``degree=1``).
-    frac: float, optional
+    frac : float, optional
         Fraction of points to consider in the local approximation (default ``frac=0.5``).
         Typical values are between ``frac~0.2-0.8``. Note that the values are
         weighted by a Gaussian function of their distance from the point under 
         consideration. This implies that the effective fraction of points 
         contributing to a given value is much smaller that ``frac``.
-    npoints: int, optional
+    npoints : int, optional
         Number of points to consider in the local approximation.
         This is an alternative to using ``frac=npoints/x.size``.
-    rotate: bool, optional
+    rotate : bool, optional
         Rotate the ``(x, y)`` coordinates to have the maximum variance along the
         ``x`` axis. This is useful to give comparable contribution to the
         errors in the ``x`` and ``y`` variables. It can be used to asses the
         sensitivity of the solution to the assumption that errors are only in ``y``.
-    sigy: array_like with shape (n,)
+    sigy : array_like with shape (n,)
         1-sigma errors for the ``y`` values. If this keyword is used
         the biweight fit is done assuming those errors. If this keyword
         is *not* used, the biweight fit determines the errors in ``y``
         from the scatter of the neighbouring points.
 
-    Output Parameters
-    -----------------
+    Returns
+    -------
 
-    xout: array_like with shape (n,)
+    xout : array_like with shape (n,)
         Vector of ``x`` coordinates for the ``yout`` values.
         If ``rotate=False`` (default) then ``xout=x``.
         
         When passing as input the ``xnew`` coordinates then ``xout=xnew``
         and both have shape ``(m,)``.
-    yout: array_like with shape (n,)
+    yout : array_like with shape (n,)
         Vector of smoothed ``y`` values at the coordinates ``xout``.
         
         When passing as input the ``xnew`` coordinates this contains the
         smoothed values at the coordinates ``xnew`` and has shape ``(m,)``.
-    wout: array_like with shape (n,)
+    wout : array_like with shape (n,)
         Vector of biweights used in the local regressions. This can be used to
         identify outliers: ``wout=0`` for outliers with deviations ``>4sigma``.
         
@@ -220,6 +217,8 @@ def loess_1d(x, y, xnew=None, degree=1, frac=0.5, npoints=None, rotate=False, si
 
     ###########################################################################
     """
+
+    assert np.all(np.isfinite(np.concatenate([x, y]))), "All input quantities must be finite"
 
     if frac == 0:
         return y, np.ones_like(y)
@@ -255,6 +254,8 @@ def loess_1d(x, y, xnew=None, degree=1, frac=0.5, npoints=None, rotate=False, si
         dist = np.abs(x - xj)
         w = np.argsort(dist)[:npoints]
         dist_weights = (1 - (dist[w]/dist[w[-1]])**3)**3  # tricube function distance weights
+        if sigy is not None:
+            dist_weights /= sigy[w]**2
         yfit = polyfit1d(x[w], y[w], degree, dist_weights).yfit
 
         # Robust fit from Sec.2 of Cleveland (1979)

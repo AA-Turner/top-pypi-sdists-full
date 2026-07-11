@@ -22,6 +22,7 @@ from agno.run.agent import (
     RunContentEvent,
     RunErrorEvent,
     RunOutput,
+    RunPausedEvent,
     ToolCallCompletedEvent,
     ToolCallStartedEvent,
 )
@@ -1146,10 +1147,48 @@ class TestUserIdPassthrough:
             ("user", "test"),
             (
                 "assistant",
-                "Half done\n\n(turn interrupted by the user before completion; "
-                "1 tool call(s) had completed: run_shell_command)",
+                "Half done\n\n(turn stopped before completion; 1 tool call(s) had completed: run_shell_command)",
             ),
         ]
+
+    @pytest.mark.asyncio
+    async def test_ai_response_persists_paused_replay_status(self, tmp_path: Path) -> None:
+        """Recorder-less paused runs keep paused semantics in replay history."""
+        storage = _SessionStorage()
+        mock_agent = MagicMock()
+        paused_run = RunOutput(
+            run_id="run-paused",
+            agent_id="general",
+            session_id="session1",
+            content="Approval required",
+            messages=[Message(role="assistant", content="Approval required")],
+            status=RunStatus.paused,
+        )
+
+        with (
+            patch(
+                "mindroom.ai.open_resolved_scope_session_context",
+                new=lambda **_: _open_agent_scope_context(storage),
+            ),
+            patch("mindroom.ai._prepare_agent_and_prompt", new_callable=AsyncMock) as mock_prepare,
+            patch("mindroom.ai_runtime.cached_agent_run", new_callable=AsyncMock, return_value=paused_run),
+        ):
+            mock_prepare.return_value = _prepared_prompt_result(mock_agent)
+            response = await ai_response(
+                make_turn_context("general", session_id="session1", reply_to_event_id="$source"),
+                prompt="Run the action",
+                runtime_paths=_runtime_paths(tmp_path),
+                config=_config(),
+            )
+
+        assert response == "Approval required"
+        persisted_session = cast("AgentSession", storage.session)
+        assert persisted_session.runs is not None
+        persisted_run = cast("RunOutput", persisted_session.runs[0])
+        assert persisted_run.metadata is not None
+        assert persisted_run.metadata["mindroom_original_status"] == "paused"
+        assert persisted_run.messages is not None
+        assert "turn paused before completion" in str(persisted_run.messages[-1].content)
 
     @pytest.mark.asyncio
     async def test_ai_response_cancelled_run_uses_only_latest_assistant_partial_text(
@@ -1199,7 +1238,7 @@ class TestUserIdPassthrough:
         assert persisted_run.messages is not None
         assert [(message.role, message.content) for message in persisted_run.messages] == [
             ("user", "test"),
-            ("assistant", "Half done\n\n(turn interrupted by the user before completion)"),
+            ("assistant", "Half done\n\n(turn stopped before completion)"),
         ]
 
     @pytest.mark.asyncio
@@ -1253,8 +1292,7 @@ class TestUserIdPassthrough:
             ("user", "test"),
             (
                 "assistant",
-                "Half done\n\n(turn interrupted by the user before completion; "
-                "1 tool call(s) were still running: run_shell_command)",
+                "Half done\n\n(turn stopped before completion; 1 tool call(s) were still running: run_shell_command)",
             ),
         ]
 
@@ -1316,6 +1354,7 @@ class TestUserIdPassthrough:
         mock_agent = MagicMock()
         mock_run_output = MagicMock()
         mock_run_output.content = "validation failed in agno"
+        mock_run_output.run_id = mock_run_output.session_id = "run-error"
         mock_run_output.status = RunStatus.error
         mock_run_output.tools = None
 
@@ -3407,6 +3446,55 @@ class TestUserIdPassthrough:
         assert payload["usage"]["total_tokens"] == 125
 
     @pytest.mark.asyncio
+    async def test_stream_agent_response_persists_paused_replay_status_and_metadata(self, tmp_path: Path) -> None:
+        """Recorder-less paused streams keep replay semantics and publish run metadata."""
+        storage = _SessionStorage()
+        mock_agent = MagicMock()
+        mock_agent.model = MagicMock()
+        mock_agent.model.__class__.__name__ = "OpenAIChat"
+        mock_agent.model.id = "test-model"
+        mock_agent.name = "GeneralAgent"
+        mock_agent.add_history_to_context = False
+
+        async def fake_arun_stream(*_args: object, **_kwargs: object) -> AsyncIterator[object]:
+            yield RunPausedEvent(
+                run_id="run-paused",
+                session_id="session1",
+                content="Approval required",
+            )
+
+        mock_agent.arun = MagicMock(return_value=fake_arun_stream())
+        run_metadata: dict[str, object] = {}
+        with (
+            patch(
+                "mindroom.ai.open_resolved_scope_session_context",
+                new=lambda **_: _open_agent_scope_context(storage),
+            ),
+            patch("mindroom.ai._prepare_agent_and_prompt", new_callable=AsyncMock) as mock_prepare,
+        ):
+            mock_prepare.return_value = _prepared_prompt_result(mock_agent)
+            chunks = [
+                chunk
+                async for chunk in stream_agent_response(
+                    make_turn_context("general", session_id="session1", reply_to_event_id="$source"),
+                    prompt="Run the action",
+                    runtime_paths=_runtime_paths(tmp_path),
+                    config=_config(),
+                    run_metadata_collector=run_metadata,
+                )
+            ]
+
+        assert [chunk.content for chunk in chunks] == ["Approval required"]
+        persisted_session = cast("AgentSession", storage.session)
+        assert persisted_session.runs is not None
+        persisted_run = cast("RunOutput", persisted_session.runs[0])
+        assert persisted_run.metadata is not None
+        assert persisted_run.metadata["mindroom_original_status"] == "paused"
+        payload = cast("dict[str, object]", run_metadata[AI_RUN_METADATA_KEY])
+        assert payload["run_id"] == "run-paused"
+        assert payload["status"] == "paused"
+
+    @pytest.mark.asyncio
     async def test_stream_agent_response_persists_hidden_interrupted_tool_state(self, tmp_path: Path) -> None:
         """Streaming cancellation should persist completed and interrupted tools even when hidden in output."""
         storage = _SessionStorage()
@@ -3473,7 +3561,7 @@ class TestUserIdPassthrough:
             ("user", "test"),
             (
                 "assistant",
-                "Half done\n\n(turn interrupted by the user before completion; "
+                "Half done\n\n(turn stopped before completion; "
                 "1 tool call(s) had completed: run_shell_command; "
                 "1 tool call(s) were still running: save_file)",
             ),
@@ -3551,7 +3639,7 @@ class TestUserIdPassthrough:
             ("user", "test"),
             (
                 "assistant",
-                "Half done\n\n(turn interrupted by the user before completion; "
+                "Half done\n\n(turn stopped before completion; "
                 "1 tool call(s) had completed: run_shell_command; "
                 "1 tool call(s) were still running: run_shell_command)",
             ),
@@ -3610,7 +3698,7 @@ class TestUserIdPassthrough:
         assert persisted_run.messages is not None
         assert [(message.role, message.content) for message in persisted_run.messages] == [
             ("user", "test"),
-            ("assistant", "Half done\n\n(turn interrupted by the user before completion)"),
+            ("assistant", "Half done\n\n(turn stopped before completion)"),
         ]
 
     @pytest.mark.asyncio

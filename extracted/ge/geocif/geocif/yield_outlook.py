@@ -29,6 +29,12 @@ warnings.simplefilter(action="ignore", category=FutureWarning)
 
 logger = logging.getLogger(__name__)
 
+# Module-level gate for figure rendering, set by run() from [ML] make_maps
+# (default False). Kept at module scope so the shared _generate_outlook_map
+# renderer can honor it without threading a flag through every call site.
+# Default True preserves behavior for any direct caller that bypasses run().
+_MAKE_MAPS = True
+
 # Re-export for local use
 _display_model_name = ut.display_model_name
 
@@ -2863,6 +2869,12 @@ def _generate_outlook_map(
     can distinguish variants of the same map (e.g. ``_filtered`` for the
     minimal-crop-area filtered anomaly map).
     """
+    # [ML] make_maps gate (default False): when figures are disabled this
+    # renderer is a no-op, so ensemble/blend computation and the outlook CSV
+    # still run but no PNG is drawn. Callers ignore the return value.
+    if not _MAKE_MAPS:
+        return
+
     # Fixed range: -40% to +40% departure (matching analysis.py anomaly maps)
     vmin = -40
     vmax = 40
@@ -3161,6 +3173,16 @@ def run(path_config_files=None, current_year=None, n_years=None, aggregation=Non
     if since_year is None:
         since_year = parser.getint("ML", "outlook_since_year", fallback=2005)
 
+    # [ML] make_maps (default False): master switch for ALL yield-outlook
+    # figure rendering — outlook / obs-anomaly / ensemble / blend choropleths,
+    # per-combo diagnostic plots, and the pre-ML observed-yield plots. When
+    # False the ML fit, the DB, and the outlook CSVs are still written; only
+    # PNGs are skipped, so metric-only reruns are fast. Sets the module-level
+    # _MAKE_MAPS that gates the shared _generate_outlook_map renderer.
+    global _MAKE_MAPS
+    make_maps = parser.getboolean("ML", "make_maps", fallback=False)
+    _MAKE_MAPS = make_maps
+
     countries = ast.literal_eval(parser.get("DEFAULT", "countries"))
     experiment_name = parser.get("DEFAULT", "experiment_name", fallback="default")
 
@@ -3180,10 +3202,11 @@ def run(path_config_files=None, current_year=None, n_years=None, aggregation=Non
     # Pre-ML observed-yield line plots (one PNG per country/crop, one
     # line per region) so the user can see the training-data ground
     # truth while the long-running ML pipeline starts.
-    try:
-        _plot_observed_yields(parser, dir_outlook)
-    except Exception as e:
-        logger.warning(f"Observed-yields plotting failed (non-fatal): {e}")
+    if make_maps:
+        try:
+            _plot_observed_yields(parser, dir_outlook)
+        except Exception as e:
+            logger.warning(f"Observed-yields plotting failed (non-fatal): {e}")
 
     if reuse_db is not None:
         # ---- Skip ML, reuse existing DB ----
@@ -3271,6 +3294,7 @@ def run(path_config_files=None, current_year=None, n_years=None, aggregation=Non
                 str(parser.getboolean("ML", "estimate_ci", fallback=False))),
             ("XAI (do_xai)",
                 str(parser.getboolean("ML", "do_xai", fallback=False))),
+            ("Maps (make_maps)", str(make_maps)),
         ]
 
         # Claude narrative status — resolved at startup so the operator
@@ -3509,6 +3533,13 @@ def run(path_config_files=None, current_year=None, n_years=None, aggregation=Non
                     df_outlook["Forecast Year"] = year_to_map
                     all_outlook_frames.append(df_outlook)
 
+                    # [ML] make_maps gate: skip per-year/stage rendering
+                    # (outlook map + predicted-yield choropleth + obs-anomaly
+                    # maps). all_outlook_frames already captured above, so the
+                    # outlook CSV is unaffected.
+                    if not make_maps:
+                        continue
+
                     # Generate map — saved in maps/{model}[/{stage}] subfolder
                     stage_safe = friendly_stage_label(stage_name).replace(" - ", "-").replace(" ", "_")
                     dir_model = dir_outlook / "maps" / model / country
@@ -3619,6 +3650,13 @@ def run(path_config_files=None, current_year=None, n_years=None, aggregation=Non
                                     ),
                                     fname_extra="_filtered",
                                 )
+
+            # [ML] make_maps gate: skip per-combo diagnostic plots (forest,
+            # yield table, MAPE/RMSE boxes, %-area map). df_pred_store was
+            # stored before the year loop, so _generate_diagnostics inputs
+            # are unaffected.
+            if not make_maps:
+                continue
 
             # Per-(country, crop, model) diagnostic plots
             from .viz import diagnostics as diag
@@ -4137,9 +4175,9 @@ def run(path_config_files=None, current_year=None, n_years=None, aggregation=Non
                 f"rrmsep / MAPE / RMSE / scatter / model_comparison plots)"
             )
 
-    # Diagnostic plots: scatter, MAPE bar, progression — always run if we
-    # have predictions, even when outlook index computation fails.
-    if df_pred_store:
+    # Diagnostic plots: scatter, MAPE bar, progression — gated by [ML]
+    # make_maps so metric-only reruns skip them.
+    if make_maps and df_pred_store:
         _generate_diagnostics(df_pred_store, dg, dir_outlook,
                               current_year=current_year, dict_config=dict_config,
                               db_path=db_path, parser=parser)

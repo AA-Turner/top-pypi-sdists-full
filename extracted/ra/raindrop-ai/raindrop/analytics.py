@@ -382,7 +382,7 @@ def flush_loop(state: Optional[RaindropState] = None) -> None:
             # Loop-driven flushes throttle the TRACE flush: the OTLP pipeline
             # is process-global, so N clients' loops would otherwise all
             # force-flush the same BatchSpanProcessor every second.
-            flush(state=st, _throttle_traces=True)
+            flush(state=st, _throttle_traces=True, _background=True)
         except Exception as e:
             logger.error(f"Error in flush loop: {e}")
         # A per-instance loop whose owning client was garbage-collected has
@@ -402,7 +402,7 @@ def flush_loop(state: Optional[RaindropState] = None) -> None:
                 # start_flush_thread, so unregistering below loses nothing.
                 for eid in list(st._partial_timers.keys()):
                     _flush_partial_event(eid, state=st)
-                flush(state=st)
+                flush(state=st, _background=True)
             except Exception as e:
                 logger.error(f"Error in flush loop: {e}")
             _instance_states.discard(st)
@@ -411,8 +411,17 @@ def flush_loop(state: Optional[RaindropState] = None) -> None:
         time.sleep(st.upload_interval)
 
 
-def flush(state: Optional[RaindropState] = None, _throttle_traces: bool = False) -> None:
+def flush(
+    state: Optional[RaindropState] = None,
+    _throttle_traces: bool = False,
+    _background: bool = False,
+) -> None:
     st = _resolve_state(state)
+    # Retry backoff sleeps only ever run on the background flush thread
+    # (``_background=True``). An explicit caller-thread flush() gets exactly
+    # one bounded attempt per batch: a flaky or rate-limited API must never
+    # make a caller sleep through the retry schedule, which stacks per batch.
+    max_attempts = None if _background else 1
 
     if st.buffer is None:
         logger.error("No buffer available")
@@ -443,7 +452,7 @@ def flush(state: Optional[RaindropState] = None, _throttle_traces: bool = False)
         for i in range(0, len(events_data), st.upload_size):
             batch = events_data[i : i + st.upload_size]
             logger.debug(f"Sending {len(batch)} events to {endpoint}")
-            send_request(endpoint, batch, state=st)
+            send_request(endpoint, batch, state=st, max_attempts=max_attempts)
 
     for partial_event in current_partials:
         # Serialization / PII redaction / size checks deliberately run here,
@@ -462,9 +471,13 @@ def flush(state: Optional[RaindropState] = None, _throttle_traces: bool = False)
             )
             continue
         if partial_data is not None:
-            send_request("events/track_partial", partial_data, state=st)
+            send_request(
+                "events/track_partial", partial_data, state=st, max_attempts=max_attempts
+            )
 
-    _flush_direct_tool_spans(current_direct_tool_spans, state=st)
+    _flush_direct_tool_spans(
+        current_direct_tool_spans, state=st, max_attempts=max_attempts
+    )
 
     logger.debug("Flush complete")
     _flush_traces(state=st, force=not _throttle_traces)
@@ -692,11 +705,20 @@ def _post_local_mirror(path: str, payload: Any, state: Optional[RaindropState] =
         )
 
 
-def _post_with_retries(url: str, payload: Any, log_key: str, state: Optional[RaindropState] = None) -> None:
+def _post_with_retries(
+    url: str,
+    payload: Any,
+    log_key: str,
+    state: Optional[RaindropState] = None,
+    max_attempts: Optional[int] = None,
+) -> None:
     """POST to the cloud API with bounded timeouts and capped retries.
 
-    Outside shutdown: up to ``_HTTP_MAX_ATTEMPTS`` attempts with a short,
-    capped backoff between them, each bounded by (connect, read) timeouts.
+    Outside shutdown: up to ``max_attempts`` (default ``_HTTP_MAX_ATTEMPTS``)
+    attempts with a short, capped backoff between them, each bounded by
+    (connect, read) timeouts. Explicit ``flush()`` callers pass
+    ``max_attempts=1`` so a caller-thread drain never sleeps in backoff;
+    retries with backoff run only on the background flush thread.
 
     During shutdown — checked fresh on EVERY attempt, so a shutdown that
     begins while a flush-thread POST is mid-retry takes effect immediately —
@@ -716,7 +738,8 @@ def _post_with_retries(url: str, payload: Any, log_key: str, state: Optional[Rai
     # credentials (https://user:pass@host/...).
     safe_url = _redact_url_for_log(url)
 
-    for attempt in range(_HTTP_MAX_ATTEMPTS):
+    attempts = max_attempts if max_attempts is not None else _HTTP_MAX_ATTEMPTS
+    for attempt in range(attempts):
         budget = _shutdown_budget(state=st)
         if budget is not None and budget <= 0:
             _rate_limited_log(
@@ -759,7 +782,7 @@ def _post_with_retries(url: str, payload: Any, log_key: str, state: Optional[Rai
                 "Error sending request to %s (attempt %s/%s): %s: %s",
                 safe_url,
                 attempt + 1,
-                _HTTP_MAX_ATTEMPTS,
+                attempts,
                 type(e).__name__,
                 error_text,
             )
@@ -767,7 +790,7 @@ def _post_with_retries(url: str, payload: Any, log_key: str, state: Optional[Rai
             # other queued payloads than on retrying this one.
             if _shutdown_budget(state=st) is not None or st.shutdown_event.is_set():
                 break
-            if attempt < _HTTP_MAX_ATTEMPTS - 1:
+            if attempt < attempts - 1:
                 backoff_idx = min(attempt, len(_HTTP_RETRY_BACKOFF_SECONDS) - 1)
                 time.sleep(_HTTP_RETRY_BACKOFF_SECONDS[backoff_idx])
 
@@ -779,7 +802,11 @@ def _post_with_retries(url: str, payload: Any, log_key: str, state: Optional[Rai
     )
 
 
-def _send_traces_request(payload: Dict[str, Any], state: Optional[RaindropState] = None) -> None:
+def _send_traces_request(
+    payload: Dict[str, Any],
+    state: Optional[RaindropState] = None,
+    max_attempts: Optional[int] = None,
+) -> None:
     st = _resolve_state(state)
     _post_local_mirror("traces", payload, state=st)
 
@@ -789,16 +816,24 @@ def _send_traces_request(payload: Dict[str, Any], state: Optional[RaindropState]
     url = urllib.parse.urljoin(
         st.api_url if st.api_url.endswith("/") else f"{st.api_url}/", "traces"
     )
-    _post_with_retries(url, payload, log_key="send.traces", state=st)
+    _post_with_retries(
+        url, payload, log_key="send.traces", state=st, max_attempts=max_attempts
+    )
 
 
-def _flush_direct_tool_spans(spans: List[Dict[str, Any]], state: Optional[RaindropState] = None) -> None:
+def _flush_direct_tool_spans(
+    spans: List[Dict[str, Any]],
+    state: Optional[RaindropState] = None,
+    max_attempts: Optional[int] = None,
+) -> None:
     if not spans:
         return
 
     for i in range(0, len(spans), _direct_tool_upload_size):
         batch = spans[i : i + _direct_tool_upload_size]
-        _send_traces_request(_build_direct_traces_payload(batch), state=state)
+        _send_traces_request(
+            _build_direct_traces_payload(batch), state=state, max_attempts=max_attempts
+        )
 
 
 def _enqueue_direct_tool_span(span: Dict[str, Any], state: Optional[RaindropState] = None) -> None:
@@ -825,6 +860,7 @@ def send_request(
     endpoint: str,
     data_entries: Union[List[Dict[str, Union[str, Dict]]], Dict[str, Any]],
     state: Optional[RaindropState] = None,
+    max_attempts: Optional[int] = None,
 ) -> None:
     st = _resolve_state(state)
     _post_local_mirror(endpoint, data_entries, state=st)
@@ -833,7 +869,9 @@ def send_request(
         return
 
     url = f"{st.api_url}{endpoint}"
-    _post_with_retries(url, data_entries, log_key=f"send.{endpoint}", state=st)
+    _post_with_retries(
+        url, data_entries, log_key=f"send.{endpoint}", state=st, max_attempts=max_attempts
+    )
 
 
 def save_to_buffer(event: Dict[str, Union[str, Dict]], state: Optional[RaindropState] = None) -> None:

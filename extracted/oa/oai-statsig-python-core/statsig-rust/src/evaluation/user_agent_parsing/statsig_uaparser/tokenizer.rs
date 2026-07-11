@@ -4,11 +4,52 @@ use super::{window_iter::WindowIter, Version};
 
 pub struct Tokenizer;
 
+trait TokenWindow<'a> {
+    fn get_window(
+        &self,
+    ) -> (
+        Option<&'a str>,
+        Option<&'a str>,
+        Option<&'a str>,
+        Option<&'a str>,
+    );
+    fn slide_window_by(&mut self, n: usize);
+    fn is_empty(&self) -> bool;
+}
+
+impl<'a> TokenWindow<'a> for WindowIter<'a> {
+    fn get_window(
+        &self,
+    ) -> (
+        Option<&'a str>,
+        Option<&'a str>,
+        Option<&'a str>,
+        Option<&'a str>,
+    ) {
+        WindowIter::get_window(self)
+    }
+
+    fn slide_window_by(&mut self, n: usize) {
+        WindowIter::slide_window_by(self, n);
+    }
+
+    fn is_empty(&self) -> bool {
+        WindowIter::is_empty(self)
+    }
+}
+
+#[cfg(test)]
+#[path = "__tests__/test_tokenizer_performance.rs"]
+mod performance_tests;
+
 impl Tokenizer {
     // Ideal UserAgent format: <product>/<product-version> (<os-information>) <engine> (<platform-details>) <optional-details>
     pub fn run(input: &str) -> TokenizerResult<'_> {
+        Self::run_with_window(WindowIter::new(input))
+    }
+
+    fn run_with_window<'a, W: TokenWindow<'a>>(mut win: W) -> TokenizerResult<'a> {
         let mut result = TokenizerResult::default();
-        let mut win: WindowIter<'_> = WindowIter::new(input);
         while !win.is_empty() {
             let (curr, next1, next2, next3) = win.get_window();
             let (curr, next1, next2, next3) = (
@@ -472,7 +513,10 @@ fn starts_with_number(s: Option<&str>) -> bool {
         .unwrap_or(false)
 }
 
-fn consume_if_numeric<'a>(win: &mut WindowIter<'a>, tag: Option<&'a str>) -> Option<&'a str> {
+fn consume_if_numeric<'a, W: TokenWindow<'a>>(
+    win: &mut W,
+    tag: Option<&'a str>,
+) -> Option<&'a str> {
     if starts_with_number(tag) {
         win.slide_window_by(1);
         return tag;

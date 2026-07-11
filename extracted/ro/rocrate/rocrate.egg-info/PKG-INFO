@@ -1,10 +1,10 @@
 Metadata-Version: 2.4
 Name: rocrate
-Version: 0.15.0
+Version: 0.15.1
 Summary: RO-Crate metadata generator/parser
 Home-page: https://github.com/ResearchObject/ro-crate-py/
-Download-URL: https://github.com/researchobject/ro-crate-py/archive/0.15.0.tar.gz
-Author: Daniel Bauer, Eli Chadwick, Paul De Geest, Bert Droesbeke, Ignacio Eguinoa, Alban Gaignard, Matthias Hörtenhuber, Sebastiaan Huber, Bruno Kinoshita, Simone Leo, Pablo Orviz, Luca Pireddu, Laura Rodríguez-Navas, Raül Sirvent, Stian Soiland-Reyes, Laurent Thomas
+Download-URL: https://github.com/researchobject/ro-crate-py/archive/0.15.1.tar.gz
+Author: Daniel Bauer, Eli Chadwick, Paul De Geest, Bert Droesbeke, Ignacio Eguinoa, Alban Gaignard, Matthias Hörtenhuber, Sebastiaan Huber, Bruno Kinoshita, Julian Lenz, Simone Leo, Pablo Orviz, Luca Pireddu, Laura Rodríguez-Navas, Raül Sirvent, Stian Soiland-Reyes, Laurent Thomas
 Author-email: stain@apache.org
 License: Apache-2.0
 Keywords: researchobject ro-crate ro metadata jsonld
@@ -677,6 +677,7 @@ Options:
 * Copyright 2025-2026 Senckenberg Society for Nature Research (SGN), DE
 * Copyright 2025-2026 European Molecular Biology Laboratory (EMBL), Heidelberg, DE
 * Copyright 2026 Spanish National Research Council (CSIC), ES
+* Copyright 2026 Helmholtz-Zentrum Dresden-Rossendorf (HZDR), DE
 
 Licensed under the
 Apache License, version 2.0 <https://www.apache.org/licenses/LICENSE-2.0>,

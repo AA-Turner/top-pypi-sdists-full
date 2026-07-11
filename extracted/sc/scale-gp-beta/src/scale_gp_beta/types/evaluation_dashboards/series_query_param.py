@@ -57,6 +57,15 @@ class SeriesQueryParam(TypedDict, total=False):
     group_by: Annotated[SequenceNotStr[str], PropertyInfo(alias="groupBy")]
     """Columns to group by"""
 
+    latest_only: bool
+    """
+    When True, the widget computes against rows from only the most recent active
+    evaluation in the group (by EvaluationORM.created_at). Only applicable for
+    evaluation group dashboards. Composes with evaluation_ids (latest within the
+    subset). Cannot be combined with per-aggregation evaluation_ids; the use case
+    enforces these rules.
+    """
+
     limit: int
     """Max rows to return"""
 

@@ -222,6 +222,12 @@ def test_data_store_usage_get(statsig_setup):
     assert gate.details.reason == "Adapter(DataStore):Recognized"
     assert gate.value == True
     assert gate.details.lcut == known_lcut
+
+    for _ in range(100):
+        if data_store.get_called_count >= 2:
+            break
+        sleep(0.05)
+
     assert data_store.get_called_count > 1
 
 

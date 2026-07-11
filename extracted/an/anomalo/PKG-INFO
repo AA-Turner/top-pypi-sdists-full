@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: anomalo
-Version: 0.44.3
+Version: 0.45.0
 Summary: Python bindings for the Anomalo API
 License: Apache-2.0
 License-File: LICENSE
@@ -17,10 +17,13 @@ Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
+Provides-Extra: shacl
 Requires-Dist: casefy (>=1.1.0,<2.0.0)
 Requires-Dist: dataclasses-json (>=0.5.7,<0.6.0)
 Requires-Dist: fire (>=0.7.0,<0.8.0)
+Requires-Dist: pyshacl (>=0.29.0,<0.30.0) ; extra == "shacl"
 Requires-Dist: pyyaml (>=6.0.1,<7.0.0)
+Requires-Dist: rdflib (>=7.6.0,<8.0.0) ; extra == "shacl"
 Requires-Dist: requests (>=2.20.0,<3.0.0)
 Requires-Dist: tenacity (>=8.1.0,<9.0.0)
 Project-URL: Homepage, https://anomalo.com

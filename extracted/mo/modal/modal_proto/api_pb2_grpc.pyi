@@ -194,6 +194,10 @@ class ModalClientStub:
         modal_proto.api_pb2.ContainerReloadVolumesRequest,
         modal_proto.api_pb2.ContainerReloadVolumesResponse,
     ]
+    ContainerServerLifecycleReady: grpc.UnaryUnaryMultiCallable[
+        modal_proto.api_pb2.ContainerServerLifecycleReadyRequest,
+        google.protobuf.empty_pb2.Empty,
+    ]
     ContainerStop: grpc.UnaryUnaryMultiCallable[
         modal_proto.api_pb2.ContainerStopRequest,
         modal_proto.api_pb2.ContainerStopResponse,
@@ -286,11 +290,15 @@ class ModalClientStub:
         modal_proto.api_pb2.EndpointStopRequest,
         modal_proto.api_pb2.EndpointStopResponse,
     ]
+    EnvironmentBillingSummary: grpc.UnaryUnaryMultiCallable[
+        modal_proto.api_pb2.EnvironmentBillingSummaryRequest,
+        modal_proto.api_pb2.EnvironmentBillingSummaryResponse,
+    ]
+    """Environments"""
     EnvironmentCreate: grpc.UnaryUnaryMultiCallable[
         modal_proto.api_pb2.EnvironmentCreateRequest,
         google.protobuf.empty_pb2.Empty,
     ]
-    """Environments"""
     EnvironmentDelete: grpc.UnaryUnaryMultiCallable[
         modal_proto.api_pb2.EnvironmentDeleteRequest,
         google.protobuf.empty_pb2.Empty,
@@ -491,11 +499,15 @@ class ModalClientStub:
         modal_proto.api_pb2.MapStartOrContinueRequest,
         modal_proto.api_pb2.MapStartOrContinueResponse,
     ]
+    MountBatchedCheckExistence: grpc.UnaryUnaryMultiCallable[
+        modal_proto.api_pb2.MountBatchedCheckExistenceRequest,
+        modal_proto.api_pb2.MountBatchedCheckExistenceResponse,
+    ]
+    """Mounts"""
     MountGetOrCreate: grpc.UnaryUnaryMultiCallable[
         modal_proto.api_pb2.MountGetOrCreateRequest,
         modal_proto.api_pb2.MountGetOrCreateResponse,
     ]
-    """Mounts"""
     MountPutFile: grpc.UnaryUnaryMultiCallable[
         modal_proto.api_pb2.MountPutFileRequest,
         modal_proto.api_pb2.MountPutFileResponse,
@@ -596,6 +608,10 @@ class ModalClientStub:
         modal_proto.api_pb2.SandboxGetFromNameRequest,
         modal_proto.api_pb2.SandboxGetFromNameResponse,
     ]
+    SandboxGetFromNameV2: grpc.UnaryUnaryMultiCallable[
+        modal_proto.api_pb2.SandboxGetFromNameRequest,
+        modal_proto.api_pb2.SandboxGetFromNameResponse,
+    ]
     SandboxGetLogs: grpc.UnaryStreamMultiCallable[
         modal_proto.api_pb2.SandboxGetLogsRequest,
         modal_proto.api_pb2.TaskLogsBatch,
@@ -665,7 +681,15 @@ class ModalClientStub:
         modal_proto.api_pb2.SandboxTagsGetRequest,
         modal_proto.api_pb2.SandboxTagsGetResponse,
     ]
+    SandboxTagsGetV2: grpc.UnaryUnaryMultiCallable[
+        modal_proto.api_pb2.SandboxTagsGetRequest,
+        modal_proto.api_pb2.SandboxTagsGetResponse,
+    ]
     SandboxTagsSet: grpc.UnaryUnaryMultiCallable[
+        modal_proto.api_pb2.SandboxTagsSetRequest,
+        google.protobuf.empty_pb2.Empty,
+    ]
+    SandboxTagsSetV2: grpc.UnaryUnaryMultiCallable[
         modal_proto.api_pb2.SandboxTagsSetRequest,
         google.protobuf.empty_pb2.Empty,
     ]
@@ -877,7 +901,7 @@ class ModalClientStub:
         modal_proto.api_pb2.WebhookTokenCreateRequest,
         modal_proto.api_pb2.TokenCreateResponse,
     ]
-    """Webhook tokens (proxy auth tokens)"""
+    """Webhook tokens (proxy tokens)"""
     WebhookTokenDelete: grpc.UnaryUnaryMultiCallable[
         modal_proto.api_pb2.TokenDeleteRequest,
         google.protobuf.empty_pb2.Empty,
@@ -907,6 +931,10 @@ class ModalClientStub:
         modal_proto.api_pb2.WorkspaceBillingReportItem,
     ]
     """Workspaces"""
+    WorkspaceBillingSummary: grpc.UnaryUnaryMultiCallable[
+        modal_proto.api_pb2.WorkspaceBillingSummaryRequest,
+        modal_proto.api_pb2.WorkspaceBillingSummaryResponse,
+    ]
     WorkspaceDashboardUrlGet: grpc.UnaryUnaryMultiCallable[
         modal_proto.api_pb2.WorkspaceDashboardUrlRequest,
         modal_proto.api_pb2.WorkspaceDashboardUrlResponse,
@@ -918,6 +946,18 @@ class ModalClientStub:
     WorkspaceNameLookup: grpc.UnaryUnaryMultiCallable[
         google.protobuf.empty_pb2.Empty,
         modal_proto.api_pb2.WorkspaceNameLookupResponse,
+    ]
+    WorkspaceSetDefaultEnvironment: grpc.UnaryUnaryMultiCallable[
+        modal_proto.api_pb2.WorkspaceSetDefaultEnvironmentRequest,
+        google.protobuf.empty_pb2.Empty,
+    ]
+    WorkspaceSetImageBuilderVersion: grpc.UnaryUnaryMultiCallable[
+        modal_proto.api_pb2.WorkspaceSetImageBuilderVersionRequest,
+        modal_proto.api_pb2.WorkspaceSetImageBuilderVersionResponse,
+    ]
+    WorkspaceSettings: grpc.UnaryUnaryMultiCallable[
+        google.protobuf.empty_pb2.Empty,
+        modal_proto.api_pb2.WorkspaceSettingsResponse,
     ]
 
 class ModalClientServicer(metaclass=abc.ABCMeta):
@@ -1194,6 +1234,12 @@ class ModalClientServicer(metaclass=abc.ABCMeta):
         context: grpc.ServicerContext,
     ) -> modal_proto.api_pb2.ContainerReloadVolumesResponse: ...
     @abc.abstractmethod
+    def ContainerServerLifecycleReady(
+        self,
+        request: modal_proto.api_pb2.ContainerServerLifecycleReadyRequest,
+        context: grpc.ServicerContext,
+    ) -> google.protobuf.empty_pb2.Empty: ...
+    @abc.abstractmethod
     def ContainerStop(
         self,
         request: modal_proto.api_pb2.ContainerStopRequest,
@@ -1330,12 +1376,18 @@ class ModalClientServicer(metaclass=abc.ABCMeta):
         context: grpc.ServicerContext,
     ) -> modal_proto.api_pb2.EndpointStopResponse: ...
     @abc.abstractmethod
+    def EnvironmentBillingSummary(
+        self,
+        request: modal_proto.api_pb2.EnvironmentBillingSummaryRequest,
+        context: grpc.ServicerContext,
+    ) -> modal_proto.api_pb2.EnvironmentBillingSummaryResponse:
+        """Environments"""
+    @abc.abstractmethod
     def EnvironmentCreate(
         self,
         request: modal_proto.api_pb2.EnvironmentCreateRequest,
         context: grpc.ServicerContext,
-    ) -> google.protobuf.empty_pb2.Empty:
-        """Environments"""
+    ) -> google.protobuf.empty_pb2.Empty: ...
     @abc.abstractmethod
     def EnvironmentDelete(
         self,
@@ -1633,12 +1685,18 @@ class ModalClientServicer(metaclass=abc.ABCMeta):
         context: grpc.ServicerContext,
     ) -> modal_proto.api_pb2.MapStartOrContinueResponse: ...
     @abc.abstractmethod
+    def MountBatchedCheckExistence(
+        self,
+        request: modal_proto.api_pb2.MountBatchedCheckExistenceRequest,
+        context: grpc.ServicerContext,
+    ) -> modal_proto.api_pb2.MountBatchedCheckExistenceResponse:
+        """Mounts"""
+    @abc.abstractmethod
     def MountGetOrCreate(
         self,
         request: modal_proto.api_pb2.MountGetOrCreateRequest,
         context: grpc.ServicerContext,
-    ) -> modal_proto.api_pb2.MountGetOrCreateResponse:
-        """Mounts"""
+    ) -> modal_proto.api_pb2.MountGetOrCreateResponse: ...
     @abc.abstractmethod
     def MountPutFile(
         self,
@@ -1788,6 +1846,12 @@ class ModalClientServicer(metaclass=abc.ABCMeta):
         context: grpc.ServicerContext,
     ) -> modal_proto.api_pb2.SandboxGetFromNameResponse: ...
     @abc.abstractmethod
+    def SandboxGetFromNameV2(
+        self,
+        request: modal_proto.api_pb2.SandboxGetFromNameRequest,
+        context: grpc.ServicerContext,
+    ) -> modal_proto.api_pb2.SandboxGetFromNameResponse: ...
+    @abc.abstractmethod
     def SandboxGetLogs(
         self,
         request: modal_proto.api_pb2.SandboxGetLogsRequest,
@@ -1891,7 +1955,19 @@ class ModalClientServicer(metaclass=abc.ABCMeta):
         context: grpc.ServicerContext,
     ) -> modal_proto.api_pb2.SandboxTagsGetResponse: ...
     @abc.abstractmethod
+    def SandboxTagsGetV2(
+        self,
+        request: modal_proto.api_pb2.SandboxTagsGetRequest,
+        context: grpc.ServicerContext,
+    ) -> modal_proto.api_pb2.SandboxTagsGetResponse: ...
+    @abc.abstractmethod
     def SandboxTagsSet(
+        self,
+        request: modal_proto.api_pb2.SandboxTagsSetRequest,
+        context: grpc.ServicerContext,
+    ) -> google.protobuf.empty_pb2.Empty: ...
+    @abc.abstractmethod
+    def SandboxTagsSetV2(
         self,
         request: modal_proto.api_pb2.SandboxTagsSetRequest,
         context: grpc.ServicerContext,
@@ -2204,7 +2280,7 @@ class ModalClientServicer(metaclass=abc.ABCMeta):
         request: modal_proto.api_pb2.WebhookTokenCreateRequest,
         context: grpc.ServicerContext,
     ) -> modal_proto.api_pb2.TokenCreateResponse:
-        """Webhook tokens (proxy auth tokens)"""
+        """Webhook tokens (proxy tokens)"""
     @abc.abstractmethod
     def WebhookTokenDelete(
         self,
@@ -2249,6 +2325,12 @@ class ModalClientServicer(metaclass=abc.ABCMeta):
     ) -> collections.abc.Iterator[modal_proto.api_pb2.WorkspaceBillingReportItem]:
         """Workspaces"""
     @abc.abstractmethod
+    def WorkspaceBillingSummary(
+        self,
+        request: modal_proto.api_pb2.WorkspaceBillingSummaryRequest,
+        context: grpc.ServicerContext,
+    ) -> modal_proto.api_pb2.WorkspaceBillingSummaryResponse: ...
+    @abc.abstractmethod
     def WorkspaceDashboardUrlGet(
         self,
         request: modal_proto.api_pb2.WorkspaceDashboardUrlRequest,
@@ -2266,5 +2348,23 @@ class ModalClientServicer(metaclass=abc.ABCMeta):
         request: google.protobuf.empty_pb2.Empty,
         context: grpc.ServicerContext,
     ) -> modal_proto.api_pb2.WorkspaceNameLookupResponse: ...
+    @abc.abstractmethod
+    def WorkspaceSetDefaultEnvironment(
+        self,
+        request: modal_proto.api_pb2.WorkspaceSetDefaultEnvironmentRequest,
+        context: grpc.ServicerContext,
+    ) -> google.protobuf.empty_pb2.Empty: ...
+    @abc.abstractmethod
+    def WorkspaceSetImageBuilderVersion(
+        self,
+        request: modal_proto.api_pb2.WorkspaceSetImageBuilderVersionRequest,
+        context: grpc.ServicerContext,
+    ) -> modal_proto.api_pb2.WorkspaceSetImageBuilderVersionResponse: ...
+    @abc.abstractmethod
+    def WorkspaceSettings(
+        self,
+        request: google.protobuf.empty_pb2.Empty,
+        context: grpc.ServicerContext,
+    ) -> modal_proto.api_pb2.WorkspaceSettingsResponse: ...
 
 def add_ModalClientServicer_to_server(servicer: ModalClientServicer, server: grpc.Server) -> None: ...

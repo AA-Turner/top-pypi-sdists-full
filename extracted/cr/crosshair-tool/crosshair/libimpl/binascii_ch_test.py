@@ -3,9 +3,9 @@ import sys
 
 import pytest
 
+from crosshair.behavior_compare import compare_results
 from crosshair.core import analyze_function, run_checkables
 from crosshair.statespace import MessageType
-from crosshair.test_util import compare_results
 
 
 def check_b2a_base64(byts: bytes, newline: bool):
@@ -17,6 +17,24 @@ def check_a2b_base64(byts: bytes, strict_mode: bool):
     """post: _"""
     kw = {"strict_mode": strict_mode} if sys.version_info >= (3, 11) else {}
     return compare_results(binascii.a2b_base64, byts, **kw)
+
+
+def check_a2b_base64_unpadded(byts: bytes):
+    """post: _"""
+    # 3.15 added ``padded``; older versions always require padding.
+    kw = {"padded": False} if sys.version_info >= (3, 15) else {}
+    return compare_results(binascii.a2b_base64, byts, **kw)
+
+
+def check_a2b_base64_alphabet(byts: bytes):
+    """post: _"""
+    # 3.15 added a custom decode ``alphabet``; fall back to the standard one on
+    # older versions so the check stays meaningful everywhere.
+    if sys.version_info >= (3, 15):
+        return compare_results(
+            binascii.a2b_base64, byts, alphabet=binascii.URLSAFE_BASE64_ALPHABET
+        )
+    return compare_results(binascii.a2b_base64, byts)
 
 
 # This is the only real test definition.

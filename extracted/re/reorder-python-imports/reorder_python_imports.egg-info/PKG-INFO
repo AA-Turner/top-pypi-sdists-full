@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: reorder_python_imports
-Version: 3.16.0
+Version: 3.17.0
 Summary: Tool for reordering python imports
 Home-page: https://github.com/asottile/reorder-python-imports
 Author: Anthony Sottile
@@ -10,10 +10,10 @@ Classifier: Programming Language :: Python :: 3
 Classifier: Programming Language :: Python :: 3 :: Only
 Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Programming Language :: Python :: Implementation :: PyPy
-Requires-Python: >=3.9
+Requires-Python: >=3.10
 Description-Content-Type: text/markdown
 License-File: LICENSE
-Requires-Dist: classify-imports>=4.1
+Requires-Dist: classify-imports>=4.5
 
 [![build status](https://github.com/asottile/reorder-python-imports/actions/workflows/main.yml/badge.svg)](https://github.com/asottile/reorder-python-imports/actions/workflows/main.yml)
 [![pre-commit.ci status](https://results.pre-commit.ci/badge/github/asottile/reorder-python-imports/main.svg)](https://results.pre-commit.ci/latest/github/asottile/reorder-python-imports/main)
@@ -61,7 +61,7 @@ Sample `.pre-commit-config.yaml`
 
 ```yaml
 -   repo: https://github.com/asottile/reorder-python-imports
-    rev: v3.16.0
+    rev: v3.17.0
     hooks:
     -   id: reorder-python-imports
 ```

@@ -13,7 +13,6 @@ from contextlib import suppress
 from typing import TypeVar
 
 import grpclib.client
-import grpclib.config
 from grpclib import GRPCError, Status
 from grpclib.exceptions import StreamTerminatedError
 
@@ -23,7 +22,7 @@ from modal_proto import api_pb2, task_command_router_pb2 as sr_pb2
 from modal_proto.task_command_router_grpc import TaskCommandRouterStub
 
 from .._grpc_client import grpc_error_converter
-from .._utils.grpc_utils import ModalChannel
+from .._utils.grpc_utils import ModalChannel, create_channel_config
 from .async_utils import aclosing, retry
 from .grpc_utils import RETRYABLE_GRPC_STATUS_CODES
 
@@ -32,8 +31,8 @@ from .grpc_utils import RETRYABLE_GRPC_STATUS_CODES
 async def _connect_channel(channel: grpclib.client.Channel):
     """Connect to the command router channel.
 
-    Uses a longer retry budget than grpc_utils.connect_channel. In rare cases the sandbox
-    may take a long time to start on the worker after scheduling.
+    Uses a longer retry budget than grpc_utils.create_channel_with_fallbacks. In rare cases the
+    sandbox may take a long time to start on the worker after scheduling.
 
     Retries with exponential backoff (1, 2, 4, 8, 10, 10, ...) capped at 10s per delay.
     Total sleep between attempts: 1 + 2 + 4 + 8 + 10*29 = 305s (~5 min).
@@ -222,10 +221,7 @@ class TaskCommandRouterClient:
             host,
             port,
             ssl=ssl_context,
-            config=grpclib.config.Configuration(
-                http2_connection_window_size=64 * 1024 * 1024,  # 64 MiB
-                http2_stream_window_size=64 * 1024 * 1024,  # 64 MiB
-            ),
+            config=create_channel_config(),
             closed_error_message="Unable to perform operation on a detached sandbox",
         )
 
@@ -810,6 +806,26 @@ class TaskCommandRouterClient:
             return await call_with_retries_on_transient_errors(
                 lambda: self._call_with_auth_retry(self._stub.TaskSetNetworkAccess, request)
             )
+
+    async def reload_volumes(self, task_id: str, timeout: float) -> sr_pb2.TaskReloadVolumesResponse:
+        """Reload all Volumes mounted in the task to reflect their latest committed state.
+
+        Args:
+            task_id: The task whose mounted Volumes should be reloaded.
+            timeout: Client-side deadline in seconds. If the reload does not complete within this
+                window, the call is cancelled and a `modal.exception.TimeoutError` is raised.
+        """
+        request = sr_pb2.TaskReloadVolumesRequest(task_id=task_id)
+        with grpc_error_converter():
+            try:
+                return await asyncio.wait_for(
+                    call_with_retries_on_transient_errors(
+                        lambda: self._call_with_auth_retry(self._stub.TaskReloadVolumes, request, timeout=timeout),
+                    ),
+                    timeout=timeout,
+                )
+            except asyncio.TimeoutError:
+                raise ModalTimeoutError("Timeout expired")
 
     async def _snapshot_with_deadline(self, rpc, request, *, timeout: float, **kwargs):
         # helper method for snapshot_directory and snapshot_filesystem to handle grpc

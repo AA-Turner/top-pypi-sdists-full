@@ -108,18 +108,22 @@ def _decode_response(resp) -> str:
     return raw.decode("utf-8", errors="replace")
 
 
-# ── 색상 팔레트 (해커 그린 테마) ──────────────────────────────────
+# ── 색상 팔레트 (해커 그린 테마 v6.2.74) ─────────────────────────
 THEME = {
-    "primary":   "#00ff41",   # 매트릭스 그린
-    "secondary": "#00d4aa",   # 시안
-    "accent":    "#ff6b35",   # 오렌지 (강조)
-    "dim":       "#4a4a4a",
+    "primary":   "#00ff41",   # 매트릭스 그린 (메인 텍스트)
+    "secondary": "#00d4aa",   # 민트/틸 (서브타이틀, 보조)
+    "accent":    "#00e5ff",   # 사이버 시안 (강조, 툴 이름)
+    "dim":       "#546e7a",   # 다크 그레이 (흐린 텍스트)
+    "border":    "#1b3a1b",   # 다크 그린 보더
     "user_bg":   "#0d1117",
     "ai_bg":     "#0d1117",
-    "border":    "#00ff41",
-    "error":     "#ff3333",
-    "warn":      "#ffcc00",
-    "success":   "#00ff41",
+    "error":     "#ff1744",   # 크리티컬 레드
+    "warn":      "#ffd600",   # 네온 옐로우
+    "success":   "#00ff41",   # 성공 그린
+    "info":      "#ce93d8",   # 라이트 퍼플 (정보)
+    "critical":  "#ff1744",   # CRITICAL 취약점
+    "high":      "#ffd600",   # HIGH 취약점
+    "low":       "#00e5ff",   # LOW 취약점
 }
 
 BANNER = r"""
@@ -134,8 +138,11 @@ BANNER = r"""
 """
 
 PT_STYLE = PTStyle.from_dict({
-    "": "#00ff41",
-    "prompt": "#00ff41 bold",
+    "":              "#00ff41",
+    "prompt":        "#00ff41 bold",
+    "prompt.corner": "#546e7a",   # ┌─ 꺾쇠
+    "prompt.target": "#00e5ff",   # 타겟 URL (시안)
+    "prompt.arrow":  "#00ff41 bold",  # └─▶
 })
 
 
@@ -582,9 +589,8 @@ class BingoTerminal:
         from bingo import __version__ as _bingo_ver
         self.console.print(BANNER.replace("{ver}", _bingo_ver))
         model_cfg = self.config.get_active_model_config()
-        status = f"[{THEME['secondary']}]{model_cfg.display_name()}[/]" if model_cfg else f"[{THEME['warn']}]no model[/]"
+        _model_name = model_cfg.display_name() if model_cfg else "no model"
         lang_label = SUPPORTED_LANGS.get(self.config.lang, self.config.lang)
-        # 전체 스킬 수 (hack-skills 102 + 내장 6 + local 5 + DB 235)
         _hs_dir = Path(__file__).parent.parent / "skills" / "hack-skills"
         _hs_count = sum(1 for d in _hs_dir.iterdir() if d.is_dir() and (d / "SKILL.md").exists()) if _hs_dir.exists() else 0
         try:
@@ -593,12 +599,23 @@ class BingoTerminal:
         except Exception:
             _db_count = 0
         _total = _hs_count + 6 + 5 + _db_count
-        self.console.print(
-            f"  [{THEME['dim']}]lang:[/] {lang_label}   "
-            f"[{THEME['dim']}]model:[/] {status}   "
-            f"[{THEME['dim']}]skills:[/] [{THEME['success']}]{_total} ready[/]\n"
-        )
-        # 네트워크 환경 표시 (VPN 감지 결과 — 백그라운드 조회 완료 대기 최대 2s)
+        # ── v6.2.78: Rich Panel로 상태 박스 교체 ──────────────────────
+        # 수동 패딩 계산은 Rich 마크업 태그 길이/이모지/한자 폭으로 인해
+        # 우측 테두리가 항상 어긋난다 → Panel에 위임하면 자동 정렬.
+        from rich.panel import Panel as _StPanel
+        from rich.text import Text as _StText
+
+        _st = _StText()
+        _st.append("model  : ", style=THEME["dim"])
+        _st.append(_model_name + "\n", style=THEME["secondary"])
+        _st.append("lang   : ", style=THEME["dim"])
+        _st.append(lang_label + "\n", style=THEME["accent"])
+        _st.append("skills : ", style=THEME["dim"])
+        _st.append(f"{_total} ready", style=THEME["success"])
+
+        self.console.print(_StPanel(_st, border_style=THEME["dim"], padding=(0, 2)))
+        self.console.print()
+        # 네트워크 환경 표시
         import time as _t
         for _ in range(20):
             if self._net_env:
@@ -611,11 +628,14 @@ class BingoTerminal:
     def _print_status_bar(self) -> None:
         model_cfg = self.config.get_active_model_config()
         name = model_cfg.display_name() if model_cfg else "—"
-        now = datetime.now().strftime("%H:%M")
+        now = datetime.now().strftime("%H:%M:%S")
+        _target = self._agent_state.get("target", "") if hasattr(self, "_agent_state") else ""
+        _target_str = f" ◈ [{THEME['accent']}]{_target}[/]" if _target else ""
         self.console.print(
             Rule(
-                f"[{THEME['dim']}]{name}  ·  {now}[/]",
+                f"[{THEME['dim']}]⬡ {name}[/]{_target_str}[{THEME['dim']}]  {now}[/]",
                 style=THEME["dim"],
+                characters="─",
             )
         )
 
@@ -809,19 +829,34 @@ class BingoTerminal:
                 self._agent_stop_flag.clear()
 
     def _get_input(self) -> str:
-        model_cfg = self.config.get_active_model_config()
-        model_name = model_cfg.display_name() if model_cfg else "no-model"
+        # ── v6.2.74: 해커 스타일 프롬프트 ──────────────────────────
+        _target = ""
+        if hasattr(self, "_agent_state"):
+            _t = self._agent_state.get("target", "")
+            if _t:
+                # URL에서 도메인만 추출
+                import re as _rp
+                _m = _rp.match(r"https?://([^/]+)", _t)
+                _target = _m.group(1) if _m else _t
+        _target_part = (
+            f'<style bg="#0d1f2d" fg="#00e5ff">─[{_target}]</style>'
+            if _target else ""
+        )
+        _prompt_html = HTML(
+            f'<style fg="#546e7a">┌─</style>'
+            f'<style fg="#00ff41" bg="#0a1a0a"><b>[bingo]</b></style>'
+            f'{_target_part}'
+            f'<style fg="#546e7a">─▶</style> '
+        )
         try:
             return self._session.prompt(
-                HTML(f'<ansigreen><b>❯</b></ansigreen> '),
+                _prompt_html,
                 style=PT_STYLE,
             )
         except RuntimeError:
             # v6.0.3: Python 3.12 + prompt_toolkit asyncio 충돌
-            # 장시간 에이전트 루프 후 asyncio.run() cannot be called from a running event loop
-            # → input() 폴백으로 크래시 방지
             import sys as _sys
-            _sys.stdout.write("❯ ")
+            _sys.stdout.write("┌─[bingo]─▶ ")
             _sys.stdout.flush()
             return input()
 
@@ -2759,7 +2794,12 @@ class BingoTerminal:
         full = ""
         _interrupted = False  # Ctrl+C로 스트림이 중단됐는지 여부
 
-        self.console.print(f"\n[{THEME['secondary']}]bingo[/] [{THEME['dim']}]▸[/]", end=" ")
+        # ── v6.2.74: 해커 스타일 AI 응답 헤더 ──────────────────────
+        _now_str = datetime.now().strftime("%H:%M:%S")
+        self.console.print(
+            f"\n[{THEME['dim']}]╔═[/][{THEME['secondary']}][BINGO][/]"
+            f"[{THEME['dim']}]══ {_now_str} ══▶[/]"
+        )
 
         # 스트리밍 중: 코드 블록 접힌 상태로 실시간 표시
         with Live(console=self.console, refresh_per_second=20, transient=True) as live:
@@ -2823,6 +2863,11 @@ class BingoTerminal:
             self.console.print()
             return final
 
+        # ── v6.2.81: 필터링 후 display가 비었으면 원본(full) 사용 ──────────────
+        # _filter_ai_monologue 가 중국어 응답을 독백으로 오인해 전부 제거하는 버그 방지.
+        if not display.strip() and full.strip():
+            display = full  # 원본 그대로 표시 (필터 우회)
+
         try:
             _has_rich = "[dim]" in display or "[bold" in display
             _has_md   = "**" in display or "\n# " in display or "\n## " in display
@@ -2869,7 +2914,9 @@ class BingoTerminal:
         # 단락의 첫 줄이 아래 패턴으로 시작하면 단락 전체를 버림
         _PARA_START_PATTERNS = (
             # ── 중국어 자기참조 (deepseek reasoning) ──
-            r"^我需要",                      # 我需要在当前环境...
+            # ⚠ v6.2.81: ^我需要 만으로는 너무 광범위 — 모의/가상/대화 컨텍스트만 필터
+            r"^我需要.*(?:模拟|假设|假装|假冒|生成假|在对话中|假想|虚构|伪造)",
+            r"^我需要在当前",                 # 我需要在当前环境...
             r"^真正的执行是模拟的",
             r"^实际上在对话中",
             r"^实际上我无法真正",
@@ -2902,6 +2949,20 @@ class BingoTerminal:
             r"^我需要继续下一个回复",
             r"^这样有风险",
             r"^但在本对话中，用户",
+            # ── v6.2.83: 계획수립형 중국어 독백 (TOOL_CALL 형식 숙고) ──
+            r"^需要说明，我要以",              # 需要说明，我要以中文输出
+            r"^我将先使用\s*TOOL_CALL",        # 我将先使用 TOOL_CALL:waf_detect
+            r"^注意：用户语言",                # 注意：用户语言是中文，所有输出必须中文
+            r"^最终决定：",                    # 最终决定：第一段为中文分析
+            r"^因此，我的回复结构",            # 因此，我的回复结构：
+            r"^由于这是一个长时间任务",        # 由于这是一个长时间任务，我需要
+            r"^但是一次回复只能有",            # 但是一次回复只能有一个TOOL_CALL
+            r"^按照规则，每个回复应该是",      # 按照规则，每个回复应该是一个代码块
+            r"^但是系统要求我以.*TOOL_CALL",   # 但是系统要求我以"TOOL_CALL:"格式
+            r"^但这里我只能发出一个",          # 但这里我只能发出一个TOOL_CALL
+            r"^所以这个回复我将只包含",        # 所以这个回复我将只包含waf_detect
+            r"^实际上系统说.*TOOL_CALL",       # 实际上系统说"...TOOL_CALL..."
+            r"^我认为可以混合：先写推理",      # 我认为可以混合：先写推理
             # ── 한국어 자기참조 (모델이 한국어로 thinking 출력 시) ──
             r"^저는 실제로 실행할 수 없",
             r"^실제로는 스크립트를 실행할 수 없",
@@ -2964,6 +3025,12 @@ class BingoTerminal:
             r"^Now, output the final\b",
             r"^output the final response\b",
             r"^The user likely expects\b",
+            # v6.2.83: 계획수립형 중국어 독백 줄 단위 패턴
+            r"^注意：用户语言",
+            r"^最终决定：",
+            r"^但是一次回复只能有",
+            r"^我将先使用\s*TOOL_CALL",
+            r"^因此，我的回复结构",
         )
         filtered_lines: list[str] = []
         skip = False
@@ -4560,8 +4627,7 @@ class BingoTerminal:
                 f"=== MULTI-AGENT SCAN RESULTS for {url} ===\n"
                 f"{summary}\n"
                 f"=== END SCAN RESULTS ===\n"
-                f"위 스캔 결과를 분석하고 발견된 취약점을 한국어로 요약해줘. "
-                f"가장 심각한 것부터 정리하고, 다음 공격 단계를 추천해줘."
+                + self.s.get("scan_summary_prompt", "Analyze the scan results above and summarize vulnerabilities found.")
             )
         ))
         self._send_message("")
@@ -4785,7 +4851,7 @@ class BingoTerminal:
                         continue
                     # 복구 성공
                     self.console.print(
-                        f"[{THEME['warn']}]⚠ TOOL_CALL JSON 자동복구 성공 ({_tool_name})[/]"
+                        f"[{THEME['warn']}]{self.s.get('tool_call_json_recovered', '⚠ TOOL_CALL JSON auto-recovered ({name})').format(name=_tool_name)}[/]"
                     )
 
                 if execute_tool is None:
@@ -4794,11 +4860,14 @@ class BingoTerminal:
                     )
                     continue
 
-                # 도구 실행
+                # ── v6.2.74: 도구 실행 해커 스타일 헤더 ───────────────
+                _args_preview = str(_tool_args)[:100]
                 self.console.print(
-                    f"\n[{THEME['secondary']}]🔧 TOOL_CALL:[/] "
-                    f"[{THEME['primary']}]{_tool_name}[/] "
-                    f"[{THEME['dim']}]{str(_tool_args)[:120]}[/]"
+                    f"\n[{THEME['dim']}]┌─[/][{THEME['accent']}]⚙ {_tool_name}[/]"
+                    f"[{THEME['dim']}]──────────────────────────────[/]"
+                )
+                self.console.print(
+                    f"[{THEME['dim']}]│  {_args_preview}[/]"
                 )
 
                 _t0 = __import__("time").time()
@@ -4811,9 +4880,10 @@ class BingoTerminal:
 
                 # 화면에 결과 미리보기 출력 (v5.2.7: 스마트 필터 적용)
                 _color = THEME["success"] if _ok else THEME["warn"]
+                _status_icon = "✔" if _ok else "✘"
                 self.console.print(
-                    f"[{_color}]{'✅' if _ok else '⚠'} TOOL_RESULT  "
-                    f"exit={_ec} elapsed={_elapsed}s[/]"
+                    f"[{THEME['dim']}]└─[/][{_color}]{_status_icon} exit={_ec}[/]"
+                    f"[{THEME['dim']}]  elapsed={_elapsed}s[/]"
                 )
                 if _out:
                     import re as _re_tr
@@ -8874,21 +8944,36 @@ class BingoTerminal:
         if not finding:
             return
 
-        # ── 발견 UI 알림 ──────────────────────────────────────────────
-        _sev_color = {"CRITICAL": "#ff4444", "HIGH": "#ff8c00"}.get(
-            finding.severity, "#ffaa00"
+        # ── v6.2.76: 취약점 알림 박스 (Rich Panel — 자동 너비 정렬) ──
+        # len() 패딩 대신 Rich Panel을 사용해 이모지/한자 폭 오계산 방지
+        from rich.panel import Panel as _AlertPanel
+        from rich.markup import escape as _alert_esc
+        _sev_map = {
+            "CRITICAL": ("#ff1744", "CRITICAL"),
+            "HIGH":     ("#ffd600", "HIGH"),
+        }
+        _sev_color, _sev_label = _sev_map.get(
+            finding.severity, ("#ffd600", finding.severity)
         )
         _fe_title = self.s.get(
             "fe_finding_detected",
-            {"ko": "⚡ 취약점 발견 감지", "zh": "⚡ 检测到漏洞发现", "en": "⚡ Finding Detected"},
+            {"ko": "취약점 발견", "zh": "漏洞发现", "en": "Finding Detected"},
         )
-        _fe_title_str = _fe_title.get(_lang, _fe_title.get("en", "⚡ Finding Detected")) \
+        _fe_title_str = _fe_title.get(_lang, _fe_title.get("en", "Finding Detected")) \
             if isinstance(_fe_title, dict) else str(_fe_title)
 
-        self.console.print(
-            f"\n[{_sev_color}][{finding.severity}] {_fe_title_str}[/]\n"
-            f"[#4a4a4a]  ID: {finding.id}  |  Type: {finding.vuln_type}[/]"
+        _vuln_body = (
+            f"[{_sev_color}]! {_sev_label}[/]  —  {_fe_title_str}\n"
+            f"[{THEME['dim']}]ID   :[/] {_alert_esc(finding.id)}\n"
+            f"[{THEME['dim']}]Type :[/] [{_sev_color}]{_alert_esc(finding.vuln_type)}[/]"
         )
+        self.console.print()
+        self.console.print(_AlertPanel(
+            _vuln_body,
+            border_style=_sev_color,
+            padding=(0, 2),
+            width=62,
+        ))
 
         # ── XSS URL 탐지 → Playwright 자동 검증 ──────────────────────
         if finding.vuln_type == "xss":
@@ -8983,12 +9068,120 @@ class BingoTerminal:
                 if isinstance(_unconf_msg, dict) else str(_unconf_msg)
             self.console.print(f"[#ffaa00]{_unconf_str}[/]")
 
+    def _render_hacker_report(self, md_text: str, target: str) -> None:
+        """마크다운 보고서를 해커 스타일 터미널 UI로 렌더링한다.
+        v6.2.80: 모든 박스를 Rich Panel로 교체 — CJK/이모지 폭 오계산 완전 해결.
+        """
+        import re
+        from rich.panel import Panel as _P
+        from rich.text import Text as _T
+        from rich.markup import escape as _esc
+        from datetime import datetime as _dt
+
+        # ── 심각도 색상 맵 ─────────────────────────────────────────────
+        _sev_map = {
+            "CRITICAL": "#ff1744", "Critical": "#ff1744",
+            "HIGH":     "#ffd600", "High":     "#ffd600",
+            "MEDIUM":   "#ff8f00", "Medium":   "#ff8f00",
+            "LOW":      "#00e5ff", "Low":      "#00e5ff",
+            "INFO":     "#ce93d8", "Info":     "#ce93d8",
+        }
+
+        def _apply_sev(txt: str) -> str:
+            for kw, col in _sev_map.items():
+                if kw in txt:
+                    txt = txt.replace(kw, f"[{col}]{kw}[/]")
+            return txt
+
+        # ── 보고서 상단 배너 (Rich Panel) ─────────────────────────────
+        _now = _dt.now().strftime("%Y-%m-%d  %H:%M:%S")
+        _bt = _T()
+        _bt.append("BINGO PENETRATION TEST REPORT\n", style=THEME["primary"])
+        _bt.append("─" * 48 + "\n", style=THEME["dim"])
+        _bt.append("TARGET : ", style=THEME["dim"])
+        _bt.append(_esc(target) + "\n", style=THEME["accent"])
+        _bt.append("DATE   : ", style=THEME["dim"])
+        _bt.append(_now, style=THEME["dim"])
+        self.console.print()
+        self.console.print(_P(_bt, border_style=THEME["primary"], padding=(0, 2)))
+
+        # ── 섹션 색상 맵 ──────────────────────────────────────────────
+        _section_colors = {
+            "summary": THEME["secondary"], "요약": THEME["secondary"], "摘要": THEME["secondary"],
+            "vulnerabilities": "#ffd600",  "취약점": "#ffd600",        "漏洞": "#ffd600",
+            "vuln": "#ffd600",
+            "evidence": "#ff8f00",         "증거": "#ff8f00",          "证据": "#ff8f00",
+            "payload": "#ff8f00",
+            "credentials": "#ff1744",      "자격증명": "#ff1744",      "凭据": "#ff1744",
+            "credential": "#ff1744",
+            "recommended": "#00e5ff",      "권고": "#00e5ff",          "修复": "#00e5ff",
+            "fix": "#00e5ff", "remediation": "#00e5ff", "조치": "#00e5ff",
+        }
+
+        def _get_color(title: str) -> str:
+            lc = title.lower()
+            for kw, col in _section_colors.items():
+                if kw in lc or kw in title:
+                    return col
+            return THEME["dim"]
+
+        # ── 섹션별 파싱 → 각 섹션을 Rich Panel로 출력 ─────────────────
+        _section_re = re.compile(r'^#{1,3}\s+(.+)$')
+        _bullet_re  = re.compile(r'^[-*]\s+(.+)$')
+
+        lines = md_text.splitlines()
+        cur_title: str | None = None
+        cur_color = THEME["dim"]
+        sec_lines: list[str] = []
+
+        def _flush(title: str | None, color: str, body: list[str]) -> None:
+            """섹션 내용을 Rich Panel로 출력."""
+            if not body:
+                return
+            ct = _T()
+            for ln in body:
+                if not ln.strip():
+                    ct.append("\n")
+                    continue
+                m = _bullet_re.match(ln)
+                display = f"  ▸ {m.group(1)}" if m else ln
+                ct.append(_apply_sev(_esc(display)) + "\n")
+            if ct.plain.strip():
+                self.console.print(_P(
+                    ct,
+                    title=f"[{color}] {_esc(title)} [/]" if title else None,
+                    border_style=color,
+                    padding=(0, 2),
+                ))
+
+        for raw in lines:
+            line = raw.rstrip()
+            m_sec = _section_re.match(line)
+            if m_sec:
+                _flush(cur_title, cur_color, sec_lines)
+                sec_lines = []
+                cur_title = m_sec.group(1)
+                cur_color = _get_color(cur_title)
+            elif line.startswith("---") or line.startswith("==="):
+                pass
+            else:
+                sec_lines.append(line)
+
+        _flush(cur_title, cur_color, sec_lines)
+
+        # ── 보고서 푸터 ────────────────────────────────────────────────
+        self.console.print(
+            f"\n[{THEME['dim']}]  END OF REPORT  ·  generated by bingo[/]\n"
+        )
+
     def _auto_generate_report(self) -> None:
         """작업 완료/중단 시 지금까지 발견한 내용을 자동으로 마크다운 보고서로 저장."""
         from ..models.registry import ModelRegistry
         from rich.rule import Rule
         from pathlib import Path
-        import datetime
+        # datetime 클래스는 파일 최상단 'from datetime import datetime'으로 이미 임포트됨.
+        # 여기서 'import datetime' (모듈)을 하면 클래스를 덮어써서
+        # datetime.now() → AttributeError 발생 → 제거
 
         model_cfg = self.config.get_active_model_config()
         if not model_cfg:
@@ -9001,7 +9194,7 @@ class BingoTerminal:
 
         # 보고서 저장 경로 — BINGO_REPORTS_DIR 환경변수 우선, 없으면 Desktop/dump/타겟명/
         import os as _os_report
-        ts = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+        ts = datetime.now().strftime("%Y%m%d_%H%M%S")
         safe_target = (target or "unknown").replace("https://", "").replace("http://", "").replace("/", "_")[:30]
         _env_dir = _os_report.environ.get("BINGO_REPORTS_DIR", "").strip()
         if _env_dir:
@@ -9112,15 +9305,25 @@ class BingoTerminal:
 
         temp_messages = [self._get_system_message("")] + self.history[-8:] + [prompt_msg]
 
-        self.console.print(Rule(
-            f"[bold green]📋 {self.s.get('report_generating', 'Generating report')}[/bold green]",
-            style="green"
-        ))
+        # ── v6.2.74: 해커 스타일 보고서 생성 헤더 ──────────────────────
+        _gen_label = self.s.get('report_generating', 'Generating Report')
+        # ── v6.2.80: Rich Panel로 교체 ──────────────────────────────
+        from rich.panel import Panel as _HdrPanel
+        from rich.text import Text as _HdrText
+        _ht = _HdrText()
+        _ht.append("▌ BINGO PENTEST REPORT GENERATOR\n", style=THEME["primary"])
+        _ht.append("target : ", style=THEME["dim"])
+        _ht.append(target, style=THEME["accent"])
+        self.console.print(_HdrPanel(_ht, border_style=THEME["dim"], padding=(0, 2)))
 
         try:
             model = ModelRegistry.build(model_cfg)
             full = ""
-            self.console.print(f"\n[{THEME['secondary']}]bingo[/] [{THEME['dim']}]▸[/]", end=" ")
+            _now_r = datetime.now().strftime("%H:%M:%S")
+            self.console.print(
+                f"\n[{THEME['dim']}]╔═[/][{THEME['secondary']}][REPORT GEN][/]"
+                f"[{THEME['dim']}]══ {_now_r} ══▶[/]"
+            )
 
             with Live(console=self.console, refresh_per_second=15, transient=True) as live:
                 from rich.text import Text as _Text
@@ -9135,40 +9338,24 @@ class BingoTerminal:
 
             if full.strip():
                 self.console.print()
-                from rich.markup import escape as _esc
-                from rich.panel import Panel as _Panel
-                self.console.print(_Panel(
-                    _esc(full.strip()),
-                    title=f"[bold green]📋 {self.s.get('report_saved', 'Report')}[/bold green]",
-                    border_style="green",
-                    padding=(1, 2),
-                ))
+                # ── 해커 스타일 보고서 본문 출력 ─────────────────────────
+                self._render_hacker_report(full.strip(), target)
+
                 # 파일로 저장
                 report_path.write_text(full.strip(), encoding="utf-8")
                 _rp_str   = str(report_path.absolute())
-                _ok_label = self.s.get("report_save_ok",   "💾 REPORT SAVED SUCCESSFULLY")
-                _pt_label = self.s.get("report_save_path", "PATH")
-                _title_text = f"  {_ok_label}"
-                _path_text  = f"  {_pt_label}: {_rp_str}"
-                _box_w  = max(len(_title_text), len(_path_text)) + 4
-                _inner  = _box_w - 2
-                _top    = "╔" + "═" * _inner + "╗"
-                _mid    = "╠" + "═" * _inner + "╣"
-                _bot    = "╚" + "═" * _inner + "╝"
-                _pad_t  = _inner - len(_title_text)
-                _title_row = "║" + _title_text + " " * _pad_t + "║"
-                self.console.print(
-                    f"\n[{THEME['success']}]"
-                    f"{_top}\n"
-                    f"{_title_row}\n"
-                    f"{_mid}\n"
-                    f"║  {_pt_label}: [bold]{_rp_str}[/bold]\n"
-                    f"{_bot}"
-                    f"[/]\n"
-                )
-                self.console.print(
-                    f"[{THEME['success']}]  Full path: [bold white]{report_path.absolute()}[/bold white][/]\n"
-                )
+                _ok_label = self.s.get("report_save_ok", "REPORT SAVED SUCCESSFULLY")
+                _now_ts   = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                # ── v6.2.80: Rich Panel로 교체 ───────────────────────────
+                from rich.text import Text as _OkText
+                _ot = _OkText()
+                _ot.append(f"✔ {_ok_label}\n", style=THEME["success"])
+                _ot.append("PATH : ", style=THEME["dim"])
+                _ot.append(_rp_str + "\n", style="bold white")
+                _ot.append("TIME : ", style=THEME["dim"])
+                _ot.append(_now_ts, style=THEME["dim"])
+                from rich.panel import Panel as _OkPanel
+                self.console.print(_OkPanel(_ot, border_style=THEME["success"], padding=(0, 2)))
                 # ── 보고서 직후 인터랙티브 다음 단계 선택지 표시 ────
                 self._suggest_next_steps()
 
@@ -9187,11 +9374,18 @@ class BingoTerminal:
                 )
                 _fe_done_str = _fe_done.get(_lang_fe, _fe_done.get("en", "📊 Findings JSON Saved")) \
                     if isinstance(_fe_done, dict) else str(_fe_done)
-                self.console.print(
-                    f"\n[#00d4aa]{_fe_done_str}:[/]\n"
-                    f"[bold white]  {_fe_path.absolute()}[/bold white]\n"
-                    f"[#4a4a4a]  {_fe_sum}[/]"
-                )
+                # ── v6.2.80: Rich Panel로 교체 ───────────────────────────
+                from rich.text import Text as _FeText
+                from rich.panel import Panel as _FePanel
+                _ft = _FeText()
+                _ft.append(_fe_sum + "\n", style=THEME["dim"])
+                _ft.append(str(_fe_path.absolute()), style="bold white")
+                self.console.print(_FePanel(
+                    _ft,
+                    title=f"[{THEME['secondary']}] {_fe_done_str} [/]",
+                    border_style=THEME["secondary"],
+                    padding=(0, 2),
+                ))
         except Exception:
             pass
 
@@ -9346,30 +9540,36 @@ class BingoTerminal:
             # ── 출력 ──────────────────────────────────────────────────
             from rich.markup import escape as _esc
 
-            # 요약 출력
+            # ── 요약 출력 (v6.2.80: Rich Panel) ─────────────────────────
             if summary_lines:
+                from rich.panel import Panel as _SumPanel
+                from rich.text import Text as _SumText
                 summary_text = " ".join(summary_lines[:3])
-                self.console.print(_Panel(
-                    _esc(summary_text),
-                    title=f"[{THEME['dim']}]{_summary_label}[/]",
+                _st = _SumText()
+                for _sl in summary_text.split(". ")[:3]:
+                    if _sl.strip():
+                        _st.append(_sl.strip() + "\n")
+                self.console.print(_SumPanel(
+                    _st,
+                    title=f"[{THEME['dim']}] {_esc(_summary_label)} [/]",
                     border_style=THEME["dim"],
                     padding=(0, 2),
                 ))
 
             if options:
-                # 선택지 테이블
-                tbl = _Table(
-                    title=f"[bold cyan]{_options_label}[/bold cyan]",
-                    border_style="cyan",
-                    show_header=False,
-                    padding=(0, 1),
-                )
-                tbl.add_column("No", style="bold cyan", width=4, justify="right")
-                tbl.add_column("Action", style="white")
+                # ── 선택지 (v6.2.80: Rich Panel) ─────────────────────
+                from rich.panel import Panel as _OptPanel
+                from rich.text import Text as _OptText
+                _ot = _OptText()
                 for i, opt in enumerate(options, 1):
-                    tbl.add_row(str(i), _esc(opt))
-                self.console.print(tbl)
-                self.console.print()
+                    _ot.append(f"[{i}] ", style=THEME["primary"])
+                    _ot.append(_esc(opt) + "\n")
+                self.console.print(_OptPanel(
+                    _ot,
+                    title=f"[{THEME['accent']}] {_esc(_options_label)} [/]",
+                    border_style=THEME["accent"],
+                    padding=(0, 2),
+                ))
 
                 # ── 번호 입력 대기 ────────────────────────────────────
                 _prompt_txt = _s.get(
@@ -9377,7 +9577,7 @@ class BingoTerminal:
                     "Enter number + Enter (0 = exit, other = type freely)"
                 )
                 self.console.print(
-                    f"[bold cyan]▶[/bold cyan] [{THEME['dim']}]{_prompt_txt}[/]"
+                    f"[{THEME['accent']}]▶[/] [{THEME['dim']}]{_prompt_txt}[/]"
                 )
                 self.console.print()
 
@@ -9424,10 +9624,11 @@ class BingoTerminal:
                     # 숫자가 아니면 그대로 입력으로 처리 (메뉴에서 온 입력 → 침투테스트 강제)
                     self._send_message(raw, _force_pentest=True)
             else:
-                # 파싱 실패 — 원문 그대로 패널로 표시
-                self.console.print(_Panel(
+                # 파싱 실패 — 원문 그대로 해커 스타일 박스로 표시
+                from rich.panel import Panel as _FallbackPanel
+                self.console.print(_FallbackPanel(
                     _esc(full.strip()),
-                    border_style="cyan",
+                    border_style=THEME["accent"],
                     padding=(1, 2),
                 ))
                 self.console.print()
@@ -10666,7 +10867,7 @@ class BingoTerminal:
         """/role [list|set <name>|info|clear]  — 역할 기반 테스트 모드"""
         from ..roles.manager import RoleManager
         from rich.table import Table as _T
-        rm = RoleManager()
+        rm = RoleManager.instance()   # singleton — 상태 유지
         sub = arg.strip().split(None, 1)
         cmd = sub[0].lower() if sub else "list"
         param = sub[1].strip() if len(sub) > 1 else ""
@@ -10677,33 +10878,32 @@ class BingoTerminal:
             t.add_column("Name", style="cyan", width=20)
             t.add_column("Description", overflow="fold")
             for r in roles:
-                name_v = r.name if hasattr(r, "name") else r.get("name", "")
-                desc_v = r.description if hasattr(r, "description") else r.get("description", "")
+                name_v = r.name if hasattr(r, "name") else str(r)
+                desc_v = r.description if hasattr(r, "description") else ""
                 t.add_row(name_v, desc_v)
             self.console.print(t)
-            active = rm.active  # property (not method)
+            active = rm.active()   # 메서드 호출 — 괄호 필수
             if active:
                 active_name = active.name if hasattr(active, "name") else str(active)
                 self.console.print(f"\n[{THEME['success']}]Active role: {active_name}[/]")
+            else:
+                self.console.print(f"\n[dim]Active role: none[/]")
         elif cmd == "set":
             if not param:
                 self._warn("Usage: /role set <name>")
                 return
-            try:
-                result = rm.switch(param)  # switch() not set_role()
-                if result:
-                    self._success(f"Role set → {param}")
-                else:
-                    self._error(f"Role '{param}' not found.")
-            except ValueError as e:
-                self._error(str(e))
+            result = rm.switch(param)
+            if result:
+                self._success(f"Role set → {param}")
+            else:
+                self._error(f"Role '{param}' not found. Use /role list to see available roles.")
         elif cmd == "info":
-            active = rm.active
+            active = rm.active()   # 메서드 호출
             name = param or (active.name if active and hasattr(active, "name") else "")
             if not name:
                 self._warn("No active role. Use /role set <name> first.")
                 return
-            role = rm.get(name)  # get() not get_role_info()
+            role = rm.get(name)
             if role:
                 self.console.print(f"[{THEME['primary']}]Role: {name}[/]")
                 for k, v in (role.__dict__ if hasattr(role, "__dict__") else {}).items():
@@ -10711,7 +10911,7 @@ class BingoTerminal:
             else:
                 self._error(f"Role '{name}' not found.")
         elif cmd == "clear":
-            rm.clear()  # clear() not clear_role()
+            rm.clear()
             self._success("Role cleared.")
         else:
             self._warn("Usage: /role [list|set <name>|info|clear]")
@@ -10805,27 +11005,29 @@ class BingoTerminal:
         cmd = sub[0].lower() if sub else "show"
 
         if cmd == "show" or not arg.strip():
-            data = bb.all()
-            if not data:
+            # bb.list() → [(key, value, ts), ...]
+            rows = bb.list()
+            if not rows:
                 self._info(f"Board for [{target}] is empty. Use /board set <key> <value>")
                 return
             t = _T(title=f"[bold cyan]Blackboard — {target}[/]", border_style=THEME["primary"])
             t.add_column("Key", style="cyan", width=20)
             t.add_column("Value", overflow="fold")
-            for k, v in data.items():
-                t.add_row(k, str(v))
+            t.add_column("Time", width=12, style="dim")
+            for k, v, ts in rows:
+                t.add_row(k, str(v), str(ts))
             self.console.print(t)
         elif cmd == "set":
             if len(sub) < 3:
                 self._warn("Usage: /board set <key> <value>")
                 return
-            bb.set(sub[1], sub[2])
+            bb.upsert(sub[1], sub[2])
             self._success(f"Set [{sub[1]}] = {sub[2]}")
         elif cmd == "del":
             if len(sub) < 2:
                 self._warn("Usage: /board del <key>")
                 return
-            bb.delete(sub[1])
+            bb.remove(sub[1])
             self._success(f"Deleted [{sub[1]}]")
         elif cmd == "clear":
             bb.clear()
@@ -10924,51 +11126,80 @@ class BingoTerminal:
     # ── /batch ────────────────────────────────────────────────────
     def _cmd_batch(self, arg: str = "") -> None:
         """/batch [list|add <url>|run|status|clear]  — 멀티타겟 배치"""
-        from ..batch.runner import BatchRunner
+        from ..batch.runner import BatchRunner, BatchQueue
         from rich.table import Table as _T
-        br = BatchRunner()
+
+        # 세션 레벨 BatchRunner & BatchQueue 유지
+        if not hasattr(self, "_batch_runner"):
+            self._batch_runner = BatchRunner()
+            self._batch_queue: "BatchQueue | None" = None
+
+        br = self._batch_runner
         sub = arg.strip().split(None, 1)
         cmd = sub[0].lower() if sub else "list"
         param = sub[1].strip() if len(sub) > 1 else ""
 
+        def _ensure_queue() -> BatchQueue:
+            if self._batch_queue is None:
+                self._batch_queue = br.create("bingo_batch")
+            return self._batch_queue
+
         if cmd == "list" or not arg.strip():
-            targets = br.list_targets()
-            if not targets:
+            q = self._batch_queue
+            if not q or not q.tasks:
                 self._info("Batch queue is empty. Use /batch add <url>")
                 return
             t = _T(title="[bold cyan]Batch Queue[/]", border_style=THEME["primary"])
             t.add_column("#", width=4, style="dim")
-            t.add_column("URL", overflow="fold")
+            t.add_column("URL / Target", overflow="fold")
             t.add_column("Status", width=12)
-            for i, tgt in enumerate(targets, 1):
-                status_color = {"done": "green", "running": "yellow", "error": "red"}.get(tgt.get("status", ""), "dim")
-                t.add_row(str(i), tgt["url"], f"[{status_color}]{tgt.get('status', 'pending')}[/]")
+            for i, task in enumerate(q.tasks, 1):
+                color = {"done": "green", "running": "yellow", "failed": "red",
+                         "cancelled": "dim"}.get(task.status, "dim")
+                t.add_row(str(i), task.target, f"[{color}]{task.status}[/]")
             self.console.print(t)
+
         elif cmd == "add":
             if not param:
                 self._warn("Usage: /batch add <url>")
                 return
-            br.add_target(param)
-            self._success(f"Added → {param}")
+            q = _ensure_queue()
+            q.add(param, "이 타겟을 전체 점검해줘")
+            self._success(f"Added → {param}  (total: {len(q.tasks)})")
+
         elif cmd == "run":
-            count = len(br.list_targets())
-            if count == 0:
-                self._warn("Batch queue is empty. Use /batch add <url> first.")
+            q = self._batch_queue
+            if not q or not q.pending_tasks():
+                self._warn("Batch queue is empty or all tasks already done. Use /batch add <url> first.")
                 return
+            count = len(q.pending_tasks())
             self.console.print(f"[{THEME['primary']}]🚀 Starting batch scan for {count} targets...[/]")
-            results = br.run_all(
-                scan_fn=lambda url: self._send_message(f"이 타겟을 전체 점검해줘: {url}")
-            )
-            self._success(f"Batch complete — {len(results)} targets processed.")
+
+            def _executor(target_url: str, instruction: str) -> str:
+                self._send_message(f"{instruction}: {target_url}")
+                return "sent"
+
+            br.run(q, executor=_executor,
+                   on_progress=lambda t: self.console.print(
+                       f"  [{('green' if t.status == 'done' else 'red')}]{t.status}[/] {t.target}"))
+            stats = q.stats()
+            self._success(f"Batch complete — {stats}")
+
         elif cmd == "status":
-            results = br.get_results()
-            for r in results:
-                status = r.get("status", "?")
-                color = {"done": "green", "error": "red"}.get(status, "yellow")
-                self.console.print(f"  [{color}]{status}[/] {r['url']}")
+            q = self._batch_queue
+            if not q or not q.tasks:
+                self._info("No batch tasks yet.")
+                return
+            for task in q.tasks:
+                color = {"done": "green", "failed": "red"}.get(task.status, "yellow")
+                dur = f"  ({task.duration():.1f}s)" if task.duration() else ""
+                self.console.print(f"  [{color}]{task.status}[/] {task.target}{dur}")
+
         elif cmd == "clear":
-            br.clear()
+            self._batch_queue = None
+            self._batch_runner = BatchRunner()
             self._success("Batch queue cleared.")
+
         else:
             self._warn("Usage: /batch [list|add <url>|run|status|clear]")
 
@@ -11026,22 +11257,24 @@ class BingoTerminal:
     def _cmd_hitl(self, arg: str = "") -> None:
         """/hitl [on|off|status]  — Human-in-the-loop 확인 게이트"""
         from ..hitl.gate import HitlGate
-        gate = HitlGate()
+        # 세션 전체에서 동일 인스턴스 유지 (매번 새 인스턴스 생성 방지)
+        if not hasattr(self, "_hitl_gate"):
+            self._hitl_gate = HitlGate()
+        gate = self._hitl_gate
         sub = arg.strip().split(None, 1)
         cmd = sub[0].lower() if sub else "status"
 
         if cmd == "on":
-            gate.enabled = True   # enable() 메서드 없음 — 속성 직접 설정
+            gate.enabled = True
             self._success("HITL gate ENABLED — dangerous actions will require confirmation.")
         elif cmd == "off":
-            gate.enabled = False  # disable() 메서드 없음 — 속성 직접 설정
+            gate.enabled = False
             self._success("HITL gate DISABLED.")
         elif cmd == "status" or not arg.strip():
             state = "ENABLED" if gate.enabled else "DISABLED"
             color = "red" if gate.enabled else "dim"
             self.console.print(f"  HITL gate: [{color}]{state}[/]")
         elif cmd == "log":
-            # get_log() 메서드 없음 — 기능 미지원 안내
             self._info("HITL decision log is not available in this version.")
         else:
             self._warn("Usage: /hitl [on|off|status]")

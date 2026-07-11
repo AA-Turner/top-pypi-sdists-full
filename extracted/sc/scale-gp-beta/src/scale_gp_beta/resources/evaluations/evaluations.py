@@ -80,7 +80,19 @@ class EvaluationsResource(SyncAPIResource):
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Evaluation:
         """
-        Create Evaluation
+        Create an evaluation together with its items, optionally running test criteria
+        against them.
+
+        Accepts three request shapes: standalone (inline `data`), from an existing
+        dataset (`dataset_id` with optional per-item references), or with a new reusable
+        dataset created inline from `data`. When the evaluation includes tasks that
+        require execution (for example an LLM judge or custom function), an async job
+        and a Temporal workflow are started and the evaluation is returned immediately
+        with status `running`; task results and `error_count` populate asynchronously.
+        When it includes only contributor tasks, taxonomy-only input, or no tasks, no
+        workflow runs and it is returned with status `completed`. Optional `tasks`,
+        `metadata`, `tags`, and `taxonomy_params` are persisted alongside the evaluation
+        and its items.
 
         Args:
           extra_headers: Send extra headers
@@ -114,7 +126,12 @@ class EvaluationsResource(SyncAPIResource):
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Evaluation:
         """
-        Get Evaluation
+        Retrieve a single evaluation by ID.
+
+        Returns the evaluation with its datasets, async-job progress, metadata, and
+        task-error count. Archived evaluations are excluded unless `include_archived` is
+        set. Pass the `tasks` view to include the evaluation's task configurations in
+        the response.
 
         Args:
           extra_headers: Send extra headers
@@ -158,7 +175,14 @@ class EvaluationsResource(SyncAPIResource):
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Evaluation:
         """
-        Update or Restore Evaluation
+        Update an evaluation's mutable fields, or restore it from the archive.
+
+        The action is selected by the request body: a restore request un-archives the
+        evaluation and cascades the restore to its items and dashboards, while any other
+        body applies a partial update to fields such as name, description, tags, and
+        metadata (metadata is applied as an RFC 7396 merge patch). Updating an
+        already-archived evaluation is rejected — restore it first. The evaluation row
+        is locked for the duration of the write to avoid concurrent-update races.
 
         Args:
           extra_headers: Send extra headers
@@ -200,7 +224,13 @@ class EvaluationsResource(SyncAPIResource):
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> SyncCursorPage[Evaluation]:
         """
-        List Evaluations
+        List evaluations for the account, with pagination.
+
+        Supports filtering by case-insensitive name substring and by tags; archived
+        evaluations are excluded unless `include_archived` is set. Pass the `tasks` view
+        to include each evaluation's task configurations in the response. Use this for
+        simple name or tag lookups; to filter on metadata key-value pairs or status, use
+        the filter endpoint instead.
 
         Args:
           extra_headers: Send extra headers
@@ -249,7 +279,12 @@ class EvaluationsResource(SyncAPIResource):
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Evaluation:
         """
-        Archive Evaluation
+        Archive (soft-delete) an evaluation.
+
+        Sets the evaluation's archived timestamp rather than permanently deleting it,
+        and cascades the archive to the evaluation's items and dashboards while removing
+        it from any evaluation groups. The evaluation can later be brought back with a
+        restore request to the update endpoint.
 
         Args:
           extra_headers: Send extra headers
@@ -288,10 +323,16 @@ class EvaluationsResource(SyncAPIResource):
         extra_body: Body | None = None,
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> SyncCursorPage[Evaluation]:
-        """Filter evaluations using metadata and other criteria.
+        """
+        Filter evaluations by metadata, status, and tags.
 
-        Supports up to 10 filters
-        with AND logic.
+        Accepts up to 10 filters combined with AND logic, each comparing a key against a
+        value with an operator (`==`, `!=`, `>=`, `<=`, `IN`, `NOT_IN`). Filter on
+        metadata keys returned by the metadata-keys endpoint, plus the built-in `status`
+        and `tag` keys. Archived evaluations are excluded unless `include_archived` is
+        set, and the `tasks` view includes task configurations in each result. Use this
+        for metadata or status filtering; for simple name or tag lookups the list
+        endpoint is sufficient.
 
         Args:
           filters: List of metadata filters to apply (maximum 10)
@@ -343,8 +384,14 @@ class EvaluationsResource(SyncAPIResource):
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> EvaluationSchemaResponse:
         """
-        Get schema information for evaluation item data, including field names, types,
-        and occurrence counts.
+        Describe the data schema of an evaluation's items.
+
+        Inspects the item `data` and task-result fields and returns each discovered
+        field with its flattened key path, JSON type, source, and the number of items
+        containing it, ordered alphabetically by field name. For large evaluations the
+        schema may be inferred from a sample of items, in which case `is_sampled` is set
+        and `sample_size` reports how many were analyzed. Set `include_archived` to
+        include archived items in the analysis.
 
         Args:
           include_archived: Include archived items in schema analysis
@@ -386,7 +433,10 @@ class EvaluationsResource(SyncAPIResource):
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> EvaluationRetrieveTaxonomyResponse:
         """
-        Get taxonomy JSON for contributor evaluation question tasks.
+        Get the taxonomy JSON for an evaluation's contributor question tasks.
+
+        Returns the raw taxonomy document stored for the evaluation. Responds with a
+        not-found error if the evaluation has no taxonomy.
 
         Args:
           extra_headers: Send extra headers
@@ -444,7 +494,19 @@ class AsyncEvaluationsResource(AsyncAPIResource):
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Evaluation:
         """
-        Create Evaluation
+        Create an evaluation together with its items, optionally running test criteria
+        against them.
+
+        Accepts three request shapes: standalone (inline `data`), from an existing
+        dataset (`dataset_id` with optional per-item references), or with a new reusable
+        dataset created inline from `data`. When the evaluation includes tasks that
+        require execution (for example an LLM judge or custom function), an async job
+        and a Temporal workflow are started and the evaluation is returned immediately
+        with status `running`; task results and `error_count` populate asynchronously.
+        When it includes only contributor tasks, taxonomy-only input, or no tasks, no
+        workflow runs and it is returned with status `completed`. Optional `tasks`,
+        `metadata`, `tags`, and `taxonomy_params` are persisted alongside the evaluation
+        and its items.
 
         Args:
           extra_headers: Send extra headers
@@ -478,7 +540,12 @@ class AsyncEvaluationsResource(AsyncAPIResource):
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Evaluation:
         """
-        Get Evaluation
+        Retrieve a single evaluation by ID.
+
+        Returns the evaluation with its datasets, async-job progress, metadata, and
+        task-error count. Archived evaluations are excluded unless `include_archived` is
+        set. Pass the `tasks` view to include the evaluation's task configurations in
+        the response.
 
         Args:
           extra_headers: Send extra headers
@@ -522,7 +589,14 @@ class AsyncEvaluationsResource(AsyncAPIResource):
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Evaluation:
         """
-        Update or Restore Evaluation
+        Update an evaluation's mutable fields, or restore it from the archive.
+
+        The action is selected by the request body: a restore request un-archives the
+        evaluation and cascades the restore to its items and dashboards, while any other
+        body applies a partial update to fields such as name, description, tags, and
+        metadata (metadata is applied as an RFC 7396 merge patch). Updating an
+        already-archived evaluation is rejected — restore it first. The evaluation row
+        is locked for the duration of the write to avoid concurrent-update races.
 
         Args:
           extra_headers: Send extra headers
@@ -564,7 +638,13 @@ class AsyncEvaluationsResource(AsyncAPIResource):
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> AsyncPaginator[Evaluation, AsyncCursorPage[Evaluation]]:
         """
-        List Evaluations
+        List evaluations for the account, with pagination.
+
+        Supports filtering by case-insensitive name substring and by tags; archived
+        evaluations are excluded unless `include_archived` is set. Pass the `tasks` view
+        to include each evaluation's task configurations in the response. Use this for
+        simple name or tag lookups; to filter on metadata key-value pairs or status, use
+        the filter endpoint instead.
 
         Args:
           extra_headers: Send extra headers
@@ -613,7 +693,12 @@ class AsyncEvaluationsResource(AsyncAPIResource):
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Evaluation:
         """
-        Archive Evaluation
+        Archive (soft-delete) an evaluation.
+
+        Sets the evaluation's archived timestamp rather than permanently deleting it,
+        and cascades the archive to the evaluation's items and dashboards while removing
+        it from any evaluation groups. The evaluation can later be brought back with a
+        restore request to the update endpoint.
 
         Args:
           extra_headers: Send extra headers
@@ -652,10 +737,16 @@ class AsyncEvaluationsResource(AsyncAPIResource):
         extra_body: Body | None = None,
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> AsyncPaginator[Evaluation, AsyncCursorPage[Evaluation]]:
-        """Filter evaluations using metadata and other criteria.
+        """
+        Filter evaluations by metadata, status, and tags.
 
-        Supports up to 10 filters
-        with AND logic.
+        Accepts up to 10 filters combined with AND logic, each comparing a key against a
+        value with an operator (`==`, `!=`, `>=`, `<=`, `IN`, `NOT_IN`). Filter on
+        metadata keys returned by the metadata-keys endpoint, plus the built-in `status`
+        and `tag` keys. Archived evaluations are excluded unless `include_archived` is
+        set, and the `tasks` view includes task configurations in each result. Use this
+        for metadata or status filtering; for simple name or tag lookups the list
+        endpoint is sufficient.
 
         Args:
           filters: List of metadata filters to apply (maximum 10)
@@ -707,8 +798,14 @@ class AsyncEvaluationsResource(AsyncAPIResource):
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> EvaluationSchemaResponse:
         """
-        Get schema information for evaluation item data, including field names, types,
-        and occurrence counts.
+        Describe the data schema of an evaluation's items.
+
+        Inspects the item `data` and task-result fields and returns each discovered
+        field with its flattened key path, JSON type, source, and the number of items
+        containing it, ordered alphabetically by field name. For large evaluations the
+        schema may be inferred from a sample of items, in which case `is_sampled` is set
+        and `sample_size` reports how many were analyzed. Set `include_archived` to
+        include archived items in the analysis.
 
         Args:
           include_archived: Include archived items in schema analysis
@@ -750,7 +847,10 @@ class AsyncEvaluationsResource(AsyncAPIResource):
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> EvaluationRetrieveTaxonomyResponse:
         """
-        Get taxonomy JSON for contributor evaluation question tasks.
+        Get the taxonomy JSON for an evaluation's contributor question tasks.
+
+        Returns the raw taxonomy document stored for the evaluation. Responds with a
+        not-found error if the evaluation has no taxonomy.
 
         Args:
           extra_headers: Send extra headers

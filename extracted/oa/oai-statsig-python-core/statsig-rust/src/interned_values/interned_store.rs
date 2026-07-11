@@ -2,7 +2,7 @@ use std::{
     borrow::Cow,
     collections::{hash_map::Entry, HashMap},
     fs::{create_dir_all, File},
-    io::Write,
+    io::{self, BufWriter, Write},
     path::{Path, PathBuf},
     sync::{Arc, OnceLock},
     time::{Duration, Instant},
@@ -46,6 +46,7 @@ use crate::{
 
 const TAG: &str = "InternedStore";
 const MMAP_DIRECTORY: &str = "statsig-interned-store";
+const MMAP_WRITE_BUFFER_CAPACITY: usize = 1024 * 1024;
 
 static IMMORTAL_DATA: OnceLock<ImmortalData> = OnceLock::new();
 static MMAP_DATA: OnceLock<LoadedMmapData> = OnceLock::new();
@@ -237,18 +238,26 @@ fn write_mmap_specs(
         create_dir_all(parent).map_err(|e| StatsigErr::FileError(e.to_string()))?;
     }
 
+    let mmap_data = mutable_to_mmap_data(specs_responses)?;
+    publish_mmap_data(mmap_data, path, |data, file| {
+        serialize_mmap_data(data, file)
+    })
+}
+
+fn publish_mmap_data(
+    mmap_data: MmapDataV1,
+    path: &Path,
+    serialize: impl FnOnce(&MmapDataV1, &mut File) -> Result<usize, StatsigErr>,
+) -> Result<(), StatsigErr> {
     let parent = path
         .parent()
         .ok_or_else(|| StatsigErr::FileError("Mmap path has no parent".to_string()))?;
     let mut file = tempfile::NamedTempFile::new_in(parent)
         .map_err(|e| StatsigErr::FileError(e.to_string()))?;
 
-    let mmap_data = mutable_to_mmap_data(specs_responses)?;
-    let archived = rkyv::to_bytes::<rkyv::rancor::Error>(&mmap_data)
-        .map_err(|e| StatsigErr::SerializationError(e.to_string()))?;
+    let archived_len = serialize(&mmap_data, file.as_file_mut())?;
+    drop(mmap_data);
 
-    file.write_all(&archived)
-        .map_err(|e| StatsigErr::FileError(e.to_string()))?;
     #[cfg(unix)]
     file.as_file()
         .set_permissions(std::fs::Permissions::from_mode(0o644))
@@ -262,11 +271,101 @@ fn write_mmap_specs(
     log_d!(
         TAG,
         "Wrote {} bytes to mmap file {}",
-        archived.len(),
+        archived_len,
         path.display()
     );
 
     Ok(())
+}
+
+fn serialize_mmap_data<W: Write>(mmap_data: &MmapDataV1, output: W) -> Result<usize, StatsigErr> {
+    use rkyv::ser::{allocator::Arena, writer::IoWriter, Positional};
+
+    let buffered = BufWriter::with_capacity(MMAP_WRITE_BUFFER_CAPACITY, output);
+    let mut recording = ErrorRecordingWriter::new(buffered);
+    let mut arena = Arena::new();
+
+    let (archive_result, archived_len) = {
+        let mut writer = IoWriter::new(&mut recording);
+        let archive_result = rkyv::api::high::to_bytes_in_with_alloc::<_, _, rkyv::rancor::Error>(
+            mmap_data,
+            &mut writer,
+            arena.acquire(),
+        )
+        .map(|_| ());
+        let archived_len = writer.pos();
+        (archive_result, archived_len)
+    };
+
+    if let Err(error) = archive_result {
+        let mapped = match recording.take_error() {
+            Some(io_error) => StatsigErr::FileError(io_error.to_string()),
+            None => StatsigErr::SerializationError(error.to_string()),
+        };
+        drop(recording);
+        drop(arena);
+        return Err(mapped);
+    }
+
+    recording
+        .flush()
+        .map_err(|error| StatsigErr::FileError(error.to_string()))?;
+    drop(recording);
+    drop(arena);
+    Ok(archived_len)
+}
+
+struct ErrorRecordingWriter<W> {
+    inner: W,
+    error: Option<io::Error>,
+}
+
+impl<W> ErrorRecordingWriter<W> {
+    fn new(inner: W) -> Self {
+        Self { inner, error: None }
+    }
+
+    fn take_error(&mut self) -> Option<io::Error> {
+        self.error.take()
+    }
+
+    fn record(&mut self, error: &io::Error) {
+        if self.error.is_none() {
+            self.error = Some(io::Error::new(error.kind(), error.to_string()));
+        }
+    }
+}
+
+impl<W: Write> Write for ErrorRecordingWriter<W> {
+    fn write(&mut self, buffer: &[u8]) -> io::Result<usize> {
+        match self.inner.write(buffer) {
+            Ok(written) => Ok(written),
+            Err(error) => {
+                self.record(&error);
+                Err(error)
+            }
+        }
+    }
+
+    fn write_all(&mut self, buffer: &[u8]) -> io::Result<()> {
+        match self.inner.write_all(buffer) {
+            Ok(()) => Ok(()),
+            Err(error) => {
+                self.record(&error);
+                Err(error)
+            }
+        }
+    }
+
+    fn flush(&mut self) -> io::Result<()> {
+        match self.inner.flush() {
+            Ok(()) => Ok(()),
+            Err(error) => {
+                self.record(&error);
+                Err(error)
+            }
+        }
+    }
 }
 
 fn preload_mmap_from_path(path: &Path) -> Result<(), StatsigErr> {
@@ -349,6 +448,21 @@ impl InternedStore {
         }
 
         let ptr = get_string_from_local(hash, value);
+        InternedString::from_pointer(hash, ptr)
+    }
+
+    pub fn get_or_intern_owned_string(value: String) -> InternedString {
+        let hash = hashing::hash_one(value.as_bytes());
+
+        if let Some(string) = get_string_from_mmap(hash) {
+            return InternedString::from_static(hash, string);
+        }
+
+        if let Some(string) = get_string_from_shared(hash) {
+            return InternedString::from_static(hash, string);
+        }
+
+        let ptr = get_owned_string_from_local(hash, value);
         InternedString::from_pointer(hash, ptr)
     }
 
@@ -549,6 +663,33 @@ fn get_string_from_local<T: ToString>(hash: u64, value: T) -> Arc<String> {
         log_w!(TAG, "Failed to get string from local");
         Arc::new(value.to_string())
     })
+}
+
+fn get_owned_string_from_local(hash: u64, value: String) -> Arc<String> {
+    let mut data = match MUTABLE_DATA.try_lock_for(Duration::from_secs(5)) {
+        Some(data) => data,
+        None => {
+            #[cfg(test)]
+            panic!("Failed to acquire lock for mutable data (intern_owned_string)");
+
+            #[cfg(not(test))]
+            {
+                log_e!(
+                    TAG,
+                    "Failed to acquire lock for mutable data (intern_owned_string)"
+                );
+                return Arc::new(value);
+            }
+        }
+    };
+
+    if let Some(string) = data.strings.get(&hash) {
+        return string.clone();
+    }
+
+    let ptr = Arc::new(value);
+    data.strings.insert(hash, ptr.clone());
+    ptr
 }
 
 // ------------------------------------------------------------------------------- [ Returnable ]
@@ -859,6 +1000,66 @@ mod mmap_arc_archive_tests {
         }
     }
 
+    struct FailAfterWriter<W> {
+        inner: W,
+        remaining: usize,
+    }
+
+    impl<W> FailAfterWriter<W> {
+        fn new(inner: W, remaining: usize) -> Self {
+            Self { inner, remaining }
+        }
+    }
+
+    impl<W: Write> Write for FailAfterWriter<W> {
+        fn write(&mut self, buffer: &[u8]) -> io::Result<usize> {
+            if self.remaining == 0 {
+                return Err(io::Error::other("injected mmap write failure"));
+            }
+
+            let limit = self.remaining.min(buffer.len());
+            let written = self.inner.write(&buffer[..limit])?;
+            self.remaining -= written;
+            Ok(written)
+        }
+
+        fn flush(&mut self) -> io::Result<()> {
+            self.inner.flush()
+        }
+    }
+
+    struct FailOnFlushWriter<W> {
+        inner: W,
+    }
+
+    struct WriteZeroWriter;
+
+    impl Write for WriteZeroWriter {
+        fn write(&mut self, _buffer: &[u8]) -> io::Result<usize> {
+            Ok(0)
+        }
+
+        fn flush(&mut self) -> io::Result<()> {
+            Ok(())
+        }
+    }
+
+    impl<W> FailOnFlushWriter<W> {
+        fn new(inner: W) -> Self {
+            Self { inner }
+        }
+    }
+
+    impl<W: Write> Write for FailOnFlushWriter<W> {
+        fn write(&mut self, buffer: &[u8]) -> io::Result<usize> {
+            self.inner.write(buffer)
+        }
+
+        fn flush(&mut self) -> io::Result<()> {
+            Err(io::Error::other("injected mmap flush failure"))
+        }
+    }
+
     fn arc_backed_v1_source() -> MmapDataV1 {
         let returnable = HashMap::from([("enabled".to_string(), RkyvValue::Bool(true))]);
         MmapDataV1 {
@@ -946,5 +1147,92 @@ mod mmap_arc_archive_tests {
         let _mmap_data = detached_mutable_to_mmap_data(mutable_data, Vec::new());
 
         assert!(evaluator_weak.upgrade().is_none());
+    }
+
+    #[test]
+    fn previous_v1_reader_reads_streamed_arc_backed_archive() {
+        let mut file = tempfile::NamedTempFile::new().unwrap();
+
+        let archived_len =
+            serialize_mmap_data(&arc_backed_v1_source(), file.as_file_mut()).unwrap();
+
+        assert_eq!(
+            archived_len,
+            file.as_file().metadata().unwrap().len() as usize
+        );
+        let mmap = unsafe { Mmap::map(file.as_file()).unwrap() };
+        let previous =
+            rkyv::access::<PreviousArchivedMmapDataV1, rkyv::rancor::Error>(&mmap).unwrap();
+
+        assert_eq!(previous.format_version(), MmapDataV1::FORMAT_VERSION);
+        assert_eq!(previous.string(7), Some("v1-string"));
+        assert!(matches!(
+            previous.returnable(11, "enabled"),
+            Some(ArchivedRkyvValue::Bool(true))
+        ));
+    }
+
+    #[test]
+    fn write_failure_is_file_error_and_preserves_published_artifact() {
+        let directory = tempfile::tempdir().unwrap();
+        let path = directory.path().join("published.mmap");
+        std::fs::write(&path, b"previous artifact").unwrap();
+        let mmap_data = MmapDataV1 {
+            format_version: MmapDataV1::FORMAT_VERSION,
+            strings: AHashMap::from_iter([(
+                1,
+                Arc::new("x".repeat(MMAP_WRITE_BUFFER_CAPACITY * 2)),
+            )])
+            .into(),
+            returnables: AHashMap::new().into(),
+        };
+
+        let result = publish_mmap_data(mmap_data, &path, |data, file| {
+            serialize_mmap_data(data, FailAfterWriter::new(file, 4096))
+        });
+
+        assert!(matches!(
+            result,
+            Err(StatsigErr::FileError(message))
+                if message.contains("injected mmap write failure")
+        ));
+        assert_eq!(std::fs::read(&path).unwrap(), b"previous artifact");
+        assert_eq!(std::fs::read_dir(directory.path()).unwrap().count(), 1);
+    }
+
+    #[test]
+    fn flush_failure_is_file_error_and_preserves_published_artifact() {
+        let directory = tempfile::tempdir().unwrap();
+        let path = directory.path().join("published.mmap");
+        std::fs::write(&path, b"previous artifact").unwrap();
+
+        let result = publish_mmap_data(MmapDataV1::default(), &path, |data, file| {
+            serialize_mmap_data(data, FailOnFlushWriter::new(file))
+        });
+
+        assert!(matches!(
+            result,
+            Err(StatsigErr::FileError(message))
+                if message.contains("injected mmap flush failure")
+        ));
+        assert_eq!(std::fs::read(&path).unwrap(), b"previous artifact");
+        assert_eq!(std::fs::read_dir(directory.path()).unwrap().count(), 1);
+    }
+
+    #[test]
+    fn write_zero_during_serialization_is_a_file_error() {
+        let mmap_data = MmapDataV1 {
+            format_version: MmapDataV1::FORMAT_VERSION,
+            strings: AHashMap::from_iter([(
+                1,
+                Arc::new("x".repeat(MMAP_WRITE_BUFFER_CAPACITY * 2)),
+            )])
+            .into(),
+            returnables: AHashMap::new().into(),
+        };
+
+        let result = serialize_mmap_data(&mmap_data, WriteZeroWriter);
+
+        assert!(matches!(result, Err(StatsigErr::FileError(_))));
     }
 }

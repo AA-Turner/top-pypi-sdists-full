@@ -4,32 +4,12 @@ import google.protobuf.message
 import modal._object
 import modal.client
 import modal.object
+import modal.types
 import modal_proto.api_pb2
 import synchronicity
 import synchronicity.combined_types
 import typing
 import typing_extensions
-
-class QueueInfo:
-    """Information about the Queue object."""
-
-    name: typing.Optional[str]
-    created_at: datetime.datetime
-    created_by: typing.Optional[str]
-
-    def __init__(
-        self, name: typing.Optional[str], created_at: datetime.datetime, created_by: typing.Optional[str]
-    ) -> None:
-        """Initialize self.  See help(type(self)) for accurate signature."""
-        ...
-
-    def __repr__(self):
-        """Return repr(self)."""
-        ...
-
-    def __eq__(self, other):
-        """Return self==value."""
-        ...
 
 class _QueueManager:
     """Namespace with methods for managing named Queue objects."""
@@ -588,7 +568,7 @@ class _Queue(modal._object._Object):
         """
         ...
 
-    async def info(self) -> QueueInfo:
+    async def info(self) -> modal.types.QueueInfo:
         """Return information about the Queue object."""
         ...
 
@@ -959,11 +939,11 @@ class Queue(modal.object.Object):
         ...
 
     class __info_spec(typing_extensions.Protocol):
-        def __call__(self, /) -> QueueInfo:
+        def __call__(self, /) -> modal.types.QueueInfo:
             """Return information about the Queue object."""
             ...
 
-        async def aio(self, /) -> QueueInfo:
+        async def aio(self, /) -> modal.types.QueueInfo:
             """Return information about the Queue object."""
             ...
 

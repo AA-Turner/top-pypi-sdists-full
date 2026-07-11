@@ -661,25 +661,39 @@ class TaskExecStdinWriteResponse(google.protobuf.message.Message):
 
 global___TaskExecStdinWriteResponse = TaskExecStdinWriteResponse
 
+class TaskExecStdinWriteStreamEnd(google.protobuf.message.Message):
+    DESCRIPTOR: google.protobuf.descriptor.Descriptor
+
+    def __init__(
+        self,
+    ) -> None: ...
+
+global___TaskExecStdinWriteStreamEnd = TaskExecStdinWriteStreamEnd
+
 class TaskExecStdinWriteStreamRequest(google.protobuf.message.Message):
     DESCRIPTOR: google.protobuf.descriptor.Descriptor
 
     START_FIELD_NUMBER: builtins.int
     DATA_FIELD_NUMBER: builtins.int
+    END_FIELD_NUMBER: builtins.int
     @property
     def start(self) -> global___TaskExecStdinWriteStreamStart:
         """Start of a stdin write stream. Includes task_id, exec_id, and offset to write to."""
     data: builtins.bytes
     """A chunk of stdin data to write to the exec'd command."""
+    @property
+    def end(self) -> global___TaskExecStdinWriteStreamEnd:
+        """Signals EOF: close stdin after the data sent so far."""
     def __init__(
         self,
         *,
         start: global___TaskExecStdinWriteStreamStart | None = ...,
         data: builtins.bytes = ...,
+        end: global___TaskExecStdinWriteStreamEnd | None = ...,
     ) -> None: ...
-    def HasField(self, field_name: typing_extensions.Literal["data", b"data", "payload", b"payload", "start", b"start"]) -> builtins.bool: ...
-    def ClearField(self, field_name: typing_extensions.Literal["data", b"data", "payload", b"payload", "start", b"start"]) -> None: ...
-    def WhichOneof(self, oneof_group: typing_extensions.Literal["payload", b"payload"]) -> typing_extensions.Literal["start", "data"] | None: ...
+    def HasField(self, field_name: typing_extensions.Literal["data", b"data", "end", b"end", "payload", b"payload", "start", b"start"]) -> builtins.bool: ...
+    def ClearField(self, field_name: typing_extensions.Literal["data", b"data", "end", b"end", "payload", b"payload", "start", b"start"]) -> None: ...
+    def WhichOneof(self, oneof_group: typing_extensions.Literal["payload", b"payload"]) -> typing_extensions.Literal["start", "data", "end"] | None: ...
 
 global___TaskExecStdinWriteStreamRequest = TaskExecStdinWriteStreamRequest
 
@@ -826,6 +840,29 @@ class TaskMountDirectoryRequest(google.protobuf.message.Message):
     def WhichOneof(self, oneof_group: typing_extensions.Literal["_customer_supplied_encryption_key", b"_customer_supplied_encryption_key"]) -> typing_extensions.Literal["customer_supplied_encryption_key"] | None: ...
 
 global___TaskMountDirectoryRequest = TaskMountDirectoryRequest
+
+class TaskReloadVolumesRequest(google.protobuf.message.Message):
+    DESCRIPTOR: google.protobuf.descriptor.Descriptor
+
+    TASK_ID_FIELD_NUMBER: builtins.int
+    task_id: builtins.str
+    def __init__(
+        self,
+        *,
+        task_id: builtins.str = ...,
+    ) -> None: ...
+    def ClearField(self, field_name: typing_extensions.Literal["task_id", b"task_id"]) -> None: ...
+
+global___TaskReloadVolumesRequest = TaskReloadVolumesRequest
+
+class TaskReloadVolumesResponse(google.protobuf.message.Message):
+    DESCRIPTOR: google.protobuf.descriptor.Descriptor
+
+    def __init__(
+        self,
+    ) -> None: ...
+
+global___TaskReloadVolumesResponse = TaskReloadVolumesResponse
 
 class TaskSetNetworkAccessRequest(google.protobuf.message.Message):
     DESCRIPTOR: google.protobuf.descriptor.Descriptor

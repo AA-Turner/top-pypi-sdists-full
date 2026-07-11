@@ -8,12 +8,14 @@ import subprocess
 import sys
 import time
 import uuid
+import warnings
 from collections.abc import (
     AsyncGenerator,
     AsyncIterator,
     Awaitable,
     Callable,
     Generator,
+    Iterable,
     Iterator,
     Mapping,
     MutableMapping,
@@ -29,10 +31,13 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import nio
 import pytest
 import pytest_asyncio
+import structlog
 import yaml
 from agno.models.base import Model
 from agno.models.response import ModelResponse
 from aioresponses import aioresponses
+from structlog.testing import ReturnLoggerFactory
+from structlog.typing import BindableLogger, Context, Processor, WrappedLogger
 
 import mindroom.bot  # noqa: F401
 from mindroom.agent_storage import get_agent_session, get_team_session
@@ -91,11 +96,52 @@ if TYPE_CHECKING:
     from agno.db.base import BaseDb
     from agno.session.agent import AgentSession
     from agno.session.team import TeamSession
+    from xdist.workermanage import WorkerController
 
     from mindroom.config.models import CompactionConfig
     from mindroom.dispatch_handoff import DispatchEvent
     from mindroom.matrix.cache import ConversationEventCache
     from mindroom.tool_system.worker_routing import ToolExecutionIdentity
+
+
+_STRUCTLOG_CONFIGURE = structlog.configure
+_POSTGRES_CONTAINER_NAME_STASH_KEY = pytest.StashKey[str]()
+_POSTGRES_CONTAINER_PREFIX = "mindroom-postgres-cache-test-"
+_POSTGRES_STARTUP_TIMEOUT_SECONDS = 30
+
+
+def _configure_quiet_structlog() -> None:
+    """Keep incidental test logging cheap and silent."""
+    _STRUCTLOG_CONFIGURE(
+        processors=[],
+        context_class=dict,
+        logger_factory=ReturnLoggerFactory(),
+        wrapper_class=structlog.stdlib.BoundLogger,
+        cache_logger_on_first_use=False,
+    )
+
+
+def _configure_uncached_structlog(
+    processors: Iterable[Processor] | None = None,
+    wrapper_class: type[BindableLogger] | None = None,
+    context_class: type[Context] | None = None,
+    logger_factory: Callable[..., WrappedLogger] | None = None,
+    cache_logger_on_first_use: bool | None = None,
+) -> None:
+    """Prevent logging tests from leaving cached production renderers behind."""
+    # Cached proxies outlive one test, so the suite intentionally overrides this request.
+    _ = cache_logger_on_first_use
+    _STRUCTLOG_CONFIGURE(
+        processors=processors,
+        wrapper_class=wrapper_class,
+        context_class=context_class,
+        logger_factory=logger_factory,
+        cache_logger_on_first_use=False,
+    )
+
+
+_configure_quiet_structlog()
+
 
 __all__ = [
     "TEST_ACCESS_TOKEN",
@@ -384,7 +430,7 @@ async def drain_coalescing(*bots: RuntimeBot) -> None:
 def _wait_for_postgres_container(database_url: str) -> None:
     import psycopg  # noqa: PLC0415
 
-    deadline = time.monotonic() + 30
+    deadline = time.monotonic() + _POSTGRES_STARTUP_TIMEOUT_SECONDS
     last_error: Exception | None = None
     while time.monotonic() < deadline:
         try:
@@ -397,21 +443,84 @@ def _wait_for_postgres_container(database_url: str) -> None:
     raise RuntimeError(msg) from last_error
 
 
-def _postgres_url_from_container_port(docker: str, container_name: str) -> str:
+def _create_postgres_worker_database(database_url: str, worker_id: str) -> str:
+    """Create an isolated database for one worker on the shared Postgres server."""
+    import psycopg  # noqa: PLC0415
+    from psycopg import sql  # noqa: PLC0415
+
+    database_name = f"mindroom_{worker_id}"
+    with psycopg.connect(database_url, autocommit=True) as db:
+        db.execute(sql.SQL("CREATE DATABASE {}").format(sql.Identifier(database_name)))
+    return f"{database_url.rsplit('/', 1)[0]}/{database_name}"
+
+
+def _wait_for_postgres_container_port(docker: str, container_name: str) -> str:
+    """Wait for Docker to publish a shared container's random host port."""
+    deadline = time.monotonic() + _POSTGRES_STARTUP_TIMEOUT_SECONDS
+    last_error = ""
+    while time.monotonic() < deadline:
+        result = subprocess.run(
+            [docker, "port", container_name, "5432/tcp"],
+            check=False,
+            capture_output=True,
+            text=True,
+        )
+        if result.returncode == 0 and result.stdout.strip():
+            mapped_port = result.stdout.strip().splitlines()[-1]
+            _, port = mapped_port.rsplit(":", 1)
+            return f"postgresql://cache:test@127.0.0.1:{port}/mindroom"
+        last_error = result.stderr.strip()
+        time.sleep(0.05)
+    msg = f"Postgres test container did not publish a port: {last_error}"
+    raise RuntimeError(msg)
+
+
+def _postgres_container_name(run_id: str) -> str:
+    """Return the deterministic disposable Postgres container name for one test run."""
+    return f"{_POSTGRES_CONTAINER_PREFIX}{run_id}"
+
+
+def _remove_postgres_container(docker: str, container_name: str) -> None:
+    """Remove one disposable Postgres container if it exists."""
     result = subprocess.run(
-        [docker, "port", container_name, "5432/tcp"],
-        check=True,
+        [docker, "rm", "-f", container_name],
+        check=False,
         capture_output=True,
         text=True,
     )
-    mapped_port = result.stdout.strip().splitlines()[-1]
-    host, port = mapped_port.rsplit(":", 1)
-    return f"postgresql://cache:test@{host.removeprefix('[').removesuffix(']')}:{port}/mindroom"
+    if result.returncode == 0 or "No such container" in result.stderr:
+        return
+    msg = f"Could not remove Postgres test container {container_name}: {result.stderr.strip()}"
+    raise RuntimeError(msg)
+
+
+def pytest_configure_node(node: "WorkerController") -> None:
+    """Remember the shared Postgres container name in the xdist controller."""
+    node.config.stash[_POSTGRES_CONTAINER_NAME_STASH_KEY] = _postgres_container_name(
+        node.workerinput["testrunuid"],
+    )
+
+
+def pytest_sessionfinish(session: pytest.Session) -> None:
+    """Remove the shared Postgres container after every xdist worker has finished."""
+    if hasattr(session.config, "workerinput"):
+        return
+    container_name = session.config.stash.get(_POSTGRES_CONTAINER_NAME_STASH_KEY, None)
+    docker = shutil.which("docker")
+    if container_name is not None and docker is not None:
+        try:
+            _remove_postgres_container(docker, container_name)
+        except RuntimeError as exc:
+            warnings.warn(pytest.PytestWarning(str(exc)), stacklevel=1)
+            session.exitstatus = pytest.ExitCode.TESTS_FAILED
 
 
 @pytest.fixture(scope="session")
-def postgres_event_cache_url() -> Iterator[str]:
-    """Start a disposable Postgres server when Docker is available."""
+def postgres_event_cache_url(
+    worker_id: str,
+    testrun_uid: str,
+) -> Iterator[str]:
+    """Start or reuse one disposable Postgres server for the current test run."""
     docker = shutil.which("docker")
     if docker is None:
         pytest.skip("Docker is required for Postgres event-cache integration tests")
@@ -425,7 +534,9 @@ def postgres_event_cache_url() -> Iterator[str]:
     if info_result.returncode != 0:
         pytest.skip("Docker daemon is unavailable for Postgres event-cache integration tests")
 
-    container_name = f"mindroom-postgres-cache-test-{uuid.uuid4().hex}"
+    shared_across_workers = worker_id != "master"
+    run_id = testrun_uid if shared_across_workers else uuid.uuid4().hex
+    container_name = _postgres_container_name(run_id)
     run_result = subprocess.run(
         [
             docker,
@@ -434,6 +545,8 @@ def postgres_event_cache_url() -> Iterator[str]:
             "-d",
             "--name",
             container_name,
+            "--label",
+            f"mindroom.pytest.run={run_id}",
             "-e",
             "POSTGRES_USER=cache",
             "-e",
@@ -449,19 +562,27 @@ def postgres_event_cache_url() -> Iterator[str]:
         text=True,
     )
     if run_result.returncode != 0:
-        pytest.skip(f"Could not start Postgres test container: {run_result.stderr.strip()}")
-
-    try:
-        database_url = _postgres_url_from_container_port(docker, container_name)
-        _wait_for_postgres_container(database_url)
-        yield database_url
-    finally:
-        subprocess.run(
-            [docker, "rm", "-f", container_name],
+        inspect_result = subprocess.run(
+            [docker, "inspect", "--format", "{{.State.Status}}", container_name],
             check=False,
             capture_output=True,
             text=True,
         )
+        if not shared_across_workers or inspect_result.returncode != 0:
+            pytest.skip(f"Could not start Postgres test container: {run_result.stderr.strip()}")
+        if inspect_result.stdout.strip() in {"dead", "exited"}:
+            msg = f"Shared Postgres test container is {inspect_result.stdout.strip()}"
+            raise RuntimeError(msg)
+
+    try:
+        database_url = _wait_for_postgres_container_port(docker, container_name)
+        _wait_for_postgres_container(database_url)
+        if shared_across_workers:
+            database_url = _create_postgres_worker_database(database_url, worker_id)
+        yield database_url
+    finally:
+        if not shared_across_workers:
+            _remove_postgres_container(docker, container_name)
 
 
 @pytest.fixture(params=("sqlite", "postgres"), ids=("sqlite", "postgres"))
@@ -1375,6 +1496,19 @@ async def aioresponse() -> AsyncGenerator[aioresponses, None]:
     # Based on https://github.com/matrix-nio/matrix-nio/blob/main/tests/conftest_async.py
     with aioresponses() as m:
         yield m
+
+
+@pytest.fixture(autouse=True)
+def _isolate_structlog_configuration(
+    monkeypatch: pytest.MonkeyPatch,
+    request: pytest.FixtureRequest,
+) -> Generator[None, None, None]:
+    """Silence incidental logs and prevent global logging configuration leaks."""
+    _configure_quiet_structlog()
+    if request.node.path.name != "test_logging_config.py":
+        monkeypatch.setattr(structlog, "configure", _configure_uncached_structlog)
+    yield
+    _configure_quiet_structlog()
 
 
 @pytest.fixture(autouse=True)

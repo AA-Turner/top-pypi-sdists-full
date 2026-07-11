@@ -112,6 +112,8 @@ from chalk._gen.chalk.server.v1.cloud_components_pb2 import (
     ListCloudComponentStorageResponse,
     ListCloudComponentVpcRequest,
     ListCloudComponentVpcResponse,
+    ListServerlessClustersRequest,
+    ListServerlessClustersResponse,
     TestClusterConnectionRequest,
     TestClusterConnectionResponse,
     UpdateCloudComponentClusterRequest,
@@ -159,6 +161,10 @@ class CloudComponentsServiceStub:
     ListCloudComponentCluster: UnaryUnaryMultiCallable[
         ListCloudComponentClusterRequest,
         ListCloudComponentClusterResponse,
+    ]
+    ListServerlessClusters: UnaryUnaryMultiCallable[
+        ListServerlessClustersRequest,
+        ListServerlessClustersResponse,
     ]
     DeleteCloudComponentCluster: UnaryUnaryMultiCallable[
         DeleteCloudComponentClusterRequest,
@@ -401,6 +407,12 @@ class CloudComponentsServiceServicer(metaclass=ABCMeta):
         request: ListCloudComponentClusterRequest,
         context: ServicerContext,
     ) -> ListCloudComponentClusterResponse: ...
+    @abstractmethod
+    def ListServerlessClusters(
+        self,
+        request: ListServerlessClustersRequest,
+        context: ServicerContext,
+    ) -> ListServerlessClustersResponse: ...
     @abstractmethod
     def DeleteCloudComponentCluster(
         self,

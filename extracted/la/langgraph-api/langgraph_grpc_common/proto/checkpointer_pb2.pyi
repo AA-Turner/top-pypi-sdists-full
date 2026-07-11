@@ -353,3 +353,116 @@ class GetTupleResponse(_message.Message):
     def WhichOneof(self, oneof_group: _WhichOneofArgType__checkpoint_tuple) -> _WhichOneofReturnType__checkpoint_tuple | None: ...
 
 Global___GetTupleResponse: _TypeAlias = GetTupleResponse  # noqa: Y015
+
+@_typing.final
+class DeltaChannelHistoryEntry(_message.Message):
+    """DeltaChannelHistoryEntry is the per-channel reconstruction result for
+    DeltaChannel state replay (langgraph >= 1.2).
+
+    - `seed` is the last snapshot, or absent when no snapshot was found
+    - `writes` is ordered oldest-to-newest writes between the last snapshot 
+       and the target checkpoint
+    """
+
+    DESCRIPTOR: _descriptor.Descriptor
+
+    SEED_FIELD_NUMBER: _builtins.int
+    WRITES_FIELD_NUMBER: _builtins.int
+    @_builtins.property
+    def seed(self) -> _engine_common_pb2.ChannelValue: ...
+    @_builtins.property
+    def writes(self) -> _containers.RepeatedCompositeFieldContainer[_engine_common_pb2.PendingWrite]: ...
+    def __init__(
+        self,
+        *,
+        seed: _engine_common_pb2.ChannelValue | None = ...,
+        writes: _abc.Iterable[_engine_common_pb2.PendingWrite] | None = ...,
+    ) -> None: ...
+    _HasFieldArgType: _TypeAlias = _typing.Literal["_seed", b"_seed", "seed", b"seed"]  # noqa: Y015
+    def HasField(self, field_name: _HasFieldArgType) -> _builtins.bool: ...
+    _ClearFieldArgType: _TypeAlias = _typing.Literal["_seed", b"_seed", "seed", b"seed", "writes", b"writes"]  # noqa: Y015
+    def ClearField(self, field_name: _ClearFieldArgType) -> None: ...
+    _WhichOneofReturnType__seed: _TypeAlias = _typing.Literal["seed"]  # noqa: Y015
+    _WhichOneofArgType__seed: _TypeAlias = _typing.Literal["_seed", b"_seed"]  # noqa: Y015
+    def WhichOneof(self, oneof_group: _WhichOneofArgType__seed) -> _WhichOneofReturnType__seed | None: ...
+
+Global___DeltaChannelHistoryEntry: _TypeAlias = DeltaChannelHistoryEntry  # noqa: Y015
+
+@_typing.final
+class GetDeltaChannelHistoryRequest(_message.Message):
+    DESCRIPTOR: _descriptor.Descriptor
+
+    THREAD_ID_FIELD_NUMBER: _builtins.int
+    CHECKPOINT_NS_FIELD_NUMBER: _builtins.int
+    CHECKPOINT_ID_FIELD_NUMBER: _builtins.int
+    CHANNELS_FIELD_NUMBER: _builtins.int
+    thread_id: _builtins.str
+    """Thread whose delta-channel state to reconstruct."""
+    checkpoint_ns: _builtins.str
+    """Checkpoint namespace (empty for root graph, non-empty for subgraphs)."""
+    checkpoint_id: _builtins.str
+    """Target checkpoint to reconstruct at. Empty resolves to the latest
+    checkpoint for (thread_id, checkpoint_ns).
+    """
+    @_builtins.property
+    def channels(self) -> _containers.RepeatedScalarFieldContainer[_builtins.str]:
+        """Channels to reconstruct."""
+
+    def __init__(
+        self,
+        *,
+        thread_id: _builtins.str = ...,
+        checkpoint_ns: _builtins.str = ...,
+        checkpoint_id: _builtins.str = ...,
+        channels: _abc.Iterable[_builtins.str] | None = ...,
+    ) -> None: ...
+    _HasFieldArgType: _TypeAlias = _Never  # noqa: Y015
+    def HasField(self, field_name: _HasFieldArgType) -> _builtins.bool: ...
+    _ClearFieldArgType: _TypeAlias = _typing.Literal["channels", b"channels", "checkpoint_id", b"checkpoint_id", "checkpoint_ns", b"checkpoint_ns", "thread_id", b"thread_id"]  # noqa: Y015
+    def ClearField(self, field_name: _ClearFieldArgType) -> None: ...
+    def WhichOneof(self, oneof_group: _Never) -> None: ...
+
+Global___GetDeltaChannelHistoryRequest: _TypeAlias = GetDeltaChannelHistoryRequest  # noqa: Y015
+
+@_typing.final
+class GetDeltaChannelHistoryResponse(_message.Message):
+    DESCRIPTOR: _descriptor.Descriptor
+
+    @_typing.final
+    class EntriesEntry(_message.Message):
+        DESCRIPTOR: _descriptor.Descriptor
+
+        KEY_FIELD_NUMBER: _builtins.int
+        VALUE_FIELD_NUMBER: _builtins.int
+        key: _builtins.str
+        @_builtins.property
+        def value(self) -> Global___DeltaChannelHistoryEntry: ...
+        def __init__(
+            self,
+            *,
+            key: _builtins.str = ...,
+            value: Global___DeltaChannelHistoryEntry | None = ...,
+        ) -> None: ...
+        _HasFieldArgType: _TypeAlias = _typing.Literal["value", b"value"]  # noqa: Y015
+        def HasField(self, field_name: _HasFieldArgType) -> _builtins.bool: ...
+        _ClearFieldArgType: _TypeAlias = _typing.Literal["key", b"key", "value", b"value"]  # noqa: Y015
+        def ClearField(self, field_name: _ClearFieldArgType) -> None: ...
+        def WhichOneof(self, oneof_group: _Never) -> None: ...
+
+    ENTRIES_FIELD_NUMBER: _builtins.int
+    @_builtins.property
+    def entries(self) -> _containers.MessageMap[_builtins.str, Global___DeltaChannelHistoryEntry]:
+        """Per-channel reconstruction. Keys are channel names"""
+
+    def __init__(
+        self,
+        *,
+        entries: _abc.Mapping[_builtins.str, Global___DeltaChannelHistoryEntry] | None = ...,
+    ) -> None: ...
+    _HasFieldArgType: _TypeAlias = _Never  # noqa: Y015
+    def HasField(self, field_name: _HasFieldArgType) -> _builtins.bool: ...
+    _ClearFieldArgType: _TypeAlias = _typing.Literal["entries", b"entries"]  # noqa: Y015
+    def ClearField(self, field_name: _ClearFieldArgType) -> None: ...
+    def WhichOneof(self, oneof_group: _Never) -> None: ...
+
+Global___GetDeltaChannelHistoryResponse: _TypeAlias = GetDeltaChannelHistoryResponse  # noqa: Y015

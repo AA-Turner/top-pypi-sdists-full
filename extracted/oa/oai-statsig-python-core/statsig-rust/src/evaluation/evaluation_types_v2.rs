@@ -3,8 +3,7 @@ use crate::gcir::gcir_formatter::GCIRHashable;
 use crate::hashing::opt_bool_to_hashable;
 use crate::interned_string::InternedString;
 use crate::{
-    evaluation::evaluation_types::{is_false, push_optional_version_hash_values},
-    specs_response::explicit_params::ExplicitParameters,
+    evaluation::evaluation_types::is_false, specs_response::explicit_params::ExplicitParameters,
 };
 use crate::{hashing, SecondaryExposure};
 use serde::{Deserialize, Serialize};
@@ -29,14 +28,16 @@ pub struct GateEvaluationV2 {
 
 impl GCIRHashable for GateEvaluationV2 {
     fn create_hash(&self, name: &InternedString) -> u64 {
-        let mut hash_array = vec![
+        let version_hashes = optional_version_hash_values(&self.base.version);
+        let hash_array = [
             name.hash,
             self.value as u64,
             self.base.rule_id.hash,
             hash_secondary_exposures(&self.base.secondary_exposures),
+            version_hashes[0],
+            version_hashes[1],
         ];
-        push_optional_version_hash_values(&mut hash_array, &self.base.version);
-        hashing::hash_one(hash_array)
+        hashing::hash_u64_slice(&hash_array)
     }
 }
 
@@ -56,15 +57,17 @@ pub struct DynamicConfigEvaluationV2 {
 
 impl GCIRHashable for DynamicConfigEvaluationV2 {
     fn create_hash(&self, name: &InternedString) -> u64 {
-        let mut hash_array = vec![
+        let version_hashes = optional_version_hash_values(&self.base.version);
+        let hash_array = [
             name.hash,
             self.value.get_hash(),
             self.base.rule_id.hash,
             hash_secondary_exposures(&self.base.secondary_exposures),
             self.passed as u64,
+            version_hashes[0],
+            version_hashes[1],
         ];
-        push_optional_version_hash_values(&mut hash_array, &self.base.version);
-        hashing::hash_one(hash_array)
+        hashing::hash_u64_slice(&hash_array)
     }
 }
 
@@ -99,26 +102,22 @@ pub struct ExperimentEvaluationV2 {
 
 impl GCIRHashable for ExperimentEvaluationV2 {
     fn create_hash(&self, name: &InternedString) -> u64 {
-        let mut hash_array = vec![
+        let version_hashes = optional_version_hash_values(&self.base.version);
+        let hash_array = [
             name.hash,
             self.value.get_hash(),
             self.base.rule_id.hash,
             hash_secondary_exposures(&self.base.secondary_exposures),
             self.is_in_layer as u64,
+            version_hashes[0],
+            version_hashes[1],
+            hash_explicit_parameters(self.explicit_parameters.as_ref()),
+            self.group_name.as_ref().map_or(0, |g| g.hash),
+            opt_bool_to_hashable(&self.is_experiment_active),
+            opt_bool_to_hashable(&self.is_user_in_experiment),
         ];
-        push_optional_version_hash_values(&mut hash_array, &self.base.version);
-        let mut explicit_params_hashes = Vec::new();
-        if let Some(explicit_parameters) = &self.explicit_parameters {
-            for value in explicit_parameters.to_vec_interned() {
-                explicit_params_hashes.push(value.hash);
-            }
-        }
-        hash_array.push(hashing::hash_one(explicit_params_hashes));
-        hash_array.push(self.group_name.as_ref().map_or(0, |g| g.hash));
-        hash_array.push(opt_bool_to_hashable(&self.is_experiment_active));
-        hash_array.push(opt_bool_to_hashable(&self.is_user_in_experiment));
 
-        hashing::hash_one(hash_array)
+        hashing::hash_u64_slice(&hash_array)
     }
 }
 
@@ -168,7 +167,8 @@ pub struct LayerEvaluationV2 {
 
 impl GCIRHashable for LayerEvaluationV2 {
     fn create_hash(&self, name: &InternedString) -> u64 {
-        let mut hash_array = vec![
+        let version_hashes = optional_version_hash_values(&self.base.version);
+        let hash_array = [
             name.hash,
             self.value.get_hash(),
             self.base.rule_id.hash,
@@ -179,29 +179,49 @@ impl GCIRHashable for LayerEvaluationV2 {
             self.allocated_experiment_name
                 .as_ref()
                 .map_or(0, |n| n.hash),
+            version_hashes[0],
+            version_hashes[1],
+            hash_explicit_parameters(Some(&self.explicit_parameters)),
+            hash_optional_interned_string_exposures(self.undelegated_secondary_exposures.as_ref()),
         ];
-        push_optional_version_hash_values(&mut hash_array, &self.base.version);
-        let mut explicit_params_hashes = Vec::new();
-        for value in self.explicit_parameters.to_vec_interned() {
-            explicit_params_hashes.push(value.hash);
-        }
-        hash_array.push(hashing::hash_one(explicit_params_hashes));
-        let mut undelegated_secondary_exposure_hashes = Vec::new();
-        if let Some(undelegated_secondary_exposures) = &self.undelegated_secondary_exposures {
-            for exposure in undelegated_secondary_exposures {
-                undelegated_secondary_exposure_hashes.push(exposure.hash);
-            }
-        }
-        hash_array.push(hashing::hash_one(undelegated_secondary_exposure_hashes));
 
-        hashing::hash_one(hash_array)
+        hashing::hash_u64_slice(&hash_array)
     }
 }
 
-fn hash_secondary_exposures(exposures: &Vec<String>) -> u64 {
-    let mut secondary_exposure_hashes = Vec::new();
+fn hash_secondary_exposures(exposures: &[String]) -> u64 {
+    let mut secondary_exposure_hashes = hashing::U64HashBuilder::with_capacity(exposures.len());
     for exposure in exposures {
         secondary_exposure_hashes.push(hashing::ahash_str(exposure));
     }
-    hashing::hash_one(secondary_exposure_hashes)
+    secondary_exposure_hashes.finish()
+}
+
+fn hash_optional_interned_string_exposures(exposures: Option<&Vec<InternedString>>) -> u64 {
+    let Some(exposures) = exposures else {
+        return hashing::hash_u64_slice(&[]);
+    };
+
+    let mut exposure_hashes = hashing::U64HashBuilder::with_capacity(exposures.len());
+    for exposure in exposures {
+        exposure_hashes.push(exposure.hash);
+    }
+    exposure_hashes.finish()
+}
+
+fn hash_explicit_parameters(explicit_parameters: Option<&ExplicitParameters>) -> u64 {
+    let Some(explicit_parameters) = explicit_parameters else {
+        return hashing::hash_u64_slice(&[]);
+    };
+
+    let mut explicit_params_hashes =
+        hashing::U64HashBuilder::with_capacity(explicit_parameters.as_slice().len());
+    for value in explicit_parameters.as_slice() {
+        explicit_params_hashes.push(value.hash);
+    }
+    explicit_params_hashes.finish()
+}
+
+fn optional_version_hash_values(version: &Option<u32>) -> [u64; 2] {
+    [version.is_some() as u64, version.map_or(0, u64::from)]
 }

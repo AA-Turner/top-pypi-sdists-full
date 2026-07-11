@@ -1,25 +1,30 @@
-from boxmot.trackers.bbox.boosttrack.boosttrack import BoostTrack
-from boxmot.trackers.bbox.botsort.botsort import BotSort
-from boxmot.trackers.bbox.bytetrack.bytetrack import ByteTrack
-from boxmot.trackers.bbox.deepocsort.deepocsort import DeepOcSort
-from boxmot.trackers.bbox.hybridsort.hybridsort import HybridSort
-from boxmot.trackers.bbox.occluboost.occluboost import OccluBoost
-from boxmot.trackers.bbox.ocsort.ocsort import OcSort
-from boxmot.trackers.bbox.sfsort.sfsort import SFSORT
-from boxmot.trackers.bbox.strongsort.strongsort import StrongSort
-from boxmot.trackers.hybrid.sam2mot.sam2mot import Sam2Mot
-from boxmot.trackers.track_results import TrackResults
+"""Tracker package public API."""
 
-__all__ = (
-    "BoostTrack",
-    "BotSort",
-    "ByteTrack",
-    "DeepOcSort",
-    "HybridSort",
-    "OccluBoost",
-    "OcSort",
-    "Sam2Mot",
-    "SFSORT",
-    "StrongSort",
-    "TrackResults",
-)
+from __future__ import annotations
+
+from importlib import import_module
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from boxmot.trackers.bbox.occluboost import OccluBoost as OccluBoost
+
+_EXPORTS = {
+    "OccluBoost": ("boxmot.trackers.occluboost", "OccluBoost"),
+}
+
+__all__ = tuple(_EXPORTS)
+
+
+def __getattr__(name: str):
+    if name not in _EXPORTS:
+        msg = f"module {__name__!r} has no attribute {name!r}"
+        raise AttributeError(msg)
+
+    module_name, attr_name = _EXPORTS[name]
+    value = getattr(import_module(module_name), attr_name)
+    globals()[name] = value
+    return value
+
+
+def __dir__() -> list[str]:
+    return sorted(set(globals()) | set(__all__))

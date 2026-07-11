@@ -6,7 +6,7 @@ Docs: https://ghapi.fast.ai/core.html.md"""
 
 # %% auto #0
 __all__ = ['GH_HOST', 'pspec', 'img_md_pat', 'EMPTY_TREE_SHA', 'GhTransport', 'GhSyncTransport', 'print_summary', 'GhApi',
-           'call_gh', 'date2gh', 'gh2date', 'read_pr', 'APIError']
+           'call_gh', 'date2gh', 'gh2date', 'read_pr', 'pr_file_diff', 'issue_body', 'APIError']
 
 # %% ../nbs/00_core.ipynb #5b5cba7b
 from fastcore.all import *
@@ -21,7 +21,7 @@ from collections import Counter
 from urllib.parse import quote
 from datetime import datetime, timedelta, timezone
 from time import sleep
-import os, shutil, tempfile, subprocess, fnmatch
+import os, shutil, tempfile, subprocess, fnmatch, html
 
 # %% ../nbs/00_core.ipynb #ed04302a
 _all_ = ['APIError']
@@ -177,16 +177,16 @@ async def create_gist(self:GhApi, description, content, filename='gist.txt', pub
 
 # %% ../nbs/00_core.ipynb #ef04a3ee
 @patch
-async def load_gist(self:GhApi, gist_id:str):
-    "Retrieve a gist by id, or by `user/id` (as it appears in gist URLs)"
+def load_gist(self:GhApi, gist_id:str):
+    "Retrieve a gist by id, or by `user/id` (as it appears in gist URLs); coro if async client"
     if '/' in gist_id: *_,user,gist_id = gist_id.split('/')
     else: user = None
-    return await self.gists.get(gist_id, user=user)
+    return self.gists.get(gist_id, user=user)
 
 @patch
-async def gist_file(self:GhApi, gist_id:str):
-    "Get the first file from a gist"
-    return first((await self.load_gist(gist_id)).files.values())
+def gist_file(self:GhApi, gist_id:str):
+    "Get the first file from a gist; coro if async client"
+    return then(self.load_gist(gist_id), ~Self.files.values(), first)
 
 @patch
 async def update_gist(self:GhApi, gist_id:str, content:str):
@@ -438,6 +438,60 @@ async def read_pr(
         res += f"\n\n## Diff\n```diff\n{diff}\n```"
     if replies: res += _fmt_replies(info)
     return res
+
+# %% ../nbs/00_core.ipynb #69d12346
+async def pr_file_diff(
+    pr_number:int|str, # Issue/PR number, or GitHub issue/PR URL
+    filename:str, # File to get the diff for
+    owner:str=None, # Owner (not needed if URL passed)
+    repo:str=None, # Repo (not needed if URL passed)
+) -> str:
+    "Get the untruncated patch/diff for a single file in a PR"
+    if '/' in str(pr_number): *_,owner,repo,_,pr_number = str(pr_number).rstrip('/').split('/')
+    if not owner or not repo: raise ValueError('Pass `owner` and `repo`, or a full GitHub URL')
+    files = await GhApi(owner=owner, repo=repo).pulls.list_files(int(pr_number))
+    for f in files:
+        if f.filename == filename: return f"## {f.filename} (+{f.additions} -{f.deletions})\n\n```diff\n{html.unescape(f.patch)}\n```"
+    return f"File `{filename}` not found in PR #{pr_number}"
+
+# %% ../nbs/00_core.ipynb #55a976ea
+def _parse_tmpl(name, txt):
+    "Parse issue template `txt`: yml forms into section labels for `issue_body`; md templates kept as `raw`"
+    if not name.endswith(('.yml','.yaml')): return dict2obj(dict(name=name, raw=txt))
+    import yaml
+    d = yaml.safe_load(txt)
+    secs = [dict(label=b['attributes']['label'], type=b['type'],
+                 required=bool(nested_idx(b, 'validations', 'required')),
+                 options=[o['label'] if isinstance(o, dict) else o for o in b['attributes'].get('options', [])])
+            for b in d.get('body', []) if b['type']!='markdown']
+    return dict2obj(dict(name=name, title=d.get('name'), description=d.get('description'), sections=secs))
+
+@patch
+async def issue_template(self:GhApi):
+    "Parsed issue templates for the repo (or the owner's `.github` repo as fallback); pass one to `issue_body`"
+    for repo,path in ((None,'.github/ISSUE_TEMPLATE'), ('.github','ISSUE_TEMPLATE'), ('.github','.github/ISSUE_TEMPLATE')):
+        kw = dict(repo=repo) if repo else {}
+        try: fs = await self.repos.get_content(path=path, **kw)
+        except APIError as e:
+            if e.status_code != 404: raise
+            continue
+        return L([_parse_tmpl(f.name, base64.b64decode((await self.repos.get_content(path=f.path, **kw)).content).decode())
+                  for f in fs if f.name.endswith(('.md','.yml','.yaml')) and f.name != 'config.yml'])
+    return L()
+
+# %% ../nbs/00_core.ipynb #173fc534
+def issue_body(tmpl, sections):
+    "Build an issue body following form `tmpl` from `issue_template`: `### <label>` headings in template order. `sections` maps label to content (for checkbox sections: list of checked options, or `True` for all)"
+    if 'raw' in tmpl: raise ValueError(f'{tmpl.name} is a markdown template: adapt `tmpl.raw` directly')
+    if (missing := [s.label for s in tmpl.sections if s.required and s.label not in sections]): raise ValueError(f'missing required sections: {missing}')
+    if (unknown := set(sections) - {s.label for s in tmpl.sections}): raise ValueError(f'not in template: {unknown}')
+    res = []
+    for s in tmpl.sections:
+        if s.label not in sections: continue
+        v = sections[s.label]
+        if s.type == 'checkboxes': v = '\n'.join(f"- [{'x' if v is True or o in v else ' '}] {o}" for o in s.options)
+        res.append(f'### {s.label}\n\n{v}')
+    return '\n\n'.join(res)
 
 # %% ../nbs/00_core.ipynb #97730eae
 class _CheckStatus(AttrDict):

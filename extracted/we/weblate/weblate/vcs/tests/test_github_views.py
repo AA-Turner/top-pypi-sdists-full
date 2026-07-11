@@ -96,7 +96,7 @@ class GitHubInstallationViewTest(ViewTestCase):
         group = Group.objects.create(name=f"GitHub management {user.pk}")
         group.roles.add(role)
         user.groups.add(group)
-        user.clear_cache()
+        user.clear_permissions_cache()
 
     def _mock_oauth(
         self,
@@ -198,6 +198,26 @@ class GitHubInstallationViewTest(ViewTestCase):
         self.assertEqual(response.status_code, 302)
         return response["Location"]
 
+    def _remove_workspaces(self) -> None:
+        self.project.workspace = None
+        self.project.save(update_fields=["workspace"])
+        self.workspace.delete()
+        self.user.clear_permissions_cache()
+
+    def assert_missing_workspace_message(self, response) -> None:
+        response_messages = [
+            str(message) for message in get_messages(response.wsgi_request)
+        ]
+        self.assertEqual(
+            response_messages,
+            [
+                (
+                    "Create a workspace before connecting a GitHub account. "
+                    "GitHub App connections are linked to workspaces."
+                )
+            ],
+        )
+
     def assert_installation_remove_modal(
         self, response, installation: GitHubInstallation
     ) -> None:
@@ -209,7 +229,7 @@ class GitHubInstallationViewTest(ViewTestCase):
             response,
             f'id="remove-github-account-{installation.pk}"',
         )
-        self.assertContains(response, "Remove connected GitHub account?")
+        self.assertContains(response, "Remove connected account?")
         self.assertContains(
             response,
             f'action="{reverse("manage-github-account-remove", kwargs={"pk": installation.pk})}"',
@@ -228,6 +248,32 @@ class GitHubInstallationViewTest(ViewTestCase):
         self.assertEqual(parsed.netloc, "github.com")
         self.assertEqual(parsed.path, "/apps/weblate-app/installations/select_target")
         self.assertIn("state", parse_qs(parsed.query))
+
+    def test_install_without_workspace_redirects_with_message(self):
+        self._remove_workspaces()
+
+        response = self.client.get(reverse("github-app-install"))
+
+        self.assertRedirects(response, reverse("manage-github-accounts"))
+        self.assert_missing_workspace_message(response)
+
+    def test_setup_without_workspace_redirects_with_message(self):
+        self._remove_workspaces()
+
+        response = self.client.get(
+            reverse("github-app-setup"),
+            {
+                "installation_id": "12345",
+                "setup_action": "install",
+                "code": "oauth-code",
+            },
+        )
+
+        self.assertRedirects(response, reverse("manage-github-accounts"))
+        self.assertFalse(
+            GitHubInstallation.objects.filter(installation_id="12345").exists()
+        )
+        self.assert_missing_workspace_message(response)
 
     def test_management_overview_uses_single_workspace_for_install_link(self):
         response = self.client.get(reverse("manage-github-accounts"))
@@ -253,7 +299,7 @@ class GitHubInstallationViewTest(ViewTestCase):
         response = self.client.get(reverse("profile"))
 
         self.assertContains(response, reverse("account-vcs"))
-        self.assertContains(response, "Manage VCS integrations")
+        self.assertContains(response, "Manage code-hosting connections")
 
     def test_account_vcs_integrations_uses_workspace_scope(self):
         user = self.anotheruser
@@ -1508,7 +1554,7 @@ class GitHubAppManifestViewTest(TestCase):
         group, _created = Group.objects.get_or_create(name="Test GitHub App team")
         group.roles.add(role)
         user.groups.add(group)
-        user.clear_cache()
+        user.clear_permissions_cache()
 
     def _post_register(self, **fields):
         data = {"host": "github.com", "name": "Test Weblate", "public": "1"}
@@ -1593,7 +1639,7 @@ class GitHubAppManifestViewTest(TestCase):
         # Body parameters GitHub uses to create the App.
         self.assertEqual(manifest["name"], "My Weblate")
         self.assertEqual(manifest["url"], get_site_url())
-        # The webhook carries an opaque per-integration token, so assert its
+        # The webhook carries an opaque per-App token, so assert its
         # shape rather than the (randomly generated) token value.
         hook = manifest["hook_attributes"]
         self.assertTrue(hook["active"])
@@ -1905,7 +1951,7 @@ class GitHubAppManifestViewTest(TestCase):
 
         self.assertEqual(response.status_code, 200)
         self.assertFalse(response.context["apps"][0]["can_remove"])
-        self.assertContains(response, "Remove connected GitHub accounts first.")
+        self.assertContains(response, "Remove connected accounts first.")
         self.assertNotContains(
             response,
             f'data-bs-target="#remove-app-{credentials.pk}"',

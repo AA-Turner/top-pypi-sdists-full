@@ -6,7 +6,6 @@ import modal._load_context
 import modal._utils.async_utils
 import modal._utils.function_utils
 import modal.app
-import modal.call_graph
 import modal.client
 import modal.cloud_bucket_mount
 import modal.cls
@@ -19,6 +18,7 @@ import modal.proxy
 import modal.retries
 import modal.schedule
 import modal.secret
+import modal.types
 import modal.volume
 import modal_proto.api_pb2
 import pathlib
@@ -371,6 +371,7 @@ class Function(
         timeout: typing.Optional[int] = None,
         region: typing.Union[str, collections.abc.Sequence[str], None] = None,
         cloud: typing.Optional[str] = None,
+        routing_region: typing.Optional[str] = None,
     ) -> Function[modal._functions.P, modal._functions.ReturnType, modal._functions.OriginalReturnType]:
         """Dynamically override the static Function configuration with invocation-specific values.
 
@@ -650,7 +651,7 @@ class Function(
         ...
 
     class __get_current_stats_spec(typing_extensions.Protocol):
-        def __call__(self, /) -> modal._functions.FunctionStats:
+        def __call__(self, /) -> modal.types.FunctionStats:
             """Return a `FunctionStats` object describing the current function's queue and runner counts.
 
             Returns:
@@ -658,7 +659,7 @@ class Function(
             """
             ...
 
-        async def aio(self, /) -> modal._functions.FunctionStats:
+        async def aio(self, /) -> modal.types.FunctionStats:
             """Return a `FunctionStats` object describing the current function's queue and runner counts.
 
             Returns:
@@ -1027,7 +1028,7 @@ class FunctionCall(typing.Generic[modal._functions.ReturnType], modal.object.Obj
     iter: __iter_spec[modal._functions.ReturnType]
 
     class __get_call_graph_spec(typing_extensions.Protocol):
-        def __call__(self, /) -> list[modal.call_graph.InputInfo]:
+        def __call__(self, /) -> list[modal.types.InputInfo]:
             """Returns a structure representing the call graph from a given root
             call ID, along with the status of execution for each node.
 
@@ -1039,7 +1040,7 @@ class FunctionCall(typing.Generic[modal._functions.ReturnType], modal.object.Obj
             """
             ...
 
-        async def aio(self, /) -> list[modal.call_graph.InputInfo]:
+        async def aio(self, /) -> list[modal.types.InputInfo]:
             """Returns a structure representing the call graph from a given root
             call ID, along with the status of execution for each node.
 

@@ -310,8 +310,42 @@ def open_tool_execution(
     path_hints: list[str] | None = None,
     working_directory: str | None = None,
     span_kwargs: dict[str, object] | None = None,
+    tool_span: Span | None = None,
 ) -> PendingToolExecution:
-    """Open a shared ATIF tool span and register the pending execution."""
+    """Open a shared ATIF tool span and register the pending execution.
+
+    When ``tool_span`` is provided, the caller created the span and owns its
+    lifecycle (deferred-export path: the span is finished later, once
+    late-resolving usage lands); only the recorder/registration wiring runs
+    here. Otherwise a span is created and ended immediately.
+    """
+
+    def _register(span: Span) -> PendingToolExecution:
+        pending_execution = PendingToolExecution(
+            execution=(
+                recorder.start(
+                    span,
+                    tool_name=tool_name,
+                    started_at=started_at,
+                    command=command,
+                    path_hints=path_hints,
+                    working_directory=working_directory,
+                )
+                if recorder is not None
+                else None
+            ),
+            step_id=step_id,
+            tool_name=tool_name,
+            trace_id=_maybe_span_trace_id(span),
+            span_id=_maybe_span_span_id(span),
+        )
+        if pending_tool_executions is not None:
+            pending_tool_executions[tool_id] = pending_execution
+        return pending_execution
+
+    if tool_span is not None:
+        return _register(tool_span)
+
     with start_tool_step_span(
         tracer,
         step_id=step_id,
@@ -326,28 +360,8 @@ def open_tool_execution(
             }
         ],
         **(span_kwargs or {}),  # type: ignore[arg-type]  # dynamic kwargs forwarded to start_step_span
-    ) as tool_span:
-        pending_execution = PendingToolExecution(
-            execution=(
-                recorder.start(
-                    tool_span,
-                    tool_name=tool_name,
-                    started_at=started_at,
-                    command=command,
-                    path_hints=path_hints,
-                    working_directory=working_directory,
-                )
-                if recorder is not None
-                else None
-            ),
-            step_id=step_id,
-            tool_name=tool_name,
-            trace_id=_maybe_span_trace_id(tool_span),
-            span_id=_maybe_span_span_id(tool_span),
-        )
-        if pending_tool_executions is not None:
-            pending_tool_executions[tool_id] = pending_execution
-        return pending_execution
+    ) as span:
+        return _register(span)
 
 
 def close_tool_execution(

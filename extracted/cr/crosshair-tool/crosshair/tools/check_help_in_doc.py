@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
 """Check that the help snippets in the doc coincide with the actual output."""
+
 import argparse
 import os
 import pathlib
@@ -30,6 +31,15 @@ class Block:
         self.command = command
         self.start_line_idx = start_line_idx
         self.end_line_idx = end_line_idx
+
+
+# The repository root (the directory containing the ``crosshair`` package).
+# Help output is captured by running ``crosshair ... --help`` in a subprocess;
+# we force that subprocess to import this working tree rather than whatever
+# ``crosshair`` happens to be installed in the environment. Otherwise -- e.g.
+# when an editable install points at a *different* checkout -- the generated
+# docs reflect foreign source and silently revert in-tree help edits.
+REPO_ROOT = pathlib.Path(os.path.realpath(__file__)).parent.parent.parent
 
 
 HELP_STARTS_RE = re.compile(r"^.. Help starts: (?P<command>.*)$")
@@ -79,11 +89,17 @@ def capture_output_lines(command: str) -> List[str]:
         # is not properly inherited.
         command_parts[0] = sys.executable
 
+    env = dict(os.environ)
+    env["PYTHONPATH"] = os.pathsep.join(
+        filter(None, [str(REPO_ROOT), env.get("PYTHONPATH", "")])
+    )
+
     proc = subprocess.Popen(
         command_parts,
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
         encoding="utf-8",
+        env=env,
     )
     output, err = proc.communicate()
     if err:
@@ -201,7 +217,7 @@ def main() -> int:
     args = parser.parse_args()
     overwrite = bool(args.overwrite)
 
-    this_dir = pathlib.Path(os.path.realpath(__file__)).parent.parent.parent
+    this_dir = REPO_ROOT
 
     pths = [
         this_dir / "doc" / "source" / "contracts.rst",

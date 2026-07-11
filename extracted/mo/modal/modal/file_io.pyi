@@ -2,7 +2,7 @@ import _io
 import _typeshed
 import collections.abc
 import modal.client
-import modal.sandbox_fs
+import modal.types
 import typing
 import typing_extensions
 
@@ -132,10 +132,10 @@ class _FileIO(typing.Generic[T]):
         path: str,
         client: modal.client._Client,
         task_id: str,
-        filter: typing.Optional[list[modal.sandbox_fs.FileWatchEventType]] = None,
+        filter: typing.Optional[list[modal.types.FileWatchEventType]] = None,
         recursive: bool = False,
         timeout: typing.Optional[int] = None,
-    ) -> collections.abc.AsyncIterator[modal.sandbox_fs.FileWatchEvent]: ...
+    ) -> collections.abc.AsyncIterator[modal.types.FileWatchEvent]: ...
     async def _close(self) -> None: ...
     async def close(self) -> None:
         """Flush the buffer and close the file."""
@@ -165,10 +165,10 @@ def watch(
     path: str,
     client: modal.client._Client,
     task_id: str,
-    filter: typing.Optional[list[modal.sandbox_fs.FileWatchEventType]] = None,
+    filter: typing.Optional[list[modal.types.FileWatchEventType]] = None,
     recursive: bool = False,
     timeout: typing.Optional[int] = None,
-) -> collections.abc.AsyncIterator[modal.sandbox_fs.FileWatchEvent]:
+) -> collections.abc.AsyncIterator[modal.types.FileWatchEvent]:
     """Watch a file or directory for changes."""
     ...
 
@@ -403,20 +403,20 @@ class FileIO(typing.Generic[T]):
             path: str,
             client: modal.client.Client,
             task_id: str,
-            filter: typing.Optional[list[modal.sandbox_fs.FileWatchEventType]] = None,
+            filter: typing.Optional[list[modal.types.FileWatchEventType]] = None,
             recursive: bool = False,
             timeout: typing.Optional[int] = None,
-        ) -> typing.Iterator[modal.sandbox_fs.FileWatchEvent]: ...
+        ) -> typing.Iterator[modal.types.FileWatchEvent]: ...
         def aio(
             self,
             /,
             path: str,
             client: modal.client.Client,
             task_id: str,
-            filter: typing.Optional[list[modal.sandbox_fs.FileWatchEventType]] = None,
+            filter: typing.Optional[list[modal.types.FileWatchEventType]] = None,
             recursive: bool = False,
             timeout: typing.Optional[int] = None,
-        ) -> collections.abc.AsyncIterator[modal.sandbox_fs.FileWatchEvent]: ...
+        ) -> collections.abc.AsyncIterator[modal.types.FileWatchEvent]: ...
 
     watch: typing.ClassVar[__watch_spec]
 

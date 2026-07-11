@@ -107,6 +107,7 @@ class MetricKind(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
     METRIC_KIND_SCHEDULED_QUERY_SUCCESS_RATIO: _ClassVar[MetricKind]
     METRIC_KIND_HYPERVISOR_CONTAINER_CPU_UTILIZATION: _ClassVar[MetricKind]
     METRIC_KIND_HYPERVISOR_CONTAINER_MEMORY_BYTES: _ClassVar[MetricKind]
+    METRIC_KIND_QUERY_PLAN_LATENCY: _ClassVar[MetricKind]
 
 class FilterKind(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
     __slots__ = ()
@@ -137,6 +138,8 @@ class FilterKind(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
     FILTER_KIND_SERVICE_KIND: _ClassVar[FilterKind]
     FILTER_KIND_CONSUMER_GROUP: _ClassVar[FilterKind]
     FILTER_KIND_CONTAINER_ID: _ClassVar[FilterKind]
+    FILTER_KIND_PLANNER: _ClassVar[FilterKind]
+    FILTER_KIND_PLAN_REASON: _ClassVar[FilterKind]
 
 class ComparatorKind(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
     __slots__ = ()
@@ -184,6 +187,8 @@ class GroupByKind(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
     GROUP_BY_KIND_FUNCTION_NAME: _ClassVar[GroupByKind]
     GROUP_BY_KIND_SERVICE_KIND: _ClassVar[GroupByKind]
     GROUP_BY_KIND_CONSUMER_GROUP: _ClassVar[GroupByKind]
+    GROUP_BY_KIND_PLANNER: _ClassVar[GroupByKind]
+    GROUP_BY_KIND_PLAN_REASON: _ClassVar[GroupByKind]
 
 class MetricFormulaKind(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
     __slots__ = ()
@@ -319,6 +324,7 @@ METRIC_KIND_SCHEDULED_QUERY_COUNT: MetricKind
 METRIC_KIND_SCHEDULED_QUERY_SUCCESS_RATIO: MetricKind
 METRIC_KIND_HYPERVISOR_CONTAINER_CPU_UTILIZATION: MetricKind
 METRIC_KIND_HYPERVISOR_CONTAINER_MEMORY_BYTES: MetricKind
+METRIC_KIND_QUERY_PLAN_LATENCY: MetricKind
 FILTER_KIND_UNSPECIFIED: FilterKind
 FILTER_KIND_FEATURE_STATUS: FilterKind
 FILTER_KIND_FEATURE_NAME: FilterKind
@@ -346,6 +352,8 @@ FILTER_KIND_FUNCTION_NAME: FilterKind
 FILTER_KIND_SERVICE_KIND: FilterKind
 FILTER_KIND_CONSUMER_GROUP: FilterKind
 FILTER_KIND_CONTAINER_ID: FilterKind
+FILTER_KIND_PLANNER: FilterKind
+FILTER_KIND_PLAN_REASON: FilterKind
 COMPARATOR_KIND_UNSPECIFIED: ComparatorKind
 COMPARATOR_KIND_EQ: ComparatorKind
 COMPARATOR_KIND_NEQ: ComparatorKind
@@ -384,6 +392,8 @@ GROUP_BY_KIND_PARTITION_NAME: GroupByKind
 GROUP_BY_KIND_FUNCTION_NAME: GroupByKind
 GROUP_BY_KIND_SERVICE_KIND: GroupByKind
 GROUP_BY_KIND_CONSUMER_GROUP: GroupByKind
+GROUP_BY_KIND_PLANNER: GroupByKind
+GROUP_BY_KIND_PLAN_REASON: GroupByKind
 METRIC_FORMULA_KIND_UNSPECIFIED: MetricFormulaKind
 METRIC_FORMULA_KIND_SUM: MetricFormulaKind
 METRIC_FORMULA_KIND_TOTAL_RATIO: MetricFormulaKind

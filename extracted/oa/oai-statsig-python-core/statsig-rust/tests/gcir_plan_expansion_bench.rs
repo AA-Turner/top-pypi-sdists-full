@@ -16,6 +16,16 @@ use statsig_rust::{
 #[test]
 #[ignore = "manual benchmark; run with --release --ignored --nocapture"]
 fn benchmark_planned_v1_initialize_format() {
+    run_planned_v1_initialize_benchmark("with_checksum", true);
+}
+
+#[test]
+#[ignore = "manual benchmark; run with --release --ignored --nocapture"]
+fn benchmark_planned_v1_initialize_format_no_checksum() {
+    run_planned_v1_initialize_benchmark("no_checksum", false);
+}
+
+fn run_planned_v1_initialize_benchmark(label: &str, include_previous_response_hash: bool) {
     let iterations = std::env::var("GCIR_BENCH_ITERATIONS")
         .ok()
         .and_then(|value| value.parse::<usize>().ok())
@@ -31,7 +41,8 @@ fn benchmark_planned_v1_initialize_format() {
     let options = ClientInitResponseOptions {
         hash_algorithm: Some(HashAlgorithm::Djb2),
         client_sdk_key: Some("client-benchmark".to_string()),
-        previous_response_hash: Some("stale-checksum".to_string()),
+        previous_response_hash: include_previous_response_hash
+            .then(|| "stale-checksum".to_string()),
         ..Default::default()
     };
 
@@ -75,7 +86,7 @@ fn benchmark_planned_v1_initialize_format() {
     let total_ms = elapsed.as_secs_f64() * 1000.0;
     let per_request_ms = total_ms / iterations as f64;
     println!(
-        "gcir_plan_expansion_bench iterations={iterations} total_ms={total_ms:.3} per_request_ms={per_request_ms:.6} checksum={checksum}"
+        "gcir_plan_expansion_bench label={label} iterations={iterations} total_ms={total_ms:.3} per_request_ms={per_request_ms:.6} checksum={checksum}"
     );
     if capture_timings {
         print_timing_table(&gcir_timing::take(), elapsed.as_nanos(), iterations);

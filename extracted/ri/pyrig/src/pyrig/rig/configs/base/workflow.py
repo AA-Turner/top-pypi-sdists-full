@@ -15,10 +15,10 @@ from pyrig.rig.configs.base.yml import YMLDictConfigFile
 from pyrig.rig.configs.pyproject import PyprojectConfigFile
 from pyrig.rig.tools.package_manager import PackageManager
 from pyrig.rig.tools.programming_language import ProgrammingLanguage
+from pyrig.rig.tools.version_control.controller import VersionController
 from pyrig.rig.tools.version_control.remote import (
     RemoteVersionController,
 )
-from pyrig.rig.tools.version_control.version_controller import VersionController
 
 
 class WorkflowConfigFile(YMLDictConfigFile):
@@ -39,16 +39,14 @@ class WorkflowConfigFile(YMLDictConfigFile):
         >>> from pyrig.rig.configs.base.workflow import WorkflowConfigFile
         >>>
         >>> class MyWorkflowConfigFile(WorkflowConfigFile):
+        ...     def jobs(self) -> dict[str, Any]:
+        ...         return self.job(
+        ...             self.jobs,
+        ...             steps=self.steps_core_installed_setup(),
+        ...         )
         ...
-        ...    def jobs(self) -> dict[str, Any]:
-        ...        return self.job(
-        ...            self.jobs,
-        ...            steps=self.steps_core_installed_setup(),
-        ...        )
-        ...
-        ...
-        ...    def workflow_triggers(self) -> dict[str, Any]:
-        ...        return {**self.on_workflow_dispatch(), **self.on_push()}
+        ...     def workflow_triggers(self) -> dict[str, Any]:
+        ...         return {**self.on_workflow_dispatch(), **self.on_push()}
     """
 
     UBUNTU_LATEST = "ubuntu-latest"

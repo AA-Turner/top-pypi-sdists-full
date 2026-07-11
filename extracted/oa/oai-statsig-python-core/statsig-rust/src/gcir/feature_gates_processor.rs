@@ -68,7 +68,6 @@ pub(crate) fn get_gate_evaluations_with_plan(
         context,
         options,
         sec_expo_hash_memo,
-        &context.specs_data.feature_gates,
         &plan.feature_gates,
         factory,
     )

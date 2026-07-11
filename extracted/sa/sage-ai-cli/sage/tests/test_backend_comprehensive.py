@@ -78,9 +78,26 @@ class TestRuntimeConfig:
 class TestAppSettings:
     """Tests for AppSettings class."""
 
+    def _clean_settings(self, **overrides):
+        """Create an AppSettings instance immune to env pollution.
+
+        pydantic-settings reads from env vars and .env files by default.
+        Passing _env_file=None suppresses .env reading, and explicitly
+        providing every field prevents env-var overrides from sneaking in.
+        """
+        defaults = dict(
+            host="0.0.0.0",
+            port=8090,
+            log_level="INFO",
+            dev_mode=True,
+            admin_token="",
+        )
+        defaults.update(overrides)
+        return AppSettings(_env_file=None, **defaults)
+
     def test_defaults(self):
         """Check default settings."""
-        app = AppSettings()
+        app = self._clean_settings()
         assert app.host == "0.0.0.0"
         assert app.port == 8090
         assert app.log_level == "INFO"
@@ -88,50 +105,50 @@ class TestAppSettings:
 
     def test_validate_admin_token_dev_mode(self):
         """Admin token not required in dev mode."""
-        app = AppSettings(dev_mode=True, admin_token="")
+        app = self._clean_settings(dev_mode=True, admin_token="")
         assert app.validate_admin_token() is True
 
     def test_validate_admin_token_prod_valid(self):
         """Valid admin token in production."""
-        app = AppSettings(dev_mode=False, admin_token="a" * 16)
+        app = self._clean_settings(dev_mode=False, admin_token="a" * 16)
         assert app.validate_admin_token() is True
 
     def test_validate_admin_token_prod_invalid(self):
         """Invalid admin token in production."""
-        app = AppSettings(dev_mode=False, admin_token="short")
+        app = self._clean_settings(dev_mode=False, admin_token="short")
         assert app.validate_admin_token() is False
 
     def test_is_production_dev(self):
         """is_production in dev mode."""
-        app = AppSettings(dev_mode=True)
+        app = self._clean_settings(dev_mode=True)
         assert app.is_production is False
 
     def test_is_production_prod(self):
         """is_production in production mode."""
-        app = AppSettings(dev_mode=False)
+        app = self._clean_settings(dev_mode=False)
         assert app.is_production is True
 
     def test_cors_origins_default(self):
         """Default CORS origins."""
-        app = AppSettings()
+        app = self._clean_settings()
         assert len(app.cors_origins) >= 2
         assert any("localhost" in o for o in app.cors_origins)
 
     def test_cors_origins_parse_json(self):
         """Parse JSON CORS origins."""
-        app = AppSettings(cors_origins='["http://a.com", "http://b.com"]')
+        app = self._clean_settings(cors_origins='["http://a.com", "http://b.com"]')
         assert "http://a.com" in app.cors_origins
         assert "http://b.com" in app.cors_origins
 
     def test_cors_origins_parse_csv(self):
         """Parse comma-separated CORS origins."""
-        app = AppSettings(cors_origins="http://a.com, http://b.com")
+        app = self._clean_settings(cors_origins="http://a.com, http://b.com")
         assert "http://a.com" in app.cors_origins
         assert "http://b.com" in app.cors_origins
 
     def test_cors_origins_empty_string(self):
         """Empty CORS origins string."""
-        app = AppSettings(cors_origins="")
+        app = self._clean_settings(cors_origins="")
         assert app.cors_origins == []
 
     def test_ensure_dirs(self, tmp_path):
@@ -140,7 +157,7 @@ class TestAppSettings:
         config = tmp_path / "config"
         data = tmp_path / "data"
 
-        app = AppSettings(
+        app = self._clean_settings(
             models_dir=models,
             config_dir=config,
             data_dir=data,
@@ -705,11 +722,11 @@ class TestBackendIntegration:
     def test_settings_validation(self):
         """Test settings validation flow."""
         # Dev mode allows empty token
-        dev = AppSettings(dev_mode=True, admin_token="")
+        dev = AppSettings(_env_file=None, host="0.0.0.0", port=8090, dev_mode=True, admin_token="")
         assert dev.validate_admin_token()
 
         # Production requires proper token
-        prod = AppSettings(dev_mode=False, admin_token="secure_token_16_ch")
+        prod = AppSettings(_env_file=None, host="0.0.0.0", port=8090, dev_mode=False, admin_token="secure_token_16_ch")
         assert prod.validate_admin_token()
 
     def test_request_validation_flow(self):

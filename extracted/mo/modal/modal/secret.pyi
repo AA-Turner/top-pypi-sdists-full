@@ -5,31 +5,11 @@ import modal._load_context
 import modal._object
 import modal.client
 import modal.object
+import modal.types
 import modal_proto.api_pb2
 import synchronicity
 import typing
 import typing_extensions
-
-class SecretInfo:
-    """Information about the Secret object."""
-
-    name: typing.Optional[str]
-    created_at: datetime.datetime
-    created_by: typing.Optional[str]
-
-    def __init__(
-        self, name: typing.Optional[str], created_at: datetime.datetime, created_by: typing.Optional[str]
-    ) -> None:
-        """Initialize self.  See help(type(self)) for accurate signature."""
-        ...
-
-    def __repr__(self):
-        """Return repr(self)."""
-        ...
-
-    def __eq__(self, other):
-        """Return self==value."""
-        ...
 
 class _SecretManager:
     """Namespace with methods for managing named Secret objects."""
@@ -564,7 +544,7 @@ class _Secret(modal._object._Object):
         """mdmd:hidden"""
         ...
 
-    async def info(self) -> SecretInfo:
+    async def info(self) -> modal.types.SecretInfo:
         """Return information about the Secret object."""
         ...
 
@@ -737,11 +717,11 @@ class Secret(modal.object.Object):
     _create_deployed: typing.ClassVar[___create_deployed_spec]
 
     class __info_spec(typing_extensions.Protocol):
-        def __call__(self, /) -> SecretInfo:
+        def __call__(self, /) -> modal.types.SecretInfo:
             """Return information about the Secret object."""
             ...
 
-        async def aio(self, /) -> SecretInfo:
+        async def aio(self, /) -> modal.types.SecretInfo:
             """Return information about the Secret object."""
             ...
 

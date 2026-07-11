@@ -1517,7 +1517,7 @@ class SAGEAgent:
         last_response = ""
 
         phases = _build_multistep_phase_prompts(task_prompt, classification, self.cwd)
-        self._is_greenfield_task = any(phase_name == "implementation" for phase_name, _ in phases)
+        self._is_greenfield_task = len(phases) == 2 and phases[-1][0] == "implementation"
         if _should_use_seeded_synthesis_only(
             task_prompt,
             classification,

@@ -8,10 +8,14 @@ from collections.abc import (
     Callable,
     Coroutine,
     Iterator,
+    Mapping,
     Sequence,
 )
+from contextlib import AbstractContextManager, nullcontext
 from typing import TYPE_CHECKING, Any, TypeVar, cast
 
+import grpc
+import grpc.aio
 from langgraph.checkpoint.base import (
     BaseCheckpointSaver,
     ChannelVersions,
@@ -20,6 +24,7 @@ from langgraph.checkpoint.base import (
     CheckpointTuple,
 )
 
+from langgraph_grpc_common import serde as _grpc_serde
 from langgraph_grpc_common.conversion import checkpoint as ckpt_conv
 from langgraph_grpc_common.conversion.config import (
     config_from_proto,
@@ -30,6 +35,7 @@ from langgraph_grpc_common.proto import checkpointer_pb2
 
 if TYPE_CHECKING:
     from langchain_core.runnables import RunnableConfig
+    from langgraph.checkpoint.serde.base import SerializerProtocol
 
     from langgraph_grpc_common.proto.checkpointer_pb2_grpc import CheckpointerStub
 
@@ -49,16 +55,42 @@ class GrpcCheckpointer(BaseCheckpointSaver):
         get_stub: StubProvider,
         retry: RetryFn | None = None,
         retry_context_prefix: str | None = None,
+        serializer: SerializerProtocol | None = None,
     ) -> None:
+        """Construct a gRPC checkpointer client.
+
+        Args:
+            get_stub: Async factory returning the ``CheckpointerStub`` to
+                use for the next RPC. Called per-call so the caller can
+                pool / refresh connections.
+            retry: Optional retry wrapper. When provided, every RPC is
+                dispatched through ``retry(func, context)``.
+            retry_context_prefix: Label included in ``retry``'s context
+                string. Defaults to the concrete class name.
+            serializer: Optional ``SerializerProtocol`` to use for
+                payload (de)serialization on *this* checkpointer
+                instance only. Scoped via a :class:`~contextvars.ContextVar`
+                so unrelated gRPC ops sharing
+                ``langgraph_grpc_common.conversion.*`` keep using the
+                process-wide default
+        """
         super().__init__(serde=None)
         self._get_stub = get_stub
         self._retry = retry
         self._retry_context_prefix = retry_context_prefix or type(self).__name__
+        self._serializer = serializer
         self.latest_iter = None
         try:
             self._loop: asyncio.AbstractEventLoop | None = asyncio.get_running_loop()
         except RuntimeError:
             self._loop = None
+
+    def _scoped(self) -> AbstractContextManager[None]:
+        """Bind ``self._serializer`` for the duration of a conversion call.
+        """
+        if self._serializer is None:
+            return nullcontext()
+        return _grpc_serde.use_serializer(self._serializer)
 
     @property
     def loop(self) -> asyncio.AbstractEventLoop:
@@ -94,13 +126,15 @@ class GrpcCheckpointer(BaseCheckpointSaver):
         return None
 
     async def aget_tuple(self, config: RunnableConfig) -> CheckpointTuple | None:
-        request = checkpointer_pb2.GetTupleRequest(config=config_to_proto(config))
+        with self._scoped():
+            request = checkpointer_pb2.GetTupleRequest(config=config_to_proto(config))
 
         async def _request() -> CheckpointTuple | None:
             response = await (await self._stub()).GetTuple(request)
             if not response.HasField("checkpoint_tuple"):
                 return None
-            return ckpt_conv.checkpoint_tuple_from_proto(response.checkpoint_tuple)
+            with self._scoped():
+                return ckpt_conv.checkpoint_tuple_from_proto(response.checkpoint_tuple)
 
         return await self._call("aget_tuple", _request)
 
@@ -128,16 +162,18 @@ class GrpcCheckpointer(BaseCheckpointSaver):
         metadata: CheckpointMetadata,
         new_versions: ChannelVersions,
     ) -> RunnableConfig:
-        request = checkpointer_pb2.PutRequest(
-            config=config_to_proto(config),
-            checkpoint=ckpt_conv.checkpoint_to_proto(checkpoint),
-            metadata=ckpt_conv.checkpoint_metadata_to_proto(metadata),
-            new_versions={k: str(v) for k, v in new_versions.items()},
-        )
+        with self._scoped():
+            request = checkpointer_pb2.PutRequest(
+                config=config_to_proto(config),
+                checkpoint=ckpt_conv.checkpoint_to_proto(checkpoint),
+                metadata=ckpt_conv.checkpoint_metadata_to_proto(metadata),
+                new_versions={k: str(v) for k, v in new_versions.items()},
+            )
 
         async def _request() -> RunnableConfig:
             response = await (await self._stub()).Put(request)
-            next_config = config_from_proto(response.next_config)
+            with self._scoped():
+                next_config = config_from_proto(response.next_config)
             if next_config is None:
                 raise ValueError("Unexpected None value for next_config")
             return next_config
@@ -160,12 +196,13 @@ class GrpcCheckpointer(BaseCheckpointSaver):
         task_id: str,
         task_path: str = "",
     ) -> None:
-        request = checkpointer_pb2.PutWritesRequest(
-            config=config_to_proto(config),
-            writes=ckpt_conv.writes_to_proto(writes),
-            task_id=task_id,
-            task_path=task_path,
-        )
+        with self._scoped():
+            request = checkpointer_pb2.PutWritesRequest(
+                config=config_to_proto(config),
+                writes=ckpt_conv.writes_to_proto(writes),
+                task_id=task_id,
+                task_path=task_path,
+            )
 
         async def _request() -> None:
             await (await self._stub()).PutWrites(request)
@@ -212,11 +249,12 @@ class GrpcCheckpointer(BaseCheckpointSaver):
         before: RunnableConfig | None = None,
         limit: int | None = None,
     ) -> AsyncIterator[CheckpointTuple]:
-        request = checkpointer_pb2.ListRequest(
-            config=config_to_proto(config) if config is not None else None,
-            filter_json=convert_dict_to_json_bytes(filter) or b"",
-            before=config_to_proto(before) if before is not None else None,
-        )
+        with self._scoped():
+            request = checkpointer_pb2.ListRequest(
+                config=config_to_proto(config) if config is not None else None,
+                filter_json=convert_dict_to_json_bytes(filter) or b"",
+                before=config_to_proto(before) if before is not None else None,
+            )
         if limit is not None:
             request.limit = limit
 
@@ -225,7 +263,11 @@ class GrpcCheckpointer(BaseCheckpointSaver):
 
         response = await self._call("alist", _request)
         for proto_tuple in response.checkpoint_tuples:
-            if (tup := ckpt_conv.checkpoint_tuple_from_proto(proto_tuple)) is not None:
+            # Bind inside the loop body so the override does not leak
+            # across ``yield`` into the consumer's frame.
+            with self._scoped():
+                tup = ckpt_conv.checkpoint_tuple_from_proto(proto_tuple)
+            if tup is not None:
                 yield tup
 
     def delete_thread(self, thread_id: str) -> None:
@@ -298,3 +340,55 @@ class GrpcCheckpointer(BaseCheckpointSaver):
         next_v = current_v + 1
         next_h = random.random()
         return f"{next_v:032}.{next_h:.16f}"
+
+    def get_delta_channel_history(
+        self,
+        *,
+        config: RunnableConfig,
+        channels: Sequence[str],
+    ) -> Mapping[str, dict[str, Any]]:
+        """Synchronous wrapper for ``aget_delta_channel_history``.
+
+        langgraph >= 1.2 calls the async variant from the loop, but the
+        BaseCheckpointSaver protocol expects sync wrappers to exist.
+        """
+        return self._run_sync(
+            self.aget_delta_channel_history(config=config, channels=channels)
+        )
+
+    async def aget_delta_channel_history(
+        self,
+        *,
+        config: RunnableConfig,
+        channels: Sequence[str],
+    ) -> Mapping[str, dict[str, Any]]:
+        if not channels:
+            return {}
+        configurable = config.get("configurable", {}) if config else {}
+        request = checkpointer_pb2.GetDeltaChannelHistoryRequest(
+            thread_id=configurable.get("thread_id", "") or "",
+            checkpoint_ns=configurable.get("checkpoint_ns", "") or "",
+            # Empty checkpoint_id => server resolves the latest checkpoint.
+            checkpoint_id=configurable.get("checkpoint_id", "") or "",
+            channels=list(channels),
+        )
+
+        async def _request() -> checkpointer_pb2.GetDeltaChannelHistoryResponse:
+            return await (await self._stub()).GetDeltaChannelHistory(request)
+
+        try:
+            response = await self._call("aget_delta_channel_history", _request)
+        except grpc.aio.AioRpcError as e:
+            if e.code() == grpc.StatusCode.UNIMPLEMENTED:
+                # The backend has no native fast path for delta-channel
+                # reconstruction (e.g. the Go mongo/sqlite checkpointers).
+                # Fall back to BaseCheckpointSaver's parent-chain walk, which
+                # drives aget_tuple (-> gRPC GetTuple) per ancestor. langgraph
+                # calls this method unguarded, so we must degrade gracefully
+                # rather than raise.
+                return await super().aget_delta_channel_history(
+                    config=config, channels=channels
+                )
+            raise
+        with self._scoped():
+            return ckpt_conv.delta_channel_history_from_proto(response.entries)

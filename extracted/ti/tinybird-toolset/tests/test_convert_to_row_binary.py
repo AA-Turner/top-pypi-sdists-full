@@ -5134,6 +5134,43 @@ TEST_CASES = [
         b'\x00\x00L-100000000000000000000000000000000000000000000000000000000000000000000000000\x00\x01\x1dInvalid decimal string format\x00\x01\x05value\x01\x01',
         0, 1),
 
+    # Booleans imported into Decimal must produce EXACTLY 1.0 and 0.0, without precision loss
+    (ConversionMode.ONLY_LEGACY,
+        [('t', 'Decimal32(4)', '$.t', False), ('f', 'Decimal32(4)', '$.f', False)],
+        '{"t":true,"f":false}',
+        b'\x00\x10\x27\x00\x00\x00\x00\x00\x00\x00',
+        b'',
+        1, 0),
+
+    (ConversionMode.ONLY_LEGACY,
+        [('t', 'Decimal64(8)', '$.t', False), ('f', 'Decimal64(8)', '$.f', False)],
+        '{"t":true,"f":false}',
+        b'\x00\x00\xe1\xf5\x05\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00',
+        b'',
+        1, 0),
+
+    (ConversionMode.ONLY_LEGACY,
+        [('t', 'Decimal128(30)', '$.t', False), ('f', 'Decimal128(30)', '$.f', False)],
+        '{"t":true,"f":false}',
+        b'\x00\x00\x00\x00\x40\xea\xed\x74\x46\xd0\x9c\x2c\x9f\x0c\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00',
+        b'',
+        1, 0),
+
+    (ConversionMode.ONLY_LEGACY,
+        [('t', 'Decimal256(50)', '$.t', False), ('f', 'Decimal256(50)', '$.f', False)],
+        '{"t":true,"f":false}',
+        b'\x00\x00\x00\x00\x00\x00\x00\x64\xb5\xfd\x34\x05\xc4\xd2\x87\x66\x92\xf9\x15\x3b\x6c\x44\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00',
+        b'',
+        1, 0),
+
+    # Non-legacy mode rejects booleans imported into Decimal columns: the row is quarantined.
+    (ConversionMode.ONLY_NONLEGACY,
+        [('value', 'Decimal128(30)', '$.value', False)],
+        '{"value": true}',
+        b'',
+        b"\x00\x00\x04true\x00\x01XInvalid value true for type 'Decimal(38, 30)' in column 'value' with jsonpath '$.value'.\x00\x01\x05value\x01\x01",
+        0, 1),
+
     (ConversionMode.ALWAYS,
         [('value', 'FixedString(6)', '$.value', False)],
         '{}',

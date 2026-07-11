@@ -12,6 +12,8 @@ from scale_gp_beta import SGPClient, AsyncSGPClient
 from scale_gp_beta.types import CloudSecret
 from scale_gp_beta.pagination import SyncCursorPage, AsyncCursorPage
 
+# pyright: reportDeprecated=false
+
 base_url = os.environ.get("TEST_API_BASE_URL", "http://127.0.0.1:4010")
 
 
@@ -20,27 +22,32 @@ class TestSecrets:
 
     @parametrize
     def test_method_create(self, client: SGPClient) -> None:
-        secret = client.secrets.create(
-            key="key",
-            value="x",
-        )
+        with pytest.warns(DeprecationWarning):
+            secret = client.secrets.create(
+                key="key",
+                value="x",
+            )
+
         assert_matches_type(CloudSecret, secret, path=["response"])
 
     @parametrize
     def test_method_create_with_all_params(self, client: SGPClient) -> None:
-        secret = client.secrets.create(
-            key="key",
-            value="x",
-            description="description",
-        )
+        with pytest.warns(DeprecationWarning):
+            secret = client.secrets.create(
+                key="key",
+                value="x",
+                description="description",
+            )
+
         assert_matches_type(CloudSecret, secret, path=["response"])
 
     @parametrize
     def test_raw_response_create(self, client: SGPClient) -> None:
-        response = client.secrets.with_raw_response.create(
-            key="key",
-            value="x",
-        )
+        with pytest.warns(DeprecationWarning):
+            response = client.secrets.with_raw_response.create(
+                key="key",
+                value="x",
+            )
 
         assert response.is_closed is True
         assert response.http_request.headers.get("X-Stainless-Lang") == "python"
@@ -49,30 +56,34 @@ class TestSecrets:
 
     @parametrize
     def test_streaming_response_create(self, client: SGPClient) -> None:
-        with client.secrets.with_streaming_response.create(
-            key="key",
-            value="x",
-        ) as response:
-            assert not response.is_closed
-            assert response.http_request.headers.get("X-Stainless-Lang") == "python"
+        with pytest.warns(DeprecationWarning):
+            with client.secrets.with_streaming_response.create(
+                key="key",
+                value="x",
+            ) as response:
+                assert not response.is_closed
+                assert response.http_request.headers.get("X-Stainless-Lang") == "python"
 
-            secret = response.parse()
-            assert_matches_type(CloudSecret, secret, path=["response"])
+                secret = response.parse()
+                assert_matches_type(CloudSecret, secret, path=["response"])
 
         assert cast(Any, response.is_closed) is True
 
     @parametrize
     def test_method_retrieve(self, client: SGPClient) -> None:
-        secret = client.secrets.retrieve(
-            "secret_id",
-        )
+        with pytest.warns(DeprecationWarning):
+            secret = client.secrets.retrieve(
+                "secret_id",
+            )
+
         assert_matches_type(CloudSecret, secret, path=["response"])
 
     @parametrize
     def test_raw_response_retrieve(self, client: SGPClient) -> None:
-        response = client.secrets.with_raw_response.retrieve(
-            "secret_id",
-        )
+        with pytest.warns(DeprecationWarning):
+            response = client.secrets.with_raw_response.retrieve(
+                "secret_id",
+            )
 
         assert response.is_closed is True
         assert response.http_request.headers.get("X-Stainless-Lang") == "python"
@@ -81,45 +92,52 @@ class TestSecrets:
 
     @parametrize
     def test_streaming_response_retrieve(self, client: SGPClient) -> None:
-        with client.secrets.with_streaming_response.retrieve(
-            "secret_id",
-        ) as response:
-            assert not response.is_closed
-            assert response.http_request.headers.get("X-Stainless-Lang") == "python"
+        with pytest.warns(DeprecationWarning):
+            with client.secrets.with_streaming_response.retrieve(
+                "secret_id",
+            ) as response:
+                assert not response.is_closed
+                assert response.http_request.headers.get("X-Stainless-Lang") == "python"
 
-            secret = response.parse()
-            assert_matches_type(CloudSecret, secret, path=["response"])
+                secret = response.parse()
+                assert_matches_type(CloudSecret, secret, path=["response"])
 
         assert cast(Any, response.is_closed) is True
 
     @parametrize
     def test_path_params_retrieve(self, client: SGPClient) -> None:
-        with pytest.raises(ValueError, match=r"Expected a non-empty value for `secret_id` but received ''"):
-            client.secrets.with_raw_response.retrieve(
-                "",
-            )
+        with pytest.warns(DeprecationWarning):
+            with pytest.raises(ValueError, match=r"Expected a non-empty value for `secret_id` but received ''"):
+                client.secrets.with_raw_response.retrieve(
+                    "",
+                )
 
     @parametrize
     def test_method_update(self, client: SGPClient) -> None:
-        secret = client.secrets.update(
-            secret_id="secret_id",
-        )
+        with pytest.warns(DeprecationWarning):
+            secret = client.secrets.update(
+                secret_id="secret_id",
+            )
+
         assert_matches_type(CloudSecret, secret, path=["response"])
 
     @parametrize
     def test_method_update_with_all_params(self, client: SGPClient) -> None:
-        secret = client.secrets.update(
-            secret_id="secret_id",
-            description="description",
-            value="x",
-        )
+        with pytest.warns(DeprecationWarning):
+            secret = client.secrets.update(
+                secret_id="secret_id",
+                description="description",
+                value="x",
+            )
+
         assert_matches_type(CloudSecret, secret, path=["response"])
 
     @parametrize
     def test_raw_response_update(self, client: SGPClient) -> None:
-        response = client.secrets.with_raw_response.update(
-            secret_id="secret_id",
-        )
+        with pytest.warns(DeprecationWarning):
+            response = client.secrets.with_raw_response.update(
+                secret_id="secret_id",
+            )
 
         assert response.is_closed is True
         assert response.http_request.headers.get("X-Stainless-Lang") == "python"
@@ -128,43 +146,50 @@ class TestSecrets:
 
     @parametrize
     def test_streaming_response_update(self, client: SGPClient) -> None:
-        with client.secrets.with_streaming_response.update(
-            secret_id="secret_id",
-        ) as response:
-            assert not response.is_closed
-            assert response.http_request.headers.get("X-Stainless-Lang") == "python"
+        with pytest.warns(DeprecationWarning):
+            with client.secrets.with_streaming_response.update(
+                secret_id="secret_id",
+            ) as response:
+                assert not response.is_closed
+                assert response.http_request.headers.get("X-Stainless-Lang") == "python"
 
-            secret = response.parse()
-            assert_matches_type(CloudSecret, secret, path=["response"])
+                secret = response.parse()
+                assert_matches_type(CloudSecret, secret, path=["response"])
 
         assert cast(Any, response.is_closed) is True
 
     @parametrize
     def test_path_params_update(self, client: SGPClient) -> None:
-        with pytest.raises(ValueError, match=r"Expected a non-empty value for `secret_id` but received ''"):
-            client.secrets.with_raw_response.update(
-                secret_id="",
-            )
+        with pytest.warns(DeprecationWarning):
+            with pytest.raises(ValueError, match=r"Expected a non-empty value for `secret_id` but received ''"):
+                client.secrets.with_raw_response.update(
+                    secret_id="",
+                )
 
     @parametrize
     def test_method_list(self, client: SGPClient) -> None:
-        secret = client.secrets.list()
+        with pytest.warns(DeprecationWarning):
+            secret = client.secrets.list()
+
         assert_matches_type(SyncCursorPage[CloudSecret], secret, path=["response"])
 
     @parametrize
     def test_method_list_with_all_params(self, client: SGPClient) -> None:
-        secret = client.secrets.list(
-            ending_before="ending_before",
-            limit=1,
-            sort_by="sort_by",
-            sort_order="asc",
-            starting_after="starting_after",
-        )
+        with pytest.warns(DeprecationWarning):
+            secret = client.secrets.list(
+                ending_before="ending_before",
+                limit=1,
+                sort_by="sort_by",
+                sort_order="asc",
+                starting_after="starting_after",
+            )
+
         assert_matches_type(SyncCursorPage[CloudSecret], secret, path=["response"])
 
     @parametrize
     def test_raw_response_list(self, client: SGPClient) -> None:
-        response = client.secrets.with_raw_response.list()
+        with pytest.warns(DeprecationWarning):
+            response = client.secrets.with_raw_response.list()
 
         assert response.is_closed is True
         assert response.http_request.headers.get("X-Stainless-Lang") == "python"
@@ -173,27 +198,31 @@ class TestSecrets:
 
     @parametrize
     def test_streaming_response_list(self, client: SGPClient) -> None:
-        with client.secrets.with_streaming_response.list() as response:
-            assert not response.is_closed
-            assert response.http_request.headers.get("X-Stainless-Lang") == "python"
+        with pytest.warns(DeprecationWarning):
+            with client.secrets.with_streaming_response.list() as response:
+                assert not response.is_closed
+                assert response.http_request.headers.get("X-Stainless-Lang") == "python"
 
-            secret = response.parse()
-            assert_matches_type(SyncCursorPage[CloudSecret], secret, path=["response"])
+                secret = response.parse()
+                assert_matches_type(SyncCursorPage[CloudSecret], secret, path=["response"])
 
         assert cast(Any, response.is_closed) is True
 
     @parametrize
     def test_method_delete(self, client: SGPClient) -> None:
-        secret = client.secrets.delete(
-            "secret_id",
-        )
+        with pytest.warns(DeprecationWarning):
+            secret = client.secrets.delete(
+                "secret_id",
+            )
+
         assert secret is None
 
     @parametrize
     def test_raw_response_delete(self, client: SGPClient) -> None:
-        response = client.secrets.with_raw_response.delete(
-            "secret_id",
-        )
+        with pytest.warns(DeprecationWarning):
+            response = client.secrets.with_raw_response.delete(
+                "secret_id",
+            )
 
         assert response.is_closed is True
         assert response.http_request.headers.get("X-Stainless-Lang") == "python"
@@ -202,23 +231,25 @@ class TestSecrets:
 
     @parametrize
     def test_streaming_response_delete(self, client: SGPClient) -> None:
-        with client.secrets.with_streaming_response.delete(
-            "secret_id",
-        ) as response:
-            assert not response.is_closed
-            assert response.http_request.headers.get("X-Stainless-Lang") == "python"
+        with pytest.warns(DeprecationWarning):
+            with client.secrets.with_streaming_response.delete(
+                "secret_id",
+            ) as response:
+                assert not response.is_closed
+                assert response.http_request.headers.get("X-Stainless-Lang") == "python"
 
-            secret = response.parse()
-            assert secret is None
+                secret = response.parse()
+                assert secret is None
 
         assert cast(Any, response.is_closed) is True
 
     @parametrize
     def test_path_params_delete(self, client: SGPClient) -> None:
-        with pytest.raises(ValueError, match=r"Expected a non-empty value for `secret_id` but received ''"):
-            client.secrets.with_raw_response.delete(
-                "",
-            )
+        with pytest.warns(DeprecationWarning):
+            with pytest.raises(ValueError, match=r"Expected a non-empty value for `secret_id` but received ''"):
+                client.secrets.with_raw_response.delete(
+                    "",
+                )
 
 
 class TestAsyncSecrets:
@@ -228,27 +259,32 @@ class TestAsyncSecrets:
 
     @parametrize
     async def test_method_create(self, async_client: AsyncSGPClient) -> None:
-        secret = await async_client.secrets.create(
-            key="key",
-            value="x",
-        )
+        with pytest.warns(DeprecationWarning):
+            secret = await async_client.secrets.create(
+                key="key",
+                value="x",
+            )
+
         assert_matches_type(CloudSecret, secret, path=["response"])
 
     @parametrize
     async def test_method_create_with_all_params(self, async_client: AsyncSGPClient) -> None:
-        secret = await async_client.secrets.create(
-            key="key",
-            value="x",
-            description="description",
-        )
+        with pytest.warns(DeprecationWarning):
+            secret = await async_client.secrets.create(
+                key="key",
+                value="x",
+                description="description",
+            )
+
         assert_matches_type(CloudSecret, secret, path=["response"])
 
     @parametrize
     async def test_raw_response_create(self, async_client: AsyncSGPClient) -> None:
-        response = await async_client.secrets.with_raw_response.create(
-            key="key",
-            value="x",
-        )
+        with pytest.warns(DeprecationWarning):
+            response = await async_client.secrets.with_raw_response.create(
+                key="key",
+                value="x",
+            )
 
         assert response.is_closed is True
         assert response.http_request.headers.get("X-Stainless-Lang") == "python"
@@ -257,30 +293,34 @@ class TestAsyncSecrets:
 
     @parametrize
     async def test_streaming_response_create(self, async_client: AsyncSGPClient) -> None:
-        async with async_client.secrets.with_streaming_response.create(
-            key="key",
-            value="x",
-        ) as response:
-            assert not response.is_closed
-            assert response.http_request.headers.get("X-Stainless-Lang") == "python"
+        with pytest.warns(DeprecationWarning):
+            async with async_client.secrets.with_streaming_response.create(
+                key="key",
+                value="x",
+            ) as response:
+                assert not response.is_closed
+                assert response.http_request.headers.get("X-Stainless-Lang") == "python"
 
-            secret = await response.parse()
-            assert_matches_type(CloudSecret, secret, path=["response"])
+                secret = await response.parse()
+                assert_matches_type(CloudSecret, secret, path=["response"])
 
         assert cast(Any, response.is_closed) is True
 
     @parametrize
     async def test_method_retrieve(self, async_client: AsyncSGPClient) -> None:
-        secret = await async_client.secrets.retrieve(
-            "secret_id",
-        )
+        with pytest.warns(DeprecationWarning):
+            secret = await async_client.secrets.retrieve(
+                "secret_id",
+            )
+
         assert_matches_type(CloudSecret, secret, path=["response"])
 
     @parametrize
     async def test_raw_response_retrieve(self, async_client: AsyncSGPClient) -> None:
-        response = await async_client.secrets.with_raw_response.retrieve(
-            "secret_id",
-        )
+        with pytest.warns(DeprecationWarning):
+            response = await async_client.secrets.with_raw_response.retrieve(
+                "secret_id",
+            )
 
         assert response.is_closed is True
         assert response.http_request.headers.get("X-Stainless-Lang") == "python"
@@ -289,45 +329,52 @@ class TestAsyncSecrets:
 
     @parametrize
     async def test_streaming_response_retrieve(self, async_client: AsyncSGPClient) -> None:
-        async with async_client.secrets.with_streaming_response.retrieve(
-            "secret_id",
-        ) as response:
-            assert not response.is_closed
-            assert response.http_request.headers.get("X-Stainless-Lang") == "python"
+        with pytest.warns(DeprecationWarning):
+            async with async_client.secrets.with_streaming_response.retrieve(
+                "secret_id",
+            ) as response:
+                assert not response.is_closed
+                assert response.http_request.headers.get("X-Stainless-Lang") == "python"
 
-            secret = await response.parse()
-            assert_matches_type(CloudSecret, secret, path=["response"])
+                secret = await response.parse()
+                assert_matches_type(CloudSecret, secret, path=["response"])
 
         assert cast(Any, response.is_closed) is True
 
     @parametrize
     async def test_path_params_retrieve(self, async_client: AsyncSGPClient) -> None:
-        with pytest.raises(ValueError, match=r"Expected a non-empty value for `secret_id` but received ''"):
-            await async_client.secrets.with_raw_response.retrieve(
-                "",
-            )
+        with pytest.warns(DeprecationWarning):
+            with pytest.raises(ValueError, match=r"Expected a non-empty value for `secret_id` but received ''"):
+                await async_client.secrets.with_raw_response.retrieve(
+                    "",
+                )
 
     @parametrize
     async def test_method_update(self, async_client: AsyncSGPClient) -> None:
-        secret = await async_client.secrets.update(
-            secret_id="secret_id",
-        )
+        with pytest.warns(DeprecationWarning):
+            secret = await async_client.secrets.update(
+                secret_id="secret_id",
+            )
+
         assert_matches_type(CloudSecret, secret, path=["response"])
 
     @parametrize
     async def test_method_update_with_all_params(self, async_client: AsyncSGPClient) -> None:
-        secret = await async_client.secrets.update(
-            secret_id="secret_id",
-            description="description",
-            value="x",
-        )
+        with pytest.warns(DeprecationWarning):
+            secret = await async_client.secrets.update(
+                secret_id="secret_id",
+                description="description",
+                value="x",
+            )
+
         assert_matches_type(CloudSecret, secret, path=["response"])
 
     @parametrize
     async def test_raw_response_update(self, async_client: AsyncSGPClient) -> None:
-        response = await async_client.secrets.with_raw_response.update(
-            secret_id="secret_id",
-        )
+        with pytest.warns(DeprecationWarning):
+            response = await async_client.secrets.with_raw_response.update(
+                secret_id="secret_id",
+            )
 
         assert response.is_closed is True
         assert response.http_request.headers.get("X-Stainless-Lang") == "python"
@@ -336,43 +383,50 @@ class TestAsyncSecrets:
 
     @parametrize
     async def test_streaming_response_update(self, async_client: AsyncSGPClient) -> None:
-        async with async_client.secrets.with_streaming_response.update(
-            secret_id="secret_id",
-        ) as response:
-            assert not response.is_closed
-            assert response.http_request.headers.get("X-Stainless-Lang") == "python"
+        with pytest.warns(DeprecationWarning):
+            async with async_client.secrets.with_streaming_response.update(
+                secret_id="secret_id",
+            ) as response:
+                assert not response.is_closed
+                assert response.http_request.headers.get("X-Stainless-Lang") == "python"
 
-            secret = await response.parse()
-            assert_matches_type(CloudSecret, secret, path=["response"])
+                secret = await response.parse()
+                assert_matches_type(CloudSecret, secret, path=["response"])
 
         assert cast(Any, response.is_closed) is True
 
     @parametrize
     async def test_path_params_update(self, async_client: AsyncSGPClient) -> None:
-        with pytest.raises(ValueError, match=r"Expected a non-empty value for `secret_id` but received ''"):
-            await async_client.secrets.with_raw_response.update(
-                secret_id="",
-            )
+        with pytest.warns(DeprecationWarning):
+            with pytest.raises(ValueError, match=r"Expected a non-empty value for `secret_id` but received ''"):
+                await async_client.secrets.with_raw_response.update(
+                    secret_id="",
+                )
 
     @parametrize
     async def test_method_list(self, async_client: AsyncSGPClient) -> None:
-        secret = await async_client.secrets.list()
+        with pytest.warns(DeprecationWarning):
+            secret = await async_client.secrets.list()
+
         assert_matches_type(AsyncCursorPage[CloudSecret], secret, path=["response"])
 
     @parametrize
     async def test_method_list_with_all_params(self, async_client: AsyncSGPClient) -> None:
-        secret = await async_client.secrets.list(
-            ending_before="ending_before",
-            limit=1,
-            sort_by="sort_by",
-            sort_order="asc",
-            starting_after="starting_after",
-        )
+        with pytest.warns(DeprecationWarning):
+            secret = await async_client.secrets.list(
+                ending_before="ending_before",
+                limit=1,
+                sort_by="sort_by",
+                sort_order="asc",
+                starting_after="starting_after",
+            )
+
         assert_matches_type(AsyncCursorPage[CloudSecret], secret, path=["response"])
 
     @parametrize
     async def test_raw_response_list(self, async_client: AsyncSGPClient) -> None:
-        response = await async_client.secrets.with_raw_response.list()
+        with pytest.warns(DeprecationWarning):
+            response = await async_client.secrets.with_raw_response.list()
 
         assert response.is_closed is True
         assert response.http_request.headers.get("X-Stainless-Lang") == "python"
@@ -381,27 +435,31 @@ class TestAsyncSecrets:
 
     @parametrize
     async def test_streaming_response_list(self, async_client: AsyncSGPClient) -> None:
-        async with async_client.secrets.with_streaming_response.list() as response:
-            assert not response.is_closed
-            assert response.http_request.headers.get("X-Stainless-Lang") == "python"
+        with pytest.warns(DeprecationWarning):
+            async with async_client.secrets.with_streaming_response.list() as response:
+                assert not response.is_closed
+                assert response.http_request.headers.get("X-Stainless-Lang") == "python"
 
-            secret = await response.parse()
-            assert_matches_type(AsyncCursorPage[CloudSecret], secret, path=["response"])
+                secret = await response.parse()
+                assert_matches_type(AsyncCursorPage[CloudSecret], secret, path=["response"])
 
         assert cast(Any, response.is_closed) is True
 
     @parametrize
     async def test_method_delete(self, async_client: AsyncSGPClient) -> None:
-        secret = await async_client.secrets.delete(
-            "secret_id",
-        )
+        with pytest.warns(DeprecationWarning):
+            secret = await async_client.secrets.delete(
+                "secret_id",
+            )
+
         assert secret is None
 
     @parametrize
     async def test_raw_response_delete(self, async_client: AsyncSGPClient) -> None:
-        response = await async_client.secrets.with_raw_response.delete(
-            "secret_id",
-        )
+        with pytest.warns(DeprecationWarning):
+            response = await async_client.secrets.with_raw_response.delete(
+                "secret_id",
+            )
 
         assert response.is_closed is True
         assert response.http_request.headers.get("X-Stainless-Lang") == "python"
@@ -410,20 +468,22 @@ class TestAsyncSecrets:
 
     @parametrize
     async def test_streaming_response_delete(self, async_client: AsyncSGPClient) -> None:
-        async with async_client.secrets.with_streaming_response.delete(
-            "secret_id",
-        ) as response:
-            assert not response.is_closed
-            assert response.http_request.headers.get("X-Stainless-Lang") == "python"
+        with pytest.warns(DeprecationWarning):
+            async with async_client.secrets.with_streaming_response.delete(
+                "secret_id",
+            ) as response:
+                assert not response.is_closed
+                assert response.http_request.headers.get("X-Stainless-Lang") == "python"
 
-            secret = await response.parse()
-            assert secret is None
+                secret = await response.parse()
+                assert secret is None
 
         assert cast(Any, response.is_closed) is True
 
     @parametrize
     async def test_path_params_delete(self, async_client: AsyncSGPClient) -> None:
-        with pytest.raises(ValueError, match=r"Expected a non-empty value for `secret_id` but received ''"):
-            await async_client.secrets.with_raw_response.delete(
-                "",
-            )
+        with pytest.warns(DeprecationWarning):
+            with pytest.raises(ValueError, match=r"Expected a non-empty value for `secret_id` but received ''"):
+                await async_client.secrets.with_raw_response.delete(
+                    "",
+                )

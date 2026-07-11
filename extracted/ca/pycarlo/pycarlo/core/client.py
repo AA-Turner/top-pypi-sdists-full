@@ -10,6 +10,7 @@ from pycarlo.common import get_logger
 from pycarlo.common.errors import InvalidSessionError
 from pycarlo.common.retries import Backoff, ExponentialBackoffJitter, retry_with_backoff
 from pycarlo.common.settings import (
+    DEFAULT_AUTHORIZATION_HEADER,
     DEFAULT_IGW_TIMEOUT_SECS,
     DEFAULT_MCD_API_ID_HEADER,
     DEFAULT_MCD_API_TOKEN_HEADER,
@@ -78,14 +79,20 @@ class Client:
         Enable verbose logging to echo.
         """
         headers = {
-            DEFAULT_MCD_API_ID_HEADER: self.session_id,
-            DEFAULT_MCD_API_TOKEN_HEADER: self._session.token,
             DEFAULT_MCD_SESSION_ID: self.session_name,
             DEFAULT_MCD_TRACE_ID: str(uuid.uuid4()),
             # By default let's assume the request is user initiated, this will be
             # overridden by additional headers if this is not the case:
             HEADER_MCD_TELEMETRY_REASON: RequestReason.USER.value,
         }
+
+        if self._session.is_oauth:
+            # OAuth: send the bearer access token (obtained/cached via the client-credentials grant)
+            # instead of the mcd-id/mcd-token API key.
+            headers[DEFAULT_AUTHORIZATION_HEADER] = f"Bearer {self._session.get_access_token()}"
+        else:
+            headers[DEFAULT_MCD_API_ID_HEADER] = self.session_id
+            headers[DEFAULT_MCD_API_TOKEN_HEADER] = self._session.token
 
         if self._session.user_id:
             headers[DEFAULT_MCD_USER_ID_HEADER] = self._session.user_id

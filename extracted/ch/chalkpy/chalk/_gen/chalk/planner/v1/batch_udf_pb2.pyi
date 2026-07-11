@@ -26,18 +26,18 @@ class BatchUDF(_message.Message):
     ) -> None: ...
 
 class BatchUDFArgument(_message.Message):
-    __slots__ = ("int_value", "string_value", "py_obj")
+    __slots__ = ("py_obj", "int_value", "string_value")
+    PY_OBJ_FIELD_NUMBER: _ClassVar[int]
     INT_VALUE_FIELD_NUMBER: _ClassVar[int]
     STRING_VALUE_FIELD_NUMBER: _ClassVar[int]
-    PY_OBJ_FIELD_NUMBER: _ClassVar[int]
+    py_obj: PyObject
     int_value: int
     string_value: str
-    py_obj: PyObject
     def __init__(
         self,
+        py_obj: _Optional[_Union[PyObject, _Mapping]] = ...,
         int_value: _Optional[int] = ...,
         string_value: _Optional[str] = ...,
-        py_obj: _Optional[_Union[PyObject, _Mapping]] = ...,
     ) -> None: ...
 
 class PyObject(_message.Message):

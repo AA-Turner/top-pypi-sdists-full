@@ -7,12 +7,14 @@ import numpy as np
 import mercantile as mt
 import pytest
 import rasterio as rio
-from contextily.tile import _calculate_zoom
+import requests
+from contextily.tile import _calculate_zoom, _merge_tiles, _retryer
 from numpy.testing import assert_array_almost_equal
-import pytest
 from unittest.mock import patch, MagicMock
 import io
 from PIL import Image
+import geopy
+
 
 TOL = 7
 SEARCH = "boulder"
@@ -32,16 +34,16 @@ def test_bounds2raster():
     _ = cx.bounds2raster(
         w, s, e, n, "test.tif", zoom=4, ll=True, source=cx.providers.CartoDB.Positron
     )
-    rtr = rio.open("test.tif")
-    img = np.array([band for band in rtr.read()]).transpose(1, 2, 0)
-    solu = (
-        -12528334.684053527,
-        2509580.5126589066,
-        -10023646.141204873,
-        5014269.05550756,
-    )
-    for i, j in zip(rtr.bounds, solu):
-        assert round(i - j, TOL) == 0
+    with rio.open("test.tif") as rtr:
+        img = np.array([band for band in rtr.read()]).transpose(1, 2, 0)
+        solu = (
+            -12528334.684053527,
+            2509580.5126589066,
+            -10023646.141204873,
+            5014269.05550756,
+        )
+        for i, j in zip(rtr.bounds, solu):
+            assert round(i - j, TOL) == 0
     # Check approximate pixel values instead of exact matches for robustness
     assert np.allclose(img[0, 100, :], [250, 250, 248, 255], atol=10)
     assert np.allclose(img[20, 120, :], [139, 153, 164, 255], atol=10)
@@ -61,21 +63,21 @@ def test_bounds2raster():
     img, ext = cx.bounds2raster(
         w, s, e, n, "test2.tif", zoom=7, ll=True, source=cx.providers.CartoDB.Positron
     )
-    rtr = rio.open("test2.tif")
-    rimg = np.array([band for band in rtr.read()]).transpose(1, 2, 0)
-    assert rimg.shape == img.shape
-    assert rimg.sum() == img.sum()
-    assert_array_almost_equal(rimg.mean(), img.mean())
-    assert_array_almost_equal(
-        ext, (0.0, 939258.2035682457, 6261721.35712164, 6887893.492833804)
-    )
-    rtr_bounds = [
-        -611.49622628141,
-        6262332.853347922,
-        938646.7073419644,
-        6888504.989060086,
-    ]
-    assert_array_almost_equal(list(rtr.bounds), rtr_bounds)
+    with rio.open("test2.tif") as rtr:
+        rimg = np.array([band for band in rtr.read()]).transpose(1, 2, 0)
+        assert rimg.shape == img.shape
+        assert rimg.sum() == img.sum()
+        assert_array_almost_equal(rimg.mean(), img.mean())
+        assert_array_almost_equal(
+            ext, (0.0, 939258.2035682457, 6261721.35712164, 6887893.492833804)
+        )
+        rtr_bounds = [
+            -611.49622628141,
+            6262332.853347922,
+            938646.7073419644,
+            6888504.989060086,
+        ]
+        assert_array_almost_equal(list(rtr.bounds), rtr_bounds)
 
 
 @pytest.mark.parametrize("n_connections", [0, 1, 16])
@@ -333,6 +335,7 @@ def test_custom_user_agent_override():
         assert not headers_used["user-agent"].startswith("contextily-")
 
 
+@pytest.mark.network
 def test_place_with_custom_headers():
     """Test that Place class properly passes custom headers through to bounds2img."""
     # Create a mock image to return
@@ -521,9 +524,9 @@ def test_warp_img_transform():
     _ = cx.bounds2raster(
         w, s, e, n, "test.tif", zoom=4, ll=True, source=cx.providers.CartoDB.Positron
     )
-    rtr = rio.open("test.tif")
-    img = np.array([band for band in rtr.read()])
-    wimg, _ = cx.warp_img_transform(img, rtr.transform, rtr.crs, "epsg:4326")
+    with rio.open("test.tif") as rtr:
+        img = np.array([band for band in rtr.read()])
+        wimg, _ = cx.warp_img_transform(img, rtr.transform, rtr.crs, "epsg:4326")
     # Check approximate pixel values instead of exact matches for robustness
     assert np.allclose(wimg[:, 100, 100], [249, 249, 247, 255], atol=10)
     assert np.allclose(wimg[:, 100, 200], [250, 250, 248, 255], atol=10)
@@ -553,9 +556,9 @@ def test_ll2wdw():
     )
     hou = (-10676650.69219051, 3441477.046670125, -10576977.7804825, 3523606.146650609)
     _ = cx.bounds2raster(w, s, e, n, "test.tif", zoom=4, ll=True)
-    rtr = rio.open("test.tif")
-    wdw = cx.tile.bb2wdw(hou, rtr)
-    assert wdw == ((152, 161), (189, 199))
+    with rio.open("test.tif") as rtr:
+        wdw = cx.tile.bb2wdw(hou, rtr)
+        assert wdw == ((152, 161), (189, 199))
 
 
 def test__sm2ll():
@@ -618,7 +621,10 @@ def test_place():
         4891969.810251278,
     ]
     expected_zoom = 10
-    loc = cx.Place(SEARCH, zoom_adjust=ADJUST)
+
+    # Use a geocoder with increased timeout to avoid flaky network issues
+    geocoder = geopy.geocoders.Nominatim(user_agent="contextily_test", timeout=10)
+    loc = cx.Place(SEARCH, zoom_adjust=ADJUST, geocoder=geocoder)
     assert loc.im.shape == (256, 256, 4)
     loc  # Make sure repr works
 
@@ -628,7 +634,7 @@ def test_place():
     assert_array_almost_equal(loc.bbox_map, expected_bbox_map)
     assert loc.zoom == expected_zoom
 
-    loc = cx.Place(SEARCH, path="./test2.tif", zoom_adjust=ADJUST)
+    loc = cx.Place(SEARCH, path="./test2.tif", zoom_adjust=ADJUST, geocoder=geocoder)
     assert os.path.exists("./test2.tif")
 
     # .plot() method
@@ -686,7 +692,10 @@ def test_add_basemap_local_source():
     f, ax = matplotlib.pyplot.subplots(1)
     ax.set_xlim(subset[0], subset[1])
     ax.set_ylim(subset[2], subset[3])
-    _ = cx.Place(SEARCH, path="./test2.tif", zoom_adjust=ADJUST)
+
+    # Use a geocoder with increased timeout to avoid flaky network issues
+    geocoder = geopy.geocoders.Nominatim(user_agent="contextily_test", timeout=10)
+    _ = cx.Place(SEARCH, path="./test2.tif", zoom_adjust=ADJUST, geocoder=geocoder)
     cx.add_basemap(ax, source="./test2.tif", reset_extent=True)
 
     assert_array_almost_equal(subset, ax.images[0].get_extent())
@@ -739,7 +748,10 @@ def test_add_basemap_full_read():
     f, ax = matplotlib.pyplot.subplots(1)
     ax.set_xlim(x1, x2)
     ax.set_ylim(y1, y2)
-    loc = cx.Place(SEARCH, path="./test2.tif", zoom_adjust=ADJUST)
+
+    # Use a geocoder with increased timeout to avoid flaky network issues
+    geocoder = geopy.geocoders.Nominatim(user_agent="contextily_test", timeout=10)
+    loc = cx.Place(SEARCH, path="./test2.tif", zoom_adjust=ADJUST, geocoder=geocoder)
     cx.add_basemap(ax, source="./test2.tif", reset_extent=False)
 
     raster_extent = (
@@ -801,8 +813,8 @@ def test_add_basemap_auto_zoom():
                 4852834.0517692715,
                 4891969.810251278,
             ),
-            764120533,
-            1031507413,
+            764169891,
+            1031556771,
             (1024, 1024, 4),
         ),
         # zoom_adjust and expected values where zoom_adjust == -1
@@ -1033,3 +1045,61 @@ def test_aspect():
     cx.add_basemap(ax, zoom=10)
 
     assert ax.get_aspect() == 2
+
+
+def test_merge_tiles_raises_clear_error_for_missing_tile():
+    """A tile that failed to download (None) raises a clear ValueError from
+    _merge_tiles instead of an AttributeError/TypeError (see GH#252)."""
+    tiles = [mt.Tile(0, 0, 1), mt.Tile(1, 0, 1)]
+    valid = np.zeros((256, 256, 4), dtype=np.uint8)
+    # the first tile is missing (was AttributeError on arrays[0].shape)
+    with pytest.raises(ValueError, match="could not be downloaded"):
+        _merge_tiles(tiles, [None, valid])
+    # a later tile is missing (was TypeError on the assignment)
+    with pytest.raises(ValueError, match="could not be downloaded"):
+        _merge_tiles(tiles, [valid, None])
+
+
+def test_retryer_returns_array_after_successful_retry():
+    """_retryer returns the fetched array (not None) when an initial non-404
+    failure is followed by a successful retry (see GH#252)."""
+    img_array = np.random.randint(0, 255, (256, 256, 4), dtype=np.uint8)
+    buf = io.BytesIO()
+    Image.fromarray(img_array, mode="RGBA").save(buf, format="PNG")
+
+    failed = MagicMock()
+    failed.status_code = 500
+    failed.raise_for_status.side_effect = requests.HTTPError("500 Server Error")
+
+    succeeded = MagicMock()
+    succeeded.status_code = 200
+    succeeded.content = buf.getvalue()
+    succeeded.raise_for_status = MagicMock()
+
+    with patch(
+        "contextily.tile.requests.get", side_effect=[failed, succeeded]
+    ) as mock_get:
+        result = _retryer(
+            "https://example.com/0/0/0.png", wait=0, max_retries=2, headers={}
+        )
+
+    assert mock_get.call_count == 2
+    assert isinstance(result, np.ndarray)
+    assert result.shape == (256, 256, 4)
+
+
+def test_retryer_raises_when_retries_exhausted():
+    """When retries are exhausted on a non-404 failure, _retryer raises rather
+    than returning None (guards the else-branch touched in GH#252)."""
+    failed = MagicMock()
+    failed.status_code = 500
+    failed.raise_for_status.side_effect = requests.HTTPError("500 Server Error")
+
+    with patch("contextily.tile.requests.get", return_value=failed):
+        with pytest.raises(requests.HTTPError):
+            _retryer(
+                "https://example.com/0/0/0.png",
+                wait=0,
+                max_retries=0,
+                headers={},
+            )

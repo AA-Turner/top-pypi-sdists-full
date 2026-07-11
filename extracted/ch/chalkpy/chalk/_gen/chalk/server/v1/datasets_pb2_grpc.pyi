@@ -34,6 +34,8 @@ from chalk._gen.chalk.server.v1.datasets_pb2 import (
     GetDatasetRevisionResponse,
     GetDatasetUploadUrisRequest,
     GetDatasetUploadUrisResponse,
+    GetMaterializedAggregateTileRowCountChartRequest,
+    GetMaterializedAggregateTileRowCountChartResponse,
     ListDatasetRevisionsRequest,
     ListDatasetRevisionsResponse,
     ListDatasetsRequest,
@@ -134,6 +136,16 @@ class DatasetMetadataServiceStub:
         ListMaterializedAggregateTileFilesRequest,
         ListMaterializedAggregateTileFilesResponse,
     ]
+    GetMaterializedAggregateTileRowCountChart: UnaryUnaryMultiCallable[
+        GetMaterializedAggregateTileRowCountChartRequest,
+        GetMaterializedAggregateTileRowCountChartResponse,
+    ]
+    """Row-count-per-tile histogram for one timeline (one
+    materialization_key_hash). Each x point is a tile's coverage_lower_bound;
+    the value is the total stored row count of the newest manifest covering
+    that window, i.e. the number of distinct (primary key, group, bucket)
+    rows materialized for the window.
+    """
     DeleteMaterializedAggregateTile: UnaryUnaryMultiCallable[
         DeleteMaterializedAggregateTileRequest,
         DeleteMaterializedAggregateTileResponse,
@@ -272,6 +284,18 @@ class DatasetMetadataServiceServicer(metaclass=ABCMeta):
         request: ListMaterializedAggregateTileFilesRequest,
         context: ServicerContext,
     ) -> ListMaterializedAggregateTileFilesResponse: ...
+    @abstractmethod
+    def GetMaterializedAggregateTileRowCountChart(
+        self,
+        request: GetMaterializedAggregateTileRowCountChartRequest,
+        context: ServicerContext,
+    ) -> GetMaterializedAggregateTileRowCountChartResponse:
+        """Row-count-per-tile histogram for one timeline (one
+        materialization_key_hash). Each x point is a tile's coverage_lower_bound;
+        the value is the total stored row count of the newest manifest covering
+        that window, i.e. the number of distinct (primary key, group, bucket)
+        rows materialized for the window.
+        """
     @abstractmethod
     def DeleteMaterializedAggregateTile(
         self,

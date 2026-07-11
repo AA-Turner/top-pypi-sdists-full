@@ -4,6 +4,7 @@ import google.protobuf.message
 import modal._object
 import modal.client
 import modal.object
+import modal.types
 import modal_proto.api_pb2
 import synchronicity
 import synchronicity.combined_types
@@ -20,27 +21,6 @@ _NO_DEFAULT: _NoDefaultSentinel
 def _serialize_dict(data): ...
 def _deserialize_dict_key(dict: _Dict, data: bytes) -> typing.Any: ...
 def _deserialize_dict_value(dict: _Dict, data: bytes, key: typing.Any = ...) -> typing.Any: ...
-
-class DictInfo:
-    """Information about a Dict object."""
-
-    name: typing.Optional[str]
-    created_at: datetime.datetime
-    created_by: typing.Optional[str]
-
-    def __init__(
-        self, name: typing.Optional[str], created_at: datetime.datetime, created_by: typing.Optional[str]
-    ) -> None:
-        """Initialize self.  See help(type(self)) for accurate signature."""
-        ...
-
-    def __repr__(self):
-        """Return repr(self)."""
-        ...
-
-    def __eq__(self, other):
-        """Return self==value."""
-        ...
 
 class _DictManager:
     """Namespace with methods for managing named Dict objects."""
@@ -576,7 +556,7 @@ class _Dict(modal._object._Object):
         """
         ...
 
-    async def info(self) -> DictInfo:
+    async def info(self) -> modal.types.DictInfo:
         """Return information about the Dict object."""
         ...
 
@@ -861,11 +841,11 @@ class Dict(modal.object.Object):
         ...
 
     class __info_spec(typing_extensions.Protocol):
-        def __call__(self, /) -> DictInfo:
+        def __call__(self, /) -> modal.types.DictInfo:
             """Return information about the Dict object."""
             ...
 
-        async def aio(self, /) -> DictInfo:
+        async def aio(self, /) -> modal.types.DictInfo:
             """Return information about the Dict object."""
             ...
 

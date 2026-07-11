@@ -381,6 +381,8 @@ def _clean_json_str(s: str) -> str:
             if char == '\\':
                 escaped = True
                 out.append(char)
+                if i + 1 < n and s[i+1] not in ('"', '\\', '/', 'b', 'f', 'n', 'r', 't', 'u'):
+                    out.append('\\')
             elif char == in_quote:
                 # Closing the string
                 out.append('"')

@@ -10,6 +10,7 @@ import PIL.Image
 from huggingface_hub import hf_hub_download
 
 import voyageai
+from voyageai.error import AuthenticationError, InvalidRequestError
 from voyageai.object import EmbeddingsObject, RerankingObject
 from voyageai.object.contextualized_embeddings import ContextualizedEmbeddingsObject
 from voyageai.object.multimodal_embeddings import (
@@ -46,7 +47,7 @@ class _BaseClient(ABC):
     """Voyage AI Client
 
     Args:
-        api_key (str): Your API key.
+        api_key (str): Your API key (optional for local models).
         max_retries (int): Maximum number of retries if API call fails.
         timeout (float): Timeout in seconds.
         base_url (str): Base URL for the API endpoint.
@@ -59,15 +60,43 @@ class _BaseClient(ABC):
         timeout: Optional[float] = None,
         base_url: Optional[str] = None,
     ) -> None:
-        self.api_key = api_key or default_api_key()
+        # API key is optional - allow None for local-only usage
+        try:
+            self.api_key = api_key or default_api_key()
+        except (AuthenticationError, OSError, UnicodeDecodeError):
+            # No usable API key - that's OK for local models. A set-but-stale
+            # VOYAGE_API_KEY_PATH is tolerated: default_api_key() opens it in
+            # text mode, so a missing/unreadable file raises OSError and a
+            # non-UTF-8 (e.g. binary) file raises UnicodeDecodeError. Both should
+            # fall back to keyless rather than break construction.
+            self.api_key = None
+
         self.max_retries = max_retries
-        base_url = base_url or get_default_base_url(self.api_key)
+
+        # Only set base_url if we have an API key
+        if self.api_key:
+            base_url = base_url or get_default_base_url(self.api_key)
 
         self._params = {
             "api_key": self.api_key,
             "request_timeout": timeout,
             "base_url": base_url,
         }
+
+    def _require_api_key(self) -> None:
+        """Raise a clear error if no API key is configured.
+
+        The client allows a missing key so local models can run without one, but
+        every API-backed method must call this first. Otherwise a keyless call
+        would do its input validation/chunking and then fail late and deep inside
+        the request layer with a less actionable error.
+        """
+        if not self.api_key:
+            raise AuthenticationError(
+                "An API key is required for API-based models. "
+                "Set your API key via the VOYAGE_API_KEY environment variable or "
+                "pass it to the client (api_key=...)."
+            )
 
     @abstractmethod
     def embed(
@@ -202,14 +231,10 @@ class _BaseClient(ABC):
 
             for segment in item.content:
                 if isinstance(segment, MultimodalInputSegmentImageURL):
-                    raise voyageai.error.InvalidRequestError(
-                        "count_usage does not support image URL segments."
-                    )
+                    raise InvalidRequestError("count_usage does not support image URL segments.")
 
                 elif isinstance(segment, MultimodalInputSegmentVideoURL):
-                    raise voyageai.error.InvalidRequestError(
-                        "count_usage does not support video URL segments."
-                    )
+                    raise InvalidRequestError("count_usage does not support video URL segments.")
 
                 elif isinstance(segment, MultimodalInputSegmentImageBase64):
                     try:
@@ -223,9 +248,7 @@ class _BaseClient(ABC):
                         image_tokens += this_image_pixels // pixel_to_token_ratio
 
                     except Exception as e:
-                        raise voyageai.error.InvalidRequestError(
-                            f"Unable to process base64 image: {e}"
-                        )
+                        raise InvalidRequestError(f"Unable to process base64 image: {e}")
 
                 elif isinstance(segment, MultimodalInputSegmentVideoBase64):
                     try:
@@ -236,9 +259,7 @@ class _BaseClient(ABC):
                         video_tokens += video.estimated_num_tokens
 
                     except Exception as e:
-                        raise voyageai.error.InvalidRequestError(
-                            f"Unable to process base64 video: {e}"
-                        )
+                        raise InvalidRequestError(f"Unable to process base64 video: {e}")
 
                 elif isinstance(segment, MultimodalInputSegmentText):
                     text_segments += segment.text

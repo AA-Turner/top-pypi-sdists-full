@@ -1,9 +1,9 @@
 Metadata-Version: 2.4
 Name: apache-airflow-providers-fab
-Version: 3.7.1
+Version: 3.7.2
 Summary: Provider package apache-airflow-providers-fab for Apache Airflow
-Project-URL: Documentation, https://airflow.apache.org/docs/apache-airflow-providers-fab/3.7.1
-Project-URL: Changelog, https://airflow.apache.org/docs/apache-airflow-providers-fab/3.7.1/changelog.html
+Project-URL: Documentation, https://airflow.apache.org/docs/apache-airflow-providers-fab/3.7.2
+Project-URL: Changelog, https://airflow.apache.org/docs/apache-airflow-providers-fab/3.7.2/changelog.html
 Project-URL: Bug Tracker, https://github.com/apache/airflow/issues
 Project-URL: Source Code, https://github.com/apache/airflow
 Project-URL: Slack Chat, https://s.apache.org/airflow-slack
@@ -81,7 +81,7 @@ Description-Content-Type: text/x-rst
 
 Package ``apache-airflow-providers-fab``
 
-Release: ``3.7.1``
+Release: ``3.7.2``
 
 
 `Flask App Builder <https://flask-appbuilder.readthedocs.io/>`__
@@ -94,7 +94,7 @@ This is a provider package for ``fab`` provider. All classes for this provider p
 are in ``airflow.providers.fab`` python package.
 
 You can find package information and changelog for the provider
-in the `documentation <https://airflow.apache.org/docs/apache-airflow-providers-fab/3.7.1/>`_.
+in the `documentation <https://airflow.apache.org/docs/apache-airflow-providers-fab/3.7.2/>`_.
 
 Installation
 ------------
@@ -133,25 +133,6 @@ PIP package                                 Version required
 ``flask_limiter``                           ``>3``
 ==========================================  =====================================
 
-Cross provider package dependencies
------------------------------------
-
-Those are dependencies that might be needed in order to use all the features of the package.
-You need to install the specified providers in order to use them.
-
-You can install such cross-provider dependencies when installing from PyPI. For example:
-
-.. code-block:: bash
-
-    pip install apache-airflow-providers-fab[common.compat]
-
-
-==================================================================================================================  =================
-Dependent package                                                                                                   Extra
-==================================================================================================================  =================
-`apache-airflow-providers-common-compat <https://airflow.apache.org/docs/apache-airflow-providers-common-compat>`_  ``common.compat``
-==================================================================================================================  =================
-
 Optional dependencies
 ----------------------
 
@@ -163,4 +144,4 @@ Extra         Dependencies
 ============  ===================
 
 The changelog for the provider package can be found in the
-`changelog <https://airflow.apache.org/docs/apache-airflow-providers-fab/3.7.1/changelog.html>`_.
+`changelog <https://airflow.apache.org/docs/apache-airflow-providers-fab/3.7.2/changelog.html>`_.

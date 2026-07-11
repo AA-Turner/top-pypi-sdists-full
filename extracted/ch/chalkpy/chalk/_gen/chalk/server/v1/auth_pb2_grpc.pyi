@@ -24,6 +24,8 @@ from chalk._gen.chalk.server.v1.auth_pb2 import (
     GetProjectInfoResponse,
     GetSessionAndUserRequest,
     GetSessionAndUserResponse,
+    GetTeamOnboardingStatusRequest,
+    GetTeamOnboardingStatusResponse,
     GetTokenRequest,
     GetTokenResponse,
     GetUserByAccountRequest,
@@ -138,6 +140,10 @@ class AuthServiceStub:
     SelfServiceCreateTeam: UnaryUnaryMultiCallable[
         SelfServiceCreateTeamRequest,
         SelfServiceCreateTeamResponse,
+    ]
+    GetTeamOnboardingStatus: UnaryUnaryMultiCallable[
+        GetTeamOnboardingStatusRequest,
+        GetTeamOnboardingStatusResponse,
     ]
     GetProjectInfo: UnaryUnaryMultiCallable[
         GetProjectInfoRequest,
@@ -265,6 +271,12 @@ class AuthServiceServicer(metaclass=ABCMeta):
         request: SelfServiceCreateTeamRequest,
         context: ServicerContext,
     ) -> SelfServiceCreateTeamResponse: ...
+    @abstractmethod
+    def GetTeamOnboardingStatus(
+        self,
+        request: GetTeamOnboardingStatusRequest,
+        context: ServicerContext,
+    ) -> GetTeamOnboardingStatusResponse: ...
     @abstractmethod
     def GetProjectInfo(
         self,

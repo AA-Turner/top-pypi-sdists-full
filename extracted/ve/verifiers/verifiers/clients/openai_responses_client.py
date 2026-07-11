@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 import time
 from collections.abc import Iterable, Mapping
 from typing import Any, TypeAlias
@@ -39,15 +37,6 @@ OpenAIResponsesTool: TypeAlias = dict[str, Any]
 OPENAI_RESPONSES_OUTPUT_FIELD = "openai_responses_output"
 
 
-def _as_mapping(value: Any) -> Mapping[str, Any] | None:
-    if isinstance(value, Mapping):
-        return value
-    if hasattr(value, "model_dump"):
-        dumped = value.model_dump(exclude_none=True)
-        return dumped if isinstance(dumped, Mapping) else None
-    return None
-
-
 def _get_field(value: Any, key: str, default: Any = None) -> Any:
     if isinstance(value, Mapping):
         return value.get(key, default)
@@ -62,6 +51,12 @@ def _model_dump(value: Any) -> dict[str, Any]:
         if isinstance(dumped, dict):
             return dumped
     return {}
+
+
+def _get_reasoning_tokens(usage: Any) -> int:
+    output_details = get_usage_field(usage, "output_tokens_details")
+    reasoning_tokens = get_usage_field(output_details, "reasoning_tokens")
+    return reasoning_tokens if isinstance(reasoning_tokens, int) else 0
 
 
 class OpenAIResponsesClient(
@@ -84,8 +79,14 @@ class OpenAIResponsesClient(
         self, messages: Messages
     ) -> tuple[OpenAIResponsesInput, dict]:
         def normalize_content_part(part: Any) -> dict[str, Any]:
-            part_map = _as_mapping(part)
-            if part_map is None:
+            if isinstance(part, Mapping):
+                part_map = part
+            elif hasattr(part, "model_dump"):
+                dumped = part.model_dump(exclude_none=True)
+                part_map = dumped if isinstance(dumped, Mapping) else None
+            else:
+                part_map = None
+            if not isinstance(part_map, Mapping):
                 raise ValueError(f"Invalid content part type: {type(part)}")
 
             part_type = part_map.get("type")
@@ -120,12 +121,6 @@ class OpenAIResponsesClient(
             if content is None:
                 return ""
             return str(content)
-
-        def tool_output_content(content: Any) -> str:
-            if isinstance(content, str):
-                return content
-            text = content_to_text(content)
-            return text if text else str(content)
 
         def raw_output_items(message: AssistantMessage) -> list[dict[str, Any]]:
             raw = getattr(message, OPENAI_RESPONSES_OUTPUT_FIELD, None)
@@ -165,11 +160,15 @@ class OpenAIResponsesClient(
             if isinstance(message, TextMessage):
                 return [{"type": "message", "role": "user", "content": message.content}]
             if isinstance(message, ToolMessage):
+                output = message.content
+                if not isinstance(output, str):
+                    # Keep images: image_url parts -> Responses input_image (not text).
+                    output = normalize_message_content(output)
                 return [
                     {
                         "type": "function_call_output",
                         "call_id": message.tool_call_id,
-                        "output": tool_output_content(message.content),
+                        "output": output,
                     }
                 ]
             if isinstance(message, AssistantMessage):
@@ -178,7 +177,7 @@ class OpenAIResponsesClient(
                     return raw_items
 
                 items: list[dict[str, Any]] = []
-                if content_to_text(message.content):
+                if content_to_text(message.content) or message.content == "":
                     items.append(
                         {
                             "type": "message",
@@ -274,9 +273,14 @@ class OpenAIResponsesClient(
             message = _get_field(error, "message", "Model response failed")
             raise InvalidModelResponseError(str(message))
 
+        has_usage_reasoning = (
+            _get_reasoning_tokens(getattr(response, "usage", None)) > 0
+        )
         output = getattr(response, "output", None)
-        if output is None:
+        if output is None and not has_usage_reasoning:
             raise EmptyModelResponseError("Model returned no output")
+        if output is None:
+            output = []
         if not isinstance(output, Iterable):
             raise InvalidModelResponseError("Model returned invalid output")
 
@@ -300,9 +304,10 @@ class OpenAIResponsesClient(
                     ):
                         has_text = True
 
+        has_reasoning = has_reasoning or has_usage_reasoning
         if not (has_text or has_tool_call or has_reasoning):
             raise EmptyModelResponseError(
-                "Model returned no content, reasoning, and did not call any tools"
+                "Model returned no content and did not call any tools"
             )
 
     async def from_native_response(
@@ -377,20 +382,13 @@ class OpenAIResponsesClient(
             prompt_tokens = get_usage_field(usage, "input_tokens")
             completion_tokens = get_usage_field(usage, "output_tokens")
             total_tokens = get_usage_field(usage, "total_tokens")
-            output_details = get_usage_field(usage, "output_tokens_details")
-            reasoning_tokens = (
-                get_usage_field(output_details, "reasoning_tokens")
-                if output_details is not None
-                else 0
-            )
+            reasoning_tokens = _get_reasoning_tokens(usage)
             if not isinstance(prompt_tokens, int) or not isinstance(
                 completion_tokens, int
             ):
                 return None
             if not isinstance(total_tokens, int):
                 total_tokens = prompt_tokens + completion_tokens
-            if not isinstance(reasoning_tokens, int):
-                reasoning_tokens = 0
             return Usage(
                 prompt_tokens=prompt_tokens,
                 reasoning_tokens=reasoning_tokens,
@@ -424,14 +422,27 @@ class OpenAIResponsesClient(
         if not isinstance(model, str):
             model = ""
 
+        output_items = raw_output_items(response)
+        content = parse_content(response)
+        reasoning_content = parse_reasoning_content(response)
+        tool_calls = parse_tool_calls(response)
+        if (
+            not output_items
+            and content is None
+            and reasoning_content is None
+            and not tool_calls
+            and _get_reasoning_tokens(getattr(response, "usage", None)) > 0
+        ):
+            content = ""
+
         message_data: dict[str, Any] = {
-            "content": parse_content(response),
-            "reasoning_content": parse_reasoning_content(response),
+            "content": content,
+            "reasoning_content": reasoning_content,
             "finish_reason": parse_finish_reason(response),
             "is_truncated": parse_is_truncated(response),
             "tokens": None,
-            "tool_calls": parse_tool_calls(response) or None,
-            OPENAI_RESPONSES_OUTPUT_FIELD: raw_output_items(response),
+            "tool_calls": tool_calls or None,
+            OPENAI_RESPONSES_OUTPUT_FIELD: output_items,
         }
 
         return Response(

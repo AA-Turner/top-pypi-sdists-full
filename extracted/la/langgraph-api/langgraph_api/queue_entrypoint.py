@@ -65,6 +65,7 @@ def _ensure_port_available(host: str, port: int) -> None:
 
 async def health_and_metrics_server():
     import uvicorn  # noqa: PLC0415
+    from prometheus_client import CONTENT_TYPE_LATEST, generate_latest  # noqa: PLC0415
     from starlette.applications import Starlette  # noqa: PLC0415
     from starlette.requests import Request  # noqa: PLC0415
     from starlette.responses import JSONResponse, PlainTextResponse  # noqa: PLC0415
@@ -91,42 +92,18 @@ async def health_and_metrics_server():
             )
             metrics_format = "prometheus"
 
-        metrics = get_metrics()
-        worker_metrics = metrics["workers"]
-        workers_max = worker_metrics["max"]
-        workers_active = worker_metrics["active"]
-        workers_available = worker_metrics["available"]
+        if metrics_format == "prometheus":
+            # Served from THIS process's OTLP Prometheus registry. The collector
+            # runs in every process, so this queue worker exposes its worker
+            # gauges and its own pool stats — but NOT queue depth
+            # (num_pending/num_running), which the collector emits on the API
+            # process only. Mirrors the main API /metrics (api/meta.py:meta_metrics).
+            return PlainTextResponse(generate_latest(), media_type=CONTENT_TYPE_LATEST)
 
-        project_id = os.getenv("LANGSMITH_HOST_PROJECT_ID")
-        revision_id = os.getenv("LANGSMITH_HOST_REVISION_ID")
-
-        pg_redis_stats = await meta_pool_stats(metrics_format)
-
-        if metrics_format == "json":
-            resp = {
-                **pg_redis_stats,
-                "workers": worker_metrics,
-            }
-            return JSONResponse(resp)
-        elif metrics_format == "prometheus":
-            metrics_lines = [
-                "# HELP lg_api_workers_max The maximum number of workers available.",
-                "# TYPE lg_api_workers_max gauge",
-                f'lg_api_workers_max{{project_id="{project_id}", revision_id="{revision_id}"}} {workers_max}',
-                "# HELP lg_api_workers_active The number of currently active workers.",
-                "# TYPE lg_api_workers_active gauge",
-                f'lg_api_workers_active{{project_id="{project_id}", revision_id="{revision_id}"}} {workers_active}',
-                "# HELP lg_api_workers_available The number of available (idle) workers.",
-                "# TYPE lg_api_workers_available gauge",
-                f'lg_api_workers_available{{project_id="{project_id}", revision_id="{revision_id}"}} {workers_available}',
-            ]
-
-            metrics_lines.extend(pg_redis_stats)
-
-            return PlainTextResponse(
-                "\n".join(metrics_lines),
-                media_type="text/plain; version=0.0.4; charset=utf-8",
-            )
+        # JSON: hand-built snapshot of workers + pool stats.
+        worker_metrics = get_metrics()["workers"]
+        pg_redis_stats = await meta_pool_stats()
+        return JSONResponse({**pg_redis_stats, "workers": worker_metrics})
 
     routes = [
         Route("/ok", health_endpoint),

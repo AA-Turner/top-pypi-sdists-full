@@ -507,8 +507,16 @@ class AzureClient(object):
         blob_client = self.blob_client(container_name, blob_name)
         blob_client.delete_blob(delete_snapshots)
 
+    def get_blob_range(self, container_name: str, blob_name: str,
+                       offset: int, length: int) -> bytes:
+        blob_client = self.blob_client(container_name, blob_name)
+        downloader = blob_client.download_blob(offset=offset, length=length)
+        return downloader.readall()
+
     def get_blob_url(self, container_name: Any, blob_name: str,
-                     expiry_time: int, writable: bool) -> str:
+                     expiry_time: int, writable: bool,
+                     content_disposition: str | None = None,
+                     content_type: str | None = None) -> str:
         now = datetime.datetime.utcnow()
         expiry = now + datetime.timedelta(
             seconds=expiry_time)
@@ -520,7 +528,9 @@ class AzureClient(object):
         sas = generate_blob_sas(
             self.storage_account, container_name, blob_name,
             permission=BlobSasPermissions(read=True, write=writable), expiry=expiry,
-            user_delegation_key=delegation_key
+            user_delegation_key=delegation_key,
+            content_disposition=content_disposition,
+            content_type=content_type
         )
         url = f"https://{self.storage_account}.blob.core.windows.net/{container_name}/{blob_name}?{sas}"
         return url

@@ -1,6 +1,7 @@
 import os
 import dataclasses
 from typing import Any, Dict, Optional, Final, Literal, ClassVar, Type, Union
+from urllib.parse import urlparse
 
 from dlt.common.configuration import configspec, resolve_type
 from dlt.common.configuration.exceptions import ConfigurationValueError
@@ -9,7 +10,10 @@ from dlt.common.configuration.specs.base_configuration import (
     BaseConfiguration,
 )
 from dlt.common.configuration.specs.aws_credentials import AwsCredentials
-from dlt.common.destination.client import DestinationClientDwhConfiguration
+from dlt.common.destination.client import (
+    DestinationClientConfiguration,
+    DestinationClientDwhConfiguration,
+)
 from dlt.common.storages.configuration import FilesystemConfiguration
 from dlt.common.typing import TSecretStrValue
 from dlt.common.storages.configuration import WithLocalFiles
@@ -168,6 +172,58 @@ class IcebergClientConfiguration(WithLocalFiles, DestinationClientDwhConfigurati
     # DestinationClientDwhConfiguration if WithTableScanners interface is implemented by sql_client
     always_refresh_views: bool = False
     """Always refresh table scanner views be setting the newest table metadata"""
+
+    def _catalog_location(self) -> str:
+        """Non-secret identity of the catalog, or "" when none is resolvable."""
+        creds = self.credentials
+        # rest/glue-rest/s3tables-rest catalogs vend the data location; the server uri (optionally
+        # scoped to a warehouse) identifies the tables
+        if (
+            isinstance(creds, (IcebergRESTCatalogCredentials, AwsRESTCatalogCredentials))
+            and creds.uri
+        ):
+            location = f"{self.catalog_type}:{creds.uri.rstrip('/')}"
+            return f"{location}@{creds.warehouse}" if creds.warehouse else location
+        # sql catalog is identified (credential-free) by its metadata database and catalog name
+        if isinstance(creds, ConnectionStringCredentials) and creds.drivername:
+            drivername = creds.drivername
+            if drivername.startswith("sqlite"):
+                if not creds.database:
+                    return ""
+                return f"sql:{drivername}://{creds.database}#{self.catalog_name}"
+            if creds.host and creds.database:
+                port = f":{creds.port}" if creds.port else ""
+                return f"sql:{drivername}://{creds.host}{port}/{creds.database}#{self.catalog_name}"
+        # glue and other catalogs have no reliable non-secret identity
+        return ""
+
+    def _storage_location(self) -> str:
+        """Non-secret data storage identity (scheme://netloc or local path), or "" if vended."""
+        fs = self.filesystem
+        if not fs or not fs.bucket_url:
+            return ""
+
+        if fs.is_local_path(fs.bucket_url):
+            return fs.make_local_path(fs.make_file_url(fs.bucket_url))
+
+        url = urlparse(fs.bucket_url)
+        if url.scheme == "file":
+            return fs.make_local_path(fs.bucket_url)
+        return f"{url.scheme}://{url.netloc}"
+
+    def physical_location(self) -> str:
+        """Non-secret identity combining the catalog and data storage; either part may be empty."""
+        parts = [part for part in (self._catalog_location(), self._storage_location()) if part]
+        return "|".join(parts)
+
+    def can_write_from(self, other: DestinationClientConfiguration) -> bool:
+        """Always False: iceberg has no write engine, so `dlt` materializes the data itself."""
+        return False
+
+    def can_read_from(self, other: DestinationClientConfiguration) -> bool:
+        # tables sharing catalog and storage are queried in one DuckDB engine, so read
+        # compatibility follows the physical location
+        return super().can_read_from(other)
 
     def table_location_layout(self) -> Optional[str]:
         """Verifies and computes table layout based on catalog caps. May return None if both layout

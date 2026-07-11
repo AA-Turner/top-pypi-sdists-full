@@ -100,6 +100,8 @@ class ModelModelConfigurationPatchRequestVendorConfigurationPartialLaunchVendorC
 
 
 class ModelModelConfigurationPatchRequestVendorConfigurationPartialLlmEngineVendorConfiguration(TypedDict, total=False):
+    chat_template_override: str
+
     checkpoint_path: str
 
     cpus: int

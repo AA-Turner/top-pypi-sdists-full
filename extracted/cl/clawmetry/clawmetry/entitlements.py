@@ -1041,6 +1041,282 @@ class Entitlement:
             )
             return None
 
+    def next_tier_channel_spec(self, channel: str) -> dict | None:
+        """Channel-axis projection of :meth:`next_tier_spec`: the
+        :func:`channel_spec_at`-shape catalogue row for ``channel``
+        evaluated on the rung above the resolved entitlement.
+
+        Current-relative sibling of :func:`next_tier_channel_spec_at`
+        (which takes an explicit source ``tier``). Convenience for
+        ``channel_spec_at(self.next_purchasable_tier(), channel)`` so a
+        pricing tooltip can ask "does THIS chat channel unlock at my
+        next rung?" off ONE round-trip.
+
+        Anchored on :meth:`next_purchasable_tier` (source-aware),
+        matching :meth:`next_tier_spec` /
+        :meth:`next_tier_feature_spec` / :meth:`next_tier_runtime_spec`.
+
+        Every chat channel is FREE at every tier -- see
+        :func:`channel_spec_at` -- so the row always comes back
+        ``free=True`` / ``locked=False`` regardless of the target rung.
+        That parity IS the answer: the tooltip can render "channel
+        included at every plan" off ONE call without hard-coding that
+        posture client-side.
+
+        Returns ``None`` for empty / unknown ``channel`` and at the
+        resolver's ceiling. Never raises: a builder failure
+        short-circuits to ``None`` so the tooltip stays mute instead of
+        breaking.
+        """
+        try:
+            ch = (channel or "").strip().lower()
+        except (AttributeError, TypeError):
+            return None
+        if not ch or ch not in ALL_CHANNELS:
+            return None
+        try:
+            target = self.next_purchasable_tier()
+            if target is None:
+                return None
+            return channel_spec_at(target, ch)
+        except Exception as exc:
+            logger.warning("entitlements: next_tier_channel_spec failed: %s", exc)
+            return None
+
+    def previous_tier_channel_spec(self, channel: str) -> dict | None:
+        """Channel-axis projection of :meth:`previous_tier_spec`: the
+        :func:`channel_spec_at`-shape catalogue row for ``channel``
+        evaluated on the rung below the resolved entitlement.
+
+        Symmetric mirror of :meth:`next_tier_channel_spec` and
+        downgrade-confirmation companion. Convenience for
+        ``channel_spec_at(self.previous_purchasable_tier(), channel)``.
+
+        Anchored on :meth:`previous_purchasable_tier` (source-aware),
+        matching :meth:`previous_tier_spec` /
+        :meth:`previous_tier_feature_spec` /
+        :meth:`previous_tier_runtime_spec`.
+
+        Returns ``None`` for empty / unknown ``channel`` and at the
+        resolver's floor. Never raises.
+        """
+        try:
+            ch = (channel or "").strip().lower()
+        except (AttributeError, TypeError):
+            return None
+        if not ch or ch not in ALL_CHANNELS:
+            return None
+        try:
+            target = self.previous_purchasable_tier()
+            if target is None:
+                return None
+            return channel_spec_at(target, ch)
+        except Exception as exc:
+            logger.warning(
+                "entitlements: previous_tier_channel_spec failed: %s", exc
+            )
+            return None
+
+    def next_tier_channel_spec_batch(self, channels) -> dict:
+        """Channel-axis twin of :meth:`next_tier_feature_spec_batch` /
+        :meth:`next_tier_runtime_spec_batch` -- per-channel
+        :func:`channel_spec_at`-shape rows for N chat channels evaluated
+        on the rung above the resolved entitlement in ONE round-trip.
+
+        Batch sibling of :meth:`next_tier_channel_spec` and
+        current-relative sibling of the tier-parameterised
+        ``next_tier_channel_spec_at_batch`` (not yet on this axis --
+        arrives after this landing). Convenience for one call that walks
+        every supplied channel against ``self.next_purchasable_tier()``
+        instead of N calls to :meth:`next_tier_channel_spec`. Each row
+        is byte-identical to :meth:`next_tier_channel_spec(channel)` for
+        the same channel -- pinned by parity tests so the scalar and
+        batch accessors cannot drift.
+
+        Per-channel row shape::
+
+            {"channel": "<id>", "row": <channel_spec_at row> | None}
+
+        Supplied channel ids are normalised via :func:`_normalise_csv`
+        (whitespace stripped, lowercased, duplicates dropped, first-seen
+        order preserved). Unknown ids are echoed in ``unknown[]`` rather
+        than short-circuiting -- a partially-bad caller still gets rows
+        back for the valid ids alongside a list of what was dropped,
+        matching :meth:`next_tier_feature_spec_batch` /
+        :meth:`next_tier_runtime_spec_batch`.
+
+        Anchored on :meth:`next_purchasable_tier` (source-aware -- picks
+        the ``cloud_*`` sibling when :attr:`source` is ``"cloud"``, the
+        self-hosted sibling otherwise), matching :meth:`next_tier_spec`
+        / :meth:`next_tier_channel_spec`. At the resolver's ceiling
+        every ``row`` collapses to ``None`` while per-channel envelope
+        entries still render so the matrix's row count stays stable.
+
+        Every chat channel is FREE at every tier (see
+        :func:`channel_spec_at`), so whenever ``row`` is not ``None`` it
+        comes back ``free=True`` / ``locked=False`` / ``entitled=True``
+        regardless of the target rung. That parity IS the answer: an
+        upgrade-preview panel walking a channel picker can render "all
+        supplied chat channels included at every plan" off ONE call
+        without hard-coding that posture client-side. Pinned by tests.
+
+        Never raises: a per-channel builder failure short-circuits that
+        channel into ``unknown[]`` and the rest of the batch keeps
+        building.
+        """
+        chans = _normalise_csv(channels)
+        try:
+            target = self.next_purchasable_tier()
+        except Exception as exc:
+            logger.warning(
+                "entitlements: next_tier_channel_spec_batch target resolve failed: %s",
+                exc,
+            )
+            target = None
+        rows: list[dict] = []
+        unknown: list[str] = []
+        for cid in chans:
+            if cid not in ALL_CHANNELS:
+                unknown.append(cid)
+                continue
+            try:
+                row = channel_spec_at(target, cid) if target else None
+            except Exception as exc:
+                logger.warning(
+                    "entitlements: next_tier_channel_spec_batch row %r failed: %s",
+                    cid,
+                    exc,
+                )
+                unknown.append(cid)
+                continue
+            rows.append({"channel": cid, "row": row})
+        return {"channels": rows, "unknown": unknown}
+
+    def previous_tier_channel_spec_batch(self, channels) -> dict:
+        """Source-anchored mirror of
+        :meth:`next_tier_channel_spec_batch` -- batch sibling of
+        :meth:`previous_tier_channel_spec` walking N chat channels
+        against the rung BELOW the resolved entitlement in ONE round-
+        trip.
+
+        Same per-channel row shape and same normalisation /
+        ``unknown[]``-bucket posture as
+        :meth:`next_tier_channel_spec_batch`. At the resolver's floor
+        every ``row`` is ``None`` while per-channel envelope entries
+        still render so the downgrade-confirmation surface's row count
+        stays stable.
+
+        Each ``row`` is byte-identical to
+        :meth:`previous_tier_channel_spec(channel)` for the same
+        channel. The always-free invariant from
+        :func:`channel_spec_at` holds here too -- whenever ``row`` is
+        not ``None`` it comes back ``free=True`` / ``locked=False`` /
+        ``entitled=True``.
+
+        Never raises.
+        """
+        chans = _normalise_csv(channels)
+        try:
+            target = self.previous_purchasable_tier()
+        except Exception as exc:
+            logger.warning(
+                "entitlements: previous_tier_channel_spec_batch target resolve failed: %s",
+                exc,
+            )
+            target = None
+        rows: list[dict] = []
+        unknown: list[str] = []
+        for cid in chans:
+            if cid not in ALL_CHANNELS:
+                unknown.append(cid)
+                continue
+            try:
+                row = channel_spec_at(target, cid) if target else None
+            except Exception as exc:
+                logger.warning(
+                    "entitlements: previous_tier_channel_spec_batch row %r failed: %s",
+                    cid,
+                    exc,
+                )
+                unknown.append(cid)
+                continue
+            rows.append({"channel": cid, "row": row})
+        return {"channels": rows, "unknown": unknown}
+
+    def next_tier_channel_catalog(self) -> list[dict] | None:
+        """Channel-axis projection of :meth:`next_tier_spec`: the full
+        :func:`channel_catalog_at`-shape catalogue for every chat-channel
+        adapter evaluated on the rung above the resolved entitlement in
+        ONE round-trip.
+
+        Current-relative, no-arg sibling of :func:`channel_catalog_at`.
+        Convenience for ``channel_catalog_at(self.next_purchasable_tier())``
+        so a pricing / upgrade-preview surface can render the whole
+        channel matrix at the next rung without threading the target tier
+        through query args or first fetching :meth:`next_purchasable_tier`.
+
+        Anchored on :meth:`next_purchasable_tier` (source-aware -- picks
+        the ``cloud_*`` sibling when :attr:`source` is ``"cloud"``, the
+        self-hosted sibling otherwise), matching
+        :meth:`next_tier_channel_spec` and :meth:`next_tier_spec`.
+
+        Every chat channel is FREE at every tier (the ``channels``
+        capacity axis governs how many concurrent channels each plan
+        admits, not which adapters unlock), so every row comes back
+        ``free=True`` / ``allowed=True`` / ``locked=False`` /
+        ``entitled=True`` regardless of the target rung. That parity IS
+        the answer: an upgrade-preview panel can render "all N chat
+        channels included at every plan" off ONE call without
+        hard-coding that posture client-side.
+
+        Returns ``None`` at the resolver's ceiling (no rung above
+        current). Never raises: a builder failure short-circuits to
+        ``None`` so the panel stays mute instead of breaking.
+        """
+        try:
+            target = self.next_purchasable_tier()
+            if target is None:
+                return None
+            return channel_catalog_at(target)
+        except Exception as exc:
+            logger.warning(
+                "entitlements: next_tier_channel_catalog failed: %s", exc
+            )
+            return None
+
+    def previous_tier_channel_catalog(self) -> list[dict] | None:
+        """Channel-axis projection of :meth:`previous_tier_spec`: the
+        full :func:`channel_catalog_at`-shape catalogue for every
+        chat-channel adapter evaluated on the rung below the resolved
+        entitlement in ONE round-trip.
+
+        Symmetric mirror of :meth:`next_tier_channel_catalog` and
+        downgrade-confirmation companion. Convenience for
+        ``channel_catalog_at(self.previous_purchasable_tier())``.
+
+        Anchored on :meth:`previous_purchasable_tier` (source-aware),
+        matching :meth:`previous_tier_channel_spec` and
+        :meth:`previous_tier_spec`.
+
+        Every chat channel is FREE at every tier, so every row comes
+        back ``free=True`` / ``locked=False`` / ``entitled=True``
+        regardless of the target rung -- the downgrade-confirmation
+        surface can render "no channels lost on downgrade" off ONE
+        call.
+
+        Returns ``None`` at the resolver's floor. Never raises.
+        """
+        try:
+            target = self.previous_purchasable_tier()
+            if target is None:
+                return None
+            return channel_catalog_at(target)
+        except Exception as exc:
+            logger.warning(
+                "entitlements: previous_tier_channel_catalog failed: %s", exc
+            )
+            return None
+
     def next_tier_feature_spec_batch(self, features) -> dict:
         """Batch sibling of :meth:`next_tier_feature_spec`: per-feature
         :func:`feature_spec_at`-shape rows for N features evaluated on
@@ -2274,6 +2550,57 @@ def previous_tier_runtime_spec(runtime: str) -> dict | None:
         return None
 
 
+def next_tier_channel_spec(channel: str) -> dict | None:
+    """Module-level :meth:`Entitlement.next_tier_channel_spec` against
+    the resolved entitlement. Never raises."""
+    try:
+        return get_entitlement().next_tier_channel_spec(channel)
+    except Exception as exc:
+        logger.warning(
+            "entitlements: next_tier_channel_spec (module) failed: %s", exc
+        )
+        return None
+
+
+def previous_tier_channel_spec(channel: str) -> dict | None:
+    """Module-level :meth:`Entitlement.previous_tier_channel_spec`
+    against the resolved entitlement. Never raises."""
+    try:
+        return get_entitlement().previous_tier_channel_spec(channel)
+    except Exception as exc:
+        logger.warning(
+            "entitlements: previous_tier_channel_spec (module) failed: %s", exc
+        )
+        return None
+
+
+def next_tier_channel_catalog() -> list[dict] | None:
+    """Module-level :meth:`Entitlement.next_tier_channel_catalog` against
+    the resolved entitlement. Never raises: a resolver failure
+    short-circuits to ``None`` so an upgrade-preview panel stays mute
+    instead of breaking."""
+    try:
+        return get_entitlement().next_tier_channel_catalog()
+    except Exception as exc:
+        logger.warning(
+            "entitlements: next_tier_channel_catalog (module) failed: %s", exc
+        )
+        return None
+
+
+def previous_tier_channel_catalog() -> list[dict] | None:
+    """Module-level :meth:`Entitlement.previous_tier_channel_catalog`
+    against the resolved entitlement. Never raises."""
+    try:
+        return get_entitlement().previous_tier_channel_catalog()
+    except Exception as exc:
+        logger.warning(
+            "entitlements: previous_tier_channel_catalog (module) failed: %s",
+            exc,
+        )
+        return None
+
+
 def next_tier_feature_spec_batch(features) -> dict:
     """Module-level :meth:`Entitlement.next_tier_feature_spec_batch`
     against the resolved entitlement. Never raises: a resolver failure
@@ -2326,6 +2653,34 @@ def previous_tier_runtime_spec_batch(runtimes) -> dict:
             exc,
         )
         return {"runtimes": [], "unknown": []}
+
+
+def next_tier_channel_spec_batch(channels) -> dict:
+    """Module-level :meth:`Entitlement.next_tier_channel_spec_batch`
+    against the resolved entitlement. Never raises: a resolver failure
+    short-circuits to an envelope with ``channels=[]`` / ``unknown=[]``
+    so a paywall matrix keeps rendering."""
+    try:
+        return get_entitlement().next_tier_channel_spec_batch(channels)
+    except Exception as exc:
+        logger.warning(
+            "entitlements: next_tier_channel_spec_batch (module) failed: %s",
+            exc,
+        )
+        return {"channels": [], "unknown": []}
+
+
+def previous_tier_channel_spec_batch(channels) -> dict:
+    """Module-level :meth:`Entitlement.previous_tier_channel_spec_batch`
+    against the resolved entitlement. Never raises."""
+    try:
+        return get_entitlement().previous_tier_channel_spec_batch(channels)
+    except Exception as exc:
+        logger.warning(
+            "entitlements: previous_tier_channel_spec_batch (module) failed: %s",
+            exc,
+        )
+        return {"channels": [], "unknown": []}
 
 
 def next_tier_lock_reason(item, *, kind: str | None = None) -> str | None:
@@ -13519,6 +13874,73 @@ def channel_spec_at_path(
         return channel_spec_path(from_tier, to_tier, channel)
     except Exception as exc:
         logger.warning("entitlements: channel_spec_at_path failed: %s", exc)
+        return None
+
+
+def channel_spec_at_path_batch(
+    perspective_tier: str, from_tier: str, to_tier: str, channels
+) -> dict | None:
+    """Perspective-validated what-if wrapper around
+    :func:`channel_spec_path_batch`.
+
+    Fixed-perspective, fixed-from, fixed-to, multi-channel companion of
+    :func:`channel_spec_at_path`. Fills the ``_at_path_batch`` slot of
+    the ``channel_spec`` family alongside :func:`channel_spec` (scalar
+    current), :func:`channel_spec_at` (scalar what-if),
+    :func:`channel_spec_batch` (batch current),
+    :func:`channel_spec_at_batch` (batch what-if),
+    :func:`channel_spec_path` (path current),
+    :func:`channel_spec_path_batch` (batch path current), and
+    :func:`channel_spec_at_path` (scalar what-if path) -- channel-axis
+    twin of :func:`feature_spec_at_path_batch` and
+    :func:`runtime_spec_at_path_batch`.
+
+    Per-channel body byte-identical to :func:`channel_spec_path_batch`
+    for the same ``(from, to, channels)`` triple -- scalar / batch
+    no-drift contract (the batch delegates to the same underlying
+    :func:`channel_spec_path` per channel that the scalar
+    :func:`channel_spec_at_path` delegates to).
+
+    Shape mirrors :func:`channel_spec_path_batch`::
+
+        {
+          "channels": [{"channel": "<id>", "path": [...]}, ...],
+          "unknown":  ["bogus_id", ...],
+        }
+
+    Supplied channel ids are normalised via :func:`_normalise_csv`
+    (whitespace stripped, lowercased, duplicates dropped, first-seen
+    order preserved). Unknown ids are echoed in ``unknown[]`` instead
+    of short-circuiting -- a partially-bad caller still gets paths back
+    for the valid ids alongside a list of what was dropped, matching
+    every other ``*_path_batch`` sibling's posture.
+
+    Because every chat-channel adapter is FREE at every tier (the
+    ``channels`` capacity axis governs how many concurrent channels
+    each plan admits, not which adapters unlock), each per-channel
+    ``path`` is byte-identical to the LIVE :func:`channel_spec_path`
+    output -- the always-free invariant is inherited from the delegate
+    and pinned by parity tests so the ``_at_path_batch`` surface cannot
+    drift from the scalar what-if or the current-perspective batch.
+
+    Returns ``None`` for empty / unknown ``perspective_tier`` /
+    ``from_tier`` / ``to_tier`` (caller renders "unknown tier" / 404).
+    Never raises: per-channel failures short-circuit that channel into
+    ``unknown[]``; a top-level delegation failure short-circuits to
+    ``None``.
+    """
+    try:
+        p = (perspective_tier or "").strip().lower()
+    except (AttributeError, TypeError):
+        return None
+    if not p or p not in _TIER_FEATURES:
+        return None
+    try:
+        return channel_spec_path_batch(from_tier, to_tier, channels)
+    except Exception as exc:
+        logger.warning(
+            "entitlements: channel_spec_at_path_batch failed: %s", exc
+        )
         return None
 
 

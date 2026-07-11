@@ -116,6 +116,7 @@ jobs:
         uses: actions/checkout@v6
         with:
           ref: ${{ steps.resolve-vars.outputs.ref }}
+          fetch-depth: 0  # full history + tags for uv-dynamic-versioning
 
       - name: Authenticate to GCP
         uses: google-github-actions/auth@v2
@@ -155,7 +156,7 @@ jobs:
       - name: Deploy to Cloud Run (preview)
         if: steps.resolve-vars.outputs.is_preview == 'true'
         run: |
-          ENV_VARS="AIRBYTE_OPS_WEBAPP_PREVIEW=1"
+          ENV_VARS="AIRBYTE_OPS_WEBAPP_DEPLOY_SHA=${{ steps.resolve-vars.outputs.short_sha }}"
           if [ -n "${{ env.OPS_WEBAPP_PR }}" ]; then
             ENV_VARS="${ENV_VARS},AIRBYTE_OPS_WEBAPP_PREVIEW_PR=${{ env.OPS_WEBAPP_PR }}"
           fi
@@ -173,6 +174,7 @@ jobs:
           --project="${{ env.GCP_PROJECT }}"
           --region="${{ env.GCP_REGION }}"
           --image="${{ steps.resolve-vars.outputs.image }}"
+          --update-env-vars="AIRBYTE_OPS_WEBAPP_DEPLOY_SHA=${{ steps.resolve-vars.outputs.short_sha }}"
           --quiet
 
       - name: Route traffic to latest revision (production only)

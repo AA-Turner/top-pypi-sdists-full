@@ -728,7 +728,6 @@ class _App:
         """
         ...
 
-    def _experimental_server(self, **kwargs): ...
     def server(
         self,
         _warn_parentheses_missing=None,
@@ -1733,7 +1732,6 @@ class App:
         """
         ...
 
-    def _experimental_server(self, **kwargs): ...
     def server(
         self,
         _warn_parentheses_missing=None,

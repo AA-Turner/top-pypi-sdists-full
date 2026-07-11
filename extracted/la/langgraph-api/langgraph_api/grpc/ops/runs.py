@@ -383,6 +383,9 @@ def proto_to_run(proto_run: pb.Run) -> Run:
         "multitask_strategy": MULTITASK_STRATEGY_FROM_PB.get(
             proto_run.multitask_strategy
         ),
+        "langsmith_session_name": proto_run.langsmith_session_name
+        if proto_run.HasField("langsmith_session_name")
+        else None,
     }
 
 
@@ -588,6 +591,7 @@ class Runs(Authenticated):
         if_not_exists: IfNotExists = "reject",
         after_seconds: int = 0,
         ctx: Any = None,
+        langsmith_session_name: str | None = None,
     ) -> AsyncIterator[Run]:
         """Create a run."""
         metadata = metadata or {}
@@ -661,6 +665,9 @@ class Runs(Authenticated):
 
         if after_seconds > 0:
             request_kwargs["after_seconds"] = int(after_seconds)
+
+        if langsmith_session_name is not None:
+            request_kwargs["langsmith_session_name"] = langsmith_session_name
 
         # Build encryption context for Go layer
         enc_ctx = build_encryption_context("run")

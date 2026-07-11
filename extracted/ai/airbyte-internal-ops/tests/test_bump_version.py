@@ -644,6 +644,40 @@ def test_promote_preserves_registry_overrides():
 
 
 @pytest.mark.unit
+def test_promote_keeps_progressive_rollout_for_autopilot():
+    """Promote leaves `enableProgressiveRollout: true` when mode is autopilot.
+
+    Autopilot connectors treat progressive rollout as their standing default, so
+    promoting an RC to GA must not clear the flag.
+    """
+    with tempfile.TemporaryDirectory() as tmpdir:
+        extra = (
+            "  releases:\n"
+            "    rolloutConfiguration:\n"
+            "      enableProgressiveRollout: true\n"
+            "      defaultRolloutMode: autopilot\n"
+        )
+        connector_dir = _make_connector(
+            tmpdir, version="2.4.0-rc.1", extra_metadata=extra
+        )
+
+        result = bump_connector_version(
+            repo_path=tmpdir,
+            connector_name="source-test",
+            bump_type="promote",
+        )
+
+        assert result.new_version == "2.4.0"
+
+        metadata = yaml.safe_load((connector_dir / "metadata.yaml").read_text())
+        rollout = metadata["data"]["releases"]["rolloutConfiguration"]
+
+        # Flag stays on; mode is untouched.
+        assert rollout["enableProgressiveRollout"] is True
+        assert rollout["defaultRolloutMode"] == "autopilot"
+
+
+@pytest.mark.unit
 def test_promote_ga_progressive_rollout_fails():
     """Promote is only defined for release candidates."""
     with tempfile.TemporaryDirectory() as tmpdir:

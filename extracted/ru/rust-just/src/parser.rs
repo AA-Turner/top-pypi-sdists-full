@@ -423,20 +423,31 @@ impl<'run, 'src> Parser<'run, 'src> {
     }
 
     let mut items = self.items.iter().rev();
-    if matches!(items.next(), Some(Item::Newline))
-      && matches!(items.next(), Some(Item::Comment(_)))
-      && matches!(items.next(), Some(Item::Newline) | None)
-    {
-      self.items.pop().unwrap();
 
-      if let Item::Comment(contents) = self.items.pop().unwrap() {
-        Some(contents[1..].trim_start().into())
-      } else {
-        unreachable!();
-      }
-    } else {
-      None
+    if !matches!(items.next()?, Item::Newline) {
+      return None;
     }
+
+    let Item::Comment(contents) = items.next()? else {
+      return None;
+    };
+
+    let first = match items.next() {
+      None => true,
+      Some(Item::Newline) => false,
+      Some(_) => return None,
+    };
+
+    if first && contents.starts_with("#!") {
+      return None;
+    }
+
+    let doc = contents[1..].trim_start().into();
+
+    self.items.pop().unwrap();
+    self.items.pop().unwrap();
+
+    Some(doc)
   }
 
   /// Parse a justfile, consumes self
@@ -640,7 +651,7 @@ impl<'run, 'src> Parser<'run, 'src> {
 
     let mut parameters = Vec::new();
     while !self.next_is(ParenR) {
-      parameters.push((self.parse_name()?, self.numerator.next()));
+      parameters.push((self.parse_name()?, self.numerator.next_binding()));
       if !self.accepted(Comma)? {
         break;
       }
@@ -681,7 +692,7 @@ impl<'run, 'src> Parser<'run, 'src> {
       export,
       file_depth: self.file_depth,
       name,
-      number: self.numerator.next(),
+      number: self.numerator.next_binding(),
       prelude: false,
       private: private || name.lexeme().starts_with('_'),
       value,
@@ -956,6 +967,9 @@ impl<'run, 'src> Parser<'run, 'src> {
             "join_list" => {
               self.list_feature(ListFeature::JoinListFunction, *name);
             }
+            "num_jobs" => {
+              self.list_feature(ListFeature::NumJobsFunction, *name);
+            }
             "show" => {
               self.list_feature(ListFeature::ShowFunction, *name);
             }
@@ -969,7 +983,7 @@ impl<'run, 'src> Parser<'run, 'src> {
           }
           Ok(Expression::Call { name, arguments })
         } else {
-          Ok(Expression::Variable { name })
+          Ok(Expression::Variable { name, number: None })
         }
       }
     } else if self.next_is(ParenL) {
@@ -1018,7 +1032,7 @@ impl<'run, 'src> Parser<'run, 'src> {
     &mut self,
     state: StringState,
   ) -> CompileResult<'src, StringLiteral<'src>> {
-    let expand = if self.next_is(Identifier) {
+    let expand = if matches!(state, StringState::Normal) && self.next_is(Identifier) {
       self.expect_keyword(Keyword::X)?;
       true
     } else {
@@ -1052,7 +1066,7 @@ impl<'run, 'src> Parser<'run, 'src> {
 
     let raw = &token.lexeme()[open..token.lexeme().len() - close];
 
-    let unindented = if kind.indented() && matches!(token.kind, StringToken) {
+    let unindented = if kind.indented() && matches!(state, StringState::Normal) {
       unindent(raw)
     } else {
       raw.to_owned()
@@ -1108,6 +1122,7 @@ impl<'run, 'src> Parser<'run, 'src> {
     #[derive(PartialEq, Eq)]
     enum State {
       Backslash,
+      BackslashCarriageReturn,
       Initial,
       Unicode,
       UnicodeValue { hex: String },
@@ -1130,19 +1145,26 @@ impl<'run, 'src> Parser<'run, 'src> {
           state = State::Unicode;
         }
         State::Backslash => {
+          state = State::Initial;
           match c {
             'n' => cooked.push('\n'),
             'r' => cooked.push('\r'),
             't' => cooked.push('\t'),
             '\\' => cooked.push('\\'),
             '\n' => {}
+            '\r' => state = State::BackslashCarriageReturn,
             '"' => cooked.push('"'),
             character => {
               return Err(token.error(CompileErrorKind::InvalidEscapeSequence { character }));
             }
           }
-          state = State::Initial;
         }
+        State::BackslashCarriageReturn => match c {
+          '\n' => state = State::Initial,
+          _ => {
+            return Err(token.error(CompileErrorKind::InvalidEscapeSequence { character: '\r' }));
+          }
+        },
         State::Unicode => match c {
           '{' => {
             state = State::UnicodeValue { hex: String::new() };
@@ -1178,11 +1200,13 @@ impl<'run, 'src> Parser<'run, 'src> {
       }
     }
 
-    if state != State::Initial {
-      return Err(token.error(CompileErrorKind::UnicodeEscapeUnterminated));
+    match state {
+      State::Initial => Ok(cooked),
+      State::BackslashCarriageReturn => {
+        Err(token.error(CompileErrorKind::InvalidEscapeSequence { character: '\r' }))
+      }
+      _ => Err(token.error(CompileErrorKind::UnicodeEscapeUnterminated)),
     }
-
-    Ok(cooked)
   }
 
   /// Parse a name from an identifier token
@@ -1246,6 +1270,10 @@ impl<'run, 'src> Parser<'run, 'src> {
         help_property: _,
         long,
         long_key,
+        max,
+        max_key,
+        min,
+        min_key,
         multiple,
         name: arg,
         pattern: _,
@@ -1264,6 +1292,14 @@ impl<'run, 'src> Parser<'run, 'src> {
 
       if let Some(token) = multiple {
         self.list_feature(ListFeature::Multiple, *token);
+      }
+
+      if let Some(token) = max_key {
+        self.list_feature(ListFeature::ArgMax, **token);
+      }
+
+      if let Some(token) = min_key {
+        self.list_feature(ListFeature::ArgMin, **token);
       }
 
       if let Some(option) = long
@@ -1295,6 +1331,8 @@ impl<'run, 'src> Parser<'run, 'src> {
           flag: flag.is_some(),
           name: arg.token,
           long: long.as_ref().map(|long| long.cooked.clone()),
+          max: max_key.map(|key| (key, max.unwrap())),
+          min: min_key.map(|key| (key, min.unwrap())),
           multiple: multiple.is_some(),
           short: short.as_ref().and_then(|short| short.cooked.chars().next()),
           value: value.clone(),
@@ -1405,6 +1443,7 @@ impl<'run, 'src> Parser<'run, 'src> {
       import_offsets: self.import_offsets.clone(),
       module_path: None,
       name,
+      number: self.numerator.next_recipe(),
       parameters: positional.into_iter().chain(variadic).collect(),
       priors,
       private,
@@ -1434,6 +1473,8 @@ impl<'run, 'src> Parser<'run, 'src> {
     let mut flag = false;
     let help = None;
     let mut long = None;
+    let mut max = None;
+    let mut min = None;
     let mut multiple = false;
     let pattern = None;
     let mut short = None;
@@ -1442,6 +1483,8 @@ impl<'run, 'src> Parser<'run, 'src> {
     if let Some(arg) = arg_attributes.remove(name.lexeme()) {
       flag = arg.flag;
       long = arg.long;
+      max = arg.max;
+      min = arg.min;
       multiple = arg.multiple;
       short = arg.short;
       value = arg.value;
@@ -1453,6 +1496,13 @@ impl<'run, 'src> Parser<'run, 'src> {
       }));
     }
 
+    if let Some((key, _)) = max.or(min)
+      && !multiple
+      && !kind.is_variadic()
+    {
+      return Err(key.error(CompileErrorKind::ArgAttributeRequiresMultipleOrVariadic { key }));
+    }
+
     Ok(Parameter {
       default,
       export,
@@ -1460,9 +1510,11 @@ impl<'run, 'src> Parser<'run, 'src> {
       help,
       kind,
       long,
+      max: max.map(|(_key, max)| max),
+      min: min.map(|(_key, min)| min),
       multiple,
       name,
-      number: self.numerator.next(),
+      number: self.numerator.next_binding(),
       pattern,
       short,
       value,
@@ -1587,15 +1639,37 @@ impl<'run, 'src> Parser<'run, 'src> {
       Keyword::DotenvCommand => Some(Setting::DotenvCommand(self.parse_expression()?)),
       Keyword::DotenvFilename => Some(Setting::DotenvFilename(self.parse_expression()?)),
       Keyword::DotenvPath => Some(Setting::DotenvPath(self.parse_expression()?)),
-      Keyword::MinimumVersion => {
+      Keyword::Indentation => {
         let expression = self.parse_expression()?;
 
-        let Expression::StringLiteral { string_literal } = &expression else {
-          return Err(name.error(CompileErrorKind::MinimumVersionExpression));
+        let Expression::StringLiteral { string_literal } = expression else {
+          return Err(name.error(CompileErrorKind::SettingExpression { setting: keyword }));
         };
 
         if string_literal.expand || string_literal.kind.indented || string_literal.part.is_some() {
-          return Err(name.error(CompileErrorKind::MinimumVersionExpression));
+          return Err(name.error(CompileErrorKind::SettingExpression { setting: keyword }));
+        }
+
+        let indentation = string_literal
+          .cooked
+          .parse::<Indentation>()
+          .map_err(|message| {
+            string_literal
+              .token
+              .error(CompileErrorKind::InvalidIndentation { message })
+          })?;
+
+        Some(Setting::Indentation(string_literal, indentation))
+      }
+      Keyword::MinimumVersion => {
+        let expression = self.parse_expression()?;
+
+        let Expression::StringLiteral { string_literal } = expression else {
+          return Err(name.error(CompileErrorKind::SettingExpression { setting: keyword }));
+        };
+
+        if string_literal.expand || string_literal.kind.indented || string_literal.part.is_some() {
+          return Err(name.error(CompileErrorKind::SettingExpression { setting: keyword }));
         }
 
         let minimum = string_literal.cooked.parse::<Version>().map_err(|source| {
@@ -1616,7 +1690,7 @@ impl<'run, 'src> Parser<'run, 'src> {
           );
         }
 
-        Some(Setting::MinimumVersion(expression))
+        Some(Setting::MinimumVersion(string_literal))
       }
       Keyword::ScriptInterpreter => Some(Setting::ScriptInterpreter(self.parse_interpreter()?)),
       Keyword::Shell => Some(Setting::Shell(self.parse_interpreter()?)),
@@ -1748,7 +1822,7 @@ impl<'run, 'src> Parser<'run, 'src> {
 
         if let Some(&first) = first {
           return Err(name.error(CompileErrorKind::DuplicateAttribute {
-            attribute: name.lexeme(),
+            attribute: name,
             first,
           }));
         }

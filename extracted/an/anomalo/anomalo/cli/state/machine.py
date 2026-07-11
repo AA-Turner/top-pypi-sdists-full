@@ -24,6 +24,14 @@ class StateMachine:
     def __init__(self, client: Client):
         self.client = client
 
+    def _get_file_driver(self, filename: str, state: State | None = None) -> FileDriver:
+        """Get the appropriate file driver based on file extension."""
+        if filename.endswith(".ttl"):
+            from .shacl_file import ShaclFileDriver
+
+            return ShaclFileDriver(state)
+        return FileDriver(state)
+
     @handle_state_errors
     def pull(
         self,
@@ -53,19 +61,26 @@ class StateMachine:
                     for ref, check in table.system_checks.items()
                     if not check.labels or not exclude_set.intersection(check.labels)
                 }
-        output_file = FileDriver(api_state.state)
+        output_file = self._get_file_driver(filename, api_state.state)
         output_file.write_file(filename)
         print(f'Configuration saved to "{filename}"')
 
     @handle_state_errors
-    def examine(self, table_ref: str, check_ref: str | None = None) -> None:
+    def examine(
+        self, table_ref: str, check_ref: str | None = None, format: str = "yaml"
+    ) -> None:
         api_state = APIDriver(self.client)
         if check_ref:
             api_state.load_single_check(table_ref, check_ref)
         else:
             api_state.load_table(table_ref)
 
-        output = FileDriver(api_state.state)
+        if format == "shacl":
+            from .shacl_file import ShaclFileDriver
+
+            output = ShaclFileDriver(api_state.state)
+        else:
+            output = FileDriver(api_state.state)
         print(output.to_string().strip())
 
     @handle_state_errors
@@ -76,7 +91,7 @@ class StateMachine:
         noninteractive: bool = False,
         destroy: bool = False,
     ) -> None:
-        input_file = FileDriver()
+        input_file = self._get_file_driver(filename)
         input_file.load_file(filename)
         api_state = APIDriver(self.client)
         api_state.load_from_state(input_file.state)

@@ -43,7 +43,10 @@ from airbyte_ops_webapp.pages.connector_version_manager._mcp_tools import (
 from airbyte_ops_webapp.theme import PANEL_CARD_CLASS, _card_style
 
 # Fixed-height scrollable container for all 4 selector tabs (~8-9 visible rows).
-_TAB_LIST_STYLE = {"maxHeight": "480px", "overflowY": "auto"}
+# `overflow: auto` scrolls both axes so wide tables scroll horizontally (rather
+# than bleeding out) while the sticky header pins to this wrapper on vertical
+# scroll.
+_TAB_LIST_STYLE = {"maxHeight": "480px", "overflow": "auto"}
 
 
 def render_connector_selector(state: dict[str, object]) -> None:

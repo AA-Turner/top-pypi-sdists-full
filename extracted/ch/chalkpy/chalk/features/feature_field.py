@@ -214,8 +214,9 @@ class WindowConfigResolved:
     backfill_start_time: datetime | None
     continuous_resolver: str | None
     continuous_buffer_duration_seconds: int | None
-    backfill_tags: list[list[str]] | None = None
-    cache_aggregated_values: bool = False
+    backfill_tags: list[list[str]] | None
+    cache_aggregated_values: bool
+    allow_filter_migration: bool
 
 
 class Feature(Generic[_TPrim, _TRich]):

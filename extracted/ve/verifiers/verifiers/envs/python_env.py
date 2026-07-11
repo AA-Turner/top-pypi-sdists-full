@@ -1,14 +1,8 @@
 import base64
 import json
-import sys
 import textwrap
 import time
-from typing import Any
-
-if sys.version_info < (3, 12):
-    from typing_extensions import TypedDict
-else:
-    from typing import TypedDict
+from typing import Any, TypedDict
 
 import verifiers as vf
 from verifiers.envs.sandbox_env import SandboxEnv, SandboxState
@@ -205,13 +199,16 @@ PY
         )
         self.remove_tool(self.bash)  # omit from agent tool list
 
-    async def setup_state(self, state: vf.State, **kwargs: Any) -> None:
-        await super().setup_state(state, **kwargs)
+    async def setup_state(self, state: vf.State, **kwargs: Any) -> vf.State:
+        setup_state = await super().setup_state(state, **kwargs)
+        if setup_state is not None:
+            state = setup_state
         state["python_state"] = {
             "ready": False,
             "execution_count": 0,
             "ready_wait_time": 0.0,
         }
+        return state
 
     def update_tool_args(
         self,

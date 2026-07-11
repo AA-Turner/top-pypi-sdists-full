@@ -11,23 +11,51 @@ import click
 
 CONTEXT_SETTINGS = {"help_option_names": ["-h", "--help"]}
 
-# Names below MUST match the actual registered command names. Anything
-# not listed here falls through to the "Other" section in --help.
+# The canonical seven help categories (§4a 10a_command-categories.md):
+# fixed names + order ecosystem-wide. Names below MUST match the actual
+# registered command names; anything not listed falls through to the
+# "Other" section in --help, which must be empty at audit-clean.
 COMMAND_CATEGORIES = [
-    ("CI", ["ci"]),
-    ("Development", ["show-config", "rename-symbols", "trace-env-vars"]),
-    ("Documentation", ["docs", "search-docs", "skills"]),
     (
-        "Ecosystem",
-        ["audit-umbrella-pins", "cron", "doctor", "ecosystem", "creds", "service"],
+        "Core",
+        [
+            "ecosystem",
+            "ci",
+            "linter",
+            "gate",
+            "hooks",
+            "creds",
+            "rename-symbols",
+            "trace-env-vars",
+            "registry-normalize",
+            "icons",
+        ],
     ),
-    ("Interface", ["mcp", "list-python-apis"]),
-    ("Shell", ["install-tab-completion"]),
+    ("Service", ["mcp", "service", "cron"]),
+    ("Diagnostics", ["doctor"]),
+    ("Introspection", ["docs", "skills", "list-python-apis", "show-config"]),
+    ("Shell", ["install-shell-completion", "print-shell-completion"]),
 ]
 
-from .._ecosystem.click_helpers import make_categorized_group
+from .._ecosystem.help_spec import CliHelp, Example, SpecCommand, SpecGroup
 
-CategorizedGroup = make_categorized_group(COMMAND_CATEGORIES)
+# Spec-built help (§4 10_help-format.md, slice 3): help text is DATA —
+# validated at import time, rendered uniformly. `{prog}` resolves to the
+# actual invocation path at --help time (`scitex-dev` standalone,
+# `scitex dev` under the umbrella passthrough).
+ROOT_HELP_SPEC = CliHelp(
+    summary="Shared developer utilities for the SciTeX ecosystem.",
+    version_of="scitex-dev",
+    examples=(
+        Example("{prog} ecosystem list --json", "List ecosystem packages as JSON."),
+        Example("{prog} doctor", "Diagnose ecosystem health."),
+        Example("{prog} mcp start", "Start the MCP server."),
+    ),
+    config_resolution=(
+        "config.yaml → $SCITEX_DEV_CONFIG → ~/.scitex/dev/config.yaml → defaults",
+    ),
+    see_also=("{prog} docs — browse doctrine and package documentation",),
+)
 
 def _command_to_dict(
     cmd: click.Command,
@@ -115,7 +143,9 @@ def _get_version() -> str:
 # -h explicitly via @click.help_option in the desired display slot so
 # --help-recursive immediately follows --help.
 @click.group(
-    cls=CategorizedGroup,
+    cls=SpecGroup,
+    help_spec=ROOT_HELP_SPEC,
+    command_categories=COMMAND_CATEGORIES,
     invoke_without_command=True,
     context_settings=CONTEXT_SETTINGS,
     add_help_option=False,
@@ -137,21 +167,8 @@ def main(
     help_recursive: bool,
     as_json: bool,
 ) -> None:
-    """scitex-dev — Shared developer utilities for the SciTeX ecosystem.
-
-    \b
-    Config path resolution:
-        ./config.yaml -> $SCITEX_DEV_CONFIG -> ~/.scitex/dev/config.yaml -> defaults
-
-    \b
-    Example:
-        $ scitex-dev ecosystem list --json
-        $ scitex-dev doctor
-        $ scitex-dev mcp start
-    """
-    # The version is injected into main.help after the decorator binds
-    # (below the function definition) so `--help` shows
-    # "scitex-dev (v0.10.4) — Shared developer utilities..."
+    # Help text lives in ROOT_HELP_SPEC (spec-built, doctrine §4) — the
+    # rendered summary line carries the live version via version_of.
     # Expose the root-level --json flag to subcommands via ctx.obj so
     # commands that already honour `--json` can read the inherited
     # setting and default to structured output without the user
@@ -182,17 +199,6 @@ def main(
     if ctx.invoked_subcommand is None:
         click.echo(ctx.get_help())
 
-# Inject the version into the help text so --help shows
-# "scitex-dev (v0.10.4) — Shared developer utilities..."
-main.help = (
-    f"scitex-dev (v{_get_version()}) — "
-    "Shared developer utilities for the SciTeX ecosystem.\n"
-    "\n"
-    "\b\n"
-    "Config path resolution:\n"
-    "  config.yaml → $SCITEX_DEV_CONFIG → ~/.scitex/dev/config.yaml → defaults"
-)
-
 # -------------------------------------------------------------------
 # Ecosystem commands
 # -------------------------------------------------------------------
@@ -200,6 +206,10 @@ main.help = (
 from ._doctor import register_doctor_command
 
 register_doctor_command(main)
+
+from ._icons import register_icons_command
+
+register_icons_command(main)
 
 from .ecosystem._registry import register_ecosystem_commands
 
@@ -251,64 +261,66 @@ from .audit._umbrella_pins import cli as _umbrella_pins_cli
 ecosystem_group.add_command(_umbrella_pins_cli, name="audit-umbrella-pins")
 
 # ----- Deprecation shim: `scitex-dev quality <cmd>` → ecosystem -----
+# Shared 3-phase-ladder helper (02_cli/11_deprecation.md, slice 2 of the
+# CLI-standardization plan). Warn phase forwards; error phase exits 2.
+from .._ecosystem.click_compat import deprecated_alias
+
 @main.group("quality", hidden=True)
 def _quality_deprecated():
     """(deprecated) Use `scitex-dev ecosystem audit-*` instead."""
 
-def _make_quality_redirect(cmd_name: str):
-    @_quality_deprecated.command(
-        cmd_name,
-        context_settings={"ignore_unknown_options": True, "allow_extra_args": True},
-    )
-    @click.pass_context
-    def _redirect(ctx):
-        f"""(deprecated) See `scitex-dev ecosystem {cmd_name}`."""
-        click.echo(
-            f"warning: `scitex-dev quality {cmd_name}` was moved to "
-            f"`scitex-dev ecosystem {cmd_name}`. Will be removed in 0.11.0.",
-            err=True,
-        )
-        target = ecosystem_group.get_command(ctx, cmd_name)
-        if target is None:
-            ctx.exit(2)
-        ctx.invoke(target, *ctx.args)
-
-    return _redirect
-
-for _quality_cmd in (
-    "audit-docs",
-    "audit-scope",
-    "audit-lines",
-    "audit-frontmatter",
+for _quality_cmd, _quality_target in (
+    ("audit-docs", _ecosystem_audit_docs),
+    ("audit-scope", _ecosystem_audit_scope),
+    ("audit-lines", _ecosystem_audit_lines),
 ):
-    _make_quality_redirect(_quality_cmd)
+    deprecated_alias(
+        _quality_deprecated,
+        _quality_cmd,
+        target=_quality_target,
+        target_name=f"ecosystem {_quality_cmd}",
+        remove_in="0.11",
+        phase="warn",
+    )
+
+# `quality audit-frontmatter` has no forwarding target (the rule was
+# DROPPED — frontmatter shape lives in audit-skills), so it sits on the
+# error rung pointing at the canonical owner. Exit code 2, as before.
+deprecated_alias(
+    _quality_deprecated,
+    "audit-frontmatter",
+    target="audit-skills",
+    target_name="ecosystem audit-skills",
+    remove_in="0.11",
+    phase="error",
+)
 
 # -------------------------------------------------------------------
 # Development commands
 # -------------------------------------------------------------------
 
-@main.command(
-    "config", hidden=True, context_settings={"ignore_unknown_options": True}
+# `config` → `show-config` rename, error rung of the deprecation ladder.
+deprecated_alias(
+    main, "config", target="show-config", remove_in="0.11", phase="error"
 )
-@click.pass_context
-def config_deprecated(ctx):
-    """(deprecated) Renamed to `show-config`."""
-    click.echo(
-        "error: `scitex-dev config` was renamed to `scitex-dev show-config`.\n"
-        "Re-run with: scitex-dev show-config",
-        err=True,
-    )
-    ctx.exit(2)
 
-@main.command("show-config")
+@main.command(
+    "show-config",
+    cls=SpecCommand,
+    help_spec=CliHelp(
+        summary="Show the resolved scitex-dev configuration.",
+        description=(
+            "Prints packages, hosts, GitHub remotes, and branches from the "
+            "resolved config (see the root help for the resolution chain).",
+        ),
+        examples=(
+            Example("{prog} show-config", "Human-readable sections."),
+            Example("{prog} show-config --json", "Structured JSON output."),
+        ),
+    ),
+)
 @click.option("--json", "as_json", is_flag=True, help="Output as structured JSON.")
 def config_cmd(as_json):
-    """Show dev configuration.
-
-    \b
-    Example:
-        $ scitex-dev show-config --json
-    """
     from .. import config_to_dict, load_config
 
     cfg = config_to_dict(load_config())
@@ -379,7 +391,18 @@ main.add_command(docs_grp)
 # `docs search` — canonical home for ecosystem-wide search across APIs,
 # CLI, MCP tools, and documentation. The legacy top-level `search-docs`
 # is kept as a hidden deprecation alias (see below). Removed in 0.11.0.
-@docs_grp.command("search")
+@docs_grp.command(
+    "search",
+    cls=SpecCommand,
+    help_spec=CliHelp(
+        summary="Search across APIs, CLI, MCP tools, and documentation.",
+        examples=(
+            Example('{prog} docs search "save figure"', "Full-text search everywhere."),
+            Example("{prog} docs search version --scope api", "Limit to the API scope."),
+            Example("{prog} docs search hpc --max-results 20 --json", "More hits, as JSON."),
+        ),
+    ),
+)
 @click.argument("query")
 @click.option(
     "--scope", default="all", help="Search scope: all, api, cli, mcp, docs."
@@ -387,14 +410,6 @@ main.add_command(docs_grp)
 @click.option("--max-results", default=10, help="Maximum results.")
 @click.option("--json", "as_json", is_flag=True, help="Output as structured JSON.")
 def _docs_search(query, scope, max_results, as_json):
-    """Search across APIs, CLI, MCP tools, and documentation.
-
-    \b
-    Example:
-        $ scitex-dev docs search "save figure"
-        $ scitex-dev docs search version --scope api
-        $ scitex-dev docs search hpc --max-results 20 --json
-    """
     from .. import search as do_search
     from ._utils import wrap_as_cli
 
@@ -414,45 +429,25 @@ from ._completion import register_completion_command
 
 register_completion_command(main)
 
-@main.command(
+# `search` → `docs search` walked the ladder in two renames: the direct
+# alias is already on the error rung; `search-docs` still forwards
+# (warn rung) so existing callers keep working until v0.11.
+deprecated_alias(
+    main,
     "search",
-    hidden=True,
-    context_settings={"ignore_unknown_options": True, "allow_extra_args": True},
+    target="search-docs",
+    remove_in="0.11",
+    phase="error",
 )
-@click.pass_context
-def search_deprecated(ctx):
-    """(deprecated) Renamed to `search-docs`."""
-    click.echo(
-        "error: `scitex-dev search` was renamed to `scitex-dev search-docs`.\n"
-        "Re-run with: scitex-dev search-docs <query> [...]",
-        err=True,
-    )
-    ctx.exit(2)
 
-@main.command("search-docs", hidden=True)
-@click.argument("query")
-@click.option(
-    "--scope", default="all", help="Search scope: all, api, cli, mcp, docs."
+deprecated_alias(
+    main,
+    "search-docs",
+    target=_docs_search,
+    target_name="docs search",
+    remove_in="0.11",
+    phase="warn",
 )
-@click.option("--max-results", default=10, help="Maximum results.")
-@click.option("--json", "as_json", is_flag=True, help="Output as structured JSON.")
-def search_docs_deprecated(query, scope, max_results, as_json):
-    """(deprecated) Use `scitex-dev docs search`. Removed in 0.11.0."""
-    click.echo(
-        "warning: `scitex-dev search-docs` was moved to "
-        "`scitex-dev docs search`. Will be removed in 0.11.0.",
-        err=True,
-    )
-    from .. import search as do_search
-    from ._utils import wrap_as_cli
-
-    wrap_as_cli(
-        do_search,
-        as_json=as_json,
-        query=query,
-        scope=scope,
-        max_results=max_results,
-    )
 
 # -------------------------------------------------------------------
 # Integration commands

@@ -13,7 +13,7 @@
 # License for the specific language governing permissions and limitations
 # under the License.
 
-from collections.abc import Callable, Iterable
+from collections.abc import Callable
 import json
 import sys
 import textwrap
@@ -21,7 +21,7 @@ import traceback
 from typing import Any, TypedDict
 
 import enum
-from oslo_config import cfg  # type: ignore
+from oslo_config import cfg
 import prettytable
 
 from oslo_upgradecheck._i18n import _
@@ -238,7 +238,7 @@ def main(
     project: str,
     upgrade_command: UpgradeCommands,
     argv: list[str] = sys.argv[1:],
-    default_config_files: Iterable[str] | None = None,
+    default_config_files: list[str] | None = None,
 ) -> int:
     """Simple implementation of main for upgrade checks
 

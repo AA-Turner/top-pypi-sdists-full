@@ -55,6 +55,11 @@ class CloudComponentsServiceStub(object):
             request_serializer=chalk_dot_server_dot_v1_dot_cloud__components__pb2.ListCloudComponentClusterRequest.SerializeToString,
             response_deserializer=chalk_dot_server_dot_v1_dot_cloud__components__pb2.ListCloudComponentClusterResponse.FromString,
         )
+        self.ListServerlessClusters = channel.unary_unary(
+            "/chalk.server.v1.CloudComponentsService/ListServerlessClusters",
+            request_serializer=chalk_dot_server_dot_v1_dot_cloud__components__pb2.ListServerlessClustersRequest.SerializeToString,
+            response_deserializer=chalk_dot_server_dot_v1_dot_cloud__components__pb2.ListServerlessClustersResponse.FromString,
+        )
         self.DeleteCloudComponentCluster = channel.unary_unary(
             "/chalk.server.v1.CloudComponentsService/DeleteCloudComponentCluster",
             request_serializer=chalk_dot_server_dot_v1_dot_cloud__components__pb2.DeleteCloudComponentClusterRequest.SerializeToString,
@@ -338,6 +343,12 @@ class CloudComponentsServiceServicer(object):
         raise NotImplementedError("Method not implemented!")
 
     def ListCloudComponentCluster(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details("Method not implemented!")
+        raise NotImplementedError("Method not implemented!")
+
+    def ListServerlessClusters(self, request, context):
         """Missing associated documentation comment in .proto file."""
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details("Method not implemented!")
@@ -669,6 +680,11 @@ def add_CloudComponentsServiceServicer_to_server(servicer, server):
             servicer.ListCloudComponentCluster,
             request_deserializer=chalk_dot_server_dot_v1_dot_cloud__components__pb2.ListCloudComponentClusterRequest.FromString,
             response_serializer=chalk_dot_server_dot_v1_dot_cloud__components__pb2.ListCloudComponentClusterResponse.SerializeToString,
+        ),
+        "ListServerlessClusters": grpc.unary_unary_rpc_method_handler(
+            servicer.ListServerlessClusters,
+            request_deserializer=chalk_dot_server_dot_v1_dot_cloud__components__pb2.ListServerlessClustersRequest.FromString,
+            response_serializer=chalk_dot_server_dot_v1_dot_cloud__components__pb2.ListServerlessClustersResponse.SerializeToString,
         ),
         "DeleteCloudComponentCluster": grpc.unary_unary_rpc_method_handler(
             servicer.DeleteCloudComponentCluster,
@@ -1138,6 +1154,35 @@ class CloudComponentsService(object):
             "/chalk.server.v1.CloudComponentsService/ListCloudComponentCluster",
             chalk_dot_server_dot_v1_dot_cloud__components__pb2.ListCloudComponentClusterRequest.SerializeToString,
             chalk_dot_server_dot_v1_dot_cloud__components__pb2.ListCloudComponentClusterResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+        )
+
+    @staticmethod
+    def ListServerlessClusters(
+        request,
+        target,
+        options=(),
+        channel_credentials=None,
+        call_credentials=None,
+        insecure=False,
+        compression=None,
+        wait_for_ready=None,
+        timeout=None,
+        metadata=None,
+    ):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            "/chalk.server.v1.CloudComponentsService/ListServerlessClusters",
+            chalk_dot_server_dot_v1_dot_cloud__components__pb2.ListServerlessClustersRequest.SerializeToString,
+            chalk_dot_server_dot_v1_dot_cloud__components__pb2.ListServerlessClustersResponse.FromString,
             options,
             channel_credentials,
             insecure,

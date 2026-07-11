@@ -12,6 +12,8 @@ __all__ = ["LlmEngineVendorConfiguration"]
 class LlmEngineVendorConfiguration(BaseModel):
     model: str
 
+    chat_template_override: Optional[str] = None
+
     checkpoint_path: Optional[str] = None
 
     cpus: Optional[int] = None

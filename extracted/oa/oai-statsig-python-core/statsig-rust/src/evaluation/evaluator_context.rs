@@ -72,7 +72,7 @@ impl<'a> EvaluatorContext<'a> {
 
     pub fn reset_result(&mut self) {
         self.nested_count = 0;
-        self.result = EvaluatorResult::default();
+        self.result.clear_for_reuse();
     }
 
     pub fn finalize_evaluation(&mut self, spec: &Spec, rule: Option<&Rule>) {

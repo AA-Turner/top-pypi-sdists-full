@@ -42,7 +42,7 @@ dependencies = [
   "mcp[cli]>=1.12.4",
   "mdit-py-plugins>=0.5",
   "mem0ai>=0.1.115",
-  "mindroom-nio[e2e]>=0.26",
+  "mindroom-nio[e2e]>=0.27",
   "openai",
   "pydantic>=2",
   "pydantic-settings>=2.10.1",
@@ -262,6 +262,9 @@ lumalabs = [
   "lumaai",
 ]
 matrix_api = []
+matrix_calls = [
+  "livekit-agents[openai]>=1.6.4",
+]
 matrix-e2ee = []
 matrix_message = []
 matrix_room = []
@@ -439,7 +442,6 @@ dev = [
   "pytest-asyncio>=1.1",
   "pytest-cov>=6.2.1",
   "pytest-mock>=3.14.1",
-  "pytest-sugar>=1",
   "pytest-timeout>=2.4",
   "pytest-xdist>=3.8",
   "requests>=2.32.4",
@@ -554,12 +556,8 @@ asyncio_mode = "auto"
 pythonpath = [ "src" ]
 addopts = """
     -p no:tach
-    -vvv
+    -q
     -n auto
-    --cov=mindroom
-    --cov-report term
-    --cov-report html
-    --cov-report xml
     --asyncio-mode=strict
     --timeout 60
     --durations 20

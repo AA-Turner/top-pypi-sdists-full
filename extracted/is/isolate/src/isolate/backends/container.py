@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import os
 import sys
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -56,7 +57,7 @@ class ContainerizedPythonEnvironment(BaseEnvironment[Path]):
         )
 
     def create(self, *, force: bool = False) -> Path:
-        return Path(sys.exec_prefix)
+        return Path(os.getenv("ISOLATE_CONTAINER_PYTHON_EXEC_PREFIX", sys.exec_prefix))
 
     def destroy(self, connection_key: Path) -> None:
         raise NotImplementedError("ContainerizedPythonEnvironment cannot be destroyed")

@@ -18,9 +18,19 @@ class AgentexCloudBuild(BaseModel):
     agent_name: str
 
     build_status: Literal[
-        "queued", "running", "success", "failed", "cancelling", "cancelled", "timed_out", "error", "unknown"
+        "queued",
+        "running",
+        "success",
+        "failed",
+        "cancelling",
+        "cancelled",
+        "deleting",
+        "delete_failed",
+        "timed_out",
+        "error",
+        "unknown",
     ]
-    """The current build status from the cloud provider"""
+    """The current build lifecycle status"""
 
     cloud_provider_build_id: str
 
@@ -32,6 +42,8 @@ class AgentexCloudBuild(BaseModel):
     image_name: str
 
     image_tag: str
+
+    agent_id: Optional[str] = None
 
     build_end_time: Optional[datetime] = None
     """When the cloud provider finished the build"""

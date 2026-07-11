@@ -28,16 +28,25 @@ import logging
 import os
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Literal
+from typing import Any, Literal, cast
 
 import google.auth.credentials
+from google.api_core.exceptions import GoogleAPICallError
+from google.auth.exceptions import GoogleAuthError
 from google.cloud import bigquery
 from pydantic import BaseModel, Field
 
-from airbyte_ops_mcp.gcp_auth import get_gcp_credentials_for_bigquery_ro
+from airbyte_ops_mcp.gcp_auth import (
+    _get_identity_from_credentials,
+    get_gcp_credentials_for_bigquery_ro,
+)
 from airbyte_ops_mcp.prod_db_access.queries import query_workspace_info
 
 logger = logging.getLogger(__name__)
+
+# Type aliases for cache data structures
+TierData = dict[str, dict[str, str]]
+WorkspaceData = dict[str, dict[str, str]]
 
 
 # Type alias for customer tier values
@@ -281,14 +290,44 @@ def _load_tier_cache(
         data, fetched_at = _read_cache_file(TIER_CACHE_FILE)
         if data is not None and _is_cache_fresh(fetched_at):
             logger.debug("Tier cache is fresh (%d entries)", len(data))
-            return data  # type: ignore[return-value]
+            return cast(TierData, data)
 
-    # Fetch fresh data from BigQuery — hard-fail if unavailable
-    tier_data = _fetch_tier_data_from_bigquery(credentials=credentials)
-    if not tier_data:
+    # Try to refresh from BigQuery; fall back to stale cache if BQ is unavailable.
+    effective_credentials = credentials or get_gcp_credentials_for_bigquery_ro()
+    identity = _get_identity_from_credentials(effective_credentials) or (
+        "user_oauth_token" if credentials is not None else "application_default"
+    )
+    try:
+        tier_data = _fetch_tier_data_from_bigquery(credentials=effective_credentials)
+    except (GoogleAPICallError, GoogleAuthError) as exc:
+        stale_data, _ = _read_cache_file(TIER_CACHE_FILE)
+        if stale_data:
+            logger.warning(
+                "BigQuery tier refresh failed (identity=%s, error=%s); "
+                "falling back to stale cache.",
+                identity,
+                exc,
+            )
+            return cast(TierData, stale_data)
+
         raise RuntimeError(
-            "BigQuery tier query returned no rows. Cannot proceed without tier data. "
-            "Check BigQuery access and the sales_customer_attributes table."
+            f"BigQuery tier refresh failed and no stale cache is available. "
+            f"Cannot proceed without tier data (would bypass tier protection). "
+            f"Identity attempted: {identity}. Original error: {exc}"
+        ) from exc
+    if not tier_data:
+        stale_data, _ = _read_cache_file(TIER_CACHE_FILE)
+        if stale_data:
+            logger.warning(
+                "BigQuery tier query returned no rows; using stale cache.",
+            )
+            return cast(TierData, stale_data)
+
+        raise RuntimeError(
+            f"BigQuery tier query returned no rows and no stale cache is available. "
+            f"Cannot proceed without tier data (would bypass tier protection). "
+            f"Identity attempted: {identity}. "
+            f"Check BigQuery access and the sales_customer_attributes table."
         )
     _write_cache_file(TIER_CACHE_FILE, tier_data)
     return tier_data
@@ -307,7 +346,7 @@ def _load_workspace_cache() -> dict[str, dict[str, str]]:
     """
     data, fetched_at = _read_cache_file(WORKSPACE_CACHE_FILE)
     if data is not None and _is_cache_fresh(fetched_at):
-        return data  # type: ignore[return-value]
+        return cast(WorkspaceData, data)
     # Stale or missing — return empty; entries will be lazy-populated
     return {}
 

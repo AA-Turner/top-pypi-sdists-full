@@ -3,27 +3,28 @@ import re
 
 package = "loess"
 
-def find_version(package):
+def find_version():
     version_file = open(package + "/__init__.py").read()
-    rex = '__version__\s*=\s*"([^"]+)"'
+    rex = r'__version__\s*=\s*"([^"]+)"'
     return re.search(rex, version_file).group(1)
 
-def read_docstring(package, name):
-    main_file = open(package + "/" + name + ".py").read()
-    rex = '(?s)def ' + name + '\(.*?"""([\W\w]+?)"""'
+def read_docstring(name, file=None):
+    if file is None:
+        file = name + ".py"
+    main_file = open(package + "/" + file).read()
+    rex = f'(?:def {name}[\\w\\W]+?|class {name}):\\n\\s*"""([\\W\\w]+?)"""'
     docstring = re.search(rex, main_file).group(1)
     return docstring.replace("\n    ", "\n")
 
 setup(name=package,
-      version=find_version(package),
+      version=find_version(),
       description='LOESS: smoothing via robust locally-weighted regression in one or two dimensions',
+      long_description_content_type='text/x-rst',
       long_description=open(package + "/README.rst").read()
-                       + read_docstring(package, "loess_1d")
-                       + read_docstring(package, "loess_2d")
-                       + "\n\nLicense\n=======\n\n"
+                       + read_docstring("loess_1d")
+                       + read_docstring("loess_2d")
                        + open(package + "/LICENSE.txt").read()
                        + open(package + "/CHANGELOG.rst").read(),
-      long_description_content_type='text/x-rst',
       url="https://purl.org/cappellari/software",
       author="Michele Cappellari",
       author_email="michele.cappellari@physics.ox.ac.uk",

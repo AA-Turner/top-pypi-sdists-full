@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: hypothesis
-Version: 6.156.4
+Version: 6.156.6
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Framework :: Hypothesis
 Classifier: Framework :: Pytest

@@ -140,7 +140,7 @@ class BuildResource(SyncAPIResource):
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> AgentexCloudBuild:
         """
-        Get a build by ID, including current status from the cloud provider.
+        Get a build by ID, including current lifecycle status.
 
         Args:
           extra_headers: Send extra headers
@@ -423,7 +423,7 @@ class AsyncBuildResource(AsyncAPIResource):
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> AgentexCloudBuild:
         """
-        Get a build by ID, including current status from the cloud provider.
+        Get a build by ID, including current lifecycle status.
 
         Args:
           extra_headers: Send extra headers

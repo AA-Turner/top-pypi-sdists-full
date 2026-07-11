@@ -304,9 +304,8 @@ class SMatrix_SELL(SMatrix):
         cp_dtype = self._get_cp_dtype()
 
         if check_gpu_available(self):
-            theta_gpu = cp.asarray(theta, dtype=cp_dtype) if not isinstance(theta, cp.ndarray) else theta
-            if theta_gpu.dtype != cp_dtype:
-                theta_gpu = theta_gpu.astype(cp_dtype)
+            theta_gpu = cp.asarray(theta, dtype=cp_dtype)
+            theta_gpu = cp.ascontiguousarray(theta_gpu.view(cp.float32)) if self.isComplexSMatrix else cp.ascontiguousarray(theta_gpu) #IMPORTANT: Ensure memory is contiguous for the CUDA kernel. Complex arrays must be viewed as float2 for the RawModule
             q_gpu_permuted = cp.zeros(self.N * self.T, dtype=cp_dtype)
 
             proj_kernel_name = "forward_projection_kernel__SELL__COMPLEX" if self.isComplexSMatrix else "forward_projection_kernel__SELL__REAL"
@@ -316,8 +315,8 @@ class SMatrix_SELL(SMatrix):
 
             proj_kernel(
                 grid=(blocks, 1), block=(threads, 1, 1),
-                args=[q_gpu_permuted.data.ptr, self.sell_values_gpu, self.sell_colinds_gpu,
-                      self.slice_ptr_gpu, self.slice_len_gpu, theta_gpu.data.ptr,
+                args=[q_gpu_permuted.data.ptr, self.sell_values_gpu.data.ptr, self.sell_colinds_gpu.data.ptr,
+                      self.slice_ptr_gpu.data.ptr, self.slice_len_gpu.data.ptr, theta_gpu.data.ptr,
                       np.int32(self.N * self.T), np.int32(self.slice_height)]
             )
             cp.cuda.Stream.null.synchronize()
@@ -352,12 +351,11 @@ class SMatrix_SELL(SMatrix):
         cp_dtype = self._get_cp_dtype()
 
         if check_gpu_available(self):
-            e_gpu = cp.asarray(e, dtype=cp_dtype) if not isinstance(e, cp.ndarray) else e
-            if e_gpu.dtype != cp_dtype:
-                e_gpu = e_gpu.astype(cp_dtype)
-
+            # 1. Cast and ensure contiguity
+            e_gpu = cp.asarray(e, dtype=cp_dtype)
+            e_gpu = cp.ascontiguousarray(e_gpu.view(cp.float32)) if self.isComplexSMatrix else cp.ascontiguousarray(e_gpu)
             e_gpu_permuted = e_gpu[self.row_perm_gpu]
-            c_gpu = cp.zeros(self.Z * self.X, dtype=cp_dtype)
+            c_gpu = cp.zeros(self.Z * self.X, dtype=cp.float32)
 
             bp_kernel_name = "backward_projection_kernel__SELL__COMPLEX" if self.isComplexSMatrix else "backward_projection_kernel__SELL__REAL"
             bp_kernel = self.sparse_mod.get_function(bp_kernel_name)

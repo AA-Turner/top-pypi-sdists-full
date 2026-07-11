@@ -1,3 +1,4 @@
+from collections.abc import Mapping
 from collections.abc import Sequence as SequenceType
 from typing import Any, Literal, cast
 
@@ -16,7 +17,7 @@ from langgraph_grpc_common.conversion.config import (
 )
 from langgraph_grpc_common.conversion.struct import dict_from_raw_map, raw_map_from_dict
 from langgraph_grpc_common.conversion.value import (
-    any_to_serialized_value,
+    base_value_to_proto,
     send_to_proto,
     value_from_proto,
     value_to_proto,
@@ -86,11 +87,7 @@ def checkpoint_to_proto(checkpoint: Checkpoint) -> engine_common_pb2.Checkpoint:
                 )
             )
         else:
-            checkpoint_proto.channel_values[k].CopyFrom(
-                engine_common_pb2.ChannelValue(
-                    serialized_value=any_to_serialized_value(v)
-                )
-            )
+            checkpoint_proto.channel_values[k].CopyFrom(base_value_to_proto(v))
 
     return checkpoint_proto
 
@@ -241,3 +238,95 @@ def prune_strategy_to_proto(
         case "delete_all":
             return checkpointer_pb2.PruneRequest.PruneStrategy.DELETE_ALL
     raise ValueError("Unknown prune strategy: " + strategy)
+
+
+# ---------------------------------------------------------------------------
+# DeltaChannelHistory conversion
+# ---------------------------------------------------------------------------
+#
+# ``DeltaChannelHistory`` is a TypedDict from langgraph >= 1.2:
+#
+#   class DeltaChannelHistory(TypedDict, total=False):
+#       seed: Any                       # optional snapshot value
+#       writes: list[PendingWrite]      # (task_id, channel, value) tuples
+#
+# These helpers serialize/deserialize that shape to/from the wire-format
+# ``DeltaChannelHistoryEntry`` proto.
+#
+# We accept and return plain ``dict[str, dict]`` rather than importing
+# the ``DeltaChannelHistory`` TypedDict — langgraph treats the TypedDict
+# structurally, so any dict with the right keys is accepted by the
+# consumer (langgraph's ``DeltaChannel.replay_writes``).
+
+
+def delta_channel_history_entry_to_proto(
+    entry: Mapping[str, Any],
+    *,
+    channel: str,
+) -> checkpointer_pb2.DeltaChannelHistoryEntry:
+    """Encode one channel's ``DeltaChannelHistory`` dict as proto.
+
+    Args:
+        entry: Mapping with optional ``seed`` and optional ``writes``.
+            ``writes`` is a sequence of ``(task_id, channel, value)`` tuples
+            (langgraph's ``PendingWrite``).
+        channel: The channel name this entry corresponds to. We pass it to
+            ``value_to_proto`` so the TASKS channel special-cases the
+            seed/write conversion if it ever appears here.
+    """
+    pb_entry = checkpointer_pb2.DeltaChannelHistoryEntry()
+    if "seed" in entry:
+        pb_entry.seed.CopyFrom(value_to_proto(channel, entry["seed"]))
+    for write in entry.get("writes", ()) or ():
+        task_id, write_channel, write_value = write
+        pb_entry.writes.append(
+            engine_common_pb2.PendingWrite(
+                task_id=str(task_id),
+                channel=str(write_channel),
+                value=value_to_proto(write_channel, write_value),
+            )
+        )
+    return pb_entry
+
+
+def delta_channel_history_to_proto(
+    history: Mapping[str, Mapping[str, Any]],
+) -> dict[str, checkpointer_pb2.DeltaChannelHistoryEntry]:
+    """Encode the full per-channel mapping for the response proto."""
+    return {
+        ch: delta_channel_history_entry_to_proto(entry, channel=ch)
+        for ch, entry in history.items()
+    }
+
+
+def delta_channel_history_entry_from_proto(
+    entry: checkpointer_pb2.DeltaChannelHistoryEntry,
+) -> dict[str, Any]:
+    """Decode one channel's proto entry to a ``DeltaChannelHistory`` dict.
+
+    The ``seed`` key is omitted from the result when the proto has no
+    seed set — matches the Python source's "absence means MISSING"
+    contract (see ``_assemble_delta_history`` in
+    ``storage_postgres/langgraph_runtime_postgres/checkpoint.py``).
+    """
+    out: dict[str, Any] = {
+        "writes": [
+            (write.task_id, write.channel, value_from_proto(write.value))
+            for write in entry.writes
+        ],
+    }
+    if entry.HasField("seed"):
+        out["seed"] = value_from_proto(entry.seed)
+    return out
+
+
+def delta_channel_history_from_proto(
+    entries: Mapping[str, checkpointer_pb2.DeltaChannelHistoryEntry],
+) -> dict[str, dict[str, Any]]:
+    """Decode the full per-channel response proto map."""
+    return {
+        ch: delta_channel_history_entry_from_proto(entry)
+        for ch, entry in entries.items()
+    }
+
+

@@ -5,6 +5,8 @@ import hmac
 import inspect
 import json
 import logging
+import os
+import secrets
 import time
 import uuid
 from typing import Any, cast
@@ -25,6 +27,7 @@ from openai.types.chat.chat_completion_chunk import (
     Choice as ChunkChoice,
 )
 
+from verifiers.clients.openai_responses_client import OPENAI_RESPONSES_OUTPUT_FIELD
 from verifiers.errors import InfraError
 from verifiers.types import Response, Tool
 from verifiers.utils.logging_utils import print_time, truncate
@@ -32,7 +35,10 @@ from verifiers.utils.logging_utils import print_time, truncate
 logger = logging.getLogger(__name__)
 
 
-KEEPALIVE_INTERVAL_SECONDS = 10.0
+KEEPALIVE_INTERVAL_SECONDS = float(
+    os.environ.get("INTERCEPTION_SERVER_KEEPALIVE_INTERVAL_SECONDS", "3.0")
+)
+DEFAULT_CLIENT_MAX_SIZE_BYTES = 48 * 1024 * 1024
 
 
 class StreamInterrupted(InfraError):
@@ -45,14 +51,14 @@ class StreamInterrupted(InfraError):
     """
 
 
-def protocol_from_path(path: str) -> str:
-    if path.endswith("/v1/messages"):
-        return "anthropic_messages"
-    if path.endswith("/v1/responses"):
-        return "openai_responses"
-    if path.endswith("/v1/completions"):
-        return "openai_completions"
-    return "openai_chat_completions"
+class InterceptionError(InfraError):
+    """Raised when a non-streaming intercepted request cannot be fulfilled.
+
+    Distinct from ``StreamInterrupted`` so rubrics / metrics can tell the
+    two shapes apart: a streaming cut leaves the agent with a truncated
+    SSE body; a non-streaming failure returns HTTP 500 to the agent's
+    OpenAI client and the agent sees a normal API error.
+    """
 
 
 class InterceptionServer:
@@ -64,8 +70,9 @@ class InterceptionServer:
     """
 
     def __init__(self, port: int, secret: str | None = None):
+        self._initial_port = port  # requested port (0 = OS-assigned); see stop()
         self.port = port
-        self.secret = secret or None  # treat empty string as no secret
+        self.secret = secret or secrets.token_urlsafe(32)
         self._app: Any = None
         self._runner: Any = None
         self._site: Any = None
@@ -81,7 +88,7 @@ class InterceptionServer:
             if self._app is not None:
                 return
 
-            app = web.Application()
+            app = web.Application(client_max_size=DEFAULT_CLIENT_MAX_SIZE_BYTES)
             app.router.add_post(
                 "/rollout/{rollout_id}/v1/chat/completions",
                 self._handle_request,
@@ -113,6 +120,10 @@ class InterceptionServer:
             app.router.add_post(
                 "/rollout/{rollout_id}/vf/stop",
                 self._handle_stop_request,
+            )
+            app.router.add_post(
+                "/rollout/{rollout_id}/vf/model",
+                self._handle_model_request,
             )
             app.router.add_get(
                 "/health",
@@ -153,17 +164,28 @@ class InterceptionServer:
                     self._runner = None
                     self._site = None
                     self._app = None
+                    # Reset to the requested port so the next start() re-resolves
+                    # a fresh OS port instead of re-binding the stale cached one.
+                    self.port = self._initial_port
 
     def _set_rollout_error(self, rollout_id: str, error: BaseException) -> None:
         """Attach `error` to the rollout's state if one is registered and
         unset. First error wins — later failures (e.g. the downstream
         `response_future` raising too) should not clobber the original cause.
+
+        Also skip when the rollout loop has already finalized via a clean
+        stop condition (e.g. ``state["prompt_too_long"]`` from an
+        ``OverlongPromptError``). Tail-end failures that happen after
+        that — e.g. ``write_eof`` to an agent that has already exited —
+        are consequences of the termination, not new infra problems, and
+        must not be surfaced as a spurious ``InterceptionError`` /
+        ``StreamInterrupted`` alongside the real stop signal.
         """
         context = self.active_rollouts.get(rollout_id)
         if context is None:
             return
         state = context.get("state")
-        if state is None or state.get("error"):
+        if state is None or state.get("error") or state.get("prompt_too_long"):
             return
         state["error"] = error
 
@@ -175,6 +197,7 @@ class InterceptionServer:
         tool_defs: Any | None = None,
         user_handler: Any | None = None,
         stop_handler: Any | None = None,
+        model_handler: Any | None = None,
     ) -> asyncio.Queue:
         request_queue: asyncio.Queue = asyncio.Queue()
         self.active_rollouts[rollout_id] = {
@@ -184,6 +207,7 @@ class InterceptionServer:
             "tool_defs": tool_defs,
             "user_handler": user_handler,
             "stop_handler": stop_handler,
+            "model_handler": model_handler,
         }
         return request_queue
 
@@ -208,11 +232,16 @@ class InterceptionServer:
         if rollout_id in self.active_rollouts:
             del self.active_rollouts[rollout_id]
 
+    def _authorized(self, request: Any) -> bool:
+        auth = request.headers.get("Authorization", "")
+        api_key = request.headers.get("x-api-key", "")
+        return hmac.compare_digest(
+            auth, f"Bearer {self.secret}"
+        ) or hmac.compare_digest(api_key, self.secret)
+
     async def _handle_request(self, request: Any) -> Any:
-        if self.secret:
-            auth = request.headers.get("Authorization", "")
-            if not hmac.compare_digest(auth, f"Bearer {self.secret}"):
-                return web.json_response({"error": "Unauthorized"}, status=401)
+        if not self._authorized(request):
+            return web.json_response({"error": "Unauthorized"}, status=401)
 
         rollout_id = request.match_info["rollout_id"]
         context = self.active_rollouts.get(rollout_id)
@@ -233,7 +262,15 @@ class InterceptionServer:
             asyncio.Queue() if is_streaming else None
         )
 
-        protocol = protocol_from_path(str(request.path))
+        path = str(request.path)
+        if path.endswith("/v1/messages"):
+            protocol = "anthropic_messages"
+        elif path.endswith("/v1/responses"):
+            protocol = "openai_responses"
+        elif path.endswith("/v1/completions"):
+            protocol = "openai_completions"
+        else:
+            protocol = "openai_chat_completions"
         intercept = {
             "request_id": request_id,
             "rollout_id": rollout_id,
@@ -247,7 +284,11 @@ class InterceptionServer:
             "stream": is_streaming,
             "chunk_queue": chunk_queue,
             "response_future": asyncio.Future(),
-            "headers": {k.lower(): v for k, v in request.headers.items()},
+            "headers": {
+                k.lower(): v
+                for k, v in request.headers.items()
+                if k.lower() not in {"authorization", "x-api-key"}
+            },
         }
 
         self.intercepts[request_id] = intercept
@@ -265,7 +306,14 @@ class InterceptionServer:
                 return web.json_response({"error": "Rollout cancelled"}, status=499)
             except Exception as e:
                 logger.debug(
-                    f"[{rollout_id}] Rollout error surfaced in non-streaming request: {type(e).__name__}: {e}"
+                    f"[{rollout_id}] Rollout error surfaced in non-streaming "
+                    f"request: {type(e).__name__}: {e}"
+                )
+                self._set_rollout_error(
+                    rollout_id,
+                    InterceptionError(
+                        f"Intercepted request failed: {type(e).__name__}: {e}"
+                    ),
                 )
                 return web.json_response({"error": str(e)}, status=500)
 
@@ -278,10 +326,8 @@ class InterceptionServer:
             return web.json_response(response_dict)
 
     async def _handle_tool_request(self, request: Any) -> Any:
-        if self.secret:
-            auth = request.headers.get("Authorization", "")
-            if not hmac.compare_digest(auth, f"Bearer {self.secret}"):
-                return web.json_response({"error": "Unauthorized"}, status=401)
+        if not self._authorized(request):
+            return web.json_response({"error": "Unauthorized"}, status=401)
 
         rollout_id = request.match_info["rollout_id"]
         context = self.active_rollouts.get(rollout_id)
@@ -311,10 +357,8 @@ class InterceptionServer:
         return web.json_response({"result": result})
 
     async def _handle_tools_list_request(self, request: Any) -> Any:
-        if self.secret:
-            auth = request.headers.get("Authorization", "")
-            if not hmac.compare_digest(auth, f"Bearer {self.secret}"):
-                return web.json_response({"error": "Unauthorized"}, status=401)
+        if not self._authorized(request):
+            return web.json_response({"error": "Unauthorized"}, status=401)
 
         rollout_id = request.match_info["rollout_id"]
         context = self.active_rollouts.get(rollout_id)
@@ -329,10 +373,8 @@ class InterceptionServer:
         return web.json_response({"tools": tools})
 
     async def _handle_user_request(self, request: Any) -> Any:
-        if self.secret:
-            auth = request.headers.get("Authorization", "")
-            if not hmac.compare_digest(auth, f"Bearer {self.secret}"):
-                return web.json_response({"error": "Unauthorized"}, status=401)
+        if not self._authorized(request):
+            return web.json_response({"error": "Unauthorized"}, status=401)
 
         rollout_id = request.match_info["rollout_id"]
         context = self.active_rollouts.get(rollout_id)
@@ -360,10 +402,8 @@ class InterceptionServer:
         return web.json_response({"messages": messages})
 
     async def _handle_stop_request(self, request: Any) -> Any:
-        if self.secret:
-            auth = request.headers.get("Authorization", "")
-            if not hmac.compare_digest(auth, f"Bearer {self.secret}"):
-                return web.json_response({"error": "Unauthorized"}, status=401)
+        if not self._authorized(request):
+            return web.json_response({"error": "Unauthorized"}, status=401)
 
         rollout_id = request.match_info["rollout_id"]
         context = self.active_rollouts.get(rollout_id)
@@ -381,6 +421,38 @@ class InterceptionServer:
         except Exception as e:
             return web.json_response({"error": str(e)}, status=500)
         return web.json_response(result)
+
+    async def _handle_model_request(self, request: Any) -> Any:
+        if not self._authorized(request):
+            return web.json_response({"error": "Unauthorized"}, status=401)
+
+        rollout_id = request.match_info["rollout_id"]
+        context = self.active_rollouts.get(rollout_id)
+        if not context:
+            return web.json_response({"error": "Rollout not found"}, status=404)
+        model_handler = context.get("model_handler")
+        if model_handler is None:
+            return web.json_response({"error": "Model proxy unavailable"}, status=404)
+
+        try:
+            request_body = await request.json()
+        except Exception as e:
+            return web.json_response({"error": f"Invalid JSON: {e}"}, status=400)
+        messages = request_body.get("messages")
+        if not isinstance(messages, list):
+            return web.json_response(
+                {"error": "Model request messages must be a list"}, status=400
+            )
+        tools = request_body.get("tools")
+
+        try:
+            result = model_handler(messages, tools)
+            if inspect.isawaitable(result):
+                result = await result
+            message = jsonable(result)
+        except Exception as e:
+            return web.json_response({"error": str(e)}, status=500)
+        return web.json_response({"message": message})
 
     async def _handle_streaming_response(
         self, http_request: Any, rollout_id: str, intercept: dict
@@ -410,7 +482,7 @@ class InterceptionServer:
             )
             self._set_rollout_error(
                 rollout_id,
-                StreamInterrupted(f"prepare failed: {type(e).__name__}: {e}"),
+                StreamInterrupted(f"Prepare failed: {type(e).__name__}: {e}"),
             )
             return response
         # Reuse one get() task across keepalive cycles; asyncio.wait_for on
@@ -437,7 +509,7 @@ class InterceptionServer:
                         self._set_rollout_error(
                             rollout_id,
                             StreamInterrupted(
-                                f"keepalive write failed after {print_time(waited_s)}: "
+                                f"Keepalive write failed after {print_time(waited_s)}: "
                                 f"{type(e).__name__}: {e}"
                             ),
                         )
@@ -467,7 +539,7 @@ class InterceptionServer:
             self._set_rollout_error(
                 rollout_id,
                 StreamInterrupted(
-                    f"stream write failed after {print_time(waited_s)}: "
+                    f"Stream write failed after {print_time(waited_s)}: "
                     f"{type(e).__name__}: {e}"
                 ),
             )
@@ -478,9 +550,17 @@ class InterceptionServer:
 
         try:
             await response_future
-        except BaseException as e:
+        except asyncio.CancelledError:
+            raise
+        except Exception as e:
             logger.debug(
                 f"[{rollout_id}] Rollout error surfaced in stream: {type(e).__name__}: {e}"
+            )
+            self._set_rollout_error(
+                rollout_id,
+                StreamInterrupted(
+                    f"Streaming response_future failed: {type(e).__name__}: {e}"
+                ),
             )
 
         # Surface any write_eof failure so a tail truncation becomes a
@@ -496,7 +576,7 @@ class InterceptionServer:
             self._set_rollout_error(
                 rollout_id,
                 StreamInterrupted(
-                    f"write_eof failed after {print_time(waited_s)}: "
+                    f"Write EOF failed after {print_time(waited_s)}: "
                     f"{type(e).__name__}: {e}"
                 ),
             )
@@ -842,9 +922,27 @@ def serialize_anthropic_message_response(response: Response) -> dict[str, Any]:
 
 
 def serialize_openai_responses_response(response: Response) -> dict[str, Any]:
-    output: list[dict[str, Any]] = []
     message = response.message
-    if message.content:
+    raw_output = getattr(message, OPENAI_RESPONSES_OUTPUT_FIELD, None)
+    if raw_output is not None:
+        output = cast(list[dict[str, Any]], jsonable(raw_output))
+    if raw_output is None:
+        output: list[dict[str, Any]] = []
+    if raw_output is None and (
+        message.reasoning_content is not None or message.thinking_blocks
+    ):
+        summary = []
+        if message.reasoning_content:
+            summary.append({"type": "summary_text", "text": message.reasoning_content})
+        output.append(
+            {
+                "id": f"rs_{response.id}",
+                "type": "reasoning",
+                "summary": summary,
+                "status": "completed",
+            }
+        )
+    if raw_output is None and message.content:
         output.append(
             {
                 "id": f"msg_{response.id}",
@@ -860,22 +958,27 @@ def serialize_openai_responses_response(response: Response) -> dict[str, Any]:
                 ],
             }
         )
-    for tool_call in message.tool_calls or []:
-        output.append(
-            {
-                "id": tool_call.id,
-                "type": "function_call",
-                "call_id": tool_call.id,
-                "name": tool_call.name,
-                "arguments": tool_call.arguments,
-                "status": "completed",
-            }
-        )
+    if raw_output is None:
+        for tool_call in message.tool_calls or []:
+            output.append(
+                {
+                    "id": tool_call.id,
+                    "type": "function_call",
+                    "call_id": tool_call.id,
+                    "name": tool_call.name,
+                    "arguments": tool_call.arguments,
+                    "status": "completed",
+                }
+            )
     usage = None
     if response.usage is not None:
         usage = {
             "input_tokens": response.usage.prompt_tokens,
+            "input_tokens_details": {"cached_tokens": 0},
             "output_tokens": response.usage.completion_tokens,
+            "output_tokens_details": {
+                "reasoning_tokens": response.usage.reasoning_tokens
+            },
             "total_tokens": response.usage.total_tokens,
         }
     return {

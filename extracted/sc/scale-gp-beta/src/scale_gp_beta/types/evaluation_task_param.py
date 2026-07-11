@@ -54,10 +54,15 @@ __all__ = [
     "ContributorEvaluationQuestionTaskConfiguration",
     "CustomFunctionEvaluationTask",
     "CustomFunctionEvaluationTaskConfiguration",
+    "CustomFunctionEvaluationTaskConfigurationOutput",
 ]
 
 
-class ChatCompletionEvaluationTaskConfiguration(TypedDict, total=False, extra_items=object):  # type: ignore[call-arg]
+class ChatCompletionEvaluationTaskConfiguration(  # type: ignore[call-arg]
+    TypedDict,
+    total=False,
+    extra_items=object,  # pyright: ignore[reportGeneralTypeIssues]
+):
     messages: Required[Union[Iterable[Dict[str, object]], ItemLocator]]
 
     model: Required[str]
@@ -510,6 +515,14 @@ class ContributorEvaluationQuestionTask(TypedDict, total=False):
     task_type: Literal["contributor_evaluation.question"]
 
 
+class CustomFunctionEvaluationTaskConfigurationOutput(TypedDict, total=False):
+    path: Required[str]
+    """Dot path in the custom function return value to materialize."""
+
+    alias: str
+    """Result column alias. Defaults to path with dots replaced by underscores."""
+
+
 class CustomFunctionEvaluationTaskConfiguration(TypedDict, total=False):
     """Configuration for a custom Python function evaluation task."""
 
@@ -520,6 +533,20 @@ class CustomFunctionEvaluationTaskConfiguration(TypedDict, total=False):
     """Mapping of function parameter names to item locators (e.g.
 
     item.field). Auto-derived from function signature if not provided.
+    """
+
+    config_args: Dict[str, object]
+    """Literal argument values for function parameters, such as thresholds or RNG
+    seeds.
+
+    Serialized JSON must be at most 10000 characters.
+    """
+
+    outputs: Iterable[CustomFunctionEvaluationTaskConfigurationOutput]
+    """Optional output paths to materialize as separate result columns.
+
+    If omitted, the function return value is stored only under the task alias/data
+    key.
     """
 
 

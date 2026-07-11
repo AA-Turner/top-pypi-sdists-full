@@ -40,6 +40,16 @@ class KubeServiceStub(object):
             request_serializer=chalk_dot_server_dot_v1_dot_kube__pb2.GetKubernetesPersistentVolumesRequest.SerializeToString,
             response_deserializer=chalk_dot_server_dot_v1_dot_kube__pb2.GetKubernetesPersistentVolumesResponse.FromString,
         )
+        self.GetKubernetesStorageClasses = channel.unary_unary(
+            "/chalk.server.v1.KubeService/GetKubernetesStorageClasses",
+            request_serializer=chalk_dot_server_dot_v1_dot_kube__pb2.GetKubernetesStorageClassesRequest.SerializeToString,
+            response_deserializer=chalk_dot_server_dot_v1_dot_kube__pb2.GetKubernetesStorageClassesResponse.FromString,
+        )
+        self.GetKubernetesPersistentVolumeWithPods = channel.unary_unary(
+            "/chalk.server.v1.KubeService/GetKubernetesPersistentVolumeWithPods",
+            request_serializer=chalk_dot_server_dot_v1_dot_kube__pb2.GetKubernetesPersistentVolumeWithPodsRequest.SerializeToString,
+            response_deserializer=chalk_dot_server_dot_v1_dot_kube__pb2.GetKubernetesPersistentVolumeWithPodsResponse.FromString,
+        )
         self.GetKubernetesServiceAccounts = channel.unary_unary(
             "/chalk.server.v1.KubeService/GetKubernetesServiceAccounts",
             request_serializer=chalk_dot_server_dot_v1_dot_kube__pb2.GetKubernetesServiceAccountsRequest.SerializeToString,
@@ -113,6 +123,20 @@ class KubeServiceServicer(object):
 
     def GetKubernetesPersistentVolumes(self, request, context):
         """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details("Method not implemented!")
+        raise NotImplementedError("Method not implemented!")
+
+    def GetKubernetesStorageClasses(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details("Method not implemented!")
+        raise NotImplementedError("Method not implemented!")
+
+    def GetKubernetesPersistentVolumeWithPods(self, request, context):
+        """GetKubernetesPersistentVolumeWithPods fetches a single persistent volume,
+        its storage class, and the pods whose PVCs bind to it.
+        """
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details("Method not implemented!")
         raise NotImplementedError("Method not implemented!")
@@ -194,6 +218,16 @@ def add_KubeServiceServicer_to_server(servicer, server):
             servicer.GetKubernetesPersistentVolumes,
             request_deserializer=chalk_dot_server_dot_v1_dot_kube__pb2.GetKubernetesPersistentVolumesRequest.FromString,
             response_serializer=chalk_dot_server_dot_v1_dot_kube__pb2.GetKubernetesPersistentVolumesResponse.SerializeToString,
+        ),
+        "GetKubernetesStorageClasses": grpc.unary_unary_rpc_method_handler(
+            servicer.GetKubernetesStorageClasses,
+            request_deserializer=chalk_dot_server_dot_v1_dot_kube__pb2.GetKubernetesStorageClassesRequest.FromString,
+            response_serializer=chalk_dot_server_dot_v1_dot_kube__pb2.GetKubernetesStorageClassesResponse.SerializeToString,
+        ),
+        "GetKubernetesPersistentVolumeWithPods": grpc.unary_unary_rpc_method_handler(
+            servicer.GetKubernetesPersistentVolumeWithPods,
+            request_deserializer=chalk_dot_server_dot_v1_dot_kube__pb2.GetKubernetesPersistentVolumeWithPodsRequest.FromString,
+            response_serializer=chalk_dot_server_dot_v1_dot_kube__pb2.GetKubernetesPersistentVolumeWithPodsResponse.SerializeToString,
         ),
         "GetKubernetesServiceAccounts": grpc.unary_unary_rpc_method_handler(
             servicer.GetKubernetesServiceAccounts,
@@ -379,6 +413,64 @@ class KubeService(object):
             "/chalk.server.v1.KubeService/GetKubernetesPersistentVolumes",
             chalk_dot_server_dot_v1_dot_kube__pb2.GetKubernetesPersistentVolumesRequest.SerializeToString,
             chalk_dot_server_dot_v1_dot_kube__pb2.GetKubernetesPersistentVolumesResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+        )
+
+    @staticmethod
+    def GetKubernetesStorageClasses(
+        request,
+        target,
+        options=(),
+        channel_credentials=None,
+        call_credentials=None,
+        insecure=False,
+        compression=None,
+        wait_for_ready=None,
+        timeout=None,
+        metadata=None,
+    ):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            "/chalk.server.v1.KubeService/GetKubernetesStorageClasses",
+            chalk_dot_server_dot_v1_dot_kube__pb2.GetKubernetesStorageClassesRequest.SerializeToString,
+            chalk_dot_server_dot_v1_dot_kube__pb2.GetKubernetesStorageClassesResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+        )
+
+    @staticmethod
+    def GetKubernetesPersistentVolumeWithPods(
+        request,
+        target,
+        options=(),
+        channel_credentials=None,
+        call_credentials=None,
+        insecure=False,
+        compression=None,
+        wait_for_ready=None,
+        timeout=None,
+        metadata=None,
+    ):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            "/chalk.server.v1.KubeService/GetKubernetesPersistentVolumeWithPods",
+            chalk_dot_server_dot_v1_dot_kube__pb2.GetKubernetesPersistentVolumeWithPodsRequest.SerializeToString,
+            chalk_dot_server_dot_v1_dot_kube__pb2.GetKubernetesPersistentVolumeWithPodsResponse.FromString,
             options,
             channel_credentials,
             insecure,

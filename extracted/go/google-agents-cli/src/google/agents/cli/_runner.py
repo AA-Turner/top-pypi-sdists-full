@@ -14,14 +14,34 @@
 
 """Subprocess helpers for agents CLI."""
 
+import io
 import os
 import shlex
 import subprocess
+import sys
 from pathlib import Path
 
 import click
 
 from google.agents.cli import _tools
+
+
+def redact_cmd(args: list[str]) -> str:
+    """Mask sensitive information in command arguments and return joined string.
+
+    Masks arguments like --github-pat and environment variables containing secrets.
+    """
+    redacted_cmd_list = list(args)
+    for i, arg in enumerate(args):
+        if arg == "--github-pat" and i + 1 < len(args):
+            redacted_cmd_list[i + 1] = "[REDACTED]"
+        elif any(
+            secret in arg
+            for secret in ["GITHUB_PAT", "GH_TOKEN", "GITHUB_TOKEN", "GITHUB_APP_KEY"]
+        ):
+            redacted_cmd_list[i] = "[REDACTED]"
+
+    return shlex.join(redacted_cmd_list)
 
 
 def run(
@@ -55,11 +75,10 @@ def run(
         resolve_executable: If True, resolve the executable path using require_tool.
             Defaults to True.
 
-
     Returns:
         CompletedProcess instance.
     """
-    cmd_str = shlex.join(args)
+    cmd_str = redact_cmd(args)
 
     if print_cmd:
         click.secho(f"  ▸ {cmd_str}", fg="cyan", dim=True)
@@ -68,26 +87,72 @@ def run(
     if env is not None:
         run_env = {**os.environ, **env}
 
+    # Capture output as UTF-8 text (replacing undecodable bytes) unless we're
+    # piping raw bytes to stdin, where child output must stay bytes. Without an
+    # explicit encoding, subprocess uses the locale codec + strict errors, which
+    # raises UnicodeDecodeError on non-UTF-8 locales (e.g. cp1252 on Windows).
+    text_mode = input_data is None
+    text_kwargs = {"encoding": "utf-8", "errors": "replace"} if text_mode else {}
+
     if capture:
         result = run_resolved(
             args,
             resolve_executable=resolve_executable,
             capture_output=True,
-            text=input_data is None,
-            cwd=cwd,
+            text=text_mode,
+            cwd=str(cwd) if cwd else None,
             input=input_data,
             env=run_env,
             timeout=timeout,
+            **text_kwargs,
         )
     else:
-        result = run_resolved(
-            args,
-            resolve_executable=resolve_executable,
-            cwd=cwd,
-            input=input_data,
-            env=run_env,
-            timeout=timeout,
-        )
+        # Under click.testing.CliRunner, sys.stdout is a StringIO-like object
+        # that doesn't have a fileno(). Subprocess on Windows requires a fileno.
+        # We check carefully to avoid issues with mocks or unusual environments.
+        use_fallback = True
+        if hasattr(sys.stdout, "fileno") and callable(sys.stdout.fileno):
+            try:
+                sys.stdout.fileno()
+                use_fallback = False
+            except (io.UnsupportedOperation, AttributeError, OSError):
+                pass
+
+        if not use_fallback:
+            result = run_resolved(
+                args,
+                resolve_executable=resolve_executable,
+                stdout=sys.stdout,
+                stderr=sys.stderr,
+                cwd=str(cwd) if cwd else None,
+                input=input_data,
+                env=run_env,
+                timeout=timeout,
+            )
+        else:
+            # Fallback to capture and manual emit for environments without a
+            # real stdout fileno (e.g. click.testing.CliRunner).
+            result = run_resolved(
+                args,
+                resolve_executable=resolve_executable,
+                capture_output=True,
+                text=text_mode,
+                cwd=str(cwd) if cwd else None,
+                input=input_data,
+                env=run_env,
+                timeout=timeout,
+                **text_kwargs,
+            )
+            # stdout/stderr are bytes when input_data is set (text=False).
+            for stream, content in (
+                (sys.stdout, result.stdout),
+                (sys.stderr, result.stderr),
+            ):
+                if not content:
+                    continue
+                if isinstance(content, bytes):
+                    content = content.decode(errors="replace")
+                stream.write(content)
 
     if check and result.returncode != 0:
         error_msg = check_err_msg or f"Command failed: {cmd_str}"

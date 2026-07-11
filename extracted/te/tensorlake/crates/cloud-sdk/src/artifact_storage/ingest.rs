@@ -284,6 +284,15 @@ pub struct CommitJobError {
 pub struct CommitJobStatus {
     pub job_id: String,
     pub state: String,
+    /// Server-side change counter: bumps on every state-machine transition, enabling
+    /// `?wait_generation=` long polls. Absent on older servers.
+    #[serde(default)]
+    pub generation: Option<u64>,
+    /// The route this job is polled at, named by 202 submission responses (absent
+    /// elsewhere/on older servers). Mirrored from the server wire; not yet consumed —
+    /// `commit_job_get` builds the identical route itself.
+    #[serde(default)]
+    pub poll_url: Option<String>,
     #[serde(default)]
     pub phase: Option<String>,
     #[serde(default)]
@@ -305,6 +314,11 @@ pub struct CommitJobStatus {
 /// zstd level for staged chunk frames — the server stores frames verbatim, so this matches its
 /// own chunk compression default (speed/ratio balance; any valid zstd frame decodes).
 const STAGED_ZSTD_LEVEL: i32 = 3;
+
+/// Server-side hold for `?wait_generation=` job polls. Kept under the 30s request timeout so a
+/// full-window hold returns normally instead of tripping the client timeout (the server clamps
+/// to 55s; 25s also stays inside typical LB idle limits).
+const JOB_LONG_POLL_TIMEOUT_MS: u64 = 25_000;
 
 #[derive(Serialize)]
 struct CommitFileWire {
@@ -1420,8 +1434,14 @@ impl ArtifactStorageClient {
                 }
             })
             .collect();
+        // One match keeps the submit route and the branch field coupled to the same
+        // discriminant: a workspace snapshot commits on the workspace ref (no wire branch),
+        // an ordinary push commits on a branch.
         let (commit_suffix, branch) = match &opts.workspace_snapshot {
-            Some(ws_id) => (format!("workspaces/{ws_id}/snapshots"), None),
+            Some(ws_id) => (
+                format!("workspaces/{}/snapshots", super::encode_path_segment(ws_id)),
+                None,
+            ),
             None => ("commits".to_string(), Some(opts.branch.clone())),
         };
         let body = CommitWire {
@@ -1475,46 +1495,65 @@ impl ArtifactStorageClient {
             emit(PushEvent::CommitDetached {
                 job_id: job_id.clone(),
             });
-            // Poll the job's state machine to terminal. Each poll is a fresh, short request.
-            let poll_suffix = format!("{commit_suffix}/jobs/{job_id}");
+            // Poll the job's state machine to terminal, through the same request the
+            // out-of-band status API uses. A server that reports a `generation` (any server
+            // that can answer a 202: the field and `?wait_generation=` support shipped
+            // together) holds each poll until the state machine moves, so the loop only
+            // paces itself between polls:
+            //  - after an advance, a short floor — the executor bumps the generation on
+            //    every throttled read-back tick (up to 2/s), and re-polling faster than
+            //    this just re-samples the same counters at more than double the request
+            //    cost;
+            //  - otherwise the plain backoff — servers without generations (pre-`#59`),
+            //    and holds that expired with nothing new.
+            // The terminal check runs before any sleep, so completion is observed the
+            // moment its poll returns.
             let mut delay = std::time::Duration::from_millis(500);
+            // Seed from the 202 body: with a generation in hand the first poll already
+            // long-polls; without one (older server) it is a plain immediate status read.
+            let mut last_gen: Option<u64> = job.generation;
             loop {
-                tokio::time::sleep(delay).await;
-                delay = (delay * 2).min(std::time::Duration::from_secs(2));
                 job = with_transient_retries(|| async {
-                    let (req, _t) = self.git_request(
-                        Method::GET,
+                    self.commit_job_get(
                         project_id,
                         repo,
-                        Some(&poll_suffix),
                         git_username,
                         git_token,
-                    )?;
-                    expect_json(
-                        req.timeout(std::time::Duration::from_secs(30))
-                            .send()
-                            .await?,
+                        &job_id,
+                        last_gen,
                     )
                     .await
+                    .map(Traced::into_inner)
                 })
                 .await?;
                 match job.state.as_str() {
                     "committed" | "failed" => break,
                     _ => {
-                        if let Some(rb) = &job.read_back {
-                            emit(PushEvent::CommitProgress {
-                                phase: job.phase.clone().unwrap_or_else(|| job.state.clone()),
-                                done: rb.done,
-                                total: rb.total,
-                            });
-                        } else {
-                            emit(PushEvent::CommitProgress {
-                                phase: job.phase.clone().unwrap_or_else(|| job.state.clone()),
-                                done: 0,
-                                total: 0,
-                            });
-                        }
+                        let (done, total) = job
+                            .read_back
+                            .as_ref()
+                            .map_or((0, 0), |rb| (rb.done, rb.total));
+                        emit(PushEvent::CommitProgress {
+                            phase: job.phase.clone().unwrap_or_else(|| job.state.clone()),
+                            done,
+                            total,
+                        });
                     }
+                }
+                let advanced = match (last_gen, job.generation) {
+                    (Some(prev), Some(cur)) => cur > prev,
+                    (None, Some(_)) => true, // first sighting: switch to long polling
+                    _ => false,
+                };
+                if job.generation.is_some() {
+                    last_gen = job.generation;
+                }
+                if advanced {
+                    delay = std::time::Duration::from_millis(500);
+                    tokio::time::sleep(std::time::Duration::from_secs(1)).await;
+                } else {
+                    tokio::time::sleep(delay).await;
+                    delay = (delay * 2).min(std::time::Duration::from_secs(2));
                 }
             }
         }
@@ -1621,20 +1660,51 @@ impl ArtifactStorageClient {
         git_token: &str,
         job_id: &str,
     ) -> Result<Traced<CommitJobStatus>, SdkError> {
+        self.commit_job_get(project_id, repo, git_username, git_token, job_id, None)
+            .await
+    }
+
+    /// One GET of a commit job's state machine. This is the only place the poll route is
+    /// built: the repo-scoped `commits/jobs/{id}` route serves every commit kind — a detached
+    /// workspace snapshot has no `workspaces/{id}/snapshots/jobs/{id}` route, so deriving the
+    /// poll URL from the submit route 404s a job that is succeeding server-side.
+    ///
+    /// `wait_generation` long-polls server-side until the job's generation exceeds it, the job
+    /// turns terminal, or the server's window elapses (same contract as `ref-status`); the
+    /// request timeout stays above the server's window so the hold can't trip it.
+    async fn commit_job_get(
+        &self,
+        project_id: &str,
+        repo: &str,
+        git_username: &str,
+        git_token: &str,
+        job_id: &str,
+        wait_generation: Option<u64>,
+    ) -> Result<Traced<CommitJobStatus>, SdkError> {
+        let id = super::encode_path_segment(job_id);
+        // The request timeout is derived from the hold so the two cannot drift: a full-window
+        // hold plus 10s of connect/transfer margin must return normally, never trip the
+        // timeout — a tripped long-poll reads as transient, retries re-hold, and the whole
+        // push can fail against a job that is succeeding.
+        let (suffix, timeout) = match wait_generation {
+            Some(g) => (
+                format!("commits/jobs/{id}?wait_generation={g}&timeout_ms={JOB_LONG_POLL_TIMEOUT_MS}"),
+                std::time::Duration::from_millis(JOB_LONG_POLL_TIMEOUT_MS + 10_000),
+            ),
+            None => (
+                format!("commits/jobs/{id}"),
+                std::time::Duration::from_secs(30),
+            ),
+        };
         let (req, trace_id) = self.git_request(
             Method::GET,
             project_id,
             repo,
-            Some(&format!("commits/jobs/{job_id}")),
+            Some(&suffix),
             git_username,
             git_token,
         )?;
-        let value = expect_json(
-            req.timeout(std::time::Duration::from_secs(30))
-                .send()
-                .await?,
-        )
-        .await?;
+        let value = expect_json(req.timeout(timeout).send().await?).await?;
         Ok(Traced::new(trace_id, value))
     }
 
@@ -2075,6 +2145,224 @@ mod tests {
         assert_eq!(json["oid"], "00112233445566778899aabbccddeeff00112233");
         assert!(json.get("chunks").is_none());
         assert!(json.get("content").is_none());
+    }
+
+    /// Regression guard for the detached-snapshot poll route, pinned at the call site: a
+    /// workspace-snapshot push whose commit detaches (202) must poll the repo-scoped
+    /// `commits/jobs/{id}` route. The server has no `workspaces/{id}/snapshots/jobs/{id}`
+    /// endpoint, so a client that derives the poll URL from the submit route (the original
+    /// bug) 404s a job that is succeeding server-side. Drives the real `push_files` flow
+    /// against a local canned-response HTTP server and asserts the URL of every request.
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    async fn detached_snapshot_push_polls_commit_job_route() {
+        use std::sync::{Arc, Mutex};
+        use tokio::io::{AsyncReadExt, AsyncWriteExt};
+
+        // Canned responses keyed by path: session (oid_files so a known-oid push uploads
+        // nothing), a 202 detach from the snapshot submit, and a terminal job status.
+        fn respond(path: &str) -> (&'static str, String) {
+            if path.ends_with("/ingest/sessions") {
+                (
+                    "200 OK",
+                    serde_json::json!({
+                        "session_id": "s1",
+                        "cdc_min_bytes": 1024,
+                        "cdc_avg_bytes": 4096,
+                        "cdc_max_bytes": 16384,
+                        "max_hashes_per_query": 512,
+                        "max_chunk_bytes": 1_048_576,
+                        "features": ["oid_files"],
+                    })
+                    .to_string(),
+                )
+            } else if path.contains("/workspaces/ws-1/snapshots") {
+                (
+                    "202 Accepted",
+                    serde_json::json!({
+                        "job_id": "j-1",
+                        "state": "running",
+                        "generation": 1,
+                        "poll_url": "/project/p/repos/r/commits/jobs/j-1",
+                    })
+                    .to_string(),
+                )
+            } else if path.contains("/commits/jobs/j-1") {
+                (
+                    "200 OK",
+                    serde_json::json!({
+                        "job_id": "j-1",
+                        "state": "committed",
+                        "generation": 3,
+                        "commit": "c".repeat(40),
+                        "tree": "d".repeat(40),
+                        "ref_name": "refs/workspaces/ws-1",
+                        "created": true,
+                    })
+                    .to_string(),
+                )
+            } else if path.ends_with("/commits") {
+                // Branch-commit submit: answers terminally within the grace window (201).
+                (
+                    "201 Created",
+                    serde_json::json!({
+                        "job_id": "j-2",
+                        "state": "committed",
+                        "generation": 2,
+                        "commit": "e".repeat(40),
+                        "tree": "d".repeat(40),
+                        "ref_name": "refs/heads/main",
+                        "created": true,
+                    })
+                    .to_string(),
+                )
+            } else {
+                // The regression under guard: any other route (in particular
+                // workspaces/{id}/snapshots/jobs/{id}) does not exist server-side.
+                (
+                    "404 Not Found",
+                    serde_json::json!({ "message": "no such route (test server)" }).to_string(),
+                )
+            }
+        }
+
+        let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+        let addr = listener.local_addr().unwrap();
+        let seen: Arc<Mutex<Vec<String>>> = Arc::default();
+        let seen_srv = seen.clone();
+        let server = tokio::spawn(async move {
+            loop {
+                let Ok((mut sock, _)) = listener.accept().await else {
+                    return;
+                };
+                let seen = seen_srv.clone();
+                tokio::spawn(async move {
+                    let mut buf: Vec<u8> = Vec::new();
+                    loop {
+                        // One request: headers to CRLFCRLF, then a content-length body.
+                        let head_end = loop {
+                            if let Some(pos) = buf.windows(4).position(|w| w == b"\r\n\r\n") {
+                                break pos + 4;
+                            }
+                            let mut tmp = [0u8; 4096];
+                            match sock.read(&mut tmp).await {
+                                Ok(0) | Err(_) => return,
+                                Ok(n) => buf.extend_from_slice(&tmp[..n]),
+                            }
+                        };
+                        let head = String::from_utf8_lossy(&buf[..head_end]).to_string();
+                        let request_line = head.lines().next().unwrap_or_default().to_string();
+                        let content_length: usize = head
+                            .lines()
+                            .find_map(|l| {
+                                l.to_ascii_lowercase()
+                                    .strip_prefix("content-length:")
+                                    .map(|v| v.trim().parse().unwrap_or(0))
+                            })
+                            .unwrap_or(0);
+                        while buf.len() < head_end + content_length {
+                            let mut tmp = [0u8; 4096];
+                            match sock.read(&mut tmp).await {
+                                Ok(0) | Err(_) => return,
+                                Ok(n) => buf.extend_from_slice(&tmp[..n]),
+                            }
+                        }
+                        buf.drain(..head_end + content_length);
+                        seen.lock().unwrap().push(request_line.clone());
+                        let path = request_line
+                            .split_whitespace()
+                            .nth(1)
+                            .unwrap_or_default()
+                            .to_string();
+                        let (status, body) = respond(&path);
+                        let resp = format!(
+                            "HTTP/1.1 {status}\r\ncontent-type: application/json\r\ncontent-length: {}\r\n\r\n{body}",
+                            body.len()
+                        );
+                        if sock.write_all(resp.as_bytes()).await.is_err() {
+                            return;
+                        }
+                    }
+                });
+            }
+        });
+
+        let base = format!("http://{addr}");
+        let client = crate::ClientBuilder::new(&base)
+            .bearer_token("dummy")
+            .build()
+            .unwrap();
+        let sdk = ArtifactStorageClient::new(client, &base).unwrap();
+        let report = sdk
+            .push_files(
+                "p",
+                "r",
+                "u",
+                "tok",
+                vec![PushFile {
+                    repo_path: "a.txt".to_string(),
+                    source: PushSource::KnownOid("a".repeat(40)),
+                    mode: None,
+                    delete: false,
+                }],
+                PushOptions {
+                    message: "m".to_string(),
+                    workspace_snapshot: Some("ws-1".to_string()),
+                    ..Default::default()
+                },
+            )
+            .await
+            .expect("push must survive a 202 detach")
+            .into_inner();
+
+        // Same client, ordinary branch push: pins the other submit route ("commits") that
+        // used to be covered only as a helper-string assert.
+        let branch_report = sdk
+            .push_files(
+                "p",
+                "r",
+                "u",
+                "tok",
+                vec![PushFile {
+                    repo_path: "b.txt".to_string(),
+                    source: PushSource::KnownOid("b".repeat(40)),
+                    mode: None,
+                    delete: false,
+                }],
+                PushOptions {
+                    message: "m2".to_string(),
+                    branch: "main".to_string(),
+                    ..Default::default()
+                },
+            )
+            .await
+            .expect("branch push must succeed")
+            .into_inner();
+        server.abort();
+
+        assert_eq!(report.commit, "c".repeat(40));
+        assert_eq!(branch_report.commit, "e".repeat(40));
+        let seen = seen.lock().unwrap().clone();
+        assert!(
+            seen.iter()
+                .any(|l| l.starts_with("POST /project/p/repos/r/workspaces/ws-1/snapshots")),
+            "snapshot submit must use the workspace route; saw: {seen:?}"
+        );
+        assert!(
+            seen.iter()
+                .any(|l| l.starts_with("POST /project/p/repos/r/commits HTTP")),
+            "branch submit must use the commits route; saw: {seen:?}"
+        );
+        let polls: Vec<&String> = seen.iter().filter(|l| l.starts_with("GET ")).collect();
+        assert!(
+            !polls.is_empty(),
+            "a 202 detach must be followed by at least one poll; saw: {seen:?}"
+        );
+        for poll in polls {
+            assert!(
+                poll.starts_with("GET /project/p/repos/r/commits/jobs/j-1"),
+                "detached job polled the wrong route: {poll}"
+            );
+        }
     }
 
     /// Live integration: the reworked upload paths against a running artifact-storage server

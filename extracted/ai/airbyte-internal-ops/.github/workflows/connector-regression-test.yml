@@ -157,7 +157,7 @@ jobs:
           python-version: "3.11"
 
       - name: Set up Java 21
-        uses: actions/setup-java@v4
+        uses: actions/setup-java@v5
         with:
           distribution: "temurin"
           java-version: "21"
@@ -289,11 +289,11 @@ jobs:
 
       - name: Upload SPEC Artifacts
         if: always()
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v7
         with:
           name: regression-test-artifacts-spec-${{ github.run_id }}
           path: ${{ steps.setup.outputs.spec_output_dir }}/
-          retention-days: 7
+          retention-days: 2
 
       - name: Write Context Block to Summary
         if: always()
@@ -356,11 +356,11 @@ jobs:
 
       - name: Upload CHECK Artifacts
         if: always()
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v7
         with:
           name: regression-test-artifacts-check-${{ github.run_id }}
           path: ${{ steps.setup.outputs.check_output_dir }}/
-          retention-days: 7
+          retention-days: 2
 
       - name: Run DISCOVER
         id: run-discover
@@ -375,11 +375,11 @@ jobs:
 
       - name: Upload DISCOVER Artifacts
         if: always()
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v7
         with:
           name: regression-test-artifacts-discover-${{ github.run_id }}
           path: ${{ steps.setup.outputs.discover_output_dir }}/
-          retention-days: 7
+          retention-days: 2
 
       - name: Generate Configured Catalog from Discover Output
         id: generate-catalog
@@ -436,11 +436,11 @@ jobs:
 
       - name: Upload READ Artifacts
         if: always() && inputs.skip_read_action != true
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v7
         with:
           name: regression-test-artifacts-read-${{ github.run_id }}
           path: ${{ steps.setup.outputs.read_output_dir }}/
-          retention-days: 7
+          retention-days: 2
 
       - name: Append READ Skipped Message to Summary
         if: always() && inputs.skip_read_action == true

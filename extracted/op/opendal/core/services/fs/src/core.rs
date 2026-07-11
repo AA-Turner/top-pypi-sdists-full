@@ -16,27 +16,57 @@
 // under the License.
 
 use std::collections::HashMap;
-use std::io::SeekFrom;
+use std::fs::File;
 use std::path::Path;
 use std::path::PathBuf;
-use std::sync::Arc;
 
-use super::error::*;
 use opendal_core::raw::*;
 use opendal_core::*;
 
 #[derive(Debug)]
 pub struct FsCore {
-    pub info: Arc<AccessorInfo>,
+    pub info: ServiceInfo,
+    pub capability: Capability,
     pub root: PathBuf,
     pub atomic_write_dir: Option<PathBuf>,
     pub buf_pool: oio::PooledBuf,
 }
 
 impl FsCore {
+    /// Join a caller-supplied key onto a base directory while keeping the result
+    /// confined to that base.
+    ///
+    /// `normalize_path` (opendal-core) strips leading `/` and empty segments but
+    /// intentionally does NOT resolve `.`/`..`, and `PathBuf::join` is purely
+    /// lexical, so a key such as `../../etc/passwd` would otherwise escape the
+    /// configured `root` at syscall time. The fs backend documents that "all
+    /// operations will happen under this root", so we reject any key whose
+    /// components include a `..` (parent-dir) traversal.
+    pub fn confined_join(base: &Path, path: &str) -> Result<PathBuf> {
+        use std::path::Component;
+        let trimmed = path.trim_end_matches('/');
+        if Path::new(trimmed)
+            .components()
+            .any(|c| matches!(c, Component::ParentDir))
+        {
+            return Err(Error::new(
+                ErrorKind::NotFound,
+                "path escapes the configured root via `..`",
+            )
+            .with_context("path", path));
+        }
+        Ok(base.join(trimmed))
+    }
+
+    /// Join a caller-supplied key onto `self.root`, rejecting `..` traversal.
+    #[inline]
+    pub fn root_join(&self, path: &str) -> Result<PathBuf> {
+        Self::confined_join(&self.root, path)
+    }
+
     // Build write path and ensure the parent dirs created
     pub async fn ensure_write_abs_path(&self, parent: &Path, path: &str) -> Result<PathBuf> {
-        let p = parent.join(path);
+        let p = Self::confined_join(parent, path)?;
 
         // Create dir before write path.
         //
@@ -63,7 +93,7 @@ impl FsCore {
     }
 
     pub async fn fs_create_dir(&self, path: &str) -> Result<()> {
-        let p = self.root.join(path.trim_end_matches('/'));
+        let p = self.root_join(path)?;
         tokio::fs::create_dir_all(&p)
             .await
             .map_err(new_std_io_error)?;
@@ -71,7 +101,7 @@ impl FsCore {
     }
 
     pub async fn fs_stat(&self, path: &str) -> Result<Metadata> {
-        let p = self.root.join(path.trim_end_matches('/'));
+        let p = self.root_join(path)?;
         let meta = tokio::fs::metadata(&p).await.map_err(new_std_io_error)?;
         let mode = if meta.is_dir() {
             EntryMode::DIR
@@ -98,21 +128,16 @@ impl FsCore {
         Ok(m)
     }
 
-    pub async fn fs_read(&self, path: &str, args: &OpRead) -> Result<tokio::fs::File> {
-        let p = self.root.join(path.trim_end_matches('/'));
+    pub async fn fs_open(&self, path: &str) -> Result<File> {
+        let p = self.root_join(path)?;
 
-        let mut f = tokio::fs::OpenOptions::new()
+        let f = tokio::fs::OpenOptions::new()
             .read(true)
             .open(&p)
             .await
-            .map_err(new_std_io_error)?;
-
-        if args.range().offset() != 0 {
-            use tokio::io::AsyncSeekExt;
-            f.seek(SeekFrom::Start(args.range().offset()))
-                .await
-                .map_err(new_std_io_error)?;
-        }
+            .map_err(new_std_io_error)?
+            .into_std()
+            .await;
 
         Ok(f)
     }
@@ -169,7 +194,7 @@ impl FsCore {
     }
 
     pub async fn fs_list(&self, path: &str) -> Result<Option<tokio::fs::ReadDir>> {
-        let p = self.root.join(path.trim_end_matches('/'));
+        let p = self.root_join(path)?;
 
         match tokio::fs::read_dir(&p).await {
             Ok(rd) => Ok(Some(rd)),
@@ -191,7 +216,7 @@ impl FsCore {
     }
 
     pub async fn fs_copy(&self, from: &str, to: &str) -> Result<()> {
-        let from = self.root.join(from.trim_end_matches('/'));
+        let from = self.root_join(from)?;
         // try to get the metadata of the source file to ensure it exists
         tokio::fs::metadata(&from).await.map_err(new_std_io_error)?;
 
@@ -199,12 +224,25 @@ impl FsCore {
             .ensure_write_abs_path(&self.root, to.trim_end_matches('/'))
             .await?;
 
-        tokio::fs::copy(from, to).await.map_err(new_std_io_error)?;
+        tokio::fs::copy(&from, &to)
+            .await
+            .map_err(new_std_io_error)?;
+
+        // only *nix supports `write_with_user_metadata`
+        #[cfg(unix)]
+        {
+            if let Ok(user_meta) = Self::get_user_metadata(&from)
+                && !user_meta.is_empty()
+            {
+                Self::set_user_metadata(&to, &user_meta)?;
+            }
+        }
+
         Ok(())
     }
 
     pub async fn fs_rename(&self, from: &str, to: &str) -> Result<()> {
-        let from = self.root.join(from.trim_end_matches('/'));
+        let from = self.root_join(from)?;
         tokio::fs::metadata(&from).await.map_err(new_std_io_error)?;
 
         let to = self
@@ -247,12 +285,11 @@ impl FsCore {
         for attr in attrs {
             let attr_name = attr.to_string_lossy();
             // Only read xattr in the "user." namespace and strip the prefix
-            if let Some(key) = attr_name.strip_prefix(XATTR_USER_PREFIX) {
-                if let Ok(Some(value)) = xattr::get(path, &attr) {
-                    if let Ok(v) = String::from_utf8(value) {
-                        user_metadata.insert(key.to_string(), v);
-                    }
-                }
+            if let Some(key) = attr_name.strip_prefix(XATTR_USER_PREFIX)
+                && let Ok(Some(value)) = xattr::get(path, &attr)
+                && let Ok(v) = String::from_utf8(value)
+            {
+                user_metadata.insert(key.to_string(), v);
             }
         }
 
@@ -277,3 +314,54 @@ impl FsCore {
 /// Using "user." as the standard namespace for user-defined attributes.
 #[cfg(unix)]
 const XATTR_USER_PREFIX: &str = "user.";
+
+mod error {
+    use opendal_core::raw::*;
+    use opendal_core::*;
+
+    /// Parse error response into Error.
+    pub(crate) fn parse_error(e: std::io::Error) -> Error {
+        match e.kind() {
+            std::io::ErrorKind::AlreadyExists => Error::new(
+                ErrorKind::ConditionNotMatch,
+                "The file already exists in the filesystem",
+            )
+            .set_source(e),
+            _ => new_std_io_error(e),
+        }
+    }
+}
+
+pub(super) use error::*;
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[cfg(unix)]
+    #[tokio::test]
+    async fn test_fs_backend_copy_preserves_user_metadata() {
+        use opendal_core::Operator;
+
+        let temp_dir = tempfile::TempDir::new().unwrap();
+        let root = temp_dir.path();
+
+        let src = "src_meta.txt";
+        let dst = "dst_meta.txt";
+
+        let src_path = root.join(src);
+        let dst_path = root.join(dst);
+
+        std::fs::File::create(&src_path).unwrap();
+
+        let mut meta = HashMap::new();
+        meta.insert("key".to_string(), "preserved123".to_string());
+        FsCore::set_user_metadata(&src_path, &meta).unwrap();
+
+        let op = Operator::new(crate::Fs::default().root(root.to_str().unwrap())).unwrap();
+        op.copy(src, dst).await.unwrap();
+
+        let got = FsCore::get_user_metadata(&dst_path).unwrap();
+        assert_eq!(got.get("key").map(String::as_str), Some("preserved123"));
+    }
+}

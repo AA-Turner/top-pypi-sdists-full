@@ -202,20 +202,20 @@ async def logs(
         task_info_resp = await client.stub.TaskGetInfo(api_pb2.TaskGetInfoRequest(task_id=task_id))
         app_id = task_info_resp.app_id
 
-        if not task_info_resp.info.started_at:
-            # Unlikely race or Modal backend issue, don't treat as a usage exception
+        if not task_info_resp.info.enqueued_at:
             return
-        container_started_dt = datetime.fromtimestamp(task_info_resp.info.started_at, timezone.utc)
+
+        container_enqueued_dt = datetime.fromtimestamp(task_info_resp.info.enqueued_at, timezone.utc)
 
         now = datetime.now(timezone.utc)
         if all_logs:
-            since_dt = container_started_dt
+            since_dt = container_enqueued_dt
             if task_info_resp.info.finished_at:
                 until_dt = datetime.fromtimestamp(task_info_resp.info.finished_at, timezone.utc)
             else:
                 until_dt = now
         else:
-            since_dt = _parse_time_arg(since, default=container_started_dt)
+            since_dt = _parse_time_arg(since, default=container_enqueued_dt)
             if task_info_resp.info.finished_at:
                 default_until_dt = datetime.fromtimestamp(task_info_resp.info.finished_at, timezone.utc)
             else:
@@ -269,15 +269,23 @@ async def _exec_impl(
     pty: bool | None = None,
     container_id: str = "",
     command: tuple[str, ...] = (),
+    object_id_for_v2: str | None = None,
 ):
-    """Execute a command in a container (implementation)."""
+    """Execute a command in a container (implementation).
+
+    For tasks belonging to V2 sandboxes, `object_id_for_v2` must be set to the
+    sandbox ID.
+    """
 
     if pty is None:
         pty = is_tty()
 
     client = await _Client.from_env()
 
-    command_router_client = await TaskCommandRouterClient.init(client, container_id)
+    if object_id_for_v2 is not None:
+        command_router_client = await TaskCommandRouterClient.init_v2(client, object_id_for_v2, container_id)
+    else:
+        command_router_client = await TaskCommandRouterClient.init(client, container_id)
 
     process_id = str(uuid.uuid4())
 
@@ -317,7 +325,7 @@ async def _exec_impl(
         ).wait()
 
 
-@container_cli.command("exec")
+@container_cli.command("exec", no_args_is_help=True)
 @click.option("--pty/--no-pty", default=None, help="Run the command using a PTY.")
 @click.argument("container_id")
 @click.argument("command", nargs=-1, required=True)
@@ -330,16 +338,27 @@ def exec(
     _exec_impl(pty=pty, container_id=container_id, command=command)
 
 
-@container_cli.command("stop")
+@container_cli.command("stop", no_args_is_help=True)
 @click.argument("container_id")
+@click.option(
+    "--graceful",
+    is_flag=True,
+    default=False,
+    help="Let the container finish its current inputs before exiting, instead of cancelling them.",
+)
 @yes_option
 @synchronizer.create_blocking
-async def stop(container_id: str = "", *, yes: bool = False):
+async def stop(container_id: str = "", *, graceful: bool = False, yes: bool = False):
     """Terminate a running container.
 
-    This will send the container a SIGINT signal that Modal will handle.
-    Any inputs that are currently running on the container will be cancelled and rescheduled
-    on other containers.
+    By default, this will send the container a SIGINT signal that Modal will handle.
+    For Functions, any inputs that are currently running on the container will be cancelled
+    and rescheduled on other containers.
+
+    With `--graceful`, the container will be allowed to finish the inputs it is currently
+    running, exiting once they complete. Graceful stops are only supported for containers
+    running a Modal Function.
+
     """
     client = await _Client.from_env()
     resp = await client.stub.TaskGetInfo(api_pb2.TaskGetInfoRequest(task_id=container_id))
@@ -347,5 +366,5 @@ async def stop(container_id: str = "", *, yes: bool = False):
         raise SystemExit(f"Container '{container_id}' is already stopped.")
     if not yes:
         confirm_or_suggest_yes(f"Are you sure you want to stop container '{container_id}'?")
-    request = api_pb2.ContainerStopRequest(task_id=container_id)
+    request = api_pb2.ContainerStopRequest(task_id=container_id, graceful=graceful)
     await client.stub.ContainerStop(request)

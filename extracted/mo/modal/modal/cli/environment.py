@@ -7,7 +7,7 @@ from click import UsageError
 from rich.text import Text
 
 from modal import environments
-from modal._environments import MemberRole, _Environment
+from modal._environments import _Environment
 from modal._utils.async_utils import synchronizer
 from modal._utils.name_utils import check_environment_name
 from modal._utils.time_utils import format_interval
@@ -63,7 +63,7 @@ def list_(json: bool = False):
     display_table(["name", "web suffix", "active"], table_data, json=json)
 
 
-@environment_cli.command("create", help="Create a new environment in the current workspace.")
+@environment_cli.command("create", help="Create a new environment in the current workspace.", no_args_is_help=True)
 @click.argument("name")
 @click.option("--restricted", is_flag=True, default=False, help="Enable RBAC restrictions on the new environment")
 def create(name: str, restricted: bool = False):
@@ -79,7 +79,7 @@ Deletes all apps in the selected environment and deletes the environment irrevoc
 """
 
 
-@environment_cli.command("delete", help=ENVIRONMENT_DELETE_HELP)
+@environment_cli.command("delete", help=ENVIRONMENT_DELETE_HELP, no_args_is_help=True)
 @click.argument("name")
 @yes_option
 def delete(
@@ -100,7 +100,7 @@ def delete(
     rich.print(f"[green]✓[/green] Environment deleted: {name}")
 
 
-@environment_cli.command("update", help="Update environment-level settings.")
+@environment_cli.command("update", help="Update environment-level settings.", no_args_is_help=True)
 @click.argument("current_name")
 @click.option("--set-name", default=None, help="New name of the environment")
 @click.option("--set-web-suffix", default=None, help="New web suffix of environment (empty string is no suffix)")
@@ -158,7 +158,7 @@ def members_list(environment: str, json: bool = False):
     "--role", type=click.Choice(["contributor", "viewer"]), required=True, help="Role to assign to the member"
 )
 @service_user_option
-def members_update(environment: str, member: str, role: MemberRole, service_user: bool = False):
+def members_update(environment: str, member: str, role: str, service_user: bool = False):
     env = Environment.from_name(environment)
     if service_user:
         env.members.update(service_users={member: role})
@@ -242,21 +242,21 @@ async def environment_billing(
 
     Examples:
 
-        ```bash
-        modal environment billing report --start 2025-12-01 --end 2026-01-01
+    ```bash
+    modal environment billing report --start 2025-12-01 --end 2026-01-01
 
-        modal environment billing report --for "last month" --tag-names team,project
+    modal environment billing report --for "last month" --tag-names team,project
 
-        modal environment billing report test_env --for today --resolution h
+    modal environment billing report test_env --for today --resolution h
 
-        modal environment billing report test_env --for "this month" --show-resources
+    modal environment billing report test_env --for "this month" --show-resources
 
-        modal environment billing report prod_env --for yesterday -r h --tz local
+    modal environment billing report prod_env --for yesterday -r h --tz local
 
-        modal environment billing report main_env --for "last month" --csv > report.csv
+    modal environment billing report main_env --for "last month" --csv > report.csv
 
-        modal environment billing report main_env --start 2025-12-01 --json > report.json
-        ```
+    modal environment billing report main_env --start 2025-12-01 --json > report.json
+    ```
 
     """
     if json and csv:

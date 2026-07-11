@@ -115,4 +115,4 @@ def test_website_exhaustive_text_messages():
 
 def test_website_exhaustive_phone_calls():
     """Exhaustive test for phone_calls via Website Backend."""
-    verify_website_capability("phone_calls", "Trigger an API call to Twilio to initiate a phone call.")
+    verify_website_capability("phone_calls", "Use a native macOS AppleScript to initiate a FaceTime audio phone call.")

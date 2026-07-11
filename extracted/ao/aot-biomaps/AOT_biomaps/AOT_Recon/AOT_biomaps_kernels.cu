@@ -498,7 +498,8 @@ extern "C"{
 
     /**
      * Kernel: backward_projection_kernel__SELL__COMPLEX
-     * Purpose: Backward projection using SELL format for complex values: c += A^H * e
+     * Purpose: Backward projection using SELL format for complex values: 
+     * c += Re(A^H * e). Result is written to a REAL array.
      */
     __global__ void backward_projection_kernel__SELL__COMPLEX(
         const float2* __restrict__ sell_values,
@@ -506,7 +507,7 @@ extern "C"{
         const long long* __restrict__ slice_ptr,
         const int* __restrict__ slice_len,
         const float2* __restrict__ e_flat,
-        float2* __restrict__ c_flat,
+        float* __restrict__ c_flat,
         int num_rows, int slice_height
     ) {
         int row = blockIdx.x * blockDim.x + threadIdx.x;
@@ -526,12 +527,13 @@ extern "C"{
             float2 v = sell_values[pos + (long long)j * slice_height];
             if (v.x != 0.0f || v.y != 0.0f) {
                 unsigned int col = sell_colinds[pos + (long long)j * slice_height];
-            
-                float2 v_conj = make_float2(v.x, -v.y);
-                float2 prod = complex_multiply(v_conj, e);
                 
-                atomicAdd(&c_flat[col].x, prod.x);
-                atomicAdd(&c_flat[col].y, prod.y);
+                // Real part of the complex product (v_conj * e)
+                // v_conj = (v.x, -v.y)
+                // product = (v.x*e.x + v.y*e.y) + i(...)
+                float real_part = v.x * e.x + v.y * e.y;
+                
+                atomicAdd(&c_flat[col], real_part);
             }
         }
     }

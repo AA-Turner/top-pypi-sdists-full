@@ -38,6 +38,7 @@ import logging
 import os
 import signal
 import threading
+import time
 import traceback
 from collections.abc import Iterator
 from contextlib import contextmanager
@@ -489,6 +490,7 @@ def _set_step_attributes(
     duration_ms: float | None = None,
     screenshot: str | None = None,
     screenshot_format: str | None = None,
+    usage_source: str | None = None,
 ) -> None:
     """Populate an ATIF step span with the standard attributes."""
     span.set_attribute("atif.step.id", step_id)
@@ -515,6 +517,8 @@ def _set_step_attributes(
         span.set_attribute("atif.step.reasoning_tokens", reasoning_tokens)
     if cost_usd is not None:
         span.set_attribute("atif.step.cost_usd", cost_usd)
+    if usage_source is not None:
+        span.set_attribute("atif.step.usage_source", usage_source)
     if duration_ms is not None:
         span.set_attribute("atif.step.duration_ms", duration_ms)
     if screenshot is not None:
@@ -542,6 +546,7 @@ def start_step_span(
     duration_ms: float | None = None,
     screenshot: str | None = None,
     screenshot_format: str | None = None,
+    usage_source: str | None = None,
     start_time_ns: int | None = None,
     end_time_ns: int | None = None,
 ) -> Iterator[Span]:
@@ -588,6 +593,7 @@ def start_step_span(
                 duration_ms=duration_ms,
                 screenshot=screenshot,
                 screenshot_format=screenshot_format,
+                usage_source=usage_source,
             )
             yield span
         return
@@ -615,10 +621,98 @@ def start_step_span(
                 duration_ms=duration_ms,
                 screenshot=screenshot,
                 screenshot_format=screenshot_format,
+                usage_source=usage_source,
             )
             yield span
     finally:
         span.end(end_time=end_time_ns if end_time_ns is not None else start_time_ns)
+
+
+class DeferredStepSpan:
+    """One ATIF step span held un-exported while late-resolving usage lands.
+
+    Used for turns whose stream envelopes carry no usage (e.g. OpenRouter,
+    where true per-generation stats only become available from the provider's
+    generation API a few seconds after the turn): the span is created at turn
+    time with true timestamps, held open briefly, then finished exactly once —
+    with resolved tokens/cost merged in on the happy path, or bare on
+    resolution timeout/teardown.
+
+    Deferring EXPORT does not perturb rendering: consumers sort spans by
+    their own timestamps, not export order, and the span is stamped as
+    instantaneous at its creation time (matching immediate emission). Child
+    spans reference the parent span id at creation, so they may export first.
+    The crash-window of a briefly held span matches the standard
+    BatchSpanProcessor loss profile; teardown flushes cover normal exits.
+    """
+
+    def __init__(self, span: Span, created_time_ns: int):
+        self.span = span
+        self.created_time_ns = created_time_ns
+        self._finished = False
+
+    @property
+    def finished(self) -> bool:
+        return self._finished
+
+    def finish(
+        self,
+        *,
+        prompt_tokens: int | None = None,
+        completion_tokens: int | None = None,
+        cache_read_tokens: int | None = None,
+        cache_write_tokens: int | None = None,
+        cost_usd: float | None = None,
+        usage_source: str | None = None,
+    ) -> None:
+        """Merge any resolved usage into the span and export it (idempotent)."""
+        if self._finished:
+            return
+        self._finished = True
+        if prompt_tokens is not None:
+            self.span.set_attribute("atif.step.prompt_tokens", prompt_tokens)
+        if completion_tokens is not None:
+            self.span.set_attribute("atif.step.completion_tokens", completion_tokens)
+        if cache_read_tokens is not None:
+            self.span.set_attribute("atif.step.cache_read_tokens", cache_read_tokens)
+        if cache_write_tokens is not None:
+            self.span.set_attribute("atif.step.cache_write_tokens", cache_write_tokens)
+        if cost_usd is not None:
+            self.span.set_attribute("atif.step.cost_usd", cost_usd)
+        if usage_source is not None:
+            self.span.set_attribute("atif.step.usage_source", usage_source)
+        # Instantaneous at creation time — identical shape to a span emitted
+        # immediately, regardless of how long it was held.
+        self.span.end(end_time=self.created_time_ns)
+
+
+def start_deferred_step_span(
+    tracer: Tracer,
+    step_id: int,
+    source: Literal["system", "user", "agent"],
+    message: str,
+    *,
+    model_name: str | None = None,
+    reasoning: str | None = None,
+    tool_calls: list[dict] | None = None,
+) -> DeferredStepSpan:
+    """Create one ATIF step span now but leave its export to ``finish()``.
+
+    Same attribute shape as :func:`emit_step`; parented to the ambient
+    current span, stamped at creation time. See :class:`DeferredStepSpan`.
+    """
+    created_time_ns = time.time_ns()
+    span = tracer.start_span(f"atif.step.{step_id}", start_time=created_time_ns)
+    _set_step_attributes(
+        span,
+        step_id=step_id,
+        source=source,
+        message=message,
+        model_name=model_name,
+        reasoning=reasoning,
+        tool_calls=tool_calls,
+    )
+    return DeferredStepSpan(span, created_time_ns)
 
 
 def emit_step(
@@ -640,6 +734,7 @@ def emit_step(
     duration_ms: float | None = None,
     screenshot: str | None = None,
     screenshot_format: str | None = None,
+    usage_source: str | None = None,
     start_time_ns: int | None = None,
     end_time_ns: int | None = None,
 ) -> None:
@@ -662,6 +757,7 @@ def emit_step(
         duration_ms=duration_ms,
         screenshot=screenshot,
         screenshot_format=screenshot_format,
+        usage_source=usage_source,
         start_time_ns=start_time_ns,
         end_time_ns=end_time_ns,
     ):

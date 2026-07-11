@@ -2,7 +2,7 @@
 //
 // SPDX-License-Identifier: GPL-3.0-or-later
 
-const loading = [];
+const loading = {};
 
 // DOM helpers replacing former jQuery usage.
 function show(element) {
@@ -54,8 +54,12 @@ function increaseLoading(sel) {
 }
 
 function decreaseLoading(sel) {
+  if (!(sel in loading)) {
+    return;
+  }
   loading[sel] -= 1;
-  if (loading[sel] === 0) {
+  if (loading[sel] <= 0) {
+    loading[sel] = 0;
     hide(document.getElementById(`loading-${sel}`));
   }
 }
@@ -649,9 +653,9 @@ function initHighlight(root) {
     const resizeObserver = new ResizeObserver((entries) => {
       for (const entry of entries) {
         if (entry.target === input) {
-          // match the height and width of the output area to the input area
-          highlight.style.height = `${input.offsetHeight}px`;
-          highlight.style.width = `${input.offsetWidth}px`;
+          const rect = input.getBoundingClientRect();
+          highlight.style.height = `${rect.height}px`;
+          highlight.style.width = `${rect.width}px`;
         }
       }
     });
@@ -758,9 +762,9 @@ function initHighlight(root) {
     const resizeObserver = new ResizeObserver((entries) => {
       for (const entry of entries) {
         if (entry.target === editor) {
-          // match the height and width of the output area to the input area
-          highlight.style.height = `${editor.offsetHeight}px`;
-          highlight.style.width = `${editor.offsetWidth}px`;
+          const rect = editor.getBoundingClientRect();
+          highlight.style.height = `${rect.height}px`;
+          highlight.style.width = `${rect.width}px`;
         }
       }
     });
@@ -776,12 +780,14 @@ onReady(() => {
   document.addEventListener("shown.bs.tab", adjustColspan);
 
   /* Color theme management */
-  const theme = document.querySelector("body").getAttribute("data-theme");
-  if (
-    (theme === "auto") &
-    (window.matchMedia("(prefers-color-scheme: dark)").matches === true)
-  ) {
-    document.documentElement.setAttribute("data-bs-theme", "dark");
+  const theme = document.documentElement.getAttribute("data-bs-theme");
+  if (!theme || theme === "auto") {
+    document.documentElement.setAttribute(
+      "data-bs-theme",
+      window.matchMedia("(prefers-color-scheme: dark)").matches
+        ? "dark"
+        : "light",
+    );
   }
 
   /* AJAX loading of tabs/pills */
@@ -856,7 +862,7 @@ onReady(() => {
     const separator = location.hash.indexOf("__");
     if (separator !== -1) {
       activeTab = document.querySelector(
-        `.nav [data-bs-toggle=tab][data-bs-target="${location.hash.substr(0, separator)}"]`,
+        `.nav [data-bs-toggle=tab][data-bs-target="${location.hash.substring(0, separator)}"]`,
       );
       if (activeTab !== null) {
         bootstrap.Tab.getOrCreateInstance(activeTab).show();
@@ -871,7 +877,7 @@ onReady(() => {
       activeTab.closest(".dropdown-menu")?.classList.remove("show");
       window.scrollTo(0, 0);
     } else {
-      const anchor = document.getElementById(location.hash.substr(1));
+      const anchor = document.getElementById(location.hash.slice(1));
       if (anchor !== null) {
         anchor.scrollIntoView();
       }
@@ -2164,7 +2170,9 @@ onReady(() => {
           src: async (query) => {
             try {
               // Fetch Data from external Source
-              const source = await fetch(`/api/users/?username=${query}`);
+              const source = await fetch(
+                `/api/users/?username=${encodeURIComponent(query)}`,
+              );
               // Data should be an array of `Objects` or `Strings`
               const data = await source.json();
               return data.results.map((user) => {
@@ -2226,7 +2234,9 @@ onReady(() => {
       keys: ["name"],
       src: async (query) => {
         try {
-          const source = await fetch(`/api/search/?q=${query}`);
+          const source = await fetch(
+            `/api/search/?q=${encodeURIComponent(query)}`,
+          );
           const data = await source.json();
           return data;
         } catch (error) {
@@ -2247,18 +2257,18 @@ onReady(() => {
 
   /* Workflow customization form */
   document.querySelectorAll("#id_workflow-enable").forEach((enableInput) => {
-    enableInput.addEventListener("click", () => {
-      if (enableInput.checked) {
-        document.getElementById("workflow-enable-target").style.visibility =
-          "visible";
-        document.getElementById("workflow-enable-target").style.opacity = 1;
-      } else {
-        document.getElementById("workflow-enable-target").style.visibility =
-          "hidden";
-        document.getElementById("workflow-enable-target").style.opacity = 0;
+    const updateWorkflowVisibility = () => {
+      const target = document.getElementById("workflow-enable-target");
+      const hint = document.getElementById("workflow-enable-hint");
+      if (target !== null) {
+        target.style.display = enableInput.checked ? "" : "none";
       }
-    });
-    enableInput.dispatchEvent(new Event("click"));
+      if (hint !== null) {
+        hint.style.display = enableInput.checked ? "none" : "";
+      }
+    };
+    enableInput.addEventListener("change", updateWorkflowVisibility);
+    updateWorkflowVisibility();
   });
 
   /* Move current translation into the view */

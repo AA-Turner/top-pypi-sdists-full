@@ -43,6 +43,19 @@ class DeploymentBuildStatus(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
     DEPLOYMENT_BUILD_STATUS_EXPIRED: _ClassVar[DeploymentBuildStatus]
     DEPLOYMENT_BUILD_STATUS_BOOT_ERRORS: _ClassVar[DeploymentBuildStatus]
 
+class BackgroundPersistenceWriterClickHouseWriteMode(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
+    __slots__ = ()
+    BACKGROUND_PERSISTENCE_WRITER_CLICK_HOUSE_WRITE_MODE_UNSPECIFIED: _ClassVar[
+        BackgroundPersistenceWriterClickHouseWriteMode
+    ]
+    BACKGROUND_PERSISTENCE_WRITER_CLICK_HOUSE_WRITE_MODE_TIMESCALE_ONLY: _ClassVar[
+        BackgroundPersistenceWriterClickHouseWriteMode
+    ]
+    BACKGROUND_PERSISTENCE_WRITER_CLICK_HOUSE_WRITE_MODE_DUAL: _ClassVar[BackgroundPersistenceWriterClickHouseWriteMode]
+    BACKGROUND_PERSISTENCE_WRITER_CLICK_HOUSE_WRITE_MODE_CLICK_HOUSE_ONLY: _ClassVar[
+        BackgroundPersistenceWriterClickHouseWriteMode
+    ]
+
 class CustomerVectorAggregatorStatsdProtocol(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
     __slots__ = ()
     CUSTOMER_VECTOR_AGGREGATOR_STATSD_PROTOCOL_UNSPECIFIED: _ClassVar[CustomerVectorAggregatorStatsdProtocol]
@@ -134,6 +147,10 @@ DEPLOYMENT_BUILD_STATUS_TIMEOUT: DeploymentBuildStatus
 DEPLOYMENT_BUILD_STATUS_CANCELLED: DeploymentBuildStatus
 DEPLOYMENT_BUILD_STATUS_EXPIRED: DeploymentBuildStatus
 DEPLOYMENT_BUILD_STATUS_BOOT_ERRORS: DeploymentBuildStatus
+BACKGROUND_PERSISTENCE_WRITER_CLICK_HOUSE_WRITE_MODE_UNSPECIFIED: BackgroundPersistenceWriterClickHouseWriteMode
+BACKGROUND_PERSISTENCE_WRITER_CLICK_HOUSE_WRITE_MODE_TIMESCALE_ONLY: BackgroundPersistenceWriterClickHouseWriteMode
+BACKGROUND_PERSISTENCE_WRITER_CLICK_HOUSE_WRITE_MODE_DUAL: BackgroundPersistenceWriterClickHouseWriteMode
+BACKGROUND_PERSISTENCE_WRITER_CLICK_HOUSE_WRITE_MODE_CLICK_HOUSE_ONLY: BackgroundPersistenceWriterClickHouseWriteMode
 CUSTOMER_VECTOR_AGGREGATOR_STATSD_PROTOCOL_UNSPECIFIED: CustomerVectorAggregatorStatsdProtocol
 CUSTOMER_VECTOR_AGGREGATOR_STATSD_PROTOCOL_UDP: CustomerVectorAggregatorStatsdProtocol
 CUSTOMER_VECTOR_AGGREGATOR_STATSD_PROTOCOL_TCP: CustomerVectorAggregatorStatsdProtocol
@@ -283,21 +300,25 @@ class StartShadowBuildFromDeploymentRequest(_message.Message):
         "force_venv_rebuild",
         "skip_handle_conversion_errors",
         "validate_named_queries_after_build",
+        "platform_version",
     )
     EXISTING_DEPLOYMENT_ID_FIELD_NUMBER: _ClassVar[int]
     FORCE_VENV_REBUILD_FIELD_NUMBER: _ClassVar[int]
     SKIP_HANDLE_CONVERSION_ERRORS_FIELD_NUMBER: _ClassVar[int]
     VALIDATE_NAMED_QUERIES_AFTER_BUILD_FIELD_NUMBER: _ClassVar[int]
+    PLATFORM_VERSION_FIELD_NUMBER: _ClassVar[int]
     existing_deployment_id: str
     force_venv_rebuild: bool
     skip_handle_conversion_errors: bool
     validate_named_queries_after_build: bool
+    platform_version: str
     def __init__(
         self,
         existing_deployment_id: _Optional[str] = ...,
         force_venv_rebuild: bool = ...,
         skip_handle_conversion_errors: bool = ...,
         validate_named_queries_after_build: bool = ...,
+        platform_version: _Optional[str] = ...,
     ) -> None: ...
 
 class StartShadowBuildFromDeploymentResponse(_message.Message):
@@ -1218,6 +1239,167 @@ class MigrateClusterTimescaleDBResponse(_message.Message):
     __slots__ = ()
     def __init__(self) -> None: ...
 
+class TemporalEngineSpecs(_message.Message):
+    __slots__ = ("temporal_image", "persistence_schema", "visibility_schema", "num_history_shards")
+    TEMPORAL_IMAGE_FIELD_NUMBER: _ClassVar[int]
+    PERSISTENCE_SCHEMA_FIELD_NUMBER: _ClassVar[int]
+    VISIBILITY_SCHEMA_FIELD_NUMBER: _ClassVar[int]
+    NUM_HISTORY_SHARDS_FIELD_NUMBER: _ClassVar[int]
+    temporal_image: str
+    persistence_schema: str
+    visibility_schema: str
+    num_history_shards: int
+    def __init__(
+        self,
+        temporal_image: _Optional[str] = ...,
+        persistence_schema: _Optional[str] = ...,
+        visibility_schema: _Optional[str] = ...,
+        num_history_shards: _Optional[int] = ...,
+    ) -> None: ...
+
+class ClusterWorkflowOrchestratorSpecs(_message.Message):
+    __slots__ = (
+        "namespace",
+        "server_replicas",
+        "request",
+        "require_infrastructure_nodepool",
+        "node_selector",
+        "suspended",
+        "dns_hostname",
+        "service_type",
+        "temporal",
+    )
+    class NodeSelectorEntry(_message.Message):
+        __slots__ = ("key", "value")
+        KEY_FIELD_NUMBER: _ClassVar[int]
+        VALUE_FIELD_NUMBER: _ClassVar[int]
+        key: str
+        value: str
+        def __init__(self, key: _Optional[str] = ..., value: _Optional[str] = ...) -> None: ...
+
+    NAMESPACE_FIELD_NUMBER: _ClassVar[int]
+    SERVER_REPLICAS_FIELD_NUMBER: _ClassVar[int]
+    REQUEST_FIELD_NUMBER: _ClassVar[int]
+    REQUIRE_INFRASTRUCTURE_NODEPOOL_FIELD_NUMBER: _ClassVar[int]
+    NODE_SELECTOR_FIELD_NUMBER: _ClassVar[int]
+    SUSPENDED_FIELD_NUMBER: _ClassVar[int]
+    DNS_HOSTNAME_FIELD_NUMBER: _ClassVar[int]
+    SERVICE_TYPE_FIELD_NUMBER: _ClassVar[int]
+    TEMPORAL_FIELD_NUMBER: _ClassVar[int]
+    namespace: str
+    server_replicas: int
+    request: KubeResourceConfig
+    require_infrastructure_nodepool: bool
+    node_selector: _containers.ScalarMap[str, str]
+    suspended: bool
+    dns_hostname: str
+    service_type: str
+    temporal: TemporalEngineSpecs
+    def __init__(
+        self,
+        namespace: _Optional[str] = ...,
+        server_replicas: _Optional[int] = ...,
+        request: _Optional[_Union[KubeResourceConfig, _Mapping]] = ...,
+        require_infrastructure_nodepool: bool = ...,
+        node_selector: _Optional[_Mapping[str, str]] = ...,
+        suspended: bool = ...,
+        dns_hostname: _Optional[str] = ...,
+        service_type: _Optional[str] = ...,
+        temporal: _Optional[_Union[TemporalEngineSpecs, _Mapping]] = ...,
+    ) -> None: ...
+
+class GetClusterWorkflowOrchestratorRequest(_message.Message):
+    __slots__ = ()
+    def __init__(self) -> None: ...
+
+class GetClusterWorkflowOrchestratorResponse(_message.Message):
+    __slots__ = ("id", "created_at", "updated_at", "specs")
+    ID_FIELD_NUMBER: _ClassVar[int]
+    CREATED_AT_FIELD_NUMBER: _ClassVar[int]
+    UPDATED_AT_FIELD_NUMBER: _ClassVar[int]
+    SPECS_FIELD_NUMBER: _ClassVar[int]
+    id: str
+    created_at: _timestamp_pb2.Timestamp
+    updated_at: _timestamp_pb2.Timestamp
+    specs: ClusterWorkflowOrchestratorSpecs
+    def __init__(
+        self,
+        id: _Optional[str] = ...,
+        created_at: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ...,
+        updated_at: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ...,
+        specs: _Optional[_Union[ClusterWorkflowOrchestratorSpecs, _Mapping]] = ...,
+    ) -> None: ...
+
+class CreateClusterWorkflowOrchestratorRequest(_message.Message):
+    __slots__ = ("specs",)
+    SPECS_FIELD_NUMBER: _ClassVar[int]
+    specs: ClusterWorkflowOrchestratorSpecs
+    def __init__(self, specs: _Optional[_Union[ClusterWorkflowOrchestratorSpecs, _Mapping]] = ...) -> None: ...
+
+class CreateClusterWorkflowOrchestratorResponse(_message.Message):
+    __slots__ = ("cluster_workflow_orchestrator_id", "specs")
+    CLUSTER_WORKFLOW_ORCHESTRATOR_ID_FIELD_NUMBER: _ClassVar[int]
+    SPECS_FIELD_NUMBER: _ClassVar[int]
+    cluster_workflow_orchestrator_id: str
+    specs: ClusterWorkflowOrchestratorSpecs
+    def __init__(
+        self,
+        cluster_workflow_orchestrator_id: _Optional[str] = ...,
+        specs: _Optional[_Union[ClusterWorkflowOrchestratorSpecs, _Mapping]] = ...,
+    ) -> None: ...
+
+class UpdateClusterWorkflowOrchestratorRequest(_message.Message):
+    __slots__ = ("specs", "update_mask")
+    SPECS_FIELD_NUMBER: _ClassVar[int]
+    UPDATE_MASK_FIELD_NUMBER: _ClassVar[int]
+    specs: ClusterWorkflowOrchestratorSpecs
+    update_mask: _field_mask_pb2.FieldMask
+    def __init__(
+        self,
+        specs: _Optional[_Union[ClusterWorkflowOrchestratorSpecs, _Mapping]] = ...,
+        update_mask: _Optional[_Union[_field_mask_pb2.FieldMask, _Mapping]] = ...,
+    ) -> None: ...
+
+class UpdateClusterWorkflowOrchestratorResponse(_message.Message):
+    __slots__ = ("cluster_workflow_orchestrator_id", "specs")
+    CLUSTER_WORKFLOW_ORCHESTRATOR_ID_FIELD_NUMBER: _ClassVar[int]
+    SPECS_FIELD_NUMBER: _ClassVar[int]
+    cluster_workflow_orchestrator_id: str
+    specs: ClusterWorkflowOrchestratorSpecs
+    def __init__(
+        self,
+        cluster_workflow_orchestrator_id: _Optional[str] = ...,
+        specs: _Optional[_Union[ClusterWorkflowOrchestratorSpecs, _Mapping]] = ...,
+    ) -> None: ...
+
+class DeleteClusterWorkflowOrchestratorRequest(_message.Message):
+    __slots__ = ()
+    def __init__(self) -> None: ...
+
+class DeleteClusterWorkflowOrchestratorResponse(_message.Message):
+    __slots__ = ()
+    def __init__(self) -> None: ...
+
+class GetClusterWorkflowOrchestratorDefaultRequest(_message.Message):
+    __slots__ = ()
+    def __init__(self) -> None: ...
+
+class GetClusterWorkflowOrchestratorDefaultResponse(_message.Message):
+    __slots__ = ("specs",)
+    SPECS_FIELD_NUMBER: _ClassVar[int]
+    specs: ClusterWorkflowOrchestratorSpecs
+    def __init__(self, specs: _Optional[_Union[ClusterWorkflowOrchestratorSpecs, _Mapping]] = ...) -> None: ...
+
+class MigrateClusterWorkflowOrchestratorRequest(_message.Message):
+    __slots__ = ("migration_image",)
+    MIGRATION_IMAGE_FIELD_NUMBER: _ClassVar[int]
+    migration_image: str
+    def __init__(self, migration_image: _Optional[str] = ...) -> None: ...
+
+class MigrateClusterWorkflowOrchestratorResponse(_message.Message):
+    __slots__ = ()
+    def __init__(self) -> None: ...
+
 class CreateClusterGatewayRequest(_message.Message):
     __slots__ = ("environment_id", "environment_ids", "specs_string", "specs", "kube_cluster_id", "id")
     ENVIRONMENT_ID_FIELD_NUMBER: _ClassVar[int]
@@ -1644,6 +1826,11 @@ class BackgroundPersistenceWriterSpecs(_message.Message):
         "nodepool",
         "node_selector",
         "additional_env_vars",
+        "chalk_queries_clickhouse_write_mode",
+        "chalk_queries_clickhouse_table",
+        "chalk_errors_clickhouse_write_mode",
+        "chalk_query_errors_clickhouse_table",
+        "chalk_resolver_errors_clickhouse_table",
     )
     class NodeSelectorEntry(_message.Message):
         __slots__ = ("key", "value")
@@ -1687,6 +1874,11 @@ class BackgroundPersistenceWriterSpecs(_message.Message):
     NODEPOOL_FIELD_NUMBER: _ClassVar[int]
     NODE_SELECTOR_FIELD_NUMBER: _ClassVar[int]
     ADDITIONAL_ENV_VARS_FIELD_NUMBER: _ClassVar[int]
+    CHALK_QUERIES_CLICKHOUSE_WRITE_MODE_FIELD_NUMBER: _ClassVar[int]
+    CHALK_QUERIES_CLICKHOUSE_TABLE_FIELD_NUMBER: _ClassVar[int]
+    CHALK_ERRORS_CLICKHOUSE_WRITE_MODE_FIELD_NUMBER: _ClassVar[int]
+    CHALK_QUERY_ERRORS_CLICKHOUSE_TABLE_FIELD_NUMBER: _ClassVar[int]
+    CHALK_RESOLVER_ERRORS_CLICKHOUSE_TABLE_FIELD_NUMBER: _ClassVar[int]
     name: str
     image_override: str
     hpa_specs: BackgroundPersistenceWriterHpaSpecs
@@ -1713,6 +1905,11 @@ class BackgroundPersistenceWriterSpecs(_message.Message):
     nodepool: str
     node_selector: _containers.ScalarMap[str, str]
     additional_env_vars: _containers.ScalarMap[str, str]
+    chalk_queries_clickhouse_write_mode: BackgroundPersistenceWriterClickHouseWriteMode
+    chalk_queries_clickhouse_table: str
+    chalk_errors_clickhouse_write_mode: BackgroundPersistenceWriterClickHouseWriteMode
+    chalk_query_errors_clickhouse_table: str
+    chalk_resolver_errors_clickhouse_table: str
     def __init__(
         self,
         name: _Optional[str] = ...,
@@ -1741,6 +1938,15 @@ class BackgroundPersistenceWriterSpecs(_message.Message):
         nodepool: _Optional[str] = ...,
         node_selector: _Optional[_Mapping[str, str]] = ...,
         additional_env_vars: _Optional[_Mapping[str, str]] = ...,
+        chalk_queries_clickhouse_write_mode: _Optional[
+            _Union[BackgroundPersistenceWriterClickHouseWriteMode, str]
+        ] = ...,
+        chalk_queries_clickhouse_table: _Optional[str] = ...,
+        chalk_errors_clickhouse_write_mode: _Optional[
+            _Union[BackgroundPersistenceWriterClickHouseWriteMode, str]
+        ] = ...,
+        chalk_query_errors_clickhouse_table: _Optional[str] = ...,
+        chalk_resolver_errors_clickhouse_table: _Optional[str] = ...,
     ) -> None: ...
 
 class NodePodMetricsFilter(_message.Message):

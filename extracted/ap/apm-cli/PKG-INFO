@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: apm-cli
-Version: 0.24.0
+Version: 0.24.1
 Summary: MCP configuration tool
 Author-email: Daniel Meppiel <user@example.com>
 License: MIT License
@@ -46,6 +46,7 @@ Requires-Dist: llm>=0.28
 Requires-Dist: llm-github-models>=0.18.0
 Requires-Dist: tomli>=1.2.0; python_version < "3.11"
 Requires-Dist: toml>=0.10.2
+Requires-Dist: tomlkit>=0.13
 Requires-Dist: rich>=13.0.0
 Requires-Dist: rich-click>=1.7.0
 Requires-Dist: watchdog>=3.0.0

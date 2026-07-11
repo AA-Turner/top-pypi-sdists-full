@@ -1,7 +1,6 @@
 import gevent
 
 from ddtrace._trace.provider import _DD_CONTEXTVAR
-from ddtrace._trace.provider import _activate_contextvar
 
 
 GEVENT_VERSION = gevent.version_info[0:3]
@@ -18,7 +17,7 @@ class TracingMixin(object):
 
     def run(self):
         # Propagates Datadog context to spawned greenlets
-        _activate_contextvar(self.trace_context)
+        _DD_CONTEXTVAR.set(self.trace_context)
         super(TracingMixin, self).run()
 
 

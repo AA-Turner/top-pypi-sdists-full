@@ -9,8 +9,7 @@ import yaml
 
 from boxmot.utils import (
     BENCHMARK_CONFIGS,
-    TRACKEVAL,
-    WEIGHTS,
+    BENCHMARK_DATA,
 )
 from boxmot.utils.download import download_eval_data, download_file
 from boxmot.utils.misc import resolve_model_path
@@ -300,10 +299,82 @@ def _normalize_dataset_download(cfg: dict[str, Any]) -> dict[str, Any]:
     return normalized
 
 
-def _trackeval_adapter_for_box_type(box_type: str) -> str:
-    """Map the configured box type to the TrackEval adapter used at runtime."""
+def _metric_backend_for_box_type(box_type: str) -> str:
+    """Map the configured box type to the MOT metric backend used at runtime."""
     normalized = str(box_type or "aabb").lower()
-    return "mmot_rgb" if normalized == "obb" else "mot_challenge"
+    return "mot_challenge_obb" if normalized == "obb" else "mot_challenge"
+
+
+def _normalize_class_bridge(
+    evaluation_cfg: dict[str, Any],
+    default_classes: dict,
+) -> list[dict[str, Any]]:
+    """Normalize benchmark dataset classes to detector classes.
+
+    ``dataset_id`` is the annotation/evaluation class id. ``detector_id`` is
+    the class id emitted by the detector and preserved by trackers.
+    """
+    raw_classes = evaluation_cfg.get("classes") if isinstance(evaluation_cfg, dict) else None
+    if not raw_classes:
+        return []
+
+    bridge: list[dict[str, Any]] = []
+    if isinstance(raw_classes, dict):
+        iterable = []
+        for class_id, entry in raw_classes.items():
+            if isinstance(entry, dict):
+                keyed_entry = {"dataset_id": class_id, **entry}
+            else:
+                keyed_entry = {"dataset_id": class_id, "name": entry}
+            iterable.append(keyed_entry)
+    else:
+        iterable = raw_classes
+
+    for entry in iterable:
+        if not isinstance(entry, dict):
+            continue
+        dataset_id = entry.get("dataset_id")
+        name = entry.get("name")
+        if dataset_id is None:
+            continue
+        if name is None:
+            name = default_classes.get(int(dataset_id), f"class_{dataset_id}")
+
+        normalized = {
+            "name": str(name),
+            "dataset_id": int(dataset_id),
+        }
+        if entry.get("detector_id") is not None:
+            normalized["detector_id"] = int(entry["detector_id"])
+        if entry.get("detector_name") is not None:
+            normalized["detector_name"] = str(entry["detector_name"])
+        bridge.append(normalized)
+
+    return sorted(bridge, key=lambda item: int(item["dataset_id"]))
+
+
+def _class_bridge_eval_names(class_bridge: list[dict[str, Any]], fallback: dict) -> dict:
+    if not class_bridge:
+        return fallback
+    return {
+        int(entry["dataset_id"]): str(entry["name"])
+        for entry in class_bridge
+    }
+
+
+def _class_bridge_name_mapping(class_bridge: list[dict[str, Any]], fallback: dict) -> dict:
+    if not class_bridge:
+        return fallback
+    return {
+        str(entry["name"]): str(entry.get("detector_name") or entry["name"])
+        for entry in class_bridge
+    }
+
+
+def _class_bridge_ignore_ids(evaluation_cfg: dict[str, Any], distractors: dict) -> list[int]:
+    if isinstance(evaluation_cfg, dict) and "ignore_dataset_ids" in evaluation_cfg:
+        return sorted(set(int(value) for value in evaluation_cfg.get("ignore_dataset_ids") or []))
+    return sorted(int(class_id) for class_id in distractors)
 
 
 def _build_filtered_split(
@@ -337,7 +408,7 @@ def _build_filtered_split(
         if split_dir.is_dir() and any(split_dir.iterdir()):
             return split_dir
         split_dir.mkdir(parents=True, exist_ok=True)
-        from boxmot.engine.mot_utils import _build_val_half_split
+        from boxmot.engine.tracking.mot import _build_val_half_split
         _build_val_half_split(wanted, split_dir)
     else:
         # Symlink mode — lightweight, no frame trimming
@@ -395,7 +466,7 @@ def _normalize_benchmark_cfg(raw_cfg: dict[str, Any], cfg_path: Path) -> dict[st
         "layout", "box_type", "detector", "reid", "names", "classes",
         "distractors", "class_map", "download", "dataset_config",
         "detector_config", "reid_config", "seq_pattern",
-        "trackeval", "storage", "evaluation", "benchmark", "defaults",
+        "metric_backend", "storage", "evaluation", "benchmark", "defaults",
         "no_gt_splits",
     }
     for key, value in cfg.items():
@@ -406,11 +477,16 @@ def _normalize_benchmark_cfg(raw_cfg: dict[str, Any], cfg_path: Path) -> dict[st
 
     box_type = cfg.get("box_type") or "aabb"
     layout = cfg.get("layout") or "mot"
-    trackeval_name = _trackeval_adapter_for_box_type(str(box_type).lower())
+    metric_backend = _metric_backend_for_box_type(str(box_type).lower())
 
     names = dict(cfg.get("classes") or cfg.get("names") or {})
     distractors = dict(cfg.get("distractors") or {})
     class_map = dict(cfg.get("class_map") or {})
+    evaluation_cfg = cfg.get("evaluation") if isinstance(cfg.get("evaluation"), dict) else {}
+    class_bridge = _normalize_class_bridge(evaluation_cfg, names)
+    eval_names = _class_bridge_eval_names(class_bridge, names)
+    class_map = _class_bridge_name_mapping(class_bridge, class_map)
+    ignore_dataset_ids = _class_bridge_ignore_ids(evaluation_cfg, distractors)
 
     download_cfg = _normalize_dataset_download(cfg)
 
@@ -429,7 +505,7 @@ def _normalize_benchmark_cfg(raw_cfg: dict[str, Any], cfg_path: Path) -> dict[st
         "splits": dict(split_paths),
         "layout": str(layout),
         "box_type": str(box_type).lower(),
-        "trackeval": str(trackeval_name),
+        "metric_backend": str(metric_backend),
         "names": names,
         "distractors": distractors,
         "class_map": class_map,
@@ -448,11 +524,13 @@ def _normalize_benchmark_cfg(raw_cfg: dict[str, Any], cfg_path: Path) -> dict[st
     normalized["evaluation"] = {
         "box_type": normalized["box_type"],
         "layout": normalized["layout"],
-        "tracker_eval": normalized["trackeval"],
+        "metric_eval": normalized["metric_backend"],
         "classes": {
-            "eval": names,
+            "eval": eval_names,
             "distractor": distractors,
             "mapping": class_map,
+            "bridge": class_bridge,
+            "ignore_dataset_ids": ignore_dataset_ids,
         },
     }
     normalized["benchmark"] = {
@@ -460,10 +538,12 @@ def _normalize_benchmark_cfg(raw_cfg: dict[str, Any], cfg_path: Path) -> dict[st
         "split": str(split_paths.get(split_name) or split_name),
         "box_type": normalized["box_type"],
         "layout": normalized["layout"],
-        "tracker_eval": normalized["trackeval"],
-        "eval_classes": names,
+        "metric_eval": normalized["metric_backend"],
+        "eval_classes": eval_names,
         "distractor_classes": distractors,
         "class_mapping": class_map,
+        "class_bridge": class_bridge,
+        "ignore_dataset_ids": ignore_dataset_ids,
     }
     return normalized
 
@@ -521,6 +601,9 @@ def _merge_benchmark_bundle_cfg(
     if seq_pattern_ref:
         payload["seq_pattern"] = str(seq_pattern_ref)
 
+    if isinstance(cfg.get("evaluation"), dict):
+        payload["evaluation"] = cfg["evaluation"]
+
     detector_ref = _component_ref_name(cfg.get("detector")) or dataset_cfg.get("detector_config")
     reid_ref = _component_ref_name(cfg.get("reid")) or dataset_cfg.get("reid_config")
     if detector_ref:
@@ -567,7 +650,10 @@ def load_dataset_cfg(name: str | Path) -> dict[str, Any]:
     dataset_cfg = raw_cfg.get("dataset")
     if not isinstance(dataset_cfg, dict):
         raise ValueError(f"Benchmark config '{cfg_path}' must define an inline 'dataset' mapping.")
-    normalized_dataset = _normalize_benchmark_cfg(dataset_cfg, cfg_path)
+    dataset_payload = dict(dataset_cfg)
+    if isinstance(raw_cfg.get("evaluation"), dict):
+        dataset_payload["evaluation"] = raw_cfg["evaluation"]
+    normalized_dataset = _normalize_benchmark_cfg(dataset_payload, cfg_path)
     return _merge_benchmark_bundle_cfg(raw_cfg, normalized_dataset, cfg_path)
 
 
@@ -578,7 +664,10 @@ def load_benchmark_only_cfg(name: str | Path) -> dict[str, Any]:
     dataset_ref = raw_cfg.get("dataset")
     if not isinstance(dataset_ref, dict):
         raise ValueError(f"Benchmark config '{cfg_path}' must define an inline 'dataset' mapping.")
-    dataset_cfg = _normalize_benchmark_cfg(dataset_ref, cfg_path)
+    dataset_payload = dict(dataset_ref)
+    if isinstance(raw_cfg.get("evaluation"), dict):
+        dataset_payload["evaluation"] = raw_cfg["evaluation"]
+    dataset_cfg = _normalize_benchmark_cfg(dataset_payload, cfg_path)
     return _merge_benchmark_bundle_cfg(raw_cfg, dataset_cfg, cfg_path)
 
 
@@ -767,7 +856,7 @@ def resolve_required_reid_preprocess(cfg: dict[str, Any]) -> str | None:
 
 
 def apply_reid_runtime_defaults(args: Any, cfg: dict[str, Any], use_config: bool = True) -> None:
-    """Populate ``args.reid_device``, ``args.reid_half``, and ``args.reid_preprocess`` from config when CLI did not override them."""
+    """Populate ReID runtime args from config when the CLI did not override them."""
     fallback_device = getattr(args, "device", "")
     fallback_half = bool(getattr(args, "half", False))
 
@@ -912,9 +1001,9 @@ def _resolve_benchmark_dest(cfg: dict[str, Any], benchmark_name: str, source_roo
         return source_root
 
     if str(dataset_url).startswith("hf://"):
-        return TRACKEVAL / "data" / benchmark_name
+        return BENCHMARK_DATA / benchmark_name
     if dataset_url:
-        return TRACKEVAL / "data" / f"{benchmark_name}.zip"
+        return BENCHMARK_DATA / f"{benchmark_name}.zip"
     return Path(f"assets/{benchmark_name}")
 
 
@@ -967,17 +1056,39 @@ def _apply_benchmark_config_ref(
 
     benchmark_dest = _resolve_benchmark_dest(cfg, benchmark_name, source_root)
 
+    # Resolve source path using the active split (check splits dict first).
+    all_splits = cfg.get("splits") or {}
+    split_entry = all_splits.get(cfg_split) or cfg.get(cfg_split) or cfg_split
+    # Split entries can be a string (path) or a dict with path + seq_pattern + detection_source.
+    if isinstance(split_entry, dict):
+        active_split_path = str(split_entry.get("path") or cfg_split)
+        seq_pattern = split_entry.get("seq_pattern")
+        detection_source = split_entry.get("detection_source")
+        frame_split = split_entry.get("frame_split")
+    else:
+        active_split_path = str(split_entry)
+        seq_pattern = None
+        detection_source = None
+        frame_split = None
+    # Allow top-level seq_pattern as fallback (e.g. from benchmark config).
+    if seq_pattern is None:
+        seq_pattern = cfg.get("seq_pattern")
+    base_source = (source_root / active_split_path) if source_root is not None else (benchmark_dest / active_split_path)
+    dataset_ready = base_source.is_dir() and any(base_source.iterdir())
+
     # Resolve the dataset download URL, scoping bare HF repo URLs to the
     # active split's subfolder so we don't download the entire repository.
     dataset_url = _resolve_split_download_value(download_cfg.get("dataset"), cfg_split)
     dataset_url = _scope_hf_url_to_split(dataset_url, cfg, cfg_split)
+    if dataset_ready and not overwrite:
+        dataset_url = ""
 
     runs_check_path = Path("runs") / "dets_n_embs" / benchmark_name / cfg_split
 
     # Parquet-based dataset setup (e.g. MOT17 with deduplicated images)
     download_source = download_cfg.get("source", "").lower()
     if download_source == "parquet":
-        from boxmot.utils.mot17_parquet import setup_mot17_from_parquet
+        from boxmot.data.mot17_parquet import setup_mot17_from_parquet
 
         # Determine public detector: CLI --detection-source overrides config
         cli_det_source = getattr(args, "detection_source", None)
@@ -1021,25 +1132,6 @@ def _apply_benchmark_config_ref(
     args.benchmark = benchmark_name
 
     args.split = cfg_split
-
-    # Resolve source path using the active split (check splits dict first)
-    all_splits = cfg.get("splits") or {}
-    split_entry = all_splits.get(cfg_split) or cfg.get(cfg_split) or cfg_split
-    # Split entries can be a string (path) or a dict with path + seq_pattern + detection_source
-    if isinstance(split_entry, dict):
-        active_split_path = str(split_entry.get("path") or cfg_split)
-        seq_pattern = split_entry.get("seq_pattern")
-        detection_source = split_entry.get("detection_source")
-        frame_split = split_entry.get("frame_split")
-    else:
-        active_split_path = str(split_entry)
-        seq_pattern = None
-        detection_source = None
-        frame_split = None
-    # Allow top-level seq_pattern as fallback (e.g. from benchmark config)
-    if seq_pattern is None:
-        seq_pattern = cfg.get("seq_pattern")
-    base_source = (source_root / active_split_path) if source_root is not None else (benchmark_dest / active_split_path)
 
     # Build filtered split directory at runtime when seq_pattern is specified
     if seq_pattern and base_source.is_dir():

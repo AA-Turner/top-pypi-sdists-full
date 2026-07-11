@@ -1172,6 +1172,7 @@ class CreateLicenseVersionRequestTypeDef(TypedDict):
     ClientToken: str
     LicenseMetadata: NotRequired[Sequence[MetadataTypeDef]]
     SourceVersion: NotRequired[str]
+    ResetUsage: NotRequired[bool]
 
 
 class GrantedLicenseTypeDef(TypedDict):

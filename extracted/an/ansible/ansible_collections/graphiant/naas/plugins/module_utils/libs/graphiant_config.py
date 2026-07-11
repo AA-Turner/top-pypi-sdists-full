@@ -6,6 +6,7 @@ Graphiant network configurations using composition and proper separation of conc
 from typing import Optional, Dict
 from .config_utils import ConfigUtils
 from .interface_manager import InterfaceManager
+from .backbone_manager import BackboneManager
 from .bgp_manager import BGPManager
 from .global_config_manager import GlobalConfigManager
 from .site_manager import SiteManager
@@ -16,7 +17,11 @@ from .lag_interface_manager import LagInterfaceManager
 from .site_to_site_vpn_manager import SiteToSiteVpnManager
 from .static_routes_manager import StaticRoutesManager
 from .ntp_manager import NtpManager
+from .traffic_policy_manager import TrafficPolicyManager
 from .device_system_manager import DeviceSystemManager
+from .edge_services_manager import EdgeServicesManager
+from .prefix_and_port_list import PrefixAndPortListManager
+from .macsec_manager import MacsecManager
 from .logger import setup_logger
 from .exceptions import GraphiantPlaybookError
 
@@ -72,6 +77,7 @@ class GraphiantConfig:
 
             # Initialize specialized managers
             self.interfaces = InterfaceManager(self.config_utils)
+            self.backbone = BackboneManager(self.config_utils)
             self.bgp = BGPManager(self.config_utils)
             self.global_config = GlobalConfigManager(self.config_utils)
             self.sites = SiteManager(self.config_utils)
@@ -82,7 +88,11 @@ class GraphiantConfig:
             self.site_to_site_vpn = SiteToSiteVpnManager(self.config_utils)
             self.static_routes = StaticRoutesManager(self.config_utils)
             self.ntp = NtpManager(self.config_utils)
+            self.traffic_policy = TrafficPolicyManager(self.config_utils)
             self.device_system = DeviceSystemManager(self.config_utils)
+            self.edge_services = EdgeServicesManager(self.config_utils)
+            self.prefix_port_list = PrefixAndPortListManager(self.config_utils)
+            self.macsec = MacsecManager(self.config_utils)
 
             LOG.info("GraphiantConfig class initialized successfully with all managers")
 
@@ -99,6 +109,7 @@ class GraphiantConfig:
         """
         return {
             "interfaces": hasattr(self, "interfaces") and self.interfaces is not None,
+            "backbone": hasattr(self, "backbone") and self.backbone is not None,
             "bgp": hasattr(self, "bgp") and self.bgp is not None,
             "global_config": hasattr(self, "global_config") and self.global_config is not None,
             "sites": hasattr(self, "sites") and self.sites is not None,
@@ -110,5 +121,9 @@ class GraphiantConfig:
             "site_to_site_vpn": hasattr(self, "site_to_site_vpn") and self.site_to_site_vpn is not None,
             "static_routes": hasattr(self, "static_routes") and self.static_routes is not None,
             "ntp": hasattr(self, "ntp") and self.ntp is not None,
+            "traffic_policy": hasattr(self, "traffic_policy") and self.traffic_policy is not None,
             "device_system": hasattr(self, "device_system") and self.device_system is not None,
+            "edge_services": hasattr(self, "edge_services") and self.edge_services is not None,
+            "prefix_port_list": hasattr(self, "prefix_port_list") and self.prefix_port_list is not None,
+            "macsec": hasattr(self, "macsec") and self.macsec is not None,
         }

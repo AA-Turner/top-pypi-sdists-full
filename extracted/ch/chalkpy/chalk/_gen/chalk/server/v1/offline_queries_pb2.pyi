@@ -5,6 +5,7 @@ from chalk._gen.chalk.common.v1 import dataset_response_pb2 as _dataset_response
 from chalk._gen.chalk.common.v1 import offline_query_pb2 as _offline_query_pb2
 from chalk._gen.chalk.server.v1 import datasets_pb2 as _datasets_pb2
 from chalk._gen.chalk.server.v1 import performance_summary_pb2 as _performance_summary_pb2
+from google.protobuf import field_mask_pb2 as _field_mask_pb2
 from google.protobuf import struct_pb2 as _struct_pb2
 from google.protobuf import timestamp_pb2 as _timestamp_pb2
 from google.protobuf.internal import containers as _containers
@@ -853,10 +854,19 @@ class BatchReport(_message.Message):
     ) -> None: ...
 
 class GetBatchReportRequest(_message.Message):
-    __slots__ = ("report_id",)
+    __slots__ = ("report_id", "shard_id", "get_mask")
     REPORT_ID_FIELD_NUMBER: _ClassVar[int]
+    SHARD_ID_FIELD_NUMBER: _ClassVar[int]
+    GET_MASK_FIELD_NUMBER: _ClassVar[int]
     report_id: str
-    def __init__(self, report_id: _Optional[str] = ...) -> None: ...
+    shard_id: int
+    get_mask: _field_mask_pb2.FieldMask
+    def __init__(
+        self,
+        report_id: _Optional[str] = ...,
+        shard_id: _Optional[int] = ...,
+        get_mask: _Optional[_Union[_field_mask_pb2.FieldMask, _Mapping]] = ...,
+    ) -> None: ...
 
 class GetBatchReportResponse(_message.Message):
     __slots__ = ("batch_report",)

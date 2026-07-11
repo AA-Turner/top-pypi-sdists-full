@@ -63,6 +63,12 @@ class DiscoveredBucketSource(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
     DISCOVERED_BUCKET_SOURCE_METADATA_PLANE: _ClassVar[DiscoveredBucketSource]
     DISCOVERED_BUCKET_SOURCE_CLUSTER_MANAGER: _ClassVar[DiscoveredBucketSource]
 
+class DiscoveredBucketScope(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
+    __slots__ = ()
+    DISCOVERED_BUCKET_SCOPE_UNSPECIFIED: _ClassVar[DiscoveredBucketScope]
+    DISCOVERED_BUCKET_SCOPE_ENVIRONMENT: _ClassVar[DiscoveredBucketScope]
+    DISCOVERED_BUCKET_SCOPE_CLUSTER: _ClassVar[DiscoveredBucketScope]
+
 class DiscoveredBucketRole(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
     __slots__ = ()
     DISCOVERED_BUCKET_ROLE_UNSPECIFIED: _ClassVar[DiscoveredBucketRole]
@@ -110,6 +116,9 @@ DISCOVERED_BUCKET_SOURCE_UNSPECIFIED: DiscoveredBucketSource
 DISCOVERED_BUCKET_SOURCE_ENGINE: DiscoveredBucketSource
 DISCOVERED_BUCKET_SOURCE_METADATA_PLANE: DiscoveredBucketSource
 DISCOVERED_BUCKET_SOURCE_CLUSTER_MANAGER: DiscoveredBucketSource
+DISCOVERED_BUCKET_SCOPE_UNSPECIFIED: DiscoveredBucketScope
+DISCOVERED_BUCKET_SCOPE_ENVIRONMENT: DiscoveredBucketScope
+DISCOVERED_BUCKET_SCOPE_CLUSTER: DiscoveredBucketScope
 DISCOVERED_BUCKET_ROLE_UNSPECIFIED: DiscoveredBucketRole
 DISCOVERED_BUCKET_ROLE_DATASET: DiscoveredBucketRole
 DISCOVERED_BUCKET_ROLE_PLAN_STAGES: DiscoveredBucketRole
@@ -462,6 +471,7 @@ class Environment(_message.Message):
         "cluster_gateway_id",
         "cluster_timescaledb_id",
         "background_persistence_deployment_id",
+        "cluster_workflow_orchestrator_id",
         "environment_buckets",
         "cluster_timescaledb_secret",
         "grpc_engine_url",
@@ -572,6 +582,7 @@ class Environment(_message.Message):
     CLUSTER_GATEWAY_ID_FIELD_NUMBER: _ClassVar[int]
     CLUSTER_TIMESCALEDB_ID_FIELD_NUMBER: _ClassVar[int]
     BACKGROUND_PERSISTENCE_DEPLOYMENT_ID_FIELD_NUMBER: _ClassVar[int]
+    CLUSTER_WORKFLOW_ORCHESTRATOR_ID_FIELD_NUMBER: _ClassVar[int]
     ENVIRONMENT_BUCKETS_FIELD_NUMBER: _ClassVar[int]
     CLUSTER_TIMESCALEDB_SECRET_FIELD_NUMBER: _ClassVar[int]
     GRPC_ENGINE_URL_FIELD_NUMBER: _ClassVar[int]
@@ -635,6 +646,7 @@ class Environment(_message.Message):
     cluster_gateway_id: str
     cluster_timescaledb_id: str
     background_persistence_deployment_id: str
+    cluster_workflow_orchestrator_id: str
     environment_buckets: EnvironmentObjectStorageConfig
     cluster_timescaledb_secret: str
     grpc_engine_url: str
@@ -700,6 +712,7 @@ class Environment(_message.Message):
         cluster_gateway_id: _Optional[str] = ...,
         cluster_timescaledb_id: _Optional[str] = ...,
         background_persistence_deployment_id: _Optional[str] = ...,
+        cluster_workflow_orchestrator_id: _Optional[str] = ...,
         environment_buckets: _Optional[_Union[EnvironmentObjectStorageConfig, _Mapping]] = ...,
         cluster_timescaledb_secret: _Optional[str] = ...,
         grpc_engine_url: _Optional[str] = ...,
@@ -783,7 +796,7 @@ class DiscoveredBucketProbe(_message.Message):
     def __init__(self, ok: bool = ..., error: _Optional[str] = ..., skipped: bool = ...) -> None: ...
 
 class DiscoveredBucket(_message.Message):
-    __slots__ = ("name", "role", "role_label", "source", "config_key", "read", "write")
+    __slots__ = ("name", "role", "role_label", "source", "config_key", "read", "write", "scope")
     NAME_FIELD_NUMBER: _ClassVar[int]
     ROLE_FIELD_NUMBER: _ClassVar[int]
     ROLE_LABEL_FIELD_NUMBER: _ClassVar[int]
@@ -791,6 +804,7 @@ class DiscoveredBucket(_message.Message):
     CONFIG_KEY_FIELD_NUMBER: _ClassVar[int]
     READ_FIELD_NUMBER: _ClassVar[int]
     WRITE_FIELD_NUMBER: _ClassVar[int]
+    SCOPE_FIELD_NUMBER: _ClassVar[int]
     name: str
     role: DiscoveredBucketRole
     role_label: str
@@ -798,6 +812,7 @@ class DiscoveredBucket(_message.Message):
     config_key: str
     read: DiscoveredBucketProbe
     write: DiscoveredBucketProbe
+    scope: DiscoveredBucketScope
     def __init__(
         self,
         name: _Optional[str] = ...,
@@ -807,6 +822,7 @@ class DiscoveredBucket(_message.Message):
         config_key: _Optional[str] = ...,
         read: _Optional[_Union[DiscoveredBucketProbe, _Mapping]] = ...,
         write: _Optional[_Union[DiscoveredBucketProbe, _Mapping]] = ...,
+        scope: _Optional[_Union[DiscoveredBucketScope, str]] = ...,
     ) -> None: ...
 
 class DiscoverEnvironmentBucketsRequest(_message.Message):

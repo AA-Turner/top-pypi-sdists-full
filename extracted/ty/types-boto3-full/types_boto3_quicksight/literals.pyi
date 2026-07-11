@@ -51,6 +51,7 @@ __all__ = (
     "AssetBundleImportJobStatusType",
     "AssignmentStatusType",
     "AudioExtractionStatusType",
+    "AuthTypeType",
     "AuthenticationMethodOptionType",
     "AuthenticationTypeType",
     "AuthorSpecifiedAggregationType",
@@ -88,6 +89,7 @@ __all__ = (
     "ContributionAnalysisDirectionType",
     "ContributionAnalysisSortTypeType",
     "ControlSortDirectionType",
+    "CredentialStatusType",
     "CrossDatasetTypesType",
     "CustomContentImageScalingConfigurationType",
     "CustomContentTypeType",
@@ -514,6 +516,7 @@ AssetBundleImportJobStatusType = Literal[
 ]
 AssignmentStatusType = Literal["DISABLED", "DRAFT", "ENABLED"]
 AudioExtractionStatusType = Literal["DISABLED", "ENABLED"]
+AuthTypeType = Literal["SERVICE_ACCOUNT", "THREE_LEGGED_OAUTH", "TWO_LEGGED_OAUTH"]
 AuthenticationMethodOptionType = Literal[
     "ACTIVE_DIRECTORY", "IAM_AND_QUICKSIGHT", "IAM_IDENTITY_CENTER", "IAM_ONLY"
 ]
@@ -600,6 +603,7 @@ ContributionAnalysisSortTypeType = Literal[
     "PERCENTAGE_DIFFERENCE",
 ]
 ControlSortDirectionType = Literal["ASC", "DESC", "USER_DEFINED_ORDER"]
+CredentialStatusType = Literal["AUTH_FAILED", "CONNECTED", "NOT_VERIFIED"]
 CrossDatasetTypesType = Literal["ALL_DATASETS", "SINGLE_DATASET"]
 CustomContentImageScalingConfigurationType = Literal[
     "DO_NOT_SCALE", "FIT_TO_HEIGHT", "FIT_TO_WIDTH", "SCALE_TO_VISUAL"
@@ -918,6 +922,7 @@ KbIngestionStatusType = Literal[
     "CANCELLED", "CANCELLING", "COMPLETED", "FAILED", "INCOMPLETE", "QUEUED", "RUNNING", "TIMEOUT"
 ]
 KnowledgeBaseSearchFilterNameType = Literal[
+    "DATASOURCE_ARN",
     "DIRECT_QUICKSIGHT_OWNER",
     "DIRECT_QUICKSIGHT_SOLE_OWNER",
     "DIRECT_QUICKSIGHT_VIEWER_OR_OWNER",

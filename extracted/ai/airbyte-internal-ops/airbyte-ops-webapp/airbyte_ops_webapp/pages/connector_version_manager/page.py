@@ -59,12 +59,16 @@ from airbyte_ops_webapp.pages.shared_components.layout import (
     render_breadcrumb_nav,
     render_environment_banners,
     render_page_hero,
+    render_version_footer,
 )
 from airbyte_ops_webapp.pages.shared_components.org_lookup_modal import (
     org_lookup_modal_state,
 )
 from airbyte_ops_webapp.state import (
+    deploy_sha,
+    deploy_sha_url,
     mock_only_enabled,
+    ops_package_version,
     preview_deploy_enabled,
     preview_pr_number,
     preview_pr_url,
@@ -164,6 +168,7 @@ def connector_version_manager(
                         render_rollout_status_section()
                         render_pin_detail()
                     render_pin_modal(state)
+                render_version_footer()
 
     return app
 
@@ -239,6 +244,9 @@ def _build_initial_state(
         "is_preview_deploy": preview_deploy_enabled(),
         "preview_pr_number": preview_pr_number(),
         "preview_pr_url": preview_pr_url(),
+        "deploy_sha": deploy_sha(),
+        "deploy_sha_url": deploy_sha_url(),
+        "ops_package_version": ops_package_version(),
         "oauth_config": current_oauth_config,
         "oauth_enabled": current_oauth_config["enabled"],
         "oauth_authenticated": False,

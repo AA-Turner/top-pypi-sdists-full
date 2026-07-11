@@ -16,116 +16,133 @@
 // under the License.
 
 use std::cmp::Ordering;
-use std::fmt::Debug;
 use std::fmt::Formatter;
 use std::sync::Arc;
 
 use crate::raw::oio;
-use crate::raw::{
-    Access, AccessorInfo, Layer, LayeredAccess, OpCopier, OpCopy, OpCreateDir, OpList, OpPresign,
-    OpRead, OpStat, OpWrite, RpCopy, RpCreateDir, RpDelete, RpList, RpPresign, RpRead, RpStat,
-    RpWrite,
-};
+use crate::raw::*;
 use crate::*;
 
 /// CompleteLayer keeps validation wrappers for read/write operations.
 pub struct CompleteLayer;
 
-impl<A: Access> Layer<A> for CompleteLayer {
-    type LayeredAccess = CompleteAccessor<A>;
+impl std::fmt::Debug for CompleteLayer {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("CompleteLayer").finish()
+    }
+}
 
-    fn layer(&self, inner: A) -> Self::LayeredAccess {
-        CompleteAccessor {
-            info: inner.info(),
-            inner: Arc::new(inner),
-        }
+impl Layer for CompleteLayer {
+    fn apply_service(&self, inner: Servicer) -> Servicer {
+        Arc::new(self.layer(inner))
+    }
+}
+
+impl CompleteLayer {
+    fn layer(&self, inner: Servicer) -> CompleteService {
+        CompleteService { inner }
     }
 }
 
 /// Provide complete wrapper for backend.
-pub struct CompleteAccessor<A: Access> {
-    info: Arc<AccessorInfo>,
-    inner: Arc<A>,
+pub struct CompleteService {
+    inner: Servicer,
 }
 
-impl<A: Access> Debug for CompleteAccessor<A> {
+impl std::fmt::Debug for CompleteService {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         self.inner.fmt(f)
     }
 }
 
-impl<A: Access> LayeredAccess for CompleteAccessor<A> {
-    type Inner = A;
-    type Reader = CompleteReader<A::Reader>;
-    type Writer = CompleteWriter<A::Writer>;
-    type Lister = CompleteLister<A>;
-    type Deleter = A::Deleter;
-    type Copier = A::Copier;
+impl Service for CompleteService {
+    type Reader = CompleteReader<oio::Reader>;
+    type Writer = CompleteWriter<oio::Writer>;
+    type Lister = CompleteLister;
+    type Deleter = oio::Deleter;
+    type Copier = oio::Copier;
 
-    fn inner(&self) -> &Self::Inner {
-        &self.inner
+    fn info(&self) -> ServiceInfo {
+        self.inner.info()
     }
 
-    fn info(&self) -> Arc<AccessorInfo> {
-        self.info.clone()
+    fn capability(&self) -> Capability {
+        self.inner.capability()
     }
 
-    async fn create_dir(&self, path: &str, args: OpCreateDir) -> Result<RpCreateDir> {
-        self.inner().create_dir(path, args).await
-    }
-
-    async fn read(&self, path: &str, args: OpRead) -> Result<(RpRead, Self::Reader)> {
-        let size = args.range().size();
-        self.inner
-            .read(path, args)
-            .await
-            .map(|(rp, r)| (rp, CompleteReader::new(r, size)))
-    }
-
-    async fn write(&self, path: &str, args: OpWrite) -> Result<(RpWrite, Self::Writer)> {
-        let (rp, w) = self.inner.write(path, args.clone()).await?;
-        let w = CompleteWriter::new(w, args.append());
-        Ok((rp, w))
-    }
-
-    async fn copy(
+    async fn create_dir(
         &self,
+        ctx: &OperationContext,
+        path: &str,
+        args: OpCreateDir,
+    ) -> Result<RpCreateDir> {
+        self.inner.create_dir(ctx, path, args).await
+    }
+
+    fn read(&self, ctx: &OperationContext, path: &str, args: OpRead) -> Result<Self::Reader> {
+        let reader = self.inner.read(ctx, path, args)?;
+        Ok(CompleteReader::new(reader))
+    }
+
+    fn write(&self, ctx: &OperationContext, path: &str, args: OpWrite) -> Result<Self::Writer> {
+        let append = args.append();
+        let w = self.inner.write(ctx, path, args)?;
+        Ok(CompleteWriter::new(w, append))
+    }
+
+    fn copy(
+        &self,
+        ctx: &OperationContext,
         from: &str,
         to: &str,
         args: OpCopy,
         opts: OpCopier,
-    ) -> Result<(RpCopy, Self::Copier)> {
-        self.inner.copy(from, to, args, opts).await
+    ) -> Result<Self::Copier> {
+        self.inner.copy(ctx, from, to, args, opts)
     }
 
-    async fn stat(&self, path: &str, args: OpStat) -> Result<RpStat> {
-        self.inner.stat(path, args).await
+    async fn rename(
+        &self,
+        ctx: &OperationContext,
+        from: &str,
+        to: &str,
+        args: OpRename,
+    ) -> Result<RpRename> {
+        self.inner.rename(ctx, from, to, args).await
     }
 
-    async fn delete(&self) -> Result<(RpDelete, Self::Deleter)> {
-        self.inner().delete().await
+    async fn stat(&self, ctx: &OperationContext, path: &str, args: OpStat) -> Result<RpStat> {
+        self.inner.stat(ctx, path, args).await
     }
 
-    async fn list(&self, path: &str, args: OpList) -> Result<(RpList, Self::Lister)> {
-        let (rp, lister) = self.inner.list(path, args).await?;
-        let lister = CompleteLister::new(self.inner.clone(), self.info.clone(), lister);
-        Ok((rp, lister))
+    fn delete(&self, ctx: &OperationContext) -> Result<Self::Deleter> {
+        self.inner.delete(ctx)
     }
 
-    async fn presign(&self, path: &str, args: OpPresign) -> Result<RpPresign> {
-        self.inner.presign(path, args).await
+    fn list(&self, ctx: &OperationContext, path: &str, args: OpList) -> Result<Self::Lister> {
+        let lister = self.inner.list(ctx, path, args)?;
+        Ok(CompleteLister::new(ctx.clone(), self.inner.clone(), lister))
+    }
+
+    async fn presign(
+        &self,
+        ctx: &OperationContext,
+        path: &str,
+        args: OpPresign,
+    ) -> Result<RpPresign> {
+        self.inner.presign(ctx, path, args).await
     }
 }
 
-pub struct CompleteLister<A: Access> {
-    inner: A::Lister,
-    acc: Arc<A>,
-    info: Arc<AccessorInfo>,
+pub struct CompleteLister {
+    inner: oio::Lister,
+    ctx: OperationContext,
+    srv: Servicer,
 }
 
-impl<A: Access> CompleteLister<A> {
-    fn new(acc: Arc<A>, info: Arc<AccessorInfo>, inner: A::Lister) -> Self {
-        Self { inner, acc, info }
+impl CompleteLister {
+    fn new(ctx: OperationContext, srv: Servicer, inner: oio::Lister) -> Self {
+        Self { inner, ctx, srv }
     }
 
     async fn ensure_file_content_length(&self, entry: &mut oio::Entry) -> Result<()> {
@@ -136,14 +153,14 @@ impl<A: Access> CompleteLister<A> {
             op = op.with_version(version);
         }
 
-        let stat_metadata = self.acc.stat(&path, op).await?.into_metadata();
+        let stat_metadata = self.srv.stat(&self.ctx, &path, op).await?.into_metadata();
         if !stat_metadata.has_content_length() {
             return Err(Error::new(
                 ErrorKind::Unexpected,
                 "content length is required for list file entries",
             )
             .with_operation("CompleteLister::ensure_file_content_length")
-            .with_context("service", self.info.scheme().to_string())
+            .with_context("service", self.srv.info().scheme().to_string())
             .with_context("path", path));
         }
 
@@ -154,7 +171,7 @@ impl<A: Access> CompleteLister<A> {
     }
 }
 
-impl<A: Access> oio::List for CompleteLister<A> {
+impl oio::List for CompleteLister {
     async fn next(&mut self) -> Result<Option<oio::Entry>> {
         loop {
             let Some(mut entry) = self.inner.next().await? else {
@@ -179,11 +196,48 @@ impl<A: Access> oio::List for CompleteLister<A> {
 
 pub struct CompleteReader<R> {
     inner: R,
+}
+
+impl<R> CompleteReader<R> {
+    pub fn new(inner: R) -> Self {
+        Self { inner }
+    }
+}
+
+impl<R: oio::Read> oio::Read for CompleteReader<R> {
+    async fn open(&self, range: BytesRange) -> Result<(RpRead, Box<dyn oio::ReadStreamDyn>)> {
+        let size = if range.is_suffix() {
+            None
+        } else {
+            range.size()
+        };
+        self.inner.open(range).await.map(|(rp, stream)| {
+            (
+                rp,
+                Box::new(CompleteReadStream::new(stream, size)) as Box<dyn oio::ReadStreamDyn>,
+            )
+        })
+    }
+
+    async fn read(&self, range: BytesRange) -> Result<(RpRead, Buffer)> {
+        let size = if range.is_suffix() {
+            None
+        } else {
+            range.size()
+        };
+        let (rp, buffer) = self.inner.read(range).await?;
+        check_complete(size, buffer.len() as u64)?;
+        Ok((rp, buffer))
+    }
+}
+
+pub struct CompleteReadStream<R> {
+    inner: R,
     size: Option<u64>,
     read: u64,
 }
 
-impl<R> CompleteReader<R> {
+impl<R> CompleteReadStream<R> {
     pub fn new(inner: R, size: Option<u64>) -> Self {
         Self {
             inner,
@@ -193,27 +247,11 @@ impl<R> CompleteReader<R> {
     }
 
     pub fn check(&self) -> Result<()> {
-        let Some(size) = self.size else {
-            return Ok(());
-        };
-
-        match self.read.cmp(&size) {
-            Ordering::Equal => Ok(()),
-            Ordering::Less => Err(
-                Error::new(ErrorKind::Unexpected, "reader got too little data")
-                    .with_context("expect", size)
-                    .with_context("actual", self.read),
-            ),
-            Ordering::Greater => Err(
-                Error::new(ErrorKind::Unexpected, "reader got too much data")
-                    .with_context("expect", size)
-                    .with_context("actual", self.read),
-            ),
-        }
+        check_complete(self.size, self.read)
     }
 }
 
-impl<R: oio::Read> oio::Read for CompleteReader<R> {
+impl<R: oio::ReadStream> oio::ReadStream for CompleteReadStream<R> {
     async fn read(&mut self) -> Result<Buffer> {
         let buf = self.inner.read().await?;
 
@@ -224,6 +262,26 @@ impl<R: oio::Read> oio::Read for CompleteReader<R> {
         }
 
         Ok(buf)
+    }
+}
+
+fn check_complete(size: Option<u64>, actual: u64) -> Result<()> {
+    let Some(size) = size else {
+        return Ok(());
+    };
+
+    match actual.cmp(&size) {
+        Ordering::Equal => Ok(()),
+        Ordering::Less => Err(
+            Error::new(ErrorKind::Unexpected, "reader got too little data")
+                .with_context("expect", size)
+                .with_context("actual", actual),
+        ),
+        Ordering::Greater => Err(
+            Error::new(ErrorKind::Unexpected, "reader got too much data")
+                .with_context("expect", size)
+                .with_context("actual", actual),
+        ),
     }
 }
 
@@ -362,5 +420,57 @@ where
         self.state.transition(CompleteState::Closed);
 
         Ok(())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    struct MockReadReader {
+        buffer: Buffer,
+    }
+
+    impl oio::Read for MockReadReader {
+        async fn open(&self, _: BytesRange) -> Result<(RpRead, Box<dyn oio::ReadStreamDyn>)> {
+            Err(Error::new(ErrorKind::Unsupported, "open is not supported"))
+        }
+
+        async fn read(&self, _: BytesRange) -> Result<(RpRead, Buffer)> {
+            Ok((
+                RpRead::new(
+                    Metadata::new(EntryMode::FILE).with_content_length(self.buffer.len() as u64),
+                ),
+                self.buffer.clone(),
+            ))
+        }
+    }
+
+    fn new_test_reader(buffer: impl Into<Buffer>) -> CompleteReader<MockReadReader> {
+        CompleteReader::new(MockReadReader {
+            buffer: buffer.into(),
+        })
+    }
+
+    #[tokio::test]
+    async fn test_read_rejects_short_buffer() {
+        let reader = new_test_reader("a");
+
+        let err = oio::Read::read(&reader, BytesRange::from(0_u64..2))
+            .await
+            .expect_err("read should reject short buffer");
+
+        assert_eq!(err.kind(), ErrorKind::Unexpected);
+    }
+
+    #[tokio::test]
+    async fn test_read_rejects_extra_buffer() {
+        let reader = new_test_reader("ab");
+
+        let err = oio::Read::read(&reader, BytesRange::from(0_u64..1))
+            .await
+            .expect_err("read should reject extra buffer");
+
+        assert_eq!(err.kind(), ErrorKind::Unexpected);
     }
 }

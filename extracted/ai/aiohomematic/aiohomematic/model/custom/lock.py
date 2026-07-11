@@ -8,7 +8,7 @@ Public API of this module is defined by __all__.
 
 from abc import abstractmethod
 from enum import StrEnum, unique
-from typing import Final
+from typing import ClassVar, Final
 
 from aiohomematic.client import CommandPriority
 from aiohomematic.const import DataPointCategory, DeviceProfile, Field, Parameter
@@ -18,7 +18,7 @@ from aiohomematic.model.custom.field import DataPointField
 from aiohomematic.model.custom.registry import DeviceConfig, DeviceProfileRegistry, ExtendedDeviceConfig
 from aiohomematic.model.data_point import CallParameterCollector, bind_collector
 from aiohomematic.model.generic import DpAction, DpActionSelect, DpSensor, DpSwitch
-from aiohomematic.property_decorators import config_property, state_property
+from aiohomematic.property_decorators import hm_property
 
 
 @unique
@@ -64,30 +64,30 @@ class BaseCustomDpLock(CustomDataPoint):
     _category = DataPointCategory.LOCK
     _ignore_multiple_channels_for_name = True
 
-    @config_property(cached=True)
-    def capabilities(self) -> LockCapabilities:
-        """Return the lock capabilities."""
-        return self._compute_capabilities()
-
-    @state_property
+    @property
     def is_jammed(self) -> bool:
         """Return true if lock is jammed."""
         return False
 
-    @state_property
+    @property
     @abstractmethod
     def is_locked(self) -> bool:
         """Return true if lock is on."""
 
-    @state_property
+    @property
     def is_locking(self) -> bool | None:
         """Return true if the lock is locking."""
         return None
 
-    @state_property
+    @property
     def is_unlocking(self) -> bool | None:
         """Return true if the lock is unlocking."""
         return None
+
+    @hm_property(cached=True)
+    def capabilities(self) -> LockCapabilities:
+        """Return the lock capabilities."""
+        return self._compute_capabilities()
 
     @abstractmethod
     @bind_collector(priority=CommandPriority.CRITICAL)
@@ -118,20 +118,21 @@ class CustomDpIpLock(BaseCustomDpLock):
     _dp_direction: Final = DataPointField(field=Field.DIRECTION, dpt=DpSensor[str | None])
     _dp_lock_state: Final = DataPointField(field=Field.LOCK_STATE, dpt=DpSensor[str | None])
     _dp_lock_target_level: Final = DataPointField(field=Field.LOCK_TARGET_LEVEL, dpt=DpActionSelect)
+    _validity_relevant_fields: ClassVar[frozenset[Field]] = frozenset({Field.LOCK_STATE})
 
-    @state_property
+    @property
     def is_locked(self) -> bool:
         """Return true if lock is on."""
         return self._dp_lock_state.value == LockState.LOCKED
 
-    @state_property
+    @property
     def is_locking(self) -> bool | None:
         """Return true if the lock is locking."""
         if self._dp_direction.value is not None:
             return str(self._dp_direction.value) == _LockActivity.LOCKING
         return None
 
-    @state_property
+    @property
     def is_unlocking(self) -> bool | None:
         """Return true if the lock is unlocking."""
         if self._dp_direction.value is not None:
@@ -165,13 +166,14 @@ class CustomDpButtonLock(BaseCustomDpLock):
 
     # Declarative data point field definitions
     _dp_button_lock: Final = DataPointField(field=Field.BUTTON_LOCK, dpt=DpSwitch)
+    _validity_relevant_fields: ClassVar[frozenset[Field]] = frozenset({Field.BUTTON_LOCK})
 
     @property
     def data_point_name_postfix(self) -> str:
         """Return the data_point name postfix."""
         return "BUTTON_LOCK"
 
-    @state_property
+    @property
     def is_locked(self) -> bool:
         """Return true if lock is on."""
         return self._dp_button_lock.value is True
@@ -206,25 +208,26 @@ class CustomDpRfLock(BaseCustomDpLock):
     _dp_error: Final = DataPointField(field=Field.ERROR, dpt=DpSensor[str | None])
     _dp_open: Final = DataPointField(field=Field.OPEN, dpt=DpAction)
     _dp_state: Final = DataPointField(field=Field.STATE, dpt=DpSwitch)
+    _validity_relevant_fields: ClassVar[frozenset[Field]] = frozenset({Field.STATE})
 
-    @state_property
+    @property
     def is_jammed(self) -> bool:
         """Return true if lock is jammed."""
         return self._dp_error.value is not None and self._dp_error.value != _LockError.NO_ERROR
 
-    @state_property
+    @property
     def is_locked(self) -> bool:
         """Return true if lock is on."""
         return self._dp_state.value is not True
 
-    @state_property
+    @property
     def is_locking(self) -> bool | None:
         """Return true if the lock is locking."""
         if self._dp_direction.value is not None:
             return str(self._dp_direction.value) == _LockActivity.LOCKING
         return None
 
-    @state_property
+    @property
     def is_unlocking(self) -> bool | None:
         """Return true if the lock is unlocking."""
         if self._dp_direction.value is not None:

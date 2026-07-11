@@ -39,6 +39,7 @@ GRPC_STATUS_TO_HTTP_STATUS = {
     StatusCode.INVALID_ARGUMENT: HTTPStatus.UNPROCESSABLE_ENTITY,
     StatusCode.PERMISSION_DENIED: HTTPStatus.FORBIDDEN,
     StatusCode.UNAUTHENTICATED: HTTPStatus.UNAUTHORIZED,
+    StatusCode.RESOURCE_EXHAUSTED: HTTPStatus.TOO_MANY_REQUESTS,
 }
 
 
@@ -187,19 +188,33 @@ def _handle_grpc_error(error: AioRpcError) -> None:
     Always return detail as a string here.
     """
     error_details = error.details()
+    retry_after_seconds = None
     if error_details is not None:
         try:
             details = orjson.loads(error_details)
-            error_details = orjson.dumps(details.get("message", "")).decode()
+            retry_after_seconds = details.get("retry_after_seconds")
+            message = details.get("message", "")
+            # A string message is the detail verbatim; only re-encode structured
+            # (non-string) messages as JSON.
+            error_details = (
+                message if isinstance(message, str) else orjson.dumps(message).decode()
+            )
         except orjson.JSONDecodeError:
             # error details is not json, so just retun it as is
             pass
 
+    status_code = GRPC_STATUS_TO_HTTP_STATUS.get(
+        error.code(), HTTPStatus.INTERNAL_SERVER_ERROR
+    )
+    headers = None
+    if status_code == HTTPStatus.TOO_MANY_REQUESTS and retry_after_seconds:
+        # The Go core carries Retry-After as a structured integer (seconds).
+        headers = {"Retry-After": str(int(retry_after_seconds))}
+
     raise HTTPException(
-        status_code=GRPC_STATUS_TO_HTTP_STATUS.get(
-            error.code(), HTTPStatus.INTERNAL_SERVER_ERROR
-        ),
+        status_code=status_code,
         detail=error_details,
+        headers=headers,
     )
 
 

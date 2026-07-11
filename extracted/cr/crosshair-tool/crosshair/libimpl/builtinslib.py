@@ -10,7 +10,7 @@ import string
 import sys
 import typing
 import warnings
-from abc import ABCMeta
+from abc import ABCMeta, abstractmethod
 from array import array
 from collections.abc import Mapping
 from dataclasses import dataclass
@@ -561,7 +561,9 @@ def numeric_binop_internal(op: BinFn, a: Number, b: Number):
             _BIN_OPS[(op, a_type, b_type)] = _MISSING
     if binfn is _MISSING:
         return NotImplemented
-    with ResumedTracing():  # TODO: <-- can we instead selectively resume? Am I only doing this to satisfy the binop tracing check?
+    with (
+        ResumedTracing()
+    ):  # TODO: <-- can we instead selectively resume? Am I only doing this to satisfy the binop tracing check?
         return binfn(op, a, b)
 
 
@@ -857,7 +859,7 @@ def setup_binops():
         with NoTracing():
             if isinstance(b, SymbolicInt):
                 # Have `a` be symbolic, if possible
-                (a, b) = (b, a)
+                a, b = (b, a)
 
             # Check whether we can interpret the mask as a mod operation:
             b = realize(b)
@@ -958,7 +960,14 @@ def setup_binops():
         a: Union[NonFiniteFloat, FiniteFloat, RealBasedSymbolicFloat],
         b: Union[NonFiniteFloat, FiniteFloat, RealBasedSymbolicFloat],
     ):
-        return _float_divmod(a, b)[0]
+        quotient = _float_divmod(a, b)[0]
+        # float // float yields a float; _float_divmod's quotient is an integer.
+        # Convert through SymbolicInt.__float__ so the result uses this path's
+        # float modeling (real- or IEEE-based) rather than forcing one.
+        with NoTracing():
+            if isinstance(quotient, SymbolicInt):
+                return quotient.__float__()
+            return float(quotient)
 
     setup_binop(_, {ops.floordiv})
 
@@ -1353,7 +1362,18 @@ class SymbolicInt(SymbolicIntable, AtomicSymbolicValue):
         def is_integer(self):
             return True
 
-    def to_bytes(self, length, byteorder, *, signed=False):
+    def to_bytes(self, length=_MISSING, byteorder=_MISSING, *, signed=False):
+        # length/byteorder became optional (default 1 / "big") in Python 3.11.
+        if length is _MISSING:
+            if version_info < (3, 11):
+                raise TypeError("to_bytes() missing required argument 'length' (pos 1)")
+            length = 1
+        if byteorder is _MISSING:
+            if version_info < (3, 11):
+                raise TypeError(
+                    "to_bytes() missing required argument 'byteorder' (pos 2)"
+                )
+            byteorder = "big"
         if not isinstance(length, int):
             raise TypeError
         if not isinstance(byteorder, str):
@@ -1851,13 +1871,13 @@ class SymbolicDict(SymbolicDictOrSet, collections.abc.Mapping):
         return z3.And(self._len() == otherlen, comparison_smt_array == self._arr())
 
     def __eq__(self, other):
-        (self_arr, self_len) = self.var
+        self_arr, self_len = self.var
         has_heapref = is_heapref_sort(self.var[0].sort().domain()) or is_heapref_sort(
             self.var[0].sort().range()
         )
         if not has_heapref:
             if isinstance(other, SymbolicDict):
-                (other_arr, other_len) = other.var
+                other_arr, other_len = other.var
                 return SymbolicBool(
                     z3.And(self_len == other_len, self_arr == other_arr)
                 )
@@ -2017,9 +2037,9 @@ class SymbolicFrozenSet(SymbolicDictOrSet, FrozenSetBase):
         return deep_realize(self).__hash__()
 
     def __eq__(self, other):
-        (self_arr, self_len) = self.var
+        self_arr, self_len = self.var
         if isinstance(other, SymbolicFrozenSet):
-            (other_arr, other_len) = other.var
+            other_arr, other_len = other.var
             if other_arr.sort() == self_arr.sort():
                 # TODO: this is wrong for HeapRef sets (which could customize __eq__)
                 return SymbolicBool(
@@ -2222,7 +2242,7 @@ def process_slice_vs_bounded_len(
 ) -> Union[int, Tuple[int, int]]:
     ret = flip_slice_vs_bounded_len(i, bounded_len)
     if isinstance(ret, tuple):
-        (start, stop) = ret
+        start, stop = ret
         return clip_range_to_bounded_len(start, stop, bounded_len)
     return ret
 
@@ -2324,7 +2344,7 @@ class SymbolicArrayBasedUniformTuple(SymbolicSequence):
         with NoTracing():
             if self is other:
                 return True
-            (self_arr, self_len) = self.var
+            self_arr, self_len = self.var
             if isinstance(other, SymbolicArrayBasedUniformTuple):
                 # TODO: Can these be HeapRefs? If so, we're only doing identity checks:
                 return SymbolicBool(
@@ -2341,6 +2361,36 @@ class SymbolicArrayBasedUniformTuple(SymbolicSequence):
             if myval != otherval:
                 return False
         return True
+
+    def _lexicographic_compare(self, other, on_first_diff, on_prefix):
+        # `on_first_diff` decides the result from the first differing element;
+        # `on_prefix` decides it from the lengths when one is a prefix of the
+        # other (or they're equal).
+        for v1, v2 in zip(self, other):
+            if v1 == v2:
+                continue
+            return on_first_diff(v1, v2)
+        return on_prefix(len(self), len(other))
+
+    def __lt__(self, other):
+        if not is_iterable(other):
+            return NotImplemented
+        return self._lexicographic_compare(other, ops.lt, ops.lt)
+
+    def __le__(self, other):
+        if not is_iterable(other):
+            return NotImplemented
+        return self._lexicographic_compare(other, ops.lt, ops.le)
+
+    def __gt__(self, other):
+        if not is_iterable(other):
+            return NotImplemented
+        return self._lexicographic_compare(other, ops.gt, ops.gt)
+
+    def __ge__(self, other):
+        if not is_iterable(other):
+            return NotImplemented
+        return self._lexicographic_compare(other, ops.gt, ops.ge)
 
     def __repr__(self):
         return str(list(self))
@@ -2405,7 +2455,7 @@ class SymbolicArrayBasedUniformTuple(SymbolicSequence):
             with ResumedTracing():
                 idx_or_pair = process_slice_vs_bounded_len(i, self._len_int)
             if isinstance(idx_or_pair, tuple):
-                (start, stop) = idx_or_pair
+                start, stop = idx_or_pair
                 with ResumedTracing():
                     return SliceView.slice(self, start, stop)
             else:
@@ -2581,6 +2631,21 @@ class SymbolicList(
         if not isinstance(other, (list, SymbolicList)):
             raise TypeError
         return super().__lt__(other)
+
+    def __le__(self, other):
+        if not isinstance(other, (list, SymbolicList)):
+            raise TypeError
+        return super().__le__(other)
+
+    def __gt__(self, other):
+        if not isinstance(other, (list, SymbolicList)):
+            raise TypeError
+        return super().__gt__(other)
+
+    def __ge__(self, other):
+        if not isinstance(other, (list, SymbolicList)):
+            raise TypeError
+        return super().__ge__(other)
 
     def __mod__(self, *a):
         raise TypeError
@@ -2915,6 +2980,26 @@ class SymbolicUniformTuple(
             return False
         return SymbolicArrayBasedUniformTuple.__eq__(self, other)
 
+    def __lt__(self, other):
+        if not isinstance(other, tuple):
+            raise TypeError
+        return SymbolicArrayBasedUniformTuple.__lt__(self, other)
+
+    def __le__(self, other):
+        if not isinstance(other, tuple):
+            raise TypeError
+        return SymbolicArrayBasedUniformTuple.__le__(self, other)
+
+    def __gt__(self, other):
+        if not isinstance(other, tuple):
+            raise TypeError
+        return SymbolicArrayBasedUniformTuple.__gt__(self, other)
+
+    def __ge__(self, other):
+        if not isinstance(other, tuple):
+            raise TypeError
+        return SymbolicArrayBasedUniformTuple.__ge__(self, other)
+
 
 class SymbolicBoundedIntTuple(collections.abc.Sequence):
     def __init__(self, ranges: List[Tuple[int, int]], varname: str):
@@ -3202,8 +3287,12 @@ class AnySymbolicStr(AbcString):
     def __ch_pytype__(self):
         return str
 
+    @abstractmethod
     def __ch_realize__(self):
-        raise NotImplementedError
+        # AnySymbolicStr is an ABC (via AbcString), so a concrete subclass that
+        # forgets to override __ch_realize__ fails to instantiate. Reaching this
+        # body means that enforcement was bypassed, which is a CrossHair bug.
+        raise CrossHairInternal("abstract AnySymbolicStr.__ch_realize__ reached")
 
     def __str__(self):
         with NoTracing():
@@ -3532,7 +3621,7 @@ class AnySymbolicStr(AbcString):
         elif old == "":
             return new + self[:1] + self[1:].replace(old, new, count - 1)
 
-        (prefix, match, suffix) = self.partition(old)
+        prefix, match, suffix = self.partition(old)
         if not match:
             return self
         return prefix + new + suffix.replace(old, new, count - 1)
@@ -3842,7 +3931,7 @@ class LazyIntSymbolicStr(AnySymbolicStr, CrossHairValue):
     def __contains__(self, other):
         if len(other) == 0:
             return True
-        (_, match, _) = self.partition(other)
+        _, match, _ = self.partition(other)
         return match != ""
 
     def __eq__(self, other):
@@ -4021,9 +4110,9 @@ class LazyIntSymbolicStr(AnySymbolicStr, CrossHairValue):
                     return max(start, 0)
         else:
             if from_right:
-                (prefix, match, _) = LazyIntSymbolicStr.rpartition(matchstr, substr)
+                prefix, match, _ = LazyIntSymbolicStr.rpartition(matchstr, substr)
             else:
-                (prefix, match, _) = LazyIntSymbolicStr.partition(matchstr, substr)
+                prefix, match, _ = LazyIntSymbolicStr.partition(matchstr, substr)
             if match == "":
                 return -1
             return start + len(prefix)
@@ -4200,6 +4289,13 @@ class SymbolicBytes(BytesLike):
             inner = buffer_to_byte_seq(inner)
         self.inner = inner
 
+    def _smt_for_unification(self, other_value: Any) -> Optional[z3.ExprRef]:
+        """See :func:`~crosshair.core.smt_for_unification`.
+
+        A bytes value is an int-tuple, so unifying it with a concrete value
+        reduces to the inner tuple's element constraints (like SymbolicList)."""
+        return smt_for_unification(self.inner, other_value)
+
     # TODO: find all uses of str() in AbcString and check SymbolicBytes behavior for
     # those cases.
 
@@ -4293,6 +4389,42 @@ class SymbolicBytes(BytesLike):
         return SymbolicBytes(accumulated)
 
 
+def _out_of_byte_range(value) -> bool:
+    # any() folds the two bounds into one symbolic expression, so a symbolic
+    # value forks once here rather than once per `or` operand.
+    return any((value < 0, value > 255))
+
+
+def _as_byte_value(value):
+    """Validate a value being stored into a bytearray, matching CPython: it must
+    be an integer in range(0, 256).  Keeps the (possibly symbolic) integer so a
+    symbolic value forks into its in-range and ValueError paths."""
+    if not isinstance(value, Integral):
+        raise TypeError("an integer is required")
+    if _out_of_byte_range(value):
+        raise ValueError("byte must be in range(0, 256)")
+    return value
+
+
+def _validated_byte_values(seq):
+    """Values destined for a bytearray's storage.  A bytes-like source already
+    constrains its elements to 0..255 (and stays lazy, keeping a symbolic length
+    symbolic), so it passes through untouched; any other iterable is validated
+    element-by-element."""
+    with NoTracing():
+        byte_seq = buffer_to_byte_seq(seq)
+        if byte_seq is not None and byte_seq is not seq:
+            return seq
+    values = list(seq)
+    if any(not isinstance(x, Integral) for x in values):
+        raise TypeError("an integer is required")
+    # Nesting any() over the per-element checks collapses the whole sequence's
+    # range test into a single path fork instead of one per element.
+    if any(_out_of_byte_range(x) for x in values):
+        raise ValueError("byte must be in range(0, 256)")
+    return values
+
+
 def make_byte_string(creator: SymbolicFactory):
     return SymbolicBytes(SymbolicBoundedIntTuple([(0, 255)], creator.varname))
 
@@ -4307,6 +4439,10 @@ class SymbolicByteArray(BytesLike, ShellMutableSequence):  # type: ignore
 
     __hash__ = None  # type: ignore
     data = property(_bytes_data_prop)
+
+    def _smt_for_unification(self, other_value: Any) -> Optional[z3.ExprRef]:
+        """See :func:`~crosshair.core.smt_for_unification`."""
+        return smt_for_unification(self.inner, other_value)
 
     def __ch_realize__(self):
         return bytearray(tracing_iter(self.inner))
@@ -4345,6 +4481,23 @@ class SymbolicByteArray(BytesLike, ShellMutableSequence):  # type: ignore
 
     def _spawn(self, items: Sequence) -> ShellMutableSequence:
         return SymbolicByteArray(items)
+
+    def append(self, item):
+        ShellMutableSequence.append(self, _as_byte_value(item))
+
+    def extend(self, other):
+        ShellMutableSequence.extend(self, _validated_byte_values(other))
+
+    def insert(self, index, item):
+        ShellMutableSequence.insert(self, index, _as_byte_value(item))
+
+    def __setitem__(self, key, value):
+        if isinstance(key, slice):
+            if is_iterable(value):  # else let super() raise the iterable TypeError
+                value = _validated_byte_values(value)
+        else:
+            value = _as_byte_value(value)
+        ShellMutableSequence.__setitem__(self, key, value)
 
     def decode(self, encoding="utf-8", errors="strict"):
         return codecs.decode(self, encoding, errors=errors)
@@ -4722,7 +4875,7 @@ def _dict(arg=_MISSING, **kwargs) -> Union[dict, ShellMutableMap]:
         for pair in arg:  # NOTE: `arg` can be an iterator; scan only once
             if len(pair) != 2:
                 raise ValueError
-            (key, val) = pair
+            key, val = pair
             if not is_hashable(key):
                 raise ValueError
             all_items.append(pair)
@@ -4766,7 +4919,7 @@ def _format(obj: object, format_spec: str = "") -> Union[str, AnySymbolicStr]:
 def _getattr(obj: object, name: str, default=_MISSING) -> object:
     with NoTracing():
         if isinstance(name, AnySymbolicStr):
-            fork_on_useful_attr_names(obj, name)  # type:ignore
+            fork_on_useful_attr_names(obj, name)  # type: ignore
             name = realize(name)
         if default is _MISSING:
             return getattr(obj, name)
@@ -4777,7 +4930,7 @@ def _getattr(obj: object, name: str, default=_MISSING) -> object:
 def _hasattr(obj: object, name: str) -> bool:
     with NoTracing():
         if isinstance(name, AnySymbolicStr):
-            fork_on_useful_attr_names(obj, name)  # type:ignore
+            fork_on_useful_attr_names(obj, name)  # type: ignore
             name = realize(name)
         return hasattr(obj, name)
 
@@ -5289,8 +5442,7 @@ def make_registrations():
 
     register_type(NamedTuple, lambda p, *t: p(Tuple.__getitem__(tuple(t))))
 
-    register_type(re.Pattern, lambda p, t=None: re.compile(realize(p(str))))
-    register_type(re.Match, make_raiser(CrosshairUnsupported))
+    # re.Pattern and re.Match are registered in relib.py.
 
     # Text: (elsewhere - identical to str)
     register_type(bytes, make_byte_string)

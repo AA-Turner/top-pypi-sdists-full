@@ -1398,7 +1398,7 @@ export interface components {
             /** Token Limit */
             token_limit?: number | null;
             /** Token Limit Type */
-            token_limit_type?: ("all" | "output") | null;
+            token_limit_type?: string | null;
             /** Turn Limit */
             turn_limit?: number | null;
             /** Working Limit */
@@ -2040,6 +2040,8 @@ export interface components {
             reasoning_effort?: ("none" | "minimal" | "low" | "medium" | "high" | "xhigh" | "max") | null;
             /** Reasoning History */
             reasoning_history?: ("none" | "all" | "last" | "auto") | null;
+            /** Reasoning Mode */
+            reasoning_mode?: ("standard" | "pro") | null;
             /** Reasoning Summary */
             reasoning_summary?: ("none" | "concise" | "detailed" | "auto") | null;
             /** Reasoning Tokens */

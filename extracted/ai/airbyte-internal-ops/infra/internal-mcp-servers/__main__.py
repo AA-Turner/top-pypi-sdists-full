@@ -47,7 +47,9 @@ OPS_MCP_PATH_PREFIX = "/ops-mcp"
 OPS_MCP_PREVIEW_PATH_PREFIX = "/ops-mcp-preview"
 OPS_MCP_PUBLIC_URL = f"https://{MCP_DOMAIN}{OPS_MCP_PATH_PREFIX}"
 OPS_MCP_PREVIEW_PUBLIC_URL = f"https://{MCP_DOMAIN}{OPS_MCP_PREVIEW_PATH_PREFIX}"
-OPS_MCP_OAUTH_CLIENT_ID = config.get("ops-mcp-oauth-client-id") or "airbyte-ops-mcp-client"
+OPS_MCP_OAUTH_CLIENT_ID = (
+    config.get("ops-mcp-oauth-client-id") or "airbyte-ops-mcp-client"
+)
 
 OAUTH_ISSUER = (
     config.get("oauth-issuer") or "https://cloud.airbyte.com/auth/realms/airbyte"

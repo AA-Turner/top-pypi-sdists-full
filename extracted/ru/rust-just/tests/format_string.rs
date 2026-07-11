@@ -290,3 +290,86 @@ fn format_string_followed_by_recipe() {
     )
     .success();
 }
+
+#[test]
+fn unterminated_format_string_error() {
+  Test::new()
+    .justfile("x := f'{{}}")
+    .stderr(
+      "
+        error: unterminated string
+         ——▶ justfile:1:10
+          │
+        1 │ x := f'{{}}
+          │          ^^
+      ",
+    )
+    .failure();
+}
+
+#[test]
+fn mismatched_closing_delimiter_in_format_string() {
+  Test::new()
+    .justfile(
+      "
+        foo := f'{{ )
+        bar:
+      ",
+    )
+    .stderr(
+      "
+        error: mismatched closing delimiter `)`, did you mean to close the `{{` on line 1?
+         ——▶ justfile:1:13
+          │
+        1 │ foo := f'{{ )
+          │             ^
+      ",
+    )
+    .failure();
+}
+
+#[test]
+fn format_backticks_are_forbidden() {
+  Test::new()
+    .justfile("foo := f`echo {{ arch() }}`")
+    .stderr(
+      "
+        error: expected '&&', '!=', '!~', '||', comment, end of file, end of line, '==', '=~', '(', '+', '++', or '/', but found backtick
+         ——▶ justfile:1:9
+          │
+        1 │ foo := f`echo {{ arch() }}`
+          │         ^^^^^^^^^^^^^^^^^^^
+      ",
+    )
+    .failure();
+}
+
+#[test]
+fn stray_identifier_in_interpolation_is_an_error() {
+  Test::new()
+    .justfile(
+      "
+        a := 'A'
+        x := f'{{ a x }}plain'
+      ",
+    )
+    .args(["--evaluate", "x"])
+    .stderr(
+      "
+        error: expected '&&', '!=', '!~', '||', '==', '=~', format string continue, format string end, '(', '+', '++', or \
+       '/', but found identifier
+         ——▶ justfile:2:13
+          │
+        2 │ x := f'{{ a x }}plain'
+          │             ^
+      ",
+    )
+    .failure();
+}
+
+#[test]
+fn indented_format_strings_are_unindented_once() {
+  assert_eval("f'''\n\n  foo\n'''", "\nfoo\n");
+  assert_eval("'''\n\n  foo\n'''", "\nfoo\n");
+  assert_eval("f'''\n\n  foo {{ 'bar' }}\n'''", "\nfoo bar\n");
+}

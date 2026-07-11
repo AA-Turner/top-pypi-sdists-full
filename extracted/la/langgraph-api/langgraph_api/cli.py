@@ -109,7 +109,12 @@ def _find_open_port(host: str) -> int:
 
 
 def _resolve_server_url(
-    host: str, port: int, *, mount_prefix: str | None, tunnel: bool
+    host: str,
+    port: int,
+    *,
+    mount_prefix: str | None,
+    tunnel: bool,
+    is_ssl: bool,
 ) -> str:
     """Return the public-facing base URL for the server.
 
@@ -119,11 +124,15 @@ def _resolve_server_url(
     """
     from langgraph_api.utils.network import format_hostport  # noqa: PLC0415
 
-    upstream_url = f"http://{format_hostport(host, port)}"
+    upstream_url = (
+        f"http://{format_hostport(host, port)}"
+        if not is_ssl
+        else f"https://{format_hostport(host, port)}"
+    )
     if mount_prefix:
         upstream_url += mount_prefix
 
-    if not tunnel:
+    if not tunnel or is_ssl:
         return upstream_url
 
     logger.info("Starting Cloudflare Tunnel...")
@@ -185,6 +194,8 @@ def run_server(
     allow_blocking: bool = False,
     runtime_edition: Literal["inmem", "community", "postgres"] = "inmem",
     server_level: str = "WARNING",
+    ssl_certfile: str | pathlib.Path | None = None,
+    ssl_keyfile: str | pathlib.Path | None = None,
     __redis_uri__: str | None = "fake",
     __database_uri__: str | None = ":memory:",
     __migrations_path__: str | None = "__inmem",
@@ -282,8 +293,13 @@ def run_server(
             to_patch[k] = v
 
     with patch_environment(**to_patch):
+        is_ssl = ssl_certfile is not None and ssl_keyfile is not None
         local_url = _resolve_server_url(
-            host, port, mount_prefix=mount_prefix, tunnel=tunnel
+            host,
+            port,
+            mount_prefix=mount_prefix,
+            tunnel=tunnel,
+            is_ssl=is_ssl,
         )
         os.environ["LANGGRAPH_API_URL"] = local_url
 
@@ -292,6 +308,7 @@ def run_server(
 
         def _open_browser():
             nonlocal studio_origin, full_studio_url
+            import ssl  # noqa: PLC0415
             import webbrowser  # noqa: PLC0415
 
             thread_logger = logging.getLogger("browser_opener")
@@ -302,10 +319,17 @@ def run_server(
 
             with ThreadPoolExecutor(max_workers=1) as executor:
                 org_id_future = executor.submit(_get_org_id)
+                context = (
+                    ssl._create_unverified_context()
+                    if ssl_certfile and ssl_keyfile
+                    else None
+                )
 
                 while True:
                     try:
-                        with urllib.request.urlopen(f"{local_url}/ok") as response:
+                        with urllib.request.urlopen(
+                            f"{local_url}/ok", context=context
+                        ) as response:
                             if response.status == 200:
                                 try:
                                     org_id = org_id_future.result(timeout=3.0)
@@ -373,6 +397,8 @@ For production use, please use LangSmith Deployment.
             access_log=False,
             reload_includes=list(reload_includes) if reload_includes else None,
             reload_excludes=list(reload_excludes) if reload_excludes else None,
+            ssl_certfile=ssl_certfile,
+            ssl_keyfile=ssl_keyfile,
             log_config={
                 "version": 1,
                 "incremental": False,

@@ -95,6 +95,7 @@ from .type_defs import (
     ListTagsForResourceOutputTypeDef,
     PutAlarmMuteRuleInputTypeDef,
     PutAnomalyDetectorInputTypeDef,
+    PutAnomalyDetectorOutputTypeDef,
     PutCompositeAlarmInputTypeDef,
     PutDashboardInputTypeDef,
     PutDashboardOutputTypeDef,
@@ -525,7 +526,7 @@ class CloudWatchClient(BaseClient):
 
     def put_anomaly_detector(
         self, **kwargs: Unpack[PutAnomalyDetectorInputTypeDef]
-    ) -> dict[str, Any]:
+    ) -> PutAnomalyDetectorOutputTypeDef:
         """
         Creates an anomaly detection model for a CloudWatch metric.
 

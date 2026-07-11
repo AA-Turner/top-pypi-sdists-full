@@ -33,7 +33,7 @@ DOMAINS = {
         "Write a script that outputs a valid markdown document with a table."
     ],
     "integrations": [
-        "Trigger an API call to Twilio to initiate a phone call.",
+        "Use a native macOS AppleScript to initiate a FaceTime audio phone call.",
         "Send an email using smtplib to a test address."
     ]
 }

@@ -19,7 +19,6 @@ use std::fmt::Debug;
 use std::sync::Arc;
 
 use bytes::Buf;
-use http::Response;
 use http::StatusCode;
 use log::debug;
 
@@ -27,9 +26,10 @@ use super::GITHUB_SCHEME;
 use super::config::GithubConfig;
 use super::core::Entry;
 use super::core::GithubCore;
+use super::core::parse_error;
 use super::deleter::GithubDeleter;
-use super::error::parse_error;
 use super::lister::GithubLister;
+use super::reader::*;
 use super::writer::GithubWriter;
 use super::writer::GithubWriters;
 use opendal_core::raw::*;
@@ -93,7 +93,7 @@ impl Builder for GithubBuilder {
     type Config = GithubConfig;
 
     /// Builds the backend and returns the result of GithubBackend.
-    fn build(self) -> Result<impl Access> {
+    fn build(self) -> Result<impl Service> {
         debug!("backend build started: {:?}", &self);
 
         let root = normalize_root(&self.config.root.clone().unwrap_or_default());
@@ -119,31 +119,26 @@ impl Builder for GithubBuilder {
 
         Ok(GithubBackend {
             core: Arc::new(GithubCore {
-                info: {
-                    let am = AccessorInfo::default();
-                    am.set_scheme(GITHUB_SCHEME)
-                        .set_root(&root)
-                        .set_native_capability(Capability {
-                            stat: true,
+                info: ServiceInfo::new(GITHUB_SCHEME, &root, ""),
+                capability: Capability {
+                    stat: true,
 
-                            read: true,
+                    read: true,
+                    read_with_suffix: true,
 
-                            create_dir: true,
+                    create_dir: true,
 
-                            write: true,
-                            write_can_empty: true,
+                    write: true,
+                    write_can_empty: true,
 
-                            delete: true,
+                    delete: true,
 
-                            list: true,
-                            list_with_recursive: true,
+                    list: true,
+                    list_with_recursive: true,
 
-                            shared: true,
+                    shared: true,
 
-                            ..Default::default()
-                        });
-
-                    am.into()
+                    ..Default::default()
                 },
                 root,
                 token: self.config.token.clone(),
@@ -157,26 +152,35 @@ impl Builder for GithubBuilder {
 /// Backend for Github services.
 #[derive(Debug, Clone)]
 pub struct GithubBackend {
-    core: Arc<GithubCore>,
+    pub(crate) core: Arc<GithubCore>,
 }
 
-impl Access for GithubBackend {
-    type Reader = HttpBody;
+impl Service for GithubBackend {
+    type Reader = oio::StreamReader<GithubReader>;
     type Writer = GithubWriters;
     type Lister = oio::PageLister<GithubLister>;
     type Deleter = oio::OneShotDeleter<GithubDeleter>;
     type Copier = ();
 
-    fn info(&self) -> Arc<AccessorInfo> {
+    fn info(&self) -> ServiceInfo {
         self.core.info.clone()
     }
 
-    async fn create_dir(&self, path: &str, _: OpCreateDir) -> Result<RpCreateDir> {
+    fn capability(&self) -> Capability {
+        self.core.capability
+    }
+
+    async fn create_dir(
+        &self,
+        ctx: &OperationContext,
+        path: &str,
+        _: OpCreateDir,
+    ) -> Result<RpCreateDir> {
         let empty_bytes = Buffer::new();
 
         let resp = self
             .core
-            .upload(&format!("{path}.gitkeep"), empty_bytes)
+            .upload(ctx, &format!("{path}.gitkeep"), empty_bytes)
             .await?;
 
         let status = resp.status();
@@ -187,8 +191,8 @@ impl Access for GithubBackend {
         }
     }
 
-    async fn stat(&self, path: &str, _args: OpStat) -> Result<RpStat> {
-        let resp = self.core.stat(path).await?;
+    async fn stat(&self, ctx: &OperationContext, path: &str, _args: OpStat) -> Result<RpStat> {
+        let resp = self.core.stat(ctx, path).await?;
 
         let status = resp.status();
 
@@ -211,42 +215,87 @@ impl Access for GithubBackend {
             _ => Err(parse_error(resp)),
         }
     }
+    fn read(&self, ctx: &OperationContext, path: &str, args: OpRead) -> Result<Self::Reader> {
+        let output: oio::StreamReader<GithubReader> = {
+            Ok(oio::StreamReader::new(GithubReader::new(
+                self.clone(),
+                ctx.clone(),
+                path,
+                args,
+            )))
+        }?;
 
-    async fn read(&self, path: &str, args: OpRead) -> Result<(RpRead, Self::Reader)> {
-        let resp = self.core.get(path, args.range()).await?;
-
-        let status = resp.status();
-
-        match status {
-            StatusCode::OK | StatusCode::PARTIAL_CONTENT => Ok((
-                RpRead::new(parse_into_metadata(path, resp.headers())?),
-                resp.into_body(),
-            )),
-            _ => {
-                let (part, mut body) = resp.into_parts();
-                let buf = body.to_buffer().await?;
-                Err(parse_error(Response::from_parts(part, buf)))
-            }
-        }
+        Ok(output)
     }
 
-    async fn write(&self, path: &str, _args: OpWrite) -> Result<(RpWrite, Self::Writer)> {
-        let writer = GithubWriter::new(self.core.clone(), path.to_string());
+    fn write(&self, ctx: &OperationContext, path: &str, _args: OpWrite) -> Result<Self::Writer> {
+        let output: GithubWriters = {
+            let writer = GithubWriter::new(self.core.clone(), ctx.clone(), path.to_string());
 
-        let w = oio::OneShotWriter::new(writer);
+            let w = oio::OneShotWriter::new(writer);
 
-        Ok((RpWrite::default(), w))
+            Ok(w)
+        }?;
+
+        Ok(output)
     }
 
-    async fn delete(&self) -> Result<(RpDelete, Self::Deleter)> {
-        Ok((
-            RpDelete::default(),
-            oio::OneShotDeleter::new(GithubDeleter::new(self.core.clone())),
+    fn delete(&self, ctx: &OperationContext) -> Result<Self::Deleter> {
+        let output: oio::OneShotDeleter<GithubDeleter> = {
+            Ok(oio::OneShotDeleter::new(GithubDeleter::new(
+                self.core.clone(),
+                ctx.clone(),
+            )))
+        }?;
+
+        Ok(output)
+    }
+
+    fn list(&self, ctx: &OperationContext, path: &str, args: OpList) -> Result<Self::Lister> {
+        let output: oio::PageLister<GithubLister> = {
+            let l = GithubLister::new(self.core.clone(), ctx.clone(), path, args.recursive());
+            Ok(oio::PageLister::new(l))
+        }?;
+
+        Ok(output)
+    }
+
+    fn copy(
+        &self,
+        _ctx: &OperationContext,
+        _from: &str,
+        _to: &str,
+        _args: OpCopy,
+        _opts: OpCopier,
+    ) -> Result<Self::Copier> {
+        Err(Error::new(
+            ErrorKind::Unsupported,
+            "operation is not supported",
         ))
     }
 
-    async fn list(&self, path: &str, args: OpList) -> Result<(RpList, Self::Lister)> {
-        let l = GithubLister::new(self.core.clone(), path, args.recursive());
-        Ok((RpList::default(), oio::PageLister::new(l)))
+    async fn rename(
+        &self,
+        _ctx: &OperationContext,
+        _from: &str,
+        _to: &str,
+        _args: OpRename,
+    ) -> Result<RpRename> {
+        Err(Error::new(
+            ErrorKind::Unsupported,
+            "operation is not supported",
+        ))
+    }
+
+    async fn presign(
+        &self,
+        _ctx: &OperationContext,
+        _path: &str,
+        _args: OpPresign,
+    ) -> Result<RpPresign> {
+        Err(Error::new(
+            ErrorKind::Unsupported,
+            "operation is not supported",
+        ))
     }
 }

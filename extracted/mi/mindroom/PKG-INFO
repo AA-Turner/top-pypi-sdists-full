@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: mindroom
-Version: 2026.7.103
+Version: 2026.7.119
 Summary: A universal interface for AI agents with persistent memory, where every conversation has a home
 Project-URL: documentation, https://github.com/mindroom-ai/mindroom
 Project-URL: homepage, https://github.com/mindroom-ai/mindroom
@@ -37,7 +37,7 @@ Requires-Dist: markdown-it-py>=4
 Requires-Dist: mcp[cli]>=1.12.4
 Requires-Dist: mdit-py-plugins>=0.5
 Requires-Dist: mem0ai>=0.1.115
-Requires-Dist: mindroom-nio[e2e]>=0.26
+Requires-Dist: mindroom-nio[e2e]>=0.27
 Requires-Dist: openai
 Requires-Dist: pydantic-settings>=2.10.1
 Requires-Dist: pydantic>=2
@@ -196,6 +196,8 @@ Requires-Dist: linkup-sdk>=0.2.8; extra == 'linkup'
 Provides-Extra: lumalabs
 Requires-Dist: lumaai; extra == 'lumalabs'
 Provides-Extra: matrix-api
+Provides-Extra: matrix-calls
+Requires-Dist: livekit-agents[openai]>=1.6.4; extra == 'matrix-calls'
 Provides-Extra: matrix-e2ee
 Provides-Extra: matrix-message
 Provides-Extra: matrix-room
@@ -540,7 +542,7 @@ voice:
   enabled: true
   stt:
     provider: openai
-    model: whisper-1
+    model: gpt-4o-transcribe
 
 mindroom_user:
   username: mindroom_user  # Immutable once the account is created on first run

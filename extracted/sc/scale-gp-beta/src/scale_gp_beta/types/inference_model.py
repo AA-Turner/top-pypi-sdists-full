@@ -41,4 +41,6 @@ class InferenceModel(BaseModel):
 
     object: Optional[Literal["model"]] = None
 
+    status_reason: Optional[str] = None
+
     vendor_configuration: Optional[VendorConfiguration] = None

@@ -17,7 +17,8 @@
 
 //! Options module provides options definitions for operations.
 
-use crate::raw::{BytesRange, Timestamp};
+use crate::raw::Timestamp;
+use crate::types::BytesRange;
 use std::collections::HashMap;
 
 /// Options for delete operations.
@@ -65,6 +66,7 @@ pub struct ReadOptions {
     /// - `..` means read bytes in range `[0, n)` of file.
     /// - `0..1024` and `..1024` means read bytes in range `[0, 1024)` of file
     /// - `1024..` means read bytes in range `[1024, n)` of file
+    /// - `BytesRange::suffix(1024)` means read the last `min(1024, n)` bytes of file
     ///
     /// The type implements `From<RangeBounds<u64>>`, so users can use `(1024..).into()` instead.
     pub range: BytesRange,
@@ -560,6 +562,19 @@ pub struct CopyOptions {
     ///   destination object's ETag matches the given value.
     pub if_match: Option<String>,
 
+    /// Copy from a specific source object version.
+    ///
+    /// ### Capability
+    ///
+    /// Check [`Capability::copy_with_source_version`] before using this feature.
+    ///
+    /// ### Behavior
+    ///
+    /// - If supported, the copy operation will read from the specified source
+    ///   version instead of the current source object.
+    /// - Destination behavior follows normal copy semantics.
+    pub source_version: Option<String>,
+
     /// Known content length of the source object.
     ///
     /// This is an execution hint that allows OpenDAL to avoid extra metadata
@@ -585,4 +600,22 @@ pub struct CopyOptions {
     /// server-side segmented copy can use it as the target size for each copy
     /// step. Services that cannot split copy operations can ignore it.
     pub chunk: Option<usize>,
+}
+
+/// Options for rename operations.
+#[derive(Debug, Clone, Default, Eq, PartialEq)]
+pub struct RenameOptions {
+    /// Sets the condition that rename operation will succeed only if target does not exist.
+    ///
+    /// ### Capability
+    ///
+    /// Check [`Capability::rename_with_if_not_exists`] before using this feature.
+    ///
+    /// ### Behavior
+    ///
+    /// - If the target does not exist, the rename operation succeeds.
+    /// - If the target exists, the operation returns [`ErrorKind::ConditionNotMatch`].
+    /// - If the service does not support this condition, the operation returns
+    ///   [`ErrorKind::Unsupported`].
+    pub if_not_exists: bool,
 }

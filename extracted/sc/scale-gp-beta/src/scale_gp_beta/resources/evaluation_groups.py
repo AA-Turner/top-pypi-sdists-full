@@ -72,7 +72,18 @@ class EvaluationGroupsResource(SyncAPIResource):
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> EvaluationGroup:
         """
-        Create a new evaluation group
+        Create a new evaluation group bundling one or more existing evaluations.
+
+        The request must list at least one evaluation ID, and duplicate IDs are
+        rejected. Every listed evaluation is validated for existence and account access
+        before the group is created; an unknown or inaccessible evaluation ID fails the
+        whole request with a 400 rather than creating a partial group. The named
+        evaluations are added as group members in the same transaction, and any supplied
+        row_identifiers (an evaluation_id-to-column-name mapping used for cross-dataset
+        joins) are persisted alongside them, ignoring entries for evaluation IDs not in
+        the group. The returned group includes its members enriched with each
+        evaluation's name, tags, and creation time. Unlike the PUT and PATCH update
+        endpoints, creation does not trigger any dashboard-widget recomputation.
 
         Args:
           evaluation_ids: List of evaluation IDs to include in the group
@@ -128,7 +139,14 @@ class EvaluationGroupsResource(SyncAPIResource):
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> EvaluationGroup:
         """
-        Get a single evaluation group by ID
+        Fetch a single evaluation group by its ID.
+
+        By default only non-archived groups are returned; set include_deleted to also
+        resolve a soft-deleted group. The views parameter optionally expands the
+        response with the group's members and/or row_identifiers, and when members are
+        loaded they are enriched with each member evaluation's name, tags, and creation
+        time. Use the schema endpoint instead when you need the per-evaluation column
+        schemas of the group's members.
 
         Args:
           views: Optional relationships to include: 'members', 'row_identifiers'
@@ -178,8 +196,16 @@ class EvaluationGroupsResource(SyncAPIResource):
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> EvaluationGroup:
         """
-        Partial update of evaluation group attributes (name, description, tags,
-        metadata). Members cannot be modified via PATCH.
+        Partially update an evaluation group's attributes.
+
+        Only the fields present in the request are changed; unset fields are left
+        untouched. Unlike the PUT endpoint, metadata is merged into the existing
+        metadata key-by-key rather than replaced wholesale, and group membership
+        (evaluation_ids) cannot be changed here -- use PUT to replace members. At least
+        one field must be supplied or the request fails with a 400. Supplying
+        row_identifiers replaces the group's entire row identifier set (an
+        evaluation_id-to-column-name mapping for cross-dataset joins); passing an empty
+        mapping clears it.
 
         Args:
           description: Optional description
@@ -241,7 +267,17 @@ class EvaluationGroupsResource(SyncAPIResource):
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> SyncCursorPage[EvaluationGroup]:
         """
-        List all evaluation groups for the current account
+        List the calling account's evaluation groups with optional filters.
+
+        Results are paginated and scoped to the authenticated account. The optional
+        filters combine with AND semantics: name does a case-insensitive partial
+        (substring) match on the group name, tags returns only groups whose tag list
+        contains all of the supplied tags, and evaluation_id returns only groups that
+        have the given evaluation as an active member. By default archived
+        (soft-deleted) groups are excluded; set include_deleted to include them. The
+        views parameter optionally expands each group with its members and/or
+        row_identifiers, and returned members are enriched with each evaluation's name,
+        tags, and creation time.
 
         Args:
           evaluation_id: Filter to groups containing this evaluation ID
@@ -295,8 +331,14 @@ class EvaluationGroupsResource(SyncAPIResource):
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> EvaluationGroup:
         """
-        Soft-delete an evaluation group and cascade to members, row identifiers, and
-        charts
+        Archive (soft-delete) an evaluation group and its dependent records.
+
+        This is a soft delete: the group is marked deleted rather than removed, so it no
+        longer appears in default list/get results but can still be fetched with the
+        include-deleted flags. The same delete timestamp cascades as a soft delete to
+        the group's members, row identifiers, and its dashboard charts and their chart
+        columns; the member evaluations themselves are not affected. The archived group
+        is returned in the response.
 
         Args:
           extra_headers: Send extra headers
@@ -334,10 +376,21 @@ class EvaluationGroupsResource(SyncAPIResource):
         extra_body: Body | None = None,
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> EvaluationGroup:
-        """Full update of evaluation group.
+        """
+        Replace an evaluation group's attributes and, optionally, its membership.
 
-        All fields are replaced with provided values.
-        Omitted optional fields are cleared.
+        This is a full replacement of the group's attributes: every attribute field
+        (name, description, tags, metadata) is written from the request, so omitting an
+        optional field clears it rather than leaving it unchanged. Use PATCH instead to
+        update only selected fields and to merge (rather than overwrite) metadata.
+        Membership is replaced only when evaluation_ids is supplied: the resulting
+        members become exactly that set (added/removed by diff against the current
+        members), it must contain at least one ID with no duplicates, and every ID is
+        validated for existence and account access or the request fails with a 400. When
+        membership actually changes, a best-effort Temporal workflow is started to
+        recompute the group's dashboard widgets; this is fire-and-forget and its failure
+        does not fail the request. Removing members hard-deletes the corresponding chart
+        columns and any charts left with no columns.
 
         Args:
           description: Optional description
@@ -393,11 +446,17 @@ class EvaluationGroupsResource(SyncAPIResource):
         extra_body: Body | None = None,
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> EvaluationGroupRetrieveSchemaResponse:
-        """Get per-evaluation schemas for all members of a group.
+        """
+        Return a separate column schema for each active member evaluation of the group.
 
-        Returns individual schema
-        for each member evaluation, enabling the frontend to filter columns by selected
-        eval subset.
+        Rather than a single merged schema, the response holds one schema entry per
+        active member evaluation (each with its field list, total item count, and
+        sampling info), which lets a caller filter columns down to a chosen subset of
+        the group's evaluations. Schemas are computed from the member evaluations'
+        items; include_archived controls whether archived items are counted in that
+        analysis. A group with no active members returns an empty schema list. This
+        differs from the plain get endpoint, which returns group metadata and members
+        but not their column schemas.
 
         Args:
           include_archived: Include archived items in schema analysis
@@ -465,7 +524,18 @@ class AsyncEvaluationGroupsResource(AsyncAPIResource):
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> EvaluationGroup:
         """
-        Create a new evaluation group
+        Create a new evaluation group bundling one or more existing evaluations.
+
+        The request must list at least one evaluation ID, and duplicate IDs are
+        rejected. Every listed evaluation is validated for existence and account access
+        before the group is created; an unknown or inaccessible evaluation ID fails the
+        whole request with a 400 rather than creating a partial group. The named
+        evaluations are added as group members in the same transaction, and any supplied
+        row_identifiers (an evaluation_id-to-column-name mapping used for cross-dataset
+        joins) are persisted alongside them, ignoring entries for evaluation IDs not in
+        the group. The returned group includes its members enriched with each
+        evaluation's name, tags, and creation time. Unlike the PUT and PATCH update
+        endpoints, creation does not trigger any dashboard-widget recomputation.
 
         Args:
           evaluation_ids: List of evaluation IDs to include in the group
@@ -521,7 +591,14 @@ class AsyncEvaluationGroupsResource(AsyncAPIResource):
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> EvaluationGroup:
         """
-        Get a single evaluation group by ID
+        Fetch a single evaluation group by its ID.
+
+        By default only non-archived groups are returned; set include_deleted to also
+        resolve a soft-deleted group. The views parameter optionally expands the
+        response with the group's members and/or row_identifiers, and when members are
+        loaded they are enriched with each member evaluation's name, tags, and creation
+        time. Use the schema endpoint instead when you need the per-evaluation column
+        schemas of the group's members.
 
         Args:
           views: Optional relationships to include: 'members', 'row_identifiers'
@@ -571,8 +648,16 @@ class AsyncEvaluationGroupsResource(AsyncAPIResource):
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> EvaluationGroup:
         """
-        Partial update of evaluation group attributes (name, description, tags,
-        metadata). Members cannot be modified via PATCH.
+        Partially update an evaluation group's attributes.
+
+        Only the fields present in the request are changed; unset fields are left
+        untouched. Unlike the PUT endpoint, metadata is merged into the existing
+        metadata key-by-key rather than replaced wholesale, and group membership
+        (evaluation_ids) cannot be changed here -- use PUT to replace members. At least
+        one field must be supplied or the request fails with a 400. Supplying
+        row_identifiers replaces the group's entire row identifier set (an
+        evaluation_id-to-column-name mapping for cross-dataset joins); passing an empty
+        mapping clears it.
 
         Args:
           description: Optional description
@@ -634,7 +719,17 @@ class AsyncEvaluationGroupsResource(AsyncAPIResource):
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> AsyncPaginator[EvaluationGroup, AsyncCursorPage[EvaluationGroup]]:
         """
-        List all evaluation groups for the current account
+        List the calling account's evaluation groups with optional filters.
+
+        Results are paginated and scoped to the authenticated account. The optional
+        filters combine with AND semantics: name does a case-insensitive partial
+        (substring) match on the group name, tags returns only groups whose tag list
+        contains all of the supplied tags, and evaluation_id returns only groups that
+        have the given evaluation as an active member. By default archived
+        (soft-deleted) groups are excluded; set include_deleted to include them. The
+        views parameter optionally expands each group with its members and/or
+        row_identifiers, and returned members are enriched with each evaluation's name,
+        tags, and creation time.
 
         Args:
           evaluation_id: Filter to groups containing this evaluation ID
@@ -688,8 +783,14 @@ class AsyncEvaluationGroupsResource(AsyncAPIResource):
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> EvaluationGroup:
         """
-        Soft-delete an evaluation group and cascade to members, row identifiers, and
-        charts
+        Archive (soft-delete) an evaluation group and its dependent records.
+
+        This is a soft delete: the group is marked deleted rather than removed, so it no
+        longer appears in default list/get results but can still be fetched with the
+        include-deleted flags. The same delete timestamp cascades as a soft delete to
+        the group's members, row identifiers, and its dashboard charts and their chart
+        columns; the member evaluations themselves are not affected. The archived group
+        is returned in the response.
 
         Args:
           extra_headers: Send extra headers
@@ -727,10 +828,21 @@ class AsyncEvaluationGroupsResource(AsyncAPIResource):
         extra_body: Body | None = None,
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> EvaluationGroup:
-        """Full update of evaluation group.
+        """
+        Replace an evaluation group's attributes and, optionally, its membership.
 
-        All fields are replaced with provided values.
-        Omitted optional fields are cleared.
+        This is a full replacement of the group's attributes: every attribute field
+        (name, description, tags, metadata) is written from the request, so omitting an
+        optional field clears it rather than leaving it unchanged. Use PATCH instead to
+        update only selected fields and to merge (rather than overwrite) metadata.
+        Membership is replaced only when evaluation_ids is supplied: the resulting
+        members become exactly that set (added/removed by diff against the current
+        members), it must contain at least one ID with no duplicates, and every ID is
+        validated for existence and account access or the request fails with a 400. When
+        membership actually changes, a best-effort Temporal workflow is started to
+        recompute the group's dashboard widgets; this is fire-and-forget and its failure
+        does not fail the request. Removing members hard-deletes the corresponding chart
+        columns and any charts left with no columns.
 
         Args:
           description: Optional description
@@ -786,11 +898,17 @@ class AsyncEvaluationGroupsResource(AsyncAPIResource):
         extra_body: Body | None = None,
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> EvaluationGroupRetrieveSchemaResponse:
-        """Get per-evaluation schemas for all members of a group.
+        """
+        Return a separate column schema for each active member evaluation of the group.
 
-        Returns individual schema
-        for each member evaluation, enabling the frontend to filter columns by selected
-        eval subset.
+        Rather than a single merged schema, the response holds one schema entry per
+        active member evaluation (each with its field list, total item count, and
+        sampling info), which lets a caller filter columns down to a chosen subset of
+        the group's evaluations. Schemas are computed from the member evaluations'
+        items; include_archived controls whether archived items are counted in that
+        analysis. A group with no active members returns an empty schema list. This
+        differs from the plain get endpoint, which returns group metadata and members
+        but not their column schemas.
 
         Args:
           include_archived: Include archived items in schema analysis

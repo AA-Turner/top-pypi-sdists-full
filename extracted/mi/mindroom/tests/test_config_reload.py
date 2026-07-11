@@ -18,6 +18,7 @@ import mindroom.orchestrator as orchestrator_module
 import mindroom.tool_system.plugin_imports as plugin_module
 from mindroom.bot import AgentBot
 from mindroom.config.agent import AgentConfig, CultureConfig, RoomConfig, TeamConfig
+from mindroom.config.calls import CallsConfig
 from mindroom.config.main import Config
 from mindroom.config.models import ModelConfig, RouterConfig
 from mindroom.constants import ROUTER_AGENT_NAME, STREAM_STATUS_KEY, STREAM_STATUS_PENDING
@@ -27,7 +28,11 @@ from mindroom.matrix.state import MatrixState
 from mindroom.matrix.users import AgentMatrixUser
 from mindroom.message_target import MessageTarget
 from mindroom.orchestration.config_updates import ConfigUpdatePlan, _get_changed_agents, build_config_update_plan
-from mindroom.orchestration.plugin_watch import _drop_unconfigured_plugin_root_snapshots, watch_plugins_task
+from mindroom.orchestration.plugin_watch import (
+    _collect_plugin_root_changes,
+    _drop_unconfigured_plugin_root_snapshots,
+    watch_plugins_task,
+)
 from mindroom.orchestration.runtime import log_startup_phase_finished, log_startup_phase_started
 from mindroom.orchestrator import _MultiAgentOrchestrator, _watch_skills_task
 from mindroom.startup_errors import PermanentStartupError
@@ -325,7 +330,7 @@ async def test_plugin_watcher_debounces_changes_and_ignores_unconfigured_roots(
     reload_calls: list[tuple[str, tuple[Path, ...]]] = []
     reload_seen = asyncio.Event()
 
-    async def record_reload(*, source: str, changed_paths: tuple[Path, ...] = ()) -> PluginReloadResult:
+    async def record_reload(*, source: str, changed_paths: tuple[Path, ...] = (), **_: int) -> PluginReloadResult:
         reload_calls.append((source, changed_paths))
         reload_seen.set()
         return PluginReloadResult(HookRegistry.empty(), (), 0)
@@ -396,7 +401,7 @@ async def test_plugin_watcher_tracks_configured_absolute_root_outside_config_dir
     reload_calls: list[tuple[str, tuple[Path, ...]]] = []
     reload_seen = asyncio.Event()
 
-    async def record_reload(*, source: str, changed_paths: tuple[Path, ...] = ()) -> PluginReloadResult:
+    async def record_reload(*, source: str, changed_paths: tuple[Path, ...] = (), **_: int) -> PluginReloadResult:
         reload_calls.append((source, changed_paths))
         reload_seen.set()
         return PluginReloadResult(HookRegistry.empty(), (), 0)
@@ -444,7 +449,7 @@ async def test_plugin_watcher_catches_first_save_after_startup(
     reload_calls: list[tuple[str, tuple[Path, ...]]] = []
     reload_seen = asyncio.Event()
 
-    async def record_reload(*, source: str, changed_paths: tuple[Path, ...] = ()) -> PluginReloadResult:
+    async def record_reload(*, source: str, changed_paths: tuple[Path, ...] = (), **_: int) -> PluginReloadResult:
         reload_calls.append((source, changed_paths))
         reload_seen.set()
         return PluginReloadResult(HookRegistry.empty(), (), 0)
@@ -498,7 +503,7 @@ async def test_plugin_watcher_catches_first_save_after_config_switch(
     reload_calls: list[tuple[str, tuple[Path, ...]]] = []
     reload_seen = asyncio.Event()
 
-    async def record_reload(*, source: str, changed_paths: tuple[Path, ...] = ()) -> PluginReloadResult:
+    async def record_reload(*, source: str, changed_paths: tuple[Path, ...] = (), **_: int) -> PluginReloadResult:
         reload_calls.append((source, changed_paths))
         reload_seen.set()
         return PluginReloadResult(HookRegistry.empty(), (), 0)
@@ -557,7 +562,7 @@ async def test_plugin_watcher_does_not_reload_on_config_switch_without_plugin_ed
 
     reload_calls: list[tuple[str, tuple[Path, ...]]] = []
 
-    async def record_reload(*, source: str, changed_paths: tuple[Path, ...] = ()) -> PluginReloadResult:
+    async def record_reload(*, source: str, changed_paths: tuple[Path, ...] = (), **_: int) -> PluginReloadResult:
         reload_calls.append((source, changed_paths))
         return PluginReloadResult(HookRegistry.empty(), (), 0)
 
@@ -602,7 +607,7 @@ async def test_plugin_watcher_ignores_cache_artifacts_created_during_reload(
     reload_calls: list[tuple[str, tuple[Path, ...]]] = []
     reload_seen = asyncio.Event()
 
-    async def record_reload(*, source: str, changed_paths: tuple[Path, ...] = ()) -> PluginReloadResult:
+    async def record_reload(*, source: str, changed_paths: tuple[Path, ...] = (), **_: int) -> PluginReloadResult:
         reload_calls.append((source, changed_paths))
         if len(reload_calls) == 1:
             pycache_dir = plugin_root / "__pycache__"
@@ -689,6 +694,101 @@ async def test_manual_plugin_reload_consumes_pending_watcher_changes(
     assert reload_call_count == 1
 
 
+def _plugin_watcher_race_runtime(tmp_path: Path) -> tuple[_MultiAgentOrchestrator, Config, Path, Path]:
+    plugin_root = tmp_path / "plugin"
+    plugin_root.mkdir()
+    (plugin_root / "mindroom.plugin.json").write_text('{"name":"demo","skills":[]}', encoding="utf-8")
+    hooks_path = plugin_root / "hooks.py"
+    hooks_path.write_text("VALUE = 1\n", encoding="utf-8")
+    config = _runtime_bound_config(Config(plugins=[str(plugin_root)]), tmp_path)
+    orchestrator = _MultiAgentOrchestrator(runtime_paths_for(config))
+    orchestrator.config = config
+    orchestrator.running = True
+    return orchestrator, config, plugin_root, hooks_path
+
+
+@pytest.mark.asyncio
+async def test_plugin_watcher_drops_pending_changes_when_reload_commits_during_scan(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    """A reload committing mid-scan should consume pending edits."""
+    monkeypatch.setattr("mindroom.file_watcher._WATCH_SCAN_INTERVAL_SECONDS", 0.0)
+    monkeypatch.setattr("mindroom.file_watcher._WATCH_TREE_DEBOUNCE_SECONDS", 0.0)
+    orchestrator, config, plugin_root, hooks_path = _plugin_watcher_race_runtime(tmp_path)
+    second_scan_started = asyncio.Event()
+    release_second_scan = asyncio.Event()
+    collect_count = 0
+
+    async def collect(roots: tuple[Path, ...], _snapshots: dict[Path, dict[Path, int]]) -> set[Path]:
+        nonlocal collect_count
+        assert roots == (plugin_root,)
+        collect_count += 1
+        if collect_count == 1:
+            return {hooks_path}
+        second_scan_started.set()
+        await release_second_scan.wait()
+        return set()
+
+    monkeypatch.setattr("mindroom.orchestration.plugin_watch._collect_plugin_root_changes", collect)
+    reload_mock = AsyncMock()
+    orchestrator.reload_plugins_now = reload_mock
+    task = asyncio.create_task(watch_plugins_task(orchestrator))
+    try:
+        await asyncio.wait_for(second_scan_started.wait(), timeout=1)
+        orchestrator.plugin_watch.refresh(config)
+        orchestrator.running = False
+        release_second_scan.set()
+        await task
+    finally:
+        task.cancel()
+        release_second_scan.set()
+    reload_mock.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_manual_plugin_reload_keeps_edit_landing_while_source_loads(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    """An edit during source loading should remain visible to the watcher."""
+    orchestrator, _, plugin_root, hooks_path = _plugin_watcher_race_runtime(tmp_path)
+    source_loaded = False
+
+    def snapshot(_root: Path) -> dict[Path, int]:
+        return {hooks_path: 2 if source_loaded else 1}
+
+    def load_source(_config: Config, _runtime_paths: object) -> PluginReloadResult:
+        nonlocal source_loaded
+        source_loaded = True
+        return PluginReloadResult(HookRegistry.empty(), ("demo",), 0)
+
+    monkeypatch.setattr("mindroom.orchestration.plugin_watch.file_watcher._tree_snapshot", snapshot)
+    with patch("mindroom.orchestrator.reload_plugins", side_effect=load_source):
+        await orchestrator.reload_plugins_now(source="command")
+    changed_paths = await _collect_plugin_root_changes((plugin_root,), orchestrator.plugin_watch.last_snapshot_by_root)
+    assert changed_paths == {hooks_path}
+
+
+@pytest.mark.asyncio
+async def test_watcher_reload_drops_stale_revision_after_waiting_for_config_lock(tmp_path: Path) -> None:
+    """A newer publication while lock-blocked should consume watcher work."""
+    orchestrator, config, _, hooks_path = _plugin_watcher_race_runtime(tmp_path)
+    orchestrator.plugin_watch.sync_roots(config)
+    await orchestrator._config_update_lock.acquire()
+    task = asyncio.create_task(
+        orchestrator.reload_plugins_now(
+            source="watcher",
+            changed_paths=(hooks_path,),
+            expected_revision=orchestrator.plugin_watch.revision,
+        ),
+    )
+    await asyncio.sleep(0)
+    orchestrator.plugin_watch.refresh(config)
+    orchestrator._config_update_lock.release()
+    assert await task is None
+
+
 def test_plugin_tree_snapshot_ignores_git_metadata(tmp_path: Path) -> None:
     """Plugin tree snapshots should ignore Git metadata files inside watched repos."""
     plugin_root = tmp_path / "plugins" / "demo"
@@ -738,7 +838,7 @@ async def test_plugin_watcher_does_not_retry_failed_reload_without_new_change(
     second_reload_seen = asyncio.Event()
     error_message = "broken plugin"
 
-    async def record_reload(*, source: str, changed_paths: tuple[Path, ...] = ()) -> PluginReloadResult:
+    async def record_reload(*, source: str, changed_paths: tuple[Path, ...] = (), **_: int) -> PluginReloadResult:
         reload_calls.append((source, changed_paths))
         if len(reload_calls) == 1:
             first_reload_seen.set()
@@ -1354,6 +1454,51 @@ async def test_update_config_serializes_live_plugin_reload_against_staged_plugin
 
 
 @pytest.mark.asyncio
+async def test_config_update_serializes_manual_plugin_reload_and_mcp_catalog_change(
+    tmp_path: Path,
+) -> None:
+    """Manual plugin reloads and MCP restarts must wait for config application."""
+    config = _runtime_bound_config(Config(), tmp_path)
+    orchestrator = _MultiAgentOrchestrator(runtime_paths_for(config))
+    orchestrator.config = config
+    orchestrator.running = True
+    apply_started = asyncio.Event()
+    finish_apply = asyncio.Event()
+
+    async def apply_update_plan(
+        _current_config: Config,
+        _plan: ConfigUpdatePlan,
+        _plugin_changes: tuple[str, ...],
+    ) -> bool:
+        apply_started.set()
+        await finish_apply.wait()
+        return False
+
+    reload_result = PluginReloadResult(HookRegistry.empty(), (), 0)
+    with (
+        patch("mindroom.orchestration.config_lifecycle.load_config", return_value=config),
+        patch.object(orchestrator.config_reload, "apply_update_plan", new=apply_update_plan),
+        patch("mindroom.orchestrator.reload_plugins", return_value=reload_result) as reload_plugins_mock,
+    ):
+        config_task = asyncio.create_task(orchestrator.config_reload.update_config())
+        await asyncio.wait_for(apply_started.wait(), timeout=1)
+        plugin_task = asyncio.create_task(orchestrator.reload_plugins_now(source="test"))
+        mcp_task = asyncio.create_task(orchestrator._handle_mcp_catalog_change("demo"))
+        await asyncio.sleep(0)
+
+        assert not plugin_task.done()
+        assert not mcp_task.done()
+        reload_plugins_mock.assert_not_called()
+
+        finish_apply.set()
+        assert await config_task is False
+        assert await plugin_task is reload_result
+        await mcp_task
+
+    reload_plugins_mock.assert_called_once_with(config, orchestrator.runtime_paths)
+
+
+@pytest.mark.asyncio
 async def test_queued_config_reload_waits_for_in_flight_response_without_event_id(
     monkeypatch: pytest.MonkeyPatch,
     tmp_path: Path,
@@ -1647,6 +1792,131 @@ def test_config_update_plan_restarts_agents_when_tool_output_threshold_changes()
 
     assert plan.entities_to_restart == {"general", "team1"}
     assert plan.only_support_service_changes is False
+
+
+def test_config_update_plan_restarts_old_and_new_call_agents_when_calls_change() -> None:
+    """A changed call model or agent selection rebuilds every affected call manager."""
+    old_config = _runtime_bound_config(
+        Config(
+            agents={
+                "general": AgentConfig(display_name="General Agent"),
+                "writer": AgentConfig(display_name="Writer Agent"),
+            },
+            calls=CallsConfig(enabled=True, agents=["general"], voice="marin"),
+            router=RouterConfig(model="default"),
+        ),
+    )
+    new_config = _runtime_bound_config(
+        Config(
+            agents={
+                "general": AgentConfig(display_name="General Agent"),
+                "writer": AgentConfig(display_name="Writer Agent"),
+            },
+            calls=CallsConfig(enabled=True, agents=["writer"], voice="cedar"),
+            router=RouterConfig(model="default"),
+        ),
+    )
+    running_entities = {ROUTER_AGENT_NAME, "general", "writer"}
+
+    plan = build_config_update_plan(
+        current_config=old_config,
+        new_config=new_config,
+        configured_entities=running_entities,
+        existing_entities=running_entities,
+        agent_bots={entity: AsyncMock() for entity in running_entities},
+    )
+
+    assert plan.entities_to_restart == {"general", "writer"}
+
+
+def test_config_update_plan_restarts_call_agents_when_authorization_changes() -> None:
+    """Call managers restart so admission uses the current authorization rules."""
+    old_config = _runtime_bound_config(
+        Config(
+            agents={"general": AgentConfig(display_name="General Agent")},
+            calls=CallsConfig(enabled=True, agents=["general"]),
+            authorization={"global_users": ["@allowed:example.org"]},
+            router=RouterConfig(model="default"),
+        ),
+    )
+    new_config = _runtime_bound_config(
+        Config(
+            agents={"general": AgentConfig(display_name="General Agent")},
+            calls=CallsConfig(enabled=True, agents=["general"]),
+            authorization={"global_users": ["@replacement:example.org"]},
+            router=RouterConfig(model="default"),
+        ),
+    )
+    running_entities = {ROUTER_AGENT_NAME, "general"}
+
+    plan = build_config_update_plan(
+        current_config=old_config,
+        new_config=new_config,
+        configured_entities=running_entities,
+        existing_entities=running_entities,
+        agent_bots={entity: AsyncMock() for entity in running_entities},
+    )
+
+    assert plan.entities_to_restart == {"general"}
+
+
+def test_config_update_plan_restarts_call_agents_for_captured_policy_changes() -> None:
+    """Call tool closures are rebuilt when any captured config policy changes."""
+    old_config = _runtime_bound_config(
+        Config(
+            agents={"general": AgentConfig(display_name="General Agent")},
+            calls=CallsConfig(enabled=True, agents=["general"]),
+            router=RouterConfig(model="default"),
+        ),
+    )
+    new_config = _runtime_bound_config(
+        Config(
+            agents={"general": AgentConfig(display_name="General Agent")},
+            calls=CallsConfig(enabled=True, agents=["general"]),
+            tool_approval={"rules": [{"match": "read_file", "action": "require_approval"}]},
+            router=RouterConfig(model="default"),
+        ),
+    )
+    running_entities = {ROUTER_AGENT_NAME, "general"}
+
+    plan = build_config_update_plan(
+        current_config=old_config,
+        new_config=new_config,
+        configured_entities=running_entities,
+        existing_entities=running_entities,
+        agent_bots={entity: AsyncMock() for entity in running_entities},
+    )
+
+    assert plan.entities_to_restart == {"general"}
+
+
+def test_config_update_plan_stops_call_agents_when_calls_are_disabled() -> None:
+    """Disabling calls restarts former call agents so their managers shut down."""
+    old_config = _runtime_bound_config(
+        Config(
+            agents={"general": AgentConfig(display_name="General Agent")},
+            calls=CallsConfig(enabled=True, agents=["general"]),
+            router=RouterConfig(model="default"),
+        ),
+    )
+    new_config = _runtime_bound_config(
+        Config(
+            agents={"general": AgentConfig(display_name="General Agent")},
+            calls=CallsConfig(enabled=False, agents=["general"]),
+            router=RouterConfig(model="default"),
+        ),
+    )
+    running_entities = {ROUTER_AGENT_NAME, "general"}
+
+    plan = build_config_update_plan(
+        current_config=old_config,
+        new_config=new_config,
+        configured_entities=running_entities,
+        existing_entities=running_entities,
+        agent_bots={entity: AsyncMock() for entity in running_entities},
+    )
+
+    assert plan.entities_to_restart == {"general"}
 
 
 def test_config_update_plan_tracks_added_entities_even_when_they_restart() -> None:

@@ -1,10 +1,9 @@
-from __future__ import annotations
-
 from asyncio import Future
 from enum import Enum
-from typing import Annotated, Literal, TypeVar
+from typing import Annotated, Literal, TypeAlias, TypeVar
 
-from pydantic import BaseModel, BeforeValidator, ConfigDict, SkipValidation
+from pydantic import BaseModel, BeforeValidator, ConfigDict
+from pydantic import SkipValidation
 
 from verifiers.types import (
     ClientConfig,
@@ -16,6 +15,8 @@ from verifiers.types import (
 CoercedRolloutOutput = Annotated[
     RolloutOutput, BeforeValidator(lambda v: RolloutOutput(v))
 ]
+RunInput: TypeAlias = SkipValidation[RolloutInput]
+GroupInput: TypeAlias = SkipValidation[list[RolloutInput]]
 
 
 class BaseRequest(BaseModel):
@@ -43,9 +44,8 @@ class HealthResponse(BaseResponse): ...
 class RunRolloutRequest(BaseRequest):
     request_type: Literal["run_rollout"] = "run_rollout"
 
-    # skip validation because multi-modal content type + tool calls validate weirdly
-    # (https://github.com/PrimeIntellect-ai/prime-rl/pull/1249)
-    input: SkipValidation[RolloutInput]
+    # Pydantic rejects some provider message shapes at this protocol boundary.
+    input: RunInput
     client_config: ClientConfig
     model: str
     sampling_args: SamplingArgs
@@ -60,9 +60,8 @@ class RunRolloutResponse(BaseResponse):
 class RunGroupRequest(BaseRequest):
     request_type: Literal["run_group"] = "run_group"
 
-    # skip validation because multi-modal content type + tool calls validate weirdly
-    # (https://github.com/PrimeIntellect-ai/prime-rl/pull/1249)
-    group_inputs: SkipValidation[list[RolloutInput]]
+    # Pydantic rejects some provider message shapes at this protocol boundary.
+    group_inputs: GroupInput
     client_config: ClientConfig
     model: str
     sampling_args: SamplingArgs

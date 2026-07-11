@@ -1,27 +1,20 @@
 Metadata-Version: 2.1
 Name: classify_imports
-Version: 4.2.0
+Version: 4.5.0
 Summary: Utilities for refactoring imports in python-like syntax.
 Home-page: https://github.com/asottile/classify-imports
 Author: Anthony Sottile
 Author-email: asottile@umich.edu
 License: MIT
-Platform: UNKNOWN
-Classifier: License :: OSI Approved :: MIT License
 Classifier: Programming Language :: Python :: 3
 Classifier: Programming Language :: Python :: 3 :: Only
-Classifier: Programming Language :: Python :: 3.7
-Classifier: Programming Language :: Python :: 3.8
-Classifier: Programming Language :: Python :: 3.9
-Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Programming Language :: Python :: Implementation :: PyPy
-Requires-Python: >=3.7
+Requires-Python: >=3.10
 Description-Content-Type: text/markdown
 License-File: LICENSE
 
-[![Build Status](https://asottile.visualstudio.com/asottile/_apis/build/status/asottile.classify-imports?branchName=main)](https://asottile.visualstudio.com/asottile/_build/latest?definitionId=74&branchName=main)
-[![Azure DevOps coverage](https://img.shields.io/azure-devops/coverage/asottile/asottile/74/main.svg)](https://dev.azure.com/asottile/asottile/_build/latest?definitionId=74&branchName=main)
+[![build status](https://github.com/asottile/classify-imports/actions/workflows/main.yml/badge.svg)](https://github.com/asottile/classify-imports/actions/workflows/main.yml)
 [![pre-commit.ci status](https://results.pre-commit.ci/badge/github/asottile/classify-imports/main.svg)](https://results.pre-commit.ci/latest/github/asottile/classify-imports/main)
 
 classify-imports
@@ -31,7 +24,9 @@ Utilities for refactoring imports in python-like syntax.
 
 ## installation
 
-`pip install classify-imports`
+```bash
+pip install classify-imports
+```
 
 ## examples
 
@@ -89,5 +84,3 @@ Utilities for refactoring imports in python-like syntax.
 >>> Classified.order
 ('FUTURE', 'BUILTIN', 'THIRD_PARTY', 'APPLICATION')
 ```
-
-

@@ -1,5 +1,5 @@
 [build-system]
-requires = ["hatchling"]
+requires = ["hatchling", "hatch-vcs"]
 build-backend = "hatchling.build"
 
 [project]
@@ -7,11 +7,11 @@ name = "verifiers"
 authors = [
     {name = "William Brown", email = "williambrown97@gmail.com"},
 ]
-dynamic = ["version"]  # load from verifiers/__init__.py
+dynamic = ["version"]  # derived from git tags via hatch-vcs
 description = "Verifiers: Environments for LLM Reinforcement Learning"
 readme = "README.md"
 license = "MIT"
-requires-python = ">=3.10,<3.14"
+requires-python = ">=3.11,<3.14"
 keywords = ["reinforcement-learning", "llm", "rl", "grpo", "environments", "multi-turn", "agents", "agentic-rl", "tool-use", "train", "eval", "harness", "verifiers", "rlvr"]
 classifiers = [
     "Development Status :: 4 - Beta",
@@ -19,7 +19,6 @@ classifiers = [
     "Intended Audience :: Science/Research",
     "License :: OSI Approved :: MIT License",
     "Programming Language :: Python :: 3",
-    "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
@@ -30,30 +29,30 @@ classifiers = [
 dependencies = [
     "anthropic>=0.78.0",
     "datasets>=3.0.0, <4.7.0",
-    "jinja2>=3.1.6",
     "numpy",
     "math-verify>=0.8.0",
     "mcp>=1.14.1",
-    "nest-asyncio>=1.6.0", # for jupyter notebooks
     "openai>=1.108.1",
     "openai-agents>=0.0.7",
-    "prime-tunnel>=0.1.6",
-    "prime-sandboxes>=0.2.21",
+    "prime-tunnel>=0.1.8",
+    "prime-sandboxes>=0.2.27",
     "pydantic>=2.11.9",
     "requests",
     "rich",
     "tenacity>=8.5.0",
-    "textual",
-    "tomli; python_version < '3.11'",
-    "typing_extensions; python_version < '3.12'",
-    "wget>=3.2",
     "gepa",
     "pyzmq>=27.1.0",
     "msgpack>=1.1.2",
     "aiolimiter>=1.2.1",
     "setproctitle>=1.3.0",
-    "regex<2026.4.4",
     "httpx>=0.27.0",
+    "aiohttp>=3.9.0",
+    "prime-pydantic-config[toml]>=0.3.0.dev86",
+    "uvloop>=0.21.0; sys_platform != 'win32' and sys_platform != 'cygwin' and platform_python_implementation != 'PyPy'",
+    "loguru>=0.7.0",
+    "tomli-w>=1.0.0",
+    "renderers>=0.1.8.dev40",
+    "typing_extensions; python_version < '3.12'",
 ]
 
 [dependency-groups]
@@ -68,13 +67,20 @@ dev = [
     "ipykernel",
     "ipywidgets",
     "reasoning-gym",
-    "textarena",
-    "openenv-core[core]==0.2.1",
     "stagehand>=3.0.0",
     "aiohttp>=3.9.0",
     "python-dotenv>=1.0.0",
-    "nltk",
-    "renderers>=0.1.6",
+    "nltk>=3.9.2",
+    "textarena==0.7.4",
+]
+# v1 example environments vendored under environments/, resolved by id via [tool.uv.sources].
+# Installed by default (tool.uv.default-groups) so the v1 CLIs (eval <id>, serve) run straight
+# from this repo. The built-in tasksets/harnesses ship inside verifiers (verifiers/v1/...).
+examples = [
+    "compact",
+    "gsm8k-v1", "glossary-v1", "deepwiki-v1", "wiki-search-v1", "code-golf-v1",
+    "reverse-text-v1", "color-codeword-v1",
+    "wordle-v1", "alphabet-sort-v1", "scratchpad-v1",
 ]
 
 [project.optional-dependencies]
@@ -82,19 +88,28 @@ rg = [
     "reasoning-gym",
 ]
 ta = [
-    "textarena",
-    "nltk",
-]
-openenv = [
-    "openenv-core[core]==0.2.1",
+    "textarena==0.7.4",
+    "nltk>=3.9.2",
 ]
 browser = [
     "stagehand>=3.0.0",
     "aiohttp>=3.9.0",
     "python-dotenv>=1.0.0",
 ]
-renderers = [
-    "renderers>=0.1.6",
+harbor = [
+    # Harbor currently publishes Python 3.12+ packages; keep core verifiers installable on 3.11.
+    "harbor==0.14.0; python_version >= '3.12'",
+]
+modal = [
+    "modal>=1.4.0",
+]
+notebook = [
+    "nest-asyncio>=1.6.0",
+]
+quest = [
+    "certifi",
+    "pillow",
+    "pymupdf",
 ]
 rl = [
     "torch>=2.8.0,<2.9.0",
@@ -112,24 +127,34 @@ rl = [
 [tool.uv]
 preview = true
 required-version = ">=0.11.1"
+exclude-newer = "7 days"
+default-groups = ["dev", "examples"]
 
 [[tool.uv.index]]
 name = "pypi"
 url = "https://pypi.org/simple"
 default = true
-exclude-newer = "7 days"
+
+[tool.uv.sources]
+compact = { path = "environments/compact", editable = true }
+glossary-v1 = { path = "environments/glossary_v1", editable = true }
+deepwiki-v1 = { path = "environments/deepwiki_v1", editable = true }
+wiki-search-v1 = { path = "environments/wiki_search_v1", editable = true }
+gsm8k-v1 = { path = "environments/gsm8k_v1", editable = true }
+code-golf-v1 = { path = "environments/code_golf_v1", editable = true }
+reverse-text-v1 = { path = "environments/reverse_text_v1", editable = true }
+reverse-text = { path = "environments/reverse_text", editable = true }
+wordle-v1 = { path = "environments/wordle_v1", editable = true }
+color-codeword-v1 = { path = "environments/color_codeword_v1", editable = true }
+alphabet-sort-v1 = { path = "environments/alphabet_sort_v1", editable = true }
+scratchpad-v1 = { path = "environments/scratchpad_v1", editable = true }
 
 [tool.uv.exclude-newer-package]
 # PrimeIntellect-published on PyPI (trusted publisher)
 prime-tunnel = false
 prime-sandboxes = false
+prime-pydantic-config = false
 renderers = false
-
-[tool.uv.sources]
-# Pinned to renderers main until the next PyPI release lands; drop after.
-# fe67f9f = renderers main: PR #4 squash-merge — construction-time
-# preserve_*_thinking flags on create_renderer / create_renderer_pool.
-renderers = { git = "https://github.com/PrimeIntellect-ai/renderers.git", rev = "fe67f9f" }
 
 [tool.uv.extra-build-dependencies]
 flash-attn = [{ requirement = "torch", match-runtime = true }]
@@ -139,20 +164,40 @@ flash-attn = { FLASH_ATTENTION_SKIP_CUDA_BUILD = "TRUE" }
 
 [project.scripts]
 vf-eval = "verifiers.scripts.eval:main"
+eval = "verifiers.v1.cli.eval.main:main"
+validate = "verifiers.v1.cli.validate:main"
+debug = "verifiers.v1.cli.debug:main"
+replay = "verifiers.v1.cli.replay:main"
+serve = "verifiers.v1.cli.serve:main"
+init = "verifiers.v1.cli.init:main"
 vf-gepa = "verifiers.scripts.gepa:main"
 vf-init = "verifiers.scripts.init:main"
 vf-install = "verifiers.scripts.install:main"
 vf-setup = "verifiers.scripts.setup:main"
 vf-build = "verifiers.scripts.build:main"
-vf-rl = "verifiers.scripts.rl:main"
-vf-train = "verifiers.scripts.train:main"
 vf-tui = "verifiers.scripts.tui:main"
-vf-vllm = "verifiers.scripts.vllm:main"
-prime-rl = "verifiers.scripts.prime_rl:main"
 
 # hatchling configuration
 [tool.hatch.version]
-path = "verifiers/__init__.py"
+source = "vcs"
+# Resolve a version when building without VCS metadata (e.g. the prime-rl
+# Docker build copies the source but not a usable .git for the submodule).
+# Mirrors renderers; without it hatch-vcs raises LookupError and the editable
+# build fails.
+fallback-version = "0.0.0"
+
+[tool.hatch.version.raw-options]
+local_scheme = "no-local-version"
+git_describe_command = [
+    "git",
+    "describe",
+    "--tags",
+    "--long",
+    "--match",
+    "v[0-9]*.[0-9]*.[0-9]*",
+    "--exclude",
+    "*dev*",
+]
 
 [tool.hatch.build.targets.sdist]
 include = [
@@ -181,6 +226,7 @@ Issues = "https://github.com/primeintellect-ai/verifiers/issues"
 [tool.pytest.ini_options]
 minversion = "7.0"
 testpaths = ["tests"]
+pythonpath = ["tests/v1/fixtures"]
 python_files = ["test_*.py"]
 python_classes = ["Test*"]
 python_functions = ["test_*"]
@@ -191,9 +237,21 @@ addopts = [
     "--quiet",
 ]
 markers = [
-    "slow: marks tests as slow (deselect with '-m \"not slow\"')",
+    "e2e: marks end-to-end eval-run tests (need a model API key; skipped without one)",
     "integration: marks tests as integration tests",
-    "prime_sandbox: marks tests that provision real Prime sandbox or tunnel resources",
+    "slow: marks slow-running tests (deselect with -m 'not slow')",
+    # v1 e2e matrix axes — select subsets with `-m` (see tests/v1/conftest.py). A mark is applied
+    # per axis, so it matches every case touching that value on any axis.
+    "subprocess: v1 e2e cases touching the subprocess (host) runtime",
+    "docker: v1 e2e cases touching the docker runtime",
+    "prime: v1 e2e cases touching the prime runtime (real sandbox + tunnel; local-only, excluded in CI)",
+    "modal: v1 e2e cases touching the modal runtime (local-only setup; excluded in CI)",
+    "colocated: v1 e2e cases with a user/tool server colocated in the harness runtime",
+    "null: v1 e2e cases on the null harness",
+    "default: v1 e2e cases on the default harness",
+    "rlm: v1 e2e cases on the rlm harness",
+    "kimi_code: v1 e2e cases on the kimi-code harness",
+    "codex: v1 e2e cases on the codex harness",
     "unit: marks tests as unit tests",
     "asyncio: marks tests as async tests",
     "parsers: marks tests for parser components",
@@ -219,7 +277,9 @@ unknown-argument = "warn"
 redundant-cast = "ignore"
 
 [tool.ty.src]
-exclude = ["environments", "verifiers/v1/sketch.py"]
+# verifiers/v1 is vendored (heavily typed upstream for a different checker); it is not part
+# of verifiers' ty gate. environments/ are user-authored envs, also out of scope.
+exclude = ["environments", "verifiers/v1"]
 
 [[tool.ty.overrides]]
 include = ["verifiers/envs/experimental/composable/tasksets/**"]

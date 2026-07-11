@@ -332,20 +332,23 @@ class VectorStoresResource(SyncAPIResource):
         """
         Update the indexed metadata fields configuration for a vector store.
 
-        Only indexed metadata fields can be used for filtering during query, list, and
-        count operations. Non-indexed fields cannot be filtered on.
+        This replaces the current set of indexed metadata fields. Only indexed fields
+        can be used for filtering during query, list, and count operations; non-indexed
+        fields are still stored and returned, but cannot be filtered on.
 
         **Field Types:** Only STRING, NUMBER, and BOOLEAN fields can be indexed (maximum
-        20 fields). OBJECT and LIST types are stored but cannot be indexed for filtering
-        purposes.
+        20 fields). OBJECT and LIST types are stored but cannot be indexed for
+        filtering.
 
-        **Adding Fields:** New indexed fields can be added at any time. Existing
-        documents containing those fields will have their metadata automatically
-        indexed.
+        **Adding Fields:** New indexed fields can be added at any time. They are indexed
+        for documents upserted after the change; to make existing documents filterable
+        on a new field, re-upsert them.
 
-        **Removing Fields:** Indexed fields cannot be removed once added. Each indexed
-        field increases write latency and storage overhead, so only index fields you
-        actively filter on.
+        **Removing Fields:** Omitting a field removes it from this configuration, so it
+        can no longer be filtered on. The underlying index is append-only, so removal
+        does not reclaim storage or reduce write overhead; the field stays in the
+        physical index until the store is recreated. Prefer indexing only the fields you
+        filter on.
 
         **Note:** The `name` and `embedding_config` are immutable after creation.
 
@@ -938,20 +941,23 @@ class AsyncVectorStoresResource(AsyncAPIResource):
         """
         Update the indexed metadata fields configuration for a vector store.
 
-        Only indexed metadata fields can be used for filtering during query, list, and
-        count operations. Non-indexed fields cannot be filtered on.
+        This replaces the current set of indexed metadata fields. Only indexed fields
+        can be used for filtering during query, list, and count operations; non-indexed
+        fields are still stored and returned, but cannot be filtered on.
 
         **Field Types:** Only STRING, NUMBER, and BOOLEAN fields can be indexed (maximum
-        20 fields). OBJECT and LIST types are stored but cannot be indexed for filtering
-        purposes.
+        20 fields). OBJECT and LIST types are stored but cannot be indexed for
+        filtering.
 
-        **Adding Fields:** New indexed fields can be added at any time. Existing
-        documents containing those fields will have their metadata automatically
-        indexed.
+        **Adding Fields:** New indexed fields can be added at any time. They are indexed
+        for documents upserted after the change; to make existing documents filterable
+        on a new field, re-upsert them.
 
-        **Removing Fields:** Indexed fields cannot be removed once added. Each indexed
-        field increases write latency and storage overhead, so only index fields you
-        actively filter on.
+        **Removing Fields:** Omitting a field removes it from this configuration, so it
+        can no longer be filtered on. The underlying index is append-only, so removal
+        does not reclaim storage or reduce write overhead; the field stays in the
+        physical index until the store is recreated. Prefer indexing only the fields you
+        filter on.
 
         **Note:** The `name` and `embedding_config` are immutable after creation.
 

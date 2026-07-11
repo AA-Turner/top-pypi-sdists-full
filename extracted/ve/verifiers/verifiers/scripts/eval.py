@@ -16,12 +16,13 @@ import logging
 from pathlib import Path
 from typing import Any, cast
 
+
 from verifiers import setup_logging
 from verifiers.types import (
     ClientConfig,
     ClientType,
-    Endpoint,
     EndpointClientConfig,
+    EndpointConfig,
     EvalConfig,
     EvalRunConfig,
     _validate_extra_headers_value,
@@ -330,7 +331,7 @@ def build_parser() -> argparse.ArgumentParser:
         help=(
             "Per-request HTTP header whose value is read from the rollout state. "
             "'Name: state_key' (e.g. 'X-Session-ID: trajectory_id'). Repeatable. "
-            "Defaults to X-Session-ID=example_id if unset."
+            "Defaults to X-Session-ID=trajectory_id if unset."
         ),
     )
     parser.add_argument(
@@ -346,6 +347,18 @@ def build_parser() -> argparse.ArgumentParser:
         type=int,
         default=None,
         help="Number of rollouts per example",
+    )
+    parser.add_argument(
+        "--shuffle",
+        default=False,
+        action="store_true",
+        help="Shuffle the evaluation dataset before selecting examples",
+    )
+    parser.add_argument(
+        "--shuffle-seed",
+        type=int,
+        default=None,
+        help="Seed for --shuffle. Defaults to 0 when --shuffle is enabled.",
     )
     parser.add_argument(
         "--max-concurrent",
@@ -468,8 +481,8 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument(
         "--max-retries",
         type=int,
-        default=0,
-        help="Max retries for transient infrastructure errors (default: 0)",
+        default=3,
+        help="Max retries for transient infrastructure errors (default: 3)",
     )
     parser.add_argument(
         "--disable-env-server",
@@ -501,8 +514,6 @@ def build_parser() -> argparse.ArgumentParser:
 
 def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser = build_parser()
-    if argv is None:
-        return parser.parse_args()
     return parser.parse_args(argv)
 
 
@@ -527,6 +538,14 @@ def main(argv: list[str] | None = None):
                 f"TOML config file not found: {path}\nPlease check the path is correct."
             )
         raw_eval_configs = load_toml_config(path)
+        raw_eval_configs = [
+            (
+                {**raw_config, "save_results": True}
+                if args.save_results or "save_results" not in raw_config
+                else raw_config
+            )
+            for raw_config in raw_eval_configs
+        ]
     else:
         # CLI path: convert args to dict
         raw_config = {"env_id": args.env_id_or_config}
@@ -536,6 +555,9 @@ def main(argv: list[str] | None = None):
     def build_eval_config(raw: dict) -> EvalConfig:
         """Build EvalConfig from a raw config dict."""
         env_id = raw["env_id"]
+        name = raw.get("name")
+        if name is not None and (not isinstance(name, str) or not name):
+            raise ValueError("'name' must be a non-empty string when provided.")
 
         # Resolve num_examples and rollouts_per_example with env defaults
         env_defaults = get_env_eval_defaults(env_id)
@@ -567,6 +589,12 @@ def main(argv: list[str] | None = None):
             logger.debug(
                 f"Using rollouts_per_example={rollouts_per_example} from {source}"
             )
+        shuffle = bool(raw.get("shuffle", False))
+        shuffle_seed = raw.get("shuffle_seed")
+        if shuffle and shuffle_seed is None:
+            shuffle_seed = 0
+        if not shuffle:
+            shuffle_seed = None
 
         raw_endpoint_id = raw.get("endpoint_id")
         raw_model_field = raw.get("model")
@@ -612,7 +640,7 @@ def main(argv: list[str] | None = None):
             raw_endpoint_id is None and api_key_override and api_base_url_override
         )
         endpoints = {} if direct_endpoint_config else load_endpoints(endpoints_path)
-        endpoint_group: list[Endpoint] | None = None
+        endpoint_group: list[EndpointConfig] | None = None
         resolved_endpoint_id: str | None = None
 
         if endpoint_lookup_id in endpoints:
@@ -621,17 +649,17 @@ def main(argv: list[str] | None = None):
             endpoint = endpoint_group[0]
 
             # Start from registry values
-            api_key_var = endpoint["key"]
-            api_base_url = endpoint["url"]
-            client_type = endpoint.get("api_client_type", DEFAULT_CLIENT_TYPE)
+            api_key_var = endpoint.api_key_var
+            api_base_url = endpoint.base_url
+            client_type = endpoint.api_client_type or DEFAULT_CLIENT_TYPE
 
-            endpoint_models = {entry["model"] for entry in endpoint_group}
+            endpoint_models = {entry.model for entry in endpoint_group}
             if len(endpoint_models) > 1:
                 raise ValueError(
                     f"Endpoint alias '{endpoint_lookup_id}' maps to multiple model ids {sorted(endpoint_models)}, "
                     "which is not yet supported by EvalConfig."
                 )
-            model = endpoint["model"]
+            model = endpoint.model
 
             # Provider overrides registry
             if raw_provider is not None:
@@ -700,16 +728,16 @@ def main(argv: list[str] | None = None):
         )
         # Build headers: registry < [[eval]] headers table < header list / --header
         eval_headers_merged = build_extra_headers(raw)
-        # Default X-Session-ID → example_id for sticky DP-aware routing;
+        # Default X-Session-ID → trajectory_id for sticky DP-aware routing;
         # user-supplied headers_from_state / --header-from-state override.
         eval_headers_from_state = {
-            "X-Session-ID": "example_id",
+            "X-Session-ID": "trajectory_id",
             **build_extra_headers_from_state(raw),
         }
 
         registry_headers_base: dict[str, str] = {}
         if endpoint_group is not None:
-            registry_headers_base = dict(endpoint_group[0].get("extra_headers", {}))
+            registry_headers_base = dict(endpoint_group[0].extra_headers)
 
         merged_headers: dict[str, str] = {
             **registry_headers_base,
@@ -732,11 +760,11 @@ def main(argv: list[str] | None = None):
             endpoint_configs = [
                 EndpointClientConfig(
                     api_key_var=(
-                        resolved_api_key_var if api_key_override else ep["key"]
+                        resolved_api_key_var if api_key_override else ep.api_key_var
                     ),
-                    api_base_url=ep["url"],
+                    api_base_url=ep.base_url,
                     extra_headers={
-                        **dict(ep.get("extra_headers", {})),
+                        **dict(ep.extra_headers),
                         **eval_headers_merged,
                     },
                 )
@@ -773,8 +801,11 @@ def main(argv: list[str] | None = None):
                 model=model,
                 num_examples=num_examples,
                 rollouts_per_example=rollouts_per_example,
+                shuffle=shuffle,
+                shuffle_seed=shuffle_seed,
                 env_dir_path=raw.get("env_dir_path", DEFAULT_ENV_DIR_PATH),
                 output_dir=raw.get("output_dir"),
+                name=name,
             )
             if auto_resume_path is not None:
                 resume_path = auto_resume_path
@@ -788,13 +819,16 @@ def main(argv: list[str] | None = None):
         else:
             raise ValueError(f"Invalid value for --resume: {resume_arg!r}")
 
+        env_args = dict(raw.get("env_args", {}))
+
         extra_env_kwargs = dict(raw.get("extra_env_kwargs", {}))
         if raw.get("timeout") is not None:
             extra_env_kwargs["timeout_seconds"] = raw["timeout"]
 
         return EvalConfig(
             env_id=env_id,
-            env_args=raw.get("env_args", {}),
+            name=name,
+            env_args=env_args,
             env_dir_path=raw.get("env_dir_path", DEFAULT_ENV_DIR_PATH),
             output_dir=raw.get("output_dir"),
             extra_env_kwargs=extra_env_kwargs,
@@ -804,8 +838,10 @@ def main(argv: list[str] | None = None):
             sampling_args=merged_sampling_args,
             num_examples=num_examples,
             rollouts_per_example=rollouts_per_example,
+            shuffle=shuffle,
+            shuffle_seed=shuffle_seed,
             max_concurrent=raw.get("max_concurrent", DEFAULT_MAX_CONCURRENT),
-            max_retries=raw.get("max_retries", 0),
+            max_retries=raw.get("max_retries", 3),
             num_workers=raw.get("num_workers", "auto"),
             disable_env_server=raw.get("disable_env_server", False),
             verbose=raw.get("verbose", False),
@@ -819,9 +855,11 @@ def main(argv: list[str] | None = None):
         )
 
     # Check Hub environments are installed before running
-    missing_envs = []
+    missing_envs: list[str] = []
     for raw in raw_eval_configs:
         env_id = raw["env_id"]
+        if not isinstance(env_id, str):
+            raise ValueError("All eval configs must contain a string env_id.")
         if not check_hub_env_installed(env_id):
             missing_envs.append(env_id)
 

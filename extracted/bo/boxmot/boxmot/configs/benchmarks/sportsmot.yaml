@@ -2,17 +2,33 @@ id: sportsmot
 
 dataset:
   id: sportsmot
-  root: "boxmot/engine/eval/trackeval/data/SportsMOT"
+  root: "boxmot/datasets/mot/SportsMOT"
   layout: mot
   box_type: aabb
   splits:
     train: "train"
+    val: "val"
     test: "test"
   default_split: val
+  no_gt_splits: [test]
   classes:
     1: player
 
+evaluation:
+  classes:
+    - name: player
+      dataset_id: 1
+      detector_id: 0
+      detector_name: person
+
 download:
+  # SportsMOT official split contents:
+  #   train: has images + seqinfo.ini + gt/gt.txt
+  #          usable for training and local MOT metrics evaluation
+  #   val:   has images + seqinfo.ini + gt/gt.txt
+  #          usable for validation/local MOT metrics evaluation
+  #   test:  has images + seqinfo.ini only
+  #          no public GT; use for inference/submission generation only
   dataset:
     train: "hf://Lekim89/sportsmot/train"
     val: "hf://Lekim89/sportsmot/val"
@@ -33,7 +49,7 @@ detector:
 reid:
   id: lmbn_n_duke
   model: "models/lmbn_n_duke.pt"
-  url: "https://github.com/mikel-brostrom/yolov8_tracking/releases/download/v9.0/lmbn_n_duke.pth"
+  url: "https://github.com/mikel-brostrom/boxmot/releases/download/v21.0.0/lmbn_n_duke.pt"
   device: ""
   half: true
   preprocess: resize

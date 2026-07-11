@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pyarrow
-Version: 24.0.0
+Version: 25.0.0
 Summary: Python library for Apache Arrow
 Maintainer-Email: Apache Arrow Developers <dev@arrow.apache.org>
 License-Expression: Apache-2.0

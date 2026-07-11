@@ -60,7 +60,21 @@ class WidgetsResource(SyncAPIResource):
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> EvaluationDashboardWidgetWithResult:
         """
-        Create a new widget, add it to the dashboard, and compute its results
+        Create a new widget, append it to the dashboard, and compute its result in one
+        call.
+
+        The widget is persisted as its own entity, its ID is appended to the dashboard's
+        `widget_order`, and — unless it is a `markdown` or `heading` widget — its result
+        is computed synchronously against the dashboard's evaluation (or
+        evaluation-group) data before the response returns. Validation is type-specific:
+        `markdown` requires `config.content`, `bar`/`histogram`/`donut`/`scatter`
+        require exactly one of `config.x_column` or `config.x_column_group`, `table`
+        configs with conditional formatting are schema-validated, and all other chart
+        types require a `query`. The dashboard must exist and not be archived. A
+        computation failure does not fail the request: the widget is still created and
+        returned with a result whose `computation_status` is `failed` and an
+        `error_message` set, while `markdown` and `heading` widgets return a null
+        result.
 
         Args:
           title: Widget title
@@ -113,11 +127,19 @@ class WidgetsResource(SyncAPIResource):
         extra_body: Body | None = None,
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> EvaluationDashboardWidgetWithResult:
-        """Update a widget and compute its results.
+        """
+        Update a widget's fields within this dashboard, using copy-on-write for shared
+        widgets.
 
-        If the widget is only used by this
-        dashboard, it is updated in place. If shared across multiple dashboards, a copy
-        is created.
+        If the widget belongs only to this dashboard it is updated in place; if it is
+        referenced by more than one dashboard, a new widget is created with the updates
+        applied and swapped into this dashboard's `widget_order`, leaving the other
+        dashboards' copy untouched. The widget must already be in this dashboard's
+        `widget_order`, otherwise the call is rejected. The result is recomputed
+        synchronously when the `query` changes or when the widget was cloned; otherwise
+        the existing cached result is returned. For `table` widgets,
+        conditional-formatting column references are re-resolved against the (possibly
+        updated) query on each save. The dashboard must exist and not be archived.
 
         Args:
           config: Chart-specific display configuration
@@ -171,7 +193,13 @@ class WidgetsResource(SyncAPIResource):
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> None:
         """
-        Remove a widget from the dashboard (does not delete the widget)
+        Detach a widget from this dashboard without deleting the widget itself.
+
+        This removes the widget's ID from the dashboard's `widget_order` only; the
+        underlying widget entity and any computed widget results are left intact, so a
+        widget shared with other dashboards continues to work there. The widget must
+        currently be in this dashboard's `widget_order`, otherwise a not-found error is
+        returned. Responds with 204 No Content on success.
 
         Args:
           extra_headers: Send extra headers
@@ -236,7 +264,21 @@ class AsyncWidgetsResource(AsyncAPIResource):
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> EvaluationDashboardWidgetWithResult:
         """
-        Create a new widget, add it to the dashboard, and compute its results
+        Create a new widget, append it to the dashboard, and compute its result in one
+        call.
+
+        The widget is persisted as its own entity, its ID is appended to the dashboard's
+        `widget_order`, and — unless it is a `markdown` or `heading` widget — its result
+        is computed synchronously against the dashboard's evaluation (or
+        evaluation-group) data before the response returns. Validation is type-specific:
+        `markdown` requires `config.content`, `bar`/`histogram`/`donut`/`scatter`
+        require exactly one of `config.x_column` or `config.x_column_group`, `table`
+        configs with conditional formatting are schema-validated, and all other chart
+        types require a `query`. The dashboard must exist and not be archived. A
+        computation failure does not fail the request: the widget is still created and
+        returned with a result whose `computation_status` is `failed` and an
+        `error_message` set, while `markdown` and `heading` widgets return a null
+        result.
 
         Args:
           title: Widget title
@@ -289,11 +331,19 @@ class AsyncWidgetsResource(AsyncAPIResource):
         extra_body: Body | None = None,
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> EvaluationDashboardWidgetWithResult:
-        """Update a widget and compute its results.
+        """
+        Update a widget's fields within this dashboard, using copy-on-write for shared
+        widgets.
 
-        If the widget is only used by this
-        dashboard, it is updated in place. If shared across multiple dashboards, a copy
-        is created.
+        If the widget belongs only to this dashboard it is updated in place; if it is
+        referenced by more than one dashboard, a new widget is created with the updates
+        applied and swapped into this dashboard's `widget_order`, leaving the other
+        dashboards' copy untouched. The widget must already be in this dashboard's
+        `widget_order`, otherwise the call is rejected. The result is recomputed
+        synchronously when the `query` changes or when the widget was cloned; otherwise
+        the existing cached result is returned. For `table` widgets,
+        conditional-formatting column references are re-resolved against the (possibly
+        updated) query on each save. The dashboard must exist and not be archived.
 
         Args:
           config: Chart-specific display configuration
@@ -347,7 +397,13 @@ class AsyncWidgetsResource(AsyncAPIResource):
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> None:
         """
-        Remove a widget from the dashboard (does not delete the widget)
+        Detach a widget from this dashboard without deleting the widget itself.
+
+        This removes the widget's ID from the dashboard's `widget_order` only; the
+        underlying widget entity and any computed widget results are left intact, so a
+        widget shared with other dashboards continues to work there. The widget must
+        currently be in this dashboard's `widget_order`, otherwise a not-found error is
+        returned. Responds with 204 No Content on success.
 
         Args:
           extra_headers: Send extra headers

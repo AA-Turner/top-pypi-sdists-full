@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: oai_statsig_python_core
-Version: 0.25.0
+Version: 0.26.0
 Classifier: Programming Language :: Rust
 Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Programming Language :: Python :: Implementation :: PyPy

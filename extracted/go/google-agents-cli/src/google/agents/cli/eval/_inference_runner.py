@@ -36,10 +36,38 @@ sees a corrupt artifact):
 
 import copy
 import json
+import logging
 import os
 import sys
 import traceback
 from pathlib import Path
+
+
+def _quiet_known_noise():
+    """Drop third-party log/warning spam that never affects eval results.
+
+    These only clutter the output during an otherwise-successful run:
+
+    * ADK's benign "App name mismatch" warning -- the eval SDK always loads the
+      agent under a fixed internal app name, so it never matches the directory
+      name. It's logged once per case and reads like an error, so drop just that
+      message while keeping every other ADK log record.
+    * ADK's experimental-feature ``UserWarning`` (e.g. JSON_SCHEMA_FOR_FUNC_DECL).
+
+    litellm and tqdm noise is quieted via env vars set by ``eval generate``.
+    Best-effort: if ADK's logger name or message text changes, the filter simply
+    no-ops and the warning reappears -- nothing breaks.
+    """
+    import warnings
+
+    class _DropAppNameMismatch(logging.Filter):
+        def filter(self, record):
+            return not record.getMessage().startswith("App name mismatch")
+
+    logging.getLogger("google_adk.google.adk.runners").addFilter(_DropAppNameMismatch())
+    warnings.filterwarnings(
+        "ignore", message=r".*\[EXPERIMENTAL\].*", category=UserWarning
+    )
 
 
 def _unwrap_agent(loaded):
@@ -302,6 +330,7 @@ def main(argv=None):
     import vertexai
     from vertexai import types
 
+    _quiet_known_noise()
     _patch_eval_tool_introspection()
 
     argv = list(sys.argv[1:] if argv is None else argv)

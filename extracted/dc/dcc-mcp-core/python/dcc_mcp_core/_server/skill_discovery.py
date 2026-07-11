@@ -14,8 +14,10 @@ import os
 from pathlib import Path
 from typing import Any
 
+from dcc_mcp_core._runtime.skill_paths import skill_env_slug
 from dcc_mcp_core._server.minimal_mode import MinimalModeConfig
 from dcc_mcp_core._server.minimal_mode import apply_minimal_mode
+from dcc_mcp_core.constants import ENV_DISABLE_DEFAULT_SKILL_PATHS
 from dcc_mcp_core.hotreload import DccSkillHotReloader
 from dcc_mcp_core.skill import get_bundled_skill_paths
 from dcc_mcp_core.skills.builtin import register_all_builtin_skills
@@ -31,7 +33,7 @@ except ImportError:
         return [part for part in (piece.strip() for piece in raw.split(os.pathsep)) if part]
 
     def get_app_skill_paths_from_env(dcc_name: str) -> list[str]:
-        env_name = f"DCC_MCP_{dcc_name.upper()}_SKILL_PATHS"
+        env_name = f"DCC_MCP_{skill_env_slug(dcc_name)}_SKILL_PATHS"
         return _split_skill_paths(os.environ.get(env_name, ""))
 
     def get_local_skills_dir(dcc_name: str) -> str:
@@ -48,6 +50,11 @@ except ImportError:
 
 
 logger = logging.getLogger(__name__)
+
+
+def _default_skill_paths_disabled() -> bool:
+    value = os.environ.get(ENV_DISABLE_DEFAULT_SKILL_PATHS, "")
+    return value == "1" or value.lower() == "true"
 
 
 class SkillDiscoveryController:
@@ -78,6 +85,10 @@ class SkillDiscoveryController:
         8. Platform default skills dir
         9. Admin-UI-added skill discovery roots from the gateway SQLite lane
            (when ``include_admin_custom=True``; issue #1400)
+
+        When ``DCC_MCP_DISABLE_DEFAULT_SKILL_PATHS=1``, operator-owned roots
+        from items 5, 6, 8, and 9 are omitted. Explicit, bundled, and
+        environment-provided paths remain active.
         """
         owner = self._owner
         paths: list[str] = list(extra_paths or [])
@@ -88,28 +99,31 @@ class SkillDiscoveryController:
         paths.extend(get_app_skill_paths_from_env(owner._dcc_name))
         paths.extend(get_skill_paths_from_env())
 
-        try:
-            local_default_dir = get_local_skills_dir(owner._dcc_name)
-            Path(local_default_dir).mkdir(parents=True, exist_ok=True)
-            if local_default_dir not in paths:
-                paths.append(local_default_dir)
-        except Exception as exc:
-            logger.debug("[%s] Could not initialise local skill path: %s", owner._dcc_name, exc)
+        defaults_disabled = _default_skill_paths_disabled()
+        if not defaults_disabled:
+            try:
+                local_default_dir = get_local_skills_dir(owner._dcc_name)
+                Path(local_default_dir).mkdir(parents=True, exist_ok=True)
+                if local_default_dir not in paths:
+                    paths.append(local_default_dir)
+            except Exception as exc:
+                logger.debug("[%s] Could not initialise local skill path: %s", owner._dcc_name, exc)
 
-        try:
-            marketplace_root = Path(
-                os.environ.get(
-                    "DCC_MCP_MARKETPLACE_INSTALL_ROOT",
-                    str(Path.home() / ".dcc-mcp" / "marketplace"),
+        if not defaults_disabled:
+            try:
+                marketplace_root = Path(
+                    os.environ.get(
+                        "DCC_MCP_MARKETPLACE_INSTALL_ROOT",
+                        str(Path.home() / ".dcc-mcp" / "marketplace"),
+                    )
                 )
-            )
-            marketplace_dir = marketplace_root / owner._dcc_name.lower()
-            if marketplace_dir.is_dir():
-                marketplace_dir_str = str(marketplace_dir)
-                if marketplace_dir_str not in paths:
-                    paths.append(marketplace_dir_str)
-        except Exception as exc:
-            logger.debug("[%s] Could not resolve marketplace skill path: %s", owner._dcc_name, exc)
+                marketplace_dir = marketplace_root / owner._dcc_name.lower()
+                if marketplace_dir.is_dir():
+                    marketplace_dir_str = str(marketplace_dir)
+                    if marketplace_dir_str not in paths:
+                        paths.append(marketplace_dir_str)
+            except Exception as exc:
+                logger.debug("[%s] Could not resolve marketplace skill path: %s", owner._dcc_name, exc)
 
         if include_bundled:
             try:
@@ -117,11 +131,12 @@ class SkillDiscoveryController:
             except Exception as exc:
                 logger.debug("[%s] Could not load bundled skill paths: %s", owner._dcc_name, exc)
 
-        default_dir = get_skills_dir()
-        if default_dir and default_dir not in paths:
-            paths.append(default_dir)
+        if not defaults_disabled:
+            default_dir = get_skills_dir()
+            if default_dir and default_dir not in paths:
+                paths.append(default_dir)
 
-        if include_admin_custom:
+        if include_admin_custom and not defaults_disabled:
             try:
                 from dcc_mcp_core.admin_sqlite_lane import filter_new_paths
                 from dcc_mcp_core.admin_sqlite_lane import read_custom_skill_paths

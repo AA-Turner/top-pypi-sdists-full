@@ -10,6 +10,7 @@ import structlog
 from starlette.exceptions import HTTPException
 from typing_extensions import TypedDict
 
+from langgraph_api import config as api_config
 from langgraph_api.auth.noop import UnauthenticatedUser
 from langgraph_api.encryption.middleware import encrypt_request
 from langgraph_api.encryption.shared import (
@@ -35,6 +36,7 @@ from langgraph_api.schema import (
     RunCommand,
     StreamMode,
 )
+from langgraph_api.tracing_session import resolve_tracing_session_name
 from langgraph_api.utils import AsyncConnectionProto, get_auth_ctx, get_user_id
 from langgraph_api.utils.headers import get_configurable_headers
 from langgraph_api.utils.uuids import uuid7
@@ -300,6 +302,10 @@ async def create_valid_run(
     if webhook := payload.get("webhook"):
         await validate_webhook_url_or_raise(str(webhook))
 
+    langsmith_session_name = (
+        resolve_tracing_session_name(payload) if api_config.TRACING else None
+    )
+
     # We can't pass payload directly because config and context have
     # been modified above (with auth context, checkpoint info, etc.)
     fields_to_encrypt = {
@@ -346,6 +352,7 @@ async def create_valid_run(
         prevent_insert_if_inflight=prevent_insert_if_inflight,
         after_seconds=after_seconds,
         if_not_exists=if_not_exists,
+        langsmith_session_name=langsmith_session_name,
     )
     run_ = await run_coro
 

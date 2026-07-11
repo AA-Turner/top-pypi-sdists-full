@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: bedrock-agentcore
-Version: 1.17.0
+Version: 1.18.0
 Summary: An SDK for using Bedrock AgentCore
 Project-URL: Homepage, https://github.com/aws/bedrock-agentcore-sdk-python
 Project-URL: Bug Tracker, https://github.com/aws/bedrock-agentcore-sdk-python/issues
@@ -35,6 +35,11 @@ Provides-Extra: ag-ui
 Requires-Dist: ag-ui-protocol>=0.1.10; extra == 'ag-ui'
 Provides-Extra: datasets
 Requires-Dist: requests>=2.31.0; extra == 'datasets'
+Provides-Extra: langgraph
+Requires-Dist: httpx>=0.27.0; extra == 'langgraph'
+Requires-Dist: langchain-mcp-adapters>=0.1.0; extra == 'langgraph'
+Requires-Dist: langchain>=1.0.0; extra == 'langgraph'
+Requires-Dist: langgraph>=1.0.0; extra == 'langgraph'
 Provides-Extra: simulation
 Requires-Dist: jinja2>=3.1.0; extra == 'simulation'
 Requires-Dist: strands-agents-evals>=0.1.0; extra == 'simulation'

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: deepeval
-Version: 4.0.7
+Version: 4.0.9
 Summary: The LLM Evaluation Framework
 License: Apache-2.0
 License-File: LICENSE.md
@@ -37,6 +37,7 @@ Requires-Dist: pytest-repeat
 Requires-Dist: pytest-rerunfailures
 Requires-Dist: pytest-xdist
 Requires-Dist: python-dotenv (>=1.1.1,<2.0.0)
+Requires-Dist: questionary (>=2.0.0,<3.0.0)
 Requires-Dist: requests (>=2.31.0,<3.0.0)
 Requires-Dist: rich (>=13.6.0,<15.0.0)
 Requires-Dist: sentry-sdk

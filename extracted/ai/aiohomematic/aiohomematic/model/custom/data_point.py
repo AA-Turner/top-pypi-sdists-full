@@ -9,7 +9,7 @@ Public API of this module is defined by __all__.
 from collections.abc import Mapping
 from datetime import datetime
 import logging
-from typing import Any, Final, Unpack, override
+from typing import Any, ClassVar, Final, Unpack, override
 import weakref
 
 from aiohomematic import ccu_translations
@@ -31,7 +31,7 @@ from aiohomematic.model.support import (
     check_channel_is_the_only_primary_channel,
     get_custom_data_point_name,
 )
-from aiohomematic.property_decorators import DelegatedProperty, state_property
+from aiohomematic.property_decorators import DelegatedProperty
 from aiohomematic.support.address import get_channel_address
 from aiohomematic.type_aliases import UnsubscribeCallback
 
@@ -107,10 +107,19 @@ class CustomDataPoint(BaseDataPoint, CustomDataPointProtocol):
         """Returns the list of readable data points."""
         return tuple(dp for dp in self._data_points.values() if dp.is_readable)
 
+    # Fields whose readable data points gate validity (is_refreshed / is_valid /
+    # state_uncertain). Assigned by subclasses; enforced for every concrete class by
+    # tests/contract/test_cdp_validity_contract.py. An empty set means "always valid"
+    # (write-only devices). See ADR-0025.
+    # pylint false positive: a value-less ClassVar annotation is not a slot declaration.
+    _validity_relevant_fields: ClassVar[frozenset[Field]]  # pylint: disable=declare-non-slot
+
     @property
     def _relevant_data_points(self) -> tuple[GenericDataPointProtocolAny, ...]:
-        """Returns the list of relevant data points. To be overridden by subclasses."""
-        return self._readable_data_points
+        """Return the readable data points whose fields gate validity."""
+        return tuple(
+            dp for field, dp in self._data_points.items() if field in self._validity_relevant_fields and dp.is_readable
+        )
 
     @property
     def data_point_name_postfix(self) -> str:
@@ -133,6 +142,24 @@ class CustomDataPoint(BaseDataPoint, CustomDataPointProtocol):
         return all(dp.is_status_valid for dp in self._relevant_data_points)
 
     @property
+    def modified_at(self) -> datetime:
+        """Return the latest last update timestamp."""
+        modified_at: datetime = INIT_DATETIME
+        for dp in self._readable_data_points:
+            if (data_point_modified_at := dp.modified_at) and data_point_modified_at > modified_at:
+                modified_at = data_point_modified_at
+        return modified_at
+
+    @property
+    def refreshed_at(self) -> datetime:
+        """Return the latest last refresh timestamp."""
+        refreshed_at: datetime = INIT_DATETIME
+        for dp in self._readable_data_points:
+            if (data_point_refreshed_at := dp.refreshed_at) and data_point_refreshed_at > refreshed_at:
+                refreshed_at = data_point_refreshed_at
+        return refreshed_at
+
+    @property
     def state_uncertain(self) -> bool:
         """Return, if the state is uncertain."""
         return any(dp.state_uncertain for dp in self._relevant_data_points)
@@ -145,24 +172,6 @@ class CustomDataPoint(BaseDataPoint, CustomDataPointProtocol):
             if (unconfirmed_value := dp.unconfirmed_last_value_send) is not None:
                 unconfirmed_values[field] = unconfirmed_value
         return unconfirmed_values
-
-    @state_property
-    def modified_at(self) -> datetime:
-        """Return the latest last update timestamp."""
-        modified_at: datetime = INIT_DATETIME
-        for dp in self._readable_data_points:
-            if (data_point_modified_at := dp.modified_at) and data_point_modified_at > modified_at:
-                modified_at = data_point_modified_at
-        return modified_at
-
-    @state_property
-    def refreshed_at(self) -> datetime:
-        """Return the latest last refresh timestamp."""
-        refreshed_at: datetime = INIT_DATETIME
-        for dp in self._readable_data_points:
-            if (data_point_refreshed_at := dp.refreshed_at) and data_point_refreshed_at > refreshed_at:
-                refreshed_at = data_point_refreshed_at
-        return refreshed_at
 
     def get_channel_group_addresses(self) -> frozenset[str]:
         """Return all channel addresses in this custom data point's channel group."""

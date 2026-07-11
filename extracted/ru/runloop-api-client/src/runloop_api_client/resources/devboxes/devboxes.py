@@ -64,14 +64,18 @@ from ..._response import (
     async_to_custom_raw_response_wrapper,
     async_to_custom_streamed_response_wrapper,
 )
-from ..._constants import DEFAULT_TIMEOUT
+from ..._constants import (
+    DEFAULT_TIMEOUT,
+    LONG_POLL_CLIENT_BUFFER_SECONDS,
+    EXEC_LONG_POLL_SERVER_MAX_SECONDS,
+)
 from ...pagination import (
     SyncDevboxesCursorIDPage,
     AsyncDevboxesCursorIDPage,
     SyncDiskSnapshotsCursorIDPage,
     AsyncDiskSnapshotsCursorIDPage,
 )
-from ..._exceptions import RunloopError, APIStatusError, APITimeoutError
+from ..._exceptions import RunloopError, APIStatusError, APIConnectionError
 from ...lib.polling import PollingConfig, poll_until
 from ..._base_client import AsyncPaginator, make_request_options
 from .disk_snapshots import (
@@ -171,7 +175,6 @@ class DevboxesResource(SyncAPIResource):
         metadata: Optional[Dict[str, str]] | Omit = omit,
         mounts: Optional[Iterable[Mount]] | Omit = omit,
         name: Optional[str] | Omit = omit,
-        repo_connection_id: Optional[str] | Omit = omit,
         secrets: Optional[Dict[str, str]] | Omit = omit,
         snapshot_id: Optional[str] | Omit = omit,
         tunnel: Optional[devbox_create_params.Tunnel] | Omit = omit,
@@ -232,8 +235,6 @@ class DevboxesResource(SyncAPIResource):
 
           name: (Optional) A user specified name to give the Devbox.
 
-          repo_connection_id: Repository connection id the devbox should source its base image from.
-
           secrets: (Optional) Map of environment variable names to secret names. The secret values
               will be securely injected as environment variables in the Devbox. Example:
               {"DB_PASS": "DATABASE_PASSWORD"} sets environment variable 'DB_PASS' to the
@@ -271,7 +272,6 @@ class DevboxesResource(SyncAPIResource):
                     "metadata": metadata,
                     "mounts": mounts,
                     "name": name,
-                    "repo_connection_id": repo_connection_id,
                     "secrets": secrets,
                     "snapshot_id": snapshot_id,
                     "tunnel": tunnel,
@@ -468,7 +468,6 @@ class DevboxesResource(SyncAPIResource):
         mounts: Optional[Iterable[Mount]] | Omit = omit,
         name: Optional[str] | Omit = omit,
         polling_config: PollingConfig | None = None,
-        repo_connection_id: Optional[str] | Omit = omit,
         secrets: Optional[Dict[str, str]] | Omit = omit,
         snapshot_id: Optional[str] | Omit = omit,
         tunnel: Optional[devbox_create_params.Tunnel] | Omit = omit,
@@ -509,7 +508,6 @@ class DevboxesResource(SyncAPIResource):
             metadata=metadata,
             mounts=mounts,
             name=name,
-            repo_connection_id=repo_connection_id,
             secrets=secrets,
             snapshot_id=snapshot_id,
             tunnel=tunnel,
@@ -957,7 +955,7 @@ class DevboxesResource(SyncAPIResource):
             return execution
 
         def handle_timeout_error(error: Exception) -> DevboxAsyncExecutionDetailView:
-            if isinstance(error, APITimeoutError) or (
+            if isinstance(error, APIConnectionError) or (
                 isinstance(error, APIStatusError) and error.response.status_code == 408
             ):
                 return execution
@@ -967,7 +965,15 @@ class DevboxesResource(SyncAPIResource):
             return result.status == "completed"
 
         return poll_until(
-            lambda: self.wait_for_command(execution.execution_id, devbox_id=devbox_id, statuses=["completed"]),
+            # Client read timeout must exceed the server long-poll hold so the server
+            # returns 408 first instead of the client aborting the stream.
+            lambda: self.wait_for_command(
+                execution.execution_id,
+                devbox_id=devbox_id,
+                statuses=["completed"],
+                timeout_seconds=int(EXEC_LONG_POLL_SERVER_MAX_SECONDS),
+                timeout=httpx.Timeout(EXEC_LONG_POLL_SERVER_MAX_SECONDS + LONG_POLL_CLIENT_BUFFER_SECONDS, connect=5.0),
+            ),
             is_done,
             polling_config,
             handle_timeout_error,
@@ -1841,7 +1847,6 @@ class AsyncDevboxesResource(AsyncAPIResource):
         metadata: Optional[Dict[str, str]] | Omit = omit,
         mounts: Optional[Iterable[Mount]] | Omit = omit,
         name: Optional[str] | Omit = omit,
-        repo_connection_id: Optional[str] | Omit = omit,
         secrets: Optional[Dict[str, str]] | Omit = omit,
         snapshot_id: Optional[str] | Omit = omit,
         tunnel: Optional[devbox_create_params.Tunnel] | Omit = omit,
@@ -1902,8 +1907,6 @@ class AsyncDevboxesResource(AsyncAPIResource):
 
           name: (Optional) A user specified name to give the Devbox.
 
-          repo_connection_id: Repository connection id the devbox should source its base image from.
-
           secrets: (Optional) Map of environment variable names to secret names. The secret values
               will be securely injected as environment variables in the Devbox. Example:
               {"DB_PASS": "DATABASE_PASSWORD"} sets environment variable 'DB_PASS' to the
@@ -1941,7 +1944,6 @@ class AsyncDevboxesResource(AsyncAPIResource):
                     "metadata": metadata,
                     "mounts": mounts,
                     "name": name,
-                    "repo_connection_id": repo_connection_id,
                     "secrets": secrets,
                     "snapshot_id": snapshot_id,
                     "tunnel": tunnel,
@@ -2007,7 +2009,6 @@ class AsyncDevboxesResource(AsyncAPIResource):
         mounts: Optional[Iterable[Mount]] | Omit = omit,
         name: Optional[str] | Omit = omit,
         polling_config: PollingConfig | None = None,
-        repo_connection_id: Optional[str] | Omit = omit,
         secrets: Optional[Dict[str, str]] | Omit = omit,
         snapshot_id: Optional[str] | Omit = omit,
         tunnel: Optional[devbox_create_params.Tunnel] | Omit = omit,
@@ -2049,7 +2050,6 @@ class AsyncDevboxesResource(AsyncAPIResource):
             metadata=metadata,
             mounts=mounts,
             name=name,
-            repo_connection_id=repo_connection_id,
             secrets=secrets,
             snapshot_id=snapshot_id,
             tunnel=tunnel,
@@ -2627,7 +2627,7 @@ class AsyncDevboxesResource(AsyncAPIResource):
             return execution
 
         def handle_timeout_error(error: Exception) -> DevboxAsyncExecutionDetailView:
-            if isinstance(error, APITimeoutError) or (
+            if isinstance(error, APIConnectionError) or (
                 isinstance(error, APIStatusError) and error.response.status_code == 408
             ):
                 return execution
@@ -2637,7 +2637,15 @@ class AsyncDevboxesResource(AsyncAPIResource):
             return result.status == "completed"
 
         return await async_poll_until(
-            lambda: self.wait_for_command(execution.execution_id, devbox_id=devbox_id, statuses=["completed"]),
+            # Client read timeout must exceed the server long-poll hold so the server
+            # returns 408 first instead of the client aborting the stream.
+            lambda: self.wait_for_command(
+                execution.execution_id,
+                devbox_id=devbox_id,
+                statuses=["completed"],
+                timeout_seconds=int(EXEC_LONG_POLL_SERVER_MAX_SECONDS),
+                timeout=httpx.Timeout(EXEC_LONG_POLL_SERVER_MAX_SECONDS + LONG_POLL_CLIENT_BUFFER_SECONDS, connect=5.0),
+            ),
             is_done,
             polling_config,
             handle_timeout_error,

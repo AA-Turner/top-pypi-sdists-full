@@ -4,12 +4,25 @@ from types import SimpleNamespace
 
 import pytest
 
+import boxmot.engine.tracking.runtime as tracker_runtime_module
+import boxmot.engine.tracking.workflow as tracker_module
+import boxmot.utils.rich.core.ui as ui_module
 from boxmot.engine.workflows import support as workflow_support_module
-import boxmot.engine.tracking.tracker as tracker_module
-import boxmot.utils.rich.ui as ui_module
+from boxmot.trackers import OccluBoost
 
 
-def test_tracking_session_consumes_finite_track_runs_without_show_or_save(monkeypatch):
+def test_should_consume_result_for_finite_sources_without_output():
+    args = SimpleNamespace(
+        source="assets/DOTA8-MOT/train/P1142__1024__0___824/img1",
+        save=False,
+        save_txt=False,
+        show=False,
+    )
+
+    assert tracker_module._should_consume_result(args) is True
+
+
+def test_consume_run_iterates_results_and_refreshes():
     events = []
 
     class _FakeResults:
@@ -31,89 +44,70 @@ def test_tracking_session_consumes_finite_track_runs_without_show_or_save(monkey
         def refresh(self):
             events.append(("refresh", None))
 
-    class _FakeBoxmot:
-        def __init__(self, **kwargs):
-            events.append(("init", kwargs))
-
-        def track(self, **kwargs):
-            events.append(("track", kwargs))
-            return _FakeRun()
-
-    monkeypatch.setattr(tracker_module, "Boxmot", _FakeBoxmot)
-
-    session = tracker_module.TrackingSession(
-        SimpleNamespace(
-            source="assets/DOTA8-MOT/train/P1142__1024__0___824/img1",
-            detector="yolo11s-obb.pt",
-            reid="lmbn_n_duke.pt",
-            tracker="strongsort",
-            classes=None,
-            project="runs/test",
-            imgsz=None,
-            conf=None,
-            iou=0.7,
-            device="cpu",
-            half=False,
-            save=False,
-            save_txt=False,
-            show=False,
-            verbose=False,
-        )
-    )
-
-    session.run()
+    tracker_module._consume_run(_FakeRun())
 
     assert ("iter", None) in events
     assert ("refresh", None) in events
     assert ("show", None) not in events
 
 
-def test_tracking_session_keeps_live_sources_lazy_without_show_or_save(monkeypatch):
-    events = []
-
-    class _FakeRun:
-        def __init__(self):
-            self.results = object()
-
-        def show(self):
-            events.append("show")
-
-        def refresh(self):
-            events.append("refresh")
-
-    class _FakeBoxmot:
-        def __init__(self, **kwargs):
-            pass
-
-        def track(self, **kwargs):
-            events.append("track")
-            return _FakeRun()
-
-    monkeypatch.setattr(tracker_module, "Boxmot", _FakeBoxmot)
-
-    session = tracker_module.TrackingSession(
-        SimpleNamespace(
-            source="0",
-            reid="lmbn_n_duke.pt",
-            tracker="strongsort",
-            detector="yolo11s-obb.pt",
-            classes=None,
-            project="runs/test",
-            imgsz=None,
-            conf=None,
-            iou=0.7,
-            device="cpu",
-            half=False,
-            save=False,
-            save_txt=False,
-            show=False,
-            verbose=False,
+def test_should_consume_result_keeps_live_and_output_sources_lazy():
+    assert (
+        tracker_module._should_consume_result(
+            SimpleNamespace(source="0", save=False, save_txt=False, show=False)
         )
+        is False
+    )
+    assert (
+        tracker_module._should_consume_result(
+            SimpleNamespace(source="rtsp://camera/stream", save=False, save_txt=False, show=False)
+        )
+        is False
+    )
+    assert (
+        tracker_module._should_consume_result(
+            SimpleNamespace(source="video.mp4", save=True, save_txt=False, show=False)
+        )
+        is False
+    )
+    assert (
+        tracker_module._should_consume_result(
+            SimpleNamespace(source="video.mp4", save=False, save_txt=True, show=False)
+        )
+        is False
+    )
+    assert (
+        tracker_module._should_consume_result(
+            SimpleNamespace(source="video.mp4", save=False, save_txt=False, show=True)
+        )
+        is False
     )
 
-    session.run()
 
-    assert events == ["track"]
+def test_tracker_runtime_forwards_precomputed_reid(monkeypatch):
+    seen = {}
+
+    class _FakeTracker:
+        def update(self, dets, img, **kwargs):
+            return []
+
+    def fake_create_tracker(**kwargs):
+        seen.update(kwargs)
+        return _FakeTracker()
+
+    monkeypatch.setattr(tracker_runtime_module, "create_tracker", fake_create_tracker)
+
+    runtime = tracker_runtime_module.TrackerRuntime.create(
+        tracker_name="occluboost",
+        reid_weights="unused.pt",
+        device="cpu",
+        half=False,
+        per_class=False,
+        precomputed_reid=True,
+    )
+
+    assert isinstance(runtime, tracker_runtime_module.TrackerRuntime)
+    assert seen["precomputed_reid"] is True
 
 
 def test_workflow_support_routes_cpp_live_tracker_backend(monkeypatch):
@@ -188,8 +182,103 @@ def test_workflow_support_routes_cpp_live_ocsort_backend(monkeypatch):
     assert seen["kwargs"] == {"reid_weights": None, "reid_preprocess": None}
 
 
+def test_resolve_tracker_class_metadata_uses_detector_config_classes():
+    args = SimpleNamespace(
+        dataset_detector_cfg={"classes": {0: "car", 7: "awning-bike"}},
+        classes=None,
+    )
+
+    class_ids, class_names = workflow_support_module.resolve_tracker_class_metadata(args)
+
+    assert class_ids == (0, 7)
+    assert class_names == {0: "car", 7: "awning-bike"}
+
+
+def test_resolve_tracker_class_metadata_respects_selected_classes():
+    args = SimpleNamespace(
+        dataset_detector_cfg={"classes": {0: "car", 7: "awning-bike"}},
+        classes=[7],
+    )
+
+    class_ids, class_names = workflow_support_module.resolve_tracker_class_metadata(args)
+
+    assert class_ids == (7,)
+    assert class_names == {0: "car", 7: "awning-bike"}
+
+
+def test_resolve_tracker_class_metadata_falls_back_to_detector_backend_names():
+    detector = SimpleNamespace(backend=SimpleNamespace(names={3: "van"}))
+    args = SimpleNamespace(dataset_detector_cfg=None, classes=None)
+
+    class_ids, class_names = workflow_support_module.resolve_tracker_class_metadata(args, detector)
+
+    assert class_ids == (3,)
+    assert class_names == {3: "van"}
+
+
+def test_build_tracker_from_spec_forwards_class_metadata(monkeypatch):
+    seen = {}
+
+    def fake_create_tracker(**kwargs):
+        seen.update(kwargs)
+        return "tracker"
+
+    monkeypatch.setattr(workflow_support_module, "create_tracker", fake_create_tracker)
+    monkeypatch.setattr(workflow_support_module, "select_device", lambda device: device)
+
+    tracker = workflow_support_module.build_tracker_from_spec(
+        "bytetrack",
+        class_ids=(0, 7),
+        class_names={0: "car", 7: "awning-bike"},
+    )
+
+    assert tracker == "tracker"
+    assert seen["class_ids"] == (0, 7)
+    assert seen["class_names"] == {0: "car", 7: "awning-bike"}
+
+
+def test_build_tracker_from_spec_accepts_tracker_class_and_kwargs(monkeypatch):
+    seen = {}
+
+    def fake_create_tracker(**kwargs):
+        seen.update(kwargs)
+        return "tracker"
+
+    monkeypatch.setattr(workflow_support_module, "create_tracker", fake_create_tracker)
+    monkeypatch.setattr(workflow_support_module, "select_device", lambda device: device)
+
+    tracker = workflow_support_module.build_tracker_from_spec(
+        OccluBoost,
+        reid_model="reid-runtime",
+        tracker_kwargs={"with_reid": True, "max_age": 30},
+    )
+
+    assert tracker == "tracker"
+    assert seen["tracker_type"] == "occluboost"
+    assert seen["reid_model"] == "reid-runtime"
+    assert seen["tracker_kwargs"] == {"with_reid": True, "max_age": 30}
+
+
+def test_build_tracker_from_spec_rejects_kwargs_for_initialized_tracker():
+    with pytest.raises(ValueError, match="tracker_kwargs"):
+        workflow_support_module.build_tracker_from_spec(object(), tracker_kwargs={"with_reid": True})
+
+
+def test_tracker_reid_model_from_spec_prefers_get_features_object():
+    class ReIDRuntime:
+        def get_features(self, boxes, image):
+            return None
+
+    runtime = ReIDRuntime()
+
+    assert workflow_support_module.tracker_reid_model_from_spec(runtime) is runtime
+
+
 def test_workflow_support_rejects_unsupported_cpp_live_tracker_backend():
-    with pytest.raises(ValueError, match=r"Available native live trackers: botsort, bytetrack, occluboost, ocsort, sfsort"):
+    with pytest.raises(
+        ValueError,
+        match=r"Available native live trackers: botsort, bytetrack, occluboost, ocsort, sfsort",
+    ):
         workflow_support_module.build_tracker_from_spec("deepocsort", tracker_backend="cpp")
 
 
@@ -231,40 +320,6 @@ def test_build_tracker_with_reid_spec_skips_reid_for_nonreid_tracker(monkeypatch
 
     assert reid is None
     assert calls == []
-
-
-def test_initialize_trackers_uses_cpp_live_tracker_backend(monkeypatch):
-    predictor = SimpleNamespace(dataset=SimpleNamespace(bs=1), device="cpu")
-    args = SimpleNamespace(tracker="botsort:cpp", tracker_backend=None, reid=None, half=False, target_id=7)
-
-    calls = []
-
-    class _FakeTracker:
-        pass
-
-    def fake_build_tracker(spec, **kwargs):
-        calls.append((spec, kwargs))
-        return _FakeTracker()
-
-    monkeypatch.setattr(tracker_module, "build_tracker_from_spec", fake_build_tracker)
-
-    trackers = tracker_module.TrackingSession.initialize_trackers(predictor, args)
-
-    assert len(trackers) == 1
-    assert calls == [
-        (
-            "botsort:cpp",
-            {
-                "device": "cpu",
-                "half": False,
-                "tracker_backend": None,
-                "reid_weights": None,
-                "reid_preprocess": None,
-            },
-        )
-    ]
-    assert predictor.trackers == trackers
-    assert trackers[0].target_id == 7
 
 
 def test_run_track_routes_progress_into_workflow(monkeypatch, tmp_path):
@@ -332,7 +387,7 @@ def test_run_track_routes_progress_into_workflow(monkeypatch, tmp_path):
             if detail:
                 self.details.append((next_step, detail, True))
 
-    from boxmot.utils.rich.pipeline import PipelineTracker
+    from boxmot.utils.rich.workflow.pipeline import PipelineTracker
 
     monkeypatch.setattr(tracker_module, "Results", _FakeResults)
 
@@ -357,7 +412,11 @@ def test_run_track_routes_progress_into_workflow(monkeypatch, tmp_path):
     assert created["progress_callback"] is not None
     # pipeline.advance() completes SETUP and sets detail on RUN
     assert workflow.completed[0] == (tracker_module.TRACK_SETUP_STEP, False)
-    assert (tracker_module.TRACK_RUN_STEP, "Frame 1 | Det: 1.0ms | Track: 2.0ms | Total: 3.0ms", True) in workflow.details
+    assert (
+        tracker_module.TRACK_RUN_STEP,
+        "Frame 1 | Det: 1.0ms | Track: 2.0ms | Total: 3.0ms",
+        True,
+    ) in workflow.details
     assert len(workflow.renderable_details) == 1
     assert workflow.renderable_details[0][0] == "Summary"
     assert "TRACKING SUMMARY" in workflow.renderable_details[0][1]
@@ -413,8 +472,8 @@ def test_main_starts_and_stops_tracking_workflow(monkeypatch, tmp_path):
         calls.append((args, kwargs))
         return "track-result"
 
-    monkeypatch.setattr(tracker_module.ui, "create_workflow_progress", fake_create_workflow_progress)
-    monkeypatch.setattr(tracker_module.ui, "print_renderable", lambda *a, **kw: None)
+    monkeypatch.setattr(ui_module, "create_workflow_progress", fake_create_workflow_progress)
+    monkeypatch.setattr(ui_module, "print_renderable", lambda *a, **kw: None)
     monkeypatch.setattr(tracker_module, "run_track", fake_run_track)
 
     result = tracker_module.main(

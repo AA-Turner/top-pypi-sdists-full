@@ -3433,6 +3433,7 @@ def register_generated_tools(mcp, _get_client):
         age_max: int | None = None,
         interests: list[dict[str, Any]] | None = None,
         audience_id: str | None = None,
+        placements: dict[str, Any] | None = None,
         advantage_audience: int | None = None,
         objective: str | None = None,
         bid_strategy: str | None = None,
@@ -3496,6 +3497,14 @@ def register_generated_tools(mcp, _get_client):
                 age_max
                 interests
                 audience_id: Custom audience ID to target.
+                placements: Manual ad placements on the shared ad set. Omit
+        for automatic placements. When set, restricts delivery to the chosen surfaces,
+        mapped onto the ad set's `targeting.{publisher_platforms, facebook_positions, instagram_positions,
+        messenger_positions, audience_network_positions, threads_positions,
+        whatsapp_positions, device_platforms}`. Enum membership is validated here; Meta
+        additionally enforces co-selection rules and restricts which
+        placements are eligible for click-to-WhatsApp ads, returning an actionable
+        error which we surface.
                 advantage_audience: Meta's Advantage+ audience expansion. `0` (default) keeps
         targeting strict; `1` lets Meta expand beyond the supplied
         targeting when its delivery system finds better matches.
@@ -3548,6 +3557,7 @@ def register_generated_tools(mcp, _get_client):
                 age_max=age_max,
                 interests=interests,
                 audience_id=audience_id,
+                placements=placements,
                 advantage_audience=advantage_audience,
                 objective=objective,
                 bid_strategy=bid_strategy,
@@ -8439,8 +8449,8 @@ def register_generated_tools(mcp, _get_client):
         """Search conversations
 
         Args:
-            query: Text to search for in message content (required)
-            direction: Only match messages sent to you (incoming) or by you (outgoing)
+            query: Text to search for, in message content and in the contact's name, username, or phone number (required)
+            direction: Only match messages sent to you (incoming) or by you (outgoing). Contact-identity matching is not applied when this is set.
             profile_id: Filter by profile ID
             platform: Filter by platform (searchable platforms only)
             account_id: Filter by specific social account ID
@@ -10767,16 +10777,29 @@ def register_generated_tools(mcp, _get_client):
             openWorldHint=True,
         )
     )
-    def sms_appeal_sms_registration(id: str, appeal_reason: str) -> str:
+    def sms_appeal_sms_registration(
+        id: str,
+        appeal_reason: str,
+        message_flow: str | None = None,
+        sample1: str | None = None,
+        sample2: str | None = None,
+    ) -> str:
         """Appeal a rejected campaign
 
         Args:
             id: (required)
-            appeal_reason: (required)"""
+            appeal_reason: Goes verbatim to the carrier reviewer — address the decline reason directly. (required)
+            message_flow: Corrected opt-in flow; include a link to the opt-in page/form.
+            sample1
+            sample2"""
         client = _get_client()
         try:
             response = client.sms.appeal_sms_registration(
-                id=id, appeal_reason=appeal_reason
+                id=id,
+                appeal_reason=appeal_reason,
+                message_flow=message_flow,
+                sample1=sample1,
+                sample2=sample2,
             )
             return _format_response(response)
         except Exception as e:
@@ -13215,16 +13238,16 @@ def register_generated_tools(mcp, _get_client):
             openWorldHint=False,
         )
     )
-    def whatsapp_calling_get_whats_app_call(call_id: str, account_id: str) -> str:
+    def whatsapp_calling_get_whats_app_call(id: str, account_id: str) -> str:
         """Get a single call
 
         Args:
-            call_id: (required)
+            id: (required)
             account_id: (required)"""
         client = _get_client()
         try:
             response = client.whatsapp_calling.get_whats_app_call(
-                call_id=call_id, account_id=account_id
+                id=id, account_id=account_id
             )
             return _format_response(response)
         except Exception as e:
@@ -13239,18 +13262,18 @@ def register_generated_tools(mcp, _get_client):
         )
     )
     def whatsapp_calling_get_whats_app_call_recording(
-        call_id: str, account_id: str, as_: str | None = None
+        id: str, account_id: str, as_: str | None = None
     ) -> str:
         """Get a call recording
 
         Args:
-            call_id: (required)
+            id: (required)
             account_id: (required)
             as_: `json` returns `{ url }` instead of a 302 redirect."""
         client = _get_client()
         try:
             response = client.whatsapp_calling.get_whats_app_call_recording(
-                call_id=call_id, account_id=account_id, as_=as_
+                id=id, account_id=account_id, as_=as_
             )
             return _format_response(response)
         except Exception as e:

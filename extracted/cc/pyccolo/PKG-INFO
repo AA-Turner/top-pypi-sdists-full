@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pyccolo
-Version: 0.0.93
+Version: 0.0.94
 Summary: Declarative instrumentation for Python
 Home-page: https://github.com/smacke/pyccolo
 Author: Stephen Macke
@@ -29,9 +29,12 @@ Requires-Dist: sphinx; extra == "docs"
 Requires-Dist: sphinx-argparse; extra == "docs"
 Requires-Dist: sphinx-copybutton; extra == "docs"
 Requires-Dist: sphinx-rtd-theme; extra == "docs"
+Provides-Extra: ipython
+Requires-Dist: ipython; extra == "ipython"
 Provides-Extra: test
 Requires-Dist: black==25.1.0; python_version >= "3.9" and extra == "test"
 Requires-Dist: hypothesis; extra == "test"
+Requires-Dist: ipython; extra == "test"
 Requires-Dist: isort; extra == "test"
 Requires-Dist: mypy; extra == "test"
 Requires-Dist: pytest; extra == "test"
@@ -44,6 +47,7 @@ Requires-Dist: twine; extra == "dev"
 Requires-Dist: versioneer; extra == "dev"
 Requires-Dist: black==25.1.0; python_version >= "3.9" and extra == "dev"
 Requires-Dist: hypothesis; extra == "dev"
+Requires-Dist: ipython; extra == "dev"
 Requires-Dist: isort; extra == "dev"
 Requires-Dist: mypy; extra == "dev"
 Requires-Dist: pytest; extra == "dev"
@@ -55,17 +59,21 @@ Pyccolo
 =======
 
 [![CI Status](https://github.com/smacke/pyccolo/workflows/pyccolo/badge.svg)](https://github.com/smacke/pyccolo/actions)
+[![lite-badge](https://jupyterlite.rtfd.io/en/latest/_static/badge.svg)](https://smacke.github.io/pyccolo/lab/index.html?path=demo.ipynb)
 [![Documentation Status](https://readthedocs.org/projects/pyccolo/badge/?version=latest)](https://pyccolo.readthedocs.io/en/latest/?badge=latest)
 [![Checked with mypy](http://www.mypy-lang.org/static/mypy_badge.svg)](http://mypy-lang.org/)
 [![codecov](https://codecov.io/gh/smacke/pyccolo/branch/master/graph/badge.svg?token=MGORH1IXLO)](https://codecov.io/gh/smacke/pyccolo)
 [![License: BSD3](https://img.shields.io/badge/License-BSD3-maroon.svg)](https://opensource.org/licenses/BSD-3-Clause)
-[![Python Versions](https://img.shields.io/pypi/pyversions/pyccolo.svg)](https://pypi.org/project/pyccolo)
 [![PyPI Version](https://img.shields.io/pypi/v/pyccolo.svg)](https://pypi.org/project/pyccolo)
+[![Python Versions](https://img.shields.io/pypi/pyversions/pyccolo.svg)](https://pypi.org/project/pyccolo)
 
 Pyccolo (pronounced like the instrument "piccolo") is a library for declarative
 instrumentation in Python; i.e., it lets you specify the *what* of the
-instrumentation you wish to perform, and takes care of the *how* for you. It
-brings metaprogramming to everybody via general, event-emitting AST
+instrumentation you wish to perform, and takes care of the *how* for you.
+
+## ✨ [Go here](https://smacke.github.io/pyccolo/lab/index.html?path=demo.ipynb) to try it in your browser ✨
+
+Pyccolo brings metaprogramming to everybody via general, event-emitting AST
 transformations, and aims to be:
 
 - ***ergonomic*** — you subclass `pyc.BaseTracer` and decorate a handler; there's

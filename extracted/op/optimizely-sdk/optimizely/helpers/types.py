@@ -130,3 +130,6 @@ class HoldoutDict(ExperimentDict):
     Extends ExperimentDict with holdout-specific properties.
     """
     holdoutStatus: HoldoutStatus
+    # Per-rule targeting for local holdouts. Scope comes from the datafile section,
+    # not this field; required on 'localHoldouts' entries, stripped on 'holdouts'.
+    includedRules: Optional[list[str]]

@@ -12,6 +12,7 @@ try:
 
 except ImportError:
 
+    _enter_mode = lambda *args, **kwargs: None
     _patch = lambda *args, **kwargs: None
     _unpatch = lambda *args, **kwargs: None
     _pack = lambda *args, **kwargs: 0
@@ -35,6 +36,7 @@ else:
     else: # pragma: no cover
         from . import patching_legacy as _patching
 
+    _enter_mode = _patching.enter_mode
     _patch = _patching.patch
     _unpatch = _patching.unpatch
     _pack = _patching.pack
@@ -44,6 +46,7 @@ else:
     _is_in_bad_fork = _patching.is_in_bad_fork
 
 
+enter_mode = _enter_mode
 patch = _patch
 unpatch = _unpatch
 pack = _pack

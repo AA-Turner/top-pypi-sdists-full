@@ -88,7 +88,7 @@ impl InternedString {
     }
 
     pub fn from_string(value: String) -> Self {
-        InternedStore::get_or_intern_string(value)
+        InternedStore::get_or_intern_owned_string(value)
     }
 
     pub fn from_string_uninterned(value: String) -> Self {
@@ -159,7 +159,7 @@ impl<'de> Deserialize<'de> for InternedString {
         let raw: CowString<'de> = CowString::deserialize(deserializer)?;
         match raw {
             CowString::Borrowed(raw) => Ok(InternedStore::get_or_intern_string(raw)),
-            CowString::Owned(raw) => Ok(InternedStore::get_or_intern_string(raw)),
+            CowString::Owned(raw) => Ok(InternedStore::get_or_intern_owned_string(raw)),
         }
     }
 }

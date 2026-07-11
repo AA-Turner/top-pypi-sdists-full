@@ -33,10 +33,14 @@ from airbyte_ops_webapp.pages.shared_components.layout import (
     render_breadcrumb_nav,
     render_environment_banners,
     render_page_hero,
+    render_version_footer,
 )
 from airbyte_ops_webapp.state import (
     OpsPageState,
+    deploy_sha,
+    deploy_sha_url,
     mock_only_enabled,
+    ops_package_version,
     preview_deploy_enabled,
     preview_pr_number,
     preview_pr_url,
@@ -185,6 +189,9 @@ def open_ops_home(
         is_preview_deploy=preview_deploy_enabled(),
         preview_pr_number=preview_pr_number(),
         preview_pr_url=preview_pr_url(),
+        deploy_sha=deploy_sha(),
+        deploy_sha_url=deploy_sha_url(),
+        ops_package_version=ops_package_version(),
         oauth_config=current_oauth_config,
         oauth_enabled=bool(current_oauth_config["enabled"]),
     ).to_prefab_state()
@@ -213,6 +220,7 @@ def open_ops_home(
             _render_connector_version_manager_card(connector_query)
             _render_customer_billing_card()
             _render_more_tools_card()
+        render_version_footer()
     return app
 
 

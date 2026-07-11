@@ -88,6 +88,7 @@ nav:
       - Benchmarks: config/benchmarks.md
       - Datasets: config/datasets.md
       - Detectors: config/detectors.md
+      - ReID Models: config/reid-models.md
       - ReID Profiles: config/reid.md
       - Tracker YAMLs: config/trackers.md
   - Trackers:

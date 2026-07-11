@@ -530,10 +530,17 @@ mod tests {
 
     use crate::{
         dcs_str::DCS_STR,
-        evaluation::evaluator_context::{EvaluatorContext, IdListResolution},
+        evaluation::{
+            dynamic_value::DynamicValue,
+            evaluator_context::{EvaluatorContext, IdListResolution},
+        },
         gcir::{evaluation_plan::GcirEvaluationPlan, gcir_formatter::GCIRFormatter},
         hashing::{HashAlgorithm, HashUtil},
-        specs_response::spec_types::SpecsResponseFull,
+        interned_string::InternedString,
+        specs_response::{
+            spec_types::{Spec, SpecsResponseFull},
+            specs_hash_map::SpecPointer,
+        },
         user::{StatsigUser, StatsigUserInternal},
         ClientInitResponseOptions,
     };
@@ -541,8 +548,17 @@ mod tests {
     fn planned_and_unplanned_response_values(
         options: &ClientInitResponseOptions,
     ) -> (serde_json::Value, serde_json::Value) {
+        planned_and_unplanned_response_values_with_specs(options, None, |_| {})
+    }
+
+    fn planned_and_unplanned_response_values_with_specs(
+        options: &ClientInitResponseOptions,
+        app_id: Option<&DynamicValue>,
+        update_specs: impl FnOnce(&mut SpecsResponseFull),
+    ) -> (serde_json::Value, serde_json::Value) {
         let mut specs: SpecsResponseFull = serde_json::from_str(DCS_STR).unwrap();
         specs.session_replay_info = None;
+        update_specs(&mut specs);
 
         let hashing = HashUtil::new();
         let plan = GcirEvaluationPlan::new(&specs, &hashing);
@@ -555,7 +571,7 @@ mod tests {
             &specs,
             IdListResolution::Callback(&id_list_callback),
             &hashing,
-            None,
+            app_id,
             None,
             false,
             None,
@@ -568,7 +584,7 @@ mod tests {
             &specs,
             IdListResolution::Callback(&id_list_callback),
             &hashing,
-            None,
+            app_id,
             None,
             false,
             None,
@@ -585,46 +601,98 @@ mod tests {
     }
 
     #[test]
-    fn planned_v1_format_matches_unplanned_output() {
-        let options = ClientInitResponseOptions {
-            hash_algorithm: Some(HashAlgorithm::Djb2),
-            client_sdk_key: Some("client-key".to_string()),
-            ..Default::default()
-        };
+    fn planned_v1_format_matches_unplanned_across_plan_modes() {
+        for (has_checksum, has_filters) in
+            [(false, false), (false, true), (true, false), (true, true)]
+        {
+            let options = ClientInitResponseOptions {
+                hash_algorithm: Some(HashAlgorithm::Sha256),
+                client_sdk_key: Some("client-key".to_string()),
+                previous_response_hash: has_checksum.then(|| "stale-checksum".to_string()),
+                feature_gate_filter: has_filters.then(|| HashSet::from(["test_50_50".to_string()])),
+                dynamic_config_filter: has_filters
+                    .then(|| HashSet::from(["operating_system_config".to_string()])),
+                layer_filter: has_filters.then(|| HashSet::from(["test_layer".to_string()])),
+                ..Default::default()
+            };
 
-        let (unplanned, planned) = planned_and_unplanned_response_values(&options);
+            let (unplanned, planned) = planned_and_unplanned_response_values(&options);
 
-        assert_eq!(unplanned, planned);
+            assert_eq!(
+                unplanned, planned,
+                "has_checksum={has_checksum}, has_filters={has_filters}"
+            );
+        }
     }
 
     #[test]
-    fn planned_v1_format_matches_unplanned_output_with_full_hash() {
+    fn planned_v1_format_respects_app_id_filtering() {
         let options = ClientInitResponseOptions {
-            hash_algorithm: Some(HashAlgorithm::Djb2),
+            hash_algorithm: Some(HashAlgorithm::None),
+            client_sdk_key: Some("client-key".to_string()),
+            ..Default::default()
+        };
+        let app_id = DynamicValue::from_string("other-app");
+
+        let (unplanned, planned) =
+            planned_and_unplanned_response_values_with_specs(&options, Some(&app_id), |specs| {
+                let spec: Spec = serde_json::from_value(serde_json::json!({
+                    "type": "feature_gate",
+                    "salt": "targeted-gate-salt",
+                    "defaultValue": false,
+                    "enabled": true,
+                    "rules": [],
+                    "idType": "userID",
+                    "entity": "feature_gate",
+                    "targetAppIDs": ["allowed-app"]
+                }))
+                .unwrap();
+                specs.feature_gates.insert(
+                    InternedString::from_str_ref("targeted_gate"),
+                    SpecPointer::from_spec(spec),
+                );
+            });
+
+        assert_eq!(unplanned, planned);
+        assert!(!planned["feature_gates"]
+            .as_object()
+            .unwrap()
+            .contains_key("targeted_gate"));
+    }
+
+    #[test]
+    fn planned_v1_format_removes_default_value_gates() {
+        let options = ClientInitResponseOptions {
+            hash_algorithm: Some(HashAlgorithm::None),
             client_sdk_key: Some("client-key".to_string()),
             previous_response_hash: Some("stale-checksum".to_string()),
+            remove_default_value_gates: Some(true),
             ..Default::default()
         };
 
-        let (unplanned, planned) = planned_and_unplanned_response_values(&options);
+        let (unplanned, planned) =
+            planned_and_unplanned_response_values_with_specs(&options, None, |specs| {
+                let spec: Spec = serde_json::from_value(serde_json::json!({
+                    "type": "feature_gate",
+                    "salt": "default-gate-salt",
+                    "defaultValue": false,
+                    "enabled": true,
+                    "rules": [],
+                    "idType": "userID",
+                    "entity": "feature_gate"
+                }))
+                .unwrap();
+                specs.feature_gates.insert(
+                    InternedString::from_str_ref("default_false_gate"),
+                    SpecPointer::from_spec(spec),
+                );
+            });
 
         assert_eq!(unplanned, planned);
-    }
-
-    #[test]
-    fn planned_v1_format_respects_entity_filters() {
-        let options = ClientInitResponseOptions {
-            hash_algorithm: Some(HashAlgorithm::Sha256),
-            client_sdk_key: Some("client-key".to_string()),
-            feature_gate_filter: Some(HashSet::from(["test_50_50".to_string()])),
-            dynamic_config_filter: Some(HashSet::from(["operating_system_config".to_string()])),
-            layer_filter: Some(HashSet::from(["test_layer".to_string()])),
-            ..Default::default()
-        };
-
-        let (unplanned, planned) = planned_and_unplanned_response_values(&options);
-
-        assert_eq!(unplanned, planned);
+        assert!(!planned["feature_gates"]
+            .as_object()
+            .unwrap()
+            .contains_key("default_false_gate"));
     }
 
     #[test]

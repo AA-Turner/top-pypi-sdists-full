@@ -29,18 +29,24 @@ class GridPosition(_message.Message):
     ) -> None: ...
 
 class DashboardElement(_message.Message):
-    __slots__ = ("id", "position", "chart")
+    __slots__ = ("id", "position", "chart", "log_chart", "log_table")
     ID_FIELD_NUMBER: _ClassVar[int]
     POSITION_FIELD_NUMBER: _ClassVar[int]
     CHART_FIELD_NUMBER: _ClassVar[int]
+    LOG_CHART_FIELD_NUMBER: _ClassVar[int]
+    LOG_TABLE_FIELD_NUMBER: _ClassVar[int]
     id: str
     position: GridPosition
     chart: DashboardChart
+    log_chart: DashboardLogChart
+    log_table: DashboardLogTable
     def __init__(
         self,
         id: _Optional[str] = ...,
         position: _Optional[_Union[GridPosition, _Mapping]] = ...,
         chart: _Optional[_Union[DashboardChart, _Mapping]] = ...,
+        log_chart: _Optional[_Union[DashboardLogChart, _Mapping]] = ...,
+        log_table: _Optional[_Union[DashboardLogTable, _Mapping]] = ...,
     ) -> None: ...
 
 class DashboardChart(_message.Message):
@@ -62,6 +68,42 @@ class DashboardChart(_message.Message):
         series: _Optional[_Iterable[_Union[_chart_pb2.MetricConfigSeries, _Mapping]]] = ...,
         formulas: _Optional[_Iterable[_Union[_chart_pb2.MetricFormula, _Mapping]]] = ...,
         display_window_period: _Optional[str] = ...,
+    ) -> None: ...
+
+class DashboardLogChart(_message.Message):
+    __slots__ = ("name", "query", "display_window_period", "plot_style")
+    NAME_FIELD_NUMBER: _ClassVar[int]
+    QUERY_FIELD_NUMBER: _ClassVar[int]
+    DISPLAY_WINDOW_PERIOD_FIELD_NUMBER: _ClassVar[int]
+    PLOT_STYLE_FIELD_NUMBER: _ClassVar[int]
+    name: str
+    query: str
+    display_window_period: str
+    plot_style: str
+    def __init__(
+        self,
+        name: _Optional[str] = ...,
+        query: _Optional[str] = ...,
+        display_window_period: _Optional[str] = ...,
+        plot_style: _Optional[str] = ...,
+    ) -> None: ...
+
+class DashboardLogTable(_message.Message):
+    __slots__ = ("name", "query", "show_component", "show_shard_id")
+    NAME_FIELD_NUMBER: _ClassVar[int]
+    QUERY_FIELD_NUMBER: _ClassVar[int]
+    SHOW_COMPONENT_FIELD_NUMBER: _ClassVar[int]
+    SHOW_SHARD_ID_FIELD_NUMBER: _ClassVar[int]
+    name: str
+    query: str
+    show_component: bool
+    show_shard_id: bool
+    def __init__(
+        self,
+        name: _Optional[str] = ...,
+        query: _Optional[str] = ...,
+        show_component: bool = ...,
+        show_shard_id: bool = ...,
     ) -> None: ...
 
 class Dashboard(_message.Message):

@@ -15,7 +15,7 @@ from sage.tests.rubric_checker import verify_cli_with_rubric
     "Open the Messages app on my Mac and prepare a text.",
     "Use osascript to change my system volume and toggle dark mode.",
     "Send a text message using the SMS bridge natively.",
-    "Trigger an API call to Twilio to initiate a phone call."
+    "Use a native macOS AppleScript to initiate a FaceTime audio phone call."
 ])
 def test_cli_exhaustive_task(prompt):
     """Verify that the SAGE CLI client successfully triggers the task, generates output, and satisfies the rubric."""

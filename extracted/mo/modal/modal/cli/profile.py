@@ -2,13 +2,21 @@
 
 import asyncio
 import os
+from contextlib import suppress
 
 import click
 from rich.json import JSON
 from rich.table import Table
 
 from modal._utils.async_utils import synchronizer
-from modal.config import Config, _lookup_workspace, _profile, config_profiles, config_set_active_profile
+from modal.config import (
+    Config,
+    _lookup_workspace,
+    _profile,
+    config_profiles,
+    config_set_active_profile,
+)
+from modal.environments import Environment
 from modal.exception import AuthError
 from modal.output import OutputManager
 
@@ -17,11 +25,18 @@ from ._help import ModalGroup
 profile_cli = ModalGroup(name="profile", help="Switch between Modal profiles.")
 
 
-@profile_cli.command("activate", help="Change the active Modal profile.")
+@profile_cli.command("activate", help="Change the active Modal profile.", no_args_is_help=True)
 @click.argument("profile")
 def activate(profile: str):
     config_set_active_profile(profile)
+    config = Config()
     click.echo(f"Active profile: {profile}")
+    env = config.get("environment", profile=profile)
+    if not env:
+        with suppress(Exception):
+            env = Environment.from_context().hydrate().name
+    if env:
+        click.echo(f"Active environment: {env}")
 
 
 @profile_cli.command("current", help="Print the currently active Modal profile.")
@@ -37,9 +52,9 @@ async def list_(json: bool | None = False):
     profiles = config_profiles()
     lookup_coros = [
         _lookup_workspace(
-            config.get("server_url", profile),
-            config.get("token_id", profile, use_env=False),
-            config.get("token_secret", profile, use_env=False),
+            config.get("server_url", profile=profile),
+            config.get("token_id", profile=profile, use_env=False),
+            config.get("token_secret", profile=profile, use_env=False),
         )
         for profile in profiles
     ]
@@ -65,7 +80,7 @@ async def list_(json: bool | None = False):
     if "MODAL_TOKEN_ID" in os.environ:
         try:
             env_based_resp = await _lookup_workspace(
-                config.get("server_url", _profile),
+                config.get("server_url", profile=_profile),
                 os.environ.get("MODAL_TOKEN_ID"),
                 os.environ.get("MODAL_TOKEN_SECRET"),
             )

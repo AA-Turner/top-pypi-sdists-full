@@ -59,6 +59,12 @@ class CheckpointerStub:
     """CopyThread copies checkpoint data from one thread to another."""
     Prune: _grpc.UnaryUnaryMultiCallable[_checkpointer_pb2.PruneRequest, _empty_pb2.Empty]
     """Prune deletes checkpoints and related data for a set of threads."""
+    GetDeltaChannelHistory: _grpc.UnaryUnaryMultiCallable[_checkpointer_pb2.GetDeltaChannelHistoryRequest, _checkpointer_pb2.GetDeltaChannelHistoryResponse]
+    """GetDeltaChannelHistory reconstructs DeltaChannel state for one
+    target checkpoint by walking the parent chain to find the most
+    recent seed snapshot and collecting all writes from that snapshot
+    forward, per requested channel.
+    """
 
 @_typing.type_check_only
 class CheckpointerAsyncStub(CheckpointerStub):
@@ -90,6 +96,12 @@ class CheckpointerAsyncStub(CheckpointerStub):
     """CopyThread copies checkpoint data from one thread to another."""
     Prune: _aio.UnaryUnaryMultiCallable[_checkpointer_pb2.PruneRequest, _empty_pb2.Empty]  # type: ignore[assignment]
     """Prune deletes checkpoints and related data for a set of threads."""
+    GetDeltaChannelHistory: _aio.UnaryUnaryMultiCallable[_checkpointer_pb2.GetDeltaChannelHistoryRequest, _checkpointer_pb2.GetDeltaChannelHistoryResponse]  # type: ignore[assignment]
+    """GetDeltaChannelHistory reconstructs DeltaChannel state for one
+    target checkpoint by walking the parent chain to find the most
+    recent seed snapshot and collecting all writes from that snapshot
+    forward, per requested channel.
+    """
 
 class CheckpointerServicer(metaclass=_abc_1.ABCMeta):
     """Checkpoint persistence.
@@ -172,5 +184,17 @@ class CheckpointerServicer(metaclass=_abc_1.ABCMeta):
         context: _ServicerContext,
     ) -> _typing.Union[_empty_pb2.Empty, _abc.Awaitable[_empty_pb2.Empty]]:
         """Prune deletes checkpoints and related data for a set of threads."""
+
+    @_abc_1.abstractmethod
+    def GetDeltaChannelHistory(
+        self,
+        request: _checkpointer_pb2.GetDeltaChannelHistoryRequest,
+        context: _ServicerContext,
+    ) -> _typing.Union[_checkpointer_pb2.GetDeltaChannelHistoryResponse, _abc.Awaitable[_checkpointer_pb2.GetDeltaChannelHistoryResponse]]:
+        """GetDeltaChannelHistory reconstructs DeltaChannel state for one
+        target checkpoint by walking the parent chain to find the most
+        recent seed snapshot and collecting all writes from that snapshot
+        forward, per requested channel.
+        """
 
 def add_CheckpointerServicer_to_server(servicer: CheckpointerServicer, server: _typing.Union[_grpc.Server, _aio.Server]) -> None: ...

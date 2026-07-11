@@ -2,7 +2,7 @@ import collections.abc
 import modal._object
 import modal.client
 import modal.object
-import modal.volume
+import modal.types
 import modal_proto.api_pb2
 import pathlib
 import synchronicity.combined_types
@@ -143,7 +143,7 @@ class _NetworkFileSystem(modal._object._Object):
         """Read a file from the network file system"""
         ...
 
-    def iterdir(self, path: str) -> collections.abc.AsyncIterator[modal.volume.FileEntry]:
+    def iterdir(self, path: str) -> collections.abc.AsyncIterator[modal.types.FileEntry]:
         """Iterate over all files in a directory in the network file system.
 
         * Passing a directory path lists all files in the directory (names are relative to the directory)
@@ -165,7 +165,7 @@ class _NetworkFileSystem(modal._object._Object):
         remote_path: typing.Union[str, pathlib.PurePosixPath, None] = None,
         progress_cb: typing.Optional[collections.abc.Callable[..., typing.Any]] = None,
     ): ...
-    async def listdir(self, path: str) -> list[modal.volume.FileEntry]:
+    async def listdir(self, path: str) -> list[modal.types.FileEntry]:
         """List all files in a directory in the network file system.
 
         * Passing a directory path lists all files in the directory (names are relative to the directory)
@@ -396,7 +396,7 @@ class NetworkFileSystem(modal.object.Object):
     read_file: __read_file_spec
 
     class __iterdir_spec(typing_extensions.Protocol):
-        def __call__(self, /, path: str) -> typing.Iterator[modal.volume.FileEntry]:
+        def __call__(self, /, path: str) -> typing.Iterator[modal.types.FileEntry]:
             """Iterate over all files in a directory in the network file system.
 
             * Passing a directory path lists all files in the directory (names are relative to the directory)
@@ -406,7 +406,7 @@ class NetworkFileSystem(modal.object.Object):
             """
             ...
 
-        def aio(self, /, path: str) -> collections.abc.AsyncIterator[modal.volume.FileEntry]:
+        def aio(self, /, path: str) -> collections.abc.AsyncIterator[modal.types.FileEntry]:
             """Iterate over all files in a directory in the network file system.
 
             * Passing a directory path lists all files in the directory (names are relative to the directory)
@@ -455,7 +455,7 @@ class NetworkFileSystem(modal.object.Object):
     add_local_dir: __add_local_dir_spec
 
     class __listdir_spec(typing_extensions.Protocol):
-        def __call__(self, /, path: str) -> list[modal.volume.FileEntry]:
+        def __call__(self, /, path: str) -> list[modal.types.FileEntry]:
             """List all files in a directory in the network file system.
 
             * Passing a directory path lists all files in the directory (names are relative to the directory)
@@ -465,7 +465,7 @@ class NetworkFileSystem(modal.object.Object):
             """
             ...
 
-        async def aio(self, /, path: str) -> list[modal.volume.FileEntry]:
+        async def aio(self, /, path: str) -> list[modal.types.FileEntry]:
             """List all files in a directory in the network file system.
 
             * Passing a directory path lists all files in the directory (names are relative to the directory)

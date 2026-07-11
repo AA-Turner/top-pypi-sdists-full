@@ -1019,6 +1019,27 @@ fn flag_conflicts_with_value() {
 }
 
 #[test]
+fn flag_conflicts_with_pattern() {
+  Test::new()
+    .justfile(
+      "
+        [arg('bar', long, flag, pattern='yes|no')]
+        foo bar:
+      ",
+    )
+    .stderr(
+      "
+        error: argument `bar` may not have both `flag` and `pattern` attributes
+         ——▶ justfile:1:19
+          │
+        1 │ [arg('bar', long, flag, pattern='yes|no')]
+          │                   ^^^^
+      ",
+    )
+    .failure();
+}
+
+#[test]
 fn flag_requires_long_or_short() {
   Test::new()
     .justfile(
@@ -1248,4 +1269,58 @@ fn multiple_takes_no_value() {
       ",
     )
     .failure();
+}
+
+#[test]
+fn multiple_option_exceeding_max_is_an_error() {
+  Test::new()
+    .justfile(
+      "
+        set lists
+
+        [arg('bar', long, multiple, max='2')]
+        foo bar:
+      ",
+    )
+    .unstable()
+    .args(["foo", "--bar", "a", "--bar", "b", "--bar", "c"])
+    .stderr("error: recipe `foo` parameter `bar` got 3 values but takes at most 2\n")
+    .failure();
+}
+
+#[test]
+fn multiple_option_below_min_is_an_error() {
+  Test::new()
+    .justfile(
+      "
+        set lists
+
+        [arg('bar', long, multiple, min='2')]
+        foo bar:
+      ",
+    )
+    .unstable()
+    .args(["foo", "--bar", "a"])
+    .stderr("error: recipe `foo` parameter `bar` got 1 value but takes at least 2\n")
+    .failure();
+}
+
+#[test]
+fn recipe_with_flag_parameter_may_be_used_as_dependency() {
+  Test::new()
+    .justfile(
+      "
+        set lists
+
+        [arg('bar', long, flag)]
+        @foo bar:
+          echo bar={{show(bar)}}
+
+        baz: foo
+      ",
+    )
+    .unstable()
+    .args(["baz"])
+    .stdout("bar=[]\n")
+    .success();
 }

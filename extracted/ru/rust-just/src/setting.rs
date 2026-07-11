@@ -16,9 +16,10 @@ pub(crate) enum Setting<'src> {
   Fallback(bool),
   Guards(bool),
   IgnoreComments(bool),
+  Indentation(StringLiteral<'src>, Indentation),
   Lazy(bool),
   Lists(bool),
-  MinimumVersion(Expression<'src>),
+  MinimumVersion(StringLiteral<'src>),
   NoCd(bool),
   NoExitMessage(bool),
   PositionalArguments(bool),
@@ -57,34 +58,28 @@ impl<'src> Setting<'src> {
       Self::DotenvCommand(_value)
       | Self::DotenvFilename(_value)
       | Self::DotenvPath(_value)
-      | Self::MinimumVersion(_value)
       | Self::Tempdir(_value)
       | Self::WorkingDirectory(_value) => false,
+      Self::Indentation(..) | Self::MinimumVersion(_) => false,
       Self::ScriptInterpreter(_value) | Self::Shell(_value) | Self::WindowsShell(_value) => false,
     }
   }
 
-  pub(crate) fn expressions(&self) -> impl Iterator<Item = &Expression<'src>> {
-    let first = match self {
+  pub(crate) fn expressions_mut(&mut self) -> impl Iterator<Item = &mut Expression<'src>> {
+    let (first, rest) = match self {
       Self::DotenvCommand(value)
       | Self::DotenvFilename(value)
       | Self::DotenvPath(value)
       | Self::Tempdir(value)
-      | Self::WorkingDirectory(value) => Some(value),
-      Self::ScriptInterpreter(value) | Self::Shell(value) | Self::WindowsShell(value) => {
-        Some(&value.command)
-      }
-      _ => None,
+      | Self::WorkingDirectory(value) => (Some(value), None),
+      Self::ScriptInterpreter(value) | Self::Shell(value) | Self::WindowsShell(value) => (
+        Some(&mut value.command),
+        Some(value.arguments.as_mut_slice()),
+      ),
+      _ => (None, None),
     };
 
-    let rest = match self {
-      Self::ScriptInterpreter(value) | Self::Shell(value) | Self::WindowsShell(value) => {
-        value.arguments.as_slice()
-      }
-      _ => &[],
-    };
-
-    first.into_iter().chain(rest)
+    first.into_iter().chain(rest.into_iter().flatten())
   }
 
   pub(crate) fn conflicts(&self) -> &'static [Keyword] {
@@ -131,11 +126,11 @@ impl Display for Setting<'_> {
       Self::DotenvCommand(value)
       | Self::DotenvFilename(value)
       | Self::DotenvPath(value)
-      | Self::MinimumVersion(value)
       | Self::Tempdir(value)
       | Self::WorkingDirectory(value) => {
         write!(f, "{value}")
       }
+      Self::Indentation(value, _) | Self::MinimumVersion(value) => write!(f, "{value}"),
       Self::ScriptInterpreter(value) | Self::Shell(value) | Self::WindowsShell(value) => {
         write!(f, "[{value}]")
       }

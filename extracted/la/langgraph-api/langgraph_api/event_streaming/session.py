@@ -39,7 +39,7 @@ from langgraph_api.event_streaming.types import (
     NamespaceInfo,
     Subscription,
 )
-from langgraph_api.metrics_datadog import (
+from langgraph_api.metrics_otlp import (
     COUNTER_PROTOCOL_V2_BUFFER_EVICTED,
     COUNTER_PROTOCOL_V2_EVENT_EMITTED,
     COUNTER_PROTOCOL_V2_RESUME_GAP,
@@ -47,7 +47,7 @@ from langgraph_api.metrics_datadog import (
     COUNTER_STREAMING_DATA_LOSS,
     GAUGE_PROTOCOL_V2_BUFFER_SIZE,
     HISTOGRAM_PROTOCOL_V2_REPLAYED_EVENTS,
-    get_datadog_metrics_reporter,
+    get_otlp_metrics_reporter,
 )
 
 logger = structlog.stdlib.get_logger(__name__)
@@ -972,7 +972,7 @@ class EventStreamingSession:
 
     async def _push_event(self, event: dict[str, Any]) -> None:
         self._buffer.append(event)
-        reporter = get_datadog_metrics_reporter()
+        reporter = get_otlp_metrics_reporter()
         if len(self._buffer) > self._max_buffer_size:
             evicted = len(self._buffer) - self._max_buffer_size
             self._buffer = self._buffer[-self._max_buffer_size :]
@@ -1058,7 +1058,7 @@ class EventStreamingSession:
             min_available_seq = self._buffer[0].get("seq", 0)
             if isinstance(min_available_seq, int) and since + 1 < min_available_seq:
                 try:
-                    get_datadog_metrics_reporter().inc_counter(
+                    get_otlp_metrics_reporter().inc_counter(
                         COUNTER_PROTOCOL_V2_RESUME_GAP
                     )
                 except Exception:
@@ -1093,7 +1093,7 @@ class EventStreamingSession:
 
         subscription.active = True
         try:
-            get_datadog_metrics_reporter().record_histogram(
+            get_otlp_metrics_reporter().record_histogram(
                 HISTOGRAM_PROTOCOL_V2_REPLAYED_EVENTS,
                 float(replayed),
             )
@@ -1164,7 +1164,7 @@ class EventStreamingSession:
             # session down shortly after the first failure.
             self._transport_broken = True
             try:
-                get_datadog_metrics_reporter().inc_counter(
+                get_otlp_metrics_reporter().inc_counter(
                     COUNTER_PROTOCOL_V2_TRANSPORT_SEND_FAILURE,
                     attributes={"method": _metric_event_method(message)},
                 )

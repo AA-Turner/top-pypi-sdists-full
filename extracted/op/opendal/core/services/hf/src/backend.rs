@@ -24,11 +24,11 @@ use super::HF_SCHEME;
 use super::config::HfConfig;
 use super::core::HfCore;
 use super::core::HfDownloadMode;
+use super::core::{HfRepo, HfRepoType};
 use super::deleter::HfDeleter;
 use super::lister::HfLister;
-use super::reader::HfReader;
-use super::uri::{HfRepo, HfRepoType};
-use super::writer::HfWriter;
+use super::reader::*;
+use super::writer::HfLazyWriter;
 use opendal_core::raw::*;
 use opendal_core::*;
 
@@ -51,10 +51,10 @@ impl HfBuilder {
     ///
     /// [Reference](https://huggingface.co/docs/hub/repositories)
     pub fn repo_type(mut self, repo_type: &str) -> Self {
-        if !repo_type.is_empty() {
-            if let Ok(rt) = HfRepoType::parse(repo_type) {
-                self.config.repo_type = Some(rt);
-            }
+        if !repo_type.is_empty()
+            && let Ok(rt) = HfRepoType::parse(repo_type)
+        {
+            self.config.repo_type = Some(rt);
         }
         self
     }
@@ -116,11 +116,19 @@ impl HfBuilder {
     ///
     /// - `xet`: uses the XET protocol for downloads (default).
     /// - `http`: plain HTTP download, following the redirect from the server.
+    ///
+    /// When this is not set explicitly, the download mode is resolved from the
+    /// `HF_HUB_DISABLE_XET` environment variable (the same variable used by
+    /// `huggingface_hub`): if it is set to a non-empty value, the mode is forced
+    /// to `http`; otherwise it defaults to `xet`. An explicit value set here
+    /// always takes precedence over the environment variable.
+    ///
+    /// See <https://huggingface.co/docs/huggingface_hub/package_reference/environment_variables#hfhubdisablexet>.
     pub fn download_mode(mut self, mode: &str) -> Self {
-        if !mode.is_empty() {
-            if let Ok(m) = HfDownloadMode::parse(mode) {
-                self.config.download_mode = Some(m);
-            }
+        if !mode.is_empty()
+            && let Ok(m) = HfDownloadMode::parse(mode)
+        {
+            self.config.download_mode = Some(m);
         }
         self
     }
@@ -144,6 +152,20 @@ impl HfBuilder {
             .unwrap_or_else(|| "https://huggingface.co".to_string())
     }
 
+    /// Resolve the download mode: an explicit config value wins; otherwise a set,
+    /// non-empty HF_HUB_DISABLE_XET (a huggingface_hub env var) forces http; default Xet.
+    fn hf_download_mode(&self) -> HfDownloadMode {
+        if let Some(mode) = self.config.download_mode {
+            return mode;
+        }
+        if let Ok(val) = std::env::var("HF_HUB_DISABLE_XET")
+            && !val.is_empty()
+        {
+            return HfDownloadMode::Http;
+        }
+        HfDownloadMode::default()
+    }
+
     fn hf_home() -> Option<PathBuf> {
         if let Ok(h) = std::env::var("HF_HOME") {
             return Some(PathBuf::from(h));
@@ -161,15 +183,15 @@ impl HfBuilder {
         if let Some(t) = self.config.token.clone() {
             return Some(t);
         }
-        if let Ok(val) = std::env::var("HF_HUB_DISABLE_IMPLICIT_TOKEN") {
-            if !val.is_empty() {
-                return None;
-            }
+        if let Ok(val) = std::env::var("HF_HUB_DISABLE_IMPLICIT_TOKEN")
+            && !val.is_empty()
+        {
+            return None;
         }
-        if let Ok(t) = std::env::var("HF_TOKEN") {
-            if !t.is_empty() {
-                return Some(t);
-            }
+        if let Ok(t) = std::env::var("HF_TOKEN")
+            && !t.is_empty()
+        {
+            return Some(t);
         }
         let token_path = if let Ok(p) = std::env::var("HF_TOKEN_PATH") {
             Some(PathBuf::from(p))
@@ -186,11 +208,12 @@ impl HfBuilder {
 impl Builder for HfBuilder {
     type Config = HfConfig;
 
-    fn build(self) -> Result<impl Access> {
+    fn build(self) -> Result<impl Service> {
         debug!("backend build started: {:?}", &self);
 
         let token = self.hf_token();
         let endpoint = self.hf_endpoint();
+        let download_mode = self.hf_download_mode();
 
         let repo_type = self.config.repo_type.ok_or_else(|| {
             Error::new(ErrorKind::ConfigInvalid, "repo_type is required")
@@ -216,23 +239,19 @@ impl Builder for HfBuilder {
         debug!("backend use root: {}", &root);
         debug!("backend use token: {}", token.is_some());
         debug!("backend use endpoint: {}", &endpoint);
-        let download_mode = self.config.download_mode.unwrap_or_default();
         debug!("backend use download_mode: {:?}", download_mode);
 
-        let info: Arc<AccessorInfo> = {
-            let am = AccessorInfo::default();
-            am.set_scheme(HF_SCHEME).set_native_capability(Capability {
-                stat: true,
-                read: true,
-                write: token.is_some(),
-                delete: token.is_some(),
-                delete_max_size: Some(100),
-                list: true,
-                list_with_recursive: true,
-                shared: true,
-                ..Default::default()
-            });
-            am.into()
+        let info = ServiceInfo::new(HF_SCHEME, "", "");
+        let capability = Capability {
+            stat: true,
+            read: true,
+            write: token.is_some(),
+            delete: token.is_some(),
+            delete_max_size: Some(100),
+            list: true,
+            list_with_recursive: true,
+            shared: true,
+            ..Default::default()
         };
 
         let repo = HfRepo::new(repo_type, repo_id, Some(revision.clone()));
@@ -241,6 +260,7 @@ impl Builder for HfBuilder {
         Ok(HfBackend {
             core: Arc::new(HfCore::build(
                 info,
+                capability,
                 repo,
                 root,
                 token,
@@ -257,18 +277,34 @@ pub struct HfBackend {
     pub(crate) core: Arc<HfCore>,
 }
 
-impl Access for HfBackend {
-    type Reader = HfReader;
-    type Writer = HfWriter;
+impl Service for HfBackend {
+    type Reader = oio::StreamReader<HfReader>;
+    type Writer = HfLazyWriter;
     type Lister = oio::PageLister<HfLister>;
     type Deleter = oio::BatchDeleter<HfDeleter>;
     type Copier = ();
 
-    fn info(&self) -> Arc<AccessorInfo> {
+    fn info(&self) -> ServiceInfo {
         self.core.info.clone()
     }
 
-    async fn stat(&self, path: &str, _: OpStat) -> Result<RpStat> {
+    fn capability(&self) -> Capability {
+        self.core.capability
+    }
+
+    async fn create_dir(
+        &self,
+        _ctx: &OperationContext,
+        _path: &str,
+        _args: OpCreateDir,
+    ) -> Result<RpCreateDir> {
+        Err(Error::new(
+            ErrorKind::Unsupported,
+            "operation is not supported",
+        ))
+    }
+
+    async fn stat(&self, ctx: &OperationContext, path: &str, _: OpStat) -> Result<RpStat> {
         // Stat root always returns a DIR.
         if path == "/" {
             return Ok(RpStat::new(Metadata::new(EntryMode::DIR)));
@@ -279,30 +315,90 @@ impl Access for HfBackend {
             return Ok(RpStat::new(Metadata::new(EntryMode::DIR)));
         }
 
-        let info = self.core.path_info(path).await?;
+        let info = self.core.path_info(ctx, path).await?;
         Ok(RpStat::new(info.metadata()?))
     }
+    fn read(&self, ctx: &OperationContext, path: &str, args: OpRead) -> Result<Self::Reader> {
+        let output: oio::StreamReader<HfReader> = {
+            Ok(oio::StreamReader::new(HfReader::new(
+                self.clone(),
+                ctx.clone(),
+                path,
+                args,
+            )))
+        }?;
 
-    async fn read(&self, path: &str, args: OpRead) -> Result<(RpRead, Self::Reader)> {
-        HfReader::try_new(&self.core, path, args.range()).await
+        Ok(output)
     }
 
-    async fn list(&self, path: &str, args: OpList) -> Result<(RpList, Self::Lister)> {
-        let lister = HfLister::new(self.core.clone(), path.to_string(), args.recursive());
-        Ok((RpList::default(), oio::PageLister::new(lister)))
+    fn list(&self, ctx: &OperationContext, path: &str, args: OpList) -> Result<Self::Lister> {
+        let output: oio::PageLister<HfLister> = {
+            let lister = HfLister::new(
+                self.core.clone(),
+                ctx.clone(),
+                path.to_string(),
+                args.recursive(),
+            );
+            Ok(oio::PageLister::new(lister))
+        }?;
+
+        Ok(output)
     }
 
-    async fn write(&self, path: &str, _args: OpWrite) -> Result<(RpWrite, Self::Writer)> {
-        let writer = HfWriter::try_new(self.core.clone(), path.to_string()).await?;
-        Ok((RpWrite::default(), writer))
+    fn write(&self, ctx: &OperationContext, path: &str, _args: OpWrite) -> Result<Self::Writer> {
+        Ok(HfLazyWriter::new(
+            self.core.clone(),
+            ctx.clone(),
+            path.to_string(),
+        ))
     }
 
-    async fn delete(&self) -> Result<(RpDelete, Self::Deleter)> {
-        let deleter = HfDeleter::new(self.core.clone());
-        let max_batch_size = self.core.info.full_capability().delete_max_size;
-        Ok((
-            RpDelete::default(),
-            oio::BatchDeleter::new(deleter, max_batch_size),
+    fn delete(&self, ctx: &OperationContext) -> Result<Self::Deleter> {
+        let output: oio::BatchDeleter<HfDeleter> = {
+            let deleter = HfDeleter::new(self.core.clone(), ctx.clone());
+            let max_batch_size = self.core.capability.delete_max_size;
+            Ok(oio::BatchDeleter::new(deleter, max_batch_size))
+        }?;
+
+        Ok(output)
+    }
+
+    fn copy(
+        &self,
+        _ctx: &OperationContext,
+        _from: &str,
+        _to: &str,
+        _args: OpCopy,
+        _opts: OpCopier,
+    ) -> Result<Self::Copier> {
+        Err(Error::new(
+            ErrorKind::Unsupported,
+            "operation is not supported",
+        ))
+    }
+
+    async fn rename(
+        &self,
+        _ctx: &OperationContext,
+        _from: &str,
+        _to: &str,
+        _args: OpRename,
+    ) -> Result<RpRename> {
+        Err(Error::new(
+            ErrorKind::Unsupported,
+            "operation is not supported",
+        ))
+    }
+
+    async fn presign(
+        &self,
+        _ctx: &OperationContext,
+        _path: &str,
+        _args: OpPresign,
+    ) -> Result<RpPresign> {
+        Err(Error::new(
+            ErrorKind::Unsupported,
+            "operation is not supported",
         ))
     }
 }
@@ -312,28 +408,18 @@ pub(super) mod test_utils {
     use std::sync::Arc;
 
     use super::super::core::{HfCore, HfDownloadMode};
-    use super::super::uri::{HfRepo, HfRepoType};
+    use super::super::core::{HfRepo, HfRepoType};
     use super::HfBuilder;
     use opendal_core::Capability;
+    use opendal_core::HttpTransporter;
+    use opendal_core::OperationContext;
     use opendal_core::Operator;
-    use opendal_core::layers::HttpClientLayer;
-    use opendal_core::raw::{AccessorInfo, HttpClient};
+    use opendal_core::raw::ServiceInfo;
 
     fn finish_operator(op: Operator) -> Operator {
-        let client = HttpClient::with(reqwest::Client::new());
-        op.layer(HttpClientLayer::new(client))
-    }
-
-    pub fn gpt2_operator() -> Operator {
-        let op = Operator::new(
-            HfBuilder::default()
-                .repo_type("model")
-                .repo_id("openai-community/gpt2")
-                .download_mode("http"),
-        )
-        .unwrap()
-        .finish();
-        finish_operator(op)
+        let transport =
+            HttpTransporter::new(opendal_http_transport_reqwest::ReqwestTransport::default());
+        op.with_context(OperationContext::new().with_http_transport(transport))
     }
 
     pub fn mbpp_operator() -> Operator {
@@ -342,8 +428,7 @@ pub(super) mod test_utils {
                 .repo_type("dataset")
                 .repo_id("google-research-datasets/mbpp"),
         )
-        .unwrap()
-        .finish();
+        .unwrap();
         finish_operator(op)
     }
 
@@ -351,20 +436,20 @@ pub(super) mod test_utils {
         let repo_id = std::env::var("HF_OPENDAL_DATASET").expect("HF_OPENDAL_DATASET must be set");
         let token = std::env::var("HF_OPENDAL_TOKEN").expect("HF_OPENDAL_TOKEN must be set");
 
-        let info = AccessorInfo::default();
-        info.set_scheme("hf").set_native_capability(Capability {
+        let info = ServiceInfo::new("hf", "", "");
+        let capability = Capability {
             read: true,
             write: true,
             delete: true,
             ..Default::default()
-        });
-        info.update_http_client(|_| HttpClient::with(reqwest::Client::new()));
+        };
 
         let repo = HfRepo::new(HfRepoType::Dataset, repo_id, Some("main".to_string()));
 
         Arc::new(
             HfCore::build(
-                Arc::new(info),
+                info,
+                capability,
                 repo,
                 "/".to_string(),
                 Some(token),
@@ -384,8 +469,7 @@ pub(super) mod test_utils {
                 .repo_id(&repo_id)
                 .token(&token),
         )
-        .unwrap()
-        .finish();
+        .unwrap();
         finish_operator(op)
     }
 }
@@ -477,6 +561,40 @@ mod tests {
         let result = HfBuilder::default().hf_endpoint();
         unsafe { std::env::remove_var("HF_ENDPOINT") };
         assert_eq!(result, "https://env.example.com");
+    }
+
+    #[test]
+    fn hf_download_mode_defaults_to_xet() {
+        let _guard = ENV_LOCK.lock().unwrap();
+        unsafe { std::env::remove_var("HF_HUB_DISABLE_XET") };
+        assert_eq!(HfBuilder::default().hf_download_mode(), HfDownloadMode::Xet);
+    }
+
+    #[test]
+    fn hf_download_mode_disable_xet_env_forces_http() {
+        let _guard = ENV_LOCK.lock().unwrap();
+        unsafe { std::env::set_var("HF_HUB_DISABLE_XET", "1") };
+        let mode = HfBuilder::default().hf_download_mode();
+        unsafe { std::env::remove_var("HF_HUB_DISABLE_XET") };
+        assert_eq!(mode, HfDownloadMode::Http);
+    }
+
+    #[test]
+    fn hf_download_mode_config_takes_priority_over_env() {
+        let _guard = ENV_LOCK.lock().unwrap();
+        unsafe { std::env::set_var("HF_HUB_DISABLE_XET", "1") };
+        let mode = HfBuilder::default().download_mode("xet").hf_download_mode();
+        unsafe { std::env::remove_var("HF_HUB_DISABLE_XET") };
+        assert_eq!(mode, HfDownloadMode::Xet);
+    }
+
+    #[test]
+    fn hf_download_mode_empty_env_keeps_xet() {
+        let _guard = ENV_LOCK.lock().unwrap();
+        unsafe { std::env::set_var("HF_HUB_DISABLE_XET", "") };
+        let mode = HfBuilder::default().hf_download_mode();
+        unsafe { std::env::remove_var("HF_HUB_DISABLE_XET") };
+        assert_eq!(mode, HfDownloadMode::Xet);
     }
 
     #[test]

@@ -95,6 +95,11 @@ class TaskCommandRouterStub(object):
                 request_serializer=modal__proto_dot_task__command__router__pb2.TaskMountDirectoryRequest.SerializeToString,
                 response_deserializer=google_dot_protobuf_dot_empty__pb2.Empty.FromString,
                 )
+        self.TaskReloadVolumes = channel.unary_unary(
+                '/modal.task_command_router.TaskCommandRouter/TaskReloadVolumes',
+                request_serializer=modal__proto_dot_task__command__router__pb2.TaskReloadVolumesRequest.SerializeToString,
+                response_deserializer=modal__proto_dot_task__command__router__pb2.TaskReloadVolumesResponse.FromString,
+                )
         self.TaskSetNetworkAccess = channel.unary_unary(
                 '/modal.task_command_router.TaskCommandRouter/TaskSetNetworkAccess',
                 request_serializer=modal__proto_dot_task__command__router__pb2.TaskSetNetworkAccessRequest.SerializeToString,
@@ -233,6 +238,13 @@ class TaskCommandRouterServicer(object):
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
+    def TaskReloadVolumes(self, request, context):
+        """Reload all Volumes mounted in the task to reflect their latest committed state.
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
     def TaskSetNetworkAccess(self, request, context):
         """Replace the task's outbound network allowlist (domains + CIDRs).
         """
@@ -343,6 +355,11 @@ def add_TaskCommandRouterServicer_to_server(servicer, server):
                     servicer.TaskMountDirectory,
                     request_deserializer=modal__proto_dot_task__command__router__pb2.TaskMountDirectoryRequest.FromString,
                     response_serializer=google_dot_protobuf_dot_empty__pb2.Empty.SerializeToString,
+            ),
+            'TaskReloadVolumes': grpc.unary_unary_rpc_method_handler(
+                    servicer.TaskReloadVolumes,
+                    request_deserializer=modal__proto_dot_task__command__router__pb2.TaskReloadVolumesRequest.FromString,
+                    response_serializer=modal__proto_dot_task__command__router__pb2.TaskReloadVolumesResponse.SerializeToString,
             ),
             'TaskSetNetworkAccess': grpc.unary_unary_rpc_method_handler(
                     servicer.TaskSetNetworkAccess,
@@ -643,6 +660,23 @@ class TaskCommandRouter(object):
         return grpc.experimental.unary_unary(request, target, '/modal.task_command_router.TaskCommandRouter/TaskMountDirectory',
             modal__proto_dot_task__command__router__pb2.TaskMountDirectoryRequest.SerializeToString,
             google_dot_protobuf_dot_empty__pb2.Empty.FromString,
+            options, channel_credentials,
+            insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
+
+    @staticmethod
+    def TaskReloadVolumes(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(request, target, '/modal.task_command_router.TaskCommandRouter/TaskReloadVolumes',
+            modal__proto_dot_task__command__router__pb2.TaskReloadVolumesRequest.SerializeToString,
+            modal__proto_dot_task__command__router__pb2.TaskReloadVolumesResponse.FromString,
             options, channel_credentials,
             insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
 

@@ -172,10 +172,19 @@ def get_database_creator(pg_connection_details: dict) -> Callable:
     return creator
 
 
+# Lazy-initialized engine singleton — reused across queries so pool settings
+# (pool_size, max_overflow, etc.) actually take effect.
+_engine: sqlalchemy.Engine | None = None
+
+
 def get_pool(
     gsm_client: secretmanager.SecretManagerServiceClient,
 ) -> sqlalchemy.Engine:
     """Get a SQLAlchemy connection pool for the Airbyte Cloud database.
+
+    The engine is created once and cached for the lifetime of the process so
+    that connection pooling works as intended. Subsequent calls return the
+    same engine instance.
 
     This function connects with the Cloud SQL Python Connector in public IP mode.
 
@@ -185,14 +194,23 @@ def get_pool(
     Returns:
         SQLAlchemy Engine connected to the Prod DB Replica
     """
+    global _engine
+    if _engine is not None:
+        return _engine
+
     pg_connection_details = json.loads(
         _get_secret_value(
             gsm_client, CONNECTION_RETRIEVER_PG_CONNECTION_DETAILS_SECRET_ID
         )
     )
 
-    return sqlalchemy.create_engine(
+    _engine = sqlalchemy.create_engine(
         f"postgresql+{PG_DRIVER}://",
         creator=get_database_creator(pg_connection_details),
         connect_args={"timeout": DIRECT_CONNECTION_TIMEOUT},
+        pool_size=10,
+        max_overflow=20,
+        pool_timeout=30,
+        pool_recycle=1800,
     )
+    return _engine

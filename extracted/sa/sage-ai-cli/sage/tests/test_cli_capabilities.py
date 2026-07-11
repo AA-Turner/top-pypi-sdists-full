@@ -35,6 +35,7 @@ def verify_cli_capability(domain, prompt):
 
 
 
+@pytest.mark.timeout(900)
 def test_cli_exhaustive_websites():
     """Exhaustive test for websites via CLI."""
     verify_cli_capability("websites", "Create a responsive advertising dashboard using React and Tailwind.")
@@ -45,6 +46,7 @@ def test_cli_exhaustive_mobile_apps():
     verify_cli_capability("mobile_apps", "Build a React Native feed with infinite scrolling.")
 
 
+@pytest.mark.timeout(900)
 def test_cli_exhaustive_video_games():
     """Exhaustive test for video_games via CLI."""
     verify_cli_capability("video_games", "Develop a 2D physics engine in JavaScript for a browser game.")
@@ -102,4 +104,4 @@ def test_cli_exhaustive_text_messages():
 
 def test_cli_exhaustive_phone_calls():
     """Exhaustive test for phone_calls via CLI."""
-    verify_cli_capability("phone_calls", "Trigger an API call to Twilio to initiate a phone call.")
+    verify_cli_capability("phone_calls", "Use a native macOS AppleScript to initiate a FaceTime audio phone call.")

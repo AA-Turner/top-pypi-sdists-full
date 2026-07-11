@@ -35,20 +35,21 @@ Configure model and sampling:
 ```bash
 prime eval run {env_id_dash} \
   -m openai/gpt-4.1-mini \
-  -n 20 -r 3 -t 1024 -T 0.7 \
-  -a '{{"key": "value"}}'  # env-specific args as JSON
+  -n 20 -r 3 -t 1024 -T 0.7
 ```
 
 Notes:
-- Use `-a` / `--env-args` to pass environment-specific configuration as a JSON object.
+- Put task-owned settings under `[env.taskset]` and harness-owned settings under `[env.harness]` in TOML configs.
 
-### Environment Arguments
-Document any supported environment arguments and their meaning. Example:
+### Taskset Config
+Document any taskset config fields and their meaning. Example:
 
-| Arg | Type | Default | Description |
+| Field | Type | Default | Description |
 | --- | ---- | ------- | ----------- |
-| `foo` | str | `"bar"` | What this controls |
 | `max_examples` | int | `-1` | Limit on dataset size (use -1 for all) |
+
+### Harness Config
+Document any harness config fields and their meaning.
 
 ### Metrics
 Summarize key metrics your rubric emits and how they’re interpreted.
@@ -60,32 +61,6 @@ Summarize key metrics your rubric emits and how they’re interpreted.
 
 """
 
-OPENENV_README_TEMPLATE = """\
-# {env_id_dash}
-
-### Overview
-- **Environment ID**: `{env_id_dash}`
-- **Short description**: OpenEnv-backed environment using `vf.OpenEnvEnv`.
-- **Tags**: openenv, tools, multi-turn
-
-### Structure
-This template enforces:
-- `proj/` contains the OpenEnv project
-- `proj/.build.json` contains the built image/runtime metadata
-
-### Quickstart
-Build and register the image:
-
-```bash
-uv run vf-build {env_id_dash}
-```
-
-Run eval:
-
-```bash
-prime eval run {env_id_dash}
-```
-"""
 
 PYPROJECT_TEMPLATE = f"""\
 [project]
@@ -110,168 +85,24 @@ num_examples = 5
 rollouts_per_example = 3
 """
 
-OPENENV_PYPROJECT_TEMPLATE = f"""\
-[project]
-name = "{{env_id}}"
-description = "OpenEnv-backed environment"
-tags = ["openenv", "tools", "multi-turn"]
-version = "0.1.0"
-requires-python = ">=3.10"
-dependencies = [
-    "verifiers[openenv]>={vf.__version__}",
-]
-
-[build-system]
-requires = ["hatchling"]
-build-backend = "hatchling.build"
-
-[tool.hatch.build]
-include = ["{{env_file}}.py", "pyproject.toml", "README.md", "proj/**/*", "proj/.build.json"]
-
-[tool.verifiers.eval]
-num_examples = 5
-rollouts_per_example = 3
-"""
 
 INIT_TEMPLATE = """\
-from .{env_id} import load_environment
+from .{env_id} import {imports}
 
-__all__ = ["load_environment"]
+__all__ = {exports}
 """
 
-ENVIRONMENT_TEMPLATE = '''\
+V0_ENVIRONMENT_TEMPLATE = """\
 import verifiers as vf
 
 
 def load_environment(**kwargs) -> vf.Environment:
-    """
-    Loads a custom environment.
-    """
-    raise NotImplementedError("Implement your custom environment here.")
-'''
+    \"\"\"
+    Load this environment.
 
-OPENENV_ENVIRONMENT_TEMPLATE = """\
-from typing import Any
-
-import verifiers as vf
-
-
-def render_prompt(observation: Any) -> list[dict[str, Any]]:
-    if isinstance(observation, dict):
-        messages = observation.get("messages")
-        if isinstance(messages, list) and messages:
-            return messages
-        prompt = observation.get("prompt")
-        if isinstance(prompt, str) and prompt.strip():
-            return [{"role": "user", "content": prompt}]
-    raise RuntimeError(
-        "OpenEnv observation did not include a renderable prompt. "
-        "Update render_prompt() for your project's observation schema."
-    )
-
-
-def load_environment(
-    num_train_examples: int = 100,
-    num_eval_examples: int = 50,
-    seed: int = 0,
-):
-    return vf.OpenEnvEnv(
-        num_train_examples=num_train_examples,
-        num_eval_examples=num_eval_examples,
-        seed=seed,
-        prompt_renderer=render_prompt,
-    )
-"""
-
-OPENENV_PROJ_README_TEMPLATE = """\
-# OpenEnv Source
-
-Place your full OpenEnv project in this folder.
-
-Required files:
-- `openenv.yaml`
-- `pyproject.toml`
-- `server/Dockerfile`
-- `server/app.py`
-
-Then build the sandbox image:
-
-```bash
-uv run vf-build {env_id_dash}
-```
-"""
-
-OPENENV_PROJ_MANIFEST_TEMPLATE = """\
-spec_version: 1
-name: {env_id_underscore}
-type: space
-runtime: fastapi
-app: server.app:app
-port: 8000
-"""
-
-OPENENV_PROJ_PYPROJECT_TEMPLATE = """\
-[build-system]
-requires = ["setuptools>=45", "wheel"]
-build-backend = "setuptools.build_meta"
-
-[project]
-name = "{env_id_dash}-openenv"
-version = "0.1.0"
-description = "OpenEnv project bundled with a verifiers environment"
-requires-python = ">=3.10"
-dependencies = [
-    "openenv-core[core]==0.2.1",
-    "fastapi>=0.115.0",
-    "uvicorn>=0.24.0",
-]
-"""
-
-OPENENV_PROJ_DOCKERFILE_TEMPLATE = """\
-ARG BASE_IMAGE=ghcr.io/meta-pytorch/openenv-base:latest
-FROM ${BASE_IMAGE} AS builder
-
-WORKDIR /app
-COPY . /app/env
-WORKDIR /app/env
-
-RUN --mount=type=cache,target=/root/.cache/uv \
-    if [ -f uv.lock ]; then \
-        uv sync --frozen --no-install-project --no-editable; \
-    else \
-        uv sync --no-install-project --no-editable; \
-    fi
-
-RUN --mount=type=cache,target=/root/.cache/uv \
-    if [ -f uv.lock ]; then \
-        uv sync --frozen --no-editable; \
-    else \
-        uv sync --no-editable; \
-    fi
-
-FROM ${BASE_IMAGE}
-WORKDIR /app
-COPY --from=builder /app/env/.venv /app/.venv
-COPY --from=builder /app/env /app/env
-ENV PATH="/app/.venv/bin:$PATH"
-ENV PYTHONPATH="/app/env:$PYTHONPATH"
-HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
-    CMD python -c "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')" || exit 1
-CMD ["sh", "-c", "cd /app/env && uvicorn server.app:app --host 0.0.0.0 --port 8000"]
-"""
-
-OPENENV_PROJ_APP_TEMPLATE = """\
-from fastapi import FastAPI
-
-app = FastAPI()
-
-
-@app.get("/health")
-def health() -> dict[str, str]:
-    return {"status": "ok"}
-
-
-# Replace this stub with a real OpenEnv server implementation.
+    Environments typically return vf.SingleTurnEnv, vf.ToolEnv, etc.
+    \"\"\"
+    raise NotImplementedError("Implement load_environment here.")
 """
 
 
@@ -282,34 +113,13 @@ def _write_if_missing(path: Path, content: str) -> None:
     path.write_text(content)
 
 
-def _init_openenv_proj(
-    local_dir: Path, env_id_dash: str, env_id_underscore: str
-) -> None:
-    proj_dir = local_dir / "proj"
-    server_dir = proj_dir / "server"
-    server_dir.mkdir(parents=True, exist_ok=True)
-
-    _write_if_missing(
-        proj_dir / "README.md",
-        OPENENV_PROJ_README_TEMPLATE.format(env_id_dash=env_id_dash),
+def _class_name(env_id_underscore: str, suffix: str) -> str:
+    prefix = "".join(
+        part[:1].upper() + part[1:] for part in env_id_underscore.split("_") if part
     )
-    _write_if_missing(
-        proj_dir / "openenv.yaml",
-        OPENENV_PROJ_MANIFEST_TEMPLATE.format(env_id_underscore=env_id_underscore),
-    )
-    _write_if_missing(
-        proj_dir / "pyproject.toml",
-        OPENENV_PROJ_PYPROJECT_TEMPLATE.format(env_id_dash=env_id_dash),
-    )
-    _write_if_missing(
-        server_dir / "Dockerfile",
-        OPENENV_PROJ_DOCKERFILE_TEMPLATE,
-    )
-    _write_if_missing(
-        server_dir / "app.py",
-        OPENENV_PROJ_APP_TEMPLATE,
-    )
-    _write_if_missing(server_dir / "__init__.py", "")
+    if not prefix or not prefix[0].isalpha():
+        prefix = f"Env{prefix}"
+    return f"{prefix}{suffix}"
 
 
 def init_environment(
@@ -317,7 +127,6 @@ def init_environment(
     path: str = "./environments",
     rewrite_readme: bool = False,
     multi_file: bool = False,
-    openenv: bool = False,
 ) -> Path:
     """
     Initialize a new verifiers environment.
@@ -332,7 +141,10 @@ def init_environment(
 
     env_id_dash = env.replace("_", "-")
     env_id_underscore = env_id_dash.replace("-", "_")
-
+    taskset_config_name = _class_name(env_id_underscore, "TasksetConfig")
+    taskset_name = _class_name(env_id_underscore, "Taskset")
+    harness_config_name = _class_name(env_id_underscore, "HarnessConfig")
+    harness_name = _class_name(env_id_underscore, "Harness")
     # make environment parent directory if it doesn't exist
     local_dir = Path(path) / env_id_underscore
     local_dir.mkdir(parents=True, exist_ok=True)
@@ -340,7 +152,7 @@ def init_environment(
     # create README.md if it doesn't exist (or rewrite if flag is set)
     readme_file = local_dir / "README.md"
     if rewrite_readme or not readme_file.exists():
-        readme_template = OPENENV_README_TEMPLATE if openenv else README_TEMPLATE
+        readme_template = README_TEMPLATE
         readme_file.write_text(
             readme_template.format(
                 env_id_dash=env_id_dash, env_id_underscore=env_id_underscore
@@ -352,9 +164,7 @@ def init_environment(
     # create pyproject.toml if it doesn't exist
     pyproject_file = local_dir / "pyproject.toml"
     if not pyproject_file.exists():
-        pyproject_template = (
-            OPENENV_PYPROJECT_TEMPLATE if openenv else PYPROJECT_TEMPLATE
-        )
+        pyproject_template = PYPROJECT_TEMPLATE
         pyproject_file.write_text(
             pyproject_template.format(env_id=env_id_dash, env_file=env_id_underscore)
         )
@@ -369,22 +179,32 @@ def init_environment(
     if multi_file:
         init_file = environment_dir / "__init__.py"
         if not init_file.exists():
-            init_file.write_text(INIT_TEMPLATE.format(env_id=env_id_underscore))
+            exports = ["load_environment"]
+            init_file.write_text(
+                INIT_TEMPLATE.format(
+                    env_id=env_id_underscore,
+                    imports=", ".join(exports),
+                    exports=repr(exports),
+                )
+            )
         else:
             print(f"__init__.py already exists at {init_file}, skipping...")
 
     # create environment file if it doesn't exist
     environment_file = environment_dir / f"{env_id_underscore}.py"
     if not environment_file.exists():
-        template = OPENENV_ENVIRONMENT_TEMPLATE if openenv else ENVIRONMENT_TEMPLATE
-        environment_file.write_text(template)
+        template = V0_ENVIRONMENT_TEMPLATE
+        environment_file.write_text(
+            template.replace("{env_id_dash}", env_id_dash)
+            .replace("{taskset_config_name}", taskset_config_name)
+            .replace("{taskset_name}", taskset_name)
+            .replace("{harness_config_name}", harness_config_name)
+            .replace("{harness_name}", harness_name)
+        )
     else:
         print(
             f"{env_id_underscore}.py already exists at {environment_file}, skipping..."
         )
-
-    if openenv:
-        _init_openenv_proj(local_dir, env_id_dash, env_id_underscore)
 
     return local_dir
 
@@ -415,12 +235,6 @@ def main():
         default=False,
         help="Create multi-file package structure instead of single file",
     )
-    parser.add_argument(
-        "--openenv",
-        action="store_true",
-        default=False,
-        help="Initialize with the enforced OpenEnv layout (proj/ + vf-build workflow).",
-    )
     args = parser.parse_args()
 
     init_environment(
@@ -428,7 +242,6 @@ def main():
         args.path,
         rewrite_readme=args.rewrite_readme,
         multi_file=args.multi_file,
-        openenv=args.openenv,
     )
 
 

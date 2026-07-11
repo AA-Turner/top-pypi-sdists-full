@@ -31,7 +31,7 @@ from modal_version import __version__
 
 from .._traceback import suppress_tb_frame
 from ..config import config
-from .async_utils import retry
+from .async_utils import TaskContext, retry
 from .logger import logger
 
 RequestType = TypeVar("RequestType", bound=Message)
@@ -163,8 +163,10 @@ RETRYABLE_GRPC_STATUS_CODES = [
     Status.UNKNOWN,
 ]
 SERVER_RETRY_WARNING_TIME_INTERVAL = 30.0
-# Initial per-attempt timeout for TCP/TLS handshake in connect_channel.
 DEFAULT_MAX_RETRIES = 3
+GRPC_KEEPALIVE_TIME_SECS = 30.0
+GRPC_KEEPALIVE_TIMEOUT_SECS = 10.0
+GRPC_WINDOW_SIZE = 64 * 1024 * 1024  # 64 MiB
 
 
 @dataclass
@@ -190,14 +192,7 @@ class ConnectionManager:
 
     async def get_or_create_channel(self, server_url: str) -> grpclib.client.Channel:
         if server_url not in self._channels:
-            self._channels[server_url] = create_channel(
-                server_url,
-                self._metadata,
-            )
-            try:
-                await connect_channel(self._channels[server_url])
-            except (OSError, asyncio.TimeoutError) as exc:
-                raise ConnectionError("Could not connect to the Modal server.") from exc
+            self._channels[server_url] = await create_channel_with_fallbacks(server_url, self._metadata)
         return self._channels[server_url]
 
     def close(self):
@@ -259,6 +254,21 @@ class CustomProtoStatusDetailsCodec(StatusDetailsCodecBase):
 custom_detail_codec = CustomProtoStatusDetailsCodec()
 
 
+def create_channel_config() -> grpclib.config.Configuration:
+    """Shared grpclib channel settings for Modal client connections.
+
+    HTTP/2 keepalive probes keep idle transports warm through stateful
+    middleboxes and surface dead connections before retries reuse them.
+    """
+    return grpclib.config.Configuration(
+        _keepalive_time=GRPC_KEEPALIVE_TIME_SECS,
+        _keepalive_timeout=GRPC_KEEPALIVE_TIMEOUT_SECS,
+        _keepalive_permit_without_calls=True,
+        http2_connection_window_size=GRPC_WINDOW_SIZE,
+        http2_stream_window_size=GRPC_WINDOW_SIZE,
+    )
+
+
 def create_channel(
     server_url: str,
     metadata: dict[str, str] = {},
@@ -270,10 +280,7 @@ def create_channel(
     o = urllib.parse.urlparse(server_url)
 
     channel: grpclib.client.Channel
-    config = grpclib.config.Configuration(
-        http2_connection_window_size=64 * 1024 * 1024,  # 64 MiB
-        http2_stream_window_size=64 * 1024 * 1024,  # 64 MiB
-    )
+    config = create_channel_config()
 
     if o.scheme == "unix":
         channel = grpclib.client.Channel(path=o.path, config=config, status_details_codec=custom_detail_codec)
@@ -296,6 +303,12 @@ def create_channel(
         for k, v in metadata.items():
             event.metadata[k] = v
 
+        if o.hostname is not None:
+            # GRPC actually injects a :authority pseudo-header containing the hostname.
+            # But this gets stripped out by the C/C++ extension server-side and is hard to fix.
+            # So let's just add a separate header we can parse easily.
+            event.metadata["x-modal-host"] = o.hostname
+
         idempotency_key = typing.cast(Optional[str], event.metadata.get("x-idempotency-key"))
         if idempotency_key is None:
             logger.debug(f"Sending request to {event.method_name}")
@@ -309,9 +322,59 @@ def create_channel(
 
 # With 18 attempts, the max delays between calls is: 0.1 + 0.2 + 0.4 + 0.8 + 1.6 + 3.2 + 5*11 ~ 62
 @retry(n_attempts=18, base_delay=0.1, attempt_timeout=10.0, max_delay=5.0, total_timeout=63.0)
-async def connect_channel(channel: grpclib.client.Channel):
-    """Connect to socket and raise exceptions when there is a connection issue."""
-    await channel.__connect__()
+async def create_channel_with_fallbacks(
+    server_url: str,
+    metadata: dict[str, str] = {},
+    stagger_delay: float = 1.0,
+) -> grpclib.client.Channel:
+    """Create a connected channel, supporting comma-separated fallback URLs.
+
+    `server_url` may be a single URL or a comma-separated list of URLs. The connection attempts
+    are raced against each other and the first one to connect wins, which lets the client fail
+    over to a secondary endpoint when the primary is unreachable (e.g. a DNS outage on the
+    primary's domain).
+
+    Attempts are staggered so earlier URLs (e.g. the primary) get a head start and are preferred
+    when reachable: the candidate at index `i` waits up to `i * stagger_delay` seconds before
+    starting. That wait is cut short as soon as the previous candidate *fails*, so a fast failure
+    falls over to the next URL immediately instead of waiting out the full stagger. Losing attempts
+    are cancelled and their channels closed.
+    """
+    urls = [url.strip() for url in server_url.split(",")]
+
+    # Set when a candidate's connection attempt fails, letting the next candidate start immediately
+    # instead of waiting out its stagger delay.
+    failed = [asyncio.Event() for _ in urls]
+
+    async def connect(index: int, url: str) -> grpclib.client.Channel:
+        if index > 0:
+            # Stagger the start so earlier URLs are preferred, but start early if the previous
+            # candidate has already failed.
+            try:
+                await asyncio.wait_for(failed[index - 1].wait(), timeout=index * stagger_delay)
+            except asyncio.TimeoutError:
+                pass
+        channel = create_channel(url, metadata)
+        try:
+            await channel.__connect__()
+        except BaseException:
+            # Close the channel of a losing/cancelled attempt so its socket doesn't leak.
+            channel.close()
+            failed[index].set()
+            raise
+        return channel
+
+    first_exc: BaseException | None = None
+    async with TaskContext() as tc:
+        tasks = [tc.create_task(connect(i, url)) for i, url in enumerate(urls)]
+        for attempt in asyncio.as_completed(tasks):
+            try:
+                return await attempt
+            except Exception as exc:
+                if first_exc is None:
+                    first_exc = exc
+
+    raise ConnectionError("Could not connect to the Modal server.") from first_exc
 
 
 if typing.TYPE_CHECKING:

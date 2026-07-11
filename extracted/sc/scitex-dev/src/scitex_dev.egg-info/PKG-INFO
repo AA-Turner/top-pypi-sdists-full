@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: scitex-dev
-Version: 0.28.0
+Version: 0.29.0
 Summary: Shared developer utilities for the SciTeX ecosystem
 Author-email: Yusuke Watanabe <ywatanabe@scitex.ai>
 License-Expression: AGPL-3.0-only
@@ -24,6 +24,8 @@ Requires-Dist: newb>=0.3.0; extra == "skills"
 Provides-Extra: sync
 Requires-Dist: scitex-ssh>=1.1.0; extra == "sync"
 Requires-Dist: scitex-scholar>=1.4.3; extra == "sync"
+Provides-Extra: icons
+Requires-Dist: Pillow>=9.2.0; extra == "icons"
 Provides-Extra: dev
 Requires-Dist: pytest>=7.0.0; extra == "dev"
 Requires-Dist: pytest-cov>=4.0.0; extra == "dev"
@@ -33,6 +35,7 @@ Requires-Dist: fastmcp>=2.0.0; extra == "dev"
 Requires-Dist: textual>=0.50.0; extra == "dev"
 Requires-Dist: newb>=0.3.0; extra == "dev"
 Requires-Dist: tomlkit>=0.12.0; extra == "dev"
+Requires-Dist: Pillow>=9.2.0; extra == "dev"
 Provides-Extra: cli-audit
 Provides-Extra: umbrella-regen
 Requires-Dist: tomlkit>=0.12.0; extra == "umbrella-regen"
@@ -90,7 +93,7 @@ Dynamic: license-file
 |---|---------|----------|
 | 1 | **~70 ecosystem packages drift apart** -- versions, READMEs, sphinx setups, CLI conventions diverge faster than humans can audit | **`scitex-dev ecosystem audit-*`** -- `audit-project`, `audit-cli`, `audit-mcp-tools`, `audit-python-apis`, `audit-skills`, `audit-summary` enforce ~130 numbered rules across the whole ecosystem |
 | 2 | **Skills scattered across ~70 source repos** -- AI agents can't discover them; humans can't review them | **`scitex-dev skills list / get / export`** -- aggregate every package's `_skills/` and symlink them into `~/.claude/skills/scitex/` for live-edit dev loops |
-| 3 | **Coordinated releases need ten manual steps** -- bump version, push tag, watch CI, verify PyPI, deploy — done per-package, multiplied by 70 | **`scitex-dev ecosystem sync` + `check-versions` + `start-dashboard`** -- one-shot install/sync across hosts, version-mismatch detection, and a web dashboard with the live state |
+| 3 | **Coordinated releases need ten manual steps** -- bump version, push tag, watch CI, verify PyPI, deploy — done per-package, multiplied by 70 | **`scitex-dev ecosystem sync` + `validate-versions` + `start-dashboard`** -- one-shot install/sync across hosts, version-mismatch detection, and a web dashboard with the live state |
 | 4 | **Bulk renames across 70 repos break cross-references** -- import paths, doc references, symlinks — `sed -i` corrupts something every time | **`scitex-dev rename-symbols`** -- atomic rename with cross-reference updates, regex support, dry-run preview, git-safety guards |
 | 5 | **Lint rules drift from the API they enforce** -- a renamed function in figrecipe leaves the rule pointing at a nonexistent symbol, and the bug only shows up months later | **`scitex-dev linter`** (engine, formerly `scitex-linter`) -- aggregates per-package rule plugins via the `scitex_dev.linter.plugins` entry point. Rules ship in the package whose API they enforce, so rename + rule + test land in one PR. Doc-block linting for `.py` / `.ipynb` / `.md` / `.rst`. `scitex-dev linter sweep` walks every package's README + docs in one shot |
 

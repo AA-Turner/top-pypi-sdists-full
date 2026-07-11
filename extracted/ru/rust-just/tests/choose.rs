@@ -333,3 +333,43 @@ fn default() {
 
   assert_stdout(&output, "foo\n");
 }
+
+#[test]
+fn skip_recipes_in_private_modules() {
+  Test::new()
+    .args(["--choose", "--chooser", "sort"])
+    .justfile(
+      "
+        [private]
+        mod foo
+
+        bar:
+          @echo bar
+      ",
+    )
+    .write(
+      "foo.just",
+      "
+        baz:
+          @echo baz
+      ",
+    )
+    .stdout("bar\n")
+    .success();
+}
+
+#[test]
+fn visit_modules_in_alphabetical_order() {
+  Test::new()
+    .justfile(
+      "
+        mod bar
+        mod foo
+      ",
+    )
+    .write("bar.just", "baz:\n  @echo bar\n")
+    .write("foo.just", "baz:\n  @echo foo\n")
+    .args(["--choose", "--chooser", "head -n1"])
+    .stdout("bar\n")
+    .success();
+}

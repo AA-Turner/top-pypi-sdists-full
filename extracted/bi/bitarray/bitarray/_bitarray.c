@@ -11,6 +11,7 @@
 #define PY_SSIZE_T_CLEAN
 #include "Python.h"
 #include "pythoncapi_compat.h"
+#include "structmember.h"
 #include "bitarray.h"
 
 /* size used when reading / writing blocks from files (in bytes) */
@@ -610,10 +611,77 @@ count_range(bitarrayobject *self,
 /* return first (or rightmost in case right=1) occurrence
    of vi in self[a:b], -1 when not found */
 static Py_ssize_t
+find_bit(bitarrayobject *self, int vi, Py_ssize_t a, Py_ssize_t b, int right);
+
+static Py_ssize_t
+find_bit_words(bitarrayobject *self, int vi,
+               Py_ssize_t a, Py_ssize_t b, int right)
+{
+    const Py_ssize_t wa = (a + 63) / 64;  /* word-range(wa, wb) */
+    const Py_ssize_t wb = b / 64;
+    const uint64_t *wbuff = WBUFF(self);
+    const uint64_t w = vi ? 0 : ~0;
+    Py_ssize_t res, i;
+
+    if (right) {
+        if ((res = find_bit(self, vi, 64 * wb, b, 1)) >= 0)
+            return res;
+
+        for (i = wb - 1; i >= wa; i--) {  /* skip uint64 words */
+            if (w ^ wbuff[i])
+                return find_bit(self, vi, 64 * i, 64 * i + 64, 1);
+        }
+        return find_bit(self, vi, a, 64 * wa, 1);
+    }
+    else {
+        if ((res = find_bit(self, vi, a, 64 * wa, 0)) >= 0)
+            return res;
+
+        for (i = wa; i < wb; i++) {       /* skip uint64 words */
+            if (w ^ wbuff[i])
+                return find_bit(self, vi, 64 * i, 64 * i + 64, 0);
+        }
+        return find_bit(self, vi, 64 * wb, b, 0);
+    }
+}
+
+static Py_ssize_t
+find_bit_bytes(bitarrayobject *self, int vi,
+               Py_ssize_t a, Py_ssize_t b, int right)
+{
+    const Py_ssize_t ca = BYTES(a);  /* char-range(ca, cb) */
+    const Py_ssize_t cb = b / 8;
+    const char *buff = self->ob_item;
+    const char c = vi ? 0 : ~0;
+    Py_ssize_t res, i;
+
+    if (right) {
+        if ((res = find_bit(self, vi, 8 * cb, b, 1)) >= 0)
+            return res;
+
+        for (i = cb - 1; i >= ca; i--) {  /* skip bytes */
+            if (c ^ buff[i])
+                return find_bit(self, vi, 8 * i, 8 * i + 8, 1);
+        }
+        return find_bit(self, vi, a, 8 * ca, 1);
+    }
+    else {
+        if ((res = find_bit(self, vi, a, 8 * ca, 0)) >= 0)
+            return res;
+
+        for (i = ca; i < cb; i++) {       /* skip bytes */
+            if (c ^ buff[i])
+                return find_bit(self, vi, 8 * i, 8 * i + 8, 0);
+        }
+        return find_bit(self, vi, 8 * cb, b, 0);
+    }
+}
+
+static Py_ssize_t
 find_bit(bitarrayobject *self, int vi, Py_ssize_t a, Py_ssize_t b, int right)
 {
     const Py_ssize_t n = b - a;
-    Py_ssize_t res, i;
+    Py_ssize_t i;
 
     assert(0 <= a && a <= self->nbits);
     assert(0 <= b && b <= self->nbits);
@@ -624,63 +692,13 @@ find_bit(bitarrayobject *self, int vi, Py_ssize_t a, Py_ssize_t b, int right)
     /* When the search range is greater than 64 bits, we skip uint64 words.
        Note that we cannot check for n >= 64 here as the function could then
        go into an infinite recursive loop when a word is found. */
-    if (n > 64) {
-        const Py_ssize_t wa = (a + 63) / 64;  /* word-range(wa, wb) */
-        const Py_ssize_t wb = b / 64;
-        const uint64_t *wbuff = WBUFF(self);
-        const uint64_t w = vi ? 0 : ~0;
+    if (n > 64)
+        return find_bit_words(self, vi, a, b, right);
 
-        if (right) {
-            if ((res = find_bit(self, vi, 64 * wb, b, 1)) >= 0)
-                return res;
-
-            for (i = wb - 1; i >= wa; i--) {  /* skip uint64 words */
-                if (w ^ wbuff[i])
-                    return find_bit(self, vi, 64 * i, 64 * i + 64, 1);
-            }
-            return find_bit(self, vi, a, 64 * wa, 1);
-        }
-        else {
-            if ((res = find_bit(self, vi, a, 64 * wa, 0)) >= 0)
-                return res;
-
-            for (i = wa; i < wb; i++) {       /* skip uint64 words */
-                if (w ^ wbuff[i])
-                    return find_bit(self, vi, 64 * i, 64 * i + 64, 0);
-            }
-            return find_bit(self, vi, 64 * wb, b, 0);
-        }
-    }
     /* For the same reason as above, we cannot check for n >= 8 here. */
-    if (n > 8) {
-        const Py_ssize_t ca = BYTES(a);  /* char-range(ca, cb) */
-        const Py_ssize_t cb = b / 8;
-        const char *buff = self->ob_item;
-        const char c = vi ? 0 : ~0;
+    if (n > 8)
+        return find_bit_bytes(self, vi, a, b, right);
 
-        if (right) {
-            if ((res = find_bit(self, vi, 8 * cb, b, 1)) >= 0)
-                return res;
-
-            for (i = cb - 1; i >= ca; i--) {  /* skip bytes */
-                assert_byte_in_range(self, i);
-                if (c ^ buff[i])
-                    return find_bit(self, vi, 8 * i, 8 * i + 8, 1);
-            }
-            return find_bit(self, vi, a, 8 * ca, 1);
-        }
-        else {
-            if ((res = find_bit(self, vi, a, 8 * ca, 0)) >= 0)
-                return res;
-
-            for (i = ca; i < cb; i++) {       /* skip bytes */
-                assert_byte_in_range(self, i);
-                if (c ^ buff[i])
-                    return find_bit(self, vi, 8 * i, 8 * i + 8, 0);
-            }
-            return find_bit(self, vi, 8 * cb, b, 0);
-        }
-    }
     /* finally, search for the desired bit by stepping one-by-one */
     for (i = right ? b - 1 : a; a <= i && i < b; i += right ? -1 : 1)
         if (getbit(self, i) == vi)
@@ -1875,6 +1893,56 @@ Raises `ValueError` if value is not present.");
 
 
 static PyObject *
+bitarray_rotate(bitarrayobject *self, PyObject *args)
+{
+    bitarrayobject *tmp;
+    Py_ssize_t n = self->nbits, k = 1;
+
+    RAISE_IF_READONLY(self, NULL);
+    if (!PyArg_ParseTuple(args, "|n:rotate", &k))
+        return NULL;
+
+    if (n < 2)
+        Py_RETURN_NONE;
+
+    k %= n;  /* C remainder may be negative, as it preserves the sign of k */
+    if (k < 0)
+        k += n;  /* make it equivalent to Python's k %= n */
+    if (k == 0)
+        Py_RETURN_NONE;
+
+    assert(0 < k && k < n);
+
+    /* temporary bitarray to store head or tail (whichever is smaller) */
+    tmp = newbitarrayobject(&Bitarray_Type, Py_MIN(k, n - k), self->endian);
+    if (tmp == NULL)
+        return NULL;
+
+    assert(tmp->nbits <= n / 2);  /* at most half size */
+
+    if (tmp->nbits == k) {      /* tail is smaller */
+        copy_n(tmp, 0, self, n - k, k);   /* save tail */
+        copy_n(self, k, self, 0, n - k);  /* shift whole array right by k */
+        copy_n(self, 0, tmp, 0, k);       /* copy stored tail at front */
+    }
+    else {                      /* head is smaller */
+        assert(tmp->nbits == n - k);
+        copy_n(tmp, 0, self, 0, n - k);   /* save head */
+        copy_n(self, 0, self, n - k, k);  /* shift whole array left by n-k */
+        copy_n(self, k, tmp, 0, n - k);   /* copy stored head at end */
+    }
+    Py_DECREF(tmp);
+    Py_RETURN_NONE;
+}
+
+PyDoc_STRVAR(rotate_doc,
+"rotate(k=1, /)\n\
+\n\
+Rotate bitarray in-place by `k` positions.\n\
+Positive `k` rotates right, negative `k` rotates left.");
+
+
+static PyObject *
 bitarray_sizeof(bitarrayobject *self)
 {
     Py_ssize_t res;
@@ -2096,17 +2164,12 @@ static PySequenceMethods bitarray_as_sequence = {
 
 /* ----------------------- bitarray_as_mapping ------------------------- */
 
-/* return new bitarray with item in self, specified by slice */
+/* return new bitarray with item in self, specified by slice indices */
 static PyObject *
-getslice(bitarrayobject *self, PyObject *slice)
+getslice_indices(bitarrayobject *self, Py_ssize_t start, Py_ssize_t step,
+                 Py_ssize_t slicelength)
 {
-    Py_ssize_t start, stop, step, slicelength;
     bitarrayobject *res;
-
-    assert(PySlice_Check(slice));
-    if (PySlice_GetIndicesEx(slice, self->nbits,
-                             &start, &stop, &step, &slicelength) < 0)
-        return NULL;
 
     res = newbitarrayobject(Py_TYPE(self), slicelength, self->endian);
     if (res == NULL)
@@ -2122,6 +2185,20 @@ getslice(bitarrayobject *self, PyObject *slice)
             setbit(res, i, getbit(self, j));
     }
     return freeze_if_frozen(res);
+}
+
+/* return new bitarray with item in self, specified by slice */
+static PyObject *
+getslice(bitarrayobject *self, PyObject *slice)
+{
+    Py_ssize_t start, stop, step, slicelength;
+
+    assert(PySlice_Check(slice));
+    if (PySlice_GetIndicesEx(slice, self->nbits,
+                             &start, &stop, &step, &slicelength) < 0)
+        return NULL;
+
+    return getslice_indices(self, start, step, slicelength);
 }
 
 static int
@@ -3334,7 +3411,7 @@ bitarray_decode(bitarrayobject *self, PyObject *obj)
 }
 
 PyDoc_STRVAR(decode_doc,
-"decode(code, /) -> iterator\n\
+"decode(code, /) -> decodeiterator\n\
 \n\
 Given a prefix code (a dict mapping symbols to bitarrays, or `decodetree`\n\
 object), decode content of bitarray and return an iterator over\n\
@@ -3374,6 +3451,51 @@ decodeiter_traverse(decodeiterobject *it, visitproc visit, void *arg)
     return 0;
 }
 
+static PyObject *
+decodeiter_skipbits(decodeiterobject *it, PyObject *args)
+{
+    PyObject *skipped;
+    Py_ssize_t n;  /* number of bits to skip */
+
+    if (!PyArg_ParseTuple(args, "n:skipbits", &n))
+        return NULL;
+
+    if (n < 0)
+        return PyErr_Format(PyExc_ValueError, "skip count cannot be "
+                            "negative, got %zd", n);
+
+    if (n > it->self->nbits - it->index)
+        return PyErr_Format(PyExc_ValueError, "skip count %zd cannot be "
+                            "larger than remaining bits %zd",
+                            n, it->self->nbits - it->index);
+
+    skipped = getslice_indices(it->self, it->index, 1, n);
+    if (skipped == NULL)
+        return NULL;
+
+    it->index += n;
+    return skipped;
+}
+
+PyDoc_STRVAR(decodeiter_skipbits_doc,
+"skipbits(n, /) -> bitarray\n\
+\n\
+Skip over the next `n` bits and return them.\n\
+Raises `ValueError` if count is out of range.");
+
+
+static PyMethodDef decodeiter_methods[] = {
+    {"skipbits",    (PyCFunction) decodeiter_skipbits, METH_VARARGS,
+     decodeiter_skipbits_doc},
+    {NULL}
+};
+
+static PyMemberDef decodeiter_members[] = {
+    {"index", Py_T_PYSSIZET, offsetof(decodeiterobject, index), Py_READONLY,
+     PyDoc_STR("current bit position to be decoded by subsequent `next`")},
+    {NULL}
+};
+
 static PyTypeObject DecodeIter_Type = {
     PyVarObject_HEAD_INIT(NULL, 0)
     "bitarray.decodeiterator",                /* tp_name */
@@ -3403,7 +3525,8 @@ static PyTypeObject DecodeIter_Type = {
     0,                                        /* tp_weaklistoffset */
     PyObject_SelfIter,                        /* tp_iter */
     (iternextfunc) decodeiter_next,           /* tp_iternext */
-    0,                                        /* tp_methods */
+    decodeiter_methods,                       /* tp_methods */
+    decodeiter_members,                       /* tp_members */
 };
 
 /*********************** (Bitarray) Search Iterator ***********************/
@@ -3586,6 +3709,8 @@ static PyMethodDef bitarray_methods[] = {
      remove_doc},
     {"reverse",      (PyCFunction) bitarray_reverse,     METH_NOARGS,
      reverse_doc},
+    {"rotate",       (PyCFunction) bitarray_rotate,      METH_VARARGS,
+     rotate_doc},
     {"search",       (PyCFunction) bitarray_search,      METH_VARARGS |
                                                          METH_KEYWORDS,
      search_doc},
@@ -4298,6 +4423,8 @@ PyInit__bitarray(void)
     if (PyType_Ready(&DecodeIter_Type) < 0)
         return NULL;
     Py_SET_TYPE(&DecodeIter_Type, &PyType_Type);
+    Py_INCREF((PyObject *) &DecodeIter_Type);
+    PyModule_AddObject(m, "decodeiterator", (PyObject *) &DecodeIter_Type);
 
     if (PyType_Ready(&BitarrayIter_Type) < 0)
         return NULL;

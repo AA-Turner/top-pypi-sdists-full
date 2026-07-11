@@ -101,6 +101,18 @@ def _toast_action(
     return html, markdown
 
 
+def get_duration_seconds(
+    duration: timedelta | None,
+    gpu_size: GPUSize | None,
+):
+    zerogpu_config = config.get_config()
+    gpu_size = gpu_size if gpu_size is not None else default_gpu_size()
+    duration_seconds = duration.seconds if duration is not None else DEFAULT_SCHEDULE_DURATION
+    if gpu_size != 'xlarge':
+        duration_seconds *= zerogpu_config['duration_factor']
+    return duration_seconds
+
+
 def schedule(
     task_id: int,
     request: gr.Request | None = None,
@@ -121,11 +133,7 @@ def schedule(
         message = f"Falling back to IP-based quotas ({token_error})"
         info("ZeroGPU client warning", message, level='warning')
 
-    zerogpu_config = config.get_config()
-    gpu_size = gpu_size if gpu_size is not None else default_gpu_size()
-    duration_seconds = duration.seconds if duration is not None else DEFAULT_SCHEDULE_DURATION
-    if gpu_size != 'xlarge':
-        duration_seconds *= zerogpu_config['duration_factor']
+    duration_seconds = get_duration_seconds(duration, gpu_size)
 
     res, meta = api_client().schedule(
         cgroup_path=utils.self_cgroup_device_path(),
@@ -314,3 +322,11 @@ def _get_token_and_payload(headers: dict[str, str]) -> tuple[str | None, dict[st
         warnings.warn("Error while decoding X-IP-Token JWT")
         return token, {}
     return token, payload
+
+
+def duration_warning():
+    info(
+        title="ZeroGPU duration",
+        message="GPU task is exceeding its requested duration and might be aborted",
+        level='warning',
+    )

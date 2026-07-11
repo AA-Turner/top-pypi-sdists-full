@@ -3,6 +3,7 @@
 import multiprocessing
 import os
 import signal
+import time
 import traceback
 from concurrent.futures import ThreadPoolExecutor
 from contextlib import nullcontext
@@ -15,6 +16,7 @@ from multiprocessing.context import ForkProcess
 from pickle import PicklingError
 from queue import Empty
 from queue import Queue as ThreadQueue
+from threading import Event as ThreadEvent
 from threading import Thread
 from typing import TYPE_CHECKING
 from typing import Callable
@@ -210,29 +212,40 @@ def regular_function_wrapper(
             release(fail=True)
             raise
 
-        while True:
-            res = worker.res_queue.get()
-            if res is None:
-                release(fail=True, allow_404=True)
-                raise error("ZeroGPU worker error", "GPU task aborted")
-            if isinstance(res, ExceptionResult):
-                release(fail=True)
-                if res.gradio_error is not None:
-                    if res.gradio_error.print_exception:
-                        print(res.traceback)
-                        res.gradio_error.print_exception = False
-                    raise res.gradio_error
-                else:
-                    print(res.traceback)
-                    raise error("ZeroGPU worker error", res.error_cls)
-            if isinstance(res, OkResult):
-                workers[nvidia_index] = worker
-                release()
-                return res.value
-            if isinstance(res, GradioQueueEvent):
-                try_process_queue_event(res.method_name, *res.args, **res.kwargs)
-                continue
-            assert_never(res)
+        duration_seconds = client.get_duration_seconds(duration_, gpu_size)
+        res_event = ThreadEvent()
+        def warn_duration():
+            if not res_event.wait(duration_seconds):
+                client.duration_warning()
+
+        with ThreadPoolExecutor(1) as executor:
+            executor.submit(copy_context().run, warn_duration)
+            try:
+                while True:
+                    res = worker.res_queue.get()
+                    if res is None:
+                        release(fail=True, allow_404=True)
+                        raise error("ZeroGPU worker error", "GPU task aborted")
+                    if isinstance(res, ExceptionResult):
+                        release(fail=True)
+                        if res.gradio_error is not None:
+                            if res.gradio_error.print_exception:
+                                print(res.traceback)
+                                res.gradio_error.print_exception = False
+                            raise res.gradio_error
+                        else:
+                            print(res.traceback)
+                            raise error("ZeroGPU worker error", res.error_cls)
+                    if isinstance(res, OkResult):
+                        workers[nvidia_index] = worker
+                        release()
+                        return res.value
+                    if isinstance(res, GradioQueueEvent):
+                        try_process_queue_event(res.method_name, *res.args, **res.kwargs)
+                        continue
+                    assert_never(res)
+            finally:
+                res_event.set()
 
 
     def thread_wrapper(
@@ -331,8 +344,15 @@ def generator_function_wrapper(
             release(fail=True)
             raise
 
+        duration_seconds = client.get_duration_seconds(duration_, gpu_size)
+        res_event = ThreadEvent()
+        def warn_duration():
+            if not res_event.wait(duration_seconds):
+                client.duration_warning()
+
         yield_queue: ThreadQueue[YieldQueueResult[Res, gr.Error]] = ThreadQueue()
         def fill_yield_queue(worker: Worker[GeneratorResQueueResult[Res, gr.Error] | None]):
+            torch.enter_mode() # TorchModes are thread-local and unpickling can trigger CUDA code
             while True:
                 res = worker.res_queue.get()
                 if res is None:
@@ -356,9 +376,10 @@ def generator_function_wrapper(
                     continue
                 debug(f"fill_yield_queue: assert_never({res=})")
                 assert_never(res)
-        from typing_extensions import assert_never
-        with ThreadPoolExecutor() as e:
+        with ThreadPoolExecutor(2) as e:
+            _ = e.submit(copy_context().run, warn_duration)
             f = e.submit(copy_context().run, fill_yield_queue, worker)
+            f.add_done_callback(lambda _: res_event.set())
             f.add_done_callback(lambda _: debug("fill_yield_queue DONE"))
             while True:
                 try:

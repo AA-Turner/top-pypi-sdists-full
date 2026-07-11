@@ -5619,10 +5619,12 @@ class OAuthClientIdentityType(pycarlo.lib.types.Enum):
     """Enumeration Choices:
 
     * `AGENT`None
+    * `SERVICE`None
+    * `USER`None
     """
 
     __schema__ = schema
-    __choices__ = ("AGENT",)
+    __choices__ = ("AGENT", "SERVICE", "USER")
 
 
 class OAuthGrantTypeEnum(pycarlo.lib.types.Enum):
@@ -5839,6 +5841,9 @@ class Permission(pycarlo.lib.types.Enum):
     * `SettingsNotificationsEdit`None
     * `SettingsOauthClientsAccess`None
     * `SettingsOauthClientsEdit`None
+    * `SettingsOauthClientsManageUserClients`None
+    * `SettingsOauthClientsPersonalEdit`None
+    * `SettingsOauthClientsServiceEdit`None
     * `SettingsPiiFiltersEdit`None
     * `SettingsPiiFiltersList`None
     * `SettingsPiiFiltersViewMetrics`None
@@ -5951,6 +5956,9 @@ class Permission(pycarlo.lib.types.Enum):
         "SettingsNotificationsEdit",
         "SettingsOauthClientsAccess",
         "SettingsOauthClientsEdit",
+        "SettingsOauthClientsManageUserClients",
+        "SettingsOauthClientsPersonalEdit",
+        "SettingsOauthClientsServiceEdit",
         "SettingsPiiFiltersEdit",
         "SettingsPiiFiltersList",
         "SettingsPiiFiltersViewMetrics",
@@ -6764,8 +6772,16 @@ class ResourcePolicyPath(pycarlo.lib.types.Enum):
     * `SettingsNotificationsRead`None
     * `SettingsNotificationsWrite`None
     * `SettingsOauthClientsAll`None
+    * `SettingsOauthClientsPersonalAll`None
+    * `SettingsOauthClientsPersonalPropose`None
+    * `SettingsOauthClientsPersonalRead`None
+    * `SettingsOauthClientsPersonalWrite`None
     * `SettingsOauthClientsPropose`None
     * `SettingsOauthClientsRead`None
+    * `SettingsOauthClientsServiceAll`None
+    * `SettingsOauthClientsServicePropose`None
+    * `SettingsOauthClientsServiceRead`None
+    * `SettingsOauthClientsServiceWrite`None
     * `SettingsOauthClientsWrite`None
     * `SettingsPiiFiltersAll`None
     * `SettingsPiiFiltersPropose`None
@@ -6940,8 +6956,16 @@ class ResourcePolicyPath(pycarlo.lib.types.Enum):
         "SettingsNotificationsRead",
         "SettingsNotificationsWrite",
         "SettingsOauthClientsAll",
+        "SettingsOauthClientsPersonalAll",
+        "SettingsOauthClientsPersonalPropose",
+        "SettingsOauthClientsPersonalRead",
+        "SettingsOauthClientsPersonalWrite",
         "SettingsOauthClientsPropose",
         "SettingsOauthClientsRead",
+        "SettingsOauthClientsServiceAll",
+        "SettingsOauthClientsServicePropose",
+        "SettingsOauthClientsServiceRead",
+        "SettingsOauthClientsServiceWrite",
         "SettingsOauthClientsWrite",
         "SettingsPiiFiltersAll",
         "SettingsPiiFiltersPropose",
@@ -8008,6 +8032,7 @@ class TraceFilterFieldName(pycarlo.lib.types.Enum):
     * `ROOT_STATUS`None
     * `STATUS`None
     * `TASK`None
+    * `TOOL`None
     * `TOTAL_TOKENS`None
     * `WORKFLOW`None
     """
@@ -8021,6 +8046,7 @@ class TraceFilterFieldName(pycarlo.lib.types.Enum):
         "ROOT_STATUS",
         "STATUS",
         "TASK",
+        "TOOL",
         "TOTAL_TOKENS",
         "WORKFLOW",
     )
@@ -15692,6 +15718,7 @@ class TraceFiltersInput(sgqlc.types.Input):
         "models",
         "workflows",
         "tasks",
+        "tools",
         "min_duration",
         "max_duration",
         "min_prompt_tokens",
@@ -15705,6 +15732,7 @@ class TraceFiltersInput(sgqlc.types.Input):
         "statuses",
         "root_statuses",
         "search_query",
+        "run_uuid",
     )
     models = sgqlc.types.Field(
         sgqlc.types.list_of(sgqlc.types.non_null(String)), graphql_name="models"
@@ -15720,6 +15748,15 @@ class TraceFiltersInput(sgqlc.types.Input):
         sgqlc.types.list_of(sgqlc.types.non_null(String)), graphql_name="tasks"
     )
     """Filter by task names (OR logic)"""
+
+    tools = sgqlc.types.Field(
+        sgqlc.types.list_of(sgqlc.types.non_null(String)), graphql_name="tools"
+    )
+    """Filter to traces containing at least one tool-call span whose tool
+    name matches (OR logic). Tool names are bare, without the
+    Traceloop '.tool' suffix — matching the values surfaced by
+    getTopTools.
+    """
 
     min_duration = sgqlc.types.Field(Float, graphql_name="minDuration")
     """Minimum duration in seconds"""
@@ -15781,6 +15818,20 @@ class TraceFiltersInput(sgqlc.types.Input):
     Bare keys (no dot) are looked up under the standard custom-
     metadata namespace; dotted keys are matched as-is. Only available
     on accounts whose trace data is served from ClickHouse.
+    """
+
+    run_uuid = sgqlc.types.Field(UUID, graphql_name="runUuid")
+    """Filter to the traces evaluated in a monitor run: pass an agent
+    evaluation monitor run's jobExecutionUuid (as surfaced on monitor
+    chart datapoints) to keep only traces that produced at least one
+    scored row in that run. Combines (ANDs) with the other filters.
+    Exact run membership is available only for AO-managed ClickHouse
+    agent evaluation monitors. Runs of other monitor types are
+    rejected, as are trace-aggregation agent evaluation runs (their
+    scores carry no per-row trace linkage) and runs that evaluated
+    more than 10,000 traces (rather than returning an incomplete
+    list). Runs of conversation-scored monitors carry no trace linkage
+    and return an empty page.
     """
 
 
@@ -18866,6 +18917,33 @@ class AddMonitorsLabels(sgqlc.types.Type):
     __schema__ = schema
     __field_names__ = ("success",)
     success = sgqlc.types.Field(Boolean, graphql_name="success")
+
+
+class AddOAuthClientSecret(sgqlc.types.Type):
+    """Add a second secret to an OAuth client for zero-downtime rotation
+    (max two per client). Returns the new secret value, which is shown
+    only once.
+    """
+
+    __schema__ = schema
+    __field_names__ = ("response",)
+    response = sgqlc.types.Field(
+        sgqlc.types.non_null("AddOAuthClientSecretResponse"), graphql_name="response"
+    )
+
+
+class AddOAuthClientSecretResponse(sgqlc.types.Type):
+    """Response from adding an OAuth client secret. The secret value is
+    shown only once.
+    """
+
+    __schema__ = schema
+    __field_names__ = ("secret_id", "client_secret")
+    secret_id = sgqlc.types.Field(sgqlc.types.non_null(ID), graphql_name="secretId")
+    """The new secret's unique identifier."""
+
+    client_secret = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="clientSecret")
+    """The new secret value. Store it now — it cannot be retrieved."""
 
 
 class AddOrUpdateCustomDashboardWidget(sgqlc.types.Type):
@@ -27161,6 +27239,19 @@ class CreateOrUpdateServiceApiToken(sgqlc.types.Type):
     access_token = sgqlc.types.Field(AccessToken, graphql_name="accessToken")
 
 
+class CreateOrUpdateServiceOAuthClient(sgqlc.types.Type):
+    """Create or update a service (account) OAuth 2.0 client. Omit
+    service_id to create a new account; provide it to update the
+    account's groups/description (never the secret).
+    """
+
+    __schema__ = schema
+    __field_names__ = ("response",)
+    response = sgqlc.types.Field(
+        sgqlc.types.non_null("ServiceOAuthClientMutationResponse"), graphql_name="response"
+    )
+
+
 class CreateOrUpdateSloPolicy(sgqlc.types.Type):
     __schema__ = schema
     __field_names__ = ("slo_policy",)
@@ -27357,6 +27448,19 @@ class CreateUnifiedUserAssignment(sgqlc.types.Type):
     __field_names__ = ("unified_user_assignment",)
     unified_user_assignment = sgqlc.types.Field(
         "UnifiedUserAssignment", graphql_name="unifiedUserAssignment"
+    )
+
+
+class CreateUserOAuthClient(sgqlc.types.Type):
+    """Create a personal OAuth 2.0 client for API access. The client acts
+    as the calling user; it cannot be created on behalf of another
+    user.
+    """
+
+    __schema__ = schema
+    __field_names__ = ("response",)
+    response = sgqlc.types.Field(
+        sgqlc.types.non_null(CreateOAuthClientResponse), graphql_name="response"
     )
 
 
@@ -30374,6 +30478,17 @@ class DeleteAllUserApiKeys(sgqlc.types.Type):
     """The number of API keys that were deleted."""
 
 
+class DeleteAllUserOAuthClients(sgqlc.types.Type):
+    """Delete all personal OAuth clients belonging to a user in your
+    account (account admin). Revokes their credentials immediately.
+    """
+
+    __schema__ = schema
+    __field_names__ = ("deleted_count",)
+    deleted_count = sgqlc.types.Field(sgqlc.types.non_null(Int), graphql_name="deletedCount")
+    """The number of OAuth clients that were deleted."""
+
+
 class DeleteAllowListEntry(sgqlc.types.Type):
     __schema__ = schema
     __field_names__ = ("success", "project_name", "dataset")
@@ -30806,6 +30921,17 @@ class DeleteOAuthClient(sgqlc.types.Type):
     """Whether the client was found and deleted."""
 
 
+class DeleteOAuthClientSecret(sgqlc.types.Type):
+    """Delete a specific secret from an OAuth client. The last remaining
+    secret cannot be deleted.
+    """
+
+    __schema__ = schema
+    __field_names__ = ("deleted",)
+    deleted = sgqlc.types.Field(sgqlc.types.non_null(Boolean), graphql_name="deleted")
+    """Whether the secret was deleted."""
+
+
 class DeleteObjectProperty(sgqlc.types.Type):
     """Delete properties (tags) for objects (e.g. tables, fields, etc.)"""
 
@@ -30893,6 +31019,17 @@ class DeleteServiceNowIntegration(sgqlc.types.Type):
     deleted = sgqlc.types.Field(Boolean, graphql_name="deleted")
 
 
+class DeleteServiceOAuthClient(sgqlc.types.Type):
+    """Terminate a service OAuth account: revoke its client and delete
+    the service account.
+    """
+
+    __schema__ = schema
+    __field_names__ = ("deleted",)
+    deleted = sgqlc.types.Field(sgqlc.types.non_null(Boolean), graphql_name="deleted")
+    """Whether the service account was found and deleted."""
+
+
 class DeleteSloPolicy(sgqlc.types.Type):
     __schema__ = schema
     __field_names__ = ("success",)
@@ -30950,6 +31087,18 @@ class DeleteUserInvite(sgqlc.types.Type):
     __field_names__ = ("success",)
     success = sgqlc.types.Field(Boolean, graphql_name="success")
     """Indicates whether the operation was completed successfully"""
+
+
+class DeleteUserOAuthClient(sgqlc.types.Type):
+    """Delete a specific personal OAuth client belonging to a user in
+    your account (account admin). Revokes the client's credentials
+    immediately.
+    """
+
+    __schema__ = schema
+    __field_names__ = ("deleted",)
+    deleted = sgqlc.types.Field(sgqlc.types.non_null(Boolean), graphql_name="deleted")
+    """Whether the client was found and deleted."""
 
 
 class DeleteWebexIntegration(sgqlc.types.Type):
@@ -35493,7 +35642,14 @@ class HostingDomainDetails(sgqlc.types.Type):
     """Hosting domain information"""
 
     __schema__ = schema
-    __field_names__ = ("ui", "api", "integrations")
+    __field_names__ = (
+        "ui",
+        "api",
+        "integrations",
+        "oauth_api",
+        "m2m_token_url",
+        "m2m_instance_scope",
+    )
     ui = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="ui")
     """Frontend URL"""
 
@@ -35502,6 +35658,17 @@ class HostingDomainDetails(sgqlc.types.Type):
 
     integrations = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="integrations")
     """Integrations Gateway URL"""
+
+    oauth_api = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="oauthApi")
+    """OAuth GraphQL API URL"""
+
+    m2m_token_url = sgqlc.types.Field(String, graphql_name="m2mTokenUrl")
+    """OAuth M2M (client-credentials) token URL"""
+
+    m2m_instance_scope = sgqlc.types.Field(String, graphql_name="m2mInstanceScope")
+    """OAuth scope clients must request for the global gateway to route
+    to this instance
+    """
 
 
 class HostingInformation(sgqlc.types.Type):
@@ -40127,7 +40294,14 @@ class Mutation(sgqlc.types.Type):
         "unlink_opsgenie_incident",
         "relink_opsgenie_incident",
         "create_agent_oauth_client",
+        "create_user_oauth_client",
+        "create_or_update_service_oauth_client",
+        "add_oauth_client_secret",
+        "delete_oauth_client_secret",
+        "delete_service_oauth_client",
         "delete_oauth_client",
+        "delete_user_oauth_client",
+        "delete_all_user_oauth_clients",
         "create_pagerduty_service_integration",
         "update_pagerduty_service_integration",
         "update_pagerduty_service_integration_webhook_secret",
@@ -47314,6 +47488,10 @@ class Mutation(sgqlc.types.Type):
                         sgqlc.types.non_null(String), graphql_name="description", default=None
                     ),
                 ),
+                (
+                    "expiration_in_days",
+                    sgqlc.types.Arg(Int, graphql_name="expirationInDays", default=None),
+                ),
             )
         ),
     )
@@ -47326,6 +47504,155 @@ class Mutation(sgqlc.types.Type):
       client for.
     * `description` (`String!`): A human-readable description for this
       OAuth client.
+    * `expiration_in_days` (`Int`): Optional client lifetime in days
+      (omit for no expiration).
+    """
+
+    create_user_oauth_client = sgqlc.types.Field(
+        CreateUserOAuthClient,
+        graphql_name="createUserOauthClient",
+        args=sgqlc.types.ArgDict(
+            (
+                (
+                    "description",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(String), graphql_name="description", default=None
+                    ),
+                ),
+                (
+                    "expiration_in_days",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(Int), graphql_name="expirationInDays", default=None
+                    ),
+                ),
+            )
+        ),
+    )
+    """(general availability) Create a personal OAuth 2.0 client for API
+    access (acts as the caller).
+
+    Arguments:
+
+    * `description` (`String!`): A human-readable description for this
+      OAuth client.
+    * `expiration_in_days` (`Int!`): Client lifetime in days (required
+      for personal clients).
+    """
+
+    create_or_update_service_oauth_client = sgqlc.types.Field(
+        CreateOrUpdateServiceOAuthClient,
+        graphql_name="createOrUpdateServiceOauthClient",
+        args=sgqlc.types.ArgDict(
+            (
+                (
+                    "description",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(String), graphql_name="description", default=None
+                    ),
+                ),
+                (
+                    "expiration_in_days",
+                    sgqlc.types.Arg(Int, graphql_name="expirationInDays", default=None),
+                ),
+                (
+                    "groups",
+                    sgqlc.types.Arg(
+                        sgqlc.types.list_of(sgqlc.types.non_null(String)),
+                        graphql_name="groups",
+                        default=None,
+                    ),
+                ),
+                ("service_id", sgqlc.types.Arg(ID, graphql_name="serviceId", default=None)),
+            )
+        ),
+    )
+    """(general availability) Create or update a service (account) OAuth
+    2.0 client.
+
+    Arguments:
+
+    * `description` (`String!`): A human-readable description for this
+      service account.
+    * `expiration_in_days` (`Int`): Optional client lifetime in days,
+      set on create (omit for no expiration).
+    * `groups` (`[String!]`): Authorization groups granting the
+      service account its permissions.
+    * `service_id` (`ID`): Stable service account id. Omit to create;
+      provide to update existing.
+    """
+
+    add_oauth_client_secret = sgqlc.types.Field(
+        AddOAuthClientSecret,
+        graphql_name="addOauthClientSecret",
+        args=sgqlc.types.ArgDict(
+            (
+                (
+                    "client_id",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(ID), graphql_name="clientId", default=None
+                    ),
+                ),
+            )
+        ),
+    )
+    """(general availability) Add a second secret to an OAuth client for
+    zero-downtime rotation.
+
+    Arguments:
+
+    * `client_id` (`ID!`): The OAuth client id to add a secret to.
+    """
+
+    delete_oauth_client_secret = sgqlc.types.Field(
+        DeleteOAuthClientSecret,
+        graphql_name="deleteOauthClientSecret",
+        args=sgqlc.types.ArgDict(
+            (
+                (
+                    "client_id",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(ID), graphql_name="clientId", default=None
+                    ),
+                ),
+                (
+                    "secret_id",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(ID), graphql_name="secretId", default=None
+                    ),
+                ),
+            )
+        ),
+    )
+    """(general availability) Delete a specific OAuth client secret (not
+    the last remaining one).
+
+    Arguments:
+
+    * `client_id` (`ID!`): The OAuth client id.
+    * `secret_id` (`ID!`): The id of the secret to delete.
+    """
+
+    delete_service_oauth_client = sgqlc.types.Field(
+        DeleteServiceOAuthClient,
+        graphql_name="deleteServiceOauthClient",
+        args=sgqlc.types.ArgDict(
+            (
+                (
+                    "service_id",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(ID), graphql_name="serviceId", default=None
+                    ),
+                ),
+            )
+        ),
+    )
+    """(general availability) Terminate a service OAuth account (revoke
+    client + delete the account).
+
+    Arguments:
+
+    * `service_id` (`ID!`): Stable id of the service account to
+      delete.
     """
 
     delete_oauth_client = sgqlc.types.Field(
@@ -47348,6 +47675,56 @@ class Mutation(sgqlc.types.Type):
     Arguments:
 
     * `client_id` (`ID!`): The ID of the OAuth client to delete.
+    """
+
+    delete_user_oauth_client = sgqlc.types.Field(
+        DeleteUserOAuthClient,
+        graphql_name="deleteUserOauthClient",
+        args=sgqlc.types.ArgDict(
+            (
+                (
+                    "client_id",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(ID), graphql_name="clientId", default=None
+                    ),
+                ),
+                (
+                    "user_id",
+                    sgqlc.types.Arg(sgqlc.types.non_null(ID), graphql_name="userId", default=None),
+                ),
+            )
+        ),
+    )
+    """(general availability) Delete a specific user's personal OAuth 2.0
+    client (account admin).
+
+    Arguments:
+
+    * `client_id` (`ID!`): The ID of the user's OAuth client to
+      delete.
+    * `user_id` (`ID!`): cognito_user_id of the target user, who must
+      be in your account.
+    """
+
+    delete_all_user_oauth_clients = sgqlc.types.Field(
+        DeleteAllUserOAuthClients,
+        graphql_name="deleteAllUserOauthClients",
+        args=sgqlc.types.ArgDict(
+            (
+                (
+                    "user_id",
+                    sgqlc.types.Arg(sgqlc.types.non_null(ID), graphql_name="userId", default=None),
+                ),
+            )
+        ),
+    )
+    """(general availability) Delete all of a user's personal OAuth 2.0
+    clients (account admin).
+
+    Arguments:
+
+    * `user_id` (`ID!`): cognito_user_id of the target user, who must
+      be in your account.
     """
 
     create_pagerduty_service_integration = sgqlc.types.Field(
@@ -64049,6 +64426,8 @@ class OAuthClientOutput(sgqlc.types.Type):
         "resource_ids",
         "created_time",
         "created_by",
+        "created_by_email",
+        "expiration_time",
     )
     client_id = sgqlc.types.Field(sgqlc.types.non_null(ID), graphql_name="clientId")
     """The unique identifier for this OAuth client."""
@@ -64078,6 +64457,26 @@ class OAuthClientOutput(sgqlc.types.Type):
 
     created_by = sgqlc.types.Field(ID, graphql_name="createdBy")
     """The user who created this OAuth client."""
+
+    created_by_email = sgqlc.types.Field(String, graphql_name="createdByEmail")
+    """Email of the user who created this OAuth client."""
+
+    expiration_time = sgqlc.types.Field(DateTime, graphql_name="expirationTime")
+    """When this OAuth client expires (null = never expires)."""
+
+
+class OAuthClientSecret(sgqlc.types.Type):
+    """Metadata for one of an OAuth client's secrets (up to two). The
+    value is never listed.
+    """
+
+    __schema__ = schema
+    __field_names__ = ("secret_id", "created_time")
+    secret_id = sgqlc.types.Field(sgqlc.types.non_null(ID), graphql_name="secretId")
+    """The secret's unique identifier."""
+
+    created_time = sgqlc.types.Field(DateTime, graphql_name="createdTime")
+    """When this secret was created."""
 
 
 class ObjectDocument(sgqlc.types.Type):
@@ -66274,6 +66673,9 @@ class Query(sgqlc.types.Type):
         "get_my_mcp_integration_keys",
         "get_opsgenie_integrations",
         "get_oauth_clients",
+        "get_service_oauth_clients",
+        "get_user_oauth_clients",
+        "get_oauth_client_secrets",
         "get_pagerduty_service_integrations",
         "get_volume_change_table_monitor",
         "get_ucs_table_monitor",
@@ -72081,6 +72483,57 @@ class Query(sgqlc.types.Type):
     * `identity_type` (`OAuthClientIdentityType`): Filter by identity
       type.
     * `identity_id` (`ID`): Filter by identity ID.
+    """
+
+    get_service_oauth_clients = sgqlc.types.Field(
+        sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null("ServiceOAuthClientOutput"))),
+        graphql_name="getServiceOauthClients",
+    )
+    """(general availability) List service (account) OAuth 2.0 clients
+    for the current account.
+    """
+
+    get_user_oauth_clients = sgqlc.types.Field(
+        sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null(OAuthClientOutput))),
+        graphql_name="getUserOauthClients",
+        args=sgqlc.types.ArgDict(
+            (
+                (
+                    "user_id",
+                    sgqlc.types.Arg(sgqlc.types.non_null(ID), graphql_name="userId", default=None),
+                ),
+            )
+        ),
+    )
+    """(general availability) List a specific user's personal OAuth 2.0
+    clients (account admin).
+
+    Arguments:
+
+    * `user_id` (`ID!`): cognito_user_id of the target user, who must
+      be in your account.
+    """
+
+    get_oauth_client_secrets = sgqlc.types.Field(
+        sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null(OAuthClientSecret))),
+        graphql_name="getOauthClientSecrets",
+        args=sgqlc.types.ArgDict(
+            (
+                (
+                    "client_id",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(ID), graphql_name="clientId", default=None
+                    ),
+                ),
+            )
+        ),
+    )
+    """(general availability) List an OAuth client's secrets (metadata
+    only; up to two).
+
+    Arguments:
+
+    * `client_id` (`ID!`): The OAuth client id.
     """
 
     get_pagerduty_service_integrations = sgqlc.types.Field(
@@ -91636,6 +92089,87 @@ class ServiceNowWebhookConfigOutput(sgqlc.types.Type):
     """Mapping FROM ServiceNow incident states TO Monte Carlo alert
     status
     """
+
+
+class ServiceOAuthClientMutationResponse(sgqlc.types.Type):
+    """Response for service OAuth create/update.  ``client_secret`` is
+    returned only when a new credential is created (on create); it is
+    null on a metadata-only update, and can never be retrieved again
+    after this response. Rotate secrets in place via the manage-
+    secrets APIs (the client id is unchanged).
+    """
+
+    __schema__ = schema
+    __field_names__ = ("service_id", "client_id", "client_secret", "scopes")
+    service_id = sgqlc.types.Field(sgqlc.types.non_null(ID), graphql_name="serviceId")
+    """Stable id of the service account (use for update/delete)."""
+
+    client_id = sgqlc.types.Field(ID, graphql_name="clientId")
+    """The service account's OAuth client id."""
+
+    client_secret = sgqlc.types.Field(String, graphql_name="clientSecret")
+    """Only present when a new credential was created (on create). Store
+    it now.
+    """
+
+    scopes = sgqlc.types.Field(
+        sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null(String))),
+        graphql_name="scopes",
+    )
+    """The OAuth scopes granted to this client."""
+
+
+class ServiceOAuthClientOutput(sgqlc.types.Type):
+    """A service (account) OAuth 2.0 client, enriched with its service
+    account's name + groups.
+    """
+
+    __schema__ = schema
+    __field_names__ = (
+        "service_id",
+        "client_id",
+        "description",
+        "display_name",
+        "authorization_groups",
+        "created_time",
+        "created_by",
+        "created_by_email",
+        "expiration_time",
+    )
+    service_id = sgqlc.types.Field(sgqlc.types.non_null(ID), graphql_name="serviceId")
+    """Stable id of the service account (survives secret rotation)."""
+
+    client_id = sgqlc.types.Field(sgqlc.types.non_null(ID), graphql_name="clientId")
+    """OAuth client id. Stable across secret rotation — secrets are
+    added/removed via the manage-secrets APIs while the client id
+    stays the same.
+    """
+
+    description = sgqlc.types.Field(String, graphql_name="description")
+    """A human-readable description of this OAuth client."""
+
+    display_name = sgqlc.types.Field(String, graphql_name="displayName")
+    """Display name of the service account."""
+
+    authorization_groups = sgqlc.types.Field(
+        sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null(String))),
+        graphql_name="authorizationGroups",
+    )
+    """Authorization groups granting this service account its
+    permissions.
+    """
+
+    created_time = sgqlc.types.Field(DateTime, graphql_name="createdTime")
+    """When this service OAuth account was created."""
+
+    created_by = sgqlc.types.Field(ID, graphql_name="createdBy")
+    """Id of the user who created this service OAuth account."""
+
+    created_by_email = sgqlc.types.Field(String, graphql_name="createdByEmail")
+    """Email of the user who created this service OAuth account."""
+
+    expiration_time = sgqlc.types.Field(DateTime, graphql_name="expirationTime")
+    """When this OAuth client expires (null = never expires)."""
 
 
 class SessionSettings(sgqlc.types.Type):

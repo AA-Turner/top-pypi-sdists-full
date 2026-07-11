@@ -48,7 +48,7 @@ benchmark = [
 ]
 dev = ["maturin>=1.8.2"]
 docs = ["mkdocs", "mkdocs-material", "mkdocstrings[python]", "mkdocs-jupyter"]
-lint = ["ruff>=0.9.10"]
+lint = ["ruff>=0.9.10", "ty>=0.0.51"]
 test = [
   "pytest>=8.3.5",
   "pytest-asyncio>=0.25.3",
@@ -59,9 +59,11 @@ test = [
 [tool.maturin]
 features = ["pyo3/extension-module"]
 module-name = "opendal._opendal"
-strip = true
 manifest-path = "bindings/python/Cargo.toml"
 python-source = "python"
+
+[tool.ty.src]
+include = ["python/opendal"]
 
 [tool.uv]
 cache-keys = [

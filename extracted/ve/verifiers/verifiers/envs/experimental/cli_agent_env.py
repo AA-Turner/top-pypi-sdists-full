@@ -20,6 +20,7 @@ from verifiers.envs.experimental.sandbox_mixin import (
     SandboxMixin,
     SandboxMonitorRubric,
     SandboxTimeouts,
+    is_retryable_sandbox_read_error,
 )
 from verifiers.types import (
     AssistantMessage,
@@ -110,7 +111,7 @@ class CliAgentEnv(SandboxMixin, vf.MultiTurnEnv):
         backoff_factor: float = 2.0,
         max_backoff_seconds: float = 30.0,
         jitter: float = 1e-3,
-        sandbox_client_max_workers: int = 50,
+        sandbox_client_max_workers: int | None = None,
         sandbox_client_max_connections: int = 1000,
         sandbox_client_max_keepalive_connections: int = 200,
         sandbox_wait_for_creation_max_attempts: int = 120,
@@ -157,6 +158,7 @@ class CliAgentEnv(SandboxMixin, vf.MultiTurnEnv):
         self.add_rubric(CliAgentMonitorRubric())
 
     TUNNEL_CHECK_INTERVAL = 60.0  # seconds between server-side liveness checks
+    BACKGROUND_JOB_POLL_READ_ERROR_MAX_ATTEMPTS = 3
 
     def init_interception(
         self,
@@ -225,9 +227,11 @@ class CliAgentEnv(SandboxMixin, vf.MultiTurnEnv):
                 assert self._tunnel.url is not None, "Tunnel started but URL is None"
                 return self._tunnel.url
 
-    async def setup_state(self, state: State) -> None:
+    async def setup_state(self, state: State) -> State:
         """Setup sandbox + interception for this rollout"""
-        await super().setup_state(state)
+        setup_state = await super().setup_state(state)
+        if setup_state is not None:
+            state = setup_state
 
         rollout_id = f"rollout_{uuid.uuid4().hex[:8]}"
         state["rollout_id"] = rollout_id
@@ -285,6 +289,7 @@ class CliAgentEnv(SandboxMixin, vf.MultiTurnEnv):
             f"example_id={state['example_id']}",
         ]
         self.logger.info(" | ".join(parts))
+        return state
 
     async def get_docker_image(self, state: State) -> str:
         """Get the Docker image for the sandbox. Override for per-task images."""
@@ -311,19 +316,23 @@ class CliAgentEnv(SandboxMixin, vf.MultiTurnEnv):
             "HTTPX_TIMEOUT",
             "OPENAI_MODEL",
             "OPENAI_API_KEY",
+            "ANTHROPIC_BASE_URL",
+            "ANTHROPIC_API_KEY",
         }
     )
 
     async def build_env_vars(self, state: State) -> dict[str, str]:
         """Build environment variables for the sandbox. Override to add custom vars."""
         env_vars = dict(self.environment_vars) if self.environment_vars else {}
-        env_vars["OPENAI_BASE_URL"] = state["interception_base_url"]
+        interception_base_url = str(state["interception_base_url"]).rstrip("/")
+        env_vars["OPENAI_BASE_URL"] = interception_base_url
+        env_vars["ANTHROPIC_BASE_URL"] = interception_base_url.removesuffix("/v1")
         env_vars.setdefault("OPENAI_TIMEOUT", "3600")
         env_vars.setdefault("OPENAI_REQUEST_TIMEOUT", "3600")
         env_vars.setdefault("HTTPX_TIMEOUT", "3600")
-        secret = os.environ.get("INTERCEPTION_SECRET")
-        if secret:
-            env_vars["OPENAI_API_KEY"] = secret
+        secret = self._require_interception_server().secret
+        env_vars["OPENAI_API_KEY"] = secret
+        env_vars["ANTHROPIC_API_KEY"] = secret
         model = state.get("model")
         if model:
             env_vars["OPENAI_MODEL"] = model
@@ -379,10 +388,33 @@ class CliAgentEnv(SandboxMixin, vf.MultiTurnEnv):
         self, state: State, sandbox_id: str, background_job: BackgroundJob
     ) -> None:
         """Poll until background job completes, capturing output."""
+        consecutive_read_errors = 0
         while True:
-            status: BackgroundJobStatus = await self.sandbox_client.get_background_job(
-                sandbox_id, background_job, timeout=self.timeouts.poll
-            )
+            try:
+                status: BackgroundJobStatus = (
+                    await self.sandbox_client.get_background_job(
+                        sandbox_id, background_job, timeout=self.timeouts.poll
+                    )
+                )
+            except Exception as e:
+                if not is_retryable_sandbox_read_error(e):
+                    raise
+                consecutive_read_errors += 1
+                if (
+                    consecutive_read_errors
+                    >= self.BACKGROUND_JOB_POLL_READ_ERROR_MAX_ATTEMPTS
+                ):
+                    raise
+                self.logger.warning(
+                    "Background job poll failed with a transient sandbox read error; "
+                    "retrying (%s/%s): %s",
+                    consecutive_read_errors,
+                    self.BACKGROUND_JOB_POLL_READ_ERROR_MAX_ATTEMPTS,
+                    e,
+                )
+                await asyncio.sleep(self.poll_interval)
+                continue
+            consecutive_read_errors = 0
             if status.completed:
                 state["agent_exit_code"] = status.exit_code
                 state["agent_stdout"] = status.stdout
@@ -685,7 +717,7 @@ class CliAgentEnv(SandboxMixin, vf.MultiTurnEnv):
         num_turns = len(state.get("trajectory", []))
         stop_condition = state.get("stop_condition", "unknown")
         error = state.get("error")
-        error_info = (
+        error_summary = (
             f"{type(error).__name__}: {truncate(str(error), 80)}" if error else None
         )
         exit_code = state.get("agent_exit_code")
@@ -709,8 +741,8 @@ class CliAgentEnv(SandboxMixin, vf.MultiTurnEnv):
         ]
         if timed_out:
             parts.append("timed_out=True")
-        if error_info:
-            parts.append(f"error={error_info}")
+        if error_summary:
+            parts.append(f"error={error_summary}")
         self.logger.info(" | ".join(parts))
 
     @vf.cleanup

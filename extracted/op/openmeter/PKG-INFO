@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: openmeter
-Version: 1.0.0b229
+Version: 1.0.0b230
 Summary: Client for OpenMeter: Real-Time and Scalable Usage Metering
 License: Apache-2.0
 Keywords: openmeter,api,client,usage,usage-based,metering,ai,aggregation,real-time,billing,cloud

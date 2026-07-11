@@ -106,7 +106,7 @@ from modal_proto import api_pb2
 from ._utils.logger import configure_logger
 from .exception import InvalidError, NotFoundError
 
-DEFAULT_SERVER_URL = "https://api.modal.com"
+DEFAULT_SERVER_URL = "https://api.modal.com"  # TODO(erikbern): add modal2.com
 
 
 # Locate config file and read it
@@ -216,6 +216,8 @@ def config_set_active_profile(profile: str) -> None:
         profile_data.pop("active", None)
 
     _user_config[profile]["active"] = True  # type: ignore
+    global _profile
+    _profile = profile
     _write_user_config(_user_config)
 
 
@@ -312,7 +314,7 @@ class Config:
     def __init__(self):
         pass
 
-    def get(self, key, profile=None, use_env=True):
+    def get(self, key: str, *, profile: str | None = None, use_env: bool = True) -> Any:
         """Look up a configuration value.
 
         Resolution order (highest priority first):

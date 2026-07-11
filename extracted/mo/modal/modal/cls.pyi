@@ -342,6 +342,7 @@ class _Cls(modal._object._Object):
         timeout: typing.Optional[int] = None,
         region: typing.Union[str, collections.abc.Sequence[str], None] = None,
         cloud: typing.Optional[str] = None,
+        routing_region: typing.Optional[str] = None,
     ) -> _Cls:
         """Override the static Cls configuration with invocation-specific values.
 
@@ -367,6 +368,7 @@ class _Cls(modal._object._Object):
             timeout: Function timeout in seconds.
             region: One region or a list of regions to schedule on.
             cloud: Cloud provider (for example ``aws``, ``gcp``, ``oci``, or ``auto``).
+            routing_region: Region that inputs and outputs are routed through for this Cls.
 
         Returns:
             A new ``Cls`` with the merged options.
@@ -556,6 +558,7 @@ class Cls(modal.object.Object):
         timeout: typing.Optional[int] = None,
         region: typing.Union[str, collections.abc.Sequence[str], None] = None,
         cloud: typing.Optional[str] = None,
+        routing_region: typing.Optional[str] = None,
     ) -> Cls:
         """Override the static Cls configuration with invocation-specific values.
 
@@ -581,6 +584,7 @@ class Cls(modal.object.Object):
             timeout: Function timeout in seconds.
             region: One region or a list of regions to schedule on.
             cloud: Cloud provider (for example ``aws``, ``gcp``, ``oci``, or ``auto``).
+            routing_region: Region that inputs and outputs are routed through for this Cls.
 
         Returns:
             A new ``Cls`` with the merged options.

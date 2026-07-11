@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: dlt
-Version: 1.28.1
+Version: 1.28.2
 Summary: dlt is an open-source python-first scalable data loading library that does not require any backend to run.
 Project-URL: Homepage, https://github.com/dlt-hub
 Project-URL: Repository, https://github.com/dlt-hub/dlt
@@ -113,7 +113,7 @@ Requires-Dist: pyarrow>=21.0.0; extra == 'hf'
 Provides-Extra: http
 Requires-Dist: aiohttp>3.9.0; extra == 'http'
 Provides-Extra: hub
-Requires-Dist: dlthub-client<0.29,>=0.27.7; extra == 'hub'
+Requires-Dist: dlthub-client>=0.28.1; extra == 'hub'
 Requires-Dist: dlthub<0.29,>=0.27.0; extra == 'hub'
 Provides-Extra: lance
 Requires-Dist: duckdb>=1.4.3; extra == 'lance'

@@ -235,6 +235,11 @@ class ModalClientStub(object):
                 request_serializer=modal__proto_dot_api__pb2.ContainerReloadVolumesRequest.SerializeToString,
                 response_deserializer=modal__proto_dot_api__pb2.ContainerReloadVolumesResponse.FromString,
                 )
+        self.ContainerServerLifecycleReady = channel.unary_unary(
+                '/modal.client.ModalClient/ContainerServerLifecycleReady',
+                request_serializer=modal__proto_dot_api__pb2.ContainerServerLifecycleReadyRequest.SerializeToString,
+                response_deserializer=google_dot_protobuf_dot_empty__pb2.Empty.FromString,
+                )
         self.ContainerStop = channel.unary_unary(
                 '/modal.client.ModalClient/ContainerStop',
                 request_serializer=modal__proto_dot_api__pb2.ContainerStopRequest.SerializeToString,
@@ -344,6 +349,11 @@ class ModalClientStub(object):
                 '/modal.client.ModalClient/EndpointStop',
                 request_serializer=modal__proto_dot_api__pb2.EndpointStopRequest.SerializeToString,
                 response_deserializer=modal__proto_dot_api__pb2.EndpointStopResponse.FromString,
+                )
+        self.EnvironmentBillingSummary = channel.unary_unary(
+                '/modal.client.ModalClient/EnvironmentBillingSummary',
+                request_serializer=modal__proto_dot_api__pb2.EnvironmentBillingSummaryRequest.SerializeToString,
+                response_deserializer=modal__proto_dot_api__pb2.EnvironmentBillingSummaryResponse.FromString,
                 )
         self.EnvironmentCreate = channel.unary_unary(
                 '/modal.client.ModalClient/EnvironmentCreate',
@@ -590,6 +600,11 @@ class ModalClientStub(object):
                 request_serializer=modal__proto_dot_api__pb2.MapStartOrContinueRequest.SerializeToString,
                 response_deserializer=modal__proto_dot_api__pb2.MapStartOrContinueResponse.FromString,
                 )
+        self.MountBatchedCheckExistence = channel.unary_unary(
+                '/modal.client.ModalClient/MountBatchedCheckExistence',
+                request_serializer=modal__proto_dot_api__pb2.MountBatchedCheckExistenceRequest.SerializeToString,
+                response_deserializer=modal__proto_dot_api__pb2.MountBatchedCheckExistenceResponse.FromString,
+                )
         self.MountGetOrCreate = channel.unary_unary(
                 '/modal.client.ModalClient/MountGetOrCreate',
                 request_serializer=modal__proto_dot_api__pb2.MountGetOrCreateRequest.SerializeToString,
@@ -715,6 +730,11 @@ class ModalClientStub(object):
                 request_serializer=modal__proto_dot_api__pb2.SandboxGetFromNameRequest.SerializeToString,
                 response_deserializer=modal__proto_dot_api__pb2.SandboxGetFromNameResponse.FromString,
                 )
+        self.SandboxGetFromNameV2 = channel.unary_unary(
+                '/modal.client.ModalClient/SandboxGetFromNameV2',
+                request_serializer=modal__proto_dot_api__pb2.SandboxGetFromNameRequest.SerializeToString,
+                response_deserializer=modal__proto_dot_api__pb2.SandboxGetFromNameResponse.FromString,
+                )
         self.SandboxGetLogs = channel.unary_stream(
                 '/modal.client.ModalClient/SandboxGetLogs',
                 request_serializer=modal__proto_dot_api__pb2.SandboxGetLogsRequest.SerializeToString,
@@ -800,8 +820,18 @@ class ModalClientStub(object):
                 request_serializer=modal__proto_dot_api__pb2.SandboxTagsGetRequest.SerializeToString,
                 response_deserializer=modal__proto_dot_api__pb2.SandboxTagsGetResponse.FromString,
                 )
+        self.SandboxTagsGetV2 = channel.unary_unary(
+                '/modal.client.ModalClient/SandboxTagsGetV2',
+                request_serializer=modal__proto_dot_api__pb2.SandboxTagsGetRequest.SerializeToString,
+                response_deserializer=modal__proto_dot_api__pb2.SandboxTagsGetResponse.FromString,
+                )
         self.SandboxTagsSet = channel.unary_unary(
                 '/modal.client.ModalClient/SandboxTagsSet',
+                request_serializer=modal__proto_dot_api__pb2.SandboxTagsSetRequest.SerializeToString,
+                response_deserializer=google_dot_protobuf_dot_empty__pb2.Empty.FromString,
+                )
+        self.SandboxTagsSetV2 = channel.unary_unary(
+                '/modal.client.ModalClient/SandboxTagsSetV2',
                 request_serializer=modal__proto_dot_api__pb2.SandboxTagsSetRequest.SerializeToString,
                 response_deserializer=google_dot_protobuf_dot_empty__pb2.Empty.FromString,
                 )
@@ -1090,6 +1120,11 @@ class ModalClientStub(object):
                 request_serializer=modal__proto_dot_api__pb2.WorkspaceBillingReportRequest.SerializeToString,
                 response_deserializer=modal__proto_dot_api__pb2.WorkspaceBillingReportItem.FromString,
                 )
+        self.WorkspaceBillingSummary = channel.unary_unary(
+                '/modal.client.ModalClient/WorkspaceBillingSummary',
+                request_serializer=modal__proto_dot_api__pb2.WorkspaceBillingSummaryRequest.SerializeToString,
+                response_deserializer=modal__proto_dot_api__pb2.WorkspaceBillingSummaryResponse.FromString,
+                )
         self.WorkspaceDashboardUrlGet = channel.unary_unary(
                 '/modal.client.ModalClient/WorkspaceDashboardUrlGet',
                 request_serializer=modal__proto_dot_api__pb2.WorkspaceDashboardUrlRequest.SerializeToString,
@@ -1104,6 +1139,21 @@ class ModalClientStub(object):
                 '/modal.client.ModalClient/WorkspaceNameLookup',
                 request_serializer=google_dot_protobuf_dot_empty__pb2.Empty.SerializeToString,
                 response_deserializer=modal__proto_dot_api__pb2.WorkspaceNameLookupResponse.FromString,
+                )
+        self.WorkspaceSetDefaultEnvironment = channel.unary_unary(
+                '/modal.client.ModalClient/WorkspaceSetDefaultEnvironment',
+                request_serializer=modal__proto_dot_api__pb2.WorkspaceSetDefaultEnvironmentRequest.SerializeToString,
+                response_deserializer=google_dot_protobuf_dot_empty__pb2.Empty.FromString,
+                )
+        self.WorkspaceSetImageBuilderVersion = channel.unary_unary(
+                '/modal.client.ModalClient/WorkspaceSetImageBuilderVersion',
+                request_serializer=modal__proto_dot_api__pb2.WorkspaceSetImageBuilderVersionRequest.SerializeToString,
+                response_deserializer=modal__proto_dot_api__pb2.WorkspaceSetImageBuilderVersionResponse.FromString,
+                )
+        self.WorkspaceSettings = channel.unary_unary(
+                '/modal.client.ModalClient/WorkspaceSettings',
+                request_serializer=google_dot_protobuf_dot_empty__pb2.Empty.SerializeToString,
+                response_deserializer=modal__proto_dot_api__pb2.WorkspaceSettingsResponse.FromString,
                 )
 
 
@@ -1382,6 +1432,12 @@ class ModalClientServicer(object):
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
+    def ContainerServerLifecycleReady(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
     def ContainerStop(self, request, context):
         """Missing associated documentation comment in .proto file."""
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
@@ -1518,9 +1574,15 @@ class ModalClientServicer(object):
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
-    def EnvironmentCreate(self, request, context):
+    def EnvironmentBillingSummary(self, request, context):
         """Environments
         """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def EnvironmentCreate(self, request, context):
+        """Missing associated documentation comment in .proto file."""
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
@@ -1821,9 +1883,15 @@ class ModalClientServicer(object):
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
-    def MountGetOrCreate(self, request, context):
+    def MountBatchedCheckExistence(self, request, context):
         """Mounts
         """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def MountGetOrCreate(self, request, context):
+        """Missing associated documentation comment in .proto file."""
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
@@ -1976,6 +2044,12 @@ class ModalClientServicer(object):
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
+    def SandboxGetFromNameV2(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
     def SandboxGetLogs(self, request, context):
         """Missing associated documentation comment in .proto file."""
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
@@ -2079,7 +2153,19 @@ class ModalClientServicer(object):
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
+    def SandboxTagsGetV2(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
     def SandboxTagsSet(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def SandboxTagsSetV2(self, request, context):
         """Missing associated documentation comment in .proto file."""
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details('Method not implemented!')
@@ -2388,7 +2474,7 @@ class ModalClientServicer(object):
         raise NotImplementedError('Method not implemented!')
 
     def WebhookTokenCreate(self, request, context):
-        """Webhook tokens (proxy auth tokens)
+        """Webhook tokens (proxy tokens)
         """
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details('Method not implemented!')
@@ -2437,6 +2523,12 @@ class ModalClientServicer(object):
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
+    def WorkspaceBillingSummary(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
     def WorkspaceDashboardUrlGet(self, request, context):
         """Missing associated documentation comment in .proto file."""
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
@@ -2450,6 +2542,24 @@ class ModalClientServicer(object):
         raise NotImplementedError('Method not implemented!')
 
     def WorkspaceNameLookup(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def WorkspaceSetDefaultEnvironment(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def WorkspaceSetImageBuilderVersion(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
+    def WorkspaceSettings(self, request, context):
         """Missing associated documentation comment in .proto file."""
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details('Method not implemented!')
@@ -2678,6 +2788,11 @@ def add_ModalClientServicer_to_server(servicer, server):
                     request_deserializer=modal__proto_dot_api__pb2.ContainerReloadVolumesRequest.FromString,
                     response_serializer=modal__proto_dot_api__pb2.ContainerReloadVolumesResponse.SerializeToString,
             ),
+            'ContainerServerLifecycleReady': grpc.unary_unary_rpc_method_handler(
+                    servicer.ContainerServerLifecycleReady,
+                    request_deserializer=modal__proto_dot_api__pb2.ContainerServerLifecycleReadyRequest.FromString,
+                    response_serializer=google_dot_protobuf_dot_empty__pb2.Empty.SerializeToString,
+            ),
             'ContainerStop': grpc.unary_unary_rpc_method_handler(
                     servicer.ContainerStop,
                     request_deserializer=modal__proto_dot_api__pb2.ContainerStopRequest.FromString,
@@ -2787,6 +2902,11 @@ def add_ModalClientServicer_to_server(servicer, server):
                     servicer.EndpointStop,
                     request_deserializer=modal__proto_dot_api__pb2.EndpointStopRequest.FromString,
                     response_serializer=modal__proto_dot_api__pb2.EndpointStopResponse.SerializeToString,
+            ),
+            'EnvironmentBillingSummary': grpc.unary_unary_rpc_method_handler(
+                    servicer.EnvironmentBillingSummary,
+                    request_deserializer=modal__proto_dot_api__pb2.EnvironmentBillingSummaryRequest.FromString,
+                    response_serializer=modal__proto_dot_api__pb2.EnvironmentBillingSummaryResponse.SerializeToString,
             ),
             'EnvironmentCreate': grpc.unary_unary_rpc_method_handler(
                     servicer.EnvironmentCreate,
@@ -3033,6 +3153,11 @@ def add_ModalClientServicer_to_server(servicer, server):
                     request_deserializer=modal__proto_dot_api__pb2.MapStartOrContinueRequest.FromString,
                     response_serializer=modal__proto_dot_api__pb2.MapStartOrContinueResponse.SerializeToString,
             ),
+            'MountBatchedCheckExistence': grpc.unary_unary_rpc_method_handler(
+                    servicer.MountBatchedCheckExistence,
+                    request_deserializer=modal__proto_dot_api__pb2.MountBatchedCheckExistenceRequest.FromString,
+                    response_serializer=modal__proto_dot_api__pb2.MountBatchedCheckExistenceResponse.SerializeToString,
+            ),
             'MountGetOrCreate': grpc.unary_unary_rpc_method_handler(
                     servicer.MountGetOrCreate,
                     request_deserializer=modal__proto_dot_api__pb2.MountGetOrCreateRequest.FromString,
@@ -3158,6 +3283,11 @@ def add_ModalClientServicer_to_server(servicer, server):
                     request_deserializer=modal__proto_dot_api__pb2.SandboxGetFromNameRequest.FromString,
                     response_serializer=modal__proto_dot_api__pb2.SandboxGetFromNameResponse.SerializeToString,
             ),
+            'SandboxGetFromNameV2': grpc.unary_unary_rpc_method_handler(
+                    servicer.SandboxGetFromNameV2,
+                    request_deserializer=modal__proto_dot_api__pb2.SandboxGetFromNameRequest.FromString,
+                    response_serializer=modal__proto_dot_api__pb2.SandboxGetFromNameResponse.SerializeToString,
+            ),
             'SandboxGetLogs': grpc.unary_stream_rpc_method_handler(
                     servicer.SandboxGetLogs,
                     request_deserializer=modal__proto_dot_api__pb2.SandboxGetLogsRequest.FromString,
@@ -3243,8 +3373,18 @@ def add_ModalClientServicer_to_server(servicer, server):
                     request_deserializer=modal__proto_dot_api__pb2.SandboxTagsGetRequest.FromString,
                     response_serializer=modal__proto_dot_api__pb2.SandboxTagsGetResponse.SerializeToString,
             ),
+            'SandboxTagsGetV2': grpc.unary_unary_rpc_method_handler(
+                    servicer.SandboxTagsGetV2,
+                    request_deserializer=modal__proto_dot_api__pb2.SandboxTagsGetRequest.FromString,
+                    response_serializer=modal__proto_dot_api__pb2.SandboxTagsGetResponse.SerializeToString,
+            ),
             'SandboxTagsSet': grpc.unary_unary_rpc_method_handler(
                     servicer.SandboxTagsSet,
+                    request_deserializer=modal__proto_dot_api__pb2.SandboxTagsSetRequest.FromString,
+                    response_serializer=google_dot_protobuf_dot_empty__pb2.Empty.SerializeToString,
+            ),
+            'SandboxTagsSetV2': grpc.unary_unary_rpc_method_handler(
+                    servicer.SandboxTagsSetV2,
                     request_deserializer=modal__proto_dot_api__pb2.SandboxTagsSetRequest.FromString,
                     response_serializer=google_dot_protobuf_dot_empty__pb2.Empty.SerializeToString,
             ),
@@ -3533,6 +3673,11 @@ def add_ModalClientServicer_to_server(servicer, server):
                     request_deserializer=modal__proto_dot_api__pb2.WorkspaceBillingReportRequest.FromString,
                     response_serializer=modal__proto_dot_api__pb2.WorkspaceBillingReportItem.SerializeToString,
             ),
+            'WorkspaceBillingSummary': grpc.unary_unary_rpc_method_handler(
+                    servicer.WorkspaceBillingSummary,
+                    request_deserializer=modal__proto_dot_api__pb2.WorkspaceBillingSummaryRequest.FromString,
+                    response_serializer=modal__proto_dot_api__pb2.WorkspaceBillingSummaryResponse.SerializeToString,
+            ),
             'WorkspaceDashboardUrlGet': grpc.unary_unary_rpc_method_handler(
                     servicer.WorkspaceDashboardUrlGet,
                     request_deserializer=modal__proto_dot_api__pb2.WorkspaceDashboardUrlRequest.FromString,
@@ -3547,6 +3692,21 @@ def add_ModalClientServicer_to_server(servicer, server):
                     servicer.WorkspaceNameLookup,
                     request_deserializer=google_dot_protobuf_dot_empty__pb2.Empty.FromString,
                     response_serializer=modal__proto_dot_api__pb2.WorkspaceNameLookupResponse.SerializeToString,
+            ),
+            'WorkspaceSetDefaultEnvironment': grpc.unary_unary_rpc_method_handler(
+                    servicer.WorkspaceSetDefaultEnvironment,
+                    request_deserializer=modal__proto_dot_api__pb2.WorkspaceSetDefaultEnvironmentRequest.FromString,
+                    response_serializer=google_dot_protobuf_dot_empty__pb2.Empty.SerializeToString,
+            ),
+            'WorkspaceSetImageBuilderVersion': grpc.unary_unary_rpc_method_handler(
+                    servicer.WorkspaceSetImageBuilderVersion,
+                    request_deserializer=modal__proto_dot_api__pb2.WorkspaceSetImageBuilderVersionRequest.FromString,
+                    response_serializer=modal__proto_dot_api__pb2.WorkspaceSetImageBuilderVersionResponse.SerializeToString,
+            ),
+            'WorkspaceSettings': grpc.unary_unary_rpc_method_handler(
+                    servicer.WorkspaceSettings,
+                    request_deserializer=google_dot_protobuf_dot_empty__pb2.Empty.FromString,
+                    response_serializer=modal__proto_dot_api__pb2.WorkspaceSettingsResponse.SerializeToString,
             ),
     }
     generic_handler = grpc.method_handlers_generic_handler(
@@ -4307,6 +4467,23 @@ class ModalClient(object):
             insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
 
     @staticmethod
+    def ContainerServerLifecycleReady(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(request, target, '/modal.client.ModalClient/ContainerServerLifecycleReady',
+            modal__proto_dot_api__pb2.ContainerServerLifecycleReadyRequest.SerializeToString,
+            google_dot_protobuf_dot_empty__pb2.Empty.FromString,
+            options, channel_credentials,
+            insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
+
+    @staticmethod
     def ContainerStop(request,
             target,
             options=(),
@@ -4677,6 +4854,23 @@ class ModalClient(object):
         return grpc.experimental.unary_unary(request, target, '/modal.client.ModalClient/EndpointStop',
             modal__proto_dot_api__pb2.EndpointStopRequest.SerializeToString,
             modal__proto_dot_api__pb2.EndpointStopResponse.FromString,
+            options, channel_credentials,
+            insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
+
+    @staticmethod
+    def EnvironmentBillingSummary(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(request, target, '/modal.client.ModalClient/EnvironmentBillingSummary',
+            modal__proto_dot_api__pb2.EnvironmentBillingSummaryRequest.SerializeToString,
+            modal__proto_dot_api__pb2.EnvironmentBillingSummaryResponse.FromString,
             options, channel_credentials,
             insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
 
@@ -5514,6 +5708,23 @@ class ModalClient(object):
             insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
 
     @staticmethod
+    def MountBatchedCheckExistence(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(request, target, '/modal.client.ModalClient/MountBatchedCheckExistence',
+            modal__proto_dot_api__pb2.MountBatchedCheckExistenceRequest.SerializeToString,
+            modal__proto_dot_api__pb2.MountBatchedCheckExistenceResponse.FromString,
+            options, channel_credentials,
+            insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
+
+    @staticmethod
     def MountGetOrCreate(request,
             target,
             options=(),
@@ -5939,6 +6150,23 @@ class ModalClient(object):
             insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
 
     @staticmethod
+    def SandboxGetFromNameV2(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(request, target, '/modal.client.ModalClient/SandboxGetFromNameV2',
+            modal__proto_dot_api__pb2.SandboxGetFromNameRequest.SerializeToString,
+            modal__proto_dot_api__pb2.SandboxGetFromNameResponse.FromString,
+            options, channel_credentials,
+            insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
+
+    @staticmethod
     def SandboxGetLogs(request,
             target,
             options=(),
@@ -6228,6 +6456,23 @@ class ModalClient(object):
             insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
 
     @staticmethod
+    def SandboxTagsGetV2(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(request, target, '/modal.client.ModalClient/SandboxTagsGetV2',
+            modal__proto_dot_api__pb2.SandboxTagsGetRequest.SerializeToString,
+            modal__proto_dot_api__pb2.SandboxTagsGetResponse.FromString,
+            options, channel_credentials,
+            insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
+
+    @staticmethod
     def SandboxTagsSet(request,
             target,
             options=(),
@@ -6239,6 +6484,23 @@ class ModalClient(object):
             timeout=None,
             metadata=None):
         return grpc.experimental.unary_unary(request, target, '/modal.client.ModalClient/SandboxTagsSet',
+            modal__proto_dot_api__pb2.SandboxTagsSetRequest.SerializeToString,
+            google_dot_protobuf_dot_empty__pb2.Empty.FromString,
+            options, channel_credentials,
+            insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
+
+    @staticmethod
+    def SandboxTagsSetV2(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(request, target, '/modal.client.ModalClient/SandboxTagsSetV2',
             modal__proto_dot_api__pb2.SandboxTagsSetRequest.SerializeToString,
             google_dot_protobuf_dot_empty__pb2.Empty.FromString,
             options, channel_credentials,
@@ -7214,6 +7476,23 @@ class ModalClient(object):
             insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
 
     @staticmethod
+    def WorkspaceBillingSummary(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(request, target, '/modal.client.ModalClient/WorkspaceBillingSummary',
+            modal__proto_dot_api__pb2.WorkspaceBillingSummaryRequest.SerializeToString,
+            modal__proto_dot_api__pb2.WorkspaceBillingSummaryResponse.FromString,
+            options, channel_credentials,
+            insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
+
+    @staticmethod
     def WorkspaceDashboardUrlGet(request,
             target,
             options=(),
@@ -7261,5 +7540,56 @@ class ModalClient(object):
         return grpc.experimental.unary_unary(request, target, '/modal.client.ModalClient/WorkspaceNameLookup',
             google_dot_protobuf_dot_empty__pb2.Empty.SerializeToString,
             modal__proto_dot_api__pb2.WorkspaceNameLookupResponse.FromString,
+            options, channel_credentials,
+            insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
+
+    @staticmethod
+    def WorkspaceSetDefaultEnvironment(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(request, target, '/modal.client.ModalClient/WorkspaceSetDefaultEnvironment',
+            modal__proto_dot_api__pb2.WorkspaceSetDefaultEnvironmentRequest.SerializeToString,
+            google_dot_protobuf_dot_empty__pb2.Empty.FromString,
+            options, channel_credentials,
+            insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
+
+    @staticmethod
+    def WorkspaceSetImageBuilderVersion(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(request, target, '/modal.client.ModalClient/WorkspaceSetImageBuilderVersion',
+            modal__proto_dot_api__pb2.WorkspaceSetImageBuilderVersionRequest.SerializeToString,
+            modal__proto_dot_api__pb2.WorkspaceSetImageBuilderVersionResponse.FromString,
+            options, channel_credentials,
+            insecure, call_credentials, compression, wait_for_ready, timeout, metadata)
+
+    @staticmethod
+    def WorkspaceSettings(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(request, target, '/modal.client.ModalClient/WorkspaceSettings',
+            google_dot_protobuf_dot_empty__pb2.Empty.SerializeToString,
+            modal__proto_dot_api__pb2.WorkspaceSettingsResponse.FromString,
             options, channel_credentials,
             insecure, call_credentials, compression, wait_for_ready, timeout, metadata)

@@ -50,9 +50,11 @@ class iceberg(Destination[IcebergClientConfiguration, "PyIcebergJobClient"]):
         config: IcebergClientConfiguration,
         naming: Optional[NamingConvention],
     ) -> DestinationCapabilitiesContext:
-        # copy identifier length from the catalog
-        caps.max_identifier_length = config.capabilities.max_identifier_length
-        caps.max_column_identifier_length = config.capabilities.max_identifier_length
+        # `capabilities` is resolved from the catalog type
+        if config.capabilities is not None:
+            # copy identifier length from the catalog
+            caps.max_identifier_length = config.capabilities.max_identifier_length
+            caps.max_column_identifier_length = config.capabilities.max_identifier_length
 
         return super().adjust_capabilities(caps, config, naming)
 

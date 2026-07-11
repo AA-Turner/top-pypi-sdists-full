@@ -165,6 +165,36 @@ class BuilderServiceStub(object):
             request_serializer=chalk_dot_server_dot_v1_dot_builder__pb2.MigrateClusterTimescaleDBRequest.SerializeToString,
             response_deserializer=chalk_dot_server_dot_v1_dot_builder__pb2.MigrateClusterTimescaleDBResponse.FromString,
         )
+        self.GetClusterWorkflowOrchestrator = channel.unary_unary(
+            "/chalk.server.v1.BuilderService/GetClusterWorkflowOrchestrator",
+            request_serializer=chalk_dot_server_dot_v1_dot_builder__pb2.GetClusterWorkflowOrchestratorRequest.SerializeToString,
+            response_deserializer=chalk_dot_server_dot_v1_dot_builder__pb2.GetClusterWorkflowOrchestratorResponse.FromString,
+        )
+        self.GetClusterWorkflowOrchestratorDefault = channel.unary_unary(
+            "/chalk.server.v1.BuilderService/GetClusterWorkflowOrchestratorDefault",
+            request_serializer=chalk_dot_server_dot_v1_dot_builder__pb2.GetClusterWorkflowOrchestratorDefaultRequest.SerializeToString,
+            response_deserializer=chalk_dot_server_dot_v1_dot_builder__pb2.GetClusterWorkflowOrchestratorDefaultResponse.FromString,
+        )
+        self.CreateClusterWorkflowOrchestrator = channel.unary_unary(
+            "/chalk.server.v1.BuilderService/CreateClusterWorkflowOrchestrator",
+            request_serializer=chalk_dot_server_dot_v1_dot_builder__pb2.CreateClusterWorkflowOrchestratorRequest.SerializeToString,
+            response_deserializer=chalk_dot_server_dot_v1_dot_builder__pb2.CreateClusterWorkflowOrchestratorResponse.FromString,
+        )
+        self.UpdateClusterWorkflowOrchestrator = channel.unary_unary(
+            "/chalk.server.v1.BuilderService/UpdateClusterWorkflowOrchestrator",
+            request_serializer=chalk_dot_server_dot_v1_dot_builder__pb2.UpdateClusterWorkflowOrchestratorRequest.SerializeToString,
+            response_deserializer=chalk_dot_server_dot_v1_dot_builder__pb2.UpdateClusterWorkflowOrchestratorResponse.FromString,
+        )
+        self.DeleteClusterWorkflowOrchestrator = channel.unary_unary(
+            "/chalk.server.v1.BuilderService/DeleteClusterWorkflowOrchestrator",
+            request_serializer=chalk_dot_server_dot_v1_dot_builder__pb2.DeleteClusterWorkflowOrchestratorRequest.SerializeToString,
+            response_deserializer=chalk_dot_server_dot_v1_dot_builder__pb2.DeleteClusterWorkflowOrchestratorResponse.FromString,
+        )
+        self.MigrateClusterWorkflowOrchestrator = channel.unary_unary(
+            "/chalk.server.v1.BuilderService/MigrateClusterWorkflowOrchestrator",
+            request_serializer=chalk_dot_server_dot_v1_dot_builder__pb2.MigrateClusterWorkflowOrchestratorRequest.SerializeToString,
+            response_deserializer=chalk_dot_server_dot_v1_dot_builder__pb2.MigrateClusterWorkflowOrchestratorResponse.FromString,
+        )
         self.CreateClusterGateway = channel.unary_unary(
             "/chalk.server.v1.BuilderService/CreateClusterGateway",
             request_serializer=chalk_dot_server_dot_v1_dot_builder__pb2.CreateClusterGatewayRequest.SerializeToString,
@@ -536,6 +566,45 @@ class BuilderServiceServicer(object):
         raise NotImplementedError("Method not implemented!")
 
     def MigrateClusterTimescaleDB(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details("Method not implemented!")
+        raise NotImplementedError("Method not implemented!")
+
+    def GetClusterWorkflowOrchestrator(self, request, context):
+        """----- Workflow Orchestrator Engine -----
+        All workflow-orchestrator RPCs resolve the target environment from the
+        caller's auth context, never from the request payload.
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details("Method not implemented!")
+        raise NotImplementedError("Method not implemented!")
+
+    def GetClusterWorkflowOrchestratorDefault(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details("Method not implemented!")
+        raise NotImplementedError("Method not implemented!")
+
+    def CreateClusterWorkflowOrchestrator(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details("Method not implemented!")
+        raise NotImplementedError("Method not implemented!")
+
+    def UpdateClusterWorkflowOrchestrator(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details("Method not implemented!")
+        raise NotImplementedError("Method not implemented!")
+
+    def DeleteClusterWorkflowOrchestrator(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details("Method not implemented!")
+        raise NotImplementedError("Method not implemented!")
+
+    def MigrateClusterWorkflowOrchestrator(self, request, context):
         """Missing associated documentation comment in .proto file."""
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
         context.set_details("Method not implemented!")
@@ -919,6 +988,36 @@ def add_BuilderServiceServicer_to_server(servicer, server):
             servicer.MigrateClusterTimescaleDB,
             request_deserializer=chalk_dot_server_dot_v1_dot_builder__pb2.MigrateClusterTimescaleDBRequest.FromString,
             response_serializer=chalk_dot_server_dot_v1_dot_builder__pb2.MigrateClusterTimescaleDBResponse.SerializeToString,
+        ),
+        "GetClusterWorkflowOrchestrator": grpc.unary_unary_rpc_method_handler(
+            servicer.GetClusterWorkflowOrchestrator,
+            request_deserializer=chalk_dot_server_dot_v1_dot_builder__pb2.GetClusterWorkflowOrchestratorRequest.FromString,
+            response_serializer=chalk_dot_server_dot_v1_dot_builder__pb2.GetClusterWorkflowOrchestratorResponse.SerializeToString,
+        ),
+        "GetClusterWorkflowOrchestratorDefault": grpc.unary_unary_rpc_method_handler(
+            servicer.GetClusterWorkflowOrchestratorDefault,
+            request_deserializer=chalk_dot_server_dot_v1_dot_builder__pb2.GetClusterWorkflowOrchestratorDefaultRequest.FromString,
+            response_serializer=chalk_dot_server_dot_v1_dot_builder__pb2.GetClusterWorkflowOrchestratorDefaultResponse.SerializeToString,
+        ),
+        "CreateClusterWorkflowOrchestrator": grpc.unary_unary_rpc_method_handler(
+            servicer.CreateClusterWorkflowOrchestrator,
+            request_deserializer=chalk_dot_server_dot_v1_dot_builder__pb2.CreateClusterWorkflowOrchestratorRequest.FromString,
+            response_serializer=chalk_dot_server_dot_v1_dot_builder__pb2.CreateClusterWorkflowOrchestratorResponse.SerializeToString,
+        ),
+        "UpdateClusterWorkflowOrchestrator": grpc.unary_unary_rpc_method_handler(
+            servicer.UpdateClusterWorkflowOrchestrator,
+            request_deserializer=chalk_dot_server_dot_v1_dot_builder__pb2.UpdateClusterWorkflowOrchestratorRequest.FromString,
+            response_serializer=chalk_dot_server_dot_v1_dot_builder__pb2.UpdateClusterWorkflowOrchestratorResponse.SerializeToString,
+        ),
+        "DeleteClusterWorkflowOrchestrator": grpc.unary_unary_rpc_method_handler(
+            servicer.DeleteClusterWorkflowOrchestrator,
+            request_deserializer=chalk_dot_server_dot_v1_dot_builder__pb2.DeleteClusterWorkflowOrchestratorRequest.FromString,
+            response_serializer=chalk_dot_server_dot_v1_dot_builder__pb2.DeleteClusterWorkflowOrchestratorResponse.SerializeToString,
+        ),
+        "MigrateClusterWorkflowOrchestrator": grpc.unary_unary_rpc_method_handler(
+            servicer.MigrateClusterWorkflowOrchestrator,
+            request_deserializer=chalk_dot_server_dot_v1_dot_builder__pb2.MigrateClusterWorkflowOrchestratorRequest.FromString,
+            response_serializer=chalk_dot_server_dot_v1_dot_builder__pb2.MigrateClusterWorkflowOrchestratorResponse.SerializeToString,
         ),
         "CreateClusterGateway": grpc.unary_unary_rpc_method_handler(
             servicer.CreateClusterGateway,
@@ -1974,6 +2073,180 @@ class BuilderService(object):
             "/chalk.server.v1.BuilderService/MigrateClusterTimescaleDB",
             chalk_dot_server_dot_v1_dot_builder__pb2.MigrateClusterTimescaleDBRequest.SerializeToString,
             chalk_dot_server_dot_v1_dot_builder__pb2.MigrateClusterTimescaleDBResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+        )
+
+    @staticmethod
+    def GetClusterWorkflowOrchestrator(
+        request,
+        target,
+        options=(),
+        channel_credentials=None,
+        call_credentials=None,
+        insecure=False,
+        compression=None,
+        wait_for_ready=None,
+        timeout=None,
+        metadata=None,
+    ):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            "/chalk.server.v1.BuilderService/GetClusterWorkflowOrchestrator",
+            chalk_dot_server_dot_v1_dot_builder__pb2.GetClusterWorkflowOrchestratorRequest.SerializeToString,
+            chalk_dot_server_dot_v1_dot_builder__pb2.GetClusterWorkflowOrchestratorResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+        )
+
+    @staticmethod
+    def GetClusterWorkflowOrchestratorDefault(
+        request,
+        target,
+        options=(),
+        channel_credentials=None,
+        call_credentials=None,
+        insecure=False,
+        compression=None,
+        wait_for_ready=None,
+        timeout=None,
+        metadata=None,
+    ):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            "/chalk.server.v1.BuilderService/GetClusterWorkflowOrchestratorDefault",
+            chalk_dot_server_dot_v1_dot_builder__pb2.GetClusterWorkflowOrchestratorDefaultRequest.SerializeToString,
+            chalk_dot_server_dot_v1_dot_builder__pb2.GetClusterWorkflowOrchestratorDefaultResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+        )
+
+    @staticmethod
+    def CreateClusterWorkflowOrchestrator(
+        request,
+        target,
+        options=(),
+        channel_credentials=None,
+        call_credentials=None,
+        insecure=False,
+        compression=None,
+        wait_for_ready=None,
+        timeout=None,
+        metadata=None,
+    ):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            "/chalk.server.v1.BuilderService/CreateClusterWorkflowOrchestrator",
+            chalk_dot_server_dot_v1_dot_builder__pb2.CreateClusterWorkflowOrchestratorRequest.SerializeToString,
+            chalk_dot_server_dot_v1_dot_builder__pb2.CreateClusterWorkflowOrchestratorResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+        )
+
+    @staticmethod
+    def UpdateClusterWorkflowOrchestrator(
+        request,
+        target,
+        options=(),
+        channel_credentials=None,
+        call_credentials=None,
+        insecure=False,
+        compression=None,
+        wait_for_ready=None,
+        timeout=None,
+        metadata=None,
+    ):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            "/chalk.server.v1.BuilderService/UpdateClusterWorkflowOrchestrator",
+            chalk_dot_server_dot_v1_dot_builder__pb2.UpdateClusterWorkflowOrchestratorRequest.SerializeToString,
+            chalk_dot_server_dot_v1_dot_builder__pb2.UpdateClusterWorkflowOrchestratorResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+        )
+
+    @staticmethod
+    def DeleteClusterWorkflowOrchestrator(
+        request,
+        target,
+        options=(),
+        channel_credentials=None,
+        call_credentials=None,
+        insecure=False,
+        compression=None,
+        wait_for_ready=None,
+        timeout=None,
+        metadata=None,
+    ):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            "/chalk.server.v1.BuilderService/DeleteClusterWorkflowOrchestrator",
+            chalk_dot_server_dot_v1_dot_builder__pb2.DeleteClusterWorkflowOrchestratorRequest.SerializeToString,
+            chalk_dot_server_dot_v1_dot_builder__pb2.DeleteClusterWorkflowOrchestratorResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+        )
+
+    @staticmethod
+    def MigrateClusterWorkflowOrchestrator(
+        request,
+        target,
+        options=(),
+        channel_credentials=None,
+        call_credentials=None,
+        insecure=False,
+        compression=None,
+        wait_for_ready=None,
+        timeout=None,
+        metadata=None,
+    ):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            "/chalk.server.v1.BuilderService/MigrateClusterWorkflowOrchestrator",
+            chalk_dot_server_dot_v1_dot_builder__pb2.MigrateClusterWorkflowOrchestratorRequest.SerializeToString,
+            chalk_dot_server_dot_v1_dot_builder__pb2.MigrateClusterWorkflowOrchestratorResponse.FromString,
             options,
             channel_credentials,
             insecure,

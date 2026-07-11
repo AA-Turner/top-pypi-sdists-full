@@ -32,6 +32,8 @@ class SpanCreateParam(TypedDict, total=False):
 
     end_timestamp: Annotated[Union[str, datetime], PropertyInfo(format="iso8601")]
 
+    expected: Dict[str, object]
+
     group_id: str
     """Reference to a group_id"""
 

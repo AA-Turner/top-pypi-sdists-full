@@ -68,7 +68,15 @@ class EvaluationItemsResource(SyncAPIResource):
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> EvaluationItem:
         """
-        Get Evaluation Item
+        Retrieve a single evaluation item by its ID within the caller's account.
+
+        By default only non-archived items are returned; pass `include_archived=true` to
+        also retrieve an item that has been archived. The response merges the item's
+        cached task results into its `data` field and exposes a `task_errors` map keyed
+        by task alias, so a task that failed on this item surfaces as an entry there
+        rather than as a request error. Use this to inspect one item's input data and
+        per-task results; to page through many items, use the list endpoint instead. The
+        request fails if no item with the given ID exists in the caller's account.
 
         Args:
           extra_headers: Send extra headers
@@ -114,7 +122,15 @@ class EvaluationItemsResource(SyncAPIResource):
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> SyncCursorPage[EvaluationItem]:
         """
-        List Evaluation Items
+        Return a paginated list of evaluation items belonging to the caller's account.
+
+        Pass `evaluation_id` to restrict the results to a single evaluation's items. The
+        `completion_status` filter selects items by whether any of their tasks errored:
+        `failed` returns only items that have task errors, `passed` returns only items
+        with no task errors, and `all` (or omitting the parameter) returns every item.
+        Archived items are excluded unless `include_archived=true`. Each returned item
+        has its cached task results merged into `data` and its errors exposed in
+        `task_errors`, identically to the single-item endpoint.
 
         Args:
           completion_status: Filter items by completion status. Pass 'failed' to return only items with
@@ -169,7 +185,17 @@ class EvaluationItemsResource(SyncAPIResource):
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> EvaluationItemExport:
         """
-        Export Evaluation Items
+        Export all evaluation items for a single evaluation as a downloadable file.
+
+        The evaluation is specified by `evaluation_id` in the request body.
+        `export_format` selects CSV, JSON, or JSONL; for CSV the per-item `data` and
+        `files` fields are flattened into individual columns and metric-like result
+        columns are expanded. `export_method` controls delivery: `direct` returns the
+        file contents inline in the response, while `signed_url` uploads the file to
+        object storage and returns a pre-signed download URL. Requesting `signed_url` in
+        an environment where object storage is not configured fails with a 501, so use
+        `direct` there instead. Set `include_archived=true` to include archived items in
+        the export. This endpoint reads items only and does not modify the evaluation.
 
         Args:
           evaluation_id: The ID of the evaluation to export items from.
@@ -241,7 +267,15 @@ class AsyncEvaluationItemsResource(AsyncAPIResource):
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> EvaluationItem:
         """
-        Get Evaluation Item
+        Retrieve a single evaluation item by its ID within the caller's account.
+
+        By default only non-archived items are returned; pass `include_archived=true` to
+        also retrieve an item that has been archived. The response merges the item's
+        cached task results into its `data` field and exposes a `task_errors` map keyed
+        by task alias, so a task that failed on this item surfaces as an entry there
+        rather than as a request error. Use this to inspect one item's input data and
+        per-task results; to page through many items, use the list endpoint instead. The
+        request fails if no item with the given ID exists in the caller's account.
 
         Args:
           extra_headers: Send extra headers
@@ -287,7 +321,15 @@ class AsyncEvaluationItemsResource(AsyncAPIResource):
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> AsyncPaginator[EvaluationItem, AsyncCursorPage[EvaluationItem]]:
         """
-        List Evaluation Items
+        Return a paginated list of evaluation items belonging to the caller's account.
+
+        Pass `evaluation_id` to restrict the results to a single evaluation's items. The
+        `completion_status` filter selects items by whether any of their tasks errored:
+        `failed` returns only items that have task errors, `passed` returns only items
+        with no task errors, and `all` (or omitting the parameter) returns every item.
+        Archived items are excluded unless `include_archived=true`. Each returned item
+        has its cached task results merged into `data` and its errors exposed in
+        `task_errors`, identically to the single-item endpoint.
 
         Args:
           completion_status: Filter items by completion status. Pass 'failed' to return only items with
@@ -342,7 +384,17 @@ class AsyncEvaluationItemsResource(AsyncAPIResource):
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> EvaluationItemExport:
         """
-        Export Evaluation Items
+        Export all evaluation items for a single evaluation as a downloadable file.
+
+        The evaluation is specified by `evaluation_id` in the request body.
+        `export_format` selects CSV, JSON, or JSONL; for CSV the per-item `data` and
+        `files` fields are flattened into individual columns and metric-like result
+        columns are expanded. `export_method` controls delivery: `direct` returns the
+        file contents inline in the response, while `signed_url` uploads the file to
+        object storage and returns a pre-signed download URL. Requesting `signed_url` in
+        an environment where object storage is not configured fails with a 501, so use
+        `direct` there instead. Set `include_archived=true` to include archived items in
+        the export. This endpoint reads items only and does not modify the evaluation.
 
         Args:
           evaluation_id: The ID of the evaluation to export items from.

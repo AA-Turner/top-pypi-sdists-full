@@ -176,7 +176,7 @@ impl Subcommand {
     mut compilation: Compilation<'src>,
     arguments: &[String],
   ) -> RunResult<'src> {
-    let starting_parent = search.justfile.parent().as_ref().unwrap().lexiclean();
+    let starting_parent = search.justfile.parent().as_ref().unwrap().clean();
 
     loop {
       let justfile = &compilation.justfile;
@@ -219,7 +219,11 @@ impl Subcommand {
       if config.allow_missing
         && matches!(
           result,
-          Err(Error::UnknownRecipe { .. } | Error::UnknownSubmodule { .. })
+          Err(
+            Error::ModuleAbsent { .. }
+              | Error::UnknownRecipe { .. }
+              | Error::UnknownSubmodule { .. }
+          )
         )
       {
         return Ok(());
@@ -266,7 +270,7 @@ impl Subcommand {
         recipe.min_arguments() == 0
           && (groups.is_empty() || groups.intersection(&recipe.groups()).next().is_some())
       }));
-      stack.extend(module.modules.values());
+      stack.extend(module.public_modules(config).into_iter().rev());
     }
 
     if recipes.is_empty() {
@@ -431,12 +435,22 @@ impl Subcommand {
           .map_err(|source| Error::DumpJson { source })?;
         println!();
       }
-      DumpFormat::Just => print!(
-        "{}",
-        compilation
-          .root_ast()
-          .color_display(config.color.use_color(UseColor::Never))
-      ),
+      DumpFormat::Just => {
+        print!(
+          "{}",
+          compilation.root_ast().color_display(
+            config
+              .color
+              .with_use_color(UseColor::Never)
+              .with_indentation(
+                config
+                  .indentation
+                  .or(compilation.justfile.settings.indentation)
+                  .unwrap_or_default()
+              )
+          )
+        );
+      }
     }
     Ok(())
   }
@@ -476,7 +490,12 @@ impl Subcommand {
     )?;
 
     let formatted = ast
-      .color_display(config.color.use_color(UseColor::Never))
+      .color_display(
+        config
+          .color
+          .with_use_color(UseColor::Never)
+          .with_indentation(config.indentation.or(ast.indentation()).unwrap_or_default()),
+      )
       .to_string();
 
     if config.check {
@@ -516,7 +535,7 @@ impl Subcommand {
         })?;
 
         if config.verbosity.loud() {
-          eprintln!("Wrote justfile to `{}`", search.justfile.display());
+          eprintln!("wrote justfile to `{}`", search.justfile.display());
         }
       }
 
@@ -541,7 +560,7 @@ impl Subcommand {
     }
 
     if config.verbosity.loud() {
-      eprintln!("Wrote justfile to `{}`", search.justfile.display());
+      eprintln!("wrote justfile to `{}`", search.justfile.display());
     }
 
     Ok(())
@@ -587,10 +606,14 @@ impl Subcommand {
     Ok(())
   }
 
-  fn list(config: &Config, mut module: &Justfile, path: &Modulepath) -> RunResult<'static> {
+  fn list(config: &Config, root: &Justfile, path: &Modulepath) -> RunResult<'static> {
+    let mut module = root;
+
     for name in &path.components {
       if let Some(submodule) = module.modules.get(name) {
         module = submodule;
+      } else if let Some(alias) = module.module_aliases.get(name) {
+        module = root.submodule(&alias.target).unwrap();
       } else if module.absent_modules.contains(name) {
         return Err(Error::ModuleAbsent {
           module: module.module_path.join(name),
@@ -676,21 +699,26 @@ impl Subcommand {
       println!();
     }
 
-    let aliases = if config.no_aliases {
-      BTreeMap::new()
+    let (aliases, cross_module_aliases) = if config.no_aliases {
+      (BTreeMap::new(), Vec::new())
     } else {
       let mut aliases = BTreeMap::<&str, Vec<&str>>::new();
+      let mut cross_module_aliases = Vec::new();
       for alias in module
         .recipe_aliases
         .values()
         .filter(|alias| alias.is_public())
       {
-        aliases
-          .entry(alias.target.name.lexeme())
-          .or_default()
-          .push(alias.name.lexeme());
+        if alias.target.module_path() == &module.module_path {
+          aliases
+            .entry(alias.target.name.lexeme())
+            .or_default()
+            .push(alias.name.lexeme());
+        } else {
+          cross_module_aliases.push(alias);
+        }
       }
-      aliases
+      (aliases, cross_module_aliases)
     };
 
     let signature_widths = {
@@ -713,6 +741,21 @@ impl Subcommand {
           );
         }
       }
+      for alias in &cross_module_aliases {
+        signature_widths.insert(
+          alias.name.lexeme(),
+          UnicodeWidthStr::width(
+            RecipeSignature {
+              name: alias.name.lexeme(),
+              recipe: &alias.target,
+            }
+            .color_display(Color::never())
+            .to_string()
+            .as_str(),
+          ),
+        );
+      }
+
       if !config.list_submodules {
         for submodule in module.public_modules(config) {
           let name = submodule.name();
@@ -747,19 +790,56 @@ impl Subcommand {
       print!("{}", config.list_heading);
     }
 
-    let recipe_groups = {
-      let mut recipe_groups = BTreeMap::<Option<String>, Vec<&Recipe>>::new();
+    let entry_groups = {
+      let mut entry_groups = BTreeMap::<Option<String>, Vec<ListEntry>>::new();
+
       for recipe in module.public_recipes(config) {
-        let recipe_groups_list = recipe.groups();
-        if recipe_groups_list.is_empty() {
-          recipe_groups.entry(None).or_default().push(recipe);
+        let recipe_aliases = aliases
+          .get(recipe.name())
+          .map(Vec::as_slice)
+          .unwrap_or_default();
+
+        let mut entries = vec![ListEntry {
+          aliases: recipe_aliases,
+          comment: recipe.doc().map(Into::into),
+          name: recipe.name(),
+          recipe,
+        }];
+
+        if config.alias_style == AliasStyle::Separate {
+          for name in recipe_aliases {
+            entries.push(ListEntry {
+              aliases: recipe_aliases,
+              comment: Some(format!("alias for `{}`", recipe.name)),
+              name,
+              recipe,
+            });
+          }
+        }
+
+        let groups = recipe.groups();
+        if groups.is_empty() {
+          entry_groups.entry(None).or_default().extend(entries);
         } else {
-          for group in recipe_groups_list {
-            recipe_groups.entry(Some(group)).or_default().push(recipe);
+          for group in groups {
+            entry_groups
+              .entry(Some(group))
+              .or_default()
+              .extend(entries.clone());
           }
         }
       }
-      recipe_groups
+
+      for alias in &cross_module_aliases {
+        entry_groups.entry(None).or_default().push(ListEntry {
+          aliases: &[],
+          comment: Some(format!("alias for `{}`", alias.target.recipe_path())),
+          name: alias.name.lexeme(),
+          recipe: &alias.target,
+        });
+      }
+
+      entry_groups
     };
 
     let submodule_groups = {
@@ -795,7 +875,7 @@ impl Subcommand {
     };
 
     if groups.is_empty()
-      && (recipe_groups.contains_key(&None) || submodule_groups.contains_key(&None))
+      && (entry_groups.contains_key(&None) || submodule_groups.contains_key(&None))
     {
       ordered_groups.insert(0, None);
     }
@@ -817,56 +897,43 @@ impl Subcommand {
         );
       }
 
-      if let Some(recipes) = recipe_groups.get(&group) {
-        for recipe in recipes {
-          let recipe_alias_entries = if config.alias_style == AliasStyle::Separate {
-            aliases.get(recipe.name())
-          } else {
-            None
-          };
+      if let Some(entries) = entry_groups.get(&group) {
+        for entry in entries {
+          let inline_comment = signature_widths[entry.name] <= MAX_WIDTH
+            && entry
+              .comment
+              .as_ref()
+              .is_none_or(|doc| doc.lines().count() <= 1);
 
-          for (i, name) in iter::once(&recipe.name())
-            .chain(recipe_alias_entries.unwrap_or(&Vec::new()))
-            .enumerate()
+          if let Some(comment) = &entry.comment
+            && !inline_comment
           {
-            let doc = if i == 0 {
-              recipe.doc().map(Cow::Borrowed)
-            } else {
-              Some(Cow::Owned(format!("alias for `{}`", recipe.name)))
-            };
-
-            let inline_doc = signature_widths[name] <= MAX_WIDTH
-              && doc.as_ref().is_none_or(|doc| doc.lines().count() <= 1);
-
-            if let Some(doc) = &doc
-              && !inline_doc
-            {
-              for line in doc.lines() {
-                println!(
-                  "{list_prefix}{} {}",
-                  config.color.stdout().doc().paint("#"),
-                  config.color.stdout().doc().paint(line),
-                );
-              }
+            for line in comment.lines() {
+              println!(
+                "{list_prefix}{} {}",
+                config.color.stdout().doc().paint("#"),
+                config.color.stdout().doc().paint(line),
+              );
             }
-
-            print!(
-              "{list_prefix}{}",
-              RecipeSignature { name, recipe }.color_display(config.color.stdout())
-            );
-
-            print_doc_and_aliases(
-              config,
-              name,
-              doc.filter(|_| inline_doc).as_deref(),
-              aliases
-                .get(recipe.name())
-                .map(Vec::as_slice)
-                .unwrap_or_default(),
-              max_signature_width,
-              &signature_widths,
-            );
           }
+
+          print!(
+            "{list_prefix}{}",
+            RecipeSignature {
+              name: entry.name,
+              recipe: entry.recipe
+            }
+            .color_display(config.color.stdout())
+          );
+
+          print_doc_and_aliases(
+            config,
+            entry.name,
+            entry.comment.as_deref().filter(|_| inline_comment),
+            entry.aliases,
+            max_signature_width,
+            &signature_widths,
+          );
         }
       }
 
@@ -902,6 +969,16 @@ impl Subcommand {
 
     if let Some(alias) = alias {
       println!("{alias}");
+    }
+
+    if !recipe.attributes.contains(AttributeKind::Doc)
+      && let Some(doc) = &recipe.doc
+    {
+      println!("# {doc}");
+    }
+
+    for attribute in &recipe.attributes {
+      println!("[{attribute}]");
     }
 
     println!("{}", recipe.color_display(config.color.stdout()));
@@ -970,10 +1047,12 @@ impl Subcommand {
   }
 
   fn resolve_path<'src, 'run>(
-    mut module: &'run Justfile<'src>,
+    root: &'run Justfile<'src>,
     path: &Modulepath,
     subcommand: &'static str,
   ) -> RunResult<'src, (Option<&'run RecipeAlias<'src>>, &'run Recipe<'src>)> {
+    let mut module = root;
+
     let Some((name, ancestors)) = path.components.split_last() else {
       return Err(Error::RecipeRequired { subcommand });
     };
@@ -981,6 +1060,8 @@ impl Subcommand {
     for name in ancestors {
       if let Some(submodule) = module.modules.get(name) {
         module = submodule;
+      } else if let Some(alias) = module.module_aliases.get(name) {
+        module = root.submodule(&alias.target).unwrap();
       } else if module.absent_modules.contains(name) {
         return Err(Error::ModuleAbsent {
           module: module.module_path.join(name),

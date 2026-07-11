@@ -1,25 +1,26 @@
 Metadata-Version: 2.4
 Name: oslo.db
-Version: 18.0.0
+Version: 18.1.0
 Summary: Oslo Database library
 Author-email: OpenStack <openstack-discuss@lists.openstack.org>
-License: Apache-2.0
+License-Expression: Apache-2.0
 Project-URL: Homepage, https://docs.openstack.org/oslo.db
 Project-URL: Repository, https://opendev.org/openstack/oslo.db
+Project-URL: Bug Tracker, https://bugs.launchpad.net/oslo.db
+Classifier: Development Status :: 5 - Production/Stable
 Classifier: Environment :: OpenStack
 Classifier: Intended Audience :: Information Technology
 Classifier: Intended Audience :: System Administrators
-Classifier: License :: OSI Approved :: Apache Software License
 Classifier: Operating System :: POSIX :: Linux
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Programming Language :: Python :: 3 :: Only
 Classifier: Programming Language :: Python :: Implementation :: CPython
-Requires-Python: >=3.10
+Requires-Python: >=3.11
 Description-Content-Type: text/x-rst
 License-File: LICENSE
 Requires-Dist: alembic>=0.9.6
@@ -27,7 +28,7 @@ Requires-Dist: debtcollector>=1.2.0
 Requires-Dist: oslo.i18n>=3.15.3
 Requires-Dist: oslo.config>=5.2.0
 Requires-Dist: oslo.utils>=3.33.0
-Requires-Dist: SQLAlchemy>=2.0.5
+Requires-Dist: SQLAlchemy[asyncio]>=2.0.5
 Requires-Dist: stevedore>=1.20.0
 Requires-Dist: testresources>=2.0.0
 Requires-Dist: testscenarios>=0.4
@@ -35,6 +36,9 @@ Provides-Extra: mysql
 Requires-Dist: PyMySQL>=0.7.6; extra == "mysql"
 Provides-Extra: postgresql
 Requires-Dist: psycopg2-binary>=2.8.0; extra == "postgresql"
+Provides-Extra: test
+Requires-Dist: testresources>=2.0.0; extra == "test"
+Requires-Dist: testscenarios>=0.4; extra == "test"
 Dynamic: license-file
 Dynamic: requires-dist
 

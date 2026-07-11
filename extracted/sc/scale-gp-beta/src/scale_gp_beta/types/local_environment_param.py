@@ -8,7 +8,11 @@ from typing_extensions import Literal, Required, TypedDict
 __all__ = ["LocalEnvironmentParam", "Skill"]
 
 
-class Skill(TypedDict, total=False, extra_items=object):  # type: ignore[call-arg]
+class Skill(  # type: ignore[call-arg]
+    TypedDict,
+    total=False,
+    extra_items=object,  # pyright: ignore[reportGeneralTypeIssues]
+):
     description: Required[str]
 
     name: Required[str]
@@ -16,7 +20,11 @@ class Skill(TypedDict, total=False, extra_items=object):  # type: ignore[call-ar
     path: Required[str]
 
 
-class LocalEnvironmentParam(TypedDict, total=False, extra_items=object):  # type: ignore[call-arg]
+class LocalEnvironmentParam(  # type: ignore[call-arg]
+    TypedDict,
+    total=False,
+    extra_items=object,  # pyright: ignore[reportGeneralTypeIssues]
+):
     type: Required[Literal["local"]]
 
     skills: Iterable[Skill]

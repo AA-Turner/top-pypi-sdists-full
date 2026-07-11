@@ -57,6 +57,7 @@ def test_repl_slash_exit_commands(runner, monkeypatch):
     monkeypatch.setattr(sage.cli_core, "_build_router", lambda cfg: DummyRouter())
     monkeypatch.setattr(sage.cli_core, "_auto_upgrade_model_if_possible", lambda r, c, m, **kw: m)
     monkeypatch.setattr(sage.cli_core, "_prepare_model_for_use", lambda c, m: (c, m))
+    monkeypatch.setattr(sage.cli_core, "_scan_project_context", lambda *args, **kwargs: "Dummy context")
     
     for cmd in ["/exit", "/quit", "/q"]:
         class DummyPromptSession:

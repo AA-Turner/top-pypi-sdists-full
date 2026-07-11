@@ -66,6 +66,17 @@ async def lifespan(
     await api_checkpointer.start_checkpointer()
     await start_ui_bundler()
 
+    # OTLP metrics are always exported (Prometheus via /metrics; Datadog when a
+    # DD API key is set). The reporter no-ops if OTel deps are unavailable.
+    from langgraph_api.metrics_otlp import (  # noqa: PLC0415
+        COUNTER_SERVER_STARTED,
+        get_otlp_metrics_reporter,
+    )
+
+    reporter = get_otlp_metrics_reporter()
+    reporter.initialize()
+    reporter.inc_counter(COUNTER_SERVER_STARTED)
+
     async def _log_graph_load_failure(err: graph.GraphLoadError) -> None:
         cause = err.__cause__ or err.cause
         log_fields = err.log_fields()
@@ -87,6 +98,11 @@ async def lifespan(
             taskgroup_name="Lifespan",
         ) as tg:
             tg.create_task(metadata_loop())
+            from langgraph_api.metrics_collector import (  # noqa: PLC0415
+                collector_loop,
+            )
+
+            tg.create_task(collector_loop())
             await api_store.collect_store_from_env()
             store_instance = await api_store.get_store()
             if not api_store.CUSTOM_STORE:
@@ -134,6 +150,15 @@ async def lifespan(
     except asyncio.CancelledError:
         pass
     finally:
+        from langgraph_api.metrics_otlp import (  # noqa: PLC0415
+            COUNTER_SERVER_REQUESTED_TO_STOP,
+            get_otlp_metrics_reporter,
+        )
+
+        # Shutdown has been requested; teardown is starting.
+        otlp_reporter = get_otlp_metrics_reporter()
+        otlp_reporter.inc_counter(COUNTER_SERVER_REQUESTED_TO_STOP)
+
         await api_store.exit_store()
         await api_checkpointer.exit_checkpointer()
         await stop_ui_bundler()
@@ -141,6 +166,16 @@ async def lifespan(
         await stop_http_client()
         await stop_webhook_http_client()
         await stop_pool()
+
+        if otlp_reporter is not None:
+            from langgraph_api.metrics_otlp import (  # noqa: PLC0415
+                COUNTER_SERVER_STOPPED,
+            )
+
+            # Teardown completed successfully. Emit before shutting down the
+            # reporter so the final OTLP export includes this counter.
+            otlp_reporter.inc_counter(COUNTER_SERVER_STOPPED)
+            otlp_reporter.shutdown()
 
 
 async def queue_with_signal():

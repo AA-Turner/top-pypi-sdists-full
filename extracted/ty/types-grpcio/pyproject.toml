@@ -4,7 +4,7 @@ requires = ["setuptools>=82.0.1"]
 
 [project]
 name = "types-grpcio"
-version = "1.0.0.20260614"
+version = "1.82.1.20260711"
 license = "Apache-2.0"
 license-files = ["LICENSE"]
 description = "Typing stubs for grpcio"
@@ -15,7 +15,7 @@ This is a [type stub package](https://typing.python.org/en/latest/tutorials/exte
 for the [`grpcio`](https://github.com/grpc/grpc) package. It can be used by type checkers
 to check code that uses `grpcio`. This version of
 `types-grpcio` aims to provide accurate annotations for
-`grpcio==1.*`.
+`grpcio~=1.82.1`.
 
 This stub package is marked as [partial](https://typing.python.org/en/latest/spec/distributing.html#partial-stub-packages).
 If you find that annotations are missing, feel free to contribute and help complete them.
@@ -29,11 +29,11 @@ for more details. The source for this package can be found in the
 directory.
 
 This package was tested with the following type checkers:
-* [mypy](https://github.com/python/mypy/) 2.1.0
-* [pyright](https://github.com/microsoft/pyright) 1.1.410
+* [mypy](https://github.com/python/mypy/) 2.2.0
+* [pyright](https://github.com/microsoft/pyright) 1.1.411
 
 It was generated from typeshed commit
-[`feeb9aa8dde3ae9269b13f3bae435b82d8538b76`](https://github.com/python/typeshed/commit/feeb9aa8dde3ae9269b13f3bae435b82d8538b76).
+[`56a641919bddc54942a5851813843948e5e3462d`](https://github.com/python/typeshed/commit/56a641919bddc54942a5851813843948e5e3462d).
 """, content-type = "text/markdown" }
 classifiers = [
   "Programming Language :: Python :: 3",

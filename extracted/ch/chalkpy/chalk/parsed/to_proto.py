@@ -1005,6 +1005,7 @@ class ToProtoConverter:
                         else None
                     ),
                     cache_aggregated_values=mat.cache_aggregated_values,
+                    allow_filter_migration=mat.allow_filter_migration,
                 ),
                 tags=f.tags,
                 validations=ToProtoConverter.convert_validations(f.all_validations),
@@ -1122,6 +1123,7 @@ class ToProtoConverter:
                                     else None
                                 ),
                                 cache_aggregated_values=wmp.cache_aggregated_values,
+                                allow_filter_migration=wmp.allow_filter_migration,
                             )
                             if wmp is not None
                             else None

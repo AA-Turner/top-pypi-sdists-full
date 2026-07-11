@@ -82,7 +82,18 @@ class EvaluationDashboardsResource(SyncAPIResource):
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> EvaluationDashboard:
         """
-        Create a new evaluation dashboard for an evaluation or evaluation group
+        Create a dashboard bound to exactly one evaluation or evaluation group.
+
+        The request must set exactly one of `evaluation_id` or `evaluation_group_id`
+        (enforced as XOR) — supplying both or neither is rejected, and the referenced
+        evaluation or group must already exist in the caller's account or the call fails
+        with a not-found error. If `template_dashboard_id` is provided, the new
+        dashboard copies that template's `widget_order` and synchronously computes a
+        result for each of those widgets against the new dashboard's evaluation data
+        before returning. Any `widget_order` supplied is validated to contain only
+        existing, non-duplicate widget IDs. The dashboard is created and returned
+        immediately; individual widgets are added afterward through the widget
+        sub-endpoints.
 
         Args:
           name: Dashboard name
@@ -141,7 +152,14 @@ class EvaluationDashboardsResource(SyncAPIResource):
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> EvaluationDashboard:
         """
-        Get a single evaluation dashboard by ID
+        Fetch a single dashboard by ID within the caller's account.
+
+        By default only the dashboard's own fields are returned. Pass `views=widgets`
+        and/or `views=widget_results` to eagerly load the dashboard's widgets and their
+        last-computed results as nested relationships; without those views the `widgets`
+        and `widget_results` fields are omitted from the response entirely. Set
+        `include_archived=true` to retrieve a soft-deleted dashboard. Returns a
+        not-found error if no matching dashboard exists in the account.
 
         Args:
           views: Optional relationships to include: 'widgets', 'widget_results'
@@ -190,7 +208,15 @@ class EvaluationDashboardsResource(SyncAPIResource):
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> EvaluationDashboard:
         """
-        Partially update dashboard metadata (name, description, widget_order)
+        Partially update a dashboard's `name`, `description`, `tags`, or `widget_order`.
+
+        Only these mutable fields can change — the dashboard's bound evaluation or group
+        is fixed at creation and cannot be reassigned here, and unset fields are left
+        untouched (partial-update semantics). Reorder existing widgets by sending a new
+        `widget_order`, whose entries are validated to be existing, non-duplicate widget
+        IDs before the update is applied; creating and attaching new widgets is done
+        through the widget sub-endpoints, not by editing `widget_order`. Archived
+        dashboards cannot be updated and return a not-found error.
 
         Args:
           description: Dashboard description
@@ -250,8 +276,16 @@ class EvaluationDashboardsResource(SyncAPIResource):
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> SyncCursorPage[EvaluationDashboard]:
         """
-        List dashboards filtered by evaluation_id, evaluation_group_id, tags, creators,
-        or search
+        List dashboards in the caller's account, paginated, with optional filters.
+
+        Filter to a single evaluation with `evaluation_id` or to a group with
+        `evaluation_group_id`; passing both is rejected, since a dashboard is bound to
+        one or the other. `tags` matches case-insensitively (values are lowercased
+        before lookup), `created_by_ids` filters by creator identity, and `search`
+        matches the dashboard name and tags. Archived dashboards are excluded unless
+        `include_archived` is true. The returned items carry only the dashboards' own
+        fields — widgets and widget results are never embedded here; use the get-by-id
+        endpoint with the `widgets`/`widget_results` views to load those.
 
         Args:
           created_by_ids: Filter by creator user IDs
@@ -308,7 +342,13 @@ class EvaluationDashboardsResource(SyncAPIResource):
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> EvaluationDashboard:
         """
-        Soft delete an evaluation dashboard
+        Soft-delete a dashboard by setting its archived timestamp.
+
+        The dashboard row is retained and marked archived rather than physically
+        removed, so it stops appearing in default listings but can still be fetched with
+        `include_archived=true`; the archived dashboard is returned by this call.
+        Associated widgets and widget results are not deleted or detached. Returns a
+        not-found error if the dashboard does not exist in the caller's account.
 
         Args:
           extra_headers: Send extra headers
@@ -372,7 +412,18 @@ class AsyncEvaluationDashboardsResource(AsyncAPIResource):
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> EvaluationDashboard:
         """
-        Create a new evaluation dashboard for an evaluation or evaluation group
+        Create a dashboard bound to exactly one evaluation or evaluation group.
+
+        The request must set exactly one of `evaluation_id` or `evaluation_group_id`
+        (enforced as XOR) — supplying both or neither is rejected, and the referenced
+        evaluation or group must already exist in the caller's account or the call fails
+        with a not-found error. If `template_dashboard_id` is provided, the new
+        dashboard copies that template's `widget_order` and synchronously computes a
+        result for each of those widgets against the new dashboard's evaluation data
+        before returning. Any `widget_order` supplied is validated to contain only
+        existing, non-duplicate widget IDs. The dashboard is created and returned
+        immediately; individual widgets are added afterward through the widget
+        sub-endpoints.
 
         Args:
           name: Dashboard name
@@ -431,7 +482,14 @@ class AsyncEvaluationDashboardsResource(AsyncAPIResource):
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> EvaluationDashboard:
         """
-        Get a single evaluation dashboard by ID
+        Fetch a single dashboard by ID within the caller's account.
+
+        By default only the dashboard's own fields are returned. Pass `views=widgets`
+        and/or `views=widget_results` to eagerly load the dashboard's widgets and their
+        last-computed results as nested relationships; without those views the `widgets`
+        and `widget_results` fields are omitted from the response entirely. Set
+        `include_archived=true` to retrieve a soft-deleted dashboard. Returns a
+        not-found error if no matching dashboard exists in the account.
 
         Args:
           views: Optional relationships to include: 'widgets', 'widget_results'
@@ -480,7 +538,15 @@ class AsyncEvaluationDashboardsResource(AsyncAPIResource):
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> EvaluationDashboard:
         """
-        Partially update dashboard metadata (name, description, widget_order)
+        Partially update a dashboard's `name`, `description`, `tags`, or `widget_order`.
+
+        Only these mutable fields can change — the dashboard's bound evaluation or group
+        is fixed at creation and cannot be reassigned here, and unset fields are left
+        untouched (partial-update semantics). Reorder existing widgets by sending a new
+        `widget_order`, whose entries are validated to be existing, non-duplicate widget
+        IDs before the update is applied; creating and attaching new widgets is done
+        through the widget sub-endpoints, not by editing `widget_order`. Archived
+        dashboards cannot be updated and return a not-found error.
 
         Args:
           description: Dashboard description
@@ -540,8 +606,16 @@ class AsyncEvaluationDashboardsResource(AsyncAPIResource):
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> AsyncPaginator[EvaluationDashboard, AsyncCursorPage[EvaluationDashboard]]:
         """
-        List dashboards filtered by evaluation_id, evaluation_group_id, tags, creators,
-        or search
+        List dashboards in the caller's account, paginated, with optional filters.
+
+        Filter to a single evaluation with `evaluation_id` or to a group with
+        `evaluation_group_id`; passing both is rejected, since a dashboard is bound to
+        one or the other. `tags` matches case-insensitively (values are lowercased
+        before lookup), `created_by_ids` filters by creator identity, and `search`
+        matches the dashboard name and tags. Archived dashboards are excluded unless
+        `include_archived` is true. The returned items carry only the dashboards' own
+        fields — widgets and widget results are never embedded here; use the get-by-id
+        endpoint with the `widgets`/`widget_results` views to load those.
 
         Args:
           created_by_ids: Filter by creator user IDs
@@ -598,7 +672,13 @@ class AsyncEvaluationDashboardsResource(AsyncAPIResource):
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> EvaluationDashboard:
         """
-        Soft delete an evaluation dashboard
+        Soft-delete a dashboard by setting its archived timestamp.
+
+        The dashboard row is retained and marked archived rather than physically
+        removed, so it stops appearing in default listings but can still be fetched with
+        `include_archived=true`; the archived dashboard is returned by this call.
+        Associated widgets and widget results are not deleted or detached. Returns a
+        not-found error if the dashboard does not exist in the caller's account.
 
         Args:
           extra_headers: Send extra headers

@@ -20,13 +20,13 @@ DOCUMENTATION = """
 ---
 module: purefb_network
 version_added: "1.0.0"
-short_description:  Manage network interfaces in a Pure Storage FlashBlade
+short_description:  Manage network interfaces in a Everpure FlashBlade
 description:
-    - This module manages network interfaces on Pure Storage FlashBlade.
+    - This module manages network interfaces on Everpure FlashBlade.
     - When creating a network interface a subnet must already exist with
       a network prefix that covers the IP address of the interface being
       created.
-author: Pure Storage Ansible Team (@sdodsley) <pure-ansible-team@purestorage.com>
+author: Everpure Ansible Team (@sdodsley) <pure-ansible-team@purestorage.com>
 options:
   name:
     description:
@@ -91,16 +91,19 @@ EXAMPLES = """
 RETURN = """
 """
 
-HAS_PURITY_FB = True
+HAS_PYPURECLIENT = True
 try:
     from pypureclient.flashblade import NetworkInterface, NetworkInterfacePatch
 except ImportError:
-    HAS_PURITY_FB = False
+    HAS_PYPURECLIENT = False
 
 from ansible.module_utils.basic import AnsibleModule
 from ansible_collections.purestorage.flashblade.plugins.module_utils.purefb import (
     get_system,
     purefb_argument_spec,
+)
+from ansible_collections.purestorage.flashblade.plugins.module_utils.common import (
+    get_error_message,
 )
 
 
@@ -127,7 +130,7 @@ def create_iface(module, blade):
         if res.status_code != 200:
             module.fail_json(
                 msg="Interface {0} creation failed. Error: {1}".format(
-                    module.params["name"], res.errors[0].message
+                    module.params["name"], get_error_message(res)
                 )
             )
     module.exit_json(changed=changed)
@@ -149,7 +152,7 @@ def modify_iface(module, blade):
             if res.status_code != 200:
                 module.fail_json(
                     msg="Failed to modify Interface {0}. Error: {1}".format(
-                        module.params["name"], res.errors[0].message
+                        module.params["name"], get_error_message(res)
                     )
                 )
     module.exit_json(changed=changed)
@@ -163,7 +166,7 @@ def delete_iface(module, blade):
         if res.status_code != 200:
             module.fail_json(
                 msg="Failed to delete network {0}. Error: {1}".format(
-                    module.params["name"], res.errors[0].message
+                    module.params["name"], get_error_message(res)
                 )
             )
     module.exit_json(changed=changed)
@@ -187,7 +190,7 @@ def main():
         argument_spec, required_if=required_if, supports_check_mode=True
     )
 
-    if not HAS_PURITY_FB:
+    if not HAS_PYPURECLIENT:
         module.fail_json(msg="py-pure-client sdk is required for this module")
 
     state = module.params["state"]

@@ -53,6 +53,7 @@ if TYPE_CHECKING:
         evaluations,
         dataset_items,
         vector_stores,
+        annotation_tasks,
         evaluation_items,
         span_assessments,
         evaluation_groups,
@@ -73,6 +74,7 @@ if TYPE_CHECKING:
     from .resources.files.files import FilesResource, AsyncFilesResource
     from .resources.dataset_items import DatasetItemsResource, AsyncDatasetItemsResource
     from .resources.rubrics.rubrics import RubricsResource, AsyncRubricsResource
+    from .resources.annotation_tasks import AnnotationTasksResource, AsyncAnnotationTasksResource
     from .resources.evaluation_items import EvaluationItemsResource, AsyncEvaluationItemsResource
     from .resources.span_assessments import SpanAssessmentsResource, AsyncSpanAssessmentsResource
     from .resources.evaluation_groups import EvaluationGroupsResource, AsyncEvaluationGroupsResource
@@ -290,6 +292,12 @@ class SGPClient(SyncAPIClient):
         from .resources.evaluation_dashboards import EvaluationDashboardsResource
 
         return EvaluationDashboardsResource(self)
+
+    @cached_property
+    def annotation_tasks(self) -> AnnotationTasksResource:
+        from .resources.annotation_tasks import AnnotationTasksResource
+
+        return AnnotationTasksResource(self)
 
     @cached_property
     def spans(self) -> SpansResource:
@@ -639,6 +647,12 @@ class AsyncSGPClient(AsyncAPIClient):
         return AsyncEvaluationDashboardsResource(self)
 
     @cached_property
+    def annotation_tasks(self) -> AsyncAnnotationTasksResource:
+        from .resources.annotation_tasks import AsyncAnnotationTasksResource
+
+        return AsyncAnnotationTasksResource(self)
+
+    @cached_property
     def spans(self) -> AsyncSpansResource:
         from .resources.spans import AsyncSpansResource
 
@@ -889,6 +903,12 @@ class SGPClientWithRawResponse:
         return EvaluationDashboardsResourceWithRawResponse(self._client.evaluation_dashboards)
 
     @cached_property
+    def annotation_tasks(self) -> annotation_tasks.AnnotationTasksResourceWithRawResponse:
+        from .resources.annotation_tasks import AnnotationTasksResourceWithRawResponse
+
+        return AnnotationTasksResourceWithRawResponse(self._client.annotation_tasks)
+
+    @cached_property
     def spans(self) -> spans.SpansResourceWithRawResponse:
         from .resources.spans import SpansResourceWithRawResponse
 
@@ -1020,6 +1040,12 @@ class AsyncSGPClientWithRawResponse:
         from .resources.evaluation_dashboards import AsyncEvaluationDashboardsResourceWithRawResponse
 
         return AsyncEvaluationDashboardsResourceWithRawResponse(self._client.evaluation_dashboards)
+
+    @cached_property
+    def annotation_tasks(self) -> annotation_tasks.AsyncAnnotationTasksResourceWithRawResponse:
+        from .resources.annotation_tasks import AsyncAnnotationTasksResourceWithRawResponse
+
+        return AsyncAnnotationTasksResourceWithRawResponse(self._client.annotation_tasks)
 
     @cached_property
     def spans(self) -> spans.AsyncSpansResourceWithRawResponse:
@@ -1155,6 +1181,12 @@ class SGPClientWithStreamedResponse:
         return EvaluationDashboardsResourceWithStreamingResponse(self._client.evaluation_dashboards)
 
     @cached_property
+    def annotation_tasks(self) -> annotation_tasks.AnnotationTasksResourceWithStreamingResponse:
+        from .resources.annotation_tasks import AnnotationTasksResourceWithStreamingResponse
+
+        return AnnotationTasksResourceWithStreamingResponse(self._client.annotation_tasks)
+
+    @cached_property
     def spans(self) -> spans.SpansResourceWithStreamingResponse:
         from .resources.spans import SpansResourceWithStreamingResponse
 
@@ -1286,6 +1318,12 @@ class AsyncSGPClientWithStreamedResponse:
         from .resources.evaluation_dashboards import AsyncEvaluationDashboardsResourceWithStreamingResponse
 
         return AsyncEvaluationDashboardsResourceWithStreamingResponse(self._client.evaluation_dashboards)
+
+    @cached_property
+    def annotation_tasks(self) -> annotation_tasks.AsyncAnnotationTasksResourceWithStreamingResponse:
+        from .resources.annotation_tasks import AsyncAnnotationTasksResourceWithStreamingResponse
+
+        return AsyncAnnotationTasksResourceWithStreamingResponse(self._client.annotation_tasks)
 
     @cached_property
     def spans(self) -> spans.AsyncSpansResourceWithStreamingResponse:

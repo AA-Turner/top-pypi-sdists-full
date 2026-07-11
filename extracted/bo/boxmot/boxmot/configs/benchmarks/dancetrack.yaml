@@ -2,7 +2,7 @@ id: dancetrack
 
 dataset:
   id: dancetrack
-  root: "boxmot/engine/eval/trackeval/data/test1"
+  root: "boxmot/datasets/mot/test1"
   layout: mot
   box_type: aabb
   splits:
@@ -10,6 +10,13 @@ dataset:
   default_split: val
   classes:
     1: pedestrian
+
+evaluation:
+  classes:
+    - name: pedestrian
+      dataset_id: 1
+      detector_id: 0
+      detector_name: person
 
 download:
   dataset: "https://huggingface.co/datasets/noahcao/dancetrack/resolve/main/test1.zip"
@@ -27,7 +34,7 @@ detector:
 reid:
   id: lmbn_n_duke
   model: "models/lmbn_n_duke.pt"
-  url: "https://github.com/mikel-brostrom/yolov8_tracking/releases/download/v9.0/lmbn_n_duke.pth"
+  url: "https://github.com/mikel-brostrom/boxmot/releases/download/v21.0.0/lmbn_n_duke.pt"
   device: ""
   half: true
   preprocess: resize

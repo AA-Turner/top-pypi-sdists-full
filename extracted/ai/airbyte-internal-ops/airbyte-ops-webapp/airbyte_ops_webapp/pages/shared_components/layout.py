@@ -158,3 +158,34 @@ def render_environment_banners() -> None:
             Text(".")
         with If(~STATE.preview_pr_url):
             Text("\U0001f535 Build Preview \u2014 You are using a pre-release build.")
+
+
+def _version_footer_style() -> dict[str, str]:
+    return {
+        "display": "flex",
+        "alignItems": "center",
+        "justifyContent": "center",
+        "gap": "0.75rem",
+        "padding": "0.75rem 1rem",
+        "fontSize": "0.75rem",
+        "opacity": "0.5",
+        "color": "#ccc",
+    }
+
+
+def render_version_footer() -> None:
+    """Render a subtle footer showing deployed version info."""
+    with Div(style=_version_footer_style()):
+        with If(STATE.ops_package_version):
+            Text("v" + STATE.ops_package_version)
+        with If(STATE.ops_package_version & STATE.deploy_sha):
+            Text("\u00b7")
+        with If(STATE.deploy_sha):
+            Link(
+                STATE.deploy_sha,
+                href=STATE.deploy_sha_url,
+                target="_blank",
+                style={"color": "#ccc", "textDecoration": "underline"},
+            )
+        with If(~STATE.deploy_sha & ~STATE.ops_package_version):
+            Text("version unknown")

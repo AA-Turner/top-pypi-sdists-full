@@ -146,7 +146,6 @@ def _render_pin_tables() -> None:
             DataTableColumn(key="value_name", header="Version"),
         ],
         rows=STATE.ancestor_configs,
-        pageSize=3,
     )
     Markdown("**Pins below this context**")
     DataTable(
@@ -156,7 +155,6 @@ def _render_pin_tables() -> None:
             DataTableColumn(key="value_name", header="Version"),
         ],
         rows=STATE.descendant_configs,
-        pageSize=3,
     )
 
 

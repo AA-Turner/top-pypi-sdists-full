@@ -14,7 +14,7 @@ from cloudbridge.interfaces.exceptions import DuplicateResourceException
 from cloudbridge.interfaces.provider import TestMockHelperMixin
 from cloudbridge.interfaces.resources import Bucket
 from cloudbridge.interfaces.resources import BucketObject
-from cloudbridge.interfaces.resources import UploadConfig
+from cloudbridge.interfaces.resources import TransferConfig
 
 from tests import helpers
 from tests.helpers import ProviderTestBase
@@ -230,6 +230,69 @@ class CloudObjectStoreServiceTestCase(ProviderTestBase):
                 self.assertEqual(target_stream.getvalue(), content)
 
     @helpers.skipIfNoService(['storage.buckets'])
+    def test_generate_url_with_response_headers(self):
+        name = "cbtestbucketobjs-{0}".format(helpers.get_uuid())
+        test_bucket = self.provider.storage.buckets.create(name)
+
+        with cb_helpers.cleanup_action(lambda: test_bucket.delete()):
+            obj_name = "hello_response_headers.txt"
+            obj = test_bucket.objects.create(obj_name)
+
+            with cb_helpers.cleanup_action(lambda: obj.delete()):
+                content = b"Hello World. Serve me with response headers."
+                obj.upload(content)
+
+                disposition = 'attachment; filename="hello.txt"'
+                content_type = "application/octet-stream"
+                url = obj.generate_url(100,
+                                       content_disposition=disposition,
+                                       content_type=content_type)
+                if isinstance(self.provider, TestMockHelperMixin):
+                    # Presigned URLs are constructed client-side, so the
+                    # response-header overrides can be asserted on the query
+                    # string without a network round trip.
+                    self.assertIn('response-content-disposition', url)
+                    self.assertIn('response-content-type', url)
+                    raise self.skipTest(
+                        "Skipping rest of test - mock providers can't"
+                        " access generated url")
+                response = requests.get(url)
+                self.assertEqual(response.content, content)
+                got_disposition = response.headers.get(
+                    'Content-Disposition', '')
+                self.assertTrue(got_disposition.startswith('attachment'),
+                                "Expected attachment disposition, got: "
+                                f"{got_disposition}")
+                self.assertIn('hello.txt', got_disposition)
+                if self.provider.PROVIDER_ID != 'openstack':
+                    # Swift's tempurl middleware cannot override Content-Type
+                    # (it only honors the filename portion of the disposition
+                    # via its `filename` query parameter).
+                    self.assertEqual(response.headers.get('Content-Type'),
+                                     content_type)
+
+    @helpers.skipIfNoService(['storage.buckets'])
+    def test_generate_url_writable_ignores_response_headers(self):
+        name = "cbtestbucketobjs-{0}".format(helpers.get_uuid())
+        test_bucket = self.provider.storage.buckets.create(name)
+
+        with cb_helpers.cleanup_action(lambda: test_bucket.delete()):
+            obj_name = "hello_response_headers.txt"
+            obj = test_bucket.objects.create(obj_name)
+
+            with cb_helpers.cleanup_action(lambda: obj.delete()):
+                url = obj.generate_url(
+                    100, writable=True,
+                    content_disposition='attachment; filename="hello.txt"',
+                    content_type="application/octet-stream")
+                # Response-header overrides only make sense for reads; a
+                # writable URL must not carry them (across all providers:
+                # AWS/GCP query params, Azure SAS rscd/rsct, Swift filename).
+                self.assertNotIn('response-content-disposition', url)
+                self.assertNotIn('rscd=', url)
+                self.assertNotIn('filename=', url)
+
+    @helpers.skipIfNoService(['storage.buckets'])
     def test_upload_download_bucket_content_from_file(self):
         name = "cbtestbucketobjs-{0}".format(helpers.get_uuid())
         test_bucket = self.provider.storage.buckets.create(name)
@@ -389,7 +452,7 @@ class CloudObjectStoreServiceTestCase(ProviderTestBase):
         # knobs (not boto3's own defaults). This wiring is AWS-specific.
         if self.provider.PROVIDER_ID not in ('aws', 'mock'):
             self.skipTest("TransferConfig wiring is specific to AWS")
-        from boto3.s3.transfer import TransferConfig
+        from boto3.s3.transfer import TransferConfig as S3TransferConfig
 
         name = "cbtest-mpu-{0}".format(helpers.get_uuid())
         test_bucket = self.provider.storage.buckets.create(name)
@@ -413,16 +476,16 @@ class CloudObjectStoreServiceTestCase(ProviderTestBase):
 
                 spy.assert_called_once()
                 config = spy.call_args.kwargs['Config']
-                self.assertIsInstance(config, TransferConfig)
+                self.assertIsInstance(config, S3TransferConfig)
                 self.assertEqual(config.multipart_chunksize, 7 * 1024 * 1024)
                 self.assertEqual(config.max_concurrency, 3)
 
     @helpers.skipIfNoService(['storage.buckets'])
     def test_per_call_upload_config_overrides_defaults(self):
-        # A per-call UploadConfig takes precedence over the global knobs.
+        # A per-call TransferConfig takes precedence over the global knobs.
         if self.provider.PROVIDER_ID not in ('aws', 'mock'):
             self.skipTest("TransferConfig wiring is specific to AWS")
-        from boto3.s3.transfer import TransferConfig
+        from boto3.s3.transfer import TransferConfig as S3TransferConfig
 
         name = "cbtest-mpu-{0}".format(helpers.get_uuid())
         test_bucket = self.provider.storage.buckets.create(name)
@@ -433,8 +496,8 @@ class CloudObjectStoreServiceTestCase(ProviderTestBase):
             with cb_helpers.cleanup_action(lambda: obj.delete()):
                 test_file = os.path.join(
                     helpers.get_test_fixtures_folder(), 'logo.jpg')
-                cfg = UploadConfig(part_size=8 * 1024 * 1024,
-                                   max_concurrency=2)
+                cfg = TransferConfig(part_size=8 * 1024 * 1024,
+                                     max_concurrency=2)
                 # pylint:disable=protected-access
                 with mock.patch.object(
                         obj._obj, 'upload_file',
@@ -442,9 +505,98 @@ class CloudObjectStoreServiceTestCase(ProviderTestBase):
                     obj.upload_from_file(test_file, config=cfg)
 
                 config = spy.call_args.kwargs['Config']
-                self.assertIsInstance(config, TransferConfig)
+                self.assertIsInstance(config, S3TransferConfig)
                 self.assertEqual(config.multipart_chunksize, 8 * 1024 * 1024)
                 self.assertEqual(config.max_concurrency, 2)
+
+    @helpers.skipIfNoService(['storage.buckets'])
+    def test_download_to_file_roundtrip(self):
+        name = "cbtest-dl-{0}".format(helpers.get_uuid())
+        test_bucket = self.provider.storage.buckets.create(name)
+
+        with cb_helpers.cleanup_action(lambda: test_bucket.delete()):
+            obj = test_bucket.objects.create("roundtrip.txt")
+
+            with cb_helpers.cleanup_action(lambda: obj.delete()):
+                content = b"a small payload below the download threshold"
+                obj.upload(content)
+
+                stored = test_bucket.objects.get("roundtrip.txt")
+                fd, path = tempfile.mkstemp()
+                os.close(fd)
+                with cb_helpers.cleanup_action(lambda: os.remove(path)):
+                    stored.download_to_file(path)
+                    with open(path, 'rb') as f:
+                        self.assertEqual(f.read(), content)
+
+    @helpers.skipIfNoService(['storage.buckets'])
+    def test_transparent_download_large_uses_ranged(self):
+        name = "cbtest-dl-{0}".format(helpers.get_uuid())
+        test_bucket = self.provider.storage.buckets.create(name)
+
+        with cb_helpers.cleanup_action(lambda: test_bucket.delete()):
+            obj = test_bucket.objects.create("ranged.bin")
+
+            with cb_helpers.cleanup_action(lambda: obj.delete()):
+                # Distinct byte pattern so out-of-order reassembly would show.
+                content = bytes(range(256)) * ((MIN_PART_SIZE * 2) // 256)
+                obj.upload(BytesIO(content),
+                           TransferConfig(threshold=MIN_PART_SIZE,
+                                          part_size=MIN_PART_SIZE))
+
+                stored = test_bucket.objects.get("ranged.bin")
+                fd, path = tempfile.mkstemp()
+                os.close(fd)
+                with cb_helpers.cleanup_action(lambda: os.remove(path)):
+                    # Lower the threshold so the download crosses it (each
+                    # provider routes its own way underneath) and assert the
+                    # content round-trips exactly.
+                    stored.download_to_file(
+                        path, TransferConfig(threshold=MIN_PART_SIZE,
+                                             part_size=MIN_PART_SIZE,
+                                             max_concurrency=2))
+                    with open(path, 'rb') as f:
+                        self.assertEqual(f.read(), content)
+
+    @helpers.skipIfNoService(['storage.buckets'])
+    def test_download_to_file_uses_transfer_config(self):
+        # AWS drives boto3's TransferManager with CloudBridge's transfer
+        # knobs (not boto3's own defaults). This wiring is AWS-specific.
+        if self.provider.PROVIDER_ID not in ('aws', 'mock'):
+            self.skipTest("TransferConfig wiring is specific to AWS")
+        from boto3.s3.transfer import TransferConfig as S3TransferConfig
+
+        name = "cbtest-dl-{0}".format(helpers.get_uuid())
+        test_bucket = self.provider.storage.buckets.create(name)
+
+        with cb_helpers.cleanup_action(lambda: test_bucket.delete()):
+            obj = test_bucket.objects.create("dlconfig.bin")
+
+            with cb_helpers.cleanup_action(lambda: obj.delete()):
+                obj.upload(b"some downloadable content")
+                stored = test_bucket.objects.get("dlconfig.bin")
+
+                fd, path = tempfile.mkstemp()
+                os.close(fd)
+                with cb_helpers.cleanup_action(lambda: os.remove(path)):
+                    cfg = TransferConfig(part_size=8 * 1024 * 1024,
+                                         max_concurrency=2)
+                    # pylint:disable=protected-access
+                    with mock.patch.object(
+                            stored._obj.meta.client, 'download_file',
+                            wraps=stored._obj.meta.client
+                            .download_file) as spy:
+                        stored.download_to_file(path, config=cfg)
+
+                    spy.assert_called_once()
+                    config = spy.call_args.kwargs['Config']
+                    self.assertIsInstance(config, S3TransferConfig)
+                    self.assertEqual(
+                        config.multipart_chunksize, 8 * 1024 * 1024)
+                    self.assertEqual(config.max_concurrency, 2)
+                    with open(path, 'rb') as f:
+                        self.assertEqual(
+                            f.read(), b"some downloadable content")
 
     @skip("Skip unless you want to test objects bigger than 5GB")
     @helpers.skipIfNoService(['storage.buckets'])

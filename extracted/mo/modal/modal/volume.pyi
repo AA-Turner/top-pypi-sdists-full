@@ -2,12 +2,12 @@ import _io
 import asyncio.locks
 import collections.abc
 import datetime
-import enum
 import google.protobuf.message
 import modal._object
 import modal._utils.blob_utils
 import modal.client
 import modal.object
+import modal.types
 import modal_proto.api_pb2
 import pathlib
 import synchronicity
@@ -28,70 +28,15 @@ def _validate_volume_version(requested_version: int, actual_version: int, volume
     """Validate that the returned volume version matches the requested version."""
     ...
 
-class FileEntryType(enum.IntEnum):
-    """Type of a file entry listed from a Modal volume."""
+def _experimental_options_to_string_map(experimental_options: dict[str, typing.Any]) -> dict[str, str]:
+    """Coerce experimental option values to strings for the proto's string map."""
+    ...
 
-    UNSPECIFIED = 0
-    FILE = 1
-    DIRECTORY = 2
-    SYMLINK = 3
-    FIFO = 4
-    SOCKET = 5
-
-class FileEntry:
-    """A file or directory entry listed from a Modal volume."""
-
-    path: str
-    type: FileEntryType
-    mtime: int
-    size: int
-
-    @classmethod
-    def _from_proto(cls, proto: modal_proto.api_pb2.FileEntry) -> FileEntry: ...
-    def __init__(self, path: str, type: FileEntryType, mtime: int, size: int) -> None:
-        """Initialize self.  See help(type(self)) for accurate signature."""
-        ...
-
-    def __repr__(self):
-        """Return repr(self)."""
-        ...
-
-    def __eq__(self, other):
-        """Return self==value."""
-        ...
-
-    def __setattr__(self, name, value):
-        """Implement setattr(self, name, value)."""
-        ...
-
-    def __delattr__(self, name):
-        """Implement delattr(self, name)."""
-        ...
-
-    def __hash__(self):
-        """Return hash(self)."""
-        ...
-
-class VolumeInfo:
-    """Information about the Volume object."""
-
-    name: typing.Optional[str]
-    created_at: datetime.datetime
-    created_by: typing.Optional[str]
-
-    def __init__(
-        self, name: typing.Optional[str], created_at: datetime.datetime, created_by: typing.Optional[str]
-    ) -> None:
-        """Initialize self.  See help(type(self)) for accurate signature."""
-        ...
-
-    def __repr__(self):
-        """Return repr(self)."""
-        ...
-
-    def __eq__(self, other):
-        """Return self==value."""
-        ...
+def _volume_create_options_to_proto(
+    create_options: typing.Optional[modal.types.VolumeCreateOptions],
+) -> modal_proto.api_pb2.VolumeCreateOptions:
+    """Build a VolumeCreateOptions proto message from the public TypedDict."""
+    ...
 
 class _VolumeManager:
     """Namespace with methods for managing named Volume objects."""
@@ -103,6 +48,7 @@ class _VolumeManager:
         allow_existing: bool = False,
         environment_name: typing.Optional[str] = None,
         client: typing.Optional[modal.client._Client] = None,
+        experimental_options: typing.Optional[dict[str, typing.Any]] = None,
     ) -> None:
         """Create a new named Volume in the workspace environment.
 
@@ -116,6 +62,7 @@ class _VolumeManager:
             allow_existing: If True, do nothing when a Volume with this name already exists.
             environment_name: Environment to create in; defaults to the active environment.
             client: Modal client to use; defaults to `Client.from_env()` when omitted.
+            experimental_options: Experimental options to create Volume with.
 
         Examples:
             ```python notest
@@ -232,6 +179,7 @@ class VolumeManager:
             allow_existing: bool = False,
             environment_name: typing.Optional[str] = None,
             client: typing.Optional[modal.client.Client] = None,
+            experimental_options: typing.Optional[dict[str, typing.Any]] = None,
         ) -> None:
             """Create a new named Volume in the workspace environment.
 
@@ -245,6 +193,7 @@ class VolumeManager:
                 allow_existing: If True, do nothing when a Volume with this name already exists.
                 environment_name: Environment to create in; defaults to the active environment.
                 client: Modal client to use; defaults to `Client.from_env()` when omitted.
+                experimental_options: Experimental options to create Volume with.
 
             Examples:
                 ```python notest
@@ -277,6 +226,7 @@ class VolumeManager:
             allow_existing: bool = False,
             environment_name: typing.Optional[str] = None,
             client: typing.Optional[modal.client.Client] = None,
+            experimental_options: typing.Optional[dict[str, typing.Any]] = None,
         ) -> None:
             """Create a new named Volume in the workspace environment.
 
@@ -290,6 +240,7 @@ class VolumeManager:
                 allow_existing: If True, do nothing when a Volume with this name already exists.
                 environment_name: Environment to create in; defaults to the active environment.
                 client: Modal client to use; defaults to `Client.from_env()` when omitted.
+                experimental_options: Experimental options to create Volume with.
 
             Examples:
                 ```python notest
@@ -629,6 +580,7 @@ class _Volume(modal._object._Object):
         environment_name: typing.Optional[str] = None,
         create_if_missing: bool = False,
         version: typing.Optional[int] = None,
+        create_options: typing.Optional[modal.types.VolumeCreateOptions] = None,
         client: typing.Optional[modal.client._Client] = None,
     ) -> _Volume:
         """Reference a Volume by name, optionally creating it on the server first.
@@ -640,6 +592,7 @@ class _Volume(modal._object._Object):
             environment_name: Environment to resolve the name in; defaults to the active environment.
             create_if_missing: If True, create the Volume when it does not already exist.
             version: Optional VolumeFS backend version; must match an existing Volume when set.
+            create_options: Applied when creating the Volume. If an existing Volume, validates options are consistent.
             client: Modal client to use for loading; defaults to `Client.from_env()` when omitted.
 
         Returns:
@@ -695,6 +648,7 @@ class _Volume(modal._object._Object):
         client: typing.Optional[modal.client._Client] = None,
         environment_name: typing.Optional[str] = None,
         version: typing.Optional[int] = None,
+        create_options: typing.Optional[modal.types.VolumeCreateOptions] = None,
         _heartbeat_sleep: float = 300,
     ) -> typing.AsyncContextManager[_Volume]:
         """Create an anonymous Volume that exists for the duration of the context manager.
@@ -703,6 +657,7 @@ class _Volume(modal._object._Object):
             client: Modal client to use; defaults to `Client.from_env()` when omitted.
             environment_name: Environment for the ephemeral Volume; defaults to the active environment.
             version: Optional VolumeFS backend version for the ephemeral Volume.
+            create_options: Options applied when creating the ephemeral Volume.
 
         Examples:
             ```python
@@ -719,7 +674,7 @@ class _Volume(modal._object._Object):
         """
         ...
 
-    async def info(self) -> VolumeInfo:
+    async def info(self) -> modal.types.VolumeInfo:
         """Return information about the Volume object."""
         ...
 
@@ -742,7 +697,7 @@ class _Volume(modal._object._Object):
         """
         ...
 
-    def iterdir(self, path: str, *, recursive: bool = True) -> collections.abc.AsyncIterator[FileEntry]:
+    def iterdir(self, path: str, *, recursive: bool = True) -> collections.abc.AsyncIterator[modal.types.FileEntry]:
         """Iterate over all files in a directory in the volume.
 
         Passing a directory path lists all files in the directory. For a file path, return only that
@@ -751,7 +706,7 @@ class _Volume(modal._object._Object):
         """
         ...
 
-    async def listdir(self, path: str, *, recursive: bool = False) -> list[FileEntry]:
+    async def listdir(self, path: str, *, recursive: bool = False) -> list[modal.types.FileEntry]:
         """List all files under a path prefix in the modal.Volume.
 
         Passing a directory path lists all files in the directory. For a file path, return only that
@@ -993,6 +948,7 @@ class Volume(modal.object.Object):
         environment_name: typing.Optional[str] = None,
         create_if_missing: bool = False,
         version: typing.Optional[int] = None,
+        create_options: typing.Optional[modal.types.VolumeCreateOptions] = None,
         client: typing.Optional[modal.client.Client] = None,
     ) -> Volume:
         """Reference a Volume by name, optionally creating it on the server first.
@@ -1004,6 +960,7 @@ class Volume(modal.object.Object):
             environment_name: Environment to resolve the name in; defaults to the active environment.
             create_if_missing: If True, create the Volume when it does not already exist.
             version: Optional VolumeFS backend version; must match an existing Volume when set.
+            create_options: Applied when creating the Volume. If an existing Volume, validates options are consistent.
             client: Modal client to use for loading; defaults to `Client.from_env()` when omitted.
 
         Returns:
@@ -1060,6 +1017,7 @@ class Volume(modal.object.Object):
             client: typing.Optional[modal.client.Client] = None,
             environment_name: typing.Optional[str] = None,
             version: typing.Optional[int] = None,
+            create_options: typing.Optional[modal.types.VolumeCreateOptions] = None,
             _heartbeat_sleep: float = 300,
         ) -> synchronicity.combined_types.AsyncAndBlockingContextManager[Volume]:
             """Create an anonymous Volume that exists for the duration of the context manager.
@@ -1068,6 +1026,7 @@ class Volume(modal.object.Object):
                 client: Modal client to use; defaults to `Client.from_env()` when omitted.
                 environment_name: Environment for the ephemeral Volume; defaults to the active environment.
                 version: Optional VolumeFS backend version for the ephemeral Volume.
+                create_options: Options applied when creating the ephemeral Volume.
 
             Examples:
                 ```python
@@ -1090,6 +1049,7 @@ class Volume(modal.object.Object):
             client: typing.Optional[modal.client.Client] = None,
             environment_name: typing.Optional[str] = None,
             version: typing.Optional[int] = None,
+            create_options: typing.Optional[modal.types.VolumeCreateOptions] = None,
             _heartbeat_sleep: float = 300,
         ) -> typing.AsyncContextManager[Volume]:
             """Create an anonymous Volume that exists for the duration of the context manager.
@@ -1098,6 +1058,7 @@ class Volume(modal.object.Object):
                 client: Modal client to use; defaults to `Client.from_env()` when omitted.
                 environment_name: Environment for the ephemeral Volume; defaults to the active environment.
                 version: Optional VolumeFS backend version for the ephemeral Volume.
+                create_options: Options applied when creating the ephemeral Volume.
 
             Examples:
                 ```python
@@ -1117,11 +1078,11 @@ class Volume(modal.object.Object):
     ephemeral: typing.ClassVar[__ephemeral_spec]
 
     class __info_spec(typing_extensions.Protocol):
-        def __call__(self, /) -> VolumeInfo:
+        def __call__(self, /) -> modal.types.VolumeInfo:
             """Return information about the Volume object."""
             ...
 
-        async def aio(self, /) -> VolumeInfo:
+        async def aio(self, /) -> modal.types.VolumeInfo:
             """Return information about the Volume object."""
             ...
 
@@ -1176,7 +1137,7 @@ class Volume(modal.object.Object):
     reload: __reload_spec
 
     class __iterdir_spec(typing_extensions.Protocol):
-        def __call__(self, /, path: str, *, recursive: bool = True) -> typing.Iterator[FileEntry]:
+        def __call__(self, /, path: str, *, recursive: bool = True) -> typing.Iterator[modal.types.FileEntry]:
             """Iterate over all files in a directory in the volume.
 
             Passing a directory path lists all files in the directory. For a file path, return only that
@@ -1185,7 +1146,7 @@ class Volume(modal.object.Object):
             """
             ...
 
-        def aio(self, /, path: str, *, recursive: bool = True) -> collections.abc.AsyncIterator[FileEntry]:
+        def aio(self, /, path: str, *, recursive: bool = True) -> collections.abc.AsyncIterator[modal.types.FileEntry]:
             """Iterate over all files in a directory in the volume.
 
             Passing a directory path lists all files in the directory. For a file path, return only that
@@ -1197,7 +1158,7 @@ class Volume(modal.object.Object):
     iterdir: __iterdir_spec
 
     class __listdir_spec(typing_extensions.Protocol):
-        def __call__(self, /, path: str, *, recursive: bool = False) -> list[FileEntry]:
+        def __call__(self, /, path: str, *, recursive: bool = False) -> list[modal.types.FileEntry]:
             """List all files under a path prefix in the modal.Volume.
 
             Passing a directory path lists all files in the directory. For a file path, return only that
@@ -1206,7 +1167,7 @@ class Volume(modal.object.Object):
             """
             ...
 
-        async def aio(self, /, path: str, *, recursive: bool = False) -> list[FileEntry]:
+        async def aio(self, /, path: str, *, recursive: bool = False) -> list[modal.types.FileEntry]:
             """List all files under a path prefix in the modal.Volume.
 
             Passing a directory path lists all files in the directory. For a file path, return only that

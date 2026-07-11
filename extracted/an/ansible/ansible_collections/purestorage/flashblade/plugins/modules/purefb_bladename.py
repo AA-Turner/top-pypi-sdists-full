@@ -18,12 +18,12 @@ DOCUMENTATION = r"""
 ---
 module: purefb_bladename
 version_added: '1.0.0'
-short_description: Configure Pure Storage FlashBlade name
+short_description: Configure Everpure FlashBlade name
 description:
-- Configure name of Pure Storage FlashBlades.
+- Configure name of Everpure FlashBlades.
 - Ideal for Day 0 initial configuration.
 author:
-- Pure Storage Ansible Team (@sdodsley) <pure-ansible-team@purestorage.com>
+- Everpure Ansible Team (@sdodsley) <pure-ansible-team@purestorage.com>
 options:
   state:
     description:
@@ -66,6 +66,9 @@ from ansible_collections.purestorage.flashblade.plugins.module_utils.purefb impo
     get_system,
     purefb_argument_spec,
 )
+from ansible_collections.purestorage.flashblade.plugins.module_utils.common import (
+    get_error_message,
+)
 
 
 def update_name(module, blade):
@@ -77,7 +80,7 @@ def update_name(module, blade):
         if res.status_code != 200:
             module.fail_json(
                 msg="Failed to change array name to {0}. Error: {1}".format(
-                    module.params["name"], res.errors[0].message
+                    module.params["name"], get_error_message(res)
                 )
             )
 

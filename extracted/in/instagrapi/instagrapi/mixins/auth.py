@@ -517,6 +517,20 @@ class LoginMixin(PreLoginFlowMixin, PostLoginFlowMixin):
             return value.strip().lower() in {"1", "true", "yes"}
         return False
 
+    def _login_response_requires_recovery(self, data: Dict) -> bool:
+        values = [self._find_login_response_value(data, key) for key in ("message", "error_title", "error_body")]
+        text = " ".join(value.lower() for value in values if isinstance(value, str))
+        return any(
+            marker in text
+            for marker in (
+                "linked facebook account",
+                "forgotten password",
+                "forgot password",
+                "send you an email",
+                "get back into your account",
+            )
+        )
+
     def _normalize_backup_code(self, code: str) -> str:
         return re.sub(r"[\s-]+", "", str(code).strip())
 
@@ -531,6 +545,13 @@ class LoginMixin(PreLoginFlowMixin, PostLoginFlowMixin):
         if sms_enabled and not totp_enabled:
             return "sms"
         return "totp"
+
+    def _is_unavailable_caa_bloks_login_error(self, exc: ClientError) -> bool:
+        response = getattr(exc, "response", None)
+        status_code = getattr(response, "status_code", None) or getattr(exc, "code", None)
+        error_type = str(getattr(exc, "error_type", "") or "").casefold()
+        message = str(getattr(exc, "message", "") or exc).casefold()
+        return status_code == 404 or (error_type == "field_exception" and "payload returned is null" in message)
 
     def _login_with_bloks_two_factor(self, verification_code: str, login_json: Dict, exc: Exception) -> bool:
         context = self._extract_two_step_verification_context(login_json)
@@ -570,7 +591,23 @@ class LoginMixin(PreLoginFlowMixin, PostLoginFlowMixin):
         ) from exc
 
     def _login_with_caa_bloks_two_factor(self, verification_code: str, password: str, exc: Exception) -> bool:
-        caa_result = self.bloks_caa_login_send_request(password, login_attempt_count=1)
+        try:
+            caa_result = self.bloks_caa_login_send_request(password, login_attempt_count=1)
+        except ClientError as caa_exc:
+            if not self._is_unavailable_caa_bloks_login_error(caa_exc):
+                raise
+            login_json = deepcopy(self.last_json) if isinstance(self.last_json, dict) else {}
+            raise TwoFactorRequired(
+                "Instagram rejected the legacy login endpoint and the current "
+                "CAA/Bloks login endpoint is unavailable for this account/session. "
+                "Complete verification in the official Instagram app or web flow "
+                "on a trusted device, then retry with the same saved client "
+                "settings, device identifiers, and proxy/IP. If this persists, "
+                "capture a fresh CAA login flow because Instagram may require "
+                "additional Bloks preflight steps before send_login_request.",
+                response=getattr(caa_exc, "response", getattr(exc, "response", None)),
+                **self._exception_context(login_json),
+            ) from caa_exc
         context = self.bloks_extract_two_step_verification_context(caa_result)
         login_json = deepcopy(self.last_json) if isinstance(self.last_json, dict) else {}
         if not context:
@@ -777,6 +814,8 @@ class LoginMixin(PreLoginFlowMixin, PostLoginFlowMixin):
                     response=getattr(exc, "response", None),
                     **self._exception_context(login_json),
                 ) from exc
+            if not context and self._login_response_requires_recovery(login_json):
+                raise
             if context:
                 logged = self._login_with_bloks_two_factor(verification_code, login_json, exc)
             else:

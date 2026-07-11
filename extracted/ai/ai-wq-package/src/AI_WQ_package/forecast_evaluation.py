@@ -1,3 +1,6 @@
+# SPDX-FileCopyrightText: 2024 European Centre for Medium-Range Weather Forecasts (ECMWF)
+# SPDX-License-Identifier: Apache-2.0
+
 # python script that contains functions for working out RPSS score
 import numpy as np
 import xarray as xr
@@ -49,7 +52,17 @@ def calculate_global_mean(score):
     return score_mean
 
 def conditional_obs_probs(obs,quintile_bounds):
-    num_quantiles=quintile_bounds['quantile'].shape[0]
+    # allowing multiple quantile names due to terciles for TSs
+    valid_names = {"tercile", "quintile", "quantile"}
+
+    quantile_name = quintile_bounds.dims[0]
+
+    if quantile_name not in valid_names:
+        raise ValueError(
+            f"Expected dimension one of {valid_names}, got '{quantile_name}'"
+        )
+
+    num_quantiles=quintile_bounds[quantile_name].shape[0]
 
     threshold_crit = []
 
@@ -65,7 +78,7 @@ def conditional_obs_probs(obs,quintile_bounds):
             # 2nd Apr '25 - bug fixed in light of quintiles possibly having same value (i.e. 0 mm for quintile 0.2 and 0.4).
             lower_bound = quintile_bounds.values[q-1]
             upper_bound = quintile_bounds.values[q]
-            
+
             in_range = (lower_bound <= obs) & (obs < upper_bound) # is the observation within the two bounds
 
             # check that lower bound is not the same as higher bound. If it is, do not count as within quintile bound.
@@ -76,29 +89,32 @@ def conditional_obs_probs(obs,quintile_bounds):
 
             threshold_crit.append(in_range_highest_bound)# both conditions must be true
 
-    all_crit = xr.concat(threshold_crit,dim='quintile')
-    all_crit = all_crit.assign_coords({'quintile': ('quintile',np.arange(num_quantiles+1))})
+    all_crit = xr.concat(threshold_crit,dim=quantile_name)
+    all_crit = all_crit.assign_coords({quantile_name: (quantile_name,np.arange(num_quantiles+1))})
 
     # 28th July 2025 change - when all quintiles equal the same value, i.e. 0 mm precipitation for all five quintiles, i.e. desert, mask out values with np.nan
-    all_equal = (quintile_bounds.min(dim='quantile') == quintile_bounds.max(dim='quantile'))
+    all_equal = (quintile_bounds.min(dim=quantile_name) == quintile_bounds.max(dim=quantile_name))
     all_crit = all_crit.where(~all_equal)
 
     return all_crit
 
-def calculate_RPS(fc_pbs,obs_pbs,variable,land_sea_mask,quantile_dim='quintile',lat_weighting=True,global_mean=True):
+def calculate_RPS(fc_pbs,obs_pbs,variable,land_sea_mask,lat_weighting=True,global_mean=True):
+    fc_q_name = get_quantile_dimname(fc_pbs)
+    obs_q_name = get_quantile_dimname(obs_pbs)
+    
     # cumulate across quantiles
-    fc_pbs_cumsum = fc_pbs.cumsum(dim=quantile_dim)
-    obs_pbs_cumsum = obs_pbs.cumsum(dim=quantile_dim)
+    fc_pbs_cumsum = fc_pbs.cumsum(dim=fc_q_name)
+    obs_pbs_cumsum = obs_pbs.cumsum(dim=obs_q_name)
     
     # RPS score for forecast
     # work out squared value of cumulative difference
     cum_pbs_diff = fc_pbs_cumsum.copy()
     cum_pbs_diff.values = ((fc_pbs_cumsum.values-obs_pbs_cumsum.values)**2.0) # square the cumulative difference between forecast prob and obs prob. Call the actual data within the xarray.
-    RPS_score = cum_pbs_diff.sum(dim=quantile_dim,skipna=True)
+    RPS_score = cum_pbs_diff.sum(dim=fc_q_name,skipna=True)
 
     # 28th July 2025 edit. mask where nan_quintile mask= True, i.e. where in obs_pbs, zero rainfall
     # create mask where obs_pbs == np.nan (i.e. in deserts, set in conditional obs probs function). only np.nans will exist in precip.
-    nan_quintile_mask = obs_pbs.isnull().all(dim=quantile_dim)
+    nan_quintile_mask = obs_pbs.isnull().all(dim=obs_q_name)
     RPS_score = RPS_score.where(~nan_quintile_mask)
 
     # apply a land sea mask
@@ -115,10 +131,29 @@ def calculate_RPS(fc_pbs,obs_pbs,variable,land_sea_mask,quantile_dim='quintile',
     print (RPS_score.values)
     return RPS_score
 
-def work_out_RPSS(fc_pbs,obs_pbs,variable,land_sea_mask,quantile_dim='quintile'):
+def get_quantile_dimname(da):
     # make both dataarray have same attribute sizes
-    fc_pbs = fc_pbs.chunk({'quintile':5,'latitude':10,'longitude':10})
-    obs_pbs = obs_pbs.chunk({'quintile':5,'latitude':10,'longitude':10})
+    if "quintile" in da.dims:
+        qdim = "quintile"
+    elif "quantile" in da.dims:
+        qdim = "quantile"
+    elif "tercile" in da.dims:
+        qdim = "tercile"
+    else:
+        raise ValueError(
+            f"Could not find quintile/quantile dimension. "
+            f"Available dimensions: {da.dims}"
+        )
+    return qdim
+
+def work_out_RPSS(fc_pbs,obs_pbs,variable,land_sea_mask):
+    # find quintile name
+    fc_q_name = get_quantile_dimname(fc_pbs)
+    obs_q_name = get_quantile_dimname(obs_pbs)
+
+    # make both dataarray have same attribute sizes
+    fc_pbs = fc_pbs.chunk({fc_q_name:5,'latitude':10,'longitude':10})
+    obs_pbs = obs_pbs.chunk({obs_q_name:5,'latitude':10,'longitude':10})
 
     num_quants = fc_pbs.shape[0]
 
@@ -136,3 +171,46 @@ def work_out_RPSS(fc_pbs,obs_pbs,variable,land_sea_mask,quantile_dim='quintile')
     print (RPSS_wrt_clim.values)
     
     return RPSS_wrt_clim
+
+def calculate_RPS_TS(fc_pbs,obs_pbs):
+    # find quantile name
+    fc_q_name = get_quantile_dimname(fc_pbs)
+    obs_q_name = get_quantile_dimname(obs_pbs)
+
+    # cumulate across quantiles
+    fc_pbs_cumsum = fc_pbs.cumsum(dim=fc_q_name)
+    obs_pbs_cumsum = obs_pbs.cumsum(dim=obs_q_name)
+
+    # RPS score for forecast
+    # work out squared value of cumulative difference
+    cum_pbs_diff = fc_pbs_cumsum.copy()
+    cum_pbs_diff.values = ((fc_pbs_cumsum.values-obs_pbs_cumsum.values)**2.0) # square the cumulative difference between forecast prob and obs prob. Call the actual data within the xarray.
+    RPS_score = cum_pbs_diff.sum(dim=fc_q_name,skipna=True)
+
+    nan_quantile_mask = obs_pbs.isnull().all(dim=obs_q_name)
+    RPS_score = RPS_score.where(~nan_quantile_mask)
+
+    return RPS_score
+
+def calculate_RPSS_TS(fc_pbs,obs_pbs):
+    num_quants = fc_pbs.shape[0]
+
+    # RPS score for forecast
+    print ('RPS for submitted forecast')
+    RPS_score_fc = calculate_RPS_TS(fc_pbs,obs_pbs)
+
+    # create an xarray filled with climatological probs (i.e. 0.2).
+    clim_pbs = obs_pbs.where(False,1.0/num_quants)
+    print ('RPS for climatology')
+    RPS_score_clim = calculate_RPS_TS(clim_pbs,obs_pbs)
+
+    print ('RPSS with respect to climatology')
+    RPSS_wrt_clim = 1-(RPS_score_fc/RPS_score_clim)
+    print (RPSS_wrt_clim.values)
+
+    return RPSS_wrt_clim
+
+def calculate_MJO_brier_score(fc_pbs,obs_pbs):
+    return ((fc_pbs-obs_pbs)**2.0).mean('MJO_phase')
+
+

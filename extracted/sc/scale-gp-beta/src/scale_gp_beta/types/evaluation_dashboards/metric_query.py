@@ -32,3 +32,12 @@ class MetricQuery(BaseModel):
 
     filter: Optional[Filter] = None
     """Filter conditions (WHERE clause)"""
+
+    latest_only: Optional[bool] = None
+    """
+    When True, the widget computes against rows from only the most recent active
+    evaluation in the group (by EvaluationORM.created_at). Only applicable for
+    evaluation group dashboards. Composes with evaluation_ids (latest within the
+    subset). Cannot be combined with per-aggregation evaluation_ids; the use case
+    enforces these rules.
+    """

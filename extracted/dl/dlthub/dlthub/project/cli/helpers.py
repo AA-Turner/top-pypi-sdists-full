@@ -7,8 +7,6 @@ from dlt.common.utils import update_dict_nested
 
 import argparse
 
-from ruamel.yaml import YAML
-
 from dlt.common.destination.reference import DestinationReference
 from dlt.extract.reference import SourceReference
 from dlt.extract.exceptions import UnknownSourceReference
@@ -107,6 +105,7 @@ def project_from_args_with_cli_output(
 
 def read_project_yaml(project_run_context: ProjectRunContext) -> Any:
     """Read the project yaml file."""
+    from ruamel.yaml import YAML  # type: ignore
 
     yaml = YAML()
     project_yaml_path = os.path.join(project_run_context.run_dir, DEFAULT_PROJECT_CONFIG_FILE)
@@ -116,6 +115,7 @@ def read_project_yaml(project_run_context: ProjectRunContext) -> Any:
 
 def write_project_yaml(project_dir: str, project_yaml: Any) -> None:
     """Write the project yaml file."""
+    from ruamel.yaml import YAML
 
     yaml = YAML()
     yaml.indent(mapping=2, sequence=4, offset=2)
@@ -152,6 +152,7 @@ def init_project(
         Tuple[ProjectRunContext, ProjectState]: The project run context and a project_state, holding
             all changes that the project-creation entails.
     """
+    from ruamel.yaml import YAML
 
     yaml = YAML()
 

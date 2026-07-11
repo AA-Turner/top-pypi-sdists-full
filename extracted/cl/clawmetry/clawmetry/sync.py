@@ -1181,8 +1181,8 @@ def _sync_auto_update_with_plan(tier: str | None) -> None:
             _succ({"auto_update": True})
             log.info(
                 "auto-update enabled for entitled plan (%s) — this node will keep "
-                "itself current (48h stability window). Opt out any time with "
-                "CLAWMETRY_AUTO_UPDATE=0.", tier,
+                "itself current within minutes of each release. Opt out any time "
+                "with CLAWMETRY_AUTO_UPDATE=0.", tier,
             )
     except Exception as exc:
         log.debug("auto-update plan sync skipped: %s", exc)
@@ -7806,6 +7806,42 @@ def _build_brain_events() -> list:
     return _rows_to_brain_events(picked)[:BRAIN_CACHE_LIMIT]
 
 
+# Hard ceiling for one windowed brain relay answer. Bounds the encrypted
+# blob the daemon POSTs back to /ingest/cache (each event is size-capped by
+# _cap_brain_event_size, so 500 events stays low-single-digit MB).
+BRAIN_WINDOW_LIMIT = 500
+
+
+def _build_brain_events_window(since=None, until=None, limit=BRAIN_WINDOW_LIMIT) -> list:
+    """Windowed variant of ``_build_brain_events`` for the date-time range
+    investigation feature ("what happened at 3AM"). No per-session fairness:
+    inside an explicit window the user wants the actual chronology, newest
+    first, bounded by ``limit``. Same renderable filter + translation as the
+    live blob so the cloud browser's ``transformEvents`` handles both
+    identically. Returns ``[]`` on any failure.
+    """
+    try:
+        from clawmetry import local_store
+    except Exception:
+        return []
+    try:
+        lim = max(1, min(int(limit or BRAIN_WINDOW_LIMIT), BRAIN_WINDOW_LIMIT))
+    except (TypeError, ValueError):
+        lim = BRAIN_WINDOW_LIMIT
+    qkwargs = {"limit": lim * 2, "exclude_daemon": True}
+    if since:
+        qkwargs["since"] = str(since)
+    if until:
+        qkwargs["until"] = str(until)
+    try:
+        store = local_store.get_store(read_only=True)
+        rows = store.query_events(**qkwargs)
+    except Exception:
+        return []
+    rows = [r for r in rows if _brain_row_renderable(r)][:lim]
+    return _rows_to_brain_events(rows)[:lim]
+
+
 def _build_brain_cache_pushes(config: dict) -> list:
     """Return the heartbeat `cache_pushes` array — currently a single entry
     holding the encrypted top-50 brain events for this node.
@@ -9568,13 +9604,32 @@ def _dispatch_pending_queries(config: dict, pending: list) -> None:
             # shape provides directly.
             if shape == "events" and isinstance(cache_key, str) \
                     and cache_key.startswith("brain:"):
-                events = _build_brain_events()
-                payload = {
-                    "events":  events,
-                    "count":   len(events),
-                    "_source": "local_store",
-                    "_shape":  "brain_history",
-                }
+                # Date-time range investigation: when the cloud's enqueue
+                # carries a window (since/until), answer with the ACTUAL
+                # chronology for that window instead of the fair top-50 —
+                # the window args used to be silently discarded here, so a
+                # "what happened at 3AM" query got "the newest 50" back.
+                w_since = args.get("since")
+                w_until = args.get("until")
+                if w_since or w_until:
+                    events = _build_brain_events_window(
+                        since=w_since, until=w_until, limit=args.get("limit")
+                    )
+                    payload = {
+                        "events":  events,
+                        "count":   len(events),
+                        "_source": "local_store",
+                        "_shape":  "brain_history",
+                        "window":  {"since": w_since, "until": w_until},
+                    }
+                else:
+                    events = _build_brain_events()
+                    payload = {
+                        "events":  events,
+                        "count":   len(events),
+                        "_source": "local_store",
+                        "_shape":  "brain_history",
+                    }
             else:
                 payload = _local_dispatch(shape, args)
             blob = encrypt_payload(payload, enc_key)
@@ -17597,18 +17652,21 @@ def run_daemon() -> None:
     except Exception as _e:
         log.warning(f"pro-entitlement watcher failed to start: {_e}")
 
-    # ── Opt-in auto-update worker ────────────────────────────────────────
-    # routes/update_check.py runs a background checker that self-updates ONLY
-    # when the `auto_update` config is on (default OFF → no behaviour change
-    # for anyone who hasn't opted in), via the same vetted pip+restart path as
-    # the manual "Update now". It was started only in the DASHBOARD process —
-    # but a headless / cloud-synced node runs only this daemon, so auto-update
-    # never fired where it's most needed. Start it here too (idempotent: the
-    # module guards against a double-started thread). Never blocks/raises.
+    # ── Auto-update worker (default ON for this daemon) ─────────────────
+    # routes/update_check.py self-updates via the same vetted pip+restart
+    # path as the manual "Update now". role="daemon" is LOAD-BEARING: the
+    # default-on policy only acts in the daemon role. This call site started
+    # the thread with no role for months, so every node whose plan sync
+    # never explicitly wrote auto_update (free / local-only installs) NEVER
+    # self-updated — the 2026-07-10 "my node is days stale" root cause. The
+    # daemon role also enables the fast check loop (every ~60s; we ship 20+
+    # releases a day) and the unsupervised re-exec restart. Never
+    # blocks/raises.
     try:
         from routes.update_check import start_update_check_thread as _start_uc
-        _start_uc()
-        log.info("update-check thread started (auto-update honours the opt-in flag)")
+        _start_uc(role="daemon")
+        log.info("update-check thread started (daemon role: default-on "
+                 "auto-update, fast check loop)")
     except Exception as _e:
         log.warning(f"update-check thread failed to start: {_e}")
 

@@ -31,11 +31,26 @@ impl Display for CompileError<'_> {
     use CompileErrorKind::*;
 
     match &*self.kind {
+      ArgAttributeMinExceedsMax { min, max } => {
+        write!(f, "argument attribute `min` `{min}` exceeds `max` `{max}`")
+      }
+      ArgAttributeRequiresMultipleOrVariadic { key } => {
+        write!(
+          f,
+          "argument attribute `{key}` only valid with `multiple` or a variadic parameter"
+        )
+      }
       ArgAttributeRequiresOption { key } => {
         write!(
           f,
           "argument attribute `{key}` only valid with `long` or `short`"
         )
+      }
+      ArgumentCountParse { key, value, source } => {
+        write!(f, "invalid `{key}` value `{value}`: {source}")
+      }
+      ArgumentCountValue { key, value } => {
+        write!(f, "invalid `{key}` value `{value}`")
       }
       ArgumentPatternRegex { .. } => {
         write!(f, "failed to parse argument pattern")
@@ -159,6 +174,9 @@ impl Display for CompileError<'_> {
       DuplicateUnexport { variable } => {
         write!(f, "variable `{variable}` is unexported multiple times")
       }
+      EscapeEndOfFile => {
+        write!(f, "expected escape sequence but found end-of-file")
+      }
       ExitMessageAndNoExitMessageAttribute { recipe } => write!(
         f,
         "recipe `{recipe}` has both `[exit-message]` and `[no-exit-message]` attributes"
@@ -181,6 +199,12 @@ impl Display for CompileError<'_> {
       ExtraLeadingWhitespace => write!(f, "recipe line has extra leading whitespace"),
       ExtraneousAttributes { count } => {
         write!(f, "extraneous {}", Count::unnumbered("attribute", count))
+      }
+      FlagAndPatternArgAttribute { parameter } => {
+        write!(
+          f,
+          "argument `{parameter}` may not have both `flag` and `pattern` attributes"
+        )
       }
       FlagAndValueArgAttribute { parameter } => {
         write!(
@@ -210,10 +234,6 @@ impl Display for CompileError<'_> {
       GuardAndInfallibleSigil => write!(
         f,
         "the guard `?` and infallible `-` sigils may not be used together"
-      ),
-      Include => write!(
-        f,
-        "the `!include` directive has been stabilized as `import`"
       ),
       IncompatibleSettings {
         first,
@@ -263,6 +283,9 @@ impl Display for CompileError<'_> {
         "shell recipe `{recipe}` has script recipe attribute `{}`",
         attribute.name(),
       ),
+      InvalidIndentation { message } => {
+        write!(f, "{message}")
+      }
       InvalidMinimumVersion { source, version } => {
         write!(
           f,
@@ -290,12 +313,6 @@ impl Display for CompileError<'_> {
         f,
         "justfile requires just {minimum} or later, but using {current}",
       ),
-      MinimumVersionExpression => {
-        write!(
-          f,
-          "`minimum-version` setting must be a plain string literal"
-        )
-      }
       MismatchedClosingDelimiter {
         open,
         open_line,
@@ -357,6 +374,9 @@ impl Display for CompileError<'_> {
         f,
         "recipe `{recipe}` has both `[script]` and `[shell]` attributes"
       ),
+      SettingExpression { setting } => {
+        write!(f, "`{setting}` setting must be a plain string literal")
+      }
       ShellExpansion { err } => write!(f, "shell expansion failed: {err}"),
       ShortOptionWithMultipleCharacters { parameter } => {
         write!(

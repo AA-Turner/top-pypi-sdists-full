@@ -22,7 +22,7 @@ short_description: Manage replication connections between two FlashBlades
 description:
 - Manage replication connections to specified remote FlashBlade system
 author:
-- Pure Storage Ansible Team (@sdodsley) <pure-ansible-team@purestorage.com>
+- Everpure Ansible Team (@sdodsley) <pure-ansible-team@purestorage.com>
 options:
   state:
     description:
@@ -139,22 +139,16 @@ from ansible_collections.purestorage.flashblade.plugins.module_utils.purefb impo
     get_system,
     purefb_argument_spec,
 )
-
+from ansible_collections.purestorage.flashblade.plugins.module_utils.time_utils import (
+    time_to_milliseconds,
+)
+from ansible_collections.purestorage.flashblade.plugins.module_utils.common import (
+    get_error_message,
+)
 
 CONTEXT_API_VERSION = "2.17"
 FAN_IN_MAXIMUM = 5
 FAN_OUT_MAXIMUM = 5
-
-
-def _convert_to_millisecs(hour_str: str) -> int:
-    """Convert a 12-hour formatted time string (e.g., '02AM', '12PM') to milliseconds since midnight."""
-    time_part = int(hour_str[:-2])
-    period = hour_str[-2:]
-
-    if period == "AM":
-        return 0 if time_part == 12 else time_part * 3600000
-    # PM
-    return 12 * 3600000 if time_part == 12 else (time_part + 12) * 3600000
 
 
 def _check_connected(module, blade):
@@ -165,8 +159,8 @@ def _check_connected(module, blade):
         )
     else:
         connected_blades = list(blade.get_array_connections().items)
-    for target in range(len(connected_blades)):
-        if connected_blades[target].management_address is None:
+    for target in connected_blades:
+        if target.management_address is None:
             remote_system = Client(
                 target=module.params["target_url"],
                 api_token=module.params["target_api"],
@@ -179,16 +173,16 @@ def _check_connected(module, blade):
                     )
                 )
             remote_array = list(res.items)[0].name
-            if connected_blades[target].remote.name == remote_array:
-                return connected_blades[target]
-        if connected_blades[target].management_address == module.params[
+            if target.remote.name == remote_array:
+                return target
+        if target.management_address == module.params[
             "target_url"
-        ] and connected_blades[target].status in [
+        ] and target.status in [
             "connected",
             "connecting",
             "partially_connected",
         ]:
-            return connected_blades[target]
+            return target
     return None
 
 
@@ -219,7 +213,7 @@ def break_connection(module, blade, target_blade):
         if res.status_code != 200:
             module.fail_json(
                 msg="Failed to disconnect {0} from {1}. Error: {2}".format(
-                    target_blade.remote.name, source_blade, res.errors[0].message
+                    target_blade.remote.name, source_blade, get_error_message(res)
                 )
             )
     module.exit_json(changed=changed)
@@ -268,8 +262,8 @@ def create_connection(module, blade):
             if not module.params["window_end"]:
                 module.params["window_end"] = "12AM"
             window = TimeWindow(
-                start=_convert_to_millisecs(module.params["window_start"]),
-                end=_convert_to_millisecs(module.params["window_end"]),
+                start=time_to_milliseconds(module.params["window_start"]),
+                end=time_to_milliseconds(module.params["window_end"]),
             )
         if module.params["window_limit"] and module.params["default_limit"]:
             throttle = Throttle(
@@ -311,7 +305,7 @@ def create_connection(module, blade):
         if res.status_code != 200:
             module.fail_json(
                 msg="Failed to connect to remote array {0}. Error: {1}".format(
-                    remote_array, res.errors[0].message
+                    remote_array, get_error_message(res)
                 )
             )
     module.exit_json(changed=changed)
@@ -387,11 +381,11 @@ def update_connection(module, blade):
     else:
         window_limit = remote_connection.throttle.window_limit
     if module.params["window_start"]:
-        start = _convert_to_millisecs(module.params["window_start"])
+        start = time_to_milliseconds(module.params["window_start"])
     else:
         start = remote_connection.throttle.window.start
     if module.params["window_end"]:
-        end = _convert_to_millisecs(module.params["window_end"])
+        end = time_to_milliseconds(module.params["window_end"])
     else:
         end = remote_connection.throttle.window.end
 
@@ -436,7 +430,7 @@ def update_connection(module, blade):
             if res.status_code != 200:
                 module.fail_json(
                     msg="Failed to update connection to remote array {0}. Error: {1}".format(
-                        remote_name, res.errors[0].message
+                        remote_name, get_error_message(res)
                     )
                 )
     module.exit_json(changed=changed)

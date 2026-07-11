@@ -265,6 +265,8 @@ class Attribute(IntEnum):
     """Object can be modified (:class:`bool`)."""
     COPYABLE = 0x00000171
     """Object can be copied (:class:`bool`)."""
+    DESTROYABLE = 0x00000172
+    """Object can be destroyed (:class:`bool`)."""
 
     EC_PARAMS = 0x00000180
     """
@@ -343,6 +345,9 @@ class Attribute(IntEnum):
     DEFAULT_CMS_ATTRIBUTES = 0x00000502
     SUPPORTED_CMS_ATTRIBUTES = 0x00000503
     ALLOWED_MECHANISMS = _ARRAY_ATTRIBUTE | 0x00000600
+
+    PARAMETER_SET = 0x0000061D
+    SEED = 0x00000637
 
     _VENDOR_DEFINED = 0x80000000
 

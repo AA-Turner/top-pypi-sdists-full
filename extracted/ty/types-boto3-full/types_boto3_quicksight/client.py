@@ -113,6 +113,8 @@ from .type_defs import (
     CreateIAMPolicyAssignmentResponseTypeDef,
     CreateIngestionRequestTypeDef,
     CreateIngestionResponseTypeDef,
+    CreateKnowledgeBaseRequestTypeDef,
+    CreateKnowledgeBaseResponseTypeDef,
     CreateNamespaceRequestTypeDef,
     CreateNamespaceResponseTypeDef,
     CreateOAuthClientApplicationRequestTypeDef,
@@ -557,6 +559,8 @@ from .type_defs import (
     UpdateKeyRegistrationResponseTypeDef,
     UpdateKnowledgeBasePermissionsRequestTypeDef,
     UpdateKnowledgeBasePermissionsResponseTypeDef,
+    UpdateKnowledgeBaseRequestTypeDef,
+    UpdateKnowledgeBaseResponseTypeDef,
     UpdateOAuthClientApplicationRequestTypeDef,
     UpdateOAuthClientApplicationResponseTypeDef,
     UpdatePublicSharingSettingsRequestTypeDef,
@@ -887,6 +891,16 @@ class QuickSightClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/quicksight/client/create_ingestion.html)
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_quicksight/client/#create_ingestion)
+        """
+
+    def create_knowledge_base(
+        self, **kwargs: Unpack[CreateKnowledgeBaseRequestTypeDef]
+    ) -> CreateKnowledgeBaseResponseTypeDef:
+        """
+        Creates a knowledge base from a specified data source.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/quicksight/client/create_knowledge_base.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_quicksight/client/#create_knowledge_base)
         """
 
     def create_namespace(
@@ -3123,6 +3137,16 @@ class QuickSightClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/quicksight/client/update_key_registration.html)
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_quicksight/client/#update_key_registration)
+        """
+
+    def update_knowledge_base(
+        self, **kwargs: Unpack[UpdateKnowledgeBaseRequestTypeDef]
+    ) -> UpdateKnowledgeBaseResponseTypeDef:
+        """
+        Updates the properties of an existing knowledge base.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/quicksight/client/update_knowledge_base.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_quicksight/client/#update_knowledge_base)
         """
 
     def update_knowledge_base_permissions(

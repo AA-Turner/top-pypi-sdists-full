@@ -7712,7 +7712,7 @@ class PolicyViolationJson:
         '''A single policy violation found by a validation plugin.
 
         :param description: A description of the violation.
-        :param rule_name: The name of the rule that was violated.
+        :param rule_name: The name of the rule that was violated. This may include a namespace: ``'<namespace>::<rule-name>'``. If it does not, the plugin name will be used as the namespace. The namespace must be included when acknowledging the violation.
         :param severity: The severity of the violation.
         :param violating_constructs: Constructs that violated the rule.
         :param custom_severity: If the plugin wants to report using a non-standard severity, put it here.
@@ -7763,7 +7763,13 @@ class PolicyViolationJson:
 
     @builtins.property
     def rule_name(self) -> builtins.str:
-        '''The name of the rule that was violated.'''
+        '''The name of the rule that was violated.
+
+        This may include a namespace: ``'<namespace>::<rule-name>'``. If it does not,
+        the plugin name will be used as the namespace.
+
+        The namespace must be included when acknowledging the violation.
+        '''
         result = self._values.get("rule_name")
         assert result is not None, "Required property 'rule_name' is missing"
         return typing.cast(builtins.str, result)
@@ -8307,7 +8313,7 @@ class SuppressedViolationJson(PolicyViolationJson):
         '''A violation that was acknowledged/suppressed and excluded from the active violation set.
 
         :param description: A description of the violation.
-        :param rule_name: The name of the rule that was violated.
+        :param rule_name: The name of the rule that was violated. This may include a namespace: ``'<namespace>::<rule-name>'``. If it does not, the plugin name will be used as the namespace. The namespace must be included when acknowledging the violation.
         :param severity: The severity of the violation.
         :param violating_constructs: Constructs that violated the rule.
         :param custom_severity: If the plugin wants to report using a non-standard severity, put it here.
@@ -8374,7 +8380,13 @@ class SuppressedViolationJson(PolicyViolationJson):
 
     @builtins.property
     def rule_name(self) -> builtins.str:
-        '''The name of the rule that was violated.'''
+        '''The name of the rule that was violated.
+
+        This may include a namespace: ``'<namespace>::<rule-name>'``. If it does not,
+        the plugin name will be used as the namespace.
+
+        The namespace must be included when acknowledging the violation.
+        '''
         result = self._values.get("rule_name")
         assert result is not None, "Required property 'rule_name' is missing"
         return typing.cast(builtins.str, result)

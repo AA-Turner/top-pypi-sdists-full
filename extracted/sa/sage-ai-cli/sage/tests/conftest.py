@@ -122,6 +122,7 @@ def real_backend_server():
     os.environ["SAGE_API_BASE"] = f"http://127.0.0.1:{port}"
     os.environ["SAGE_WEB_URL"] = f"http://127.0.0.1:{port}"
     os.environ["SAGE_TESTING"] = "1"
+    os.environ["SAGE_DISABLE_LLM_MOCK"] = "1"
     os.environ["SAGE_DEFAULT_MODEL"] = "cloud:qwen3-coder"
     
     # Start uvicorn
@@ -131,6 +132,15 @@ def real_backend_server():
         env=os.environ,
         stdout=open("backend_test.log", "a"),
         stderr=subprocess.STDOUT
+    )
+    
+    # Start native_call_handler daemon natively alongside tests
+    ft_proc = subprocess.Popen(
+        [sys.executable, "native_call_handler.py"],
+        cwd=str(_PROJECT_ROOT),
+        env=os.environ,
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL
     )
     
     # Wait for ready
@@ -148,4 +158,10 @@ def real_backend_server():
     except subprocess.TimeoutExpired:
         proc.kill()
         proc.wait()
+    try:
+        ft_proc.terminate()
+        ft_proc.wait(timeout=3)
+    except subprocess.TimeoutExpired:
+        ft_proc.kill()
+        ft_proc.wait()
 

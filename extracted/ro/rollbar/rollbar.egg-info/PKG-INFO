@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: rollbar
-Version: 1.3.0
+Version: 1.4.0
 Summary: Easy and powerful exception tracking with Rollbar. Send messages and exceptions with arbitrary context, get back aggregates, and debug production issues quickly.
 Maintainer-email: "Rollbar, Inc." <support@rollbar.com>
 License: Copyright (c) 2014 Rollbar, Inc.
@@ -17,13 +17,11 @@ Project-URL: Changes, https://github.com/rollbar/pyrollbar/blob/master/CHANGELOG
 Project-URL: Source, https://github.com/rollbar/pyrollbar/
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.7
-Classifier: Programming Language :: Python :: 3.8
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Programming Language :: Python :: 3 :: Only
 Classifier: License :: OSI Approved :: MIT License
 Classifier: Operating System :: OS Independent
@@ -44,10 +42,11 @@ Classifier: Topic :: Software Development :: Testing
 Classifier: Topic :: Software Development :: Quality Assurance
 Classifier: Topic :: System :: Logging
 Classifier: Topic :: System :: Monitoring
-Requires-Python: >=3.7
+Requires-Python: >=3.10
 Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: requests>=0.12.1
+Requires-Dist: typing_extensions; python_version < "3.11"
 Dynamic: license-file
 
 <p align="center">
@@ -61,7 +60,7 @@ Dynamic: license-file
 </p>
 
 
-![Build Status](https://github.com/rollbar/pyrollbar/workflows/Pyrollbar%20CI/badge.svg?tag=latest)
+[![Build Status](https://github.com/rollbar/pyrollbar/workflows/Pyrollbar%20CI/badge.svg?tag=latest)](https://github.com/rollbar/pyrollbar/actions)
 ![PyPI - Python Version](https://img.shields.io/pypi/pyversions/rollbar)
 
 Python notifier for reporting exceptions, errors, and log messages to [Rollbar](https://rollbar.com).
@@ -76,7 +75,7 @@ Python notifier for reporting exceptions, errors, and log messages to [Rollbar](
 
 | PyRollbar Version | Python Version Compatibility                  | Support Level       |
 |-------------------|-----------------------------------------------|---------------------|
-| 1.3.0             | 3.7. 3.8, 3.9, 3.10, 3.11, 3.12, 3.13         | Full                |
+| 1.4.0             | 3.10, 3.11, 3.12, 3.13, 3.14                  | Full                |
 | 0.16.3            | 2.7, 3.4, 3.5, 3.6, 3.7. 3.8, 3.9, 3.10, 3.11 | Security Fixes Only |
 
 #### Support Level Definitions
@@ -92,9 +91,9 @@ Generally, PyRollbar can be used with any Python framework. However, we have off
 | Framework | Support Duration           | Tested Versions |
 |-----------|----------------------------|-----------------|
 | Celery    | Release +1 year            | None            |
-| Django    | Release or LTS end +1 year | 4.2, 5.1        |
-| FastAPI   | Release +1 year            | 0.110, 0.115    |
-| Flask     | Release +1 year            | 1.1, 2.3, 3.1   |
+| Django    | Release or LTS end +1 year | 4.2, 5.2        |
+| FastAPI   | Release +1 year            | 0.115, 0.118    |
+| Flask     | Release +1 year            | 2.3, 3.1        |
 | Pyramid   | Release +1 year            | 1.10, 2.0       |
 
 Official support means that we ship and maintain integrations for these frameworks. It also means that we test against these frameworks as part of our CI pipeline.
@@ -133,4 +132,7 @@ For bug reports, please [open an issue on GitHub](https://github.com/rollbar/pyr
 4. Push to the branch (```git push origin my-new-feature```)
 5. Create new Pull Request
 
-Tests are in `rollbar/test`. To run the tests: `python setup.py test`
+Tests are in `rollbar/test`. To run them:
+
+    pip install -e . --group test
+    pytest

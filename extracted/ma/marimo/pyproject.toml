@@ -4,7 +4,7 @@ build-backend = "uv_build"
 
 [project]
 name = "marimo"
-version = "0.23.13"
+version = "0.23.14"
 description = "A library for making reactive notebooks and apps"
 # We try to keep dependencies to a minimum, to avoid conflicts with
 # user environments; we need a very compelling reason for each dependency added.
@@ -102,6 +102,7 @@ sandbox = [
 recommended = [
     "marimo[sql]",
     "marimo[sandbox]",                           # For `marimo edit --sandbox DIRECTORY`
+    "cryptography>=42.0.0",                      # Ed25519 signing of persistent cache manifests
     "altair>=5.4.0",                             # Plotting in datasource viewer
     "pydantic-ai-slim[openai]>=1.107.0,<3.0.0",  # AI features
     "ruff",                                      # Formatting
@@ -314,7 +315,7 @@ exclude = [
     "frontend",
     "marimo/_smoke_tests",
     "marimo/_snippets/data",
-    "marimo/_static/files/wasm-intro.py",
+    "marimo/_static/export_demos/wasm-intro.py",
     "marimo/_test_utils/_tutorials",
     "marimo/_test_utils/codegen_data",
     "marimo/_tutorials",

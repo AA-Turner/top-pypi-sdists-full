@@ -281,7 +281,7 @@ def run_producers(
     outcomes: list[ProducerOutcome] = []
     for producer in producers:
         exit_code, output = runner(producer)
-        outcomes.append(ProducerOutcome(producer=producer, exit_code=int(exit_code), output=bytes(output)))
+        outcomes.append(ProducerOutcome(producer=producer, exit_code=exit_code, output=output))
     return tuple(outcomes)
 
 
@@ -319,7 +319,7 @@ class EvidenceStore:
     def __init__(self, root: Path, *, max_blob_bytes: int = DEFAULT_MAX_BLOB_BYTES) -> None:
         # ``root`` is the ``.sdd/evidence`` directory.
         self._root = Path(root)
-        self._max_blob_bytes = max(1, int(max_blob_bytes))
+        self._max_blob_bytes = max(1, max_blob_bytes)
 
     @property
     def blobs_dir(self) -> Path:
@@ -623,7 +623,9 @@ def _seal_media_credential(
         signed = sign_manifest(manifest, signing_key=priv)
         credential = store.put(_canonical_bytes(manifest_to_dict(signed)))
     except (ValueError, TypeError, KeyError, OSError) as exc:  # pragma: no cover - defensive
-        logger.debug("evidence: media credential projection skipped: %s", exc)
+        # Log only the exception type: this path handles a private key, so
+        # even sanitized exception text stays out of the log stream.
+        logger.debug("evidence: signed media projection skipped, exception type %s", type(exc).__name__)
         return ""
     else:
         return credential.content_hash

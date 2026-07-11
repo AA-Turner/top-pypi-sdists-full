@@ -1,6 +1,8 @@
+---
+
 - job:
-    name: cliff-tox-py312-neutronclient-tip
-    parent: openstack-tox-py312
+    name: cliff-tox-py313-neutronclient-tip
+    parent: openstack-tox-py313
     description: |
       Run unit tests for neutronclient with master branch of cliff
 
@@ -24,15 +26,15 @@
       - check-requirements
       - lib-forward-testing-python3
       - openstack-python3-jobs
+      - openstack-python3-next-jobs
       - publish-openstack-docs-pti
     check:
       jobs:
-        - openstack-tox-py312
-        - cliff-tox-py312-neutronclient-tip
-        - osc-tox-py312-tips:
+        - cliff-tox-py313-neutronclient-tip
+        - osc-tox-py313-tips:
             branches: ^master$
     gate:
       jobs:
-        - cliff-tox-py312-neutronclient-tip
-        - osc-tox-py312-tips:
+        - cliff-tox-py313-neutronclient-tip
+        - osc-tox-py313-tips:
             branches: ^master$

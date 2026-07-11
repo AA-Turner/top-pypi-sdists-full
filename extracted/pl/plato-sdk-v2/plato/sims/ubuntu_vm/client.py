@@ -234,6 +234,106 @@ def _windows_set_timezone_cmd(utc_offset: int) -> str:
     return f'tzutil /s "{_WINDOWS_TZID_BY_OFFSET[utc_offset]}"'
 
 
+# -- Windows (qemu) Chrome CDP launch helpers ---------------------------------
+#
+# Windows Chrome is launched directly over the agent's POST /bash endpoint
+# (PowerShell) instead of the agent's POST /browser/start (which schtasks-runs
+# the baked C:\plato\start-edge-cdp.cmd launcher). The baked launcher does not
+# pass --ignore-certificate-errors, and it can't be updated in already-baked
+# snapshots — see _windows_chrome_launch_cmd for why the flag is required.
+
+_WINDOWS_CHROME_EXE = r"C:\Program Files\Google\Chrome\Application\chrome.exe"
+_WINDOWS_CHROME_PROFILE_DIR = r"C:\plato\chrome-cdp-profile"
+
+# One-shot limited-token scheduled task the SDK registers on demand to launch
+# Chrome. Deliberately NOT the baked "PlatoChromeCDP" task: we must not
+# overwrite the baked task's action (its flags feed /browser/start), only
+# replicate its RunLevel Limited principal under our own name.
+_WINDOWS_CHROME_TASK_NAME = "PlatoChromeCDPDirect"
+
+# Sentinels printed by the probe so callers don't parse localized PS errors.
+_CDP_UP = "__CDP_UP__"
+_NO_CDP = "__NO_CDP__"
+
+_WINDOWS_CHROME_KILL_CMD = "Stop-Process -Name chrome -Force -ErrorAction SilentlyContinue; Start-Sleep -Seconds 2"
+
+
+def _windows_cdp_probe_cmd(internal_port: int) -> str:
+    """PowerShell probe of the loopback Chrome CDP port inside a Windows VM.
+
+    A raw ``TcpClient`` connect (not ``Test-NetConnection``, which is slow and
+    chatty) that prints ``__CDP_UP__`` / ``__NO_CDP__`` sentinels.
+    """
+    return (
+        f"try {{ $c = New-Object System.Net.Sockets.TcpClient('127.0.0.1', {internal_port}); "
+        f"$c.Close(); Write-Output '{_CDP_UP}' }} catch {{ Write-Output '{_NO_CDP}' }}"
+    )
+
+
+def _windows_chrome_launch_cmd(internal_port: int) -> str:
+    """PowerShell to launch Chrome with CDP on *internal_port* inside a Windows VM.
+
+    Mirrors the flags of the baked ``C:\\plato\\start-edge-cdp.cmd`` launcher,
+    plus two additions:
+
+    * ``--ignore-certificate-errors`` — Windows snapshots resume with a frozen
+      clock, and the sims proxy's (sims.plato.so) TLS cert rotates; once the
+      cert's notBefore postdates the frozen clock, every page load fails with
+      ``ERR_CERT_DATE_INVALID``. Certs rotate routinely so this can't be fixed
+      server-side, and Playwright's ``ignoreHTTPSErrors`` is opt-in, so the
+      flag must be on the browser process itself.
+    * ``--test-type`` — ``--ignore-certificate-errors`` is on Chromium's
+      bad-flags list, and without ``--test-type`` Chrome pins a persistent
+      "unsupported command-line flag" warning bubble over the window, which
+      shifts layout and contaminates pixel-driven screenshots/trajectories.
+      The ubuntu launch passes it for the same reason.
+
+    Chrome is started via a one-shot ``RunLevel Limited`` scheduled task, not
+    a bare ``Start-Process``: the desktop agent's uvicorn runs elevated
+    (``RunLevel Highest``), so a direct child would inherit the elevated
+    token. The baked ``PlatoChromeCDP`` task that ``/browser/start`` ran is
+    ``RunLevel Limited`` precisely so Chrome gets a normal desktop token
+    (UIPI interactions with non-elevated processes, file ownership of
+    downloads/profile artifacts, in-VM integrity-level checks all match the
+    snapshot-baked environment). This replicates that principal shape under a
+    separate task name so the baked task itself is left untouched.
+    ``ExecutionTimeLimit`` is 0 because the task action is chrome.exe itself
+    (no ``cmd /c start`` indirection like the baked launcher), so any finite
+    limit would have Task Scheduler kill Chrome mid-session.
+
+    Single quotes throughout: the command travels as a JSON string into
+    ``powershell.exe -NoProfile -NonInteractive -Command``, where embedded
+    double quotes would be stripped by argument parsing. (None of the flag
+    values contain spaces, so the -Argument string needs no inner quoting.)
+    """
+    flags = " ".join(
+        (
+            f"--remote-debugging-port={internal_port}",
+            "--remote-allow-origins=*",
+            f"--user-data-dir={_WINDOWS_CHROME_PROFILE_DIR}",
+            "--no-first-run",
+            "--no-default-browser-check",
+            "--disable-default-apps",
+            "--disable-popup-blocking",
+            "--disable-session-crashed-bubble",
+            "--hide-crash-restore-bubble",
+            "--ignore-certificate-errors",
+            "--test-type",
+            "--start-maximized",
+            "about:blank",
+        )
+    )
+    return (
+        f"$action = New-ScheduledTaskAction -Execute '{_WINDOWS_CHROME_EXE}' -Argument '{flags}'; "
+        "$principal = New-ScheduledTaskPrincipal -UserId $env:USERNAME -LogonType Interactive -RunLevel Limited; "
+        "$settings = New-ScheduledTaskSettingsSet -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries "
+        "-ExecutionTimeLimit (New-TimeSpan -Seconds 0) -MultipleInstances Parallel; "
+        f"Register-ScheduledTask -TaskName '{_WINDOWS_CHROME_TASK_NAME}' "
+        "-Action $action -Principal $principal -Settings $settings -Force | Out-Null; "
+        f"Start-ScheduledTask -TaskName '{_WINDOWS_CHROME_TASK_NAME}'"
+    )
+
+
 class Client:
     """Sync HTTP client for Desktop Agent API."""
 
@@ -401,6 +501,22 @@ class Client:
         self._ensure_init()
         return _bash_sync(self._client, body=body)
 
+    def _try_bash(self, command: str) -> ToolResult | None:
+        """Run *command* over /bash, returning ``None`` on any transport error.
+
+        The Windows ``ensure_chrome_cdp`` path must tolerate transient
+        failures — 502s from the sims proxy while the desktop agent's
+        post-logon scheduled task is still coming up on a cold boot, timeouts
+        mid-poll — the way the old ``/browser/start`` retry loop did. Callers
+        treat ``None`` as "agent not ready yet" and keep polling until their
+        deadline.
+        """
+        try:
+            return self.bash(BashRequest(command=command))
+        except Exception as exc:
+            logger.debug("bash call failed (tolerated, will retry): %s", exc)
+            return None
+
     def computer(self, body: ComputerRequest) -> ToolResult:
         """Execute computer actions (mouse, keyboard, screenshot)."""
         self._ensure_init()
@@ -465,31 +581,78 @@ class Client:
         port = self._resolve_cdp_port(port)
         if self._is_qemu():
             self._ensure_init()
-            # Windows has no google-chrome-stable / bash launch path, so Chrome
-            # is started via the agent's POST /browser/start (not present on
-            # ubuntu). Its readiness signal is running=True (its own server-side
-            # ~20s CDP wait). A cold start can miss that window; retry until it
-            # succeeds or we hit the overall timeout. Once up, CDP is reachable
-            # over the sims proxy on 9224 (nginx Host rewrite), same as ubuntu.
+            # Windows Chrome is launched directly over the agent's /bash
+            # endpoint (PowerShell) instead of POST /browser/start: the baked
+            # launcher /browser/start runs lacks --ignore-certificate-errors,
+            # which is required because snapshots resume with a frozen clock
+            # that predates the sims proxy's rotating TLS cert (notBefore),
+            # making every page load fail with ERR_CERT_DATE_INVALID (see
+            # _windows_chrome_launch_cmd). Structure mirrors the ubuntu branch
+            # below: probe the loopback CDP port, kill + relaunch Chrome if
+            # unresponsive, then poll until CDP answers. Once up, CDP is
+            # reachable over the sims proxy on 9224 (nginx Host rewrite),
+            # same as ubuntu. Every /bash call here is failure-tolerant
+            # (_try_bash): on a cold boot the agent's post-logon task may not
+            # be listening yet, so transient 502s/timeouts count as "not
+            # ready" and we keep retrying until the deadline — matching the
+            # old /browser/start retry loop.
             effective_timeout = max(timeout, 90)
+            internal_port = 9225 if port == 9224 else port
+            cdp_probe = _windows_cdp_probe_cmd(internal_port)
             deadline = time.monotonic() + effective_timeout
-            last_err: Any = None
-            while time.monotonic() < deadline:
+
+            check = self._try_bash(cdp_probe)
+            if check is None:
+                logger.debug("First bash call failed; warming up client via status()")
                 try:
-                    response = self._client.request("POST", "/browser/start")
-                    response.raise_for_status()
-                    payload = response.json()
-                    if payload.get("running"):
-                        logger.info("Windows Chrome CDP started on port %s", port)
-                        return self.get_cdp_url(port)
-                    last_err = payload.get("error") or payload
-                    logger.warning("Windows browser CDP not up yet, retrying: %s", last_err)
+                    self.status()
                 except Exception as exc:
-                    last_err = exc
-                    logger.warning("browser/start call failed, retrying: %s", exc)
-                time.sleep(3)
+                    logger.debug("status() warmup failed (tolerated): %s", exc)
+                check = self._try_bash(cdp_probe)
+            if check is not None and _CDP_UP in (check.output or ""):
+                logger.info("Windows Chrome CDP already responding on port %s", port)
+                return self.get_cdp_url(port)
+
+            # Quick poll — if the snapshot restored cleanly Chrome may just
+            # need a moment for the socket to come back.
+            logger.info("Waiting for Windows Chrome CDP on port %s ...", port)
+            for _ in range(5):
+                time.sleep(1)
+                probe = self._try_bash(cdp_probe)
+                if probe is not None and _CDP_UP in (probe.output or ""):
+                    logger.info("Windows Chrome CDP ready on port %s", port)
+                    return self.get_cdp_url(port)
+
+            # Snapshot restore likely left Chrome with dead sockets — restart.
+            # Kill + relaunch retry until the deadline too: the probes above
+            # failing may just mean the agent itself is still coming up.
+            logger.info("Windows Chrome CDP unresponsive; restarting Chrome")
+            launch_cmd = _windows_chrome_launch_cmd(internal_port)
+            launched = False
+            last_err = ""
+            while time.monotonic() < deadline:
+                kill = self._try_bash(_WINDOWS_CHROME_KILL_CMD)
+                launch = self._try_bash(launch_cmd) if kill is not None else None
+                if launch is not None and not launch.error:
+                    launched = True
+                    break
+                last_err = launch.error if launch is not None and launch.error else "agent unreachable"
+                time.sleep(2)
+            if not launched:
+                raise TimeoutError(
+                    f"Windows Chrome CDP not ready on port {port} after {effective_timeout}s: "
+                    f"could not restart Chrome ({last_err})"
+                )
+
+            while time.monotonic() < deadline:
+                time.sleep(2)
+                probe = self._try_bash(cdp_probe)
+                if probe is not None and _CDP_UP in (probe.output or ""):
+                    logger.info("Windows Chrome CDP ready on port %s after restart", port)
+                    return self.get_cdp_url(port)
+                last_err = (probe.output or "").strip() if probe is not None else "agent unreachable"
             raise TimeoutError(
-                f"Windows Chrome CDP not ready on port {port} after {effective_timeout}s. Last: {last_err}"
+                f"Windows Chrome CDP not ready on port {port} after {effective_timeout}s. Last probe: {last_err}"
             )
 
         cdp_probe = f"curl -sf --max-time 2 http://localhost:{port}/json/version 2>/dev/null || echo __NO_CDP__"
@@ -526,6 +689,9 @@ class Client:
                     f"--disable-features=PasswordManager,PasswordManagerOnboarding,PasswordLeakDetection "
                     f"--no-first-run --no-default-browser-check --disable-default-apps "
                     f"--disable-popup-blocking --disable-translate --disable-infobars "
+                    # Snapshots resume with a frozen clock that can predate the
+                    # sims proxy's rotating TLS cert -> ERR_CERT_DATE_INVALID.
+                    f"--ignore-certificate-errors "
                     f"--test-type --start-maximized --window-size=1280,720 "
                     f"--user-data-dir=/tmp/chrome-cdp-profile "
                     f"--remote-debugging-port={chrome_internal_port} "
@@ -1053,6 +1219,14 @@ class AsyncClient:
         await self._ensure_init()
         return await _bash_async(self._client, body=body)
 
+    async def _try_bash(self, command: str) -> ToolResult | None:
+        """Async version of :meth:`Client._try_bash` — ``None`` on transport error."""
+        try:
+            return await self.bash(BashRequest(command=command))
+        except Exception as exc:
+            logger.debug("bash call failed (tolerated, will retry): %s", exc)
+            return None
+
     async def computer(self, body: ComputerRequest) -> ToolResult:
         """Execute computer actions (mouse, keyboard, screenshot)."""
         await self._ensure_init()
@@ -1091,31 +1265,75 @@ class AsyncClient:
         port = self._resolve_cdp_port(port)
         if self._is_qemu():
             await self._ensure_init()
-            # Windows has no google-chrome-stable / bash launch path, so Chrome
-            # is started via the agent's POST /browser/start (not present on
-            # ubuntu). Its readiness signal is running=True (its own server-side
-            # ~20s CDP wait). A cold start can miss that window; retry until it
-            # succeeds or we hit the overall timeout. Once up, CDP is reachable
-            # over the sims proxy on 9224 (nginx Host rewrite), same as ubuntu.
+            # Windows Chrome is launched directly over the agent's /bash
+            # endpoint (PowerShell) instead of POST /browser/start: the baked
+            # launcher /browser/start runs lacks --ignore-certificate-errors,
+            # which is required because snapshots resume with a frozen clock
+            # that predates the sims proxy's rotating TLS cert (notBefore),
+            # making every page load fail with ERR_CERT_DATE_INVALID (see
+            # _windows_chrome_launch_cmd). Structure mirrors the ubuntu branch
+            # below: probe the loopback CDP port, kill + relaunch Chrome if
+            # unresponsive, then poll until CDP answers. Once up, CDP is
+            # reachable over the sims proxy on 9224 (nginx Host rewrite),
+            # same as ubuntu. Every /bash call here is failure-tolerant
+            # (_try_bash): on a cold boot the agent's post-logon task may not
+            # be listening yet, so transient 502s/timeouts count as "not
+            # ready" and we keep retrying until the deadline — matching the
+            # old /browser/start retry loop.
             effective_timeout = max(timeout, 90)
+            internal_port = 9225 if port == 9224 else port
+            cdp_probe = _windows_cdp_probe_cmd(internal_port)
             deadline = time.monotonic() + effective_timeout
-            last_err: Any = None
-            while time.monotonic() < deadline:
+
+            check = await self._try_bash(cdp_probe)
+            if check is None:
+                logger.debug("First bash call failed; warming up client via status()")
                 try:
-                    response = await self._client.request("POST", "/browser/start")
-                    response.raise_for_status()
-                    payload = response.json()
-                    if payload.get("running"):
-                        logger.info("Windows Chrome CDP started on port %s", port)
-                        return self.get_cdp_url(port)
-                    last_err = payload.get("error") or payload
-                    logger.warning("Windows browser CDP not up yet, retrying: %s", last_err)
+                    await self.status()
                 except Exception as exc:
-                    last_err = exc
-                    logger.warning("browser/start call failed, retrying: %s", exc)
-                await asyncio.sleep(3)
+                    logger.debug("status() warmup failed (tolerated): %s", exc)
+                check = await self._try_bash(cdp_probe)
+            if check is not None and _CDP_UP in (check.output or ""):
+                logger.info("Windows Chrome CDP already responding on port %s", port)
+                return self.get_cdp_url(port)
+
+            logger.info("Waiting for Windows Chrome CDP on port %s ...", port)
+            for _ in range(5):
+                await asyncio.sleep(1)
+                probe = await self._try_bash(cdp_probe)
+                if probe is not None and _CDP_UP in (probe.output or ""):
+                    logger.info("Windows Chrome CDP ready on port %s", port)
+                    return self.get_cdp_url(port)
+
+            # Kill + relaunch retry until the deadline too: the probes above
+            # failing may just mean the agent itself is still coming up.
+            logger.info("Windows Chrome CDP unresponsive; restarting Chrome")
+            launch_cmd = _windows_chrome_launch_cmd(internal_port)
+            launched = False
+            last_err = ""
+            while time.monotonic() < deadline:
+                kill = await self._try_bash(_WINDOWS_CHROME_KILL_CMD)
+                launch = await self._try_bash(launch_cmd) if kill is not None else None
+                if launch is not None and not launch.error:
+                    launched = True
+                    break
+                last_err = launch.error if launch is not None and launch.error else "agent unreachable"
+                await asyncio.sleep(2)
+            if not launched:
+                raise TimeoutError(
+                    f"Windows Chrome CDP not ready on port {port} after {effective_timeout}s: "
+                    f"could not restart Chrome ({last_err})"
+                )
+
+            while time.monotonic() < deadline:
+                await asyncio.sleep(2)
+                probe = await self._try_bash(cdp_probe)
+                if probe is not None and _CDP_UP in (probe.output or ""):
+                    logger.info("Windows Chrome CDP ready on port %s after restart", port)
+                    return self.get_cdp_url(port)
+                last_err = (probe.output or "").strip() if probe is not None else "agent unreachable"
             raise TimeoutError(
-                f"Windows Chrome CDP not ready on port {port} after {effective_timeout}s. Last: {last_err}"
+                f"Windows Chrome CDP not ready on port {port} after {effective_timeout}s. Last probe: {last_err}"
             )
 
         cdp_probe = f"curl -sf --max-time 2 http://localhost:{port}/json/version 2>/dev/null || echo __NO_CDP__"
@@ -1149,6 +1367,9 @@ class AsyncClient:
                     f"--disable-features=PasswordManager,PasswordManagerOnboarding,PasswordLeakDetection "
                     f"--no-first-run --no-default-browser-check --disable-default-apps "
                     f"--disable-popup-blocking --disable-translate --disable-infobars "
+                    # Snapshots resume with a frozen clock that can predate the
+                    # sims proxy's rotating TLS cert -> ERR_CERT_DATE_INVALID.
+                    f"--ignore-certificate-errors "
                     f"--test-type --start-maximized --window-size=1280,720 "
                     f"--user-data-dir=/tmp/chrome-cdp-profile "
                     f"--remote-debugging-port={chrome_internal_port} "

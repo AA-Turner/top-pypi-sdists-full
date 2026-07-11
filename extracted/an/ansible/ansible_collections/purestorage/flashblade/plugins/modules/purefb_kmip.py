@@ -22,7 +22,7 @@ short_description: Manage FlashBlade KMIP server objects
 description:
 - Manage FlashBlade KMIP Server objects
 author:
-- Pure Storage Ansible Team (@sdodsley) <pure-ansible-team@purestorage.com>
+- Everpure Ansible Team (@sdodsley) <pure-ansible-team@purestorage.com>
 options:
   name:
     description:
@@ -89,16 +89,19 @@ EXAMPLES = r"""
 RETURN = r"""
 """
 
-HAS_PURESTORAGE = True
+HAS_PYPURECLIENT = True
 try:
     from pypureclient.flashblade import KmipServer, Reference
 except ImportError:
-    HAS_PURESTORAGE = False
+    HAS_PYPURECLIENT = False
 
 from ansible.module_utils.basic import AnsibleModule
 from ansible_collections.purestorage.flashblade.plugins.module_utils.purefb import (
     get_system,
     purefb_argument_spec,
+)
+from ansible_collections.purestorage.flashblade.plugins.module_utils.common import (
+    get_error_message,
 )
 
 
@@ -106,26 +109,26 @@ def test_kmip(module, blade):
     """Test KMIP object configuration"""
     test_response = []
     response = list(blade.get_kmip_test(names=[module.params["name"]]).items)
-    for component in range(len(response)):
-        if response[component].enabled:
+    for component in response:
+        if component.enabled:
             enabled = "true"
         else:
             enabled = "false"
-        if response[component].success:
+        if component.success:
             success = "true"
         else:
             success = "false"
         test_response.append(
             {
-                "component_address": response[component].component_address,
-                "component_name": response[component].component_name,
-                "description": response[component].description,
-                "destination": response[component].destination,
+                "component_address": component.component_address,
+                "component_name": component.component_name,
+                "description": component.description,
+                "destination": component.destination,
                 "enabled": enabled,
-                "result_details": getattr(response[component], "result_details", ""),
+                "result_details": getattr(component, "result_details", ""),
                 "success": success,
-                "test_type": response[component].test_type,
-                "resource_name": response[component].resource.name,
+                "test_type": component.test_type,
+                "resource_name": component.resource.name,
             }
         )
     module.exit_json(changed=True, test_response=test_response)
@@ -178,7 +181,7 @@ def update_kmip(module, blade):
             if res.status_code != 200:
                 module.fail_json(
                     msg="Updating existing KMIP object {0} failed. Error: {1}".format(
-                        module.params["name"], res.errors[0].message
+                        module.params["name"], get_error_message(res)
                     )
                 )
 
@@ -204,7 +207,7 @@ def create_kmip(module, blade):
         if res.status_code != 200:
             module.fail_json(
                 msg="Creating KMIP object {0} failed. Error: {1}".format(
-                    module.params["name"], res.errors[0].message
+                    module.params["name"], get_error_message(res)
                 )
             )
     module.exit_json(changed=changed)
@@ -218,7 +221,7 @@ def delete_kmip(module, blade):
         if res.status_code != 200:
             module.fail_json(
                 msg="Failed to delete {0} KMIP object. Error: {1}".format(
-                    module.params["name"], res.errors[0].message
+                    module.params["name"], get_error_message(res)
                 )
             )
     module.exit_json(changed=changed)
@@ -245,7 +248,7 @@ def main():
         supports_check_mode=True,
     )
 
-    if not HAS_PURESTORAGE:
+    if not HAS_PYPURECLIENT:
         module.fail_json(msg="py-pure-client sdk is required for this module")
 
     blade = get_system(module)

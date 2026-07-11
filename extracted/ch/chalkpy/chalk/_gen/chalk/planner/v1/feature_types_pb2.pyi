@@ -518,6 +518,7 @@ class MaterializationWindowConfigParsed(_message.Message):
         "bucket_feature",
         "approximate_offline_query",
         "aggregate_on_features",
+        "materialization_key_info",
     )
     BASE_FIELD_NUMBER: _ClassVar[int]
     GROUP_BY_FIELD_NUMBER: _ClassVar[int]
@@ -527,6 +528,7 @@ class MaterializationWindowConfigParsed(_message.Message):
     BUCKET_FEATURE_FIELD_NUMBER: _ClassVar[int]
     APPROXIMATE_OFFLINE_QUERY_FIELD_NUMBER: _ClassVar[int]
     AGGREGATE_ON_FEATURES_FIELD_NUMBER: _ClassVar[int]
+    MATERIALIZATION_KEY_INFO_FIELD_NUMBER: _ClassVar[int]
     base: _graph_pb2.WindowAggregation
     group_by: _containers.RepeatedCompositeFieldContainer[FeatureReferenceIdV2]
     aggregate_on: FeatureReferenceIdV2
@@ -535,6 +537,7 @@ class MaterializationWindowConfigParsed(_message.Message):
     bucket_feature: FeatureReferenceIdV2
     approximate_offline_query: bool
     aggregate_on_features: _containers.RepeatedCompositeFieldContainer[FeatureReferenceIdV2]
+    materialization_key_info: MaterializationKeyInfo
     def __init__(
         self,
         base: _Optional[_Union[_graph_pb2.WindowAggregation, _Mapping]] = ...,
@@ -545,7 +548,22 @@ class MaterializationWindowConfigParsed(_message.Message):
         bucket_feature: _Optional[_Union[FeatureReferenceIdV2, _Mapping]] = ...,
         approximate_offline_query: bool = ...,
         aggregate_on_features: _Optional[_Iterable[_Union[FeatureReferenceIdV2, _Mapping]]] = ...,
+        materialization_key_info: _Optional[_Union[MaterializationKeyInfo, _Mapping]] = ...,
     ) -> None: ...
+
+class MaterializationKeyInfo(_message.Message):
+    __slots__ = ("allow_filter_migration",)
+    ALLOW_FILTER_MIGRATION_FIELD_NUMBER: _ClassVar[int]
+    allow_filter_migration: AllowFilterMigration
+    def __init__(self, allow_filter_migration: _Optional[_Union[AllowFilterMigration, _Mapping]] = ...) -> None: ...
+
+class AllowFilterMigration(_message.Message):
+    __slots__ = ("containing_namespace", "feature_name")
+    CONTAINING_NAMESPACE_FIELD_NUMBER: _ClassVar[int]
+    FEATURE_NAME_FIELD_NUMBER: _ClassVar[int]
+    containing_namespace: str
+    feature_name: str
+    def __init__(self, containing_namespace: _Optional[str] = ..., feature_name: _Optional[str] = ...) -> None: ...
 
 class UnderscoreMaterializedStateOperation(_message.Message):
     __slots__ = ("mat_agg_definition", "for_offline_resolver")

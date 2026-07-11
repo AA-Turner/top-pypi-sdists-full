@@ -19,6 +19,7 @@
 //!
 //! By using ops, users can add more context for operation.
 
+use crate::BytesRange;
 use crate::options;
 use crate::raw::*;
 
@@ -271,7 +272,7 @@ pub enum PresignOperation {
     /// Presign a stat(head) operation.
     Stat(OpStat),
     /// Presign a read operation.
-    Read(OpRead),
+    Read(BytesRange, OpRead),
     /// Presign a write operation.
     Write(OpWrite),
     /// Presign a delete operation.
@@ -286,7 +287,7 @@ impl From<OpStat> for PresignOperation {
 
 impl From<OpRead> for PresignOperation {
     fn from(v: OpRead) -> Self {
-        Self::Read(v)
+        Self::Read(BytesRange::default(), v)
     }
 }
 
@@ -305,7 +306,6 @@ impl From<OpDelete> for PresignOperation {
 /// Args for `read` operation.
 #[derive(Debug, Clone, Default)]
 pub struct OpRead {
-    range: BytesRange,
     if_match: Option<String>,
     if_none_match: Option<String>,
     if_modified_since: Option<Timestamp>,
@@ -314,28 +314,13 @@ pub struct OpRead {
     override_cache_control: Option<String>,
     override_content_disposition: Option<String>,
     version: Option<String>,
+    content_length_hint: Option<u64>,
 }
 
 impl OpRead {
     /// Create a default `OpRead` which will read whole content of path.
     pub fn new() -> Self {
         Self::default()
-    }
-
-    /// Set the range of the option
-    pub fn with_range(mut self, range: BytesRange) -> Self {
-        self.range = range;
-        self
-    }
-
-    /// Get range from option
-    pub fn range(&self) -> BytesRange {
-        self.range
-    }
-
-    /// Returns a mutable range to allow updating.
-    pub fn range_mut(&mut self) -> &mut BytesRange {
-        &mut self.range
     }
 
     /// Sets the content-disposition header that should be sent back by the remote read operation.
@@ -426,6 +411,10 @@ impl OpRead {
     pub fn version(&self) -> Option<&str> {
         self.version.as_deref()
     }
+
+    pub(crate) fn content_length_hint(&self) -> Option<u64> {
+        self.content_length_hint
+    }
 }
 
 /// Args for reader operation.
@@ -439,8 +428,6 @@ pub struct OpReader {
     gap: Option<usize>,
     /// The maximum number of buffers that can be prefetched.
     prefetch: usize,
-    /// Known content length of the object.
-    content_length_hint: Option<u64>,
 }
 
 impl Default for OpReader {
@@ -450,7 +437,6 @@ impl Default for OpReader {
             chunk: None,
             gap: None,
             prefetch: 0,
-            content_length_hint: None,
         }
     }
 }
@@ -504,24 +490,13 @@ impl OpReader {
     pub fn prefetch(&self) -> usize {
         self.prefetch
     }
-
-    /// Set content length hint of the option
-    pub fn with_content_length_hint(mut self, content_length: u64) -> Self {
-        self.content_length_hint = Some(content_length);
-        self
-    }
-
-    /// Get content length hint from option
-    pub fn content_length_hint(&self) -> Option<u64> {
-        self.content_length_hint
-    }
 }
 
-impl From<options::ReadOptions> for (OpRead, OpReader) {
+impl From<options::ReadOptions> for (BytesRange, OpRead, OpReader) {
     fn from(value: options::ReadOptions) -> Self {
         (
+            value.range,
             OpRead {
-                range: value.range,
                 if_match: value.if_match,
                 if_none_match: value.if_none_match,
                 if_modified_since: value.if_modified_since,
@@ -530,6 +505,7 @@ impl From<options::ReadOptions> for (OpRead, OpReader) {
                 override_cache_control: value.override_cache_control,
                 override_content_disposition: value.override_content_disposition,
                 version: value.version,
+                content_length_hint: value.content_length_hint,
             },
             OpReader {
                 // Ensure concurrent is at least 1
@@ -537,7 +513,6 @@ impl From<options::ReadOptions> for (OpRead, OpReader) {
                 chunk: value.chunk,
                 gap: value.gap,
                 prefetch: 0,
-                content_length_hint: value.content_length_hint,
             },
         )
     }
@@ -547,7 +522,6 @@ impl From<options::ReaderOptions> for (OpRead, OpReader) {
     fn from(value: options::ReaderOptions) -> Self {
         (
             OpRead {
-                range: BytesRange::default(),
                 if_match: value.if_match,
                 if_none_match: value.if_none_match,
                 if_modified_since: value.if_modified_since,
@@ -556,6 +530,7 @@ impl From<options::ReaderOptions> for (OpRead, OpReader) {
                 override_cache_control: None,
                 override_content_disposition: None,
                 version: value.version,
+                content_length_hint: value.content_length_hint,
             },
             OpReader {
                 // Ensure concurrent is at least 1
@@ -563,7 +538,6 @@ impl From<options::ReaderOptions> for (OpRead, OpReader) {
                 chunk: value.chunk,
                 gap: value.gap,
                 prefetch: value.prefetch,
-                content_length_hint: value.content_length_hint,
             },
         )
     }
@@ -895,6 +869,7 @@ impl From<options::WriteOptions> for (OpWrite, OpWriter) {
 pub struct OpCopy {
     if_not_exists: bool,
     if_match: Option<String>,
+    source_version: Option<String>,
 }
 
 impl OpCopy {
@@ -929,6 +904,19 @@ impl OpCopy {
     /// Get if_match condition.
     pub fn if_match(&self) -> Option<&str> {
         self.if_match.as_deref()
+    }
+
+    /// Set source version for the operation.
+    ///
+    /// When set, the copy operation will copy from the specified source version.
+    pub fn with_source_version(mut self, version: impl Into<String>) -> Self {
+        self.source_version = Some(version.into());
+        self
+    }
+
+    /// Get source version from the operation.
+    pub fn source_version(&self) -> Option<&str> {
+        self.source_version.as_deref()
     }
 }
 
@@ -986,6 +974,7 @@ impl From<options::CopyOptions> for (OpCopy, OpCopier) {
             OpCopy {
                 if_not_exists: value.if_not_exists,
                 if_match: value.if_match,
+                source_version: value.source_version,
             },
             OpCopier {
                 concurrent: value.concurrent.max(1),
@@ -998,11 +987,32 @@ impl From<options::CopyOptions> for (OpCopy, OpCopier) {
 
 /// Args for `rename` operation.
 #[derive(Debug, Clone, Default)]
-pub struct OpRename {}
+pub struct OpRename {
+    if_not_exists: bool,
+}
 
 impl OpRename {
-    /// Create a new `OpMove`.
+    /// Create a new `OpRename`.
     pub fn new() -> Self {
         Self::default()
+    }
+
+    /// Set the if_not_exists flag for the operation.
+    pub fn with_if_not_exists(mut self, if_not_exists: bool) -> Self {
+        self.if_not_exists = if_not_exists;
+        self
+    }
+
+    /// Get if_not_exists flag.
+    pub fn if_not_exists(&self) -> bool {
+        self.if_not_exists
+    }
+}
+
+impl From<options::RenameOptions> for OpRename {
+    fn from(value: options::RenameOptions) -> Self {
+        Self {
+            if_not_exists: value.if_not_exists,
+        }
     }
 }

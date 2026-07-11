@@ -186,6 +186,7 @@ __all__ = (
     "PartialFailureTypeDef",
     "PutAlarmMuteRuleInputTypeDef",
     "PutAnomalyDetectorInputTypeDef",
+    "PutAnomalyDetectorOutputTypeDef",
     "PutCompositeAlarmInputTypeDef",
     "PutDashboardInputTypeDef",
     "PutDashboardOutputTypeDef",
@@ -631,6 +632,7 @@ class DescribeAlarmsForMetricInputTypeDef(TypedDict):
 
 
 class DescribeAnomalyDetectorsInputTypeDef(TypedDict):
+    AnomalyDetectorIds: NotRequired[Sequence[str]]
     NextToken: NotRequired[str]
     MaxResults: NotRequired[int]
     Namespace: NotRequired[str]
@@ -746,6 +748,11 @@ class ListDashboardsOutputTypeDef(TypedDict):
     NextToken: NotRequired[str]
 
 
+class PutAnomalyDetectorOutputTypeDef(TypedDict):
+    AnomalyDetectorId: str
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
 class PutDashboardOutputTypeDef(TypedDict):
     DashboardValidationMessages: list[DashboardValidationMessageTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
@@ -844,6 +851,7 @@ class DescribeAlarmsInputPaginateTypeDef(TypedDict):
 
 
 class DescribeAnomalyDetectorsInputPaginateTypeDef(TypedDict):
+    AnomalyDetectorIds: NotRequired[Sequence[str]]
     Namespace: NotRequired[str]
     MetricName: NotRequired[str]
     Dimensions: NotRequired[Sequence[DimensionTypeDef]]
@@ -1369,6 +1377,7 @@ class MetricStatAlarmTypeDef(TypedDict):
 
 
 class AnomalyDetectorTypeDef(TypedDict):
+    AnomalyDetectorId: NotRequired[str]
     Namespace: NotRequired[str]
     MetricName: NotRequired[str]
     Dimensions: NotRequired[list[DimensionTypeDef]]
@@ -1508,6 +1517,7 @@ MetricMathAnomalyDetectorUnionTypeDef = Union[
 
 
 class DeleteAnomalyDetectorInputTypeDef(TypedDict):
+    AnomalyDetectorId: NotRequired[str]
     Namespace: NotRequired[str]
     MetricName: NotRequired[str]
     Dimensions: NotRequired[Sequence[DimensionTypeDef]]

@@ -349,6 +349,11 @@ class MaterializationWindowConfig(TypedDict, total=False):
     ```
     """
 
+    allow_filter_migration: bool
+    """
+    If True, changes to the filter definitions will not invalidate existing materialized values in the online store.
+    """
+
 
 def group_by_windowed(
     *buckets: str,

@@ -85,7 +85,7 @@ from cms.utils.i18n import (
 )
 from cms.utils.permissions import clear_permission_lru_caches
 from cms.utils.plugins import copy_plugins_to_placeholder
-from cms.utils.urlutils import admin_reverse
+from cms.utils.urlutils import admin_reverse, static_with_version
 
 require_POST = method_decorator(require_POST)
 
@@ -769,6 +769,9 @@ class PageContentAdmin(PageDeleteMessageMixin, admin.ModelAdmin):
     actions_menu_template = "admin/cms/page/tree/actions_dropdown.html"
     page_tree_row_template = "admin/cms/page/tree/menu.html"
 
+    class Media:
+        css = {"all": (static_with_version("cms/css/cms.admin.css"),)}
+
     form = AddPageForm
     add_form = form
     change_form = ChangePageForm
@@ -924,31 +927,22 @@ class PageContentAdmin(PageDeleteMessageMixin, admin.ModelAdmin):
         if extra_context is None:
             extra_context = {}
 
-        if "duplicate" in request.path_info:
-            extra_context.update(
-                {
-                    "title": _("Add Page Copy"),
-                }
-            )
-        elif "parent_page" in request.GET:
-            extra_context.update(
-                {
-                    "title": _("New sub page"),
-                }
-            )
-        else:
-            extra_context.update(
-                {
-                    "title": _("New page"),
-                }
-            )
-
         try:
             page_id = request.GET.get("cms_page") or request.POST.get("cms_page")
             page_id = IntegerField().clean(page_id)
             cms_page = Page.objects.get(pk=page_id)
         except (ValidationError, Page.DoesNotExist):
             cms_page = None
+
+        if cms_page:
+            # Adding content for an existing page in a language it does not have yet
+            extra_context["title"] = _("Add Translation")
+        elif "duplicate" in request.path_info:
+            extra_context["title"] = _("Add Page Copy")
+        elif "parent_page" in request.GET:
+            extra_context["title"] = _("New sub page")
+        else:
+            extra_context["title"] = _("New page")
 
         if cms_page:
             extra_context["cms_page"] = cms_page

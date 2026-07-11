@@ -57,6 +57,14 @@ async fn setup(hash_algorithm: HashAlgorithm) -> Value {
 }
 
 async fn setup_with_specs_data(specs_data: String, hash_algorithm: HashAlgorithm) -> Value {
+    setup_with_specs_data_and_user(specs_data, hash_algorithm, &USER).await
+}
+
+async fn setup_with_specs_data_and_user(
+    specs_data: String,
+    hash_algorithm: HashAlgorithm,
+    user: &StatsigUser,
+) -> Value {
     let mut options = StatsigOptions::new();
     options.specs_adapter = Some(Arc::new(MockSpecsAdapter::with_json_data(specs_data)));
     options.event_logging_adapter = Some(Arc::new(MockEventLoggingAdapter::new()));
@@ -65,7 +73,7 @@ async fn setup_with_specs_data(specs_data: String, hash_algorithm: HashAlgorithm
     statsig.initialize().await.unwrap();
 
     let response = statsig.get_client_init_response_with_options(
-        &USER,
+        user,
         &ClientInitResponseOptions {
             hash_algorithm: Some(hash_algorithm),
             client_sdk_key: None,
@@ -85,6 +93,24 @@ async fn setup_with_specs_data(specs_data: String, hash_algorithm: HashAlgorithm
     );
     let json = serde_json::to_string(&response).unwrap();
     serde_json::from_str(&json).unwrap()
+}
+
+fn eval_proj_dcs_with_new_layer_eval(layer_name: &str) -> String {
+    let mut path = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
+    path.push("tests/data/eval_proj_dcs.json");
+
+    let data = fs::read_to_string(path).expect("Unable to read fixture");
+    let mut json: Value = serde_json::from_str(&data).expect("Unable to parse fixture");
+
+    json.get_mut("layer_configs")
+        .unwrap()
+        .get_mut(layer_name)
+        .unwrap()
+        .as_object_mut()
+        .unwrap()
+        .insert("useNewLayerEval".to_string(), Value::Bool(true));
+
+    serde_json::to_string(&json).expect("Unable to serialize fixture")
 }
 
 fn eval_proj_dcs_with_nullable_versions() -> String {
@@ -576,6 +602,45 @@ async fn test_layer_with_many_params() {
             "secondary_exposures": [],
             "undelegated_secondary_exposures": []
         })
+    );
+}
+
+#[tokio::test]
+async fn test_new_layer_eval_preserves_delegated_experiment_metadata() {
+    let user = StatsigUser::with_user_id("user-in-test");
+    let json_obj = setup_with_specs_data_and_user(
+        eval_proj_dcs_with_new_layer_eval("test_layer_in_holdout"),
+        HashAlgorithm::None,
+        &user,
+    )
+    .await;
+
+    let layer = json_obj
+        .get("layer_configs")
+        .unwrap()
+        .get("test_layer_in_holdout")
+        .unwrap();
+
+    assert_eq!(layer.get("rule_id"), Some(&json!("FC34CQnbBwlkcpMxdi8MT")));
+    assert_eq!(layer.get("group_name"), Some(&json!("Test")));
+    assert_eq!(layer.get("is_experiment_active"), Some(&json!(true)));
+    assert_eq!(layer.get("is_user_in_experiment"), Some(&json!(true)));
+    assert_eq!(
+        layer.get("allocated_experiment_name"),
+        Some(&json!("running_exp_in_layer_with_holdout"))
+    );
+    assert_eq!(
+        layer.get("parameter_rule_ids").unwrap().get("exp_val"),
+        Some(&json!("FC34CQnbBwlkcpMxdi8MT"))
+    );
+    assert_eq!(
+        layer
+            .get("undelegated_secondary_exposures")
+            .unwrap()
+            .as_array()
+            .unwrap()
+            .len(),
+        2
     );
 }
 

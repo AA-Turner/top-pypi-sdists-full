@@ -242,3 +242,17 @@ class CheckpointerServicerImpl(CheckpointerServicer):
                 context.set_code(grpc.StatusCode.INTERNAL)
                 context.set_details(f"Checkpointer Prune failed: {e}")
             raise
+
+    async def GetDeltaChannelHistory(
+        self,
+        request: checkpointer_pb2.GetDeltaChannelHistoryRequest,
+        context: grpc_aio.ServicerContext,
+    ) -> checkpointer_pb2.GetDeltaChannelHistoryResponse:
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details(
+            "GetDeltaChannelHistory is not implemented by the Python "
+            "checkpointer servicer"
+        )
+        raise NotImplementedError(
+            "GetDeltaChannelHistory not implemented by the Python checkpointer servicer"
+        )

@@ -11,6 +11,7 @@ from google.protobuf import field_mask_pb2 as _field_mask_pb2
 from google.protobuf import struct_pb2 as _struct_pb2
 from google.protobuf import timestamp_pb2 as _timestamp_pb2
 from google.protobuf.internal import containers as _containers
+from google.protobuf.internal import enum_type_wrapper as _enum_type_wrapper
 from google.protobuf import descriptor as _descriptor
 from google.protobuf import message as _message
 from typing import (
@@ -22,6 +23,16 @@ from typing import (
 )
 
 DESCRIPTOR: _descriptor.FileDescriptor
+
+class TeamCreationType(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
+    __slots__ = ()
+    TEAM_CREATION_TYPE_UNSPECIFIED: _ClassVar[TeamCreationType]
+    TEAM_CREATION_TYPE_CHALK_MANAGED: _ClassVar[TeamCreationType]
+    TEAM_CREATION_TYPE_SELF_SERVICE: _ClassVar[TeamCreationType]
+
+TEAM_CREATION_TYPE_UNSPECIFIED: TeamCreationType
+TEAM_CREATION_TYPE_CHALK_MANAGED: TeamCreationType
+TEAM_CREATION_TYPE_SELF_SERVICE: TeamCreationType
 
 class GetEnvRequest(_message.Message):
     __slots__ = ()
@@ -90,6 +101,7 @@ class Team(_message.Message):
         "spec_config_json",
         "internal_metadata",
         "customer_metadata",
+        "team_creation_type",
     )
     class SpecConfigJsonEntry(_message.Message):
         __slots__ = ("key", "value")
@@ -130,6 +142,7 @@ class Team(_message.Message):
     SPEC_CONFIG_JSON_FIELD_NUMBER: _ClassVar[int]
     INTERNAL_METADATA_FIELD_NUMBER: _ClassVar[int]
     CUSTOMER_METADATA_FIELD_NUMBER: _ClassVar[int]
+    TEAM_CREATION_TYPE_FIELD_NUMBER: _ClassVar[int]
     id: str
     name: str
     slug: str
@@ -139,6 +152,7 @@ class Team(_message.Message):
     spec_config_json: _containers.MessageMap[str, _struct_pb2.Value]
     internal_metadata: _containers.MessageMap[str, _struct_pb2.Value]
     customer_metadata: _containers.MessageMap[str, _struct_pb2.Value]
+    team_creation_type: TeamCreationType
     def __init__(
         self,
         id: _Optional[str] = ...,
@@ -150,6 +164,7 @@ class Team(_message.Message):
         spec_config_json: _Optional[_Mapping[str, _struct_pb2.Value]] = ...,
         internal_metadata: _Optional[_Mapping[str, _struct_pb2.Value]] = ...,
         customer_metadata: _Optional[_Mapping[str, _struct_pb2.Value]] = ...,
+        team_creation_type: _Optional[_Union[TeamCreationType, str]] = ...,
     ) -> None: ...
 
 class Project(_message.Message):
@@ -339,6 +354,7 @@ class UpdateEnvironmentOperation(_message.Message):
         "kube_service_account_name",
         "environment_buckets",
         "default_build_profile",
+        "pinned_base_image",
     )
     class AdditionalEnvVarsEntry(_message.Message):
         __slots__ = ("key", "value")
@@ -362,6 +378,7 @@ class UpdateEnvironmentOperation(_message.Message):
     KUBE_SERVICE_ACCOUNT_NAME_FIELD_NUMBER: _ClassVar[int]
     ENVIRONMENT_BUCKETS_FIELD_NUMBER: _ClassVar[int]
     DEFAULT_BUILD_PROFILE_FIELD_NUMBER: _ClassVar[int]
+    PINNED_BASE_IMAGE_FIELD_NUMBER: _ClassVar[int]
     is_default: bool
     specs_config_json: str
     additional_env_vars: _containers.ScalarMap[str, str]
@@ -376,6 +393,7 @@ class UpdateEnvironmentOperation(_message.Message):
     kube_service_account_name: str
     environment_buckets: _environment_pb2.EnvironmentObjectStorageConfig
     default_build_profile: _environment_pb2.DeploymentBuildProfile
+    pinned_base_image: str
     def __init__(
         self,
         is_default: bool = ...,
@@ -392,6 +410,7 @@ class UpdateEnvironmentOperation(_message.Message):
         kube_service_account_name: _Optional[str] = ...,
         environment_buckets: _Optional[_Union[_environment_pb2.EnvironmentObjectStorageConfig, _Mapping]] = ...,
         default_build_profile: _Optional[_Union[_environment_pb2.DeploymentBuildProfile, str]] = ...,
+        pinned_base_image: _Optional[str] = ...,
     ) -> None: ...
 
 class UpdateEnvironmentRequest(_message.Message):

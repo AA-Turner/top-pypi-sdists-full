@@ -489,9 +489,10 @@ class PyIcebergJobClient(JobClientBase, WithStateSync, WithSqlClient, SupportsOp
         self,
         only_tables: Iterable[str] = None,
         expected_update: TSchemaTables = None,
+        force: bool = False,
     ) -> Optional[TSchemaTables]:
         applied_update: TSchemaTables = {}
-        if self.get_stored_schema_by_hash(self.schema.stored_version_hash) is None:
+        if force or self.get_stored_schema_by_hash(self.schema.stored_version_hash) is None:
             logger.info(
                 f"Schema with hash {self.schema.stored_version_hash} not found in the storage."
                 " upgrading"

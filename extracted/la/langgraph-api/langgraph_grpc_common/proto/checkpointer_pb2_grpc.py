@@ -83,6 +83,11 @@ class CheckpointerStub(object):
                 request_serializer=checkpointer__pb2.PruneRequest.SerializeToString,
                 response_deserializer=google_dot_protobuf_dot_empty__pb2.Empty.FromString,
                 _registered_method=True)
+        self.GetDeltaChannelHistory = channel.unary_unary(
+                '/checkpointer.Checkpointer/GetDeltaChannelHistory',
+                request_serializer=checkpointer__pb2.GetDeltaChannelHistoryRequest.SerializeToString,
+                response_deserializer=checkpointer__pb2.GetDeltaChannelHistoryResponse.FromString,
+                _registered_method=True)
 
 
 class CheckpointerServicer(object):
@@ -156,6 +161,16 @@ class CheckpointerServicer(object):
         context.set_details('Method not implemented!')
         raise NotImplementedError('Method not implemented!')
 
+    def GetDeltaChannelHistory(self, request, context):
+        """GetDeltaChannelHistory reconstructs DeltaChannel state for one
+        target checkpoint by walking the parent chain to find the most
+        recent seed snapshot and collecting all writes from that snapshot
+        forward, per requested channel.
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details('Method not implemented!')
+        raise NotImplementedError('Method not implemented!')
+
 
 def add_CheckpointerServicer_to_server(servicer, server):
     rpc_method_handlers = {
@@ -203,6 +218,11 @@ def add_CheckpointerServicer_to_server(servicer, server):
                     servicer.Prune,
                     request_deserializer=checkpointer__pb2.PruneRequest.FromString,
                     response_serializer=google_dot_protobuf_dot_empty__pb2.Empty.SerializeToString,
+            ),
+            'GetDeltaChannelHistory': grpc.unary_unary_rpc_method_handler(
+                    servicer.GetDeltaChannelHistory,
+                    request_deserializer=checkpointer__pb2.GetDeltaChannelHistoryRequest.FromString,
+                    response_serializer=checkpointer__pb2.GetDeltaChannelHistoryResponse.SerializeToString,
             ),
     }
     generic_handler = grpc.method_handlers_generic_handler(
@@ -451,6 +471,33 @@ class Checkpointer(object):
             '/checkpointer.Checkpointer/Prune',
             checkpointer__pb2.PruneRequest.SerializeToString,
             google_dot_protobuf_dot_empty__pb2.Empty.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+            _registered_method=True)
+
+    @staticmethod
+    def GetDeltaChannelHistory(request,
+            target,
+            options=(),
+            channel_credentials=None,
+            call_credentials=None,
+            insecure=False,
+            compression=None,
+            wait_for_ready=None,
+            timeout=None,
+            metadata=None):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            '/checkpointer.Checkpointer/GetDeltaChannelHistory',
+            checkpointer__pb2.GetDeltaChannelHistoryRequest.SerializeToString,
+            checkpointer__pb2.GetDeltaChannelHistoryResponse.FromString,
             options,
             channel_credentials,
             insecure,

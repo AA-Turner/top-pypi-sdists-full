@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import typing_extensions
+
 import httpx
 
 from ..types import secret_list_params, secret_create_params, secret_update_params
@@ -44,6 +46,7 @@ class SecretsResource(SyncAPIResource):
         """
         return SecretsResourceWithStreamingResponse(self)
 
+    @typing_extensions.deprecated("deprecated")
     def create(
         self,
         *,
@@ -97,6 +100,7 @@ class SecretsResource(SyncAPIResource):
             cast_to=CloudSecret,
         )
 
+    @typing_extensions.deprecated("deprecated")
     def retrieve(
         self,
         secret_id: str,
@@ -131,6 +135,7 @@ class SecretsResource(SyncAPIResource):
             cast_to=CloudSecret,
         )
 
+    @typing_extensions.deprecated("deprecated")
     def update(
         self,
         secret_id: str,
@@ -180,6 +185,7 @@ class SecretsResource(SyncAPIResource):
             cast_to=CloudSecret,
         )
 
+    @typing_extensions.deprecated("deprecated")
     def list(
         self,
         *,
@@ -230,6 +236,7 @@ class SecretsResource(SyncAPIResource):
             model=CloudSecret,
         )
 
+    @typing_extensions.deprecated("deprecated")
     def delete(
         self,
         secret_id: str,
@@ -285,6 +292,7 @@ class AsyncSecretsResource(AsyncAPIResource):
         """
         return AsyncSecretsResourceWithStreamingResponse(self)
 
+    @typing_extensions.deprecated("deprecated")
     async def create(
         self,
         *,
@@ -338,6 +346,7 @@ class AsyncSecretsResource(AsyncAPIResource):
             cast_to=CloudSecret,
         )
 
+    @typing_extensions.deprecated("deprecated")
     async def retrieve(
         self,
         secret_id: str,
@@ -372,6 +381,7 @@ class AsyncSecretsResource(AsyncAPIResource):
             cast_to=CloudSecret,
         )
 
+    @typing_extensions.deprecated("deprecated")
     async def update(
         self,
         secret_id: str,
@@ -421,6 +431,7 @@ class AsyncSecretsResource(AsyncAPIResource):
             cast_to=CloudSecret,
         )
 
+    @typing_extensions.deprecated("deprecated")
     def list(
         self,
         *,
@@ -471,6 +482,7 @@ class AsyncSecretsResource(AsyncAPIResource):
             model=CloudSecret,
         )
 
+    @typing_extensions.deprecated("deprecated")
     async def delete(
         self,
         secret_id: str,
@@ -510,20 +522,30 @@ class SecretsResourceWithRawResponse:
     def __init__(self, secrets: SecretsResource) -> None:
         self._secrets = secrets
 
-        self.create = to_raw_response_wrapper(
-            secrets.create,
+        self.create = (  # pyright: ignore[reportDeprecated]
+            to_raw_response_wrapper(
+                secrets.create,  # pyright: ignore[reportDeprecated],
+            )
         )
-        self.retrieve = to_raw_response_wrapper(
-            secrets.retrieve,
+        self.retrieve = (  # pyright: ignore[reportDeprecated]
+            to_raw_response_wrapper(
+                secrets.retrieve,  # pyright: ignore[reportDeprecated],
+            )
         )
-        self.update = to_raw_response_wrapper(
-            secrets.update,
+        self.update = (  # pyright: ignore[reportDeprecated]
+            to_raw_response_wrapper(
+                secrets.update,  # pyright: ignore[reportDeprecated],
+            )
         )
-        self.list = to_raw_response_wrapper(
-            secrets.list,
+        self.list = (  # pyright: ignore[reportDeprecated]
+            to_raw_response_wrapper(
+                secrets.list,  # pyright: ignore[reportDeprecated],
+            )
         )
-        self.delete = to_raw_response_wrapper(
-            secrets.delete,
+        self.delete = (  # pyright: ignore[reportDeprecated]
+            to_raw_response_wrapper(
+                secrets.delete,  # pyright: ignore[reportDeprecated],
+            )
         )
 
 
@@ -531,20 +553,30 @@ class AsyncSecretsResourceWithRawResponse:
     def __init__(self, secrets: AsyncSecretsResource) -> None:
         self._secrets = secrets
 
-        self.create = async_to_raw_response_wrapper(
-            secrets.create,
+        self.create = (  # pyright: ignore[reportDeprecated]
+            async_to_raw_response_wrapper(
+                secrets.create,  # pyright: ignore[reportDeprecated],
+            )
         )
-        self.retrieve = async_to_raw_response_wrapper(
-            secrets.retrieve,
+        self.retrieve = (  # pyright: ignore[reportDeprecated]
+            async_to_raw_response_wrapper(
+                secrets.retrieve,  # pyright: ignore[reportDeprecated],
+            )
         )
-        self.update = async_to_raw_response_wrapper(
-            secrets.update,
+        self.update = (  # pyright: ignore[reportDeprecated]
+            async_to_raw_response_wrapper(
+                secrets.update,  # pyright: ignore[reportDeprecated],
+            )
         )
-        self.list = async_to_raw_response_wrapper(
-            secrets.list,
+        self.list = (  # pyright: ignore[reportDeprecated]
+            async_to_raw_response_wrapper(
+                secrets.list,  # pyright: ignore[reportDeprecated],
+            )
         )
-        self.delete = async_to_raw_response_wrapper(
-            secrets.delete,
+        self.delete = (  # pyright: ignore[reportDeprecated]
+            async_to_raw_response_wrapper(
+                secrets.delete,  # pyright: ignore[reportDeprecated],
+            )
         )
 
 
@@ -552,20 +584,30 @@ class SecretsResourceWithStreamingResponse:
     def __init__(self, secrets: SecretsResource) -> None:
         self._secrets = secrets
 
-        self.create = to_streamed_response_wrapper(
-            secrets.create,
+        self.create = (  # pyright: ignore[reportDeprecated]
+            to_streamed_response_wrapper(
+                secrets.create,  # pyright: ignore[reportDeprecated],
+            )
         )
-        self.retrieve = to_streamed_response_wrapper(
-            secrets.retrieve,
+        self.retrieve = (  # pyright: ignore[reportDeprecated]
+            to_streamed_response_wrapper(
+                secrets.retrieve,  # pyright: ignore[reportDeprecated],
+            )
         )
-        self.update = to_streamed_response_wrapper(
-            secrets.update,
+        self.update = (  # pyright: ignore[reportDeprecated]
+            to_streamed_response_wrapper(
+                secrets.update,  # pyright: ignore[reportDeprecated],
+            )
         )
-        self.list = to_streamed_response_wrapper(
-            secrets.list,
+        self.list = (  # pyright: ignore[reportDeprecated]
+            to_streamed_response_wrapper(
+                secrets.list,  # pyright: ignore[reportDeprecated],
+            )
         )
-        self.delete = to_streamed_response_wrapper(
-            secrets.delete,
+        self.delete = (  # pyright: ignore[reportDeprecated]
+            to_streamed_response_wrapper(
+                secrets.delete,  # pyright: ignore[reportDeprecated],
+            )
         )
 
 
@@ -573,18 +615,28 @@ class AsyncSecretsResourceWithStreamingResponse:
     def __init__(self, secrets: AsyncSecretsResource) -> None:
         self._secrets = secrets
 
-        self.create = async_to_streamed_response_wrapper(
-            secrets.create,
+        self.create = (  # pyright: ignore[reportDeprecated]
+            async_to_streamed_response_wrapper(
+                secrets.create,  # pyright: ignore[reportDeprecated],
+            )
         )
-        self.retrieve = async_to_streamed_response_wrapper(
-            secrets.retrieve,
+        self.retrieve = (  # pyright: ignore[reportDeprecated]
+            async_to_streamed_response_wrapper(
+                secrets.retrieve,  # pyright: ignore[reportDeprecated],
+            )
         )
-        self.update = async_to_streamed_response_wrapper(
-            secrets.update,
+        self.update = (  # pyright: ignore[reportDeprecated]
+            async_to_streamed_response_wrapper(
+                secrets.update,  # pyright: ignore[reportDeprecated],
+            )
         )
-        self.list = async_to_streamed_response_wrapper(
-            secrets.list,
+        self.list = (  # pyright: ignore[reportDeprecated]
+            async_to_streamed_response_wrapper(
+                secrets.list,  # pyright: ignore[reportDeprecated],
+            )
         )
-        self.delete = async_to_streamed_response_wrapper(
-            secrets.delete,
+        self.delete = (  # pyright: ignore[reportDeprecated]
+            async_to_streamed_response_wrapper(
+                secrets.delete,  # pyright: ignore[reportDeprecated],
+            )
         )

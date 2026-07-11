@@ -91,14 +91,6 @@ def upcast(dtype, *dtypes) -> str:
     return rval
 
 
-def as_common_dtype(*vars):
-    """
-    For for pytensor.scalar.ScalarType and TensorVariable.
-    """
-    dtype = upcast(*[v.dtype for v in vars])
-    return (v.astype(dtype) for v in vars)
-
-
 class NumpyAutocaster:
     """
     This class is used to cast python ints and floats to numpy arrays.
@@ -139,9 +131,7 @@ class NumpyAutocaster:
             isinstance(x, np.ndarray) and x.ndim == 0
         )
 
-        if config.cast_policy == "numpy":
-            return np.asarray(x)
-        elif config.cast_policy == "numpy+floatX":
+        if config.cast_policy == "numpy+floatX":
             rval = np.asarray(x)
             if (
                 not hasattr(x, "dtype")
@@ -1138,53 +1128,6 @@ def same_out_nocomplex(type):
     if type in complex_types:
         raise TypeError("complex argument not supported")
     return (type,)
-
-
-def int_out_nocomplex(*types):
-    for type in types:
-        if type in complex_types:
-            raise TypeError("complex argument not supported")
-    return (int64,)
-
-
-def float_out_nocomplex(*types):
-    for type in types:
-        if type in complex_types:
-            raise TypeError("complex argument not supported")
-    return (float64,)
-
-
-class unary_out_lookup(MetaObject):
-    """
-    Get a output_types_preference object by passing a dictionary:
-
-    unary_out_lookup({int8:int32, float32:complex128})
-
-    The result is an op that maps in8 to int32 and float32 to
-    complex128 and other input types lead to a TypeError.
-
-    """
-
-    def __init__(self, type_table):
-        self.tbl = type_table
-
-    def __call__(self, *types):
-        if len(types) == 1:
-            types = types[0]
-        try:
-            rval = self.tbl[types]
-        except Exception:
-            raise TypeError(types)
-        if isinstance(types, list | tuple):
-            return rval
-        else:
-            return [rval]
-
-    def __eq__(self, other):
-        return type(self) is type(other) and self.tbl == other.tbl
-
-    def __hash__(self):
-        return hash(type(self))  # ignore hash of table
 
 
 def real_out(type):
@@ -2499,11 +2442,6 @@ class Cast(UnaryScalarOp):
 
     def __str__(self):
         return f"{self.__class__.__name__}{{{self.o_type.dtype}}}"
-
-    def clone_float32(self):
-        if self.o_type == float16:
-            return convert_to_float32
-        return self
 
     def impl(self, input):
         return self.ctor(input)
@@ -4273,24 +4211,37 @@ class Composite(ScalarInnerGraphOp):
         return self.outputs_type
 
     def make_node(self, *inputs):
-        if self.inputs_type == tuple(i.type for i in inputs):
+        inputs = [
+            inp if isinstance(inp, ScalarVariable) else as_scalar(inp) for inp in inputs
+        ]
+
+        if self.inputs_type == tuple(inp.type for inp in inputs):
             return super().make_node(*inputs)
+
+        if len(inputs) != self.nin:
+            raise ValueError("Number of inputs does not match expected")
+
+        # First try to coerce each input to its inner-graph input type.
+        try:
+            filtered_inputs = [
+                inner_inp.type.filter_variable(inp)
+                for inp, inner_inp in zip(inputs, self.inputs)
+            ]
+        except TypeError:
+            pass
         else:
-            # Make a new op whose inner graph is rebuilt on fresh inputs of the
-            # new types. The retype needs ``rebuild_strict=False`` (re-infers
-            # each node's output types), which in-place ``FunctionGraph``
-            # replacements cannot do, so thaw first and rebuild the mutable copy.
-            assert len(inputs) == self.nin
-            unfrozen_fgraph = self.fgraph.unfreeze()
-            new_inner_inputs = [i.type() for i in inputs]
-            new_outputs = clone_replace(
-                unfrozen_fgraph.outputs,
-                replace=dict(
-                    zip(unfrozen_fgraph.inputs, new_inner_inputs, strict=True)
-                ),
-                rebuild_strict=False,
-            )
-            return Composite(new_inner_inputs, new_outputs).make_node(*inputs)
+            return super().make_node(*filtered_inputs)
+
+        # The new input types are incompatible with the inner graph.
+        # Try to make a new inner graph with rebuild_strict=False.
+        unfrozen_fgraph = self.fgraph.unfreeze()
+        new_inner_inputs = [i.type() for i in inputs]
+        new_outputs = clone_replace(
+            unfrozen_fgraph.outputs,
+            replace=dict(zip(unfrozen_fgraph.inputs, new_inner_inputs)),
+            rebuild_strict=False,
+        )
+        return Composite(new_inner_inputs, new_outputs).make_node(*inputs)
 
     def perform(self, node, inputs, output_storage):
         outputs = self.py_perform_fn(*inputs)

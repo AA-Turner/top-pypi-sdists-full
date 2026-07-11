@@ -2,8 +2,24 @@ use super::*;
 
 #[derive(Debug, PartialEq)]
 pub(crate) enum CompileErrorKind<'src> {
+  ArgAttributeMinExceedsMax {
+    min: u64,
+    max: u64,
+  },
+  ArgAttributeRequiresMultipleOrVariadic {
+    key: Name<'src>,
+  },
   ArgAttributeRequiresOption {
-    key: &'src str,
+    key: Name<'src>,
+  },
+  ArgumentCountParse {
+    key: Name<'src>,
+    value: String,
+    source: ParseIntError,
+  },
+  ArgumentCountValue {
+    key: Name<'src>,
+    value: String,
   },
   ArgumentPatternRegex {
     source: regex::Error,
@@ -15,13 +31,13 @@ pub(crate) enum CompileErrorKind<'src> {
     max: usize,
   },
   AttributeArgumentExpression {
-    attribute: &'src str,
+    attribute: Name<'src>,
   },
   AttributeKeyMissingValue {
     key: Name<'src>,
   },
   AttributeKeyTakesNoValue {
-    key: &'src str,
+    key: Name<'src>,
   },
   AttributePositionalFollowsKeyword,
   BacktickShebang,
@@ -45,7 +61,7 @@ pub(crate) enum CompileErrorKind<'src> {
     first: usize,
   },
   DuplicateAttribute {
-    attribute: &'src str,
+    attribute: Name<'src>,
     first: usize,
   },
   DuplicateAttributeKey {
@@ -73,6 +89,7 @@ pub(crate) enum CompileErrorKind<'src> {
   DuplicateVariable {
     variable: &'src str,
   },
+  EscapeEndOfFile,
   ExitMessageAndNoExitMessageAttribute {
     recipe: &'src str,
   },
@@ -86,6 +103,9 @@ pub(crate) enum CompileErrorKind<'src> {
   ExtraLeadingWhitespace,
   ExtraneousAttributes {
     count: usize,
+  },
+  FlagAndPatternArgAttribute {
+    parameter: String,
   },
   FlagAndValueArgAttribute {
     parameter: String,
@@ -102,7 +122,6 @@ pub(crate) enum CompileErrorKind<'src> {
     function: &'src str,
   },
   GuardAndInfallibleSigil,
-  Include,
   IncompatibleSettings {
     first: Keyword,
     first_line: usize,
@@ -123,6 +142,9 @@ pub(crate) enum CompileErrorKind<'src> {
   InvalidEscapeSequence {
     character: char,
   },
+  InvalidIndentation {
+    message: &'static str,
+  },
   InvalidMinimumVersion {
     source: &'static str,
     version: String,
@@ -142,7 +164,6 @@ pub(crate) enum CompileErrorKind<'src> {
     current: Version,
     minimum: Version,
   },
-  MinimumVersionExpression,
   MismatchedClosingDelimiter {
     close: Delimiter,
     open: Delimiter,
@@ -175,6 +196,9 @@ pub(crate) enum CompileErrorKind<'src> {
   },
   ScriptAndShellAttribute {
     recipe: &'src str,
+  },
+  SettingExpression {
+    setting: Keyword,
   },
   ShellExpansion {
     err: shellexpand::LookupError<env::VarError>,

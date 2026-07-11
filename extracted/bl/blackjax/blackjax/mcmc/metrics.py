@@ -28,7 +28,7 @@ For a Newtonian hamiltonian dynamic the kinetic energy is given by:
 We can also generate a relativistic dynamic :cite:p:`lu2017relativistic`.
 
 """
-from typing import Callable, NamedTuple, Optional, Protocol, Union
+from typing import Callable, NamedTuple, Protocol, TypeAlias
 
 import jax.numpy as jnp
 import jax.scipy as jscipy
@@ -38,6 +38,7 @@ from blackjax.types import Array, ArrayLikeTree, ArrayTree, Numeric, PRNGKey
 from blackjax.util import generate_gaussian_noise, linear_map
 
 __all__ = [
+    "LowRankInverseMassMatrix",
     "default_metric",
     "gaussian_euclidean",
     "gaussian_euclidean_low_rank",
@@ -47,7 +48,7 @@ __all__ = [
 
 class KineticEnergy(Protocol):
     def __call__(
-        self, momentum: ArrayLikeTree, position: Optional[ArrayLikeTree] = None
+        self, momentum: ArrayLikeTree, position: ArrayLikeTree | None = None
     ) -> Numeric:
         ...
 
@@ -58,8 +59,8 @@ class CheckTurning(Protocol):
         momentum_left: ArrayLikeTree,
         momentum_right: ArrayLikeTree,
         momentum_sum: ArrayLikeTree,
-        position_left: Optional[ArrayLikeTree] = None,
-        position_right: Optional[ArrayLikeTree] = None,
+        position_left: ArrayLikeTree | None = None,
+        position_right: ArrayLikeTree | None = None,
     ) -> bool:
         ...
 
@@ -83,15 +84,60 @@ class Metric(NamedTuple):
     scale: Scale
 
 
-MetricTypes = Union[Metric, Array, Callable[[ArrayLikeTree], Array]]
+class LowRankInverseMassMatrix(NamedTuple):
+    """Pure-array description of a low-rank inverse mass matrix.
+
+    The inverse mass matrix has the form
+
+    .. math::
+
+        M^{-1} = \\operatorname{diag}(\\sigma)
+                 \\bigl(I + U(\\Lambda - I)U^\\top\\bigr)
+                 \\operatorname{diag}(\\sigma)
+
+    where :math:`\\sigma \\in \\mathbb{R}^d_{>0}`, :math:`U \\in \\mathbb{R}^{d \\times k}`
+    has orthonormal columns and :math:`\\Lambda = \\operatorname{diag}(\\lambda)`.
+
+    This is the array-only payload produced by
+    :func:`~blackjax.adaptation.low_rank_adaptation.window_adaptation_low_rank`.
+    Unlike a fully-constructed :class:`Metric` (whose fields are Python closures
+    that capture these arrays), this NamedTuple is a pure JAX pytree and can be
+    safely transported across ``jax.vmap`` / ``jax.pmap`` boundaries.
+
+    :func:`default_metric` expands this into a :class:`Metric` at the kernel
+    call site via :func:`gaussian_euclidean_low_rank`.
+
+    Attributes
+    ----------
+    sigma
+        Shape ``(d,)``. Positive diagonal scaling.
+    U
+        Shape ``(d, k)``. Matrix with orthonormal columns.
+    lam
+        Shape ``(k,)``. Positive eigenvalues.
+    """
+
+    sigma: Array
+    U: Array
+    lam: Array
+
+
+MetricTypes: TypeAlias = (
+    Metric | LowRankInverseMassMatrix | Array | Callable[[ArrayLikeTree], Array]
+)
 
 
 def default_metric(metric: MetricTypes) -> Metric:
     """Convert an input metric into a ``Metric`` object following sensible default rules.
 
-    The metric can be specified in three different ways:
+    The metric can be specified in four different ways:
 
     - A ``Metric`` object that implements the full interface
+    - A ``LowRankInverseMassMatrix`` NamedTuple holding ``(sigma, U, lam)``,
+      which is expanded to a full :class:`Metric` via
+      :func:`gaussian_euclidean_low_rank`. This is the form returned by
+      :func:`~blackjax.adaptation.low_rank_adaptation.window_adaptation_low_rank`
+      and is safe to transport across ``jax.vmap`` boundaries.
     - An ``Array`` which is assumed to specify the inverse mass matrix of a static
       metric
     - A function that takes a coordinate position and returns the mass matrix at that
@@ -102,6 +148,13 @@ def default_metric(metric: MetricTypes) -> Metric:
     A ``Metric`` object with ``sample_momentum``, ``kinetic_energy``,
     ``check_turning``, and ``scale`` fields.
     """
+    # LowRankInverseMassMatrix must be checked before Metric because both are
+    # NamedTuples; isinstance(metric, Metric) on a LowRankInverseMassMatrix is
+    # already False (distinct types), but listing the low-rank case first keeps
+    # the dispatch order obvious.
+    if isinstance(metric, LowRankInverseMassMatrix):
+        return gaussian_euclidean_low_rank(metric.sigma, metric.U, metric.lam)
+
     if isinstance(metric, Metric):
         return metric
 
@@ -158,7 +211,7 @@ def gaussian_euclidean(
         return generate_gaussian_noise(rng_key, position, sigma=mass_matrix_sqrt)
 
     def kinetic_energy(
-        momentum: ArrayLikeTree, position: Optional[ArrayLikeTree] = None
+        momentum: ArrayLikeTree, position: ArrayLikeTree | None = None
     ) -> Numeric:
         del position
         momentum, _ = ravel_pytree(momentum)
@@ -170,8 +223,8 @@ def gaussian_euclidean(
         momentum_left: ArrayLikeTree,
         momentum_right: ArrayLikeTree,
         momentum_sum: ArrayLikeTree,
-        position_left: Optional[ArrayLikeTree] = None,
-        position_right: Optional[ArrayLikeTree] = None,
+        position_left: ArrayLikeTree | None = None,
+        position_right: ArrayLikeTree | None = None,
     ) -> bool:
         """Generalized U-turn criterion :cite:p:`betancourt2013generalizing,nuts_uturn`.
 
@@ -248,7 +301,7 @@ def gaussian_euclidean_low_rank(
     U: Array,
     lam: Array,
 ) -> Metric:
-    r"""Euclidean metric with low-rank-modified mass matrix :cite:p:`sountsov2025preconditioning`.
+    r"""Euclidean metric with low-rank-modified mass matrix :cite:p:`seyboldt2026preconditioning`.
 
     The inverse mass matrix has the form
 
@@ -296,7 +349,7 @@ def gaussian_euclidean_low_rank(
         return unravel_fn(p)
 
     def kinetic_energy(
-        momentum: ArrayLikeTree, position: Optional[ArrayLikeTree] = None
+        momentum: ArrayLikeTree, position: ArrayLikeTree | None = None
     ) -> Numeric:
         del position
         p, _ = ravel_pytree(momentum)
@@ -309,8 +362,8 @@ def gaussian_euclidean_low_rank(
         momentum_left: ArrayLikeTree,
         momentum_right: ArrayLikeTree,
         momentum_sum: ArrayLikeTree,
-        position_left: Optional[ArrayLikeTree] = None,
-        position_right: Optional[ArrayLikeTree] = None,
+        position_left: ArrayLikeTree | None = None,
+        position_right: ArrayLikeTree | None = None,
     ) -> bool:
         del position_left, position_right
         m_left, _ = ravel_pytree(momentum_left)
@@ -394,12 +447,12 @@ def gaussian_riemannian(
         return generate_gaussian_noise(rng_key, position, sigma=mass_matrix_sqrt)
 
     def kinetic_energy(
-        momentum: ArrayLikeTree, position: Optional[ArrayLikeTree] = None
+        momentum: ArrayLikeTree, position: ArrayLikeTree | None = None
     ) -> Numeric:
         if position is None:
             raise ValueError(
-                "A Reinmannian kinetic energy function must be called with the "
-                "position specified; make sure to use a Reinmannian-capable "
+                "A Riemannian kinetic energy function must be called with the "
+                "position specified; make sure to use a Riemannian-capable "
                 "integrator like `implicit_midpoint`."
             )
 
@@ -415,8 +468,8 @@ def gaussian_riemannian(
         momentum_left: ArrayLikeTree,
         momentum_right: ArrayLikeTree,
         momentum_sum: ArrayLikeTree,
-        position_left: Optional[ArrayLikeTree] = None,
-        position_right: Optional[ArrayLikeTree] = None,
+        position_left: ArrayLikeTree | None = None,
+        position_right: ArrayLikeTree | None = None,
     ) -> bool:
         del momentum_left, momentum_right, momentum_sum, position_left, position_right
         raise NotImplementedError(

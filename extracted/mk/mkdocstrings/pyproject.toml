@@ -49,7 +49,7 @@ dependencies = [
     "mkdocs-autorefs>=1.4",
     "pymdown-extensions>=6.3",
 ]
-version = "1.0.4"
+version = "1.0.5"
 
 [project.optional-dependencies]
 crystal = [

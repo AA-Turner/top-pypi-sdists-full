@@ -33,10 +33,12 @@ class KubernetesPodData(_message.Message):
         "owner_reference",
     )
     class Volume(_message.Message):
-        __slots__ = ("name",)
+        __slots__ = ("name", "persistent_volume_claim_name")
         NAME_FIELD_NUMBER: _ClassVar[int]
+        PERSISTENT_VOLUME_CLAIM_NAME_FIELD_NUMBER: _ClassVar[int]
         name: str
-        def __init__(self, name: _Optional[str] = ...) -> None: ...
+        persistent_volume_claim_name: str
+        def __init__(self, name: _Optional[str] = ..., persistent_volume_claim_name: _Optional[str] = ...) -> None: ...
 
     class ClaimSource(_message.Message):
         __slots__ = ("resource_claim_name", "resource_claim_template_name")

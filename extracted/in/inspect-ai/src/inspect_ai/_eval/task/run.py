@@ -2037,7 +2037,9 @@ def eval_log_sample_source(
                 sample = await read_eval_log_sample_async(
                     eval_log_info, id, epoch, reader=reader
                 )
-            except IndexError:
+            except (IndexError, FileNotFoundError):
+                # FileNotFoundError: the prior attempt may never have written
+                # its log at all (e.g. its log_start() header flush failed)
                 return await _resume_if_checkpointed(id, epoch)
             if sample.error is None and sample.invalidation is None:
                 return sample
@@ -2098,7 +2100,7 @@ def create_sample_semaphore(
 
     Semaphores are task-scoped, not attempt-scoped: they're registered under
     ``task_id`` and an in-process retry reuses its predecessor's semaphore,
-    so a mid-flight ``ctl limits --max-samples`` retune survives the retry
+    so a mid-flight ``ctl config --max-samples`` retune survives the retry
     rather than silently reverting to the config value (see the registry's
     rationale in ``_concurrency.py``). The control channel's modify-limits
     directive reads and retunes ``max_samples`` through this same registry
@@ -2115,7 +2117,7 @@ def create_sample_semaphore(
     )
 
     # sample semaphores are task-scoped, not attempt-scoped: an in-process
-    # retry reuses its predecessor's semaphore so a mid-flight `ctl limits
+    # retry reuses its predecessor's semaphore so a mid-flight `ctl config
     # --max-samples` retune survives the retry rather than silently reverting
     # to the config value (see the registry's rationale in _concurrency.py)
     if task_id is not None:

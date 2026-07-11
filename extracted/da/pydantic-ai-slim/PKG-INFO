@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pydantic-ai-slim
-Version: 2.8.0
+Version: 2.9.0
 Summary: AI Agent Framework, the Pydantic way, slim package
 Project-URL: Homepage, https://github.com/pydantic/pydantic-ai/tree/main/pydantic_ai_slim
 Project-URL: Source, https://github.com/pydantic/pydantic-ai/tree/main/pydantic_ai_slim
@@ -34,7 +34,7 @@ Requires-Dist: genai-prices>=0.0.70
 Requires-Dist: griffelib>=2.0
 Requires-Dist: httpx>=0.27
 Requires-Dist: opentelemetry-api>=1.28.0
-Requires-Dist: pydantic-graph==2.8.0
+Requires-Dist: pydantic-graph==2.9.0
 Requires-Dist: pydantic>=2.12
 Requires-Dist: typing-inspection>=0.4.0
 Provides-Extra: ag-ui
@@ -57,7 +57,7 @@ Requires-Dist: dbos>=2.10.0; extra == 'dbos'
 Provides-Extra: duckduckgo
 Requires-Dist: ddgs>=9.0.0; extra == 'duckduckgo'
 Provides-Extra: evals
-Requires-Dist: pydantic-evals==2.8.0; extra == 'evals'
+Requires-Dist: pydantic-evals==2.9.0; extra == 'evals'
 Provides-Extra: exa
 Requires-Dist: exa-py>=2.0.0; extra == 'exa'
 Provides-Extra: google
@@ -74,10 +74,10 @@ Requires-Dist: fastmcp-slim[client]>=3.3.0; extra == 'mcp'
 Provides-Extra: mistral
 Requires-Dist: mistralai!=2.4.6,>=2.0.0; extra == 'mistral'
 Provides-Extra: openai
-Requires-Dist: openai>=2.29.0; extra == 'openai'
+Requires-Dist: openai>=2.45.0; extra == 'openai'
 Requires-Dist: tiktoken>=0.12.0; extra == 'openai'
 Provides-Extra: openrouter
-Requires-Dist: openai>=2.8.0; extra == 'openrouter'
+Requires-Dist: openai>=2.45.0; extra == 'openrouter'
 Provides-Extra: prefect
 Requires-Dist: prefect>=3.7.5; extra == 'prefect'
 Provides-Extra: retries

@@ -25,11 +25,14 @@ from langgraph_api.encryption.middleware import (
     extract_blob_encryption_context,
 )
 from langgraph_api.errors import UserInterrupt, UserRollback, UserTimeout
-from langgraph_api.feature_flags import IS_POSTGRES_OR_GRPC_BACKEND
+from langgraph_api.feature_flags import (
+    IS_POSTGRES_OR_GRPC_BACKEND,
+    PREFER_GRPC_CHECKPOINTER,
+)
 from langgraph_api.graph import restore_dd_trace_context
 from langgraph_api.js.errors import RemoteException
 from langgraph_api.metadata import incr_runs
-from langgraph_api.metrics_datadog import (
+from langgraph_api.metrics_otlp import (
     COUNTER_GRAPH_RECURSION_LIMIT_ERROR,
     COUNTER_RUN_ATTEMPT_STARTED,
     COUNTER_RUN_CANCELED_BY_REQUEST,
@@ -39,7 +42,7 @@ from langgraph_api.metrics_datadog import (
     COUNTER_RUN_SET_STATUS_ERROR,
     COUNTER_RUN_SUCCESS,
     LATENCY_RUN_EXECUTION,
-    get_datadog_metrics_reporter,
+    get_otlp_metrics_reporter,
 )
 from langgraph_api.otel_context import restore_otel_trace_context
 from langgraph_api.schema import RUN_KWARGS_ENCRYPTION_SUBFIELDS, Run, StreamMode
@@ -114,7 +117,7 @@ async def worker(
     *,
     encryption_context: dict[str, Any] | None = None,
 ) -> WorkerResult:
-    reporter = get_datadog_metrics_reporter()
+    reporter = get_otlp_metrics_reporter()
     run_id = run["run_id"]
     if attempt == 1:
         incr_runs()
@@ -319,9 +322,11 @@ async def worker(
                         run_attempt=attempt,
                     )
                     try:
-                        # We actually still need a connection for the python checkpointer
-                        # This only doubles up connections for inmem which is fine
-                        async with connect(supports_core_api=False) as conn:
+                        # Python checkpointer needs a real PG conn; gRPC checkpointer
+                        # does not. This only doubles up connections for inmem.
+                        async with connect(
+                            supports_core_api=PREFER_GRPC_CHECKPOINTER
+                        ) as conn:
                             state_snapshot = await Threads.State.get(
                                 conn, run["kwargs"]["config"], subgraphs=False
                             )

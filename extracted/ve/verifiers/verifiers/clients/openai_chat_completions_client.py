@@ -1,9 +1,6 @@
-import base64
 import functools
 from collections.abc import Iterable, Mapping
 from typing import Any, TypeAlias, cast
-
-import numpy as np
 
 from openai import (
     AsyncOpenAI,
@@ -46,6 +43,7 @@ from verifiers.types import (
     ClientConfig,
     FinishReason,
     Message,
+    MessageContent,
     Messages,
     Response,
     ResponseMessage,
@@ -59,7 +57,10 @@ from verifiers.types import (
     Usage,
     UserMessage,
 )
-from verifiers.utils.client_utils import setup_openai_client
+from verifiers.utils.client_utils import (
+    post_chat_completion_with_routed_experts_sidecar,
+    setup_openai_client,
+)
 
 
 def handle_openai_overlong_prompt(func):
@@ -99,6 +100,12 @@ def get_usage_field(usage: Any, key: str) -> Any:
     return getattr(usage, key, None)
 
 
+def _get_reasoning_tokens(usage: Any) -> int:
+    completion_details = get_usage_field(usage, "completion_tokens_details")
+    reasoning_tokens = get_usage_field(completion_details, "reasoning_tokens")
+    return reasoning_tokens if isinstance(reasoning_tokens, int) else 0
+
+
 def content_to_text(content: Any) -> str:
     """Get all text content from OAI message content."""
     if isinstance(content, str):
@@ -119,6 +126,14 @@ def content_to_text(content: Any) -> str:
     return ""
 
 
+def parse_refusal_content(message: Any) -> str | None:
+    if isinstance(message, Mapping):
+        refusal = message.get("refusal")
+    else:
+        refusal = getattr(message, "refusal", None)
+    return refusal if isinstance(refusal, str) and refusal else None
+
+
 DEFAULT_REASONING_FIELDS = [
     "reasoning",  # vLLM, Together AI, OpenRouter
     "reasoning_content",  # DeepSeek, Qwen/DashScope, SGLang, Fireworks AI, Kimi/Moonshot
@@ -133,8 +148,19 @@ def parse_reasoning_content(message: Any) -> str | None:
 
     for field in DEFAULT_REASONING_FIELDS:
         value = message_dict.get(field)
-        if isinstance(value, str):
+        if isinstance(value, str) and value:
             return value
+    details = message_dict.get("reasoning_details")
+    if isinstance(details, list) and any(
+        isinstance(detail, Mapping)
+        and any(
+            detail.get(field)
+            for field in ("text", "summary", "data", "signature", "encrypted_content")
+        )
+        for detail in details
+    ):
+        # Keep structured provider reasoning as a replayable marker without flattening it.
+        return ""
     return None
 
 
@@ -252,6 +278,31 @@ class OpenAIChatCompletionsClient(
     ) -> OpenAIChatResponse:
         def normalize_sampling_args(sampling_args: SamplingArgs):
             sampling_args = dict(sampling_args)
+            api_base_url = None
+            if hasattr(self.client, "base_url"):
+                api_base_url = str(self.client.base_url)
+            elif self._config is not None:
+                api_base_url = self._config.api_base_url
+            reasoning_effort = sampling_args.pop("reasoning_effort", None)
+            model_id = model.lower().split("/")[-1].replace(".", "-").replace("_", "-")
+            is_anthropic_route = (
+                "openrouter.ai" in (api_base_url or "").lower()
+                or "pinference.ai" in (api_base_url or "").lower()
+            )
+            if (
+                reasoning_effort is not None
+                and model_id.startswith("claude-")
+                and is_anthropic_route
+            ):
+                # OpenRouter/Pinference route Anthropic reasoning_effort through extra_body.
+                extra_body = dict(sampling_args.get("extra_body") or {})
+                extra_body["verbosity"] = reasoning_effort
+                reasoning = dict(extra_body.get("reasoning") or {})
+                reasoning.setdefault("enabled", True)
+                extra_body["reasoning"] = reasoning
+                sampling_args["extra_body"] = extra_body
+            elif reasoning_effort is not None:
+                sampling_args["reasoning_effort"] = reasoning_effort
             if "max_tokens" in sampling_args:
                 sampling_args["max_completion_tokens"] = sampling_args.pop("max_tokens")
             return {k: v for k, v in sampling_args.items() if v is not None}
@@ -277,23 +328,24 @@ class OpenAIChatCompletionsClient(
             sampling_args = {**sampling_args, "modalities": ["text"]}
 
         extra_headers = kwargs.pop("extra_headers", None)
+        request_args = normalize_sampling_args(sampling_args)
+        extra_body = request_args.pop("extra_body", {})
 
+        body: dict[str, Any] = {
+            "model": model,
+            "messages": prompt,
+            **request_args,
+            **extra_body,
+        }
         if tools:
-            response = await self.client.chat.completions.create(
-                model=model,
-                messages=prompt,
-                tools=tools,
-                extra_headers=extra_headers,
-                **normalize_sampling_args(sampling_args),
-            )
-        else:
-            response = await self.client.chat.completions.create(
-                model=model,
-                messages=prompt,
-                extra_headers=extra_headers,
-                **normalize_sampling_args(sampling_args),
-            )
-        return response
+            body["tools"] = tools
+
+        return await post_chat_completion_with_routed_experts_sidecar(
+            self.client,
+            "/chat/completions",
+            body=body,
+            extra_headers=extra_headers,
+        )
 
     async def raise_from_native_response(self, response: OpenAIChatResponse) -> None:
         if response is None:
@@ -305,15 +357,28 @@ class OpenAIChatCompletionsClient(
                 f"Model returned {len(response.choices)} choices, expected 1"
             )
         message = response.choices[0].message
-        has_content = bool(content_to_text(getattr(message, "content", None)))
+        has_content = bool(
+            content_to_text(getattr(message, "content", None))
+            or parse_refusal_content(message)
+        )
         has_tool_calls = bool(getattr(message, "tool_calls", None))
-        has_reasoning = bool(parse_reasoning_content(message))
+        has_reasoning = (
+            parse_reasoning_content(message) is not None
+            or _get_reasoning_tokens(getattr(response, "usage", None)) > 0
+        )
         if not (has_content or has_tool_calls or has_reasoning):
             raise EmptyModelResponseError(
-                "Model returned no content, reasoning, and did not call any tools"
+                "Model returned no content and did not call any tools"
             )
 
     async def from_native_response(self, response: OpenAIChatResponse) -> Response:
+        def parse_content(response: OpenAIChatResponse) -> MessageContent | None:
+            message = response.choices[0].message
+            content = message.content
+            if content_to_text(content):
+                return content
+            return parse_refusal_content(message)
+
         def parse_single_tool_call(tool_call: Any) -> ToolCall | None:
             if isinstance(tool_call, ChatCompletionMessageFunctionToolCall):
                 return ToolCall(
@@ -393,6 +458,7 @@ class OpenAIChatCompletionsClient(
                 prompt_tokens = get_usage_field(usage, "input_tokens")
                 completion_tokens = get_usage_field(usage, "output_tokens")
             total_tokens = get_usage_field(usage, "total_tokens")
+            reasoning_tokens = _get_reasoning_tokens(usage)
             if not isinstance(prompt_tokens, int) or not isinstance(
                 completion_tokens, int
             ):
@@ -401,7 +467,7 @@ class OpenAIChatCompletionsClient(
                 total_tokens = prompt_tokens + completion_tokens
             return Usage(
                 prompt_tokens=prompt_tokens,
-                reasoning_tokens=0,
+                reasoning_tokens=reasoning_tokens,
                 completion_tokens=completion_tokens,
                 total_tokens=total_tokens,
             )
@@ -459,40 +525,15 @@ class OpenAIChatCompletionsClient(
                 logprobs_content = response.choices[0].logprobs["content"]
                 completion_logprobs = [token["logprob"] for token in logprobs_content]
 
-            has_routed_experts = (
-                isinstance(
-                    routed_experts := getattr(choice, "routed_experts", None), dict
-                )
-                and "data" in routed_experts
-                and "shape" in routed_experts
-            )
-            if has_routed_experts:
-                routed_experts = cast(dict[str, Any], routed_experts)
-                routed_experts = cast(
-                    list[list[list[int]]],
-                    (
-                        np.frombuffer(
-                            base64.b85decode(routed_experts["data"]), dtype=np.int32
-                        )
-                        .reshape(routed_experts["shape"])
-                        .tolist()
-                    ),
-                )  # [seq_len, layers, topk]
-            else:
-                routed_experts = None
+            choice_extra = choice.model_extra or {}
             return ResponseTokens(
                 prompt_ids=prompt_ids,
                 prompt_mask=prompt_mask,
                 completion_ids=completion_ids,
                 completion_mask=completion_mask,
                 completion_logprobs=completion_logprobs,
-                routed_experts=routed_experts,
+                routed_experts=choice_extra.get("routed_experts"),
             )
-
-        def parse_reasoning_content_from_response(
-            response: OpenAIChatResponse,
-        ) -> str | None:
-            return parse_reasoning_content(response.choices[0].message)
 
         response_id = getattr(response, "id", "")
         if not isinstance(response_id, str):
@@ -504,17 +545,29 @@ class OpenAIChatCompletionsClient(
         if not isinstance(model, str):
             model = ""
 
+        message = response.choices[0].message
+        content = parse_content(response)
+        reasoning_content = parse_reasoning_content(message)
+        tool_calls = parse_tool_calls(response)
+        if (
+            content is None
+            and reasoning_content is None
+            and not tool_calls
+            and _get_reasoning_tokens(getattr(response, "usage", None)) > 0
+        ):
+            content = ""
+
         return Response(
             id=response_id,
             created=created,
             model=model,
             usage=parse_usage(response),
             message=ResponseMessage(
-                content=response.choices[0].message.content,
-                reasoning_content=parse_reasoning_content_from_response(response),
+                content=content,
+                reasoning_content=reasoning_content,
                 finish_reason=parse_finish_reason(response),
                 is_truncated=parse_is_truncated(response),
                 tokens=parse_tokens(response),
-                tool_calls=parse_tool_calls(response) or None,
+                tool_calls=tool_calls or None,
             ),
         )

@@ -43,7 +43,12 @@ from weblate.trans.tests.test_views import (
 )
 from weblate.utils.files import remove_tree
 from weblate.utils.lock import WeblateLockTimeoutError
-from weblate.utils.state import STATE_EMPTY, STATE_READONLY, STATE_TRANSLATED
+from weblate.utils.state import (
+    STATE_EMPTY,
+    STATE_NEEDS_CHECKING,
+    STATE_READONLY,
+    STATE_TRANSLATED,
+)
 from weblate.vcs.base import RepositoryError, RepositoryRecoveryEvent
 from weblate.vcs.git import GitRepository
 from weblate.vcs.github import GitHubInstallation
@@ -2086,6 +2091,70 @@ class FileSyncPendingUnitOptimizationTest(ComponentTestCase):
         self.assertEqual(unit.details["disk_state"], disk_state)
 
 
+class ExistingIntermediateLanguageFileTest(ComponentTestCase):
+    def create_component(self):
+        return self.create_po_mono(new_lang="add")
+
+    def test_existing_language_file_can_be_used_and_cleared_as_intermediate(
+        self,
+    ) -> None:
+        language = Language.objects.get(code="en_devel")
+        translation = self.component.add_new_language(
+            language, self.get_request(), show_messages=False
+        )
+
+        self.assertIsNotNone(translation)
+        translation = cast("Translation", translation)
+        self.assertEqual(translation.filename, "po-mono/en_devel.po")
+        self.assertTrue(os.path.exists(cast("str", translation.get_filename())))
+
+        self.component.intermediate = translation.filename
+        self.component.save()
+        component = Component.objects.get(pk=self.component.pk)
+
+        self.assertEqual(component.intermediate, "po-mono/en_devel.po")
+        self.assertNotIn("po-mono/en_devel.po", component.get_mask_matches())
+        self.assertFalse(component.translation_set.filter(language=language).exists())
+
+        component.intermediate = ""
+        component.save()
+        component = Component.objects.get(pk=component.pk)
+
+        self.assertEqual(component.intermediate, "")
+        self.assertIn("po-mono/en_devel.po", component.get_mask_matches())
+        restored = component.translation_set.get(language=language)
+        self.assertEqual(restored.filename, "po-mono/en_devel.po")
+        self.assertFalse(
+            component.translation_set.get(language_code="cs")
+            .unit_set.filter(state=STATE_READONLY)
+            .exists()
+        )
+
+    def test_clearing_intermediate_restores_readonly_target_state(self) -> None:
+        component = self.create_json_intermediate(
+            project=self.create_project(
+                name="Intermediate state",
+                slug="intermediate-state",
+            )
+        )
+        source_unit = component.source_translation.unit_set.get(source="Hello world!\n")
+        target_unit = source_unit.unit_set.get(translation__language_code="cs")
+        self.assertNotEqual(target_unit.state, STATE_READONLY)
+
+        source_unit.translate(None, "Hello, world!\n", STATE_NEEDS_CHECKING)
+        target_unit.refresh_from_db()
+        self.assertEqual(target_unit.state, STATE_READONLY)
+
+        component.intermediate = ""
+        component.save()
+        component = Component.objects.get(pk=component.pk)
+        target_unit = component.translation_set.get(language_code="cs").unit_set.get(
+            context="hello"
+        )
+
+        self.assertNotEqual(target_unit.state, STATE_READONLY)
+
+
 class ResetReapplyMissingTranslationFileTest(ComponentTestCase):
     def create_component(self):
         return self.create_po_new_base(new_lang="add")
@@ -3396,6 +3465,33 @@ class ComponentRepoWebTestCase(FixtureTestCase):
 
         self.assertEqual(
             "https://github.com/marcus/project-x/blob/main/test.py#L42", self.get_url()
+        )
+
+    def create_github_repo_link(self) -> Component:
+        self.component.repo = "https://github.com/marcus/project-x.git"
+        Component.objects.filter(pk=self.component.pk).update(repo=self.component.repo)
+        return self.create_link_existing(
+            name="Linked repository browser",
+            slug="linked-repository-browser",
+        )
+
+    def test_repo_link_generation_linked_github_with_user(self) -> None:
+        """Test generated repository browser links for linked repositories."""
+        component = self.create_github_repo_link()
+
+        self.assertEqual(
+            "https://github.com/marcus/project-x/blob/main/test.py#L42",
+            component.get_repoweb_link("test.py", "42", user=self.user),
+        )
+
+    def test_repo_link_generation_linked_github_with_acting_user(self) -> None:
+        """Test generated repository browser links delegate acting user."""
+        component = self.create_github_repo_link()
+        component.acting_user = self.user
+
+        self.assertEqual(
+            "https://github.com/marcus/project-x/blob/main/test.py#L42",
+            component.get_repoweb_link("test.py", "42"),
         )
 
     def test_repo_link_generation_pagure(self) -> None:

@@ -50,6 +50,7 @@ from .export_format import ExportFormat as ExportFormat
 from .export_method import ExportMethod as ExportMethod
 from .form_question import FormQuestion as FormQuestion
 from .function_tool import FunctionTool as FunctionTool
+from .annotation_task import AnnotationTask as AnnotationTask
 from .approval_status import ApprovalStatus as ApprovalStatus
 from .assessment_type import AssessmentType as AssessmentType
 from .component_param import ComponentParam as ComponentParam
@@ -261,12 +262,16 @@ from .lte_evaluation_run_condition_param import LteEvaluationRunConditionParam a
 from .not_evaluation_run_condition_param import NotEvaluationRunConditionParam as NotEvaluationRunConditionParam
 from .openai_response_computer_tool_call import OpenAIResponseComputerToolCall as OpenAIResponseComputerToolCall
 from .openai_response_function_tool_call import OpenAIResponseFunctionToolCall as OpenAIResponseFunctionToolCall
+from .annotation_task_batch_update_params import AnnotationTaskBatchUpdateParams as AnnotationTaskBatchUpdateParams
 from .number_question_configuration_param import NumberQuestionConfigurationParam as NumberQuestionConfigurationParam
 from .openai_response_function_web_search import OpenAIResponseFunctionWebSearch as OpenAIResponseFunctionWebSearch
 from .rating_question_configuration_param import RatingQuestionConfigurationParam as RatingQuestionConfigurationParam
 from .evaluation_dashboard_retrieve_params import EvaluationDashboardRetrieveParams as EvaluationDashboardRetrieveParams
 from .is_not_null_evaluation_run_condition import IsNotNullEvaluationRunCondition as IsNotNullEvaluationRunCondition
 from .launch_inference_configuration_param import LaunchInferenceConfigurationParam as LaunchInferenceConfigurationParam
+from .annotation_task_batch_update_response import (
+    AnnotationTaskBatchUpdateResponse as AnnotationTaskBatchUpdateResponse,
+)
 from .evaluation_retrieve_taxonomy_response import (
     EvaluationRetrieveTaxonomyResponse as EvaluationRetrieveTaxonomyResponse,
 )

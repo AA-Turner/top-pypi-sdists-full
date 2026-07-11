@@ -64,6 +64,7 @@ class ClientTest(TestCase):
         self._session = Mock(spec=Session)
         self._session.endpoint = MCD_API_ENDPOINT
         self._session.scope = None
+        self._session.is_oauth = False
         self._backoff = MockBackoff(count=0)
         self._client = Client(session=self._session)
 
@@ -90,6 +91,22 @@ class ClientTest(TestCase):
         mock_uuid.uuid4.return_value = MOCK_TRACE_ID
 
         self.assertEqual(self._client._get_headers(), MOCK_HEADERS)
+
+    @patch("pycarlo.core.client.uuid")
+    def test_get_headers_oauth(self, mock_uuid: Mock):
+        self._session.is_oauth = True
+        self._session.get_access_token.return_value = "access-tok"
+        self._session.session_name = MOCK_SESSION_ID
+        self._session.user_id = MOCK_USER_ID
+
+        mock_uuid.uuid4.return_value = MOCK_TRACE_ID
+
+        headers = self._client._get_headers()
+        self.assertEqual(headers["Authorization"], "Bearer access-tok")
+        # OAuth mode must not send the API-key headers.
+        self.assertNotIn("x-mcd-id", headers)
+        self.assertNotIn("x-mcd-token", headers)
+        self._session.get_access_token.assert_called_once()
 
     @patch.object(Client, "_get_headers", lambda *args: MOCK_HEADERS)
     @activate(registry=registries.OrderedRegistry)

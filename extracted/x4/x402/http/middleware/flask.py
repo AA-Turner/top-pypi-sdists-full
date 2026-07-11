@@ -417,10 +417,7 @@ class PaymentMiddleware:
                     return []
 
                 # Check if successful response
-                if (
-                    response_wrapper.status_code is not None
-                    and 200 <= response_wrapper.status_code < 300
-                ):
+                if response_wrapper.status_code is not None and response_wrapper.status_code < 400:
                     # Extract settlement overrides from response headers and strip them
                     overrides = self._http_server._extract_settlement_overrides(
                         response_wrapper.headers,
@@ -555,9 +552,13 @@ def payment_middleware_from_config(
     Returns:
         PaymentMiddleware instance.
     """
-    from ...server import x402ResourceServer
+    # Flask's PaymentMiddleware drives x402HTTPResourceServerSync, which rejects a
+    # server whose verify_payment is async. Use the sync server; the async
+    # x402ResourceServer would raise TypeError at construction. (The FastAPI
+    # factory correctly uses the async x402ResourceServer for its async server.)
+    from ...server import x402ResourceServerSync
 
-    server = x402ResourceServer(facilitator_client)
+    server = x402ResourceServerSync(facilitator_client)
 
     if schemes:
         for registration in schemes:

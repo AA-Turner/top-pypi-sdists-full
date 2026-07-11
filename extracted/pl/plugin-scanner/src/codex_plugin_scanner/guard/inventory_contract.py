@@ -15,6 +15,8 @@ from types import SimpleNamespace
 from typing import Literal
 from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
 
+from ..path_support import resolves_within_root
+
 InventoryItemKind = Literal[
     "agent",
     "daemon_plugin",
@@ -383,18 +385,17 @@ def extract_aibom_metadata_extensions(metadata: dict[str, object]) -> dict[str, 
     return extensions
 
 
-def inventory_snapshot_from_detection(
+def cloud_inventory_artifacts_from_detection(
     detection: object,
     *,
-    generated_at: str,
     home_dir: Path,
     workspace_dir: Path | None = None,
-    runtime_version: str | None = None,
-    cisco_runs: tuple[object, ...] = (),
-    include_symlinks: bool = True,
-    follow_unsafe_symlinks: bool = False,
-    trust_attestation_context: Mapping[str, object] | None = None,
-) -> GuardAgentInventorySnapshot:
+) -> tuple[object, ...]:
+    """Return artifacts eligible for the cloud inventory contract.
+
+    Supplementary skill files remain part of local detection and policy
+    evaluation, but the cloud inventory represents the primary SKILL.md once.
+    """
     harness = str(getattr(detection, "harness", "unknown"))
     artifacts: list[object] = list(getattr(detection, "artifacts", ()))
     if workspace_dir is not None:
@@ -407,7 +408,33 @@ def inventory_snapshot_from_detection(
             if artifact.artifact_id not in existing_ids:
                 artifacts.append(artifact)
                 existing_ids.add(artifact.artifact_id)
-    artifact_tuple = tuple(artifacts)
+    artifacts = [artifact for artifact in artifacts if str(getattr(artifact, "artifact_type", "")) != "skill_file"]
+    return tuple(artifacts)
+
+
+def inventory_snapshot_from_detection(
+    detection: object,
+    *,
+    generated_at: str,
+    home_dir: Path,
+    workspace_dir: Path | None = None,
+    runtime_version: str | None = None,
+    cisco_runs: tuple[object, ...] = (),
+    include_symlinks: bool = True,
+    follow_unsafe_symlinks: bool = False,
+    trust_attestation_context: Mapping[str, object] | None = None,
+    artifacts: tuple[object, ...] | None = None,
+) -> GuardAgentInventorySnapshot:
+    harness = str(getattr(detection, "harness", "unknown"))
+    artifact_tuple = (
+        artifacts
+        if artifacts is not None
+        else cloud_inventory_artifacts_from_detection(
+            detection,
+            home_dir=home_dir,
+            workspace_dir=workspace_dir,
+        )
+    )
     items: list[GuardAgentInventoryItem] = []
     for artifact in artifact_tuple:
         item = _item_from_artifact(
@@ -679,6 +706,7 @@ def _item_from_artifact(
         captured_at=generated_at,
         item_kind=item_kind,
         metadata=safe_metadata,
+        home_dir=home_dir,
         workspace_dir=workspace_dir,
         cisco_runs=cisco_runs,
     )
@@ -692,6 +720,17 @@ def _item_from_artifact(
             workspace_dir=workspace_dir,
             follow_unsafe_symlinks=follow_unsafe_symlinks,
         )
+    primary_content_hash = _primary_artifact_content_hash(
+        artifact,
+        artifact_type=artifact_type,
+        home_dir=home_dir,
+        workspace_dir=workspace_dir,
+    )
+    if artifact_type == "skill":
+        safe_metadata = _bind_skill_document_evidence(
+            safe_metadata,
+            primary_content_hash=primary_content_hash,
+        )
     semantic_text = fingerprint_mapping(
         {
             "artifact_id": artifact_id,
@@ -700,7 +739,10 @@ def _item_from_artifact(
             "metadata": _stable_snapshot_value(safe_metadata),
         }
     )
-    content_hash = _resolve_item_content_hash(safe_metadata, semantic_text)
+    if artifact_type in {"skill", "instruction"}:
+        content_hash = primary_content_hash or semantic_text
+    else:
+        content_hash = _resolve_item_content_hash(safe_metadata, semantic_text)
     from .runtime.trust_attestation import (
         GuardTrustAttestationSigningConfig,
         apply_trust_attestation_metadata,
@@ -1306,13 +1348,91 @@ def _resolve_item_content_hash(metadata: dict[str, object], semantic_text: str) 
     for key in ("content_hash", "directory_hash"):
         candidate = metadata.get(key)
         if isinstance(candidate, str) and candidate:
-            return candidate
+            return _canonical_inventory_content_hash(candidate)
     version_info = metadata.get("versionInfo")
     if isinstance(version_info, dict):
         version_hash = version_info.get("contentHash")
         if isinstance(version_hash, str) and version_hash:
-            return version_hash
+            return _canonical_inventory_content_hash(version_hash)
     return semantic_text
+
+
+def _primary_artifact_content_hash(
+    artifact: object,
+    *,
+    artifact_type: str,
+    home_dir: Path,
+    workspace_dir: Path | None,
+) -> str | None:
+    path_value = getattr(artifact, "config_path", None)
+    if not isinstance(path_value, str) or not path_value.strip():
+        return None
+    path = Path(path_value).expanduser()
+    if artifact_type == "skill":
+        if path.name != "SKILL.md":
+            return None
+        skills_root = next((parent for parent in path.parents if parent.name.lower() == "skills"), None)
+        if skills_root is None:
+            return None
+        try:
+            relative = path.relative_to(skills_root)
+        except ValueError:
+            return None
+        if len(relative.parts) < 2:
+            return None
+        outer_root = next(
+            (
+                root
+                for root in (home_dir, workspace_dir)
+                if root is not None and resolves_within_root(root, skills_root, require_exists=True)
+            ),
+            None,
+        )
+        if outer_root is None:
+            return None
+        allowed_roots = (skills_root,)
+    elif artifact_type == "instruction":
+        if workspace_dir is None or path.suffix.lower() not in {".md", ".mdc"}:
+            return None
+        allowed_roots = (workspace_dir,)
+    else:
+        return None
+    allowed_root = next(
+        (root for root in allowed_roots if root is not None and resolves_within_root(root, path, require_exists=True)),
+        None,
+    )
+    if allowed_root is None or _path_has_symlink_component(path, allowed_root=allowed_root):
+        return None
+    try:
+        digest = hashlib.sha256()
+        with path.open("rb") as handle:
+            for chunk in iter(lambda: handle.read(64 * 1024), b""):
+                digest.update(chunk)
+    except OSError:
+        return None
+    return f"sha256:{digest.hexdigest()}"
+
+
+def _path_has_symlink_component(path: Path, *, allowed_root: Path) -> bool:
+    try:
+        relative = path.relative_to(allowed_root)
+    except ValueError:
+        return True
+    current = allowed_root
+    if current.is_symlink():
+        return True
+    for part in relative.parts:
+        current = current / part
+        if current.is_symlink():
+            return True
+    return False
+
+
+def _canonical_inventory_content_hash(value: str) -> str:
+    normalized = value.lower()
+    if re.fullmatch(r"[0-9a-f]{64}", normalized):
+        return f"sha256:{normalized}"
+    return value
 
 
 def _safe_roots_for_inspection(
@@ -1399,10 +1519,21 @@ def _apply_aibom_metadata_enrichment(
     captured_at: str,
     item_kind: InventoryItemKind,
     metadata: dict[str, object],
+    home_dir: Path,
     workspace_dir: Path | None,
     cisco_runs: tuple[object, ...] = (),
 ) -> dict[str, object]:
     enriched = dict(metadata)
+    artifact_type = str(getattr(artifact, "artifact_type", "unknown"))
+    if artifact_type == "skill":
+        from .skill_document_evidence import enrich_skill_document_metadata
+
+        enriched = enrich_skill_document_metadata(
+            getattr(artifact, "config_path", None),
+            enriched,
+            home_dir=home_dir,
+            workspace_dir=workspace_dir,
+        )
     if item_kind == "overlay" and "instructionRole" not in enriched:
         config_path = getattr(artifact, "config_path", None)
         if isinstance(config_path, str):
@@ -1424,8 +1555,6 @@ def _capabilities_for_artifact(
     metadata: dict[str, object],
 ) -> tuple[InventoryCapability, ...]:
     capabilities: set[InventoryCapability] = set()
-    if artifact_type in {"skill", "skill_file"}:
-        capabilities.add("reads_files")
     if artifact_type in {"instruction", "overlay", "command"}:
         capabilities.add("reads_files")
     if artifact_type == "mcp_server":
@@ -1437,6 +1566,30 @@ def _capabilities_for_artifact(
     if bool(metadata.get("envConfigurationPresent")) or bool(metadata.get("has_auth_headers")):
         capabilities.add("reads_secrets")
     return tuple(sorted(capabilities)) if capabilities else ("unknown",)
+
+
+def _bind_skill_document_evidence(
+    metadata: dict[str, object],
+    *,
+    primary_content_hash: str | None,
+) -> dict[str, object]:
+    evidence = metadata.get("contentEvidence")
+    if (
+        isinstance(evidence, dict)
+        and isinstance(primary_content_hash, str)
+        and evidence.get("contentHash") == primary_content_hash
+    ):
+        return metadata
+
+    if isinstance(evidence, dict) and "contentHash" not in evidence:
+        bound = dict(metadata)
+        bound.pop("documentedCapabilities", None)
+        return bound
+
+    bound = dict(metadata)
+    bound.pop("contentEvidence", None)
+    bound.pop("documentedCapabilities", None)
+    return bound
 
 
 def _risk_level(metadata: dict[str, object]) -> InventorySeverity:

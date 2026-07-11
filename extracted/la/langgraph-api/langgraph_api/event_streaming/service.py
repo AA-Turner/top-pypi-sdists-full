@@ -21,6 +21,7 @@ from __future__ import annotations
 import asyncio
 import contextlib
 import inspect
+import time
 from collections.abc import Awaitable, Callable
 from typing import Any, cast, get_args
 from uuid import UUID, uuid4
@@ -42,7 +43,7 @@ from langgraph_api.event_streaming.session import (
     _is_supported_channel,
 )
 from langgraph_api.event_streaming.types import Subscription
-from langgraph_api.feature_flags import FF_V2_EVENT_STREAMING
+from langgraph_api.feature_flags import FF_V2_EVENT_STREAMING, PREFER_GRPC_CHECKPOINTER
 from langgraph_api.schema import MultitaskStrategy
 
 logger = structlog.stdlib.get_logger(__name__)
@@ -122,6 +123,12 @@ def _multitask_strategy_from_run_start(params: dict[str, Any]) -> str:
 
 
 EventSink = Callable[[dict[str, Any]], Awaitable[None] | None]
+
+
+# ``set_joint_status`` commits interrupts after the stream event; gRPC can lag.
+_IN_FLIGHT_THREAD_STATUS = "busy"
+_INTERRUPT_SETTLE_TIMEOUT_SECONDS = 5.0
+_INTERRUPT_SETTLE_POLL_INTERVAL_SECONDS = 0.05
 
 
 # Protocol v2 commands this server implements. Anything outside this
@@ -593,13 +600,11 @@ class ThreadRunManager:
         # this HTTP request (the stateless ``POST /commands`` transport) its
         # source task hasn't had a chance to emit ``input.requested`` yet —
         # ``_pending_interrupts`` is still empty. In that case, fall back to
-        # the thread-state check so we don't reject legitimate resumes with a
-        # fresh handle. The WebSocket path (long-lived session) hits the
-        # in-memory check and skips the DB round-trip.
+        # the thread-state check (``_collect_settled_interrupt_ids``) so we
+        # don't reject legitimate resumes with a fresh handle.
         #
         # The thread-state fallback is fetched at most once per batch and
-        # cached in ``thread_state_ids``: a batch of N entries that all miss
-        # the session would otherwise issue N identical ``State.get`` calls.
+        # cached in ``thread_state_ids``.
         thread_state_ids: set[str] | None = None
         thread_state_fetched = False
         for interrupt_id, claimed_namespace, _ in entries:
@@ -619,17 +624,17 @@ class ThreadRunManager:
                         "Interrupt namespace does not match the pending interrupt.",
                     )
                 continue
-            # HTTP fallback: the bulk thread-state lookup only walks root
-            # tasks and surfaces interrupts by id (not namespace), so it
-            # cannot validate subgraph namespaces. Verify the interrupt
-            # exists on persisted state and trust the client-claimed
-            # namespace — the interrupt_id is a UUID, so the existence check
-            # alone is sufficient. (Without this, every HTTP ``input.respond``
-            # for a subgraph interrupt would 404.)
+            # HTTP fallback: the persisted lookup surfaces interrupts by id
+            # only, so trust the client-claimed namespace and validate by
+            # existence (the id is a namespace hash, so that's sufficient).
             if not thread_state_fetched:
-                thread_state_ids = await self._collect_thread_state_interrupt_ids()
+                thread_state_ids = await self._collect_settled_interrupt_ids()
                 thread_state_fetched = True
-            if thread_state_ids is None or interrupt_id not in thread_state_ids:
+            # Fail open when the lookup is unavailable (``None``): only reject
+            # when a definitive id set was read and lacks the target. The
+            # checkpointer resume below is authoritative, so a transient lookup
+            # failure must not masquerade as a missing interrupt.
+            if thread_state_ids is not None and interrupt_id not in thread_state_ids:
                 return self._error(
                     command.get("id"),
                     "no_such_interrupt",
@@ -655,6 +660,13 @@ class ThreadRunManager:
         # map. ``_create_or_resume_run`` forwards it verbatim as
         # ``Command(resume=...)``, which resumes all targeted interrupts in
         # one run.
+        #
+        # ``update`` / ``goto`` are the optional state mutation and directed
+        # jump applied in the same superstep as the resume (HITL "push card
+        # into state + resume", or resume-and-redirect flows). They are folded
+        # into ``Command(resume, update, goto)`` by ``_create_or_resume_run``,
+        # so the resumed run produces a single checkpoint reflecting all of
+        # them. Run-level (not per-entry): one resumed run services the batch.
         resume_input = {interrupt_id: response for interrupt_id, _, response in entries}
         try:
             await self._create_or_resume_run(
@@ -662,6 +674,9 @@ class ThreadRunManager:
                 {
                     "assistant_id": assistant_id,
                     "input": resume_input,
+                    "force_resume": True,
+                    "update": params.get("update"),
+                    "goto": params.get("goto"),
                     "config": params.get("config"),
                     "metadata": params.get("metadata"),
                 },
@@ -723,7 +738,8 @@ class ThreadRunManager:
             has_interrupts = await self._has_pending_interrupts()
 
         is_resume = params.get("input") is not None and (
-            (current_run is not None and current_status == "interrupted")
+            params.get("force_resume")
+            or (current_run is not None and current_status == "interrupted")
             or has_interrupts
         )
 
@@ -751,7 +767,29 @@ class ThreadRunManager:
         run_payload: dict[str, Any] = {
             "assistant_id": assistant_id,
             "input": None if is_resume else params.get("input"),
-            "command": {"resume": params["input"]} if is_resume else None,
+            # On resume, fold the optional state update / directed jump into the
+            # same ``Command`` as the resume value so the resumed run produces a
+            # single checkpoint (see ``langgraph_api.command.map_cmd``). Only
+            # set on the ``input.respond`` path — ``run.start`` params carry no
+            # ``update`` / ``goto``, so ``.get`` returns ``None`` and the keys
+            # are omitted.
+            "command": (
+                {
+                    "resume": params["input"],
+                    **(
+                        {"update": params["update"]}
+                        if params.get("update") is not None
+                        else {}
+                    ),
+                    **(
+                        {"goto": params["goto"]}
+                        if params.get("goto") is not None
+                        else {}
+                    ),
+                }
+                if is_resume
+                else None
+            ),
             "config": run_config,
             "metadata": params.get("metadata"),
             "checkpoint_id": checkpoint_id,
@@ -832,15 +870,17 @@ class ThreadRunManager:
         session = EventStreamingSession(
             run_id=run_id,
             thread_id=thread_id,
-            initial_run=run
-            if _is_record(run)
-            else {
-                "run_id": run_id,
-                "thread_id": thread_id,
-                "assistant_id": getattr(run, "assistant_id", ""),
-                "status": getattr(run, "status", "pending"),
-                "kwargs": getattr(run, "kwargs", {}),
-            },
+            initial_run=(
+                run
+                if _is_record(run)
+                else {
+                    "run_id": run_id,
+                    "thread_id": thread_id,
+                    "assistant_id": getattr(run, "assistant_id", ""),
+                    "status": getattr(run, "status", "pending"),
+                    "kwargs": getattr(run, "kwargs", {}),
+                }
+            ),
             get_run=self._make_get_run(run_id, thread_id),
             get_thread_state=self._make_get_thread_state(thread_id),
             source=None,
@@ -922,11 +962,11 @@ class ThreadRunManager:
         async def get_thread_state() -> dict[str, Any] | None:
             from langgraph_runtime.database import connect  # noqa: PLC0415
 
-            # ``supports_core_api=False`` so the postgres backend yields a
-            # real connection. ``State.get`` uses the local checkpointer
-            # and needs a usable ``conn`` — the default flag yields None.
+            # When ``PREFER_GRPC_CHECKPOINTER`` is false the postgres backend
+            # yields a real connection for the Python checkpointer; when true
+            # it yields a no-op stand-in and checkpoint I/O goes through gRPC.
             try:
-                async with connect(supports_core_api=False) as conn:
+                async with connect(supports_core_api=PREFER_GRPC_CHECKPOINTER) as conn:
                     return await self._threads.State.get(
                         conn,
                         {"configurable": {"thread_id": thread_id}},
@@ -1016,56 +1056,41 @@ class ThreadRunManager:
     async def _lookup_interrupt_in_thread_state(
         self, interrupt_id: str
     ) -> list[str] | None:
-        """Existence check for ``interrupt_id`` in persisted thread state.
+        """Existence check for ``interrupt_id`` against persisted thread state.
 
-        Used as a fallback for ``input.respond`` on stateless HTTP
-        transports: the observer session was just attached and hasn't
-        yet processed the source event that would register the
-        interrupt in ``session._pending_interrupts``. The thread state
-        gRPC call gives the persisted view, which is authoritative once
-        the run has finished emitting.
+        Fallback for ``input.respond`` on stateless HTTP transports, where the
+        fresh session hasn't observed ``input.requested`` yet. Backed by the
+        durable thread-row map (see :meth:`_collect_persisted_interrupt_ids`).
 
-        Returns ``[]`` if the interrupt exists, or ``None`` if not.
-        Note: the return value is **not** the interrupt's actual
-        namespace — this fallback only walks root-level tasks (the
-        state shape doesn't reliably surface subgraph interrupts in
-        the ``tasks`` list), so subgraph interrupts come back as
-        ``[]`` even when their real namespace is e.g. ``["sub:1"]``.
-        Callers must not use the return value for namespace comparison;
-        treat ``[]`` as "interrupt found, namespace unknown" and trust
-        the client-claimed namespace.
+        Returns ``[]`` if the interrupt exists, else ``None``. The ``[]`` is a
+        sentinel, not a namespace — the map carries no namespace, so callers
+        must treat it as "found, namespace unknown" and trust the client claim.
         """
-        found = await self._collect_thread_state_interrupt_ids()
+        found = await self._collect_persisted_interrupt_ids()
         if found is None:
             return None
         return [] if interrupt_id in found else None
 
-    async def _collect_thread_state_interrupt_ids(self) -> set[str] | None:
-        """Fetch persisted thread state once and collect all interrupt ids.
+    async def _collect_persisted_interrupt_ids(self) -> set[str] | None:
+        """Collect interrupt ids from the durable thread-row ``interrupts`` map.
 
-        Bulk counterpart to ``_lookup_interrupt_in_thread_state`` for the
-        ``input.respond`` batch path: a single ``State.get`` round-trip is
-        shared across every entry in the batch instead of one DB call per
-        interrupt. Returns the set of interrupt ids present on the thread's
-        root tasks, or ``None`` if the state fetch failed (callers treat a
-        ``None`` result as "lookup unavailable", not "no interrupts").
+        ``Threads.set_status`` writes ``{task_id: [{id, value}, ...]}`` onto the
+        thread row atomically with the status whenever a run pauses. Reading it
+        is a plain row fetch (same ``connect()`` + ``Threads.get`` path as
+        :meth:`_get_thread_assistant_id`) — unlike ``Threads.State.get`` it does
+        not rebuild the graph, so it can't spuriously raise and reject a
+        legitimate resume, and it survives reconnects/redeploys.
 
-        Like the single lookup, this only walks root-level tasks — subgraph
-        interrupts surface by id but not by namespace.
+        Returns the set of interrupt ids (empty when none are pending), or
+        ``None`` if the fetch failed — callers treat ``None`` as "unavailable"
+        and fall open rather than fabricating ``no_such_interrupt``.
         """
         from langgraph_runtime.database import connect  # noqa: PLC0415
 
-        # ``supports_core_api=False`` so the postgres backend yields a
-        # real connection. The default (``True``) yields ``None`` because
-        # data ops normally go through the gRPC server — but ``State.get``
-        # uses the local checkpointer and needs a usable ``conn``.
         try:
-            async with connect(supports_core_api=False) as conn:
-                state = await self._threads.State.get(
-                    conn,
-                    {"configurable": {"thread_id": self._thread_id}},
-                    subgraphs=True,
-                )
+            async with connect() as conn:
+                result = await self._threads.get(conn, self._thread_id)
+                thread = await anext(result) if hasattr(result, "__anext__") else result
         except Exception as exc:
             logger.warning(
                 "interrupt_lookup_failed",
@@ -1075,19 +1100,14 @@ class ThreadRunManager:
             )
             return None
 
-        tasks = (
-            state.get("tasks") if _is_record(state) else getattr(state, "tasks", None)
-        ) or ()
+        interrupts_map = thread.get("interrupts") if _is_record(thread) else None
+        if not _is_record(interrupts_map):
+            return set()
         found: set[str] = set()
-        for task in tasks:
-            interrupts = (
-                task.get("interrupts")
-                if _is_record(task)
-                else getattr(task, "interrupts", None)
-            )
-            if not isinstance(interrupts, (list, tuple)):
+        for entries in interrupts_map.values():
+            if not isinstance(entries, (list, tuple)):
                 continue
-            for entry in interrupts:
+            for entry in entries:
                 entry_id = (
                     entry.get("id") if _is_record(entry) else getattr(entry, "id", None)
                 )
@@ -1095,53 +1115,50 @@ class ThreadRunManager:
                     found.add(entry_id)
         return found
 
-    async def _has_pending_interrupts(self) -> bool:
-        # Prefer the session's locally-tracked pending interrupts when
-        # one is bound: ``_emit_input_requested_events`` populates
-        # ``session._pending_interrupts`` the instant the interrupt
-        # surfaces via the event stream, so we don't have to round-trip
-        # to the Threads.State gRPC call (which can return stale data
-        # between the run completing and the state being persisted).
-        if self._session is not None and self._session._pending_interrupts:
-            return True
-
+    async def _fetch_thread_status(self) -> str | None:
+        """Return durable thread status, or ``None`` if unreadable."""
         from langgraph_runtime.database import connect  # noqa: PLC0415
 
         try:
-            async with connect(supports_core_api=False) as conn:
-                state = await self._threads.State.get(
-                    conn,
-                    {"configurable": {"thread_id": self._thread_id}},
-                    subgraphs=True,
-                )
-            # ``Threads.State.get`` returns ``langgraph.types.StateSnapshot``
-            # — a NamedTuple whose ``tasks`` is a tuple of ``PregelTask``s,
-            # each with an ``interrupts`` tuple. Treat both dicts (from
-            # JSON serialization) and NamedTuples uniformly so this works
-            # whether the caller went through REST → dict or gRPC →
-            # StateSnapshot.
-            tasks = (
-                state.get("tasks")
-                if _is_record(state)
-                else getattr(state, "tasks", None)
-            ) or ()
-            for t in tasks:
-                interrupts = (
-                    t.get("interrupts")
-                    if _is_record(t)
-                    else getattr(t, "interrupts", None)
-                )
-                if isinstance(interrupts, (list, tuple)) and len(interrupts) > 0:
-                    return True
-            return False
-        except Exception as exc:
-            logger.warning(
-                "has_pending_interrupts_failed",
-                thread_id=self._thread_id,
-                error=str(exc),
-                error_type=type(exc).__name__,
-            )
-            return False
+            async with connect() as conn:
+                result = await self._threads.get(conn, self._thread_id)
+                thread = await anext(result) if hasattr(result, "__anext__") else result
+        except Exception:
+            return None
+        status = thread.get("status") if _is_record(thread) else None
+        return status if isinstance(status, str) else None
+
+    async def _collect_settled_interrupt_ids(self) -> set[str] | None:
+        """Persisted interrupt ids, polling while the thread is still ``busy``."""
+        ids = await self._collect_persisted_interrupt_ids()
+        if ids is None:
+            return None
+        if ids:
+            return ids
+        deadline = time.monotonic() + _INTERRUPT_SETTLE_TIMEOUT_SECONDS
+        while True:
+            status = await self._fetch_thread_status()
+            if status != _IN_FLIGHT_THREAD_STATUS:
+                return await self._collect_persisted_interrupt_ids()
+            if time.monotonic() >= deadline:
+                return set()
+            await asyncio.sleep(_INTERRUPT_SETTLE_POLL_INTERVAL_SECONDS)
+            ids = await self._collect_persisted_interrupt_ids()
+            if ids is None:
+                return None
+            if ids:
+                return ids
+
+    async def _has_pending_interrupts(self) -> bool:
+        # Prefer the session's in-memory pending interrupts (populated the
+        # instant ``input.requested`` surfaces) to skip a DB round-trip;
+        # otherwise consult the durable thread-row map. A lookup failure
+        # (``None``) reads as "none pending" — ``run.start`` then falls back to
+        # the ``current_status == "interrupted"`` signal for resume-vs-start.
+        if self._session is not None and self._session._pending_interrupts:
+            return True
+        found = await self._collect_settled_interrupt_ids()
+        return bool(found)
 
     # ------------------------------------------------------------------
     # Command forwarding

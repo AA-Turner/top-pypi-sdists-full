@@ -98,10 +98,12 @@ __all__ = (
     "CallbackSucceededDetailsTypeDef",
     "CallbackTimedOutDetailsTypeDef",
     "CapacityProviderConfigTypeDef",
+    "CapacityProviderLoggingConfigTypeDef",
     "CapacityProviderPermissionsConfigTypeDef",
     "CapacityProviderScalingConfigOutputTypeDef",
     "CapacityProviderScalingConfigTypeDef",
     "CapacityProviderScalingConfigUnionTypeDef",
+    "CapacityProviderTelemetryConfigTypeDef",
     "CapacityProviderTypeDef",
     "CapacityProviderVpcConfigOutputTypeDef",
     "CapacityProviderVpcConfigTypeDef",
@@ -487,6 +489,11 @@ class LambdaManagedInstancesCapacityProviderConfigTypeDef(TypedDict):
     CapacityProviderArn: str
     PerExecutionEnvironmentMaxConcurrency: NotRequired[int]
     ExecutionEnvironmentMemoryGiBPerVCpu: NotRequired[float]
+
+
+class CapacityProviderLoggingConfigTypeDef(TypedDict):
+    SystemLogLevel: NotRequired[SystemLogLevelType]
+    LogGroup: NotRequired[str]
 
 
 class CapacityProviderPermissionsConfigTypeDef(TypedDict):
@@ -1363,12 +1370,12 @@ class InvokeAsyncRequestTypeDef(TypedDict):
 
 class InvokeWithResponseStreamRequestTypeDef(TypedDict):
     FunctionName: str
-    InvocationType: NotRequired[ResponseStreamingInvocationTypeType]
     LogType: NotRequired[LogTypeType]
     ClientContext: NotRequired[str]
     Qualifier: NotRequired[str]
     Payload: NotRequired[BlobTypeDef]
     TenantId: NotRequired[str]
+    InvocationType: NotRequired[ResponseStreamingInvocationTypeType]
 
 
 class LayerVersionContentInputTypeDef(TypedDict):
@@ -1449,6 +1456,10 @@ class CapacityProviderConfigTypeDef(TypedDict):
     LambdaManagedInstancesCapacityProviderConfig: (
         LambdaManagedInstancesCapacityProviderConfigTypeDef
     )
+
+
+class CapacityProviderTelemetryConfigTypeDef(TypedDict):
+    LoggingConfig: NotRequired[CapacityProviderLoggingConfigTypeDef]
 
 
 class CapacityProviderScalingConfigOutputTypeDef(TypedDict):
@@ -1958,6 +1969,7 @@ class CapacityProviderTypeDef(TypedDict):
     KmsKeyArn: NotRequired[str]
     LastModified: NotRequired[str]
     PropagateTags: NotRequired[PropagateTagsOutputTypeDef]
+    TelemetryConfig: NotRequired[CapacityProviderTelemetryConfigTypeDef]
 
 
 CapacityProviderScalingConfigUnionTypeDef = Union[
@@ -2356,12 +2368,14 @@ class CreateCapacityProviderRequestTypeDef(TypedDict):
     KmsKeyArn: NotRequired[str]
     Tags: NotRequired[Mapping[str, str]]
     PropagateTags: NotRequired[PropagateTagsUnionTypeDef]
+    TelemetryConfig: NotRequired[CapacityProviderTelemetryConfigTypeDef]
 
 
 class UpdateCapacityProviderRequestTypeDef(TypedDict):
     CapacityProviderName: str
     CapacityProviderScalingConfig: NotRequired[CapacityProviderScalingConfigUnionTypeDef]
     PropagateTags: NotRequired[PropagateTagsUnionTypeDef]
+    TelemetryConfig: NotRequired[CapacityProviderTelemetryConfigTypeDef]
 
 
 class ListFunctionEventInvokeConfigsResponseTypeDef(TypedDict):

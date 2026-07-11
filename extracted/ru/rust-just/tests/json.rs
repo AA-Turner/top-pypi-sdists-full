@@ -59,6 +59,9 @@ struct Parameter<'a> {
   help: Option<&'a str>,
   kind: &'a str,
   long: Option<&'a str>,
+  max: Option<u64>,
+  min: Option<u64>,
+  multiple: bool,
   name: &'a str,
   pattern: Option<Vec<&'a str>>,
   short: Option<char>,
@@ -105,6 +108,7 @@ struct Settings<'a> {
   fallback: bool,
   guards: bool,
   ignore_comments: bool,
+  indentation: Option<&'a str>,
   lazy: bool,
   lists: bool,
   no_cd: bool,
@@ -700,6 +704,7 @@ fn settings() {
       set export
       set fallback
       set ignore-comments
+      set indentation := \"  \"
       set positional-arguments
       set quiet
       set shell := ['a', 'b', 'c']
@@ -729,6 +734,7 @@ fn settings() {
         export: true,
         fallback: true,
         ignore_comments: true,
+        indentation: Some("  "),
         positional_arguments: true,
         quiet: true,
         shell: Some(Interpreter {
@@ -1291,6 +1297,8 @@ fn arg_pattern() {
             "arg": {
               "help": null,
               "long": null,
+              "max": null,
+              "min": null,
               "name": "bar",
               "pattern": ["BAR"],
               "short": null,
@@ -1329,6 +1337,8 @@ fn arg_long() {
             "arg": {
               "help": null,
               "long": "BAR",
+              "max": null,
+              "min": null,
               "name": "bar",
               "pattern": null,
               "short": null,
@@ -1367,6 +1377,8 @@ fn arg_short() {
             "arg": {
               "help": null,
               "long": null,
+              "max": null,
+              "min": null,
               "name": "bar",
               "pattern": null,
               "short": "B",
@@ -1405,6 +1417,8 @@ fn arg_value() {
             "arg": {
               "help": null,
               "long": null,
+              "max": null,
+              "min": null,
               "name": "bar",
               "pattern": null,
               "short": "B",
@@ -1444,6 +1458,8 @@ fn arg_flag() {
             "arg": {
               "help": null,
               "long": "bar",
+              "max": null,
+              "min": null,
               "name": "bar",
               "pattern": null,
               "short": null,
@@ -1455,6 +1471,52 @@ fn arg_flag() {
             flag: true,
             kind: "singular",
             long: Some("bar"),
+            name: "bar",
+            ..default()
+          }]
+          .into(),
+          ..default()
+        },
+      )]
+      .into(),
+      settings: Settings {
+        lists: true,
+        unstable: true,
+        ..default()
+      },
+      ..default()
+    },
+  );
+}
+
+#[test]
+fn arg_multiple() {
+  case(
+    "set unstable\nset lists\n[arg('bar', long, multiple)]\nfoo bar:",
+    Module {
+      first: Some("foo"),
+      recipes: [(
+        "foo",
+        Recipe {
+          name: "foo",
+          namepath: "foo",
+          attributes: [json!({
+            "arg": {
+              "help": null,
+              "long": "bar",
+              "max": null,
+              "min": null,
+              "name": "bar",
+              "pattern": null,
+              "short": null,
+              "value": null,
+            }
+          })]
+          .into(),
+          parameters: [Parameter {
+            kind: "singular",
+            long: Some("bar"),
+            multiple: true,
             name: "bar",
             ..default()
           }]
@@ -1488,6 +1550,8 @@ fn arg_help() {
             "arg": {
               "help": "hello",
               "long": null,
+              "max": null,
+              "min": null,
               "name": "bar",
               "pattern": null,
               "short": null,

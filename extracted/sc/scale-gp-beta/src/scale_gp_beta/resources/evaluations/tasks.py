@@ -57,11 +57,16 @@ class TasksResource(SyncAPIResource):
         extra_body: Body | None = None,
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Evaluation:
-        """Replace a single test criteria's configuration, identified by its alias.
+        """
+        Replace the full configuration of a single test criteria, identified by its
+        alias.
 
-        Gated:
-        rejected if any contributor annotation task for the evaluation has been claimed
-        or completed.
+        The alias must match an existing test criteria on the evaluation, and the
+        replacement configuration is validated against the evaluation's current items
+        before being applied. The request is rejected if the evaluation is archived, if
+        no test criteria matches the alias, or if any contributor annotation task for
+        the evaluation has already been claimed or completed — at that point labelers
+        are in-flight and mutating the task definition would corrupt their work.
 
         Args:
           configuration: Full replacement for the test criteria's configuration JSON. Only allowed when
@@ -102,10 +107,16 @@ class TasksResource(SyncAPIResource):
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Evaluation:
         """
-        Add a new test criteria (LLM judge, contributor question, etc.) to an existing
-        evaluation. Gated: rejected if any contributor annotation task has been claimed
-        or completed. Kicks off the evaluation workflow so the new task runs against
-        existing items.
+        Add a new test criteria to an existing evaluation.
+
+        Narrowed to contributor question tasks (`contributor_evaluation.question`);
+        other task types must be configured when the evaluation is first created and are
+        rejected here. The request is also rejected if the evaluation is archived, if a
+        test criteria with the same alias already exists, or if any contributor
+        annotation task for the evaluation has already been claimed or completed.
+        Because only contributor question tasks are accepted, the added criteria is
+        applied synchronously and contributors answer it against the evaluation's
+        existing items — no async job or Temporal workflow is started.
 
         Args:
           task: New test criteria to add to the evaluation. Rejected when contributor annotation
@@ -165,11 +176,16 @@ class AsyncTasksResource(AsyncAPIResource):
         extra_body: Body | None = None,
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Evaluation:
-        """Replace a single test criteria's configuration, identified by its alias.
+        """
+        Replace the full configuration of a single test criteria, identified by its
+        alias.
 
-        Gated:
-        rejected if any contributor annotation task for the evaluation has been claimed
-        or completed.
+        The alias must match an existing test criteria on the evaluation, and the
+        replacement configuration is validated against the evaluation's current items
+        before being applied. The request is rejected if the evaluation is archived, if
+        no test criteria matches the alias, or if any contributor annotation task for
+        the evaluation has already been claimed or completed — at that point labelers
+        are in-flight and mutating the task definition would corrupt their work.
 
         Args:
           configuration: Full replacement for the test criteria's configuration JSON. Only allowed when
@@ -210,10 +226,16 @@ class AsyncTasksResource(AsyncAPIResource):
         timeout: float | httpx.Timeout | None | NotGiven = not_given,
     ) -> Evaluation:
         """
-        Add a new test criteria (LLM judge, contributor question, etc.) to an existing
-        evaluation. Gated: rejected if any contributor annotation task has been claimed
-        or completed. Kicks off the evaluation workflow so the new task runs against
-        existing items.
+        Add a new test criteria to an existing evaluation.
+
+        Narrowed to contributor question tasks (`contributor_evaluation.question`);
+        other task types must be configured when the evaluation is first created and are
+        rejected here. The request is also rejected if the evaluation is archived, if a
+        test criteria with the same alias already exists, or if any contributor
+        annotation task for the evaluation has already been claimed or completed.
+        Because only contributor question tasks are accepted, the added criteria is
+        applied synchronously and contributors answer it against the evaluation's
+        existing items — no async job or Temporal workflow is started.
 
         Args:
           task: New test criteria to add to the evaluation. Rejected when contributor annotation

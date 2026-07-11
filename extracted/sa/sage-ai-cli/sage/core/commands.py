@@ -1143,13 +1143,36 @@ def execute_command(
             )
 
     # Execute without shell
-    return execute_argv(
+    res = execute_argv(
         parsed.argv,
         cwd=exec_cwd,
         timeout=timeout,
         env=parsed.env_vars,
     )
 
+    if not res.success and cmd.strip().startswith("rm ") and ("Directory not empty" in res.stderr or "Operation not permitted" in res.stderr):
+        import shutil
+        import sys
+        if sys.platform == "darwin":
+            try:
+                # Fallback to python shutil for macOS iCloud FileProvider issues
+                targets = [arg for arg in parsed.argv[1:] if not arg.startswith("-")]
+                for target in targets:
+                    target_path = Path(exec_cwd) / target
+                    if target_path.exists():
+                        shutil.rmtree(target_path, ignore_errors=True)
+                
+                # Check if we succeeded
+                all_removed = all(not (Path(exec_cwd) / target).exists() for target in targets)
+                if all_removed:
+                    res.success = True
+                    res.returncode = 0
+                    res.stderr = ""
+                    res.stdout += "\n[SAGE] Applied macOS FileProvider workaround for 'Directory not empty'."
+            except Exception:
+                pass
+
+    return res
 
 def build_test_command(
     test_framework: str,

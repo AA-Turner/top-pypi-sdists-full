@@ -40,6 +40,12 @@ SERVICE_NAME = "ops-webapp"
 DOMAIN = config.get("domain") or "ops.internal.airbyte.ai"
 PUBLIC_URL = config.get("public-url") or f"https://{DOMAIN}"
 
+# Shared Cloud Run template settings applied to both prod and preview services.
+# Keeps infra parity explicit — only scaling (min/max instances) differs.
+MAX_INSTANCE_REQUEST_CONCURRENCY = 40
+CONTAINER_RESOURCES = {"cpu": "1", "memory": "1Gi"}
+STARTUP_CPU_BOOST = True
+
 PREVIEW_SERVICE_NAME = "ops-webapp-preview"
 PREVIEW_DOMAIN = f"preview.{DOMAIN}"
 PREVIEW_PUBLIC_URL = f"https://{PREVIEW_DOMAIN}"
@@ -58,14 +64,23 @@ DNS_ZONE_NAME = config.get("dns-zone-name") or "internal-airbyte-ai"
 AIRBYTE_DOMAIN = "airbyte.io"
 
 OAUTH_CLIENT_SECRET_ID = "ops-webapp-oauth-client-secret"
+"""Used to authenticate users with their Airbyte Cloud identity."""
+
 GOOGLE_OAUTH_CLIENT_SECRET_ID = "ops-webapp-google-oauth-client-secret"
-# The container image tag is a placeholder — the deploy-ops-webapp workflow
-# manages the actual image via `gcloud run services update --image=<sha-tag>`.
-# Pulumi ignores changes to the container image (see ignore_changes below)
-# to avoid overwriting the deploy workflow's SHA-tagged revision.
+"""Used to authenticate users with their Google identity."""
+
+SLACK_BOT_TOKEN_SECRET_ID = "slack-bot-token-hitl"
+"""Slack bot token created by the message-bus service."""
+
 CONTAINER_IMAGE = (
     f"{REGION}-docker.pkg.dev/{PROJECT}/{SERVICE_NAME}/{SERVICE_NAME}:latest"
 )
+"""Placeholder (dummy) image tag.
+
+Note: The deploy-ops-webapp workflow manages the actual image via `gcloud run services update --image=<sha-tag>`.
+Pulumi ignores changes to the container image (see ignore_changes below)
+to avoid overwriting the deploy workflow's SHA-tagged revision.
+"""
 
 
 def define_apis() -> list[gcp.projects.Service]:
@@ -102,6 +117,10 @@ def define_secrets() -> dict[str, SecretRef]:
         ),
         GOOGLE_OAUTH_CLIENT_SECRET_ID: gcp.secretmanager.get_secret(
             secret_id=GOOGLE_OAUTH_CLIENT_SECRET_ID,
+            project=PROJECT,
+        ),
+        SLACK_BOT_TOKEN_SECRET_ID: gcp.secretmanager.get_secret(
+            secret_id=SLACK_BOT_TOKEN_SECRET_ID,
             project=PROJECT,
         ),
     }
@@ -187,6 +206,7 @@ def define_cloud_run_service(
         ingress="INGRESS_TRAFFIC_INTERNAL_LOAD_BALANCER",
         template=gcp.cloudrunv2.ServiceTemplateArgs(
             service_account=service_account.email,
+            max_instance_request_concurrency=MAX_INSTANCE_REQUEST_CONCURRENCY,
             scaling=gcp.cloudrunv2.ServiceTemplateScalingArgs(
                 min_instance_count=MIN_INSTANCES,
                 max_instance_count=MAX_INSTANCES,
@@ -198,7 +218,8 @@ def define_cloud_run_service(
                         container_port=8080,
                     ),
                     resources=gcp.cloudrunv2.ServiceTemplateContainerResourcesArgs(
-                        limits={"cpu": "1", "memory": "1Gi"},
+                        limits=CONTAINER_RESOURCES,
+                        startup_cpu_boost=STARTUP_CPU_BOOST,
                     ),
                     envs=[
                         _env("GCP_PROJECT", PROJECT),
@@ -206,6 +227,7 @@ def define_cloud_run_service(
                         _env("AIRBYTE_OPS_WEBAPP_OAUTH_ISSUER", OAUTH_ISSUER),
                         _env("AIRBYTE_OPS_WEBAPP_OAUTH_CLIENT_ID", OAUTH_CLIENT_ID),
                         _env("AIRBYTE_CLOUD_CONFIG_API_URL", AIRBYTE_CONFIG_API_URL),
+                        _env("AIRBYTE_INTERNAL_ADMIN_FLAG", AIRBYTE_DOMAIN),
                         _secret_env(
                             "AIRBYTE_OPS_WEBAPP_OAUTH_CLIENT_SECRET",
                             OAUTH_CLIENT_SECRET_ID,
@@ -213,6 +235,10 @@ def define_cloud_run_service(
                         _secret_env(
                             "AIRBYTE_OPS_WEBAPP_GOOGLE_CLIENT_SECRET",
                             GOOGLE_OAUTH_CLIENT_SECRET_ID,
+                        ),
+                        _secret_env(
+                            "SLACK_BOT_TOKEN_HITL",
+                            SLACK_BOT_TOKEN_SECRET_ID,
                         ),
                     ],
                 )
@@ -263,6 +289,7 @@ def define_preview_cloud_run_service(
         ingress="INGRESS_TRAFFIC_INTERNAL_LOAD_BALANCER",
         template=gcp.cloudrunv2.ServiceTemplateArgs(
             service_account=service_account.email,
+            max_instance_request_concurrency=MAX_INSTANCE_REQUEST_CONCURRENCY,
             scaling=gcp.cloudrunv2.ServiceTemplateScalingArgs(
                 min_instance_count=0,
                 max_instance_count=2,
@@ -274,7 +301,8 @@ def define_preview_cloud_run_service(
                         container_port=8080,
                     ),
                     resources=gcp.cloudrunv2.ServiceTemplateContainerResourcesArgs(
-                        limits={"cpu": "1", "memory": "1Gi"},
+                        limits=CONTAINER_RESOURCES,
+                        startup_cpu_boost=STARTUP_CPU_BOOST,
                     ),
                     envs=[
                         _env("GCP_PROJECT", PROJECT),
@@ -282,6 +310,8 @@ def define_preview_cloud_run_service(
                         _env("AIRBYTE_OPS_WEBAPP_OAUTH_ISSUER", OAUTH_ISSUER),
                         _env("AIRBYTE_OPS_WEBAPP_OAUTH_CLIENT_ID", OAUTH_CLIENT_ID),
                         _env("AIRBYTE_CLOUD_CONFIG_API_URL", AIRBYTE_CONFIG_API_URL),
+                        _env("AIRBYTE_INTERNAL_ADMIN_FLAG", AIRBYTE_DOMAIN),
+                        _env("AIRBYTE_OPS_WEBAPP_PREVIEW", "1"),
                         _secret_env(
                             "AIRBYTE_OPS_WEBAPP_OAUTH_CLIENT_SECRET",
                             OAUTH_CLIENT_SECRET_ID,
@@ -289,6 +319,10 @@ def define_preview_cloud_run_service(
                         _secret_env(
                             "AIRBYTE_OPS_WEBAPP_GOOGLE_CLIENT_SECRET",
                             GOOGLE_OAUTH_CLIENT_SECRET_ID,
+                        ),
+                        _secret_env(
+                            "SLACK_BOT_TOKEN_HITL",
+                            SLACK_BOT_TOKEN_SECRET_ID,
                         ),
                     ],
                 )
@@ -317,17 +351,76 @@ def define_preview_cloud_run_service(
     return service
 
 
+def define_cloud_armor_policy(
+    api_services: list[gcp.projects.Service],
+) -> gcp.compute.SecurityPolicy:
+    """Define a Cloud Armor security policy for the webapp load balancer.
+
+    Provides edge-level rate limiting as defense in depth. IAP handles
+    identity; Cloud Armor throttles per-IP request bursts to prevent
+    overloading the backend during traffic spikes (e.g. demos).
+
+    Rules (evaluated in priority order, lowest number = highest priority):
+    1. Rate limit — throttle per-IP request rate (360 req/min)
+    2. Default  — allow all (IAP handles identity)
+    """
+    return gcp.compute.SecurityPolicy(
+        f"{SERVICE_NAME}-armor",
+        name=f"{SERVICE_NAME}-armor",
+        project=PROJECT,
+        description="Rate limiting for ops webapp backend services",
+        rules=[
+            gcp.compute.SecurityPolicyRuleArgs(
+                action="throttle",
+                priority=100,
+                description="Rate limit: 360 requests per minute per IP",
+                match=gcp.compute.SecurityPolicyRuleMatchArgs(
+                    versioned_expr="SRC_IPS_V1",
+                    config=gcp.compute.SecurityPolicyRuleMatchConfigArgs(
+                        src_ip_ranges=["*"],
+                    ),
+                ),
+                rate_limit_options=gcp.compute.SecurityPolicyRuleRateLimitOptionsArgs(
+                    conform_action="allow",
+                    exceed_action="deny(429)",
+                    rate_limit_threshold=gcp.compute.SecurityPolicyRuleRateLimitOptionsRateLimitThresholdArgs(
+                        count=360,
+                        interval_sec=60,
+                    ),
+                    enforce_on_key="IP",
+                ),
+            ),
+            gcp.compute.SecurityPolicyRuleArgs(
+                action="allow",
+                priority=2147483647,
+                description="Default allow — IAP handles identity",
+                match=gcp.compute.SecurityPolicyRuleMatchArgs(
+                    versioned_expr="SRC_IPS_V1",
+                    config=gcp.compute.SecurityPolicyRuleMatchConfigArgs(
+                        src_ip_ranges=["*"],
+                    ),
+                ),
+            ),
+        ],
+        opts=pulumi.ResourceOptions(depends_on=api_services),
+    )
+
+
 def _define_neg_and_backend(
     service_name: str,
     cloud_run_service: gcp.cloudrunv2.Service,
     *,
     enable_iap: bool = False,
+    armor_policy: gcp.compute.SecurityPolicy | None = None,
 ) -> gcp.compute.BackendService:
     """Create a serverless NEG + backend service pair for a Cloud Run service.
 
     When `enable_iap` is `True`, IAP is enabled on the backend using GCP's
     Google-managed OAuth client and `@airbyte.io` domain access is granted
     via `roles/iap.httpsResourceAccessor`.
+
+    When `armor_policy` is provided, the Cloud Armor security policy is
+    attached to the backend service for edge-level rate limiting.
     """
     neg = gcp.compute.RegionNetworkEndpointGroup(
         f"{service_name}-neg",
@@ -363,7 +456,10 @@ def _define_neg_and_backend(
         port_name="http",
         backends=[gcp.compute.BackendServiceBackendArgs(group=neg.id)],
         iap=iap_args,
-        opts=pulumi.ResourceOptions(depends_on=[neg]),
+        security_policy=armor_policy.self_link if armor_policy else None,
+        opts=pulumi.ResourceOptions(
+            depends_on=[neg] + ([armor_policy] if armor_policy else []),
+        ),
     )
 
     if enable_iap:
@@ -382,6 +478,7 @@ def define_load_balancer(
     *,
     webapp_service: gcp.cloudrunv2.Service,
     webapp_preview_service: gcp.cloudrunv2.Service,
+    armor_policy: gcp.compute.SecurityPolicy,
     api_services: list[gcp.projects.Service],
 ) -> tuple[gcp.compute.GlobalAddress, gcp.compute.BackendService, OutputMap]:
     """Define the external HTTPS load balancer.
@@ -389,6 +486,7 @@ def define_load_balancer(
     Webapp traffic uses host-based routing (`ops.internal.airbyte.ai` and
     `preview.ops.internal.airbyte.ai`). IAP is enabled on both webapp
     backends (prod + preview) using GCP's Google-managed OAuth client.
+    Cloud Armor is attached for per-IP rate limiting.
     """
     ip_address = gcp.compute.GlobalAddress(
         f"{SERVICE_NAME}-lb-ip",
@@ -397,16 +495,18 @@ def define_load_balancer(
         opts=pulumi.ResourceOptions(depends_on=api_services),
     )
 
-    # Webapp backends — IAP-gated (@airbyte.io Google SSO)
+    # Webapp backends — IAP-gated (@airbyte.io Google SSO) + Cloud Armor
     webapp_backend = _define_neg_and_backend(
         SERVICE_NAME,
         webapp_service,
         enable_iap=True,
+        armor_policy=armor_policy,
     )
     preview_backend = _define_neg_and_backend(
         PREVIEW_SERVICE_NAME,
         webapp_preview_service,
         enable_iap=True,
+        armor_policy=armor_policy,
     )
 
     # SSL certificates
@@ -557,9 +657,12 @@ def main() -> None:
         iap_identity=iap_identity,
     )
 
+    armor_policy = define_cloud_armor_policy(api_services)
+
     lb_ip, backend, lb_outputs = define_load_balancer(
         webapp_service=cloud_run_service,
         webapp_preview_service=preview_service,
+        armor_policy=armor_policy,
         api_services=api_services,
     )
     dns_outputs = define_dns(lb_ip)

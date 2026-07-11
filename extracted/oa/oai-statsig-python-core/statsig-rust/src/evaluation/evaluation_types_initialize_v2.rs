@@ -30,7 +30,7 @@ pub struct GateEvaluationInitV2 {
 
 impl GCIRHashable for GateEvaluationInitV2 {
     fn create_hash(&self, name: &InternedString) -> u64 {
-        let hash_array = vec![
+        let hash_array = [
             name.hash,
             match self.value {
                 Some(true) => 1,
@@ -42,7 +42,7 @@ impl GCIRHashable for GateEvaluationInitV2 {
             },
             hash_secondary_exposures(&self.base.secondary_exposures),
         ];
-        hashing::hash_one(hash_array)
+        hashing::hash_u64_slice(&hash_array)
     }
 }
 
@@ -62,7 +62,7 @@ pub struct DynamicConfigEvaluationInitV2 {
 
 impl GCIRHashable for DynamicConfigEvaluationInitV2 {
     fn create_hash(&self, name: &InternedString) -> u64 {
-        let hash_array = vec![
+        let hash_array = [
             name.hash,
             self.value.hash,
             match self.base.rule_id {
@@ -72,7 +72,7 @@ impl GCIRHashable for DynamicConfigEvaluationInitV2 {
             hash_secondary_exposures(&self.base.secondary_exposures),
             if self.passed { 1 } else { 0 },
         ];
-        hashing::hash_one(hash_array)
+        hashing::hash_u64_slice(&hash_array)
     }
 }
 
@@ -99,7 +99,7 @@ pub struct ExperimentEvaluationInitV2 {
 
 impl GCIRHashable for ExperimentEvaluationInitV2 {
     fn create_hash(&self, name: &InternedString) -> u64 {
-        let hash_array = vec![
+        let hash_array = [
             name.hash,
             self.value.hash,
             match self.base.rule_id {
@@ -112,7 +112,7 @@ impl GCIRHashable for ExperimentEvaluationInitV2 {
             opt_bool_to_hashable(&self.is_user_in_experiment),
         ];
 
-        hashing::hash_one(hash_array)
+        hashing::hash_u64_slice(&hash_array)
     }
 }
 
@@ -163,7 +163,7 @@ pub struct LayerEvaluationInitV2 {
 
 impl GCIRHashable for LayerEvaluationInitV2 {
     fn create_hash(&self, name: &InternedString) -> u64 {
-        let mut hash_array = vec![
+        let hash_array = [
             name.hash,
             self.value.hash,
             match self.base.rule_id {
@@ -177,27 +177,21 @@ impl GCIRHashable for LayerEvaluationInitV2 {
             self.allocated_experiment_name
                 .as_ref()
                 .map_or(0, |n| n.hash),
+            hash_secondary_exposures(&self.undelegated_secondary_exposures),
         ];
-        let mut explicit_params_hashes = Vec::new();
-        if let Some(explicit_parameters) = &self.explicit_parameters {
-            for value in explicit_parameters.to_vec_interned() {
-                explicit_params_hashes.push(value.hash);
-            }
-        }
-        hash_array.push(hash_secondary_exposures(
-            &self.undelegated_secondary_exposures,
-        ));
 
-        hashing::hash_one(hash_array)
+        hashing::hash_u64_slice(&hash_array)
     }
 }
 
 fn hash_secondary_exposures(exposures: &Option<Vec<InternedString>>) -> u64 {
-    let mut secondary_exposure_hashes = Vec::new();
-    if let Some(exposures) = exposures {
-        for exposure in exposures {
-            secondary_exposure_hashes.push(exposure.hash);
-        }
+    let Some(exposures) = exposures else {
+        return hashing::hash_u64_slice(&[]);
+    };
+
+    let mut secondary_exposure_hashes = hashing::U64HashBuilder::with_capacity(exposures.len());
+    for exposure in exposures {
+        secondary_exposure_hashes.push(exposure.hash);
     }
-    hashing::hash_one(secondary_exposure_hashes)
+    secondary_exposure_hashes.finish()
 }

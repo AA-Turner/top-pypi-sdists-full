@@ -1,6 +1,6 @@
 [project]
 name = "zernio-sdk"
-version = "1.4.224"
+version = "1.4.232"
 description = "The official Python library for the Zernio API"
 readme = "README.md"
 requires-python = ">=3.10"
@@ -62,6 +62,7 @@ all = [
     "mcp>=1.8.0",
 ]
 mcp = [
+    "fastmcp>=3.1.0",
     "mcp>=1.8.0",
     "starlette>=0.42.0",
     "uvicorn[standard]>=0.32.0",

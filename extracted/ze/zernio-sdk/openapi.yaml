@@ -150,6 +150,7 @@ x-documentation:
     - `account.disconnected` - Social account disconnected (token expired)
     - `account.ads.initial_sync_completed` - Initial ads sync (discovery + 90-day backfill) completed for an ads-enabled account
     - `message.received` - New DM received
+    - `conversation.started` - A new conversation opened between one of your accounts and a contact, in either direction (any DM platform); fires only the first time the thread appears
     - `message.sent` - DM sent via the API
     - `message.edited` - A sender edited a message (Instagram, Messenger, Telegram)
     - `message.deleted` - A sender deleted ("unsent") a message (Instagram; WhatsApp when the business deletes a sent message)
@@ -163,6 +164,19 @@ x-documentation:
     - `lead.received` - New lead submitted against a Meta Lead Gen (Instant) Form. `lead.fields` is the question-key → answer map; `lead.formId`/`lead.adId` give provenance.
     - `ad.status_changed` - Ad, ad set, or campaign changed status on the ad platform (Meta: `in_process_ad_objects` entry/exit and `with_issues_ad_objects` violations)
     - `whatsapp.template.status_updated` - WhatsApp Business template completed (re)review by Meta. `template.status` carries the new state (APPROVED, REJECTED, PENDING, PAUSED, DISABLED, IN_APPEAL, PENDING_DELETION); `template.reason` is Meta's free-form reason or "NONE".
+    - `call.received` - An inbound call (phone/PSTN or WhatsApp) reached one of your numbers and was routed to its destination
+    - `call.ended` - A call ended; carries duration, end reason, cost breakdown, and the recording when enabled
+    - `call.failed` - A call failed with a hard error before or during bridging
+    - `call.permission_request` - A WhatsApp user accepted or rejected your call-permission request
+    - `whatsapp.automatic_event` - Meta's automatic event identification detected a lead or purchase in a Click-to-WhatsApp conversation. Branch on `eventName` (`LeadSubmitted` | `Purchase`); carries the `ctwa_clid` Conversions API match key
+    - `whatsapp.number.kyc_submitted` - An end customer completed a hosted KYC share link; the number entered regulatory review under your account
+    - `whatsapp.number.activated` - A provisioned WhatsApp number finished setup and is ready to connect
+    - `whatsapp.number.declined` - A regulated number order was declined in review; nothing activates and nothing is billed
+    - `whatsapp.number.action_required` - The regulator asked for more information on a placed number order; the order stays pending until provided
+    - `whatsapp.number.verification_required` - A regulated number needs end-user ID verification; carries the link to forward
+    - `whatsapp.number.suspended` - An active number was suspended (e.g. failed payment); carries a `reason`
+    - `whatsapp.number.reactivated` - A suspended number is usable again
+    - `whatsapp.number.released` - A number was released and is no longer usable (terminal); carries a `reason`
     - `webhook.test` - Test event sent when verifying a webhook endpoint
 
     Webhook payloads are signed with HMAC-SHA256 via the `X-Zernio-Signature` header.
@@ -349,7 +363,7 @@ tags:
   - name: Webhooks
     description: |
       Configure webhooks for real-time notifications. Webhooks can be created from the dashboard (Settings → Webhooks) or via this API.
-      Events: post.scheduled, post.published, post.failed, post.partial, post.cancelled, post.recycled, post.platform.published, post.platform.failed, post.tiktok.url_resolved, post.external.created, post.external.updated, post.external.deleted, account.connected, account.disconnected, account.ads.initial_sync_completed, message.received, message.sent, message.edited, message.deleted, message.delivered, message.read, message.failed, reaction.received, comment.received, review.new, review.updated, lead.received, ad.status_changed, whatsapp.template.status_updated, whatsapp.number.activated, whatsapp.number.declined, whatsapp.number.action_required, whatsapp.number.verification_required, whatsapp.number.suspended, whatsapp.number.reactivated, whatsapp.number.released, whatsapp.number.kyc_submitted, webhook.test.
+      Events: post.scheduled, post.published, post.failed, post.partial, post.cancelled, post.recycled, post.platform.published, post.platform.failed, post.tiktok.url_resolved, post.external.created, post.external.updated, post.external.deleted, account.connected, account.disconnected, account.ads.initial_sync_completed, message.received, conversation.started, call.received, call.ended, call.failed, call.permission_request, message.sent, message.edited, message.deleted, message.delivered, message.read, message.failed, reaction.received, comment.received, review.new, review.updated, lead.received, ad.status_changed, whatsapp.template.status_updated, whatsapp.automatic_event, whatsapp.number.activated, whatsapp.number.declined, whatsapp.number.action_required, whatsapp.number.verification_required, whatsapp.number.suspended, whatsapp.number.reactivated, whatsapp.number.released, whatsapp.number.kyc_submitted, webhook.test.
       Security: optional HMAC-SHA256 signature in X-Zernio-Signature header. Configure a secret key to enable verification. Custom headers supported.
   - name: Webhook Events
     description: |
@@ -1499,7 +1513,7 @@ components:
           type: array
           items:
             type: string
-            enum: [post.scheduled, post.published, post.failed, post.partial, post.cancelled, post.recycled, post.platform.published, post.platform.failed, post.tiktok.url_resolved, post.external.created, post.external.updated, post.external.deleted, account.connected, account.disconnected, account.ads.initial_sync_completed, message.received, message.sent, message.edited, message.deleted, message.delivered, message.read, message.failed, reaction.received, comment.received, review.new, review.updated, ad.status_changed, whatsapp.template.status_updated, whatsapp.number.activated, whatsapp.number.declined, whatsapp.number.action_required, whatsapp.number.verification_required, whatsapp.number.suspended, whatsapp.number.reactivated, whatsapp.number.released, whatsapp.number.kyc_submitted]
+            enum: [post.scheduled, post.published, post.failed, post.partial, post.cancelled, post.recycled, post.platform.published, post.platform.failed, post.tiktok.url_resolved, post.external.created, post.external.updated, post.external.deleted, account.connected, account.disconnected, account.ads.initial_sync_completed, message.received, conversation.started, call.received, call.ended, call.failed, call.permission_request, message.sent, message.edited, message.deleted, message.delivered, message.read, message.failed, reaction.received, comment.received, review.new, review.updated, lead.received, ad.status_changed, whatsapp.template.status_updated, whatsapp.automatic_event, whatsapp.number.activated, whatsapp.number.declined, whatsapp.number.action_required, whatsapp.number.verification_required, whatsapp.number.suspended, whatsapp.number.reactivated, whatsapp.number.released, whatsapp.number.kyc_submitted]
           description: Events subscribed to
         isActive:
           type: boolean
@@ -4769,6 +4783,19 @@ components:
               type: string
               enum: [cycle, window]
               description: '`cycle` = a real billing period resolved; `window` = trailing/custom window (or cycle fallback).'
+        tax:
+          type: [object, "null"]
+          description: |
+            Estimated tax on the window's net `totals.total`, computed with
+            Stripe Tax against the billing address (the same engine the real
+            invoice uses; invoices apply exclusive tax, so the card is charged
+            total + tax). Null when the account has no billing address on
+            file, the total is zero or negative, or the estimate failed.
+          properties:
+            taxUsd: { type: number, description: Estimated tax in USD, added on top of `totals.total`. }
+            ratePercent: { type: [number, "null"], description: Combined rate percentage, e.g. 21. }
+            jurisdictionLabel: { type: [string, "null"], description: Human jurisdiction label, e.g. "ES VAT" or "WA sales tax". }
+            reverseCharge: { type: boolean, description: True for EU/UK B2B reverse charge (0 tax added by design). }
     UsageStats:
       type: object
       description: |
@@ -6931,6 +6958,55 @@ webhooks:
           application/json:
             schema:
               $ref: '#/components/schemas/WebhookPayloadWhatsAppTemplateStatusUpdated'
+      responses:
+        '200':
+          description: Webhook received successfully
+  whatsapp.automatic_event:
+    post:
+      operationId: onWhatsAppAutomaticEvent
+      summary: WhatsApp automatic event detected
+      description: |
+        Fired when Meta's automatic event identification (opt-in during
+        Embedded Signup; not available for EU/UK/JP businesses) detects a
+        lead or purchase in a Click-to-WhatsApp conversation. Branch on
+        `eventName` (`LeadSubmitted` | `Purchase`). Carries the `ctwa_clid`
+        even on coexistence numbers where the inbound referral omits it (this
+        webhook is the only surface that delivers it there); the clid is also
+        written back onto the conversation, so POST /v1/whatsapp/conversions
+        becomes usable for the thread.
+      tags: [Webhook Events]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                id: { type: string }
+                event: { type: string, enum: [whatsapp.automatic_event] }
+                timestamp: { type: string, format: date-time }
+                accountId:
+                  type: string
+                  description: SocialAccount id of the WhatsApp number whose conversation was flagged.
+                conversationId:
+                  type: string
+                  description: Zernio conversation id, when the thread could be resolved.
+                platformMessageId:
+                  type: string
+                  description: The wamid of the message Meta's analysis flagged.
+                eventName:
+                  type: string
+                  description: "Meta-detected event: `LeadSubmitted` | `Purchase`."
+                ctwaClid:
+                  type: string
+                  description: Meta's CTWA click id, the Conversions API match key.
+                customData:
+                  type: object
+                  description: Purchase events may carry the detected amount.
+                  properties:
+                    currency: { type: string }
+                    value: { type: number }
+                detectedAt: { type: string, format: date-time }
       responses:
         '200':
           description: Webhook received successfully
@@ -19809,7 +19885,7 @@ paths:
                   minItems: 1
                   items:
                     type: string
-                    enum: [post.scheduled, post.published, post.failed, post.partial, post.cancelled, post.recycled, post.platform.published, post.platform.failed, post.tiktok.url_resolved, post.external.created, post.external.updated, post.external.deleted, account.connected, account.disconnected, account.ads.initial_sync_completed, message.received, message.sent, message.edited, message.deleted, message.delivered, message.read, message.failed, reaction.received, comment.received, review.new, review.updated, ad.status_changed, whatsapp.template.status_updated, whatsapp.number.activated, whatsapp.number.declined, whatsapp.number.action_required, whatsapp.number.verification_required, whatsapp.number.suspended, whatsapp.number.reactivated, whatsapp.number.released, whatsapp.number.kyc_submitted]
+                    enum: [post.scheduled, post.published, post.failed, post.partial, post.cancelled, post.recycled, post.platform.published, post.platform.failed, post.tiktok.url_resolved, post.external.created, post.external.updated, post.external.deleted, account.connected, account.disconnected, account.ads.initial_sync_completed, message.received, conversation.started, call.received, call.ended, call.failed, call.permission_request, message.sent, message.edited, message.deleted, message.delivered, message.read, message.failed, reaction.received, comment.received, review.new, review.updated, lead.received, ad.status_changed, whatsapp.template.status_updated, whatsapp.automatic_event, whatsapp.number.activated, whatsapp.number.declined, whatsapp.number.action_required, whatsapp.number.verification_required, whatsapp.number.suspended, whatsapp.number.reactivated, whatsapp.number.released, whatsapp.number.kyc_submitted]
                   description: Events to subscribe to (at least one required)
                 isActive:
                   type: boolean
@@ -19883,7 +19959,7 @@ paths:
                   minItems: 1
                   items:
                     type: string
-                    enum: [post.scheduled, post.published, post.failed, post.partial, post.cancelled, post.recycled, post.platform.published, post.platform.failed, post.tiktok.url_resolved, post.external.created, post.external.updated, post.external.deleted, account.connected, account.disconnected, account.ads.initial_sync_completed, message.received, message.sent, message.edited, message.deleted, message.delivered, message.read, message.failed, reaction.received, comment.received, review.new, review.updated, ad.status_changed, whatsapp.template.status_updated, whatsapp.number.activated, whatsapp.number.declined, whatsapp.number.action_required, whatsapp.number.verification_required, whatsapp.number.suspended, whatsapp.number.reactivated, whatsapp.number.released, whatsapp.number.kyc_submitted]
+                    enum: [post.scheduled, post.published, post.failed, post.partial, post.cancelled, post.recycled, post.platform.published, post.platform.failed, post.tiktok.url_resolved, post.external.created, post.external.updated, post.external.deleted, account.connected, account.disconnected, account.ads.initial_sync_completed, message.received, conversation.started, call.received, call.ended, call.failed, call.permission_request, message.sent, message.edited, message.deleted, message.delivered, message.read, message.failed, reaction.received, comment.received, review.new, review.updated, lead.received, ad.status_changed, whatsapp.template.status_updated, whatsapp.automatic_event, whatsapp.number.activated, whatsapp.number.declined, whatsapp.number.action_required, whatsapp.number.verification_required, whatsapp.number.suspended, whatsapp.number.reactivated, whatsapp.number.released, whatsapp.number.kyc_submitted]
                   description: Events to subscribe to. Must contain at least one event if provided.
                 isActive:
                   type: boolean
@@ -20535,11 +20611,14 @@ paths:
       operationId: searchInboxConversations
       summary: Search conversations
       description: |
-        Search message text across your conversations and get back the conversations that contain the query, each with up to 3 most-recent matching messages. Useful for finding threads about a topic, or (with direction=outgoing) collecting examples of how you write to customers, for example to teach an AI agent your tone of voice.
+        Search your conversations two ways at once, and get back the matching conversations, most-recent match first:
 
-        Only platforms whose messages are stored by Zernio are searchable: WhatsApp, SMS, Telegram, Facebook and Instagram. Twitter/X, Bluesky and Reddit conversations are fetched live from the platforms and cannot be searched; those accounts are listed in meta.accountsSkipped.
+        - Message text: matches words inside message bodies. Case-insensitive and accent-insensitive, exact tokens only (no substrings, no stemming). Each hit carries up to 3 most-recent matching messages. With direction=outgoing you can collect examples of how you write to customers, for example to teach an AI agent your tone of voice.
+        - Contact identity: matches the participant's name, username, or phone number as a case-insensitive substring. These hits have matchCount 0 and an empty matches array.
 
-        Matching is word-based: case-insensitive and accent-insensitive, exact tokens only (no substrings, no stemming). Quote a phrase to match it exactly.
+        A conversation that matches both ways is returned once, carrying its message matches.
+
+        Only platforms whose messages are stored by Zernio are searchable: WhatsApp, SMS, Telegram, Facebook, Instagram, Twitter/X and Reddit. Bluesky conversations are fetched live from the platform and cannot be searched; those accounts are listed in meta.accountsSkipped.
       tags: [Messages]
       security: [{ bearerAuth: [] }]
       parameters:
@@ -20547,11 +20626,11 @@ paths:
           in: query
           required: true
           schema: { type: string, minLength: 2, maxLength: 200 }
-          description: Text to search for in message content
+          description: "Text to search for, in message content and in the contact's name, username, or phone number"
         - name: direction
           in: query
           schema: { type: string, enum: [incoming, outgoing] }
-          description: Only match messages sent to you (incoming) or by you (outgoing)
+          description: "Only match messages sent to you (incoming) or by you (outgoing). Contact-identity matching is not applied when this is set."
         - name: profileId
           in: query
           schema: { type: string }
@@ -20595,13 +20674,14 @@ paths:
                             participantUsername: { type: [string, "null"] }
                             participantPicture: { type: [string, "null"] }
                             status: { type: string, enum: [active, archived] }
+                            lastMessage: { type: [string, "null"], description: "The conversation's most recent message preview" }
                             lastMessageAt: { type: [string, "null"], format: date-time }
                         matchCount:
                           type: integer
-                          description: Total number of matching messages in this conversation
+                          description: "Number of matching messages in this conversation. 0 when the conversation matched only on contact identity (name, username, or phone number), not on message text."
                         matches:
                           type: array
-                          description: Up to 3 most-recent matching messages
+                          description: Up to 3 most-recent matching messages (empty for an identity-only match)
                           items:
                             type: object
                             properties:
@@ -24036,7 +24116,7 @@ paths:
                   nextCursor: { type: [string, "null"], format: date-time, description: Pass as `before` for the next page; null on the last page. }
         '401': { $ref: '#/components/responses/Unauthorized' }
 
-  /v1/whatsapp/calls/{callId}:
+  /v1/whatsapp/calls/{id}:
     get:
       operationId: getWhatsAppCall
       tags: [WhatsApp Calling]
@@ -24044,7 +24124,7 @@ paths:
       security:
         - bearerAuth: []
       parameters:
-        - { name: callId, in: path, required: true, schema: { type: string } }
+        - { name: id, in: path, required: true, schema: { type: string } }
         - { name: accountId, in: query, required: true, schema: { type: string } }
       responses:
         '200':
@@ -24059,7 +24139,7 @@ paths:
         '401': { $ref: '#/components/responses/Unauthorized' }
         '404': { description: Call not found }
 
-  /v1/whatsapp/calls/{callId}/recording:
+  /v1/whatsapp/calls/{id}/recording:
     get:
       operationId: getWhatsAppCallRecording
       tags: [WhatsApp Calling]
@@ -24074,7 +24154,7 @@ paths:
       security:
         - bearerAuth: []
       parameters:
-        - { name: callId, in: path, required: true, schema: { type: string } }
+        - { name: id, in: path, required: true, schema: { type: string } }
         - { name: accountId, in: query, required: true, schema: { type: string } }
         - { name: as, in: query, schema: { type: string, enum: [json] }, description: "`json` returns `{ url }` instead of a 302 redirect." }
       responses:
@@ -24780,8 +24860,17 @@ paths:
                   required: [usecase, description, messageFlow, sample1, sample2, helpMessage, optinKeywords, optinMessage, optoutKeywords, optoutMessage, helpKeywords]
                   properties:
                     usecase: { type: string }
+                    subUsecases:
+                      type: array
+                      minItems: 2
+                      maxItems: 5
+                      items: { type: string, enum: [2FA, ACCOUNT_NOTIFICATION, CUSTOMER_CARE, DELIVERY_NOTIFICATION, FRAUD_ALERT, HIGHER_EDUCATION, MARKETING, POLLING_VOTING, PUBLIC_SERVICE_ANNOUNCEMENT, SECURITY_ALERT] }
+                      description: |
+                        The concrete kinds of messages a MIXED campaign sends (the carrier
+                        registry requires 2-5, and reviewers match them against the sample
+                        messages). Omitted: a default pair is applied for MIXED.
                     description: { type: string, minLength: 40, maxLength: 4096 }
-                    messageFlow: { type: string, minLength: 40, maxLength: 2048, description: How a recipient ends up receiving your messages (the opt-in flow). }
+                    messageFlow: { type: string, minLength: 40, maxLength: 2048, description: "How a recipient ends up receiving your messages (the opt-in flow). Include a link to the page or form where they opt in — carrier reviewers reject campaigns whose consent they can't verify." }
                     sample1: { type: string, minLength: 20 }
                     sample2: { type: string, minLength: 20, description: Second example message; carriers require two distinct samples, so it must differ from sample1. }
                     helpMessage: { type: string, minLength: 20, maxLength: 320 }
@@ -24905,6 +24994,16 @@ paths:
                   declineReason: { type: [string, "null"] }
                   phoneNumbers: { type: array, items: { type: string } }
                   awaitingOtp: { type: boolean }
+                  campaignContent:
+                    type: object
+                    description: |
+                      The submitted campaign content, present only for rejected
+                      registrations with a campaign. Edit and resubmit it via the
+                      appeal endpoint's optional content fields.
+                    properties:
+                      messageFlow: { type: string }
+                      sample1: { type: string }
+                      sample2: { type: string }
         '401': { $ref: '#/components/responses/Unauthorized' }
         '404': { description: Registration not found }
 
@@ -24952,6 +25051,13 @@ paths:
         registration that reached campaign creation can be appealed; a
         brand-level rejection should be fixed and re-verified instead. On
         success the registration returns to `pending`.
+
+        Content rejections (e.g. an opt-in flow without a verifiable form link,
+        or unrealistic samples) should be FIXED in the same call: pass the
+        corrected `messageFlow` / `sample1` / `sample2` and the campaign is
+        updated before the appeal is filed, so the reviewer sees the new
+        content. The current content is on `GET /v1/sms/registrations/{id}`
+        (`campaignContent`).
       security:
         - bearerAuth: []
       parameters:
@@ -24964,7 +25070,10 @@ paths:
               type: object
               required: [appealReason]
               properties:
-                appealReason: { type: string, minLength: 10, maxLength: 2000 }
+                appealReason: { type: string, minLength: 10, maxLength: 2000, description: Goes verbatim to the carrier reviewer — address the decline reason directly. }
+                messageFlow: { type: string, minLength: 40, maxLength: 2048, description: Corrected opt-in flow; include a link to the opt-in page/form. }
+                sample1: { type: string, minLength: 20 }
+                sample2: { type: string, minLength: 20 }
       responses:
         '200':
           description: Appeal submitted; the registration is pending again.
@@ -25981,11 +26090,14 @@ paths:
       tags: [Phone Numbers]
       summary: Purchase phone number
       description: |
-        Initiate purchasing a phone number. Payment-first flow: the user does not pick
-        a specific number. The system either creates a Stripe Checkout Session (first number)
-        or increments the existing subscription quantity and provisions inline (subsequent numbers).
+        Payment-first: you do not pick a specific number, the system provisions one and
+        auto-assigns it. With usage-based billing active and a payment method on file, the
+        number provisions inline and bills per month on your usage-based invoice (there is
+        no checkout redirect). No payment method on file returns `402 PAYMENT_REQUIRED`;
+        a regulated country returns `202` with `status: "kyc_required"` and a `kycUrl`.
 
-        Requires a paid plan. The maximum number of phone numbers is determined by the user's plan.
+        Requires usage-based billing (the Usage plan). The maximum number of phone numbers
+        is determined by the user's plan.
       security:
         - bearerAuth: []
       requestBody:
@@ -26340,11 +26452,14 @@ paths:
         Deprecated alias of `/v1/phone-numbers/purchase`; same contract. New
         integrations should use that path.
 
-        Initiate purchasing a WhatsApp phone number. Payment-first flow: the user does not pick
-        a specific number. The system either creates a Stripe Checkout Session (first number)
-        or increments the existing subscription quantity and provisions inline (subsequent numbers).
+        Payment-first: you do not pick a specific number, the system provisions one and
+        auto-assigns it. With usage-based billing active and a payment method on file, the
+        number provisions inline and bills per month on your usage-based invoice (there is
+        no checkout redirect). No payment method on file returns `402 PAYMENT_REQUIRED`;
+        a regulated country returns `202` with `status: "kyc_required"` and a `kycUrl`.
 
-        Requires a paid plan. The maximum number of phone numbers is determined by the user's plan.
+        Requires usage-based billing (the Usage plan). The maximum number of phone numbers
+        is determined by the user's plan.
       security:
         - bearerAuth: []
       requestBody:
@@ -32439,6 +32554,8 @@ paths:
                         status: { type: string }
                         timezoneName: { type: string, description: "IANA timezone of the ad account (Meta only). Drives daily-budget reset and Insights day boundaries." }
                         timezoneOffsetHoursUtc: { type: number, description: "Signed UTC offset in hours, reflecting current DST (Meta only)." }
+                        selectable: { type: boolean, description: "Meta only. Whether the account can create/run ads now. Absent (treat as true) on non-Meta platforms." }
+                        unusableReason: { type: string, nullable: true, description: "Meta only. Human-readable reason when selectable is false; null when selectable." }
         '401': { $ref: '#/components/responses/Unauthorized' }
         '422':
           description: Platform ads connection required (TikTok Ads, X Ads) or Instagram missing linked Facebook account
@@ -32867,7 +32984,7 @@ paths:
                   properties:
                     publisherPlatforms:
                       type: array
-                      items: { type: string, enum: [facebook, instagram, threads, messenger, audience_network] }
+                      items: { type: string, enum: [facebook, instagram, threads, messenger, audience_network, whatsapp] }
                       description: "Top-level platforms to deliver on. A position field below is only honoured when its parent platform is included here."
                     facebookPositions:
                       type: array
@@ -33043,7 +33160,7 @@ paths:
                             properties:
                               publisherPlatforms:
                                 type: array
-                                items: { type: string, enum: [facebook, instagram, threads, messenger, audience_network] }
+                                items: { type: string, enum: [facebook, instagram, threads, messenger, audience_network, whatsapp] }
                               facebookPositions:
                                 type: array
                                 items: { type: string, enum: [feed, right_hand_column, marketplace, video_feeds, story, search, instream_video, facebook_reels, facebook_reels_overlay, profile_feed, notification] }
@@ -35310,6 +35427,44 @@ paths:
                 audienceId:
                   type: string
                   description: Custom audience ID to target.
+                placements:
+                  type: object
+                  description: |
+                    Manual ad placements on the shared ad set. Omit
+                    for automatic placements. When set, restricts delivery to the chosen surfaces,
+                    mapped onto the ad set's `targeting.{publisher_platforms, facebook_positions, instagram_positions,
+                    messenger_positions, audience_network_positions, threads_positions,
+                    whatsapp_positions, device_platforms}`. Enum membership is validated here; Meta
+                    additionally enforces co-selection rules and restricts which
+                    placements are eligible for click-to-WhatsApp ads, returning an actionable
+                    error which we surface.
+                  properties:
+                    publisherPlatforms:
+                      type: array
+                      items: { type: string, enum: [facebook, instagram, threads, messenger, audience_network, whatsapp] }
+                      description: "Top-level platforms to deliver on. A position field below is only honoured when its parent platform is included here."
+                    facebookPositions:
+                      type: array
+                      items: { type: string, enum: [feed, right_hand_column, marketplace, video_feeds, story, search, instream_video, facebook_reels, facebook_reels_overlay, profile_feed, notification] }
+                    instagramPositions:
+                      type: array
+                      items: { type: string, enum: [stream, story, explore, explore_home, reels, profile_feed, ig_search, profile_reels] }
+                    messengerPositions:
+                      type: array
+                      items: { type: string, enum: [messenger_home, sponsored_messages, story] }
+                    audienceNetworkPositions:
+                      type: array
+                      items: { type: string, enum: [classic, rewarded_video] }
+                    threadsPositions:
+                      type: array
+                      items: { type: string, enum: [threads_stream] }
+                    whatsappPositions:
+                      type: array
+                      items: { type: string, enum: [status] }
+                    devicePlatforms:
+                      type: array
+                      items: { type: string, enum: [mobile, desktop] }
+                      description: "Restrict by device. Omit to deliver on both mobile and desktop."
                 advantageAudience:
                   type: integer
                   enum: [0, 1]

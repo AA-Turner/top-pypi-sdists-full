@@ -2084,8 +2084,10 @@ class Run(_message.Message):
     METADATA_FIELD_NUMBER: _builtins.int
     KWARGS_FIELD_NUMBER: _builtins.int
     MULTITASK_STRATEGY_FIELD_NUMBER: _builtins.int
+    LANGSMITH_SESSION_NAME_FIELD_NUMBER: _builtins.int
     status: _enum_run_status_pb2.RunStatus.ValueType
     multitask_strategy: _enum_multitask_strategy_pb2.MultitaskStrategy.ValueType
+    langsmith_session_name: _builtins.str
     @_builtins.property
     def run_id(self) -> Global___UUID: ...
     @_builtins.property
@@ -2112,12 +2114,15 @@ class Run(_message.Message):
         metadata: Global___Fragment | None = ...,
         kwargs: Global___RunKwargs | None = ...,
         multitask_strategy: _enum_multitask_strategy_pb2.MultitaskStrategy.ValueType = ...,
+        langsmith_session_name: _builtins.str | None = ...,
     ) -> None: ...
-    _HasFieldArgType: _TypeAlias = _typing.Literal["assistant_id", b"assistant_id", "created_at", b"created_at", "kwargs", b"kwargs", "metadata", b"metadata", "run_id", b"run_id", "thread_id", b"thread_id", "updated_at", b"updated_at"]  # noqa: Y015
+    _HasFieldArgType: _TypeAlias = _typing.Literal["_langsmith_session_name", b"_langsmith_session_name", "assistant_id", b"assistant_id", "created_at", b"created_at", "kwargs", b"kwargs", "langsmith_session_name", b"langsmith_session_name", "metadata", b"metadata", "run_id", b"run_id", "thread_id", b"thread_id", "updated_at", b"updated_at"]  # noqa: Y015
     def HasField(self, field_name: _HasFieldArgType) -> _builtins.bool: ...
-    _ClearFieldArgType: _TypeAlias = _typing.Literal["assistant_id", b"assistant_id", "created_at", b"created_at", "kwargs", b"kwargs", "metadata", b"metadata", "multitask_strategy", b"multitask_strategy", "run_id", b"run_id", "status", b"status", "thread_id", b"thread_id", "updated_at", b"updated_at"]  # noqa: Y015
+    _ClearFieldArgType: _TypeAlias = _typing.Literal["_langsmith_session_name", b"_langsmith_session_name", "assistant_id", b"assistant_id", "created_at", b"created_at", "kwargs", b"kwargs", "langsmith_session_name", b"langsmith_session_name", "metadata", b"metadata", "multitask_strategy", b"multitask_strategy", "run_id", b"run_id", "status", b"status", "thread_id", b"thread_id", "updated_at", b"updated_at"]  # noqa: Y015
     def ClearField(self, field_name: _ClearFieldArgType) -> None: ...
-    def WhichOneof(self, oneof_group: _Never) -> None: ...
+    _WhichOneofReturnType__langsmith_session_name: _TypeAlias = _typing.Literal["langsmith_session_name"]  # noqa: Y015
+    _WhichOneofArgType__langsmith_session_name: _TypeAlias = _typing.Literal["_langsmith_session_name", b"_langsmith_session_name"]  # noqa: Y015
+    def WhichOneof(self, oneof_group: _WhichOneofArgType__langsmith_session_name) -> _WhichOneofReturnType__langsmith_session_name | None: ...
 
 Global___Run: _TypeAlias = Run  # noqa: Y015
 
@@ -2342,6 +2347,7 @@ class CreateRunRequest(_message.Message):
     AFTER_SECONDS_FIELD_NUMBER: _builtins.int
     THREAD_TTL_FIELD_NUMBER: _builtins.int
     ENCRYPTION_CONTEXT_FIELD_NUMBER: _builtins.int
+    LANGSMITH_SESSION_NAME_FIELD_NUMBER: _builtins.int
     kwargs_json: _builtins.bytes
     user_id: _builtins.str
     status: _enum_run_status_pb2.RunStatus.ValueType
@@ -2351,6 +2357,7 @@ class CreateRunRequest(_message.Message):
     multitask_strategy: _enum_multitask_strategy_pb2.MultitaskStrategy.ValueType
     if_not_exists: Global___CreateRunBehavior.ValueType
     after_seconds: _builtins.int
+    langsmith_session_name: _builtins.str
     @_builtins.property
     def assistant_id(self) -> Global___UUID: ...
     @_builtins.property
@@ -2387,10 +2394,11 @@ class CreateRunRequest(_message.Message):
         after_seconds: _builtins.int | None = ...,
         thread_ttl: Global___ThreadTTLConfig | None = ...,
         encryption_context: _encryption_pb2.EncryptionContext | None = ...,
+        langsmith_session_name: _builtins.str | None = ...,
     ) -> None: ...
-    _HasFieldArgType: _TypeAlias = _typing.Literal["_after_seconds", b"_after_seconds", "_encryption_context", b"_encryption_context", "_if_not_exists", b"_if_not_exists", "_metadata_json", b"_metadata_json", "_multitask_strategy", b"_multitask_strategy", "_prevent_insert_if_inflight", b"_prevent_insert_if_inflight", "_run_id", b"_run_id", "_status", b"_status", "_thread_id", b"_thread_id", "_thread_ttl", b"_thread_ttl", "_user_id", b"_user_id", "after_seconds", b"after_seconds", "assistant_id", b"assistant_id", "encryption_context", b"encryption_context", "if_not_exists", b"if_not_exists", "metadata_json", b"metadata_json", "multitask_strategy", b"multitask_strategy", "prevent_insert_if_inflight", b"prevent_insert_if_inflight", "run_id", b"run_id", "status", b"status", "thread_id", b"thread_id", "thread_ttl", b"thread_ttl", "user_id", b"user_id"]  # noqa: Y015
+    _HasFieldArgType: _TypeAlias = _typing.Literal["_after_seconds", b"_after_seconds", "_encryption_context", b"_encryption_context", "_if_not_exists", b"_if_not_exists", "_langsmith_session_name", b"_langsmith_session_name", "_metadata_json", b"_metadata_json", "_multitask_strategy", b"_multitask_strategy", "_prevent_insert_if_inflight", b"_prevent_insert_if_inflight", "_run_id", b"_run_id", "_status", b"_status", "_thread_id", b"_thread_id", "_thread_ttl", b"_thread_ttl", "_user_id", b"_user_id", "after_seconds", b"after_seconds", "assistant_id", b"assistant_id", "encryption_context", b"encryption_context", "if_not_exists", b"if_not_exists", "langsmith_session_name", b"langsmith_session_name", "metadata_json", b"metadata_json", "multitask_strategy", b"multitask_strategy", "prevent_insert_if_inflight", b"prevent_insert_if_inflight", "run_id", b"run_id", "status", b"status", "thread_id", b"thread_id", "thread_ttl", b"thread_ttl", "user_id", b"user_id"]  # noqa: Y015
     def HasField(self, field_name: _HasFieldArgType) -> _builtins.bool: ...
-    _ClearFieldArgType: _TypeAlias = _typing.Literal["_after_seconds", b"_after_seconds", "_encryption_context", b"_encryption_context", "_if_not_exists", b"_if_not_exists", "_metadata_json", b"_metadata_json", "_multitask_strategy", b"_multitask_strategy", "_prevent_insert_if_inflight", b"_prevent_insert_if_inflight", "_run_id", b"_run_id", "_status", b"_status", "_thread_id", b"_thread_id", "_thread_ttl", b"_thread_ttl", "_user_id", b"_user_id", "after_seconds", b"after_seconds", "assistant_filters", b"assistant_filters", "assistant_id", b"assistant_id", "encryption_context", b"encryption_context", "if_not_exists", b"if_not_exists", "kwargs_json", b"kwargs_json", "metadata_json", b"metadata_json", "multitask_strategy", b"multitask_strategy", "prevent_insert_if_inflight", b"prevent_insert_if_inflight", "run_id", b"run_id", "status", b"status", "thread_filters", b"thread_filters", "thread_id", b"thread_id", "thread_ttl", b"thread_ttl", "user_id", b"user_id"]  # noqa: Y015
+    _ClearFieldArgType: _TypeAlias = _typing.Literal["_after_seconds", b"_after_seconds", "_encryption_context", b"_encryption_context", "_if_not_exists", b"_if_not_exists", "_langsmith_session_name", b"_langsmith_session_name", "_metadata_json", b"_metadata_json", "_multitask_strategy", b"_multitask_strategy", "_prevent_insert_if_inflight", b"_prevent_insert_if_inflight", "_run_id", b"_run_id", "_status", b"_status", "_thread_id", b"_thread_id", "_thread_ttl", b"_thread_ttl", "_user_id", b"_user_id", "after_seconds", b"after_seconds", "assistant_filters", b"assistant_filters", "assistant_id", b"assistant_id", "encryption_context", b"encryption_context", "if_not_exists", b"if_not_exists", "kwargs_json", b"kwargs_json", "langsmith_session_name", b"langsmith_session_name", "metadata_json", b"metadata_json", "multitask_strategy", b"multitask_strategy", "prevent_insert_if_inflight", b"prevent_insert_if_inflight", "run_id", b"run_id", "status", b"status", "thread_filters", b"thread_filters", "thread_id", b"thread_id", "thread_ttl", b"thread_ttl", "user_id", b"user_id"]  # noqa: Y015
     def ClearField(self, field_name: _ClearFieldArgType) -> None: ...
     _WhichOneofReturnType__after_seconds: _TypeAlias = _typing.Literal["after_seconds"]  # noqa: Y015
     _WhichOneofArgType__after_seconds: _TypeAlias = _typing.Literal["_after_seconds", b"_after_seconds"]  # noqa: Y015
@@ -2398,6 +2406,8 @@ class CreateRunRequest(_message.Message):
     _WhichOneofArgType__encryption_context: _TypeAlias = _typing.Literal["_encryption_context", b"_encryption_context"]  # noqa: Y015
     _WhichOneofReturnType__if_not_exists: _TypeAlias = _typing.Literal["if_not_exists"]  # noqa: Y015
     _WhichOneofArgType__if_not_exists: _TypeAlias = _typing.Literal["_if_not_exists", b"_if_not_exists"]  # noqa: Y015
+    _WhichOneofReturnType__langsmith_session_name: _TypeAlias = _typing.Literal["langsmith_session_name"]  # noqa: Y015
+    _WhichOneofArgType__langsmith_session_name: _TypeAlias = _typing.Literal["_langsmith_session_name", b"_langsmith_session_name"]  # noqa: Y015
     _WhichOneofReturnType__metadata_json: _TypeAlias = _typing.Literal["metadata_json"]  # noqa: Y015
     _WhichOneofArgType__metadata_json: _TypeAlias = _typing.Literal["_metadata_json", b"_metadata_json"]  # noqa: Y015
     _WhichOneofReturnType__multitask_strategy: _TypeAlias = _typing.Literal["multitask_strategy"]  # noqa: Y015
@@ -2420,6 +2430,8 @@ class CreateRunRequest(_message.Message):
     def WhichOneof(self, oneof_group: _WhichOneofArgType__encryption_context) -> _WhichOneofReturnType__encryption_context | None: ...
     @_typing.overload
     def WhichOneof(self, oneof_group: _WhichOneofArgType__if_not_exists) -> _WhichOneofReturnType__if_not_exists | None: ...
+    @_typing.overload
+    def WhichOneof(self, oneof_group: _WhichOneofArgType__langsmith_session_name) -> _WhichOneofReturnType__langsmith_session_name | None: ...
     @_typing.overload
     def WhichOneof(self, oneof_group: _WhichOneofArgType__metadata_json) -> _WhichOneofReturnType__metadata_json | None: ...
     @_typing.overload

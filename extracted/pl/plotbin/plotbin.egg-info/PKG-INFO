@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: plotbin
-Version: 3.1.8
+Version: 3.2.0
 Summary: PlotBin: Plotting Binned Maps and Other Utilities
 Home-page: https://purl.org/cappellari/software
 Author: Michele Cappellari
@@ -52,7 +52,7 @@ See the file headers.
 License
 -------
 
-Copyright (c) 2013-2025 Michele Cappellari
+Copyright (c) 2013-2026 Michele Cappellari
 
 This software is provided as is without any warranty whatsoever.
 Permission to use, for non-commercial purposes is granted.

@@ -73,10 +73,13 @@ def compute_python_publish_tags(
     ecr_prefix: str,
     img_api_dh: str,
     img_svr_dh: str,
+    fips: bool = False,
 ) -> list[str]:
     """Compute Python publish tags with workflow-compatible behavior."""
     py_version = _require_non_empty("py_version", py_version)
     distro = _require_non_empty("distro", distro)
+    if fips and distro != "wolfi":
+        raise ValueError("fips is only supported for wolfi images")
     sha = _require_non_empty("sha", sha)
     ver_patch = _require_non_empty("ver_patch", ver_patch)
     ver_major = _require_non_empty("ver_major", ver_major)
@@ -92,6 +95,8 @@ def compute_python_publish_tags(
         raise ValueError("gcr_projects must include at least one project")
 
     suf = _python_suffix(distro)
+    if fips:
+        suf = f"{suf}-fips"
     pyfrag = f"py{py_version}"
     runtime_alias = (
         f"{py_version}{suf}" if channel == "stable" else f"{channel}-{pyfrag}{suf}"
@@ -184,9 +189,12 @@ def compute_js_publish_tags(
     ar_project: str,
     ecr_prefix: str,
     img_js_dh: str,
+    fips: bool = False,
 ) -> list[str]:
     """Compute JS publish tags with workflow-compatible behavior."""
     node_version = _require_non_empty("node_version", node_version)
+    if fips and tag_suffix != "wolfi":
+        raise ValueError("fips is only supported for wolfi images")
     sha = _require_non_empty("sha", sha)
     ver_patch = _require_non_empty("ver_patch", ver_patch)
     ar_project = _require_non_empty("ar_project", ar_project)
@@ -199,6 +207,8 @@ def compute_js_publish_tags(
         raise ValueError("gcr_projects must include at least one project")
 
     suffix = f"-{tag_suffix}" if tag_suffix else ""
+    if fips:
+        suffix = f"{suffix}-fips"
     repo_base = "langgraphjs-api" if licensed else "langgraphjs-api-unlicensed"
     runtime_alias = (
         f"{node_version}{suffix}"

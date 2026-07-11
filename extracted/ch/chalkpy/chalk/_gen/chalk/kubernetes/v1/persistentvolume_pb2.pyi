@@ -24,7 +24,16 @@ class ChalkKubernetesPersistentVolume(_message.Message):
     ) -> None: ...
 
 class ChalkKubernetesPersistentVolumeSpec(_message.Message):
-    __slots__ = ("storage_class", "name", "access_modes", "capacity", "status", "reclaim_policy", "claim")
+    __slots__ = (
+        "storage_class",
+        "name",
+        "access_modes",
+        "capacity",
+        "status",
+        "reclaim_policy",
+        "claim",
+        "claim_namespace",
+    )
     STORAGE_CLASS_FIELD_NUMBER: _ClassVar[int]
     NAME_FIELD_NUMBER: _ClassVar[int]
     ACCESS_MODES_FIELD_NUMBER: _ClassVar[int]
@@ -32,6 +41,7 @@ class ChalkKubernetesPersistentVolumeSpec(_message.Message):
     STATUS_FIELD_NUMBER: _ClassVar[int]
     RECLAIM_POLICY_FIELD_NUMBER: _ClassVar[int]
     CLAIM_FIELD_NUMBER: _ClassVar[int]
+    CLAIM_NAMESPACE_FIELD_NUMBER: _ClassVar[int]
     storage_class: str
     name: str
     access_modes: _containers.RepeatedScalarFieldContainer[str]
@@ -39,6 +49,7 @@ class ChalkKubernetesPersistentVolumeSpec(_message.Message):
     status: str
     reclaim_policy: str
     claim: str
+    claim_namespace: str
     def __init__(
         self,
         storage_class: _Optional[str] = ...,
@@ -48,6 +59,7 @@ class ChalkKubernetesPersistentVolumeSpec(_message.Message):
         status: _Optional[str] = ...,
         reclaim_policy: _Optional[str] = ...,
         claim: _Optional[str] = ...,
+        claim_namespace: _Optional[str] = ...,
     ) -> None: ...
 
 class ChalkKubernetesPersistentVolumeMetrics(_message.Message):

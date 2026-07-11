@@ -429,6 +429,18 @@ class SelfServiceCreateTeamResponse(_message.Message):
     project_id: str
     def __init__(self, team_id: _Optional[str] = ..., project_id: _Optional[str] = ...) -> None: ...
 
+class GetTeamOnboardingStatusRequest(_message.Message):
+    __slots__ = ("team_id",)
+    TEAM_ID_FIELD_NUMBER: _ClassVar[int]
+    team_id: str
+    def __init__(self, team_id: _Optional[str] = ...) -> None: ...
+
+class GetTeamOnboardingStatusResponse(_message.Message):
+    __slots__ = ("has_environments",)
+    HAS_ENVIRONMENTS_FIELD_NUMBER: _ClassVar[int]
+    has_environments: bool
+    def __init__(self, has_environments: bool = ...) -> None: ...
+
 class GetTokenRequest(_message.Message):
     __slots__ = ("client_id", "client_secret", "grant_type", "scope", "expires_at")
     CLIENT_ID_FIELD_NUMBER: _ClassVar[int]

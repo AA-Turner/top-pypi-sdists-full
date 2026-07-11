@@ -188,7 +188,7 @@ impl<'src> Node<'src> for Expression<'src> {
       Self::StringLiteral {
         string_literal: StringLiteral { cooked, .. },
       } => Tree::string(cooked),
-      Self::Variable { name } => Tree::atom(name.lexeme()),
+      Self::Variable { name, .. } => Tree::atom(name.lexeme()),
     }
   }
 }
@@ -318,10 +318,12 @@ impl<'src> Node<'src> for Set<'src> {
       Setting::DotenvCommand(value)
       | Setting::DotenvFilename(value)
       | Setting::DotenvPath(value)
-      | Setting::MinimumVersion(value)
       | Setting::Tempdir(value)
       | Setting::WorkingDirectory(value) => {
         set.push_mut(value.tree());
+      }
+      Setting::Indentation(value, _) | Setting::MinimumVersion(value) => {
+        set.push_mut(Tree::string(&value.cooked));
       }
       Setting::ScriptInterpreter(Interpreter { command, arguments })
       | Setting::Shell(Interpreter { command, arguments })

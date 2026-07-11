@@ -18,7 +18,7 @@ use crate::{
         secondary_exposure_key::SecondaryExposureKey,
     },
     gcir::{
-        gcir_process_iter::hash_secondary_exposures,
+        secondary_exposure_hashing::hash_secondary_exposures,
         target_app_id_utils::should_filter_config_for_app,
     },
     interned_string::InternedString,
@@ -136,7 +136,6 @@ pub(crate) fn get_dynamic_config_evaluations_with_plan(
         context,
         options,
         sec_expo_hash_memo,
-        &context.specs_data.dynamic_configs,
         &plan.dynamic_configs,
         factory,
     )?;

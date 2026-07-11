@@ -255,6 +255,8 @@ class Run(TypedDict):
     """The run kwargs."""
     multitask_strategy: MultitaskStrategy
     """Strategy to handle concurrent runs on the same thread."""
+    langsmith_session_name: str | None
+    """LangSmith tracing session (project) name for this run, if tracing is enabled."""
 
 
 class RunSend(TypedDict):
@@ -359,6 +361,7 @@ RunSelectField = Literal[
     "metadata",
     "kwargs",
     "multitask_strategy",
+    "langsmith_session_name",
 ]
 RUN_FIELDS: set[str] = set(RunSelectField.__args__)
 

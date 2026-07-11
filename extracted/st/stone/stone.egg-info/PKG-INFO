@@ -1,16 +1,15 @@
 Metadata-Version: 2.4
 Name: stone
-Version: 3.4.0
+Version: 3.5.0
 Summary: Stone is an interface description language (IDL) for APIs.
 Home-page: https://github.com/dropbox/stone
 Author: Ken Elkabany
 Author-email: kelkabany@dropbox.com
 Maintainer: Dropbox
 Maintainer-email: api-platform@dropbox.com
-License: MIT License
+License-Expression: MIT
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Intended Audience :: Developers
-Classifier: License :: OSI Approved :: MIT License
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python :: 3
 Classifier: Programming Language :: Python :: 3.11
@@ -31,8 +30,8 @@ Dynamic: classifier
 Dynamic: description
 Dynamic: description-content-type
 Dynamic: home-page
-Dynamic: license
 Dynamic: license-file
+Dynamic: license-expression
 Dynamic: maintainer
 Dynamic: maintainer-email
 Dynamic: requires-dist

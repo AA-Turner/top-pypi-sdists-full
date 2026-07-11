@@ -1,6 +1,5 @@
 import os
 from typing import Any, Dict
-from ruamel.yaml import YAML
 
 from dlt.common.storages.file_storage import FileStorage
 from dlt._workspace.cli._write_state import WorkspaceWriteState
@@ -33,12 +32,16 @@ class ProjectWriteState(WorkspaceWriteState):
         switch_context(self.project_dir)
 
     def _read_project_yaml(self, run_dir: str) -> Any:
+        from ruamel.yaml import YAML  # type: ignore
+
         yaml = YAML()
         path = os.path.join(run_dir, DEFAULT_PROJECT_CONFIG_FILE)
         with open(path, "r", encoding="utf-8") as fh:
             return yaml.load(fh)
 
     def _write_project_yaml(self, project_dir: str, project_yaml: Any) -> None:
+        from ruamel.yaml import YAML
+
         yaml = YAML()
         yaml.indent(mapping=2, sequence=4, offset=2)
         path = os.path.join(project_dir, DEFAULT_PROJECT_CONFIG_FILE)

@@ -42,6 +42,7 @@ import pytest
 import z3  # type: ignore
 
 from crosshair import type_repo
+from crosshair.behavior_compare import summarize_execution
 from crosshair.core import (
     analyze_function,
     deep_realize,
@@ -78,12 +79,7 @@ from crosshair.statespace import (
     MessageType,
     StateSpace,
 )
-from crosshair.test_util import (
-    check_exec_err,
-    check_messages,
-    check_states,
-    summarize_execution,
-)
+from crosshair.test_util import check_exec_err, check_messages, check_states
 from crosshair.tracers import NoTracing, ResumedTracing
 from crosshair.util import (
     CrossHairInternal,
@@ -550,7 +546,7 @@ def test_mismatched_types() -> None:
         """
         return x + y  # type: ignore
 
-    (actual, expected) = check_exec_err(f, "TypeError: unsupported operand type")
+    actual, expected = check_exec_err(f, "TypeError: unsupported operand type")
     assert actual == expected
 
 
@@ -829,6 +825,35 @@ def test_int_to_bytes(val):
         )
 
 
+@pytest.mark.skipif(
+    sys.version_info < (3, 11), reason="length/byteorder optional only in 3.11+"
+)
+def test_int_to_bytes_optional_args():
+    with standalone_statespace as space:
+        x = proxy_for_type(int, "x")
+        space.add(x == 5)
+        assert realize(x.to_bytes()) == (5).to_bytes()
+        assert realize(x.to_bytes(length=2)) == (5).to_bytes(length=2)
+
+
+@pytest.mark.parametrize(
+    "float_type", [RealBasedSymbolicFloat, PreciseIeeeSymbolicFloat]
+)
+def test_float_floordiv_and_divmod_return_float(space, float_type):
+    space.extra(ModelingDirector).global_representations[float] = float_type
+    x = float_type("x")
+    with ResumedTracing():
+        space.add(x > 5.0)
+        space.add(x < 9.0)
+        quotient = x // 2.0
+        divmod_quotient = divmod(x, 2.0)[0]
+    # The quotient is a float (not an int) using this path's float modeling.
+    assert isinstance(quotient, float_type), type(quotient)
+    assert isinstance(divmod_quotient, float_type), type(divmod_quotient)
+    assert realize(quotient) == realize(x) // 2.0
+    assert realize(divmod_quotient) == divmod(realize(x), 2.0)[0]
+
+
 def test_int_format():
     with standalone_statespace as space:
         with NoTracing():
@@ -1066,6 +1091,24 @@ def test_str_startswith(space) -> None:
         assert not symbolic_char.startswith(symbolic_empty, 9, 10)
 
 
+def test_bytes_startswith(space):
+    # Regression: pre-3.12 (no PEP 688 buffer protocol) a symbolic-bytes argument
+    # reached CPython's bytes.startswith/endswith unrealized and raised TypeError
+    # ("first arg must be bytes ... not SymbolicBytes"); AbcString.startswith /
+    # endswith now realize the affix first.
+    symbolic = proxy_for_type(bytes, "x")
+    symbolic_empty = proxy_for_type(bytes, "y")
+    with ResumedTracing():
+        space.add(len(symbolic) == 1)
+        space.add(len(symbolic_empty) == 0)
+        assert symbolic.startswith(symbolic_empty)  # empty prefix always matches
+        assert symbolic.startswith(symbolic)  # a value starts/ends with itself
+        assert symbolic.endswith(symbolic)
+        assert symbolic.startswith((b"zz", symbolic_empty))  # tuple-of-prefixes form
+        assert not symbolic.startswith((b"zz", b"qq"))
+        assert symbolic.removeprefix(symbolic_empty) == symbolic
+
+
 @pytest.mark.demo
 def test_str_index_method() -> None:
     def f(a: str) -> int:
@@ -1090,7 +1133,7 @@ def test_str_index_err() -> None:
         return s1.index(s2)
 
     # index() raises ValueError when a match isn't found:
-    (actual, expected) = check_exec_err(f, "ValueError")
+    actual, expected = check_exec_err(f, "ValueError")
     assert actual == expected
 
 
@@ -2024,7 +2067,7 @@ def test_list____getitem___error() -> None:
         """
         return ls[idx]
 
-    (actual, expected) = check_exec_err(f, "IndexError")
+    actual, expected = check_exec_err(f, "IndexError")
     assert actual == expected
 
 
@@ -2033,7 +2076,7 @@ def test_list____getitem___type_error() -> None:
         """post: True"""
         return ls[0.0:]  # type: ignore
 
-    (actual, expected) = check_exec_err(f, "TypeError")
+    actual, expected = check_exec_err(f, "TypeError")
     assert actual == expected
 
 
@@ -2236,7 +2279,7 @@ def test_list___delitem___type_error() -> None:
         """
         del ls[1.0]  # type: ignore
 
-    (actual, expected) = check_exec_err(f, "TypeError")
+    actual, expected = check_exec_err(f, "TypeError")
     assert actual == expected
 
 
@@ -2245,7 +2288,7 @@ def test_list___delitem___out_of_bounds() -> None:
         """post: True"""
         del ls[1]
 
-    (actual, expected) = check_exec_err(f, "IndexError")
+    actual, expected = check_exec_err(f, "IndexError")
     assert actual == expected
 
 
@@ -2274,8 +2317,64 @@ def test_list_comparison_type_error() -> None:
         """post: True"""
         return a <= b  # type: ignore
 
-    (actual, expected) = check_exec_err(f, "TypeError")
+    actual, expected = check_exec_err(f, "TypeError")
     assert actual == expected
+
+
+_LEXICOGRAPHIC_CASES = [
+    ([], []),
+    ([], [1]),
+    ([1], [1, 2]),
+    ([1, 2], [1, 2]),
+    ([1, 2], [1, 3]),
+    ([2], [1, 9]),
+]
+
+
+def _constrain_seq(space, seq, values):
+    space.add(len(seq) == len(values))
+    for idx, value in enumerate(values):
+        space.add(seq[idx] == value)
+
+
+@pytest.mark.parametrize("left,right", _LEXICOGRAPHIC_CASES)
+def test_list_lexicographic_comparison(space, left, right):
+    a = proxy_for_type(List[int], "a")
+    b = proxy_for_type(List[int], "b")
+    with ResumedTracing():
+        _constrain_seq(space, a, left)
+        _constrain_seq(space, b, right)
+        results = (a < b, a <= b, a > b, a >= b)
+    assert tuple(realize(r) for r in results) == (
+        left < right,
+        left <= right,
+        left > right,
+        left >= right,
+    )
+
+
+@pytest.mark.parametrize("left,right", _LEXICOGRAPHIC_CASES)
+def test_tuple_lexicographic_comparison(space, left, right):
+    a = proxy_for_type(Tuple[int, ...], "a")
+    b = proxy_for_type(Tuple[int, ...], "b")
+    with ResumedTracing():
+        _constrain_seq(space, a, left)
+        _constrain_seq(space, b, right)
+        results = (a < b, a <= b, a > b, a >= b)
+    assert tuple(realize(r) for r in results) == (
+        left < right,
+        left <= right,
+        left > right,
+        left >= right,
+    )
+
+
+def test_tuple_comparison_type_error(space):
+    a = proxy_for_type(Tuple[int, ...], "a")
+    b = proxy_for_type(List[int], "b")
+    with ResumedTracing():
+        with pytest.raises(TypeError):
+            a < b  # type: ignore
 
 
 def test_list_shallow_realization():
@@ -2967,7 +3066,7 @@ def test_set_copy(space):
     x = proxy_for_type(Set[int], "x")
     with ResumedTracing():
         space.add(len(x) == 1)
-        (y, z) = copy.deepcopy((x, x))
+        y, z = copy.deepcopy((x, x))
         assert not space.is_possible(len(y) != 1)
         assert not space.is_possible(list(x)[0] != list(y)[0])
 
@@ -3547,7 +3646,7 @@ def test_list_index_on_concrete() -> None:
         """post: True"""
         return [0, 1, 2].index(i)
 
-    (actual, expected) = check_exec_err(f, "ValueError:")
+    actual, expected = check_exec_err(f, "ValueError:")
     assert actual == expected
 
 
@@ -3641,6 +3740,34 @@ def test_bytearray___add___method():
         return ba
 
     check_states(f, POST_FAIL)
+
+
+def test_bytearray_mutation_rejects_out_of_range():
+    with standalone_statespace:
+        ba = proxy_for_type(bytearray, "ba")
+        for out_of_range in (-1, 256, 300):
+            with pytest.raises(ValueError):
+                ba.append(out_of_range)
+            with pytest.raises(ValueError):
+                ba.insert(0, out_of_range)
+            with pytest.raises(ValueError):
+                ba.extend([out_of_range])
+
+
+def test_bytearray_append_enforces_byte_range():
+    # Regression: bytearray mutators used to store an out-of-range value silently
+    # (see changelog), so CrossHair unsoundly believed a bytearray could hold a
+    # byte outside 0..255.  Either the mutation raises, or the byte is in range.
+    def f(x: int) -> bool:
+        """post: _"""
+        ba = bytearray()
+        try:
+            ba.append(x)
+        except ValueError:
+            return True
+        return 0 <= ba[0] <= 255
+
+    check_states(f, CONFIRMED)
 
 
 def test_extend_concrete_bytearray():

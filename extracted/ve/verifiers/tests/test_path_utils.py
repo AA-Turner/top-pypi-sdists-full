@@ -3,6 +3,7 @@ from pathlib import Path
 
 from verifiers.utils.path_utils import (
     find_latest_incomplete_eval_results_path,
+    get_eval_runs_dir,
     is_valid_eval_results_path,
 )
 
@@ -29,7 +30,8 @@ def test_find_latest_incomplete_eval_results_path_picks_newest_matching(
 
     (old_run / "results.jsonl").write_text('{"example_id":0}\n', encoding="utf-8")
     (new_run / "results.jsonl").write_text(
-        '{"example_id":0}\n{"example_id":1}\n', encoding="utf-8"
+        '{"example_id":0}\n{"example_id":1}\n{"example_id":2',
+        encoding="utf-8",
     )
     (complete_run / "results.jsonl").write_text(
         '{"example_id":0}\n{"example_id":1}\n{"example_id":2}\n{"example_id":3}\n',
@@ -67,6 +69,66 @@ def test_find_latest_incomplete_eval_results_path_returns_none_when_no_match(
         env_dir_path=str(tmp_path / "environments"),
     )
     assert result is None
+
+
+def test_find_latest_incomplete_eval_results_path_matches_shuffle_metadata(
+    tmp_path: Path, monkeypatch
+):
+    env_id = "dummy-env"
+    model = "openai/gpt-4.1-mini"
+    runs_dir = tmp_path / "outputs" / "evals" / f"{env_id}--{model.replace('/', '--')}"
+
+    matching_run = runs_dir / "matching"
+    wrong_seed_run = runs_dir / "wrong-seed"
+    for run in [matching_run, wrong_seed_run]:
+        run.mkdir(parents=True)
+        (run / "results.jsonl").write_text('{"example_id":0}\n', encoding="utf-8")
+
+    matching_run.joinpath("metadata.json").write_text(
+        (
+            '{"env_id":"dummy-env","model":"openai/gpt-4.1-mini",'
+            '"num_examples":4,"rollouts_per_example":1,'
+            '"shuffle":true,"shuffle_seed":123}'
+        ),
+        encoding="utf-8",
+    )
+    wrong_seed_run.joinpath("metadata.json").write_text(
+        (
+            '{"env_id":"dummy-env","model":"openai/gpt-4.1-mini",'
+            '"num_examples":4,"rollouts_per_example":1,'
+            '"shuffle":true,"shuffle_seed":456}'
+        ),
+        encoding="utf-8",
+    )
+
+    os.utime(matching_run, (1, 1))
+    os.utime(wrong_seed_run, (2, 2))
+    monkeypatch.chdir(tmp_path)
+
+    result = find_latest_incomplete_eval_results_path(
+        env_id=env_id,
+        model=model,
+        num_examples=4,
+        rollouts_per_example=1,
+        shuffle=True,
+        shuffle_seed=123,
+        env_dir_path=str(tmp_path / "environments"),
+    )
+
+    assert result.resolve() == matching_run
+
+
+def test_get_eval_runs_dir_uses_name_as_result_label(tmp_path: Path):
+    runs_dir = get_eval_runs_dir(
+        env_id="dummy-env",
+        name="dummy-env-short",
+        model="openai/gpt-4.1-mini",
+        output_dir=str(tmp_path / "outputs"),
+    )
+
+    assert runs_dir == (
+        tmp_path / "outputs" / "evals" / "dummy-env-short--openai--gpt-4.1-mini"
+    )
 
 
 def test_is_valid_eval_results_path_requires_files(tmp_path: Path):

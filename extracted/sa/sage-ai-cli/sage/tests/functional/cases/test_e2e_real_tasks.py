@@ -9,9 +9,9 @@ from sage.cli_core import app as sage_app
 @pytest.fixture
 def real_commands_env(monkeypatch):
     """Ensure SAGE runs with real commands and real cloud LLM instead of mocks."""
-    # Delete SAGE_TESTING if it exists (which mocks the LLM)
-    monkeypatch.delenv("SAGE_TESTING", raising=False)
-    # Force real commands
+    # Use SAGE_DISABLE_LLM_MOCK=1 so auth/billing skips still apply but LLM is real
+    monkeypatch.setenv("SAGE_DISABLE_LLM_MOCK", "1")
+    monkeypatch.setenv("SAGE_TESTING", "1")    # Force real commands
     monkeypatch.setenv("SAGE_REAL_COMMANDS", "1")
     # For local test against the cloud model
     monkeypatch.setenv("SAGE_API_BASE", "http://127.0.0.1:8091")

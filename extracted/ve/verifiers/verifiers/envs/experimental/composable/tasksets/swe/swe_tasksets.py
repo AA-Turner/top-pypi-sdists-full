@@ -6,8 +6,6 @@ r2e = make_r2e_taskset()
 bench = make_swebench_taskset()
 """
 
-from __future__ import annotations
-
 from typing import Any
 
 from verifiers.envs.experimental.composable import TaskSet
@@ -24,6 +22,7 @@ def make_swe_taskset(
         "openswe": make_openswe_taskset,
         "multiswe": make_multiswe_taskset,
         "swelego-real": make_swelego_real_taskset,
+        "scaleswe": make_scaleswe_taskset,
         "swerebench-v2": make_swerebench_v2_taskset,
         "swesmith-py": make_swesmith_py_taskset,
         "swesmith-go": make_swesmith_go_taskset,
@@ -91,11 +90,20 @@ def make_swelego_real_taskset(**kwargs: Any) -> TaskSet:
     return SWELegoTaskSet(**kwargs)
 
 
+def make_scaleswe_taskset(**kwargs: Any) -> TaskSet:
+    """Scale-SWE TaskSet (AweAI-Team/Scale-SWE, Python issue-resolving tasks)."""
+    from verifiers.envs.experimental.composable.tasksets.swe.scale_swe import (
+        ScaleSWETaskSet,
+    )
+
+    return ScaleSWETaskSet(**kwargs)
+
+
 def make_swerebench_v2_taskset(**kwargs: Any) -> TaskSet:
     """SWE-rebench-V2 TaskSet (nebius/SWE-rebench-V2, 32k rows, 20 languages).
 
-    Pass ``language=<one of the 20 language labels>`` to filter to a single
-    language; omit for the full cross-language mix.
+    Use ``filter_fn`` to filter rows, for example
+    ``"lambda x: x['info']['language'] == 'python'"`` for one language.
     """
     from verifiers.envs.experimental.composable.tasksets.swe.swe_rebench_v2 import (
         SWERebenchV2TaskSet,

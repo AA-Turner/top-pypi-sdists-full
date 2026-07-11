@@ -1,13 +1,15 @@
 Metadata-Version: 2.4
 Name: crosshair-tool
-Version: 0.0.107
+Version: 0.0.108
 Summary: Analyze Python code for correctness using symbolic execution.
 Author-email: Phillip Schanely <pschanely+vE7F@gmail.com>
 License: MIT
 Project-URL: Homepage, https://github.com/pschanely/CrossHair
 Classifier: Development Status :: 3 - Alpha
 Classifier: Intended Audience :: Developers
-Classifier: Operating System :: OS Independent
+Classifier: Operating System :: Microsoft :: Windows
+Classifier: Operating System :: POSIX :: Linux
+Classifier: Operating System :: MacOS
 Classifier: Programming Language :: Python :: 3
 Classifier: Programming Language :: Python :: 3.8
 Classifier: Programming Language :: Python :: 3.9
@@ -15,6 +17,8 @@ Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
+Classifier: Programming Language :: Python :: 3.15
 Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Topic :: Software Development :: Quality Assurance
 Classifier: Topic :: Software Development :: Testing
@@ -30,15 +34,16 @@ Requires-Dist: pygls>=1.0.0
 Requires-Dist: typeshed-client>=2.0.5
 Provides-Extra: dev
 Requires-Dist: autodocsumm<1,>=0.2.2; extra == "dev"
-Requires-Dist: black==25.9.0; extra == "dev"
+Requires-Dist: black==26.5.1; extra == "dev"
 Requires-Dist: deal>=4.13.0; extra == "dev"
+Requires-Dist: hypothesis>=6.0.0; extra == "dev"
 Requires-Dist: icontract>=2.4.0; extra == "dev"
-Requires-Dist: isort==5.11.5; extra == "dev"
-Requires-Dist: mypy==1.18.1; extra == "dev"
+Requires-Dist: isort==8.0.1; extra == "dev"
+Requires-Dist: mypy==2.1.0; extra == "dev"
 Requires-Dist: numpy==1.24.0; python_version < "3.12" and extra == "dev"
 Requires-Dist: numpy==2.3.3; python_version >= "3.12" and extra == "dev"
 Requires-Dist: pre-commit~=4.3; extra == "dev"
-Requires-Dist: pytest==8.3.5; extra == "dev"
+Requires-Dist: pytest==9.1.1; extra == "dev"
 Requires-Dist: pytest-xdist==3.8.0; extra == "dev"
 Requires-Dist: setuptools; extra == "dev"
 Requires-Dist: sphinx>=3.4.3; extra == "dev"
@@ -52,7 +57,7 @@ Dynamic: license-file
 # CrossHair
 
 [![Join the chat on Discord](https://img.shields.io/discord/1346219754519789719?logo=discord&logoColor=white)](https://discord.gg/rUeTaYTWbb)
-[![Check status](https://github.com/pschanely/CrossHair/actions/workflows/check.yml/badge.svg?branch=main&event=push)](https://github.com/pschanely/CrossHair/actions?query=workflow%3ACheck+event%3Apush)
+[![Check status](https://github.com/pschanely/CrossHair/actions/workflows/test_crosshair.yml/badge.svg?branch=main&event=push)](https://github.com/pschanely/CrossHair/actions?query=workflow%3ACheck+event%3Apush)
 [![Downloads](https://static.pepy.tech/badge/crosshair-tool/week)](https://pepy.tech/project/crosshair-tool)
 
 An analysis tool for Python that blurs the line between testing and

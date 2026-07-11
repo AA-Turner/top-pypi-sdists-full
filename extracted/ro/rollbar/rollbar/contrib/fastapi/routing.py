@@ -1,11 +1,15 @@
+from __future__ import annotations
+
 __all__ = ['add_to']
 
 import logging
 import sys
-from typing import Callable, Optional, Type, Union
+from typing import Callable, Type
 
 from fastapi import APIRouter, FastAPI, __version__
 from fastapi.routing import APIRoute
+
+from rollbar.lib.session import reset_current_session, set_current_session
 
 try:
     from fastapi import Request, Response
@@ -25,7 +29,7 @@ log = logging.getLogger(__name__)
 
 @fastapi_min_version('0.41.0')
 @integrate(framework_name=f'fastapi {__version__}')
-def add_to(app_or_router: Union[FastAPI, APIRouter]) -> Optional[Type[APIRoute]]:
+def add_to(app_or_router: FastAPI | APIRouter) -> Type[APIRoute] | None:
     """
     Adds RollbarLoggingRoute handler to the router app.
 
@@ -49,6 +53,10 @@ def add_to(app_or_router: Union[FastAPI, APIRouter]) -> Optional[Type[APIRoute]]
 
     """
 
+    if not isinstance(app_or_router, (FastAPI, APIRouter)):
+        log.error('Error adding RollbarLoggingRoute to application.')
+        return None
+
     if not has_bare_routing(app_or_router):
         log.error(
             'RollbarLoggingRoute must to be added to a bare router'
@@ -68,9 +76,6 @@ def add_to(app_or_router: Union[FastAPI, APIRouter]) -> Optional[Type[APIRoute]]
         _add_to_app(app_or_router)
     elif isinstance(app_or_router, APIRouter):
         _add_to_router(app_or_router)
-    else:
-        log.error('Error adding RollbarLoggingRoute to application.')
-        return None
 
     return RollbarLoggingRoute
 
@@ -80,6 +85,7 @@ class RollbarLoggingRoute(APIRoute):
         router_handler = super().get_route_handler()
 
         async def rollbar_route_handler(request: Request) -> Response:
+            set_current_session(dict(request.headers))
             try:
                 store_current_request(request)
                 return await router_handler(request)
@@ -99,6 +105,8 @@ class RollbarLoggingRoute(APIRoute):
                     )
                     rollbar.report_exc_info(exc_info, request)
                 raise
+            finally:
+                reset_current_session()
 
         return rollbar_route_handler
 

@@ -24,15 +24,15 @@ def loess_2d_example():
     """ Usage example for loess_2d """
 
     n = 200
-    np.random.seed(1)
+    rng = np.random.default_rng(1)
 
     # Compute the true model
-    x, y = np.random.uniform(-1, 1, size=[n, 2]).T
+    x, y = rng.uniform(-1, 1, size=[n, 2]).T
     z = x**2 - y**2
 
     # Add noise to the data
     sigz = 0.2
-    zran = np.random.normal(z, sigz)
+    zran = rng.normal(z, sigz)
 
     # LOESS smoothing on the same coordinates as input
     zout1, wout = loess_2d(x, y, zran)
@@ -61,7 +61,7 @@ def loess_2d_example():
     plt.title("LOESS Recovery New Grid")
 
     plt.tight_layout()
-    plt.pause(1)
+    plt.show(block=1)
 
 #------------------------------------------------------------------------
 

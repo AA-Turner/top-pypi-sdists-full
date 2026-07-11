@@ -56,6 +56,33 @@ pub struct EvaluatorResult {
     pub parameter_rule_ids: Option<HashMap<InternedString, InternedString>>,
 }
 
+impl EvaluatorResult {
+    pub fn clear_for_reuse(&mut self) {
+        self.name = None;
+        self.bool_value = false;
+        self.unsupported = false;
+        self.is_experiment_group = false;
+        self.is_experiment_active = false;
+        self.is_in_layer = false;
+        self.id_type = None;
+        self.json_value = None;
+        self.rule_id = None;
+        self.rule_id_suffix = None;
+        self.group_name = None;
+        self.explicit_parameters = None;
+        self.config_delegate = None;
+        self.secondary_exposures.clear();
+        self.undelegated_secondary_exposures = None;
+        self.override_reason = None;
+        self.version = None;
+        self.sampling_rate = None;
+        self.forward_all_exposures = None;
+        self.override_config_name = None;
+        self.has_seen_analytical_gates = None;
+        self.parameter_rule_ids = None;
+    }
+}
+
 fn get_is_user_in_experiment(result: &EvaluatorResult) -> bool {
     result.is_experiment_group
         && result
@@ -729,5 +756,81 @@ fn create_suffixed_rule_id(
     match &suffix {
         Some(suffix) => InternedString::from_str_parts(&[rule_id_str, ":", suffix]),
         None => rule_id.cloned().unwrap_or_default(),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn clear_for_reuse_resets_fields_and_keeps_secondary_exposure_capacity() {
+        let mut result = EvaluatorResult {
+            name: Some(InternedString::from_str_ref("a_gate")),
+            bool_value: true,
+            unsupported: true,
+            is_experiment_group: true,
+            is_experiment_active: true,
+            is_in_layer: true,
+            id_type: Some(InternedString::from_str_ref("stableID")),
+            json_value: Some(DynamicReturnable::from_bool(true)),
+            rule_id: Some(InternedString::from_str_ref("rule")),
+            rule_id_suffix: Some("suffix"),
+            group_name: Some(InternedString::from_str_ref("group")),
+            explicit_parameters: Some(ExplicitParameters::from_vec(vec!["param".to_string()])),
+            config_delegate: Some(InternedString::from_str_ref("delegate")),
+            secondary_exposures: Vec::with_capacity(8),
+            undelegated_secondary_exposures: Some(vec![SecondaryExposure {
+                gate: InternedString::from_str_ref("undelegated_gate"),
+                gate_value: InternedString::from_bool(true),
+                rule_id: InternedString::from_str_ref("undelegated_rule"),
+            }]),
+            override_reason: Some("override"),
+            version: Some(1),
+            sampling_rate: Some(10),
+            forward_all_exposures: Some(true),
+            override_config_name: Some(InternedString::from_str_ref("override_config")),
+            has_seen_analytical_gates: Some(true),
+            parameter_rule_ids: Some(HashMap::from([(
+                InternedString::from_str_ref("param"),
+                InternedString::from_str_ref("rule"),
+            )])),
+        };
+
+        result.secondary_exposures.push(SecondaryExposure {
+            gate: InternedString::from_str_ref("gate"),
+            gate_value: InternedString::from_bool(false),
+            rule_id: InternedString::from_str_ref("rule"),
+        });
+        let secondary_exposure_capacity = result.secondary_exposures.capacity();
+
+        result.clear_for_reuse();
+
+        assert!(result.name.is_none());
+        assert!(!result.bool_value);
+        assert!(!result.unsupported);
+        assert!(!result.is_experiment_group);
+        assert!(!result.is_experiment_active);
+        assert!(!result.is_in_layer);
+        assert!(result.id_type.is_none());
+        assert!(result.json_value.is_none());
+        assert!(result.rule_id.is_none());
+        assert!(result.rule_id_suffix.is_none());
+        assert!(result.group_name.is_none());
+        assert!(result.explicit_parameters.is_none());
+        assert!(result.config_delegate.is_none());
+        assert!(result.secondary_exposures.is_empty());
+        assert_eq!(
+            result.secondary_exposures.capacity(),
+            secondary_exposure_capacity
+        );
+        assert!(result.undelegated_secondary_exposures.is_none());
+        assert!(result.override_reason.is_none());
+        assert!(result.version.is_none());
+        assert!(result.sampling_rate.is_none());
+        assert!(result.forward_all_exposures.is_none());
+        assert!(result.override_config_name.is_none());
+        assert!(result.has_seen_analytical_gates.is_none());
+        assert!(result.parameter_rule_ids.is_none());
     }
 }

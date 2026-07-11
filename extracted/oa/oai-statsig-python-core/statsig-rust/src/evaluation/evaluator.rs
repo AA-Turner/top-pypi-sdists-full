@@ -166,21 +166,22 @@ fn new_layer_eval<'a>(
 ) -> Result<Recognition, StatsigErr> {
     let mut has_passed_rule = false;
     let mut passed = false;
-    let mut rule_id: Option<&'a InternedString> = Some(InternedString::default_rule_id_ref());
+    let mut rule_id = Some(InternedString::default_rule_id());
     let mut delegate_name: Option<InternedString> = None;
     let mut rule_ids: HashMap<InternedString, InternedString> = HashMap::new();
     let mut value: HashMap<String, Value> = HashMap::new();
     let mut group_name: Option<InternedString> = None;
     let mut is_experiment_group = false;
+    let mut is_experiment_active = false;
     let mut explicit_parameters: Option<ExplicitParameters> = None;
     let mut secondary_exposures: Vec<SecondaryExposure> = Vec::new();
     let mut undelegated_secondary_exposures: Vec<SecondaryExposure> = Vec::new();
 
     for rule in &spec.rules {
         evaluate_rule(ctx, rule)?;
-        secondary_exposures.append(&mut ctx.result.secondary_exposures);
-        undelegated_secondary_exposures.append(&mut ctx.result.secondary_exposures);
-        ctx.result.secondary_exposures.clear();
+        let rule_secondary_exposures = std::mem::take(&mut ctx.result.secondary_exposures);
+        secondary_exposures.extend(rule_secondary_exposures.iter().cloned());
+        undelegated_secondary_exposures.extend(rule_secondary_exposures);
 
         if ctx.result.unsupported {
             return Ok(Recognition::Recognized);
@@ -217,15 +218,21 @@ fn new_layer_eval<'a>(
                 continue;
             }
 
-            update_parameter_values(&mut value, &mut rule_ids, delegate_value, &rule.id);
+            let delegate_rule_id = ctx
+                .result
+                .rule_id
+                .clone()
+                .unwrap_or_else(InternedString::default_rule_id);
+            update_parameter_values(&mut value, &mut rule_ids, delegate_value, &delegate_rule_id);
 
             secondary_exposures.append(&mut ctx.result.secondary_exposures);
             ctx.result.secondary_exposures.clear();
             passed = ctx.result.bool_value;
             delegate_name = ctx.result.config_delegate.clone();
             group_name = ctx.result.group_name.clone();
-            rule_id = Some(&rule.id);
-            is_experiment_group = rule.is_experiment_group.unwrap_or(false);
+            rule_id = Some(delegate_rule_id);
+            is_experiment_group = ctx.result.is_experiment_group;
+            is_experiment_active = ctx.result.is_experiment_active;
             explicit_parameters = ctx.result.explicit_parameters.clone();
         } else {
             passed = ctx.result.bool_value;
@@ -247,10 +254,10 @@ fn new_layer_eval<'a>(
     ctx.result.bool_value = passed;
     ctx.result.config_delegate = delegate_name;
     ctx.result.group_name = group_name;
-    ctx.result.rule_id = rule_id.cloned();
+    ctx.result.rule_id = rule_id;
     ctx.result.json_value = Some(DynamicReturnable::from_map(value));
     ctx.result.is_experiment_group = is_experiment_group;
-    ctx.result.is_experiment_active = spec.is_active.unwrap_or(false);
+    ctx.result.is_experiment_active = is_experiment_active;
     ctx.result.explicit_parameters = explicit_parameters;
     ctx.result.secondary_exposures = secondary_exposures;
     ctx.result.undelegated_secondary_exposures = Some(undelegated_secondary_exposures);

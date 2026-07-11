@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: croniter
-Version: 6.2.3
+Version: 6.2.4
 Summary: croniter provides iteration for datetime object with cron like format
 Project-URL: Homepage, https://github.com/pallets-eco/croniter
 Author-email: Matsumoto Taichi <taichino@gmail.com>, kiorky <kiorky@cryptelium.net>, Ash Berlin-Taylor <ash@apache.org>, Jarek Potiuk <jarek@potiuk.com>

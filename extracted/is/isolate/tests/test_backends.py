@@ -12,6 +12,7 @@ import pytest
 from isolate.backends import BaseEnvironment, EnvironmentCreationError
 from isolate.backends.common import Requirements, get_executable, sha256_digest_of
 from isolate.backends.conda import CondaEnvironment
+from isolate.backends.container import ContainerizedPythonEnvironment
 from isolate.backends.local import LocalPythonEnvironment
 from isolate.backends.pyenv import PyenvEnvironment, _get_pyenv_executable
 from isolate.backends.remote import IsolateServer
@@ -708,6 +709,20 @@ def test_local_python_environment():
 
     with pytest.raises(NotImplementedError):
         local_env.destroy(connection_key)
+
+
+def test_containerized_python_environment_uses_current_exec_prefix(monkeypatch):
+    monkeypatch.delenv("ISOLATE_CONTAINER_PYTHON_EXEC_PREFIX", raising=False)
+
+    assert ContainerizedPythonEnvironment().create() == Path(sys.exec_prefix)
+
+
+def test_containerized_python_environment_uses_configured_exec_prefix(
+    monkeypatch, tmp_path
+):
+    monkeypatch.setenv("ISOLATE_CONTAINER_PYTHON_EXEC_PREFIX", str(tmp_path))
+
+    assert ContainerizedPythonEnvironment().create() == tmp_path
 
 
 def test_path_on_local():

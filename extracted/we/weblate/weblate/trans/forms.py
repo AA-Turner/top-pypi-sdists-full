@@ -199,6 +199,7 @@ GROUP_TEMPLATE = """
 TOOLBAR_TEMPLATE = """
 <div class="btn-toolbar float-end editor-toolbar">{0}</div>
 """
+MIN_COST_ESTIMATE_TM_THRESHOLD = 75
 
 
 class FieldDocsMixin(forms.Form):
@@ -1793,7 +1794,7 @@ class CostEstimateReportsForm(forms.Form):
     tm_threshold = forms.IntegerField(
         label=gettext_lazy("Translation memory threshold"),
         initial=MACHINERY_DEFAULT_THRESHOLD,
-        min_value=1,
+        min_value=MIN_COST_ESTIMATE_TM_THRESHOLD,
         max_value=100,
     )
     rate_new = forms.DecimalField(
@@ -4548,7 +4549,13 @@ class WorkflowSettingForm(FieldDocsMixin, forms.ModelForm):
         self.helper = FormHelper(self)
         self.helper.form_tag = False
         self.helper.layout = Layout(
-            Field("enable"),
+            Field("enable", template="bootstrap5/layout/switch.html"),
+            HTML(
+                format_html(
+                    '<p id="workflow-enable-hint" class="text-muted">{}</p>',
+                    gettext("Turn on customization above to change these settings."),
+                )
+            ),
             Div(
                 Field("translation_review"),
                 Field("enable_suggestions"),

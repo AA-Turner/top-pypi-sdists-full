@@ -239,7 +239,7 @@ class SwaggerUIPlugin(BasePlugin):
         js_code.string += """
             let iframe_id_list = []
             var iframes = document.getElementsByClassName("swagger-ui-iframe");
-            for (var i = 0; i < iframes.length; i++) { 
+            for (var i = 0; i < iframes.length; i++) {
                 iframe_id_list.push(iframes[i].getAttribute("id"))
             }
             let ticking = false;
@@ -263,7 +263,7 @@ class SwaggerUIPlugin(BasePlugin):
                 }
             });
         """
-        if config["theme"].name == "material":
+        if config["theme"].name in ("material", "materialx"):
             # synchronized dark mode with mkdocs-material
             js_code.string += f"""
             const dark_scheme_name = "{self.config["dark_scheme_name"]}"
@@ -317,7 +317,9 @@ class SwaggerUIPlugin(BasePlugin):
         iframe["style"] = "display:none;"
         iframe["width"] = "100%"
         iframe["class"] = "swagger-ui-iframe"
-        iframe["onload"] = "this.style.display = 'block'; this.style.overflow = 'hidden'; this.style.width = '100%';"
+        iframe["onload"] = (
+            "this.style.display = 'block'; this.style.overflow = 'hidden'; this.style.width = '100%';"
+        )
         swagger_ui_ele.replace_with(iframe)
 
     def process_options(self, config, swagger_ui_ele):
@@ -352,9 +354,9 @@ class SwaggerUIPlugin(BasePlugin):
             if cur_options[k] is None:
                 cur_options.pop(k)
         if "syntaxHighlightTheme" in cur_options:
-            cur_options["syntaxHighlight.theme"] = cur_options.pop(
-                "syntaxHighlightTheme"
-            )
+            cur_options["syntaxHighlight"] = {
+                "theme": cur_options.pop("syntaxHighlightTheme")
+            }
         return cur_options
 
     def process_oath2_prop(self, swagger_ui_ele):
@@ -424,4 +426,8 @@ class SwaggerUIPlugin(BasePlugin):
         utils.copy_file(
             os.path.join(base_path, "swagger-ui", "oauth2-redirect.html"),
             os.path.join(swagger_ui_path, "oauth2-redirect.html"),
+        )
+        utils.copy_file(
+            os.path.join(base_path, "swagger-ui", "oauth2-redirect.js"),
+            os.path.join(swagger_ui_path, "oauth2-redirect.js"),
         )

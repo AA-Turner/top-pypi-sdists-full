@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: aa-memberaudit-dc
-Version: 0.3.4
+Version: 0.4.0
 Summary: Doctrine Checker Addon module for Memberaudit
 Project-URL: Changelog, https://github.com/Geuthur/aa-memberaudit-dc/blob/master/CHANGELOG.md
 Project-URL: Homepage, https://github.com/Geuthur/aa-memberaudit-dc
@@ -705,7 +705,7 @@ Requires-Dist: django-esi>=8
 Requires-Dist: django-eveuniverse>=1.6
 Requires-Dist: django-ninja<2,>=1.5
 Provides-Extra: tests-allianceauth-development
-Requires-Dist: allianceauth==5.0.0b2; extra == 'tests-allianceauth-development'
+Requires-Dist: allianceauth==5.1.4; extra == 'tests-allianceauth-development'
 Requires-Dist: coverage; extra == 'tests-allianceauth-development'
 Requires-Dist: factory-boy; extra == 'tests-allianceauth-development'
 Provides-Extra: tests-allianceauth-latest

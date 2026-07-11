@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: optimizely-sdk
-Version: 5.5.0
+Version: 5.6.0
 Summary: Python SDK for Optimizely Feature Experimentation, Optimizely Full Stack (legacy), and Optimizely Rollouts.
 Home-page: https://github.com/optimizely/python-sdk
 Author: Optimizely
@@ -24,17 +24,17 @@ Requires-Dist: requests>=2.21
 Requires-Dist: idna>=2.10
 Requires-Dist: rpds-py<0.20.0; python_version < "3.11"
 Provides-Extra: test
-Requires-Dist: requests>=2.21; extra == "test"
-Requires-Dist: idna>=2.10; extra == "test"
-Requires-Dist: ruff>=0.15.0; extra == "test"
-Requires-Dist: python-coveralls; extra == "test"
+Requires-Dist: pytest>=6.2.0; extra == "test"
 Requires-Dist: coverage; extra == "test"
 Requires-Dist: pytest-cov; extra == "test"
-Requires-Dist: rpds-py<0.20.0; python_version < "3.11" and extra == "test"
 Requires-Dist: jsonschema>=3.2.0; extra == "test"
-Requires-Dist: funcsigs>=0.4; extra == "test"
-Requires-Dist: pytest>=6.2.0; extra == "test"
 Requires-Dist: pyrsistent>=0.16.0; extra == "test"
+Requires-Dist: requests>=2.21; extra == "test"
+Requires-Dist: rpds-py<0.20.0; python_version < "3.11" and extra == "test"
+Requires-Dist: python-coveralls; extra == "test"
+Requires-Dist: funcsigs>=0.4; extra == "test"
+Requires-Dist: idna>=2.10; extra == "test"
+Requires-Dist: ruff>=0.15.0; extra == "test"
 Dynamic: author
 Dynamic: author-email
 Dynamic: classifier
@@ -303,6 +303,27 @@ idna (BSD 3-Clause License https://github.com/kjd/idna/blob/master/LICENSE.md)
 
 - Swift - https://github.com/optimizely/swift-sdk
 # Optimizely Python SDK Changelog
+
+## 5.6.0
+July 10th, 2026
+
+### New Features
+
+#### **Local Holdouts Support**
+
+- Added local holdouts support to the Python SDK, enabling flag-level traffic exclusion from experiments. ([#512](https://github.com/optimizely/python-sdk/pull/512))
+- Added `localHoldouts` datafile section parsing for backward compatibility with older datafile formats. ([#517](https://github.com/optimizely/python-sdk/pull/517))
+
+---
+
+### Bug Fixes
+
+- Fixed invalid IDs in holdout decision events by normalizing `campaign_id`, `variation_id`, and `entity_id` fields. ([#518](https://github.com/optimizely/python-sdk/pull/518))
+- Fixed CMAB prediction requests to use attribute ID instead of attribute key. ([#520](https://github.com/optimizely/python-sdk/pull/520))
+- Fixed ODP identify events being sent with a single identifier, which is a no-op. ([#513](https://github.com/optimizely/python-sdk/pull/513))
+
+---
+
 
 ## 5.5.0
 April 30th, 2026

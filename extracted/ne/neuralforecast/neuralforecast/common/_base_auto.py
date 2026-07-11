@@ -1,6 +1,7 @@
 __all__ = ['BaseAuto', 'RayOptions', 'OptunaOptions']
 
 
+import inspect
 import warnings
 from copy import deepcopy
 from dataclasses import dataclass, fields, replace
@@ -117,6 +118,10 @@ class BaseAuto(pl.LightningModule):
         loss (PyTorch module): Instantiated train loss class from [losses collection](./losses.pytorch.html).
         valid_loss (PyTorch module): Instantiated valid loss class from [losses collection](./losses.pytorch.html).
         config (dict or callable): Dictionary with ray.tune defined search space or function that takes an optuna trial and returns a configuration dict.
+            The config must include every parameter of the underlying model that has no
+            default value (e.g. `input_size`, and `n_series` for multivariate models),
+            either as a fixed value or as a search variable. `h`, `loss`, and `valid_loss`
+            are injected automatically and must not be set in `config`.
         search_alg (ray.tune.search variant or optuna.sampler): For ray see https://docs.ray.io/en/latest/tune/api_docs/suggestion.html
             For optuna see https://optuna.readthedocs.io/en/stable/reference/samplers/index.html.
         num_samples (int): Number of hyperparameter optimization steps/samples.
@@ -134,10 +139,10 @@ class BaseAuto(pl.LightningModule):
         optuna_options (OptunaOptions, optional): Container for Optuna-only options.
             See `OptunaOptions` for the supported fields (`study_kwargs`,
             `create_study_kwargs`). Only used with `backend='optuna'`.
-        cpus: Deprecated, will be removed in v3.2.0. Pass
-            `ray_options=RayOptions(cpus=...)` instead.
-        gpus: Deprecated, will be removed in v3.2.0. Pass
-            `ray_options=RayOptions(gpus=...)` instead.
+        cpus: No longer supported as of v3.2.0. Pin neuralforecast to v3.1.9, or
+            pass `ray_options=RayOptions(cpus=...)` instead.
+        gpus: No longer supported as of v3.2.0. Pin neuralforecast to v3.1.9, or
+            pass `ray_options=RayOptions(gpus=...)` instead.
     """
 
     def __init__(
@@ -160,14 +165,21 @@ class BaseAuto(pl.LightningModule):
         cpus=None,
         gpus=None,
     ):
+        for _name, _val in (("cpus", cpus), ("gpus", gpus)):
+            if _val is not None:
+                raise TypeError(
+                    f"`{_name}` is no longer supported as of v3.2.0. "
+                    f"Either pin neuralforecast to v3.1.9, or pass "
+                    f"`ray_options=RayOptions({_name}=...)` instead."
+                )
         super(BaseAuto, self).__init__()
         with warnings.catch_warnings(record=False):
             warnings.filterwarnings("ignore")
             # the following line issues a warning about the loss attribute being saved
             # but we do want to save it
-            # Ignore deprecated kwargs so they aren't persisted into checkpoints
-            # and break loads after they're removed in v3.2.0.
-            self.save_hyperparameters(ignore=["cpus", "gpus", "ray_options", "optuna_options"])
+            # `ray_options`/`optuna_options` are not JSON-serializable, so exclude
+            # them from the saved hyperparameters.
+            self.save_hyperparameters(ignore=["ray_options", "optuna_options"])
 
         if backend == "ray":
             if not isinstance(config, dict):
@@ -186,37 +198,17 @@ class BaseAuto(pl.LightningModule):
             raise ValueError(
                 f"Unknown backend {backend}. The supported backends are 'ray' and 'optuna'."
             )
+        # Translate `*input_size_multiplier` entries (as used by the models'
+        # `default_config`) into concrete `*input_size` ones, so that configs
+        # built on top of `default_config` are valid `config` arguments.
+        config_base = self._translate_input_size_multipliers(config_base, h)
 
         # Shallow-copy user-supplied options so subsequent mutations
-        # (legacy coalescing, default resolution) don't leak back to the caller.
+        # (default resolution) don't leak back to the caller.
         ray_options = replace(ray_options) if ray_options is not None else RayOptions()
         optuna_options = (
             replace(optuna_options) if optuna_options is not None else OptunaOptions()
         )
-        for _name, _val in (("cpus", cpus), ("gpus", gpus)):
-            if _val is None:
-                continue
-            if backend != "ray":
-                # On non-ray backends cpus/gpus aren't used, so skip the
-                # deprecation (which would only point at RayOptions, also unused).
-                warnings.warn(
-                    f"`{_name}` is ignored when `backend={backend!r}`; "
-                    f"it only applies to `backend='ray'`.",
-                )
-                continue
-            if getattr(ray_options, _name) is not None:
-                raise TypeError(
-                    f"`{_name}` and `ray_options.{_name}` were both provided; "
-                    f"pass only `ray_options=RayOptions({_name}=...)` — "
-                    f"`{_name}` is deprecated."
-                )
-            warnings.warn(
-                f"`{_name}` is deprecated and will be removed in v3.2.0; "
-                f"pass `ray_options=RayOptions({_name}=...)` instead.",
-                DeprecationWarning,
-                stacklevel=2,
-            )
-            setattr(ray_options, _name, _val)
         _warn_unused_options(backend, ray_options, optuna_options)
         # Resolve None defaults for ray; optuna doesn't use cpus/gpus.
         if backend == "ray":
@@ -241,6 +233,29 @@ class BaseAuto(pl.LightningModule):
         else:
             self.early_stop_patience_steps = -1
 
+        # Surface required-but-missing parameters up front. Without this,
+        auto_provided = {"h", "loss", "valid_loss"}
+        missing_required = [
+            name
+            for name, param in inspect.signature(cls_model.__init__).parameters.items()
+            if name != "self"
+            and name not in auto_provided
+            and name not in config_base
+            and param.default is inspect.Parameter.empty
+            and param.kind
+            in (
+                inspect.Parameter.POSITIONAL_OR_KEYWORD,
+                inspect.Parameter.KEYWORD_ONLY,
+            )
+        ]
+        if missing_required:
+            raise ValueError(
+                f"`config` is missing required parameter(s) for "
+                f"{cls_model.__name__}: {missing_required}. These parameters "
+                f"have no default and must be provided in `config` (either as "
+                f"a fixed value or as a tune/optuna search variable)."
+            )
+
         if callable(config):
             # reset config_base here to save params to override in the config fn
             config_base = {}
@@ -257,7 +272,9 @@ class BaseAuto(pl.LightningModule):
         else:
 
             def config_f(trial):
-                return {**config(trial), **config_base}
+                return self._translate_input_size_multipliers(
+                    {**config(trial), **config_base}, h
+                )
 
             self.config = config_f
 
@@ -288,6 +305,43 @@ class BaseAuto(pl.LightningModule):
 
     def __repr__(self):
         return type(self).__name__ if self.alias is None else self.alias
+
+    @staticmethod
+    def _translate_input_size_multipliers(config, h):
+        """Translate `*input_size_multiplier` config entries into `*input_size` ones.
+
+        The models' `default_config` express the input sizes as multiples of the
+        horizon (`input_size_multiplier` and `inference_input_size_multiplier`).
+        These keys are not valid model arguments, so apply here the same
+        translation that `get_default_config` performs, which allows users to
+        provide configs built on top of `default_config`.
+
+        Args:
+            config (dict): Configuration dict, possibly containing
+                `*input_size_multiplier` entries.
+            h (int): Forecast horizon.
+
+        Returns:
+            dict: Configuration dict with the multipliers translated into sizes.
+        """
+        translations = {
+            "input_size_multiplier": "input_size",
+            "inference_input_size_multiplier": "inference_input_size",
+        }
+        if not any(key in config for key in translations):
+            return config
+        config = dict(config)
+        for multiplier_key, size_key in translations.items():
+            if multiplier_key not in config:
+                continue
+            multipliers = config.pop(multiplier_key)
+            if size_key in config:
+                continue
+            if isinstance(multipliers, (list, tuple)):
+                config[size_key] = tune.choice([h * x for x in multipliers])
+            else:
+                config[size_key] = h * multipliers
+        return config
 
     def _train_tune(self, config_step, cls_model, dataset, val_size, test_size):
         """BaseAuto._train_tune
@@ -544,7 +598,15 @@ class BaseAuto(pl.LightningModule):
         # hyperparameter selection.
         search_alg = deepcopy(self.search_alg)
         val_size = val_size if val_size > 0 else self.h
-        if self.backend == "ray":
+        # When `_reuse_search` is set (by `NeuralForecast.fit` during conformal
+        # interval calibration), refit with the previously found best config
+        reuse_search = (
+            getattr(self, "_reuse_search", False)
+            and getattr(self, "results", None) is not None
+        )
+        if reuse_search:
+            results = self.results
+        elif self.backend == "ray":
             if distributed_config is not None:
                 raise ValueError(
                     "distributed training is not supported for the ray backend."
@@ -562,7 +624,6 @@ class BaseAuto(pl.LightningModule):
                 config=self.config,
                 time_budget=self.time_budget,
             )
-            best_config = results.get_best_result().config
         else:
             results = self._optuna_tune_model(
                 cls_model=self.cls_model,
@@ -576,6 +637,10 @@ class BaseAuto(pl.LightningModule):
                 distributed_config=distributed_config,
                 time_budget=self.time_budget,
             )
+
+        if self.backend == "ray":
+            best_config = results.get_best_result().config
+        else:
             # Deepcopy so the final fit doesn't mutate the loss instances stored on
             # `self` (matches the historic behavior where optuna's `set_user_attr`
             # deepcopied the config dict).

@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 import asyncio
 import atexit
 import json
@@ -98,8 +96,8 @@ class Environment(ABC):
 
     def __init__(
         self,
-        dataset: Dataset | DatasetBuilder | None = None,
-        eval_dataset: Dataset | DatasetBuilder | None = None,
+        dataset: "Dataset | DatasetBuilder | None" = None,
+        eval_dataset: "Dataset | DatasetBuilder | None" = None,
         system_prompt: str | None = None,
         few_shot: Messages | None = None,
         parser: Parser | None = None,
@@ -157,8 +155,8 @@ class Environment(ABC):
 
         # Dataset sources (builders) and built datasets
         # Use get_dataset()/get_eval_dataset() for access; build_dataset() to trigger build
-        self.dataset: Dataset | None = None
-        self.eval_dataset: Dataset | None = None
+        self.dataset: "Dataset | None" = None
+        self.eval_dataset: "Dataset | None" = None
 
         if dataset is not None:
             if callable(dataset):
@@ -275,25 +273,15 @@ class Environment(ABC):
         )
         signal.signal(signal.SIGTERM, lambda _, __: (_sync_teardown(), exit(143)))
 
-    def _ensure_example_id(self, dataset: Dataset) -> Dataset:
-        """Ensure example_id column exists and is integer type."""
-        if "example_id" in dataset.column_names and not isinstance(
-            dataset["example_id"][0], int
-        ):
-            dataset = dataset.rename_column("example_id", "src_id")
-        if "example_id" not in dataset.column_names:
-            dataset = dataset.add_column("example_id", range(len(dataset)))
-        return dataset
-
     def _ensure_prompt(
         self,
-        dataset: Dataset,
+        dataset: "Dataset",
         system_prompt: str | None = None,
         few_shot: Messages | None = None,
         question_key: str = "question",
         answer_key: str = "answer",
         map_kwargs: dict = {},
-    ) -> Dataset:
+    ) -> "Dataset":
         """Ensure prompt column exists."""
         if "prompt" not in dataset.column_names:
 
@@ -354,36 +342,30 @@ class Environment(ABC):
 
     def _format_dataset(
         self,
-        dataset: Dataset,
+        dataset: "Dataset",
         system_prompt: str | None = None,
         few_shot: Messages | None = None,
         question_key: str = "question",
         answer_key: str = "answer",
         map_kwargs: dict = {},
-    ) -> Dataset:
+    ) -> "Dataset":
         """
         Format dataset by creating example_id and prompt columns.
         """
         if "env_id" in dataset.column_names:
             dataset = dataset.remove_columns(["env_id"])
-        dataset = self._ensure_example_id(dataset)
+        if "example_id" in dataset.column_names and not isinstance(
+            dataset["example_id"][0], int
+        ):
+            dataset = dataset.rename_column("example_id", "src_id")
+        if "example_id" not in dataset.column_names:
+            dataset = dataset.add_column("example_id", range(len(dataset)))
         dataset = self._ensure_prompt(
             dataset, system_prompt, few_shot, question_key, answer_key, map_kwargs
         )
         return dataset
 
-    def _format_completion_dataset(
-        self, dataset: Dataset, map_kwargs: dict = {}
-    ) -> Dataset:
-        """
-        Format dataset by creating example_id.
-        """
-        if "env_id" in dataset.column_names:
-            dataset = dataset.remove_columns(["env_id"])
-        dataset = self._ensure_example_id(dataset)
-        return dataset
-
-    def _format_dataset_source(self, dataset: Dataset) -> Dataset:
+    def _format_dataset_source(self, dataset: "Dataset") -> "Dataset":
         """Format a dataset as chat (messages); client maps to its format at request time."""
         return self._format_dataset(
             dataset,
@@ -392,7 +374,7 @@ class Environment(ABC):
             map_kwargs=self.map_kwargs,
         )
 
-    def build_dataset(self) -> Dataset | None:
+    def build_dataset(self) -> "Dataset | None":
         """Build and cache the training dataset from source if needed."""
         if self.dataset is not None:
             return self.dataset
@@ -402,7 +384,7 @@ class Environment(ABC):
         self.dataset = self._format_dataset_source(built)
         return self.dataset
 
-    def build_eval_dataset(self) -> Dataset | None:
+    def build_eval_dataset(self) -> "Dataset | None":
         """Build and cache the evaluation dataset from source if needed."""
         if self.eval_dataset is not None:
             return self.eval_dataset
@@ -413,31 +395,33 @@ class Environment(ABC):
         return self.eval_dataset
 
     @final
-    def get_dataset(self, n: int = -1, seed: int | None = None) -> Dataset:
+    def get_dataset(self, n: int = -1, seed: int | None = None) -> "Dataset":
         self.build_dataset()
         if self.dataset is None:
             raise ValueError("dataset is not set")
+        dataset = self.dataset
         if seed is not None:
-            self.dataset = self.dataset.shuffle(seed=seed)
+            dataset = dataset.shuffle(seed=seed)
         if n > 0:
-            n = min(n, len(self.dataset))
-            return self.dataset.select(range(n))
-        return self.dataset
+            n = min(n, len(dataset))
+            return dataset.select(range(n))
+        return dataset
 
     @final
-    def get_eval_dataset(self, n: int = -1, seed: int | None = None) -> Dataset:
+    def get_eval_dataset(self, n: int = -1, seed: int | None = None) -> "Dataset":
         self.build_eval_dataset()
         if self.eval_dataset is None:
             self.logger.warning(
                 "eval_dataset is not set, falling back to train dataset"
             )
             return self.get_dataset(n, seed)
+        eval_dataset = self.eval_dataset
         if seed is not None:
-            self.eval_dataset = self.eval_dataset.shuffle(seed=seed)
+            eval_dataset = eval_dataset.shuffle(seed=seed)
         if n > 0:
-            n = min(n, len(self.eval_dataset))
-            return self.eval_dataset.select(range(n))
-        return self.eval_dataset
+            n = min(n, len(eval_dataset))
+            return eval_dataset.select(range(n))
+        return eval_dataset
 
     @final
     def _get_usage_tracker(
@@ -467,7 +451,7 @@ class Environment(ABC):
 
     @final
     def increment_state_usage_from_response(
-        self, state: State, response: object
+        self, state: State, response: Response
     ) -> None:
         tracker = self._get_usage_tracker(state, create_if_missing=True)
         assert tracker is not None
@@ -779,7 +763,7 @@ class Environment(ABC):
             )
 
         state = await maybe_retry(run_rollout_attempt, max_retries=max_retries)()
-        output = state_to_output(state, state_columns or [])
+        output = await asyncio.to_thread(state_to_output, state, state_columns or [])
         return output
 
     @final
@@ -826,14 +810,17 @@ class Environment(ABC):
             )
 
         group_states = await maybe_retry(run_group_attempt, max_retries=max_retries)()
-        outputs = [
-            state_to_output(state, state_columns or []) for state in group_states
-        ]
-        return outputs
+        outputs = await asyncio.gather(
+            *(
+                asyncio.to_thread(state_to_output, state, state_columns or [])
+                for state in group_states
+            )
+        )
+        return list(outputs)
 
     async def generate(
         self,
-        inputs: Dataset | List[RolloutInput],
+        inputs: "Dataset | List[RolloutInput]",
         client: Client | ClientConfig,
         model: str,
         sampling_args: SamplingArgs | None = None,
@@ -845,6 +832,8 @@ class Environment(ABC):
         hf_hub_dataset_name: str | None = None,
         independent_scoring: bool = False,
         max_retries: int = 0,
+        shuffle: bool = False,
+        shuffle_seed: int | None = None,
         on_start: StartCallback | None = None,
         on_progress: ProgressCallback | list[ProgressCallback] | None = None,
         on_log: LogCallback | None = None,
@@ -948,6 +937,9 @@ class Environment(ABC):
         total_rollouts = len(raw_inputs)
         num_examples = len(set([i["example_id"] for i in raw_inputs]))
         rollouts_per_example = total_rollouts // num_examples if num_examples > 0 else 0
+        resolved_shuffle_seed = (
+            (0 if shuffle_seed is None else shuffle_seed) if shuffle else None
+        )
         builder = GenerateOutputsBuilder(
             env_id=self.env_id,
             env_args=self.env_args,
@@ -959,6 +951,8 @@ class Environment(ABC):
             sampling_args=sampling_args,
             results_path=results_path,
             pass_threshold=self.pass_threshold,
+            shuffle=shuffle,
+            shuffle_seed=resolved_shuffle_seed,
         )
 
         single_client: Client | None = None
@@ -1003,9 +997,26 @@ class Environment(ABC):
                     model=model,
                     num_examples=num_examples,
                     rollouts_per_example=rollouts_per_example,
+                    shuffle=shuffle,
+                    shuffle_seed=resolved_shuffle_seed,
                 )
                 on_log(f"Resuming evaluation from {results_path}")
                 outputs = load_outputs(results_path)
+                rollout_counts_by_example_id: dict[object, int] = {}
+                capped_outputs: list[RolloutOutput] = []
+                for output in outputs:
+                    example_id = output["example_id"]
+                    rollout_count = rollout_counts_by_example_id.get(example_id, 0)
+                    if rollout_count >= rollouts_per_example:
+                        continue
+                    rollout_counts_by_example_id[example_id] = rollout_count + 1
+                    capped_outputs.append(output)
+                if len(capped_outputs) != len(outputs):
+                    on_log(
+                        f"Ignoring {len(outputs) - len(capped_outputs)} saved duplicate rollout(s) "
+                        "beyond rollouts_per_example"
+                    )
+                outputs = capped_outputs
                 builder.add_outputs(outputs)
                 filtered_inputs = filter_inputs(
                     raw_inputs, outputs, rollouts_per_example
@@ -1014,7 +1025,12 @@ class Environment(ABC):
                     on_log(
                         "No remaining rollouts to evaluate, returning completed outputs"
                     )
-                    return builder.build(sort_by_example_id=True)
+                    results = builder.build(sort_by_example_id=True)
+                    if save_results:
+                        await asyncio.to_thread(
+                            save_metadata, results["metadata"], builder.results_path
+                        )
+                    return results
                 on_log(
                     f"Found {len(outputs)} completed rollout(s), {len(filtered_inputs)} remaining rollout(s)"
                 )
@@ -1023,6 +1039,21 @@ class Environment(ABC):
 
             if save_results:
                 on_log(f"Saving results to {builder.results_path}")
+                if results_path is None or not is_valid_eval_results_path(results_path):
+                    outputs_path = builder.results_path / "results.jsonl"
+                    if (
+                        results_path is not None
+                        and outputs_path.is_file()
+                        and outputs_path.stat().st_size > 0
+                    ):
+                        raise ValueError(
+                            f"Cannot save to invalid results path {builder.results_path}: "
+                            "results.jsonl already exists without valid metadata"
+                        )
+                    await asyncio.to_thread(save_outputs, [], builder.results_path, "a")
+                    await asyncio.to_thread(
+                        save_metadata, builder.build_metadata(), builder.results_path
+                    )
 
             tasks: dict[asyncio.Task, int] = {}
             try:
@@ -1105,9 +1136,6 @@ class Environment(ABC):
             # save if requested
             if save_results:
                 await asyncio.to_thread(
-                    save_outputs, results["outputs"], builder.results_path
-                )
-                await asyncio.to_thread(
                     save_metadata, results["metadata"], builder.results_path
                 )
                 if push_to_hf_hub:
@@ -1129,26 +1157,32 @@ class Environment(ABC):
 
     def generate_sync(
         self,
-        inputs: Dataset | List[RolloutInput],
+        inputs: "Dataset | List[RolloutInput]",
         client: Client | ClientConfig,
         **kwargs,
     ) -> GenerateOutputs:
-        coro = self.generate(
-            inputs,
-            client=client,
-            **kwargs,
-        )
         # check if we're in existing event loop (e.g. Jupyter)
         try:
             loop = asyncio.get_running_loop()
-            import nest_asyncio
+        except RuntimeError:
+            loop = None
+
+        if loop is not None:
+            try:
+                import nest_asyncio
+            except ModuleNotFoundError as e:
+                raise ModuleNotFoundError(
+                    "Environment.generate_sync() inside an active event loop requires "
+                    "`verifiers[notebook]`."
+                ) from e
 
             nest_asyncio.apply()
-            return loop.run_until_complete(coro)
-        except RuntimeError:
-            pass
+            return loop.run_until_complete(
+                self.generate(inputs, client=client, **kwargs)
+            )
 
         # script case: create new loop and executor
+        coro = self.generate(inputs, client=client, **kwargs)
         executor = ThreadPoolExecutor(max_workers=self.max_workers)
         loop = asyncio.new_event_loop()
         try:
@@ -1163,11 +1197,20 @@ class Environment(ABC):
 
     # evaluation
     def _get_eval_inputs(
-        self, num_examples: int = -1, rollouts_per_example: int = 1
+        self,
+        num_examples: int = -1,
+        rollouts_per_example: int = 1,
+        shuffle: bool = False,
+        shuffle_seed: int | None = None,
     ) -> List[RolloutInput]:
         # get_eval_dataset handles fallback to train dataset if no eval source exists
-        inputs = self.get_eval_dataset(n=num_examples)
+        inputs = self.get_eval_dataset()
         assert inputs is not None, "No dataset found"
+        if shuffle:
+            inputs = inputs.shuffle(seed=0 if shuffle_seed is None else shuffle_seed)
+        if num_examples > 0:
+            num_examples = min(num_examples, len(inputs))
+            inputs = inputs.select(range(num_examples))
         if rollouts_per_example > 1:
             inputs = inputs.repeat(rollouts_per_example)
         return inputs.to_list()
@@ -1187,6 +1230,8 @@ class Environment(ABC):
         hf_hub_dataset_name: str | None = None,
         independent_scoring: bool = False,
         max_retries: int = 0,
+        shuffle: bool = False,
+        shuffle_seed: int | None = None,
         on_start: StartCallback | None = None,
         on_progress: ProgressCallback | list[ProgressCallback] | None = None,
         on_log: LogCallback | None = None,
@@ -1200,7 +1245,13 @@ class Environment(ABC):
                 A single callback replaces the default. A list of callbacks runs
                 alongside the default.
         """
-        inputs = self._get_eval_inputs(num_examples, rollouts_per_example)
+        resolved_shuffle_seed = 0 if shuffle and shuffle_seed is None else shuffle_seed
+        inputs = self._get_eval_inputs(
+            num_examples,
+            rollouts_per_example,
+            shuffle=shuffle,
+            shuffle_seed=resolved_shuffle_seed,
+        )
         return await self.generate(
             inputs,
             client=client,
@@ -1214,6 +1265,8 @@ class Environment(ABC):
             hf_hub_dataset_name=hf_hub_dataset_name,
             independent_scoring=independent_scoring,
             max_retries=max_retries,
+            shuffle=shuffle,
+            shuffle_seed=resolved_shuffle_seed,
             on_start=on_start,
             on_progress=on_progress,
             on_log=on_log,
@@ -1235,11 +1288,19 @@ class Environment(ABC):
         hf_hub_dataset_name: str | None = None,
         independent_scoring: bool = False,
         max_retries: int = 0,
+        shuffle: bool = False,
+        shuffle_seed: int | None = None,
     ) -> GenerateOutputs:
         """
         Evaluate model on the Environment evaluation dataset synchronously.
         """
-        inputs = self._get_eval_inputs(num_examples, rollouts_per_example)
+        resolved_shuffle_seed = 0 if shuffle and shuffle_seed is None else shuffle_seed
+        inputs = self._get_eval_inputs(
+            num_examples,
+            rollouts_per_example,
+            shuffle=shuffle,
+            shuffle_seed=resolved_shuffle_seed,
+        )
         return self.generate_sync(
             inputs,
             client=client,
@@ -1253,6 +1314,8 @@ class Environment(ABC):
             hf_hub_dataset_name=hf_hub_dataset_name,
             independent_scoring=independent_scoring,
             max_retries=max_retries,
+            shuffle=shuffle,
+            shuffle_seed=resolved_shuffle_seed,
         )
 
     # setters for use by trainers

@@ -84,7 +84,6 @@ pub(crate) fn get_layer_evaluations_with_plan(
         context,
         options,
         sec_expo_hash_memo,
-        &context.specs_data.layer_configs,
         &plan.layer_configs,
         factory,
     )

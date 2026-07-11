@@ -10,15 +10,59 @@ permissions:
   contents: read
 
 jobs:
+  # Compute a weekend gate so forward-progress actions (auto-start of new
+  # rollouts and auto-promote across tiers) are paused Friday through Sunday
+  # in US Pacific time. Failure triage still runs every day so already-pinned
+  # actors keep getting remediated over the weekend.
+  schedule-gate:
+    name: Compute Weekend Gate
+    runs-on: ubuntu-latest
+    outputs:
+      auto_start: ${{ steps.gate.outputs.auto_start }}
+      auto_promote: ${{ steps.gate.outputs.auto_promote }}
+      mode: ${{ steps.gate.outputs.mode }}
+    steps:
+      - name: Resolve Weekend Gate
+        id: gate
+        env:
+          # Force manual dispatches to run the full pipeline regardless of day.
+          IS_MANUAL: ${{ github.event_name == 'workflow_dispatch' }}
+        run: |
+          # Day of week in US Pacific: 1=Mon .. 5=Fri, 6=Sat, 7=Sun.
+          dow="$(TZ='America/Los_Angeles' date +%u)"
+          if [ "$IS_MANUAL" != "true" ] && [ "$dow" -ge 5 ]; then
+            gate=false
+            mode="Weekend Schedule"
+          else
+            gate=true
+            mode="Weekday Schedule"
+          fi
+          echo "auto_start=${gate}" | tee -a "$GITHUB_OUTPUT"
+          echo "auto_promote=${gate}" | tee -a "$GITHUB_OUTPUT"
+          echo "mode=${mode}" | tee -a "$GITHUB_OUTPUT"
+          {
+            echo "### Rollout AutoPilot — ${mode} (US Pacific)"
+            echo ""
+            echo "- auto_start: \`${gate}\`"
+            echo "- auto_promote: \`${gate}\`"
+            echo "- auto_advance / auto_triage_failed / auto_supersede: always on"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+  # Job name is dynamic so the run graph (and the nested reusable-workflow jobs)
+  # carry the "Weekday Schedule" / "Weekend Schedule" context explaining why
+  # auto-start/auto-promote may be gated off. run-name can't express this: it
+  # only sees the `github`/`inputs` contexts, not the Pacific weekday computed
+  # at job runtime.
   dispatch:
-    name: Dispatch AutoPilot
+    name: "Dispatch AutoPilot (${{ needs.schedule-gate.outputs.mode }})"
+    needs: schedule-gate
     uses: ./.github/workflows/rollout-autopilot.yml
     with:
       dry_run: false
       auto_supersede: true
-      auto_start: true
+      auto_start: ${{ needs.schedule-gate.outputs.auto_start == 'true' }}
       auto_advance: true
-      auto_promote: true
+      auto_promote: ${{ needs.schedule-gate.outputs.auto_promote == 'true' }}
       auto_triage_failed: true
       auto_rollback_failed: false
     secrets: inherit

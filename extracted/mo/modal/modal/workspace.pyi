@@ -1,8 +1,7 @@
 import datetime
-import modal._billing
-import modal._workspace
 import modal.client
 import modal.object
+import modal.types
 import typing
 import typing_extensions
 
@@ -73,7 +72,7 @@ class WorkspaceMemberInfo:
     name: str
     email: str
     user_id: str
-    role: typing.Literal["user", "manager", "owner"]
+    role: str
     joined_at: datetime.datetime
     last_active_at: typing.Optional[datetime.datetime]
 
@@ -82,10 +81,40 @@ class WorkspaceMemberInfo:
         name: str,
         email: str,
         user_id: str,
-        role: typing.Literal["user", "manager", "owner"],
+        role: str,
         joined_at: datetime.datetime,
         last_active_at: typing.Optional[datetime.datetime],
     ) -> None:
+        """Initialize self.  See help(type(self)) for accurate signature."""
+        ...
+
+    def __repr__(self):
+        """Return repr(self)."""
+        ...
+
+    def __eq__(self, other):
+        """Return self==value."""
+        ...
+
+    def __setattr__(self, name, value):
+        """Implement setattr(self, name, value)."""
+        ...
+
+    def __delattr__(self, name):
+        """Implement delattr(self, name)."""
+        ...
+
+    def __hash__(self):
+        """Return hash(self)."""
+        ...
+
+class WorkspaceSettings:
+    """Current settings for the workspace."""
+
+    default_environment: str
+    image_builder_version: str
+
+    def __init__(self, default_environment: str, image_builder_version: str) -> None:
         """Initialize self.  See help(type(self)) for accurate signature."""
         ...
 
@@ -135,6 +164,8 @@ class Workspace(modal.object.Object):
     def billing(self) -> WorkspaceBillingManager: ...
     @property
     def proxy_tokens(self) -> WorkspaceProxyTokenManager: ...
+    @property
+    def settings(self) -> WorkspaceSettingsManager: ...
 
 class WorkspaceMembersManager:
     """mdmd:namespace
@@ -145,7 +176,7 @@ class WorkspaceMembersManager:
         ...
 
     class __list_spec(typing_extensions.Protocol):
-        def __call__(self, /) -> list[modal._workspace.WorkspaceMemberInfo]:
+        def __call__(self, /) -> list[modal.types.WorkspaceMemberInfo]:
             """Return the members of the Workspace.
 
             **Examples:**
@@ -157,7 +188,7 @@ class WorkspaceMembersManager:
             """
             ...
 
-        async def aio(self, /) -> list[modal._workspace.WorkspaceMemberInfo]:
+        async def aio(self, /) -> list[modal.types.WorkspaceMemberInfo]:
             """Return the members of the Workspace.
 
             **Examples:**
@@ -188,7 +219,7 @@ class WorkspaceBillingManager:
             end: typing.Optional[datetime.datetime] = None,
             resolution: str = "d",
             tag_names: typing.Optional[list[str]] = None,
-        ) -> list[modal._billing.BillingReportItem]:
+        ) -> list[modal.types.BillingReportItem]:
             """Return a cost report for all Workspace usage, broken down by object and time.
 
             Args:
@@ -225,7 +256,7 @@ class WorkspaceBillingManager:
             end: typing.Optional[datetime.datetime] = None,
             resolution: str = "d",
             tag_names: typing.Optional[list[str]] = None,
-        ) -> list[modal._billing.BillingReportItem]:
+        ) -> list[modal.types.BillingReportItem]:
             """Return a cost report for all Workspace usage, broken down by object and time.
 
             Args:
@@ -267,7 +298,7 @@ class WorkspaceProxyTokenManager:
         ...
 
     class __create_spec(typing_extensions.Protocol):
-        def __call__(self, /) -> modal._workspace.TokenData:
+        def __call__(self, /) -> modal.types.TokenData:
             """Create a new proxy token for the Workspace.
 
             Examples:
@@ -278,7 +309,7 @@ class WorkspaceProxyTokenManager:
             """
             ...
 
-        async def aio(self, /) -> modal._workspace.TokenData:
+        async def aio(self, /) -> modal.types.TokenData:
             """Create a new proxy token for the Workspace.
 
             Examples:
@@ -292,7 +323,7 @@ class WorkspaceProxyTokenManager:
     create: __create_spec
 
     class __list_spec(typing_extensions.Protocol):
-        def __call__(self, /, environment_name: typing.Optional[str] = None) -> list[modal._workspace.ProxyTokenInfo]:
+        def __call__(self, /, environment_name: typing.Optional[str] = None) -> list[modal.types.ProxyTokenInfo]:
             """List proxy tokens in the Workspace.
 
             Args:
@@ -312,7 +343,7 @@ class WorkspaceProxyTokenManager:
             """
             ...
 
-        async def aio(self, /, environment_name: typing.Optional[str] = None) -> list[modal._workspace.ProxyTokenInfo]:
+        async def aio(self, /, environment_name: typing.Optional[str] = None) -> list[modal.types.ProxyTokenInfo]:
             """List proxy tokens in the Workspace.
 
             Args:
@@ -448,3 +479,100 @@ class WorkspaceProxyTokenManager:
         async def aio(self, /, environment_name: str) -> str: ...
 
     _environment_id: ___environment_id_spec
+
+class WorkspaceSettingsManager:
+    """mdmd:namespace
+    Namespace for Workspace settings APIs.
+    """
+    def __init__(self, workspace: Workspace):
+        """mdmd:hidden"""
+        ...
+
+    @classmethod
+    def valid_settings(cls): ...
+
+    class __list_spec(typing_extensions.Protocol):
+        def __call__(self, /):
+            """Return a the current workspace settings.
+
+            Returns:
+                A `WorkspaceSettings` dataclass.
+            """
+            ...
+
+        async def aio(self, /):
+            """Return a the current workspace settings.
+
+            Returns:
+                A `WorkspaceSettings` dataclass.
+            """
+            ...
+
+    list: __list_spec
+
+    class ___set_image_builder_version_spec(typing_extensions.Protocol):
+        def __call__(self, /, version: str) -> None:
+            """mdmd:hidden
+            Set the image builder version for the Workspace.
+            """
+            ...
+
+        async def aio(self, /, version: str) -> None:
+            """mdmd:hidden
+            Set the image builder version for the Workspace.
+            """
+            ...
+
+    _set_image_builder_version: ___set_image_builder_version_spec
+
+    class ___set_default_environment_spec(typing_extensions.Protocol):
+        def __call__(self, /, name: str) -> None:
+            """Set the default environment for the Workspace."""
+            ...
+
+        async def aio(self, /, name: str) -> None:
+            """Set the default environment for the Workspace."""
+            ...
+
+    _set_default_environment: ___set_default_environment_spec
+
+    class __set_spec(typing_extensions.Protocol):
+        def __call__(self, /, name: str, value: str) -> None:
+            """Set a workspace setting to a new value. Must be workspace manager or owner.
+
+            The following settings can be updated:
+
+            - image-builder-version: The image builder version determines the software included in our base images.
+            - default-environment: The default environment when the environment is omitted from SDK or CLI methods.
+
+            Args:
+                name: The name of the setting.
+                value: The new value of the setting.
+
+            Examples:
+                ```python notest
+                modal.Workspace.from_context().settings.set("default-environment", "dev")
+                ```
+            """
+            ...
+
+        async def aio(self, /, name: str, value: str) -> None:
+            """Set a workspace setting to a new value. Must be workspace manager or owner.
+
+            The following settings can be updated:
+
+            - image-builder-version: The image builder version determines the software included in our base images.
+            - default-environment: The default environment when the environment is omitted from SDK or CLI methods.
+
+            Args:
+                name: The name of the setting.
+                value: The new value of the setting.
+
+            Examples:
+                ```python notest
+                modal.Workspace.from_context().settings.set("default-environment", "dev")
+                ```
+            """
+            ...
+
+    set: __set_spec

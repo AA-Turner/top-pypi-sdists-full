@@ -1,10 +1,75 @@
 import inspect
+from pathlib import Path
 
 import torch
 from torch.export import Dim
 
-from boxmot.reid.exporters.base_exporter import BaseExporter
+from boxmot.reid.exporters.base_exporter import BaseExporter, as_inference_export_model
 from boxmot.utils import logger as LOGGER
+
+
+def ensure_onnx_export(
+    model,
+    im,
+    file,
+    *,
+    opset: int | None = None,
+    dynamic: bool = False,
+    half: bool = False,
+    simplify: bool = False,
+    verbose: bool = True,
+) -> Path:
+    """Return a fresh ONNX export path, creating it when needed."""
+    source_path = Path(file)
+    onnx_path = source_path.with_suffix(".onnx")
+    if _onnx_export_is_current(source_path, onnx_path, dynamic=dynamic):
+        if verbose:
+            LOGGER.info(f"Using existing ONNX export: {onnx_path}")
+        return onnx_path
+
+    exporter = ONNXExporter(
+        model=model,
+        im=im,
+        file=source_path,
+        opset=opset,
+        dynamic=dynamic,
+        half=half,
+        simplify=simplify,
+        verbose=verbose,
+    )
+    return Path(exporter.export())
+
+
+def _onnx_export_is_current(source_path: Path, onnx_path: Path, *, dynamic: bool = False) -> bool:
+    if not onnx_path.is_file():
+        return False
+    if not source_path.is_file() or source_path.resolve() == onnx_path.resolve():
+        return True
+    if onnx_path.stat().st_mtime < source_path.stat().st_mtime:
+        return False
+    return not dynamic or _onnx_has_dynamic_batch(onnx_path)
+
+
+def _onnx_has_dynamic_batch(onnx_path: Path) -> bool:
+    try:
+        import onnx
+
+        try:
+            model_onnx = onnx.load(str(onnx_path), load_external_data=False)
+        except TypeError:
+            model_onnx = onnx.load(str(onnx_path))
+        inputs = list(getattr(getattr(model_onnx, "graph", None), "input", []) or [])
+        if not inputs:
+            return False
+        dims = list(inputs[0].type.tensor_type.shape.dim)
+        if not dims:
+            return False
+        batch_dim = dims[0]
+        dim_param = str(getattr(batch_dim, "dim_param", "") or "")
+        dim_value = int(getattr(batch_dim, "dim_value", 0) or 0)
+        return bool(dim_param) or dim_value <= 0
+    except Exception:
+        return False
 
 
 class ONNXExporter(BaseExporter):
@@ -12,7 +77,16 @@ class ONNXExporter(BaseExporter):
 
     def __init__(self, model, im, file, opset=None, dynamic=False, half=False, simplify=False, verbose=True):
         # keep BaseExporter behavior (optimize handled elsewhere in boxmot)
-        super().__init__(model, im, file, optimize=False, dynamic=dynamic, half=half, simplify=simplify, verbose=verbose)
+        super().__init__(
+            model,
+            im,
+            file,
+            optimize=False,
+            dynamic=dynamic,
+            half=half,
+            simplify=simplify,
+            verbose=verbose,
+        )
         self.opset = opset  # None -> auto
 
     def export(self):
@@ -24,8 +98,10 @@ class ONNXExporter(BaseExporter):
         if self.verbose:
             LOGGER.info(f"Exporting ONNX with onnx {onnx.__version__} opset {opset}...")
 
+        export_model = as_inference_export_model(self.model)
+
         # Determine output count for correct output_names length
-        output_names = self._infer_output_names()
+        output_names = self._infer_output_names(export_model)
 
         # --- Export ---
         args = (self.im,)
@@ -44,7 +120,7 @@ class ONNXExporter(BaseExporter):
                 # Constrain dynamic batch range to satisfy torch.export shape guards on CUDA.
                 export_kwargs["dynamic_shapes"] = ({0: Dim("batch", min=1, max=65535)},)
             else:
-                export_kwargs["dynamic_axes"] = self._build_dynamic_axes(output_names)
+                export_kwargs["dynamic_axes"] = self._build_dynamic_axes(output_names, export_model)
 
         if use_dynamo:
             export_kwargs["dynamo"] = True
@@ -53,7 +129,7 @@ class ONNXExporter(BaseExporter):
 
         try:
             torch.onnx.export(
-                self.model,
+                export_model,
                 args,
                 str(f),
                 **export_kwargs,
@@ -83,10 +159,10 @@ class ONNXExporter(BaseExporter):
                 fallback_kwargs["dynamo"] = False
             if self.dynamic:
                 # Legacy exporter uses dynamic_axes instead of torch.export dynamic_shapes.
-                fallback_kwargs["dynamic_axes"] = self._build_dynamic_axes(output_names)
+                fallback_kwargs["dynamic_axes"] = self._build_dynamic_axes(output_names, export_model)
 
             torch.onnx.export(
-                self.model,
+                export_model,
                 args,
                 str(f),
                 **fallback_kwargs,
@@ -165,12 +241,12 @@ class ONNXExporter(BaseExporter):
 
         return min(int(opset), int(onnx.defs.onnx_opset_version()))
 
-    def _infer_output_names(self):
+    def _infer_output_names(self, export_model):
         # Ensure output_names matches the number of ONNX graph outputs.
         try:
-            self.model.eval()
+            export_model.eval()
             with torch.no_grad():
-                y = self.model(self.im)
+                y = export_model(self.im)
             if isinstance(y, (tuple, list)):
                 return [f"output{i}" for i in range(len(y))]
         except Exception:
@@ -178,7 +254,7 @@ class ONNXExporter(BaseExporter):
             pass
         return ["output0"]
 
-    def _build_dynamic_axes(self, output_names):
+    def _build_dynamic_axes(self, output_names, export_model):
         # ReID models use fixed crop sizes; only the batch dim varies. Marking
         # H/W dynamic breaks tracing for backbones that rely on adaptive pooling
         # (e.g. LMBN / OSNet variants), so keep spatial dims static.
@@ -187,7 +263,7 @@ class ONNXExporter(BaseExporter):
         # For outputs, always make batch dynamic; add extra dims only when obvious
         try:
             with torch.no_grad():
-                y = self.model(self.im)
+                y = export_model(self.im)
             ys = list(y) if isinstance(y, (tuple, list)) else [y]
             for name, t in zip(output_names, ys):
                 if not isinstance(t, torch.Tensor):

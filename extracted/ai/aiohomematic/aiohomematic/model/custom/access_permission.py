@@ -7,7 +7,7 @@ Public API of this module is defined by __all__.
 """
 
 from enum import StrEnum, unique
-from typing import Final, Unpack, override
+from typing import ClassVar, Final, Unpack, override
 
 from aiohomematic import ccu_translations
 from aiohomematic.const import DataPointCategory, Field, Parameter
@@ -17,7 +17,7 @@ from aiohomematic.model.custom.mixins import StateChangeArg, StateChangeArgs
 from aiohomematic.model.data_point import CallParameterCollector, bind_collector
 from aiohomematic.model.generic import DpActionSelect, DpBinarySensor
 from aiohomematic.model.support import DataPointNameData, get_data_point_name_data
-from aiohomematic.property_decorators import DelegatedProperty, Kind
+from aiohomematic.property_decorators import DelegatedProperty
 
 __all__ = ["CustomDpIpAccessPermission"]
 
@@ -47,8 +47,9 @@ class CustomDpIpAccessPermission(CustomDataPoint):
     # Declarative data point field definitions
     _dp_authorization: Final = DataPointField(field=Field.ACCESS_AUTHORIZATION, dpt=DpActionSelect)
     _dp_state: Final = DataPointField(field=Field.STATE, dpt=DpBinarySensor)
+    _validity_relevant_fields: ClassVar[frozenset[Field]] = frozenset({Field.STATE})
 
-    value: Final = DelegatedProperty[bool | None](path="_dp_state.value", kind=Kind.STATE)
+    value: Final = DelegatedProperty[bool | None](path="_dp_state.value")
 
     @override
     def is_state_change(self, **kwargs: Unpack[StateChangeArgs]) -> bool:

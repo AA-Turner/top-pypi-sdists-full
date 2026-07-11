@@ -256,12 +256,12 @@ scim_provisioner/org_id:
     - r+w:scim_provisioning/org_id
 access_requester_org/org_id:
     - r+w+d:access_request/org_id
-    - r:organization/org_id
+    - r:organization_name/org_id
 access_requester:
     - access_requester_org/*
 access_approver_org/org_id:
     - r:access_request/org_id
     - r+w+d:access_request_decision/org_id
-    - r:organization/org_id
+    - r:organization_name/org_id
 access_approver:
     - access_approver_org/*

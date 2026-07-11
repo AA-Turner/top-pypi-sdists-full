@@ -1,5 +1,6 @@
-import pytest
 from types import SimpleNamespace
+
+import pytest
 
 from verifiers.clients.openai_chat_completions_client import OpenAIChatCompletionsClient
 from verifiers.types import (
@@ -16,6 +17,11 @@ from verifiers.types import (
     UserMessage,
 )
 from verifiers.utils.response_utils import parse_response_message
+
+
+class _OpenAIMessage(SimpleNamespace):
+    def model_dump(self):
+        return self.__dict__
 
 
 @pytest.mark.asyncio
@@ -50,6 +56,34 @@ async def test_openai_to_native_prompt_with_typed_multimodal_content_parts():
             "input_audio": {"data": "ZHVtbXk=", "format": "wav"},
         },
     ]
+
+
+@pytest.mark.asyncio
+async def test_openai_chat_accepts_refusal_with_reasoning_native_response():
+    client = OpenAIChatCompletionsClient(object())
+    native_response = SimpleNamespace(
+        id="chatcmpl_refusal",
+        created=0,
+        model="gpt-5.2",
+        usage=None,
+        choices=[
+            SimpleNamespace(
+                finish_reason="stop",
+                message=_OpenAIMessage(
+                    content=None,
+                    refusal="I cannot help with that.",
+                    reasoning_content="hidden chain",
+                    tool_calls=None,
+                ),
+            )
+        ],
+    )
+
+    await client.raise_from_native_response(native_response)
+    response = await client.from_native_response(native_response)
+
+    assert response.message.content == "I cannot help with that."
+    assert response.message.reasoning_content == "hidden chain"
 
 
 @pytest.mark.asyncio
@@ -95,6 +129,31 @@ async def test_anthropic_to_native_prompt_with_typed_multimodal_content_parts():
             },
         },
         {"type": "text", "text": "[audio]"},
+    ]
+
+
+@pytest.mark.asyncio
+async def test_anthropic_to_native_prompt_marks_unsupported_images_in_mixed_content():
+    pytest.importorskip("anthropic")
+    from verifiers.clients.anthropic_messages_client import AnthropicMessagesClient
+
+    client = AnthropicMessagesClient(object())
+    messages = [
+        UserMessage(
+            content=[
+                TextContentPart(text="describe this"),
+                ImageUrlContentPart(
+                    image_url=ImageUrlSource(url="https://example.com/image.png")
+                ),
+            ]
+        )
+    ]
+
+    prompt, kwargs = await client.to_native_prompt(messages)
+    assert kwargs["system"] == ""
+    assert prompt[0]["content"] == [
+        {"type": "text", "text": "describe this"},
+        {"type": "text", "text": "[image]"},
     ]
 
 

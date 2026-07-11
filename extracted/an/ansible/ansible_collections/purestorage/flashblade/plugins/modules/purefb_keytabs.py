@@ -16,7 +16,7 @@ short_description: Manage FlashBlade Kerberos Keytabs
 description:
 - Manage Kerberos Keytabs for FlashBlades
 author:
-- Pure Storage Ansible Team (@sdodsley) <pure-ansible-team@purestorage.com>
+- Everpure Ansible Team (@sdodsley) <pure-ansible-team@purestorage.com>
 options:
   state:
     description:
@@ -106,16 +106,19 @@ download_file:
   sample: "/tmp/pure_krb8939478070214877726.keytab"
 """
 
-HAS_PURESTORAGE = True
+HAS_PYPURECLIENT = True
 try:
     from pypureclient.flashblade import KeytabPost, Reference
 except ImportError:
-    HAS_PURESTORAGE = False
+    HAS_PYPURECLIENT = False
 
 from ansible.module_utils.basic import AnsibleModule
 from ansible_collections.purestorage.flashblade.plugins.module_utils.purefb import (
     get_system,
     purefb_argument_spec,
+)
+from ansible_collections.purestorage.flashblade.plugins.module_utils.common import (
+    get_error_message,
 )
 
 
@@ -148,7 +151,7 @@ def delete_keytab(module, blade):
             if res.status_code != 200:
                 module.fail_json(
                     msg="Failed to delete keytab {0}. Error: {1}".format(
-                        module.params["name"], res.errors[0].message
+                        module.params["name"], get_error_message(res)
                     )
                 )
     module.exit_json(changed=changed)
@@ -171,7 +174,7 @@ def import_keytab(module, blade):
         if res.status_code != 200:
             module.fail_json(
                 msg="Failed to import keytab file {0}. Error: {1}".format(
-                    module.params["keytab_file"], res.errors[0].message
+                    module.params["keytab_file"], get_error_message(res)
                 )
             )
 
@@ -189,7 +192,7 @@ def export_keytab(module, blade):
             if res.status_code != 200:
                 module.fail_json(
                     msg="Failed to export keytab {0}. Error: {1}".format(
-                        module.params["name"], res.errors[0].message
+                        module.params["name"], get_error_message(res)
                     )
                 )
             else:
@@ -218,7 +221,7 @@ def main():
         argument_spec, required_if=required_if, supports_check_mode=True
     )
 
-    if not HAS_PURESTORAGE:
+    if not HAS_PYPURECLIENT:
         module.fail_json(msg="py-pure-client sdk is required for this module")
 
     state = module.params["state"]

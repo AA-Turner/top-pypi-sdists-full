@@ -128,7 +128,7 @@ def render_pin_detail() -> None:
 def _render_pin_table_with_checkboxes() -> None:
     """Pin list table with row-click selection."""
     with If(STATE.version_pins_total):
-        with Div(style={"maxHeight": "280px", "overflowY": "auto"}):
+        with Div(style={"maxHeight": "280px", "overflow": "auto"}):
             DataTable(
                 columns=[
                     DataTableColumn(key="scope_type", header="Scope"),
@@ -138,7 +138,6 @@ def _render_pin_table_with_checkboxes() -> None:
                     DataTableColumn(key="expires_at_display", header="Expires"),
                 ],
                 rows=STATE.version_pins,
-                pageSize=10,
                 on_row_click=[
                     SetState("selected_pin", EVENT),
                     SetState("context_guid", EVENT.scope_id),
@@ -492,6 +491,7 @@ def _render_remove_this_pin_button() -> None:
                                 "version_tag": STATE.selected_version_tag,
                                 "auth_bearer_token": STATE.auth_bearer_token,
                                 "user_email": STATE.oauth_user_email,
+                                "customer_tier_filter": "ALL",
                                 "google_access_token": STATE.google_access_token,
                             },
                             on_success=_PIN_REMOVAL_SUCCESS,

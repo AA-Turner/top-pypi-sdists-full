@@ -1,30 +1,29 @@
-# Mikel Broström 🔥 BoxMOT 🧾 AGPL-3.0 license
+# Mikel Brostrom - BoxMOT - AGPL-3.0 license
 
 """Public BoxMOT Python API."""
 
-from boxmot.engine.research import ResearchResult
-from boxmot.engine.workflows.results import (
-    ExportResult,
-    GenerateResult,
-    TrackRunResult,
-    TuneResult,
-    TuneTrialResult,
-    ValidationResult,
-)
-from boxmot.reid.training.trainer import TrainResult
+from __future__ import annotations
 
-from ._facade import Boxmot, evaluate, track
+from importlib import import_module
 
-__all__ = (
-    "Boxmot",
-    "ExportResult",
-    "GenerateResult",
-    "ResearchResult",
-    "TrackRunResult",
-    "TrainResult",
-    "TuneResult",
-    "TuneTrialResult",
-    "ValidationResult",
-    "evaluate",
-    "track",
-)
+_EXPORTS = {
+    "BoxMOT": ("boxmot.pipeline", "BoxMOT"),
+    "Detector": ("boxmot.models.detector", "Detector"),
+    "ReIDModel": ("boxmot.models.reid", "ReIDModel"),
+}
+
+__all__ = tuple(_EXPORTS)
+
+
+def __getattr__(name: str):
+    if name not in _EXPORTS:
+        raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
+
+    module_name, attr_name = _EXPORTS[name]
+    value = getattr(import_module(module_name), attr_name)
+    globals()[name] = value
+    return value
+
+
+def __dir__() -> list[str]:
+    return sorted(set(globals()) | set(__all__))

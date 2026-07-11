@@ -13,7 +13,8 @@ import math
 import weakref
 from abc import abstractmethod
 from collections import OrderedDict, namedtuple
-from collections.abc import Mapping
+from collections.abc import Iterator, Mapping
+from contextlib import contextmanager
 from functools import reduce
 from itertools import islice, product
 from typing import TYPE_CHECKING, Any, NamedTuple, Protocol, runtime_checkable
@@ -3704,7 +3705,13 @@ def detect_aligned_chunks(
         end_idx = stop // chunk_size
         start_indices.append(start_idx)
         end_indices.append(end_idx)
-        n_chunks.append(shape[i] // chunk_size)
+        # Total chunk count along this dim: ceil, not floor -- a trailing
+        # partial chunk (shape[i] not a multiple of chunk_size) still counts
+        # as one chunk. Floor division here undercounts it, which corrupts
+        # the flat chunk-index math below for any aligned slice with a
+        # nonzero start in an earlier dimension (silently returns a
+        # different chunk's data instead of the requested one).
+        n_chunks.append(math.ceil(shape[i] / chunk_size))
 
     # Get all chunk combinations in the slice
     indices = [range(start, end) for start, end in zip(start_indices, end_indices, strict=False)]
@@ -3844,6 +3851,35 @@ class NDArray(blosc2_ext.NDArray, Operand):
     def vlmeta(self) -> dict:
         """The variable-length metadata of the array."""
         return self.schunk.vlmeta
+
+    @contextmanager
+    def holding_lock(self) -> Iterator[NDArray]:
+        """Hold the exclusive frame lock across several operations.
+
+        Delegates to :meth:`SChunk.holding_lock() <blosc2.SChunk.holding_lock>`
+        on the underlying schunk for the locking itself; see there for
+        details. On top of that, this also refreshes this handle's cached
+        shape right after the lock is acquired.
+
+        That refresh matters because acquiring the lock does not by itself
+        update anything cached on this handle -- :attr:`shape` is a plain
+        in-memory value, unchanged since this handle's last operation.
+        Without it, code that reads :attr:`shape` first thing inside the
+        block to decide a :meth:`resize` target can act on a stale, too-small
+        shape; since ``resize()`` treats its target as absolute, resizing to
+        a target computed that way can shrink an array another handle already
+        grew further, silently deleting its data. Refreshing first closes
+        that gap, so any :attr:`shape` read inside the block is guaranteed
+        current.
+
+        Examples
+        --------
+        >>> with arr.holding_lock():  # doctest: +SKIP
+        ...     arr[0] = arr[0] + 1
+        """
+        with self.schunk.holding_lock():
+            self.refresh()
+            yield self
 
     @property
     def fields(self) -> Mapping[str, NDField]:
@@ -4522,6 +4558,8 @@ class NDArray(blosc2_ext.NDArray, Operand):
                [3.3333, 3.3333, 3.3333, 3.3333, 3.3333],
                [3.3333, 3.3333, 3.3333, 3.3333, 3.3333]])
         """
+        # Follow shape changes made by another handle (SWMR) before validating the key
+        self.refresh()
         # The more general case (this is quite slow)
         # If the key is a LazyExpr, decorate with ``where`` and return it
         if isinstance(key, blosc2.LazyExpr):
@@ -4632,6 +4670,8 @@ class NDArray(blosc2_ext.NDArray, Operand):
                [3.3333, 3.3333, 3.3333, 3.3333, 3.3333, 3.3333, 3.3333, 3.3333]])
         """
         blosc2_ext.check_access_mode(self.schunk.urlpath, self.schunk.mode)
+        # Follow shape changes made by another handle (SWMR) before validating the key
+        self.refresh()
 
         # key not iterable
         key = key[()] if isinstance(key, NDArray) else key
@@ -5151,6 +5191,29 @@ class NDArray(blosc2_ext.NDArray, Operand):
 
         return indexing.get_indexes(self)
 
+    def refresh(self) -> bool:
+        """Re-sync the cached shape and metadata of a disk-based array.
+
+        In a single-writer, multiple-readers (SWMR) workflow, a reader handle
+        follows shape changes made through another handle (e.g. a
+        :func:`resize` in another process) automatically on data access.
+        Call this to observe shape changes without reading data, e.g. when
+        polling :attr:`shape` while waiting for a writer to grow the array.
+
+        Returns
+        -------
+        out: bool
+            True if the cached state was re-synced with the on-disk state,
+            False if it was already current.  Always False for in-memory
+            arrays.
+
+        Notes
+        -----
+        Only shape changes are followed: if another handle changed the
+        number of dimensions, chunks or blocks, an exception is raised.
+        """
+        return super().refresh()
+
     def resize(self, newshape: tuple | list) -> None:
         """Change the shape of the array by growing or shrinking one or more dimensions.
 
@@ -5230,6 +5293,7 @@ class NDArray(blosc2_ext.NDArray, Operand):
         if len(appended) == 0:
             return int(self.shape[0])
 
+        self.refresh()
         old_size = int(self.shape[0])
         super().resize((old_size + len(appended),))
         super().set_slice(([old_size], [old_size + len(appended)]), appended)
@@ -6581,6 +6645,7 @@ def _ndarray_asarray_requires_copy(
         "mode",
         "mmap_mode",
         "initial_mapping_size",
+        "locking",
         "storage",
         "out",
         "_chunksize_reduc_factor",
@@ -6805,6 +6870,7 @@ def _check_ndarray_kwargs(**kwargs):  # noqa: C901
         "mode",
         "mmap_mode",
         "initial_mapping_size",
+        "locking",
         "storage",
         "out",
         "_chunksize_reduc_factor",

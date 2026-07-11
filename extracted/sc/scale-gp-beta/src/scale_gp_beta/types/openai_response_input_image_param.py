@@ -7,7 +7,11 @@ from typing_extensions import Literal, Required, TypedDict
 __all__ = ["OpenAIResponseInputImageParam"]
 
 
-class OpenAIResponseInputImageParam(TypedDict, total=False, extra_items=object):  # type: ignore[call-arg]
+class OpenAIResponseInputImageParam(  # type: ignore[call-arg]
+    TypedDict,
+    total=False,
+    extra_items=object,  # pyright: ignore[reportGeneralTypeIssues]
+):
     """An image input to the model.
 
     Learn about [image inputs](https://platform.openai.com/docs/guides/vision).

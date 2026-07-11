@@ -26,10 +26,11 @@ from chalk._gen.chalk.kubernetes.v1 import pods_pb2 as chalk_dot_kubernetes_dot_
 from chalk._gen.chalk.kubernetes.v1 import scaledobject_pb2 as chalk_dot_kubernetes_dot_v1_dot_scaledobject__pb2
 from chalk._gen.chalk.kubernetes.v1 import serviceaccounts_pb2 as chalk_dot_kubernetes_dot_v1_dot_serviceaccounts__pb2
 from chalk._gen.chalk.kubernetes.v1 import statefulsets_pb2 as chalk_dot_kubernetes_dot_v1_dot_statefulsets__pb2
+from chalk._gen.chalk.kubernetes.v1 import storageclass_pb2 as chalk_dot_kubernetes_dot_v1_dot_storageclass__pb2
 
 
 DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(
-    b'\n\x1a\x63halk/server/v1/kube.proto\x12\x0f\x63halk.server.v1\x1a\x1f\x63halk/auth/v1/permissions.proto\x1a%chalk/kubernetes/v1/deployments.proto\x1a chalk/kubernetes/v1/events.proto\x1a\x31\x63halk/kubernetes/v1/horizontalpodautoscaler.proto\x1a\x1e\x63halk/kubernetes/v1/jobs.proto\x1a$chalk/kubernetes/v1/namespaces.proto\x1a*chalk/kubernetes/v1/persistentvolume.proto\x1a\x1e\x63halk/kubernetes/v1/pods.proto\x1a&chalk/kubernetes/v1/scaledobject.proto\x1a)chalk/kubernetes/v1/serviceaccounts.proto\x1a&chalk/kubernetes/v1/statefulsets.proto"\xa2\x01\n\x15GetPodVenvSizeRequest\x12!\n\tnamespace\x18\x01 \x01(\tH\x00R\tnamespace\x88\x01\x01\x12\x19\n\x08pod_name\x18\x02 \x01(\tR\x07podName\x12*\n\x0e\x63ontainer_name\x18\x03 \x01(\tH\x01R\rcontainerName\x88\x01\x01\x42\x0c\n\n_namespaceB\x11\n\x0f_container_name"0\n\x16GetPodVenvSizeResponse\x12\x16\n\x06output\x18\x01 \x01(\tR\x06output"\xb2\x02\n\x1bGetPodStackTraceDumpRequest\x12!\n\tnamespace\x18\x01 \x01(\tH\x01R\tnamespace\x88\x01\x01\x12\x19\n\x08pod_name\x18\x02 \x01(\tR\x07podName\x12*\n\x0e\x63ontainer_name\x18\x03 \x01(\tH\x02R\rcontainerName\x88\x01\x01\x12\x1f\n\nprocess_id\x18\x04 \x01(\x05H\x00R\tprocessId\x12#\n\x0cprocess_name\x18\x05 \x01(\tH\x00R\x0bprocessName\x12\x30\n\x13\x61uto_detect_process\x18\x06 \x01(\x08H\x00R\x11\x61utoDetectProcessB\x10\n\x0eprocess_filterB\x0c\n\n_namespaceB\x11\n\x0f_container_name"?\n\x1cGetPodStackTraceDumpResponse\x12\x1f\n\x0bstack_trace\x18\x01 \x01(\tR\nstackTrace"\x84\x02\n\x1aGetKubernetesEventsRequest\x12&\n\x0c\x63luster_name\x18\x01 \x01(\tH\x00R\x0b\x63lusterName\x88\x01\x01\x12!\n\tnamespace\x18\x02 \x01(\tH\x01R\tnamespace\x88\x01\x01\x12*\n\x0elabel_selector\x18\x03 \x01(\tH\x02R\rlabelSelector\x88\x01\x01\x12*\n\x0e\x66ield_selector\x18\x04 \x01(\tH\x03R\rfieldSelector\x88\x01\x01\x42\x0f\n\r_cluster_nameB\x0c\n\n_namespaceB\x11\n\x0f_label_selectorB\x11\n\x0f_field_selector"`\n\x1bGetKubernetesEventsResponse\x12\x41\n\x06\x65vents\x18\x01 \x03(\x0b\x32).chalk.kubernetes.v1.ChalkKubernetesEventR\x06\x65vents"\x9e\x01\n\x1eGetKubernetesNamespacesRequest\x12*\n\x0e\x65nvironment_id\x18\x01 \x01(\tH\x00R\renvironmentId\x88\x01\x01\x12*\n\x0elabel_selector\x18\x02 \x01(\tH\x01R\rlabelSelector\x88\x01\x01\x42\x11\n\x0f_environment_idB\x11\n\x0f_label_selector"k\n\x1fGetKubernetesNamespacesResponse\x12H\n\nnamespaces\x18\x01 \x03(\x0b\x32(.chalk.kubernetes.v1.KubernetesNamespaceR\nnamespaces"\'\n%GetKubernetesPersistentVolumesRequest"x\n&GetKubernetesPersistentVolumesResponse\x12N\n\x07volumes\x18\x01 \x03(\x0b\x32\x34.chalk.kubernetes.v1.ChalkKubernetesPersistentVolumeR\x07volumes"\xce\x01\n#GetKubernetesServiceAccountsRequest\x12&\n\x0c\x63luster_name\x18\x01 \x01(\tH\x00R\x0b\x63lusterName\x88\x01\x01\x12!\n\tnamespace\x18\x02 \x01(\tH\x01R\tnamespace\x88\x01\x01\x12*\n\x0elabel_selector\x18\x03 \x01(\tH\x02R\rlabelSelector\x88\x01\x01\x42\x0f\n\r_cluster_nameB\x0c\n\n_namespaceB\x11\n\x0f_label_selector"\x80\x01\n$GetKubernetesServiceAccountsResponse\x12X\n\x10service_accounts\x18\x01 \x03(\x0b\x32-.chalk.kubernetes.v1.KubernetesServiceAccountR\x0fserviceAccounts"\xca\x01\n\x1fGetKubernetesAutoscalersRequest\x12&\n\x0c\x63luster_name\x18\x01 \x01(\tH\x00R\x0b\x63lusterName\x88\x01\x01\x12!\n\tnamespace\x18\x02 \x01(\tH\x01R\tnamespace\x88\x01\x01\x12*\n\x0elabel_selector\x18\x03 \x01(\tH\x02R\rlabelSelector\x88\x01\x01\x42\x0f\n\r_cluster_nameB\x0c\n\n_namespaceB\x11\n\x0f_label_selector"\xc1\x01\n GetKubernetesAutoscalersResponse\x12J\n\x04hpas\x18\x01 \x03(\x0b\x32\x36.chalk.kubernetes.v1.KubernetesHorizontalPodAutoscalerR\x04hpas\x12Q\n\rscaledobjects\x18\x02 \x03(\x0b\x32+.chalk.kubernetes.v1.KubernetesScaledObjectR\rscaledobjects"\xd0\x01\n\x1fGetKubernetesDeploymentsRequest\x12*\n\x0e\x65nvironment_id\x18\x01 \x01(\tH\x00R\renvironmentId\x88\x01\x01\x12!\n\tnamespace\x18\x02 \x01(\tH\x01R\tnamespace\x88\x01\x01\x12*\n\x0elabel_selector\x18\x03 \x01(\tH\x02R\rlabelSelector\x88\x01\x01\x42\x11\n\x0f_environment_idB\x0c\n\n_namespaceB\x11\n\x0f_label_selector"o\n GetKubernetesDeploymentsResponse\x12K\n\x0b\x64\x65ployments\x18\x01 \x03(\x0b\x32).chalk.kubernetes.v1.KubernetesDeploymentR\x0b\x64\x65ployments"\xd1\x01\n GetKubernetesStatefulSetsRequest\x12*\n\x0e\x65nvironment_id\x18\x01 \x01(\tH\x00R\renvironmentId\x88\x01\x01\x12!\n\tnamespace\x18\x02 \x01(\tH\x01R\tnamespace\x88\x01\x01\x12*\n\x0elabel_selector\x18\x03 \x01(\tH\x02R\rlabelSelector\x88\x01\x01\x42\x11\n\x0f_environment_idB\x0c\n\n_namespaceB\x11\n\x0f_label_selector"t\n!GetKubernetesStatefulSetsResponse\x12O\n\rstateful_sets\x18\x01 \x03(\x0b\x32*.chalk.kubernetes.v1.KubernetesStatefulSetR\x0cstatefulSets"\xc9\x01\n\x18GetKubernetesJobsRequest\x12*\n\x0e\x65nvironment_id\x18\x01 \x01(\tH\x00R\renvironmentId\x88\x01\x01\x12!\n\tnamespace\x18\x02 \x01(\tH\x01R\tnamespace\x88\x01\x01\x12*\n\x0elabel_selector\x18\x03 \x01(\tH\x02R\rlabelSelector\x88\x01\x01\x42\x11\n\x0f_environment_idB\x0c\n\n_namespaceB\x11\n\x0f_label_selector"S\n\x19GetKubernetesJobsResponse\x12\x36\n\x04jobs\x18\x01 \x03(\x0b\x32".chalk.kubernetes.v1.KubernetesJobR\x04jobs"\x96\x01\n\'GetKubernetesStatefulSetWithPodsRequest\x12*\n\x11stateful_set_name\x18\x01 \x01(\tR\x0fstatefulSetName\x12\x1c\n\tnamespace\x18\x02 \x01(\tR\tnamespace\x12!\n\x0c\x63luster_name\x18\x03 \x01(\tR\x0b\x63lusterName"\xb5\x01\n(GetKubernetesStatefulSetWithPodsResponse\x12M\n\x0cstateful_set\x18\x01 \x01(\x0b\x32*.chalk.kubernetes.v1.KubernetesStatefulSetR\x0bstatefulSet\x12:\n\x04pods\x18\x02 \x03(\x0b\x32&.chalk.kubernetes.v1.KubernetesPodDataR\x04pods"}\n\x1fGetKubernetesJobWithPodsRequest\x12\x19\n\x08job_name\x18\x01 \x01(\tR\x07jobName\x12\x1c\n\tnamespace\x18\x02 \x01(\tR\tnamespace\x12!\n\x0c\x63luster_name\x18\x03 \x01(\tR\x0b\x63lusterName"\x94\x01\n GetKubernetesJobWithPodsResponse\x12\x34\n\x03job\x18\x01 \x01(\x0b\x32".chalk.kubernetes.v1.KubernetesJobR\x03job\x12:\n\x04pods\x18\x02 \x03(\x0b\x32&.chalk.kubernetes.v1.KubernetesPodDataR\x04pods"\x92\x01\n&GetKubernetesDeploymentWithPodsRequest\x12\'\n\x0f\x64\x65ployment_name\x18\x01 \x01(\tR\x0e\x64\x65ploymentName\x12\x1c\n\tnamespace\x18\x02 \x01(\tR\tnamespace\x12!\n\x0c\x63luster_name\x18\x03 \x01(\tR\x0b\x63lusterName"\xb0\x01\n\'GetKubernetesDeploymentWithPodsResponse\x12I\n\ndeployment\x18\x01 \x01(\x0b\x32).chalk.kubernetes.v1.KubernetesDeploymentR\ndeployment\x12:\n\x04pods\x18\x02 \x03(\x0b\x32&.chalk.kubernetes.v1.KubernetesPodDataR\x04pods2\x88\x0e\n\x0bKubeService\x12i\n\x0eGetPodVenvSize\x12&.chalk.server.v1.GetPodVenvSizeRequest\x1a\'.chalk.server.v1.GetPodVenvSizeResponse"\x06\x90\x02\x01\x80}\x0b\x12{\n\x14GetPodStackTraceDump\x12,.chalk.server.v1.GetPodStackTraceDumpRequest\x1a-.chalk.server.v1.GetPodStackTraceDumpResponse"\x06\x90\x02\x01\x80}\x0b\x12x\n\x13GetKubernetesEvents\x12+.chalk.server.v1.GetKubernetesEventsRequest\x1a,.chalk.server.v1.GetKubernetesEventsResponse"\x06\x90\x02\x01\x80}\x0b\x12\x84\x01\n\x17GetKubernetesNamespaces\x12/.chalk.server.v1.GetKubernetesNamespacesRequest\x1a\x30.chalk.server.v1.GetKubernetesNamespacesResponse"\x06\x90\x02\x01\x80}\x0b\x12\x99\x01\n\x1eGetKubernetesPersistentVolumes\x12\x36.chalk.server.v1.GetKubernetesPersistentVolumesRequest\x1a\x37.chalk.server.v1.GetKubernetesPersistentVolumesResponse"\x06\x90\x02\x01\x80}\x0b\x12\x93\x01\n\x1cGetKubernetesServiceAccounts\x12\x34.chalk.server.v1.GetKubernetesServiceAccountsRequest\x1a\x35.chalk.server.v1.GetKubernetesServiceAccountsResponse"\x06\x90\x02\x01\x80}\x0b\x12\x87\x01\n\x18GetKubernetesAutoscalers\x12\x30.chalk.server.v1.GetKubernetesAutoscalersRequest\x1a\x31.chalk.server.v1.GetKubernetesAutoscalersResponse"\x06\x90\x02\x01\x80}\x0b\x12\x87\x01\n\x18GetKubernetesDeployments\x12\x30.chalk.server.v1.GetKubernetesDeploymentsRequest\x1a\x31.chalk.server.v1.GetKubernetesDeploymentsResponse"\x06\x90\x02\x01\x80}\x0b\x12\x8a\x01\n\x19GetKubernetesStatefulSets\x12\x31.chalk.server.v1.GetKubernetesStatefulSetsRequest\x1a\x32.chalk.server.v1.GetKubernetesStatefulSetsResponse"\x06\x90\x02\x01\x80}\x0b\x12r\n\x11GetKubernetesJobs\x12).chalk.server.v1.GetKubernetesJobsRequest\x1a*.chalk.server.v1.GetKubernetesJobsResponse"\x06\x90\x02\x01\x80}\x0b\x12\x9c\x01\n\x1fGetKubernetesDeploymentWithPods\x12\x37.chalk.server.v1.GetKubernetesDeploymentWithPodsRequest\x1a\x38.chalk.server.v1.GetKubernetesDeploymentWithPodsResponse"\x06\x90\x02\x01\x80}\x0b\x12\x9f\x01\n GetKubernetesStatefulSetWithPods\x12\x38.chalk.server.v1.GetKubernetesStatefulSetWithPodsRequest\x1a\x39.chalk.server.v1.GetKubernetesStatefulSetWithPodsResponse"\x06\x90\x02\x01\x80}\x0b\x12\x87\x01\n\x18GetKubernetesJobWithPods\x12\x30.chalk.server.v1.GetKubernetesJobWithPodsRequest\x1a\x31.chalk.server.v1.GetKubernetesJobWithPodsResponse"\x06\x90\x02\x01\x80}\x0b\x42\x92\x01\n\x13\x63om.chalk.server.v1B\tKubeProtoP\x01Z\x12server/v1;serverv1\xa2\x02\x03\x43SX\xaa\x02\x0f\x43halk.Server.V1\xca\x02\x0f\x43halk\\Server\\V1\xe2\x02\x1b\x43halk\\Server\\V1\\GPBMetadata\xea\x02\x11\x43halk::Server::V1b\x06proto3'
+    b'\n\x1a\x63halk/server/v1/kube.proto\x12\x0f\x63halk.server.v1\x1a\x1f\x63halk/auth/v1/permissions.proto\x1a%chalk/kubernetes/v1/deployments.proto\x1a chalk/kubernetes/v1/events.proto\x1a\x31\x63halk/kubernetes/v1/horizontalpodautoscaler.proto\x1a\x1e\x63halk/kubernetes/v1/jobs.proto\x1a$chalk/kubernetes/v1/namespaces.proto\x1a*chalk/kubernetes/v1/persistentvolume.proto\x1a\x1e\x63halk/kubernetes/v1/pods.proto\x1a&chalk/kubernetes/v1/scaledobject.proto\x1a)chalk/kubernetes/v1/serviceaccounts.proto\x1a&chalk/kubernetes/v1/statefulsets.proto\x1a&chalk/kubernetes/v1/storageclass.proto"\xa2\x01\n\x15GetPodVenvSizeRequest\x12!\n\tnamespace\x18\x01 \x01(\tH\x00R\tnamespace\x88\x01\x01\x12\x19\n\x08pod_name\x18\x02 \x01(\tR\x07podName\x12*\n\x0e\x63ontainer_name\x18\x03 \x01(\tH\x01R\rcontainerName\x88\x01\x01\x42\x0c\n\n_namespaceB\x11\n\x0f_container_name"0\n\x16GetPodVenvSizeResponse\x12\x16\n\x06output\x18\x01 \x01(\tR\x06output"\xb2\x02\n\x1bGetPodStackTraceDumpRequest\x12!\n\tnamespace\x18\x01 \x01(\tH\x01R\tnamespace\x88\x01\x01\x12\x19\n\x08pod_name\x18\x02 \x01(\tR\x07podName\x12*\n\x0e\x63ontainer_name\x18\x03 \x01(\tH\x02R\rcontainerName\x88\x01\x01\x12\x1f\n\nprocess_id\x18\x04 \x01(\x05H\x00R\tprocessId\x12#\n\x0cprocess_name\x18\x05 \x01(\tH\x00R\x0bprocessName\x12\x30\n\x13\x61uto_detect_process\x18\x06 \x01(\x08H\x00R\x11\x61utoDetectProcessB\x10\n\x0eprocess_filterB\x0c\n\n_namespaceB\x11\n\x0f_container_name"?\n\x1cGetPodStackTraceDumpResponse\x12\x1f\n\x0bstack_trace\x18\x01 \x01(\tR\nstackTrace"\x84\x02\n\x1aGetKubernetesEventsRequest\x12&\n\x0c\x63luster_name\x18\x01 \x01(\tH\x00R\x0b\x63lusterName\x88\x01\x01\x12!\n\tnamespace\x18\x02 \x01(\tH\x01R\tnamespace\x88\x01\x01\x12*\n\x0elabel_selector\x18\x03 \x01(\tH\x02R\rlabelSelector\x88\x01\x01\x12*\n\x0e\x66ield_selector\x18\x04 \x01(\tH\x03R\rfieldSelector\x88\x01\x01\x42\x0f\n\r_cluster_nameB\x0c\n\n_namespaceB\x11\n\x0f_label_selectorB\x11\n\x0f_field_selector"`\n\x1bGetKubernetesEventsResponse\x12\x41\n\x06\x65vents\x18\x01 \x03(\x0b\x32).chalk.kubernetes.v1.ChalkKubernetesEventR\x06\x65vents"\x9e\x01\n\x1eGetKubernetesNamespacesRequest\x12*\n\x0e\x65nvironment_id\x18\x01 \x01(\tH\x00R\renvironmentId\x88\x01\x01\x12*\n\x0elabel_selector\x18\x02 \x01(\tH\x01R\rlabelSelector\x88\x01\x01\x42\x11\n\x0f_environment_idB\x11\n\x0f_label_selector"k\n\x1fGetKubernetesNamespacesResponse\x12H\n\nnamespaces\x18\x01 \x03(\x0b\x32(.chalk.kubernetes.v1.KubernetesNamespaceR\nnamespaces"\'\n%GetKubernetesPersistentVolumesRequest"x\n&GetKubernetesPersistentVolumesResponse\x12N\n\x07volumes\x18\x01 \x03(\x0b\x32\x34.chalk.kubernetes.v1.ChalkKubernetesPersistentVolumeR\x07volumes"$\n"GetKubernetesStorageClassesRequest"{\n#GetKubernetesStorageClassesResponse\x12T\n\x0fstorage_classes\x18\x01 \x03(\x0b\x32+.chalk.kubernetes.v1.KubernetesStorageClassR\x0estorageClasses"d\n,GetKubernetesPersistentVolumeWithPodsRequest\x12\x34\n\x16persistent_volume_name\x18\x01 \x01(\tR\x14persistentVolumeName"\xa2\x02\n-GetKubernetesPersistentVolumeWithPodsResponse\x12L\n\x06volume\x18\x01 \x01(\x0b\x32\x34.chalk.kubernetes.v1.ChalkKubernetesPersistentVolumeR\x06volume\x12U\n\rstorage_class\x18\x02 \x01(\x0b\x32+.chalk.kubernetes.v1.KubernetesStorageClassH\x00R\x0cstorageClass\x88\x01\x01\x12:\n\x04pods\x18\x03 \x03(\x0b\x32&.chalk.kubernetes.v1.KubernetesPodDataR\x04podsB\x10\n\x0e_storage_class"\xce\x01\n#GetKubernetesServiceAccountsRequest\x12&\n\x0c\x63luster_name\x18\x01 \x01(\tH\x00R\x0b\x63lusterName\x88\x01\x01\x12!\n\tnamespace\x18\x02 \x01(\tH\x01R\tnamespace\x88\x01\x01\x12*\n\x0elabel_selector\x18\x03 \x01(\tH\x02R\rlabelSelector\x88\x01\x01\x42\x0f\n\r_cluster_nameB\x0c\n\n_namespaceB\x11\n\x0f_label_selector"\x80\x01\n$GetKubernetesServiceAccountsResponse\x12X\n\x10service_accounts\x18\x01 \x03(\x0b\x32-.chalk.kubernetes.v1.KubernetesServiceAccountR\x0fserviceAccounts"\xca\x01\n\x1fGetKubernetesAutoscalersRequest\x12&\n\x0c\x63luster_name\x18\x01 \x01(\tH\x00R\x0b\x63lusterName\x88\x01\x01\x12!\n\tnamespace\x18\x02 \x01(\tH\x01R\tnamespace\x88\x01\x01\x12*\n\x0elabel_selector\x18\x03 \x01(\tH\x02R\rlabelSelector\x88\x01\x01\x42\x0f\n\r_cluster_nameB\x0c\n\n_namespaceB\x11\n\x0f_label_selector"\xc1\x01\n GetKubernetesAutoscalersResponse\x12J\n\x04hpas\x18\x01 \x03(\x0b\x32\x36.chalk.kubernetes.v1.KubernetesHorizontalPodAutoscalerR\x04hpas\x12Q\n\rscaledobjects\x18\x02 \x03(\x0b\x32+.chalk.kubernetes.v1.KubernetesScaledObjectR\rscaledobjects"\xd0\x01\n\x1fGetKubernetesDeploymentsRequest\x12*\n\x0e\x65nvironment_id\x18\x01 \x01(\tH\x00R\renvironmentId\x88\x01\x01\x12!\n\tnamespace\x18\x02 \x01(\tH\x01R\tnamespace\x88\x01\x01\x12*\n\x0elabel_selector\x18\x03 \x01(\tH\x02R\rlabelSelector\x88\x01\x01\x42\x11\n\x0f_environment_idB\x0c\n\n_namespaceB\x11\n\x0f_label_selector"o\n GetKubernetesDeploymentsResponse\x12K\n\x0b\x64\x65ployments\x18\x01 \x03(\x0b\x32).chalk.kubernetes.v1.KubernetesDeploymentR\x0b\x64\x65ployments"\xd1\x01\n GetKubernetesStatefulSetsRequest\x12*\n\x0e\x65nvironment_id\x18\x01 \x01(\tH\x00R\renvironmentId\x88\x01\x01\x12!\n\tnamespace\x18\x02 \x01(\tH\x01R\tnamespace\x88\x01\x01\x12*\n\x0elabel_selector\x18\x03 \x01(\tH\x02R\rlabelSelector\x88\x01\x01\x42\x11\n\x0f_environment_idB\x0c\n\n_namespaceB\x11\n\x0f_label_selector"t\n!GetKubernetesStatefulSetsResponse\x12O\n\rstateful_sets\x18\x01 \x03(\x0b\x32*.chalk.kubernetes.v1.KubernetesStatefulSetR\x0cstatefulSets"\xc9\x01\n\x18GetKubernetesJobsRequest\x12*\n\x0e\x65nvironment_id\x18\x01 \x01(\tH\x00R\renvironmentId\x88\x01\x01\x12!\n\tnamespace\x18\x02 \x01(\tH\x01R\tnamespace\x88\x01\x01\x12*\n\x0elabel_selector\x18\x03 \x01(\tH\x02R\rlabelSelector\x88\x01\x01\x42\x11\n\x0f_environment_idB\x0c\n\n_namespaceB\x11\n\x0f_label_selector"S\n\x19GetKubernetesJobsResponse\x12\x36\n\x04jobs\x18\x01 \x03(\x0b\x32".chalk.kubernetes.v1.KubernetesJobR\x04jobs"\x96\x01\n\'GetKubernetesStatefulSetWithPodsRequest\x12*\n\x11stateful_set_name\x18\x01 \x01(\tR\x0fstatefulSetName\x12\x1c\n\tnamespace\x18\x02 \x01(\tR\tnamespace\x12!\n\x0c\x63luster_name\x18\x03 \x01(\tR\x0b\x63lusterName"\xb5\x01\n(GetKubernetesStatefulSetWithPodsResponse\x12M\n\x0cstateful_set\x18\x01 \x01(\x0b\x32*.chalk.kubernetes.v1.KubernetesStatefulSetR\x0bstatefulSet\x12:\n\x04pods\x18\x02 \x03(\x0b\x32&.chalk.kubernetes.v1.KubernetesPodDataR\x04pods"}\n\x1fGetKubernetesJobWithPodsRequest\x12\x19\n\x08job_name\x18\x01 \x01(\tR\x07jobName\x12\x1c\n\tnamespace\x18\x02 \x01(\tR\tnamespace\x12!\n\x0c\x63luster_name\x18\x03 \x01(\tR\x0b\x63lusterName"\x94\x01\n GetKubernetesJobWithPodsResponse\x12\x34\n\x03job\x18\x01 \x01(\x0b\x32".chalk.kubernetes.v1.KubernetesJobR\x03job\x12:\n\x04pods\x18\x02 \x03(\x0b\x32&.chalk.kubernetes.v1.KubernetesPodDataR\x04pods"\x92\x01\n&GetKubernetesDeploymentWithPodsRequest\x12\'\n\x0f\x64\x65ployment_name\x18\x01 \x01(\tR\x0e\x64\x65ploymentName\x12\x1c\n\tnamespace\x18\x02 \x01(\tR\tnamespace\x12!\n\x0c\x63luster_name\x18\x03 \x01(\tR\x0b\x63lusterName"\xb0\x01\n\'GetKubernetesDeploymentWithPodsResponse\x12I\n\ndeployment\x18\x01 \x01(\x0b\x32).chalk.kubernetes.v1.KubernetesDeploymentR\ndeployment\x12:\n\x04pods\x18\x02 \x03(\x0b\x32&.chalk.kubernetes.v1.KubernetesPodDataR\x04pods2\xcc\x10\n\x0bKubeService\x12i\n\x0eGetPodVenvSize\x12&.chalk.server.v1.GetPodVenvSizeRequest\x1a\'.chalk.server.v1.GetPodVenvSizeResponse"\x06\x90\x02\x01\x80}\x0b\x12{\n\x14GetPodStackTraceDump\x12,.chalk.server.v1.GetPodStackTraceDumpRequest\x1a-.chalk.server.v1.GetPodStackTraceDumpResponse"\x06\x90\x02\x01\x80}\x0b\x12x\n\x13GetKubernetesEvents\x12+.chalk.server.v1.GetKubernetesEventsRequest\x1a,.chalk.server.v1.GetKubernetesEventsResponse"\x06\x90\x02\x01\x80}\x0b\x12\x84\x01\n\x17GetKubernetesNamespaces\x12/.chalk.server.v1.GetKubernetesNamespacesRequest\x1a\x30.chalk.server.v1.GetKubernetesNamespacesResponse"\x06\x90\x02\x01\x80}\x0b\x12\x99\x01\n\x1eGetKubernetesPersistentVolumes\x12\x36.chalk.server.v1.GetKubernetesPersistentVolumesRequest\x1a\x37.chalk.server.v1.GetKubernetesPersistentVolumesResponse"\x06\x90\x02\x01\x80}\x0b\x12\x90\x01\n\x1bGetKubernetesStorageClasses\x12\x33.chalk.server.v1.GetKubernetesStorageClassesRequest\x1a\x34.chalk.server.v1.GetKubernetesStorageClassesResponse"\x06\x90\x02\x01\x80}\x0b\x12\xae\x01\n%GetKubernetesPersistentVolumeWithPods\x12=.chalk.server.v1.GetKubernetesPersistentVolumeWithPodsRequest\x1a>.chalk.server.v1.GetKubernetesPersistentVolumeWithPodsResponse"\x06\x90\x02\x01\x80}\x0b\x12\x93\x01\n\x1cGetKubernetesServiceAccounts\x12\x34.chalk.server.v1.GetKubernetesServiceAccountsRequest\x1a\x35.chalk.server.v1.GetKubernetesServiceAccountsResponse"\x06\x90\x02\x01\x80}\x0b\x12\x87\x01\n\x18GetKubernetesAutoscalers\x12\x30.chalk.server.v1.GetKubernetesAutoscalersRequest\x1a\x31.chalk.server.v1.GetKubernetesAutoscalersResponse"\x06\x90\x02\x01\x80}\x0b\x12\x87\x01\n\x18GetKubernetesDeployments\x12\x30.chalk.server.v1.GetKubernetesDeploymentsRequest\x1a\x31.chalk.server.v1.GetKubernetesDeploymentsResponse"\x06\x90\x02\x01\x80}\x0b\x12\x8a\x01\n\x19GetKubernetesStatefulSets\x12\x31.chalk.server.v1.GetKubernetesStatefulSetsRequest\x1a\x32.chalk.server.v1.GetKubernetesStatefulSetsResponse"\x06\x90\x02\x01\x80}\x0b\x12r\n\x11GetKubernetesJobs\x12).chalk.server.v1.GetKubernetesJobsRequest\x1a*.chalk.server.v1.GetKubernetesJobsResponse"\x06\x90\x02\x01\x80}\x0b\x12\x9c\x01\n\x1fGetKubernetesDeploymentWithPods\x12\x37.chalk.server.v1.GetKubernetesDeploymentWithPodsRequest\x1a\x38.chalk.server.v1.GetKubernetesDeploymentWithPodsResponse"\x06\x90\x02\x01\x80}\x0b\x12\x9f\x01\n GetKubernetesStatefulSetWithPods\x12\x38.chalk.server.v1.GetKubernetesStatefulSetWithPodsRequest\x1a\x39.chalk.server.v1.GetKubernetesStatefulSetWithPodsResponse"\x06\x90\x02\x01\x80}\x0b\x12\x87\x01\n\x18GetKubernetesJobWithPods\x12\x30.chalk.server.v1.GetKubernetesJobWithPodsRequest\x1a\x31.chalk.server.v1.GetKubernetesJobWithPodsResponse"\x06\x90\x02\x01\x80}\x0b\x42\x92\x01\n\x13\x63om.chalk.server.v1B\tKubeProtoP\x01Z\x12server/v1;serverv1\xa2\x02\x03\x43SX\xaa\x02\x0f\x43halk.Server.V1\xca\x02\x0f\x43halk\\Server\\V1\xe2\x02\x1b\x43halk\\Server\\V1\\GPBMetadata\xea\x02\x11\x43halk::Server::V1b\x06proto3'
 )
 
 _globals = globals()
@@ -51,6 +52,14 @@ if _descriptor._USE_C_DESCRIPTORS == False:
     _globals["_KUBESERVICE"].methods_by_name["GetKubernetesPersistentVolumes"]._options = None
     _globals["_KUBESERVICE"].methods_by_name[
         "GetKubernetesPersistentVolumes"
+    ]._serialized_options = b"\220\002\001\200}\013"
+    _globals["_KUBESERVICE"].methods_by_name["GetKubernetesStorageClasses"]._options = None
+    _globals["_KUBESERVICE"].methods_by_name[
+        "GetKubernetesStorageClasses"
+    ]._serialized_options = b"\220\002\001\200}\013"
+    _globals["_KUBESERVICE"].methods_by_name["GetKubernetesPersistentVolumeWithPods"]._options = None
+    _globals["_KUBESERVICE"].methods_by_name[
+        "GetKubernetesPersistentVolumeWithPods"
     ]._serialized_options = b"\220\002\001\200}\013"
     _globals["_KUBESERVICE"].methods_by_name["GetKubernetesServiceAccounts"]._options = None
     _globals["_KUBESERVICE"].methods_by_name[
@@ -74,58 +83,66 @@ if _descriptor._USE_C_DESCRIPTORS == False:
     ]._serialized_options = b"\220\002\001\200}\013"
     _globals["_KUBESERVICE"].methods_by_name["GetKubernetesJobWithPods"]._options = None
     _globals["_KUBESERVICE"].methods_by_name["GetKubernetesJobWithPods"]._serialized_options = b"\220\002\001\200}\013"
-    _globals["_GETPODVENVSIZEREQUEST"]._serialized_start = 474
-    _globals["_GETPODVENVSIZEREQUEST"]._serialized_end = 636
-    _globals["_GETPODVENVSIZERESPONSE"]._serialized_start = 638
-    _globals["_GETPODVENVSIZERESPONSE"]._serialized_end = 686
-    _globals["_GETPODSTACKTRACEDUMPREQUEST"]._serialized_start = 689
-    _globals["_GETPODSTACKTRACEDUMPREQUEST"]._serialized_end = 995
-    _globals["_GETPODSTACKTRACEDUMPRESPONSE"]._serialized_start = 997
-    _globals["_GETPODSTACKTRACEDUMPRESPONSE"]._serialized_end = 1060
-    _globals["_GETKUBERNETESEVENTSREQUEST"]._serialized_start = 1063
-    _globals["_GETKUBERNETESEVENTSREQUEST"]._serialized_end = 1323
-    _globals["_GETKUBERNETESEVENTSRESPONSE"]._serialized_start = 1325
-    _globals["_GETKUBERNETESEVENTSRESPONSE"]._serialized_end = 1421
-    _globals["_GETKUBERNETESNAMESPACESREQUEST"]._serialized_start = 1424
-    _globals["_GETKUBERNETESNAMESPACESREQUEST"]._serialized_end = 1582
-    _globals["_GETKUBERNETESNAMESPACESRESPONSE"]._serialized_start = 1584
-    _globals["_GETKUBERNETESNAMESPACESRESPONSE"]._serialized_end = 1691
-    _globals["_GETKUBERNETESPERSISTENTVOLUMESREQUEST"]._serialized_start = 1693
-    _globals["_GETKUBERNETESPERSISTENTVOLUMESREQUEST"]._serialized_end = 1732
-    _globals["_GETKUBERNETESPERSISTENTVOLUMESRESPONSE"]._serialized_start = 1734
-    _globals["_GETKUBERNETESPERSISTENTVOLUMESRESPONSE"]._serialized_end = 1854
-    _globals["_GETKUBERNETESSERVICEACCOUNTSREQUEST"]._serialized_start = 1857
-    _globals["_GETKUBERNETESSERVICEACCOUNTSREQUEST"]._serialized_end = 2063
-    _globals["_GETKUBERNETESSERVICEACCOUNTSRESPONSE"]._serialized_start = 2066
-    _globals["_GETKUBERNETESSERVICEACCOUNTSRESPONSE"]._serialized_end = 2194
-    _globals["_GETKUBERNETESAUTOSCALERSREQUEST"]._serialized_start = 2197
-    _globals["_GETKUBERNETESAUTOSCALERSREQUEST"]._serialized_end = 2399
-    _globals["_GETKUBERNETESAUTOSCALERSRESPONSE"]._serialized_start = 2402
-    _globals["_GETKUBERNETESAUTOSCALERSRESPONSE"]._serialized_end = 2595
-    _globals["_GETKUBERNETESDEPLOYMENTSREQUEST"]._serialized_start = 2598
-    _globals["_GETKUBERNETESDEPLOYMENTSREQUEST"]._serialized_end = 2806
-    _globals["_GETKUBERNETESDEPLOYMENTSRESPONSE"]._serialized_start = 2808
-    _globals["_GETKUBERNETESDEPLOYMENTSRESPONSE"]._serialized_end = 2919
-    _globals["_GETKUBERNETESSTATEFULSETSREQUEST"]._serialized_start = 2922
-    _globals["_GETKUBERNETESSTATEFULSETSREQUEST"]._serialized_end = 3131
-    _globals["_GETKUBERNETESSTATEFULSETSRESPONSE"]._serialized_start = 3133
-    _globals["_GETKUBERNETESSTATEFULSETSRESPONSE"]._serialized_end = 3249
-    _globals["_GETKUBERNETESJOBSREQUEST"]._serialized_start = 3252
-    _globals["_GETKUBERNETESJOBSREQUEST"]._serialized_end = 3453
-    _globals["_GETKUBERNETESJOBSRESPONSE"]._serialized_start = 3455
-    _globals["_GETKUBERNETESJOBSRESPONSE"]._serialized_end = 3538
-    _globals["_GETKUBERNETESSTATEFULSETWITHPODSREQUEST"]._serialized_start = 3541
-    _globals["_GETKUBERNETESSTATEFULSETWITHPODSREQUEST"]._serialized_end = 3691
-    _globals["_GETKUBERNETESSTATEFULSETWITHPODSRESPONSE"]._serialized_start = 3694
-    _globals["_GETKUBERNETESSTATEFULSETWITHPODSRESPONSE"]._serialized_end = 3875
-    _globals["_GETKUBERNETESJOBWITHPODSREQUEST"]._serialized_start = 3877
-    _globals["_GETKUBERNETESJOBWITHPODSREQUEST"]._serialized_end = 4002
-    _globals["_GETKUBERNETESJOBWITHPODSRESPONSE"]._serialized_start = 4005
-    _globals["_GETKUBERNETESJOBWITHPODSRESPONSE"]._serialized_end = 4153
-    _globals["_GETKUBERNETESDEPLOYMENTWITHPODSREQUEST"]._serialized_start = 4156
-    _globals["_GETKUBERNETESDEPLOYMENTWITHPODSREQUEST"]._serialized_end = 4302
-    _globals["_GETKUBERNETESDEPLOYMENTWITHPODSRESPONSE"]._serialized_start = 4305
-    _globals["_GETKUBERNETESDEPLOYMENTWITHPODSRESPONSE"]._serialized_end = 4481
-    _globals["_KUBESERVICE"]._serialized_start = 4484
-    _globals["_KUBESERVICE"]._serialized_end = 6284
+    _globals["_GETPODVENVSIZEREQUEST"]._serialized_start = 514
+    _globals["_GETPODVENVSIZEREQUEST"]._serialized_end = 676
+    _globals["_GETPODVENVSIZERESPONSE"]._serialized_start = 678
+    _globals["_GETPODVENVSIZERESPONSE"]._serialized_end = 726
+    _globals["_GETPODSTACKTRACEDUMPREQUEST"]._serialized_start = 729
+    _globals["_GETPODSTACKTRACEDUMPREQUEST"]._serialized_end = 1035
+    _globals["_GETPODSTACKTRACEDUMPRESPONSE"]._serialized_start = 1037
+    _globals["_GETPODSTACKTRACEDUMPRESPONSE"]._serialized_end = 1100
+    _globals["_GETKUBERNETESEVENTSREQUEST"]._serialized_start = 1103
+    _globals["_GETKUBERNETESEVENTSREQUEST"]._serialized_end = 1363
+    _globals["_GETKUBERNETESEVENTSRESPONSE"]._serialized_start = 1365
+    _globals["_GETKUBERNETESEVENTSRESPONSE"]._serialized_end = 1461
+    _globals["_GETKUBERNETESNAMESPACESREQUEST"]._serialized_start = 1464
+    _globals["_GETKUBERNETESNAMESPACESREQUEST"]._serialized_end = 1622
+    _globals["_GETKUBERNETESNAMESPACESRESPONSE"]._serialized_start = 1624
+    _globals["_GETKUBERNETESNAMESPACESRESPONSE"]._serialized_end = 1731
+    _globals["_GETKUBERNETESPERSISTENTVOLUMESREQUEST"]._serialized_start = 1733
+    _globals["_GETKUBERNETESPERSISTENTVOLUMESREQUEST"]._serialized_end = 1772
+    _globals["_GETKUBERNETESPERSISTENTVOLUMESRESPONSE"]._serialized_start = 1774
+    _globals["_GETKUBERNETESPERSISTENTVOLUMESRESPONSE"]._serialized_end = 1894
+    _globals["_GETKUBERNETESSTORAGECLASSESREQUEST"]._serialized_start = 1896
+    _globals["_GETKUBERNETESSTORAGECLASSESREQUEST"]._serialized_end = 1932
+    _globals["_GETKUBERNETESSTORAGECLASSESRESPONSE"]._serialized_start = 1934
+    _globals["_GETKUBERNETESSTORAGECLASSESRESPONSE"]._serialized_end = 2057
+    _globals["_GETKUBERNETESPERSISTENTVOLUMEWITHPODSREQUEST"]._serialized_start = 2059
+    _globals["_GETKUBERNETESPERSISTENTVOLUMEWITHPODSREQUEST"]._serialized_end = 2159
+    _globals["_GETKUBERNETESPERSISTENTVOLUMEWITHPODSRESPONSE"]._serialized_start = 2162
+    _globals["_GETKUBERNETESPERSISTENTVOLUMEWITHPODSRESPONSE"]._serialized_end = 2452
+    _globals["_GETKUBERNETESSERVICEACCOUNTSREQUEST"]._serialized_start = 2455
+    _globals["_GETKUBERNETESSERVICEACCOUNTSREQUEST"]._serialized_end = 2661
+    _globals["_GETKUBERNETESSERVICEACCOUNTSRESPONSE"]._serialized_start = 2664
+    _globals["_GETKUBERNETESSERVICEACCOUNTSRESPONSE"]._serialized_end = 2792
+    _globals["_GETKUBERNETESAUTOSCALERSREQUEST"]._serialized_start = 2795
+    _globals["_GETKUBERNETESAUTOSCALERSREQUEST"]._serialized_end = 2997
+    _globals["_GETKUBERNETESAUTOSCALERSRESPONSE"]._serialized_start = 3000
+    _globals["_GETKUBERNETESAUTOSCALERSRESPONSE"]._serialized_end = 3193
+    _globals["_GETKUBERNETESDEPLOYMENTSREQUEST"]._serialized_start = 3196
+    _globals["_GETKUBERNETESDEPLOYMENTSREQUEST"]._serialized_end = 3404
+    _globals["_GETKUBERNETESDEPLOYMENTSRESPONSE"]._serialized_start = 3406
+    _globals["_GETKUBERNETESDEPLOYMENTSRESPONSE"]._serialized_end = 3517
+    _globals["_GETKUBERNETESSTATEFULSETSREQUEST"]._serialized_start = 3520
+    _globals["_GETKUBERNETESSTATEFULSETSREQUEST"]._serialized_end = 3729
+    _globals["_GETKUBERNETESSTATEFULSETSRESPONSE"]._serialized_start = 3731
+    _globals["_GETKUBERNETESSTATEFULSETSRESPONSE"]._serialized_end = 3847
+    _globals["_GETKUBERNETESJOBSREQUEST"]._serialized_start = 3850
+    _globals["_GETKUBERNETESJOBSREQUEST"]._serialized_end = 4051
+    _globals["_GETKUBERNETESJOBSRESPONSE"]._serialized_start = 4053
+    _globals["_GETKUBERNETESJOBSRESPONSE"]._serialized_end = 4136
+    _globals["_GETKUBERNETESSTATEFULSETWITHPODSREQUEST"]._serialized_start = 4139
+    _globals["_GETKUBERNETESSTATEFULSETWITHPODSREQUEST"]._serialized_end = 4289
+    _globals["_GETKUBERNETESSTATEFULSETWITHPODSRESPONSE"]._serialized_start = 4292
+    _globals["_GETKUBERNETESSTATEFULSETWITHPODSRESPONSE"]._serialized_end = 4473
+    _globals["_GETKUBERNETESJOBWITHPODSREQUEST"]._serialized_start = 4475
+    _globals["_GETKUBERNETESJOBWITHPODSREQUEST"]._serialized_end = 4600
+    _globals["_GETKUBERNETESJOBWITHPODSRESPONSE"]._serialized_start = 4603
+    _globals["_GETKUBERNETESJOBWITHPODSRESPONSE"]._serialized_end = 4751
+    _globals["_GETKUBERNETESDEPLOYMENTWITHPODSREQUEST"]._serialized_start = 4754
+    _globals["_GETKUBERNETESDEPLOYMENTWITHPODSREQUEST"]._serialized_end = 4900
+    _globals["_GETKUBERNETESDEPLOYMENTWITHPODSRESPONSE"]._serialized_start = 4903
+    _globals["_GETKUBERNETESDEPLOYMENTWITHPODSRESPONSE"]._serialized_end = 5079
+    _globals["_KUBESERVICE"]._serialized_start = 5082
+    _globals["_KUBESERVICE"]._serialized_end = 7206
 # @@protoc_insertion_point(module_scope)

@@ -20,10 +20,10 @@ DOCUMENTATION = """
 ---
 module: purefb_fs_replica
 version_added: '1.0.0'
-short_description:  Manage filesystem replica links between Pure Storage FlashBlades
+short_description:  Manage filesystem replica links between Everpure FlashBlades
 description:
-    - This module manages filesystem replica links between Pure Storage FlashBlades.
-author: Pure Storage Ansible Team (@sdodsley) <pure-ansible-team@purestorage.com>
+    - This module manages filesystem replica links between Everpure FlashBlades.
+author: Everpure Ansible Team (@sdodsley) <pure-ansible-team@purestorage.com>
 options:
   name:
     description:
@@ -93,16 +93,19 @@ EXAMPLES = """
 RETURN = """
 """
 
-HAS_PURITY_FB = True
+HAS_PYPURECLIENT = True
 try:
     from pypureclient.flashblade import FileSystemReplicaLink, LocationReference
 except ImportError:
-    HAS_PURITY_FB = False
+    HAS_PYPURECLIENT = False
 
 from ansible.module_utils.basic import AnsibleModule
 from ansible_collections.purestorage.flashblade.plugins.module_utils.purefb import (
     get_system,
     purefb_argument_spec,
+)
+from ansible_collections.purestorage.flashblade.plugins.module_utils.common import (
+    get_error_message,
 )
 
 DELETE_RL_API_VERSION = "2.10"
@@ -129,17 +132,16 @@ def get_local_rl(module, blade):
 def _check_connected(module, blade):
     res = blade.get_array_connections()
     connected_blades = list(res.items)
-    for target in range(len(connected_blades)):
+    for target in connected_blades:
         if (
-            connected_blades[target].remote.name == module.params["target_array"]
-            or connected_blades[target].management_address
-            == module.params["target_array"]
-        ) and connected_blades[target].status in [
+            target.remote.name == module.params["target_array"]
+            or target.management_address == module.params["target_array"]
+        ) and target.status in [
             "connected",
             "connecting",
             "partially_connected",
         ]:
-            return connected_blades[target]
+            return target
     return None
 
 
@@ -170,7 +172,7 @@ def create_rl(module, blade):
             if res.status_code != 200:
                 module.fail_json(
                     msg="Failed to create filesystem replica link for {0}. Error: {1}".format(
-                        module.params["name"], res.errors[0].message
+                        module.params["name"], get_error_message(res)
                     )
                 )
         else:
@@ -192,7 +194,7 @@ def add_rl_policy(module, blade):
         if res.status_code != 200:
             module.fail_json(
                 msg="Failed to get replica link for {0}. Error: {1}".format(
-                    module.params["name"], res.errors[0].message
+                    module.params["name"], get_error_message(res)
                 )
             )
         module.params["target_array"] = list(res.items)[0].remote.name
@@ -215,7 +217,7 @@ def add_rl_policy(module, blade):
                     msg="Failed to add policy {0} to replica link {1}. Error: {2}".format(
                         module.params["policy"],
                         module.params["name"],
-                        res.errors[0].message,
+                        get_error_message(res),
                     )
                 )
     module.exit_json(changed=changed)
@@ -241,7 +243,7 @@ def delete_rl_policy(module, blade):
                     msg="Failed to remove policy {0} from replica link {1}. Error: {2}".format(
                         module.params["policy"],
                         module.params["name"],
-                        res.errors[0].message,
+                        get_error_message(res),
                     )
                 )
         else:
@@ -265,7 +267,7 @@ def delete_rl(module, blade):
                     module.params["name"],
                     module.params["target_array"],
                     module.params["target_fs"],
-                    res.errors[0].message,
+                    get_error_message(res),
                 )
             )
     module.exit_jsob(changed=changed)
@@ -290,7 +292,7 @@ def main():
         argument_spec, required_if=required_if, supports_check_mode=True
     )
 
-    if not HAS_PURITY_FB:
+    if not HAS_PYPURECLIENT:
         module.fail_json(msg="py-pure-client sdk is required for this module")
 
     state = module.params["state"]

@@ -320,6 +320,14 @@ def _normalize_state_message(value: dict[str, Any]) -> dict[str, Any]:
     if msg_type in ("ai", "human") and isinstance(value.get("example"), bool):
         message["example"] = value["example"]
 
+    # Preserve ``response_metadata`` when present. It is a first-class protocol
+    # message field, and HITL flows rely on it: an interrupt's card is carried
+    # on ``AIMessage.response_metadata`` (e.g. ``{"cards": ...}``) and the
+    # frontend pushes that message into state via ``respond(decision, update)``.
+    # We only forward a non-empty record to keep the common (empty) case minimal.
+    if _is_record(value.get("response_metadata")) and value["response_metadata"]:
+        message["response_metadata"] = value["response_metadata"]
+
     if msg_type == "tool":
         if isinstance(value.get("tool_call_id"), str):
             message["tool_call_id"] = value["tool_call_id"]

@@ -1,4 +1,4 @@
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 
 use crate::{
     evaluation::evaluator::SpecType,
@@ -24,6 +24,8 @@ pub(crate) struct PlannedEvaluation {
     pub(crate) name: InternedString,
     pub(crate) entity: InternedString,
     pub(crate) spec_type: SpecType,
+    pub(crate) target_app_ids: Option<Vec<InternedString>>,
+    pub(crate) is_experiment_in_layer: bool,
     hashed_djb2: InternedString,
     hashed_sha256: InternedString,
 }
@@ -43,12 +45,14 @@ impl GcirEvaluationPlan {
             feature_gates: build_spec_plan(
                 &specs.feature_gates,
                 &pipeline_override_names,
+                &specs.experiment_to_layer,
                 hashing,
                 |_| SpecType::Gate,
             ),
             dynamic_configs: build_spec_plan(
                 &specs.dynamic_configs,
                 &pipeline_override_names,
+                &specs.experiment_to_layer,
                 hashing,
                 dynamic_config_type,
             ),
@@ -56,6 +60,7 @@ impl GcirEvaluationPlan {
             layer_configs: build_spec_plan(
                 &specs.layer_configs,
                 &pipeline_override_names,
+                &specs.experiment_to_layer,
                 hashing,
                 |_| SpecType::Layer,
             ),
@@ -93,6 +98,7 @@ impl PlannedCmabEvaluation {
 fn build_spec_plan(
     specs_map: &SpecsHashMap,
     pipeline_override_names: &HashSet<InternedString>,
+    experiment_to_layer: &HashMap<String, String>,
     hashing: &HashUtil,
     get_spec_type: impl Fn(&Spec) -> SpecType,
 ) -> Vec<PlannedEvaluation> {
@@ -109,6 +115,9 @@ fn build_spec_plan(
                 return None;
             }
 
+            let is_experiment_in_layer =
+                spec.entity == "experiment" && experiment_to_layer.contains_key(name.as_str());
+
             Some(PlannedEvaluation {
                 hashed_djb2: InternedString::from_string(
                     hashing.hash(name.as_str(), &HashAlgorithm::Djb2),
@@ -119,6 +128,8 @@ fn build_spec_plan(
                 name,
                 entity: InternedString::from_str_ref(spec.entity.as_str()),
                 spec_type: get_spec_type(spec),
+                target_app_ids: spec.target_app_ids.clone(),
+                is_experiment_in_layer,
             })
         })
         .collect()

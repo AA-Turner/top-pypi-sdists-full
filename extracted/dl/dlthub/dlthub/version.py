@@ -1,5 +1,6 @@
-from importlib.metadata import version as pkg_version
-from typing import TYPE_CHECKING
+import json  # noqa
+from importlib.metadata import Distribution, PackageNotFoundError, version as pkg_version
+from typing import TYPE_CHECKING, Any
 
 
 if TYPE_CHECKING:
@@ -37,11 +38,24 @@ def _ensure_dlt_installed(pkg_name: str, dlt_extra: str) -> "ModuleType":
         )
 
 
+def _pkg_source(name: str) -> Any:
+    # PEP 610 direct_url.json install origin (zip/git URL); absent when installed from PyPI.
+    try:
+        text = Distribution.from_name(name).read_text("direct_url.json")
+    except PackageNotFoundError:
+        return None
+    return json.loads(text).get("url") if text else None
+
+
 def ensure_dlt_version() -> None:
     """Ensures that dlt is installed and version matches plugin version."""
     dlt = _ensure_dlt_installed(PKG_NAME, "hub")
 
     # not with dlt installed we can use it to verify plugin version
     from dlt.common.runtime.run_context import ensure_plugin_version_match
+
+    # ignore source distributions
+    if _pkg_source("dlt"):
+        return
 
     ensure_plugin_version_match(PKG_NAME, dlt.__version__, __version__, "dlthub", "hub")

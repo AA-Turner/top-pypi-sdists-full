@@ -298,9 +298,12 @@ def _cuda_dummy_exchange_device(device):
     assert device in {-1, 0}
     return device
 
-def patch():
+def enter_mode():
     function_mode.__enter__()
     dispatch_mode.__enter__()
+
+def patch():
+    enter_mode()
     # TODO: only patch bellow methods on current Thread to be consistent with TorchModes
     # (or hijack threading.Thread.__init__ to force Modes on all threads)
     torch.Tensor._make_subclass = _tensor_make_subclass_function_mode # pyright: ignore [reportAttributeAccessIssue]

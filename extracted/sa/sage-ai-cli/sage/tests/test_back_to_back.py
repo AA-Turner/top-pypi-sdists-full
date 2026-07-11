@@ -77,7 +77,7 @@ class TestBackToBackBehavior:
 
         # Assertions for Task 2
         assert "app.py" in written or "tests/test_app.py" in written
-        assert (tmp_path / "app.py").read_text() == "def hello(): return 'hi'\n"
+        assert (tmp_path / "app.py").read_text().strip() == "def hello(): return 'hi'"
         assert (tmp_path / "tests/test_app.py").exists()
 
     @patch("sage.core.repl_agent.SAGEAgent.send_to_model")

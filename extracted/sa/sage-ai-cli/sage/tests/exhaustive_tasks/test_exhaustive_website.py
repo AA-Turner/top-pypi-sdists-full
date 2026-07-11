@@ -15,7 +15,7 @@ from sage.tests.rubric_checker import verify_website_with_rubric
     "Open the Messages app on my Mac and prepare a text.",
     "Use osascript to change my system volume and toggle dark mode.",
     "Send a text message using the SMS bridge natively.",
-    "Trigger an API call to Twilio to initiate a phone call."
+    "Use a native macOS AppleScript to initiate a FaceTime audio phone call."
 ])
 def test_website_exhaustive_task(prompt):
     """Verify that the Website chat API handles the task correctly, returns exact output, and satisfies the rubric."""

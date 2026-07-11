@@ -34,7 +34,8 @@ class GitStorageOptions(TypedDict, total=False):
     """Options for GitStorage client."""
 
     name: str  # required
-    key: str  # required
+    key: str  # required unless token is set
+    token: str  # pre-minted JWT, used verbatim if set
     api_base_url: Optional[str]
     storage_base_url: Optional[str]
     api_version: Optional[int]
@@ -318,6 +319,7 @@ class CommitInfo(TypedDict):
     """
 
     sha: str
+    parent_shas: List[str]
     message: str
     author_name: str
     author_email: str
@@ -399,6 +401,23 @@ class NoteWriteResult(TypedDict):
     base_commit: NotRequired[str]
     new_ref_sha: str
     result: NoteWriteResultPayload
+
+
+class NotesRefInfo(TypedDict):
+    """A single notes ref entry."""
+
+    cursor: str
+    ref: str
+    sha: str
+
+
+class ListNotesRefsResult(TypedDict):
+    """Result from listing git notes refs."""
+
+    refs: List[NotesRefInfo]
+    next_cursor: Optional[str]
+    has_more: bool
+    prefix: str
 
 
 # Diff types
@@ -969,6 +988,7 @@ class Repo(Protocol):
         self,
         *,
         sha: str,
+        ref: Optional[str] = None,
         ttl: Optional[int] = None,
     ) -> NoteReadResult:
         """Read a git note."""
@@ -981,6 +1001,7 @@ class Repo(Protocol):
         note: str,
         expected_ref_sha: Optional[str] = None,
         author: Optional["CommitSignature"] = None,
+        ref: Optional[str] = None,
         ttl: Optional[int] = None,
         ref_policies: Optional[Refs] = None,
     ) -> NoteWriteResult:
@@ -994,6 +1015,7 @@ class Repo(Protocol):
         note: str,
         expected_ref_sha: Optional[str] = None,
         author: Optional["CommitSignature"] = None,
+        ref: Optional[str] = None,
         ttl: Optional[int] = None,
         ref_policies: Optional[Refs] = None,
     ) -> NoteWriteResult:
@@ -1006,10 +1028,22 @@ class Repo(Protocol):
         sha: str,
         expected_ref_sha: Optional[str] = None,
         author: Optional["CommitSignature"] = None,
+        ref: Optional[str] = None,
         ttl: Optional[int] = None,
         ref_policies: Optional[Refs] = None,
     ) -> NoteWriteResult:
         """Delete a git note."""
+        ...
+
+    async def list_notes_refs(
+        self,
+        *,
+        prefix: Optional[str] = None,
+        cursor: Optional[str] = None,
+        limit: Optional[int] = None,
+        ttl: Optional[int] = None,
+    ) -> ListNotesRefsResult:
+        """List git notes refs under a prefix."""
         ...
 
     async def get_branch_diff(

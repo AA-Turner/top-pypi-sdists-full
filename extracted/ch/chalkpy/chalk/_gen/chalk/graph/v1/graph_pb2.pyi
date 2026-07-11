@@ -889,6 +889,7 @@ class WindowAggregation(_message.Message):
         "aggregate_on_features",
         "cache_aggregated_values",
         "aggregate_on_expressions",
+        "allow_filter_migration",
     )
     NAMESPACE_FIELD_NUMBER: _ClassVar[int]
     GROUP_BY_FIELD_NUMBER: _ClassVar[int]
@@ -909,6 +910,7 @@ class WindowAggregation(_message.Message):
     AGGREGATE_ON_FEATURES_FIELD_NUMBER: _ClassVar[int]
     CACHE_AGGREGATED_VALUES_FIELD_NUMBER: _ClassVar[int]
     AGGREGATE_ON_EXPRESSIONS_FIELD_NUMBER: _ClassVar[int]
+    ALLOW_FILTER_MIGRATION_FIELD_NUMBER: _ClassVar[int]
     namespace: str
     group_by: _containers.RepeatedCompositeFieldContainer[FeatureReference]
     bucket_duration: _duration_pb2.Duration
@@ -928,6 +930,7 @@ class WindowAggregation(_message.Message):
     aggregate_on_features: _containers.RepeatedCompositeFieldContainer[FeatureReference]
     cache_aggregated_values: bool
     aggregate_on_expressions: _containers.RepeatedCompositeFieldContainer[_expression_pb2.LogicalExprNode]
+    allow_filter_migration: bool
     def __init__(
         self,
         namespace: _Optional[str] = ...,
@@ -949,6 +952,7 @@ class WindowAggregation(_message.Message):
         aggregate_on_features: _Optional[_Iterable[_Union[FeatureReference, _Mapping]]] = ...,
         cache_aggregated_values: bool = ...,
         aggregate_on_expressions: _Optional[_Iterable[_Union[_expression_pb2.LogicalExprNode, _Mapping]]] = ...,
+        allow_filter_migration: bool = ...,
     ) -> None: ...
 
 class BackfillTagSet(_message.Message):

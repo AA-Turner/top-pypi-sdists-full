@@ -59,6 +59,7 @@ class TestWidgets:
                     "logical_operators": ["AND"],
                 },
                 "group_by": ["string"],
+                "latest_only": True,
                 "limit": 1,
                 "order_by": [
                     {
@@ -146,6 +147,7 @@ class TestWidgets:
                     "logical_operators": ["AND"],
                 },
                 "group_by": ["string"],
+                "latest_only": True,
                 "limit": 1,
                 "order_by": [
                     {
@@ -293,6 +295,7 @@ class TestAsyncWidgets:
                     "logical_operators": ["AND"],
                 },
                 "group_by": ["string"],
+                "latest_only": True,
                 "limit": 1,
                 "order_by": [
                     {
@@ -380,6 +383,7 @@ class TestAsyncWidgets:
                     "logical_operators": ["AND"],
                 },
                 "group_by": ["string"],
+                "latest_only": True,
                 "limit": 1,
                 "order_by": [
                     {

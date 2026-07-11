@@ -2,6 +2,7 @@ from verifiers.envs.experimental.composable.tasksets.swe.swe_tasksets import (
     make_multiswe_taskset,
     make_openswe_taskset,
     make_r2e_taskset,
+    make_scaleswe_taskset,
     make_swe_taskset,
     make_swebench_taskset,
     make_swelego_real_taskset,
@@ -16,10 +17,6 @@ from verifiers.envs.experimental.composable.tasksets.swe.swe_tasksets import (
     make_swesmith_taskset,
     make_swesmith_ts_taskset,
 )
-from verifiers.envs.experimental.composable.tasksets.lean.lean_task import (
-    LEAN_SYSTEM_PROMPT,
-    LeanTaskSet,
-)
 from verifiers.envs.experimental.composable.tasksets.math.math_task import MathTaskSet
 from verifiers.envs.experimental.composable.tasksets.cp.cp_task import (
     CPRubric,
@@ -31,6 +28,14 @@ from verifiers.envs.experimental.composable.tasksets.harbor.harbor import (
     HarborRubric,
     HarborTaskSet,
 )
+from verifiers.envs.experimental.composable.tasksets.harbor.cli_gym import (
+    CLIGymTaskSet,
+    make_cli_gym_taskset,
+)
+from verifiers.envs.experimental.composable.tasksets.harbor.terminal_lego import (
+    TerminalLegoTaskSet,
+    make_terminal_lego_taskset,
+)
 
 __all__ = [
     "make_swe_taskset",
@@ -38,6 +43,7 @@ __all__ = [
     "make_swebench_taskset",
     "make_multiswe_taskset",
     "make_openswe_taskset",
+    "make_scaleswe_taskset",
     "make_swelego_real_taskset",
     "make_swerebench_v2_taskset",
     "make_swesmith_taskset",
@@ -49,8 +55,6 @@ __all__ = [
     "make_swesmith_rs_taskset",
     "make_swesmith_cpp_taskset",
     "make_swesmith_php_taskset",
-    "LeanTaskSet",
-    "LEAN_SYSTEM_PROMPT",
     "MathTaskSet",
     "CPTaskSet",
     "CPRubric",
@@ -58,4 +62,8 @@ __all__ = [
     "HarborDatasetTaskSet",
     "HarborRubric",
     "HarborDatasetRubric",
+    "CLIGymTaskSet",
+    "make_cli_gym_taskset",
+    "TerminalLegoTaskSet",
+    "make_terminal_lego_taskset",
 ]

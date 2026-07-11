@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 """This is the official Mixpanel client library for Python.
 
 Mixpanel client libraries allow for tracking events and setting properties on
@@ -14,30 +13,32 @@ web, you may also be interested in our `JavaScript library`_.
 Analytics updates. :class:`~.Consumer` and :class:`~.BufferedConsumer` allow
 callers to customize the IO characteristics of their tracking.
 """
+
 import datetime
 import json
 import logging
 import time
 import uuid
-
-import requests
-from requests.auth import HTTPBasicAuth
-import urllib3
-
 from typing import Optional
 
+import requests
+import urllib3
+from requests.auth import HTTPBasicAuth
+
+from .credentials import ServiceAccountCredentials
 from .flags.local_feature_flags import LocalFeatureFlagsProvider
 from .flags.remote_feature_flags import RemoteFeatureFlagsProvider
 from .flags.types import LocalFlagsConfig, RemoteFlagsConfig
 
-__version__ = '5.1.0'
+__version__ = "5.2.0"
 
 logger = logging.getLogger(__name__)
+
 
 class DatetimeSerializer(json.JSONEncoder):
     def default(self, obj):
         if isinstance(obj, datetime.datetime):
-            fmt = '%Y-%m-%dT%H:%M:%S'
+            fmt = "%Y-%m-%dT%H:%M:%S"
             return obj.strftime(fmt)
 
         return json.JSONEncoder.default(self, obj)
@@ -45,10 +46,10 @@ class DatetimeSerializer(json.JSONEncoder):
 
 def json_dumps(data, cls=None):
     # Separators are specified to eliminate whitespace.
-    return json.dumps(data, separators=(',', ':'), cls=cls)
+    return json.dumps(data, separators=(",", ":"), cls=cls)
 
 
-class Mixpanel():
+class Mixpanel:
     """Instances of Mixpanel are used for all events and profile updates.
 
     :param str token: your project's Mixpanel token
@@ -56,6 +57,8 @@ class Mixpanel():
         :class:`~.Consumer`)
     :param json.JSONEncoder serializer: a JSONEncoder subclass used to handle
         JSON serialization (default :class:`~.DatetimeSerializer`)
+    :param ServiceAccountCredentials credentials: Optional service account
+        credentials for authentication. Recommended for server-side integrations.
 
     See `Built-in consumers`_ for details about the consumer interface.
 
@@ -63,19 +66,41 @@ class Mixpanel():
         The *serializer* parameter.
     """
 
-    def __init__(self, token, consumer=None, serializer=DatetimeSerializer, local_flags_config: Optional[LocalFlagsConfig] = None, remote_flags_config: Optional[RemoteFlagsConfig] = None):
+    def __init__(
+        self,
+        token,
+        consumer=None,
+        serializer=DatetimeSerializer,
+        local_flags_config: Optional[LocalFlagsConfig] = None,
+        remote_flags_config: Optional[RemoteFlagsConfig] = None,
+        credentials: Optional[ServiceAccountCredentials] = None,
+    ):
         self._token = token
-        self._consumer = consumer or Consumer()
+        self._credentials = credentials
+
+        # Warn if credentials are provided but won't be used due to custom consumer
+        if consumer is not None and credentials is not None:
+            logger.warning(
+                "Credentials passed to Mixpanel() are ignored when a custom consumer is provided. "
+                "Pass credentials to your consumer's constructor instead: "
+                "Consumer(credentials=...)"
+            )
+
+        self._consumer = consumer or Consumer(credentials=credentials)
         self._serializer = serializer
 
         self._local_flags_provider = None
         self._remote_flags_provider = None
 
         if local_flags_config:
-            self._local_flags_provider = LocalFeatureFlagsProvider(self._token, local_flags_config, __version__, self.track)
+            self._local_flags_provider = LocalFeatureFlagsProvider(
+                self._token, local_flags_config, __version__, self.track, credentials
+            )
 
         if remote_flags_config:
-            self._remote_flags_provider = RemoteFeatureFlagsProvider(self._token, remote_flags_config, __version__, self.track)
+            self._remote_flags_provider = RemoteFeatureFlagsProvider(
+                self._token, remote_flags_config, __version__, self.track, credentials
+            )
 
     def _now(self):
         return time.time()
@@ -85,16 +110,20 @@ class Mixpanel():
 
     @property
     def local_flags(self) -> LocalFeatureFlagsProvider:
-        """Get the local flags provider if configured for it"""
+        """Get the local flags provider if configured for it."""
         if self._local_flags_provider is None:
-            raise MixpanelException("No local flags provider initialized. Pass local_flags_config to constructor.")
+            raise MixpanelException(
+                "No local flags provider initialized. Pass local_flags_config to constructor."
+            )
         return self._local_flags_provider
 
     @property
     def remote_flags(self) -> RemoteFeatureFlagsProvider:
-        """Get the remote flags provider if configured for it"""
+        """Get the remote flags provider if configured for it."""
         if self._remote_flags_provider is None:
-            raise MixpanelException("No remote_flags_config was passed to the consttructor")
+            raise MixpanelException(
+                "No remote_flags_config was passed to the constructor"
+            )
         return self._remote_flags_provider
 
     def track(self, distinct_id, event_name, properties=None, meta=None):
@@ -111,25 +140,33 @@ class Mixpanel():
         (rarely) to override special values sent in the event object.
         """
         all_properties = {
-            'token': self._token,
-            'distinct_id': distinct_id,
-            'time': self._now(),
-            '$insert_id': self._make_insert_id(),
-            'mp_lib': 'python',
-            '$lib_version': __version__,
+            "token": self._token,
+            "distinct_id": distinct_id,
+            "time": self._now(),
+            "$insert_id": self._make_insert_id(),
+            "mp_lib": "python",
+            "$lib_version": __version__,
         }
         if properties:
             all_properties.update(properties)
         event = {
-            'event': event_name,
-            'properties': all_properties,
+            "event": event_name,
+            "properties": all_properties,
         }
         if meta:
             event.update(meta)
-        self._consumer.send('events', json_dumps(event, cls=self._serializer))
+        self._consumer.send("events", json_dumps(event, cls=self._serializer))
 
-    def import_data(self, api_key, distinct_id, event_name, timestamp,
-                    properties=None, meta=None, api_secret=None):
+    def import_data(
+        self,
+        api_key,
+        distinct_id,
+        event_name,
+        timestamp,
+        properties=None,
+        meta=None,
+        api_secret=None,
+    ):
         """Record an event that occurred more than 5 days in the past.
 
         :param str api_key: (DEPRECATED) your Mixpanel project's API key
@@ -139,17 +176,35 @@ class Mixpanel():
         :param dict properties: additional data to record; keys should be
             strings, and values should be strings, numbers, or booleans
         :param dict meta: overrides Mixpanel special properties
-        :param str api_secret: Your Mixpanel project's API secret.
+        :param str api_secret: (DEPRECATED) Your Mixpanel project's API secret.
 
-        .. Important::
-            Mixpanel's ``import`` HTTP endpoint requires the project API
-            secret found in your Mixpanel project's settings. The older API key is
-            no longer accessible in the Mixpanel UI, but will continue to work.
-            The api_key parameter will be removed in an upcoming release of
-            mixpanel-python.
+        .. deprecated::
+            Both *api_key* and *api_secret* parameters are deprecated. Use
+            :class:`~.ServiceAccountCredentials` with the *credentials* parameter
+            instead for enhanced security. Legacy authentication will continue to work
+            for backward compatibility but will be removed in a future major version.
 
         .. versionadded:: 4.8.0
             The *api_secret* parameter.
+
+        .. note::
+            **Recommended**: Use ServiceAccountCredentials for authentication:
+
+            .. code-block:: python
+
+                credentials = ServiceAccountCredentials(
+                    username='YOUR_SERVICE_ACCOUNT_USERNAME',
+                    secret='YOUR_SERVICE_ACCOUNT_SECRET',
+                    project_id='YOUR_PROJECT_ID'
+                )
+                mp = Mixpanel(YOUR_TOKEN, credentials=credentials)
+                mp.import_data(
+                    api_key=None,
+                    distinct_id='user123',
+                    event_name='Signup',
+                    timestamp=1000000000,
+                    properties={'source': 'email'}
+                )
 
         To avoid accidentally recording invalid events, the Mixpanel API's
         ``track`` endpoint disallows events that occurred too long ago. This
@@ -157,28 +212,37 @@ class Mixpanel():
         for `more details
         <https://developer.mixpanel.com/reference/events#import-events>`__.
         """
-
-        if api_secret is None:
-            logger.warning("api_key will soon be removed from mixpanel-python; please use api_secret instead.")
+        if api_secret is not None:
+            logger.warning(
+                "api_secret is deprecated and will be removed in a future version. "
+                "Please migrate to ServiceAccountCredentials for enhanced security."
+            )
+        if api_key is not None:
+            logger.warning(
+                "api_key is deprecated and will be removed in a future version. "
+                "Please migrate to ServiceAccountCredentials for enhanced security."
+            )
 
         all_properties = {
-            'token': self._token,
-            'distinct_id': distinct_id,
-            'time': timestamp,
-            '$insert_id': self._make_insert_id(),
-            'mp_lib': 'python',
-            '$lib_version': __version__,
+            "token": self._token,
+            "distinct_id": distinct_id,
+            "time": timestamp,
+            "$insert_id": self._make_insert_id(),
+            "mp_lib": "python",
+            "$lib_version": __version__,
         }
         if properties:
             all_properties.update(properties)
         event = {
-            'event': event_name,
-            'properties': all_properties,
+            "event": event_name,
+            "properties": all_properties,
         }
         if meta:
             event.update(meta)
 
-        self._consumer.send('imports', json_dumps(event, cls=self._serializer), (api_key, api_secret))
+        self._consumer.send(
+            "imports", json_dumps(event, cls=self._serializer), (api_key, api_secret)
+        )
 
     def alias(self, alias_id, original, meta=None):
         """Creates an alias which Mixpanel will use to remap one id to another.
@@ -199,56 +263,83 @@ class Mixpanel():
             to Mixpanel servers, regardless of any custom consumer.
         """
         event = {
-            'event': '$create_alias',
-            'properties': {
-                'distinct_id': original,
-                'alias': alias_id,
-                'token': self._token,
+            "event": "$create_alias",
+            "properties": {
+                "distinct_id": original,
+                "alias": alias_id,
+                "token": self._token,
             },
         }
         if meta:
             event.update(meta)
 
         sync_consumer = Consumer()
-        sync_consumer.send('events', json_dumps(event, cls=self._serializer))
+        sync_consumer.send("events", json_dumps(event, cls=self._serializer))
 
     def merge(self, api_key, distinct_id1, distinct_id2, meta=None, api_secret=None):
-        """
-        Merges the two given distinct_ids.
+        """Merges the two given distinct_ids.
 
         :param str api_key: (DEPRECATED) Your Mixpanel project's API key.
         :param str distinct_id1: The first distinct_id to merge.
         :param str distinct_id2: The second (other) distinct_id to merge.
         :param dict meta: overrides Mixpanel special properties
-        :param str api_secret: Your Mixpanel project's API secret.
+        :param str api_secret: (DEPRECATED) Your Mixpanel project's API secret.
 
-        .. Important::
-            Mixpanel's ``merge`` HTTP endpoint requires the project API
-            secret found in your Mixpanel project's settings. The older API key is
-            no longer accessible in the Mixpanel UI, but will continue to work.
-            The api_key parameter will be removed in an upcoming release of
-            mixpanel-python.
+        .. deprecated::
+            Both *api_key* and *api_secret* parameters are deprecated. Use
+            :class:`~.ServiceAccountCredentials` with the *credentials* parameter
+            instead for enhanced security. Legacy authentication will continue to work
+            for backward compatibility but will be removed in a future major version.
 
         .. versionadded:: 4.8.0
             The *api_secret* parameter.
+
+        .. note::
+            **Recommended**: Use ServiceAccountCredentials for authentication:
+
+            .. code-block:: python
+
+                credentials = ServiceAccountCredentials(
+                    username='YOUR_SERVICE_ACCOUNT_USERNAME',
+                    secret='YOUR_SERVICE_ACCOUNT_SECRET',
+                    project_id='YOUR_PROJECT_ID'
+                )
+                mp = Mixpanel(YOUR_TOKEN, credentials=credentials)
+                # api_key still required but not used when credentials are provided
+                mp.merge(
+                    api_key=None,
+                    distinct_id1='user123',
+                    distinct_id2='user456'
+                )
 
         See our online documentation for `more
         details
         <https://developer.mixpanel.com/reference/identities#identity-merge>`__.
         """
-        if api_secret is None:
-            logger.warning("api_key will soon be removed from mixpanel-python; please use api_secret instead.")
+        if api_secret is not None:
+            logger.warning(
+                "api_secret is deprecated and will be removed in a future version. "
+                "Please migrate to ServiceAccountCredentials for enhanced security."
+            )
+        if api_key is not None:
+            logger.warning(
+                "api_key is deprecated and will be removed in a future version. "
+                "Please migrate to ServiceAccountCredentials for enhanced security."
+            )
 
         event = {
-            'event': '$merge',
-            'properties': {
-                '$distinct_ids': [distinct_id1, distinct_id2],
-                'token': self._token,
+            "event": "$merge",
+            "properties": {
+                "$distinct_ids": [distinct_id1, distinct_id2],
+                "token": self._token,
             },
         }
         if meta:
             event.update(meta)
-        self._consumer.send('imports', json_dumps(event, cls=self._serializer), (api_key, api_secret))
+
+        self._consumer.send(
+            "imports", json_dumps(event, cls=self._serializer), (api_key, api_secret)
+        )
 
     def people_set(self, distinct_id, properties, meta=None):
         """Set properties of a people record.
@@ -259,10 +350,13 @@ class Mixpanel():
 
         If the profile does not exist, creates a new profile with these properties.
         """
-        return self.people_update({
-            '$distinct_id': distinct_id,
-            '$set': properties,
-        }, meta=meta or {})
+        return self.people_update(
+            {
+                "$distinct_id": distinct_id,
+                "$set": properties,
+            },
+            meta=meta or {},
+        )
 
     def people_set_once(self, distinct_id, properties, meta=None):
         """Set properties of a people record if they are not already set.
@@ -274,10 +368,13 @@ class Mixpanel():
         overwritten. If the profile does not exist, creates a new profile with
         these properties.
         """
-        return self.people_update({
-            '$distinct_id': distinct_id,
-            '$set_once': properties,
-        }, meta=meta or {})
+        return self.people_update(
+            {
+                "$distinct_id": distinct_id,
+                "$set_once": properties,
+            },
+            meta=meta or {},
+        )
 
     def people_increment(self, distinct_id, properties, meta=None):
         """Increment/decrement numerical properties of a people record.
@@ -290,10 +387,13 @@ class Mixpanel():
         properties on the record default to zero. Negative values in
         ``properties`` will decrement the given property.
         """
-        return self.people_update({
-            '$distinct_id': distinct_id,
-            '$add': properties,
-        }, meta=meta or {})
+        return self.people_update(
+            {
+                "$distinct_id": distinct_id,
+                "$add": properties,
+            },
+            meta=meta or {},
+        )
 
     def people_append(self, distinct_id, properties, meta=None):
         """Append to the list associated with a property.
@@ -307,10 +407,13 @@ class Mixpanel():
 
             mp.people_append('123', {'Items': 'Super Arm'})
         """
-        return self.people_update({
-            '$distinct_id': distinct_id,
-            '$append': properties,
-        }, meta=meta or {})
+        return self.people_update(
+            {
+                "$distinct_id": distinct_id,
+                "$append": properties,
+            },
+            meta=meta or {},
+        )
 
     def people_union(self, distinct_id, properties, meta=None):
         """Merge the values of a list associated with a property.
@@ -324,10 +427,13 @@ class Mixpanel():
 
             mp.people_union('123', {'Items': ['Super Arm', 'Fire Storm']})
         """
-        return self.people_update({
-            '$distinct_id': distinct_id,
-            '$union': properties,
-        }, meta=meta or {})
+        return self.people_update(
+            {
+                "$distinct_id": distinct_id,
+                "$union": properties,
+            },
+            meta=meta or {},
+        )
 
     def people_unset(self, distinct_id, properties, meta=None):
         """Permanently remove properties from a people record.
@@ -335,10 +441,13 @@ class Mixpanel():
         :param str distinct_id: the profile to update
         :param list properties: property names to remove
         """
-        return self.people_update({
-            '$distinct_id': distinct_id,
-            '$unset': properties,
-        }, meta=meta)
+        return self.people_update(
+            {
+                "$distinct_id": distinct_id,
+                "$unset": properties,
+            },
+            meta=meta,
+        )
 
     def people_remove(self, distinct_id, properties, meta=None):
         """Permanently remove a value from the list associated with a property.
@@ -351,23 +460,28 @@ class Mixpanel():
 
             mp.people_remove('123', {'Items': 'Super Arm'})
         """
-        return self.people_update({
-            '$distinct_id': distinct_id,
-            '$remove': properties,
-        }, meta=meta or {})
+        return self.people_update(
+            {
+                "$distinct_id": distinct_id,
+                "$remove": properties,
+            },
+            meta=meta or {},
+        )
 
     def people_delete(self, distinct_id, meta=None):
         """Permanently delete a people record.
 
         :param str distinct_id: the profile to delete
         """
-        return self.people_update({
-            '$distinct_id': distinct_id,
-            '$delete': "",
-        }, meta=meta or None)
+        return self.people_update(
+            {
+                "$distinct_id": distinct_id,
+                "$delete": "",
+            },
+            meta=meta or None,
+        )
 
-    def people_track_charge(self, distinct_id, amount,
-                            properties=None, meta=None):
+    def people_track_charge(self, distinct_id, amount, properties=None, meta=None):
         """Track a charge on a people record.
 
         :param str distinct_id: the profile with which to associate the charge
@@ -380,9 +494,9 @@ class Mixpanel():
         """
         if properties is None:
             properties = {}
-        properties.update({'$amount': amount})
+        properties.update({"$amount": amount})
         return self.people_append(
-            distinct_id, {'$transactions': properties or {}}, meta=meta or {}
+            distinct_id, {"$transactions": properties or {}}, meta=meta or {}
         )
 
     def people_clear_charges(self, distinct_id, meta=None):
@@ -391,7 +505,9 @@ class Mixpanel():
         :param str distinct_id: the profile whose charges will be cleared
         """
         return self.people_unset(
-            distinct_id, ["$transactions"], meta=meta or {},
+            distinct_id,
+            ["$transactions"],
+            meta=meta or {},
         )
 
     def people_update(self, message, meta=None):
@@ -407,13 +523,13 @@ class Mixpanel():
         .. _`user profiles documentation`: https://developer.mixpanel.com/reference/user-profiles
         """
         record = {
-            '$token': self._token,
-            '$time': self._now(),
+            "$token": self._token,
+            "$time": self._now(),
         }
         record.update(message)
         if meta:
             record.update(meta)
-        self._consumer.send('people', json_dumps(record, cls=self._serializer))
+        self._consumer.send("people", json_dumps(record, cls=self._serializer))
 
     def group_set(self, group_key, group_id, properties, meta=None):
         """Set properties of a group profile.
@@ -425,11 +541,14 @@ class Mixpanel():
 
         If the profile does not exist, creates a new profile with these properties.
         """
-        return self.group_update({
-            '$group_key': group_key,
-            '$group_id': group_id,
-            '$set': properties,
-        }, meta=meta or {})
+        return self.group_update(
+            {
+                "$group_key": group_key,
+                "$group_id": group_id,
+                "$set": properties,
+            },
+            meta=meta or {},
+        )
 
     def group_set_once(self, group_key, group_id, properties, meta=None):
         """Set properties of a group profile if they are not already set.
@@ -442,11 +561,14 @@ class Mixpanel():
         overwritten. If the profile does not exist, creates a new profile with
         these properties.
         """
-        return self.group_update({
-            '$group_key': group_key,
-            '$group_id': group_id,
-            '$set_once': properties,
-        }, meta=meta or {})
+        return self.group_update(
+            {
+                "$group_key": group_key,
+                "$group_id": group_id,
+                "$set_once": properties,
+            },
+            meta=meta or {},
+        )
 
     def group_union(self, group_key, group_id, properties, meta=None):
         """Merge the values of a list associated with a property.
@@ -461,11 +583,14 @@ class Mixpanel():
 
             mp.group_union('company', 'Acme Inc.', {'Items': ['Super Arm', 'Fire Storm']})
         """
-        return self.group_update({
-            '$group_key': group_key,
-            '$group_id': group_id,
-            '$union': properties,
-        }, meta=meta or {})
+        return self.group_update(
+            {
+                "$group_key": group_key,
+                "$group_id": group_id,
+                "$union": properties,
+            },
+            meta=meta or {},
+        )
 
     def group_unset(self, group_key, group_id, properties, meta=None):
         """Permanently remove properties from a group profile.
@@ -474,11 +599,14 @@ class Mixpanel():
         :param str group_id: the group to update
         :param list properties: property names to remove
         """
-        return self.group_update({
-            '$group_key': group_key,
-            '$group_id': group_id,
-            '$unset': properties,
-        }, meta=meta)
+        return self.group_update(
+            {
+                "$group_key": group_key,
+                "$group_id": group_id,
+                "$unset": properties,
+            },
+            meta=meta,
+        )
 
     def group_remove(self, group_key, group_id, properties, meta=None):
         """Permanently remove a value from the list associated with a property.
@@ -492,11 +620,14 @@ class Mixpanel():
 
             mp.group_remove('company', 'Acme Inc.', {'Items': 'Super Arm'})
         """
-        return self.group_update({
-            '$group_key': group_key,
-            '$group_id': group_id,
-            '$remove': properties,
-        }, meta=meta or {})
+        return self.group_update(
+            {
+                "$group_key": group_key,
+                "$group_id": group_id,
+                "$remove": properties,
+            },
+            meta=meta or {},
+        )
 
     def group_delete(self, group_key, group_id, meta=None):
         """Permanently delete a group profile.
@@ -504,14 +635,17 @@ class Mixpanel():
         :param str group_key: the group key, e.g. 'company'
         :param str group_id: the group to delete
         """
-        return self.group_update({
-            '$group_key': group_key,
-            '$group_id': group_id,
-            '$delete': "",
-        }, meta=meta or None)
+        return self.group_update(
+            {
+                "$group_key": group_key,
+                "$group_id": group_id,
+                "$delete": "",
+            },
+            meta=meta or None,
+        )
 
     def group_update(self, message, meta=None):
-        """Send a generic group profile update
+        """Send a generic group profile update.
 
         :param dict message: the message to send
 
@@ -523,13 +657,13 @@ class Mixpanel():
         .. _`group profiles documentation`: https://developer.mixpanel.com/reference/group-profiles
         """
         record = {
-            '$token': self._token,
-            '$time': self._now(),
+            "$token": self._token,
+            "$time": self._now(),
         }
         record.update(message)
         if meta:
             record.update(meta)
-        self._consumer.send('groups', json_dumps(record, cls=self._serializer))
+        self._consumer.send("groups", json_dumps(record, cls=self._serializer))
 
     def __enter__(self):
         return self
@@ -550,19 +684,18 @@ class Mixpanel():
             await self._remote_flags_provider.__aexit__(exc_type, exc_val, exc_tb)
 
 
-class MixpanelException(Exception):
+class MixpanelException(Exception):  # noqa: N818
     """Raised by consumers when unable to send messages.
 
     This could be caused by a network outage or interruption, or by an invalid
     endpoint passed to :meth:`.Consumer.send`.
     """
-    pass
 
 
-class Consumer(object):
-    """
-    A consumer that sends an HTTP request directly to the Mixpanel service, one
-    per call to :meth:`~.send`.
+class Consumer:
+    """A consumer that sends an HTTP request directly to the Mixpanel service.
+
+    One per call to :meth:`~.send`.
 
     :param str events_url: override the default events API endpoint
     :param str people_url: override the default people API endpoint
@@ -576,6 +709,8 @@ class Consumer(object):
     :param int retry_backoff_factor: In case of retries, controls sleep time. e.g.,
         sleep_seconds = backoff_factor * (2 ^ (num_total_retries - 1)).
     :param bool verify_cert: whether to verify the server certificate.
+    :param ServiceAccountCredentials credentials: optional service account
+        credentials for authentication. Only used for /import endpoint.
 
     .. versionadded:: 4.6.0
         The *api_host* parameter.
@@ -583,19 +718,30 @@ class Consumer(object):
         The *verify_cert* parameter.
     """
 
-    def __init__(self, events_url=None, people_url=None, import_url=None,
-            request_timeout=None, groups_url=None, api_host="api.mixpanel.com",
-            retry_limit=4, retry_backoff_factor=0.25, verify_cert=True):
+    def __init__(
+        self,
+        events_url=None,
+        people_url=None,
+        import_url=None,
+        request_timeout=None,
+        groups_url=None,
+        api_host="api.mixpanel.com",
+        retry_limit=4,
+        retry_backoff_factor=0.25,
+        verify_cert=True,
+        credentials=None,
+    ):
         # TODO: With next major version, make the above args kwarg-only, and reorder them.
         self._endpoints = {
-            'events': events_url or 'https://{}/track'.format(api_host),
-            'people': people_url or 'https://{}/engage'.format(api_host),
-            'groups': groups_url or 'https://{}/groups'.format(api_host),
-            'imports': import_url or 'https://{}/import'.format(api_host),
+            "events": events_url or f"https://{api_host}/track",
+            "people": people_url or f"https://{api_host}/engage",
+            "groups": groups_url or f"https://{api_host}/groups",
+            "imports": import_url or f"https://{api_host}/import",
         }
 
         self._verify_cert = verify_cert
         self._request_timeout = request_timeout
+        self._credentials = credentials
 
         # Work around renamed argument in urllib3.
         if hasattr(urllib3.util.Retry.DEFAULT, "allowed_methods"):
@@ -614,7 +760,7 @@ class Consumer(object):
         )
 
         self._session = requests.Session()
-        self._session.mount('https://', adapter)
+        self._session.mount("https://", adapter)
 
     def send(self, endpoint, json_message, api_key=None, api_secret=None):
         """Immediately record an event or a profile update.
@@ -631,32 +777,50 @@ class Consumer(object):
             The *api_secret* parameter.
         """
         if endpoint not in self._endpoints:
-            raise MixpanelException('No such endpoint "{0}". Valid endpoints are one of {1}'.format(endpoint, self._endpoints.keys()))
+            msg = f'No such endpoint "{endpoint}". Valid endpoints are one of {self._endpoints.keys()}'
+            raise MixpanelException(msg)
 
-        self._write_request(self._endpoints[endpoint], json_message, api_key, api_secret)
+        self._write_request(
+            self._endpoints[endpoint], json_message, api_key, api_secret, endpoint
+        )
 
-    def _write_request(self, request_url, json_message, api_key=None, api_secret=None):
+    def _write_request(
+        self, request_url, json_message, api_key=None, api_secret=None, endpoint=None
+    ):
         if isinstance(api_key, tuple):
-            # For compatibility with subclassers, allow the auth details to be
-            # packed into the existing api_key param.
+            # Backward compatibility: api_key can be a single value or a tuple (api_key, api_secret).
+            # BufferedConsumer packs them into a tuple internally for storage, so unpack here.
             api_key, api_secret = api_key
 
         params = {
-            'data': json_message,
-            'verbose': 1,
-            'ip': 0,
+            "data": json_message,
+            "verbose": 1,
+            "ip": 0,
         }
-        if api_key:
-            params['api_key'] = api_key
 
         basic_auth = None
-        if api_secret is not None:
-            basic_auth = HTTPBasicAuth(api_secret, '')
+        query_params = {}
+
+        # Service account credentials are only supported for /import endpoint
+        # For other endpoints (events, people, groups), do not use credentials
+        use_credentials = self._credentials and endpoint == "imports"
+
+        if use_credentials:
+            # Service account auth - do NOT include api_key in POST body
+            basic_auth = self._credentials.to_http_basic_auth()
+            # Service account auth requires project_id as URL query param for backend validation
+            query_params["project_id"] = self._credentials.project_id
+        elif api_secret is not None:
+            basic_auth = HTTPBasicAuth(api_secret, "")
+            # Add api_key to POST body for legacy api_secret authentication
+            if api_key:
+                params["api_key"] = api_key
 
         try:
             response = self._session.post(
                 request_url,
-                data=params,
+                params=query_params,  # URL query parameters (includes project_id for service accounts)
+                data=params,  # POST body data
                 auth=basic_auth,
                 timeout=self._request_timeout,
                 verify=self._verify_cert,
@@ -667,18 +831,19 @@ class Consumer(object):
         try:
             response_dict = response.json()
         except ValueError:
-            raise MixpanelException('Cannot interpret Mixpanel server response: {0}'.format(response.text))
+            msg = f"Cannot interpret Mixpanel server response: {response.text}"
+            raise MixpanelException(msg) from None
 
-        if response_dict['status'] != 1:
-            raise MixpanelException('Mixpanel error: {0}'.format(response_dict['error']))
+        if response_dict["status"] != 1:
+            raise MixpanelException("Mixpanel error: {}".format(response_dict["error"]))
 
         return True  # <- TODO: remove return val with major release.
 
 
-class BufferedConsumer(object):
-    """
-    A consumer that maintains per-endpoint buffers of messages and then sends
-    them in batches. This can save bandwidth and reduce the total amount of
+class BufferedConsumer:
+    """A consumer that maintains per-endpoint buffers of messages and then sends them in batches.
+
+    This can save bandwidth and reduce the total amount of
     time required to post your events to Mixpanel.
 
     :param int max_size: number of :meth:`~.send` calls for a given endpoint to
@@ -695,6 +860,8 @@ class BufferedConsumer(object):
     :param int retry_backoff_factor: In case of retries, controls sleep time. e.g.,
         sleep_seconds = backoff_factor * (2 ^ (num_total_retries - 1)).
     :param bool verify_cert: whether to verify the server certificate.
+    :param ServiceAccountCredentials credentials: optional service account
+        credentials for authentication. Only used for /import endpoint.
 
     .. versionadded:: 4.6.0
         The *api_host* parameter.
@@ -707,19 +874,42 @@ class BufferedConsumer(object):
         just before your program exits. Calls to :meth:`~.flush` will send all
         remaining unsent events being held by the instance.
     """
-    def __init__(self, max_size=50, events_url=None, people_url=None, import_url=None,
-            request_timeout=None, groups_url=None, api_host="api.mixpanel.com",
-            retry_limit=4, retry_backoff_factor=0.25, verify_cert=True):
-        self._consumer = Consumer(events_url, people_url, import_url, request_timeout,
-            groups_url, api_host, retry_limit, retry_backoff_factor, verify_cert)
+
+    def __init__(
+        self,
+        max_size=50,
+        events_url=None,
+        people_url=None,
+        import_url=None,
+        request_timeout=None,
+        groups_url=None,
+        api_host="api.mixpanel.com",
+        retry_limit=4,
+        retry_backoff_factor=0.25,
+        verify_cert=True,
+        credentials=None,
+    ):
+        self._consumer = Consumer(
+            events_url,
+            people_url,
+            import_url,
+            request_timeout,
+            groups_url,
+            api_host,
+            retry_limit,
+            retry_backoff_factor,
+            verify_cert,
+            credentials,
+        )
         self._buffers = {
-            'events': [],
-            'people': [],
-            'groups': [],
-            'imports': [],
+            "events": [],
+            "people": [],
+            "groups": [],
+            "imports": [],
         }
         self._max_size = min(50, max_size)
         self._api_key = None
+        self._api_secret = None
 
     def send(self, endpoint, json_message, api_key=None, api_secret=None):
         """Record an event or profile update.
@@ -741,14 +931,15 @@ class BufferedConsumer(object):
             The *api_key* parameter.
         """
         if endpoint not in self._buffers:
-            raise MixpanelException('No such endpoint "{0}". Valid endpoints are one of {1}'.format(endpoint, self._buffers.keys()))
+            msg = f'No such endpoint "{endpoint}". Valid endpoints are one of {self._buffers.keys()}'
+            raise MixpanelException(msg)
 
         if not isinstance(api_key, tuple):
             api_key = (api_key, api_secret)
 
         buf = self._buffers[endpoint]
         buf.append(json_message)
-        # Fixme: Don't stick these in the instance.
+        # TODO: Don't stick these in the instance.
         self._api_key = api_key
         self._api_secret = api_secret
         if len(buf) >= self._max_size:
@@ -760,22 +951,22 @@ class BufferedConsumer(object):
         :raises MixpanelException: if the server is unreachable or any buffered
             message cannot be processed
         """
-        for endpoint in self._buffers.keys():
+        for endpoint in self._buffers:
             self._flush_endpoint(endpoint)
 
     def _flush_endpoint(self, endpoint):
         buf = self._buffers[endpoint]
 
         while buf:
-            batch = buf[:self._max_size]
-            batch_json = '[{0}]'.format(','.join(batch))
+            batch = buf[: self._max_size]
+            batch_json = "[{}]".format(",".join(batch))
             try:
+                # Credentials are passed via Consumer constructor, not send()
                 self._consumer.send(endpoint, batch_json, api_key=self._api_key)
             except MixpanelException as orig_e:
                 mp_e = MixpanelException(orig_e)
                 mp_e.message = batch_json
                 mp_e.endpoint = endpoint
                 raise mp_e from orig_e
-            buf = buf[self._max_size:]
+            buf = buf[self._max_size :]
         self._buffers[endpoint] = buf
-

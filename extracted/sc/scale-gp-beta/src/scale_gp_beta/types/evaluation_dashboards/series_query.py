@@ -56,6 +56,15 @@ class SeriesQuery(BaseModel):
     group_by: Optional[List[str]] = FieldInfo(alias="groupBy", default=None)
     """Columns to group by"""
 
+    latest_only: Optional[bool] = None
+    """
+    When True, the widget computes against rows from only the most recent active
+    evaluation in the group (by EvaluationORM.created_at). Only applicable for
+    evaluation group dashboards. Composes with evaluation_ids (latest within the
+    subset). Cannot be combined with per-aggregation evaluation_ids; the use case
+    enforces these rules.
+    """
+
     limit: Optional[int] = None
     """Max rows to return"""
 

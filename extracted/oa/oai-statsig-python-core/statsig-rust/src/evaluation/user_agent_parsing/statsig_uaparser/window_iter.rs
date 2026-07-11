@@ -1,8 +1,8 @@
-use std::collections::VecDeque;
+use memchr::memchr2;
 
 pub struct WindowIter<'a> {
-    iter: std::str::Split<'a, [char; 2]>,
-    window: VecDeque<&'a str>,
+    iter: AsciiDelimiterSplit<'a>,
+    window: [Option<&'a str>; 4],
 }
 
 type Window<'a> = (
@@ -14,38 +14,52 @@ type Window<'a> = (
 
 impl<'a> WindowIter<'a> {
     pub fn new(input: &'a str) -> Self {
-        let mut iter: std::str::Split<'_, [char; 2]> = input.split([';', ' ']);
-        let mut window = VecDeque::new();
-
-        for _ in 0..4 {
-            if let Some(word) = iter.next() {
-                window.push_back(word);
-            }
-        }
+        let mut iter = AsciiDelimiterSplit::new(input);
+        let window = std::array::from_fn(|_| iter.next());
 
         Self { iter, window }
     }
 
-    #[allow(clippy::get_first)]
     pub fn get_window(&self) -> Window<'a> {
-        (
-            self.window.get(0).copied(),
-            self.window.get(1).copied(),
-            self.window.get(2).copied(),
-            self.window.get(3).copied(),
-        )
+        let [curr, next1, next2, next3] = self.window;
+        (curr, next1, next2, next3)
     }
 
     pub fn slide_window_by(&mut self, n: usize) {
         for _ in 0..n {
-            self.window.pop_front();
-            if let Some(word) = self.iter.next() {
-                self.window.push_back(word);
-            }
+            self.window.rotate_left(1);
+            self.window[3] = self.iter.next();
         }
     }
 
     pub fn is_empty(&self) -> bool {
-        self.window.is_empty()
+        self.window[0].is_none()
+    }
+}
+
+struct AsciiDelimiterSplit<'a> {
+    remainder: Option<&'a str>,
+}
+
+impl<'a> AsciiDelimiterSplit<'a> {
+    fn new(input: &'a str) -> Self {
+        Self {
+            remainder: Some(input),
+        }
+    }
+}
+
+impl<'a> Iterator for AsciiDelimiterSplit<'a> {
+    type Item = &'a str;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        let remainder = self.remainder.take()?;
+        let Some(delimiter) = memchr2(b';', b' ', remainder.as_bytes()) else {
+            return Some(remainder);
+        };
+
+        let (word, rest) = remainder.split_at(delimiter);
+        self.remainder = Some(&rest[1..]);
+        Some(word)
     }
 }

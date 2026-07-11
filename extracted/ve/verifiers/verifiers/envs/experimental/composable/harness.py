@@ -14,8 +14,6 @@ connects them.
     env = ComposableEnv(taskset=taskset, harness=harness)
 """
 
-from __future__ import annotations
-
 from dataclasses import dataclass
 from importlib.abc import Traversable
 from pathlib import Path
@@ -123,6 +121,14 @@ class Harness:
         trajectory the trainer sees — e.g. rlm_harness uses it to drop
         sub-agent calls (``X-RLM-Depth`` header > 0) so only the
         parent agent's turns contribute to the policy gradient.
+    render_completion:
+        Optional renderer for ``state["completion"]``. Called with the
+        per-rollout ``State``; mutates ``state["completion"]`` in place.
+        ``None`` (default) falls back to ``MultiTurnEnv.render_completion``
+        which renders only the last trajectory step. Use this for
+        harnesses that compact context mid-rollout — e.g. rlm_harness
+        uses it to render pre-compaction branches that would otherwise
+        be invisible.
     """
 
     install_script: str | None = None
@@ -132,7 +138,7 @@ class Harness:
     system_prompt_path: str = "/task/system_prompt.txt"
     instruction_path: str = "/task/instruction.md"
     log_path: str | None = None
-    sandbox_spec: SandboxSpec | None = None
+    sandbox_spec: "SandboxSpec | None" = None
     skills_path: str | None = None
     upload_dir_mapping: dict[str, str] | None = None
     get_upload_dirs: Callable[[], dict[str, Traversable | Path] | None] | None = None
@@ -141,12 +147,11 @@ class Harness:
     metrics_key: str | None = None
     metrics_keys: list[str] | None = None
     tool_names: list[str] | None = None
-    environment_vars: Callable[[State], dict[str, str]] | None = None
+    environment_vars: "Callable[[State], dict[str, str]] | None" = None
     post_install_uploads: dict[str, str] | None = None
     post_install_script: str | None = None
-    keep_trajectory_step: (
-        Callable[[TrajectoryStep, State, dict[str, str]], bool] | None
-    ) = None
+    keep_trajectory_step: "Callable[[TrajectoryStep, State, dict[str, str]], bool] | None" = None
+    render_completion: "Callable[[State], None] | None" = None
 
     def get_effective_upload_dir_mapping(self) -> dict[str, str] | None:
         """Return the merged upload mapping (skills_path + upload_dir_mapping)."""

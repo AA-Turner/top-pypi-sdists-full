@@ -1169,6 +1169,7 @@ class FileFormatType(IntEnum):
     ODP = 48,
     ODS = 14,
     ODT = 47,
+    OFD = 1029,
     OLE = 64,
     OLE_10_NATIVE = 35,
     ONE_NOTE = 772,
@@ -1302,6 +1303,9 @@ class FilterType(IntEnum):
     MULTIPLE_FILTERS = 3,
     NONE = 6,
     TOP_10 = 5,
+class FilterValueType(IntEnum):
+    IS_DATE_TIME = 4,
+    IS_STRING = 8,
 class FontFileFormatType(IntEnum):
     OTF = 2,
     TTC = 3,
@@ -1484,6 +1488,9 @@ class HtmlOfficeMathOutputType(IntEnum):
 class HtmlParagraphLayoutMode(IntEnum):
     AS_ROW = 1,
     NORMAL = 0,
+class HtmlSpaceMode(IntEnum):
+    CHARACTER = 0,
+    CSS = 1,
 class HtmlVersion(IntEnum):
     DEFAULT = 0,
     HTML_5 = 2,
@@ -2145,6 +2152,12 @@ class PdfFontEncoding(IntEnum):
 class PdfOptimizationType(IntEnum):
     MINIMUM_SIZE = 1,
     STANDARD = 0,
+class PdfZoomBehavior(IntEnum):
+    FIT_HEIGHT = 4,
+    FIT_PAGE = 2,
+    FIT_WIDTH = 3,
+    NONE = 0,
+    ZOOM_FACTOR = 1,
 class PivotAreaType(IntEnum):
     ALL = 3,
     BUTTON = 5,
@@ -2907,6 +2920,7 @@ class SparklineType(IntEnum):
     COLUMN = 1,
     LINE = 0,
     STACKED = 2,
+    WIN_LOSS = 2,
 class SqlDataType(IntEnum):
     SQL_BIG_INT = -5,
     SQL_BINARY = -2,

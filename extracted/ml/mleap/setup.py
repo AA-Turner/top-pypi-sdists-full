@@ -18,6 +18,7 @@
 
 from __future__ import print_function
 from mleap.version import version
+import os
 import sys
 from setuptools import setup, find_packages
 
@@ -30,6 +31,9 @@ except IOError:
 
 VERSION = version
 
+with open(os.path.join(os.path.dirname(__file__), 'README.md'), encoding='utf-8') as f:
+    LONG_DESCRIPTION = f.read()
+
 REQUIRED_PACKAGES = [
       'numpy>=1.8.2',
       'six>=1.10.0',
@@ -41,13 +45,15 @@ REQUIRED_PACKAGES = [
 setup(name='mleap',
       version=VERSION,
       description='MLeap Python API',
+      long_description=LONG_DESCRIPTION,
+      long_description_content_type='text/markdown',
       author='MLeap Developers',
       author_email='combust@combust.ml',
       url='https://github.com/combust/mleap/tree/master/python',
       packages=find_packages(),
       zip_safe=False,
       install_requires=REQUIRED_PACKAGES,
-      python_requires=">=3.9",
+      python_requires=">=3.10",
       classifiers=[
         'Development Status :: 5 - Production/Stable',
         'Intended Audience :: Developers',
@@ -58,7 +64,6 @@ setup(name='mleap',
         'Topic :: Internet',
         'Programming Language :: Python',
         'Programming Language :: Python :: 3',
-        'Programming Language :: Python :: 3.9',
         'Programming Language :: Python :: 3.10',
         'Programming Language :: Python :: 3.11',
         'Programming Language :: Python :: 3.12',

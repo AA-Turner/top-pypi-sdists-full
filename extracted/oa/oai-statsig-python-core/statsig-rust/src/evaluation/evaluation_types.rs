@@ -342,32 +342,18 @@ fn hash_parameter_rule_ids(parameter_rule_ids: &HashMap<InternedString, Interned
     param_rule_ids_hash.finish()
 }
 
-pub(crate) fn push_optional_version_hash_values(hash_array: &mut Vec<u64>, version: &Option<u32>) {
-    hash_array.push(version.is_some() as u64);
-    hash_array.push(version.map_or(0, u64::from));
-}
-
 fn optional_version_hash_values(version: &Option<u32>) -> [u64; 2] {
     [version.is_some() as u64, version.map_or(0, u64::from)]
 }
 
 #[cfg(test)]
 mod tests {
-    use super::push_optional_version_hash_values;
+    use super::optional_version_hash_values;
 
     #[test]
     fn optional_version_hash_values_distinguish_missing_from_zero() {
-        let mut missing = Vec::new();
-        push_optional_version_hash_values(&mut missing, &None);
-
-        let mut zero = Vec::new();
-        push_optional_version_hash_values(&mut zero, &Some(0));
-
-        let mut one = Vec::new();
-        push_optional_version_hash_values(&mut one, &Some(1));
-
-        assert_eq!(missing, vec![0, 0]);
-        assert_eq!(zero, vec![1, 0]);
-        assert_eq!(one, vec![1, 1]);
+        assert_eq!(optional_version_hash_values(&None), [0, 0]);
+        assert_eq!(optional_version_hash_values(&Some(0)), [1, 0]);
+        assert_eq!(optional_version_hash_values(&Some(1)), [1, 1]);
     }
 }

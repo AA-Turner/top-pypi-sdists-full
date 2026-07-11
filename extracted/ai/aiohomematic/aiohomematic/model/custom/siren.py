@@ -8,7 +8,7 @@ Public API of this module is defined by __all__.
 
 from abc import abstractmethod
 from enum import StrEnum, unique
-from typing import Final, TypedDict, Unpack
+from typing import ClassVar, Final, TypedDict, Unpack
 
 from aiohomematic import i18n
 from aiohomematic.client import CommandPriority
@@ -21,7 +21,7 @@ from aiohomematic.model.custom.field import DataPointField
 from aiohomematic.model.custom.registry import DeviceProfileRegistry
 from aiohomematic.model.data_point import CallParameterCollector, bind_collector
 from aiohomematic.model.generic import DpActionFloat, DpActionSelect, DpBinarySensor, DpSelect, DpSensor
-from aiohomematic.property_decorators import DelegatedProperty, Kind, config_property, state_property
+from aiohomematic.property_decorators import DelegatedProperty, hm_property
 
 _SMOKE_DETECTOR_ALARM_STATUS_IDLE_OFF: Final = "IDLE_OFF"
 
@@ -94,25 +94,25 @@ class BaseCustomDpSiren(CustomDataPoint):
 
     _category = DataPointCategory.SIREN
 
-    @config_property(cached=True)
-    def capabilities(self) -> SirenCapabilities:
-        """Return the siren capabilities."""
-        return self._compute_capabilities()
-
-    @state_property
+    @property
     @abstractmethod
     def available_lights(self) -> tuple[str, ...] | None:
         """Return available lights."""
 
-    @state_property
+    @property
     @abstractmethod
     def available_tones(self) -> tuple[str, ...] | None:
         """Return available tones."""
 
-    @state_property
+    @property
     @abstractmethod
     def is_on(self) -> bool:
         """Return true if siren is on."""
+
+    @hm_property(cached=True)
+    def capabilities(self) -> SirenCapabilities:
+        """Return the siren capabilities."""
+        return self._compute_capabilities()
 
     @abstractmethod
     @bind_collector(priority=CommandPriority.CRITICAL)
@@ -145,15 +145,14 @@ class CustomDpIpSiren(BaseCustomDpSiren):
     _dp_duration: Final = CombinedTimerField(value_field=Field.DURATION, unit_field=Field.DURATION_UNIT, visible=True)
     _dp_optical_alarm_active: Final = DataPointField(field=Field.OPTICAL_ALARM_ACTIVE, dpt=DpBinarySensor)
     _dp_optical_alarm_selection: Final = DataPointField(field=Field.OPTICAL_ALARM_SELECTION, dpt=DpActionSelect)
-
-    available_lights: Final = DelegatedProperty[tuple[str, ...] | None](
-        path="_dp_optical_alarm_selection.values", kind=Kind.STATE
-    )
-    available_tones: Final = DelegatedProperty[tuple[str, ...] | None](
-        path="_dp_acoustic_alarm_selection.values", kind=Kind.STATE
+    _validity_relevant_fields: ClassVar[frozenset[Field]] = frozenset(
+        {Field.ACOUSTIC_ALARM_ACTIVE, Field.OPTICAL_ALARM_ACTIVE}
     )
 
-    @state_property
+    available_lights: Final = DelegatedProperty[tuple[str, ...] | None](path="_dp_optical_alarm_selection.values")
+    available_tones: Final = DelegatedProperty[tuple[str, ...] | None](path="_dp_acoustic_alarm_selection.values")
+
+    @property
     def is_on(self) -> bool:
         """Return true if siren is on."""
         return self._dp_acoustic_alarm_active.value is True or self._dp_optical_alarm_active.value is True
@@ -231,18 +230,19 @@ class CustomDpIpSirenSmoke(BaseCustomDpSiren):
         field=Field.SMOKE_DETECTOR_ALARM_STATUS, dpt=DpSensor[str | None]
     )
     _dp_smoke_detector_command: Final = DataPointField(field=Field.SMOKE_DETECTOR_COMMAND, dpt=DpActionSelect)
+    _validity_relevant_fields: ClassVar[frozenset[Field]] = frozenset({Field.SMOKE_DETECTOR_ALARM_STATUS})
 
-    @state_property
+    @property
     def available_lights(self) -> tuple[str, ...] | None:
         """Return available lights."""
         return None
 
-    @state_property
+    @property
     def available_tones(self) -> tuple[str, ...] | None:
         """Return available tones."""
         return None
 
-    @state_property
+    @property
     def is_on(self) -> bool:
         """Return true if siren is on."""
         if not self._dp_smoke_detector_alarm_status.value:
@@ -281,6 +281,8 @@ class CustomDpSoundPlayer(BaseCustomDpSiren):
     _dp_soundfile: Final = DataPointField(field=Field.SOUNDFILE, dpt=DpSelect)
     _dp_repetitions: Final = DataPointField(field=Field.REPETITIONS, dpt=DpActionSelect)
     _dp_direction: Final = DataPointField(field=Field.DIRECTION, dpt=DpSensor[str | None])
+    # ACTIVITY_STATE carries is_on ("is playing") — the state-carrying field here.
+    _validity_relevant_fields: ClassVar[frozenset[Field]] = frozenset({Field.DIRECTION})
 
     # Expose available options via DelegatedProperty (from ActionSelect VALUE_LISTs)
     @staticmethod
@@ -290,28 +292,26 @@ class CustomDpSoundPlayer(BaseCustomDpSiren):
             raise ValueError(i18n.tr(key="exception.model.custom.siren.invalid_soundfile_index", index=index))
         return f"SOUNDFILE_{index:03d}"
 
-    available_soundfiles: Final = DelegatedProperty[tuple[str, ...] | None](
-        path="_dp_soundfile.values", kind=Kind.STATE
-    )
+    available_soundfiles: Final = DelegatedProperty[tuple[str, ...] | None](path="_dp_soundfile.values")
 
-    @state_property
+    @property
     def available_lights(self) -> tuple[str, ...] | None:
         """Return available lights (not supported for sound player)."""
         return None
 
-    @state_property
+    @property
     def available_tones(self) -> tuple[str, ...] | None:
         """Return available tones (soundfiles for sound player)."""
         return self.available_soundfiles
 
-    @state_property
+    @property
     def current_soundfile(self) -> str | None:
         """Return currently selected soundfile."""
         if (value := self._dp_soundfile.value) is None:
             return None
         return str(value)
 
-    @state_property
+    @property
     def is_on(self) -> bool:
         """Return true if sound is currently playing."""
         activity = self._dp_direction.value

@@ -1,11 +1,9 @@
 import pandas as pd
-import importlib
 from .logger import LOGGER
 from .DSU import DSU
-from communities.algorithms import bron_kerbosch
+import networkx as nx
 import numpy as np
 import copy
-import os
 from causallearn.graph.Edge import Edge
 from causallearn.graph.Endpoint import Endpoint
 from causallearn.graph.GeneralGraph import GeneralGraph
@@ -63,8 +61,8 @@ def _rlcd_impl(
         "unfold_covers": True,
         "check_v": True,        
         "stages": 2,
-        "stage1_method": "fges",
-        "stage1_ges_sparsity": 2,
+        "stage1_method": "ges",
+        "stage1_ges_sparsity": 0.5,
         "stage1_CI_alpha": 0.01,
         "stage1_partition_thres": 3,
         "ranktest_method": None,
@@ -85,51 +83,36 @@ def _rlcd_impl(
         parameters["xvars"] = xvars
 
     if parameters['stages']>=1:
+        stage1_method = parameters['stage1_method']
+        if parameters['sample']:
+            supported_stage1_methods = {'ges'}
+        else:
+            supported_stage1_methods = {'fci'}
+
+        if stage1_method not in supported_stage1_methods:
+            supported = ', '.join(sorted(supported_stage1_methods))
+            raise ValueError(
+                f"Unsupported stage1_method={stage1_method!r}; supported values are: {supported}."
+            )
+
         if not parameters['sample']:
-            if parameters['stage1_method']=='all':
-                Adj_stage1 = np.ones((len(xvars),len(xvars)))
-                partition = [xvars]
-            elif parameters['stage1_method']=='fci':
+            if stage1_method == 'fci':
                 from .FCI_CovRank import fci_true_cov_rank
                 G, edges = fci_true_cov_rank(np.zeros((1, len(xvars))), parameters['citest_method'])
                 Adj_stage1 = process_fci_result(G.graph)
                 partition = getPartition(xvars, abs(Adj_stage1), parameters['stage1_partition_thres'])
         else:
-            if parameters['stage1_method']=='all':
-                Adj_stage1 = np.ones((len(xvars),len(xvars)))
-                partition = [xvars]
-            elif parameters['stage1_method']=='fges':
-                jpype = importlib.import_module("jpype")
-                importlib.import_module("jpype.imports")
-                try:
-                    jpype.startJVM(classpath=[f"./pytetrad/tetrad-current_old.jar"])
-                    #current_dirname = os.path.dirname(__file__)
-                    #jpype.startJVM(classpath=[f"{current_dirname}/../../utils/pytetrad/tetrad-current.jar"])
-                    LOGGER.info("JVM started")
-                except OSError:
-                    LOGGER.info("JVM already started")
-                LOGGER.info('running fges')
-                TetradSearch = importlib.import_module("pytetrad.TetradSearch_old").TetradSearch
-                pytetrad_search = TetradSearch(df)
-                pytetrad_search.set_verbose(False)
-                pytetrad_search.use_sem_bic(penalty_discount=parameters['stage1_ges_sparsity'])
-                pytetrad_search.run_fges()
-                cg = pytetrad_search.get_causal_learn()
-                Adj_stage1 = cg.graph
-                #Adj_stage1_dag = pdag2dag(cg).graph
-
-                partition = getPartition(xvars, abs(Adj_stage1), parameters['stage1_partition_thres'])
-
-            elif parameters['stage1_method']=='ges':
+            if stage1_method == 'ges':
                 LOGGER.info('running ges')
                 from causallearn.search.ScoreBased.GES import ges
-                Record = ges(df.to_numpy(), parameters={'lambda':parameters['stage1_ges_sparsity']})
+                Record = ges(
+                    df.to_numpy(),
+                    lambda_value=parameters['stage1_ges_sparsity'],
+                )
                 Adj_stage1 = Record['G'].graph 
                 #Adj_dag = pdag2dag(Record['G']).graph
 
                 partition = getPartition(xvars, abs(Adj_stage1), parameters['stage1_partition_thres'])
-            else:
-                raise NotImplementedError
 
         LOGGER.info("Partition of Cliques")
         for group in partition:
@@ -228,7 +211,7 @@ def RLCD(
     alpha_dict=None,
     maxk=3,
     node_names=None,
-    stage1_ges_sparsity=2,
+    stage1_ges_sparsity=0.5,
     stage1_partition_thres=3,
     allow_nonleafx=True,
     **kwargs,
@@ -243,8 +226,8 @@ def RLCD(
         Rank test object with a ``test(pcols, qcols, r, alpha)`` method. If
         omitted, ``Chi2RankTest(data)`` is used.
     stage1_method : str, default="ges"
-        Stage-1 method used to partition observed variables. Supported values
-        are inherited from RLCD's structure-learning implementation.
+        Stage-1 method used to partition observed variables. Currently only
+        ``"ges"`` is supported for sample data.
     alpha_dict : dict, optional
         Significance levels for rank tests by rank.
     maxk : int, default=3
@@ -252,6 +235,9 @@ def RLCD(
     node_names : list, optional
         Names for observed variables in the returned graph. If omitted,
         variables are named X1, X2, ...
+    stage1_ges_sparsity : float, default=0.5
+        BIC penalty coefficient used by the GES stage. Larger values produce
+        sparser stage-1 graphs.
 
     Returns
     -------
@@ -346,7 +332,12 @@ def getPartition(xvars, Adj, clique_size_thres, direct_mode=False):
 
     # Adj is pc's result
     partition = []
-    communities = bron_kerbosch(abs(Adj), pivot=True) #if c1 subset c2 then it does not output c1
+    adjacency = np.asarray(Adj) != 0
+    adjacency = np.logical_or(adjacency, adjacency.T)
+    np.fill_diagonal(adjacency, False)
+    graph = nx.from_numpy_array(adjacency)
+    communities = [set(clique) for clique in nx.find_cliques(graph)]
+    communities.sort(key=lambda clique: tuple(sorted(clique)))
     communities = [x for x in communities if len(x)>=clique_size_thres]
 
     if direct_mode:

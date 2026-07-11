@@ -4,7 +4,7 @@
 
    Author: Ilan Schnell
 */
-#define BITARRAY_VERSION  "3.8.2"
+#define BITARRAY_VERSION  "3.9.0"
 
 #ifdef STDC_HEADERS
 #  include <stddef.h>
@@ -76,10 +76,6 @@ typedef struct {
 
 /* assert that .nbits is in agreement with .ob_size */
 #define assert_nbits(self)  assert(BYTES((self)->nbits) == Py_SIZE(self))
-
-/* assert byte index is in range */
-#define assert_byte_in_range(self, j)  \
-    assert(self->ob_item && 0 <= (j) && (j) < Py_SIZE(self))
 
 /* ------------ low level access to bits in bitarrayobject ------------- */
 

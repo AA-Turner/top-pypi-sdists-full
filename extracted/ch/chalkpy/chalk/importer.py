@@ -777,6 +777,11 @@ def parse_grouped_window(f: Feature) -> WindowConfigResolved:
             if isinstance(f.window_materialization, dict)
             else False
         ),
+        allow_filter_migration=(
+            f.window_materialization.get("allow_filter_migration", False)
+            if isinstance(f.window_materialization, dict)
+            else False
+        ),
     )
 
     return cfg
@@ -1100,6 +1105,11 @@ def parse_windowed_materialization(f: Feature) -> WindowConfigResolved | None:
         ),
         cache_aggregated_values=(
             f.window_materialization.get("cache_aggregated_values", False)
+            if isinstance(f.window_materialization, dict)
+            else False
+        ),
+        allow_filter_migration=(
+            f.window_materialization.get("allow_filter_migration", False)
             if isinstance(f.window_materialization, dict)
             else False
         ),

@@ -22,6 +22,8 @@ from chalk._gen.chalk.server.v1.kube_pb2 import (
     GetKubernetesJobsResponse,
     GetKubernetesNamespacesRequest,
     GetKubernetesNamespacesResponse,
+    GetKubernetesPersistentVolumeWithPodsRequest,
+    GetKubernetesPersistentVolumeWithPodsResponse,
     GetKubernetesPersistentVolumesRequest,
     GetKubernetesPersistentVolumesResponse,
     GetKubernetesServiceAccountsRequest,
@@ -30,6 +32,8 @@ from chalk._gen.chalk.server.v1.kube_pb2 import (
     GetKubernetesStatefulSetWithPodsResponse,
     GetKubernetesStatefulSetsRequest,
     GetKubernetesStatefulSetsResponse,
+    GetKubernetesStorageClassesRequest,
+    GetKubernetesStorageClassesResponse,
     GetPodStackTraceDumpRequest,
     GetPodStackTraceDumpResponse,
     GetPodVenvSizeRequest,
@@ -68,6 +72,17 @@ class KubeServiceStub:
         GetKubernetesPersistentVolumesRequest,
         GetKubernetesPersistentVolumesResponse,
     ]
+    GetKubernetesStorageClasses: UnaryUnaryMultiCallable[
+        GetKubernetesStorageClassesRequest,
+        GetKubernetesStorageClassesResponse,
+    ]
+    GetKubernetesPersistentVolumeWithPods: UnaryUnaryMultiCallable[
+        GetKubernetesPersistentVolumeWithPodsRequest,
+        GetKubernetesPersistentVolumeWithPodsResponse,
+    ]
+    """GetKubernetesPersistentVolumeWithPods fetches a single persistent volume,
+    its storage class, and the pods whose PVCs bind to it.
+    """
     GetKubernetesServiceAccounts: UnaryUnaryMultiCallable[
         GetKubernetesServiceAccountsRequest,
         GetKubernetesServiceAccountsResponse,
@@ -139,6 +154,21 @@ class KubeServiceServicer(metaclass=ABCMeta):
         request: GetKubernetesPersistentVolumesRequest,
         context: ServicerContext,
     ) -> GetKubernetesPersistentVolumesResponse: ...
+    @abstractmethod
+    def GetKubernetesStorageClasses(
+        self,
+        request: GetKubernetesStorageClassesRequest,
+        context: ServicerContext,
+    ) -> GetKubernetesStorageClassesResponse: ...
+    @abstractmethod
+    def GetKubernetesPersistentVolumeWithPods(
+        self,
+        request: GetKubernetesPersistentVolumeWithPodsRequest,
+        context: ServicerContext,
+    ) -> GetKubernetesPersistentVolumeWithPodsResponse:
+        """GetKubernetesPersistentVolumeWithPods fetches a single persistent volume,
+        its storage class, and the pods whose PVCs bind to it.
+        """
     @abstractmethod
     def GetKubernetesServiceAccounts(
         self,

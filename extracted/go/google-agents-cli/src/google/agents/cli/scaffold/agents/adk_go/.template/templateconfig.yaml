@@ -18,7 +18,7 @@ example_question: "What's the weather in San Francisco?"
 settings:
   language: "go"
   requires_session: false
-  deployment_targets: ["cloud_run", "gke", "none"]
+  deployment_targets: ["agent_runtime", "cloud_run", "gke", "none"]
   extra_dependencies: []
   tags: ["adk", "go", "a2a"]
   frontend_type: "None"

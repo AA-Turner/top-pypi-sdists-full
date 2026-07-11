@@ -77,6 +77,74 @@ class AnnotationStyle(enum.Enum):
     '''
 
 
+@jsii.data_type(
+    jsii_type="projen.python.uvConfig.AuditOptions",
+    jsii_struct_bases=[],
+    name_mapping={"ignore": "ignore", "ignore_until_fixed": "ignoreUntilFixed"},
+)
+class AuditOptions:
+    def __init__(
+        self,
+        *,
+        ignore: typing.Optional[typing.Sequence[builtins.str]] = None,
+        ignore_until_fixed: typing.Optional[typing.Sequence[builtins.str]] = None,
+    ) -> None:
+        '''
+        :param ignore: (experimental) A list of vulnerability IDs to ignore during auditing. Vulnerabilities matching any of the provided IDs (including aliases) will be excluded from the audit results.
+        :param ignore_until_fixed: (experimental) A list of vulnerability IDs to ignore during auditing, but only while no fix is available. Vulnerabilities matching any of the provided IDs (including aliases) will be excluded from the audit results as long as they have no known fix versions. Once a fix version becomes available, the vulnerability will be reported again.
+
+        :stability: experimental
+        :schema: AuditOptions
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__bcc5ea2182f854183dcda32a05103b5bcbd741be7788d5bb3cd14a68c55f9dd9)
+            check_type(argname="argument ignore", value=ignore, expected_type=type_hints["ignore"])
+            check_type(argname="argument ignore_until_fixed", value=ignore_until_fixed, expected_type=type_hints["ignore_until_fixed"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {}
+        if ignore is not None:
+            self._values["ignore"] = ignore
+        if ignore_until_fixed is not None:
+            self._values["ignore_until_fixed"] = ignore_until_fixed
+
+    @builtins.property
+    def ignore(self) -> typing.Optional[typing.List[builtins.str]]:
+        '''(experimental) A list of vulnerability IDs to ignore during auditing.
+
+        Vulnerabilities matching any of the provided IDs (including aliases) will be excluded from
+        the audit results.
+
+        :stability: experimental
+        :schema: AuditOptions#ignore
+        '''
+        result = self._values.get("ignore")
+        return typing.cast(typing.Optional[typing.List[builtins.str]], result)
+
+    @builtins.property
+    def ignore_until_fixed(self) -> typing.Optional[typing.List[builtins.str]]:
+        '''(experimental) A list of vulnerability IDs to ignore during auditing, but only while no fix is available.
+
+        Vulnerabilities matching any of the provided IDs (including aliases) will be excluded from
+        the audit results as long as they have no known fix versions. Once a fix version becomes
+        available, the vulnerability will be reported again.
+
+        :stability: experimental
+        :schema: AuditOptions#ignore-until-fixed
+        '''
+        result = self._values.get("ignore_until_fixed")
+        return typing.cast(typing.Optional[typing.List[builtins.str]], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "AuditOptions(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
 @jsii.enum(jsii_type="projen.python.uvConfig.AuthPolicy")
 class AuthPolicy(enum.Enum):
     '''(experimental) When to use authentication.
@@ -151,7 +219,7 @@ class BuildBackendSettings:
         :param module_name: (experimental) The name of the module directory inside ``module-root``. The default module name is the package name with dots and dashes replaced by underscores. Package names need to be valid Python identifiers, and the directory needs to contain a ``__init__.py``. An exception are stubs packages, whose name ends with ``-stubs``, with the stem being the module name, and which contain a ``__init__.pyi`` file. For namespace packages with a single module, the path can be dotted, e.g., ``foo.bar`` or ``foo-stubs.bar``. For namespace packages with multiple modules, the path can be a list, e.g., ``["foo", "bar"]``. We recommend using a single module per package, splitting multiple packages into a workspace. Note that using this option runs the risk of creating two packages with different names but the same module names. Installing such packages together leads to unspecified behavior, often with corrupted files or directory trees.
         :param module_root: (experimental) The directory that contains the module directory. Common values are ``src`` (src layout, the default) or an empty path (flat layout).
         :param namespace: (experimental) Build a namespace package. Build a PEP 420 implicit namespace package, allowing more than one root ``__init__.py``. Use this option when the namespace package contains multiple root ``__init__.py``, for namespace packages with a single root ``__init__.py`` use a dotted ``module-name`` instead. To compare dotted ``module-name`` and ``namespace = true``, the first example below can be expressed with ``module-name = "cloud.database"``: There is one root ``__init__.py`` ``database``. In the second example, we have three roots (``cloud.database``, ``cloud.database_pro``, ``billing.modules.database_pro``), so ``namespace = true`` is required:: src └── cloud └── database ├── __init__.py ├── query_builder │ └── __init__.py └── sql ├── parser.py └── __init__.py Example:: src ├── cloud │ ├── database │ │ ├── __init__.py │ │ ├── query_builder │ │ │ └── __init__.py │ │ └── sql │ │ ├── __init__.py │ │ └── parser.py │ └── database_pro │ ├── __init__.py │ └── query_builder.py └── billing └── modules └── database_pro ├── __init__.py └── sql.py
-        :param source_exclude: (experimental) Glob expressions which files and directories to exclude from the source distribution.
+        :param source_exclude: (experimental) Glob expressions which files and directories to exclude from the source distribution. These exclusions are also applied to wheels to ensure that a wheel built from a source tree is consistent with a wheel built from a source distribution.
         :param source_include: (experimental) Glob expressions which files and directories to additionally include in the source distribution. ``pyproject.toml`` and the contents of the module directory are always included.
         :param wheel_exclude: (experimental) Glob expressions which files and directories to exclude from the wheel.
 
@@ -323,6 +391,9 @@ class BuildBackendSettings:
     def source_exclude(self) -> typing.Optional[typing.List[builtins.str]]:
         '''(experimental) Glob expressions which files and directories to exclude from the source distribution.
 
+        These exclusions are also applied to wheels to ensure that a wheel built from a source tree
+        is consistent with a wheel built from a source distribution.
+
         :stability: experimental
         :schema: BuildBackendSettings#source-exclude
         '''
@@ -409,6 +480,50 @@ class DependencyGroupSettings:
         )
 
 
+class ExcludeNewerOverride(
+    metaclass=jsii.JSIIMeta,
+    jsii_type="projen.python.uvConfig.ExcludeNewerOverride",
+):
+    '''
+    :stability: experimental
+    :schema: ExcludeNewerOverride
+    '''
+
+    @jsii.member(jsii_name="fromBoolean")
+    @builtins.classmethod
+    def from_boolean(cls, value: builtins.bool) -> "ExcludeNewerOverride":
+        '''
+        :param value: -
+
+        :stability: experimental
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__bff9890028d18cf500580c50ccac37dc7853fde1d03865042f89cde5ff70cf71)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        return typing.cast("ExcludeNewerOverride", jsii.sinvoke(cls, "fromBoolean", [value]))
+
+    @jsii.member(jsii_name="fromString")
+    @builtins.classmethod
+    def from_string(cls, value: builtins.str) -> "ExcludeNewerOverride":
+        '''
+        :param value: -
+
+        :stability: experimental
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__40119fb701476139f4f89afe787fc740c19de4b6a32684d3dd48077ce3a0e3a3)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        return typing.cast("ExcludeNewerOverride", jsii.sinvoke(cls, "fromString", [value]))
+
+    @builtins.property
+    @jsii.member(jsii_name="value")
+    def value(self) -> typing.Union[builtins.str, builtins.bool]:
+        '''
+        :stability: experimental
+        '''
+        return typing.cast(typing.Union[builtins.str, builtins.bool], jsii.get(self, "value"))
+
+
 @jsii.enum(jsii_type="projen.python.uvConfig.ForkStrategy")
 class ForkStrategy(enum.Enum):
     '''
@@ -442,6 +557,7 @@ class ForkStrategy(enum.Enum):
         "authenticate": "authenticate",
         "cache_control": "cacheControl",
         "default": "default",
+        "exclude_newer": "excludeNewer",
         "explicit": "explicit",
         "format": "format",
         "ignore_error_codes": "ignoreErrorCodes",
@@ -457,6 +573,7 @@ class Index:
         authenticate: typing.Optional["AuthPolicy"] = None,
         cache_control: typing.Optional[typing.Union["IndexCacheControl", typing.Dict[builtins.str, typing.Any]]] = None,
         default: typing.Optional[builtins.bool] = None,
+        exclude_newer: typing.Optional["ExcludeNewerOverride"] = None,
         explicit: typing.Optional[builtins.bool] = None,
         format: typing.Optional["IndexFormat"] = None,
         ignore_error_codes: typing.Optional[typing.Sequence[jsii.Number]] = None,
@@ -468,10 +585,11 @@ class Index:
         :param authenticate: (experimental) When uv should use authentication for requests to the index. Example:: [[tool.uv.index]] name = "my-index" url = "https://<omitted>/simple" authenticate = "always"
         :param cache_control: (experimental) Cache control configuration for this index. When set, these headers will override the server's cache control headers for both package metadata requests and artifact downloads:: [[tool.uv.index]] name = "my-index" url = "https://<omitted>/simple" cache-control = { api = "max-age=600", files = "max-age=3600" }
         :param default: (experimental) Mark the index as the default index. By default, uv uses PyPI as the default index, such that even if additional indexes are defined via ``[[tool.uv.index]]``, PyPI will still be used as a fallback for packages that aren't found elsewhere. To disable the PyPI default, set ``default = true`` on at least one other index. Marking an index as default will move it to the front of the list of indexes, such that it is given the highest priority when resolving packages.
-        :param explicit: (experimental) Mark the index as explicit. Explicit indexes will *only* be used when explicitly requested via a ``[tool.uv.sources]`` definition, as in:: [[tool.uv.index]] name = "pytorch" url = "https://download.pytorch.org/whl/cu121" explicit = true [tool.uv.sources] torch = { index = "pytorch" }
+        :param exclude_newer: (experimental) An index-specific ``exclude-newer`` cutoff. Accepts the same date, timestamp, and duration values as the global ``exclude-newer`` setting. Set this to ``false`` to disable ``exclude-newer`` for this index entirely. When set to a value, packages resolved from this index will use that cutoff instead of the globally-specified value, unless a package-specific ``exclude-newer-package`` override is present. This option is in preview and may change in any future release:: [tool.uv] exclude-newer = "2025-01-01T00:00:00Z" [[tool.uv.index]] name = "internal" url = "https://internal.example.com/simple" exclude-newer = "7 days"
+        :param explicit: (experimental) Mark the index as explicit. Explicit indexes will *only* be used when explicitly requested via a ``[tool.uv.sources]`` definition, as in:: [[tool.uv.index]] name = "pytorch" url = "https://download.pytorch.org/whl/cu130" explicit = true [tool.uv.sources] torch = { index = "pytorch" }
         :param format: (experimental) The format used by the index. Indexes can either be PEP 503-compliant (i.e., a PyPI-style registry implementing the Simple API) or structured as a flat list of distributions (e.g., ``--find-links``). In both cases, indexes can point to either local or remote resources.
         :param ignore_error_codes: (experimental) Status codes that uv should ignore when deciding whether to continue searching in the next index after a failure. Example:: [[tool.uv.index]] name = "my-index" url = "https://<omitted>/simple" ignore-error-codes = [401, 403]
-        :param name: (experimental) The name of the index. Index names can be used to reference indexes elsewhere in the configuration. For example, you can pin a package to a specific index by name:: [[tool.uv.index]] name = "pytorch" url = "https://download.pytorch.org/whl/cu121" [tool.uv.sources] torch = { index = "pytorch" }
+        :param name: (experimental) The name of the index. Index names can be used to reference indexes elsewhere in the configuration. For example, you can pin a package to a specific index by name:: [[tool.uv.index]] name = "pytorch" url = "https://download.pytorch.org/whl/cu130" [tool.uv.sources] torch = { index = "pytorch" }
         :param publish_url: (experimental) The URL of the upload endpoint. When using ``uv publish --index <name>``, this URL is used for publishing. A configuration for the default index PyPI would look as follows:: [[tool.uv.index]] name = "pypi" url = "https://pypi.org/simple" publish-url = "https://upload.pypi.org/legacy/"
 
         :stability: experimental
@@ -485,6 +603,7 @@ class Index:
             check_type(argname="argument authenticate", value=authenticate, expected_type=type_hints["authenticate"])
             check_type(argname="argument cache_control", value=cache_control, expected_type=type_hints["cache_control"])
             check_type(argname="argument default", value=default, expected_type=type_hints["default"])
+            check_type(argname="argument exclude_newer", value=exclude_newer, expected_type=type_hints["exclude_newer"])
             check_type(argname="argument explicit", value=explicit, expected_type=type_hints["explicit"])
             check_type(argname="argument format", value=format, expected_type=type_hints["format"])
             check_type(argname="argument ignore_error_codes", value=ignore_error_codes, expected_type=type_hints["ignore_error_codes"])
@@ -499,6 +618,8 @@ class Index:
             self._values["cache_control"] = cache_control
         if default is not None:
             self._values["default"] = default
+        if exclude_newer is not None:
+            self._values["exclude_newer"] = exclude_newer
         if explicit is not None:
             self._values["explicit"] = explicit
         if format is not None:
@@ -577,6 +698,33 @@ class Index:
         return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
+    def exclude_newer(self) -> typing.Optional["ExcludeNewerOverride"]:
+        '''(experimental) An index-specific ``exclude-newer`` cutoff.
+
+        Accepts the same date, timestamp, and duration values as the global ``exclude-newer``
+        setting. Set this to ``false`` to disable ``exclude-newer`` for this index entirely.
+
+        When set to a value, packages resolved from this index will use that cutoff instead of the
+        globally-specified value, unless a package-specific ``exclude-newer-package`` override is
+        present.
+
+        This option is in preview and may change in any future release::
+
+           [tool.uv]
+           exclude-newer = "2025-01-01T00:00:00Z"
+
+           [[tool.uv.index]]
+           name = "internal"
+           url = "https://internal.example.com/simple"
+           exclude-newer = "7 days"
+
+        :stability: experimental
+        :schema: Index#exclude-newer
+        '''
+        result = self._values.get("exclude_newer")
+        return typing.cast(typing.Optional["ExcludeNewerOverride"], result)
+
+    @builtins.property
     def explicit(self) -> typing.Optional[builtins.bool]:
         '''(experimental) Mark the index as explicit.
 
@@ -585,7 +733,7 @@ class Index:
 
            [[tool.uv.index]]
            name = "pytorch"
-           url = "https://download.pytorch.org/whl/cu121"
+           url = "https://download.pytorch.org/whl/cu130"
            explicit = true
 
            [tool.uv.sources]
@@ -637,7 +785,7 @@ class Index:
 
            [[tool.uv.index]]
            name = "pytorch"
-           url = "https://download.pytorch.org/whl/cu121"
+           url = "https://download.pytorch.org/whl/cu130"
 
            [tool.uv.sources]
            torch = { index = "pytorch" }
@@ -840,32 +988,39 @@ class KeyringProviderType(enum.Enum):
 
 @jsii.enum(jsii_type="projen.python.uvConfig.LinkMode")
 class LinkMode(enum.Enum):
-    '''
+    '''(experimental) The method to use when linking.
+
+    Defaults to [``LinkMode::Clone``] on macOS and Linux (which support copy-on-write on
+    APFS and btrfs/xfs/bcachefs respectively), and [``LinkMode::Hardlink``] on other
+    platforms.
+
+    :default: LinkMode::Clone`] on macOS and Linux (which support copy-on-write on
+
     :stability: experimental
     :schema: LinkMode
     '''
 
     CLONE = "CLONE"
-    '''(experimental) Clone (i.e., copy-on-write) packages from the wheel into the ``site-packages`` directory. (clone).
+    '''(experimental) Clone (i.e., copy-on-write) packages from the source into the destination. (clone).
 
     :stability: experimental
     '''
     COPY = "COPY"
-    '''(experimental) Copy packages from the wheel into the ``site-packages`` directory.
+    '''(experimental) Copy packages from the source into the destination.
 
     (copy)
 
     :stability: experimental
     '''
     HARDLINK = "HARDLINK"
-    '''(experimental) Hard link packages from the wheel into the ``site-packages`` directory.
+    '''(experimental) Hard link packages from the source into the destination.
 
     (hardlink)
 
     :stability: experimental
     '''
     SYMLINK = "SYMLINK"
-    '''(experimental) Symbolically link packages from the wheel into the ``site-packages`` directory.
+    '''(experimental) Symbolically link packages from the source into the destination.
 
     (symlink)
 
@@ -980,6 +1135,7 @@ class PipGroupName:
         "no_header": "noHeader",
         "no_index": "noIndex",
         "no_sources": "noSources",
+        "no_sources_package": "noSourcesPackage",
         "no_strip_extras": "noStripExtras",
         "no_strip_markers": "noStripMarkers",
         "only_binary": "onlyBinary",
@@ -1022,7 +1178,7 @@ class PipOptions:
         emit_index_url: typing.Optional[builtins.bool] = None,
         emit_marker_expression: typing.Optional[builtins.bool] = None,
         exclude_newer: typing.Optional[builtins.str] = None,
-        exclude_newer_package: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+        exclude_newer_package: typing.Optional[typing.Mapping[builtins.str, "ExcludeNewerOverride"]] = None,
         extra: typing.Optional[typing.Sequence[builtins.str]] = None,
         extra_build_dependencies: typing.Optional[typing.Mapping[builtins.str, typing.Sequence[typing.Any]]] = None,
         extra_build_variables: typing.Optional[typing.Mapping[builtins.str, typing.Mapping[builtins.str, builtins.str]]] = None,
@@ -1046,6 +1202,7 @@ class PipOptions:
         no_header: typing.Optional[builtins.bool] = None,
         no_index: typing.Optional[builtins.bool] = None,
         no_sources: typing.Optional[builtins.bool] = None,
+        no_sources_package: typing.Optional[typing.Sequence[builtins.str]] = None,
         no_strip_extras: typing.Optional[builtins.bool] = None,
         no_strip_markers: typing.Optional[builtins.bool] = None,
         only_binary: typing.Optional[typing.Sequence[builtins.str]] = None,
@@ -1087,8 +1244,8 @@ class PipOptions:
         :param emit_index_annotation: (experimental) Include comment annotations indicating the index used to resolve each package (e.g., ``# from https://pypi.org/simple``).
         :param emit_index_url: (experimental) Include ``--index-url`` and ``--extra-index-url`` entries in the output file generated by ``uv pip compile``.
         :param emit_marker_expression: (experimental) Whether to emit a marker string indicating the conditions under which the set of pinned dependencies is valid. The pinned dependencies may be valid even when the marker expression is false, but when the expression is true, the requirements are known to be correct.
-        :param exclude_newer: (experimental) Limit candidate packages to those that were uploaded prior to a given point in time. Accepts a superset of `RFC 3339 <https://www.rfc-editor.org/rfc/rfc3339.html>`_ (e.g., ``2006-12-02T02:07:43Z``). A full timestamp is required to ensure that the resolver will behave consistently across timezones.
-        :param exclude_newer_package: (experimental) Limit candidate packages for specific packages to those that were uploaded prior to the given date. Accepts package-date pairs in a dictionary format.
+        :param exclude_newer: (experimental) Limit candidate packages to those that were uploaded prior to a given point in time. The date is compared against the upload time of each individual distribution artifact (i.e., when each file was uploaded to the package index), not the release date of the package version. Accepts RFC 3339 timestamps (e.g., ``2006-12-02T02:07:43Z``), a "friendly" duration (e.g., ``24 hours``, ``1 week``, ``30 days``), or an ISO 8601 duration (e.g., ``PT24H``, ``P7D``, ``P30D``). Durations do not respect semantics of the local time zone and are always resolved to a fixed number of seconds assuming that a day is 24 hours (e.g., DST transitions are ignored). Calendar units such as months and years are not allowed.
+        :param exclude_newer_package: (experimental) Limit candidate packages for specific packages to those that were uploaded prior to the given date. Accepts a dictionary format of ``PACKAGE = "DATE"`` pairs, where ``DATE`` is an RFC 3339 timestamp (e.g., ``2006-12-02T02:07:43Z``), a "friendly" duration (e.g., ``24 hours``, ``1 week``, ``30 days``), or a ISO 8601 duration (e.g., ``PT24H``, ``P7D``, ``P30D``). Durations do not respect semantics of the local time zone and are always resolved to a fixed number of seconds assuming that a day is 24 hours (e.g., DST transitions are ignored). Calendar units such as months and years are not allowed. Set a package to ``false`` to exempt it from the global ```exclude-newer`` <#exclude-newer>`_ constraint entirely.
         :param extra: (experimental) Include optional dependencies from the specified extra; may be provided more than once. Only applies to ``pyproject.toml``, ``setup.py``, and ``setup.cfg`` sources.
         :param extra_build_dependencies: (experimental) Additional build dependencies for packages. This allows extending the PEP 517 build environment for the project's dependencies with additional packages. This is useful for packages that assume the presence of packages like ``pip``, and do not declare them as build dependencies.
         :param extra_build_variables: (experimental) Extra environment variables to set when building certain packages. Environment variables will be added to the environment when building the specified packages.
@@ -1100,7 +1257,7 @@ class PipOptions:
         :param index_strategy: (experimental) The strategy to use when resolving against multiple index URLs. By default, uv will stop at the first index on which a given package is available, and limit resolutions to those present on that first index (``first-index``). This prevents "dependency confusion" attacks, whereby an attacker can upload a malicious package under the same name to an alternate index.
         :param index_url: (experimental) The URL of the Python package index (by default: `https://pypi.org/simple <https://pypi.org/simple>`_). Accepts either a repository compliant with `PEP 503 <https://peps.python.org/pep-0503/>`_ (the simple repository API), or a local directory laid out in the same format. The index provided by this setting is given lower priority than any indexes specified via ```extra_index_url`` <#extra-index-url>`_.
         :param keyring_provider: (experimental) Attempt to use ``keyring`` for authentication for index URLs. At present, only ``--keyring-provider subprocess`` is supported, which configures uv to use the ``keyring`` CLI to handle authentication.
-        :param link_mode: (experimental) The method to use when installing packages from the global cache. Defaults to ``clone`` (also known as Copy-on-Write) on macOS, and ``hardlink`` on Linux and Windows. WARNING: The use of symlink link mode is discouraged, as they create tight coupling between the cache and the target environment. For example, clearing the cache (``uv cache clean``) will break all installed packages by way of removing the underlying source files. Use symlinks with caution. Default: clone``(also known as Copy-on-Write) on macOS, and``hardlink` on Linux and
+        :param link_mode: (experimental) The method to use when installing packages from the global cache. Defaults to ``clone`` (also known as Copy-on-Write) on macOS and Linux, and ``hardlink`` on Windows. WARNING: The use of symlink link mode is discouraged, as they create tight coupling between the cache and the target environment. For example, clearing the cache (``uv cache clean``) will break all installed packages by way of removing the underlying source files. Use symlinks with caution. Default: clone``(also known as Copy-on-Write) on macOS and Linux, and``hardlink` on
         :param no_annotate: (experimental) Exclude comment annotations indicating the source of each package from the output file generated by ``uv pip compile``.
         :param no_binary: (experimental) Don't install pre-built wheels. The given packages will be built and installed from source. The resolver will still use pre-built wheels to extract package metadata, if available. Multiple packages may be provided. Disable binaries for all packages with ``:all:``. Clear previously specified packages with ``:none:``.
         :param no_build: (experimental) Don't build source distributions. When enabled, resolving will not run arbitrary Python code. The cached wheels of already-built source distributions will be reused, but operations that require building distributions will exit with an error. Alias for ``--only-binary :all:``.
@@ -1112,6 +1269,7 @@ class PipOptions:
         :param no_header: (experimental) Exclude the comment header at the top of output file generated by ``uv pip compile``.
         :param no_index: (experimental) Ignore all registry indexes (e.g., PyPI), instead relying on direct URL dependencies and those provided via ``--find-links``.
         :param no_sources: (experimental) Ignore the ``tool.uv.sources`` table when resolving dependencies. Used to lock against the standards-compliant, publishable package metadata, as opposed to using any local or Git sources.
+        :param no_sources_package: (experimental) Ignore ``tool.uv.sources`` for the specified packages.
         :param no_strip_extras: (experimental) Include extras in the output file. By default, uv strips extras, as any packages pulled in by the extras are already included as dependencies in the output file directly. Further, output files generated with ``--no-strip-extras`` cannot be used as constraints files in ``install`` and ``sync`` invocations.
         :param no_strip_markers: (experimental) Include environment markers in the output file generated by ``uv pip compile``. By default, uv strips environment markers, as the resolution generated by ``compile`` is only guaranteed to be correct for the target environment.
         :param only_binary: (experimental) Only use pre-built wheels; don't build source distributions. When enabled, resolving will not run code from the given packages. The cached wheels of already-built source distributions will be reused, but operations that require building distributions will exit with an error. Multiple packages may be provided. Disable binaries for all packages with ``:all:``. Clear previously specified packages with ``:none:``.
@@ -1128,7 +1286,7 @@ class PipOptions:
         :param strict: (experimental) Validate the Python environment, to detect packages with missing dependencies and other issues.
         :param system: (experimental) Install packages into the system Python environment. By default, uv installs into the virtual environment in the current working directory or any parent directory. The ``--system`` option instructs uv to instead use the first Python found in the system ``PATH``. WARNING: ``--system`` is intended for use in continuous integration (CI) environments and should be used with caution, as it can modify the system Python installation.
         :param target: (experimental) Install packages into the specified directory, rather than into the virtual or system Python environment. The packages will be installed at the top-level of the directory.
-        :param torch_backend: (experimental) The backend to use when fetching packages in the PyTorch ecosystem. When set, uv will ignore the configured index URLs for packages in the PyTorch ecosystem, and will instead use the defined backend. For example, when set to ``cpu``, uv will use the CPU-only PyTorch index; when set to ``cu126``, uv will use the PyTorch index for CUDA 12.6. The ``auto`` mode will attempt to detect the appropriate PyTorch index based on the currently installed CUDA drivers. This option is in preview and may change in any future release.
+        :param torch_backend: (experimental) The backend to use when fetching packages in the PyTorch ecosystem. When set, uv will ignore the configured index URLs for packages in the PyTorch ecosystem, and will instead use the defined backend. For example, when set to ``cpu``, uv will use the CPU-only PyTorch index; when set to ``cu126``, uv will use the PyTorch index for CUDA 12.6. The ``auto`` mode will attempt to detect the appropriate PyTorch index based on the currently installed CUDA drivers. This setting is only respected by ``uv pip`` commands. This option is in preview and may change in any future release.
         :param universal: (experimental) Perform a universal resolution, attempting to generate a single ``requirements.txt`` output file that is compatible with all operating systems, architectures, and Python implementations. In universal mode, the current Python version (or user-provided ``--python-version``) will be treated as a lower bound. For example, ``--universal --python-version 3.7`` would produce a universal resolution for Python 3.7 and later.
         :param upgrade: (experimental) Allow package upgrades, ignoring pinned versions in any existing output file.
         :param upgrade_package: (experimental) Allow upgrades for a specific package, ignoring pinned versions in any existing output file. Accepts both standalone package names (``ruff``) and version specifiers (``ruff<0.5.0``).
@@ -1178,6 +1336,7 @@ class PipOptions:
             check_type(argname="argument no_header", value=no_header, expected_type=type_hints["no_header"])
             check_type(argname="argument no_index", value=no_index, expected_type=type_hints["no_index"])
             check_type(argname="argument no_sources", value=no_sources, expected_type=type_hints["no_sources"])
+            check_type(argname="argument no_sources_package", value=no_sources_package, expected_type=type_hints["no_sources_package"])
             check_type(argname="argument no_strip_extras", value=no_strip_extras, expected_type=type_hints["no_strip_extras"])
             check_type(argname="argument no_strip_markers", value=no_strip_markers, expected_type=type_hints["no_strip_markers"])
             check_type(argname="argument only_binary", value=only_binary, expected_type=type_hints["only_binary"])
@@ -1278,6 +1437,8 @@ class PipOptions:
             self._values["no_index"] = no_index
         if no_sources is not None:
             self._values["no_sources"] = no_sources
+        if no_sources_package is not None:
+            self._values["no_sources_package"] = no_sources_package
         if no_strip_extras is not None:
             self._values["no_strip_extras"] = no_strip_extras
         if no_strip_markers is not None:
@@ -1505,9 +1666,16 @@ class PipOptions:
     def exclude_newer(self) -> typing.Optional[builtins.str]:
         '''(experimental) Limit candidate packages to those that were uploaded prior to a given point in time.
 
-        Accepts a superset of `RFC 3339 <https://www.rfc-editor.org/rfc/rfc3339.html>`_ (e.g.,
-        ``2006-12-02T02:07:43Z``). A full timestamp is required to ensure that the resolver will
-        behave consistently across timezones.
+        The date is compared against the upload time of each individual distribution artifact
+        (i.e., when each file was uploaded to the package index), not the release date of the
+        package version.
+
+        Accepts RFC 3339 timestamps (e.g., ``2006-12-02T02:07:43Z``), a "friendly" duration (e.g.,
+        ``24 hours``, ``1 week``, ``30 days``), or an ISO 8601 duration (e.g., ``PT24H``, ``P7D``, ``P30D``).
+
+        Durations do not respect semantics of the local time zone and are always resolved to a fixed
+        number of seconds assuming that a day is 24 hours (e.g., DST transitions are ignored).
+        Calendar units such as months and years are not allowed.
 
         :stability: experimental
         :schema: PipOptions#exclude-newer
@@ -1518,16 +1686,25 @@ class PipOptions:
     @builtins.property
     def exclude_newer_package(
         self,
-    ) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
+    ) -> typing.Optional[typing.Mapping[builtins.str, "ExcludeNewerOverride"]]:
         '''(experimental) Limit candidate packages for specific packages to those that were uploaded prior to the given date.
 
-        Accepts package-date pairs in a dictionary format.
+        Accepts a dictionary format of ``PACKAGE = "DATE"`` pairs, where ``DATE`` is an RFC 3339
+        timestamp (e.g., ``2006-12-02T02:07:43Z``), a "friendly" duration (e.g., ``24 hours``, ``1 week``,
+        ``30 days``), or a ISO 8601 duration (e.g., ``PT24H``, ``P7D``, ``P30D``).
+
+        Durations do not respect semantics of the local time zone and are always resolved to a fixed
+        number of seconds assuming that a day is 24 hours (e.g., DST transitions are ignored).
+        Calendar units such as months and years are not allowed.
+
+        Set a package to ``false`` to exempt it from the global ```exclude-newer`` <#exclude-newer>`_
+        constraint entirely.
 
         :stability: experimental
         :schema: PipOptions#exclude-newer-package
         '''
         result = self._values.get("exclude_newer_package")
-        return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
+        return typing.cast(typing.Optional[typing.Mapping[builtins.str, "ExcludeNewerOverride"]], result)
 
     @builtins.property
     def extra(self) -> typing.Optional[typing.List[builtins.str]]:
@@ -1693,7 +1870,7 @@ class PipOptions:
     def link_mode(self) -> typing.Optional["LinkMode"]:
         '''(experimental) The method to use when installing packages from the global cache.
 
-        Defaults to ``clone`` (also known as Copy-on-Write) on macOS, and ``hardlink`` on Linux and
+        Defaults to ``clone`` (also known as Copy-on-Write) on macOS and Linux, and ``hardlink`` on
         Windows.
 
         WARNING: The use of symlink link mode is discouraged, as they create tight coupling between
@@ -1701,7 +1878,7 @@ class PipOptions:
         will break all installed packages by way of removing the underlying source files. Use
         symlinks with caution.
 
-        :default: clone``(also known as Copy-on-Write) on macOS, and``hardlink` on Linux and
+        :default: clone``(also known as Copy-on-Write) on macOS and Linux, and``hardlink` on
 
         :stability: experimental
         :schema: PipOptions#link-mode
@@ -1839,6 +2016,16 @@ class PipOptions:
         '''
         result = self._values.get("no_sources")
         return typing.cast(typing.Optional[builtins.bool], result)
+
+    @builtins.property
+    def no_sources_package(self) -> typing.Optional[typing.List[builtins.str]]:
+        '''(experimental) Ignore ``tool.uv.sources`` for the specified packages.
+
+        :stability: experimental
+        :schema: PipOptions#no-sources-package
+        '''
+        result = self._values.get("no_sources_package")
+        return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
     @builtins.property
     def no_strip_extras(self) -> typing.Optional[builtins.bool]:
@@ -2084,6 +2271,8 @@ class PipOptions:
 
         The ``auto`` mode will attempt to detect the appropriate PyTorch index based on the currently
         installed CUDA drivers.
+
+        This setting is only respected by ``uv pip`` commands.
 
         This option is in preview and may change in any future release.
 
@@ -3040,6 +3229,26 @@ class TorchMode(enum.Enum):
 
     :stability: experimental
     '''
+    ROCM7_2 = "ROCM7_2"
+    '''(experimental) Use the PyTorch index for ROCm 7.2. (rocm7.2).
+
+    :stability: experimental
+    '''
+    ROCM7_1 = "ROCM7_1"
+    '''(experimental) Use the PyTorch index for ROCm 7.1. (rocm7.1).
+
+    :stability: experimental
+    '''
+    ROCM7_0 = "ROCM7_0"
+    '''(experimental) Use the PyTorch index for ROCm 7.0. (rocm7.0).
+
+    :stability: experimental
+    '''
+    ROCM6_4 = "ROCM6_4"
+    '''(experimental) Use the PyTorch index for ROCm 6.4. (rocm6.4).
+
+    :stability: experimental
+    '''
     ROCM6_3 = "ROCM6_3"
     '''(experimental) Use the PyTorch index for ROCm 6.3. (rocm6.3).
 
@@ -3161,6 +3370,7 @@ class TrustedPublishing(enum.Enum):
     name_mapping={
         "add_bounds": "addBounds",
         "allow_insecure_host": "allowInsecureHost",
+        "audit": "audit",
         "build_backend": "buildBackend",
         "build_constraint_dependencies": "buildConstraintDependencies",
         "cache_dir": "cacheDir",
@@ -3187,6 +3397,8 @@ class TrustedPublishing(enum.Enum):
         "extra_index_url": "extraIndexUrl",
         "find_links": "findLinks",
         "fork_strategy": "forkStrategy",
+        "http_proxy": "httpProxy",
+        "https_proxy": "httpsProxy",
         "index": "index",
         "index_strategy": "indexStrategy",
         "index_url": "indexUrl",
@@ -3202,7 +3414,9 @@ class TrustedPublishing(enum.Enum):
         "no_build_package": "noBuildPackage",
         "no_cache": "noCache",
         "no_index": "noIndex",
+        "no_proxy": "noProxy",
         "no_sources": "noSources",
+        "no_sources_package": "noSourcesPackage",
         "offline": "offline",
         "override_dependencies": "overrideDependencies",
         "package": "package",
@@ -3221,6 +3435,8 @@ class TrustedPublishing(enum.Enum):
         "required_version": "requiredVersion",
         "resolution": "resolution",
         "sources": "sources",
+        "system_certs": "systemCerts",
+        "torch_backend": "torchBackend",
         "trusted_publishing": "trustedPublishing",
         "upgrade": "upgrade",
         "upgrade_package": "upgradePackage",
@@ -3233,6 +3449,7 @@ class UvConfiguration:
         *,
         add_bounds: typing.Optional["AddBoundsKind"] = None,
         allow_insecure_host: typing.Optional[typing.Sequence[builtins.str]] = None,
+        audit: typing.Optional[typing.Union["AuditOptions", typing.Dict[builtins.str, typing.Any]]] = None,
         build_backend: typing.Optional[typing.Union["BuildBackendSettings", typing.Dict[builtins.str, typing.Any]]] = None,
         build_constraint_dependencies: typing.Optional[typing.Sequence[builtins.str]] = None,
         cache_dir: typing.Optional[builtins.str] = None,
@@ -3253,12 +3470,14 @@ class UvConfiguration:
         environments: typing.Optional[typing.Sequence[builtins.str]] = None,
         exclude_dependencies: typing.Optional[typing.Sequence[builtins.str]] = None,
         exclude_newer: typing.Optional[builtins.str] = None,
-        exclude_newer_package: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+        exclude_newer_package: typing.Optional[typing.Mapping[builtins.str, "ExcludeNewerOverride"]] = None,
         extra_build_dependencies: typing.Optional[typing.Mapping[builtins.str, typing.Sequence[typing.Any]]] = None,
         extra_build_variables: typing.Optional[typing.Mapping[builtins.str, typing.Mapping[builtins.str, builtins.str]]] = None,
         extra_index_url: typing.Optional[typing.Sequence[builtins.str]] = None,
         find_links: typing.Optional[typing.Sequence[builtins.str]] = None,
         fork_strategy: typing.Optional["ForkStrategy"] = None,
+        http_proxy: typing.Optional[builtins.str] = None,
+        https_proxy: typing.Optional[builtins.str] = None,
         index: typing.Optional[typing.Sequence[typing.Union["Index", typing.Dict[builtins.str, typing.Any]]]] = None,
         index_strategy: typing.Optional["IndexStrategy"] = None,
         index_url: typing.Optional[builtins.str] = None,
@@ -3274,7 +3493,9 @@ class UvConfiguration:
         no_build_package: typing.Optional[typing.Sequence[builtins.str]] = None,
         no_cache: typing.Optional[builtins.bool] = None,
         no_index: typing.Optional[builtins.bool] = None,
+        no_proxy: typing.Optional[typing.Sequence[builtins.str]] = None,
         no_sources: typing.Optional[builtins.bool] = None,
+        no_sources_package: typing.Optional[typing.Sequence[builtins.str]] = None,
         offline: typing.Optional[builtins.bool] = None,
         override_dependencies: typing.Optional[typing.Sequence[builtins.str]] = None,
         package: typing.Optional[builtins.bool] = None,
@@ -3293,6 +3514,8 @@ class UvConfiguration:
         required_version: typing.Optional[builtins.str] = None,
         resolution: typing.Optional["ResolutionMode"] = None,
         sources: typing.Optional[typing.Mapping[builtins.str, typing.Sequence[typing.Any]]] = None,
+        system_certs: typing.Optional[builtins.bool] = None,
+        torch_backend: typing.Optional["TorchMode"] = None,
         trusted_publishing: typing.Optional["TrustedPublishing"] = None,
         upgrade: typing.Optional[builtins.bool] = None,
         upgrade_package: typing.Optional[typing.Sequence[builtins.str]] = None,
@@ -3302,6 +3525,7 @@ class UvConfiguration:
 
         :param add_bounds: (experimental) The default version specifier when adding a dependency. When adding a dependency to the project, if no constraint or URL is provided, a constraint is added based on the latest compatible version of the package. By default, a lower bound constraint is used, e.g., ``>=1.2.3``. When ``--frozen`` is provided, no resolution is performed, and dependencies are always added without constraints. This option is in preview and may change in any future release.
         :param allow_insecure_host: (experimental) Allow insecure connections to host. Expects to receive either a hostname (e.g., ``localhost``), a host-port pair (e.g., ``localhost:8080``), or a URL (e.g., ``https://localhost``). WARNING: Hosts included in this list will not be verified against the system's certificate store. Only use ``--allow-insecure-host`` in a secure network with verified sources, as it bypasses SSL verification and could expose you to MITM attacks.
+        :param audit: 
         :param build_backend: (experimental) Configuration for the uv build backend. Note that those settings only apply when using the ``uv_build`` backend, other build backends (such as hatchling) have their own configuration.
         :param build_constraint_dependencies: (experimental) PEP 508-style requirements, e.g., ``ruff==0.5.0``, or ``ruff @ https://...``.
         :param cache_dir: (experimental) Path to the cache directory.
@@ -3321,20 +3545,22 @@ class UvConfiguration:
         :param dev_dependencies: (experimental) PEP 508-style requirements, e.g., ``ruff==0.5.0``, or ``ruff @ https://...``.
         :param environments: (experimental) A list of environment markers, e.g., ``python_version >= '3.6'``.
         :param exclude_dependencies: (experimental) Package names to exclude, e.g., ``werkzeug``, ``numpy``.
-        :param exclude_newer: (experimental) Limit candidate packages to those that were uploaded prior to a given point in time. Accepts a superset of `RFC 3339 <https://www.rfc-editor.org/rfc/rfc3339.html>`_ (e.g., ``2006-12-02T02:07:43Z``). A full timestamp is required to ensure that the resolver will behave consistently across timezones.
-        :param exclude_newer_package: (experimental) Limit candidate packages for specific packages to those that were uploaded prior to the given date. Accepts package-date pairs in a dictionary format.
+        :param exclude_newer: (experimental) Limit candidate packages to those that were uploaded prior to the given date. The date is compared against the upload time of each individual distribution artifact (i.e., when each file was uploaded to the package index), not the release date of the package version. Accepts RFC 3339 timestamps (e.g., ``2006-12-02T02:07:43Z``), a "friendly" duration (e.g., ``24 hours``, ``1 week``, ``30 days``), or an ISO 8601 duration (e.g., ``PT24H``, ``P7D``, ``P30D``). Durations do not respect semantics of the local time zone and are always resolved to a fixed number of seconds assuming that a day is 24 hours (e.g., DST transitions are ignored). Calendar units such as months and years are not allowed.
+        :param exclude_newer_package: (experimental) Limit candidate packages for specific packages to those that were uploaded prior to the given date. Accepts a dictionary format of ``PACKAGE = "DATE"`` pairs, where ``DATE`` is an RFC 3339 timestamp (e.g., ``2006-12-02T02:07:43Z``), a "friendly" duration (e.g., ``24 hours``, ``1 week``, ``30 days``), or a ISO 8601 duration (e.g., ``PT24H``, ``P7D``, ``P30D``). Durations do not respect semantics of the local time zone and are always resolved to a fixed number of seconds assuming that a day is 24 hours (e.g., DST transitions are ignored). Calendar units such as months and years are not allowed. Set a package to ``false`` to exempt it from the global ```exclude-newer`` <#exclude-newer>`_ constraint entirely.
         :param extra_build_dependencies: (experimental) Additional build dependencies for packages. This allows extending the PEP 517 build environment for the project's dependencies with additional packages. This is useful for packages that assume the presence of packages like ``pip``, and do not declare them as build dependencies.
         :param extra_build_variables: (experimental) Extra environment variables to set when building certain packages. Environment variables will be added to the environment when building the specified packages.
         :param extra_index_url: (experimental) Extra URLs of package indexes to use, in addition to ``--index-url``. Accepts either a repository compliant with `PEP 503 <https://peps.python.org/pep-0503/>`_ (the simple repository API), or a local directory laid out in the same format. All indexes provided via this flag take priority over the index specified by ```index_url`` <#index-url>`_ or ```index`` <#index>`_ with ``default = true``. When multiple indexes are provided, earlier values take priority. To control uv's resolution strategy when multiple indexes are present, see ```index_strategy`` <#index-strategy>`_. (Deprecated: use ``index`` instead.)
         :param find_links: (experimental) Locations to search for candidate distributions, in addition to those found in the registry indexes. If a path, the target must be a directory that contains packages as wheel files (``.whl``) or source distributions (e.g., ``.tar.gz`` or ``.zip``) at the top level. If a URL, the page must contain a flat list of links to package files adhering to the formats described above.
         :param fork_strategy: (experimental) The strategy to use when selecting multiple versions of a given package across Python versions and platforms. By default, uv will optimize for selecting the latest version of each package for each supported Python version (``requires-python``), while minimizing the number of selected versions across platforms. Under ``fewest``, uv will minimize the number of selected versions for each package, preferring older versions that are compatible with a wider range of supported Python versions or platforms.
-        :param index: (experimental) The indexes to use when resolving dependencies. Accepts either a repository compliant with `PEP 503 <https://peps.python.org/pep-0503/>`_ (the simple repository API), or a local directory laid out in the same format. Indexes are considered in the order in which they're defined, such that the first-defined index has the highest priority. Further, the indexes provided by this setting are given higher priority than any indexes specified via ```index_url`` <#index-url>`_ or ```extra_index_url`` <#extra-index-url>`_. uv will only consider the first index that contains a given package, unless an alternative `index strategy <#index-strategy>`_ is specified. If an index is marked as ``explicit = true``, it will be used exclusively for the dependencies that select it explicitly via ``[tool.uv.sources]``, as in:: [[tool.uv.index]] name = "pytorch" url = "https://download.pytorch.org/whl/cu121" explicit = true [tool.uv.sources] torch = { index = "pytorch" } If an index is marked as ``default = true``, it will be moved to the end of the prioritized list, such that it is given the lowest priority when resolving packages. Additionally, marking an index as default will disable the PyPI default index.
+        :param http_proxy: (experimental) The URL of the HTTP proxy to use.
+        :param https_proxy: (experimental) The URL of the HTTPS proxy to use.
+        :param index: (experimental) The indexes to use when resolving dependencies. Accepts either a repository compliant with `PEP 503 <https://peps.python.org/pep-0503/>`_ (the simple repository API), or a local directory laid out in the same format. Indexes are considered in the order in which they're defined, such that the first-defined index has the highest priority. Further, the indexes provided by this setting are given higher priority than any indexes specified via ```index_url`` <#index-url>`_ or ```extra_index_url`` <#extra-index-url>`_. uv will only consider the first index that contains a given package, unless an alternative `index strategy <#index-strategy>`_ is specified. If an index is marked as ``explicit = true``, it will be used exclusively for the dependencies that select it explicitly via ``[tool.uv.sources]``, as in:: [[tool.uv.index]] name = "pytorch" url = "https://download.pytorch.org/whl/cu130" explicit = true [tool.uv.sources] torch = { index = "pytorch" } If an index is marked as ``default = true``, it will be moved to the end of the prioritized list, such that it is given the lowest priority when resolving packages. Additionally, marking an index as default will disable the PyPI default index.
         :param index_strategy: (experimental) The strategy to use when resolving against multiple index URLs. By default, uv will stop at the first index on which a given package is available, and limit resolutions to those present on that first index (``first-index``). This prevents "dependency confusion" attacks, whereby an attacker can upload a malicious package under the same name to an alternate index.
         :param index_url: (experimental) The URL of the Python package index (by default: `https://pypi.org/simple <https://pypi.org/simple>`_). Accepts either a repository compliant with `PEP 503 <https://peps.python.org/pep-0503/>`_ (the simple repository API), or a local directory laid out in the same format. The index provided by this setting is given lower priority than any indexes specified via ```extra_index_url`` <#extra-index-url>`_ or ```index`` <#index>`_. (Deprecated: use ``index`` instead.)
         :param keyring_provider: (experimental) Attempt to use ``keyring`` for authentication for index URLs. At present, only ``--keyring-provider subprocess`` is supported, which configures uv to use the ``keyring`` CLI to handle authentication.
-        :param link_mode: (experimental) The method to use when installing packages from the global cache. Defaults to ``clone`` (also known as Copy-on-Write) on macOS, and ``hardlink`` on Linux and Windows. WARNING: The use of symlink link mode is discouraged, as they create tight coupling between the cache and the target environment. For example, clearing the cache (``uv cache clean``) will break all installed packages by way of removing the underlying source files. Use symlinks with caution. Default: clone``(also known as Copy-on-Write) on macOS, and``hardlink` on Linux and
+        :param link_mode: (experimental) The method to use when installing packages from the global cache. Defaults to ``clone`` (also known as Copy-on-Write) on macOS and Linux, and ``hardlink`` on Windows. WARNING: The use of symlink link mode is discouraged, as they create tight coupling between the cache and the target environment. For example, clearing the cache (``uv cache clean``) will break all installed packages by way of removing the underlying source files. Use symlinks with caution. Default: clone``(also known as Copy-on-Write) on macOS and Linux, and``hardlink` on
         :param managed: (experimental) Whether the project is managed by uv. If ``false``, uv will ignore the project when ``uv run`` is invoked.
-        :param native_tls: (experimental) Whether to load TLS certificates from the platform's native certificate store. By default, uv loads certificates from the bundled ``webpki-roots`` crate. The ``webpki-roots`` are a reliable set of trust roots from Mozilla, and including them in uv improves portability and performance (especially on macOS). However, in some cases, you may want to use the platform's native certificate store, especially if you're relying on a corporate trust root (e.g., for a mandatory proxy) that's included in your system's certificate store.
+        :param native_tls: (experimental) Whether to load TLS certificates from the platform's native certificate store. By default, uv uses bundled Mozilla root certificates. When enabled, this loads certificates from the platform's native certificate store instead. (Deprecated: use ``system-certs`` instead.)
         :param no_binary: (experimental) Don't install pre-built wheels. The given packages will be built and installed from source. The resolver will still use pre-built wheels to extract package metadata, if available.
         :param no_binary_package: (experimental) Don't install pre-built wheels for a specific package.
         :param no_build: (experimental) Don't build source distributions. When enabled, resolving will not run arbitrary Python code. The cached wheels of already-built source distributions will be reused, but operations that require building distributions will exit with an error.
@@ -3343,7 +3569,9 @@ class UvConfiguration:
         :param no_build_package: (experimental) Don't build source distributions for a specific package.
         :param no_cache: (experimental) Avoid reading from or writing to the cache, instead using a temporary directory for the duration of the operation.
         :param no_index: (experimental) Ignore all registry indexes (e.g., PyPI), instead relying on direct URL dependencies and those provided via ``--find-links``.
+        :param no_proxy: (experimental) A list of hosts to exclude from proxying.
         :param no_sources: (experimental) Ignore the ``tool.uv.sources`` table when resolving dependencies. Used to lock against the standards-compliant, publishable package metadata, as opposed to using any local or Git sources.
+        :param no_sources_package: (experimental) Ignore ``tool.uv.sources`` for the specified packages.
         :param offline: (experimental) Disable network access, relying only on locally cached data and locally available files.
         :param override_dependencies: (experimental) PEP 508-style requirements, e.g., ``ruff==0.5.0``, or ``ruff @ https://...``.
         :param package: (experimental) Whether the project should be considered a Python package, or a non-package ("virtual") project. Packages are built and installed into the virtual environment in editable mode and thus require a build backend, while virtual projects are *not* built or installed; instead, only their dependencies are included in the virtual environment. Creating a package requires that a ``build-system`` is present in the ``pyproject.toml``, and that the project adheres to a structure that adheres to the build backend's expectations (e.g., a ``src`` layout).
@@ -3353,7 +3581,7 @@ class UvConfiguration:
         :param publish_url: (experimental) The URL for publishing packages to the Python package index (by default: `https://upload.pypi.org/legacy/ <https://upload.pypi.org/legacy/>`_).
         :param pypy_install_mirror: (experimental) Mirror URL to use for downloading managed PyPy installations. By default, managed PyPy installations are downloaded from `downloads.python.org <https://downloads.python.org/>`_. This variable can be set to a mirror URL to use a different source for PyPy installations. The provided URL will replace ``https://downloads.python.org/pypy`` in, e.g., ``https://downloads.python.org/pypy/pypy3.8-v7.3.7-osx64.tar.bz2``. Distributions can be read from a local directory by using the ``file://`` URL scheme.
         :param python_downloads: (experimental) Whether to allow Python downloads.
-        :param python_downloads_json_url: (experimental) URL pointing to JSON of custom Python installations. Note that currently, only local paths are supported.
+        :param python_downloads_json_url: (experimental) URL pointing to JSON of custom Python installations.
         :param python_install_mirror: (experimental) Mirror URL for downloading managed Python installations. By default, managed Python installations are downloaded from ```python-build-standalone`` <https://github.com/astral-sh/python-build-standalone>`_. This variable can be set to a mirror URL to use a different source for Python installations. The provided URL will replace ``https://github.com/astral-sh/python-build-standalone/releases/download`` in, e.g., ``https://github.com/astral-sh/python-build-standalone/releases/download/20240713/cpython-3.12.4%2B20240713-aarch64-apple-darwin-install_only.tar.gz``. Distributions can be read from a local directory by using the ``file://`` URL scheme.
         :param python_preference: (experimental) Whether to prefer using Python installations that are already present on the system, or those that are downloaded and installed by uv.
         :param reinstall: (experimental) Reinstall all packages, regardless of whether they're already installed. Implies ``refresh``.
@@ -3362,6 +3590,8 @@ class UvConfiguration:
         :param required_version: (experimental) Enforce a requirement on the version of uv. If the version of uv does not meet the requirement at runtime, uv will exit with an error. Accepts a `PEP 440 <https://peps.python.org/pep-0440/>`_ specifier, like ``==0.5.0`` or ``>=0.5.0``.
         :param resolution: (experimental) The strategy to use when selecting between the different compatible versions for a given package requirement. By default, uv will use the latest compatible version of each package (``highest``).
         :param sources: (experimental) The sources to use when resolving dependencies. ``tool.uv.sources`` enriches the dependency metadata with additional sources, incorporated during development. A dependency source can be a Git repository, a URL, a local path, or an alternative registry. See `Dependencies <https://docs.astral.sh/uv/concepts/projects/dependencies/>`_ for more.
+        :param system_certs: (experimental) Whether to load TLS certificates from the platform's native certificate store. By default, uv uses bundled Mozilla root certificates. When enabled, this loads certificates from the platform's native certificate store instead.
+        :param torch_backend: (experimental) The backend to use when fetching packages in the PyTorch ecosystem. When set, uv will ignore the configured index URLs for packages in the PyTorch ecosystem, and will instead use the defined backend. For example, when set to ``cpu``, uv will use the CPU-only PyTorch index; when set to ``cu126``, uv will use the PyTorch index for CUDA 12.6. The ``auto`` mode will attempt to detect the appropriate PyTorch index based on the currently installed CUDA drivers. This setting is only respected by ``uv pip`` commands. This option is in preview and may change in any future release.
         :param trusted_publishing: (experimental) Configure trusted publishing. By default, uv checks for trusted publishing when running in a supported environment, but ignores it if it isn't configured. uv's supported environments for trusted publishing include GitHub Actions and GitLab CI/CD.
         :param upgrade: (experimental) Allow package upgrades, ignoring pinned versions in any existing output file.
         :param upgrade_package: (experimental) Allow upgrades for a specific package, ignoring pinned versions in any existing output file. Accepts both standalone package names (``ruff``) and version specifiers (``ruff<0.5.0``).
@@ -3370,6 +3600,8 @@ class UvConfiguration:
         :stability: experimental
         :schema: UvConfiguration
         '''
+        if isinstance(audit, dict):
+            audit = AuditOptions(**audit)
         if isinstance(build_backend, dict):
             build_backend = BuildBackendSettings(**build_backend)
         if isinstance(pip, dict):
@@ -3380,6 +3612,7 @@ class UvConfiguration:
             type_hints = cached_type_hints(_typecheckingstub__dc04a41ac6b3f4657c0dca1f873f83584612a895d87f8c6a6b420bd4d56e6612)
             check_type(argname="argument add_bounds", value=add_bounds, expected_type=type_hints["add_bounds"])
             check_type(argname="argument allow_insecure_host", value=allow_insecure_host, expected_type=type_hints["allow_insecure_host"])
+            check_type(argname="argument audit", value=audit, expected_type=type_hints["audit"])
             check_type(argname="argument build_backend", value=build_backend, expected_type=type_hints["build_backend"])
             check_type(argname="argument build_constraint_dependencies", value=build_constraint_dependencies, expected_type=type_hints["build_constraint_dependencies"])
             check_type(argname="argument cache_dir", value=cache_dir, expected_type=type_hints["cache_dir"])
@@ -3406,6 +3639,8 @@ class UvConfiguration:
             check_type(argname="argument extra_index_url", value=extra_index_url, expected_type=type_hints["extra_index_url"])
             check_type(argname="argument find_links", value=find_links, expected_type=type_hints["find_links"])
             check_type(argname="argument fork_strategy", value=fork_strategy, expected_type=type_hints["fork_strategy"])
+            check_type(argname="argument http_proxy", value=http_proxy, expected_type=type_hints["http_proxy"])
+            check_type(argname="argument https_proxy", value=https_proxy, expected_type=type_hints["https_proxy"])
             check_type(argname="argument index", value=index, expected_type=type_hints["index"])
             check_type(argname="argument index_strategy", value=index_strategy, expected_type=type_hints["index_strategy"])
             check_type(argname="argument index_url", value=index_url, expected_type=type_hints["index_url"])
@@ -3421,7 +3656,9 @@ class UvConfiguration:
             check_type(argname="argument no_build_package", value=no_build_package, expected_type=type_hints["no_build_package"])
             check_type(argname="argument no_cache", value=no_cache, expected_type=type_hints["no_cache"])
             check_type(argname="argument no_index", value=no_index, expected_type=type_hints["no_index"])
+            check_type(argname="argument no_proxy", value=no_proxy, expected_type=type_hints["no_proxy"])
             check_type(argname="argument no_sources", value=no_sources, expected_type=type_hints["no_sources"])
+            check_type(argname="argument no_sources_package", value=no_sources_package, expected_type=type_hints["no_sources_package"])
             check_type(argname="argument offline", value=offline, expected_type=type_hints["offline"])
             check_type(argname="argument override_dependencies", value=override_dependencies, expected_type=type_hints["override_dependencies"])
             check_type(argname="argument package", value=package, expected_type=type_hints["package"])
@@ -3440,6 +3677,8 @@ class UvConfiguration:
             check_type(argname="argument required_version", value=required_version, expected_type=type_hints["required_version"])
             check_type(argname="argument resolution", value=resolution, expected_type=type_hints["resolution"])
             check_type(argname="argument sources", value=sources, expected_type=type_hints["sources"])
+            check_type(argname="argument system_certs", value=system_certs, expected_type=type_hints["system_certs"])
+            check_type(argname="argument torch_backend", value=torch_backend, expected_type=type_hints["torch_backend"])
             check_type(argname="argument trusted_publishing", value=trusted_publishing, expected_type=type_hints["trusted_publishing"])
             check_type(argname="argument upgrade", value=upgrade, expected_type=type_hints["upgrade"])
             check_type(argname="argument upgrade_package", value=upgrade_package, expected_type=type_hints["upgrade_package"])
@@ -3449,6 +3688,8 @@ class UvConfiguration:
             self._values["add_bounds"] = add_bounds
         if allow_insecure_host is not None:
             self._values["allow_insecure_host"] = allow_insecure_host
+        if audit is not None:
+            self._values["audit"] = audit
         if build_backend is not None:
             self._values["build_backend"] = build_backend
         if build_constraint_dependencies is not None:
@@ -3501,6 +3742,10 @@ class UvConfiguration:
             self._values["find_links"] = find_links
         if fork_strategy is not None:
             self._values["fork_strategy"] = fork_strategy
+        if http_proxy is not None:
+            self._values["http_proxy"] = http_proxy
+        if https_proxy is not None:
+            self._values["https_proxy"] = https_proxy
         if index is not None:
             self._values["index"] = index
         if index_strategy is not None:
@@ -3531,8 +3776,12 @@ class UvConfiguration:
             self._values["no_cache"] = no_cache
         if no_index is not None:
             self._values["no_index"] = no_index
+        if no_proxy is not None:
+            self._values["no_proxy"] = no_proxy
         if no_sources is not None:
             self._values["no_sources"] = no_sources
+        if no_sources_package is not None:
+            self._values["no_sources_package"] = no_sources_package
         if offline is not None:
             self._values["offline"] = offline
         if override_dependencies is not None:
@@ -3569,6 +3818,10 @@ class UvConfiguration:
             self._values["resolution"] = resolution
         if sources is not None:
             self._values["sources"] = sources
+        if system_certs is not None:
+            self._values["system_certs"] = system_certs
+        if torch_backend is not None:
+            self._values["torch_backend"] = torch_backend
         if trusted_publishing is not None:
             self._values["trusted_publishing"] = trusted_publishing
         if upgrade is not None:
@@ -3613,6 +3866,15 @@ class UvConfiguration:
         '''
         result = self._values.get("allow_insecure_host")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
+
+    @builtins.property
+    def audit(self) -> typing.Optional["AuditOptions"]:
+        '''
+        :stability: experimental
+        :schema: UvConfiguration#audit
+        '''
+        result = self._values.get("audit")
+        return typing.cast(typing.Optional["AuditOptions"], result)
 
     @builtins.property
     def build_backend(self) -> typing.Optional["BuildBackendSettings"]:
@@ -3905,11 +4167,18 @@ class UvConfiguration:
 
     @builtins.property
     def exclude_newer(self) -> typing.Optional[builtins.str]:
-        '''(experimental) Limit candidate packages to those that were uploaded prior to a given point in time.
+        '''(experimental) Limit candidate packages to those that were uploaded prior to the given date.
 
-        Accepts a superset of `RFC 3339 <https://www.rfc-editor.org/rfc/rfc3339.html>`_ (e.g.,
-        ``2006-12-02T02:07:43Z``). A full timestamp is required to ensure that the resolver will
-        behave consistently across timezones.
+        The date is compared against the upload time of each individual distribution artifact
+        (i.e., when each file was uploaded to the package index), not the release date of the
+        package version.
+
+        Accepts RFC 3339 timestamps (e.g., ``2006-12-02T02:07:43Z``), a "friendly" duration (e.g.,
+        ``24 hours``, ``1 week``, ``30 days``), or an ISO 8601 duration (e.g., ``PT24H``, ``P7D``, ``P30D``).
+
+        Durations do not respect semantics of the local time zone and are always resolved to a fixed
+        number of seconds assuming that a day is 24 hours (e.g., DST transitions are ignored).
+        Calendar units such as months and years are not allowed.
 
         :stability: experimental
         :schema: UvConfiguration#exclude-newer
@@ -3920,16 +4189,25 @@ class UvConfiguration:
     @builtins.property
     def exclude_newer_package(
         self,
-    ) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
+    ) -> typing.Optional[typing.Mapping[builtins.str, "ExcludeNewerOverride"]]:
         '''(experimental) Limit candidate packages for specific packages to those that were uploaded prior to the given date.
 
-        Accepts package-date pairs in a dictionary format.
+        Accepts a dictionary format of ``PACKAGE = "DATE"`` pairs, where ``DATE`` is an RFC 3339
+        timestamp (e.g., ``2006-12-02T02:07:43Z``), a "friendly" duration (e.g., ``24 hours``, ``1 week``,
+        ``30 days``), or a ISO 8601 duration (e.g., ``PT24H``, ``P7D``, ``P30D``).
+
+        Durations do not respect semantics of the local time zone and are always resolved to a fixed
+        number of seconds assuming that a day is 24 hours (e.g., DST transitions are ignored).
+        Calendar units such as months and years are not allowed.
+
+        Set a package to ``false`` to exempt it from the global ```exclude-newer`` <#exclude-newer>`_
+        constraint entirely.
 
         :stability: experimental
         :schema: UvConfiguration#exclude-newer-package
         '''
         result = self._values.get("exclude_newer_package")
-        return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
+        return typing.cast(typing.Optional[typing.Mapping[builtins.str, "ExcludeNewerOverride"]], result)
 
     @builtins.property
     def extra_build_dependencies(
@@ -4019,6 +4297,26 @@ class UvConfiguration:
         return typing.cast(typing.Optional["ForkStrategy"], result)
 
     @builtins.property
+    def http_proxy(self) -> typing.Optional[builtins.str]:
+        '''(experimental) The URL of the HTTP proxy to use.
+
+        :stability: experimental
+        :schema: UvConfiguration#http-proxy
+        '''
+        result = self._values.get("http_proxy")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def https_proxy(self) -> typing.Optional[builtins.str]:
+        '''(experimental) The URL of the HTTPS proxy to use.
+
+        :stability: experimental
+        :schema: UvConfiguration#https-proxy
+        '''
+        result = self._values.get("https_proxy")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
     def index(self) -> typing.Optional[typing.List["Index"]]:
         '''(experimental) The indexes to use when resolving dependencies.
 
@@ -4036,7 +4334,7 @@ class UvConfiguration:
 
            [[tool.uv.index]]
            name = "pytorch"
-           url = "https://download.pytorch.org/whl/cu121"
+           url = "https://download.pytorch.org/whl/cu130"
            explicit = true
 
            [tool.uv.sources]
@@ -4102,7 +4400,7 @@ class UvConfiguration:
     def link_mode(self) -> typing.Optional["LinkMode"]:
         '''(experimental) The method to use when installing packages from the global cache.
 
-        Defaults to ``clone`` (also known as Copy-on-Write) on macOS, and ``hardlink`` on Linux and
+        Defaults to ``clone`` (also known as Copy-on-Write) on macOS and Linux, and ``hardlink`` on
         Windows.
 
         WARNING: The use of symlink link mode is discouraged, as they create tight coupling between
@@ -4110,7 +4408,7 @@ class UvConfiguration:
         will break all installed packages by way of removing the underlying source files. Use
         symlinks with caution.
 
-        :default: clone``(also known as Copy-on-Write) on macOS, and``hardlink` on Linux and
+        :default: clone``(also known as Copy-on-Write) on macOS and Linux, and``hardlink` on
 
         :stability: experimental
         :schema: UvConfiguration#link-mode
@@ -4135,13 +4433,10 @@ class UvConfiguration:
     def native_tls(self) -> typing.Optional[builtins.bool]:
         '''(experimental) Whether to load TLS certificates from the platform's native certificate store.
 
-        By default, uv loads certificates from the bundled ``webpki-roots`` crate. The
-        ``webpki-roots`` are a reliable set of trust roots from Mozilla, and including them in uv
-        improves portability and performance (especially on macOS).
+        By default, uv uses bundled Mozilla root certificates. When enabled, this loads
+        certificates from the platform's native certificate store instead.
 
-        However, in some cases, you may want to use the platform's native certificate store,
-        especially if you're relying on a corporate trust root (e.g., for a mandatory proxy) that's
-        included in your system's certificate store.
+        (Deprecated: use ``system-certs`` instead.)
 
         :stability: experimental
         :schema: UvConfiguration#native-tls
@@ -4243,6 +4538,16 @@ class UvConfiguration:
         return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
+    def no_proxy(self) -> typing.Optional[typing.List[builtins.str]]:
+        '''(experimental) A list of hosts to exclude from proxying.
+
+        :stability: experimental
+        :schema: UvConfiguration#no-proxy
+        '''
+        result = self._values.get("no_proxy")
+        return typing.cast(typing.Optional[typing.List[builtins.str]], result)
+
+    @builtins.property
     def no_sources(self) -> typing.Optional[builtins.bool]:
         '''(experimental) Ignore the ``tool.uv.sources`` table when resolving dependencies. Used to lock against the standards-compliant, publishable package metadata, as opposed to using any local or Git sources.
 
@@ -4251,6 +4556,16 @@ class UvConfiguration:
         '''
         result = self._values.get("no_sources")
         return typing.cast(typing.Optional[builtins.bool], result)
+
+    @builtins.property
+    def no_sources_package(self) -> typing.Optional[typing.List[builtins.str]]:
+        '''(experimental) Ignore ``tool.uv.sources`` for the specified packages.
+
+        :stability: experimental
+        :schema: UvConfiguration#no-sources-package
+        '''
+        result = self._values.get("no_sources_package")
+        return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
     @builtins.property
     def offline(self) -> typing.Optional[builtins.bool]:
@@ -4364,8 +4679,6 @@ class UvConfiguration:
     def python_downloads_json_url(self) -> typing.Optional[builtins.str]:
         '''(experimental) URL pointing to JSON of custom Python installations.
 
-        Note that currently, only local paths are supported.
-
         :stability: experimental
         :schema: UvConfiguration#python-downloads-json-url
         '''
@@ -4477,6 +4790,42 @@ class UvConfiguration:
         '''
         result = self._values.get("sources")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, typing.List[typing.Any]]], result)
+
+    @builtins.property
+    def system_certs(self) -> typing.Optional[builtins.bool]:
+        '''(experimental) Whether to load TLS certificates from the platform's native certificate store.
+
+        By default, uv uses bundled Mozilla root certificates. When enabled, this loads
+        certificates from the platform's native certificate store instead.
+
+        :stability: experimental
+        :schema: UvConfiguration#system-certs
+        '''
+        result = self._values.get("system_certs")
+        return typing.cast(typing.Optional[builtins.bool], result)
+
+    @builtins.property
+    def torch_backend(self) -> typing.Optional["TorchMode"]:
+        '''(experimental) The backend to use when fetching packages in the PyTorch ecosystem.
+
+        When set, uv will ignore the configured index URLs for packages in the PyTorch ecosystem,
+        and will instead use the defined backend.
+
+        For example, when set to ``cpu``, uv will use the CPU-only PyTorch index; when set to ``cu126``,
+        uv will use the PyTorch index for CUDA 12.6.
+
+        The ``auto`` mode will attempt to detect the appropriate PyTorch index based on the currently
+        installed CUDA drivers.
+
+        This setting is only respected by ``uv pip`` commands.
+
+        This option is in preview and may change in any future release.
+
+        :stability: experimental
+        :schema: UvConfiguration#torch-backend
+        '''
+        result = self._values.get("torch_backend")
+        return typing.cast(typing.Optional["TorchMode"], result)
 
     @builtins.property
     def trusted_publishing(self) -> typing.Optional["TrustedPublishing"]:
@@ -4650,9 +4999,11 @@ class WheelDataIncludes:
 __all__ = [
     "AddBoundsKind",
     "AnnotationStyle",
+    "AuditOptions",
     "AuthPolicy",
     "BuildBackendSettings",
     "DependencyGroupSettings",
+    "ExcludeNewerOverride",
     "ForkStrategy",
     "Index",
     "IndexCacheControl",
@@ -4678,6 +5029,14 @@ __all__ = [
 
 publication.publish()
 
+def _typecheckingstub__bcc5ea2182f854183dcda32a05103b5bcbd741be7788d5bb3cd14a68c55f9dd9(
+    *,
+    ignore: typing.Optional[typing.Sequence[builtins.str]] = None,
+    ignore_until_fixed: typing.Optional[typing.Sequence[builtins.str]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__e8edb4b678376787a735855010994c917f5562ec1c18ac7700c5f21373aa27eb(
     *,
     data: typing.Optional[typing.Union[WheelDataIncludes, typing.Dict[builtins.str, typing.Any]]] = None,
@@ -4699,12 +5058,25 @@ def _typecheckingstub__bd491f584ee7212fb2c3697548f60d044362ecd866f97a41a269a2f58
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__bff9890028d18cf500580c50ccac37dc7853fde1d03865042f89cde5ff70cf71(
+    value: builtins.bool,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__40119fb701476139f4f89afe787fc740c19de4b6a32684d3dd48077ce3a0e3a3(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__075e56d66f36a514ad1fafdc5b03260161a84fb1d2c5ce8069204ee4b239111d(
     *,
     url: builtins.str,
     authenticate: typing.Optional[AuthPolicy] = None,
     cache_control: typing.Optional[typing.Union[IndexCacheControl, typing.Dict[builtins.str, typing.Any]]] = None,
     default: typing.Optional[builtins.bool] = None,
+    exclude_newer: typing.Optional[ExcludeNewerOverride] = None,
     explicit: typing.Optional[builtins.bool] = None,
     format: typing.Optional[IndexFormat] = None,
     ignore_error_codes: typing.Optional[typing.Sequence[jsii.Number]] = None,
@@ -4747,7 +5119,7 @@ def _typecheckingstub__945d6160c5542e9b39ed19c707a1b0e7ee5ea909cc55041a32f162098
     emit_index_url: typing.Optional[builtins.bool] = None,
     emit_marker_expression: typing.Optional[builtins.bool] = None,
     exclude_newer: typing.Optional[builtins.str] = None,
-    exclude_newer_package: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+    exclude_newer_package: typing.Optional[typing.Mapping[builtins.str, ExcludeNewerOverride]] = None,
     extra: typing.Optional[typing.Sequence[builtins.str]] = None,
     extra_build_dependencies: typing.Optional[typing.Mapping[builtins.str, typing.Sequence[typing.Any]]] = None,
     extra_build_variables: typing.Optional[typing.Mapping[builtins.str, typing.Mapping[builtins.str, builtins.str]]] = None,
@@ -4771,6 +5143,7 @@ def _typecheckingstub__945d6160c5542e9b39ed19c707a1b0e7ee5ea909cc55041a32f162098
     no_header: typing.Optional[builtins.bool] = None,
     no_index: typing.Optional[builtins.bool] = None,
     no_sources: typing.Optional[builtins.bool] = None,
+    no_sources_package: typing.Optional[typing.Sequence[builtins.str]] = None,
     no_strip_extras: typing.Optional[builtins.bool] = None,
     no_strip_markers: typing.Optional[builtins.bool] = None,
     only_binary: typing.Optional[typing.Sequence[builtins.str]] = None,
@@ -4828,6 +5201,7 @@ def _typecheckingstub__dc04a41ac6b3f4657c0dca1f873f83584612a895d87f8c6a6b420bd4d
     *,
     add_bounds: typing.Optional[AddBoundsKind] = None,
     allow_insecure_host: typing.Optional[typing.Sequence[builtins.str]] = None,
+    audit: typing.Optional[typing.Union[AuditOptions, typing.Dict[builtins.str, typing.Any]]] = None,
     build_backend: typing.Optional[typing.Union[BuildBackendSettings, typing.Dict[builtins.str, typing.Any]]] = None,
     build_constraint_dependencies: typing.Optional[typing.Sequence[builtins.str]] = None,
     cache_dir: typing.Optional[builtins.str] = None,
@@ -4848,12 +5222,14 @@ def _typecheckingstub__dc04a41ac6b3f4657c0dca1f873f83584612a895d87f8c6a6b420bd4d
     environments: typing.Optional[typing.Sequence[builtins.str]] = None,
     exclude_dependencies: typing.Optional[typing.Sequence[builtins.str]] = None,
     exclude_newer: typing.Optional[builtins.str] = None,
-    exclude_newer_package: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
+    exclude_newer_package: typing.Optional[typing.Mapping[builtins.str, ExcludeNewerOverride]] = None,
     extra_build_dependencies: typing.Optional[typing.Mapping[builtins.str, typing.Sequence[typing.Any]]] = None,
     extra_build_variables: typing.Optional[typing.Mapping[builtins.str, typing.Mapping[builtins.str, builtins.str]]] = None,
     extra_index_url: typing.Optional[typing.Sequence[builtins.str]] = None,
     find_links: typing.Optional[typing.Sequence[builtins.str]] = None,
     fork_strategy: typing.Optional[ForkStrategy] = None,
+    http_proxy: typing.Optional[builtins.str] = None,
+    https_proxy: typing.Optional[builtins.str] = None,
     index: typing.Optional[typing.Sequence[typing.Union[Index, typing.Dict[builtins.str, typing.Any]]]] = None,
     index_strategy: typing.Optional[IndexStrategy] = None,
     index_url: typing.Optional[builtins.str] = None,
@@ -4869,7 +5245,9 @@ def _typecheckingstub__dc04a41ac6b3f4657c0dca1f873f83584612a895d87f8c6a6b420bd4d
     no_build_package: typing.Optional[typing.Sequence[builtins.str]] = None,
     no_cache: typing.Optional[builtins.bool] = None,
     no_index: typing.Optional[builtins.bool] = None,
+    no_proxy: typing.Optional[typing.Sequence[builtins.str]] = None,
     no_sources: typing.Optional[builtins.bool] = None,
+    no_sources_package: typing.Optional[typing.Sequence[builtins.str]] = None,
     offline: typing.Optional[builtins.bool] = None,
     override_dependencies: typing.Optional[typing.Sequence[builtins.str]] = None,
     package: typing.Optional[builtins.bool] = None,
@@ -4888,6 +5266,8 @@ def _typecheckingstub__dc04a41ac6b3f4657c0dca1f873f83584612a895d87f8c6a6b420bd4d
     required_version: typing.Optional[builtins.str] = None,
     resolution: typing.Optional[ResolutionMode] = None,
     sources: typing.Optional[typing.Mapping[builtins.str, typing.Sequence[typing.Any]]] = None,
+    system_certs: typing.Optional[builtins.bool] = None,
+    torch_backend: typing.Optional[TorchMode] = None,
     trusted_publishing: typing.Optional[TrustedPublishing] = None,
     upgrade: typing.Optional[builtins.bool] = None,
     upgrade_package: typing.Optional[typing.Sequence[builtins.str]] = None,

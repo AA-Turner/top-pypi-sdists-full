@@ -4,7 +4,7 @@ Copyright (C) 2014-2023, Michele Cappellari
 E-mail: michele.cappellari_at_physics.ox.ac.uk
 
 Updated versions of the software are available from my web page
-http://purl.org/cappellari/software
+http://purl.org/cappellari
 
 See example at the bottom for usage instructions.
 
@@ -44,6 +44,7 @@ MODIFICATION HISTORY:
         MC, Oxford, 12 December 2024
     V1.2.0: Use KDTree for pixel size estimation. Removed masked_array logic.
         Updated usage example. MC, Oxford, 7 September 2025
+    V1.2.1: Added `ax` keyword. MC, Oxford, 3 July 2026
 
 """
 import matplotlib.pyplot as plt
@@ -57,7 +58,7 @@ from plotbin.sauron_colormap import register_sauron_colormap
 
 def display_pixels(x, y, val, pixelsize=None, vmin=None, vmax=None,
                    angle=None, colorbar=False, label=None, nticks=7,
-                   cmap='sauron', check_grid=True, **kwargs):
+                   cmap='sauron', check_grid=True, ax=None, **kwargs):
     """
     Display vectors of square pixels at coordinates (x,y) coloured with "val".
     An optional rotation around the origin can be applied to the whole image.
@@ -65,6 +66,9 @@ def display_pixels(x, y, val, pixelsize=None, vmin=None, vmax=None,
     The pixels are assumed to be taken from a regular cartesian grid with 
     constant spacing (like an axis-aligned image), but not all elements of
     the grid are required (missing data are OK).
+
+    One can use the optional `ax` keyword to plot on a pre-existing Matplotlib
+    axes. If not given, the current axes is used.
 
     By default, the program checks that the data form a regular grid within 10%
     of the pixel size. One can ignore this check with ``check_grid=False``
@@ -112,7 +116,8 @@ def display_pixels(x, y, val, pixelsize=None, vmin=None, vmax=None,
         assert np.all(np.abs(np.append(j - x1, k - y1)) < 0.1), \
             'The coordinates (x, y) must come from an axis-aligned image with square pixels'
 
-    ax = plt.gca()
+    if ax is None:
+        ax = plt.gca()
 
     if (angle is None) or (angle == 0):
         imx = ax.imshow(img.T, interpolation='nearest',
@@ -130,7 +135,7 @@ def display_pixels(x, y, val, pixelsize=None, vmin=None, vmax=None,
     if colorbar:
         cax = ax.inset_axes([1.02, 0, .05, 1], transform=ax.transAxes)
         ticks = MaxNLocator(nticks).tick_values(vmin, vmax)
-        cbar = plt.colorbar(imx, cax=cax, ticks=ticks)
+        cbar = ax.figure.colorbar(imx, cax=cax, ticks=ticks)
         cbar.solids.set_edgecolor("face")  # Remove gaps in PDF http://stackoverflow.com/a/15021541
         if label:
             cbar.set_label(label)

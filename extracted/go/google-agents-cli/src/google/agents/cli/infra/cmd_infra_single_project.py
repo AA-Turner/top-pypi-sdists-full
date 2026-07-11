@@ -63,7 +63,7 @@ def cmd_infra_single_project(project, apply_changes):
     run_terraform(tf_dir=tf_dir, apply=apply_changes, extra_vars=extra_vars)
 
     if not apply_changes:
-        followup = "google-agents infra single-project --apply"
+        followup = "agents-cli infra single-project --apply"
         if project:
             followup += f" --project {project}"
         click.echo(f"\nTo apply these changes, run:\n  {followup}")

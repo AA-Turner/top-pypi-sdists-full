@@ -1767,6 +1767,7 @@ class TestRepoCommitOperations:
             "commits": [
                 {
                     "sha": "abc123",
+                    "parent_shas": [],
                     "message": "Initial commit",
                     "author_name": "Test User",
                     "author_email": "test@example.com",
@@ -1776,6 +1777,7 @@ class TestRepoCommitOperations:
                 },
                 {
                     "sha": "def456",
+                    "parent_shas": ["abc123"],
                     "message": "Second commit",
                     "author_name": "Test User",
                     "author_email": "test@example.com",
@@ -1803,7 +1805,9 @@ class TestRepoCommitOperations:
             assert "commits" in result
             assert len(result["commits"]) == 2
             assert result["commits"][0]["sha"] == "abc123"
+            assert result["commits"][0]["parent_shas"] == []
             assert result["commits"][0]["message"] == "Initial commit"
+            assert result["commits"][1]["parent_shas"] == ["abc123"]
 
     @pytest.mark.asyncio
     async def test_list_commits_ephemeral_query_param(self, git_storage_options: dict) -> None:
@@ -1889,6 +1893,7 @@ class TestRepoCommitOperations:
         commit_response.json.return_value = {
             "commit": {
                 "sha": "abc123",
+                "parent_shas": ["def456"],
                 "message": "feat: add endpoint",
                 "author_name": "Jane Doe",
                 "author_email": "jane@example.com",
@@ -1910,6 +1915,7 @@ class TestRepoCommitOperations:
 
             commit = result["commit"]
             assert commit["sha"] == "abc123"
+            assert commit["parent_shas"] == ["def456"]
             assert commit["message"] == "feat: add endpoint"
             assert commit["author_name"] == "Jane Doe"
             assert commit["author_email"] == "jane@example.com"
@@ -1952,6 +1958,7 @@ class TestRepoCommitOperations:
         commit_response.json.return_value = {
             "commit": {
                 "sha": "abc123",
+                "parent_shas": [],
                 "message": "chore: noop",
                 "author_name": "Jane Doe",
                 "author_email": "jane@example.com",
@@ -1970,6 +1977,7 @@ class TestRepoCommitOperations:
             result = await repo.get_commit(sha="abc123")
 
             commit = result["commit"]
+            assert commit["parent_shas"] == []
             assert "signature" not in commit
             assert "payload" not in commit
 
@@ -1990,6 +1998,7 @@ class TestRepoCommitOperations:
         commit_response.json.return_value = {
             "commit": {
                 "sha": "abc123",
+                "parent_shas": [],
                 "message": "msg",
                 "author_name": "A",
                 "author_email": "a@example.com",
@@ -2357,6 +2366,160 @@ class TestRepoNoteOperations:
             delete_call = client_instance.request.call_args_list[0]
             assert delete_call.args[0] == "DELETE"
             assert delete_call.kwargs["json"] == {"sha": "abc123"}
+
+    @pytest.mark.asyncio
+    async def test_note_ref_targeting(self, git_storage_options: dict) -> None:
+        """A custom notes ref is forwarded on read (query) and write (body)."""
+        storage = GitStorage(git_storage_options)
+
+        create_response = MagicMock()
+        create_response.status_code = 200
+        create_response.is_success = True
+        create_response.json.return_value = {"repo_id": "test-repo"}
+
+        note_read_response = MagicMock()
+        note_read_response.status_code = 200
+        note_read_response.is_success = True
+        note_read_response.raise_for_status = MagicMock()
+        note_read_response.json.return_value = {
+            "sha": "abc123",
+            "note": "reviewed",
+            "ref_sha": "def456",
+        }
+
+        create_note_response = MagicMock()
+        create_note_response.status_code = 201
+        create_note_response.is_success = True
+        create_note_response.json.return_value = {
+            "sha": "abc123",
+            "target_ref": "refs/notes/reviews",
+            "new_ref_sha": "def456",
+            "result": {"success": True, "status": "ok"},
+        }
+
+        delete_note_response = MagicMock()
+        delete_note_response.status_code = 200
+        delete_note_response.is_success = True
+        delete_note_response.json.return_value = {
+            "sha": "abc123",
+            "target_ref": "refs/notes/reviews",
+            "new_ref_sha": "def456",
+            "result": {"success": True, "status": "ok"},
+        }
+
+        with patch("httpx.AsyncClient") as mock_client:
+            client_instance = mock_client.return_value.__aenter__.return_value
+            client_instance.post = AsyncMock(
+                side_effect=[create_response, create_note_response]
+            )
+            mock_get = AsyncMock(return_value=note_read_response)
+            client_instance.get = mock_get
+            client_instance.request = AsyncMock(return_value=delete_note_response)
+
+            repo = await storage.create_repo(id="test-repo")
+
+            read_result = await repo.get_note(sha="abc123", ref="reviews")
+            assert read_result["note"] == "reviewed"
+            assert "ref=reviews" in mock_get.await_args.args[0]
+
+            await repo.create_note(sha="abc123", note="LGTM", ref="reviews")
+            create_call = client_instance.post.call_args_list[1]
+            assert create_call.kwargs["json"] == {
+                "sha": "abc123",
+                "action": "add",
+                "note": "LGTM",
+                "ref": "reviews",
+            }
+
+            await repo.delete_note(sha="abc123", ref="refs/notes/reviews")
+            delete_call = client_instance.request.call_args_list[0]
+            assert delete_call.kwargs["json"] == {
+                "sha": "abc123",
+                "ref": "refs/notes/reviews",
+            }
+
+    @pytest.mark.asyncio
+    async def test_list_notes_refs(self, git_storage_options: dict) -> None:
+        """list_notes_refs sends prefix/limit and parses the paginated result."""
+        storage = GitStorage(git_storage_options)
+
+        create_response = MagicMock()
+        create_response.status_code = 200
+        create_response.is_success = True
+        create_response.json.return_value = {"repo_id": "test-repo"}
+
+        list_response = MagicMock()
+        list_response.status_code = 200
+        list_response.is_success = True
+        list_response.raise_for_status = MagicMock()
+        list_response.json.return_value = {
+            "refs": [
+                {
+                    "cursor": "refs/notes/reviews/session-a",
+                    "ref": "refs/notes/reviews/session-a",
+                    "sha": "a1b2c3",
+                }
+            ],
+            "next_cursor": "refs/notes/reviews/session-b",
+            "has_more": True,
+            "prefix": "refs/notes/reviews/",
+        }
+
+        with patch("httpx.AsyncClient") as mock_client:
+            client_instance = mock_client.return_value.__aenter__.return_value
+            client_instance.post = AsyncMock(return_value=create_response)
+            mock_get = AsyncMock(return_value=list_response)
+            client_instance.get = mock_get
+
+            repo = await storage.create_repo(id="test-repo")
+            result = await repo.list_notes_refs(prefix="reviews/", limit=50)
+
+            called_url = mock_get.await_args.args[0]
+            assert "/repos/notes/refs" in called_url
+            assert "prefix=reviews" in called_url
+            assert "limit=50" in called_url
+
+            assert result["refs"][0]["ref"] == "refs/notes/reviews/session-a"
+            assert result["next_cursor"] == "refs/notes/reviews/session-b"
+            assert result["has_more"] is True
+            assert result["prefix"] == "refs/notes/reviews/"
+
+    @pytest.mark.asyncio
+    async def test_list_notes_refs_no_options(
+        self, git_storage_options: dict
+    ) -> None:
+        """With no options, no query string is sent and an empty page parses."""
+        storage = GitStorage(git_storage_options)
+
+        create_response = MagicMock()
+        create_response.status_code = 200
+        create_response.is_success = True
+        create_response.json.return_value = {"repo_id": "test-repo"}
+
+        list_response = MagicMock()
+        list_response.status_code = 200
+        list_response.is_success = True
+        list_response.raise_for_status = MagicMock()
+        list_response.json.return_value = {
+            "refs": [],
+            "next_cursor": None,
+            "has_more": False,
+            "prefix": "refs/notes/",
+        }
+
+        with patch("httpx.AsyncClient") as mock_client:
+            client_instance = mock_client.return_value.__aenter__.return_value
+            client_instance.post = AsyncMock(return_value=create_response)
+            mock_get = AsyncMock(return_value=list_response)
+            client_instance.get = mock_get
+
+            repo = await storage.create_repo(id="test-repo")
+            result = await repo.list_notes_refs()
+
+            called_url = mock_get.await_args.args[0]
+            assert called_url.endswith("/repos/notes/refs")
+            assert result["refs"] == []
+            assert result["has_more"] is False
 
 
 class TestRepoTagOperations:

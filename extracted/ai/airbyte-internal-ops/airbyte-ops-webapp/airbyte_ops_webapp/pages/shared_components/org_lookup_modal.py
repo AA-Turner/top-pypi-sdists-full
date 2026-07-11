@@ -18,6 +18,7 @@ from prefab_ui.components import (
     DataTable,
     DataTableColumn,
     Dialog,
+    Form,
     Input,
     Muted,
     Row,
@@ -93,8 +94,34 @@ def _render_search_input(
     selected_id_key: str,
     selected_label_key: str,
 ) -> None:
-    """Search input row with a Search button."""
-    with Row(gap=2, align="end"):
+    """Search input row with a Search button.
+
+    Wrapping the input and button in a `Form` makes pressing Enter in the input
+    submit the search (native HTML form submission), matching the Search
+    button. The button is `button_type="submit"` so a click also submits the
+    form, and the search actions live on the form's `on_submit` so both paths
+    share a single definition.
+    """
+    search_actions = [
+        SetState(search_error_key, ""),
+        SetState(search_results_key, []),
+        SetState(selected_id_key, ""),
+        SetState(selected_label_key, ""),
+        CallTool(
+            search_tool,
+            arguments={
+                "query": getattr(STATE, search_query_key),
+            },
+            on_success=[
+                SetState(search_results_key, RESULT.results),
+                SetState(search_error_key, RESULT.error),
+            ],
+            on_error=[
+                SetState(search_error_key, "Search failed. Please try again."),
+            ],
+        ),
+    ]
+    with Form(on_submit=search_actions), Row(gap=2, align="end"):
         Input(
             name=search_query_key,
             value=getattr(STATE, search_query_key),
@@ -104,26 +131,8 @@ def _render_search_input(
         Button(
             "Search",
             variant="info",
+            button_type="submit",
             css_class="bg-[#5D51D5] text-white border-[#5D51D5] hover:bg-[#4D43BE]",
-            on_click=[
-                SetState(search_error_key, ""),
-                SetState(search_results_key, []),
-                SetState(selected_id_key, ""),
-                SetState(selected_label_key, ""),
-                CallTool(
-                    search_tool,
-                    arguments={
-                        "query": getattr(STATE, search_query_key),
-                    },
-                    on_success=[
-                        SetState(search_results_key, RESULT.results),
-                        SetState(search_error_key, RESULT.error),
-                    ],
-                    on_error=[
-                        SetState(search_error_key, "Search failed. Please try again."),
-                    ],
-                ),
-            ],
         )
 
 
@@ -145,19 +154,19 @@ def _render_search_results(
         )
     with If(getattr(STATE, search_results_key)):
         Muted("Click a row to select, then press Select.")
-        DataTable(
-            columns=[
-                DataTableColumn(key="entity_type", header="Type"),
-                DataTableColumn(key="entity_name", header="Name"),
-                DataTableColumn(key="entity_id", header="ID"),
-            ],
-            rows=getattr(STATE, search_results_key),
-            pageSize=10,
-            on_row_click=[
-                SetState(selected_id_key, EVENT.entity_id),
-                SetState(selected_label_key, EVENT.display_label),
-            ],
-        )
+        with Column(css_class="max-h-[50vh] overflow-auto"):
+            DataTable(
+                columns=[
+                    DataTableColumn(key="entity_type", header="Type"),
+                    DataTableColumn(key="entity_name", header="Name"),
+                    DataTableColumn(key="entity_id", header="ID"),
+                ],
+                rows=getattr(STATE, search_results_key),
+                on_row_click=[
+                    SetState(selected_id_key, EVENT.entity_id),
+                    SetState(selected_label_key, EVENT.display_label),
+                ],
+            )
     with If(getattr(STATE, selected_label_key)):
         with Row(gap=2, align="center"):
             Text("Selected:", style={"fontWeight": "600", "fontSize": "0.875rem"})

@@ -55,6 +55,7 @@ __all__ = [
     "ContributorEvaluationQuestionTaskConfiguration",
     "CustomFunctionEvaluationTask",
     "CustomFunctionEvaluationTaskConfiguration",
+    "CustomFunctionEvaluationTaskConfigurationOutput",
 ]
 
 
@@ -536,6 +537,14 @@ class ContributorEvaluationQuestionTask(BaseModel):
     task_type: Optional[Literal["contributor_evaluation.question"]] = None
 
 
+class CustomFunctionEvaluationTaskConfigurationOutput(BaseModel):
+    path: str
+    """Dot path in the custom function return value to materialize."""
+
+    alias: Optional[str] = None
+    """Result column alias. Defaults to path with dots replaced by underscores."""
+
+
 class CustomFunctionEvaluationTaskConfiguration(BaseModel):
     """Configuration for a custom Python function evaluation task."""
 
@@ -546,6 +555,20 @@ class CustomFunctionEvaluationTaskConfiguration(BaseModel):
     """Mapping of function parameter names to item locators (e.g.
 
     item.field). Auto-derived from function signature if not provided.
+    """
+
+    config_args: Optional[Dict[str, object]] = None
+    """Literal argument values for function parameters, such as thresholds or RNG
+    seeds.
+
+    Serialized JSON must be at most 10000 characters.
+    """
+
+    outputs: Optional[List[CustomFunctionEvaluationTaskConfigurationOutput]] = None
+    """Optional output paths to materialize as separate result columns.
+
+    If omitted, the function return value is stored only under the task alias/data
+    key.
     """
 
 

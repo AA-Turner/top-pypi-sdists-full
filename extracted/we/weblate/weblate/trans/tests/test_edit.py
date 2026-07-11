@@ -19,11 +19,12 @@ from django.urls import reverse
 
 from weblate.addons.resx import ResxUpdateAddon
 from weblate.auth.data import SELECTION_ALL
-from weblate.auth.models import Group, UserBlock, setup_project_groups
+from weblate.auth.models import Group, Permission, Role, UserBlock, setup_project_groups
 from weblate.checks.models import Check
 from weblate.screenshots.models import Screenshot
 from weblate.trans.actions import ActionEvents
 from weblate.trans.exceptions import FileParseError
+from weblate.trans.forms import get_new_unit_form
 from weblate.trans.models import (
     Change,
     Comment,
@@ -37,10 +38,8 @@ from weblate.trans.templatetags.translations import unit_state_title
 from weblate.trans.tests.test_views import ViewTestCase
 from weblate.trans.util import join_plural
 from weblate.trans.views.edit import (
-    append_unique_ids,
     cleanup_session,
     format_newly_failing_checks_message,
-    get_search_session_snapshot,
 )
 from weblate.utils.docs import get_doc_url
 from weblate.utils.hash import calculate_hash, hash_to_checksum
@@ -77,44 +76,6 @@ class SearchSessionTest(TestCase):
         self.assertNotIn("search_expired", session)
         self.assertNotIn("search_missing_ttl", session)
         self.assertNotIn("search_invalid_ttl", session)
-
-    def test_search_session_snapshot_handles_full_and_partial_windows(self) -> None:
-        full_snapshot = get_search_session_snapshot({"ids": [1, 2, 3]}, -1, 1)
-
-        self.assertIsNotNone(full_snapshot)
-        if full_snapshot is None:
-            self.fail("Expected full search snapshot")
-        self.assertEqual(full_snapshot.ids, [3])
-        self.assertEqual(full_snapshot.offset, 3)
-        self.assertEqual(full_snapshot.total, 3)
-
-        partial_snapshot = get_search_session_snapshot(
-            {"partial_ids": [10, 11], "partial_offset": 3}, 4, 1
-        )
-
-        self.assertIsNotNone(partial_snapshot)
-        if partial_snapshot is None:
-            self.fail("Expected partial search snapshot")
-        self.assertEqual(partial_snapshot.ids, [11])
-        self.assertEqual(partial_snapshot.offset, 4)
-        self.assertIsNone(partial_snapshot.total)
-        self.assertIsNone(
-            get_search_session_snapshot(
-                {"partial_ids": [10, 11], "partial_offset": 3}, 2, 1
-            )
-        )
-        self.assertIsNone(get_search_session_snapshot({"ids": [1, 2, 3]}, 5, 1))
-
-    def test_search_session_snapshot_rejects_malformed_ids(self) -> None:
-        self.assertIsNone(get_search_session_snapshot({"ids": ["invalid"]}, 1, 1))
-        self.assertIsNone(
-            get_search_session_snapshot(
-                {"partial_ids": "invalid", "partial_offset": 1}, 1, 1
-            )
-        )
-
-    def test_append_unique_ids_preserves_order(self) -> None:
-        self.assertEqual(append_unique_ids([1, 2], [2, 3, 1, 4]), [1, 2, 3, 4])
 
 
 class EditScreenshotContextTest(ViewTestCase):
@@ -416,7 +377,7 @@ class EditTest(ViewTestCase):
         if not self.component.file_format_cls.can_add_unit:
             self.assertEqual(response.status_code, 403)
             return
-        if not self.component.file_format_cls.supports_plural:
+        if not self.component.file_format_cls.supports_adding_plural_units():
             self.assertContains(
                 response, "Plurals are not supported by the file format"
             )
@@ -537,7 +498,7 @@ class EditAccessTest(ViewTestCase):
         private_translation = private_component.translation_set.get(language_code="cs")
         unit = self.get_unit("Hello, world!\n", translation=private_translation)
         UserBlock.objects.create(user=self.user, project=private_project)
-        self.user.clear_cache()
+        self.user.clear_permissions_cache()
 
         self.assert_unit_action_urls_not_found(unit)
 
@@ -550,6 +511,30 @@ class EditValidationTest(ViewTestCase):
         params.update(kwargs)
         return self.client.post(
             unit.translation.get_translate_url(), params, follow=True
+        )
+
+    def test_new_plural_unit_rejected_for_conditional_plural_format(self) -> None:
+        self.component.file_format = "csv"
+        self.component.save(update_fields=["file_format"])
+        self.component.drop_file_format_cache()
+
+        self.assertTrue(self.component.file_format_cls.supports_plural)
+        self.assertFalse(self.component.file_format_cls.supports_adding_plural_units())
+
+        form = get_new_unit_form(
+            self.component.source_translation,
+            self.user,
+            data={
+                "context": "test-plural",
+                "source_0": "%(count)s test",
+                "source_1": "%(count)s tests",
+            },
+        )
+
+        self.assertFalse(form.is_valid())
+        self.assertIn(
+            "Plurals are not supported by the file format.",
+            form.errors["__all__"],
         )
 
     def test_edit_invalid(self) -> None:
@@ -699,6 +684,19 @@ class EditResourceSourceTest(ViewTestCase):
         self.assertEqual(len(unit.all_checks), 0)
         self.assertEqual(unit.state, STATE_TRANSLATED)
         self.assert_backend(4, "en")
+
+    def test_edit_without_source_string_permission(self) -> None:
+        Role.objects.get(name="Power user").permissions.remove(
+            Permission.objects.get(codename="unit.template")
+        )
+        self.user.clear_permissions_cache()
+        response = self.edit_unit(
+            "Hello, world!\n", "Nazdar svete!\n", "en", follow=True
+        )
+
+        self.assertContains(
+            response, "You do not have permission to edit source strings."
+        )
 
     def test_edit_does_not_rebuild_component_language_stats(self) -> None:
         self.assertGreater(self.get_translation().stats.all, 0)
@@ -1344,6 +1342,29 @@ class ZenViewTest(ViewTestCase):
         self.assertContains(response, "Zen source 26")
         self.assertContains(response, "The translation has come to an end.")
 
+    def test_load_zen_offset_survives_cached_translate_sort(self) -> None:
+        for position in range(5, 27):
+            self.create_zen_unit(position)
+        first = self.get_unit()
+        self.translation.unit_set.update(target="zzz\n")
+        Unit.objects.filter(pk=first.pk).update(target="aaa\n")
+
+        response = self.client.get(
+            reverse("translate", kwargs=self.kw_translation),
+            {"sort_by": "target", "offset": "1"},
+        )
+        self.assertEqual(response.context["unit"].pk, first.pk)
+
+        response = self.client.get(
+            reverse("load_zen", kwargs=self.kw_translation),
+            {"offset": "21"},
+        )
+
+        self.assertNotContains(response, "Hello, world")
+        self.assertContains(response, "Zen source 21")
+        self.assertContains(response, "Zen source 26")
+        self.assertContains(response, "The translation has come to an end.")
+
     def test_zen_stores_full_search_ids(self) -> None:
         for position in range(5, 27):
             self.create_zen_unit(position)
@@ -1395,9 +1416,7 @@ class ZenViewTest(ViewTestCase):
             reverse("save_zen", kwargs=self.kw_translation),
             params,
         )
-        self.assertContains(
-            response, "Insufficient privileges for saving translations."
-        )
+        self.assertContains(response, "This translation is currently locked.")
 
     def test_browse(self) -> None:
         response = self.client.get(reverse("browse", kwargs=self.kw_translation))
@@ -1572,7 +1591,7 @@ class EditComplexTest(ViewTestCase):
             f'href="{translate_url}?checksum={unit.checksum}&amp;revert={change.id}"',
         )
 
-    def test_translate_get_search_uses_lightweight_state(self) -> None:
+    def test_translate_get_search_stores_full_ids(self) -> None:
         Check.objects.all().delete()
         unit = self.get_unit(source="Thank you for using Weblate.")
         Check.objects.get_or_create(unit=unit, name="end_stop")
@@ -1584,7 +1603,7 @@ class EditComplexTest(ViewTestCase):
         session = self.client.session
         session_keys = session.keys()
         search_key = next(key for key in session_keys if key.startswith("search_"))
-        self.assertNotIn("ids", session[search_key])
+        self.assertEqual(session[search_key]["ids"], [unit.pk])
         self.assertEqual(session[search_key]["last_viewed_unit_id"], unit.pk)
 
     def test_translate_checksum_search_stores_full_ids(self) -> None:
@@ -1598,7 +1617,7 @@ class EditComplexTest(ViewTestCase):
         self.assertIn("ids", session[search_key])
         self.assertIn(unit.pk, session[search_key]["ids"])
 
-    def test_translate_post_converts_full_search_session_to_partial(self) -> None:
+    def test_translate_post_uses_lightweight_search_session(self) -> None:
         unit = self.get_unit()
 
         self.client.get(self.translate_url, {"checksum": unit.checksum, "offset": 1})
@@ -1620,14 +1639,15 @@ class EditComplexTest(ViewTestCase):
         session = self.client.session
         session_data = session[search_key]
         self.assertNotIn("ids", session_data)
-        self.assertEqual(session_data["partial_offset"], 1)
-        self.assertEqual(session_data["partial_ids"][0], unit.pk)
+        self.assertNotIn("partial_ids", session_data)
+        self.assertEqual(session_data["last_viewed_unit_id"], unit.pk)
 
     def test_translate_filtered_search_keeps_stable_navigation(self) -> None:
         first = self.get_unit()
 
         response = self.client.get(self.translate_url, {"q": "state:<translated"})
         self.assertEqual(response.context["unit"].pk, first.pk)
+        initial_count = response.context["filter_count"]
 
         params = {
             "checksum": first.checksum,
@@ -1645,20 +1665,34 @@ class EditComplexTest(ViewTestCase):
         session = self.client.session
         session_keys = session.keys()
         search_key = next(key for key in session_keys if key.startswith("search_"))
-        expected_unit_id = session[search_key]["partial_ids"][1]
-        self.assertNotIn("ids", session[search_key])
+        expected_unit_id = session[search_key]["ids"][1]
+        self.assertNotIn("partial_ids", session[search_key])
 
         response = self.client.get(
             self.translate_url, {"q": "state:<translated", "offset": 2}
         )
         self.assertEqual(response.context["unit"].pk, expected_unit_id)
+        self.assertEqual(response.context["filter_pos"], 2)
+        self.assertEqual(response.context["filter_count"], initial_count)
 
-    def test_translate_post_offset_uses_limited_search_lookup(self) -> None:
+        response = self.client.get(
+            self.translate_url, {"q": "state:<translated", "offset": 1}
+        )
+        self.assertEqual(response.context["unit"].pk, first.pk)
+        self.assertEqual(response.context["filter_pos"], 1)
+        self.assertEqual(response.context["filter_count"], initial_count)
+
+    def test_translate_post_offset_uses_bounded_search_lookup(self) -> None:
         response = self.client.get(self.translate_url, {"offset": 1})
         unit = response.context["unit"]
         self.assertContains(
             response, f'name="checksum" value="{unit.checksum}"', html=False
         )
+        session = self.client.session
+        session_keys = session.keys()
+        search_key = next(key for key in session_keys if key.startswith("search_"))
+        self.assertNotIn("ids", session[search_key])
+
         params = {
             "checksum": unit.checksum,
             "contentsum": hash_to_checksum(unit.content_hash),
@@ -1687,7 +1721,143 @@ class EditComplexTest(ViewTestCase):
             "\n".join(query["sql"] for query in queries),
         )
 
-    def test_translate_consecutive_filtered_post_uses_partial_search_lookup(
+    def test_translate_mutable_sort_uses_cached_search_ids(self) -> None:
+        response = self.client.get(
+            self.translate_url, {"sort_by": "target", "offset": 1}
+        )
+        unit = response.context["unit"]
+
+        session = self.client.session
+        session_keys = session.keys()
+        search_key = next(key for key in session_keys if key.startswith("search_"))
+        self.assertIn("ids", session[search_key])
+
+        params = {
+            "checksum": unit.checksum,
+            "contentsum": hash_to_checksum(unit.content_hash),
+            "translationsum": hash_to_checksum(unit.get_target_hash()),
+            "target_0": "Translated first string",
+            "review": "20",
+        }
+
+        with CaptureQueriesContext(connection) as queries:
+            response = self.client.post(
+                f"{self.translate_url}?sort_by=target&offset=1", params
+            )
+
+        self.assert_redirects_offset(response, self.translate_url, 2)
+        unit_id_searches = [
+            query["sql"]
+            for query in queries
+            if '"trans_unit"."id" AS "id"' in query["sql"]
+            and 'FROM "trans_unit"' in query["sql"]
+            and "ORDER BY" in query["sql"]
+        ]
+        self.assertFalse(
+            unit_id_searches,
+            "\n".join(query["sql"] for query in queries),
+        )
+
+    def test_translate_sort_change_reorders_cached_ids_and_keeps_current_unit(
+        self,
+    ) -> None:
+        query = "state:<translated"
+        self.client.get(self.translate_url, {"q": query, "offset": 1})
+
+        session = self.client.session
+        session_keys = session.keys()
+        search_key = next(key for key in session_keys if key.startswith("search_"))
+        original_ids = list(session[search_key]["ids"])
+        expected_ids = list(
+            self.translation.unit_set.filter(pk__in=original_ids)
+            .order_by("source")
+            .values_list("pk", flat=True)
+        )
+        self.assertGreaterEqual(len(expected_ids), 2)
+
+        current_id = expected_ids[1]
+        self.client.get(
+            self.translate_url,
+            {"q": query, "offset": original_ids.index(current_id) + 1},
+        )
+
+        response = self.client.get(
+            self.translate_url,
+            {"q": query, "sort_by": "source", "offset": 1},
+        )
+
+        self.assertEqual(response.context["unit"].pk, current_id)
+        self.assertEqual(response.context["filter_pos"], 2)
+
+        session = self.client.session
+        session_keys = session.keys()
+        sorted_key = next(
+            key
+            for key in session_keys
+            if key.startswith("search_")
+            and session[key].get("url", "").endswith("sort_by=source")
+        )
+        self.assertEqual(session[sorted_key]["ids"], expected_ids)
+
+    def test_translate_sort_change_refreshes_cached_sort_from_newer_ids(
+        self,
+    ) -> None:
+        query = "state:<translated"
+        self.client.get(
+            self.translate_url,
+            {"q": query, "sort_by": "source", "offset": 1},
+        )
+
+        session = self.client.session
+        session_keys = session.keys()
+        source_key = next(
+            key
+            for key in session_keys
+            if key.startswith("search_")
+            and session[key].get("url", "").endswith("sort_by=source")
+        )
+        source_ids = list(session[source_key]["ids"])
+        self.assertGreaterEqual(len(source_ids), 2)
+
+        current_id = source_ids[1]
+        self.client.get(self.translate_url, {"q": query, "offset": 1})
+        session = self.client.session
+        session_keys = session.keys()
+        default_key = next(
+            key
+            for key in session_keys
+            if key.startswith("search_")
+            and session[key].get("query") == query
+            and "sort_by" not in session[key].get("url", "")
+        )
+        default_ids = list(session[default_key]["ids"])
+
+        response = self.client.get(
+            self.translate_url,
+            {"q": query, "offset": default_ids.index(current_id) + 1},
+        )
+        self.assertEqual(response.context["unit"].pk, current_id)
+
+        session = self.client.session
+        self.assertEqual(session[default_key]["last_viewed_unit_id"], current_id)
+        source_data = session[source_key]
+        source_data["ttl"] = session[default_key]["ttl"] - 10
+        session[source_key] = source_data
+        session.save()
+
+        response = self.client.get(
+            self.translate_url,
+            {"q": query, "sort_by": "source", "offset": 1},
+        )
+
+        self.assertEqual(response.context["unit"].pk, current_id)
+        self.assertEqual(response.context["filter_pos"], 2)
+
+        session = self.client.session
+        self.assertEqual(session[source_key]["ids"], source_ids)
+        self.assertEqual(session[source_key]["last_viewed_unit_id"], current_id)
+
+    def test_translate_consecutive_filtered_post_uses_cached_search_ids(
         self,
     ) -> None:
         def get_targets(unit: Unit) -> dict[str, str]:
@@ -1729,7 +1899,7 @@ class EditComplexTest(ViewTestCase):
         session = self.client.session
         session_keys = session.keys()
         search_key = next(key for key in session_keys if key.startswith("search_"))
-        second = Unit.objects.get(pk=session[search_key]["partial_ids"][1])
+        second = Unit.objects.get(pk=session[search_key]["ids"][2])
         params = {
             "checksum": second.checksum,
             "contentsum": hash_to_checksum(second.content_hash),
@@ -1751,19 +1921,15 @@ class EditComplexTest(ViewTestCase):
             and 'FROM "trans_unit"' in query["sql"]
             and "ORDER BY" in query["sql"]
         ]
-        self.assertTrue(
-            any("LIMIT" in sql for sql in unit_id_searches),
-            "\n".join(query["sql"] for query in queries),
-        )
         self.assertFalse(
-            any("LIMIT" not in sql for sql in unit_id_searches),
+            unit_id_searches,
             "\n".join(query["sql"] for query in queries),
         )
         session = self.client.session
-        self.assertNotIn("ids", session[search_key])
-        self.assertGreaterEqual(len(session[search_key]["partial_ids"]), 3)
+        self.assertNotIn("partial_ids", session[search_key])
+        self.assertGreaterEqual(len(session[search_key]["ids"]), 3)
 
-    def test_translate_partial_total_keeps_cached_unit_after_filter_removal(
+    def test_translate_cached_total_keeps_unit_after_filter_removal(
         self,
     ) -> None:
         unit = self.get_unit()
@@ -2118,7 +2284,8 @@ class EditComplexTest(ViewTestCase):
             response = self.client.post(
                 reverse("js-ignore-check", kwargs={"check_id": check_id})
             )
-        self.assertContains(response, "ok")
+        self.assertEqual(response.headers["Content-Type"], "application/json")
+        self.assertJSONEqual(response.content.decode("utf-8"), {})
 
         # Should have one less failing check
         unit = self.get_unit()

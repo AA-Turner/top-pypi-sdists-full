@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: blackjax
-Version: 1.5
+Version: 1.6
 Summary: Flexible and fast sampling in Python
 Author-email: The Blackjax team <remi@thetypicalset.com>
 License: Apache License 2.0
@@ -35,7 +35,8 @@ Requires-Dist: optax>=0.2.3
 Requires-Dist: scipy>=1.13
 Requires-Dist: typing-extensions>=4.4.0
 Provides-Extra: progress
-Requires-Dist: fastprogress<1.1,>=1.0.0; extra == "progress"
+Requires-Dist: tqdm>=4.66; extra == "progress"
+Requires-Dist: jax-tap>=0.2.1; extra == "progress"
 Dynamic: license-file
 
 # BlackJAX
@@ -163,6 +164,10 @@ kernels are stateless functions and all follow the same API; state and
 information related to the transition are returned separately. They can thus be
 easily composed and exchanged. We specialize these kernels by closure instead of
 passing parameters.
+
+## New algorithms
+
+We want to make implementing and testing new algorithms easy with BlackJAX. You can test new algorithms by reusing the basic components of the many known methods already implemented in the library. Follow the [developer guidelines](https://blackjax-devs.github.io/blackjax/developer/guidelines.html) to implement your method and test new ideas on existing methods without writing everything from scratch.
 
 ## Contributions
 

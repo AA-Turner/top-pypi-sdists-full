@@ -6,6 +6,8 @@ Commands:
     airbyte-ops local connector info - Get metadata for a single connector
     airbyte-ops local connector get-version - Get connector version (current or next)
     airbyte-ops local connector bump-version - Bump connector version
+    airbyte-ops local connector rollouts enable - Enable autopilot rollouts
+    airbyte-ops local connector rollouts disable - Disable autopilot rollouts
     airbyte-ops local connector qa - Run QA checks on a connector
     airbyte-ops local connector qa-docs-generate - Generate QA checks documentation
     airbyte-ops local connector changelog check - Check changelog entries for issues
@@ -41,6 +43,9 @@ from pathlib import Path
 from typing import Annotated, Literal
 
 import yaml
+from airbyte_connector_models.metadata.v0.connector_metadata_definition_v0 import (
+    ConnectorMetadataDefinitionV0DataConnectorReleasesRolloutConfigurationAutopilotConfigStrategy as AutopilotStrategy,
+)
 from cyclopts import Parameter
 from fastmcp_extensions.cli import exit_with_error, print_json
 from jinja2 import Environment, PackageLoader, select_autoescape
@@ -82,6 +87,11 @@ from airbyte_ops_mcp.airbyte_repo.list_connectors import (
     METADATA_FILE_NAME,
     _detect_connector_language,
     get_connectors_with_local_cdk,
+)
+from airbyte_ops_mcp.airbyte_repo.progressive_rollout import (
+    disable_autopilot_rollout,
+    enable_autopilot_rollout,
+    is_autopilot_rollout_enabled,
 )
 from airbyte_ops_mcp.airbyte_repo.release_block import (
     add_release_block,
@@ -196,6 +206,24 @@ def _get_connector_version(connector_dir: Path) -> str | None:
     return metadata.get("data", {}).get("dockerImageTag")
 
 
+def _get_connector_autopilot_enabled(connector_dir: Path) -> bool:
+    """Return whether a connector has autopilot progressive rollout enabled.
+
+    Reads the connector's `metadata.yaml` and delegates to
+    `is_autopilot_rollout_enabled`. A connector with no metadata file, or with
+    no (or incomplete) `releases.rolloutConfiguration`, is treated as not
+    enabled.
+    """
+    metadata_file = connector_dir / METADATA_FILE_NAME
+    if not metadata_file.exists():
+        return False
+    metadata = yaml.safe_load(metadata_file.read_text())
+    data = metadata.get("data") if isinstance(metadata, dict) else None
+    if not isinstance(data, dict):
+        return False
+    return is_autopilot_rollout_enabled(data)
+
+
 def _support_level_to_int(level: SupportLevel | None) -> int | None:
     """Convert a `SupportLevel` to its legacy integer representation for JSON output."""
     if level is None:
@@ -287,6 +315,19 @@ def list_connectors(
             help=(
                 "Maximum support level (inclusive). "
                 "Accepts integer (100, 200, 300) or keyword (archived, community, certified)."
+            )
+        ),
+    ] = None,
+    autopilot_enabled: Annotated[
+        bool | None,
+        Parameter(
+            help=(
+                "Filter by autopilot progressive rollout status. "
+                "Pass `--autopilot-enabled=true` to keep only connectors that "
+                "have autopilot rollouts enabled (`defaultRolloutMode: autopilot` "
+                "and `enableProgressiveRollout: true`), or "
+                "`--autopilot-enabled=false` for those that do not. "
+                "When omitted, connectors are not filtered on rollout status."
             )
         ),
     ] = None,
@@ -509,6 +550,19 @@ def list_connectors(
     # Apply connectors filter (intersection, narrows the set)
     if connectors_filter_set is not None:
         connectors = [name for name in connectors if name in connectors_filter_set]
+
+    # Apply autopilot rollout status filter last among narrowing filters: it reads
+    # and parses each connector's metadata.yaml, so run it on the already
+    # name-filtered set to avoid unnecessary reads.
+    if autopilot_enabled is not None:
+        connectors = [
+            name
+            for name in connectors
+            if _get_connector_autopilot_enabled(
+                repo_path_obj / CONNECTOR_PATH_PREFIX / name
+            )
+            == autopilot_enabled
+        ]
 
     # Apply force-include (union, overrides all other filters)
     if force_include_set:
@@ -949,6 +1003,140 @@ def bump_version(
             "connector": result.connector,
             "previous_version": result.previous_version,
             "new_version": result.new_version,
+        }
+    )
+
+
+rollouts_app = App(
+    name="rollouts",
+    help="Manage a connector's progressive rollout configuration.",
+)
+connector_app.command(rollouts_app)
+
+
+@rollouts_app.command(name="enable")
+def rollouts_enable(
+    name: Annotated[
+        str,
+        Parameter(help="Connector technical name (e.g., source-github)."),
+    ],
+    repo_path: Annotated[
+        str,
+        Parameter(help="Absolute path to the Airbyte monorepo."),
+    ],
+    strategy: Annotated[
+        AutopilotStrategy | None,
+        Parameter(
+            help="Autopilot pacing strategy: 'fast', 'slow', or 'default'. "
+            "'default' is a server-side alias for 'fast'; prefer the explicit 'fast'. "
+            "Omitted keeps any existing value, or 'fast' when none is set."
+        ),
+    ] = None,
+    dry_run: Annotated[
+        bool,
+        Parameter(help="Show what would be changed without modifying files."),
+    ] = False,
+) -> None:
+    """Enable autopilot rollouts in a connector's metadata.yaml.
+
+    Always sets `releases.rolloutConfiguration.defaultRolloutMode: autopilot`
+    (autopilot is the only actively-supported mode, so it is implicit here),
+    fills in `autopilotConfig` (`autoStart`, `autoPromoteStages`, `strategy`),
+    and sets `enableProgressiveRollout: true` — the toggle that turns automatic
+    progressive rollout on. Defaults only fill in `autopilotConfig` fields that
+    are absent, so existing settings are preserved.
+
+    Examples:
+        airbyte-ops local connector rollouts enable --name source-github --repo-path /path/to/airbyte
+        airbyte-ops local connector rollouts enable --name source-github --repo-path /path/to/airbyte --strategy slow
+    """
+    try:
+        result = enable_autopilot_rollout(
+            repo_path=repo_path,
+            connector_name=name,
+            strategy=strategy.value if strategy is not None else None,
+            dry_run=dry_run,
+        )
+    except ConnectorNotFoundError as e:
+        exit_with_error(str(e))
+    except FileNotFoundError as e:
+        exit_with_error(str(e))
+    except ValueError as e:
+        exit_with_error(str(e))
+
+    print_json(
+        {
+            "connector": result.connector,
+            "modified": result.modified,
+            "dry_run": result.dry_run,
+            "default_rollout_mode": result.default_rollout_mode,
+            "progressive_rollout_enabled": result.progressive_rollout_enabled,
+            "strategy": result.strategy,
+            "auto_start": result.auto_start,
+            "auto_promote_stages": result.auto_promote_stages,
+        }
+    )
+
+    _write_github_step_outputs(
+        {
+            "connector": result.connector,
+            "default_rollout_mode": result.default_rollout_mode,
+            "progressive_rollout_enabled": str(result.progressive_rollout_enabled),
+            "strategy": result.strategy,
+        }
+    )
+
+
+@rollouts_app.command(name="disable")
+def rollouts_disable(
+    name: Annotated[
+        str,
+        Parameter(help="Connector technical name (e.g., source-github)."),
+    ],
+    repo_path: Annotated[
+        str,
+        Parameter(help="Absolute path to the Airbyte monorepo."),
+    ],
+    dry_run: Annotated[
+        bool,
+        Parameter(help="Show what would be changed without modifying files."),
+    ] = False,
+) -> None:
+    """Disable autopilot rollouts in a connector's metadata.yaml.
+
+    Only sets `releases.rolloutConfiguration.enableProgressiveRollout: false` —
+    the toggle that turns automatic progressive rollout off. `defaultRolloutMode`
+    and any `autopilotConfig` are retained (inert until re-enabled), so the
+    change is lossless. Connectors with no rollout config, or with the flag
+    already off, are a no-op.
+
+    Examples:
+        airbyte-ops local connector rollouts disable --name source-github --repo-path /path/to/airbyte
+    """
+    try:
+        result = disable_autopilot_rollout(
+            repo_path=repo_path,
+            connector_name=name,
+            dry_run=dry_run,
+        )
+    except ConnectorNotFoundError as e:
+        exit_with_error(str(e))
+    except FileNotFoundError as e:
+        exit_with_error(str(e))
+
+    print_json(
+        {
+            "connector": result.connector,
+            "modified": result.modified,
+            "dry_run": result.dry_run,
+            "progressive_rollout_enabled": result.progressive_rollout_enabled,
+        }
+    )
+
+    _write_github_step_outputs(
+        {
+            "connector": result.connector,
+            "progressive_rollout_enabled": str(result.progressive_rollout_enabled),
         }
     )
 

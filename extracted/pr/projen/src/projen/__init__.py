@@ -545,6 +545,39 @@ class Component(
             check_type(argname="argument x", value=x, expected_type=type_hints["x"])
         return typing.cast(builtins.bool, jsii.sinvoke(cls, "isComponent", [x]))
 
+    @jsii.member(jsii_name="postProjectCreation")
+    def post_project_creation(
+        self,
+        *,
+        args: typing.Mapping[builtins.str, typing.Any],
+        comments: "InitProjectOptionHints",
+        fqn: builtins.str,
+        post: builtins.bool,
+        synth: builtins.bool,
+        type: typing.Union["ProjectType", typing.Dict[builtins.str, typing.Any]],
+    ) -> None:
+        '''(experimental) Called once, right after ``postSynthesize()``, only when the project is created for the first time.
+
+        It does not run on later ``projen`` invocations. It only fires for ``projen new`` (or ``Projects.createProject``).
+        It is also skipped when post-synthesis steps are disabled, e.g. ``--no-post`` or ``PROJEN_DISABLE_POST``.
+        Use it for one-off setup that can be turned off by the user, like running a task to give the user immediate
+        feedback on their new project. Order across components is not guaranteed.
+
+        :param args: (experimental) Initial arguments passed to ``projen new``.
+        :param comments: (experimental) Include commented out options. Does not apply to projenrc.json files. Default: InitProjectOptionHints.FEATURED
+        :param fqn: (experimental) The JSII FQN of the project type.
+        :param post: (experimental) Whether ``projen new`` should run post-synthesis steps (e.g. package manager install). Default: true
+        :param synth: (experimental) Whether ``projen new`` should call ``project.synth()`` after construction. Default: true
+        :param type: (experimental) Project metadata.
+
+        :stability: experimental
+        '''
+        init_project = InitProject(
+            args=args, comments=comments, fqn=fqn, post=post, synth=synth, type=type
+        )
+
+        return typing.cast(None, jsii.invoke(self, "postProjectCreation", [init_project]))
+
     @jsii.member(jsii_name="postSynthesize")
     def post_synthesize(self) -> None:
         '''(experimental) Called after synthesis.
@@ -562,6 +595,37 @@ class Component(
         :stability: experimental
         '''
         return typing.cast(None, jsii.invoke(self, "preSynthesize", []))
+
+    @jsii.member(jsii_name="projectCreation")
+    def project_creation(
+        self,
+        *,
+        args: typing.Mapping[builtins.str, typing.Any],
+        comments: "InitProjectOptionHints",
+        fqn: builtins.str,
+        post: builtins.bool,
+        synth: builtins.bool,
+        type: typing.Union["ProjectType", typing.Dict[builtins.str, typing.Any]],
+    ) -> None:
+        '''(experimental) Called once, right after ``synthesize()``, only when the project is created for the first time.
+
+        It does not run on later ``projen`` invocations. It only fires for ``projen new`` (or ``Projects.createProject``).
+        Use it for deterministic, one-off file generation. Order across components is not guaranteed.
+
+        :param args: (experimental) Initial arguments passed to ``projen new``.
+        :param comments: (experimental) Include commented out options. Does not apply to projenrc.json files. Default: InitProjectOptionHints.FEATURED
+        :param fqn: (experimental) The JSII FQN of the project type.
+        :param post: (experimental) Whether ``projen new`` should run post-synthesis steps (e.g. package manager install). Default: true
+        :param synth: (experimental) Whether ``projen new`` should call ``project.synth()`` after construction. Default: true
+        :param type: (experimental) Project metadata.
+
+        :stability: experimental
+        '''
+        init_project = InitProject(
+            args=args, comments=comments, fqn=fqn, post=post, synth=synth, type=type
+        )
+
+        return typing.cast(None, jsii.invoke(self, "projectCreation", [init_project]))
 
     @jsii.member(jsii_name="synthesize")
     def synthesize(self) -> None:
@@ -4907,6 +4971,8 @@ class IgnoreFileOptions:
         "args": "args",
         "comments": "comments",
         "fqn": "fqn",
+        "post": "post",
+        "synth": "synth",
         "type": "type",
     },
 )
@@ -4917,6 +4983,8 @@ class InitProject:
         args: typing.Mapping[builtins.str, typing.Any],
         comments: "InitProjectOptionHints",
         fqn: builtins.str,
+        post: builtins.bool,
+        synth: builtins.bool,
         type: typing.Union["ProjectType", typing.Dict[builtins.str, typing.Any]],
     ) -> None:
         '''(experimental) Information passed from ``projen new`` to the project object when the project is first created.
@@ -4926,6 +4994,8 @@ class InitProject:
         :param args: (experimental) Initial arguments passed to ``projen new``.
         :param comments: (experimental) Include commented out options. Does not apply to projenrc.json files. Default: InitProjectOptionHints.FEATURED
         :param fqn: (experimental) The JSII FQN of the project type.
+        :param post: (experimental) Whether ``projen new`` should run post-synthesis steps (e.g. package manager install). Default: true
+        :param synth: (experimental) Whether ``projen new`` should call ``project.synth()`` after construction. Default: true
         :param type: (experimental) Project metadata.
 
         :stability: experimental
@@ -4937,11 +5007,15 @@ class InitProject:
             check_type(argname="argument args", value=args, expected_type=type_hints["args"])
             check_type(argname="argument comments", value=comments, expected_type=type_hints["comments"])
             check_type(argname="argument fqn", value=fqn, expected_type=type_hints["fqn"])
+            check_type(argname="argument post", value=post, expected_type=type_hints["post"])
+            check_type(argname="argument synth", value=synth, expected_type=type_hints["synth"])
             check_type(argname="argument type", value=type, expected_type=type_hints["type"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "args": args,
             "comments": comments,
             "fqn": fqn,
+            "post": post,
+            "synth": synth,
             "type": type,
         }
 
@@ -4978,6 +5052,30 @@ class InitProject:
         result = self._values.get("fqn")
         assert result is not None, "Required property 'fqn' is missing"
         return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def post(self) -> builtins.bool:
+        '''(experimental) Whether ``projen new`` should run post-synthesis steps (e.g. package manager install).
+
+        :default: true
+
+        :stability: experimental
+        '''
+        result = self._values.get("post")
+        assert result is not None, "Required property 'post' is missing"
+        return typing.cast(builtins.bool, result)
+
+    @builtins.property
+    def synth(self) -> builtins.bool:
+        '''(experimental) Whether ``projen new`` should call ``project.synth()`` after construction.
+
+        :default: true
+
+        :stability: experimental
+        '''
+        result = self._values.get("synth")
+        assert result is not None, "Required property 'synth' is missing"
+        return typing.cast(builtins.bool, result)
 
     @builtins.property
     def type(self) -> "ProjectType":
@@ -6505,8 +6603,10 @@ class Project(
         2. Delete all generated files
         3. Synthesize all subprojects
         4. Synthesize all components of this project
-        5. Call "postSynthesize()" for all components of this project
-        6. Call "this.postSynthesize()"
+        5. Call "projectCreation()" for all components, only if the project is being created for the first time
+        6. Call "postSynthesize()" for all components of this project
+        7. Call "this.postSynthesize()"
+        8. Call "postProjectCreation()" for all components, only if the project is being created for the first time
 
         :stability: experimental
         '''
@@ -6771,13 +6871,15 @@ class Project(
     @builtins.property
     @jsii.member(jsii_name="initProject")
     def init_project(self) -> typing.Optional["InitProject"]:
-        '''(experimental) The options used when this project is bootstrapped via ``projen new``.
+        '''(deprecated) The options used when this project is bootstrapped via ``projen new``.
 
         It
         includes the original set of options passed to the CLI and also the JSII
         FQN of the project type.
 
-        :stability: experimental
+        :deprecated: use the ``initProject`` argument passed to ``Component.projectCreation()`` instead.
+
+        :stability: deprecated
         '''
         return typing.cast(typing.Optional["InitProject"], jsii.get(self, "initProject"))
 
@@ -7626,6 +7728,37 @@ class ProjenrcJson(
         options = ProjenrcJsonOptions(filename=filename)
 
         jsii.create(self.__class__, self, [project, options])
+
+    @jsii.member(jsii_name="projectCreation")
+    def project_creation(
+        self,
+        *,
+        args: typing.Mapping[builtins.str, typing.Any],
+        comments: "InitProjectOptionHints",
+        fqn: builtins.str,
+        post: builtins.bool,
+        synth: builtins.bool,
+        type: typing.Union["ProjectType", typing.Dict[builtins.str, typing.Any]],
+    ) -> None:
+        '''(experimental) Called once, right after ``synthesize()``, only when the project is created for the first time.
+
+        It does not run on later ``projen`` invocations. It only fires for ``projen new`` (or ``Projects.createProject``).
+        Use it for deterministic, one-off file generation. Order across components is not guaranteed.
+
+        :param args: (experimental) Initial arguments passed to ``projen new``.
+        :param comments: (experimental) Include commented out options. Does not apply to projenrc.json files. Default: InitProjectOptionHints.FEATURED
+        :param fqn: (experimental) The JSII FQN of the project type.
+        :param post: (experimental) Whether ``projen new`` should run post-synthesis steps (e.g. package manager install). Default: true
+        :param synth: (experimental) Whether ``projen new`` should call ``project.synth()`` after construction. Default: true
+        :param type: (experimental) Project metadata.
+
+        :stability: experimental
+        '''
+        init_project = InitProject(
+            args=args, comments=comments, fqn=fqn, post=post, synth=synth, type=type
+        )
+
+        return typing.cast(None, jsii.invoke(self, "projectCreation", [init_project]))
 
     @builtins.property
     @jsii.member(jsii_name="filePath")
@@ -14437,6 +14570,8 @@ def _typecheckingstub__68e857a70558d977f23eac6a7f43184bde159ec35b45b301dd96f1d6b
     args: typing.Mapping[builtins.str, typing.Any],
     comments: InitProjectOptionHints,
     fqn: builtins.str,
+    post: builtins.bool,
+    synth: builtins.bool,
     type: typing.Union[ProjectType, typing.Dict[builtins.str, typing.Any]],
 ) -> None:
     """Type checking stubs"""

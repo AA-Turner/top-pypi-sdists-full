@@ -5,12 +5,14 @@ Plugin for Pyramid apps to submit errors to Rollbar
 import logging
 import sys
 
-from pyramid.httpexceptions import WSGIHTTPException
-from pyramid.tweens import EXCVIEW
-from pyramid.util import DottedNameResolver
-from pyramid.settings import asbool
+from pyramid.httpexceptions import WSGIHTTPException  # type: ignore[import-untyped]
+from pyramid.tweens import EXCVIEW  # type: ignore[import-untyped]
+from pyramid.util import DottedNameResolver  # type: ignore[import-untyped]
+from pyramid.settings import asbool  # type: ignore[import-untyped]
 
 import rollbar
+from rollbar import set_current_session
+from rollbar.lib.session import reset_current_session
 
 DEFAULT_WEB_BASE = 'https://rollbar.com'
 BOOLEAN_SETTINGS = [
@@ -22,7 +24,7 @@ log = logging.getLogger(__name__)
 
 
 EXCEPTION_BLOCKLIST = (WSGIHTTPException,)
-EXCEPTION_SAFELIST = tuple()
+EXCEPTION_SAFELIST: tuple = tuple()
 
 
 def handle_error(request, exception, exc_info):
@@ -50,6 +52,7 @@ def rollbar_tween_factory(pyramid_handler, registry):
     settings = parse_settings(registry.settings)
 
     def rollbar_tween(request):
+        set_current_session(dict(request.headers))
         # for testing out the integration
         try:
             if (settings.get('allow_test', 'true') == 'true' and
@@ -66,6 +69,8 @@ def rollbar_tween_factory(pyramid_handler, registry):
         except Exception as exc:
             handle_error(request, exc, sys.exc_info())
             raise
+        finally:
+            reset_current_session()
         if request.exception is not None:
             handle_error(request, request.exception, request.exc_info)
         return response
@@ -78,7 +83,7 @@ def patch_debugtoolbar(settings):
     Patches the pyramid_debugtoolbar (if installed) to display a link to the related rollbar item.
     """
     try:
-        from pyramid_debugtoolbar import tbtools
+        from pyramid_debugtoolbar import tbtools  # type: ignore[import-not-found]
     except ImportError:
         return
 
@@ -177,6 +182,6 @@ class RollbarMiddleware(object):
         try:
             return self.app(environ, start_resp)
         except Exception as exc:
-            from pyramid.request import Request
+            from pyramid.request import Request  # type: ignore[import-untyped]
             handle_error(Request(environ), exc, sys.exc_info())
             raise

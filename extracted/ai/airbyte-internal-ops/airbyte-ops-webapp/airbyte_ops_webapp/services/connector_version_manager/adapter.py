@@ -667,13 +667,28 @@ class OpsMcpAdapter:
             connector_name=plan.connector_name,
         )
 
-    def resolve_organization_id(self, scope_type: ScopeType, scope_id: str) -> str:
+    def resolve_organization_id(
+        self,
+        scope_type: ScopeType,
+        scope_id: str,
+        *,
+        google_access_token: str = "",
+    ) -> str:
         """Return the organization ID for the selected target scope."""
         if scope_type == "organization":
             return scope_id
         if scope_type == "actor":
             return ""
-        return resolve_workspace(scope_id).organization_id or ""
+        credentials = (
+            get_gcp_credentials_for_bigquery_ro(
+                access_token_override=google_access_token
+            )
+            if google_access_token
+            else None
+        )
+        return (
+            resolve_workspace(scope_id, credentials=credentials).organization_id or ""
+        )
 
     def resolve_context_guid(
         self,

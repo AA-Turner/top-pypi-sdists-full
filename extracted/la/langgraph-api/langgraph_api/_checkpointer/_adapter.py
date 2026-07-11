@@ -24,6 +24,14 @@ from langgraph_grpc_common.checkpointer import GrpcCheckpointer
 from langgraph_api import config, timing
 from langgraph_api.asyncio import as_asynccontextmanager
 from langgraph_api.grpc.client import get_shared_client
+
+# Used as the per-instance serializer for ``GrpcCheckpointer`` below so
+# checkpoint payloads honour the same ``USE_PICKLE_FALLBACK`` /
+# encryption / ``allowed_json_modules`` policy as the in-process Python
+# ``Checkpointer``. Scoped to checkpointer RPCs only (via the contextvar
+# in ``langgraph_grpc_common.serde``) so non-checkpointer gRPC ops keep
+# using the safer ``JsonPlusSerializer`` default.
+from langgraph_api.serde import Serializer as _ApiSerializer
 from langgraph_api.timing import profiled_import
 from langgraph_api.utils.config import run_in_executor
 
@@ -320,7 +328,24 @@ async def get_checkpointer(
     ):
         return cast(
             "FullCheckpointerProtocol",
-            GrpcCheckpointer(get_stub=_get_shared_checkpointer_stub),
+            GrpcCheckpointer(
+                get_stub=_get_shared_checkpointer_stub,
+                serializer=_ApiSerializer(),
+            ),
+        )
+
+    from langgraph_api.feature_flags import (  # noqa: PLC0415
+        IS_POSTGRES_BACKEND,
+        PREFER_GRPC_CHECKPOINTER,
+    )
+
+    if IS_POSTGRES_BACKEND and PREFER_GRPC_CHECKPOINTER:
+        return cast(
+            "FullCheckpointerProtocol",
+            GrpcCheckpointer(
+                get_stub=_get_shared_checkpointer_stub,
+                serializer=_ApiSerializer(),
+            ),
         )
 
     from langgraph_runtime.checkpoint import Checkpointer  # noqa: PLC0415

@@ -32,6 +32,24 @@ MSAN_ENABLED = bool(os.environ.get('MSAN_ENABLED', ''))  # MemorySanitizer
 TSAN_ENABLED = bool(os.environ.get('TSAN_ENABLED', ''))  # ThreadSanitizer
 THINLTO_FLAG = '-flto=thin'
 
+# Taken from https://github.com/cpp-best-practices/cmake_template/blob/a3971f5b45/cmake/CompilerWarnings.cmake
+CLANG_WARNINGS = [
+    '-Wall',
+    '-Wextra',
+    '-Wshadow',
+    '-Wnon-virtual-dtor',
+    '-Wold-style-cast',
+    '-Wcast-align',
+    '-Wunused',
+    '-Woverloaded-virtual',
+    '-Wpedantic',
+    '-Wconversion',
+    '-Wnull-dereference',
+    '-Wdouble-promotion',
+    '-Wformat=2',
+    '-Wimplicit-fallthrough',
+]
+
 
 def apply_patch(patch_path):
     if OMIT_PATCHES:
@@ -276,10 +294,13 @@ class CustomBuildWithFromCH(build_ext):
     def cflags():
         cflags_list = CustomBuildWithFromCH.ninja_extractor_other('FLAGS')
         include_list = list(map(transform_path, CustomBuildWithFromCH.ninja_extractor_other('INCLUDES')))
-        # Reduce the noise coming from python since those flags are added later as -I and not -isystem
-        other_list = ['-Wno-reserved-identifier', '-Wno-zero-as-null-pointer-constant', '-Wno-old-style-cast',
-                      '-Wno-cast-function-type', '-Wno-unused-function', '-Wno-redundant-decls',
-                      '-Wno-missing-include-dirs']
+        # Replace -I with -isystem: these are external headers and we don't want to see warnings from them
+        include_list = [flag.replace('-I', '-isystem', 1) if flag.startswith('-I') else flag for flag in include_list]
+        # Remove -W flags, set our own warnings
+        cflags_list = [flag for flag in cflags_list if not flag.startswith('-W')]
+        other_list = CLANG_WARNINGS.copy()
+        other_list += ['-Werror']  # Treat warnings as errors
+
         if BUILD_FOR_VALGRIND:
             other_list += ['-g', '-gdwarf-4']
         elif DEBUG_SYMBOLS:
@@ -332,6 +353,10 @@ class CustomBuildWithFromCH(build_ext):
 
         # Remove -Wl,--no-undefined since Python symbols will undefined
         link_flags = filter(lambda flag: flag.find('--no-undefined') == -1, link_flags)
+        if sys.platform == 'darwin':
+            # -undefined dynamic_lookup (added in extra_libs) already permits all undefined
+            # symbols, so an explicit -Wl,-U,<symbol> is redundant and makes ld emit a warning.
+            link_flags = filter(lambda flag: not flag.startswith('-Wl,-U,'), link_flags)
         return " ".join(link_flags)
 
     @staticmethod
@@ -384,7 +409,11 @@ class CustomBuildWithFromCH(build_ext):
         linker = getattr(self.compiler, "linker_so_cxx")
         linker = [COMPILER_CC] + split_quoted(self.ldflags()) + linker[1:]
 
-        compiler += ['-isystem', TOOLSET_PATH]
+        compiler += ['-I', TOOLSET_PATH]
+        # Make include_dirs (Python headers; set by setuptools) to -isystem: prevents warnings from Python headers
+        for d in self.include_dirs or []:
+            compiler += ['-isystem', d]
+        self.include_dirs = []
 
         self.compiler.set_executable("compiler_so", compiler)
         self.compiler.set_executable("compiler_so_cxx", compiler)

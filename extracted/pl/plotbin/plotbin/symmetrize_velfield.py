@@ -52,14 +52,11 @@ from scipy import interpolate
 #----------------------------------------------------------------------
 #     Michele cappellari, Paranal, 10 November 2013
 
-def _rotate_points(x, y, ang):
-    """Rotates points counter-clockwise by an angle ANG-90 in degrees."""    
-
-    theta = np.radians(ang - 90.)
-    xNew = x*np.cos(theta) - y*np.sin(theta)
-    yNew = x*np.sin(theta) + y*np.cos(theta)
-
-    return xNew, yNew
+def _rotate_points(x, y, angle):
+    """Rotates points counter-clockwise by an angle in degrees."""    
+    theta = np.radians(angle)
+    c, s = np.cos(theta), np.sin(theta)
+    return x*c - y*s, x*s + y*c
     
 #----------------------------------------------------------------------
     
@@ -80,7 +77,7 @@ def symmetrize_velfield(xbin, ybin, vel_bin, sym=2, pa=90.):
     assert 1 <= sym <= 4, "must be 1 <= sym <= 4"
 
     if sym < 3:
-        x, y = _rotate_points(xbin, ybin, -pa)  # Negative PA for counter-clockwise
+        x, y = _rotate_points(xbin, ybin, -(pa + 90))  # Negative PA for counter-clockwise
         xout = np.hstack([x,-x, x,-x])
         yout = np.hstack([y, y,-y,-y])
         vel_out = interpolate.griddata((x, y), vel_bin, (xout, yout))

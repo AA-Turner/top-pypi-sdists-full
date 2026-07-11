@@ -8,6 +8,7 @@
 # Copyright 2025-2026 Senckenberg Society for Nature Research (SGN), DE
 # Copyright 2025-2026 European Molecular Biology Laboratory (EMBL), Heidelberg, DE
 # Copyright 2026 Spanish National Research Council (CSIC), ES
+# Copyright 2026 Helmholtz-Zentrum Dresden-Rossendorf (HZDR), DE
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -150,7 +151,7 @@ class ROCrate():
             self.mode = Mode.INIT
             if isinstance(source, dict):
                 raise ValueError("parameter 'init' is not compatible with a dict source")
-            self.__init_from_tree(source, gen_preview=gen_preview)
+            self.__init_from_tree(source, gen_preview=gen_preview, version=version)
         else:
             self.mode = Mode.READ
             source = self.__read(source, gen_preview=gen_preview)
@@ -692,10 +693,11 @@ class ROCrate():
         ))
         if isinstance(lang, ComputerLanguage):
             assert lang.crate is self
+            assert self.get(lang.id) is lang
         else:
             lang = get_lang(self, lang, version=lang_version)
             self.add(lang)
-        lang_str = lang.id.rsplit("#", 1)[1]
+        lang_str = lang.id.rsplit("#", 1)[-1]
         workflow.lang = lang
         if main:
             self.mainEntity = workflow

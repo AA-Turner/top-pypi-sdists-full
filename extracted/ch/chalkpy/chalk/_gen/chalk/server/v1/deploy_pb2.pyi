@@ -130,21 +130,24 @@ class GetDeploymentResponse(_message.Message):
     ) -> None: ...
 
 class ListDeploymentsRequest(_message.Message):
-    __slots__ = ("cursor", "limit", "include_branch", "branch_name")
+    __slots__ = ("cursor", "limit", "include_branch", "branch_name", "agent_id")
     CURSOR_FIELD_NUMBER: _ClassVar[int]
     LIMIT_FIELD_NUMBER: _ClassVar[int]
     INCLUDE_BRANCH_FIELD_NUMBER: _ClassVar[int]
     BRANCH_NAME_FIELD_NUMBER: _ClassVar[int]
+    AGENT_ID_FIELD_NUMBER: _ClassVar[int]
     cursor: str
     limit: int
     include_branch: bool
     branch_name: str
+    agent_id: str
     def __init__(
         self,
         cursor: _Optional[str] = ...,
         limit: _Optional[int] = ...,
         include_branch: bool = ...,
         branch_name: _Optional[str] = ...,
+        agent_id: _Optional[str] = ...,
     ) -> None: ...
 
 class ListDeploymentsResponse(_message.Message):

@@ -155,7 +155,11 @@ InputInputItemEasyInputMessageParamContentInputItem: TypeAlias = Union[
 ]
 
 
-class InputInputItemEasyInputMessageParam(TypedDict, total=False, extra_items=object):  # type: ignore[call-arg]
+class InputInputItemEasyInputMessageParam(  # type: ignore[call-arg]
+    TypedDict,
+    total=False,
+    extra_items=object,  # pyright: ignore[reportGeneralTypeIssues]
+):
     """
     A message input to the model with a role indicating instruction following
     hierarchy. Instructions given with the `developer` or `system` role take
@@ -178,7 +182,11 @@ InputInputItemOpenAITypesResponsesResponseInputParamMessageContent: TypeAlias = 
 ]
 
 
-class InputInputItemOpenAITypesResponsesResponseInputParamMessage(TypedDict, total=False, extra_items=object):  # type: ignore[call-arg]
+class InputInputItemOpenAITypesResponsesResponseInputParamMessage(  # type: ignore[call-arg]
+    TypedDict,
+    total=False,
+    extra_items=object,  # pyright: ignore[reportGeneralTypeIssues]
+):
     """
     A message input to the model with a role indicating instruction following
     hierarchy. Instructions given with the `developer` or `system` role take
@@ -194,9 +202,11 @@ class InputInputItemOpenAITypesResponsesResponseInputParamMessage(TypedDict, tot
     type: Literal["message"]
 
 
-class InputInputItemResponseOutputMessageParamContentResponseOutputTextParamAnnotationAnnotationFileCitation(
-    TypedDict, total=False, extra_items=object
-):  # type: ignore[call-arg]
+class InputInputItemResponseOutputMessageParamContentResponseOutputTextParamAnnotationAnnotationFileCitation(  # type: ignore[call-arg]
+    TypedDict,
+    total=False,
+    extra_items=object,  # pyright: ignore[reportGeneralTypeIssues]
+):
     """A citation to a file."""
 
     file_id: Required[str]
@@ -208,9 +218,11 @@ class InputInputItemResponseOutputMessageParamContentResponseOutputTextParamAnno
     type: Required[Literal["file_citation"]]
 
 
-class InputInputItemResponseOutputMessageParamContentResponseOutputTextParamAnnotationOpenAITypesResponsesResponseOutputTextParamAnnotationURLCitation(
-    TypedDict, total=False, extra_items=object
-):  # type: ignore[call-arg]
+class InputInputItemResponseOutputMessageParamContentResponseOutputTextParamAnnotationOpenAITypesResponsesResponseOutputTextParamAnnotationURLCitation(  # type: ignore[call-arg]
+    TypedDict,
+    total=False,
+    extra_items=object,  # pyright: ignore[reportGeneralTypeIssues]
+):
     """A citation for a web resource used to generate a model response."""
 
     end_index: Required[int]
@@ -224,9 +236,11 @@ class InputInputItemResponseOutputMessageParamContentResponseOutputTextParamAnno
     url: Required[str]
 
 
-class InputInputItemResponseOutputMessageParamContentResponseOutputTextParamAnnotationAnnotationContainerFileCitation(
-    TypedDict, total=False, extra_items=object
-):  # type: ignore[call-arg]
+class InputInputItemResponseOutputMessageParamContentResponseOutputTextParamAnnotationAnnotationContainerFileCitation(  # type: ignore[call-arg]
+    TypedDict,
+    total=False,
+    extra_items=object,  # pyright: ignore[reportGeneralTypeIssues]
+):
     """A citation for a container file used to generate a model response."""
 
     container_id: Required[str]
@@ -242,9 +256,11 @@ class InputInputItemResponseOutputMessageParamContentResponseOutputTextParamAnno
     type: Required[Literal["container_file_citation"]]
 
 
-class InputInputItemResponseOutputMessageParamContentResponseOutputTextParamAnnotationAnnotationFilePath(
-    TypedDict, total=False, extra_items=object
-):  # type: ignore[call-arg]
+class InputInputItemResponseOutputMessageParamContentResponseOutputTextParamAnnotationAnnotationFilePath(  # type: ignore[call-arg]
+    TypedDict,
+    total=False,
+    extra_items=object,  # pyright: ignore[reportGeneralTypeIssues]
+):
     """A path to a file."""
 
     file_id: Required[str]
@@ -262,9 +278,11 @@ InputInputItemResponseOutputMessageParamContentResponseOutputTextParamAnnotation
 ]
 
 
-class InputInputItemResponseOutputMessageParamContentResponseOutputTextParamLogprobTopLogprob(
-    TypedDict, total=False, extra_items=object
-):  # type: ignore[call-arg]
+class InputInputItemResponseOutputMessageParamContentResponseOutputTextParamLogprobTopLogprob(  # type: ignore[call-arg]
+    TypedDict,
+    total=False,
+    extra_items=object,  # pyright: ignore[reportGeneralTypeIssues]
+):
     """The top log probability of a token."""
 
     token: Required[str]
@@ -274,9 +292,11 @@ class InputInputItemResponseOutputMessageParamContentResponseOutputTextParamLogp
     logprob: Required[float]
 
 
-class InputInputItemResponseOutputMessageParamContentResponseOutputTextParamLogprob(
-    TypedDict, total=False, extra_items=object
-):  # type: ignore[call-arg]
+class InputInputItemResponseOutputMessageParamContentResponseOutputTextParamLogprob(  # type: ignore[call-arg]
+    TypedDict,
+    total=False,
+    extra_items=object,  # pyright: ignore[reportGeneralTypeIssues]
+):
     """The log probability of a token."""
 
     token: Required[str]
@@ -290,9 +310,11 @@ class InputInputItemResponseOutputMessageParamContentResponseOutputTextParamLogp
     ]
 
 
-class InputInputItemResponseOutputMessageParamContentResponseOutputTextParam(
-    TypedDict, total=False, extra_items=object
-):  # type: ignore[call-arg]
+class InputInputItemResponseOutputMessageParamContentResponseOutputTextParam(  # type: ignore[call-arg]
+    TypedDict,
+    total=False,
+    extra_items=object,  # pyright: ignore[reportGeneralTypeIssues]
+):
     """A text output from the model."""
 
     annotations: Required[Iterable[InputInputItemResponseOutputMessageParamContentResponseOutputTextParamAnnotation]]
@@ -304,9 +326,11 @@ class InputInputItemResponseOutputMessageParamContentResponseOutputTextParam(
     logprobs: Iterable[InputInputItemResponseOutputMessageParamContentResponseOutputTextParamLogprob]
 
 
-class InputInputItemResponseOutputMessageParamContentResponseOutputRefusalParam(
-    TypedDict, total=False, extra_items=object
-):  # type: ignore[call-arg]
+class InputInputItemResponseOutputMessageParamContentResponseOutputRefusalParam(  # type: ignore[call-arg]
+    TypedDict,
+    total=False,
+    extra_items=object,  # pyright: ignore[reportGeneralTypeIssues]
+):
     """A refusal from the model."""
 
     refusal: Required[str]
@@ -320,7 +344,11 @@ InputInputItemResponseOutputMessageParamContent: TypeAlias = Union[
 ]
 
 
-class InputInputItemResponseOutputMessageParam(TypedDict, total=False, extra_items=object):  # type: ignore[call-arg]
+class InputInputItemResponseOutputMessageParam(  # type: ignore[call-arg]
+    TypedDict,
+    total=False,
+    extra_items=object,  # pyright: ignore[reportGeneralTypeIssues]
+):
     """An output message from the model."""
 
     id: Required[str]
@@ -336,7 +364,11 @@ class InputInputItemResponseOutputMessageParam(TypedDict, total=False, extra_ite
     phase: Literal["commentary", "final_answer"]
 
 
-class InputInputItemResponseFileSearchToolCallParamResult(TypedDict, total=False, extra_items=object):  # type: ignore[call-arg]
+class InputInputItemResponseFileSearchToolCallParamResult(  # type: ignore[call-arg]
+    TypedDict,
+    total=False,
+    extra_items=object,  # pyright: ignore[reportGeneralTypeIssues]
+):
     attributes: Dict[str, Union[str, float, bool]]
 
     file_id: str
@@ -348,7 +380,11 @@ class InputInputItemResponseFileSearchToolCallParamResult(TypedDict, total=False
     text: str
 
 
-class InputInputItemResponseFileSearchToolCallParam(TypedDict, total=False, extra_items=object):  # type: ignore[call-arg]
+class InputInputItemResponseFileSearchToolCallParam(  # type: ignore[call-arg]
+    TypedDict,
+    total=False,
+    extra_items=object,  # pyright: ignore[reportGeneralTypeIssues]
+):
     """The results of a file search tool call.
 
     See the
@@ -366,7 +402,11 @@ class InputInputItemResponseFileSearchToolCallParam(TypedDict, total=False, extr
     results: Iterable[InputInputItemResponseFileSearchToolCallParamResult]
 
 
-class InputInputItemResponseComputerToolCallParamActionActionClick(TypedDict, total=False, extra_items=object):  # type: ignore[call-arg]
+class InputInputItemResponseComputerToolCallParamActionActionClick(  # type: ignore[call-arg]
+    TypedDict,
+    total=False,
+    extra_items=object,  # pyright: ignore[reportGeneralTypeIssues]
+):
     """A click action."""
 
     button: Required[Literal["left", "right", "wheel", "back", "forward"]]
@@ -378,7 +418,11 @@ class InputInputItemResponseComputerToolCallParamActionActionClick(TypedDict, to
     y: Required[int]
 
 
-class InputInputItemResponseComputerToolCallParamActionActionDoubleClick(TypedDict, total=False, extra_items=object):  # type: ignore[call-arg]
+class InputInputItemResponseComputerToolCallParamActionActionDoubleClick(  # type: ignore[call-arg]
+    TypedDict,
+    total=False,
+    extra_items=object,  # pyright: ignore[reportGeneralTypeIssues]
+):
     """A double click action."""
 
     type: Required[Literal["double_click"]]
@@ -388,7 +432,11 @@ class InputInputItemResponseComputerToolCallParamActionActionDoubleClick(TypedDi
     y: Required[int]
 
 
-class InputInputItemResponseComputerToolCallParamActionActionDragPath(TypedDict, total=False, extra_items=object):  # type: ignore[call-arg]
+class InputInputItemResponseComputerToolCallParamActionActionDragPath(  # type: ignore[call-arg]
+    TypedDict,
+    total=False,
+    extra_items=object,  # pyright: ignore[reportGeneralTypeIssues]
+):
     """An x/y coordinate pair, e.g. `{ x: 100, y: 200 }`."""
 
     x: Required[int]
@@ -396,7 +444,11 @@ class InputInputItemResponseComputerToolCallParamActionActionDragPath(TypedDict,
     y: Required[int]
 
 
-class InputInputItemResponseComputerToolCallParamActionActionDrag(TypedDict, total=False, extra_items=object):  # type: ignore[call-arg]
+class InputInputItemResponseComputerToolCallParamActionActionDrag(  # type: ignore[call-arg]
+    TypedDict,
+    total=False,
+    extra_items=object,  # pyright: ignore[reportGeneralTypeIssues]
+):
     """A drag action."""
 
     path: Required[Iterable[InputInputItemResponseComputerToolCallParamActionActionDragPath]]
@@ -404,7 +456,11 @@ class InputInputItemResponseComputerToolCallParamActionActionDrag(TypedDict, tot
     type: Required[Literal["drag"]]
 
 
-class InputInputItemResponseComputerToolCallParamActionActionKeypress(TypedDict, total=False, extra_items=object):  # type: ignore[call-arg]
+class InputInputItemResponseComputerToolCallParamActionActionKeypress(  # type: ignore[call-arg]
+    TypedDict,
+    total=False,
+    extra_items=object,  # pyright: ignore[reportGeneralTypeIssues]
+):
     """A collection of keypresses the model would like to perform."""
 
     keys: Required[SequenceNotStr[str]]
@@ -412,7 +468,11 @@ class InputInputItemResponseComputerToolCallParamActionActionKeypress(TypedDict,
     type: Required[Literal["keypress"]]
 
 
-class InputInputItemResponseComputerToolCallParamActionActionMove(TypedDict, total=False, extra_items=object):  # type: ignore[call-arg]
+class InputInputItemResponseComputerToolCallParamActionActionMove(  # type: ignore[call-arg]
+    TypedDict,
+    total=False,
+    extra_items=object,  # pyright: ignore[reportGeneralTypeIssues]
+):
     """A mouse move action."""
 
     type: Required[Literal["move"]]
@@ -422,13 +482,21 @@ class InputInputItemResponseComputerToolCallParamActionActionMove(TypedDict, tot
     y: Required[int]
 
 
-class InputInputItemResponseComputerToolCallParamActionActionScreenshot(TypedDict, total=False, extra_items=object):  # type: ignore[call-arg]
+class InputInputItemResponseComputerToolCallParamActionActionScreenshot(  # type: ignore[call-arg]
+    TypedDict,
+    total=False,
+    extra_items=object,  # pyright: ignore[reportGeneralTypeIssues]
+):
     """A screenshot action."""
 
     type: Required[Literal["screenshot"]]
 
 
-class InputInputItemResponseComputerToolCallParamActionActionScroll(TypedDict, total=False, extra_items=object):  # type: ignore[call-arg]
+class InputInputItemResponseComputerToolCallParamActionActionScroll(  # type: ignore[call-arg]
+    TypedDict,
+    total=False,
+    extra_items=object,  # pyright: ignore[reportGeneralTypeIssues]
+):
     """A scroll action."""
 
     scroll_x: Required[int]
@@ -442,7 +510,11 @@ class InputInputItemResponseComputerToolCallParamActionActionScroll(TypedDict, t
     y: Required[int]
 
 
-class InputInputItemResponseComputerToolCallParamActionActionType(TypedDict, total=False, extra_items=object):  # type: ignore[call-arg]
+class InputInputItemResponseComputerToolCallParamActionActionType(  # type: ignore[call-arg]
+    TypedDict,
+    total=False,
+    extra_items=object,  # pyright: ignore[reportGeneralTypeIssues]
+):
     """An action to type in text."""
 
     text: Required[str]
@@ -450,7 +522,11 @@ class InputInputItemResponseComputerToolCallParamActionActionType(TypedDict, tot
     type: Required[Literal["type"]]
 
 
-class InputInputItemResponseComputerToolCallParamActionActionWait(TypedDict, total=False, extra_items=object):  # type: ignore[call-arg]
+class InputInputItemResponseComputerToolCallParamActionActionWait(  # type: ignore[call-arg]
+    TypedDict,
+    total=False,
+    extra_items=object,  # pyright: ignore[reportGeneralTypeIssues]
+):
     """A wait action."""
 
     type: Required[Literal["wait"]]
@@ -469,7 +545,11 @@ InputInputItemResponseComputerToolCallParamAction: TypeAlias = Union[
 ]
 
 
-class InputInputItemResponseComputerToolCallParamPendingSafetyCheck(TypedDict, total=False, extra_items=object):  # type: ignore[call-arg]
+class InputInputItemResponseComputerToolCallParamPendingSafetyCheck(  # type: ignore[call-arg]
+    TypedDict,
+    total=False,
+    extra_items=object,  # pyright: ignore[reportGeneralTypeIssues]
+):
     """A pending safety check for the computer call."""
 
     id: Required[str]
@@ -479,7 +559,11 @@ class InputInputItemResponseComputerToolCallParamPendingSafetyCheck(TypedDict, t
     message: str
 
 
-class InputInputItemResponseComputerToolCallParam(TypedDict, total=False, extra_items=object):  # type: ignore[call-arg]
+class InputInputItemResponseComputerToolCallParam(  # type: ignore[call-arg]
+    TypedDict,
+    total=False,
+    extra_items=object,  # pyright: ignore[reportGeneralTypeIssues]
+):
     """A tool call to a computer use tool.
 
     See the
@@ -500,9 +584,11 @@ class InputInputItemResponseComputerToolCallParam(TypedDict, total=False, extra_
     type: Required[Literal["computer_call"]]
 
 
-class InputInputItemOpenAITypesResponsesResponseInputParamComputerCallOutputOutput(
-    TypedDict, total=False, extra_items=object
-):  # type: ignore[call-arg]
+class InputInputItemOpenAITypesResponsesResponseInputParamComputerCallOutputOutput(  # type: ignore[call-arg]
+    TypedDict,
+    total=False,
+    extra_items=object,  # pyright: ignore[reportGeneralTypeIssues]
+):
     """A computer screenshot image used with the computer use tool."""
 
     type: Required[Literal["computer_screenshot"]]
@@ -512,9 +598,11 @@ class InputInputItemOpenAITypesResponsesResponseInputParamComputerCallOutputOutp
     image_url: str
 
 
-class InputInputItemOpenAITypesResponsesResponseInputParamComputerCallOutputAcknowledgedSafetyCheck(
-    TypedDict, total=False, extra_items=object
-):  # type: ignore[call-arg]
+class InputInputItemOpenAITypesResponsesResponseInputParamComputerCallOutputAcknowledgedSafetyCheck(  # type: ignore[call-arg]
+    TypedDict,
+    total=False,
+    extra_items=object,  # pyright: ignore[reportGeneralTypeIssues]
+):
     """A pending safety check for the computer call."""
 
     id: Required[str]
@@ -524,9 +612,11 @@ class InputInputItemOpenAITypesResponsesResponseInputParamComputerCallOutputAckn
     message: str
 
 
-class InputInputItemOpenAITypesResponsesResponseInputParamComputerCallOutput(
-    TypedDict, total=False, extra_items=object
-):  # type: ignore[call-arg]
+class InputInputItemOpenAITypesResponsesResponseInputParamComputerCallOutput(  # type: ignore[call-arg]
+    TypedDict,
+    total=False,
+    extra_items=object,  # pyright: ignore[reportGeneralTypeIssues]
+):
     """The output of a computer tool call."""
 
     call_id: Required[str]
@@ -545,9 +635,11 @@ class InputInputItemOpenAITypesResponsesResponseInputParamComputerCallOutput(
     status: Literal["in_progress", "completed", "incomplete"]
 
 
-class InputInputItemResponseFunctionWebSearchParamActionOpenAITypesResponsesResponseFunctionWebSearchParamActionSearchSource(
-    TypedDict, total=False, extra_items=object
-):  # type: ignore[call-arg]
+class InputInputItemResponseFunctionWebSearchParamActionOpenAITypesResponsesResponseFunctionWebSearchParamActionSearchSource(  # type: ignore[call-arg]
+    TypedDict,
+    total=False,
+    extra_items=object,  # pyright: ignore[reportGeneralTypeIssues]
+):
     """A source used in the search."""
 
     type: Required[Literal["url"]]
@@ -555,9 +647,11 @@ class InputInputItemResponseFunctionWebSearchParamActionOpenAITypesResponsesResp
     url: Required[str]
 
 
-class InputInputItemResponseFunctionWebSearchParamActionOpenAITypesResponsesResponseFunctionWebSearchParamActionSearch(
-    TypedDict, total=False, extra_items=object
-):  # type: ignore[call-arg]
+class InputInputItemResponseFunctionWebSearchParamActionOpenAITypesResponsesResponseFunctionWebSearchParamActionSearch(  # type: ignore[call-arg]
+    TypedDict,
+    total=False,
+    extra_items=object,  # pyright: ignore[reportGeneralTypeIssues]
+):
     """Action type "search" - Performs a web search query."""
 
     query: Required[str]
@@ -571,9 +665,11 @@ class InputInputItemResponseFunctionWebSearchParamActionOpenAITypesResponsesResp
     ]
 
 
-class InputInputItemResponseFunctionWebSearchParamActionOpenAITypesResponsesResponseFunctionWebSearchParamActionOpenPage(
-    TypedDict, total=False, extra_items=object
-):  # type: ignore[call-arg]
+class InputInputItemResponseFunctionWebSearchParamActionOpenAITypesResponsesResponseFunctionWebSearchParamActionOpenPage(  # type: ignore[call-arg]
+    TypedDict,
+    total=False,
+    extra_items=object,  # pyright: ignore[reportGeneralTypeIssues]
+):
     """Action type "open_page" - Opens a specific URL from search results."""
 
     type: Required[Literal["open_page"]]
@@ -581,7 +677,11 @@ class InputInputItemResponseFunctionWebSearchParamActionOpenAITypesResponsesResp
     url: str
 
 
-class InputInputItemResponseFunctionWebSearchParamActionActionFind(TypedDict, total=False, extra_items=object):  # type: ignore[call-arg]
+class InputInputItemResponseFunctionWebSearchParamActionActionFind(  # type: ignore[call-arg]
+    TypedDict,
+    total=False,
+    extra_items=object,  # pyright: ignore[reportGeneralTypeIssues]
+):
     """Action type "find_in_page": Searches for a pattern within a loaded page."""
 
     pattern: Required[str]
@@ -598,7 +698,11 @@ InputInputItemResponseFunctionWebSearchParamAction: TypeAlias = Union[
 ]
 
 
-class InputInputItemResponseFunctionWebSearchParam(TypedDict, total=False, extra_items=object):  # type: ignore[call-arg]
+class InputInputItemResponseFunctionWebSearchParam(  # type: ignore[call-arg]
+    TypedDict,
+    total=False,
+    extra_items=object,  # pyright: ignore[reportGeneralTypeIssues]
+):
     """The results of a web search tool call.
 
     See the
@@ -615,7 +719,11 @@ class InputInputItemResponseFunctionWebSearchParam(TypedDict, total=False, extra
     type: Required[Literal["web_search_call"]]
 
 
-class InputInputItemResponseFunctionToolCallParam(TypedDict, total=False, extra_items=object):  # type: ignore[call-arg]
+class InputInputItemResponseFunctionToolCallParam(  # type: ignore[call-arg]
+    TypedDict,
+    total=False,
+    extra_items=object,  # pyright: ignore[reportGeneralTypeIssues]
+):
     """A tool call to run a function.
 
     See the
@@ -635,9 +743,11 @@ class InputInputItemResponseFunctionToolCallParam(TypedDict, total=False, extra_
     status: Literal["in_progress", "completed", "incomplete"]
 
 
-class InputInputItemOpenAITypesResponsesResponseInputParamFunctionCallOutputOutputOutputContentListResponseInputTextContentParam(
-    TypedDict, total=False, extra_items=object
-):  # type: ignore[call-arg]
+class InputInputItemOpenAITypesResponsesResponseInputParamFunctionCallOutputOutputOutputContentListResponseInputTextContentParam(  # type: ignore[call-arg]
+    TypedDict,
+    total=False,
+    extra_items=object,  # pyright: ignore[reportGeneralTypeIssues]
+):
     """A text input to the model."""
 
     text: Required[str]
@@ -645,9 +755,11 @@ class InputInputItemOpenAITypesResponsesResponseInputParamFunctionCallOutputOutp
     type: Required[Literal["input_text"]]
 
 
-class InputInputItemOpenAITypesResponsesResponseInputParamFunctionCallOutputOutputOutputContentListResponseInputImageContentParam(
-    TypedDict, total=False, extra_items=object
-):  # type: ignore[call-arg]
+class InputInputItemOpenAITypesResponsesResponseInputParamFunctionCallOutputOutputOutputContentListResponseInputImageContentParam(  # type: ignore[call-arg]
+    TypedDict,
+    total=False,
+    extra_items=object,  # pyright: ignore[reportGeneralTypeIssues]
+):
     """An image input to the model.
 
     Learn about [image inputs](https://platform.openai.com/docs/guides/vision)
@@ -662,9 +774,11 @@ class InputInputItemOpenAITypesResponsesResponseInputParamFunctionCallOutputOutp
     image_url: str
 
 
-class InputInputItemOpenAITypesResponsesResponseInputParamFunctionCallOutputOutputOutputContentListResponseInputFileContentParam(
-    TypedDict, total=False, extra_items=object
-):  # type: ignore[call-arg]
+class InputInputItemOpenAITypesResponsesResponseInputParamFunctionCallOutputOutputOutputContentListResponseInputFileContentParam(  # type: ignore[call-arg]
+    TypedDict,
+    total=False,
+    extra_items=object,  # pyright: ignore[reportGeneralTypeIssues]
+):
     """A file input to the model."""
 
     type: Required[Literal["input_file"]]
@@ -685,9 +799,11 @@ InputInputItemOpenAITypesResponsesResponseInputParamFunctionCallOutputOutputOutp
 ]
 
 
-class InputInputItemOpenAITypesResponsesResponseInputParamFunctionCallOutput(
-    TypedDict, total=False, extra_items=object
-):  # type: ignore[call-arg]
+class InputInputItemOpenAITypesResponsesResponseInputParamFunctionCallOutput(  # type: ignore[call-arg]
+    TypedDict,
+    total=False,
+    extra_items=object,  # pyright: ignore[reportGeneralTypeIssues]
+):
     """The output of a function tool call."""
 
     call_id: Required[str]
@@ -705,7 +821,11 @@ class InputInputItemOpenAITypesResponsesResponseInputParamFunctionCallOutput(
     status: Literal["in_progress", "completed", "incomplete"]
 
 
-class InputInputItemResponseReasoningItemParamSummary(TypedDict, total=False, extra_items=object):  # type: ignore[call-arg]
+class InputInputItemResponseReasoningItemParamSummary(  # type: ignore[call-arg]
+    TypedDict,
+    total=False,
+    extra_items=object,  # pyright: ignore[reportGeneralTypeIssues]
+):
     """A summary text from the model."""
 
     text: Required[str]
@@ -713,7 +833,11 @@ class InputInputItemResponseReasoningItemParamSummary(TypedDict, total=False, ex
     type: Required[Literal["summary_text"]]
 
 
-class InputInputItemResponseReasoningItemParamContent(TypedDict, total=False, extra_items=object):  # type: ignore[call-arg]
+class InputInputItemResponseReasoningItemParamContent(  # type: ignore[call-arg]
+    TypedDict,
+    total=False,
+    extra_items=object,  # pyright: ignore[reportGeneralTypeIssues]
+):
     """Reasoning text from the model."""
 
     text: Required[str]
@@ -721,7 +845,11 @@ class InputInputItemResponseReasoningItemParamContent(TypedDict, total=False, ex
     type: Required[Literal["reasoning_text"]]
 
 
-class InputInputItemResponseReasoningItemParam(TypedDict, total=False, extra_items=object):  # type: ignore[call-arg]
+class InputInputItemResponseReasoningItemParam(  # type: ignore[call-arg]
+    TypedDict,
+    total=False,
+    extra_items=object,  # pyright: ignore[reportGeneralTypeIssues]
+):
     """
     A description of the chain of thought used by a reasoning model while generating
     a response. Be sure to include these items in your `input` to the Responses API
@@ -742,7 +870,11 @@ class InputInputItemResponseReasoningItemParam(TypedDict, total=False, extra_ite
     status: Literal["in_progress", "completed", "incomplete"]
 
 
-class InputInputItemResponseCompactionItemParamParam(TypedDict, total=False, extra_items=object):  # type: ignore[call-arg]
+class InputInputItemResponseCompactionItemParamParam(  # type: ignore[call-arg]
+    TypedDict,
+    total=False,
+    extra_items=object,  # pyright: ignore[reportGeneralTypeIssues]
+):
     """
     A compaction item generated by the [`v1/responses/compact` API](https://platform.openai.com/docs/api-reference/responses/compact).
     """
@@ -754,9 +886,11 @@ class InputInputItemResponseCompactionItemParamParam(TypedDict, total=False, ext
     id: str
 
 
-class InputInputItemOpenAITypesResponsesResponseInputParamImageGenerationCall(
-    TypedDict, total=False, extra_items=object
-):  # type: ignore[call-arg]
+class InputInputItemOpenAITypesResponsesResponseInputParamImageGenerationCall(  # type: ignore[call-arg]
+    TypedDict,
+    total=False,
+    extra_items=object,  # pyright: ignore[reportGeneralTypeIssues]
+):
     """An image generation request made by the model."""
 
     id: Required[str]
@@ -768,7 +902,11 @@ class InputInputItemOpenAITypesResponsesResponseInputParamImageGenerationCall(
     type: Required[Literal["image_generation_call"]]
 
 
-class InputInputItemResponseCodeInterpreterToolCallParamOutputOutputLogs(TypedDict, total=False, extra_items=object):  # type: ignore[call-arg]
+class InputInputItemResponseCodeInterpreterToolCallParamOutputOutputLogs(  # type: ignore[call-arg]
+    TypedDict,
+    total=False,
+    extra_items=object,  # pyright: ignore[reportGeneralTypeIssues]
+):
     """The logs output from the code interpreter."""
 
     logs: Required[str]
@@ -776,7 +914,11 @@ class InputInputItemResponseCodeInterpreterToolCallParamOutputOutputLogs(TypedDi
     type: Required[Literal["logs"]]
 
 
-class InputInputItemResponseCodeInterpreterToolCallParamOutputOutputImage(TypedDict, total=False, extra_items=object):  # type: ignore[call-arg]
+class InputInputItemResponseCodeInterpreterToolCallParamOutputOutputImage(  # type: ignore[call-arg]
+    TypedDict,
+    total=False,
+    extra_items=object,  # pyright: ignore[reportGeneralTypeIssues]
+):
     """The image output from the code interpreter."""
 
     type: Required[Literal["image"]]
@@ -790,7 +932,11 @@ InputInputItemResponseCodeInterpreterToolCallParamOutput: TypeAlias = Union[
 ]
 
 
-class InputInputItemResponseCodeInterpreterToolCallParam(TypedDict, total=False, extra_items=object):  # type: ignore[call-arg]
+class InputInputItemResponseCodeInterpreterToolCallParam(  # type: ignore[call-arg]
+    TypedDict,
+    total=False,
+    extra_items=object,  # pyright: ignore[reportGeneralTypeIssues]
+):
     """A tool call to run code."""
 
     id: Required[str]
@@ -806,9 +952,11 @@ class InputInputItemResponseCodeInterpreterToolCallParam(TypedDict, total=False,
     type: Required[Literal["code_interpreter_call"]]
 
 
-class InputInputItemOpenAITypesResponsesResponseInputParamLocalShellCallAction(
-    TypedDict, total=False, extra_items=object
-):  # type: ignore[call-arg]
+class InputInputItemOpenAITypesResponsesResponseInputParamLocalShellCallAction(  # type: ignore[call-arg]
+    TypedDict,
+    total=False,
+    extra_items=object,  # pyright: ignore[reportGeneralTypeIssues]
+):
     """Execute a shell command on the server."""
 
     command: Required[SequenceNotStr[str]]
@@ -824,7 +972,11 @@ class InputInputItemOpenAITypesResponsesResponseInputParamLocalShellCallAction(
     working_directory: str
 
 
-class InputInputItemOpenAITypesResponsesResponseInputParamLocalShellCall(TypedDict, total=False, extra_items=object):  # type: ignore[call-arg]
+class InputInputItemOpenAITypesResponsesResponseInputParamLocalShellCall(  # type: ignore[call-arg]
+    TypedDict,
+    total=False,
+    extra_items=object,  # pyright: ignore[reportGeneralTypeIssues]
+):
     """A tool call to run a command on the local shell."""
 
     id: Required[str]
@@ -839,9 +991,11 @@ class InputInputItemOpenAITypesResponsesResponseInputParamLocalShellCall(TypedDi
     type: Required[Literal["local_shell_call"]]
 
 
-class InputInputItemOpenAITypesResponsesResponseInputParamLocalShellCallOutput(
-    TypedDict, total=False, extra_items=object
-):  # type: ignore[call-arg]
+class InputInputItemOpenAITypesResponsesResponseInputParamLocalShellCallOutput(  # type: ignore[call-arg]
+    TypedDict,
+    total=False,
+    extra_items=object,  # pyright: ignore[reportGeneralTypeIssues]
+):
     """The output of a local shell tool call."""
 
     id: Required[str]
@@ -853,7 +1007,11 @@ class InputInputItemOpenAITypesResponsesResponseInputParamLocalShellCallOutput(
     status: Literal["in_progress", "completed", "incomplete"]
 
 
-class InputInputItemOpenAITypesResponsesResponseInputParamShellCallAction(TypedDict, total=False, extra_items=object):  # type: ignore[call-arg]
+class InputInputItemOpenAITypesResponsesResponseInputParamShellCallAction(  # type: ignore[call-arg]
+    TypedDict,
+    total=False,
+    extra_items=object,  # pyright: ignore[reportGeneralTypeIssues]
+):
     """The shell commands and limits that describe how to run the tool call."""
 
     commands: Required[SequenceNotStr[str]]
@@ -868,7 +1026,11 @@ InputInputItemOpenAITypesResponsesResponseInputParamShellCallEnvironment: TypeAl
 ]
 
 
-class InputInputItemOpenAITypesResponsesResponseInputParamShellCall(TypedDict, total=False, extra_items=object):  # type: ignore[call-arg]
+class InputInputItemOpenAITypesResponsesResponseInputParamShellCall(  # type: ignore[call-arg]
+    TypedDict,
+    total=False,
+    extra_items=object,  # pyright: ignore[reportGeneralTypeIssues]
+):
     """A tool representing a request to execute one or more shell commands."""
 
     action: Required[InputInputItemOpenAITypesResponsesResponseInputParamShellCallAction]
@@ -885,17 +1047,21 @@ class InputInputItemOpenAITypesResponsesResponseInputParamShellCall(TypedDict, t
     status: Literal["in_progress", "completed", "incomplete"]
 
 
-class InputInputItemOpenAITypesResponsesResponseInputParamShellCallOutputOutputOutcomeOutcomeTimeout(
-    TypedDict, total=False, extra_items=object
-):  # type: ignore[call-arg]
+class InputInputItemOpenAITypesResponsesResponseInputParamShellCallOutputOutputOutcomeOutcomeTimeout(  # type: ignore[call-arg]
+    TypedDict,
+    total=False,
+    extra_items=object,  # pyright: ignore[reportGeneralTypeIssues]
+):
     """Indicates that the shell call exceeded its configured time limit."""
 
     type: Required[Literal["timeout"]]
 
 
-class InputInputItemOpenAITypesResponsesResponseInputParamShellCallOutputOutputOutcomeOutcomeExit(
-    TypedDict, total=False, extra_items=object
-):  # type: ignore[call-arg]
+class InputInputItemOpenAITypesResponsesResponseInputParamShellCallOutputOutputOutcomeOutcomeExit(  # type: ignore[call-arg]
+    TypedDict,
+    total=False,
+    extra_items=object,  # pyright: ignore[reportGeneralTypeIssues]
+):
     """Indicates that the shell commands finished and returned an exit code."""
 
     exit_code: Required[int]
@@ -909,9 +1075,11 @@ InputInputItemOpenAITypesResponsesResponseInputParamShellCallOutputOutputOutcome
 ]
 
 
-class InputInputItemOpenAITypesResponsesResponseInputParamShellCallOutputOutput(
-    TypedDict, total=False, extra_items=object
-):  # type: ignore[call-arg]
+class InputInputItemOpenAITypesResponsesResponseInputParamShellCallOutputOutput(  # type: ignore[call-arg]
+    TypedDict,
+    total=False,
+    extra_items=object,  # pyright: ignore[reportGeneralTypeIssues]
+):
     """Captured stdout and stderr for a portion of a shell tool call output."""
 
     outcome: Required[InputInputItemOpenAITypesResponsesResponseInputParamShellCallOutputOutputOutcome]
@@ -922,7 +1090,11 @@ class InputInputItemOpenAITypesResponsesResponseInputParamShellCallOutputOutput(
     stdout: Required[str]
 
 
-class InputInputItemOpenAITypesResponsesResponseInputParamShellCallOutput(TypedDict, total=False, extra_items=object):  # type: ignore[call-arg]
+class InputInputItemOpenAITypesResponsesResponseInputParamShellCallOutput(  # type: ignore[call-arg]
+    TypedDict,
+    total=False,
+    extra_items=object,  # pyright: ignore[reportGeneralTypeIssues]
+):
     """The streamed output items emitted by a shell tool call."""
 
     call_id: Required[str]
@@ -938,9 +1110,11 @@ class InputInputItemOpenAITypesResponsesResponseInputParamShellCallOutput(TypedD
     status: Literal["in_progress", "completed", "incomplete"]
 
 
-class InputInputItemOpenAITypesResponsesResponseInputParamApplyPatchCallOperationApplyPatchCallOperationCreateFile(
-    TypedDict, total=False, extra_items=object
-):  # type: ignore[call-arg]
+class InputInputItemOpenAITypesResponsesResponseInputParamApplyPatchCallOperationApplyPatchCallOperationCreateFile(  # type: ignore[call-arg]
+    TypedDict,
+    total=False,
+    extra_items=object,  # pyright: ignore[reportGeneralTypeIssues]
+):
     """Instruction for creating a new file via the apply_patch tool."""
 
     diff: Required[str]
@@ -950,9 +1124,11 @@ class InputInputItemOpenAITypesResponsesResponseInputParamApplyPatchCallOperatio
     type: Required[Literal["create_file"]]
 
 
-class InputInputItemOpenAITypesResponsesResponseInputParamApplyPatchCallOperationApplyPatchCallOperationDeleteFile(
-    TypedDict, total=False, extra_items=object
-):  # type: ignore[call-arg]
+class InputInputItemOpenAITypesResponsesResponseInputParamApplyPatchCallOperationApplyPatchCallOperationDeleteFile(  # type: ignore[call-arg]
+    TypedDict,
+    total=False,
+    extra_items=object,  # pyright: ignore[reportGeneralTypeIssues]
+):
     """Instruction for deleting an existing file via the apply_patch tool."""
 
     path: Required[str]
@@ -960,9 +1136,11 @@ class InputInputItemOpenAITypesResponsesResponseInputParamApplyPatchCallOperatio
     type: Required[Literal["delete_file"]]
 
 
-class InputInputItemOpenAITypesResponsesResponseInputParamApplyPatchCallOperationApplyPatchCallOperationUpdateFile(
-    TypedDict, total=False, extra_items=object
-):  # type: ignore[call-arg]
+class InputInputItemOpenAITypesResponsesResponseInputParamApplyPatchCallOperationApplyPatchCallOperationUpdateFile(  # type: ignore[call-arg]
+    TypedDict,
+    total=False,
+    extra_items=object,  # pyright: ignore[reportGeneralTypeIssues]
+):
     """Instruction for updating an existing file via the apply_patch tool."""
 
     diff: Required[str]
@@ -979,7 +1157,11 @@ InputInputItemOpenAITypesResponsesResponseInputParamApplyPatchCallOperation: Typ
 ]
 
 
-class InputInputItemOpenAITypesResponsesResponseInputParamApplyPatchCall(TypedDict, total=False, extra_items=object):  # type: ignore[call-arg]
+class InputInputItemOpenAITypesResponsesResponseInputParamApplyPatchCall(  # type: ignore[call-arg]
+    TypedDict,
+    total=False,
+    extra_items=object,  # pyright: ignore[reportGeneralTypeIssues]
+):
     """
     A tool call representing a request to create, delete, or update files using diff patches.
     """
@@ -996,9 +1178,11 @@ class InputInputItemOpenAITypesResponsesResponseInputParamApplyPatchCall(TypedDi
     id: str
 
 
-class InputInputItemOpenAITypesResponsesResponseInputParamApplyPatchCallOutput(
-    TypedDict, total=False, extra_items=object
-):  # type: ignore[call-arg]
+class InputInputItemOpenAITypesResponsesResponseInputParamApplyPatchCallOutput(  # type: ignore[call-arg]
+    TypedDict,
+    total=False,
+    extra_items=object,  # pyright: ignore[reportGeneralTypeIssues]
+):
     """The streamed output emitted by an apply patch tool call."""
 
     call_id: Required[str]
@@ -1012,7 +1196,11 @@ class InputInputItemOpenAITypesResponsesResponseInputParamApplyPatchCallOutput(
     output: str
 
 
-class InputInputItemOpenAITypesResponsesResponseInputParamMcpListToolsTool(TypedDict, total=False, extra_items=object):  # type: ignore[call-arg]
+class InputInputItemOpenAITypesResponsesResponseInputParamMcpListToolsTool(  # type: ignore[call-arg]
+    TypedDict,
+    total=False,
+    extra_items=object,  # pyright: ignore[reportGeneralTypeIssues]
+):
     """A tool available on an MCP server."""
 
     input_schema: Required[object]
@@ -1024,7 +1212,11 @@ class InputInputItemOpenAITypesResponsesResponseInputParamMcpListToolsTool(Typed
     description: str
 
 
-class InputInputItemOpenAITypesResponsesResponseInputParamMcpListTools(TypedDict, total=False, extra_items=object):  # type: ignore[call-arg]
+class InputInputItemOpenAITypesResponsesResponseInputParamMcpListTools(  # type: ignore[call-arg]
+    TypedDict,
+    total=False,
+    extra_items=object,  # pyright: ignore[reportGeneralTypeIssues]
+):
     """A list of tools available on an MCP server."""
 
     id: Required[str]
@@ -1038,9 +1230,11 @@ class InputInputItemOpenAITypesResponsesResponseInputParamMcpListTools(TypedDict
     error: str
 
 
-class InputInputItemOpenAITypesResponsesResponseInputParamMcpApprovalResponse(
-    TypedDict, total=False, extra_items=object
-):  # type: ignore[call-arg]
+class InputInputItemOpenAITypesResponsesResponseInputParamMcpApprovalResponse(  # type: ignore[call-arg]
+    TypedDict,
+    total=False,
+    extra_items=object,  # pyright: ignore[reportGeneralTypeIssues]
+):
     """A response to an MCP approval request."""
 
     approval_request_id: Required[str]
@@ -1054,7 +1248,11 @@ class InputInputItemOpenAITypesResponsesResponseInputParamMcpApprovalResponse(
     reason: str
 
 
-class InputInputItemOpenAITypesResponsesResponseInputParamMcpCall(TypedDict, total=False, extra_items=object):  # type: ignore[call-arg]
+class InputInputItemOpenAITypesResponsesResponseInputParamMcpCall(  # type: ignore[call-arg]
+    TypedDict,
+    total=False,
+    extra_items=object,  # pyright: ignore[reportGeneralTypeIssues]
+):
     """An invocation of a tool on an MCP server."""
 
     id: Required[str]
@@ -1081,7 +1279,11 @@ InputInputItemResponseCustomToolCallOutputParamOutputOutputContentList: TypeAlia
 ]
 
 
-class InputInputItemResponseCustomToolCallOutputParam(TypedDict, total=False, extra_items=object):  # type: ignore[call-arg]
+class InputInputItemResponseCustomToolCallOutputParam(  # type: ignore[call-arg]
+    TypedDict,
+    total=False,
+    extra_items=object,  # pyright: ignore[reportGeneralTypeIssues]
+):
     """The output of a custom tool call from your code, being sent back to the model."""
 
     call_id: Required[str]
@@ -1093,7 +1295,11 @@ class InputInputItemResponseCustomToolCallOutputParam(TypedDict, total=False, ex
     id: str
 
 
-class InputInputItemResponseCustomToolCallParam(TypedDict, total=False, extra_items=object):  # type: ignore[call-arg]
+class InputInputItemResponseCustomToolCallParam(  # type: ignore[call-arg]
+    TypedDict,
+    total=False,
+    extra_items=object,  # pyright: ignore[reportGeneralTypeIssues]
+):
     """A call to a custom tool created by the model."""
 
     call_id: Required[str]
@@ -1107,7 +1313,11 @@ class InputInputItemResponseCustomToolCallParam(TypedDict, total=False, extra_it
     id: str
 
 
-class InputInputItemOpenAITypesResponsesResponseInputParamItemReference(TypedDict, total=False, extra_items=object):  # type: ignore[call-arg]
+class InputInputItemOpenAITypesResponsesResponseInputParamItemReference(  # type: ignore[call-arg]
+    TypedDict,
+    total=False,
+    extra_items=object,  # pyright: ignore[reportGeneralTypeIssues]
+):
     """An internal identifier for an item to reference."""
 
     id: Required[str]

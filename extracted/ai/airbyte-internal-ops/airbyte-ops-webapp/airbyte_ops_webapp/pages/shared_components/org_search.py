@@ -74,6 +74,19 @@ _MOCK_WORKSPACES: list[dict[str, str]] = [
     },
 ]
 
+# A large demo customer with many workspaces. Enough rows that a search for
+# "motherduck" overflows the results view, exercising the scroll + sticky-header
+# behavior of the org lookup modal (and any other table) in mock mode.
+_MOCK_WORKSPACES += [
+    {
+        "organization_id": "00000000-0000-0000-0000-000000000002",
+        "workspace_id": f"eeeeeeee-0000-0000-0000-{i:012d}",
+        "workspace_name": f"MotherDuck Team {i:02d}",
+        "email": f"team{i:02d}@motherduck.com",
+    }
+    for i in range(1, 31)
+]
+
 
 def _mock_search(query: str) -> dict[str, Any]:
     """Return mock results for org/workspace search in mock mode."""

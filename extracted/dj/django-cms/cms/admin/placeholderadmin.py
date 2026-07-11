@@ -13,6 +13,7 @@ from django.http import (
     HttpResponse,
     HttpResponseBadRequest,
     HttpResponseForbidden,
+    HttpResponseNotAllowed,
     HttpResponseNotFound,
 )
 from django.shortcuts import get_list_or_404, get_object_or_404
@@ -390,6 +391,7 @@ class PlaceholderAdmin(BaseEditableAdminMixin, admin.ModelAdmin):
         pass
 
     @xframe_options_sameorigin
+    @transaction.atomic
     def add_plugin(self, request):
         """
         Shows the add plugin form and saves it on POST.
@@ -674,6 +676,7 @@ class PlaceholderAdmin(BaseEditableAdminMixin, admin.ModelAdmin):
         return new_plugins
 
     @xframe_options_sameorigin
+    @transaction.atomic
     def edit_plugin(self, request, plugin_id):
         try:
             plugin_id = int(plugin_id)
@@ -1176,6 +1179,11 @@ class PlaceholderAdmin(BaseEditableAdminMixin, admin.ModelAdmin):
             # checks here as the clipboard is unique per user.
             # There could be a case where a plugin has relationship to
             # an object the user does not have permission to delete.
+            # The clipboard is cleared immediately (the other branch
+            # renders a confirmation page first), so require POST to keep
+            # this state-changing operation off CSRF-exempt GET requests.
+            if request.method != "POST":
+                return HttpResponseNotAllowed(["POST"])
             placeholder.clear(language)
             return TemplateResponse(request, "admin/cms/page/plugin/confirm_form.html", {
                 "data_bridge": {

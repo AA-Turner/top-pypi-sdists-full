@@ -40,6 +40,7 @@ from starlette.exceptions import HTTPException
 from starlette.requests import HTTPConnection, Request
 from starlette.routing import Route
 
+from langgraph_api import config as lg_config
 from langgraph_api import store as api_store
 from langgraph_api.auth.custom import DotDict, ProxyUser
 from langgraph_api.config import LANGGRAPH_AUTH, LANGGRAPH_AUTH_TYPE
@@ -53,9 +54,40 @@ from langgraph_api.utils import get_auth_ctx, get_user_id
 
 logger = structlog.stdlib.get_logger(__name__)
 
-REMOTE_PORT = 5555
-GRAPH_PORT = 5556
-GRAPH_HTTP_PORT = 5557
+# Loopback ports between the Python parent and its JS subprocess. Containers
+# colocated in one pod share a network namespace, so each entrypoint gets its
+# own range (via the offset below); LANGGRAPH_JS_*_PORT overrides any port.
+_BASE_REMOTE_PORT = 5555
+_BASE_GRAPH_PORT = 5556
+_BASE_GRAPH_HTTP_PORT = 5557
+
+
+def _js_port_offset(*, is_queue: bool) -> int:
+    """Port offset per entrypoint so colocated containers don't collide.
+
+    The queue worker and API server can run as separate containers in a single
+    pod (shared network namespace), so the queue worker gets its own range.
+    """
+    return 10 if is_queue else 0
+
+
+def _resolve_js_port(base: int, offset: int, override: str | None) -> int:
+    """Explicit env override wins; otherwise base port plus entrypoint offset."""
+    if override:
+        return int(override)
+    return base + offset
+
+
+_JS_PORT_OFFSET = _js_port_offset(is_queue=lg_config.IS_QUEUE_ENTRYPOINT)
+REMOTE_PORT = _resolve_js_port(
+    _BASE_REMOTE_PORT, _JS_PORT_OFFSET, os.getenv("LANGGRAPH_JS_REMOTE_PORT")
+)
+GRAPH_PORT = _resolve_js_port(
+    _BASE_GRAPH_PORT, _JS_PORT_OFFSET, os.getenv("LANGGRAPH_JS_GRAPH_PORT")
+)
+GRAPH_HTTP_PORT = _resolve_js_port(
+    _BASE_GRAPH_HTTP_PORT, _JS_PORT_OFFSET, os.getenv("LANGGRAPH_JS_GRAPH_HTTP_PORT")
+)
 SSL = ssl.create_default_context(cafile=certifi.where())
 
 if (port := int(os.getenv("PORT", "8080"))) and port in (GRAPH_PORT, REMOTE_PORT):
@@ -510,6 +542,10 @@ async def run_js_process(paths_str: str | None, watch: bool = False):
                     "NODE_ENV": "development" if watch else "production",
                     "CHOKIDAR_USEPOLLING": "true",
                     **os.environ,
+                    # Pin the child to the parent's resolved ports.
+                    "LANGGRAPH_JS_REMOTE_PORT": str(REMOTE_PORT),
+                    "LANGGRAPH_JS_GRAPH_PORT": str(GRAPH_PORT),
+                    "LANGGRAPH_JS_GRAPH_HTTP_PORT": str(GRAPH_HTTP_PORT),
                 },
             )
             logger.info(
@@ -567,6 +603,10 @@ async def run_js_http_process(
                     "NODE_ENV": "development" if watch else "production",
                     "CHOKIDAR_USEPOLLING": "true",
                     **os.environ,
+                    # Pin the child to the parent's resolved ports.
+                    "LANGGRAPH_JS_REMOTE_PORT": str(REMOTE_PORT),
+                    "LANGGRAPH_JS_GRAPH_PORT": str(GRAPH_PORT),
+                    "LANGGRAPH_JS_GRAPH_HTTP_PORT": str(GRAPH_HTTP_PORT),
                 },
             )
 

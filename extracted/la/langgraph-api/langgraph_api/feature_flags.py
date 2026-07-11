@@ -35,6 +35,16 @@ FF_V2_EVENT_STREAMING = os.getenv("FF_V2_EVENT_STREAMING", "true").lower() in (
     "yes",
 )
 
+# When true on the postgres runtime, use ``GrpcCheckpointer``.
+# Inmem edition is unaffected (``IS_POSTGRES_BACKEND`` is false there).
+# Custom checkpointer (``backend=custom`` in ``LANGGRAPH_CHECKPOINTER``) and
+# Mongo (``backend=mongo``) is also unaffected.
+PREFER_GRPC_CHECKPOINTER = os.getenv("PREFER_GRPC_CHECKPOINTER", "false").lower() in (
+    "true",
+    "1",
+    "yes",
+)
+
 # In langgraph <= 1.0.3, we automatically subscribed to updates stream events to surface interrupts. In langgraph 1.0.4 we include interrupts in values events (which we are automatically subscribed to), so we no longer need to implicitly subscribe to updates stream events
 # Strip prerelease suffixes (e.g. "0a5" -> 0) so versions like 1.2.0a5 still
 # parse correctly; fall back to (0, 0, 0) only if no leading digits at all.

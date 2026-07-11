@@ -75,6 +75,23 @@ LANGGRAPH_PY_MINOR = tuple(map(int, __version__.split(".")[:2]))
 USE_NEW_INTERRUPTS = LANGGRAPH_PY_MINOR >= (0, 6)
 
 
+def _run_stream_mode_matches(event_mode: str, stream_mode: list[str] | None) -> bool:
+    """Return True if a published run-stream event matches the join filter."""
+    if not stream_mode:
+        return True
+    if event_mode in stream_mode:
+        return True
+    if (
+        "messages" in stream_mode or "messages-tuple" in stream_mode
+    ) and event_mode.startswith("messages"):
+        return True
+    if "|" in event_mode:
+        base_mode, _, _ = event_mode.partition("|")
+        if base_mode in stream_mode:
+            return True
+    return False
+
+
 def _ensure_uuid(id_: str | uuid.UUID | None) -> uuid.UUID:
     if isinstance(id_, str):
         return uuid.UUID(id_)
@@ -2447,6 +2464,7 @@ class Runs(Authenticated):
         if_not_exists: IfNotExists = "reject",
         after_seconds: int = 0,
         ctx: Auth.types.BaseAuthContext | None = None,
+        langsmith_session_name: str | None = None,
     ) -> AsyncIterator[Run]:
         """Create a run."""
         from langgraph_api.schema import Run, Thread  # noqa: PLC0415
@@ -2642,6 +2660,7 @@ class Runs(Authenticated):
             multitask_strategy=multitask_strategy,
             created_at=datetime.now(UTC) + timedelta(seconds=after_seconds),
             updated_at=datetime.now(UTC),
+            langsmith_session_name=langsmith_session_name,
         )
         conn.store["runs"].append(new_run)
 
@@ -3036,17 +3055,7 @@ class Runs(Authenticated):
                         if mode == "control":
                             if payload == b"done":
                                 return
-                        elif (
-                            not stream_mode
-                            or mode in stream_mode
-                            or (
-                                (
-                                    "messages" in stream_mode
-                                    or "messages-tuple" in stream_mode
-                                )
-                                and mode.startswith("messages")
-                            )
-                        ):
+                        elif _run_stream_mode_matches(mode, stream_mode):
                             yield mode.encode(), payload, id
                             logger.debug(
                                 "Replayed run event",
@@ -3068,17 +3077,7 @@ class Runs(Authenticated):
                             if mode == "control":
                                 if payload == b"done":
                                     break
-                            elif (
-                                not stream_mode
-                                or mode in stream_mode
-                                or (
-                                    (
-                                        "messages" in stream_mode
-                                        or "messages-tuple" in stream_mode
-                                    )
-                                    and mode.startswith("messages")
-                                )
-                            ):
+                            elif _run_stream_mode_matches(mode, stream_mode):
                                 # We only return a stream ID if the run is resumable
                                 stream_id = (
                                     id

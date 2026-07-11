@@ -787,7 +787,9 @@ async def create_cron(request: ApiRequest):
 
     enabled = payload.get("enabled", True)
 
-    async with connect(supports_core_api=False) as conn:
+    # gRPC/postgres Crons route through core-api and ignore ``conn`` (the default
+    # ``connect()`` yields None there); inmem uses the yielded connection.
+    async with connect() as conn:
         cron = await Crons.put(
             conn,
             thread_id=None,
@@ -834,7 +836,7 @@ async def create_thread_cron(request: ApiRequest):
             CRON_PAYLOAD_ENCRYPTION_SUBFIELDS,
         )
 
-    async with connect(supports_core_api=False) as conn:
+    async with connect() as conn:
         cron = await Crons.put(
             conn,
             thread_id=thread_id,
@@ -890,7 +892,7 @@ async def patch_cron(request: ApiRequest):
             CRON_PAYLOAD_ENCRYPTION_SUBFIELDS,
         )
 
-    async with connect(supports_core_api=False) as conn:
+    async with connect() as conn:
         cron = await Crons.update(
             conn,
             cron_id=cron_id,
@@ -917,7 +919,7 @@ async def delete_cron(request: ApiRequest):
     validate_uuid(cron_id, "Invalid cron ID: must be a UUID")
 
     try:
-        async with connect(supports_core_api=False) as conn:
+        async with connect() as conn:
             cid = await Crons.delete(
                 conn,
                 cron_id=cron_id,
@@ -940,7 +942,7 @@ async def search_crons(request: ApiRequest):
         validate_uuid(thread_id, "Invalid thread ID: must be a UUID")
 
     offset = int(payload.get("offset", 0))
-    async with connect(supports_core_api=False) as conn:
+    async with connect() as conn:
         crons_iter, next_offset = await Crons.search(
             conn,
             assistant_id=assistant_id,
@@ -972,7 +974,7 @@ async def count_crons(request: ApiRequest):
     if thread_id := payload.get("thread_id"):
         validate_uuid(thread_id, "Invalid thread ID: must be a UUID")
 
-    async with connect(supports_core_api=False) as conn:
+    async with connect() as conn:
         count = await Crons.count(
             conn,
             assistant_id=assistant_id,

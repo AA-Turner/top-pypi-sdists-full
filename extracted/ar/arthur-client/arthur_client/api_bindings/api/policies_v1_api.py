@@ -8087,7 +8087,7 @@ class PoliciesV1Api:
     ) -> InfiniteResourceListComplianceRow:
         """List Policy Compliance History
 
-        Returns the full rule compliance evaluation history for a policy. Requires policy_list_compliance_history permission.
+        Returns the full rule compliance evaluation history for a policy, filtered to applications the caller can access. Requires policy_list_compliance_history permission.
 
         :param policy_id: (required)
         :type policy_id: str
@@ -8189,7 +8189,7 @@ class PoliciesV1Api:
     ) -> ApiResponse[InfiniteResourceListComplianceRow]:
         """List Policy Compliance History
 
-        Returns the full rule compliance evaluation history for a policy. Requires policy_list_compliance_history permission.
+        Returns the full rule compliance evaluation history for a policy, filtered to applications the caller can access. Requires policy_list_compliance_history permission.
 
         :param policy_id: (required)
         :type policy_id: str
@@ -8291,7 +8291,7 @@ class PoliciesV1Api:
     ) -> RESTResponseType:
         """List Policy Compliance History
 
-        Returns the full rule compliance evaluation history for a policy. Requires policy_list_compliance_history permission.
+        Returns the full rule compliance evaluation history for a policy, filtered to applications the caller can access. Requires policy_list_compliance_history permission.
 
         :param policy_id: (required)
         :type policy_id: str

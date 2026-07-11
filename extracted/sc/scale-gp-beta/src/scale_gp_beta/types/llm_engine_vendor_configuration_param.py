@@ -10,8 +10,14 @@ from .._types import SequenceNotStr
 __all__ = ["LlmEngineVendorConfigurationParam"]
 
 
-class LlmEngineVendorConfigurationParam(TypedDict, total=False, extra_items=object):  # type: ignore[call-arg]
+class LlmEngineVendorConfigurationParam(  # type: ignore[call-arg]
+    TypedDict,
+    total=False,
+    extra_items=object,  # pyright: ignore[reportGeneralTypeIssues]
+):
     model: Required[str]
+
+    chat_template_override: str
 
     checkpoint_path: str
 

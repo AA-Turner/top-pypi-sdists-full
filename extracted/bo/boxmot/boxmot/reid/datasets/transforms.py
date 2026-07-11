@@ -1,7 +1,7 @@
 """ReID training transforms (augmentation pipelines).
 
 Augmentations ported from torchreid (deep-person-reid):
-- Random2DTranslation: 1.125× upscale → random crop (Zhou et al.)
+- Random2DTranslation: 1.05× upscale → random crop (LMBN-style)
 - ColorAugmentation: PCA-based color jitter (Krizhevsky et al.)
 - RandomPatch: occlusion simulation with a patch pool (Zhou et al., ICCV 2019)
 """
@@ -17,11 +17,11 @@ import torch
 import torchvision.transforms as T
 from PIL import Image
 
-from boxmot.reid.core.preprocessing import DEFAULT_PREPROCESS
+from boxmot.reid.core.preprocessing import DEFAULT_PREPROCESS, IMAGENET_MEAN_RGB
 
 
 class ResizePad:
-    """Resize preserving aspect ratio with zero-padding (PIL version).
+    """Resize preserving aspect ratio with ImageNet-mean padding (PIL version).
 
     Mirrors ``boxmot.reid.core.preprocessing.resize_pad`` but operates on PIL
     images so it can be used inside a ``torchvision.transforms.Compose`` chain.
@@ -36,7 +36,7 @@ class ResizePad:
         scale = min(self.target_w / w, self.target_h / h)
         new_w, new_h = int(w * scale), int(h * scale)
         img = img.resize((new_w, new_h), Image.BILINEAR)
-        padded = Image.new("RGB", (self.target_w, self.target_h), (0, 0, 0))
+        padded = Image.new("RGB", (self.target_w, self.target_h), IMAGENET_MEAN_RGB)
         pad_left = (self.target_w - new_w) // 2
         pad_top = (self.target_h - new_h) // 2
         padded.paste(img, (pad_left, pad_top))
@@ -54,9 +54,9 @@ def _resize_op(img_size: Tuple[int, int], preprocess: str):
 
 
 class Random2DTranslation:
-    """Randomly translate via 1.125× upscale → random crop (torchreid).
+    """Randomly translate via scale× upscale → random crop.
 
-    With probability *p* the image is resized to 1.125× the target size and
+    With probability *p* the image is resized to *scale*× the target size and
     then a random crop of the target size is taken.  Otherwise the image is
     simply resized to the target size.
 
@@ -65,23 +65,26 @@ class Random2DTranslation:
         Re-Identification." ICCV 2019.
     """
 
-    def __init__(self, height: int, width: int, p: float = 0.5):
+    def __init__(self, height: int, width: int, p: float = 0.5, scale: float = 1.05):
+        if scale < 1.0:
+            raise ValueError("Random2DTranslation scale must be >= 1.0")
         self.height = height
         self.width = width
         self.p = p
+        self.scale = float(scale)
 
     def __call__(self, img: Image.Image) -> Image.Image:
         if random.random() > self.p:
             return img.resize((self.width, self.height), Image.BILINEAR)
-        new_w = int(round(self.width * 1.125))
-        new_h = int(round(self.height * 1.125))
+        new_w = int(round(self.width * self.scale))
+        new_h = int(round(self.height * self.scale))
         resized = img.resize((new_w, new_h), Image.BILINEAR)
         x1 = random.randint(0, new_w - self.width)
         y1 = random.randint(0, new_h - self.height)
         return resized.crop((x1, y1, x1 + self.width, y1 + self.height))
 
     def __repr__(self) -> str:
-        return f"{self.__class__.__name__}(h={self.height}, w={self.width}, p={self.p})"
+        return f"{self.__class__.__name__}(h={self.height}, w={self.width}, p={self.p}, scale={self.scale})"
 
 
 class ColorAugmentation:
@@ -189,7 +192,7 @@ class RandomPatch:
         return f"{self.__class__.__name__}(p={self.prob_happen}, pool={self.patchpool.maxlen})"
 
 
-IMAGENET_MEAN = [0.4914, 0.4822, 0.4465]
+IMAGENET_MEAN = [0.485, 0.456, 0.406]
 
 
 def build_train_transforms(
@@ -200,6 +203,9 @@ def build_train_transforms(
     color_jitter: bool = True,
     gaussian_blur: bool = False,
     random_grayscale: float = 0.0,
+    random_patch: bool = True,
+    random_crop_scale: float = 1.05,
+    color_augmentation: bool = True,
 ) -> T.Compose:
     """Build the standard ReID training augmentation pipeline.
 
@@ -212,9 +218,10 @@ def build_train_transforms(
     ops = [
         _resize_op(img_size, preprocess),
         T.RandomHorizontalFlip(p=0.5),
-        Random2DTranslation(h, w, p=0.5),
-        RandomPatch(prob_happen=0.5),
+        Random2DTranslation(h, w, p=0.5, scale=random_crop_scale),
     ]
+    if random_patch:
+        ops.append(RandomPatch(prob_happen=0.5))
     if color_jitter:
         # torchreid values: brightness=0.2, contrast=0.15
         ops.append(T.ColorJitter(brightness=0.2, contrast=0.15, saturation=0, hue=0))
@@ -224,12 +231,17 @@ def build_train_transforms(
         ops.append(T.RandomGrayscale(p=random_grayscale))
     ops.extend([
         T.ToTensor(),
-        ColorAugmentation(p=0.5),
         T.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]),
     ])
+    if color_augmentation:
+        ops.insert(-1, ColorAugmentation(p=0.5))
     if random_erasing > 0:
-        # torchreid uses channel-mean fill instead of random
-        ops.append(T.RandomErasing(p=random_erasing, value=IMAGENET_MEAN))
+        # Zhong et al. "Random Erasing Data Augmentation" §5.3.1:
+        # p=0.5, scale=(0.02, 0.2), ratio=(0.3, 3.33), fill=ImageNet mean
+        ops.append(T.RandomErasing(
+            p=random_erasing, scale=(0.02, 0.2), ratio=(0.3, 3.33),
+            value=IMAGENET_MEAN,
+        ))
     return T.Compose(ops)
 
 

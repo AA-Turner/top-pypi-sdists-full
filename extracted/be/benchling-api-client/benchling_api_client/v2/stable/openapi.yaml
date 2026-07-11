@@ -9800,6 +9800,9 @@ paths:
         requests, it is recommended to implement a backoff and retry strategy to handle
         HTTP 429 errors.
 
+        In rare cases, attachments still being scanned for viruses are omitted from
+        the export.
+
         '
       operationId: exportItem
       requestBody:

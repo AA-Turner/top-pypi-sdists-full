@@ -1,9 +1,14 @@
-"""Regression test for the `trend` vs `trend_all` baselines.
+"""Regression tests for the `null`, `trend`, and `trend_all` baselines.
 
-`trend`     : Theil-Sen on the trailing 12 past-only training years
-              (Harvest Year < forecast_season). arxiv:2506.19046 sec 2.
-`trend_all` : Theil-Sen on ALL training rows for the region (df_train
-              already excludes the forecast year via LOOCV).
+`null`      : per-unit leave-one-out mean — mean of the unit's yields over
+              ALL training years (df_train already excludes the held-out
+              forecast year via LOOCV). Computed within each unit, never
+              pooled across units.
+`trend`     : per-unit Theil-Sen fit on ALL training years, extrapolated to
+              the forecast season. Falls back to the unit mean below 10
+              training years.
+`trend_all` : same all-years Theil-Sen fit, but with a >= 3-year floor; kept
+              as a feature source (use_trend_all_as_feature).
 
 These tests exercise the dispatch branch in
 ``geocif.geocif.Geocif._predict_baseline`` via a bound-method stub so we
@@ -62,16 +67,53 @@ class TrendBaselineTests(unittest.TestCase):
         })
         self.X_test = pd.DataFrame({"_dummy": [0.0]})
 
-    def test_trend_uses_only_past_12_years(self):
-        """`trend` restricts to Harvest Year < forecast_season AND .tail(12)."""
-        stub = _build_stub(
-            "trend", self.df_train_clean, "Yield (tn per ha)",
-            self.forecast_season,
+    def test_trend_fits_all_training_years(self):
+        """`trend` fits Theil-Sen on ALL training years (pre- AND post-
+        forecast), not a past-only / recent-12 window. On a two-regime series
+        this makes `trend` agree exactly with `trend_all` and with a direct
+        Theil-Sen fit over every training row."""
+        from scipy.stats import theilslopes
+        forecast_season = 2013
+        rows = []
+        for y in range(2001, 2013):        # 12 pre-forecast, gentle slope
+            rows.append(("A", 1, y, 0.50 + 0.02 * (y - 2000)))
+        for y in range(2014, 2026):        # 12 post-forecast, steep slope
+            rows.append(("A", 1, y, 0.74 + 0.20 * (y - 2013)))
+        df_train = pd.DataFrame(
+            rows,
+            columns=["Region", "Region_ID", "Harvest Year", "Yield (tn per ha)"],
         )
-        y_pred, _, _ = stub._predict_baseline(self.X_test, self.df_region)
-        expected = -99.55 + 0.05 * float(self.forecast_season)
-        self.assertTrue(np.allclose(y_pred, expected, atol=1e-9))
-        self.assertEqual(y_pred.shape, (1,))
+        df_region = pd.DataFrame({
+            "Region": ["A"], "Region_ID": [1], "Harvest Year": [forecast_season],
+        })
+        X_test = pd.DataFrame({"_dummy": [0.0]})
+
+        past = df_train.sort_values("Harvest Year")
+        slope, intercept, _, _ = theilslopes(
+            past["Yield (tn per ha)"].values,
+            past["Harvest Year"].astype(float).values,
+        )
+        expected = intercept + slope * float(forecast_season)
+
+        pred_trend, _, _ = _build_stub(
+            "trend", df_train, "Yield (tn per ha)", forecast_season,
+        )._predict_baseline(X_test, df_region)
+        pred_trend_all, _, _ = _build_stub(
+            "trend_all", df_train, "Yield (tn per ha)", forecast_season,
+        )._predict_baseline(X_test, df_region)
+
+        self.assertTrue(np.isclose(pred_trend[0], expected, atol=1e-9))
+        self.assertTrue(np.isclose(pred_trend[0], pred_trend_all[0], atol=1e-9))
+        self.assertEqual(pred_trend.shape, (1,))
+        # A past-only fit (pre-forecast years alone) gives a different
+        # extrapolation — proving `trend` no longer restricts to that window.
+        pre = past[past["Harvest Year"] < forecast_season]
+        ps_slope, ps_intercept, _, _ = theilslopes(
+            pre["Yield (tn per ha)"].values,
+            pre["Harvest Year"].astype(float).values,
+        )
+        past_only_pred = ps_intercept + ps_slope * float(forecast_season)
+        self.assertFalse(np.isclose(pred_trend[0], past_only_pred, atol=1e-3))
 
     def test_trend_all_uses_every_training_row(self):
         """`trend_all` uses the full df_train slice for the region."""
@@ -83,21 +125,29 @@ class TrendBaselineTests(unittest.TestCase):
         expected = -99.55 + 0.05 * float(self.forecast_season)
         self.assertTrue(np.allclose(y_pred, expected, atol=1e-9))
 
-    def test_trend_vs_trend_all_disagree_when_recent_window_differs(self):
-        """When early + late regimes have different slopes, trend (12 past
-        rows) and trend_all (all 24 rows) give different predictions."""
+    def test_trend_and_trend_all_agree_with_enough_years(self):
+        """With >= 10 training years, `trend` and `trend_all` fit the SAME
+        rows (all training years) and therefore agree — the old past-only vs
+        all-rows split is gone."""
+        pred_t, _, _ = _build_stub(
+            "trend", self.df_train_clean, "Yield (tn per ha)",
+            self.forecast_season,
+        )._predict_baseline(self.X_test, self.df_region)
+        pred_ta, _, _ = _build_stub(
+            "trend_all", self.df_train_clean, "Yield (tn per ha)",
+            self.forecast_season,
+        )._predict_baseline(self.X_test, self.df_region)
+        self.assertTrue(np.isclose(pred_t[0], pred_ta[0], atol=1e-9))
+
+    def test_trend_min_years_guard_differs_from_trend_all(self):
+        """The only difference between `trend` and `trend_all` is the minimum
+        training length: `trend` needs >= 10 years (else the per-unit mean),
+        `trend_all` needs >= 3. With 7 training years `trend` falls back to the
+        mean while `trend_all` still fits a slope."""
         forecast_season = 2013
-        early_years = list(range(2001, 2008))   # 7 pre-forecast, slope 0.02
-        recent_years = list(range(2008, 2013))  # 5 pre-forecast, slope 0.20
-        post_years = list(range(2014, 2026))    # 12 post-forecast, slope 0.20
-        rows = []
-        for y in early_years:
-            rows.append(("A", 1, y, 0.5 + 0.02 * (y - 2000)))
-        for y in recent_years + post_years:
-            rows.append(("A", 1, y, 0.66 + 0.20 * (y - 2008)))
-        df_train = pd.DataFrame(
-            rows,
-            columns=["Region", "Region_ID", "Harvest Year", "Yield (tn per ha)"],
+        years = list(range(2005, 2012))  # 7 years, none == forecast_season
+        df_train = _make_monotonic_df(
+            "A", years, slope=0.05, intercept=-99.55,
         )
         df_region = pd.DataFrame({
             "Region": ["A"], "Region_ID": [1], "Harvest Year": [forecast_season],
@@ -111,14 +161,11 @@ class TrendBaselineTests(unittest.TestCase):
             "trend_all", df_train, "Yield (tn per ha)", forecast_season,
         )._predict_baseline(X_test, df_region)
 
-        self.assertFalse(
-            np.isclose(pred_trend[0], pred_trend_all[0], atol=1e-3),
-            msg=(
-                f"Expected trend ({pred_trend[0]}) and trend_all "
-                f"({pred_trend_all[0]}) to disagree when early- vs late-"
-                "period slopes differ."
-            ),
-        )
+        mean_expected = float(df_train["Yield (tn per ha)"].mean())
+        slope_expected = -99.55 + 0.05 * float(forecast_season)
+        self.assertAlmostEqual(pred_trend[0], mean_expected, places=6)
+        self.assertAlmostEqual(pred_trend_all[0], slope_expected, places=6)
+        self.assertFalse(np.isclose(pred_trend[0], pred_trend_all[0]))
 
     def test_null_filters_by_region_not_region_id(self):
         """`null` must compute per-region mean using the admin name, NOT
@@ -295,8 +342,9 @@ class TrendBaselineTests(unittest.TestCase):
         stub._compute_trend_all_feature()
         self.assertNotIn("Trend All", stub.df_train.columns)
 
-    def test_trend_falls_back_to_mean_under_three_rows(self):
-        """`trend` with fewer than 3 past rows returns mean of available."""
+    def test_trend_falls_back_to_mean_below_min_years(self):
+        """`trend` with fewer than 10 training years returns the mean of the
+        available years rather than a fitted slope."""
         forecast_season = 2003
         df_train = pd.DataFrame({
             "Region": ["A", "A"],

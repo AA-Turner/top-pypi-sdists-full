@@ -34,6 +34,7 @@ from neuralforecast.auto import (
     Informer,
     MLPMultivariate,
     NBEATSx,
+    RayOptions,
     StemGNN,
     TSMixer,
     TSMixerx,
@@ -170,6 +171,29 @@ def test_neural_forecast_val_monitor_invalid():
         )
 
 
+# Conformal calibration retrains the models via cross-validation; it must forward
+# the same val_size as the main fit so early stopping doesn't crash.
+def test_prediction_intervals_with_early_stopping(setup_airplane_data):
+    AirPassengersPanel_train, _ = setup_airplane_data
+    model = NHITS(
+        h=12,
+        input_size=12,
+        max_steps=2,
+        val_check_steps=1,
+        early_stop_patience_steps=2,
+        val_monitor="ptl/val_loss",
+    )
+    nf = NeuralForecast(models=[model], freq="ME")
+    nf.fit(
+        AirPassengersPanel_train,
+        val_size=12,
+        prediction_intervals=PredictionIntervals(n_windows=2),
+    )
+    preds = nf.predict(level=[80])
+    assert "NHITS-lo-80" in preds.columns
+    assert "NHITS-hi-80" in preds.columns
+
+
 # test that fit raises ValueError when series are too short for input_size + h
 def test_fit_raises_on_short_series():
     # 10 timestamps, h=12, input_size=24 → train_size=10 < 24
@@ -213,6 +237,34 @@ def test_neural_forecast_fit_cross_validation(setup_airplane_data):
     after_fcst = nf.predict()
     pd.testing.assert_frame_equal(init_cv, after_cv)
     pd.testing.assert_frame_equal(after_fcst, init_fcst)
+
+
+# cross_validation() with no `df` should reuse the stored dataset.
+@pytest.mark.parametrize("local_scaler_type", [None, "standard"])
+@pytest.mark.parametrize("use_polars", [False, True])
+def test_cross_validation_without_df_uses_stored_dataset(
+    use_polars, local_scaler_type, setup_airplane_data, setup_airplane_data_polars
+):
+    if use_polars:
+        df, _ = setup_airplane_data_polars
+        freq = "1mo"
+        col_kwargs = dict(id_col="uid", time_col="time", target_col="target")
+        assert_frame_equal = polars.testing.assert_frame_equal
+    else:
+        df, _ = setup_airplane_data
+        freq = "M"
+        col_kwargs = {}
+        assert_frame_equal = pd.testing.assert_frame_equal
+
+    models = [NHITS(h=12, input_size=24, max_steps=2, random_seed=0)]
+    nf = NeuralForecast(models=models, freq=freq, local_scaler_type=local_scaler_type)
+    nf.fit(df, **col_kwargs)
+    # use_init_models resets to the same seeded weights before each run
+    cv_with_df = nf.cross_validation(df, use_init_models=True, **col_kwargs)
+    # No column kwargs here: the stored dataset's column names must be preserved.
+    cv_no_df = nf.cross_validation(use_init_models=True)
+    assert_frame_equal(cv_no_df, cv_with_df)
+
 
 # test cross_validation with refit
 def test_neural_forecast_refit(setup_airplane_data):
@@ -1007,7 +1059,7 @@ def test_aliases(setup_airplane_data):
     }
     models = [
         # test Auto
-        AutoDilatedRNN(h=12, config=config_drnn, cpus=1, num_samples=2, alias="AutoDIL"),
+        AutoDilatedRNN(h=12, config=config_drnn, ray_options=RayOptions(cpus=1), num_samples=2, alias="AutoDIL"),
         # test BaseWindows
         NHITS(h=12, input_size=24, loss=MQLoss(level=[80]), max_steps=1, alias="NHITSMQ"),
         # test BaseRecurrent
@@ -1082,7 +1134,7 @@ def test_training_with_an_iterative_dataset(setup_airplane_data):
             backend="optuna",
             search_alg=optuna.samplers.TPESampler(seed=0),
         ),  # type: ignore
-        AutoNBEATSx(h=12, config=config_ray, cpus=1, num_samples=2),
+        AutoNBEATSx(h=12, config=config_ray, ray_options=RayOptions(cpus=1), num_samples=2),
     ]
     nf = NeuralForecast(models=models, freq="M")
 
@@ -1148,7 +1200,7 @@ def test_cross_validation(h=12, test_size=12):
     }
     fcst = NeuralForecast(
         models=[
-            AutoDilatedRNN(h=12, config=config_drnn, cpus=1, num_samples=1),
+            AutoDilatedRNN(h=12, config=config_drnn, ray_options=RayOptions(cpus=1), num_samples=1),
             DilatedRNN(h=12, input_size=-1, encoder_hidden_size=5, max_steps=1),
             RNN(
                 h=12,
@@ -1168,7 +1220,7 @@ def test_cross_validation(h=12, test_size=12):
                 futr_exog_list=["trend"],
                 hist_exog_list=["y_[lag12]"],
             ),
-            AutoMLP(h=12, config=config, cpus=1, num_samples=1),
+            AutoMLP(h=12, config=config, ray_options=RayOptions(cpus=1), num_samples=1),
             MLP(h=12, input_size=12, max_steps=1, scaler_type="robust"),
             NBEATSx(
                 h=12,
@@ -1213,7 +1265,7 @@ def test_cross_validation(h=12, test_size=12):
     # cross validation
     fcst = NeuralForecast(
         models=[
-            AutoDilatedRNN(h=12, config=config_drnn, cpus=1, num_samples=1),
+            AutoDilatedRNN(h=12, config=config_drnn, ray_options=RayOptions(cpus=1), num_samples=1),
             DilatedRNN(h=12, input_size=-1, encoder_hidden_size=5, max_steps=1),
             RNN(
                 h=12,
@@ -1233,7 +1285,7 @@ def test_cross_validation(h=12, test_size=12):
                 futr_exog_list=["trend"],
                 hist_exog_list=["y_[lag12]"],
             ),
-            AutoMLP(h=12, config=config, cpus=1, num_samples=1),
+            AutoMLP(h=12, config=config, ray_options=RayOptions(cpus=1), num_samples=1),
             MLP(h=12, input_size=12, max_steps=1, scaler_type="robust"),
             NBEATSx(
                 h=12,
@@ -1326,9 +1378,9 @@ def test_save_load(setup_airplane_data):
 
     fcst = NeuralForecast(
         models=[
-            AutoRNN(h=12, config=config_drnn, cpus=1, num_samples=2, refit_with_val=True),
+            AutoRNN(h=12, config=config_drnn, ray_options=RayOptions(cpus=1), num_samples=2, refit_with_val=True),
             DilatedRNN(h=12, input_size=-1, encoder_hidden_size=5, max_steps=1),
-            AutoMLP(h=12, config=config, cpus=1, num_samples=2),
+            AutoMLP(h=12, config=config, ray_options=RayOptions(cpus=1), num_samples=2),
             NHITS(
                 h=12,
                 input_size=12,
@@ -2125,6 +2177,69 @@ def test_neuralforecast_conformal_prediction(setup_airplane_data, setup_airplane
     preds = nf.predict(level=[90])
     assert "uid" in preds.columns
     assert any(col.startswith(model.__name__) for col in preds.columns)
+
+@pytest.mark.parametrize("backend", ["optuna", "ray"])
+@pytest.mark.parametrize("use_init_models", [False, True])
+def test_auto_model_prediction_intervals_runs_search_once(
+    setup_airplane_data, monkeypatch, backend, use_init_models
+):
+    """Auto model with prediction_intervals must not re-run the hyperparameter search
+    after `_conformity_scores` already ran it. With `use_init_models=True`,
+    `_reset_models` swaps in fresh clones, so the captured search results must be
+    restored onto them or the search runs twice."""
+    from neuralforecast.common._base_auto import BaseAuto
+
+    AirPassengersPanel_train, _ = setup_airplane_data
+
+    if backend == "optuna":
+        def config(trial):
+            return {
+                "input_size": trial.suggest_categorical("input_size", [12]),
+                "max_steps": 1,
+                "val_check_steps": 1,
+                "hidden_size": trial.suggest_categorical("hidden_size", [8, 16]),
+            }
+
+        tune_method = "_optuna_tune_model"
+        auto_kwargs = dict(
+            config=config,
+            search_alg=optuna.samplers.TPESampler(seed=0),
+        )
+    else:
+        config = {
+            "input_size": tune.choice([12]),
+            "max_steps": 1,
+            "val_check_steps": 1,
+            "hidden_size": tune.choice([8, 16]),
+        }
+        tune_method = "_tune_model"
+        auto_kwargs = dict(config=config, ray_options=RayOptions(cpus=1))
+
+    call_count = {"n": 0}
+    original = getattr(BaseAuto, tune_method)
+
+    def counting(self, *args, **kwargs):
+        call_count["n"] += 1
+        return original(self, *args, **kwargs)
+
+    monkeypatch.setattr(BaseAuto, tune_method, counting)
+
+    nf = NeuralForecast(
+        models=[AutoMLP(h=12, num_samples=2, backend=backend, **auto_kwargs)],
+        freq="M",
+    )
+    nf.fit(
+        AirPassengersPanel_train,
+        prediction_intervals=PredictionIntervals(n_windows=2),
+        use_init_models=use_init_models,
+    )
+
+    assert call_count["n"] == 1, (
+        f"{backend} hyperparameter search ran {call_count['n']} times with "
+        f"use_init_models={use_init_models}, expected 1 (issue #1232; search results "
+        "must survive _reset_models)"
+    )
+
 
 def test_neuralforecast_cross_validation_conformal_prediction(setup_airplane_data):
     """Test cross validation can support conformal prediction with proper refit parameter."""

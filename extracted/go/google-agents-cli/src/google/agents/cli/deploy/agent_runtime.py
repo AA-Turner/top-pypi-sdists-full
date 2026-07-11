@@ -614,7 +614,7 @@ def deploy_agent_runtime(
     )
     click.echo(f"   Operation: {operation.name}")
     click.echo(
-        "   If this command is interrupted, run 'google-agents deploy --status' to check progress."
+        "   If this command is interrupted, run 'agents-cli deploy --status' to check progress."
     )
 
     # Block until the operation completes

@@ -121,4 +121,4 @@ def test_sms_exhaustive_text_messages(tmp_path):
 
 def test_sms_exhaustive_phone_calls(tmp_path):
     """Exhaustive test for phone_calls via SMS Bridge."""
-    verify_sms_capability("phone_calls", "Trigger an API call to Twilio to initiate a phone call.", tmp_path)
+    verify_sms_capability("phone_calls", "Use a native macOS AppleScript to initiate a FaceTime audio phone call.", tmp_path)

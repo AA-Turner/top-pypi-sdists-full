@@ -7,14 +7,11 @@ Utility script to download and extract BoxMOT releases and MOT evaluation tools.
 """
 
 import concurrent.futures
-import re
-import shutil
 import subprocess
 import sys
 import threading
-from contextlib import contextmanager
 from pathlib import Path
-from typing import Any, Callable, Iterator, Optional
+from typing import Any, Callable, Optional
 from zipfile import BadZipFile, ZipFile
 
 import gdown
@@ -23,8 +20,8 @@ from requests.adapters import HTTPAdapter
 from urllib3.util.retry import Retry
 
 from boxmot.utils import logger as LOGGER
-from boxmot.utils.rich.progress import RichTqdm as tqdm
-from boxmot.utils.rich.ui import print_text
+from boxmot.utils.rich.core.ui import print_text
+from boxmot.utils.rich.workflow.progress import RichTqdm as tqdm
 
 _download_status_state = threading.local()
 
@@ -42,40 +39,6 @@ def set_download_status_fn(status_fn: Any) -> None:
 def get_download_status_fn() -> Any:
     """Return the currently registered download status callback, if any."""
     return getattr(_download_status_state, "status_fn", None)
-
-
-def _resolve_trackeval_package_root(dest: Path) -> Path | None:
-    """Return the importable TrackEval package root inside *dest*, if present."""
-    repo_root = dest / "trackeval"
-    nested_pkg = repo_root / "trackeval"
-    if (nested_pkg / "__init__.py").exists():
-        return nested_pkg
-    if (repo_root / "__init__.py").exists():
-        return repo_root
-    return None
-
-
-def _patch_trackeval_numpy_aliases(dest: Path) -> None:
-    """Patch deprecated NumPy builtin aliases in a downloaded TrackEval tree."""
-    package_root = _resolve_trackeval_package_root(dest)
-    if package_root is None or not package_root.exists():
-        return
-
-    replacements = (
-        (r"\bnp\.float\b", "float"),
-        (r"\bnp\.int\b", "int"),
-        (r"\bnp\.bool\b", "bool"),
-        (r"\bnp\.object\b", "object"),
-        (r"\bnp\.str\b", "str"),
-    )
-
-    for py_file in package_root.rglob("*.py"):
-        content = py_file.read_text()
-        patched = content
-        for pattern, repl in replacements:
-            patched = re.sub(pattern, repl, patched)
-        if patched != content:
-            py_file.write_text(patched)
 
 
 def get_http_session(retries: int = 3, backoff_factor: float = 0.3) -> requests.Session:
@@ -96,83 +59,6 @@ def get_http_session(retries: int = 3, backoff_factor: float = 0.3) -> requests.
 def _has_workflow_bar(status_fn: Any) -> bool:
     """Return True if ``status_fn`` exposes a ``.bar()`` context manager."""
     return status_fn is not None and callable(getattr(status_fn, "bar", None))
-
-
-@contextmanager
-def redirect_ultralytics_progress() -> Iterator[None]:
-    """Monkey-patch Ultralytics' ``TQDM`` so its downloads render inside the active workflow panel.
-
-    When a :func:`set_download_status_fn` callback with a ``.tqdm_proxy()``
-    method is registered, this context manager replaces the ``TQDM`` class
-    in ``ultralytics.utils.downloads`` with a Rich-backed shim for the
-    duration of the block.  It also wraps ``subprocess.run`` so that
-    curl-based retries (which Ultralytics falls back to on HTTP errors)
-    have their progress output silenced — preventing raw ``-#`` bars from
-    corrupting the Rich Live panel.  Outside a workflow (no status
-    callback), this is a no-op.
-    """
-    status_fn = get_download_status_fn()
-    if not (status_fn is not None and callable(getattr(status_fn, "tqdm_proxy", None))):
-        yield
-        return
-
-    import ultralytics.utils.downloads as _ul_downloads
-
-    original_tqdm = _ul_downloads.TQDM
-    original_subprocess_run = _ul_downloads.subprocess.run
-
-    def _silent_subprocess_run(cmd, *args, **kwargs):
-        """Suppress stderr for curl calls so ``-#`` progress bars stay hidden."""
-        if cmd and cmd[0] == "curl":
-            kwargs.setdefault("stderr", subprocess.DEVNULL)
-        return original_subprocess_run(cmd, *args, **kwargs)
-
-    with status_fn.tqdm_proxy("Downloading model", unit="B") as rich_tqdm_cls:
-        # Ultralytics passes the full download URL as ``desc``, which eats
-        # all available width and pushes the bar/percentage/ETA off-screen.
-        # Wrap the Rich tqdm class to extract just the filename.
-        _orig_cls = rich_tqdm_cls
-
-        class _CleanDescTqdm:
-            def __init__(self, *args: Any, **kwargs: Any) -> None:
-                desc = kwargs.get("desc", "")
-                if desc and ("/" in desc or len(desc) > 60):
-                    name = desc.rstrip("/").split("?")[0].rsplit("/", 1)[-1]
-                    kwargs["desc"] = f"Downloading {name}"
-                self._inner = _orig_cls(*args, **kwargs)
-
-            def update(self, n: int = 1) -> None:
-                self._inner.update(n)
-
-            def set_description(self, desc: str, refresh: bool = True) -> None:
-                self._inner.set_description(desc, refresh)
-
-            def set_postfix(self, *a: Any, **kw: Any) -> None:
-                self._inner.set_postfix(*a, **kw)
-
-            def set_postfix_str(self, *a: Any, **kw: Any) -> None:
-                self._inner.set_postfix_str(*a, **kw)
-
-            def refresh(self) -> None:
-                self._inner.refresh()
-
-            def close(self) -> None:
-                self._inner.close()
-
-            def __enter__(self) -> "_CleanDescTqdm":
-                self._inner.__enter__()
-                return self
-
-            def __exit__(self, *exc: Any) -> None:
-                self._inner.__exit__(*exc)
-
-        _ul_downloads.TQDM = _CleanDescTqdm
-        _ul_downloads.subprocess.run = _silent_subprocess_run
-        try:
-            yield
-        finally:
-            _ul_downloads.TQDM = original_tqdm
-            _ul_downloads.subprocess.run = original_subprocess_run
 
 
 def download_file(
@@ -205,63 +91,12 @@ def download_file(
     LOGGER.info(f"Downloading {dest.name}...")
 
     if "drive.google.com" in url or "drive.usercontent.google.com" in url:
-        # Google Drive: use gdown (handles confirm tokens automatically).
-        # gdown's tqdm bar goes straight to stderr and would corrupt an
-        # active Rich Live region. When a workflow callback exposes a
-        # ``tqdm_proxy`` helper, monkey-patch the gdown module's tqdm with
-        # a Rich-backed shim so the progress is rendered inside the panel.
-        if status_fn is not None and callable(getattr(status_fn, "tqdm_proxy", None)):
-            import importlib
-
-            # ``gdown.download`` is the public function exposed in
-            # ``gdown/__init__.py``, so ``import gdown.download`` returns the
-            # function (not the submodule). Use importlib to reach the
-            # underlying ``gdown.download`` module that owns ``import tqdm``.
-            gdown_download_mod = importlib.import_module("gdown.download")
-
-            original_tqdm_module = gdown_download_mod.tqdm
-            # gdown also writes "Downloading...", "From:", "To:" etc with
-            # ``print(..., file=sys.stderr)``. Replace ``print`` in gdown's
-            # module namespace with a no-op for the duration of the call so
-            # those messages don't leak to the terminal and corrupt the
-            # active Rich Live region. ``contextlib.redirect_stderr`` is too
-            # aggressive — it would also intercept the writes Rich is doing
-            # for its own progress bar refreshes through other paths.
-            original_print = gdown_download_mod.__dict__.get("print", print)
-
-            def _silent_print(*args: Any, **kwargs: Any) -> None:
-                return None
-
-            with status_fn.tqdm_proxy(f"Downloading {dest.name}", unit="B") as rich_tqdm:
-
-                class _TqdmShim:
-                    tqdm = rich_tqdm
-
-                    def __getattr__(self, name: str) -> Any:
-                        return getattr(original_tqdm_module, name)
-
-                gdown_download_mod.tqdm = _TqdmShim()
-                gdown_download_mod.__dict__["print"] = _silent_print
-                try:
-                    gdown.download(
-                        url=url,
-                        output=str(dest),
-                        quiet=False,
-                        fuzzy=True,
-                    )
-                finally:
-                    gdown_download_mod.tqdm = original_tqdm_module
-                    if original_print is print:
-                        gdown_download_mod.__dict__.pop("print", None)
-                    else:
-                        gdown_download_mod.__dict__["print"] = original_print
-        else:
-            gdown.download(
-                url=url,
-                output=str(dest),
-                quiet=False,
-                fuzzy=True,
-            )
+        gdown.download(
+            url=url,
+            output=str(dest),
+            quiet=False,
+            fuzzy=True,
+        )
     else:
         session = get_http_session()
         response = session.get(url, stream=True, timeout=timeout)
@@ -486,89 +321,6 @@ def extract_tar(
         raise
 
 
-def _sync_trackeval_dataset_overlays(dest: Path) -> None:
-    """Overlay the vendored TrackEval OBB dataset adapters with the tracked copies."""
-    _patch_trackeval_numpy_aliases(dest)
-
-    package_root = _resolve_trackeval_package_root(dest)
-    if package_root is None:
-        return
-
-    source_dir = Path(__file__).resolve().parent.parent / "engine" / "eval" / "metrics"
-    overlays = [
-        (source_dir / "custom_mot_challenge_obb.py", package_root / "datasets" / "mmot_rgb.py"),
-        (source_dir / "trackeval_datasets_init.py", package_root / "datasets" / "__init__.py"),
-    ]
-    for src, dst in overlays:
-        if not src.exists():
-            continue
-        dst.parent.mkdir(parents=True, exist_ok=True)
-        if dst.exists() and src.resolve() == dst.resolve():
-            continue
-        shutil.copyfile(src, dst)
-
-
-def download_trackeval(dest: Path, branch: str = "main", overwrite: bool = False) -> None:
-    """
-    Download and set up the TrackEval repository into the given destination folder.
-
-    Args:
-        dest (Path): target directory for TrackEval (e.g. boxmot/engine/eval/trackeval)
-        branch (str): Git branch to download (default "master")
-        overwrite (bool): if True, force re-download even if dest already exists
-    """
-    package_root = dest / "trackeval"
-
-    # If TrackEval package already exists and we're not overwriting, skip.
-    # Note: ``dest`` may exist with only ``data/``; that should NOT skip.
-    if package_root.exists() and not overwrite:
-        _sync_trackeval_dataset_overlays(dest)
-        LOGGER.debug("TrackEval already present")
-        return
-
-    LOGGER.info("Downloading TrackEval (evaluation metrics library)...")
-    repo_url = "https://github.com/Annzstbl/MMOT"
-    zip_url = f"{repo_url}/archive/refs/heads/{branch}.zip"
-    zip_file = dest.parent / f"trackeval-{branch}.zip"
-
-    # Download the archive
-    zip_path = download_file(zip_url, zip_file, overwrite=overwrite)
-
-    # Extract into the parent folder
-    extract_zip(zip_path, dest.parent, overwrite=overwrite)
-
-    # GitHub unpacks to "MMOT-<branch>"; TrackEval lives inside that repo.
-    extracted = None
-    for d in dest.parent.iterdir():
-        if d.is_dir() and d.name.lower().startswith("mmot") and d.name.lower().endswith(f"-{branch}"):
-            extracted = d
-            break
-
-    if extracted is None:
-        LOGGER.warning("Couldn't locate extracted MMOT folder")
-    else:
-        trackeval_src = extracted / "TrackEval"
-        if not trackeval_src.exists():
-            LOGGER.warning("Couldn't locate TrackEval inside extracted MMOT archive")
-        else:
-            dest.mkdir(parents=True, exist_ok=True)
-            if package_root.exists():
-                shutil.rmtree(package_root)
-            shutil.move(str(trackeval_src), str(package_root))
-        if extracted.exists():
-            shutil.rmtree(extracted)
-
-    # Clean up the downloaded zip
-    try:
-        zip_file.unlink()
-    except FileNotFoundError:
-        pass
-
-    _sync_trackeval_dataset_overlays(dest)
-
-    LOGGER.debug("TrackEval setup complete")
-
-
 def download_hf_dataset(repo_id: str, dest: Path, overwrite: bool = False, status_fn: Any = None) -> None:
     """
     Download a dataset from HuggingFace Hub to the given destination.
@@ -698,6 +450,164 @@ def download_hf_dataset(repo_id: str, dest: Path, overwrite: bool = False, statu
     LOGGER.debug(f"HF dataset ready at {dest}")
 
 
+def _hf_subfolder_file_count(repo_id: str, subfolder: str) -> int:
+    try:
+        from huggingface_hub import HfApi
+        from huggingface_hub.hf_api import RepoFile
+
+        api = HfApi()
+        files = [
+            f
+            for f in api.list_repo_tree(
+                repo_id=repo_id,
+                repo_type="dataset",
+                path_in_repo=subfolder,
+                recursive=True,
+            )
+            if isinstance(f, RepoFile)
+        ]
+        return len(files)
+    except Exception:
+        return 0
+
+
+def snapshot_download_hf_subfolder(
+    repo_id: str,
+    subfolder: str,
+    dest_root: Path,
+    *,
+    status_fn: Any = None,
+    description: str | None = None,
+) -> None:
+    """Download a Hugging Face dataset subfolder with one aggregated progress task."""
+    subfolder = str(subfolder).strip("/")
+    if not subfolder:
+        return
+
+    try:
+        from huggingface_hub import snapshot_download
+    except ImportError:
+        LOGGER.info("Installing huggingface_hub ...")
+        subprocess.check_call([sys.executable, "-m", "pip", "install", "huggingface_hub"])
+        from huggingface_hub import snapshot_download
+
+    snapshot_kwargs = {
+        "repo_id": repo_id,
+        "repo_type": "dataset",
+        "local_dir": str(dest_root),
+        "allow_patterns": [f"{subfolder}/**"],
+    }
+    num_files = _hf_subfolder_file_count(repo_id, subfolder)
+    progress_description = description or f"Downloading {repo_id}/{subfolder}"
+
+    def _make_tqdm_aggregator(rich_tqdm: type) -> type:
+        shared_fetch_task = [None]
+
+        class _TqdmAggregated(rich_tqdm):
+            """Collapse Hugging Face byte/fetch tqdm instances into one file-count task."""
+
+            _lock = None
+
+            @classmethod
+            def get_lock(cls):
+                if cls._lock is None:
+                    from threading import RLock
+
+                    cls._lock = RLock()
+                return cls._lock
+
+            @classmethod
+            def set_lock(cls, lock):
+                cls._lock = lock
+
+            def __init__(self, iterable=None, *args: Any, **kwargs: Any) -> None:
+                kwargs.pop("name", None)
+                kwargs.pop("disable", None)
+                kwargs.pop("unit_scale", None)
+                desc = str(kwargs.get("desc", ""))
+                self._iterable = iterable
+                self._total = int(kwargs.get("total") or 0)
+                self.n = 0
+                self._task_id = None
+
+                if desc.startswith("Downloading"):
+                    return
+
+                if desc.startswith("Fetching"):
+                    if num_files > 0:
+                        kwargs["total"] = num_files
+                        kwargs["desc"] = f"Fetching {num_files} files"
+                    elif "desc" not in kwargs:
+                        kwargs["desc"] = progress_description
+
+                    if shared_fetch_task[0] is None:
+                        super().__init__(iterable, *args, **kwargs)
+                        shared_fetch_task[0] = self._task_id
+                    else:
+                        self._task_id = shared_fetch_task[0]
+                    return
+
+                super().__init__(iterable, *args, **kwargs)
+
+            @property
+            def total(self):
+                return self._total
+
+            @total.setter
+            def total(self, value):
+                self._total = int(value) if value else 0
+
+            def update(self, n=1) -> None:
+                if n is None:
+                    return
+                n = int(n)
+                if n == 0:
+                    return
+                if self._task_id is not None:
+                    super().update(n)
+                else:
+                    self.n += n
+
+            def refresh(self) -> None:
+                pass
+
+            def set_description(self, desc: str, refresh: bool = True) -> None:
+                if self._task_id is not None:
+                    super().set_description(desc, refresh=refresh)
+
+            def close(self) -> None:
+                pass
+
+            def __enter__(self):
+                return self
+
+            def __exit__(self, *exc: Any):
+                pass
+
+            def __iter__(self):
+                if self._iterable is None:
+                    return self
+                for item in self._iterable:
+                    yield item
+                    self.update(1)
+
+            def __len__(self):
+                if hasattr(self._iterable, "__len__"):
+                    return len(self._iterable)
+                raise TypeError
+
+        return _TqdmAggregated
+
+    if status_fn is not None and callable(getattr(status_fn, "tqdm_proxy", None)):
+        with status_fn.tqdm_proxy(progress_description, unit="files") as rich_tqdm:
+            snapshot_download(tqdm_class=_make_tqdm_aggregator(rich_tqdm), **snapshot_kwargs)
+        return
+
+    from boxmot.utils.rich.workflow.progress import RichTqdm
+
+    snapshot_download(tqdm_class=_make_tqdm_aggregator(RichTqdm), **snapshot_kwargs)
+
+
 def download_hf_dataset_subfolder(
     repo_id: str,
     subfolder: str,
@@ -715,13 +625,10 @@ def download_hf_dataset_subfolder(
     if not overwrite and marker.exists():
         LOGGER.debug(f"HF dataset subfolder already present at {target}")
         return
-
-    try:
-        from huggingface_hub import HfApi, snapshot_download
-    except ImportError:
-        LOGGER.info("Installing huggingface_hub ...")
-        subprocess.check_call([sys.executable, "-m", "pip", "install", "huggingface_hub"])
-        from huggingface_hub import HfApi, snapshot_download
+    if not overwrite and target.is_dir() and any(path.name != ".hf_download_complete" for path in target.iterdir()):
+        marker.touch()
+        LOGGER.debug(f"HF dataset subfolder already populated at {target}")
+        return
 
     message = f"Downloading {repo_id}/{subfolder} ..."
     if status_fn is not None:
@@ -729,144 +636,7 @@ def download_hf_dataset_subfolder(
     else:
         print_text(message, stderr=True)
 
-    snapshot_kwargs = {
-        "repo_id": repo_id,
-        "repo_type": "dataset",
-        "local_dir": str(dest_root),
-        "allow_patterns": [f"{subfolder}/**"],
-    }
-
-    # Compute totals up front so Hugging Face bars are determinate inside Rich.
-    num_files = 0
-    total_size = 0
-    try:
-        from huggingface_hub.hf_api import RepoFile
-
-        api = HfApi()
-        files = [
-            f for f in api.list_repo_tree(
-                repo_id=repo_id,
-                repo_type="dataset",
-                path_in_repo=subfolder,
-                recursive=True,
-            )
-            if isinstance(f, RepoFile)
-        ]
-        num_files = len(files)
-        total_size = sum(f.size or (f.lfs.size if f.lfs else 0) for f in files)
-    except Exception:
-        # Progress still works without totals; it just becomes indeterminate.
-        num_files = 0
-        total_size = 0
-
-    # Keep HF's tqdm-driven progress updates inside the active Rich workflow
-    # panel instead of writing raw progress lines to stderr.
-    if status_fn is not None and callable(getattr(status_fn, "tqdm_proxy", None)):
-        with status_fn.tqdm_proxy(f"Downloading {repo_id}/{subfolder}", unit="B") as rich_tqdm:
-            # HF creates one tqdm per file download.  We aggregate all of them
-            # into two shared Rich progress tasks: one for bytes downloaded and
-            # one for files fetched.
-            _shared_download_task = [None]  # created on first "Downloading" instance
-            _shared_fetch_task = [None]     # created on first "Fetching" instance
-
-            class _TqdmAggregated(rich_tqdm):
-                """Tqdm shim that collapses HF hub's multiple progress bars into
-                a single Rich task showing file-count progress."""
-
-                _lock = None
-
-                @classmethod
-                def get_lock(cls):
-                    if cls._lock is None:
-                        from threading import RLock
-                        cls._lock = RLock()
-                    return cls._lock
-
-                @classmethod
-                def set_lock(cls, lock):
-                    cls._lock = lock
-
-                def __init__(self, iterable=None, *args: Any, **kwargs: Any) -> None:
-                    # Strip kwargs our Rich proxy doesn't understand.
-                    kwargs.pop("name", None)
-                    kwargs.pop("disable", None)
-                    kwargs.pop("unit_scale", None)
-                    desc = str(kwargs.get("desc", ""))
-                    self._iterable = iterable
-                    self._total = 0
-                    self.n = 0
-
-                    if desc.startswith("Downloading"):
-                        # HF creates a single "bytes_progress" instance.
-                        # We suppress its visual — file-count bar is enough.
-                        if _shared_download_task[0] is None:
-                            _shared_download_task[0] = True  # mark as seen
-                        self._task_id = None
-                    elif desc.startswith("Fetching") and num_files > 0:
-                        # File-count bar driven by thread_map iterator.
-                        if _shared_fetch_task[0] is None:
-                            kwargs["total"] = num_files
-                            kwargs["desc"] = (
-                                f"Downloading {num_files} files"
-                                if total_size > 0
-                                else f"Fetching {num_files} files"
-                            )
-                            super().__init__(iterable, *args, **kwargs)
-                            _shared_fetch_task[0] = self._task_id
-                        else:
-                            self._task_id = _shared_fetch_task[0]
-                    else:
-                        super().__init__(iterable, *args, **kwargs)
-
-                @property
-                def total(self):
-                    return self._total
-
-                @total.setter
-                def total(self, value):
-                    self._total = int(value) if value else 0
-
-                def update(self, n=1) -> None:
-                    if n is None:
-                        return
-                    n = int(n)
-                    if n == 0:
-                        return
-                    if self._task_id is not None:
-                        super().update(n)
-                    else:
-                        self.n += n
-
-                def refresh(self) -> None:
-                    pass
-
-                def set_description(self, desc: str, refresh: bool = True) -> None:
-                    pass
-
-                def close(self) -> None:
-                    pass
-
-                def __enter__(self):
-                    return self
-
-                def __exit__(self, *exc: Any):
-                    pass
-
-                def __iter__(self):
-                    if self._iterable is None:
-                        return self
-                    for item in self._iterable:
-                        yield item
-                        self.update(1)
-
-                def __len__(self):
-                    if hasattr(self._iterable, "__len__"):
-                        return len(self._iterable)
-                    raise TypeError
-
-            snapshot_download(tqdm_class=_TqdmAggregated, **snapshot_kwargs)
-    else:
-        snapshot_download(**snapshot_kwargs)
+    snapshot_download_hf_subfolder(repo_id, subfolder, dest_root, status_fn=status_fn)
 
     # Mark download as complete so subsequent runs skip it
     target.mkdir(parents=True, exist_ok=True)
@@ -884,7 +654,7 @@ def download_eval_data(
     status_fn: Callable[[str], None] | None = None,
 ) -> None:
     """
-    Download & extract TrackEval evaluation data.
+    Download and extract benchmark evaluation data.
     If `runs_url` is truthy, downloads+unzips runs.zip; otherwise skips it.
     If `runs_check_path` exists, skips the runs download entirely.
     Always downloads+unzips the benchmark data.

@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "plugin-scanner"
-version = "2.0.1016"
+version = "2.0.1037"
 description = "Protect local AI harnesses with HOL Guard and run scanner checks for Codex, Claude, Cursor, Gemini, OpenCode, and Pi."
 readme = "README.md"
 license = "Apache-2.0"
@@ -35,6 +35,7 @@ dependencies = [
     "requests>=2.32,<3",
     "tomli>=2.0; python_version < '3.11'",
     "cisco-ai-skill-scanner~=2.0.11; python_version < '3.14'",
+    "mcp>=1.27.0,<2; python_version >= '3.10'",
 ]
 
 [project.optional-dependencies]

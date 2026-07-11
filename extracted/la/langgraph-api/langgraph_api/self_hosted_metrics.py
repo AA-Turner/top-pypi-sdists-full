@@ -287,7 +287,7 @@ def _get_pool_stats():
     # so we submit this as a coro to run in the main event loop
     async def _fetch_pool_stats():
         try:
-            return await meta_pool_stats("json")
+            return await meta_pool_stats()
         except Exception as e:
             logger.warning("Failed to get pool stats", exc_info=e)
             return {"postgres": {}, "redis": {}}

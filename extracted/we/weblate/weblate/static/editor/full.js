@@ -279,6 +279,15 @@
       }
       this.initMachinery();
     });
+
+    /* The active tab is restored before the listener above is registered, load it now in that case. */
+    const machineryTab = document.querySelector('[data-load="machinery"]');
+    if (machineryTab?.classList.contains("active")) {
+      if (this.isMachineryLoaded) {
+        return;
+      }
+      this.initMachinery();
+    }
   };
 
   FullEditor.prototype.initMachinery = function () {
@@ -508,7 +517,7 @@
             }
             const allFlags = document.getElementById("unit_all_flags");
             if (allFlags) {
-              allFlags.innerHTML = all_flags;
+              allFlags.textContent = all_flags;
               allFlags.classList.add("flags-updated");
             }
           }

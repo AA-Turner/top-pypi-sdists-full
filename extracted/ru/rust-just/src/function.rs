@@ -108,6 +108,7 @@ pub(crate) fn get(name: &str) -> Option<Function> {
     "module_file" => Nullary(module_file),
     "module_path" => Nullary(module_path),
     "num_cpus" => Nullary(num_cpus),
+    "num_jobs" => ValueNullary(num_jobs),
     "os" => Nullary(os),
     "os_family" => Nullary(os_family),
     "parent_directory" => Unary(parent_directory),
@@ -178,7 +179,7 @@ fn absolute_path(context: Context, path: &str) -> StringResult {
     .execution_context
     .working_directory()
     .join(path)
-    .lexiclean();
+    .clean();
   match abs_path_unchecked.to_str() {
     Some(absolute_path) => Ok(absolute_path.to_owned()),
     None => Err(format!(
@@ -223,7 +224,7 @@ fn blake3_file(context: Context, path: &str) -> StringResult {
 
 fn canonicalize(context: Context, path: &str) -> StringResult {
   let canonical = std::fs::canonicalize(context.execution_context.working_directory().join(path))
-    .map_err(|err| format!("I/O error canonicalizing path: {err}"))?;
+    .map_err(|err| format!("I/O error canonicalizing `{path}`: {err}"))?;
 
   canonical.to_str().map(str::to_string).ok_or_else(|| {
     format!(
@@ -246,6 +247,10 @@ fn capitalize(_context: Context, s: &str) -> StringResult {
 }
 
 fn choose(_context: Context, n: &str, alphabet: &str) -> StringResult {
+  if alphabet.is_empty() {
+    return Err("empty alphabet".to_string());
+  }
+
   let mut chars = HashSet::<char>::with_capacity(alphabet.len());
 
   for c in alphabet.chars() {
@@ -262,17 +267,11 @@ fn choose(_context: Context, n: &str, alphabet: &str) -> StringResult {
 
   let mut rng = rand::rng();
 
-  (0..n)
-    .map(|_| {
-      alphabet
-        .choose(&mut rng)
-        .ok_or_else(|| "empty alphabet".to_string())
-    })
-    .collect()
+  Ok((0..n).map(|_| alphabet.choose(&mut rng).unwrap()).collect())
 }
 
 fn clean(_context: Context, path: &str) -> StringResult {
-  Ok(Path::new(path).lexiclean().to_str().unwrap().to_owned())
+  Ok(Path::new(path).clean().to_str().unwrap().to_owned())
 }
 
 fn dir(name: &'static str, f: fn() -> Option<PathBuf>) -> StringResult {
@@ -292,25 +291,11 @@ fn dir(name: &'static str, f: fn() -> Option<PathBuf>) -> StringResult {
 }
 
 fn datetime(_context: Context, format: &str) -> StringResult {
-  Ok(
-    chrono::Local::now()
-      .format_with_items(datetime_parse(format)?.iter())
-      .to_string(),
-  )
-}
-
-fn datetime_parse(format: &str) -> Result<Vec<chrono::format::Item>, String> {
-  chrono::format::StrftimeItems::new(format)
-    .parse()
-    .map_err(|err| format!("invalid format string `{format}`: {err}"))
+  datetime_format(Local::now(), format).map_err(|err| err.to_string())
 }
 
 fn datetime_utc(_context: Context, format: &str) -> StringResult {
-  Ok(
-    chrono::Utc::now()
-      .format_with_items(datetime_parse(format)?.iter())
-      .to_string(),
-  )
+  datetime_format(Utc::now(), format).map_err(|err| err.to_string())
 }
 
 fn encode_uri_component(_context: Context, s: &str) -> StringResult {
@@ -553,6 +538,17 @@ fn num_cpus(_context: Context) -> StringResult {
   Ok(num.to_string())
 }
 
+fn num_jobs(context: Context) -> ValueResult {
+  Ok(
+    context
+      .execution_context
+      .config
+      .jobs
+      .map(|jobs| Value::from(jobs.to_string()))
+      .unwrap_or_default(),
+  )
+}
+
 fn os(_context: Context) -> StringResult {
   Ok(env::consts::OS.to_owned())
 }
@@ -577,11 +573,12 @@ fn parent_directory(_context: Context, path: &str) -> StringResult {
 fn path_exists(context: Context, path: &str) -> ValueResult {
   Ok(boolean(
     &context,
-    context
-      .execution_context
-      .working_directory()
-      .join(path)
-      .exists(),
+    !path.is_empty()
+      && context
+        .execution_context
+        .working_directory()
+        .join(path)
+        .exists(),
   ))
 }
 
@@ -635,6 +632,22 @@ fn sha256_file(context: Context, path: &str) -> StringResult {
 }
 
 fn shell(context: Context, command: &str, args: &[String]) -> StringResult {
+  if context.execution_context.config.dry_run {
+    let mut output = String::from("shell(");
+    for (i, arg) in iter::once(command)
+      .chain(args.iter().map(String::as_str))
+      .enumerate()
+    {
+      if i > 0 {
+        output.push_str(", ");
+      }
+      output.push_str(&Element(arg).color_display(Color::never()).to_string());
+    }
+    output.push(')');
+
+    return Ok(output);
+  }
+
   Evaluator::run_command(
     context.execution_context,
     &BTreeMap::new(),

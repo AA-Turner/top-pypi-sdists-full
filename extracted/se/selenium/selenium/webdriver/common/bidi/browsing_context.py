@@ -319,6 +319,48 @@ class Viewport:
 
 
 @dataclass
+class StartScreencastParameters:
+    """StartScreencastParameters."""
+
+    context: Any | None = None
+    mime_type: str | None = None
+    video: Any | None = None
+    audio: bool | None = None
+
+
+@dataclass
+class MediaTrackConstraints:
+    """MediaTrackConstraints."""
+
+    width: Any | None = None
+    height: Any | None = None
+    frame_rate: Any | None = None
+
+
+@dataclass
+class StartScreencastResult:
+    """StartScreencastResult."""
+
+    screencast: Any | None = None
+    path: str | None = None
+
+
+@dataclass
+class StopScreencastParameters:
+    """StopScreencastParameters."""
+
+    screencast: Any | None = None
+
+
+@dataclass
+class StopScreencastResult:
+    """StopScreencastResult."""
+
+    path: str | None = None
+    error: str | None = None
+
+
+@dataclass
 class TraverseHistoryParameters:
     """TraverseHistoryParameters."""
 
@@ -686,6 +728,41 @@ class BrowsingContext:
         }
         params = {k: v for k, v in params.items() if v is not None}
         cmd = command_builder("browsingContext.setBypassCSP", params)
+        result = self._conn.execute(cmd)
+        return result
+
+    def start_screencast(
+        self,
+        context: Any | None = None,
+        mime_type: Any | None = None,
+        video: Any | None = None,
+        audio: bool | None = None,
+    ):
+        """Execute browsingContext.startScreencast"""
+        if context is None:
+            raise TypeError("start_screencast() missing required argument: 'context'")
+
+        params = {
+            "context": context,
+            "mimeType": mime_type,
+            "video": video,
+            "audio": audio,
+        }
+        params = {k: v for k, v in params.items() if v is not None}
+        cmd = command_builder("browsingContext.startScreencast", params)
+        result = self._conn.execute(cmd)
+        return result
+
+    def stop_screencast(self, screencast: Any | None = None):
+        """Execute browsingContext.stopScreencast"""
+        if screencast is None:
+            raise TypeError("stop_screencast() missing required argument: 'screencast'")
+
+        params = {
+            "screencast": screencast,
+        }
+        params = {k: v for k, v in params.items() if v is not None}
+        cmd = command_builder("browsingContext.stopScreencast", params)
         result = self._conn.execute(cmd)
         return result
 

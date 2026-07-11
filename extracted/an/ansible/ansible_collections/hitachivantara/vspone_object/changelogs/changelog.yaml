@@ -138,3 +138,19 @@ releases:
     fragments:
     - release-1.1.1.yml
     release_date: '2025-11-25'
+  1.2.0:
+    changes:
+      minor_changes:
+      - Added role `hv_vspone_object_certificate_upload_role` to upload certificate
+        files from a folder to VSP One Object.
+      - Added role `hv_vspone_object_kmip_server_role` to update HTTPS cipher strings
+        for existing KMIP servers.
+      - Added role `hv_vspone_object_license_role` to set serial number and upload
+        a license file.
+      - Added role `hv_vspone_object_storage_component_role` to activate storage components
+        and retrieve components filtered by used capacity.
+      release_summary: This minor release of `hitachivantara.vspone_object` introduces
+        reusable Ansible roles for common VSP One Object workflows.
+    fragments:
+    - release-1.2.0.yml
+    release_date: '2026-05-22'

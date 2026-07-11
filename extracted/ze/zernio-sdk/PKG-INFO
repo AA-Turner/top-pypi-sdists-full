@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: zernio-sdk
-Version: 1.4.224
+Version: 1.4.232
 Summary: The official Python library for the Zernio API
 Project-URL: Homepage, https://zernio.com
 Project-URL: Documentation, https://docs.zernio.com
@@ -45,6 +45,7 @@ Requires-Dist: pyyaml>=6.0.0; extra == 'dev'
 Requires-Dist: respx>=0.21.0; extra == 'dev'
 Requires-Dist: ruff>=0.8.0; extra == 'dev'
 Provides-Extra: mcp
+Requires-Dist: fastmcp>=3.1.0; extra == 'mcp'
 Requires-Dist: mcp>=1.8.0; extra == 'mcp'
 Requires-Dist: starlette>=0.42.0; extra == 'mcp'
 Requires-Dist: uvicorn[standard]>=0.32.0; extra == 'mcp'

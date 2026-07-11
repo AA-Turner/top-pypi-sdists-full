@@ -112,7 +112,6 @@ class DbtNodeState(BaseSerDeModel):
     node_hash: str
     node_body_hash: str
     node_configs_hash: str
-    node_relation_hash: str
     node_macros_hash: str
     node_contract_hash: str
     profile_name: str

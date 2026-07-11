@@ -47,6 +47,7 @@ class CronQuery(_message.Message):
         "max_retries",
         "resources",
         "environment_override",
+        "dataset_name",
     )
     class PlannerOptionsEntry(_message.Message):
         __slots__ = ("key", "value")
@@ -79,6 +80,7 @@ class CronQuery(_message.Message):
     MAX_RETRIES_FIELD_NUMBER: _ClassVar[int]
     RESOURCES_FIELD_NUMBER: _ClassVar[int]
     ENVIRONMENT_OVERRIDE_FIELD_NUMBER: _ClassVar[int]
+    DATASET_NAME_FIELD_NUMBER: _ClassVar[int]
     name: str
     cron: str
     file_name: str
@@ -102,6 +104,7 @@ class CronQuery(_message.Message):
     max_retries: int
     resources: _offline_query_pb2.ResourceRequests
     environment_override: str
+    dataset_name: str
     def __init__(
         self,
         name: _Optional[str] = ...,
@@ -127,4 +130,5 @@ class CronQuery(_message.Message):
         max_retries: _Optional[int] = ...,
         resources: _Optional[_Union[_offline_query_pb2.ResourceRequests, _Mapping]] = ...,
         environment_override: _Optional[str] = ...,
+        dataset_name: _Optional[str] = ...,
     ) -> None: ...

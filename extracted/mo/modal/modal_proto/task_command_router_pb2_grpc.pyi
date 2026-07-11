@@ -93,6 +93,11 @@ class TaskCommandRouterStub:
         google.protobuf.empty_pb2.Empty,
     ]
     """Mount an image at a directory in the container."""
+    TaskReloadVolumes: grpc.UnaryUnaryMultiCallable[
+        modal_proto.task_command_router_pb2.TaskReloadVolumesRequest,
+        modal_proto.task_command_router_pb2.TaskReloadVolumesResponse,
+    ]
+    """Reload all Volumes mounted in the task to reflect their latest committed state."""
     TaskSetNetworkAccess: grpc.UnaryUnaryMultiCallable[
         modal_proto.task_command_router_pb2.TaskSetNetworkAccessRequest,
         modal_proto.task_command_router_pb2.TaskSetNetworkAccessResponse,
@@ -230,6 +235,13 @@ class TaskCommandRouterServicer(metaclass=abc.ABCMeta):
         context: grpc.ServicerContext,
     ) -> google.protobuf.empty_pb2.Empty:
         """Mount an image at a directory in the container."""
+    @abc.abstractmethod
+    def TaskReloadVolumes(
+        self,
+        request: modal_proto.task_command_router_pb2.TaskReloadVolumesRequest,
+        context: grpc.ServicerContext,
+    ) -> modal_proto.task_command_router_pb2.TaskReloadVolumesResponse:
+        """Reload all Volumes mounted in the task to reflect their latest committed state."""
     @abc.abstractmethod
     def TaskSetNetworkAccess(
         self,

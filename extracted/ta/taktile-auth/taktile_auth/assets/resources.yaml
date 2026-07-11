@@ -1,5 +1,7 @@
 organization:
   org_id: wildcard
+organization_name:
+  org_id: wildcard
 deployment_artifacts:
   org_id: wildcard
   repository_id: wildcard

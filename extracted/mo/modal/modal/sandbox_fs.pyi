@@ -1,114 +1,11 @@
-import enum
 import modal.sandbox
+import modal.types
 import os
 import typing
 import typing_extensions
 
-class FileType(enum.Enum):
-    """Type of a filesystem entry."""
-
-    FILE = "file"
-    DIRECTORY = "directory"
-    SYMLINK = "symlink"
-
-class FileInfo:
-    """Metadata for a file or directory entry in a Sandbox."""
-
-    name: str
-    path: str
-    type: FileType
-    size: int
-    mode: int
-    permissions: str
-    owner: str
-    group: str
-    modified_time: float
-    symlink_target: typing.Optional[str]
-
-    def is_file(self) -> bool:
-        """Return `True` if this entry is a regular file."""
-        ...
-
-    def is_dir(self) -> bool:
-        """Return `True` if this entry is a directory."""
-        ...
-
-    def is_symlink(self) -> bool:
-        """Return `True` if this entry is a symbolic link."""
-        ...
-
-    def __init__(
-        self,
-        name: str,
-        path: str,
-        type: FileType,
-        size: int,
-        mode: int,
-        permissions: str,
-        owner: str,
-        group: str,
-        modified_time: float,
-        symlink_target: typing.Optional[str],
-    ) -> None:
-        """Initialize self.  See help(type(self)) for accurate signature."""
-        ...
-
-    def __repr__(self):
-        """Return repr(self)."""
-        ...
-
-    def __eq__(self, other):
-        """Return self==value."""
-        ...
-
-    def __setattr__(self, name, value):
-        """Implement setattr(self, name, value)."""
-        ...
-
-    def __delattr__(self, name):
-        """Implement delattr(self, name)."""
-        ...
-
-    def __hash__(self):
-        """Return hash(self)."""
-        ...
-
-class FileWatchEventType(enum.Enum):
-    """Type of a filesystem watch event reported by `Sandbox.filesystem.watch()`."""
-
-    Unknown = "Unknown"
-    Access = "Access"
-    Create = "Create"
-    Modify = "Modify"
-    Remove = "Remove"
-
-class FileWatchEvent:
-    """A filesystem change event reported by `Sandbox.filesystem.watch()`.
-
-    `paths` contains the absolute path(s) affected by the event. For most
-    event types it holds a single entry. Rename operations are reported as
-    `Modify` events: when both the source and destination fall within the
-    watched scope, `paths` holds `[source, destination]`; when only one
-    side of the rename is visible, `paths` holds that single path.
-    """
-
-    paths: list[str]
-    type: FileWatchEventType
-
-    def __init__(self, paths: list[str], type: FileWatchEventType) -> None:
-        """Initialize self.  See help(type(self)) for accurate signature."""
-        ...
-
-    def __repr__(self):
-        """Return repr(self)."""
-        ...
-
-    def __eq__(self, other):
-        """Return self==value."""
-        ...
-
 def _log_throughput(op: str, size_bytes: int, dur_s: float) -> None: ...
-def _expand_watch_filter(filter: list[FileWatchEventType]) -> list[str]:
+def _expand_watch_filter(filter: list[modal.types.FileWatchEventType]) -> list[str]:
     """Expand a Python filter list into modal-sandbox-fs-tools event type strings.
 
     FileWatchEventType.Modify covers fs tool's Rename/RenameFrom/RenameTo variants,
@@ -185,7 +82,7 @@ class _SandboxFilesystem:
         """
         ...
 
-    async def list_files(self, remote_path: str) -> list[FileInfo]:
+    async def list_files(self, remote_path: str) -> list[modal.types.FileInfo]:
         """List files and directories in a Sandbox directory.
 
         Args:
@@ -328,7 +225,7 @@ class _SandboxFilesystem:
         """
         ...
 
-    async def stat(self, remote_path: str) -> FileInfo:
+    async def stat(self, remote_path: str) -> modal.types.FileInfo:
         """Return metadata for a single file, directory, or symlink in the Sandbox.
 
         `remote_path` must be an absolute path in the Sandbox. If `remote_path` is a symlink, the returned
@@ -355,10 +252,10 @@ class _SandboxFilesystem:
         self,
         remote_path: str,
         *,
-        filter: typing.Optional[list[FileWatchEventType]] = None,
+        filter: typing.Optional[list[modal.types.FileWatchEventType]] = None,
         recursive: bool = False,
         timeout: typing.Optional[int] = None,
-    ) -> typing.AsyncIterator[FileWatchEvent]:
+    ) -> typing.AsyncIterator[modal.types.FileWatchEvent]:
         """Watch a path in the Sandbox for filesystem changes.
 
         `remote_path` must be an absolute path in the Sandbox. If it points
@@ -585,7 +482,7 @@ class SandboxFilesystem:
     copy_to_local: __copy_to_local_spec
 
     class __list_files_spec(typing_extensions.Protocol):
-        def __call__(self, /, remote_path: str) -> list[FileInfo]:
+        def __call__(self, /, remote_path: str) -> list[modal.types.FileInfo]:
             """List files and directories in a Sandbox directory.
 
             Args:
@@ -609,7 +506,7 @@ class SandboxFilesystem:
             """
             ...
 
-        async def aio(self, /, remote_path: str) -> list[FileInfo]:
+        async def aio(self, /, remote_path: str) -> list[modal.types.FileInfo]:
             """List files and directories in a Sandbox directory.
 
             Args:
@@ -886,7 +783,7 @@ class SandboxFilesystem:
     remove: __remove_spec
 
     class __stat_spec(typing_extensions.Protocol):
-        def __call__(self, /, remote_path: str) -> FileInfo:
+        def __call__(self, /, remote_path: str) -> modal.types.FileInfo:
             """Return metadata for a single file, directory, or symlink in the Sandbox.
 
             `remote_path` must be an absolute path in the Sandbox. If `remote_path` is a symlink, the returned
@@ -909,7 +806,7 @@ class SandboxFilesystem:
             """
             ...
 
-        async def aio(self, /, remote_path: str) -> FileInfo:
+        async def aio(self, /, remote_path: str) -> modal.types.FileInfo:
             """Return metadata for a single file, directory, or symlink in the Sandbox.
 
             `remote_path` must be an absolute path in the Sandbox. If `remote_path` is a symlink, the returned
@@ -940,10 +837,10 @@ class SandboxFilesystem:
             /,
             remote_path: str,
             *,
-            filter: typing.Optional[list[FileWatchEventType]] = None,
+            filter: typing.Optional[list[modal.types.FileWatchEventType]] = None,
             recursive: bool = False,
             timeout: typing.Optional[int] = None,
-        ) -> typing.Iterator[FileWatchEvent]:
+        ) -> typing.Iterator[modal.types.FileWatchEvent]:
             """Watch a path in the Sandbox for filesystem changes.
 
             `remote_path` must be an absolute path in the Sandbox. If it points
@@ -991,10 +888,10 @@ class SandboxFilesystem:
             /,
             remote_path: str,
             *,
-            filter: typing.Optional[list[FileWatchEventType]] = None,
+            filter: typing.Optional[list[modal.types.FileWatchEventType]] = None,
             recursive: bool = False,
             timeout: typing.Optional[int] = None,
-        ) -> typing.AsyncIterator[FileWatchEvent]:
+        ) -> typing.AsyncIterator[modal.types.FileWatchEvent]:
             """Watch a path in the Sandbox for filesystem changes.
 
             `remote_path` must be an absolute path in the Sandbox. If it points

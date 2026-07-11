@@ -2,6 +2,7 @@ import importlib
 import inspect
 import itertools
 import os
+import shlex
 import sys
 import traceback
 from contextlib import contextmanager
@@ -27,18 +28,65 @@ _BLOCKED_OPEN_FLAGS = (
     os.O_WRONLY | os.O_RDWR | os.O_APPEND | os.O_CREAT | os.O_EXCL | os.O_TRUNC
 )
 
+# Audit events whose args we canonicalize to an argv token sequence before
+# matching --unblock prefixes (see :func:`match_tokens`).  These are the
+# process-spawn events, whose raw audit args differ by platform.
+_SPAWN_EVENTS = frozenset(("subprocess.Popen", "os.posix_spawn"))
+
+
+def _as_text(value: object) -> str:
+    return os.fsdecode(value) if isinstance(value, (bytes, os.PathLike)) else str(value)
+
+
+def _split_command_string(cmd: str) -> Sequence[str]:
+    # Split a rendered command line back into argv tokens.  On Windows the
+    # tokens were joined via subprocess.list2cmdline (so shlex in non-POSIX mode,
+    # then dropping the surrounding quotes, inverts it -- e.g. a quoted path with
+    # spaces comes back whole); elsewhere the string is a shell command line.
+    try:
+        if sys.platform == "win32":
+            return [tok.strip('"') for tok in shlex.split(cmd, posix=False)]
+        return shlex.split(cmd)
+    except ValueError:
+        return cmd.split()
+
+
+def match_tokens(event: str, args: Tuple) -> Tuple[str, ...]:
+    """The token sequence a ``--unblock`` arg-prefix matches this event against.
+
+    For process-spawn events we canonicalize to the argv ``(program, *arguments)``
+    so a prefix like ``subprocess.Popen:echo`` matches on every platform.  The
+    raw audit args differ: POSIX delivers ``(argv0, [argv...], cwd, env)`` while
+    Windows delivers ``(None, "<joined cmdline>", None, None)`` (the argv already
+    joined by ``list2cmdline``).  Every other event keeps its raw positional args,
+    stringified, exactly as before."""
+    if event in _SPAWN_EVENTS and len(args) >= 2:
+        executable, cmd = args[0], args[1]
+        if isinstance(cmd, (list, tuple)):
+            tokens = [_as_text(a) for a in cmd]
+        elif isinstance(cmd, (str, bytes, os.PathLike)):
+            tokens = list(_split_command_string(_as_text(cmd)))
+        else:
+            tokens = []
+        if not tokens and executable is not None:
+            tokens = [_as_text(executable)]
+        if tokens:
+            return tuple(tokens)
+    return tuple(map(str, args))
+
 
 def accept(event: str, args: Tuple) -> None:
     pass
 
 
 def explain(event: str, args: Tuple) -> str:
-    argstr = "".join(f":{arg}" for arg in args)
+    tokens = match_tokens(event, args)
+    argstr = "".join(f":{arg}" for arg in tokens)
     parts = [
         f"It's dangerous to run CrossHair on code with side effects.",
         f'To allow this operation anyway, use "--unblock={event}{argstr}".',
     ]
-    if args:
+    if tokens:
         parts.append("(or some colon-delimited prefix)")
     return " ".join(parts)
 
@@ -59,7 +107,7 @@ def inside_module(modules: Iterable[ModuleType]) -> bool:
 
 
 def check_open(event: str, args: Tuple) -> None:
-    (filename_or_descriptor, mode, flags) = args
+    filename_or_descriptor, mode, flags = args
     if filename_or_descriptor in ("/dev/null", "nul"):
         # (no-op writes on unix/windows)
         return
@@ -71,8 +119,7 @@ def check_open(event: str, args: Tuple) -> None:
 
 
 def check_msvcrt_open(event: str, args: Tuple) -> None:
-    print(args)
-    (handle, flags) = args
+    handle, flags = args
     if flags & _BLOCKED_OPEN_FLAGS:
         raise SideEffectDetected(
             f'We\'ve blocked a file writing operation on "{handle}". '
@@ -177,6 +224,7 @@ def make_handler(event: str) -> Callable[[str, Tuple], None]:
 
 _HANDLERS: Dict[str, Callable[[str, Tuple], None]] = {}
 _ENABLED = True
+_HOOK_INSTALLED = False
 
 
 def audithook(event: str, args: Tuple) -> None:
@@ -200,12 +248,65 @@ def opened_auditwall() -> Generator:
         _ENABLED = True
 
 
+@contextmanager
+def enabled_auditwall(
+    allow_prefixes: Sequence[str] = (),
+    reject_prefixes: Sequence[str] = (),
+) -> Generator:
+    """Enable the auditwall just for the duration of this context.
+
+    Installs the audit hook (with default, maximally-restrictive config) if it
+    isn't engaged yet, and restores the prior active state on exit -- so a wall
+    that was dormant (never engaged, or opened) stays dormant afterward, and one
+    already engaged (possibly with custom ``--unblock`` prefixes) keeps its config
+    untouched. Use this to police a short, self-contained region for side effects
+    (e.g. probing whether an operation reaches for I/O), without leaving the wall
+    active for surrounding work.
+
+    ``allow_prefixes`` / ``reject_prefixes`` layer extra event rules on top of the
+    default handlers just for this scope: an ``allow`` entry accepts an event (the
+    ``--unblock`` form -- ``"event"`` or ``"event:arg:prefix"``), a ``reject`` entry
+    blocks one.  This is how a caller tightens the wall temporarily -- e.g. the
+    operation-classification probe rejects ``os.chdir`` / ``glob.glob`` / ``socket``
+    events the default allows for analysis convenience.  We snapshot the special-
+    handler table and the resolved-handler cache and restore them on exit, so any
+    prior configuration (including startup ``--unblock`` prefixes) comes back
+    exactly -- which is why this can safely take prefixes a temporary scope owns."""
+    global _ENABLED, _SPECIAL_HANDLERS, _HANDLERS
+    was_active = _HOOK_INSTALLED and _ENABLED
+    saved_special = dict(_SPECIAL_HANDLERS)
+    saved_cache = dict(_HANDLERS)
+    if not _HOOK_INSTALLED:
+        engage_auditwall()
+    if allow_prefixes:
+        _update_special_handlers(allow_prefixes, accept)
+    if reject_prefixes:
+        _update_special_handlers(reject_prefixes, reject)
+    if allow_prefixes or reject_prefixes:
+        _HANDLERS.clear()  # resolved-handler cache is now stale
+    _ENABLED = True
+    try:
+        yield
+    finally:
+        _ENABLED = was_active
+        _SPECIAL_HANDLERS.clear()
+        _SPECIAL_HANDLERS.update(saved_special)
+        _HANDLERS.clear()
+        _HANDLERS.update(saved_cache)
+
+
 def _make_prefix_based_handler(
-    allowed_arg_prefixes: Sequence[Sequence[str]],
+    arg_prefixes: Sequence[Sequence[str]],
     previous_handler: Optional[Callable[[str, Tuple], None]] = None,
+    on_match: Callable[[str, Tuple], None] = accept,
 ) -> Callable[[str, Tuple], None]:
+    # On a matching arg-prefix, apply ``on_match`` (accept for an allow rule, reject
+    # for a reject rule).  Otherwise chain to the prior handler, or -- with none --
+    # fall back to the OPPOSITE of on_match (an allow rule rejects everything else;
+    # a reject rule leaves everything else alone).
+    on_miss = previous_handler or (reject if on_match is accept else accept)
     trie: Dict = {}
-    for prefix in allowed_arg_prefixes:
+    for prefix in arg_prefixes:
         current = trie
         for part in prefix:
             current = current.setdefault(part, {})
@@ -213,40 +314,44 @@ def _make_prefix_based_handler(
 
     def handler(event: str, args: Tuple) -> None:
         current = trie
-        for arg in map(str, args):
+        for arg in match_tokens(event, args):
             if arg not in current:
                 break
             current = current[arg]
             if None in current:
-                return  # Found a valid prefix
-        if previous_handler:
-            previous_handler(event, args)
-        else:
-            reject(event, args)
+                return on_match(event, args)  # matched a listed prefix
+        return on_miss(event, args)
 
     return handler
 
 
-def _update_special_handlers(allow_prefixes: Sequence[str]) -> None:
+def _update_special_handlers(
+    prefixes: Sequence[str], terminal: Callable[[str, Tuple], None]
+) -> None:
+    """Install per-event rules from ``--unblock``-style entries: a bare ``"event"``
+    applies ``terminal`` (``accept`` / ``reject``) to the whole event, while
+    ``"event:arg:prefix"`` applies it only to matching args."""
     for event, group_itr in itertools.groupby(
-        allow_prefixes, lambda p: p.split(":", 1)[0]
+        sorted(prefixes), lambda p: p.split(":", 1)[0]
     ):
         group = tuple(group_itr)
         if any(event == g for g in group):
-            _SPECIAL_HANDLERS[event] = accept
+            _SPECIAL_HANDLERS[event] = terminal
         else:
             args = tuple(a.split(":")[1:] for a in group)
             _SPECIAL_HANDLERS[event] = _make_prefix_based_handler(
-                args, _SPECIAL_HANDLERS.get(event)
+                args, _SPECIAL_HANDLERS.get(event), terminal
             )
 
 
 def engage_auditwall(allow_prefixes: Sequence[str] = ()) -> None:
+    global _HOOK_INSTALLED
     if "EVERYTHING" in allow_prefixes:
         return
-    _update_special_handlers(allow_prefixes)
+    _update_special_handlers(allow_prefixes, accept)
     sys.dont_write_bytecode = True  # disable .pyc file writing
     sys.addaudithook(audithook)
+    _HOOK_INSTALLED = True
 
 
 def disable_auditwall() -> None:

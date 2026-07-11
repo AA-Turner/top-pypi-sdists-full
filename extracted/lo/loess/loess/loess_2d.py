@@ -3,7 +3,7 @@
     E-mail: michele.cappellari_at_physics.ox.ac.uk
 
     Updated versions of the software are available from my web page
-    http://purl.org/cappellari/software
+    http://purl.org/cappellari
 
     If you have found this software useful for your research,
     I would appreciate an acknowledgement to the use of the
@@ -47,12 +47,14 @@ Changelog
    V2.0.6: Dropped support for Python 2.7. MC, Oxford, 21 May 2018
    V2.1.0: Allow one to specify output coordinates different from the input ones.
        MC, Oxford, 20 July 2021
+   V2.2.1: Use SIGZ as inverse-variance weights in the local polynomial fits,
+       in addition to robust clipping. MC, Oxford, 7 July 2026
    Vx.x.x: additional changes are documented in the global package CHANGELOG.
 
 """
 
 import numpy as np
-
+from scipy.spatial import KDTree
 
 ################################################################################
 
@@ -93,7 +95,7 @@ class polyfit2d:
         zout = a @ self.coeff
 
         return zout
-
+ 
 
 ################################################################################
 
@@ -154,22 +156,19 @@ def biweight_mean(y, itmax=10):
 
 ################################################################################
 
-def rotate_points(x, y, ang):
+def rotate_points(x, y, angle):
     """
-    Rotates points conter-clockwise by an angle ANG in degrees.
+    Rotates points counter-clockwise by an angle in degrees.
     Michele cappellari, Paranal, 10 November 2013
-
     """
-    theta = np.radians(ang)
-    xNew = x*np.cos(theta) - y*np.sin(theta)
-    yNew = x*np.sin(theta) + y*np.cos(theta)
-
-    return xNew, yNew
-
+    theta = np.radians(angle)
+    c, s = np.cos(theta), np.sin(theta)
+    return x*c - y*s, x*s + y*c
+    
 ################################################################################
 
-def loess_2d(x, y, z, xnew=None, ynew=None,
-             degree=1, frac=0.5, npoints=None, rescale=False, sigz=None):
+def loess_2d(x, y, z, xnew=None, ynew=None, degree=1, frac=0.5, 
+             npoints=None, rescale=False, sigz=None):
     """
     loess_2d
     ========
@@ -193,56 +192,58 @@ def loess_2d(x, y, z, xnew=None, ynew=None,
        zout, wout = loess_2d(x, y, z, xnew=None, ynew=None, degree=1, frac=0.5,
                              npoints=None, rescale=False, sigz=None)
 
-    Input Parameters
-    ----------------
+    Parameters
+    ----------
 
-    x: array_like with shape (n,)
+    x : array_like with shape (n,)
         vector of ``x`` coordinates.
-    y: array_like with shape (n,)
+    y : array_like with shape (n,)
         vector of ``y`` coordinates.
-    z: array_like with shape (n,)
+    z : array_like with shape (n,)
         vector of ``z`` coordinates to be LOESS smoothed.
 
-    Optional Keywords
-    -----------------
+    Other Parameters
+    ----------------
 
-    xnew: array_like with shape (m,), optional
+    xnew : array_like with shape (m,), optional
         Vector with the ``x`` coordinates at which to compute the smoothed
         ``z`` values.
-    ynew: array_like with shape (m,), optional
+    ynew : array_like with shape (m,), optional
         Vector with the ``y`` coordinates at which to compute the smoothed
         ``z`` values.
-    degree: {1, 2}, optional
+    degree : {1, 2}, optional
         degree of the local 2-dim polynomial approximation (default ``degree=1``).
-    frac: float, optional
+    frac : float, optional
         Fraction of points to consider in the local approximation (default ``frac=0.5``).
         Typical values are between ``frac~0.2-0.8``. Note that the values are
         weighted by a Gaussian function of their distance from the point under
         consideration. This implies that the effective fraction of points
         contributing to a given value is much smaller that ``frac``.
-    npoints: int, optional
+    npoints : int, optional
         Number of points to consider in the local approximation.
         This is an alternative to using ``frac=npoints/x.size``.
-    rescale: bool, optional
+    rescale : bool, optional
         Rotate the ``(x, y)`` coordinates to make the ``x`` axis the axis of
         maximum variance. Subsequently scale the coordinates to have equal
         variance along both axes. Then perform the local regressions.
         This is recommended when the distribution of points is elongated or
         when the units are very different for the two axes.
-    sigz: array_like with shape (n,)
-        1-sigma errors for the ``z`` values. If this keyword is used
-        the biweight fit is done assuming these errors. If this keyword
-        is *not* used, the biweight fit determines the errors in ``z``
-        from the scatter of the neighbouring points.
+    sigz : array_like with shape (n,)
+        Strictly positive 1-sigma errors for the ``z`` values. If this keyword 
+        is used, the local polynomial fits use inverse-variance weights 
+        ``1/sigz**2`` in addition to the distance and robust biweight weights. 
+        The robust clipping also assumes these errors. If this keyword is *not* 
+        used, the biweight fit determines the errors in ``z`` from the scatter 
+        of the neighbouring points.
 
-    Output Parameters
-    -----------------
+    Returns
+    -------
 
-    zout: array_like with shape (n,)
+    zout : array_like with shape (n,)
         Vector of smoothed ``z`` values at the coordinates ``(x, y)``, or at
         ``(xnew, ynew)`` if the latter are given as input. In the latter case
         ``zout`` has shape ``(m,)``.
-    wout: array_like with shape (n,)
+    wout : array_like with shape (n,)
         Vector of biweights used in the local regressions. This can be used to
         identify outliers: ``wout=0`` for outliers with deviations ``>4sigma``.
 
@@ -252,10 +253,16 @@ def loess_2d(x, y, z, xnew=None, ynew=None,
     ###########################################################################
     """
 
+    assert np.all(np.isfinite(np.concatenate([x, y, z]))), "All input quantities must be finite"
+
     if frac == 0:
         return z, np.ones_like(z)
 
     assert x.size == y.size == z.size, 'Input vectors (x, y, z) must have the same size'
+
+    if sigz is not None:
+        assert sigz.size == z.size, 'Input vectors (x, y, z, sigz) must have the same size'
+        assert np.all(sigz > 0), 'Input sigz must be strictly positive'
 
     if xnew is None:
         xnew, ynew = x, y
@@ -285,14 +292,16 @@ def loess_2d(x, y, z, xnew=None, ynew=None,
         xnew_rot, ynew_rot = rotate_points(xnew, ynew, angles[k])
         xnew, ynew = (xnew_rot - mx)/sx, (ynew_rot - my)/sy
 
+    tree = KDTree(np.column_stack((x, y)))
+    dist_all, w_all = tree.query(np.column_stack((xnew, ynew)), k=npoints)
     zout = np.empty_like(xnew, dtype=float)
     wout = np.empty_like(zout)
 
-    for j, (xj, yj) in enumerate(zip(xnew, ynew)):
+    for j, (xj, yj, dist, w) in enumerate(zip(xnew, ynew, dist_all, w_all)):
 
-        dist = np.sqrt((x - xj)**2 + (y - yj)**2)
-        w = np.argsort(dist)[:npoints]
-        dist_weights = (1 - (dist[w]/dist[w[-1]])**3)**3  # tricube function distance weights
+        dist_weights = (1 - (dist/dist[-1])**3)**3  # tricube function distance weights
+        if sigz is not None:
+            dist_weights /= sigz[w]**2
         zfit = polyfit2d(x[w], y[w], z[w], degree, dist_weights).zfit
 
         # Robust fit from Sec.2 of Cleveland (1979)

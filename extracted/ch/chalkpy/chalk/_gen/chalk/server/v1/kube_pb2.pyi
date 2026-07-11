@@ -9,6 +9,7 @@ from chalk._gen.chalk.kubernetes.v1 import pods_pb2 as _pods_pb2
 from chalk._gen.chalk.kubernetes.v1 import scaledobject_pb2 as _scaledobject_pb2
 from chalk._gen.chalk.kubernetes.v1 import serviceaccounts_pb2 as _serviceaccounts_pb2
 from chalk._gen.chalk.kubernetes.v1 import statefulsets_pb2 as _statefulsets_pb2
+from chalk._gen.chalk.kubernetes.v1 import storageclass_pb2 as _storageclass_pb2
 from google.protobuf.internal import containers as _containers
 from google.protobuf import descriptor as _descriptor
 from google.protobuf import message as _message
@@ -123,6 +124,39 @@ class GetKubernetesPersistentVolumesResponse(_message.Message):
     def __init__(
         self,
         volumes: _Optional[_Iterable[_Union[_persistentvolume_pb2.ChalkKubernetesPersistentVolume, _Mapping]]] = ...,
+    ) -> None: ...
+
+class GetKubernetesStorageClassesRequest(_message.Message):
+    __slots__ = ()
+    def __init__(self) -> None: ...
+
+class GetKubernetesStorageClassesResponse(_message.Message):
+    __slots__ = ("storage_classes",)
+    STORAGE_CLASSES_FIELD_NUMBER: _ClassVar[int]
+    storage_classes: _containers.RepeatedCompositeFieldContainer[_storageclass_pb2.KubernetesStorageClass]
+    def __init__(
+        self, storage_classes: _Optional[_Iterable[_Union[_storageclass_pb2.KubernetesStorageClass, _Mapping]]] = ...
+    ) -> None: ...
+
+class GetKubernetesPersistentVolumeWithPodsRequest(_message.Message):
+    __slots__ = ("persistent_volume_name",)
+    PERSISTENT_VOLUME_NAME_FIELD_NUMBER: _ClassVar[int]
+    persistent_volume_name: str
+    def __init__(self, persistent_volume_name: _Optional[str] = ...) -> None: ...
+
+class GetKubernetesPersistentVolumeWithPodsResponse(_message.Message):
+    __slots__ = ("volume", "storage_class", "pods")
+    VOLUME_FIELD_NUMBER: _ClassVar[int]
+    STORAGE_CLASS_FIELD_NUMBER: _ClassVar[int]
+    PODS_FIELD_NUMBER: _ClassVar[int]
+    volume: _persistentvolume_pb2.ChalkKubernetesPersistentVolume
+    storage_class: _storageclass_pb2.KubernetesStorageClass
+    pods: _containers.RepeatedCompositeFieldContainer[_pods_pb2.KubernetesPodData]
+    def __init__(
+        self,
+        volume: _Optional[_Union[_persistentvolume_pb2.ChalkKubernetesPersistentVolume, _Mapping]] = ...,
+        storage_class: _Optional[_Union[_storageclass_pb2.KubernetesStorageClass, _Mapping]] = ...,
+        pods: _Optional[_Iterable[_Union[_pods_pb2.KubernetesPodData, _Mapping]]] = ...,
     ) -> None: ...
 
 class GetKubernetesServiceAccountsRequest(_message.Message):

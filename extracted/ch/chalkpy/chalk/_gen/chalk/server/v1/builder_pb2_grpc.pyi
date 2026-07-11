@@ -20,6 +20,8 @@ from chalk._gen.chalk.server.v1.builder_pb2 import (
     CreateClusterGatewayResponse,
     CreateClusterTimescaleDBRequest,
     CreateClusterTimescaleDBResponse,
+    CreateClusterWorkflowOrchestratorRequest,
+    CreateClusterWorkflowOrchestratorResponse,
     CreateDeploymentRequest,
     CreateDeploymentResponse,
     CreateEnvironmentCloudResourcesRequest,
@@ -34,6 +36,8 @@ from chalk._gen.chalk.server.v1.builder_pb2 import (
     DeleteClusterGatewayResponse,
     DeleteClusterTimescaleDBRequest,
     DeleteClusterTimescaleDBResponse,
+    DeleteClusterWorkflowOrchestratorRequest,
+    DeleteClusterWorkflowOrchestratorResponse,
     DeleteEnvironmentCloudResourcesRequest,
     DeleteEnvironmentCloudResourcesResponse,
     DeleteKarpenterNodepoolRequest,
@@ -60,6 +64,10 @@ from chalk._gen.chalk.server.v1.builder_pb2 import (
     GetClusterTimescaleDBResponse,
     GetClusterTimescaleDefaultRequest,
     GetClusterTimescaleDefaultResponse,
+    GetClusterWorkflowOrchestratorDefaultRequest,
+    GetClusterWorkflowOrchestratorDefaultResponse,
+    GetClusterWorkflowOrchestratorRequest,
+    GetClusterWorkflowOrchestratorResponse,
     GetDeploymentDependenciesRequest,
     GetDeploymentDependenciesResponse,
     GetDeploymentLogsRequest,
@@ -98,6 +106,8 @@ from chalk._gen.chalk.server.v1.builder_pb2 import (
     ListTelemetryDeploymentsResponse,
     MigrateClusterTimescaleDBRequest,
     MigrateClusterTimescaleDBResponse,
+    MigrateClusterWorkflowOrchestratorRequest,
+    MigrateClusterWorkflowOrchestratorResponse,
     MigrateTelemetryDeploymentRequest,
     MigrateTelemetryDeploymentResponse,
     PrepareDeploymentRequest,
@@ -132,6 +142,8 @@ from chalk._gen.chalk.server.v1.builder_pb2 import (
     SuspendEnvironmentResponse,
     UpdateClusterTimescaleDBRequest,
     UpdateClusterTimescaleDBResponse,
+    UpdateClusterWorkflowOrchestratorRequest,
+    UpdateClusterWorkflowOrchestratorResponse,
     UpdateEnvironmentVariablesRequest,
     UpdateEnvironmentVariablesResponse,
     UpdateKarpenterNodepoolRequest,
@@ -286,6 +298,34 @@ class BuilderServiceStub:
     MigrateClusterTimescaleDB: UnaryUnaryMultiCallable[
         MigrateClusterTimescaleDBRequest,
         MigrateClusterTimescaleDBResponse,
+    ]
+    GetClusterWorkflowOrchestrator: UnaryUnaryMultiCallable[
+        GetClusterWorkflowOrchestratorRequest,
+        GetClusterWorkflowOrchestratorResponse,
+    ]
+    """----- Workflow Orchestrator Engine -----
+    All workflow-orchestrator RPCs resolve the target environment from the
+    caller's auth context, never from the request payload.
+    """
+    GetClusterWorkflowOrchestratorDefault: UnaryUnaryMultiCallable[
+        GetClusterWorkflowOrchestratorDefaultRequest,
+        GetClusterWorkflowOrchestratorDefaultResponse,
+    ]
+    CreateClusterWorkflowOrchestrator: UnaryUnaryMultiCallable[
+        CreateClusterWorkflowOrchestratorRequest,
+        CreateClusterWorkflowOrchestratorResponse,
+    ]
+    UpdateClusterWorkflowOrchestrator: UnaryUnaryMultiCallable[
+        UpdateClusterWorkflowOrchestratorRequest,
+        UpdateClusterWorkflowOrchestratorResponse,
+    ]
+    DeleteClusterWorkflowOrchestrator: UnaryUnaryMultiCallable[
+        DeleteClusterWorkflowOrchestratorRequest,
+        DeleteClusterWorkflowOrchestratorResponse,
+    ]
+    MigrateClusterWorkflowOrchestrator: UnaryUnaryMultiCallable[
+        MigrateClusterWorkflowOrchestratorRequest,
+        MigrateClusterWorkflowOrchestratorResponse,
     ]
     CreateClusterGateway: UnaryUnaryMultiCallable[
         CreateClusterGatewayRequest,
@@ -633,6 +673,46 @@ class BuilderServiceServicer(metaclass=ABCMeta):
         request: MigrateClusterTimescaleDBRequest,
         context: ServicerContext,
     ) -> MigrateClusterTimescaleDBResponse: ...
+    @abstractmethod
+    def GetClusterWorkflowOrchestrator(
+        self,
+        request: GetClusterWorkflowOrchestratorRequest,
+        context: ServicerContext,
+    ) -> GetClusterWorkflowOrchestratorResponse:
+        """----- Workflow Orchestrator Engine -----
+        All workflow-orchestrator RPCs resolve the target environment from the
+        caller's auth context, never from the request payload.
+        """
+    @abstractmethod
+    def GetClusterWorkflowOrchestratorDefault(
+        self,
+        request: GetClusterWorkflowOrchestratorDefaultRequest,
+        context: ServicerContext,
+    ) -> GetClusterWorkflowOrchestratorDefaultResponse: ...
+    @abstractmethod
+    def CreateClusterWorkflowOrchestrator(
+        self,
+        request: CreateClusterWorkflowOrchestratorRequest,
+        context: ServicerContext,
+    ) -> CreateClusterWorkflowOrchestratorResponse: ...
+    @abstractmethod
+    def UpdateClusterWorkflowOrchestrator(
+        self,
+        request: UpdateClusterWorkflowOrchestratorRequest,
+        context: ServicerContext,
+    ) -> UpdateClusterWorkflowOrchestratorResponse: ...
+    @abstractmethod
+    def DeleteClusterWorkflowOrchestrator(
+        self,
+        request: DeleteClusterWorkflowOrchestratorRequest,
+        context: ServicerContext,
+    ) -> DeleteClusterWorkflowOrchestratorResponse: ...
+    @abstractmethod
+    def MigrateClusterWorkflowOrchestrator(
+        self,
+        request: MigrateClusterWorkflowOrchestratorRequest,
+        context: ServicerContext,
+    ) -> MigrateClusterWorkflowOrchestratorResponse: ...
     @abstractmethod
     def CreateClusterGateway(
         self,

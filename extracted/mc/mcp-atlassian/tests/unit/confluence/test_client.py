@@ -6,6 +6,7 @@ from unittest.mock import MagicMock, patch
 from mcp_atlassian.confluence import ConfluenceFetcher
 from mcp_atlassian.confluence.client import ConfluenceClient
 from mcp_atlassian.confluence.config import ConfluenceConfig
+from mcp_atlassian.utils.oauth import BYOAccessTokenOAuthConfig
 
 
 def test_init_with_basic_auth():
@@ -101,6 +102,34 @@ def test_init_with_token_auth():
             client_key=None,
             client_key_password=None,
         )
+
+
+def test_oauth_transport_url_is_trusted():
+    """Cloud OAuth pins and trusts the gateway URL used by the client."""
+    config = ConfluenceConfig(
+        url="https://test.atlassian.net/wiki",
+        auth_type="oauth",
+        oauth_config=BYOAccessTokenOAuthConfig(
+            cloud_id="cloud-123",
+            access_token="token",
+        ),
+    )
+
+    with (
+        patch("mcp_atlassian.confluence.client.Confluence") as mock_confluence,
+        patch(
+            "mcp_atlassian.confluence.client.configure_oauth_session", return_value=True
+        ),
+        patch("mcp_atlassian.confluence.client.configure_ssl_verification"),
+        patch("mcp_atlassian.preprocessing.confluence.ConfluencePreprocessor"),
+        patch("mcp_atlassian.confluence.client.mount_ssrf_pinning") as mock_mount,
+    ):
+        ConfluenceClient(config=config)
+
+    mock_mount.assert_called_once_with(
+        mock_confluence.return_value._session,
+        "https://api.atlassian.com/ex/confluence/cloud-123",
+    )
 
 
 def test_init_from_env():
@@ -379,6 +408,7 @@ def test_confluence_fetcher_attachment_method_calls():
 
         # Test upload_attachment can be called
         with (
+            patch("os.getcwd", return_value="/path/to"),
             patch("os.path.exists", return_value=True),
             patch("os.path.isabs", return_value=True),
             patch("os.path.basename", return_value="test.txt"),
@@ -459,3 +489,44 @@ def test_confluence_fetcher_mro_order():
     # Verify that attachment methods are accessible (the real test)
     assert hasattr(ConfluenceFetcher, "upload_attachment")
     assert hasattr(ConfluenceFetcher, "get_content_attachments")
+
+
+def test_confluence_client_sets_default_user_agent():
+    """An explicit User-Agent is set so WAFs don't block the requests default."""
+    with (
+        patch("mcp_atlassian.confluence.client.Confluence") as mock_confluence,
+        patch("mcp_atlassian.preprocessing.confluence.ConfluencePreprocessor"),
+        patch("mcp_atlassian.confluence.client.configure_ssl_verification"),
+    ):
+        headers: dict[str, str] = {}
+        mock_confluence.return_value._session.headers = headers
+
+        config = ConfluenceConfig(
+            url="https://confluence.example.com",
+            auth_type="pat",
+            personal_token="pat",
+        )
+        ConfluenceClient(config=config)
+
+        assert headers["User-Agent"].startswith("mcp-atlassian/")
+
+
+def test_confluence_client_custom_user_agent_overrides_default():
+    """Custom headers must still win over the built-in User-Agent default."""
+    with (
+        patch("mcp_atlassian.confluence.client.Confluence") as mock_confluence,
+        patch("mcp_atlassian.preprocessing.confluence.ConfluencePreprocessor"),
+        patch("mcp_atlassian.confluence.client.configure_ssl_verification"),
+    ):
+        headers: dict[str, str] = {}
+        mock_confluence.return_value._session.headers = headers
+
+        config = ConfluenceConfig(
+            url="https://confluence.example.com",
+            auth_type="pat",
+            personal_token="pat",
+            custom_headers={"User-Agent": "my-app/1.0"},
+        )
+        ConfluenceClient(config=config)
+
+        assert headers["User-Agent"] == "my-app/1.0"

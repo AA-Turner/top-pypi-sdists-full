@@ -1,46 +1,37 @@
 # Copyright Modal Labs 2025
 import builtins
-from dataclasses import dataclass
 from datetime import datetime, timezone
-from typing import Literal, Optional
+from typing import Optional
 
 from google.protobuf.empty_pb2 import Empty
 
 from modal.exception import InvalidError
 from modal_proto import api_pb2
 
-from ._billing import BillingReportItem
 from ._load_context import LoadContext
 from ._object import _Object
 from ._resolver import Resolver
 from ._utils.time_utils import timestamp_to_localized_dt
 from .client import _Client
+from .types import (
+    BillingReportItem,
+    ProxyTokenInfo,
+    TokenData,
+    WorkspaceMemberInfo,
+    WorkspaceSettings,
+)
 
-MemberRole = Literal["user", "manager", "owner"]
 
-
-def _member_role_from_proto(proto_value: int) -> MemberRole:
+def _member_role_from_proto(proto_value: int) -> str:
     match proto_value:
         case api_pb2.MEMBER_ROLE_USER:
-            return "user"
+            return "member"
         case api_pb2.MEMBER_ROLE_MANAGER:
             return "manager"
         case api_pb2.MEMBER_ROLE_OWNER:
             return "owner"
         case _:
             raise ValueError(f"Unknown workspace member role: {proto_value}")
-
-
-@dataclass(frozen=True)
-class WorkspaceMemberInfo:
-    """Metadata about a Workspace member."""
-
-    name: str
-    email: str
-    user_id: str
-    role: MemberRole
-    joined_at: datetime
-    last_active_at: Optional[datetime]  # None if the member has never been active
 
 
 class _WorkspaceMembersManager:
@@ -125,22 +116,9 @@ class _Workspace(_Object, type_prefix="ac"):
     def proxy_tokens(self) -> "_WorkspaceProxyTokenManager":
         return _WorkspaceProxyTokenManager(self)
 
-
-@dataclass(frozen=True)
-class TokenData:
-    """A token ID / secret pair."""
-
-    token_id: str
-    token_secret: str
-
-
-@dataclass(frozen=True)
-class ProxyTokenInfo:
-    """Metadata about a proxy token, not including the token secret."""
-
-    token_id: str
-    created_at: datetime
-    scoped: bool
+    @property
+    def settings(self) -> "_WorkspaceSettingsManager":
+        return _WorkspaceSettingsManager(self)
 
 
 class _WorkspaceProxyTokenManager:
@@ -340,3 +318,71 @@ class _WorkspaceBillingManager:
             BillingReportItem._from_proto(pb_item)
             async for pb_item in self._workspace.client.stub.WorkspaceBillingReport.unary_stream(request)
         ]
+
+
+class _WorkspaceSettingsManager:
+    """mdmd:namespace
+    Namespace for Workspace settings APIs.
+    """
+
+    @classmethod
+    def valid_settings(cls):
+        return ("default-environment", "image-builder-version")
+
+    def __init__(self, workspace: _Workspace):
+        """mdmd:hidden"""
+        self._workspace = workspace
+
+    async def list(self):
+        """Return a the current workspace settings.
+
+        Returns:
+            A `WorkspaceSettings` dataclass.
+        """
+        if not self._workspace.is_hydrated:
+            await self._workspace.hydrate()
+        resp = await self._workspace.client.stub.WorkspaceSettings(Empty())
+        return WorkspaceSettings(
+            default_environment=resp.default_environment_name, image_builder_version=resp.image_builder_version
+        )
+
+    async def _set_image_builder_version(self, version: str) -> None:
+        """mdmd:hidden
+        Set the image builder version for the Workspace.
+        """
+        if not self._workspace.is_hydrated:
+            await self._workspace.hydrate()
+        req = api_pb2.WorkspaceSetImageBuilderVersionRequest(new_image_builder_version=version)
+        await self._workspace.client.stub.WorkspaceSetImageBuilderVersion(req)
+
+    async def _set_default_environment(self, name: str) -> None:
+        """Set the default environment for the Workspace."""
+        if not self._workspace.is_hydrated:
+            await self._workspace.hydrate()
+        req = api_pb2.WorkspaceSetDefaultEnvironmentRequest(environment_name=name)
+        await self._workspace.client.stub.WorkspaceSetDefaultEnvironment(req)
+
+    async def set(self, name: str, value: str) -> None:
+        """Set a workspace setting to a new value. Must be workspace manager or owner.
+
+        The following settings can be updated:
+
+        - image-builder-version: The image builder version determines the software included in our base images.
+        - default-environment: The default environment when the environment is omitted from SDK or CLI methods.
+
+        Args:
+            name: The name of the setting.
+            value: The new value of the setting.
+
+        Examples:
+            ```python notest
+            modal.Workspace.from_context().settings.set("default-environment", "dev")
+            ```
+        """
+        match name:
+            case "image-builder-version":
+                await self._set_image_builder_version(value)
+            case "default-environment":
+                await self._set_default_environment(value)
+            case _:
+                raise ValueError(f"Unknown setting {name!r}. Valid settings: {', '.join(self.valid_settings())}")

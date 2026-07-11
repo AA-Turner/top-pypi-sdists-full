@@ -1,10 +1,10 @@
 import collections.abc
 import datetime
 import google.protobuf.message
-import modal._billing
 import modal._environments
 import modal.client
 import modal.object
+import modal.types
 import modal_proto.api_pb2
 import synchronicity
 import typing
@@ -112,9 +112,7 @@ class EnvironmentMembersManager:
         ...
 
     class __list_spec(typing_extensions.Protocol):
-        def __call__(
-            self, /
-        ) -> dict[typing.Literal["users", "service_users"], dict[str, typing.Literal["viewer", "contributor"]]]:
+        def __call__(self, /) -> dict[typing.Literal["users", "service_users"], dict[str, str]]:
             """Return the members of a restricted Environment with their roles.
 
             **Examples:**
@@ -130,9 +128,7 @@ class EnvironmentMembersManager:
             """
             ...
 
-        async def aio(
-            self, /
-        ) -> dict[typing.Literal["users", "service_users"], dict[str, typing.Literal["viewer", "contributor"]]]:
+        async def aio(self, /) -> dict[typing.Literal["users", "service_users"], dict[str, str]]:
             """Return the members of a restricted Environment with their roles.
 
             **Examples:**
@@ -155,10 +151,8 @@ class EnvironmentMembersManager:
             self,
             /,
             *,
-            users: typing.Optional[collections.abc.Mapping[str, typing.Literal["viewer", "contributor"]]] = None,
-            service_users: typing.Optional[
-                collections.abc.Mapping[str, typing.Literal["viewer", "contributor"]]
-            ] = None,
+            users: typing.Optional[collections.abc.Mapping[str, str]] = None,
+            service_users: typing.Optional[collections.abc.Mapping[str, str]] = None,
         ) -> None:
             """Add or modify roles for members of a restricted Environment.
 
@@ -181,10 +175,8 @@ class EnvironmentMembersManager:
             self,
             /,
             *,
-            users: typing.Optional[collections.abc.Mapping[str, typing.Literal["viewer", "contributor"]]] = None,
-            service_users: typing.Optional[
-                collections.abc.Mapping[str, typing.Literal["viewer", "contributor"]]
-            ] = None,
+            users: typing.Optional[collections.abc.Mapping[str, str]] = None,
+            service_users: typing.Optional[collections.abc.Mapping[str, str]] = None,
         ) -> None:
             """Add or modify roles for members of a restricted Environment.
 
@@ -278,7 +270,7 @@ class EnvironmentBillingManager:
             end: typing.Optional[datetime.datetime] = None,
             resolution: str = "d",
             tag_names: typing.Optional[list[str]] = None,
-        ) -> list[modal._billing.BillingReportItem]:
+        ) -> list[modal.types.BillingReportItem]:
             """Return a cost report for Environment usage, broken down by object and time.
 
             Args:
@@ -315,7 +307,7 @@ class EnvironmentBillingManager:
             end: typing.Optional[datetime.datetime] = None,
             resolution: str = "d",
             tag_names: typing.Optional[list[str]] = None,
-        ) -> list[modal._billing.BillingReportItem]:
+        ) -> list[modal.types.BillingReportItem]:
             """Return a cost report for Environment usage, broken down by object and time.
 
             Args:

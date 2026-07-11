@@ -30,10 +30,12 @@ TIMEOUT = 15
 """Default timeout for HTTP requests."""
 
 
-def _requests():
-    import requests
+def _httpx():
+    # Lazy import: c2array.py is imported unconditionally by blosc2/__init__.py,
+    # so this keeps httpx's import cost off users who never touch C2Array/Proxy.
+    import httpx
 
-    return requests
+    return httpx
 
 
 @contextmanager
@@ -109,12 +111,17 @@ def c2context(
         _subscriber_data = old_sub_data
 
 
-def _xget(url, params=None, headers=None, auth_token=None, timeout=TIMEOUT):
+def _auth_headers(auth_token, headers=None):
     auth_token = auth_token or _subscriber_data["auth_token"]
     if auth_token:
         headers = headers.copy() if headers else {}
         headers["Cookie"] = auth_token
-    response = _requests().get(url, params=params, headers=headers, timeout=timeout)
+    return headers
+
+
+def _xget(url, params=None, headers=None, auth_token=None, timeout=TIMEOUT):
+    headers = _auth_headers(auth_token, headers)
+    response = _httpx().get(url, params=params, headers=headers, timeout=timeout)
     response.raise_for_status()
     return response
 
@@ -122,7 +129,7 @@ def _xget(url, params=None, headers=None, auth_token=None, timeout=TIMEOUT):
 def _xpost(url, json=None, auth_token=None, timeout=TIMEOUT):
     auth_token = auth_token or _subscriber_data["auth_token"]
     headers = {"Cookie": auth_token} if auth_token else None
-    response = _requests().post(url, json=json, headers=headers, timeout=timeout)
+    response = _httpx().post(url, json=json, headers=headers, timeout=timeout)
     response.raise_for_status()
     return response.json()
 
@@ -137,7 +144,7 @@ def _sub_url(urlbase, path):
 def login(username, password, urlbase):
     url = _sub_url(urlbase, "auth/jwt/login")
     creds = {"username": username, "password": password}
-    resp = _requests().post(url, data=creds, timeout=TIMEOUT)
+    resp = _httpx().post(url, data=creds, timeout=TIMEOUT)
     resp.raise_for_status()
     return "=".join(list(resp.cookies.items())[0])
 
@@ -235,11 +242,15 @@ class C2Array(blosc2.Operand):
         self.urlbase = urlbase
 
         self.auth_token = auth_token
+        self._aclient = None  # lazy async client, shared across aget_chunk calls
 
         # Try to 'open' the remote path
         try:
             self.meta = info(self.path, self.urlbase, auth_token=self.auth_token)
-        except _requests().HTTPError as err:
+        except _httpx().HTTPStatusError as err:
+            # HTTPStatusError only (not the broader HTTPError, which also covers
+            # connection-level failures): a 404 means "not found", a connection
+            # failure should propagate as-is rather than be reported as missing.
             raise FileNotFoundError(f"Remote path not found: {path}.\nError was: {err}") from err
         cparams = self.meta["schunk"]["cparams"]
         # Remove "filters, meta" from cparams; this is an artifact from the server
@@ -394,6 +405,42 @@ class C2Array(blosc2.Operand):
         params = {"nchunk": nchunk}
         response = _xget(url, params=params, auth_token=self.auth_token)
         return response.content
+
+    async def aget_chunk(self, nchunk: int) -> bytes:
+        """
+        Get the compressed unidimensional chunk of a :ref:`C2Array` asynchronously.
+
+        Same as :meth:`get_chunk`, but performs the HTTP GET with an
+        ``httpx.AsyncClient`` instead of blocking the event loop. Used by
+        :meth:`Proxy.afetch` to fetch multiple chunks concurrently. The
+        underlying client is created lazily and reused across calls; close it
+        explicitly with :meth:`aclose` when done, e.g. when the event loop is
+        about to be torn down.
+
+        Parameters
+        ----------
+        nchunk: int
+            The index of the unidimensional chunk to retrieve.
+
+        Returns
+        -------
+        out: bytes
+            The requested compressed chunk.
+        """
+        url = _sub_url(self.urlbase, f"api/chunk/{self.path}")
+        params = {"nchunk": nchunk}
+        headers = _auth_headers(self.auth_token)
+        if self._aclient is None:
+            self._aclient = _httpx().AsyncClient(timeout=TIMEOUT)
+        response = await self._aclient.get(url, params=params, headers=headers)
+        response.raise_for_status()
+        return response.content
+
+    async def aclose(self) -> None:
+        """Close the underlying async HTTP client opened by :meth:`aget_chunk`, if any."""
+        if self._aclient is not None:
+            await self._aclient.aclose()
+            self._aclient = None
 
     @property
     def shape(self) -> tuple[int]:

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: nvitop
-Version: 1.7.0
+Version: 1.7.1
 Summary: An interactive NVIDIA-GPU process viewer and beyond, the one-stop solution for GPU process management.
 Author-email: Xuehai Pan <XuehaiPan@pku.edu.cn>
 License: Apache-2.0 AND GPL-3.0-only
@@ -264,7 +264,7 @@ Install from conda-forge ([![conda-forge](https://img.shields.io/conda/v/conda-f
 conda install -c conda-forge nvitop
 ```
 
-Install the latest version from GitHub (![Commit Count](https://img.shields.io/github/commits-since/XuehaiPan/nvitop/v1.7.0)):
+Install the latest version from GitHub (![Commit Count](https://img.shields.io/github/commits-since/XuehaiPan/nvitop/v1.7.1)):
 
 ```bash
 pip3 install --upgrade pip setuptools
@@ -673,6 +673,14 @@ formatting:
 ### More than a Monitor
 
 `nvitop` can be easily integrated into other applications. You can use `nvitop` to make your own monitoring tools. The full API references host at <https://nvitop.readthedocs.io>. Runnable reference scripts live in [`examples/`](./examples/).
+
+<p align="center">
+  <a href="./examples/monitor-web">
+    <img width="100%" src="https://github.com/user-attachments/assets/b07abc8a-d0f0-4d0f-a7a2-09514cd28832" alt="Web Monitor Dashboard">
+  </a>
+  <br/>
+  A browser dashboard example built on top of <code>nvitop.collect_in_background</code>.
+</p>
 
 #### Quick Start
 

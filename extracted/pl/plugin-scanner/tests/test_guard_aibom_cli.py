@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import argparse
+import base64
 import json
 from email.message import Message
 from pathlib import Path
@@ -56,7 +57,101 @@ def _seed_inventory(store: GuardStore, artifact: GuardArtifact, *, now: str) -> 
     )
 
 
-def test_aibom_status_json_includes_layer_and_trust_summary(tmp_path: Path, capsys, monkeypatch: pytest.MonkeyPatch) -> None:
+@pytest.mark.parametrize("content_status", ["accepted", "missing_endpoint"])
+def test_sync_uploads_exact_primary_hermes_content_after_legacy_ack(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    content_status: str,
+) -> None:
+    import urllib.error
+
+    from codex_plugin_scanner.guard.adapters.hermes import HermesHarnessAdapter
+    from codex_plugin_scanner.guard.runtime import runner
+
+    home = tmp_path / "home"
+    workspace = tmp_path / "workspace"
+    skill_body = b"---\nname: deploy\n---\n# Deploy\n"
+    instruction_body = b"# Workspace instructions\n"
+    skill_dir = home / ".hermes" / "skills" / "dev" / "deploy"
+    _write_text(skill_dir / "SKILL.md", skill_body.decode())
+    _write_text(skill_dir / "references" / "agent_install_commands.md", "Supplementary notes.\n")
+    _write_text(workspace / "AGENTS.md", instruction_body.decode())
+    context = HarnessContext(home_dir=home, workspace_dir=workspace, guard_home=tmp_path / "guard")
+    store = GuardStore(context.guard_home)
+    monkeypatch.setattr(store, "get_cloud_workspace_id", lambda: "workspace-1")
+    monkeypatch.setenv("GUARD_AIBOM_TRUST_ATTESTATION_V2", "0")
+    monkeypatch.setattr(
+        aibom_cli,
+        "detect_all",
+        lambda _context: (HermesHarnessAdapter().detect(context),),
+    )
+    requests: list[SimpleNamespace] = []
+
+    def guard_sync_request(_auth_context, *, request_url, method, data, extra_headers):
+        request = SimpleNamespace(data=data, full_url=request_url, method=method)
+        requests.append(request)
+        assert extra_headers is None
+        return request
+
+    def respond(*, request, **_kwargs):
+        if request.full_url.endswith("/api/v1/guard/events"):
+            # Older compatible portals may report aggregate acceptance without statuses.
+            return {"accepted": 1, "rejected": 0}
+        if content_status == "missing_endpoint":
+            raise urllib.error.HTTPError(
+                url=request.full_url,
+                code=404,
+                msg="Not Found",
+                hdrs=Message(),
+                fp=None,
+            )
+        payload = json.loads(request.data)
+        return {
+            "storedCount": len(payload["items"]),
+            "hashOnlyCount": 0,
+            "failedCount": 0,
+        }
+
+    monkeypatch.setattr(runner, "_guard_events_sync_url", lambda url: url)
+    monkeypatch.setattr(runner, "_guard_sync_request", guard_sync_request)
+    monkeypatch.setattr(runner, "_urlopen_json_with_timeout_retry", respond)
+
+    summary = aibom_cli.sync_aibom_snapshots(
+        store,
+        context,
+        generated_at="2026-07-10T00:00:00+00:00",
+        auth_context={"sync_url": "https://hol.test/api/v1/guard/events"},
+    )
+
+    assert summary["synced"] is (content_status == "accepted")
+    upload_summary = summary["content_upload"]
+    assert isinstance(upload_summary, dict)
+    assert upload_summary["eligible"] == 2
+    content_requests = [request for request in requests if request.full_url.endswith("/content-upload")]
+    assert len(content_requests) == 1
+    if content_status == "missing_endpoint":
+        assert summary["synced"] is False
+        assert summary["partial"] is True
+        assert summary["reason"] == "content_upload_incomplete"
+        assert summary["content_upload_complete"] is False
+        assert upload_summary["failed"] == 2
+        assert upload_summary["reason"] == "endpoint_unavailable"
+        return
+
+    assert summary["content_upload_complete"] is True
+    assert upload_summary["uploaded"] == 2
+    assert upload_summary["stored"] == 2
+    assert upload_summary["hash_only"] == 0
+    content_payload = json.loads(content_requests[0].data)
+    assert set(content_payload) == {"items"}
+    uploaded_bodies = {base64.b64decode(item["bodyBase64"]) for item in content_payload["items"]}
+    assert uploaded_bodies == {skill_body, instruction_body}
+    assert all(str(item["contentHash"]).startswith("sha256:") for item in content_payload["items"])
+
+
+def test_aibom_status_json_includes_layer_and_trust_summary(
+    tmp_path: Path, capsys, monkeypatch: pytest.MonkeyPatch
+) -> None:
     monkeypatch.setenv("GUARD_AIBOM_TRUST_ATTESTATION_V2", "0")
     monkeypatch.delenv("GUARD_AIBOM_TRUST_ATTESTATION_PRIVATE_KEY", raising=False)
     monkeypatch.delenv("GUARD_AIBOM_TRUST_ATTESTATION_KEY_ID", raising=False)
@@ -103,7 +198,9 @@ def test_aibom_status_json_includes_layer_and_trust_summary(tmp_path: Path, caps
     assert output["status"] in {"not_connected", "workspace_required", "sync_required", "synced"}
 
 
-def test_inventory_json_includes_aibom_metadata_extensions(tmp_path: Path, capsys, monkeypatch: pytest.MonkeyPatch) -> None:
+def test_inventory_json_includes_aibom_metadata_extensions(
+    tmp_path: Path, capsys, monkeypatch: pytest.MonkeyPatch
+) -> None:
     monkeypatch.setenv("GUARD_AIBOM_TRUST_ATTESTATION_V2", "0")
     monkeypatch.delenv("GUARD_AIBOM_TRUST_ATTESTATION_PRIVATE_KEY", raising=False)
     monkeypatch.delenv("GUARD_AIBOM_TRUST_ATTESTATION_KEY_ID", raising=False)
@@ -241,6 +338,48 @@ def test_sync_aibom_snapshots_if_due_skips_recent_sync(tmp_path: Path, monkeypat
 
     assert summary.get("skipped") is True
     assert summary.get("reason") == "recently_synced"
+
+
+def test_sync_aibom_snapshots_if_due_rejects_changed_workspace(tmp_path: Path, monkeypatch) -> None:
+    from codex_plugin_scanner.guard.aibom_cli import sync_aibom_snapshots_if_due
+
+    store = GuardStore(tmp_path / "guard")
+    monkeypatch.setattr(store, "get_cloud_workspace_id", lambda: "workspace-beta")
+
+    summary = sync_aibom_snapshots_if_due(
+        store,
+        generated_at="2026-06-10T13:00:00+00:00",
+        expected_workspace_id="workspace-alpha",
+    )
+
+    assert summary == {
+        "synced": False,
+        "reason": "workspace_changed",
+        "error": "Guard Cloud workspace changed before AIBOM inventory sync.",
+    }
+
+
+def test_sync_aibom_snapshots_if_due_binds_current_workspace(tmp_path: Path, monkeypatch) -> None:
+    from codex_plugin_scanner.guard import aibom_cli
+
+    store = GuardStore(tmp_path / "guard")
+    monkeypatch.setattr(store, "get_cloud_workspace_id", lambda: "workspace-alpha")
+    calls: list[dict[str, object]] = []
+
+    def _fake_sync(*_args: object, **kwargs: object) -> dict[str, object]:
+        calls.append(kwargs)
+        return {"synced": True}
+
+    monkeypatch.setattr(aibom_cli, "sync_aibom_snapshots", _fake_sync)
+
+    summary = aibom_cli.sync_aibom_snapshots_if_due(
+        store,
+        generated_at="2026-06-10T13:00:00+00:00",
+        force=True,
+    )
+
+    assert summary == {"synced": True}
+    assert calls[0]["expected_workspace_id"] == "workspace-alpha"
 
 
 def test_sync_aibom_snapshots_if_due_skips_recent_empty_sync(tmp_path: Path, monkeypatch) -> None:
@@ -392,6 +531,24 @@ def test_resolve_trust_attestation_context_includes_workspace_device_for_v2(
     assert context["installationId"] == "device-1"
     assert context["policyVersion"] == "guard-aibom-trust-policy.v1"
     assert context["uploadId"] is None
+
+
+def test_resolve_trust_attestation_context_uses_workspace_override(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    store = GuardStore(tmp_path / "guard")
+    monkeypatch.setattr(store, "get_cloud_workspace_id", lambda: "workspace-beta")
+    monkeypatch.setattr(store, "get_or_create_installation_id", lambda: "device-1")
+    monkeypatch.setenv("GUARD_AIBOM_TRUST_ATTESTATION_V2", "1")
+
+    context = aibom_cli._resolve_trust_attestation_context(
+        store,
+        generated_at="2026-06-10T12:00:00+00:00",
+        workspace_id="workspace-alpha",
+    )
+
+    assert context["workspaceId"] == "workspace-alpha"
     assert context["challengeId"] is None
     assert context["nonce"] is None
     assert context["sequence"] is None
@@ -651,9 +808,7 @@ def test_sync_aibom_snapshots_404_reports_only_remaining_batch(
     assert summary.get("synced") is False
     assert summary.get("partial") is True
     assert summary.get("accepted") == 3
-    assert summary.get("statuses") == [
-        {"eventId": f"event-{index}", "status": "accepted"} for index in range(3)
-    ]
+    assert summary.get("statuses") == [{"eventId": f"event-{index}", "status": "accepted"} for index in range(3)]
     assert isinstance(backoff, dict)
     assert backoff.get("events") == 1
     assert backoff.get("skipped") == 1

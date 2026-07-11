@@ -6,7 +6,6 @@ import json
 import logging
 import os
 import re
-import textwrap
 import time
 import typing
 import uuid
@@ -39,7 +38,12 @@ from ._resolver import Resolver
 from ._resources import convert_fn_config_to_resources_config
 from ._utils.async_utils import TaskContext, synchronize_api
 from ._utils.deprecation import deprecation_warning
-from ._utils.mount_utils import validate_network_file_systems, validate_volumes, validate_volumes_by_object_id
+from ._utils.mount_utils import (
+    validate_network_file_systems,
+    validate_only_modal_volumes,
+    validate_volumes,
+    validate_volumes_by_object_id,
+)
 from ._utils.name_utils import check_object_name
 from ._utils.task_command_router_client import TaskCommandRouterClient
 from .client import _Client
@@ -53,7 +57,7 @@ from .exception import (
     SandboxTerminatedError,
     SandboxTimeoutError,
 )
-from .file_io import FileWatchEvent, FileWatchEventType, _FileIO, ls, mkdir, rm, watch
+from .file_io import _FileIO, ls, mkdir, rm, watch
 from .io_streams import (
     StreamReader,
     StreamWriter,
@@ -70,6 +74,7 @@ from .sandbox_fs import _SandboxFilesystem
 from .secret import _Secret
 from .snapshot import _SandboxSnapshot
 from .stream_type import StreamType
+from .types import FileWatchEvent, FileWatchEventType, SandboxConnectCredentials
 
 _default_image: _Image = _Image.debian_slim()
 
@@ -122,20 +127,12 @@ TTL_NO_EXPIRY_SENTINEL = -1
 
 
 _SECRET_KEYNAME_REGEX = re.compile(r"^[a-zA-Z_][a-zA-Z0-9_]*$")
-_SECRET_KEYNAME_MAX_LEN = 2**14
-_SECRET_VALUE_MAX_LEN = 2**15
 
 
 def _validate_sandbox_env(env: dict[str, str]) -> None:
-    for key, value in env.items():
+    for key in env:
         if not key:
             raise InvalidError("Secret key name cannot be empty")
-        if len(key) > _SECRET_KEYNAME_MAX_LEN:
-            shortkey = textwrap.shorten(key, width=32)
-            raise InvalidError(f"Secret key name {shortkey!r} is too long (max {_SECRET_KEYNAME_MAX_LEN})")
-        if len(value) > _SECRET_VALUE_MAX_LEN:
-            shortkey = textwrap.shorten(key, width=32)
-            raise InvalidError(f"Secret value for key {shortkey!r} is too long (max {_SECRET_VALUE_MAX_LEN})")
         if not _SECRET_KEYNAME_REGEX.match(key):
             raise InvalidError(
                 f"Secret key name {key!r} is invalid for environment variables. "
@@ -248,14 +245,6 @@ class DefaultSandboxNameOverride(str):
 
 
 _DEFAULT_SANDBOX_NAME_OVERRIDE = DefaultSandboxNameOverride()
-
-
-@dataclass(frozen=True)
-class SandboxConnectCredentials:
-    """Simple data structure storing credentials for making HTTP connections to a sandbox."""
-
-    url: str
-    token: str
 
 
 @dataclass(frozen=True)
@@ -827,6 +816,7 @@ class _Sandbox(_Object, type_prefix="sb"):
         *args: str,
         app: "modal.app._App | None" = None,
         name: str | None = None,
+        tags: dict[str, str] | None = None,
         image: _Image | None = None,
         env: dict[str, str | None] | None = None,
         secrets: Collection[_Secret] | None = None,
@@ -839,13 +829,17 @@ class _Sandbox(_Object, type_prefix="sb"):
         region: str | Sequence[str] | None = None,
         block_network: bool = False,
         outbound_cidr_allowlist: Sequence[str] | None = None,
+        outbound_domain_allowlist: Sequence[str] | None = None,
         inbound_cidr_allowlist: Sequence[str] | None = None,
+        i6pn: bool = False,
         volumes: dict[str | os.PathLike, _Volume | _CloudBucketMount] = {},
         pty: bool = False,
         encrypted_ports: Sequence[int] = [],
         h2_ports: Sequence[int] = [],
         unencrypted_ports: Sequence[int] = [],
+        proxy: _Proxy | None = None,
         readiness_probe: Probe | None = None,
+        experimental_options: dict[str, Any] | None = None,
         include_oidc_identity_token: bool = False,
         verbose: bool = False,
         client: _Client | None = None,
@@ -853,17 +847,25 @@ class _Sandbox(_Object, type_prefix="sb"):
         """Create a sandbox using the V2 backend.
 
         Supported features include exec, encrypted tunnels, wait/poll/terminate,
-        CPU and memory configuration, region placement, volumes, cloud bucket mounts
-        (with static credentials via `secret=...` or `oidc_auth_role_arn`), OIDC
-        identity tokens, and filesystem snapshots.
+        CPU and memory configuration, region placement, private IPv6 networking
+        (i6pn), volumes, cloud bucket mounts (with static credentials via
+        `secret=...` or `oidc_auth_role_arn`), OIDC identity tokens, proxies, and
+        filesystem snapshots.
 
-        Features like tags, memory snapshots, network file systems, GPUs, custom
-        domains, and proxies are not supported.
+        Features like memory snapshots, network file systems, GPUs, and custom
+        domains are not supported.
+
+        Set `i6pn=True` to enable private IPv6 networking so sandboxes in the same
+        workspace can address each other directly at their `i6pn.modal.local`
+        address. i6pn only connects sandboxes co-located on the same routable
+        network, so pin every sandbox in the group to the same specific region
+        (e.g. `region="us-east-1"`).
 
         V2 sandboxes created with this method are not currently returned by
-        `Sandbox.list()` and cannot be looked up with `Sandbox.from_name()`.
-        Store `sandbox.object_id` if you need to retrieve the sandbox later, and
-        use `Sandbox.from_id(sandbox.object_id)` to reattach.
+        `Sandbox.list()`. A named sandbox can be looked up with
+        `Sandbox._experimental_from_name(app_name, name)`; otherwise store
+        `sandbox.object_id` and use `Sandbox.from_id(sandbox.object_id)` to
+        reattach.
         """
         from .app import _App
 
@@ -877,12 +879,19 @@ class _Sandbox(_Object, type_prefix="sb"):
         if block_network and (encrypted_ports or h2_ports or unencrypted_ports):
             raise InvalidError("Cannot specify open ports when `block_network` is enabled")
 
+        if block_network and i6pn:
+            raise InvalidError(
+                "`block_network` disables all networking, including i6pn. To keep i6pn while blocking "
+                "public egress, use an empty outbound allowlist (`outbound_cidr_allowlist=[]`) instead."
+            )
+
         validated_volumes = validate_volumes(volumes)
         cloud_bucket_mounts = [(k, v) for k, v in validated_volumes if isinstance(v, _CloudBucketMount)]
         validated_volumes = [(k, v) for k, v in validated_volumes if isinstance(v, _Volume)]
 
         secrets = secrets or []
-        ephemeral_env: dict[str, str] = {}
+
+        env_dict, resolvable_secrets = _split_env_dict_and_resolvable_secrets(secrets)
         if env:
             env_type_err = "the env argument to Sandbox must be a dict[str, str | None]"
             if not isinstance(env, dict):
@@ -893,6 +902,8 @@ class _Sandbox(_Object, type_prefix="sb"):
             ):
                 raise InvalidError(env_type_err)
             _validate_sandbox_env(ephemeral_env)
+            # `env` has a higher precedience over environment variables from secrets
+            env_dict |= ephemeral_env
 
         image = image or _default_image
 
@@ -914,19 +925,22 @@ class _Sandbox(_Object, type_prefix="sb"):
         if block_network:
             if outbound_cidr_allowlist is not None:
                 raise InvalidError("`outbound_cidr_allowlist` cannot be used when `block_network` is enabled")
+            if outbound_domain_allowlist is not None:
+                raise InvalidError("`outbound_domain_allowlist` cannot be used when `block_network` is enabled")
             if inbound_cidr_allowlist is not None:
                 raise InvalidError("`inbound_cidr_allowlist` cannot be used when `block_network` is enabled")
             network_access = api_pb2.NetworkAccess(
                 network_access_type=api_pb2.NetworkAccess.NetworkAccessType.BLOCKED,
             )
-        elif outbound_cidr_allowlist is None:
+        elif outbound_domain_allowlist is None and outbound_cidr_allowlist is None:
             network_access = api_pb2.NetworkAccess(
                 network_access_type=api_pb2.NetworkAccess.NetworkAccessType.OPEN,
             )
         else:
             network_access = api_pb2.NetworkAccess(
                 network_access_type=api_pb2.NetworkAccess.NetworkAccessType.ALLOWLIST,
-                allowed_cidrs=outbound_cidr_allowlist,
+                allowed_cidrs=list(outbound_cidr_allowlist or []),
+                allowed_domains=list(outbound_domain_allowlist or []),
             )
 
         async def _load(self: _Sandbox, resolver: Resolver, load_context: LoadContext, _existing_object_id: str | None):
@@ -934,13 +948,15 @@ class _Sandbox(_Object, type_prefix="sb"):
             dep_tasks: list = []
             if not image._is_hydrated:
                 dep_tasks.append(resolver.load(image, load_context))
-            for secret in secrets:
+            for secret in resolvable_secrets:
                 dep_tasks.append(resolver.load(secret, load_context))
             for _, vol in validated_volumes:
                 dep_tasks.append(resolver.load(vol, load_context))
             for _, cloud_bucket_mount in cloud_bucket_mounts:
                 if cloud_bucket_mount.secret:
                     dep_tasks.append(resolver.load(cloud_bucket_mount.secret, load_context))
+            if proxy:
+                dep_tasks.append(resolver.load(proxy, load_context))
             dep_timings = await _gather_load_with_timings(dep_tasks) if dep_tasks else []
 
             validate_volumes_by_object_id(validated_volumes)
@@ -951,7 +967,7 @@ class _Sandbox(_Object, type_prefix="sb"):
                 entrypoint_args=args,
                 image_id=image.object_id,
                 mount_ids=[mount.object_id for mount in image._mount_layers],
-                secret_ids=[secret.object_id for secret in secrets],
+                secret_ids=[secret.object_id for secret in resolvable_secrets],
                 timeout_secs=timeout,
                 idle_timeout_secs=idle_timeout,
                 workdir=workdir,
@@ -964,19 +980,26 @@ class _Sandbox(_Object, type_prefix="sb"):
                 worker_id=config.get("worker_id"),
                 open_ports=api_pb2.PortSpecs(ports=open_ports),
                 network_access=network_access,
+                proxy_id=(proxy.object_id if proxy else None),
                 verbose=verbose,
                 name=name,
                 include_oidc_identity_token=include_oidc_identity_token,
                 inbound_cidr_allowlist=list(inbound_cidr_allowlist) if inbound_cidr_allowlist is not None else [],
+                i6pn_enabled=i6pn,
                 volume_mounts=volume_mounts,
                 cloud_bucket_mounts=cloud_bucket_mounts_to_proto(cloud_bucket_mounts),
                 readiness_probe=(readiness_probe._to_proto() if readiness_probe else None),
+                experimental_options_v2=(
+                    {k: str(v) for k, v in experimental_options.items()} if experimental_options else None
+                ),
             )
 
+            tag_protos = [api_pb2.SandboxTag(tag_name=k, tag_value=v) for k, v in tags.items()] if tags else []
             create_req = api_pb2.SandboxCreateV2Request(
                 app_id=load_context.app_id,
                 definition=definition,
-                ephemeral_secrets=api_pb2.StringMap(contents=ephemeral_env) if ephemeral_env else None,
+                ephemeral_secrets=api_pb2.StringMap(contents=env_dict) if env_dict else None,
+                tags=tag_protos,
             )
             assert load_context.client._auth_token_manager
             auth_token = await load_context.client._auth_token_manager.get_token()
@@ -1168,6 +1191,44 @@ class _Sandbox(_Object, type_prefix="sb"):
         return _Sandbox._new_hydrated(resp.sandbox_id, client, None)
 
     @staticmethod
+    async def _experimental_from_name(
+        app_name: str,
+        name: str,
+        *,
+        environment_name: str | None = None,
+        client: _Client | None = None,
+    ) -> "_Sandbox":
+        """Get a running V2 Sandbox by name from a deployed App.
+
+        This looks up V2 sandboxes, ie sandboxes created via `modal.Sandbox._experimental_create`.
+
+        Args:
+            app_name: Name of the deployed app to look up the sandbox under.
+            name: Sandbox name to resolve.
+            environment_name: Optional environment name for the lookup; defaults to the configured environment.
+            client: Modal client to use for the RPC; defaults to `Client.from_env()` when omitted.
+
+        Returns:
+            A `Sandbox` handle for the running sandbox.
+
+        Raises:
+            NotFoundError: If no running sandbox exists with the given name.
+        """
+        if client is None:
+            client = await _Client.from_env()
+        env_name = _get_environment_name(environment_name)
+
+        req = api_pb2.SandboxGetFromNameRequest(sandbox_name=name, app_name=app_name, environment_name=env_name)
+        assert client._auth_token_manager
+        auth_token = await client._auth_token_manager.get_token()
+        resp = await client.stub.SandboxGetFromNameV2(req, metadata=[("x-modal-auth-token", auth_token)])
+
+        obj = _Sandbox._new_hydrated(resp.sandbox_id, client, None)
+        obj._is_v2 = True
+        obj._hydrate_metadata_v2()
+        return obj
+
+    @staticmethod
     async def from_id(sandbox_id: str, client: _Client | None = None) -> "_Sandbox":
         """Construct a Sandbox from an id and look up the Sandbox result.
 
@@ -1209,22 +1270,27 @@ class _Sandbox(_Object, type_prefix="sb"):
         Returns:
             Tags as a map from tag name to tag value.
         """
-        self._ensure_v1("get_tags")
         req = api_pb2.SandboxTagsGetRequest(sandbox_id=self.object_id)
-        resp = await self._client.stub.SandboxTagsGet(req)
+        stub = self._client.stub
+        if self._is_v2:
+            assert self._client._auth_token_manager
+            auth_token = await self._client._auth_token_manager.get_token()
+            resp = await stub.SandboxTagsGetV2(req, metadata=[("x-modal-auth-token", auth_token)])
+        else:
+            resp = await stub.SandboxTagsGet(req)
 
         return {tag.tag_name: tag.tag_value for tag in resp.tags}
 
     async def set_tags(self, tags: dict[str, str], *, client: _Client | None = None) -> None:
         """Set tags (key-value pairs) on the Sandbox. Tags can be used to filter results in `Sandbox.list`.
 
+        Setting tags replaces the Sandbox's entire tag set; passing an empty dict clears all tags.
+
         Args:
             tags: Tag names and values to set on this sandbox.
             client: Deprecated. Prefer setting the client when creating or re-attaching to the sandbox.
 
         """
-        self._ensure_v1("set_tags")
-        environment_name = _get_environment_name()
         if client is not None:
             deprecation_warning(
                 (2025, 9, 18),
@@ -1233,13 +1299,19 @@ class _Sandbox(_Object, type_prefix="sb"):
             )
 
         tags_list = [api_pb2.SandboxTag(tag_name=name, tag_value=value) for name, value in tags.items()]
-
-        req = api_pb2.SandboxTagsSetRequest(
-            environment_name=environment_name,
-            sandbox_id=self.object_id,
-            tags=tags_list,
-        )
-        await self._client.stub.SandboxTagsSet(req)
+        stub = self._client.stub
+        if self._is_v2:
+            assert self._client._auth_token_manager
+            auth_token = await self._client._auth_token_manager.get_token()
+            req = api_pb2.SandboxTagsSetRequest(sandbox_id=self.object_id, tags=tags_list)
+            await stub.SandboxTagsSetV2(req, metadata=[("x-modal-auth-token", auth_token)])
+        else:
+            req = api_pb2.SandboxTagsSetRequest(
+                environment_name=_get_environment_name(),
+                sandbox_id=self.object_id,
+                tags=tags_list,
+            )
+            await stub.SandboxTagsSet(req)
 
     async def _experimental_set_outbound_network_policy(
         self,
@@ -1257,7 +1329,6 @@ class _Sandbox(_Object, type_prefix="sb"):
             outbound_domain_allowlist: List of domain names the Sandbox is allowed to access. Supports
                 wildcard prefixes (``*.``); a bare ``"*"`` allows all domains.
         """
-        self._ensure_v1("_experimental_set_outbound_network_policy")
         task_id = await self._get_task_id()
         command_router_client = await self._get_command_router_client(task_id)
 
@@ -1606,19 +1677,23 @@ class _Sandbox(_Object, type_prefix="sb"):
         resp = await self._client.stub.SandboxCreateConnectToken(req)
         return SandboxConnectCredentials(resp.url, resp.token)
 
-    async def reload_volumes(self) -> None:
+    async def reload_volumes(self, *, timeout: int = 55) -> None:
         """Reload all Volumes mounted in the Sandbox.
 
         Added in v1.1.0.
 
+        Blocks until the Volumes have been reloaded, bounded by `timeout` (55 seconds by default). If the reload
+        does not complete within that window, `modal.exception.TimeoutError` is raised; note that the reload may
+        still complete in the background.
+
+        Args:
+            timeout: Maximum time in seconds to wait for the reload. Must be positive.
         """
-        self._ensure_v1("reload_volumes")
+        if timeout <= 0:
+            raise InvalidError("The `timeout` argument to `Sandbox.reload_volumes` must be positive.")
         task_id = await self._get_task_id()
-        await self._client.stub.ContainerReloadVolumes(
-            api_pb2.ContainerReloadVolumesRequest(
-                task_id=task_id,
-            ),
-        )
+        command_router_client = await self._get_command_router_client(task_id)
+        await command_router_client.reload_volumes(task_id, timeout=float(timeout))
 
     @overload
     async def terminate(
@@ -2029,7 +2104,6 @@ class _Sandbox(_Object, type_prefix="sb"):
         Returns:
             A `SandboxFilesystem` helper bound to this sandbox.
         """
-        self._ensure_v1("filesystem")
         self._ensure_attached()
         if self._filesystem is None:
             self._filesystem = _SandboxFilesystem(self)
@@ -2256,6 +2330,65 @@ class _Sandbox(_Object, type_prefix="sb"):
             # Fetch the next batch starting from the end of the current one.
             before_timestamp = resp.sandboxes[-1].created_at
 
+    @staticmethod
+    async def _experimental_list(
+        *, app_id: str | None = None, tags: dict[str, str] | None = None, client: _Client | None = None
+    ) -> AsyncGenerator["_Sandbox", None]:
+        """List v2 Sandboxes in an App.
+
+        This function lists v2 sandboxes, ie sandboxes created via modal.Sandbox._experimental_create.
+
+        Args:
+            app_id: The App to list Sandboxes under.
+            tags: If set, only sandboxes containing at least these tags are returned.
+            client: Optional client to use for the session.
+
+        Yields:
+            `Sandbox` objects that are currently running in the App.
+        """
+        if not app_id:
+            raise InvalidError(
+                "Sandbox._experimental_list requires an `app_id`:\n\n"
+                'app = modal.App.lookup("my-app")\n'
+                "Sandbox._experimental_list(app_id=app.app_id)"
+            )
+
+        before_timestamp = None
+        if client is None:
+            client = await _Client.from_env()
+
+        tags_list = [api_pb2.SandboxTag(tag_name=name, tag_value=value) for name, value in tags.items()] if tags else []
+
+        assert client._auth_token_manager
+        while True:
+            req = api_pb2.SandboxListRequest(
+                app_id=app_id,
+                before_timestamp=before_timestamp,
+                include_finished=False,
+                tags=tags_list,
+            )
+
+            # Fetches a batch of sandboxes. SandboxListV2 authenticates via the
+            # auth-token metadata, like the other V2 sandbox RPCs.
+            auth_token = await client._auth_token_manager.get_token()
+            resp = await client.stub.SandboxListV2(req, metadata=[("x-modal-auth-token", auth_token)])
+
+            if not resp.sandboxes:
+                return
+
+            for sandbox_info in resp.sandboxes:
+                sandbox_info: api_pb2.SandboxInfo
+                obj = _Sandbox._new_hydrated(sandbox_info.id, client, None)
+                # SandboxListV2 only returns V2 sandboxes; mark them as such so
+                # operations like wait/terminate/exec use the V2 RPCs and stdio.
+                obj._is_v2 = True
+                obj._hydrate_metadata_v2()
+                obj._result = sandbox_info.task_info.result
+                yield obj
+
+            # Fetch the next batch starting from the end of the current one.
+            before_timestamp = resp.sandboxes[-1].created_at
+
 
 class _SidecarContainer:
     """Handle to an additional container running in a Sandbox."""
@@ -2457,12 +2590,33 @@ class _SidecarManager:
         env: dict[str, str] | None = None,
         secrets: Collection[_Secret] | None = None,
         workdir: str | None = None,
+        volumes: dict[str | os.PathLike, _Volume] | None = None,
     ) -> _SidecarContainer:
+        """Create a sidecar container running alongside the Sandbox's main container.
+
+        Sidecar containers share the Sandbox's lifecycle but run their own Image and command. They
+        can be used to run auxiliary processes, such as a database or a service the main container
+        depends on.
+
+        Args:
+            *args: Command and arguments to run inside the sidecar container.
+            name: Unique name for the sidecar container. The name ``"main"`` is reserved.
+            image: Image to run the sidecar container with. Must be a pre-built or referenced Image.
+            env: Environment variables to set in the sidecar container.
+            secrets: Secrets to inject as environment variables in the sidecar container.
+            workdir: Working directory for the command; must be absolute if set.
+            volumes: Mapping of mount paths to `Volume` objects to mount in the sidecar container.
+
+        Returns:
+            A `SidecarContainer` handle for the running container.
+        """
         if name == _MAIN_CONTAINER_NAME:
             raise InvalidError(f"The name {_MAIN_CONTAINER_NAME!r} is reserved for the sandbox's main container.")
         if workdir is not None and not workdir.startswith("/"):
             raise InvalidError(f"workdir must be an absolute path, got: {workdir}")
         _validate_exec_args(args)
+
+        validated_volumes = validate_only_modal_volumes(volumes, "Sandbox._experimental_sidecars.create(volumes=...)")
 
         if image._mount_layers:
             raise InvalidError(
@@ -2483,8 +2637,17 @@ class _SidecarManager:
             )
 
         secrets = secrets or []
-        secret_coros = [secret.hydrate(client=self._sandbox._client) for secret in secrets]
-        await TaskContext.gather(*secret_coros)
+        hydrate_coros = [secret.hydrate(client=self._sandbox._client) for secret in secrets] + [
+            volume.hydrate(client=self._sandbox._client) for _, volume in validated_volumes
+        ]
+        await TaskContext.gather(*hydrate_coros)
+
+        # Validate that the same volume (by object_id) isn't mounted at multiple paths. This relies on
+        # the volumes being hydrated above, since it compares object_ids.
+        validate_volumes_by_object_id(validated_volumes)
+
+        # Relies on dicts being ordered (true as of Python 3.6).
+        volume_mounts = [_volume_to_mount_proto(path, volume) for path, volume in validated_volumes]
 
         task_id, command_router_client = await self._get_command_router()
 
@@ -2496,6 +2659,7 @@ class _SidecarManager:
             env=env or {},
             workdir=workdir or "",
             secret_ids=[secret.object_id for secret in secrets],
+            volume_mounts=volume_mounts,
         )
         create_resp = await command_router_client.container_create(create_req)
         container_id = create_resp.container_id

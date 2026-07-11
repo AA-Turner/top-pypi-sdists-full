@@ -954,7 +954,7 @@ class Session:
             provider = provider or getattr(ready_response, "provider", None)
 
         # provider drives desktop/qemu detection (it gates the SDK client's
-        # _is_qemu, which picks the Windows /browser/start vs ubuntu chrome
+        # _is_qemu, which picks the Windows PowerShell vs ubuntu bash chrome
         # launch path). When the ready response didn't carry it, fall back to
         # the job-info round trip — but only for artifact-backed VMs
         # (resource/runtime envs have no provider).

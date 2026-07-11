@@ -30,6 +30,8 @@ from chalk._gen.chalk.server.v1.dataplanejobqueue_pb2 import (
     ListJobQueueAttemptsResponse,
     ListJobQueueConsumersRequest,
     ListJobQueueConsumersResponse,
+    ListRunningJobsRequest,
+    ListRunningJobsResponse,
 )
 from grpc import (
     Channel,
@@ -79,6 +81,10 @@ class DataPlaneJobQueueServiceStub:
     ListJobQueueConsumers: UnaryUnaryMultiCallable[
         ListJobQueueConsumersRequest,
         ListJobQueueConsumersResponse,
+    ]
+    ListRunningJobs: UnaryUnaryMultiCallable[
+        ListRunningJobsRequest,
+        ListRunningJobsResponse,
     ]
 
 class DataPlaneJobQueueServiceServicer(metaclass=ABCMeta):
@@ -142,6 +148,12 @@ class DataPlaneJobQueueServiceServicer(metaclass=ABCMeta):
         request: ListJobQueueConsumersRequest,
         context: ServicerContext,
     ) -> ListJobQueueConsumersResponse: ...
+    @abstractmethod
+    def ListRunningJobs(
+        self,
+        request: ListRunningJobsRequest,
+        context: ServicerContext,
+    ) -> ListRunningJobsResponse: ...
 
 def add_DataPlaneJobQueueServiceServicer_to_server(
     servicer: DataPlaneJobQueueServiceServicer, server: Server

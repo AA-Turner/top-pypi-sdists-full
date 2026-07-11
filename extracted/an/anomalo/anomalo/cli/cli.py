@@ -38,9 +38,11 @@ class CLI(Client):
             ]
         StateMachine(self).pull(filename, table_refs, labels_to_exclude)
 
-    def examine(self, table: str, check: str | None = None) -> None:
+    def examine(
+        self, table: str, check: str | None = None, format: str = "yaml"
+    ) -> None:
         self.output_style = "json"
-        StateMachine(self).examine(table, check)
+        StateMachine(self).examine(table, check, format)
 
     def apply(
         self,

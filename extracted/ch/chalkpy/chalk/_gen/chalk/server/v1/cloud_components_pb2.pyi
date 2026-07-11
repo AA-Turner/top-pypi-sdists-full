@@ -1,5 +1,6 @@
 from chalk._gen.chalk.auth.v1 import audit_pb2 as _audit_pb2
 from chalk._gen.chalk.auth.v1 import permissions_pb2 as _permissions_pb2
+from chalk._gen.chalk.server.v1 import cloud_credentials_pb2 as _cloud_credentials_pb2
 from chalk._gen.chalk.server.v1 import environment_pb2 as _environment_pb2
 from chalk._gen.chalk.server.v1 import team_pb2 as _team_pb2
 from google.api import field_behavior_pb2 as _field_behavior_pb2
@@ -681,21 +682,24 @@ class DataplaneController(_message.Message):
     ) -> None: ...
 
 class ChalkHostPool(_message.Message):
-    __slots__ = ("name", "count", "cpu", "memory")
+    __slots__ = ("name", "count", "cpu", "memory", "machine_family")
     NAME_FIELD_NUMBER: _ClassVar[int]
     COUNT_FIELD_NUMBER: _ClassVar[int]
     CPU_FIELD_NUMBER: _ClassVar[int]
     MEMORY_FIELD_NUMBER: _ClassVar[int]
+    MACHINE_FAMILY_FIELD_NUMBER: _ClassVar[int]
     name: str
     count: int
     cpu: str
     memory: str
+    machine_family: str
     def __init__(
         self,
         name: _Optional[str] = ...,
         count: _Optional[int] = ...,
         cpu: _Optional[str] = ...,
         memory: _Optional[str] = ...,
+        machine_family: _Optional[str] = ...,
     ) -> None: ...
 
 class DeploymentManifest(_message.Message):
@@ -947,6 +951,28 @@ class ListCloudComponentClusterResponse(_message.Message):
     def __init__(
         self, clusters: _Optional[_Iterable[_Union[CloudComponentClusterResponse, _Mapping]]] = ...
     ) -> None: ...
+
+class ListServerlessClustersRequest(_message.Message):
+    __slots__ = ()
+    def __init__(self) -> None: ...
+
+class ServerlessCluster(_message.Message):
+    __slots__ = ("cluster", "cloud_credentials")
+    CLUSTER_FIELD_NUMBER: _ClassVar[int]
+    CLOUD_CREDENTIALS_FIELD_NUMBER: _ClassVar[int]
+    cluster: CloudComponentClusterResponse
+    cloud_credentials: _cloud_credentials_pb2.CloudCredentialsResponse
+    def __init__(
+        self,
+        cluster: _Optional[_Union[CloudComponentClusterResponse, _Mapping]] = ...,
+        cloud_credentials: _Optional[_Union[_cloud_credentials_pb2.CloudCredentialsResponse, _Mapping]] = ...,
+    ) -> None: ...
+
+class ListServerlessClustersResponse(_message.Message):
+    __slots__ = ("clusters",)
+    CLUSTERS_FIELD_NUMBER: _ClassVar[int]
+    clusters: _containers.RepeatedCompositeFieldContainer[ServerlessCluster]
+    def __init__(self, clusters: _Optional[_Iterable[_Union[ServerlessCluster, _Mapping]]] = ...) -> None: ...
 
 class CreateCloudComponentStorageRequest(_message.Message):
     __slots__ = ("storage",)

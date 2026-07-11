@@ -652,6 +652,26 @@ class CancelWorkflowExecutionResponse(_message.Message):
     __slots__ = ()
     def __init__(self) -> None: ...
 
+class ListRunningJobsRequest(_message.Message):
+    __slots__ = ("resource_group_names",)
+    RESOURCE_GROUP_NAMES_FIELD_NUMBER: _ClassVar[int]
+    resource_group_names: _containers.RepeatedScalarFieldContainer[str]
+    def __init__(self, resource_group_names: _Optional[_Iterable[str]] = ...) -> None: ...
+
+class RunningJobInfo(_message.Message):
+    __slots__ = ("job_id", "resource_group_name")
+    JOB_ID_FIELD_NUMBER: _ClassVar[int]
+    RESOURCE_GROUP_NAME_FIELD_NUMBER: _ClassVar[int]
+    job_id: int
+    resource_group_name: str
+    def __init__(self, job_id: _Optional[int] = ..., resource_group_name: _Optional[str] = ...) -> None: ...
+
+class ListRunningJobsResponse(_message.Message):
+    __slots__ = ("running_job_infos",)
+    RUNNING_JOB_INFOS_FIELD_NUMBER: _ClassVar[int]
+    running_job_infos: _containers.RepeatedCompositeFieldContainer[RunningJobInfo]
+    def __init__(self, running_job_infos: _Optional[_Iterable[_Union[RunningJobInfo, _Mapping]]] = ...) -> None: ...
+
 class JobQueueEnqueueArgs(_message.Message):
     __slots__ = (
         "env_payload",

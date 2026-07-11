@@ -47,6 +47,7 @@ from .literals import (
     AuthenticationMethodOptionType,
     AuthenticationTypeType,
     AuthorSpecifiedAggregationType,
+    AuthTypeType,
     AutomationJobStatusType,
     AxisBindingType,
     BarChartOrientationType,
@@ -76,6 +77,7 @@ from .literals import (
     ContributionAnalysisDirectionType,
     ContributionAnalysisSortTypeType,
     ControlSortDirectionType,
+    CredentialStatusType,
     CrossDatasetTypesType,
     CustomContentImageScalingConfigurationType,
     CustomContentTypeType,
@@ -306,6 +308,7 @@ else:
 
 __all__ = (
     "APIKeyConnectionMetadataTypeDef",
+    "AccessControlConfigurationTypeDef",
     "AccountCustomizationTypeDef",
     "AccountInfoTypeDef",
     "AccountSettingsTypeDef",
@@ -667,6 +670,8 @@ __all__ = (
     "CreateIAMPolicyAssignmentResponseTypeDef",
     "CreateIngestionRequestTypeDef",
     "CreateIngestionResponseTypeDef",
+    "CreateKnowledgeBaseRequestTypeDef",
+    "CreateKnowledgeBaseResponseTypeDef",
     "CreateNamespaceRequestTypeDef",
     "CreateNamespaceResponseTypeDef",
     "CreateOAuthClientApplicationRequestTypeDef",
@@ -1116,6 +1121,9 @@ __all__ = (
     "ExportHiddenFieldsOptionTypeDef",
     "ExportToCSVOptionTypeDef",
     "ExportWithHiddenFieldsOptionTypeDef",
+    "FMKBParametersOutputTypeDef",
+    "FMKBParametersTypeDef",
+    "FMKBParametersUnionTypeDef",
     "FailedKeyRegistrationEntryTypeDef",
     "FailedSpaceResourceOperationTypeDef",
     "FailedToUpdateAssociationTypeDef",
@@ -1324,6 +1332,7 @@ __all__ = (
     "GetSessionEmbedUrlRequestTypeDef",
     "GetSessionEmbedUrlResponseTypeDef",
     "GlobalTableBorderOptionsTypeDef",
+    "GoogleDriveParametersTypeDef",
     "GradientColorOutputTypeDef",
     "GradientColorTypeDef",
     "GradientStopTypeDef",
@@ -1439,9 +1448,12 @@ __all__ = (
     "KPIVisualOutputTypeDef",
     "KPIVisualStandardLayoutTypeDef",
     "KPIVisualTypeDef",
+    "KbTemplateConfigurationOutputTypeDef",
     "KbTemplateConfigurationTypeDef",
     "KeyPairCredentialsTypeDef",
+    "KnowledgeBaseConfigurationOutputTypeDef",
     "KnowledgeBaseConfigurationTypeDef",
+    "KnowledgeBaseConfigurationUnionTypeDef",
     "KnowledgeBaseIngestionSummaryTypeDef",
     "KnowledgeBaseSearchFilterTypeDef",
     "KnowledgeBaseSortByTypeDef",
@@ -1659,6 +1671,7 @@ __all__ = (
     "OAuthClientApplicationTypeDef",
     "OAuthClientCredentialsTypeDef",
     "OAuthParametersTypeDef",
+    "OneDriveParametersTypeDef",
     "OracleParametersTypeDef",
     "OutputColumnNameOverrideTypeDef",
     "OutputColumnTypeDef",
@@ -1978,6 +1991,7 @@ __all__ = (
     "SetParameterValueConfigurationTypeDef",
     "ShapeConditionalFormatOutputTypeDef",
     "ShapeConditionalFormatTypeDef",
+    "SharePointParametersTypeDef",
     "SharedColumnSemanticMetadataOutputTypeDef",
     "SharedColumnSemanticMetadataTypeDef",
     "SharedViewConfigurationsTypeDef",
@@ -2355,6 +2369,8 @@ __all__ = (
     "UpdateKeyRegistrationResponseTypeDef",
     "UpdateKnowledgeBasePermissionsRequestTypeDef",
     "UpdateKnowledgeBasePermissionsResponseTypeDef",
+    "UpdateKnowledgeBaseRequestTypeDef",
+    "UpdateKnowledgeBaseResponseTypeDef",
     "UpdateOAuthClientApplicationRequestTypeDef",
     "UpdateOAuthClientApplicationResponseTypeDef",
     "UpdatePublicSharingSettingsRequestTypeDef",
@@ -2475,6 +2491,10 @@ class APIKeyConnectionMetadataTypeDef(TypedDict):
     BaseEndpoint: str
     ApiKey: str
     Email: NotRequired[str]
+
+
+class AccessControlConfigurationTypeDef(TypedDict):
+    isACLEnabled: NotRequired[bool]
 
 
 class AccountCustomizationTypeDef(TypedDict):
@@ -4016,6 +4036,15 @@ class ExasolParametersTypeDef(TypedDict):
     Port: int
 
 
+class FMKBParametersOutputTypeDef(TypedDict):
+    KnowledgeBaseArn: str
+    LinkedDataSourceIds: NotRequired[list[str]]
+
+
+class GoogleDriveParametersTypeDef(TypedDict):
+    AuthType: NotRequired[AuthTypeType]
+
+
 class ImpalaParametersTypeDef(TypedDict):
     Host: str
     Port: int
@@ -4037,6 +4066,12 @@ class MySqlParametersTypeDef(TypedDict):
     Host: str
     Port: int
     Database: str
+
+
+class OneDriveParametersTypeDef(TypedDict):
+    TenantId: NotRequired[str]
+    ClientId: NotRequired[str]
+    AuthType: NotRequired[AuthTypeType]
 
 
 class OracleParametersTypeDef(TypedDict):
@@ -4079,6 +4114,13 @@ class S3TablesParametersTypeDef(TypedDict):
 
 class ServiceNowParametersTypeDef(TypedDict):
     SiteBaseUrl: str
+
+
+class SharePointParametersTypeDef(TypedDict):
+    SharePointDomain: str
+    TenantId: NotRequired[str]
+    ClientId: NotRequired[str]
+    AuthType: NotRequired[AuthTypeType]
 
 
 class SparkParametersTypeDef(TypedDict):
@@ -4874,6 +4916,11 @@ class ExcludePeriodConfigurationTypeDef(TypedDict):
     Status: NotRequired[WidgetStatusType]
 
 
+class FMKBParametersTypeDef(TypedDict):
+    KnowledgeBaseArn: str
+    LinkedDataSourceIds: NotRequired[Sequence[str]]
+
+
 class FailedKeyRegistrationEntryTypeDef(TypedDict):
     Message: str
     StatusCode: int
@@ -5290,8 +5337,12 @@ KPIVisualStandardLayoutTypeDef = TypedDict(
 )
 
 
-class KbTemplateConfigurationTypeDef(TypedDict):
+class KbTemplateConfigurationOutputTypeDef(TypedDict):
     template: NotRequired[dict[str, Any]]
+
+
+class KbTemplateConfigurationTypeDef(TypedDict):
+    template: NotRequired[Mapping[str, Any]]
 
 
 class KnowledgeBaseIngestionSummaryTypeDef(TypedDict):
@@ -7238,6 +7289,15 @@ class CreateIngestionResponseTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 
+class CreateKnowledgeBaseResponseTypeDef(TypedDict):
+    KnowledgeBaseArn: str
+    KnowledgeBaseId: str
+    CreationStatus: DataSetStatusType
+    RequestId: str
+    Status: int
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
 class CreateNamespaceResponseTypeDef(TypedDict):
     Arn: str
     Name: str
@@ -8070,6 +8130,14 @@ class UpdateIdentityPropagationConfigResponseTypeDef(TypedDict):
 
 class UpdateIpRestrictionResponseTypeDef(TypedDict):
     AwsAccountId: str
+    RequestId: str
+    Status: int
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+class UpdateKnowledgeBaseResponseTypeDef(TypedDict):
+    KnowledgeBaseArn: str
+    KnowledgeBaseId: str
     RequestId: str
     Status: int
     ResponseMetadata: ResponseMetadataTypeDef
@@ -9342,6 +9410,9 @@ class DonutOptionsTypeDef(TypedDict):
     DonutCenterOptions: NotRequired[DonutCenterOptionsTypeDef]
 
 
+FMKBParametersUnionTypeDef = Union[FMKBParametersTypeDef, FMKBParametersOutputTypeDef]
+
+
 class FailedSpaceResourceOperationTypeDef(TypedDict):
     ResourceType: SpaceQuickSightResourceTypeType
     ErrorMessage: str
@@ -9704,9 +9775,12 @@ class KPIVisualLayoutOptionsTypeDef(TypedDict):
     StandardLayout: NotRequired[KPIVisualStandardLayoutTypeDef]
 
 
+class KnowledgeBaseConfigurationOutputTypeDef(TypedDict):
+    templateConfiguration: NotRequired[KbTemplateConfigurationOutputTypeDef]
+
+
 class KnowledgeBaseConfigurationTypeDef(TypedDict):
     templateConfiguration: NotRequired[KbTemplateConfigurationTypeDef]
-    eventEnabled: NotRequired[bool]
 
 
 class SearchKnowledgeBasesRequestPaginateTypeDef(TypedDict):
@@ -11270,6 +11344,9 @@ JoinOperationTypeDef = TypedDict(
         "RightOperandProperties": NotRequired[JoinOperandPropertiesTypeDef],
     },
 )
+KnowledgeBaseConfigurationUnionTypeDef = Union[
+    KnowledgeBaseConfigurationTypeDef, KnowledgeBaseConfigurationOutputTypeDef
+]
 LinkSharingConfigurationUnionTypeDef = Union[
     LinkSharingConfigurationTypeDef, LinkSharingConfigurationOutputTypeDef
 ]
@@ -11386,8 +11463,9 @@ KnowledgeBaseTypeDef = TypedDict(
         "Name": str,
         "Status": DataSetStatusType,
         "DataSourceArn": str,
-        "KnowledgeBaseConfiguration": KnowledgeBaseConfigurationTypeDef,
+        "KnowledgeBaseConfiguration": KnowledgeBaseConfigurationOutputTypeDef,
         "MediaExtractionConfiguration": NotRequired[MediaExtractionConfigurationTypeDef],
+        "AccessControlConfiguration": NotRequired[AccessControlConfigurationTypeDef],
         "Type": NotRequired[str],
         "CreatedAt": NotRequired[datetime],
         "UpdatedAt": NotRequired[datetime],
@@ -11902,6 +11980,10 @@ class DataSourceParametersOutputTypeDef(TypedDict):
     WebCrawlerParameters: NotRequired[WebCrawlerParametersTypeDef]
     ConfluenceParameters: NotRequired[ConfluenceParametersTypeDef]
     QBusinessParameters: NotRequired[QBusinessParametersTypeDef]
+    SharePointParameters: NotRequired[SharePointParametersTypeDef]
+    GoogleDriveParameters: NotRequired[GoogleDriveParametersTypeDef]
+    OneDriveParameters: NotRequired[OneDriveParametersTypeDef]
+    FMKBParameters: NotRequired[FMKBParametersOutputTypeDef]
 
 
 class DestinationParameterValueConfigurationTypeDef(TypedDict):
@@ -12431,6 +12513,31 @@ IntegerDatasetParameterUnionTypeDef = Union[
 ]
 
 
+class CreateKnowledgeBaseRequestTypeDef(TypedDict):
+    AwsAccountId: str
+    KnowledgeBaseId: str
+    Name: str
+    DataSourceArn: str
+    KnowledgeBaseConfiguration: KnowledgeBaseConfigurationUnionTypeDef
+    Description: NotRequired[str]
+    Permissions: NotRequired[Sequence[ResourcePermissionUnionTypeDef]]
+    MediaExtractionConfiguration: NotRequired[MediaExtractionConfigurationTypeDef]
+    AccessControlConfiguration: NotRequired[AccessControlConfigurationTypeDef]
+    PrimaryOwnerArn: NotRequired[str]
+    Tags: NotRequired[Sequence[TagTypeDef]]
+
+
+class UpdateKnowledgeBaseRequestTypeDef(TypedDict):
+    AwsAccountId: str
+    KnowledgeBaseId: str
+    Name: NotRequired[str]
+    Description: NotRequired[str]
+    KnowledgeBaseConfiguration: NotRequired[KnowledgeBaseConfigurationUnionTypeDef]
+    MediaExtractionConfiguration: NotRequired[MediaExtractionConfigurationTypeDef]
+    IsEmailNotificationOptedForIngestionFailures: NotRequired[bool]
+    AccessControlConfiguration: NotRequired[AccessControlConfigurationTypeDef]
+
+
 class DescribeKnowledgeBaseResponseTypeDef(TypedDict):
     KnowledgeBase: KnowledgeBaseTypeDef
     RequestId: str
@@ -12664,6 +12771,8 @@ DataSourceTypeDef = TypedDict(
         "SslProperties": NotRequired[SslPropertiesTypeDef],
         "ErrorInfo": NotRequired[DataSourceErrorInfoTypeDef],
         "SecretArn": NotRequired[str],
+        "CredentialStatus": NotRequired[CredentialStatusType],
+        "LastCredentialVerifiedAt": NotRequired[datetime],
     },
 )
 
@@ -13349,6 +13458,10 @@ class DataSourceParametersTypeDef(TypedDict):
     WebCrawlerParameters: NotRequired[WebCrawlerParametersTypeDef]
     ConfluenceParameters: NotRequired[ConfluenceParametersTypeDef]
     QBusinessParameters: NotRequired[QBusinessParametersTypeDef]
+    SharePointParameters: NotRequired[SharePointParametersTypeDef]
+    GoogleDriveParameters: NotRequired[GoogleDriveParametersTypeDef]
+    OneDriveParameters: NotRequired[OneDriveParametersTypeDef]
+    FMKBParameters: NotRequired[FMKBParametersUnionTypeDef]
 
 
 class CreateRefreshScheduleRequestTypeDef(TypedDict):

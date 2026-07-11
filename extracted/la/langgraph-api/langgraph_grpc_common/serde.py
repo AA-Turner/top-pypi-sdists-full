@@ -2,7 +2,9 @@ import re
 import uuid
 from base64 import b64encode
 from collections import deque
-from collections.abc import Mapping
+from collections.abc import Iterator, Mapping
+from contextlib import contextmanager
+from contextvars import ContextVar
 from datetime import timedelta, timezone
 from decimal import Decimal
 from ipaddress import (
@@ -22,7 +24,15 @@ import orjson
 from langgraph.checkpoint.serde.base import SerializerProtocol
 from langgraph.checkpoint.serde.jsonplus import JsonPlusSerializer
 
+# Process-wide default serializer.
 SERIALIZER: SerializerProtocol = JsonPlusSerializer()
+
+# Task-local override and falls back to ``SERIALIZER`` when unset.
+# (e.g. ``GrpcCheckpointer``) scope a custom serializer to its own RPC
+# bodies without leaking into unrelated gRPC ops
+_SCOPED_SERIALIZER: ContextVar[SerializerProtocol | None] = ContextVar(
+    "_grpc_scoped_serializer", default=None
+)
 
 
 class Fragment(NamedTuple):
@@ -154,9 +164,31 @@ def json_dumpb(obj) -> bytes:
 
 
 def set_serializer(serializer: SerializerProtocol) -> None:
-    global SERIALIZER
-    SERIALIZER = serializer
+    """Replace the process-wide default serializer.
 
+    This only affects every consumer of ``langgraph_grpc_common.conversion.*``.
+    """
+    global SERIALIZER
+    SERIALIZER = serializer 
 
 def get_serializer() -> SerializerProtocol:
-    return SERIALIZER
+    """Return the serializer to use for gRPC payload (de)serialization.
+
+    Resolution order:
+
+    1. A task-local override bound via :func:`use_serializer`, if any.
+    2. The process-wide default set by :func:`set_serializer` (or the
+       ``JsonPlusSerializer()`` baseline if never replaced).
+    """
+    return _SCOPED_SERIALIZER.get() or SERIALIZER
+
+
+@contextmanager
+def use_serializer(serializer: SerializerProtocol) -> Iterator[None]:
+    """Bind ``serializer`` for the current async task / sync context.
+    """
+    token = _SCOPED_SERIALIZER.set(serializer)
+    try:
+        yield
+    finally:
+        _SCOPED_SERIALIZER.reset(token)

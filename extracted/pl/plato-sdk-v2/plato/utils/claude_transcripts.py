@@ -34,7 +34,7 @@ from opentelemetry import context as otel_context
 from opentelemetry import trace as otel_trace
 from opentelemetry.trace import NonRecordingSpan, Span, SpanContext, TraceFlags, Tracer
 
-from plato.otel import emit_step
+from plato.otel import DeferredStepSpan, emit_step, start_deferred_step_span
 from plato.utils.tool_execution import (
     ToolExecutionRecorderLike,
     ToolExecutionStatus,
@@ -206,7 +206,15 @@ class StreamUsageAccountant:
     final usage and ``total_cost_usd`` replace the streamed estimates.
     """
 
-    def __init__(self, *, cost_fn):
+    def __init__(self, *, cost_fn, authoritative_streamed_cost: bool = False):
+        # When True (OpenRouter generation-stats resolution), the per-turn
+        # BILLED costs folded in via ``record_resolved_usage`` are the cost
+        # source of truth: the result event's ``total_cost_usd`` — the CLI's
+        # list-price ESTIMATE, which can differ from billed by an order of
+        # magnitude — never overrides the total. It is exposed separately as
+        # ``atif.agent.cost_estimate_usd`` by ``apply_to_span`` so the root
+        # cost always equals the sum of per-step cost attributes.
+        self._authoritative_streamed_cost = authoritative_streamed_cost
         self._cost_fn = cost_fn
         self._seen_message_ids: set[str] = set()
         self._turn_count = 0
@@ -297,9 +305,35 @@ class StreamUsageAccountant:
 
     @property
     def cost_usd(self) -> float:
+        if self._authoritative_streamed_cost:
+            return self._streamed_cost_usd
         if self._result_cost_usd is not None:
             return self._result_cost_usd
         return self._streamed_cost_usd
+
+    def record_resolved_usage(
+        self,
+        *,
+        prompt_tokens: int,
+        completion_tokens: int,
+        cache_read_tokens: int = 0,
+        cost_usd: float | None = None,
+    ) -> None:
+        """Fold post-hoc resolved per-turn usage into the streamed totals.
+
+        Used for turns whose stream envelopes carried no usage (custom
+        endpoints like OpenRouter) once their true numbers are fetched from
+        the provider's generation-stats API. Keeps run totals meaningful even
+        when the final ``result`` event never arrives (crash mid-run); when
+        the result event does arrive, its TOKEN totals still override these
+        (same counting basis), while cost precedence follows
+        ``authoritative_streamed_cost``.
+        """
+        self._streamed_prompt_tokens += prompt_tokens
+        self._streamed_output_tokens += completion_tokens
+        self._streamed_cache_read_tokens += cache_read_tokens
+        if cost_usd:
+            self._streamed_cost_usd += cost_usd
 
     @property
     def cost_from_result_event(self) -> bool:
@@ -309,6 +343,11 @@ class StreamUsageAccountant:
         """Set ATIF token attributes on the root span from best-known totals."""
         if self.cost_usd > 0:
             root_span.set_attribute("atif.agent.cost_usd", self.cost_usd)
+        if self._authoritative_streamed_cost and self._result_cost_usd:
+            # Keep the CLI's list-price estimate visible without letting it
+            # masquerade as the billed total: the root cost above stays equal
+            # to the sum of per-step billed cost attributes.
+            root_span.set_attribute("atif.agent.cost_estimate_usd", self._result_cost_usd)
         if self.prompt_tokens > 0:
             root_span.set_attribute("atif.agent.prompt_tokens", self.prompt_tokens)
         if self.output_tokens > 0:
@@ -347,6 +386,7 @@ class ClaudeTranscriptEmitter:
         cost_fn: Callable[..., float | None] | None = None,
         use_transcript_timestamps: bool = False,
         tool_result_text_resolver: Callable[[str], str] | None = None,
+        defer_unattributed_usage: bool = False,
     ):
         self.tracer = tracer
         self.model_name = model_name
@@ -354,6 +394,25 @@ class ClaudeTranscriptEmitter:
         self._cost_fn = cost_fn
         self.use_transcript_timestamps = use_transcript_timestamps
         self._tool_result_text_resolver = tool_result_text_resolver
+        # When True, the first step span of a turn whose envelopes carry no
+        # usage is created with true timestamps but held un-exported
+        # (deferred export) while an external resolver (the claude-code
+        # agent's OpenRouter generation-stats fetcher) fetches the turn's
+        # real usage; ``resolve_deferred_usage`` merges it into the span and
+        # exports it, ``flush_deferred_usage`` exports bare on timeout or
+        # teardown. The result-step aggregate fallback is skipped so the two
+        # mechanisms can't double-count.
+        self.defer_unattributed_usage = defer_unattributed_usage
+        # message.id -> step_id of the turn's deferred usage-carrier span.
+        # Drained by the agent's resolver scheduler.
+        self.unattributed_turns: dict[str, int] = {}
+        self._unattributed_seen: set[str] = set()
+        # message.id -> the held (un-exported) usage-carrier span.
+        self._deferred_spans: dict[str, DeferredStepSpan] = {}
+        # Turns whose usage never resolved (flushed bare). Surfaced on the
+        # root span as ``atif.agent.unresolved_usage_turns`` so a root total
+        # below the true spend is explainable from span data alone.
+        self.unresolved_usage_turns = 0
         # Every tool_use span's identity, kept for the session's lifetime (not
         # popped on result) so sub-agent wrapper spans can be parented under
         # the Task/Workflow tool call that spawned them via meta ``toolUseId``.
@@ -362,6 +421,12 @@ class ClaudeTranscriptEmitter:
         # its BatchSpanProcessor flush cadence on this (spans, not input
         # records — one record can emit many spans).
         self.spans_emitted = 0
+        # True once any assistant envelope carried real (nonzero) usage.
+        # Custom Anthropic-compatible endpoints (e.g. OpenRouter) zero out
+        # per-message usage in the live stream — real usage arrives only on
+        # the final ``result`` event — so this gates the result-step
+        # aggregate-usage fallback in ``emit_event``.
+        self._stream_usage_seen = False
 
     def compute_cost(
         self,
@@ -386,6 +451,63 @@ class ClaudeTranscriptEmitter:
         if not tool_use_id:
             return None
         return self.tool_span_contexts.get(tool_use_id)
+
+    def _deferral_carrier(self, message_id: Any) -> bool:
+        """True when this zero-usage turn still needs its usage-carrier span.
+
+        Only the turn's FIRST span is deferred and carries the resolved
+        usage; later envelopes of the same message emit immediately.
+        """
+        if not self.defer_unattributed_usage:
+            return False
+        if not isinstance(message_id, str) or not message_id:
+            return False
+        return message_id not in self._unattributed_seen
+
+    def _register_deferred_turn(self, message_id: str, step_id: int, deferred: DeferredStepSpan) -> None:
+        self._unattributed_seen.add(message_id)
+        self.unattributed_turns[message_id] = step_id
+        self._deferred_spans[message_id] = deferred
+
+    def resolve_deferred_usage(
+        self,
+        message_id: str,
+        *,
+        prompt_tokens: int,
+        completion_tokens: int,
+        cache_read_tokens: int = 0,
+        cost_usd: float | None = None,
+        usage_source: str | None = None,
+    ) -> bool:
+        """Merge resolved usage into the turn's held span and export it.
+
+        Returns False when the turn has no held span (already flushed, or
+        never deferred).
+        """
+        deferred = self._deferred_spans.pop(message_id, None)
+        if deferred is None:
+            return False
+        deferred.finish(
+            prompt_tokens=prompt_tokens,
+            completion_tokens=completion_tokens,
+            cache_read_tokens=cache_read_tokens,
+            cost_usd=cost_usd,
+            usage_source=usage_source,
+        )
+        return True
+
+    def flush_deferred_usage(self, message_id: str | None = None) -> None:
+        """Export held span(s) without usage (resolution failed / teardown)."""
+        if message_id is not None:
+            deferred = self._deferred_spans.pop(message_id, None)
+            if deferred is not None:
+                deferred.finish()
+                self.unresolved_usage_turns += 1
+            return
+        while self._deferred_spans:
+            _, deferred = self._deferred_spans.popitem()
+            deferred.finish()
+            self.unresolved_usage_turns += 1
 
     def _resolve_tool_result_text(self, text: str) -> str:
         if not text or self._tool_result_text_resolver is None:
@@ -558,29 +680,60 @@ class ClaudeTranscriptEmitter:
             cache_write_tokens = usage.get("cache_creation_input_tokens", 0) or 0
             prompt_tokens = uncached_input_tokens + cache_read_tokens + cache_write_tokens
             completion_tokens = usage.get("output_tokens")
-            cost_usd = self.compute_cost(
-                uncached_input_tokens=uncached_input_tokens,
-                cache_read_tokens=cache_read_tokens,
-                cache_write_tokens=cache_write_tokens,
-                output_tokens=completion_tokens or 0,
-            )
+            if prompt_tokens or completion_tokens:
+                self._stream_usage_seen = True
+                cost_usd = self.compute_cost(
+                    uncached_input_tokens=uncached_input_tokens,
+                    cache_read_tokens=cache_read_tokens,
+                    cache_write_tokens=cache_write_tokens,
+                    output_tokens=completion_tokens or 0,
+                )
+            else:
+                # No usage signal in the envelope: custom Anthropic-compatible
+                # endpoints (e.g. OpenRouter) report zeros/nulls per message,
+                # with real usage only on the final ``result`` event. Emit no
+                # token attributes rather than fake zeros; the result step
+                # carries the invocation aggregate (see the result branch).
+                prompt_tokens = None
+                completion_tokens = None
+                cache_read_tokens = None
+                cache_write_tokens = None
+                cost_usd = None
+
+            usage_unattributed = prompt_tokens is None
 
             if text or reasoning:
                 self.spans_emitted += 1
-                emit_step(
-                    self.tracer,
-                    step_id=next_step(),
-                    source="agent",
-                    message=text,
-                    model_name=message.get("model", self.model_name),
-                    reasoning=reasoning,
-                    prompt_tokens=prompt_tokens,
-                    completion_tokens=completion_tokens,
-                    cache_read_tokens=cache_read_tokens,
-                    cache_write_tokens=cache_write_tokens,
-                    cost_usd=cost_usd,
-                    start_time_ns=ts_ns,
-                )
+                step_id = next_step()
+                if usage_unattributed and self._deferral_carrier(message.get("id")):
+                    # Deferred export: the span exists now (true timestamps,
+                    # children can already reference it) but exports once the
+                    # resolver merges the turn's real usage — or bare on
+                    # timeout/teardown.
+                    deferred = start_deferred_step_span(
+                        self.tracer,
+                        step_id,
+                        "agent",
+                        text,
+                        model_name=message.get("model", self.model_name),
+                        reasoning=reasoning,
+                    )
+                    self._register_deferred_turn(message["id"], step_id, deferred)
+                else:
+                    emit_step(
+                        self.tracer,
+                        step_id=step_id,
+                        source="agent",
+                        message=text,
+                        model_name=message.get("model", self.model_name),
+                        reasoning=reasoning,
+                        prompt_tokens=prompt_tokens,
+                        completion_tokens=completion_tokens,
+                        cache_read_tokens=cache_read_tokens,
+                        cache_write_tokens=cache_write_tokens,
+                        cost_usd=cost_usd,
+                        start_time_ns=ts_ns,
+                    )
 
             for index, (tool_id, tool_name, tool_input) in enumerate(tool_uses):
                 start_record = None
@@ -598,9 +751,36 @@ class ClaudeTranscriptEmitter:
                 if ts_ns is not None:
                     span_kwargs["start_time_ns"] = ts_ns
                 self.spans_emitted += 1
+                tool_step_id = next_step()
+                deferred_tool = None
+                if (
+                    index == 0
+                    and not text
+                    and not reasoning
+                    and usage_unattributed
+                    and self._deferral_carrier(message.get("id"))
+                ):
+                    # Tool-only turn: the tool span is the turn's usage
+                    # carrier — create it now (children/results can reference
+                    # it immediately), export once usage resolves.
+                    deferred_tool = start_deferred_step_span(
+                        self.tracer,
+                        tool_step_id,
+                        "agent",
+                        "",
+                        model_name=message.get("model", self.model_name),
+                        tool_calls=[
+                            {
+                                "tool_call_id": tool_id,
+                                "function_name": tool_name,
+                                "arguments": tool_input,
+                            }
+                        ],
+                    )
+                    self._register_deferred_turn(message["id"], tool_step_id, deferred_tool)
                 pending_execution = open_tool_execution(
                     tracer=self.tracer,
-                    step_id=next_step(),
+                    step_id=tool_step_id,
                     tool_id=tool_id,
                     tool_name=tool_name,
                     tool_arguments=tool_input,
@@ -610,6 +790,7 @@ class ClaudeTranscriptEmitter:
                     path_hints=[path for path in [tool_call_path(tool_input)] if path is not None],
                     working_directory=self.workspace_dir,
                     span_kwargs=span_kwargs,
+                    tool_span=deferred_tool.span if deferred_tool is not None else None,
                 )
                 pending_tool_calls[tool_id].step_id = pending_execution.step_id
                 pending_tool_calls[tool_id].execution = pending_execution.execution
@@ -689,6 +870,41 @@ class ClaudeTranscriptEmitter:
                 )
 
         elif event_type == "result":
+            usage = event.get("usage") or {}
+            uncached_input_tokens = usage.get("input_tokens", 0) or 0
+            cache_read_tokens = usage.get("cache_read_input_tokens", 0) or 0
+            cache_write_tokens = usage.get("cache_creation_input_tokens", 0) or 0
+            prompt_tokens = uncached_input_tokens + cache_read_tokens + cache_write_tokens
+            completion_tokens = usage.get("output_tokens", 0) or 0
+            token_kwargs: dict[str, Any] = {}
+            if (
+                not self._stream_usage_seen
+                and not self.defer_unattributed_usage
+                and (prompt_tokens or completion_tokens)
+            ):
+                # Aggregate fallback: no assistant envelope carried usage this
+                # invocation (custom endpoints like OpenRouter zero them out),
+                # so attach the result event's whole-invocation totals here.
+                # These are aggregates over every turn of the CLI invocation,
+                # NOT per-turn numbers — flagged via ``usage_source`` so
+                # consumers can tell them apart. Step-sums still equal the run
+                # total, since every other step carried no token attributes.
+                cost_usd = event.get("total_cost_usd")
+                if cost_usd is None:
+                    cost_usd = self.compute_cost(
+                        uncached_input_tokens=uncached_input_tokens,
+                        cache_read_tokens=cache_read_tokens,
+                        cache_write_tokens=cache_write_tokens,
+                        output_tokens=completion_tokens,
+                    )
+                token_kwargs = {
+                    "prompt_tokens": prompt_tokens,
+                    "completion_tokens": completion_tokens,
+                    "cache_read_tokens": cache_read_tokens,
+                    "cache_write_tokens": cache_write_tokens,
+                    "cost_usd": cost_usd,
+                    "usage_source": "result_event_aggregate",
+                }
             self.spans_emitted += 1
             emit_step(
                 self.tracer,
@@ -697,6 +913,7 @@ class ClaudeTranscriptEmitter:
                 message=str(event.get("result", "")),
                 model_name=self.model_name,
                 start_time_ns=ts_ns,
+                **token_kwargs,
             )
 
 

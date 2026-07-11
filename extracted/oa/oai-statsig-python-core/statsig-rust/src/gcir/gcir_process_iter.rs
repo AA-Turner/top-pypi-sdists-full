@@ -1,16 +1,18 @@
-use super::{evaluation_plan::PlannedEvaluation, target_app_id_utils::should_filter_spec_for_app};
+use super::{
+    evaluation_plan::PlannedEvaluation,
+    secondary_exposure_hashing::hash_secondary_exposures,
+    target_app_id_utils::{should_filter_config_for_app, should_filter_spec_for_app},
+};
 use crate::{
     evaluation::{
         evaluator::{Evaluator, SpecType},
         evaluator_context::EvaluatorContext,
-        evaluator_result::EvaluatorResult,
-        secondary_exposure_key::SecondaryExposureKey,
     },
     gcir::gcir_formatter::GCIRHashable,
-    hashing::{self, HashUtil},
+    hashing,
     interned_string::InternedString,
     specs_response::{spec_types::Spec, specs_hash_map::SpecsHashMap},
-    ClientInitResponseOptions, HashAlgorithm, SecondaryExposure, StatsigErr,
+    ClientInitResponseOptions, StatsigErr,
 };
 use std::collections::{HashMap, HashSet};
 
@@ -100,29 +102,98 @@ pub(crate) fn gcir_process_plan<T: GCIRHashable>(
     context: &mut EvaluatorContext,
     options: &ClientInitResponseOptions,
     sec_expo_hash_memo: &mut HashMap<InternedString, InternedString>,
-    specs_map: &SpecsHashMap,
     plan: &[PlannedEvaluation],
+    evaluation_factory: impl FnMut(&str, &InternedString, &mut EvaluatorContext) -> T,
+) -> Result<HashMap<InternedString, T>, StatsigErr> {
+    let plan_options = PlanProcessOptions::new(context, options);
+
+    // Dispatch once per response so option checks are compiled out of the per-config hot loop.
+    match (plan_options.has_checksum, plan_options.has_extra_filters()) {
+        (false, false) => gcir_process_plan_impl::<T, false, false>(
+            context,
+            options,
+            sec_expo_hash_memo,
+            plan,
+            plan_options,
+            evaluation_factory,
+        ),
+        (false, true) => gcir_process_plan_impl::<T, false, true>(
+            context,
+            options,
+            sec_expo_hash_memo,
+            plan,
+            plan_options,
+            evaluation_factory,
+        ),
+        (true, false) => gcir_process_plan_impl::<T, true, false>(
+            context,
+            options,
+            sec_expo_hash_memo,
+            plan,
+            plan_options,
+            evaluation_factory,
+        ),
+        (true, true) => gcir_process_plan_impl::<T, true, true>(
+            context,
+            options,
+            sec_expo_hash_memo,
+            plan,
+            plan_options,
+            evaluation_factory,
+        ),
+    }
+}
+
+#[derive(Clone, Copy)]
+struct PlanProcessOptions {
+    has_checksum: bool,
+    has_entity_filters: bool,
+    remove_experiments_in_layers: bool,
+    should_filter_for_app: bool,
+    remove_default_value_gates: bool,
+}
+
+impl PlanProcessOptions {
+    fn new(context: &EvaluatorContext, options: &ClientInitResponseOptions) -> Self {
+        Self {
+            has_checksum: options.previous_response_hash.is_some(),
+            has_entity_filters: options.feature_gate_filter.is_some()
+                || options.experiment_filter.is_some()
+                || options.dynamic_config_filter.is_some()
+                || options.layer_filter.is_some(),
+            remove_experiments_in_layers: options.remove_experiments_in_layers.unwrap_or(false),
+            should_filter_for_app: options.client_sdk_key.is_some()
+                && context
+                    .app_id
+                    .as_ref()
+                    .is_some_and(|app_id| app_id.string_value.is_some()),
+            remove_default_value_gates: options.remove_default_value_gates.unwrap_or(false),
+        }
+    }
+
+    fn has_extra_filters(self) -> bool {
+        self.has_pre_eval_filters() || self.remove_default_value_gates
+    }
+
+    fn has_pre_eval_filters(self) -> bool {
+        self.has_entity_filters || self.remove_experiments_in_layers || self.should_filter_for_app
+    }
+}
+
+fn gcir_process_plan_impl<T: GCIRHashable, const WITH_CHECKSUM: bool, const WITH_FILTERS: bool>(
+    context: &mut EvaluatorContext,
+    options: &ClientInitResponseOptions,
+    sec_expo_hash_memo: &mut HashMap<InternedString, InternedString>,
+    plan: &[PlannedEvaluation],
+    plan_options: PlanProcessOptions,
     mut evaluation_factory: impl FnMut(&str, &InternedString, &mut EvaluatorContext) -> T,
 ) -> Result<HashMap<InternedString, T>, StatsigErr> {
     let mut results = HashMap::with_capacity(plan.len());
-    let mut hashes = Vec::with_capacity(if options.previous_response_hash.is_some() {
-        plan.len()
-    } else {
-        0
-    });
+    let mut hashes = Vec::with_capacity(if WITH_CHECKSUM { plan.len() } else { 0 });
     let hash_algorithm = options.get_hash_algorithm();
     for planned in plan {
-        let spec_ptr = match gcir_time!("plan.spec_lookup", specs_map.get(&planned.name)) {
-            Some(s) => s,
-            None => continue,
-        };
-        let spec = spec_ptr.as_spec_ref();
-
-        if gcir_time!("plan.filtering", {
-            should_filter_entity(spec, planned.name.as_str(), options)
-                || should_filter_experiment_in_layer(context, spec, planned.name.as_str(), options)
-                || should_filter_spec_for_app(spec, &context.app_id, &options.client_sdk_key)
-        }) {
+        if WITH_FILTERS && should_filter_planned_evaluation(context, options, plan_options, planned)
+        {
             continue;
         }
 
@@ -132,13 +203,7 @@ pub(crate) fn gcir_process_plan<T: GCIRHashable>(
             Evaluator::evaluate(context, planned.name.as_str(), &planned.spec_type)
         })?;
 
-        if gcir_time!("plan.post_eval_filters", {
-            options.remove_default_value_gates.unwrap_or(false)
-                && spec.entity == "feature_gate"
-                && context.result.rule_id.as_deref() == Some("default")
-                && !context.result.bool_value
-                && context.result.secondary_exposures.is_empty()
-        }) {
+        if WITH_FILTERS && should_filter_default_gate(context, plan_options, planned) {
             continue;
         }
 
@@ -156,22 +221,99 @@ pub(crate) fn gcir_process_plan<T: GCIRHashable>(
             evaluation_factory(planned.entity.as_str(), hashed_name, context)
         });
 
-        if options.previous_response_hash.is_some() {
+        if WITH_CHECKSUM {
             let hash = gcir_time!("plan.create_hash", eval.create_hash(&planned.name));
             hashes.push(hash);
         }
+
         gcir_time!("plan.result_insert", {
             results.insert(hashed_name.clone(), eval)
         });
     }
 
-    if options.previous_response_hash.is_some() {
+    if WITH_CHECKSUM {
         gcir_time!("plan.section_hash_aggregate", {
             context.gcir_hashes.push(hashing::hash_one(hashes))
         });
     }
 
     Ok(results)
+}
+
+fn should_filter_planned_evaluation(
+    context: &EvaluatorContext,
+    options: &ClientInitResponseOptions,
+    plan_options: PlanProcessOptions,
+    planned: &PlannedEvaluation,
+) -> bool {
+    if !plan_options.has_pre_eval_filters() {
+        return false;
+    }
+
+    gcir_time!("plan.filtering", {
+        (plan_options.has_entity_filters && should_filter_planned_entity(planned, options))
+            || (plan_options.remove_experiments_in_layers
+                && should_filter_planned_experiment_in_layer(planned, options))
+            || (plan_options.should_filter_for_app
+                && should_filter_config_for_app(
+                    planned.target_app_ids.as_ref(),
+                    &context.app_id,
+                    &options.client_sdk_key,
+                ))
+    })
+}
+
+fn should_filter_default_gate(
+    context: &EvaluatorContext,
+    plan_options: PlanProcessOptions,
+    planned: &PlannedEvaluation,
+) -> bool {
+    if !plan_options.remove_default_value_gates {
+        return false;
+    }
+
+    gcir_time!("plan.post_eval_filters", {
+        matches!(&planned.spec_type, SpecType::Gate)
+            && context.result.rule_id.as_deref() == Some("default")
+            && !context.result.bool_value
+            && context.result.secondary_exposures.is_empty()
+    })
+}
+
+fn should_filter_planned_entity(
+    planned: &PlannedEvaluation,
+    options: &ClientInitResponseOptions,
+) -> bool {
+    match &planned.spec_type {
+        SpecType::Gate => options
+            .feature_gate_filter
+            .as_ref()
+            .is_some_and(|f| !f.contains(planned.name.as_str())),
+        SpecType::Experiment => options
+            .experiment_filter
+            .as_ref()
+            .is_some_and(|f| !f.contains(planned.name.as_str())),
+        SpecType::DynamicConfig => options
+            .dynamic_config_filter
+            .as_ref()
+            .is_some_and(|f| !f.contains(planned.name.as_str())),
+        SpecType::Layer => options
+            .layer_filter
+            .as_ref()
+            .is_some_and(|f| !f.contains(planned.name.as_str())),
+        SpecType::ParameterStore => false,
+    }
+}
+
+fn should_filter_planned_experiment_in_layer(
+    planned: &PlannedEvaluation,
+    options: &ClientInitResponseOptions,
+) -> bool {
+    if !planned.is_experiment_in_layer {
+        return false;
+    }
+
+    !is_experiment_in_layer_allowlisted(planned.name.as_str(), options)
 }
 
 fn get_pipeline_override_names(context: &EvaluatorContext) -> HashSet<InternedString> {
@@ -240,60 +382,6 @@ fn is_experiment_in_layer_allowlisted(name: &str, options: &ClientInitResponseOp
         .experiments_in_layers_allowlist
         .as_ref()
         .is_some_and(|allowlist| allowlist.contains(name))
-}
-
-pub fn hash_secondary_exposures(
-    result: &mut EvaluatorResult,
-    hashing: &HashUtil,
-    hash_algorithm: &HashAlgorithm,
-    memo: &mut HashMap<InternedString, InternedString>,
-) {
-    fn loop_filter_n_hash(
-        exposures: &mut Vec<SecondaryExposure>,
-        hashing: &HashUtil,
-        hash_algorithm: &HashAlgorithm,
-        memo: &mut HashMap<InternedString, InternedString>,
-    ) {
-        let mut seen = HashSet::<SecondaryExposureKey>::with_capacity(exposures.len());
-        exposures.retain_mut(|expo| {
-            let expo_key = SecondaryExposureKey::from(&*expo);
-            if seen.contains(&expo_key) {
-                return false;
-            }
-            seen.insert(expo_key);
-
-            match memo.get(&expo.gate) {
-                Some(hash) => {
-                    expo.gate = hash.clone();
-                }
-                None => {
-                    let hash = hashing.hash(&expo.gate, hash_algorithm);
-                    let interned_hash = InternedString::from_string(hash);
-                    let old = std::mem::replace(&mut expo.gate, interned_hash.clone());
-                    memo.insert(old, interned_hash);
-                }
-            }
-            true
-        });
-    }
-
-    if !result.secondary_exposures.is_empty() {
-        loop_filter_n_hash(
-            &mut result.secondary_exposures,
-            hashing,
-            hash_algorithm,
-            memo,
-        );
-    }
-
-    if let Some(undelegated_secondary_exposures) = result.undelegated_secondary_exposures.as_mut() {
-        loop_filter_n_hash(
-            undelegated_secondary_exposures,
-            hashing,
-            hash_algorithm,
-            memo,
-        );
-    }
 }
 
 #[cfg(test)]

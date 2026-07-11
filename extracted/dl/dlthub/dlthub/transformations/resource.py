@@ -189,7 +189,9 @@ def make_transformation_resource(
 
         # determine materialization strategy
         if output_dataset:
-            should_materialize = not datasets[0].is_same_physical_destination(output_dataset)
+            should_materialize = not output_dataset.destination_client.config.can_write_from(
+                datasets[0].destination_client.config
+            )
         else:
             logger.info(
                 "Cannot reach destination or transformation run outside of pipeline, defaulting to"

@@ -1,4 +1,5 @@
 from chalk._gen.chalk.auth.v1 import permissions_pb2 as _permissions_pb2
+from chalk._gen.chalk.chart.v1 import densetimeserieschart_pb2 as _densetimeserieschart_pb2
 from chalk._gen.chalk.server.v1 import materialized_aggregate_tiles_pb2 as _materialized_aggregate_tiles_pb2
 from chalk._gen.chalk.volume.v1 import volume_pb2 as _volume_pb2
 from google.protobuf import struct_pb2 as _struct_pb2
@@ -57,6 +58,13 @@ class SortOrder(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
     SORT_ORDER_DESC: _ClassVar[SortOrder]
     SORT_ORDER_ASC: _ClassVar[SortOrder]
 
+class ShardPerformanceSummaryStatus(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
+    __slots__ = ()
+    SHARD_PERFORMANCE_SUMMARY_STATUS_UNSPECIFIED: _ClassVar[ShardPerformanceSummaryStatus]
+    SHARD_PERFORMANCE_SUMMARY_STATUS_AVAILABLE: _ClassVar[ShardPerformanceSummaryStatus]
+    SHARD_PERFORMANCE_SUMMARY_STATUS_PENDING: _ClassVar[ShardPerformanceSummaryStatus]
+    SHARD_PERFORMANCE_SUMMARY_STATUS_NONE: _ClassVar[ShardPerformanceSummaryStatus]
+
 DATASET_REVISION_STATUS_UNSPECIFIED: DatasetRevisionStatus
 DATASET_REVISION_STATUS_UNKNOWN: DatasetRevisionStatus
 DATASET_REVISION_STATUS_WORKING: DatasetRevisionStatus
@@ -82,6 +90,10 @@ DATASET_SORT_COLUMN_CREATED_AT: DatasetSortColumn
 SORT_ORDER_UNSPECIFIED: SortOrder
 SORT_ORDER_DESC: SortOrder
 SORT_ORDER_ASC: SortOrder
+SHARD_PERFORMANCE_SUMMARY_STATUS_UNSPECIFIED: ShardPerformanceSummaryStatus
+SHARD_PERFORMANCE_SUMMARY_STATUS_AVAILABLE: ShardPerformanceSummaryStatus
+SHARD_PERFORMANCE_SUMMARY_STATUS_PENDING: ShardPerformanceSummaryStatus
+SHARD_PERFORMANCE_SUMMARY_STATUS_NONE: ShardPerformanceSummaryStatus
 
 class DatasetRevisionMeta(_message.Message):
     __slots__ = (
@@ -303,6 +315,21 @@ class GetDatasetRevisionDownloadLinksRequest(_message.Message):
     revision_id: str
     def __init__(self, revision_id: _Optional[str] = ...) -> None: ...
 
+class ShardPerformanceSummaryLink(_message.Message):
+    __slots__ = ("shard_id", "url", "status")
+    SHARD_ID_FIELD_NUMBER: _ClassVar[int]
+    URL_FIELD_NUMBER: _ClassVar[int]
+    STATUS_FIELD_NUMBER: _ClassVar[int]
+    shard_id: int
+    url: str
+    status: ShardPerformanceSummaryStatus
+    def __init__(
+        self,
+        shard_id: _Optional[int] = ...,
+        url: _Optional[str] = ...,
+        status: _Optional[_Union[ShardPerformanceSummaryStatus, str]] = ...,
+    ) -> None: ...
+
 class GetDatasetRevisionDownloadLinksResponse(_message.Message):
     __slots__ = (
         "output_urls",
@@ -312,6 +339,7 @@ class GetDatasetRevisionDownloadLinksResponse(_message.Message):
         "trace_urls",
         "error",
         "expiration",
+        "performance_summary_links",
     )
     OUTPUT_URLS_FIELD_NUMBER: _ClassVar[int]
     GIVENS_URLS_FIELD_NUMBER: _ClassVar[int]
@@ -320,6 +348,7 @@ class GetDatasetRevisionDownloadLinksResponse(_message.Message):
     TRACE_URLS_FIELD_NUMBER: _ClassVar[int]
     ERROR_FIELD_NUMBER: _ClassVar[int]
     EXPIRATION_FIELD_NUMBER: _ClassVar[int]
+    PERFORMANCE_SUMMARY_LINKS_FIELD_NUMBER: _ClassVar[int]
     output_urls: _containers.RepeatedScalarFieldContainer[str]
     givens_urls: _containers.RepeatedScalarFieldContainer[str]
     performance_summary_urls: _containers.RepeatedScalarFieldContainer[str]
@@ -327,6 +356,7 @@ class GetDatasetRevisionDownloadLinksResponse(_message.Message):
     trace_urls: _containers.RepeatedScalarFieldContainer[str]
     error: str
     expiration: _timestamp_pb2.Timestamp
+    performance_summary_links: _containers.RepeatedCompositeFieldContainer[ShardPerformanceSummaryLink]
     def __init__(
         self,
         output_urls: _Optional[_Iterable[str]] = ...,
@@ -336,6 +366,7 @@ class GetDatasetRevisionDownloadLinksResponse(_message.Message):
         trace_urls: _Optional[_Iterable[str]] = ...,
         error: _Optional[str] = ...,
         expiration: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ...,
+        performance_summary_links: _Optional[_Iterable[_Union[ShardPerformanceSummaryLink, _Mapping]]] = ...,
     ) -> None: ...
 
 class StreamDatasetRevisionDownloadLinksRequest(_message.Message):
@@ -353,6 +384,7 @@ class StreamDatasetRevisionDownloadLinksResponse(_message.Message):
         "trace_urls",
         "error",
         "expiration",
+        "performance_summary_links",
     )
     OUTPUT_URLS_FIELD_NUMBER: _ClassVar[int]
     GIVENS_URLS_FIELD_NUMBER: _ClassVar[int]
@@ -361,6 +393,7 @@ class StreamDatasetRevisionDownloadLinksResponse(_message.Message):
     TRACE_URLS_FIELD_NUMBER: _ClassVar[int]
     ERROR_FIELD_NUMBER: _ClassVar[int]
     EXPIRATION_FIELD_NUMBER: _ClassVar[int]
+    PERFORMANCE_SUMMARY_LINKS_FIELD_NUMBER: _ClassVar[int]
     output_urls: _containers.RepeatedScalarFieldContainer[str]
     givens_urls: _containers.RepeatedScalarFieldContainer[str]
     performance_summary_urls: _containers.RepeatedScalarFieldContainer[str]
@@ -368,6 +401,7 @@ class StreamDatasetRevisionDownloadLinksResponse(_message.Message):
     trace_urls: _containers.RepeatedScalarFieldContainer[str]
     error: str
     expiration: _timestamp_pb2.Timestamp
+    performance_summary_links: _containers.RepeatedCompositeFieldContainer[ShardPerformanceSummaryLink]
     def __init__(
         self,
         output_urls: _Optional[_Iterable[str]] = ...,
@@ -377,6 +411,7 @@ class StreamDatasetRevisionDownloadLinksResponse(_message.Message):
         trace_urls: _Optional[_Iterable[str]] = ...,
         error: _Optional[str] = ...,
         expiration: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ...,
+        performance_summary_links: _Optional[_Iterable[_Union[ShardPerformanceSummaryLink, _Mapping]]] = ...,
     ) -> None: ...
 
 class GetDatasetUploadUrisRequest(_message.Message):
@@ -686,6 +721,28 @@ class ListMaterializedAggregateTileFilesResponse(_message.Message):
         self,
         files: _Optional[_Iterable[_Union[MaterializedAggregateTileFileMeta, _Mapping]]] = ...,
         next_cursor: _Optional[str] = ...,
+    ) -> None: ...
+
+class GetMaterializedAggregateTileRowCountChartRequest(_message.Message):
+    __slots__ = ("materialization_key_hash", "time_window")
+    MATERIALIZATION_KEY_HASH_FIELD_NUMBER: _ClassVar[int]
+    TIME_WINDOW_FIELD_NUMBER: _ClassVar[int]
+    materialization_key_hash: str
+    time_window: _materialized_aggregate_tiles_pb2.MaterializedAggregateTileTimelineInterval
+    def __init__(
+        self,
+        materialization_key_hash: _Optional[str] = ...,
+        time_window: _Optional[
+            _Union[_materialized_aggregate_tiles_pb2.MaterializedAggregateTileTimelineInterval, _Mapping]
+        ] = ...,
+    ) -> None: ...
+
+class GetMaterializedAggregateTileRowCountChartResponse(_message.Message):
+    __slots__ = ("chart",)
+    CHART_FIELD_NUMBER: _ClassVar[int]
+    chart: _densetimeserieschart_pb2.DenseTimeSeriesChart
+    def __init__(
+        self, chart: _Optional[_Union[_densetimeserieschart_pb2.DenseTimeSeriesChart, _Mapping]] = ...
     ) -> None: ...
 
 class DeleteMaterializedAggregateTileRequest(_message.Message):

@@ -18,7 +18,17 @@ def serialized_value_from_proto(value: engine_common_pb2.SerializedValue) -> Any
 
 
 def any_to_serialized_value(value: Any) -> engine_common_pb2.SerializedValue:
-    if isinstance(value, tuple):
+    # Wrap *bare* tuples (e.g. ``(task_id, channel, payload)``-style writes)
+    # in a list so the downstream msgpack consumer sees the expected
+    # list-of-tuples shape. NamedTuples (detected by ``_fields``) MUST NOT be
+    # wrapped: they have registered serde handlers — notably
+    # ``_DeltaSnapshot`` from langgraph >= 1.2, which serializes via the
+    # ``EXT_DELTA_SNAPSHOT`` msgpack ext code — and wrapping them in a list
+    # buries the NamedTuple inside a generic sequence, defeating the handler
+    # and causing the snapshot value to round-trip as ``[inner_list]`` instead
+    # of the original ``_DeltaSnapshot(inner_list)``. That manifested as
+    # ``DeltaChannel`` reconstruction reading back ``[[seed], delta1, ...]``.
+    if isinstance(value, tuple) and not hasattr(value, "_fields"):
         value = [value]
     encoding, ser_val = serde.get_serializer().dumps_typed(value)
     return engine_common_pb2.SerializedValue(encoding=encoding, value=bytes(ser_val))

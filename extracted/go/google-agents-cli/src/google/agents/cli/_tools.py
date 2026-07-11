@@ -19,6 +19,7 @@ import re
 import shlex
 import shutil
 import subprocess
+import threading
 from functools import cache
 from pathlib import Path
 
@@ -150,6 +151,7 @@ def require_tool(name: str, install_hint: str = "") -> str:
 
 def run_npx_skills(args: list[str], spinner_msg: str) -> list[str]:
     """Run an npx skills command, streaming output in real-time.
+
     Always starts with ``["npx", "-y", SKILLS_NPX_PACKAGE]`` and appends
     the additional ``args`` provided.
     Streams stdout/stderr line-by-line, filtering npm/npx boilerplate.
@@ -184,18 +186,28 @@ def run_npx_skills(args: list[str], spinner_msg: str) -> list[str]:
 
     summary_lines: list[str] = []
     failure_lines: list[str] = []
-    # Leave stderr attached to the terminal (stderr=None) rather than capturing
-    # it. We only ever echo stderr, so piping it would just add a second stream
-    # we'd have to drain concurrently to avoid a pipe-buffer deadlock.
+    # Pipe stderr and drain it concurrently in a background thread to avoid
+    # pipe-buffer deadlock.
     proc = popen_resolved(
         full_args,
         stdout=subprocess.PIPE,
-        stderr=None,
+        stderr=subprocess.PIPE,
         text=True,
         encoding="utf-8",
         errors="replace",
         env=child_env,
     )
+
+    stderr_capture = {"data": ""}
+
+    def _drain_stderr() -> None:
+        try:
+            stderr_capture["data"] = proc.stderr.read() if proc.stderr else ""
+        except Exception:
+            stderr_capture["data"] = ""
+
+    stderr_thread = threading.Thread(target=_drain_stderr, daemon=True)
+    stderr_thread.start()
 
     # Read stdout line-by-line
     assert proc.stdout is not None
@@ -241,9 +253,14 @@ def run_npx_skills(args: list[str], spinner_msg: str) -> list[str]:
             summary_lines.append(clean)
 
     proc.wait()
+    stderr_thread.join()
 
     if proc.returncode != 0:
-        # stderr already streamed to the terminal above.
+        stderr = stderr_capture["data"]
+        click.secho("  Error running npx skills:", fg="red")
+        if stderr.strip():
+            for line in stderr.strip().splitlines():
+                click.echo(f"  {line}")
         raise click.ClickException("npx skills failed")
 
     if failure_lines:

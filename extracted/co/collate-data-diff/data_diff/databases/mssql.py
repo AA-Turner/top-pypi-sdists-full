@@ -200,14 +200,17 @@ class MsSQL(ThreadedDatabase):
     def select_table_schema(self, path: DbPath) -> str:
         """Provide SQL for selecting the table schema as (name, type, date_prec, num_prec)"""
         database, schema, name = self._normalize_table_path(path)
-        info_schema_path = ["information_schema", "columns"]
+        # Metadata identifiers follow the catalog collation, so use their canonical case for case-sensitive catalogs.
+        info_schema_path = ["INFORMATION_SCHEMA", "COLUMNS"]
         if database:
-            info_schema_path.insert(0, self.dialect.quote(database))
+            info_schema_path.insert(0, database)
+        quoted_info_schema_path = ".".join(self.dialect.quote(identifier) for identifier in info_schema_path)
 
         return (
-            "SELECT column_name, data_type, datetime_precision, numeric_precision, numeric_scale, collation_name "
-            f"FROM {'.'.join(info_schema_path)} "
-            f"WHERE table_name = '{name}' AND table_schema = '{schema}'"
+            "SELECT [COLUMN_NAME], [DATA_TYPE], [DATETIME_PRECISION], [NUMERIC_PRECISION], [NUMERIC_SCALE], "
+            "[COLLATION_NAME] "
+            f"FROM {quoted_info_schema_path} "
+            f"WHERE [TABLE_NAME] = '{name}' AND [TABLE_SCHEMA] = '{schema}'"
         )
 
     def _normalize_table_path(self, path: DbPath) -> DbPath:

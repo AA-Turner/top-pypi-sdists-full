@@ -1,6 +1,6 @@
 # -*- coding: utf8 -*-
 
-__version__ = '6.4.7'
+__version__ = '6.4.8'
 __all__ = [
     'OTSClient',
     'AsyncOTSClient',

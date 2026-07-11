@@ -42,7 +42,7 @@ dependencies = [
     "django-ninja>=1.5,<2",
 ]
 optional-dependencies.tests-allianceauth-development = [
-    "allianceauth==5.0.0b2",
+    "allianceauth==5.1.4",
     "coverage",
     "factory-boy",
 ]
@@ -56,7 +56,7 @@ urls.Source = "https://github.com/Geuthur/aa-memberaudit-dc"
 urls.Tracker = "https://github.com/Geuthur/aa-memberaudit-dc/issues"
 
 [tool.hatch]
+version.path = "madc/__init__.py"
 build.include = [
     "/madc",
 ]
-version.path = "madc/__init__.py"

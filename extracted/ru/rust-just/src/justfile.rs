@@ -22,6 +22,8 @@ pub(crate) struct Justfile<'src> {
   pub(crate) disabled_recipes: Table<'src, Disabled<'src>>,
   pub(crate) doc: Option<String>,
   #[serde(skip)]
+  pub(crate) evaluation_order: Vec<Name<'src>>,
+  #[serde(skip)]
   pub(crate) functions: Table<'src, FunctionDefinition<'src>>,
   pub(crate) groups: Vec<StringLiteral<'src>>,
   #[serde(skip)]
@@ -200,15 +202,20 @@ impl<'src> Justfile<'src> {
         let mut variable_references = HashSet::new();
 
         let mut stack = Vec::new();
+        let mut visited = HashSet::new();
 
         for invocation in &invocations {
-          stack.push(invocation.recipe);
+          if visited.insert(invocation.recipe.number) {
+            stack.push(invocation.recipe);
+          }
         }
 
         while let Some(recipe) = stack.pop() {
           variable_references.extend(&recipe.variable_references);
           for dependency in &recipe.dependencies {
-            stack.push(&dependency.recipe);
+            if visited.insert(dependency.recipe.number) {
+              stack.push(&dependency.recipe);
+            }
           }
         }
 
@@ -227,6 +234,7 @@ impl<'src> Justfile<'src> {
 
         let ran = Ran::new();
         let cache = Cache::new(search);
+        let jobs = Semaphore::new(config.jobs.unwrap_or(NonZeroU64::MAX));
         for invocation in invocations {
           Self::run_recipe(
             &invocation.arguments,
@@ -238,6 +246,7 @@ impl<'src> Justfile<'src> {
             &scopes,
             search,
             &cache,
+            &jobs,
           )?;
         }
 
@@ -318,35 +327,42 @@ impl<'src> Justfile<'src> {
 
         let scope = scopes.get(&module.module_path).unwrap().1;
 
-        if let Some(variable) = variable {
-          print!("{}", scope.value(variable).unwrap().join());
+        if let Some(assignment) = variable {
+          print!("{}", scope.value(assignment.number).unwrap().join());
         } else {
-          let width = scope.names().fold(0, |max, name| name.len().max(max));
+          let mut bindings = scope
+            .bindings()
+            .filter(|binding| !binding.private)
+            .collect::<Vec<&Binding>>();
 
-          for binding in scope.bindings() {
-            if !binding.private {
-              match format {
-                EvaluateFormat::Just => {
-                  println!(
-                    "{0:1$} := {2}",
-                    binding.name,
-                    width,
-                    binding.value.color_display(config.color.stdout()),
-                  );
+          bindings.sort_by_key(|binding| binding.name.lexeme());
+
+          let width = bindings
+            .iter()
+            .fold(0, |max, binding| binding.name.lexeme().len().max(max));
+
+          for binding in bindings {
+            match format {
+              EvaluateFormat::Just => {
+                println!(
+                  "{0:1$} := {2}",
+                  binding.name,
+                  width,
+                  binding.value.color_display(config.color.stdout()),
+                );
+              }
+              EvaluateFormat::Shell => {
+                if binding.export || module.settings.export {
+                  print!("export ");
                 }
-                EvaluateFormat::Shell => {
-                  if binding.export || module.settings.export {
-                    print!("export ");
+                print!("{}=\"", binding.name.lexeme().replace('-', "_"));
+                for c in binding.value.join().chars() {
+                  if matches!(c, '!' | '"' | '$' | '\\' | '`') {
+                    print!("\\");
                   }
-                  print!("{}=\"", binding.name.lexeme().replace('-', "_"));
-                  for c in binding.value.join().chars() {
-                    if matches!(c, '!' | '"' | '$' | '\\' | '`') {
-                      print!("\\");
-                    }
-                    print!("{c}");
-                  }
-                  println!("\"");
+                  print!("{c}");
                 }
+                println!("\"");
               }
             }
           }
@@ -361,7 +377,14 @@ impl<'src> Justfile<'src> {
   pub(crate) fn evaluation_target<'a>(
     &'a self,
     path: &'a Modulepath,
-  ) -> RunResult<'src, (&'a Justfile<'a>, Option<&'a str>, HashSet<Number>)> {
+  ) -> RunResult<
+    'src,
+    (
+      &'a Justfile<'a>,
+      Option<&'a Assignment<'a>>,
+      HashSet<Number>,
+    ),
+  > {
     let mut current = self;
 
     let mut variable = None;
@@ -369,8 +392,8 @@ impl<'src> Justfile<'src> {
     for (i, component) in path.components.iter().enumerate() {
       let last = i + 1 == path.components.len();
 
-      if last && current.assignments.contains_key(component) {
-        variable = Some(component.as_ref());
+      if last && let Some(assignment) = current.assignments.get(component) {
+        variable = Some(assignment);
         break;
       }
 
@@ -393,8 +416,8 @@ impl<'src> Justfile<'src> {
       }
     }
 
-    let variable_references = if let Some(variable) = variable {
-      HashSet::from([current.assignments.get(variable).unwrap().number])
+    let variable_references = if let Some(assignment) = variable {
+      HashSet::from([assignment.number])
     } else {
       current
         .assignments
@@ -440,7 +463,13 @@ impl<'src> Justfile<'src> {
     let mut module = self;
 
     for component in &path.components {
-      module = module.modules.get(component)?;
+      module = if let Some(submodule) = module.modules.get(component) {
+        submodule
+      } else {
+        self
+          .submodule(&module.module_aliases.get(component)?.target)
+          .unwrap()
+      };
     }
 
     Some(module)
@@ -460,6 +489,7 @@ impl<'src> Justfile<'src> {
     scopes: &Scopes<'src, '_>,
     search: &Search,
     cache: &Cache,
+    jobs: &Semaphore,
   ) -> RunResult<'src> {
     let mutex = ran.mutex(recipe, arguments);
 
@@ -478,6 +508,7 @@ impl<'src> Justfile<'src> {
       dotenv,
       module,
       overrides,
+      scope,
       search,
     };
 
@@ -492,7 +523,13 @@ impl<'src> Justfile<'src> {
 
     let scope = outer.child();
 
-    let mut evaluator = Evaluator::new(&context, BTreeMap::new(), true, Some(recipe.name), &scope);
+    let mut evaluator = Evaluator::new(
+      &context,
+      BTreeMap::new(),
+      is_dependency,
+      Some(recipe.name),
+      &scope,
+    );
 
     if !config.yes && !recipe.confirm(&mut evaluator)? {
       return Err(Error::NotConfirmed {
@@ -511,9 +548,18 @@ impl<'src> Justfile<'src> {
       scopes,
       search,
       cache,
+      jobs,
     )?;
 
-    recipe.run(&context, &env, is_dependency, &positional, &scope, cache)?;
+    recipe.run(
+      &context,
+      &env,
+      is_dependency,
+      &positional,
+      &scope,
+      cache,
+      jobs,
+    )?;
 
     Self::run_dependencies(
       config,
@@ -526,6 +572,7 @@ impl<'src> Justfile<'src> {
       scopes,
       search,
       cache,
+      jobs,
     )?;
 
     *guard = true;
@@ -544,6 +591,7 @@ impl<'src> Justfile<'src> {
     scopes: &Scopes<'src, 'run>,
     search: &Search,
     cache: &Cache,
+    jobs: &Semaphore,
   ) -> RunResult<'src> {
     if context.config.no_dependencies {
       return Ok(());
@@ -590,7 +638,7 @@ impl<'src> Justfile<'src> {
         for (recipe, arguments) in evaluated {
           handles.push(thread_scope.spawn(move || {
             Self::run_recipe(
-              &arguments, config, true, overrides, ran, recipe, scopes, search, cache,
+              &arguments, config, true, overrides, ran, recipe, scopes, search, cache, jobs,
             )
           }));
         }
@@ -604,7 +652,7 @@ impl<'src> Justfile<'src> {
     } else {
       for (recipe, arguments) in evaluated {
         Self::run_recipe(
-          &arguments, config, true, overrides, ran, recipe, scopes, search, cache,
+          &arguments, config, true, overrides, ran, recipe, scopes, search, cache, jobs,
         )?;
       }
     }

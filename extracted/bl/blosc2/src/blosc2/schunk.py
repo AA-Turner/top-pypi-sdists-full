@@ -13,6 +13,7 @@ import weakref
 import zipfile
 from collections import namedtuple
 from collections.abc import Iterator, Mapping, MutableMapping
+from contextlib import contextmanager
 from dataclasses import asdict, replace
 from typing import Any, NamedTuple
 
@@ -86,6 +87,14 @@ class vlmeta(MutableMapping, blosc2_ext.vlmeta):
     @initial_mapping_size.setter
     def initial_mapping_size(self, value):
         self._owner.initial_mapping_size = value
+
+    @property
+    def locking(self):
+        return self._owner.locking
+
+    @locking.setter
+    def locking(self, value):
+        self._owner.locking = value
 
     def __setitem__(self, name, content):
         blosc2_ext.check_access_mode(self.urlpath, self.mode)
@@ -326,6 +335,7 @@ class SChunk(blosc2_ext.SChunk):
             "mode",
             "mmap_mode",
             "initial_mapping_size",
+            "locking",
             "_is_view",
             "storage",
         ]
@@ -438,6 +448,34 @@ class SChunk(blosc2_ext.SChunk):
         super().update_dparams(value)
         self._dparams = super().get_dparams()
 
+    @contextmanager
+    def holding_lock(self) -> Iterator[SChunk]:
+        """Hold the exclusive frame lock across several operations.
+
+        When file locking is enabled on this handle (the `locking` storage
+        parameter or the ``BLOSC_LOCKING`` environment variable), every
+        operation locks and unlocks the on-disk container individually, so a
+        sequence of operations is not atomic as a whole.  Operations performed
+        inside this context manager nest on the already-held lock, making the
+        whole block atomic against other handles and processes.
+
+        Everything inside the block is serialized exclusively — including
+        plain reads through other locked handles — so keep the block short.
+        When locking is not enabled on this handle, this is a no-op.
+
+        Examples
+        --------
+        >>> with schunk.holding_lock():  # doctest: +SKIP
+        ...     schunk.update_data(0, data0, copy=True)
+        ...     schunk.update_data(1, data1, copy=True)
+        """
+        super().lock()
+        try:
+            self.refresh()
+            yield self
+        finally:
+            super().unlock()
+
     @property
     def meta(self) -> Meta:
         """
@@ -475,6 +513,35 @@ class SChunk(blosc2_ext.SChunk):
     def nchunks(self) -> int:
         """The number of chunks."""
         return super().nchunks
+
+    def refresh(self) -> bool:
+        """Re-sync the cached counters and metadata of a disk-based super-chunk.
+
+        In a single-writer, multiple-readers (SWMR) workflow, a reader handle
+        follows changes made through another handle (e.g. an :meth:`append_data`
+        in another process) automatically on data access. Call this to observe
+        changes such as :attr:`nchunks`, :attr:`nbytes` or :attr:`cbytes`
+        without accessing data, e.g. when polling while waiting for a writer.
+
+        Returns
+        -------
+        out: bool
+            True if the cached state was re-synced with the on-disk state,
+            False if it was already current. Always False for in-memory
+            super-chunks.
+        """
+        return super().refresh()
+
+    @property
+    def change_tick(self) -> int:
+        """Counter bumped whenever this handle re-syncs from a stale on-disk state.
+
+        Useful to detect, without re-reading data, that another handle (in
+        this process or another) has mutated the container since the last
+        access — e.g. to invalidate a cache keyed off this schunk. Always 0
+        for in-memory containers.
+        """
+        return super().change_tick
 
     @property
     def cratio(self) -> float:
@@ -657,6 +724,59 @@ class SChunk(blosc2_ext.SChunk):
         if nchunks < 0:
             raise RuntimeError("Unable to fill with special values")
         return nchunks
+
+    def update_special(
+        self,
+        nchunk: int,
+        special_value: blosc2.SpecialValue,
+        value: bytes | int | float | bool | None = None,
+    ) -> int:
+        """Replace the chunk at :paramref:`nchunk` with a special value chunk.
+
+        Useful as a cache-eviction primitive: replacing a chunk with a
+        ``SpecialValue.UNINIT`` chunk reclaims its storage (on sparse/disk
+        frames) without deleting the chunk slot, so it will be treated as
+        unfetched and recomputed/refetched on next access.
+
+        Parameters
+        ----------
+        nchunk: int
+            The index of the chunk to replace.
+        special_value: SpecialValue
+            The special value to fill the chunk with.
+        value: bytes, int, float, bool (optional)
+            The value to fill the chunk with. Only supported if
+            :paramref:`special_value` is ``blosc2.SpecialValue.VALUE``.
+
+        Returns
+        -------
+        out: int
+            The number of chunks in the SChunk.
+
+        Examples
+        --------
+        >>> import blosc2
+        >>> import numpy as np
+        >>> cparams = blosc2.CParams(typesize=4)
+        >>> schunk = blosc2.SChunk(chunksize=400, cparams=cparams)
+        >>> _ = schunk.append_data(np.arange(100, dtype=np.int32))
+        >>> schunk.update_special(0, blosc2.SpecialValue.UNINIT)
+        1
+        """
+        if not isinstance(special_value, SpecialValue) or special_value == SpecialValue.NOT_SPECIAL:
+            raise TypeError("special_value must be a SpecialValue instance other than NOT_SPECIAL")
+        if special_value == SpecialValue.VALUE and value is None:
+            raise ValueError("value cannot be None when special_value is VALUE")
+        if nchunk < 0 or nchunk >= self.nchunks:
+            raise IndexError(f"nchunk must be in range [0, {self.nchunks}), got {nchunk}")
+
+        chunk_items = self.chunksize // self.typesize
+        total_items = self.nbytes // self.typesize
+        nitems = min(chunk_items, total_items - nchunk * chunk_items)
+
+        tmp = SChunk(chunksize=self.chunksize, cparams=blosc2.CParams(typesize=self.typesize))
+        tmp.fill_special(nitems, special_value, value)
+        return self.update_chunk(nchunk, tmp.get_chunk(0))
 
     def decompress_chunk(self, nchunk: int, dst: object = None) -> str | bytes:
         """Decompress the chunk given by its index :paramref:`nchunk`.
@@ -1854,6 +1974,13 @@ def open(
             to create new files.
         initial_mapping_size: int, optional
             The initial size of the memory mapping. For more info, see :class:`blosc2.Storage`.
+        locking: bool, optional
+            Serialize accesses against other handles and other processes via a
+            sidecar lock file. Enable it when several processes operate on the
+            same container. The locking is advisory (every handle on the
+            container must enable it) and cannot be combined with `mmap_mode`.
+            The ``BLOSC_LOCKING`` environment variable enables it globally.
+            For more info, see :class:`blosc2.Storage`.
         cparams: dict
             A dictionary with the compression parameters, which are the same that can be
             used in the :func:`~blosc2.compress2` function.

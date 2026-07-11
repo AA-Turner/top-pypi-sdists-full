@@ -1,23 +1,12 @@
 import logging
-import sys
 import time
-from typing import Any, Protocol, cast
-
-if sys.version_info < (3, 12):
-    from typing_extensions import TypedDict
-else:
-    from typing import TypedDict
-
+from typing import Any, TypedDict, cast
 
 import tenacity as tc
 from prime_sandboxes import CommandTimeoutError
 
 import verifiers as vf
 from verifiers.utils.threaded_sandbox_client import ThreadedAsyncSandboxClient
-
-
-class LoggerProtocol(Protocol):
-    def log(self, level: int, msg: str, /, *args: Any, **kwargs: Any) -> Any: ...
 
 
 try:
@@ -85,7 +74,7 @@ class SandboxEnv(vf.StatefulToolEnv):
         max_backoff_seconds: float = 30.0,
         jitter: float = 1e-3,
         stop_errors: list[type[Exception]] | None = None,
-        sandbox_client_max_workers: int = 50,
+        sandbox_client_max_workers: int | None = None,
         sandbox_client_max_connections: int = 100,
         sandbox_client_max_keepalive_connections: int = 50,
         **kwargs,
@@ -224,7 +213,7 @@ class SandboxEnv(vf.StatefulToolEnv):
         """Return sandbox request for this rollout. Override to customize per-state."""
         return self.sandbox_request.model_copy()
 
-    async def setup_state(self, state: vf.State, **kwargs) -> None:
+    async def setup_state(self, state: vf.State, **kwargs) -> vf.State:
         """Create per-rollout sandbox"""
         request = self.get_sandbox_request(state)
         try:
@@ -239,7 +228,10 @@ class SandboxEnv(vf.StatefulToolEnv):
             "ready_wait_time": 0.0,
             "command_execution_times": [],
         }
-        await super().setup_state(state, **kwargs)
+        setup_state = await super().setup_state(state, **kwargs)
+        if setup_state is not None:
+            state = setup_state
+        return state
 
     def update_tool_args(
         self,

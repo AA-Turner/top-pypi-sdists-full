@@ -6043,6 +6043,15 @@ class PatternDayTradingMarginModel(QuantConnect.Securities.SecurityMarginModel):
 class IDerivativeSecurityFilterUniverse(typing.Generic[QuantConnect_Securities_IDerivativeSecurityFilterUniverse_T], typing.Iterable[QuantConnect_Securities_IDerivativeSecurityFilterUniverse_T], metaclass=abc.ABCMeta):
     """Represents derivative symbols universe used in filtering."""
 
+    @property
+    @abc.abstractmethod
+    def count(self) -> int:
+        """The number of contracts in the universe"""
+        ...
+
+    def __len__(self) -> int:
+        ...
+
 
 class IDerivativeSecurity(metaclass=abc.ABCMeta):
     """Defines a security as a derivative of another security"""
@@ -6612,6 +6621,11 @@ class ContractSecurityFilterUniverse(typing.Generic[QuantConnect_Securities_Cont
         """The local exchange current time"""
         ...
 
+    @property
+    def count(self) -> int:
+        """The number of contracts in the universe"""
+        ...
+
     @overload
     def __init__(self) -> None:
         """
@@ -6633,6 +6647,9 @@ class ContractSecurityFilterUniverse(typing.Generic[QuantConnect_Securities_Cont
         ...
 
     def __iter__(self) -> typing.Iterator[QuantConnect_Securities_ContractSecurityFilterUniverse_TData]:
+        ...
+
+    def __len__(self) -> int:
         ...
 
     def adjust_expiration_reference_date(self, reference_date: typing.Union[datetime.datetime, datetime.date]) -> datetime.datetime:

@@ -14,11 +14,12 @@ pub(crate) struct Analyzer<'run, 'src> {
 
 impl<'run, 'src> Analyzer<'run, 'src> {
   pub(crate) fn analyze(
-    asts: &'run HashMap<PathBuf, Ast<'src>>,
+    asts: &'run HashMap<(Modulepath, PathBuf), Ast<'src>>,
     config: &Config,
     doc: Option<String>,
     groups: &[StringLiteral<'src>],
     loaded: &[PathBuf],
+    module_path: &Modulepath,
     name: Option<Name<'src>>,
     overrides: &mut HashMap<Number, String>,
     paths: &HashMap<PathBuf, PathBuf>,
@@ -26,17 +27,28 @@ impl<'run, 'src> Analyzer<'run, 'src> {
     root: &Path,
   ) -> CompileResult<'src, Justfile<'src>> {
     Self::default().justfile(
-      asts, config, doc, groups, loaded, name, overrides, paths, private, root,
+      asts,
+      config,
+      doc,
+      groups,
+      loaded,
+      module_path,
+      name,
+      overrides,
+      paths,
+      private,
+      root,
     )
   }
 
   fn justfile(
     mut self,
-    asts: &'run HashMap<PathBuf, Ast<'src>>,
+    asts: &'run HashMap<(Modulepath, PathBuf), Ast<'src>>,
     config: &Config,
     doc: Option<String>,
     groups: &[StringLiteral<'src>],
     loaded: &[PathBuf],
+    module_path: &Modulepath,
     name: Option<Name<'src>>,
     overrides: &mut HashMap<Number, String>,
     paths: &HashMap<PathBuf, PathBuf>,
@@ -47,11 +59,11 @@ impl<'run, 'src> Analyzer<'run, 'src> {
     let mut definitions = HashMap::new();
     let mut imports = HashSet::new();
     let mut list_features = Vec::new();
-    let mut module_docs: Vec<(&str, &Expression)> = Vec::new();
+    let mut module_docs: Vec<(&str, Expression)> = Vec::new();
     let mut unstable_features = BTreeSet::new();
 
     let mut stack = Vec::new();
-    let ast = asts.get(root).unwrap();
+    let ast = asts.get(&(module_path.clone(), root.to_owned())).unwrap();
     stack.push(ast);
 
     while let Some(ast) = stack.pop() {
@@ -80,7 +92,7 @@ impl<'run, 'src> Analyzer<'run, 'src> {
             if let Some(absolute) = absolute
               && imports.insert(absolute)
             {
-              stack.push(asts.get(absolute).unwrap());
+              stack.push(asts.get(&(module_path.clone(), absolute.clone())).unwrap());
             }
           }
           Item::Module {
@@ -99,6 +111,7 @@ impl<'run, 'src> Analyzer<'run, 'src> {
                 doc.clone(),
                 &attributes.groups(),
                 loaded,
+                &module_path.join(name.lexeme()),
                 Some(*name),
                 overrides,
                 paths,
@@ -106,7 +119,7 @@ impl<'run, 'src> Analyzer<'run, 'src> {
                 absolute,
               )?);
               if let Some(Attribute::Doc(Some(expression))) = attributes.get(AttributeKind::Doc) {
-                module_docs.push((name.lexeme(), expression));
+                module_docs.push((name.lexeme(), expression.clone()));
               }
             } else if *optional {
               absent_modules.insert(name.lexeme().to_string());
@@ -176,23 +189,20 @@ impl<'run, 'src> Analyzer<'run, 'src> {
       functions.insert(function.clone());
     }
 
-    AssignmentResolver::resolve_assignments(&assignments, &functions)?;
+    let (bindings, evaluation_order) =
+      VariableResolver::resolve_assignments(&mut assignments, &mut functions)?;
 
-    for set in self.sets.values() {
-      for expression in set.value.expressions() {
-        for reference in expression.references() {
-          match reference {
-            Reference::Call { name, arguments } => {
-              Analyzer::resolve_call(&functions, name, arguments)?;
-            }
-            Reference::Variable(variable) => {
-              let name = variable.lexeme();
-              if !assignments.contains_key(name) && !constants().contains_key(name) {
-                return Err(variable.error(UndefinedVariable { variable: name }));
-              }
-            }
-          }
-        }
+    let variable_resolver = VariableResolver::new(&assignments, bindings, &functions);
+
+    let mut variable_references = HashSet::new();
+
+    for set in self.sets.values_mut() {
+      for expression in set.value.expressions_mut() {
+        variable_resolver.resolve_expression(
+          expression,
+          &ExpressionContext::new(),
+          &mut variable_references,
+        )?;
       }
     }
 
@@ -212,52 +222,36 @@ impl<'run, 'src> Analyzer<'run, 'src> {
         .values()
         .any(|set| matches!(set.value, Setting::Lists(true)));
 
-      let variable_references = self
-        .sets
-        .values()
-        .flat_map(|set| set.value.expressions())
-        .chain(
-          self
-            .recipes
-            .iter()
-            .flat_map(|recipe| &recipe.attributes)
-            .flat_map(|attribute| {
-              let mut expressions = Vec::new();
-              match attribute {
-                Attribute::Arg {
-                  help_property,
-                  pattern_property,
-                  ..
-                } => {
-                  if let Some((_, expression)) = help_property {
-                    expressions.push(expression);
-                  }
-                  if let Some((_, expression)) = pattern_property {
-                    expressions.push(expression);
-                  }
-                }
-                Attribute::Doc(Some(expression)) => expressions.push(expression),
-                _ => {}
-              }
-              expressions
-            }),
-        )
-        .chain(module_docs.iter().map(|(_, expression)| *expression))
-        .flat_map(|expression| expression.references())
-        .filter_map(|reference| {
-          if let Reference::Variable(variable) = reference {
-            Some(variable.lexeme())
-          } else {
-            None
+      for attribute in self.recipes.iter().flat_map(|recipe| &recipe.attributes) {
+        match attribute {
+          Attribute::Arg {
+            help_property,
+            pattern_property,
+            ..
+          } => {
+            if let Some((_, expression)) = help_property {
+              variable_resolver.collect_references(expression, &mut variable_references);
+            }
+            if let Some((_, expression)) = pattern_property {
+              variable_resolver.collect_references(expression, &mut variable_references);
+            }
           }
-        })
-        .collect::<BTreeSet<&str>>();
+          Attribute::Doc(Some(expression)) => {
+            variable_resolver.collect_references(expression, &mut variable_references);
+          }
+          _ => {}
+        }
+      }
+
+      for (_name, expression) in &module_docs {
+        variable_resolver.collect_references(expression, &mut variable_references);
+      }
 
       Evaluator::evaluate_const_assignments(
         &assignments,
         overrides,
         &scope,
-        variable_references,
+        &variable_references,
         lists,
       )?
     };
@@ -274,8 +268,13 @@ impl<'run, 'src> Analyzer<'run, 'src> {
       }
     }
 
-    for (name, expression) in module_docs {
-      let value = evaluator.evaluate_value_const(expression)?;
+    for (name, mut expression) in module_docs {
+      variable_resolver.resolve_expression(
+        &mut expression,
+        &ExpressionContext::new(),
+        &mut variable_references,
+      )?;
+      let value = evaluator.evaluate_value_const(&expression)?;
       self.modules.get_mut(name).unwrap().doc = if value.is_empty() {
         None
       } else {
@@ -302,24 +301,28 @@ impl<'run, 'src> Analyzer<'run, 'src> {
       if !recipe.is_script(&settings) {
         let mut continued = false;
         for line in &recipe.body {
-          let sigils = line.sigils(&settings);
+          let comment = !continued && settings.ignore_comments && line.is_comment();
 
-          if sigils.contains(&Sigil::Guard) && sigils.contains(&Sigil::Infallible) {
-            let Fragment::Text { token } = line.fragments.first().unwrap() else {
-              unreachable!();
-            };
-            return Err(token.error(GuardAndInfallibleSigil));
-          }
+          if !continued {
+            let sigils = line.sigils(&settings);
 
-          if !continued && let Some(Fragment::Text { token }) = line.fragments.first() {
-            let text = token.lexeme();
+            if sigils.contains(&Sigil::Guard) && sigils.contains(&Sigil::Infallible) {
+              let Fragment::Text { token } = line.fragments.first().unwrap() else {
+                unreachable!();
+              };
+              return Err(token.error(GuardAndInfallibleSigil));
+            }
 
-            if text.starts_with(' ') || text.starts_with('\t') {
-              return Err(token.error(ExtraLeadingWhitespace));
+            if let Some(Fragment::Text { token }) = line.fragments.first() {
+              let text = token.lexeme();
+
+              if text.starts_with(' ') || text.starts_with('\t') {
+                return Err(token.error(ExtraLeadingWhitespace));
+              }
             }
           }
 
-          continued = line.is_continuation();
+          continued = !comment && line.is_continuation();
         }
 
         for attribute in [AttributeKind::Cache, AttributeKind::Extension] {
@@ -335,13 +338,12 @@ impl<'run, 'src> Analyzer<'run, 'src> {
 
     let (recipes, disabled_recipes) = RecipeResolver::resolve_recipes(
       &absent_modules,
-      &assignments,
       &mut evaluator,
-      &functions,
       &ast.module_path,
       &self.modules,
       &settings,
       deduplicated_recipes,
+      &variable_resolver,
     )?;
 
     let mut recipe_aliases = Table::new();
@@ -429,6 +431,7 @@ impl<'run, 'src> Analyzer<'run, 'src> {
       disabled_aliases,
       disabled_recipes,
       doc: doc.filter(|doc| !doc.is_empty()),
+      evaluation_order,
       functions,
       groups: groups.into(),
       loaded: loaded.into(),
@@ -525,32 +528,6 @@ impl<'run, 'src> Analyzer<'run, 'src> {
           }));
         }
       }
-    }
-
-    Ok(())
-  }
-
-  pub(crate) fn resolve_call(
-    functions: &'run Table<'src, FunctionDefinition<'src>>,
-    name: Name<'src>,
-    arguments: usize,
-  ) -> CompileResult<'src> {
-    let function = name.lexeme();
-
-    let expected = if let Some(function) = functions.get(function) {
-      function.parameters.len()..=function.parameters.len()
-    } else if let Some(function) = function::get(function) {
-      function.expected_arguments()
-    } else {
-      return Err(name.error(CompileErrorKind::UndefinedFunction { function }));
-    };
-
-    if !expected.contains(&arguments) {
-      return Err(name.error(CompileErrorKind::FunctionArgumentCountMismatch {
-        arguments,
-        expected,
-        function,
-      }));
     }
 
     Ok(())

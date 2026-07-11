@@ -80,12 +80,14 @@ def _override_plan(
     user_email: str | None = None,
     customer_tier_filter: str = "TIER_2",
     force: bool = False,
+    google_access_token: str = "",
 ) -> OverridePlan:
     organization_id, workspace_id, actor_id = target_ids(
         adapter=adapter,
         scope_type=scope_type,
         scope_id=scope_id,
         actor_workspace_id=actor_workspace_id,
+        google_access_token=google_access_token,
     )
     return OverridePlan(
         action=action,
@@ -637,6 +639,7 @@ def apply_override(
             user_email=user_email,
             customer_tier_filter=customer_tier_filter,
             force=force,
+            google_access_token=google_access_token,
         ),
         google_access_token=google_access_token,
     )
@@ -710,6 +713,7 @@ def remove_selected_pins(
                     user_email=user_email,
                     customer_tier_filter=customer_tier_filter,
                     force=False,
+                    google_access_token=google_access_token,
                 ),
                 google_access_token=google_access_token,
             )

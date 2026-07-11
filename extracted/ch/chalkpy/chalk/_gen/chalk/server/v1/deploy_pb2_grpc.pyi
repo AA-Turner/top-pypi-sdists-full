@@ -30,6 +30,8 @@ from chalk._gen.chalk.server.v1.deploy_pb2 import (
     TagDeploymentResponse,
 )
 from chalk._gen.chalk.server.v1.deployment_revision_pb2 import (
+    GetDeploymentRevisionRequest,
+    GetDeploymentRevisionResponse,
     ListDeploymentRevisionsRequest,
     ListDeploymentRevisionsResponse,
 )
@@ -61,6 +63,10 @@ class DeployServiceStub:
     ListDeploymentRevisions: UnaryUnaryMultiCallable[
         ListDeploymentRevisionsRequest,
         ListDeploymentRevisionsResponse,
+    ]
+    GetDeploymentRevision: UnaryUnaryMultiCallable[
+        GetDeploymentRevisionRequest,
+        GetDeploymentRevisionResponse,
     ]
     GetActiveDeployments: UnaryUnaryMultiCallable[
         GetActiveDeploymentsRequest,
@@ -118,6 +124,12 @@ class DeployServiceServicer(metaclass=ABCMeta):
         request: ListDeploymentRevisionsRequest,
         context: ServicerContext,
     ) -> ListDeploymentRevisionsResponse: ...
+    @abstractmethod
+    def GetDeploymentRevision(
+        self,
+        request: GetDeploymentRevisionRequest,
+        context: ServicerContext,
+    ) -> GetDeploymentRevisionResponse: ...
     @abstractmethod
     def GetActiveDeployments(
         self,

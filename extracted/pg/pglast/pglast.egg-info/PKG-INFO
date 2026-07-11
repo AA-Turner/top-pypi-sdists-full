@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pglast
-Version: 8.1
+Version: 8.2
 Summary: PostgreSQL Languages AST and statements prettifier
 Author-email: Lele Gaifax <lele@metapensiero.it>
 License-Expression: GPL-3.0-or-later

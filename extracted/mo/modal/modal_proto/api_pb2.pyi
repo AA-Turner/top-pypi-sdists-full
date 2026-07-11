@@ -406,13 +406,34 @@ class _EnvironmentRoleEnumTypeWrapper(google.protobuf.internal.enum_type_wrapper
     ENVIRONMENT_ROLE_UNSPECIFIED: _EnvironmentRole.ValueType  # 0
     ENVIRONMENT_ROLE_VIEWER: _EnvironmentRole.ValueType  # 1
     ENVIRONMENT_ROLE_CONTRIBUTOR: _EnvironmentRole.ValueType  # 2
+    ENVIRONMENT_ROLE_NO_ACCESS: _EnvironmentRole.ValueType  # 3
 
 class EnvironmentRole(_EnvironmentRole, metaclass=_EnvironmentRoleEnumTypeWrapper): ...
 
 ENVIRONMENT_ROLE_UNSPECIFIED: EnvironmentRole.ValueType  # 0
 ENVIRONMENT_ROLE_VIEWER: EnvironmentRole.ValueType  # 1
 ENVIRONMENT_ROLE_CONTRIBUTOR: EnvironmentRole.ValueType  # 2
+ENVIRONMENT_ROLE_NO_ACCESS: EnvironmentRole.ValueType  # 3
 global___EnvironmentRole = EnvironmentRole
+
+class _EnvironmentType:
+    ValueType = typing.NewType("ValueType", builtins.int)
+    V: typing_extensions.TypeAlias = ValueType
+
+class _EnvironmentTypeEnumTypeWrapper(google.protobuf.internal.enum_type_wrapper._EnumTypeWrapper[_EnvironmentType.ValueType], builtins.type):  # noqa: F821
+    DESCRIPTOR: google.protobuf.descriptor.EnumDescriptor
+    ENVIRONMENT_TYPE_UNSPECIFIED: _EnvironmentType.ValueType  # 0
+    ENVIRONMENT_TYPE_PUBLIC: _EnvironmentType.ValueType  # 1
+
+class EnvironmentType(_EnvironmentType, metaclass=_EnvironmentTypeEnumTypeWrapper):
+    """Creation-time environment classification. Captures whether an environment
+    is public. is_managed and machine_generated may be folded in as future
+    values.
+    """
+
+ENVIRONMENT_TYPE_UNSPECIFIED: EnvironmentType.ValueType  # 0
+ENVIRONMENT_TYPE_PUBLIC: EnvironmentType.ValueType  # 1
+global___EnvironmentType = EnvironmentType
 
 class _ExecOutputOption:
     ValueType = typing.NewType("ValueType", builtins.int)
@@ -4058,17 +4079,34 @@ class ContainerReloadVolumesResponse(google.protobuf.message.Message):
 
 global___ContainerReloadVolumesResponse = ContainerReloadVolumesResponse
 
+class ContainerServerLifecycleReadyRequest(google.protobuf.message.Message):
+    """Sent by server containers once lifecycle enter methods have completed.
+    Only handled on worker by server_io_manager.
+    """
+
+    DESCRIPTOR: google.protobuf.descriptor.Descriptor
+
+    def __init__(
+        self,
+    ) -> None: ...
+
+global___ContainerServerLifecycleReadyRequest = ContainerServerLifecycleReadyRequest
+
 class ContainerStopRequest(google.protobuf.message.Message):
     DESCRIPTOR: google.protobuf.descriptor.Descriptor
 
     TASK_ID_FIELD_NUMBER: builtins.int
+    GRACEFUL_FIELD_NUMBER: builtins.int
     task_id: builtins.str
+    graceful: builtins.bool
+    """Let a Function container finish processing any inputs before exiting."""
     def __init__(
         self,
         *,
         task_id: builtins.str = ...,
+        graceful: builtins.bool = ...,
     ) -> None: ...
-    def ClearField(self, field_name: typing_extensions.Literal["task_id", b"task_id"]) -> None: ...
+    def ClearField(self, field_name: typing_extensions.Literal["graceful", b"graceful", "task_id", b"task_id"]) -> None: ...
 
 global___ContainerStopRequest = ContainerStopRequest
 
@@ -5131,25 +5169,97 @@ class EndpointStopResponse(google.protobuf.message.Message):
 
 global___EndpointStopResponse = EndpointStopResponse
 
+class EnvironmentBillingSummaryRequest(google.protobuf.message.Message):
+    DESCRIPTOR: google.protobuf.descriptor.Descriptor
+
+    START_TIMESTAMP_FIELD_NUMBER: builtins.int
+    END_TIMESTAMP_FIELD_NUMBER: builtins.int
+    ENVIRONMENT_ID_FIELD_NUMBER: builtins.int
+    @property
+    def start_timestamp(self) -> google.protobuf.timestamp_pb2.Timestamp: ...
+    @property
+    def end_timestamp(self) -> google.protobuf.timestamp_pb2.Timestamp: ...
+    environment_id: builtins.str
+    def __init__(
+        self,
+        *,
+        start_timestamp: google.protobuf.timestamp_pb2.Timestamp | None = ...,
+        end_timestamp: google.protobuf.timestamp_pb2.Timestamp | None = ...,
+        environment_id: builtins.str = ...,
+    ) -> None: ...
+    def HasField(self, field_name: typing_extensions.Literal["end_timestamp", b"end_timestamp", "start_timestamp", b"start_timestamp"]) -> builtins.bool: ...
+    def ClearField(self, field_name: typing_extensions.Literal["end_timestamp", b"end_timestamp", "environment_id", b"environment_id", "start_timestamp", b"start_timestamp"]) -> None: ...
+
+global___EnvironmentBillingSummaryRequest = EnvironmentBillingSummaryRequest
+
+class EnvironmentBillingSummaryResponse(google.protobuf.message.Message):
+    DESCRIPTOR: google.protobuf.descriptor.Descriptor
+
+    class MeteredCostBreakdownEntry(google.protobuf.message.Message):
+        DESCRIPTOR: google.protobuf.descriptor.Descriptor
+
+        KEY_FIELD_NUMBER: builtins.int
+        VALUE_FIELD_NUMBER: builtins.int
+        key: builtins.str
+        value: builtins.str
+        def __init__(
+            self,
+            *,
+            key: builtins.str = ...,
+            value: builtins.str = ...,
+        ) -> None: ...
+        def ClearField(self, field_name: typing_extensions.Literal["key", b"key", "value", b"value"]) -> None: ...
+
+    START_TIMESTAMP_FIELD_NUMBER: builtins.int
+    END_TIMESTAMP_FIELD_NUMBER: builtins.int
+    METERED_COST_FIELD_NUMBER: builtins.int
+    METERED_COST_BREAKDOWN_FIELD_NUMBER: builtins.int
+    @property
+    def start_timestamp(self) -> google.protobuf.timestamp_pb2.Timestamp: ...
+    @property
+    def end_timestamp(self) -> google.protobuf.timestamp_pb2.Timestamp: ...
+    metered_cost: builtins.str
+    """not showing credits, reservations, etc as those are applied
+    at the workspace level
+    """
+    @property
+    def metered_cost_breakdown(self) -> google.protobuf.internal.containers.ScalarMap[builtins.str, builtins.str]:
+        """keyed by deployed, ephemeral, volume, notebook"""
+    def __init__(
+        self,
+        *,
+        start_timestamp: google.protobuf.timestamp_pb2.Timestamp | None = ...,
+        end_timestamp: google.protobuf.timestamp_pb2.Timestamp | None = ...,
+        metered_cost: builtins.str = ...,
+        metered_cost_breakdown: collections.abc.Mapping[builtins.str, builtins.str] | None = ...,
+    ) -> None: ...
+    def HasField(self, field_name: typing_extensions.Literal["end_timestamp", b"end_timestamp", "start_timestamp", b"start_timestamp"]) -> builtins.bool: ...
+    def ClearField(self, field_name: typing_extensions.Literal["end_timestamp", b"end_timestamp", "metered_cost", b"metered_cost", "metered_cost_breakdown", b"metered_cost_breakdown", "start_timestamp", b"start_timestamp"]) -> None: ...
+
+global___EnvironmentBillingSummaryResponse = EnvironmentBillingSummaryResponse
+
 class EnvironmentCreateRequest(google.protobuf.message.Message):
     DESCRIPTOR: google.protobuf.descriptor.Descriptor
 
     NAME_FIELD_NUMBER: builtins.int
     IS_MANAGED_FIELD_NUMBER: builtins.int
     SETTINGS_FIELD_NUMBER: builtins.int
+    ENVIRONMENT_TYPE_FIELD_NUMBER: builtins.int
     name: builtins.str
     is_managed: builtins.bool
     @property
     def settings(self) -> global___EnvironmentSettings: ...
+    environment_type: global___EnvironmentType.ValueType
     def __init__(
         self,
         *,
         name: builtins.str = ...,
         is_managed: builtins.bool = ...,
         settings: global___EnvironmentSettings | None = ...,
+        environment_type: global___EnvironmentType.ValueType = ...,
     ) -> None: ...
     def HasField(self, field_name: typing_extensions.Literal["settings", b"settings"]) -> builtins.bool: ...
-    def ClearField(self, field_name: typing_extensions.Literal["is_managed", b"is_managed", "name", b"name", "settings", b"settings"]) -> None: ...
+    def ClearField(self, field_name: typing_extensions.Literal["environment_type", b"environment_type", "is_managed", b"is_managed", "name", b"name", "settings", b"settings"]) -> None: ...
 
 global___EnvironmentCreateRequest = EnvironmentCreateRequest
 
@@ -5334,6 +5444,7 @@ class EnvironmentListItem(google.protobuf.message.Message):
     EFFECTIVE_CYCLE_SPEND_LIMIT_FIELD_NUMBER: builtins.int
     CURRENT_CYCLE_USAGE_FIELD_NUMBER: builtins.int
     SPEND_LIMIT_REACHED_FIELD_NUMBER: builtins.int
+    ENVIRONMENT_TYPE_FIELD_NUMBER: builtins.int
     name: builtins.str
     webhook_suffix: builtins.str
     created_at: builtins.float
@@ -5349,6 +5460,7 @@ class EnvironmentListItem(google.protobuf.message.Message):
     effective_cycle_spend_limit: builtins.float
     current_cycle_usage: builtins.float
     spend_limit_reached: builtins.bool
+    environment_type: global___EnvironmentType.ValueType
     def __init__(
         self,
         *,
@@ -5366,9 +5478,10 @@ class EnvironmentListItem(google.protobuf.message.Message):
         effective_cycle_spend_limit: builtins.float = ...,
         current_cycle_usage: builtins.float = ...,
         spend_limit_reached: builtins.bool = ...,
+        environment_type: global___EnvironmentType.ValueType = ...,
     ) -> None: ...
     def HasField(self, field_name: typing_extensions.Literal["_cycle_budget_dollars", b"_cycle_budget_dollars", "_max_concurrent_gpus", b"_max_concurrent_gpus", "_max_concurrent_tasks", b"_max_concurrent_tasks", "cycle_budget_dollars", b"cycle_budget_dollars", "max_concurrent_gpus", b"max_concurrent_gpus", "max_concurrent_tasks", b"max_concurrent_tasks"]) -> builtins.bool: ...
-    def ClearField(self, field_name: typing_extensions.Literal["_cycle_budget_dollars", b"_cycle_budget_dollars", "_max_concurrent_gpus", b"_max_concurrent_gpus", "_max_concurrent_tasks", b"_max_concurrent_tasks", "created_at", b"created_at", "current_concurrent_gpus", b"current_concurrent_gpus", "current_concurrent_tasks", b"current_concurrent_tasks", "current_cycle_usage", b"current_cycle_usage", "cycle_budget_dollars", b"cycle_budget_dollars", "default", b"default", "effective_cycle_spend_limit", b"effective_cycle_spend_limit", "environment_id", b"environment_id", "is_managed", b"is_managed", "max_concurrent_gpus", b"max_concurrent_gpus", "max_concurrent_tasks", b"max_concurrent_tasks", "name", b"name", "spend_limit_reached", b"spend_limit_reached", "webhook_suffix", b"webhook_suffix"]) -> None: ...
+    def ClearField(self, field_name: typing_extensions.Literal["_cycle_budget_dollars", b"_cycle_budget_dollars", "_max_concurrent_gpus", b"_max_concurrent_gpus", "_max_concurrent_tasks", b"_max_concurrent_tasks", "created_at", b"created_at", "current_concurrent_gpus", b"current_concurrent_gpus", "current_concurrent_tasks", b"current_concurrent_tasks", "current_cycle_usage", b"current_cycle_usage", "cycle_budget_dollars", b"cycle_budget_dollars", "default", b"default", "effective_cycle_spend_limit", b"effective_cycle_spend_limit", "environment_id", b"environment_id", "environment_type", b"environment_type", "is_managed", b"is_managed", "max_concurrent_gpus", b"max_concurrent_gpus", "max_concurrent_tasks", b"max_concurrent_tasks", "name", b"name", "spend_limit_reached", b"spend_limit_reached", "webhook_suffix", b"webhook_suffix"]) -> None: ...
     @typing.overload
     def WhichOneof(self, oneof_group: typing_extensions.Literal["_cycle_budget_dollars", b"_cycle_budget_dollars"]) -> typing_extensions.Literal["cycle_budget_dollars"] | None: ...
     @typing.overload
@@ -5398,17 +5511,20 @@ class EnvironmentMetadata(google.protobuf.message.Message):
 
     NAME_FIELD_NUMBER: builtins.int
     SETTINGS_FIELD_NUMBER: builtins.int
+    ENVIRONMENT_TYPE_FIELD_NUMBER: builtins.int
     name: builtins.str
     @property
     def settings(self) -> global___EnvironmentSettings: ...
+    environment_type: global___EnvironmentType.ValueType
     def __init__(
         self,
         *,
         name: builtins.str = ...,
         settings: global___EnvironmentSettings | None = ...,
+        environment_type: global___EnvironmentType.ValueType = ...,
     ) -> None: ...
     def HasField(self, field_name: typing_extensions.Literal["settings", b"settings"]) -> builtins.bool: ...
-    def ClearField(self, field_name: typing_extensions.Literal["name", b"name", "settings", b"settings"]) -> None: ...
+    def ClearField(self, field_name: typing_extensions.Literal["environment_type", b"environment_type", "name", b"name", "settings", b"settings"]) -> None: ...
 
 global___EnvironmentMetadata = EnvironmentMetadata
 
@@ -6316,15 +6432,20 @@ class FunctionCallFromIdResponse(google.protobuf.message.Message):
 
     FUNCTION_CALL_ID_FIELD_NUMBER: builtins.int
     NUM_INPUTS_FIELD_NUMBER: builtins.int
+    METADATA_FIELD_NUMBER: builtins.int
     function_call_id: builtins.str
     num_inputs: builtins.int
+    @property
+    def metadata(self) -> global___FunctionCallHandleMetadata: ...
     def __init__(
         self,
         *,
         function_call_id: builtins.str = ...,
         num_inputs: builtins.int = ...,
+        metadata: global___FunctionCallHandleMetadata | None = ...,
     ) -> None: ...
-    def ClearField(self, field_name: typing_extensions.Literal["function_call_id", b"function_call_id", "num_inputs", b"num_inputs"]) -> None: ...
+    def HasField(self, field_name: typing_extensions.Literal["metadata", b"metadata"]) -> builtins.bool: ...
+    def ClearField(self, field_name: typing_extensions.Literal["function_call_id", b"function_call_id", "metadata", b"metadata", "num_inputs", b"num_inputs"]) -> None: ...
 
 global___FunctionCallFromIdResponse = FunctionCallFromIdResponse
 
@@ -6349,6 +6470,23 @@ class FunctionCallGetDataRequest(google.protobuf.message.Message):
     def WhichOneof(self, oneof_group: typing_extensions.Literal["call_info", b"call_info"]) -> typing_extensions.Literal["function_call_id", "attempt_token"] | None: ...
 
 global___FunctionCallGetDataRequest = FunctionCallGetDataRequest
+
+class FunctionCallHandleMetadata(google.protobuf.message.Message):
+    DESCRIPTOR: google.protobuf.descriptor.Descriptor
+
+    APP_ID_FIELD_NUMBER: builtins.int
+    FUNCTION_ID_FIELD_NUMBER: builtins.int
+    app_id: builtins.str
+    function_id: builtins.str
+    def __init__(
+        self,
+        *,
+        app_id: builtins.str = ...,
+        function_id: builtins.str = ...,
+    ) -> None: ...
+    def ClearField(self, field_name: typing_extensions.Literal["app_id", b"app_id", "function_id", b"function_id"]) -> None: ...
+
+global___FunctionCallHandleMetadata = FunctionCallHandleMetadata
 
 class FunctionCallInfo(google.protobuf.message.Message):
     DESCRIPTOR: google.protobuf.descriptor.Descriptor
@@ -7199,6 +7337,7 @@ class FunctionHandleMetadata(google.protobuf.message.Message):
     _EXPERIMENTAL_FLASH_URLS_FIELD_NUMBER: builtins.int
     SUPPORTED_INPUT_FORMATS_FIELD_NUMBER: builtins.int
     SUPPORTED_OUTPUT_FORMATS_FIELD_NUMBER: builtins.int
+    APP_ID_FIELD_NUMBER: builtins.int
     function_name: builtins.str
     """Should be a subset and use IDs/types from `Function` above"""
     function_type: global___Function.FunctionType.ValueType
@@ -7227,6 +7366,7 @@ class FunctionHandleMetadata(google.protobuf.message.Message):
     def supported_input_formats(self) -> google.protobuf.internal.containers.RepeatedScalarFieldContainer[global___DataFormat.ValueType]: ...
     @property
     def supported_output_formats(self) -> google.protobuf.internal.containers.RepeatedScalarFieldContainer[global___DataFormat.ValueType]: ...
+    app_id: builtins.str
     def __init__(
         self,
         *,
@@ -7246,9 +7386,10 @@ class FunctionHandleMetadata(google.protobuf.message.Message):
         _experimental_flash_urls: collections.abc.Iterable[builtins.str] | None = ...,
         supported_input_formats: collections.abc.Iterable[global___DataFormat.ValueType] | None = ...,
         supported_output_formats: collections.abc.Iterable[global___DataFormat.ValueType] | None = ...,
+        app_id: builtins.str = ...,
     ) -> None: ...
     def HasField(self, field_name: typing_extensions.Literal["_input_plane_region", b"_input_plane_region", "_input_plane_url", b"_input_plane_url", "_max_object_size_bytes", b"_max_object_size_bytes", "class_parameter_info", b"class_parameter_info", "function_schema", b"function_schema", "input_plane_region", b"input_plane_region", "input_plane_url", b"input_plane_url", "max_object_size_bytes", b"max_object_size_bytes"]) -> builtins.bool: ...
-    def ClearField(self, field_name: typing_extensions.Literal["_experimental_flash_urls", b"_experimental_flash_urls", "_input_plane_region", b"_input_plane_region", "_input_plane_url", b"_input_plane_url", "_max_object_size_bytes", b"_max_object_size_bytes", "class_parameter_info", b"class_parameter_info", "definition_id", b"definition_id", "function_name", b"function_name", "function_schema", b"function_schema", "function_type", b"function_type", "input_plane_region", b"input_plane_region", "input_plane_url", b"input_plane_url", "is_method", b"is_method", "max_object_size_bytes", b"max_object_size_bytes", "method_handle_metadata", b"method_handle_metadata", "supported_input_formats", b"supported_input_formats", "supported_output_formats", b"supported_output_formats", "use_function_id", b"use_function_id", "use_method_name", b"use_method_name", "web_url", b"web_url"]) -> None: ...
+    def ClearField(self, field_name: typing_extensions.Literal["_experimental_flash_urls", b"_experimental_flash_urls", "_input_plane_region", b"_input_plane_region", "_input_plane_url", b"_input_plane_url", "_max_object_size_bytes", b"_max_object_size_bytes", "app_id", b"app_id", "class_parameter_info", b"class_parameter_info", "definition_id", b"definition_id", "function_name", b"function_name", "function_schema", b"function_schema", "function_type", b"function_type", "input_plane_region", b"input_plane_region", "input_plane_url", b"input_plane_url", "is_method", b"is_method", "max_object_size_bytes", b"max_object_size_bytes", "method_handle_metadata", b"method_handle_metadata", "supported_input_formats", b"supported_input_formats", "supported_output_formats", b"supported_output_formats", "use_function_id", b"use_function_id", "use_method_name", b"use_method_name", "web_url", b"web_url"]) -> None: ...
     @typing.overload
     def WhichOneof(self, oneof_group: typing_extensions.Literal["_input_plane_region", b"_input_plane_region"]) -> typing_extensions.Literal["input_plane_region"] | None: ...
     @typing.overload
@@ -7382,6 +7523,7 @@ class FunctionOptions(google.protobuf.message.Message):
     REPLACE_CLOUD_BUCKET_MOUNTS_FIELD_NUMBER: builtins.int
     CLOUD_BUCKET_MOUNTS_FIELD_NUMBER: builtins.int
     PINNED_APP_VERSION_FIELD_NUMBER: builtins.int
+    ROUTING_REGION_FIELD_NUMBER: builtins.int
     @property
     def secret_ids(self) -> google.protobuf.internal.containers.RepeatedScalarFieldContainer[builtins.str]: ...
     @property
@@ -7411,6 +7553,7 @@ class FunctionOptions(google.protobuf.message.Message):
     @property
     def cloud_bucket_mounts(self) -> google.protobuf.internal.containers.RepeatedCompositeFieldContainer[global___CloudBucketMount]: ...
     pinned_app_version: builtins.int
+    routing_region: builtins.str
     def __init__(
         self,
         *,
@@ -7435,9 +7578,10 @@ class FunctionOptions(google.protobuf.message.Message):
         replace_cloud_bucket_mounts: builtins.bool = ...,
         cloud_bucket_mounts: collections.abc.Iterable[global___CloudBucketMount] | None = ...,
         pinned_app_version: builtins.int | None = ...,
+        routing_region: builtins.str | None = ...,
     ) -> None: ...
-    def HasField(self, field_name: typing_extensions.Literal["_batch_linger_ms", b"_batch_linger_ms", "_batch_max_size", b"_batch_max_size", "_buffer_containers", b"_buffer_containers", "_cloud_provider_str", b"_cloud_provider_str", "_concurrency_limit", b"_concurrency_limit", "_max_concurrent_inputs", b"_max_concurrent_inputs", "_pinned_app_version", b"_pinned_app_version", "_resources", b"_resources", "_retry_policy", b"_retry_policy", "_scheduler_placement", b"_scheduler_placement", "_target_concurrent_inputs", b"_target_concurrent_inputs", "_task_idle_timeout_secs", b"_task_idle_timeout_secs", "_timeout_secs", b"_timeout_secs", "_warm_pool_size", b"_warm_pool_size", "batch_linger_ms", b"batch_linger_ms", "batch_max_size", b"batch_max_size", "buffer_containers", b"buffer_containers", "cloud_provider_str", b"cloud_provider_str", "concurrency_limit", b"concurrency_limit", "max_concurrent_inputs", b"max_concurrent_inputs", "pinned_app_version", b"pinned_app_version", "resources", b"resources", "retry_policy", b"retry_policy", "scheduler_placement", b"scheduler_placement", "target_concurrent_inputs", b"target_concurrent_inputs", "task_idle_timeout_secs", b"task_idle_timeout_secs", "timeout_secs", b"timeout_secs", "warm_pool_size", b"warm_pool_size"]) -> builtins.bool: ...
-    def ClearField(self, field_name: typing_extensions.Literal["_batch_linger_ms", b"_batch_linger_ms", "_batch_max_size", b"_batch_max_size", "_buffer_containers", b"_buffer_containers", "_cloud_provider_str", b"_cloud_provider_str", "_concurrency_limit", b"_concurrency_limit", "_max_concurrent_inputs", b"_max_concurrent_inputs", "_pinned_app_version", b"_pinned_app_version", "_resources", b"_resources", "_retry_policy", b"_retry_policy", "_scheduler_placement", b"_scheduler_placement", "_target_concurrent_inputs", b"_target_concurrent_inputs", "_task_idle_timeout_secs", b"_task_idle_timeout_secs", "_timeout_secs", b"_timeout_secs", "_warm_pool_size", b"_warm_pool_size", "batch_linger_ms", b"batch_linger_ms", "batch_max_size", b"batch_max_size", "buffer_containers", b"buffer_containers", "cloud_bucket_mounts", b"cloud_bucket_mounts", "cloud_provider_str", b"cloud_provider_str", "concurrency_limit", b"concurrency_limit", "max_concurrent_inputs", b"max_concurrent_inputs", "mount_ids", b"mount_ids", "pinned_app_version", b"pinned_app_version", "replace_cloud_bucket_mounts", b"replace_cloud_bucket_mounts", "replace_secret_ids", b"replace_secret_ids", "replace_volume_mounts", b"replace_volume_mounts", "resources", b"resources", "retry_policy", b"retry_policy", "scheduler_placement", b"scheduler_placement", "secret_ids", b"secret_ids", "target_concurrent_inputs", b"target_concurrent_inputs", "task_idle_timeout_secs", b"task_idle_timeout_secs", "timeout_secs", b"timeout_secs", "volume_mounts", b"volume_mounts", "warm_pool_size", b"warm_pool_size"]) -> None: ...
+    def HasField(self, field_name: typing_extensions.Literal["_batch_linger_ms", b"_batch_linger_ms", "_batch_max_size", b"_batch_max_size", "_buffer_containers", b"_buffer_containers", "_cloud_provider_str", b"_cloud_provider_str", "_concurrency_limit", b"_concurrency_limit", "_max_concurrent_inputs", b"_max_concurrent_inputs", "_pinned_app_version", b"_pinned_app_version", "_resources", b"_resources", "_retry_policy", b"_retry_policy", "_routing_region", b"_routing_region", "_scheduler_placement", b"_scheduler_placement", "_target_concurrent_inputs", b"_target_concurrent_inputs", "_task_idle_timeout_secs", b"_task_idle_timeout_secs", "_timeout_secs", b"_timeout_secs", "_warm_pool_size", b"_warm_pool_size", "batch_linger_ms", b"batch_linger_ms", "batch_max_size", b"batch_max_size", "buffer_containers", b"buffer_containers", "cloud_provider_str", b"cloud_provider_str", "concurrency_limit", b"concurrency_limit", "max_concurrent_inputs", b"max_concurrent_inputs", "pinned_app_version", b"pinned_app_version", "resources", b"resources", "retry_policy", b"retry_policy", "routing_region", b"routing_region", "scheduler_placement", b"scheduler_placement", "target_concurrent_inputs", b"target_concurrent_inputs", "task_idle_timeout_secs", b"task_idle_timeout_secs", "timeout_secs", b"timeout_secs", "warm_pool_size", b"warm_pool_size"]) -> builtins.bool: ...
+    def ClearField(self, field_name: typing_extensions.Literal["_batch_linger_ms", b"_batch_linger_ms", "_batch_max_size", b"_batch_max_size", "_buffer_containers", b"_buffer_containers", "_cloud_provider_str", b"_cloud_provider_str", "_concurrency_limit", b"_concurrency_limit", "_max_concurrent_inputs", b"_max_concurrent_inputs", "_pinned_app_version", b"_pinned_app_version", "_resources", b"_resources", "_retry_policy", b"_retry_policy", "_routing_region", b"_routing_region", "_scheduler_placement", b"_scheduler_placement", "_target_concurrent_inputs", b"_target_concurrent_inputs", "_task_idle_timeout_secs", b"_task_idle_timeout_secs", "_timeout_secs", b"_timeout_secs", "_warm_pool_size", b"_warm_pool_size", "batch_linger_ms", b"batch_linger_ms", "batch_max_size", b"batch_max_size", "buffer_containers", b"buffer_containers", "cloud_bucket_mounts", b"cloud_bucket_mounts", "cloud_provider_str", b"cloud_provider_str", "concurrency_limit", b"concurrency_limit", "max_concurrent_inputs", b"max_concurrent_inputs", "mount_ids", b"mount_ids", "pinned_app_version", b"pinned_app_version", "replace_cloud_bucket_mounts", b"replace_cloud_bucket_mounts", "replace_secret_ids", b"replace_secret_ids", "replace_volume_mounts", b"replace_volume_mounts", "resources", b"resources", "retry_policy", b"retry_policy", "routing_region", b"routing_region", "scheduler_placement", b"scheduler_placement", "secret_ids", b"secret_ids", "target_concurrent_inputs", b"target_concurrent_inputs", "task_idle_timeout_secs", b"task_idle_timeout_secs", "timeout_secs", b"timeout_secs", "volume_mounts", b"volume_mounts", "warm_pool_size", b"warm_pool_size"]) -> None: ...
     @typing.overload
     def WhichOneof(self, oneof_group: typing_extensions.Literal["_batch_linger_ms", b"_batch_linger_ms"]) -> typing_extensions.Literal["batch_linger_ms"] | None: ...
     @typing.overload
@@ -7456,6 +7600,8 @@ class FunctionOptions(google.protobuf.message.Message):
     def WhichOneof(self, oneof_group: typing_extensions.Literal["_resources", b"_resources"]) -> typing_extensions.Literal["resources"] | None: ...
     @typing.overload
     def WhichOneof(self, oneof_group: typing_extensions.Literal["_retry_policy", b"_retry_policy"]) -> typing_extensions.Literal["retry_policy"] | None: ...
+    @typing.overload
+    def WhichOneof(self, oneof_group: typing_extensions.Literal["_routing_region", b"_routing_region"]) -> typing_extensions.Literal["routing_region"] | None: ...
     @typing.overload
     def WhichOneof(self, oneof_group: typing_extensions.Literal["_scheduler_placement", b"_scheduler_placement"]) -> typing_extensions.Literal["scheduler_placement"] | None: ...
     @typing.overload
@@ -8498,22 +8644,22 @@ class ImagePublishRequest(google.protobuf.message.Message):
     IMAGE_ID_FIELD_NUMBER: builtins.int
     TAG_FIELD_NUMBER: builtins.int
     ENVIRONMENT_NAME_FIELD_NUMBER: builtins.int
-    IS_PUBLIC_FIELD_NUMBER: builtins.int
+    ALLOW_PUBLIC_FIELD_NUMBER: builtins.int
     image_id: builtins.str
     tag: builtins.str
-    """Full "name:tag" string. Must be non-empty. Each ImagePublish RPC writes exactly one tag."""
+    """Full "name:tag" string. Must be non-empty."""
     environment_name: builtins.str
-    is_public: builtins.bool
-    """Marks the published tag as public. Public read protocol is defined separately."""
+    allow_public: builtins.bool
+    """Explicit opt-in required when publishing to a public environment."""
     def __init__(
         self,
         *,
         image_id: builtins.str = ...,
         tag: builtins.str = ...,
         environment_name: builtins.str = ...,
-        is_public: builtins.bool = ...,
+        allow_public: builtins.bool = ...,
     ) -> None: ...
-    def ClearField(self, field_name: typing_extensions.Literal["environment_name", b"environment_name", "image_id", b"image_id", "is_public", b"is_public", "tag", b"tag"]) -> None: ...
+    def ClearField(self, field_name: typing_extensions.Literal["allow_public", b"allow_public", "environment_name", b"environment_name", "image_id", b"image_id", "tag", b"tag"]) -> None: ...
 
 global___ImagePublishRequest = ImagePublishRequest
 
@@ -8557,17 +8703,20 @@ class ImageTagRevisionsItem(google.protobuf.message.Message):
     IMAGE_ID_FIELD_NUMBER: builtins.int
     REVISION_ID_FIELD_NUMBER: builtins.int
     CREATED_AT_FIELD_NUMBER: builtins.int
+    PUBLISHED_BY_FIELD_NUMBER: builtins.int
     image_id: builtins.str
     revision_id: builtins.str
     created_at: builtins.float
+    published_by: builtins.str
     def __init__(
         self,
         *,
         image_id: builtins.str = ...,
         revision_id: builtins.str = ...,
         created_at: builtins.float = ...,
+        published_by: builtins.str = ...,
     ) -> None: ...
-    def ClearField(self, field_name: typing_extensions.Literal["created_at", b"created_at", "image_id", b"image_id", "revision_id", b"revision_id"]) -> None: ...
+    def ClearField(self, field_name: typing_extensions.Literal["created_at", b"created_at", "image_id", b"image_id", "published_by", b"published_by", "revision_id", b"revision_id"]) -> None: ...
 
 global___ImageTagRevisionsItem = ImageTagRevisionsItem
 
@@ -8922,6 +9071,36 @@ class MethodDefinition(google.protobuf.message.Message):
     def ClearField(self, field_name: typing_extensions.Literal["custom_domain_info", b"custom_domain_info", "function_name", b"function_name", "function_schema", b"function_schema", "function_type", b"function_type", "supported_input_formats", b"supported_input_formats", "supported_output_formats", b"supported_output_formats", "web_url", b"web_url", "web_url_info", b"web_url_info", "webhook_config", b"webhook_config"]) -> None: ...
 
 global___MethodDefinition = MethodDefinition
+
+class MountBatchedCheckExistenceRequest(google.protobuf.message.Message):
+    DESCRIPTOR: google.protobuf.descriptor.Descriptor
+
+    SHA256_HEX_HASHES_FIELD_NUMBER: builtins.int
+    @property
+    def sha256_hex_hashes(self) -> google.protobuf.internal.containers.RepeatedScalarFieldContainer[builtins.str]: ...
+    def __init__(
+        self,
+        *,
+        sha256_hex_hashes: collections.abc.Iterable[builtins.str] | None = ...,
+    ) -> None: ...
+    def ClearField(self, field_name: typing_extensions.Literal["sha256_hex_hashes", b"sha256_hex_hashes"]) -> None: ...
+
+global___MountBatchedCheckExistenceRequest = MountBatchedCheckExistenceRequest
+
+class MountBatchedCheckExistenceResponse(google.protobuf.message.Message):
+    DESCRIPTOR: google.protobuf.descriptor.Descriptor
+
+    MISSING_SHA256_HEX_HASHES_FIELD_NUMBER: builtins.int
+    @property
+    def missing_sha256_hex_hashes(self) -> google.protobuf.internal.containers.RepeatedScalarFieldContainer[builtins.str]: ...
+    def __init__(
+        self,
+        *,
+        missing_sha256_hex_hashes: collections.abc.Iterable[builtins.str] | None = ...,
+    ) -> None: ...
+    def ClearField(self, field_name: typing_extensions.Literal["missing_sha256_hex_hashes", b"missing_sha256_hex_hashes"]) -> None: ...
+
+global___MountBatchedCheckExistenceResponse = MountBatchedCheckExistenceResponse
 
 class MountFile(google.protobuf.message.Message):
     DESCRIPTOR: google.protobuf.descriptor.Descriptor
@@ -10708,20 +10887,24 @@ class SandboxCreateV2Request(google.protobuf.message.Message):
     APP_ID_FIELD_NUMBER: builtins.int
     DEFINITION_FIELD_NUMBER: builtins.int
     EPHEMERAL_SECRETS_FIELD_NUMBER: builtins.int
+    TAGS_FIELD_NUMBER: builtins.int
     app_id: builtins.str
     @property
     def definition(self) -> global___Sandbox: ...
     @property
     def ephemeral_secrets(self) -> global___StringMap: ...
+    @property
+    def tags(self) -> google.protobuf.internal.containers.RepeatedCompositeFieldContainer[global___SandboxTag]: ...
     def __init__(
         self,
         *,
         app_id: builtins.str = ...,
         definition: global___Sandbox | None = ...,
         ephemeral_secrets: global___StringMap | None = ...,
+        tags: collections.abc.Iterable[global___SandboxTag] | None = ...,
     ) -> None: ...
     def HasField(self, field_name: typing_extensions.Literal["definition", b"definition", "ephemeral_secrets", b"ephemeral_secrets"]) -> builtins.bool: ...
-    def ClearField(self, field_name: typing_extensions.Literal["app_id", b"app_id", "definition", b"definition", "ephemeral_secrets", b"ephemeral_secrets"]) -> None: ...
+    def ClearField(self, field_name: typing_extensions.Literal["app_id", b"app_id", "definition", b"definition", "ephemeral_secrets", b"ephemeral_secrets", "tags", b"tags"]) -> None: ...
 
 global___SandboxCreateV2Request = SandboxCreateV2Request
 
@@ -10754,13 +10937,18 @@ class SandboxGetCommandRouterAccessRequest(google.protobuf.message.Message):
     DESCRIPTOR: google.protobuf.descriptor.Descriptor
 
     SANDBOX_ID_FIELD_NUMBER: builtins.int
+    TASK_ID_FIELD_NUMBER: builtins.int
     sandbox_id: builtins.str
+    task_id: builtins.str
     def __init__(
         self,
         *,
         sandbox_id: builtins.str = ...,
+        task_id: builtins.str = ...,
     ) -> None: ...
-    def ClearField(self, field_name: typing_extensions.Literal["sandbox_id", b"sandbox_id"]) -> None: ...
+    def HasField(self, field_name: typing_extensions.Literal["sandbox_id", b"sandbox_id", "target", b"target", "task_id", b"task_id"]) -> builtins.bool: ...
+    def ClearField(self, field_name: typing_extensions.Literal["sandbox_id", b"sandbox_id", "target", b"target", "task_id", b"task_id"]) -> None: ...
+    def WhichOneof(self, oneof_group: typing_extensions.Literal["target", b"target"]) -> typing_extensions.Literal["sandbox_id", "task_id"] | None: ...
 
 global___SandboxGetCommandRouterAccessRequest = SandboxGetCommandRouterAccessRequest
 
@@ -11117,11 +11305,16 @@ class SandboxRestoreRequest(google.protobuf.message.Message):
     SANDBOX_NAME_OVERRIDE_FIELD_NUMBER: builtins.int
     SANDBOX_NAME_OVERRIDE_TYPE_FIELD_NUMBER: builtins.int
     WORKER_ID_FIELD_NUMBER: builtins.int
+    REPLACE_VOLUME_MOUNTS_FIELD_NUMBER: builtins.int
+    VOLUME_MOUNTS_FIELD_NUMBER: builtins.int
     snapshot_id: builtins.str
     sandbox_name_override: builtins.str
     sandbox_name_override_type: global___SandboxRestoreRequest.SandboxNameOverrideType.ValueType
     worker_id: builtins.str
     """For internal debugging use only."""
+    replace_volume_mounts: builtins.bool
+    @property
+    def volume_mounts(self) -> google.protobuf.internal.containers.RepeatedCompositeFieldContainer[global___VolumeMount]: ...
     def __init__(
         self,
         *,
@@ -11129,8 +11322,10 @@ class SandboxRestoreRequest(google.protobuf.message.Message):
         sandbox_name_override: builtins.str = ...,
         sandbox_name_override_type: global___SandboxRestoreRequest.SandboxNameOverrideType.ValueType = ...,
         worker_id: builtins.str = ...,
+        replace_volume_mounts: builtins.bool = ...,
+        volume_mounts: collections.abc.Iterable[global___VolumeMount] | None = ...,
     ) -> None: ...
-    def ClearField(self, field_name: typing_extensions.Literal["sandbox_name_override", b"sandbox_name_override", "sandbox_name_override_type", b"sandbox_name_override_type", "snapshot_id", b"snapshot_id", "worker_id", b"worker_id"]) -> None: ...
+    def ClearField(self, field_name: typing_extensions.Literal["replace_volume_mounts", b"replace_volume_mounts", "sandbox_name_override", b"sandbox_name_override", "sandbox_name_override_type", b"sandbox_name_override_type", "snapshot_id", b"snapshot_id", "volume_mounts", b"volume_mounts", "worker_id", b"worker_id"]) -> None: ...
 
 global___SandboxRestoreRequest = SandboxRestoreRequest
 
@@ -12282,17 +12477,20 @@ class TaskClusterHelloRequest(google.protobuf.message.Message):
     TASK_ID_FIELD_NUMBER: builtins.int
     CONTAINER_IP_FIELD_NUMBER: builtins.int
     IMEX_HOST_IP_FIELD_NUMBER: builtins.int
+    IMEX_FABRIC_ID_FIELD_NUMBER: builtins.int
     task_id: builtins.str
     container_ip: builtins.str
     imex_host_ip: builtins.str
+    imex_fabric_id: builtins.str
     def __init__(
         self,
         *,
         task_id: builtins.str = ...,
         container_ip: builtins.str = ...,
         imex_host_ip: builtins.str = ...,
+        imex_fabric_id: builtins.str = ...,
     ) -> None: ...
-    def ClearField(self, field_name: typing_extensions.Literal["container_ip", b"container_ip", "imex_host_ip", b"imex_host_ip", "task_id", b"task_id"]) -> None: ...
+    def ClearField(self, field_name: typing_extensions.Literal["container_ip", b"container_ip", "imex_fabric_id", b"imex_fabric_id", "imex_host_ip", b"imex_host_ip", "task_id", b"task_id"]) -> None: ...
 
 global___TaskClusterHelloRequest = TaskClusterHelloRequest
 
@@ -12313,7 +12511,7 @@ class TaskClusterHelloResponse(google.protobuf.message.Message):
     def container_ipv4_ips(self) -> google.protobuf.internal.containers.RepeatedScalarFieldContainer[builtins.str]: ...
     @property
     def imex_peer_ips(self) -> google.protobuf.internal.containers.RepeatedScalarFieldContainer[builtins.str]:
-        """Host IPs of every gang member's nvidia-imex daemon, ordered by cluster rank,
+        """All nvidia-imex IPs in fabric, ordered by cluster rank,
         and otherwise absent on non-NVL72 systems
         """
     def __init__(
@@ -12427,6 +12625,7 @@ class TaskInfo(google.protobuf.message.Message):
     GPU_CONFIG_FIELD_NUMBER: builtins.int
     id: builtins.str
     started_at: builtins.float
+    """For Function containers, this corresponds to the "ready" time, after startup phase"""
     finished_at: builtins.float
     @property
     def result(self) -> global___GenericResult: ...
@@ -13131,6 +13330,36 @@ class VolumeCopyFilesRequest(google.protobuf.message.Message):
 
 global___VolumeCopyFilesRequest = VolumeCopyFilesRequest
 
+class VolumeCreateOptions(google.protobuf.message.Message):
+    DESCRIPTOR: google.protobuf.descriptor.Descriptor
+
+    class ExperimentalOptionsEntry(google.protobuf.message.Message):
+        DESCRIPTOR: google.protobuf.descriptor.Descriptor
+
+        KEY_FIELD_NUMBER: builtins.int
+        VALUE_FIELD_NUMBER: builtins.int
+        key: builtins.str
+        value: builtins.str
+        def __init__(
+            self,
+            *,
+            key: builtins.str = ...,
+            value: builtins.str = ...,
+        ) -> None: ...
+        def ClearField(self, field_name: typing_extensions.Literal["key", b"key", "value", b"value"]) -> None: ...
+
+    EXPERIMENTAL_OPTIONS_FIELD_NUMBER: builtins.int
+    @property
+    def experimental_options(self) -> google.protobuf.internal.containers.ScalarMap[builtins.str, builtins.str]: ...
+    def __init__(
+        self,
+        *,
+        experimental_options: collections.abc.Mapping[builtins.str, builtins.str] | None = ...,
+    ) -> None: ...
+    def ClearField(self, field_name: typing_extensions.Literal["experimental_options", b"experimental_options"]) -> None: ...
+
+global___VolumeCreateOptions = VolumeCreateOptions
+
 class VolumeDeleteRequest(google.protobuf.message.Message):
     DESCRIPTOR: google.protobuf.descriptor.Descriptor
 
@@ -13295,12 +13524,15 @@ class VolumeGetOrCreateRequest(google.protobuf.message.Message):
     OBJECT_CREATION_TYPE_FIELD_NUMBER: builtins.int
     APP_ID_FIELD_NUMBER: builtins.int
     VERSION_FIELD_NUMBER: builtins.int
+    CREATE_OPTIONS_FIELD_NUMBER: builtins.int
     deployment_name: builtins.str
     environment_name: builtins.str
     object_creation_type: global___ObjectCreationType.ValueType
     app_id: builtins.str
     """only used with OBJECT_CREATION_TYPE_ANONYMOUS_OWNED_BY_APP"""
     version: global___VolumeFsVersion.ValueType
+    @property
+    def create_options(self) -> global___VolumeCreateOptions: ...
     def __init__(
         self,
         *,
@@ -13309,8 +13541,11 @@ class VolumeGetOrCreateRequest(google.protobuf.message.Message):
         object_creation_type: global___ObjectCreationType.ValueType = ...,
         app_id: builtins.str = ...,
         version: global___VolumeFsVersion.ValueType = ...,
+        create_options: global___VolumeCreateOptions | None = ...,
     ) -> None: ...
-    def ClearField(self, field_name: typing_extensions.Literal["app_id", b"app_id", "deployment_name", b"deployment_name", "environment_name", b"environment_name", "object_creation_type", b"object_creation_type", "version", b"version"]) -> None: ...
+    def HasField(self, field_name: typing_extensions.Literal["_create_options", b"_create_options", "create_options", b"create_options"]) -> builtins.bool: ...
+    def ClearField(self, field_name: typing_extensions.Literal["_create_options", b"_create_options", "app_id", b"app_id", "create_options", b"create_options", "deployment_name", b"deployment_name", "environment_name", b"environment_name", "object_creation_type", b"object_creation_type", "version", b"version"]) -> None: ...
+    def WhichOneof(self, oneof_group: typing_extensions.Literal["_create_options", b"_create_options"]) -> typing_extensions.Literal["create_options"] | None: ...
 
 global___VolumeGetOrCreateRequest = VolumeGetOrCreateRequest
 
@@ -14018,21 +14253,6 @@ class WorkspaceBillingReportItem(google.protobuf.message.Message):
         ) -> None: ...
         def ClearField(self, field_name: typing_extensions.Literal["key", b"key", "value", b"value"]) -> None: ...
 
-    class CostByResourceFloatEntry(google.protobuf.message.Message):
-        DESCRIPTOR: google.protobuf.descriptor.Descriptor
-
-        KEY_FIELD_NUMBER: builtins.int
-        VALUE_FIELD_NUMBER: builtins.int
-        key: builtins.str
-        value: builtins.float
-        def __init__(
-            self,
-            *,
-            key: builtins.str = ...,
-            value: builtins.float = ...,
-        ) -> None: ...
-        def ClearField(self, field_name: typing_extensions.Literal["key", b"key", "value", b"value"]) -> None: ...
-
     class CostByResourceEntry(google.protobuf.message.Message):
         DESCRIPTOR: google.protobuf.descriptor.Descriptor
 
@@ -14054,7 +14274,6 @@ class WorkspaceBillingReportItem(google.protobuf.message.Message):
     INTERVAL_FIELD_NUMBER: builtins.int
     COST_FIELD_NUMBER: builtins.int
     TAGS_FIELD_NUMBER: builtins.int
-    COST_BY_RESOURCE_FLOAT_FIELD_NUMBER: builtins.int
     COST_BY_RESOURCE_FIELD_NUMBER: builtins.int
     object_id: builtins.str
     description: builtins.str
@@ -14064,9 +14283,6 @@ class WorkspaceBillingReportItem(google.protobuf.message.Message):
     cost: builtins.str
     @property
     def tags(self) -> google.protobuf.internal.containers.ScalarMap[builtins.str, builtins.str]: ...
-    @property
-    def cost_by_resource_float(self) -> google.protobuf.internal.containers.ScalarMap[builtins.str, builtins.float]:
-        """old field to be removed"""
     @property
     def cost_by_resource(self) -> google.protobuf.internal.containers.ScalarMap[builtins.str, builtins.str]: ...
     def __init__(
@@ -14078,11 +14294,10 @@ class WorkspaceBillingReportItem(google.protobuf.message.Message):
         interval: google.protobuf.timestamp_pb2.Timestamp | None = ...,
         cost: builtins.str = ...,
         tags: collections.abc.Mapping[builtins.str, builtins.str] | None = ...,
-        cost_by_resource_float: collections.abc.Mapping[builtins.str, builtins.float] | None = ...,
         cost_by_resource: collections.abc.Mapping[builtins.str, builtins.str] | None = ...,
     ) -> None: ...
     def HasField(self, field_name: typing_extensions.Literal["interval", b"interval"]) -> builtins.bool: ...
-    def ClearField(self, field_name: typing_extensions.Literal["cost", b"cost", "cost_by_resource", b"cost_by_resource", "cost_by_resource_float", b"cost_by_resource_float", "description", b"description", "environment_name", b"environment_name", "interval", b"interval", "object_id", b"object_id", "tags", b"tags"]) -> None: ...
+    def ClearField(self, field_name: typing_extensions.Literal["cost", b"cost", "cost_by_resource", b"cost_by_resource", "description", b"description", "environment_name", b"environment_name", "interval", b"interval", "object_id", b"object_id", "tags", b"tags"]) -> None: ...
 
 global___WorkspaceBillingReportItem = WorkspaceBillingReportItem
 
@@ -14122,6 +14337,84 @@ class WorkspaceBillingReportRequest(google.protobuf.message.Message):
     def ClearField(self, field_name: typing_extensions.Literal["app_ids", b"app_ids", "end_timestamp", b"end_timestamp", "environment_ids", b"environment_ids", "resolution", b"resolution", "start_timestamp", b"start_timestamp", "tag_names", b"tag_names"]) -> None: ...
 
 global___WorkspaceBillingReportRequest = WorkspaceBillingReportRequest
+
+class WorkspaceBillingSummaryRequest(google.protobuf.message.Message):
+    DESCRIPTOR: google.protobuf.descriptor.Descriptor
+
+    START_TIMESTAMP_FIELD_NUMBER: builtins.int
+    END_TIMESTAMP_FIELD_NUMBER: builtins.int
+    @property
+    def start_timestamp(self) -> google.protobuf.timestamp_pb2.Timestamp: ...
+    @property
+    def end_timestamp(self) -> google.protobuf.timestamp_pb2.Timestamp: ...
+    def __init__(
+        self,
+        *,
+        start_timestamp: google.protobuf.timestamp_pb2.Timestamp | None = ...,
+        end_timestamp: google.protobuf.timestamp_pb2.Timestamp | None = ...,
+    ) -> None: ...
+    def HasField(self, field_name: typing_extensions.Literal["end_timestamp", b"end_timestamp", "start_timestamp", b"start_timestamp"]) -> builtins.bool: ...
+    def ClearField(self, field_name: typing_extensions.Literal["end_timestamp", b"end_timestamp", "start_timestamp", b"start_timestamp"]) -> None: ...
+
+global___WorkspaceBillingSummaryRequest = WorkspaceBillingSummaryRequest
+
+class WorkspaceBillingSummaryResponse(google.protobuf.message.Message):
+    DESCRIPTOR: google.protobuf.descriptor.Descriptor
+
+    class MeteredCostBreakdownEntry(google.protobuf.message.Message):
+        DESCRIPTOR: google.protobuf.descriptor.Descriptor
+
+        KEY_FIELD_NUMBER: builtins.int
+        VALUE_FIELD_NUMBER: builtins.int
+        key: builtins.str
+        value: builtins.str
+        def __init__(
+            self,
+            *,
+            key: builtins.str = ...,
+            value: builtins.str = ...,
+        ) -> None: ...
+        def ClearField(self, field_name: typing_extensions.Literal["key", b"key", "value", b"value"]) -> None: ...
+
+    START_TIMESTAMP_FIELD_NUMBER: builtins.int
+    END_TIMESTAMP_FIELD_NUMBER: builtins.int
+    METERED_COST_FIELD_NUMBER: builtins.int
+    PLAN_COST_FIELD_NUMBER: builtins.int
+    CREDITS_APPLIED_FIELD_NUMBER: builtins.int
+    RESERVATIONS_DISCOUNT_FIELD_NUMBER: builtins.int
+    VOLUMES_DISCOUNT_FIELD_NUMBER: builtins.int
+    BILLED_COST_FIELD_NUMBER: builtins.int
+    METERED_COST_BREAKDOWN_FIELD_NUMBER: builtins.int
+    @property
+    def start_timestamp(self) -> google.protobuf.timestamp_pb2.Timestamp: ...
+    @property
+    def end_timestamp(self) -> google.protobuf.timestamp_pb2.Timestamp: ...
+    metered_cost: builtins.str
+    plan_cost: builtins.str
+    credits_applied: builtins.str
+    reservations_discount: builtins.str
+    volumes_discount: builtins.str
+    billed_cost: builtins.str
+    @property
+    def metered_cost_breakdown(self) -> google.protobuf.internal.containers.ScalarMap[builtins.str, builtins.str]:
+        """keyed by deployed, ephemeral, volume, notebook"""
+    def __init__(
+        self,
+        *,
+        start_timestamp: google.protobuf.timestamp_pb2.Timestamp | None = ...,
+        end_timestamp: google.protobuf.timestamp_pb2.Timestamp | None = ...,
+        metered_cost: builtins.str = ...,
+        plan_cost: builtins.str = ...,
+        credits_applied: builtins.str = ...,
+        reservations_discount: builtins.str = ...,
+        volumes_discount: builtins.str = ...,
+        billed_cost: builtins.str = ...,
+        metered_cost_breakdown: collections.abc.Mapping[builtins.str, builtins.str] | None = ...,
+    ) -> None: ...
+    def HasField(self, field_name: typing_extensions.Literal["end_timestamp", b"end_timestamp", "start_timestamp", b"start_timestamp"]) -> builtins.bool: ...
+    def ClearField(self, field_name: typing_extensions.Literal["billed_cost", b"billed_cost", "credits_applied", b"credits_applied", "end_timestamp", b"end_timestamp", "metered_cost", b"metered_cost", "metered_cost_breakdown", b"metered_cost_breakdown", "plan_cost", b"plan_cost", "reservations_discount", b"reservations_discount", "start_timestamp", b"start_timestamp", "volumes_discount", b"volumes_discount"]) -> None: ...
+
+global___WorkspaceBillingSummaryResponse = WorkspaceBillingSummaryResponse
 
 class WorkspaceDashboardUrlRequest(google.protobuf.message.Message):
     DESCRIPTOR: google.protobuf.descriptor.Descriptor
@@ -14226,3 +14519,62 @@ class WorkspaceNameLookupResponse(google.protobuf.message.Message):
     def ClearField(self, field_name: typing_extensions.Literal["username", b"username", "workspace_name", b"workspace_name"]) -> None: ...
 
 global___WorkspaceNameLookupResponse = WorkspaceNameLookupResponse
+
+class WorkspaceSetDefaultEnvironmentRequest(google.protobuf.message.Message):
+    DESCRIPTOR: google.protobuf.descriptor.Descriptor
+
+    ENVIRONMENT_NAME_FIELD_NUMBER: builtins.int
+    environment_name: builtins.str
+    def __init__(
+        self,
+        *,
+        environment_name: builtins.str = ...,
+    ) -> None: ...
+    def ClearField(self, field_name: typing_extensions.Literal["environment_name", b"environment_name"]) -> None: ...
+
+global___WorkspaceSetDefaultEnvironmentRequest = WorkspaceSetDefaultEnvironmentRequest
+
+class WorkspaceSetImageBuilderVersionRequest(google.protobuf.message.Message):
+    DESCRIPTOR: google.protobuf.descriptor.Descriptor
+
+    NEW_IMAGE_BUILDER_VERSION_FIELD_NUMBER: builtins.int
+    new_image_builder_version: builtins.str
+    def __init__(
+        self,
+        *,
+        new_image_builder_version: builtins.str = ...,
+    ) -> None: ...
+    def ClearField(self, field_name: typing_extensions.Literal["new_image_builder_version", b"new_image_builder_version"]) -> None: ...
+
+global___WorkspaceSetImageBuilderVersionRequest = WorkspaceSetImageBuilderVersionRequest
+
+class WorkspaceSetImageBuilderVersionResponse(google.protobuf.message.Message):
+    DESCRIPTOR: google.protobuf.descriptor.Descriptor
+
+    IMAGE_BUILDER_VERSION_FIELD_NUMBER: builtins.int
+    image_builder_version: builtins.str
+    def __init__(
+        self,
+        *,
+        image_builder_version: builtins.str = ...,
+    ) -> None: ...
+    def ClearField(self, field_name: typing_extensions.Literal["image_builder_version", b"image_builder_version"]) -> None: ...
+
+global___WorkspaceSetImageBuilderVersionResponse = WorkspaceSetImageBuilderVersionResponse
+
+class WorkspaceSettingsResponse(google.protobuf.message.Message):
+    DESCRIPTOR: google.protobuf.descriptor.Descriptor
+
+    DEFAULT_ENVIRONMENT_NAME_FIELD_NUMBER: builtins.int
+    IMAGE_BUILDER_VERSION_FIELD_NUMBER: builtins.int
+    default_environment_name: builtins.str
+    image_builder_version: builtins.str
+    def __init__(
+        self,
+        *,
+        default_environment_name: builtins.str = ...,
+        image_builder_version: builtins.str = ...,
+    ) -> None: ...
+    def ClearField(self, field_name: typing_extensions.Literal["default_environment_name", b"default_environment_name", "image_builder_version", b"image_builder_version"]) -> None: ...
+
+global___WorkspaceSettingsResponse = WorkspaceSettingsResponse

@@ -10,7 +10,7 @@ Public API of this module is defined by __all__.
 """
 
 import logging
-from typing import Final, TypedDict, Unpack
+from typing import ClassVar, Final, TypedDict, Unpack
 
 from aiohomematic import i18n
 from aiohomematic.const import DataPointCategory, DeviceProfile, Field
@@ -20,7 +20,7 @@ from aiohomematic.model.custom.field import DataPointField
 from aiohomematic.model.custom.registry import DeviceProfileRegistry
 from aiohomematic.model.data_point import CallParameterCollector, bind_collector
 from aiohomematic.model.generic import DpActionBoolean, DpActionSelect, DpActionString, DpBinarySensor
-from aiohomematic.property_decorators import DelegatedProperty, Kind, state_property
+from aiohomematic.property_decorators import DelegatedProperty
 
 __all__ = ["CustomDpTextDisplay", "TextDisplayArgs"]
 
@@ -78,6 +78,9 @@ class CustomDpTextDisplay(CustomDataPoint):
     _dp_interval: Final = DataPointField(field=Field.INTERVAL, dpt=DpActionSelect)
     _dp_repetitions: Final = DataPointField(field=Field.REPETITIONS, dpt=DpActionSelect)
     _dp_burst_limit_warning: Final = DataPointField(field=Field.BURST_LIMIT_WARNING, dpt=DpBinarySensor)
+    # Write-only device: no field gates validity, BURST_LIMIT_WARNING is a warning
+    # channel, not a state carrier.
+    _validity_relevant_fields: ClassVar[frozenset[Field]] = frozenset()
 
     # Expose available options via DelegatedProperty
     @staticmethod
@@ -99,29 +102,23 @@ class CustomDpTextDisplay(CustomDataPoint):
         return f"REPETITIONS_{repeat:03d}"
 
     _available_repetitions: Final = DelegatedProperty[tuple[str, ...] | None](path="_dp_repetitions.values")
-    available_alignments: Final = DelegatedProperty[tuple[str, ...] | None](
-        path="_dp_display_data_alignment.values", kind=Kind.STATE
-    )
+    available_alignments: Final = DelegatedProperty[tuple[str, ...] | None](path="_dp_display_data_alignment.values")
     available_background_colors: Final = DelegatedProperty[tuple[str, ...] | None](
-        path="_dp_display_data_background_color.values", kind=Kind.STATE
+        path="_dp_display_data_background_color.values"
     )
-    available_icons: Final = DelegatedProperty[tuple[str, ...] | None](
-        path="_dp_display_data_icon.values", kind=Kind.STATE
-    )
+    available_icons: Final = DelegatedProperty[tuple[str, ...] | None](path="_dp_display_data_icon.values")
     available_sounds: Final = DelegatedProperty[tuple[str, ...] | None](
-        path="_dp_acoustic_notification_selection.values", kind=Kind.STATE
+        path="_dp_acoustic_notification_selection.values"
     )
-    available_text_colors: Final = DelegatedProperty[tuple[str, ...] | None](
-        path="_dp_display_data_text_color.values", kind=Kind.STATE
-    )
-    burst_limit_warning: Final = DelegatedProperty[bool](path="_dp_burst_limit_warning.value", kind=Kind.STATE)
+    available_text_colors: Final = DelegatedProperty[tuple[str, ...] | None](path="_dp_display_data_text_color.values")
+    burst_limit_warning: Final = DelegatedProperty[bool](path="_dp_burst_limit_warning.value")
 
-    @state_property
+    @property
     def has_icons(self) -> bool:
         """Return true if display has icons."""
         return self.available_icons is not None
 
-    @state_property
+    @property
     def has_sounds(self) -> bool:
         """Return true if display has sounds."""
         return self.available_sounds is not None

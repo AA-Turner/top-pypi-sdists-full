@@ -2,6 +2,8 @@ use super::*;
 
 #[derive(Copy, Clone, Debug, PartialEq)]
 pub(crate) enum ListFeature {
+  ArgMax,
+  ArgMin,
   BoolFunction,
   ComparisonOperator,
   Flag,
@@ -13,6 +15,7 @@ pub(crate) enum ListFeature {
   Multiple,
   NegationOperator,
   NonComparisonCondition,
+  NumJobsFunction,
   ShowFunction,
   SplitFunction,
   WhichFunction,
@@ -23,10 +26,13 @@ impl ListFeature {
     match self {
       Self::BoolFunction
       | Self::JoinListFunction
+      | Self::NumJobsFunction
       | Self::ShowFunction
       | Self::SplitFunction
       | Self::WhichFunction => true,
-      Self::ComparisonOperator
+      Self::ArgMax
+      | Self::ArgMin
+      | Self::ComparisonOperator
       | Self::Flag
       | Self::IfWithoutElse
       | Self::ListConcatenationOperator
@@ -42,6 +48,8 @@ impl ListFeature {
 impl Display for ListFeature {
   fn fmt(&self, f: &mut Formatter) -> fmt::Result {
     match self {
+      Self::ArgMax => write!(f, "`[arg(max)]` requires `set lists`"),
+      Self::ArgMin => write!(f, "`[arg(min)]` requires `set lists`"),
       Self::BoolFunction => write!(f, "the `bool()` function requires `set lists`"),
       Self::ComparisonOperator => write!(f, "comparison operators require `set lists`"),
       Self::Flag => write!(f, "`flag` arguments require `set lists`"),
@@ -58,6 +66,7 @@ impl Display for ListFeature {
         f,
         "`if` and `assert` conditions other than comparisons require `set lists`"
       ),
+      Self::NumJobsFunction => write!(f, "the `num_jobs()` function requires `set lists`"),
       Self::ShowFunction => write!(f, "the `show()` function requires `set lists`"),
       Self::SplitFunction => write!(f, "the `split()` function requires `set lists`"),
       Self::WhichFunction => write!(f, "the `which()` function requires `set lists`"),

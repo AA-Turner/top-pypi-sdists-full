@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: homeassistant-stubs
-Version: 2026.7.1
+Version: 2026.7.2
 Summary: PEP 484 typing stubs for Home Assistant Core
 Project-URL: Homepage, https://github.com/KapJI/homeassistant-stubs
 Project-URL: Bug Tracker, https://github.com/KapJI/homeassistant-stubs/issues
@@ -18,7 +18,7 @@ Classifier: Topic :: Home Automation
 Classifier: Topic :: Software Development
 Classifier: Typing :: Typed
 Requires-Python: >=3.14.2
-Requires-Dist: homeassistant==2026.7.1
+Requires-Dist: homeassistant==2026.7.2
 Description-Content-Type: text/markdown
 
 [![CI](https://github.com/KapJI/homeassistant-stubs/actions/workflows/ci.yaml/badge.svg)](https://github.com/KapJI/homeassistant-stubs/actions/workflows/ci.yaml)

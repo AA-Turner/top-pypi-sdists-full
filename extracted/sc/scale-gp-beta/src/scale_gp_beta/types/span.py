@@ -36,6 +36,8 @@ class Span(BaseModel):
 
     end_timestamp: Optional[datetime] = None
 
+    expected: Optional[Dict[str, object]] = None
+
     group_id: Optional[str] = None
     """Reference to a group_id"""
 

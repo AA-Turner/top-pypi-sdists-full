@@ -1,3 +1,7 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
 [project]
 name = "rollbar"
 dynamic = ["version"]
@@ -8,13 +12,11 @@ maintainers = [{name = "Rollbar, Inc.", email = "support@rollbar.com"}]
 classifiers = [
     "Programming Language :: Python",
     "Programming Language :: Python :: 3",
-    "Programming Language :: Python :: 3.7",
-    "Programming Language :: Python :: 3.8",
-    "Programming Language :: Python :: 3.9",
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
     "Programming Language :: Python :: 3 :: Only",
     "License :: OSI Approved :: MIT License",
     "Operating System :: OS Independent",
@@ -36,9 +38,35 @@ classifiers = [
     "Topic :: System :: Logging",
     "Topic :: System :: Monitoring",
 ]
-requires-python = ">=3.7"
+requires-python = ">=3.10"
 dependencies = [
     "requests>=0.12.1",
+    "typing_extensions; python_version < \"3.11\""
+]
+
+[dependency-groups]
+test = [
+    "blinker",
+    "httpx",
+    "packaging",
+    "pytest",
+    "python-multipart",
+    "webob",
+]
+
+type = [
+    "bottle",
+    "djangorestframework-stubs[compatible-mypy]",
+    "django-stubs",
+    "fastapi",
+    "mypy ~= 1.20.2",
+    "pyramid",
+    "quart",
+    "sanic",
+    "starlette",
+    "tornado",
+    "twisted",
+    "uvicorn",
 ]
 
 [project.urls]
@@ -47,15 +75,30 @@ Documentation = "https://docs.rollbar.com/docs/python"
 Changes = "https://github.com/rollbar/pyrollbar/blob/master/CHANGELOG.md"
 Source = "https://github.com/rollbar/pyrollbar/"
 
-[build-system]
-requires = ["setuptools>=61.0"]
-build-backend = "setuptools.build_meta"
-
-[tool.setuptools.dynamic]
-version = {attr = "rollbar.__version__"}
-
 [project.scripts]
 rollbar = "rollbar.cli:main"
 
 [project.entry-points."paste.filter_app_factory"]
 pyramid = "rollbar.contrib.pyramid:create_rollbar_middleware"
+
+[tool.mypy]
+packages = ["rollbar"]
+
+[tool.pytest]
+testpaths = [
+    "rollbar/test",
+]
+
+[tool.setuptools.dynamic]
+version = {attr = "rollbar.__version__"}
+
+[tool.setuptools.package-data]
+rollbar = ["py.typed"]
+
+[tool.tox]
+requires = ["tox>=4.22"]
+
+[tool.tox.env_run_base]
+dependency_groups = ["test"]
+description = "run unit tests"
+commands = [["pytest", "{posargs}"]]

@@ -136,6 +136,14 @@ from .vector_stores import (
     VectorStoresResourceWithStreamingResponse,
     AsyncVectorStoresResourceWithStreamingResponse,
 )
+from .annotation_tasks import (
+    AnnotationTasksResource,
+    AsyncAnnotationTasksResource,
+    AnnotationTasksResourceWithRawResponse,
+    AsyncAnnotationTasksResourceWithRawResponse,
+    AnnotationTasksResourceWithStreamingResponse,
+    AsyncAnnotationTasksResourceWithStreamingResponse,
+)
 from .evaluation_items import (
     EvaluationItemsResource,
     AsyncEvaluationItemsResource,
@@ -254,6 +262,12 @@ __all__ = [
     "AsyncEvaluationDashboardsResourceWithRawResponse",
     "EvaluationDashboardsResourceWithStreamingResponse",
     "AsyncEvaluationDashboardsResourceWithStreamingResponse",
+    "AnnotationTasksResource",
+    "AsyncAnnotationTasksResource",
+    "AnnotationTasksResourceWithRawResponse",
+    "AsyncAnnotationTasksResourceWithRawResponse",
+    "AnnotationTasksResourceWithStreamingResponse",
+    "AsyncAnnotationTasksResourceWithStreamingResponse",
     "SpansResource",
     "AsyncSpansResource",
     "SpansResourceWithRawResponse",

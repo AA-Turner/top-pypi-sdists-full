@@ -88,7 +88,7 @@ fn compare_strings_in_array_impl(
             ConditionOperator::StrStartsWithAny => left.starts_with(right.as_str()),
             ConditionOperator::StrEndsWithAny => left.ends_with(right.as_str()),
             ConditionOperator::StrContainsAny | ConditionOperator::StrContainsNone => {
-                left.contains(right.as_str())
+                contains_substring(left, right.as_str())
             }
             _ => false, // todo: unsupported?
         };
@@ -99,6 +99,15 @@ fn compare_strings_in_array_impl(
     }
 
     comparison_result
+}
+
+#[inline]
+fn contains_substring(haystack: &str, needle: &str) -> bool {
+    if needle.len() <= 1 {
+        return haystack.contains(needle);
+    }
+
+    memchr::memmem::find(haystack.as_bytes(), needle.as_bytes()).is_some()
 }
 
 #[cfg(test)]
@@ -178,6 +187,61 @@ mod tests {
             &haystack,
             ConditionOperator::StrContainsAny
         ));
+    }
+
+    #[test]
+    fn test_str_contains_none() {
+        let value = dyn_value!("daniel@statsig.io");
+        let matching_targets = test_only_make_eval_value!(vec!["@example.com", "@statsig.io"]);
+        let missing_targets = test_only_make_eval_value!(vec!["@example.com", "@statsig.com"]);
+
+        assert!(!compare_strings_in_array(
+            (&value).into(),
+            &matching_targets,
+            ConditionOperator::StrContainsNone
+        ));
+        assert!(compare_strings_in_array(
+            (&value).into(),
+            &missing_targets,
+            ConditionOperator::StrContainsNone
+        ));
+    }
+
+    #[test]
+    fn test_substring_search_matches_std_for_utf8_and_edge_cases() {
+        let haystacks = [
+            "",
+            "a",
+            "daniel@statsig.io",
+            "café au lait",
+            "東京都",
+            "a💖b",
+            "Straße",
+            "embedded\0null",
+        ];
+        let needles = [
+            "",
+            "a",
+            "@statsig.io",
+            "@example.com",
+            "é",
+            "京",
+            "💖",
+            "ss",
+            "ß",
+            "\0",
+            "null",
+        ];
+
+        for haystack in haystacks {
+            for needle in needles {
+                assert_eq!(
+                    super::contains_substring(haystack, needle),
+                    haystack.contains(needle),
+                    "haystack={haystack:?}, needle={needle:?}"
+                );
+            }
+        }
     }
 
     #[test]

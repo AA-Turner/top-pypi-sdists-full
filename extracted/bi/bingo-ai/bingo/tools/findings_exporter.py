@@ -149,14 +149,37 @@ _RCE_PATTERNS = [
 ]
 
 _CRED_PATTERNS = [
-    re.compile(r'(?:password|passwd|pwd)\s*[=:]\s*[\'"]?([^\s\'"]{4,})', re.I),
-    re.compile(r'(?:admin|root|sa)\s*[/|:]\s*([^\s]{4,})', re.I),
+    # v6.2.83: (?<!\.) 추가 — JS 객체 속성 접근(e.password=Authorization+...) 오탐 방지
+    # 이전: 단순 password= 매칭 → e.password=Authorization+(o.password||) 에서 오탐 발생
+    # v6.2.66: JS 미니파이 오탐 방지 — 값에 JS 구문 문자({}()[]) 포함 시 매칭 제외, 최소 6자
+    re.compile(r'(?<!\.)(?:password|passwd|pwd)\s*[=:]\s*[\'"]([^\'"]{6,})[\'"]', re.I),   # 따옴표 감싼 값
+    re.compile(r'(?<!\.)(?:password|passwd|pwd)\s*=\s*([a-zA-Z0-9@._\-!$%^&*+]{6,})(?!\s*[+|&(;])', re.I),  # = 할당만 (JS 연산자 후속 제외)
+    re.compile(r'(?:admin|root|sa)\s*[/|:]\s*([a-zA-Z0-9@._\-!$%^&*+]{6,})', re.I),
     re.compile(r'\$2[aby]\$\d+\$[./A-Za-z0-9]{53}'),          # bcrypt hash (very specific)
     # v6.2.10: MD5/SHA 해시 — 세션쿠키 오탐 억제를 위해 "password" 또는 "hash" 컨텍스트 필요
-    # 이전: r'(?<![%a-zA-Z0-9/])[0-9a-f]{32,64}' → 세션ID, Apache mod_status 등에서 오탐 다수
-    # 수정: hash 단어가 주변에 있거나, password= 앞에 있는 경우만 매칭
     re.compile(r'(?:hash|passwd|md5|sha1|sha256)\s*[:=]\s*([0-9a-f]{32,64})', re.I),
 ]
+
+# v6.2.66: 미니파이 JS 출력 감지 — JS chunk 다운로드 출력에서 credential 오탐 방지
+# v6.2.83: JS 코드 분석 결과 출력(다운로드 컨텍스트 없이도 JS 코드 내용 자체)도 감지
+_MINIFIED_JS_CONTEXT = re.compile(
+    r'(?:'
+    r'下载:\s*\S+\.js\s*\('          # 중국어: "下载: xxx.js (xxxB)"
+    r'|download(?:ing)?:\s*\S+\.js'  # 영어: "downloading: xxx.js"
+    r'|\S+\.js\s*\(\d+B\)'           # "chunk.js (12345B)"
+    r'|chunk大小:\s*\d+'             # chunk大小 (중국어)
+    r'|chunk대small:\s*\d+'          # (혼용 방지용)
+    r'|__next_f\.push'               # Next.js SSR flush
+    r'|webpackChunk|webpackBootstrap'
+    r'|_next/static/chunks/'
+    r'|statics\.\w+\.com.*\.js'      # CDN에서 JS 다운로드
+    # v6.2.83: JS 코드 자체에서 credential 오탐 방지
+    r'|withXsrfToken|withCredentials'        # JS XHR 속성명 — 코드 내 JS 구조
+    r'|\w\.\w{1,4}=\w{2,}\+\('              # e.b=Func+( 패턴 — JS 미니파이 연산
+    r'|\|\|[a-zA-Z_$]\)|=[a-zA-Z_$]+\+\('  # ||t) 또는 =Auth+( — JS 논리연산자
+    r')',
+    re.I
+)
 
 # v4.8.0: SQLi 컨텍스트 키워드 — 코드에 이것이 있으면 credential보다 sqli 우선
 _SQLI_CONTEXT_KEYWORDS = re.compile(
@@ -247,6 +270,10 @@ def _detect_vuln_type(output: str, code_snippet: str = "") -> tuple[str, str] | 
     if _ORACLE_FAILURE_REPEATED.search(output):
         return None
 
+    # ── v6.2.66: 미니파이 JS 출력 감지 — credential 오탐 방지 ─────────────────
+    # JS chunk 다운로드 결과(Next.js, webpack 등)이면 credential 패턴 건너뜀
+    _is_js_chunk_output = bool(_MINIFIED_JS_CONTEXT.search(output))
+
     # ── v4.9.4: LFI php://filter 오탐 방지 ────────────────────────────────────
     # php://filter 요청이 감지됐는데 응답에 실제 base64 파일 내용 없고 HTML 페이지면
     # → 서버가 홈페이지/에러페이지로 리다이렉트한 것 → LFI 아님
@@ -291,6 +318,9 @@ def _detect_vuln_type(output: str, code_snippet: str = "") -> tuple[str, str] | 
     for vtype, sev, patterns in checks:
         # v4.9.4: LFI 오탐 방지 — php://filter+HTML redirect 조합이면 LFI 검사 건너뜀
         if vtype == FINDING_LFI and _skip_lfi:
+            continue
+        # v6.2.66: JS chunk 다운로드 출력 — credential 패턴 건너뜀 (미니파이 JS 오탐 방지)
+        if vtype == FINDING_CREDENTIAL and _is_js_chunk_output:
             continue
         for pat in patterns:
             if pat.search(output):

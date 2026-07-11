@@ -3,6 +3,7 @@
 #include <algorithm>
 #include <atomic>
 #include <condition_variable>
+#include <cstdint>
 #include <mutex>
 #include <random>
 #include <vector>
@@ -17,6 +18,13 @@
 class EchionSampler;
 
 namespace Datadog {
+
+enum class PauseResult : std::uint8_t
+{
+    Paused,     // sampler was running and is now paused
+    NotRunning, // sampler was not running (nothing to pause)
+    Timeout,    // sampler is running but did not pause within the timeout
+};
 
 class Sampler
 {
@@ -40,6 +48,14 @@ class Sampler
     std::mutex thread_exit_mutex;
     std::condition_variable thread_exit_cv;
 
+    // Pause synchronization — allows the faulthandler wrapper to temporarily
+    // suspend sampling so signal handlers can be safely swapped without racing
+    // with in-flight safe_memcpy calls.
+    std::atomic<bool> pause_requested_{ false };
+    std::atomic<bool> paused_{ false };
+    std::mutex pause_mutex_;
+    std::condition_variable pause_cv_;
+
     // This is a singleton, so no public constructor
     Sampler();
 
@@ -57,6 +73,9 @@ class Sampler
     std::minstd_rand rng{ std::random_device{}() };
     std::vector<PyThreadState> thread_candidates;
     void adapt_sampling_interval();
+
+    // Fast-copy startup warmup in seconds.
+    double fast_copy_warmup_seconds = 15.0;
 
     // Tracks whether the sampler was running when prefork was called,
     // so that postfork_parent/restart_after_fork can restore it.
@@ -76,6 +95,8 @@ class Sampler
 
     bool start();
     void stop();
+    PauseResult pause();
+    void resume();
     void register_thread(uint64_t id, uint64_t native_id, const char* name);
     void unregister_thread(uint64_t id);
     void track_asyncio_loop(uintptr_t thread_id, PyObject* loop);
@@ -102,6 +123,8 @@ class Sampler
         max_sampling_period_us = std::max(max_interval_us, static_cast<microsecond_t>(g_min_sampling_period_us));
     }
     void set_max_threads_per_sample(unsigned int value) { max_threads_per_sample = value; }
+
+    void set_fast_copy_warmup_seconds(double value) { fast_copy_warmup_seconds = value; }
 
     // Delegates to the StackRenderer to clear its caches after fork
     void postfork_child();

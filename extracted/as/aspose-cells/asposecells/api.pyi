@@ -611,54 +611,6 @@ class AdvancedFilter:
 class ArcShape:
     '''Represents the arc shape.'''
 
-    def getEndArrowheadStyle(self) -> int:
-        ''':deprecated: Use Shape.Line.EndArrowheadStyle property instead.'''
-        raise NotImplementedError()
-
-    def getEndArrowheadWidth(self) -> int:
-        ''':deprecated: Use Shape.Line.EndArrowheadWidth property instead.'''
-        raise NotImplementedError()
-
-    def setEndArrowheadStyle(self, value : int) -> None:
-        ''':deprecated: Use Shape.Line.EndArrowheadStyle property instead.'''
-        raise NotImplementedError()
-
-    def setEndArrowheadWidth(self, value : int) -> None:
-        ''':deprecated: Use Shape.Line.EndArrowheadWidth property instead.'''
-        raise NotImplementedError()
-
-    def setEndArrowheadLength(self, value : int) -> None:
-        ''':deprecated: Use Shape.Line.EndArrowheadLength property instead.'''
-        raise NotImplementedError()
-
-    def getBeginArrowheadStyle(self) -> int:
-        ''':deprecated: Use Shape.Line.BeginArrowheadStyle property instead.'''
-        raise NotImplementedError()
-
-    def getBeginArrowheadWidth(self) -> int:
-        ''':deprecated: Use Shape.Line.BeginArrowheadWidth property instead.'''
-        raise NotImplementedError()
-
-    def setBeginArrowheadLength(self, value : int) -> None:
-        ''':deprecated: Use Shape.Line.BeginArrowheadLength property instead.'''
-        raise NotImplementedError()
-
-    def getBeginArrowheadLength(self) -> int:
-        ''':deprecated: Use Shape.Line.BeginArrowheadLength property instead.'''
-        raise NotImplementedError()
-
-    def setBeginArrowheadStyle(self, value : int) -> None:
-        ''':deprecated: Use Shape.Line.BeginArrowheadStyle property instead.'''
-        raise NotImplementedError()
-
-    def setBeginArrowheadWidth(self, value : int) -> None:
-        ''':deprecated: Use Shape.Line.BeginArrowheadWidth property instead.'''
-        raise NotImplementedError()
-
-    def getEndArrowheadLength(self) -> int:
-        ''':deprecated: Use Shape.Line.EndArrowheadLength property instead.'''
-        raise NotImplementedError()
-
 
 class Area:
     '''Encapsulates the object that represents an area format.'''
@@ -8046,16 +7998,8 @@ class CheckBox:
         :param value: '''
         raise NotImplementedError()
 
-    def getCheckValue(self) -> int:
-        ''':deprecated: Use CheckBox.CheckValueType property instead.'''
-        raise NotImplementedError()
-
     def getValue(self) -> bool:
         '''Indicates if the checkbox is checked or not.'''
-        raise NotImplementedError()
-
-    def setCheckValue(self, value : int) -> None:
-        ''':deprecated: Use CheckBox.CheckValueType property instead.'''
         raise NotImplementedError()
 
     def setCheckedValue(self, value : int) -> None:
@@ -9577,10 +9521,6 @@ class Comment:
         '''Represents the height of the comment, in unit of centimeters.'''
         raise NotImplementedError()
 
-    def getCharacters(self) -> list[Any]:
-        ''':deprecated: Use Comment.GetRichFormattings() instead.'''
-        raise NotImplementedError()
-
     def getNote(self) -> str:
         '''Represents the content of comment.'''
         raise NotImplementedError()
@@ -10904,6 +10844,15 @@ class CustomFilterCollection:
         '''Indicates whether the two criteria have an "and" relationship.'''
         raise NotImplementedError()
 
+    def custom(self, operatorType1 : int, criteria1 : Any, isAnd : bool, operatorType2 : int, criteria2 : Any) -> None:
+        '''Filters a list with custom criteria.
+        :param operatorType1: 
+        :param criteria1: 
+        :param isAnd: 
+        :param operatorType2: 
+        :param criteria2: '''
+        raise NotImplementedError()
+
 
 class CustomFunctionDefinition:
     '''Definition of custom function for calculating with user's custom engine.'''
@@ -12052,7 +12001,7 @@ class DateTimeGroupingType:
 
 
 class DateTimeGroupItem:
-    '''Represents the datetime's group setting.'''
+    '''Represents the datetime group setting.'''
 
     def setMinute(self, value : int) -> None:
         '''Sets the minute of the grouped date time.
@@ -14999,6 +14948,9 @@ class FileFormatType:
     ODB : FileFormatType
     '''Represents an Odb file.'''
 
+    OFD : FileFormatType
+    '''Represents an Ofd file.'''
+
 
 class FileFormatUtil:
     '''Provides utility methods for converting file format enums to strings or file extensions and back.'''
@@ -15498,40 +15450,30 @@ class FilterCategory:
 
 
 class FilterColumn:
-    '''Represents a filter for a single column.'''
+    '''Represents a filter for a single column or a column in the table.'''
 
-    def getTop10Filter(self) -> Top10Filter:
-        '''Gets :class:`Top10Filter` for filtering data by rank of data.'''
-        raise NotImplementedError()
-
-    def getDynamicFilter(self) -> DynamicFilter:
-        '''Gets :class:`DynamicFilter` for filtering with dynamic criteria.'''
+    def getColorFilter(self) -> ColorFilter:
+        '''Gets :class:`ColorFilter` for filtering data by color.'''
         raise NotImplementedError()
 
     def isDropdownVisible(self) -> bool:
         '''Indicates whether the AutoFilter button for this column is visible.'''
         raise NotImplementedError()
 
+    def setFilter(self, value : Any) -> None:
+        ''':deprecated: Use corresponding property according to the filter type instead.'''
+        raise NotImplementedError()
+
     def getFieldIndex(self) -> int:
         '''Gets the column offset in the range.'''
         raise NotImplementedError()
 
-    def getIconFilter(self) -> IconFilter:
-        '''Gets :class:`IconFilter` for filtering data by icon.'''
+    def getCustomFilters(self) -> CustomFilterCollection:
+        '''Gets :class:`CustomFilterCollection` for filtering data by custom criteria.'''
         raise NotImplementedError()
 
-    def setMultipleFilters(self, value : MultipleFilterCollection) -> None:
-        '''Gets :class:`MultipleFilterCollection` for filtering data by labels or date time.
-        :param value: '''
-        raise NotImplementedError()
-
-    def getColorFilter(self) -> ColorFilter:
-        '''Gets :class:`ColorFilter` for filtering data by color.'''
-        raise NotImplementedError()
-
-    def getFilterType(self) -> int:
-        '''Gets the type fo filtering data.
-        See :class:`FilterType`'''
+    def getFilter(self) -> Any:
+        ''':deprecated: Use corresponding property according to the filter type instead.'''
         raise NotImplementedError()
 
     def setFieldIndex(self, value : int) -> None:
@@ -15539,17 +15481,26 @@ class FilterColumn:
         :param value: '''
         raise NotImplementedError()
 
+    def getTop10Filter(self) -> Top10Filter:
+        '''Gets :meth:`FilterColumn.getTop10Filter()` for filtering data by rank of data.'''
+        raise NotImplementedError()
+
+    def getFilterType(self) -> int:
+        '''Gets the type fo filtering data.
+        See :class:`FilterType`'''
+        raise NotImplementedError()
+
     def setCustomFilters(self, value : CustomFilterCollection) -> None:
         '''Gets :class:`CustomFilterCollection` for filtering data by custom criteria.
         :param value: '''
         raise NotImplementedError()
 
-    def getMultipleFilters(self) -> MultipleFilterCollection:
-        '''Gets :class:`MultipleFilterCollection` for filtering data by labels or date time.'''
+    def getDynamicFilter(self) -> DynamicFilter:
+        '''Gets :meth:`FilterColumn.getDynamicFilter()` for filtering with dynamic criteria.'''
         raise NotImplementedError()
 
-    def getFilter(self) -> Any:
-        ''':deprecated: Use FilterColumn.MultipleFilters,CustomFilters and so on... property, instead.'''
+    def getIconFilter(self) -> IconFilter:
+        '''Gets :meth:`FilterColumn.getIconFilter()` for filtering data by icon.'''
         raise NotImplementedError()
 
     def setFilterType(self, value : int) -> None:
@@ -15558,17 +15509,25 @@ class FilterColumn:
         :param value: '''
         raise NotImplementedError()
 
-    def getCustomFilters(self) -> CustomFilterCollection:
-        '''Gets :class:`CustomFilterCollection` for filtering data by custom criteria.'''
+    def getFilterValues(self) -> FilterValueCollection:
+        '''Gets :class:`FilterValueCollection` for filtering data by labels or date time.'''
         raise NotImplementedError()
 
-    def setFilter(self, value : Any) -> None:
-        ''':deprecated: Use FilterColumn.MultipleFilters,CustomFilters and so on... property, instead.'''
+    def setMultipleFilters(self, value : MultipleFilterCollection) -> None:
+        ''':deprecated: Use FilterColumn.FilterValues instead.'''
         raise NotImplementedError()
 
     def setDropdownVisible(self, value : bool) -> None:
         '''Indicates whether the AutoFilter button for this column is visible.
         :param value: '''
+        raise NotImplementedError()
+
+    def getMultipleFilters(self) -> MultipleFilterCollection:
+        ''':deprecated: Use FilterColumn.FilterValues instead.'''
+        raise NotImplementedError()
+
+    def selectAll(self) -> None:
+        '''Selects all.'''
         raise NotImplementedError()
 
 
@@ -15659,6 +15618,78 @@ class FilterType:
 
     NONE : FilterType
     '''No filter.'''
+
+
+class FilterValue:
+    '''Represents filter value used in the criteria.'''
+
+    def getStringValue(self) -> str:
+        '''Gets the string value.'''
+        raise NotImplementedError()
+
+    def getDateTimeGroupItem(self) -> DateTimeGroupItem:
+        '''Gets date time value.'''
+        raise NotImplementedError()
+
+    def getValueType(self) -> int:
+        '''Gets the type of this filter value.
+        See :class:`FilterValueType`'''
+        raise NotImplementedError()
+
+
+class FilterValueCollection:
+    '''Represents the multiple filter collection.'''
+
+    def getMatchBlank(self) -> bool:
+        '''Indicates whether to filter by blank.'''
+        raise NotImplementedError()
+
+    def get(self, index : int) -> FilterValue:
+        '''Gets :class:`FilterValue` by index.
+        :param index: '''
+        raise NotImplementedError()
+
+    def setMatchBlank(self, value : bool) -> None:
+        '''Indicates whether to filter by blank.
+        :param value: '''
+        raise NotImplementedError()
+
+    @overload
+    def add(self, filter : str) -> None:
+        '''Adds a label filter criteria.
+        :param filter: The filter data.'''
+        raise NotImplementedError()
+
+    @overload
+    def add(self, type : int, year : int, month : int, day : int) -> None:
+        '''Adds a date filter criteria value.
+        :param type: :class:`DateTimeGroupingType`. The type of date filter.
+        :param year: The year.
+        :param month: The month.
+        :param day: The day.'''
+        raise NotImplementedError()
+
+    @overload
+    def add(self, type : int, year : int, month : int, day : int, hour : int, minute : int, second : int) -> None:
+        '''Adds a date time filter criteria value.
+        :param type: :class:`DateTimeGroupingType`. The type of date filter.
+        :param year: The year.
+        :param month: The month.
+        :param day: The day.
+        :param hour: The hour.
+        :param minute: The minute.
+        :param second: The second.'''
+        raise NotImplementedError()
+
+
+class FilterValueType:
+    '''Represents type of filter value.'''
+
+    IS_DATE_TIME : FilterValueType
+    '''The filter value is datetime. Corresponding value must be :class:`DateTimeGroupItem`.'''
+
+    IS_STRING : FilterValueType
+    '''The filter is a label. Corresponding value must be string.'''
 
 
 class FindOptions:
@@ -18336,6 +18367,14 @@ class HtmlSaveOptions:
         :param value: '''
         raise NotImplementedError()
 
+    def setSpaceMode(self, value : int) -> None:
+        '''Indicates how spaces are rendered in HTML output.
+        This option is currently applied only to numeric formats (e.g. accounting format).
+        The default value is :attr:`HtmlSpaceMode.CSS`.
+        See :class:`HtmlSpaceMode`
+        :param value: '''
+        raise NotImplementedError()
+
     def setHideOverflowWrappedText(self, value : bool) -> None:
         '''Indicates whether to hide overflow text when the cell format is set to wrap text.
         The default value is false
@@ -18547,6 +18586,13 @@ class HtmlSaveOptions:
     def getWidthScalable(self) -> bool:
         '''Indicates whether exporting column width in unit of scale to html.
         The default value is false.'''
+        raise NotImplementedError()
+
+    def getSpaceMode(self) -> int:
+        '''Indicates how spaces are rendered in HTML output.
+        This option is currently applied only to numeric formats (e.g. accounting format).
+        The default value is :attr:`HtmlSpaceMode.CSS`.
+        See :class:`HtmlSpaceMode`'''
         raise NotImplementedError()
 
     def setImageScalable(self, value : bool) -> None:
@@ -18880,6 +18926,16 @@ class HtmlSaveOptions:
         '''Indicating if exporting the hidden worksheet content.The default value is true.
         :param value: '''
         raise NotImplementedError()
+
+
+class HtmlSpaceMode:
+    '''Specifies how whitespace is represented in the generated HTML.'''
+
+    CHARACTER : HtmlSpaceMode
+    '''Use HTML character entities(such as &amp;nbsp;, &amp;ensp) to represent whitespace'''
+
+    CSS : HtmlSpaceMode
+    '''Uses CSS properties such as padding to represent whitespace.'''
 
 
 class HtmlTableLoadOption:
@@ -21579,54 +21635,6 @@ class LineJoinType:
 
 class LineShape:
     '''Represents the line shape.'''
-
-    def getEndArrowheadStyle(self) -> int:
-        ''':deprecated: Use Shape.Line.EndArrowheadStyle property instead.'''
-        raise NotImplementedError()
-
-    def getEndArrowheadWidth(self) -> int:
-        ''':deprecated: Use Shape.Line.EndArrowheadWidth property instead.'''
-        raise NotImplementedError()
-
-    def setEndArrowheadStyle(self, value : int) -> None:
-        ''':deprecated: Use Shape.Line.EndArrowheadStyle property instead.'''
-        raise NotImplementedError()
-
-    def setEndArrowheadWidth(self, value : int) -> None:
-        ''':deprecated: Use Shape.Line.EndArrowheadWidth property instead.'''
-        raise NotImplementedError()
-
-    def setEndArrowheadLength(self, value : int) -> None:
-        ''':deprecated: Use Shape.Line.EndArrowheadLength property instead.'''
-        raise NotImplementedError()
-
-    def getBeginArrowheadStyle(self) -> int:
-        ''':deprecated: Use Shape.Line.BeginArrowheadStyle property instead.'''
-        raise NotImplementedError()
-
-    def getBeginArrowheadWidth(self) -> int:
-        ''':deprecated: Use Shape.Line.BeginArrowheadWidth property instead.'''
-        raise NotImplementedError()
-
-    def setBeginArrowheadLength(self, value : int) -> None:
-        ''':deprecated: Use Shape.Line.BeginArrowheadLength property instead.'''
-        raise NotImplementedError()
-
-    def getBeginArrowheadLength(self) -> int:
-        ''':deprecated: Use Shape.Line.BeginArrowheadLength property instead.'''
-        raise NotImplementedError()
-
-    def setBeginArrowheadStyle(self, value : int) -> None:
-        ''':deprecated: Use Shape.Line.BeginArrowheadStyle property instead.'''
-        raise NotImplementedError()
-
-    def setBeginArrowheadWidth(self, value : int) -> None:
-        ''':deprecated: Use Shape.Line.BeginArrowheadWidth property instead.'''
-        raise NotImplementedError()
-
-    def getEndArrowheadLength(self) -> int:
-        ''':deprecated: Use Shape.Line.EndArrowheadLength property instead.'''
-        raise NotImplementedError()
 
 
 class LineSpaceSizeType:
@@ -24577,6 +24585,10 @@ class MsoTextFrame:
 class MultipleFilterCollection:
     '''Represents the multiple filter collection.'''
 
+    def getCount(self) -> int:
+        '''Gets the count of the filter values.'''
+        raise NotImplementedError()
+
     def getMatchBlank(self) -> bool:
         '''Indicates whether to filter by blank.'''
         raise NotImplementedError()
@@ -24584,6 +24596,10 @@ class MultipleFilterCollection:
     def get(self, index : int) -> Any:
         '''Gets :class:`DateTimeGroupItem` or a string value.
         :param index: '''
+        raise NotImplementedError()
+
+    def iterator(self) -> Iterator:
+        '''Get the enumerator for filter value,'''
         raise NotImplementedError()
 
     def setMatchBlank(self, value : bool) -> None:
@@ -25393,10 +25409,6 @@ class OleObject:
         :param value: '''
         raise NotImplementedError()
 
-    def getSourceFullName(self) -> str:
-        ''':deprecated: Use OleObject.ObjectSourceFullName property instead.'''
-        raise NotImplementedError()
-
     def setImageData(self, value : list[int]) -> None:
         '''Represents image of ole object as byte array.
         :param value: '''
@@ -25489,10 +25501,6 @@ class OleObject:
     def getDisplayAsIcon(self) -> bool:
         '''True if the specified object is displayed as an icon
         and the image will not be auto changed.'''
-        raise NotImplementedError()
-
-    def setSourceFullName(self, value : str) -> None:
-        ''':deprecated: Use OleObject.ObjectSourceFullName property instead.'''
         raise NotImplementedError()
 
     def setObjectSourceFullName(self, value : str) -> None:
@@ -27399,17 +27407,106 @@ class PdfOptimizationType:
 class PdfSaveOptions:
     '''Represents the options for saving pdf file.'''
 
+    def setCustomPropertiesExport(self, value : int) -> None:
+        '''Sets a value determining the way :class:`CustomDocumentPropertyCollection` are exported to PDF file. Default value is None.
+        See :class:`PdfCustomPropertiesExport`
+        :param value: '''
+        raise NotImplementedError()
+
+    def setFontEncoding(self, value : int) -> None:
+        '''Sets embedded font encoding in pdf.
+        See :class:`PdfFontEncoding`
+        :param value: '''
+        raise NotImplementedError()
+
+    def setPdfCompression(self, value : int) -> None:
+        '''Indicate the compression algorithm
+        See :class:`PdfCompressionCore`
+        :param value: '''
+        raise NotImplementedError()
+
+    def setZoomBehavior(self, value : int) -> None:
+        '''Sets the initial view mode when the generated PDF document is opened.
+        The default value is :attr:`PdfZoomBehavior.NONE`.
+        See :class:`PdfZoomBehavior`
+        :param value: '''
+        raise NotImplementedError()
+
+    def setSecurityOptions(self, value : PdfSecurityOptions) -> None:
+        '''Set this options, when security is need in xls2pdf result.
+        :param value: '''
+        raise NotImplementedError()
+
     def setWatermark(self, value : RenderingWatermark) -> None:
         '''Sets watermark to output.
         :param value: '''
         raise NotImplementedError()
 
-    def getCalculateFormula(self) -> bool:
-        '''Indicates whether to calculate formulas before saving pdf file.'''
+    def setBookmark(self, value : PdfBookmarkEntry) -> None:
+        '''Sets the :class:`PdfBookmarkEntry` object.
+        :param value: '''
+        raise NotImplementedError()
+
+    def getProducer(self) -> str:
+        '''Gets producer of generated pdf document.'''
+        raise NotImplementedError()
+
+    def getDisplayDocTitle(self) -> bool:
+        '''Indicates whether the window's title bar should display the document title.'''
+        raise NotImplementedError()
+
+    def setOptimizationType(self, value : int) -> None:
+        '''Sets pdf optimization type.
+        See :class:`PdfOptimizationType`
+        :param value: '''
+        raise NotImplementedError()
+
+    def getCustomPropertiesExport(self) -> int:
+        '''Gets a value determining the way :class:`CustomDocumentPropertyCollection` are exported to PDF file. Default value is None.
+        See :class:`PdfCustomPropertiesExport`'''
+        raise NotImplementedError()
+
+    def getOptimizationType(self) -> int:
+        '''Gets pdf optimization type.
+        See :class:`PdfOptimizationType`'''
+        raise NotImplementedError()
+
+    def setEmbedAttachments(self, value : bool) -> None:
+        '''Indicates whether to embed attachment for Ole objects in Excel.
+        :param value: '''
+        raise NotImplementedError()
+
+    def setCompliance(self, value : int) -> None:
+        '''Sets the PDF standards compliance level for output documents.
+        See :class:`PdfCompliance`
+        :param value: '''
+        raise NotImplementedError()
+
+    def setExportDocumentStructure(self, value : bool) -> None:
+        '''Indicates whether to export document structure.
+        :param value: '''
+        raise NotImplementedError()
+
+    def setImageType(self, value : ImageFormat) -> None:
+        ''':deprecated: Chart and Shape are always rendered as vector elements(e.g. point, line) for rendering quality.'''
         raise NotImplementedError()
 
     def setCreatedTime(self, value : DateTime) -> None:
         '''Sets the time of generating the pdf document.
+        :param value: '''
+        raise NotImplementedError()
+
+    def getEmbedAttachments(self) -> bool:
+        '''Indicates whether to embed attachment for Ole objects in Excel.'''
+        raise NotImplementedError()
+
+    def setProducer(self, value : str) -> None:
+        '''Sets producer of generated pdf document.
+        :param value: '''
+        raise NotImplementedError()
+
+    def setDisplayDocTitle(self, value : bool) -> None:
+        '''Indicates whether the window's title bar should display the document title.
         :param value: '''
         raise NotImplementedError()
 
@@ -27422,48 +27519,9 @@ class PdfSaveOptions:
         :param jpegQuality: 0 - 100% JPEG quality.'''
         raise NotImplementedError()
 
-    def getPdfCompression(self) -> int:
-        '''Indicate the compression algorithm
-        See :class:`PdfCompressionCore`'''
-        raise NotImplementedError()
-
-    def setProducer(self, value : str) -> None:
-        '''Sets producer of generated pdf document.
-        :param value: '''
-        raise NotImplementedError()
-
-    def setPdfCompression(self, value : int) -> None:
-        '''Indicate the compression algorithm
-        See :class:`PdfCompressionCore`
-        :param value: '''
-        raise NotImplementedError()
-
-    def setCalculateFormula(self, value : bool) -> None:
-        '''Indicates whether to calculate formulas before saving pdf file.
-        :param value: '''
-        raise NotImplementedError()
-
-    def getCompliance(self) -> int:
-        '''Gets the PDF standards compliance level for output documents.
-        See :class:`PdfCompliance`'''
-        raise NotImplementedError()
-
-    def getImageType(self) -> ImageFormat:
-        ''':deprecated: Chart and Shape are always rendered as vector elements(e.g. point, line) for rendering quality.'''
-        raise NotImplementedError()
-
-    def getDisplayDocTitle(self) -> bool:
-        '''Indicates whether the window's title bar should display the document title.'''
-        raise NotImplementedError()
-
-    def setCustomPropertiesExport(self, value : int) -> None:
-        '''Sets a value determining the way :class:`CustomDocumentPropertyCollection` are exported to PDF file. Default value is None.
-        See :class:`PdfCustomPropertiesExport`
-        :param value: '''
-        raise NotImplementedError()
-
-    def getBookmark(self) -> PdfBookmarkEntry:
-        '''Gets the :class:`PdfBookmarkEntry` object.'''
+    def getZoomFactor(self) -> int:
+        '''Gets the zoom percentage used when
+        :meth:`PdfSaveOptions.getZoomBehavior()` is :attr:`PdfZoomBehavior.ZOOM_FACTOR`.'''
         raise NotImplementedError()
 
     def setEmbedStandardWindowsFonts(self, value : bool) -> None:
@@ -27475,25 +27533,13 @@ class PdfSaveOptions:
         :param value: '''
         raise NotImplementedError()
 
-    def setCompliance(self, value : int) -> None:
-        '''Sets the PDF standards compliance level for output documents.
-        See :class:`PdfCompliance`
-        :param value: '''
-        raise NotImplementedError()
-
-    def setFontEncoding(self, value : int) -> None:
-        '''Sets embedded font encoding in pdf.
-        See :class:`PdfFontEncoding`
-        :param value: '''
-        raise NotImplementedError()
-
-    def setBookmark(self, value : PdfBookmarkEntry) -> None:
-        '''Sets the :class:`PdfBookmarkEntry` object.
-        :param value: '''
-        raise NotImplementedError()
-
     def getCreatedTime(self) -> DateTime:
         '''Gets the time of generating the pdf document.'''
+        raise NotImplementedError()
+
+    def getPdfCompression(self) -> int:
+        '''Indicate the compression algorithm
+        See :class:`PdfCompressionCore`'''
         raise NotImplementedError()
 
     def getWatermark(self) -> RenderingWatermark:
@@ -27501,57 +27547,18 @@ class PdfSaveOptions:
         The following code sets watermark in the output pdf.'''
         raise NotImplementedError()
 
-    def setSecurityOptions(self, value : PdfSecurityOptions) -> None:
-        '''Set this options, when security is need in xls2pdf result.
-        :param value: '''
-        raise NotImplementedError()
-
-    def getCustomPropertiesExport(self) -> int:
-        '''Gets a value determining the way :class:`CustomDocumentPropertyCollection` are exported to PDF file. Default value is None.
-        See :class:`PdfCustomPropertiesExport`'''
-        raise NotImplementedError()
-
-    def setOptimizationType(self, value : int) -> None:
-        '''Sets pdf optimization type.
-        See :class:`PdfOptimizationType`
-        :param value: '''
-        raise NotImplementedError()
-
-    def getExportDocumentStructure(self) -> bool:
-        '''Indicates whether to export document structure.'''
-        raise NotImplementedError()
-
-    def getSecurityOptions(self) -> PdfSecurityOptions:
-        '''Set this options, when security is need in xls2pdf result.
-        The following code sets hight resolution print permisson for the output pdf.'''
-        raise NotImplementedError()
-
-    def setDisplayDocTitle(self, value : bool) -> None:
-        '''Indicates whether the window's title bar should display the document title.
-        :param value: '''
-        raise NotImplementedError()
-
-    def getEmbedAttachments(self) -> bool:
-        '''Indicates whether to embed attachment for Ole objects in Excel.'''
-        raise NotImplementedError()
-
     def getFontEncoding(self) -> int:
         '''Gets embedded font encoding in pdf.
         See :class:`PdfFontEncoding`'''
         raise NotImplementedError()
 
-    def setImageType(self, value : ImageFormat) -> None:
-        ''':deprecated: Chart and Shape are always rendered as vector elements(e.g. point, line) for rendering quality.'''
-        raise NotImplementedError()
-
-    def setEmbedAttachments(self, value : bool) -> None:
-        '''Indicates whether to embed attachment for Ole objects in Excel.
+    def setCalculateFormula(self, value : bool) -> None:
+        '''Indicates whether to calculate formulas before saving pdf file.
         :param value: '''
         raise NotImplementedError()
 
-    def setExportDocumentStructure(self, value : bool) -> None:
-        '''Indicates whether to export document structure.
-        :param value: '''
+    def getExportDocumentStructure(self) -> bool:
+        '''Indicates whether to export document structure.'''
         raise NotImplementedError()
 
     def getEmbedStandardWindowsFonts(self) -> bool:
@@ -27562,13 +27569,38 @@ class PdfSaveOptions:
         Default is true.'''
         raise NotImplementedError()
 
-    def getOptimizationType(self) -> int:
-        '''Gets pdf optimization type.
-        See :class:`PdfOptimizationType`'''
+    def getZoomBehavior(self) -> int:
+        '''Gets the initial view mode when the generated PDF document is opened.
+        The default value is :attr:`PdfZoomBehavior.NONE`.
+        See :class:`PdfZoomBehavior`'''
         raise NotImplementedError()
 
-    def getProducer(self) -> str:
-        '''Gets producer of generated pdf document.'''
+    def getCalculateFormula(self) -> bool:
+        '''Indicates whether to calculate formulas before saving pdf file.'''
+        raise NotImplementedError()
+
+    def getImageType(self) -> ImageFormat:
+        ''':deprecated: Chart and Shape are always rendered as vector elements(e.g. point, line) for rendering quality.'''
+        raise NotImplementedError()
+
+    def getSecurityOptions(self) -> PdfSecurityOptions:
+        '''Set this options, when security is need in xls2pdf result.
+        The following code sets hight resolution print permisson for the output pdf.'''
+        raise NotImplementedError()
+
+    def setZoomFactor(self, value : int) -> None:
+        '''Sets the zoom percentage used when
+        :meth:`PdfSaveOptions.getZoomBehavior()` is :attr:`PdfZoomBehavior.ZOOM_FACTOR`.
+        :param value: '''
+        raise NotImplementedError()
+
+    def getBookmark(self) -> PdfBookmarkEntry:
+        '''Gets the :class:`PdfBookmarkEntry` object.'''
+        raise NotImplementedError()
+
+    def getCompliance(self) -> int:
+        '''Gets the PDF standards compliance level for output documents.
+        See :class:`PdfCompliance`'''
         raise NotImplementedError()
 
 
@@ -27683,6 +27715,25 @@ class PdfSecurityOptions:
         which a faithful digital copy of the PDF content could be generated.
         :param value: '''
         raise NotImplementedError()
+
+
+class PdfZoomBehavior:
+    '''Specifies the initial view mode when the generated PDF document is opened.'''
+
+    NONE : PdfZoomBehavior
+    '''Uses the PDF viewer's default behavior.'''
+
+    ZOOM_FACTOR : PdfZoomBehavior
+    '''Opens the document at a specific zoom percentage.'''
+
+    FIT_PAGE : PdfZoomBehavior
+    '''Fits the entire page within the viewer window.'''
+
+    FIT_WIDTH : PdfZoomBehavior
+    '''Fits the page width within the viewer window.'''
+
+    FIT_HEIGHT : PdfZoomBehavior
+    '''Fits the page height within the viewer window.'''
 
 
 class PicFormatOption:
@@ -28204,6 +28255,48 @@ class PivotAreaType:
 
     TOP_RIGHT : PivotAreaType
     '''Represents the blank cells at the top-right of the PivotTable (top-left for RTL sheets).'''
+
+
+class PivotCache:
+    '''Represents the memory cache for some PivotTable reports.'''
+
+    @overload
+    def refresh(self, option : PivotTableRefreshOption) -> int:
+        '''Refreshes data from the data source and calculates data for the view of all pivottables which data source is this pivot cache.
+        :param option: The options for refreshing data source of pivot table.'''
+        raise NotImplementedError()
+
+    @overload
+    def refresh(self) -> int:
+        '''Refreshes data from the data source and calculates data for the view of all pivottables which data source is this pivot cache.'''
+        raise NotImplementedError()
+
+    def getPivotTables(self) -> list[PivotTable]:
+        '''Gets all pivot tables with this pivot cache.'''
+        raise NotImplementedError()
+
+    def dispose(self) -> None:
+        '''Release all resource.'''
+        raise NotImplementedError()
+
+    def getSourceType(self) -> int:
+        '''Gets the :class:`PivotTableSourceType`.
+        See :class:`PivotTableSourceType`'''
+        raise NotImplementedError()
+
+
+class PivotCacheCollection:
+    '''Represents the collection of memory caches from the PivotTable reports in a workbook.'''
+
+    def get(self, index : int) -> PivotCache:
+        '''Gets the pivot table cache at the specified index.
+        :param index: '''
+        raise NotImplementedError()
+
+    def dispose(self) -> None:
+        '''Performs application-defined tasks associated with freeing, releasing, or
+        resetting unmanaged resources.'''
+        raise NotImplementedError()
 
 
 class PivotConditionalFormat:
@@ -30332,13 +30425,12 @@ class PivotTable:
 
     @overload
     def refreshData(self) -> int:
-        '''Refreshes pivottable's data and setting from it's data source.'''
+        ''':deprecated: Use PivotCache.RefreshData() method instead.'''
         raise NotImplementedError()
 
     @overload
     def refreshData(self, option : PivotTableRefreshOption) -> int:
-        '''Refreshes pivottable's data and setting from it's data source with options.
-        :param option: The options for refreshing data source of pivot table.'''
+        ''':deprecated: Use PivotCache.RefreshData() method instead.'''
         raise NotImplementedError()
 
     def getShowRowGrandTotals(self) -> bool:
@@ -30612,9 +30704,10 @@ class PivotTable:
         raise NotImplementedError()
 
     @overload
-    def calculateData(self, option : PivotTableCalculateOption) -> None:
+    def calculateData(self, option : PivotTableCalculateOption) -> list[PivotTable]:
         '''Calculates pivot table with options.
-        :param option: The options for calculating the pivot table'''
+        :param option: The options for calculating the pivot table
+        :returns: Returns all pivot tables which have been calculated. If :meth:`PivotTableCalculateOption.getRefreshData()` is true,all pivot tables based on same pivot cache will be calculated together.'''
         raise NotImplementedError()
 
     def isAutoFormat(self) -> bool:
@@ -30730,6 +30823,10 @@ class PivotTable:
     def setEnableWizard(self, value : bool) -> None:
         '''Indicates whether the PivotTable Wizard is available.
         :param value: '''
+        raise NotImplementedError()
+
+    def getPivotCache(self) -> PivotCache:
+        '''Gets the data source.'''
         raise NotImplementedError()
 
     def getName(self) -> str:
@@ -30894,6 +30991,10 @@ class PivotTable:
     def isGridDropZones(self) -> bool:
         '''Indicates whether the PivotTable report displays classic pivottable layout.
         (enables dragging fields in the grid)'''
+        raise NotImplementedError()
+
+    def getPivotTablesWithSamePivotCache(self) -> list[PivotTable]:
+        '''Gets all pivot tables with same pivot cache.'''
         raise NotImplementedError()
 
     def setRepeatItemsOnEachPrintedPage(self, value : bool) -> None:
@@ -31314,8 +31415,17 @@ class PivotTableCalculateOption:
         :param value: '''
         raise NotImplementedError()
 
+    def getRefreshOption(self) -> PivotTableRefreshOption:
+        '''Gets options for refreshing data source to pivot cache.'''
+        raise NotImplementedError()
+
     def getRefreshCharts(self) -> bool:
         '''Indicates whether refreshing charts are based on this pivot table.'''
+        raise NotImplementedError()
+
+    def setRefreshOption(self, value : PivotTableRefreshOption) -> None:
+        '''Sets options for refreshing data source to pivot cache.
+        :param value: '''
         raise NotImplementedError()
 
     def getReserveMissingPivotItemType(self) -> int:
@@ -32132,12 +32242,8 @@ class PowerQueryFormulaFunction:
 class PowerQueryFormulaItem:
     '''Represents the item of the power query formula.'''
 
-    def isLiteral(self) -> bool:
-        '''Gets whether this item is a literal value.'''
-        raise NotImplementedError()
-
-    def getName(self) -> str:
-        '''Gets the name of the item.'''
+    def getValue(self) -> str:
+        '''Gets the value of the item.'''
         raise NotImplementedError()
 
     def getItemType(self) -> int:
@@ -32145,29 +32251,17 @@ class PowerQueryFormulaItem:
         See :class:`PowerQueryFormulaItemType`'''
         raise NotImplementedError()
 
-    def isFunction(self) -> bool:
-        '''Gets whether this item is a function.'''
+    def getName(self) -> str:
+        '''Gets the name of the item.'''
         raise NotImplementedError()
 
-    def isList(self) -> bool:
-        '''Gets whether this item is a list.'''
+    def getTextValue(self) -> str:
+        '''Gets the text value of the item.'''
         raise NotImplementedError()
 
     def setValue(self, value : str) -> None:
         '''Gets the value of the item.
         :param value: '''
-        raise NotImplementedError()
-
-    def getValue(self) -> str:
-        '''Gets the value of the item.'''
-        raise NotImplementedError()
-
-    def isParameter(self) -> bool:
-        '''Gets whether this item is a parameter.'''
-        raise NotImplementedError()
-
-    def getTextValue(self) -> str:
-        '''Gets the text value of the item.'''
         raise NotImplementedError()
 
 
@@ -37531,6 +37625,7 @@ class ShapeCollection:
         :param imageData: '''
         raise NotImplementedError()
 
+    @overload
     def addCopy(self, sourceShape : Shape, topRow : int, top : int, leftColumn : int, left : int) -> Shape:
         '''Adds and copy a shape to the worksheet.
         :param sourceShape: Source shape.
@@ -37538,6 +37633,18 @@ class ShapeCollection:
         :param top: Represents the vertical offset from its top row, in unit of pixel.
         :param leftColumn: The left column index.
         :param left: Represents the horizontal offset from its left column, in unit of pixel.
+        :returns: The new :class:`Shape` object.'''
+        raise NotImplementedError()
+
+    @overload
+    def addCopy(self, sourceShape : Shape, topRow : int, top : int, leftColumn : int, left : int, copyOptions : CopyOptions) -> Shape:
+        '''Adds and copy a shape to the worksheet.
+        :param sourceShape: Source shape.
+        :param topRow: The top row index.
+        :param top: Represents the vertical offset from its top row, in unit of pixel.
+        :param leftColumn: The left column index.
+        :param left: Represents the horizontal offset from its left column, in unit of pixel.
+        :param copyOptions: The options of copying shapes.
         :returns: The new :class:`Shape` object.'''
         raise NotImplementedError()
 
@@ -38910,6 +39017,11 @@ class Slicer:
         '''Specifies the zero-based index of the first slicer item.'''
         raise NotImplementedError()
 
+    def unselectItems(self, labels : list[str]) -> None:
+        '''
+        :param labels: '''
+        raise NotImplementedError()
+
     def getSlicerCache(self) -> SlicerCache:
         '''Returns the SlicerCache object associated with the slicer. Read-only.'''
         raise NotImplementedError()
@@ -39076,10 +39188,6 @@ class SlicerCacheItem:
 
 class SlicerCacheItemCollection:
     '''Represent the collection of SlicerCacheItem'''
-
-    def getCount(self) -> int:
-        '''Gets the count of the SlicerCacheItem.'''
-        raise NotImplementedError()
 
     def get(self, index : int) -> SlicerCacheItem:
         '''Gets the SlicerCacheItem object by index.
@@ -40048,6 +40156,9 @@ class SparklineType:
     STACKED : SparklineType
     '''Represents a Win/Loss sparkline.'''
 
+    WIN_LOSS : SparklineType
+    '''Represents a Win/Loss sparkline.'''
+
 
 class SpinButtonActiveXControl:
     '''Represents the SpinButton control.'''
@@ -40669,6 +40780,11 @@ class Style:
         '''Gets the foreground color with a 32-bit ARGB value.'''
         raise NotImplementedError()
 
+    def setCheckBox(self, value : bool) -> None:
+        '''Indicates whether it's a style of check box
+        :param value: '''
+        raise NotImplementedError()
+
     def setForegroundThemeColor(self, value : ThemeColor) -> None:
         '''Sets the foreground theme color.
         :param value: '''
@@ -40728,6 +40844,10 @@ class Style:
         '''Represents text reading order.
         See :class:`TextDirectionType`
         :param value: '''
+        raise NotImplementedError()
+
+    def isCheckBox(self) -> bool:
+        '''Indicates whether it's a style of check box'''
         raise NotImplementedError()
 
     def getTopBorder(self) -> Border:
@@ -44114,7 +44234,7 @@ class Timeline:
     Due to MS Excel, Excel 2003 does not support Timeline'''
 
     def getShowHorizontalScrollbar(self) -> bool:
-        '''Indicates whether to display the horizontal ccroll bar.'''
+        '''Indicates whether to display the horizontal scroll bar.'''
         raise NotImplementedError()
 
     def setSelectionLevel(self, value : int) -> None:
@@ -44132,11 +44252,15 @@ class Timeline:
         raise NotImplementedError()
 
     def getShowTimeLevel(self) -> bool:
-        '''Indicates whether to display the time level.'''
+        '''Indicates whether to display the drop-down selection box of the time level.'''
         raise NotImplementedError()
 
     def setTopPixel(self, value : int) -> None:
         ''':deprecated: Use Shape.Top property instead.'''
+        raise NotImplementedError()
+
+    def getSelectedDateTimeRange(self) -> list[DateTime]:
+        '''Gets the selected range of date time.'''
         raise NotImplementedError()
 
     def setLeftPixel(self, value : int) -> None:
@@ -44149,12 +44273,12 @@ class Timeline:
         raise NotImplementedError()
 
     def setShowHorizontalScrollbar(self, value : bool) -> None:
-        '''Indicates whether to display the horizontal ccroll bar.
+        '''Indicates whether to display the horizontal scroll bar.
         :param value: '''
         raise NotImplementedError()
 
     def setShowTimeLevel(self, value : bool) -> None:
-        '''Indicates whether to display the time level.
+        '''Indicates whether to display the drop-down selection box of the time level.
         :param value: '''
         raise NotImplementedError()
 
@@ -44199,6 +44323,13 @@ class Timeline:
         See :class:`TimelineLevelType`'''
         raise NotImplementedError()
 
+    def select(self, start : DateTime, end : DateTime, calculate : bool) -> None:
+        '''Select item between the date time.
+        :param start: The start date time
+        :param end: The end date time
+        :param calculate: Indicates whether to calculate relative pivot tables'''
+        raise NotImplementedError()
+
     def setWidthPixel(self, value : int) -> None:
         ''':deprecated: Use Shape.Width property instead.'''
         raise NotImplementedError()
@@ -44218,11 +44349,11 @@ class Timeline:
         raise NotImplementedError()
 
     def getShowHeader(self) -> bool:
-        '''Indicates whether to display the header.'''
+        '''Indicates whether to display the header of this timeline.'''
         raise NotImplementedError()
 
     def setShowHeader(self, value : bool) -> None:
-        '''Indicates whether to display the header.
+        '''Indicates whether to display the header of this timeline.
         :param value: '''
         raise NotImplementedError()
 
@@ -49161,6 +49292,10 @@ class WorksheetCollection:
         :param address: The address of the range.
         :param sheetIndex: The sheet index.
         :returns: A :class:`Range` object'''
+        raise NotImplementedError()
+
+    def getPivotCaches(self) -> PivotCacheCollection:
+        '''Gets all :class:`PivotCache`.'''
         raise NotImplementedError()
 
     @overload

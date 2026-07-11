@@ -587,19 +587,22 @@ class BatchUDF(_message.Message):
     ) -> None: ...
 
 class BatchUDFArgument(_message.Message):
-    __slots__ = ("primitive_value", "expr_value", "list_value", "unordered_dict_value")
+    __slots__ = ("primitive_value", "expr_value", "py_object_value", "list_value", "unordered_dict_value")
     PRIMITIVE_VALUE_FIELD_NUMBER: _ClassVar[int]
     EXPR_VALUE_FIELD_NUMBER: _ClassVar[int]
+    PY_OBJECT_VALUE_FIELD_NUMBER: _ClassVar[int]
     LIST_VALUE_FIELD_NUMBER: _ClassVar[int]
     UNORDERED_DICT_VALUE_FIELD_NUMBER: _ClassVar[int]
     primitive_value: _primitive_pb2.Primitive
     expr_value: LogicalExprNode
+    py_object_value: PyObject
     list_value: BatchUDFArgumentList
     unordered_dict_value: BatchUDFUnorderedDict
     def __init__(
         self,
         primitive_value: _Optional[_Union[_primitive_pb2.Primitive, _Mapping]] = ...,
         expr_value: _Optional[_Union[LogicalExprNode, _Mapping]] = ...,
+        py_object_value: _Optional[_Union[PyObject, _Mapping]] = ...,
         list_value: _Optional[_Union[BatchUDFArgumentList, _Mapping]] = ...,
         unordered_dict_value: _Optional[_Union[BatchUDFUnorderedDict, _Mapping]] = ...,
     ) -> None: ...
@@ -625,6 +628,53 @@ class BatchUDFUnorderedDict(_message.Message):
     ITEMS_FIELD_NUMBER: _ClassVar[int]
     items: _containers.MessageMap[str, BatchUDFArgument]
     def __init__(self, items: _Optional[_Mapping[str, BatchUDFArgument]] = ...) -> None: ...
+
+class PyObject(_message.Message):
+    __slots__ = ("py_callable", "py_call", "py_int", "py_string")
+    PY_CALLABLE_FIELD_NUMBER: _ClassVar[int]
+    PY_CALL_FIELD_NUMBER: _ClassVar[int]
+    PY_INT_FIELD_NUMBER: _ClassVar[int]
+    PY_STRING_FIELD_NUMBER: _ClassVar[int]
+    py_callable: PyCallable
+    py_call: PyCall
+    py_int: int
+    py_string: str
+    def __init__(
+        self,
+        py_callable: _Optional[_Union[PyCallable, _Mapping]] = ...,
+        py_call: _Optional[_Union[PyCall, _Mapping]] = ...,
+        py_int: _Optional[int] = ...,
+        py_string: _Optional[str] = ...,
+    ) -> None: ...
+
+class PyCallable(_message.Message):
+    __slots__ = ("callable_name",)
+    CALLABLE_NAME_FIELD_NUMBER: _ClassVar[int]
+    callable_name: str
+    def __init__(self, callable_name: _Optional[str] = ...) -> None: ...
+
+class PyCall(_message.Message):
+    __slots__ = ("callee", "args", "kwargs")
+    class KwargsEntry(_message.Message):
+        __slots__ = ("key", "value")
+        KEY_FIELD_NUMBER: _ClassVar[int]
+        VALUE_FIELD_NUMBER: _ClassVar[int]
+        key: str
+        value: PyObject
+        def __init__(self, key: _Optional[str] = ..., value: _Optional[_Union[PyObject, _Mapping]] = ...) -> None: ...
+
+    CALLEE_FIELD_NUMBER: _ClassVar[int]
+    ARGS_FIELD_NUMBER: _ClassVar[int]
+    KWARGS_FIELD_NUMBER: _ClassVar[int]
+    callee: PyObject
+    args: _containers.RepeatedCompositeFieldContainer[PyObject]
+    kwargs: _containers.MessageMap[str, PyObject]
+    def __init__(
+        self,
+        callee: _Optional[_Union[PyObject, _Mapping]] = ...,
+        args: _Optional[_Iterable[_Union[PyObject, _Mapping]]] = ...,
+        kwargs: _Optional[_Mapping[str, PyObject]] = ...,
+    ) -> None: ...
 
 class ExprLiteral(_message.Message):
     __slots__ = ("value", "is_arrow_scalar_object")

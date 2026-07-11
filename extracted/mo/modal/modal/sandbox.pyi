@@ -21,6 +21,7 @@ import modal.sandbox_fs
 import modal.secret
 import modal.snapshot
 import modal.stream_type
+import modal.types
 import modal.volume
 import modal_proto.api_pb2
 import modal_proto.task_command_router_pb2
@@ -68,36 +69,6 @@ class DefaultSandboxNameOverride(str):
         ...
 
 _DEFAULT_SANDBOX_NAME_OVERRIDE: DefaultSandboxNameOverride
-
-class SandboxConnectCredentials:
-    """Simple data structure storing credentials for making HTTP connections to a sandbox."""
-
-    url: str
-    token: str
-
-    def __init__(self, url: str, token: str) -> None:
-        """Initialize self.  See help(type(self)) for accurate signature."""
-        ...
-
-    def __repr__(self):
-        """Return repr(self)."""
-        ...
-
-    def __eq__(self, other):
-        """Return self==value."""
-        ...
-
-    def __setattr__(self, name, value):
-        """Implement setattr(self, name, value)."""
-        ...
-
-    def __delattr__(self, name):
-        """Implement delattr(self, name)."""
-        ...
-
-    def __hash__(self):
-        """Return hash(self)."""
-        ...
 
 class Probe:
     """Probe configuration for the Sandbox Readiness Probe.
@@ -390,6 +361,7 @@ class _Sandbox(modal._object._Object):
         *args: str,
         app: typing.Optional[modal.app._App] = None,
         name: typing.Optional[str] = None,
+        tags: typing.Optional[dict[str, str]] = None,
         image: typing.Optional[modal._image._Image] = None,
         env: typing.Optional[dict[str, typing.Optional[str]]] = None,
         secrets: typing.Optional[collections.abc.Collection[modal.secret._Secret]] = None,
@@ -402,7 +374,9 @@ class _Sandbox(modal._object._Object):
         region: typing.Union[str, collections.abc.Sequence[str], None] = None,
         block_network: bool = False,
         outbound_cidr_allowlist: typing.Optional[collections.abc.Sequence[str]] = None,
+        outbound_domain_allowlist: typing.Optional[collections.abc.Sequence[str]] = None,
         inbound_cidr_allowlist: typing.Optional[collections.abc.Sequence[str]] = None,
+        i6pn: bool = False,
         volumes: dict[
             typing.Union[str, os.PathLike],
             typing.Union[modal.volume._Volume, modal.cloud_bucket_mount._CloudBucketMount],
@@ -411,7 +385,9 @@ class _Sandbox(modal._object._Object):
         encrypted_ports: collections.abc.Sequence[int] = [],
         h2_ports: collections.abc.Sequence[int] = [],
         unencrypted_ports: collections.abc.Sequence[int] = [],
+        proxy: typing.Optional[modal.proxy._Proxy] = None,
         readiness_probe: typing.Optional[Probe] = None,
+        experimental_options: typing.Optional[dict[str, typing.Any]] = None,
         include_oidc_identity_token: bool = False,
         verbose: bool = False,
         client: typing.Optional[modal.client._Client] = None,
@@ -419,17 +395,25 @@ class _Sandbox(modal._object._Object):
         """Create a sandbox using the V2 backend.
 
         Supported features include exec, encrypted tunnels, wait/poll/terminate,
-        CPU and memory configuration, region placement, volumes, cloud bucket mounts
-        (with static credentials via `secret=...` or `oidc_auth_role_arn`), OIDC
-        identity tokens, and filesystem snapshots.
+        CPU and memory configuration, region placement, private IPv6 networking
+        (i6pn), volumes, cloud bucket mounts (with static credentials via
+        `secret=...` or `oidc_auth_role_arn`), OIDC identity tokens, proxies, and
+        filesystem snapshots.
 
-        Features like tags, memory snapshots, network file systems, GPUs, custom
-        domains, and proxies are not supported.
+        Features like memory snapshots, network file systems, GPUs, and custom
+        domains are not supported.
+
+        Set `i6pn=True` to enable private IPv6 networking so sandboxes in the same
+        workspace can address each other directly at their `i6pn.modal.local`
+        address. i6pn only connects sandboxes co-located on the same routable
+        network, so pin every sandbox in the group to the same specific region
+        (e.g. `region="us-east-1"`).
 
         V2 sandboxes created with this method are not currently returned by
-        `Sandbox.list()` and cannot be looked up with `Sandbox.from_name()`.
-        Store `sandbox.object_id` if you need to retrieve the sandbox later, and
-        use `Sandbox.from_id(sandbox.object_id)` to reattach.
+        `Sandbox.list()`. A named sandbox can be looked up with
+        `Sandbox._experimental_from_name(app_name, name)`; otherwise store
+        `sandbox.object_id` and use `Sandbox.from_id(sandbox.object_id)` to
+        reattach.
         """
         ...
 
@@ -484,6 +468,32 @@ class _Sandbox(modal._object._Object):
         ...
 
     @staticmethod
+    async def _experimental_from_name(
+        app_name: str,
+        name: str,
+        *,
+        environment_name: typing.Optional[str] = None,
+        client: typing.Optional[modal.client._Client] = None,
+    ) -> _Sandbox:
+        """Get a running V2 Sandbox by name from a deployed App.
+
+        This looks up V2 sandboxes, ie sandboxes created via `modal.Sandbox._experimental_create`.
+
+        Args:
+            app_name: Name of the deployed app to look up the sandbox under.
+            name: Sandbox name to resolve.
+            environment_name: Optional environment name for the lookup; defaults to the configured environment.
+            client: Modal client to use for the RPC; defaults to `Client.from_env()` when omitted.
+
+        Returns:
+            A `Sandbox` handle for the running sandbox.
+
+        Raises:
+            NotFoundError: If no running sandbox exists with the given name.
+        """
+        ...
+
+    @staticmethod
     async def from_id(sandbox_id: str, client: typing.Optional[modal.client._Client] = None) -> _Sandbox:
         """Construct a Sandbox from an id and look up the Sandbox result.
 
@@ -508,6 +518,8 @@ class _Sandbox(modal._object._Object):
 
     async def set_tags(self, tags: dict[str, str], *, client: typing.Optional[modal.client._Client] = None) -> None:
         """Set tags (key-value pairs) on the Sandbox. Tags can be used to filter results in `Sandbox.list`.
+
+        Setting tags replaces the Sandbox's entire tag set; passing an empty dict clears all tags.
 
         Args:
             tags: Tag names and values to set on this sandbox.
@@ -684,7 +696,7 @@ class _Sandbox(modal._object._Object):
 
     async def create_connect_token(
         self, user_metadata: typing.Union[str, dict[str, typing.Any], None] = None, port: int = 8080
-    ) -> SandboxConnectCredentials:
+    ) -> modal.types.SandboxConnectCredentials:
         """Create a token for making HTTP connections to the Sandbox.
 
         Accepts an optional user_metadata string or dict to associate with the token. This metadata
@@ -700,10 +712,17 @@ class _Sandbox(modal._object._Object):
         """
         ...
 
-    async def reload_volumes(self) -> None:
+    async def reload_volumes(self, *, timeout: int = 55) -> None:
         """Reload all Volumes mounted in the Sandbox.
 
         Added in v1.1.0.
+
+        Blocks until the Volumes have been reloaded, bounded by `timeout` (55 seconds by default). If the reload
+        does not complete within that window, `modal.exception.TimeoutError` is raised; note that the reload may
+        still complete in the background.
+
+        Args:
+            timeout: Maximum time in seconds to wait for the reload. Must be positive.
         """
         ...
 
@@ -853,10 +872,10 @@ class _Sandbox(modal._object._Object):
     def watch(
         self,
         path: str,
-        filter: typing.Optional[list[modal.sandbox_fs.FileWatchEventType]] = None,
+        filter: typing.Optional[list[modal.types.FileWatchEventType]] = None,
         recursive: typing.Optional[bool] = None,
         timeout: typing.Optional[int] = None,
-    ) -> collections.abc.AsyncIterator[modal.sandbox_fs.FileWatchEvent]:
+    ) -> collections.abc.AsyncIterator[modal.types.FileWatchEvent]:
         """[Alpha] Watch a file or directory in the Sandbox for changes.
 
         **Deprecated (2026-05-08):** Use `Sandbox.filesystem.watch()` instead for improved reliability.
@@ -928,6 +947,27 @@ class _Sandbox(modal._object._Object):
 
         Returns:
             An async generator yielding `Sandbox` objects.
+        """
+        ...
+
+    @staticmethod
+    def _experimental_list(
+        *,
+        app_id: typing.Optional[str] = None,
+        tags: typing.Optional[dict[str, str]] = None,
+        client: typing.Optional[modal.client._Client] = None,
+    ) -> collections.abc.AsyncGenerator[_Sandbox, None]:
+        """List v2 Sandboxes in an App.
+
+        This function lists v2 sandboxes, ie sandboxes created via modal.Sandbox._experimental_create.
+
+        Args:
+            app_id: The App to list Sandboxes under.
+            tags: If set, only sandboxes containing at least these tags are returned.
+            client: Optional client to use for the session.
+
+        Yields:
+            `Sandbox` objects that are currently running in the App.
         """
         ...
 
@@ -1017,7 +1057,28 @@ class _SidecarManager:
         env: typing.Optional[dict[str, str]] = None,
         secrets: typing.Optional[collections.abc.Collection[modal.secret._Secret]] = None,
         workdir: typing.Optional[str] = None,
-    ) -> _SidecarContainer: ...
+        volumes: typing.Optional[dict[typing.Union[str, os.PathLike], modal.volume._Volume]] = None,
+    ) -> _SidecarContainer:
+        """Create a sidecar container running alongside the Sandbox's main container.
+
+        Sidecar containers share the Sandbox's lifecycle but run their own Image and command. They
+        can be used to run auxiliary processes, such as a database or a service the main container
+        depends on.
+
+        Args:
+            *args: Command and arguments to run inside the sidecar container.
+            name: Unique name for the sidecar container. The name ``"main"`` is reserved.
+            image: Image to run the sidecar container with. Must be a pre-built or referenced Image.
+            env: Environment variables to set in the sidecar container.
+            secrets: Secrets to inject as environment variables in the sidecar container.
+            workdir: Working directory for the command; must be absolute if set.
+            volumes: Mapping of mount paths to `Volume` objects to mount in the sidecar container.
+
+        Returns:
+            A `SidecarContainer` handle for the running container.
+        """
+        ...
+
     async def get(self, *, name: str, include_terminated: bool = False) -> _SidecarContainer: ...
     async def list(self, include_terminated: bool = False) -> list[_SidecarContainer]: ...
 
@@ -1172,7 +1233,28 @@ class SidecarManager:
             env: typing.Optional[dict[str, str]] = None,
             secrets: typing.Optional[collections.abc.Collection[modal.secret.Secret]] = None,
             workdir: typing.Optional[str] = None,
-        ) -> SidecarContainer: ...
+            volumes: typing.Optional[dict[typing.Union[str, os.PathLike], modal.volume.Volume]] = None,
+        ) -> SidecarContainer:
+            """Create a sidecar container running alongside the Sandbox's main container.
+
+            Sidecar containers share the Sandbox's lifecycle but run their own Image and command. They
+            can be used to run auxiliary processes, such as a database or a service the main container
+            depends on.
+
+            Args:
+                *args: Command and arguments to run inside the sidecar container.
+                name: Unique name for the sidecar container. The name ``"main"`` is reserved.
+                image: Image to run the sidecar container with. Must be a pre-built or referenced Image.
+                env: Environment variables to set in the sidecar container.
+                secrets: Secrets to inject as environment variables in the sidecar container.
+                workdir: Working directory for the command; must be absolute if set.
+                volumes: Mapping of mount paths to `Volume` objects to mount in the sidecar container.
+
+            Returns:
+                A `SidecarContainer` handle for the running container.
+            """
+            ...
+
         async def aio(
             self,
             /,
@@ -1182,7 +1264,27 @@ class SidecarManager:
             env: typing.Optional[dict[str, str]] = None,
             secrets: typing.Optional[collections.abc.Collection[modal.secret.Secret]] = None,
             workdir: typing.Optional[str] = None,
-        ) -> SidecarContainer: ...
+            volumes: typing.Optional[dict[typing.Union[str, os.PathLike], modal.volume.Volume]] = None,
+        ) -> SidecarContainer:
+            """Create a sidecar container running alongside the Sandbox's main container.
+
+            Sidecar containers share the Sandbox's lifecycle but run their own Image and command. They
+            can be used to run auxiliary processes, such as a database or a service the main container
+            depends on.
+
+            Args:
+                *args: Command and arguments to run inside the sidecar container.
+                name: Unique name for the sidecar container. The name ``"main"`` is reserved.
+                image: Image to run the sidecar container with. Must be a pre-built or referenced Image.
+                env: Environment variables to set in the sidecar container.
+                secrets: Secrets to inject as environment variables in the sidecar container.
+                workdir: Working directory for the command; must be absolute if set.
+                volumes: Mapping of mount paths to `Volume` objects to mount in the sidecar container.
+
+            Returns:
+                A `SidecarContainer` handle for the running container.
+            """
+            ...
 
     create: __create_spec
 
@@ -1612,6 +1714,7 @@ class Sandbox(modal.object.Object):
             *args: str,
             app: typing.Optional[modal.app.App] = None,
             name: typing.Optional[str] = None,
+            tags: typing.Optional[dict[str, str]] = None,
             image: typing.Optional[modal.image.Image] = None,
             env: typing.Optional[dict[str, typing.Optional[str]]] = None,
             secrets: typing.Optional[collections.abc.Collection[modal.secret.Secret]] = None,
@@ -1624,7 +1727,9 @@ class Sandbox(modal.object.Object):
             region: typing.Union[str, collections.abc.Sequence[str], None] = None,
             block_network: bool = False,
             outbound_cidr_allowlist: typing.Optional[collections.abc.Sequence[str]] = None,
+            outbound_domain_allowlist: typing.Optional[collections.abc.Sequence[str]] = None,
             inbound_cidr_allowlist: typing.Optional[collections.abc.Sequence[str]] = None,
+            i6pn: bool = False,
             volumes: dict[
                 typing.Union[str, os.PathLike],
                 typing.Union[modal.volume.Volume, modal.cloud_bucket_mount.CloudBucketMount],
@@ -1633,7 +1738,9 @@ class Sandbox(modal.object.Object):
             encrypted_ports: collections.abc.Sequence[int] = [],
             h2_ports: collections.abc.Sequence[int] = [],
             unencrypted_ports: collections.abc.Sequence[int] = [],
+            proxy: typing.Optional[modal.proxy.Proxy] = None,
             readiness_probe: typing.Optional[Probe] = None,
+            experimental_options: typing.Optional[dict[str, typing.Any]] = None,
             include_oidc_identity_token: bool = False,
             verbose: bool = False,
             client: typing.Optional[modal.client.Client] = None,
@@ -1641,17 +1748,25 @@ class Sandbox(modal.object.Object):
             """Create a sandbox using the V2 backend.
 
             Supported features include exec, encrypted tunnels, wait/poll/terminate,
-            CPU and memory configuration, region placement, volumes, cloud bucket mounts
-            (with static credentials via `secret=...` or `oidc_auth_role_arn`), OIDC
-            identity tokens, and filesystem snapshots.
+            CPU and memory configuration, region placement, private IPv6 networking
+            (i6pn), volumes, cloud bucket mounts (with static credentials via
+            `secret=...` or `oidc_auth_role_arn`), OIDC identity tokens, proxies, and
+            filesystem snapshots.
 
-            Features like tags, memory snapshots, network file systems, GPUs, custom
-            domains, and proxies are not supported.
+            Features like memory snapshots, network file systems, GPUs, and custom
+            domains are not supported.
+
+            Set `i6pn=True` to enable private IPv6 networking so sandboxes in the same
+            workspace can address each other directly at their `i6pn.modal.local`
+            address. i6pn only connects sandboxes co-located on the same routable
+            network, so pin every sandbox in the group to the same specific region
+            (e.g. `region="us-east-1"`).
 
             V2 sandboxes created with this method are not currently returned by
-            `Sandbox.list()` and cannot be looked up with `Sandbox.from_name()`.
-            Store `sandbox.object_id` if you need to retrieve the sandbox later, and
-            use `Sandbox.from_id(sandbox.object_id)` to reattach.
+            `Sandbox.list()`. A named sandbox can be looked up with
+            `Sandbox._experimental_from_name(app_name, name)`; otherwise store
+            `sandbox.object_id` and use `Sandbox.from_id(sandbox.object_id)` to
+            reattach.
             """
             ...
 
@@ -1661,6 +1776,7 @@ class Sandbox(modal.object.Object):
             *args: str,
             app: typing.Optional[modal.app.App] = None,
             name: typing.Optional[str] = None,
+            tags: typing.Optional[dict[str, str]] = None,
             image: typing.Optional[modal.image.Image] = None,
             env: typing.Optional[dict[str, typing.Optional[str]]] = None,
             secrets: typing.Optional[collections.abc.Collection[modal.secret.Secret]] = None,
@@ -1673,7 +1789,9 @@ class Sandbox(modal.object.Object):
             region: typing.Union[str, collections.abc.Sequence[str], None] = None,
             block_network: bool = False,
             outbound_cidr_allowlist: typing.Optional[collections.abc.Sequence[str]] = None,
+            outbound_domain_allowlist: typing.Optional[collections.abc.Sequence[str]] = None,
             inbound_cidr_allowlist: typing.Optional[collections.abc.Sequence[str]] = None,
+            i6pn: bool = False,
             volumes: dict[
                 typing.Union[str, os.PathLike],
                 typing.Union[modal.volume.Volume, modal.cloud_bucket_mount.CloudBucketMount],
@@ -1682,7 +1800,9 @@ class Sandbox(modal.object.Object):
             encrypted_ports: collections.abc.Sequence[int] = [],
             h2_ports: collections.abc.Sequence[int] = [],
             unencrypted_ports: collections.abc.Sequence[int] = [],
+            proxy: typing.Optional[modal.proxy.Proxy] = None,
             readiness_probe: typing.Optional[Probe] = None,
+            experimental_options: typing.Optional[dict[str, typing.Any]] = None,
             include_oidc_identity_token: bool = False,
             verbose: bool = False,
             client: typing.Optional[modal.client.Client] = None,
@@ -1690,17 +1810,25 @@ class Sandbox(modal.object.Object):
             """Create a sandbox using the V2 backend.
 
             Supported features include exec, encrypted tunnels, wait/poll/terminate,
-            CPU and memory configuration, region placement, volumes, cloud bucket mounts
-            (with static credentials via `secret=...` or `oidc_auth_role_arn`), OIDC
-            identity tokens, and filesystem snapshots.
+            CPU and memory configuration, region placement, private IPv6 networking
+            (i6pn), volumes, cloud bucket mounts (with static credentials via
+            `secret=...` or `oidc_auth_role_arn`), OIDC identity tokens, proxies, and
+            filesystem snapshots.
 
-            Features like tags, memory snapshots, network file systems, GPUs, custom
-            domains, and proxies are not supported.
+            Features like memory snapshots, network file systems, GPUs, and custom
+            domains are not supported.
+
+            Set `i6pn=True` to enable private IPv6 networking so sandboxes in the same
+            workspace can address each other directly at their `i6pn.modal.local`
+            address. i6pn only connects sandboxes co-located on the same routable
+            network, so pin every sandbox in the group to the same specific region
+            (e.g. `region="us-east-1"`).
 
             V2 sandboxes created with this method are not currently returned by
-            `Sandbox.list()` and cannot be looked up with `Sandbox.from_name()`.
-            Store `sandbox.object_id` if you need to retrieve the sandbox later, and
-            use `Sandbox.from_id(sandbox.object_id)` to reattach.
+            `Sandbox.list()`. A named sandbox can be looked up with
+            `Sandbox._experimental_from_name(app_name, name)`; otherwise store
+            `sandbox.object_id` and use `Sandbox.from_id(sandbox.object_id)` to
+            reattach.
             """
             ...
 
@@ -1801,6 +1929,63 @@ class Sandbox(modal.object.Object):
 
     from_name: typing.ClassVar[__from_name_spec]
 
+    class ___experimental_from_name_spec(typing_extensions.Protocol):
+        def __call__(
+            self,
+            /,
+            app_name: str,
+            name: str,
+            *,
+            environment_name: typing.Optional[str] = None,
+            client: typing.Optional[modal.client.Client] = None,
+        ) -> Sandbox:
+            """Get a running V2 Sandbox by name from a deployed App.
+
+            This looks up V2 sandboxes, ie sandboxes created via `modal.Sandbox._experimental_create`.
+
+            Args:
+                app_name: Name of the deployed app to look up the sandbox under.
+                name: Sandbox name to resolve.
+                environment_name: Optional environment name for the lookup; defaults to the configured environment.
+                client: Modal client to use for the RPC; defaults to `Client.from_env()` when omitted.
+
+            Returns:
+                A `Sandbox` handle for the running sandbox.
+
+            Raises:
+                NotFoundError: If no running sandbox exists with the given name.
+            """
+            ...
+
+        async def aio(
+            self,
+            /,
+            app_name: str,
+            name: str,
+            *,
+            environment_name: typing.Optional[str] = None,
+            client: typing.Optional[modal.client.Client] = None,
+        ) -> Sandbox:
+            """Get a running V2 Sandbox by name from a deployed App.
+
+            This looks up V2 sandboxes, ie sandboxes created via `modal.Sandbox._experimental_create`.
+
+            Args:
+                app_name: Name of the deployed app to look up the sandbox under.
+                name: Sandbox name to resolve.
+                environment_name: Optional environment name for the lookup; defaults to the configured environment.
+                client: Modal client to use for the RPC; defaults to `Client.from_env()` when omitted.
+
+            Returns:
+                A `Sandbox` handle for the running sandbox.
+
+            Raises:
+                NotFoundError: If no running sandbox exists with the given name.
+            """
+            ...
+
+    _experimental_from_name: typing.ClassVar[___experimental_from_name_spec]
+
     class __from_id_spec(typing_extensions.Protocol):
         def __call__(self, /, sandbox_id: str, client: typing.Optional[modal.client.Client] = None) -> Sandbox:
             """Construct a Sandbox from an id and look up the Sandbox result.
@@ -1855,6 +2040,8 @@ class Sandbox(modal.object.Object):
         def __call__(self, /, tags: dict[str, str], *, client: typing.Optional[modal.client.Client] = None) -> None:
             """Set tags (key-value pairs) on the Sandbox. Tags can be used to filter results in `Sandbox.list`.
 
+            Setting tags replaces the Sandbox's entire tag set; passing an empty dict clears all tags.
+
             Args:
                 tags: Tag names and values to set on this sandbox.
                 client: Deprecated. Prefer setting the client when creating or re-attaching to the sandbox.
@@ -1863,6 +2050,8 @@ class Sandbox(modal.object.Object):
 
         async def aio(self, /, tags: dict[str, str], *, client: typing.Optional[modal.client.Client] = None) -> None:
             """Set tags (key-value pairs) on the Sandbox. Tags can be used to filter results in `Sandbox.list`.
+
+            Setting tags replaces the Sandbox's entire tag set; passing an empty dict clears all tags.
 
             Args:
                 tags: Tag names and values to set on this sandbox.
@@ -2239,7 +2428,7 @@ class Sandbox(modal.object.Object):
     class __create_connect_token_spec(typing_extensions.Protocol):
         def __call__(
             self, /, user_metadata: typing.Union[str, dict[str, typing.Any], None] = None, port: int = 8080
-        ) -> SandboxConnectCredentials:
+        ) -> modal.types.SandboxConnectCredentials:
             """Create a token for making HTTP connections to the Sandbox.
 
             Accepts an optional user_metadata string or dict to associate with the token. This metadata
@@ -2257,7 +2446,7 @@ class Sandbox(modal.object.Object):
 
         async def aio(
             self, /, user_metadata: typing.Union[str, dict[str, typing.Any], None] = None, port: int = 8080
-        ) -> SandboxConnectCredentials:
+        ) -> modal.types.SandboxConnectCredentials:
             """Create a token for making HTTP connections to the Sandbox.
 
             Accepts an optional user_metadata string or dict to associate with the token. This metadata
@@ -2276,17 +2465,31 @@ class Sandbox(modal.object.Object):
     create_connect_token: __create_connect_token_spec
 
     class __reload_volumes_spec(typing_extensions.Protocol):
-        def __call__(self, /) -> None:
+        def __call__(self, /, *, timeout: int = 55) -> None:
             """Reload all Volumes mounted in the Sandbox.
 
             Added in v1.1.0.
+
+            Blocks until the Volumes have been reloaded, bounded by `timeout` (55 seconds by default). If the reload
+            does not complete within that window, `modal.exception.TimeoutError` is raised; note that the reload may
+            still complete in the background.
+
+            Args:
+                timeout: Maximum time in seconds to wait for the reload. Must be positive.
             """
             ...
 
-        async def aio(self, /) -> None:
+        async def aio(self, /, *, timeout: int = 55) -> None:
             """Reload all Volumes mounted in the Sandbox.
 
             Added in v1.1.0.
+
+            Blocks until the Volumes have been reloaded, bounded by `timeout` (55 seconds by default). If the reload
+            does not complete within that window, `modal.exception.TimeoutError` is raised; note that the reload may
+            still complete in the background.
+
+            Args:
+                timeout: Maximum time in seconds to wait for the reload. Must be positive.
             """
             ...
 
@@ -2629,10 +2832,10 @@ class Sandbox(modal.object.Object):
             self,
             /,
             path: str,
-            filter: typing.Optional[list[modal.sandbox_fs.FileWatchEventType]] = None,
+            filter: typing.Optional[list[modal.types.FileWatchEventType]] = None,
             recursive: typing.Optional[bool] = None,
             timeout: typing.Optional[int] = None,
-        ) -> typing.Iterator[modal.sandbox_fs.FileWatchEvent]:
+        ) -> typing.Iterator[modal.types.FileWatchEvent]:
             """[Alpha] Watch a file or directory in the Sandbox for changes.
 
             **Deprecated (2026-05-08):** Use `Sandbox.filesystem.watch()` instead for improved reliability.
@@ -2652,10 +2855,10 @@ class Sandbox(modal.object.Object):
             self,
             /,
             path: str,
-            filter: typing.Optional[list[modal.sandbox_fs.FileWatchEventType]] = None,
+            filter: typing.Optional[list[modal.types.FileWatchEventType]] = None,
             recursive: typing.Optional[bool] = None,
             timeout: typing.Optional[int] = None,
-        ) -> collections.abc.AsyncIterator[modal.sandbox_fs.FileWatchEvent]:
+        ) -> collections.abc.AsyncIterator[modal.types.FileWatchEvent]:
             """[Alpha] Watch a file or directory in the Sandbox for changes.
 
             **Deprecated (2026-05-08):** Use `Sandbox.filesystem.watch()` instead for improved reliability.
@@ -2756,6 +2959,53 @@ class Sandbox(modal.object.Object):
             ...
 
     list: typing.ClassVar[__list_spec]
+
+    class ___experimental_list_spec(typing_extensions.Protocol):
+        def __call__(
+            self,
+            /,
+            *,
+            app_id: typing.Optional[str] = None,
+            tags: typing.Optional[dict[str, str]] = None,
+            client: typing.Optional[modal.client.Client] = None,
+        ) -> typing.Generator[Sandbox, None, None]:
+            """List v2 Sandboxes in an App.
+
+            This function lists v2 sandboxes, ie sandboxes created via modal.Sandbox._experimental_create.
+
+            Args:
+                app_id: The App to list Sandboxes under.
+                tags: If set, only sandboxes containing at least these tags are returned.
+                client: Optional client to use for the session.
+
+            Yields:
+                `Sandbox` objects that are currently running in the App.
+            """
+            ...
+
+        def aio(
+            self,
+            /,
+            *,
+            app_id: typing.Optional[str] = None,
+            tags: typing.Optional[dict[str, str]] = None,
+            client: typing.Optional[modal.client.Client] = None,
+        ) -> collections.abc.AsyncGenerator[Sandbox, None]:
+            """List v2 Sandboxes in an App.
+
+            This function lists v2 sandboxes, ie sandboxes created via modal.Sandbox._experimental_create.
+
+            Args:
+                app_id: The App to list Sandboxes under.
+                tags: If set, only sandboxes containing at least these tags are returned.
+                client: Optional client to use for the session.
+
+            Yields:
+                `Sandbox` objects that are currently running in the App.
+            """
+            ...
+
+    _experimental_list: typing.ClassVar[___experimental_list_spec]
 
 _default_image: modal._image._Image
 

@@ -3,7 +3,7 @@ import setuptools
 with open('README.md', 'r') as fh:
     README = fh.read()
 
-VERSION = '0.1.4.7'
+VERSION = '0.1.4.8'
 
 setuptools.setup(
     name='causal-learn',
@@ -26,9 +26,6 @@ setuptools.setup(
         'momentchi2',
         'joblib'
     ],
-    extras_require={
-        'communities': ['communities'],
-    },
     url='https://github.com/py-why/causal-learn',
     packages=setuptools.find_packages(),
     classifiers=[

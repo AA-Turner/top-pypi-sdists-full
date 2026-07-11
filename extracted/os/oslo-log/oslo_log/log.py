@@ -46,7 +46,6 @@ except ImportError:
 
 import debtcollector
 from oslo_config import cfg
-from oslo_utils import eventletutils
 from oslo_utils import importutils
 from oslo_utils import units
 
@@ -272,10 +271,10 @@ def _load_log_config(log_config_append: str) -> None:
 def _mutate_hook(conf: cfg.ConfigOpts, fresh: cfg.ConfigOpts) -> None:
     """Reconfigures oslo.log according to the mutated options."""
 
-    if (None, 'debug') in fresh:
+    if (None, 'debug') in fresh:  # type: ignore[comparison-overlap]
         _refresh_root_level(conf.debug)
 
-    if (None, 'log-config-append') in fresh:
+    if (None, 'log-config-append') in fresh:  # type: ignore[comparison-overlap]
         setattr(_load_log_config, 'old_time', 0)
 
     if conf.log_config_append:
@@ -308,7 +307,9 @@ def _fix_eventlet_logging() -> None:
 
     global _EVENTLET_FIX_APPLIED
 
-    if eventletutils.is_monkey_patched('thread'):
+    if 'eventlet.patcher' in sys.modules and sys.modules[
+        'eventlet.patcher'
+    ].is_monkey_patched('thread'):
         debtcollector.deprecate(
             "Eventlet support is deprecated and will be removed"
         )

@@ -4,10 +4,10 @@
 
 [project]
 name = "mypy-boto3-quicksight"
-version = "1.43.39"
+version = "1.43.46"
 license = "MIT"
 authors = [{ name = "Vlad Emelianov", email = "vlad.emelianov.nz@gmail.com" }]
-description = "Type annotations for boto3 QuickSight 1.43.39 service generated with mypy-boto3-builder 8.12.0"
+description = "Type annotations for boto3 QuickSight 1.43.46 service generated with mypy-boto3-builder 8.12.0"
 readme = "README.md"
 classifiers = [
     "Development Status :: 5 - Production/Stable",

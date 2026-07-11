@@ -17,6 +17,7 @@ from starlette.requests import Request
 from mcp_atlassian.confluence import ConfluenceConfig, ConfluenceFetcher
 from mcp_atlassian.jira import JiraConfig, JiraFetcher
 from mcp_atlassian.servers.context import MainAppContext
+from mcp_atlassian.utils.env import is_env_truthy
 from mcp_atlassian.utils.oauth import OAuthConfig
 from mcp_atlassian.utils.urls import validate_url_for_ssrf
 
@@ -422,16 +423,18 @@ def _create_user_config_for_fetcher(
                 "or set base_url for Data Center OAuth."
             )
 
-        # For minimal OAuth config (user-provided tokens), use empty strings for client credentials
+        # Minimal OAuth config (user-provided tokens): client credentials fall back
+        # to empty strings. The global oauth_config may be a
+        # BYOAccessTokenOAuthConfig (e.g. a placeholder *_OAUTH_ACCESS_TOKEN set to
+        # suppress the headless OAuth setup flow), which has no
+        # client_id/client_secret/redirect_uri/scope attributes. With the OAuth proxy
+        # active these come from the proxy config, not here, so getattr() with an
+        # empty-string fallback is safe and avoids an AttributeError.
         oauth_config_for_user = OAuthConfig(
-            client_id=global_oauth_cfg.client_id if global_oauth_cfg.client_id else "",
-            client_secret=global_oauth_cfg.client_secret
-            if global_oauth_cfg.client_secret
-            else "",
-            redirect_uri=global_oauth_cfg.redirect_uri
-            if global_oauth_cfg.redirect_uri
-            else "",
-            scope=global_oauth_cfg.scope if global_oauth_cfg.scope else "",
+            client_id=getattr(global_oauth_cfg, "client_id", "") or "",
+            client_secret=getattr(global_oauth_cfg, "client_secret", "") or "",
+            redirect_uri=getattr(global_oauth_cfg, "redirect_uri", "") or "",
+            scope=getattr(global_oauth_cfg, "scope", "") or "",
             access_token=user_access_token,
             refresh_token=None,
             expires_at=None,
@@ -506,8 +509,10 @@ async def _get_fetcher(ctx: Context, spec: _ServiceSpec) -> Any:
     """
     fn_name = f"get_{spec.name.lower()}_fetcher"
     logger.debug(f"{fn_name}: ENTERED. Context ID: {id(ctx)}")
+    in_http_context = False
     try:
         request: Request = get_http_request()
+        in_http_context = True
         logger.debug(
             f"{fn_name}: In HTTP request context. "
             f"Request URL: {request.url}. "
@@ -590,6 +595,7 @@ async def _get_fetcher(ctx: Context, spec: _ServiceSpec) -> Any:
                 user_config,
                 "basic",
                 user_email=user_email,
+                attach_ssrf_hook=True,
             )
 
         # --- Branch 3: OAuth / PAT with token ---
@@ -639,6 +645,7 @@ async def _get_fetcher(ctx: Context, spec: _ServiceSpec) -> Any:
                 user_config,
                 "oauth_pat",
                 user_email=user_email,
+                attach_ssrf_hook=True,
             )
 
         else:
@@ -661,6 +668,17 @@ async def _get_fetcher(ctx: Context, spec: _ServiceSpec) -> Any:
         getattr(app_ctx, spec.config_attr, None) if app_ctx else None
     )
     if global_config_fallback:
+        # An HTTP request that reaches here has no per-user identity: serving it
+        # with the operator's global credentials lets any unauthenticated caller
+        # transact as the operator. Refuse unless explicitly opted in. Non-HTTP
+        # (stdio, single-user) is unaffected — the operator is the user there.
+        if in_http_context and not is_env_truthy("ALLOW_GLOBAL_CRED_FALLBACK"):
+            raise ValueError(
+                f"{spec.name} client (fetcher) not available: refusing to serve an "
+                "unauthenticated request with the operator's global credentials. "
+                "Provide a user token, or set ALLOW_GLOBAL_CRED_FALLBACK=true to "
+                "allow the global-credential fallback (single-user deployments only)."
+            )
         logger.debug(
             f"{fn_name}: Using global {spec.name}Fetcher "
             "from lifespan_context. "

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: mkdocs-swagger-ui-tag
-Version: 0.8.0
+Version: 0.8.1
 Summary: A MkDocs plugin supports for add Swagger UI in page.
 Project-URL: Homepage, https://blueswen.github.io/mkdocs-swagger-ui-tag/
 Project-URL: Source, https://github.com/blueswen/mkdocs-swagger-ui-tag
@@ -57,7 +57,7 @@ A MkDocs plugin supports adding [Swagger UI](https://github.com/swagger-api/swag
 1. Python Package
     1. beautifulsoup4>=4.13.3
 2. [Swagger UI dist](https://www.npmjs.com/package/swagger-ui-dist) javascript file and CSS file
-    1. swagger-ui-dist==5.27.1
+    1. swagger-ui-dist==5.32.8
 
 ## Usage
 

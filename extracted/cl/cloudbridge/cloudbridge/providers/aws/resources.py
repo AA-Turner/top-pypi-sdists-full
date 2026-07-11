@@ -13,7 +13,7 @@ from typing import Iterator
 from typing import TYPE_CHECKING
 from typing import cast
 
-from boto3.s3.transfer import TransferConfig
+from boto3.s3.transfer import TransferConfig as S3TransferConfig
 
 from botocore.exceptions import ClientError
 
@@ -58,7 +58,7 @@ from cloudbridge.interfaces.resources import SnapshotState
 from cloudbridge.interfaces.resources import Subnet
 from cloudbridge.interfaces.resources import SubnetState
 from cloudbridge.interfaces.resources import TrafficDirection
-from cloudbridge.interfaces.resources import UploadConfig
+from cloudbridge.interfaces.resources import TransferConfig
 from cloudbridge.interfaces.resources import VMFirewall
 from cloudbridge.interfaces.resources import VMType
 from cloudbridge.interfaces.resources import Volume
@@ -920,11 +920,11 @@ class AWSBucketObject(BaseBucketObject):
 
     def _upload_multipart(
             self, stream: IO[bytes],
-            config: UploadConfig | None = None) -> BucketObject:
+            config: TransferConfig | None = None) -> BucketObject:
         # boto3's TransferManager uploads parts concurrently with a thread-safe
         # client, so the transparent multipart path delegates to it rather than
         # CloudBridge's generic clone-pool driver.
-        transfer_config = TransferConfig(
+        transfer_config = S3TransferConfig(
             multipart_threshold=self._multipart_part_size(config),
             multipart_chunksize=self._multipart_part_size(config),
             max_concurrency=self._multipart_max_concurrency(config))
@@ -932,26 +932,46 @@ class AWSBucketObject(BaseBucketObject):
         return self
 
     def upload_from_file(self, path: str,
-                         config: UploadConfig | None = None) -> BucketObject:
+                         config: TransferConfig | None = None) -> BucketObject:
         # boto3's upload_file streams large files in parts via its
         # TransferManager. Drive it with CloudBridge's multipart knobs so that
         # upload_from_file and upload() honour the same configuration rather
         # than boto3's own defaults.
-        transfer_config = TransferConfig(
+        transfer_config = S3TransferConfig(
             multipart_threshold=self._multipart_threshold(config),
             multipart_chunksize=self._multipart_part_size(config),
             max_concurrency=self._multipart_max_concurrency(config))
         self._obj.upload_file(path, Config=transfer_config)
         return self
 
+    def download_to_file(self, path: str,
+                         config: TransferConfig | None = None) -> None:
+        # boto3's TransferManager downloads large objects as parallel ranged
+        # GETs with a thread-safe client, so the transparent ranged path
+        # delegates to it rather than CloudBridge's generic clone-pool driver.
+        transfer_config = S3TransferConfig(
+            multipart_threshold=self._multipart_threshold(config),
+            multipart_chunksize=self._multipart_part_size(config),
+            max_concurrency=self._multipart_max_concurrency(config))
+        self._obj.meta.client.download_file(
+            self._obj.bucket_name, self.id, path, Config=transfer_config)
+
     def delete(self) -> None:
         self._obj.delete()
 
-    def generate_url(self, expires_in: int, writable: bool = False) -> str:
+    def generate_url(self, expires_in: int, writable: bool = False,
+                     content_disposition: str | None = None,
+                     content_type: str | None = None) -> str:
+        params = {'Bucket': self._obj.bucket_name, 'Key': self.id}
+        if not writable:
+            if content_disposition:
+                params['ResponseContentDisposition'] = content_disposition
+            if content_type:
+                params['ResponseContentType'] = content_type
         return cast("AWSCloudProvider", self._provider).s3_conn.meta.client \
             .generate_presigned_url(
                 'put_object' if writable else 'get_object',
-                Params={'Bucket': self._obj.bucket_name, 'Key': self.id},
+                Params=params,
                 ExpiresIn=expires_in)
 
     def refresh(self) -> None:

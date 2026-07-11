@@ -918,6 +918,11 @@ fn path_exists_subdir() {
 }
 
 #[test]
+fn path_exists_empty_path() {
+  assert_eval("path_exists('')", "false");
+}
+
+#[test]
 fn uuid() {
   Test::new()
     .justfile("x := uuid()")
@@ -946,6 +951,23 @@ fn choose_bad_alphabet_empty() {
          ——▶ justfile:1:6
           │
         1 │ x := choose('10', '')
+          │      ^^^^^^
+      ",
+    )
+    .failure();
+}
+
+#[test]
+fn reject_empty_alphabet_when_count_is_zero() {
+  Test::new()
+    .justfile("x := choose('0', '')")
+    .args(["--evaluate"])
+    .stderr(
+      "
+        error: call to function `choose` failed: empty alphabet
+         ——▶ justfile:1:6
+          │
+        1 │ x := choose('0', '')
           │      ^^^^^^
       ",
     )
@@ -1098,6 +1120,17 @@ fn canonicalize() {
     .symlink("justfile", "foo")
     .stdout_regex(".*/justfile")
     .success();
+}
+
+#[test]
+fn canonicalize_error_omits_path() {
+  Test::new()
+    .justfile("x := canonicalize('foo')")
+    .args(["--evaluate", "x"])
+    .stderr_regex(
+      "error: call to function `canonicalize` failed: I/O error canonicalizing `foo`: .*",
+    )
+    .failure();
 }
 
 #[test]
@@ -1575,5 +1608,91 @@ fn module_path_in_submodule() {
     .justfile("mod foo")
     .args(["--evaluate", "foo::bar::baz"])
     .stdout("foo::bar")
+    .success();
+}
+
+#[test]
+fn num_jobs_returns_jobs() {
+  Test::new()
+    .justfile(
+      "
+        set lists
+
+        foo:
+          @echo {{ num_jobs() }}
+      ",
+    )
+    .unstable()
+    .args(["--jobs", "9999"])
+    .stdout("9999\n")
+    .success();
+}
+
+#[test]
+fn num_jobs_falls_back_to_empty_list() {
+  Test::new()
+    .justfile(
+      "
+        set lists
+
+        foo:
+          @echo '{{ show(num_jobs()) }}'
+      ",
+    )
+    .unstable()
+    .stdout("[]\n")
+    .success();
+}
+
+#[test]
+fn num_jobs_requires_lists() {
+  Test::new()
+    .justfile(
+      "
+        foo:
+          @echo {{ num_jobs() }}
+      ",
+    )
+    .stderr(
+      "
+        error: the `num_jobs()` function requires `set lists`
+         ——▶ justfile:2:12
+          │
+        2 │   @echo {{ num_jobs() }}
+          │            ^^^^^^^^
+      ",
+    )
+    .failure();
+}
+
+#[test]
+fn dry_run_does_not_execute_shell_function() {
+  Test::new()
+    .justfile(
+      "
+        foo:
+          echo {{ shell('exit 1') }}
+      ",
+    )
+    .arg("--dry-run")
+    .stderr("echo shell(\"exit 1\")\n")
+    .success();
+}
+
+#[test]
+fn dry_run_shell_function_output_is_escaped() {
+  Test::new()
+    .justfile(
+      r#"
+        foo:
+          echo {{ shell('exit 1', '"') }}
+      "#,
+    )
+    .arg("--dry-run")
+    .stderr(
+      r#"
+        echo shell("exit 1", "\"")
+      "#,
+    )
     .success();
 }

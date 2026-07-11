@@ -88,6 +88,11 @@ class DatasetMetadataServiceStub(object):
             request_serializer=chalk_dot_server_dot_v1_dot_datasets__pb2.ListMaterializedAggregateTileFilesRequest.SerializeToString,
             response_deserializer=chalk_dot_server_dot_v1_dot_datasets__pb2.ListMaterializedAggregateTileFilesResponse.FromString,
         )
+        self.GetMaterializedAggregateTileRowCountChart = channel.unary_unary(
+            "/chalk.server.v1.DatasetMetadataService/GetMaterializedAggregateTileRowCountChart",
+            request_serializer=chalk_dot_server_dot_v1_dot_datasets__pb2.GetMaterializedAggregateTileRowCountChartRequest.SerializeToString,
+            response_deserializer=chalk_dot_server_dot_v1_dot_datasets__pb2.GetMaterializedAggregateTileRowCountChartResponse.FromString,
+        )
         self.DeleteMaterializedAggregateTile = channel.unary_unary(
             "/chalk.server.v1.DatasetMetadataService/DeleteMaterializedAggregateTile",
             request_serializer=chalk_dot_server_dot_v1_dot_datasets__pb2.DeleteMaterializedAggregateTileRequest.SerializeToString,
@@ -221,6 +226,17 @@ class DatasetMetadataServiceServicer(object):
         context.set_details("Method not implemented!")
         raise NotImplementedError("Method not implemented!")
 
+    def GetMaterializedAggregateTileRowCountChart(self, request, context):
+        """Row-count-per-tile histogram for one timeline (one
+        materialization_key_hash). Each x point is a tile's coverage_lower_bound;
+        the value is the total stored row count of the newest manifest covering
+        that window, i.e. the number of distinct (primary key, group, bucket)
+        rows materialized for the window.
+        """
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details("Method not implemented!")
+        raise NotImplementedError("Method not implemented!")
+
     def DeleteMaterializedAggregateTile(self, request, context):
         """Missing associated documentation comment in .proto file."""
         context.set_code(grpc.StatusCode.UNIMPLEMENTED)
@@ -345,6 +361,11 @@ def add_DatasetMetadataServiceServicer_to_server(servicer, server):
             servicer.ListMaterializedAggregateTileFiles,
             request_deserializer=chalk_dot_server_dot_v1_dot_datasets__pb2.ListMaterializedAggregateTileFilesRequest.FromString,
             response_serializer=chalk_dot_server_dot_v1_dot_datasets__pb2.ListMaterializedAggregateTileFilesResponse.SerializeToString,
+        ),
+        "GetMaterializedAggregateTileRowCountChart": grpc.unary_unary_rpc_method_handler(
+            servicer.GetMaterializedAggregateTileRowCountChart,
+            request_deserializer=chalk_dot_server_dot_v1_dot_datasets__pb2.GetMaterializedAggregateTileRowCountChartRequest.FromString,
+            response_serializer=chalk_dot_server_dot_v1_dot_datasets__pb2.GetMaterializedAggregateTileRowCountChartResponse.SerializeToString,
         ),
         "DeleteMaterializedAggregateTile": grpc.unary_unary_rpc_method_handler(
             servicer.DeleteMaterializedAggregateTile,
@@ -788,6 +809,35 @@ class DatasetMetadataService(object):
             "/chalk.server.v1.DatasetMetadataService/ListMaterializedAggregateTileFiles",
             chalk_dot_server_dot_v1_dot_datasets__pb2.ListMaterializedAggregateTileFilesRequest.SerializeToString,
             chalk_dot_server_dot_v1_dot_datasets__pb2.ListMaterializedAggregateTileFilesResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+        )
+
+    @staticmethod
+    def GetMaterializedAggregateTileRowCountChart(
+        request,
+        target,
+        options=(),
+        channel_credentials=None,
+        call_credentials=None,
+        insecure=False,
+        compression=None,
+        wait_for_ready=None,
+        timeout=None,
+        metadata=None,
+    ):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            "/chalk.server.v1.DatasetMetadataService/GetMaterializedAggregateTileRowCountChart",
+            chalk_dot_server_dot_v1_dot_datasets__pb2.GetMaterializedAggregateTileRowCountChartRequest.SerializeToString,
+            chalk_dot_server_dot_v1_dot_datasets__pb2.GetMaterializedAggregateTileRowCountChartResponse.FromString,
             options,
             channel_credentials,
             insecure,

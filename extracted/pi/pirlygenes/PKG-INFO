@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pirlygenes
-Version: 5.23.21
+Version: 5.23.24
 Summary: Curated cancer gene sets and reference expression data. Analysis lives in `trufflepig`.
 Author-email: Alex Rubinsteyn <alex.rubinsteyn@unc.edu>
 Project-URL: Homepage, https://github.com/pirl-unc/pirlygenes
@@ -23,7 +23,7 @@ Requires-Dist: pyarrow>=10
 Requires-Dist: pyensembl>=2.6.0
 Requires-Dist: PyYAML>=6.0
 Requires-Dist: tqdm
-Requires-Dist: tsarina>=1.4.8
+Requires-Dist: tsarina>=1.23.1
 Provides-Extra: test
 Requires-Dist: pytest; extra == "test"
 Requires-Dist: pytest-cov; extra == "test"
@@ -91,7 +91,7 @@ canonical home and stay stable across versions.
 
 ```python
 from pirlygenes.gene_sets_cancer import (
-    CTA_gene_names,                   # ~260 cancer-testis antigens
+    CTA_gene_names,                   # ~290 cancer-testis antigens
     surface_protein_gene_names,       # 2,799 surfaceome genes
     cancer_surfaceome_gene_names,     # 147 tumor-specific surface targets
     therapy_target_gene_names,        # modality: "ADC", "CAR-T", "TCR-T",

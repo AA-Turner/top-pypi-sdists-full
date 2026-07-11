@@ -303,10 +303,14 @@ Ec2InstanceSortByType = Literal["ALL", "CRITICAL", "HIGH", "NETWORK_FINDINGS"]
 Ec2PlatformType = Literal["LINUX", "MACOS", "UNKNOWN", "WINDOWS"]
 Ec2ScanModeStatusType = Literal["PENDING", "SUCCESS"]
 Ec2ScanModeType = Literal["EC2_HYBRID", "EC2_SSM_AGENT_BASED"]
-EcrPullDateRescanDurationType = Literal["DAYS_14", "DAYS_180", "DAYS_30", "DAYS_60", "DAYS_90"]
+EcrPullDateRescanDurationType = Literal[
+    "DAYS_14", "DAYS_180", "DAYS_3", "DAYS_30", "DAYS_60", "DAYS_7", "DAYS_90"
+]
 EcrPullDateRescanModeType = Literal["LAST_IN_USE_AT", "LAST_PULL_DATE"]
 EcrRescanDurationStatusType = Literal["FAILED", "PENDING", "SUCCESS"]
-EcrRescanDurationType = Literal["DAYS_14", "DAYS_180", "DAYS_30", "DAYS_60", "DAYS_90", "LIFETIME"]
+EcrRescanDurationType = Literal[
+    "DAYS_14", "DAYS_180", "DAYS_3", "DAYS_30", "DAYS_60", "DAYS_7", "DAYS_90", "LIFETIME"
+]
 EcrScanFrequencyType = Literal["CONTINUOUS_SCAN", "MANUAL", "SCAN_ON_PUSH"]
 EnablementStatusType = Literal[
     "DELETED",

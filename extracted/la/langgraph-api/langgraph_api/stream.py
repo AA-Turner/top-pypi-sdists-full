@@ -44,12 +44,12 @@ from langgraph_api.graph import get_graph
 from langgraph_api.grpc.ops.runs import StreamPublishException
 from langgraph_api.js.base import BaseRemotePregel
 from langgraph_api.metadata import HOST, PLAN, USER_API_URL, incr_nodes
-from langgraph_api.metrics_datadog import (
+from langgraph_api.metrics_otlp import (
     COUNTER_STREAMING_DATA_LOSS,
     GAUGE_PUBLISH_QUEUE_AVAILABILITY,
     HISTOGRAM_STREAM_DATA_SIZE,
     LATENCY_STREAM_PUBLISH,
-    get_datadog_metrics_reporter,
+    get_otlp_metrics_reporter,
 )
 from langgraph_api.schema import Run, StreamMode
 from langgraph_api.serde import json_dumpb
@@ -339,7 +339,26 @@ async def astream_state(
                 ):
                     yield event["name"], event["data"]
                 # TODO support messages-tuple for js graphs
-                if event["event"] == "on_chain_stream" and event["run_id"] == run_id:
+                # For JS (BaseRemotePregel) with subgraphs=True, subgraph events
+                # carry the subgraph's own run_id. Accept them if the chunk is a
+                # proper 3-tuple [ns, mode, chunk] — that's the sidecar's
+                # normalized format. Limit this bypass to remote graphs only;
+                # Python child events must fall through to the raw "events"
+                # fallback below when the client requests stream_mode="events".
+                _chunk_data = (
+                    event["data"].get("chunk")
+                    if event["event"] == "on_chain_stream"
+                    else None
+                )
+                if event["event"] == "on_chain_stream" and (
+                    event["run_id"] == run_id
+                    or (
+                        subgraphs
+                        and is_remote_pregel
+                        and isinstance(_chunk_data, (list, tuple))
+                        and len(_chunk_data) == 3
+                    )
+                ):
                     if subgraphs:
                         ns, mode, chunk = event["data"]["chunk"]
                     else:
@@ -620,7 +639,7 @@ async def consume(
     *,
     thread_id: str | uuid.UUID,
 ) -> None:
-    reporter = get_datadog_metrics_reporter()
+    reporter = get_otlp_metrics_reporter()
     stream_modes = stream_modes or set()
     if "messages-tuple" in stream_modes:
         stream_modes.add("messages")

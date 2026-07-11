@@ -3,14 +3,12 @@
 import logging
 import multiprocessing as mp
 import os
-import sys
 import threading
 from pathlib import Path
 
-import numpy as np
 from rich.logging import RichHandler
 
-from boxmot.utils.rich.ui import get_console
+from boxmot.utils.rich.core.ui import get_console
 
 ROOT = Path(__file__).resolve().parents[2]
 
@@ -21,17 +19,20 @@ _local_root = Path.cwd()
 if (_local_root / "pyproject.toml").is_file() and (_local_root / "boxmot").is_dir():
     ROOT = _local_root
 
-DATA = ROOT / "data"
 TOML = ROOT / "pyproject.toml"
 
 BOXMOT     = ROOT / "boxmot"
+ENGINE     = BOXMOT / "engine"
 CONFIGS    = BOXMOT / "configs"
 TRACKER_CONFIGS   = CONFIGS / "trackers"
 BENCHMARK_CONFIGS = CONFIGS / "benchmarks"
+DATASETS = BOXMOT / "datasets"
+MOT_DATASETS = DATASETS / "mot"
+REID_DATASETS = DATASETS / "reid"
 
-ENGINE   = BOXMOT / "engine"
 WEIGHTS  = ROOT / "models"
-TRACKEVAL  = ENGINE / "eval" / "trackeval"
+DATA = ROOT / "data"
+BENCHMARK_DATA = MOT_DATASETS
 
 NUM_THREADS = min(8, max(1, os.cpu_count() - 1))  # number of multiprocessing threads
 

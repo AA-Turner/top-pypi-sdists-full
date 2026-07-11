@@ -6,12 +6,24 @@ from decimal import (
     localcontext,
 )
 
+import _pydecimal
 import pytest
 
 from crosshair.core import proxy_for_type, standalone_statespace
 from crosshair.libimpl.decimallib import Decimal as PyDecimal
+from crosshair.statespace import POST_FAIL
+from crosshair.test_util import check_states
 from crosshair.tracers import NoTracing
 from crosshair.util import debug
+
+# CrossHair models decimal only against the C `_decimal` extension.  On builds
+# where `decimal` falls back to the pure-Python `_pydecimal` (no system
+# libmpdec -- e.g. Python 3.15 unbundled it), CrossHair leaves decimal
+# unpatched, so its symbolic support isn't present to test.
+pytestmark = pytest.mark.skipif(
+    Decimal is _pydecimal.Decimal,
+    reason="decimal is unmodeled when the pure-Python _pydecimal is active",
+)
 
 
 def test_mixed_decimal_addition() -> None:
@@ -47,6 +59,15 @@ def test_context_method_on_symbolic():
         ExtendedContext.exp(proxy_for_type(Decimal, "d"))
         ExtendedContext.divide_int(Decimal(12), proxy_for_type(Decimal, "d"))
         ExtendedContext.divide_int(Decimal(12), Decimal(2))
+
+
+def test_symbolic_decimal_is_not_pinned_to_zero():
+    # Regression: symbolic Decimals once collapsed to Decimal(0) (see changelog).
+    def f(a: Decimal) -> Decimal:
+        """post: _ == Decimal(0)"""  # FALSE -- most Decimals are nonzero
+        return a
+
+    check_states(f, POST_FAIL)
 
 
 def test_precision():

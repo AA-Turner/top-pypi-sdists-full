@@ -13,7 +13,10 @@ from langgraph_api.encryption.shared import (
     using_aes_encryption,
     using_custom_encryption,
 )
-from langgraph_api.feature_flags import IS_POSTGRES_OR_GRPC_BACKEND
+from langgraph_api.feature_flags import (
+    IS_POSTGRES_OR_GRPC_BACKEND,
+    PREFER_GRPC_CHECKPOINTER,
+)
 from langgraph_api.route import ApiRequest, ApiResponse, ApiRoute
 from langgraph_api.schema import (
     THREAD_ENCRYPTION_FIELDS,
@@ -82,7 +85,7 @@ async def create_thread(
         )
     else:
         # Need connection for inmem put or gRPC State.bulk
-        async with connect(supports_core_api=False) as conn:
+        async with connect(supports_core_api=PREFER_GRPC_CHECKPOINTER) as conn:
             iter = await Threads.put(
                 conn,
                 thread_id,
@@ -226,7 +229,7 @@ async def get_thread_state(
     thread_id = request.path_params["thread_id"]
     validate_uuid(thread_id, "Invalid thread ID: must be a UUID")
     subgraphs = request.query_params.get("subgraphs") in ("true", "True")
-    async with connect(supports_core_api=False) as conn:
+    async with connect(supports_core_api=PREFER_GRPC_CHECKPOINTER) as conn:
         config = {
             "configurable": {
                 **get_configurable_headers(request.headers),
@@ -247,7 +250,7 @@ async def get_thread_state_at_checkpoint(
     thread_id = request.path_params["thread_id"]
     validate_uuid(thread_id, "Invalid thread ID: must be a UUID")
     checkpoint_id = request.path_params["checkpoint_id"]
-    async with connect(supports_core_api=False) as conn:
+    async with connect(supports_core_api=PREFER_GRPC_CHECKPOINTER) as conn:
         config = {
             "configurable": {
                 **get_configurable_headers(request.headers),
@@ -273,7 +276,7 @@ async def get_thread_state_at_checkpoint_post(
     thread_id = request.path_params["thread_id"]
     validate_uuid(thread_id, "Invalid thread ID: must be a UUID")
     payload = await request.json(ThreadStateCheckpointRequest)
-    async with connect(supports_core_api=False) as conn:
+    async with connect(supports_core_api=PREFER_GRPC_CHECKPOINTER) as conn:
         config = {
             "configurable": {
                 **payload["checkpoint"],
@@ -311,7 +314,7 @@ async def update_thread_state(
         pass
     config["configurable"].update(get_configurable_headers(request.headers))
     config["configurable"]["thread_id"] = thread_id
-    async with connect(supports_core_api=False) as conn:
+    async with connect(supports_core_api=PREFER_GRPC_CHECKPOINTER) as conn:
         inserted = await Threads.State.post(
             conn,
             config,
@@ -341,7 +344,7 @@ async def get_thread_history(
             **get_configurable_headers(request.headers),
         }
     }
-    async with connect(supports_core_api=False) as conn:
+    async with connect(supports_core_api=PREFER_GRPC_CHECKPOINTER) as conn:
         states = [
             state_snapshot_to_thread_state(c)
             for c in await Threads.State.list(
@@ -363,7 +366,7 @@ async def get_thread_history_post(
     config["configurable"].update(payload.get("checkpoint", {}))
     config["configurable"].update(get_configurable_headers(request.headers))
     config["configurable"]["thread_id"] = thread_id
-    async with connect(supports_core_api=False) as conn:
+    async with connect(supports_core_api=PREFER_GRPC_CHECKPOINTER) as conn:
         states = [
             state_snapshot_to_thread_state(c)
             for c in await Threads.State.list(

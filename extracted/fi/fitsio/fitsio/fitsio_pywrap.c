@@ -44,15 +44,17 @@ for details on how to use these macros.
 */
 #if (PY_MAJOR_VERSION >= 3) && (PY_MINOR_VERSION >= 13)
 #define PYFITS_HAS_LOCK
-#define LOCK_FITS(x) PyMutex_Lock(&(x->fits_lock))
-#define UNLOCK_FITS(x) PyMutex_Unlock(&(x->fits_lock))
+#define LOCK_FITS(x)                                                           \
+    (fits_is_reentrant() == 0 ? PyMutex_Lock(&GLOBAL_FITS_LOCK) : (void)NULL)
+#define UNLOCK_FITS(x)                                                         \
+    (fits_is_reentrant() == 0 ? PyMutex_Unlock(&GLOBAL_FITS_LOCK) : (void)NULL)
 #define ALLOW_NOGIL                                                            \
     PyThreadState *_save1_ = NULL;                                             \
     int _evaltmp123_
 #define RELEASE_GIL                                                            \
     ((void)(_save1_ = (fits_is_reentrant() == 0 ? NULL : PyEval_SaveThread())))
 #define CAPTURE_GIL                                                            \
-    ((void)(_save1_ != NULL ? PyEval_RestoreThread(_save1_) : NULL),           \
+    ((void)(_save1_ != NULL ? PyEval_RestoreThread(_save1_) : (void)NULL),     \
      (void)(_save1_ = NULL))
 #define _NOGIL(x)                                                              \
     ((void)(_save1_ = PyEval_SaveThread()), (void)(_evaltmp123_ = (x)),        \
@@ -69,16 +71,17 @@ for details on how to use these macros.
 #define NOGIL(x) (x)
 #endif
 
+#ifdef PYFITS_HAS_LOCK
+// global lock for cfitsio when library is not reentrant
+static PyMutex GLOBAL_FITS_LOCK = {0};
+#endif
+
 struct PyFITSObject {
     PyObject_HEAD fitsfile *fits;
     // we store the python error message here so that we record all error
     // messages as they happen. sometimes cfitsio will clear
     // the error stack and this removes important debugging info
     char pyfits_errmsg[PYFITS_ERRMSG_LEN];
-#ifdef PYFITS_HAS_LOCK
-    // lock for cfitsio FITS data when free-threading
-    PyMutex fits_lock;
-#endif
 };
 
 // check unicode for python3, string for python2
@@ -512,10 +515,6 @@ static int PyFITSObject_init(struct PyFITSObject *self, PyObject *args,
     // init the error message to an empty string
     self->pyfits_errmsg[0] = '\0';
     self->fits = NULL;
-
-#ifdef PYFITS_HAS_LOCK
-    memset(&(self->fits_lock), 0, sizeof(PyMutex));
-#endif
 
     if (!PyArg_ParseTuple(args, (char *)"sii", &filename, &mode, &create)) {
         return -1;
@@ -5804,6 +5803,14 @@ static PyObject *PyFITS_cfitsio_null_value_for_nan(void) {
     return PyFloat_FromDouble((double)INFINITY);
 }
 
+static PyObject *PyFITS_cfitsio_is_reentrant(void) {
+    if (fits_is_reentrant() == 0) {
+        Py_RETURN_FALSE;
+    } else {
+        Py_RETURN_TRUE;
+    }
+}
+
 /*
 
 'C',              'L',     'I',     'F'             'X'
@@ -6110,6 +6117,10 @@ static PyMethodDef fitstype_methods[] = {
      (PyCFunction)PyFITS_cfitsio_null_value_for_nan, METH_NOARGS,
      "cfitsio_null_value_for_nan\n\nReturn our default null value for "
      "floats, which is INFINITY and/or np.inf"},
+    {"cfitsio_is_reentrant", (PyCFunction)PyFITS_cfitsio_is_reentrant,
+     METH_NOARGS,
+     "cfitsio_is_reentrant\n\nReturn True if cfitsio was compiled with "
+     "reentrant support."},
     {"parse_card", (PyCFunction)PyFITS_parse_card, METH_VARARGS,
      "parse_card\n\nparse the card to get the key name, value (as a string), "
      "data type and comment."},

@@ -1149,6 +1149,37 @@ class Projenrc(
 
         jsii.create(self.__class__, self, [project, options])
 
+    @jsii.member(jsii_name="projectCreation")
+    def project_creation(
+        self,
+        *,
+        args: typing.Mapping[builtins.str, typing.Any],
+        comments: "_projen_04054675.InitProjectOptionHints",
+        fqn: builtins.str,
+        post: builtins.bool,
+        synth: builtins.bool,
+        type: typing.Union["_projen_04054675.ProjectType", typing.Dict[builtins.str, typing.Any]],
+    ) -> None:
+        '''(experimental) Called once, right after ``synthesize()``, only when the project is created for the first time.
+
+        It does not run on later ``projen`` invocations. It only fires for ``projen new`` (or ``Projects.createProject``).
+        Use it for deterministic, one-off file generation. Order across components is not guaranteed.
+
+        :param args: (experimental) Initial arguments passed to ``projen new``.
+        :param comments: (experimental) Include commented out options. Does not apply to projenrc.json files. Default: InitProjectOptionHints.FEATURED
+        :param fqn: (experimental) The JSII FQN of the project type.
+        :param post: (experimental) Whether ``projen new`` should run post-synthesis steps (e.g. package manager install). Default: true
+        :param synth: (experimental) Whether ``projen new`` should call ``project.synth()`` after construction. Default: true
+        :param type: (experimental) Project metadata.
+
+        :stability: experimental
+        '''
+        init_project = _projen_04054675.InitProject(
+            args=args, comments=comments, fqn=fqn, post=post, synth=synth, type=type
+        )
+
+        return typing.cast(None, jsii.invoke(self, "projectCreation", [init_project]))
+
     @builtins.property
     @jsii.member(jsii_name="filePath")
     def file_path(self) -> builtins.str:
@@ -1273,7 +1304,7 @@ class PyprojectToml:
         '''
         :param build_system: 
         :param dependency_groups: (experimental) Named groups of dependencies, similar to ``requirements.txt`` files, which launchers, IDEs, and other tools can find and identify by name. Each item in ``[dependency-groups]`` is defined as mapping of group name to list of `dependency specifiers <https://packaging.python.org/en/latest/specifications/dependency-specifiers/>`_.
-        :param project: (experimental) There are two kinds of metadata: *static* and *dynamic*. - Static metadata is listed in the ``[project]`` table directly and cannot be specified or changed by a tool. - Dynamic metadata key names are listed inside the ``dynamic`` key and represents metadata that a tool will later provide.
+        :param project: (experimental) There are three kinds of metadata: *static*, *dynamic*, and *partially dynamic*. - Static metadata is listed in the ``[project]`` table directly and cannot be specified or changed by a tool. - Dynamic metadata key names are listed inside the ``dynamic`` key and represents metadata that a tool will later provide. - Partially dynamic metadata is specified in the ``[project]`` table as a list or table, and also listed in ``dynamic``, allowing the build backend to add entries but not modify or remove existing ones.
         :param tool: (experimental) Every tool that is used by the project can have users specify configuration data as long as they use a sub-table within ``[tool]``. Generally a project can use the subtable ``tool.$NAME`` if, and only if, they own the entry for ``$NAME`` in the Cheeseshop/PyPI.
 
         :stability: experimental
@@ -1324,10 +1355,11 @@ class PyprojectToml:
 
     @builtins.property
     def project(self) -> typing.Optional["PyprojectTomlProject"]:
-        '''(experimental) There are two kinds of metadata: *static* and *dynamic*.
+        '''(experimental) There are three kinds of metadata: *static*, *dynamic*, and *partially dynamic*.
 
         - Static metadata is listed in the ``[project]`` table directly and cannot be specified or changed by a tool.
         - Dynamic metadata key names are listed inside the ``dynamic`` key and represents metadata that a tool will later provide.
+        - Partially dynamic metadata is specified in the ``[project]`` table as a list or table, and also listed in ``dynamic``, allowing the build backend to add entries but not modify or remove existing ones.
 
         :stability: experimental
         :schema: PyprojectToml#project
@@ -1429,7 +1461,7 @@ class PyprojectTomlFile(
         :param scope: -
         :param build_system: 
         :param dependency_groups: (experimental) Named groups of dependencies, similar to ``requirements.txt`` files, which launchers, IDEs, and other tools can find and identify by name. Each item in ``[dependency-groups]`` is defined as mapping of group name to list of `dependency specifiers <https://packaging.python.org/en/latest/specifications/dependency-specifiers/>`_.
-        :param project: (experimental) There are two kinds of metadata: *static* and *dynamic*. - Static metadata is listed in the ``[project]`` table directly and cannot be specified or changed by a tool. - Dynamic metadata key names are listed inside the ``dynamic`` key and represents metadata that a tool will later provide.
+        :param project: (experimental) There are three kinds of metadata: *static*, *dynamic*, and *partially dynamic*. - Static metadata is listed in the ``[project]`` table directly and cannot be specified or changed by a tool. - Dynamic metadata key names are listed inside the ``dynamic`` key and represents metadata that a tool will later provide. - Partially dynamic metadata is specified in the ``[project]`` table as a list or table, and also listed in ``dynamic``, allowing the build backend to add entries but not modify or remove existing ones.
         :param tool: (experimental) Every tool that is used by the project can have users specify configuration data as long as they use a sub-table within ``[tool]``. Generally a project can use the subtable ``tool.$NAME`` if, and only if, they own the entry for ``$NAME`` in the Cheeseshop/PyPI.
 
         :stability: experimental
@@ -1514,23 +1546,24 @@ class PyprojectTomlProject:
         urls: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         version: typing.Optional[builtins.str] = None,
     ) -> None:
-        '''(experimental) There are two kinds of metadata: *static* and *dynamic*.
+        '''(experimental) There are three kinds of metadata: *static*, *dynamic*, and *partially dynamic*.
 
         - Static metadata is listed in the ``[project]`` table directly and cannot be specified or changed by a tool.
         - Dynamic metadata key names are listed inside the ``dynamic`` key and represents metadata that a tool will later provide.
+        - Partially dynamic metadata is specified in the ``[project]`` table as a list or table, and also listed in ``dynamic``, allowing the build backend to add entries but not modify or remove existing ones.
 
         :param name: (experimental) Valid name consists only of ASCII letters and numbers, period, underscore and hyphen. It must start and end with a letter or number.
         :param authors: (experimental) People or organizations considered as 'authors' of the project. Each author is a table with ``name`` key, ``email`` key, or both.
         :param classifiers: (experimental) List of `Trove classifiers <https://pypi.org/classifiers/>`_ that describe the project. PyPI use the classifiers to categorize projects.
         :param dependencies: (experimental) An array of `dependency specifier <https://packaging.python.org/en/latest/specifications/dependency-specifiers/>`_ strings, each representing a mandatory dependent package of the project.
         :param description: (experimental) Summary description of the project in one line. Tools may not accept multiple lines.
-        :param dynamic: (experimental) Specifies which keys are intentionally unspecified under ``[project]`` table so build backend can/will provide such metadata dynamically. Each key must be listed only once. It is an error to both list a key in ``dynamic`` and use the key directly in ``[project]``. One of the most common usage is ``version``, which allows build backend to retrieve project version from source code or version control system instead of hardcoding it in ``pyproject.toml``.
+        :param dynamic: (experimental) Specifies which keys are intentionally unspecified under ``[project]`` table so build backend can/will provide such metadata dynamically. Each key must be listed only once. It is an error to both list a key in ``dynamic`` and use the key directly in ``[project]`` unless the key is a list or table with arbitrary entries (PEP 808), in which case the build backend may extend it. One of the most common usage is ``version``, which allows build backend to retrieve project version from source code or version control system instead of hardcoding it in ``pyproject.toml``.
         :param entry_points: (experimental) Extra `entry point groups <https://packaging.python.org/en/latest/specifications/entry-points/>`_ that allow applications to load plugins. For example, Pygments (a syntax highlighting tool) can use additional styles from separately installed packages through ``[project.entry-points."pygments.styles"]``. Each key is the name of the entry-point group, and each value is a table of entry points.
         :param gui_scripts: (experimental) Table of `entry points <https://packaging.python.org/en/latest/specifications/entry-points/>`_ that allows package installers to create a GUI wrapper for. Each key is the name of the script to be created, and each value is the function or object to all, in form of either ``importable.module`` or ``importable.module:object.attr``. Windows platform treats ``gui_scripts`` specially in that they are wrapped in a GUI executable, so they can be started without a console, but cannot use standard streams unless application code redirects them.
         :param import_names: (experimental) An array of strings specifying the import names that the project exclusively provides when installed.
         :param import_namespaces: (experimental) An array of strings specifying the import names that the project provides when installed, but not exclusively.
         :param keywords: (experimental) List of keywords or tags that describe the project. They could be used by search engines to categorize the project.
-        :param license: (experimental) For now it is a table with either: - ``file`` key specifying a relative path to a license file, or - ``text`` key containing full license content. Newer tool may accept a single `SPDX license expression <https://spdx.github.io/spdx-spec/v2.2.2/SPDX-license-expressions/>`_ string instead of a table.
+        :param license: (experimental) A string containing a valid `SPDX license expression <https://spdx.github.io/spdx-spec/v2.2.2/SPDX-license-expressions/>`_ (recommended), or a table with either: - ``file`` key specifying a relative path to a license file (deprecated per PEP 639), or - ``text`` key containing full license content (deprecated per PEP 639).
         :param license_files: (experimental) Relative paths or globs to paths of license files. Can be an empty list.
         :param maintainers: (experimental) People or organizations considered as 'maintainers' of the project. Each maintainer is a table with ``name`` key, ``email`` key, or both.
         :param optional_dependencies: (experimental) Each entry is a key/value pair, with the key specifying `extra feature name <https://packaging.python.org/en/latest/specifications/core-metadata/#provides-extra-multiple-use>`_ (such as ``socks`` in ``requests[socks]``), and value is an array of `dependency specifier <https://packaging.python.org/en/latest/specifications/dependency-specifiers/>`_ strings.
@@ -1668,7 +1701,7 @@ class PyprojectTomlProject:
     def dynamic(self) -> typing.Optional[typing.List["PyprojectTomlProjectDynamic"]]:
         '''(experimental) Specifies which keys are intentionally unspecified under ``[project]`` table so build backend can/will provide such metadata dynamically.
 
-        Each key must be listed only once. It is an error to both list a key in ``dynamic`` and use the key directly in ``[project]``.
+        Each key must be listed only once. It is an error to both list a key in ``dynamic`` and use the key directly in ``[project]`` unless the key is a list or table with arbitrary entries (PEP 808), in which case the build backend may extend it.
         One of the most common usage is ``version``, which allows build backend to retrieve project version from source code or version control system instead of hardcoding it in ``pyproject.toml``.
 
         :stability: experimental
@@ -1733,9 +1766,7 @@ class PyprojectTomlProject:
 
     @builtins.property
     def license(self) -> typing.Any:
-        '''(experimental) For now it is a table with either: - ``file`` key specifying a relative path to a license file, or - ``text`` key containing full license content.
-
-        Newer tool may accept a single `SPDX license expression <https://spdx.github.io/spdx-spec/v2.2.2/SPDX-license-expressions/>`_ string instead of a table.
+        '''(experimental) A string containing a valid `SPDX license expression <https://spdx.github.io/spdx-spec/v2.2.2/SPDX-license-expressions/>`_ (recommended), or a table with either: - ``file`` key specifying a relative path to a license file (deprecated per PEP 639), or - ``text`` key containing full license content (deprecated per PEP 639).
 
         :stability: experimental
         :schema: PyprojectTomlProject#license
@@ -1948,16 +1979,22 @@ class PyprojectTomlProjectDynamic(enum.Enum):
     name_mapping={
         "black": "black",
         "cibuildwheel": "cibuildwheel",
+        "dfc": "dfc",
+        "docstring_format_checker": "docstringFormatChecker",
+        "fastapi": "fastapi",
         "hatch": "hatch",
         "maturin": "maturin",
         "mypy": "mypy",
         "pdm": "pdm",
+        "pixi": "pixi",
         "poe": "poe",
         "poetry": "poetry",
         "pyright": "pyright",
         "pytest": "pytest",
+        "quikrun": "quikrun",
         "repo_review": "repoReview",
         "ruff": "ruff",
+        "scheduled": "scheduled",
         "scikit_build": "scikitBuild",
         "setuptools": "setuptools",
         "setuptools_scm": "setuptoolsScm",
@@ -1974,16 +2011,22 @@ class PyprojectTomlTool:
         *,
         black: typing.Any = None,
         cibuildwheel: typing.Any = None,
+        dfc: typing.Any = None,
+        docstring_format_checker: typing.Any = None,
+        fastapi: typing.Any = None,
         hatch: typing.Any = None,
         maturin: typing.Any = None,
         mypy: typing.Any = None,
         pdm: typing.Any = None,
+        pixi: typing.Any = None,
         poe: typing.Any = None,
         poetry: typing.Any = None,
         pyright: typing.Any = None,
         pytest: typing.Any = None,
+        quikrun: typing.Any = None,
         repo_review: typing.Any = None,
         ruff: typing.Any = None,
+        scheduled: typing.Any = None,
         scikit_build: typing.Any = None,
         setuptools: typing.Any = None,
         setuptools_scm: typing.Any = None,
@@ -1999,16 +2042,22 @@ class PyprojectTomlTool:
 
         :param black: (experimental) The uncompromising Python code formatter.
         :param cibuildwheel: (experimental) Build Python wheels for all platforms.
+        :param dfc: (experimental) A CLI tool to check and validate Python docstring formatting and completeness.
+        :param docstring_format_checker: (experimental) A CLI tool to check and validate Python docstring formatting and completeness.
+        :param fastapi: (experimental) FastAPI web framework configuration.
         :param hatch: (experimental) Modern, extensible Python project management.
         :param maturin: (experimental) Build and publish crates with pyo3, cffi and uniffi bindings as well as rust binaries as python packages.
         :param mypy: (experimental) Optional static typing for Python.
         :param pdm: (experimental) A modern Python package manager with PEP 621 support.
-        :param poe: (experimental) A task runner that works well with pyproject.toml files.
+        :param pixi: (experimental) A package manager and task runner.
+        :param poe: (experimental) A task runner that works well with ``pyproject.toml`` files.
         :param poetry: (experimental) Python dependency management and packaging made easy.
         :param pyright: (experimental) Static type checker for Python.
         :param pytest: (experimental) Standardized automated testing of Python packages.
+        :param quikrun: (experimental) A CLI tool to run code files instantly without typing complex commands in terminal.
         :param repo_review: (experimental) Review a repository for best practices.
         :param ruff: (experimental) An extremely fast Python linter and formatter, written in Rust.
+        :param scheduled: (experimental) Scheduled jobs in Python's ``pyproject.toml``. This is a specification for declaring recurring scheduled jobs in Python projects, in ``pyproject.toml``. It defines how jobs are declared and how providers would run them. It does not provide a specific implementation for running scheduled jobs, because that is provider specific. For example, a file at ``app/jobs.py`` could define:: def clean_files(): print("Running cleanup...") You could define a scheduled job to run that function once per day with:: [tool.scheduled.clean-files] every = "day" entrypoint = "app.jobs:clean_files"
         :param scikit_build: (experimental) Improved build system generator for Python C/C++/Fortran extensions.
         :param setuptools: (experimental) Easily download, build, install, upgrade, and uninstall Python packages.
         :param setuptools_scm: (experimental) Manage Python package versions using SCM (e.g. Git).
@@ -2025,16 +2074,22 @@ class PyprojectTomlTool:
             type_hints = cached_type_hints(_typecheckingstub__bc2ba765e25294b713eef60bd54f79fe7e8b12bdfb44298beec4d108cc84cf15)
             check_type(argname="argument black", value=black, expected_type=type_hints["black"])
             check_type(argname="argument cibuildwheel", value=cibuildwheel, expected_type=type_hints["cibuildwheel"])
+            check_type(argname="argument dfc", value=dfc, expected_type=type_hints["dfc"])
+            check_type(argname="argument docstring_format_checker", value=docstring_format_checker, expected_type=type_hints["docstring_format_checker"])
+            check_type(argname="argument fastapi", value=fastapi, expected_type=type_hints["fastapi"])
             check_type(argname="argument hatch", value=hatch, expected_type=type_hints["hatch"])
             check_type(argname="argument maturin", value=maturin, expected_type=type_hints["maturin"])
             check_type(argname="argument mypy", value=mypy, expected_type=type_hints["mypy"])
             check_type(argname="argument pdm", value=pdm, expected_type=type_hints["pdm"])
+            check_type(argname="argument pixi", value=pixi, expected_type=type_hints["pixi"])
             check_type(argname="argument poe", value=poe, expected_type=type_hints["poe"])
             check_type(argname="argument poetry", value=poetry, expected_type=type_hints["poetry"])
             check_type(argname="argument pyright", value=pyright, expected_type=type_hints["pyright"])
             check_type(argname="argument pytest", value=pytest, expected_type=type_hints["pytest"])
+            check_type(argname="argument quikrun", value=quikrun, expected_type=type_hints["quikrun"])
             check_type(argname="argument repo_review", value=repo_review, expected_type=type_hints["repo_review"])
             check_type(argname="argument ruff", value=ruff, expected_type=type_hints["ruff"])
+            check_type(argname="argument scheduled", value=scheduled, expected_type=type_hints["scheduled"])
             check_type(argname="argument scikit_build", value=scikit_build, expected_type=type_hints["scikit_build"])
             check_type(argname="argument setuptools", value=setuptools, expected_type=type_hints["setuptools"])
             check_type(argname="argument setuptools_scm", value=setuptools_scm, expected_type=type_hints["setuptools_scm"])
@@ -2048,6 +2103,12 @@ class PyprojectTomlTool:
             self._values["black"] = black
         if cibuildwheel is not None:
             self._values["cibuildwheel"] = cibuildwheel
+        if dfc is not None:
+            self._values["dfc"] = dfc
+        if docstring_format_checker is not None:
+            self._values["docstring_format_checker"] = docstring_format_checker
+        if fastapi is not None:
+            self._values["fastapi"] = fastapi
         if hatch is not None:
             self._values["hatch"] = hatch
         if maturin is not None:
@@ -2056,6 +2117,8 @@ class PyprojectTomlTool:
             self._values["mypy"] = mypy
         if pdm is not None:
             self._values["pdm"] = pdm
+        if pixi is not None:
+            self._values["pixi"] = pixi
         if poe is not None:
             self._values["poe"] = poe
         if poetry is not None:
@@ -2064,10 +2127,14 @@ class PyprojectTomlTool:
             self._values["pyright"] = pyright
         if pytest is not None:
             self._values["pytest"] = pytest
+        if quikrun is not None:
+            self._values["quikrun"] = quikrun
         if repo_review is not None:
             self._values["repo_review"] = repo_review
         if ruff is not None:
             self._values["ruff"] = ruff
+        if scheduled is not None:
+            self._values["scheduled"] = scheduled
         if scikit_build is not None:
             self._values["scikit_build"] = scikit_build
         if setuptools is not None:
@@ -2103,6 +2170,36 @@ class PyprojectTomlTool:
         :schema: PyprojectTomlTool#cibuildwheel
         '''
         result = self._values.get("cibuildwheel")
+        return typing.cast(typing.Any, result)
+
+    @builtins.property
+    def dfc(self) -> typing.Any:
+        '''(experimental) A CLI tool to check and validate Python docstring formatting and completeness.
+
+        :stability: experimental
+        :schema: PyprojectTomlTool#dfc
+        '''
+        result = self._values.get("dfc")
+        return typing.cast(typing.Any, result)
+
+    @builtins.property
+    def docstring_format_checker(self) -> typing.Any:
+        '''(experimental) A CLI tool to check and validate Python docstring formatting and completeness.
+
+        :stability: experimental
+        :schema: PyprojectTomlTool#docstring-format-checker
+        '''
+        result = self._values.get("docstring_format_checker")
+        return typing.cast(typing.Any, result)
+
+    @builtins.property
+    def fastapi(self) -> typing.Any:
+        '''(experimental) FastAPI web framework configuration.
+
+        :stability: experimental
+        :schema: PyprojectTomlTool#fastapi
+        '''
+        result = self._values.get("fastapi")
         return typing.cast(typing.Any, result)
 
     @builtins.property
@@ -2146,8 +2243,18 @@ class PyprojectTomlTool:
         return typing.cast(typing.Any, result)
 
     @builtins.property
+    def pixi(self) -> typing.Any:
+        '''(experimental) A package manager and task runner.
+
+        :stability: experimental
+        :schema: PyprojectTomlTool#pixi
+        '''
+        result = self._values.get("pixi")
+        return typing.cast(typing.Any, result)
+
+    @builtins.property
     def poe(self) -> typing.Any:
-        '''(experimental) A task runner that works well with pyproject.toml files.
+        '''(experimental) A task runner that works well with ``pyproject.toml`` files.
 
         :stability: experimental
         :schema: PyprojectTomlTool#poe
@@ -2186,6 +2293,16 @@ class PyprojectTomlTool:
         return typing.cast(typing.Any, result)
 
     @builtins.property
+    def quikrun(self) -> typing.Any:
+        '''(experimental) A CLI tool to run code files instantly without typing complex commands in terminal.
+
+        :stability: experimental
+        :schema: PyprojectTomlTool#quikrun
+        '''
+        result = self._values.get("quikrun")
+        return typing.cast(typing.Any, result)
+
+    @builtins.property
     def repo_review(self) -> typing.Any:
         '''(experimental) Review a repository for best practices.
 
@@ -2203,6 +2320,33 @@ class PyprojectTomlTool:
         :schema: PyprojectTomlTool#ruff
         '''
         result = self._values.get("ruff")
+        return typing.cast(typing.Any, result)
+
+    @builtins.property
+    def scheduled(self) -> typing.Any:
+        '''(experimental) Scheduled jobs in Python's ``pyproject.toml``.
+
+        This is a specification for declaring recurring scheduled jobs in Python projects, in ``pyproject.toml``.
+
+        It defines how jobs are declared and how providers would run them.
+
+        It does not provide a specific implementation for running scheduled jobs, because that is provider specific.
+
+        For example, a file at ``app/jobs.py`` could define::
+
+           def clean_files():
+           print("Running cleanup...")
+
+        You could define a scheduled job to run that function once per day with::
+
+           [tool.scheduled.clean-files]
+           every = "day"
+           entrypoint = "app.jobs:clean_files"
+
+        :stability: experimental
+        :schema: PyprojectTomlTool#scheduled
+        '''
+        result = self._values.get("scheduled")
         return typing.cast(typing.Any, result)
 
     @builtins.property
@@ -6191,16 +6335,22 @@ def _typecheckingstub__bc2ba765e25294b713eef60bd54f79fe7e8b12bdfb44298beec4d108c
     *,
     black: typing.Any = None,
     cibuildwheel: typing.Any = None,
+    dfc: typing.Any = None,
+    docstring_format_checker: typing.Any = None,
+    fastapi: typing.Any = None,
     hatch: typing.Any = None,
     maturin: typing.Any = None,
     mypy: typing.Any = None,
     pdm: typing.Any = None,
+    pixi: typing.Any = None,
     poe: typing.Any = None,
     poetry: typing.Any = None,
     pyright: typing.Any = None,
     pytest: typing.Any = None,
+    quikrun: typing.Any = None,
     repo_review: typing.Any = None,
     ruff: typing.Any = None,
+    scheduled: typing.Any = None,
     scikit_build: typing.Any = None,
     setuptools: typing.Any = None,
     setuptools_scm: typing.Any = None,

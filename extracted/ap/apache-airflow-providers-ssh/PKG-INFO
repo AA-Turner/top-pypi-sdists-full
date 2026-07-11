@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: apache-airflow-providers-ssh
-Version: 5.0.3
+Version: 5.0.4
 Summary: Provider package apache-airflow-providers-ssh for Apache Airflow
 Keywords: airflow-provider,ssh,airflow,integration
 Author-email: Apache Software Foundation <dev@airflow.apache.org>
@@ -28,8 +28,8 @@ Requires-Dist: apache-airflow-providers-common-compat>=1.12.0
 Requires-Dist: asyncssh>=2.12.0
 Requires-Dist: paramiko>=3.5.1,<4.0.0
 Project-URL: Bug Tracker, https://github.com/apache/airflow/issues
-Project-URL: Changelog, https://airflow.apache.org/docs/apache-airflow-providers-ssh/5.0.3/changelog.html
-Project-URL: Documentation, https://airflow.apache.org/docs/apache-airflow-providers-ssh/5.0.3
+Project-URL: Changelog, https://airflow.apache.org/docs/apache-airflow-providers-ssh/5.0.4/changelog.html
+Project-URL: Documentation, https://airflow.apache.org/docs/apache-airflow-providers-ssh/5.0.4
 Project-URL: Mastodon, https://fosstodon.org/@airflow
 Project-URL: Slack Chat, https://s.apache.org/airflow-slack
 Project-URL: Source Code, https://github.com/apache/airflow
@@ -60,7 +60,7 @@ Project-URL: YouTube, https://www.youtube.com/channel/UCSXwxpWZQ7XZ1WL3wqevChA/
 
 Package ``apache-airflow-providers-ssh``
 
-Release: ``5.0.3``
+Release: ``5.0.4``
 
 
 `Secure Shell (SSH) <https://tools.ietf.org/html/rfc4251>`__
@@ -73,7 +73,7 @@ This is a provider package for ``ssh`` provider. All classes for this provider p
 are in ``airflow.providers.ssh`` python package.
 
 You can find package information and changelog for the provider
-in the `documentation <https://airflow.apache.org/docs/apache-airflow-providers-ssh/5.0.3/>`_.
+in the `documentation <https://airflow.apache.org/docs/apache-airflow-providers-ssh/5.0.4/>`_.
 
 Installation
 ------------
@@ -96,25 +96,6 @@ PIP package                                 Version required
 ``paramiko``                                ``>=3.5.1,<4.0.0``
 ==========================================  ==================
 
-Cross provider package dependencies
------------------------------------
-
-Those are dependencies that might be needed in order to use all the features of the package.
-You need to install the specified providers in order to use them.
-
-You can install such cross-provider dependencies when installing from PyPI. For example:
-
-.. code-block:: bash
-
-    pip install apache-airflow-providers-ssh[common.compat]
-
-
-==================================================================================================================  =================
-Dependent package                                                                                                   Extra
-==================================================================================================================  =================
-`apache-airflow-providers-common-compat <https://airflow.apache.org/docs/apache-airflow-providers-common-compat>`_  ``common.compat``
-==================================================================================================================  =================
-
 The changelog for the provider package can be found in the
-`changelog <https://airflow.apache.org/docs/apache-airflow-providers-ssh/5.0.3/changelog.html>`_.
+`changelog <https://airflow.apache.org/docs/apache-airflow-providers-ssh/5.0.4/changelog.html>`_.
 

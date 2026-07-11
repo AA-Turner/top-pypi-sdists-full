@@ -48,6 +48,7 @@ from airbyte_ops_mcp.cloud_admin.version_guard import (
     check_existing_pins,
 )
 from airbyte_ops_mcp.constants import USER_AGENT
+from airbyte_ops_mcp.gcp_auth import _get_identity_from_credentials
 from airbyte_ops_mcp.internal_team_roster import fetch_roster, search_roster
 from airbyte_ops_mcp.slack_api import SlackAPIError
 from airbyte_ops_mcp.slack_posting import post_channel_message
@@ -602,6 +603,36 @@ def apply_version_override_to_config_api(
     )
 
 
+def _describe_auth_context(
+    *,
+    user_email: str | None,
+    bq_credentials: google.auth.credentials.Credentials | None,
+    auth: ResolvedCloudAuth,
+) -> str:
+    """Build a human-readable summary of the auth identities in use.
+
+    Included in error messages so operators can debug permission failures.
+    """
+    parts: list[str] = []
+    if user_email:
+        parts.append(f"webapp_user={user_email}")
+    if bq_credentials is not None:
+        bq_identity = _get_identity_from_credentials(bq_credentials)
+        if bq_identity:
+            parts.append(f"bq_identity={bq_identity}")
+        else:
+            parts.append("bq_identity=user_oauth_token")
+    else:
+        parts.append("bq_identity=none")
+    if auth.bearer_token:
+        parts.append("config_api_auth=bearer_token")
+    elif auth.client_id:
+        parts.append("config_api_auth=client_credentials")
+    else:
+        parts.append("config_api_auth=none")
+    return f"Auth context: [{', '.join(parts)}]"
+
+
 def set_version_override(
     *,
     auth: ResolvedCloudAuth,
@@ -622,6 +653,11 @@ def set_version_override(
     """Set or clear a connector version override through one normalized path."""
     _validate_version_override_target(target)
     result_kwargs = _result_identity_kwargs(target)
+    auth_context = _describe_auth_context(
+        user_email=user_email,
+        bq_credentials=bq_credentials,
+        auth=auth,
+    )
 
     admin_user_email, auth_error = _validate_admin_and_authorization(
         issue_url=issue_url,
@@ -632,19 +668,28 @@ def set_version_override(
         return _build_version_override_result(
             target=target,
             success=False,
-            message=auth_error,
+            message=f"{auth_error} ({auth_context})",
             result_kwargs=result_kwargs,
         )
 
-    customer_tier, is_eu, context_error = _resolve_target_context(
-        target, bq_credentials=bq_credentials
-    )
+    try:
+        customer_tier, is_eu, context_error = _resolve_target_context(
+            target, bq_credentials=bq_credentials
+        )
+    except Exception as exc:
+        logger.exception("Tier resolution failed for %s", target)
+        return _build_version_override_result(
+            target=target,
+            success=False,
+            message=f"Tier resolution failed: {exc} ({auth_context})",
+            result_kwargs=result_kwargs,
+        )
     tier_warning = build_tier_warning(customer_tier)
     if context_error is not None:
         return _build_version_override_result(
             target=target,
             success=False,
-            message=context_error,
+            message=f"{context_error} ({auth_context})",
             customer_tier=customer_tier,
             is_eu=is_eu,
             tier_warning=tier_warning,
@@ -656,7 +701,7 @@ def set_version_override(
         return _build_version_override_result(
             target=target,
             success=False,
-            message=tier_error or "Tier filter mismatch",
+            message=f"{tier_error or 'Tier filter mismatch'} ({auth_context})",
             customer_tier=customer_tier,
             is_eu=is_eu,
             tier_warning=tier_warning,
@@ -683,7 +728,7 @@ def set_version_override(
         return _build_version_override_result(
             target=target,
             success=False,
-            message=guard_error,
+            message=f"{guard_error} ({auth_context})",
             customer_tier=customer_tier,
             is_eu=is_eu,
             tier_warning=tier_warning,
@@ -705,7 +750,7 @@ def set_version_override(
         return _build_version_override_result(
             target=target,
             success=False,
-            message=str(e),
+            message=f"{e} ({auth_context})",
             customer_tier=customer_tier,
             is_eu=is_eu,
             tier_warning=tier_warning,

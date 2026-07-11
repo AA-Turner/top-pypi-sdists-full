@@ -7,6 +7,7 @@
 
 from __future__ import annotations
 
+import contextlib
 import os
 import shutil
 import tempfile
@@ -74,6 +75,38 @@ class DictStore:
         in the embedded store. Default is 0, meaning all values are persisted
         as external files by default.  C2Array objects are always stored in
         the embedded store regardless of this setting.
+    locking : bool, optional
+        Serialize accesses to a directory-backed (``.b2d``) store against
+        other handles and other processes.  See the Notes below.  Not
+        supported for zip stores nor together with `mmap_mode`.  Default is
+        False.
+
+    Notes
+    -----
+    Without ``locking``, DictStore is single-process, single-writer: the key
+    maps are cached in Python, so mutations made through another handle are
+    not seen until the store is reopened, and concurrent writers can corrupt
+    each other's entries.
+
+    With ``locking=True`` on *every* handle (or the ``BLOSC_LOCKING``
+    environment variable), a directory-backed store can be shared across
+    processes: whole mutations (external files plus key maps) run under an
+    exclusive lock, and every access re-syncs the key maps, so readers follow
+    keys added or removed by other processes.  Two caveats: a reader holding
+    a value whose key another process deletes may get errors from that value
+    afterwards, and a crash mid-mutation can leave a partial external file
+    behind.  Not supported on network filesystems (NFS).
+
+    A ``.b2z`` file needs no locking: it is safe to share read-only across
+    processes, and :meth:`to_b2z` replaces it atomically, so readers see
+    either the old or the new archive, never a torn one.  All of this also
+    applies to :class:`blosc2.TreeStore`, which builds on DictStore.
+
+    External persistence uses the following file extensions: .b2nd for
+    NDArray, .b2f for SChunk, and .b2b for BatchArray. These suffixes are a
+    naming convention for newly written leaves; when reopening an existing
+    store, leaf typing is resolved from object metadata instead of trusting
+    the suffix alone.
 
     Examples
     --------
@@ -84,21 +117,13 @@ class DictStore:
     >>> dstore["/dir1/node3"] = arr_external  # external file in dir1 (.b2nd)
     >>> schunk = blosc2.SChunk(chunksize=32)
     >>> schunk.append_data(b"abcd")
-    4
+    1
     >>> dstore["/dir1/schunk1"] = schunk  # externalized as .b2f if above threshold
-    >>> dstore.to_b2z(filename="my_dstore.b2z")  # persist to the zip file; external files are copied in
+    >>> _ = dstore.to_b2z(filename="my_dstore.b2z")  # persist to the zip file; external files are copied in
     >>> print(sorted(dstore.keys()))
     ['/dir1/node3', '/dir1/schunk1', '/node1', '/node2']
-    >>> print(dstore["/node1"][:]))
-    array([1, 2, 3])
-
-    Notes
-    -----
-    - External persistence uses the following file extensions:
-      .b2nd for NDArray, .b2f for SChunk, and .b2b for BatchArray.
-      These suffixes are a naming convention for newly written leaves; when
-      reopening an existing store, leaf typing is resolved from object
-      metadata instead of trusting the suffix alone.
+    >>> print(dstore["/node1"][:])
+    [1 2 3]
     """
 
     def __init__(
@@ -112,6 +137,7 @@ class DictStore:
         threshold: int | None = 0,
         *,
         mmap_mode: str | None = None,
+        locking: bool = False,
         _storage_meta: dict | None = None,
     ):
         """
@@ -124,6 +150,8 @@ class DictStore:
             raise ValueError("For DictStore containers, mmap_mode must be None or 'r'")
         if mmap_mode == "r" and mode != "r":
             raise ValueError("For DictStore containers, mmap_mode='r' requires mode='r'")
+        if locking and mmap_mode is not None:
+            raise ValueError("locking is not supported together with mmap_mode")
 
         self.mode = mode
         self.mmap_mode = mmap_mode
@@ -131,6 +159,7 @@ class DictStore:
         self.cparams = cparams or blosc2.CParams()
         self.dparams = dparams or blosc2.DParams()
         self.storage = storage or blosc2.Storage()
+        self._locking = bool(locking)
 
         if _storage_meta:
             self.storage.meta = _storage_meta
@@ -145,11 +174,18 @@ class DictStore:
         self._modified = False
 
         self._setup_paths_and_dirs(tmpdir)
+        if locking and self.is_zip_store:
+            raise ValueError("locking is not supported for zip (.b2z) stores; share them read-only")
+        env = os.environ.get("BLOSC_LOCKING", "")
+        env_locking = env not in ("", "0") and mmap_mode is None
+        self._shared = (self._locking or env_locking) and not self.is_zip_store
+        self._store_tick = 0
 
         if self.mode == "r":
             self._init_read_mode(self.dparams)
         else:
             self._init_write_append_mode(self.cparams, self.dparams, storage)
+        self._store_tick = self._estore._backing_schunk.change_tick
 
     def _setup_paths_and_dirs(self, tmpdir: str | None):
         """Set up working directories and paths."""
@@ -216,6 +252,7 @@ class DictStore:
                 offset=0,
                 mmap_mode=self.mmap_mode,
                 dparams=dparams,
+                locking=self._locking,
             )
             self._update_map_tree()
 
@@ -337,6 +374,15 @@ class DictStore:
             elif not os.path.isdir(self.working_dir):
                 raise FileNotFoundError(f"Directory {self.working_dir} does not exist for reading.")
 
+        if self._locking:
+            # The embed store's frame lock doubles as the store-wide lock, so
+            # its handle must participate; supply a Storage carrying the flag
+            # (plus the urlpath/mode that EmbedStore takes from it)
+            storage = storage or blosc2.Storage(contiguous=True)
+            storage.locking = True
+            if storage.urlpath is None:
+                storage.urlpath = self.estore_path
+                storage.mode = self.mode
         self._estore = EmbedStore(
             urlpath=self.estore_path,
             mode=self.mode,
@@ -395,6 +441,54 @@ class DictStore:
         """Access the underlying EmbedStore."""
         return self._estore
 
+    @contextlib.contextmanager
+    def _mutation_bracket(self):
+        """Make a whole store mutation atomic against other processes.
+
+        The embed store's exclusive frame lock covers the ensemble (external
+        leaves + key maps): every locked handle on the same store takes it for
+        its own mutations, and its re-entrancy makes the nested embed-store
+        operations free.  A no-op for non-shared stores.
+        """
+        with self._estore._write_bracket():
+            self._sync_store()
+            yield
+            self._store_tick = self._estore._backing_schunk.change_tick
+
+    def _bump_store_tick(self) -> None:
+        """Signal an external-leaf mutation through the embed store.
+
+        Mutations that only touch external files would otherwise be invisible
+        to other handles, which watch the embed store's ``change_tick``.
+        Must be called inside the mutation bracket.
+        """
+        if not self._shared:
+            return
+        try:
+            tick = self._estore._store.vlmeta["dstore_tick"]
+        except KeyError:
+            tick = 0
+        self._estore._store.vlmeta["dstore_tick"] = tick + 1
+
+    def _sync_store(self) -> None:
+        """Re-scan the external leaves if another handle changed the store.
+
+        A no-op for non-shared stores; when nothing changed, it costs one
+        staleness poll of the embed store.  The re-scan itself runs under the
+        exclusive store lock so that it cannot observe the half-written files
+        of an in-flight transaction.
+        """
+        if not self._shared:
+            return
+        self._estore._sync_metadata()
+        if self._estore._backing_schunk.change_tick == self._store_tick:
+            return
+        with self._estore._backing_schunk.holding_lock():
+            self._estore._sync_metadata()
+            self.map_tree = {}
+            self._update_map_tree()
+            self._store_tick = self._estore._backing_schunk.change_tick
+
     @staticmethod
     def _value_nbytes(value: blosc2.Array | SChunk | blosc2.ObjectArray | blosc2.BatchArray) -> int:
         if isinstance(value, blosc2.ObjectArray | blosc2.BatchArray):
@@ -422,70 +516,73 @@ class DictStore:
         self._modified = True
         if isinstance(value, np.ndarray):
             value = blosc2.asarray(value, cparams=self.cparams, dparams=self.dparams)
-        # C2Array should always go to embed store; let estore handle it directly
-        if isinstance(value, C2Array):
-            self._estore[key] = value
-            return
-        exceeds_threshold = self.threshold is not None and self._value_nbytes(value) >= self.threshold
-        external_file = self._is_external_value(value)
-        if exceeds_threshold or (external_file and self.threshold is None):
-            ext = self._external_ext(value)
-            # Convert key to a proper file path within the tree directory
-            rel_key = key.lstrip("/")
-            dest_path = os.path.join(self.working_dir, rel_key + ext)
+        with self._mutation_bracket():
+            # C2Array should always go to embed store; let estore handle it directly
+            if isinstance(value, C2Array):
+                self._estore[key] = value
+                return
+            exceeds_threshold = self.threshold is not None and self._value_nbytes(value) >= self.threshold
+            external_file = self._is_external_value(value)
+            if exceeds_threshold or (external_file and self.threshold is None):
+                ext = self._external_ext(value)
+                # Convert key to a proper file path within the tree directory
+                rel_key = key.lstrip("/")
+                dest_path = os.path.join(self.working_dir, rel_key + ext)
 
-            # Ensure the parent directory exists
-            parent_dir = os.path.dirname(dest_path)
-            if parent_dir and not os.path.exists(parent_dir):
-                os.makedirs(parent_dir, exist_ok=True)
+                # Ensure the parent directory exists
+                parent_dir = os.path.dirname(dest_path)
+                if parent_dir and not os.path.exists(parent_dir):
+                    os.makedirs(parent_dir, exist_ok=True)
 
-            # Save the value to the destination path
-            if not external_file:
-                if isinstance(value, blosc2.NDArray) and "b2o" in value.schunk.meta:
-                    carrier = blosc2.empty(
-                        value.shape,
-                        value.dtype,
-                        chunks=value.chunks,
-                        blocks=value.blocks,
-                        cparams=value.cparams,
-                        urlpath=dest_path,
-                        mode="w",
-                        meta={"b2o": value.schunk.meta["b2o"]},
-                    )
-                    for meta_key, meta_value in value.schunk.vlmeta[:].items():
-                        carrier.schunk.vlmeta[meta_key] = meta_value
-                elif hasattr(value, "save"):
-                    value.save(urlpath=dest_path)
+                # Save the value to the destination path
+                if not external_file:
+                    if isinstance(value, blosc2.NDArray) and "b2o" in value.schunk.meta:
+                        carrier = blosc2.empty(
+                            value.shape,
+                            value.dtype,
+                            chunks=value.chunks,
+                            blocks=value.blocks,
+                            cparams=value.cparams,
+                            urlpath=dest_path,
+                            mode="w",
+                            meta={"b2o": value.schunk.meta["b2o"]},
+                        )
+                        for meta_key, meta_value in value.schunk.vlmeta[:].items():
+                            carrier.schunk.vlmeta[meta_key] = meta_value
+                    elif hasattr(value, "save"):
+                        value.save(urlpath=dest_path)
+                    else:
+                        # SChunk, ObjectArray and BatchArray can all be persisted via their cframe.
+                        with open(dest_path, "wb") as f:
+                            f.write(value.to_cframe())
                 else:
-                    # SChunk, ObjectArray and BatchArray can all be persisted via their cframe.
-                    with open(dest_path, "wb") as f:
-                        f.write(value.to_cframe())
-            else:
-                # This should be faster than using value.save() ?
-                shutil.copy2(value.urlpath, dest_path)
+                    # This should be faster than using value.save() ?
+                    shutil.copy2(value.urlpath, dest_path)
 
-            # Store relative path from tree directory
-            rel_path = os.path.relpath(dest_path, self.working_dir)
-            # Normalize to forward slashes
-            rel_path = rel_path.replace(os.sep, "/")
-            self.map_tree[key] = rel_path
-        else:
-            # Remove any old external file so it doesn't shadow the embed-stored
-            # value on read (map_tree is checked first in __getitem__).
-            if key in self.map_tree:
-                old_filepath = self.map_tree.pop(key)
-                old_full_path = os.path.join(self.working_dir, old_filepath)
-                if os.path.exists(old_full_path):
-                    os.remove(old_full_path)
-            if external_file:
-                # Embed a copy by using cframe
-                value = blosc2.from_cframe(value.to_cframe())
-            self._estore[key] = value
+                # Store relative path from tree directory
+                rel_path = os.path.relpath(dest_path, self.working_dir)
+                # Normalize to forward slashes
+                rel_path = rel_path.replace(os.sep, "/")
+                self.map_tree[key] = rel_path
+                self._bump_store_tick()
+            else:
+                # Remove any old external file so it doesn't shadow the embed-stored
+                # value on read (map_tree is checked first in __getitem__).
+                if key in self.map_tree:
+                    old_filepath = self.map_tree.pop(key)
+                    old_full_path = os.path.join(self.working_dir, old_filepath)
+                    if os.path.exists(old_full_path):
+                        os.remove(old_full_path)
+                if external_file:
+                    # Embed a copy by using cframe
+                    value = blosc2.from_cframe(value.to_cframe())
+                self._estore[key] = value
 
     def __getitem__(
         self, key: str
     ) -> blosc2.NDArray | SChunk | blosc2.ObjectArray | blosc2.BatchArray | C2Array:
         """Retrieve a node from the DictStore."""
+        self._sync_store()
         # Check map_tree first
         if key in self.map_tree:
             filepath = self.map_tree[key]
@@ -529,30 +626,35 @@ class DictStore:
     def __delitem__(self, key: str) -> None:
         """Remove a node from the DictStore."""
         self._modified = True
-        if key in self.map_tree:
-            # Remove from map_tree and delete the external file
-            filepath = self.map_tree[key]
-            del self.map_tree[key]
+        with self._mutation_bracket():
+            if key in self.map_tree:
+                # Remove from map_tree and delete the external file
+                filepath = self.map_tree[key]
+                del self.map_tree[key]
 
-            # Delete the physical file if it exists
-            full_path = os.path.join(self.working_dir, filepath)
-            if os.path.exists(full_path):
-                os.remove(full_path)
-        elif key in self._estore:
-            del self._estore[key]
-        else:
-            raise KeyError(f"Key '{key}' not found")
+                # Delete the physical file if it exists
+                full_path = os.path.join(self.working_dir, filepath)
+                if os.path.exists(full_path):
+                    os.remove(full_path)
+                self._bump_store_tick()
+            elif key in self._estore:
+                del self._estore[key]
+            else:
+                raise KeyError(f"Key '{key}' not found")
 
     def __contains__(self, key: str) -> bool:
         """Check if a key exists."""
+        self._sync_store()
         return key in self.map_tree or key in self._estore
 
     def __len__(self) -> int:
         """Return number of nodes."""
+        self._sync_store()
         return len(self.map_tree) + len(self._estore)
 
     def __iter__(self) -> Iterator[str]:
         """Iterate over keys."""
+        self._sync_store()
         yield from self.map_tree.keys()
         for key in self._estore:
             if key not in self.map_tree:
@@ -560,10 +662,12 @@ class DictStore:
 
     def keys(self) -> Set[str]:
         """Return all keys."""
+        self._sync_store()
         return self.map_tree.keys() | self._estore.keys()
 
     def values(self) -> Iterator[blosc2.NDArray | SChunk | C2Array]:
         """Iterate over all values."""
+        self._sync_store()
         # Get all unique keys from both map_tree and _estore, with map_tree taking precedence
         all_keys = set(self.map_tree.keys()) | set(self._estore.keys())
 
@@ -601,6 +705,7 @@ class DictStore:
 
     def items(self) -> Iterator[tuple[str, blosc2.NDArray | SChunk | C2Array]]:
         """Iterate over (key, value) pairs."""
+        self._sync_store()
         # Get all unique keys from both map_tree and _estore, with map_tree taking precedence
         all_keys = set(self.map_tree.keys()) | set(self._estore.keys())
 
@@ -660,6 +765,13 @@ class DictStore:
         filename : str
             The absolute path to the created b2z file.
 
+        Notes
+        -----
+        The file is written to a temporary sibling and moved onto ``filename``
+        atomically: concurrent readers of an existing target see either the
+        old archive or the new one, never a partial write. On Windows, the
+        final replace fails if another process holds the target open.
+
         Examples
         --------
         Pack a directory-backed store into a zip store.  A ``.b2d`` suffix is
@@ -702,15 +814,27 @@ class DictStore:
         # Sort filepaths by file size from largest to smallest
         filepaths.sort(key=os.path.getsize, reverse=True)
 
-        with zipfile.ZipFile(b2z_path, "w", zipfile.ZIP_STORED) as zf:
-            # Write all files (except estore_path) first (sorted by size)
-            for filepath in filepaths:
-                arcname = os.path.relpath(filepath, self.working_dir)
-                zf.write(filepath, arcname)
-            # Write estore last
-            if os.path.exists(self.estore_path):
-                arcname = os.path.relpath(self.estore_path, self.working_dir)
-                zf.write(self.estore_path, arcname)
+        # Build the zip in a temporary file on the same filesystem, then move it
+        # atomically onto the target: concurrent readers of the target see either
+        # the old zip or the new one, never a torn state.  (On Windows the final
+        # replace fails if another process holds the target open.)
+        fd, tmp_path = tempfile.mkstemp(dir=os.path.dirname(os.path.abspath(b2z_path)), suffix=".b2z.tmp")
+        os.close(fd)
+        try:
+            with zipfile.ZipFile(tmp_path, "w", zipfile.ZIP_STORED) as zf:
+                # Write all files (except estore_path) first (sorted by size)
+                for filepath in filepaths:
+                    arcname = os.path.relpath(filepath, self.working_dir)
+                    zf.write(filepath, arcname)
+                # Write estore last
+                if os.path.exists(self.estore_path):
+                    arcname = os.path.relpath(self.estore_path, self.working_dir)
+                    zf.write(self.estore_path, arcname)
+            os.replace(tmp_path, b2z_path)
+        except BaseException:
+            with contextlib.suppress(OSError):
+                os.remove(tmp_path)
+            raise
         return os.path.abspath(b2z_path)
 
     def to_b2d(self, dirname=None, *, overwrite: bool = False) -> os.PathLike[Any] | str:

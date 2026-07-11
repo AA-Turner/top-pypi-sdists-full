@@ -1624,6 +1624,29 @@ fn doc_attribute_on_module_may_be_expression() {
 }
 
 #[test]
+fn variables_in_doc_attributes_are_resolved() {
+  Test::new()
+    .write("foo.just", "")
+    .justfile(
+      "
+        [doc(bar)]
+        mod foo
+      ",
+    )
+    .arg("--list")
+    .stderr(
+      "
+        error: variable `bar` not defined
+         ——▶ justfile:1:6
+          │
+        1 │ [doc(bar)]
+          │      ^^^
+      ",
+    )
+    .failure();
+}
+
+#[test]
 fn group_attribute_on_module() {
   Test::new()
     .write("foo.just", "")
@@ -2032,4 +2055,57 @@ fn trailing_separator_not_last_argument() {
     .args(["foo::", "bar"])
     .stderr("error: justfile does not contain recipe `foo::`\n")
     .failure();
+}
+
+#[test]
+fn submodule_assignments_are_not_shadowed_by_parent_variables() {
+  Test::new()
+    .justfile(
+      "
+        x := 'parent'
+
+        mod sub
+      ",
+    )
+    .write(
+      "sub.just",
+      "
+        a := x
+        x := 'sub'
+
+        foo:
+            @echo {{ a }} {{ x }}
+      ",
+    )
+    .arg("sub::foo")
+    .stdout("sub sub\n")
+    .success();
+}
+
+#[test]
+fn submodule_function_bodies_are_not_shadowed_by_parent_variables() {
+  Test::new()
+    .justfile(
+      "
+        x := 'parent'
+
+        mod sub
+      ",
+    )
+    .write(
+      "sub.just",
+      "
+        set unstable
+
+        a := f()
+        f() := x
+        x := 'sub'
+
+        foo:
+            @echo {{ a }} {{ f() }}
+      ",
+    )
+    .arg("sub::foo")
+    .stdout("sub sub\n")
+    .success();
 }

@@ -17,6 +17,32 @@ RENDERER_OVERRIDE_CSS = """\
 .pf-dialog-content {
   max-width: 56rem !important;
   width: min(56rem, 90vw) !important;
+  max-height: 85vh !important;
+  overflow-y: auto !important;
+}
+/* Sticky table headers: keep the header row visible while the body scrolls.
+   The default renderer wraps every table in a `.pf-table-container` whose
+   `overflow-x: auto` promotes overflow on both axes (per the CSS spec, an
+   `auto` on one axis forces the `visible` on the other to compute to `auto`),
+   which traps `position: sticky` so the header can never stick. Relaxing the
+   container to `visible` frees the header to stick to the nearest real scroll
+   parent instead. That parent is a height-capped scroll wrapper (e.g. the org
+   lookup modal's `max-h-[50vh]` column, or the CVM tab lists) which owns
+   `overflow: auto` on BOTH axes -- so wide tables still scroll horizontally
+   there rather than bleeding out of the modal/panel. The header needs an
+   opaque background so scrolling rows don't show through. */
+.pf-table-container {
+  overflow: visible !important;
+}
+.pf-table-header {
+  position: sticky !important;
+  top: 0;
+  z-index: 2;
+}
+.pf-table-header,
+.pf-table-header tr,
+.pf-table-header .pf-table-head {
+  background: var(--background);
 }
 """
 AIRBYTE_ASSETS_DIR = Path(__file__).with_name("assets")

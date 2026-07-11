@@ -45,19 +45,32 @@ class MachineRate(_message.Message):
     ) -> None: ...
 
 class CloudInstanceType(_message.Message):
-    __slots__ = ("machine_type", "cpus", "memory_gb", "cloud", "machine_family", "gpus")
+    __slots__ = (
+        "machine_type",
+        "cpus",
+        "memory_gb",
+        "cloud",
+        "machine_family",
+        "gpus",
+        "local_ssd_count",
+        "local_ssd_size_gb",
+    )
     MACHINE_TYPE_FIELD_NUMBER: _ClassVar[int]
     CPUS_FIELD_NUMBER: _ClassVar[int]
     MEMORY_GB_FIELD_NUMBER: _ClassVar[int]
     CLOUD_FIELD_NUMBER: _ClassVar[int]
     MACHINE_FAMILY_FIELD_NUMBER: _ClassVar[int]
     GPUS_FIELD_NUMBER: _ClassVar[int]
+    LOCAL_SSD_COUNT_FIELD_NUMBER: _ClassVar[int]
+    LOCAL_SSD_SIZE_GB_FIELD_NUMBER: _ClassVar[int]
     machine_type: str
     cpus: float
     memory_gb: float
     cloud: BillingCloud
     machine_family: str
     gpus: float
+    local_ssd_count: int
+    local_ssd_size_gb: int
     def __init__(
         self,
         machine_type: _Optional[str] = ...,
@@ -66,4 +79,6 @@ class CloudInstanceType(_message.Message):
         cloud: _Optional[_Union[BillingCloud, str]] = ...,
         machine_family: _Optional[str] = ...,
         gpus: _Optional[float] = ...,
+        local_ssd_count: _Optional[int] = ...,
+        local_ssd_size_gb: _Optional[int] = ...,
     ) -> None: ...

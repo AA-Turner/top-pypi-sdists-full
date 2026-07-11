@@ -4,7 +4,7 @@ from typing import TYPE_CHECKING, Annotated, Literal, TypeVar, cast
 
 import structlog
 from pydantic.functional_validators import AfterValidator
-from starlette.config import Config, undefined
+from starlette.config import Config
 from starlette.datastructures import CommaSeparatedStrings
 
 from langgraph_api import traceblock
@@ -41,7 +41,14 @@ STATS_INTERVAL_SECS = env("STATS_INTERVAL_SECS", cast=int, default=60)
 # storage
 
 # Not in public docs: infrastructure, set by platform
-DATABASE_URI = env("DATABASE_URI", cast=str, default=getenv("POSTGRES_URI", undefined))
+# Optional: persistence can go through the Go core over gRPC, so the Python
+# runtime can start without a direct DB connection string. When unset, the
+# Postgres runtime skips creating a psycopg pool (see database._startup_needs /
+# database.start_pool). Callers that still require a direct connection fail
+# loudly via connect()'s "Postgres pool not initialized" guard.
+DATABASE_URI: str | None = env(
+    "DATABASE_URI", cast=str, default=getenv("POSTGRES_URI", None)
+)
 # Not in public docs: infrastructure, set by platform
 MIGRATIONS_PATH = env("MIGRATIONS_PATH", cast=str, default="/storage/migrations")
 POSTGRES_POOL_MAX_SIZE = env("LANGGRAPH_POSTGRES_POOL_MAX_SIZE", cast=int, default=150)
@@ -243,6 +250,12 @@ WEBHOOKS_ENABLED = HTTP_CONFIG and HTTP_CONFIG.get("disable_webhooks")
 STORE_CONFIG = env(
     "LANGGRAPH_STORE", cast=_parse.parse_schema(StoreConfig), default=None
 )
+LANGGRAPH_STORE_BACKEND = env("LANGGRAPH_STORE_BACKEND", cast=str, default="python")
+USE_GRPC_STORE = LANGGRAPH_STORE_BACKEND == "grpc"
+
+# When true, the Go core-server owns Postgres schema setup (DB migrations +
+# vector index)
+DB_MIGRATION_BY_CORE_API = env("DB_MIGRATION_BY_CORE_API", cast=bool, default=False)
 
 
 def _validate_mount_prefix(mount_prefix: str | None) -> str | None:
@@ -320,7 +333,6 @@ if (
 # queue
 
 BG_JOB_HEARTBEAT = 120  # seconds
-BG_JOB_INTERVAL = 30  # seconds
 BG_JOB_MAX_RETRIES = env("BG_JOB_MAX_RETRIES", cast=int, default=3)
 BG_JOB_ISOLATED_LOOPS = env("BG_JOB_ISOLATED_LOOPS", cast=bool, default=False)
 BG_JOB_SHUTDOWN_GRACE_PERIOD_SECS = env(
@@ -578,6 +590,13 @@ METRIC_MAX_EMITTING_TIER = env(
     "METRIC_MAX_EMITTING_TIER", cast=int, default=_METRIC_MAX_EMITTING_TIER_DEFAULT
 )
 DATADOG_METRICS_ENABLED = bool(LSD_DD_API_KEY)
+# When true, the Prometheus scrape (/metrics) exposes ALL metrics, not just the
+# lsd_web_metric (Deployment-UI) set. Record-time tier filtering
+# (METRIC_MAX_EMITTING_TIER) still applies, so internal metrics must be within the
+# max emitting tier to be recorded at all.
+EXPOSE_INTERNAL_METRICS_PROMETHEUS = env(
+    "EXPOSE_INTERNAL_METRICS_PROMETHEUS", cast=bool, default=False
+)
 LANGGRAPH_LOGS_ENDPOINT = env("LANGGRAPH_LOGS_ENDPOINT", cast=str, default=None)
 LANGGRAPH_LOGS_ENABLED = env("LANGGRAPH_LOGS_ENABLED", cast=bool, default=False)
 
@@ -620,7 +639,6 @@ __all__ = [
     "ALLOW_PRIVATE_NETWORK",
     "API_VARIANT",
     "BG_JOB_HEARTBEAT",
-    "BG_JOB_INTERVAL",
     "BG_JOB_ISOLATED_LOOPS",
     "BG_JOB_MAX_RETRIES",
     "BG_JOB_SHUTDOWN_GRACE_PERIOD_SECS",
@@ -635,6 +653,8 @@ __all__ = [
     "CRON_SCHEDULER_SLEEP_TIME",
     "DATABASE_URI",
     "DATADOG_METRICS_ENABLED",
+    "DB_MIGRATION_BY_CORE_API",
+    "EXPOSE_INTERNAL_METRICS_PROMETHEUS",
     "FF_CRONS_ENABLED",
     "FF_LOG_DROPPED_EVENTS",
     "FF_LOG_QUERY_AND_PARAMS",
@@ -662,6 +682,7 @@ __all__ = [
     "LANGGRAPH_METRICS_ENDPOINT",
     "LANGGRAPH_METRICS_EXPORT_INTERVAL_MS",
     "LANGGRAPH_POSTGRES_EXTENSIONS",
+    "LANGGRAPH_STORE_BACKEND",
     "LANGSMITH_API_KEY",
     "LANGSMITH_AUTH_ENDPOINT",
     "LANGSMITH_AUTH_VERIFY_TENANT_ID",
@@ -709,6 +730,7 @@ __all__ = [
     "USES_STORE_TTL",
     "USES_THREAD_TTL",
     "USE_CUSTOM_CHECKPOINTER",
+    "USE_GRPC_STORE",
     "AuthConfig",
     "CheckpointerConfig",
     "CorsConfig",

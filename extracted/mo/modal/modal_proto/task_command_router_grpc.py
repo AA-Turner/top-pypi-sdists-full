@@ -81,6 +81,10 @@ class TaskCommandRouterBase(abc.ABC):
         pass
 
     @abc.abstractmethod
+    async def TaskReloadVolumes(self, stream: 'grpclib.server.Stream[modal_proto.task_command_router_pb2.TaskReloadVolumesRequest, modal_proto.task_command_router_pb2.TaskReloadVolumesResponse]') -> None:
+        pass
+
+    @abc.abstractmethod
     async def TaskSetNetworkAccess(self, stream: 'grpclib.server.Stream[modal_proto.task_command_router_pb2.TaskSetNetworkAccessRequest, modal_proto.task_command_router_pb2.TaskSetNetworkAccessResponse]') -> None:
         pass
 
@@ -193,6 +197,12 @@ class TaskCommandRouterBase(abc.ABC):
                 grpclib.const.Cardinality.UNARY_UNARY,
                 modal_proto.task_command_router_pb2.TaskMountDirectoryRequest,
                 google.protobuf.empty_pb2.Empty,
+            ),
+            '/modal.task_command_router.TaskCommandRouter/TaskReloadVolumes': grpclib.const.Handler(
+                self.TaskReloadVolumes,
+                grpclib.const.Cardinality.UNARY_UNARY,
+                modal_proto.task_command_router_pb2.TaskReloadVolumesRequest,
+                modal_proto.task_command_router_pb2.TaskReloadVolumesResponse,
             ),
             '/modal.task_command_router.TaskCommandRouter/TaskSetNetworkAccess': grpclib.const.Handler(
                 self.TaskSetNetworkAccess,
@@ -319,6 +329,12 @@ class TaskCommandRouterStub:
             '/modal.task_command_router.TaskCommandRouter/TaskMountDirectory',
             modal_proto.task_command_router_pb2.TaskMountDirectoryRequest,
             google.protobuf.empty_pb2.Empty,
+        )
+        self.TaskReloadVolumes = grpclib.client.UnaryUnaryMethod(
+            channel,
+            '/modal.task_command_router.TaskCommandRouter/TaskReloadVolumes',
+            modal_proto.task_command_router_pb2.TaskReloadVolumesRequest,
+            modal_proto.task_command_router_pb2.TaskReloadVolumesResponse,
         )
         self.TaskSetNetworkAccess = grpclib.client.UnaryUnaryMethod(
             channel,

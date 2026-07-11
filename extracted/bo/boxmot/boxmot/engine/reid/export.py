@@ -1,8 +1,10 @@
-#!/usr/bin/env python3
+"""Engine entry point for ReID model export."""
+
 import logging
 import time
 import warnings
 from contextlib import contextmanager
+from dataclasses import dataclass
 from importlib import import_module
 from pathlib import Path
 from typing import Any
@@ -14,7 +16,7 @@ from boxmot.reid.core import ReID, export_formats
 from boxmot.reid.core.registry import ReIDModelRegistry
 from boxmot.reid.exporters.base_exporter import BaseExporter
 from boxmot.utils import WEIGHTS
-from boxmot.utils.rich.export_reporting import ExportWorkflowReporter
+from boxmot.utils.rich.reporters.export import ExportWorkflowReporter
 from boxmot.utils.torch_utils import select_device
 
 __all__ = [
@@ -24,14 +26,23 @@ __all__ = [
 ]
 
 
+@dataclass(frozen=True)
+class ExportTask:
+    exporter_class: type[BaseExporter]
+    kwargs: dict[str, Any]
+    report: bool = True
+
+    def export(self):
+        exporter = self.exporter_class(**self.kwargs)
+        return exporter.export()
+
+
 def validate_export_formats(include):
     available_formats = tuple(export_formats()["Argument"][1:])
     include_lower = [fmt.lower() for fmt in include]
     flags = [fmt in include_lower for fmt in available_formats]
     if sum(flags) != len(include_lower):
-        raise AssertionError(
-            f"ERROR: Invalid --include {include}, valid arguments are {available_formats}"
-        )
+        raise AssertionError(f"ERROR: Invalid --include {include}, valid arguments are {available_formats}")
     return tuple(flags)
 
 
@@ -89,10 +100,13 @@ def _suppress_export_noise(enabled: bool):
 
 def setup_model(args):
     args.device = select_device(args.device)
-    if args.half and args.device.type == "cpu":
-        raise AssertionError("--half only compatible with GPU export, use --device 0 for GPU")
+    include = tuple(str(fmt).lower() for fmt in (getattr(args, "include", ()) or ()))
+    cpu_fp16_graph_export = bool(args.half and args.device.type == "cpu" and "engine" not in include)
+    if args.half and args.device.type == "cpu" and not cpu_fp16_graph_export:
+        raise AssertionError("--half TensorRT export requires GPU, use --device 0")
 
-    reid = ReID(weights=args.weights, device=args.device, half=args.half)
+    backend_half = bool(args.half and not cpu_fp16_graph_export)
+    reid = ReID(weights=args.weights, device=args.device, half=backend_half)
     model_name = ReIDModelRegistry.get_model_name(args.weights)
     model = reid.model.model.eval()
 
@@ -101,14 +115,14 @@ def setup_model(args):
 
     if "vehicleid" in args.weights.name or "veri" in args.weights.name:
         args.imgsz = (256, 256)
-    elif "lmbn" in model_name:
+    elif "lmbn" in model_name or "csl_tinyvit" in model_name or "mobilenetv4" in model_name:
         args.imgsz = (384, 128)
     elif "hacnn" in model_name:
         args.imgsz = (160, 64)
     else:
         args.imgsz = (256, 128)
 
-    if args.half:
+    if backend_half:
         model = model.half()
 
     first_param = next(model.parameters(), None)
@@ -134,70 +148,109 @@ def setup_model(args):
 def create_export_tasks(args, model, dummy_input):
     torchscript_flag, onnx_flag, openvino_flag, engine_flag, tflite_flag = validate_export_formats(args.include)
     tasks = {}
+    common_kwargs = {
+        "model": model,
+        "im": dummy_input,
+        "file": args.weights,
+    }
+    onnx_kwargs = {
+        **common_kwargs,
+        "opset": args.opset,
+        "dynamic": args.dynamic,
+        "half": args.half,
+        "simplify": args.simplify,
+        "verbose": args.verbose,
+    }
 
     if torchscript_flag:
         from boxmot.reid.exporters.torchscript_exporter import TorchScriptExporter
-        tasks["torchscript"] = (
-            True,
+
+        tasks["torchscript"] = ExportTask(
             TorchScriptExporter,
-            (model, dummy_input, args.weights, args.optimize),
+            {
+                **common_kwargs,
+                "optimize": args.optimize,
+                "verbose": args.verbose,
+            },
         )
 
-    if onnx_flag:
+    if onnx_flag or engine_flag or openvino_flag:
         from boxmot.reid.exporters.onnx_exporter import ONNXExporter
-        tasks["onnx"] = (
-            True,
+
+        tasks["onnx"] = ExportTask(
             ONNXExporter,
-            (model, dummy_input, args.weights, args.opset, args.dynamic, args.half, args.simplify, args.verbose),
+            dict(onnx_kwargs),
+            report=onnx_flag,
         )
 
     if engine_flag:
         from boxmot.reid.exporters.tensorrt_exporter import EngineExporter
-        tasks["engine"] = (
-            True,
+
+        tasks["engine"] = ExportTask(
             EngineExporter,
-            (model, dummy_input, args.weights, args.half, args.dynamic, args.simplify, args.verbose),
+            {
+                **onnx_kwargs,
+                "workspace": args.workspace,
+            },
         )
 
     if tflite_flag:
         from boxmot.reid.exporters.tflite_exporter import TFLiteExporter
-        tasks["tflite"] = (
-            True,
+
+        tasks["tflite"] = ExportTask(
             TFLiteExporter,
-            (model, dummy_input, args.weights, args.opset, args.dynamic, args.half, args.simplify),
+            {
+                **common_kwargs,
+                "opset": args.opset,
+                "dynamic": args.dynamic,
+                "half": args.half,
+                "simplify": args.simplify,
+                "quantize": getattr(args, "tflite_quantize", "none"),
+                "calibration_data": getattr(args, "tflite_calibration_data", None),
+                "calibration_samples": getattr(args, "tflite_calibration_samples", 256),
+                "calibration_preprocess": getattr(args, "tflite_calibration_preprocess", "resize"),
+                "calibration_seed": getattr(args, "tflite_calibration_seed", 0),
+                "calibration_update": getattr(args, "tflite_calibration_update", "minmax"),
+                "static_activation_bits": getattr(args, "tflite_static_activation_bits", 16),
+                "verbose": args.verbose,
+            },
         )
 
     if openvino_flag:
         from boxmot.reid.exporters.openvino_exporter import OpenVINOExporter
-        tasks["openvino"] = (
-            True,
+
+        tasks["openvino"] = ExportTask(
             OpenVINOExporter,
-            (model, dummy_input, args.weights, args.half),
+            dict(onnx_kwargs),
         )
 
     return tasks
 
 
-
 def perform_exports(export_tasks):
     exported_files = {}
-    for fmt, (flag, exporter_class, exp_args) in export_tasks.items():
-        if flag:
-            exporter = exporter_class(*exp_args)
-            # Exporters can optionally declare:
-            #   group="...", or extra="...", and extra_args=["--upgrade"]
-            # The BaseExporter decorator will auto-install them.
-            exported_files[fmt] = exporter.export()
+    for fmt, task in export_tasks.items():
+        exported = task.export()
+        if task.report:
+            exported_files[fmt] = exported
     return exported_files
 
 
 def _prepare_export(args):
     WEIGHTS.mkdir(parents=True, exist_ok=True)
-    args.weights = WEIGHTS / Path(args.weights).name
+    args.weights = _resolve_export_weights(args.weights)
 
     with _suppress_export_noise(not args.verbose):
         model, dummy_input = setup_model(args)
     return model, dummy_input
+
+
+def _resolve_export_weights(weights: str | Path) -> Path:
+    """Keep explicit checkpoint paths; otherwise resolve bare names in WEIGHTS."""
+    path = Path(weights)
+    if path.exists():
+        return path
+    return WEIGHTS / path.name
 
 
 def _execute_export(args, model, dummy_input):
@@ -213,11 +266,12 @@ def run_export(args) -> ExportResult:
     parity_report: dict[str, dict[str, Any]] = {}
     if exported_files:
         with _suppress_export_noise(not args.verbose):
-            parity_report = _verify_export_parity(
-                args, model, dummy_input, exported_files
-            )
+            parity_report = _verify_export_parity(args, model, dummy_input, exported_files)
     return ExportResult(
-        weights=args.weights, files=exported_files, parity=parity_report
+        weights=args.weights,
+        files=exported_files,
+        parity=parity_report,
+        half=bool(getattr(args, "half", False)),
     )
 
 
@@ -269,9 +323,7 @@ def _verify_export_parity(
     # through the model gives spurious parity failures. Use a deterministic
     # random tensor of the same shape/dtype/device for the comparison.
     torch.manual_seed(0)
-    sample = torch.rand_like(dummy_input.float()).to(
-        dtype=dummy_input.dtype, device=dummy_input.device
-    )
+    sample = torch.rand_like(dummy_input.float()).to(dtype=dummy_input.dtype, device=dummy_input.device)
 
     with torch.inference_mode():
         ref_output = model(sample)
@@ -330,9 +382,7 @@ def _verify_export_parity(
             # spatial dims and average the per-sample cosine.
             ref_flat = ref_np.reshape(ref_np.shape[0], -1)
             out_flat = out_np.reshape(out_np.shape[0], -1)
-            denom = np.linalg.norm(ref_flat, axis=1) * np.linalg.norm(
-                out_flat, axis=1
-            )
+            denom = np.linalg.norm(ref_flat, axis=1) * np.linalg.norm(out_flat, axis=1)
             denom = np.where(denom == 0, 1.0, denom)
             cosine = float(((ref_flat * out_flat).sum(axis=1) / denom).mean())
             embedding_ok = cosine >= 0.999
@@ -361,6 +411,8 @@ def _verify_export_parity(
 
 def _run_tflite_for_parity(fpath: str | Path, cpu_input: torch.Tensor):
     litert = import_module("ai_edge_litert.interpreter")
+    from boxmot.reid.backends.tflite_backend import TFLiteBackend
+
     interpreter = litert.Interpreter(model_path=str(fpath))
     interpreter.allocate_tensors()
 
@@ -370,7 +422,7 @@ def _run_tflite_for_parity(fpath: str | Path, cpu_input: torch.Tensor):
         raise RuntimeError("TFLite model is missing input or output tensors.")
 
     input_detail = input_details[0]
-    input_array = cpu_input.detach().cpu().numpy().astype(input_detail["dtype"], copy=False)
+    input_array = cpu_input.detach().cpu().numpy().astype("float32", copy=False)
     expected_shape = tuple(int(dim) for dim in input_detail["shape"])
     input_array = _match_tflite_input_layout(input_array, expected_shape)
 
@@ -380,9 +432,11 @@ def _run_tflite_for_parity(fpath: str | Path, cpu_input: torch.Tensor):
         input_detail = interpreter.get_input_details()[0]
         output_details = interpreter.get_output_details()
 
+    input_array = TFLiteBackend._quantize_input(input_array, input_detail)
     interpreter.set_tensor(input_detail["index"], input_array)
     interpreter.invoke()
-    return interpreter.get_tensor(output_details[0]["index"])
+    output = interpreter.get_tensor(output_details[0]["index"])
+    return TFLiteBackend._dequantize_output(output, output_details[0])
 
 
 def _match_tflite_input_layout(input_array, expected_shape: tuple[int, ...]):
@@ -422,11 +476,12 @@ def main(args):
         parity_report: dict[str, dict[str, Any]] = {}
         if exported_files:
             with _suppress_export_noise(not args.verbose):
-                parity_report = _verify_export_parity(
-                    args, model, dummy_input, exported_files
-                )
+                parity_report = _verify_export_parity(args, model, dummy_input, exported_files)
         result = ExportResult(
-            weights=args.weights, files=exported_files, parity=parity_report
+            weights=args.weights,
+            files=exported_files,
+            parity=parity_report,
+            half=bool(getattr(args, "half", False)),
         )
 
         elapsed_time = time.time() - start_time

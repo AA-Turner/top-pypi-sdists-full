@@ -14,7 +14,7 @@ _sym_db = _symbol_database.Default()
 
 
 DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(
-    b'\n chalk/planner/v1/batch_udf.proto\x12\x10\x63halk.planner.v1"\xdf\x01\n\x08\x42\x61tchUDF\x12$\n\x0e\x62\x61tch_udf_type\x18\x01 \x01(\tR\x0c\x62\x61tchUdfType\x12G\n\targuments\x18\x02 \x03(\x0b\x32).chalk.planner.v1.BatchUDF.ArgumentsEntryR\targuments\x1a`\n\x0e\x41rgumentsEntry\x12\x10\n\x03key\x18\x01 \x01(\tR\x03key\x12\x38\n\x05value\x18\x02 \x01(\x0b\x32".chalk.planner.v1.BatchUDFArgumentR\x05value:\x02\x38\x01:\x02\x18\x01"\x96\x01\n\x10\x42\x61tchUDFArgument\x12\x1d\n\tint_value\x18\x02 \x01(\x03H\x00R\x08intValue\x12#\n\x0cstring_value\x18\x03 \x01(\tH\x00R\x0bstringValue\x12\x33\n\x06py_obj\x18\x01 \x01(\x0b\x32\x1a.chalk.planner.v1.PyObjectH\x00R\x05pyObj:\x02\x18\x01\x42\x05\n\x03\x61rg"\x8a\x01\n\x08PyObject\x12?\n\x0bpy_callable\x18\x01 \x01(\x0b\x32\x1c.chalk.planner.v1.PyCallableH\x00R\npyCallable\x12\x17\n\x06py_int\x18\x02 \x01(\x03H\x00R\x05pyInt\x12\x1d\n\tpy_string\x18\x03 \x01(\tH\x00R\x08pyStringB\x05\n\x03obj"\xca\x01\n\nPyCallable\x12#\n\rcallable_name\x18\x01 \x01(\tR\x0c\x63\x61llableName\x12@\n\x06kwargs\x18\x02 \x03(\x0b\x32(.chalk.planner.v1.PyCallable.KwargsEntryR\x06kwargs\x1aU\n\x0bKwargsEntry\x12\x10\n\x03key\x18\x01 \x01(\tR\x03key\x12\x30\n\x05value\x18\x02 \x01(\x0b\x32\x1a.chalk.planner.v1.PyObjectR\x05value:\x02\x38\x01\x42\x87\x01\n\x14\x63om.chalk.planner.v1B\rBatchUdfProtoP\x01\xa2\x02\x03\x43PX\xaa\x02\x10\x43halk.Planner.V1\xca\x02\x10\x43halk\\Planner\\V1\xe2\x02\x1c\x43halk\\Planner\\V1\\GPBMetadata\xea\x02\x12\x43halk::Planner::V1b\x06proto3'
+    b'\n chalk/planner/v1/batch_udf.proto\x12\x10\x63halk.planner.v1"\xe7\x01\n\x08\x42\x61tchUDF\x12(\n\x0e\x62\x61tch_udf_type\x18\x01 \x01(\tB\x02\x18\x01R\x0c\x62\x61tchUdfType\x12K\n\targuments\x18\x02 \x03(\x0b\x32).chalk.planner.v1.BatchUDF.ArgumentsEntryB\x02\x18\x01R\targuments\x1a`\n\x0e\x41rgumentsEntry\x12\x10\n\x03key\x18\x01 \x01(\tR\x03key\x12\x38\n\x05value\x18\x02 \x01(\x0b\x32".chalk.planner.v1.BatchUDFArgumentR\x05value:\x02\x38\x01:\x02\x18\x01"\xa2\x01\n\x10\x42\x61tchUDFArgument\x12\x37\n\x06py_obj\x18\x01 \x01(\x0b\x32\x1a.chalk.planner.v1.PyObjectB\x02\x18\x01H\x00R\x05pyObj\x12!\n\tint_value\x18\x02 \x01(\x03\x42\x02\x18\x01H\x00R\x08intValue\x12\'\n\x0cstring_value\x18\x03 \x01(\tB\x02\x18\x01H\x00R\x0bstringValue:\x02\x18\x01\x42\x05\n\x03\x61rg"\x9a\x01\n\x08PyObject\x12\x43\n\x0bpy_callable\x18\x01 \x01(\x0b\x32\x1c.chalk.planner.v1.PyCallableB\x02\x18\x01H\x00R\npyCallable\x12\x1b\n\x06py_int\x18\x02 \x01(\x03\x42\x02\x18\x01H\x00R\x05pyInt\x12!\n\tpy_string\x18\x03 \x01(\tB\x02\x18\x01H\x00R\x08pyString:\x02\x18\x01\x42\x05\n\x03obj"\xd6\x01\n\nPyCallable\x12\'\n\rcallable_name\x18\x01 \x01(\tB\x02\x18\x01R\x0c\x63\x61llableName\x12\x44\n\x06kwargs\x18\x02 \x03(\x0b\x32(.chalk.planner.v1.PyCallable.KwargsEntryB\x02\x18\x01R\x06kwargs\x1aU\n\x0bKwargsEntry\x12\x10\n\x03key\x18\x01 \x01(\tR\x03key\x12\x30\n\x05value\x18\x02 \x01(\x0b\x32\x1a.chalk.planner.v1.PyObjectR\x05value:\x02\x38\x01:\x02\x18\x01\x42\x87\x01\n\x14\x63om.chalk.planner.v1B\rBatchUdfProtoP\x01\xa2\x02\x03\x43PX\xaa\x02\x10\x43halk.Planner.V1\xca\x02\x10\x43halk\\Planner\\V1\xe2\x02\x1c\x43halk\\Planner\\V1\\GPBMetadata\xea\x02\x12\x43halk::Planner::V1b\x06proto3'
 )
 
 _globals = globals()
@@ -27,22 +27,46 @@ if _descriptor._USE_C_DESCRIPTORS == False:
     ]._serialized_options = b"\n\024com.chalk.planner.v1B\rBatchUdfProtoP\001\242\002\003CPX\252\002\020Chalk.Planner.V1\312\002\020Chalk\\Planner\\V1\342\002\034Chalk\\Planner\\V1\\GPBMetadata\352\002\022Chalk::Planner::V1"
     _globals["_BATCHUDF_ARGUMENTSENTRY"]._options = None
     _globals["_BATCHUDF_ARGUMENTSENTRY"]._serialized_options = b"8\001"
+    _globals["_BATCHUDF"].fields_by_name["batch_udf_type"]._options = None
+    _globals["_BATCHUDF"].fields_by_name["batch_udf_type"]._serialized_options = b"\030\001"
+    _globals["_BATCHUDF"].fields_by_name["arguments"]._options = None
+    _globals["_BATCHUDF"].fields_by_name["arguments"]._serialized_options = b"\030\001"
     _globals["_BATCHUDF"]._options = None
     _globals["_BATCHUDF"]._serialized_options = b"\030\001"
+    _globals["_BATCHUDFARGUMENT"].fields_by_name["py_obj"]._options = None
+    _globals["_BATCHUDFARGUMENT"].fields_by_name["py_obj"]._serialized_options = b"\030\001"
+    _globals["_BATCHUDFARGUMENT"].fields_by_name["int_value"]._options = None
+    _globals["_BATCHUDFARGUMENT"].fields_by_name["int_value"]._serialized_options = b"\030\001"
+    _globals["_BATCHUDFARGUMENT"].fields_by_name["string_value"]._options = None
+    _globals["_BATCHUDFARGUMENT"].fields_by_name["string_value"]._serialized_options = b"\030\001"
     _globals["_BATCHUDFARGUMENT"]._options = None
     _globals["_BATCHUDFARGUMENT"]._serialized_options = b"\030\001"
+    _globals["_PYOBJECT"].fields_by_name["py_callable"]._options = None
+    _globals["_PYOBJECT"].fields_by_name["py_callable"]._serialized_options = b"\030\001"
+    _globals["_PYOBJECT"].fields_by_name["py_int"]._options = None
+    _globals["_PYOBJECT"].fields_by_name["py_int"]._serialized_options = b"\030\001"
+    _globals["_PYOBJECT"].fields_by_name["py_string"]._options = None
+    _globals["_PYOBJECT"].fields_by_name["py_string"]._serialized_options = b"\030\001"
+    _globals["_PYOBJECT"]._options = None
+    _globals["_PYOBJECT"]._serialized_options = b"\030\001"
     _globals["_PYCALLABLE_KWARGSENTRY"]._options = None
     _globals["_PYCALLABLE_KWARGSENTRY"]._serialized_options = b"8\001"
+    _globals["_PYCALLABLE"].fields_by_name["callable_name"]._options = None
+    _globals["_PYCALLABLE"].fields_by_name["callable_name"]._serialized_options = b"\030\001"
+    _globals["_PYCALLABLE"].fields_by_name["kwargs"]._options = None
+    _globals["_PYCALLABLE"].fields_by_name["kwargs"]._serialized_options = b"\030\001"
+    _globals["_PYCALLABLE"]._options = None
+    _globals["_PYCALLABLE"]._serialized_options = b"\030\001"
     _globals["_BATCHUDF"]._serialized_start = 55
-    _globals["_BATCHUDF"]._serialized_end = 278
-    _globals["_BATCHUDF_ARGUMENTSENTRY"]._serialized_start = 178
-    _globals["_BATCHUDF_ARGUMENTSENTRY"]._serialized_end = 274
-    _globals["_BATCHUDFARGUMENT"]._serialized_start = 281
-    _globals["_BATCHUDFARGUMENT"]._serialized_end = 431
-    _globals["_PYOBJECT"]._serialized_start = 434
-    _globals["_PYOBJECT"]._serialized_end = 572
-    _globals["_PYCALLABLE"]._serialized_start = 575
-    _globals["_PYCALLABLE"]._serialized_end = 777
-    _globals["_PYCALLABLE_KWARGSENTRY"]._serialized_start = 692
-    _globals["_PYCALLABLE_KWARGSENTRY"]._serialized_end = 777
+    _globals["_BATCHUDF"]._serialized_end = 286
+    _globals["_BATCHUDF_ARGUMENTSENTRY"]._serialized_start = 186
+    _globals["_BATCHUDF_ARGUMENTSENTRY"]._serialized_end = 282
+    _globals["_BATCHUDFARGUMENT"]._serialized_start = 289
+    _globals["_BATCHUDFARGUMENT"]._serialized_end = 451
+    _globals["_PYOBJECT"]._serialized_start = 454
+    _globals["_PYOBJECT"]._serialized_end = 608
+    _globals["_PYCALLABLE"]._serialized_start = 611
+    _globals["_PYCALLABLE"]._serialized_end = 825
+    _globals["_PYCALLABLE_KWARGSENTRY"]._serialized_start = 736
+    _globals["_PYCALLABLE_KWARGSENTRY"]._serialized_end = 821
 # @@protoc_insertion_point(module_scope)

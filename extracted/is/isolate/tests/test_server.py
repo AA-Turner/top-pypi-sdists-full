@@ -28,6 +28,7 @@ from isolate.server.server import (
     ServerBoundInterceptor,
     SingleTaskInterceptor,
 )
+from virtualenv.version import __version_tuple__ as VIRTUALENV_VERSION
 
 REPO_DIR = Path(__file__).parent.parent
 assert (
@@ -738,6 +739,10 @@ def test_server_multiple_envs(
     assert from_grpc(raw_result) == "0.6.0 2.8.2"
 
 
+@pytest.mark.skipif(
+    VIRTUALENV_VERSION >= (21, 5, 1),
+    reason="virtualenv 21.5.1+ no longer seeds Python 3.8 environments",
+)
 @pytest.mark.parametrize("python_version", ["3.8"])
 def test_agent_requirements_custom_version(
     stub: definitions.IsolateStub,

@@ -3,12 +3,14 @@
 from __future__ import annotations
 
 import os
+from importlib.metadata import PackageNotFoundError, version
 
 from pydantic import BaseModel, ConfigDict
 
 MOCK_ONLY_ENV_VAR = "AIRBYTE_OPS_WEBAPP_MOCKONLY"
 PREVIEW_ENV_VAR = "AIRBYTE_OPS_WEBAPP_PREVIEW"
 PREVIEW_PR_ENV_VAR = "AIRBYTE_OPS_WEBAPP_PREVIEW_PR"
+DEPLOY_SHA_ENV_VAR = "AIRBYTE_OPS_WEBAPP_DEPLOY_SHA"
 GITHUB_REPO_URL = "https://github.com/airbytehq/airbyte-ops-mcp"
 AIRBYTE_BEARER_TOKEN_ENV_VAR = "AIRBYTE_CLOUD_BEARER_TOKEN"
 AIRBYTE_CLIENT_ID_ENV_VAR = "AIRBYTE_CLOUD_CLIENT_ID"
@@ -49,6 +51,9 @@ class OpsPageState(BaseModel):
     is_preview_deploy: bool = False
     preview_pr_number: str = ""
     preview_pr_url: str = ""
+    deploy_sha: str = ""
+    deploy_sha_url: str = ""
+    ops_package_version: str = ""
     oauth_config: OAuthConfigState
     oauth_enabled: bool
     oauth_authenticated: bool = False
@@ -81,3 +86,24 @@ def preview_pr_url() -> str:
     if not pr:
         return ""
     return f"{GITHUB_REPO_URL}/pull/{pr}"
+
+
+def deploy_sha() -> str:
+    """Return the short commit SHA for the current deploy, or empty string."""
+    return os.getenv(DEPLOY_SHA_ENV_VAR, "").strip()
+
+
+def deploy_sha_url() -> str:
+    """Return the GitHub commit URL for the current deploy SHA."""
+    sha = deploy_sha()
+    if not sha:
+        return ""
+    return f"{GITHUB_REPO_URL}/commit/{sha}"
+
+
+def ops_package_version() -> str:
+    """Return the installed version of the `airbyte-internal-ops` package."""
+    try:
+        return version("airbyte-internal-ops")
+    except PackageNotFoundError:
+        return ""

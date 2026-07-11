@@ -131,6 +131,20 @@ def test_handle_ascii_whitespace():
     assert eval_regex(r"a\s", 0, "a\x1c", 0) is not None
 
 
+def test_handle_ascii_nonascii_chars():
+    # "×" U+00D7; "ä" a non-ASCII word char; "٥" a non-ASCII decimal digit.
+    assert eval_regex("×", re.A, "×", 0) is not None
+    assert eval_regex("[^a]", re.A, "×", 0) is not None
+    assert eval_regex(r"[^\w@%+=:,./-]", re.A, "×", 0) is not None
+    assert eval_regex(r"\w", re.A, "ä", 0) is None
+    assert eval_regex(r"\w", 0, "ä", 0) is not None
+    assert eval_regex(r"\W", re.A, "ä", 0) is not None
+    assert eval_regex(r"\W", 0, "ä", 0) is None
+    assert eval_regex(r"\d", re.A, "٥", 0) is None
+    assert eval_regex(r"\d", 0, "٥", 0) is not None
+    assert eval_regex(r"\D", re.A, "٥", 0) is not None
+
+
 def test_word_boundaries():
     assert eval_regex(r".\b", 0, "a", 0) is not None
     assert eval_regex(r".\b", 0, "a ", 0) is not None
@@ -544,3 +558,33 @@ def testrsplit_parts_lazy_symbolic(space):
         concrete = deep_realize(stripped)
         got1 = rsplit_parts_lazy(ws, stripped, 1)
     assert deep_realize(got1) == concrete.rsplit(None, 1)
+
+
+def test_symbolic_match_group_matches_its_span():
+    # Soundness: symbolic matches are real match results, so group(0) is always
+    # exactly the substring covered by its span.  CrossHair must never refute
+    # this true invariant (which would mean we fabricated an impossible match).
+    def f(a: re.Match) -> re.Match:
+        """post: _.group() == _.string[_.start() : _.end()]"""
+        return a
+
+    check_states(f, CANNOT_CONFIRM)
+
+
+def test_symbolic_match_can_have_capturing_groups():
+    # Soundness: a symbolic re.Match must be able to carry capturing groups.  A
+    # factory that only ever produced group-less matches would let CrossHair
+    # unsoundly confirm false universals about group content.
+    def f(a: re.Match):
+        """post: _.groups() == ()"""  # FALSE: matches can have groups
+        return a
+
+    check_states(f, POST_FAIL)
+
+
+def test_symbolic_match_start_can_be_nonzero():
+    def f(a: re.Match):
+        """post: _.start() == 0"""  # FALSE: matches need not start at position 0
+        return a
+
+    check_states(f, POST_FAIL)
